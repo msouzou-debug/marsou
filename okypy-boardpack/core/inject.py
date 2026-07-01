@@ -399,10 +399,26 @@ def _set_d_scalar(html: str, field: str, value) -> str:
 
 
 def _set_d_array(html: str, field: str, arr_str: str) -> str:
+    """Replace `field:[ … ]` inside the D block, bracket-aware so nested arrays
+    (e.g. loipaExpMonths) and arrays-of-objects are handled correctly."""
     s, e = _d_bounds(html)
     block = html[s:e]
-    block2 = re.sub(rf"({re.escape(field)}:)\s*\[[^\]]*\]", rf"\g<1>{arr_str}", block, count=1)
-    return html[:s] + block2 + html[e:]
+    mobj = re.search(rf"(?:^|[,{{\s]){re.escape(field)}:\s*\[", block)
+    if not mobj:
+        raise ValueError(f"D field not found: {field}")
+    b = block.index("[", mobj.end() - 1)
+    depth, j = 0, b
+    while j < len(block):
+        ch = block[j]
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                break
+        j += 1
+    new_block = block[:b] + arr_str + block[j + 1:]
+    return html[:s] + new_block + html[e:]
 
 
 # ── sec-overview ─────────────────────────────────────────────────────────────
@@ -583,6 +599,123 @@ def _inject_hospitals(html: str, m: Metrics, rep: InjectReport) -> str:
     return html
 
 
+# ── sec-loipaexp (operating expenses ex payroll) ─────────────────────────────
+def _loipa_tiles(lp: dict) -> str:
+    by = {c["name"]: c for c in lp["cats"]}
+    tot = lp["total"]
+    def tile(cls, label, c, extra_ks):
+        vpy = c["ytd"] - c["bud"]
+        pct = vpy / c["bud"] * 100 if c["bud"] else 0
+        kbcls = "pos" if vpy < 0 else "neg"
+        return (f'<div class="kpi {cls}"><div class="kl">{label}</div><div class="kv">{_kv(c["ytd"])}</div>\n'
+                f'      <div class="kb {kbcls}">vs Π/Υ {fmt_varM(vpy)} ({fmt_pct(pct)})</div>'
+                f'<div class="ks">{extra_ks}</div></div>')
+    an = by.get("Ανάλωση Προμηθειών", {"ytd": 0, "bud": 0})
+    al = by.get("Άλλες Λειτουργικές δαπάνες", {"ytd": 0, "bud": 0})
+    sy = by.get("Συντηρήσεις", {"ytd": 0, "bud": 0})
+    an_share = an["ytd"] / tot["ytd"] * 100 if tot["ytd"] else 0
+    tot_vpy = tot["ytd"] - tot["bud"]
+    tot_kb = "pos" if tot_vpy < 0 else "neg"
+    tot_pct = tot_vpy / tot["bud"] * 100 if tot["bud"] else 0
+    an_ks = "Π/Υ " + fmt_absM(an["bud"]) + " | " + fmt_pct_plain(an_share) + " του OpEx"
+    al_ks = "Π/Υ " + fmt_absM(al["bud"]) + " ⚠️"
+    sy_ks = "Π/Υ " + fmt_absM(sy["bud"])
+    return (
+        '<div class="kpis k4" style="margin-bottom:16px">\n'
+        f'    <div class="kpi a"><div class="kl">Σύνολο Λειτ. Εξόδων</div><div class="kv">{_kv(tot["ytd"])}</div>\n'
+        f'      <div class="kb {tot_kb}">vs Π/Υ {fmt_varM(tot_vpy)} ({fmt_pct(tot_pct)})</div>'
+        f'<div class="ks">Π/Υ {fmt_absM(tot["bud"])}</div></div>\n'
+        f'    {tile("r", "Ανάλωση Προμηθειών", an, an_ks)}\n'
+        f'    {tile("a", "Άλλες Λειτουργικές", al, al_ks)}\n'
+        f'    {tile("g", "Συντηρήσεις", sy, sy_ks)}\n'
+        '  </div>'
+    )
+
+
+def _loipa_tbody(lp: dict, ov: dict) -> str:
+    tot = lp["total"]
+    def cell(v, cls=""):
+        c = f' class="{cls}"' if cls else ""
+        return f'<td style="text-align:center"{c}>{v}</td>'
+    def main_row(c, denom, bg=""):
+        vpy = c["ytd"] - c["bud"]; pct = vpy / c["bud"] * 100 if c["bud"] else 0
+        cls = _vcls(vpy, "exp"); share = c["ytd"] / denom * 100 if denom else 0
+        style = f' style="background:{bg}"' if bg else ""
+        pad = ' style="padding-left:16px"' if bg else ""
+        return (f'<tr{style}><td{pad}>{c["label"]}</td>{cell(fmt_m(c["ytd"]))}{cell(fmt_m(c["y25"]))}'
+                f'{cell(fmt_m(c["bud"]))}{cell(fmt_var(vpy), cls)}{cell(fmt_pct(pct), cls)}{cell(fmt_pct_plain(share))}</tr>')
+    by = {c["name"]: c for c in lp["cats"]}
+    rows = [main_row(by[n], tot["ytd"]) for n in ("Ανάλωση Προμηθειών", "Συντηρήσεις", "Ηλεκτρισμός") if n in by]
+
+    # Άλλες Λειτουργικές overrun sub-analysis
+    RED = "rgba(192,57,43,.04)"
+    at = lp["alles_total"]
+    rows.append(f'<tr style="background:{RED}"><td colspan="7" style="padding:6px 8px;font-weight:700;'
+                'font-size:11.5px;color:#AD1457">⚠️ Άλλες Λειτουργικές δαπάνες — Ανάλυση Υπερβάσεων (YTD vs Π/Υ)</td></tr>')
+    at_ytd = at["ytd"] if at else 0
+    for s in lp["alles_shown"]:
+        vpy = s["ytd"] - s["bud"]; pct = vpy / s["bud"] * 100 if s["bud"] else 0
+        cls = _vcls(vpy, "exp"); share = s["ytd"] / at_ytd * 100 if at_ytd else 0
+        rows.append(f'<tr style="background:{RED}"><td style="padding-left:16px">{s["desc"]}</td>'
+                    f'{cell(fmt_m(s["ytd"]))}{cell("—", "vz")}{cell(fmt_m(s["bud"]))}'
+                    f'{cell(fmt_var(vpy), cls)}{cell(fmt_pct(pct), cls)}{cell(fmt_pct_plain(share))}</tr>')
+    lo = lp["alles_loipes"]
+    lo_vpy = lo["ytd"] - lo["bud"]; lo_pct = lo_vpy / lo["bud"] * 100 if lo["bud"] else 0
+    lo_cls = _vcls(lo_vpy, "exp"); lo_share = lo["ytd"] / at_ytd * 100 if at_ytd else 0
+    rows.append(f'<tr style="background:{RED}"><td style="padding-left:16px;font-style:italic;opacity:.8">'
+                f'Λοιπές υποκατηγορίες ({lo["count"]} κωδικοί)</td>'
+                f'{cell(fmt_m(lo["ytd"]))}{cell("—", "vz")}{cell(fmt_m(lo["bud"]))}'
+                f'{cell(fmt_var(lo_vpy), lo_cls)}{cell(fmt_pct(lo_pct), lo_cls)}{cell(fmt_pct_plain(lo_share))}</tr>')
+    if at:
+        av = at["ytd"] - at["bud"]; ap = av / at["bud"] * 100 if at["bud"] else 0; acls = _vcls(av, "exp")
+        rows.append(f'<tr class="tr-total" style="background:rgba(192,57,43,.08)"><td><b>Σύνολο Άλλες Λειτουργικές ⚠️</b></td>'
+                    f'{cell(fmt_m(at["ytd"]))}{cell(fmt_m(at["y25"]))}{cell(fmt_m(at["bud"]))}'
+                    f'{cell(fmt_var(av), acls)}{cell(fmt_pct(ap), acls)}{cell("100%")}</tr>')
+
+    if "Αγορά Υπηρεσιών" in by:
+        rows.append(main_row(by["Αγορά Υπηρεσιών"], tot["ytd"]))
+
+    tv = tot["ytd"] - tot["bud"]; tp = tv / tot["bud"] * 100 if tot["bud"] else 0; tcls = _vcls(tv, "exp")
+    rows.append(f'<tr class="tr-total"><td>ΣΥΝΟΛΟ Λειτουργικών Εξόδων</td>'
+                f'{cell(fmt_m(tot["ytd"]))}{cell(fmt_m(tot["y25"]))}{cell(fmt_m(tot["bud"]))}'
+                f'{cell(fmt_var(tv), tcls)}{cell(fmt_pct(tp), tcls)}{cell("100%")}</tr>')
+
+    ph, dep = ov["pharma_exp"], ov["dep"]
+    rows.append('<tr style="opacity:.65;font-style:italic"><td>Φάρμακα Β Φάσης * (pass-through)</td>'
+                f'{cell(fmt_m(ph.ytd2026))}{cell(fmt_m(ph.ytd2025))}{cell(fmt_m(ph.budget))}'
+                f'{cell("—", "vz")}{cell("net €0", "vz")}{cell("—")}</tr>')
+    rows.append('<tr style="opacity:.65;font-style:italic"><td>Αποσβέσεις &amp; Προβλέψεις (εξαιρ.)</td>'
+                f'{cell(fmt_m(dep.ytd2026))}{cell(fmt_m(dep.ytd2025))}{cell(fmt_m(dep.budget))}'
+                f'{cell("—", "vz")}{cell("EBITDA εξαιρ.", "vz")}{cell("—")}</tr>')
+    return "\n          ".join(rows)
+
+
+def _inject_loipaexp(html: str, m: Metrics, rep: InjectReport) -> str:
+    lp = m.loipa
+    if not lp.get("cats"):
+        rep.warnings.append("Δεν βρέθηκαν δεδομένα Λειτουργικών Εξόδων.")
+        return html
+    # monthly stacked chart data
+    monthly_js = "[\n    " + ",\n    ".join(
+        "[" + ",".join(_js(x) for x in series) + "]" for series in lp["monthly"]) + "\n  ]"
+    html = _set_d_array(html, "loipaExpMonths", monthly_js)
+    html = _set_d_array(html, "loipaExpL",
+                        "[" + ",".join(f"'{l}'" for l in config.LOIPA_CHART_LABELS) + "]")
+    html = _set_d_array(html, "loipaExpYTD", "[" + ",".join(_js(c["ytd"]) for c in lp["cats"]) + "]")
+    html = _set_d_array(html, "loipaExpBud", "[" + ",".join(_js(c["bud"]) for c in lp["cats"]) + "]")
+
+    # KPI tiles (scoped to sec-loipaexp)
+    s = html.index('id="sec-loipaexp"')
+    k_s = html.index('<div class="kpis k4"', s)
+    k_e = html.index('<div class="g2b">', k_s)
+    html = html[:k_s] + _loipa_tiles(lp) + "\n\n  " + html[k_e:]
+
+    # summary table
+    html = _replace_tbody(html, "Λειτουργικά Έξοδα — Σύνοψη", _loipa_tbody(lp, m.overview))
+    rep.note("loipaexp tab", 1)
+    return html
+
+
 # ── responsive layer (mobile / tablet) ───────────────────────────────────────
 # Appended to the output only (the on-disk template stays verbatim). The deck
 # already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
@@ -731,6 +864,7 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_overview(html, m, rep)
     html = _inject_monthly(html, m, rep)
     html = _inject_hospitals(html, m, rep)
+    html = _inject_loipaexp(html, m, rep)
 
     # 5) responsive layer + self-contained / offline
     html = _inject_responsive(html, rep)

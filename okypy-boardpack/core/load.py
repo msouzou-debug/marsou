@@ -79,6 +79,7 @@ class LoadResult:
     pharma_exp: Aside = field(default_factory=Aside)
     dep: Aside = field(default_factory=Aside)
     hospitals: dict = field(default_factory=dict)   # code → HospAgg
+    alles_sub: dict = field(default_factory=dict)   # Άλλες Λειτ. description → [ytd, budget]
 
     def revenue(self):
         return [c for c in self.categories if c.section == config.FLAG_REVENUE]
@@ -130,6 +131,7 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     jan = config.COL_2025_JAN  # column H (0-based 7) — same layout both years
     rec: dict = {}
     pharma_rev, pharma_exp, dep = Aside(), Aside(), Aside()
+    alles_sub: dict = {}
 
     def month_cols(row):
         return [_num(row[jan + k]) if jan + k < len(row) else 0.0 for k in range(mm)]
@@ -156,6 +158,10 @@ def load_workbook(path: str, mm: int) -> LoadResult:
                 c.months2026[k] += months[k]
             c.budget_period += budget
             rec[(section, name)] = c
+            if name == config.ALLES_CATEGORY:      # sub-analysis by description (col G)
+                desc = _text(row, config.DESC_COL) or "(κενό)"
+                slot = alles_sub.setdefault(desc, [0.0, 0.0])
+                slot[0] += sum(months); slot[1] += budget
 
     # ── DATA 2025 ────────────────────────────────────────────────────────────
     for row in wb[config.SHEET_2025].iter_rows(min_row=2, values_only=True):
@@ -188,7 +194,7 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     hospitals = _load_hospitals(path, mm)
     return LoadResult(categories=cats, warnings=warnings, mm=mm,
                       pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep,
-                      hospitals=hospitals)
+                      hospitals=hospitals, alles_sub=alles_sub)
 
 
 def _load_hospitals(path: str, mm: int) -> dict:

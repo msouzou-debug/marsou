@@ -126,6 +126,29 @@ HOSPITALS = [
     {"code": "MENTAL HEALTH",        "name": "Ψυχικής Υγείας",        "kind": "special"},
 ]
 
+# ── Λειτ. Έξοδα tab (operating expenses ex payroll) ──────────────────────────
+# The 5 non-payroll opex categories, in the deck's display order (drives the
+# summary table, KPI tiles and the monthly stacked chart).
+LOIPA_ORDER = [
+    "Ανάλωση Προμηθειών",
+    "Συντηρήσεις",
+    "Ηλεκτρισμός",
+    "Άλλες Λειτουργικές δαπάνες",
+    "Αγορά Υπηρεσιών",
+]
+LOIPA_LABELS = {                       # table display labels
+    "Ανάλωση Προμηθειών": "Ανάλωση Προμηθειών",
+    "Συντηρήσεις": "Συντηρήσεις",
+    "Ηλεκτρισμός": "Ηλεκτρισμός & Ενέργεια",
+    "Άλλες Λειτουργικές δαπάνες": "Άλλες Λειτουργικές δαπάνες",
+    "Αγορά Υπηρεσιών": "Αγορά Υπηρεσιών",
+}
+LOIPA_CHART_LABELS = ["Ανάλωση Προμ.", "Συντηρήσεις", "Ηλεκτρισμός", "Άλλες Λειτ.", "Αγορά Υπηρ."]
+ALLES_CATEGORY = "Άλλες Λειτουργικές δαπάνες"
+DESC_COL = 6  # G — «Περιγραφή» (article description, for the Άλλες sub-analysis)
+# An «Άλλες Λειτουργικές» sub-item is shown when its overrun vs Π/Υ ≥ this.
+LOIPA_SUB_THRESHOLD_EUR = 0.1e6
+
 # ── Reconciliation tolerance ─────────────────────────────────────────────────
 # Figures round to 0.1 €M in the deck; allow a small footing tolerance (euros).
 RECON_TOLERANCE_EUR = 5.0e4  # 0.05 €M — below display resolution

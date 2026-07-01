@@ -58,6 +58,7 @@ class Metrics:
     monthly: dict = field(default_factory=dict)     # phase-2 sec-monthly
     overview: dict = field(default_factory=dict)     # phase-2 sec-overview P&L
     hospitals: list = field(default_factory=list)    # phase-2 sec-hospitals
+    loipa: dict = field(default_factory=dict)         # phase-2 sec-loipaexp
     recon_ok: bool = True
     breaches: list[dict] = field(default_factory=list)
 
@@ -202,9 +203,51 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
     m.monthly = _monthly(load, mm)
     m.overview = _overview(load)
     m.hospitals = _hospitals(load)
+    m.loipa = _loipa(load, mm)
 
     _reconcile(m, load)
     return m
+
+
+def _loipa(load: LoadResult, mm: int) -> dict:
+    """Operating-expenses tab: the 5 non-payroll categories, their monthly
+    series, and the Άλλες Λειτουργικές overrun sub-analysis."""
+    by_name = {c.name: c for c in load.expense()}
+    cats, monthly = [], []
+    for nm in config.LOIPA_ORDER:
+        c = by_name.get(nm)
+        if not c:
+            continue
+        cats.append({"name": nm, "label": config.LOIPA_LABELS.get(nm, nm),
+                     "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025})
+        monthly.append(list(c.months2026))
+    total = {"ytd": sum(c["ytd"] for c in cats),
+             "bud": sum(c["bud"] for c in cats),
+             "y25": sum(c["y25"] for c in cats)}
+
+    alles_total = next((c for c in cats if c["name"] == config.ALLES_CATEGORY), None)
+    thr = config.LOIPA_SUB_THRESHOLD_EUR
+    subs = [{"desc": _titlecase_gr(d), "ytd": v[0], "bud": v[1]}
+            for d, v in load.alles_sub.items()]
+    shown = sorted([s for s in subs if (s["ytd"] - s["bud"]) >= thr],
+                   key=lambda s: -(s["ytd"] - s["bud"]))
+    shown_ytd = sum(s["ytd"] for s in shown)
+    shown_bud = sum(s["bud"] for s in shown)
+    at_ytd = alles_total["ytd"] if alles_total else 0.0
+    at_bud = alles_total["bud"] if alles_total else 0.0
+    loipes = {"ytd": at_ytd - shown_ytd, "bud": at_bud - shown_bud,
+              "count": max(0, len(subs) - len(shown))}
+
+    return {"cats": cats, "monthly": monthly, "total": total,
+            "alles_total": alles_total, "alles_shown": shown, "alles_loipes": loipes}
+
+
+def _titlecase_gr(s: str) -> str:
+    """Greek ALL-CAPS description → sentence-ish case for the sub-table."""
+    s = s.strip()
+    if s.isupper():
+        return s.capitalize()
+    return s
 
 
 def _hospitals(load: LoadResult) -> list:
