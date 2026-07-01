@@ -26,6 +26,11 @@ python -m playwright install chromium      # once, for PDF/PPTX
 Chart.js is **vendored** at `templates/assets/chart.umd.js` and inlined into
 every output, so the generated deck renders charts with no network access.
 
+The generated **HTML is responsive** — a mobile/tablet layer is injected at
+build time (columns collapse to a single column ≤900px, padding tightens, the
+tab bar becomes swipeable, tables scroll horizontally) while the desktop look is
+untouched. The PDF/PPTX always render at the fixed desktop 1920px width.
+
 ## Run (UI)
 
 ```bash

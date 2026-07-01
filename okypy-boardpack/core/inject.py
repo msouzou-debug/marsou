@@ -370,6 +370,48 @@ def _inject_alerts(html: str, alerts: list[dict], rep: InjectReport) -> str:
     return html[:start] + new_block + html[end:]
 
 
+# ── responsive layer (mobile / tablet) ───────────────────────────────────────
+# Appended to the output only (the on-disk template stays verbatim). The deck
+# already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
+# inline two-column grids, tightens padding, and makes the nav swipeable.
+RESPONSIVE_CSS = """
+/* okypy-responsive: mobile & tablet */
+@media (max-width:1024px){
+  .content{padding:20px 20px 52px !important;}
+}
+@media (max-width:900px){
+  [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important;}
+  [style*="grid-template-columns:1.15fr 1fr"]{grid-template-columns:1fr !important;}
+  [style*="grid-template-columns:1.5fr 1fr"]{grid-template-columns:1fr !important;}
+  .content{padding:16px 14px 48px !important;}
+  .hero{padding:22px 16px 20px !important;}
+  .hero .inner{gap:22px !important;}
+  .topbar .inner{padding:10px 14px !important;}
+  .sec-title{font-size:16px !important;}
+  .deficit-big{font-size:52px !important;}
+}
+@media (max-width:560px){
+  .content{padding:12px 10px 40px !important;}
+  .hero{padding:18px 12px 16px !important;}
+  .hero h1{font-size:19px !important;}
+  .deficit-big{font-size:40px !important;}
+  .nav{flex-wrap:nowrap !important;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .nav-btn{white-space:nowrap;}
+  table{font-size:11.5px !important;}
+  .sf-grid{grid-template-columns:1fr !important;}
+}
+"""
+
+
+def _inject_responsive(html: str, rep: InjectReport) -> str:
+    tag = f"<style>{RESPONSIVE_CSS}</style>"
+    if "</head>" in html:
+        rep.note("responsive CSS", 1)
+        return html.replace("</head>", tag + "\n</head>", 1)
+    rep.warnings.append("Δεν βρέθηκε </head> — παραλείφθηκε το responsive CSS.")
+    return html
+
+
 # ── offline: inline vendored Chart.js ────────────────────────────────────────
 _BASE = __import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__)))
 
@@ -472,7 +514,8 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_inpatient(html, inpatient_text, rep)
     html = _inject_alerts(html, alerts or [], rep)
 
-    # 5) make outputs self-contained / offline
+    # 5) responsive layer + self-contained / offline
+    html = _inject_responsive(html, rep)
     html = _inline_chartjs(html, rep)
 
     _validate(before, html, rep)
