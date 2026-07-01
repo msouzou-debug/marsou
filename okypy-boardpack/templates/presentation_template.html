@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ΟΚΥπΥ · EBITDA Αποτελέσματα Ιαν–Μαΐ 2026 | Διοικητικό Συμβούλιο</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --navy:#0B3D6B;--navy2:#062E5C;--blue:#0072BC;
+  --green:#0072BC;--green-soft:#E8F4FD;--green-mid:#3B8FD4;
+  --neg:#C46388;--neg-soft:#FCE4EC;
+  --amber:#C46388;--amber-soft:#FCE4EC;
+  --ink-900:#15202B;--ink-500:#6B7884;--ink-400:#8B97A2;
+  --ink-300:#B6BEC6;--ink-200:#D9DEE3;--ink-100:#EFF2F5;--ink-50:#F7F8FA;
+  --shadow:0 1px 3px rgba(11,61,107,.08),0 4px 16px rgba(11,61,107,.06);
+  --radius:12px;--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"Segoe UI","Open Sans",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:var(--sans);background:var(--ink-50);color:var(--ink-900);-webkit-font-smoothing:antialiased}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--ink-200)}
+.topbar .inner{max-width:1400px;margin:0 auto;padding:11px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .logo{width:36px;height:36px;border-radius:8px;background:linear-gradient(145deg,#00AEEF,var(--navy2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px}
+.brand .t b{font-size:16px;color:var(--navy2);letter-spacing:-.01em;display:block}
+.brand .t span{font-size:11px;color:var(--ink-500)}
+.nav{display:flex;gap:2px;flex-wrap:wrap}
+.nav-btn{border:none;background:none;font:inherit;font-size:12.5px;font-weight:500;color:var(--ink-500);padding:7px 13px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{background:var(--ink-100);color:var(--ink-900)}
+.nav-btn.active{background:var(--navy2);color:#fff;font-weight:700}
+.badges{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.bt{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+.bt-grn{background:var(--green-soft);color:var(--green);border:1px solid #5B8DB8}
+.bt-amb{background:#FCE4EC;color:var(--amber);border:1px solid #E68BA8}
+.bt-blue{background:#EBF5FB;color:var(--blue);border:1px solid #B3D9F5}
+.hero{background:linear-gradient(135deg,var(--navy2) 0%,var(--navy) 55%,#0059A0 100%);color:#fff;padding:36px 32px 32px;overflow:hidden;position:relative}
+.hero::before{content:'';position:absolute;right:-60px;top:-60px;width:340px;height:340px;border-radius:50%;background:rgba(0,114,188,.18);pointer-events:none}
+.hero .inner{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1.15fr 1fr;gap:44px;position:relative}
+.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#9ECFEE;font-weight:700;margin-bottom:8px}
+.hero h1{font-size:23px;font-weight:300;line-height:1.25;letter-spacing:-.01em;margin-bottom:16px}
+.hero h1 b{font-weight:700;color:#E8F4FD}
+.deficit-block{display:flex;align-items:baseline;gap:14px;margin-bottom:14px}
+.deficit-big{font-size:64px;font-weight:200;line-height:.9;color:#F48FB1;letter-spacing:-.03em;font-family:var(--mono)}
+.deficit-label{font-size:13px;color:rgba(255,255,255,.75);line-height:1.55}
+.deficit-label b{color:#fff;font-size:14.5px;display:block}
+.kpi-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.kpi-pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:5px 12px;font-size:11.5px;display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-neg{background:#F48FB1}.dot-pos{background:#9ECFEE}.dot-amb{background:#F48FB1}
+.bbar-wrap{margin-bottom:13px}
+.bbar-label{font-size:11.5px;color:rgba(255,255,255,.7);margin-bottom:4px;display:flex;justify-content:space-between}
+.bbar-track{height:19px;background:rgba(255,255,255,.12);border-radius:5px;overflow:hidden}
+.bbar-fill{height:100%;border-radius:5px;display:flex;align-items:center;padding-left:10px;font-size:11.5px;font-weight:700;color:#fff;transition:width 1.2s cubic-bezier(.2,0,0,1)}
+.sa-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:8px;font-weight:700;margin-top:14px}
+.alert-card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:9px 12px;margin-bottom:6px;display:flex;gap:9px;align-items:flex-start}
+.alert-card.neg{border-left:3px solid #F48FB1}.alert-card.amb{border-left:3px solid #F48FB1}.alert-card.pos{border-left:3px solid #9ECFEE}
+.alert-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.alert-h{font-size:12px;font-weight:700;margin-bottom:2px}
+.alert-p{font-size:11px;color:rgba(255,255,255,.72);line-height:1.4}
+.content{max-width:1400px;margin:0 auto;padding:24px 32px 60px}
+.section{display:none}.section.active{display:block}
+.sec-title{font-size:19px;font-weight:700;color:var(--navy2);margin-bottom:3px}
+.sec-sub{font-size:12.5px;color:var(--ink-500);margin-bottom:20px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g2b{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.g2,.g2b{grid-template-columns:1fr}.hero .inner{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--ink-200);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card-hd{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-400);margin-bottom:13px;display:flex;justify-content:space-between;align-items:center}
+.card-hd span{font-weight:400;font-size:10.5px;letter-spacing:0;text-transform:none;color:var(--ink-500)}
+.kpis{display:grid;gap:13px;margin-bottom:16px}
+.k5{grid-template-columns:repeat(5,1fr)}.k4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.k5,.k4{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:#fff;border:1px solid var(--ink-200);border-top:4px solid var(--ink-300);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.kpi.b{border-top-color:var(--blue)}.kpi.g{border-top-color:var(--green-mid)}.kpi.r{border-top-color:var(--neg)}.kpi.a{border-top-color:var(--amber)}
+.kl{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-400);margin-bottom:5px}
+.kv{font-size:27px;font-weight:300;letter-spacing:-.02em;color:var(--ink-900);font-family:var(--mono);line-height:1}
+.kb{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--mono)}
+.kb.neg{color:var(--neg);background:var(--neg-soft)}.kb.pos{color:var(--green);background:var(--green-soft)}.kb.amb{color:var(--amber);background:var(--amber-soft)}
+.ks{font-size:11px;color:var(--ink-400);margin-top:5px;font-family:var(--mono)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:var(--navy2);color:#fff;padding:8px 12px;text-align:left;font-weight:600;font-size:11px;white-space:nowrap}
+thead th:not(:first-child){text-align:right}
+tbody td{padding:7px 12px;border-bottom:1px solid var(--ink-100);color:var(--ink-900);white-space:nowrap}
+tbody td:not(:first-child){text-align:right;font-family:var(--mono);font-size:11.5px}
+tbody tr:nth-child(even) td{background:#FAFBFC}
+tbody tr:hover td{background:#EEF4FF}
+tr.tr-total td{background:var(--ink-100)!important;font-weight:700;border-top:2px solid var(--ink-300)}
+tr.tr-ebitda td{background:#FCE4EC!important;font-weight:800;border-top:2px solid var(--amber)}
+tr.tr-central td{background:#FFF0F5;font-style:italic}
+tr.tr-head td{background:var(--navy2)!important;color:#fff!important;font-weight:700;font-size:11px;letter-spacing:.04em;padding:6px 12px}
+.vp{color:var(--green);font-weight:700}.vn{color:var(--neg);font-weight:700}.vz{color:var(--ink-500)}
+.bdg{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700}
+.bn{background:var(--neg-soft);color:var(--neg)}.bp{background:var(--green-soft);color:var(--green)}.ba{background:var(--amber-soft);color:var(--amber)}
+.ch{position:relative;width:100%}
+.h-head{display:grid;grid-template-columns:172px 1fr 86px 80px 86px 90px 90px;gap:12px;padding:3px 5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-400);font-weight:700;border-bottom:2px solid var(--ink-200);margin-bottom:5px}
+.h-row{display:grid;grid-template-columns:172px 1fr 86px 80px 86px 90px 90px;gap:12px;align-items:center;padding:7px 5px;border-radius:7px;transition:background .1s}
+.h-row:hover{background:var(--ink-50)}
+.hname{font-size:12px;font-weight:600;color:var(--ink-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hname.central{color:var(--amber);font-style:italic}
+.divt{position:relative;height:17px}
+.divt .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--ink-200)}
+.divt .seg{position:absolute;top:2px;height:13px;border-radius:3px;transition:width .9s cubic-bezier(.2,0,0,1)}
+.seg.neg{background:var(--neg);right:50%}.seg.pos{background:var(--green-mid);left:50%}
+.hval{font-family:var(--mono);font-weight:700;font-size:13px;text-align:right}
+.hvb{font-family:var(--mono);font-size:11px;text-align:right}
+.neg-t{color:var(--neg)}.pos-t{color:var(--green)}
+.hfilters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.hfilters button{border:1px solid var(--ink-200);background:#fff;font:inherit;font-size:11.5px;color:var(--ink-500);padding:4px 11px;border-radius:999px;cursor:pointer;transition:all .15s}
+.hfilters button.on{background:var(--navy2);color:#fff;border-color:var(--navy2);font-weight:700}
+.callout{border-radius:var(--radius);padding:11px 15px;margin-bottom:14px;display:flex;gap:11px;align-items:flex-start}
+.callout.neg{background:var(--neg-soft);border-left:4px solid var(--neg)}
+.callout.amb{background:var(--amber-soft);border-left:4px solid var(--amber)}
+.callout.pos{background:var(--green-soft);border-left:4px solid var(--green-mid)}
+.callout.info{background:#EBF5FB;border-left:4px solid var(--blue)}
+.ci{font-size:14px;flex-shrink:0;margin-top:1px}
+.cb{font-size:12.5px;line-height:1.5}.cb b{color:var(--ink-900)}
+.footer{text-align:center;padding:22px;font-size:10.5px;color:var(--ink-400);border-top:1px solid var(--ink-200);margin-top:16px}
+.note{font-size:10.5px;color:var(--ink-400);margin-top:6px;font-style:italic}
+
+.sf-wrap{margin-bottom:16px}
+.sf-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--navy2);margin-bottom:8px;padding:6px 10px;background:var(--ink-100);border-radius:7px;display:flex;align-items:center;gap:7px}
+.sf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:900px){.sf-grid{grid-template-columns:1fr}}
+.sf-card{background:#fff;border:1px solid var(--ink-200);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.sf-name{background:var(--navy2);color:#fff;font-size:11.5px;font-weight:700;padding:8px 12px;letter-spacing:.03em}
+.sf-name.spec{background:linear-gradient(90deg,#0B3D6B,#0059A0)}
+.sf-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 12px;border-bottom:1px solid var(--ink-100);font-size:11.5px}
+.sf-row:last-child{border-bottom:none}
+.sf-row.sub{background:var(--ink-50);font-style:italic;color:var(--ink-500);font-size:11px}
+.sf-row.ph{background:#EBF5FB;color:var(--blue)}
+.sf-row.ph-oh{background:#E8F4FD;color:var(--blue);font-style:italic}
+.sf-row.total{background:#FCE4EC;font-weight:800;border-top:2px solid var(--amber)}
+.sf-row.std-total{background:var(--ink-50);font-weight:700;border-top:2px solid var(--ink-300)}
+.sf-row.net{background:#EBF5FB;font-weight:800;border-top:2px solid var(--green-mid)}
+.sf-lbl{color:inherit;flex:1}
+.sf-val{font-family:var(--mono);font-weight:700;flex-shrink:0;margin-left:8px}
+.sf-val.neg{color:var(--neg)}.sf-val.pos{color:var(--green)}.sf-val.neu{color:var(--ink-500)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand">
+      <div class="logo">ΟΚΥπΥ</div>
+      <div class="t">
+        <b>ΟΚΥπΥ · Οικονομικά Αποτελέσματα</b>
+        <span>Παρουσίαση Διοικητικού Συμβουλίου — ΓΟΔ</span>
+      </div>
+    </div>
+    <div class="nav">
+      <button class="nav-btn active" onclick="show('exec',this)">Σύνοψη Αποτελεσμάτων</button>
+      <button class="nav-btn" onclick="show('overview',this)">Αναλυτικές Αποτελεσμάτων</button>
+      <button class="nav-btn" onclick="show('monthly',this)">Μηνιαία Ανάλυση</button>
+      <button class="nav-btn" onclick="show('oay',this)">ΟΑΥ Έσοδα</button>
+      <button class="nav-btn" onclick="show('allaesoda',this)">Άλλα Έσοδα</button>
+      <button class="nav-btn" onclick="show('payroll',this)">Μισθοδοσία</button>
+<button class="nav-btn" onclick="show('loipaexp',this)">Λειτ. Έξοδα</button>
+      <button class="nav-btn" onclick="show('hospitals',this)">Ανά Νοσηλευτήριο</button>
+    </div>
+    <div class="badges">
+      <div class="bt bt-grn">✓ Επαληθευμένα</div>
+      <div class="bt bt-amb">EBITDA Basis</div>
+      <div class="bt bt-blue">Ιαν–Μαΐ 2026 · YTD</div>
+    </div>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="inner">
+    <div>
+      <div class="eyebrow">EBITDA Αποτελέσματα · Ιαν–Μαΐ 2026 · Αποτελέσματα Ιαν–Μαΐ 2026</div>
+      <h1>EBITDA −€24,3Μ · Επιδείνωση −€10,2Μ vs 2025 —<br><b>Κόστος Προσωπικού & Απόκλιση ΟΑΥ Εσόδων</b></h1>
+      <div class="deficit-block">
+        <div class="deficit-big">−24,3Μ</div>
+        <div class="deficit-label">
+          <b>EBITDA Περιόδου (€)</b>
+          Π/Υ: −€12,5Μ &nbsp;|&nbsp; Απόκλιση: −€11,7Μ<br>
+          2025 EBITDA (διορθ.): −€14,1Μ &nbsp;|&nbsp; YoY: −€10,2Μ
+        </div>
+      </div>
+      <div class="kpi-pills">
+        <div class="kpi-pill"><div class="dot dot-neg"></div>Έσοδα €219,0Μ vs Π/Υ €224,3Μ (−2,2%)</div>
+        <div class="kpi-pill"><div class="dot dot-neg"></div>OpEx €243,3Μ vs Π/Υ €236,8Μ (+2,7%)</div>
+        <div class="kpi-pill"><div class="dot dot-neg"></div>Απρίλιος χειρότερος: −€8,5Μ EBITDA</div>
+        <div class="kpi-pill"><div class="dot dot-pos"></div>ΤΑΕΠ +9,0% · Εξωτερικά Ιατρεία +43% vs Π/Υ</div>
+      </div>
+    </div>
+    <div style="align-self:center">
+      <div class="bbar-wrap">
+        <div class="bbar-label"><span>Υλοποίηση Εσόδων vs Π/Υ</span><span>97,8%</span></div>
+        <div class="bbar-track"><div class="bbar-fill" id="bar-rev" style="width:0;background:#2176AE">97,8%</div></div>
+      </div>
+      <div class="bbar-wrap">
+        <div class="bbar-label"><span>OpEx vs Π/Υ</span><span>102,7%</span></div>
+        <div class="bbar-track"><div class="bbar-fill" id="bar-exp" style="width:0;background:#C46388">102,7%</div></div>
+      </div>
+      <div class="bbar-wrap">
+        <div class="bbar-label"><span>Κόστος Προσωπικού vs Π/Υ</span><span>103,6%</span></div>
+        <div class="bbar-track"><div class="bbar-fill" id="bar-pay" style="width:0;background:#AD1457">103,6%</div></div>
+      </div>
+      <div class="sa-title">🎯 Top 4 Στρατηγικές Αποκλίσεις</div>
+      <div class="alert-card neg"><div class="alert-icon">🔴</div>
+        <div><div class="alert-h">Ενδονοσοκομεικά ΟΑΥ −€5,5Μ vs Π/Υ</div></div>
+      </div>
+      <div class="alert-card neg"><div class="alert-icon">🔴</div>
+        <div><div class="alert-h">Άλλα Έσοδα −€3,6Μ vs Π/Υ</div></div>
+      </div>
+      <div class="alert-card amb"><div class="alert-icon">🟡</div>
+        <div><div class="alert-h">Αποσπασμένο Προσωπικό +€3,1Μ vs Π/Υ</div></div>
+      </div>
+      <div class="alert-card amb"><div class="alert-icon">🟡</div>
+        <div><div class="alert-h">Ωρομίσθιο +€2,5Μ vs Π/Υ</div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ══ OVERVIEW ══ -->
+
+<div id="sec-exec" class="section active">
+  <div class="sec-title">ΣΥΝΟΨΗ ΑΠΟΤΕΛΕΣΜΑΤΩΝ · Ιανουάριος – Μάιος 2026</div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 1 — PERFORMANCE TABLES (Monthly + YTD side-by-side)
+  ════════════════════════════════════════════════════════════ -->
+  <div style="font-size:10.5px;color:var(--ink-400);text-align:right;margin-bottom:6px;margin-top:-4px">Ποσά σε € εκατ. (€Μ) · Π/Υ Μαΐου = Ετήσιος Π/Υ ÷ 5</div>
+  <div class="g2" style="gap:24px;margin-bottom:24px">
+
+    <!-- MONTHLY (Μάιος 2026) -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:var(--navy2);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:700;letter-spacing:.02em">ΑΠΟΤΕΛΕΣΜΑΤΑ ΜΑΪΟΥ 2026</span>
+        <span style="font-size:11px;opacity:.7">€Μ · 1 δεκαδικό</span>
+      </div>
+      <div class="tw">
+        <table style="width:100%">
+          <thead><tr>
+            <th style="min-width:160px;text-align:left;padding:10px 16px">Δείκτης</th>
+            <th style="text-align:center;padding:10px 10px">2026 (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">2025 (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">Απόκλ. vs Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">Απόκλ. 2026 v 2025 (€Μ)</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Έσοδα ΟΑΥ</td><td style="text-align:center;padding:8px 10px;background:#fff">€32,1</td><td style="text-align:center;padding:8px 10px;background:#fff">€31,2</td><td style="text-align:center;padding:8px 10px;background:#fff">€32,3</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">−€0,2</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€0,9</td></tr>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Άλλα Έσοδα</td><td style="text-align:center;padding:8px 10px;background:#fff">€14,5</td><td style="text-align:center;padding:8px 10px;background:#fff">€12,5</td><td style="text-align:center;padding:8px 10px;background:#fff">€12,6</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€1,9</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€2,0</td></tr>
+            <tr><td style="padding:10px 16px;font-weight:700;background:#eef2f6">Σύνολο Εσόδων</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€46,6</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€43,7</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€44,9</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vp">+€1,7</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vp">+€2,9</td></tr>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Κόστος Προσωπικού</td><td style="text-align:center;padding:8px 10px;background:#fff">€40,1</td><td style="text-align:center;padding:8px 10px;background:#fff">€38,2</td><td style="text-align:center;padding:8px 10px;background:#fff">€37,5</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€2,6</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€1,9</td></tr>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Λοιπά Λειτουργικά</td><td style="text-align:center;padding:8px 10px;background:#fff">€10,5</td><td style="text-align:center;padding:8px 10px;background:#fff">€8,5</td><td style="text-align:center;padding:8px 10px;background:#fff">€9,9</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€0,6</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€2,0</td></tr>
+            <tr><td style="padding:10px 16px;font-weight:700;background:#eef2f6">Σύνολο Λειτ. Εξόδων</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€50,6</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€46,7</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€47,4</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vn">+€3,3</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vn">+€4,0</td></tr>
+            <tr style="border-top:2px solid var(--ink-200)"><td style="padding:10px 16px;font-weight:800;color:var(--neg);background:#FFF0F5">EBITDA</td><td style="text-align:center;padding:10px 10px;font-weight:800;color:var(--neg);background:#FFF0F5">−€4,0</td><td style="text-align:center;padding:10px 10px;font-weight:700;color:var(--neg);background:#FFF0F5">−€3,0</td><td style="text-align:center;padding:10px 10px;font-weight:700;color:var(--neg);background:#FFF0F5">−€2,5</td><td style="text-align:center;padding:10px 10px;font-weight:800;background:#FFF0F5" class="vn">−€1,5</td><td style="text-align:center;padding:10px 10px;font-weight:800;background:#FFF0F5" class="vn">−€1,1</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- YTD (Ιαν–Μαΐ 2026) -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:700;letter-spacing:.02em">ΣΩΡΕΥΤΙΚΑ ΑΠΟΤΕΛΕΣΜΑΤΑ ΙΑΝ–ΜΑΪ 2026</span>
+        <span style="font-size:11px;opacity:.7">€Μ · 1 δεκαδικό</span>
+      </div>
+      <div class="tw">
+        <table style="width:100%">
+          <thead><tr>
+            <th style="min-width:160px;text-align:left;padding:10px 16px">Δείκτης</th>
+            <th style="text-align:center;padding:10px 10px">2026 (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">2025 (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">Απόκλ. vs Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:10px 10px">Απόκλ. 2026 v 2025 (€Μ)</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Έσοδα ΟΑΥ</td><td style="text-align:center;padding:8px 10px;background:#fff">€155,3</td><td style="text-align:center;padding:8px 10px;background:#fff">€155,8</td><td style="text-align:center;padding:8px 10px;background:#fff">€161,5</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">−€6,2</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">−€0,5</td></tr>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Άλλα Έσοδα</td><td style="text-align:center;padding:8px 10px;background:#fff">€63,7</td><td style="text-align:center;padding:8px 10px;background:#fff">€62,5</td><td style="text-align:center;padding:8px 10px;background:#fff">€62,8</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€0,9</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€1,2</td></tr>
+            <tr><td style="padding:10px 16px;font-weight:700;background:#eef2f6">Σύνολο Εσόδων</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€219,0</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€218,3</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€224,3</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vn">−€5,3</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vp">+€0,7</td></tr>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Κόστος Προσωπικού</td><td style="text-align:center;padding:8px 10px;background:#fff">€193,9</td><td style="text-align:center;padding:8px 10px;background:#fff">€188,1</td><td style="text-align:center;padding:8px 10px;background:#fff">€187,3</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€6,6</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€5,8</td></tr>
+            <tr><td style="padding:8px 16px 8px 30px;background:#fff;color:var(--ink-700)">Λοιπά Λειτουργικά</td><td style="text-align:center;padding:8px 10px;background:#fff">€49,4</td><td style="text-align:center;padding:8px 10px;background:#fff">€44,3</td><td style="text-align:center;padding:8px 10px;background:#fff">€49,5</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">−€0,1</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€5,1</td></tr>
+            <tr><td style="padding:10px 16px;font-weight:700;background:#eef2f6">Σύνολο Λειτ. Εξόδων</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€243,3</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€232,4</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6">€236,8</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vn">+€6,5</td><td style="text-align:center;padding:10px 10px;font-weight:700;background:#eef2f6" class="vn">+€10,8</td></tr>
+            <tr style="border-top:2px solid var(--ink-200)"><td style="padding:10px 16px;font-weight:800;color:var(--neg);background:#FFF0F5">EBITDA</td><td style="text-align:center;padding:10px 10px;font-weight:800;color:var(--neg);background:#FFF0F5">−€24,3</td><td style="text-align:center;padding:10px 10px;font-weight:700;color:var(--neg);background:#FFF0F5">−€14,1</td><td style="text-align:center;padding:10px 10px;font-weight:700;color:var(--neg);background:#FFF0F5">−€12,5</td><td style="text-align:center;padding:10px 10px;font-weight:800;background:#FFF0F5" class="vn">−€11,8</td><td style="text-align:center;padding:10px 10px;font-weight:800;background:#FFF0F5" class="vn">−€10,2</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /g2 -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 1b — BAR CHARTS (Revenue & Expenses)
+  ════════════════════════════════════════════════════════════ -->
+  <div class="g2" style="gap:24px;margin-bottom:24px">
+
+    <!-- Revenue chart -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:var(--navy2);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12.5px;font-weight:700">ΕΣΟΔΑ · ΙΑΝ–ΜΑΪ 2026</span>
+        <span style="font-size:11px;opacity:.7">€Μ · Μάιος = ξεχωριστό χρώμα</span>
+      </div>
+      <div style="padding:20px 20px 16px">
+        <canvas id="execRevChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Expense chart -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:#AD1457;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12.5px;font-weight:700">ΕΞΟΔΑ · ΙΑΝ–ΜΑΪ 2026</span>
+        <span style="font-size:11px;opacity:.7">€Μ · Μάιος = ξεχωριστό χρώμα</span>
+      </div>
+      <div style="padding:20px 20px 16px">
+        <canvas id="execExpChart" height="220"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /g2 charts -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 2 — KEY VARIANCE DRIVERS
+  ════════════════════════════════════════════════════════════ -->
+  <div class="g2" style="gap:24px;margin-bottom:24px">
+
+    <!-- Revenue variances -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:#1A5276;color:#fff;padding:12px 20px">
+        <span style="font-size:12.5px;font-weight:700">ΑΠΟΚΛΙΣΕΙΣ ΕΣΟΔΩΝ vs Π/Υ · ΙΑΝ–ΜΑΪ</span>
+        <span style="font-size:11px;opacity:.7;margin-left:10px">€Μ · 1 δεκαδικό</span>
+      </div>
+      <div class="tw">
+        <table style="width:100%">
+          <thead><tr>
+            <th style="min-width:180px;text-align:left;padding:9px 14px">Κατηγορία</th>
+            <th style="text-align:center;padding:9px 10px">2026 (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">2025 (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">Απόκλ. vs Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">Απόκλ. 2026 v 2025 (€Μ)</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Ενδονοσ. Φροντίδα ΟΑΥ</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€94,9</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€97,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€100,4</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">−€5,5</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">−€2,2</td></tr>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Άλλα Έσοδα</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€11,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€14,4</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€14,6</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">−€3,6</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">−€3,3</td></tr>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Εξωνοσ. Φροντίδα ΟΑΥ</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€10,7</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€11,0</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€12,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">−€1,4</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">−€0,2</td></tr>
+            <tr><td style="padding:8px 14px;background:#fff">Δημόσια Υγεία / Αρχές</td><td style="text-align:center;padding:8px 10px;background:#fff">€52,7</td><td style="text-align:center;padding:8px 10px;background:#fff">€48,1</td><td style="text-align:center;padding:8px 10px;background:#fff">€48,2</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€4,4</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€4,5</td></tr>
+            <tr><td style="padding:8px 14px;background:#fff">ΤΑΕΠ ΟΑΥ</td><td style="text-align:center;padding:8px 10px;background:#fff">€11,0</td><td style="text-align:center;padding:8px 10px;background:#fff">€9,9</td><td style="text-align:center;padding:8px 10px;background:#fff">€10,1</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€0,9</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€1,1</td></tr>
+            <tr><td style="padding:8px 14px;background:#fff">Λοιπές κατηγορίες</td><td style="text-align:center;padding:8px 10px;background:#fff">€38,6</td><td style="text-align:center;padding:8px 10px;background:#fff">€37,8</td><td style="text-align:center;padding:8px 10px;background:#fff">€38,9</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">−€0,1</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">+€0,8</td></tr>
+            <tr class="tr-total">
+              <td style="padding:9px 14px">ΣΥΝΟΛΟ ΕΣΟΔΩΝ</td>
+              <td style="text-align:center;padding:9px 10px">€219,0</td>
+              <td style="text-align:center;padding:9px 10px">€218,3</td>
+              <td style="text-align:center;padding:9px 10px">€224,3</td>
+              <td style="text-align:center;padding:9px 10px" class="vn">−€5,3</td>
+              <td style="text-align:center;padding:9px 10px" class="vp">+€0,7</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Expense variances -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:#AD1457;color:#fff;padding:12px 20px">
+        <span style="font-size:12.5px;font-weight:700">ΑΠΟΚΛΙΣΕΙΣ ΕΞΟΔΩΝ vs Π/Υ · ΙΑΝ–ΜΑΪ</span>
+        <span style="font-size:11px;opacity:.7;margin-left:10px">€Μ · 1 δεκαδικό</span>
+      </div>
+      <div class="tw">
+        <table style="width:100%">
+          <thead><tr>
+            <th style="min-width:180px;text-align:left;padding:9px 14px">Κατηγορία</th>
+            <th style="text-align:center;padding:9px 10px">2026 (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">2025 (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">Απόκλ. vs Π/Υ (€Μ)</th>
+            <th style="text-align:center;padding:9px 10px">Απόκλ. 2026 v 2025 (€Μ)</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Αποσπασμένο Προσωπικό</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€123,5</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€122,4</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€120,4</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€3,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€1,2</td></tr>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Ωρομίσθιο Προσωπικό</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€23,3</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€22,7</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€20,8</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€2,5</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€0,6</td></tr>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Άλλες Λειτουργικές</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€8,2</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€7,0</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€7,0</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€1,2</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€1,2</td></tr>
+            <tr><td style="padding:8px 14px;background:#FCE4EC">Σύμβαση ΟΚΥπΥ</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€47,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€43,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC">€46,0</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€1,1</td><td style="text-align:center;padding:8px 10px;background:#FCE4EC" class="vn">+€4,0</td></tr>
+            <tr><td style="padding:8px 14px;background:#fff">Ηλεκτρισμός</td><td style="text-align:center;padding:8px 10px;background:#fff">€8,6</td><td style="text-align:center;padding:8px 10px;background:#fff">€7,1</td><td style="text-align:center;padding:8px 10px;background:#fff">€9,2</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">−€0,6</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€1,5</td></tr>
+            <tr><td style="padding:8px 14px;background:#fff">Συντηρήσεις</td><td style="text-align:center;padding:8px 10px;background:#fff">€8,9</td><td style="text-align:center;padding:8px 10px;background:#fff">€6,9</td><td style="text-align:center;padding:8px 10px;background:#fff">€9,7</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">−€0,7</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€2,0</td></tr>
+            <tr><td style="padding:8px 14px;background:#fff">Λοιπές κατηγορίες</td><td style="text-align:center;padding:8px 10px;background:#fff">€23,7</td><td style="text-align:center;padding:8px 10px;background:#fff">€23,2</td><td style="text-align:center;padding:8px 10px;background:#fff">€23,7</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vp">−€0,1</td><td style="text-align:center;padding:8px 10px;background:#fff" class="vn">+€0,3</td></tr>
+            <tr class="tr-total">
+              <td style="padding:9px 14px">ΣΥΝΟΛΟ ΕΞΟΔΩΝ</td>
+              <td style="text-align:center;padding:9px 10px">€243,3</td>
+              <td style="text-align:center;padding:9px 10px">€232,4</td>
+              <td style="text-align:center;padding:9px 10px">€236,8</td>
+              <td style="text-align:center;padding:9px 10px" class="vn">+€6,5</td>
+              <td style="text-align:center;padding:9px 10px" class="vn">+€10,8</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /g2 -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION 3 — DEFICIT DRIVERS NARRATIVE
+  ════════════════════════════════════════════════════════════ -->
+  <div class="card" style="border-left:4px solid var(--neg);padding:24px 28px">
+    <div style="font-size:13px;font-weight:800;color:var(--neg);letter-spacing:.05em;text-transform:uppercase;margin-bottom:18px">
+      Κύριοι Μοχλοί Ελλείμματος — Διαγνωστική Ανάλυση
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 36px">
+
+      <div>
+        <div style="font-size:11.5px;font-weight:700;color:var(--navy2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;border-bottom:1px solid var(--ink-200);padding-bottom:6px">Πλευρά Εσόδων</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:10px">
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--neg);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Ενδονοσοκομειακή Φροντίδα ΟΑΥ −€5,5Μ vs Π/Υ (−5,5%).</b> Η απόκλιση από τον Προϋπολογισμό οφείλεται κυρίως στο ότι δεν επιτεύχθηκε το αναμενόμενο growth που είχε αρχικά προβλεφθεί, αλλά και στο ότι τα έσοδα μειώνονται σημαντικά από τα πιστωτικά (clawbacks) και τις ακυρώσεις DRG του ΟΑΥ. Για την πρώτη τετραμηνία, το πραγματικό έλλειμμα υπολογίζεται γύρω στα €0,8Μ (residual loss), καθώς μέρος των αντιλογισμών μπορεί να επανατιμολογηθεί ορθότερα και να ανακτηθεί τους επόμενους μήνες. Γενικά, η βαρύτητα των περιστατικών (CMI) κυμαίνεται σε φυσιολογικά επίπεδα και οι νοσηλείες κλείνουν μέσα στον αναμενόμενο χρόνο (LOSI &lt;1) κάθε μήνα, σίγουρα όμως με προοπτικές περαιτέρω βελτίωσης και στους δύο δείκτες.</span>
+          </li>
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--neg);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Άλλα Έσοδα −€3,6Μ vs Π/Υ.</b> Η υστέρηση αυτή οφείλεται κυρίως στη μειωμένη ροή εσόδων από τα Νοσήλια Εσωτερικών Ασθενών (−€2,0Μ) καθώς και από τα Τέλη ΤΑΕΠ για επί πληρωμή ασθενείς (−€1,4Μ) σε σχέση με τους στόχους που είχαν τεθεί στον Προϋπολογισμό.</span>
+          </li>
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Εξωνοσοκομειακή ΟΑΥ −€1,4Μ vs Π/Υ (−11,3%).</b> Εξωτερικά ιατρεία κάτω από τον στόχο. Σε συνδυασμό με την ενδονοσοκομειακή απόκλιση, η ΟΑΥ χρηματοδότηση υπολείπεται κατά €6,9Μ συνολικά.</span>
+          </li>
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--green-mid);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Δημόσια Υγεία / Αρχές +€4,4Μ vs Π/Υ (+9,2%).</b> Μερική αντιστάθμιση. Η ροή αυτή παραμένει ο κυριότερος παράγοντας βελτίωσης στην πλευρά των εσόδων.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:11.5px;font-weight:700;color:var(--navy2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;border-bottom:1px solid var(--ink-200);padding-bottom:6px">Πλευρά Εξόδων</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:10px">
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--neg);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block;text-align:justify;display:block"><b>Αποσπασμένο Προσωπικό +€3,1Μ vs Π/Υ (+2,6%).</b> Η μεγαλύτερη απόκλιση σε απόλυτα μεγέθη. Δεν έχει οριστικοποιηθεί η συμφωνία για την ανάκτηση του κόστους αδειών ασθενείας (μη παραγωγικός χρόνος) του αποσπασμένου προσωπικού. Ως εκ τούτου, τα αποτελέσματα του 2026 δεν αντανακλούν τη σχετική μείωση της δαπάνης, παρόλο που το αντίστοιχο ποσό είχε συμπεριληφθεί στον εγκεκριμένο Προϋπολογισμό του έτους.</span>
+          </li>
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--neg);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Ωρομίσθιο Προσωπικό +€2,5Μ vs Π/Υ (+11,8%).</b> Καταγράφεται οριζόντια υπέρβαση σε όλα τα νοσηλευτήρια, με κύριους οδηγούς κόστους τον βασικό μισθό και τις δαπάνες υπερωριών, καθώς δεν έχει επιτευχθεί ακόμη η προϋπολογισθείσα μείωσή τους. Επιπλέον, η ανάκτηση από το Ταμείο Ιατροφαρμακευτικής Περίθαλψης (η οποία μειώνει λογιστικά το κόστος προσωπικού) πλέον αναγνωρίζεται στα «Άλλα Έσοδα». Το σχετικό ποσό για το 5μηνο του 2026 ανέρχεται σε €0,9 εκ.</span>
+          </li>
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Άλλες Λειτουργικές Δαπάνες +€1,2Μ vs Π/Υ (+17,2%).</b> Η απόκλιση οφείλεται στην υποεκτίμηση της αρχικής κατανομής του Προϋπολογισμού της περιόδου, η ανάλυση της οποίας παρουσιάζεται στην ενότητα «Λοιπά Λειτουργικά Έξοδα». Εντός των επόμενων εβδομάδων θα πραγματοποιηθεί εσωτερική μεταφορά κονδυλίων μεταξύ των άρθρων, προκειμένου να αποκατασταθεί η ορθολογική κατανομή του Προϋπολογισμού στις επιμέρους λειτουργικές δαπάνες.</span>
+          </li>
+          <li style="display:flex;gap:10px;align-items:flex-start">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0;margin-top:5px"></span>
+            <span style="font-size:12.5px;line-height:1.55;color:var(--ink-900);text-align:justify;display:block"><b>Σύμβαση ΟΚΥπΥ +€1,1Μ vs Π/Υ (+2,3%).</b> Καταγράφεται περιορισμένη απόκλιση, η οποία οφείλεται κυρίως στις αυξημένες δαπάνες Επιδομάτων (+9,7%) και Υπερωριών (+81,2%), καθώς δεν έχει επιτευχθεί ακόμη η προϋπολογισθείσα μείωσή τους.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom summary bar -->
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--ink-200);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <div style="font-size:12px;color:var(--ink-500);flex:1;min-width:200px;line-height:1.6">
+        Το συνολικό EBITDA διαμορφώνεται σε <b style="color:var(--neg)">−€24,3Μ</b> έναντι Π/Υ <b>−€12,5Μ</b>. Η απόκλιση των <b style="color:var(--neg)">€11,8Μ</b> οφείλεται κατά <b>55%</b> σε υπέρβαση εξόδων και κατά <b>45%</b> σε υστέρηση εσόδων.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:var(--neg-soft);color:var(--neg);border:1px solid var(--neg);border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:700">Υπέρβαση Εξόδων +€6,5Μ</span>
+        <span style="background:var(--neg-soft);color:var(--neg);border:1px solid var(--neg);border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:700">Υστέρηση Εσόδων −€5,3Μ</span>
+        <span style="background:#FFF0F5;color:var(--neg);border:1px solid var(--neg);border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:800">Ζημία EBITDA −€11,8Μ vs Π/Υ</span>
+      </div>
+    </div>
+  </div><!-- /deficit card -->
+
+</div><!-- /sec-exec -->
+
+<div id="sec-overview" class="section">
+  <div class="sec-title">Συνολική Εικόνα — EBITDA Basis</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 | Ex Αποσβ./Προβλ. | Pharma pass-through (net €0) </div>
+
+
+  <div class="kpis k5">
+    <div class="kpi b"><div class="kl">Έσοδα YTD (net)</div><div class="kv">219,0Μ</div><div class="kb amb">vs Π/Υ −€5,3Μ (−2,3%)</div><div class="ks">Π/Υ €224,3Μ | 2025 €215,5Μ</div></div>
+    <div class="kpi r"><div class="kl">OpEx YTD (EBITDA)</div><div class="kv">243,3Μ</div><div class="kb neg">vs Π/Υ +€6,5Μ (+2,7%)</div><div class="ks">Π/Υ €236,8Μ | 2025 €229,6Μ</div></div>
+    <div class="kpi r"><div class="kl">EBITDA 2026</div><div class="kv" style="color:var(--neg)">−24,3Μ</div><div class="kb neg">vs Π/Υ −€11,8Μ (−94,3%)</div><div class="ks">Π/Υ −€12,5Μ</div></div>
+    <div class="kpi r"><div class="kl">EBITDA 2025 (διορθ.)</div><div class="kv" style="color:var(--neg)">−14,1Μ</div><div class="kb neg">YoY −€9,7Μ</div><div class="ks">2025 Διορθ. (ex Αποσβ.)</div></div>
+    <div class="kpi r"><div class="kl">Κόστος Προσωπικού</div><div class="kv">193,9Μ</div><div class="kb neg">vs Π/Υ +€6,7Μ (+3,6%)</div><div class="ks">88,0% OpEx | 2025 €188,1Μ ✓</div></div>
+  </div>
+
+  
+
+  <div class="card">
+    <div class="card-hd">Ενοποιημένο EBITDA P&L <span>€εκ.</span></div>
+    <div class="tw"><table><thead><tr>
+      <th style="min-width:215px">Κατηγορία</th>
+      <th style="text-align:center">YTD 2026</th><th style="text-align:center">Π/Υ</th>
+      <th style="text-align:center">Απόκλ. vs Π/Υ</th><th style="text-align:center">Απόκλ. %</th>
+      <th style="text-align:center">YTD 2025</th><th style="text-align:center">YoY</th><th style="text-align:center">YoY %</th>
+    </tr></thead><tbody id="plBody"></tbody></table></div>
+    <p class="note">* Φάση Β Φαρμάκων: pass-through, net €0 εκατέρωθεν — εξαιρείται από EBITDA. ** Αποσβέσεις &amp; Προβλέψεις εξαιρούνται από EBITDA basis.</p>
+  </div>
+  
+</div>
+
+<!-- ══ MONTHLY ══ -->
+<div id="sec-monthly" class="section">
+  <div class="sec-title">Μηνιαία Ανάλυση EBITDA</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 </div>
+
+  <div class="kpis k5">
+    <div class="kpi r"><div class="kl">Ιανουάριος</div><div class="kv" style="color:var(--neg)">−2,8Μ</div><div class="ks">Έσ: €44,2Μ | OpEx: €47,0Μ</div></div>
+    <div class="kpi r"><div class="kl">Φεβρουάριος</div><div class="kv" style="color:var(--neg)">−5,3Μ</div><div class="ks">Έσ: €42,9Μ | OpEx: €48,2Μ</div></div>
+    <div class="kpi r"><div class="kl">Μάρτιος</div><div class="kv" style="color:var(--neg)">−3,7Μ</div><div class="ks">Έσ: €45,1Μ | OpEx: €48,8Μ</div></div>
+    <div class="kpi r" style="border-top-color:#AD1457"><div class="kl">Απρίλιος ⚠️</div><div class="kv" style="color:#AD1457;font-weight:600">−8,5Μ</div><div class="ks">Έσ: €40,1Μ | OpEx: €48,7Μ</div></div>
+    <div class="kpi r"><div class="kl">Μάιος</div><div class="kv" style="color:var(--neg)">−4,0Μ</div><div class="ks">Έσ: €46,6Μ | OpEx: €50,6Μ</div></div>
+  </div>
+
+  <div class="g2">
+    
+    
+  </div>
+
+  
+
+  <div class="card">
+    <div class="card-hd">EBITDA Τάση <span>2026 vs 2025</span></div>
+    <div class="ch" style="height:200px"><canvas id="ebitdaTrendChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">Μηνιαία Λεπτομέρεια EBITDA <span>€εκ.</span></div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th style="text-align:left">Μήνας</th>
+        <th style="text-align:center">Έσοδα 2026</th><th style="text-align:center">OpEx 2026</th><th style="text-align:center">EBITDA 2026</th>
+        <th style="text-align:center">Έσοδα 2025</th><th style="text-align:center">OpEx 2025</th><th style="text-align:center">EBITDA 2025</th><th style="text-align:center">YoY</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Ιανουάριος</td><td style="text-align:center">€44,2</td><td style="text-align:center">€47,0</td><td style="text-align:center" class="vn">−€2,8</td><td style="text-align:center">€43,9</td><td style="text-align:center">€45,4</td><td style="text-align:center" class="vn">−€1,5</td><td style="text-align:center" class="vn">−€1,2</td></tr>
+        <tr><td>Φεβρουάριος</td><td style="text-align:center">€42,9</td><td style="text-align:center">€48,2</td><td style="text-align:center" class="vn">−€5,3</td><td style="text-align:center">€38,4</td><td style="text-align:center">€46,5</td><td style="text-align:center" class="vn">−€8,1</td><td style="text-align:center" class="vp">+€2,9</td></tr>
+        <tr><td>Μάρτιος</td><td style="text-align:center">€45,1</td><td style="text-align:center">€48,8</td><td style="text-align:center" class="vn">−€3,7</td><td style="text-align:center">€43,9</td><td style="text-align:center">€45,6</td><td style="text-align:center" class="vn">−€1,8</td><td style="text-align:center" class="vn">−€1,9</td></tr>
+        <tr><td><b>Απρίλιος ⚠️</b></td><td style="text-align:center">€40,1</td><td style="text-align:center">€48,7</td><td style="text-align:center;font-weight:800" class="vn">−€8,5</td><td style="text-align:center">€45,6</td><td style="text-align:center">€45,3</td><td style="text-align:center" class="vp">+€0,3</td><td style="text-align:center;font-weight:800" class="vn">−€8,9</td></tr>
+        <tr><td>Μάιος</td><td style="text-align:center">€46,6</td><td style="text-align:center">€50,6</td><td style="text-align:center" class="vn">−€4,0</td><td style="text-align:center">€43,7</td><td style="text-align:center">€46,7</td><td style="text-align:center" class="vn">−€3,0</td><td style="text-align:center" class="vn">−€1,1</td></tr>
+        <tr class="tr-ebitda"><td>ΣΥΝ. YTD EBITDA</td><td style="text-align:center">€219,0</td><td style="text-align:center">€243,3</td><td style="text-align:center" class="vn">−€24,3</td><td style="text-align:center">€215,5</td><td style="text-align:center">€229,6</td><td style="text-align:center" class="vn">−€14,1</td><td style="text-align:center" class="vn">−€10,2</td></tr>
+      </tbody>
+    </table></div>
+    
+  </div>
+</div>
+
+<!-- ══ HOSPITALS ══ -->
+<div id="sec-oay" class="section">
+  <div class="sec-title">ΟΑΥ — Ανάλυση Εσόδων</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 | Ενδονοσοκομεική, Εξωνοσοκομεική, Ημερήσιες, ΤΑΕΠ</div>
+
+  <div class="kpis k4">
+    <div class="kpi r"><div class="kl">Ενδονοσοκομεικά</div><div class="kv">94,9Μ</div><div class="kb neg">vs Π/Υ −€5,5Μ (−5,5%)</div><div class="ks">Π/Υ €100,4Μ | 2025 €97,1Μ</div></div>
+    <div class="kpi r"><div class="kl">Εξωνοσοκομεικά</div><div class="kv">10,7Μ</div><div class="kb neg">vs Π/Υ −€1,4Μ (−11,3%)</div><div class="ks">Π/Υ €12,1Μ | 2025 €11,0Μ</div></div>
+    <div class="kpi a"><div class="kl">Ημερήσιες Νοσηλείες</div><div class="kv">11,3Μ</div><div class="kb amb">vs Π/Υ −€0,2Μ (−1,5%)</div><div class="ks">Π/Υ €11,5Μ | 2025 €11,4Μ</div></div>
+    <div class="kpi g"><div class="kl">ΤΑΕΠ ΟΑΥ</div><div class="kv">11,0Μ</div><div class="kb pos">vs Π/Υ +€0,9Μ (+9,0%)</div><div class="ks">Π/Υ €10,1Μ | 2025 €9,9Μ</div></div>
+  </div>
+
+  <div class="callout neg"><div class="ci">🔴</div><div class="cb"><b>Ενδονοσοκομεικά −€5,5Μ vs Π/Υ, YoY −2,3%.</b> Δεν έχει επιτευχθεί ακόμη ο αναμενόμενος ρυθμός ανάπτυξης που είχε αρχικά προβλεφθεί.</div></div>
+  <div class="callout neg"><div class="ci">🟠</div><div class="cb"><b>Εξωνοσοκομεικά −€1,4Μ vs Π/Υ, YoY −2,3%.</b> Δεν έχει επιτευχθεί ακόμη ο αναμενόμενος ρυθμός ανάπτυξης που είχε αρχικά προβλεφθεί.</div></div>
+  <div class="callout pos"><div class="ci">🟢</div><div class="cb"><b>ΤΑΕΠ +9,0% vs Π/Υ, YoY +11,2%:</b> Μοναδικός κλάδος που υπεραποδίδει λόγω ποιοτικών κριτηρίων.</div></div>
+  <div class="callout neg"><div class="ci">🔵</div><div class="cb"><b>Λοιπές Κατηγορίες ΟΑΥ — Σύνοψη Αποκλίσεων vs Π/Υ:</b> Ημερήσιες Νοσηλείες −€0,2Μ (−1,5%) · ΥΓΟΣ και ΥΠΑΣ σύμφωνα με Π/Υ · Εγγραφές Ιατρών −€0,0Μ (−1,2%) με YoY +€0,5Μ (+13,9%). Το σύνολο ΟΑΥ υπολείπεται κατά −€6,2Μ vs Π/Υ.</div></div>
+
+
+
+
+
+  <div class="card">
+    <div class="card-hd">ΟΑΥ Πλήρης Πίνακας <span>€εκ.</span></div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th style="text-align:left">Κατηγορία</th>
+        <th style="text-align:center">YTD 2026 (€Μ)</th><th style="text-align:center">Π/Υ (€Μ)</th>
+        <th style="text-align:center">Απόκλ. (€Μ)</th><th style="text-align:center">Απόκλ. %</th>
+        <th style="text-align:center">YTD 2025 (€Μ)</th><th style="text-align:center">YoY (€Μ)</th><th style="text-align:center">YoY %</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Ενδονοσοκομεική Φρ. ΟΑΥ</td><td style="text-align:center">€94,9</td><td style="text-align:center">€100,4</td><td style="text-align:center" class="vn">−€5,5</td><td style="text-align:center" class="vn">−5,5%</td><td style="text-align:center">€97,1</td><td style="text-align:center" class="vn">−€2,2</td><td style="text-align:center" class="vn">−2,3%</td></tr>
+        <tr><td>Εξωνοσοκομειακή Φρ. ΟΑΥ</td><td style="text-align:center">€10,7</td><td style="text-align:center">€12,1</td><td style="text-align:center" class="vn">−€1,4</td><td style="text-align:center" class="vn">−11,3%</td><td style="text-align:center">€11,0</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−2,3%</td></tr>
+        <tr><td>Ημερήσιες Νοσηλείες ΟΑΥ</td><td style="text-align:center">€11,3</td><td style="text-align:center">€11,5</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−1,5%</td><td style="text-align:center">€11,4</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−1,0%</td></tr>
+        <tr><td>ΤΑΕΠ ΟΑΥ</td><td style="text-align:center">€11,0</td><td style="text-align:center">€10,1</td><td style="text-align:center" class="vp">+€0,9</td><td style="text-align:center" class="vp">+9,0%</td><td style="text-align:center">€9,9</td><td style="text-align:center" class="vp">+€1,1</td><td style="text-align:center" class="vp">+11,2%</td></tr>
+        <tr><td>ΥΓΟΣ ΟΑΥ</td><td style="text-align:center">€16,2</td><td style="text-align:center">€16,2</td><td style="text-align:center" class="vz">—</td><td style="text-align:center" class="vz">0,0%</td><td style="text-align:center">€15,8</td><td style="text-align:center" class="vp">+€0,3</td><td style="text-align:center" class="vp">+2,0%</td></tr>
+        <tr><td>ΥΠΑΣ ΟΑΥ</td><td style="text-align:center">€7,3</td><td style="text-align:center">€7,3</td><td style="text-align:center" class="vz">—</td><td style="text-align:center" class="vz">0,0%</td><td style="text-align:center">€7,1</td><td style="text-align:center" class="vp">+€0,1</td><td style="text-align:center" class="vp">+2,0%</td></tr>
+        <tr><td>Εγγραφές Προσωπικών Ιατρών</td><td style="text-align:center">€3,9</td><td style="text-align:center">€3,9</td><td style="text-align:center" class="vn">−€0,0</td><td style="text-align:center" class="vn">−1,2%</td><td style="text-align:center">€3,4</td><td style="text-align:center" class="vp">+€0,5</td><td style="text-align:center" class="vp">+13,9%</td></tr>
+        <tr class="tr-total"><td>ΣΥΝΟΛΟ ΟΑΥ</td><td style="text-align:center">€155,3</td><td style="text-align:center">€161,5</td><td style="text-align:center" class="vn">−€6,2</td><td style="text-align:center" class="vn">−3,8%</td><td style="text-align:center">€155,8</td><td style="text-align:center" class="vn">−€0,5</td><td style="text-align:center" class="vn">−0,3%</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-hd">Ενδονοσοκομεική ΟΑΥ — Μηνιαία 2026 <span>€Μ</span></div>
+      <div class="ch" style="height:260px"><canvas id="inpMonthChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">Εξωνοσοκομεική ΟΑΥ — Μηνιαία 2026 <span>€Μ</span></div>
+      <div class="ch" style="height:260px"><canvas id="exoMonthChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="g2">
+  <div class="card">
+    <div class="card-hd">Ενδονοσοκομεικά ΟΑΥ ανά Νοσηλευτήριο <span>€εκ.</span></div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th style="text-align:left">Νοσηλευτήριο</th>
+        <th style="text-align:center">YTD 2026 (€Μ)</th><th style="text-align:center">Π/Υ (€Μ)</th>
+        <th style="text-align:center">Απόκλ. (€Μ)</th><th style="text-align:center">Απόκλ. %</th>
+        <th style="text-align:center">Αξιολόγηση</th>
+      </tr></thead>
+      <tbody>
+<tr><td>Γ.Ν. Λευκωσίας</td><td style="text-align:center">€44,1</td><td style="text-align:center">€45,4</td><td style="text-align:center" class="vn">−€1,3</td><td style="text-align:center" class="vn">-2,9%</td><td style="text-align:center"><span class="bdg ba">Παρακολούθηση</span></td></tr>
+<tr><td>Γ.Ν. Λεμεσού</td><td style="text-align:center">€17,5</td><td style="text-align:center">€19,2</td><td style="text-align:center" class="vn">−€1,8</td><td style="text-align:center" class="vn">-9,3%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Μακάρειο Νοσ.</td><td style="text-align:center">€10,8</td><td style="text-align:center">€11,1</td><td style="text-align:center" class="vn">−€0,3</td><td style="text-align:center" class="vn">-2,9%</td><td style="text-align:center"><span class="bdg ba">Παρακολούθηση</span></td></tr>
+<tr><td>Γ.Ν. Λάρνακας</td><td style="text-align:center">€9,6</td><td style="text-align:center">€9,8</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">-2,3%</td><td style="text-align:center"><span class="bdg ba">Παρακολούθηση</span></td></tr>
+<tr><td>Γ.Ν. Πάφου</td><td style="text-align:center">€5,8</td><td style="text-align:center">€6,7</td><td style="text-align:center" class="vn">−€0,9</td><td style="text-align:center" class="vn">-12,8%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Γ.Ν. Αμμοχώστου</td><td style="text-align:center">€4,6</td><td style="text-align:center">€5,0</td><td style="text-align:center" class="vn">−€0,5</td><td style="text-align:center" class="vn">-9,2%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Ψυχικής Υγείας</td><td style="text-align:center">€1,5</td><td style="text-align:center">€1,8</td><td style="text-align:center" class="vn">−€0,3</td><td style="text-align:center" class="vn">-17,2%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Νοσ. Τροόδους</td><td style="text-align:center">€0,8</td><td style="text-align:center">€0,9</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">-14,4%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Polis Chri,</td><td style="text-align:center">€0,3</td><td style="text-align:center">€0,4</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">-28,6%</td><td style="text-align:center"><span class="bdg bn">Κρίσιμο</span></td></tr>
+<tr class="tr-total"><td>ΣΥΝΟΛΟ</td><td style="text-align:center">€94,9</td><td style="text-align:center">€100,4</td><td style="text-align:center" class="vn">−€5,5</td><td style="text-align:center" class="vn">−5,5%</td><td></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <div class="card-hd">Εξωνοσοκομεικά ΟΑΥ ανά Νοσηλευτήριο <span>€εκ.</span></div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th style="text-align:left">Νοσηλευτήριο</th>
+        <th style="text-align:center">YTD 2026 (€Μ)</th><th style="text-align:center">Π/Υ (€Μ)</th>
+        <th style="text-align:center">Απόκλ. (€Μ)</th><th style="text-align:center">Απόκλ. %</th>
+        <th style="text-align:center">Αξιολόγηση</th>
+      </tr></thead>
+      <tbody>
+<tr><td>Γ.Ν. Λευκωσίας</td><td style="text-align:center">€3,6</td><td style="text-align:center">€4,1</td><td style="text-align:center" class="vn">−€0,5</td><td style="text-align:center" class="vn">−12,6%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Γ.Ν. Λεμεσού</td><td style="text-align:center">€2,0</td><td style="text-align:center">€2,1</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−4,5%</td><td style="text-align:center"><span class="bdg ba">Παρακολούθηση</span></td></tr>
+<tr><td>Γ.Ν. Λάρνακας</td><td style="text-align:center">€1,5</td><td style="text-align:center">€1,6</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−8,3%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Μακάρειο Νοσ.</td><td style="text-align:center">€1,1</td><td style="text-align:center">€1,2</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−14,9%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Ψυχικής Υγείας</td><td style="text-align:center">€1,0</td><td style="text-align:center">€1,0</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−8,2%</td><td style="text-align:center"><span class="bdg bn">Διερεύνηση</span></td></tr>
+<tr><td>Γ.Ν. Πάφου</td><td style="text-align:center">€0,9</td><td style="text-align:center">€1,0</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−18,0%</td><td style="text-align:center"><span class="bdg bn">Κρίσιμο</span></td></tr>
+<tr><td>Γ.Ν. Αμμοχώστου</td><td style="text-align:center">€0,6</td><td style="text-align:center">€0,8</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−26,7%</td><td style="text-align:center"><span class="bdg bn">Κρίσιμο</span></td></tr>
+<tr><td>Νοσ. Τροόδους</td><td style="text-align:center">€0,2</td><td style="text-align:center">€0,2</td><td style="text-align:center" class="vp">+€0,0</td><td style="text-align:center" class="vp">+18,6%</td><td style="text-align:center"><span class="bdg bp">Σε στόχο</span></td></tr>
+<tr><td>Νοσ. Πόλεως Χρυσοχούς</td><td style="text-align:center">€0,1</td><td style="text-align:center">€0,1</td><td style="text-align:center" class="vn">−€0,0</td><td style="text-align:center" class="vn">−3,4%</td><td style="text-align:center"><span class="bdg ba">Παρακολούθηση</span></td></tr>
+<tr class="tr-total"><td>ΣΥΝΟΛΟ</td><td style="text-align:center">€10,7</td><td style="text-align:center">€12,1</td><td style="text-align:center" class="vn">−€1,4</td><td style="text-align:center" class="vn">−11,3%</td><td style="text-align:center"></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  </div>
+
+</div>
+
+<div id="sec-allaesoda" class="section">
+  <div class="sec-title">Άλλα Έσοδα</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 | Ανάλυση Άλλων Εσόδων ανά Κατηγορία &amp; Νοσηλευτήριο · ποσά σε €εκ.</div>
+
+  <div class="kpis k4" style="margin-bottom:16px">
+    <div class="kpi b"><div class="kl">Σύνολο Άλλα Έσοδα</div><div class="kv">11,1Μ</div>
+      <div class="kb neg">vs Π/Υ −€3,6Μ (−24,4%)</div><div class="ks">Π/Υ €14,6Μ | 2025 €14,4Μ</div></div>
+    <div class="kpi r"><div class="kl">Νοσήλια Εσωτερικών</div><div class="kv">2,9Μ</div>
+      <div class="kb neg">vs Π/Υ −€2,0Μ (−41,6%)</div><div class="ks">Π/Υ €4,9Μ</div></div>
+    <div class="kpi g"><div class="kl">Άλλα Έσοδα (misc)</div><div class="kv">3,5Μ</div>
+      <div class="kb pos">vs Π/Υ +€0,2Μ (+7,0%)</div><div class="ks">Π/Υ €3,3Μ</div></div>
+    <div class="kpi a"><div class="kl">Νοσήλια Εξωτερικών</div><div class="kv">1,6Μ</div>
+      <div class="kb neg">vs Π/Υ −€0,3Μ (−14,0%)</div><div class="ks">Π/Υ €1,8Μ</div></div>
+  </div>
+
+  <div class="callout neg"><div class="ci">🔴</div><div class="cb"><b>Νοσήλια Εσωτερικών Ασθενών −€2,0Μ vs Π/Υ (−41,6%).</b> Ο κυριότερος οδηγός της υστέρησης· YoY −€0,4Μ (−11,5%).</div></div>
+  <div class="callout neg"><div class="ci">🟠</div><div class="cb"><b>Τέλη ΤΑΕΠ (επί πληρωμή) −€1,4Μ vs Π/Υ (−62,2%).</b> Σημαντική υστέρηση έναντι Π/Υ, παρά τη θετική YoY πορεία (+€0,6Μ).</div></div>
+  <div class="callout pos"><div class="ci">🟢</div><div class="cb"><b>Ταμείο Ιατροφαρμακευτικής +€0,9Μ (Π/Υ €0) & Άλλα Έσοδα Misc +€0,2Μ (+7,0%).</b> Μερική αντιστάθμιση από αναγνώριση ανάκτησης στα Άλλα Έσοδα.</div></div>
+  <div class="callout neg"><div class="ci">🔵</div><div class="cb"><b>Σύνολο Άλλα Έσοδα −€3,6Μ vs Π/Υ (−24,4%):</b> YoY −€3,3Μ (−23,1%). Διάχυτη υστέρηση σε νοσήλια και επιμέρους δικαιώματα.</div></div>
+
+  <div class="g2b">
+    <div class="card">
+      <div class="card-hd">Άλλα Έσοδα — Ανάλυση Υποκατηγοριών <span>YTD vs Π/Υ (€εκ.)</span></div>
+      <div class="tw"><table>
+        <thead><tr>
+          <th style="min-width:200px">Υποκατηγορία</th>
+          <th style="text-align:center">YTD 2026</th><th style="text-align:center">Π/Υ</th>
+          <th style="text-align:center">Απόκλ.</th><th style="text-align:center">Απόκλ. %</th><th style="text-align:center">YTD 2025</th><th style="text-align:center">YoY</th><th style="text-align:center">YoY %</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Άλλα Έσοδα (Misc)</td><td style="text-align:center">€3,5</td><td style="text-align:center">€3,3</td><td style="text-align:center" class="vp">+€0,2</td><td style="text-align:center" class="vp">+7,0%</td><td style="text-align:center">€3,7</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−5,0%</td></tr>
+<tr><td>Νοσήλια Εσωτερικών Ασθενών</td><td style="text-align:center">€2,9</td><td style="text-align:center">€4,9</td><td style="text-align:center" class="vn">−€2,0</td><td style="text-align:center" class="vn">−41,6%</td><td style="text-align:center">€3,2</td><td style="text-align:center" class="vn">−€0,4</td><td style="text-align:center" class="vn">−11,5%</td></tr>
+<tr><td>Νοσήλια Εξωτερικών Ασθενών</td><td style="text-align:center">€1,6</td><td style="text-align:center">€1,8</td><td style="text-align:center" class="vn">−€0,3</td><td style="text-align:center" class="vn">−14,0%</td><td style="text-align:center">€1,2</td><td style="text-align:center" class="vp">+€0,4</td><td style="text-align:center" class="vp">+34,1%</td></tr>
+<tr><td>Ταμείο Ιατροφαρμακευτικής</td><td style="text-align:center">€0,9</td><td style="text-align:center">€0,0</td><td style="text-align:center" class="vp">+€0,9</td><td style="text-align:center" class="vz">—</td><td style="text-align:center">€2,9</td><td style="text-align:center" class="vn">−€2,0</td><td style="text-align:center" class="vn">−69,0%</td></tr>
+<tr><td>Τέλη ΤΑΕΠ (επί πληρωμή)</td><td style="text-align:center">€0,9</td><td style="text-align:center">€2,3</td><td style="text-align:center" class="vn">−€1,4</td><td style="text-align:center" class="vn">−62,2%</td><td style="text-align:center">€0,3</td><td style="text-align:center" class="vp">+€0,6</td><td style="text-align:center" class="vp">+192,7%</td></tr>
+<tr><td>Αποζ. Φαρμάκων ΟΑΥ</td><td style="text-align:center">€0,4</td><td style="text-align:center">€0,4</td><td style="text-align:center" class="vz">€0,0</td><td style="text-align:center" class="vz">+0,0%</td><td style="text-align:center">€1,0</td><td style="text-align:center" class="vn">−€0,6</td><td style="text-align:center" class="vn">−58,3%</td></tr>
+<tr><td>Άλλα Δικαιώματα & Οφειλές</td><td style="text-align:center">€0,4</td><td style="text-align:center">€0,8</td><td style="text-align:center" class="vn">−€0,5</td><td style="text-align:center" class="vn">−57,1%</td><td style="text-align:center">€0,4</td><td style="text-align:center" class="vn">−€0,0</td><td style="text-align:center" class="vn">−8,1%</td></tr>
+<tr><td>Πωλήσεις Αγαθών / Υπηρεσιών</td><td style="text-align:center">€0,3</td><td style="text-align:center">€0,4</td><td style="text-align:center" class="vn">−€0,0</td><td style="text-align:center" class="vn">−10,6%</td><td style="text-align:center">€0,7</td><td style="text-align:center" class="vn">−€0,4</td><td style="text-align:center" class="vn">−51,8%</td></tr>
+<tr><td>Ένσημα Υγείας</td><td style="text-align:center">€0,2</td><td style="text-align:center">€0,3</td><td style="text-align:center" class="vn">−€0,2</td><td style="text-align:center" class="vn">−51,0%</td><td style="text-align:center">€0,2</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−28,5%</td></tr>
+<tr><td>Ενοίκια</td><td style="text-align:center">€0,1</td><td style="text-align:center">€0,4</td><td style="text-align:center" class="vn">−€0,3</td><td style="text-align:center" class="vn">−79,0%</td><td style="text-align:center">€0,2</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−49,9%</td></tr>
+<tr><td>Δικαιώματα Ειδικών Ιατρών</td><td style="text-align:center">€0,0</td><td style="text-align:center">€0,0</td><td style="text-align:center" class="vp">+€0,0</td><td style="text-align:center" class="vz">—</td><td style="text-align:center">€0,5</td><td style="text-align:center" class="vn">−€0,5</td><td style="text-align:center" class="vn">−97,3%</td></tr>
+<tr><td>Συμβουλευτικά Δικαιώματα</td><td style="text-align:center">€0,0</td><td style="text-align:center">€0,0</td><td style="text-align:center" class="vp">+€0,0</td><td style="text-align:center" class="vz">—</td><td style="text-align:center">€0,1</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−81,1%</td></tr>
+<tr><td>Ε.Ο.Δ.Υ</td><td style="text-align:center">€0,0</td><td style="text-align:center">€0,0</td><td style="text-align:center" class="vn">−€0,0</td><td style="text-align:center" class="vn">−100,0%</td><td style="text-align:center">€0,1</td><td style="text-align:center" class="vn">−€0,1</td><td style="text-align:center" class="vn">−100,0%</td></tr>
+<tr class="tr-total"><td>ΣΥΝΟΛΟ Άλλα Έσοδα</td><td style="text-align:center">€11,1</td><td style="text-align:center">€14,6</td><td style="text-align:center" class="vn">−€3,6</td><td style="text-align:center" class="vn">−24,4%</td><td style="text-align:center">€14,4</td><td style="text-align:center" class="vn">−€3,3</td><td style="text-align:center" class="vn">−23,1%</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">Κατανομή ανά Νοσηλευτήριο <span>YTD Actuals (€εκ.)</span></div>
+      <div class="ch" style="height:340px"><canvas id="loipaRevHospChart"></canvas></div>
+      <div class="tw" style="margin-top:12px"><table>
+        <thead><tr><th>Νοσηλευτήριο</th><th style="text-align:center">YTD</th><th style="text-align:center">Π/Υ</th><th style="text-align:center">Var%</th></tr></thead>
+        <tbody>
+          <tr><td>Γ.Ν. Λευκωσίας</td><td style="text-align:center">€3,1</td><td style="text-align:center">€3,5</td><td style="text-align:center" class="vn">−9,5%</td></tr>
+<tr><td>Κεντρικά Γραφεία</td><td style="text-align:center">€2,2</td><td style="text-align:center">€1,2</td><td style="text-align:center" class="vp">+75,5%</td></tr>
+<tr><td>Γ.Ν. Λεμεσού</td><td style="text-align:center">€2,2</td><td style="text-align:center">€2,5</td><td style="text-align:center" class="vn">−11,4%</td></tr>
+<tr><td>Γ.Ν. Πάφου</td><td style="text-align:center">€1,1</td><td style="text-align:center">€1,6</td><td style="text-align:center" class="vn">−28,9%</td></tr>
+<tr><td>Μακάρειο Νοσ.</td><td style="text-align:center">€0,9</td><td style="text-align:center">€1,2</td><td style="text-align:center" class="vn">−27,0%</td></tr>
+<tr><td>Γ.Ν. Λάρνακας</td><td style="text-align:center">€0,8</td><td style="text-align:center">€1,8</td><td style="text-align:center" class="vn">−57,6%</td></tr>
+<tr><td>Γ.Ν. Αμμοχώστου</td><td style="text-align:center">€0,4</td><td style="text-align:center">€1,8</td><td style="text-align:center" class="vn">−78,1%</td></tr>
+<tr><td>Ψυχικής Υγείας</td><td style="text-align:center">€0,1</td><td style="text-align:center">€0,3</td><td style="text-align:center" class="vn">−53,6%</td></tr>
+<tr><td>Κέντρα Υγείας</td><td style="text-align:center">€0,1</td><td style="text-align:center">€0,4</td><td style="text-align:center" class="vn">−74,0%</td></tr>
+<tr><td>Νοσ. Τροόδους</td><td style="text-align:center">€0,1</td><td style="text-align:center">€0,1</td><td style="text-align:center" class="vn">−43,5%</td></tr>
+<tr><td>Εξωτερικά Ιατρεία</td><td style="text-align:center">€0,0</td><td style="text-align:center">€0,0</td><td style="text-align:center" class="vp">+1,7%</td></tr>
+<tr><td>Νοσ. Πόλεως Χρυσοχούς</td><td style="text-align:center">€0,0</td><td style="text-align:center">€0,2</td><td style="text-align:center" class="vn">−83,1%</td></tr>
+<tr class="tr-total"><td>ΣΥΝΟΛΟ</td><td style="text-align:center">€11,1</td><td style="text-align:center">€14,6</td><td style="text-align:center" class="vn">−24,4%</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══ PAYROLL ══ -->
+<div id="sec-payroll" class="section">
+  <div class="sec-title">Μισθοδοσία &amp; Κόστος Προσωπικού</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 | Αποσπασμένο + Ωρομίσθιο + Σύμβαση ΟΚΥπΥ | 88,0% OpEx</div>
+
+  <div style="font-size:13px;font-weight:700;color:var(--navy2);margin:18px 0 12px;padding:8px 14px;background:var(--ink-100);border-radius:8px;letter-spacing:.03em">ΜΕΡΟΣ Α — Συνολικό Κόστος Μισθοδοσίας</div>
+
+<div class="kpis k4">
+    <div class="kpi r"><div class="kl">Σύνολο Κόστους Προσωπικού</div><div class="kv">193,9Μ</div><div class="kb neg">vs Π/Υ +€6,7Μ (+3,6%)</div><div class="ks">2025: €188,1Μ | YoY +€5,8Μ (+3,1%)</div></div>
+    <div class="kpi r"><div class="kl">Αποσπασμένο Προσωπικό</div><div class="kv">123,5Μ</div><div class="kb neg">vs Π/Υ +€3,1Μ (+2,6%)</div><div class="ks">2025: €122,4Μ | YoY +€1,2Μ (+1,0%)</div></div>
+    <div class="kpi r"><div class="kl">Ωρομίσθιο Προσωπικό</div><div class="kv">23,3Μ</div><div class="kb neg">vs Π/Υ +€2,5Μ (+11,8%)</div><div class="ks">2025: €22,7Μ | YoY +€0,6Μ (+2,5%)</div></div>
+    <div class="kpi a"><div class="kl">Σύμβαση ΟΚΥπΥ</div><div class="kv">47,1Μ</div><div class="kb amb">vs Π/Υ +€1,1Μ (+2,3%)</div><div class="ks">2025: €43,1Μ | YoY +€4,0Μ (+9,4%)</div></div>
+  </div>
+
+
+  <div class="callout neg"><div class="ci">🔴</div><div class="cb"><b>Driver #1 — Αποσπασμένο:</b> Η μεγαλύτερη απόκλιση σε απόλυτα μεγέθη. Δεν έχει οριστικοποιηθεί η συμφωνία για την ανάκτηση του κόστους αδειών ασθενείας (μη παραγωγικός χρόνος) του αποσπασμένου προσωπικού. Ως εκ τούτου, τα αποτελέσματα του 2026 δεν αντανακλούν τη σχετική μείωση της δαπάνης, παρόλο που το αντίστοιχο ποσό είχε συμπεριληφθεί στον εγκεκριμένο Προϋπολογισμό του έτους.</div></div>
+  <div class="callout neg"><div class="ci">🟠</div><div class="cb"><b>Driver #2 — Ωρομίσθιο +€2,5Μ (+11,8%):</b> Καταγράφεται οριζόντια υπέρβαση σε όλα τα νοσηλευτήρια, με κύριους οδηγούς κόστους τον βασικό μισθό και τις δαπάνες υπερωριών, καθώς δεν έχει επιτευχθεί ακόμη η προϋπολογισθείσα μείωσή τους. Επιπλέον, η ανάκτηση από το Ταμείο Ιατροφαρμακευτικής Περίθαλψης (η οποία μειώνει λογιστικά το κόστος προσωπικού) πλέον αναγνωρίζεται στα «Άλλα Έσοδα». Το σχετικό ποσό για το 5μηνο του 2026 ανέρχεται σε €0,9 εκ.</div></div>
+  <div class="callout neg"><div class="ci">🟡</div><div class="cb"><b>Driver #3 — Επιδόματα ΟΚΥπΥ +€1,1Μ (+16,1%) &amp; Υπερωρίες ΟΚΥπΥ +€0,6Μ (+81,2%):</b> Επίδομα επιφυλακής και Κυριακής αργίας κυριότεροι παράγοντες υπέρβασης vs Π/Υ.</div></div>
+
+  <div class="card">
+        <div class="card-hd">Σύγκριση Κόστους Προσωπικού 2026 vs 2025 <span>€εκ.</span></div>
+        <div class="tw"><table>
+          <thead><tr>
+            <th>Κατηγορία</th>
+            <th style="text-align:center">YTD 2026</th><th style="text-align:center">Π/Υ 2026</th><th style="text-align:center">Var</th><th style="text-align:center">Var %</th>
+            <th style="text-align:center">YTD 2025</th><th style="text-align:center">YoY</th><th style="text-align:center">YoY %</th><th style="text-align:center">% Κατανομής</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>Αποσπασμένο Προσωπικό</td><td style="text-align:center">€123,5</td><td style="text-align:center">€120,4</td><td style="text-align:center" class="vn">+€3,1</td><td style="text-align:center" class="vn">+2,6%</td><td style="text-align:center">€122,4</td><td style="text-align:center" class="vn">+€1,2</td><td style="text-align:center" class="vn">+0,9%</td><td style="text-align:center"><b>+63,7%</b></td></tr>
+            <tr><td>Σύμβαση ΟΚΥπΥ</td><td style="text-align:center">€47,1</td><td style="text-align:center">€46,0</td><td style="text-align:center" class="vn">+€1,1</td><td style="text-align:center" class="vn">+2,3%</td><td style="text-align:center">€43,1</td><td style="text-align:center" class="vn">+€4,0</td><td style="text-align:center" class="vn">+9,4%</td><td style="text-align:center"><b>+24,3%</b></td></tr>
+            <tr><td>Ωρομίσθιο Προσωπικό</td><td style="text-align:center">€23,3</td><td style="text-align:center">€20,8</td><td style="text-align:center" class="vn">+€2,5</td><td style="text-align:center" class="vn">+11,8%</td><td style="text-align:center">€22,7</td><td style="text-align:center" class="vn">+€0,6</td><td style="text-align:center" class="vn">+2,5%</td><td style="text-align:center"><b>+12,0%</b></td></tr>
+            <tr class="tr-ebitda"><td>ΣΥΝΟΛΟ ΠΡΟΣΩΠΙΚΟΥ</td><td style="text-align:center">€193,9</td><td style="text-align:center">€187,3</td><td style="text-align:center" class="vn">+€6,7</td><td style="text-align:center" class="vn">+3,6%</td><td style="text-align:center">€188,1</td><td style="text-align:center" class="vn">+€5,8</td><td style="text-align:center" class="vn">+3,1%</td><td style="text-align:center"><b>100,0%</b></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+  <div style="font-size:13px;font-weight:700;color:var(--navy2);margin:18px 0 12px;padding:8px 14px;background:var(--ink-100);border-radius:8px;letter-spacing:.03em">ΜΕΡΟΣ Β — Συμβόλαια ΟΚΥπΥ</div>
+
+  <div class="g2">
+<div class="card">
+      <div class="card-hd">ΟΚΥΠΥ Σύμβαση — Κατηγορίες Ιαν–Μαΐ 2026 <span>€εκ.</span></div>
+      <div class="tw"><table>
+        <thead><tr><th>Κατηγορία</th><th>Ιαν</th><th>Φεβ</th><th>Μαρ</th><th>Απρ</th><th>Μαΐ</th><th style="border-left:2px solid var(--ink-400)">YTD 2026</th><th>YTD 2025</th><th>Π/Υ (5μ)</th><th>Απόκλ. €</th><th>Απόκλ. %</th></tr></thead>
+        <tbody><tr><td>Βασικός Μισθός</td><td>4,1</td><td>4,1</td><td>4,1</td><td>4,2</td><td>4,2</td><td style="border-left:2px solid var(--ink-400)"><b>20,6</b></td><td>19,2</td><td>21,7</td><td class="vp">−1,1</td><td class="vp">−5,0%</td></tr><tr><td>Επιδόματα</td><td>2,2</td><td>2,4</td><td>2,4</td><td>2,2</td><td>2,3</td><td style="border-left:2px solid var(--ink-400)"><b>11,4</b></td><td>10,6</td><td>10,4</td><td class="vn">+1,0</td><td class="vn">+9,7%</td></tr><tr><td>Εισφορές Εργοδότη</td><td>1,3</td><td>1,3</td><td>1,3</td><td>1,3</td><td>1,3</td><td style="border-left:2px solid var(--ink-400)"><b>6,6</b></td><td>5,9</td><td>7,0</td><td class="vp">−0,4</td><td class="vp">−5,9%</td></tr><tr><td>ΑΤΑ</td><td>0,5</td><td>0,5</td><td>0,5</td><td>0,5</td><td>0,5</td><td style="border-left:2px solid var(--ink-400)"><b>2,6</b></td><td>2,4</td><td>3,4</td><td class="vp">−0,8</td><td class="vp">−22,4%</td></tr><tr><td>13ος Μισθός</td><td>0,5</td><td>0,5</td><td>0,5</td><td>0,5</td><td>0,5</td><td style="border-left:2px solid var(--ink-400)"><b>2,5</b></td><td>2,2</td><td>1,8</td><td class="vn">+0,7</td><td class="vn">+36,0%</td></tr><tr><td>Υπερωρίες</td><td>0,3</td><td>0,3</td><td>0,3</td><td>0,3</td><td>0,3</td><td style="border-left:2px solid var(--ink-400)"><b>1,4</b></td><td>1,2</td><td>0,8</td><td class="vn">+0,6</td><td class="vn">+81,2%</td></tr><tr><td>Κάθετο Κίνητρο</td><td>0,2</td><td>0,2</td><td>0,2</td><td>0,2</td><td>0,2</td><td style="border-left:2px solid var(--ink-400)"><b>1,1</b></td><td>0,9</td><td>0,3</td><td class="vn">+0,7</td><td class="vn">+213,3%</td></tr><tr><td>Κατ'Αποκ. Υπερ.</td><td>0,2</td><td>0,2</td><td>0,2</td><td>0,1</td><td>0,2</td><td style="border-left:2px solid var(--ink-400)"><b>0,9</b></td><td>0,8</td><td>0,6</td><td class="vn">+0,3</td><td class="vn">+51,2%</td></tr><tr class="tr-total"><td>ΣΥΝΟΛΟ</td><td></td><td></td><td></td><td></td><td></td><td style="border-left:2px solid var(--ink-400)"><b>47,1</b></td><td>43,1</td><td>46,0</td><td class="vn">+1,1</td><td class="vn">+2,3%</td></tr></tbody>
+      </table></div>
+    </div>
+  <div class="card">
+    <div class="card-hd">Μηνιαία Εξέλιξη Κόστους Σύμβασης ΟΚΥπΥ <span>Ιαν 2025 – Μαΐ 2026</span></div>
+    <div class="ch" style="height:240px"><canvas id="symvTrendChart"></canvas></div>
+    
+  </div>
+
+
+  </div>
+
+  <div style="font-size:13px;font-weight:700;color:var(--navy2);margin:18px 0 12px;padding:8px 14px;background:var(--ink-100);border-radius:8px;letter-spacing:.03em">ΕΠΙΔΟΜΑΤΑ &amp; ΥΠΕΡΩΡΙΕΣ — Αναλυτικά</div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:6px 0 4px"><div class="card"><div class="card-hd">Επιδόματα — Top-3 Νοσηλ. (vs Π/Υ) <span>€εκ.</span></div><div class="tw"><table><thead><tr><th>Νοσηλ.</th><th style="text-align:center">2026</th><th style="text-align:center">Π/Υ</th><th style="text-align:center">Απόκλ.</th><th style="text-align:center">%</th><th style="text-align:center">2025</th></tr></thead><tbody><tr><td>Γ.Ν. Λευκωσίας</td><td>€3,742</td><td>€3,282</td><td class="vn">+€0,460</td><td class="vn">+14,0%</td><td>€3,298</td></tr><tr><td>Γ.Ν. Λάρνακας</td><td>€1,732</td><td>€1,544</td><td class="vn">+€0,189</td><td class="vn">+12,2%</td><td>€1,516</td></tr><tr><td>Γ.Ν. Πάφου</td><td>€0,951</td><td>€0,801</td><td class="vn">+€0,150</td><td class="vn">+18,7%</td><td>€0,907</td></tr><tr><td>Λοιπά</td><td>€4,998</td><td>€4,790</td><td class="vn">+€0,207</td><td class="vn">+4,3%</td><td>€4,865</td></tr><tr class="tr-total"><td>Σύνολο</td><td><b>€11,424</b></td><td>€10,418</td><td class="vn">+€1,006</td><td class="vn">+9,7%</td><td>€10,586</td></tr></tbody></table></div></div><div class="card"><div class="card-hd">Υπερωρίες — Top-3 Νοσηλ. (vs Π/Υ) <span>€εκ.</span></div><div class="tw"><table><thead><tr><th>Νοσηλ.</th><th style="text-align:center">2026</th><th style="text-align:center">Π/Υ</th><th style="text-align:center">Απόκλ.</th><th style="text-align:center">%</th><th style="text-align:center">2025</th></tr></thead><tbody><tr><td>Εξωτερικά Ιατρεία</td><td>€0,366</td><td>€0,097</td><td class="vn">+€0,269</td><td class="vn">+276,7%</td><td>€0,309</td></tr><tr><td>Γ.Ν. Λάρνακας</td><td>€0,210</td><td>€0,076</td><td class="vn">+€0,134</td><td class="vn">+175,0%</td><td>€0,108</td></tr><tr><td>Ψυχ. Υγείας</td><td>€0,123</td><td>€0,042</td><td class="vn">+€0,080</td><td class="vn">+189,4%</td><td>€0,120</td></tr><tr><td>Λοιπά</td><td>€0,728</td><td>€0,572</td><td class="vn">+€0,157</td><td class="vn">+27,4%</td><td>€0,655</td></tr><tr class="tr-total"><td>Σύνολο</td><td><b>€1,427</b></td><td>€0,788</td><td class="vn">+€0,640</td><td class="vn">+81,2%</td><td>€1,192</td></tr></tbody></table></div></div><div class="card"><div class="card-hd">Επιδόματα — Top-5 Είδη (vs Π/Υ) <span>€εκ.</span></div><div class="tw"><table><thead><tr><th>Είδος</th><th style="text-align:center">2026</th><th style="text-align:center">Π/Υ</th><th style="text-align:center">Απόκλ.</th><th style="text-align:center">%</th><th style="text-align:center">2025</th></tr></thead><tbody><tr><td>Επιφυλακή</td><td>€4,173</td><td>€3,650</td><td class="vn">+€0,523</td><td class="vn">+14,3%</td><td>€3,820</td></tr><tr><td>Κυριακή / Αργία</td><td>€1,534</td><td>€1,178</td><td class="vn">+€0,356</td><td class="vn">+30,2%</td><td>€1,347</td></tr><tr><td>Νυχτ. Βάρδια</td><td>€0,942</td><td>€0,734</td><td class="vn">+€0,208</td><td class="vn">+28,3%</td><td>€0,771</td></tr><tr><td>Κίνητρα Ειδ. Ιατρών</td><td>€3,173</td><td>€3,310</td><td class="vp">−€0,136</td><td class="vp">−4,1%</td><td>€2,910</td></tr><tr><td>Κίνητρο 15%</td><td>€0,822</td><td>€0,925</td><td class="vp">−€0,103</td><td class="vp">−11,1%</td><td>€0,841</td></tr><tr><td>Λοιπά</td><td>€0,779</td><td>€0,620</td><td class="vn">+€0,159</td><td class="vn">+25,6%</td><td>€0,897</td></tr><tr class="tr-total"><td>Σύνολο</td><td><b>€11,424</b></td><td>€10,418</td><td class="vn">+€1,006</td><td class="vn">+9,7%</td><td>€10,586</td></tr></tbody></table></div></div></div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy2);margin:18px 0 12px;padding:8px 14px;background:var(--ink-100);border-radius:8px;letter-spacing:.03em">ΜΕΡΟΣ Γ — Ωρομίσθιο Προσωπικό</div>
+  <div class="callout neg"><div class="ci">📊</div><div class="cb"><b>Top-5 αποκλίσεις vs Π/Υ:</b> Λευκωσία +€842χ (+14,3%) · Λάρνακα +€324χ (+13,6%) · Ασθενοφόρα +€283χ (+22,4%) · Λεμεσός +€269χ (+8,1%) · Ψυχικής Υγείας +€201χ (+26,0%). <span style="color:var(--muted)">Σύνολο +€2,46Μ (+11,8%).</span></div></div>
+
+  <div class="g2"><div class="card">
+    <div class="card-hd">Ωρομίσθιο Προσωπικό — Ανάλυση Απόκλισης Π/Υ <span>Ιαν–Μαΐ 2026 · Π/Υ €20,8Μ → Actual €23,3Μ (+€2,5Μ vs Π/Υ · YoY +2,5%)</span></div>
+    <div class="ch" style="height:310px"><canvas id="horaWaterfallChart"></canvas></div>
+    <p class="note">Βασικός Μισθός: αύξηση αριθμού ωρομισθίων (+12.2%). Υπερωριακή Αμοιβή: +58.3% — κύριος οδηγός απόκλισης. Εισφορές Εργοδότη: σχεδόν εντός Π/Υ (+1.4%). Επιδόματα Βαρδίας: ευνοϊκή απόκλιση (χαμηλότερη χρήση).</p>
+  </div><div class="card"><div class="card-hd">Ωρομίσθιο — Μηνιαία Εξέλιξη Κόστους &amp; Προσωπικού</div><div class="ch" style="height:300px"><canvas id="horaTrendChart"></canvas></div></div></div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy2);margin:18px 0 12px;padding:8px 14px;background:var(--ink-100);border-radius:8px;letter-spacing:.03em">ΜΕΡΟΣ Δ — Αποσπασμένο Προσωπικό</div>
+
+  <div class="g2"><div class="card">
+    <div class="card-hd">Αποσπασμένο Προσωπικό — Συνοπτική Εικόνα <span>€εκ.</span></div>
+    <div class="tw"><table>
+      <thead><tr><th>Κατηγορία</th><th style="text-align:center">YTD 2026</th><th style="text-align:center">Π/Υ</th><th style="text-align:center">Απόκλ.</th><th style="text-align:center">Απόκλ. %</th><th style="text-align:center">YTD 2025</th><th style="text-align:center">YoY</th><th style="text-align:center">YoY %</th></tr></thead>
+      <tbody>
+        <tr class="tr-ebitda"><td>Αποσπασμένο Προσωπικό</td><td style="text-align:center">€123,5</td><td style="text-align:center">€120,4</td><td class="vn" style="text-align:center">+€3,1</td><td class="vn" style="text-align:center">+2,6%</td><td style="text-align:center">€122,4</td><td class="vn" style="text-align:center">+€1,2</td><td class="vn" style="text-align:center">+0,9%</td></tr>
+      </tbody>
+    </table></div>
+    <div class="ch" style="height:200px;margin-top:12px"><canvas id="aposChart"></canvas></div>
+    <p class="note">Αποσπασμένο προσωπικό: κόστος βαρύνει κεντρικά τον ΟΚΥπΥ. YTD 2026 +€3,1Μ vs Π/Υ (+2,6%).</p>
+  </div><div class="card"><div class="card-hd">Αποσπασμένο — Μηνιαία Εξέλιξη Κόστους &amp; Προσωπικού</div><div class="ch" style="height:300px"><canvas id="aposTrendChart"></canvas></div></div></div>
+
+</div>
+
+<div id="sec-loipaexp" class="section">
+  <div class="sec-title">Λειτουργικά Έξοδα εκτός Μισθοδοσίας</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 | Λειτουργικά Έξοδα εκτός Μισθοδοσίας &amp; Αποσβέσεων</div>
+
+  <!-- ═══ PART 2: Non-Payroll OpEx ═══ -->
+    <div class="kpis k4" style="margin-bottom:16px">
+    <div class="kpi a"><div class="kl">Σύνολο Λειτ. Εξόδων</div><div class="kv">49,4Μ</div>
+      <div class="kb pos">vs Π/Υ −€0,2Μ (−0,4%)</div><div class="ks">Π/Υ €49,6Μ — under control</div></div>
+    <div class="kpi r"><div class="kl">Ανάλωση Προμηθειών</div><div class="kv">20,7Μ</div>
+      <div class="kb neg">vs Π/Υ +€0,1Μ (+0,4%)</div><div class="ks">Π/Υ €20,6Μ | 42,0% του OpEx</div></div>
+    <div class="kpi a"><div class="kl">Άλλες Λειτουργικές</div><div class="kv">8,2Μ</div>
+      <div class="kb neg">vs Π/Υ +€1,2Μ (+17,2%)</div><div class="ks">Π/Υ €7,0Μ ⚠️</div></div>
+    <div class="kpi g"><div class="kl">Συντηρήσεις</div><div class="kv">8,9Μ</div>
+      <div class="kb pos">vs Π/Υ −€0,7Μ (−7,6%)</div><div class="ks">Π/Υ €9,7Μ</div></div>
+  </div>
+
+  <div class="g2b">
+    <div class="card">
+      <div class="card-hd">Λειτουργικά Έξοδα — Σύνοψη <span>YTD vs Π/Υ (εκτός Μισθοδοσίας &amp; Αποσβέσεων)</span> <span>€εκ.</span></div>
+      <div class="tw"><table>
+        <thead><tr>
+          <th style="min-width:220px">Κατηγορία</th>
+          <th style="text-align:center">YTD 2026</th><th style="text-align:center">2025</th><th style="text-align:center">Π/Υ</th>
+          <th style="text-align:center">Απόκλ.</th><th style="text-align:center">Απόκλ. %</th><th style="text-align:center">% OpEx</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Ανάλωση Προμηθειών</td><td style="text-align:center">€20,7</td><td style="text-align:center">€20,6</td><td style="text-align:center">€20,6</td><td class="vn" style="text-align:center">+€0,1</td><td class="vn" style="text-align:center">+0,4%</td><td style="text-align:center">42,0%</td></tr>
+          <tr><td>Συντηρήσεις</td><td style="text-align:center">€8,9</td><td style="text-align:center">€6,9</td><td style="text-align:center">€9,7</td><td class="vp" style="text-align:center">−€0,7</td><td class="vp" style="text-align:center">−7,6%</td><td style="text-align:center">18,1%</td></tr>
+          <tr><td>Ηλεκτρισμός &amp; Ενέργεια</td><td style="text-align:center">€8,6</td><td style="text-align:center">€7,1</td><td style="text-align:center">€9,2</td><td class="vp" style="text-align:center">−€0,6</td><td class="vp" style="text-align:center">−6,2%</td><td style="text-align:center">17,4%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td colspan="7" style="padding:6px 8px;font-weight:700;font-size:11.5px;color:#AD1457">
+            ⚠️ Άλλες Λειτουργικές δαπάνες — Ανάλυση Υπερβάσεων (YTD vs Π/Υ)
+          </td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px">Τροφή Ασθενών &amp; Προσωπικού</td><td style="text-align:center">€1,8</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€0,7</td><td class="vn" style="text-align:center">+€1,0</td><td class="vn" style="text-align:center">+135,8%</td><td style="text-align:center">21,6%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px">Ασφάλεια / Φρούρηση Κτιρίων</td><td style="text-align:center">€1,6</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€1,4</td><td class="vn" style="text-align:center">+€0,2</td><td class="vn" style="text-align:center">+16,3%</td><td style="text-align:center">19,8%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px">Δικαιώματα Εμπειρογνωμόνων</td><td style="text-align:center">€0,5</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€0,2</td><td class="vn" style="text-align:center">+€0,3</td><td class="vn" style="text-align:center">+190,6%</td><td style="text-align:center">6,2%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px">Ενοίκια</td><td style="text-align:center">€0,5</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€0,5</td><td class="vn" style="text-align:center">+€0,1</td><td class="vn" style="text-align:center">+10,8%</td><td style="text-align:center">6,5%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px">Ασφάλιση Εργοδοτουμένων</td><td style="text-align:center">€0,6</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€0,5</td><td class="vn" style="text-align:center">+€0,1</td><td class="vn" style="text-align:center">+26,2%</td><td style="text-align:center">7,2%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px">Τέλη &amp; Τέλη Ύδατος</td><td style="text-align:center">€0,6</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€0,4</td><td class="vn" style="text-align:center">+€0,2</td><td class="vn" style="text-align:center">+41,8%</td><td style="text-align:center">7,1%</td></tr>
+          <tr style="background:rgba(192,57,43,.04)"><td style="padding-left:16px;font-style:italic;opacity:.8">Λοιπές υποκατηγορίες (35 κωδικοί)</td><td style="text-align:center">€2,6</td><td class="vz" style="text-align:center">—</td><td style="text-align:center">€3,3</td><td class="vp" style="text-align:center">−€0,7</td><td class="vp" style="text-align:center">−21,8%</td><td style="text-align:center">31,5%</td></tr>
+          <tr class="tr-total" style="background:rgba(192,57,43,.08)"><td><b>Σύνολο Άλλες Λειτουργικές ⚠️</b></td><td style="text-align:center">€8,2</td><td style="text-align:center">€7,0</td><td style="text-align:center">€7,0</td><td class="vn" style="text-align:center">+€1,2</td><td class="vn" style="text-align:center">+17,2%</td><td style="text-align:center">100%</td></tr>
+          <tr><td>Αγορά Υπηρεσιών</td><td style="text-align:center">€3,0</td><td style="text-align:center">€2,7</td><td style="text-align:center">€3,1</td><td class="vp" style="text-align:center">−€0,2</td><td class="vp" style="text-align:center">−5,1%</td><td style="text-align:center">6,0%</td></tr>
+          <tr class="tr-total"><td>ΣΥΝΟΛΟ Λειτουργικών Εξόδων</td><td style="text-align:center">€49,4</td><td style="text-align:center">€44,3</td><td style="text-align:center">€49,6</td><td class="vp" style="text-align:center">−€0,2</td><td class="vp" style="text-align:center">−0,4%</td><td style="text-align:center">100%</td></tr>
+          <tr style="opacity:.65;font-style:italic"><td>Φάρμακα Β Φάσης * (pass-through)</td><td style="text-align:center">€59,6</td><td style="text-align:center">€39,3</td><td style="text-align:center">€50,0</td><td class="vz" style="text-align:center">—</td><td class="vz" style="text-align:center">net €0</td><td style="text-align:center">—</td></tr>
+          <tr style="opacity:.65;font-style:italic"><td>Αποσβέσεις &amp; Προβλέψεις (εξαιρ.)</td><td style="text-align:center">€6,3</td><td style="text-align:center">€3,3</td><td style="text-align:center">€6,3</td><td class="vz" style="text-align:center">—</td><td class="vz" style="text-align:center">EBITDA εξαιρ.</td><td style="text-align:center">—</td></tr>
+        </tbody>
+      </table><div style="font-size:11px;color:var(--ink-500);margin-top:6px">Στήλη 2025: πραγματικά αποτελέσματα (Book33). Οι υποκατηγορίες «Άλλες Λειτουργικές» δεν αναλύονται για το 2025 (—).</div></div>
+      <p class="note">* Φάρμακα Β Φάσης: έξοδα ισοσκελίζονται πλήρως με αντίστοιχα έσοδα ΑΠΟΖ. — net impact €0.</p>
+    </div>
+    <div class="card">
+      <div class="card-hd">Λειτουργικά Έξοδα — Μηνιαία Τάση <span>Ιαν–Μαΐ 2026</span></div>
+      <div class="ch" style="height:300px"><canvas id="loipaExpChart"></canvas></div>
+      <div class="callout neg" style="margin-top:12px">
+        <div class="ci">⚠️</div>
+        <div class="cb"><b>Άλλες Λειτουργικές δαπάνες +17,2% vs Π/Υ:</b> Μοναδική κατηγορία που υπερβαίνει σημαντικά τον Π/Υ (+€1,2Μ). Απαιτεί ανάλυση σύνθεσης. Ηλεκτρισμός (−6,2%) και Συντηρήσεις (−7,6%) κάτω από Π/Υ.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="sec-hospitals" class="section">
+  <div class="sec-title">Αποτελέσματα ανά Νοσηλευτήριο</div>
+  <div class="sec-sub">Ιαν–Μαΐ 2026 | Special flow: Εξωτερικά Ιατρεία · Ψυχικής Υγείας · Κέντρα Υγείας | Κεντρικά Γραφεία (αυτόνομα)</div>
+
+
+  <div class="card">
+    <div class="card-hd">Λεπτομερής Πίνακας EBITDA</div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Νοσηλευτήριο</th>
+        <th style="text-align:center">Έσοδα 2026 (€Μ)</th><th style="text-align:center">Π/Υ Εσ. (€Μ)</th><th style="text-align:center">Var% Εσ.</th>
+        <th style="text-align:center">OpEx 2026 (€Μ)</th><th style="text-align:center">Π/Υ OpEx (€Μ)</th><th style="text-align:center">Var% OpEx</th>
+        <th style="text-align:center">EBITDA 2026 (€Μ)</th><th style="text-align:center">Π/Υ EBITDA (€Μ)</th><th style="text-align:center">EBITDA 2025 (€Μ)</th><th style="text-align:center">YoY (€Μ)</th>
+      </tr></thead>
+      <tbody id="hospTableBody"></tbody>
+    </table></div>
+    
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-hd">Έσοδα vs OpEx ανά Νοσηλευτήριο</div>
+      <div class="ch" style="height:380px"><canvas id="hospChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">Υλοποίηση Εσόδων vs Π/Υ (%)</div>
+      <div class="ch" style="height:380px"><canvas id="budgetChart"></canvas></div>
+    </div>
+  </div>
+
+
+  <div class="callout amb">
+    <div class="ci">🏛️</div>
+    <div class="cb"><b>Κεντρικά Γραφεία:</b> Έσοδα €2,2Μ | OpEx €6,7Μ | EBITDA <b>−€4,5Μ</b>. Π/Υ EBITDA: −€6,1Μ 2025 EBITDA: −€3,7Μ. Δεν κατανέμεται.</div>
+  </div>
+
+
+  <div class="sf-wrap">
+    <div class="sf-title">🔷 Special Reporting Flow — Εξωτερικά Ιατρεία · Ψυχικής Υγείας · Κέντρα Υγείας</div>
+    <div class="sf-grid" id="sfGrid"></div>
+  </div>
+
+
+  <div class="sf-wrap" style="margin-top:16px">
+    <div class="sf-title">📊 Κανονική Ροή — Λοιπά Νοσηλευτήρια</div>
+    <div class="sf-grid" id="stdGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+  </div>
+
+</div>
+
+</div>
+<div class="footer">ΟΚΥπΥ · EBITDA Basis · Ιανουάριος–Μάιος 2026 &nbsp;|&nbsp; Παρουσίαση Διοικητικού Συμβουλίου — ΓΟΔ &nbsp;|&nbsp; Εξαιρούνται Αποσβέσεις &amp; Προβλέψεις</div>
+
+<script>
+const D={
+  months:['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ'],
+  rev26:[44241891,42899427,45105999,40147906,46610836],
+  exp26:[47008860,48152505,48793236,48696298,50640570],
+  ebitda26:[-2766969,-5253078,-3687237,-8548392,-4029734],
+  rev25:[43873494,38382801,43864262,45638173,43708142],
+  exp25:[45406589,46531195,45636540,45305938,46677578],
+  ebitda25:[-1533095,-8148394,-1772278,332235,-2969436],
+
+  totRev26:219006059, totRevBud:224315119, totRev25:218340121,
+  totExp26:243291469, totExpBud:236815118, totExp25:232442149,
+  ebitda26Tot:-24285410, ebitdaBud:-12499999, ebitda25Tot:-14102028,
+  pharmaBudExp:50000000, pharmaBudRev:50000000,
+
+  plRevCats:[
+    {l:'Ενδονοσοκομεική Φρ. ΟΑΥ',  ytd:94911563,  bud:100416667, y25:97123136, g:'oay'},
+    {l:'Εξωνοσοκομειακή Φρ. ΟΑΥ',  ytd:10715732,  bud:12083333,  y25:10965018, g:'oay'},
+    {l:'Ημερήσιες Νοσηλείες ΟΑΥ',  ytd:11315931,  bud:11483414,  y25:11425517, g:'oay'},
+    {l:'ΤΑΕΠ ΟΑΥ',                  ytd:11032340,  bud:10120921,  y25:9922472,  g:'oay'},
+    {l:'ΥΓΟΣ ΟΑΥ',                  ytd:16165561,  bud:16165561,  y25:15848589, g:'oay'},
+    {l:'ΥΠΑΣ ΟΑΥ',                  ytd:7291949,   bud:7291949,   y25:7148970,  g:'oay'},
+    {l:'Εγγραφές ΟΑΥ',              ytd:3865657,   bud:3910996,   y25:3393594,  g:'oay'},
+    {l:'Δημόσια Υγεία / Αρχές',     ytd:52651722,  bud:48227310,  y25:48129870, g:'other'},
+    {l:'Άλλα έσοδα',                ytd:11055604,  bud:14614968,  y25:14382956, g:'other'},
+  ],
+  plExpCats:[
+    {l:'Αποσπασμένο Προσωπικό',     ytd:123520104, bud:120399263, y25:122369536},
+    {l:'Σύμβαση ΟΚΥπΥ',             ytd:47105702,  bud:46028509,  y25:43067321},
+    {l:'Ωρομίσθιο Προσωπικό',       ytd:23289094,  bud:20833333,  y25:22711263},
+    {l:'Ανάλωση Προμηθειών',        ytd:20709823,  bud:20625000,  y25:20625000},
+    {l:'Συντηρήσεις',               ytd:8942463,   bud:9679013,   y25:6913009},
+    {l:'Ηλεκτρισμός',               ytd:8601726,   bud:9166667,   y25:7057715},
+    {l:'Άλλες Λειτουργικές',        ytd:8157333,   bud:6958333,   y25:6964175},
+    {l:'Αγορά Υπηρεσιών',           ytd:2965223,   bud:3125000,   y25:2734130},
+  ],
+
+      hosps:[
+    {n:'Γ.Ν. Λευκωσίας',    r:74538357, rb:76349452, e:73649602, eb:70895000, n25:2161000,  rp:97.6,  rnoph:74538357, ph:0, central:false,d:1572000},
+    {n:'Γ.Ν. Λεμεσού',    r:31335833, rb:33407103, e:41256582, eb:40415000, n25:-5655000,  rp:93.8,  rnoph:31335833, ph:0, central:false,d:833333},
+    {n:'Γ.Ν. Λάρνακας',    r:20566984, rb:22089041, e:25023875, eb:24628000, n25:-3256000,  rp:93.1,  rnoph:20566984, ph:0, central:false,d:585417},
+    {n:'Μακάρειο Νοσ.',    r:21322443, rb:21618541, e:22995260, eb:22143000, n25:330000,  rp:98.6,  rnoph:21322443, ph:0, central:false,d:341667},
+    {n:'Γ.Ν. Πάφου',    r:13670612, rb:15089671, e:17784179, eb:17365000, n25:-3095000,  rp:90.6,  rnoph:13670612, ph:0, central:false,d:541667},
+    {n:'Γ.Ν. Αμμοχώστου',    r:9467668, rb:11610264, e:14421271, eb:13596000, n25:-3751000,  rp:81.5,  rnoph:9467668, ph:0, central:false,d:333333},
+    {n:'Νοσ. Τροόδους',    r:5092242, rb:5228513, e:3678784, eb:3845000, n25:696000,  rp:97.4,  rnoph:5092242, ph:0, central:false,d:112500},
+    {n:'Νοσ. Πόλεως Χρυσοχούς',    r:2262716, rb:2604588, e:1983892, eb:1883000, n25:495000,  rp:86.9,  rnoph:2262716, ph:0, central:false,d:25000},
+    {n:'Κεντρικά Γραφεία',    r:2193464, rb:1592775, e:6716897, eb:7730000, n25:-3663000,  rp:137.7,  rnoph:2193464, ph:0, central:true,d:791667},
+    {n:'Εξωτερικά Ιατρεία', r:11016564, rb:7733271, e:9650887, eb:8464000, n25:587000,   rp:142.5,  rnoph:7334315, ph:0, central:false,d:834167,special:true,opdef:-2316572,net_before:-3150739,ph_clear:3150739,ph_oh:531510},
+    {n:'Κέντρα Υγείας', r:8542162, rb:7854000, e:7948069, eb:7945000, n25:293000,   rp:108.8,  rnoph:5640803, ph:0, central:false,d:62583,special:true,opdef:-2310278,net_before:-2372861,ph_clear:2372861,ph_oh:531510},
+    {n:'Ψυχικής Υγείας', r:18997013, rb:19138000, e:18182170, eb:17907000, n25:767000,   rp:99.3,  rnoph:5166202, ph:0, central:false,d:283333,special:true,opdef:-13015968,net_before:-13299301,ph_clear:13299301,ph_oh:531510}
+  ],
+
+  oayYTD:[94911563,10715732,11315931,11032340,3865657],
+  oayBud:[100416667,12083333,11483414,10120921,3910996],
+  oayL:['Ενδονοσ.','Εξωνοσ.','Ημερήσιες','ΤΑΕΠ','Εγγραφές'],
+  inpH:['Γ.Ν. Λευκωσίας','Γ.Ν. Λεμεσού','Μακάρειο Νοσ.','Γ.Ν. Λάρνακας','Γ.Ν. Πάφου','Γ.Ν. Αμμοχώστου','Ψυχ. Υγείας','Νοσ. Τροόδους','Νοσ. Πόλεως Χρυσοχούς'],
+  inpYTD:[44111937,17467306,10766011,9602734,5839324,4557985,1525680,787885,252702],
+  inpBud:[45416667,19250000,11083333,9833333,6695833,5020833,1841667,920833,354167],
+
+  payCL:['Βασ. Μισθός','Επιδόματα','Εισφ. Εργοδ.','ΑΤΑ','13ος Μισθός','Υπερωρίες','Κάθ. Κίνητρο','Κατ\'Αποκ.'],
+  payCYTD:[20644230,11423677,6562251,2606058,2462307,1427293,1050000,929888],
+  payCBud:[21731045,10417745,6972914,3358290,1810920,787565,335127,614904],
+  // Loipa Revenue & Expenses
+  loipaRevH:['Γ.Ν. Λευκωσίας','Κεντρικά Γραφεία','Γ.Ν. Λεμεσού','Γ.Ν. Πάφου','Μακάρειο Νοσ.','Γ.Ν. Λάρνακας','Γ.Ν. Αμμοχώστου','Ψυχ. Υγείας','Νοσ. Τροόδους','Κ. Υγείας','Νοσ. Πόλεως Χρυσοχούς','Εξωτερικά Ιατρεία'],
+  loipaRevYTD:[3136038,2193464,2173100,1146016,869398,754223,396101,139781,66271,109753,29092,42366],
+  loipaExpL:['Ανάλωση Προμ.','Συντηρήσεις','Ηλεκτρισμός','Άλλες Λειτ.','Αγορά Υπηρ.'],
+  loipaExpYTD:[20709823,8942463,8601726,8157333,2965223],
+  loipaExpBud:[20625000,9679013,9166667,6958333,3125000],
+  loipaExpMonths:[
+    [3896398,3806390,3873751,5124409,4008872],
+    [1415196,2063111,2039052,1649184,1775917],
+    [1647039,1666590,1803070,1830179,1654845],
+    [1481136,1491889,1417192,1516476,2250638],
+    [476666,588865,642563,442493,814633]
+  ],
+};
+
+const fM=v=>{const s=v<0?'−':'';const a=Math.abs(v);return a>=1e6?s+'€'+(a/1e6).toFixed(1)+'Μ':s+'€'+Math.round(a).toLocaleString('el');};
+const fN=v=>{const s=v<0?'−€':'€';return s+Math.abs(Math.round(v)).toLocaleString('el-GR');};
+const pc=(a,b)=>b!==0?((a-b)/Math.abs(b)*100).toFixed(1):'—';
+const vc=v=>parseFloat(v)>0?'vp':parseFloat(v)<0?'vn':'vz';
+const vce=v=>parseFloat(v)>0?'vn':parseFloat(v)<0?'vp':'vz';
+const gl={color:'rgba(180,195,210,.18)'};const ts={color:'#6B7884',font:{size:11}};
+
+function show(id,btn){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('sec-'+id).classList.add('active');btn.classList.add('active');Object.values(window._charts||{}).forEach(c=>{try{c.resize();}catch(e){}});}
+setTimeout(()=>{document.getElementById('bar-rev').style.width='97.8%';document.getElementById('bar-exp').style.width='100%';document.getElementById('bar-pay').style.width='100%';},350);
+
+function buildPL(){
+  const fM=v=>'€'+(v/1e6).toFixed(1).replace('.',',');
+  const fS=v=>{const s=v<0?'−':v>0?'+':'';return s+'€'+Math.abs(v/1e6).toFixed(1).replace('.',',');};
+  const PP=(a,b)=>{if(b===0)return'—';const v=(a-b)/Math.abs(b)*100;return (v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1).replace('.',',')+'%';};
+  const ca='style="text-align:center"';
+  const revRow=r=>{const vb=r.ytd-r.bud,vy=r.ytd-r.y25;
+    return `<tr><td>${r.l}</td><td ${ca}>${fM(r.ytd)}</td><td ${ca}>${fM(r.bud)}</td><td ${ca} class="${vc(vb)}">${fS(vb)}</td><td ${ca} class="${vc(vb)}">${PP(r.ytd,r.bud)}</td><td ${ca}>${fM(r.y25)}</td><td ${ca} class="${vc(vy)}">${fS(vy)}</td><td ${ca} class="${vc(vy)}">${PP(r.ytd,r.y25)}</td></tr>`;};
+  let h='<tr class="tr-head"><td colspan="8">ΕΣΟΔΑ (net, ex Φάση Β Φαρμάκων *)</td></tr>';
+  const oay=D.plRevCats.filter(r=>r.g==='oay'), oth=D.plRevCats.filter(r=>r.g!=='oay');
+  oay.forEach(r=>h+=revRow(r));
+  {const sY=oay.reduce((a,r)=>a+r.ytd,0),sB=oay.reduce((a,r)=>a+r.bud,0),s5=oay.reduce((a,r)=>a+r.y25,0),vb=sY-sB,vy=sY-s5;
+   h+=`<tr style="font-weight:600;background:#eef2f6"><td>Σύνολο ΟΑΥ</td><td ${ca}>${fM(sY)}</td><td ${ca}>${fM(sB)}</td><td ${ca} class="${vc(vb)}">${fS(vb)}</td><td ${ca} class="${vc(vb)}">${PP(sY,sB)}</td><td ${ca}>${fM(s5)}</td><td ${ca} class="${vc(vy)}">${fS(vy)}</td><td ${ca} class="${vc(vy)}">${PP(sY,s5)}</td></tr>`;}
+  oth.forEach(r=>h+=revRow(r));
+  h+=`<tr style="opacity:.72;font-style:italic"><td>Φάση Β Φαρμάκων * — Έσοδα (pass-through)</td><td ${ca}>€59,6Μ</td><td ${ca}>${fM(D.pharmaBudRev)}</td><td ${ca} class="vz">—</td><td ${ca} class="vz">net €0</td><td ${ca}>€39,3Μ</td><td ${ca} class="vz">—</td><td ${ca} class="vz">—</td></tr>`;
+  {const vb2=D.totRev26-D.totRevBud,vy2=D.totRev26-D.totRev25;
+  h+=`<tr class="tr-total"><td>ΣΥΝΟΛΟ ΕΣΟΔΩΝ (net)</td><td ${ca}>${fM(D.totRev26)}</td><td ${ca}>${fM(D.totRevBud)}</td><td ${ca} class="${vc(vb2)}">${fS(vb2)}</td><td ${ca} class="${vc(vb2)}">${PP(D.totRev26,D.totRevBud)}</td><td ${ca}>${fM(D.totRev25)}</td><td ${ca} class="${vc(vy2)}">${fS(vy2)}</td><td ${ca} class="${vc(vy2)}">${PP(D.totRev26,D.totRev25)}</td></tr>`;}
+  h+='<tr class="tr-head"><td colspan="8">OPEX EBITDA BASIS (ex Αποσβ. ** & Φάση Β *)</td></tr>';
+  D.plExpCats.forEach(r=>{const vb=r.ytd-r.bud,vy=r.ytd-r.y25;
+    h+=`<tr><td>${r.l}</td><td ${ca}>${fM(r.ytd)}</td><td ${ca}>${fM(r.bud)}</td><td ${ca} class="${vce(vb)}">${fS(vb)}</td><td ${ca} class="${vce(vb)}">${PP(r.ytd,r.bud)}</td><td ${ca}>${fM(r.y25)}</td><td ${ca} class="vn">${fS(vy)}</td><td ${ca} class="vn">${PP(r.ytd,r.y25)}</td></tr>`;if(r.l==='Ωρομίσθιο Προσωπικό'){const _p=D.plExpCats.slice(0,3),_sy=_p.reduce((a,x)=>a+x.ytd,0),_sb=_p.reduce((a,x)=>a+x.bud,0),_s5=_p.reduce((a,x)=>a+x.y25,0),_vb=_sy-_sb,_vy=_sy-_s5,cb='style="text-align:center;background:#eef2f6"';h+=`<tr style="font-weight:600"><td style="background:#eef2f6">Σύνολο Κόστους Προσωπικού</td><td ${cb}>${fM(_sy)}</td><td ${cb}>${fM(_sb)}</td><td ${cb} class="${vce(_vb)}">${fS(_vb)}</td><td ${cb} class="${vce(_vb)}">${PP(_sy,_sb)}</td><td ${cb}>${fM(_s5)}</td><td ${cb} class="vn">${fS(_vy)}</td><td ${cb} class="vn">${PP(_sy,_s5)}</td></tr>`;}});
+  h+=`<tr style="opacity:.72;font-style:italic"><td>Φάση Β Φαρμάκων * — Έξοδα (pass-through)</td><td ${ca}>€59,6Μ</td><td ${ca}>${fM(D.pharmaBudExp)}</td><td ${ca} class="vz">—</td><td ${ca} class="vz">net €0</td><td ${ca}>€39,3Μ</td><td ${ca} class="vz">—</td><td ${ca} class="vz">—</td></tr>`;
+  h+=`<tr style="opacity:.72;font-style:italic"><td>Αποσβέσεις & Προβλέψεις ** (εξαιρούνται)</td><td ${ca}>€6,3Μ</td><td ${ca}>€6,3Μ</td><td ${ca} class="vz">—</td><td ${ca} class="vz">EBITDA εξαιρ.</td><td ${ca}>€3,3Μ</td><td ${ca} class="vz">—</td><td ${ca} class="vz">—</td></tr>`;
+  h+=`<tr class="tr-total"><td>ΣΥΝΟΛΟ OPEX (EBITDA)</td><td ${ca}>${fM(D.totExp26)}</td><td ${ca}>${fM(D.totExpBud)}</td><td ${ca} class="vn">${fS(D.totExp26-D.totExpBud)}</td><td ${ca} class="vn">+2,7%</td><td ${ca}>${fM(D.totExp25)}</td><td ${ca} class="vn">${fS(D.totExp26-D.totExp25)}</td><td ${ca} class="vn">+6,0%</td></tr>`;
+  h+=`<tr class="tr-ebitda"><td>EBITDA</td><td ${ca} class="vn" style="font-size:13px">${fM(D.ebitda26Tot)}</td><td ${ca} class="vn">${fM(D.ebitdaBud)}</td><td ${ca} class="vn">${fS(D.ebitda26Tot-D.ebitdaBud)}</td><td ${ca} class="vn">−94,3%</td><td ${ca} class="vn">${fM(D.ebitda25Tot)}</td><td ${ca} class="vn">${fS(D.ebitda26Tot-D.ebitda25Tot)}</td><td ${ca} class="vn">−69,1%</td></tr>`;
+  document.getElementById('plBody').innerHTML=h;
+}
+
+function buildHospTable(){
+  const fM=v=>{const s=v<0?'−':v>0?'+':'';return s+'€'+Math.abs(v/1e6).toFixed(1).replace('.',',');};
+  const fMv=v=>'€'+(v/1e6).toFixed(1).replace('.',',');
+  const ca='style="text-align:center"';
+  let h='';
+  D.hosps.forEach(d=>{
+    const n26=d.r-d.e,nb=d.rb-d.eb,rv=((d.r-d.rb)/Math.abs(d.rb)*100).toFixed(1),ev=((d.e-d.eb)/Math.abs(d.eb)*100).toFixed(1);
+    h+=`<tr${d.central?' class="tr-central"':''}><td>${d.n}${d.central?' 🏛️':''}</td>
+    <td ${ca}>${fMv(d.r)}</td><td ${ca}>${fMv(d.rb)}</td><td ${ca} class="${vc(rv)}">${rv>0?'+':''}${rv}%</td>
+    <td ${ca}>${fMv(d.e)}</td><td ${ca}>${fMv(d.eb)}</td><td ${ca} class="${vce(ev)}">${ev>0?'+':''}${ev}%</td>
+    <td ${ca} class="${n26>=0?'vp':'vn'}">${fM(n26)}</td><td ${ca} class="${nb>=0?'vp':'vn'}">${fM(nb)}</td>
+    <td ${ca} class="${d.n25>=0?'vp':'vn'}">${fM(d.n25)}</td>
+    <td ${ca} class="${(n26-d.n25)>=0?'vp':'vn'}">${fM(n26-d.n25)}</td></tr>`;
+  });
+  const tR=D.hosps.reduce((s,h)=>s+h.r,0),tE=D.hosps.reduce((s,h)=>s+h.e,0);
+  const tRb=D.hosps.reduce((s,h)=>s+(h.rb||0),0),tEb=D.hosps.reduce((s,h)=>s+(h.eb||0),0);
+  h+=`<tr class="tr-ebitda"><td>ΣΥΝΟΛΟ</td><td ${ca}>${fMv(tR)}</td><td ${ca}>${fMv(tRb)}</td><td ${ca}>—</td><td ${ca}>${fMv(tE)}</td><td ${ca}>${fMv(tEb)}</td><td ${ca}>—</td><td ${ca} class="vn">${fM(tR-tE)}</td><td ${ca} class="vn">${fM(D.ebitdaBud)}</td><td ${ca} class="vn">${fM(D.ebitda25Tot)}</td><td ${ca} class="vn">${fM((tR-tE)-D.ebitda25Tot)}</td></tr>`;
+  document.getElementById('hospTableBody').innerHTML=h;
+}
+
+
+function renderSF(){
+  var spec=D.hosps.filter(function(h){return h.special;});
+  function fmtVal(v,cls){
+    var sign=v<0?'−':v>0?'+':'';
+    var mVal=(Math.abs(v)/1e6).toFixed(1).replace('.',',');
+    return '<span class="sf-val '+(cls||'')+'">'+sign+'&euro;'+mVal+'Μ</span>';
+  }
+  var g='';
+  spec.forEach(function(h){
+    var phcl=h.ph_clear, phoh=h.ph_oh, dp=h.d, nb=h.net_before, od=h.opdef;
+    g+='<div class="sf-card">';
+    g+='<div class="sf-name spec">&#x1F537; '+h.n+' <span style="font-size:10px;opacity:.7">* excl. Public Health</span></div>';
+    g+='<div class="sf-row"><span class="sf-lbl">Έσοδα (εξαιρ. Δημόσιας Υγείας)</span>'+fmtVal(h.rnoph,'neu')+'</div>';
+    g+='<div class="sf-row"><span class="sf-lbl">Σύνολο Λειτουργικών Εξόδων</span>'+fmtVal(-h.e,'neg')+'</div>';
+    g+='<div class="sf-row sub"><span class="sf-lbl">EBITDA προ Δημόσιας Υγείας</span>'+fmtVal(od,'neg')+'</div>';
+    g+='<div class="sf-row sub"><span class="sf-lbl">Depreciation &amp; Provisions</span>'+fmtVal(-dp,'neu')+'</div>';
+    g+='<div class="sf-row sub"><span class="sf-lbl">Καθαρή Ζημία προ Δημόσιας Υγείας</span>'+fmtVal(nb,'neg')+'</div>';
+    g+='<div class="sf-row ph"><span class="sf-lbl">Public Health &mdash; Hospital Net Loss Clearing</span>'+fmtVal(phcl,'pos')+'</div>';
+    g+='<div class="sf-row ph-oh"><span class="sf-lbl">Public Health &mdash; 10% Κεντρικά Γραφεία Overheads</span>'+fmtVal(phoh,'pos')+'</div>';
+    g+='<div class="sf-row total"><span class="sf-lbl">Τελικό Καθαρό Αποτέλεσμα</span><span class="sf-val neu">&euro;0</span></div>';
+    g+='</div>';
+  });
+  document.getElementById('sfGrid').innerHTML=g;
+}
+
+function renderStd(){
+  var std=D.hosps.filter(function(h){return !h.special&&!h.central;});
+  function fmtVal(v,cls){
+    var sign=v<0?'−':v>0?'+':'';
+    var mVal=(Math.abs(v)/1e6).toFixed(1).replace('.',',');
+    return '<span class="sf-val '+(cls||'')+'">'+sign+'&euro;'+mVal+'Μ</span>';
+  }
+  function fmtEbitda(v){return v>=0?fmtVal(v,'pos'):fmtVal(v,'neg');}
+  var g='';
+  std.forEach(function(h){
+    var ebitda=h.r-h.e, net=ebitda-h.d;
+    g+='<div class="sf-card">';
+    g+='<div class="sf-name">&#x1F3E5; '+h.n+'</div>';
+    g+='<div class="sf-row"><span class="sf-lbl">Σύνολο Εσόδων</span>'+fmtVal(h.r,'neu')+'</div>';
+    g+='<div class="sf-row"><span class="sf-lbl">Σύνολο Λειτουργικών Εξόδων</span>'+fmtVal(-h.e,'neg')+'</div>';
+    g+='<div class="sf-row std-total"><span class="sf-lbl">EBITDA</span>'+fmtEbitda(ebitda)+'</div>';
+    g+='<div class="sf-row sub"><span class="sf-lbl">Depreciation &amp; Provisions</span>'+fmtVal(-h.d,'neu')+'</div>';
+    g+='<div class="sf-row net"><span class="sf-lbl">Καθαρό Αποτέλεσμα</span>'+fmtEbitda(net)+'</div>';
+    g+='</div>';
+  });
+  document.getElementById('stdGrid').innerHTML=g;
+}
+
+window.addEventListener('load',()=>{
+  buildPL();buildHospTable();renderSF();renderStd();
+  const bO=(mn)=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}},tooltip:{callbacks:{label:c=>' '+fM(c.raw)}}},scales:{x:{grid:gl,ticks:ts},y:{grid:gl,ticks:{...ts,callback:v=>fM(v)},min:mn}}});
+  const lO=()=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}},tooltip:{callbacks:{label:c=>' '+fM(c.raw)}}},scales:{x:{grid:gl,ticks:ts},y:{grid:gl,ticks:{...ts,callback:v=>fM(v)}}}});
+
+
+  new Chart(document.getElementById('hospChart'),{type:'bar',data:{labels:D.hosps.map(h=>h.n),datasets:[
+    {label:'Έσοδα',data:D.hosps.map(h=>h.r),backgroundColor:'#2176AE',borderRadius:3},
+    {label:'OpEx',data:D.hosps.map(h=>h.e),backgroundColor:'#C46388',borderRadius:3},
+  ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}},tooltip:{callbacks:{label:c=>' '+fM(c.raw)}}},scales:{x:{grid:gl,ticks:{...ts,callback:v=>fM(v)}},y:{grid:{display:false},ticks:{color:'#2F3C4A',font:{size:11}}}}}});
+  new Chart(document.getElementById('budgetChart'),{type:'bar',data:{labels:D.hosps.map(h=>h.n),datasets:[
+    {label:'%',data:D.hosps.map(h=>h.rp),backgroundColor:D.hosps.map(h=>h.rp>=100?'rgba(59,122,53,.75)':h.rp>=90?'rgba(176,125,17,.75)':'rgba(192,57,43,.75)'),borderRadius:3},
+    {type:'line',label:'100%',data:D.hosps.map(()=>100),borderColor:'#0B3D6B',borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false},
+  ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>typeof c.raw==='number'?c.raw.toFixed(1)+'%':''}}},scales:{x:{grid:gl,ticks:{...ts,callback:v=>v+'%'},min:55,max:160},y:{grid:{display:false},ticks:{color:'#2F3C4A',font:{size:11}}}}}});
+  
+  // Λοιπά Έσοδα charts
+  (window._charts=window._charts||{})["loipaRevHospChart"]=new Chart(document.getElementById('loipaRevHospChart'),{type:'bar',data:{labels:D.loipaRevH,datasets:[
+    {label:'YTD Άλλα Έσοδα',data:D.loipaRevYTD,backgroundColor:'#2176AE',borderRadius:3},
+  ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fM(c.raw)}}},scales:{x:{grid:gl,ticks:{...ts,callback:v=>fM(v)}},y:{grid:{display:false},ticks:{color:'#2F3C4A',font:{size:10}}}}}});
+  (window._charts=window._charts||{})["loipaExpChart"]=new Chart(document.getElementById('loipaExpChart'),{type:'bar',data:{labels:D.months,datasets:[
+    {label:'Ανάλωση Προμ.',data:D.loipaExpMonths[0],backgroundColor:'#0B3D6B',borderRadius:3,stack:'s'},
+    {label:'Συντηρήσεις',  data:D.loipaExpMonths[1],backgroundColor:'#0072BC',borderRadius:3,stack:'s'},
+    {label:'Ηλεκτρισμός',  data:D.loipaExpMonths[2],backgroundColor:'#3B8FD4',borderRadius:3,stack:'s'},
+    {label:'Άλλες Λειτ.',  data:D.loipaExpMonths[3],backgroundColor:'#C46388',borderRadius:3,stack:'s'},
+    {label:'Αγορά Υπηρ.', data:D.loipaExpMonths[4],backgroundColor:'#8B97A2',borderRadius:3,stack:'s'},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fM(c.raw)}}},scales:{x:{grid:gl,ticks:ts,stacked:true},y:{grid:gl,ticks:{...ts,callback:v=>fM(v)},stacked:true}}}});
+
+  // Waterfall chart — EBITDA bridge
+  (function(){
+    var bud=-12.5, act=-24.285;
+    // [label, value, type] type: 'start'|'pos'|'neg'|'end'
+    var steps=[
+      ['Π/Υ EBITDA',        -12.500, 'start'],
+      ['Ενδονοσ. ΟΑΥ',      -5.505,  'neg'],
+      ['Δημ. Υγεία/Αρχές',  +4.424,  'pos'],
+      ['Εξωνοσ. & Ημερ.',   -1.535,  'neg'],
+      ['ΤΑΕΠ & Εγγραφές',   +0.866,  'pos'],
+      ['Άλλα Έσοδα',        -3.559,  'neg'],
+      ['Αποσπ. Προσωπικό',  -3.121,  'neg'],
+      ['Ωρομίσθιο Προσ.',   -2.456,  'neg'],
+      ['Σύμβαση ΟΚΥπΥ',     -1.077,  'neg'],
+      ['Άλλες Λειτ.',       -1.199,  'neg'],
+      ['Λοιπά Λειτ. Εξ.',   +1.376,  'pos'],
+      ['Πραγμ. EBITDA',     -24.285, 'end'],
+    ];
+    var labels=steps.map(function(s){return s[0];});
+    var running=0;
+    var floatBars=[], colors=[], borders=[];
+    var C={start:'#0B3D6B', pos:'#0059A0', neg:'#C46388', end:'#880E4F'};
+    steps.forEach(function(s){
+      var lbl=s[0], val=s[1], type=s[2];
+      if(type==='start'){
+        floatBars.push([0, val]); running=val;
+      } else if(type==='end'){
+        floatBars.push([0, val]);
+      } else {
+        var from=running, to=running+val;
+        floatBars.push([from, to]); running=to;
+      }
+      colors.push(C[type]);
+      borders.push(C[type]);
+    });
+
+  })();
+  // ΜΕΡΟΣ Β — Σύμβαση ΟΚΥπΥ trend (Jan25–May26, 10 months)
+  new Chart(document.getElementById('symvTrendChart'),{type:'line',data:{
+    labels:['Ιαν 25','Φεβ 25','Μαρ 25','Απρ 25','Μαΐ 25','Ιαν 26','Φεβ 26','Μαρ 26','Απρ 26','Μαΐ 26'],
+    datasets:[
+      {label:'Κόστος 2025',yAxisID:'yCost',
+       data:[8447834,8712644,8691006,8356374,8859463,null,null,null,null,null],
+       borderColor:'#0072BC',backgroundColor:'rgba(0,114,188,.08)',
+       borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:false},
+      {label:'Κόστος 2026',yAxisID:'yCost',
+       data:[null,null,null,null,null,9257423,9443452,9583875,9303148,9517804],
+       borderColor:'#0B3D6B',backgroundColor:'rgba(11,61,107,.08)',
+       borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:false},
+      {label:'Εργαζόμενοι',yAxisID:'yHead',type:'line',
+       data:[1530,1546,1553,1565,1570,1634,1636,1649,1658,1665],
+       borderColor:'#C46388',backgroundColor:'transparent',
+       borderWidth:2,pointRadius:4,pointStyle:'rect',
+       borderDash:[5,3],fill:false,tension:.3},
+    ]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:true,position:'bottom',labels:{font:{size:10.5},boxWidth:11,
+        filter:function(item){return item.text!=='Κόστος 2026';}}},
+      tooltip:{callbacks:{label:function(c){
+        if(c.dataset.yAxisID==='yHead') return 'Εργαζόμενοι: '+c.raw;
+        return c.dataset.label+': '+fM(c.raw);
+      }}}
+    },
+    scales:{
+      x:{grid:gl,ticks:{...ts,color:function(c){return c.index<5?'#0072BC':'#0B3D6B';}}},
+      yCost:{position:'left',grid:gl,ticks:{...ts,callback:v=>fM(v)},min:7000000,
+        title:{display:true,text:'Κόστος (€)',font:{size:10},color:'#6B7280'}},
+      yHead:{position:'right',grid:{display:false},
+        ticks:{color:'#C46388',font:{size:10},callback:v=>v},
+        min:1450,max:1750,
+        title:{display:true,text:'Αριθμός Εργαζομένων',font:{size:10},color:'#C46388'}}
+    }
+  }});
+  // ΜΕΡΟΣ Δ — Αποσπασμένο monthly bar
+  new Chart(document.getElementById('aposChart'),{type:'bar',data:{
+    labels:D.months,
+    datasets:[
+      {label:'Αποσπ. 2026',data:[24292980,24637562,25082275,24201390,25305897],backgroundColor:'#0B3D6B',borderRadius:4},
+      {label:'Αποσπ. 2025',data:[24473907,24667110,24701310,24163697,24363512],backgroundColor:'rgba(11,61,107,.3)',borderRadius:4},
+    ]
+  },options:{...bO(22000000),responsive:true,maintainAspectRatio:false}});
+  // Trend charts (Ωρομίσθιο / Αποσπασμένο)
+  (window._charts=window._charts||{})["horaTrendChart"]=new Chart(document.getElementById('horaTrendChart'),{type:'line',data:{
+    labels:['Ιαν 25','Φεβ 25','Μαρ 25','Απρ 25','Μαΐ 25','Ιαν 26','Φεβ 26','Μαρ 26','Απρ 26','Μαΐ 26'],
+    datasets:[
+      {label:'Κόστος 2025',yAxisID:'yCost',data:[4599504,4467153,4328493,4568345,4747769,null,null,null,null,null],
+       borderColor:'#0072BC',backgroundColor:'rgba(0,114,188,.08)',borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:false},
+      {label:'Κόστος 2026',yAxisID:'yCost',data:[null,null,null,null,null,4712878,4625988,4557348,4629015,4763864],
+       borderColor:'#0B3D6B',backgroundColor:'rgba(11,61,107,.08)',borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:false},
+      {label:'Εργαζόμενοι',yAxisID:'yHead',type:'line',data:[1787,1794,1795,1794,1803,1852,1858,1866,1865,1863],
+       borderColor:'#C46388',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointStyle:'rect',borderDash:[5,3],fill:false,tension:.3},
+    ]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10.5},boxWidth:11,filter:function(it){return it.text!=='Κόστος 2026';}}},
+      tooltip:{callbacks:{label:function(c){if(c.dataset.yAxisID==='yHead') return 'Εργαζόμενοι: '+c.raw; return c.dataset.label+': '+fM(c.raw);}}}},
+    scales:{
+      x:{grid:gl,ticks:{...ts,color:function(c){return c.index<5?'#0072BC':'#0B3D6B';}}},
+      yCost:{position:'left',grid:gl,ticks:{...ts,callback:v=>fM(v)},min:4000000,title:{display:true,text:'Κόστος (€)',font:{size:10},color:'#6B7280'}},
+      yHead:{position:'right',grid:{display:false},ticks:{color:'#C46388',font:{size:10},callback:v=>v},min:1700,max:1950,title:{display:true,text:'Αριθμός Εργαζομένων',font:{size:10},color:'#C46388'}}
+    }
+  }});
+
+  (window._charts=window._charts||{})["aposTrendChart"]=new Chart(document.getElementById('aposTrendChart'),{type:'line',data:{
+    labels:['Ιαν 25','Φεβ 25','Μαρ 25','Απρ 25','Μαΐ 25','Ιαν 26','Φεβ 26','Μαρ 26','Απρ 26','Μαΐ 26'],
+    datasets:[
+      {label:'Κόστος 2025',yAxisID:'yCost',data:[24473907,24667110,24701310,24163697,24363512,null,null,null,null,null],
+       borderColor:'#0072BC',backgroundColor:'rgba(0,114,188,.08)',borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:false},
+      {label:'Κόστος 2026',yAxisID:'yCost',data:[null,null,null,null,null,24292980,24637562,25082275,24201390,25305897],
+       borderColor:'#0B3D6B',backgroundColor:'rgba(11,61,107,.08)',borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:false},
+      {label:'Εργαζόμενοι',yAxisID:'yHead',type:'line',data:[4029,4030,4010,3986,3980,3873,3861,3865,3853,3847],
+       borderColor:'#C46388',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointStyle:'rect',borderDash:[5,3],fill:false,tension:.3},
+    ]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10.5},boxWidth:11,filter:function(it){return it.text!=='Κόστος 2026';}}},
+      tooltip:{callbacks:{label:function(c){if(c.dataset.yAxisID==='yHead') return 'Εργαζόμενοι: '+c.raw; return c.dataset.label+': '+fM(c.raw);}}}},
+    scales:{
+      x:{grid:gl,ticks:{...ts,color:function(c){return c.index<5?'#0072BC':'#0B3D6B';}}},
+      yCost:{position:'left',grid:gl,ticks:{...ts,callback:v=>fM(v)},min:23500000,title:{display:true,text:'Κόστος (€)',font:{size:10},color:'#6B7280'}},
+      yHead:{position:'right',grid:{display:false},ticks:{color:'#C46388',font:{size:10},callback:v=>v},min:3700,max:4150,title:{display:true,text:'Αριθμός Εργαζομένων',font:{size:10},color:'#C46388'}}
+    }
+  }});
+
+  // ΜΕΡΟΣ Γ — Ωρομίσθιο grouped bar by category
+  new Chart(document.getElementById('horaWaterfallChart'),{
+    type:'bar',
+    data:{
+      labels:["Βασικός Μισθός","Υπερωριακή Αμοιβή","13ος Μισθός","Εισφορές & Άλλα","Επιδ. ΣΚ/Νύχτας","Επιδ. Βαρδίας"],
+      datasets:[
+        {label:'2026 Actual',  data:[15140764,1854343,1375000,2970695,1430687,17497], backgroundColor:'#0072BC', borderRadius:3},
+        {label:'Π/Υ 2026 (5μ)',data:[13488675,1171053,1123987,2933652,1497583,24385], backgroundColor:'rgba(107,120,132,.55)', borderRadius:3},
+      ]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:10.5},boxWidth:11}},
+        tooltip:{callbacks:{label:function(c){return ' '+c.dataset.label+': '+fM(c.raw);}}}
+      },
+      scales:{
+        x:{grid:gl, ticks:{...ts, callback:function(v){return fM(v);}}, beginAtZero:true},
+        y:{grid:{display:false}, ticks:{color:'#2F3C4A', font:{size:10.5}}}
+      }
+    }
+  });
+
+
+
+  // ── EXEC SUMMARY BAR CHARTS ──────────────────────────────────────────────
+  (function(){
+    var navy   = '#0B3D6B';
+    var navyL  = '#5B8DB8';   // May 2026 top
+    var slate  = '#5D7A8A';
+    var slateL = '#9FBCCA';   // May 2025 top
+    var amber  = '#C46388';   // Π/Υ single bar
+
+    // label plugin: show value inside each segment if tall enough
+    var datalabelPlugin = {
+      id:'execLabels',
+      afterDatasetsDraw:function(chart){
+        var ctx = chart.ctx;
+        chart.data.datasets.forEach(function(ds,di){
+          var meta = chart.getDatasetMeta(di);
+          if(meta.hidden) return;
+          meta.data.forEach(function(bar,i){
+            var val = ds.data[i];
+            if(!val) return;
+            var props = bar.getProps(['x','y','base','width'],true);
+            var barH = Math.abs(props.base - props.y);
+            if(barH < 14) return;
+            ctx.save();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px "Segoe UI",Arial,sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            var label = '€'+val.toFixed(1);
+            ctx.fillText(label, props.x, props.y + barH/2);
+            ctx.restore();
+          });
+        });
+        // total label above each bar
+        var totals = {};
+        chart.data.datasets.forEach(function(ds){
+          ds.data.forEach(function(v,i){
+            totals[i] = (totals[i]||0) + (v||0);
+          });
+        });
+        ctx.save();
+        ctx.fillStyle = '#15202B';
+        ctx.font = 'bold 12px "Segoe UI",Arial,sans-serif';
+        ctx.textAlign = 'center';
+        chart.data.labels.forEach(function(_,i){
+          var lastDs = null;
+          for(var d=chart.data.datasets.length-1;d>=0;d--){
+            if(chart.data.datasets[d].data[i]){lastDs=d;break;}
+          }
+          if(lastDs===null) return;
+          var topBar = chart.getDatasetMeta(lastDs).data[i];
+          var props = topBar.getProps(['x','y'],true);
+          ctx.fillText('€'+totals[i].toFixed(1)+'M', props.x, props.y - 8);
+        });
+        ctx.restore();
+      }
+    };
+
+    // Dashed reference line plugin — draws horizontal dashed line at y = refValue
+    function makeRefLinePlugin(refValue, color){
+      return {
+        id:'refLine',
+        afterDraw:function(chart){
+          var ctx  = chart.ctx;
+          var yAxis = chart.scales.y;
+          var xAxis = chart.scales.x;
+          var yPx  = yAxis.getPixelForValue(refValue);
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([6,5]);
+          ctx.lineWidth   = 2;
+          ctx.strokeStyle = color || '#0B3D6B';
+          ctx.moveTo(xAxis.left,  yPx);
+          ctx.lineTo(xAxis.right, yPx);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      };
+    }
+
+    // Revenue chart  (2026 total = 172.4 + 46.6 = 219.0)
+    new Chart(document.getElementById('execRevChart'),{
+      type:'bar',
+      plugins:[datalabelPlugin, makeRefLinePlugin(219.0, '#0B3D6B')],
+      data:{
+        labels:['2026','2025','Π/Υ'],
+        datasets:[
+          {label:'Ιαν–Απρ',  data:[172.4,171.8,179.5], backgroundColor:[navy,slate,amber],  borderWidth:0},
+          {label:'Μάιος',    data:[46.6, 43.7, 44.9],  backgroundColor:[navyL,slateL,'#DD7DAC'], borderWidth:0}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{enabled:false}},
+        scales:{
+          x:{stacked:true, grid:{display:false}, ticks:{font:{size:12,weight:'bold'}}},
+          y:{stacked:true, display:false, grace:'10%'}
+        }
+      }
+    });
+
+    // Expense chart  (2026 total = 192.7 + 50.6 = 243.3)
+    new Chart(document.getElementById('execExpChart'),{
+      type:'bar',
+      plugins:[datalabelPlugin, makeRefLinePlugin(243.3, '#0B3D6B')],
+      data:{
+        labels:['2026','2025','Π/Υ'],
+        datasets:[
+          {label:'Ιαν–Απρ',  data:[192.7,182.9,189.5], backgroundColor:[navy,slate,amber],  borderWidth:0},
+          {label:'Μάιος',    data:[50.6, 46.7, 47.4],  backgroundColor:[navyL,slateL,'#DD7DAC'], borderWidth:0}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{enabled:false}},
+        scales:{
+          x:{stacked:true, grid:{display:false}, ticks:{font:{size:12,weight:'bold'}}},
+          y:{stacked:true, display:false, grace:'10%'}
+        }
+      }
+    });
+  })();
+  // EBITDA Trend chart — replaced with Revenue & OpEx monthly lines
+  new Chart(document.getElementById('ebitdaTrendChart'),{
+    type:'line',
+    data:{
+      labels:D.months,
+      datasets:[
+        {label:'Έσοδα 2026',data:D.rev26.map(v=>Math.round(v/1e5)/10),borderColor:'#0072BC',backgroundColor:'rgba(0,114,188,.08)',tension:.35,fill:false,pointRadius:4,pointBackgroundColor:'#0072BC',borderWidth:2},
+        {label:'OpEx 2026', data:D.exp26.map(v=>Math.round(v/1e5)/10),borderColor:'#C46388',backgroundColor:'transparent',tension:.35,fill:false,pointRadius:4,pointBackgroundColor:'#C46388',borderWidth:2},
+        {label:'Έσοδα 2025',data:D.rev25.map(v=>Math.round(v/1e5)/10),borderColor:'#5B8DB8',backgroundColor:'transparent',tension:.35,fill:false,borderDash:[5,4],pointRadius:3,pointBackgroundColor:'#5B8DB8',borderWidth:1.5},
+        {label:'OpEx 2025', data:D.exp25.map(v=>Math.round(v/1e5)/10),borderColor:'#DD7DAC',backgroundColor:'transparent',tension:.35,fill:false,borderDash:[5,4],pointRadius:3,pointBackgroundColor:'#DD7DAC',borderWidth:1.5}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>'€'+ctx.parsed.y.toFixed(1)+'Μ'}}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{ticks:{callback:v=>'€'+v+'Μ',font:{size:10}},grid:{color:'rgba(0,0,0,.06)'}}
+      }
+    }
+  });
+  // OAY Monthly Revenue Line Chart
+  // Inpatient OAY monthly chart
+  new Chart(document.getElementById('inpMonthChart'),{
+    type:'line',
+    data:{
+      labels:['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ'],
+      datasets:[
+        {label:'Ενδονοσ. 2026',data:[19.5,18.6,20.4,15.7,20.8],
+         borderColor:'#0B3D6B',backgroundColor:'rgba(11,61,107,.10)',
+         tension:.35,fill:true,pointRadius:5,pointHoverRadius:7,borderWidth:2.5},
+        {label:'Ενδονοσ. 2025',data:[20.1,15.5,20.2,21.7,19.6],
+         borderColor:'#5B8DB8',backgroundColor:'transparent',
+         borderDash:[4,3],tension:.35,fill:false,pointRadius:4,pointHoverRadius:6,borderWidth:2},
+        {label:'Π/Υ (μηνιαίος)',data:[20.1,20.1,20.1,20.1,20.1],
+         borderColor:'#C46388',backgroundColor:'transparent',
+         borderDash:[6,4],tension:0,fill:false,pointRadius:0,borderWidth:1.8}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>'€'+ctx.parsed.y.toFixed(1).replace('.',',')+'Μ'}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{min:10,max:25,
+           ticks:{callback:v=>'€'+v+'Μ',font:{size:10}},
+           grid:{color:'rgba(0,0,0,.06)'}}
+      }
+    }
+  });
+
+  // Outpatient OAY monthly chart
+  new Chart(document.getElementById('exoMonthChart'),{
+    type:'line',
+    data:{
+      labels:['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ'],
+      datasets:[
+        {label:'Εξωνοσ. 2026',data:[2.0,2.1,2.1,2.5,2.0],
+         borderColor:'#C46388',backgroundColor:'rgba(192,57,43,.10)',
+         tension:.35,fill:true,pointRadius:5,pointHoverRadius:7,borderWidth:2.5},
+        {label:'Εξωνοσ. 2025',data:[2.2,2.1,2.2,2.1,2.3],
+         borderColor:'#E68BA8',backgroundColor:'transparent',
+         borderDash:[4,3],tension:.35,fill:false,pointRadius:4,pointHoverRadius:6,borderWidth:2},
+        {label:'Π/Υ (μηνιαίος)',data:[2.4,2.4,2.4,2.4,2.4],
+         borderColor:'#C46388',backgroundColor:'transparent',
+         borderDash:[6,4],tension:0,fill:false,pointRadius:0,borderWidth:1.8}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>'€'+ctx.parsed.y.toFixed(1).replace('.',',')+'Μ'}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{min:1,max:3.5,
+           ticks:{callback:v=>'€'+v+'Μ',font:{size:10}},
+           grid:{color:'rgba(0,0,0,.06)'}}
+      }
+    }
+  });
+});
+</script>
+</body>
+</html>

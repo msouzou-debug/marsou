@@ -1,0 +1,12 @@
+# generated artifacts
+outputs/*
+!outputs/.gitkeep
+
+# generated test workbook
+tests/*.xlsx
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
