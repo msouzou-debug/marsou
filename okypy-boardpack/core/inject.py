@@ -1077,12 +1077,81 @@ RESPONSIVE_CSS = """
   .hero{padding:18px 12px 16px !important;}
   .hero h1{font-size:19px !important;}
   .deficit-big{font-size:40px !important;}
-  .nav{flex-wrap:nowrap !important;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .nav-btn{white-space:nowrap;}
+  /* nav wraps so ALL tabs are visible & tappable (no hidden horizontal strip) */
+  .nav{flex-wrap:wrap !important;gap:6px !important;width:100%;}
+  .nav-btn{flex:1 1 auto;text-align:center;padding:9px 10px !important;font-size:12px !important;}
   table{font-size:11.5px !important;}
   .sf-grid{grid-template-columns:1fr !important;}
+  /* keep the whole tab bar on screen instead of pinned/overlapping */
+  .topbar{position:static !important;}
 }
+/* okypy toolbar (upload + downloads) */
+#okypy-toolbar{position:fixed;left:0;right:0;bottom:0;z-index:1000;display:flex;gap:8px;
+  justify-content:center;flex-wrap:wrap;padding:10px 12px;background:rgba(6,46,92,.97);
+  box-shadow:0 -2px 12px rgba(0,0,0,.18)}
+#okypy-toolbar .okypy-btn{font:600 13px "Segoe UI",Arial,sans-serif;color:#fff;cursor:pointer;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:999px;
+  padding:8px 16px;white-space:nowrap;user-select:none}
+#okypy-toolbar .okypy-btn:hover{background:rgba(255,255,255,.22)}
+#okypy-toolbar .okypy-up{background:#00AEEF;border-color:#00AEEF}
+body{padding-bottom:60px}
+body.printmode #okypy-toolbar{display:none !important}
+@media print{#okypy-toolbar{display:none !important}}
 """
+
+# In-page toolbar: monthly re-upload + download HTML/PDF/PPTX. Upload and
+# PDF/PPTX downloads require the companion server (serve.py); opened as a plain
+# file, the HTML self-downloads and the rest point the user to the server.
+TOOLBAR_HTML = """
+<div id="okypy-toolbar">
+  <label class="okypy-btn okypy-up">🔄 Νέα δεδομένα (Excel)
+    <input id="okypy-upload" type="file" accept=".xlsx" style="display:none"></label>
+  <a class="okypy-btn" id="okypy-dl-html">⬇ HTML</a>
+  <a class="okypy-btn" id="okypy-dl-pdf">⬇ PDF</a>
+  <a class="okypy-btn" id="okypy-dl-pptx">⬇ PPTX</a>
+</div>
+<script>
+(function(){
+  var served = location.protocol.indexOf('http')===0;
+  // switching tabs should reveal the section from the top (mobile fix)
+  var _s = window.show;
+  if (typeof _s === 'function') {
+    window.show = function(id, btn){ _s(id, btn); try{ window.scrollTo({top:0,behavior:'instant'}); }catch(e){ window.scrollTo(0,0); } };
+  }
+  function q(id){ return document.getElementById(id); }
+  q('okypy-dl-html').onclick = function(){
+    if (served){ location.href = 'download/html'; return; }
+    var html = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([html], {type:'text/html'}));
+    a.download = (document.title || 'BoardPack') + '.html'; a.click();
+  };
+  function srvOnly(kind){ return function(){
+    if (served){ location.href = 'download/' + kind; }
+    else { alert('Το ' + kind.toUpperCase() + ' παράγεται από την εφαρμογή. Τρέξτε:  python serve.py  και ανοίξτε http://localhost:8000'); }
+  }; }
+  q('okypy-dl-pdf').onclick = srvOnly('pdf');
+  q('okypy-dl-pptx').onclick = srvOnly('pptx');
+  q('okypy-upload').onchange = function(){
+    var f = this.files && this.files[0]; if(!f) return;
+    if(!served){ alert('Για μηνιαία ανανέωση: τρέξτε  python serve.py  και ανοίξτε http://localhost:8000, μετά ανεβάστε εδώ το νέο Excel.'); this.value=''; return; }
+    var bar = q('okypy-toolbar'); bar.style.opacity=.5;
+    var fd = new FormData(); fd.append('file', f);
+    fetch('upload', {method:'POST', body:fd}).then(function(r){return r.json();}).then(function(j){
+      if(j && j.ok){ location.reload(); }
+      else { alert('Σφάλμα: ' + ((j&&j.error)||'άγνωστο')); bar.style.opacity=1; }
+    }).catch(function(e){ alert('Σφάλμα upload: ' + e); bar.style.opacity=1; });
+  };
+})();
+</script>
+"""
+
+
+def _inject_toolbar(html: str, rep: InjectReport) -> str:
+    if "</body>" in html:
+        rep.note("toolbar", 1)
+        return html.replace("</body>", TOOLBAR_HTML + "\n</body>", 1)
+    return html + TOOLBAR_HTML
 
 
 def _inject_responsive(html: str, rep: InjectReport) -> str:
@@ -1205,8 +1274,9 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_allaesoda(html, m, rep)
     html = _inject_payroll(html, m, rep)
 
-    # 5) responsive layer + self-contained / offline
+    # 5) responsive layer + toolbar + self-contained / offline
     html = _inject_responsive(html, rep)
+    html = _inject_toolbar(html, rep)
     html = _inline_chartjs(html, rep)
 
     _validate(before, html, rep)

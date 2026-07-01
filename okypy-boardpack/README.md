@@ -72,6 +72,21 @@ streamlit run app.py
 4. **Δημιουργία** — enabled only when reconciliation is clean; writes
    `outputs/BoardPack_{YYYY}_{MM}.{html,pdf,pptx}` with download buttons.
 
+## Run (browser — monthly refresh, recommended for non-technical users)
+
+```bash
+python serve.py path/to/01-05_ΓΙΑ_CLAUDE.xlsx     # then open http://localhost:8000
+```
+
+The page shows the deck with a bottom toolbar:
+- **🔄 Νέα δεδομένα (Excel)** — upload next month's workbook; it regenerates and
+  refreshes in place (month auto-detected from the filename).
+- **⬇ HTML / ⬇ PDF / ⬇ PPTX** — download the current outputs.
+
+Fully local (stdlib server, no extra deps). The generated HTML carries the same
+toolbar, so a shared HTML file self-downloads its HTML and points to `serve.py`
+for upload / PDF / PPTX.
+
 ## Run (headless)
 
 ```bash
