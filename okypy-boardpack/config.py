@@ -52,9 +52,10 @@ EXCLUDE_EXPENSE = [
 EXCLUDE_REVENUE_2025_ONLY = [
     "ΚΥΒΕΡΝΗΤ ΧΟΡ ΣΤΑ ΕΙΔΙΚΑ ΤΑΜΕΙΑ",
 ]
-# Fallback: if the category is blank, drop the DATA-2025 revenue row whose
-# article code (column, 0-based) equals ARTICLE_COL and value is in this list.
-ARTICLE_COL = 1  # B — article/κωδικός column (best-effort; only used for blanks)
+# The special-fund line has a BLANK category (col C) in DATA 2025; its article
+# code sits in column F (0-based 5). Drop blank-category revenue rows whose
+# article is listed here.
+ARTICLE_COL = 5  # F — «Άρθρο»
 EXCLUDE_REVENUE_2025_ARTICLES = ["01870"]
 
 # ── Group mapping — the 4 detail lines (spec §5.2) ───────────────────────────
@@ -90,13 +91,16 @@ LABEL_SYNOLO_EXODON_CAPS = "ΣΥΝΟΛΟ ΕΞΟΔΩΝ"
 # variance tables. Defaults to identity for anything not listed. Tune on first
 # run so the variance rows read exactly like the approved deck.
 VARIANCE_DISPLAY_LABELS = {
-    "Ενδονοσοκομειακή Φροντίδα ΟΑΥ": "Ενδονοσ. Φροντίδα ΟΑΥ",
-    "Εξωνοσοκομειακή Φροντίδα ΟΑΥ": "Εξωνοσ. Φροντίδα ΟΑΥ",
+    # keys = raw column-C names in the workbook; values = deck labels
+    "Ενδονοσοκομεική Φρ. ΟΑΥ": "Ενδονοσ. Φροντίδα ΟΑΥ",
+    "Εξωνοσοκομειακή Φρ. ΟΑΥ": "Εξωνοσ. Φροντίδα ΟΑΥ",
     "Δημόσια Υγεία / Αρμόδιες Αρχές": "Δημόσια Υγεία / Αρχές",
     "Άλλα έσοδα": "Άλλα Έσοδα",
+    "Εγγραφές Προσωπικών Ιατρών ΟΑΥ": "Εγγραφές ΟΑΥ",
     "Αποσπασμένο Προσωπικό": "Αποσπασμένο Προσωπικό",
     "Ωρομίσθιο Προσωπικό": "Ωρομίσθιο Προσωπικό",
     "Συμβόλαιο ΟΚΥπΥ": "Σύμβαση ΟΚΥπΥ",
+    "Άλλες Λειτουργικές δαπάνες": "Άλλες Λειτουργικές",
 }
 
 # ── Reconciliation tolerance ─────────────────────────────────────────────────
