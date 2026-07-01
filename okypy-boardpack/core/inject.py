@@ -823,6 +823,79 @@ def _inject_oay(html: str, m: Metrics, rep: InjectReport) -> str:
     return html
 
 
+# ── sec-allaesoda (Άλλα Έσοδα) ───────────────────────────────────────────────
+def _alla_tiles(ae: dict) -> str:
+    tot = ae["total"]
+    top = ae["subs"][:3]
+    tv = tot["ytd"] - tot["bud"]; tp = tv / tot["bud"] * 100 if tot["bud"] else 0
+    cards = [f'<div class="kpi b"><div class="kl">Σύνολο Άλλα Έσοδα</div><div class="kv">{_kv(tot["ytd"])}</div>\n'
+             f'      <div class="kb {"pos" if tv > 0 else "neg"}">vs Π/Υ {fmt_varM(tv)} ({fmt_pct(tp)})</div>'
+             f'<div class="ks">Π/Υ {fmt_absM(tot["bud"])} | 2025 {fmt_absM(tot["y25"])}</div></div>']
+    for c, cls in zip(top, ("r", "g", "a")):
+        v = c["ytd"] - c["bud"]; p = v / c["bud"] * 100 if c["bud"] else 0
+        pk = "—" if c["bud"] == 0 else fmt_pct(p)
+        cards.append(f'<div class="kpi {cls}"><div class="kl">{c["label"]}</div><div class="kv">{_kv(c["ytd"])}</div>\n'
+                     f'      <div class="kb {"pos" if v > 0 else "neg"}">vs Π/Υ {fmt_varM(v)} ({pk})</div>'
+                     f'<div class="ks">Π/Υ {fmt_absM(c["bud"])}</div></div>')
+    return '<div class="kpis k4" style="margin-bottom:16px">\n    ' + "\n    ".join(cards) + "\n  </div>"
+
+
+def _alla_sub_rows(ae: dict) -> str:
+    def row(c, total=False):
+        vpy = c["ytd"] - c["bud"]; yoy = c["ytd"] - c["y25"]
+        pct = "—" if c["bud"] == 0 else fmt_pct(vpy / c["bud"] * 100)
+        ypct = "—" if c["y25"] == 0 else fmt_pct(yoy / abs(c["y25"]) * 100)
+        pcls = "vz" if c["bud"] == 0 else _vcls(vpy, "rev")
+        ycls = "vz" if c["y25"] == 0 else _vcls(yoy, "rev")
+        tr = '<tr class="tr-total">' if total else "<tr>"
+        return (f'{tr}<td>{c["label"]}</td>'
+                f'<td style="text-align:center">{fmt_m(c["ytd"])}</td>'
+                f'<td style="text-align:center">{fmt_m(c["bud"])}</td>'
+                f'<td style="text-align:center" class="{_vcls(vpy, "rev")}">{fmt_var(vpy)}</td>'
+                f'<td style="text-align:center" class="{pcls}">{pct}</td>'
+                f'<td style="text-align:center">{fmt_m(c["y25"])}</td>'
+                f'<td style="text-align:center" class="{ycls}">{fmt_var(yoy)}</td>'
+                f'<td style="text-align:center" class="{ycls}">{ypct}</td></tr>')
+    rows = [row(c) for c in ae["subs"]]
+    rows.append(row({"label": "ΣΥΝΟΛΟ Άλλα Έσοδα", **ae["total"]}, total=True))
+    return "\n        ".join(rows)
+
+
+def _alla_hosp_rows(ae: dict) -> str:
+    rows = []
+    for h in ae["hosp"]:
+        v = h["ytd"] - h["bud"]; p = v / h["bud"] * 100 if h["bud"] else 0
+        pk = "—" if h["bud"] == 0 else fmt_pct(p)
+        rows.append(f'<tr><td>{h["name"]}</td><td style="text-align:center">{fmt_m(h["ytd"])}</td>'
+                    f'<td style="text-align:center">{fmt_m(h["bud"])}</td>'
+                    f'<td style="text-align:center" class="{_vcls(v, "rev")}">{pk}</td></tr>')
+    t = ae["total"]; tv = t["ytd"] - t["bud"]; tp = tv / t["bud"] * 100 if t["bud"] else 0
+    rows.append(f'<tr class="tr-total"><td>ΣΥΝΟΛΟ</td><td style="text-align:center">{fmt_m(t["ytd"])}</td>'
+                f'<td style="text-align:center">{fmt_m(t["bud"])}</td>'
+                f'<td style="text-align:center" class="{_vcls(tv, "rev")}">{fmt_pct(tp)}</td></tr>')
+    return "\n        ".join(rows)
+
+
+def _inject_allaesoda(html: str, m: Metrics, rep: InjectReport) -> str:
+    ae = m.allaesoda
+    if not ae.get("subs"):
+        rep.warnings.append("Δεν βρέθηκαν δεδομένα Άλλων Εσόδων.")
+        return html
+    # by-hospital chart data
+    html = _set_d_array(html, "loipaRevH", "[" + ",".join(f"'{h['name']}'" for h in ae["hosp"]) + "]")
+    html = _set_d_array(html, "loipaRevYTD", "[" + ",".join(_js(h["ytd"]) for h in ae["hosp"]) + "]")
+    # KPI tiles (scoped)
+    s = html.index('id="sec-allaesoda"')
+    k_s = html.index('<div class="kpis k4"', s)
+    k_e = html.index('<div class="callout', k_s)
+    html = html[:k_s] + _alla_tiles(ae) + "\n\n  " + html[k_e:]
+    # tables
+    html = _replace_tbody(html, "Άλλα Έσοδα — Ανάλυση Υποκατηγοριών", _alla_sub_rows(ae))
+    html = _replace_tbody(html, "Κατανομή ανά Νοσηλευτήριο", _alla_hosp_rows(ae))
+    rep.note("allaesoda tab", 1)
+    return html
+
+
 # ── responsive layer (mobile / tablet) ───────────────────────────────────────
 # Appended to the output only (the on-disk template stays verbatim). The deck
 # already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
@@ -973,6 +1046,7 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_hospitals(html, m, rep)
     html = _inject_loipaexp(html, m, rep)
     html = _inject_oay(html, m, rep)
+    html = _inject_allaesoda(html, m, rep)
 
     # 5) responsive layer + self-contained / offline
     html = _inject_responsive(html, rep)

@@ -60,6 +60,7 @@ class Metrics:
     hospitals: list = field(default_factory=list)    # phase-2 sec-hospitals
     loipa: dict = field(default_factory=dict)         # phase-2 sec-loipaexp
     oay: dict = field(default_factory=dict)            # phase-2 sec-oay
+    allaesoda: dict = field(default_factory=dict)      # phase-2 sec-allaesoda
     recon_ok: bool = True
     breaches: list[dict] = field(default_factory=list)
 
@@ -206,9 +207,33 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
     m.hospitals = _hospitals(load)
     m.loipa = _loipa(load, mm)
     m.oay = _oay(load, mm)
+    m.allaesoda = _allaesoda(load)
 
     _reconcile(m, load)
     return m
+
+
+def _allaesoda(load: LoadResult) -> dict:
+    """Άλλα Έσοδα tab: the category's sub-lines (by description, both years) and
+    its distribution per unit."""
+    subs = []
+    for desc, v in load.alla_sub26.items():
+        y25 = load.alla_sub25.get(desc, 0.0)
+        if max(abs(v[0]), abs(v[1]), abs(y25)) < 5e4:   # skip empty/blank lines
+            continue
+        subs.append({"label": _titlecase_gr(desc), "ytd": v[0], "bud": v[1], "y25": y25})
+    subs.sort(key=lambda s: -s["ytd"])
+    total = {"ytd": sum(s["ytd"] for s in subs), "bud": sum(s["bud"] for s in subs),
+             "y25": sum(s["y25"] for s in subs)}
+
+    hosp = []
+    for spec in config.HOSPITALS:
+        v = load.alla_by_hosp.get(spec["code"])
+        if not v:
+            continue
+        hosp.append({"name": spec["name"], "ytd": v[0], "bud": v[1]})
+    hosp.sort(key=lambda h: -h["ytd"])
+    return {"subs": subs, "total": total, "hosp": hosp}
 
 
 def _oay(load: LoadResult, mm: int) -> dict:

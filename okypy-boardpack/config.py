@@ -166,6 +166,9 @@ EXO_CATEGORY = "Εξωνοσοκομειακή Φρ. ΟΑΥ"   # outpatient
 OAY_BADGE = [(0.0, "Σε στόχο", "bp"), (-5.0, "Παρακολούθηση", "ba"),
              (-18.0, "Διερεύνηση", "bn"), (-1e9, "Κρίσιμο", "bn")]
 
+# ── Άλλα Έσοδα tab ───────────────────────────────────────────────────────────
+ALLA_CATEGORY = "Άλλα έσοδα"   # the single category analysed on this tab
+
 # ── Reconciliation tolerance ─────────────────────────────────────────────────
 # Figures round to 0.1 €M in the deck; allow a small footing tolerance (euros).
 RECON_TOLERANCE_EUR = 5.0e4  # 0.05 €M — below display resolution

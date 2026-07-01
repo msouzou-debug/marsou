@@ -81,6 +81,9 @@ class LoadResult:
     hospitals: dict = field(default_factory=dict)   # code → HospAgg
     alles_sub: dict = field(default_factory=dict)   # Άλλες Λειτ. description → [ytd, budget]
     oay_by_hosp: dict = field(default_factory=dict) # INP/EXO category → {hosp code: [ytd, budget]}
+    alla_sub26: dict = field(default_factory=dict)   # Άλλα έσοδα: description → [ytd, budget] (2026)
+    alla_sub25: dict = field(default_factory=dict)   # Άλλα έσοδα: description → ytd (2025)
+    alla_by_hosp: dict = field(default_factory=dict) # Άλλα έσοδα: hosp code → [ytd, budget] (2026)
 
     def revenue(self):
         return [c for c in self.categories if c.section == config.FLAG_REVENUE]
@@ -134,6 +137,9 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     pharma_rev, pharma_exp, dep = Aside(), Aside(), Aside()
     alles_sub: dict = {}
     oay_by_hosp: dict = {config.INP_CATEGORY: {}, config.EXO_CATEGORY: {}}
+    alla_sub26: dict = {}
+    alla_sub25: dict = {}
+    alla_by_hosp: dict = {}
 
     def month_cols(row):
         return [_num(row[jan + k]) if jan + k < len(row) else 0.0 for k in range(mm)]
@@ -169,6 +175,12 @@ def load_workbook(path: str, mm: int) -> LoadResult:
                 if code:
                     slot = oay_by_hosp[name].setdefault(code, [0.0, 0.0])
                     slot[0] += sum(months); slot[1] += budget
+            if name == config.ALLA_CATEGORY:        # Άλλα έσοδα by description + unit
+                desc = _text(row, config.DESC_COL) or "(κενό)"
+                s1 = alla_sub26.setdefault(desc, [0.0, 0.0]); s1[0] += sum(months); s1[1] += budget
+                code = _text(row, config.HOSPITAL_DIM_COL)
+                if code:
+                    s2 = alla_by_hosp.setdefault(code, [0.0, 0.0]); s2[0] += sum(months); s2[1] += budget
 
     # ── DATA 2025 ────────────────────────────────────────────────────────────
     for row in wb[config.SHEET_2025].iter_rows(min_row=2, values_only=True):
@@ -190,6 +202,9 @@ def load_workbook(path: str, mm: int) -> LoadResult:
             for k in range(mm):
                 c.months2025[k] += months[k]
             rec[(section, name)] = c
+            if name == config.ALLA_CATEGORY:
+                desc = _text(row, config.DESC_COL) or "(κενό)"
+                alla_sub25[desc] = alla_sub25.get(desc, 0.0) + sum(months)
 
     wb.close()
     # Drop blank-name lines (unallocated / HO-allocation noise) — they can't be
@@ -201,7 +216,8 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     hospitals = _load_hospitals(path, mm)
     return LoadResult(categories=cats, warnings=warnings, mm=mm,
                       pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep,
-                      hospitals=hospitals, alles_sub=alles_sub, oay_by_hosp=oay_by_hosp)
+                      hospitals=hospitals, alles_sub=alles_sub, oay_by_hosp=oay_by_hosp,
+                      alla_sub26=alla_sub26, alla_sub25=alla_sub25, alla_by_hosp=alla_by_hosp)
 
 
 def _load_hospitals(path: str, mm: int) -> dict:
