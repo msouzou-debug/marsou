@@ -559,6 +559,30 @@ def _inject_monthly(html: str, m: Metrics, rep: InjectReport) -> str:
     return html
 
 
+# ── sec-hospitals ────────────────────────────────────────────────────────────
+def _hosps_js(hosps) -> str:
+    parts = []
+    for h in hosps:
+        s = ("{n:'%s',r:%s,rb:%s,e:%s,eb:%s,n25:%s,rp:%.1f,rnoph:%s,ph:0,central:%s,d:%s"
+             % (h["n"].replace("'", "’"), _js(h["r"]), _js(h["rb"]), _js(h["e"]),
+                _js(h["eb"]), _js(h["n25"]), h["rp"], _js(h["rnoph"]),
+                "true" if h["central"] else "false", _js(h["d"])))
+        if h.get("special"):
+            s += (",special:true,opdef:%s,net_before:%s,ph_clear:%s,ph_oh:%s"
+                  % (_js(h["opdef"]), _js(h["net_before"]), _js(h["ph_clear"]), _js(h["ph_oh"])))
+        parts.append(s + "}")
+    return "[\n    " + ",\n    ".join(parts) + "\n  ]"
+
+
+def _inject_hospitals(html: str, m: Metrics, rep: InjectReport) -> str:
+    if not m.hospitals:
+        rep.warnings.append("Δεν βρέθηκαν δεδομένα ανά νοσηλευτήριο.")
+        return html
+    html = _set_d_array(html, "hosps", _hosps_js(m.hospitals))
+    rep.note("hospitals tab", 1)
+    return html
+
+
 # ── responsive layer (mobile / tablet) ───────────────────────────────────────
 # Appended to the output only (the on-disk template stays verbatim). The deck
 # already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
@@ -703,9 +727,10 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_inpatient(html, inpatient_text, rep)
     html = _inject_alerts(html, alerts or [], rep)
 
-    # 4b) phase-2 tabs (analytical P&L + monthly)
+    # 4b) phase-2 tabs (analytical P&L + monthly + hospitals)
     html = _inject_overview(html, m, rep)
     html = _inject_monthly(html, m, rep)
+    html = _inject_hospitals(html, m, rep)
 
     # 5) responsive layer + self-contained / offline
     html = _inject_responsive(html, rep)

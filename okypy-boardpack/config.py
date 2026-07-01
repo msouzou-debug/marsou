@@ -103,6 +103,29 @@ VARIANCE_DISPLAY_LABELS = {
     "Άλλες Λειτουργικές δαπάνες": "Άλλες Λειτουργικές",
 }
 
+# ── Per-hospital tab (Ανά Νοσηλευτήριο) ──────────────────────────────────────
+PUBLIC_HEALTH_CATEGORY = "Δημόσια Υγεία / Αρμόδιες Αρχές"
+DEP_CATEGORY = "Αποσβέσεις και προβλέψεις"
+HOSPITAL_DIM_COL = 4  # E — «Νοσηλ.»
+# Fixed 10% central-overhead memo line on the special units (policy constant).
+HOSPITAL_PH_OH = 500_000
+
+# Ordered units: raw col-E code → deck name + kind ('std' | 'central' | 'special').
+HOSPITALS = [
+    {"code": "NICOSIA GH",           "name": "Γ.Ν. Λευκωσίας",        "kind": "std"},
+    {"code": "LEMESOS GH",           "name": "Γ.Ν. Λεμεσού",          "kind": "std"},
+    {"code": "LARNACA GH",           "name": "Γ.Ν. Λάρνακας",         "kind": "std"},
+    {"code": "NAMIII",               "name": "Μακάρειο Νοσ.",         "kind": "std"},
+    {"code": "PAPHOS GH",            "name": "Γ.Ν. Πάφου",            "kind": "std"},
+    {"code": "FAMAGUSTA GH",         "name": "Γ.Ν. Αμμοχώστου",       "kind": "std"},
+    {"code": "TROODOS HOSPITAL",     "name": "Νοσ. Τροόδους",         "kind": "std"},
+    {"code": "POLIS CHRI. HOSPITAL", "name": "Νοσ. Πόλεως Χρυσοχούς", "kind": "std"},
+    {"code": "ΚΕΝΤΡΙΚΗ ΔΙΟΙΚΗΣΗ",    "name": "Κεντρικά Γραφεία",      "kind": "central"},
+    {"code": "AMBULATORY",           "name": "Εξωτερικά Ιατρεία",     "kind": "special"},
+    {"code": "HEALTH CENTERS",       "name": "Κέντρα Υγείας",         "kind": "special"},
+    {"code": "MENTAL HEALTH",        "name": "Ψυχικής Υγείας",        "kind": "special"},
+]
+
 # ── Reconciliation tolerance ─────────────────────────────────────────────────
 # Figures round to 0.1 €M in the deck; allow a small footing tolerance (euros).
 RECON_TOLERANCE_EUR = 5.0e4  # 0.05 €M — below display resolution

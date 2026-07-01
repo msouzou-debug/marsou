@@ -57,6 +57,7 @@ class Metrics:
     charts: dict = field(default_factory=dict)
     monthly: dict = field(default_factory=dict)     # phase-2 sec-monthly
     overview: dict = field(default_factory=dict)     # phase-2 sec-overview P&L
+    hospitals: list = field(default_factory=list)    # phase-2 sec-hospitals
     recon_ok: bool = True
     breaches: list[dict] = field(default_factory=list)
 
@@ -200,9 +201,34 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
 
     m.monthly = _monthly(load, mm)
     m.overview = _overview(load)
+    m.hospitals = _hospitals(load)
 
     _reconcile(m, load)
     return m
+
+
+def _hospitals(load: LoadResult) -> list:
+    """Build the per-unit records for the Ανά Νοσηλευτήριο tab (D.hosps)."""
+    out = []
+    for spec in config.HOSPITALS:
+        a = load.hospitals.get(spec["code"])
+        if a is None:
+            continue
+        kind = spec["kind"]
+        rec = {
+            "n": spec["name"], "r": a.r, "rb": a.rb, "e": a.e, "eb": a.eb,
+            "n25": a.r25 - a.e25,                         # 2025 EBITDA net (source basis)
+            "rp": (a.r / a.rb * 100.0) if a.rb else 0.0,
+            "rnoph": a.rnoph, "ph": 0, "d": a.d,
+            "central": kind == "central",
+        }
+        if kind == "special":
+            opdef = a.rnoph - a.e                          # EBITDA pre-Public-Health
+            net_before = opdef - a.d                       # after depreciation
+            rec.update({"special": True, "opdef": opdef, "net_before": net_before,
+                        "ph_clear": -net_before, "ph_oh": config.HOSPITAL_PH_OH})
+        out.append(rec)
+    return out
 
 
 def _monthly(load: LoadResult, mm: int) -> dict:

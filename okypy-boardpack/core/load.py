@@ -58,6 +58,19 @@ class Aside:
 
 
 @dataclass
+class HospAgg:
+    """Per-unit aggregation for the Ανά Νοσηλευτήριο tab (EBITDA basis)."""
+    r: float = 0.0      # revenue 2026
+    e: float = 0.0      # opex 2026 (ex D&A)
+    rb: float = 0.0     # revenue budget
+    eb: float = 0.0     # opex budget
+    d: float = 0.0      # depreciation & provisions 2026
+    rnoph: float = 0.0  # revenue ex Public Health
+    r25: float = 0.0    # revenue 2025
+    e25: float = 0.0    # opex 2025 (ex D&A)
+
+
+@dataclass
 class LoadResult:
     categories: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
@@ -65,6 +78,7 @@ class LoadResult:
     pharma_rev: Aside = field(default_factory=Aside)
     pharma_exp: Aside = field(default_factory=Aside)
     dep: Aside = field(default_factory=Aside)
+    hospitals: dict = field(default_factory=dict)   # code → HospAgg
 
     def revenue(self):
         return [c for c in self.categories if c.section == config.FLAG_REVENUE]
@@ -170,8 +184,63 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     cats = [c for c in rec.values() if c.name]
     if not cats:
         warnings.append("Δεν βρέθηκαν κατηγορίες — ελέγξτε τους δείκτες στηλών στο config.py.")
+
+    hospitals = _load_hospitals(path, mm)
     return LoadResult(categories=cats, warnings=warnings, mm=mm,
-                      pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep)
+                      pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep,
+                      hospitals=hospitals)
+
+
+def _load_hospitals(path: str, mm: int) -> dict:
+    """Aggregate EBITDA-basis figures per unit (col E), for the hospitals tab."""
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    jan = config.COL_2025_JAN
+    hc = config.HOSPITAL_DIM_COL
+    agg: dict = {}
+
+    def get(code):
+        if code not in agg:
+            agg[code] = HospAgg()
+        return agg[code]
+
+    def scan(sheet, year):
+        for row in wb[sheet].iter_rows(min_row=2, values_only=True):
+            section = _text(row, config.COL_SECTION)
+            if section not in (config.FLAG_REVENUE, config.FLAG_EXPENSE):
+                continue
+            name = _text(row, config.COL_CATEGORY)
+            if _classify_aside(section, name) in ("pharma_rev", "pharma_exp"):
+                continue  # pharma pass-through excluded both sides
+            code = _text(row, hc)
+            if not code:
+                continue
+            ytd = sum(_num(row[jan + k]) if jan + k < len(row) else 0.0 for k in range(mm))
+            h = get(code)
+            if section == config.FLAG_REVENUE:
+                if _is_excluded(section, name, row, year) or not name:
+                    continue  # 01870 special fund / blank
+                if year == 2026:
+                    h.r += ytd
+                    h.rb += _num(row[config.COL_2026_BUDGET]) if config.COL_2026_BUDGET < len(row) else 0.0
+                    if name != config.PUBLIC_HEALTH_CATEGORY:
+                        h.rnoph += ytd
+                else:
+                    h.r25 += ytd
+            else:  # expense
+                if name == config.DEP_CATEGORY:
+                    if year == 2026:
+                        h.d += ytd
+                    continue  # D&A excluded from EBITDA opex
+                if year == 2026:
+                    h.e += ytd
+                    h.eb += _num(row[config.COL_2026_BUDGET]) if config.COL_2026_BUDGET < len(row) else 0.0
+                else:
+                    h.e25 += ytd
+
+    scan(config.SHEET_2026, 2026)
+    scan(config.SHEET_2025, 2025)
+    wb.close()
+    return agg
 
 
 def _classify_aside(section: str, name: str) -> str | None:
