@@ -896,6 +896,162 @@ def _inject_allaesoda(html: str, m: Metrics, rep: InjectReport) -> str:
     return html
 
 
+# ── sec-payroll (Μισθοδοσία) ─────────────────────────────────────────────────
+def _mc(v: float, dec: int = 1) -> str:
+    return f"{v / 1e6:.{dec}f}".replace(".", ",")
+
+
+def _mcs(v: float, dec: int = 1) -> str:
+    s = "+" if round(v, 6) > 0 else (MINUS if v < 0 else "")
+    return s + f"{abs(v) / 1e6:.{dec}f}".replace(".", ",")
+
+
+def _repl_chart(html: str, cid: str, arrays: list) -> str:
+    """Replace the first len(arrays) `data:[…]` arrays in a chart block (None
+    entries are left untouched)."""
+    try:
+        s = html.index(f"getElementById('{cid}')")
+    except ValueError:
+        return html
+    nxt = html.find("getElementById(", s + 20)
+    end = nxt if nxt > 0 else len(html)
+    seg = html[s:end]
+    hits = list(re.finditer(r"data:\s*\[[^\]]*\]", seg))
+    for i in range(min(len(arrays), len(hits)) - 1, -1, -1):
+        if arrays[i] is None:
+            continue
+        seg = seg[:hits[i].start()] + "data:" + arrays[i] + seg[hits[i].end():]
+    return html[:s] + seg + html[end:]
+
+
+def _pay_tiles(p: dict) -> str:
+    s = {r["label"]: r for r in p["summary"]}
+    tot = p["total"]
+    def t(cls, label, r, kb):
+        vpy = r["ytd"] - r["bud"]; pct = vpy / r["bud"] * 100 if r["bud"] else 0
+        yoy = r["ytd"] - r["y25"]; yp = yoy / abs(r["y25"]) * 100 if r["y25"] else 0
+        ks = f"2025: {fmt_absM(r['y25'])} | YoY {fmt_varM(yoy)} ({fmt_pct(yp)})"
+        return (f'<div class="kpi {cls}"><div class="kl">{label}</div><div class="kv">{_kv(r["ytd"])}</div>'
+                f'<div class="kb {kb}">vs Π/Υ {fmt_varM(vpy)} ({fmt_pct(pct)})</div><div class="ks">{ks}</div></div>')
+    tot_row = {"ytd": tot["ytd"], "bud": tot["bud"], "y25": tot["y25"]}
+    return ('<div class="kpis k4">\n'
+            f'    {t("r", "Σύνολο Κόστους Προσωπικού", tot_row, "neg")}\n'
+            f'    {t("r", "Αποσπασμένο Προσωπικό", s["Αποσπασμένο Προσωπικό"], "neg")}\n'
+            f'    {t("r", "Ωρομίσθιο Προσωπικό", s["Ωρομίσθιο Προσωπικό"], "neg")}\n'
+            f'    {t("a", "Σύμβαση ΟΚΥπΥ", s["Σύμβαση ΟΚΥπΥ"], "amb")}\n'
+            '  </div>')
+
+
+def _pay_compare_rows(p: dict) -> str:
+    tot = p["total"]
+    def row(r, total=False):
+        vpy = r["ytd"] - r["bud"]; pct = vpy / r["bud"] * 100 if r["bud"] else 0
+        yoy = r["ytd"] - r["y25"]; yp = yoy / abs(r["y25"]) * 100 if r["y25"] else 0
+        share = r["ytd"] / tot["ytd"] * 100 if tot["ytd"] else 0
+        tr = '<tr class="tr-ebitda">' if total else "<tr>"
+        c = 'style="text-align:center"'
+        return (f'{tr}<td>{r["label"]}</td><td {c}>{fmt_m(r["ytd"])}</td><td {c}>{fmt_m(r["bud"])}</td>'
+                f'<td {c} class="vn">{fmt_var(vpy)}</td><td {c} class="vn">{fmt_pct(pct)}</td>'
+                f'<td {c}>{fmt_m(r["y25"])}</td><td {c} class="vn">{fmt_var(yoy)}</td>'
+                f'<td {c} class="vn">{fmt_pct(yp)}</td><td {c}><b>{fmt_pct_plain(share)}</b></td></tr>')
+    rows = [row(r) for r in p["summary"]]
+    rows.append(row({"label": "ΣΥΝΟΛΟ ΠΡΟΣΩΠΙΚΟΥ", **tot}, total=True))
+    return "\n            ".join(rows)
+
+
+def _pay_symv_rows(p: dict) -> str:
+    comps = p["symv_components"]
+    bl = 'style="border-left:2px solid var(--ink-400)"'
+    def row(c):
+        vpy = c["ytd"] - c["bud"]; pct = vpy / c["bud"] * 100 if c["bud"] else 0
+        cls = _vcls(vpy, "exp")
+        mcells = "".join(f"<td>{_mc(x)}</td>" for x in c["m"])
+        return (f'<tr><td>{c["label"]}</td>{mcells}'
+                f'<td {bl}><b>{_mc(c["ytd"])}</b></td><td>{_mc(c["y25"])}</td><td>{_mc(c["bud"])}</td>'
+                f'<td class="{cls}">{_mcs(vpy)}</td><td class="{cls}">{fmt_pct(pct)}</td></tr>')
+    rows = [row(c) for c in comps]
+    tot_ytd = sum(c["ytd"] for c in comps); tot_bud = sum(c["bud"] for c in comps)
+    tot_y25 = sum(c["y25"] for c in comps); tv = tot_ytd - tot_bud
+    tp = tv / tot_bud * 100 if tot_bud else 0
+    empty = "<td></td>" * len(comps[0]["m"]) if comps else ""
+    rows.append(f'<tr class="tr-total"><td>ΣΥΝΟΛΟ</td>{empty}'
+                f'<td {bl}><b>{_mc(tot_ytd)}</b></td><td>{_mc(tot_y25)}</td><td>{_mc(tot_bud)}</td>'
+                f'<td class="vn">{_mcs(tv)}</td><td class="vn">{fmt_pct(tp)}</td></tr>')
+    return "".join(rows)
+
+
+def _pay_topn_rows(tn: dict, dec: int = 3) -> str:
+    """Top-N table: actuals 2026 & 2025 real; Π/Υ/Απόκλ/% not in workbook → «—»."""
+    def cell(v):
+        return f"€{_mc(v, dec)}"
+    def row(name, v26, v25, total=False):
+        tr = '<tr class="tr-total">' if total else "<tr>"
+        val = f"<b>{cell(v26)}</b>" if total else cell(v26)
+        return (f'{tr}<td>{name}</td><td>{val}</td><td class="vz">—</td>'
+                f'<td class="vz">—</td><td class="vz">—</td><td>{cell(v25)}</td></tr>')
+    rows = [row(r["name"], r["v26"], r["v25"]) for r in tn["rows"]]
+    rows.append(row("Λοιπά", tn["loipa"]["v26"], tn["loipa"]["v25"]))
+    rows.append(row("Σύνολο", tn["total"]["v26"], tn["total"]["v25"], total=True))
+    return "".join(rows)
+
+
+def _pay_apos_row(p: dict) -> str:
+    r = p["summary"][0]  # Αποσπασμένο
+    vpy = r["ytd"] - r["bud"]; pct = vpy / r["bud"] * 100 if r["bud"] else 0
+    yoy = r["ytd"] - r["y25"]; yp = yoy / abs(r["y25"]) * 100 if r["y25"] else 0
+    c = 'style="text-align:center"'
+    return (f'<tr class="tr-ebitda"><td>Αποσπασμένο Προσωπικό</td><td {c}>{fmt_m(r["ytd"])}</td>'
+            f'<td {c}>{fmt_m(r["bud"])}</td><td class="vn" {c}>{fmt_var(vpy)}</td>'
+            f'<td class="vn" {c}>{fmt_pct(pct)}</td><td {c}>{fmt_m(r["y25"])}</td>'
+            f'<td class="vn" {c}>{fmt_var(yoy)}</td><td class="vn" {c}>{fmt_pct(yp)}</td></tr>')
+
+
+def _nulls(vals, before, after):
+    return "[" + ",".join(["null"] * before + [_js(x) for x in vals] + ["null"] * after) + "]"
+
+
+def _inject_payroll(html: str, m: Metrics, rep: InjectReport) -> str:
+    p = m.payroll
+    if not p.get("summary"):
+        rep.warnings.append("Δεν βρέθηκαν δεδομένα μισθοδοσίας.")
+        return html
+    mm = m.mm
+    # KPI tiles
+    s = html.index('id="sec-payroll"')
+    k_s = html.index('<div class="kpis k4">', s)
+    k_e = html.index('<div class="callout', k_s)
+    html = html[:k_s] + _pay_tiles(p) + "\n\n  " + html[k_e:]
+    # tables
+    html = _replace_tbody(html, "Σύγκριση Κόστους Προσωπικού 2026 vs 2025", _pay_compare_rows(p))
+    if p["symv_components"]:
+        html = _replace_tbody(html, "ΟΚΥΠΥ Σύμβαση — Κατηγορίες", _pay_symv_rows(p))
+    html = _replace_tbody(html, "Επιδόματα — Top-3 Νοσηλ.", _pay_topn_rows(p["epid_hosp"]))
+    html = _replace_tbody(html, "Υπερωρίες — Top-3 Νοσηλ.", _pay_topn_rows(p["yper_hosp"]))
+    html = _replace_tbody(html, "Επιδόματα — Top-5 Είδη", _pay_topn_rows(p["epid_type"]))
+    html = _replace_tbody(html, "Αποσπασμένο Προσωπικό — Συνοπτική Εικόνα", _pay_apos_row(p))
+    # charts
+    hc = p["headcount"]
+    symv, apos, hora = p["symv"], p["apos"], p["hora"]
+    html = _repl_chart(html, "symvTrendChart",
+                       [_nulls(symv["m25"], 0, mm), _nulls(symv["m26"], mm, 0)])  # headcount left as-is
+    if p["hora_waterfall"]:
+        wf = p["hora_waterfall"]
+        html = _repl_chart(html, "horaWaterfallChart",
+                           ["[" + ",".join(_js(b["v2026"]) for b in wf) + "]",
+                            "[" + ",".join(_js(b["bud"]) for b in wf) + "]"])
+    hc_hora = "[" + ",".join(_js(x) for x in (hc.get("hora", {}).get("m25", []) + hc.get("hora", {}).get("m26", []))) + "]"
+    html = _repl_chart(html, "horaTrendChart",
+                       [_nulls(hora["m25"], 0, mm), _nulls(hora["m26"], mm, 0), hc_hora])
+    html = _repl_chart(html, "aposChart",
+                       ["[" + ",".join(_js(x) for x in apos["m26"]) + "]",
+                        "[" + ",".join(_js(x) for x in apos["m25"]) + "]"])
+    hc_apos = "[" + ",".join(_js(x) for x in (hc.get("apos", {}).get("m25", []) + hc.get("apos", {}).get("m26", []))) + "]"
+    html = _repl_chart(html, "aposTrendChart",
+                       [_nulls(apos["m25"], 0, mm), _nulls(apos["m26"], mm, 0), hc_apos])
+    rep.note("payroll tab", 1)
+    return html
+
+
 # ── responsive layer (mobile / tablet) ───────────────────────────────────────
 # Appended to the output only (the on-disk template stays verbatim). The deck
 # already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
@@ -1047,6 +1203,7 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_loipaexp(html, m, rep)
     html = _inject_oay(html, m, rep)
     html = _inject_allaesoda(html, m, rep)
+    html = _inject_payroll(html, m, rep)
 
     # 5) responsive layer + self-contained / offline
     html = _inject_responsive(html, rep)

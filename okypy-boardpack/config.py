@@ -169,6 +169,50 @@ OAY_BADGE = [(0.0, "Σε στόχο", "bp"), (-5.0, "Παρακολούθηση"
 # ── Άλλα Έσοδα tab ───────────────────────────────────────────────────────────
 ALLA_CATEGORY = "Άλλα έσοδα"   # the single category analysed on this tab
 
+# ── Μισθοδοσία tab (payroll) ─────────────────────────────────────────────────
+PERSONNEL_APOS = "Αποσπασμένο Προσωπικό"
+PERSONNEL_SYMV = "Συμβόλαιο ΟΚΥπΥ"
+PERSONNEL_HORA = "Ωρομίσθιο Προσωπικό"
+
+# ΟΚΥΠΥ Σύμβαση component sheet: category col B(1), monthly F..J(5-9),
+# period budget M(12), 2025 YTD Q(16).
+SYMV_SHEET = "ΟΚΥΠΥ ΜΙΣΘΟΔ DATA"
+SYMV_CAT_COL, SYMV_M0, SYMV_BUD, SYMV_Y25 = 1, 5, 12, 16
+SYMV_LABELS = {
+    "ΒΑΣΙΚΟΣ ΜΙΣΘΟΣ": "Βασικός Μισθός", "ΕΠΙΔΟΜΑΤΑ": "Επιδόματα",
+    "ΣΥΝΕΙΣΦΟΡΕΣ ΕΡΓΟΔΟΤΗ": "Εισφορές Εργοδότη", "ΑΤΑ": "ΑΤΑ",
+    "13ΟΣ ΜΙΣΘΟΣ": "13ος Μισθός", "ΥΠΕΡΩΡΙΕΣ": "Υπερωρίες",
+    "ΚΑΘΕΤΟ ΚΙΝΗΤΡΟ": "Κάθετο Κίνητρο", "ΚΑΤ' ΑΠΟΚΟΠΗ ΥΠΕΡ.": "Κατ'Αποκ. Υπερ.",
+}
+
+# Ωρομίσθιο component sheet: 2026 name D(3), 2026 value E(4), budget F(5).
+HORA_SHEET = "ΩΡΟΜΙΣΘΙΟ DATA"
+HORA_NAME, HORA_VAL, HORA_BUD = 3, 4, 5
+# Named waterfall buckets (raw row name → display); the rest fold into «Εισφορές & Άλλα».
+HORA_BUCKETS = [
+    ("ΒΑΣΙΚΟΣ ΜΙΣΘΟΣ", "Βασικός Μισθός"),
+    ("ΥΠΕΡΩΡΙΑΚΗ ΑΜΟΙΒΗ", "Υπερωριακή Αμοιβή"),
+    ("13ΟΣ ΜΙΣΘΟΣ", "13ος Μισθός"),
+    ("ΕΠΙΔΟΜΑ ΣΚ/ΝΥΧΤΑΣ", "Επιδ. ΣΚ/Νύχτας"),
+    ("ΕΠΙΔΟΜΑ ΑΠΟΓ/ΝΗΣ ΒΑΡΔΙΑΣ", "Επιδ. Βαρδίας"),
+]
+HORA_RESIDUAL_LABEL = "Εισφορές & Άλλα"
+
+# Επιδόματα/Υπερωρίες detail (employee-level): service/unit col C(2), allowance
+# types cols D..S (3-18), overtime col T(19). No budget-by-unit/type in workbook.
+OVERTIME_SHEET_2026 = "ΥΠΕΡΩΡΙΕΣ ΕΠΙΔΟΜΑΤΑ 2026"
+OVERTIME_SHEET_2025 = "ΥΠΕΡΩΡΙΕΣ ΕΠΙΔΟΜΑΤΑ 2025"
+OT_SERVICE_COL, OT_ALLOW_LO, OT_ALLOW_HI, OT_OVERTIME_COL = 2, 3, 18, 19
+OT_TYPE_LABELS = {
+    "ΕΠΙΔΟΜΑ ΕΠΙΦΥΛΑΚΗΣ": "Επιφυλακή", "ΕΠΙΔΟΜΑ ΚΥΡΙΑΚΩΝ": "Κυριακή / Αργία",
+    "ΕΠΙΔΟΜΑ ΝΥΧΤΕΡΙΝΗΣ": "Νυχτ. Βάρδια", "ΚΙΝΗΤΡΑ ΕΙΔΙΚΩΝ": "Κίνητρα Ειδ. Ιατρών",
+    "ΚΙΝΗΤΡΟ 15%": "Κίνητρο 15%",
+}
+
+# HEADCOUNT sheet: Αποσπασμένοι / Ωρομίσθιοι rows; 2026 B..F(1-5), 2025 H..L(7-11).
+HEADCOUNT_SHEET = "HEADCOUNT"
+HC_2026_LO, HC_2025_LO = 1, 7
+
 # ── Reconciliation tolerance ─────────────────────────────────────────────────
 # Figures round to 0.1 €M in the deck; allow a small footing tolerance (euros).
 RECON_TOLERANCE_EUR = 5.0e4  # 0.05 €M — below display resolution

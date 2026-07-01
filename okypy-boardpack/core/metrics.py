@@ -61,6 +61,7 @@ class Metrics:
     loipa: dict = field(default_factory=dict)         # phase-2 sec-loipaexp
     oay: dict = field(default_factory=dict)            # phase-2 sec-oay
     allaesoda: dict = field(default_factory=dict)      # phase-2 sec-allaesoda
+    payroll: dict = field(default_factory=dict)         # phase-2 sec-payroll
     recon_ok: bool = True
     breaches: list[dict] = field(default_factory=list)
 
@@ -208,9 +209,58 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
     m.loipa = _loipa(load, mm)
     m.oay = _oay(load, mm)
     m.allaesoda = _allaesoda(load)
+    m.payroll = _payroll(load, mm)
 
     _reconcile(m, load)
     return m
+
+
+def _payroll(load: LoadResult, mm: int) -> dict:
+    """Assemble the Μισθοδοσία tab: the 3 personnel categories (tiles/summary/
+    trend cost), plus the detail-sheet components and Top-N rankings."""
+    by = {c.name: c for c in load.expense()}
+    def cat(nm):
+        c = by.get(nm)
+        return c or Category(name=nm, section=config.FLAG_EXPENSE,
+                             months2026=[0.0] * mm, months2025=[0.0] * mm)
+    apos, symv, hora = cat(config.PERSONNEL_APOS), cat(config.PERSONNEL_SYMV), cat(config.PERSONNEL_HORA)
+    d = load.payroll or {}
+
+    def personnel_row(label, c):
+        return {"label": label, "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025,
+                "m26": list(c.months2026), "m25": list(c.months2025)}
+    summary = [personnel_row("Αποσπασμένο Προσωπικό", apos),
+               personnel_row("Σύμβαση ΟΚΥπΥ", symv),
+               personnel_row("Ωρομίσθιο Προσωπικό", hora)]
+    total = {"ytd": sum(r["ytd"] for r in summary), "bud": sum(r["bud"] for r in summary),
+             "y25": sum(r["y25"] for r in summary)}
+
+    def topn(d26, d25, n, name_fn=lambda x: x):
+        items = [{"name": name_fn(k), "v26": v, "v25": d25.get(k, 0.0)} for k, v in d26.items()]
+        items.sort(key=lambda x: -x["v26"])
+        top = items[:n]
+        rest = items[n:]
+        loipa = {"name": "Λοιπά", "v26": sum(x["v26"] for x in rest),
+                 "v25": sum(x["v25"] for x in rest)}
+        total_ = {"v26": sum(x["v26"] for x in items), "v25": sum(x["v25"] for x in items)}
+        return {"rows": top, "loipa": loipa, "total": total_}
+
+    ot = d.get("overtime", {})
+    epid_hosp = topn(ot.get("epid_hosp26", {}), ot.get("epid_hosp25", {}), 3)
+    yper_hosp = topn(ot.get("yper_hosp26", {}), ot.get("yper_hosp25", {}), 3)
+    epid_type = topn(ot.get("type26", {}), ot.get("type25", {}), 5)
+
+    return {
+        "summary": summary, "total": total,
+        "symv": {"ytd": symv.ytd2026, "bud": symv.budget_period, "y25": symv.ytd2025,
+                 "m26": list(symv.months2026), "m25": list(symv.months2025)},
+        "apos": {"m26": list(apos.months2026), "m25": list(apos.months2025)},
+        "hora": {"m26": list(hora.months2026), "m25": list(hora.months2025)},
+        "symv_components": d.get("symv", []),
+        "hora_waterfall": d.get("hora", []),
+        "headcount": d.get("headcount", {}),
+        "epid_hosp": epid_hosp, "yper_hosp": yper_hosp, "epid_type": epid_type,
+    }
 
 
 def _allaesoda(load: LoadResult) -> dict:

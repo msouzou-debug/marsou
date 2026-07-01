@@ -8,7 +8,7 @@ It does **not** rebuild the deck. It starts from the board-approved
 commentary into stable, text-anchored positions — so the approved look is
 preserved and risk stays low. Nothing leaves the machine (public-sector data).
 
-> **Recomputed tabs (7 of 8).** Driven entirely by the uploaded workbook and
+> **Recomputed tabs (all 8).** Driven entirely by the uploaded workbook and
 > updating for any month:
 > - **Σύνοψη Αποτελεσμάτων** — four EBITDA tables, ΣΥΝΟΨΗ headline, exec bar
 >   charts, inpatient narrative + up to four alert lines.
@@ -29,11 +29,14 @@ preserved and risk stays low. Nothing leaves the machine (public-sector data).
 > every tab is mutually consistent (this corrects a drift in the original deck,
 > whose monthly-2025 series did not sum to the stated 2025 total).
 >
-> **Still pass-through:** **Μισθοδοσία** — 6 tables + 5 charts (contract-cost by
-> category, Επιδόματα/Υπερωρίες Top-N by unit and by type, and 10-month
-> cost-and-headcount trends). These come from the irregular `ΟΚΥΠΥ ΜΙΣΘΟΔ DATA`,
-> `ΩΡΟΜΙΣΘΙΟ DATA`, `ΥΠΕΡΩΡΙΕΣ ΕΠΙΔΟΜΑΤΑ 2025/2026` and `HEADCOUNT` sheets (not
-> the tidy DATA format) and need per-sheet mapping — the remaining phase-2 item.
+> - **Μισθοδοσία** — KPI tiles, personnel comparison, ΟΚΥΠΥ Σύμβαση component
+>   table, Ωρομίσθιο waterfall, all cost/headcount trend charts, and the
+>   Επιδόματα/Υπερωρίες Top-N tables (from the ΜΙΣΘΟΔ/ΩΡΟΜΙΣΘΙΟ/ΥΠΕΡΩΡΙΕΣ/
+>   HEADCOUNT sheets). **All 8 tabs now recompute from the workbook.**
+>
+> Two payroll caveats (data not in the workbook): the Top-N tables' Π/Υ column
+> shows «—» (no budget-by-unit/type exists), and the Σύμβαση-trend head-count
+> line keeps the template value (HEADCOUNT covers only Αποσπασμένοι/Ωρομίσθιοι).
 
 ---
 

@@ -84,6 +84,7 @@ class LoadResult:
     alla_sub26: dict = field(default_factory=dict)   # Άλλα έσοδα: description → [ytd, budget] (2026)
     alla_sub25: dict = field(default_factory=dict)   # Άλλα έσοδα: description → ytd (2025)
     alla_by_hosp: dict = field(default_factory=dict) # Άλλα έσοδα: hosp code → [ytd, budget] (2026)
+    payroll: dict = field(default_factory=dict)      # payroll detail sheets
 
     def revenue(self):
         return [c for c in self.categories if c.section == config.FLAG_REVENUE]
@@ -214,10 +215,13 @@ def load_workbook(path: str, mm: int) -> LoadResult:
         warnings.append("Δεν βρέθηκαν κατηγορίες — ελέγξτε τους δείκτες στηλών στο config.py.")
 
     hospitals = _load_hospitals(path, mm)
+    from core import payroll as payrollmod
+    payroll = payrollmod.load_details(path, mm)
     return LoadResult(categories=cats, warnings=warnings, mm=mm,
                       pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep,
                       hospitals=hospitals, alles_sub=alles_sub, oay_by_hosp=oay_by_hosp,
-                      alla_sub26=alla_sub26, alla_sub25=alla_sub25, alla_by_hosp=alla_by_hosp)
+                      alla_sub26=alla_sub26, alla_sub25=alla_sub25, alla_by_hosp=alla_by_hosp,
+                      payroll=payroll)
 
 
 def _load_hospitals(path: str, mm: int) -> dict:
