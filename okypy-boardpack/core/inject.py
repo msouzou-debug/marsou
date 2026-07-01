@@ -716,6 +716,113 @@ def _inject_loipaexp(html: str, m: Metrics, rep: InjectReport) -> str:
     return html
 
 
+# ── sec-oay (ΟΑΥ revenue analysis) ───────────────────────────────────────────
+def _oay_badge(pct: float) -> str:
+    for thr, label, cls in config.OAY_BADGE:
+        if pct >= thr:
+            return f'<span class="bdg {cls}">{label}</span>'
+    return ""
+
+
+def _oay_tiles(oay: dict) -> str:
+    by = {c["label"]: c for c in oay["cats"]}
+    def tile(cls, label, key, kb_cls):
+        c = by.get(key, {"ytd": 0, "bud": 0, "y25": 0})
+        vpy = c["ytd"] - c["bud"]; pct = vpy / c["bud"] * 100 if c["bud"] else 0
+        ks = "Π/Υ " + fmt_absM(c["bud"]) + " | 2025 " + fmt_absM(c["y25"])
+        return (f'<div class="kpi {cls}"><div class="kl">{label}</div><div class="kv">{_kv(c["ytd"])}</div>'
+                f'<div class="kb {kb_cls}">vs Π/Υ {fmt_varM(vpy)} ({fmt_pct(pct)})</div>'
+                f'<div class="ks">{ks}</div></div>')
+    return (
+        '<div class="kpis k4">\n'
+        f'    {tile("r", "Ενδονοσοκομεικά", "Ενδονοσοκομεική Φρ. ΟΑΥ", "neg")}\n'
+        f'    {tile("r", "Εξωνοσοκομεικά", "Εξωνοσοκομειακή Φρ. ΟΑΥ", "neg")}\n'
+        f'    {tile("a", "Ημερήσιες Νοσηλείες", "Ημερήσιες Νοσηλείες ΟΑΥ", "amb")}\n'
+        f'    {tile("g", "ΤΑΕΠ ΟΑΥ", "ΤΑΕΠ ΟΑΥ", "pos")}\n'
+        '  </div>'
+    )
+
+
+def _oay_full_rows(oay: dict) -> str:
+    def vcell(v):
+        return ('<td style="text-align:center" class="vz">—</td>' if round(v / 1e5) == 0
+                else f'<td style="text-align:center" class="{_vcls(v, "rev")}">{fmt_var(v)}</td>')
+    def row(c, total=False):
+        vpy = c["ytd"] - c["bud"]; pct = vpy / c["bud"] * 100 if c["bud"] else 0
+        yoy = c["ytd"] - c["y25"]; ypct = yoy / abs(c["y25"]) * 100 if c["y25"] else 0
+        tr = '<tr class="tr-total">' if total else "<tr>"
+        pc = "vz" if round(vpy / 1e5) == 0 else _vcls(vpy, "rev")
+        yc = _vcls(yoy, "rev")
+        return (f'{tr}<td>{c["label"]}</td>'
+                f'<td style="text-align:center">{fmt_m(c["ytd"])}</td>'
+                f'<td style="text-align:center">{fmt_m(c["bud"])}</td>'
+                f'{vcell(vpy)}'
+                f'<td style="text-align:center" class="{pc}">{fmt_pct(pct)}</td>'
+                f'<td style="text-align:center">{fmt_m(c["y25"])}</td>'
+                f'<td style="text-align:center" class="{yc}">{fmt_var(yoy)}</td>'
+                f'<td style="text-align:center" class="{yc}">{fmt_pct(ypct)}</td></tr>')
+    rows = [row(c) for c in oay["cats"]]
+    t = oay["total"]; t = {"label": "ΣΥΝΟΛΟ ΟΑΥ", **t}
+    rows.append(row(t, total=True))
+    return "\n        ".join(rows)
+
+
+def _oay_hosp_rows(hosps: list, total_label="ΣΥΝΟΛΟ") -> str:
+    rows = []
+    tot_ytd = tot_bud = 0.0
+    for h in hosps:
+        vpy = h["ytd"] - h["bud"]; pct = vpy / h["bud"] * 100 if h["bud"] else 0
+        tot_ytd += h["ytd"]; tot_bud += h["bud"]
+        cls = _vcls(vpy, "rev")
+        rows.append(f'<tr><td>{h["name"]}</td>'
+                    f'<td style="text-align:center">{fmt_m(h["ytd"])}</td>'
+                    f'<td style="text-align:center">{fmt_m(h["bud"])}</td>'
+                    f'<td style="text-align:center" class="{cls}">{fmt_var(vpy)}</td>'
+                    f'<td style="text-align:center" class="{cls}">{fmt_pct(pct)}</td>'
+                    f'<td style="text-align:center">{_oay_badge(pct)}</td></tr>')
+    tv = tot_ytd - tot_bud; tp = tv / tot_bud * 100 if tot_bud else 0
+    rows.append(f'<tr class="tr-total"><td>{total_label}</td>'
+                f'<td style="text-align:center">{fmt_m(tot_ytd)}</td>'
+                f'<td style="text-align:center">{fmt_m(tot_bud)}</td>'
+                f'<td style="text-align:center" class="{_vcls(tv, "rev")}">{fmt_var(tv)}</td>'
+                f'<td style="text-align:center" class="{_vcls(tv, "rev")}">{fmt_pct(tp)}</td>'
+                '<td></td></tr>')
+    return "\n        ".join(rows)
+
+
+def _oay_chart(html: str, cid: str, series: dict) -> str:
+    start = html.index(f"getElementById('{cid}')")
+    end = html.index("options:", start)
+    seg = html[start:end]
+    arrs = [series["m26"], series["m25"], series["mbud"]]
+    js = ["[" + ",".join(f"{x / 1e6:.1f}" for x in a) + "]" for a in arrs]
+    hits = list(re.finditer(r"data:\[[^\]]*\]", seg))
+    for k in range(min(3, len(hits)) - 1, -1, -1):
+        seg = seg[:hits[k].start()] + "data:" + js[k] + seg[hits[k].end():]
+    return html[:start] + seg + html[end:]
+
+
+def _inject_oay(html: str, m: Metrics, rep: InjectReport) -> str:
+    oay = m.oay
+    if not oay.get("cats"):
+        rep.warnings.append("Δεν βρέθηκαν δεδομένα ΟΑΥ.")
+        return html
+    # KPI tiles (scoped to sec-oay)
+    s = html.index('id="sec-oay"')
+    k_s = html.index('<div class="kpis k4">', s)
+    k_e = html.index('<div class="callout', k_s)
+    html = html[:k_s] + _oay_tiles(oay) + "\n\n  " + html[k_e:]
+    # full table + by-hospital tables
+    html = _replace_tbody(html, "ΟΑΥ Πλήρης Πίνακας", _oay_full_rows(oay))
+    html = _replace_tbody(html, "Ενδονοσοκομεικά ΟΑΥ ανά Νοσηλευτήριο", _oay_hosp_rows(oay["inp_hosp"]))
+    html = _replace_tbody(html, "Εξωνοσοκομεικά ΟΑΥ ανά Νοσηλευτήριο", _oay_hosp_rows(oay["exo_hosp"]))
+    # monthly charts
+    html = _oay_chart(html, "inpMonthChart", oay["inp_series"])
+    html = _oay_chart(html, "exoMonthChart", oay["exo_series"])
+    rep.note("oay tab", 1)
+    return html
+
+
 # ── responsive layer (mobile / tablet) ───────────────────────────────────────
 # Appended to the output only (the on-disk template stays verbatim). The deck
 # already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
@@ -865,6 +972,7 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     html = _inject_monthly(html, m, rep)
     html = _inject_hospitals(html, m, rep)
     html = _inject_loipaexp(html, m, rep)
+    html = _inject_oay(html, m, rep)
 
     # 5) responsive layer + self-contained / offline
     html = _inject_responsive(html, rep)

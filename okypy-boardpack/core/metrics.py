@@ -59,6 +59,7 @@ class Metrics:
     overview: dict = field(default_factory=dict)     # phase-2 sec-overview P&L
     hospitals: list = field(default_factory=list)    # phase-2 sec-hospitals
     loipa: dict = field(default_factory=dict)         # phase-2 sec-loipaexp
+    oay: dict = field(default_factory=dict)            # phase-2 sec-oay
     recon_ok: bool = True
     breaches: list[dict] = field(default_factory=list)
 
@@ -204,9 +205,46 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
     m.overview = _overview(load)
     m.hospitals = _hospitals(load)
     m.loipa = _loipa(load, mm)
+    m.oay = _oay(load, mm)
 
     _reconcile(m, load)
     return m
+
+
+def _oay(load: LoadResult, mm: int) -> dict:
+    """ΟΑΥ Έσοδα tab: the 7 OAY category lines, the inpatient/outpatient monthly
+    series, and the per-unit inpatient/outpatient breakdowns."""
+    by = {c.name: c for c in load.revenue()}
+    cats = []
+    for nm in config.OAY_ORDER:
+        c = by.get(nm)
+        if not c:
+            continue
+        cats.append({"label": config.OAY_LABELS.get(nm, nm),
+                     "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025})
+    total = {"ytd": sum(c["ytd"] for c in cats), "bud": sum(c["bud"] for c in cats),
+             "y25": sum(c["y25"] for c in cats)}
+
+    def series(nm):
+        c = by.get(nm)
+        if not c:
+            return {"m26": [0] * mm, "m25": [0] * mm, "mbud": [0] * mm}
+        mbud = (c.budget_period / mm) if mm else 0.0
+        return {"m26": list(c.months2026), "m25": list(c.months2025), "mbud": [mbud] * mm}
+
+    def by_hosp(nm):
+        rows = []
+        for spec in config.HOSPITALS:
+            v = load.oay_by_hosp.get(nm, {}).get(spec["code"])
+            if not v or (abs(v[0]) < 1.0 and abs(v[1]) < 1.0):
+                continue
+            rows.append({"name": spec["name"], "ytd": v[0], "bud": v[1]})
+        rows.sort(key=lambda r: -r["ytd"])
+        return rows
+
+    return {"cats": cats, "total": total,
+            "inp_series": series(config.INP_CATEGORY), "exo_series": series(config.EXO_CATEGORY),
+            "inp_hosp": by_hosp(config.INP_CATEGORY), "exo_hosp": by_hosp(config.EXO_CATEGORY)}
 
 
 def _loipa(load: LoadResult, mm: int) -> dict:
