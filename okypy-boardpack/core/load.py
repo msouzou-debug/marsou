@@ -2,10 +2,13 @@
 """
 core/load.py — workbook → tidy per-category frames for 2026 and 2025.
 
-Reads ``DATA 2026`` and ``DATA 2025`` with ``data_only=True`` and returns a
-merged list of category records, one per (section, category), carrying every
-year's month / YTD / budget figure. EBITDA-basis exclusions (spec §5.1) are
-applied here so nothing downstream has to remember them.
+Both ``DATA 2026`` and ``DATA 2025`` carry one column per posted month
+(January = column H), a running total, a period budget (2026 only), a category
+(col C) and a hospital/unit dimension (col E «Νοσηλ.»). We read the monthly
+columns directly so month, YTD and the monthly trend all come from one source
+and generalise to any MM. EBITDA-basis exclusions (spec §5.1) are applied here;
+the excluded pharma pass-through and D&A lines are captured separately for the
+analytical P&L tab.
 
 No cloud calls; pure openpyxl.
 """
@@ -21,25 +24,52 @@ import config
 
 @dataclass
 class Category:
-    """One P&L line, merged across years."""
+    """One P&L line, merged across years, with the monthly breakdown."""
     name: str
-    section: str            # config.FLAG_REVENUE or config.FLAG_EXPENSE
-    m2026: float = 0.0      # month figure
-    ytd2026: float = 0.0    # YTD Ιαν–MM
-    budget_period: float = 0.0  # cumulative budget to date (col N)
-    m2025: float = 0.0
+    section: str
+    months2026: list = field(default_factory=list)   # per-month, Jan..MM
+    months2025: list = field(default_factory=list)
+    budget_period: float = 0.0                        # col N (cumulative to date)
+
+    # convenience scalars derived after load
+    @property
+    def m2026(self) -> float:
+        return self.months2026[-1] if self.months2026 else 0.0
+
+    @property
+    def ytd2026(self) -> float:
+        return sum(self.months2026)
+
+    @property
+    def m2025(self) -> float:
+        return self.months2025[-1] if self.months2025 else 0.0
+
+    @property
+    def ytd2025(self) -> float:
+        return sum(self.months2025)
+
+
+@dataclass
+class Aside:
+    """An excluded line kept aside for the P&L tab (pharma / D&A)."""
+    ytd2026: float = 0.0
     ytd2025: float = 0.0
+    budget: float = 0.0
 
 
 @dataclass
 class LoadResult:
-    categories: list[Category] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    categories: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
+    mm: int = 0
+    pharma_rev: Aside = field(default_factory=Aside)
+    pharma_exp: Aside = field(default_factory=Aside)
+    dep: Aside = field(default_factory=Aside)
 
-    def revenue(self) -> list[Category]:
+    def revenue(self):
         return [c for c in self.categories if c.section == config.FLAG_REVENUE]
 
-    def expense(self) -> list[Category]:
+    def expense(self):
         return [c for c in self.categories if c.section == config.FLAG_EXPENSE]
 
 
@@ -48,120 +78,124 @@ _MM_RE = re.compile(r"(\d{1,2})")
 
 
 def detect_month_from_filename(filename: str) -> int | None:
-    """Parse MM from a name like ``01-05_ΓΙΑ_CLAUDE.xlsx`` → 5.
-
-    Takes the *last* 1–2 digit group that is a valid month (01–12); the leading
-    ``01-`` is a fixed prefix in the OKYπY naming convention.
-    """
     stem = filename.rsplit("/", 1)[-1]
-    candidates = [int(x) for x in _MM_RE.findall(stem)]
-    months = [c for c in candidates if 1 <= c <= 12]
-    # Prefer the second number (after the "01-" prefix) when present.
+    months = [int(x) for x in _MM_RE.findall(stem) if 1 <= int(x) <= 12]
     if len(months) >= 2:
-        return months[1]
-    if months:
-        return months[0]
-    return None
+        return months[1]      # skip the "01-" prefix
+    return months[0] if months else None
 
 
-def _num(cell) -> float:
-    """Coerce a cell value to float; blanks/text → 0.0."""
-    v = cell.value if hasattr(cell, "value") else cell
+def _num(v) -> float:
+    if hasattr(v, "value"):
+        v = v.value
     if v is None:
         return 0.0
     if isinstance(v, (int, float)):
         return float(v)
-    # Occasionally numbers arrive as strings with a comma decimal.
-    s = str(v).strip().replace(" ", "").replace(".", "").replace(",", ".")
+    s = str(v).strip().replace(" ", "").replace(".", "").replace(",", ".")
     try:
         return float(s)
     except ValueError:
         return 0.0
 
 
-def _cell_text(row, idx: int) -> str:
+def _text(row, idx: int) -> str:
     if idx >= len(row):
         return ""
-    v = row[idx].value
+    v = row[idx]
     return "" if v is None else str(v).strip()
 
 
-def _iter_rows(ws):
-    """Yield data rows (skip the header row 1)."""
-    for r in ws.iter_rows(min_row=2):
-        yield r
-
-
 def load_workbook(path: str, mm: int) -> LoadResult:
-    """Load a monthly workbook into a merged :class:`LoadResult`.
-
-    ``mm`` is the month number (1–12) — used only for validation/warnings here;
-    the divisor logic lives in core/metrics.py.
-    """
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
-    warnings: list[str] = []
+    warnings: list = []
+    for sh in (config.SHEET_2026, config.SHEET_2025):
+        if sh not in wb.sheetnames:
+            raise ValueError(f"Λείπει το φύλλο «{sh}».")
 
-    if config.SHEET_2026 not in wb.sheetnames:
-        raise ValueError(f"Λείπει το φύλλο «{config.SHEET_2026}».")
-    if config.SHEET_2025 not in wb.sheetnames:
-        raise ValueError(f"Λείπει το φύλλο «{config.SHEET_2025}».")
+    jan = config.COL_2025_JAN  # column H (0-based 7) — same layout both years
+    rec: dict = {}
+    pharma_rev, pharma_exp, dep = Aside(), Aside(), Aside()
 
-    rec: dict[tuple[str, str], Category] = {}
+    def month_cols(row):
+        return [_num(row[jan + k]) if jan + k < len(row) else 0.0 for k in range(mm)]
 
     # ── DATA 2026 ────────────────────────────────────────────────────────────
-    ws26 = wb[config.SHEET_2026]
-    for row in _iter_rows(ws26):
-        section = _cell_text(row, config.COL_SECTION)
+    for row in wb[config.SHEET_2026].iter_rows(min_row=2, values_only=True):
+        section = _text(row, config.COL_SECTION)
         if section not in (config.FLAG_REVENUE, config.FLAG_EXPENSE):
             continue
-        name = _cell_text(row, config.COL_CATEGORY)
-        if _is_excluded(section, name, row, year=2026):
-            continue
-        key = (section, name)
-        c = rec.get(key) or Category(name=name, section=section)
-        c.m2026 += _num(row[config.COL_2026_MONTH])
-        c.ytd2026 += _num(row[config.COL_2026_YTD])
-        c.budget_period += _num(row[config.COL_2026_BUDGET])
-        rec[key] = c
+        name = _text(row, config.COL_CATEGORY)
+        months = month_cols(row)
+        budget = _num(row[config.COL_2026_BUDGET]) if config.COL_2026_BUDGET < len(row) else 0.0
+        aside = _classify_aside(section, name)
+        if aside == "pharma_rev":
+            pharma_rev.ytd2026 += sum(months); pharma_rev.budget += budget
+        elif aside == "pharma_exp":
+            pharma_exp.ytd2026 += sum(months); pharma_exp.budget += budget
+        elif aside == "dep":
+            dep.ytd2026 += sum(months); dep.budget += budget
+        elif not _is_excluded(section, name, row, 2026):
+            c = rec.get((section, name)) or Category(name=name, section=section,
+                                                     months2026=[0.0] * mm, months2025=[0.0] * mm)
+            for k in range(mm):
+                c.months2026[k] += months[k]
+            c.budget_period += budget
+            rec[(section, name)] = c
 
     # ── DATA 2025 ────────────────────────────────────────────────────────────
-    # January is column H; month MM = COL_2025_JAN + MM - 1; YTD = sum Jan..MM.
-    ws25 = wb[config.SHEET_2025]
-    lo = config.COL_2025_JAN
-    hi = config.COL_2025_JAN + mm - 1
-    month_col = hi
-    for row in _iter_rows(ws25):
-        section = _cell_text(row, config.COL_SECTION)
+    for row in wb[config.SHEET_2025].iter_rows(min_row=2, values_only=True):
+        section = _text(row, config.COL_SECTION)
         if section not in (config.FLAG_REVENUE, config.FLAG_EXPENSE):
             continue
-        name = _cell_text(row, config.COL_CATEGORY)
-        if _is_excluded(section, name, row, year=2025):
-            continue
-        key = (section, name)
-        c = rec.get(key) or Category(name=name, section=section)
-        c.m2025 += _num(row[month_col]) if month_col < len(row) else 0.0
-        c.ytd2025 += sum(_num(row[i]) for i in range(lo, hi + 1) if i < len(row))
-        rec[key] = c
+        name = _text(row, config.COL_CATEGORY)
+        months = month_cols(row)
+        aside = _classify_aside(section, name)
+        if aside == "pharma_rev":
+            pharma_rev.ytd2025 += sum(months)
+        elif aside == "pharma_exp":
+            pharma_exp.ytd2025 += sum(months)
+        elif aside == "dep":
+            dep.ytd2025 += sum(months)
+        elif not _is_excluded(section, name, row, 2025):
+            c = rec.get((section, name)) or Category(name=name, section=section,
+                                                     months2026=[0.0] * mm, months2025=[0.0] * mm)
+            for k in range(mm):
+                c.months2025[k] += months[k]
+            rec[(section, name)] = c
 
     wb.close()
-
-    cats = list(rec.values())
+    # Drop blank-name lines (unallocated / HO-allocation noise) — they can't be
+    # mapped to a P&L group. The 01870 special fund is already excluded above.
+    cats = [c for c in rec.values() if c.name]
     if not cats:
         warnings.append("Δεν βρέθηκαν κατηγορίες — ελέγξτε τους δείκτες στηλών στο config.py.")
-    return LoadResult(categories=cats, warnings=warnings)
+    return LoadResult(categories=cats, warnings=warnings, mm=mm,
+                      pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep)
+
+
+def _classify_aside(section: str, name: str) -> str | None:
+    """Excluded lines we still want for the P&L tab."""
+    if section == config.FLAG_REVENUE and name in config.EXCLUDE_REVENUE:
+        return "pharma_rev"
+    if section == config.FLAG_EXPENSE:
+        if name in ("ΑΝΑΛΩΣΗ ΦΑΡΜΑΚΩΝ Β ΦΑΣΗΣ",):
+            return "pharma_exp"
+        if name == "Αποσβέσεις και προβλέψεις":
+            return "dep"
+    return None
 
 
 def _is_excluded(section: str, name: str, row, year: int) -> bool:
-    """Apply the EBITDA-basis exclusions of spec §5.1."""
+    """EBITDA-basis exclusions of spec §5.1 (pharma/D&A handled via _classify_aside)."""
     if section == config.FLAG_REVENUE:
         if name in config.EXCLUDE_REVENUE:
             return True
         if year == 2025:
             if name in config.EXCLUDE_REVENUE_2025_ONLY:
                 return True
-            # Blank-category fallback: match on article code (col B).
             if not name:
-                art = _cell_text(row, config.ARTICLE_COL)
+                art = _text(row, config.ARTICLE_COL)
                 if art in config.EXCLUDE_REVENUE_2025_ARTICLES:
                     return True
     elif section == config.FLAG_EXPENSE:

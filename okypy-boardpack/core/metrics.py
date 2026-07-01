@@ -55,6 +55,8 @@ class Metrics:
     var_exp: VarianceTable = field(default_factory=VarianceTable)
     headline: dict = field(default_factory=dict)
     charts: dict = field(default_factory=dict)
+    monthly: dict = field(default_factory=dict)     # phase-2 sec-monthly
+    overview: dict = field(default_factory=dict)     # phase-2 sec-overview P&L
     recon_ok: bool = True
     breaches: list[dict] = field(default_factory=list)
 
@@ -184,7 +186,7 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
         "exp_vpy": sexp.vpy, "exp_vpy_pct": _pct(sexp.v2026, sexp.budget),
         "ebitda_ytd": ebitda.v2026, "ebitda_bud": ebitda.budget, "ebitda_2025": ebitda.v2025,
         "ebitda_vpy": ebitda.vpy, "ebitda_yoy": ebitda.v25,
-        "pay_ytd": kostos.v2026, "pay_bud": kostos.budget,
+        "pay_ytd": kostos.v2026, "pay_bud": kostos.budget, "pay_2025": kostos.v2025,
         "gap_exp": sexp.vpy,   # expense overrun (+ = adverse)
         "gap_rev": srev.vpy,   # revenue shortfall (− = adverse)
     }
@@ -196,8 +198,55 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
         "exp": _chart_series(ry[config.LABEL_SYNOLO_EXODON], rm[config.LABEL_SYNOLO_EXODON]),
     }
 
+    m.monthly = _monthly(load, mm)
+    m.overview = _overview(load)
+
     _reconcile(m, load)
     return m
+
+
+def _monthly(load: LoadResult, mm: int) -> dict:
+    """Per-month totals for the sec-monthly tab (2026 & 2025)."""
+    def tot(cats, year_attr, k):
+        return sum(getattr(c, year_attr)[k] for c in cats if k < len(getattr(c, year_attr)))
+    rev, exp = load.revenue(), load.expense()
+    rev26 = [tot(rev, "months2026", k) for k in range(mm)]
+    exp26 = [tot(exp, "months2026", k) for k in range(mm)]
+    rev25 = [tot(rev, "months2025", k) for k in range(mm)]
+    exp25 = [tot(exp, "months2025", k) for k in range(mm)]
+    return {
+        "rev26": rev26, "exp26": exp26,
+        "ebitda26": [rev26[k] - exp26[k] for k in range(mm)],
+        "rev25": rev25, "exp25": exp25,
+        "ebitda25": [rev25[k] - exp25[k] for k in range(mm)],
+    }
+
+
+def _overview(load: LoadResult) -> dict:
+    """Category-level P&L lines for the sec-overview tab."""
+    rev = []
+    for c in load.revenue():
+        g = "other" if c.name in config.GROUP_ALLA_ESODA else "oay"
+        rev.append({"l": c.name, "ytd": c.ytd2026, "bud": c.budget_period,
+                    "y25": c.ytd2025, "g": g})
+    # OAY lines first (by size), then the two "other" lines (by size)
+    rev.sort(key=lambda r: (0 if r["g"] == "oay" else 1, -r["ytd"]))
+
+    exp_by_name = {c.name: c for c in load.expense()}
+    exp = []
+    for nm in config.GROUP_KOSTOS_PROSOPIKOU:        # 3 personnel lines, fixed order
+        c = exp_by_name.pop(nm, None)
+        if c:
+            exp.append({"l": c.name, "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025})
+    rest = [{"l": c.name, "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025}
+            for c in exp_by_name.values()]
+    rest.sort(key=lambda r: -r["ytd"])
+    exp.extend(rest)
+
+    return {
+        "rev_cats": rev, "exp_cats": exp,
+        "pharma_rev": load.pharma_rev, "pharma_exp": load.pharma_exp, "dep": load.dep,
+    }
 
 
 def _by_label(rows: list[Row]) -> dict[str, Row]:

@@ -8,10 +8,25 @@ It does **not** rebuild the deck. It starts from the board-approved
 commentary into stable, text-anchored positions — so the approved look is
 preserved and risk stays low. Nothing leaves the machine (public-sector data).
 
-> **Phase 1 scope:** only the **Σύνοψη Αποτελεσμάτων** (`sec-exec`) tab is
-> recomputed — the four EBITDA tables, the ΣΥΝΟΨΗ headline figures, the exec bar
-> charts, the inpatient narrative and up to four alert lines. Every other tab
-> renders unchanged (they need other source books — phase 2).
+> **Recomputed tabs.** These are driven entirely by the uploaded workbook and
+> update for any month:
+> - **Σύνοψη Αποτελεσμάτων** (`sec-exec`) — four EBITDA tables, ΣΥΝΟΨΗ headline,
+>   exec bar charts, inpatient narrative + up to four alert lines.
+> - **Αναλυτικές Αποτελεσμάτων** (`sec-overview`) — consolidated EBITDA P&L
+>   (every category line, subtotals, pharma pass-through & D&A) + the 5 KPI tiles.
+> - **Μηνιαία Ανάλυση** (`sec-monthly`) — per-month KPI tiles, the EBITDA-trend
+>   chart and the monthly detail table, from the workbook's monthly columns.
+>
+> The 2026 and 2025 monthly figures come straight from the DATA sheets' per-month
+> columns, so the P&L, monthly and summary tabs are mutually consistent (this
+> corrects a rounding/extract drift in the original approved deck, where the
+> monthly-2025 series did not sum to the stated 2025 total).
+>
+> **Still pass-through** (render from the approved deck, not yet recomputed):
+> ΟΑΥ Έσοδα, Άλλα Έσοδα, Μισθοδοσία, Λειτ. Έξοδα, Ανά Νοσηλευτήριο. These need
+> per-hospital / component-level detail (the workbook's Νοσηλ. dimension and the
+> ΜΙΣΘΟΔ / ΩΡΟΜΙΣΘΙΟ / ΥΠΕΡΩΡΙΕΣ / clinic sheets) and the per-unit Public-Health
+> clearing logic — the next phase-2 increment.
 
 ---
 

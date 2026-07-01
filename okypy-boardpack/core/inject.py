@@ -370,6 +370,195 @@ def _inject_alerts(html: str, alerts: list[dict], rep: InjectReport) -> str:
     return html[:start] + new_block + html[end:]
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 2 — sec-overview (analytical P&L) and sec-monthly tabs
+# ══════════════════════════════════════════════════════════════════════════════
+def _kv(v: float) -> str:
+    """KPI-tile value: signed, Greek comma, Μ suffix, no € (e.g. 219,0Μ / −24,3Μ)."""
+    mv = _m1(v)
+    sign = MINUS if mv < 0 else ""
+    return f"{sign}{abs(mv):.1f}".replace(".", ",") + "Μ"
+
+
+def _js(v: float) -> str:
+    return str(int(round(v)))
+
+
+# ── D-object field setters (operate only inside `const D={ … };`) ─────────────
+def _d_bounds(html: str) -> tuple[int, int]:
+    s = html.index("const D={")
+    e = html.index("\n};", s)
+    return s, e
+
+
+def _set_d_scalar(html: str, field: str, value) -> str:
+    s, e = _d_bounds(html)
+    block = html[s:e]
+    block2 = re.sub(rf"({re.escape(field)}:)\s*-?[\d.]+", rf"\g<1>{_js(value)}", block, count=1)
+    return html[:s] + block2 + html[e:]
+
+
+def _set_d_array(html: str, field: str, arr_str: str) -> str:
+    s, e = _d_bounds(html)
+    block = html[s:e]
+    block2 = re.sub(rf"({re.escape(field)}:)\s*\[[^\]]*\]", rf"\g<1>{arr_str}", block, count=1)
+    return html[:s] + block2 + html[e:]
+
+
+# ── sec-overview ─────────────────────────────────────────────────────────────
+def _pl_rev_js(cats) -> str:
+    items = ["{l:'%s',ytd:%s,bud:%s,y25:%s,g:'%s'}" %
+             (r["l"].replace("'", "’"), _js(r["ytd"]), _js(r["bud"]), _js(r["y25"]), r["g"])
+             for r in cats]
+    return "[\n    " + ",\n    ".join(items) + "\n  ]"
+
+
+def _pl_exp_js(cats) -> str:
+    items = ["{l:'%s',ytd:%s,bud:%s,y25:%s}" %
+             (r["l"].replace("'", "’"), _js(r["ytd"]), _js(r["bud"]), _js(r["y25"]))
+             for r in cats]
+    return "[\n    " + ",\n    ".join(items) + "\n  ]"
+
+
+def _overview_kpi_tiles(h: dict) -> str:
+    ebitda_vpy_pct = h["ebitda_vpy"] / abs(h["ebitda_bud"]) * 100 if h["ebitda_bud"] else 0
+    pay_vpy = h["pay_ytd"] - h["pay_bud"]
+    pay_vpy_pct = pay_vpy / abs(h["pay_bud"]) * 100 if h["pay_bud"] else 0
+    pay_share = h["pay_ytd"] / h["exp_ytd"] * 100 if h["exp_ytd"] else 0
+    return (
+        '<div class="kpis k5">\n'
+        f'    <div class="kpi b"><div class="kl">Έσοδα YTD (net)</div><div class="kv">{_kv(h["rev_ytd"])}</div>'
+        f'<div class="kb amb">vs Π/Υ {fmt_varM(h["rev_vpy"])} ({fmt_pct(h["rev_vpy_pct"])})</div>'
+        f'<div class="ks">Π/Υ {fmt_absM(h["rev_bud"])} | 2025 {fmt_absM(h["rev_2025"])}</div></div>\n'
+        f'    <div class="kpi r"><div class="kl">OpEx YTD (EBITDA)</div><div class="kv">{_kv(h["exp_ytd"])}</div>'
+        f'<div class="kb neg">vs Π/Υ {fmt_varM(h["exp_vpy"])} ({fmt_pct(h["exp_vpy_pct"])})</div>'
+        f'<div class="ks">Π/Υ {fmt_absM(h["exp_bud"])} | 2025 {fmt_absM(h["exp_2025"])}</div></div>\n'
+        f'    <div class="kpi r"><div class="kl">EBITDA 2026</div><div class="kv" style="color:var(--neg)">{_kv(h["ebitda_ytd"])}</div>'
+        f'<div class="kb neg">vs Π/Υ {fmt_varM(h["ebitda_vpy"])} ({fmt_pct(ebitda_vpy_pct)})</div>'
+        f'<div class="ks">Π/Υ {fmt_mM(h["ebitda_bud"])}</div></div>\n'
+        f'    <div class="kpi r"><div class="kl">EBITDA 2025 (διορθ.)</div><div class="kv" style="color:var(--neg)">{_kv(h["ebitda_2025"])}</div>'
+        f'<div class="kb neg">YoY {fmt_varM(h["ebitda_yoy"])}</div>'
+        f'<div class="ks">2025 Διορθ. (ex Αποσβ.)</div></div>\n'
+        f'    <div class="kpi r"><div class="kl">Κόστος Προσωπικού</div><div class="kv">{_kv(h["pay_ytd"])}</div>'
+        f'<div class="kb neg">vs Π/Υ {fmt_varM(pay_vpy)} ({fmt_pct(pay_vpy_pct)})</div>'
+        f'<div class="ks">{fmt_pct_plain(pay_share)} OpEx | 2025 {fmt_absM(h["pay_2025"])} ✓</div></div>\n'
+        '  </div>'
+    )
+
+
+def _inject_overview(html: str, m: Metrics, rep: InjectReport) -> str:
+    ov = m.overview
+    h = m.headline
+    # 1) the D-driven P&L table
+    html = _set_d_array(html, "plRevCats", _pl_rev_js(ov["rev_cats"]))
+    html = _set_d_array(html, "plExpCats", _pl_exp_js(ov["exp_cats"]))
+    for field, key in (("totRev26", "rev_ytd"), ("totRevBud", "rev_bud"), ("totRev25", "rev_2025"),
+                       ("totExp26", "exp_ytd"), ("totExpBud", "exp_bud"), ("totExp25", "exp_2025"),
+                       ("ebitda26Tot", "ebitda_ytd"), ("ebitdaBud", "ebitda_bud"),
+                       ("ebitda25Tot", "ebitda_2025")):
+        html = _set_d_scalar(html, field, h[key])
+    html = _set_d_scalar(html, "pharmaBudRev", ov["pharma_rev"].budget)
+    html = _set_d_scalar(html, "pharmaBudExp", ov["pharma_exp"].budget)
+
+    # 2) pharma / D&A actual display strings inside buildPL()
+    try:
+        bs = html.index("function buildPL()")
+        be = html.index("document.getElementById('plBody')", bs)
+        seg = html[bs:be]
+        seg = seg.replace("€59,6Μ", fmt_mM(ov["pharma_rev"].ytd2026))
+        seg = seg.replace("€39,3Μ", fmt_mM(ov["pharma_rev"].ytd2025))
+        seg = seg.replace("€6,3Μ", fmt_mM(ov["dep"].ytd2026))
+        seg = seg.replace("€3,3Μ", fmt_mM(ov["dep"].ytd2025))
+        html = html[:bs] + seg + html[be:]
+    except ValueError:
+        rep.warnings.append("Δεν εντοπίστηκε το buildPL() — παραλείφθηκαν pharma/D&A ενδείξεις.")
+
+    # 3) KPI tiles (scoped to sec-overview)
+    ov_s = html.index('id="sec-overview"')
+    ov_e = html.index('id="sec-monthly"')
+    k_s = html.index('<div class="kpis k5">', ov_s)
+    k_e = html.index('<div class="card">', k_s)
+    if k_s < ov_e:
+        html = html[:k_s] + _overview_kpi_tiles(h) + "\n\n  " + html[k_e:]
+        rep.note("overview tab", 1)
+    return html
+
+
+# ── sec-monthly ──────────────────────────────────────────────────────────────
+def _monthly_kpi_tiles(m: Metrics) -> str:
+    mo = m.monthly
+    worst = min(range(m.mm), key=lambda k: mo["ebitda26"][k]) if m.mm else -1
+    tiles = []
+    for k in range(m.mm):
+        name = config.MONTHS[k + 1]["nom"]
+        eb, rev, exp = mo["ebitda26"][k], mo["rev26"][k], mo["exp26"][k]
+        if k == worst:
+            tiles.append(
+                f'<div class="kpi r" style="border-top-color:#AD1457"><div class="kl">{name} ⚠️</div>'
+                f'<div class="kv" style="color:#AD1457;font-weight:600">{_kv(eb)}</div>'
+                f'<div class="ks">Έσ: {fmt_mM(rev)} | OpEx: {fmt_mM(exp)}</div></div>')
+        else:
+            tiles.append(
+                f'<div class="kpi r"><div class="kl">{name}</div>'
+                f'<div class="kv" style="color:var(--neg)">{_kv(eb)}</div>'
+                f'<div class="ks">Έσ: {fmt_mM(rev)} | OpEx: {fmt_mM(exp)}</div></div>')
+    return '<div class="kpis k5">\n    ' + "\n    ".join(tiles) + "\n  </div>"
+
+
+def _monthly_detail_rows(m: Metrics) -> str:
+    mo = m.monthly
+    rows = []
+    for k in range(m.mm):
+        name = config.MONTHS[k + 1]["nom"]
+        r26, e26, b26 = mo["rev26"][k], mo["exp26"][k], mo["ebitda26"][k]
+        r25, e25, b25 = mo["rev25"][k], mo["exp25"][k], mo["ebitda25"][k]
+        yoy = b26 - b25
+        label = f"<b>{name} ⚠️</b>" if b26 == min(mo["ebitda26"]) else name
+        eb_style = ';font-weight:800' if b26 == min(mo["ebitda26"]) else ''
+        rows.append(
+            f'<tr><td>{label}</td>'
+            f'<td style="text-align:center">{fmt_m(r26)}</td>'
+            f'<td style="text-align:center">{fmt_m(e26)}</td>'
+            f'<td style="text-align:center{eb_style}" class="{_vcls(b26, "rev")}">{fmt_var(b26)}</td>'
+            f'<td style="text-align:center">{fmt_m(r25)}</td>'
+            f'<td style="text-align:center">{fmt_m(e25)}</td>'
+            f'<td style="text-align:center" class="{_vcls(b25, "rev")}">{fmt_var(b25)}</td>'
+            f'<td style="text-align:center{eb_style}" class="{_vcls(yoy, "rev")}">{fmt_var(yoy)}</td></tr>')
+    h = m.headline
+    yoy_tot = h["ebitda_yoy"]
+    rows.append(
+        '<tr class="tr-ebitda"><td>ΣΥΝ. YTD EBITDA</td>'
+        f'<td style="text-align:center">{fmt_m(h["rev_ytd"])}</td>'
+        f'<td style="text-align:center">{fmt_m(h["exp_ytd"])}</td>'
+        f'<td style="text-align:center" class="vn">{fmt_var(h["ebitda_ytd"])}</td>'
+        f'<td style="text-align:center">{fmt_m(h["rev_2025"])}</td>'
+        f'<td style="text-align:center">{fmt_m(h["exp_2025"])}</td>'
+        f'<td style="text-align:center" class="vn">{fmt_var(h["ebitda_2025"])}</td>'
+        f'<td style="text-align:center" class="{_vcls(yoy_tot, "rev")}">{fmt_var(yoy_tot)}</td></tr>')
+    return "\n        ".join(rows)
+
+
+def _inject_monthly(html: str, m: Metrics, rep: InjectReport) -> str:
+    mo = m.monthly
+    months_js = "[" + ",".join(f"'{config.MONTHS[k + 1]['short']}'" for k in range(m.mm)) + "]"
+    html = _set_d_array(html, "months", months_js)
+    for field in ("rev26", "exp26", "ebitda26", "rev25", "exp25", "ebitda25"):
+        html = _set_d_array(html, field, "[" + ",".join(_js(x) for x in mo[field]) + "]")
+
+    # KPI tiles (scoped to sec-monthly)
+    mn_s = html.index('id="sec-monthly"')
+    mn_e = html.index('id="sec-hospitals"')
+    k_s = html.index('<div class="kpis k5">', mn_s)
+    k_e = html.index('<div class="g2">', k_s)
+    if k_s < mn_e:
+        html = html[:k_s] + _monthly_kpi_tiles(m) + "\n\n  " + html[k_e:]
+
+    # monthly detail table
+    html = _replace_tbody(html, "Μηνιαία Λεπτομέρεια EBITDA", _monthly_detail_rows(m))
+    rep.note("monthly tab", 1)
+    return html
+
+
 # ── responsive layer (mobile / tablet) ───────────────────────────────────────
 # Appended to the output only (the on-disk template stays verbatim). The deck
 # already stacks .g2 / hero at ≤900px and scrolls tables; this collapses the
@@ -513,6 +702,10 @@ def inject(template_html: str, m: Metrics, mm: int, year: int,
     # 4) commentary + alerts
     html = _inject_inpatient(html, inpatient_text, rep)
     html = _inject_alerts(html, alerts or [], rep)
+
+    # 4b) phase-2 tabs (analytical P&L + monthly)
+    html = _inject_overview(html, m, rep)
+    html = _inject_monthly(html, m, rep)
 
     # 5) responsive layer + self-contained / offline
     html = _inject_responsive(html, rep)
