@@ -8,25 +8,32 @@ It does **not** rebuild the deck. It starts from the board-approved
 commentary into stable, text-anchored positions — so the approved look is
 preserved and risk stays low. Nothing leaves the machine (public-sector data).
 
-> **Recomputed tabs.** These are driven entirely by the uploaded workbook and
-> update for any month:
-> - **Σύνοψη Αποτελεσμάτων** (`sec-exec`) — four EBITDA tables, ΣΥΝΟΨΗ headline,
->   exec bar charts, inpatient narrative + up to four alert lines.
-> - **Αναλυτικές Αποτελεσμάτων** (`sec-overview`) — consolidated EBITDA P&L
->   (every category line, subtotals, pharma pass-through & D&A) + the 5 KPI tiles.
-> - **Μηνιαία Ανάλυση** (`sec-monthly`) — per-month KPI tiles, the EBITDA-trend
->   chart and the monthly detail table, from the workbook's monthly columns.
+> **Recomputed tabs (7 of 8).** Driven entirely by the uploaded workbook and
+> updating for any month:
+> - **Σύνοψη Αποτελεσμάτων** — four EBITDA tables, ΣΥΝΟΨΗ headline, exec bar
+>   charts, inpatient narrative + up to four alert lines.
+> - **Αναλυτικές Αποτελεσμάτων** — consolidated EBITDA P&L + 5 KPI tiles.
+> - **Μηνιαία Ανάλυση** — per-month tiles, EBITDA-trend chart, monthly table.
+> - **Ανά Νοσηλευτήριο** — per-unit scoreboard, both charts, the Public-Health
+>   clearing cards (special units) and the standard per-hospital cards. `n25` is
+>   the 2025 EBITDA net from source; `ph_oh` is a €0,5M policy constant
+>   (`config.HOSPITAL_PH_OH`).
+> - **Λειτ. Έξοδα** — opex summary, threshold-based Άλλες overrun sub-analysis
+>   (col G), monthly stacked chart.
+> - **ΟΑΥ Έσοδα** — full OAY table, inpatient/outpatient monthly charts and
+>   per-unit tables with Αξιολόγηση badges.
+> - **Άλλα Έσοδα** — sub-category analysis (col G, both years) + per-unit
+>   distribution chart/table.
 >
-> The 2026 and 2025 monthly figures come straight from the DATA sheets' per-month
-> columns, so the P&L, monthly and summary tabs are mutually consistent (this
-> corrects a rounding/extract drift in the original approved deck, where the
-> monthly-2025 series did not sum to the stated 2025 total).
+> All monthly figures come straight from the DATA sheets' per-month columns, so
+> every tab is mutually consistent (this corrects a drift in the original deck,
+> whose monthly-2025 series did not sum to the stated 2025 total).
 >
-> **Still pass-through** (render from the approved deck, not yet recomputed):
-> ΟΑΥ Έσοδα, Άλλα Έσοδα, Μισθοδοσία, Λειτ. Έξοδα, Ανά Νοσηλευτήριο. These need
-> per-hospital / component-level detail (the workbook's Νοσηλ. dimension and the
-> ΜΙΣΘΟΔ / ΩΡΟΜΙΣΘΙΟ / ΥΠΕΡΩΡΙΕΣ / clinic sheets) and the per-unit Public-Health
-> clearing logic — the next phase-2 increment.
+> **Still pass-through:** **Μισθοδοσία** — 6 tables + 5 charts (contract-cost by
+> category, Επιδόματα/Υπερωρίες Top-N by unit and by type, and 10-month
+> cost-and-headcount trends). These come from the irregular `ΟΚΥΠΥ ΜΙΣΘΟΔ DATA`,
+> `ΩΡΟΜΙΣΘΙΟ DATA`, `ΥΠΕΡΩΡΙΕΣ ΕΠΙΔΟΜΑΤΑ 2025/2026` and `HEADCOUNT` sheets (not
+> the tidy DATA format) and need per-sheet mapping — the remaining phase-2 item.
 
 ---
 
