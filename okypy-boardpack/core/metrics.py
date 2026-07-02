@@ -237,6 +237,15 @@ def _payroll(load: LoadResult, mm: int) -> dict:
     apos, symv, hora = cat(config.PERSONNEL_APOS), cat(config.PERSONNEL_SYMV), cat(config.PERSONNEL_HORA)
     d = load.payroll or {}
 
+    def clean_month(cat_obj, attr):
+        """Category monthly for the trend charts, net of the Ταμείο recovery
+        contra entries (which net ~€0 over the period but lump into one month and
+        distort the line). Totals are unaffected."""
+        base = list(getattr(cat_obj, attr))
+        tam = (load.cat_tameio or {}).get(cat_obj.name, {})
+        adj = tam.get("m26" if attr == "months2026" else "m25", [])
+        return [base[k] - (adj[k] if k < len(adj) else 0.0) for k in range(len(base))]
+
     def personnel_row(label, c):
         return {"label": label, "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025,
                 "m26": list(c.months2026), "m25": list(c.months2025)}
@@ -265,9 +274,9 @@ def _payroll(load: LoadResult, mm: int) -> dict:
     return {
         "summary": summary, "total": total,
         "symv": {"ytd": symv.ytd2026, "bud": symv.budget_period, "y25": symv.ytd2025,
-                 "m26": list(symv.months2026), "m25": list(symv.months2025)},
-        "apos": {"m26": list(apos.months2026), "m25": list(apos.months2025)},
-        "hora": {"m26": list(hora.months2026), "m25": list(hora.months2025)},
+                 "m26": clean_month(symv, "months2026"), "m25": clean_month(symv, "months2025")},
+        "apos": {"m26": clean_month(apos, "months2026"), "m25": clean_month(apos, "months2025")},
+        "hora": {"m26": clean_month(hora, "months2026"), "m25": clean_month(hora, "months2025")},
         "symv_components": d.get("symv", []),
         "hora_waterfall": d.get("hora", []),
         "headcount": d.get("headcount", {}),

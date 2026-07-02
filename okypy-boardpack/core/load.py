@@ -84,7 +84,8 @@ class LoadResult:
     alla_sub26: dict = field(default_factory=dict)   # Άλλα έσοδα: description → [ytd, budget] (2026)
     alla_sub25: dict = field(default_factory=dict)   # Άλλα έσοδα: description → ytd (2025)
     alla_by_hosp: dict = field(default_factory=dict) # Άλλα έσοδα: hosp code → [ytd, budget] (2026)
-    tameio_m25: list = field(default_factory=list)   # Ταμείο Ιατροφ. prior-year recovery, 2025 monthly
+    tameio_m25: list = field(default_factory=list)   # Ταμείο Ιατροφ. prior-year recovery, 2025 monthly (revenue)
+    cat_tameio: dict = field(default_factory=dict)   # expense category → {"m26","m25"} Ταμείο contra monthly
     payroll: dict = field(default_factory=dict)      # payroll detail sheets
 
     def revenue(self):
@@ -154,6 +155,13 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     alla_sub25: dict = {}
     alla_by_hosp: dict = {}
     tameio_m25 = [0.0] * mm
+    # Ταμείο recovery booked INSIDE expense categories (contra entries that net
+    # ~€0 over the period but lump into one month) → distorts the payroll monthly
+    # trend charts. Captured per category so those charts can be shown net of it.
+    cat_tameio: dict = {}   # name → {"m26": [mm], "m25": [mm]}
+
+    def _tam_slot(name):
+        return cat_tameio.setdefault(name, {"m26": [0.0] * mm, "m25": [0.0] * mm})
 
     def month_cols(row):
         return [_num(row[jan + k]) if jan + k < len(row) else 0.0 for k in range(mm)]
@@ -180,6 +188,11 @@ def load_workbook(path: str, mm: int) -> LoadResult:
                 c.months2026[k] += months[k]
             c.budget_period += budget
             rec[(section, name)] = c
+            if section == config.FLAG_EXPENSE and \
+               config.TAMEIO_RECOVERY_TOKEN in _norm_gr(_text(row, config.DESC_COL)):
+                s = _tam_slot(name)["m26"]
+                for k in range(mm):
+                    s[k] += months[k]
             if name == config.ALLES_CATEGORY:      # sub-analysis by description (col G)
                 desc = _text(row, config.DESC_COL) or "(κενό)"
                 slot = alles_sub.setdefault(desc, [0.0, 0.0])
@@ -216,6 +229,11 @@ def load_workbook(path: str, mm: int) -> LoadResult:
             for k in range(mm):
                 c.months2025[k] += months[k]
             rec[(section, name)] = c
+            if section == config.FLAG_EXPENSE and \
+               config.TAMEIO_RECOVERY_TOKEN in _norm_gr(_text(row, config.DESC_COL)):
+                s = _tam_slot(name)["m25"]
+                for k in range(mm):
+                    s[k] += months[k]
             if name == config.ALLA_CATEGORY:
                 desc = _text(row, config.DESC_COL) or "(κενό)"
                 alla_sub25[desc] = alla_sub25.get(desc, 0.0) + sum(months)
@@ -239,7 +257,7 @@ def load_workbook(path: str, mm: int) -> LoadResult:
                       pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep,
                       hospitals=hospitals, alles_sub=alles_sub, oay_by_hosp=oay_by_hosp,
                       alla_sub26=alla_sub26, alla_sub25=alla_sub25, alla_by_hosp=alla_by_hosp,
-                      tameio_m25=tameio_m25, payroll=payroll)
+                      tameio_m25=tameio_m25, cat_tameio=cat_tameio, payroll=payroll)
 
 
 def _load_hospitals(path: str, mm: int) -> dict:
