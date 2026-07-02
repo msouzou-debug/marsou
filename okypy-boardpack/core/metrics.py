@@ -203,6 +203,16 @@ def compute(load: LoadResult, mm: int, year: int = config.TEMPLATE_YEAR) -> Metr
         "rev": _chart_series(ry[config.LABEL_SYNOLO_ESODON], rm[config.LABEL_SYNOLO_ESODON]),
         "exp": _chart_series(ry[config.LABEL_SYNOLO_EXODON], rm[config.LABEL_SYNOLO_EXODON]),
     }
+    # show the 2025 bar net of the Ταμείο prior-year recovery (deck convention),
+    # consistently with the monthly trend — see _monthly
+    tam = load.tameio_m25 or []
+    if tam:
+        tam_cur = tam[mm - 1] if mm - 1 < len(tam) else 0.0
+        tam_prior = sum(tam) - tam_cur
+        for key in ("rev", "exp"):
+            m.charts[key]["prior"][1] -= tam_prior
+            m.charts[key]["cur"][1] -= tam_cur
+            m.charts[key]["total"][1] -= (tam_prior + tam_cur)
 
     m.monthly = _monthly(load, mm)
     m.overview = _overview(load)
