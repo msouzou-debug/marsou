@@ -53,9 +53,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Set-Location pkg/okypy-boardpack
           & python\python.exe -c "import sys; print(sys.version); import openpyxl, pptx, PIL, playwright; print('imports ok')"
+          # the sample workbook is gitignored — build it first (needs only openpyxl)
+          & python\python.exe tests/make_sample.py
           & python\python.exe generate.py "tests/01-05_ΓΙΑ_CLAUDE.xlsx" --mm 5 --no-render
           if (!(Test-Path "outputs/BoardPack_2026_05.html")) { throw "generation failed" }
           Remove-Item outputs/* -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item tests/*.xlsx -Force -ErrorAction SilentlyContinue
           Write-Host "portable bundle OK"
 
       - name: Zip
