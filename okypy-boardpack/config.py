@@ -188,6 +188,13 @@ PL_LABELS = {
 # ── Άλλα Έσοδα tab ───────────────────────────────────────────────────────────
 ALLA_CATEGORY = "Άλλα έσοδα"   # the single category analysed on this tab
 
+# Prior-year Ταμείο Ιατροφαρμακευτικής recovery (booked in 2025 under Άλλα Έσοδα,
+# but historically a payroll-cost offset). The approved deck excludes it from the
+# 2025 MONTHLY trend on both sides (revenue & expense) so the monthly comparison
+# is like-for-like with 2026; it stays in the YTD totals. Matched on the 2025
+# description containing this token (Latin homoglyphs/accents are normalised).
+TAMEIO_RECOVERY_TOKEN = "ΙΑΤΡΟΦΑΡΜΑΚΕΥΤΙΚΗΣ"
+
 # The 2025 sheet spells some sub-descriptions differently from 2026 (year
 # suffixes like «… 2023/2024/2025», or a renamed line). Descriptions are
 # normalised (Latin→Greek homoglyphs, accents/years stripped, whitespace

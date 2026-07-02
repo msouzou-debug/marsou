@@ -84,6 +84,7 @@ class LoadResult:
     alla_sub26: dict = field(default_factory=dict)   # Άλλα έσοδα: description → [ytd, budget] (2026)
     alla_sub25: dict = field(default_factory=dict)   # Άλλα έσοδα: description → ytd (2025)
     alla_by_hosp: dict = field(default_factory=dict) # Άλλα έσοδα: hosp code → [ytd, budget] (2026)
+    tameio_m25: list = field(default_factory=list)   # Ταμείο Ιατροφ. prior-year recovery, 2025 monthly
     payroll: dict = field(default_factory=dict)      # payroll detail sheets
 
     def revenue(self):
@@ -126,6 +127,17 @@ def _text(row, idx: int) -> str:
     return "" if v is None else str(v).strip()
 
 
+_LAT2GR = str.maketrans("ABEZHIKMNOPTXY", "ΑΒΕΖΗΙΚΜΝΟΡΤΧΥ")
+
+
+def _norm_gr(s: str) -> str:
+    """Uppercase + Latin→Greek homoglyphs + strip accents, for token matching."""
+    import unicodedata
+    s = (s or "").translate(_LAT2GR).upper()
+    return "".join(c for c in unicodedata.normalize("NFD", s)
+                   if unicodedata.category(c) != "Mn")
+
+
 def load_workbook(path: str, mm: int) -> LoadResult:
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     warnings: list = []
@@ -141,6 +153,7 @@ def load_workbook(path: str, mm: int) -> LoadResult:
     alla_sub26: dict = {}
     alla_sub25: dict = {}
     alla_by_hosp: dict = {}
+    tameio_m25 = [0.0] * mm
 
     def month_cols(row):
         return [_num(row[jan + k]) if jan + k < len(row) else 0.0 for k in range(mm)]
@@ -206,6 +219,11 @@ def load_workbook(path: str, mm: int) -> LoadResult:
             if name == config.ALLA_CATEGORY:
                 desc = _text(row, config.DESC_COL) or "(κενό)"
                 alla_sub25[desc] = alla_sub25.get(desc, 0.0) + sum(months)
+                # Ταμείο prior-year recovery: capture its 2025 monthly so the
+                # monthly trend can be shown net of it (deck convention)
+                if config.TAMEIO_RECOVERY_TOKEN in _norm_gr(desc):
+                    for k in range(mm):
+                        tameio_m25[k] += months[k]
 
     wb.close()
     # Drop blank-name lines (unallocated / HO-allocation noise) — they can't be
@@ -221,7 +239,7 @@ def load_workbook(path: str, mm: int) -> LoadResult:
                       pharma_rev=pharma_rev, pharma_exp=pharma_exp, dep=dep,
                       hospitals=hospitals, alles_sub=alles_sub, oay_by_hosp=oay_by_hosp,
                       alla_sub26=alla_sub26, alla_sub25=alla_sub25, alla_by_hosp=alla_by_hosp,
-                      payroll=payroll)
+                      tameio_m25=tameio_m25, payroll=payroll)
 
 
 def _load_hospitals(path: str, mm: int) -> dict:

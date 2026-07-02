@@ -430,6 +430,16 @@ def _monthly(load: LoadResult, mm: int) -> dict:
     exp26 = [tot(exp, "months2026", k) for k in range(mm)]
     rev25 = [tot(rev, "months2025", k) for k in range(mm)]
     exp25 = [tot(exp, "months2025", k) for k in range(mm)]
+    # Show the 2025 monthly trend net of the Ταμείο Ιατροφαρμακευτικής prior-year
+    # recovery (deck convention): remove it from revenue (a one-off catch-up, not
+    # a monthly flow) and from expense (historically a payroll offset), keeping
+    # monthly EBITDA unchanged and like-for-like with 2026. It stays in the YTD
+    # totals (headline/overview), so the monthly series need not foot to them.
+    tam = load.tameio_m25 or [0.0] * mm
+    for k in range(mm):
+        if k < len(tam):
+            rev25[k] -= tam[k]
+            exp25[k] -= tam[k]
     return {
         "rev26": rev26, "exp26": exp26,
         "ebitda26": [rev26[k] - exp26[k] for k in range(mm)],
