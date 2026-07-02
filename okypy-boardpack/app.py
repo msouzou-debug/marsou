@@ -162,15 +162,17 @@ if st.button("⚙️ Δημιουργία HTML / PDF / PPTX", disabled=not can_g
     try:
         from core import render as rendermod
         from core import ppt as pptmod
-        with st.spinner("Παραγωγή PDF (Playwright)…"):
+        with st.spinner("Απόδοση καρτελών (Playwright)…"):
+            png_dir = os.path.join(OUTPUT_DIR, "_png_" + stem)
+            pngs = rendermod.render_pngs(html, png_dir)
+
+        with st.spinner("Παραγωγή PDF…"):
             pdf_path = os.path.join(OUTPUT_DIR, stem + ".pdf")
-            rendermod.render_pdf(html, pdf_path)
+            pptmod.build_pdf(pngs, pdf_path)          # one clean page per tab
         with open(pdf_path, "rb") as fh:
             st.download_button("⬇️ PDF", fh, file_name=stem + ".pdf", mime="application/pdf")
 
         with st.spinner("Παραγωγή PPTX…"):
-            png_dir = os.path.join(OUTPUT_DIR, "_png_" + stem)
-            pngs = rendermod.render_pngs(html, png_dir)
             pptx_path = os.path.join(OUTPUT_DIR, stem + ".pptx")
             pptmod.build_pptx(pngs, pptx_path)
         with open(pptx_path, "rb") as fh:

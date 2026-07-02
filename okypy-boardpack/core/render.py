@@ -18,24 +18,42 @@ import tempfile
 
 import config
 
-# Print-mode CSS: reveal all sections, one per page. Injected at render time so
-# the shipped template stays verbatim.
-PRINT_CSS = """
-@page { size: 1920px 1080px; margin: 0; }
-body.printmode .topbar { position: static !important; }
-body.printmode .section { display: block !important; page-break-before: always; padding: 24px 32px; }
-body.printmode .section:first-of-type { page-break-before: auto; }
-body.printmode .hero { page-break-after: always; }
-"""
-
 _RESIZE_ALL = """
 () => {
   if (window.Chart) {
+    try { window.Chart.defaults.animation = false; } catch (e) {}
     document.querySelectorAll('canvas').forEach(cv => {
       const ch = window.Chart.getChart ? window.Chart.getChart(cv) : null;
-      if (ch) { try { ch.resize(); ch.update('none'); } catch (e) {} }
+      if (ch) { try { ch.options.animation = false; ch.resize(); ch.update('none'); } catch (e) {} }
     });
   }
+}
+"""
+
+# Resolves once every canvas inside the given section has actually been painted
+# (non-blank pixels), so we never screenshot a chart mid-draw. Robust across
+# machine speeds — the earlier fixed-delay approach could capture blank charts
+# on slower hosts.
+_PAINTED = """
+(sel) => {
+  const root = document.querySelector(sel);
+  if (!root) return true;
+  const cvs = Array.from(root.querySelectorAll('canvas'));
+  if (!cvs.length) return true;
+  return cvs.every(cv => {
+    if (!cv.width || !cv.height) return false;
+    try {
+      const ctx = cv.getContext('2d');
+      const w = cv.width, h = cv.height;
+      const pts = [[w*0.5,h*0.5],[w*0.25,h*0.5],[w*0.75,h*0.5],[w*0.5,h*0.25],[w*0.5,h*0.75]];
+      let ink = 0;
+      for (const [x,y] of pts) {
+        const d = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+        if (d[3] !== 0 && !(d[0]===255 && d[1]===255 && d[2]===255)) ink++;
+      }
+      return ink > 0;
+    } catch (e) { return true; }  // tainted/unsupported → don't block
+  });
 }
 """
 
@@ -84,30 +102,6 @@ def _launch(p):
         return p.chromium.launch(args=args, executable_path=exe)
 
 
-def render_pdf(html: str, out_path: str) -> str:
-    from playwright.sync_api import sync_playwright
-
-    tmp = _write_temp_html(html)
-    try:
-        with sync_playwright() as p:
-            browser = _launch(p)
-            page = browser.new_page(viewport={"width": 1920, "height": 1080})
-            page.goto("file://" + tmp, wait_until="load", timeout=60000)
-            page.add_style_tag(content=PRINT_CSS)
-            page.evaluate("() => document.body.classList.add('printmode')")
-            try:
-                page.evaluate(_RESIZE_ALL)
-            except Exception:
-                pass
-            page.wait_for_timeout(800)
-            page.pdf(path=out_path, landscape=True, print_background=True,
-                     prefer_css_page_size=True)
-            browser.close()
-    finally:
-        os.unlink(tmp)
-    return out_path
-
-
 def render_pngs(html: str, out_dir: str, tabs=None, width: int = 1920) -> list[str]:
     from playwright.sync_api import sync_playwright
 
@@ -125,15 +119,25 @@ def render_pngs(html: str, out_dir: str, tabs=None, width: int = 1920) -> list[s
             # shorter → the PPTX slides read as consistent landscape, not tall strips
             page.add_style_tag(content=".content{max-width:none !important;padding:24px 44px !important}"
                                " #okypy-toolbar{display:none !important}")
-            page.wait_for_timeout(500)
+            # wait for webfonts + Chart.js so charts draw deterministically
+            try:
+                page.evaluate("() => document.fonts && document.fonts.ready")
+                page.wait_for_function("() => !!window.Chart", timeout=15000)
+            except Exception:
+                pass
+            page.wait_for_timeout(400)
             for tab in tabs:
                 page.evaluate(_activate_js(tab))
+                sel = f"#sec-{tab}"
+                # force a synchronous (animation-free) redraw of this tab's charts,
+                # then wait until every canvas has actually painted before capture
                 try:
                     page.evaluate(_RESIZE_ALL)
+                    page.wait_for_function(_PAINTED, arg=sel, timeout=8000)
                 except Exception:
-                    pass
-                page.wait_for_timeout(450)
-                el = page.query_selector(f"#sec-{tab}")
+                    page.wait_for_timeout(600)  # fallback: give charts time anyway
+                page.wait_for_timeout(250)
+                el = page.query_selector(sel)
                 out = os.path.join(out_dir, f"tab_{tab}.png")
                 if el:
                     el.screenshot(path=out)
@@ -144,3 +148,14 @@ def render_pngs(html: str, out_dir: str, tabs=None, width: int = 1920) -> list[s
     finally:
         os.unlink(tmp)
     return paths
+
+
+def render_pdf(html: str, out_path: str, png_paths=None) -> str:
+    """Build the PDF from the per-tab PNGs (same images as the PPTX / mobile HTML)
+    — one clean page per tab. This guarantees the charts are present and avoids
+    the blank / mid-chart-split pages the old CSS-paginated print produced. If
+    png_paths isn't supplied, the tabs are rendered on the fly."""
+    from core import ppt as pptmod
+    if not png_paths:
+        png_paths = render_pngs(html, os.path.dirname(out_path) or ".")
+    return pptmod.build_pdf(png_paths, out_path)

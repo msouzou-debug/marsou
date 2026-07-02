@@ -203,8 +203,8 @@ okypy-boardpack/
     load.py                 # workbook -> merged category frames (2026 & 2025)
     metrics.py              # exclusions, groups, month/YTD/budget, variances, recon gate
     inject.py               # fill template with numbers + commentary; validate
-    render.py               # Playwright: print PDF + per-tab PNGs
-    ppt.py                  # python-pptx: NATIVE editable 16:9 deck (tables/charts)
+    render.py               # Playwright: per-tab PNGs (waits for charts to paint)
+    ppt.py                  # image-based 16:9 PPTX + one-page-per-tab PDF (Pillow)
   templates/
     presentation_template.html   # the approved deck (verbatim)
     assets/chart.umd.js          # vendored Chart.js (inlined at build for offline)
@@ -234,8 +234,11 @@ lives in **`config.py`**.
   «Πλευρά Εσόδων» bullet; the four alert lines fill the hero
   "Top 4 Στρατηγικές Αποκλίσεις" cards (optional one-line body shown beneath the
   title). Text is injected verbatim — never auto-generated.
-* **PPTX slides are images** (faithful, non-editable); HTML is the native/
-  interactive artifact. PDF keeps selectable text.
+* **PDF, PPTX and mobile HTML are all built from the same captured tab images**
+  (faithful, non-editable) — one clean page/slide per tab, so charts are always
+  present and nothing is split across a page break. The interactive HTML is the
+  native/live artifact. Chart capture waits for webfonts + Chart.js and for every
+  canvas to actually paint before the screenshot, so charts never come out blank.
 * **Year** is assumed to match the template's fiscal year (2026). Running a
   different fiscal year needs a small config/template addition.
 

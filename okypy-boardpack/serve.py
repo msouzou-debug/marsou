@@ -58,8 +58,8 @@ def regenerate(xlsx_path: str, mm: int, year: int) -> tuple[bool, str]:
     try:
         from core import render as rendermod
         from core import ppt as pptmod
-        rendermod.render_pdf(html, pdf_path)
         pngs = rendermod.render_pngs(html, os.path.join(OUTPUT_DIR, "_png_" + stem))
+        pptmod.build_pdf(pngs, pdf_path)              # one clean page per tab
         pptmod.build_pptx(pngs, pptx_path)            # faithful (matches the HTML)
         injectmod.build_mobile_html(pngs, mobile_path,
                                     title="OKYπY — Πίνακας Διοικητικού Συμβουλίου",

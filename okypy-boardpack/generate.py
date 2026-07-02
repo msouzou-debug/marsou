@@ -71,10 +71,12 @@ def main() -> int:
 
     from core import render as rendermod
     from core import ppt as pptmod
-    pdf_path = os.path.join(out_dir, stem + ".pdf")
-    rendermod.render_pdf(html, pdf_path)
-    print("PDF  →", pdf_path)
+    # render each tab once; PDF, PPTX and mobile HTML are all built from these
+    # same verified images (charts present, identical look)
     pngs = rendermod.render_pngs(html, os.path.join(out_dir, "_png_" + stem))
+    pdf_path = os.path.join(out_dir, stem + ".pdf")
+    pptmod.build_pdf(pngs, pdf_path)                 # one clean page per tab
+    print("PDF  →", pdf_path)
     pptx_path = os.path.join(out_dir, stem + ".pptx")
     pptmod.build_pptx(pngs, pptx_path)               # faithful (matches the HTML)
     print("PPTX →", pptx_path)
