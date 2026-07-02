@@ -30,6 +30,38 @@ TEMPLATE_PATH = os.path.join(BASE, config.TEMPLATE_FILE)
 
 STATE = {"stem": None, "mm": config.TEMPLATE_MONTH, "year": config.TEMPLATE_YEAR}
 
+# First-run screen (no deck generated yet): a proper upload page, so the very
+# first Excel can be loaded from the browser — no command line needed.
+EMPTY_PAGE = """<!doctype html><html lang="el"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OKYπY Board-Pack</title><style>
+body{font-family:"Segoe UI",Arial,sans-serif;background:#F7F8FA;color:#0b2545;
+  display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.10);
+  padding:40px 44px;max-width:520px;text-align:center}
+h1{font-size:20px;color:#062E5C;margin:0 0 8px}
+p{font-size:14px;color:#51617a;line-height:1.6;margin:0 0 22px}
+label{display:inline-block;background:#00AEEF;color:#fff;font-weight:600;font-size:15px;
+  padding:12px 26px;border-radius:999px;cursor:pointer}
+label:hover{background:#0095cc}
+#st{margin-top:16px;font-size:13px;color:#51617a;min-height:18px}
+</style></head><body><div class="card">
+<h1>OKYπY — Μηνιαίος Πίνακας Διοικητικού Συμβουλίου</h1>
+<p>Ανεβάστε το μηνιαίο Excel (π.χ. <b>01-05 ΓΙΑ CLAUDE.xlsx</b>) για να παραχθεί
+το deck. Ο μήνας εντοπίζεται αυτόματα από το όνομα του αρχείου.</p>
+<label>📊 Επιλογή Excel<input id="f" type="file" accept=".xlsx" style="display:none"></label>
+<div id="st"></div>
+<script>
+document.getElementById('f').onchange=function(){
+  var f=this.files&&this.files[0]; if(!f) return;
+  var st=document.getElementById('st'); st.textContent='Παραγωγή… (μπορεί να πάρει 1–2 λεπτά)';
+  var fd=new FormData(); fd.append('file', f);
+  fetch('upload',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+    if(j&&j.ok){ location.reload(); } else { st.textContent='Σφάλμα: '+((j&&j.error)||'άγνωστο'); }
+  }).catch(function(e){ st.textContent='Σφάλμα: '+e; });
+};
+</script></div></body></html>"""
+
 
 def regenerate(xlsx_path: str, mm: int, year: int) -> tuple[bool, str]:
     """Run the full pipeline; returns (ok, message)."""
@@ -93,8 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             f = _path("html")
             if not os.path.exists(f):
-                msg = "<h2>Ανεβάστε ένα Excel: <code>python serve.py 01-MM_ΓΙΑ_CLAUDE.xlsx</code></h2>"
-                return self._send(200, msg.encode("utf-8"))
+                return self._send(200, EMPTY_PAGE.encode("utf-8"))
             with open(f, "rb") as fh:
                 return self._send(200, fh.read())
         if path.startswith("/download/"):
@@ -152,6 +183,8 @@ def main():
     ap.add_argument("--mm", type=int, default=None)
     ap.add_argument("--year", type=int, default=config.TEMPLATE_YEAR)
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--open", action="store_true",
+                    help="open the browser once the server is up (used by run.bat/run.command)")
     args = ap.parse_args()
 
     if args.workbook:
@@ -171,6 +204,10 @@ def main():
     if lan:
         print(f"▶ Στο κινητό (ίδιο Wi-Fi), Safari/Chrome:  http://{lan}:{args.port}")
     print("  (Ctrl+C για τερματισμό)")
+    if args.open:
+        import threading
+        import webbrowser
+        threading.Timer(1.0, webbrowser.open, [f"http://localhost:{args.port}"]).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

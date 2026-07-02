@@ -12,6 +12,5 @@ echo "Έλεγχος/εγκατάσταση βιβλιοθηκών…"
 python3 -m pip install --quiet --disable-pip-version-check -r requirements.txt
 python3 -m playwright install chromium >/dev/null 2>&1 || true
 
-( sleep 3; open "http://localhost:8000" ) &
-echo "Άνοιγμα http://localhost:8000 …  (κλείστε αυτό το παράθυρο για τερματισμό)"
-python3 serve.py
+echo "Ο server ξεκινά και ο browser θα ανοίξει αυτόματα…  (κλείστε αυτό το παράθυρο για τερματισμό)"
+python3 serve.py --open

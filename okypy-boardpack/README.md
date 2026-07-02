@@ -76,12 +76,24 @@ streamlit run app.py
 
 ## Easiest: double-click launcher
 
-- **macOS:** double-click **`run.command`**
-- **Windows:** double-click **`run.bat`**
+One-time setup on a new machine: install **Python 3** from
+https://www.python.org/downloads/ (on Windows tick **"Add python.exe to
+PATH"**). Then:
 
-It installs deps on first run, starts the local server, and opens the deck in
-your browser. Use the bottom toolbar to upload next month's Excel (🔄) or a
-commentary text file (📝), and to download the PDF / PPTX / 📱 mobile HTML.
+- **Windows:** double-click **`run.bat`**
+- **macOS:** double-click **`run.command`**
+
+The first run installs the libraries (needs internet once); after that it is
+fully offline. It starts the local server and opens the browser automatically —
+on a fresh machine you get an upload page: pick the monthly Excel and the deck
+is generated on the spot. From then on use the bottom toolbar to upload next
+month's Excel (🔄) or a Word/text commentary (📝), and to download the
+PDF / PPTX / 📱 mobile HTML.
+
+> The 🔄 Excel refresh only works on the `http://localhost:8000` page served by
+> the launcher — a saved `.html` file opened directly cannot recompute the deck
+> (that needs the Python engine). All the *download* buttons and 📝 commentary
+> work everywhere, launcher or saved file.
 
 **View on your phone:** with the launcher running, the terminal prints a
 `http://<computer-ip>:8000` address — open **that** in your phone's **Safari or
