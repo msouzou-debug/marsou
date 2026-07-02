@@ -1,0 +1,76 @@
+# Builds the no-install Windows bundle of the OKYπY Board-Pack tool:
+# the app + an embedded Python 3.12 + all libraries in one ZIP. Users unzip
+# and double-click run.bat — no Python installation, no admin rights.
+# The bundle is smoke-tested on a real Windows runner before release.
+name: build-windows-portable
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/portable-windows.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'   # must match the embedded runtime below
+
+      - name: Assemble portable bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkg = "pkg/okypy-boardpack"
+          New-Item -ItemType Directory -Force -Path $pkg | Out-Null
+          Copy-Item okypy-boardpack/* $pkg -Recurse -Force
+          Remove-Item "$pkg/outputs" -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path "$pkg/outputs" | Out-Null
+          Get-ChildItem $pkg -Recurse -Directory -Filter __pycache__ |
+            Remove-Item -Recurse -Force
+
+          # Embedded CPython (official python.org build)
+          Invoke-WebRequest "https://www.python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip" -OutFile embed.zip
+          Expand-Archive embed.zip "$pkg/python"
+          # enable site-packages + make the app dir importable
+          Set-Content "$pkg/python/python312._pth" -Value @(
+            'python312.zip', '.', 'Lib\site-packages', '..', 'import site')
+
+          # Runtime deps vendored into the bundle (Windows wheels)
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet --only-binary=:all: `
+            --target "$pkg/python/Lib/site-packages" `
+            openpyxl==3.1.5 python-pptx==1.0.2 Pillow==11.0.0 playwright==1.49.1
+
+      - name: Smoke test with the bundled interpreter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location pkg/okypy-boardpack
+          & python\python.exe -c "import sys; print(sys.version); import openpyxl, pptx, PIL, playwright; print('imports ok')"
+          & python\python.exe generate.py "tests/01-05_ΓΙΑ_CLAUDE.xlsx" --mm 5 --no-render
+          if (!(Test-Path "outputs/BoardPack_2026_05.html")) { throw "generation failed" }
+          Remove-Item outputs/* -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "portable bundle OK"
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path pkg/okypy-boardpack -DestinationPath OKYpY-BoardPack-Windows-portable.zip
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: portable-win-v1
+          name: OKYπY Board-Pack — Windows portable (no install, no admin)
+          body: |
+            Κατεβάστε το `OKYpY-BoardPack-Windows-portable.zip`, αποσυμπιέστε το
+            οπουδήποτε (π.χ. Έγγραφα) και κάντε διπλό κλικ στο `run.bat`.
+            Δεν χρειάζεται εγκατάσταση Python ούτε δικαιώματα διαχειριστή.
+            Στην πρώτη εκτέλεση κατεβαίνει μόνο ο Chromium (για PDF/PPTX) στο
+            προφίλ χρήστη· χωρίς αυτόν, το HTML εξακολουθεί να παράγεται.
+          files: OKYpY-BoardPack-Windows-portable.zip
