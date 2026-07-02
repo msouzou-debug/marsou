@@ -13,6 +13,11 @@ import argparse
 import os
 import sys
 
+# Windows consoles default to cp1252, which cannot print the Greek status
+# messages — force UTF-8 (harmless elsewhere).
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 import config
 from core import load as loadmod
 from core import metrics as metricsmod

@@ -2,6 +2,7 @@
 REM Double-click launcher (Windows). Starts the local board-pack server and
 REM opens it in your browser. First run installs dependencies (needs Python 3).
 cd /d "%~dp0"
+set "PYTHONUTF8=1"
 
 REM 1) Portable bundle: if a python\ folder ships next to this file, use it —
 REM    nothing to install, no admin rights needed.

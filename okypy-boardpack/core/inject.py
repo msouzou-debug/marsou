@@ -1181,7 +1181,7 @@ TOOLBAR_HTML = """
     return Promise.reject('δεν βρέθηκε κείμενο');
   }
   function docxParas(xml){
-    var out=[], re=/<w:p[ >][\s\S]*?<\/w:p>/g, m;
+    var out=[], re=/<w:p[ >][\\s\\S]*?<\\/w:p>/g, m;
     while((m=re.exec(xml))){
       var t=(m[0].match(/<w:t[^>]*>[^<]*<\/w:t>/g)||[]).map(function(x){ return x.replace(/<[^>]*>/g,''); }).join('');
       t=t.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").trim();
