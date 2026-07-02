@@ -1111,8 +1111,9 @@ TOOLBAR_HTML = """
 <div id="okypy-toolbar">
   <label class="okypy-btn okypy-up">🔄 Νέα δεδομένα (Excel)
     <input id="okypy-upload" type="file" accept=".xlsx" style="display:none"></label>
-  <label class="okypy-btn">📝 Σχόλιο (κείμενο)
-    <input id="okypy-comment" type="file" accept=".txt,text/plain" style="display:none"></label>
+  <label class="okypy-btn">📝 Σχόλιο (Word/κείμενο)
+    <input id="okypy-comment" type="file" style="display:none"
+           accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
   <a class="okypy-btn" id="okypy-dl-pdf">⬇ PDF</a>
   <a class="okypy-btn" id="okypy-dl-pptx">⬇ PPTX</a>
   <a class="okypy-btn" id="okypy-dl-mobile">📱 Κινητό (HTML)</a>
@@ -1152,11 +1153,105 @@ TOOLBAR_HTML = """
   q('okypy-dl-pptx').onclick = grab('__OKYPY_PPTX','.pptx','pptx','PPTX');
   q('okypy-dl-mobile').onclick = grab('__OKYPY_MOBILE','_mobile.html','mobile','του κινητού HTML');
 
-  // text file → first-page commentary (client-side, works offline)
+  // ── commentary upload: Word (.docx) or plain .txt → ΚΥΡΙΟΙ ΜΟΧΛΟΙ block ──
+  // A .docx is a ZIP; we unzip it client-side (DecompressionStream) and read
+  // word/document.xml — fully offline, no server needed.
+  function unzipDocx(buf){
+    var dv=new DataView(buf), u8=new Uint8Array(buf);
+    var e=-1, lo=Math.max(0, buf.byteLength-65558);
+    for(var i=buf.byteLength-22;i>=lo;i--){ if(dv.getUint32(i,true)===0x06054b50){ e=i; break; } }
+    if(e<0) return Promise.reject('μη έγκυρο αρχείο');
+    var n=dv.getUint16(e+10,true), p=dv.getUint32(e+16,true);
+    for(var k=0;k<n;k++){
+      if(dv.getUint32(p,true)!==0x02014b50) break;
+      var method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true),
+          nl=dv.getUint16(p+28,true), xl=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true),
+          lho=dv.getUint32(p+42,true),
+          nm=new TextDecoder().decode(u8.subarray(p+46,p+46+nl));
+      if(nm==='word/document.xml'){
+        var lnl=dv.getUint16(lho+26,true), lxl=dv.getUint16(lho+28,true);
+        var st=lho+30+lnl+lxl, comp=u8.subarray(st,st+csize);
+        if(method===0) return Promise.resolve(new TextDecoder().decode(comp));
+        var ds=new DecompressionStream('deflate-raw');
+        return new Response(new Blob([comp]).stream().pipeThrough(ds)).arrayBuffer()
+               .then(function(b){ return new TextDecoder().decode(b); });
+      }
+      p+=46+nl+xl+cl;
+    }
+    return Promise.reject('δεν βρέθηκε κείμενο');
+  }
+  function docxParas(xml){
+    var out=[], re=/<w:p[ >][\s\S]*?<\/w:p>/g, m;
+    while((m=re.exec(xml))){
+      var t=(m[0].match(/<w:t[^>]*>[^<]*<\/w:t>/g)||[]).map(function(x){ return x.replace(/<[^>]*>/g,''); }).join('');
+      t=t.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").trim();
+      if(t) out.push(t);
+    }
+    return out;
+  }
+  function normGr(s){ return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase(); }
+  function findList(hdr){
+    var divs=document.querySelectorAll('#sec-exec div');
+    for(var i=0;i<divs.length;i++){
+      var d=divs[i];
+      if(!d.children.length && normGr(d.textContent.trim())===normGr(hdr)){
+        var ul=d.parentElement && d.parentElement.querySelector('ul');
+        if(ul) return ul;
+      }
+    }
+    return null;
+  }
+  function fillList(ul, paras){
+    if(!ul || !paras.length) return 0;
+    var lis=Array.prototype.slice.call(ul.querySelectorAll('li'));
+    if(!lis.length) return 0;
+    while(lis.length<paras.length){ var c=lis[lis.length-1].cloneNode(true); ul.appendChild(c); lis.push(c); }
+    while(lis.length>paras.length){ ul.removeChild(lis.pop()); }
+    for(var j=0;j<paras.length;j++){
+      var span=lis[j].querySelector('span:last-child')||lis[j];
+      var t=paras[j], cut=t.indexOf('. ');
+      if(cut>0 && cut<160){
+        span.textContent='';
+        var b=document.createElement('b'); b.textContent=t.slice(0,cut+1);
+        span.appendChild(b); span.appendChild(document.createTextNode(' '+t.slice(cut+2)));
+      } else { span.textContent=t; }
+    }
+    return paras.length;
+  }
+  function applyCommentary(paras){
+    var revIdx=-1, expIdx=-1;
+    for(var i=0;i<paras.length;i++){
+      var n=normGr(paras[i]);
+      if(paras[i].length<40 && revIdx<0 && n.indexOf('ΠΛΕΥΡΑ ΕΣΟΔΩΝ')>=0) revIdx=i;
+      else if(paras[i].length<40 && expIdx<0 && n.indexOf('ΠΛΕΥΡΑ ΕΞΟΔΩΝ')>=0) expIdx=i;
+    }
+    if(revIdx>=0 || expIdx>=0){
+      var rev=revIdx>=0 ? paras.slice(revIdx+1, expIdx>revIdx?expIdx:undefined) : [];
+      var exp=expIdx>=0 ? paras.slice(expIdx+1, revIdx>expIdx?revIdx:undefined) : [];
+      return fillList(findList('Πλευρά Εσόδων'), rev) + fillList(findList('Πλευρά Εξόδων'), exp) > 0;
+    }
+    var el=q('okypy-narrative');                 // no headers → single narrative
+    if(el){ el.textContent=paras.join('\\n\\n'); return true; }
+    return false;
+  }
   q('okypy-comment').onchange = function(){
-    var f=this.files&&this.files[0]; if(!f) return; var r=new FileReader();
-    r.onload=function(){ var el=q('okypy-narrative'); if(el){ el.textContent=String(r.result).trim(); if(typeof window.show==='function'){ try{window.show('exec',document.querySelector('.nav-btn'));}catch(e){} } alert('Το σχόλιο ενημερώθηκε.'); } else { alert('Δεν βρέθηκε το πεδίο σχολίου.'); } };
-    r.readAsText(f); this.value='';
+    var f=this.files&&this.files[0]; this.value='';
+    if(!f) return;
+    var done=function(paras){
+      if(applyCommentary(paras)){
+        if(typeof window.show==='function'){ try{ window.show('exec',document.querySelector('.nav-btn')); }catch(e){} }
+        alert('Το σχόλιο ενημερώθηκε.');
+      } else { alert('Δεν αναγνωρίστηκε η δομή του σχολίου. Χρησιμοποιήστε επικεφαλίδες «Πλευρά Εσόδων» / «Πλευρά Εξόδων».'); }
+    };
+    if((f.name||'').toLowerCase().slice(-5)==='.docx'){
+      if(typeof DecompressionStream==='undefined'){ alert('Ο browser δεν υποστηρίζει ανάγνωση Word εδώ — αποθηκεύστε το ως .txt και ξαναδοκιμάστε.'); return; }
+      f.arrayBuffer().then(unzipDocx).then(function(xml){ done(docxParas(xml)); })
+        .catch(function(err){ alert('Αποτυχία ανάγνωσης Word: '+err); });
+    } else {
+      var r=new FileReader();
+      r.onload=function(){ done(String(r.result).split(/\\r?\\n/).map(function(x){ return x.trim(); }).filter(Boolean)); };
+      r.readAsText(f);
+    }
   };
 
   // monthly Excel refresh (needs the server)

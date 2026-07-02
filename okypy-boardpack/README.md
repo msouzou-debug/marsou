@@ -112,8 +112,13 @@ Every generated HTML carries a bottom toolbar:
   order). (Embedding makes the desktop HTML large, ~13 MB — that copy is meant for
   the laptop/browser; the **📱 mobile HTML** it produces is the lightweight phone
   copy, ~1 MB.)
-- **📝 Σχόλιο (κείμενο)** — upload a plain-text file to replace the first-page
-  commentary, entirely in the browser (offline).
+- **📝 Σχόλιο (Word/κείμενο)** — upload a **Word (.docx)** or plain-text file to
+  replace the first-page «Κύριοι Μοχλοί Ελλείμματος» commentary, entirely in the
+  browser (offline; the .docx is unzipped client-side). Structure the document
+  with the headings **«Πλευρά Εσόδων»** and **«Πλευρά Εξόδων»**; each paragraph
+  under a heading becomes one bullet in that column (the lead sentence up to the
+  first full stop is bolded). A file without those headings replaces only the
+  first «Πλευρά Εσόδων» narrative bullet.
 - **🔄 Νέα δεδομένα (Excel)** — the monthly refresh; needs `serve.py` running
   (recomputing the deck requires the Python engine — a browser can't).
 
