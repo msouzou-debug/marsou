@@ -1111,7 +1111,6 @@ TOOLBAR_HTML = """
     <input id="okypy-upload" type="file" accept=".xlsx" style="display:none"></label>
   <label class="okypy-btn">📝 Σχόλιο (κείμενο)
     <input id="okypy-comment" type="file" accept=".txt,text/plain" style="display:none"></label>
-  <a class="okypy-btn" id="okypy-dl-html">⬇ HTML</a>
   <a class="okypy-btn" id="okypy-dl-pdf">⬇ PDF</a>
   <a class="okypy-btn" id="okypy-dl-pptx">⬇ PPTX</a>
 </div>
@@ -1139,15 +1138,11 @@ TOOLBAR_HTML = """
 
   function dl(dataUri, name){ var a=document.createElement('a'); a.href=dataUri; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
   function stem(){ return window.__OKYPY_STEM || 'BoardPack'; }
-  q('okypy-dl-html').onclick = function(){
-    if (served){ location.href = 'download/html'; return; }
-    dl(URL.createObjectURL(new Blob(['<!DOCTYPE html>\\n'+document.documentElement.outerHTML],{type:'text/html'})), stem()+'.html');
-  };
   function grab(kind, varName){ return function(){
     var data = window[varName];
     if (data){ dl(data, stem()+'.'+kind); return; }
     if (served){ location.href = 'download/'+kind; return; }
-    alert('Το '+kind.toUpperCase()+' δεν είναι ενσωματωμένο σε αυτό το αρχείο.');
+    alert('Για λήψη '+kind.toUpperCase()+' ανοίξτε το deck μέσω του launcher (run.command / run.bat).');
   }; }
   q('okypy-dl-pdf').onclick = grab('pdf','__OKYPY_PDF');
   q('okypy-dl-pptx').onclick = grab('pptx','__OKYPY_PPTX');

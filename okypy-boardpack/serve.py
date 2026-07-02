@@ -57,11 +57,11 @@ def regenerate(xlsx_path: str, mm: int, year: int) -> tuple[bool, str]:
         rendermod.render_pdf(html, pdf_path)
         pngs = rendermod.render_pngs(html, os.path.join(OUTPUT_DIR, "_png_" + stem))
         pptmod.build_pptx(pngs, pptx_path)
-        # embed for self-contained downloads from the served/downloaded HTML
-        with open(html_path, "w", encoding="utf-8") as fh:
-            fh.write(injectmod.embed_downloads(html, pdf_path, pptx_path, stem=stem))
     except Exception as e:  # noqa: BLE001
         print("⚠ PDF/PPTX skipped:", e)
+    # tag stem for clean download filenames (kept lightweight — served over LAN)
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(injectmod.embed_downloads(html, stem=stem))
     STATE.update(stem=stem, mm=mm, year=year)
     return True, stem
 
@@ -149,12 +149,28 @@ def main():
         if existing:
             STATE["stem"] = existing[-1][:-5]
 
-    srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"▶ http://localhost:{args.port}  (Ctrl+C για τερματισμό)")
+    lan = _lan_ip()
+    srv = ThreadingHTTPServer(("0.0.0.0", args.port), Handler)
+    print(f"▶ Σε αυτόν τον υπολογιστή:  http://localhost:{args.port}")
+    if lan:
+        print(f"▶ Στο κινητό (ίδιο Wi-Fi), Safari/Chrome:  http://{lan}:{args.port}")
+    print("  (Ctrl+C για τερματισμό)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         print("\nτέλος.")
+
+
+def _lan_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
 
 
 if __name__ == "__main__":

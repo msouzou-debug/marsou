@@ -72,7 +72,23 @@ streamlit run app.py
 4. **Δημιουργία** — enabled only when reconciliation is clean; writes
    `outputs/BoardPack_{YYYY}_{MM}.{html,pdf,pptx}` with download buttons.
 
-## Run (browser — monthly refresh, recommended for non-technical users)
+## Easiest: double-click launcher
+
+- **macOS:** double-click **`run.command`**
+- **Windows:** double-click **`run.bat`**
+
+It installs deps on first run, starts the local server, and opens the deck in
+your browser. Use the bottom toolbar to upload next month's Excel (🔄) or a
+commentary text file (📝), and to download the PDF / PPTX.
+
+**View on your phone:** with the launcher running, the terminal prints a
+`http://<computer-ip>:8000` address — open **that** in your phone's **Safari or
+Chrome** (same Wi-Fi) and the interactive deck (charts + tabs) works. A local
+HTML file opened from the iOS **Files preview will not work** (iOS disables the
+JavaScript the charts/tabs need) — for a no-setup phone view, use the **PDF**,
+which renders everything in any viewer.
+
+## Run (browser — monthly refresh)
 
 ```bash
 python serve.py path/to/01-05_ΓΙΑ_CLAUDE.xlsx     # then open http://localhost:8000

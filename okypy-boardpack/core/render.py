@@ -121,6 +121,10 @@ def render_pngs(html: str, out_dir: str, tabs=None, width: int = 1920) -> list[s
             page = browser.new_page(viewport={"width": width, "height": 1080},
                                     device_scale_factor=2)
             page.goto("file://" + tmp, wait_until="load", timeout=60000)
+            # use the full 1920 width (drop the 1400 cap) so each tab is wider &
+            # shorter → the PPTX slides read as consistent landscape, not tall strips
+            page.add_style_tag(content=".content{max-width:none !important;padding:24px 44px !important}"
+                               " #okypy-toolbar{display:none !important}")
             page.wait_for_timeout(500)
             for tab in tabs:
                 page.evaluate(_activate_js(tab))
