@@ -319,7 +319,8 @@ def _inject_inpatient(html: str, text: str, rep: InjectReport) -> str:
     span_end = html.index("</span>", i)
     seg = html[span_start:span_end]
     b_end = seg.index("</b>") + len("</b>")
-    new_seg = seg[:b_end] + " " + _escape_lt(text.strip())
+    # wrap in a stable anchor so a text-file upload can repopulate it client-side
+    new_seg = seg[:b_end] + ' <span id="okypy-narrative">' + _escape_lt(text.strip()) + '</span>'
     rep.note("inpatient narrative", 1)
     return html[:span_start] + new_seg + html[span_end:]
 
@@ -1099,13 +1100,17 @@ body.printmode #okypy-toolbar{display:none !important}
 @media print{#okypy-toolbar{display:none !important}}
 """
 
-# In-page toolbar: monthly re-upload + download HTML/PDF/PPTX. Upload and
-# PDF/PPTX downloads require the companion server (serve.py); opened as a plain
-# file, the HTML self-downloads and the rest point the user to the server.
+# In-page toolbar. Downloads are self-contained (PDF/PPTX embedded as data URIs
+# at generation → no Python needed). «Σχόλιο» loads a text file into the
+# first-page commentary client-side. «Νέα δεδομένα» (monthly Excel refresh) needs
+# the companion server (a browser can't run the Python pipeline).
 TOOLBAR_HTML = """
+<noscript><style>.section{display:block !important} #okypy-toolbar{display:none}</style></noscript>
 <div id="okypy-toolbar">
   <label class="okypy-btn okypy-up">🔄 Νέα δεδομένα (Excel)
     <input id="okypy-upload" type="file" accept=".xlsx" style="display:none"></label>
+  <label class="okypy-btn">📝 Σχόλιο (κείμενο)
+    <input id="okypy-comment" type="file" accept=".txt,text/plain" style="display:none"></label>
   <a class="okypy-btn" id="okypy-dl-html">⬇ HTML</a>
   <a class="okypy-btn" id="okypy-dl-pdf">⬇ PDF</a>
   <a class="okypy-btn" id="okypy-dl-pptx">⬇ PPTX</a>
@@ -1113,34 +1118,56 @@ TOOLBAR_HTML = """
 <script>
 (function(){
   var served = location.protocol.indexOf('http')===0;
-  // switching tabs should reveal the section from the top (mobile fix)
+  function q(id){ return document.getElementById(id); }
+  function resizeAll(){
+    if(!window.Chart || !window.Chart.getChart) return;
+    document.querySelectorAll('canvas').forEach(function(c){
+      var ch = window.Chart.getChart(c);
+      if(ch){ try{ ch.resize(); ch.update('none'); }catch(e){} }
+    });
+  }
+  // tab switch → reveal from top + (re)draw that tab's charts (mobile fix)
   var _s = window.show;
   if (typeof _s === 'function') {
-    window.show = function(id, btn){ _s(id, btn); try{ window.scrollTo({top:0,behavior:'instant'}); }catch(e){ window.scrollTo(0,0); } };
+    window.show = function(id, btn){ _s(id, btn); resizeAll();
+      try{ window.scrollTo({top:0,behavior:'instant'}); }catch(e){ window.scrollTo(0,0); } };
   }
-  function q(id){ return document.getElementById(id); }
+  // redraw charts once layout settles (mobile timing) and on rotate/resize
+  window.addEventListener('load', function(){ setTimeout(resizeAll, 300); setTimeout(resizeAll, 1200); });
+  window.addEventListener('resize', resizeAll);
+  window.addEventListener('orientationchange', function(){ setTimeout(resizeAll, 300); });
+
+  function dl(dataUri, name){ var a=document.createElement('a'); a.href=dataUri; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+  function stem(){ return window.__OKYPY_STEM || 'BoardPack'; }
   q('okypy-dl-html').onclick = function(){
     if (served){ location.href = 'download/html'; return; }
-    var html = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([html], {type:'text/html'}));
-    a.download = (document.title || 'BoardPack') + '.html'; a.click();
+    dl(URL.createObjectURL(new Blob(['<!DOCTYPE html>\\n'+document.documentElement.outerHTML],{type:'text/html'})), stem()+'.html');
   };
-  function srvOnly(kind){ return function(){
-    if (served){ location.href = 'download/' + kind; }
-    else { alert('Το ' + kind.toUpperCase() + ' παράγεται από την εφαρμογή. Τρέξτε:  python serve.py  και ανοίξτε http://localhost:8000'); }
+  function grab(kind, varName){ return function(){
+    var data = window[varName];
+    if (data){ dl(data, stem()+'.'+kind); return; }
+    if (served){ location.href = 'download/'+kind; return; }
+    alert('Το '+kind.toUpperCase()+' δεν είναι ενσωματωμένο σε αυτό το αρχείο.');
   }; }
-  q('okypy-dl-pdf').onclick = srvOnly('pdf');
-  q('okypy-dl-pptx').onclick = srvOnly('pptx');
+  q('okypy-dl-pdf').onclick = grab('pdf','__OKYPY_PDF');
+  q('okypy-dl-pptx').onclick = grab('pptx','__OKYPY_PPTX');
+
+  // text file → first-page commentary (client-side, works offline)
+  q('okypy-comment').onchange = function(){
+    var f=this.files&&this.files[0]; if(!f) return; var r=new FileReader();
+    r.onload=function(){ var el=q('okypy-narrative'); if(el){ el.textContent=String(r.result).trim(); if(typeof window.show==='function'){ try{window.show('exec',document.querySelector('.nav-btn'));}catch(e){} } alert('Το σχόλιο ενημερώθηκε.'); } else { alert('Δεν βρέθηκε το πεδίο σχολίου.'); } };
+    r.readAsText(f); this.value='';
+  };
+
+  // monthly Excel refresh (needs the server)
   q('okypy-upload').onchange = function(){
-    var f = this.files && this.files[0]; if(!f) return;
-    if(!served){ alert('Για μηνιαία ανανέωση: τρέξτε  python serve.py  και ανοίξτε http://localhost:8000, μετά ανεβάστε εδώ το νέο Excel.'); this.value=''; return; }
-    var bar = q('okypy-toolbar'); bar.style.opacity=.5;
-    var fd = new FormData(); fd.append('file', f);
-    fetch('upload', {method:'POST', body:fd}).then(function(r){return r.json();}).then(function(j){
-      if(j && j.ok){ location.reload(); }
-      else { alert('Σφάλμα: ' + ((j&&j.error)||'άγνωστο')); bar.style.opacity=1; }
-    }).catch(function(e){ alert('Σφάλμα upload: ' + e); bar.style.opacity=1; });
+    var f=this.files&&this.files[0]; if(!f) return;
+    if(!served){ alert('Για μηνιαία ανανέωση με νέο Excel: τρέξτε  python serve.py  και ανοίξτε http://localhost:8000.'); this.value=''; return; }
+    var bar=q('okypy-toolbar'); bar.style.opacity=.5;
+    var fd=new FormData(); fd.append('file', f);
+    fetch('upload',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.ok){ location.reload(); } else { alert('Σφάλμα: '+((j&&j.error)||'άγνωστο')); bar.style.opacity=1; }
+    }).catch(function(e){ alert('Σφάλμα upload: '+e); bar.style.opacity=1; });
   };
 })();
 </script>
@@ -1152,6 +1179,31 @@ def _inject_toolbar(html: str, rep: InjectReport) -> str:
         rep.note("toolbar", 1)
         return html.replace("</body>", TOOLBAR_HTML + "\n</body>", 1)
     return html + TOOLBAR_HTML
+
+
+def embed_downloads(html: str, pdf_path: str | None = None, pptx_path: str | None = None,
+                    stem: str | None = None) -> str:
+    """Embed the rendered PDF/PPTX as base64 data URIs so the HTML's download
+    buttons work with no server and no Python (fully self-contained)."""
+    import base64 as _b64
+    import json as _json
+    import os as _os
+    parts = []
+    if stem:
+        parts.append(f"window.__OKYPY_STEM={_json.dumps(stem)};")
+    for var, path, mime in (
+        ("__OKYPY_PDF", pdf_path, "application/pdf"),
+        ("__OKYPY_PPTX", pptx_path,
+         "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+    ):
+        if path and _os.path.exists(path):
+            with open(path, "rb") as fh:
+                b64 = _b64.b64encode(fh.read()).decode("ascii")
+            parts.append(f'window.{var}="data:{mime};base64,{b64}";')
+    if not parts:
+        return html
+    script = "<script>" + "".join(parts) + "</script>"
+    return html.replace("</body>", script + "\n</body>", 1) if "</body>" in html else html + script
 
 
 def _inject_responsive(html: str, rep: InjectReport) -> str:

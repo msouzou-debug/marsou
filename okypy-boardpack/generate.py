@@ -73,6 +73,12 @@ def main() -> int:
     pptx_path = os.path.join(out_dir, stem + ".pptx")
     pptmod.build_pptx(pngs, pptx_path)
     print("PPTX →", pptx_path)
+
+    # embed PDF+PPTX into the HTML so its download buttons work with no server
+    html = injectmod.embed_downloads(html, pdf_path, pptx_path, stem=stem)
+    with open(html_path, "w", encoding="utf-8") as fh:
+        fh.write(html)
+    print("HTML (self-contained downloads) →", html_path)
     return 0
 
 

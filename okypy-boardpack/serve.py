@@ -45,15 +45,21 @@ def regenerate(xlsx_path: str, mm: int, year: int) -> tuple[bool, str]:
                               injectmod.get_alert_defaults(tmpl))
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     stem = config.OUTPUT_PATTERN.format(year=year, mm=mm)
-    with open(os.path.join(OUTPUT_DIR, stem + ".html"), "w", encoding="utf-8") as fh:
+    html_path = os.path.join(OUTPUT_DIR, stem + ".html")
+    with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
     # PDF + PPTX (best-effort; HTML always succeeds)
     try:
         from core import render as rendermod
         from core import ppt as pptmod
-        rendermod.render_pdf(html, os.path.join(OUTPUT_DIR, stem + ".pdf"))
+        pdf_path = os.path.join(OUTPUT_DIR, stem + ".pdf")
+        pptx_path = os.path.join(OUTPUT_DIR, stem + ".pptx")
+        rendermod.render_pdf(html, pdf_path)
         pngs = rendermod.render_pngs(html, os.path.join(OUTPUT_DIR, "_png_" + stem))
-        pptmod.build_pptx(pngs, os.path.join(OUTPUT_DIR, stem + ".pptx"))
+        pptmod.build_pptx(pngs, pptx_path)
+        # embed for self-contained downloads from the served/downloaded HTML
+        with open(html_path, "w", encoding="utf-8") as fh:
+            fh.write(injectmod.embed_downloads(html, pdf_path, pptx_path, stem=stem))
     except Exception as e:  # noqa: BLE001
         print("⚠ PDF/PPTX skipped:", e)
     STATE.update(stem=stem, mm=mm, year=year)

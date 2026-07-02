@@ -83,9 +83,24 @@ The page shows the deck with a bottom toolbar:
   refreshes in place (month auto-detected from the filename).
 - **⬇ HTML / ⬇ PDF / ⬇ PPTX** — download the current outputs.
 
-Fully local (stdlib server, no extra deps). The generated HTML carries the same
-toolbar, so a shared HTML file self-downloads its HTML and points to `serve.py`
-for upload / PDF / PPTX.
+Fully local (stdlib server, no extra deps).
+
+### Toolbar in the generated HTML (works with no Python)
+Every generated HTML carries a bottom toolbar:
+- **⬇ HTML / PDF / PPTX** — the PDF and PPTX are **embedded** in the HTML at
+  build time (base64), so all three download directly from the file with no
+  server and no Python. (This makes the HTML large, ~13 MB.)
+- **📝 Σχόλιο (κείμενο)** — upload a plain-text file to replace the first-page
+  commentary, entirely in the browser (offline).
+- **🔄 Νέα δεδομένα (Excel)** — the monthly refresh; needs `serve.py` running
+  (recomputing the deck requires the Python engine — a browser can't).
+
+### Viewing on a phone
+Open the HTML in a real browser (Safari / Chrome), **not** an attachment/preview
+pane — previews often disable JavaScript, which the interactive charts and tab
+navigation need. If JS is unavailable the deck falls back to showing every
+section stacked (tables visible, charts blank). For a zero-dependency phone view,
+the **PDF renders everything (charts included) in any viewer**.
 
 ## Run (headless)
 
