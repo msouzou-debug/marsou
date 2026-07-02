@@ -95,6 +95,28 @@ PDF / PPTX / 📱 mobile HTML.
 > (that needs the Python engine). All the *download* buttons and 📝 commentary
 > work everywhere, launcher or saved file.
 
+### No admin rights? Use the portable bundle
+The `build-windows-portable` GitHub Action publishes
+`OKYpY-BoardPack-Windows-portable.zip` (release `portable-win-v1`): the tool
+plus an embedded Python 3.12 and all libraries. Unzip → `run.bat`. Nothing is
+installed; no admin rights are used.
+
+### Windows 11 «Smart App Control» blocks run.bat
+SAC blocks internet-downloaded script files (.bat) with no override. In order
+of preference:
+1. **Before extracting** the downloaded ZIP: right-click it → Properties →
+   tick **Unblock** → OK → then extract. This removes the mark-of-the-web, so
+   `run.bat` runs normally. (If the dialog instead is SmartScreen — blue
+   «Windows protected your PC» — just click *More info → Run anyway*.)
+2. If there is no Unblock option: use **`Launch.py`** instead of run.bat —
+   right-click `Launch.py` → *Open with* → *Choose another app* → *Look for
+   another app on this PC* → select `python\python.exe` **inside the tool's
+   folder** → tick *Always*. Double-click `Launch.py` from then on. SAC allows
+   it because python.exe is signed (Python Software Foundation) and .py is not
+   an enforced script type.
+3. Last resort: copy the ZIP onto a FAT32 USB stick and back (FAT32 cannot
+   store the mark-of-the-web), then extract.
+
 **View on your phone:** with the launcher running, the terminal prints a
 `http://<computer-ip>:8000` address — open **that** in your phone's **Safari or
 Chrome** (same Wi-Fi) and the interactive deck (charts + tabs) works. A local

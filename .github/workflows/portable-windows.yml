@@ -71,9 +71,20 @@ jobs:
           tag_name: portable-win-v1
           name: OKYπY Board-Pack — Windows portable (no install, no admin)
           body: |
-            Κατεβάστε το `OKYpY-BoardPack-Windows-portable.zip`, αποσυμπιέστε το
+            Κατεβάστε το `OKYpY-BoardPack-Windows-portable.zip`. **Πριν** την
+            αποσυμπίεση: δεξί κλικ στο ZIP → Ιδιότητες → τσεκάρετε **Unblock /
+            Κατάργηση αποκλεισμού** (αν υπάρχει) → ΟΚ. Μετά αποσυμπιέστε το
             οπουδήποτε (π.χ. Έγγραφα) και κάντε διπλό κλικ στο `run.bat`.
             Δεν χρειάζεται εγκατάσταση Python ούτε δικαιώματα διαχειριστή.
+
+            **Αν το Smart App Control μπλοκάρει το run.bat:** χρησιμοποιήστε το
+            `Launch.py` — δεξί κλικ → «Άνοιγμα με» → «Επιλογή άλλης εφαρμογής» →
+            «Αναζήτηση εφαρμογής στον υπολογιστή» → επιλέξτε το
+            `python\python.exe` **μέσα στον φάκελο του εργαλείου** και τσεκάρετε
+            «Πάντα». Από εκεί και πέρα, διπλό κλικ στο `Launch.py` κάθε μήνα.
+            (Το python.exe είναι ψηφιακά υπογεγραμμένο από το Python Software
+            Foundation, οπότε το Smart App Control το επιτρέπει.)
+
             Στην πρώτη εκτέλεση κατεβαίνει μόνο ο Chromium (για PDF/PPTX) στο
             προφίλ χρήστη· χωρίς αυτόν, το HTML εξακολουθεί να παράγεται.
           files: OKYpY-BoardPack-Windows-portable.zip
