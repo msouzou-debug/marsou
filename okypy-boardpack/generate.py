@@ -57,8 +57,8 @@ def main() -> int:
     os.makedirs(out_dir, exist_ok=True)
     stem = config.OUTPUT_PATTERN.format(year=args.year, mm=mm)
     # remove any prior outputs for this stem so a failed run can't leave stale files
-    for ext in ("html", "pdf", "pptx"):
-        old = os.path.join(out_dir, stem + "." + ext)
+    for suffix in (".html", ".pdf", ".pptx", "_mobile.html"):
+        old = os.path.join(out_dir, stem + suffix)
         if os.path.exists(old):
             os.remove(old)
     html_path = os.path.join(out_dir, stem + ".html")
@@ -79,8 +79,18 @@ def main() -> int:
     pptmod.build_pptx(pngs, pptx_path)               # faithful (matches the HTML)
     print("PPTX →", pptx_path)
 
-    # keep the HTML light (iOS-safe); downloads are served by the launcher/server
-    html = injectmod.embed_downloads(html, stem=stem)
+    # static, no-JS mobile HTML (renders in iOS Files/Quick Look & any viewer)
+    mobile_path = os.path.join(out_dir, stem + "_mobile.html")
+    subtitle = f"{config.MONTHS[mm]['nom']} {args.year}"
+    injectmod.build_mobile_html(pngs, mobile_path,
+                                title="OKYπY — Πίνακας Διοικητικού Συμβουλίου",
+                                subtitle=subtitle)
+    print("Mobile →", mobile_path)
+
+    # embed PDF/PPTX/mobile as data URIs so every toolbar button works standalone
+    # (no server, no Python) — pressing ⬇ PPTX / 📱 Κινητό downloads the real file
+    html = injectmod.embed_downloads(html, pdf_path=pdf_path, pptx_path=pptx_path,
+                                     mobile_path=mobile_path, stem=stem)
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
     return 0

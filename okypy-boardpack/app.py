@@ -176,6 +176,22 @@ if st.button("⚙️ Δημιουργία HTML / PDF / PPTX", disabled=not can_g
         with open(pptx_path, "rb") as fh:
             st.download_button("⬇️ PPTX", fh, file_name=stem + ".pptx",
                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+
+        with st.spinner("Παραγωγή κινητού HTML…"):
+            mobile_path = os.path.join(OUTPUT_DIR, stem + "_mobile.html")
+            injectmod.build_mobile_html(pngs, mobile_path,
+                                        title="OKYπY — Πίνακας Διοικητικού Συμβουλίου",
+                                        subtitle=f"{config.MONTHS[mm]['nom']} {year}")
+        with open(mobile_path, "rb") as fh:
+            st.download_button("📱 Κινητό (HTML)", fh, file_name=stem + "_mobile.html",
+                               mime="text/html")
+
+        # rewrite the saved HTML with embedded downloads so its toolbar buttons
+        # (⬇ PPTX / 📱 Κινητό / ⬇ PDF) work standalone with no server
+        with open(html_path, "w", encoding="utf-8") as fh:
+            fh.write(injectmod.embed_downloads(
+                html, pdf_path=pdf_path, pptx_path=pptx_path,
+                mobile_path=mobile_path, stem=stem))
     except Exception as e:  # noqa: BLE001
         st.warning(f"PDF/PPTX δεν παρήχθησαν ({e}). Το HTML είναι έτοιμο. "
                    "Ελέγξτε ότι έχει εγκατασταθεί ο Chromium: `python -m playwright install chromium`.")

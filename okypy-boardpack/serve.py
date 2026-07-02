@@ -48,19 +48,28 @@ def regenerate(xlsx_path: str, mm: int, year: int) -> tuple[bool, str]:
     html_path = os.path.join(OUTPUT_DIR, stem + ".html")
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
-    # PDF + PPTX (best-effort; HTML always succeeds)
+    # PDF + PPTX + mobile HTML (best-effort; HTML always succeeds)
     pdf_path = os.path.join(OUTPUT_DIR, stem + ".pdf")
     pptx_path = os.path.join(OUTPUT_DIR, stem + ".pptx")
+    mobile_path = os.path.join(OUTPUT_DIR, stem + "_mobile.html")
+    for p in (pdf_path, pptx_path, mobile_path):
+        if os.path.exists(p):
+            os.remove(p)
     try:
         from core import render as rendermod
         from core import ppt as pptmod
         rendermod.render_pdf(html, pdf_path)
         pngs = rendermod.render_pngs(html, os.path.join(OUTPUT_DIR, "_png_" + stem))
         pptmod.build_pptx(pngs, pptx_path)            # faithful (matches the HTML)
+        injectmod.build_mobile_html(pngs, mobile_path,
+                                    title="OKYπY — Πίνακας Διοικητικού Συμβουλίου",
+                                    subtitle=f"{config.MONTHS[mm]['nom']} {year}")
     except Exception as e:  # noqa: BLE001
-        print("⚠ PDF/PPTX skipped:", e)
+        print("⚠ PDF/PPTX/mobile skipped:", e)
     with open(html_path, "w", encoding="utf-8") as fh:
-        fh.write(injectmod.embed_downloads(html, stem=stem))
+        fh.write(injectmod.embed_downloads(
+            html, pdf_path=pdf_path, pptx_path=pptx_path,
+            mobile_path=mobile_path, stem=stem))
     STATE.update(stem=stem, mm=mm, year=year)
     return True, stem
 
@@ -89,15 +98,23 @@ class Handler(BaseHTTPRequestHandler):
             with open(f, "rb") as fh:
                 return self._send(200, fh.read())
         if path.startswith("/download/"):
-            ext = path.rsplit("/", 1)[-1]
-            mimes = {"html": "text/html", "pdf": "application/pdf",
-                     "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
-            if ext in mimes and os.path.exists(_path(ext)):
-                with open(_path(ext), "rb") as fh:
-                    data = fh.read()
-                name = STATE["stem"] + "." + ext
-                return self._send(200, data, mimes[ext],
-                                  {"Content-Disposition": f'attachment; filename="{name}"'})
+            route = path.rsplit("/", 1)[-1]
+            PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            # route -> (on-disk filename == download filename, mime)
+            files = {
+                "html":   (STATE["stem"] + ".html",        "text/html"),
+                "pdf":    (STATE["stem"] + ".pdf",         "application/pdf"),
+                "pptx":   (STATE["stem"] + ".pptx",        PPTX),
+                "mobile": (STATE["stem"] + "_mobile.html", "text/html"),
+            }
+            if route in files:
+                name, mime = files[route]
+                fp = os.path.join(OUTPUT_DIR, name)
+                if os.path.exists(fp):
+                    with open(fp, "rb") as fh:
+                        data = fh.read()
+                    return self._send(200, data, mime,
+                                      {"Content-Disposition": f'attachment; filename="{name}"'})
             return self._send(404, b"not found")
         return self._send(404, b"not found")
 

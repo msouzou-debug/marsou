@@ -256,3 +256,15 @@ DECK_TABS = [
     "exec", "overview", "monthly", "oay",
     "allaesoda", "payroll", "loipaexp", "hospitals",
 ]
+
+# Display labels for each tab (used by the static mobile HTML nav/headers).
+TAB_LABELS = {
+    "exec": "Σύνοψη Αποτελεσμάτων",
+    "overview": "Αναλυτικές Αποτελεσμάτων",
+    "monthly": "Μηνιαία Ανάλυση",
+    "oay": "ΟΑΥ Έσοδα",
+    "allaesoda": "Άλλα Έσοδα",
+    "payroll": "Μισθοδοσία",
+    "loipaexp": "Λειτ. Έξοδα",
+    "hospitals": "Ανά Νοσηλευτήριο",
+}

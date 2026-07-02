@@ -1113,6 +1113,7 @@ TOOLBAR_HTML = """
     <input id="okypy-comment" type="file" accept=".txt,text/plain" style="display:none"></label>
   <a class="okypy-btn" id="okypy-dl-pdf">⬇ PDF</a>
   <a class="okypy-btn" id="okypy-dl-pptx">⬇ PPTX</a>
+  <a class="okypy-btn" id="okypy-dl-mobile">📱 Κινητό (HTML)</a>
 </div>
 <script>
 (function(){
@@ -1138,14 +1139,16 @@ TOOLBAR_HTML = """
 
   function dl(dataUri, name){ var a=document.createElement('a'); a.href=dataUri; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
   function stem(){ return window.__OKYPY_STEM || 'BoardPack'; }
-  function grab(kind, varName){ return function(){
+  // varName: embedded data-URI global; suffix: download filename suffix; route: served path
+  function grab(varName, suffix, route, human){ return function(){
     var data = window[varName];
-    if (data){ dl(data, stem()+'.'+kind); return; }
-    if (served){ location.href = 'download/'+kind; return; }
-    alert('Για λήψη '+kind.toUpperCase()+' ανοίξτε το deck μέσω του launcher (run.command / run.bat).');
+    if (data){ dl(data, stem()+suffix); return; }
+    if (served){ location.href = 'download/'+route; return; }
+    alert('Για λήψη '+human+' ανοίξτε το deck μέσω του launcher (run.command / run.bat).');
   }; }
-  q('okypy-dl-pdf').onclick = grab('pdf','__OKYPY_PDF');
-  q('okypy-dl-pptx').onclick = grab('pptx','__OKYPY_PPTX');
+  q('okypy-dl-pdf').onclick = grab('__OKYPY_PDF','.pdf','pdf','PDF');
+  q('okypy-dl-pptx').onclick = grab('__OKYPY_PPTX','.pptx','pptx','PPTX');
+  q('okypy-dl-mobile').onclick = grab('__OKYPY_MOBILE','_mobile.html','mobile','του κινητού HTML');
 
   // text file → first-page commentary (client-side, works offline)
   q('okypy-comment').onchange = function(){
@@ -1176,10 +1179,78 @@ def _inject_toolbar(html: str, rep: InjectReport) -> str:
     return html + TOOLBAR_HTML
 
 
+# ── static mobile HTML (no JS, renders in any viewer incl. iOS Files preview) ──
+_MOBILE_CSS = """
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#F7F8FA;color:#0b2545;
+  -webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:10;background:#062E5C;color:#fff;padding:12px 14px 10px;
+  box-shadow:0 2px 10px rgba(0,0,0,.18)}
+header h1{font-size:16px;font-weight:700;line-height:1.25}
+header .sub{font-size:12px;opacity:.85;margin-top:2px}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+nav a{font-size:11.5px;font-weight:600;color:#fff;text-decoration:none;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:5px 11px}
+section{padding:14px 10px 4px;scroll-margin-top:120px}
+section h2{font-size:14px;font-weight:700;color:#062E5C;margin:2px 4px 8px;
+  padding-left:8px;border-left:4px solid #00AEEF}
+section img{width:100%;height:auto;display:block;border:1px solid #e3e7ee;border-radius:10px;
+  background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+footer{padding:18px 14px 34px;text-align:center;color:#7a889c;font-size:11px}
+"""
+
+
+def build_mobile_html(png_paths, out_path: str, title: str, subtitle: str = "",
+                      tabs=None, max_w: int = 1024) -> str:
+    """Build a static, JavaScript-free mobile HTML: one image per tab, stacked
+    and full-width, with anchor-link nav. Because it needs no JS and no viewport
+    scripting, it renders correctly in constrained viewers (iOS Files/Quick Look,
+    email previews) where the interactive deck cannot. Images are base64-embedded
+    so the file is self-contained and offline."""
+    import base64 as _b64
+    import io as _io
+    import html as _html
+    from PIL import Image
+
+    tabs = tabs or config.DECK_TABS
+    labels = config.TAB_LABELS
+    nav, secs = [], []
+    for tab, png in zip(tabs, png_paths):
+        if not png or not __import__("os").path.exists(png):
+            continue
+        label = labels.get(tab, tab)
+        with Image.open(png) as im:
+            im = im.convert("RGB")
+            if im.width > max_w:
+                h = round(im.height * max_w / im.width)
+                im = im.resize((max_w, h), Image.LANCZOS)
+            buf = _io.BytesIO()
+            im.save(buf, format="JPEG", quality=82, optimize=True)
+        b64 = _b64.b64encode(buf.getvalue()).decode("ascii")
+        nav.append(f'<a href="#m-{tab}">{_html.escape(label)}</a>')
+        secs.append(
+            f'<section id="m-{tab}"><h2>{_html.escape(label)}</h2>'
+            f'<img alt="{_html.escape(label)}" src="data:image/jpeg;base64,{b64}"></section>'
+        )
+    sub = f'<div class="sub">{_html.escape(subtitle)}</div>' if subtitle else ""
+    doc = (
+        '<!doctype html><html lang="el"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{_html.escape(title)}</title><style>{_MOBILE_CSS}</style></head><body>"
+        f'<header><h1>{_html.escape(title)}</h1>{sub}<nav>{"".join(nav)}</nav></header>'
+        + "".join(secs)
+        + "<footer>OKYπY — Πίνακας Διοικητικού Συμβουλίου (έκδοση κινητού)</footer>"
+        "</body></html>"
+    )
+    with open(out_path, "w", encoding="utf-8") as fh:
+        fh.write(doc)
+    return out_path
+
+
 def embed_downloads(html: str, pdf_path: str | None = None, pptx_path: str | None = None,
-                    stem: str | None = None) -> str:
-    """Embed the rendered PDF/PPTX as base64 data URIs so the HTML's download
-    buttons work with no server and no Python (fully self-contained)."""
+                    mobile_path: str | None = None, stem: str | None = None) -> str:
+    """Embed the rendered PDF/PPTX/mobile-HTML as base64 data URIs so the HTML's
+    download buttons work with no server and no Python (fully self-contained)."""
     import base64 as _b64
     import json as _json
     import os as _os
@@ -1190,6 +1261,7 @@ def embed_downloads(html: str, pdf_path: str | None = None, pptx_path: str | Non
         ("__OKYPY_PDF", pdf_path, "application/pdf"),
         ("__OKYPY_PPTX", pptx_path,
          "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+        ("__OKYPY_MOBILE", mobile_path, "text/html"),
     ):
         if path and _os.path.exists(path):
             with open(path, "rb") as fh:

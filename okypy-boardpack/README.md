@@ -1,7 +1,9 @@
 # OKYπY Board-Pack generator
 
 A small **local, offline** app that turns the monthly revenue/expense workbook
-into the approved Board EBITDA deck (month + YTD) in **HTML, PDF and PPTX**.
+into the approved Board EBITDA deck (month + YTD) in **HTML, PDF, PPTX and a
+static mobile HTML** (built for phone viewing — renders even in the iOS Files
+preview).
 
 It does **not** rebuild the deck. It starts from the board-approved
 `presentation_template.html` and *injects* freshly recomputed numbers, tables and
@@ -79,7 +81,7 @@ streamlit run app.py
 
 It installs deps on first run, starts the local server, and opens the deck in
 your browser. Use the bottom toolbar to upload next month's Excel (🔄) or a
-commentary text file (📝), and to download the PDF / PPTX.
+commentary text file (📝), and to download the PDF / PPTX / 📱 mobile HTML.
 
 **View on your phone:** with the launcher running, the terminal prints a
 `http://<computer-ip>:8000` address — open **that** in your phone's **Safari or
@@ -97,26 +99,43 @@ python serve.py path/to/01-05_ΓΙΑ_CLAUDE.xlsx     # then open http://localhos
 The page shows the deck with a bottom toolbar:
 - **🔄 Νέα δεδομένα (Excel)** — upload next month's workbook; it regenerates and
   refreshes in place (month auto-detected from the filename).
-- **⬇ HTML / ⬇ PDF / ⬇ PPTX** — download the current outputs.
+- **⬇ PDF / ⬇ PPTX / 📱 Κινητό (HTML)** — download the current outputs.
 
 Fully local (stdlib server, no extra deps).
 
 ### Toolbar in the generated HTML (works with no Python)
 Every generated HTML carries a bottom toolbar:
-- **⬇ HTML / PDF / PPTX** — the PDF and PPTX are **embedded** in the HTML at
-  build time (base64), so all three download directly from the file with no
-  server and no Python. (This makes the HTML large, ~13 MB.)
+- **⬇ PDF / ⬇ PPTX / 📱 Κινητό (HTML)** — the PDF, the faithful PPTX **and** the
+  static mobile HTML are **embedded** in the deck at build time (base64), so each
+  button downloads the real file directly with no server and no Python. Pressing
+  **⬇ PPTX** always saves the faithful, HTML-matching deck (real charts, correct
+  order). (Embedding makes the desktop HTML large, ~13 MB — that copy is meant for
+  the laptop/browser; the **📱 mobile HTML** it produces is the lightweight phone
+  copy, ~1 MB.)
 - **📝 Σχόλιο (κείμενο)** — upload a plain-text file to replace the first-page
   commentary, entirely in the browser (offline).
 - **🔄 Νέα δεδομένα (Excel)** — the monthly refresh; needs `serve.py` running
   (recomputing the deck requires the Python engine — a browser can't).
 
+When `serve.py` is running, the same buttons also work by streaming the files
+from the server (`/download/{pdf,pptx,mobile}`), so they function whether the
+page is opened over `http://…` or from a saved `.html` file.
+
 ### Viewing on a phone
-Open the HTML in a real browser (Safari / Chrome), **not** an attachment/preview
-pane — previews often disable JavaScript, which the interactive charts and tab
-navigation need. If JS is unavailable the deck falls back to showing every
-section stacked (tables visible, charts blank). For a zero-dependency phone view,
-the **PDF renders everything (charts included) in any viewer**.
+Three options, best to simplest:
+1. **Interactive** — with the launcher/`serve.py` running, open the printed
+   `http://<computer-ip>:8000` in the phone's **Safari/Chrome** (same Wi-Fi):
+   full charts + tabs.
+2. **📱 Κινητό (HTML)** — press the mobile button to get a **static, JavaScript-
+   free** HTML (one full-width image per tab, tap-nav header). Save it to the
+   phone and it renders in **any** viewer — including the **iOS Files / Quick Look
+   preview**, where the interactive deck's charts/tabs would be blank (previews
+   disable JavaScript). Fully offline and self-contained.
+3. **PDF** — also renders everything (charts included) in any viewer.
+
+The full interactive HTML needs a real browser with JavaScript; opened in a
+preview pane it falls back to every section stacked (tables visible, charts
+blank) — use the mobile HTML or PDF there instead.
 
 ## Run (headless)
 
