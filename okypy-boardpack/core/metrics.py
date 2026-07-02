@@ -13,6 +13,7 @@ All rules of spec §5 live here.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 import config
@@ -265,14 +266,30 @@ def _payroll(load: LoadResult, mm: int) -> dict:
 
 def _allaesoda(load: LoadResult) -> dict:
     """Άλλα Έσοδα tab: the category's sub-lines (by description, both years) and
-    its distribution per unit."""
-    subs = []
+    its distribution per unit. The 2025 sheet spells some descriptions
+    differently (year suffixes, renamed lines), so both years are matched on a
+    normalised key (see _norm_alla) before joining."""
+    # 2025 values collapsed onto the normalised description key
+    n25 = {}
+    for desc, val in load.alla_sub25.items():
+        n25[_norm_alla(desc)] = n25.get(_norm_alla(desc), 0.0) + val
+    total_y25 = sum(load.alla_sub25.values())   # full 2025 total (every line)
+
+    subs, joined_y25 = [], 0.0
     for desc, v in load.alla_sub26.items():
-        y25 = load.alla_sub25.get(desc, 0.0)
+        key = _norm_alla(desc)
+        y25 = n25.get(key, 0.0)
+        joined_y25 += y25
         if max(abs(v[0]), abs(v[1]), abs(y25)) < 5e4:   # skip empty/blank lines
             continue
-        subs.append({"label": _titlecase_gr(desc), "ytd": v[0], "bud": v[1], "y25": y25})
+        label = config.ALLA_SUB_LABELS.get(key, _titlecase_gr(desc))
+        subs.append({"label": label, "ytd": v[0], "bud": v[1], "y25": y25})
     subs.sort(key=lambda s: -s["ytd"])
+    # keep the 2025 column footing to the true total: fold any 2025-only lines
+    # (no 2026 counterpart) into the last shown row so the ΣΥΝΟΛΟ ties exactly
+    residual = total_y25 - joined_y25
+    if abs(residual) >= 1.0 and subs:
+        subs[-1]["y25"] += residual
     total = {"ytd": sum(s["ytd"] for s in subs), "bud": sum(s["bud"] for s in subs),
              "y25": sum(s["y25"] for s in subs)}
 
@@ -363,6 +380,22 @@ def _titlecase_gr(s: str) -> str:
     return s
 
 
+_LAT2GR = str.maketrans("ABEZHIKMNOPTXY", "ΑΒΕΖΗΙΚΜΝΟΡΤΧΥ")
+
+
+def _norm_alla(d: str) -> str:
+    """Normalise an Άλλα Έσοδα description for cross-year matching: map Latin
+    homoglyphs to Greek, uppercase, strip accents and 4-digit years, collapse
+    whitespace, then apply the config alias map."""
+    import unicodedata
+    d = (d or "").translate(_LAT2GR).upper()
+    d = "".join(c for c in unicodedata.normalize("NFD", d)
+                if unicodedata.category(c) != "Mn")            # drop accents
+    d = re.sub(r"\b(19|20)\d{2}\b", " ", d)                    # drop years
+    d = re.sub(r"\s+", " ", d).strip()
+    return config.ALLA_DESC_ALIASES.get(d, d)
+
+
 def _hospitals(load: LoadResult) -> list:
     """Build the per-unit records for the Ανά Νοσηλευτήριο tab (D.hosps)."""
     out = []
@@ -406,21 +439,27 @@ def _monthly(load: LoadResult, mm: int) -> dict:
 
 def _overview(load: LoadResult) -> dict:
     """Category-level P&L lines for the sec-overview tab."""
+    def lbl(name):
+        return config.PL_LABELS.get(name, name)
+
     rev = []
     for c in load.revenue():
         g = "other" if c.name in config.GROUP_ALLA_ESODA else "oay"
-        rev.append({"l": c.name, "ytd": c.ytd2026, "bud": c.budget_period,
-                    "y25": c.ytd2025, "g": g})
-    # OAY lines first (by size), then the two "other" lines (by size)
-    rev.sort(key=lambda r: (0 if r["g"] == "oay" else 1, -r["ytd"]))
+        rev.append({"l": lbl(c.name), "raw": c.name, "ytd": c.ytd2026,
+                    "bud": c.budget_period, "y25": c.ytd2025, "g": g})
+    # OAY lines in the deck's fixed order (config.OAY_ORDER), then the two "other"
+    # lines by size — matches the approved deck instead of sorting OAY by size.
+    oay_rank = {nm: i for i, nm in enumerate(config.OAY_ORDER)}
+    rev.sort(key=lambda r: (0 if r["g"] == "oay" else 1,
+                            oay_rank.get(r["raw"], 99) if r["g"] == "oay" else -r["ytd"]))
 
     exp_by_name = {c.name: c for c in load.expense()}
     exp = []
     for nm in config.GROUP_KOSTOS_PROSOPIKOU:        # 3 personnel lines, fixed order
         c = exp_by_name.pop(nm, None)
         if c:
-            exp.append({"l": c.name, "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025})
-    rest = [{"l": c.name, "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025}
+            exp.append({"l": lbl(c.name), "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025})
+    rest = [{"l": lbl(c.name), "ytd": c.ytd2026, "bud": c.budget_period, "y25": c.ytd2025}
             for c in exp_by_name.values()]
     rest.sort(key=lambda r: -r["ytd"])
     exp.extend(rest)

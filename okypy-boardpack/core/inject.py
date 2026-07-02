@@ -882,8 +882,10 @@ def _inject_allaesoda(html: str, m: Metrics, rep: InjectReport) -> str:
     if not ae.get("subs"):
         rep.warnings.append("Δεν βρέθηκαν δεδομένα Άλλων Εσόδων.")
         return html
-    # by-hospital chart data
-    html = _set_d_array(html, "loipaRevH", "[" + ",".join(f"'{h['name']}'" for h in ae["hosp"]) + "]")
+    # by-hospital chart data (chart uses short unit labels; table keeps full names)
+    def _short(nm):
+        return config.HOSPITAL_SHORT.get(nm, nm)
+    html = _set_d_array(html, "loipaRevH", "[" + ",".join(f"'{_short(h['name'])}'" for h in ae["hosp"]) + "]")
     html = _set_d_array(html, "loipaRevYTD", "[" + ",".join(_js(h["ytd"]) for h in ae["hosp"]) + "]")
     # KPI tiles (scoped)
     s = html.index('id="sec-allaesoda"')

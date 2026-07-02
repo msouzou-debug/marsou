@@ -126,6 +126,15 @@ HOSPITALS = [
     {"code": "MENTAL HEALTH",        "name": "Ψυχικής Υγείας",        "kind": "special"},
 ]
 
+# Short unit labels used in per-hospital CHARTS (the scoreboard/tables keep the
+# full names above). Only units whose full name is too long are abbreviated.
+HOSPITAL_SHORT = {
+    "Ψυχικής Υγείας": "Ψυχ. Υγείας",
+    "Κέντρα Υγείας": "Κ. Υγείας",
+    "Νοσ. Πόλεως Χρυσοχούς": "Νοσ. Πόλεως Χρυσοχ.",
+    "Εξωτερικά Ιατρεία": "Εξωτ. Ιατρεία",
+}
+
 # ── Λειτ. Έξοδα tab (operating expenses ex payroll) ──────────────────────────
 # The 5 non-payroll opex categories, in the deck's display order (drives the
 # summary table, KPI tiles and the monthly stacked chart).
@@ -166,8 +175,44 @@ EXO_CATEGORY = "Εξωνοσοκομειακή Φρ. ΟΑΥ"   # outpatient
 OAY_BADGE = [(0.0, "Σε στόχο", "bp"), (-5.0, "Παρακολούθηση", "ba"),
              (-18.0, "Διερεύνηση", "bn"), (-1e9, "Κρίσιμο", "bn")]
 
+# ── Overview P&L (Αναλυτικές) display labels ─────────────────────────────────
+# The overview P&L keeps mostly-raw category names; only these are shortened to
+# match the approved deck (distinct from VARIANCE_DISPLAY_LABELS on the exec tab).
+PL_LABELS = {
+    "Εγγραφές Προσωπικών Ιατρών ΟΑΥ": "Εγγραφές ΟΑΥ",
+    "Δημόσια Υγεία / Αρμόδιες Αρχές": "Δημόσια Υγεία / Αρχές",
+    "Συμβόλαιο ΟΚΥπΥ": "Σύμβαση ΟΚΥπΥ",
+    "Άλλες Λειτουργικές δαπάνες": "Άλλες Λειτουργικές",
+}
+
 # ── Άλλα Έσοδα tab ───────────────────────────────────────────────────────────
 ALLA_CATEGORY = "Άλλα έσοδα"   # the single category analysed on this tab
+
+# The 2025 sheet spells some sub-descriptions differently from 2026 (year
+# suffixes like «… 2023/2024/2025», or a renamed line). Descriptions are
+# normalised (Latin→Greek homoglyphs, accents/years stripped, whitespace
+# collapsed) before joining the two years; these aliases map the remaining
+# renamed 2025 lines onto their 2026 counterpart (keys/values are normalised).
+ALLA_DESC_ALIASES = {
+    "ΑΠΟΖ. ΦΑΡΜΑΚΩΝ Β ΦΑΣΗ ΚΕΡΔΟΣ": "ΑΠΟΖ. ΦΑΡΜΑΚΩΝ - ΟΑΥ",
+}
+# Deck labels for the Άλλα Έσοδα sub-lines (keys are normalised descriptions).
+ALLA_SUB_LABELS = {
+    "ΑΛΛΑ ΕΣΟΔΑ": "Άλλα Έσοδα (Misc)",
+    "ΝΟΣΗΛΙΑ ΕΣΩΤΕΡΙΚΩΝ ΑΣΘΕΝΩΝ": "Νοσηλία Εσωτερικών Ασθενών",
+    "ΝΟΣΗΛΙΑ ΕΞΩΤΕΡΙΚΩΝ ΑΣΘΕΝΩΝ": "Νοσηλία Εξωτερικών Ασθενών",
+    "ΤΑΜΕΙΟ ΙΑΤΡΟΦΑΡΜΑΚΕΥΤΙΚΗΣ": "Ταμείο Ιατροφαρμακευτικής",
+    "ΤΕΛΗ ΤΑΕΠ - ΕΠΙ ΠΛΗΡΩΜΗ ΑΣΘΕΝΕΙΣ": "Τέλη ΤΑΕΠ (επί πληρωμή)",
+    "ΑΠΟΖ. ΦΑΡΜΑΚΩΝ - ΟΑΥ": "Αποζ. Φαρμάκων ΟΑΥ",
+    "ΑΛΛΑ ΔΙΚΑΙΩΜΑΤΑ, ΟΦΕΙΛΕΣ": "Άλλα Δικαιώματα & Οφειλές",
+    "ΠΩΛ ΑΓΑΘ/ΥΠΗΡ ΑΛΛΑ ΤΜΗΜ/ΥΠΗΡ": "Πωλήσεις Αγαθών / Υπηρεσιών",
+    "ΕΝΣΗΜΑ ΥΓΕΙΑΣ": "Ένσημα Υγείας",
+    "ΕΝΟΙΚΙΑ": "Ενοίκια",
+    "ΔΙΚΑΙΩΜΑΤΑ ΕΙΔΙΚΩΝ ΙΑΤΡΩΝ": "Δικαιώματα Ειδικών Ιατρών",
+    "ΣΥΜΒΟΥΛΕΥΤΙΚΑ ΔΙΚΑΙΩΜΑΤΑ": "Συμβουλευτικά Δικαιώματα",
+    "ΑΛΛΕΣ ΧΟΡΗΓΙΕΣ": "Άλλες Χορηγίες",
+    "Ε.Ο.Δ.Υ": "Ε.Ο.Δ.Υ",
+}
 
 # ── Μισθοδοσία tab (payroll) ─────────────────────────────────────────────────
 PERSONNEL_APOS = "Αποσπασμένο Προσωπικό"
