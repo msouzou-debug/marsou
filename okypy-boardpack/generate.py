@@ -69,12 +69,13 @@ def main() -> int:
     pdf_path = os.path.join(out_dir, stem + ".pdf")
     rendermod.render_pdf(html, pdf_path)
     print("PDF  →", pdf_path)
+    pngs = rendermod.render_pngs(html, os.path.join(out_dir, "_png_" + stem))
     pptx_path = os.path.join(out_dir, stem + ".pptx")
-    pptmod.build_pptx(m, pptx_path, mm, args.year)   # native, editable
+    pptmod.build_pptx(pngs, pptx_path)               # faithful (matches the HTML)
     print("PPTX →", pptx_path)
 
-    # embed downloads so the HTML buttons work standalone (PPTX is tiny; +PDF)
-    html = injectmod.embed_downloads(html, pdf_path, pptx_path, stem=stem)
+    # keep the HTML light (iOS-safe); downloads are served by the launcher/server
+    html = injectmod.embed_downloads(html, stem=stem)
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
     return 0
