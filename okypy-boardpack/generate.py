@@ -56,6 +56,11 @@ def main() -> int:
     out_dir = os.path.join(BASE, config.OUTPUT_DIR)
     os.makedirs(out_dir, exist_ok=True)
     stem = config.OUTPUT_PATTERN.format(year=args.year, mm=mm)
+    # remove any prior outputs for this stem so a failed run can't leave stale files
+    for ext in ("html", "pdf", "pptx"):
+        old = os.path.join(out_dir, stem + "." + ext)
+        if os.path.exists(old):
+            os.remove(old)
     html_path = os.path.join(out_dir, stem + ".html")
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
