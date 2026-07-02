@@ -185,7 +185,7 @@ okypy-boardpack/
     metrics.py              # exclusions, groups, month/YTD/budget, variances, recon gate
     inject.py               # fill template with numbers + commentary; validate
     render.py               # Playwright: print PDF + per-tab PNGs
-    ppt.py                  # python-pptx: PNGs -> 16:9 deck
+    ppt.py                  # python-pptx: NATIVE editable 16:9 deck (tables/charts)
   templates/
     presentation_template.html   # the approved deck (verbatim)
     assets/chart.umd.js          # vendored Chart.js (inlined at build for offline)

@@ -49,19 +49,20 @@ def regenerate(xlsx_path: str, mm: int, year: int) -> tuple[bool, str]:
     with open(html_path, "w", encoding="utf-8") as fh:
         fh.write(html)
     # PDF + PPTX (best-effort; HTML always succeeds)
+    pdf_path = os.path.join(OUTPUT_DIR, stem + ".pdf")
+    pptx_path = os.path.join(OUTPUT_DIR, stem + ".pptx")
+    try:
+        from core import ppt as pptmod
+        pptmod.build_pptx(m, pptx_path, mm, year)     # native, editable (fast)
+    except Exception as e:  # noqa: BLE001
+        print("⚠ PPTX skipped:", e); pptx_path = None
     try:
         from core import render as rendermod
-        from core import ppt as pptmod
-        pdf_path = os.path.join(OUTPUT_DIR, stem + ".pdf")
-        pptx_path = os.path.join(OUTPUT_DIR, stem + ".pptx")
         rendermod.render_pdf(html, pdf_path)
-        pngs = rendermod.render_pngs(html, os.path.join(OUTPUT_DIR, "_png_" + stem))
-        pptmod.build_pptx(pngs, pptx_path)
     except Exception as e:  # noqa: BLE001
-        print("⚠ PDF/PPTX skipped:", e)
-    # tag stem for clean download filenames (kept lightweight — served over LAN)
+        print("⚠ PDF skipped:", e); pdf_path = None
     with open(html_path, "w", encoding="utf-8") as fh:
-        fh.write(injectmod.embed_downloads(html, stem=stem))
+        fh.write(injectmod.embed_downloads(html, pdf_path, pptx_path, stem=stem))
     STATE.update(stem=stem, mm=mm, year=year)
     return True, stem
 
