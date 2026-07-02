@@ -1162,7 +1162,7 @@ TOOLBAR_HTML = """
   // monthly Excel refresh (needs the server)
   q('okypy-upload').onchange = function(){
     var f=this.files&&this.files[0]; if(!f) return;
-    if(!served){ alert('Για μηνιαία ανανέωση με νέο Excel: τρέξτε  python serve.py  και ανοίξτε http://localhost:8000.'); this.value=''; return; }
+    if(!served){ alert('Για μηνιαία ανανέωση με νέο Excel ανοίξτε το deck μέσω του launcher (Windows: διπλό κλικ στο run.bat) και χρησιμοποιήστε αυτό το κουμπί στη σελίδα http://localhost:8000 — όχι από το αποθηκευμένο αρχείο HTML.'); this.value=''; return; }
     var bar=q('okypy-toolbar'); bar.style.opacity=.5;
     var fd=new FormData(); fd.append('file', f);
     fetch('upload',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
