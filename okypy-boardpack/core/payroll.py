@@ -115,11 +115,10 @@ def _headcount(wb) -> dict:
 
 
 def _overtime(wb, mm: int) -> dict:
-    def scan(sheet):
+    def scan(sheet, svc_col, allow_lo, allow_hi, ot_col):
         by_hosp_epid = collections.defaultdict(float)
         by_hosp_yper = collections.defaultdict(float)
         by_type = collections.defaultdict(float)
-        types = {}
         if sheet not in wb.sheetnames:
             return by_hosp_epid, by_hosp_yper, by_type
         ws = wb[sheet]
@@ -130,22 +129,24 @@ def _overtime(wb, mm: int) -> dict:
                 continue
             if header is None:
                 continue
-            svc = _strip_prefix(_txt(row, config.OT_SERVICE_COL))
+            svc = _strip_prefix(_txt(row, svc_col))
             if not svc:
                 continue
-            for i in range(config.OT_ALLOW_LO, config.OT_ALLOW_HI + 1):
+            for i in range(allow_lo, allow_hi + 1):
                 v = _num(row[i]) if i < len(row) else 0.0
                 if v:
                     by_hosp_epid[svc] += v
                     tname = _txt(header, i) or f"col{i}"
                     by_type[tname] += v
-            ov = _num(row[config.OT_OVERTIME_COL]) if config.OT_OVERTIME_COL < len(row) else 0.0
+            ov = _num(row[ot_col]) if ot_col < len(row) else 0.0
             if ov:
                 by_hosp_yper[svc] += ov
         return by_hosp_epid, by_hosp_yper, by_type
 
-    e26, y26, t26 = scan(config.OVERTIME_SHEET_2026)
-    e25, y25, t25 = scan(config.OVERTIME_SHEET_2025)
+    e26, y26, t26 = scan(config.OVERTIME_SHEET_2026, config.OT_SERVICE_COL,
+                         config.OT_ALLOW_LO, config.OT_ALLOW_HI, config.OT_OVERTIME_COL)
+    e25, y25, t25 = scan(config.OVERTIME_SHEET_2025, config.OT_2025_SERVICE_COL,
+                         config.OT_2025_ALLOW_LO, config.OT_2025_ALLOW_HI, config.OT_2025_OVERTIME_COL)
     return {"epid_hosp26": e26, "epid_hosp25": e25,
             "yper_hosp26": y26, "yper_hosp25": y25,
             "type26": t26, "type25": t25}

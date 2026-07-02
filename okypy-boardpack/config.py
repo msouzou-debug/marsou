@@ -248,9 +248,14 @@ HORA_RESIDUAL_LABEL = "Εισφορές & Άλλα"
 OVERTIME_SHEET_2026 = "ΥΠΕΡΩΡΙΕΣ ΕΠΙΔΟΜΑΤΑ 2026"
 OVERTIME_SHEET_2025 = "ΥΠΕΡΩΡΙΕΣ ΕΠΙΔΟΜΑΤΑ 2025"
 OT_SERVICE_COL, OT_ALLOW_LO, OT_ALLOW_HI, OT_OVERTIME_COL = 2, 3, 18, 19
+# The 2025 sheet carries extra leading columns (EMP_SOCINS_NO, LB_ID), so its
+# unit/allowance/overtime columns are shifted right — its own indices:
+OT_2025_SERVICE_COL, OT_2025_ALLOW_LO, OT_2025_ALLOW_HI, OT_2025_OVERTIME_COL = 5, 6, 21, 22
 OT_TYPE_LABELS = {
-    "ΕΠΙΔΟΜΑ ΕΠΙΦΥΛΑΚΗΣ": "Επιφυλακή", "ΕΠΙΔΟΜΑ ΚΥΡΙΑΚΩΝ": "Κυριακή / Αργία",
-    "ΕΠΙΔΟΜΑ ΝΥΧΤΕΡΙΝΗΣ": "Νυχτ. Βάρδια", "ΚΙΝΗΤΡΑ ΕΙΔΙΚΩΝ": "Κίνητρα Ειδ. Ιατρών",
+    "ΕΠΙΔΟΜΑ ΕΠΙΦΥΛΑΚΗΣ": "Επιφυλακή",
+    "ΕΠΙΔΟΜΑ ΚΥΡΙΑΚΗΣ / ΑΡΓΙΑΣ": "Κυριακή / Αργία",
+    "ΕΠΙΔΟΜΑ ΝΥΧΤΕΡΙΝΗΣ ΒΑΡΔΙΑΣ": "Νυχτ. Βάρδια",
+    "ΚΙΝΗΤΡΑ ΕΙΔΙΚΩΝ ΙΑΤΡΩΝ": "Κίνητρα Ειδ. Ιατρών",
     "ΚΙΝΗΤΡΟ 15%": "Κίνητρο 15%",
 }
 

@@ -249,7 +249,8 @@ def _payroll(load: LoadResult, mm: int) -> dict:
     ot = d.get("overtime", {})
     epid_hosp = topn(ot.get("epid_hosp26", {}), ot.get("epid_hosp25", {}), 3)
     yper_hosp = topn(ot.get("yper_hosp26", {}), ot.get("yper_hosp25", {}), 3)
-    epid_type = topn(ot.get("type26", {}), ot.get("type25", {}), 5)
+    epid_type = topn(ot.get("type26", {}), ot.get("type25", {}), 5,
+                     name_fn=lambda x: config.OT_TYPE_LABELS.get(x, x))
 
     return {
         "summary": summary, "total": total,
