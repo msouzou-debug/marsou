@@ -11,13 +11,13 @@ the HTML / PDF / PPTX. Fully local — nothing leaves the machine.
 from __future__ import annotations
 
 import argparse
-import cgi
-import io
 import json
 import os
 import sys
 import tempfile
 import traceback
+from email import policy
+from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Windows consoles default to cp1252, which cannot print the Greek status
@@ -155,18 +155,30 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, b"not found")
         return self._send(404, b"not found")
 
+    def _read_upload(self):
+        """Parse the multipart/form-data body and return (filename, bytes) of
+        the «file» field. Uses the email parser — the cgi module was removed in
+        Python 3.13."""
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length)
+        ctype = self.headers.get("Content-Type") or ""
+        msg = BytesParser(policy=policy.default).parsebytes(
+            b"Content-Type: " + ctype.encode("latin-1") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body)
+        if msg.is_multipart():
+            for part in msg.iter_parts():
+                if part.get_param("name", header="content-disposition") == "file":
+                    return (part.get_filename() or "upload.xlsx",
+                            part.get_payload(decode=True) or b"")
+        raise ValueError("Δεν βρέθηκε αρχείο στο αίτημα.")
+
     def do_POST(self):
         if self.path.split("?", 1)[0] != "/upload":
             return self._send(404, b"not found")
         try:
-            form = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-                                    environ={"REQUEST_METHOD": "POST",
-                                             "CONTENT_TYPE": self.headers["Content-Type"]})
-            item = form["file"]
-            fname = item.filename or "upload.xlsx"
+            fname, data = self._read_upload()
             mm = loadmod.detect_month_from_filename(fname) or STATE["mm"]
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-                tmp.write(item.file.read())
+                tmp.write(data)
                 xlsx = tmp.name
             try:
                 ok, msg = regenerate(xlsx, mm, STATE["year"])

@@ -1,0 +1,5 @@
+# Extra deps for the OPTIONAL Streamlit UI (app.py) only — the double-click
+# launcher and serve.py do not need these.
+-r requirements.txt
+streamlit>=1.40
+pandas>=2.2

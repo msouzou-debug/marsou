@@ -37,10 +37,12 @@ def _ensure_deps() -> None:
     if not missing:
         return
     print(f"Πρώτη εκτέλεση: εγκατάσταση βιβλιοθηκών ({', '.join(missing)})…")
+    # lower-bound pins: newest wheels for whatever Python this is (no compiling)
     r = subprocess.run([sys.executable, "-m", "pip", "install", "--user",
                         "--quiet", "--disable-pip-version-check",
-                        "openpyxl==3.1.5", "python-pptx==1.0.2",
-                        "Pillow==11.0.0", "playwright==1.49.1"])
+                        "--only-binary=:all:",
+                        "openpyxl>=3.1.5", "python-pptx>=1.0.2",
+                        "Pillow>=11.0", "playwright>=1.49"])
     if r.returncode != 0:
         raise RuntimeError("Η εγκατάσταση βιβλιοθηκών απέτυχε — ελέγξτε τη σύνδεση δικτύου.")
     # user-site may not be on sys.path yet in this process → restart once

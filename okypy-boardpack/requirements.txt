@@ -1,8 +1,8 @@
-# OKYπY Board-Pack generator — pinned, offline-friendly deps.
+# OKYπY Board-Pack — runtime deps for the launcher/server (run.bat / Launch.py /
+# serve.py / generate.py). Lower-bound pins so new Python versions get prebuilt
+# wheels (no compiler needed on user machines).
 # Install:  pip install -r requirements.txt  &&  python -m playwright install chromium
-streamlit==1.40.2
-openpyxl==3.1.5
-pandas==2.2.3
-playwright==1.49.1
-python-pptx==1.0.2
-Pillow==11.0.0
+openpyxl>=3.1.5
+python-pptx>=1.0.2
+Pillow>=11.0
+playwright>=1.49

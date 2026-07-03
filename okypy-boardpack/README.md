@@ -58,9 +58,10 @@ build time (columns collapse to a single column ≤900px, padding tightens, the
 tab bar becomes swipeable, tables scroll horizontally) while the desktop look is
 untouched. The PDF/PPTX always render at the fixed desktop 1920px width.
 
-## Run (UI)
+## Run (UI — optional)
 
 ```bash
+pip install -r requirements-ui.txt   # streamlit/pandas are UI-only extras
 streamlit run app.py
 ```
 
