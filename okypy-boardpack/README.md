@@ -140,13 +140,15 @@ Fully local (stdlib server, no extra deps).
 
 ### Toolbar in the generated HTML (works with no Python)
 Every generated HTML carries a bottom toolbar:
-- **⬇ PDF / ⬇ PPTX / 📱 Κινητό (HTML)** — the PDF, the faithful PPTX **and** the
-  static mobile HTML are **embedded** in the deck at build time (base64), so each
-  button downloads the real file directly with no server and no Python. Pressing
-  **⬇ PPTX** always saves the faithful, HTML-matching deck (real charts, correct
-  order). (Embedding makes the desktop HTML large, ~13 MB — that copy is meant for
-  the laptop/browser; the **📱 mobile HTML** it produces is the lightweight phone
-  copy, ~1 MB.)
+- **⬇ HTML / ⬇ PDF / ⬇ PPTX / 📱 Κινητό (HTML)** — the PDF, the faithful PPTX
+  **and** the static mobile HTML are **embedded** in the deck at build time
+  (base64), so each button downloads the real file directly with no server and
+  no Python. **⬇ HTML** saves the full interactive desktop deck: served → the
+  file itself; opened standalone → a live snapshot of the page (which also
+  preserves any 📝 commentary edits). Pressing **⬇ PPTX** always saves the
+  faithful, HTML-matching deck (real charts, correct order). (Embedding makes
+  the desktop HTML large, ~8 MB — that copy is meant for the laptop/browser;
+  the **📱 mobile HTML** is the lightweight phone copy, ~1 MB.)
 - **📝 Σχόλιο (Word/κείμενο)** — upload a **Word (.docx)** or plain-text file to
   replace the first-page «Κύριοι Μοχλοί Ελλείμματος» commentary, entirely in the
   browser (offline; the .docx is unzipped client-side). Structure the document

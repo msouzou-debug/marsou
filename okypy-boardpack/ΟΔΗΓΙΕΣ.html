@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ΟΚΥπΥ Board-Pack — Οδηγίες Χρήσης</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",Arial,sans-serif;background:#F7F8FA;color:#0b2545;line-height:1.65;font-size:15px}
+.wrap{max-width:860px;margin:0 auto;padding:34px 22px 60px}
+header{background:#062E5C;color:#fff;border-radius:14px;padding:26px 30px;margin-bottom:26px}
+header h1{font-size:22px;margin-bottom:4px}
+header p{opacity:.85;font-size:14px}
+h2{font-size:17px;color:#062E5C;margin:30px 0 10px;padding-left:10px;border-left:4px solid #00AEEF}
+ol,ul{margin:8px 0 8px 26px}
+li{margin:5px 0}
+.card{background:#fff;border:1px solid #e3e7ee;border-radius:12px;padding:18px 22px;margin:12px 0;box-shadow:0 1px 6px rgba(0,0,0,.05)}
+code,kbd{background:#eef2f6;border-radius:5px;padding:2px 7px;font-size:13.5px;font-family:Consolas,monospace}
+.btn{display:inline-block;background:rgba(6,46,92,.92);color:#fff;border-radius:999px;padding:3px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+.note{background:#FFF8E1;border:1px solid #F0E0A0;border-radius:10px;padding:12px 16px;margin:10px 0;font-size:14px}
+.ok{background:#E8F5E9;border:1px solid #BCE0C0}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid #e3e7ee;padding:8px 12px;text-align:left;vertical-align:top}
+th{background:#062E5C;color:#fff;font-weight:600}
+tr:nth-child(even) td{background:#f6f8fb}
+footer{margin-top:36px;color:#7a889c;font-size:12.5px;text-align:center}
+@media print{body{background:#fff}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>ΟΚΥπΥ — Μηνιαίος Πίνακας Διοικητικού Συμβουλίου</h1>
+  <p>Οδηγίες χρήσης του εργαλείου παραγωγής (HTML · PDF · PPTX · έκδοση κινητού)</p>
+</header>
+
+<h2>Τι είναι</h2>
+<div class="card">
+Το εργαλείο διαβάζει το μηνιαίο Excel εσόδων/εξόδων και παράγει το εγκεκριμένο
+deck EBITDA του Διοικητικού Συμβουλίου σε τέσσερις μορφές: διαδραστικό
+<b>HTML</b>, <b>PDF</b>, <b>PPTX</b> και <b>HTML κινητού</b>. Όλα τρέχουν
+<b>τοπικά στον υπολογιστή σας</b> — κανένα οικονομικό στοιχείο δεν αποστέλλεται
+στο διαδίκτυο.
+</div>
+
+<h2>Πρώτη εγκατάσταση (μία φορά, ~5 λεπτά)</h2>
+<div class="card">
+<ol>
+  <li>Προμηθευτείτε το <code>OKYpY-BoardPack-Windows-portable.zip</code>
+      (από τον συνάδελφο που σας το έστειλε, από USB, ή από τη σελίδα
+      Releases του αποθετηρίου).</li>
+  <li><b>Πριν</b> την αποσυμπίεση: δεξί κλικ στο ZIP → <b>Ιδιότητες</b> →
+      τσεκάρετε <b>Unblock / Κατάργηση αποκλεισμού</b> (αν εμφανίζεται) → ΟΚ.</li>
+  <li>Αποσυμπιέστε τον φάκελο οπουδήποτε (π.χ. στα Έγγραφα).</li>
+  <li>Κάντε διπλό κλικ στο <code>run.bat</code>. Δεν χρειάζεται εγκατάσταση
+      Python ούτε δικαιώματα διαχειριστή — όλα βρίσκονται μέσα στον φάκελο.</li>
+</ol>
+<div class="note">
+<b>Αν τα Windows μπλοκάρουν το run.bat</b> (Smart App Control): χρησιμοποιήστε το
+<code>Launch.py</code> — δεξί κλικ → «Άνοιγμα με» → «Επιλογή άλλης εφαρμογής» →
+«Αναζήτηση εφαρμογής στον υπολογιστή» → επιλέξτε το
+<code>python\python.exe</code> <b>μέσα στον φάκελο του εργαλείου</b> και
+τσεκάρετε «Πάντα». Από εκεί και πέρα, διπλό κλικ στο <code>Launch.py</code>.
+</div>
+<div class="note">
+Στην πρώτη εκτέλεση κατεβαίνει αυτόματα ο Chromium (~130&nbsp;MB, για την
+παραγωγή PDF/PPTX) στο προφίλ χρήστη. Χρειάζεται διαδίκτυο μόνο αυτή τη φορά·
+χωρίς αυτόν, το HTML εξακολουθεί να παράγεται κανονικά.
+</div>
+</div>
+
+<h2>Μηνιαία χρήση</h2>
+<div class="card">
+<ol>
+  <li>Διπλό κλικ στο <code>run.bat</code> (ή <code>Launch.py</code>) — ανοίγει
+      αυτόματα ο browser στη διεύθυνση <code>http://localhost:8000</code>.</li>
+  <li>Πατήστε <span class="btn">🔄 Νέα δεδομένα (Excel)</span> και επιλέξτε το
+      μηνιαίο αρχείο, π.χ. <code>01-06 ΓΙΑ CLAUDE.xlsx</code>. Ο μήνας
+      αναγνωρίζεται αυτόματα από το όνομα («01-06» = Ιούνιος).</li>
+  <li>Περιμένετε 1–2 λεπτά — παράγονται HTML, PDF, PPTX και έκδοση κινητού,
+      και η σελίδα ανανεώνεται με τα νέα στοιχεία.</li>
+  <li>Ενημερώστε το σχόλιο πρώτης σελίδας με το κουμπί
+      <span class="btn">📝 Σχόλιο (Word/κείμενο)</span> — δέχεται αρχείο Word
+      (.docx) με επικεφαλίδες «Πλευρά Εσόδων» / «Πλευρά Εξόδων»· κάθε
+      παράγραφος γίνεται μία κουκκίδα στην αντίστοιχη στήλη.</li>
+  <li>Κατεβάστε τα παραδοτέα από τα κουμπιά λήψης (πίνακας παρακάτω).</li>
+</ol>
+<div class="note ok">
+Όλα τα νούμερα, οι πίνακες και τα γραφήματα υπολογίζονται ξανά από το Excel.
+Πριν την παραγωγή εκτελείται <b>πύλη συμφωνίας</b>: αν τα σύνολα δεν «δένουν»,
+δεν παράγεται τίποτα και εμφανίζεται το ακριβές ποσό της διαφοράς.
+</div>
+</div>
+
+<h2>Τα κουμπιά της γραμμής εργαλείων</h2>
+<div class="card">
+<table>
+  <tr><th>Κουμπί</th><th>Τι κάνει</th></tr>
+  <tr><td><span class="btn">🔄 Νέα δεδομένα</span></td>
+      <td>Ανεβάζει το μηνιαίο Excel και ξαναϋπολογίζει όλο το deck.
+          Λειτουργεί μόνο στη σελίδα του launcher (localhost:8000).</td></tr>
+  <tr><td><span class="btn">📝 Σχόλιο</span></td>
+      <td>Αντικαθιστά το σχόλιο της πρώτης σελίδας από αρχείο Word ή κειμένου.
+          Λειτουργεί παντού, και σε αποθηκευμένο HTML.</td></tr>
+  <tr><td><span class="btn">⬇ HTML</span></td>
+      <td>Κατεβάζει το πλήρες διαδραστικό deck για υπολογιστή (αυτόνομο αρχείο
+          — περιέχει μέσα του και τα PDF/PPTX/κινητό).</td></tr>
+  <tr><td><span class="btn">⬇ PDF</span></td>
+      <td>PDF με μία καθαρή σελίδα ανά καρτέλα — ιδανικό για εκτύπωση και
+          αποστολή· ανοίγει παντού, και σε κινητά.</td></tr>
+  <tr><td><span class="btn">⬇ PPTX</span></td>
+      <td>Παρουσίαση PowerPoint 16:9, πιστή στην εμφάνιση του deck.</td></tr>
+  <tr><td><span class="btn">📱 Κινητό (HTML)</span></td>
+      <td>Στατική έκδοση για κινητά — ανοίγει σωστά ακόμα και στην
+          προεπισκόπηση αρχείων του iPhone.</td></tr>
+</table>
+</div>
+
+<h2>Διανομή των αποτελεσμάτων</h2>
+<div class="card">
+<ul>
+  <li>Στα μέλη του ΔΣ / συναδέλφους στείλτε απλώς τα αρχεία που κατεβάσατε
+      (<b>PDF</b> για όλους, <b>📱 κινητό HTML</b> για τηλέφωνα, <b>⬇ HTML</b>
+      για πλήρη διαδραστική προβολή σε Chrome/Edge). Δεν χρειάζονται τίποτα
+      εγκατεστημένο.</li>
+  <li>Το πλήρες HTML θέλει <b>κανονικό browser</b> — όχι παράθυρο
+      προεπισκόπησης (εκεί τα γραφήματα μένουν κενά)· για τηλέφωνα προτιμήστε
+      το 📱 ή το PDF.</li>
+  <li>Για να δώσετε το <b>εργαλείο</b> σε άλλον χρήστη: αντιγράψτε ολόκληρο τον
+      φάκελο (ή το ZIP) σε USB/κοινόχρηστο δίσκο. Στον νέο υπολογιστή:
+      αντιγραφή τοπικά → διπλό κλικ <code>run.bat</code>. Τίποτα δεν
+      εγκαθίσταται στα Windows.</li>
+</ul>
+</div>
+
+<h2>Συχνά προβλήματα</h2>
+<div class="card">
+<table>
+  <tr><th>Σύμπτωμα</th><th>Αιτία / Λύση</th></tr>
+  <tr><td>Τα Windows μπλοκάρουν το run.bat</td>
+      <td>Smart App Control. Είτε κάντε Unblock στο ZIP πριν την αποσυμπίεση,
+          είτε χρησιμοποιήστε το <code>Launch.py</code> (βλ. Πρώτη
+          εγκατάσταση).</td></tr>
+  <tr><td>«Αποτυχία συμφωνίας: …€»</td>
+      <td>Τα σύνολα του Excel δεν συμφωνούν μεταξύ τους (η πύλη ασφαλείας
+          λειτούργησε). Ελέγξτε το αρχείο — το μήνυμα δείχνει ποιο σύνολο και
+          πόσο αποκλίνει.</td></tr>
+  <tr><td>Δεν αναγνωρίζεται ο σωστός μήνας</td>
+      <td>Βεβαιωθείτε ότι το όνομα του Excel ξεκινά με «01-MM», π.χ.
+          <code>01-07 ΓΙΑ CLAUDE.xlsx</code> για Ιούλιο.</td></tr>
+  <tr><td>Δεν βγαίνουν PDF/PPTX</td>
+      <td>Δεν έχει κατέβει ο Chromium (πρώτη εκτέλεση χωρίς δίκτυο). Τρέξτε
+          ξανά το launcher με σύνδεση στο διαδίκτυο — μία φορά αρκεί.</td></tr>
+  <tr><td>Το 🔄 λέει «ανοίξτε μέσω του launcher»</td>
+      <td>Ανοίξατε αποθηκευμένο HTML απευθείας. Η μηνιαία ανανέωση γίνεται μόνο
+          στη σελίδα <code>http://localhost:8000</code> που ανοίγει το
+          run.bat.</td></tr>
+</table>
+</div>
+
+<h2>Ασφάλεια δεδομένων</h2>
+<div class="card">
+Ο server τρέχει μόνο στον δικό σας υπολογιστή (localhost). Τα αρχεία Excel και
+τα παραγόμενα deck αποθηκεύονται στον φάκελο <code>outputs</code> μέσα στον
+φάκελο του εργαλείου. Πρόσβαση στο διαδίκτυο χρειάζεται μόνο μία φορά, για τη
+λήψη του Chromium — ποτέ για τα δεδομένα.
+</div>
+
+<footer>ΟΚΥπΥ Board-Pack · Οδηγίες χρήσης · το αρχείο αυτό εκτυπώνεται καθαρά (Ctrl+P)</footer>
+</div>
+</body>
+</html>

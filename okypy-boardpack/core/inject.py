@@ -1116,6 +1116,7 @@ TOOLBAR_HTML = """
   <label class="okypy-btn">📝 Σχόλιο (Word/κείμενο)
     <input id="okypy-comment" type="file" style="display:none"
            accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
+  <a class="okypy-btn" id="okypy-dl-html">⬇ HTML</a>
   <a class="okypy-btn" id="okypy-dl-pdf">⬇ PDF</a>
   <a class="okypy-btn" id="okypy-dl-pptx">⬇ PPTX</a>
   <a class="okypy-btn" id="okypy-dl-mobile">📱 Κινητό (HTML)</a>
@@ -1154,6 +1155,15 @@ TOOLBAR_HTML = """
   q('okypy-dl-pdf').onclick = grab('__OKYPY_PDF','.pdf','pdf','PDF');
   q('okypy-dl-pptx').onclick = grab('__OKYPY_PPTX','.pptx','pptx','PPTX');
   q('okypy-dl-mobile').onclick = grab('__OKYPY_MOBILE','_mobile.html','mobile','του κινητού HTML');
+  // desktop HTML: served → stream the file; standalone → snapshot the live page
+  // (keeps embedded downloads AND any 📝 commentary edits)
+  q('okypy-dl-html').onclick = function(){
+    if (served){ location.href='download/html'; return; }
+    var doc='<!DOCTYPE html>\\n'+document.documentElement.outerHTML;
+    var b=new Blob([doc],{type:'text/html'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=stem()+'.html';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
 
   // ── commentary upload: Word (.docx) or plain .txt → ΚΥΡΙΟΙ ΜΟΧΛΟΙ block ──
   // A .docx is a ZIP; we unzip it client-side (DecompressionStream) and read
