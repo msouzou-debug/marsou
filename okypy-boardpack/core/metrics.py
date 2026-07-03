@@ -550,8 +550,13 @@ def _reconcile(m: Metrics, load: LoadResult) -> None:
             check(f"[Απόκλ. {tag}] shown + Λοιπές = ΣΥΝΟΛΟ ({col})", gap)
 
     # 2025 revenue after §5.1 exclusions ties to the deck's 2025 total.
-    rev25 = sum(c.ytd2025 for c in load.revenue())
-    check("2025 Έσοδα (YTD) = σύνολο deck 2025", rev25 - config.DECK_2025_REVENUE_YTD)
+    # The anchor constant is the APPROVED MAY deck's figure, so this calibration
+    # check only applies when running the baseline month — any other month has a
+    # different (shorter/longer) 2025 YTD by construction, not by error. The
+    # structural checks above still guard every month.
+    if m.mm == config.TEMPLATE_MONTH:
+        rev25 = sum(c.ytd2025 for c in load.revenue())
+        check("2025 Έσοδα (YTD) = σύνολο deck 2025", rev25 - config.DECK_2025_REVENUE_YTD)
 
     m.breaches = breaches
     m.recon_ok = not breaches

@@ -235,6 +235,8 @@ def _localize_period(html: str, mm: int, year: int, rep: InjectReport) -> str:
         ("Π/Υ " + T["gen"],           f"Π/Υ {G['gen']}"),             # ÷ note month
         ("Ετήσιος Π/Υ ÷ " + str(config.TEMPLATE_MONTH),
          f"Ετήσιος Π/Υ ÷ {mm}"),                                      # divisor
+        (T["nom"] + " = ξεχωριστό χρώμα",
+         f"{G['nom']} = ξεχωριστό χρώμα"),                             # exec chart subtitle
     ]
     for old, new in pairs:
         n = html.count(old)
