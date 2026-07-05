@@ -128,6 +128,22 @@ def test_split_grand_total_equals_cheque():
     assert grand == 1_936_528.19
 
 
+def test_crosscheck_mode_report_vs_report_flags():
+    # without an SRA, checks compare report-vs-report so known variances
+    # (pharmacist fee flat GL booking) still get flagged — per the F1054 months
+    b = full_bundle(with_optional=True)
+    b.sra = None
+    res = run_reconciliation(b, crosscheck_mode=True)
+    fee_gl = next(c for c in res.crosschecks if "25501" in c.name)
+    assert fee_gl.sra_side == 12_921.60      # vs the fee report, not the SRA
+    assert fee_gl.flag == "amber"
+    endo = next(c for c in res.crosschecks if c.name.startswith("Ενδ."))
+    assert endo.sra_side == 1_061_728.70     # vs claims-all Inpatient
+    assert endo.flag == "ok"
+    isaud = next(c for c in res.crosschecks if "IS Auditor" in c.name)
+    assert isaud.diff == 0.0
+
+
 def test_crosscheck_mode_matrix():
     b = full_bundle(with_optional=True)
     b.sra = None

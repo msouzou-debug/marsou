@@ -11,7 +11,27 @@ posts to SAP.
 the browser session, the workbook is built in memory. The full functional
 spec is in [`CLAUDE.md`](CLAUDE.md).
 
-## Run
+The tool ships in **two equivalent flavours** with the same logic, checks and
+output workbook:
+
+| | HTML app (`webapp/`) | Streamlit app (`app.py`) |
+|---|---|---|
+| Runs | entirely in the browser — double-click `webapp/index.html` or serve the folder statically | Python server (`streamlit run app.py`) |
+| Files | never leave the user's machine | uploaded to the on-prem server session |
+| Scanned SRAs (OCR) | not supported — paste/correct the text on screen | pytesseract + Greek traineddata |
+| Dependencies | none (JS libraries vendored in `webapp/vendor/`) | `requirements.txt` + tesseract |
+
+## Run — HTML app (no installation)
+
+Open `webapp/index.html` in any modern browser (double-click works — all
+libraries are vendored, nothing is fetched from the network), or host the
+`webapp/` folder on any static file server for the LAN:
+
+```bash
+python -m http.server 8080 -d webapp
+```
+
+## Run — Streamlit app
 
 ```bash
 pip install -r requirements.txt
@@ -78,12 +98,18 @@ recon/
   extract.py         one normalizer per report type (xlsx/xls/xml/pdf/OCR)
   checks.py          gates, cross-checks, variance annotation, clinic split
   build_xlsx.py      workbook builder + gate-5 formula re-verification
+webapp/              self-contained HTML app (same logic, ported to JS)
+  index.html         open this — UI shell
+  js/                core / identify / extract / checks / build_xlsx / app
+  vendor/            SheetJS, pdf.js, ExcelJS (vendored, works offline)
 tests/               unit + end-to-end tests on synthetic Greek fixtures
 fixtures/            put the real ΟΑΥ months here (see fixtures/README.md)
 ```
 
 The SRA line-code → bucket/source mapping lives in `SRA_CODE_MAP`
-(`recon/extract.py`) with a keyword fallback for SRAs without explicit codes.
+(`recon/extract.py` and mirrored in `webapp/js/extract.js`) with a keyword
+fallback for SRAs without explicit codes. **Keep the Python and JS ports in
+sync** — any rule change goes to both.
 
 ## Tests
 

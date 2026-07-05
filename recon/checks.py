@@ -251,15 +251,25 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
     sra = bundle.sra
     checks: list[CrossCheck] = []
 
-    def add(name: str, source: float, codes: list[str], flag_hint: str = ""):
-        side = _sra_sum(sra, codes) if sra else None
+    def add(name: str, source: float, codes: list[str], flag_hint: str = "",
+            alt: Optional[float] = None):
+        # alt = report-vs-report comparison side used in cross-check mode
+        # (no SRA), so known variances still get flagged without a cheque
+        side = _sra_sum(sra, codes) if sra else alt
         note, flag = _annotate(name, source, side, flag_hint)
         checks.append(CrossCheck(name=name, source_total=round(source, 2),
-                                 sra_codes=codes, sra_side=side, note=note, flag=flag))
+                                 sra_codes=codes if sra else [], sra_side=side,
+                                 note=note, flag=flag))
+
+    claims_ip = bundle.claims.by_segment.get("Inpatient") if bundle.claims else None
+    claims_out = (round(bundle.claims.by_segment.get("Outpatient Specialists", 0.0)
+                        + bundle.claims.by_segment.get("Nurses-Midwives", 0.0)
+                        + bundle.claims.by_segment.get("Allied Health", 0.0), 2)
+                  if bundle.claims else None)
 
     if bundle.inpatient:
         add("Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS",
-            bundle.inpatient.synolo, ["IS"])
+            bundle.inpatient.synolo, ["IS"], alt=claims_ip)
     if bundle.pharma:
         drugs = bundle.pharma.by_type.get("Drugs", 0.0)
         add("Φάρμακα (pharma drugs) = SRA PHD", drugs, ["PHD"])
@@ -283,18 +293,21 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
 
     if bundle.gl:
         gl = bundle.gl
-        add("GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS", gl.inpatient, ["IS"])
+        add("GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS", gl.inpatient,
+            ["IS"], alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
         add("GL: Z-catalogue (26003+26007) vs ΟΑΥ Z",
             gl.z_catalogue, [])  # report-vs-report, noted below
         if bundle.inpatient:
             c = checks[-1]
             c.sra_side = bundle.inpatient.z_catalogue
             c.note, c.flag = _annotate("Z-CATALOGUE GL", c.source_total, c.sra_side)
-        add("GL: ΤΑΕΠ / A&E (25801) = SRA AE", gl.ae, ["AE", "A&E"])
+        add("GL: ΤΑΕΠ / A&E (25801) = SRA AE", gl.ae, ["AE", "A&E"],
+            alt=bundle.claims.by_segment.get("A&E") if bundle.claims else None)
         add("GL: Εξωνοσοκομειακή (25xxx clinical) = SRA OS+NM+AP",
-            gl.outpatient, ["OS", "NM", "AP"])
+            gl.outpatient, ["OS", "NM", "AP"], alt=claims_out)
         add("GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) = SRA PHF",
-            gl.pharmacist_fee, ["PHF"])
+            gl.pharmacist_fee, ["PHF"],
+            alt=bundle.phfee.computed if bundle.phfee else None)
         add("GL: Φάρμακα (255xx) vs pharma claims gross", gl.pharma_other, [])
         if bundle.pharma:
             c = checks[-1]
@@ -303,15 +316,17 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             c.note, c.flag = _annotate("PHARMA GL", c.sra_side, c.source_total)
             c.note = c.note if abs(c.diff or 0) > CENT else "OK — ταυτίζεται (ties out)"
         if gl.capitation:
-            add("GL: Capitation (51001001) = SRA PD capitation", gl.capitation, ["PD-CAP"])
+            add("GL: Capitation (51001001) = SRA PD capitation", gl.capitation,
+                ["PD-CAP"], alt=bundle.capitation.total if bundle.capitation else None)
 
     if bundle.isaud:
         add("IS Auditor: inpatient (DRG fees + Z-catalogue) = SRA IS",
             bundle.isaud.inpatient_total, ["IS"],
-            flag_hint="IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.")
+            flag_hint="IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.",
+            alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
     if bundle.xml_activity:
         add("XML activity export (OS+NM+AP) = SRA OS+NM+AP",
-            bundle.xml_activity.total, ["OS", "NM", "AP"])
+            bundle.xml_activity.total, ["OS", "NM", "AP"], alt=claims_out)
     return checks
 
 

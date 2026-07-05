@@ -17,8 +17,9 @@ from recon.checks import (ReconBundle, conditional_requirements,
                           validate_batch)
 from recon.extract import ExtractionError, extract, parse_sra_text
 from recon.identify import identify
-from recon.models import (HOSPITALS, IdentifiedFile, MONTH_NAMES_EL,
-                          REPORT_LABELS, REQUIRED_TYPES, ReportType)
+from recon.models import (HOSPITALS, IdentifiedFile, MONTH_ABBR,
+                          MONTH_NAMES_EL, REPORT_LABELS, REQUIRED_TYPES,
+                          ReportType)
 from recon.numbers import format_eur
 
 st.set_page_config(page_title="OKYπY — Συμφωνία ΟΑΥ", page_icon="🏥", layout="wide")
@@ -183,7 +184,7 @@ if open_var:
 else:
     st.write("Καμία ανοιχτή απόκλιση (no open variances).")
 
-fname = (f"OKYPY_HIO_{hospital}_{MONTH_NAMES_EL[month][:3].upper() if month else 'XX'}"
+fname = (f"OKYPY_HIO_{hospital}_{MONTH_ABBR[month] if month else 'XX'}"
          f"{year or ''}_Reconciliation.xlsx")
 st.download_button(
     "⬇ Λήψη Excel (Download Excel workbook)",

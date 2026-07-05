@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23062E5C'/><path d='M8 3v10M3 8h10' stroke='%2300AEEF' stroke-width='2.4'/></svg>">
+<title>OKYπY — Συμφωνία Πληρωμών ΟΑΥ</title>
+<style>
+  :root {
+    --navy: #062E5C; --blue: #0072BC; --sky: #00AEEF; --green: #8DC63F; --gray: #595959;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    margin: 0; background: #f5f7fa; color: #1a1a2a;
+  }
+  header {
+    background: var(--navy); color: #fff; padding: 1.1rem 2rem;
+  }
+  header h1 { margin: 0; font-size: 1.35rem; }
+  header p { margin: .3rem 0 0; opacity: .85; font-size: .9rem; }
+  main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1.5rem 3rem; }
+  #drop-zone {
+    border: 2px dashed var(--blue); border-radius: 10px; background: #fff;
+    padding: 2rem; text-align: center; cursor: pointer; color: var(--gray);
+    transition: background .15s;
+  }
+  #drop-zone.over, #drop-zone:hover { background: #eaf5fc; }
+  #drop-zone strong { color: var(--blue); }
+  .controls { display: flex; align-items: center; gap: 1.5rem; margin: 1rem 0; flex-wrap: wrap; }
+  button.primary {
+    background: var(--blue); color: #fff; border: 0; border-radius: 6px;
+    padding: .6rem 1.4rem; font-size: 1rem; cursor: pointer;
+  }
+  button.primary:disabled { background: #b8c4cf; cursor: not-allowed; }
+  button.primary:not(:disabled):hover { background: var(--navy); }
+  button.link { background: none; border: 0; color: var(--gray); cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0;
+          font-size: .9rem; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: .45rem .6rem; }
+  td { padding: .4rem .6rem; border-bottom: 1px solid #e3e8ee; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.ok { color: #1F7A1F; font-weight: 700; text-align: center; }
+  td.missing { color: #C00000; font-weight: 700; text-align: center; }
+  tr.amber td, td.amber { background: #FFF6DC; }
+  tr.red td { background: #FDE8E8; }
+  .error { background: #FDE8E8; border-left: 4px solid #C00000; padding: .7rem 1rem;
+           margin: .6rem 0; border-radius: 4px; white-space: pre-wrap; }
+  .warn { background: #FFF6DC; border-left: 4px solid #B45F06; padding: .6rem 1rem;
+          margin: .5rem 0; border-radius: 4px; }
+  .success { background: #EAF7E5; border-left: 4px solid var(--green); padding: .7rem 1rem;
+             margin: .8rem 0; border-radius: 4px; }
+  .hint { color: var(--gray); font-size: .88rem; }
+  .metrics { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+  .metric { background: #fff; border-radius: 8px; padding: .8rem 1.2rem;
+            border-top: 3px solid var(--sky); min-width: 165px; }
+  .metric-label { color: var(--gray); font-size: .8rem; }
+  .metric-value { font-size: 1.15rem; font-weight: 700; color: var(--navy);
+                  font-variant-numeric: tabular-nums; }
+  textarea { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: .85rem;
+             border: 1px solid #cfd8e1; border-radius: 6px; padding: .6rem; }
+  details { background: #fff; border-radius: 8px; padding: .7rem 1rem; margin: .8rem 0; }
+  summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+  footer { text-align: center; color: var(--gray); font-size: .8rem; padding: 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OKYπY — Συμφωνία Πληρωμών ΟΑΥ</h1>
+  <p>Μηνιαία συμφωνία πληρωμών ΟΑΥ ανά νοσοκομείο (monthly HIO payment reconciliation
+     per hospital). Όλα τρέχουν στον browser σας — κανένα αρχείο δεν αποστέλλεται πουθενά
+     (everything runs in your browser, no file leaves your machine).</p>
+</header>
+<main>
+  <div id="drop-zone">
+    <strong>Σύρετε εδώ τα αρχεία του μήνα</strong> ή κάντε κλικ για επιλογή<br>
+    <span class="hint">(drop the month's ΟΑΥ files here, or click to browse — xlsx, xls, xml, pdf)</span>
+    <input type="file" id="file-input" multiple accept=".xlsx,.xls,.xml,.pdf" hidden>
+  </div>
+  <div id="status" class="hint"></div>
+  <div id="warnings"></div>
+  <div id="checklist-wrap"></div>
+  <div id="gates"></div>
+  <div id="sra-review"></div>
+  <div class="controls">
+    <label><input type="checkbox" id="crosscheck-mode">
+      Λειτουργία διασταύρωσης — χωρίς SRA (cross-check mode, no SRA)</label>
+    <button id="run-btn" class="primary" disabled>▶ Εκτέλεση συμφωνίας (Run reconciliation)</button>
+  </div>
+  <div id="results"></div>
+</main>
+<footer>OKYπY internal tool — stateless, in-browser. Άνοιγμα: διπλό κλικ στο index.html ή στατικός server.</footer>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/pdf.worker.min.js"></script>
+<script src="vendor/exceljs.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/identify.js"></script>
+<script src="js/extract.js"></script>
+<script src="js/checks.js"></script>
+<script src="js/build_xlsx.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
