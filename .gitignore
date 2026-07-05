@@ -1,0 +1,10 @@
+# confidential ΟΑΥ data — never commit
+fixtures/*
+!fixtures/README.md
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.streamlit/secrets.toml
+venv/
+.venv/

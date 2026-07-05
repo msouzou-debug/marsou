@@ -1,0 +1,194 @@
+"""OKYπY — Συμφωνία Πληρωμών ΟΑΥ (HIO payment reconciliation).
+
+Thin UI: all logic lives in recon/.  Stateless — files live in the browser
+session only, the workbook is built in memory (BytesIO), nothing touches disk.
+
+Run:  streamlit run app.py
+"""
+from __future__ import annotations
+
+import io
+
+import streamlit as st
+
+from recon.build_xlsx import build_workbook, verify_workbook
+from recon.checks import (ReconBundle, conditional_requirements,
+                          gate4_internal_asserts, run_reconciliation,
+                          validate_batch)
+from recon.extract import ExtractionError, extract, parse_sra_text
+from recon.identify import identify
+from recon.models import (HOSPITALS, IdentifiedFile, MONTH_NAMES_EL,
+                          REPORT_LABELS, REQUIRED_TYPES, ReportType)
+from recon.numbers import format_eur
+
+st.set_page_config(page_title="OKYπY — Συμφωνία ΟΑΥ", page_icon="🏥", layout="wide")
+
+st.title("OKYπY — Συμφωνία Πληρωμών ΟΑΥ")
+st.caption("Μηνιαία συμφωνία πληρωμών ΟΑΥ ανά νοσοκομείο "
+           "(monthly HIO payment reconciliation per hospital). "
+           "Stateless — δεν αποθηκεύεται τίποτα (nothing is stored).")
+
+uploads = st.file_uploader(
+    "Αρχεία αναφορών ΟΑΥ για έναν μήνα (HIO report files for one month)",
+    type=["xlsx", "xls", "xml", "pdf"],
+    accept_multiple_files=True,
+)
+
+crosscheck_mode = st.checkbox(
+    "Λειτουργία διασταύρωσης — χωρίς SRA (cross-check mode, no SRA)")
+
+
+@st.cache_data(show_spinner=False)
+def _identify_cached(name: str, data: bytes):
+    return identify(name, data)
+
+
+def _checklist(files: list[IdentifiedFile]) -> None:
+    by_type = {f.report_type: f for f in files if f.report_type}
+    rows = []
+    listed = list(REQUIRED_TYPES) + [t for t in ReportType
+                                     if t not in REQUIRED_TYPES and t in by_type]
+    for t in listed:
+        f = by_type.get(t)
+        required = t in REQUIRED_TYPES and not (crosscheck_mode and t == ReportType.SRA)
+        rows.append({
+            "Αναφορά (Report)": REPORT_LABELS[t] + (" *" if required else ""),
+            "Αρχείο (Detected file)": f.filename if f else "—",
+            "Νοσοκομείο (Hospital)": (f"{f.hospital_code} ({HOSPITALS[f.hospital_code][1]})"
+                                      if f and f.hospital_code else "—") if f else "—",
+            "Μήνας (Month)": (f"{MONTH_NAMES_EL[f.month]} {f.year}"
+                              if f and f.month and f.year else "—") if f else "—",
+            "OK": "✔" if f else ("✖" if required else "·"),
+        })
+    for f in files:
+        if f.report_type is None:
+            rows.append({"Αναφορά (Report)": "Άγνωστο (unrecognised)",
+                         "Αρχείο (Detected file)": f.filename,
+                         "Νοσοκομείο (Hospital)": "—", "Μήνας (Month)": "—", "OK": "✖"})
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+if not uploads:
+    st.info("Σύρετε εδώ όλα τα αρχεία του μήνα: SRA (PDF), Ενδ. summary, "
+            "Πληρωμένες Απαιτήσεις «all», ΦΑΡΜΑΚΑ, Αμοιβή Φαρμακοποιού — και "
+            "προαιρετικά GL / IS Auditor / XML. (Drop the month's full ΟΑΥ set here.)")
+    st.stop()
+
+files = [_identify_cached(u.name, u.getvalue()) for u in uploads]
+
+for f in files:
+    for w in f.warnings:
+        st.warning(f"{f.filename}: {w}")
+
+# OCR correction: never guess an amount — scanned SRAs are shown for review
+sra_text_override: dict[str, str] = {}
+for f in files:
+    if f.report_type == ReportType.SRA and f.ocr_used:
+        st.subheader("Έλεγχος OCR (OCR review) — SRA")
+        st.write("Σαρωμένο PDF: ελέγξτε/διορθώστε τις γραμμές πριν την εκτέλεση "
+                 "(scanned PDF — correct the extracted lines before running).")
+        sra_text_override[f.filename] = st.text_area(
+            f"Κείμενο SRA ({f.filename})", value=f.raw_text or "", height=300)
+
+gates, hospital, period = validate_batch(files, crosscheck_mode)
+_checklist(files)
+
+failed = [g for g in gates if not g.passed]
+if failed:
+    for g in failed:
+        st.error(f"Πύλη {g.number} — {g.name}\n\n{g.message}")
+    st.stop()
+
+hosp_gr, hosp_en = HOSPITALS[hospital]
+year, month = period
+st.success(f"Πλήρες σετ: {hosp_gr} ({hosp_en}) — "
+           f"{MONTH_NAMES_EL[month] if month else '—'} {year or ''}")
+
+if not st.button("▶ Εκτέλεση συμφωνίας (Run reconciliation)", type="primary"):
+    st.stop()
+
+# ---------------------------------------------------------------- extraction
+bundle = ReconBundle(hospital_code=hospital, year=year or 0, month=month or 0)
+slot = {
+    ReportType.SRA: "sra", ReportType.INPATIENT_SUMMARY: "inpatient",
+    ReportType.CLAIMS_ALL: "claims", ReportType.PHARMA_CLAIMS: "pharma",
+    ReportType.PHARMACIST_FEE: "phfee", ReportType.CAPITATION: "capitation",
+    ReportType.QUALITY_CRITERIA: "quality", ReportType.HEMODIALYSIS: "hemo",
+    ReportType.GL_EXTRACT: "gl", ReportType.IS_AUDITOR: "isaud",
+    ReportType.XML_ACTIVITY: "xml_activity",
+}
+try:
+    for f in files:
+        raw_text = sra_text_override.get(f.filename, f.raw_text)
+        if f.report_type == ReportType.SRA and f.filename in sra_text_override:
+            setattr(bundle, "sra", parse_sra_text(raw_text))
+        else:
+            setattr(bundle, slot[f.report_type],
+                    extract(f.report_type, f.data, hospital_code=hospital, raw_text=raw_text))
+except ExtractionError as e:
+    st.error(f"Σφάλμα εξαγωγής (extraction failed): {e}")
+    st.stop()
+
+if bundle.sra:
+    have = {f.report_type for f in files}
+    missing_cond = [t for t in conditional_requirements(bundle.sra) if t not in have]
+    if missing_cond:
+        st.error("Το SRA περιέχει γραμμές που απαιτούν επιπλέον αναφορές "
+                 "(SRA lines require conditional reports):\n\n· "
+                 + "\n· ".join(REPORT_LABELS[t] for t in missing_cond))
+        st.stop()
+
+for g in gate4_internal_asserts(bundle):
+    if not g.passed:
+        st.error(f"Πύλη {g.number} — {g.name}\n\n{g.message}")
+        st.stop()
+
+result = run_reconciliation(bundle, crosscheck_mode=crosscheck_mode or bundle.sra is None)
+workbook_bytes = build_workbook(result)
+
+# Gate 5: reopen and recompute every zero-check
+zero_failures = verify_workbook(workbook_bytes)
+if zero_failures:
+    st.error("Πύλη 5 — Zero-checks: κάποια κελιά ελέγχου δεν είναι 0 "
+             "(some zero-check cells are not 0):\n\n· "
+             + "\n· ".join(f"{s}!{c} = {format_eur(v)}" for s, c, v in zero_failures))
+    st.stop()
+
+# ------------------------------------------------------------------ summary
+st.header("Αποτέλεσμα (Result)")
+if result.cheque_total is not None:
+    cols = st.columns(5)
+    cols[0].metric("Επιταγή (Cheque)", format_eur(result.cheque_total))
+    for c, (bucket, amount) in zip(cols[1:], result.buckets.items()):
+        c.metric(bucket.value, format_eur(amount))
+    st.success("Zero-checks: όλα 0 ✔ (all zero-checks pass)")
+else:
+    st.info("Cross-check mode: χωρίς έλεγχο επιταγής (no cheque tie-out).")
+    st.dataframe(
+        [{"Ροή (Stream)": r["stream"],
+          **{k: (format_eur(v) if v is not None else "—") for k, v in r["values"].items()},
+          "Range": format_eur(r["range"]) if r["range"] is not None else "—"}
+         for r in result.matrix],
+        use_container_width=True, hide_index=True)
+
+open_var = result.open_variances
+if open_var:
+    st.subheader("Ανοιχτές αποκλίσεις (Open variances)")
+    st.dataframe(
+        [{"Έλεγχος (Check)": c.name, "Πηγή (Source)": format_eur(c.source_total),
+          "SRA": format_eur(c.sra_side) if c.sra_side is not None else "—",
+          "Διαφορά (Diff)": format_eur(c.diff) if c.diff is not None else "—",
+          "Σημείωση (Note)": c.note} for c in open_var],
+        use_container_width=True, hide_index=True)
+else:
+    st.write("Καμία ανοιχτή απόκλιση (no open variances).")
+
+fname = (f"OKYPY_HIO_{hospital}_{MONTH_NAMES_EL[month][:3].upper() if month else 'XX'}"
+         f"{year or ''}_Reconciliation.xlsx")
+st.download_button(
+    "⬇ Λήψη Excel (Download Excel workbook)",
+    data=io.BytesIO(workbook_bytes),
+    file_name=fname,
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    type="primary",
+)
