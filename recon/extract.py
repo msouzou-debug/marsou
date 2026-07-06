@@ -186,7 +186,7 @@ def _is_number(v) -> bool:
         return False
     if isinstance(v, (int, float)):
         return v == v
-    s = str(v).strip()
+    s = str(v).replace("€", "").strip()   # cells like '€ 0.00'
     return bool(s) and bool(AMOUNT_RE.fullmatch(s) or re.fullmatch(r"-?\d+([.,]\d+)?", s))
 
 
@@ -523,6 +523,11 @@ def parse_sra_text(text: str) -> SRA:
             stated_total = amount  # keep the LAST total line (grand total)
             continue
         if "ΥΠΟΣΥΝΟΛ" in up or "SUBTOTAL" in up:
+            continue
+        # wrapped-row fragments: a continuation line like «se 12.25» carries
+        # a spilled amount from the row above — counting it double-counts
+        letters = re.sub(r"[^A-Za-zΑ-Ωα-ωΆ-Ώά-ώ]", "", (code or "") + desc)
+        if len(letters) < 3:
             continue
         canon, bucket, channel, src = classify_sra_line(code, desc or code)
         lines.append(SRALine(code=canon, description=desc or canon, amount=amount,

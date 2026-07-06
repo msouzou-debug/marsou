@@ -137,7 +137,7 @@ function findAmounts(text) {
 function isNumberLike(v) {
   if (v == null || typeof v === 'boolean' || v instanceof Date) return false;
   if (typeof v === 'number') return !Number.isNaN(v);
-  const s = String(v).trim();
+  const s = String(v).replace(/€/g, '').trim();   // cells like '€ 0.00'
   if (!s) return false;
   return new RegExp(`^(?:${AMOUNT_RE_SRC})$`).test(s) || /^-?\d+([.,]\d+)?$/.test(s);
 }

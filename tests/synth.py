@@ -191,7 +191,7 @@ def sra_text_feb(cheque="256797", hospital="F1049") -> str:
 REMITTANCE ADVICE
 STATE HEALTH SERVICES ORGANIZATION INCOME- PAR-{hospital} Payment Date: 13/03/2026
 Strovolos 2063 Payment/Cheque No: {cheque}
-Total paid in this batch: 917,964.89
+Total paid in this batch: 918,116.69
 Ημερομηνία Αρ . Τιμολογίου Περιγραφή Ποσό Τιμολογίου Νόμισμα Ποσό πληρωμής
 28/02/2026 ADJ-MRI/CT QC- 501.03 EUR 501.03
 Feb
@@ -201,7 +201,9 @@ Invoice Date Invoice No. Description Invoice Total Currency Amount Paid
 01/02/2026 5548223 PH - HCP SERVICES 42,623.01 EUR 42,623.01
 05/02/2026 5560001 OS - HCP SERVICES 10,000.00 EUR 10,000.00
 06/02/2026 5560002 CREDIT NOTE AE 12.25- EUR 12.25-
-Total paid in this batch: 917,964.89
+se 12.25
+28/02/2026 KPIs-02-2026- PD-KPIs-02-2026-CHILD 151.80 EUR 151.80
+Total paid in this batch: 918,116.69
 """
 
 
@@ -219,6 +221,18 @@ D1681 ΜΥΡΟΦΟΡΑ ΙΩΑΝΝΟΥ / Ηλικίες Σχόλια Ημερήσ
 0 - 3 years - 0.508 41 1238 628.58 €
 4 - 7 years - 0.375 75 2309 865.50 €
 """
+
+
+def quality_criteria_xlsx(total=0.0) -> bytes:
+    """Real quality-criteria export: header row with SINGULAR «QUALITY
+    CRITERION», amounts as text like '€ 0.00', often empty."""
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["CLAIM DATE", "CLAIM ID", "QUALITY CRITERION", "AMOUNT",
+               "PERSONAL DOCTOR CODE", "PERSONAL DOCTOR", "DR SPECIALITY"])
+    ws.append(["SUM AMOUNT"])
+    ws.append(["Total", f"€ {total:.2f}"])
+    return _wb_bytes(wb)
 
 
 # -------------------------------------------------------------------- GL / IS

@@ -261,8 +261,17 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
             # period derived from them is meaningless, so don't claim one
             return
 
+        # Quality criteria export: CLAIM DATE | CLAIM ID | QUALITY CRITERION |
+        # AMOUNT | PERSONAL DOCTOR ... — note the SINGULAR «CRITERION»
+        hr = find_header_row(df, ["QUALITY CRITERI", "AMOUNT"])
+        if hr is not None:
+            f.report_type = ReportType.QUALITY_CRITERIA
+            f.hospital_code = find_hospital(all_text)
+            f.year, f.month = find_period(all_text)
+            return
+
     # conditional reports may also arrive as Excel
-    if "ΠΟΙΟΤΙΚΑ ΚΡΙΤΗΡΙΑ" in up or "QUALITY CRITERIA" in up:
+    if ("ΠΟΙΟΤΙΚ" in up and "ΚΡΙΤΗΡΙ" in up) or "QUALITY CRITERI" in up:
         f.report_type = ReportType.QUALITY_CRITERIA
     elif "CAPITATION" in up or "ΚΑΤΑ ΚΕΦΑΛΗΝ" in up:
         f.report_type = ReportType.CAPITATION
@@ -336,7 +345,7 @@ def identify_pdf_text(text: str) -> Optional[ReportType]:
         return ReportType.SRA
     if "ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ" in up:
         return ReportType.PHARMACIST_FEE
-    if "ΠΟΙΟΤΙΚΑ ΚΡΙΤΗΡΙΑ" in up or "QUALITY CRITERIA" in up:
+    if ("ΠΟΙΟΤΙΚ" in up and "ΚΡΙΤΗΡΙ" in up) or "QUALITY CRITERI" in up:
         return ReportType.QUALITY_CRITERIA
     if "CAPITATION" in up or "ΚΑΤΑ ΚΕΦΑΛΗΝ" in up:
         return ReportType.CAPITATION

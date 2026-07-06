@@ -338,7 +338,14 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             bundle.claims.total, SERVICE_CODES,
             flag_hint="Κατά προσέγγιση έλεγχος (approximate: PD FFS timing/scope).")
     if bundle.capitation:
-        add("Capitation report = SRA PD capitation", bundle.capitation.total, ["PD-CAP"])
+        if sra and "PD-CAP" not in sra_code_set:
+            # newer SRAs bundle capitation inside the PD service lines
+            add("Capitation report ≈ SRA PD (bundled with FFS)",
+                bundle.capitation.total, ["PD", "PD-CAP"],
+                flag_hint="Κατά προσέγγιση: η κατά κεφαλήν αμοιβή πληρώνεται μέσα "
+                          "στις γραμμές PD (capitation bundled in PD lines).")
+        else:
+            add("Capitation report = SRA PD capitation", bundle.capitation.total, ["PD-CAP"])
     if bundle.quality:
         add("Ποιοτικά Κριτήρια (quality criteria) = SRA KPI/MRI-CT",
             bundle.quality.total, ["KPI", "PD-KPI", "MRI", "CT", "MRI/CT"])

@@ -228,9 +228,18 @@ function identifyExcel(f) {
       // derived from them is meaningless, so don't claim one
       return;
     }
+    // Quality criteria export: CLAIM DATE | CLAIM ID | QUALITY CRITERION |
+    // AMOUNT | PERSONAL DOCTOR ... — note the SINGULAR «CRITERION»
+    hr = findHeaderRow(rows, ['QUALITY CRITERI', 'AMOUNT']);
+    if (hr !== null) {
+      f.reportType = RT.QUALITY_CRITERIA;
+      f.hospitalCode = findHospital(allText);
+      [f.year, f.month] = findPeriod(allText);
+      return;
+    }
   }
 
-  if (up.includes('ΠΟΙΟΤΙΚΑ ΚΡΙΤΗΡΙΑ') || up.includes('QUALITY CRITERIA')) f.reportType = RT.QUALITY_CRITERIA;
+  if ((up.includes('ΠΟΙΟΤΙΚ') && up.includes('ΚΡΙΤΗΡΙ')) || up.includes('QUALITY CRITERI')) f.reportType = RT.QUALITY_CRITERIA;
   else if (up.includes('CAPITATION') || up.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ')) f.reportType = RT.CAPITATION;
   else if (up.includes('ΑΙΜΟΚΑΘΑΡΣ') || up.includes('HEMODIALYSIS') || up.includes('HAEMODIALYSIS')) f.reportType = RT.HEMODIALYSIS;
   else {
@@ -284,7 +293,7 @@ function identifyPdfText(text) {
   // SRA first: its lines mention «Αμοιβή Φαρμακοποιού», capitation etc.
   if (up.includes('ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ') || up.includes('REMITTANCE')) return RT.SRA;
   if (up.includes('ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ')) return RT.PHARMACIST_FEE;
-  if (up.includes('ΠΟΙΟΤΙΚΑ ΚΡΙΤΗΡΙΑ') || up.includes('QUALITY CRITERIA')) return RT.QUALITY_CRITERIA;
+  if ((up.includes('ΠΟΙΟΤΙΚ') && up.includes('ΚΡΙΤΗΡΙ')) || up.includes('QUALITY CRITERI')) return RT.QUALITY_CRITERIA;
   if (up.includes('CAPITATION') || up.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ')) return RT.CAPITATION;
   if (up.includes('ΑΙΜΟΚΑΘΑΡΣ') || up.includes('HEMODIALYSIS') || up.includes('HAEMODIALYSIS')) return RT.HEMODIALYSIS;
   if ((up.includes('ΕΠΙΤΑΓΗ') || up.includes('CHEQUE') || up.includes('ΑΡ. ΠΛΗΡΩΜΗΣ')

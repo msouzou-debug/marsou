@@ -75,22 +75,55 @@ def test_pharmacist_fee_reads_unit_price_from_document():
 
 
 def test_sra_feb_format_ph_stream_adjustment_and_credit():
-    # Feb-style SRA: PH pharmacy stream, ADJ-MRI/CT line, trailing-minus credit
+    # Feb-style SRA: PH pharmacy stream, ADJ-MRI/CT line, trailing-minus
+    # credit, KPI line, and a wrapped-row fragment («se 12.25») that must
+    # be SKIPPED (it double-counts a spilled amount)
     sra = parse_sra_text(synth.sra_text_feb())
     assert sra.cheque_no == "256797"
-    assert sra.stated_total == 917_964.89
-    assert sra.lines_total == 917_964.89          # credit −12.25 included
+    assert sra.stated_total == 918_116.69
+    assert sra.lines_total == 918_116.69          # ties: fragment skipped
+    assert not any(l.description.startswith("se") for l in sra.lines)
     sums = {}
     for l in sra.lines:
         sums[l.code] = round(sums.get(l.code, 0) + l.amount, 2)
     assert sums["PH"] == 42_623.01                # pharmacy via HCP channel
     assert sums["MRI"] == 501.03                  # ADJ-MRI/CT QC → quality/Outpatient
+    assert sums["PD-KPI"] == 151.80               # KPIs-02-2026 line
     assert sums["AE"] == round(24_327.00 - 12.25, 2)  # credit note negative
     assert (sra.year, sra.month) == (2026, 2)     # Payment Date 13/03 − 1
     ph_line = next(l for l in sra.lines if l.code == "PH")
     assert ph_line.bucket == Bucket.PHARMA
     credit = next(l for l in sra.lines if l.amount < 0)
     assert credit.amount == -12.25
+
+
+def test_quality_criteria_xlsx_recognised_and_extracted():
+    from recon.extract import extract_simple_report
+    from recon.identify import identify
+    from recon.models import ReportType
+
+    data = synth.quality_criteria_xlsx(total=652.83)
+    f = identify("Ποιοτικά Κριτήρια.xlsx", data)
+    assert f.report_type == ReportType.QUALITY_CRITERIA   # SINGULAR «CRITERION»
+    rep = extract_simple_report(data)
+    assert rep.total == 652.83                            # '€ 652.83' text cell
+    # the real upload was an EMPTY report — must still be accepted
+    f0 = identify("q.xlsx", synth.quality_criteria_xlsx(total=0.0))
+    assert f0.report_type == ReportType.QUALITY_CRITERIA
+    assert extract_simple_report(synth.quality_criteria_xlsx(total=0.0)).total == 0.0
+
+
+def test_capitation_bundled_in_pd_lines_is_amber_not_red():
+    from recon.checks import ReconBundle, run_reconciliation
+    from recon.extract import extract_simple_report
+
+    b = ReconBundle(hospital_code="F1049", year=2026, month=2)
+    b.sra = parse_sra_text(synth.sra_text_feb())   # has PD-KPI but no PD-CAP
+    b.capitation = extract_simple_report(b"", raw_text=synth.capitation_text(total=4_752.24))
+    res = run_reconciliation(b)
+    cap = next(c for c in res.crosschecks if "Capitation" in c.name)
+    assert "PD" in cap.name and cap.flag in ("ok", "amber")
+    assert cap.flag != "red"
 
 
 def test_sra_parse_invoice_level_lines():

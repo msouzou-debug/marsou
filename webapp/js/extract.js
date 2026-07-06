@@ -430,6 +430,10 @@ function parseSraText(text) {
       continue;
     }
     if (up.includes('ΥΠΟΣΥΝΟΛ') || up.includes('SUBTOTAL')) continue;
+    // wrapped-row fragments: a continuation line like «se 12.25» carries a
+    // spilled amount from the row above — counting it double-counts
+    const letters = ((code || '') + desc).replace(/[^A-Za-zΑ-Ωα-ωΆ-Ώά-ώ]/g, '');
+    if (letters.length < 3) continue;
     const [canon, bucket, channel, src] = classifySraLine(code, desc || code);
     lines.push({ code: canon, description: desc || canon, amount, bucket,
                  channel, sourceReport: src });

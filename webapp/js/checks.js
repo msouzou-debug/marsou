@@ -211,7 +211,17 @@ function buildCrosschecks(bundle) {
         claimsTotal(bundle.claims), SERVICE_CODES,
         'Κατά προσέγγιση έλεγχος (approximate: PD FFS timing/scope).');
   }
-  if (bundle.capitation) add('Capitation report = SRA PD capitation', bundle.capitation.total, ['PD-CAP']);
+  if (bundle.capitation) {
+    if (sra && !sraCodeSet.has('PD-CAP')) {
+      // newer SRAs bundle capitation inside the PD service lines
+      add('Capitation report ≈ SRA PD (bundled with FFS)', bundle.capitation.total,
+          ['PD', 'PD-CAP'],
+          'Κατά προσέγγιση: η κατά κεφαλήν αμοιβή πληρώνεται μέσα στις γραμμές PD '
+          + '(capitation bundled in PD lines).');
+    } else {
+      add('Capitation report = SRA PD capitation', bundle.capitation.total, ['PD-CAP']);
+    }
+  }
   if (bundle.quality) {
     add('Ποιοτικά Κριτήρια (quality criteria) = SRA KPI/MRI-CT', bundle.quality.total,
         ['KPI', 'PD-KPI', 'MRI', 'CT', 'MRI/CT']);
