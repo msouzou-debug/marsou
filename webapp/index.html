@@ -101,5 +101,16 @@
 <script src="js/checks.js"></script>
 <script src="js/build_xlsx.js"></script>
 <script src="js/app.js"></script>
+<script>
+/* if js/ or vendor/ are missing next to this file, nothing above loaded —
+   say so instead of showing a dead page */
+if (!window.__okypyReady) {
+  document.getElementById('gates').innerHTML =
+    '<div class="error"><strong>Η εφαρμογή δεν φορτώθηκε (app scripts failed to load).</strong><br>'
+    + 'Το index.html χρειάζεται τους φακέλους js/ και vendor/ δίπλα του. '
+    + 'Αν θέλετε ένα μόνο αρχείο, χρησιμοποιήστε το <strong>okypy-recon.html</strong> '
+    + '(single-file build — everything embedded).</div>';
+}
+</script>
 </body>
 </html>

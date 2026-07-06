@@ -221,10 +221,26 @@ function matrixTable(result) {
 
 /* ------------------------------------------------------------- bootstrap */
 
+window.__okypyReady = true;  // index.html shows a banner if scripts failed to load
+
 window.addEventListener('DOMContentLoaded', () => {
+  const missing = [];
+  if (typeof XLSX === 'undefined') missing.push('SheetJS (vendor/xlsx.full.min.js)');
+  if (typeof pdfjsLib === 'undefined') missing.push('pdf.js (vendor/pdf.min.js)');
+  if (typeof ExcelJS === 'undefined') missing.push('ExcelJS (vendor/exceljs.min.js)');
+  if (missing.length) {
+    $('gates').innerHTML = '<div class="error"><strong>Λείπουν βιβλιοθήκες (missing libraries):</strong> '
+      + missing.map(esc).join(', ')
+      + '<br>Χρησιμοποιήστε το αυτόνομο αρχείο <strong>okypy-recon.html</strong> (single-file build), '
+      + 'ή κρατήστε τους φακέλους js/ και vendor/ δίπλα στο index.html.</div>';
+    return;
+  }
   const drop = $('drop-zone');
   const input = $('file-input');
-  drop.addEventListener('click', () => input.click());
+  // the input lives inside the drop zone: stop its synthetic click from
+  // bubbling back into this handler (browsers block the recursive picker)
+  input.addEventListener('click', (e) => e.stopPropagation());
+  drop.addEventListener('click', (e) => { if (e.target !== input) input.click(); });
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', (e) => {

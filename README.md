@@ -23,13 +23,21 @@ output workbook:
 
 ## Run — HTML app (no installation)
 
-Open `webapp/index.html` in any modern browser (double-click works — all
-libraries are vendored, nothing is fetched from the network), or host the
-`webapp/` folder on any static file server for the LAN:
+**Easiest: the single file.** Download `webapp/okypy-recon.html` (~3.4 MB,
+everything embedded) and double-click it. That one file is the whole app —
+it can be copied to a share or emailed around; nothing is fetched from the
+network.
+
+Alternatively use the multi-file layout — open `webapp/index.html` with the
+`js/` and `vendor/` folders next to it, or host the `webapp/` folder on any
+static file server for the LAN:
 
 ```bash
 python -m http.server 8080 -d webapp
 ```
+
+After editing anything under `webapp/`, regenerate the single file with
+`python webapp/build_single.py`.
 
 ## Run — Streamlit app
 
@@ -99,9 +107,11 @@ recon/
   checks.py          gates, cross-checks, variance annotation, clinic split
   build_xlsx.py      workbook builder + gate-5 formula re-verification
 webapp/              self-contained HTML app (same logic, ported to JS)
-  index.html         open this — UI shell
+  okypy-recon.html   SINGLE-FILE build — the whole app in one file
+  index.html         multi-file entry (needs js/ and vendor/ next to it)
   js/                core / identify / extract / checks / build_xlsx / app
   vendor/            SheetJS, pdf.js, ExcelJS (vendored, works offline)
+  build_single.py    regenerates okypy-recon.html from the parts
 tests/               unit + end-to-end tests on synthetic Greek fixtures
 fixtures/            put the real ΟΑΥ months here (see fixtures/README.md)
 ```
