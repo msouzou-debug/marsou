@@ -94,13 +94,12 @@ def pharma_claims_xlsx(drugs=600_000.00, consumables=51_863.49,
 
 def sra_text(cheque="259434", hospital="F1049",
              hospital_name="ΓΝ ΑΜΜΟΧΩΣΤΟΥ") -> str:
-    # NB: the payment date is in the FOLLOWING month — ΟΑΥ pays in arrears.
-    # The service period line must win over it.
+    # The SRA is ALWAYS dated one month after the month it settles (ΟΑΥ pays
+    # in arrears): document date 04/2026 -> service month 03/2026.
     return f"""ΟΡΓΑΝΙΣΜΟΣ ΑΣΦΑΛΙΣΗΣ ΥΓΕΙΑΣ
 ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ (Remittance Advice)
 Ημερομηνία Πληρωμής: 15/04/2026
 Παροχέας: {hospital} {hospital_name}
-Περίοδος: ΜΑΡΤΙΟΣ 2026
 Αρ. Επιταγής: {cheque}
 
 IS Ενδονοσοκομειακή Περίθαλψη 1.061.728,70

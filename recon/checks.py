@@ -167,24 +167,30 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
     hospital = hospitals.pop()
     service = other_periods.pop() if other_periods else None
     period = service
+    # The SRA's period is already the derived SERVICE month (document date −1,
+    # ΟΑΥ pays in arrears).  A month mismatch is a warning, never a hard stop:
+    # a wrong month's SRA will not tie out and the reconciliation shows it.
     if sra_periods:
         sp = sra_periods.pop()
+        doc = _next_month(sp)
+        fmt = lambda p: f"{p[1]:02d}/{p[0]}"  # noqa: E731
         if service is None:
             period = sp
-        elif sp != service:
-            if sp == _next_month(service):
-                notes.append(
-                    f"Το SRA φέρει ημερομηνία {sp[1]:02d}/{sp[0]} — η ΟΑΥ πληρώνει με "
-                    f"καθυστέρηση (paid in arrears). Η συμφωνία αφορά τον μήνα "
-                    f"υπηρεσιών {service[1]:02d}/{service[0]} "
-                    f"(reconciled as service month {service[1]:02d}/{service[0]}).")
-            else:
-                gates.append(GateResult(2, gate2_name, False,
-                                        f"Η παρτίδα περιέχει δύο μήνες (mixed months): SRA "
-                                        f"{sp[1]:02d}/{sp[0]} έναντι αναφορών "
-                                        f"{service[1]:02d}/{service[0]}. "
-                                        "Ανεβάστε έναν μήνα τη φορά."))
-                return gates, None, None, notes
+            notes.append(
+                f"Μήνας υπηρεσιών από το SRA: {fmt(sp)} (ημερομηνία εγγράφου "
+                f"{fmt(doc)} — η ΟΑΥ πληρώνει με καθυστέρηση / paid in arrears).")
+        elif sp == service:
+            notes.append(
+                f"Το SRA φέρει ημερομηνία {fmt(doc)} — αντιστοιχίστηκε στον μήνα "
+                f"υπηρεσιών {fmt(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / "
+                "SRA is dated one month after the service month).")
+        else:
+            notes.append(
+                f"Προσοχή (warning): το SRA φαίνεται να αφορά τον {fmt(sp)} "
+                f"(ημερομηνία εγγράφου {fmt(doc)}), ενώ οι υπόλοιπες αναφορές τον "
+                f"{fmt(service)}. Αν ανέβηκε λάθος SRA, οι έλεγχοι δεν θα δέσουν — "
+                "η συμφωνία θα δείξει τη διαφορά (a wrong month's SRA will not "
+                "tie out; the checks will show the break).")
     if period is None:
         period = (None, None)
     gates.append(GateResult(2, gate2_name, True))

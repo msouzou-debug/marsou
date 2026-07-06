@@ -68,21 +68,25 @@ function validateBatch(files, crosscheckMode) {
   const hospital = [...hospitals][0];
   const service = otherPeriods.size ? [...otherPeriods][0].split('-').map(Number) : null;
   let period = service;
+  /* The SRA's period is already the derived SERVICE month (document date −1,
+   * ΟΑΥ pays in arrears).  A month mismatch is a warning, never a hard stop:
+   * a wrong month's SRA will not tie out and the reconciliation shows it. */
   if (sraPeriods.size) {
     const sp = [...sraPeriods][0].split('-').map(Number);
-    if (!service) period = sp;
-    else if (sp[0] !== service[0] || sp[1] !== service[1]) {
-      const nm = nextMonth(service);
-      if (sp[0] === nm[0] && sp[1] === nm[1]) {
-        notes.push(`Το SRA φέρει ημερομηνία ${fmtP(sp)} — η ΟΑΥ πληρώνει με καθυστέρηση `
-          + `(paid in arrears). Η συμφωνία αφορά τον μήνα υπηρεσιών ${fmtP(service)} `
-          + `(reconciled as service month ${fmtP(service)}).`);
-      } else {
-        gates.push({ ...gate2, passed: false,
-                     message: `Η παρτίδα περιέχει δύο μήνες (mixed months): SRA ${fmtP(sp)} `
-                       + `έναντι αναφορών ${fmtP(service)}. Ανεβάστε έναν μήνα τη φορά.` });
-        return { gates, hospital: null, period: null, notes };
-      }
+    const doc = nextMonth(sp);
+    if (!service) {
+      period = sp;
+      notes.push(`Μήνας υπηρεσιών από το SRA: ${fmtP(sp)} (ημερομηνία εγγράφου ${fmtP(doc)} `
+        + '— η ΟΑΥ πληρώνει με καθυστέρηση / paid in arrears).');
+    } else if (sp[0] === service[0] && sp[1] === service[1]) {
+      notes.push(`Το SRA φέρει ημερομηνία ${fmtP(doc)} — αντιστοιχίστηκε στον μήνα υπηρεσιών `
+        + `${fmtP(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / SRA is dated one month after `
+        + 'the service month).');
+    } else {
+      notes.push(`Προσοχή (warning): το SRA φαίνεται να αφορά τον ${fmtP(sp)} (ημερομηνία `
+        + `εγγράφου ${fmtP(doc)}), ενώ οι υπόλοιπες αναφορές τον ${fmtP(service)}. `
+        + 'Αν ανέβηκε λάθος SRA, οι έλεγχοι δεν θα δέσουν — η συμφωνία θα δείξει τη διαφορά '
+        + '(a wrong month\'s SRA will not tie out; the checks will show the break).');
     }
   }
   if (!period) period = [null, null];

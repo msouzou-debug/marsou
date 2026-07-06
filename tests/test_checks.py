@@ -62,35 +62,38 @@ def test_gate2_rejects_mixed_months():
     assert any(not g.passed and g.number == 2 for g in gates)
 
 
-def test_gate2_sra_paid_in_arrears_next_month_accepted():
-    # ΟΑΥ pays with a delay: an SRA dated the month AFTER the claim reports
-    # is the same settlement — accepted with a note, reconciled as the
-    # service month
-    files = _identified_batch()
-    files[3].month = 4          # SRA dated April, services are March
+def test_gate2_sra_month_match_gets_arrears_note():
+    # the SRA's stored month is already the derived service month (document
+    # date − 1); when it matches the claim reports an informational note
+    # explains the arrears dating
+    files = _identified_batch()   # SRA month = 3, same as the claim reports
     gates, hospital, period, notes = validate_batch(files)
     assert all(g.passed for g in gates)
-    assert period == (2026, 3)  # the SERVICE month wins
-    assert notes and "καθυστέρηση" in notes[0] and "03/2026" in notes[0]
+    assert period == (2026, 3)
+    assert notes and "καθυστέρηση" in notes[0] and "04/2026" in notes[0]
 
 
-def test_gate2_sra_arrears_year_rollover():
+def test_gate2_wrong_month_sra_warns_but_never_blocks():
+    # a wrong month's SRA won't tie out — the reconciliation shows the break,
+    # so the date mismatch is a warning, not a hard stop
+    files = _identified_batch()
+    files[3].month = 5          # SRA seems to settle May, reports are March
+    gates, _, period, notes = validate_batch(files)
+    assert all(g.passed for g in gates)
+    assert period == (2026, 3)  # the claim reports' month wins
+    warning = next(n for n in notes if n.startswith("Προσοχή"))
+    assert "05/2026" in warning and "03/2026" in warning
+
+
+def test_gate2_sra_only_period_used_when_reports_have_none():
     files = _identified_batch()
     for f in files:
         if f.report_type != ReportType.SRA:
-            f.year, f.month = 2025, 12      # December services
-    files[3].year, files[3].month = 2026, 1  # SRA paid in January
+            f.year, f.month = None, None
     gates, _, period, notes = validate_batch(files)
     assert all(g.passed for g in gates)
-    assert period == (2025, 12)
+    assert period == (2026, 3)
     assert notes
-
-
-def test_gate2_sra_two_months_off_still_rejected():
-    files = _identified_batch()
-    files[3].month = 5          # SRA dated May vs March services — not arrears
-    gates, _, _, _ = validate_batch(files)
-    assert any(not g.passed and g.number == 2 for g in gates)
 
 
 def test_gate3_missing_reports():

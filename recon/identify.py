@@ -67,34 +67,19 @@ def find_period(text: str) -> tuple[Optional[int], Optional[int]]:
     return None, None
 
 
-_SERVICE_HINT_RE = re.compile(r"ΥΠΗΡΕΣΙ|ΠΑΡΟΧΗΣ|SERVICE")
-_PERIOD_HINT_RE = re.compile(r"ΠΕΡΙΟΔΟ|ΜΗΝΑΣ|PERIOD|MONTH")
-_PAYMENT_DATE_RE = re.compile(r"ΗΜΕΡΟΜΗΝΙΑ|ΗΜ\.|DATE|ΕΚΔΟΣ|ISSUE|ΠΛΗΡΩΜ")
+def prev_month(year: int, month: int) -> tuple[int, int]:
+    return (year - 1, 12) if month == 1 else (year, month - 1)
 
 
 def find_service_period(text: str) -> tuple[Optional[int], Optional[int]]:
-    """Period for SRAs: ΟΑΥ pays in arrears, so the payment/issue date on the
-    SRA is usually the month AFTER the service month.  Prefer an explicit
-    service-period line, then any period line that is not a payment/issue
-    date, then the text with payment-date lines removed, then anything."""
-    lines = text.splitlines()
-    for line in lines:                       # «Περίοδος υπηρεσιών: ...»
-        up = strip_accents(line)
-        if _SERVICE_HINT_RE.search(up) and _PERIOD_HINT_RE.search(up):
-            y, m = find_period(line)
-            if y:
-                return y, m
-    for line in lines:                       # «Περίοδος/Μήνας: ...», not payment
-        up = strip_accents(line)
-        if _PERIOD_HINT_RE.search(up) and not _PAYMENT_DATE_RE.search(up):
-            y, m = find_period(line)
-            if y:
-                return y, m
-    kept = [l for l in lines if not _PAYMENT_DATE_RE.search(strip_accents(l))]
-    y, m = find_period("\n".join(kept))
-    if y:
-        return y, m
-    return find_period(text)
+    """Service month for SRAs.  The SRA is ALWAYS dated one month after the
+    month it settles (ΟΑΥ pays in arrears), so: service month = document
+    date − 1 month.  A wrong month's SRA is not blocked on dates anyway —
+    the tie-outs won't tie and the break shows in the reconciliation."""
+    y, m = find_period(text)
+    if y is None:
+        return None, None
+    return prev_month(y, m)
 
 
 def find_hospital(text: str) -> Optional[str]:

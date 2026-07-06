@@ -43,34 +43,18 @@ function findPeriod(text) {
   return [null, null];
 }
 
-const SERVICE_HINT_RE = /ΥΠΗΡΕΣΙ|ΠΑΡΟΧΗΣ|SERVICE/;
-const PERIOD_HINT_RE = /ΠΕΡΙΟΔΟ|ΜΗΝΑΣ|PERIOD|MONTH/;
-const PAYMENT_DATE_RE = /ΗΜΕΡΟΜΗΝΙΑ|ΗΜ\.|DATE|ΕΚΔΟΣ|ISSUE|ΠΛΗΡΩΜ/;
+function prevMonth(year, month) {
+  return month === 1 ? [year - 1, 12] : [year, month - 1];
+}
 
 function findServicePeriod(text) {
-  /* SRAs: ΟΑΥ pays in arrears, so the payment/issue date is usually the
-   * month AFTER the service month.  Prefer an explicit service-period line,
-   * then any period line that is not a payment/issue date, then the text
-   * with payment-date lines removed, then anything. */
-  const lines = String(text).split('\n');
-  for (const line of lines) {
-    const up = stripAccents(line);
-    if (SERVICE_HINT_RE.test(up) && PERIOD_HINT_RE.test(up)) {
-      const [y, m] = findPeriod(line);
-      if (y) return [y, m];
-    }
-  }
-  for (const line of lines) {
-    const up = stripAccents(line);
-    if (PERIOD_HINT_RE.test(up) && !PAYMENT_DATE_RE.test(up)) {
-      const [y, m] = findPeriod(line);
-      if (y) return [y, m];
-    }
-  }
-  const kept = lines.filter((l) => !PAYMENT_DATE_RE.test(stripAccents(l)));
-  const [y, m] = findPeriod(kept.join('\n'));
-  if (y) return [y, m];
-  return findPeriod(text);
+  /* Service month for SRAs.  The SRA is ALWAYS dated one month after the
+   * month it settles (ΟΑΥ pays in arrears): service month = document date
+   * − 1 month.  A wrong month's SRA is not blocked on dates anyway — the
+   * tie-outs won't tie and the break shows in the reconciliation. */
+  const [y, m] = findPeriod(text);
+  if (y == null) return [null, null];
+  return prevMonth(y, m);
 }
 
 function findHospital(text) {

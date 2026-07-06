@@ -112,8 +112,9 @@
     </div>
     <p class="hint">Δεκτές μορφές: PDF, Excel (xlsx/xls), XML — η αναγνώριση γίνεται από το
       περιεχόμενο, όχι από το όνομα αρχείου. Ένα νοσοκομείο και ένας μήνας ανά εκτέλεση.
-      Το SRA συχνά φέρει ημερομηνία του <strong>επόμενου</strong> μήνα (η ΟΑΥ πληρώνει με
-      καθυστέρηση) — αναγνωρίζεται και αντιστοιχίζεται αυτόματα στον μήνα υπηρεσιών.</p>
+      Το SRA φέρει <strong>πάντα</strong> ημερομηνία του επόμενου μήνα (η ΟΑΥ πληρώνει με
+      καθυστέρηση) — ο μήνας υπηρεσιών προκύπτει αυτόματα (ημερομηνία − 1 μήνας). Λάθος
+      SRA για τον μήνα δεν θα δέσει — οι έλεγχοι θα δείξουν τη διαφορά.</p>
   </details>
   <div id="drop-zone">
     <strong>Σύρετε εδώ τα αρχεία του μήνα</strong> ή κάντε κλικ για επιλογή<br>
@@ -439,34 +440,18 @@ function findPeriod(text) {
   return [null, null];
 }
 
-const SERVICE_HINT_RE = /ΥΠΗΡΕΣΙ|ΠΑΡΟΧΗΣ|SERVICE/;
-const PERIOD_HINT_RE = /ΠΕΡΙΟΔΟ|ΜΗΝΑΣ|PERIOD|MONTH/;
-const PAYMENT_DATE_RE = /ΗΜΕΡΟΜΗΝΙΑ|ΗΜ\.|DATE|ΕΚΔΟΣ|ISSUE|ΠΛΗΡΩΜ/;
+function prevMonth(year, month) {
+  return month === 1 ? [year - 1, 12] : [year, month - 1];
+}
 
 function findServicePeriod(text) {
-  /* SRAs: ΟΑΥ pays in arrears, so the payment/issue date is usually the
-   * month AFTER the service month.  Prefer an explicit service-period line,
-   * then any period line that is not a payment/issue date, then the text
-   * with payment-date lines removed, then anything. */
-  const lines = String(text).split('\n');
-  for (const line of lines) {
-    const up = stripAccents(line);
-    if (SERVICE_HINT_RE.test(up) && PERIOD_HINT_RE.test(up)) {
-      const [y, m] = findPeriod(line);
-      if (y) return [y, m];
-    }
-  }
-  for (const line of lines) {
-    const up = stripAccents(line);
-    if (PERIOD_HINT_RE.test(up) && !PAYMENT_DATE_RE.test(up)) {
-      const [y, m] = findPeriod(line);
-      if (y) return [y, m];
-    }
-  }
-  const kept = lines.filter((l) => !PAYMENT_DATE_RE.test(stripAccents(l)));
-  const [y, m] = findPeriod(kept.join('\n'));
-  if (y) return [y, m];
-  return findPeriod(text);
+  /* Service month for SRAs.  The SRA is ALWAYS dated one month after the
+   * month it settles (ΟΑΥ pays in arrears): service month = document date
+   * − 1 month.  A wrong month's SRA is not blocked on dates anyway — the
+   * tie-outs won't tie and the break shows in the reconciliation. */
+  const [y, m] = findPeriod(text);
+  if (y == null) return [null, null];
+  return prevMonth(y, m);
 }
 
 function findHospital(text) {
@@ -1320,21 +1305,25 @@ function validateBatch(files, crosscheckMode) {
   const hospital = [...hospitals][0];
   const service = otherPeriods.size ? [...otherPeriods][0].split('-').map(Number) : null;
   let period = service;
+  /* The SRA's period is already the derived SERVICE month (document date −1,
+   * ΟΑΥ pays in arrears).  A month mismatch is a warning, never a hard stop:
+   * a wrong month's SRA will not tie out and the reconciliation shows it. */
   if (sraPeriods.size) {
     const sp = [...sraPeriods][0].split('-').map(Number);
-    if (!service) period = sp;
-    else if (sp[0] !== service[0] || sp[1] !== service[1]) {
-      const nm = nextMonth(service);
-      if (sp[0] === nm[0] && sp[1] === nm[1]) {
-        notes.push(`Το SRA φέρει ημερομηνία ${fmtP(sp)} — η ΟΑΥ πληρώνει με καθυστέρηση `
-          + `(paid in arrears). Η συμφωνία αφορά τον μήνα υπηρεσιών ${fmtP(service)} `
-          + `(reconciled as service month ${fmtP(service)}).`);
-      } else {
-        gates.push({ ...gate2, passed: false,
-                     message: `Η παρτίδα περιέχει δύο μήνες (mixed months): SRA ${fmtP(sp)} `
-                       + `έναντι αναφορών ${fmtP(service)}. Ανεβάστε έναν μήνα τη φορά.` });
-        return { gates, hospital: null, period: null, notes };
-      }
+    const doc = nextMonth(sp);
+    if (!service) {
+      period = sp;
+      notes.push(`Μήνας υπηρεσιών από το SRA: ${fmtP(sp)} (ημερομηνία εγγράφου ${fmtP(doc)} `
+        + '— η ΟΑΥ πληρώνει με καθυστέρηση / paid in arrears).');
+    } else if (sp[0] === service[0] && sp[1] === service[1]) {
+      notes.push(`Το SRA φέρει ημερομηνία ${fmtP(doc)} — αντιστοιχίστηκε στον μήνα υπηρεσιών `
+        + `${fmtP(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / SRA is dated one month after `
+        + 'the service month).');
+    } else {
+      notes.push(`Προσοχή (warning): το SRA φαίνεται να αφορά τον ${fmtP(sp)} (ημερομηνία `
+        + `εγγράφου ${fmtP(doc)}), ενώ οι υπόλοιπες αναφορές τον ${fmtP(service)}. `
+        + 'Αν ανέβηκε λάθος SRA, οι έλεγχοι δεν θα δέσουν — η συμφωνία θα δείξει τη διαφορά '
+        + '(a wrong month\'s SRA will not tie out; the checks will show the break).');
     }
   }
   if (!period) period = [null, null];
@@ -2189,7 +2178,9 @@ function render() {
   renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
-  $('notes').innerHTML = notes.map((n) => `<div class="note">ℹ️ ${esc(n)}</div>`).join('');
+  $('notes').innerHTML = notes.map((n) => (n.startsWith('Προσοχή')
+    ? `<div class="warn">⚠️ ${esc(n)}</div>`
+    : `<div class="note">ℹ️ ${esc(n)}</div>`)).join('');
 
   const warnings = files.flatMap((f) => f.warnings.map((w) => `${f.filename}: ${w}`));
   $('warnings').innerHTML = warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('');

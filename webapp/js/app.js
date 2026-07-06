@@ -52,7 +52,9 @@ function render() {
   renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
-  $('notes').innerHTML = notes.map((n) => `<div class="note">ℹ️ ${esc(n)}</div>`).join('');
+  $('notes').innerHTML = notes.map((n) => (n.startsWith('Προσοχή')
+    ? `<div class="warn">⚠️ ${esc(n)}</div>`
+    : `<div class="note">ℹ️ ${esc(n)}</div>`)).join('');
 
   const warnings = files.flatMap((f) => f.warnings.map((w) => `${f.filename}: ${w}`));
   $('warnings').innerHTML = warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('');
