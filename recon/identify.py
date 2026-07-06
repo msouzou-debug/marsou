@@ -67,6 +67,36 @@ def find_period(text: str) -> tuple[Optional[int], Optional[int]]:
     return None, None
 
 
+_SERVICE_HINT_RE = re.compile(r"ΥΠΗΡΕΣΙ|ΠΑΡΟΧΗΣ|SERVICE")
+_PERIOD_HINT_RE = re.compile(r"ΠΕΡΙΟΔΟ|ΜΗΝΑΣ|PERIOD|MONTH")
+_PAYMENT_DATE_RE = re.compile(r"ΗΜΕΡΟΜΗΝΙΑ|ΗΜ\.|DATE|ΕΚΔΟΣ|ISSUE|ΠΛΗΡΩΜ")
+
+
+def find_service_period(text: str) -> tuple[Optional[int], Optional[int]]:
+    """Period for SRAs: ΟΑΥ pays in arrears, so the payment/issue date on the
+    SRA is usually the month AFTER the service month.  Prefer an explicit
+    service-period line, then any period line that is not a payment/issue
+    date, then the text with payment-date lines removed, then anything."""
+    lines = text.splitlines()
+    for line in lines:                       # «Περίοδος υπηρεσιών: ...»
+        up = strip_accents(line)
+        if _SERVICE_HINT_RE.search(up) and _PERIOD_HINT_RE.search(up):
+            y, m = find_period(line)
+            if y:
+                return y, m
+    for line in lines:                       # «Περίοδος/Μήνας: ...», not payment
+        up = strip_accents(line)
+        if _PERIOD_HINT_RE.search(up) and not _PAYMENT_DATE_RE.search(up):
+            y, m = find_period(line)
+            if y:
+                return y, m
+    kept = [l for l in lines if not _PAYMENT_DATE_RE.search(strip_accents(l))]
+    y, m = find_period("\n".join(kept))
+    if y:
+        return y, m
+    return find_period(text)
+
+
 def find_hospital(text: str) -> Optional[str]:
     """F-code first; else FULL provider name (never «ΛΕΥΚΩΣΙΑΣ» alone —
     it also appears in Makarios exports)."""
@@ -283,7 +313,11 @@ def _identify_pdf(f: IdentifiedFile) -> None:
         return
     f.report_type = rt
     f.hospital_code = find_hospital(text)
-    f.year, f.month = find_period(text)
+    # SRAs are dated in the payment month (arrears) — dig for the service period
+    if rt == ReportType.SRA:
+        f.year, f.month = find_service_period(text)
+    else:
+        f.year, f.month = find_period(text)
 
 
 # ------------------------------------------------------------------- XML

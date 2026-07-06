@@ -5,8 +5,13 @@
 
 /* ------------------------------------------------------------------ gates */
 
+function nextMonth([y, m]) {
+  return m === 12 ? [y + 1, 1] : [y, m + 1];
+}
+
 function validateBatch(files, crosscheckMode) {
   const gates = [];
+  const notes = [];
 
   const bad = files.filter((f) => f.error || !f.reportType);
   const byType = new Map();
@@ -22,40 +27,65 @@ function validateBatch(files, crosscheckMode) {
     const msg = bad.map((f) => `• ${f.filename}: ${f.error || 'άγνωστος τύπος'}`).join('\n');
     gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
                  message: `Κάποια αρχεία δεν αναγνωρίστηκαν (unidentified files):\n${msg}` });
-    return { gates, hospital: null, period: null };
+    return { gates, hospital: null, period: null, notes };
   }
   if (dupeMsgs.length) {
     gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
                  message: 'Διπλά αρχεία για τον ίδιο τύπο αναφοράς (duplicate files for one '
                    + 'report type):\n• ' + dupeMsgs.join('\n• ') });
-    return { gates, hospital: null, period: null };
+    return { gates, hospital: null, period: null, notes };
   }
   gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: true, message: '' });
 
+  /* Gate 2 — single hospital, single month.  The SRA votes separately:
+   * ΟΑΥ pays in arrears, so an SRA dated one month after the claim reports
+   * is the SAME settlement, not a mixed batch. */
   const hospitals = new Set(files.filter((f) => f.hospitalCode && !ORG_WIDE_TYPES.has(f.reportType))
     .map((f) => f.hospitalCode));
-  const periods = new Set(files.filter((f) => f.year && f.month)
+  const sraPeriods = new Set(files.filter((f) => f.reportType === RT.SRA && f.year && f.month)
     .map((f) => `${f.year}-${f.month}`));
+  const otherPeriods = new Set(files.filter((f) => f.reportType !== RT.SRA && f.year && f.month)
+    .map((f) => `${f.year}-${f.month}`));
+  const fmtP = ([y, m]) => `${String(m).padStart(2, '0')}/${y}`;
   const gate2 = { number: 2, name: 'Ένα νοσοκομείο, ένας μήνας (single hospital/month)' };
   if (hospitals.size > 1) {
     const names = [...hospitals].sort().map((h) => `${h} (${HOSPITALS[h][1]})`).join(', ');
     gates.push({ ...gate2, passed: false,
                  message: `Η παρτίδα περιέχει δύο νοσοκομεία (mixed batch): ${names}. Ανεβάστε έναν φορέα τη φορά.` });
-    return { gates, hospital: null, period: null };
+    return { gates, hospital: null, period: null, notes };
   }
-  if (periods.size > 1) {
-    const ps = [...periods].sort().map((p) => { const [y, m] = p.split('-'); return `${String(m).padStart(2, '0')}/${y}`; }).join(', ');
+  if (otherPeriods.size > 1) {
+    const ps = [...otherPeriods].sort().map((p) => fmtP(p.split('-').map(Number))).join(', ');
     gates.push({ ...gate2, passed: false,
                  message: `Η παρτίδα περιέχει δύο μήνες (mixed months): ${ps}. Ανεβάστε έναν μήνα τη φορά.` });
-    return { gates, hospital: null, period: null };
+    return { gates, hospital: null, period: null, notes };
   }
   if (!hospitals.size) {
     gates.push({ ...gate2, passed: false,
                  message: 'Δεν εντοπίστηκε νοσοκομείο σε κανένα αρχείο (no hospital code detected in any file).' });
-    return { gates, hospital: null, period: null };
+    return { gates, hospital: null, period: null, notes };
   }
   const hospital = [...hospitals][0];
-  const period = periods.size ? [...periods][0].split('-').map(Number) : [null, null];
+  const service = otherPeriods.size ? [...otherPeriods][0].split('-').map(Number) : null;
+  let period = service;
+  if (sraPeriods.size) {
+    const sp = [...sraPeriods][0].split('-').map(Number);
+    if (!service) period = sp;
+    else if (sp[0] !== service[0] || sp[1] !== service[1]) {
+      const nm = nextMonth(service);
+      if (sp[0] === nm[0] && sp[1] === nm[1]) {
+        notes.push(`Το SRA φέρει ημερομηνία ${fmtP(sp)} — η ΟΑΥ πληρώνει με καθυστέρηση `
+          + `(paid in arrears). Η συμφωνία αφορά τον μήνα υπηρεσιών ${fmtP(service)} `
+          + `(reconciled as service month ${fmtP(service)}).`);
+      } else {
+        gates.push({ ...gate2, passed: false,
+                     message: `Η παρτίδα περιέχει δύο μήνες (mixed months): SRA ${fmtP(sp)} `
+                       + `έναντι αναφορών ${fmtP(service)}. Ανεβάστε έναν μήνα τη φορά.` });
+        return { gates, hospital: null, period: null, notes };
+      }
+    }
+  }
+  if (!period) period = [null, null];
   gates.push({ ...gate2, passed: true, message: '' });
 
   const have = new Set(files.map((f) => f.reportType));
@@ -65,10 +95,10 @@ function validateBatch(files, crosscheckMode) {
   if (missing.length) {
     gates.push({ ...gate3, passed: false,
                  message: 'Λείπουν αναφορές (missing reports):\n• ' + missing.map((t) => REPORT_LABELS[t]).join('\n• ') });
-    return { gates, hospital, period };
+    return { gates, hospital, period, notes };
   }
   gates.push({ ...gate3, passed: true, message: '' });
-  return { gates, hospital, period };
+  return { gates, hospital, period, notes };
 }
 
 function conditionalRequirements(sra) {

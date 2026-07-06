@@ -34,7 +34,7 @@ def _load_month(dirname: str):
 
 
 def _bundle(files, crosscheck=False):
-    gates, hospital, (year, month) = validate_batch(files, crosscheck_mode=crosscheck)
+    gates, hospital, (year, month), _notes = validate_batch(files, crosscheck_mode=crosscheck)
     assert all(g.passed for g in gates), [g.message for g in gates if not g.passed]
     b = ReconBundle(hospital_code=hospital, year=year, month=month)
     slot = {

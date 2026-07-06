@@ -102,10 +102,20 @@ class ReconResult:
 
 # ------------------------------------------------------------------ gates
 
+def _next_month(period: tuple[int, int]) -> tuple[int, int]:
+    y, m = period
+    return (y + 1, 1) if m == 12 else (y, m + 1)
+
+
 def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
-                   ) -> tuple[list[GateResult], Optional[str], Optional[tuple[int, int]]]:
-    """Gates 1-3.  Returns (gates, hospital_code, (year, month))."""
+                   ) -> tuple[list[GateResult], Optional[str],
+                              Optional[tuple[int, int]], list[str]]:
+    """Gates 1-3.  Returns (gates, hospital_code, (year, month), notes).
+
+    notes: informational messages that are not failures — e.g. the SRA being
+    dated one month after the claim reports (ΟΑΥ pays in arrears)."""
     gates: list[GateResult] = []
+    notes: list[str] = []
 
     # Gate 1 — all files parse; each maps to exactly one report type
     bad = [f for f in files if f.error or f.report_type is None]
@@ -119,38 +129,65 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
         msg = "· " + "\n· ".join(f"{f.filename}: {f.error or 'άγνωστος τύπος'}" for f in bad)
         gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", False,
                                 f"Κάποια αρχεία δεν αναγνωρίστηκαν (unidentified files):\n{msg}"))
-        return gates, None, None
+        return gates, None, None, notes
     if dupe_msgs:
         gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", False,
                                 "Διπλά αρχεία για τον ίδιο τύπο αναφοράς (duplicate files "
                                 "for one report type):\n· " + "\n· ".join(dupe_msgs)))
-        return gates, None, None
+        return gates, None, None, notes
     gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", True))
 
-    # Gate 2 — single hospital, single month (org-wide reports don't vote)
+    # Gate 2 — single hospital, single month (org-wide reports don't vote).
+    # The SRA votes separately: ΟΑΥ pays in arrears, so an SRA dated one
+    # month after the claim reports is the SAME settlement, not a mixed batch.
     hospitals = {f.hospital_code for f in files
                  if f.hospital_code and f.report_type not in ORG_WIDE_TYPES}
-    periods = {(f.year, f.month) for f in files if f.year and f.month}
+    sra_periods = {(f.year, f.month) for f in files
+                   if f.report_type == ReportType.SRA and f.year and f.month}
+    other_periods = {(f.year, f.month) for f in files
+                     if f.report_type != ReportType.SRA and f.year and f.month}
+    gate2_name = "Ένα νοσοκομείο, ένας μήνας (single hospital/month)"
     if len(hospitals) > 1:
         names = ", ".join(f"{h} ({HOSPITALS[h][1]})" for h in sorted(hospitals))
-        gates.append(GateResult(2, "Ένα νοσοκομείο, ένας μήνας (single hospital/month)",
-                                False, f"Η παρτίδα περιέχει δύο νοσοκομεία (mixed batch): {names}. "
-                                       "Ανεβάστε έναν φορέα τη φορά."))
-        return gates, None, None
-    if len(periods) > 1:
-        ps = ", ".join(f"{m:02d}/{y}" for y, m in sorted(periods))
-        gates.append(GateResult(2, "Ένα νοσοκομείο, ένας μήνας (single hospital/month)",
-                                False, f"Η παρτίδα περιέχει δύο μήνες (mixed months): {ps}. "
-                                       "Ανεβάστε έναν μήνα τη φορά."))
-        return gates, None, None
+        gates.append(GateResult(2, gate2_name, False,
+                                f"Η παρτίδα περιέχει δύο νοσοκομεία (mixed batch): {names}. "
+                                "Ανεβάστε έναν φορέα τη φορά."))
+        return gates, None, None, notes
+    if len(other_periods) > 1:
+        ps = ", ".join(f"{m:02d}/{y}" for y, m in sorted(other_periods))
+        gates.append(GateResult(2, gate2_name, False,
+                                f"Η παρτίδα περιέχει δύο μήνες (mixed months): {ps}. "
+                                "Ανεβάστε έναν μήνα τη φορά."))
+        return gates, None, None, notes
     if not hospitals:
-        gates.append(GateResult(2, "Ένα νοσοκομείο, ένας μήνας (single hospital/month)",
-                                False, "Δεν εντοπίστηκε νοσοκομείο σε κανένα αρχείο "
-                                       "(no hospital code detected in any file)."))
-        return gates, None, None
+        gates.append(GateResult(2, gate2_name, False,
+                                "Δεν εντοπίστηκε νοσοκομείο σε κανένα αρχείο "
+                                "(no hospital code detected in any file)."))
+        return gates, None, None, notes
     hospital = hospitals.pop()
-    period = periods.pop() if periods else (None, None)
-    gates.append(GateResult(2, "Ένα νοσοκομείο, ένας μήνας (single hospital/month)", True))
+    service = other_periods.pop() if other_periods else None
+    period = service
+    if sra_periods:
+        sp = sra_periods.pop()
+        if service is None:
+            period = sp
+        elif sp != service:
+            if sp == _next_month(service):
+                notes.append(
+                    f"Το SRA φέρει ημερομηνία {sp[1]:02d}/{sp[0]} — η ΟΑΥ πληρώνει με "
+                    f"καθυστέρηση (paid in arrears). Η συμφωνία αφορά τον μήνα "
+                    f"υπηρεσιών {service[1]:02d}/{service[0]} "
+                    f"(reconciled as service month {service[1]:02d}/{service[0]}).")
+            else:
+                gates.append(GateResult(2, gate2_name, False,
+                                        f"Η παρτίδα περιέχει δύο μήνες (mixed months): SRA "
+                                        f"{sp[1]:02d}/{sp[0]} έναντι αναφορών "
+                                        f"{service[1]:02d}/{service[0]}. "
+                                        "Ανεβάστε έναν μήνα τη φορά."))
+                return gates, None, None, notes
+    if period is None:
+        period = (None, None)
+    gates.append(GateResult(2, gate2_name, True))
 
     # Gate 3 — required set complete (or cross-check mode)
     have = {f.report_type for f in files}
@@ -160,9 +197,9 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
         gates.append(GateResult(3, "Πλήρες σετ αναφορών (required set complete)", False,
                                 "Λείπουν αναφορές (missing reports):\n· "
                                 + "\n· ".join(REPORT_LABELS[t] for t in missing)))
-        return gates, hospital, period
+        return gates, hospital, period, notes
     gates.append(GateResult(3, "Πλήρες σετ αναφορών (required set complete)", True))
-    return gates, hospital, period
+    return gates, hospital, period, notes
 
 
 def conditional_requirements(sra: SRA) -> list[ReportType]:

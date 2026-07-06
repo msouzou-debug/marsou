@@ -61,6 +61,15 @@
              border: 1px solid #cfd8e1; border-radius: 6px; padding: .6rem; }
   details { background: #fff; border-radius: 8px; padding: .7rem 1rem; margin: .8rem 0; }
   summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+  #report-guide { border-left: 4px solid var(--sky); margin-bottom: 1.2rem; }
+  .guide { display: flex; gap: 2.5rem; flex-wrap: wrap; margin-top: .6rem; }
+  .guide-col { flex: 1 1 320px; }
+  .guide-col h3 { font-size: .85rem; color: var(--navy); text-transform: uppercase;
+                  letter-spacing: .04em; margin: .8rem 0 .3rem; }
+  .guide-col ol, .guide-col ul { margin: .2rem 0 .6rem 1.2rem; padding: 0; }
+  .guide-col li { margin: .25rem 0; font-size: .92rem; }
+  .note { background: #E8F4FD; border-left: 4px solid var(--blue); padding: .6rem 1rem;
+          margin: .5rem 0; border-radius: 4px; }
   footer { text-align: center; color: var(--gray); font-size: .8rem; padding: 1rem; }
 </style>
 </head>
@@ -72,6 +81,40 @@
      (everything runs in your browser, no file leaves your machine).</p>
 </header>
 <main>
+  <details id="report-guide" open>
+    <summary>📋 Τι να ανεβάσετε — Αναφορές ΟΑΥ (which ΟΑΥ reports to upload)</summary>
+    <div class="guide">
+      <div class="guide-col">
+        <h3>Απαραίτητα (required)</h3>
+        <ol>
+          <li><strong>SRA / Κατάσταση Πληρωμής</strong> (Remittance Advice) — η επιταγή, πάντα PDF</li>
+          <li><strong>Ενδ. Πληρωμένες Απαιτήσεις</strong> (Inpatient summary) — Excel με ΣΥΝΟΠΤΙΚΟ ΠΙΝΑΚΑ</li>
+          <li><strong>Πληρωμένες Απαιτήσεις «all»</strong> (Paid HCP claims) — Excel με στήλη DR SEGMENT
+            <span class="hint">— η ΟΑΥ συχνά το ονομάζει «..._OS_...», αναγνωρίζεται από το περιεχόμενο</span></li>
+          <li><strong>Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ</strong> (Pharma claims) — Excel με στήλη TYPE (Drugs/Consumables)</li>
+          <li><strong>Αμοιβή Φαρμακοποιού</strong> (Pharmacist fee) — PDF, συσκευασίες × 1,60 €</li>
+        </ol>
+      </div>
+      <div class="guide-col">
+        <h3>Υπό προϋπόθεση (conditional — όταν το SRA έχει αντίστοιχη γραμμή)</h3>
+        <ul>
+          <li>Capitation Report (κατά κεφαλήν αμοιβή)</li>
+          <li>Ποιοτικά Κριτήρια (PD-KPIs, MRI/CT)</li>
+          <li>Αιμοκάθαρση / Hemodialysis (γραμμή HEMO)</li>
+        </ul>
+        <h3>Προαιρετικά (optional cross-checks)</h3>
+        <ul>
+          <li>XML activity export (outpatient activity)</li>
+          <li>OKYPY ALL GL extract</li>
+          <li>IS Auditor Report</li>
+        </ul>
+      </div>
+    </div>
+    <p class="hint">Δεκτές μορφές: PDF, Excel (xlsx/xls), XML — η αναγνώριση γίνεται από το
+      περιεχόμενο, όχι από το όνομα αρχείου. Ένα νοσοκομείο και ένας μήνας ανά εκτέλεση.
+      Το SRA συχνά φέρει ημερομηνία του <strong>επόμενου</strong> μήνα (η ΟΑΥ πληρώνει με
+      καθυστέρηση) — αναγνωρίζεται και αντιστοιχίζεται αυτόματα στον μήνα υπηρεσιών.</p>
+  </details>
   <div id="drop-zone">
     <strong>Σύρετε εδώ τα αρχεία του μήνα</strong> ή κάντε κλικ για επιλογή<br>
     <span class="hint">(drop the month's ΟΑΥ files here, or click to browse — xlsx, xls, xml, pdf)</span>
@@ -79,6 +122,7 @@
   </div>
   <div id="status" class="hint"></div>
   <div id="warnings"></div>
+  <div id="notes"></div>
   <div id="checklist-wrap"></div>
   <div id="gates"></div>
   <div id="sra-review"></div>

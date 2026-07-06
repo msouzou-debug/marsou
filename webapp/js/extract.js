@@ -370,7 +370,7 @@ function parseSraText(text) {
   }
   if (!lines.length) throw new ExtractionError('SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF');
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
-  const [year, month] = findPeriod(text);
+  const [year, month] = findServicePeriod(text);
   return {
     chequeNo: cheque || 'UNKNOWN', statedTotal, lines,
     hospitalCode: findHospital(text), year, month,

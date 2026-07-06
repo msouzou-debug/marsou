@@ -407,7 +407,7 @@ def parse_sra_text(text: str) -> SRA:
     """Parse every SRA line: code, description, amount; plus cheque number and
     stated total.  Never guesses an amount — lines without a parseable amount
     are ignored, and the SRA-vs-cheque zero-check catches any loss."""
-    from .identify import find_hospital, find_period
+    from .identify import find_hospital, find_service_period
 
     cheque = ""
     m = _CHEQUE_RE.search(strip_accents(text))
@@ -441,7 +441,7 @@ def parse_sra_text(text: str) -> SRA:
         raise ExtractionError("SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)")
     sra = SRA(cheque_no=cheque or "UNKNOWN", stated_total=stated_total, lines=lines)
     sra.hospital_code = find_hospital(text)
-    sra.year, sra.month = find_period(text)
+    sra.year, sra.month = find_service_period(text)
     return sra
 
 

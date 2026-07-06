@@ -38,18 +38,21 @@ function render() {
   const files = state.files;
   const crosscheck = $('crosscheck-mode').checked;
   $('results').innerHTML = '';
+  $('report-guide').open = files.length === 0;   // guide up front, folds away once files arrive
   if (!files.length) {
     $('checklist-wrap').innerHTML = '';
     $('gates').innerHTML = '';
     $('sra-review').innerHTML = '';
+    $('notes').innerHTML = '';
     $('run-btn').disabled = true;
     return;
   }
 
-  const { gates } = validateBatch(files, crosscheck);
+  const { gates, notes } = validateBatch(files, crosscheck);
   renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
+  $('notes').innerHTML = notes.map((n) => `<div class="note">ℹ️ ${esc(n)}</div>`).join('');
 
   const warnings = files.flatMap((f) => f.warnings.map((w) => `${f.filename}: ${w}`));
   $('warnings').innerHTML = warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('');

@@ -43,6 +43,36 @@ function findPeriod(text) {
   return [null, null];
 }
 
+const SERVICE_HINT_RE = /ΥΠΗΡΕΣΙ|ΠΑΡΟΧΗΣ|SERVICE/;
+const PERIOD_HINT_RE = /ΠΕΡΙΟΔΟ|ΜΗΝΑΣ|PERIOD|MONTH/;
+const PAYMENT_DATE_RE = /ΗΜΕΡΟΜΗΝΙΑ|ΗΜ\.|DATE|ΕΚΔΟΣ|ISSUE|ΠΛΗΡΩΜ/;
+
+function findServicePeriod(text) {
+  /* SRAs: ΟΑΥ pays in arrears, so the payment/issue date is usually the
+   * month AFTER the service month.  Prefer an explicit service-period line,
+   * then any period line that is not a payment/issue date, then the text
+   * with payment-date lines removed, then anything. */
+  const lines = String(text).split('\n');
+  for (const line of lines) {
+    const up = stripAccents(line);
+    if (SERVICE_HINT_RE.test(up) && PERIOD_HINT_RE.test(up)) {
+      const [y, m] = findPeriod(line);
+      if (y) return [y, m];
+    }
+  }
+  for (const line of lines) {
+    const up = stripAccents(line);
+    if (PERIOD_HINT_RE.test(up) && !PAYMENT_DATE_RE.test(up)) {
+      const [y, m] = findPeriod(line);
+      if (y) return [y, m];
+    }
+  }
+  const kept = lines.filter((l) => !PAYMENT_DATE_RE.test(stripAccents(l)));
+  const [y, m] = findPeriod(kept.join('\n'));
+  if (y) return [y, m];
+  return findPeriod(text);
+}
+
 function findHospital(text) {
   const m = String(text).match(F_CODE_RE);
   if (m) return m[0];
@@ -242,7 +272,8 @@ async function identifyPdf(f) {
   if (!rt) { f.error = 'Άγνωστο PDF (unrecognised PDF report)'; return; }
   f.reportType = rt;
   f.hospitalCode = findHospital(text);
-  [f.year, f.month] = findPeriod(text);
+  // SRAs are dated in the payment month (arrears) — dig for the service period
+  [f.year, f.month] = rt === RT.SRA ? findServicePeriod(text) : findPeriod(text);
 }
 
 /* ----------------------------------------------------------------- XML */

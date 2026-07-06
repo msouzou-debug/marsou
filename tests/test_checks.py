@@ -41,7 +41,7 @@ def full_bundle(with_optional=False):
 
 
 def test_gates_pass_on_complete_batch():
-    gates, hospital, period = validate_batch(_identified_batch())
+    gates, hospital, period, notes = validate_batch(_identified_batch())
     assert all(g.passed for g in gates)
     assert hospital == "F1049"
     assert period == (2026, 3)
@@ -50,21 +50,52 @@ def test_gates_pass_on_complete_batch():
 def test_gate2_rejects_mixed_hospitals():
     files = _identified_batch()
     files[3].hospital_code = "F1054"
-    gates, _, _ = validate_batch(files)
+    gates, _, _, _ = validate_batch(files)
     assert any(not g.passed and g.number == 2 for g in gates)
     assert "δύο νοσοκομεία" in [g for g in gates if not g.passed][0].message
 
 
 def test_gate2_rejects_mixed_months():
     files = _identified_batch()
-    files[3].month = 4
-    gates, _, _ = validate_batch(files)
+    files[0].month = 4          # a CLAIM report from another month — mixed batch
+    gates, _, _, _ = validate_batch(files)
+    assert any(not g.passed and g.number == 2 for g in gates)
+
+
+def test_gate2_sra_paid_in_arrears_next_month_accepted():
+    # ΟΑΥ pays with a delay: an SRA dated the month AFTER the claim reports
+    # is the same settlement — accepted with a note, reconciled as the
+    # service month
+    files = _identified_batch()
+    files[3].month = 4          # SRA dated April, services are March
+    gates, hospital, period, notes = validate_batch(files)
+    assert all(g.passed for g in gates)
+    assert period == (2026, 3)  # the SERVICE month wins
+    assert notes and "καθυστέρηση" in notes[0] and "03/2026" in notes[0]
+
+
+def test_gate2_sra_arrears_year_rollover():
+    files = _identified_batch()
+    for f in files:
+        if f.report_type != ReportType.SRA:
+            f.year, f.month = 2025, 12      # December services
+    files[3].year, files[3].month = 2026, 1  # SRA paid in January
+    gates, _, period, notes = validate_batch(files)
+    assert all(g.passed for g in gates)
+    assert period == (2025, 12)
+    assert notes
+
+
+def test_gate2_sra_two_months_off_still_rejected():
+    files = _identified_batch()
+    files[3].month = 5          # SRA dated May vs March services — not arrears
+    gates, _, _, _ = validate_batch(files)
     assert any(not g.passed and g.number == 2 for g in gates)
 
 
 def test_gate3_missing_reports():
     files = _identified_batch()[:3]   # no SRA, no pharmacist fee
-    gates, _, _ = validate_batch(files)
+    gates, _, _, _ = validate_batch(files)
     failed = [g for g in gates if not g.passed]
     assert failed and failed[0].number == 3
     assert "SRA" in failed[0].message
@@ -72,14 +103,14 @@ def test_gate3_missing_reports():
 
 def test_gate3_crosscheck_mode_waives_sra_only():
     files = [f for f in _identified_batch() if f.report_type != ReportType.SRA]
-    gates, _, _ = validate_batch(files, crosscheck_mode=True)
+    gates, _, _, _ = validate_batch(files, crosscheck_mode=True)
     assert all(g.passed for g in gates)
 
 
 def test_gate1_duplicate_type_rejected():
     files = _identified_batch()
     files.append(identify("endo2.xlsx", synth.inpatient_summary_xlsx()))
-    gates, _, _ = validate_batch(files)
+    gates, _, _, _ = validate_batch(files)
     assert not gates[-1].passed and gates[-1].number == 1
 
 

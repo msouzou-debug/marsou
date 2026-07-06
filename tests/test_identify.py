@@ -1,5 +1,5 @@
-from recon.identify import (find_hospital, find_period, identify,
-                            identify_pdf_text, sniff_format)
+from recon.identify import (find_hospital, find_period, find_service_period,
+                            identify, identify_pdf_text, sniff_format)
 from recon.models import ReportType
 
 import synth
@@ -20,6 +20,27 @@ def test_find_period():
     assert find_period("15/03/2026") == (2026, 3)
     assert find_period("2026-05") == (2026, 5)
     assert find_period("no period here") == (None, None)
+
+
+def test_find_service_period_ignores_payment_date():
+    # ΟΑΥ pays in arrears: the SRA carries a payment date in the NEXT month —
+    # the stated service period must win
+    text = ("ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ\nΗμερομηνία Πληρωμής: 15/04/2026\n"
+            "Περίοδος: ΜΑΡΤΙΟΣ 2026\nΑρ. Επιταγής: 259434")
+    assert find_service_period(text) == (2026, 3)
+    # labeled service-period line beats everything
+    text2 = ("Ημερομηνία Έκδοσης: 02/05/2026\n"
+             "Περίοδος υπηρεσιών: 04/2026\nΠληρωμή: 05/2026")
+    assert find_service_period(text2) == (2026, 4)
+    # only a payment date present: fall back to it (gate 2 tolerates +1 month)
+    text3 = "ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ\nΗμερομηνία Πληρωμής: 15/04/2026"
+    assert find_service_period(text3) == (2026, 4)
+
+
+def test_synthetic_sra_identifies_service_month_not_payment_month():
+    import synth
+    assert identify_pdf_text(synth.sra_text()) is not None
+    assert find_service_period(synth.sra_text()) == (2026, 3)  # not April
 
 
 def test_find_hospital_full_name_not_leukosia_substring():
