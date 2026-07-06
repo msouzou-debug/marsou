@@ -459,6 +459,10 @@ const YYYY_MM_RE = /\b(20\d\d)\s*[-/.]\s*(0?[1-9]|1[0-2])\b(?!\s*[/.\-]\s*\d)/;
 
 function findPeriod(text) {
   const up = stripAccents(text);
+  // labeled «Μήνας: 3» + «Έτος: 2026» first (real ΟΑΥ PDFs)
+  const ml = up.match(/ΜΗΝΑΣ\s*[:=]\s*(\d{1,2})\b/);
+  const yl = up.match(/ΕΤΟΣ\s*[:=]\s*(20\d\d)\b/);
+  if (ml && yl) return [parseInt(yl[1], 10), parseInt(ml[1], 10)];
   for (const [name, m] of Object.entries(GREEK_MONTHS)) {
     if (up.includes(name)) {
       const ym = up.match(new RegExp(name + '\\D{0,10}(20\\d\\d)'));
@@ -480,14 +484,43 @@ function prevMonth(year, month) {
   return month === 1 ? [year - 1, 12] : [year, month - 1];
 }
 
+const PAY_DATE_LINE_RE = /PAYMENT\s*DATE|ΗΜΕΡΟΜΗΝΙΑ\s*ΠΛΗΡΩΜΗΣ/;
+
 function findServicePeriod(text) {
   /* Service month for SRAs.  The SRA is ALWAYS dated one month after the
    * month it settles (ΟΑΥ pays in arrears): service month = document date
-   * − 1 month.  A wrong month's SRA is not blocked on dates anyway — the
-   * tie-outs won't tie and the break shows in the reconciliation. */
+   * − 1 month.  Prefer the «Payment Date: ...» line — real SRAs also list
+   * per-invoice dates which must not win. */
+  for (const line of String(text).split('\n')) {
+    if (PAY_DATE_LINE_RE.test(stripAccents(line))) {
+      const [y, m] = findPeriod(line);
+      if (y) return prevMonth(y, m);
+    }
+  }
   const [y, m] = findPeriod(text);
   if (y == null) return [null, null];
   return prevMonth(y, m);
+}
+
+function labeledYearMonth(rows, maxRows = 10) {
+  /* Real Ενδ. summaries: «Έτος | Μήνας» header cells, values in the row
+   * below (2026 | 3). */
+  const n = Math.min(maxRows, rows.length - 1);
+  for (let i = 0; i < n; i++) {
+    let yearCol = null, monthCol = null;
+    rows[i].forEach((v, j) => {
+      if (v == null) return;
+      const lab = normLabel(cellText(v));
+      if (lab === 'ΕΤΟΣ') yearCol = j;
+      else if (lab === 'ΜΗΝΑΣ') monthCol = j;
+    });
+    if (yearCol != null && monthCol != null) {
+      const y = parseInt(cellText(rows[i + 1][yearCol]), 10);
+      const m = parseInt(cellText(rows[i + 1][monthCol]), 10);
+      if (y >= 2000 && y <= 2099 && m >= 1 && m <= 12) return [y, m];
+    }
+  }
+  return [null, null];
 }
 
 function findHospital(text) {
@@ -590,7 +623,8 @@ function identifyExcel(f) {
       f.reportType = RT.INPATIENT_SUMMARY;
       const top = cellsText(rows, 6);
       f.hospitalCode = findHospital(top) || findHospital(allText);
-      [f.year, f.month] = findPeriod(top);
+      [f.year, f.month] = labeledYearMonth(rows);   // real files: Έτος|Μήνας cells
+      if (f.year == null) [f.year, f.month] = findPeriod(top);
       if (f.year == null) [f.year, f.month] = findPeriod(allText);
       return;
     }
@@ -623,7 +657,8 @@ function identifyExcel(f) {
     hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
     if (hr !== null) {
       f.reportType = RT.IS_AUDITOR; // org-wide
-      [f.year, f.month] = findPeriod(cellsText(rows, 5));
+      // its rows carry historical invoice dates spanning years — a period
+      // derived from them is meaningless, so don't claim one
       return;
     }
   }
@@ -713,7 +748,39 @@ async function identifyPdf(f) {
   f.reportType = rt;
   f.hospitalCode = findHospital(text);
   // SRAs are dated in the payment month (arrears) — dig for the service period
-  [f.year, f.month] = rt === RT.SRA ? findServicePeriod(text) : findPeriod(text);
+  if (rt === RT.SRA) {
+    [f.year, f.month] = findServicePeriod(text);
+    f.probe = (f.probe || '') + '\n\n' + sraProbeSummary(text);
+  } else {
+    [f.year, f.month] = findPeriod(text);
+  }
+}
+
+function sraProbeSummary(text) {
+  /* Diagnostics: every distinct SRA line description with count, sum and the
+   * bucket it was mapped to — unmapped descriptions visible at a glance. */
+  let sra;
+  try {
+    sra = parseSraText(text);
+  } catch (e) {
+    return `SRA γραμμές (line parse): ΑΠΕΤΥΧΕ — ${e.message}`;
+  }
+  const groups = new Map();
+  for (const l of sra.lines) {
+    const key = `${l.code}|${l.bucket}|${l.description.slice(0, 40)}`;
+    const g = groups.get(key) || { n: 0, s: 0 };
+    g.n += 1; g.s += l.amount;
+    groups.set(key, g);
+  }
+  const out = [`SRA γραμμές: ${sra.lines.length} · επιταγή #${sra.chequeNo} · `
+    + `δηλωμένο σύνολο ${formatEur(sra.statedTotal)} · άθροισμα γραμμών ${formatEur(sra.linesTotal)}`,
+  'Ταξινόμηση περιγραφών (description → code/bucket, count, sum):'];
+  [...groups.entries()].sort((a, b) => b[1].s - a[1].s).forEach(([key, g]) => {
+    const [code, bucket, desc] = key.split('|');
+    out.push(`  «${desc}» → ${code} / ${bucket} · ×${g.n} · ${formatEur(g.s)}`
+      + (code === '??' ? '  ⚠ UNMAPPED' : ''));
+  });
+  return out.join('\n').slice(0, 2500);
 }
 
 /* ----------------------------------------------------------------- XML */
@@ -788,25 +855,30 @@ function colIndex(cols, ...needles) {
 
 /* ------------------------------------------------- inpatient summary */
 
-const SUMMARY_LABELS = [
-  ['kanonikaParap', ['ΚΑΝΟΝΙΚ', 'ΠΑΡΑΠΕΜΠΤΙΚ'], []],
-  ['exeidParap', ['ΕΞΕΙΔΙΚ', 'ΠΑΡΑΠΕΜΠΤΙΚ'], []],
-  ['kanonika', ['ΚΑΝΟΝΙΚ'], ['ΠΑΡΑΠΕΜΠΤΙΚ']],
-  ['exeidikevmena', ['ΕΞΕΙΔΙΚ'], ['ΠΑΡΑΠΕΜΠΤΙΚ']],
-  ['zCatalogue', ['Z'], ['ΣΥΝΟΛ']],
-  ['synolo', ['ΣΥΝΟΛ'], []],
-];
+function classifyCategory(label) {
+  /* label is accent-stripped + Greek Ζ->Z.  null = unknown category, kept in
+   * .other so the Σύνολο assert still holds when ΟΑΥ adds new lines. */
+  if (label.includes('ΣΥΝΟΛ')) return 'synolo';
+  const parap = label.includes('ΠΑΡΑΠΕΜΠΤΙΚ');
+  if (label.includes('ΚΑΝΟΝΙΚ')) return parap ? 'kanonikaParap' : 'kanonika';
+  if (label.includes('ΕΞΕΙΔΙΚ')) return parap ? 'exeidParap' : 'exeidikevmena';
+  if (label.includes('ΓΕΝΝ')) return 'gennes';   // Γέννες (births)
+  if (label.includes('ΚΑΤΑΛΟΓ') || /(?:^|[\s-])Z(?:$|[\s-])/.test(label)) return 'zCatalogue';
+  return null;
+}
 
 function summaryDerived(s) {
+  const otherSum = Object.values(s.other).reduce((a, b) => a + b, 0);
   s.regular = round2(s.kanonika + s.kanonikaParap);
   s.specialized = round2(s.exeidikevmena + s.exeidParap);
   s.computedTotal = round2(s.kanonika + s.kanonikaParap + s.exeidikevmena
-    + s.exeidParap + s.zCatalogue);
+    + s.exeidParap + s.gennes + s.zCatalogue + otherSum);
   return s;
 }
 
 function extractInpatientSummary(bytes) {
-  for (const { rows } of loadSheets(bytes)) {
+  const sheets = loadSheets(bytes);
+  for (const { rows } of sheets) {
     const anchor = findHeaderRow(rows, ['ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ'], 60);
     if (anchor === null) continue;
     let amountCol = null;
@@ -819,43 +891,73 @@ function extractInpatientSummary(bytes) {
       if (amountCol !== null) break;
     }
     const out = { kanonika: 0, kanonikaParap: 0, exeidikevmena: 0, exeidParap: 0,
-                  zCatalogue: 0, synolo: 0 };
-    const seen = new Set();
-    for (let i = anchor + 1; i < Math.min(anchor + 25, rows.length); i++) {
+                  gennes: 0, zCatalogue: 0, other: {}, synolo: 0, byClinic: [] };
+    for (let i = anchor + 1; i < Math.min(anchor + 30, rows.length); i++) {
       const row = rows[i];
-      let label = '';
+      let label = '', rawLabel = '';
       for (const v of row) {
         if (v != null && cellText(v) !== 'nan' && !isNumberLike(v)) {
+          rawLabel = cellText(v).trim();
           // Greek capital zeta looks like Latin Z — accept either alphabet
-          label = stripAccents(cellText(v)).split('Ζ').join('Z');
+          label = stripAccents(rawLabel).split('Ζ').join('Z');
           break;
         }
       }
       if (!label) continue;
-      for (const [attr, must, mustNot] of SUMMARY_LABELS) {
-        if (seen.has(attr)) continue;
-        if (must.every((m) => label.includes(m)) && !mustNot.some((m) => label.includes(m))) {
-          let val;
-          if (amountCol !== null && isNumberLike(row[amountCol])) val = parseAmount(row[amountCol]);
-          else {
-            const nums = row.filter(isNumberLike).map(parseAmount);
-            val = nums.length ? nums[nums.length - 1] : 0;
-          }
-          out[attr] = val;
-          seen.add(attr);
-          break;
-        }
+      let val;
+      if (amountCol !== null && isNumberLike(row[amountCol])) val = parseAmount(row[amountCol]);
+      else {
+        const nums = row.filter(isNumberLike).map(parseAmount);
+        if (!nums.length) continue;   // header row of the block, no amounts
+        val = nums[nums.length - 1];
       }
-      if (seen.has('synolo')) break;
+      const cls = classifyCategory(label);
+      if (cls === 'synolo') { out.synolo = val; break; }
+      if (cls) out[cls] = round2(out[cls] + val);
+      else out.other[rawLabel] = round2((out.other[rawLabel] || 0) + val);
     }
     summaryDerived(out);
     if (Math.abs(out.synolo - out.computedTotal) > 0.005) {
       throw new ExtractionError('Ενδ. summary: το Σύνολο δεν ισούται με το άθροισμα των γραμμών '
         + `(Σύνολο ${formatEur(out.synolo)} vs άθροισμα ${formatEur(out.computedTotal)})`);
     }
+    out.byClinic = perClinicDetailSheet(sheets);
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
+}
+
+function perClinicDetailSheet(sheets) {
+  /* Real Ενδ. workbooks carry a «per clinic» pivot: Row Labels | Sum of
+   * FIXED FEE | Sum of INPATIENTS | Sum of Grand Total. */
+  for (const { rows } of sheets) {
+    const hr = findHeaderRow(rows, ['ROW LABELS', 'FIXED FEE', 'GRAND TOTAL']);
+    if (hr === null) continue;
+    const hdr = rows[hr].map((v) => (v == null ? '' : normLabel(cellText(v))));
+    const first = (needle) => {
+      for (let j = 0; j < hdr.length; j++) if (hdr[j].includes(needle)) return j;
+      return null;
+    };
+    const lab = first('ROW LABELS');
+    const ff = first('FIXED FEE'), ip = first('INPATIENTS'), gt = first('GRAND TOTAL');
+    const out = [];
+    for (let i = hr + 1; i < rows.length; i++) {
+      const v = rows[i][lab];
+      if (v == null || cellText(v) === 'nan') continue;
+      const clinic = cellText(v).trim();
+      const nl = normLabel(clinic);
+      if (nl.includes('GRAND TOTAL') || nl.includes('ΣΥΝΟΛ')) continue;
+      const ffv = ff != null ? parseAmount(rows[i][ff]) : 0;
+      const ipv = ip != null ? parseAmount(rows[i][ip]) : 0;
+      const gtv = gt != null ? parseAmount(rows[i][gt]) : 0;
+      const total = gtv || round2(ffv + ipv);
+      if (!total && !ffv && !ipv) continue;
+      out.push({ clinic, fixedFee: round2(ffv), drg: round2(ipv), total: round2(total) });
+    }
+    out.sort((a, b) => b.total - a.total);
+    return out;
+  }
+  return [];
 }
 
 /* ------------------------------------------------------- claims «all» */
@@ -1086,9 +1188,18 @@ const KEYWORD_CODES = [
   [['OUTPATIENT SPECIALIST'], 'OS'],
 ];
 
+/* Invoice descriptions on real SRAs start with the stream code, e.g.
+ * «AE - HCP SERVICES».  Longer alternatives first; IP is an alias of IS. */
+const CODE_TOKEN_RE = /\b(A&E|PHD|PHC|PHF|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b/;
+const CODE_ALIASES = { IP: 'IS' };
+
 function classifySraLine(code, description) {
   const upDesc = stripAccents(description);
   code = (code || '').trim().toUpperCase();
+  if (!(code in SRA_CODE_MAP)) {
+    const m = CODE_TOKEN_RE.exec(upDesc);
+    if (m) code = CODE_ALIASES[m[1]] || m[1];
+  }
   if (code in SRA_CODE_MAP) {
     if (code === 'PD' && (upDesc.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ') || upDesc.includes('CAPITATION'))) code = 'PD-CAP';
     else if (code === 'PD' && (upDesc.includes('KPI') || upDesc.includes('ΠΟΙΟΤΙΚ'))) code = 'PD-KPI';
@@ -1106,6 +1217,8 @@ function classifySraLine(code, description) {
 
 const CHEQUE_RE = /(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)\s*[:.]?\s*#?(\d{4,})/i;
 const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*€?\s*$/;
+/* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
+const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*$/;
 
 function parseSraText(text) {
   let cheque = '';
@@ -1118,6 +1231,16 @@ function parseSraText(text) {
     const line = raw.replace(/\s+$/, '');
     if (!line.trim()) continue;
     const up = stripAccents(line);
+    // invoice-level line (the real SRA format) takes priority
+    const inv = line.match(INVOICE_LINE_RE);
+    if (inv) {
+      const desc = inv[3].trim();
+      const amount = parseAmount(inv[6]);   // Amount Paid column
+      const [canon, bucket, channel, src] = classifySraLine('', desc);
+      lines.push({ code: canon, description: `${desc} (${inv[1]} #${inv[2]})`,
+                   amount, bucket, channel, sourceReport: src });
+      continue;
+    }
     const m = line.match(SRA_LINE_RE);
     if (!m) continue;
     const amount = parseAmount(m[3]);
@@ -1179,8 +1302,27 @@ function extractGl(bytes, hospitalCode) {
 
 /* ------------------------------------------------------------ IS Auditor */
 
+/* Provider-name matching for org-wide detail: real names are long forms like
+ * «ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)» — match distinctive tokens;
+ * Nicosia explicitly excludes Makarios. */
+const HOSPITAL_NAME_TOKENS = {
+  F1054: [['ΛΕΥΚΩΣΙΑΣ'], ['ΜΑΚΑΡΕΙΟ']],
+  F1050: [['ΜΑΚΑΡΕΙΟ'], []],
+  F1047: [['ΛΕΜΕΣ'], []],
+  F1048: [['ΛΑΡΝΑΚ'], []],
+  F1049: [['ΑΜΜΟΧΩΣΤ'], []],
+  F1025: [['ΠΑΦΟ'], []],
+  F1055: [['ΚΥΠΕΡΟΥΝΤ'], []],
+  F1026: [['ΧΡΥΣΟΧΟΥΣ'], []],
+};
+
+function hospitalNameMatches(code, name) {
+  const up = stripAccents(name);
+  const [anyTokens, notTokens] = HOSPITAL_NAME_TOKENS[code];
+  return anyTokens.some((t) => up.includes(t)) && !notTokens.some((t) => up.includes(t));
+}
+
 function extractIsAuditor(bytes, hospitalCode) {
-  const greekName = stripAccents(HOSPITALS[hospitalCode][0]);
   for (const { rows } of loadSheets(bytes)) {
     const hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
     if (hr === null) continue;
@@ -1190,9 +1332,8 @@ function extractIsAuditor(bytes, hospitalCode) {
     const drgFf = colIndex(cols, 'DRG/FF TOTAL AMOUNT');
     const proc = colIndex(cols, 'PROCEDURES TOTAL AMOUNT');
     const cat = colIndex(cols, 'INVOICE CATEGORY');
-    // filter to the hospital by FULL provider name (accent-insensitive)
     const t = body.filter((r) => r[prov] != null
-      && stripAccents(cellText(r[prov])).trim() === greekName);
+      && hospitalNameMatches(hospitalCode, cellText(r[prov])));
     // DRG flag: present FIRST, then trimmed != '' and lower != 'nan'
     const isDrg = (v) => {
       if (v == null) return false;
@@ -1261,6 +1402,19 @@ function extractSimpleReport(bytes, rawText) {
 }
 
 function simpleFromText(text) {
+  // invoice-level rows first (real capitation reports: «5729128 F1049 ...
+  // STANDARD 31/03/2026 5,174.80 €» followed by per-doctor / per-age detail
+  // that must NOT be double-counted)
+  const invoiceRows = [];
+  for (const raw of String(text).split('\n')) {
+    if (/\b\d{6,}\b/.test(raw) && stripAccents(raw).includes('STANDARD')) {
+      const amts = findAmounts(raw);
+      if (amts.length) invoiceRows.push([raw.trim().slice(0, 60), amts[amts.length - 1]]);
+    }
+  }
+  if (invoiceRows.length) {
+    return { total: round2(invoiceRows.reduce((a, [, v]) => a + v, 0)), lines: invoiceRows };
+  }
   const lines = [];
   let total = null;
   for (const raw of String(text).split('\n')) {
@@ -1343,7 +1497,9 @@ function validateBatch(files, crosscheckMode) {
     .map((f) => f.hospitalCode));
   const sraPeriods = new Set(files.filter((f) => f.reportType === RT.SRA && f.year && f.month)
     .map((f) => `${f.year}-${f.month}`));
-  const otherPeriods = new Set(files.filter((f) => f.reportType !== RT.SRA && f.year && f.month)
+  // org-wide files (GL, IS Auditor) span providers/months — they don't vote
+  const otherPeriods = new Set(files.filter((f) => f.reportType !== RT.SRA && f.year && f.month
+      && !ORG_WIDE_TYPES.has(f.reportType))
     .map((f) => `${f.year}-${f.month}`));
   const fmtP = ([y, m]) => `${String(m).padStart(2, '0')}/${y}`;
   const gate2 = { number: 2, name: 'Ένα νοσοκομείο, ένας μήνας (single hospital/month)' };
@@ -1625,8 +1781,12 @@ function buildSplit(bundle) {
   };
 
   const ip = { title: 'Ενδονοσοκομειακή περίθαλψη (Inpatient)', bucket: 'Inpatient', rows: [] };
-  if (bundle.claims && bundle.claims.inpatientByClinic.length) {
-    for (const r of bundle.claims.inpatientByClinic) {
+  // per-clinic detail: claims file when present, else the Ενδ. «per clinic» pivot
+  const clinicRows = (bundle.claims && bundle.claims.inpatientByClinic.length
+    ? bundle.claims.inpatientByClinic
+    : (bundle.inpatient && bundle.inpatient.byClinic ? bundle.inpatient.byClinic : []));
+  if (clinicRows.length) {
+    for (const r of clinicRows) {
       ip.rows.push({ label: r.clinic, amount: r.total,
                      fixedFee: r.fixedFee || null, drg: r.drg || null });
     }
@@ -1635,7 +1795,11 @@ function buildSplit(bundle) {
   } else if (bundle.inpatient) {
     ip.rows.push({ label: 'Κανονικά (Regular)', amount: bundle.inpatient.regular });
     ip.rows.push({ label: 'Εξειδικευμένα (Specialized)', amount: bundle.inpatient.specialized });
+    if (bundle.inpatient.gennes) ip.rows.push({ label: 'Γέννες (Births)', amount: bundle.inpatient.gennes });
     ip.rows.push({ label: 'Κατάλογος Z (Z-catalogue)', amount: bundle.inpatient.zCatalogue });
+    for (const [label, amount] of Object.entries(bundle.inpatient.other || {})) {
+      ip.rows.push({ label, amount });
+    }
   }
   tieRows(ip, sraAmount(['IS']), 'Διαφορά προς SRA (reconciling diff to SRA)');
   if (bundle.hemo || (sra && sra.lines.some((l) => l.code === 'HEMO'))) {
@@ -1785,16 +1949,17 @@ function buildWorkbook(result) {
   const zeroChecks = [];
   const bundle = result.bundle;
 
-  let sraTab = null, statedCell = null;
+  let sraTab = null, statedCell = null, nLines = 0;
   if (!result.crosscheckMode && bundle.sra) {
     const built = tabSra(wb, result, zeroChecks);
     sraTab = built.name;
+    nLines = built.nLines;
     statedCell = `'${sraTab}'!F${built.statedRow}`;
     tabReconciliation(wb, result, sraTab, built.nLines, statedCell, zeroChecks);
   } else {
     tabMatrix(wb, result);
   }
-  tabCrosscheck(wb, result, sraTab);
+  tabCrosscheck(wb, result, sraTab, nLines);
   tabSplit(wb, result, statedCell, zeroChecks);
   tabLegend(wb);
   return { wb, zeroChecks };
@@ -1893,11 +2058,12 @@ function tabMatrix(wb, result) {
 
 /* ------------------------------------------------ tab 3: Source_crosscheck */
 
-function tabCrosscheck(wb, result, sraTab) {
+function tabCrosscheck(wb, result, sraTab, nLines) {
   const ws = wb.addWorksheet('Source_crosscheck');
   writeHeader(ws, 1, ['Έλεγχος (Check)', 'Σύνολο πηγής (Source total €)',
                       'Πλευρά SRA (SRA side €)', 'Διαφορά (Diff €)', 'Σημείωση (Note)',
-                      'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)']);
+                      'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)',
+                      'Κωδικοί SRA (codes)']);
   let r = 2;
   const b = result.bundle;
   for (const chk of result.crosschecks) {
@@ -1912,9 +2078,15 @@ function tabCrosscheck(wb, result, sraTab) {
       writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
     }
     if (sraTab && chk.sraCodes.length && b.sra) {
-      const refs = b.sra.lines.map((l, i) => (chk.sraCodes.includes(l.code) ? `'${sraTab}'!F${i + 2}` : null))
-        .filter(Boolean);
-      writeAmount(ws, r, 3, refs.length ? refs.join('+') : '0', F_LINK);
+      // SUMIFS over the SRA Code column, criteria referencing the code
+      // helper cells (never quoted strings; scales to hundreds of lines)
+      const terms = chk.sraCodes.map((code, k) => {
+        const col = colLetter(8 + k);
+        ws.getCell(r, 8 + k).value = code;
+        ws.getCell(r, 8 + k).font = F_INPUT;
+        return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${r})`;
+      });
+      writeAmount(ws, r, 3, terms.join('+'), F_LINK);
     } else if (chk.sraSide != null) {
       writeAmount(ws, r, 3, chk.sraSide, F_INPUT);
     }

@@ -44,7 +44,9 @@ function validateBatch(files, crosscheckMode) {
     .map((f) => f.hospitalCode));
   const sraPeriods = new Set(files.filter((f) => f.reportType === RT.SRA && f.year && f.month)
     .map((f) => `${f.year}-${f.month}`));
-  const otherPeriods = new Set(files.filter((f) => f.reportType !== RT.SRA && f.year && f.month)
+  // org-wide files (GL, IS Auditor) span providers/months — they don't vote
+  const otherPeriods = new Set(files.filter((f) => f.reportType !== RT.SRA && f.year && f.month
+      && !ORG_WIDE_TYPES.has(f.reportType))
     .map((f) => `${f.year}-${f.month}`));
   const fmtP = ([y, m]) => `${String(m).padStart(2, '0')}/${y}`;
   const gate2 = { number: 2, name: 'Ένα νοσοκομείο, ένας μήνας (single hospital/month)' };
@@ -326,8 +328,12 @@ function buildSplit(bundle) {
   };
 
   const ip = { title: 'Ενδονοσοκομειακή περίθαλψη (Inpatient)', bucket: 'Inpatient', rows: [] };
-  if (bundle.claims && bundle.claims.inpatientByClinic.length) {
-    for (const r of bundle.claims.inpatientByClinic) {
+  // per-clinic detail: claims file when present, else the Ενδ. «per clinic» pivot
+  const clinicRows = (bundle.claims && bundle.claims.inpatientByClinic.length
+    ? bundle.claims.inpatientByClinic
+    : (bundle.inpatient && bundle.inpatient.byClinic ? bundle.inpatient.byClinic : []));
+  if (clinicRows.length) {
+    for (const r of clinicRows) {
       ip.rows.push({ label: r.clinic, amount: r.total,
                      fixedFee: r.fixedFee || null, drg: r.drg || null });
     }
@@ -336,7 +342,11 @@ function buildSplit(bundle) {
   } else if (bundle.inpatient) {
     ip.rows.push({ label: 'Κανονικά (Regular)', amount: bundle.inpatient.regular });
     ip.rows.push({ label: 'Εξειδικευμένα (Specialized)', amount: bundle.inpatient.specialized });
+    if (bundle.inpatient.gennes) ip.rows.push({ label: 'Γέννες (Births)', amount: bundle.inpatient.gennes });
     ip.rows.push({ label: 'Κατάλογος Z (Z-catalogue)', amount: bundle.inpatient.zCatalogue });
+    for (const [label, amount] of Object.entries(bundle.inpatient.other || {})) {
+      ip.rows.push({ label, amount });
+    }
   }
   tieRows(ip, sraAmount(['IS']), 'Διαφορά προς SRA (reconciling diff to SRA)');
   if (bundle.hemo || (sra && sra.lines.some((l) => l.code === 'HEMO'))) {

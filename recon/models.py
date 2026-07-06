@@ -69,6 +69,28 @@ HOSPITALS = {
 }
 
 
+# Provider-name matching tokens for org-wide detail reports (IS Auditor),
+# whose names are long forms like «ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)».
+# (must-contain-any, must-NOT-contain) — Nicosia excludes Makarios explicitly.
+HOSPITAL_NAME_TOKENS = {
+    "F1054": (["ΛΕΥΚΩΣΙΑΣ"], ["ΜΑΚΑΡΕΙΟ"]),
+    "F1050": (["ΜΑΚΑΡΕΙΟ"], []),
+    "F1047": (["ΛΕΜΕΣ"], []),
+    "F1048": (["ΛΑΡΝΑΚ"], []),
+    "F1049": (["ΑΜΜΟΧΩΣΤ"], []),
+    "F1025": (["ΠΑΦΟ"], []),
+    "F1055": (["ΚΥΠΕΡΟΥΝΤ"], []),
+    "F1026": (["ΧΡΥΣΟΧΟΥΣ"], []),
+}
+
+
+def hospital_name_matches(code: str, name: str) -> bool:
+    up = strip_accents(name)
+    any_tokens, not_tokens = HOSPITAL_NAME_TOKENS[code]
+    return (any(t in up for t in any_tokens)
+            and not any(t in up for t in not_tokens))
+
+
 class Bucket(str, Enum):
     INPATIENT = "Inpatient"
     AE = "A&E"
@@ -162,8 +184,11 @@ class InpatientSummary:
     kanonika_parap: float = 0.0
     exeidikevmena: float = 0.0
     exeid_parap: float = 0.0
+    gennes: float = 0.0                      # Γέννες (births) — real months have it
     z_catalogue: float = 0.0
+    other: dict[str, float] = field(default_factory=dict)  # unrecognised categories
     synolo: float = 0.0
+    by_clinic: list["ClinicRow"] = field(default_factory=list)  # «per clinic» sheet
 
     @property
     def regular(self) -> float:
@@ -176,7 +201,8 @@ class InpatientSummary:
     @property
     def computed_total(self) -> float:
         return round(self.kanonika + self.kanonika_parap + self.exeidikevmena
-                     + self.exeid_parap + self.z_catalogue, 2)
+                     + self.exeid_parap + self.gennes + self.z_catalogue
+                     + sum(self.other.values()), 2)
 
 
 @dataclass

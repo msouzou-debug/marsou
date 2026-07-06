@@ -42,11 +42,17 @@ def sniff_format(data: bytes) -> str:
 _MM_YYYY_RE = re.compile(r"\b(0?[1-9]|1[0-2])\s*[/.\-]\s*(20\d\d)\b")
 _YYYY_MM_RE = re.compile(r"\b(20\d\d)\s*[-/.]\s*(0?[1-9]|1[0-2])\b(?!\s*[/.\-]\s*\d)")
 _DD_MM_YYYY_RE = re.compile(r"\b([0-3]?\d)\s*/\s*(0?[1-9]|1[0-2])\s*/\s*(20\d\d)\b")
+_MONTH_LABEL_RE = re.compile(r"ΜΗΝΑΣ\s*[:=]\s*(\d{1,2})\b")
+_YEAR_LABEL_RE = re.compile(r"ΕΤΟΣ\s*[:=]\s*(20\d\d)\b")
 
 
 def find_period(text: str) -> tuple[Optional[int], Optional[int]]:
-    """(year, month) from free text: Greek month names, MM/YYYY, DD/MM/YYYY, YYYY-MM."""
+    """(year, month) from free text: labeled «Μήνας: 3 / Έτος: 2026» first,
+    then Greek month names, MM/YYYY, DD/MM/YYYY, YYYY-MM."""
     up = strip_accents(text)
+    ml, yl = _MONTH_LABEL_RE.search(up), _YEAR_LABEL_RE.search(up)
+    if ml and yl:
+        return int(yl.group(1)), int(ml.group(1))
     for name, m in GREEK_MONTHS.items():
         if name in up:
             ym = re.search(re.escape(name) + r"\D{0,10}(20\d\d)", up)
@@ -71,11 +77,20 @@ def prev_month(year: int, month: int) -> tuple[int, int]:
     return (year - 1, 12) if month == 1 else (year, month - 1)
 
 
+_PAY_DATE_LINE_RE = re.compile(r"PAYMENT\s*DATE|ΗΜΕΡΟΜΗΝΙΑ\s*ΠΛΗΡΩΜΗΣ")
+
+
 def find_service_period(text: str) -> tuple[Optional[int], Optional[int]]:
     """Service month for SRAs.  The SRA is ALWAYS dated one month after the
     month it settles (ΟΑΥ pays in arrears), so: service month = document
-    date − 1 month.  A wrong month's SRA is not blocked on dates anyway —
-    the tie-outs won't tie and the break shows in the reconciliation."""
+    date − 1 month.  Prefer the «Payment Date: ...» line (real SRAs also
+    list per-invoice dates, which must not win).  A wrong month's SRA is
+    not blocked on dates anyway — the tie-outs show the break."""
+    for line in text.splitlines():
+        if _PAY_DATE_LINE_RE.search(strip_accents(line)):
+            y, m = find_period(line)
+            if y:
+                return prev_month(y, m)
     y, m = find_period(text)
     if y is None:
         return None, None
@@ -157,6 +172,31 @@ def _excel_probe(sheets: dict[str, pd.DataFrame]) -> str:
     return "\n".join(parts)[:4000]
 
 
+def _labeled_year_month(df: pd.DataFrame, max_rows: int = 10
+                        ) -> tuple[Optional[int], Optional[int]]:
+    """Real Ενδ. summaries carry «Έτος | Μήνας» header cells with the values
+    in the row below (e.g. 2026 | 3).  Find those columns and read them."""
+    for i in range(min(max_rows, len(df) - 1)):
+        year_col = month_col = None
+        for j, v in enumerate(df.iloc[i]):
+            if v is None:
+                continue
+            lab = norm_label(str(v))
+            if lab == "ΕΤΟΣ":
+                year_col = j
+            elif lab == "ΜΗΝΑΣ":
+                month_col = j
+        if year_col is not None and month_col is not None:
+            try:
+                y = int(float(str(df.iloc[i + 1, year_col])))
+                m = int(float(str(df.iloc[i + 1, month_col])))
+            except (TypeError, ValueError):
+                continue
+            if 2000 <= y <= 2099 and 1 <= m <= 12:
+                return y, m
+    return None, None
+
+
 def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
     try:
         sheets = _load_sheets(f.data, fmt)
@@ -176,10 +216,13 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
         if (find_header_row(df, ["ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ"], max_rows=60) is not None
                 and "ΚΩΔΙΚΟΣ ΓΕΣΥ ΠΑΡΟΧΕΑ" in norm_label(_cells_text(df, 60))):
             f.report_type = ReportType.INPATIENT_SUMMARY
-            # hospital / year / month sit in the top rows (row 2 in the fixture)
+            # hospital / year / month sit in the top rows (row 2 in the fixture);
+            # real files use «Έτος | Μήνας» header cells with values below
             top = _cells_text(df, 6)
             f.hospital_code = find_hospital(top) or find_hospital(all_text)
-            f.year, f.month = find_period(top)
+            f.year, f.month = _labeled_year_month(df)
+            if f.year is None:
+                f.year, f.month = find_period(top)
             if f.year is None:
                 f.year, f.month = find_period(all_text)
             return
@@ -214,7 +257,8 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
         hr = find_header_row(df, ["BILLING PROVIDER NAME", "DRG ID"])
         if hr is not None:
             f.report_type = ReportType.IS_AUDITOR  # org-wide
-            f.year, f.month = find_period(_cells_text(df, 5))
+            # its rows carry historical invoice dates spanning years — a
+            # period derived from them is meaningless, so don't claim one
             return
 
     # conditional reports may also arrive as Excel
@@ -326,8 +370,32 @@ def _identify_pdf(f: IdentifiedFile) -> None:
     # SRAs are dated in the payment month (arrears) — dig for the service period
     if rt == ReportType.SRA:
         f.year, f.month = find_service_period(text)
+        f.probe = (f.probe or "") + "\n\n" + _sra_probe_summary(text)
     else:
         f.year, f.month = find_period(text)
+
+
+def _sra_probe_summary(text: str) -> str:
+    """Classification summary for the diagnostics panel: every distinct SRA
+    line description with count, sum and the bucket it was mapped to — makes
+    unmapped/wrongly-mapped descriptions visible at a glance."""
+    from .extract import parse_sra_text  # lazy: extract imports identify lazily too
+    try:
+        sra = parse_sra_text(text)
+    except Exception as e:
+        return f"SRA γραμμές (line parse): ΑΠΕΤΥΧΕ — {e}"
+    groups: dict[tuple[str, str, str], tuple[int, float]] = {}
+    for l in sra.lines:
+        key = (l.code, l.bucket.value, l.description[:40])
+        n, s = groups.get(key, (0, 0.0))
+        groups[key] = (n + 1, s + l.amount)
+    lines = [f"SRA γραμμές: {len(sra.lines)} · επιταγή #{sra.cheque_no} · "
+             f"δηλωμένο σύνολο {sra.stated_total:,.2f} · άθροισμα γραμμών {sra.lines_total:,.2f}",
+             "Ταξινόμηση περιγραφών (description → code/bucket, count, sum):"]
+    for (code, bucket, desc), (n, s) in sorted(groups.items(), key=lambda kv: -kv[1][1]):
+        flag = "  ⚠ UNMAPPED" if code == "??" else ""
+        lines.append(f"  «{desc}» → {code} / {bucket} · ×{n} · {s:,.2f}{flag}")
+    return "\n".join(lines)[:2500]
 
 
 # ------------------------------------------------------------------- XML

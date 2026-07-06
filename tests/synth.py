@@ -1,9 +1,10 @@
-"""Synthetic ΟΑΥ report files, shaped like the real ones (Greek headers,
-Greek number formats) so the identify/extract layers are exercised end to
-end without the confidential fixtures.
+"""Synthetic ΟΑΥ report files shaped like the REAL ones (per the diagnostics
+of F1049 Mar-2026): invoice-level SRA lines, «Έτος | Μήνας» labeled columns,
+Γέννες category, «per clinic» pivot sheet, dotted headers (HIO REIMB.),
+ISO claim dates from earlier months, capitation invoice rows.
 
-The default month mirrors the F1049 Mar-2026 acceptance numbers from the
-brief: cheque 1,936,528.19 / buckets 1,061,728.70 + 131,284.66 + 78,729.74
+The month mirrors the F1049 Mar-2026 acceptance numbers from the brief:
+cheque 1,936,528.19 / buckets 1,061,728.70 + 131,284.66 + 78,729.74
 + 664,785.09 / pharmacist fee 8,076 × 1.60 = 12,921.60.
 """
 from __future__ import annotations
@@ -20,59 +21,88 @@ def _wb_bytes(wb: Workbook) -> bytes:
     return buf.getvalue()
 
 
+def _anglo(v: float) -> str:
+    return f"{v:,.2f}"
+
+
 # ---------------------------------------------------------------- Ενδ. summary
 
-def inpatient_summary_xlsx(kanonika=500_000.00, kanonika_parap=61_728.70,
+def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
                            exeidikevmena=300_000.00, exeid_parap=100_000.00,
-                           z=100_000.00, hospital="F1049",
-                           hospital_name="ΓΝ ΑΜΜΟΧΩΣΤΟΥ", period="03/2026",
-                           synolo=None) -> bytes:
+                           gennes=25_000.00, z=100_000.00, hospital="F1049",
+                           hospital_name="ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)",
+                           year=2026, month=3, synolo=None,
+                           with_per_clinic=True) -> bytes:
     wb = Workbook()
     ws = wb.active
-    ws.title = "Ενδονοσοκομειακή"
-    ws.append(["Ενδονοσοκομειακές Πληρωμένες Απαιτήσεις"])
-    ws.append([f"Κωδικός ΓεΣΥ Παροχέα: {hospital}", hospital_name, f"Περίοδος: {period}"])
+    ws.title = "Sheet1"
+    # real layout: labeled columns, values in the row below
+    ws.append(["Κωδικός ΓεΣΥ Παροχέα", "Επωνυμία Παροχέα", "Έτος", "Μήνας"])
+    ws.append([hospital, hospital_name, year, month])
     ws.append([])
-    ws.append(["ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ"])
-    ws.append(["Κατηγορία", "Αριθμός Απαιτήσεων", "Συνολική αμοιβή"])
-    ws.append(["Κανονικά", 120, kanonika])
-    ws.append(["Κανονικά με παραπεμπτικό", 15, kanonika_parap])
-    ws.append(["Εξειδικευμένα", 60, exeidikevmena])
-    ws.append(["Εξειδικευμένα με παραπεμπτικό", 8, exeid_parap])
-    ws.append(["Κατάλογος Ζ", 30, z])
+    ws.append(["ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ *"])
+    ws.append(["Κατηγορία", "Συμφωνημένος αριθμός μονάδων για τον μήν",
+               "Συμφωνημένο Base Rate  (€)", "Πραγματικός αριθμός μονάδων",
+               "Αμοιβή νοσηλευτηρίου (€)", "Συνολική αμοιβή (€)"])
+    ws.append(["Κανονικά", 342.3012, 3469, 48.974, kanonika, kanonika])
+    ws.append(["Εξειδικευμένα", 11.0524, 4187, 8.718, exeidikevmena, exeidikevmena])
+    ws.append(["Γέννες", 0, 3400, 6.245, gennes, gennes])
+    ws.append(["Κανονικά με παραπεμπτικό από ΤΑΕΠ", 0, 3469, 149.027,
+               kanonika_parap, kanonika_parap])
+    ws.append(["Εξειδικευμένα με παραπεμπτικό", 0, 4187, 23.9, exeid_parap, exeid_parap])
+    ws.append(["Κατάλογος Ζ", None, None, None, z, z])
     total = synolo if synolo is not None else round(
-        kanonika + kanonika_parap + exeidikevmena + exeid_parap + z, 2)
-    ws.append(["Σύνολο", 233, total])
+        kanonika + kanonika_parap + exeidikevmena + exeid_parap + gennes + z, 2)
+    ws.append(["Σύνολο", None, None, None, total, total])
+
+    if with_per_clinic:
+        # real workbooks carry a «per clinic» pivot (headers duplicated twice)
+        pc = wb.create_sheet("per clinic")
+        pc.append(["Row Labels", "Sum of FIXED FEE", "Sum of INPATIENTS",
+                   "Sum of Grand Total", "Row Labels", "Sum of FIXED FEE",
+                   "Sum of INPATIENTS", "Sum of Grand Total"])
+        clinics = [("INTERNAL MEDICINE", 111_728.70, 250_000.00),
+                   ("GENERAL SURGERY", 150_000.00, 250_000.00),
+                   ("CARDIOLOGY", 100_000.00, 200_000.00)]
+        for name, ff, ip in clinics:
+            gt = round(ff + ip, 2)
+            pc.append([name, ff, ip, gt, name, ff, ip, gt])
+        pc.append(["Grand Total", 361_728.70, 700_000.00, 1_061_728.70])
     return _wb_bytes(wb)
 
 
 # --------------------------------------------------------------- claims «all»
 
 DEFAULT_SEGMENTS = {
-    "Inpatient": [("Παθολογική (Internal Medicine)", 450_000.00, 300_000.00, 150_000.00),
-                  ("Χειρουργική (Surgery)", 400_000.00, 250_000.00, 150_000.00),
-                  ("Παιδιατρική (Paediatrics)", 211_728.70, 150_000.00, 61_728.70)],
-    "A&E": [("", 131_284.66, 0, 0)],
-    "Outpatient Specialists": [("Καρδιολογία (Cardiology)", 25_000.00, 0, 0),
-                               ("Ορθοπεδική (Orthopaedics)", 15_000.00, 0, 0)],
-    "Nurses-Midwives": [("", 20_000.00, 0, 0)],
-    "Allied Health": [("", 5_000.00, 0, 0)],
+    "Inpatient": 1_061_728.70,
+    "A&E": 131_284.66,
+    "Outpatient Specialists": 40_000.00,
+    "Nurses-Midwives": 20_000.00,
+    "Allied Health": 5_000.00,
 }
 
 
-def claims_all_xlsx(segments=None, hospital="F1049", date="15/03/2026") -> bytes:
-    """The file ΟΑΥ often names '..._OS_...' — identified by DR SEGMENT content."""
+def claims_all_xlsx(segments=None, cheque="259434") -> bytes:
+    """Real shape: dotted headers, ISO claim dates from EARLIER months (old
+    claims paid in this cheque), PAYMENT NO. = the cheque, DR SEGMENT in the
+    trailing columns, NO clinic/specialty columns, NO F-code anywhere."""
     segments = segments if segments is not None else DEFAULT_SEGMENTS
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
-    ws.append(["CLAIM ID", "PROVIDER ID", "DR SEGMENT", "CLINIC", "SPECIALTY",
-               "FIXED FEE AMOUNT", "DRG AMOUNT", "HIO REIMB", "PAYMENT DATE"])
-    cid = 1000
-    for seg, rows in segments.items():
-        for clinic, amount, ff, drg in rows:
-            ws.append([f"C{cid}", hospital, seg, clinic or None, clinic or None,
-                       ff or None, drg or None, amount, date])
+    ws.append(["CLAIM ID", "STATUS", "BENEFICIARY NAME", "BENEFICIARY ID",
+               "INVOICE DATE", "SUBM. DATE", "VISIT ID", "PAYMENT NO.",
+               "CO-PAYMENT", "PERS. CONTR. I", "HIO REIMB.", "TOTAL AMT",
+               "DR SEGMENT"])
+    cid = 121_989_416
+    dates = ["2026-01-25", "2026-02-09", "2024-03-04"]
+    for seg, amount in segments.items():
+        parts = [round(amount * 0.6, 2)]
+        parts.append(round(amount - parts[0], 2))
+        for k, part in enumerate(parts):
+            ws.append([cid, "Paid", "SYNTHETIC BENEFICIARY", "NID 0000000000",
+                       dates[k % len(dates)], "2026-03-02", 73_858_185 + cid % 999,
+                       cheque, 0, 0, part, part, seg])
             cid += 1
     return _wb_bytes(wb)
 
@@ -80,62 +110,91 @@ def claims_all_xlsx(segments=None, hospital="F1049", date="15/03/2026") -> bytes
 # --------------------------------------------------------------- pharma claims
 
 def pharma_claims_xlsx(drugs=600_000.00, consumables=51_863.49,
-                       hospital="F1049", date="15/03/2026") -> bytes:
+                       cheque="259434") -> bytes:
     wb = Workbook()
     ws = wb.active
-    ws.append(["INVOICE", "PROVIDER ID", "TYPE", "HIO REIMB", "PAYMENT DATE"])
-    ws.append(["PH-1", hospital, "Drugs", round(drugs * 0.6, 2), date])
-    ws.append(["PH-2", hospital, "Drugs", round(drugs - round(drugs * 0.6, 2), 2), date])
-    ws.append(["PH-3", hospital, "Consumables", consumables, date])
+    ws.append(["DISPENS. ID", "PRESCRIPTION ID", "STATUS", "TYPE", "CLAIM DATE",
+               "PRESCRIBING DOCTOR NAME", "EXECUTED BY", "CO-PAYMENT", "PC II",
+               "HIO REIMB.", "TOTAL AMT"])
+    ws.append([77_356_519, 48_576_587, "Paid", "Drugs", "2024-03-04",
+               "SYNTH DOCTOR", "SYNTH PHARMACIST", 1, 0, round(drugs * 0.6, 2),
+               round(drugs * 0.6, 2) + 1])
+    ws.append([123_362_618, 69_276_579, "Paid", "Drugs", "2026-02-23",
+               "SYNTH DOCTOR", "SYNTH PHARMACIST", 1, 0,
+               round(drugs - round(drugs * 0.6, 2), 2), 0])
+    ws.append([123_426_107, 74_313_353, "Paid", "Consumables", "2026-02-23",
+               "SYNTH DOCTOR", "SYNTH PHARMACIST", 1, 0, consumables, 0])
     return _wb_bytes(wb)
 
 
 # ----------------------------------------------------------------- PDFs (text)
 
-def sra_text(cheque="259434", hospital="F1049",
-             hospital_name="ΓΝ ΑΜΜΟΧΩΣΤΟΥ") -> str:
-    # The SRA is ALWAYS dated one month after the month it settles (ΟΑΥ pays
-    # in arrears): document date 04/2026 -> service month 03/2026.
-    return f"""ΟΡΓΑΝΙΣΜΟΣ ΑΣΦΑΛΙΣΗΣ ΥΓΕΙΑΣ
-ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ (Remittance Advice)
-Ημερομηνία Πληρωμής: 15/04/2026
-Παροχέας: {hospital} {hospital_name}
-Αρ. Επιταγής: {cheque}
-
-IS Ενδονοσοκομειακή Περίθαλψη 1.061.728,70
-AE Ατυχήματα και Επείγοντα Περιστατικά 131.284,66
-OS Ειδικοί Ιατροί Εξωνοσοκομειακή Φροντίδα 40.000,00
-NM Νοσηλευτές και Μαίες 20.000,00
-AP Άλλοι Επαγγελματίες Υγείας 5.000,00
-PD Προσωπικοί Ιατροί κατά κεφαλήν (capitation) 13.729,74
-PHD Φάρμακα 600.000,00
-PHC Αναλώσιμα 51.863,49
-PHF Αμοιβή Φαρμακοποιού 12.921,60
-ΣΥΝΟΛΟ 1.936.528,19
-"""
+def sra_text(cheque="259434", hospital="F1049") -> str:
+    """Real SRA format: header block with Payment Date (one month AFTER the
+    service month), then invoice-level lines
+    «date invoice-no description invoice-total EUR amount-paid»."""
+    lines = [
+        "ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ",
+        "REMITTANCE ADVICE",
+        "Klimentos 17 & 19, 4th floor",
+        "1061 Nicosia",
+        "tel: 22557200",
+        f"STATE HEALTH SERVICES ORGANIZATION INCOME- PAR-{hospital} Payment Date: 20/04/2026",
+        "Προδρόμου 1 Payment Currency: EUR",
+        f"Strovolos 2063 Payment/Cheque No: {cheque}",
+        "Cyprus Supplier No: 1491",
+        "Total paid in this batch: 1,936,528.19",
+        "Page No: 1 of 2",
+        "Ημερομηνία Αρ . Τιμολογίου Περιγραφή Ποσό Τιμολογίου Νόμισμα Ποσό πληρωμής",
+        "Invoice Date Invoice No. Description Invoice Total Currency Amount Paid",
+    ]
+    invoices = [
+        ("01/03/2026", 5_636_100, "IS - HCP SERVICES", 530_864.35),
+        ("15/03/2026", 5_636_101, "IS - HCP SERVICES", 530_864.35),
+        ("01/03/2026", 5_636_247, "AE - HCP SERVICES", 65_642.33),
+        ("02/03/2026", 5_640_316, "AE - HCP SERVICES", 65_642.33),
+        ("03/03/2026", 5_644_001, "OS - HCP SERVICES", 40_000.00),
+        ("04/03/2026", 5_644_002, "NM - HCP SERVICES", 20_000.00),
+        ("05/03/2026", 5_644_003, "AP - HCP SERVICES", 5_000.00),
+        ("31/03/2026", 5_729_128, "PD - CAPITATION", 13_729.74),
+        ("07/03/2026", 5_644_005, "PHD - PHARMACY DRUGS", 600_000.00),
+        ("08/03/2026", 5_644_006, "PHC - PHARMACY CONSUMABLES", 51_863.49),
+        ("30/03/2026", 5_730_058, "PHF - ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ", 12_921.60),
+    ]
+    for date, inv, desc, amt in invoices:
+        lines.append(f"{date} {inv} {desc} {_anglo(amt)} EUR {_anglo(amt)}")
+    lines.append("Total paid in this batch: 1,936,528.19")
+    lines.append("Page No: 2 of 2")
+    return "\n".join(lines)
 
 
 def pharmacist_fee_text(packages=8076, hospital="F1049") -> str:
-    amount = f"{packages * 1.60:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    pkg = f"{packages:,}".replace(",", ".")
-    return f"""ΟΡΓΑΝΙΣΜΟΣ ΑΣΦΑΛΙΣΗΣ ΥΓΕΙΑΣ
-Αμοιβή Φαρμακοποιού
-Κωδικός Παροχέα: {hospital}
-Μήνας: ΜΑΡΤΙΟΣ Έτος: 2026
-
-Αρ. Τιμολογίου Συσκευασίες Τιμή Μονάδας Ποσό
-INV-77812 {pkg} 1,60 {amount}
-ΣΥΝΟΛΟ {amount}
+    amount = _anglo(packages * 1.60)
+    return f"""Αμοιβή Φαρμακοποιού
+Μήνας: 3
+Έτος: 2026
+Κωδικός Παροχέα Χρέωσης: {hospital}
+ID Τιμολογίου Τύπος Πληρωμένο Ημερομηνία Παροχέας Υγείας Τιμή Μονάδας Συσκευασίες που Αμοιβή από ΟΑΥ
+EBS Τιμολογίου Τιμολογίου εκτελέστηκαν
+5730058 STANDARD No 30/03/2026 {hospital} ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ 1.60 € {packages} {amount} €
+ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)
+Σελίδα 1
 """
 
 
 def capitation_text(total=13_729.74, hospital="F1049") -> str:
-    amt = f"{total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"""Capitation Report — Κατά κεφαλήν αμοιβή
-Παροχέας: {hospital}
-Περίοδος: ΜΑΡΤΙΟΣ 2026
-Προσωπικοί Ιατροί κατά κεφαλήν {amt}
-ΣΥΝΟΛΟ {amt}
+    return f"""Κατά κεφαλήν αμοιβή
+Μήνας: 3
+Έτος: 2026
+Κωδικός Παροχέα Χρέωσης: {hospital}
+ID Τιμολογίου Αμοιβή από
+Παροχέας Υγείας Τύπος Τιμολογίου Ημερομηνία Τιμολογίου
+EBS ΟΑΥ
+5729128 {hospital} ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ STANDARD 31/03/2026 {_anglo(total)} €
+ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)
+D1681 ΜΥΡΟΦΟΡΑ ΙΩΑΝΝΟΥ / Ηλικίες Σχόλια Ημερήσια Κατά Αριθμός Συνολικός 3,255.40 €
+0 - 3 years - 0.508 41 1238 628.58 €
+4 - 7 years - 0.375 75 2309 865.50 €
 """
 
 
@@ -167,21 +226,24 @@ def gl_xlsx(rows=None, sheet_name="ALL OKYPY 03.26") -> bytes:
 
 
 def is_auditor_xlsx(rows=None) -> bytes:
-    """(provider, drg_id, drg_ff_amount, procedures_amount, invoice_category)."""
+    """(provider, drg_id, drg_ff_amount, procedures_amount, invoice_category).
+    Invoice dates span YEARS (old claims paid now) like the real report."""
+    famagusta = "ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)"
     if rows is None:
         rows = [
-            ("ΓΝ ΑΜΜΟΧΩΣΤΟΥ", "DRG001", 500_000.00, 30_000.00, "Κανονικά"),
-            ("ΓΝ ΑΜΜΟΧΩΣΤΟΥ", "DRG002", 400_000.00, 51_728.70, "Εξειδικευμένα"),
-            ("ΓΝ ΑΜΜΟΧΩΣΤΟΥ", None, None, 50_000.00, "Κανονικά"),      # standalone ZD/ZF/ZC
-            ("ΓΝ ΑΜΜΟΧΩΣΤΟΥ", "", None, 30_000.00, "Κανονικά"),        # blank DRG Id
-            ("ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ", "DRG003", 8_888_888.88, 0, "Κανονικά"),
+            (famagusta, "DRG001", 500_000.00, 30_000.00, "Normal", "31/08/2023"),
+            (famagusta, "DRG002", 400_000.00, 51_728.70, "Specialised", "14/10/2024"),
+            (famagusta, None, None, 50_000.00, "Normal", "07/02/2026"),
+            (famagusta, "", None, 30_000.00, "Normal", "30/04/2025"),
+            ("ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ (ΟΚΥπΥ)", "DRG003", 8_888_888.88, 0,
+             "Normal", "31/08/2025"),
         ]
     wb = Workbook()
     ws = wb.active
-    ws.append(["Billing Provider Name", "DRG Id", "DRG/FF Total Amount",
-               "Procedures Total Amount", "Invoice Category", "Admission Date"])
-    for r in rows:
-        ws.append(list(r) + ["15/03/2026"])
+    ws.append(["Case Nbr", "Billing Provider Name", "DRG Id", "DRG/FF Total Amount",
+               "Procedures Total Amount", "Invoice Category", "Invoice Date"])
+    for i, r in enumerate(rows):
+        ws.append([19_825_630 + i] + list(r))
     return _wb_bytes(wb)
 
 

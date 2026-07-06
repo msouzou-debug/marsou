@@ -25,25 +25,30 @@ function colIndex(cols, ...needles) {
 
 /* ------------------------------------------------- inpatient summary */
 
-const SUMMARY_LABELS = [
-  ['kanonikaParap', ['ΚΑΝΟΝΙΚ', 'ΠΑΡΑΠΕΜΠΤΙΚ'], []],
-  ['exeidParap', ['ΕΞΕΙΔΙΚ', 'ΠΑΡΑΠΕΜΠΤΙΚ'], []],
-  ['kanonika', ['ΚΑΝΟΝΙΚ'], ['ΠΑΡΑΠΕΜΠΤΙΚ']],
-  ['exeidikevmena', ['ΕΞΕΙΔΙΚ'], ['ΠΑΡΑΠΕΜΠΤΙΚ']],
-  ['zCatalogue', ['Z'], ['ΣΥΝΟΛ']],
-  ['synolo', ['ΣΥΝΟΛ'], []],
-];
+function classifyCategory(label) {
+  /* label is accent-stripped + Greek Ζ->Z.  null = unknown category, kept in
+   * .other so the Σύνολο assert still holds when ΟΑΥ adds new lines. */
+  if (label.includes('ΣΥΝΟΛ')) return 'synolo';
+  const parap = label.includes('ΠΑΡΑΠΕΜΠΤΙΚ');
+  if (label.includes('ΚΑΝΟΝΙΚ')) return parap ? 'kanonikaParap' : 'kanonika';
+  if (label.includes('ΕΞΕΙΔΙΚ')) return parap ? 'exeidParap' : 'exeidikevmena';
+  if (label.includes('ΓΕΝΝ')) return 'gennes';   // Γέννες (births)
+  if (label.includes('ΚΑΤΑΛΟΓ') || /(?:^|[\s-])Z(?:$|[\s-])/.test(label)) return 'zCatalogue';
+  return null;
+}
 
 function summaryDerived(s) {
+  const otherSum = Object.values(s.other).reduce((a, b) => a + b, 0);
   s.regular = round2(s.kanonika + s.kanonikaParap);
   s.specialized = round2(s.exeidikevmena + s.exeidParap);
   s.computedTotal = round2(s.kanonika + s.kanonikaParap + s.exeidikevmena
-    + s.exeidParap + s.zCatalogue);
+    + s.exeidParap + s.gennes + s.zCatalogue + otherSum);
   return s;
 }
 
 function extractInpatientSummary(bytes) {
-  for (const { rows } of loadSheets(bytes)) {
+  const sheets = loadSheets(bytes);
+  for (const { rows } of sheets) {
     const anchor = findHeaderRow(rows, ['ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ'], 60);
     if (anchor === null) continue;
     let amountCol = null;
@@ -56,43 +61,73 @@ function extractInpatientSummary(bytes) {
       if (amountCol !== null) break;
     }
     const out = { kanonika: 0, kanonikaParap: 0, exeidikevmena: 0, exeidParap: 0,
-                  zCatalogue: 0, synolo: 0 };
-    const seen = new Set();
-    for (let i = anchor + 1; i < Math.min(anchor + 25, rows.length); i++) {
+                  gennes: 0, zCatalogue: 0, other: {}, synolo: 0, byClinic: [] };
+    for (let i = anchor + 1; i < Math.min(anchor + 30, rows.length); i++) {
       const row = rows[i];
-      let label = '';
+      let label = '', rawLabel = '';
       for (const v of row) {
         if (v != null && cellText(v) !== 'nan' && !isNumberLike(v)) {
+          rawLabel = cellText(v).trim();
           // Greek capital zeta looks like Latin Z — accept either alphabet
-          label = stripAccents(cellText(v)).split('Ζ').join('Z');
+          label = stripAccents(rawLabel).split('Ζ').join('Z');
           break;
         }
       }
       if (!label) continue;
-      for (const [attr, must, mustNot] of SUMMARY_LABELS) {
-        if (seen.has(attr)) continue;
-        if (must.every((m) => label.includes(m)) && !mustNot.some((m) => label.includes(m))) {
-          let val;
-          if (amountCol !== null && isNumberLike(row[amountCol])) val = parseAmount(row[amountCol]);
-          else {
-            const nums = row.filter(isNumberLike).map(parseAmount);
-            val = nums.length ? nums[nums.length - 1] : 0;
-          }
-          out[attr] = val;
-          seen.add(attr);
-          break;
-        }
+      let val;
+      if (amountCol !== null && isNumberLike(row[amountCol])) val = parseAmount(row[amountCol]);
+      else {
+        const nums = row.filter(isNumberLike).map(parseAmount);
+        if (!nums.length) continue;   // header row of the block, no amounts
+        val = nums[nums.length - 1];
       }
-      if (seen.has('synolo')) break;
+      const cls = classifyCategory(label);
+      if (cls === 'synolo') { out.synolo = val; break; }
+      if (cls) out[cls] = round2(out[cls] + val);
+      else out.other[rawLabel] = round2((out.other[rawLabel] || 0) + val);
     }
     summaryDerived(out);
     if (Math.abs(out.synolo - out.computedTotal) > 0.005) {
       throw new ExtractionError('Ενδ. summary: το Σύνολο δεν ισούται με το άθροισμα των γραμμών '
         + `(Σύνολο ${formatEur(out.synolo)} vs άθροισμα ${formatEur(out.computedTotal)})`);
     }
+    out.byClinic = perClinicDetailSheet(sheets);
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
+}
+
+function perClinicDetailSheet(sheets) {
+  /* Real Ενδ. workbooks carry a «per clinic» pivot: Row Labels | Sum of
+   * FIXED FEE | Sum of INPATIENTS | Sum of Grand Total. */
+  for (const { rows } of sheets) {
+    const hr = findHeaderRow(rows, ['ROW LABELS', 'FIXED FEE', 'GRAND TOTAL']);
+    if (hr === null) continue;
+    const hdr = rows[hr].map((v) => (v == null ? '' : normLabel(cellText(v))));
+    const first = (needle) => {
+      for (let j = 0; j < hdr.length; j++) if (hdr[j].includes(needle)) return j;
+      return null;
+    };
+    const lab = first('ROW LABELS');
+    const ff = first('FIXED FEE'), ip = first('INPATIENTS'), gt = first('GRAND TOTAL');
+    const out = [];
+    for (let i = hr + 1; i < rows.length; i++) {
+      const v = rows[i][lab];
+      if (v == null || cellText(v) === 'nan') continue;
+      const clinic = cellText(v).trim();
+      const nl = normLabel(clinic);
+      if (nl.includes('GRAND TOTAL') || nl.includes('ΣΥΝΟΛ')) continue;
+      const ffv = ff != null ? parseAmount(rows[i][ff]) : 0;
+      const ipv = ip != null ? parseAmount(rows[i][ip]) : 0;
+      const gtv = gt != null ? parseAmount(rows[i][gt]) : 0;
+      const total = gtv || round2(ffv + ipv);
+      if (!total && !ffv && !ipv) continue;
+      out.push({ clinic, fixedFee: round2(ffv), drg: round2(ipv), total: round2(total) });
+    }
+    out.sort((a, b) => b.total - a.total);
+    return out;
+  }
+  return [];
 }
 
 /* ------------------------------------------------------- claims «all» */
@@ -323,9 +358,18 @@ const KEYWORD_CODES = [
   [['OUTPATIENT SPECIALIST'], 'OS'],
 ];
 
+/* Invoice descriptions on real SRAs start with the stream code, e.g.
+ * «AE - HCP SERVICES».  Longer alternatives first; IP is an alias of IS. */
+const CODE_TOKEN_RE = /\b(A&E|PHD|PHC|PHF|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b/;
+const CODE_ALIASES = { IP: 'IS' };
+
 function classifySraLine(code, description) {
   const upDesc = stripAccents(description);
   code = (code || '').trim().toUpperCase();
+  if (!(code in SRA_CODE_MAP)) {
+    const m = CODE_TOKEN_RE.exec(upDesc);
+    if (m) code = CODE_ALIASES[m[1]] || m[1];
+  }
   if (code in SRA_CODE_MAP) {
     if (code === 'PD' && (upDesc.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ') || upDesc.includes('CAPITATION'))) code = 'PD-CAP';
     else if (code === 'PD' && (upDesc.includes('KPI') || upDesc.includes('ΠΟΙΟΤΙΚ'))) code = 'PD-KPI';
@@ -343,6 +387,8 @@ function classifySraLine(code, description) {
 
 const CHEQUE_RE = /(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)\s*[:.]?\s*#?(\d{4,})/i;
 const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*€?\s*$/;
+/* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
+const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*$/;
 
 function parseSraText(text) {
   let cheque = '';
@@ -355,6 +401,16 @@ function parseSraText(text) {
     const line = raw.replace(/\s+$/, '');
     if (!line.trim()) continue;
     const up = stripAccents(line);
+    // invoice-level line (the real SRA format) takes priority
+    const inv = line.match(INVOICE_LINE_RE);
+    if (inv) {
+      const desc = inv[3].trim();
+      const amount = parseAmount(inv[6]);   // Amount Paid column
+      const [canon, bucket, channel, src] = classifySraLine('', desc);
+      lines.push({ code: canon, description: `${desc} (${inv[1]} #${inv[2]})`,
+                   amount, bucket, channel, sourceReport: src });
+      continue;
+    }
     const m = line.match(SRA_LINE_RE);
     if (!m) continue;
     const amount = parseAmount(m[3]);
@@ -416,8 +472,27 @@ function extractGl(bytes, hospitalCode) {
 
 /* ------------------------------------------------------------ IS Auditor */
 
+/* Provider-name matching for org-wide detail: real names are long forms like
+ * «ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)» — match distinctive tokens;
+ * Nicosia explicitly excludes Makarios. */
+const HOSPITAL_NAME_TOKENS = {
+  F1054: [['ΛΕΥΚΩΣΙΑΣ'], ['ΜΑΚΑΡΕΙΟ']],
+  F1050: [['ΜΑΚΑΡΕΙΟ'], []],
+  F1047: [['ΛΕΜΕΣ'], []],
+  F1048: [['ΛΑΡΝΑΚ'], []],
+  F1049: [['ΑΜΜΟΧΩΣΤ'], []],
+  F1025: [['ΠΑΦΟ'], []],
+  F1055: [['ΚΥΠΕΡΟΥΝΤ'], []],
+  F1026: [['ΧΡΥΣΟΧΟΥΣ'], []],
+};
+
+function hospitalNameMatches(code, name) {
+  const up = stripAccents(name);
+  const [anyTokens, notTokens] = HOSPITAL_NAME_TOKENS[code];
+  return anyTokens.some((t) => up.includes(t)) && !notTokens.some((t) => up.includes(t));
+}
+
 function extractIsAuditor(bytes, hospitalCode) {
-  const greekName = stripAccents(HOSPITALS[hospitalCode][0]);
   for (const { rows } of loadSheets(bytes)) {
     const hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
     if (hr === null) continue;
@@ -427,9 +502,8 @@ function extractIsAuditor(bytes, hospitalCode) {
     const drgFf = colIndex(cols, 'DRG/FF TOTAL AMOUNT');
     const proc = colIndex(cols, 'PROCEDURES TOTAL AMOUNT');
     const cat = colIndex(cols, 'INVOICE CATEGORY');
-    // filter to the hospital by FULL provider name (accent-insensitive)
     const t = body.filter((r) => r[prov] != null
-      && stripAccents(cellText(r[prov])).trim() === greekName);
+      && hospitalNameMatches(hospitalCode, cellText(r[prov])));
     // DRG flag: present FIRST, then trimmed != '' and lower != 'nan'
     const isDrg = (v) => {
       if (v == null) return false;
@@ -498,6 +572,19 @@ function extractSimpleReport(bytes, rawText) {
 }
 
 function simpleFromText(text) {
+  // invoice-level rows first (real capitation reports: «5729128 F1049 ...
+  // STANDARD 31/03/2026 5,174.80 €» followed by per-doctor / per-age detail
+  // that must NOT be double-counted)
+  const invoiceRows = [];
+  for (const raw of String(text).split('\n')) {
+    if (/\b\d{6,}\b/.test(raw) && stripAccents(raw).includes('STANDARD')) {
+      const amts = findAmounts(raw);
+      if (amts.length) invoiceRows.push([raw.trim().slice(0, 60), amts[amts.length - 1]]);
+    }
+  }
+  if (invoiceRows.length) {
+    return { total: round2(invoiceRows.reduce((a, [, v]) => a + v, 0)), lines: invoiceRows };
+  }
   const lines = [];
   let total = null;
   for (const raw of String(text).split('\n')) {

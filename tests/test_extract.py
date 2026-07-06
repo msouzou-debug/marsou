@@ -12,12 +12,22 @@ import synth
 
 def test_inpatient_summary_categories_and_total():
     s = extract_inpatient_summary(synth.inpatient_summary_xlsx())
-    assert s.kanonika == 500_000.00
-    assert s.kanonika_parap == 61_728.70
-    assert s.regular == 561_728.70          # Κανονικά + με παραπεμπτικό
+    assert s.kanonika == 475_000.00
+    assert s.kanonika_parap == 61_728.70    # «Κανονικά με παραπεμπτικό από ΤΑΕΠ»
+    assert s.gennes == 25_000.00            # Γέννες — real months have it
+    assert s.regular == 536_728.70          # Κανονικά + με παραπεμπτικό
     assert s.specialized == 400_000.00      # Εξειδικευμένα + με παραπεμπτικό
-    assert s.z_catalogue == 100_000.00
+    assert s.z_catalogue == 100_000.00      # «Κατάλογος Ζ» (Greek zeta)
     assert s.synolo == 1_061_728.70
+
+
+def test_inpatient_summary_per_clinic_sheet():
+    s = extract_inpatient_summary(synth.inpatient_summary_xlsx())
+    assert len(s.by_clinic) == 3            # Grand Total row excluded
+    assert round(sum(r.total for r in s.by_clinic), 2) == 1_061_728.70
+    top = s.by_clinic[0]
+    assert top.clinic == "GENERAL SURGERY"
+    assert top.fixed_fee == 150_000.00 and top.drg == 250_000.00
 
 
 def test_inpatient_summary_total_assert_fires():
@@ -26,7 +36,9 @@ def test_inpatient_summary_total_assert_fires():
         extract_inpatient_summary(bad)
 
 
-def test_claims_all_by_segment_and_clinic_detail():
+def test_claims_all_by_segment():
+    # real file: dotted headers (HIO REIMB.), ISO dates from older months,
+    # no clinic/specialty columns, no F-code
     c = extract_claims_all(synth.claims_all_xlsx())
     assert c.by_segment["Inpatient"] == 1_061_728.70
     assert c.by_segment["A&E"] == 131_284.66
@@ -34,12 +46,7 @@ def test_claims_all_by_segment_and_clinic_detail():
     assert c.by_segment["Nurses-Midwives"] == 20_000.00
     assert c.by_segment["Allied Health"] == 5_000.00
     assert c.total == 1_258_013.36
-    clinics = {r.clinic: r for r in c.inpatient_by_clinic}
-    row = clinics["Παθολογική (Internal Medicine)"]
-    assert row.total == 450_000.00
-    assert row.fixed_fee == 300_000.00
-    assert row.drg == 150_000.00
-    assert c.os_by_specialty["Καρδιολογία (Cardiology)"] == 25_000.00
+    assert c.inpatient_by_clinic == []      # detail comes from the Ενδ. workbook
 
 
 def test_pharma_claims_by_type():
@@ -57,19 +64,30 @@ def test_pharmacist_fee_packages_times_160():
     assert fee.computed == 12_921.60
 
 
-def test_sra_parse_lines_cheque_and_total():
+def test_sra_parse_invoice_level_lines():
+    # real SRA: invoice-level lines «date inv-no desc total EUR paid»
     sra = parse_sra_text(synth.sra_text())
     assert sra.cheque_no == "259434"
     assert sra.stated_total == 1_936_528.19
+    assert len(sra.lines) == 11
     assert sra.lines_total == 1_936_528.19
-    assert sra.hospital_code == "F1049"
-    assert (sra.year, sra.month) == (2026, 3)
-    by_code = {l.code: l for l in sra.lines}
-    assert by_code["IS"].amount == 1_061_728.70
-    assert by_code["IS"].bucket == Bucket.INPATIENT
-    assert by_code["AE"].bucket == Bucket.AE
-    assert by_code["PD-CAP"].amount == 13_729.74   # PD + κατά κεφαλήν → capitation
-    assert by_code["PHF"].bucket == Bucket.PHARMA
+    assert sra.hospital_code == "F1049"            # from PAR-F1049
+    assert (sra.year, sra.month) == (2026, 3)      # Payment Date 20/04 − 1
+    sums = {}
+    for l in sra.lines:
+        sums[l.code] = round(sums.get(l.code, 0) + l.amount, 2)
+    assert sums["IS"] == 1_061_728.70              # two IS invoices
+    assert sums["AE"] == 131_284.66
+    assert sums["PD-CAP"] == 13_729.74             # PD - CAPITATION
+    assert sums["PHF"] == 12_921.60
+    buckets = {}
+    for l in sra.lines:
+        buckets[l.bucket] = round(buckets.get(l.bucket, 0) + l.amount, 2)
+    assert buckets[Bucket.INPATIENT] == 1_061_728.70
+    assert buckets[Bucket.AE] == 131_284.66
+    assert buckets[Bucket.OUTPATIENT] == 78_729.74
+    assert buckets[Bucket.PHARMA] == 664_785.09
+    assert not any(l.channel == "Unmapped" for l in sra.lines)
 
 
 def test_classify_sra_line_keywords_without_codes():

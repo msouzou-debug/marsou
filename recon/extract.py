@@ -71,15 +71,21 @@ def _col(df: pd.DataFrame, *needles: str) -> Optional[str]:
 
 # ------------------------------------------------- 2. inpatient summary
 
-_SUMMARY_LABELS = [
-    # (attr, must-contain, must-NOT-contain) — accent-stripped; specific first
-    ("kanonika_parap", ["ΚΑΝΟΝΙΚ", "ΠΑΡΑΠΕΜΠΤΙΚ"], []),
-    ("exeid_parap", ["ΕΞΕΙΔΙΚ", "ΠΑΡΑΠΕΜΠΤΙΚ"], []),
-    ("kanonika", ["ΚΑΝΟΝΙΚ"], ["ΠΑΡΑΠΕΜΠΤΙΚ"]),
-    ("exeidikevmena", ["ΕΞΕΙΔΙΚ"], ["ΠΑΡΑΠΕΜΠΤΙΚ"]),
-    ("z_catalogue", ["Z"], ["ΣΥΝΟΛ"]),
-    ("synolo", ["ΣΥΝΟΛ"], []),
-]
+def _classify_category(label: str) -> Optional[str]:
+    """label is accent-stripped + Greek Ζ->Z.  None = unknown category (kept
+    in .other so the Σύνολο assert still holds when ΟΑΥ adds new lines)."""
+    if "ΣΥΝΟΛ" in label:
+        return "synolo"
+    parap = "ΠΑΡΑΠΕΜΠΤΙΚ" in label
+    if "ΚΑΝΟΝΙΚ" in label:
+        return "kanonika_parap" if parap else "kanonika"
+    if "ΕΞΕΙΔΙΚ" in label:
+        return "exeid_parap" if parap else "exeidikevmena"
+    if "ΓΕΝΝ" in label:                       # Γέννες (births)
+        return "gennes"
+    if "ΚΑΤΑΛΟΓ" in label or re.search(r"(?:^|[\s\-])Z(?:$|[\s\-])", label):
+        return "z_catalogue"
+    return None
 
 
 def extract_inpatient_summary(data: bytes) -> InpatientSummary:
@@ -99,38 +105,80 @@ def extract_inpatient_summary(data: bytes) -> InpatientSummary:
             if amount_col is not None:
                 break
         out = InpatientSummary()
-        seen = set()
-        for i in range(anchor + 1, min(anchor + 25, len(df))):
+        for i in range(anchor + 1, min(anchor + 30, len(df))):
             row = df.iloc[i]
             label = ""
+            raw_label = ""
             for v in row:
                 if v is not None and str(v) != "nan" and not _is_number(v):
-                    # Greek capital zeta looks like Latin Z — normalize so the
-                    # Z-catalogue label matches either alphabet
-                    label = strip_accents(str(v)).replace("Ζ", "Z")
+                    raw_label = str(v).strip()
+                    # Greek capital zeta looks like Latin Z — accept either
+                    label = strip_accents(raw_label).replace("Ζ", "Z")
                     break
             if not label:
                 continue
-            for attr, must, must_not in _SUMMARY_LABELS:
-                if attr in seen:
-                    continue
-                if all(m in label for m in must) and not any(m in label for m in must_not):
-                    if amount_col is not None and _is_number(row.iloc[amount_col]):
-                        val = parse_amount(row.iloc[amount_col])
-                    else:
-                        nums = [parse_amount(v) for v in row if _is_number(v)]
-                        val = nums[-1] if nums else 0.0
-                    setattr(out, attr, val)
-                    seen.add(attr)
-                    break
-            if "synolo" in seen:
+            if amount_col is not None and _is_number(row.iloc[amount_col]):
+                val = parse_amount(row.iloc[amount_col])
+            else:
+                nums = [parse_amount(v) for v in row if _is_number(v)]
+                if not nums:
+                    continue  # header row of the block, no amounts
+                val = nums[-1]
+            cls = _classify_category(label)
+            if cls == "synolo":
+                out.synolo = val
                 break
+            if cls:
+                setattr(out, cls, round(getattr(out, cls) + val, 2))
+            else:
+                out.other[raw_label] = round(out.other.get(raw_label, 0.0) + val, 2)
         if abs(out.synolo - out.computed_total) > 0.005:
             raise ExtractionError(
                 "Ενδ. summary: το Σύνολο δεν ισούται με το άθροισμα των γραμμών "
                 f"(Σύνολο {out.synolo:,.2f} vs άθροισμα {out.computed_total:,.2f})")
+        out.by_clinic = _per_clinic_detail_sheet(sheets)
         return out
     raise ExtractionError("Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary")
+
+
+def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
+    """Real Ενδ. workbooks carry a «per clinic» pivot: Row Labels | Sum of
+    FIXED FEE | Sum of INPATIENTS | Sum of Grand Total — the per-clinic
+    detail the By_Clinic_Split tab needs."""
+    for _, df in sheets.items():
+        hr = _find_header(df, ["ROW LABELS", "FIXED FEE", "GRAND TOTAL"])
+        if hr is None:
+            continue
+        hdr = [norm_label(str(v)) if v is not None else "" for v in df.iloc[hr]]
+
+        def first(needle: str) -> Optional[int]:
+            for j, h in enumerate(hdr):
+                if needle in h:
+                    return j
+            return None
+
+        lab = first("ROW LABELS")
+        ff, ip, gt = first("FIXED FEE"), first("INPATIENTS"), first("GRAND TOTAL")
+        rows: list[ClinicRow] = []
+        for i in range(hr + 1, len(df)):
+            v = df.iloc[i, lab]
+            if v is None or str(v) == "nan":
+                continue
+            clinic = str(v).strip()
+            nl = norm_label(clinic)
+            if "GRAND TOTAL" in nl or "ΣΥΝΟΛ" in nl:
+                continue
+            ffv = parse_amount(df.iloc[i, ff]) if ff is not None else 0.0
+            ipv = parse_amount(df.iloc[i, ip]) if ip is not None else 0.0
+            gtv = parse_amount(df.iloc[i, gt]) if gt is not None else 0.0
+            total = gtv if gtv else round(ffv + ipv, 2)
+            if total == 0 and ffv == 0 and ipv == 0:
+                continue
+            rows.append(ClinicRow(clinic=clinic, fixed_fee=round(ffv, 2),
+                                  drg=round(ipv, 2), total=round(total, 2)))
+        rows.sort(key=lambda r: -r.total)
+        return rows
+    return []
 
 
 def _is_number(v) -> bool:
@@ -376,10 +424,22 @@ _KEYWORD_CODES = [
 ]
 
 
+# Invoice descriptions on real SRAs start with the stream code, e.g.
+# «AE - HCP SERVICES».  Longer alternatives first; IP is an alias of IS.
+_CODE_TOKEN_RE = re.compile(r"\b(A&E|PHD|PHC|PHF|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b")
+_CODE_ALIASES = {"IP": "IS"}
+
+
 def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, str]:
     """(canonical code, bucket, channel, source report) for an SRA line."""
     up_desc = strip_accents(description)
     code = (code or "").strip().upper()
+    if code not in SRA_CODE_MAP:
+        # real SRA lines are invoice-level: the stream code sits inside the
+        # description («AE - HCP SERVICES») — take the first code token
+        m = _CODE_TOKEN_RE.search(up_desc)
+        if m:
+            code = _CODE_ALIASES.get(m.group(1), m.group(1))
     if code in SRA_CODE_MAP:
         # refine PD: capitation vs FFS by description
         if code == "PD" and ("ΚΑΤΑ ΚΕΦΑΛΗΝ" in up_desc or "CAPITATION" in up_desc):
@@ -403,6 +463,14 @@ _CHEQUE_RE = re.compile(
 _LINE_RE = re.compile(
     r"^\s*(?P<code>[A-Z][A-Z&/\-]{0,7})?\s*(?P<desc>.*?)\s+(?P<amount>-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*€?\s*$")
 
+# real SRA line: Invoice Date | Invoice No | Description | Invoice Total |
+# Currency | Amount Paid — e.g.
+# «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00»
+_INVOICE_LINE_RE = re.compile(
+    r"^\s*(?P<date>\d{1,2}/\d{1,2}/\d{4})\s+(?P<inv>\d{4,})\s+(?P<desc>.+?)\s+"
+    r"(?P<total>-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s+(?P<cur>[A-Z]{3})\s+"
+    r"(?P<paid>-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*$")
+
 
 def parse_sra_text(text: str) -> SRA:
     """Parse every SRA line: code, description, amount; plus cheque number and
@@ -422,6 +490,17 @@ def parse_sra_text(text: str) -> SRA:
         if not line.strip():
             continue
         up = strip_accents(line)
+        # invoice-level line (the real SRA format) takes priority
+        inv = _INVOICE_LINE_RE.match(line)
+        if inv:
+            desc = inv.group("desc").strip()
+            amount = parse_amount(inv.group("paid"))  # Amount Paid column
+            canon, bucket, channel, src = classify_sra_line("", desc)
+            lines.append(SRALine(code=canon,
+                                 description=f"{desc} ({inv.group('date')} #{inv.group('inv')})",
+                                 amount=amount, bucket=bucket, channel=channel,
+                                 source_report=src))
+            continue
         m = _LINE_RE.match(line)
         if not m:
             continue
@@ -500,7 +579,6 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
 # --------------------------------------------------------- IS Auditor
 
 def extract_is_auditor(data: bytes, hospital_code: str) -> ISAuditor:
-    greek_name = HOSPITALS[hospital_code][0]
     sheets = _load_sheets(data)
     for _, df in sheets.items():
         hr = _find_header(df, ["BILLING PROVIDER NAME", "DRG ID"])
@@ -512,9 +590,12 @@ def extract_is_auditor(data: bytes, hospital_code: str) -> ISAuditor:
         drg_ff = _col(t, "DRG/FF TOTAL AMOUNT")
         proc = _col(t, "PROCEDURES TOTAL AMOUNT")
         cat = _col(t, "INVOICE CATEGORY")
-        # filter to the hospital by FULL provider name (accent-insensitive)
-        want = strip_accents(greek_name)
-        t = t[t[prov].map(lambda v: strip_accents(str(v)).strip() == want)]
+        # filter to the hospital by full provider name — real names are long
+        # forms («ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)»), so match by
+        # distinctive tokens; Nicosia explicitly excludes Makarios
+        from .models import hospital_name_matches
+        t = t[t[prov].map(lambda v: v is not None
+                          and hospital_name_matches(hospital_code, str(v)))]
         # DRG flag: .notna() FIRST, then strip()!='' and lower()!='nan'
         # (pandas StringDtype represents missing as the string 'nan' after astype)
         ids = t[drg_id]
@@ -592,6 +673,19 @@ def extract_simple_report(data: bytes, raw_text: Optional[str] = None) -> Simple
 
 
 def _simple_from_text(text: str) -> SimpleReport:
+    # invoice-level rows first (real capitation reports: «5729128 F1049 ...
+    # STANDARD 31/03/2026 5,174.80 €» followed by per-doctor and per-age
+    # detail that must NOT be double-counted)
+    invoice_rows: list[tuple[str, float]] = []
+    for raw in text.splitlines():
+        up = strip_accents(raw)
+        if re.search(r"\b\d{6,}\b", raw) and "STANDARD" in up:
+            amts = find_amounts(raw)
+            if amts:
+                invoice_rows.append((raw.strip()[:60], amts[-1]))
+    if invoice_rows:
+        return SimpleReport(total=round(sum(v for _, v in invoice_rows), 2),
+                            lines=invoice_rows)
     lines: list[tuple[str, float]] = []
     total = None
     for raw in text.splitlines():

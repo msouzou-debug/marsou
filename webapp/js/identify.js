@@ -26,6 +26,10 @@ const YYYY_MM_RE = /\b(20\d\d)\s*[-/.]\s*(0?[1-9]|1[0-2])\b(?!\s*[/.\-]\s*\d)/;
 
 function findPeriod(text) {
   const up = stripAccents(text);
+  // labeled «Μήνας: 3» + «Έτος: 2026» first (real ΟΑΥ PDFs)
+  const ml = up.match(/ΜΗΝΑΣ\s*[:=]\s*(\d{1,2})\b/);
+  const yl = up.match(/ΕΤΟΣ\s*[:=]\s*(20\d\d)\b/);
+  if (ml && yl) return [parseInt(yl[1], 10), parseInt(ml[1], 10)];
   for (const [name, m] of Object.entries(GREEK_MONTHS)) {
     if (up.includes(name)) {
       const ym = up.match(new RegExp(name + '\\D{0,10}(20\\d\\d)'));
@@ -47,14 +51,43 @@ function prevMonth(year, month) {
   return month === 1 ? [year - 1, 12] : [year, month - 1];
 }
 
+const PAY_DATE_LINE_RE = /PAYMENT\s*DATE|ΗΜΕΡΟΜΗΝΙΑ\s*ΠΛΗΡΩΜΗΣ/;
+
 function findServicePeriod(text) {
   /* Service month for SRAs.  The SRA is ALWAYS dated one month after the
    * month it settles (ΟΑΥ pays in arrears): service month = document date
-   * − 1 month.  A wrong month's SRA is not blocked on dates anyway — the
-   * tie-outs won't tie and the break shows in the reconciliation. */
+   * − 1 month.  Prefer the «Payment Date: ...» line — real SRAs also list
+   * per-invoice dates which must not win. */
+  for (const line of String(text).split('\n')) {
+    if (PAY_DATE_LINE_RE.test(stripAccents(line))) {
+      const [y, m] = findPeriod(line);
+      if (y) return prevMonth(y, m);
+    }
+  }
   const [y, m] = findPeriod(text);
   if (y == null) return [null, null];
   return prevMonth(y, m);
+}
+
+function labeledYearMonth(rows, maxRows = 10) {
+  /* Real Ενδ. summaries: «Έτος | Μήνας» header cells, values in the row
+   * below (2026 | 3). */
+  const n = Math.min(maxRows, rows.length - 1);
+  for (let i = 0; i < n; i++) {
+    let yearCol = null, monthCol = null;
+    rows[i].forEach((v, j) => {
+      if (v == null) return;
+      const lab = normLabel(cellText(v));
+      if (lab === 'ΕΤΟΣ') yearCol = j;
+      else if (lab === 'ΜΗΝΑΣ') monthCol = j;
+    });
+    if (yearCol != null && monthCol != null) {
+      const y = parseInt(cellText(rows[i + 1][yearCol]), 10);
+      const m = parseInt(cellText(rows[i + 1][monthCol]), 10);
+      if (y >= 2000 && y <= 2099 && m >= 1 && m <= 12) return [y, m];
+    }
+  }
+  return [null, null];
 }
 
 function findHospital(text) {
@@ -157,7 +190,8 @@ function identifyExcel(f) {
       f.reportType = RT.INPATIENT_SUMMARY;
       const top = cellsText(rows, 6);
       f.hospitalCode = findHospital(top) || findHospital(allText);
-      [f.year, f.month] = findPeriod(top);
+      [f.year, f.month] = labeledYearMonth(rows);   // real files: Έτος|Μήνας cells
+      if (f.year == null) [f.year, f.month] = findPeriod(top);
       if (f.year == null) [f.year, f.month] = findPeriod(allText);
       return;
     }
@@ -190,7 +224,8 @@ function identifyExcel(f) {
     hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
     if (hr !== null) {
       f.reportType = RT.IS_AUDITOR; // org-wide
-      [f.year, f.month] = findPeriod(cellsText(rows, 5));
+      // its rows carry historical invoice dates spanning years — a period
+      // derived from them is meaningless, so don't claim one
       return;
     }
   }
@@ -280,7 +315,39 @@ async function identifyPdf(f) {
   f.reportType = rt;
   f.hospitalCode = findHospital(text);
   // SRAs are dated in the payment month (arrears) — dig for the service period
-  [f.year, f.month] = rt === RT.SRA ? findServicePeriod(text) : findPeriod(text);
+  if (rt === RT.SRA) {
+    [f.year, f.month] = findServicePeriod(text);
+    f.probe = (f.probe || '') + '\n\n' + sraProbeSummary(text);
+  } else {
+    [f.year, f.month] = findPeriod(text);
+  }
+}
+
+function sraProbeSummary(text) {
+  /* Diagnostics: every distinct SRA line description with count, sum and the
+   * bucket it was mapped to — unmapped descriptions visible at a glance. */
+  let sra;
+  try {
+    sra = parseSraText(text);
+  } catch (e) {
+    return `SRA γραμμές (line parse): ΑΠΕΤΥΧΕ — ${e.message}`;
+  }
+  const groups = new Map();
+  for (const l of sra.lines) {
+    const key = `${l.code}|${l.bucket}|${l.description.slice(0, 40)}`;
+    const g = groups.get(key) || { n: 0, s: 0 };
+    g.n += 1; g.s += l.amount;
+    groups.set(key, g);
+  }
+  const out = [`SRA γραμμές: ${sra.lines.length} · επιταγή #${sra.chequeNo} · `
+    + `δηλωμένο σύνολο ${formatEur(sra.statedTotal)} · άθροισμα γραμμών ${formatEur(sra.linesTotal)}`,
+  'Ταξινόμηση περιγραφών (description → code/bucket, count, sum):'];
+  [...groups.entries()].sort((a, b) => b[1].s - a[1].s).forEach(([key, g]) => {
+    const [code, bucket, desc] = key.split('|');
+    out.push(`  «${desc}» → ${code} / ${bucket} · ×${g.n} · ${formatEur(g.s)}`
+      + (code === '??' ? '  ⚠ UNMAPPED' : ''));
+  });
+  return out.join('\n').slice(0, 2500);
 }
 
 /* ----------------------------------------------------------------- XML */

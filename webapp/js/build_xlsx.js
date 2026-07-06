@@ -58,16 +58,17 @@ function buildWorkbook(result) {
   const zeroChecks = [];
   const bundle = result.bundle;
 
-  let sraTab = null, statedCell = null;
+  let sraTab = null, statedCell = null, nLines = 0;
   if (!result.crosscheckMode && bundle.sra) {
     const built = tabSra(wb, result, zeroChecks);
     sraTab = built.name;
+    nLines = built.nLines;
     statedCell = `'${sraTab}'!F${built.statedRow}`;
     tabReconciliation(wb, result, sraTab, built.nLines, statedCell, zeroChecks);
   } else {
     tabMatrix(wb, result);
   }
-  tabCrosscheck(wb, result, sraTab);
+  tabCrosscheck(wb, result, sraTab, nLines);
   tabSplit(wb, result, statedCell, zeroChecks);
   tabLegend(wb);
   return { wb, zeroChecks };
@@ -166,11 +167,12 @@ function tabMatrix(wb, result) {
 
 /* ------------------------------------------------ tab 3: Source_crosscheck */
 
-function tabCrosscheck(wb, result, sraTab) {
+function tabCrosscheck(wb, result, sraTab, nLines) {
   const ws = wb.addWorksheet('Source_crosscheck');
   writeHeader(ws, 1, ['Έλεγχος (Check)', 'Σύνολο πηγής (Source total €)',
                       'Πλευρά SRA (SRA side €)', 'Διαφορά (Diff €)', 'Σημείωση (Note)',
-                      'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)']);
+                      'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)',
+                      'Κωδικοί SRA (codes)']);
   let r = 2;
   const b = result.bundle;
   for (const chk of result.crosschecks) {
@@ -185,9 +187,15 @@ function tabCrosscheck(wb, result, sraTab) {
       writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
     }
     if (sraTab && chk.sraCodes.length && b.sra) {
-      const refs = b.sra.lines.map((l, i) => (chk.sraCodes.includes(l.code) ? `'${sraTab}'!F${i + 2}` : null))
-        .filter(Boolean);
-      writeAmount(ws, r, 3, refs.length ? refs.join('+') : '0', F_LINK);
+      // SUMIFS over the SRA Code column, criteria referencing the code
+      // helper cells (never quoted strings; scales to hundreds of lines)
+      const terms = chk.sraCodes.map((code, k) => {
+        const col = colLetter(8 + k);
+        ws.getCell(r, 8 + k).value = code;
+        ws.getCell(r, 8 + k).font = F_INPUT;
+        return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${r})`;
+      });
+      writeAmount(ws, r, 3, terms.join('+'), F_LINK);
     } else if (chk.sraSide != null) {
       writeAmount(ws, r, 3, chk.sraSide, F_INPUT);
     }

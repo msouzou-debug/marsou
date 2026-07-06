@@ -57,17 +57,18 @@ def test_identify_inpatient_summary():
 
 
 def test_identify_claims_all_despite_os_filename():
-    # ΟΑΥ often names the all-segments file "..._OS_..." — content wins
+    # ΟΑΥ often names the all-segments file "..._OS_..." — content wins.
+    # Real files carry NO F-code and only OLD claim dates -> both stay None
+    # (the batch month comes from the Ενδ. summary / SRA instead).
     f = identify("F1049_OS_MAR26.xlsx", synth.claims_all_xlsx())
     assert f.report_type == ReportType.CLAIMS_ALL
-    assert f.hospital_code == "F1049"
-    assert (f.year, f.month) == (2026, 3)
+    assert f.hospital_code is None
+    assert f.month is None
 
 
 def test_identify_pharma_claims():
     f = identify("pharma.xlsx", synth.pharma_claims_xlsx())
     assert f.report_type == ReportType.PHARMA_CLAIMS
-    assert f.hospital_code == "F1049"
 
 
 def test_identify_gl_is_org_wide():
@@ -79,6 +80,8 @@ def test_identify_gl_is_org_wide():
 def test_identify_is_auditor():
     f = identify("aud.xlsx", synth.is_auditor_xlsx())
     assert f.report_type == ReportType.IS_AUDITOR
+    # its invoice dates span years — it must NOT claim a period
+    assert f.year is None and f.month is None
 
 
 def test_identify_xml_activity():

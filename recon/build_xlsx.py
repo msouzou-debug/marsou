@@ -64,13 +64,14 @@ def build_workbook(result: ReconResult) -> bytes:
 
     sra_tab = None
     stated_cell = None
+    n_lines = 0
     if not result.crosscheck_mode and bundle.sra:
         sra_tab, total_row, stated_row, n_lines = _tab_sra(wb, result)
         stated_cell = f"'{sra_tab}'!F{stated_row}"
         _tab_reconciliation(wb, result, sra_tab, n_lines, stated_cell)
     else:
         _tab_matrix(wb, result)
-    _tab_crosscheck(wb, result, sra_tab)
+    _tab_crosscheck(wb, result, sra_tab, n_lines)
     _tab_split(wb, result, stated_cell)
     _tab_legend(wb, result)
 
@@ -185,19 +186,13 @@ def _tab_matrix(wb: Workbook, result: ReconResult) -> None:
 
 # ------------------------------------------------ tab 3: Source_crosscheck
 
-def _sra_refs(sra_tab: str, sra, codes: list[str]) -> list[str]:
-    refs = []
-    for i, line in enumerate(sra.lines):
-        if line.code in codes:
-            refs.append(f"'{sra_tab}'!F{i + 2}")
-    return refs
-
-
-def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str]) -> None:
+def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
+                    n_lines: int) -> None:
     ws = wb.create_sheet("Source_crosscheck")
     _header(ws, 1, ["Έλεγχος (Check)", "Σύνολο πηγής (Source total €)",
                     "Πλευρά SRA (SRA side €)", "Διαφορά (Diff €)", "Σημείωση (Note)",
-                    "Συσκευασίες (Packages)", "Τιμή μονάδας (Unit €)"])
+                    "Συσκευασίες (Packages)", "Τιμή μονάδας (Unit €)",
+                    "Κωδικοί SRA (codes)"])
     r = 2
     b = result.bundle
     for chk in result.crosschecks:
@@ -211,8 +206,15 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str]) -
         else:
             _amount(ws, r, 2, chk.source_total, F_INPUT)
         if sra_tab and chk.sra_codes and b.sra:
-            refs = _sra_refs(sra_tab, b.sra, chk.sra_codes)
-            _amount(ws, r, 3, "=" + ("+".join(refs) if refs else "0"), F_LINK)
+            # SUMIFS over the SRA Code column, criteria referencing the code
+            # helper cells (never quoted strings; scales to hundreds of lines)
+            terms = []
+            for k, code in enumerate(chk.sra_codes):
+                col = get_column_letter(8 + k)
+                ws.cell(row=r, column=8 + k, value=code).font = F_INPUT
+                terms.append(f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
+                             f"'{sra_tab}'!$A$2:$A${n_lines},{col}{r})")
+            _amount(ws, r, 3, "=" + "+".join(terms), F_LINK)
         elif chk.sra_side is not None:
             _amount(ws, r, 3, chk.sra_side, F_INPUT)
         if chk.sra_side is not None:

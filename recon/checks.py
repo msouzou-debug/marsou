@@ -144,8 +144,10 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
                  if f.hospital_code and f.report_type not in ORG_WIDE_TYPES}
     sra_periods = {(f.year, f.month) for f in files
                    if f.report_type == ReportType.SRA and f.year and f.month}
+    # org-wide files (GL, IS Auditor) span providers/months — they don't vote
     other_periods = {(f.year, f.month) for f in files
-                     if f.report_type != ReportType.SRA and f.year and f.month}
+                     if f.report_type != ReportType.SRA and f.year and f.month
+                     and f.report_type not in ORG_WIDE_TYPES}
     gate2_name = "Ένα νοσοκομείο, ένας μήνας (single hospital/month)"
     if len(hospitals) > 1:
         names = ", ".join(f"{h} ({HOSPITALS[h][1]})" for h in sorted(hospitals))
@@ -449,10 +451,13 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     def sra_amount(codes: list[str]) -> Optional[float]:
         return _sra_sum(sra, codes) if sra else None
 
-    # Inpatient by clinic (Fixed Fee / DRG columns from the claims detail)
+    # Inpatient by clinic (Fixed Fee / DRG columns) — from the claims detail
+    # when present, else the Ενδ. workbook's «per clinic» pivot sheet
     ip = SplitSection("Ενδονοσοκομειακή περίθαλψη (Inpatient)", Bucket.INPATIENT)
-    if bundle.claims and bundle.claims.inpatient_by_clinic:
-        for r in bundle.claims.inpatient_by_clinic:
+    clinic_rows = (bundle.claims.inpatient_by_clinic if bundle.claims else []) \
+        or (bundle.inpatient.by_clinic if bundle.inpatient else [])
+    if clinic_rows:
+        for r in clinic_rows:
             ip.rows.append(SplitRow(label=r.clinic, amount=r.total,
                                     fixed_fee=r.fixed_fee or None, drg=r.drg or None))
     elif bundle.claims:
@@ -461,7 +466,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     elif bundle.inpatient:
         ip.rows.append(SplitRow("Κανονικά (Regular)", bundle.inpatient.regular))
         ip.rows.append(SplitRow("Εξειδικευμένα (Specialized)", bundle.inpatient.specialized))
+        if bundle.inpatient.gennes:
+            ip.rows.append(SplitRow("Γέννες (Births)", bundle.inpatient.gennes))
         ip.rows.append(SplitRow("Κατάλογος Z (Z-catalogue)", bundle.inpatient.z_catalogue))
+        for label, amount in bundle.inpatient.other.items():
+            ip.rows.append(SplitRow(label, amount))
     _tie_section(ip, sra_amount(["IS"]))
     if bundle.hemo or (sra and any(l.code == "HEMO" for l in sra.lines)):
         hemo_amt = sra_amount(["HEMO"]) if sra else (bundle.hemo.total if bundle.hemo else 0.0)
