@@ -134,21 +134,36 @@ function perClinicDetailSheet(sheets) {
 
 const SEGMENT_ALIASES = {
   'INPATIENT': 'Inpatient',
+  'IS': 'Inpatient',
+  'IP': 'Inpatient',
+  'INPATIENT SERVICES': 'Inpatient',
   'OUTPATIENT SPECIALISTS': 'Outpatient Specialists',
   'OUTPATIENT SPECIALIST': 'Outpatient Specialists',
+  'OS': 'Outpatient Specialists',
   'A&E': 'A&E',
+  'AE': 'A&E',
   'ACCIDENT & EMERGENCY': 'A&E',
   'ACCIDENT AND EMERGENCY': 'A&E',
   'NURSES-MIDWIVES': 'Nurses-Midwives',
   'NURSES MIDWIVES': 'Nurses-Midwives',
   'NURSES/MIDWIVES': 'Nurses-Midwives',
+  'NM': 'Nurses-Midwives',
   'ALLIED HEALTH': 'Allied Health',
   'ALLIED HEALTH PROFESSIONALS': 'Allied Health',
+  'AP': 'Allied Health',
+  'AHP': 'Allied Health',
 };
 
 function canonSegment(raw) {
-  const up = stripAccents(cellText(raw)).trim();
-  return SEGMENT_ALIASES[up] || cellText(raw).trim();
+  const up = normLabel(cellText(raw));
+  if (up in SEGMENT_ALIASES) return SEGMENT_ALIASES[up];
+  // keyword fallback for longer / Greek variants
+  if (up.includes('INPATIENT') || up.includes('ΕΝΔΟΝΟΣΟΚ')) return 'Inpatient';
+  if (up.includes('SPECIALIST') || up.includes('ΕΙΔΙΚΟΙ')) return 'Outpatient Specialists';
+  if (up.includes('EMERGENCY') || up.includes('ΕΠΕΙΓ') || up.includes('ΑΤΥΧΗΜ') || up.includes('ΤΑΕΠ')) return 'A&E';
+  if (up.includes('NURSE') || up.includes('MIDWI') || up.includes('ΝΟΣΗΛΕΥΤ')) return 'Nurses-Midwives';
+  if (up.includes('ALLIED') || up.includes('ΑΛΛΟΙ ΕΠΑΓΓΕΛΜ')) return 'Allied Health';
+  return cellText(raw).trim();
 }
 
 function claimsTotal(c) {

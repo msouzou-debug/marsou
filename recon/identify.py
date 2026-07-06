@@ -161,7 +161,7 @@ def _excel_probe(sheets: dict[str, pd.DataFrame]) -> str:
         parts.append(f"Φύλλο (sheet) «{name}» — {len(df)} γραμμές × {cols} στήλες:")
         shown = 0
         for i in range(min(len(df), 40)):
-            cells = [str(v)[:40] for v in list(df.iloc[i])[:12]
+            cells = [str(v)[:40] for v in list(df.iloc[i])[:20]
                      if v is not None and str(v) != "nan"]
             if not cells:
                 continue
@@ -231,6 +231,16 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
         if hr is not None:
             f.report_type = ReportType.CLAIMS_ALL
             _fill_from_table(f, df, hr, sheets)
+            # diagnostics: the ACTUAL segment values with sums — the column
+            # sits past the probe's visible width and its labels vary
+            try:
+                from .extract import extract_claims_all
+                c = extract_claims_all(f.data)
+                f.probe = (f.probe or "") + "\nDR SEGMENT σύνολα (values → sums): " + ", ".join(
+                    f"«{k}»={v:,.2f}" for k, v in
+                    sorted(c.by_segment.items(), key=lambda kv: -kv[1]))
+            except Exception as e:  # extraction issues surface at run time too
+                f.probe = (f.probe or "") + f"\n(claims extract failed: {e})"
             return
 
         hr = find_header_row(df, ["TYPE"])
@@ -241,6 +251,14 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
                 if got & {"DRUGS", "CONSUMABLES"}:
                     f.report_type = ReportType.PHARMA_CLAIMS
                     _fill_from_table(f, df, hr, sheets)
+                    try:
+                        from .extract import extract_pharma_claims
+                        p = extract_pharma_claims(f.data)
+                        f.probe = (f.probe or "") + "\nTYPE σύνολα (values → sums): " + ", ".join(
+                            f"«{k}»={v:,.2f}" for k, v in
+                            sorted(p.by_type.items(), key=lambda kv: -kv[1]))
+                    except Exception as e:
+                        f.probe = (f.probe or "") + f"\n(pharma extract failed: {e})"
                     return
 
         hr = find_header_row(df, ["VENDOR_CODE", "EURO_AMOUNT"])

@@ -234,9 +234,13 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
         d = round(claims_ip - bundle.inpatient.synolo, 2)
         if abs(d) > CENT:
             ok = False
+            segs = " · ".join(f"«{k}»: {format_eur(v)}"
+                              for k, v in sorted(bundle.claims.by_segment.items(),
+                                                 key=lambda kv: -kv[1]))
             msgs.append("Claims «all» Inpatient ≠ Ενδ. Σύνολο: "
                         f"{format_eur(claims_ip)} vs {format_eur(bundle.inpatient.synolo)} "
-                        f"(διαφορά {format_eur(d)})")
+                        f"(διαφορά {format_eur(d)})\n"
+                        f"Τιμές DR SEGMENT στο αρχείο claims: {segs}")
     if bundle.sra:
         d = round(bundle.sra.lines_total - bundle.sra.stated_total, 2)
         if abs(d) > CENT:

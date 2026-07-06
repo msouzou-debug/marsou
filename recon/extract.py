@@ -196,22 +196,43 @@ SEGMENTS = ["Inpatient", "Outpatient Specialists", "A&E", "Nurses-Midwives", "Al
 
 _SEGMENT_ALIASES = {
     "INPATIENT": "Inpatient",
+    "IS": "Inpatient",
+    "IP": "Inpatient",
+    "INPATIENT SERVICES": "Inpatient",
     "OUTPATIENT SPECIALISTS": "Outpatient Specialists",
     "OUTPATIENT SPECIALIST": "Outpatient Specialists",
+    "OS": "Outpatient Specialists",
     "A&E": "A&E",
+    "AE": "A&E",
     "ACCIDENT & EMERGENCY": "A&E",
     "ACCIDENT AND EMERGENCY": "A&E",
     "NURSES-MIDWIVES": "Nurses-Midwives",
     "NURSES MIDWIVES": "Nurses-Midwives",
     "NURSES/MIDWIVES": "Nurses-Midwives",
+    "NM": "Nurses-Midwives",
     "ALLIED HEALTH": "Allied Health",
     "ALLIED HEALTH PROFESSIONALS": "Allied Health",
+    "AP": "Allied Health",
+    "AHP": "Allied Health",
 }
 
 
 def _canon_segment(raw: str) -> str:
-    up = strip_accents(str(raw)).strip()
-    return _SEGMENT_ALIASES.get(up, str(raw).strip())
+    up = norm_label(str(raw))
+    if up in _SEGMENT_ALIASES:
+        return _SEGMENT_ALIASES[up]
+    # keyword fallback for longer / Greek variants
+    if "INPATIENT" in up or "ΕΝΔΟΝΟΣΟΚ" in up:
+        return "Inpatient"
+    if "SPECIALIST" in up or "ΕΙΔΙΚΟΙ" in up:
+        return "Outpatient Specialists"
+    if "EMERGENCY" in up or "ΕΠΕΙΓ" in up or "ΑΤΥΧΗΜ" in up or "ΤΑΕΠ" in up:
+        return "A&E"
+    if "NURSE" in up or "MIDWI" in up or "ΝΟΣΗΛΕΥΤ" in up or "ΜΑΙ" == up:
+        return "Nurses-Midwives"
+    if "ALLIED" in up or "ΑΛΛΟΙ ΕΠΑΓΓΕΛΜ" in up:
+        return "Allied Health"
+    return str(raw).strip()
 
 
 def extract_claims_all(data: bytes) -> ClaimsAll:

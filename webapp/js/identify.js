@@ -160,7 +160,7 @@ function excelProbe(sheets) {
     parts.push(`Φύλλο (sheet) «${name}» — ${rows.length} γραμμές × ${cols} στήλες:`);
     let shown = 0;
     for (let i = 0; i < Math.min(rows.length, 40); i++) {
-      const cells = rows[i].slice(0, 12).filter((v) => v != null && cellText(v) !== 'nan')
+      const cells = rows[i].slice(0, 20).filter((v) => v != null && cellText(v) !== 'nan')
         .map((v) => cellText(v).slice(0, 40));
       if (!cells.length) continue;
       parts.push(`  γραμμή ${i + 1}: ` + cells.join(' | '));
@@ -199,6 +199,16 @@ function identifyExcel(f) {
     if (hr !== null) {
       f.reportType = RT.CLAIMS_ALL;
       fillFromTable(f, rows, hr, sheets);
+      // diagnostics: the ACTUAL segment values with sums — the column sits
+      // past the probe's visible width and its labels vary
+      try {
+        const c = extractClaimsAll(f.data);
+        f.probe = (f.probe || '') + '\nDR SEGMENT σύνολα (values → sums): '
+          + Object.entries(c.bySegment).sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => `«${k}»=${formatEur(v)}`).join(', ');
+      } catch (e) {
+        f.probe = (f.probe || '') + `\n(claims extract failed: ${e.message})`;
+      }
       return;
     }
     hr = findHeaderRow(rows, ['TYPE']);
@@ -209,6 +219,14 @@ function identifyExcel(f) {
         if (got.has('DRUGS') || got.has('CONSUMABLES')) {
           f.reportType = RT.PHARMA_CLAIMS;
           fillFromTable(f, rows, hr, sheets);
+          try {
+            const p = extractPharmaClaims(f.data);
+            f.probe = (f.probe || '') + '\nTYPE σύνολα (values → sums): '
+              + Object.entries(p.byType).sort((a, b) => b[1] - a[1])
+                .map(([k, v]) => `«${k}»=${formatEur(v)}`).join(', ');
+          } catch (e) {
+            f.probe = (f.probe || '') + `\n(pharma extract failed: ${e.message})`;
+          }
           return;
         }
       }

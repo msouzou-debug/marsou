@@ -594,7 +594,7 @@ function excelProbe(sheets) {
     parts.push(`Φύλλο (sheet) «${name}» — ${rows.length} γραμμές × ${cols} στήλες:`);
     let shown = 0;
     for (let i = 0; i < Math.min(rows.length, 40); i++) {
-      const cells = rows[i].slice(0, 12).filter((v) => v != null && cellText(v) !== 'nan')
+      const cells = rows[i].slice(0, 20).filter((v) => v != null && cellText(v) !== 'nan')
         .map((v) => cellText(v).slice(0, 40));
       if (!cells.length) continue;
       parts.push(`  γραμμή ${i + 1}: ` + cells.join(' | '));
@@ -633,6 +633,16 @@ function identifyExcel(f) {
     if (hr !== null) {
       f.reportType = RT.CLAIMS_ALL;
       fillFromTable(f, rows, hr, sheets);
+      // diagnostics: the ACTUAL segment values with sums — the column sits
+      // past the probe's visible width and its labels vary
+      try {
+        const c = extractClaimsAll(f.data);
+        f.probe = (f.probe || '') + '\nDR SEGMENT σύνολα (values → sums): '
+          + Object.entries(c.bySegment).sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => `«${k}»=${formatEur(v)}`).join(', ');
+      } catch (e) {
+        f.probe = (f.probe || '') + `\n(claims extract failed: ${e.message})`;
+      }
       return;
     }
     hr = findHeaderRow(rows, ['TYPE']);
@@ -643,6 +653,14 @@ function identifyExcel(f) {
         if (got.has('DRUGS') || got.has('CONSUMABLES')) {
           f.reportType = RT.PHARMA_CLAIMS;
           fillFromTable(f, rows, hr, sheets);
+          try {
+            const p = extractPharmaClaims(f.data);
+            f.probe = (f.probe || '') + '\nTYPE σύνολα (values → sums): '
+              + Object.entries(p.byType).sort((a, b) => b[1] - a[1])
+                .map(([k, v]) => `«${k}»=${formatEur(v)}`).join(', ');
+          } catch (e) {
+            f.probe = (f.probe || '') + `\n(pharma extract failed: ${e.message})`;
+          }
           return;
         }
       }
@@ -989,21 +1007,36 @@ function perClinicDetailSheet(sheets) {
 
 const SEGMENT_ALIASES = {
   'INPATIENT': 'Inpatient',
+  'IS': 'Inpatient',
+  'IP': 'Inpatient',
+  'INPATIENT SERVICES': 'Inpatient',
   'OUTPATIENT SPECIALISTS': 'Outpatient Specialists',
   'OUTPATIENT SPECIALIST': 'Outpatient Specialists',
+  'OS': 'Outpatient Specialists',
   'A&E': 'A&E',
+  'AE': 'A&E',
   'ACCIDENT & EMERGENCY': 'A&E',
   'ACCIDENT AND EMERGENCY': 'A&E',
   'NURSES-MIDWIVES': 'Nurses-Midwives',
   'NURSES MIDWIVES': 'Nurses-Midwives',
   'NURSES/MIDWIVES': 'Nurses-Midwives',
+  'NM': 'Nurses-Midwives',
   'ALLIED HEALTH': 'Allied Health',
   'ALLIED HEALTH PROFESSIONALS': 'Allied Health',
+  'AP': 'Allied Health',
+  'AHP': 'Allied Health',
 };
 
 function canonSegment(raw) {
-  const up = stripAccents(cellText(raw)).trim();
-  return SEGMENT_ALIASES[up] || cellText(raw).trim();
+  const up = normLabel(cellText(raw));
+  if (up in SEGMENT_ALIASES) return SEGMENT_ALIASES[up];
+  // keyword fallback for longer / Greek variants
+  if (up.includes('INPATIENT') || up.includes('ΕΝΔΟΝΟΣΟΚ')) return 'Inpatient';
+  if (up.includes('SPECIALIST') || up.includes('ΕΙΔΙΚΟΙ')) return 'Outpatient Specialists';
+  if (up.includes('EMERGENCY') || up.includes('ΕΠΕΙΓ') || up.includes('ΑΤΥΧΗΜ') || up.includes('ΤΑΕΠ')) return 'A&E';
+  if (up.includes('NURSE') || up.includes('MIDWI') || up.includes('ΝΟΣΗΛΕΥΤ')) return 'Nurses-Midwives';
+  if (up.includes('ALLIED') || up.includes('ΑΛΛΟΙ ΕΠΑΓΓΕΛΜ')) return 'Allied Health';
+  return cellText(raw).trim();
 }
 
 function claimsTotal(c) {
@@ -1615,8 +1648,11 @@ function gate4InternalAsserts(bundle) {
     const d = round2(claimsIp - bundle.inpatient.synolo);
     if (Math.abs(d) > CENT) {
       ok = false;
+      const segs = Object.entries(bundle.claims.bySegment).sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `«${k}»: ${formatEur(v)}`).join(' · ');
       msgs.push('Claims «all» Inpatient ≠ Ενδ. Σύνολο: '
-        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`);
+        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})\n`
+        + `Τιμές DR SEGMENT στο αρχείο claims: ${segs}`);
     }
   }
   if (bundle.sra) {

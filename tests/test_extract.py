@@ -49,6 +49,40 @@ def test_claims_all_by_segment():
     assert c.inpatient_by_clinic == []      # detail comes from the Ενδ. workbook
 
 
+def test_segment_value_variants_all_canonicalise():
+    # real files vary the DR SEGMENT labels — codes, long names, Greek
+    from recon.extract import _canon_segment
+    for raw, want in [
+        ("Inpatient", "Inpatient"), ("IS", "Inpatient"), ("IP", "Inpatient"),
+        ("INPATIENT SERVICES", "Inpatient"), ("Ενδονοσοκομειακή", "Inpatient"),
+        ("OS", "Outpatient Specialists"),
+        ("Outpatient Specialist Doctors", "Outpatient Specialists"),
+        ("Ειδικοί Ιατροί", "Outpatient Specialists"),
+        ("AE", "A&E"), ("A&E", "A&E"), ("Accident and Emergency", "A&E"),
+        ("NM", "Nurses-Midwives"), ("Nurses / Midwives", "Nurses-Midwives"),
+        ("AP", "Allied Health"), ("AHP", "Allied Health"),
+        ("Allied Healthcare Professionals", "Allied Health"),
+    ]:
+        assert _canon_segment(raw) == want, raw
+
+
+def test_claims_with_code_segments_extract():
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["CLAIM ID", "PAYMENT NO.", "HIO REIMB.", "DR SEGMENT"])
+    ws.append([1, "256797", 100.0, "IS"])
+    ws.append([2, "256797", 50.0, "AE"])
+    ws.append([3, "256797", 25.0, "OS"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    c = extract_claims_all(buf.getvalue())
+    assert c.by_segment["Inpatient"] == 100.0
+    assert c.by_segment["A&E"] == 50.0
+    assert c.by_segment["Outpatient Specialists"] == 25.0
+
+
 def test_pharma_claims_by_type():
     p = extract_pharma_claims(synth.pharma_claims_xlsx())
     assert p.by_type["Drugs"] == 600_000.00

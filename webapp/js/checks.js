@@ -124,8 +124,11 @@ function gate4InternalAsserts(bundle) {
     const d = round2(claimsIp - bundle.inpatient.synolo);
     if (Math.abs(d) > CENT) {
       ok = false;
+      const segs = Object.entries(bundle.claims.bySegment).sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `«${k}»: ${formatEur(v)}`).join(' · ');
       msgs.push('Claims «all» Inpatient ≠ Ενδ. Σύνολο: '
-        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`);
+        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})\n`
+        + `Τιμές DR SEGMENT στο αρχείο claims: ${segs}`);
     }
   }
   if (bundle.sra) {
