@@ -387,6 +387,7 @@ function parseAmount(v) {
   let neg = false;
   if (s.startsWith('(') && s.endsWith(')')) { neg = true; s = s.slice(1, -1); }
   if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  if (s.endsWith('-')) { neg = true; s = s.slice(0, -1); }  // credit: '12.25-'
   const hasDot = s.includes('.'), hasComma = s.includes(',');
   if (hasDot && hasComma) {
     if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.split('.').join('').replace(',', '.');
@@ -413,7 +414,7 @@ function formatEur(v) {
   return (neg ? '-' : '') + s + ' €';
 }
 
-const AMOUNT_RE_SRC = String.raw`(?<![\d.,])(?:-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d{1,3}(?:,\d{3})*\.\d{2}|-?\d+[.,]\d{2})(?!\d)`;
+const AMOUNT_RE_SRC = String.raw`(?<![\d.,])(?:-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d{1,3}(?:,\d{3})*\.\d{2}|-?\d+[.,]\d{2})-?(?!\d)`;
 
 function findAmounts(text) {
   const out = [];
@@ -767,20 +768,35 @@ function sraProbeSummary(text) {
   }
   const groups = new Map();
   for (const l of sra.lines) {
-    const key = `${l.code}|${l.bucket}|${l.description.slice(0, 40)}`;
+    // strip the appended «(date #inv)» so daily invoices group together
+    const base = l.description.split(' (')[0].slice(0, 45);
+    const key = `${l.code}|${l.bucket}|${base}`;
     const g = groups.get(key) || { n: 0, s: 0 };
     g.n += 1; g.s += l.amount;
     groups.set(key, g);
   }
+  const diff = round2(sra.linesTotal - sra.statedTotal);
   const out = [`SRA γραμμές: ${sra.lines.length} · επιταγή #${sra.chequeNo} · `
-    + `δηλωμένο σύνολο ${formatEur(sra.statedTotal)} · άθροισμα γραμμών ${formatEur(sra.linesTotal)}`,
+    + `δηλωμένο σύνολο ${formatEur(sra.statedTotal)} · άθροισμα γραμμών ${formatEur(sra.linesTotal)}`
+    + ` · διαφορά ${formatEur(diff)}`,
   'Ταξινόμηση περιγραφών (description → code/bucket, count, sum):'];
   [...groups.entries()].sort((a, b) => b[1].s - a[1].s).forEach(([key, g]) => {
     const [code, bucket, desc] = key.split('|');
     out.push(`  «${desc}» → ${code} / ${bucket} · ×${g.n} · ${formatEur(g.s)}`
       + (code === '??' ? '  ⚠ UNMAPPED' : ''));
   });
-  return out.join('\n').slice(0, 2500);
+  const suspicious = [];
+  for (const raw of String(text).split('\n')) {
+    const line = raw.trim();
+    if (!line || !findAmounts(line).length) continue;
+    if (INVOICE_LINE_RE.test(line) || SRA_LINE_RE.test(line)) continue;
+    suspicious.push(line.slice(0, 90));
+  }
+  if (suspicious.length) {
+    out.push('Γραμμές με ποσά που ΔΕΝ αναλύθηκαν (lines with amounts NOT parsed):');
+    for (const s of suspicious.slice(0, 15)) out.push(`  ✗ ${s}`);
+  }
+  return out.join('\n').slice(0, 4500);
 }
 
 /* ----------------------------------------------------------------- XML */
@@ -1090,11 +1106,12 @@ function extractPharmaClaims(bytes) {
 /* ----------------------------------------------- pharmacist fee (PDF) */
 
 function parsePharmacistFeeText(text) {
-  const unitRe = /\b1[.,]60?\b/;
+  /* The unit price is READ from the document (1.60 € historically, 1.62 € in
+   * newer months): find (unit, packages, amount) where packages × unit = amount. */
   let best = null;
   for (const line of String(text).split('\n')) {
-    if (!unitRe.test(line)) continue;
     const amounts = findAmounts(line);
+    if (amounts.length < 2) continue;
     const ints = [];
     for (const m of line.matchAll(/\b\d{1,3}(?:[.,]\d{3})+\b|\b\d+\b/g)) {
       const p = parseAmount(m[0]);
@@ -1104,12 +1121,17 @@ function parsePharmacistFeeText(text) {
     const im = line.match(/\b(?=\w*\d)([A-Z]{0,4}\d[\w\-/]{3,})\b/);
     if (im && !/^[\d.,]+$/.test(im[1])) invoice = im[1];
     for (const pkg of [...new Set(ints)].sort((a, b) => b - a)) {
-      const expected = round2(pkg * PHARMACIST_FEE_UNIT_PRICE);
-      for (const amt of amounts) {
-        if (Math.abs(amt - expected) < 0.005 && pkg > 1) {
-          const cand = { packages: pkg, unitPrice: PHARMACIST_FEE_UNIT_PRICE,
-                         amount: amt, invoiceId: invoice, computed: expected };
-          if (!best || cand.packages > best.packages) best = cand;
+      if (pkg <= 1) continue;
+      for (const unit of amounts) {
+        if (unit < 0.05 || unit > 20) continue;    // plausible per-package fee
+        const expected = round2(pkg * unit);
+        for (const amt of amounts) {
+          if (amt === unit) continue;
+          if (Math.abs(amt - expected) < 0.005) {
+            const cand = { packages: pkg, unitPrice: unit, amount: amt,
+                           invoiceId: invoice, computed: expected };
+            if (!best || cand.packages > best.packages) best = cand;
+          }
         }
       }
     }
@@ -1154,6 +1176,8 @@ const SRA_CODE_MAP = {
   PHD: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
   PHC: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
   PHF: ['Pharma', 'Fee', 'Pharmacist Fee Report'],
+  // real SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
+  PH: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
 };
 
 const KEYWORD_CODES = [
@@ -1190,7 +1214,7 @@ const KEYWORD_CODES = [
 
 /* Invoice descriptions on real SRAs start with the stream code, e.g.
  * «AE - HCP SERVICES».  Longer alternatives first; IP is an alias of IS. */
-const CODE_TOKEN_RE = /\b(A&E|PHD|PHC|PHF|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b/;
+const CODE_TOKEN_RE = /\b(A&E|PHD|PHC|PHF|PH|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b/;
 const CODE_ALIASES = { IP: 'IS' };
 
 function classifySraLine(code, description) {
@@ -1216,9 +1240,10 @@ function classifySraLine(code, description) {
 }
 
 const CHEQUE_RE = /(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)\s*[:.]?\s*#?(\d{4,})/i;
-const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*€?\s*$/;
+/* amounts may carry a trailing '-' (credit notes: '12.25-') */
+const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s*€?\s*$/;
 /* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
-const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*$/;
+const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s*$/;
 
 function parseSraText(text) {
   let cheque = '';
@@ -1638,17 +1663,26 @@ function buildCrosschecks(bundle) {
       + (bundle.claims.bySegment['Allied Health'] || 0))
     : null;
 
+  const sraCodeSet = new Set(sra ? sra.lines.map((l) => l.code) : []);
+
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
         bundle.inpatient.synolo, ['IS'], null, claimsIp);
   }
   if (bundle.pharma) {
-    add('Φάρμακα (pharma drugs) = SRA PHD', bundle.pharma.byType['Drugs'] || 0, ['PHD']);
-    const cons = bundle.pharma.byType['Consumables'] || 0;
-    if (cons) add('Αναλώσιμα (pharma consumables) = SRA PHC', cons, ['PHC']);
+    if (sraCodeSet.has('PH')) {
+      // newer SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
+      add('Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH',
+          bundle.pharma.total, ['PH', 'PHD', 'PHC']);
+    } else {
+      add('Φάρμακα (pharma drugs) = SRA PHD', bundle.pharma.byType['Drugs'] || 0, ['PHD']);
+      const cons = bundle.pharma.byType['Consumables'] || 0;
+      if (cons) add('Αναλώσιμα (pharma consumables) = SRA PHC', cons, ['PHC']);
+    }
   }
   if (bundle.phfee) {
-    add('Αμοιβή Φαρμακοποιού (packages × 1,60 €) = SRA PHF', bundle.phfee.computed, ['PHF']);
+    const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
+    add(`Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PHF`, bundle.phfee.computed, ['PHF']);
   }
   if (bundle.claims) {
     add('Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines',
@@ -1847,12 +1881,14 @@ function buildSplit(bundle) {
   sections.push(out);
 
   const ph = { title: 'Φάρμακα (Pharma)', bucket: 'Pharma', rows: [] };
+  const phClaims = sraAmount(['PH']);
+  if (phClaims) ph.rows.push({ label: 'Φάρμακα & Αναλώσιμα — PH (pharmacy claims)', amount: phClaims });
   let drugs = sraAmount(['PHD']);
   if (drugs == null && bundle.pharma) drugs = bundle.pharma.byType['Drugs'] || 0;
   if (drugs) ph.rows.push({ label: 'Φάρμακα (Drugs)', amount: drugs });
   let cons = sraAmount(['PHC']);
   if (cons == null && bundle.pharma) cons = bundle.pharma.byType['Consumables'] || 0;
-  if (cons) ph.rows.push({ label: 'Αναλώσιμα (Consumables)', amount: cons });
+  if (cons && !(phClaims && sra)) ph.rows.push({ label: 'Αναλώσιμα (Consumables)', amount: cons });
   let fee = sraAmount(['PHF']);
   if (fee == null && bundle.phfee) fee = bundle.phfee.computed;
   if (fee) ph.rows.push({ label: 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
@@ -2070,9 +2106,10 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
     ws.getCell(r, 1).value = chk.name; ws.getCell(r, 1).font = F_INPUT;
     const isPhfee = chk.name.includes('1,60') || chk.name.includes('Φαρμακοποιού (packages');
     if (isPhfee && b.phfee) {
-      // packages × 1.60 as a LIVE formula off two blue inputs
+      // packages × unit price (READ from the report — 1.60/1.62 €)
+      // as a LIVE formula off two blue inputs
       ws.getCell(r, 6).value = b.phfee.packages; ws.getCell(r, 6).font = F_INPUT;
-      writeAmount(ws, r, 7, PHARMACIST_FEE_UNIT_PRICE, F_INPUT);
+      writeAmount(ws, r, 7, b.phfee.unitPrice, F_INPUT);
       writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);
     } else {
       writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);

@@ -179,9 +179,10 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
     ws.getCell(r, 1).value = chk.name; ws.getCell(r, 1).font = F_INPUT;
     const isPhfee = chk.name.includes('1,60') || chk.name.includes('Φαρμακοποιού (packages');
     if (isPhfee && b.phfee) {
-      // packages × 1.60 as a LIVE formula off two blue inputs
+      // packages × unit price (READ from the report — 1.60/1.62 €)
+      // as a LIVE formula off two blue inputs
       ws.getCell(r, 6).value = b.phfee.packages; ws.getCell(r, 6).font = F_INPUT;
-      writeAmount(ws, r, 7, PHARMACIST_FEE_UNIT_PRICE, F_INPUT);
+      writeAmount(ws, r, 7, b.phfee.unitPrice, F_INPUT);
       writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);
     } else {
       writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);

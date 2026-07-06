@@ -312,17 +312,26 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                         + bundle.claims.by_segment.get("Allied Health", 0.0), 2)
                   if bundle.claims else None)
 
+    sra_code_set = {l.code for l in sra.lines} if sra else set()
+
     if bundle.inpatient:
         add("Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS",
             bundle.inpatient.synolo, ["IS"], alt=claims_ip)
     if bundle.pharma:
-        drugs = bundle.pharma.by_type.get("Drugs", 0.0)
-        add("Φάρμακα (pharma drugs) = SRA PHD", drugs, ["PHD"])
-        cons = bundle.pharma.by_type.get("Consumables", 0.0)
-        if cons:
-            add("Αναλώσιμα (pharma consumables) = SRA PHC", cons, ["PHC"])
+        if "PH" in sra_code_set:
+            # newer SRAs pay pharmacy claims as daily «PH - HCP SERVICES»
+            # invoices (drugs + consumables together)
+            add("Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH",
+                bundle.pharma.total, ["PH", "PHD", "PHC"])
+        else:
+            drugs = bundle.pharma.by_type.get("Drugs", 0.0)
+            add("Φάρμακα (pharma drugs) = SRA PHD", drugs, ["PHD"])
+            cons = bundle.pharma.by_type.get("Consumables", 0.0)
+            if cons:
+                add("Αναλώσιμα (pharma consumables) = SRA PHC", cons, ["PHC"])
     if bundle.phfee:
-        add("Αμοιβή Φαρμακοποιού (packages × 1,60 €) = SRA PHF",
+        unit_str = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
+        add(f"Αμοιβή Φαρμακοποιού (packages × {unit_str} €) = SRA PHF",
             bundle.phfee.computed, ["PHF"])
     if bundle.claims:
         add("Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines",
@@ -526,6 +535,9 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     sections.append(out)
 
     ph = SplitSection("Φάρμακα (Pharma)", Bucket.PHARMA)
+    ph_claims = sra_amount(["PH"])
+    if ph_claims:
+        ph.rows.append(SplitRow("Φάρμακα & Αναλώσιμα — PH (pharmacy claims)", ph_claims))
     drugs = sra_amount(["PHD"])
     if drugs is None and bundle.pharma:
         drugs = bundle.pharma.by_type.get("Drugs", 0.0)
@@ -534,7 +546,7 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     cons = sra_amount(["PHC"])
     if cons is None and bundle.pharma:
         cons = bundle.pharma.by_type.get("Consumables", 0.0)
-    if cons:
+    if cons and not (ph_claims and sra):
         ph.rows.append(SplitRow("Αναλώσιμα (Consumables)", cons))
     fee = sra_amount(["PHF"])
     if fee is None and bundle.phfee:

@@ -185,17 +185,26 @@ function buildCrosschecks(bundle) {
       + (bundle.claims.bySegment['Allied Health'] || 0))
     : null;
 
+  const sraCodeSet = new Set(sra ? sra.lines.map((l) => l.code) : []);
+
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
         bundle.inpatient.synolo, ['IS'], null, claimsIp);
   }
   if (bundle.pharma) {
-    add('Φάρμακα (pharma drugs) = SRA PHD', bundle.pharma.byType['Drugs'] || 0, ['PHD']);
-    const cons = bundle.pharma.byType['Consumables'] || 0;
-    if (cons) add('Αναλώσιμα (pharma consumables) = SRA PHC', cons, ['PHC']);
+    if (sraCodeSet.has('PH')) {
+      // newer SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
+      add('Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH',
+          bundle.pharma.total, ['PH', 'PHD', 'PHC']);
+    } else {
+      add('Φάρμακα (pharma drugs) = SRA PHD', bundle.pharma.byType['Drugs'] || 0, ['PHD']);
+      const cons = bundle.pharma.byType['Consumables'] || 0;
+      if (cons) add('Αναλώσιμα (pharma consumables) = SRA PHC', cons, ['PHC']);
+    }
   }
   if (bundle.phfee) {
-    add('Αμοιβή Φαρμακοποιού (packages × 1,60 €) = SRA PHF', bundle.phfee.computed, ['PHF']);
+    const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
+    add(`Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PHF`, bundle.phfee.computed, ['PHF']);
   }
   if (bundle.claims) {
     add('Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines',
@@ -394,12 +403,14 @@ function buildSplit(bundle) {
   sections.push(out);
 
   const ph = { title: 'Φάρμακα (Pharma)', bucket: 'Pharma', rows: [] };
+  const phClaims = sraAmount(['PH']);
+  if (phClaims) ph.rows.push({ label: 'Φάρμακα & Αναλώσιμα — PH (pharmacy claims)', amount: phClaims });
   let drugs = sraAmount(['PHD']);
   if (drugs == null && bundle.pharma) drugs = bundle.pharma.byType['Drugs'] || 0;
   if (drugs) ph.rows.push({ label: 'Φάρμακα (Drugs)', amount: drugs });
   let cons = sraAmount(['PHC']);
   if (cons == null && bundle.pharma) cons = bundle.pharma.byType['Consumables'] || 0;
-  if (cons) ph.rows.push({ label: 'Αναλώσιμα (Consumables)', amount: cons });
+  if (cons && !(phClaims && sra)) ph.rows.push({ label: 'Αναλώσιμα (Consumables)', amount: cons });
   let fee = sraAmount(['PHF']);
   if (fee == null && bundle.phfee) fee = bundle.phfee.computed;
   if (fee) ph.rows.push({ label: 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });

@@ -168,17 +168,40 @@ def sra_text(cheque="259434", hospital="F1049") -> str:
     return "\n".join(lines)
 
 
-def pharmacist_fee_text(packages=8076, hospital="F1049") -> str:
-    amount = _anglo(packages * 1.60)
+def pharmacist_fee_text(packages=8076, unit=1.60, hospital="F1049") -> str:
+    # the unit price varies by month (1.60 €, then 1.62 €) — read, not assumed
+    amount = _anglo(round(packages * unit, 2))
     return f"""Αμοιβή Φαρμακοποιού
 Μήνας: 3
 Έτος: 2026
 Κωδικός Παροχέα Χρέωσης: {hospital}
 ID Τιμολογίου Τύπος Πληρωμένο Ημερομηνία Παροχέας Υγείας Τιμή Μονάδας Συσκευασίες που Αμοιβή από ΟΑΥ
 EBS Τιμολογίου Τιμολογίου εκτελέστηκαν
-5730058 STANDARD No 30/03/2026 {hospital} ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ 1.60 € {packages} {amount} €
+5730058 STANDARD No 30/03/2026 {hospital} ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ {unit:.2f} € {packages} {amount} €
 ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)
 Σελίδα 1
+"""
+
+
+def sra_text_feb(cheque="256797", hospital="F1049") -> str:
+    """February-style SRA: «PH - HCP SERVICES» pharmacy stream, an ADJ-MRI/CT
+    quality-criteria adjustment line without invoice number, and a credit
+    note with a trailing-minus amount."""
+    return f"""ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ
+REMITTANCE ADVICE
+STATE HEALTH SERVICES ORGANIZATION INCOME- PAR-{hospital} Payment Date: 13/03/2026
+Strovolos 2063 Payment/Cheque No: {cheque}
+Total paid in this batch: 917,964.89
+Ημερομηνία Αρ . Τιμολογίου Περιγραφή Ποσό Τιμολογίου Νόμισμα Ποσό πληρωμής
+28/02/2026 ADJ-MRI/CT QC- 501.03 EUR 501.03
+Feb
+Invoice Date Invoice No. Description Invoice Total Currency Amount Paid
+01/02/2026 5548208 AE - HCP SERVICES 24,327.00 EUR 24,327.00
+01/02/2026 5548210 IS - HCP SERVICES 840,526.10 EUR 840,526.10
+01/02/2026 5548223 PH - HCP SERVICES 42,623.01 EUR 42,623.01
+05/02/2026 5560001 OS - HCP SERVICES 10,000.00 EUR 10,000.00
+06/02/2026 5560002 CREDIT NOTE AE 12.25- EUR 12.25-
+Total paid in this batch: 917,964.89
 """
 
 

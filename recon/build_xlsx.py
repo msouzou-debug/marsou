@@ -199,9 +199,10 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
         ws.cell(row=r, column=1, value=chk.name).font = F_INPUT
         is_phfee = "1,60" in chk.name or "Φαρμακοποιού (packages" in chk.name
         if is_phfee and b.phfee:
-            # packages × 1.60 as a LIVE formula off two blue inputs
+            # packages × unit price (READ from the report — 1.60/1.62 €)
+            # as a LIVE formula off two blue inputs
             ws.cell(row=r, column=6, value=b.phfee.packages).font = F_INPUT
-            _amount(ws, r, 7, PHARMACIST_FEE_UNIT_PRICE, F_INPUT)
+            _amount(ws, r, 7, b.phfee.unit_price, F_INPUT)
             _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
         else:
             _amount(ws, r, 2, chk.source_total, F_INPUT)

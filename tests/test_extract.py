@@ -64,6 +64,35 @@ def test_pharmacist_fee_packages_times_160():
     assert fee.computed == 12_921.60
 
 
+def test_pharmacist_fee_reads_unit_price_from_document():
+    # the Feb-2026 real report: 1.62 € × 7422 = 12,023.64 — the unit price
+    # changed and must be read from the file, never assumed
+    fee = parse_pharmacist_fee_text(synth.pharmacist_fee_text(packages=7422, unit=1.62))
+    assert fee.packages == 7422
+    assert fee.unit_price == 1.62
+    assert fee.amount == 12_023.64
+    assert fee.computed == 12_023.64
+
+
+def test_sra_feb_format_ph_stream_adjustment_and_credit():
+    # Feb-style SRA: PH pharmacy stream, ADJ-MRI/CT line, trailing-minus credit
+    sra = parse_sra_text(synth.sra_text_feb())
+    assert sra.cheque_no == "256797"
+    assert sra.stated_total == 917_964.89
+    assert sra.lines_total == 917_964.89          # credit −12.25 included
+    sums = {}
+    for l in sra.lines:
+        sums[l.code] = round(sums.get(l.code, 0) + l.amount, 2)
+    assert sums["PH"] == 42_623.01                # pharmacy via HCP channel
+    assert sums["MRI"] == 501.03                  # ADJ-MRI/CT QC → quality/Outpatient
+    assert sums["AE"] == round(24_327.00 - 12.25, 2)  # credit note negative
+    assert (sra.year, sra.month) == (2026, 2)     # Payment Date 13/03 − 1
+    ph_line = next(l for l in sra.lines if l.code == "PH")
+    assert ph_line.bucket == Bucket.PHARMA
+    credit = next(l for l in sra.lines if l.amount < 0)
+    assert credit.amount == -12.25
+
+
 def test_sra_parse_invoice_level_lines():
     # real SRA: invoice-level lines «date inv-no desc total EUR paid»
     sra = parse_sra_text(synth.sra_text())

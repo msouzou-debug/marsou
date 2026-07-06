@@ -19,6 +19,14 @@ def test_plain_and_floats():
     assert parse_amount(500000) == 500000.0
 
 
+def test_trailing_minus_credit_notes():
+    assert parse_amount("12.25-") == -12.25
+    assert parse_amount("1,234.56-") == -1234.56
+    assert find_amounts("CREDIT NOTE 12.25- EUR 12.25-") == [-12.25, -12.25]
+    # a spaced dash is punctuation, not a sign
+    assert find_amounts("22,101.00 - other")[0] == 22101.00
+
+
 def test_edge_cases():
     assert parse_amount(None) == 0.0
     assert parse_amount("") == 0.0

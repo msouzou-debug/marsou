@@ -260,11 +260,12 @@ function extractPharmaClaims(bytes) {
 /* ----------------------------------------------- pharmacist fee (PDF) */
 
 function parsePharmacistFeeText(text) {
-  const unitRe = /\b1[.,]60?\b/;
+  /* The unit price is READ from the document (1.60 € historically, 1.62 € in
+   * newer months): find (unit, packages, amount) where packages × unit = amount. */
   let best = null;
   for (const line of String(text).split('\n')) {
-    if (!unitRe.test(line)) continue;
     const amounts = findAmounts(line);
+    if (amounts.length < 2) continue;
     const ints = [];
     for (const m of line.matchAll(/\b\d{1,3}(?:[.,]\d{3})+\b|\b\d+\b/g)) {
       const p = parseAmount(m[0]);
@@ -274,12 +275,17 @@ function parsePharmacistFeeText(text) {
     const im = line.match(/\b(?=\w*\d)([A-Z]{0,4}\d[\w\-/]{3,})\b/);
     if (im && !/^[\d.,]+$/.test(im[1])) invoice = im[1];
     for (const pkg of [...new Set(ints)].sort((a, b) => b - a)) {
-      const expected = round2(pkg * PHARMACIST_FEE_UNIT_PRICE);
-      for (const amt of amounts) {
-        if (Math.abs(amt - expected) < 0.005 && pkg > 1) {
-          const cand = { packages: pkg, unitPrice: PHARMACIST_FEE_UNIT_PRICE,
-                         amount: amt, invoiceId: invoice, computed: expected };
-          if (!best || cand.packages > best.packages) best = cand;
+      if (pkg <= 1) continue;
+      for (const unit of amounts) {
+        if (unit < 0.05 || unit > 20) continue;    // plausible per-package fee
+        const expected = round2(pkg * unit);
+        for (const amt of amounts) {
+          if (amt === unit) continue;
+          if (Math.abs(amt - expected) < 0.005) {
+            const cand = { packages: pkg, unitPrice: unit, amount: amt,
+                           invoiceId: invoice, computed: expected };
+            if (!best || cand.packages > best.packages) best = cand;
+          }
         }
       }
     }
@@ -324,6 +330,8 @@ const SRA_CODE_MAP = {
   PHD: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
   PHC: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
   PHF: ['Pharma', 'Fee', 'Pharmacist Fee Report'],
+  // real SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
+  PH: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
 };
 
 const KEYWORD_CODES = [
@@ -360,7 +368,7 @@ const KEYWORD_CODES = [
 
 /* Invoice descriptions on real SRAs start with the stream code, e.g.
  * «AE - HCP SERVICES».  Longer alternatives first; IP is an alias of IS. */
-const CODE_TOKEN_RE = /\b(A&E|PHD|PHC|PHF|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b/;
+const CODE_TOKEN_RE = /\b(A&E|PHD|PHC|PHF|PH|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b/;
 const CODE_ALIASES = { IP: 'IS' };
 
 function classifySraLine(code, description) {
@@ -386,9 +394,10 @@ function classifySraLine(code, description) {
 }
 
 const CHEQUE_RE = /(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)\s*[:.]?\s*#?(\d{4,})/i;
-const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*€?\s*$/;
+/* amounts may carry a trailing '-' (credit notes: '12.25-') */
+const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s*€?\s*$/;
 /* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
-const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*$/;
+const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s*$/;
 
 function parseSraText(text) {
   let cheque = '';

@@ -334,20 +334,35 @@ function sraProbeSummary(text) {
   }
   const groups = new Map();
   for (const l of sra.lines) {
-    const key = `${l.code}|${l.bucket}|${l.description.slice(0, 40)}`;
+    // strip the appended «(date #inv)» so daily invoices group together
+    const base = l.description.split(' (')[0].slice(0, 45);
+    const key = `${l.code}|${l.bucket}|${base}`;
     const g = groups.get(key) || { n: 0, s: 0 };
     g.n += 1; g.s += l.amount;
     groups.set(key, g);
   }
+  const diff = round2(sra.linesTotal - sra.statedTotal);
   const out = [`SRA γραμμές: ${sra.lines.length} · επιταγή #${sra.chequeNo} · `
-    + `δηλωμένο σύνολο ${formatEur(sra.statedTotal)} · άθροισμα γραμμών ${formatEur(sra.linesTotal)}`,
+    + `δηλωμένο σύνολο ${formatEur(sra.statedTotal)} · άθροισμα γραμμών ${formatEur(sra.linesTotal)}`
+    + ` · διαφορά ${formatEur(diff)}`,
   'Ταξινόμηση περιγραφών (description → code/bucket, count, sum):'];
   [...groups.entries()].sort((a, b) => b[1].s - a[1].s).forEach(([key, g]) => {
     const [code, bucket, desc] = key.split('|');
     out.push(`  «${desc}» → ${code} / ${bucket} · ×${g.n} · ${formatEur(g.s)}`
       + (code === '??' ? '  ⚠ UNMAPPED' : ''));
   });
-  return out.join('\n').slice(0, 2500);
+  const suspicious = [];
+  for (const raw of String(text).split('\n')) {
+    const line = raw.trim();
+    if (!line || !findAmounts(line).length) continue;
+    if (INVOICE_LINE_RE.test(line) || SRA_LINE_RE.test(line)) continue;
+    suspicious.push(line.slice(0, 90));
+  }
+  if (suspicious.length) {
+    out.push('Γραμμές με ποσά που ΔΕΝ αναλύθηκαν (lines with amounts NOT parsed):');
+    for (const s of suspicious.slice(0, 15)) out.push(`  ✗ ${s}`);
+  }
+  return out.join('\n').slice(0, 4500);
 }
 
 /* ----------------------------------------------------------------- XML */

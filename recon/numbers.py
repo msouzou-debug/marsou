@@ -27,6 +27,9 @@ def parse_amount(value: Any) -> float:
     if s.startswith("-"):
         negative = True
         s = s[1:]
+    if s.endswith("-"):        # credit notes print trailing minus: '12.25-'
+        negative = True
+        s = s[:-1]
     has_dot, has_comma = "." in s, "," in s
     if has_dot and has_comma:
         # the LAST separator is the decimal one
@@ -73,7 +76,8 @@ AMOUNT_RE = re.compile(
         (?: -?\d{1,3}(?:\.\d{3})*,\d{2}   # 1.234.567,89 (Greek)
           | -?\d{1,3}(?:,\d{3})*\.\d{2}   # 1,234,567.89 (Anglo)
           | -?\d+[.,]\d{2}                # 1234,89 / 1234.89
-        )(?!\d)                # amounts end after 2 decimals — don't split 8.076
+        )-?                    # trailing-minus credits: '12.25-'
+        (?!\d)                 # amounts end after 2 decimals — don't split 8.076
     """,
     re.VERBOSE,
 )

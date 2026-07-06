@@ -318,28 +318,37 @@ def extract_pharma_claims(data: bytes) -> PharmaClaims:
 # ----------------------------------------------- 5. pharmacist fee (PDF)
 
 def parse_pharmacist_fee_text(text: str) -> PharmacistFee:
-    """Parse the Αμοιβή Φαρμακοποιού table: invoice ID, packages, €1.60, amount."""
-    unit_re = re.compile(r"\b1[.,]60?\b")
+    """Parse the Αμοιβή Φαρμακοποιού table: invoice ID, unit price, packages,
+    amount.  The unit price is READ from the document (1.60 € historically,
+    1.62 € in newer months — it changes): find the (unit, packages, amount)
+    triple on a line where packages × unit = amount."""
     best: Optional[PharmacistFee] = None
     for line in text.splitlines():
-        if not unit_re.search(line):
-            continue
         amounts = find_amounts(line)
-        ints = [int(i.replace(".", "").replace(",", ""))
+        if len(amounts) < 2:
+            continue
+        ints = [int(parse_amount(i))
                 for i in re.findall(r"\b\d{1,3}(?:[.,]\d{3})+\b|\b\d+\b", line)
-                if parse_amount(i) == int(parse_amount(i)) and "1,60" not in i]
+                if parse_amount(i) == int(parse_amount(i))]
         invoice = ""
         m = re.search(r"\b(?=\w*\d)([A-Z]{0,4}\d[\w\-/]{3,})\b", line)
         if m and not re.fullmatch(r"[\d.,]+", m.group(1)):
             invoice = m.group(1)
         for pkg in sorted(set(ints), reverse=True):
-            expected = round(pkg * PHARMACIST_FEE_UNIT_PRICE, 2)
-            for amt in amounts:
-                if abs(amt - expected) < 0.005 and pkg > 1:
-                    cand = PharmacistFee(packages=pkg, unit_price=PHARMACIST_FEE_UNIT_PRICE,
-                                         amount=amt, invoice_id=invoice)
-                    if best is None or cand.packages > best.packages:
-                        best = cand
+            if pkg <= 1:
+                continue
+            for unit in amounts:
+                if not 0.05 <= unit <= 20:      # plausible per-package fee
+                    continue
+                expected = round(pkg * unit, 2)
+                for amt in amounts:
+                    if amt is unit:
+                        continue
+                    if abs(amt - expected) < 0.005:
+                        cand = PharmacistFee(packages=pkg, unit_price=unit,
+                                             amount=amt, invoice_id=invoice)
+                        if best is None or cand.packages > best.packages:
+                            best = cand
     if best:
         return best
     # fallback: stated total on a Σύνολο line + a packages count elsewhere
@@ -388,6 +397,8 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     "PHD": (Bucket.PHARMA, "Claims", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
     "PHC": (Bucket.PHARMA, "Claims", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
     "PHF": (Bucket.PHARMA, "Fee", "Pharmacist Fee Report"),
+    # real SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
+    "PH": (Bucket.PHARMA, "Claims", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
 }
 
 _KEYWORD_CODES = [
@@ -426,7 +437,7 @@ _KEYWORD_CODES = [
 
 # Invoice descriptions on real SRAs start with the stream code, e.g.
 # «AE - HCP SERVICES».  Longer alternatives first; IP is an alias of IS.
-_CODE_TOKEN_RE = re.compile(r"\b(A&E|PHD|PHC|PHF|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b")
+_CODE_TOKEN_RE = re.compile(r"\b(A&E|PHD|PHC|PHF|PH|HEMO|MRI|CT|IP|IS|AE|OS|NM|AP|PD)\b")
 _CODE_ALIASES = {"IP": "IS"}
 
 
@@ -460,16 +471,17 @@ _CHEQUE_RE = re.compile(
     r"(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)"
     r"\s*[:.]?\s*#?(\d{4,})", re.IGNORECASE)
 
+_AMT = r"-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?"   # trailing '-' = credit
+
 _LINE_RE = re.compile(
-    r"^\s*(?P<code>[A-Z][A-Z&/\-]{0,7})?\s*(?P<desc>.*?)\s+(?P<amount>-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*€?\s*$")
+    rf"^\s*(?P<code>[A-Z][A-Z&/\-]{{0,7}})?\s*(?P<desc>.*?)\s+(?P<amount>{_AMT})\s*€?\s*$")
 
 # real SRA line: Invoice Date | Invoice No | Description | Invoice Total |
 # Currency | Amount Paid — e.g.
 # «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00»
 _INVOICE_LINE_RE = re.compile(
-    r"^\s*(?P<date>\d{1,2}/\d{1,2}/\d{4})\s+(?P<inv>\d{4,})\s+(?P<desc>.+?)\s+"
-    r"(?P<total>-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s+(?P<cur>[A-Z]{3})\s+"
-    r"(?P<paid>-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2})\s*$")
+    rf"^\s*(?P<date>\d{{1,2}}/\d{{1,2}}/\d{{4}})\s+(?P<inv>\d{{4,}})\s+(?P<desc>.+?)\s+"
+    rf"(?P<total>{_AMT})\s+(?P<cur>[A-Z]{{3}})\s+(?P<paid>{_AMT})\s*$")
 
 
 def parse_sra_text(text: str) -> SRA:

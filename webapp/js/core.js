@@ -99,6 +99,7 @@ function parseAmount(v) {
   let neg = false;
   if (s.startsWith('(') && s.endsWith(')')) { neg = true; s = s.slice(1, -1); }
   if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  if (s.endsWith('-')) { neg = true; s = s.slice(0, -1); }  // credit: '12.25-'
   const hasDot = s.includes('.'), hasComma = s.includes(',');
   if (hasDot && hasComma) {
     if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.split('.').join('').replace(',', '.');
@@ -125,7 +126,7 @@ function formatEur(v) {
   return (neg ? '-' : '') + s + ' €';
 }
 
-const AMOUNT_RE_SRC = String.raw`(?<![\d.,])(?:-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d{1,3}(?:,\d{3})*\.\d{2}|-?\d+[.,]\d{2})(?!\d)`;
+const AMOUNT_RE_SRC = String.raw`(?<![\d.,])(?:-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d{1,3}(?:,\d{3})*\.\d{2}|-?\d+[.,]\d{2})-?(?!\d)`;
 
 function findAmounts(text) {
   const out = [];

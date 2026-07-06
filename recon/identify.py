@@ -378,24 +378,41 @@ def _identify_pdf(f: IdentifiedFile) -> None:
 def _sra_probe_summary(text: str) -> str:
     """Classification summary for the diagnostics panel: every distinct SRA
     line description with count, sum and the bucket it was mapped to — makes
-    unmapped/wrongly-mapped descriptions visible at a glance."""
-    from .extract import parse_sra_text  # lazy: extract imports identify lazily too
+    unmapped/wrongly-mapped descriptions visible at a glance.  Also lists
+    lines that carry amounts but were NOT parsed (wrapped rows, odd credits)."""
+    from .extract import _INVOICE_LINE_RE, _LINE_RE, parse_sra_text
+    from .numbers import find_amounts
     try:
         sra = parse_sra_text(text)
     except Exception as e:
         return f"SRA γραμμές (line parse): ΑΠΕΤΥΧΕ — {e}"
     groups: dict[tuple[str, str, str], tuple[int, float]] = {}
     for l in sra.lines:
-        key = (l.code, l.bucket.value, l.description[:40])
+        # strip the appended «(date #inv)» so daily invoices group together
+        base = l.description.split(" (")[0][:45]
+        key = (l.code, l.bucket.value, base)
         n, s = groups.get(key, (0, 0.0))
         groups[key] = (n + 1, s + l.amount)
+    d = round(sra.lines_total - sra.stated_total, 2)
     lines = [f"SRA γραμμές: {len(sra.lines)} · επιταγή #{sra.cheque_no} · "
-             f"δηλωμένο σύνολο {sra.stated_total:,.2f} · άθροισμα γραμμών {sra.lines_total:,.2f}",
+             f"δηλωμένο σύνολο {sra.stated_total:,.2f} · άθροισμα γραμμών "
+             f"{sra.lines_total:,.2f} · διαφορά {d:,.2f}",
              "Ταξινόμηση περιγραφών (description → code/bucket, count, sum):"]
     for (code, bucket, desc), (n, s) in sorted(groups.items(), key=lambda kv: -kv[1][1]):
         flag = "  ⚠ UNMAPPED" if code == "??" else ""
         lines.append(f"  «{desc}» → {code} / {bucket} · ×{n} · {s:,.2f}{flag}")
-    return "\n".join(lines)[:2500]
+    suspicious = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or not find_amounts(line):
+            continue
+        if _INVOICE_LINE_RE.match(line) or _LINE_RE.match(line):
+            continue
+        suspicious.append(line[:90])
+    if suspicious:
+        lines.append("Γραμμές με ποσά που ΔΕΝ αναλύθηκαν (lines with amounts NOT parsed):")
+        lines += [f"  ✗ {s}" for s in suspicious[:15]]
+    return "\n".join(lines)[:4500]
 
 
 # ------------------------------------------------------------------- XML
