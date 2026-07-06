@@ -13,10 +13,11 @@ function tableAt(rows, headerRow) {
 }
 
 function colIndex(cols, ...needles) {
+  // normLabel comparison: 'HIO_REIMB' matches the 'HIO REIMB' needle
   for (const needle of needles) {
-    const w = stripAccents(needle);
+    const w = normLabel(needle);
     for (let j = 0; j < cols.length; j++) {
-      if (stripAccents(cols[j]).includes(w)) return j;
+      if (normLabel(cols[j]).includes(w)) return j;
     }
   }
   return null;

@@ -22,7 +22,7 @@ from lxml import etree
 from .models import (Bucket, ClaimsAll, ClinicRow, GLExtract, HOSPITALS,
                      InpatientSummary, ISAuditor, PharmaClaims, PharmacistFee,
                      PHARMACIST_FEE_UNIT_PRICE, ReportType, SimpleReport, SRA,
-                     SRALine, XMLActivity, strip_accents)
+                     SRALine, XMLActivity, norm_label, strip_accents)
 from .numbers import AMOUNT_RE, find_amounts, parse_amount
 
 
@@ -40,9 +40,9 @@ def _load_sheets(data: bytes) -> dict[str, pd.DataFrame]:
 
 
 def _find_header(df: pd.DataFrame, needles: list[str], max_rows: int = 40) -> Optional[int]:
-    wanted = [strip_accents(n) for n in needles]
+    wanted = [norm_label(n) for n in needles]
     for i in range(min(max_rows, len(df))):
-        joined = " | ".join(strip_accents(str(v)) for v in df.iloc[i]
+        joined = " | ".join(norm_label(str(v)) for v in df.iloc[i]
                             if v is not None and str(v) != "nan")
         if all(w in joined for w in wanted):
             return i
@@ -59,11 +59,12 @@ def _table_at(df: pd.DataFrame, header_row: int) -> pd.DataFrame:
 
 
 def _col(df: pd.DataFrame, *needles: str) -> Optional[str]:
-    """First column whose (accent-stripped) name contains any needle."""
+    """First column whose name contains any needle (norm_label comparison:
+    accents/case/separators are equivalent — 'HIO_REIMB' matches 'HIO REIMB')."""
     for needle in needles:
-        w = strip_accents(needle)
+        w = norm_label(needle)
         for c in df.columns:
-            if w in strip_accents(str(c)):
+            if w in norm_label(str(c)):
                 return c
     return None
 

@@ -98,3 +98,31 @@ def test_identify_pdf_text_sra_and_phfee():
 def test_identify_unknown_bytes():
     f = identify("x.bin", b"not a known format at all")
     assert f.error is not None
+
+
+def test_underscored_headers_still_identify_and_extract():
+    # real ΟΑΥ exports often use DR_SEGMENT / HIO_REIMB style headers
+    import io
+    from openpyxl import Workbook
+    from recon.extract import extract_claims_all
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["CLAIM_ID", "PROVIDER_ID", "DR_SEGMENT", "HIO_REIMB", "PAYMENT_DATE"])
+    ws.append(["C1", "F1049", "Inpatient", 100.0, "15/03/2026"])
+    ws.append(["C2", "F1049", "A&E", 50.0, "15/03/2026"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    f = identify("claims.xlsx", buf.getvalue())
+    assert f.report_type == ReportType.CLAIMS_ALL
+    assert f.hospital_code == "F1049"
+    c = extract_claims_all(buf.getvalue())
+    assert c.by_segment["Inpatient"] == 100.0
+    assert c.by_segment["A&E"] == 50.0
+
+
+def test_probe_captured_for_diagnostics():
+    f = identify("endo.xlsx", synth.inpatient_summary_xlsx())
+    assert f.probe and "ΣΥΝΟΠΤΙΚΟΣ" in f.probe
+    f2 = identify("act.xml", synth.xml_activity_bytes())
+    assert f2.probe and "XML root" in f2.probe

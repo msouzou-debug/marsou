@@ -98,23 +98,44 @@ function cellsText(rows, maxRows = 40) {
 }
 
 function findHeaderRow(rows, needles, maxRows = 30) {
-  const wanted = needles.map(stripAccents);
+  // normLabel comparison: 'DR_SEGMENT' in a real export matches 'DR SEGMENT'
+  const wanted = needles.map(normLabel);
   const n = Math.min(maxRows, rows.length);
   for (let i = 0; i < n; i++) {
     const joined = rows[i].filter((v) => v != null && cellText(v) !== 'nan')
-      .map((v) => stripAccents(cellText(v))).join(' | ');
+      .map((v) => normLabel(cellText(v))).join(' | ');
     if (wanted.every((w) => joined.includes(w))) return i;
   }
   return null;
 }
 
 function columnValues(rows, headerRow, headerName) {
-  const want = stripAccents(headerName);
-  const hdr = rows[headerRow].map((v) => (v == null ? '' : stripAccents(cellText(v))));
+  const want = normLabel(headerName);
+  const hdr = rows[headerRow].map((v) => (v == null ? '' : normLabel(cellText(v))));
   for (let j = 0; j < hdr.length; j++) {
     if (hdr[j].includes(want)) return rows.slice(headerRow + 1).map((r) => r[j]);
   }
   return null;
+}
+
+function excelProbe(sheets) {
+  /* What the identifier saw — sheet names + first populated rows, for the
+   * diagnostics panel. */
+  const parts = [];
+  for (const { name, rows } of sheets) {
+    const cols = rows.length ? Math.max(...rows.slice(0, 5).map((r) => r.length)) : 0;
+    parts.push(`Φύλλο (sheet) «${name}» — ${rows.length} γραμμές × ${cols} στήλες:`);
+    let shown = 0;
+    for (let i = 0; i < Math.min(rows.length, 40); i++) {
+      const cells = rows[i].slice(0, 12).filter((v) => v != null && cellText(v) !== 'nan')
+        .map((v) => cellText(v).slice(0, 40));
+      if (!cells.length) continue;
+      parts.push(`  γραμμή ${i + 1}: ` + cells.join(' | '));
+      shown += 1;
+      if (shown >= 8) break;
+    }
+  }
+  return parts.join('\n').slice(0, 4000);
 }
 
 function identifyExcel(f) {
@@ -125,6 +146,7 @@ function identifyExcel(f) {
     f.error = `Δεν διαβάζεται ως Excel (unreadable as Excel): ${e.message}`;
     return;
   }
+  f.probe = excelProbe(sheets);
   let allText = '';
   for (const { name, rows } of sheets) allText += ` | ${name} | ` + cellsText(rows);
   const up = stripAccents(allText);
@@ -244,6 +266,7 @@ async function identifyPdf(f) {
     return;
   }
   f.rawText = text;
+  f.probe = 'Κείμενο PDF (extracted text, first 900 chars):\n' + text.slice(0, 900);
   if (text.trim().length <= 40) {
     f.error = 'Σαρωμένο PDF χωρίς επίπεδο κειμένου (scanned PDF, no text layer). '
       + 'Η έκδοση browser δεν κάνει OCR — επικολλήστε το κείμενο στο πεδίο διόρθωσης '
@@ -280,6 +303,8 @@ function identifyXml(f) {
   const names = new Set();
   for (const el of doc.getElementsByTagName('*')) names.add(el.localName.toLowerCase());
   const textAll = doc.documentElement.textContent;
+  f.probe = `XML root: ${doc.documentElement.localName}\nΠεδία (fields): `
+    + [...names].sort().slice(0, 25).join(', ');
   if (names.has('claimid') && names.has('activityreimbursementamount')) f.reportType = RT.XML_ACTIVITY;
   else if (names.has('drsegment') || names.has('segment')) f.reportType = RT.CLAIMS_ALL;
   else { f.error = 'Άγνωστο XML (unrecognised XML export — no known field names)'; return; }
@@ -292,7 +317,7 @@ function identifyXml(f) {
 async function identify(filename, bytes) {
   const f = { filename, data: bytes, reportType: null, hospitalCode: null,
               year: null, month: null, warnings: [], error: null, rawText: null,
-              needsManualText: false };
+              needsManualText: false, probe: null };
   const fmt = sniffFormat(bytes);
   if (fmt === 'xlsx' || fmt === 'xls') identifyExcel(f);
   else if (fmt === 'pdf') await identifyPdf(f);

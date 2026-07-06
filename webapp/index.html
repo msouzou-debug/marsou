@@ -70,6 +70,14 @@
   .guide-col li { margin: .25rem 0; font-size: .92rem; }
   .note { background: #E8F4FD; border-left: 4px solid var(--blue); padding: .6rem 1rem;
           margin: .5rem 0; border-radius: 4px; }
+  .fallback-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: .6rem 0; }
+  .fallback-grid label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; }
+  .fallback-grid select, .fallback-grid input { padding: .35rem .5rem; border: 1px solid #cfd8e1;
+          border-radius: 6px; min-width: 220px; }
+  .ov-sra-label { display: block; font-size: .9rem; margin-top: .5rem; }
+  #diagnostics-body pre { background: #f0f3f7; border: 1px solid #e0e6ec; border-radius: 6px;
+          padding: .6rem .8rem; overflow-x: auto; font-size: .78rem; max-height: 260px; }
+  #diagnostics-body h4 { margin: .8rem 0 .3rem; color: var(--navy); }
   footer { text-align: center; color: var(--gray); font-size: .8rem; padding: 1rem; }
 </style>
 </head>
@@ -127,6 +135,27 @@
   <div id="checklist-wrap"></div>
   <div id="gates"></div>
   <div id="sra-review"></div>
+  <details id="manual-fallback" hidden>
+    <summary>🛠 Χειροκίνητη επιλογή (manual fallback — αν κάτι δεν εντοπίζεται αυτόματα)</summary>
+    <div class="fallback-grid">
+      <label>Νοσοκομείο (hospital)
+        <select id="ov-hospital"><option value="">— αυτόματο (auto) —</option></select></label>
+      <label>Μήνας υπηρεσιών (service month)
+        <select id="ov-month"><option value="">— αυτόματο (auto) —</option></select></label>
+      <label>Έτος (year)
+        <input id="ov-year" type="number" min="2020" max="2040" placeholder="αυτόματο"></label>
+    </div>
+    <label class="ov-sra-label">Κείμενο SRA (paste the SRA text here ONLY if the PDF is scanned /
+      not recognised — then remove the unrecognised file from the list with ✕)
+      <textarea id="ov-sra" rows="7" spellcheck="false"
+        placeholder="IS Ενδονοσοκομειακή Περίθαλψη 1.061.728,70&#10;...&#10;ΣΥΝΟΛΟ 1.936.528,19"></textarea></label>
+  </details>
+  <details id="diagnostics" hidden>
+    <summary>🔍 Διαγνωστικά αρχείων (file diagnostics — τι διάβασε η εφαρμογή από κάθε αρχείο)</summary>
+    <div id="diagnostics-body"></div>
+    <p><button id="diag-download" class="primary" type="button">⬇ Λήψη αναφοράς διαγνωστικών
+      (download diagnostics report)</button></p>
+  </details>
   <div class="controls">
     <label><input type="checkbox" id="crosscheck-mode">
       Λειτουργία διασταύρωσης — χωρίς SRA (cross-check mode, no SRA)</label>

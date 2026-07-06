@@ -103,6 +103,43 @@ if not uploads:
 
 files = [_identify_cached(u.name, u.getvalue()) for u in uploads]
 
+# manual fallback: fill hospital/month only where detection found nothing
+with st.expander("🛠 Χειροκίνητη επιλογή (manual fallback — αν κάτι δεν εντοπίζεται)"):
+    hosp_options = ["— αυτόματο (auto) —"] + [
+        f"{c} — {gr} ({en})" for c, (gr, en) in HOSPITALS.items()]
+    ov_hospital = st.selectbox("Νοσοκομείο (hospital)", hosp_options)
+    col_m, col_y = st.columns(2)
+    ov_month = col_m.selectbox("Μήνας υπηρεσιών (service month)",
+                               ["— αυτόματο —"] + [f"{m:02d} — {MONTH_NAMES_EL[m]}"
+                                                   for m in range(1, 13)])
+    ov_year = col_y.number_input("Έτος (year, 0 = αυτόματο)", min_value=0,
+                                 max_value=2040, value=0)
+if ov_hospital != hosp_options[0] or (ov_month != "— αυτόματο —" and ov_year):
+    from dataclasses import replace as _dc_replace
+    code = ov_hospital.split(" — ")[0] if ov_hospital != hosp_options[0] else None
+    month_ov = int(ov_month.split(" — ")[0]) if ov_month != "— αυτόματο —" else None
+    patched = []
+    for f in files:
+        kw = {}
+        if code and not f.hospital_code:
+            kw["hospital_code"] = code
+        if month_ov and ov_year and not f.year:
+            kw["year"], kw["month"] = int(ov_year), month_ov
+        patched.append(_dc_replace(f, **kw) if kw else f)
+    files = patched
+
+with st.expander("🔍 Διαγνωστικά αρχείων (file diagnostics — τι διάβασε η εφαρμογή)"):
+    diag_lines = []
+    for f in files:
+        label = REPORT_LABELS[f.report_type] if f.report_type else "ΔΕΝ ΑΝΑΓΝΩΡΙΣΤΗΚΕ (unrecognised)"
+        st.markdown(f"**{f.filename}** → {label}"
+                    + (f" — :red[{f.error}]" if f.error else ""))
+        if f.probe:
+            st.code(f.probe)
+        diag_lines += [f"=== {f.filename} → {label}", f.error or "", f.probe or "", ""]
+    st.download_button("⬇ Λήψη αναφοράς διαγνωστικών (download diagnostics report)",
+                       data="\n".join(diag_lines), file_name="okypy-diagnostics.txt")
+
 for f in files:
     for w in f.warnings:
         st.warning(f"{f.filename}: {w}")

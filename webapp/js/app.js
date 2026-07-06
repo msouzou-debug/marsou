@@ -3,7 +3,34 @@
  * memory and offered as a download. */
 'use strict';
 
-const state = { files: [], running: false };
+const state = {
+  files: [], running: false,
+  ov: { hospital: '', month: '', year: '', sraText: '' },  // manual fallbacks
+};
+
+/* Files with the manual fallbacks applied: hospital/month fill gaps only,
+ * and pasted SRA text becomes a virtual SRA when no PDF one was recognised. */
+function effectiveFiles() {
+  const ov = state.ov;
+  const out = state.files.map((f) => {
+    const g = { ...f };
+    if (!g.hospitalCode && ov.hospital) g.hospitalCode = ov.hospital;
+    if (!g.year && ov.year && ov.month) { g.year = +ov.year; g.month = +ov.month; }
+    return g;
+  });
+  const sraText = ov.sraText.trim();
+  if (sraText && !out.some((f) => f.reportType === RT.SRA)) {
+    const [y, m] = findServicePeriod(sraText);
+    out.push({
+      filename: '(χειροκίνητο κείμενο SRA / manual SRA text)', data: null,
+      reportType: RT.SRA, hospitalCode: findHospital(sraText) || ov.hospital || null,
+      year: y || (ov.year && ov.month ? +ov.year : null),
+      month: m || (ov.year && ov.month ? +ov.month : null),
+      warnings: [], error: null, rawText: sraText, needsManualText: false, probe: null,
+    });
+  }
+  return out;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,15 +62,18 @@ function removeFile(name) {
 /* --------------------------------------------------------------- render */
 
 function render() {
-  const files = state.files;
+  const files = effectiveFiles();
   const crosscheck = $('crosscheck-mode').checked;
   $('results').innerHTML = '';
   $('report-guide').open = files.length === 0;   // guide up front, folds away once files arrive
+  $('manual-fallback').hidden = state.files.length === 0;
+  $('diagnostics').hidden = state.files.length === 0;
   if (!files.length) {
     $('checklist-wrap').innerHTML = '';
     $('gates').innerHTML = '';
     $('sra-review').innerHTML = '';
     $('notes').innerHTML = '';
+    $('diagnostics-body').innerHTML = '';
     $('run-btn').disabled = true;
     return;
   }
@@ -52,6 +82,7 @@ function render() {
   renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
+  renderDiagnostics();
   $('notes').innerHTML = notes.map((n) => (n.startsWith('Προσοχή')
     ? `<div class="warn">⚠️ ${esc(n)}</div>`
     : `<div class="note">ℹ️ ${esc(n)}</div>`)).join('');
@@ -59,7 +90,34 @@ function render() {
   const warnings = files.flatMap((f) => f.warnings.map((w) => `${f.filename}: ${w}`));
   $('warnings').innerHTML = warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('');
 
-  $('run-btn').disabled = !gates.every((g) => g.passed) || state.running;
+  const blocked = !gates.every((g) => g.passed);
+  $('run-btn').disabled = blocked || state.running;
+  // a failing gate points at the fallbacks + diagnostics so nobody is stuck
+  if (blocked) $('manual-fallback').open = true;
+}
+
+function diagnosticsText() {
+  const lines = ['OKYπY HIO reconciliation — Διαγνωστικά αρχείων (file diagnostics)', ''];
+  for (const f of state.files) {
+    lines.push('='.repeat(70));
+    lines.push(`Αρχείο (file): ${f.filename}`);
+    lines.push(`Τύπος (detected type): ${f.reportType ? REPORT_LABELS[f.reportType] : '— ΔΕΝ ΑΝΑΓΝΩΡΙΣΤΗΚΕ (unrecognised)'}`);
+    lines.push(`Νοσοκομείο: ${f.hospitalCode || '—'} · Μήνας: ${f.month && f.year ? `${f.month}/${f.year}` : '—'}`);
+    if (f.error) lines.push(`Σφάλμα (error): ${f.error}`);
+    if (f.probe) { lines.push('--- τι διάβασε η εφαρμογή (what the app read) ---'); lines.push(f.probe); }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function renderDiagnostics() {
+  $('diagnostics-body').innerHTML = state.files.map((f) => {
+    const type = f.reportType ? REPORT_LABELS[f.reportType]
+      : '<span style="color:#C00000">ΔΕΝ ΑΝΑΓΝΩΡΙΣΤΗΚΕ (unrecognised)</span>';
+    const err = f.error ? `<div class="error">${esc(f.error)}</div>` : '';
+    const probe = f.probe ? `<pre>${esc(f.probe)}</pre>` : '';
+    return `<h4>${esc(f.filename)} → ${type}</h4>${err}${probe}`;
+  }).join('');
 }
 
 function renderChecklist(files, crosscheck) {
@@ -93,7 +151,12 @@ function renderChecklist(files, crosscheck) {
 function renderGates(failed) {
   $('gates').innerHTML = failed.map((g) =>
     `<div class="error"><strong>Πύλη ${g.number} — ${esc(g.name)}</strong><br>${esc(g.message).replace(/\n/g, '<br>')}</div>`
-  ).join('');
+  ).join('') + (failed.length
+    ? '<div class="note">💡 Δείτε τα «Διαγνωστικά αρχείων» παρακάτω για το τι διάβασε η εφαρμογή '
+      + 'από κάθε αρχείο, ή χρησιμοποιήστε τη «Χειροκίνητη επιλογή». Αν κάποιο αρχείο δεν '
+      + 'αναγνωρίζεται, κατεβάστε την αναφορά διαγνωστικών για να προσαρμοστεί η εφαρμογή '
+      + '(download the diagnostics report so the app can be adapted to your files).</div>'
+    : '');
 }
 
 function renderSraReview(files) {
@@ -121,7 +184,8 @@ const SLOT = {
 
 async function run() {
   const crosscheck = $('crosscheck-mode').checked;
-  const { gates, hospital, period } = validateBatch(state.files, crosscheck);
+  const files = effectiveFiles();
+  const { gates, hospital, period } = validateBatch(files, crosscheck);
   if (!gates.every((g) => g.passed)) return;
   state.running = true;
   $('run-btn').disabled = true;
@@ -130,13 +194,13 @@ async function run() {
     const [year, month] = period;
     const bundle = { hospitalCode: hospital, year, month };
     const sraOverride = $('sra-text') ? $('sra-text').value : null;
-    for (const f of state.files) {
-      const override = f.reportType === RT.SRA ? sraOverride : null;
+    for (const f of files) {
+      const override = f.reportType === RT.SRA && f.data ? sraOverride : null;
       bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, override);
     }
 
     if (bundle.sra) {
-      const have = new Set(state.files.map((f) => f.reportType));
+      const have = new Set(files.map((f) => f.reportType));
       const missing = conditionalRequirements(bundle.sra).filter((t) => !have.has(t));
       if (missing.length) {
         throw new ExtractionError('Το SRA περιέχει γραμμές που απαιτούν επιπλέον αναφορές '
@@ -256,4 +320,37 @@ window.addEventListener('DOMContentLoaded', () => {
   input.addEventListener('change', () => { addFiles([...input.files]); input.value = ''; });
   $('crosscheck-mode').addEventListener('change', render);
   $('run-btn').addEventListener('click', run);
+
+  // manual fallback controls
+  const hosSel = $('ov-hospital');
+  for (const [code, [gr, en]] of Object.entries(HOSPITALS)) {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = `${code} — ${gr} (${en})`;
+    hosSel.appendChild(opt);
+  }
+  const monSel = $('ov-month');
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement('option');
+    opt.value = String(m);
+    opt.textContent = `${String(m).padStart(2, '0')} — ${MONTH_NAMES_EL[m]}`;
+    monSel.appendChild(opt);
+  }
+  const sync = () => {
+    state.ov.hospital = hosSel.value;
+    state.ov.month = monSel.value;
+    state.ov.year = $('ov-year').value;
+    state.ov.sraText = $('ov-sra').value;
+    render();
+  };
+  for (const id of ['ov-hospital', 'ov-month', 'ov-year']) $(id).addEventListener('change', sync);
+  $('ov-sra').addEventListener('input', sync);
+  $('diag-download').addEventListener('click', () => {
+    const blob = new Blob([diagnosticsText()], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'okypy-diagnostics.txt';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
 });

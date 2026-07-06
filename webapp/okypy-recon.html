@@ -70,6 +70,14 @@
   .guide-col li { margin: .25rem 0; font-size: .92rem; }
   .note { background: #E8F4FD; border-left: 4px solid var(--blue); padding: .6rem 1rem;
           margin: .5rem 0; border-radius: 4px; }
+  .fallback-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: .6rem 0; }
+  .fallback-grid label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; }
+  .fallback-grid select, .fallback-grid input { padding: .35rem .5rem; border: 1px solid #cfd8e1;
+          border-radius: 6px; min-width: 220px; }
+  .ov-sra-label { display: block; font-size: .9rem; margin-top: .5rem; }
+  #diagnostics-body pre { background: #f0f3f7; border: 1px solid #e0e6ec; border-radius: 6px;
+          padding: .6rem .8rem; overflow-x: auto; font-size: .78rem; max-height: 260px; }
+  #diagnostics-body h4 { margin: .8rem 0 .3rem; color: var(--navy); }
   footer { text-align: center; color: var(--gray); font-size: .8rem; padding: 1rem; }
 </style>
 </head>
@@ -127,6 +135,27 @@
   <div id="checklist-wrap"></div>
   <div id="gates"></div>
   <div id="sra-review"></div>
+  <details id="manual-fallback" hidden>
+    <summary>🛠 Χειροκίνητη επιλογή (manual fallback — αν κάτι δεν εντοπίζεται αυτόματα)</summary>
+    <div class="fallback-grid">
+      <label>Νοσοκομείο (hospital)
+        <select id="ov-hospital"><option value="">— αυτόματο (auto) —</option></select></label>
+      <label>Μήνας υπηρεσιών (service month)
+        <select id="ov-month"><option value="">— αυτόματο (auto) —</option></select></label>
+      <label>Έτος (year)
+        <input id="ov-year" type="number" min="2020" max="2040" placeholder="αυτόματο"></label>
+    </div>
+    <label class="ov-sra-label">Κείμενο SRA (paste the SRA text here ONLY if the PDF is scanned /
+      not recognised — then remove the unrecognised file from the list with ✕)
+      <textarea id="ov-sra" rows="7" spellcheck="false"
+        placeholder="IS Ενδονοσοκομειακή Περίθαλψη 1.061.728,70&#10;...&#10;ΣΥΝΟΛΟ 1.936.528,19"></textarea></label>
+  </details>
+  <details id="diagnostics" hidden>
+    <summary>🔍 Διαγνωστικά αρχείων (file diagnostics — τι διάβασε η εφαρμογή από κάθε αρχείο)</summary>
+    <div id="diagnostics-body"></div>
+    <p><button id="diag-download" class="primary" type="button">⬇ Λήψη αναφοράς διαγνωστικών
+      (download diagnostics report)</button></p>
+  </details>
   <div class="controls">
     <label><input type="checkbox" id="crosscheck-mode">
       Λειτουργία διασταύρωσης — χωρίς SRA (cross-check mode, no SRA)</label>
@@ -339,6 +368,13 @@ function stripAccents(s) {
   return String(s).normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
 }
 
+function normLabel(s) {
+  /* Header/label comparison form: accent-stripped, uppercased, separator
+   * runs (space _ - . /) collapsed to single spaces — 'DR_SEGMENT',
+   * 'Dr Segment' and 'DR-SEGMENT' all compare equal. */
+  return stripAccents(s).replace(/[\s_\-./]+/g, ' ').trim();
+}
+
 function round2(v) { return Math.round((v + Number.EPSILON) * 100) / 100; }
 
 /* ---- amount parsing: '1.234.567,89' / '1,234,567.89' / floats / '€ ...' */
@@ -495,23 +531,44 @@ function cellsText(rows, maxRows = 40) {
 }
 
 function findHeaderRow(rows, needles, maxRows = 30) {
-  const wanted = needles.map(stripAccents);
+  // normLabel comparison: 'DR_SEGMENT' in a real export matches 'DR SEGMENT'
+  const wanted = needles.map(normLabel);
   const n = Math.min(maxRows, rows.length);
   for (let i = 0; i < n; i++) {
     const joined = rows[i].filter((v) => v != null && cellText(v) !== 'nan')
-      .map((v) => stripAccents(cellText(v))).join(' | ');
+      .map((v) => normLabel(cellText(v))).join(' | ');
     if (wanted.every((w) => joined.includes(w))) return i;
   }
   return null;
 }
 
 function columnValues(rows, headerRow, headerName) {
-  const want = stripAccents(headerName);
-  const hdr = rows[headerRow].map((v) => (v == null ? '' : stripAccents(cellText(v))));
+  const want = normLabel(headerName);
+  const hdr = rows[headerRow].map((v) => (v == null ? '' : normLabel(cellText(v))));
   for (let j = 0; j < hdr.length; j++) {
     if (hdr[j].includes(want)) return rows.slice(headerRow + 1).map((r) => r[j]);
   }
   return null;
+}
+
+function excelProbe(sheets) {
+  /* What the identifier saw — sheet names + first populated rows, for the
+   * diagnostics panel. */
+  const parts = [];
+  for (const { name, rows } of sheets) {
+    const cols = rows.length ? Math.max(...rows.slice(0, 5).map((r) => r.length)) : 0;
+    parts.push(`Φύλλο (sheet) «${name}» — ${rows.length} γραμμές × ${cols} στήλες:`);
+    let shown = 0;
+    for (let i = 0; i < Math.min(rows.length, 40); i++) {
+      const cells = rows[i].slice(0, 12).filter((v) => v != null && cellText(v) !== 'nan')
+        .map((v) => cellText(v).slice(0, 40));
+      if (!cells.length) continue;
+      parts.push(`  γραμμή ${i + 1}: ` + cells.join(' | '));
+      shown += 1;
+      if (shown >= 8) break;
+    }
+  }
+  return parts.join('\n').slice(0, 4000);
 }
 
 function identifyExcel(f) {
@@ -522,6 +579,7 @@ function identifyExcel(f) {
     f.error = `Δεν διαβάζεται ως Excel (unreadable as Excel): ${e.message}`;
     return;
   }
+  f.probe = excelProbe(sheets);
   let allText = '';
   for (const { name, rows } of sheets) allText += ` | ${name} | ` + cellsText(rows);
   const up = stripAccents(allText);
@@ -641,6 +699,7 @@ async function identifyPdf(f) {
     return;
   }
   f.rawText = text;
+  f.probe = 'Κείμενο PDF (extracted text, first 900 chars):\n' + text.slice(0, 900);
   if (text.trim().length <= 40) {
     f.error = 'Σαρωμένο PDF χωρίς επίπεδο κειμένου (scanned PDF, no text layer). '
       + 'Η έκδοση browser δεν κάνει OCR — επικολλήστε το κείμενο στο πεδίο διόρθωσης '
@@ -677,6 +736,8 @@ function identifyXml(f) {
   const names = new Set();
   for (const el of doc.getElementsByTagName('*')) names.add(el.localName.toLowerCase());
   const textAll = doc.documentElement.textContent;
+  f.probe = `XML root: ${doc.documentElement.localName}\nΠεδία (fields): `
+    + [...names].sort().slice(0, 25).join(', ');
   if (names.has('claimid') && names.has('activityreimbursementamount')) f.reportType = RT.XML_ACTIVITY;
   else if (names.has('drsegment') || names.has('segment')) f.reportType = RT.CLAIMS_ALL;
   else { f.error = 'Άγνωστο XML (unrecognised XML export — no known field names)'; return; }
@@ -689,7 +750,7 @@ function identifyXml(f) {
 async function identify(filename, bytes) {
   const f = { filename, data: bytes, reportType: null, hospitalCode: null,
               year: null, month: null, warnings: [], error: null, rawText: null,
-              needsManualText: false };
+              needsManualText: false, probe: null };
   const fmt = sniffFormat(bytes);
   if (fmt === 'xlsx' || fmt === 'xls') identifyExcel(f);
   else if (fmt === 'pdf') await identifyPdf(f);
@@ -715,10 +776,11 @@ function tableAt(rows, headerRow) {
 }
 
 function colIndex(cols, ...needles) {
+  // normLabel comparison: 'HIO_REIMB' matches the 'HIO REIMB' needle
   for (const needle of needles) {
-    const w = stripAccents(needle);
+    const w = normLabel(needle);
     for (let j = 0; j < cols.length; j++) {
-      if (stripAccents(cols[j]).includes(w)) return j;
+      if (normLabel(cols[j]).includes(w)) return j;
     }
   }
   return null;
@@ -2129,7 +2191,34 @@ function verifyWorkbook(wb, zeroChecks) {
  * memory and offered as a download. */
 'use strict';
 
-const state = { files: [], running: false };
+const state = {
+  files: [], running: false,
+  ov: { hospital: '', month: '', year: '', sraText: '' },  // manual fallbacks
+};
+
+/* Files with the manual fallbacks applied: hospital/month fill gaps only,
+ * and pasted SRA text becomes a virtual SRA when no PDF one was recognised. */
+function effectiveFiles() {
+  const ov = state.ov;
+  const out = state.files.map((f) => {
+    const g = { ...f };
+    if (!g.hospitalCode && ov.hospital) g.hospitalCode = ov.hospital;
+    if (!g.year && ov.year && ov.month) { g.year = +ov.year; g.month = +ov.month; }
+    return g;
+  });
+  const sraText = ov.sraText.trim();
+  if (sraText && !out.some((f) => f.reportType === RT.SRA)) {
+    const [y, m] = findServicePeriod(sraText);
+    out.push({
+      filename: '(χειροκίνητο κείμενο SRA / manual SRA text)', data: null,
+      reportType: RT.SRA, hospitalCode: findHospital(sraText) || ov.hospital || null,
+      year: y || (ov.year && ov.month ? +ov.year : null),
+      month: m || (ov.year && ov.month ? +ov.month : null),
+      warnings: [], error: null, rawText: sraText, needsManualText: false, probe: null,
+    });
+  }
+  return out;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -2161,15 +2250,18 @@ function removeFile(name) {
 /* --------------------------------------------------------------- render */
 
 function render() {
-  const files = state.files;
+  const files = effectiveFiles();
   const crosscheck = $('crosscheck-mode').checked;
   $('results').innerHTML = '';
   $('report-guide').open = files.length === 0;   // guide up front, folds away once files arrive
+  $('manual-fallback').hidden = state.files.length === 0;
+  $('diagnostics').hidden = state.files.length === 0;
   if (!files.length) {
     $('checklist-wrap').innerHTML = '';
     $('gates').innerHTML = '';
     $('sra-review').innerHTML = '';
     $('notes').innerHTML = '';
+    $('diagnostics-body').innerHTML = '';
     $('run-btn').disabled = true;
     return;
   }
@@ -2178,6 +2270,7 @@ function render() {
   renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
+  renderDiagnostics();
   $('notes').innerHTML = notes.map((n) => (n.startsWith('Προσοχή')
     ? `<div class="warn">⚠️ ${esc(n)}</div>`
     : `<div class="note">ℹ️ ${esc(n)}</div>`)).join('');
@@ -2185,7 +2278,34 @@ function render() {
   const warnings = files.flatMap((f) => f.warnings.map((w) => `${f.filename}: ${w}`));
   $('warnings').innerHTML = warnings.map((w) => `<div class="warn">${esc(w)}</div>`).join('');
 
-  $('run-btn').disabled = !gates.every((g) => g.passed) || state.running;
+  const blocked = !gates.every((g) => g.passed);
+  $('run-btn').disabled = blocked || state.running;
+  // a failing gate points at the fallbacks + diagnostics so nobody is stuck
+  if (blocked) $('manual-fallback').open = true;
+}
+
+function diagnosticsText() {
+  const lines = ['OKYπY HIO reconciliation — Διαγνωστικά αρχείων (file diagnostics)', ''];
+  for (const f of state.files) {
+    lines.push('='.repeat(70));
+    lines.push(`Αρχείο (file): ${f.filename}`);
+    lines.push(`Τύπος (detected type): ${f.reportType ? REPORT_LABELS[f.reportType] : '— ΔΕΝ ΑΝΑΓΝΩΡΙΣΤΗΚΕ (unrecognised)'}`);
+    lines.push(`Νοσοκομείο: ${f.hospitalCode || '—'} · Μήνας: ${f.month && f.year ? `${f.month}/${f.year}` : '—'}`);
+    if (f.error) lines.push(`Σφάλμα (error): ${f.error}`);
+    if (f.probe) { lines.push('--- τι διάβασε η εφαρμογή (what the app read) ---'); lines.push(f.probe); }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function renderDiagnostics() {
+  $('diagnostics-body').innerHTML = state.files.map((f) => {
+    const type = f.reportType ? REPORT_LABELS[f.reportType]
+      : '<span style="color:#C00000">ΔΕΝ ΑΝΑΓΝΩΡΙΣΤΗΚΕ (unrecognised)</span>';
+    const err = f.error ? `<div class="error">${esc(f.error)}</div>` : '';
+    const probe = f.probe ? `<pre>${esc(f.probe)}</pre>` : '';
+    return `<h4>${esc(f.filename)} → ${type}</h4>${err}${probe}`;
+  }).join('');
 }
 
 function renderChecklist(files, crosscheck) {
@@ -2219,7 +2339,12 @@ function renderChecklist(files, crosscheck) {
 function renderGates(failed) {
   $('gates').innerHTML = failed.map((g) =>
     `<div class="error"><strong>Πύλη ${g.number} — ${esc(g.name)}</strong><br>${esc(g.message).replace(/\n/g, '<br>')}</div>`
-  ).join('');
+  ).join('') + (failed.length
+    ? '<div class="note">💡 Δείτε τα «Διαγνωστικά αρχείων» παρακάτω για το τι διάβασε η εφαρμογή '
+      + 'από κάθε αρχείο, ή χρησιμοποιήστε τη «Χειροκίνητη επιλογή». Αν κάποιο αρχείο δεν '
+      + 'αναγνωρίζεται, κατεβάστε την αναφορά διαγνωστικών για να προσαρμοστεί η εφαρμογή '
+      + '(download the diagnostics report so the app can be adapted to your files).</div>'
+    : '');
 }
 
 function renderSraReview(files) {
@@ -2247,7 +2372,8 @@ const SLOT = {
 
 async function run() {
   const crosscheck = $('crosscheck-mode').checked;
-  const { gates, hospital, period } = validateBatch(state.files, crosscheck);
+  const files = effectiveFiles();
+  const { gates, hospital, period } = validateBatch(files, crosscheck);
   if (!gates.every((g) => g.passed)) return;
   state.running = true;
   $('run-btn').disabled = true;
@@ -2256,13 +2382,13 @@ async function run() {
     const [year, month] = period;
     const bundle = { hospitalCode: hospital, year, month };
     const sraOverride = $('sra-text') ? $('sra-text').value : null;
-    for (const f of state.files) {
-      const override = f.reportType === RT.SRA ? sraOverride : null;
+    for (const f of files) {
+      const override = f.reportType === RT.SRA && f.data ? sraOverride : null;
       bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, override);
     }
 
     if (bundle.sra) {
-      const have = new Set(state.files.map((f) => f.reportType));
+      const have = new Set(files.map((f) => f.reportType));
       const missing = conditionalRequirements(bundle.sra).filter((t) => !have.has(t));
       if (missing.length) {
         throw new ExtractionError('Το SRA περιέχει γραμμές που απαιτούν επιπλέον αναφορές '
@@ -2382,6 +2508,39 @@ window.addEventListener('DOMContentLoaded', () => {
   input.addEventListener('change', () => { addFiles([...input.files]); input.value = ''; });
   $('crosscheck-mode').addEventListener('change', render);
   $('run-btn').addEventListener('click', run);
+
+  // manual fallback controls
+  const hosSel = $('ov-hospital');
+  for (const [code, [gr, en]] of Object.entries(HOSPITALS)) {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = `${code} — ${gr} (${en})`;
+    hosSel.appendChild(opt);
+  }
+  const monSel = $('ov-month');
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement('option');
+    opt.value = String(m);
+    opt.textContent = `${String(m).padStart(2, '0')} — ${MONTH_NAMES_EL[m]}`;
+    monSel.appendChild(opt);
+  }
+  const sync = () => {
+    state.ov.hospital = hosSel.value;
+    state.ov.month = monSel.value;
+    state.ov.year = $('ov-year').value;
+    state.ov.sraText = $('ov-sra').value;
+    render();
+  };
+  for (const id of ['ov-hospital', 'ov-month', 'ov-year']) $(id).addEventListener('change', sync);
+  $('ov-sra').addEventListener('input', sync);
+  $('diag-download').addEventListener('click', () => {
+    const blob = new Blob([diagnosticsText()], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'okypy-diagnostics.txt';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
 });
 
 </script>

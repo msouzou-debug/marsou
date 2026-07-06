@@ -16,7 +16,7 @@ import pandas as pd
 from lxml import etree
 
 from .models import (GREEK_MONTHS, HOSPITALS, IdentifiedFile, ReportType,
-                     strip_accents)
+                     norm_label, strip_accents)
 
 F_CODE_RE = re.compile(r"\bF10(?:25|26|47|48|49|50|54|55)\b")
 
@@ -115,10 +115,12 @@ def _cells_text(df: pd.DataFrame, max_rows: int = 40) -> str:
 
 
 def find_header_row(df: pd.DataFrame, needles: list[str], max_rows: int = 30) -> Optional[int]:
-    """First row whose cells contain all needles (accent/case-insensitive)."""
-    wanted = [strip_accents(n) for n in needles]
+    """First row whose cells contain all needles.  norm_label comparison:
+    accents/case/separators (_-./ vs space) are all equivalent, so real-world
+    'DR_SEGMENT' matches the 'DR SEGMENT' needle."""
+    wanted = [norm_label(n) for n in needles]
     for i in range(min(max_rows, len(df))):
-        cells = [strip_accents(str(v)) for v in df.iloc[i] if v is not None and str(v) != "nan"]
+        cells = [norm_label(str(v)) for v in df.iloc[i] if v is not None and str(v) != "nan"]
         joined = " | ".join(cells)
         if all(w in joined for w in wanted):
             return i
@@ -126,12 +128,33 @@ def find_header_row(df: pd.DataFrame, needles: list[str], max_rows: int = 30) ->
 
 
 def _column_values(df: pd.DataFrame, header_row: int, header_name: str) -> Optional[pd.Series]:
-    hdr = [strip_accents(str(v)) if v is not None else "" for v in df.iloc[header_row]]
-    want = strip_accents(header_name)
+    hdr = [norm_label(str(v)) if v is not None else "" for v in df.iloc[header_row]]
+    want = norm_label(header_name)
     for j, h in enumerate(hdr):
         if want in h:
             return df.iloc[header_row + 1:, j]
     return None
+
+
+def _excel_probe(sheets: dict[str, pd.DataFrame]) -> str:
+    """What the identifier saw: sheet names + the first populated rows.
+    Shown in the diagnostics panel so mismatched real-world layouts can be
+    spotted (and reported) instantly."""
+    parts = []
+    for name, df in sheets.items():
+        cols = df.shape[1] if len(df) else 0
+        parts.append(f"Φύλλο (sheet) «{name}» — {len(df)} γραμμές × {cols} στήλες:")
+        shown = 0
+        for i in range(min(len(df), 40)):
+            cells = [str(v)[:40] for v in list(df.iloc[i])[:12]
+                     if v is not None and str(v) != "nan"]
+            if not cells:
+                continue
+            parts.append(f"  γραμμή {i + 1}: " + " | ".join(cells))
+            shown += 1
+            if shown >= 8:
+                break
+    return "\n".join(parts)[:4000]
 
 
 def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
@@ -140,6 +163,7 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
     except Exception as e:
         f.error = f"Δεν διαβάζεται ως Excel (unreadable as Excel): {e}"
         return
+    f.probe = _excel_probe(sheets)
 
     all_text = ""
     for name, df in sheets.items():
@@ -150,7 +174,7 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
     for sheet_name, df in sheets.items():
         # Ενδ. summary: «Κωδικός ΓεΣΥ Παροχέα» + «ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ»
         if (find_header_row(df, ["ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ"], max_rows=60) is not None
-                and "ΚΩΔΙΚΟΣ ΓΕΣΥ ΠΑΡΟΧΕΑ" in strip_accents(_cells_text(df, 60))):
+                and "ΚΩΔΙΚΟΣ ΓΕΣΥ ΠΑΡΟΧΕΑ" in norm_label(_cells_text(df, 60))):
             f.report_type = ReportType.INPATIENT_SUMMARY
             # hospital / year / month sit in the top rows (row 2 in the fixture)
             top = _cells_text(df, 6)
@@ -289,6 +313,7 @@ def _identify_pdf(f: IdentifiedFile) -> None:
         return
     f.ocr_used = ocr
     f.raw_text = text
+    f.probe = "Κείμενο PDF (extracted text, first 900 chars):\n" + text[:900]
     if ocr:
         f.warnings.append("Σαρωμένο PDF — χρησιμοποιήθηκε OCR (scanned PDF, OCR used); "
                           "review the extracted lines before running.")
@@ -320,6 +345,8 @@ def _identify_xml(f: IdentifiedFile) -> None:
     names = {_local(el.tag) for el in root.iter()}
     lowered = {n.lower() for n in names}
     text_all = " ".join(root.itertext())
+    f.probe = ("XML root: " + _local(root.tag) + "\nΠεδία (fields): "
+               + ", ".join(sorted(names)[:25]))
     if "claimid" in lowered and "activityreimbursementamount" in lowered:
         f.report_type = ReportType.XML_ACTIVITY
     elif {"drsegment", "segment"} & lowered:

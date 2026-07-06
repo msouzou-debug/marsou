@@ -5,6 +5,7 @@ these types.  All amounts are floats in EUR; all text is UTF-8 Greek-safe.
 """
 from __future__ import annotations
 
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from enum import Enum
@@ -101,6 +102,16 @@ def strip_accents(s: str) -> str:
     return "".join(c for c in nfd if not unicodedata.combining(c)).upper()
 
 
+_SEP_RE = re.compile(r"[\s_\-./]+")
+
+
+def norm_label(s: str) -> str:
+    """Header/label comparison form: accent-stripped, uppercased, and all
+    separator runs (space, _, -, ., /) collapsed to single spaces — so
+    'DR_SEGMENT', 'Dr Segment' and 'DR-SEGMENT' all compare equal."""
+    return _SEP_RE.sub(" ", strip_accents(s)).strip()
+
+
 PHARMACIST_FEE_UNIT_PRICE = 1.60
 
 
@@ -117,6 +128,8 @@ class IdentifiedFile:
     # for scanned SRAs: raw text so the UI can offer on-screen correction
     ocr_used: bool = False
     raw_text: Optional[str] = None
+    # what the identifier actually read from the file (diagnostics panel)
+    probe: Optional[str] = None
 
 
 @dataclass

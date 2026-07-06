@@ -80,6 +80,13 @@ function stripAccents(s) {
   return String(s).normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
 }
 
+function normLabel(s) {
+  /* Header/label comparison form: accent-stripped, uppercased, separator
+   * runs (space _ - . /) collapsed to single spaces — 'DR_SEGMENT',
+   * 'Dr Segment' and 'DR-SEGMENT' all compare equal. */
+  return stripAccents(s).replace(/[\s_\-./]+/g, ' ').trim();
+}
+
 function round2(v) { return Math.round((v + Number.EPSILON) * 100) / 100; }
 
 /* ---- amount parsing: '1.234.567,89' / '1,234,567.89' / floats / '€ ...' */
