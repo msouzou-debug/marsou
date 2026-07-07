@@ -221,6 +221,9 @@ class ClaimsAll:
     by_segment: dict[str, float] = field(default_factory=dict)
     inpatient_by_clinic: list[ClinicRow] = field(default_factory=list)
     os_by_specialty: dict[str, float] = field(default_factory=dict)
+    # (claim id, invoice date, amount) per inpatient row — used to name the
+    # candidate old-period claims when claims-all ≠ Ενδ. Σύνολο
+    inpatient_rows: list[tuple[str, str, float]] = field(default_factory=list)
 
     @property
     def total(self) -> float:

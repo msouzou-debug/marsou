@@ -541,9 +541,15 @@ class _Evaluator:
         raise ValueError(f"unsupported function {name}")
 
 
-def verify_workbook(data: bytes) -> list[tuple[str, str, float]]:
+def verify_workbook(data: bytes,
+                    documented_residual: float = 0.0) -> list[tuple[str, str, float]]:
     """Reopen the built workbook and recompute every yellow zero-check cell.
-    Returns [(sheet, cell, recomputed value)] for cells NOT reading 0."""
+    Returns [(sheet, cell, recomputed value)] for cells NOT reading 0.
+
+    documented_residual: a known SRA parsing difference (lines − stated) that
+    is documented as a red row in Source_crosscheck — zero-checks reading
+    exactly that value are accepted, per the brief's documented-variances
+    clause.  Never silently absorbed: it stays visible."""
     wb = load_workbook(io.BytesIO(data))
     ev = _Evaluator(wb)
     failures = []
@@ -559,6 +565,6 @@ def verify_workbook(data: bytes) -> list[tuple[str, str, float]]:
                         val = float(v)
                     else:
                         continue  # legend colour swatches carry no check value
-                    if abs(val) > CENT:
+                    if abs(val) > CENT and abs(val - documented_residual) > CENT:
                         failures.append((ws.title, cell.coordinate, round(val, 2)))
     return failures

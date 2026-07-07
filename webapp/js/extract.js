@@ -182,10 +182,18 @@ function extractClaimsAll(bytes) {
       throw new ExtractionError('Claims «all»: λείπει στήλη DR SEGMENT ή HIO REIMB');
     }
     const t = body.filter((r) => r[segCol] != null);
-    const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {} };
+    const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {}, inpatientRows: [] };
+    const idCol = colIndex(cols, 'CLAIM ID');
+    const dateCol = colIndex(cols, 'INVOICE DATE');
     for (const r of t) {
       const seg = canonSegment(r[segCol]);
       out.bySegment[seg] = (out.bySegment[seg] || 0) + parseAmount(r[amtCol]);
+      if (seg === 'Inpatient' && idCol != null) {
+        // kept to name candidate old-period claims when claims ≠ Ενδ.
+        out.inpatientRows.push([cellText(r[idCol]),
+                                dateCol != null ? cellText(r[dateCol]) : '',
+                                round2(parseAmount(r[amtCol]))]);
+      }
     }
     for (const k of Object.keys(out.bySegment)) out.bySegment[k] = round2(out.bySegment[k]);
     perClinicDetail(t, cols, segCol, amtCol, out);
@@ -356,6 +364,10 @@ const KEYWORD_CODES = [
   [['CONSUMABLE'], 'PHC'],
   [['ΦΑΡΜΑΚ'], 'PHD'],
   [['DRUG'], 'PHD'],
+  [['ΣΥΝΤΑΓ'], 'PHD'],      // χειρόγραφες συνταγές (handwritten prescriptions)
+  [['ISSUANCE'], 'PHD'],    // EOAF issuances deductions
+  [['EOAF'], 'PHD'],
+  [['PHARMACY'], 'PH'],     // PharmacyLine adjustments
   [['ΑΙΜΟΚΑΘΑΡΣ'], 'HEMO'],
   [['HEMODIALYSIS'], 'HEMO'],
   [['ΚΑΤΑ ΚΕΦΑΛΗΝ'], 'PD-CAP'],

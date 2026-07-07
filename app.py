@@ -221,19 +221,27 @@ if bundle.sra:
 
 for g in gate4_internal_asserts(bundle):
     if not g.passed:
-        st.error(f"Πύλη {g.number} — {g.name}\n\n{g.message}")
-        st.stop()
+        # findings, not stops: the run proceeds, the diffs are documented as
+        # red rows in Source_crosscheck and shown here
+        st.warning(f"Πύλη {g.number} — {g.name} — ΕΥΡΗΜΑ (finding, run continues):"
+                   f"\n\n{g.message}")
 
 result = run_reconciliation(bundle, crosscheck_mode=crosscheck_mode or bundle.sra is None)
 workbook_bytes = build_workbook(result)
 
-# Gate 5: reopen and recompute every zero-check
-zero_failures = verify_workbook(workbook_bytes)
+# Gate 5: reopen and recompute every zero-check; a documented SRA parsing
+# residual (shown as a red Source_crosscheck row) is tolerated, never hidden
+zero_failures = verify_workbook(workbook_bytes,
+                                documented_residual=result.sra_residual)
 if zero_failures:
     st.error("Πύλη 5 — Zero-checks: κάποια κελιά ελέγχου δεν είναι 0 "
              "(some zero-check cells are not 0):\n\n· "
              + "\n· ".join(f"{s}!{c} = {format_eur(v)}" for s, c, v in zero_failures))
     st.stop()
+if abs(result.sra_residual) > 0.011:
+    st.warning("Τα zero-checks διαβάζουν την τεκμηριωμένη διαφορά "
+               f"{format_eur(result.sra_residual)} (SRA γραμμές − δηλωμένο σύνολο) — "
+               "βλ. κόκκινη γραμμή στο Source_crosscheck.")
 
 # ------------------------------------------------------------------ summary
 st.header("Αποτέλεσμα (Result)")

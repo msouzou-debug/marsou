@@ -239,6 +239,47 @@ def test_feb_fee_netting_ties():
     assert verify_workbook(build_workbook(res)) == []
 
 
+def test_old_period_claim_named_in_gate4_finding():
+    # a 2022 claim paid in this cheque but absent from the Ενδ. summary must
+    # be NAMED in the gate-4 finding (Larnaca Apr-2026 case: 1,297.43)
+    b = full_bundle()
+    b.claims.by_segment["Inpatient"] = round(b.claims.by_segment["Inpatient"] + 1297.43, 2)
+    b.claims.inpatient_rows.append(("99476712", "2022-10-18", 1297.43))
+    g = gate4_internal_asserts(b)[0]
+    assert not g.passed
+    assert "99476712" in g.message and "2022-10-18" in g.message
+    # and the report-vs-report crosscheck row carries the same candidate
+    res = run_reconciliation(b)
+    row = next(c for c in res.crosschecks if "report vs report" in c.name)
+    assert row.flag == "red" and "99476712" in row.note
+
+
+def test_documented_sra_residual_tolerated_in_zero_checks():
+    # gate 4 SRA tie broken by a tiny parsing residual: the run proceeds, the
+    # residual shows as a red crosscheck row, and gate 5 tolerates EXACTLY it
+    from recon.build_xlsx import build_workbook, verify_workbook
+    b = full_bundle()
+    b.sra.stated_total = round(b.sra.stated_total + 0.20, 2)   # lines − stated = −0.20
+    res = run_reconciliation(b)
+    assert res.sra_residual == -0.20
+    row = next(c for c in res.crosschecks if "lines vs stated" in c.name)
+    assert row.flag == "red"
+    data = build_workbook(res)
+    assert verify_workbook(data) != []                      # strict: fails
+    assert verify_workbook(data, documented_residual=-0.20) == []  # documented: ok
+    assert verify_workbook(data, documented_residual=-0.50) != []  # wrong residual
+
+
+def test_pharmacy_adjustment_descriptions_map_to_pharma():
+    from recon.extract import classify_sra_line
+    for desc in ["Manual Adj. F104 Χειρόγραφες συνταγές ΓΝ Λάρνακας",
+                 "ADJ- Adjustment PharmacyLine - Feb",
+                 "ISSUANCES ISSUANCES 11.24-10.25 -4,000,000.00",
+                 "Issuances of EOAF & Medicines"]:
+        code, bucket, _, _ = classify_sra_line("", desc)
+        assert bucket == Bucket.PHARMA, (desc, code)
+
+
 def test_crosscheck_mode_matrix():
     b = full_bundle(with_optional=True)
     b.sra = None

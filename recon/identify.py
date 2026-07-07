@@ -433,7 +433,14 @@ def _sra_probe_summary(text: str) -> str:
         line = raw.strip()
         if not line or not find_amounts(line):
             continue
-        if _INVOICE_LINE_RE.match(line) or _LINE_RE.match(line):
+        if _INVOICE_LINE_RE.match(line):
+            continue
+        m = _LINE_RE.match(line)
+        if m:
+            letters = re.sub(r"[^A-Za-zΑ-Ωα-ωΆ-Ώά-ώ]", "",
+                             (m.group("code") or "") + (m.group("desc") or ""))
+            if len(letters) < 3:
+                suspicious.append(f"(fragment, skipped) {line[:80]}")
             continue
         suspicious.append(line[:90])
     if suspicious:

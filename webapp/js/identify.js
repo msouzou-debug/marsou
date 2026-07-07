@@ -382,7 +382,13 @@ function sraProbeSummary(text) {
   for (const raw of String(text).split('\n')) {
     const line = raw.trim();
     if (!line || !findAmounts(line).length) continue;
-    if (INVOICE_LINE_RE.test(line) || SRA_LINE_RE.test(line)) continue;
+    if (INVOICE_LINE_RE.test(line)) continue;
+    const m = line.match(SRA_LINE_RE);
+    if (m) {
+      const letters = ((m[1] || '') + (m[2] || '')).replace(/[^A-Za-zΑ-Ωα-ωΆ-Ώά-ώ]/g, '');
+      if (letters.length < 3) suspicious.push(`(fragment, skipped) ${line.slice(0, 80)}`);
+      continue;
+    }
     suspicious.push(line.slice(0, 90));
   }
   if (suspicious.length) {

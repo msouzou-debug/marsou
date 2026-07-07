@@ -223,13 +223,16 @@ async function run() {
           + ' — τα σχετικά ποσά δεν επαληθεύονται από αναφορά (amounts not vouched).';
       }
     }
-    for (const g of gate4InternalAsserts(bundle)) {
-      if (!g.passed) throw new ExtractionError(`Πύλη ${g.number} — ${g.name}\n${g.message}`);
-    }
+    // gate-4 failures are FINDINGS: warn and proceed — the diffs appear as
+    // documented red rows in Source_crosscheck
+    const gate4Warnings = gate4InternalAsserts(bundle)
+      .filter((g) => !g.passed)
+      .map((g) => `Πύλη ${g.number} — ${g.name} — ΕΥΡΗΜΑ (finding, run continues):\n${g.message}`);
 
     const result = runReconciliation(bundle, crosscheck || !bundle.sra);
     const { wb, zeroChecks } = buildWorkbook(result);
-    const failures = verifyWorkbook(wb, zeroChecks);  // gate 5
+    // gate 5: a documented parsing residual is tolerated, never hidden
+    const failures = verifyWorkbook(wb, zeroChecks, result.sraResidual || 0);
     if (failures.length) {
       throw new ExtractionError('Πύλη 5 — Zero-checks: κάποια κελιά ελέγχου δεν είναι 0:\n• '
         + failures.map((f) => `${f.sheet}!${f.addr} = ${formatEur(f.value)}`).join('\n• '));
@@ -242,6 +245,14 @@ async function run() {
         + `) — συνολικό ποσό ${formatEur(bundle.sra.statedTotal)}.</div>`;
     }
     if (condWarning) banner += `<div class="warn">⚠️ ${esc(condWarning)}</div>`;
+    for (const w of gate4Warnings) {
+      banner += `<div class="warn">⚠️ ${esc(w).replace(/\n/g, '<br>')}</div>`;
+    }
+    if (Math.abs(result.sraResidual || 0) > 0.011) {
+      banner += `<div class="warn">⚠️ Τα zero-checks διαβάζουν την τεκμηριωμένη διαφορά `
+        + `${formatEur(result.sraResidual)} (SRA γραμμές − δηλωμένο σύνολο) — `
+        + 'βλ. κόκκινη γραμμή στο Source_crosscheck.</div>';
+    }
     renderResults(result, buffer, hospital, year, month);
     if (banner) $('results').insertAdjacentHTML('afterbegin', banner);
   } catch (e) {

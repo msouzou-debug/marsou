@@ -99,6 +99,15 @@ class ReconResult:
         return self.bundle.sra.stated_total if self.bundle.sra else None
 
     @property
+    def sra_residual(self) -> float:
+        """Documented parsing residual (lines − stated).  Zero-checks are
+        allowed to read exactly this value — it is shown as a red row in
+        Source_crosscheck, never silently absorbed."""
+        if not self.bundle.sra:
+            return 0.0
+        return round(self.bundle.sra.lines_total - self.bundle.sra.stated_total, 2)
+
+    @property
     def open_variances(self) -> list[CrossCheck]:
         return [c for c in self.crosschecks
                 if c.diff is not None and abs(c.diff) > CENT and c.flag != "ok"]
@@ -232,9 +241,26 @@ def conditional_requirements(sra: SRA) -> list[ReportType]:
     return needed
 
 
+def _claim_candidates(bundle: ReconBundle, diff: float) -> str:
+    """Claims whose single amount equals the diff — usually old-period claims
+    paid in this cheque but absent from the Ενδ. summary."""
+    if not bundle.claims or not bundle.claims.inpatient_rows:
+        return ""
+    hits = [(cid, date, amt) for cid, date, amt in bundle.claims.inpatient_rows
+            if abs(amt - abs(diff)) <= 0.01]
+    if not hits:
+        return ""
+    shown = " · ".join(f"claim {cid} ({date}) {format_eur(amt)}"
+                       for cid, date, amt in hits[:3])
+    return (f"\nΠιθανή αιτία — απαίτηση παλαιότερης περιόδου που πληρώθηκε τώρα "
+            f"(old-period claim paid in this cheque): {shown}")
+
+
 def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
     """Gate 4: Ενδ Σύνολο = sum of lines (already asserted at extraction);
-    claims-all Inpatient = Ενδ Σύνολο to the cent; SRA lines sum = cheque."""
+    claims-all Inpatient = Ενδ Σύνολο to the cent; SRA lines sum = cheque.
+    Failures are FINDINGS: the apps warn and proceed, and the diffs appear
+    as documented rows in Source_crosscheck."""
     gates = []
     ok = True
     msgs = []
@@ -248,8 +274,9 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
                                                  key=lambda kv: -kv[1]))
             msgs.append("Claims «all» Inpatient ≠ Ενδ. Σύνολο: "
                         f"{format_eur(claims_ip)} vs {format_eur(bundle.inpatient.synolo)} "
-                        f"(διαφορά {format_eur(d)})\n"
-                        f"Τιμές DR SEGMENT στο αρχείο claims: {segs}")
+                        f"(διαφορά {format_eur(d)})"
+                        + _claim_candidates(bundle, d)
+                        + f"\nΤιμές DR SEGMENT στο αρχείο claims: {segs}")
     if bundle.sra:
         parts = bundle.sra.parts or [(bundle.sra.cheque_no, bundle.sra.lines_total,
                                       bundle.sra.stated_total)]
@@ -329,6 +356,30 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                   if bundle.claims else None)
 
     sra_code_set = {l.code for l in sra.lines} if sra else set()
+
+    # documented finding: SRA line sum vs stated cheque (only when broken)
+    if sra:
+        residual = round(sra.lines_total - sra.stated_total, 2)
+        if abs(residual) > CENT:
+            checks.append(CrossCheck(
+                name="SRA: άθροισμα γραμμών = δηλωμένο σύνολο επιταγής (lines vs stated)",
+                source_total=sra.stated_total, sra_codes=[], sra_side=sra.lines_total,
+                note="Διαφορά ανάλυσης γραμμών (αναδιπλωμένες γραμμές PDF;) — δείτε "
+                     "τα Διαγνωστικά. Τεκμηριωμένη διαφορά, εμφανίζεται και στα "
+                     "zero-checks (documented parsing residual).",
+                flag="red"))
+
+    # claims-file vs Ενδ. summary (report-vs-report) — the gate-4 tie as a
+    # visible row, with old-claim candidates named when it breaks
+    if bundle.inpatient and bundle.claims:
+        d = round((claims_ip or 0.0) - bundle.inpatient.synolo, 2)
+        note = ("OK — ταυτίζεται (ties out)" if abs(d) <= CENT else
+                "Ανεξήγητη διαφορά claims vs Ενδ." + _claim_candidates(bundle, d))
+        checks.append(CrossCheck(
+            name="Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)",
+            source_total=claims_ip or 0.0, sra_codes=[],
+            sra_side=bundle.inpatient.synolo, note=note,
+            flag="ok" if abs(d) <= CENT else "red"))
 
     if bundle.inpatient:
         add("Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS",

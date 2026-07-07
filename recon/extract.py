@@ -251,8 +251,19 @@ def extract_claims_all(data: bytes) -> ClaimsAll:
         t = t[t[seg_col].notna()]
         out = ClaimsAll()
         amounts = t[amt_col].map(parse_amount)
-        for seg, s in amounts.groupby(t[seg_col].map(_canon_segment)):
+        segs = t[seg_col].map(_canon_segment)
+        for seg, s in amounts.groupby(segs):
             out.by_segment[str(seg)] = round(float(s.sum()), 2)
+        # keep inpatient row detail for old-claim candidate explanations
+        id_col = _col(t, "CLAIM ID")
+        date_col = _col(t, "INVOICE DATE")
+        if id_col is not None:
+            ip_mask = segs == "Inpatient"
+            for idx in t.index[ip_mask]:
+                out.inpatient_rows.append((
+                    str(t.at[idx, id_col]),
+                    str(t.at[idx, date_col]) if date_col is not None else "",
+                    round(parse_amount(t.at[idx, amt_col]), 2)))
         _per_clinic_detail(t, seg_col, amt_col, amounts, out)
         return out
     raise ExtractionError("Claims «all»: δεν βρέθηκε στήλη DR SEGMENT")
@@ -430,6 +441,10 @@ _KEYWORD_CODES = [
     (["CONSUMABLE"], "PHC"),
     (["ΦΑΡΜΑΚ"], "PHD"),
     (["DRUG"], "PHD"),
+    (["ΣΥΝΤΑΓ"], "PHD"),      # χειρόγραφες συνταγές (handwritten prescriptions)
+    (["ISSUANCE"], "PHD"),    # EOAF issuances deductions
+    (["EOAF"], "PHD"),
+    (["PHARMACY"], "PH"),     # PharmacyLine adjustments
     (["ΑΙΜΟΚΑΘΑΡΣ"], "HEMO"),
     (["HEMODIALYSIS"], "HEMO"),
     (["ΚΑΤΑ ΚΕΦΑΛΗΝ"], "PD-CAP"),

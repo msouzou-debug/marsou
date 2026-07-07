@@ -120,6 +120,19 @@ function conditionalRequirements(sra) {
   return needed;
 }
 
+function claimCandidates(bundle, diff) {
+  /* claims whose single amount equals the diff — usually old-period claims
+   * paid in this cheque but absent from the Ενδ. summary */
+  if (!bundle.claims || !bundle.claims.inpatientRows) return '';
+  const hits = bundle.claims.inpatientRows
+    .filter(([, , amt]) => Math.abs(amt - Math.abs(diff)) <= 0.01);
+  if (!hits.length) return '';
+  const shown = hits.slice(0, 3)
+    .map(([cid, date, amt]) => `claim ${cid} (${date}) ${formatEur(amt)}`).join(' · ');
+  return '\nΠιθανή αιτία — απαίτηση παλαιότερης περιόδου που πληρώθηκε τώρα '
+    + `(old-period claim paid in this cheque): ${shown}`;
+}
+
 function gate4InternalAsserts(bundle) {
   let ok = true;
   const msgs = [];
@@ -131,8 +144,9 @@ function gate4InternalAsserts(bundle) {
       const segs = Object.entries(bundle.claims.bySegment).sort((a, b) => b[1] - a[1])
         .map(([k, v]) => `«${k}»: ${formatEur(v)}`).join(' · ');
       msgs.push('Claims «all» Inpatient ≠ Ενδ. Σύνολο: '
-        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})\n`
-        + `Τιμές DR SEGMENT στο αρχείο claims: ${segs}`);
+        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`
+        + claimCandidates(bundle, d)
+        + `\nΤιμές DR SEGMENT στο αρχείο claims: ${segs}`);
     }
   }
   if (bundle.sra) {
@@ -198,6 +212,32 @@ function buildCrosschecks(bundle) {
     : null;
 
   const sraCodeSet = new Set(sra ? sra.lines.map((l) => l.code) : []);
+  const mk = (o) => ({ ...o,
+    get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
+
+  // documented finding: SRA line sum vs stated cheque (only when broken)
+  if (sra) {
+    const residual = round2(sra.linesTotal - sra.statedTotal);
+    if (Math.abs(residual) > CENT) {
+      checks.push(mk({
+        name: 'SRA: άθροισμα γραμμών = δηλωμένο σύνολο επιταγής (lines vs stated)',
+        sourceTotal: sra.statedTotal, sraCodes: [], sraSide: sra.linesTotal,
+        note: 'Διαφορά ανάλυσης γραμμών (αναδιπλωμένες γραμμές PDF;) — δείτε τα '
+          + 'Διαγνωστικά. Τεκμηριωμένη διαφορά, εμφανίζεται και στα zero-checks '
+          + '(documented parsing residual).',
+        flag: 'red' }));
+    }
+  }
+  // claims-file vs Ενδ. summary (report-vs-report) with old-claim candidates
+  if (bundle.inpatient && bundle.claims) {
+    const d = round2((claimsIp || 0) - bundle.inpatient.synolo);
+    checks.push(mk({
+      name: 'Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)',
+      sourceTotal: claimsIp || 0, sraCodes: [], sraSide: bundle.inpatient.synolo,
+      note: Math.abs(d) <= CENT ? 'OK — ταυτίζεται (ties out)'
+        : 'Ανεξήγητη διαφορά claims vs Ενδ.' + claimCandidates(bundle, d),
+      flag: Math.abs(d) <= CENT ? 'ok' : 'red' }));
+  }
 
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
@@ -502,5 +542,9 @@ function runReconciliation(bundle, crosscheckMode) {
   result.split = buildSplit(bundle);
   result.openVariances = result.crosschecks.filter((c) => c.diff != null
     && Math.abs(c.diff) > CENT && c.flag !== 'ok');
+  // documented parsing residual (SRA lines − stated): zero-checks may read
+  // exactly this value; it stays visible as a red Source_crosscheck row
+  result.sraResidual = bundle.sra
+    ? round2(bundle.sra.linesTotal - bundle.sra.statedTotal) : 0;
   return result;
 }
