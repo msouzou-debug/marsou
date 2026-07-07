@@ -110,6 +110,19 @@ def test_gate3_crosscheck_mode_waives_sra_only():
     assert all(g.passed for g in gates)
 
 
+def test_unknown_files_ignored_with_warning_not_blocking():
+    # a full-month dump may contain report types the app doesn't know yet:
+    # they must be excluded with a warning, never block the run
+    files = _identified_batch()
+    files.append(IdentifiedFile("mystery_report.xlsx", b"", report_type=None,
+                                error="Άγνωστος τύπος αναφοράς"))
+    gates, hospital, period, notes = validate_batch(files)
+    assert all(g.passed for g in gates)
+    assert hospital == "F1049" and period == (2026, 3)
+    warn = next(n for n in notes if n.startswith("Προσοχή"))
+    assert "mystery_report.xlsx" in warn and "ΑΓΝΟΟΥΝΤΑΙ" in warn
+
+
 def test_gate1_duplicate_type_rejected():
     files = _identified_batch()
     files.append(identify("endo2.xlsx", synth.inpatient_summary_xlsx()))

@@ -138,7 +138,7 @@ function renderChecklist(files, crosscheck) {
       + `<td>${f ? `<button class="link" data-remove="${esc(f.filename)}">✕</button>` : ''}</td></tr>`;
   }
   for (const f of files.filter((x) => !x.reportType)) {
-    html += `<tr><td>Άγνωστο (unrecognised)</td><td>${esc(f.filename)}</td><td>—</td><td>—</td>`
+    html += `<tr><td>Άγνωστο — αγνοείται (unrecognised, ignored)</td><td>${esc(f.filename)}</td><td>—</td><td>—</td>`
       + `<td class="missing">✖</td><td><button class="link" data-remove="${esc(f.filename)}">✕</button></td></tr>`;
   }
   html += '</tbody></table>';
@@ -199,6 +199,7 @@ async function run() {
     const sraOverride = $('sra-text') ? $('sra-text').value : null;
     const sras = [];
     for (const f of files) {
+      if (!f.reportType) continue;  // unrecognised file — warned, ignored
       if (f.reportType === RT.SRA) {
         // a month can be settled by several cheques — collect and merge
         const override = f.data && files.filter((x) => x.reportType === RT.SRA).length === 1

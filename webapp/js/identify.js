@@ -328,7 +328,7 @@ async function identifyPdf(f) {
     return;
   }
   f.rawText = text;
-  f.probe = 'Κείμενο PDF (extracted text, first 900 chars):\n' + text.slice(0, 900);
+  f.probe = 'Κείμενο PDF (extracted text, first 1500 chars):\n' + text.slice(0, 1500);
   if (text.trim().length <= 40) {
     f.error = 'Σαρωμένο PDF χωρίς επίπεδο κειμένου (scanned PDF, no text layer). '
       + 'Η έκδοση browser δεν κάνει OCR — επικολλήστε το κείμενο στο πεδίο διόρθωσης '

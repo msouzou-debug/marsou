@@ -188,6 +188,8 @@ slot = {
 try:
     sras = []
     for f in files:
+        if f.report_type is None:
+            continue  # unrecognised file — warned in gate 1, ignored
         raw_text = sra_text_override.get(f.filename, f.raw_text)
         if f.report_type == ReportType.SRA:
             # a month can be settled by several cheques — collect and merge

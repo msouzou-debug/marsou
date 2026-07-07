@@ -130,8 +130,19 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
     gates: list[GateResult] = []
     notes: list[str] = []
 
-    # Gate 1 — all files parse; each maps to exactly one report type
+    # Gate 1 — each recognised file maps to exactly one report type.
+    # UNRECOGNISED files are excluded with a warning, never a hard stop: a
+    # full-month dump may contain report types the app doesn't know yet —
+    # they are captured in the diagnostics so support can add them.
     bad = [f for f in files if f.error or f.report_type is None]
+    if bad:
+        notes.append(
+            "Προσοχή (warning): τα εξής αρχεία δεν αναγνωρίστηκαν και ΑΓΝΟΟΥΝΤΑΙ "
+            "στη συμφωνία (unrecognised files, ignored): "
+            + " · ".join(f.filename for f in bad)
+            + ". Δείτε τα Διαγνωστικά και κατεβάστε την αναφορά για να προστεθούν "
+              "(download the diagnostics report so they can be supported).")
+        files = [f for f in files if f not in bad]
     dupes = {}
     for f in files:
         if f.report_type:
@@ -140,11 +151,6 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
     dupe_msgs = [f"{REPORT_LABELS[t]}: {', '.join(names)}"
                  for t, names in dupes.items()
                  if len(names) > 1 and t != ReportType.SRA]
-    if bad:
-        msg = "· " + "\n· ".join(f"{f.filename}: {f.error or 'άγνωστος τύπος'}" for f in bad)
-        gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", False,
-                                f"Κάποια αρχεία δεν αναγνωρίστηκαν (unidentified files):\n{msg}"))
-        return gates, None, None, notes
     if dupe_msgs:
         gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", False,
                                 "Διπλά αρχεία για τον ίδιο τύπο αναφοράς (duplicate files "

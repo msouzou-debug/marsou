@@ -384,7 +384,7 @@ def _identify_pdf(f: IdentifiedFile) -> None:
         return
     f.ocr_used = ocr
     f.raw_text = text
-    f.probe = "Κείμενο PDF (extracted text, first 900 chars):\n" + text[:900]
+    f.probe = "Κείμενο PDF (extracted text, first 1500 chars):\n" + text[:1500]
     if ocr:
         f.warnings.append("Σαρωμένο PDF — χρησιμοποιήθηκε OCR (scanned PDF, OCR used); "
                           "review the extracted lines before running.")

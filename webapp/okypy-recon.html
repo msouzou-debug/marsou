@@ -762,7 +762,7 @@ async function identifyPdf(f) {
     return;
   }
   f.rawText = text;
-  f.probe = 'Κείμενο PDF (extracted text, first 900 chars):\n' + text.slice(0, 900);
+  f.probe = 'Κείμενο PDF (extracted text, first 1500 chars):\n' + text.slice(0, 1500);
   if (text.trim().length <= 40) {
     f.error = 'Σαρωμένο PDF χωρίς επίπεδο κειμένου (scanned PDF, no text layer). '
       + 'Η έκδοση browser δεν κάνει OCR — επικολλήστε το κείμενο στο πεδίο διόρθωσης '
@@ -1589,7 +1589,18 @@ function validateBatch(files, crosscheckMode) {
   const gates = [];
   const notes = [];
 
+  /* UNRECOGNISED files are excluded with a warning, never a hard stop: a
+   * full-month dump may contain report types the app doesn't know yet —
+   * they are captured in the diagnostics so support can add them. */
   const bad = files.filter((f) => f.error || !f.reportType);
+  if (bad.length) {
+    notes.push('Προσοχή (warning): τα εξής αρχεία δεν αναγνωρίστηκαν και ΑΓΝΟΟΥΝΤΑΙ '
+      + 'στη συμφωνία (unrecognised files, ignored): '
+      + bad.map((f) => f.filename).join(' · ')
+      + '. Δείτε τα Διαγνωστικά και κατεβάστε την αναφορά για να προστεθούν '
+      + '(download the diagnostics report so they can be supported).');
+    files = files.filter((f) => !bad.includes(f));
+  }
   const byType = new Map();
   for (const f of files) {
     if (f.reportType) {
@@ -1601,12 +1612,6 @@ function validateBatch(files, crosscheckMode) {
   const dupeMsgs = [...byType.entries()]
     .filter(([t, names]) => names.length > 1 && t !== RT.SRA)
     .map(([t, names]) => `${REPORT_LABELS[t]}: ${names.join(', ')}`);
-  if (bad.length) {
-    const msg = bad.map((f) => `• ${f.filename}: ${f.error || 'άγνωστος τύπος'}`).join('\n');
-    gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
-                 message: `Κάποια αρχεία δεν αναγνωρίστηκαν (unidentified files):\n${msg}` });
-    return { gates, hospital: null, period: null, notes };
-  }
   if (dupeMsgs.length) {
     gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
                  message: 'Διπλά αρχεία για τον ίδιο τύπο αναφοράς (duplicate files for one '
@@ -2780,7 +2785,7 @@ function renderChecklist(files, crosscheck) {
       + `<td>${f ? `<button class="link" data-remove="${esc(f.filename)}">✕</button>` : ''}</td></tr>`;
   }
   for (const f of files.filter((x) => !x.reportType)) {
-    html += `<tr><td>Άγνωστο (unrecognised)</td><td>${esc(f.filename)}</td><td>—</td><td>—</td>`
+    html += `<tr><td>Άγνωστο — αγνοείται (unrecognised, ignored)</td><td>${esc(f.filename)}</td><td>—</td><td>—</td>`
       + `<td class="missing">✖</td><td><button class="link" data-remove="${esc(f.filename)}">✕</button></td></tr>`;
   }
   html += '</tbody></table>';
@@ -2841,6 +2846,7 @@ async function run() {
     const sraOverride = $('sra-text') ? $('sra-text').value : null;
     const sras = [];
     for (const f of files) {
+      if (!f.reportType) continue;  // unrecognised file — warned, ignored
       if (f.reportType === RT.SRA) {
         // a month can be settled by several cheques — collect and merge
         const override = f.data && files.filter((x) => x.reportType === RT.SRA).length === 1

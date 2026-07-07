@@ -13,7 +13,18 @@ function validateBatch(files, crosscheckMode) {
   const gates = [];
   const notes = [];
 
+  /* UNRECOGNISED files are excluded with a warning, never a hard stop: a
+   * full-month dump may contain report types the app doesn't know yet —
+   * they are captured in the diagnostics so support can add them. */
   const bad = files.filter((f) => f.error || !f.reportType);
+  if (bad.length) {
+    notes.push('Προσοχή (warning): τα εξής αρχεία δεν αναγνωρίστηκαν και ΑΓΝΟΟΥΝΤΑΙ '
+      + 'στη συμφωνία (unrecognised files, ignored): '
+      + bad.map((f) => f.filename).join(' · ')
+      + '. Δείτε τα Διαγνωστικά και κατεβάστε την αναφορά για να προστεθούν '
+      + '(download the diagnostics report so they can be supported).');
+    files = files.filter((f) => !bad.includes(f));
+  }
   const byType = new Map();
   for (const f of files) {
     if (f.reportType) {
@@ -25,12 +36,6 @@ function validateBatch(files, crosscheckMode) {
   const dupeMsgs = [...byType.entries()]
     .filter(([t, names]) => names.length > 1 && t !== RT.SRA)
     .map(([t, names]) => `${REPORT_LABELS[t]}: ${names.join(', ')}`);
-  if (bad.length) {
-    const msg = bad.map((f) => `• ${f.filename}: ${f.error || 'άγνωστος τύπος'}`).join('\n');
-    gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
-                 message: `Κάποια αρχεία δεν αναγνωρίστηκαν (unidentified files):\n${msg}` });
-    return { gates, hospital: null, period: null, notes };
-  }
   if (dupeMsgs.length) {
     gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
                  message: 'Διπλά αρχεία για τον ίδιο τύπο αναφοράς (duplicate files for one '
