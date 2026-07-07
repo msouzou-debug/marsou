@@ -1,0 +1,6 @@
+Posting Date,Document No,Text,Assignment,Amount in Local Currency
+01.06.2026,1400000101,Incoming payment ACME,INV123,1000.00
+03.06.2026,1500000202,Cheque 445 issued,CHQ445,-250.00
+22.06.2026,1400000103,Customer receipt Beta GmbH,,777.77
+24.06.2026,1500000204,Vendor payment Gamma,PO9987,-1500.00
+29.06.2026,1500000205,Payroll June,PAY-JUN,-5000.00
