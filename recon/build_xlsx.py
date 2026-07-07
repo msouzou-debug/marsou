@@ -102,11 +102,26 @@ def _tab_sra(wb: Workbook, result: ReconResult):
     ws.cell(row=total_row, column=1, value="TOTAL (ΣΥΝΟΛΟ)").font = Font(bold=True)
     _amount(ws, total_row, 6, f"=SUM(F2:F{last_line})", F_FORMULA)
     ws.cell(row=total_row, column=6).font = Font(bold=True)
-    stated_row = r + 1
-    ws.cell(row=stated_row, column=1,
-            value=f"Δηλωμένο σύνολο επιταγής (stated cheque total) #{sra.cheque_no}").font = F_INPUT
-    _amount(ws, stated_row, 6, sra.stated_total, F_INPUT)
-    check_row = r + 2
+    r += 1
+    # one stated row per cheque; several cheques get a live stated TOTAL
+    parts = sra.parts if len(sra.parts) > 1 else \
+        [(sra.cheque_no, sra.lines_total, sra.stated_total)]
+    first_part_row = r
+    for cheque, _lines_total, stated in parts:
+        ws.cell(row=r, column=1,
+                value=f"Δηλωμένο σύνολο επιταγής (stated cheque total) #{cheque}"
+                ).font = F_INPUT
+        _amount(ws, r, 6, stated, F_INPUT)
+        r += 1
+    if len(parts) > 1:
+        stated_row = r
+        ws.cell(row=stated_row, column=1,
+                value="Δηλωμένο σύνολο όλων των επιταγών (all cheques)").font = Font(bold=True)
+        _amount(ws, stated_row, 6, f"=SUM(F{first_part_row}:F{r - 1})", F_FORMULA)
+        r += 1
+    else:
+        stated_row = first_part_row
+    check_row = r
     ws.cell(row=check_row, column=1, value="Check = TOTAL − stated (must be 0)")
     _amount(ws, check_row, 6, f"=F{total_row}-F{stated_row}", F_FORMULA)
     ws.cell(row=check_row, column=6).fill = FILL_CHECK
@@ -195,29 +210,56 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
                     "Κωδικοί SRA (codes)"])
     r = 2
     b = result.bundle
+    # row numbers of the netted pharma/fee pair (they reference each other)
+    fee_net_row = next((2 + i for i, c in enumerate(result.crosschecks)
+                        if c.side_kind == "fee_net"), None)
+    pharma_row = next((2 + i for i, c in enumerate(result.crosschecks)
+                       if c.side_kind == "ph_minus_fee"), None)
     for chk in result.crosschecks:
         ws.cell(row=r, column=1, value=chk.name).font = F_INPUT
-        is_phfee = "1,60" in chk.name or "Φαρμακοποιού (packages" in chk.name
+        is_phfee = "Φαρμακοποιού (packages" in chk.name or chk.side_kind == "fee_net"
         if is_phfee and b.phfee:
             # packages × unit price (READ from the report — 1.60/1.62 €)
             # as a LIVE formula off two blue inputs
             ws.cell(row=r, column=6, value=b.phfee.packages).font = F_INPUT
             _amount(ws, r, 7, b.phfee.unit_price, F_INPUT)
-            _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
-        else:
-            _amount(ws, r, 2, chk.source_total, F_INPUT)
-        if sra_tab and chk.sra_codes and b.sra:
-            # SUMIFS over the SRA Code column, criteria referencing the code
-            # helper cells (never quoted strings; scales to hundreds of lines)
+        def _sumifs(code_cols):
             terms = []
-            for k, code in enumerate(chk.sra_codes):
+            for k, code in enumerate(code_cols):
                 col = get_column_letter(8 + k)
                 ws.cell(row=r, column=8 + k, value=code).font = F_INPUT
                 terms.append(f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
                              f"'{sra_tab}'!$A$2:$A${n_lines},{col}{r})")
-            _amount(ws, r, 3, "=" + "+".join(terms), F_LINK)
-        elif chk.sra_side is not None:
-            _amount(ws, r, 3, chk.sra_side, F_INPUT)
+            return "+".join(terms)
+        if chk.side_kind == "fee_net" and sra_tab and b.sra:
+            # source = fee gross + CRN-Packages (live); side = PH+PHF − claims
+            phf_only = _sumifs(["PH", "PHF"])  # writes both criteria cells
+            phf_term = phf_only.split("+")[1]
+            _amount(ws, r, 2, f"=F{r}*G{r}+{phf_term}", F_FORMULA)
+            side = "=" + phf_only
+            if pharma_row is not None:
+                side += f"-B{pharma_row}"
+            _amount(ws, r, 3, side, F_LINK)
+        elif chk.side_kind == "ph_minus_fee" and sra_tab and b.sra:
+            if is_phfee and b.phfee:
+                _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
+            else:
+                _amount(ws, r, 2, chk.source_total, F_INPUT)
+            side = "=" + _sumifs(["PH"])
+            if fee_net_row is not None:
+                side += f"-F{fee_net_row}*G{fee_net_row}"
+            _amount(ws, r, 3, side, F_LINK)
+        else:
+            if is_phfee and b.phfee:
+                _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
+            else:
+                _amount(ws, r, 2, chk.source_total, F_INPUT)
+            if sra_tab and chk.sra_codes and b.sra:
+                # SUMIFS over the SRA Code column, criteria referencing the
+                # code helper cells (never quoted strings)
+                _amount(ws, r, 3, "=" + _sumifs(chk.sra_codes), F_LINK)
+            elif chk.sra_side is not None:
+                _amount(ws, r, 3, chk.sra_side, F_INPUT)
         if chk.sra_side is not None:
             _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
             if chk.flag == "red":

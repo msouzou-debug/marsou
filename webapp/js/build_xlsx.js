@@ -92,13 +92,32 @@ function tabSra(wb, result, zeroChecks) {
     writeAmount(ws, r, 6, line.amount, F_INPUT);
     r += 1;
   }
-  const lastLine = r - 1, totalRow = r, statedRow = r + 1, checkRow = r + 2;
+  const lastLine = r - 1, totalRow = r;
   ws.getCell(totalRow, 1).value = 'TOTAL (ΣΥΝΟΛΟ)';
   ws.getCell(totalRow, 1).font = { bold: true };
   writeAmount(ws, totalRow, 6, `SUM(F2:F${lastLine})`, { bold: true });
-  ws.getCell(statedRow, 1).value = `Δηλωμένο σύνολο επιταγής (stated cheque total) #${sra.chequeNo}`;
-  ws.getCell(statedRow, 1).font = F_INPUT;
-  writeAmount(ws, statedRow, 6, sra.statedTotal, F_INPUT);
+  r += 1;
+  // one stated row per cheque; several cheques get a live stated TOTAL
+  const parts = (sra.parts && sra.parts.length > 1)
+    ? sra.parts : [[sra.chequeNo, sra.linesTotal, sra.statedTotal]];
+  const firstPartRow = r;
+  for (const [cheque, , stated] of parts) {
+    ws.getCell(r, 1).value = `Δηλωμένο σύνολο επιταγής (stated cheque total) #${cheque}`;
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 6, stated, F_INPUT);
+    r += 1;
+  }
+  let statedRow;
+  if (parts.length > 1) {
+    statedRow = r;
+    ws.getCell(statedRow, 1).value = 'Δηλωμένο σύνολο όλων των επιταγών (all cheques)';
+    ws.getCell(statedRow, 1).font = { bold: true };
+    writeAmount(ws, statedRow, 6, `SUM(F${firstPartRow}:F${r - 1})`, { bold: true });
+    r += 1;
+  } else {
+    statedRow = firstPartRow;
+  }
+  const checkRow = r;
   ws.getCell(checkRow, 1).value = 'Check = TOTAL − stated (must be 0)';
   writeAmount(ws, checkRow, 6, `F${totalRow}-F${statedRow}`, F_FORMULA).fill = FILL_CHECK;
   zeroChecks.push({ sheet: name, addr: `F${checkRow}` });
@@ -175,30 +194,50 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
                       'Κωδικοί SRA (codes)']);
   let r = 2;
   const b = result.bundle;
+  // row numbers of the netted pharma/fee pair (they reference each other)
+  const feeNetRow = result.crosschecks.findIndex((c) => c.sideKind === 'fee_net');
+  const pharmaRowIdx = result.crosschecks.findIndex((c) => c.sideKind === 'ph_minus_fee');
+  const feeRow = feeNetRow >= 0 ? 2 + feeNetRow : null;
+  const pharmaRow = pharmaRowIdx >= 0 ? 2 + pharmaRowIdx : null;
   for (const chk of result.crosschecks) {
     ws.getCell(r, 1).value = chk.name; ws.getCell(r, 1).font = F_INPUT;
-    const isPhfee = chk.name.includes('1,60') || chk.name.includes('Φαρμακοποιού (packages');
+    const isPhfee = chk.name.includes('Φαρμακοποιού (packages') || chk.sideKind === 'fee_net';
     if (isPhfee && b.phfee) {
       // packages × unit price (READ from the report — 1.60/1.62 €)
       // as a LIVE formula off two blue inputs
       ws.getCell(r, 6).value = b.phfee.packages; ws.getCell(r, 6).font = F_INPUT;
       writeAmount(ws, r, 7, b.phfee.unitPrice, F_INPUT);
-      writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);
-    } else {
-      writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
     }
-    if (sraTab && chk.sraCodes.length && b.sra) {
-      // SUMIFS over the SRA Code column, criteria referencing the code
-      // helper cells (never quoted strings; scales to hundreds of lines)
-      const terms = chk.sraCodes.map((code, k) => {
-        const col = colLetter(8 + k);
-        ws.getCell(r, 8 + k).value = code;
-        ws.getCell(r, 8 + k).font = F_INPUT;
-        return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${r})`;
-      });
-      writeAmount(ws, r, 3, terms.join('+'), F_LINK);
-    } else if (chk.sraSide != null) {
-      writeAmount(ws, r, 3, chk.sraSide, F_INPUT);
+    const row = r;
+    const sumifs = (codes) => codes.map((code, k) => {
+      const col = colLetter(8 + k);
+      ws.getCell(row, 8 + k).value = code;
+      ws.getCell(row, 8 + k).font = F_INPUT;
+      return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${row})`;
+    });
+    if (chk.sideKind === 'fee_net' && sraTab && b.sra) {
+      // source = fee gross + CRN-Packages (live); side = PH+PHF − claims
+      const [phTerm, phfTerm] = sumifs(['PH', 'PHF']);
+      writeAmount(ws, r, 2, `F${r}*G${r}+${phfTerm}`, F_FORMULA);
+      let side = `${phTerm}+${phfTerm}`;
+      if (pharmaRow != null) side += `-B${pharmaRow}`;
+      writeAmount(ws, r, 3, side, F_LINK);
+    } else if (chk.sideKind === 'ph_minus_fee' && sraTab && b.sra) {
+      writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
+      const [phTerm] = sumifs(['PH']);
+      let side = phTerm;
+      if (feeRow != null) side += `-F${feeRow}*G${feeRow}`;
+      writeAmount(ws, r, 3, side, F_LINK);
+    } else {
+      if (isPhfee && b.phfee) writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);
+      else writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
+      if (sraTab && chk.sraCodes.length && b.sra) {
+        // SUMIFS over the SRA Code column, criteria referencing the code
+        // helper cells (never quoted strings; scales to hundreds of lines)
+        writeAmount(ws, r, 3, sumifs(chk.sraCodes).join('+'), F_LINK);
+      } else if (chk.sraSide != null) {
+        writeAmount(ws, r, 3, chk.sraSide, F_INPUT);
+      }
     }
     if (chk.sraSide != null) {
       const c = writeAmount(ws, r, 4, `B${r}-C${r}`, F_FORMULA);

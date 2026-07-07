@@ -467,6 +467,15 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
     up_desc = strip_accents(description)
     code = (code or "").strip().upper()
     if code not in SRA_CODE_MAP:
+        # semantic pre-pass BEFORE the code-token scan: these descriptions
+        # carry a misleading stream token («CRN-Packages PH - ...» is a fee
+        # correction, «ADJ- IS - Adjustment for Hemodialysis» is the hemo
+        # adjustment whose bucket depends on the patient)
+        if "PACKAG" in up_desc:
+            code = "PHF"        # pharmacist-fee package corrections (CRN)
+        elif "HEMODIALY" in up_desc or "ΑΙΜΟΚΑΘΑΡΣ" in up_desc:
+            code = "HEMO"
+    if code not in SRA_CODE_MAP:
         # real SRA lines are invoice-level: the stream code sits inside the
         # description («AE - HCP SERVICES») — take the first code token
         m = _CODE_TOKEN_RE.search(up_desc)
@@ -568,6 +577,36 @@ def extract_sra(data: bytes, raw_text: Optional[str] = None) -> SRA:
         from .identify import extract_pdf_text
         raw_text, _ = extract_pdf_text(data)
     return parse_sra_text(raw_text)
+
+
+def merge_sras(sras: list[SRA]) -> SRA:
+    """A month can be settled by several cheques: merge multiple SRAs into
+    one logical SRA.  Lines are concatenated (tagged with their cheque so the
+    workbook keeps the audit trail), totals summed, and .parts keeps the
+    per-cheque tie-out for gate 4."""
+    if len(sras) == 1:
+        s = sras[0]
+        s.parts = [(s.cheque_no, s.lines_total, s.stated_total)]
+        return s
+    lines: list[SRALine] = []
+    parts: list[tuple[str, float, float]] = []
+    for s in sras:
+        for l in s.lines:
+            lines.append(SRALine(code=l.code,
+                                 description=f"{l.description} [επ. {s.cheque_no}]",
+                                 amount=l.amount, bucket=l.bucket, channel=l.channel,
+                                 source_report=l.source_report))
+        parts.append((s.cheque_no, s.lines_total, s.stated_total))
+    cheques = [s.cheque_no for s in sras]
+    label = "+".join(cheques) if len(cheques) <= 2 else \
+        "+".join(cheques[:2]) + f"+{len(cheques) - 2}"
+    merged = SRA(cheque_no=label,
+                 stated_total=round(sum(s.stated_total for s in sras), 2),
+                 lines=lines, parts=parts)
+    merged.hospital_code = next((s.hospital_code for s in sras if s.hospital_code), None)
+    dated = next(((s.year, s.month) for s in sras if s.year), (None, None))
+    merged.year, merged.month = dated
+    return merged
 
 
 # --------------------------------------------------------- GL extract

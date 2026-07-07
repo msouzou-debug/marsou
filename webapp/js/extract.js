@@ -390,6 +390,13 @@ function classifySraLine(code, description) {
   const upDesc = stripAccents(description);
   code = (code || '').trim().toUpperCase();
   if (!(code in SRA_CODE_MAP)) {
+    // semantic pre-pass BEFORE the code-token scan: «CRN-Packages PH - ...»
+    // is a fee correction; «ADJ- IS - Adjustment for Hemodialysis» is the
+    // hemo adjustment whose bucket depends on the patient
+    if (upDesc.includes('PACKAG')) code = 'PHF';
+    else if (upDesc.includes('HEMODIALY') || upDesc.includes('ΑΙΜΟΚΑΘΑΡΣ')) code = 'HEMO';
+  }
+  if (!(code in SRA_CODE_MAP)) {
     const m = CODE_TOKEN_RE.exec(upDesc);
     if (m) code = CODE_ALIASES[m[1]] || m[1];
   }
@@ -456,9 +463,36 @@ function parseSraText(text) {
   if (!lines.length) throw new ExtractionError('SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF');
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
   const [year, month] = findServicePeriod(text);
+  const linesTotal = round2(lines.reduce((a, l) => a + l.amount, 0));
   return {
     chequeNo: cheque || 'UNKNOWN', statedTotal, lines,
-    hospitalCode: findHospital(text), year, month,
+    hospitalCode: findHospital(text), year, month, linesTotal,
+    parts: [[cheque || 'UNKNOWN', linesTotal, statedTotal]],
+  };
+}
+
+function mergeSras(sras) {
+  /* A month can be settled by several cheques: merge multiple SRAs into one
+   * logical SRA; .parts keeps the per-cheque tie-out for gate 4. */
+  if (sras.length === 1) return sras[0];
+  const lines = [];
+  const parts = [];
+  for (const s of sras) {
+    for (const l of s.lines) {
+      lines.push({ ...l, description: `${l.description} [επ. ${s.chequeNo}]` });
+    }
+    parts.push([s.chequeNo, s.linesTotal, s.statedTotal]);
+  }
+  const cheques = sras.map((s) => s.chequeNo);
+  const label = cheques.length <= 2 ? cheques.join('+')
+    : cheques.slice(0, 2).join('+') + `+${cheques.length - 2}`;
+  const first = sras.find((s) => s.year) || sras[0];
+  return {
+    chequeNo: label,
+    statedTotal: round2(sras.reduce((a, s) => a + s.statedTotal, 0)),
+    lines, parts,
+    hospitalCode: (sras.find((s) => s.hospitalCode) || {}).hospitalCode || null,
+    year: first.year || null, month: first.month || null,
     linesTotal: round2(lines.reduce((a, l) => a + l.amount, 0)),
   };
 }

@@ -15,7 +15,8 @@ from recon.build_xlsx import build_workbook, verify_workbook
 from recon.checks import (ReconBundle, conditional_requirements,
                           gate4_internal_asserts, run_reconciliation,
                           validate_batch)
-from recon.extract import ExtractionError, extract, parse_sra_text
+from recon.extract import (ExtractionError, extract, merge_sras,
+                           parse_sra_text)
 from recon.identify import identify
 from recon.models import (HOSPITALS, IdentifiedFile, MONTH_ABBR,
                           MONTH_NAMES_EL, REPORT_LABELS, REQUIRED_TYPES,
@@ -185,13 +186,23 @@ slot = {
     ReportType.XML_ACTIVITY: "xml_activity",
 }
 try:
+    sras = []
     for f in files:
         raw_text = sra_text_override.get(f.filename, f.raw_text)
-        if f.report_type == ReportType.SRA and f.filename in sra_text_override:
-            setattr(bundle, "sra", parse_sra_text(raw_text))
+        if f.report_type == ReportType.SRA:
+            # a month can be settled by several cheques — collect and merge
+            sras.append(parse_sra_text(raw_text) if f.filename in sra_text_override
+                        else extract(f.report_type, f.data, hospital_code=hospital,
+                                     raw_text=raw_text))
         else:
             setattr(bundle, slot[f.report_type],
                     extract(f.report_type, f.data, hospital_code=hospital, raw_text=raw_text))
+    if sras:
+        bundle.sra = merge_sras(sras)
+        if len(sras) > 1:
+            st.info(f"Συγχωνεύθηκαν {len(sras)} SRA (επιταγές: "
+                    + ", ".join(f"#{c}" for c, _, _ in bundle.sra.parts)
+                    + f") — συνολικό ποσό {format_eur(bundle.sra.stated_total)}.")
 except ExtractionError as e:
     st.error(f"Σφάλμα εξαγωγής (extraction failed): {e}")
     st.stop()
@@ -200,10 +211,13 @@ if bundle.sra:
     have = {f.report_type for f in files}
     missing_cond = [t for t in conditional_requirements(bundle.sra) if t not in have]
     if missing_cond:
-        st.error("Το SRA περιέχει γραμμές που απαιτούν επιπλέον αναφορές "
-                 "(SRA lines require conditional reports):\n\n· "
-                 + "\n· ".join(REPORT_LABELS[t] for t in missing_cond))
-        st.stop()
+        # warning, not a stop: the run proceeds, but the matching SRA amounts
+        # are not vouched by a report and stay visible in the cross-checks
+        st.warning("Το SRA περιέχει γραμμές που αντιστοιχούν σε αναφορές που δεν "
+                   "ανέβηκαν (SRA lines whose supporting reports were not uploaded):\n\n· "
+                   + "\n· ".join(REPORT_LABELS[t] for t in missing_cond)
+                   + "\n\nΗ εκτέλεση συνεχίζεται — τα σχετικά ποσά δεν επαληθεύονται "
+                     "από αναφορά (amounts not vouched by a report).")
 
 for g in gate4_internal_asserts(bundle):
     if not g.passed:

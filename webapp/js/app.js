@@ -160,8 +160,11 @@ function renderGates(failed) {
 }
 
 function renderSraReview(files) {
-  const sra = files.find((f) => f.reportType === RT.SRA && f.rawText != null);
-  if (!sra) { $('sra-review').innerHTML = ''; return; }
+  const sraFiles = files.filter((f) => f.reportType === RT.SRA && f.rawText != null);
+  // on-screen correction works for a single SRA; with several cheques the
+  // parsed lines are already tagged per cheque in the workbook
+  if (sraFiles.length !== 1) { $('sra-review').innerHTML = ''; return; }
+  const sra = sraFiles[0];
   const existing = $('sra-text');
   const value = existing ? existing.value : sra.rawText;
   $('sra-review').innerHTML = `
@@ -194,18 +197,30 @@ async function run() {
     const [year, month] = period;
     const bundle = { hospitalCode: hospital, year, month };
     const sraOverride = $('sra-text') ? $('sra-text').value : null;
+    const sras = [];
     for (const f of files) {
-      const override = f.reportType === RT.SRA && f.data ? sraOverride : null;
-      bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, override);
+      if (f.reportType === RT.SRA) {
+        // a month can be settled by several cheques — collect and merge
+        const override = f.data && files.filter((x) => x.reportType === RT.SRA).length === 1
+          ? sraOverride : null;
+        sras.push(await extractReport(RT.SRA, f, hospital, override));
+      } else {
+        bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, null);
+      }
     }
+    if (sras.length) bundle.sra = mergeSras(sras);
 
+    let condWarning = '';
     if (bundle.sra) {
       const have = new Set(files.map((f) => f.reportType));
       const missing = conditionalRequirements(bundle.sra).filter((t) => !have.has(t));
       if (missing.length) {
-        throw new ExtractionError('Το SRA περιέχει γραμμές που απαιτούν επιπλέον αναφορές '
-          + '(SRA lines require conditional reports):\n• '
-          + missing.map((t) => REPORT_LABELS[t]).join('\n• '));
+        // warning, not a stop: the run proceeds, but the matching SRA amounts
+        // are not vouched by a report and stay visible in the cross-checks
+        condWarning = 'Το SRA περιέχει γραμμές που αντιστοιχούν σε αναφορές που δεν '
+          + 'ανέβηκαν (supporting reports not uploaded): '
+          + missing.map((t) => REPORT_LABELS[t]).join(' · ')
+          + ' — τα σχετικά ποσά δεν επαληθεύονται από αναφορά (amounts not vouched).';
       }
     }
     for (const g of gate4InternalAsserts(bundle)) {
@@ -220,7 +235,15 @@ async function run() {
         + failures.map((f) => `${f.sheet}!${f.addr} = ${formatEur(f.value)}`).join('\n• '));
     }
     const buffer = await wb.xlsx.writeBuffer();
+    let banner = '';
+    if (bundle.sra && bundle.sra.parts && bundle.sra.parts.length > 1) {
+      banner += `<div class="note">ℹ️ Συγχωνεύθηκαν ${bundle.sra.parts.length} SRA (επιταγές: `
+        + bundle.sra.parts.map(([c]) => `#${esc(c)}`).join(', ')
+        + `) — συνολικό ποσό ${formatEur(bundle.sra.statedTotal)}.</div>`;
+    }
+    if (condWarning) banner += `<div class="warn">⚠️ ${esc(condWarning)}</div>`;
     renderResults(result, buffer, hospital, year, month);
+    if (banner) $('results').insertAdjacentHTML('afterbegin', banner);
   } catch (e) {
     $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
   } finally {

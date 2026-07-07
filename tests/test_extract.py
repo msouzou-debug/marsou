@@ -109,26 +109,43 @@ def test_pharmacist_fee_reads_unit_price_from_document():
 
 
 def test_sra_feb_format_ph_stream_adjustment_and_credit():
-    # Feb-style SRA: PH pharmacy stream, ADJ-MRI/CT line, trailing-minus
-    # credit, KPI line, and a wrapped-row fragment («se 12.25») that must
-    # be SKIPPED (it double-counts a spilled amount)
+    # Feb-style SRA: PH pharmacy stream incl. the fee invoice, CRN-Packages
+    # (→ PHF), hemodialysis adjustment (→ HEMO, its own code so the IS check
+    # ties), ADJ-MRI/CT line, trailing-minus credit, KPI line, and a
+    # wrapped-row fragment («se 12.25») that must be SKIPPED
     sra = parse_sra_text(synth.sra_text_feb())
     assert sra.cheque_no == "256797"
-    assert sra.stated_total == 918_116.69
-    assert sra.lines_total == 918_116.69          # ties: fragment skipped
+    assert sra.stated_total == 929_012.04
+    assert sra.lines_total == 929_012.04          # ties: fragment skipped
     assert not any(l.description.startswith("se") for l in sra.lines)
     sums = {}
     for l in sra.lines:
         sums[l.code] = round(sums.get(l.code, 0) + l.amount, 2)
-    assert sums["PH"] == 42_623.01                # pharmacy via HCP channel
-    assert sums["MRI"] == 501.03                  # ADJ-MRI/CT QC → quality/Outpatient
-    assert sums["PD-KPI"] == 151.80               # KPIs-02-2026 line
-    assert sums["AE"] == round(24_327.00 - 12.25, 2)  # credit note negative
-    assert (sra.year, sra.month) == (2026, 2)     # Payment Date 13/03 − 1
-    ph_line = next(l for l in sra.lines if l.code == "PH")
-    assert ph_line.bucket == Bucket.PHARMA
-    credit = next(l for l in sra.lines if l.amount < 0)
-    assert credit.amount == -12.25
+    assert sums["IS"] == 840_526.10               # hemo NOT counted as IS
+    assert sums["HEMO"] == 5_260.00               # «ADJ- IS - ... Hemodialysis»
+    assert sums["PH"] == round(42_623.01 + 12_023.64, 2)  # incl. fee invoice
+    assert sums["PHF"] == -6_388.29               # CRN-Packages corrections
+    assert sums["MRI"] == 501.03
+    assert sums["PD-KPI"] == 151.80
+    assert sums["AE"] == round(24_327.00 - 12.25, 2)
+    assert (sra.year, sra.month) == (2026, 2)
+    hemo = next(l for l in sra.lines if l.code == "HEMO")
+    assert hemo.bucket == Bucket.INPATIENT        # default; editable per patient
+
+
+def test_merge_sras_multiple_cheques():
+    from recon.extract import merge_sras
+    a = parse_sra_text(synth.sra_text())          # cheque 259434, March
+    b = parse_sra_text(synth.sra_text_second())   # cheque 900001
+    m = merge_sras([a, b])
+    assert m.cheque_no == "259434+900001"
+    assert m.stated_total == round(1_936_528.19 + 1_000.00, 2)
+    assert m.lines_total == m.stated_total
+    assert len(m.parts) == 2
+    assert all("[επ." in l.description for l in m.lines)
+    # single SRA passes through untouched, with parts filled
+    single = merge_sras([parse_sra_text(synth.sra_text())])
+    assert single.cheque_no == "259434" and len(single.parts) == 1
 
 
 def test_quality_criteria_xlsx_recognised_and_extracted():

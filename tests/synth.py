@@ -184,14 +184,15 @@ EBS Τιμολογίου Τιμολογίου εκτελέστηκαν
 
 
 def sra_text_feb(cheque="256797", hospital="F1049") -> str:
-    """February-style SRA: «PH - HCP SERVICES» pharmacy stream, an ADJ-MRI/CT
-    quality-criteria adjustment line without invoice number, and a credit
-    note with a trailing-minus amount."""
+    """February-style SRA: «PH - HCP SERVICES» pharmacy stream (which also
+    carries the pharmacist-fee invoice), CRN-Packages fee corrections, a
+    hemodialysis adjustment labelled «ADJ- IS -», an ADJ-MRI/CT line, and a
+    trailing-minus credit note."""
     return f"""ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ
 REMITTANCE ADVICE
 STATE HEALTH SERVICES ORGANIZATION INCOME- PAR-{hospital} Payment Date: 13/03/2026
 Strovolos 2063 Payment/Cheque No: {cheque}
-Total paid in this batch: 918,116.69
+Total paid in this batch: 929,012.04
 Ημερομηνία Αρ . Τιμολογίου Περιγραφή Ποσό Τιμολογίου Νόμισμα Ποσό πληρωμής
 28/02/2026 ADJ-MRI/CT QC- 501.03 EUR 501.03
 Feb
@@ -199,11 +200,27 @@ Invoice Date Invoice No. Description Invoice Total Currency Amount Paid
 01/02/2026 5548208 AE - HCP SERVICES 24,327.00 EUR 24,327.00
 01/02/2026 5548210 IS - HCP SERVICES 840,526.10 EUR 840,526.10
 01/02/2026 5548223 PH - HCP SERVICES 42,623.01 EUR 42,623.01
+27/02/2026 5632647 PH - HCP SERVICES 12,023.64 EUR 12,023.64
+28/02/2026 CRN-Packages PH - CORRECTION-Packages-02-2026 6,388.29- EUR 6,388.29-
+28/02/2026 ADJ- IS - Adjustment for Hemodialysis 5,260.00 EUR 5,260.00
 05/02/2026 5560001 OS - HCP SERVICES 10,000.00 EUR 10,000.00
 06/02/2026 5560002 CREDIT NOTE AE 12.25- EUR 12.25-
 se 12.25
 28/02/2026 KPIs-02-2026- PD-KPIs-02-2026-CHILD 151.80 EUR 151.80
-Total paid in this batch: 918,116.69
+Total paid in this batch: 929,012.04
+"""
+
+
+def sra_text_second(cheque="900001", hospital="F1049") -> str:
+    """A small second cheque for the same month (multi-SRA scenario)."""
+    return f"""ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ
+REMITTANCE ADVICE
+STATE HEALTH SERVICES ORGANIZATION INCOME- PAR-{hospital} Payment Date: 22/04/2026
+Payment/Cheque No: {cheque}
+Total paid in this batch: 1,000.00
+Invoice Date Invoice No. Description Invoice Total Currency Amount Paid
+20/03/2026 5700001 IS - HCP SERVICES 1,000.00 EUR 1,000.00
+Total paid in this batch: 1,000.00
 """
 
 

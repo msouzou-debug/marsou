@@ -21,7 +21,9 @@ function validateBatch(files, crosscheckMode) {
       byType.get(f.reportType).push(f.filename);
     }
   }
-  const dupeMsgs = [...byType.entries()].filter(([, names]) => names.length > 1)
+  // multiple SRAs are allowed — a month can be settled by several cheques
+  const dupeMsgs = [...byType.entries()]
+    .filter(([t, names]) => names.length > 1 && t !== RT.SRA)
     .map(([t, names]) => `${REPORT_LABELS[t]}: ${names.join(', ')}`);
   if (bad.length) {
     const msg = bad.map((f) => `• ${f.filename}: ${f.error || 'άγνωστος τύπος'}`).join('\n');
@@ -74,21 +76,23 @@ function validateBatch(files, crosscheckMode) {
    * ΟΑΥ pays in arrears).  A month mismatch is a warning, never a hard stop:
    * a wrong month's SRA will not tie out and the reconciliation shows it. */
   if (sraPeriods.size) {
-    const sp = [...sraPeriods][0].split('-').map(Number);
-    const doc = nextMonth(sp);
+    const sps = [...sraPeriods].map((p) => p.split('-').map(Number));
     if (!service) {
-      period = sp;
-      notes.push(`Μήνας υπηρεσιών από το SRA: ${fmtP(sp)} (ημερομηνία εγγράφου ${fmtP(doc)} `
-        + '— η ΟΑΥ πληρώνει με καθυστέρηση / paid in arrears).');
-    } else if (sp[0] === service[0] && sp[1] === service[1]) {
-      notes.push(`Το SRA φέρει ημερομηνία ${fmtP(doc)} — αντιστοιχίστηκε στον μήνα υπηρεσιών `
-        + `${fmtP(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / SRA is dated one month after `
-        + 'the service month).');
+      period = sps[0];
+      notes.push(`Μήνας υπηρεσιών από το SRA: ${fmtP(period)} (ημερομηνία εγγράφου `
+        + `${fmtP(nextMonth(period))} — η ΟΑΥ πληρώνει με καθυστέρηση / paid in arrears).`);
     } else {
-      notes.push(`Προσοχή (warning): το SRA φαίνεται να αφορά τον ${fmtP(sp)} (ημερομηνία `
-        + `εγγράφου ${fmtP(doc)}), ενώ οι υπόλοιπες αναφορές τον ${fmtP(service)}. `
-        + 'Αν ανέβηκε λάθος SRA, οι έλεγχοι δεν θα δέσουν — η συμφωνία θα δείξει τη διαφορά '
-        + '(a wrong month\'s SRA will not tie out; the checks will show the break).');
+      if (sps.some((sp) => sp[0] === service[0] && sp[1] === service[1])) {
+        notes.push(`Το SRA φέρει ημερομηνία ${fmtP(nextMonth(service))} — αντιστοιχίστηκε `
+          + `στον μήνα υπηρεσιών ${fmtP(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / SRA is `
+          + 'dated one month after the service month).');
+      }
+      for (const sp of sps.filter((p) => p[0] !== service[0] || p[1] !== service[1])) {
+        notes.push(`Προσοχή (warning): SRA φαίνεται να αφορά τον ${fmtP(sp)} (ημερομηνία `
+          + `εγγράφου ${fmtP(nextMonth(sp))}), ενώ οι υπόλοιπες αναφορές τον ${fmtP(service)}. `
+          + 'Αν ανέβηκε λάθος SRA, οι έλεγχοι δεν θα δέσουν — η συμφωνία θα δείξει τη διαφορά '
+          + '(a wrong month\'s SRA will not tie out).');
+      }
     }
   }
   if (!period) period = [null, null];
@@ -132,11 +136,16 @@ function gate4InternalAsserts(bundle) {
     }
   }
   if (bundle.sra) {
-    const d = round2(bundle.sra.linesTotal - bundle.sra.statedTotal);
-    if (Math.abs(d) > CENT) {
-      ok = false;
-      msgs.push('Άθροισμα γραμμών SRA ≠ δηλωμένο σύνολο επιταγής: '
-        + `${formatEur(bundle.sra.linesTotal)} vs ${formatEur(bundle.sra.statedTotal)} (διαφορά ${formatEur(d)})`);
+    const parts = bundle.sra.parts && bundle.sra.parts.length
+      ? bundle.sra.parts
+      : [[bundle.sra.chequeNo, bundle.sra.linesTotal, bundle.sra.statedTotal]];
+    for (const [cheque, linesTotal, stated] of parts) {
+      const d = round2(linesTotal - stated);
+      if (Math.abs(d) > CENT) {
+        ok = false;
+        msgs.push(`Άθροισμα γραμμών SRA #${cheque} ≠ δηλωμένο σύνολο επιταγής: `
+          + `${formatEur(linesTotal)} vs ${formatEur(stated)} (διαφορά ${formatEur(d)})`);
+      }
     }
   }
   return [{ number: 4, name: 'Εσωτερικοί έλεγχοι (internal asserts)', passed: ok, message: msgs.join('\n') }];
@@ -194,20 +203,49 @@ function buildCrosschecks(bundle) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
         bundle.inpatient.synolo, ['IS'], null, claimsIp);
   }
-  if (bundle.pharma) {
-    if (sraCodeSet.has('PH')) {
-      // newer SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
-      add('Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH',
-          bundle.pharma.total, ['PH', 'PHD', 'PHC']);
-    } else {
+  if (sraCodeSet.has('PH') && (bundle.pharma || bundle.phfee)) {
+    /* Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
+     * lines — including the pharmacist-fee invoice — and correct the fee
+     * with CRN-Packages credit notes (classified PHF).  Net them out. */
+    const phSum = sraSum(sra, ['PH']);
+    const phfSum = sraSum(sra, ['PHF']);
+    const fee = bundle.phfee ? bundle.phfee.computed : 0;
+    if (bundle.phfee) {
+      const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
+      const srcNet = round2(fee + phfSum);
+      const sideNet2 = round2(phSum + phfSum - (bundle.pharma ? bundle.pharma.total : 0));
+      let [note, flag] = annotate('fee net', srcNet, sideNet2);
+      if (Math.abs(srcNet - sideNet2) <= CENT) {
+        note = 'OK — καθαρή αμοιβή μετά τις διορθώσεις CRN-Packages (fee net of '
+          + 'package-correction credit notes).';
+      }
+      checks.push({ name: `Αμοιβή Φαρμακοποιού net (packages × ${unitStr} € + CRN-Packages) = SRA PH+PHF − claims`,
+                    sourceTotal: srcNet, sraCodes: ['PH', 'PHF'], sraSide: sideNet2,
+                    note, flag, sideKind: 'fee_net',
+                    get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
+    }
+    if (bundle.pharma) {
+      const sideA = round2(phSum - fee);
+      let [note, flag] = annotate('pharma vs PH', bundle.pharma.total, sideA);
+      if (Math.abs(bundle.pharma.total - sideA) <= CENT) {
+        note = 'OK — SRA PH μείον το τιμολόγιο αμοιβής φαρμακοποιού (PH lines net '
+          + 'of the pharmacist-fee invoice).';
+      }
+      checks.push({ name: 'Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH − αμοιβή φαρμακοποιού',
+                    sourceTotal: bundle.pharma.total, sraCodes: ['PH'], sraSide: sideA,
+                    note, flag, sideKind: 'ph_minus_fee',
+                    get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
+    }
+  } else {
+    if (bundle.pharma) {
       add('Φάρμακα (pharma drugs) = SRA PHD', bundle.pharma.byType['Drugs'] || 0, ['PHD']);
       const cons = bundle.pharma.byType['Consumables'] || 0;
       if (cons) add('Αναλώσιμα (pharma consumables) = SRA PHC', cons, ['PHC']);
     }
-  }
-  if (bundle.phfee) {
-    const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
-    add(`Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PHF`, bundle.phfee.computed, ['PHF']);
+    if (bundle.phfee) {
+      const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
+      add(`Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PHF`, bundle.phfee.computed, ['PHF']);
+    }
   }
   if (bundle.claims) {
     add('Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines',
@@ -369,11 +407,16 @@ function buildSplit(bundle) {
     for (const [label, amount] of Object.entries(bundle.inpatient.other || {})) {
       ip.rows.push({ label, amount });
     }
+  } else if (sra) {
+    const isAmt = sraAmount(['IS']);
+    if (isAmt) ip.rows.push({ label: 'Ενδονοσοκομειακή (SRA IS)', amount: isAmt });
   }
   tieRows(ip, sraAmount(['IS']), 'Διαφορά προς SRA (reconciling diff to SRA)');
   if (bundle.hemo || (sra && sra.lines.some((l) => l.code === 'HEMO'))) {
     const hemoAmt = sra ? sraAmount(['HEMO']) : (bundle.hemo ? bundle.hemo.total : 0);
-    if (hemoAmt) ip.rows.push({ label: 'Αιμοκάθαρση (Hemodialysis adjustment)', amount: hemoAmt });
+    // bucket depends on the patient — default Inpatient per ΟΑΥ's «ADJ-IS»
+    // label; flip the blue Bucket cell on the SRA tab and SUMIFS re-tie
+    if (hemoAmt) ip.rows.push({ label: 'Αιμοκάθαρση (Hemodialysis — Inpatient ή Outpatient ανά ασθενή)', amount: hemoAmt });
   }
   sections.push(ip);
 
@@ -426,7 +469,11 @@ function buildSplit(bundle) {
   if (cons && !(phClaims && sra)) ph.rows.push({ label: 'Αναλώσιμα (Consumables)', amount: cons });
   let fee = sraAmount(['PHF']);
   if (fee == null && bundle.phfee) fee = bundle.phfee.computed;
-  if (fee) ph.rows.push({ label: 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
+  if (fee) {
+    ph.rows.push({ label: phClaims
+      ? 'Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)'
+      : 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
+  }
   sections.push(ph);
 
   for (const s of sections) s.subtotal = subtotal(s);

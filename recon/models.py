@@ -172,6 +172,9 @@ class SRA:
     hospital_code: Optional[str] = None
     year: Optional[int] = None
     month: Optional[int] = None
+    # one entry per source SRA when several cheques are merged:
+    # (cheque_no, lines_total, stated_total)
+    parts: list[tuple[str, float, float]] = field(default_factory=list)
 
     @property
     def lines_total(self) -> float:

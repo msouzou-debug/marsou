@@ -35,6 +35,10 @@ class CrossCheck:
     sra_side: Optional[float]     # computed here for display / verification
     note: str = ""
     flag: str = "ok"              # ok | amber | red
+    # workbook formula shape: "codes" (SUMIFS over sra_codes),
+    # "ph_minus_fee" (SUMIFS(PH) − fee packages×unit),
+    # "fee_net" (SUMIFS(PH)+SUMIFS(PHF) − pharma-claims source cell)
+    side_kind: str = "codes"
 
     @property
     def diff(self) -> Optional[float]:
@@ -123,8 +127,10 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
     for f in files:
         if f.report_type:
             dupes.setdefault(f.report_type, []).append(f.filename)
+    # multiple SRAs are allowed — a month can be settled by several cheques
     dupe_msgs = [f"{REPORT_LABELS[t]}: {', '.join(names)}"
-                 for t, names in dupes.items() if len(names) > 1]
+                 for t, names in dupes.items()
+                 if len(names) > 1 and t != ReportType.SRA]
     if bad:
         msg = "· " + "\n· ".join(f"{f.filename}: {f.error or 'άγνωστος τύπος'}" for f in bad)
         gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", False,
@@ -173,26 +179,29 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
     # ΟΑΥ pays in arrears).  A month mismatch is a warning, never a hard stop:
     # a wrong month's SRA will not tie out and the reconciliation shows it.
     if sra_periods:
-        sp = sra_periods.pop()
-        doc = _next_month(sp)
         fmt = lambda p: f"{p[1]:02d}/{p[0]}"  # noqa: E731
         if service is None:
-            period = sp
+            period = sorted(sra_periods)[0]
             notes.append(
-                f"Μήνας υπηρεσιών από το SRA: {fmt(sp)} (ημερομηνία εγγράφου "
-                f"{fmt(doc)} — η ΟΑΥ πληρώνει με καθυστέρηση / paid in arrears).")
-        elif sp == service:
-            notes.append(
-                f"Το SRA φέρει ημερομηνία {fmt(doc)} — αντιστοιχίστηκε στον μήνα "
-                f"υπηρεσιών {fmt(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / "
-                "SRA is dated one month after the service month).")
+                f"Μήνας υπηρεσιών από το SRA: {fmt(period)} (ημερομηνία εγγράφου "
+                f"{fmt(_next_month(period))} — η ΟΑΥ πληρώνει με καθυστέρηση / "
+                "paid in arrears).")
         else:
-            notes.append(
-                f"Προσοχή (warning): το SRA φαίνεται να αφορά τον {fmt(sp)} "
-                f"(ημερομηνία εγγράφου {fmt(doc)}), ενώ οι υπόλοιπες αναφορές τον "
-                f"{fmt(service)}. Αν ανέβηκε λάθος SRA, οι έλεγχοι δεν θα δέσουν — "
-                "η συμφωνία θα δείξει τη διαφορά (a wrong month's SRA will not "
-                "tie out; the checks will show the break).")
+            matching = {sp for sp in sra_periods if sp == service}
+            mismatched = sorted(sra_periods - matching)
+            if matching:
+                doc = _next_month(service)
+                notes.append(
+                    f"Το SRA φέρει ημερομηνία {fmt(doc)} — αντιστοιχίστηκε στον μήνα "
+                    f"υπηρεσιών {fmt(service)} (η ΟΑΥ πληρώνει με καθυστέρηση / "
+                    "SRA is dated one month after the service month).")
+            for sp in mismatched:
+                notes.append(
+                    f"Προσοχή (warning): SRA φαίνεται να αφορά τον {fmt(sp)} "
+                    f"(ημερομηνία εγγράφου {fmt(_next_month(sp))}), ενώ οι υπόλοιπες "
+                    f"αναφορές τον {fmt(service)}. Αν ανέβηκε λάθος SRA, οι έλεγχοι "
+                    "δεν θα δέσουν — η συμφωνία θα δείξει τη διαφορά (a wrong "
+                    "month's SRA will not tie out).")
     if period is None:
         period = (None, None)
     gates.append(GateResult(2, gate2_name, True))
@@ -242,12 +251,15 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
                         f"(διαφορά {format_eur(d)})\n"
                         f"Τιμές DR SEGMENT στο αρχείο claims: {segs}")
     if bundle.sra:
-        d = round(bundle.sra.lines_total - bundle.sra.stated_total, 2)
-        if abs(d) > CENT:
-            ok = False
-            msgs.append("Άθροισμα γραμμών SRA ≠ δηλωμένο σύνολο επιταγής: "
-                        f"{format_eur(bundle.sra.lines_total)} vs "
-                        f"{format_eur(bundle.sra.stated_total)} (διαφορά {format_eur(d)})")
+        parts = bundle.sra.parts or [(bundle.sra.cheque_no, bundle.sra.lines_total,
+                                      bundle.sra.stated_total)]
+        for cheque, lines_total, stated in parts:
+            d = round(lines_total - stated, 2)
+            if abs(d) > CENT:
+                ok = False
+                msgs.append(f"Άθροισμα γραμμών SRA #{cheque} ≠ δηλωμένο σύνολο επιταγής: "
+                            f"{format_eur(lines_total)} vs {format_eur(stated)} "
+                            f"(διαφορά {format_eur(d)})")
     gates.append(GateResult(4, "Εσωτερικοί έλεγχοι (internal asserts)", ok, "\n".join(msgs)))
     return gates
 
@@ -321,22 +333,51 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
     if bundle.inpatient:
         add("Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS",
             bundle.inpatient.synolo, ["IS"], alt=claims_ip)
-    if bundle.pharma:
-        if "PH" in sra_code_set:
-            # newer SRAs pay pharmacy claims as daily «PH - HCP SERVICES»
-            # invoices (drugs + consumables together)
-            add("Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH",
-                bundle.pharma.total, ["PH", "PHD", "PHC"])
-        else:
+    if "PH" in sra_code_set and (bundle.pharma or bundle.phfee):
+        # Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
+        # lines — including the pharmacist-fee invoice — and correct the fee
+        # with CRN-Packages credit notes (classified PHF).  Net them out:
+        #   pharma claims gross = SRA PH − fee(packages × unit)
+        #   fee net = fee + CRN-Packages = SRA PH + PHF − pharma claims gross
+        ph_sum = _sra_sum(sra, ["PH"])
+        phf_sum = _sra_sum(sra, ["PHF"])
+        fee = bundle.phfee.computed if bundle.phfee else 0.0
+        if bundle.phfee:
+            unit_str = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
+            src_net = round(fee + phf_sum, 2)
+            side_net = round(ph_sum + phf_sum
+                             - (bundle.pharma.total if bundle.pharma else 0.0), 2)
+            note, flag = _annotate("fee net", src_net, side_net)
+            if abs(src_net - (side_net or 0)) <= CENT:
+                note = ("OK — καθαρή αμοιβή μετά τις διορθώσεις CRN-Packages "
+                        "(fee net of package-correction credit notes).")
+            checks.append(CrossCheck(
+                name=f"Αμοιβή Φαρμακοποιού net (packages × {unit_str} € + "
+                     "CRN-Packages) = SRA PH+PHF − claims",
+                source_total=src_net, sra_codes=["PH", "PHF"], sra_side=side_net,
+                note=note, flag=flag, side_kind="fee_net"))
+        if bundle.pharma:
+            side_a = round(ph_sum - fee, 2)
+            note, flag = _annotate("pharma vs PH", bundle.pharma.total, side_a)
+            if abs(bundle.pharma.total - (side_a or 0)) <= CENT:
+                note = ("OK — SRA PH μείον το τιμολόγιο αμοιβής φαρμακοποιού "
+                        "(PH lines net of the pharmacist-fee invoice).")
+            checks.append(CrossCheck(
+                name="Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH − αμοιβή "
+                     "φαρμακοποιού", source_total=bundle.pharma.total,
+                sra_codes=["PH"], sra_side=side_a, note=note, flag=flag,
+                side_kind="ph_minus_fee"))
+    else:
+        if bundle.pharma:
             drugs = bundle.pharma.by_type.get("Drugs", 0.0)
             add("Φάρμακα (pharma drugs) = SRA PHD", drugs, ["PHD"])
             cons = bundle.pharma.by_type.get("Consumables", 0.0)
             if cons:
                 add("Αναλώσιμα (pharma consumables) = SRA PHC", cons, ["PHC"])
-    if bundle.phfee:
-        unit_str = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
-        add(f"Αμοιβή Φαρμακοποιού (packages × {unit_str} €) = SRA PHF",
-            bundle.phfee.computed, ["PHF"])
+        if bundle.phfee:
+            unit_str = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
+            add(f"Αμοιβή Φαρμακοποιού (packages × {unit_str} €) = SRA PHF",
+                bundle.phfee.computed, ["PHF"])
     if bundle.claims:
         add("Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines",
             bundle.claims.total, SERVICE_CODES,
@@ -491,11 +532,20 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         ip.rows.append(SplitRow("Κατάλογος Z (Z-catalogue)", bundle.inpatient.z_catalogue))
         for label, amount in bundle.inpatient.other.items():
             ip.rows.append(SplitRow(label, amount))
+    elif sra:
+        is_amt = sra_amount(["IS"])
+        if is_amt:
+            ip.rows.append(SplitRow("Ενδονοσοκομειακή (SRA IS)", is_amt))
     _tie_section(ip, sra_amount(["IS"]))
     if bundle.hemo or (sra and any(l.code == "HEMO" for l in sra.lines)):
         hemo_amt = sra_amount(["HEMO"]) if sra else (bundle.hemo.total if bundle.hemo else 0.0)
         if hemo_amt:
-            ip.rows.append(SplitRow("Αιμοκάθαρση (Hemodialysis adjustment)", hemo_amt))
+            # bucket depends on the patient — default Inpatient per ΟΑΥ's own
+            # «ADJ-IS» label; flip the blue Bucket cell on the SRA tab to
+            # Outpatient and every SUMIFS re-ties
+            ip.rows.append(SplitRow(
+                "Αιμοκάθαρση (Hemodialysis — Inpatient ή Outpatient ανά ασθενή)",
+                hemo_amt))
     sections.append(ip)
 
     ae = SplitSection("ΤΑΕΠ (A&E)", Bucket.AE)
@@ -563,7 +613,9 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     if fee is None and bundle.phfee:
         fee = bundle.phfee.computed
     if fee:
-        ph.rows.append(SplitRow("Αμοιβή Φαρμακοποιού (Pharmacist fee)", fee))
+        label = ("Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)"
+                 if ph_claims else "Αμοιβή Φαρμακοποιού (Pharmacist fee)")
+        ph.rows.append(SplitRow(label, fee))
     sections.append(ph)
 
     return sections

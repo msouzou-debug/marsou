@@ -178,6 +178,67 @@ def test_crosscheck_mode_report_vs_report_flags():
     assert isaud.diff == 0.0
 
 
+def test_two_sras_pass_gates_and_reconcile():
+    from recon.extract import merge_sras
+    files = _identified_batch()
+    sra2 = IdentifiedFile("sra2.pdf", b"", report_type=ReportType.SRA,
+                          hospital_code="F1049", year=2026, month=3)
+    files.append(sra2)
+    gates, hospital, period, notes = validate_batch(files)
+    assert all(g.passed for g in gates)           # duplicates allowed for SRA
+    assert period == (2026, 3)
+
+    b = full_bundle()
+    from recon.extract import parse_sra_text
+    b.sra = merge_sras([parse_sra_text(synth.sra_text()),
+                        parse_sra_text(synth.sra_text_second())])
+    assert all(g.passed for g in gate4_internal_asserts(b))
+    res = run_reconciliation(b)
+    assert res.cheque_total == round(1_936_528.19 + 1_000.00, 2)
+    assert res.buckets[Bucket.INPATIENT] == round(1_061_728.70 + 1_000.00, 2)
+    from recon.build_xlsx import build_workbook, verify_workbook
+    data = build_workbook(res)
+    assert verify_workbook(data) == []            # merged workbook still ties
+    from openpyxl import load_workbook
+    import io
+    wb = load_workbook(io.BytesIO(data))
+    assert wb.sheetnames[0] == "SRA_259434+900001"
+
+
+def test_gate4_reports_broken_cheque_by_number():
+    from recon.extract import merge_sras, parse_sra_text
+    b = full_bundle()
+    bad = parse_sra_text(synth.sra_text_second())
+    bad.lines[0].amount = 999.00                  # break the second cheque only
+    b.sra = merge_sras([parse_sra_text(synth.sra_text()), bad])
+    g = gate4_internal_asserts(b)[0]
+    assert not g.passed and "#900001" in g.message and "#259434" not in g.message
+
+
+def test_feb_fee_netting_ties():
+    # fee net of CRN-Packages: both netted checks must tie to the cent
+    from recon.checks import ReconBundle
+    from recon.extract import parse_pharmacist_fee_text, parse_sra_text
+    from recon.models import PharmaClaims
+
+    b = ReconBundle(hospital_code="F1049", year=2026, month=2)
+    b.sra = parse_sra_text(synth.sra_text_feb())
+    b.phfee = parse_pharmacist_fee_text(synth.pharmacist_fee_text(packages=7422, unit=1.62))
+    b.pharma = PharmaClaims(by_type={"Drugs": 42_623.01})
+    res = run_reconciliation(b)
+    fee = next(c for c in res.crosschecks if c.side_kind == "fee_net")
+    assert fee.source_total == 5_635.35           # 12,023.64 − 6,388.29
+    assert fee.sra_side == 5_635.35 and fee.flag == "ok"
+    ph = next(c for c in res.crosschecks if c.side_kind == "ph_minus_fee")
+    assert ph.source_total == 42_623.01
+    assert ph.sra_side == 42_623.01 and ph.flag == "ok"
+    # the IS check ties now that hemodialysis is its own code
+    endo_side = sum(l.amount for l in b.sra.lines if l.code == "IS")
+    assert round(endo_side, 2) == 840_526.10
+    from recon.build_xlsx import build_workbook, verify_workbook
+    assert verify_workbook(build_workbook(res)) == []
+
+
 def test_crosscheck_mode_matrix():
     b = full_bundle(with_optional=True)
     b.sra = None
