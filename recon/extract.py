@@ -420,6 +420,9 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     "AP": (Bucket.OUTPATIENT, "Claims", "Πληρωμένες Απαιτήσεις «all»"),
     "PD": (Bucket.OUTPATIENT, "Claims", "Πληρωμένες Απαιτήσεις «all»"),
     "PD-CAP": (Bucket.OUTPATIENT, "Capitation", "Capitation Report"),
+    # PD fixed-price items (out-of-office hours, vaccinations) — apart from
+    # the daily PD lines so «SRA PD = capitation + claims PD» ties exactly
+    "PD-FP": (Bucket.OUTPATIENT, "Fixed price", "—"),
     "PD-KPI": (Bucket.OUTPATIENT, "KPI", "Ποιοτικά Κριτήρια"),
     "KPI": (Bucket.OUTPATIENT, "KPI", "Ποιοτικά Κριτήρια"),
     "MRI": (Bucket.OUTPATIENT, "KPI", "Ποιοτικά Κριτήρια"),
@@ -450,16 +453,19 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
 _ADJ_MARKER_RE = re.compile(
     r"ADJ|CRN|CREDIT|CORR|DEDUCTION|ISSUANCE|STOCK|MANUAL|OTC")
 
+# PD fixed-price items paid outside the daily PD invoices
+_PD_FP_RE = re.compile(r"OOH|OUT OF HOURS|INFLUENZA|HPV|VAXPRO|VACCIN|ΕΜΒΟΛΙ")
+
 _KEYWORD_CODES = [
     # (accent-stripped keyword(s) all required, code) — most specific first
     (["ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ"], "PHF"),
     (["PHARMACIST FEE"], "PHF"),
     (["ANTIBIOTIC"], "PH-PRIOR"),  # innovative-antibiotics settlement cheques
     (["NEW REIMB"], "OS"),        # COR./REV corrections of the OS reimb method
-    (["HPV"], "PD"),              # vaccination corrections (PD fixed price)
-    (["VAXPRO"], "PD"),
-    (["INFLUENZA"], "PD"),
-    (["ΕΜΒΟΛΙ"], "PD"),
+    (["HPV"], "PD-FP"),           # vaccination corrections (PD fixed price)
+    (["VAXPRO"], "PD-FP"),
+    (["INFLUENZA"], "PD-FP"),
+    (["ΕΜΒΟΛΙ"], "PD-FP"),
     (["ΑΝΑΛΩΣΙΜ"], "PHC"),
     (["CONSUMABLE"], "PHC"),
     (["ΦΑΡΜΑΚ"], "PHD"),
@@ -530,6 +536,10 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
             code = "PD-CAP"
         elif code == "PD" and ("KPI" in up_desc or "ΠΟΙΟΤΙΚ" in up_desc):
             code = "PD-KPI"
+        elif code == "PD" and _PD_FP_RE.search(up_desc):
+            # fixed-price PD items (OOH, vaccinations) — apart from the
+            # daily lines so «SRA PD = capitation + claims PD» ties exactly
+            code = "PD-FP"
         # credit notes / corrections split away from the daily claim lines,
         # so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
         elif (code == "IS" and _ADJ_MARKER_RE.search(up_desc)

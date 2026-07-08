@@ -362,6 +362,38 @@ def test_gl_inpatient_gap_annotated_when_it_matches_z_gap():
     assert gl_ip.flag == "amber" and "Ίδια διαφορά" in gl_ip.note
 
 
+def test_pd_daily_lines_equal_capitation_plus_claims_pd():
+    # exact identity verified Apr+May 2026: SRA PD (daily) = capitation
+    # report + claims «Personal Doctors» segment; fixed-price items (OOH,
+    # vaccinations) classify apart as PD-FP and don't pollute the tie
+    from recon.models import SRALine, SimpleReport
+    b = full_bundle()
+    b.sra.lines = [l for l in b.sra.lines if l.code != "PD-CAP"]
+    b.capitation = SimpleReport(total=21_972.81)
+    b.claims.by_segment["Personal Doctors"] = 6_430.86
+    b.sra.lines.append(SRALine(
+        code="PD", description="PD - HCP SERVICES", amount=28_403.67,
+        bucket=Bucket.OUTPATIENT, channel="Claims",
+        source_report="Πληρωμένες Απαιτήσεις «all»"))
+    b.sra.lines.append(SRALine(
+        code="PD-FP", description="PD - OOH SERVICES", amount=660.00,
+        bucket=Bucket.OUTPATIENT, channel="Fixed price", source_report="—"))
+    b.sra.stated_total = round(sum(l.amount for l in b.sra.lines), 2)
+    res = run_reconciliation(b)
+    pd = next(c for c in res.crosschecks if "Personal Doctors» = SRA PD" in c.name)
+    assert pd.source_total == 28_403.67
+    assert pd.sra_side == 28_403.67 and pd.flag == "ok"   # OOH not counted
+
+
+def test_is_auditor_within_rounding_tolerance_is_ok():
+    b = full_bundle(with_optional=True)
+    b.isaud.inpatient_total = round(b.isaud.inpatient_total + 2.13, 2)
+    res = run_reconciliation(b)
+    c = next(ch for ch in res.crosschecks if "IS Auditor" in ch.name)
+    assert c.flag == "ok" and "στρογγυλοποίησης" in c.note
+    assert c.diff == 2.13                       # the live diff stays visible
+
+
 def test_gl_capitation_ties_report_when_bundled_in_pd():
     # no PD-CAP line on the SRA (capitation bundled in PD): the GL account
     # must tie the capitation REPORT instead — exact on Apr-2026

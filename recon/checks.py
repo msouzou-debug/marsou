@@ -457,12 +457,29 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             unit_str = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
             add(f"Αμοιβή Φαρμακοποιού (packages × {unit_str} €) = SRA PHF",
                 bundle.phfee.computed, ["PHF"])
+    cap_bundled = (bundle.capitation is not None and sra is not None
+                   and "PD-CAP" not in sra_code_set)
     if bundle.claims:
-        add("Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines",
-            bundle.claims.total, SERVICE_CODES,
-            flag_hint="Κατά προσέγγιση έλεγχος (approximate: PD FFS timing/scope).")
+        cap_extra = bundle.capitation.total if cap_bundled else 0.0
+        name = ("Πληρωμένες Απαιτήσεις «all» + capitation ≈ SRA service lines"
+                if cap_extra else
+                "Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines")
+        add(name, round(bundle.claims.total + cap_extra, 2), SERVICE_CODES,
+            flag_hint="Κατά προσέγγιση: οι γραμμές SRA περιέχουν προσαρμογές "
+                      "(ADJ/COR) και επιταγές δορυφορικών παροχέων που δεν "
+                      "υπάρχουν στο αρχείο claims (approximate: SRA includes "
+                      "adjustments and satellite-supplier cheques absent from "
+                      "the claims export).")
+    claims_pd = (bundle.claims.by_segment.get("Personal Doctors")
+                 if bundle.claims else None)
     if bundle.capitation:
-        if sra and "PD-CAP" not in sra_code_set:
+        if cap_bundled and claims_pd is not None:
+            # exact identity, verified Apr+May 2026: the daily PD lines pay
+            # capitation + the PD fee-for-service claims; fixed-price items
+            # (OOH, vaccinations) are classified apart as PD-FP
+            add("Capitation + Claims «Personal Doctors» = SRA PD (ημερήσιες γραμμές)",
+                round(bundle.capitation.total + claims_pd, 2), ["PD"])
+        elif cap_bundled:
             # newer SRAs bundle capitation inside the PD service lines
             add("Capitation report ≈ SRA PD (bundled with FFS)",
                 bundle.capitation.total, ["PD", "PD-CAP"],
@@ -514,8 +531,8 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         add("GL: Εξωνοσοκομειακή & ΠΙ (25xxx clinical + capitation) = "
             "SRA OS+NM+AP+PD+KPI",
             round(gl.outpatient + gl.capitation, 2),
-            ["OS", "NM", "AP", "PD", "PD-CAP", "PD-KPI", "KPI", "MRI", "CT",
-             "MRI/CT"],
+            ["OS", "NM", "AP", "PD", "PD-CAP", "PD-KPI", "PD-FP", "KPI", "MRI",
+             "CT", "MRI/CT"],
             flag_hint="Επιταγές δορυφορικών παροχέων (άλλος κωδικός F στην "
                       "κεφαλίδα SRA, π.χ. κέντρα υγείας) μένουν εκτός του GL "
                       "αυτού του νοσοκομείου (satellite-supplier cheques sit "
@@ -557,6 +574,13 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             bundle.isaud.inpatient_total, ["IS"],
             flag_hint="IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.",
             alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
+        c = checks[-1]
+        # per-row rounding across ~10k detail rows — the brief accepts small
+        # tolerances (F1054: €0.45); the Diff cell still shows the live gap
+        if c.flag != "ok" and c.diff is not None and abs(c.diff) <= 5.00:
+            c.flag = "ok"
+            c.note = ("OK — εντός ανοχής στρογγυλοποίησης του αναλυτικού "
+                      f"αρχείου (rounding tolerance, διαφορά {format_eur(c.diff)}).")
     if bundle.xml_activity:
         x = bundle.xml_activity
         src, name = x.total, "XML activity export (OS+NM+AP) = SRA OS+NM+AP"
@@ -737,6 +761,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     pd_ffs = sra_amount(["PD"])
     if pd_ffs:
         out.rows.append(SplitRow("Προσωπικοί Ιατροί — FFS (PD fee-for-service)", pd_ffs))
+    pd_fp = sra_amount(["PD-FP"])
+    if pd_fp:
+        out.rows.append(SplitRow(
+            "Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, "
+            "εμβολιασμοί)", pd_fp))
     pd_cap = sra_amount(["PD-CAP"])
     if pd_cap is None and bundle.capitation:
         pd_cap = bundle.capitation.total

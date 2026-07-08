@@ -313,13 +313,26 @@ function buildCrosschecks(bundle) {
       add(`Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PHF`, bundle.phfee.computed, ['PHF']);
     }
   }
+  const capBundled = bundle.capitation != null && sra != null && !sraCodeSet.has('PD-CAP');
   if (bundle.claims) {
-    add('Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines',
-        claimsTotal(bundle.claims), SERVICE_CODES,
-        'Κατά προσέγγιση έλεγχος (approximate: PD FFS timing/scope).');
+    const capExtra = capBundled ? bundle.capitation.total : 0;
+    const name = capExtra
+      ? 'Πληρωμένες Απαιτήσεις «all» + capitation ≈ SRA service lines'
+      : 'Πληρωμένες Απαιτήσεις «all» (HCP claims ex-capitation) ≈ SRA service lines';
+    add(name, round2(claimsTotal(bundle.claims) + capExtra), SERVICE_CODES,
+        'Κατά προσέγγιση: οι γραμμές SRA περιέχουν προσαρμογές (ADJ/COR) και επιταγές '
+        + 'δορυφορικών παροχέων που δεν υπάρχουν στο αρχείο claims (approximate: SRA '
+        + 'includes adjustments and satellite-supplier cheques absent from the claims export).');
   }
+  const claimsPd = bundle.claims ? bundle.claims.bySegment['Personal Doctors'] : null;
   if (bundle.capitation) {
-    if (sra && !sraCodeSet.has('PD-CAP')) {
+    if (capBundled && claimsPd != null) {
+      // exact identity, verified Apr+May 2026: the daily PD lines pay
+      // capitation + the PD fee-for-service claims; fixed-price items
+      // (OOH, vaccinations) are classified apart as PD-FP
+      add('Capitation + Claims «Personal Doctors» = SRA PD (ημερήσιες γραμμές)',
+          round2(bundle.capitation.total + claimsPd), ['PD']);
+    } else if (capBundled) {
       // newer SRAs bundle capitation inside the PD service lines
       add('Capitation report ≈ SRA PD (bundled with FFS)', bundle.capitation.total,
           ['PD', 'PD-CAP'],
@@ -368,7 +381,7 @@ function buildCrosschecks(bundle) {
     // paid inside the SRA PD lines — compare the two wholes
     add('GL: Εξωνοσοκομειακή & ΠΙ (25xxx clinical + capitation) = SRA OS+NM+AP+PD+KPI',
         round2(gl.outpatient + gl.capitation),
-        ['OS', 'NM', 'AP', 'PD', 'PD-CAP', 'PD-KPI', 'KPI', 'MRI', 'CT', 'MRI/CT'],
+        ['OS', 'NM', 'AP', 'PD', 'PD-CAP', 'PD-KPI', 'PD-FP', 'KPI', 'MRI', 'CT', 'MRI/CT'],
         'Επιταγές δορυφορικών παροχέων (άλλος κωδικός F στην κεφαλίδα SRA, π.χ. κέντρα '
         + 'υγείας) μένουν εκτός του GL αυτού του νοσοκομείου (satellite-supplier cheques '
         + 'sit outside this hospital GL vendor).',
@@ -411,6 +424,14 @@ function buildCrosschecks(bundle) {
     add('IS Auditor: inpatient (DRG fees + Z-catalogue) = SRA IS', bundle.isaud.inpatientTotal, ['IS'],
         'IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.',
         bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
+    const c = checks[checks.length - 1];
+    // per-row rounding across ~10k detail rows — the brief accepts small
+    // tolerances (F1054: €0.45); the Diff cell still shows the live gap
+    if (c.flag !== 'ok' && c.diff != null && Math.abs(c.diff) <= 5.00) {
+      c.flag = 'ok';
+      c.note = 'OK — εντός ανοχής στρογγυλοποίησης του αναλυτικού αρχείου '
+        + `(rounding tolerance, διαφορά ${formatEur(c.diff)}).`;
+    }
   }
   if (bundle.xmlActivity) {
     const x = bundle.xmlActivity;
@@ -586,6 +607,8 @@ function buildSplit(bundle) {
   if (apAmt) out.rows.push({ label: 'Άλλοι Επαγγελματίες Υγείας (Allied Health)', amount: apAmt });
   const pdFfs = sraAmount(['PD']);
   if (pdFfs) out.rows.push({ label: 'Προσωπικοί Ιατροί — FFS (PD fee-for-service)', amount: pdFfs });
+  const pdFp = sraAmount(['PD-FP']);
+  if (pdFp) out.rows.push({ label: 'Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, εμβολιασμοί)', amount: pdFp });
   let pdCap = sraAmount(['PD-CAP']);
   if (pdCap == null && bundle.capitation) pdCap = bundle.capitation.total;
   if (pdCap) out.rows.push({ label: 'Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)', amount: pdCap });

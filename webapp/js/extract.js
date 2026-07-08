@@ -344,6 +344,9 @@ const SRA_CODE_MAP = {
   AP: ['Outpatient', 'Claims', 'Πληρωμένες Απαιτήσεις «all»'],
   PD: ['Outpatient', 'Claims', 'Πληρωμένες Απαιτήσεις «all»'],
   'PD-CAP': ['Outpatient', 'Capitation', 'Capitation Report'],
+  // PD fixed-price items (out-of-office hours, vaccinations) — apart from
+  // the daily PD lines so «SRA PD = capitation + claims PD» ties exactly
+  'PD-FP': ['Outpatient', 'Fixed price', '—'],
   'PD-KPI': ['Outpatient', 'KPI', 'Ποιοτικά Κριτήρια'],
   KPI: ['Outpatient', 'KPI', 'Ποιοτικά Κριτήρια'],
   MRI: ['Outpatient', 'KPI', 'Ποιοτικά Κριτήρια'],
@@ -373,15 +376,18 @@ const SRA_CODE_MAP = {
 // adjustment markers that split a stream's ADJ/CRN lines from its daily lines
 const ADJ_MARKER_RE = /ADJ|CRN|CREDIT|CORR|DEDUCTION|ISSUANCE|STOCK|MANUAL|OTC/;
 
+// PD fixed-price items paid outside the daily PD invoices
+const PD_FP_RE = /OOH|OUT OF HOURS|INFLUENZA|HPV|VAXPRO|VACCIN|ΕΜΒΟΛΙ/;
+
 const KEYWORD_CODES = [
   [['ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ'], 'PHF'],
   [['PHARMACIST FEE'], 'PHF'],
   [['ANTIBIOTIC'], 'PH-PRIOR'],  // innovative-antibiotics settlement cheques
   [['NEW REIMB'], 'OS'],         // COR./REV corrections of the OS reimb method
-  [['HPV'], 'PD'],               // vaccination corrections (PD fixed price)
-  [['VAXPRO'], 'PD'],
-  [['INFLUENZA'], 'PD'],
-  [['ΕΜΒΟΛΙ'], 'PD'],
+  [['HPV'], 'PD-FP'],            // vaccination corrections (PD fixed price)
+  [['VAXPRO'], 'PD-FP'],
+  [['INFLUENZA'], 'PD-FP'],
+  [['ΕΜΒΟΛΙ'], 'PD-FP'],
   [['ΑΝΑΛΩΣΙΜ'], 'PHC'],
   [['CONSUMABLE'], 'PHC'],
   [['ΦΑΡΜΑΚ'], 'PHD'],
@@ -442,6 +448,9 @@ function classifySraLine(code, description) {
   if (code in SRA_CODE_MAP) {
     if (code === 'PD' && (upDesc.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ') || upDesc.includes('CAPITATION'))) code = 'PD-CAP';
     else if (code === 'PD' && (upDesc.includes('KPI') || upDesc.includes('ΠΟΙΟΤΙΚ'))) code = 'PD-KPI';
+    // fixed-price PD items (OOH, vaccinations) — apart from the daily
+    // lines so «SRA PD = capitation + claims PD» ties exactly
+    else if (code === 'PD' && PD_FP_RE.test(upDesc)) code = 'PD-FP';
     // credit notes / corrections split away from the daily claim lines,
     // so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
     else if (code === 'IS' && ADJ_MARKER_RE.test(upDesc) && upDesc.includes('YEAR END')) {

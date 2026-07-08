@@ -157,9 +157,12 @@ def test_classify_splits_adjustments_from_daily_lines():
         # May-2026 (F1048) new line types
         "ADJ-DRG- IS - Year End Adj. for DRG points - JAN_DEC25": "IS-PRIOR",
         "Innovativeantibio Innovativeantibiotic01-Apr2023to30-Sept2025": "PH-PRIOR",
-        "HPV-HBVaxPro- HPV-HBVaxPro-JAN-MAR": "PD",
+        "HPV-HBVaxPro- HPV-HBVaxPro-JAN-MAR": "PD-FP",
         "COR.-REV-ADJ- COR.-REV-ADJ-New Reimb Met D5920": "OS",
-        "PD-INFLUENZA- PD-INFLUENZA-F1048-MAY": "PD",
+        "PD-INFLUENZA- PD-INFLUENZA-F1048-MAY": "PD-FP",
+        "PD - OOH SERVICES": "PD-FP",
+        "Out of hours-APR. PD-Out of hours-": "PD-FP",
+        "PD - HCP SERVICES": "PD",                       # daily line stays
         "CRN-Drugs-Z- PH - DED.-Drugs-Z-CAT": "PH-ADJ",
     }
     for desc, want in cases.items():
