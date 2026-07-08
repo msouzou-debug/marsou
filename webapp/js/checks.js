@@ -189,13 +189,16 @@ function annotate(name, source, sraSide, flagHint) {
       + '(the quality-criteria export is empty; re-download it from the HIO portal).', 'red'];
   }
   if (up.includes('Z-CATALOGUE') && up.includes('GL') && diff < 0) {
-    return ['GL κάτω από ΟΑΥ: Z-procedures/tail booked to clinical accounts. Classification, not cash.', 'amber'];
+    return ['Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο καθολικό της ΟΑΥ '
+      + '(HIO-ledger classification, not cash).', 'amber'];
   }
   if (up.includes('PHARMACIST') && up.includes('GL')) {
-    return ['GL ≈ flat booking vs report packages × 1,60 € — known booking issue, flag amber.', 'amber'];
+    return ['GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό θέμα ταξινόμησης '
+      + 'στο καθολικό της ΟΑΥ (known HIO-ledger booking issue), flag amber.', 'amber'];
   }
   if (up.includes('PHARMA') && up.includes('GL') && diff > 0) {
-    return ['Pharma claims gross above GL: generics/discounts/co-pay reclass.', 'amber'];
+    return ['Pharma claims gross above GL: generics/discounts/co-pay reclass στο καθολικό '
+      + 'της ΟΑΥ (HIO ledger).', 'amber'];
   }
   if (flagHint) return [flagHint, 'amber'];
   return ['Ανεξήγητη διαφορά (unexplained difference) — δείτε τα δύο ποσά και το άνοιγμα.', 'red'];
@@ -371,7 +374,8 @@ function buildCrosschecks(bundle) {
           && Math.abs((glIpCheck.diff || 0) - c.diff) <= CENT) {
         glIpCheck.flag = 'amber';
         glIpCheck.note = 'Ίδια διαφορά με τη γραμμή Z — Z-procedures/tail χρεωμένα σε '
-          + 'κλινικούς λογαριασμούς (same gap as the Z row: classification, not cash).';
+          + 'κλινικούς λογαριασμούς στο καθολικό της ΟΑΥ (same gap as the Z row: '
+          + 'HIO-ledger classification, not cash).';
       }
     }
     add('GL: ΤΑΕΠ / A&E (25801) = SRA AE', gl.ae, ['AE', 'A&E'],

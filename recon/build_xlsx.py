@@ -73,6 +73,7 @@ def build_workbook(result: ReconResult) -> bytes:
         _tab_matrix(wb, result)
     _tab_crosscheck(wb, result, sra_tab, n_lines)
     _tab_split(wb, result, stated_cell)
+    _tab_truth_map(wb)
     _tab_legend(wb, result)
 
     buf = io.BytesIO()
@@ -327,7 +328,92 @@ def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) ->
     _autosize(ws)
 
 
-# ----------------------------------------------------------- tab 5: Legend
+# ------------------------------------------------- tab 5: how reports tie
+
+# One universe, many projections: every document in the batch is issued by
+# the ΟΑΥ (HIO) about the SAME paid population.  The rows below are the
+# identities verified to the cent on real months (Feb/Apr/May 2026); the
+# join keys are PAYMENT NO. (the cheque) and the EBS invoice IDs.
+TRUTH_MAP_ROWS = [
+    ("Ροή (stream)", "Ταυτότητα (identity)", "Κλειδί / σημείωση (key / note)"),
+    ("Επιταγή (cheque)",
+     "Άθροισμα γραμμών SRA = δηλωμένο σύνολο επιταγής",
+     "Το SRA είναι η σπονδυλική στήλη του χρήματος — κάθε γραμμή του είναι "
+     "τιμολόγιο EBS της ΟΑΥ."),
+    ("Ενδονοσοκομειακή (IS)",
+     "SRA IS (ημερήσιες) = Claims «all»·Inpatient = Ενδ. Σύνολο = "
+     "IS Auditor DRG+Z (± στρογγυλοποίηση)",
+     "Τετραπλό δέσιμο σε έναν αριθμό. Απαιτήσεις παλαιών περιόδων που "
+     "πληρώνονται τώρα λείπουν από την Ενδ. — κατονομάζονται."),
+    ("ΤΑΕΠ (AE)",
+     "SRA AE (ημερήσιες) = Claims «all»·A&E = GL ΟΑΥ 25801 "
+     "(51101099 − 43010001 co-pays)",
+     "Οι προσαρμογές παραπομπών (AE-ADJ/IS-ADJ) μένουν εκτός των ημερησίων."),
+    ("Εξωνοσοκομειακή (OS/NM/AP)",
+     "SRA ημερήσιες = Claims «all» segments = XML activities",
+     "Το XML δένει σε επίπεδο πράξης μέσω ClaimPaymentNumber (PAYMENT NO.)."),
+    ("Προσωπικοί Ιατροί (PD)",
+     "SRA PD (ημερήσιες) = Capitation report + Claims «Personal Doctors»",
+     "Επαληθευμένο στο σεντ Απρ+Μάι 2026. Σταθερές χρεώσεις (OOH, "
+     "εμβολιασμοί) χωριστά ως PD-FP."),
+    ("Ποιοτικά κριτήρια (KPI/MRI)",
+     "SRA γραμμές KPI/MRI-CT = εξαγωγή Ποιοτικών Κριτηρίων",
+     "Κενή εξαγωγή = εύρημα, όχι μηδενισμός."),
+    ("Φάρμακα (PH)",
+     "SRA PH (ημερήσιες) = Πληρωμένες ΦΑΡΜΑΚΑ (Drugs+Consumables) + "
+     "Αμοιβή Φαρμακοποιού (packages × τιμή μονάδας)",
+     "Επαληθευμένο στο σεντ Φεβ+Απρ+Μάι 2026. CRN/OTC/ISSUANCES χωριστά "
+     "ως PH-ADJ· CRN-Packages ως PHF."),
+    ("Αιμοκάθαρση (HEMO)",
+     "SRA HEMO = μηνιαία αναφορά αιμοκάθαρσης",
+     "Ενδονοσοκομειακή ή εξωνοσοκομειακή ανά ασθενή — μπλε κελί Bucket."),
+    ("GL ΟΑΥ (καθολικό)",
+     "26xxx = SRA IS + HEMO + IS-ADJ · 25801 = AE · 51001001 = capitation "
+     "· 255xx ≈ φάρμακα · λοιπά 25xxx + capitation = εξωνοσοκομειακά",
+     "Η λογιστική όψη της ΟΑΥ για τα ίδια ποσά. Γνωστές ταξινομήσεις: "
+     "Z-tail σε κλινικούς λογαριασμούς, αμοιβή φαρμακοποιού flat."),
+    ("Προσαρμογές (ADJ/CRN)",
+     "PH-ADJ / AE-ADJ / IS-ADJ — το στρώμα διορθώσεων",
+     "Δένουν με contra λογαριασμούς GL (π.χ. ISSUANCES ↔ 11202192 "
+     "Unearned Revenue EOAF)."),
+    ("Τακτοποιήσεις (PRIOR)",
+     "Μονογραμμικές επιταγές παλαιών περιόδων (year-end DRG, "
+     "innovative antibiotics)",
+     "Pass-through: εκτός όλων των μηνιαίων ελέγχων, δικές τους γραμμές "
+     "στο By_Clinic_Split."),
+    ("Δορυφορικοί παροχείς",
+     "Δικός τους κωδικός F στην κεφαλίδα SRA (π.χ. F1085) και δικός τους "
+     "GL vendor",
+     "Οι επιταγές τους μετρούν στο ταμείο του μήνα αλλά όχι στα αρχεία "
+     "claims/GL του νοσοκομείου."),
+]
+
+
+def _tab_truth_map(wb: Workbook) -> None:
+    ws = wb.create_sheet("Πώς_δένουν")
+    ws.cell(row=1, column=1,
+            value="Πώς δένουν οι αναφορές ΟΑΥ μεταξύ τους "
+                  "(how the HIO reports tie together)").font = \
+        Font(bold=True, size=14, color=NAVY)
+    ws.cell(row=2, column=1,
+            value="Όλα τα έγγραφα είναι εκδόσεις της ΟΑΥ για τον ίδιο πληρωμένο "
+                  "πληθυσμό — κάθε αναφορά είναι διαφορετική προβολή του. "
+                  "Κλειδιά σύνδεσης: PAYMENT NO. (αρ. επιταγής) και EBS invoice "
+                  "IDs. Οι ταυτότητες επαληθεύτηκαν στο σεντ σε πραγματικούς "
+                  "μήνες (Φεβ/Απρ/Μάι 2026).").font = Font(italic=True, color=GRAY)
+    r = 4
+    for i, (stream, identity, note) in enumerate(TRUTH_MAP_ROWS):
+        if i == 0:
+            _header(ws, r, list(TRUTH_MAP_ROWS[0]))
+        else:
+            ws.cell(row=r, column=1, value=stream).font = Font(bold=True, color=BLUE)
+            ws.cell(row=r, column=2, value=identity)
+            ws.cell(row=r, column=3, value=note).font = Font(color=GRAY)
+        r += 1
+    _autosize(ws)
+
+
+# ----------------------------------------------------------- tab 6: Legend
 
 def _tab_legend(wb: Workbook, result: ReconResult) -> None:
     ws = wb.create_sheet("Legend")

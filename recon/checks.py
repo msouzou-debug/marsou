@@ -333,13 +333,15 @@ def _annotate(name: str, source: float, sra_side: Optional[float], flag_hint: st
                 "αναφορά από την πύλη ΟΑΥ (the quality-criteria export is "
                 "empty; re-download it from the HIO portal)."), "red"
     if "Z-CATALOGUE" in up and "GL" in up and diff < 0:
-        return ("GL κάτω από ΟΑΥ: Z-procedures/tail booked to clinical accounts. "
-                "Classification, not cash."), "amber"
+        return ("Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο "
+                "καθολικό της ΟΑΥ (HIO-ledger classification, not cash)."), "amber"
     if "PHARMACIST" in up and "GL" in up:
-        return ("GL ≈ flat booking vs report packages × 1,60 € — known booking "
-                "issue, flag amber."), "amber"
+        return ("GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό "
+                "θέμα ταξινόμησης στο καθολικό της ΟΑΥ (known HIO-ledger "
+                "booking issue), flag amber."), "amber"
     if "PHARMA" in up and "GL" in up and diff > 0:
-        return "Pharma claims gross above GL: generics/discounts/co-pay reclass.", "amber"
+        return ("Pharma claims gross above GL: generics/discounts/co-pay "
+                "reclass στο καθολικό της ΟΑΥ (HIO ledger)."), "amber"
     if flag_hint:
         return flag_hint, "amber"
     return ("Ανεξήγητη διαφορά (unexplained difference) — δείτε τα δύο ποσά "
@@ -521,8 +523,9 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                 gl_ip_check.flag = "amber"
                 gl_ip_check.note = (
                     "Ίδια διαφορά με τη γραμμή Z — Z-procedures/tail "
-                    "χρεωμένα σε κλινικούς λογαριασμούς (same gap as the "
-                    "Z row: classification, not cash).")
+                    "χρεωμένα σε κλινικούς λογαριασμούς στο καθολικό της "
+                    "ΟΑΥ (same gap as the Z row: HIO-ledger classification, "
+                    "not cash).")
         add("GL: ΤΑΕΠ / A&E (25801) = SRA AE", gl.ae, ["AE", "A&E"],
             alt=bundle.claims.by_segment.get("A&E") if bundle.claims else None)
         # PD fixed-price items (vaccinations, out-of-office, KPIs) sit in the

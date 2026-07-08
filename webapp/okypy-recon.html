@@ -1895,13 +1895,16 @@ function annotate(name, source, sraSide, flagHint) {
       + '(the quality-criteria export is empty; re-download it from the HIO portal).', 'red'];
   }
   if (up.includes('Z-CATALOGUE') && up.includes('GL') && diff < 0) {
-    return ['GL κάτω από ΟΑΥ: Z-procedures/tail booked to clinical accounts. Classification, not cash.', 'amber'];
+    return ['Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο καθολικό της ΟΑΥ '
+      + '(HIO-ledger classification, not cash).', 'amber'];
   }
   if (up.includes('PHARMACIST') && up.includes('GL')) {
-    return ['GL ≈ flat booking vs report packages × 1,60 € — known booking issue, flag amber.', 'amber'];
+    return ['GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό θέμα ταξινόμησης '
+      + 'στο καθολικό της ΟΑΥ (known HIO-ledger booking issue), flag amber.', 'amber'];
   }
   if (up.includes('PHARMA') && up.includes('GL') && diff > 0) {
-    return ['Pharma claims gross above GL: generics/discounts/co-pay reclass.', 'amber'];
+    return ['Pharma claims gross above GL: generics/discounts/co-pay reclass στο καθολικό '
+      + 'της ΟΑΥ (HIO ledger).', 'amber'];
   }
   if (flagHint) return [flagHint, 'amber'];
   return ['Ανεξήγητη διαφορά (unexplained difference) — δείτε τα δύο ποσά και το άνοιγμα.', 'red'];
@@ -2077,7 +2080,8 @@ function buildCrosschecks(bundle) {
           && Math.abs((glIpCheck.diff || 0) - c.diff) <= CENT) {
         glIpCheck.flag = 'amber';
         glIpCheck.note = 'Ίδια διαφορά με τη γραμμή Z — Z-procedures/tail χρεωμένα σε '
-          + 'κλινικούς λογαριασμούς (same gap as the Z row: classification, not cash).';
+          + 'κλινικούς λογαριασμούς στο καθολικό της ΟΑΥ (same gap as the Z row: '
+          + 'HIO-ledger classification, not cash).';
       }
     }
     add('GL: ΤΑΕΠ / A&E (25801) = SRA AE', gl.ae, ['AE', 'A&E'],
@@ -2395,7 +2399,7 @@ function runReconciliation(bundle, crosscheckMode) {
  * small formula evaluator before the file is offered for download. */
 'use strict';
 
-const NAVY = 'FF062E5C', BLUE = 'FF0072BC', SKY = 'FF00AEEF', GREEN_LINK = 'FF1F7A1F';
+const NAVY = 'FF062E5C', BLUE = 'FF0072BC', SKY = 'FF00AEEF', GREEN_LINK = 'FF1F7A1F', GRAY = 'FF595959';
 const F_INPUT = { color: { argb: BLUE } };
 const F_FORMULA = { color: { argb: 'FF000000' } };
 const F_LINK = { color: { argb: GREEN_LINK } };
@@ -2460,6 +2464,7 @@ function buildWorkbook(result) {
   }
   tabCrosscheck(wb, result, sraTab, nLines);
   tabSplit(wb, result, statedCell, zeroChecks);
+  tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
 }
@@ -2690,7 +2695,73 @@ function tabSplit(wb, result, statedCell, zeroChecks) {
   autosize(ws);
 }
 
-/* ------------------------------------------------------------ tab 5: Legend */
+/* ---------------------------------------------- tab 5: how the reports tie */
+
+// One universe, many projections: every document in the batch is issued by
+// the ΟΑΥ (HIO) about the SAME paid population.  The rows below are the
+// identities verified to the cent on real months (Feb/Apr/May 2026); the
+// join keys are PAYMENT NO. (the cheque) and the EBS invoice IDs.
+const TRUTH_MAP_ROWS = [
+  ['Επιταγή (cheque)',
+   'Άθροισμα γραμμών SRA = δηλωμένο σύνολο επιταγής',
+   'Το SRA είναι η σπονδυλική στήλη του χρήματος — κάθε γραμμή του είναι τιμολόγιο EBS της ΟΑΥ.'],
+  ['Ενδονοσοκομειακή (IS)',
+   'SRA IS (ημερήσιες) = Claims «all»·Inpatient = Ενδ. Σύνολο = IS Auditor DRG+Z (± στρογγυλοποίηση)',
+   'Τετραπλό δέσιμο σε έναν αριθμό. Απαιτήσεις παλαιών περιόδων που πληρώνονται τώρα λείπουν από την Ενδ. — κατονομάζονται.'],
+  ['ΤΑΕΠ (AE)',
+   'SRA AE (ημερήσιες) = Claims «all»·A&E = GL ΟΑΥ 25801 (51101099 − 43010001 co-pays)',
+   'Οι προσαρμογές παραπομπών (AE-ADJ/IS-ADJ) μένουν εκτός των ημερησίων.'],
+  ['Εξωνοσοκομειακή (OS/NM/AP)',
+   'SRA ημερήσιες = Claims «all» segments = XML activities',
+   'Το XML δένει σε επίπεδο πράξης μέσω ClaimPaymentNumber (PAYMENT NO.).'],
+  ['Προσωπικοί Ιατροί (PD)',
+   'SRA PD (ημερήσιες) = Capitation report + Claims «Personal Doctors»',
+   'Επαληθευμένο στο σεντ Απρ+Μάι 2026. Σταθερές χρεώσεις (OOH, εμβολιασμοί) χωριστά ως PD-FP.'],
+  ['Ποιοτικά κριτήρια (KPI/MRI)',
+   'SRA γραμμές KPI/MRI-CT = εξαγωγή Ποιοτικών Κριτηρίων',
+   'Κενή εξαγωγή = εύρημα, όχι μηδενισμός.'],
+  ['Φάρμακα (PH)',
+   'SRA PH (ημερήσιες) = Πληρωμένες ΦΑΡΜΑΚΑ (Drugs+Consumables) + Αμοιβή Φαρμακοποιού (packages × τιμή μονάδας)',
+   'Επαληθευμένο στο σεντ Φεβ+Απρ+Μάι 2026. CRN/OTC/ISSUANCES χωριστά ως PH-ADJ· CRN-Packages ως PHF.'],
+  ['Αιμοκάθαρση (HEMO)',
+   'SRA HEMO = μηνιαία αναφορά αιμοκάθαρσης',
+   'Ενδονοσοκομειακή ή εξωνοσοκομειακή ανά ασθενή — μπλε κελί Bucket.'],
+  ['GL ΟΑΥ (καθολικό)',
+   '26xxx = SRA IS + HEMO + IS-ADJ · 25801 = AE · 51001001 = capitation · 255xx ≈ φάρμακα · λοιπά 25xxx + capitation = εξωνοσοκομειακά',
+   'Η λογιστική όψη της ΟΑΥ για τα ίδια ποσά. Γνωστές ταξινομήσεις: Z-tail σε κλινικούς λογαριασμούς, αμοιβή φαρμακοποιού flat.'],
+  ['Προσαρμογές (ADJ/CRN)',
+   'PH-ADJ / AE-ADJ / IS-ADJ — το στρώμα διορθώσεων',
+   'Δένουν με contra λογαριασμούς GL (π.χ. ISSUANCES ↔ 11202192 Unearned Revenue EOAF).'],
+  ['Τακτοποιήσεις (PRIOR)',
+   'Μονογραμμικές επιταγές παλαιών περιόδων (year-end DRG, innovative antibiotics)',
+   'Pass-through: εκτός όλων των μηνιαίων ελέγχων, δικές τους γραμμές στο By_Clinic_Split.'],
+  ['Δορυφορικοί παροχείς',
+   'Δικός τους κωδικός F στην κεφαλίδα SRA (π.χ. F1085) και δικός τους GL vendor',
+   'Οι επιταγές τους μετρούν στο ταμείο του μήνα αλλά όχι στα αρχεία claims/GL του νοσοκομείου.'],
+];
+
+function tabTruthMap(wb) {
+  const ws = wb.addWorksheet('Πώς_δένουν');
+  ws.getCell(1, 1).value = 'Πώς δένουν οι αναφορές ΟΑΥ μεταξύ τους (how the HIO reports tie together)';
+  ws.getCell(1, 1).font = { bold: true, size: 14, color: { argb: NAVY } };
+  ws.getCell(2, 1).value = 'Όλα τα έγγραφα είναι εκδόσεις της ΟΑΥ για τον ίδιο πληρωμένο πληθυσμό — κάθε '
+    + 'αναφορά είναι διαφορετική προβολή του. Κλειδιά σύνδεσης: PAYMENT NO. (αρ. επιταγής) και EBS invoice '
+    + 'IDs. Οι ταυτότητες επαληθεύτηκαν στο σεντ σε πραγματικούς μήνες (Φεβ/Απρ/Μάι 2026).';
+  ws.getCell(2, 1).font = { italic: true, color: { argb: GRAY } };
+  writeHeader(ws, 4, ['Ροή (stream)', 'Ταυτότητα (identity)', 'Κλειδί / σημείωση (key / note)']);
+  let r = 5;
+  for (const [stream, identity, note] of TRUTH_MAP_ROWS) {
+    ws.getCell(r, 1).value = stream;
+    ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+    ws.getCell(r, 2).value = identity;
+    ws.getCell(r, 3).value = note;
+    ws.getCell(r, 3).font = { color: { argb: GRAY } };
+    r += 1;
+  }
+  autosize(ws);
+}
+
+/* ------------------------------------------------------------ tab 6: Legend */
 
 function tabLegend(wb) {
   const ws = wb.addWorksheet('Legend');
