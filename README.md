@@ -43,7 +43,7 @@ Amounts are normalised on load so that **positive = money into the bank
 account** on both sides (works with single signed-amount columns or separate
 debit/credit columns; a "flip signs" checkbox covers unusual exports).
 
-Auto-match runs five passes over the open items:
+Auto-match runs seven passes over the open items:
 
 1. **Reference + amount** (1-to-1) — references are normalised (case,
    punctuation and leading zeros ignored, so `INV-000123` matches `inv123`)
@@ -51,13 +51,23 @@ Auto-match runs five passes over the open items:
    are matched as a group when the two sides' totals agree, e.g. several bank
    receipts against one SAP lump-sum posting with the same reference
 3. **Amount + date proximity** (1-to-1) — same amount within the configurable
-   date tolerance (default 5 days), closest date wins
-4. **Sum combination** (many-to-1, both directions) — finds up to
-   *Max combined items* (default 4) on one side that add up to a single item
-   on the other side, within the date tolerance — e.g. two salary batches on
-   the statement matching one SAP payroll posting, or several SAP vendor
-   payments matching one bulk bank debit
-5. **Unique amount** (1-to-1) — amounts that appear exactly once on each side
+   date tolerance (default 5 days); candidate pairs are ranked by description
+   similarity first, then by date, so the most plausible pairing wins
+4. **Text-similar group** (many-to-1, both directions, any group size) —
+   items whose descriptions share significant words with a single item on the
+   other side are matched as a group when the totals agree. Word matching
+   normalises case, punctuation and abbreviations (`H.O.` ≡ `HO`) and ignores
+   generic banking words (transfer, payment, credit, …) — e.g. eight
+   `Credit Advice Transfer from NGH Income to H.O. Expense` bank credits of
+   500,000.00 match one SAP posting `TRF TO NGH TO HO` of 4,000,000.00
+5. **Equal installments** (many-to-1, both directions, up to 60 parts) —
+   k items of the same amount adding up to one item on the other side
+   (8 × 500,000 = 4,000,000), regardless of the *Max combined items* limit
+6. **Sum combination** (many-to-1, both directions) — finds up to
+   *Max combined items* (default 6, max 12) on one side that add up to a
+   single item on the other side, within the date tolerance; text-similar
+   candidates are tried first
+7. **Unique amount** (1-to-1) — amounts that appear exactly once on each side
 
 Anything left is matched manually (1-to-1, 1-to-many or many-to-many). If the
 selected totals differ, the tool warns and flags the difference in the export.
