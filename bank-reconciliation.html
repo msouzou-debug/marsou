@@ -216,12 +216,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   <!-- ============ Step 2: matching ============ -->
   <section class="card">
     <h2>3 &middot; Match items</h2>
-    <p class="hint">Run auto-match first, then clear the remainder manually: tick items on both sides and click <b>Match selected</b> (a 1-to-many or many-to-many match is allowed as long as the totals agree).</p>
+    <p class="hint">Run auto-match first — it also detects splits, e.g. several bank lines adding up to one SAP posting (up to <b>Max combined items</b> per group). Clear the remainder manually: tick items on both sides and click <b>Match selected</b> (1-to-many and many-to-many allowed as long as the totals agree).</p>
     <div class="btnrow">
       <label class="f" style="flex-direction:row;align-items:center;gap:6px">Date tolerance (days)
         <input id="optDateTol" type="number" min="0" value="5" style="width:70px"></label>
       <label class="f" style="flex-direction:row;align-items:center;gap:6px">Amount tolerance
         <input id="optAmtTol" type="number" min="0" step="0.01" value="0.00" style="width:90px"></label>
+      <label class="f" style="flex-direction:row;align-items:center;gap:6px" title="Auto-match can combine up to this many items on one side to equal a single item on the other side (e.g. several bank debits = one SAP payroll posting)">Max combined items
+        <input id="optCombo" type="number" min="2" max="8" value="4" style="width:64px"></label>
       <button class="primary" id="btnAutoMatch">Run auto-match</button>
       <button id="btnMatchSel" disabled>Match selected</button>
       <button id="btnClearSel">Clear selection</button>
@@ -301,7 +303,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    Reconciliation core — pure functions, no DOM access.
    ===================================================================== */
 'use strict';
-var TOOL_VERSION = '1.0.0';
+var TOOL_VERSION = '1.1.0';
 var RECON_SHEET = '_RECON';          // machine-readable carry-forward sheet
 var CELL_CHUNK = 30000;              // xlsx cell text limit is 32767
 
@@ -416,21 +418,28 @@ function dateDiffDays(isoA, isoB){
 
 /* =====================================================================
    Auto-matching. Items: {id, date, desc, ref, amount}. Returns array of
-   plans {bankIds:[..], sapIds:[..], method}. Auto-matching is 1-to-1.
+   plans {bankIds:[..], sapIds:[..], method}.
    Passes:
-     1. normalised reference + amount (within tolerance)
-     2. amount (within tolerance) + date within dateTol days (closest wins)
-     3. amount unique on both sides (within tolerance), any date
+     1. normalised reference + amount, 1-to-1 (within tolerance)
+     2. reference group: all open items sharing one reference, matched
+        many-to-many when the two sides' totals agree
+     3. amount (within tolerance) + date within dateTol days (closest wins)
+     4. sum combination: several items on one side adding up to a single
+        item on the other side (up to maxComboSize items, dates within
+        tolerance of the single item)
+     5. amount unique on both sides (within tolerance), any date
    ===================================================================== */
 function autoMatchPlan(bankOpen, sapOpen, opts){
   opts = opts || {};
   var amtTolC  = Math.round((opts.amountTolerance || 0) * 100);
   var dateTol  = (opts.dateToleranceDays == null) ? 5 : opts.dateToleranceDays;
+  var maxCombo = Math.max(2, Math.min(8, opts.maxComboSize || 4));
   var plans = [];
   var usedB = {}, usedS = {};
   function amtOk(a, b){ return Math.abs(cents(a.amount) - cents(b.amount)) <= amtTolC; }
+  function sumC(items){ return items.reduce(function(a, x){ return a + cents(x.amount); }, 0); }
 
-  // Pass 1: reference + amount
+  // Pass 1: reference + amount, 1-to-1
   var sapByRef = {};
   sapOpen.forEach(function(s){
     var r = normRef(s.ref);
@@ -448,7 +457,26 @@ function autoMatchPlan(bankOpen, sapOpen, opts){
     plans.push({bankIds:[b.id], sapIds:[cand[0].id], method:'auto: reference + amount'});
   });
 
-  // Pass 2: amount + date proximity
+  // Pass 2: reference group, many-to-many (e.g. several bank receipts vs
+  // one SAP lump-sum posting carrying the same reference)
+  var bankByRef = {};
+  bankOpen.forEach(function(b){
+    if (usedB[b.id]) return;
+    var r = normRef(b.ref);
+    if (r) (bankByRef[r] = bankByRef[r] || []).push(b);
+  });
+  Object.keys(bankByRef).forEach(function(r){
+    var bs = bankByRef[r].filter(function(b){ return !usedB[b.id]; });
+    var ss = (sapByRef[r] || []).filter(function(s){ return !usedS[s.id]; });
+    if (!bs.length || !ss.length || (bs.length === 1 && ss.length === 1)) return;
+    if (Math.abs(sumC(bs) - sumC(ss)) > amtTolC) return;
+    bs.forEach(function(b){ usedB[b.id] = true; });
+    ss.forEach(function(s){ usedS[s.id] = true; });
+    plans.push({bankIds: bs.map(function(b){ return b.id; }), sapIds: ss.map(function(s){ return s.id; }),
+                method: 'auto: reference group (' + bs.length + '↔' + ss.length + ')'});
+  });
+
+  // Pass 3: amount + date proximity, 1-to-1
   bankOpen.forEach(function(b){
     if (usedB[b.id] || !b.date) return;
     var best = null, bestD = Infinity;
@@ -463,7 +491,62 @@ function autoMatchPlan(bankOpen, sapOpen, opts){
     }
   });
 
-  // Pass 3: unique amount on both sides
+  /* Depth-first subset-sum: find 2..maxN candidates summing to targetC
+     within tolC cents. Deterministic (candidates pre-sorted), budgeted. */
+  function findSubsetSum(cands, targetC, tolC, maxN){
+    var res = null, nodes = 0, BUDGET = 200000;
+    var allSameSign = targetC !== 0 && cands.every(function(c){ return c.c === 0 || (c.c > 0) === (targetC > 0); });
+    (function dfs(start, chosen, sum){
+      if (res || ++nodes > BUDGET) return;
+      if (chosen.length >= 2 && Math.abs(sum - targetC) <= tolC){ res = chosen.slice(); return; }
+      if (chosen.length >= maxN) return;
+      for (var i = start; i < cands.length; i++){
+        var ns = sum + cands[i].c;
+        if (allSameSign && Math.abs(ns) > Math.abs(targetC) + tolC) continue;
+        chosen.push(cands[i].id);
+        dfs(i + 1, chosen, ns);
+        chosen.pop();
+        if (res || nodes > BUDGET) return;
+      }
+    })(0, [], 0);
+    return res;
+  }
+
+  // Pass 4: several items on one side summing to one item on the other.
+  // Runs both directions: bank splits -> one SAP posting, and SAP splits
+  // -> one bank line.
+  function comboPass(targets, pool, usedT, usedP, label){
+    targets.forEach(function(t){
+      if (usedT[t.id] || cents(t.amount) === 0) return;
+      var cands = pool.filter(function(p){
+        if (usedP[p.id]) return false;
+        if (t.date && p.date && dateDiffDays(t.date, p.date) > dateTol) return false;
+        return true;
+      });
+      if (cands.length < 2) return;
+      cands.sort(function(x, y){
+        var dx = dateDiffDays(t.date, x.date), dy = dateDiffDays(t.date, y.date);
+        if (dx !== dy) return dx - dy;
+        return Math.abs(cents(y.amount)) - Math.abs(cents(x.amount));
+      });
+      cands = cands.slice(0, 40);
+      var hit = findSubsetSum(
+        cands.map(function(p){ return {id: p.id, c: cents(p.amount)}; }),
+        cents(t.amount), amtTolC, maxCombo);
+      if (!hit) return;
+      usedT[t.id] = true;
+      hit.forEach(function(id){ usedP[id] = true; });
+      plans.push({
+        bankIds: label === 'sap-split' ? [t.id] : hit,
+        sapIds:  label === 'sap-split' ? hit : [t.id],
+        method: 'auto: sum of ' + hit.length + (label === 'sap-split' ? ' SAP items = 1 bank item' : ' bank items = 1 SAP item')
+      });
+    });
+  }
+  comboPass(sapOpen, bankOpen, usedS, usedB, 'bank-split');   // N bank -> 1 SAP
+  comboPass(bankOpen, sapOpen, usedB, usedS, 'sap-split');    // N SAP  -> 1 bank
+
+  // Pass 5: unique amount on both sides
   var freeB = bankOpen.filter(function(b){ return !usedB[b.id]; });
   var freeS = sapOpen.filter(function(s){ return !usedS[s.id]; });
   freeB.forEach(function(b){
@@ -895,7 +978,8 @@ if (typeof module !== 'undefined' && module.exports){
   $('btnAutoMatch').addEventListener('click', function(){
     var opts = {
       dateToleranceDays: parseInt($('optDateTol').value, 10) || 0,
-      amountTolerance: parseFloat($('optAmtTol').value) || 0
+      amountTolerance: parseFloat($('optAmtTol').value) || 0,
+      maxComboSize: parseInt($('optCombo').value, 10) || 4
     };
     var plans = autoMatchPlan(openItems('BANK'), openItems('SAP'), opts);
     var at = nowIso(), by = userName();
@@ -907,6 +991,7 @@ if (typeof module !== 'undefined' && module.exports){
       });
     });
     logAudit('Auto-match run', 'date tolerance ' + opts.dateToleranceDays + 'd, amount tolerance ' + fmtAmt(opts.amountTolerance) +
+      ', max combined items ' + opts.maxComboSize +
       ' — ' + plans.length + ' match group(s) created; ' + openItems('BANK').length + ' bank / ' + openItems('SAP').length + ' SAP items remain open');
     $('matchStats').textContent = plans.length + ' group(s) matched by auto-match.';
     renderAll();

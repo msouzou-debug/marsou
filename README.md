@@ -43,13 +43,21 @@ Amounts are normalised on load so that **positive = money into the bank
 account** on both sides (works with single signed-amount columns or separate
 debit/credit columns; a "flip signs" checkbox covers unusual exports).
 
-Auto-match runs three passes over the open items, 1-to-1:
+Auto-match runs five passes over the open items:
 
-1. **Reference + amount** — references are normalised (case, punctuation and
-   leading zeros ignored, so `INV-000123` matches `inv123`)
-2. **Amount + date proximity** — same amount within the configurable date
-   tolerance (default 5 days), closest date wins
-3. **Unique amount** — amounts that appear exactly once on each side
+1. **Reference + amount** (1-to-1) — references are normalised (case,
+   punctuation and leading zeros ignored, so `INV-000123` matches `inv123`)
+2. **Reference group** (many-to-many) — all open items sharing one reference
+   are matched as a group when the two sides' totals agree, e.g. several bank
+   receipts against one SAP lump-sum posting with the same reference
+3. **Amount + date proximity** (1-to-1) — same amount within the configurable
+   date tolerance (default 5 days), closest date wins
+4. **Sum combination** (many-to-1, both directions) — finds up to
+   *Max combined items* (default 4) on one side that add up to a single item
+   on the other side, within the date tolerance — e.g. two salary batches on
+   the statement matching one SAP payroll posting, or several SAP vendor
+   payments matching one bulk bank debit
+5. **Unique amount** (1-to-1) — amounts that appear exactly once on each side
 
 Anything left is matched manually (1-to-1, 1-to-many or many-to-many). If the
 selected totals differ, the tool warns and flags the difference in the export.
@@ -66,7 +74,8 @@ Unreconciled difference = adjusted bank − adjusted SAP   (target: 0.00)
 
 `samples/` contains a sample bank statement (debit/credit layout with metadata
 rows before the header) and a sample SAP line-item export (signed amounts) to
-try the tool with.
+try the tool with — including a split payroll (two bank debits that auto-match
+against a single SAP posting).
 
 ## Notes
 
