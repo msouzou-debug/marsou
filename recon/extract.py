@@ -439,6 +439,11 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     # «ADJ-AE Referral IS» deductions: GL books them against inpatient
     # income (26xxx) — verified to the cent on Apr-2026
     "IS-ADJ": (Bucket.INPATIENT, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
+    # one-off prior-period settlement cheques (year-end DRG true-up,
+    # innovative-antibiotics reimbursement): pass-throughs that belong to
+    # earlier periods — kept out of every monthly cross-check
+    "IS-PRIOR": (Bucket.INPATIENT, "Prior-period", "—"),
+    "PH-PRIOR": (Bucket.PHARMA, "Prior-period", "—"),
 }
 
 # adjustment markers that split a stream's ADJ/CRN lines from its daily lines
@@ -449,6 +454,12 @@ _KEYWORD_CODES = [
     # (accent-stripped keyword(s) all required, code) — most specific first
     (["ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ"], "PHF"),
     (["PHARMACIST FEE"], "PHF"),
+    (["ANTIBIOTIC"], "PH-PRIOR"),  # innovative-antibiotics settlement cheques
+    (["NEW REIMB"], "OS"),        # COR./REV corrections of the OS reimb method
+    (["HPV"], "PD"),              # vaccination corrections (PD fixed price)
+    (["VAXPRO"], "PD"),
+    (["INFLUENZA"], "PD"),
+    (["ΕΜΒΟΛΙ"], "PD"),
     (["ΑΝΑΛΩΣΙΜ"], "PHC"),
     (["CONSUMABLE"], "PHC"),
     (["ΦΑΡΜΑΚ"], "PHD"),
@@ -521,6 +532,11 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
             code = "PD-KPI"
         # credit notes / corrections split away from the daily claim lines,
         # so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
+        elif (code == "IS" and _ADJ_MARKER_RE.search(up_desc)
+                and "YEAR END" in up_desc):
+            # «ADJ-DRG- IS - Year End Adj.»: prior-year settlement, not part
+            # of the month's inpatient claims
+            code = "IS-PRIOR"
         elif code in ("PH", "PHD", "PHC") and _ADJ_MARKER_RE.search(up_desc):
             code = "PH-ADJ"
         elif (code in ("AE", "A&E", "IS") and _ADJ_MARKER_RE.search(up_desc)
@@ -539,7 +555,9 @@ _CHEQUE_RE = re.compile(
     r"(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)"
     r"\s*[:.]?\s*#?(\d{4,})", re.IGNORECASE)
 
-_AMT = r"-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?"   # trailing '-' = credit
+# trailing '-' = credit; integer part optional — ΟΑΥ prints cents-only
+# amounts as «.26»
+_AMT = r"-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?"
 
 _LINE_RE = re.compile(
     rf"^\s*(?P<code>[A-Z][A-Z&/\-]{{0,7}})?\s*(?P<desc>.*?)\s+(?P<amount>{_AMT})\s*€?\s*$")

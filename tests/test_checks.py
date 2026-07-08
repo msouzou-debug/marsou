@@ -317,6 +317,51 @@ def test_gl_inpatient_identity_includes_hemo_and_referral_adjustment():
     assert verify_workbook(build_workbook(res)) == []
 
 
+def test_prior_period_settlements_stay_out_of_monthly_checks():
+    # May-2026: year-end DRG cheque (IS-PRIOR) and innovative-antibiotics
+    # cheque (PH-PRIOR) are pass-throughs — the monthly ties must stay green
+    # and the settlements must appear as their own split rows
+    from recon.models import SRALine
+    b = full_bundle()
+    b.sra.lines.append(SRALine(
+        code="IS-PRIOR", description="ADJ-DRG- IS - Year End Adj. JAN_DEC25",
+        amount=104_544.07, bucket=Bucket.INPATIENT, channel="Prior-period",
+        source_report="—"))
+    b.sra.lines.append(SRALine(
+        code="PH-PRIOR", description="Innovativeantibiotic01-Apr2023to30-Sept2025",
+        amount=451_569.75, bucket=Bucket.PHARMA, channel="Prior-period",
+        source_report="—"))
+    b.sra.stated_total = round(b.sra.stated_total + 104_544.07 + 451_569.75, 2)
+    res = run_reconciliation(b)
+    endo = next(c for c in res.crosschecks if "= SRA IS" in c.name)
+    assert endo.flag == "ok"                      # IS-PRIOR not counted as IS
+    ph = next(c for c in res.crosschecks if "SRA PHD" in c.name)
+    assert ph.flag == "ok"                        # PH-PRIOR not counted as PHD
+    ip_rows = [r.label for s in res.split for r in s.rows
+               if s.bucket == Bucket.INPATIENT]
+    assert any("προηγούμενων περιόδων" in l for l in ip_rows)
+    from recon.build_xlsx import build_workbook, verify_workbook
+    assert verify_workbook(build_workbook(res)) == []
+
+
+def test_gl_inpatient_gap_annotated_when_it_matches_z_gap():
+    # May-2026: GL 26xxx sits 3.941,25 below SRA IS AND the Z row shows the
+    # SAME gap — the known Z-tail classification issue, amber on both rows
+    b = full_bundle()
+    rows = [
+        ("F1049", "26001", "40001001", 561_728.70),
+        ("F1049", "26002", "40001002", 400_000.00),
+        ("F1049", "26003", "40001003", 60_000.00),
+        ("F1049", "26007", "40001003", round(40_000.00 - 3_941.25, 2)),
+    ]
+    b.gl = extract_gl(synth.gl_xlsx(rows=rows), "F1049")
+    res = run_reconciliation(b)
+    gl_ip = next(c for c in res.crosschecks if c.name.startswith("GL: Ενδονοσοκομειακή"))
+    z = next(c for c in res.crosschecks if "Z-catalogue" in c.name and "GL" in c.name)
+    assert gl_ip.diff == z.diff == -3_941.25
+    assert gl_ip.flag == "amber" and "Ίδια διαφορά" in gl_ip.note
+
+
 def test_gl_capitation_ties_report_when_bundled_in_pd():
     # no PD-CAP line on the SRA (capitation bundled in PD): the GL account
     # must tie the capitation REPORT instead — exact on Apr-2026

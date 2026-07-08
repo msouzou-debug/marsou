@@ -154,6 +154,13 @@ def test_classify_splits_adjustments_from_daily_lines():
         "ADJ- IS - Adjustment for Hemodialysis": "HEMO",
         "ADJ-New Reimb OS - Adj. based on new reimb. method-": "OS",
         "ADJ-MRI/CT QC- CTs Quality Criteria": "MRI",
+        # May-2026 (F1048) new line types
+        "ADJ-DRG- IS - Year End Adj. for DRG points - JAN_DEC25": "IS-PRIOR",
+        "Innovativeantibio Innovativeantibiotic01-Apr2023to30-Sept2025": "PH-PRIOR",
+        "HPV-HBVaxPro- HPV-HBVaxPro-JAN-MAR": "PD",
+        "COR.-REV-ADJ- COR.-REV-ADJ-New Reimb Met D5920": "OS",
+        "PD-INFLUENZA- PD-INFLUENZA-F1048-MAY": "PD",
+        "CRN-Drugs-Z- PH - DED.-Drugs-Z-CAT": "PH-ADJ",
     }
     for desc, want in cases.items():
         code, bucket, channel, _ = classify_sra_line("", desc)
@@ -163,7 +170,21 @@ def test_classify_splits_adjustments_from_daily_lines():
     assert classify_sra_line("", "MANUAL ADJ AE - overpayment")[1] == Bucket.AE
 
 
-def test_merge_sras_multiple_cheques():
+def test_sra_cents_only_amount_and_settlement_cheques():
+    # real May-2026 lines: «.26» amounts print WITHOUT an integer part, and
+    # single-line settlement cheques must classify as prior-period codes
+    text = """ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ
+REMITTANCE ADVICE
+STATE HEALTH SERVICES ORGANIZATION INCOME-LARN-F1085 Payment Date: 12/06/2026
+Payment/Cheque No: 266455
+Total paid in this batch: 145.31
+31/05/2026 ADJ-New Reimb OS - Adj. based on new reimb. method- 60.92 EUR 60.92
+31/05/2026 ADJ-New Reimb OS - Adj. based on new reimb. method- .26 EUR .26
+31/05/2026 ADJ-New Reimb OS - Adj. based on new reimb. method- 84.13 EUR 84.13
+"""
+    sra = parse_sra_text(text)
+    assert sra.lines_total == 145.31 == sra.stated_total
+    assert all(l.code == "OS" for l in sra.lines)
     from recon.extract import merge_sras
     a = parse_sra_text(synth.sra_text())          # cheque 259434, March
     b = parse_sra_text(synth.sra_text_second())   # cheque 900001

@@ -363,6 +363,11 @@ const SRA_CODE_MAP = {
   // «ADJ-AE Referral IS» deductions: GL books them against inpatient
   // income (26xxx) — verified to the cent on Apr-2026
   'IS-ADJ': ['Inpatient', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
+  // one-off prior-period settlement cheques (year-end DRG true-up,
+  // innovative-antibiotics reimbursement): pass-throughs that belong to
+  // earlier periods — kept out of every monthly cross-check
+  'IS-PRIOR': ['Inpatient', 'Prior-period', '—'],
+  'PH-PRIOR': ['Pharma', 'Prior-period', '—'],
 };
 
 // adjustment markers that split a stream's ADJ/CRN lines from its daily lines
@@ -371,6 +376,12 @@ const ADJ_MARKER_RE = /ADJ|CRN|CREDIT|CORR|DEDUCTION|ISSUANCE|STOCK|MANUAL|OTC/;
 const KEYWORD_CODES = [
   [['ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ'], 'PHF'],
   [['PHARMACIST FEE'], 'PHF'],
+  [['ANTIBIOTIC'], 'PH-PRIOR'],  // innovative-antibiotics settlement cheques
+  [['NEW REIMB'], 'OS'],         // COR./REV corrections of the OS reimb method
+  [['HPV'], 'PD'],               // vaccination corrections (PD fixed price)
+  [['VAXPRO'], 'PD'],
+  [['INFLUENZA'], 'PD'],
+  [['ΕΜΒΟΛΙ'], 'PD'],
   [['ΑΝΑΛΩΣΙΜ'], 'PHC'],
   [['CONSUMABLE'], 'PHC'],
   [['ΦΑΡΜΑΚ'], 'PHD'],
@@ -433,6 +444,11 @@ function classifySraLine(code, description) {
     else if (code === 'PD' && (upDesc.includes('KPI') || upDesc.includes('ΠΟΙΟΤΙΚ'))) code = 'PD-KPI';
     // credit notes / corrections split away from the daily claim lines,
     // so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
+    else if (code === 'IS' && ADJ_MARKER_RE.test(upDesc) && upDesc.includes('YEAR END')) {
+      // «ADJ-DRG- IS - Year End Adj.»: prior-year settlement, not part of
+      // the month's inpatient claims
+      code = 'IS-PRIOR';
+    }
     else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)) code = 'PH-ADJ';
     else if ((code === 'AE' || code === 'A&E' || code === 'IS') && ADJ_MARKER_RE.test(upDesc)
              && upDesc.includes('REFERRAL') && /\bIS\b/.test(upDesc)) {
@@ -448,9 +464,9 @@ function classifySraLine(code, description) {
 
 const CHEQUE_RE = /(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)\s*[:.]?\s*#?(\d{4,})/i;
 /* amounts may carry a trailing '-' (credit notes: '12.25-') */
-const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s*€?\s*$/;
+const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s*€?\s*$/;
 /* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
-const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)[.,]\d{2}-?)\s*$/;
+const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s*$/;
 
 function parseSraText(text) {
   let cheque = '';

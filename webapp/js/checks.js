@@ -344,6 +344,7 @@ function buildCrosschecks(bundle) {
     add('GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS + αιμοκάθαρση + προσαρμογές',
         gl.inpatient, ['IS', 'IS-ADJ', 'HEMO'],
         null, bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
+    const glIpCheck = checks[checks.length - 1];
     add('GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση', gl.zCatalogue, []);
     if (bundle.inpatient) {
       const c = checks[checks.length - 1];
@@ -351,6 +352,14 @@ function buildCrosschecks(bundle) {
       [c.note, c.flag] = annotate('Z-CATALOGUE GL', c.sourceTotal, c.sraSide);
       const cand = claimCandidates(bundle, c.diff || 0);
       if (Math.abs(c.diff || 0) > CENT && cand) { c.note += cand; c.flag = 'amber'; }
+      // the SAME gap on both rows = the known Z-tail classification issue,
+      // not a cash break — say so on the inpatient row too
+      if (Math.abs(glIpCheck.diff || 0) > CENT && c.diff != null
+          && Math.abs((glIpCheck.diff || 0) - c.diff) <= CENT) {
+        glIpCheck.flag = 'amber';
+        glIpCheck.note = 'Ίδια διαφορά με τη γραμμή Z — Z-procedures/tail χρεωμένα σε '
+          + 'κλινικούς λογαριασμούς (same gap as the Z row: classification, not cash).';
+      }
     }
     add('GL: ΤΑΕΠ / A&E (25801) = SRA AE', gl.ae, ['AE', 'A&E'],
         null, bundle.claims ? (bundle.claims.bySegment['A&E'] || 0) : null);
@@ -543,6 +552,11 @@ function buildSplit(bundle) {
     ip.rows.push({ label: 'Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ (A&E-referral adjustment, GL 26xxx)',
                    amount: isAdj });
   }
+  const isPrior = sraAmount(['IS-PRIOR']);
+  if (isPrior) {
+    ip.rows.push({ label: 'Τακτοποίηση προηγούμενων περιόδων — DRG (prior-period settlement, e.g. year-end DRG true-up)',
+                   amount: isPrior });
+  }
   sections.push(ip);
 
   const ae = { title: 'ΤΑΕΠ (A&E)', bucket: 'A&E', rows: [] };
@@ -603,6 +617,11 @@ function buildSplit(bundle) {
   }
   const phAdj = sraAmount(['PH-ADJ']);
   if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });
+  const phPrior = sraAmount(['PH-PRIOR']);
+  if (phPrior) {
+    ph.rows.push({ label: 'Τακτοποίηση προηγούμενων περιόδων — φάρμακα (prior-period settlement, e.g. innovative antibiotics)',
+                   amount: phPrior });
+  }
   sections.push(ph);
 
   for (const s of sections) s.subtotal = subtotal(s);

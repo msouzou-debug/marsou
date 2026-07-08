@@ -486,6 +486,7 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             "αιμοκάθαρση + προσαρμογές", gl.inpatient,
             ["IS", "IS-ADJ", "HEMO"],
             alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
+        gl_ip_check = checks[-1]
         add("GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση",
             gl.z_catalogue, [])  # report-vs-report, noted below
         if bundle.inpatient:
@@ -496,6 +497,15 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             if abs(c.diff or 0) > CENT and cand:
                 c.note += cand
                 c.flag = "amber"
+            # the SAME gap on both rows = the known Z-tail classification
+            # issue, not a cash break — say so on the inpatient row too
+            if (abs(gl_ip_check.diff or 0) > CENT and c.diff is not None
+                    and abs((gl_ip_check.diff or 0) - c.diff) <= CENT):
+                gl_ip_check.flag = "amber"
+                gl_ip_check.note = (
+                    "Ίδια διαφορά με τη γραμμή Z — Z-procedures/tail "
+                    "χρεωμένα σε κλινικούς λογαριασμούς (same gap as the "
+                    "Z row: classification, not cash).")
         add("GL: ΤΑΕΠ / A&E (25801) = SRA AE", gl.ae, ["AE", "A&E"],
             alt=bundle.claims.by_segment.get("A&E") if bundle.claims else None)
         # PD fixed-price items (vaccinations, out-of-office, KPIs) sit in the
@@ -685,6 +695,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         ip.rows.append(SplitRow(
             "Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ "
             "(A&E-referral adjustment, GL 26xxx)", is_adj))
+    is_prior = sra_amount(["IS-PRIOR"])
+    if is_prior:
+        ip.rows.append(SplitRow(
+            "Τακτοποίηση προηγούμενων περιόδων — DRG "
+            "(prior-period settlement, e.g. year-end DRG true-up)", is_prior))
     sections.append(ip)
 
     ae = SplitSection("ΤΑΕΠ (A&E)", Bucket.AE)
@@ -763,6 +778,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     if ph_adj:
         ph.rows.append(SplitRow(
             "Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)", ph_adj))
+    ph_prior = sra_amount(["PH-PRIOR"])
+    if ph_prior:
+        ph.rows.append(SplitRow(
+            "Τακτοποίηση προηγούμενων περιόδων — φάρμακα (prior-period "
+            "settlement, e.g. innovative antibiotics)", ph_prior))
     sections.append(ph)
 
     return sections
