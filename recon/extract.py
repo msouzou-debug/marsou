@@ -644,10 +644,16 @@ def merge_sras(sras: list[SRA]) -> SRA:
 
 def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
     sheets = _load_sheets(data)
-    for _, df in sheets.items():
+    candidates = []
+    for name, df in sheets.items():
         hr = _find_header(df, ["VENDOR_CODE", "EURO_AMOUNT"])
-        if hr is None:
-            continue
+        if hr is not None:
+            candidates.append((name, df, hr))
+    # prefer the org-wide «ALL OKYPY MM.YY» sheet: real workbooks put
+    # per-stream detail sheets (A&E clinic pivot, per-hospital copies)
+    # FIRST, and reading one of those instead zeroes every other bucket
+    candidates.sort(key=lambda c: 0 if "ALL OKYPY" in norm_label(c[0]) else 1)
+    for _, df, hr in candidates[:1]:
         t = _table_at(df, hr)
         vc = _col(t, "VENDOR_CODE")
         cc = _col(t, "COST_CENTER", "COST_CENTRE")
@@ -734,17 +740,46 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
     root = etree.fromstring(data)
     total = 0.0
     claims = set()
+    by_payment: dict[str, float] = {}
     found = False
-    for el in root.iter():
-        tag = etree.QName(el.tag).localname.lower() if isinstance(el.tag, str) else ""
-        if tag == "activityreimbursementamount":
-            total += parse_amount(el.text)
+
+    def _local(el) -> str:
+        return etree.QName(el.tag).localname.lower() if isinstance(el.tag, str) else ""
+
+    # group per <Claim>: each carries ClaimPaymentNumber (the SRA cheque that
+    # paid it) — the join key for the payment-number gate
+    for claim in root.iter():
+        if _local(claim) != "claim":
+            continue
+        pay = ""
+        amt = 0.0
+        has_amount = False
+        for el in claim.iter():
+            tag = _local(el)
+            if tag == "activityreimbursementamount":
+                amt += parse_amount(el.text)
+                has_amount = True
+            elif tag == "claimid" and el.text:
+                claims.add(el.text.strip())
+            elif tag == "claimpaymentnumber" and el.text:
+                pay = el.text.strip()
+        total += amt
+        if has_amount:
             found = True
-        elif tag == "claimid" and el.text:
-            claims.add(el.text.strip())
+            by_payment[pay] = round(by_payment.get(pay, 0.0) + amt, 2)
+    if not found:
+        # flat exports without a <Claim> wrapper: sum what's there
+        for el in root.iter():
+            tag = _local(el)
+            if tag == "activityreimbursementamount":
+                total += parse_amount(el.text)
+                found = True
+            elif tag == "claimid" and el.text:
+                claims.add(el.text.strip())
     if not found:
         raise ExtractionError("XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount")
-    return XMLActivity(total=round(total, 2), n_claims=len(claims))
+    return XMLActivity(total=round(total, 2), n_claims=len(claims),
+                       by_payment=by_payment)
 
 
 # ------------------------------------- capitation / quality / hemo (any fmt)

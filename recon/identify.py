@@ -172,7 +172,8 @@ def _excel_probe(sheets: dict[str, pd.DataFrame]) -> str:
     return "\n".join(parts)[:4000]
 
 
-def _gl_cost_centre_probe(df: pd.DataFrame, header_row: int) -> str:
+def _gl_cost_centre_probe(df: pd.DataFrame, header_row: int,
+                          sheet_name: str = "") -> str:
     """Per-hospital cost-centre sums off a GL extract, for the diagnostics
     panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
     hospital books to its own centres, and this breakdown is the raw data
@@ -187,13 +188,16 @@ def _gl_cost_centre_probe(df: pd.DataFrame, header_row: int) -> str:
         return None
 
     jv, jc, ja, je = col("VENDOR_CODE"), col("COST_CENTER"), col("ACCOUNT"), col("EURO_AMOUNT")
+    jd = col("JHDF")  # account description column on real extracts
     if jv is None or je is None:
         return ""
     body = df.iloc[header_row + 1:]
     sums: dict[str, dict[str, float]] = {}
+    descs: dict[str, str] = {}
     for _, row in body.iterrows():
         vendor = str(row.iloc[jv]).strip()
-        if not vendor or vendor == "nan":
+        # subtotal rows («F1048 Total») must not pollute the vendor keys
+        if not vendor or vendor == "nan" or "TOTAL" in vendor.upper():
             continue
         amt = pd.to_numeric(str(row.iloc[je]).replace(",", ""), errors="coerce")
         if pd.isna(amt):
@@ -202,13 +206,20 @@ def _gl_cost_centre_probe(df: pd.DataFrame, header_row: int) -> str:
         acct = str(row.iloc[ja]).strip() if ja is not None else ""
         key = f"{cc}/{acct}" if acct and acct != "nan" else cc
         sums.setdefault(vendor, {})[key] = sums.get(vendor, {}).get(key, 0.0) + float(amt)
+        if jd is not None and key not in descs:
+            d = str(row.iloc[jd]).strip()
+            if d and d != "nan":
+                descs[key] = d[:28]
     if not sums:
         return ""
-    parts = ["\nGL ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):"]
+    parts = [f"\nGL «{sheet_name}» ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί "
+             "(cost centre/account sums):"]
     for vendor in sorted(sums):
         rows = sorted(sums[vendor].items(), key=lambda kv: -abs(kv[1]))
-        shown = ", ".join(f"{k}={v:,.2f}" for k, v in rows[:25])
-        more = f" (+{len(rows) - 25} ακόμη)" if len(rows) > 25 else ""
+        shown = ", ".join(
+            f"{k}{('·' + descs[k]) if k in descs else ''}={v:,.2f}"
+            for k, v in rows[:40])
+        more = f" (+{len(rows) - 40} ακόμη)" if len(rows) > 40 else ""
         parts.append(f"  {vendor}: {shown}{more}")
     return "\n".join(parts)
 
@@ -305,16 +316,23 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
         hr = find_header_row(df, ["VENDOR_CODE", "EURO_AMOUNT"])
         if hr is not None:
             f.report_type = ReportType.GL_EXTRACT  # org-wide: no single hospital
-            # month from sheet name like 'ALL OKYPY 03.26'
-            m = re.search(r"(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b", sheet_name)
-            if m:
-                f.month, f.year = int(m.group(1)), 2000 + int(m.group(2))
+            # month from ANY sheet name like 'ALL OKYPY 03.26' — the matched
+            # sheet may be a per-stream detail with an unrelated name
+            for sname in sheets:
+                m = re.search(r"(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b", sname)
+                if m:
+                    f.month, f.year = int(m.group(1)), 2000 + int(m.group(2))
+                    break
             else:
                 f.year, f.month = find_period(_cells_text(df, 5))
-            # diagnostics: cost-centre sums PER HOSPITAL — the 26xxx/25xxx
-            # map was built on Nicosia; other hospitals book to different
-            # centres, and this breakdown is how each new scheme gets mapped
-            f.probe = (f.probe or "") + _gl_cost_centre_probe(df, hr)
+            # diagnostics: cost-centre sums PER HOSPITAL, for EVERY sheet
+            # that carries the header — real workbooks hold several (A&E
+            # pivot, ALL OKYPY, per-hospital copies) and the map for a new
+            # hospital's booking scheme can sit in any of them
+            for sname, sdf in sheets.items():
+                shr = find_header_row(sdf, ["VENDOR_CODE", "EURO_AMOUNT"])
+                if shr is not None:
+                    f.probe = (f.probe or "") + _gl_cost_centre_probe(sdf, shr, sname)
             return
 
         hr = find_header_row(df, ["BILLING PROVIDER NAME", "DRG ID"])

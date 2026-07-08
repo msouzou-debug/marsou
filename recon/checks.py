@@ -327,6 +327,11 @@ def _annotate(name: str, source: float, sra_side: Optional[float], flag_hint: st
     if abs(diff) <= CENT:
         return "OK — ταυτίζεται (ties out)", "ok"
     up = name.upper()
+    if ("ΠΟΙΟΤΙΚ" in up or "QUALITY" in up) and source == 0:
+        return ("Η εξαγωγή Ποιοτικών Κριτηρίων δεν περιέχει ποσά (κενό αρχείο) "
+                "ενώ το SRA πληρώνει γραμμές KPI/MRI-CT — κατεβάστε ξανά την "
+                "αναφορά από την πύλη ΟΑΥ (the quality-criteria export is "
+                "empty; re-download it from the HIO portal)."), "red"
     if "Z-CATALOGUE" in up and "GL" in up and diff < 0:
         return ("GL κάτω από ΟΑΥ: Z-procedures/tail booked to clinical accounts. "
                 "Classification, not cash."), "amber"
@@ -390,6 +395,19 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
     if bundle.inpatient:
         add("Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS",
             bundle.inpatient.synolo, ["IS"], alt=claims_ip)
+        c = checks[-1]
+        # when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
+        # summary is the old-period claims — name them instead of «unexplained»
+        if (sra and claims_ip is not None and c.sra_side is not None
+                and abs(c.sra_side - claims_ip) <= CENT
+                and abs(c.diff or 0) > CENT):
+            c.flag = "amber"
+            c.note = ("Το SRA IS ταυτίζεται με το αρχείο Claims «all» — η "
+                      "διαφορά προς την Ενδ. είναι απαιτήσεις παλαιότερων "
+                      "περιόδων που πληρώθηκαν τώρα (SRA IS ties the claims "
+                      "file; the gap vs the Ενδ. summary is old-period "
+                      "claims paid in this cheque)."
+                      + _claim_candidates(bundle, c.diff or 0.0))
     if "PH" in sra_code_set and (bundle.pharma or bundle.phfee):
         # Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
         # lines — including the pharmacist-fee invoice.  Credit notes and
@@ -492,8 +510,25 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             flag_hint="IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.",
             alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
     if bundle.xml_activity:
-        add("XML activity export (OS+NM+AP) = SRA OS+NM+AP",
-            bundle.xml_activity.total, ["OS", "NM", "AP"], alt=claims_out)
+        x = bundle.xml_activity
+        src, name = x.total, "XML activity export (OS+NM+AP) = SRA OS+NM+AP"
+        if sra and x.by_payment:
+            # the PAYMENT NO. gate: keep only activities the uploaded
+            # cheques actually paid — the export may span other payments
+            cheques = {p[0] for p in sra.parts} or {sra.cheque_no}
+            matched = round(sum(v for k, v in x.by_payment.items()
+                                if k in cheques), 2)
+            dropped = round(x.total - matched, 2)
+            if matched and abs(dropped) > CENT:
+                src = matched
+                name = ("XML activity (μόνο PAYMENT NO. αυτών των επιταγών) "
+                        "= SRA OS+NM+AP")
+        add(name, src, ["OS", "NM", "AP"], alt=claims_out,
+            flag_hint="Κατά προσέγγιση: activity-level έναντι γραμμών SRA "
+                      "(προσαρμογές/χρονισμός εκτός export).")
+        if src != x.total:
+            checks[-1].note += (f" Εκτός επιταγών: {format_eur(round(x.total - src, 2))} "
+                                "(activities paid by other cheques, excluded).")
     return checks
 
 

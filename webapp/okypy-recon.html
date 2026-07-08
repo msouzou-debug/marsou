@@ -585,7 +585,7 @@ function columnValues(rows, headerRow, headerName) {
   return null;
 }
 
-function glCostCentreProbe(rows, headerRow) {
+function glCostCentreProbe(rows, headerRow, sheetName = '') {
   /* Per-hospital cost-centre sums off a GL extract, for the diagnostics
    * panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
    * hospital books to its own centres, and this breakdown is the raw data
@@ -598,11 +598,14 @@ function glCostCentreProbe(rows, headerRow) {
   };
   const jv = col('VENDOR_CODE'), jc = col('COST_CENTER'),
         ja = col('ACCOUNT'), je = col('EURO_AMOUNT');
+  const jd = col('JHDF'); // account description column on real extracts
   if (jv == null || je == null) return '';
   const sums = {};
+  const descs = {};
   for (const row of rows.slice(headerRow + 1)) {
     const vendor = row[jv] == null ? '' : cellText(row[jv]).trim();
-    if (!vendor || vendor === 'nan') continue;
+    // subtotal rows («F1048 Total») must not pollute the vendor keys
+    if (!vendor || vendor === 'nan' || vendor.toUpperCase().includes('TOTAL')) continue;
     if (row[je] == null) continue;
     const amt = parseAmount(row[je]);
     const cc = jc != null && row[jc] != null ? cellText(row[jc]).trim() : '—';
@@ -610,15 +613,19 @@ function glCostCentreProbe(rows, headerRow) {
     const key = acct && acct !== 'nan' ? `${cc}/${acct}` : cc;
     sums[vendor] = sums[vendor] || {};
     sums[vendor][key] = (sums[vendor][key] || 0) + amt;
+    if (jd != null && !(key in descs) && row[jd] != null) {
+      const d = cellText(row[jd]).trim();
+      if (d && d !== 'nan') descs[key] = d.slice(0, 28);
+    }
   }
   const vendors = Object.keys(sums).sort();
   if (!vendors.length) return '';
-  const parts = ['\nGL ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):'];
+  const parts = [`\nGL «${sheetName}» ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):`];
   for (const vendor of vendors) {
     const rows2 = Object.entries(sums[vendor]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    const shown = rows2.slice(0, 25).map(([k, v]) =>
-      `${k}=${v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(', ');
-    const more = rows2.length > 25 ? ` (+${rows2.length - 25} ακόμη)` : '';
+    const shown = rows2.slice(0, 40).map(([k, v]) =>
+      `${k}${descs[k] ? '·' + descs[k] : ''}=${v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(', ');
+    const more = rows2.length > 40 ? ` (+${rows2.length - 40} ακόμη)` : '';
     parts.push(`  ${vendor}: ${shown}${more}`);
   }
   return parts.join('\n');
@@ -707,13 +714,23 @@ function identifyExcel(f) {
     hr = findHeaderRow(rows, ['VENDOR_CODE', 'EURO_AMOUNT']);
     if (hr !== null) {
       f.reportType = RT.GL_EXTRACT; // org-wide: no single hospital
-      const m = sheetName.match(/(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b/);
+      // month from ANY sheet name like 'ALL OKYPY 03.26' — the matched
+      // sheet may be a per-stream detail with an unrelated name
+      let m = null;
+      for (const { name: sn } of sheets) {
+        m = sn.match(/(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b/);
+        if (m) break;
+      }
       if (m) { f.month = parseInt(m[1], 10); f.year = 2000 + parseInt(m[2], 10); }
       else [f.year, f.month] = findPeriod(cellsText(rows, 5));
-      // diagnostics: cost-centre sums PER HOSPITAL — the 26xxx/25xxx map was
-      // built on Nicosia; other hospitals book to different centres, and
-      // this breakdown is how each new scheme gets mapped
-      f.probe = (f.probe || '') + glCostCentreProbe(rows, hr);
+      // diagnostics: cost-centre sums PER HOSPITAL, for EVERY sheet that
+      // carries the header — real workbooks hold several (A&E pivot,
+      // ALL OKYPY, per-hospital copies) and the map for a new hospital's
+      // booking scheme can sit in any of them
+      for (const { name: sname, rows: srows } of sheets) {
+        const shr = findHeaderRow(srows, ['VENDOR_CODE', 'EURO_AMOUNT']);
+        if (shr !== null) f.probe = (f.probe || '') + glCostCentreProbe(srows, shr, sname);
+      }
       return;
     }
     hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
@@ -1445,9 +1462,17 @@ function mergeSras(sras) {
 /* ------------------------------------------------------------------ GL */
 
 function extractGl(bytes, hospitalCode) {
-  for (const { rows } of loadSheets(bytes)) {
+  const candidates = [];
+  for (const { name, rows } of loadSheets(bytes)) {
     const hr = findHeaderRow(rows, ['VENDOR_CODE', 'EURO_AMOUNT']);
-    if (hr === null) continue;
+    if (hr !== null) candidates.push({ name, rows, hr });
+  }
+  // prefer the org-wide «ALL OKYPY MM.YY» sheet: real workbooks put
+  // per-stream detail sheets (A&E clinic pivot, per-hospital copies)
+  // FIRST, and reading one of those instead zeroes every other bucket
+  candidates.sort((a, b) => (normLabel(a.name).includes('ALL OKYPY') ? 0 : 1)
+    - (normLabel(b.name).includes('ALL OKYPY') ? 0 : 1));
+  for (const { rows, hr } of candidates.slice(0, 1)) {
     const { cols, body } = tableAt(rows, hr);
     const vc = colIndex(cols, 'VENDOR_CODE');
     const cc = colIndex(cols, 'COST_CENTER', 'COST_CENTRE');
@@ -1542,13 +1567,31 @@ function extractXmlActivity(bytes) {
   const doc = parseXml(bytes);
   let total = 0, found = false;
   const claims = new Set();
-  for (const el of doc.getElementsByTagName('*')) {
-    const tag = el.localName.toLowerCase();
-    if (tag === 'activityreimbursementamount') { total += parseAmount(el.textContent); found = true; }
-    else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+  const byPayment = {};
+  // group per <Claim>: each carries ClaimPaymentNumber (the SRA cheque that
+  // paid it) — the join key for the payment-number gate
+  for (const claim of doc.getElementsByTagName('*')) {
+    if (claim.localName.toLowerCase() !== 'claim') continue;
+    let pay = '', amt = 0, hasAmount = false;
+    for (const el of claim.getElementsByTagName('*')) {
+      const tag = el.localName.toLowerCase();
+      if (tag === 'activityreimbursementamount') { amt += parseAmount(el.textContent); hasAmount = true; }
+      else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+      else if (tag === 'claimpaymentnumber' && el.textContent) pay = el.textContent.trim();
+    }
+    total += amt;
+    if (hasAmount) { found = true; byPayment[pay] = round2((byPayment[pay] || 0) + amt); }
+  }
+  if (!found) {
+    // flat exports without a <Claim> wrapper: sum what's there
+    for (const el of doc.getElementsByTagName('*')) {
+      const tag = el.localName.toLowerCase();
+      if (tag === 'activityreimbursementamount') { total += parseAmount(el.textContent); found = true; }
+      else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+    }
   }
   if (!found) throw new ExtractionError('XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount');
-  return { total: round2(total), nClaims: claims.size };
+  return { total: round2(total), nClaims: claims.size, byPayment };
 }
 
 /* ---------------------------------- capitation / quality / hemo (any fmt) */
@@ -1813,6 +1856,11 @@ function annotate(name, source, sraSide, flagHint) {
   const diff = round2(source - sraSide);
   if (Math.abs(diff) <= CENT) return ['OK — ταυτίζεται (ties out)', 'ok'];
   const up = name.toUpperCase();
+  if ((up.includes('ΠΟΙΟΤΙΚ') || up.includes('QUALITY')) && source === 0) {
+    return ['Η εξαγωγή Ποιοτικών Κριτηρίων δεν περιέχει ποσά (κενό αρχείο) ενώ το SRA '
+      + 'πληρώνει γραμμές KPI/MRI-CT — κατεβάστε ξανά την αναφορά από την πύλη ΟΑΥ '
+      + '(the quality-criteria export is empty; re-download it from the HIO portal).', 'red'];
+  }
   if (up.includes('Z-CATALOGUE') && up.includes('GL') && diff < 0) {
     return ['GL κάτω από ΟΑΥ: Z-procedures/tail booked to clinical accounts. Classification, not cash.', 'amber'];
   }
@@ -1877,6 +1925,17 @@ function buildCrosschecks(bundle) {
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
         bundle.inpatient.synolo, ['IS'], null, claimsIp);
+    const c = checks[checks.length - 1];
+    // when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
+    // summary is the old-period claims — name them instead of «unexplained»
+    if (sra && claimsIp != null && c.sraSide != null
+        && Math.abs(c.sraSide - claimsIp) <= CENT && Math.abs(c.diff || 0) > CENT) {
+      c.flag = 'amber';
+      c.note = 'Το SRA IS ταυτίζεται με το αρχείο Claims «all» — η διαφορά προς την '
+        + 'Ενδ. είναι απαιτήσεις παλαιότερων περιόδων που πληρώθηκαν τώρα (SRA IS ties '
+        + 'the claims file; the gap vs the Ενδ. summary is old-period claims paid in '
+        + 'this cheque).' + claimCandidates(bundle, c.diff || 0);
+    }
   }
   if (sraCodeSet.has('PH') && (bundle.pharma || bundle.phfee)) {
     /* Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
@@ -1984,8 +2043,28 @@ function buildCrosschecks(bundle) {
         bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
   }
   if (bundle.xmlActivity) {
-    add('XML activity export (OS+NM+AP) = SRA OS+NM+AP', bundle.xmlActivity.total,
-        ['OS', 'NM', 'AP'], null, claimsOut);
+    const x = bundle.xmlActivity;
+    let src = x.total;
+    let name = 'XML activity export (OS+NM+AP) = SRA OS+NM+AP';
+    if (sra && x.byPayment && Object.keys(x.byPayment).length) {
+      // the PAYMENT NO. gate: keep only activities the uploaded cheques
+      // actually paid — the export may span other payments
+      const cheques = new Set((sra.parts || []).map((p) => p[0]));
+      if (!cheques.size) cheques.add(sra.chequeNo);
+      const matched = round2(Object.entries(x.byPayment)
+        .filter(([k]) => cheques.has(k)).reduce((a, [, v]) => a + v, 0));
+      if (matched && Math.abs(x.total - matched) > CENT) {
+        src = matched;
+        name = 'XML activity (μόνο PAYMENT NO. αυτών των επιταγών) = SRA OS+NM+AP';
+      }
+    }
+    add(name, src, ['OS', 'NM', 'AP'],
+        'Κατά προσέγγιση: activity-level έναντι γραμμών SRA (προσαρμογές/χρονισμός εκτός export).',
+        claimsOut);
+    if (src !== x.total) {
+      checks[checks.length - 1].note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
+        + '(activities paid by other cheques, excluded).';
+    }
   }
   return checks;
 }

@@ -271,8 +271,16 @@ def gl_xlsx(rows=None, sheet_name="ALL OKYPY 03.26") -> bytes:
             ("F1054", "26001", "40001001", 9_999_999.99), # another hospital, filtered out
         ]
     wb = Workbook()
-    ws = wb.active
-    ws.title = sheet_name
+    # decoy sheet FIRST, like the real Apr-2026 workbook: an A&E-only clinic
+    # detail whose rows would zero every other bucket if the extractor
+    # stopped at the first sheet carrying the header
+    decoy = wb.active
+    decoy.title = "A&E detail"
+    decoy.append(["VENDOR_CODE", "COST_CENTER", "ACCOUNT", "JHDF", "EURO_AMOUNT"])
+    decoy.append(["F1049", "25801", "51101099", "A&E income", 141_284.66])
+    decoy.append(["F1049", "25801", "43010001", "Copayments", -10_000.00])
+    decoy.append(["F1049 Total", "", "", "", 131_284.66])   # subtotal row
+    ws = wb.create_sheet(sheet_name)
     ws.append(["VENDOR_CODE", "COST_CENTER", "ACCOUNT", "EURO_AMOUNT"])
     for r in rows:
         ws.append(list(r))
@@ -312,4 +320,26 @@ def xml_activity_bytes(amounts=None, hospital="F1049") -> bytes:
         act = etree.SubElement(root, "Activity")
         etree.SubElement(act, "ClaimId").text = f"CL{i:05d}"
         etree.SubElement(act, "ActivityReimbursementAmount").text = f"{amt:.2f}"
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+
+
+def xml_claims_export_bytes(claims=None) -> bytes:
+    """Real Apr-2026 shape: ClaimsExport > Claims > Claim, each claim carrying
+    ClaimPaymentNumber (the SRA cheque) and its Activities.
+    claims = [(claim_id, payment_no, [activity amounts]), ...]"""
+    if claims is None:
+        claims = [("124358528", "263000", [40.75, 20.00]),
+                  ("124360429", "263000", [60.00]),
+                  ("125462247", "263367", [137.89]),
+                  ("120886546", "990001", [500.00])]   # paid by another cheque
+    root = etree.Element("ClaimsExport")
+    wrap = etree.SubElement(root, "Claims")
+    for cid, pay, amounts in claims:
+        c = etree.SubElement(wrap, "Claim")
+        etree.SubElement(c, "ClaimId").text = cid
+        etree.SubElement(c, "ClaimPaymentNumber").text = pay
+        acts = etree.SubElement(c, "Activities")
+        for amt in amounts:
+            a = etree.SubElement(acts, "Activity")
+            etree.SubElement(a, "ActivityReimbursementAmount").text = f"{amt:.2f}"
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8")

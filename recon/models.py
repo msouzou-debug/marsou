@@ -281,6 +281,9 @@ class ISAuditor:
 class XMLActivity:
     total: float = 0.0      # covers OS + NM + AP
     n_claims: int = 0
+    # ClaimPaymentNumber → sum: lets the cross-check keep only activities
+    # actually paid by the uploaded cheques (the PAYMENT NO. gate)
+    by_payment: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass

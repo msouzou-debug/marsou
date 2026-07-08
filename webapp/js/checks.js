@@ -183,6 +183,11 @@ function annotate(name, source, sraSide, flagHint) {
   const diff = round2(source - sraSide);
   if (Math.abs(diff) <= CENT) return ['OK — ταυτίζεται (ties out)', 'ok'];
   const up = name.toUpperCase();
+  if ((up.includes('ΠΟΙΟΤΙΚ') || up.includes('QUALITY')) && source === 0) {
+    return ['Η εξαγωγή Ποιοτικών Κριτηρίων δεν περιέχει ποσά (κενό αρχείο) ενώ το SRA '
+      + 'πληρώνει γραμμές KPI/MRI-CT — κατεβάστε ξανά την αναφορά από την πύλη ΟΑΥ '
+      + '(the quality-criteria export is empty; re-download it from the HIO portal).', 'red'];
+  }
   if (up.includes('Z-CATALOGUE') && up.includes('GL') && diff < 0) {
     return ['GL κάτω από ΟΑΥ: Z-procedures/tail booked to clinical accounts. Classification, not cash.', 'amber'];
   }
@@ -247,6 +252,17 @@ function buildCrosschecks(bundle) {
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
         bundle.inpatient.synolo, ['IS'], null, claimsIp);
+    const c = checks[checks.length - 1];
+    // when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
+    // summary is the old-period claims — name them instead of «unexplained»
+    if (sra && claimsIp != null && c.sraSide != null
+        && Math.abs(c.sraSide - claimsIp) <= CENT && Math.abs(c.diff || 0) > CENT) {
+      c.flag = 'amber';
+      c.note = 'Το SRA IS ταυτίζεται με το αρχείο Claims «all» — η διαφορά προς την '
+        + 'Ενδ. είναι απαιτήσεις παλαιότερων περιόδων που πληρώθηκαν τώρα (SRA IS ties '
+        + 'the claims file; the gap vs the Ενδ. summary is old-period claims paid in '
+        + 'this cheque).' + claimCandidates(bundle, c.diff || 0);
+    }
   }
   if (sraCodeSet.has('PH') && (bundle.pharma || bundle.phfee)) {
     /* Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
@@ -354,8 +370,28 @@ function buildCrosschecks(bundle) {
         bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
   }
   if (bundle.xmlActivity) {
-    add('XML activity export (OS+NM+AP) = SRA OS+NM+AP', bundle.xmlActivity.total,
-        ['OS', 'NM', 'AP'], null, claimsOut);
+    const x = bundle.xmlActivity;
+    let src = x.total;
+    let name = 'XML activity export (OS+NM+AP) = SRA OS+NM+AP';
+    if (sra && x.byPayment && Object.keys(x.byPayment).length) {
+      // the PAYMENT NO. gate: keep only activities the uploaded cheques
+      // actually paid — the export may span other payments
+      const cheques = new Set((sra.parts || []).map((p) => p[0]));
+      if (!cheques.size) cheques.add(sra.chequeNo);
+      const matched = round2(Object.entries(x.byPayment)
+        .filter(([k]) => cheques.has(k)).reduce((a, [, v]) => a + v, 0));
+      if (matched && Math.abs(x.total - matched) > CENT) {
+        src = matched;
+        name = 'XML activity (μόνο PAYMENT NO. αυτών των επιταγών) = SRA OS+NM+AP';
+      }
+    }
+    add(name, src, ['OS', 'NM', 'AP'],
+        'Κατά προσέγγιση: activity-level έναντι γραμμών SRA (προσαρμογές/χρονισμός εκτός export).',
+        claimsOut);
+    if (src !== x.total) {
+      checks[checks.length - 1].note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
+        + '(activities paid by other cheques, excluded).';
+    }
   }
   return checks;
 }

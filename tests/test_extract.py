@@ -266,3 +266,22 @@ def test_xml_activity_total():
     x = extract_xml_activity(synth.xml_activity_bytes())
     assert x.total == 65_000.00
     assert x.n_claims == 3
+
+
+def test_xml_claims_export_groups_by_payment_number():
+    # real Apr-2026 shape: <Claim> wrapper with ClaimPaymentNumber — the
+    # PAYMENT NO. gate needs per-cheque sums
+    x = extract_xml_activity(synth.xml_claims_export_bytes())
+    assert x.total == 758.64
+    assert x.n_claims == 4
+    assert x.by_payment == {"263000": 120.75, "263367": 137.89, "990001": 500.00}
+
+
+def test_gl_prefers_all_okypy_sheet_over_detail_sheets():
+    # the real Apr-2026 GL workbook puts an A&E-only clinic detail sheet
+    # FIRST — reading it instead of «ALL OKYPY MM.YY» zeroes every other
+    # bucket (the F1048 all-zero-GL bug)
+    gl = extract_gl(synth.gl_xlsx(), "F1049")
+    assert gl.regular_drg == 561_728.70              # only on the ALL sheet
+    assert gl.inpatient == 1_061_728.70
+    assert gl.ae == 131_284.66

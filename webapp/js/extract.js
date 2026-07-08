@@ -523,9 +523,17 @@ function mergeSras(sras) {
 /* ------------------------------------------------------------------ GL */
 
 function extractGl(bytes, hospitalCode) {
-  for (const { rows } of loadSheets(bytes)) {
+  const candidates = [];
+  for (const { name, rows } of loadSheets(bytes)) {
     const hr = findHeaderRow(rows, ['VENDOR_CODE', 'EURO_AMOUNT']);
-    if (hr === null) continue;
+    if (hr !== null) candidates.push({ name, rows, hr });
+  }
+  // prefer the org-wide «ALL OKYPY MM.YY» sheet: real workbooks put
+  // per-stream detail sheets (A&E clinic pivot, per-hospital copies)
+  // FIRST, and reading one of those instead zeroes every other bucket
+  candidates.sort((a, b) => (normLabel(a.name).includes('ALL OKYPY') ? 0 : 1)
+    - (normLabel(b.name).includes('ALL OKYPY') ? 0 : 1));
+  for (const { rows, hr } of candidates.slice(0, 1)) {
     const { cols, body } = tableAt(rows, hr);
     const vc = colIndex(cols, 'VENDOR_CODE');
     const cc = colIndex(cols, 'COST_CENTER', 'COST_CENTRE');
@@ -620,13 +628,31 @@ function extractXmlActivity(bytes) {
   const doc = parseXml(bytes);
   let total = 0, found = false;
   const claims = new Set();
-  for (const el of doc.getElementsByTagName('*')) {
-    const tag = el.localName.toLowerCase();
-    if (tag === 'activityreimbursementamount') { total += parseAmount(el.textContent); found = true; }
-    else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+  const byPayment = {};
+  // group per <Claim>: each carries ClaimPaymentNumber (the SRA cheque that
+  // paid it) — the join key for the payment-number gate
+  for (const claim of doc.getElementsByTagName('*')) {
+    if (claim.localName.toLowerCase() !== 'claim') continue;
+    let pay = '', amt = 0, hasAmount = false;
+    for (const el of claim.getElementsByTagName('*')) {
+      const tag = el.localName.toLowerCase();
+      if (tag === 'activityreimbursementamount') { amt += parseAmount(el.textContent); hasAmount = true; }
+      else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+      else if (tag === 'claimpaymentnumber' && el.textContent) pay = el.textContent.trim();
+    }
+    total += amt;
+    if (hasAmount) { found = true; byPayment[pay] = round2((byPayment[pay] || 0) + amt); }
+  }
+  if (!found) {
+    // flat exports without a <Claim> wrapper: sum what's there
+    for (const el of doc.getElementsByTagName('*')) {
+      const tag = el.localName.toLowerCase();
+      if (tag === 'activityreimbursementamount') { total += parseAmount(el.textContent); found = true; }
+      else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+    }
   }
   if (!found) throw new ExtractionError('XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount');
-  return { total: round2(total), nClaims: claims.size };
+  return { total: round2(total), nClaims: claims.size, byPayment };
 }
 
 /* ---------------------------------- capitation / quality / hemo (any fmt) */

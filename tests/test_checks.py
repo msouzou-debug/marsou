@@ -253,6 +253,37 @@ def test_feb_fee_netting_ties():
     assert verify_workbook(build_workbook(res)) == []
 
 
+def test_xml_activity_filtered_by_payment_number():
+    # activities paid by OTHER cheques must drop out of the cross-check
+    b = full_bundle()
+    b.xml_activity = extract_xml_activity(synth.xml_claims_export_bytes(claims=[
+        ("1", "259434", [40_000.00, 20_000.00]),   # this month's cheque
+        ("2", "259434", [5_000.00]),
+        ("3", "990001", [777.77]),                 # another cheque — excluded
+    ]))
+    res = run_reconciliation(b)
+    row = next(c for c in res.crosschecks if "XML activity" in c.name)
+    assert "PAYMENT NO." in row.name
+    assert row.source_total == 65_000.00
+    assert "777,77" in row.note
+
+
+def test_endo_vs_sra_gap_named_when_claims_tie_sra():
+    # SRA IS == claims file but Ενδ. lags by an old-period claim: the row
+    # must say so (amber) instead of «unexplained» (red)
+    from recon.models import SRALine
+    b = full_bundle()
+    b.claims.by_segment["Inpatient"] = round(b.claims.by_segment["Inpatient"] + 1297.43, 2)
+    b.claims.inpatient_rows.append(("99476712", "2022-10-18", 1297.43))
+    b.sra.lines.append(SRALine(code="IS", description="IS - HCP SERVICES old claim",
+                               amount=1297.43, bucket=Bucket.INPATIENT,
+                               channel="Claims", source_report="—"))
+    res = run_reconciliation(b)
+    row = next(c for c in res.crosschecks if "= SRA IS" in c.name)
+    assert row.flag == "amber"
+    assert "παλαιότερων" in row.note and "99476712" in row.note
+
+
 def test_old_period_claim_named_in_gate4_finding():
     # a 2022 claim paid in this cheque but absent from the Ενδ. summary must
     # be NAMED in the gate-4 finding (Larnaca Apr-2026 case: 1,297.43)

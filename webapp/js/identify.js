@@ -151,7 +151,7 @@ function columnValues(rows, headerRow, headerName) {
   return null;
 }
 
-function glCostCentreProbe(rows, headerRow) {
+function glCostCentreProbe(rows, headerRow, sheetName = '') {
   /* Per-hospital cost-centre sums off a GL extract, for the diagnostics
    * panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
    * hospital books to its own centres, and this breakdown is the raw data
@@ -164,11 +164,14 @@ function glCostCentreProbe(rows, headerRow) {
   };
   const jv = col('VENDOR_CODE'), jc = col('COST_CENTER'),
         ja = col('ACCOUNT'), je = col('EURO_AMOUNT');
+  const jd = col('JHDF'); // account description column on real extracts
   if (jv == null || je == null) return '';
   const sums = {};
+  const descs = {};
   for (const row of rows.slice(headerRow + 1)) {
     const vendor = row[jv] == null ? '' : cellText(row[jv]).trim();
-    if (!vendor || vendor === 'nan') continue;
+    // subtotal rows («F1048 Total») must not pollute the vendor keys
+    if (!vendor || vendor === 'nan' || vendor.toUpperCase().includes('TOTAL')) continue;
     if (row[je] == null) continue;
     const amt = parseAmount(row[je]);
     const cc = jc != null && row[jc] != null ? cellText(row[jc]).trim() : '—';
@@ -176,15 +179,19 @@ function glCostCentreProbe(rows, headerRow) {
     const key = acct && acct !== 'nan' ? `${cc}/${acct}` : cc;
     sums[vendor] = sums[vendor] || {};
     sums[vendor][key] = (sums[vendor][key] || 0) + amt;
+    if (jd != null && !(key in descs) && row[jd] != null) {
+      const d = cellText(row[jd]).trim();
+      if (d && d !== 'nan') descs[key] = d.slice(0, 28);
+    }
   }
   const vendors = Object.keys(sums).sort();
   if (!vendors.length) return '';
-  const parts = ['\nGL ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):'];
+  const parts = [`\nGL «${sheetName}» ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):`];
   for (const vendor of vendors) {
     const rows2 = Object.entries(sums[vendor]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    const shown = rows2.slice(0, 25).map(([k, v]) =>
-      `${k}=${v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(', ');
-    const more = rows2.length > 25 ? ` (+${rows2.length - 25} ακόμη)` : '';
+    const shown = rows2.slice(0, 40).map(([k, v]) =>
+      `${k}${descs[k] ? '·' + descs[k] : ''}=${v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(', ');
+    const more = rows2.length > 40 ? ` (+${rows2.length - 40} ακόμη)` : '';
     parts.push(`  ${vendor}: ${shown}${more}`);
   }
   return parts.join('\n');
@@ -273,13 +280,23 @@ function identifyExcel(f) {
     hr = findHeaderRow(rows, ['VENDOR_CODE', 'EURO_AMOUNT']);
     if (hr !== null) {
       f.reportType = RT.GL_EXTRACT; // org-wide: no single hospital
-      const m = sheetName.match(/(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b/);
+      // month from ANY sheet name like 'ALL OKYPY 03.26' — the matched
+      // sheet may be a per-stream detail with an unrelated name
+      let m = null;
+      for (const { name: sn } of sheets) {
+        m = sn.match(/(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b/);
+        if (m) break;
+      }
       if (m) { f.month = parseInt(m[1], 10); f.year = 2000 + parseInt(m[2], 10); }
       else [f.year, f.month] = findPeriod(cellsText(rows, 5));
-      // diagnostics: cost-centre sums PER HOSPITAL — the 26xxx/25xxx map was
-      // built on Nicosia; other hospitals book to different centres, and
-      // this breakdown is how each new scheme gets mapped
-      f.probe = (f.probe || '') + glCostCentreProbe(rows, hr);
+      // diagnostics: cost-centre sums PER HOSPITAL, for EVERY sheet that
+      // carries the header — real workbooks hold several (A&E pivot,
+      // ALL OKYPY, per-hospital copies) and the map for a new hospital's
+      // booking scheme can sit in any of them
+      for (const { name: sname, rows: srows } of sheets) {
+        const shr = findHeaderRow(srows, ['VENDOR_CODE', 'EURO_AMOUNT']);
+        if (shr !== null) f.probe = (f.probe || '') + glCostCentreProbe(srows, shr, sname);
+      }
       return;
     }
     hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
