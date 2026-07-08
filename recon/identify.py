@@ -172,6 +172,47 @@ def _excel_probe(sheets: dict[str, pd.DataFrame]) -> str:
     return "\n".join(parts)[:4000]
 
 
+def _gl_cost_centre_probe(df: pd.DataFrame, header_row: int) -> str:
+    """Per-hospital cost-centre sums off a GL extract, for the diagnostics
+    panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
+    hospital books to its own centres, and this breakdown is the raw data
+    needed to extend the map when a new hospital's GL shows up."""
+    hdr = [norm_label(str(v)) if v is not None else "" for v in df.iloc[header_row]]
+
+    def col(name: str) -> Optional[int]:
+        want = norm_label(name)
+        for j, h in enumerate(hdr):
+            if want in h:
+                return j
+        return None
+
+    jv, jc, ja, je = col("VENDOR_CODE"), col("COST_CENTER"), col("ACCOUNT"), col("EURO_AMOUNT")
+    if jv is None or je is None:
+        return ""
+    body = df.iloc[header_row + 1:]
+    sums: dict[str, dict[str, float]] = {}
+    for _, row in body.iterrows():
+        vendor = str(row.iloc[jv]).strip()
+        if not vendor or vendor == "nan":
+            continue
+        amt = pd.to_numeric(str(row.iloc[je]).replace(",", ""), errors="coerce")
+        if pd.isna(amt):
+            continue
+        cc = str(row.iloc[jc]).strip() if jc is not None else "—"
+        acct = str(row.iloc[ja]).strip() if ja is not None else ""
+        key = f"{cc}/{acct}" if acct and acct != "nan" else cc
+        sums.setdefault(vendor, {})[key] = sums.get(vendor, {}).get(key, 0.0) + float(amt)
+    if not sums:
+        return ""
+    parts = ["\nGL ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):"]
+    for vendor in sorted(sums):
+        rows = sorted(sums[vendor].items(), key=lambda kv: -abs(kv[1]))
+        shown = ", ".join(f"{k}={v:,.2f}" for k, v in rows[:25])
+        more = f" (+{len(rows) - 25} ακόμη)" if len(rows) > 25 else ""
+        parts.append(f"  {vendor}: {shown}{more}")
+    return "\n".join(parts)
+
+
 def _labeled_year_month(df: pd.DataFrame, max_rows: int = 10
                         ) -> tuple[Optional[int], Optional[int]]:
     """Real Ενδ. summaries carry «Έτος | Μήνας» header cells with the values
@@ -270,6 +311,10 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
                 f.month, f.year = int(m.group(1)), 2000 + int(m.group(2))
             else:
                 f.year, f.month = find_period(_cells_text(df, 5))
+            # diagnostics: cost-centre sums PER HOSPITAL — the 26xxx/25xxx
+            # map was built on Nicosia; other hospitals book to different
+            # centres, and this breakdown is how each new scheme gets mapped
+            f.probe = (f.probe or "") + _gl_cost_centre_probe(df, hr)
             return
 
         hr = find_header_row(df, ["BILLING PROVIDER NAME", "DRG ID"])

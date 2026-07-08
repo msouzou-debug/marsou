@@ -37,7 +37,7 @@ class CrossCheck:
     flag: str = "ok"              # ok | amber | red
     # workbook formula shape: "codes" (SUMIFS over sra_codes),
     # "ph_minus_fee" (SUMIFS(PH) − fee packages×unit),
-    # "fee_net" (SUMIFS(PH)+SUMIFS(PHF) − pharma-claims source cell)
+    # "fee_net" (SUMIFS(PH) − pharma-claims source cell)
     side_kind: str = "codes"
 
     @property
@@ -392,26 +392,30 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             bundle.inpatient.synolo, ["IS"], alt=claims_ip)
     if "PH" in sra_code_set and (bundle.pharma or bundle.phfee):
         # Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
-        # lines — including the pharmacist-fee invoice — and correct the fee
-        # with CRN-Packages credit notes (classified PHF).  Net them out:
-        #   pharma claims gross = SRA PH − fee(packages × unit)
-        #   fee net = fee + CRN-Packages = SRA PH + PHF − pharma claims gross
+        # lines — including the pharmacist-fee invoice.  Credit notes and
+        # manual adjustments are classified apart (PH-ADJ / PHF), so the
+        # daily lines obey the clean identity, verified Feb+Apr 2026:
+        #   SRA PH = pharma claims gross + fee(packages × unit)
         ph_sum = _sra_sum(sra, ["PH"])
         phf_sum = _sra_sum(sra, ["PHF"])
         fee = bundle.phfee.computed if bundle.phfee else 0.0
         if bundle.phfee:
             unit_str = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
-            src_net = round(fee + phf_sum, 2)
-            side_net = round(ph_sum + phf_sum
+            side_net = round(ph_sum
                              - (bundle.pharma.total if bundle.pharma else 0.0), 2)
-            note, flag = _annotate("fee net", src_net, side_net)
-            if abs(src_net - (side_net or 0)) <= CENT:
-                note = ("OK — καθαρή αμοιβή μετά τις διορθώσεις CRN-Packages "
-                        "(fee net of package-correction credit notes).")
+            note, flag = _annotate("fee net", fee, side_net)
+            if abs(fee - (side_net or 0)) <= CENT:
+                note = ("OK — το τιμολόγιο αμοιβής πληρώνεται μέσα στις "
+                        "ημερήσιες γραμμές PH (fee invoice paid inside the "
+                        "daily PH lines).")
+                if abs(phf_sum) > CENT:
+                    note += (" Οι διορθώσεις CRN-Packages εμφανίζονται "
+                             "χωριστά ως PHF (package-correction credit "
+                             "notes shown separately as PHF).")
             checks.append(CrossCheck(
-                name=f"Αμοιβή Φαρμακοποιού net (packages × {unit_str} € + "
-                     "CRN-Packages) = SRA PH+PHF − claims",
-                source_total=src_net, sra_codes=["PH", "PHF"], sra_side=side_net,
+                name=f"Αμοιβή Φαρμακοποιού (packages × {unit_str} €) = "
+                     "SRA PH − claims",
+                source_total=round(fee, 2), sra_codes=["PH"], sra_side=side_net,
                 note=note, flag=flag, side_kind="fee_net"))
         if bundle.pharma:
             side_a = round(ph_sum - fee, 2)
@@ -610,6 +614,10 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     if ae_amt is None and bundle.claims:
         ae_amt = bundle.claims.by_segment.get("A&E", 0.0)
     ae.rows.append(SplitRow("Ατυχήματα & Επείγοντα (A&E)", ae_amt or 0.0))
+    ae_adj = sra_amount(["AE-ADJ"])
+    if ae_adj:
+        ae.rows.append(SplitRow(
+            "ΤΑΕΠ — προσαρμογές/παραπομπές (A&E adjustments/referrals)", ae_adj))
     sections.append(ae)
 
     out = SplitSection("Εξωνοσοκομειακή περίθαλψη (Outpatient)", Bucket.OUTPATIENT)
@@ -673,6 +681,10 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         label = ("Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)"
                  if ph_claims else "Αμοιβή Φαρμακοποιού (Pharmacist fee)")
         ph.rows.append(SplitRow(label, fee))
+    ph_adj = sra_amount(["PH-ADJ"])
+    if ph_adj:
+        ph.rows.append(SplitRow(
+            "Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)", ph_adj))
     sections.append(ph)
 
     return sections

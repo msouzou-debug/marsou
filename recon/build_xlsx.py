@@ -232,11 +232,9 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
                              f"'{sra_tab}'!$A$2:$A${n_lines},{col}{r})")
             return "+".join(terms)
         if chk.side_kind == "fee_net" and sra_tab and b.sra:
-            # source = fee gross + CRN-Packages (live); side = PH+PHF − claims
-            phf_only = _sumifs(["PH", "PHF"])  # writes both criteria cells
-            phf_term = phf_only.split("+")[1]
-            _amount(ws, r, 2, f"=F{r}*G{r}+{phf_term}", F_FORMULA)
-            side = "=" + phf_only
+            # source = packages × unit (live); side = SRA PH − claims gross
+            _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
+            side = "=" + _sumifs(["PH"])
             if pharma_row is not None:
                 side += f"-B{pharma_row}"
             _amount(ws, r, 3, side, F_LINK)

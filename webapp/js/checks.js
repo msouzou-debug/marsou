@@ -250,22 +250,27 @@ function buildCrosschecks(bundle) {
   }
   if (sraCodeSet.has('PH') && (bundle.pharma || bundle.phfee)) {
     /* Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
-     * lines — including the pharmacist-fee invoice — and correct the fee
-     * with CRN-Packages credit notes (classified PHF).  Net them out. */
+     * lines — including the pharmacist-fee invoice.  Credit notes and
+     * manual adjustments are classified apart (PH-ADJ / PHF), so the
+     * daily lines obey the clean identity, verified Feb+Apr 2026:
+     *   SRA PH = pharma claims gross + fee(packages × unit) */
     const phSum = sraSum(sra, ['PH']);
     const phfSum = sraSum(sra, ['PHF']);
     const fee = bundle.phfee ? bundle.phfee.computed : 0;
     if (bundle.phfee) {
       const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
-      const srcNet = round2(fee + phfSum);
-      const sideNet2 = round2(phSum + phfSum - (bundle.pharma ? bundle.pharma.total : 0));
-      let [note, flag] = annotate('fee net', srcNet, sideNet2);
-      if (Math.abs(srcNet - sideNet2) <= CENT) {
-        note = 'OK — καθαρή αμοιβή μετά τις διορθώσεις CRN-Packages (fee net of '
-          + 'package-correction credit notes).';
+      const sideNet2 = round2(phSum - (bundle.pharma ? bundle.pharma.total : 0));
+      let [note, flag] = annotate('fee net', fee, sideNet2);
+      if (Math.abs(fee - sideNet2) <= CENT) {
+        note = 'OK — το τιμολόγιο αμοιβής πληρώνεται μέσα στις ημερήσιες γραμμές PH '
+          + '(fee invoice paid inside the daily PH lines).';
+        if (Math.abs(phfSum) > CENT) {
+          note += ' Οι διορθώσεις CRN-Packages εμφανίζονται χωριστά ως PHF '
+            + '(package-correction credit notes shown separately as PHF).';
+        }
       }
-      checks.push({ name: `Αμοιβή Φαρμακοποιού net (packages × ${unitStr} € + CRN-Packages) = SRA PH+PHF − claims`,
-                    sourceTotal: srcNet, sraCodes: ['PH', 'PHF'], sraSide: sideNet2,
+      checks.push({ name: `Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PH − claims`,
+                    sourceTotal: round2(fee), sraCodes: ['PH'], sraSide: sideNet2,
                     note, flag, sideKind: 'fee_net',
                     get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
     }
@@ -469,6 +474,8 @@ function buildSplit(bundle) {
   let aeAmt = sraAmount(['AE', 'A&E']);
   if (aeAmt == null && bundle.claims) aeAmt = bundle.claims.bySegment['A&E'] || 0;
   ae.rows.push({ label: 'Ατυχήματα & Επείγοντα (A&E)', amount: aeAmt || 0 });
+  const aeAdj = sraAmount(['AE-ADJ']);
+  if (aeAdj) ae.rows.push({ label: 'ΤΑΕΠ — προσαρμογές/παραπομπές (A&E adjustments/referrals)', amount: aeAdj });
   sections.push(ae);
 
   const out = { title: 'Εξωνοσοκομειακή περίθαλψη (Outpatient)', bucket: 'Outpatient', rows: [] };
@@ -519,6 +526,8 @@ function buildSplit(bundle) {
       ? 'Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)'
       : 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
   }
+  const phAdj = sraAmount(['PH-ADJ']);
+  if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });
   sections.push(ph);
 
   for (const s of sections) s.subtotal = subtotal(s);

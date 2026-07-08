@@ -355,7 +355,15 @@ const SRA_CODE_MAP = {
   PHF: ['Pharma', 'Fee', 'Pharmacist Fee Report'],
   // real SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
   PH: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
+  // pharmacy credit notes / deductions / manual adjustments — kept apart
+  // from the daily PH lines so «claims gross = PH − fee» ties exactly
+  'PH-ADJ': ['Pharma', 'Adjustment', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
+  // A&E-referral and similar A&E adjustments, apart from the daily AE lines
+  'AE-ADJ': ['A&E', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
 };
+
+// adjustment markers that split a stream's ADJ/CRN lines from its daily lines
+const ADJ_MARKER_RE = /ADJ|CRN|CREDIT|CORR|DEDUCTION|ISSUANCE|STOCK|MANUAL|OTC/;
 
 const KEYWORD_CODES = [
   [['ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ'], 'PHF'],
@@ -412,17 +420,20 @@ function classifySraLine(code, description) {
     const m = CODE_TOKEN_RE.exec(upDesc);
     if (m) code = CODE_ALIASES[m[1]] || m[1];
   }
+  if (!(code in SRA_CODE_MAP)) {
+    for (const [keywords, kcode] of KEYWORD_CODES) {
+      if (keywords.every((k) => upDesc.includes(k))) { code = kcode; break; }
+    }
+  }
   if (code in SRA_CODE_MAP) {
     if (code === 'PD' && (upDesc.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ') || upDesc.includes('CAPITATION'))) code = 'PD-CAP';
     else if (code === 'PD' && (upDesc.includes('KPI') || upDesc.includes('ΠΟΙΟΤΙΚ'))) code = 'PD-KPI';
+    // credit notes / corrections split away from the daily claim lines,
+    // so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
+    else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)) code = 'PH-ADJ';
+    else if ((code === 'AE' || code === 'A&E') && ADJ_MARKER_RE.test(upDesc)) code = 'AE-ADJ';
     const [b, ch, src] = SRA_CODE_MAP[code];
     return [code, b, ch, src];
-  }
-  for (const [keywords, kcode] of KEYWORD_CODES) {
-    if (keywords.every((k) => upDesc.includes(k))) {
-      const [b, ch, src] = SRA_CODE_MAP[kcode];
-      return [kcode, b, ch, src];
-    }
   }
   return [code || '??', 'Outpatient', 'Unmapped', '—'];
 }

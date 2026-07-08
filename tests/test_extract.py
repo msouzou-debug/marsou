@@ -127,10 +127,37 @@ def test_sra_feb_format_ph_stream_adjustment_and_credit():
     assert sums["PHF"] == -6_388.29               # CRN-Packages corrections
     assert sums["MRI"] == 501.03
     assert sums["PD-KPI"] == 151.80
-    assert sums["AE"] == round(24_327.00 - 12.25, 2)
+    assert sums["AE"] == 24_327.00                # daily AE lines only
+    assert sums["AE-ADJ"] == -12.25               # credit note split apart
     assert (sra.year, sra.month) == (2026, 2)
     hemo = next(l for l in sra.lines if l.code == "HEMO")
     assert hemo.bucket == Bucket.INPATIENT        # default; editable per patient
+
+
+def test_classify_splits_adjustments_from_daily_lines():
+    # real Apr-2026 (F1048) SRA lines: credit notes / corrections must leave
+    # the daily PH/AE codes so «PH = claims + fee» and «AE = GL 25801» tie
+    from recon.extract import classify_sra_line
+
+    cases = {
+        "PH - HCP SERVICES": "PH",                              # daily line stays
+        "AE - HCP SERVICES": "AE",
+        "CRN-Drugs- PH - DEDUCTIONS-Drugs-Phase2-": "PH-ADJ",
+        "OTC-CORR-VAT- PH-OTC-CORR-VAT-04-2026": "PH-ADJ",
+        "CRN-Drugs- CRN-Drugs-Phase1-COST&VAT": "PH-ADJ",       # PHD token
+        "ADJ- Adjustment PharmacyLine - Feb26": "PH-ADJ",
+        "ISSUANCES ISSUANCES 11.24-10.25": "PH-ADJ",
+        "ADJ-AE Referral IS - Adjustment for referrals": "AE-ADJ",
+        "CRN-Packages PH - CORRECTION-Packages": "PHF",         # fee corrections
+        "ADJ- IS - Adjustment for Hemodialysis": "HEMO",
+        "ADJ-New Reimb OS - Adj. based on new reimb. method-": "OS",
+        "ADJ-MRI/CT QC- CTs Quality Criteria": "MRI",
+    }
+    for desc, want in cases.items():
+        code, bucket, channel, _ = classify_sra_line("", desc)
+        assert code == want, f"{desc!r} → {code}, want {want}"
+    assert classify_sra_line("", "CRN-Drugs- PH - DEDUCTIONS")[1] == Bucket.PHARMA
+    assert classify_sra_line("", "ADJ-AE Referral IS - Adj.")[1] == Bucket.AE
 
 
 def test_merge_sras_multiple_cheques():

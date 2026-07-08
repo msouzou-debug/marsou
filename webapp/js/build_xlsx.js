@@ -216,10 +216,10 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
       return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${row})`;
     });
     if (chk.sideKind === 'fee_net' && sraTab && b.sra) {
-      // source = fee gross + CRN-Packages (live); side = PH+PHF − claims
-      const [phTerm, phfTerm] = sumifs(['PH', 'PHF']);
-      writeAmount(ws, r, 2, `F${r}*G${r}+${phfTerm}`, F_FORMULA);
-      let side = `${phTerm}+${phfTerm}`;
+      // source = packages × unit (live); side = SRA PH − claims gross
+      const [phTerm] = sumifs(['PH']);
+      writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);
+      let side = phTerm;
       if (pharmaRow != null) side += `-B${pharmaRow}`;
       writeAmount(ws, r, 3, side, F_LINK);
     } else if (chk.sideKind === 'ph_minus_fee' && sraTab && b.sra) {

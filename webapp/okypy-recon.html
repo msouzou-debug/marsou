@@ -585,6 +585,45 @@ function columnValues(rows, headerRow, headerName) {
   return null;
 }
 
+function glCostCentreProbe(rows, headerRow) {
+  /* Per-hospital cost-centre sums off a GL extract, for the diagnostics
+   * panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
+   * hospital books to its own centres, and this breakdown is the raw data
+   * needed to extend the map when a new hospital's GL shows up. */
+  const hdr = rows[headerRow].map((v) => (v == null ? '' : normLabel(cellText(v))));
+  const col = (name) => {
+    const want = normLabel(name);
+    for (let j = 0; j < hdr.length; j++) if (hdr[j].includes(want)) return j;
+    return null;
+  };
+  const jv = col('VENDOR_CODE'), jc = col('COST_CENTER'),
+        ja = col('ACCOUNT'), je = col('EURO_AMOUNT');
+  if (jv == null || je == null) return '';
+  const sums = {};
+  for (const row of rows.slice(headerRow + 1)) {
+    const vendor = row[jv] == null ? '' : cellText(row[jv]).trim();
+    if (!vendor || vendor === 'nan') continue;
+    if (row[je] == null) continue;
+    const amt = parseAmount(row[je]);
+    const cc = jc != null && row[jc] != null ? cellText(row[jc]).trim() : '—';
+    const acct = ja != null && row[ja] != null ? cellText(row[ja]).trim() : '';
+    const key = acct && acct !== 'nan' ? `${cc}/${acct}` : cc;
+    sums[vendor] = sums[vendor] || {};
+    sums[vendor][key] = (sums[vendor][key] || 0) + amt;
+  }
+  const vendors = Object.keys(sums).sort();
+  if (!vendors.length) return '';
+  const parts = ['\nGL ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):'];
+  for (const vendor of vendors) {
+    const rows2 = Object.entries(sums[vendor]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    const shown = rows2.slice(0, 25).map(([k, v]) =>
+      `${k}=${v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(', ');
+    const more = rows2.length > 25 ? ` (+${rows2.length - 25} ακόμη)` : '';
+    parts.push(`  ${vendor}: ${shown}${more}`);
+  }
+  return parts.join('\n');
+}
+
 function excelProbe(sheets) {
   /* What the identifier saw — sheet names + first populated rows, for the
    * diagnostics panel. */
@@ -671,6 +710,10 @@ function identifyExcel(f) {
       const m = sheetName.match(/(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b/);
       if (m) { f.month = parseInt(m[1], 10); f.year = 2000 + parseInt(m[2], 10); }
       else [f.year, f.month] = findPeriod(cellsText(rows, 5));
+      // diagnostics: cost-centre sums PER HOSPITAL — the 26xxx/25xxx map was
+      // built on Nicosia; other hospitals book to different centres, and
+      // this breakdown is how each new scheme gets mapped
+      f.probe = (f.probe || '') + glCostCentreProbe(rows, hr);
       return;
     }
     hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);
@@ -1234,7 +1277,15 @@ const SRA_CODE_MAP = {
   PHF: ['Pharma', 'Fee', 'Pharmacist Fee Report'],
   // real SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
   PH: ['Pharma', 'Claims', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
+  // pharmacy credit notes / deductions / manual adjustments — kept apart
+  // from the daily PH lines so «claims gross = PH − fee» ties exactly
+  'PH-ADJ': ['Pharma', 'Adjustment', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
+  // A&E-referral and similar A&E adjustments, apart from the daily AE lines
+  'AE-ADJ': ['A&E', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
 };
+
+// adjustment markers that split a stream's ADJ/CRN lines from its daily lines
+const ADJ_MARKER_RE = /ADJ|CRN|CREDIT|CORR|DEDUCTION|ISSUANCE|STOCK|MANUAL|OTC/;
 
 const KEYWORD_CODES = [
   [['ΑΜΟΙΒΗ ΦΑΡΜΑΚΟΠΟΙΟΥ'], 'PHF'],
@@ -1291,17 +1342,20 @@ function classifySraLine(code, description) {
     const m = CODE_TOKEN_RE.exec(upDesc);
     if (m) code = CODE_ALIASES[m[1]] || m[1];
   }
+  if (!(code in SRA_CODE_MAP)) {
+    for (const [keywords, kcode] of KEYWORD_CODES) {
+      if (keywords.every((k) => upDesc.includes(k))) { code = kcode; break; }
+    }
+  }
   if (code in SRA_CODE_MAP) {
     if (code === 'PD' && (upDesc.includes('ΚΑΤΑ ΚΕΦΑΛΗΝ') || upDesc.includes('CAPITATION'))) code = 'PD-CAP';
     else if (code === 'PD' && (upDesc.includes('KPI') || upDesc.includes('ΠΟΙΟΤΙΚ'))) code = 'PD-KPI';
+    // credit notes / corrections split away from the daily claim lines,
+    // so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
+    else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)) code = 'PH-ADJ';
+    else if ((code === 'AE' || code === 'A&E') && ADJ_MARKER_RE.test(upDesc)) code = 'AE-ADJ';
     const [b, ch, src] = SRA_CODE_MAP[code];
     return [code, b, ch, src];
-  }
-  for (const [keywords, kcode] of KEYWORD_CODES) {
-    if (keywords.every((k) => upDesc.includes(k))) {
-      const [b, ch, src] = SRA_CODE_MAP[kcode];
-      return [kcode, b, ch, src];
-    }
   }
   return [code || '??', 'Outpatient', 'Unmapped', '—'];
 }
@@ -1826,22 +1880,27 @@ function buildCrosschecks(bundle) {
   }
   if (sraCodeSet.has('PH') && (bundle.pharma || bundle.phfee)) {
     /* Newer SRAs pay ALL pharmacy invoices as daily «PH - HCP SERVICES»
-     * lines — including the pharmacist-fee invoice — and correct the fee
-     * with CRN-Packages credit notes (classified PHF).  Net them out. */
+     * lines — including the pharmacist-fee invoice.  Credit notes and
+     * manual adjustments are classified apart (PH-ADJ / PHF), so the
+     * daily lines obey the clean identity, verified Feb+Apr 2026:
+     *   SRA PH = pharma claims gross + fee(packages × unit) */
     const phSum = sraSum(sra, ['PH']);
     const phfSum = sraSum(sra, ['PHF']);
     const fee = bundle.phfee ? bundle.phfee.computed : 0;
     if (bundle.phfee) {
       const unitStr = bundle.phfee.unitPrice.toFixed(2).replace('.', ',');
-      const srcNet = round2(fee + phfSum);
-      const sideNet2 = round2(phSum + phfSum - (bundle.pharma ? bundle.pharma.total : 0));
-      let [note, flag] = annotate('fee net', srcNet, sideNet2);
-      if (Math.abs(srcNet - sideNet2) <= CENT) {
-        note = 'OK — καθαρή αμοιβή μετά τις διορθώσεις CRN-Packages (fee net of '
-          + 'package-correction credit notes).';
+      const sideNet2 = round2(phSum - (bundle.pharma ? bundle.pharma.total : 0));
+      let [note, flag] = annotate('fee net', fee, sideNet2);
+      if (Math.abs(fee - sideNet2) <= CENT) {
+        note = 'OK — το τιμολόγιο αμοιβής πληρώνεται μέσα στις ημερήσιες γραμμές PH '
+          + '(fee invoice paid inside the daily PH lines).';
+        if (Math.abs(phfSum) > CENT) {
+          note += ' Οι διορθώσεις CRN-Packages εμφανίζονται χωριστά ως PHF '
+            + '(package-correction credit notes shown separately as PHF).';
+        }
       }
-      checks.push({ name: `Αμοιβή Φαρμακοποιού net (packages × ${unitStr} € + CRN-Packages) = SRA PH+PHF − claims`,
-                    sourceTotal: srcNet, sraCodes: ['PH', 'PHF'], sraSide: sideNet2,
+      checks.push({ name: `Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PH − claims`,
+                    sourceTotal: round2(fee), sraCodes: ['PH'], sraSide: sideNet2,
                     note, flag, sideKind: 'fee_net',
                     get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
     }
@@ -2045,6 +2104,8 @@ function buildSplit(bundle) {
   let aeAmt = sraAmount(['AE', 'A&E']);
   if (aeAmt == null && bundle.claims) aeAmt = bundle.claims.bySegment['A&E'] || 0;
   ae.rows.push({ label: 'Ατυχήματα & Επείγοντα (A&E)', amount: aeAmt || 0 });
+  const aeAdj = sraAmount(['AE-ADJ']);
+  if (aeAdj) ae.rows.push({ label: 'ΤΑΕΠ — προσαρμογές/παραπομπές (A&E adjustments/referrals)', amount: aeAdj });
   sections.push(ae);
 
   const out = { title: 'Εξωνοσοκομειακή περίθαλψη (Outpatient)', bucket: 'Outpatient', rows: [] };
@@ -2095,6 +2156,8 @@ function buildSplit(bundle) {
       ? 'Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)'
       : 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
   }
+  const phAdj = sraAmount(['PH-ADJ']);
+  if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });
   sections.push(ph);
 
   for (const s of sections) s.subtotal = subtotal(s);
@@ -2350,10 +2413,10 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
       return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${row})`;
     });
     if (chk.sideKind === 'fee_net' && sraTab && b.sra) {
-      // source = fee gross + CRN-Packages (live); side = PH+PHF − claims
-      const [phTerm, phfTerm] = sumifs(['PH', 'PHF']);
-      writeAmount(ws, r, 2, `F${r}*G${r}+${phfTerm}`, F_FORMULA);
-      let side = `${phTerm}+${phfTerm}`;
+      // source = packages × unit (live); side = SRA PH − claims gross
+      const [phTerm] = sumifs(['PH']);
+      writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);
+      let side = phTerm;
       if (pharmaRow != null) side += `-B${pharmaRow}`;
       writeAmount(ws, r, 3, side, F_LINK);
     } else if (chk.sideKind === 'ph_minus_fee' && sraTab && b.sra) {

@@ -431,7 +431,16 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     "PHF": (Bucket.PHARMA, "Fee", "Pharmacist Fee Report"),
     # real SRAs pay pharmacy claims as daily «PH - HCP SERVICES» invoices
     "PH": (Bucket.PHARMA, "Claims", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
+    # pharmacy credit notes / deductions / manual adjustments — kept apart
+    # from the daily PH lines so «claims gross = PH − fee» ties exactly
+    "PH-ADJ": (Bucket.PHARMA, "Adjustment", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
+    # A&E-referral and similar A&E adjustments, apart from the daily AE lines
+    "AE-ADJ": (Bucket.AE, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
 }
+
+# adjustment markers that split a stream's ADJ/CRN lines from its daily lines
+_ADJ_MARKER_RE = re.compile(
+    r"ADJ|CRN|CREDIT|CORR|DEDUCTION|ISSUANCE|STOCK|MANUAL|OTC")
 
 _KEYWORD_CODES = [
     # (accent-stripped keyword(s) all required, code) — most specific first
@@ -496,18 +505,25 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
         m = _CODE_TOKEN_RE.search(up_desc)
         if m:
             code = _CODE_ALIASES.get(m.group(1), m.group(1))
+    if code not in SRA_CODE_MAP:
+        for keywords, kcode in _KEYWORD_CODES:
+            if all(k in up_desc for k in keywords):
+                code = kcode
+                break
     if code in SRA_CODE_MAP:
         # refine PD: capitation vs FFS by description
         if code == "PD" and ("ΚΑΤΑ ΚΕΦΑΛΗΝ" in up_desc or "CAPITATION" in up_desc):
             code = "PD-CAP"
         elif code == "PD" and ("KPI" in up_desc or "ΠΟΙΟΤΙΚ" in up_desc):
             code = "PD-KPI"
+        # credit notes / corrections split away from the daily claim lines,
+        # so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
+        elif code in ("PH", "PHD", "PHC") and _ADJ_MARKER_RE.search(up_desc):
+            code = "PH-ADJ"
+        elif code in ("AE", "A&E") and _ADJ_MARKER_RE.search(up_desc):
+            code = "AE-ADJ"
         b, ch, src = SRA_CODE_MAP[code]
         return code, b, ch, src
-    for keywords, kcode in _KEYWORD_CODES:
-        if all(k in up_desc for k in keywords):
-            b, ch, src = SRA_CODE_MAP[kcode]
-            return kcode, b, ch, src
     # unknown line: park in Outpatient and let the zero-checks surface it
     return code or "??", Bucket.OUTPATIENT, "Unmapped", "—"
 

@@ -151,6 +151,45 @@ function columnValues(rows, headerRow, headerName) {
   return null;
 }
 
+function glCostCentreProbe(rows, headerRow) {
+  /* Per-hospital cost-centre sums off a GL extract, for the diagnostics
+   * panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
+   * hospital books to its own centres, and this breakdown is the raw data
+   * needed to extend the map when a new hospital's GL shows up. */
+  const hdr = rows[headerRow].map((v) => (v == null ? '' : normLabel(cellText(v))));
+  const col = (name) => {
+    const want = normLabel(name);
+    for (let j = 0; j < hdr.length; j++) if (hdr[j].includes(want)) return j;
+    return null;
+  };
+  const jv = col('VENDOR_CODE'), jc = col('COST_CENTER'),
+        ja = col('ACCOUNT'), je = col('EURO_AMOUNT');
+  if (jv == null || je == null) return '';
+  const sums = {};
+  for (const row of rows.slice(headerRow + 1)) {
+    const vendor = row[jv] == null ? '' : cellText(row[jv]).trim();
+    if (!vendor || vendor === 'nan') continue;
+    if (row[je] == null) continue;
+    const amt = parseAmount(row[je]);
+    const cc = jc != null && row[jc] != null ? cellText(row[jc]).trim() : '—';
+    const acct = ja != null && row[ja] != null ? cellText(row[ja]).trim() : '';
+    const key = acct && acct !== 'nan' ? `${cc}/${acct}` : cc;
+    sums[vendor] = sums[vendor] || {};
+    sums[vendor][key] = (sums[vendor][key] || 0) + amt;
+  }
+  const vendors = Object.keys(sums).sort();
+  if (!vendors.length) return '';
+  const parts = ['\nGL ανά νοσοκομείο — κέντρα κόστους/λογαριασμοί (cost centre/account sums):'];
+  for (const vendor of vendors) {
+    const rows2 = Object.entries(sums[vendor]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    const shown = rows2.slice(0, 25).map(([k, v]) =>
+      `${k}=${v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(', ');
+    const more = rows2.length > 25 ? ` (+${rows2.length - 25} ακόμη)` : '';
+    parts.push(`  ${vendor}: ${shown}${more}`);
+  }
+  return parts.join('\n');
+}
+
 function excelProbe(sheets) {
   /* What the identifier saw — sheet names + first populated rows, for the
    * diagnostics panel. */
@@ -237,6 +276,10 @@ function identifyExcel(f) {
       const m = sheetName.match(/(0?[1-9]|1[0-2])\s*[./]\s*(\d{2})\b/);
       if (m) { f.month = parseInt(m[1], 10); f.year = 2000 + parseInt(m[2], 10); }
       else [f.year, f.month] = findPeriod(cellsText(rows, 5));
+      // diagnostics: cost-centre sums PER HOSPITAL — the 26xxx/25xxx map was
+      // built on Nicosia; other hospitals book to different centres, and
+      // this breakdown is how each new scheme gets mapped
+      f.probe = (f.probe || '') + glCostCentreProbe(rows, hr);
       return;
     }
     hr = findHeaderRow(rows, ['BILLING PROVIDER NAME', 'DRG ID']);

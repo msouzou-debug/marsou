@@ -229,7 +229,8 @@ def test_gate4_reports_broken_cheque_by_number():
 
 
 def test_feb_fee_netting_ties():
-    # fee net of CRN-Packages: both netted checks must tie to the cent
+    # the pharmacy identity: SRA PH (daily lines) = claims gross + fee invoice
+    # — both directions must tie to the cent, CRN-Packages apart as PHF
     from recon.checks import ReconBundle
     from recon.extract import parse_pharmacist_fee_text, parse_sra_text
     from recon.models import PharmaClaims
@@ -240,8 +241,8 @@ def test_feb_fee_netting_ties():
     b.pharma = PharmaClaims(by_type={"Drugs": 42_623.01})
     res = run_reconciliation(b)
     fee = next(c for c in res.crosschecks if c.side_kind == "fee_net")
-    assert fee.source_total == 5_635.35           # 12,023.64 − 6,388.29
-    assert fee.sra_side == 5_635.35 and fee.flag == "ok"
+    assert fee.source_total == 12_023.64          # 7,422 × 1.62
+    assert fee.sra_side == 12_023.64 and fee.flag == "ok"
     ph = next(c for c in res.crosschecks if c.side_kind == "ph_minus_fee")
     assert ph.source_total == 42_623.01
     assert ph.sra_side == 42_623.01 and ph.flag == "ok"
