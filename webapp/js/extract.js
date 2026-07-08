@@ -360,6 +360,9 @@ const SRA_CODE_MAP = {
   'PH-ADJ': ['Pharma', 'Adjustment', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
   // A&E-referral and similar A&E adjustments, apart from the daily AE lines
   'AE-ADJ': ['A&E', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
+  // «ADJ-AE Referral IS» deductions: GL books them against inpatient
+  // income (26xxx) — verified to the cent on Apr-2026
+  'IS-ADJ': ['Inpatient', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
 };
 
 // adjustment markers that split a stream's ADJ/CRN lines from its daily lines
@@ -431,6 +434,11 @@ function classifySraLine(code, description) {
     // credit notes / corrections split away from the daily claim lines,
     // so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
     else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)) code = 'PH-ADJ';
+    else if ((code === 'AE' || code === 'A&E' || code === 'IS') && ADJ_MARKER_RE.test(upDesc)
+             && upDesc.includes('REFERRAL') && /\bIS\b/.test(upDesc)) {
+      // «ADJ-AE Referral IS»: an inpatient-income deduction (GL 26xxx)
+      code = 'IS-ADJ';
+    }
     else if ((code === 'AE' || code === 'A&E') && ADJ_MARKER_RE.test(upDesc)) code = 'AE-ADJ';
     const [b, ch, src] = SRA_CODE_MAP[code];
     return [code, b, ch, src];

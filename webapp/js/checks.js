@@ -337,20 +337,42 @@ function buildCrosschecks(bundle) {
 
   if (bundle.gl) {
     const gl = bundle.gl;
-    add('GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS', gl.inpatient, ['IS'],
+    const hemoAmt = sra ? sraSum(sra, ['HEMO']) : 0;
+    // GL inpatient income (26xxx) includes hemodialysis (per diem) and the
+    // A&E-referral adjustment — verified to the cent on Apr-2026:
+    // 26xxx = SRA IS + HEMO + IS-ADJ
+    add('GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS + αιμοκάθαρση + προσαρμογές',
+        gl.inpatient, ['IS', 'IS-ADJ', 'HEMO'],
         null, bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
-    add('GL: Z-catalogue (26003+26007) vs ΟΑΥ Z', gl.zCatalogue, []);
+    add('GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση', gl.zCatalogue, []);
     if (bundle.inpatient) {
       const c = checks[checks.length - 1];
-      c.sraSide = bundle.inpatient.zCatalogue;
+      c.sraSide = round2(bundle.inpatient.zCatalogue + hemoAmt);
       [c.note, c.flag] = annotate('Z-CATALOGUE GL', c.sourceTotal, c.sraSide);
+      const cand = claimCandidates(bundle, c.diff || 0);
+      if (Math.abs(c.diff || 0) > CENT && cand) { c.note += cand; c.flag = 'amber'; }
     }
     add('GL: ΤΑΕΠ / A&E (25801) = SRA AE', gl.ae, ['AE', 'A&E'],
         null, bundle.claims ? (bundle.claims.bySegment['A&E'] || 0) : null);
-    add('GL: Εξωνοσοκομειακή (25xxx clinical) = SRA OS+NM+AP', gl.outpatient,
-        ['OS', 'NM', 'AP'], null, claimsOut);
-    add('GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) = SRA PHF', gl.pharmacistFee,
-        ['PHF'], null, bundle.phfee ? bundle.phfee.computed : null);
+    // PD fixed-price items (vaccinations, out-of-office, KPIs) sit in the
+    // clinical 25xxx centres; capitation (51001001) is booked apart but
+    // paid inside the SRA PD lines — compare the two wholes
+    add('GL: Εξωνοσοκομειακή & ΠΙ (25xxx clinical + capitation) = SRA OS+NM+AP+PD+KPI',
+        round2(gl.outpatient + gl.capitation),
+        ['OS', 'NM', 'AP', 'PD', 'PD-CAP', 'PD-KPI', 'KPI', 'MRI', 'CT', 'MRI/CT'],
+        'Επιταγές δορυφορικών παροχέων (άλλος κωδικός F στην κεφαλίδα SRA, π.χ. κέντρα '
+        + 'υγείας) μένουν εκτός του GL αυτού του νοσοκομείου (satellite-supplier cheques '
+        + 'sit outside this hospital GL vendor).',
+        claimsOut);
+    // the SRA pays the fee invoice inside the daily PH lines, so compare
+    // GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
+    add('GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) vs αναφορά αμοιβής',
+        gl.pharmacistFee, []);
+    if (bundle.phfee) {
+      const c = checks[checks.length - 1];
+      c.sraSide = bundle.phfee.computed;
+      [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+    }
     add('GL: Φάρμακα (255xx) vs pharma claims gross', gl.pharmaOther, []);
     if (bundle.pharma) {
       const c = checks[checks.length - 1];
@@ -359,8 +381,20 @@ function buildCrosschecks(bundle) {
       if (Math.abs(c.diff || 0) <= CENT) c.note = 'OK — ταυτίζεται (ties out)';
     }
     if (gl.capitation) {
-      add('GL: Capitation (51001001) = SRA PD capitation', gl.capitation, ['PD-CAP'],
-          null, bundle.capitation ? bundle.capitation.total : null);
+      if (sra && sraCodeSet.has('PD-CAP')) {
+        add('GL: Capitation (51001001) = SRA PD capitation', gl.capitation, ['PD-CAP'],
+            null, bundle.capitation ? bundle.capitation.total : null);
+      } else {
+        // capitation is bundled inside the SRA PD lines — tie the GL
+        // account to the capitation REPORT instead (exact on Apr-2026)
+        add('GL: Capitation (51001001) = Capitation report', gl.capitation, [],
+            null, bundle.capitation ? bundle.capitation.total : null);
+        if (bundle.capitation) {
+          const c = checks[checks.length - 1];
+          c.sraSide = bundle.capitation.total;
+          [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+        }
+      }
     }
   }
 
@@ -503,6 +537,11 @@ function buildSplit(bundle) {
     // bucket depends on the patient — default Inpatient per ΟΑΥ's «ADJ-IS»
     // label; flip the blue Bucket cell on the SRA tab and SUMIFS re-tie
     if (hemoAmt) ip.rows.push({ label: 'Αιμοκάθαρση (Hemodialysis — Inpatient ή Outpatient ανά ασθενή)', amount: hemoAmt });
+  }
+  const isAdj = sraAmount(['IS-ADJ']);
+  if (isAdj) {
+    ip.rows.push({ label: 'Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ (A&E-referral adjustment, GL 26xxx)',
+                   amount: isAdj });
   }
   sections.push(ip);
 

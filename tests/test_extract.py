@@ -147,7 +147,9 @@ def test_classify_splits_adjustments_from_daily_lines():
         "CRN-Drugs- CRN-Drugs-Phase1-COST&VAT": "PH-ADJ",       # PHD token
         "ADJ- Adjustment PharmacyLine - Feb26": "PH-ADJ",
         "ISSUANCES ISSUANCES 11.24-10.25": "PH-ADJ",
-        "ADJ-AE Referral IS - Adjustment for referrals": "AE-ADJ",
+        # GL books the referral deduction against inpatient income (26xxx)
+        "ADJ-AE Referral IS - Adjustment for referrals": "IS-ADJ",
+        "MANUAL ADJ AE - overpayment": "AE-ADJ",
         "CRN-Packages PH - CORRECTION-Packages": "PHF",         # fee corrections
         "ADJ- IS - Adjustment for Hemodialysis": "HEMO",
         "ADJ-New Reimb OS - Adj. based on new reimb. method-": "OS",
@@ -157,7 +159,8 @@ def test_classify_splits_adjustments_from_daily_lines():
         code, bucket, channel, _ = classify_sra_line("", desc)
         assert code == want, f"{desc!r} → {code}, want {want}"
     assert classify_sra_line("", "CRN-Drugs- PH - DEDUCTIONS")[1] == Bucket.PHARMA
-    assert classify_sra_line("", "ADJ-AE Referral IS - Adj.")[1] == Bucket.AE
+    assert classify_sra_line("", "ADJ-AE Referral IS - Adj. for referrals")[1] == Bucket.INPATIENT
+    assert classify_sra_line("", "MANUAL ADJ AE - overpayment")[1] == Bucket.AE
 
 
 def test_merge_sras_multiple_cheques():

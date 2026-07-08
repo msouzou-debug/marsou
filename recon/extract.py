@@ -436,6 +436,9 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     "PH-ADJ": (Bucket.PHARMA, "Adjustment", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
     # A&E-referral and similar A&E adjustments, apart from the daily AE lines
     "AE-ADJ": (Bucket.AE, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
+    # «ADJ-AE Referral IS» deductions: GL books them against inpatient
+    # income (26xxx) — verified to the cent on Apr-2026
+    "IS-ADJ": (Bucket.INPATIENT, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
 }
 
 # adjustment markers that split a stream's ADJ/CRN lines from its daily lines
@@ -520,6 +523,10 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
         # so «SRA PH = claims gross + fee» and «SRA AE = GL 25801» tie exactly
         elif code in ("PH", "PHD", "PHC") and _ADJ_MARKER_RE.search(up_desc):
             code = "PH-ADJ"
+        elif (code in ("AE", "A&E", "IS") and _ADJ_MARKER_RE.search(up_desc)
+                and "REFERRAL" in up_desc and re.search(r"\bIS\b", up_desc)):
+            # «ADJ-AE Referral IS»: an inpatient-income deduction (GL 26xxx)
+            code = "IS-ADJ"
         elif code in ("AE", "A&E") and _ADJ_MARKER_RE.search(up_desc):
             code = "AE-ADJ"
         b, ch, src = SRA_CODE_MAP[code]

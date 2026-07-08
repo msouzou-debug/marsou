@@ -284,6 +284,51 @@ def test_endo_vs_sra_gap_named_when_claims_tie_sra():
     assert "παλαιότερων" in row.note and "99476712" in row.note
 
 
+def test_gl_inpatient_identity_includes_hemo_and_referral_adjustment():
+    # Apr-2026 (F1048) identity, verified to the cent on the real month:
+    # GL 26xxx = SRA IS + HEMO + IS-ADJ (the A&E-referral deduction)
+    from recon.models import SRALine
+    b = full_bundle()
+    b.sra.lines.append(SRALine(
+        code="HEMO", description="ADJ- IS - Adjustment for Hemodialysis",
+        amount=46_100.00, bucket=Bucket.INPATIENT, channel="Adjustment",
+        source_report="Hemodialysis report"))
+    b.sra.lines.append(SRALine(
+        code="IS-ADJ", description="ADJ-AE Referral IS - Adjustment",
+        amount=-24_639.25, bucket=Bucket.INPATIENT, channel="Adjustment",
+        source_report="Πληρωμένες Απαιτήσεις «all»"))
+    b.sra.stated_total = round(b.sra.stated_total + 46_100.00 - 24_639.25, 2)
+    rows = [
+        ("F1049", "26001", "40001001", 561_728.70),
+        ("F1049", "26002", "40001002", 400_000.00),
+        ("F1049", "26003", "40001003", 60_000.00),
+        # per diem centre holds hemodialysis and the referral deduction
+        ("F1049", "26007", "40001003", round(40_000.00 + 46_100.00 - 24_639.25, 2)),
+        ("F1049", "25801", "40002001", 131_284.66),
+    ]
+    b.gl = extract_gl(synth.gl_xlsx(rows=rows), "F1049")
+    res = run_reconciliation(b)
+    gl_ip = next(c for c in res.crosschecks if c.name.startswith("GL: Ενδονοσοκομειακή"))
+    assert gl_ip.source_total == 1_083_189.45
+    assert gl_ip.sra_side == 1_083_189.45 and gl_ip.flag == "ok"
+    ae = next(c for c in res.crosschecks if "GL: ΤΑΕΠ" in c.name)
+    assert ae.flag == "ok"                      # referral adj is NOT in AE
+    from recon.build_xlsx import build_workbook, verify_workbook
+    assert verify_workbook(build_workbook(res)) == []
+
+
+def test_gl_capitation_ties_report_when_bundled_in_pd():
+    # no PD-CAP line on the SRA (capitation bundled in PD): the GL account
+    # must tie the capitation REPORT instead — exact on Apr-2026
+    b = full_bundle(with_optional=True)
+    b.sra.lines = [l for l in b.sra.lines if l.code != "PD-CAP"]
+    b.sra.stated_total = round(sum(l.amount for l in b.sra.lines), 2)
+    res = run_reconciliation(b)
+    cap = next(c for c in res.crosschecks if "GL: Capitation" in c.name)
+    assert "Capitation report" in cap.name
+    assert cap.sra_side == b.capitation.total and cap.flag == "ok"
+
+
 def test_old_period_claim_named_in_gate4_finding():
     # a 2022 claim paid in this cheque but absent from the Ενδ. summary must
     # be NAMED in the gate-4 finding (Larnaca Apr-2026 case: 1,297.43)

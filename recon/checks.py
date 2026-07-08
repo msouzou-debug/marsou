@@ -478,21 +478,47 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
 
     if bundle.gl:
         gl = bundle.gl
-        add("GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS", gl.inpatient,
-            ["IS"], alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
-        add("GL: Z-catalogue (26003+26007) vs ΟΑΥ Z",
+        hemo_amt = _sra_sum(sra, ["HEMO"]) if sra else 0.0
+        # GL inpatient income (26xxx) includes hemodialysis (per diem) and
+        # the A&E-referral adjustment — verified to the cent on Apr-2026:
+        # 26xxx = SRA IS + HEMO + IS-ADJ
+        add("GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS + "
+            "αιμοκάθαρση + προσαρμογές", gl.inpatient,
+            ["IS", "IS-ADJ", "HEMO"],
+            alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
+        add("GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση",
             gl.z_catalogue, [])  # report-vs-report, noted below
         if bundle.inpatient:
             c = checks[-1]
-            c.sra_side = bundle.inpatient.z_catalogue
+            c.sra_side = round(bundle.inpatient.z_catalogue + hemo_amt, 2)
             c.note, c.flag = _annotate("Z-CATALOGUE GL", c.source_total, c.sra_side)
+            cand = _claim_candidates(bundle, c.diff or 0.0)
+            if abs(c.diff or 0) > CENT and cand:
+                c.note += cand
+                c.flag = "amber"
         add("GL: ΤΑΕΠ / A&E (25801) = SRA AE", gl.ae, ["AE", "A&E"],
             alt=bundle.claims.by_segment.get("A&E") if bundle.claims else None)
-        add("GL: Εξωνοσοκομειακή (25xxx clinical) = SRA OS+NM+AP",
-            gl.outpatient, ["OS", "NM", "AP"], alt=claims_out)
-        add("GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) = SRA PHF",
-            gl.pharmacist_fee, ["PHF"],
-            alt=bundle.phfee.computed if bundle.phfee else None)
+        # PD fixed-price items (vaccinations, out-of-office, KPIs) sit in the
+        # clinical 25xxx centres; capitation (51001001) is booked apart but
+        # paid inside the SRA PD lines — compare the two wholes
+        add("GL: Εξωνοσοκομειακή & ΠΙ (25xxx clinical + capitation) = "
+            "SRA OS+NM+AP+PD+KPI",
+            round(gl.outpatient + gl.capitation, 2),
+            ["OS", "NM", "AP", "PD", "PD-CAP", "PD-KPI", "KPI", "MRI", "CT",
+             "MRI/CT"],
+            flag_hint="Επιταγές δορυφορικών παροχέων (άλλος κωδικός F στην "
+                      "κεφαλίδα SRA, π.χ. κέντρα υγείας) μένουν εκτός του GL "
+                      "αυτού του νοσοκομείου (satellite-supplier cheques sit "
+                      "outside this hospital's GL vendor).",
+            alt=claims_out)
+        # the SRA pays the fee invoice inside the daily PH lines, so compare
+        # GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
+        add("GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) vs αναφορά "
+            "αμοιβής", gl.pharmacist_fee, [])
+        if bundle.phfee:
+            c = checks[-1]
+            c.sra_side = bundle.phfee.computed
+            c.note, c.flag = _annotate(c.name, c.source_total, c.sra_side)
         add("GL: Φάρμακα (255xx) vs pharma claims gross", gl.pharma_other, [])
         if bundle.pharma:
             c = checks[-1]
@@ -501,8 +527,20 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             c.note, c.flag = _annotate("PHARMA GL", c.sra_side, c.source_total)
             c.note = c.note if abs(c.diff or 0) > CENT else "OK — ταυτίζεται (ties out)"
         if gl.capitation:
-            add("GL: Capitation (51001001) = SRA PD capitation", gl.capitation,
-                ["PD-CAP"], alt=bundle.capitation.total if bundle.capitation else None)
+            if sra and "PD-CAP" in sra_code_set:
+                add("GL: Capitation (51001001) = SRA PD capitation",
+                    gl.capitation, ["PD-CAP"],
+                    alt=bundle.capitation.total if bundle.capitation else None)
+            else:
+                # capitation is bundled inside the SRA PD lines — tie the GL
+                # account to the capitation REPORT instead (exact on Apr-2026)
+                add("GL: Capitation (51001001) = Capitation report",
+                    gl.capitation, [],
+                    alt=bundle.capitation.total if bundle.capitation else None)
+                if bundle.capitation:
+                    c = checks[-1]
+                    c.sra_side = bundle.capitation.total
+                    c.note, c.flag = _annotate(c.name, c.source_total, c.sra_side)
 
     if bundle.isaud:
         add("IS Auditor: inpatient (DRG fees + Z-catalogue) = SRA IS",
@@ -642,6 +680,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
             ip.rows.append(SplitRow(
                 "Αιμοκάθαρση (Hemodialysis — Inpatient ή Outpatient ανά ασθενή)",
                 hemo_amt))
+    is_adj = sra_amount(["IS-ADJ"])
+    if is_adj:
+        ip.rows.append(SplitRow(
+            "Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ "
+            "(A&E-referral adjustment, GL 26xxx)", is_adj))
     sections.append(ip)
 
     ae = SplitSection("ΤΑΕΠ (A&E)", Bucket.AE)
