@@ -4,3 +4,4 @@ Posting Date,Document No,Text,Assignment,Amount in Local Currency
 22.06.2026,1400000103,Customer receipt Beta GmbH,,777.77
 24.06.2026,1500000204,Vendor payment Gamma,PO9987,-1500.00
 29.06.2026,1500000205,Payroll June (single posting),PAY-JUN,-5000.00
+30.06.2026,1500000206,Zero-value clearing document,,0.00

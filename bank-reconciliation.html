@@ -303,7 +303,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    Reconciliation core — pure functions, no DOM access.
    ===================================================================== */
 'use strict';
-var TOOL_VERSION = '1.2.0';
+var TOOL_VERSION = '1.2.1';
 var RECON_SHEET = '_RECON';          // machine-readable carry-forward sheet
 var CELL_CHUNK = 30000;              // xlsx cell text limit is 32767
 
@@ -1000,7 +1000,7 @@ if (typeof module !== 'undefined' && module.exports){
     var mode = $('am-' + key).value;
     var flip = $('fl-' + key).checked;
     var fmt = $('df-' + key).value;
-    var items = [], skipped = 0;
+    var items = [], skipped = 0, skippedZero = 0;
 
     for (var i = hr + 1; i < rows.length; i++){
       var r = rows[i];
@@ -1017,6 +1017,7 @@ if (typeof module !== 'undefined' && module.exports){
       }
       var dt = parseDateVal(r[cd], fmt);
       if (amt == null){ skipped++; continue; }
+      if (Math.round(amt * 100) === 0){ skippedZero++; continue; }  // zero-value lines can never reconcile anything
       if (flip) amt = -amt;
       items.push({
         id: state.nextItemId++, side: side,
@@ -1035,12 +1036,14 @@ if (typeof module !== 'undefined' && module.exports){
     $('st-' + key).textContent = st.name + ' — ' + items.length + ' rows loaded, net movement ' + fmtAmt(net);
     $('st-' + key).className = 'status ok';
     $('box-' + key).classList.add('loaded');
-    msg('msg-' + key, items.length + ' rows loaded (net ' + fmtAmt(net) + (skipped ? ', ' + skipped + ' rows without amount skipped' : '') + ').' +
+    msg('msg-' + key, items.length + ' rows loaded (net ' + fmtAmt(net) + (skipped ? ', ' + skipped + ' rows without amount skipped' : '') +
+        (skippedZero ? ', ' + skippedZero + ' zero-amount rows ignored' : '') + ').' +
         (removedMatched ? ' Reload cleared ' + removedMatched + ' existing match group(s).' : ''), 'ok');
     logAudit('Rows loaded', side + ': ' + items.length + ' rows from "' + st.name + '" sheet "' + $('sh-' + key).value +
       '" (header row ' + (hr + 1) + ', date col "' + st.headers[cd] + '", amount ' +
       (mode === 'signed' ? 'col "' + st.headers[parseInt($('ca-' + key).value, 10)] + '"' : 'debit/credit cols') +
-      (flip ? ', signs flipped' : '') + '); net ' + fmtAmt(net) + (skipped ? '; ' + skipped + ' rows skipped (no amount)' : ''));
+      (flip ? ', signs flipped' : '') + '); net ' + fmtAmt(net) + (skipped ? '; ' + skipped + ' rows skipped (no amount)' : '') +
+      (skippedZero ? '; ' + skippedZero + ' zero-amount rows ignored' : ''));
     renderAll();
   }
 
@@ -1071,17 +1074,15 @@ if (typeof module !== 'undefined' && module.exports){
         return;
       }
       var label = data.period ? 'B/F ' + data.period : 'B/F prior';
-      var bf = [];
-      (data.openBank || []).forEach(function(it){
-        bf.push({id: state.nextItemId++, side:'BANK', date: it.date || null, desc: it.desc || '', ref: it.ref || '',
-                 amount: Math.round((it.amount || 0) * 100) / 100,
-                 origin: /^B\/F /.test(it.origin || '') ? it.origin : label, matchId: null});
-      });
-      (data.openSap || []).forEach(function(it){
-        bf.push({id: state.nextItemId++, side:'SAP', date: it.date || null, desc: it.desc || '', ref: it.ref || '',
-                 amount: Math.round((it.amount || 0) * 100) / 100,
-                 origin: /^B\/F /.test(it.origin || '') ? it.origin : label, matchId: null});
-      });
+      var bf = [], bfZero = 0;
+      function addBF(side, it){
+        var amt = Math.round((it.amount || 0) * 100) / 100;
+        if (amt === 0){ bfZero++; return; }  // zero-value items can never reconcile anything
+        bf.push({id: state.nextItemId++, side: side, date: it.date || null, desc: it.desc || '', ref: it.ref || '',
+                 amount: amt, origin: /^B\/F /.test(it.origin || '') ? it.origin : label, matchId: null});
+      }
+      (data.openBank || []).forEach(function(it){ addBF('BANK', it); });
+      (data.openSap || []).forEach(function(it){ addBF('SAP', it); });
       var removed = replaceItems(function(it){ return it.origin !== 'Current'; }, bf);
       $('st-prev').textContent = f.name + ' — ' + (data.openBank || []).length + ' bank + ' + (data.openSap || []).length +
         ' SAP open items brought forward' + (data.period ? ' from ' + data.period : '');
@@ -1089,7 +1090,8 @@ if (typeof module !== 'undefined' && module.exports){
       $('box-prev').classList.add('loaded');
       msg('msg-prev', 'Open items brought forward successfully.' + (removed ? ' Reload cleared ' + removed + ' match group(s).' : ''), 'ok');
       logAudit('Prior report imported', '"' + f.name + '"' + (data.period ? ' (period ' + data.period + ', exported ' + (data.exportedAt || '?') + ' by ' + (data.exportedBy || '?') + ')' : '') +
-        ': ' + (data.openBank || []).length + ' open bank items + ' + (data.openSap || []).length + ' open SAP items brought forward');
+        ': ' + (data.openBank || []).length + ' open bank items + ' + (data.openSap || []).length + ' open SAP items brought forward' +
+        (bfZero ? ' (' + bfZero + ' zero-amount items ignored)' : ''));
       renderAll();
     });
   });
