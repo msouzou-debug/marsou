@@ -303,7 +303,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    Reconciliation core — pure functions, no DOM access.
    ===================================================================== */
 'use strict';
-var TOOL_VERSION = '1.2.1';
+var TOOL_VERSION = '1.3.0';
 var RECON_SHEET = '_RECON';          // machine-readable carry-forward sheet
 var CELL_CHUNK = 30000;              // xlsx cell text limit is 32767
 
@@ -810,8 +810,110 @@ function buildWorkbook(XLSX, payload){
   return wb;
 }
 
-/* Read a previous report exported by this tool. Returns
-   {openBank, openSap, period, bankBal, sapBal, exportedAt} — throws on failure. */
+/* Greek capitals that look like Latin ones (mixed-alphabet spreadsheets are
+   common, e.g. "Βank" written with a Greek Beta) */
+var GREEK_LATIN = {'Α':'A','Β':'B','Ε':'E','Ζ':'Z','Η':'H','Ι':'I','Κ':'K','Μ':'M','Ν':'N','Ο':'O','Ρ':'P','Τ':'T','Υ':'Y','Χ':'X'};
+function latinizeUpper(s){
+  return String(s).toUpperCase().replace(/[Α-Ω]/g, function(c){ return GREEK_LATIN[c] || c; });
+}
+
+/* =====================================================================
+   Legacy / manual reconciliation import. Recognises hand-maintained
+   reconciliation statements laid out as sections, e.g.:
+     "Deducted from Bank, not shown in SAP"   -> open BANK items (money out)
+     "Receipts from Bank, not shown in SAP"   -> open BANK items (money in)
+     "Payments from SAP, not shown in Bank"   -> open SAP items (money out)
+     "Deposits from SAP, not shown in Bank"   -> open SAP items (money in)
+   plus "BALANCE AS PER BANK STATEMENT" / "BALANCE AS PER OUR BOOKS" lines.
+   Section items keep their sign convention: positive = money into bank.
+   Returns null when the workbook doesn't look like such a statement.
+   ===================================================================== */
+var LEGACY_SECTIONS = [
+  {side:'BANK', sign:-1, re:/(DEDUCT|PAYMENT|WITHDRAW|CHARGE|DEBIT)[\s\S]*BANK[\s\S]*NOT[\s\S]*(SAP|BOOK|LEDGER|GL)/},
+  {side:'BANK', sign: 1, re:/(RECEIPT|DEPOSIT|CREDIT|LODG)[\s\S]*BANK[\s\S]*NOT[\s\S]*(SAP|BOOK|LEDGER|GL)/},
+  {side:'SAP',  sign:-1, re:/(PAYMENT|DEDUCT|WITHDRAW|CHARGE|DEBIT)[\s\S]*(SAP|BOOKS?|LEDGER|GL)[\s\S]*NOT[\s\S]*BANK/},
+  {side:'SAP',  sign: 1, re:/(RECEIPT|DEPOSIT|CREDIT|LODG)[\s\S]*(SAP|BOOKS?|LEDGER|GL)[\s\S]*NOT[\s\S]*BANK/},
+  {side:'SAP',  sign:-1, re:/UNPRESENTED\s+(CHEQUE|CHECK)|OUTSTANDING\s+(CHEQUE|CHECK|PAYMENT)/},
+  {side:'SAP',  sign: 1, re:/DEPOSITS?\s+IN\s+TRANSIT|OUTSTANDING\s+(LODGEMENT|DEPOSIT)/}
+];
+var STRICT_DATE_RE = /^\s*\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\s*$|^\s*\d{4}-\d{1,2}-\d{1,2}/;
+var NUMERIC_STR_RE = /^[\s€$£¥(),.'\d-]+$/;
+
+function parseLegacyRecon(XLSX, wb){
+  var openBank = [], openSap = [], bankBal = null, sapBal = null, period = null, sectionsFound = 0;
+
+  function lastNumeric(row){
+    for (var j = row.length - 1; j >= 0; j--){
+      var c = row[j];
+      if (typeof c === 'number' && isFinite(c) && c !== 0) return {v: c, idx: j};
+      if (typeof c === 'string' && /\d/.test(c) && NUMERIC_STR_RE.test(c)){
+        var n = parseAmount(c);
+        if (n != null && n !== 0) return {v: n, idx: j};
+      }
+    }
+    return null;
+  }
+
+  wb.SheetNames.forEach(function(name){
+    var rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null});
+    var current = null;
+    rows.forEach(function(r){
+      if (!r) return;
+      var txt = latinizeUpper(r.filter(function(c){ return typeof c === 'string'; }).join(' '));
+
+      // balance lines end any open section
+      if (/BALANCE[\s\S]*(BANK\s*STATEMENT|PER\s*BANK)/.test(txt)){
+        var nb = lastNumeric(r);
+        if (nb) bankBal = Math.round(nb.v * 100) / 100;
+        r.forEach(function(c){
+          if (c instanceof Date && !period) period = c.getUTCFullYear() + '-' + pad2(c.getUTCMonth() + 1);
+        });
+        current = null; return;
+      }
+      if (/BALANCE[\s\S]*(OUR\s*BOOKS|BOOKS|SAP|LEDGER|GL\s*ACCOUNT)/.test(txt)){
+        var ns = lastNumeric(r);
+        if (ns) sapBal = Math.round(ns.v * 100) / 100;
+        current = null; return;
+      }
+
+      var sec = null;
+      for (var k = 0; k < LEGACY_SECTIONS.length; k++){
+        if (LEGACY_SECTIONS[k].re.test(txt)){ sec = LEGACY_SECTIONS[k]; break; }
+      }
+      if (sec){ current = sec; sectionsFound++; return; }
+      if (!current) return;
+
+      var amt = lastNumeric(r);
+      if (!amt) return;                           // column headers / blank / zero rows
+      var date = null, texts = [];
+      r.forEach(function(c, j){
+        if (j === amt.idx) return;
+        if (c instanceof Date){ if (!date) date = parseDateVal(c, 'auto'); return; }
+        if (typeof c === 'string' && c.trim()){
+          if (!date && STRICT_DATE_RE.test(c)){ date = parseDateVal(c, 'auto'); return; }
+          if (/[A-Za-zͰ-Ͽ]/.test(c)) texts.push(c.trim());
+        }
+      });
+      if (!texts.length && !date){ current = null; return; }   // amount-only row = section subtotal
+      var item = {origin:'', date: date, desc: texts.join(' '), ref:'', amount: Math.round(current.sign * amt.v * 100) / 100};
+      if (item.amount !== 0) (current.side === 'BANK' ? openBank : openSap).push(item);
+    });
+
+    if (!period){
+      var m = String(name).match(/(\d{1,2})[._\-\/](\d{4})/);
+      if (m) period = m[2] + '-' + pad2(+m[1]);
+    }
+  });
+
+  if (!sectionsFound) return null;
+  return {openBank: openBank, openSap: openSap, period: period, bankBal: bankBal, sapBal: sapBal, legacy: true};
+}
+
+/* Read a previous reconciliation report. Understands (in order):
+   1. reports exported by this tool (_RECON metadata sheet)
+   2. this tool's human-readable "Open Items - …" sheets
+   3. hand-maintained reconciliation statements (see parseLegacyRecon)
+   Throws with a helpful message when none apply. */
 function extractPrevReport(XLSX, wb){
   var ws = wb.Sheets[RECON_SHEET];
   if (ws){
@@ -821,29 +923,33 @@ function extractPrevReport(XLSX, wb){
     if (data.tool !== 'bank-reconciliation-html') throw new Error('Unrecognised metadata.');
     return data;
   }
-  // Fallback: parse the human-readable open-item sheets
-  function readOpen(name){
-    var w = wb.Sheets[name];
-    if (!w) throw new Error('Sheet "' + name + '" not found — is this a report exported by this tool?');
-    var rows = XLSX.utils.sheet_to_json(w, {header:1, raw:true, defval:null});
-    var out = [];
-    for (var i = 1; i < rows.length; i++){
-      var r = rows[i];
-      if (!r || r[0] === 'TOTAL' || (r[0] == null && r[4] == null)) continue;
-      var amt = parseAmount(r[4]);
-      if (amt == null) continue;
-      out.push({origin: r[0] || '', date: parseDateVal(r[1], 'auto'), desc: r[2] || '', ref: r[3] || '', amount: amt});
-    }
-    return out;
+  if (wb.Sheets['Open Items - Bank'] && wb.Sheets['Open Items - SAP']){
+    var readOpen = function(name){
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null});
+      var out = [];
+      for (var i = 1; i < rows.length; i++){
+        var r = rows[i];
+        if (!r || r[0] === 'TOTAL' || (r[0] == null && r[4] == null)) continue;
+        var amt = parseAmount(r[4]);
+        if (amt == null) continue;
+        out.push({origin: r[0] || '', date: parseDateVal(r[1], 'auto'), desc: r[2] || '', ref: r[3] || '', amount: amt});
+      }
+      return out;
+    };
+    return {openBank: readOpen('Open Items - Bank'), openSap: readOpen('Open Items - SAP'), period: null, bankBal: null, sapBal: null};
   }
-  return {openBank: readOpen('Open Items - Bank'), openSap: readOpen('Open Items - SAP'), period: null, bankBal: null, sapBal: null};
+  var legacy = parseLegacyRecon(XLSX, wb);
+  if (legacy) return legacy;
+  throw new Error('Unrecognised layout. Accepted: a report exported by this tool, or a reconciliation statement with sections such as ' +
+    '"Deducted from Bank, not shown in SAP" / "Receipts from Bank, not shown in SAP" / "Payments from SAP, not shown in Bank" / "Deposits from SAP, not shown in Bank".');
 }
 
 /* Export for node-based tests (ignored in the browser) */
 if (typeof module !== 'undefined' && module.exports){
   module.exports = {TOOL_VERSION:TOOL_VERSION, parseAmount:parseAmount, normRef:normRef, textTokens:textTokens, textSim:textSim, parseDateVal:parseDateVal,
     excelSerialToISO:excelSerialToISO, dateDiffDays:dateDiffDays, autoMatchPlan:autoMatchPlan,
-    computeSummary:computeSummary, buildWorkbook:buildWorkbook, extractPrevReport:extractPrevReport, cents:cents, fmtAmt:fmtAmt};
+    computeSummary:computeSummary, buildWorkbook:buildWorkbook, extractPrevReport:extractPrevReport,
+    parseLegacyRecon:parseLegacyRecon, latinizeUpper:latinizeUpper, cents:cents, fmtAmt:fmtAmt};
 }
 </script>
 
@@ -1084,14 +1190,20 @@ if (typeof module !== 'undefined' && module.exports){
       (data.openBank || []).forEach(function(it){ addBF('BANK', it); });
       (data.openSap || []).forEach(function(it){ addBF('SAP', it); });
       var removed = replaceItems(function(it){ return it.origin !== 'Current'; }, bf);
+      var balInfo = (data.bankBal != null || data.sapBal != null)
+        ? ' Prior balances for reference — bank: ' + fmtAmt(data.bankBal || 0) + ', books/SAP: ' + fmtAmt(data.sapBal || 0) + '.'
+        : '';
       $('st-prev').textContent = f.name + ' — ' + (data.openBank || []).length + ' bank + ' + (data.openSap || []).length +
-        ' SAP open items brought forward' + (data.period ? ' from ' + data.period : '');
+        ' SAP open items brought forward' + (data.period ? ' from ' + data.period : '') +
+        (data.legacy ? ' (manual reconciliation layout detected)' : '');
       $('st-prev').className = 'status ok';
       $('box-prev').classList.add('loaded');
-      msg('msg-prev', 'Open items brought forward successfully.' + (removed ? ' Reload cleared ' + removed + ' match group(s).' : ''), 'ok');
-      logAudit('Prior report imported', '"' + f.name + '"' + (data.period ? ' (period ' + data.period + ', exported ' + (data.exportedAt || '?') + ' by ' + (data.exportedBy || '?') + ')' : '') +
+      msg('msg-prev', 'Open items brought forward successfully.' + balInfo + (removed ? ' Reload cleared ' + removed + ' match group(s).' : ''), 'ok');
+      logAudit('Prior report imported', '"' + f.name + '"' + (data.legacy ? ' [manual reconciliation layout]' : '') +
+        (data.period ? ' (period ' + data.period + (data.exportedAt ? ', exported ' + data.exportedAt + ' by ' + (data.exportedBy || '?') : '') + ')' : '') +
         ': ' + (data.openBank || []).length + ' open bank items + ' + (data.openSap || []).length + ' open SAP items brought forward' +
-        (bfZero ? ' (' + bfZero + ' zero-amount items ignored)' : ''));
+        (bfZero ? ' (' + bfZero + ' zero-amount items ignored)' : '') +
+        (data.bankBal != null ? '; prior bank balance ' + fmtAmt(data.bankBal) + ', prior book balance ' + fmtAmt(data.sapBal || 0) : ''));
       renderAll();
     });
   });
