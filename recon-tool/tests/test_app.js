@@ -10,8 +10,8 @@ const S = f => path.join(ROOT, 'samples', f);
   page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE:', m.text()); });
   await page.goto(APP);
 
-  // pick SAP vs HIO preset (4th)
-  await page.locator('.preset').nth(3).click();
+  // pick SAP vs HIO preset (3rd — bank preset removed in v2.3)
+  await page.locator('.preset').nth(2).click();
 
   await page.setInputFiles('#fileA', S('sample_A_SAP.xlsx'));
   await page.setInputFiles('#fileB', S('sample_B_HIO.xlsx'));

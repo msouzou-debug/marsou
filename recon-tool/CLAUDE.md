@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.1**.
+internet. All data stays on the local machine. Current version: **v2.3**.
 
 ## Architecture
 
@@ -86,6 +86,8 @@ Expected values:
    tolerance + date within ±N days (`pass2`, cent-bucketed so thousands of
    lines stay fast; undated items only match undated items). Matches are
    labelled rule 2. This is the mode for two files with no common reference.
+   Bank reconciliations are out of scope — a separate single-file bank
+   reconciliation tool exists for those; the bank preset was removed in v2.3.
    **Key guardrails** (v2.1, `crossKeySuggest()` + `RESULT.warns` banner):
    after both files load, column value-overlap is computed between the sides;
    the best pair (≥50% shared values, non-amount/date columns) is shown as a
@@ -98,7 +100,7 @@ Expected values:
    largest amounts first; pass 3 (opt-in `#tier3on`) by bigram-Dice
    description similarity ≥ 0.7 + amount within tolerance. Merged pairs get
    `rule:2|3` and key `A ⇄ B`; shown as a pill in the Matched tab and a Rule
-   column in the export. Bank preset auto-enables pass 2.
+   column in the export.
 3. **Split (subset-sum) proposals** (v2, `proposeSplits()` + `findCombo()`):
    after all passes, 1-to-N combinations (N=2..maxK, default 4, hard cap 6)
    are searched on the open items of the other side — bounded DFS on CENT
@@ -120,8 +122,8 @@ Expected values:
    row carries `=SUM(E first:last)-SUM(F first:last)`; group numbers appear in
    col A only on target rows so `COUNTA` counts groups. Summary: cross-sheet
    SUM/COUNTA incl. Groups, self-check row `ROUND(B12-(C5+C6+C7+C8),2)` must
-   evaluate to 0. Every preset gets an adjusted-balances sheet (v2.1; bank
-   wording on the bank preset, side labels otherwise): balance per B + items
+   evaluate to 0. Every preset gets an adjusted-balances sheet (side labels in the row
+   captions): balance per B + items
    only in A = adjusted B; balance per A + items only in B = adjusted A;
    residual check row. Documentation sheet records files, sheets, mapping
    (incl. credit/date columns), tolerance, no-key mode, passes, split
@@ -153,7 +155,7 @@ Expected values:
     `#boxA/B`, `#sheetA/B`, `#hdrA/B`, `#stepMap`, `#keysA/B` (checkbox
     inputs), `#amtA/B`, `#dateA/B`, `#descA/B`, `#tolerance`, `#flipB`,
     `#normKeys`, `#preparer`, `#runBtn`, `#stepRes`, `.kpi .v/.l`, `.preset`
-    (order gen/gl/bank/hio), `#pane-<tab>` + `.catsel`, `#btn-el/#btn-en`,
+    (order gen/gl/hio), `#pane-<tab>` + `.catsel`, `#btn-el/#btn-en`,
     `#progFile`, globals `SIDES`, `RESULT`, `PRESETS`, `exportExcel()`,
     `saveProgress()`, `acceptAllGroups()`.
 
@@ -163,7 +165,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.1)
+## Known limitations (v2.3)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with
@@ -171,5 +173,8 @@ Expected values:
 - Key suggestion samples the first 3,000 rows per file.
 - Progress JSON matches items by key: if the mapping or files change, stale
   entries are ignored silently.
+- The downloadable user manual (MANUAL dict, `downloadManual()`) generates
+  in the ACTIVE language; its Greek follows native public-sector register and
+  its English plain human prose — keep that tone when editing it.
 - Header auto-detect scans the first 25 rows for a row with ≥2 text cells;
   merged-cell double-row headers need the manual header-row override.
