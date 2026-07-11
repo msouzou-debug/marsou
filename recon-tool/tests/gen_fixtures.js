@@ -1,5 +1,5 @@
 // Regenerates the V2 sample fixtures. Run once: node gen_fixtures.js
-const XLSX = require('../vendor/xlsx.full.min.js');
+const XLSX = require('../vendor/xlsx-style.full.min.js');
 const fs = require('fs');
 const path = require('path');
 const S = f => path.join(__dirname, '..', 'samples', f);

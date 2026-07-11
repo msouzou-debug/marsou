@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
-const XLSX = require('../vendor/xlsx.full.min.js');
+const XLSX = require('../vendor/xlsx-style.full.min.js');
 const ROOT = path.join(__dirname, '..');
 const APP = 'file://' + path.join(ROOT, 'dist', 'OKYpY_Reconciliation_Tool.html');
 const S = f => path.join(ROOT, 'samples', f);

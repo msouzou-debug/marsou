@@ -13,7 +13,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 def main():
     tpl_path = os.path.join(ROOT, 'src', 'app_template.html')
-    lib_path = os.path.join(ROOT, 'vendor', 'xlsx.full.min.js')
+    lib_path = os.path.join(ROOT, 'vendor', 'xlsx-style.full.min.js')
     logo_path = os.path.join(ROOT, 'assets', 'okypy_logo_full.png')
     out_path = os.path.join(ROOT, 'dist', 'OKYpY_Reconciliation_Tool.html')
 

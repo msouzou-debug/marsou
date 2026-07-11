@@ -202,6 +202,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
   <button class="railstep" data-goto="stepRes"><span class="n">4</span><span class="rl" data-i18n="st4">Αποτελέσματα</span></button>
   <div class="grow"></div>
   <span id="progStatus"></span>
+  <button class="ghostbtn" id="saveProf" onclick="saveProfile()" disabled data-i18n="saveprof">Αποθήκευση προφίλ</button>
   <button class="ghostbtn" id="saveProg" onclick="saveProgress()" disabled data-i18n="saveprog">Αποθήκευση προόδου</button>
   <button class="ghostbtn" onclick="document.getElementById('progFile').click()" data-i18n="loadprog">Φόρτωση προόδου</button>
   <button class="ghostbtn" id="manualBtn" onclick="downloadManual()" data-i18n="manual">Εγχειρίδιο</button>
@@ -280,6 +281,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
     </div>
   </div>
   <div class="hint hidden" id="keyHint"></div>
+  <div class="hint hidden" id="signHint"></div>
 
   <div class="opts">
     <div>
@@ -350,6 +352,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
     </div>
     <div class="kpis" id="kpis"></div>
   </div>
+  <div class="hint hidden" id="tieInfo" style="font-weight:700"></div>
   <div class="warn hidden" id="resWarn"></div>
   <div class="warn hidden" id="truncWarn"></div>
   <div class="tabs" id="tabs" role="tablist"></div>
@@ -434,7 +437,15 @@ const I18N = {
   warnFlip:"Τα σύνολα A και B έχουν αντίθετο πρόσημο — δοκιμάστε «Αντιστροφή προσήμου στο Β».",
   warnTryNokey:"Δοκιμάστε τη λειτουργία «Χωρίς κοινό κλειδί» ή τις προτεινόμενες στήλες-κλειδιά.",
   needamt:"Επιλέξτε στήλη ποσού και στις δύο πλευρές.",
-  manual:"Εγχειρίδιο"
+  manual:"Εγχειρίδιο",
+  saveprof:"Αποθήκευση προφίλ",
+  profLoaded:"Το προφίλ φορτώθηκε — θα εφαρμοστεί στα αρχεία.",
+  profApplied:"Το προφίλ εφαρμόστηκε.",
+  signAutoOn:"Το πρόσημο του Β αντιστράφηκε αυτόματα — τα ποσά ταιριάζουν κατοπτρικά.",
+  signAutoOff:"Η αντιστροφή προσήμου απενεργοποιήθηκε αυτόματα — τα ποσά ταιριάζουν με ίδιο πρόσημο.",
+  tieOk:"Το σύνολο του εργαλείου συμφωνεί με το σύνολο του αρχείου",
+  tieBad:"Το σύνολο του εργαλείου ΔΙΑΦΕΡΕΙ από το σύνολο του αρχείου κατά",
+  warnDup:"Πιθανές διπλοεγγραφές στην πλευρά {s}: {n} επιπλέον γραμμές (ίδιο κλειδί, ποσό και ημερομηνία)."
  },
  en:{
   title:"Account Reconciliation Tool",
@@ -500,7 +511,15 @@ const I18N = {
   warnFlip:"Totals A and B have opposite signs — try “Flip sign on side B”.",
   warnTryNokey:"Try the no-shared-key mode or the suggested key columns.",
   needamt:"Select an amount column on both sides.",
-  manual:"User manual"
+  manual:"User manual",
+  saveprof:"Save profile",
+  profLoaded:"Profile loaded — it will apply to the files.",
+  profApplied:"Profile applied.",
+  signAutoOn:"Sign on side B was flipped automatically — the amounts mirror each other.",
+  signAutoOff:"Sign flip was switched off automatically — the amounts match with the same sign.",
+  tieOk:"The tool's total agrees with the file's own total",
+  tieBad:"The tool's total DIFFERS from the file's own total by",
+  warnDup:"Possible duplicate postings on side {s}: {n} extra rows (same key, amount and date)."
  }
 };
 let LANG='el';
@@ -564,6 +583,7 @@ function updateRail(){
   });
   if(!activeSet)steps[3].classList.add('active');
   document.getElementById('saveProg').disabled=!RESULT;
+  document.getElementById('saveProf').disabled=!(SIDES.A.rows&&SIDES.B.rows);
 }
 document.querySelectorAll('.railstep').forEach(b=>b.addEventListener('click',()=>{
   const s=document.getElementById(b.dataset.goto);
@@ -592,6 +612,7 @@ function loadFile(side,file){
       document.getElementById('box'+side).classList.add('loaded');
       document.getElementById('hdr'+side).value=1;
       sheetChanged(side);
+      if(PENDING_PROFILE)applyProfileSheet(side);
     }catch(err){alert('Error reading file: '+err.message);}
   };
   rd.readAsArrayBuffer(file);
@@ -661,6 +682,8 @@ function rebuildMapping(){
     guess(side);
   });
   crossKeySuggest();
+  detectFlip();
+  if(PENDING_PROFILE)applyProfileMapping();
 }
 const AMT_HINTS=['ποσό','ποσο','αξία','αξια','amount','value','total','σύνολο','συνολο','balance','υπόλοιπο','υπολοιπο','net','eur','€','amt'];
 const DEB_HINTS=['debit','χρέωσ','χρεωσ'];
@@ -740,6 +763,28 @@ function tickOnly(side,col){
     x.checked=x.value===col;
     x.closest('.keychip').classList.toggle('on',x.checked);
   });
+}
+/* mirrored-amount detection: exact cent matches for B as-is vs B flipped decide the sign */
+let SIGN_AUTO=null;
+function detectFlip(){
+  if(!(SIDES.A.rows&&SIDES.B.rows))return;
+  const hint=document.getElementById('signHint');
+  const counts=side=>{
+    const m=mapping(side), map=new Map();
+    SIDES[side].rows.slice(0,3000).forEach(r=>{
+      const v=netAmount(r,m); if(v===null||v===0)return;
+      const c=Math.round(v*100); map.set(c,(map.get(c)||0)+1);
+    });
+    return map;
+  };
+  const A=counts('A'), B=counts('B');
+  let same=0,flip=0;
+  A.forEach((n,c)=>{same+=Math.min(n,B.get(c)||0); flip+=Math.min(n,B.get(-c)||0);});
+  const box=document.getElementById('flipB');
+  SIGN_AUTO=null;
+  if(flip>=5&&flip>2*same){box.checked=true;SIGN_AUTO=true;hint.textContent=t('signAutoOn');hint.classList.remove('hidden');}
+  else if(same>=5&&same>2*flip){box.checked=false;SIGN_AUTO=false;hint.textContent=t('signAutoOff');hint.classList.remove('hidden');}
+  else hint.classList.add('hidden');
 }
 function crossKeySuggest(){
   if(!(SIDES.A.rows&&SIDES.B.rows))return;
@@ -1122,6 +1167,21 @@ function runRecon(){
   const warns=[];
   let totA=0,totB=0,skippedA=0,skippedB=0,keylessA=0,keylessB=0;
   let totalRowA={n:0,value:0},totalRowB={n:0,value:0};
+  /* possible duplicate postings: same key + amount + date more than once in one file */
+  const dupCount=side=>{
+    const m=mapping(side), seen=new Map(); let extra=0;
+    SIDES[side].rows.forEach(r=>{
+      const v=netAmount(r,m); if(v===null||v===0)return;
+      const kp=m.keys.map(k=>{const x=r[k];return x instanceof Date?fmtDate(x):String(x??'').trim();}).join('|');
+      const d=m.date&&r[m.date]?String(r[m.date]):'';
+      const sig=kp+'|'+Math.round(v*100)+'|'+d;
+      if(seen.has(sig))extra++; else seen.set(sig,1);
+    });
+    return extra;
+  };
+  const dupA=dupCount('A'), dupB=dupCount('B');
+  if(dupA)warns.push(t('warnDup').replace('{s}','A').replace('{n}',dupA));
+  if(dupB)warns.push(t('warnDup').replace('{s}','B').replace('{n}',dupB));
   // guardrail: amount columns are not identifiers
   const amtCols=new Set([mA.amt,mA.cr,mB.amt,mB.cr].filter(Boolean));
   if(!nokey&&(mA.keys.some(k=>amtCols.has(k))||mB.keys.some(k=>amtCols.has(k))))warns.push(t('warnKeyAmt'));
@@ -1239,7 +1299,7 @@ function runRecon(){
   }
   if(totA&&totB&&Math.sign(totA)!==Math.sign(totB))warns.push(t('warnFlip'));
   const firstTab=diffs.length?'diffs':props.length?'groups':onlyA.length?'onlyA':onlyB.length?'onlyB':'matched';
-  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,committed:[],
+  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,dupA,dupB,committed:[],
           props,splitTruncated,splitCfg:scfg,warns,
           mA,mB,ranAt:new Date(),activeTab:firstTab};
   if(PENDING_PROGRESS){applyProgress(PENDING_PROGRESS);PENDING_PROGRESS=null;progStatus(t('progApplied'));}
@@ -1275,6 +1335,21 @@ function renderResults(){
   renderBeam(R.totA,R.totB,net,R.tol);
   const tw=document.getElementById('truncWarn');
   if(R.splitTruncated){tw.textContent=t('truncNote');tw.classList.remove('hidden');}else tw.classList.add('hidden');
+  const ti=document.getElementById('tieInfo');
+  {
+    const tie=(side,tr,tot)=>{
+      if(tr.n!==1)return null;
+      const d=tr.value-tot;
+      return Math.abs(d)<=0.02
+        ?{ok:true,txt:side+': '+t('tieOk')+' ✓'}
+        :{ok:false,txt:side+': '+t('tieBad')+' '+fmtNum(d)+' €'};
+    };
+    const parts=[tie('A',R.totalRowA,R.totA),tie('B',R.totalRowB,R.totB)].filter(Boolean);
+    if(parts.length){
+      ti.innerHTML=parts.map(p=>'<span style="color:'+(p.ok?'var(--okypy-green)':'var(--okypy-neg)')+'">'+esc(p.txt)+'</span>').join('  ·  ');
+      ti.classList.remove('hidden');
+    }else ti.classList.add('hidden');
+  }
   const rw=document.getElementById('resWarn');
   if(R.warns&&R.warns.length){rw.textContent=R.warns.join('  ·  ');rw.classList.remove('hidden');}else rw.classList.add('hidden');
   const tabs=[
@@ -1404,6 +1479,60 @@ function uncommitGroup(i){
 function grpSignature(p){
   return p.side+'|'+p.target.key+'|'+p.members.map(m=>m.key).sort().join(';');
 }
+/* profiles: the full setup (sheets, header rows, mapping, settings) as a reusable file */
+let PENDING_PROFILE=null;
+function collectSettings(){
+  return {tolerance:document.getElementById('tolerance').value,
+    flipB:document.getElementById('flipB').checked,normKeys:document.getElementById('normKeys').checked,
+    tier2on:document.getElementById('tier2on').checked,tier2days:document.getElementById('tier2days').value,
+    tier3on:document.getElementById('tier3on').checked,
+    nearon:document.getElementById('nearon').checked,nearpct:document.getElementById('nearpct').value,
+    spliton:document.getElementById('spliton').checked,splitmax:document.getElementById('splitmax').value,
+    splitdateon:document.getElementById('splitdateon').checked,splitdays:document.getElementById('splitdays').value,
+    splitprefix:document.getElementById('splitprefix').checked,
+    nokeyon:document.getElementById('nokeyon').checked,nokeydays:document.getElementById('nokeydays').value,
+    crA:document.getElementById('crA').value,crB:document.getElementById('crB').value,
+    preparer:document.getElementById('preparer').value};
+}
+function saveProfile(){
+  if(!(SIDES.A.rows&&SIDES.B.rows))return;
+  const side=s=>({sheet:document.getElementById('sheet'+s).value,
+    hdr:document.getElementById('hdr'+s).value,
+    keys:mapping(s).keys,amt:document.getElementById('amt'+s).value,cr:document.getElementById('cr'+s).value,
+    date:document.getElementById('date'+s).value,desc:document.getElementById('desc'+s).value});
+  const data={app:'okypy-recon',type:'profile',version:3,savedAt:new Date().toISOString(),
+    preset,settings:collectSettings(),sides:{A:side('A'),B:side('B')}};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(LANG==='el'?'Προφίλ_':'Profile_')+preset+'.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function applyProfileSheet(side){
+  const p=PENDING_PROFILE; if(!p||!SIDES[side].wb)return;
+  const cfg=p.sides&&p.sides[side]; if(!cfg)return;
+  const sel=document.getElementById('sheet'+side);
+  if(cfg.sheet&&[...sel.options].some(o=>o.value===cfg.sheet))sel.value=cfg.sheet;
+  if(cfg.hdr)document.getElementById('hdr'+side).value=cfg.hdr;
+  headerChanged(side);
+}
+function applyProfileMapping(){
+  const p=PENDING_PROFILE; if(!p)return;
+  ['A','B'].forEach(s=>{
+    if(!SIDES[s].rows)return;
+    const cfg=p.sides&&p.sides[s]; if(!cfg)return;
+    const set=(id,v)=>{const el=document.getElementById(id);
+      if(v!==undefined&&[...el.options].some(o=>o.value===v))el.value=v;};
+    set('amt'+s,cfg.amt); set('cr'+s,cfg.cr); set('date'+s,cfg.date); set('desc'+s,cfg.desc);
+    document.querySelectorAll('#keys'+s+' input').forEach(x=>{
+      x.checked=(cfg.keys||[]).includes(x.value);
+      x.closest('.keychip').classList.toggle('on',x.checked);
+    });
+  });
+  applyProgressSettings(p);
+  if(SIDES.A.rows&&SIDES.B.rows){PENDING_PROFILE=null;progStatus(t('profApplied'));}
+}
 function progStatus(msg,err){
   const el=document.getElementById('progStatus');
   el.textContent=msg; el.className=err?'err':'';
@@ -1421,17 +1550,7 @@ function saveProgress(){
   R.committed.forEach(p=>{groups[grpSignature(p)]=2;});
   const data={app:'okypy-recon',version:2,savedAt:new Date().toISOString(),
     preset,lang:LANG,
-    settings:{tolerance:document.getElementById('tolerance').value,
-      flipB:document.getElementById('flipB').checked,normKeys:document.getElementById('normKeys').checked,
-      tier2on:document.getElementById('tier2on').checked,tier2days:document.getElementById('tier2days').value,
-      tier3on:document.getElementById('tier3on').checked,
-      nearon:document.getElementById('nearon').checked,nearpct:document.getElementById('nearpct').value,
-      spliton:document.getElementById('spliton').checked,splitmax:document.getElementById('splitmax').value,
-      splitdateon:document.getElementById('splitdateon').checked,splitdays:document.getElementById('splitdays').value,
-      splitprefix:document.getElementById('splitprefix').checked,
-      nokeyon:document.getElementById('nokeyon').checked,nokeydays:document.getElementById('nokeydays').value,
-      crA:document.getElementById('crA').value,crB:document.getElementById('crB').value,
-      preparer:document.getElementById('preparer').value},
+    settings:collectSettings(),
     files:{A:{name:SIDES.A.name},B:{name:SIDES.B.name}},
     mapping:{A:R.mA,B:R.mB},
     cats,groups};
@@ -1477,9 +1596,17 @@ document.getElementById('progFile').addEventListener('change',e=>{
     try{
       const data=JSON.parse(ev.target.result);
       if(data.app!=='okypy-recon')throw new Error('wrong app');
-      applyProgressSettings(data);
-      if(RESULT){applyProgress(data);progStatus(t('progApplied'));}
-      else{PENDING_PROGRESS=data;progStatus(t('progPend'));}
+      if(data.type==='profile'){
+        PENDING_PROFILE=data;
+        applyProgressSettings(data);
+        if(SIDES.A.wb)applyProfileSheet('A');
+        if(SIDES.B.wb)applyProfileSheet('B');
+        progStatus(SIDES.A.rows&&SIDES.B.rows?t('profApplied'):t('profLoaded'));
+      }else{
+        applyProgressSettings(data);
+        if(RESULT){applyProgress(data);progStatus(t('progApplied'));}
+        else{PENDING_PROGRESS=data;progStatus(t('progPend'));}
+      }
     }catch(err){progStatus(t('progBad'),true);}
     e.target.value='';
   };
@@ -1498,6 +1625,21 @@ function exportExcel(){
             onlyB:el?'Μόνο στο B':'Only in B', match:el?'Συμφωνούν':'Matched'};
   const CATLBL=c=>c?t(c):'';
   const eurofmt='#,##0.00\\ "€"';
+  /* brand cell styles (xlsx-js-style) — tints of the OKYπY palette only */
+  const ST={
+    head:{fill:{patternType:'solid',fgColor:{rgb:'069FEC'}},font:{bold:true,color:{rgb:'FFFFFF'}}},
+    title:{font:{bold:true,sz:13,color:{rgb:'1B75BB'}}},
+    neg:{font:{color:{rgb:'C0392B'}}},
+    ok:{fill:{patternType:'solid',fgColor:{rgb:'E9F4DA'}},font:{bold:true}},
+    bad:{fill:{patternType:'solid',fgColor:{rgb:'F8DEDA'}},font:{bold:true,color:{rgb:'C0392B'}}},
+    catT:{fill:{patternType:'solid',fgColor:{rgb:'D6EBFA'}}},
+    catA:{fill:{patternType:'solid',fgColor:{rgb:'E9F4DA'}}},
+    catI:{fill:{patternType:'solid',fgColor:{rgb:'F8DEDA'}}},
+    near:{fill:{patternType:'solid',fgColor:{rgb:'EAEAEA'}}}
+  };
+  const col=XLSX.utils.encode_col;
+  const styleHead=(ws,nCols)=>{for(let c=0;c<nCols;c++){const cell=ws[col(c)+'1'];if(cell)cell.s=ST.head;}};
+  const styleCell=(ws,addr,st)=>{const cell=ws[addr];if(cell)cell.s=Object.assign({},cell.s||{},st);};
   const accepted=[...R.committed,...grpAccepted()];
   const openA=R.onlyA.filter(r=>!inAccepted(r)), openB=R.onlyB.filter(r=>!inAccepted(r));
 
@@ -1519,6 +1661,14 @@ function exportExcel(){
       ws['G'+row]={t:'n',v:arr[i].diff??0,f:'N(E'+row+')-N(F'+row+')',z:eurofmt};
       ['E','F'].forEach(c=>{const cell=ws[c+row]; if(cell&&cell.t==='n')cell.z=eurofmt;});
     }
+    const nCols=withRule?12:11;
+    styleHead(ws,nCols);
+    arr.forEach((r,i)=>{
+      const row=i+2;
+      const fill=r.cat==='catT'?ST.catT:r.cat==='catA'?ST.catA:r.cat==='catI'?ST.catI:(r.rule===5?ST.near:null);
+      if(fill)for(let c=0;c<nCols;c++)styleCell(ws,col(c)+row,fill);
+      if((r.diff||0)<0)styleCell(ws,'G'+row,ST.neg);
+    });
     ws['!cols']=[{wch:28},{wch:30},{wch:30},{wch:11},{wch:14},{wch:14},{wch:14},{wch:9},{wch:8},{wch:8},{wch:22},{wch:12}];
     ws['!autofilter']={ref:'A1:'+(withRule?'L':'K')+(arr.length+1)};
     return ws;
@@ -1549,6 +1699,7 @@ function exportExcel(){
     gformulas.forEach(({row,v,f})=>{wsG['G'+row]={t:'n',v,f,z:eurofmt};});
     for(let r=2;r<=gaoa.length;r++)['E','F'].forEach(c=>{const cell=wsG[c+r]; if(cell&&cell.t==='n')cell.z=eurofmt;});
     wsG['!ref']='A1:H'+gaoa.length; // formulas live in G; keep the column inside the range
+    styleHead(wsG,8);
     wsG['!cols']=[{wch:8},{wch:28},{wch:30},{wch:11},{wch:14},{wch:14},{wch:14},{wch:12}];
   }
 
@@ -1594,7 +1745,11 @@ function exportExcel(){
   wsS['B10']={t:'n',v:vB10,f:'SUM('+q(SN.match)+'!E:E)+SUM('+q(SN.diffs)+'!E:E)+SUM('+q(SN.onlyA)+'!E:E)'+gE,z:eurofmt};
   wsS['B11']={t:'n',v:vB11,f:'SUM('+q(SN.match)+'!F:F)+SUM('+q(SN.diffs)+'!F:F)+SUM('+q(SN.onlyB)+'!F:F)'+gF,z:eurofmt};
   wsS['B12']={t:'n',v:vB10-vB11,f:'B10-B11',z:eurofmt};
-  wsS['B14']={t:'n',v:Math.round(((vB10-vB11)-(dSum(R.diffs)+dSum(openA)+dSum(openB)+gGSum))*100)/100,f:'ROUND(B12-(C5+C6+C7+C8),2)',z:eurofmt};
+  const vB14=Math.round(((vB10-vB11)-(dSum(R.diffs)+dSum(openA)+dSum(openB)+gGSum))*100)/100;
+  wsS['B14']={t:'n',v:vB14,f:'ROUND(B12-(C5+C6+C7+C8),2)',z:eurofmt};
+  styleCell(wsS,'A1',ST.title);
+  ['A3','B3','C3'].forEach(a=>styleCell(wsS,a,ST.head));
+  ['A14','B14'].forEach(a=>styleCell(wsS,a,vB14===0?ST.ok:ST.bad));
   wsS['!cols']=[{wch:56},{wch:18},{wch:18}];
 
   // --- adjusted-balance sheet (all presets): standard presentation, live formulas ---
@@ -1625,6 +1780,7 @@ function exportExcel(){
     wsAdj['B9']={t:'n',v:vAdjBook,f:'B7+B8',z:eurofmt};
     wsAdj['B11']={t:'n',v:Math.round((vAdjBook-vAdjBank-dSum(R.diffs)-dSum(matchedX)-gGSum)*100)/100,
       f:'ROUND(B9-B5-SUM('+q(SN.diffs)+'!G:G)-SUM('+q(SN.match)+'!G:G)'+(wsG?'-SUM('+q(SN.grp)+'!G:G)':'')+',2)',z:eurofmt};
+    styleCell(wsAdj,'A1',ST.title);
     wsAdj['!cols']=[{wch:58},{wch:18}];
   }
 
@@ -1654,7 +1810,8 @@ function exportExcel(){
     [el?'Γραμμές χωρίς κλειδί — σε ταίριασμα γραμμής (A / B)':'Rows without key — line-matched (A / B)',R.keylessA+' / '+R.keylessB],
     [el?'Γραμμές γενικού συνόλου που εξαιρέθηκαν (A / B)':'File grand-total rows excluded (A / B)',
      R.totalRowA.n+' ('+fmtNum(R.totalRowA.value)+') / '+R.totalRowB.n+' ('+fmtNum(R.totalRowB.value)+')'],
-    [el?'Γραμμές χωρίς ποσό (A / B)':'Rows without amount (A / B)',R.skippedA+' / '+R.skippedB],
+    [el?'Γραμμές χωρίς ποσό (A / B)':'Rows without amount (A / B)',R.skippedA+' / '+R.skippedB,
+     el?'Πιθανές διπλοεγγραφές (A / B)':'Possible duplicates (A / B)',R.dupA+' / '+R.dupB],
     [''],
     [el?'Πέρασμα 2 (ποσό+ημ/νία)':'Pass 2 (amount+date)',YN(document.getElementById('tier2on').checked),el?'Παράθυρο (± ημ.)':'Window (± days)',document.getElementById('tier2days').value],
     [el?'Πέρασμα 3 (ομοιότητα)':'Pass 3 (fuzzy text)',YN(document.getElementById('tier3on').checked),
@@ -1668,6 +1825,7 @@ function exportExcel(){
     [el?'Παλαίωση: 0-30 τρέχον, 31-60 σε εξέλιξη, 61-90 κλιμάκωση, 90+ σε διοίκηση.':'Ageing: 0-30 current, 31-60 follow up, 61-90 escalate, 90+ management.']
   ];
   const wsDoc=XLSX.utils.aoa_to_sheet(doc);
+  styleCell(wsDoc,'A1',ST.title);
   wsDoc['!cols']=[{wch:30},{wch:44},{wch:16},{wch:24}];
 
   XLSX.utils.book_append_sheet(wb,wsDoc,SN.doc);
