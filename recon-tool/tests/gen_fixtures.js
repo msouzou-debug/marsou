@@ -13,10 +13,13 @@ const S = f => path.join(__dirname, '..', 'samples', f);
    Remaining open B: PAY-06 90.00, PAY-07 75.00, PAY-08 40.00 (no subset hits 300 +/- 0.01)
    - INV-13M 13,000,000 = thirteen equal PAY-M lines of 1,000,000 (batch transfer,
      exceeds the DFS cap of 6 -> must be found by the instalment/denomination path)
+   - INV-55 5,500.00 = 5 x 1,000 + 500 -- but a 2,557.35 decoy line dead-ends the
+     plain greedy pass; the retry-with-skip must find the composition
 */
 const A = [
   ['Τιμολόγιο', 'Ημερομηνία', 'Περιγραφή', 'Ποσό'],
   ['INV-13M', '15/03/2026', 'Μεταφορά σε λογαριασμό εξόδων', 13000000.00],
+  ['INV-55', '18/03/2026', 'Μισθοδοσία σε δόσεις', 5500.00],
   ['INV-500', '01/03/2026', 'Προμηθευτής ΑΛΦΑ', 500.00],
   ['INV-300', '05/03/2026', 'Προμηθευτής ΒΗΤΑ', 300.00],
   ['INV-250', '10/03/2026', 'Προμηθευτής ΓΑΜΑ', 250.01],
@@ -33,6 +36,10 @@ const B = [
   ['PAY-08', '06/03/2026', 'Λοιπές πληρωμές', 40.00],
   ...Array.from({ length: 13 }, (_, i) =>
     [`PAY-M${String(i + 1).padStart(2, '0')}`, `${String(10 + i).padStart(2, '0')}/03/2026`, 'Δόση μεταφοράς', 1000000.00]),
+  ['PAY-DEC', '17/03/2026', 'Άσχετη μεγάλη πληρωμή', 2557.35],
+  ...Array.from({ length: 5 }, (_, i) =>
+    [`PAY-K${i + 1}`, `${String(18 + i).padStart(2, '0')}/03/2026`, 'Δόση μισθοδοσίας', 1000.00]),
+  ['PAY-K6', '23/03/2026', 'Υπόλοιπο μισθοδοσίας', 500.00],
 ];
 // the vendored browser build has no fs binding: write via buffer
 const writeWb = (wb, file) => fs.writeFileSync(file, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -104,6 +111,23 @@ const wbIB = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wbIB, XLSX.utils.aoa_to_sheet(icB), 'Sheet1');
 writeWb(wbIB, S('ic_B.xlsx'));
 
+/* ---- fee / near-match fixtures (bank statement style) ----
+   No-key mode with the bank side grouped by its own RefNo: CY111's three lines
+   (principal 48,557.40 + fees 72.12 + 10.00 = 48,639.52) fold into one entry whose
+   description comes from the principal line (payee visible). Pass 4 then pairs it
+   with SAP's -48,663.40 (same payee, 0.05%% apart) -> Differences rule 5, -23.88.
+   CY222 groups to 1,000.00 and matches SAP's -1,000.00 exactly (rule 2). */
+fs.writeFileSync(S('fee_A.csv'),
+  'Ref,Date,Text,Amount\n' +
+  ',05/03/2026,HNS PHARMA LTD,-48663.40\n' +
+  ',06/03/2026,ALPHA SUPPLIES LTD,-1000.00\n');
+fs.writeFileSync(S('fee_B.csv'),
+  'RefNo,Date,Description,Debit,Credit\n' +
+  'CY111,05/03/2026,TRANSFER COMMISSION our ref CY111,72.12,\n' +
+  'CY111,05/03/2026,OUTWARD CY111 to HNS PHARMA LTD a/c GB32HBUK>PAYMENT OF INVOICES,48557.40,\n' +
+  'CY111,05/03/2026,PROCESSING FEES our ref CY111,10.00,\n' +
+  'CY222,06/03/2026,OUTWARD CY222 to ALPHA SUPPLIES LTD,1000.00,\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */
@@ -118,4 +142,4 @@ for (let i = 0; i < 1200; i++)
 fs.writeFileSync(S('perf_A.csv'), a);
 fs.writeFileSync(S('perf_B.csv'), b);
 
-console.log('fixtures written: split_A.xlsx split_B.xlsx ic_A.xlsx ic_B.xlsx tier_A.csv tier_B.csv perf_A.csv perf_B.csv');
+console.log('fixtures written: split_A/B ic_A/B tier_A/B fee_A/B perf_A/B');

@@ -54,7 +54,10 @@ async function setMapping(page, side, keys, amt, date, desc) {
     truncated: RESULT.splitTruncated,
   }));
   console.log('SPLIT:', JSON.stringify(r.props));
-  check('three groups proposed', r.props.length === 3, r.props.length);
+  check('four groups proposed', r.props.length === 4, r.props.length);
+  const g55 = r.props.find(p => p[1] === 'INV-55');
+  check('5,500 batch found despite the 2,557.35 greedy dead-end (retry-with-skip)',
+    !!g55 && g55[2].length === 6 && g55[3] === 0, g55 && [g55[2], g55[3]]);
   const g13 = r.props.find(p => p[1] === 'INV-13M');
   check('13M batch proposed as 13 x 1M (beyond DFS cap)', !!g13 && g13[2].length === 13 && g13[3] === 0, g13 && [g13[2].length, g13[3]]);
   const g500 = r.props.find(p => p[1] === 'INV-500');
@@ -74,11 +77,11 @@ async function setMapping(page, side, keys, amt, date, desc) {
   }));
   console.log('COMMITTED:', JSON.stringify(r));
   check('onlyA shows 1 open row after committing', r.openA === 1, r.openA);
-  check('3 groups committed, none pending', r.committed === 3 && r.props === 0, [r.committed, r.props]);
-  check('committed groups sit in Matched marked manual (rule 4)', r.manual.length === 3, r.manual);
+  check('4 groups committed, none pending', r.committed === 4 && r.props === 0, [r.committed, r.props]);
+  check('committed groups sit in Matched marked manual (rule 4)', r.manual.length === 4, r.manual);
   /* undo returns a group to the proposals list */
   r = await page.evaluate(() => { uncommitGroup(0); return { c: RESULT.committed.length, p: RESULT.props.length, m: RESULT.matched.filter(x => x.rule === 4).length }; });
-  check('undo moves a group back to proposals', r.c === 2 && r.p === 1 && r.m === 2, r);
+  check('undo moves a group back to proposals', r.c === 3 && r.p === 1 && r.m === 3, r);
   await page.evaluate(() => { acceptAllGroups(true); commitGroups(); });
 
   /* categorise the remaining open item (via its tab), then export + verify workbook */
@@ -118,7 +121,7 @@ async function setMapping(page, side, keys, amt, date, desc) {
   const prog = JSON.parse(fs.readFileSync(progPath, 'utf8'));
   console.log('PROGRESS-KEYS:', JSON.stringify(Object.keys(prog)));
   check('progress JSON valid', prog.app === 'okypy-recon' && prog.version === 2);
-  check('progress stores accepted groups', Object.values(prog.groups).filter(Boolean).length === 3, prog.groups);
+  check('progress stores accepted groups', Object.values(prog.groups).filter(Boolean).length === 4, prog.groups);
   check('progress stores category', prog.cats.onlyA['INV-300'] === 'catI', prog.cats.onlyA);
   await page.close();
 
@@ -137,7 +140,7 @@ async function setMapping(page, side, keys, amt, date, desc) {
     cat: (RESULT.onlyA.find(x => x.key === 'INV-300') || {}).cat,
   }));
   console.log('RESTORED:', JSON.stringify(r));
-  check('committed groups restored from progress as manual reconciliations', r.committed === 3 && r.manual === 3, r);
+  check('committed groups restored from progress as manual reconciliations', r.committed === 4 && r.manual === 4, r);
   check('category restored from progress', r.cat === 'catI', r.cat);
   await page.close();
 

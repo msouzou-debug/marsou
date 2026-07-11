@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.6**.
+internet. All data stays on the local machine. Current version: **v2.7**.
 
 ## Architecture
 
@@ -44,7 +44,8 @@ Expected values:
   leading-zero normalisation; 80.005↔80.00 and 999.99↔1000.00 within
   tolerance), diffs=0, onlyB=1 (789 = −50.25 parsed from `"(50,25)"`).
 - `test_v2.js` (asserts, exits 1 on failure):
-  - split_A/split_B: exactly 3 proposals — INV-13M = 13 equal PAY-M lines of
+  - split_A/split_B: exactly 4 proposals — incl. INV-55 5,500 = 5 x 1,000 +
+    500 past a 2,557.35 greedy dead-end (retry-with-skip) — INV-13M = 13 equal PAY-M lines of
     1,000,000 (beyond the DFS cap; instalment/denomination path), INV-500 =
     PAY-01+02+03 (exact 1-to-3), INV-250 = PAY-04+05 (diff 0.01, within
     tolerance); decoy INV-300 must stay unexplained after better groups
@@ -67,8 +68,13 @@ Expected values:
     totals −94.50 / −117.23; one footer total row excluded per side; no warns.
   - export contains the adjusted-balances sheet on a NON-bank preset with
     live formulas; doc sheet records the credit columns.
-  - no-shared-key mode: 8 line pairs matched rule 2, open = 75/15.50 (A) and
+  - no-shared-key mode with keys still ticked: 5 pairs (4 per-side ref groups
+    + keyless pair); keys unticked: 8 raw line pairs. Open = 75/15.50 (A) and
     60/7.77 (B); footer rows excluded there too.
+  - fee_A/fee_B (bank style, no-key + keysB=RefNo + pass 4 at 2%): CY222
+    group matches 1,000.00 exactly (rule 2); CY111 group (48,639.52, desc
+    from its principal line) pairs with SAP −48,663.40 → Differences rule 5,
+    diff −23.88; nothing left open.
   - guardrail: keying on Document Number → 0 matches → visible banner that
     names the suggested Reference key.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
@@ -82,7 +88,9 @@ Expected values:
   TransactionHistory 03.2026, no-key mode ±60d, flip B, D/C netting both
   sides, bank header row = 6. Expected proposals include 13,000,000 =
   10 x 1M + 6 x 500k (diff 0), 11,000,000 = 22 x 500k (diff 0), and the
-  6,216,168.10 payroll = 2 lines; ~260 line pairs matched.
+  6,216,168.10 payroll = 2 lines; ~260 line pairs matched. With pass 4 at
+  2%: −5,500,000 = 5 x 1M + 500k (retry-with-skip) and 4 near-diffs incl.
+  HNS PHARMA −48,663.40 vs −48,557.40 → diff −106.00 (FX/fees).
 
 ## Domain logic (do not break)
 
@@ -109,6 +117,20 @@ Expected values:
    tolerance + date within ±N days (`pass2`, cent-bucketed so thousands of
    lines stay fast; undated items only match undated items). Matches are
    labelled rule 2. This is the mode for two files with no common reference.
+   **Per-side grouping in no-key mode** (v2.7): ticking key columns on ONE
+   side groups that side's lines by that value before matching (e.g. the
+   bank's own reference number folds a transfer and its fee lines into one
+   entry; groups netting to zero are dropped). The grouped item's description
+   comes from the group's largest line (`aggregate().descBig`) so the payee
+   text survives for the near pass.
+   **Near-match pass 4** (v2.7, opt-in `#nearon` + `#nearpct`, `nearPass()`):
+   on the final remainder, pairs items with LINKED TEXT (one normalised
+   desc/key contained in the other, len ≥6, or bigram-Dice ≥0.6) whose
+   amounts are same-sign within ±N% (relative, default 2%) and dates within
+   the `#nokeydays` window. Residual ≤ tolerance → Matched; otherwise the
+   pair lands in DIFFERENCES with rule 5 ("Προσέγγιση / Near") — the FX and
+   commission story (SAP 48,663.40 vs bank 48,557.40 → diff −106.00). Kept
+   opt-in so the v1 baseline stays intact.
    Bank reconciliations are out of scope — a separate single-file bank
    reconciliation tool exists for those; the bank preset was removed in v2.3.
    **Key guardrails** (v2.1, `crossKeySuggest()` + `RESULT.warns` banner):
@@ -133,7 +155,10 @@ Expected values:
    **Large batches** (v2.5): when the DFS finds nothing, two cheap strategies
    run with an internal cap of 60 members — `findGreedyCompose()` composes
    the target from the largest available denominations downwards (13M =
-   10 x 1M + 6 x 500k, the shape of real transfer batches), then
+   10 x 1M + 6 x 500k, the shape of real transfer batches; since v2.7 it
+   RETRIES skipping progressively more of the largest denominations, so a
+   big odd line can no longer dead-end it — 5.5M = 5 x 1M + 500k even with a
+   2,557,349.29 line in the pool), then
    `findInstalments()` looks for k equal lines summing exactly to the target
    (k = 2..60, exact cents division). Both respect the same-sign, date-window
    and prefix filters. Greedy: largest |amount| targets first; every item
@@ -203,7 +228,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.6)
+## Known limitations (v2.7)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with

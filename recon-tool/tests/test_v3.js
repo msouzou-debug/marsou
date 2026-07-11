@@ -96,12 +96,20 @@ const check = (name, cond, detail) => {
     onlyB: RESULT.onlyB.map(x => +x.amtB.toFixed(2)),
     totalRows: [RESULT.totalRowA.n, RESULT.totalRowB.n],
   }));
-  console.log('NOKEY:', JSON.stringify(r));
-  check('8 line pairs matched by amount+date', r.matched === 8, r.matched);
+  console.log('NOKEY-GROUPED:', JSON.stringify(r));
+  check('per-side key groups matched (4 ref groups + keyless pair)', r.matched === 5, r.matched);
   check('all labelled rule 2', JSON.stringify(r.rules) === JSON.stringify([2]), r.rules);
   check('open lines incl. unexplained keyless',
     JSON.stringify(r.onlyA) === JSON.stringify([75, 15.5]) && JSON.stringify(r.onlyB) === JSON.stringify([60, 7.77]), [r.onlyA, r.onlyB]);
   check('footer rows excluded in no-key mode too', JSON.stringify(r.totalRows) === JSON.stringify([1, 1]), r.totalRows);
+  /* untick the keys -> raw line-by-line matching */
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({ matched: RESULT.matched.length }));
+  check('raw line mode without keys: 8 line pairs', r.matched === 8, r.matched);
 
   /* ---- guardrails: hopeless keys produce a visible warning banner ---- */
   await page.evaluate(() => {
@@ -123,6 +131,44 @@ const check = (name, cond, detail) => {
   check('zero matches with disjoint keys', r.matched === 0);
   check('warning banner shown', r.bannerVisible && r.bannerText.length > 0);
   check('banner suggests the Reference key', r.bannerText.includes('Reference'), r.bannerText);
+
+  /* ---- fee fixtures: per-side ref grouping + near-match (pass 4) ---- */
+  const page2 = await browser.newPage();
+  page2.on('pageerror', e => { console.log('PAGEERROR:', e.message); failures++; });
+  await page2.goto(APP);
+  await page2.setInputFiles('#fileA', S('fee_A.csv'));
+  await page2.setInputFiles('#fileB', S('fee_B.csv'));
+  await page2.waitForSelector('#stepMap:not(.hidden)');
+  await page2.evaluate(() => {
+    document.getElementById('amtB').value = 'Debit';
+    document.getElementById('crB').value = 'Credit';
+    document.getElementById('dateB').value = 'Date';
+    document.getElementById('descB').value = 'Description';
+    document.getElementById('amtA').value = 'Amount';
+    document.getElementById('crA').value = '';
+    document.getElementById('dateA').value = 'Date';
+    document.getElementById('descA').value = 'Text';
+    document.querySelectorAll('#keysA input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); });
+    document.querySelectorAll('#keysB input').forEach(x => { x.checked = x.value === 'RefNo'; x.closest('.keychip').classList.toggle('on', x.checked); });
+    document.getElementById('flipB').checked = true;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+    document.getElementById('nearon').checked = true; // pass 4 is opt-in
+  });
+  await page2.click('#runBtn');
+  await page2.waitForSelector('#stepRes:not(.hidden)');
+  r = await page2.evaluate(() => ({
+    matched: RESULT.matched.map(x => [x.rule, x.key, +x.diff.toFixed(2)]),
+    diffs: RESULT.diffs.map(x => [x.rule, String(x.desc).slice(0, 20), +x.amtA.toFixed(2), +x.amtB.toFixed(2), +x.diff.toFixed(2)]),
+    open: [RESULT.onlyA.length, RESULT.onlyB.length],
+  }));
+  console.log('FEE:', JSON.stringify(r));
+  check('bank ref-group matches exactly (CY222 = 1,000.00, rule 2)',
+    r.matched.length === 1 && r.matched[0][0] === 2 && /CY222/.test(r.matched[0][1]), r.matched);
+  check('near-match pairs payee with FX/fee residual in Differences (rule 5, -23.88)',
+    r.diffs.length === 1 && r.diffs[0][0] === 5 && r.diffs[0][4] === -23.88 && r.diffs[0][2] === -48663.4 && r.diffs[0][3] === -48639.52, r.diffs);
+  check('nothing left open', JSON.stringify(r.open) === JSON.stringify([0, 0]), r.open);
+  await page2.close();
 
   await browser.close();
   console.log(failures ? 'V3 TESTS FAILED: ' + failures : 'V3 TESTS PASSED');
