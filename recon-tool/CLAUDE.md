@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.0**.
+internet. All data stays on the local machine. Current version: **v2.1**.
 
 ## Architecture
 
@@ -18,8 +18,8 @@ internet. All data stays on the local machine. Current version: **v2.0**.
 - `assets/okypy_logo_full.png` — official logo, embedded at build time.
 - `build.py` — inlines vendor lib + logo into `dist/OKYpY_Reconciliation_Tool.html`.
 - `tests/` — Playwright headless tests driving the built file
-  (`test_app.js`, `test_edge.js`, `test_v2.js`, `gen_fixtures.js`,
-  `screenshot.js` for design review shots).
+  (`test_app.js`, `test_edge.js`, `test_v2.js`, `test_v3.js`,
+  `gen_fixtures.js`, `screenshot.js` for design review shots).
 - `samples/` — test fixtures with known expected results (see Tests below).
 
 ## Commands
@@ -29,8 +29,8 @@ python3 build.py                 # rebuild dist/ after ANY src change
 cd tests && npm install playwright
 # if the pinned browser is missing, point at any Chromium:
 export CHROMIUM_PATH=/opt/pw-browsers/chromium
-node test_app.js && node test_edge.js && node test_v2.js
-node gen_fixtures.js             # only to regenerate V2 fixtures
+node test_app.js && node test_edge.js && node test_v2.js && node test_v3.js
+node gen_fixtures.js             # only to regenerate fixtures
 ```
 
 Tests print JSON lines (AUTO-MAP, KPIS, COUNTS, RESULT, SPLIT, TIERS, PERF…).
@@ -54,6 +54,21 @@ Expected values:
   - tier_A/tier_B: REF-A1⇄ZZZ-9 matched by rule 2, REF-A2⇄YYY-8 by rule 3.
   - perf_A/perf_B (2,200 open items): run completes <5 s or sets
     `RESULT.splitTruncated` (graceful degradation).
+- `test_v3.js` (ic_A vs ic_B, SAP-style intercompany GLs):
+  - auto-mapping detects the Debit/Credit pair (amount = debit, credit
+    subtracted) and auto-switches the hopeless Document Number guess to the
+    suggested Reference↔Reference key (shared-value overlap).
+  - keyed run + flip B: matched = [R-101 175, R-102 200, R-103 400 (netted),
+    T-9 −1000 (credit-side)], diffs 0, open = H-77 (A) / L-88 (B), no warns.
+  - export contains the adjusted-balances sheet on a NON-bank preset with
+    live formulas; doc sheet records the credit columns.
+  - no-shared-key mode: 7 line pairs matched rule 2, same two open lines.
+  - guardrail: keying on Document Number → 0 matches → visible banner that
+    names the suggested Reference key.
+- Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
+  Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
+  flip B: 249 matched references, 0 diffs, 54 open (sum = net 11,995,952.00);
+  no-shared-key mode matches 4,488 line pairs (equal to Reconcilio's A+S).
 
 ## Domain logic (do not break)
 
@@ -62,6 +77,22 @@ Expected values:
    user-ticked columns joined with `' | '`. Normalisation (`normKey`):
    uppercase, collapse whitespace, strip leading zeros from purely-numeric
    keys only (0MAT004 ≠ MAT004 on purpose; 000123 = 123).
+   **Debit/Credit netting** (v2.1, `netAmount()`): each side may map an
+   optional credit column; the row amount is Debit − Credit. Auto-guess
+   pre-selects the pair when headers contain debit+credit (or χρέωση/πίστωση)
+   — SAP GL exports never work without this.
+   **No-shared-key mode** (v2.1, `#nokeyon` + `lineItems()`): skips the key
+   pass entirely; every row is an open item matched 1-to-1 by amount within
+   tolerance + date within ±N days (`pass2`, cent-bucketed so thousands of
+   lines stay fast; undated items only match undated items). Matches are
+   labelled rule 2. This is the mode for two files with no common reference.
+   **Key guardrails** (v2.1, `crossKeySuggest()` + `RESULT.warns` banner):
+   after both files load, column value-overlap is computed between the sides;
+   the best pair (≥50% shared values, non-amount/date columns) is shown as a
+   suggestion, and a hopeless auto-guess (<5% overlap) is auto-switched to
+   it. After a run, warnings fire for: amount column used as key, one key
+   value hoarding >20% of rows (degenerate key), zero/low match rates (with
+   the suggested key named), and opposite-sign totals (suggest flip B).
 2. **Cascading passes** (v2): pass 1 by key; pass 2 (opt-in `#tier2on`) on the
    remainder by amount-within-tolerance + date within ±N days, greedy 1-to-1,
    largest amounts first; pass 3 (opt-in `#tier3on`) by bigram-Dice
@@ -89,11 +120,13 @@ Expected values:
    row carries `=SUM(E first:last)-SUM(F first:last)`; group numbers appear in
    col A only on target rows so `COUNTA` counts groups. Summary: cross-sheet
    SUM/COUNTA incl. Groups, self-check row `ROUND(B12-(C5+C6+C7+C8),2)` must
-   evaluate to 0. Bank preset adds an adjusted-balances sheet (balance per
-   bank + open book items = adjusted bank; balance per books + open bank
-   items = adjusted books; residual check row). Documentation sheet records
-   files, sheets, mapping, tolerance, passes, split settings, group counts,
-   truncation flag, preparer, reviewer sign-off line, skipped-row counts.
+   evaluate to 0. Every preset gets an adjusted-balances sheet (v2.1; bank
+   wording on the bank preset, side labels otherwise): balance per B + items
+   only in A = adjusted B; balance per A + items only in B = adjusted A;
+   residual check row. Documentation sheet records files, sheets, mapping
+   (incl. credit/date columns), tolerance, no-key mode, passes, split
+   settings, group counts, truncation flag, preparer, reviewer sign-off
+   line, skipped-row counts.
 6. **Progress sidecar** (v2, `saveProgress()`/`applyProgress()`): "Save
    progress" downloads a JSON (settings, mapping, categories keyed by item
    key, group decisions keyed by `side|targetKey|memberKeys` signature);
@@ -130,10 +163,12 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2)
+## Known limitations (v2.1)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
-- Pass 2 requires a date on both sides; items without dates are skipped by it.
+- Pass 2 matches dated items with dated items (window) and undated with
+  undated (amount only) — never mixed.
+- Key suggestion samples the first 3,000 rows per file.
 - Progress JSON matches items by key: if the mapping or files change, stale
   entries are ignored silently.
 - Header auto-detect scans the first 25 rows for a row with ≥2 text cells;

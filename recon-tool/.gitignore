@@ -5,3 +5,4 @@ tests/export_test.xlsx
 tests/export_v2.xlsx
 tests/progress_v2.json
 tests/shot_*.png
+tests/export_v3.xlsx

@@ -54,6 +54,41 @@ fs.writeFileSync(S('tier_B.csv'),
   'YYY-8,20/04/2026,ΠΡΟΜΗΘΕΙΑ ΦΑΡΜΑΚΩΝ ΛΕΥΚΩΣΙΑΣ,55.50\n' +
   'XXX-7,04/03/2026,Unrelated,111.11\n');
 
+/* ---- intercompany fixtures (SAP-style Debit/Credit columns, shared Reference) ----
+   Expected with auto D/C netting + auto key suggestion (Reference) + flip B:
+   matched refs R-101 (3 lines vs 3), R-102, R-103 (netted 500-100), T-9 (credit-side
+   transfer -> the amount lives in the credit column: the v2.0 "invisible" trap);
+   open: H-77 (75, A only) and L-88 (60, B only).
+   No-shared-key mode: 7 line pairs matched by amount+date, same two open lines. */
+const icA = [
+  ['Document Number', 'Reference', 'Text', 'Document Date', 'Debit Amount', 'Credit Amount'],
+  ['4900000001', 'R-101', 'HO invoice 1a', '10/01/2026', 100.00, 0],
+  ['4900000001', 'R-101', 'HO invoice 1b', '10/01/2026', 50.00, 0],
+  ['4900000001', 'R-101', 'HO invoice 1c', '10/01/2026', 25.00, 0],
+  ['4900000002', 'R-102', 'HO invoice 2', '05/02/2026', 200.00, 0],
+  ['4900000003', 'R-103', 'HO invoice 3', '12/02/2026', 500.00, 0],
+  ['4900000003', 'R-103', 'HO credit note', '13/02/2026', 0, 100.00],
+  ['4900000004', 'T-9', 'transfer to lim', '01/03/2026', 0, 1000.00],
+  ['4900000005', 'H-77', 'ho only item', '15/03/2026', 75.00, 0],
+];
+const icB = [
+  ['Document Number', 'Reference', 'Text', 'Document Date', 'Debit Amount', 'Credit Amount'],
+  ['3400000001', 'R-101', 'LIM booking 1a', '11/01/2026', 0, 100.00],
+  ['3400000001', 'R-101', 'LIM booking 1b', '11/01/2026', 0, 50.00],
+  ['3400000001', 'R-101', 'LIM booking 1c', '11/01/2026', 0, 25.00],
+  ['3400000002', 'R-102', 'LIM booking 2', '06/02/2026', 0, 200.00],
+  ['3400000003', 'R-103', 'LIM booking 3', '12/02/2026', 0, 500.00],
+  ['3400000003', 'R-103', 'LIM debit adj', '14/02/2026', 100.00, 0],
+  ['3400000004', 'T-9', 'transfer from ho', '01/03/2026', 1000.00, 0],
+  ['3400000006', 'L-88', 'lim only item', '20/03/2026', 0, 60.00],
+];
+const wbIA = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wbIA, XLSX.utils.aoa_to_sheet(icA), 'Sheet1');
+writeWb(wbIA, S('ic_A.xlsx'));
+const wbIB = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wbIB, XLSX.utils.aoa_to_sheet(icB), 'Sheet1');
+writeWb(wbIB, S('ic_B.xlsx'));
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */
@@ -68,4 +103,4 @@ for (let i = 0; i < 1200; i++)
 fs.writeFileSync(S('perf_A.csv'), a);
 fs.writeFileSync(S('perf_B.csv'), b);
 
-console.log('fixtures written: split_A.xlsx split_B.xlsx tier_A.csv tier_B.csv perf_A.csv perf_B.csv');
+console.log('fixtures written: split_A.xlsx split_B.xlsx ic_A.xlsx ic_B.xlsx tier_A.csv tier_B.csv perf_A.csv perf_B.csv');
