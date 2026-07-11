@@ -64,7 +64,8 @@ Expected values:
     totals −94.50 / −117.23; one footer total row excluded per side; no warns.
   - export contains the adjusted-balances sheet on a NON-bank preset with
     live formulas; doc sheet records the credit columns.
-  - no-shared-key mode: 7 line pairs matched rule 2, same two open lines.
+  - no-shared-key mode: 8 line pairs matched rule 2, open = 75/15.50 (A) and
+    60/7.77 (B); footer rows excluded there too.
   - guardrail: keying on Document Number → 0 matches → visible banner that
     names the suggested Reference key.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
