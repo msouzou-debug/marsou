@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.8**.
+internet. All data stays on the local machine. Current version: **v2.9**.
 
 ## Architecture
 
@@ -104,7 +104,13 @@ Expected values:
    **Debit/Credit netting** (v2.1, `netAmount()`): each side may map an
    optional credit column; the row amount is Debit − Credit. Auto-guess
    pre-selects the pair when headers contain debit+credit (or χρέωση/πίστωση)
-   — SAP GL exports never work without this.
+   — SAP GL exports never work without this. Description columns are also
+   auto-guessed (v2.9, DESC_HINTS): an EXACT header match ('Text',
+   'Description', 'Περιγραφή'…) beats a 'contains' match, so SAP's 'Text'
+   wins over 'Document Header Text'; columns already used for amount/credit/
+   date are never picked. Without this the Description A/B export columns
+   sat empty whenever users forgot the dropdowns. The doc sheet records the
+   description mapping.
    **Keyless rows are first-class** (v2.4, `keylessItems()` +
    `extractTotalRows()`): rows whose composite key is empty are NOT discarded
    in a keyed run — they are line-matched (amount within tolerance + date
@@ -236,7 +242,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.8)
+## Known limitations (v2.9)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with

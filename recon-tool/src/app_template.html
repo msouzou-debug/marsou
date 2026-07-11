@@ -362,7 +362,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.8</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.9</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -386,7 +386,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.8",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.9",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -452,7 +452,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v2.8",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v2.9",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -666,6 +666,7 @@ const AMT_HINTS=['ποσό','ποσο','αξία','αξια','amount','value','t
 const DEB_HINTS=['debit','χρέωσ','χρεωσ'];
 const CRE_HINTS=['credit','πίστωσ','πιστωσ'];
 const DATE_HINTS=['ημερ','date','ημ/νία','ημ/νια'];
+const DESC_HINTS=['περιγραφ','description','desc','text','κείμενο','κειμενο','αιτιολογ','narrative','details'];
 const KEY_HINTS=['κωδ','code','id','αριθμ','number','no','invoice','τιμολ','material','υλικ','account','λογαριασμ','ref','key','ασθεν','patient','drg'];
 function guess(side){
   const cols=SIDES[side].cols, rows=SIDES[side].rows;
@@ -689,6 +690,11 @@ function guess(side){
   }
   if(ai>=0)document.getElementById('amt'+side).value=cols[ai];
   const di=pick(DATE_HINTS); if(di>=0)document.getElementById('date'+side).value=cols[di];
+  // description: exact header match beats 'contains' (SAP has both 'Text' and 'Document Header Text')
+  const used=new Set([ai,cri,di]);
+  let dsi=lower.findIndex((c,i)=>!used.has(i)&&DESC_HINTS.includes(c));
+  if(dsi<0)dsi=lower.findIndex((c,i)=>!used.has(i)&&DESC_HINTS.some(h=>c.includes(h)));
+  if(dsi>=0)document.getElementById('desc'+side).value=cols[dsi];
   const ki=pick(KEY_HINTS);
   const boxes=document.querySelectorAll('#keys'+side+' input');
   const check=i=>{boxes[i].checked=true;boxes[i].closest('.keychip').classList.add('on');};
@@ -1641,6 +1647,7 @@ function exportExcel(){
     [el?'Κλειδιά B':'Keys B',R.mB.keys.join(', '),el?'Ποσό B':'Amount B',R.mB.amt],
     [el?'Στήλη πίστωσης A / B (αφαιρείται)':'Credit column A / B (subtracted)',(R.mA.cr||'—')+' / '+(R.mB.cr||'—'),
      el?'Ημ/νία A / B':'Date A / B',(R.mA.date||'—')+' / '+(R.mB.date||'—')],
+    [el?'Στήλη περιγραφής A / B':'Description column A / B',(R.mA.desc||'—')+' / '+(R.mB.desc||'—')],
     [el?'Όριο ανοχής':'Tolerance',R.tol,el?'Αντιστροφή προσήμου B':'Sign flip B',YN(R.flip)],
     [el?'Χωρίς κοινό κλειδί (ανά γραμμή)':'No-shared-key (line-by-line)',YN(R.nokey),
      el?'Παράθυρο (± ημ.)':'Window (± days)',document.getElementById('nokeydays').value],
@@ -1679,7 +1686,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 2.8)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 2.9)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Για τραπεζικές συμφωνίες χρησιμοποιήστε το ξεχωριστό εργαλείο τραπεζικών συμφωνιών του Οργανισμού.</p>"],
@@ -1706,7 +1713,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 2.8)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 2.9)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>For bank reconciliations, use the organisation's separate bank reconciliation tool.</p>"],
@@ -1752,7 +1759,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v2.8.html':'OKYPY_Reconciliation_Manual_v2.8.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v2.9.html':'OKYPY_Reconciliation_Manual_v2.9.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
