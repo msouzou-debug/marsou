@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.3**.
+internet. All data stays on the local machine. Current version: **v2.4**.
 
 ## Architecture
 
@@ -58,8 +58,10 @@ Expected values:
   - auto-mapping detects the Debit/Credit pair (amount = debit, credit
     subtracted) and auto-switches the hopeless Document Number guess to the
     suggested Reference↔Reference key (shared-value overlap).
-  - keyed run + flip B: matched = [R-101 175, R-102 200, R-103 400 (netted),
-    T-9 −1000 (credit-side)], diffs 0, open = H-77 (A) / L-88 (B), no warns.
+  - keyed run + flip B: rule-1 matched = [R-101 175, R-102 200, R-103 400
+    (netted), T-9 −1000 (credit-side)] plus the keyless 40.00 pair as rule 2;
+    diffs 0; open = H-77 + keyless 15.50 (A) / L-88 + keyless 7.77 (B);
+    totals −94.50 / −117.23; one footer total row excluded per side; no warns.
   - export contains the adjusted-balances sheet on a NON-bank preset with
     live formulas; doc sheet records the credit columns.
   - no-shared-key mode: 7 line pairs matched rule 2, same two open lines.
@@ -67,8 +69,11 @@ Expected values:
     names the suggested Reference key.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
-  flip B: 249 matched references, 0 diffs, 54 open (sum = net 11,995,952.00);
-  no-shared-key mode matches 4,488 line pairs (equal to Reconcilio's A+S).
+  flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
+  (rule 2), 0 diffs, 54 open (sum = net 11,995,952.00), totA = 14,819,319.94,
+  totB = 2,823,367.94, one footer row excluded per side whose value equals
+  the file's closing balance. No-shared-key mode matches 4,488 line pairs
+  (equal to Reconcilio's A+S).
 
 ## Domain logic (do not break)
 
@@ -81,6 +86,15 @@ Expected values:
    optional credit column; the row amount is Debit − Credit. Auto-guess
    pre-selects the pair when headers contain debit+credit (or χρέωση/πίστωση)
    — SAP GL exports never work without this.
+   **Keyless rows are first-class** (v2.4, `keylessItems()` +
+   `extractTotalRows()`): rows whose composite key is empty are NOT discarded
+   in a keyed run — they are line-matched (amount within tolerance + date
+   within the ±N window of `#nokeydays`) against the other side's keyless
+   rows, labelled rule 2 with key `#<sheet-row>`; unexplained ones join the
+   open lists, and totals cover every row. A file's grand-total footer (no
+   key, no date, amount == net of all other rows within 0.02) is detected,
+   excluded and reported with its value in the Documentation sheet — without
+   this, raw column sums double.
    **No-shared-key mode** (v2.1, `#nokeyon` + `lineItems()`): skips the key
    pass entirely; every row is an open item matched 1-to-1 by amount within
    tolerance + date within ±N days (`pass2`, cent-bucketed so thousands of
@@ -165,7 +179,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.3)
+## Known limitations (v2.4)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with

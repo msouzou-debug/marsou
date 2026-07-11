@@ -44,18 +44,26 @@ const check = (name, cond, detail) => {
   await page.click('#runBtn');
   await page.waitForSelector('#stepRes:not(.hidden)');
   let r = await page.evaluate(() => ({
-    matched: RESULT.matched.map(x => [x.key, +x.amtA.toFixed(2)]).sort(),
+    keyed: RESULT.matched.filter(x => x.rule === 1).map(x => [x.key, +x.amtA.toFixed(2)]).sort(),
+    keyless: RESULT.matched.filter(x => x.rule === 2).map(x => [x.key, +x.amtA.toFixed(2)]),
     diffs: RESULT.diffs.length,
     onlyA: RESULT.onlyA.map(x => [x.key, +x.diff.toFixed(2)]),
     onlyB: RESULT.onlyB.map(x => [x.key, +x.diff.toFixed(2)]),
+    totA: +RESULT.totA.toFixed(2), totB: +RESULT.totB.toFixed(2),
+    totalRows: [RESULT.totalRowA.n, RESULT.totalRowB.n],
     warns: RESULT.warns,
   }));
   console.log('KEYED:', JSON.stringify(r));
   check('4 references matched (incl. netted R-103 and credit-side T-9)',
-    JSON.stringify(r.matched) === JSON.stringify([['R-101', 175], ['R-102', 200], ['R-103', 400], ['T-9', -1000]]), r.matched);
+    JSON.stringify(r.keyed) === JSON.stringify([['R-101', 175], ['R-102', 200], ['R-103', 400], ['T-9', -1000]]), r.keyed);
+  check('keyless 40.00 pair line-matched automatically (rule 2)',
+    JSON.stringify(r.keyless) === JSON.stringify([['#10 ⇄ #10', 40]]), r.keyless);
   check('no differences', r.diffs === 0);
-  check('open items are the true reconciling items',
-    JSON.stringify(r.onlyA) === JSON.stringify([['H-77', 75]]) && JSON.stringify(r.onlyB) === JSON.stringify([['L-88', -60]]), [r.onlyA, r.onlyB]);
+  check('open items: true reconciling items plus unexplained keyless lines',
+    JSON.stringify(r.onlyA) === JSON.stringify([['H-77', 75], ['#11', 15.5]]) &&
+    JSON.stringify(r.onlyB) === JSON.stringify([['L-88', -60], ['#11', -7.77]]), [r.onlyA, r.onlyB]);
+  check('totals cover every row except the detected footer', r.totA === -94.5 && r.totB === -117.23, [r.totA, r.totB]);
+  check('one grand-total footer row excluded per side', JSON.stringify(r.totalRows) === JSON.stringify([1, 1]), r.totalRows);
   check('no warnings on a healthy run', r.warns.length === 0, r.warns);
 
   /* ---- export: adjusted-balance sheet present on the generic preset ---- */
@@ -86,11 +94,14 @@ const check = (name, cond, detail) => {
     rules: [...new Set(RESULT.matched.map(x => x.rule))],
     onlyA: RESULT.onlyA.map(x => +x.amtA.toFixed(2)),
     onlyB: RESULT.onlyB.map(x => +x.amtB.toFixed(2)),
+    totalRows: [RESULT.totalRowA.n, RESULT.totalRowB.n],
   }));
   console.log('NOKEY:', JSON.stringify(r));
-  check('7 line pairs matched by amount+date', r.matched === 7, r.matched);
+  check('8 line pairs matched by amount+date', r.matched === 8, r.matched);
   check('all labelled rule 2', JSON.stringify(r.rules) === JSON.stringify([2]), r.rules);
-  check('same two open lines', JSON.stringify(r.onlyA) === JSON.stringify([75]) && JSON.stringify(r.onlyB) === JSON.stringify([60]), [r.onlyA, r.onlyB]);
+  check('open lines incl. unexplained keyless',
+    JSON.stringify(r.onlyA) === JSON.stringify([75, 15.5]) && JSON.stringify(r.onlyB) === JSON.stringify([60, 7.77]), [r.onlyA, r.onlyB]);
+  check('footer rows excluded in no-key mode too', JSON.stringify(r.totalRows) === JSON.stringify([1, 1]), r.totalRows);
 
   /* ---- guardrails: hopeless keys produce a visible warning banner ---- */
   await page.evaluate(() => {

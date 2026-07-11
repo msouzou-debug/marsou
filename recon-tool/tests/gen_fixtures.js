@@ -59,7 +59,11 @@ fs.writeFileSync(S('tier_B.csv'),
    matched refs R-101 (3 lines vs 3), R-102, R-103 (netted 500-100), T-9 (credit-side
    transfer -> the amount lives in the credit column: the v2.0 "invisible" trap);
    open: H-77 (75, A only) and L-88 (60, B only).
-   No-shared-key mode: 7 line pairs matched by amount+date, same two open lines. */
+   Keyless rows (blank Reference) are line-matched automatically: the 40.00 pair
+   matches, A's 15.50 and B's 7.77 stay open. Each file ends with a grand-total
+   footer row (blank ref, no date, amount = net of all other rows) that must be
+   detected and excluded.
+   No-shared-key mode: 8 line pairs matched by amount+date, same open lines. */
 const icA = [
   ['Document Number', 'Reference', 'Text', 'Document Date', 'Debit Amount', 'Credit Amount'],
   ['4900000001', 'R-101', 'HO invoice 1a', '10/01/2026', 100.00, 0],
@@ -70,6 +74,9 @@ const icA = [
   ['4900000003', 'R-103', 'HO credit note', '13/02/2026', 0, 100.00],
   ['4900000004', 'T-9', 'transfer to lim', '01/03/2026', 0, 1000.00],
   ['4900000005', 'H-77', 'ho only item', '15/03/2026', 75.00, 0],
+  ['4900000006', '', 'misc without ref', '20/03/2026', 40.00, 0],
+  ['4900000007', '', 'ho stray line', '21/03/2026', 15.50, 0],
+  ['', '', 'TOTAL', '', 1005.50, 1100.00],
 ];
 const icB = [
   ['Document Number', 'Reference', 'Text', 'Document Date', 'Debit Amount', 'Credit Amount'],
@@ -81,6 +88,9 @@ const icB = [
   ['3400000003', 'R-103', 'LIM debit adj', '14/02/2026', 100.00, 0],
   ['3400000004', 'T-9', 'transfer from ho', '01/03/2026', 1000.00, 0],
   ['3400000006', 'L-88', 'lim only item', '20/03/2026', 0, 60.00],
+  ['3400000007', '', 'misc without ref', '21/03/2026', 0, 40.00],
+  ['3400000008', '', 'lim stray', '22/03/2026', 0, 7.77],
+  ['', '', 'TOTAL', '', 1100.00, 982.77],
 ];
 const wbIA = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wbIA, XLSX.utils.aoa_to_sheet(icA), 'Sheet1');
