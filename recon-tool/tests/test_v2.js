@@ -53,8 +53,10 @@ async function setMapping(page, side, keys, amt, date, desc) {
     onlyA: RESULT.onlyA.map(x => x.key), onlyB: RESULT.onlyB.map(x => x.key),
     truncated: RESULT.splitTruncated,
   }));
-  console.log('SPLIT:', JSON.stringify(r));
-  check('two groups proposed', r.props.length === 2, r.props.length);
+  console.log('SPLIT:', JSON.stringify(r.props));
+  check('three groups proposed', r.props.length === 3, r.props.length);
+  const g13 = r.props.find(p => p[1] === 'INV-13M');
+  check('13M batch proposed as 13 x 1M (beyond DFS cap)', !!g13 && g13[2].length === 13 && g13[3] === 0, g13 && [g13[2].length, g13[3]]);
   const g500 = r.props.find(p => p[1] === 'INV-500');
   const g250 = r.props.find(p => p[1] === 'INV-250');
   check('exact 1-to-3 group (INV-500)', !!g500 && g500[3] === 0 && JSON.stringify(g500[2]) === JSON.stringify(['PAY-01', 'PAY-02', 'PAY-03']), g500);
@@ -85,7 +87,7 @@ async function setMapping(page, side, keys, amt, date, desc) {
   const el = n => wb.Sheets[n];
   check('groups sheet exists', wb.SheetNames.includes('Ομάδες'));
   const wsG = el('Ομάδες');
-  check('group diff is live block formula', wsG && wsG.G2 && /^SUM\(E2:E5\)-SUM\(F2:F5\)$/.test(wsG.G2.f || ''), wsG && wsG.G2 && wsG.G2.f);
+  check('group diff is live block formula', wsG && wsG.G2 && /^SUM\(E2:E\d+\)-SUM\(F2:F\d+\)$/.test(wsG.G2.f || ''), wsG && wsG.G2 && wsG.G2.f);
   const wsS = el('Σύνοψη');
   check('summary counts groups via COUNTA', wsS && /COUNTA\('Ομάδες'!A2:A100000\)/.test(wsS.B8 && wsS.B8.f || ''), wsS.B8 && wsS.B8.f);
   check('summary self-check includes groups', wsS && /ROUND\(B12-\(C5\+C6\+C7\+C8\),2\)/.test(wsS.B14 && wsS.B14.f || ''), wsS.B14 && wsS.B14.f);
@@ -106,7 +108,7 @@ async function setMapping(page, side, keys, amt, date, desc) {
   const prog = JSON.parse(fs.readFileSync(progPath, 'utf8'));
   console.log('PROGRESS-KEYS:', JSON.stringify(Object.keys(prog)));
   check('progress JSON valid', prog.app === 'okypy-recon' && prog.version === 2);
-  check('progress stores accepted groups', Object.values(prog.groups).filter(Boolean).length === 2, prog.groups);
+  check('progress stores accepted groups', Object.values(prog.groups).filter(Boolean).length === 3, prog.groups);
   check('progress stores category', prog.cats.onlyA['INV-300'] === 'catI', prog.cats.onlyA);
   await page.close();
 
@@ -124,7 +126,7 @@ async function setMapping(page, side, keys, amt, date, desc) {
     cat: (RESULT.onlyA.find(x => x.key === 'INV-300') || {}).cat,
   }));
   console.log('RESTORED:', JSON.stringify(r));
-  check('accepted groups restored from progress', r.accepted === 2, r.accepted);
+  check('accepted groups restored from progress', r.accepted === 3, r.accepted);
   check('category restored from progress', r.cat === 'catI', r.cat);
   await page.close();
 

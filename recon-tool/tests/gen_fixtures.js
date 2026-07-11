@@ -11,9 +11,12 @@ const S = f => path.join(__dirname, '..', 'samples', f);
    - INV-250  250.01  = PAY-04 150.00 + PAY-05 100.00                  (diff 0.01, in tolerance)
    - INV-300  300.00  = decoy: its only combos need members consumed above -> stays open
    Remaining open B: PAY-06 90.00, PAY-07 75.00, PAY-08 40.00 (no subset hits 300 +/- 0.01)
+   - INV-13M 13,000,000 = thirteen equal PAY-M lines of 1,000,000 (batch transfer,
+     exceeds the DFS cap of 6 -> must be found by the instalment/denomination path)
 */
 const A = [
   ['Τιμολόγιο', 'Ημερομηνία', 'Περιγραφή', 'Ποσό'],
+  ['INV-13M', '15/03/2026', 'Μεταφορά σε λογαριασμό εξόδων', 13000000.00],
   ['INV-500', '01/03/2026', 'Προμηθευτής ΑΛΦΑ', 500.00],
   ['INV-300', '05/03/2026', 'Προμηθευτής ΒΗΤΑ', 300.00],
   ['INV-250', '10/03/2026', 'Προμηθευτής ΓΑΜΑ', 250.01],
@@ -28,6 +31,8 @@ const B = [
   ['PAY-06', '02/03/2026', 'Λοιπές πληρωμές', 90.00],
   ['PAY-07', '04/03/2026', 'Λοιπές πληρωμές', 75.00],
   ['PAY-08', '06/03/2026', 'Λοιπές πληρωμές', 40.00],
+  ...Array.from({ length: 13 }, (_, i) =>
+    [`PAY-M${String(i + 1).padStart(2, '0')}`, `${String(10 + i).padStart(2, '0')}/03/2026`, 'Δόση μεταφοράς', 1000000.00]),
 ];
 // the vendored browser build has no fs binding: write via buffer
 const writeWb = (wb, file) => fs.writeFileSync(file, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));

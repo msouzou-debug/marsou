@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.4**.
+internet. All data stays on the local machine. Current version: **v2.5**.
 
 ## Architecture
 
@@ -44,9 +44,11 @@ Expected values:
   leading-zero normalisation; 80.005↔80.00 and 999.99↔1000.00 within
   tolerance), diffs=0, onlyB=1 (789 = −50.25 parsed from `"(50,25)"`).
 - `test_v2.js` (asserts, exits 1 on failure):
-  - split_A/split_B: exactly 2 proposals — INV-500 = PAY-01+02+03 (exact
-    1-to-3) and INV-250 = PAY-04+05 (diff 0.01, within tolerance); decoy
-    INV-300 must stay unexplained after better groups consume its members.
+  - split_A/split_B: exactly 3 proposals — INV-13M = 13 equal PAY-M lines of
+    1,000,000 (beyond the DFS cap; instalment/denomination path), INV-500 =
+    PAY-01+02+03 (exact 1-to-3), INV-250 = PAY-04+05 (diff 0.01, within
+    tolerance); decoy INV-300 must stay unexplained after better groups
+    consume its members.
   - export after accepting: `Ομάδες` sheet with `=SUM(E2:E5)-SUM(F2:F5)`
     block formulas, Summary COUNTA over Groups!A, self-check
     `ROUND(B12-(C5+C6+C7+C8),2)` = 0, Only-in-A sheet excludes grouped items.
@@ -75,6 +77,11 @@ Expected values:
   totB = 2,823,367.94, one footer row excluded per side whose value equals
   the file's closing balance. No-shared-key mode matches 4,488 line pairs
   (equal to Reconcilio's A+S).
+- Real-world benchmark 2 (files not in repo): BOC_SAP_03.2026 vs BOC
+  TransactionHistory 03.2026, no-key mode ±60d, flip B, D/C netting both
+  sides, bank header row = 6. Expected proposals include 13,000,000 =
+  10 x 1M + 6 x 500k (diff 0), 11,000,000 = 22 x 500k (diff 0), and the
+  6,216,168.10 payroll = 2 lines; ~260 line pairs matched.
 
 ## Domain logic (do not break)
 
@@ -121,8 +128,15 @@ Expected values:
    are searched on the open items of the other side — bounded DFS on CENT
    INTEGERS (never float-sum), same-sign candidates only, descending order
    with best-possible pruning, 60k node budget per target, ~4.5 s global time
-   guard (`splitTruncated` flag + on-screen notice when hit). Greedy: largest
-   |amount| targets first; every item belongs to at most one group. Proposals
+   guard (`splitTruncated` flag + on-screen notice when hit).
+   **Large batches** (v2.5): when the DFS finds nothing, two cheap strategies
+   run with an internal cap of 60 members — `findGreedyCompose()` composes
+   the target from the largest available denominations downwards (13M =
+   10 x 1M + 6 x 500k, the shape of real transfer batches), then
+   `findInstalments()` looks for k equal lines summing exactly to the target
+   (k = 2..60, exact cents division). Both respect the same-sign, date-window
+   and prefix filters. Greedy: largest |amount| targets first; every item
+   belongs to at most one group. Proposals
    are NEVER auto-applied: the user accepts each group (checkbox) in the
    "Προτεινόμενοι συνδυασμοί / Suggested groups" tab; only accepted groups
    leave the open lists (`inAccepted()` filters KPIs, tabs and export).
@@ -180,7 +194,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.4)
+## Known limitations (v2.5)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with
