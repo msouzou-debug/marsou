@@ -130,10 +130,10 @@ table.grid tbody tr:hover{background:var(--wash-blue)}
 #beamRot{transition:transform .8s cubic-bezier(.34,1.3,.5,1);transform-origin:170px 34px}
 .beamstate{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
 .beamstate.ok{color:var(--okypy-green)} .beamstate.no{color:var(--okypy-neg)}
-.kpis{flex:1;display:flex;flex-wrap:wrap;min-width:340px}
-.kpi{flex:1;min-width:118px;padding:6px 18px 6px 0;margin-right:18px;border-right:1px solid var(--okypy-grey-light)}
+.kpis{flex:1;display:flex;flex-wrap:wrap;min-width:340px;row-gap:10px}
+.kpi{flex:1 1 auto;min-width:max-content;padding:6px 18px 6px 0;margin-right:18px;border-right:1px solid var(--okypy-grey-light)}
 .kpi:last-child{border-right:none;margin-right:0}
-.kpi .v{font-size:23px;font-weight:900;color:var(--okypy-blue-deep);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.kpi .v{font-size:21px;font-weight:900;color:var(--okypy-blue-deep);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
 .kpi.green .v{color:var(--okypy-green)} .kpi.red .v{color:var(--okypy-neg)}
 .kpi .l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--okypy-muted);font-weight:700;margin-top:1px}
 .tabs{display:flex;gap:2px;border-bottom:2px solid var(--okypy-grey-light);flex-wrap:wrap;margin-top:16px}
