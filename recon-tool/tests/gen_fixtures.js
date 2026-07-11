@@ -128,6 +128,28 @@ fs.writeFileSync(S('fee_B.csv'),
   'CY111,05/03/2026,PROCESSING FEES our ref CY111,10.00,\n' +
   'CY222,06/03/2026,OUTWARD CY222 to ALPHA SUPPLIES LTD,1000.00,\n');
 
+/* ---- duplicate-detection fixture: D1 posted twice in A ---- */
+fs.writeFileSync(S('dup_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  'D1,01/03/2026,double posting,100.00\n' +
+  'D1,01/03/2026,double posting,100.00\n' +
+  'D2,02/03/2026,normal,50.00\n');
+fs.writeFileSync(S('dup_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  'D1,01/03/2026,counterparty,100.00\n' +
+  'D2,02/03/2026,counterparty,50.00\n');
+
+/* ---- same-day N-to-M fixture (bank flow): 55+45 = 30+30+40, no 1-to-N subset ---- */
+fs.writeFileSync(S('nm_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  'NA1,05/03/2026,batch part 1,55.00\n' +
+  'NA2,05/03/2026,batch part 2,45.00\n');
+fs.writeFileSync(S('nm_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  'NB1,05/03/2026,bank leg 1,30.00\n' +
+  'NB2,05/03/2026,bank leg 2,30.00\n' +
+  'NB3,05/03/2026,bank leg 3,40.00\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */
@@ -142,4 +164,4 @@ for (let i = 0; i < 1200; i++)
 fs.writeFileSync(S('perf_A.csv'), a);
 fs.writeFileSync(S('perf_B.csv'), b);
 
-console.log('fixtures written: split_A/B ic_A/B tier_A/B fee_A/B perf_A/B');
+console.log('fixtures written: split ic tier fee dup nm perf');

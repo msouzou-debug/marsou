@@ -1,0 +1,221 @@
+// v3.0 feature tests: profiles, sign auto-detect, balance tie-out, duplicates,
+// search filter, manual selection matching, same-day N-to-M, carry-forward,
+// reconciliation pack, styled export.
+const { chromium } = require('playwright');
+const path = require('path');
+const fs = require('fs');
+const XLSX = require('../vendor/xlsx-style.full.min.js');
+const ROOT = path.join(__dirname, '..');
+const APP = 'file://' + path.join(ROOT, 'dist', 'OKYpY_Reconciliation_Tool.html');
+const S = f => path.join(ROOT, 'samples', f);
+
+let failures = 0;
+const check = (name, cond, detail) => {
+  console.log((cond ? 'PASS' : 'FAIL') + ': ' + name + (detail !== undefined ? ' ' + JSON.stringify(detail) : ''));
+  if (!cond) failures++;
+};
+const newAppPage = async browser => {
+  const page = await browser.newPage();
+  page.on('pageerror', e => { console.log('PAGEERROR:', e.message); failures++; });
+  await page.goto(APP);
+  return page;
+};
+
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, headless: true });
+
+  /* ============ 1. sign auto-detect + tie-out + manual selection + carry-forward (ic pair) ============ */
+  let page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('ic_A.xlsx'));
+  await page.setInputFiles('#fileB', S('ic_B.xlsx'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  let r = await page.evaluate(() => ({
+    flip: document.getElementById('flipB').checked,
+    hint: document.getElementById('signHint').textContent,
+  }));
+  console.log('SIGN:', JSON.stringify(r));
+  check('mirrored amounts auto-tick the sign flip', r.flip === true && r.hint.length > 0, r);
+
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    tie: document.getElementById('tieInfo').textContent,
+    tieHidden: document.getElementById('tieInfo').classList.contains('hidden'),
+  }));
+  console.log('TIE:', JSON.stringify(r));
+  check('balance tie-out shows agreement for both detected footers', !r.tieHidden && r.tie.includes('A:') && r.tie.includes('B:') && r.tie.includes('✓'), r.tie);
+
+  /* export the untouched run NOW — the carry-forward test needs its open items intact */
+  const [dlPrev] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
+  const prevPath = path.join(__dirname, 'export_prev.xlsx');
+  await dlPrev.saveAs(prevPath);
+
+  /* search filter narrows the open tab */
+  r = await page.evaluate(() => {
+    RESULT.activeTab = 'onlyA'; renderResults();
+    const before = document.querySelectorAll('#pane-onlyA tbody tr').length;
+    RESULT.filterQ = 'H-77'; renderResults();
+    const after = document.querySelectorAll('#pane-onlyA tbody tr').length;
+    RESULT.filterQ = ''; renderResults();
+    return { before, after };
+  });
+  check('search filter narrows results', r.before === 2 && r.after === 1, r);
+
+  /* manual selection: cross-side H-77 (75) vs L-88 (60) */
+  r = await page.evaluate(() => {
+    RESULT.onlyA.find(x => x.key === 'H-77')._sel = true;
+    RESULT.onlyB.find(x => x.key === 'L-88')._sel = true;
+    renderResults();
+    const info = document.getElementById('selInfo').textContent;
+    matchSelected();
+    return {
+      info,
+      committed: RESULT.committed.length,
+      manual: RESULT.matched.filter(x => x.rule === 4).map(x => [x.key, +x.diff.toFixed(2)]),
+      openA: document.querySelectorAll('#pane-onlyA tbody tr').length,
+    };
+  });
+  console.log('SELECT:', JSON.stringify(r));
+  check('selection toolbar shows totals', /75,00|75.00/.test(r.info) && /60,00|60.00/.test(r.info), r.info);
+  check('manual cross-side match committed with residual 15', r.committed === 1 && r.manual.length === 1 && r.manual[0][1] === 15, r.manual);
+  check('matched item left the open list', r.openA === 1, r.openA);
+
+  /* same-side pairing (reversal-style): remaining keyless A 15.50 + nothing on B is <2 items;
+     select the two remaining opens on A side only? only one left — instead select keyless A + keyless B */
+  r = await page.evaluate(() => {
+    RESULT.onlyA.forEach(x => { if (!inAccepted(x)) x._sel = true; });   // #10 (15.50)
+    RESULT.onlyB.forEach(x => { if (!inAccepted(x)) x._sel = true; });   // #10 (7.77)
+    matchSelected();
+    return { committed: RESULT.committed.length, openLeft: [RESULT.onlyA.filter(x => !inAccepted(x)).length, RESULT.onlyB.filter(x => !inAccepted(x)).length] };
+  });
+  check('second manual group clears the open lists', r.committed === 2 && JSON.stringify(r.openLeft) === JSON.stringify([0, 0]), r);
+
+  /* export after the manual commits — checks styling and that sel-groups export cleanly */
+  const [dl1] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
+  const v4Path = path.join(__dirname, 'export_v4.xlsx');
+  await dl1.saveAs(v4Path);
+  const wbPrev = XLSX.read(fs.readFileSync(v4Path), { type: 'buffer', cellStyles: true });
+  const wsM = wbPrev.Sheets['Συμφωνούν'];
+  check('styled export: header carries the brand fill', !!(wsM && wsM.A1 && wsM.A1.s && wsM.A1.s.fgColor && wsM.A1.s.fgColor.rgb === '069FEC'), wsM && wsM.A1 && wsM.A1.s);
+
+  /* pack: add twice, export */
+  r = await page.evaluate(() => { addToPack(); addToPack(); return PACK.length; });
+  check('pack accumulates runs', r === 2, r);
+  const [dlP] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportPack())]);
+  const packPath = path.join(__dirname, 'export_pack.xlsx');
+  await dlP.saveAs(packPath);
+  const wbPack = XLSX.read(fs.readFileSync(packPath), { type: 'buffer', cellFormula: true });
+  console.log('PACK SHEETS:', JSON.stringify(wbPack.SheetNames));
+  const wsPack = wbPack.Sheets['Πακέτο'];
+  check('pack summary sheet with per-run check formulas', wsPack && wsPack.K4 && /ROUND\(J4-\(E4\+G4\+I4\),2\)/.test(wsPack.K4.f || ''), wsPack.K4 && wsPack.K4.f);
+  check('pack totals row uses live SUM', wsPack && wsPack.E6 && /^SUM\(E4:E5\)$/.test(wsPack.E6.f || ''), wsPack.E6 && wsPack.E6.f);
+  check('per-run open-items sheets present', wbPack.SheetNames.filter(n => /Εκκρεμή/.test(n)).length === 2, wbPack.SheetNames);
+  await page.close();
+
+  /* ============ 2. carry-forward: feed the export back as previous period ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('ic_A.xlsx'));
+  await page.setInputFiles('#fileB', S('ic_B.xlsx'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.setInputFiles('#filePrev', prevPath);
+  await page.waitForFunction(() => document.getElementById('boxPrev').classList.contains('loaded') || document.getElementById('finfoPrev').textContent !== '');
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    bf: RESULT.bf && { n: RESULT.bf.n, resolved: RESULT.bf.resolved },
+    flagged: RESULT.onlyA.concat(RESULT.onlyB).filter(x => x.bf).map(x => x.key).sort(),
+    kpis: [...document.querySelectorAll('.kpi .l')].map(x => x.textContent),
+  }));
+  console.log('BF:', JSON.stringify(r));
+  check('open items from the previous period are flagged brought-forward',
+    r.bf && r.bf.n === 4 && JSON.stringify(r.flagged) === JSON.stringify(['#10', '#10', 'H-77', 'L-88']), r);
+  check('brought-forward KPI shown', r.kpis.some(x => /προηγ|Brought/i.test(x)), r.kpis);
+  await page.close();
+
+  /* ============ 3. profile round-trip (fee pair) ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('fee_A.csv'));
+  await page.setInputFiles('#fileB', S('fee_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    document.getElementById('amtB').value = 'Debit'; document.getElementById('crB').value = 'Credit';
+    document.getElementById('dateB').value = 'Date'; document.getElementById('descB').value = 'Description';
+    document.getElementById('amtA').value = 'Amount'; document.getElementById('dateA').value = 'Date'; document.getElementById('descA').value = 'Text';
+    document.querySelectorAll('#keysB input').forEach(x => { x.checked = x.value === 'RefNo'; x.closest('.keychip').classList.toggle('on', x.checked); });
+    document.querySelectorAll('#keysA input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); });
+    document.getElementById('flipB').checked = true;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 9;
+    document.getElementById('nearon').checked = true;
+  });
+  const [dlProf] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => saveProfile())]);
+  const profPath = path.join(__dirname, 'profile_v4.json');
+  await dlProf.saveAs(profPath);
+  const prof = JSON.parse(fs.readFileSync(profPath, 'utf8'));
+  check('profile stores sides and settings', prof.type === 'profile' && prof.sides.B.keys[0] === 'RefNo' && prof.settings.nokeydays === '9', Object.keys(prof));
+  await page.close();
+
+  page = await newAppPage(browser);
+  await page.setInputFiles('#progFile', profPath);   // profile first...
+  await page.setInputFiles('#fileA', S('fee_A.csv')); // ...then the files
+  await page.setInputFiles('#fileB', S('fee_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  r = await page.evaluate(() => ({
+    keysB: [...document.querySelectorAll('#keysB input:checked')].map(x => x.value),
+    amtB: document.getElementById('amtB').value, crB: document.getElementById('crB').value,
+    nokey: document.getElementById('nokeyon').checked,
+    days: document.getElementById('nokeydays').value,
+    near: document.getElementById('nearon').checked,
+    flip: document.getElementById('flipB').checked,
+  }));
+  console.log('PROFILE:', JSON.stringify(r));
+  check('profile re-applies the full setup to freshly loaded files',
+    JSON.stringify(r.keysB) === JSON.stringify(['RefNo']) && r.amtB === 'Debit' && r.crB === 'Credit' &&
+    r.nokey === true && r.days === '9' && r.near === true && r.flip === true, r);
+  await page.close();
+
+  /* ============ 4. duplicates warning ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('dup_A.csv'));
+  await page.setInputFiles('#fileB', S('dup_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({ dupA: RESULT.dupA, dupB: RESULT.dupB, warn: RESULT.warns.join(' ') }));
+  console.log('DUP:', JSON.stringify(r));
+  check('duplicate posting detected on side A only', r.dupA === 1 && r.dupB === 0 && /διπλοεγγραφ|duplicate/i.test(r.warn), r);
+  await page.close();
+
+  /* ============ 5. same-day N-to-M proposal (no-key mode) ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('nm_A.csv'));
+  await page.setInputFiles('#fileB', S('nm_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    nm: RESULT.props.filter(p => p.nm).map(p => [p.itemsA.length, p.itemsB.length, +p.diff.toFixed(2)]),
+  }));
+  console.log('NM:', JSON.stringify(r));
+  check('same-day 2-vs-3 batch proposed with zero difference',
+    r.nm.length === 1 && JSON.stringify(r.nm[0]) === JSON.stringify([2, 3, 0]), r.nm);
+  /* commit it and confirm export block formula */
+  await page.evaluate(() => { RESULT.props.forEach(p => p.accepted = true); commitGroups(); });
+  const [dlNm] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
+  const nmPath = path.join(__dirname, 'export_nm.xlsx');
+  await dlNm.saveAs(nmPath);
+  const wbNm = XLSX.read(fs.readFileSync(nmPath), { type: 'buffer', cellFormula: true });
+  const wsGnm = wbNm.Sheets['Ομάδες'];
+  check('N-to-M group exports as one live block', wsGnm && wsGnm.G2 && /^SUM\(E2:E6\)-SUM\(F2:F6\)$/.test(wsGnm.G2.f || ''), wsGnm.G2 && wsGnm.G2.f);
+  await page.close();
+
+  await browser.close();
+  console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
+  process.exit(failures ? 1 : 0);
+})();

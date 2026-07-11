@@ -250,6 +250,14 @@ footer .bar{height:10px;background:var(--okypy-blue)}
       <div class="preview" id="prevB"></div>
     </div>
   </div>
+<div style="margin-top:16px">
+  <label data-i18n="prevT">Προηγούμενη περίοδος (προαιρετικά)</label>
+  <div class="filebox" id="boxPrev" style="padding:10px 14px" onclick="document.getElementById('filePrev').click()">
+    <div class="fname" id="fnamePrev" data-i18n="prevDrop" style="font-size:12.5px">Φορτώστε την εξαγωγή Excel της προηγούμενης συμφωνίας</div>
+    <small id="finfoPrev"></small>
+  </div>
+  <input type="file" id="filePrev" class="hidden" accept=".xlsx">
+</div>
 </div>
 
 <!-- STEP 3: mapping -->
@@ -355,17 +363,26 @@ footer .bar{height:10px;background:var(--okypy-blue)}
   <div class="hint hidden" id="tieInfo" style="font-weight:700"></div>
   <div class="warn hidden" id="resWarn"></div>
   <div class="warn hidden" id="truncWarn"></div>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px">
+    <input type="text" id="resQ" style="width:240px" oninput="RESULT&&(RESULT.filterQ=this.value,renderResults())" data-i18n-ph="search" placeholder="Αναζήτηση στα αποτελέσματα…">
+    <input type="number" id="resMin" style="width:110px" min="0" oninput="RESULT&&(RESULT.filterMin=parseFloat(this.value)||0,renderResults())" data-i18n-ph="minAmt" placeholder="Ελάχ. ποσό (€)">
+    <span class="hint" id="selInfo" style="margin:0"></span>
+    <button class="ghostbtn hidden" id="matchSelBtn" onclick="matchSelected()" data-i18n="matchSel">Χειροκίνητο ταίριασμα επιλεγμένων</button>
+    <button class="ghostbtn hidden" id="clearSelBtn" onclick="clearSelection()" data-i18n="clearSel">Καθαρισμός επιλογής</button>
+  </div>
   <div class="tabs" id="tabs" role="tablist"></div>
   <div id="panes"></div>
   <div class="exportrow">
     <button class="bigbtn green" onclick="exportExcel()" data-i18n="export">Εξαγωγή Excel (με τύπους)</button>
+    <button class="ghostbtn" id="addPackBtn" onclick="addToPack()" disabled>Προσθήκη στο πακέτο</button>
+    <button class="ghostbtn" id="packBtn" onclick="exportPack()" disabled>Εξαγωγή πακέτου</button>
     <span class="hint" data-i18n="exphint">Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.</span>
   </div>
 </div>
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.9</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.0</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -389,7 +406,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.9",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.0",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -445,7 +462,20 @@ const I18N = {
   signAutoOff:"Η αντιστροφή προσήμου απενεργοποιήθηκε αυτόματα — τα ποσά ταιριάζουν με ίδιο πρόσημο.",
   tieOk:"Το σύνολο του εργαλείου συμφωνεί με το σύνολο του αρχείου",
   tieBad:"Το σύνολο του εργαλείου ΔΙΑΦΕΡΕΙ από το σύνολο του αρχείου κατά",
-  warnDup:"Πιθανές διπλοεγγραφές στην πλευρά {s}: {n} επιπλέον γραμμές (ίδιο κλειδί, ποσό και ημερομηνία)."
+  warnDup:"Πιθανές διπλοεγγραφές στην πλευρά {s}: {n} επιπλέον γραμμές (ίδιο κλειδί, ποσό και ημερομηνία).",
+  search:"Αναζήτηση στα αποτελέσματα…", minAmt:"Ελάχ. ποσό (€)",
+  selInfo:"Επιλεγμένα: {a} στο A ({sa} €) · {b} στο B ({sb} €) · Δ {d} €",
+  matchSel:"Χειροκίνητο ταίριασμα επιλεγμένων", clearSel:"Καθαρισμός επιλογής",
+  selPick:"Επιλογή", manualKey:"Χειροκίνητο",
+  nmTag:"Ν-προς-Μ ίδιας ημέρας",
+  prevT:"Προηγούμενη περίοδος (προαιρετικά)",
+  prevDrop:"Φορτώστε την εξαγωγή Excel της προηγούμενης συμφωνίας",
+  prevLoaded:"γραμμές εκκρεμοτήτων από την προηγούμενη περίοδο",
+  prevBad:"Το αρχείο δεν αναγνωρίστηκε ως εξαγωγή του εργαλείου.",
+  bfKpi:"Από προηγ. περίοδο", bfPill:"Π/Π",
+  bfDoc:"Μεταφερόμενα / τακτοποιημένα από προηγ. περίοδο",
+  addPack:"Προσθήκη στο πακέτο", packExport:"Εξαγωγή πακέτου", packAdded:"Προστέθηκε στο πακέτο.",
+  packSheet:"Πακέτο συμφωνιών", packRecon:"Συμφωνία", packFiles:"Αρχεία", packCheck:"Έλεγχος"
  },
  en:{
   title:"Account Reconciliation Tool",
@@ -463,7 +493,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v2.9",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.0",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -519,7 +549,20 @@ const I18N = {
   signAutoOff:"Sign flip was switched off automatically — the amounts match with the same sign.",
   tieOk:"The tool's total agrees with the file's own total",
   tieBad:"The tool's total DIFFERS from the file's own total by",
-  warnDup:"Possible duplicate postings on side {s}: {n} extra rows (same key, amount and date)."
+  warnDup:"Possible duplicate postings on side {s}: {n} extra rows (same key, amount and date).",
+  search:"Search the results…", minAmt:"Min amount (€)",
+  selInfo:"Selected: {a} in A ({sa} €) · {b} in B ({sb} €) · Δ {d} €",
+  matchSel:"Manually match selected", clearSel:"Clear selection",
+  selPick:"Select", manualKey:"Manual",
+  nmTag:"Same-day N-to-M",
+  prevT:"Previous period (optional)",
+  prevDrop:"Load the previous reconciliation's Excel export",
+  prevLoaded:"open-item rows from the previous period",
+  prevBad:"The file was not recognised as an export of this tool.",
+  bfKpi:"Brought forward", bfPill:"B/F",
+  bfDoc:"Brought forward / resolved since previous period",
+  addPack:"Add to pack", packExport:"Export pack", packAdded:"Added to the pack.",
+  packSheet:"Reconciliation pack", packRecon:"Reconciliation", packFiles:"Files", packCheck:"Check"
  }
 };
 let LANG='el';
@@ -545,6 +588,9 @@ function setLang(l){
   document.getElementById('btn-el').setAttribute('aria-pressed',l==='el');
   document.getElementById('btn-en').setAttribute('aria-pressed',l==='en');
   document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n'); if(I18N[l][k])el.textContent=I18N[l][k];});
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{const k=el.getAttribute('data-i18n-ph'); if(I18N[l][k])el.placeholder=I18N[l][k];});
+  const ap=document.getElementById('addPackBtn'); if(ap)ap.textContent=t('addPack');
+  const pb=document.getElementById('packBtn'); if(pb)pb.textContent=t('packExport')+(PACK.length?' ('+PACK.length+')':'');
   renderPresets(); updateSideLabels();
   if(RESULT)renderResults();
 }
@@ -571,6 +617,66 @@ function updateSideLabels(){
   ['lblB','lblB2'].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=p[LANG].b;});
 }
 
+/* ================= previous period (carry-forward) ================= */
+let PRIOR=null;
+document.addEventListener('DOMContentLoaded',()=>{});
+function bindPrev(){
+  const inp=document.getElementById('filePrev'), box=document.getElementById('boxPrev');
+  const load=file=>{
+    const rd=new FileReader();
+    rd.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const find=names=>{const n=wb.SheetNames.find(x=>names.includes(x));return n?wb.Sheets[n]:null;};
+        const catOf=txt=>{
+          for(const c of ['catT','catA','catI'])
+            if(txt===I18N.el[c]||txt===I18N.en[c])return c;
+          return '';
+        };
+        const grab=(ws,amtCol)=>{
+          const m=new Map();
+          if(!ws)return m;
+          XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true}).slice(1).forEach(r=>{
+            if(!r||r[0]===null||r[0]==='')return;
+            const amt=typeof r[amtCol]==='number'?r[amtCol]:null;
+            if(amt===null)return;
+            m.set(String(r[0])+'|'+Math.round(amt*100),catOf(String(r[10]||'')));
+          });
+          return m;
+        };
+        const a=grab(find(['Μόνο στο A','Only in A']),4);   // E = amount A
+        const b=grab(find(['Μόνο στο B','Only in B']),5);   // F = amount B
+        const d=grab(find(['Διαφορές','Differences']),6);   // G = difference
+        if(!a.size&&!b.size&&!d.size)throw new Error('empty');
+        PRIOR={a,b,d,name:file.name};
+        document.getElementById('fnamePrev').textContent=file.name;
+        document.getElementById('finfoPrev').textContent=(a.size+b.size+d.size)+' '+t('prevLoaded');
+        document.getElementById('boxPrev').classList.add('loaded');
+      }catch(err){
+        PRIOR=null;
+        document.getElementById('finfoPrev').textContent=t('prevBad');
+        document.getElementById('boxPrev').classList.remove('loaded');
+      }
+    };
+    rd.readAsArrayBuffer(file);
+  };
+  inp.addEventListener('change',e=>{if(e.target.files[0])load(e.target.files[0]);e.target.value='';});
+  box.addEventListener('dragover',e=>e.preventDefault());
+  box.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0])load(e.dataTransfer.files[0]);});
+}
+function applyPrior(R){
+  if(!PRIOR)return;
+  let bf=0;
+  const mark=(arr,map,amtOf)=>arr.forEach(r=>{
+    const cat=map.get(r.key+'|'+Math.round((amtOf(r)||0)*100));
+    if(cat!==undefined){r.bf=true;bf++;if(!r.cat&&cat)r.cat=cat;}
+  });
+  mark(R.onlyA,PRIOR.a,r=>r.amtA);
+  mark(R.onlyB,PRIOR.b,r=>r.amtB);
+  mark(R.diffs,PRIOR.d,r=>r.diff);
+  R.bf={n:bf,resolved:PRIOR.a.size+PRIOR.b.size+PRIOR.d.size-bf,name:PRIOR.name};
+}
+
 /* ================= progress rail ================= */
 function updateRail(){
   const steps=[...document.querySelectorAll('.railstep')];
@@ -584,6 +690,8 @@ function updateRail(){
   if(!activeSet)steps[3].classList.add('active');
   document.getElementById('saveProg').disabled=!RESULT;
   document.getElementById('saveProf').disabled=!(SIDES.A.rows&&SIDES.B.rows);
+  document.getElementById('addPackBtn').disabled=!RESULT;
+  document.getElementById('packBtn').disabled=!PACK.length;
 }
 document.querySelectorAll('.railstep').forEach(b=>b.addEventListener('click',()=>{
   const s=document.getElementById(b.dataset.goto);
@@ -1139,7 +1247,34 @@ function proposeSplits(onlyA,onlyB,tol,cfg){
                   diff:tg.side==='A'?tg.rec.amtA-mSum:mSum-tg.rec.amtB,accepted:false});
     }
   }
-  return {props,truncated};
+  return {props,truncated,consumed};
+}
+/* same-day N-to-M batches (bank flow): day sums that agree explain each other */
+function proposeSameDay(onlyA,onlyB,tol,consumed,startId){
+  const props=[];
+  const byDay=(arr,amt)=>{
+    const m=new Map();
+    arr.forEach(r=>{
+      if(consumed.has(r)||!r.date)return;
+      const k=fmtDate(r.date);
+      if(!m.has(k))m.set(k,[]);
+      m.get(k).push(r);
+    });
+    return m;
+  };
+  const dA=byDay(onlyA), dB=byDay(onlyB);
+  let id=startId;
+  dA.forEach((la,day)=>{
+    const lb=dB.get(day);
+    if(!lb)return;
+    if(la.length>40||lb.length>40)return;
+    if(la.length<2&&lb.length<2)return; // 1-vs-1 belongs to the line pass
+    const sa=la.reduce((s,r)=>s+r.amtA,0), sb=lb.reduce((s,r)=>s+r.amtB,0);
+    if(Math.abs(sa-sb)>tol)return;
+    la.forEach(r=>consumed.add(r)); lb.forEach(r=>consumed.add(r));
+    props.push({id:++id,nm:true,side:'AB',itemsA:la,itemsB:lb,diff:sa-sb,accepted:false});
+  });
+  return props;
 }
 function splitCfg(){
   return {
@@ -1286,6 +1421,7 @@ function runRecon(){
   if(scfg.on){
     const r=proposeSplits(onlyA,onlyB,tol,scfg);
     props=r.props; splitTruncated=r.truncated;
+    if(nokey)props.push(...proposeSameDay(onlyA,onlyB,tol,r.consumed,props.length));
   }
   // post-run sanity: nothing (or almost nothing) matched -> say so and point at fixes
   const keyed=matched.length+diffs.length, open=onlyA.length+onlyB.length;
@@ -1299,9 +1435,11 @@ function runRecon(){
   }
   if(totA&&totB&&Math.sign(totA)!==Math.sign(totB))warns.push(t('warnFlip'));
   const firstTab=diffs.length?'diffs':props.length?'groups':onlyA.length?'onlyA':onlyB.length?'onlyB':'matched';
-  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,dupA,dupB,committed:[],
+  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,dupA,dupB,committed:[],filterQ:'',filterMin:0,
           props,splitTruncated,splitCfg:scfg,warns,
           mA,mB,ranAt:new Date(),activeTab:firstTab};
+  applyPrior(RESULT);
+  document.getElementById('resQ').value=''; document.getElementById('resMin').value='';
   if(PENDING_PROGRESS){applyProgress(PENDING_PROGRESS);PENDING_PROGRESS=null;progStatus(t('progApplied'));}
   const st=document.getElementById('stepRes');
   if(st.classList.contains('hidden')){st.classList.add('reveal');st.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>st.classList.remove('reveal')));}
@@ -1312,11 +1450,24 @@ function runRecon(){
 
 /* ================= results UI ================= */
 function grpAccepted(){return RESULT?RESULT.props.filter(p=>p.accepted):[]}
-function inAccepted(rec){
-  return RESULT.props.some(p=>p.accepted&&(p.target===rec||p.members.includes(rec)))||
-         RESULT.committed.some(p=>p.target===rec||p.members.includes(rec));
+function grpHas(p,rec){
+  return p.sel||p.nm ? (p.itemsA.includes(rec)||p.itemsB.includes(rec))
+                     : (p.target===rec||p.members.includes(rec));
 }
-function openView(arr){return arr.map((r,idx)=>({r,idx})).filter(x=>!inAccepted(x.r))}
+function inAccepted(rec){
+  return RESULT.props.some(p=>p.accepted&&grpHas(p,rec))||
+         RESULT.committed.some(p=>grpHas(p,rec));
+}
+function passFilter(r){
+  const R=RESULT;
+  if(R.filterMin&&Math.max(Math.abs(r.amtA||0),Math.abs(r.amtB||0))<R.filterMin)return false;
+  if(R.filterQ){
+    const q=R.filterQ.toUpperCase();
+    if(!((r.key||'')+' '+(r.descA||'')+' '+(r.descB||'')+' '+(r.desc||'')).toUpperCase().includes(q))return false;
+  }
+  return true;
+}
+function openView(arr){return arr.map((r,idx)=>({r,idx})).filter(x=>!inAccepted(x.r)&&passFilter(x.r))}
 function renderResults(){
   const R=RESULT; if(!R)return;
   const net=R.totA-R.totB;
@@ -1331,7 +1482,20 @@ function renderResults(){
     kpi(t('totB'),fmtNum(R.totB)+' €','')+
     kpi(t('netdiff'),fmtNum(net)+' €',Math.abs(net)<=R.tol?'green':'red');
   if(R.props.length+R.committed.length)html+=kpi(t('grpKpi'),(grpAccepted().length+R.committed.length)+'/'+(R.props.length+R.committed.length),(grpAccepted().length+R.committed.length)?'green':'');
+  if(R.bf&&R.bf.n)html+=kpi(t('bfKpi'),R.bf.n,'');
   k.innerHTML=html;
+  /* selection toolbar */
+  {
+    const {A,B,sa,sb}=selState();
+    const si=document.getElementById('selInfo'),
+          mb=document.getElementById('matchSelBtn'), cb=document.getElementById('clearSelBtn');
+    if(A.length+B.length){
+      si.textContent=t('selInfo').replace('{a}',A.length).replace('{b}',B.length)
+        .replace('{sa}',fmtNum(sa)).replace('{sb}',fmtNum(sb)).replace('{d}',fmtNum(sa-sb));
+      mb.classList.toggle('hidden',A.length+B.length<2);
+      cb.classList.remove('hidden');
+    }else{si.textContent='';mb.classList.add('hidden');cb.classList.add('hidden');}
+  }
   renderBeam(R.totA,R.totB,net,R.tol);
   const tw=document.getElementById('truncWarn');
   if(R.splitTruncated){tw.textContent=t('truncNote');tw.classList.remove('hidden');}else tw.classList.add('hidden');
@@ -1363,8 +1527,8 @@ function renderResults(){
     '<button class="tab'+(R.activeTab===id?' active':'')+'" role="tab" aria-selected="'+(R.activeTab===id)+'" onclick="RESULT.activeTab=\''+id+'\';renderResults()">'+lbl+'<span class="cnt">'+n+'</span></button>').join('');
   document.getElementById('panes').innerHTML=tabs.map(([id])=>
     '<div class="tabpane'+(R.activeTab===id?' active':'')+'" id="pane-'+id+'">'+
-    (id==='groups'?groupsHTML():id==='matched'?tableHTML(id,R.matched.map((r,idx)=>({r,idx}))):
-     id==='diffs'?tableHTML(id,R.diffs.map((r,idx)=>({r,idx}))):
+    (id==='groups'?groupsHTML():id==='matched'?tableHTML(id,R.matched.map((r,idx)=>({r,idx})).filter(x=>passFilter(x.r))):
+     id==='diffs'?tableHTML(id,R.diffs.map((r,idx)=>({r,idx})).filter(x=>passFilter(x.r))):
      id==='onlyA'?tableHTML(id,openA):tableHTML(id,openB))+'</div>').join('');
 }
 function kpi(l,v,cls){return '<div class="kpi '+cls+'"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'}
@@ -1384,15 +1548,17 @@ function renderBeam(totA,totB,net,tol){
 function tableHTML(id,view){
   if(!view.length)return '<div class="emptytab">'+t('emptyTab')+'</div>';
   const withCat=id!=='matched';
+  const withSel=id==='onlyA'||id==='onlyB';
   const withRule=(id==='matched'||id==='diffs')&&view.some(x=>x.r.rule>1);
   const hasDate=view.some(x=>x.r.date), hasDesc=view.some(x=>x.r.desc);
-  let h='<table class="grid"><thead><tr><th>'+t('key')+'</th>'+
+  let h='<table class="grid"><thead><tr>'+(withSel?'<th title="'+t('selPick')+'"></th>':'')+'<th>'+t('key')+'</th>'+
     (hasDesc?'<th>'+t('desc')+'</th>':'')+(hasDate?'<th>'+t('date')+'</th><th class="num">'+t('age')+'</th>':'')+
     '<th class="num">'+t('amtA')+'</th><th class="num">'+t('amtB')+'</th><th class="num">'+t('diff')+'</th><th class="num">'+t('rowsA')+'</th><th class="num">'+t('rowsB')+'</th>'+
     (withRule?'<th>'+t('rule')+'</th>':'')+
     (withCat?'<th>'+t('cat')+'</th>':'')+'</tr></thead><tbody>';
   view.forEach(({r,idx})=>{
-    h+='<tr><td>'+esc(r.key)+'</td>'+
+    h+='<tr>'+(withSel?'<td><input type="checkbox" class="selbox" '+(r._sel?'checked':'')+' onchange="toggleSel(\''+id+'\','+idx+',this.checked)"></td>':'')+
+      '<td>'+(r.bf?'<span class="pill o" style="margin-right:5px" title="'+t('bfKpi')+'">'+t('bfPill')+'</span>':'')+esc(r.key)+'</td>'+
       (hasDesc?'<td>'+esc(r.desc||'')+'</td>':'')+
       (hasDate?'<td>'+fmtDate(r.date)+'</td><td class="num">'+(r.age??'')+'</td>':'')+
       '<td class="num">'+fmtNum(r.amtA)+'</td><td class="num">'+fmtNum(r.amtB)+'</td>'+
@@ -1407,19 +1573,28 @@ function tableHTML(id,view){
 }
 function gcardHTML(p,committed,idx){
   const amt=r=>r.amtA!==null&&r.amtA!==undefined?r.amtA:r.amtB;
+  const twoS=p.sel||p.nm;
+  const rows=twoS
+    ?p.itemsA.map(m=>'<tr class="tgt"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(m.amtA)+' €</td></tr>').join('')+
+     p.itemsB.map(m=>'<tr class="mem"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(m.amtB)+' €</td></tr>').join('')
+    :null;
+  const head=twoS
+    ?'<span>'+p.itemsA.length+'×A ⇄ '+p.itemsB.length+'×B'+(p.nm?' <span style="color:var(--okypy-muted)">('+t('nmTag')+')</span>':'')+'</span>'
+    :'<span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t('grpMembers')+')</span></span>';
   return '<div class="gcard'+(committed||p.accepted?' acc':'')+'">'+
     (committed
       ?'<span class="rulepill" style="margin-top:3px;flex:none">'+t('rule4')+'</span>'
       :'<input type="checkbox" '+(p.accepted?'checked':'')+' onchange="toggleGroup('+p.id+',this.checked)" aria-label="'+t('grpAccept')+'">')+
     '<div class="gbody"><div class="ghead">'+
       '<span class="gid">#'+p.id+'</span>'+
-      '<span class="pill '+(p.side==='A'?'b':'g')+'">'+p.side+'</span><span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t('grpMembers')+')</span></span>'+
+      '<span class="pill '+(p.side==='A'?'b':p.side==='B'?'g':'o')+'">'+p.side+'</span>'+head+
       '<span class="gdiffchip'+(Math.abs(p.diff)>0.000001?' nz':'')+'">'+t('grpDiff')+': '+fmtNum(p.diff)+' €</span>'+
       (committed?'<button class="ghostbtn" onclick="uncommitGroup('+idx+')">'+t('undo')+'</button>':'')+
     '</div>'+
     '<table class="gtable"><tbody>'+
-    '<tr class="tgt"><td>'+esc(p.target.key)+'</td><td>'+esc(p.target.desc||'')+'</td><td>'+fmtDate(p.target.date)+'</td><td class="num">'+fmtNum(amt(p.target))+' €</td></tr>'+
-    p.members.map(m=>'<tr class="mem"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(amt(m))+' €</td></tr>').join('')+
+    (twoS?rows:
+      '<tr class="tgt"><td>'+esc(p.target.key)+'</td><td>'+esc(p.target.desc||'')+'</td><td>'+fmtDate(p.target.date)+'</td><td class="num">'+fmtNum(amt(p.target))+' €</td></tr>'+
+      p.members.map(m=>'<tr class="mem"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(amt(m))+' €</td></tr>').join(''))+
     '</tbody></table></div></div>';
 }
 function groupsHTML(){
@@ -1439,6 +1614,35 @@ function groupsHTML(){
   }
   return h;
 }
+/* manual matching: tick open rows (either side, or BOTH rows of a same-side
+   reversal) and commit them as one manual reconciliation */
+function toggleSel(id,idx,on){
+  RESULT[id][idx]._sel=on;
+  renderResults();
+}
+function clearSelection(){
+  RESULT.onlyA.forEach(r=>delete r._sel);
+  RESULT.onlyB.forEach(r=>delete r._sel);
+  renderResults();
+}
+function selState(){
+  const A=RESULT?RESULT.onlyA.filter(r=>r._sel&&!inAccepted(r)):[];
+  const B=RESULT?RESULT.onlyB.filter(r=>r._sel&&!inAccepted(r)):[];
+  return {A,B,sa:A.reduce((s,r)=>s+r.amtA,0),sb:B.reduce((s,r)=>s+r.amtB,0)};
+}
+function matchSelected(){
+  const {A,B,sa,sb}=selState();
+  if(A.length+B.length<2)return;
+  const p={id:(RESULT.props.length+RESULT.committed.length+1)*100,sel:true,
+    side:A.length&&B.length?'AB':(A.length?'A':'B'),itemsA:A,itemsB:B,diff:sa-sb,accepted:true};
+  const rec={key:t('manualKey')+' '+A.length+'×A ⇄ '+B.length+'×B',
+    amtA:sa,amtB:sb,diff:sa-sb,nA:A.reduce((s,r)=>s+r.nA,0),nB:B.reduce((s,r)=>s+r.nB,0),
+    desc:(A[0]&&A[0].desc)||(B[0]&&B[0].desc)||'',
+    descA:(A[0]&&(A[0].descA||A[0].desc))||'',descB:(B[0]&&(B[0].descB||B[0].desc))||'',
+    date:(A[0]&&A[0].date)||(B[0]&&B[0].date)||null,age:(A[0]&&A[0].age)??(B[0]&&B[0].age)??null,cat:'',rule:4};
+  p._rec=rec; RESULT.matched.push(rec); RESULT.committed.push(p);
+  clearSelection();
+}
 function toggleGroup(id,on){
   const p=RESULT.props.find(x=>x.id===id); if(!p)return;
   p.accepted=on;
@@ -1453,15 +1657,20 @@ function commitGroups(list){
   const R=RESULT; if(!R)return;
   const toCommit=list||R.props.filter(p=>p.accepted);
   toCommit.forEach(p=>{
-    const amtA=p.side==='A'?p.target.amtA:p.members.reduce((s,m)=>s+(m.amtA||0),0);
-    const amtB=p.side==='B'?p.target.amtB:p.members.reduce((s,m)=>s+(m.amtB||0),0);
-    const nA=p.side==='A'?p.target.nA:p.members.reduce((s,m)=>s+m.nA,0);
-    const nB=p.side==='B'?p.target.nB:p.members.reduce((s,m)=>s+m.nB,0);
-    const memberDesc=p.members.map(m=>m.desc).filter(Boolean)[0]||'';
-    const rec={key:p.target.key+' ⇄ '+(p.members.length===1?p.members[0].key:p.members.length+' '+t('grpMembers')),
-      amtA,amtB,diff:amtA-amtB,nA,nB,desc:p.target.desc,
-      descA:p.side==='A'?(p.target.desc||''):memberDesc,descB:p.side==='B'?(p.target.desc||''):memberDesc,
-      date:p.target.date,age:p.target.age,cat:'',rule:4};
+    const twoSided=p.sel||p.nm;
+    const amtA=twoSided?p.itemsA.reduce((s,m)=>s+(m.amtA||0),0):(p.side==='A'?p.target.amtA:p.members.reduce((s,m)=>s+(m.amtA||0),0));
+    const amtB=twoSided?p.itemsB.reduce((s,m)=>s+(m.amtB||0),0):(p.side==='B'?p.target.amtB:p.members.reduce((s,m)=>s+(m.amtB||0),0));
+    const nA=twoSided?p.itemsA.reduce((s,m)=>s+m.nA,0):(p.side==='A'?p.target.nA:p.members.reduce((s,m)=>s+m.nA,0));
+    const nB=twoSided?p.itemsB.reduce((s,m)=>s+m.nB,0):(p.side==='B'?p.target.nB:p.members.reduce((s,m)=>s+m.nB,0));
+    const twoS=p.sel||p.nm;
+    const memberDesc=(twoS?p.itemsB:p.members).map(m=>m.desc).filter(Boolean)[0]||'';
+    const rec={key:twoS?(t(p.nm?'nmTag':'manualKey')+' '+p.itemsA.length+'×A ⇄ '+p.itemsB.length+'×B'):(p.target.key+' ⇄ '+(p.members.length===1?p.members[0].key:p.members.length+' '+t('grpMembers'))),
+      amtA,amtB,diff:amtA-amtB,nA,nB,
+      desc:twoS?((p.itemsA[0]&&p.itemsA[0].desc)||(p.itemsB[0]&&p.itemsB[0].desc)||''):p.target.desc,
+      descA:twoS?((p.itemsA[0]&&(p.itemsA[0].descA||p.itemsA[0].desc))||''):(p.side==='A'?(p.target.desc||''):memberDesc),
+      descB:twoS?((p.itemsB[0]&&(p.itemsB[0].descB||p.itemsB[0].desc))||''):(p.side==='B'?(p.target.desc||''):memberDesc),
+      date:twoS?((p.itemsA[0]&&p.itemsA[0].date)||(p.itemsB[0]&&p.itemsB[0].date)||null):p.target.date,
+      age:twoS?(((p.itemsA[0]&&p.itemsA[0].age)??(p.itemsB[0]&&p.itemsB[0].age))??null):p.target.age,cat:'',rule:4};
     p._rec=rec; R.matched.push(rec); R.committed.push(p);
   });
   R.props=R.props.filter(p=>!toCommit.includes(p));
@@ -1477,6 +1686,7 @@ function uncommitGroup(i){
 
 /* ================= progress save / load (JSON sidecar, no localStorage) ================= */
 function grpSignature(p){
+  if(p.sel||p.nm)return 'S|'+p.itemsA.map(m=>m.key).sort().join(';')+'|'+p.itemsB.map(m=>m.key).sort().join(';');
   return p.side+'|'+p.target.key+'|'+p.members.map(m=>m.key).sort().join(';');
 }
 /* profiles: the full setup (sheets, header rows, mapping, settings) as a reusable file */
@@ -1573,6 +1783,20 @@ function applyProgress(data){
   R.props.forEach(p=>{const s=grpSignature(p); if(g[s]!==undefined)p.accepted=!!g[s];});
   const toCommit=R.props.filter(p=>g[grpSignature(p)]===2);
   if(toCommit.length)commitGroups(toCommit);
+  // committed manual selections: rebuild from their key lists when every item is present
+  Object.keys(g).filter(k=>g[k]===2&&k[0]==='S').forEach(sig=>{
+    const [,aKeys,bKeys]=sig.split('|');
+    const findAll=(arr,keys)=>{
+      const want=keys?keys.split(';').filter(Boolean):[];
+      const found=want.map(k=>arr.find(r=>r.key===k&&!inAccepted(r)&&!r._sel));
+      return found.every(Boolean)?found:null;
+    };
+    const A=findAll(R.onlyA,aKeys), B=findAll(R.onlyB,bKeys);
+    if(A&&B&&(A.length+B.length>=2)){
+      A.forEach(r=>r._sel=true); B.forEach(r=>r._sel=true);
+      matchSelected();
+    }
+  });
   renderResults();
 }
 function applyProgressSettings(data){
@@ -1684,15 +1908,22 @@ function exportExcel(){
     const gaoa=[[el?'Ομάδα':'Group',t('key'),t('desc'),t('date'),t('amtA'),t('amtB'),t('diff'),t('rule')]];
     const gformulas=[];
     accepted.forEach(p=>{
-      const first=gaoa.length+1; // 1-based sheet row of the target line
-      const tgt=p.target, other=p.side==='A'?'B':'A';
-      gaoa.push([p.id,tgt.key,tgt.desc||'',tgt.date?fmtDate(tgt.date):'',
-                 p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null,t('rule4')]);
-      p.members.forEach(m=>{
-        gaoa.push([null,m.key,m.desc||'',m.date?fmtDate(m.date):'',
-                   other==='A'?m.amtA:null,other==='B'?m.amtB:null,null]);
-      });
-      const last=first+p.members.length;
+      const first=gaoa.length+1; // 1-based sheet row of the block's first line
+      let count=0;
+      if(p.sel||p.nm){
+        p.itemsA.forEach((m,i)=>{gaoa.push([i===0?p.id:null,m.key,m.desc||'',m.date?fmtDate(m.date):'',m.amtA,null,null,i===0?t(p.nm?'nmTag':'rule4'):null]);count++;});
+        p.itemsB.forEach(m=>{gaoa.push([count===0?p.id:null,m.key,m.desc||'',m.date?fmtDate(m.date):'',null,m.amtB,null,count===0?t('rule4'):null]);count++;});
+      }else{
+        const tgt=p.target, other=p.side==='A'?'B':'A';
+        gaoa.push([p.id,tgt.key,tgt.desc||'',tgt.date?fmtDate(tgt.date):'',
+                   p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null,t('rule4')]);
+        p.members.forEach(m=>{
+          gaoa.push([null,m.key,m.desc||'',m.date?fmtDate(m.date):'',
+                     other==='A'?m.amtA:null,other==='B'?m.amtB:null,null]);
+        });
+        count=1+p.members.length;
+      }
+      const last=first+count-1;
       gformulas.push({row:first,v:p.diff,f:'SUM(E'+first+':E'+last+')-SUM(F'+first+':F'+last+')'});
     });
     wsG=XLSX.utils.aoa_to_sheet(gaoa);
@@ -1725,8 +1956,8 @@ function exportExcel(){
   // cached values for every formula cell (SheetJS drops f-only cells; Excel recalculates)
   const sumBy=(arr,f)=>arr.reduce((s,r)=>s+(f(r)||0),0);
   const dSum=arr=>sumBy(arr,r=>r.diff), eSum=arr=>sumBy(arr,r=>r.amtA), fSum=arr=>sumBy(arr,r=>r.amtB);
-  const gESum=accepted.reduce((s,p)=>s+(p.side==='A'?p.target.amtA:sumBy(p.members,m=>m.amtA)),0);
-  const gFSum=accepted.reduce((s,p)=>s+(p.side==='B'?p.target.amtB:sumBy(p.members,m=>m.amtB)),0);
+  const gESum=accepted.reduce((s,p)=>s+((p.sel||p.nm)?sumBy(p.itemsA,m=>m.amtA):(p.side==='A'?p.target.amtA:sumBy(p.members,m=>m.amtA))),0);
+  const gFSum=accepted.reduce((s,p)=>s+((p.sel||p.nm)?sumBy(p.itemsB,m=>m.amtB):(p.side==='B'?p.target.amtB:sumBy(p.members,m=>m.amtB))),0);
   const gGSum=sumBy(accepted,p=>p.diff);
   const vB10=eSum(matchedX)+eSum(R.diffs)+eSum(openA)+gESum;
   const vB11=fSum(matchedX)+fSum(R.diffs)+fSum(openB)+gFSum;
@@ -1818,6 +2049,7 @@ function exportExcel(){
      el?'Πέρασμα 4 (προσέγγιση ±%)':'Pass 4 (near ±%)',YN(document.getElementById('nearon').checked)+' / '+document.getElementById('nearpct').value+'%'],
     [el?'Προτάσεις επιμερισμού':'Split suggestions',YN(sc&&sc.on),el?'Μέγ. συνδυασμός':'Max combination',sc?sc.maxK:''],
     [el?'Ομάδες: προτάθηκαν / αποδεκτές / χειροκίνητες':'Groups: proposed / accepted / manual',(R.props.length+R.committed.length)+' / '+accepted.length+' / '+R.committed.length],
+    [el?'Προηγούμενη περίοδος':'Previous period',R.bf?R.bf.name:'—',t('bfDoc'),R.bf?(R.bf.n+' / '+R.bf.resolved):'—'],
     [el?'Η αναζήτηση συνδυασμών διακόπηκε':'Combination search truncated',YN(R.splitTruncated)],
     [''],
     [el?'Μέθοδος: άθροιση ανά κλειδί, σύγκριση εντός ορίου· γραμμές χωρίς κλειδί ταιριάζονται ανά γραμμή (ποσό+ημ/νία)· γραμμές γενικού συνόλου εξαιρούνται· έπειτα προαιρετικά περάσματα και προτάσεις επιμερισμού 1-προς-Ν με έγκριση χρήστη.':'Method: sum per key, compare within tolerance; keyless rows matched line-by-line (amount+date); file grand-total rows excluded; then optional passes and user-approved 1-to-N split suggestions.'],
@@ -1844,55 +2076,67 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 2.9)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.0)",
   sections:[
    ["Τι κάνει το εργαλείο",
-    "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Για τραπεζικές συμφωνίες χρησιμοποιήστε το ξεχωριστό εργαλείο τραπεζικών συμφωνιών του Οργανισμού.</p>"],
+    "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
    ["Ξεκινώντας",
-    "<ol><li>Διαλέξτε τον τύπο της συμφωνίας.</li><li>Φορτώστε τα δύο αρχεία, με κλικ ή σέρνοντάς τα στο πλαίσιο. Ρίξτε μια ματιά στην προεπισκόπηση και, αν χρειάζεται, διορθώστε το φύλλο ή τη γραμμή των επικεφαλίδων.</li><li>Ελέγξτε τις στήλες που προτείνει το εργαλείο — κλειδί, ποσό και, όπου υπάρχουν χωριστές στήλες χρέωσης και πίστωσης, τη στήλη πίστωσης — και πατήστε «Εκτέλεση συμφωνίας».</li><li>Εξετάστε τα αποτελέσματα, χαρακτηρίστε τις εκκρεμότητες και εξαγάγετε το Excel.</li></ol>"],
+    "<ol><li>Διαλέξτε τον τύπο της συμφωνίας — ή φορτώστε ένα αποθηκευμένο προφίλ, αν η συμφωνία στήνεται ίδια κάθε μήνα.</li><li>Φορτώστε τα δύο αρχεία, με κλικ ή σέρνοντάς τα στο πλαίσιο. Ρίξτε μια ματιά στην προεπισκόπηση και, αν χρειάζεται, διορθώστε το φύλλο ή τη γραμμή των επικεφαλίδων. Αν έχετε την εξαγωγή της προηγούμενης περιόδου, φορτώστε την στο τρίτο, μικρότερο πλαίσιο.</li><li>Ελέγξτε τις στήλες που προτείνει το εργαλείο — κλειδί, ποσό και, όπου υπάρχουν χωριστές στήλες χρέωσης και πίστωσης, τη στήλη πίστωσης — και πατήστε «Εκτέλεση συμφωνίας».</li><li>Εξετάστε τα αποτελέσματα, χαρακτηρίστε τις εκκρεμότητες και εξαγάγετε το Excel.</li></ol>"],
    ["Βήμα 1 — Τύπος συμφωνίας",
     "<p>Οι τρεις επιλογές (γενική σύγκριση, Γενικό Καθολικό έναντι αναλυτικού καθολικού, SAP έναντι ΟΑΥ) αλλάζουν μόνο τις ετικέτες και ορισμένες προεπιλογές. Αν δεν είστε βέβαιοι, η γενική σύγκριση καλύπτει κάθε περίπτωση.</p>"],
    ["Βήμα 2 — Αρχεία",
     "<p>Δεκτά είναι αρχεία .xlsx, .xls και .csv. Αν το βιβλίο εργασίας έχει περισσότερα φύλλα, επιλέγετε ποιο θα διαβαστεί. Τη γραμμή με τις επικεφαλίδες το εργαλείο τη βρίσκει συνήθως μόνο του· αν οι τίτλοι βρίσκονται αλλού, δώστε τον σωστό αριθμό γραμμής. Ό,τι βλέπετε στην προεπισκόπηση είναι ακριβώς αυτό που θα διαβαστεί — αν εκεί τα στοιχεία φαίνονται σωστά, θα διαβαστούν σωστά παντού.</p>"],
+   ["Βήμα 2 — Προηγούμενη περίοδος (προαιρετικό)",
+    "<p>Στο ίδιο βήμα υπάρχει ένα τρίτο πλαίσιο για την εξαγωγή Excel της προηγούμενης συμφωνίας. Αν τη φορτώσετε, το εργαλείο διαβάζει τα φύλλα «Μόνο στο A», «Μόνο στο B» και «Διαφορές» και, μετά την εκτέλεση, σημειώνει με την ένδειξη «B/F» όσες εκκρεμότητες εμφανίζονται ξανά — ίδιο κλειδί, ίδιο ποσό. Ο δείκτης «Από προηγ. περίοδο» δείχνει πόσες μεταφέρθηκαν, και ο χαρακτηρισμός που τους είχατε δώσει (π.χ. Χρονική διαφορά) επανέρχεται μόνος του. Έτσι ξεχωρίζετε με μια ματιά τι σέρνεται από μήνα σε μήνα και τι είναι καινούριο.</p>"],
    ["Βήμα 3 — Τι κάνουν οι στήλες-κλειδιά",
     "<p>Το κλειδί ορίζει πότε δύο εγγραφές θεωρούνται το ίδιο στοιχείο. Πριν από τη σύγκριση, οι γραμμές με το ίδιο κλειδί αθροίζονται σε κάθε πλευρά· στη συνέχεια το άθροισμα της πλευράς A συγκρίνεται με το άθροισμα της πλευράς B για το ίδιο κλειδί.</p><p>Παράδειγμα: με κλειδί τη στήλη «Reference», όλες οι γραμμές του A με αναφορά 136388 γίνονται ένα ποσό και συγκρίνονται με το αντίστοιχο άθροισμα του B.</p><ul><li>Όσο περισσότερες στήλες τσεκάρετε, τόσο αυστηρότερο το ταίριασμα — π.χ. αναφορά και ημερομηνία μαζί.</li><li>Η κανονικοποίηση αγνοεί κεφαλαία και πεζά, περιττά κενά και αρχικά μηδενικά· το 000123 ταυτίζεται με το 123.</li><li>Το εργαλείο συγκρίνει τις τιμές των στηλών στα δύο αρχεία και προτείνει το καταλληλότερο ζευγάρι κλειδιών. Αν η τρέχουσα επιλογή δεν οδηγεί πουθενά, τη διορθώνει μόνο του και το αναφέρει.</li><li>Μη χρησιμοποιείτε στήλες ποσών ως κλειδιά· τα ποσά δεν είναι αναγνωριστικά. Αν συμβεί, θα εμφανιστεί προειδοποίηση.</li><li>Οι γραμμές χωρίς τιμή στο κλειδί δεν παραλείπονται: ταιριάζονται μία προς μία, με ίσο ποσό και κοντινή ημερομηνία, και όσες δεν εξηγηθούν εμφανίζονται στα εκκρεμή. Η γραμμή γενικού συνόλου στο τέλος του αρχείου αναγνωρίζεται και εξαιρείται αυτόματα.</li></ul>"],
    ["Βήμα 3 — Οι υπόλοιπες επιλογές",
-    "<ul><li><strong>Στήλη ποσού:</strong> η αξία που συμφωνείται· αθροίζεται ανά κλειδί.</li><li><strong>Στήλη πίστωσης (αφαιρείται):</strong> για αρχεία με χωριστές στήλες χρέωσης και πίστωσης, όπως οι εξαγωγές SAP. Η αξία κάθε γραμμής υπολογίζεται ως χρέωση μείον πίστωση. Όταν το εργαλείο εντοπίσει τέτοιο ζευγάρι, τη συμπληρώνει μόνο του.</li><li><strong>Στήλη ημερομηνίας:</strong> προαιρετική· δεν επηρεάζει το ταίριασμα με κλειδί. Χρησιμεύει στην ηλικία των εκκρεμοτήτων, στο παράθυρο ± ημερών του δεύτερου περάσματος και της λειτουργίας χωρίς κοινό κλειδί, και εμφανίζεται στα αποτελέσματα και στο Excel. Όταν ένα κλειδί καλύπτει πολλές γραμμές, κρατιέται η παλαιότερη ημερομηνία.</li><li><strong>Στήλη περιγραφής:</strong> προαιρετική· εμφανίζεται στα αποτελέσματα και αξιοποιείται από το τρίτο πέρασμα (ομοιότητα κειμένου).</li><li><strong>Όριο ανοχής (€):</strong> διαφορές έως αυτό το ποσό λογίζονται ως συμφωνία.</li><li><strong>Αντιστροφή προσήμου στο Β:</strong> για κατοπτρικούς λογαριασμούς — η απαίτηση στα δικά σας βιβλία είναι υποχρέωση στα βιβλία του αντισυμβαλλομένου. Αν όλα καταλήγουν στις «Διαφορές» με περίπου διπλάσια ποσά, αυτό σας λείπει· θα το προτείνει και η σχετική προειδοποίηση.</li><li><strong>Χωρίς κοινό κλειδί:</strong> όταν τα δύο αρχεία δεν έχουν κοινή αναφορά. Οι γραμμές ταιριάζονται μία προς μία, με ίσο ποσό (εντός ανοχής) και ημερομηνίες που απέχουν έως ± N ημέρες. Αν τσεκάρετε στήλη-κλειδί σε μία πλευρά — π.χ. τον αριθμό αναφοράς της τράπεζας — οι γραμμές της ομαδοποιούνται πρώτα ανά αυτή την τιμή, ώστε ένα έμβασμα και οι προμήθειές του να γίνουν μία εγγραφή· ο αριθμός αναφοράς εμφανίζεται ως κλειδί στα αποτελέσματα και στο Excel. Η ένδειξη #N σημαίνει τη Ν-οστή γραμμή δεδομένων του αρχείου (η πρώτη μετά τις επικεφαλίδες είναι η #1).</li></ul>"],
+    "<ul><li><strong>Στήλη ποσού:</strong> η αξία που συμφωνείται· αθροίζεται ανά κλειδί.</li><li><strong>Στήλη πίστωσης (αφαιρείται):</strong> για αρχεία με χωριστές στήλες χρέωσης και πίστωσης, όπως οι εξαγωγές SAP. Η αξία κάθε γραμμής υπολογίζεται ως χρέωση μείον πίστωση. Όταν το εργαλείο εντοπίσει τέτοιο ζευγάρι, τη συμπληρώνει μόνο του.</li><li><strong>Στήλη ημερομηνίας:</strong> προαιρετική· δεν επηρεάζει το ταίριασμα με κλειδί. Χρησιμεύει στην ηλικία των εκκρεμοτήτων, στο παράθυρο ± ημερών του δεύτερου περάσματος και της λειτουργίας χωρίς κοινό κλειδί, και εμφανίζεται στα αποτελέσματα και στο Excel. Όταν ένα κλειδί καλύπτει πολλές γραμμές, κρατιέται η παλαιότερη ημερομηνία.</li><li><strong>Στήλη περιγραφής:</strong> προαιρετική· εμφανίζεται στα αποτελέσματα και αξιοποιείται από το τρίτο πέρασμα (ομοιότητα κειμένου).</li><li><strong>Όριο ανοχής (€):</strong> διαφορές έως αυτό το ποσό λογίζονται ως συμφωνία.</li><li><strong>Αντιστροφή προσήμου στο Β:</strong> για κατοπτρικούς λογαριασμούς — η απαίτηση στα δικά σας βιβλία είναι υποχρέωση στα βιβλία του αντισυμβαλλομένου. Το εργαλείο ελέγχει τα ποσά μόλις φορτωθούν τα δύο αρχεία και, όταν διαπιστώσει κατοπτρικά πρόσημα, τσεκάρει την επιλογή μόνο του και το αναφέρει. Αν παρ' όλα αυτά όλα καταλήγουν στις «Διαφορές» με περίπου διπλάσια ποσά, αυτό σας λείπει· θα το προτείνει και η σχετική προειδοποίηση.</li><li><strong>Χωρίς κοινό κλειδί:</strong> όταν τα δύο αρχεία δεν έχουν κοινή αναφορά. Οι γραμμές ταιριάζονται μία προς μία, με ίσο ποσό (εντός ανοχής) και ημερομηνίες που απέχουν έως ± N ημέρες. Αν τσεκάρετε στήλη-κλειδί σε μία πλευρά — π.χ. τον αριθμό αναφοράς της τράπεζας — οι γραμμές της ομαδοποιούνται πρώτα ανά αυτή την τιμή, ώστε ένα έμβασμα και οι προμήθειές του να γίνουν μία εγγραφή· ο αριθμός αναφοράς εμφανίζεται ως κλειδί στα αποτελέσματα και στο Excel. Η ένδειξη #N σημαίνει τη Ν-οστή γραμμή δεδομένων του αρχείου (η πρώτη μετά τις επικεφαλίδες είναι η #1).</li></ul>"],
    ["Βήμα 3 — Πρόσθετα περάσματα και προτάσεις",
-    "<ul><li><strong>Πέρασμα 2 — ποσό και ημερομηνία:</strong> ό,τι μένει εκκρεμές μετά το κλειδί δοκιμάζεται ξανά, με ίσο ποσό και κοντινή ημερομηνία. Οι αντιστοιχίσεις σημειώνονται «Ποσό+Ημ/νία».</li><li><strong>Πέρασμα 3 — ομοιότητα περιγραφής:</strong> προαιρετικό· ταιριάζει εγγραφές με σχεδόν ίδια περιγραφή και ίσο ποσό.</li><li><strong>Πέρασμα 4 — ίδιος δικαιούχος, μικρή διαφορά:</strong> ζευγαρώνει εγγραφές με συνδεδεμένο κείμενο (π.χ. ο δικαιούχος του SAP μέσα στην περιγραφή της τράπεζας) όταν τα ποσά διαφέρουν έως το ποσοστό που ορίζετε — η διαφορά (συνάλλαγμα, προμήθειες) εμφανίζεται στις «Διαφορές» με την ένδειξη «Προσέγγιση», για να τη χαρακτηρίσετε.</li><li><strong>Προτάσεις επιμερισμού (1 προς Ν):</strong> εντοπίζουν π.χ. ένα τιμολόγιο απέναντι σε δύο, τρεις ή τέσσερις μερικές πληρωμές. Μεγάλες μεταφορές που εκτελούνται σε ίσες δόσεις ή σε στρογγυλά ποσά — π.χ. 13.000.000 ως δεκατρείς δόσεις του 1.000.000 — αναγνωρίζονται και αυτές, με έως 60 γραμμές ανά ομάδα. Όλα εμφανίζονται ως προτάσεις στην καρτέλα «Προτεινόμενοι συνδυασμοί» και τίποτα δεν αφαιρείται από τις εκκρεμότητες αν δεν το εγκρίνετε εσείς. Αφού τσεκάρετε όσες ομάδες δέχεστε, πατήστε «Μεταφορά στα Συμφωνούν»: οι ομάδες περνούν στα Συμφωνούν με την ένδειξη «Χειροκίνητη» και μπορείτε να τις αναιρέσετε ανά πάσα στιγμή.</li></ul>"],
+    "<ul><li><strong>Πέρασμα 2 — ποσό και ημερομηνία:</strong> ό,τι μένει εκκρεμές μετά το κλειδί δοκιμάζεται ξανά, με ίσο ποσό και κοντινή ημερομηνία. Οι αντιστοιχίσεις σημειώνονται «Ποσό+Ημ/νία».</li><li><strong>Πέρασμα 3 — ομοιότητα περιγραφής:</strong> προαιρετικό· ταιριάζει εγγραφές με σχεδόν ίδια περιγραφή και ίσο ποσό.</li><li><strong>Πέρασμα 4 — ίδιος δικαιούχος, μικρή διαφορά:</strong> ζευγαρώνει εγγραφές με συνδεδεμένο κείμενο (π.χ. ο δικαιούχος του SAP μέσα στην περιγραφή της τράπεζας) όταν τα ποσά διαφέρουν έως το ποσοστό που ορίζετε — η διαφορά (συνάλλαγμα, προμήθειες) εμφανίζεται στις «Διαφορές» με την ένδειξη «Προσέγγιση», για να τη χαρακτηρίσετε.</li><li><strong>Προτάσεις επιμερισμού (1 προς Ν):</strong> εντοπίζουν π.χ. ένα τιμολόγιο απέναντι σε δύο, τρεις ή τέσσερις μερικές πληρωμές. Μεγάλες μεταφορές που εκτελούνται σε ίσες δόσεις ή σε στρογγυλά ποσά — π.χ. 13.000.000 ως δεκατρείς δόσεις του 1.000.000 — αναγνωρίζονται και αυτές, με έως 60 γραμμές ανά ομάδα. Όλα εμφανίζονται ως προτάσεις στην καρτέλα «Προτεινόμενοι συνδυασμοί» και τίποτα δεν αφαιρείται από τις εκκρεμότητες αν δεν το εγκρίνετε εσείς. Αφού τσεκάρετε όσες ομάδες δέχεστε, πατήστε «Μεταφορά στα Συμφωνούν»: οι ομάδες περνούν στα Συμφωνούν με την ένδειξη «Χειροκίνητη» και μπορείτε να τις αναιρέσετε ανά πάσα στιγμή.</li><li><strong>Προτάσεις ίδιας ημέρας (Ν προς Μ):</strong> στη λειτουργία χωρίς κοινό κλειδί, ομάδες γραμμών της ίδιας ημερομηνίας που αθροίζουν στο ίδιο ποσό και στις δύο πλευρές — π.χ. δύο εντολές πληρωμής απέναντι σε τρεις τραπεζικές κινήσεις — προτείνονται ως ενιαία ομάδα με την ένδειξη «Ν προς Μ».</li></ul>"],
    ["Βήμα 4 — Αποτελέσματα",
-    "<ul><li><strong>Η ζυγαριά:</strong> ισορροπεί και πρασινίζει όταν η καθαρή διαφορά είναι μέσα στο όριο ανοχής· διαφορετικά γέρνει προς τη βαρύτερη πλευρά.</li><li><strong>Οι δείκτες:</strong> πλήθη ανά κατηγορία, σύνολα A και B, καθαρή διαφορά.</li><li><strong>Οι καρτέλες:</strong> Διαφορές (ίδιο κλειδί, διαφορετικό ποσό), Προτεινόμενοι συνδυασμοί, Μόνο στο A, Μόνο στο B, Συμφωνούν.</li><li><strong>Κατηγορία εκκρεμότητας:</strong> Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Παλαίωση: 0–30 τρέχουσα, 31–60 σε παρακολούθηση, 61–90 κλιμάκωση, 90+ ενημέρωση διοίκησης.</li><li><strong>Προειδοποιήσεις:</strong> το κόκκινο πλαίσιο πάνω από τις καρτέλες εξηγεί τι πήγε στραβά — καθόλου αντιστοιχίσεις, ακατάλληλα κλειδιά, αντίθετα πρόσημα — και προτείνει τη διόρθωση.</li></ul>"],
+    "<ul><li><strong>Η ζυγαριά:</strong> ισορροπεί και πρασινίζει όταν η καθαρή διαφορά είναι μέσα στο όριο ανοχής· διαφορετικά γέρνει προς τη βαρύτερη πλευρά.</li><li><strong>Οι δείκτες:</strong> πλήθη ανά κατηγορία, σύνολα A και B, καθαρή διαφορά.</li><li><strong>Οι καρτέλες:</strong> Διαφορές (ίδιο κλειδί, διαφορετικό ποσό), Προτεινόμενοι συνδυασμοί, Μόνο στο A, Μόνο στο B, Συμφωνούν.</li><li><strong>Κατηγορία εκκρεμότητας:</strong> Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Παλαίωση: 0–30 τρέχουσα, 31–60 σε παρακολούθηση, 61–90 κλιμάκωση, 90+ ενημέρωση διοίκησης.</li><li><strong>Προειδοποιήσεις:</strong> το κόκκινο πλαίσιο πάνω από τις καρτέλες εξηγεί τι πήγε στραβά — καθόλου αντιστοιχίσεις, ακατάλληλα κλειδιά, αντίθετα πρόσημα, πιθανές διπλοεγγραφές (ίδιο κλειδί, ποσό και ημερομηνία στην ίδια πλευρά) — και προτείνει τη διόρθωση.</li><li><strong>Έλεγχος συνόλων:</strong> όταν το αρχείο έχει δική του γραμμή γενικού συνόλου, το εργαλείο συγκρίνει το σύνολο που υπολόγισε με εκείνη και εμφανίζει το αποτέλεσμα κάτω από τους δείκτες — το ✓ επιβεβαιώνει ότι διαβάστηκαν όλες οι γραμμές.</li><li><strong>Αναζήτηση και φίλτρο ποσού:</strong> πάνω από τις καρτέλες, το πεδίο αναζήτησης περιορίζει τις γραμμές σε όσες περιέχουν το κείμενο που πληκτρολογείτε, και το ελάχιστο ποσό κρύβει τα μικροποσά για να φανούν πρώτα τα σημαντικά. Τα φίλτρα αλλάζουν μόνο ό,τι βλέπετε — όχι τα αποτελέσματα ή την εξαγωγή.</li><li><strong>Χειροκίνητο ταίριασμα:</strong> τσεκάρετε γραμμές στις καρτέλες «Μόνο στο A», «Μόνο στο B» ή «Διαφορές» — η γραμμή εργαλείων δείχνει τα αθροίσματα των επιλεγμένων — και πατήστε «Ταίριασμα επιλεγμένων»: οι γραμμές περνούν στα Συμφωνούν ως χειροκίνητη συμφωνία, με το υπόλοιπό τους ως διαφορά. Δουλεύει και μέσα στην ίδια πλευρά, π.χ. για μια χρέωση και την αντιλογιστική της πίστωση στο ίδιο καθολικό.</li></ul>"],
    ["Εξαγωγή σε Excel",
-    "<p>Το βιβλίο που παράγεται περιλαμβάνει τα φύλλα Τεκμηρίωση (αρχεία, ρυθμίσεις, συντάκτης και γραμμή υπογραφής ελεγκτή), Σύνοψη, Προσαρμοσμένα υπόλοιπα, Διαφορές, Ομάδες (οι συνδυασμοί που εγκρίνατε), Μόνο στο A, Μόνο στο B και Συμφωνούν. Τα αναλυτικά φύλλα έχουν χωριστές στήλες «Περιγραφή A» και «Περιγραφή B», ώστε να φαίνεται το κείμενο και των δύο αρχείων. Όλα τα υπολογιζόμενα κελιά περιέχουν ζωντανούς, ελέγξιμους τύπους και η Σύνοψη έχει γραμμή αυτοελέγχου που πρέπει να δείχνει μηδέν.</p>"],
+    "<p>Το βιβλίο που παράγεται περιλαμβάνει τα φύλλα Τεκμηρίωση (αρχεία, ρυθμίσεις, συντάκτης και γραμμή υπογραφής ελεγκτή), Σύνοψη, Προσαρμοσμένα υπόλοιπα, Διαφορές, Ομάδες (οι συνδυασμοί που εγκρίνατε), Μόνο στο A, Μόνο στο B και Συμφωνούν. Τα αναλυτικά φύλλα έχουν χωριστές στήλες «Περιγραφή A» και «Περιγραφή B», ώστε να φαίνεται το κείμενο και των δύο αρχείων. Όλα τα υπολογιζόμενα κελιά περιέχουν ζωντανούς, ελέγξιμους τύπους και η Σύνοψη έχει γραμμή αυτοελέγχου που πρέπει να δείχνει μηδέν.</p><p>Το βιβλίο είναι και χρωματικά κωδικοποιημένο: επικεφαλίδες στο μπλε του Οργανισμού, απόχρωση ανά χαρακτηρισμό εκκρεμότητας, αρνητικά ποσά με κόκκινο, και γραμμή αυτοελέγχου που πρασινίζει στο μηδέν και κοκκινίζει σε κάθε άλλη τιμή.</p>"],
+   ["Πακέτο συμφωνιών",
+    "<p>Όταν κλείνετε πολλούς λογαριασμούς μαζί, μετά από κάθε εκτέλεση πατήστε «Προσθήκη στο πακέτο». Στο τέλος, η «Εξαγωγή πακέτου» παράγει ένα ενιαίο βιβλίο Excel: ένα φύλλο «Πακέτο» με μία γραμμή ανά συμφωνία — αρχεία, σύνολα, εκκρεμότητες, καθαρή διαφορά και ζωντανό τύπο ελέγχου — και από ένα φύλλο εκκρεμοτήτων για κάθε εκτέλεση. Ό,τι χρειάζεται ο προϊστάμενος ή ο ελεγκτής, σε ένα αρχείο.</p>"],
+   ["Προφίλ συμφωνίας",
+    "<p>Όταν μια συμφωνία στήνεται με τον ίδιο τρόπο κάθε μήνα, αποθηκεύστε τη μία φορά ως προφίλ («Αποθήκευση προφίλ»). Το προφίλ κρατά τον τύπο, τα φύλλα, τις γραμμές επικεφαλίδων, τα κλειδιά, τις στήλες και όλες τις ρυθμίσεις — όχι όμως δεδομένα. Τον επόμενο μήνα φορτώνετε πρώτα το προφίλ (από το ίδιο κουμπί με τη φόρτωση προόδου), έπειτα τα δύο νέα αρχεία, και όλα στήνονται μόνα τους.</p>"],
    ["Αποθήκευση της εργασίας σας",
-    "<p>Η «Αποθήκευση προόδου» κατεβάζει ένα μικρό αρχείο JSON με τις ρυθμίσεις, τις κατηγορίες και τις ομάδες που έχετε εγκρίνει. Την επόμενη φορά φορτώνετε τα ίδια δύο αρχεία, πατάτε «Φόρτωση προόδου» και εκτελείτε τη συμφωνία — οι αποφάσεις σας επανέρχονται. Στο πρόγραμμα περιήγησης δεν αποθηκεύεται τίποτα.</p>"],
+    "<p>Η «Αποθήκευση προόδου» κατεβάζει ένα μικρό αρχείο JSON με τις ρυθμίσεις, τις κατηγορίες, τις ομάδες και τα χειροκίνητα ταιριάσματα που έχετε εγκρίνει. Την επόμενη φορά φορτώνετε τα ίδια δύο αρχεία, πατάτε «Φόρτωση προόδου» και εκτελείτε τη συμφωνία — οι αποφάσεις σας επανέρχονται. Στο πρόγραμμα περιήγησης δεν αποθηκεύεται τίποτα.</p>"],
    ["Συνηθισμένα προβλήματα",
     "<table><tr><th>Τι βλέπετε</th><th>Τι φταίει και τι κάνετε</th></tr><tr><td>Μηδέν «Συμφωνούν» και όλα στα «Μόνο στο A/B»</td><td>Τα κλειδιά δεν ταυτίζουν τα ίδια στοιχεία. Δοκιμάστε το κλειδί που προτείνει η υπόδειξη ή τη λειτουργία χωρίς κοινό κλειδί.</td></tr><tr><td>Όλα στις «Διαφορές», με περίπου διπλάσια ποσά</td><td>Ενεργοποιήστε την αντιστροφή προσήμου στο Β.</td></tr><tr><td>Τα σύνολα βγαίνουν μισά ή παράξενα</td><td>Ορίστε τη στήλη πίστωσης· οι εξαγωγές SAP χωρίζουν χρέωση και πίστωση.</td></tr><tr><td>«Γραμμές χωρίς κλειδί» στην Τεκμηρίωση</td><td>Ταιριάστηκαν αυτόματα ανά γραμμή, με ποσό και ημερομηνία· όσες δεν εξηγήθηκαν βρίσκονται στα «Μόνο στο A/B». Η γραμμή γενικού συνόλου του αρχείου εξαιρείται και αναφέρεται χωριστά.</td></tr><tr><td>«Η αναζήτηση συνδυασμών σταμάτησε νωρίς»</td><td>Οι εκκρεμότητες είναι πολλές. Περιορίστε την αναζήτηση με το παράθυρο ημερομηνίας ή το πρόθεμα κλειδιού.</td></tr></table>"]
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 2.9)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.0)",
   sections:[
    ["What the tool does",
-    "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>For bank reconciliations, use the organisation's separate bank reconciliation tool.</p>"],
+    "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
    ["Getting started",
-    "<ol><li>Pick the type of reconciliation.</li><li>Load the two files — click the box or drag them onto it. Glance at the preview and correct the sheet or header row if something looks off.</li><li>Check the columns the tool has proposed: the key, the amount and, where a file keeps debit and credit in separate columns, the credit column. Then press “Run reconciliation”.</li><li>Go through the results, categorise the open items and export the Excel.</li></ol>"],
+    "<ol><li>Pick the type of reconciliation — or load a saved profile, if this one is set up the same way every month.</li><li>Load the two files — click the box or drag them onto it. Glance at the preview and correct the sheet or header row if something looks off. If you have last period's export, load it into the third, smaller box.</li><li>Check the columns the tool has proposed: the key, the amount and, where a file keeps debit and credit in separate columns, the credit column. Then press “Run reconciliation”.</li><li>Go through the results, categorise the open items and export the Excel.</li></ol>"],
    ["Step 1 — Reconciliation type",
     "<p>The three choices (generic comparison, General Ledger against subledger, SAP against HIO) only change the labels and a few defaults. When in doubt, the generic comparison handles anything.</p>"],
    ["Step 2 — Files",
     "<p>The tool reads .xlsx, .xls and .csv files. If a workbook has several sheets, you choose which one to use. It usually finds the header row on its own; if your column titles sit somewhere else, type the right row number. The preview shows the first rows exactly as they were read — if they look right there, they will be read right everywhere.</p>"],
+   ["Step 2 — Previous period (optional)",
+    "<p>The same step has a third box, meant for the Excel export of last period's reconciliation. Load it, and after the run the tool reads its “Only in A”, “Only in B” and “Differences” sheets and flags every open item that has come back — same key, same amount — with a “B/F” mark. The “From prior period” figure shows how many carried over, and the category you gave each item last time (Timing difference, say) comes back on its own. One glance tells you what has been dragging on for months and what is genuinely new.</p>"],
    ["Step 3 — What the key columns do",
     "<p>The key decides when two entries count as the same item. Before anything is compared, rows sharing a key value are added up on each side; then side A's total is compared with side B's total for that key.</p><p>Say the key is the “Reference” column: every line in file A carrying reference 136388 becomes one figure, which is compared with the sum of file B's 136388 lines.</p><ul><li>Ticking more columns makes the match stricter — reference and date together, for instance.</li><li>Normalisation ignores capitals, stray spaces and leading zeros, so 000123 and 123 are the same key.</li><li>The tool compares column values across the two files and suggests the pair that fits best. If your current selection leads nowhere, it corrects it on its own and says so.</li><li>Don't use amount columns as keys — an amount identifies nothing. The tool warns you if that happens.</li><li>Rows with an empty key aren't dropped: they are paired one against one on equal amount and nearby date, and whatever stays unexplained shows up in the open lists. The grand-total line at the bottom of a file is recognised and left out automatically.</li></ul>"],
    ["Step 3 — The other settings",
-    "<ul><li><strong>Amount column</strong> — the value being reconciled, summed per key.</li><li><strong>Credit column (subtracted)</strong> — for files that keep debit and credit apart, as SAP exports do. Each row is then worth debit minus credit. When the tool spots such a pair, it fills this in for you.</li><li><strong>Date column</strong> — optional, and never part of the key match. It drives the age of open items and the ± day window used by pass 2 and the no-shared-key mode, and it appears in the results and the export. Where one key covers several rows, the earliest date is kept.</li><li><strong>Description column</strong> — optional; shown in the results and used by pass 3, which matches on similar wording.</li><li><strong>Tolerance (€)</strong> — differences up to this amount still count as matched.</li><li><strong>Flip sign on side B</strong> — for mirrored accounts, where your receivable is the other side's payable. If everything lands in “Differences” at roughly double the amount, this is what's missing; the warning banner will say so too.</li><li><strong>No shared key</strong> — for files with no common reference at all. Lines are paired one against one on equal amounts (within tolerance) and dates no more than ± N days apart. Ticking a key column on one side — say the bank's reference number — groups that side's lines by that value first, so a transfer and its fees become a single entry; the reference shows as the key in the results and the Excel export. A #N label means the N-th data row of the file (the first row after the headers is #1).</li></ul>"],
+    "<ul><li><strong>Amount column</strong> — the value being reconciled, summed per key.</li><li><strong>Credit column (subtracted)</strong> — for files that keep debit and credit apart, as SAP exports do. Each row is then worth debit minus credit. When the tool spots such a pair, it fills this in for you.</li><li><strong>Date column</strong> — optional, and never part of the key match. It drives the age of open items and the ± day window used by pass 2 and the no-shared-key mode, and it appears in the results and the export. Where one key covers several rows, the earliest date is kept.</li><li><strong>Description column</strong> — optional; shown in the results and used by pass 3, which matches on similar wording.</li><li><strong>Tolerance (€)</strong> — differences up to this amount still count as matched.</li><li><strong>Flip sign on side B</strong> — for mirrored accounts, where your receivable is the other side's payable. The tool checks the amounts as soon as both files are loaded and, when it finds mirrored signs, ticks this box on its own and says so. If everything still lands in “Differences” at roughly double the amount, this is what's missing; the warning banner will say so too.</li><li><strong>No shared key</strong> — for files with no common reference at all. Lines are paired one against one on equal amounts (within tolerance) and dates no more than ± N days apart. Ticking a key column on one side — say the bank's reference number — groups that side's lines by that value first, so a transfer and its fees become a single entry; the reference shows as the key in the results and the Excel export. A #N label means the N-th data row of the file (the first row after the headers is #1).</li></ul>"],
    ["Step 3 — Extra passes and suggestions",
-    "<ul><li><strong>Pass 2, amount and date</strong> — whatever the key pass leaves open gets a second chance: equal amount, nearby date. These matches are labelled “Amount+date”.</li><li><strong>Pass 3, similar descriptions</strong> — an optional third pass for entries with nearly identical wording and equal amounts.</li><li><strong>Pass 4, same payee with a small difference</strong> — pairs entries whose text is linked (the SAP payee appearing inside the bank description, say) when the amounts differ by no more than the percentage you set. The residual — FX, commissions — lands in “Differences” marked “Near”, ready for you to categorise.</li><li><strong>Split suggestions (1 to N)</strong> — the tool looks for one invoice explained by two, three or four partial payments. Large transfers executed in equal instalments or round denominations — say 13,000,000 paid as thirteen lines of 1,000,000 — are recognised too, up to 60 lines per group. Everything lands in the “Suggested groups” tab and stays a suggestion until you approve it; nothing leaves the open lists on its own. Once you have ticked the groups you accept, press “Move to reconciled”: they join the Matched tab marked “Manual”, and each one can be undone at any time.</li></ul>"],
+    "<ul><li><strong>Pass 2, amount and date</strong> — whatever the key pass leaves open gets a second chance: equal amount, nearby date. These matches are labelled “Amount+date”.</li><li><strong>Pass 3, similar descriptions</strong> — an optional third pass for entries with nearly identical wording and equal amounts.</li><li><strong>Pass 4, same payee with a small difference</strong> — pairs entries whose text is linked (the SAP payee appearing inside the bank description, say) when the amounts differ by no more than the percentage you set. The residual — FX, commissions — lands in “Differences” marked “Near”, ready for you to categorise.</li><li><strong>Split suggestions (1 to N)</strong> — the tool looks for one invoice explained by two, three or four partial payments. Large transfers executed in equal instalments or round denominations — say 13,000,000 paid as thirteen lines of 1,000,000 — are recognised too, up to 60 lines per group. Everything lands in the “Suggested groups” tab and stays a suggestion until you approve it; nothing leaves the open lists on its own. Once you have ticked the groups you accept, press “Move to reconciled”: they join the Matched tab marked “Manual”, and each one can be undone at any time.</li><li><strong>Same-day suggestions (N to M)</strong> — in the no-shared-key mode, groups of lines dated the same day whose totals agree across the two sides — two payment orders against three bank movements, say — are proposed as a single group labelled “N to M”.</li></ul>"],
    ["Step 4 — Results",
-    "<ul><li><strong>The scale</strong> sits level and turns green when the net difference is within tolerance; otherwise it tips towards the heavier side.</li><li><strong>The figures</strong> give you counts per category, the two totals and the net difference.</li><li><strong>The tabs</strong>: Differences (same key, different amount), Suggested groups, Only in A, Only in B, Matched.</li><li><strong>Open-item categories</strong>: Timing difference, Adjustment required, or Requires investigation. Ageing runs 0–30 current, 31–60 follow up, 61–90 escalate, 90+ inform management.</li><li><strong>Warnings</strong>: the red box above the tabs explains what went wrong — no matches, unsuitable keys, opposite signs — and tells you the fix.</li></ul>"],
+    "<ul><li><strong>The scale</strong> sits level and turns green when the net difference is within tolerance; otherwise it tips towards the heavier side.</li><li><strong>The figures</strong> give you counts per category, the two totals and the net difference.</li><li><strong>The tabs</strong>: Differences (same key, different amount), Suggested groups, Only in A, Only in B, Matched.</li><li><strong>Open-item categories</strong>: Timing difference, Adjustment required, or Requires investigation. Ageing runs 0–30 current, 31–60 follow up, 61–90 escalate, 90+ inform management.</li><li><strong>Warnings</strong>: the red box above the tabs explains what went wrong — no matches, unsuitable keys, opposite signs, possible duplicate postings (same key, amount and date on one side) — and tells you the fix.</li><li><strong>Totals check</strong>: when a file carries its own grand-total line, the tool compares the total it computed against it and shows the verdict under the figures — a ✓ confirms every line was read.</li><li><strong>Search and amount filter</strong>: above the tabs, the search box narrows the rows to those containing whatever you type, and the minimum amount hides the small change so the material items surface first. The filters only change what you see — never the results or the export.</li><li><strong>Manual matching</strong>: tick rows in “Only in A”, “Only in B” or “Differences” — the toolbar shows the running totals of your selection — and press “Match selected”: the rows move to Matched as a manual reconciliation, any remainder carried as the difference. It works within one side too — a debit and its reversing credit in the same ledger, for instance.</li></ul>"],
    ["The Excel export",
-    "<p>The workbook holds a Documentation sheet (files, settings, preparer, a sign-off line for the reviewer), the Summary, Adjusted balances, Differences, Groups (the combinations you approved), Only in A, Only in B and Matched. The detail sheets carry separate “Description A” and “Description B” columns, so both files' wording is visible. Every computed cell is a live, auditable formula, and the Summary carries a self-check row that must show zero.</p>"],
+    "<p>The workbook holds a Documentation sheet (files, settings, preparer, a sign-off line for the reviewer), the Summary, Adjusted balances, Differences, Groups (the combinations you approved), Only in A, Only in B and Matched. The detail sheets carry separate “Description A” and “Description B” columns, so both files' wording is visible. Every computed cell is a live, auditable formula, and the Summary carries a self-check row that must show zero.</p><p>The workbook is colour-coded as well: headers in the organisation's blue, a tint per open-item category, negative amounts in red, and a self-check row that turns green at zero and red at anything else.</p>"],
+   ["The reconciliation pack",
+    "<p>When you close several accounts in one sitting, press “Add to pack” after each run. At the end, “Export pack” produces a single workbook: a “Pack” sheet with one line per reconciliation — files, totals, open items, net difference and a live check formula — plus one open-items sheet per run. Everything a supervisor or auditor needs, in one file.</p>"],
+   ["Reconciliation profiles",
+    "<p>When a reconciliation is set up the same way every month, save it once as a profile (“Save profile”). A profile keeps the type, sheets, header rows, keys, columns and every setting — but no data. Next month, load the profile first (through the same button as loading progress), then the two new files, and everything sets itself up.</p>"],
    ["Saving your work",
-    "<p>“Save progress” downloads a small JSON file holding your settings, categories and approved groups. Next time, load the same two files, press “Load progress”, then run — your decisions come back. Nothing is kept in the browser itself.</p>"],
+    "<p>“Save progress” downloads a small JSON file holding your settings, categories, approved groups and manual matches. Next time, load the same two files, press “Load progress”, then run — your decisions come back. Nothing is kept in the browser itself.</p>"],
    ["Troubleshooting",
     "<table><tr><th>What you see</th><th>What's wrong and what to do</th></tr><tr><td>Zero “Matched”, everything in “Only in A/B”</td><td>The keys don't identify the same items. Try the key named in the hint, or the no-shared-key mode.</td></tr><tr><td>Everything in “Differences”, at roughly double the amount</td><td>Turn on “Flip sign on side B”.</td></tr><tr><td>Totals come out halved or look odd</td><td>Set the credit column — SAP exports keep debit and credit apart.</td></tr><tr><td>“Rows without key” in the Documentation sheet</td><td>They were matched line by line on amount and date; any that stayed unexplained sit in “Only in A/B”. The file's own grand-total line is excluded and reported separately.</td></tr><tr><td>“Combination search stopped early”</td><td>There are too many open items. Narrow the search with the date window or the key prefix.</td></tr></table>"]
   ]
@@ -1917,13 +2161,73 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v2.9.html':'OKYPY_Reconciliation_Manual_v2.9.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.0.html':'OKYPY_Reconciliation_Manual_v3.0.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 
+/* ================= reconciliation pack (several runs, one workbook) ================= */
+const PACK=[];
+function addToPack(){
+  const R=RESULT; if(!R)return;
+  const openA=R.onlyA.filter(r=>!inAccepted(r)), openB=R.onlyB.filter(r=>!inAccepted(r));
+  const sum=(a,f)=>a.reduce((s,r)=>s+(f(r)||0),0);
+  PACK.push({
+    name:PRESETS.find(x=>x.id===preset)[LANG].t,
+    files:SIDES.A.name+' ⇄ '+SIDES.B.name,
+    matched:R.matched.length,
+    diffsN:R.diffs.length, diffsV:sum(R.diffs,r=>r.diff),
+    oaN:openA.length, oaV:sum(openA,r=>r.diff),
+    obN:openB.length, obV:sum(openB,r=>r.diff),
+    net:R.totA-R.totB,
+    open:[...openA.map(r=>['A',r.key,r.descA||r.desc||'',r.date?fmtDate(r.date):'',r.amtA,r.cat?t(r.cat):'']),
+          ...openB.map(r=>['B',r.key,r.descB||r.desc||'',r.date?fmtDate(r.date):'',r.amtB,r.cat?t(r.cat):''])]
+  });
+  document.getElementById('packBtn').disabled=false;
+  document.getElementById('packBtn').textContent=t('packExport')+' ('+PACK.length+')';
+  progStatus(t('packAdded'));
+}
+function exportPack(){
+  if(!PACK.length)return;
+  const el=LANG==='el';
+  const wb=XLSX.utils.book_new();
+  const head=[t('packRecon'),t('packFiles'),t('matched'),t('diffs'),t('diffs')+' €',t('onlyA'),t('onlyA')+' €',t('onlyB'),t('onlyB')+' €',t('netdiff'),t('packCheck')];
+  const aoa=[[t('packSheet')+' — '+fmtDate(new Date())],[''],head];
+  PACK.forEach(p=>aoa.push([p.name,p.files,p.matched,p.diffsN,p.diffsV,p.oaN,p.oaV,p.obN,p.obV,p.net,null]));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const eurofmt='#,##0.00\\ "€"';
+  PACK.forEach((p,i)=>{
+    const r=4+i;
+    ws['K'+r]={t:'n',v:Math.round((p.net-(p.diffsV+p.oaV+p.obV))*100)/100,f:'ROUND(J'+r+'-(E'+r+'+G'+r+'+I'+r+'),2)',z:eurofmt};
+    ['E','G','I','J'].forEach(c=>{const cell=ws[c+r];if(cell&&cell.t==='n')cell.z=eurofmt;});
+  });
+  const tot=4+PACK.length;
+  ws['A'+tot]={t:'s',v:el?'ΣΥΝΟΛΟ':'TOTAL'};
+  ['E','G','I','J'].forEach(c=>{
+    ws[c+tot]={t:'n',v:PACK.reduce((s,p)=>s+({E:p.diffsV,G:p.oaV,I:p.obV,J:p.net})[c],0),
+      f:'SUM('+c+'4:'+c+(tot-1)+')',z:eurofmt};
+  });
+  ws['!ref']='A1:K'+tot;
+  ws['!cols']=[{wch:26},{wch:44},{wch:10},{wch:9},{wch:15},{wch:9},{wch:15},{wch:9},{wch:15},{wch:15},{wch:12}];
+  ws.A1.s={font:{bold:true,sz:13,color:{rgb:'1B75BB'}}};
+  for(let c=0;c<11;c++){const cell=ws[XLSX.utils.encode_col(c)+'3'];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:'069FEC'}},font:{bold:true,color:{rgb:'FFFFFF'}}};}
+  XLSX.utils.book_append_sheet(wb,ws,el?'Πακέτο':'Pack');
+  PACK.forEach((p,i)=>{
+    const oaoa=[[t('packRecon')+' '+(i+1)+': '+p.files],[''],
+      [el?'Πλευρά':'Side',t('key'),t('desc'),t('date'),t('diff'),t('cat')],...p.open];
+    const ows=XLSX.utils.aoa_to_sheet(oaoa);
+    for(let r2=4;r2<4+p.open.length;r2++){const cell=ows['E'+r2];if(cell&&cell.t==='n')cell.z=eurofmt;}
+    const last=3+p.open.length;
+    ows['E'+(last+1)]={t:'n',v:p.open.reduce((s,x)=>s+(x[4]||0),0),f:'SUM(E4:E'+last+')',z:eurofmt};
+    ows['!cols']=[{wch:7},{wch:26},{wch:34},{wch:11},{wch:15},{wch:22}];
+    for(let c=0;c<6;c++){const cell=ows[XLSX.utils.encode_col(c)+'3'];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:'069FEC'}},font:{bold:true,color:{rgb:'FFFFFF'}}};}
+    XLSX.utils.book_append_sheet(wb,ows,(el?'Εκκρεμή ':'Open ')+(i+1));
+  });
+  XLSX.writeFile(wb,(el?'Πακέτο_Συμφωνιών_':'Reconciliation_Pack_')+PACK.length+'.xlsx');
+}
+
 /* ================= init ================= */
-bindFile('A'); bindFile('B');
+bindFile('A'); bindFile('B'); bindPrev();
 renderPresets(); updateSideLabels(); updateRail();
 document.getElementById('ftDate').textContent=fmtDate(new Date());
 </script>

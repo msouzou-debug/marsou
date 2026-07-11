@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.9**.
+internet. All data stays on the local machine. Current version: **v3.0**.
 
 ## Architecture
 
@@ -11,14 +11,19 @@ internet. All data stays on the local machine. Current version: **v2.9**.
   CSS, and JS with two placeholders: `__XLSX_LIB__` (SheetJS injection point)
   and `__LOGO_FULL__` (base64 logo injection point). Never edit `dist/` output
   directly; it is generated.
-- `vendor/xlsx.full.min.js` — SheetJS 0.18.5 (parsing + writing xlsx/csv).
-  Do not upgrade casually; 0.18.5 is the last Apache-licensed npm build.
-  Note: this build DROPS formula cells that have `f` but no cached `v` when
-  writing — every formula cell must carry both (Excel recalculates `f`).
+- `vendor/xlsx-style.full.min.js` — xlsx-js-style 1.2.0 (SheetJS 0.18.5 API
+  + cell-style writer, Apache-2.0). Built as `dist/cpexcel.js` +
+  `dist/xlsx.min.js` concatenated, plus a Node shim appended
+  (`module.exports=exports` when `exports.utils` exists) so the tests can
+  `require()` it. Do not upgrade casually. Two inherited SheetJS quirks:
+  it DROPS formula cells that have `f` but no cached `v` when writing —
+  every formula cell must carry both (Excel recalculates `f`) — and it drops
+  cells outside `!ref`, so extend the range when adding formula columns.
+  The old `vendor/xlsx.full.min.js` is kept for reference but unused.
 - `assets/okypy_logo_full.png` — official logo, embedded at build time.
 - `build.py` — inlines vendor lib + logo into `dist/OKYpY_Reconciliation_Tool.html`.
 - `tests/` — Playwright headless tests driving the built file
-  (`test_app.js`, `test_edge.js`, `test_v2.js`, `test_v3.js`,
+  (`test_app.js`, `test_edge.js`, `test_v2.js`, `test_v3.js`, `test_v4.js`,
   `gen_fixtures.js`, `screenshot.js` for design review shots).
 - `samples/` — test fixtures with known expected results (see Tests below).
 
@@ -29,7 +34,7 @@ python3 build.py                 # rebuild dist/ after ANY src change
 cd tests && npm install playwright
 # if the pinned browser is missing, point at any Chromium:
 export CHROMIUM_PATH=/opt/pw-browsers/chromium
-node test_app.js && node test_edge.js && node test_v2.js && node test_v3.js
+node test_app.js && node test_edge.js && node test_v2.js && node test_v3.js && node test_v4.js
 node gen_fixtures.js             # only to regenerate fixtures
 ```
 
@@ -79,6 +84,27 @@ Expected values:
     line) in separate columns, CY111 in the key.
   - guardrail: keying on Document Number → 0 matches → visible banner that
     names the suggested Reference key.
+- `test_v4.js` (v3.0 features; asserts, exits 1 on failure):
+  - ic pair: mirrored signs auto-tick `#flipB` on load (detectFlip) with a
+    hint; tie-out line shows ✓ for both detected footer totals; search filter
+    'H-77' narrows Only-in-A from 2 rows to 1; manual selection H-77 (75)
+    ⇄ L-88 (60) commits as rule 4 with diff 15; a second selection of the
+    remaining keyless items empties both open lists.
+  - the export of the UNTOUCHED run is saved as `export_prev.xlsx` (the
+    carry-forward fixture — it must still contain the open items); a second
+    export AFTER the manual commits checks the brand header fill
+    (`A1.s.fgColor.rgb === '069FEC'`) and that sel-groups export cleanly.
+  - pack: two `addToPack()` runs → `exportPack()` workbook with a 'Πακέτο'
+    sheet (per-run check formula `ROUND(J4-(E4+G4+I4),2)`, totals row
+    `SUM(E4:E5)`) plus two 'Εκκρεμή n' sheets.
+  - carry-forward: fresh ic run + `#filePrev` = export_prev.xlsx → `bf.n=4`,
+    flagged keys ['#10','#10','H-77','L-88'], 'Από προηγ. περίοδο' KPI shown.
+  - profile round-trip on the fee pair: save profile, reload page, load the
+    profile BEFORE the files → keysB RefNo, amtB/crB Debit/Credit, no-key on,
+    days 9, pass 4 on, flip on all re-applied.
+  - dup_A/dup_B: duplicate line on side A only → `RESULT.dupA=1`, warning.
+  - nm_A/nm_B (no-key): one same-day 2-vs-3 N-to-M proposal, diff 0;
+    committing it exports as one Groups block `SUM(E2:E6)-SUM(F2:F6)`.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
   flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
@@ -141,8 +167,11 @@ Expected values:
    pair lands in DIFFERENCES with rule 5 ("Προσέγγιση / Near") — the FX and
    commission story (SAP 48,663.40 vs bank 48,557.40 → diff −106.00). Kept
    opt-in so the v1 baseline stays intact.
-   Bank reconciliations are out of scope — a separate single-file bank
-   reconciliation tool exists for those; the bank preset was removed in v2.3.
+   The bank PRESET was removed in v2.3 (a separate single-file bank tool
+   handles classic statement-balance reconciliation), but bank-statement vs
+   SAP-GL comparison is a first-class use case through the no-key mode —
+   per-side ref grouping, batch splits, near pass and same-day N-to-M all
+   exist for it (validated on the BOC benchmarks below).
    **Key guardrails** (v2.1, `crossKeySuggest()` + `RESULT.warns` banner):
    after both files load, column value-overlap is computed between the sides;
    the best pair (≥50% shared values, non-amount/date columns) is shown as a
@@ -150,6 +179,19 @@ Expected values:
    it. After a run, warnings fire for: amount column used as key, one key
    value hoarding >20% of rows (degenerate key), zero/low match rates (with
    the suggested key named), and opposite-sign totals (suggest flip B).
+   **Sign auto-detect** (v3.0, `detectFlip()`): once both files are mapped,
+   amount cent-counts are compared; when mirrored pairs dominate (flip ≥5 and
+   flip > 2×same) `#flipB` is ticked automatically and `#signHint` says so —
+   the user can always untick it.
+   **Duplicate detection** (v3.0, `dupCount()`): extra rows sharing key +
+   amount + date on ONE side raise `RESULT.dupA/dupB` and a warning in the
+   banner (possible double postings).
+   **Balance tie-out** (v3.0, `#tieInfo`): when a file's grand-total footer
+   was detected, the tool's own total for that side is compared against it
+   and the verdict (✓ / mismatch with both values) is shown under the KPIs.
+   **Search & filters** (v3.0, `#resQ`/`#resMin` → `RESULT.filterQ/filterMin`):
+   text search across key/descriptions and a minimum-|amount| filter narrow
+   the visible tab rows only — they never change RESULT, KPIs or the export.
 2. **Cascading passes** (v2): pass 1 by key; pass 2 (opt-in `#tier2on`) on the
    remainder by amount-within-tolerance + date within ±N days, greedy 1-to-1,
    largest amounts first; pass 3 (opt-in `#tier3on`) by bigram-Dice
@@ -184,6 +226,22 @@ Expected values:
    live ONLY in the Groups sheet (now with a Rule column = Manual); the
    Matched sheet and all Summary cached values use matched EXCLUDING rule 4,
    otherwise amounts double-count.
+   **Manual selection matching** (v3.0, `toggleSel()`/`matchSelected()`):
+   every row in Differences / Only-in-A / Only-in-B carries a checkbox
+   (`r._sel`); the results toolbar shows per-side counts/sums and Δ of the
+   selection. "Match selected" commits it as a rule-4 group shaped
+   `{sel:true, itemsA, itemsB, diff}` — cross-side or SAME-side (a debit and
+   its reversing credit in one GL). `grpHas()`/`inAccepted()` and the export
+   understand BOTH group shapes (`target`+`members` vs `itemsA`+`itemsB`);
+   the Summary caches `gESum`/`gFSum` must branch on `p.sel||p.nm`, or
+   `exportExcel` crashes on reduce. Committed selections persist in the
+   progress JSON via `grpSignature` ('S|aKeys|bKeys') and rebuild on load.
+   **Same-day N-to-M proposals** (v3.0, `proposeSameDay()`): in NO-KEY runs
+   only (user decision — the bank-reconciliation aspect), leftover open items
+   are bucketed by exact date; a bucket with ≤40 lines per side whose sides
+   net within tolerance (and is not a plain 1-to-1) becomes a proposal
+   `{nm:true}` labelled "Ν προς Μ / N to M", accepted and committed like any
+   other group and exported as one Groups block.
 4. **Number parsing** (`parseAmount`): must handle Greek format `1.234,56`,
    English `1,234.56`, `€`, parentheses negatives `(50,25)`. CSVs are read
    with `raw:true` so strings reach this parser — SheetJS would otherwise
@@ -206,12 +264,39 @@ Expected values:
    (incl. credit/date columns), tolerance, no-key mode, passes, split
    settings, group counts, truncation flag, preparer, reviewer sign-off
    line, skipped-row counts.
+   **Styled cells** (v3.0, xlsx-js-style `ST` map): header rows filled brand
+   blue `069FEC` with white bold text; open-item rows tinted by category
+   (`catT` D6EBFA / `catA` E9F4DA / `catI` F8DEDA), rule-5 near rows `EAEAEA`;
+   negative diffs get red font `C0392B`; the Summary self-check row fills
+   green at zero, red otherwise. Only OKYπY palette tints — no other colours.
 6. **Progress sidecar** (v2, `saveProgress()`/`applyProgress()`): "Save
    progress" downloads a JSON (settings, mapping, categories keyed by item
    key, group decisions keyed by `side|targetKey|memberKeys` signature);
    "Load progress" restores settings immediately and applies categories/group
    decisions to the current RESULT, or after the next run (`PENDING_PROGRESS`).
    No localStorage — files only.
+   **Profiles** (v3.0, `saveProfile()` / `type:'profile'` JSON): a profile
+   stores the setup WITHOUT data — preset, per-side sheet + header row, keys,
+   amount/credit/date/description columns, and every setting from
+   `collectSettings()`. Loaded through the SAME `#progFile` input (the loader
+   branches on `type`): sheet/header apply on file load
+   (`applyProfileSheet`), column mapping at the end of `rebuildMapping`
+   (`applyProfileMapping` via `PENDING_PROFILE`) — so a profile loaded BEFORE
+   the files still lands. This is what makes the tool universal per account.
+   **Prior-period carry-forward** (v3.0, `#filePrev` + `applyPrior()`): the
+   third filebox in Step 2 accepts LAST period's Excel export; `bindPrev`
+   reads its Only-in-A (col E), Only-in-B (col F) and Differences (col G)
+   sheets into `PRIOR` maps keyed `key|cents` (category text from col K).
+   After each run, matching open items get `r.bf=true` (B/F pill), their old
+   category carries over if none set, and `RESULT.bf` feeds the 'Από προηγ.
+   περίοδο / From prior period' KPI + a Documentation row. A prior file with
+   no open items is rejected as empty on purpose.
+   **Reconciliation pack** (v3.0, `PACK[]` + `addToPack()`/`exportPack()`):
+   'Add to pack' snapshots the current run (labels, totals, counts, open
+   items); 'Export pack' writes one workbook — a 'Πακέτο / Pack' summary
+   sheet with one row per run, live per-run check formulas
+   `ROUND(J-(E+G+I),2)` and a SUM totals row, plus one 'Εκκρεμή n / Open n'
+   sheet per run. The pack lives in memory only (lost on reload).
 7. **Reconciliation methodology** comes from the `reconciliation` skill
    (Anthropic finance plugin): open-item categories are exactly Timing
    difference / Adjustment required / Requires investigation; ageing buckets
@@ -230,26 +315,36 @@ Expected values:
     localStorage. Everything inlined at build time.
 11. **Test-visible contract**: keep these IDs/globals stable — `#fileA/B`,
     `#boxA/B`, `#sheetA/B`, `#hdrA/B`, `#stepMap`, `#keysA/B` (checkbox
-    inputs), `#amtA/B`, `#dateA/B`, `#descA/B`, `#tolerance`, `#flipB`,
-    `#normKeys`, `#preparer`, `#runBtn`, `#stepRes`, `.kpi .v/.l`, `.preset`
-    (order gen/gl/hio), `#pane-<tab>` + `.catsel`, `#btn-el/#btn-en`,
-    `#progFile`, globals `SIDES`, `RESULT`, `PRESETS`, `exportExcel()`,
-    `saveProgress()`, `acceptAllGroups()`.
+    inputs), `#amtA/B`, `#crA/B`, `#dateA/B`, `#descA/B`, `#tolerance`,
+    `#flipB`, `#signHint`, `#normKeys`, `#nokeyon`/`#nokeydays`,
+    `#nearon`/`#nearpct`, `#preparer`, `#runBtn`, `#stepRes`, `#tieInfo`,
+    `.kpi .v/.l`, `.preset` (order gen/gl/hio), `#pane-<tab>` + `.catsel`,
+    `#btn-el/#btn-en`, `#progFile`, `#filePrev`/`#boxPrev`/`#fnamePrev`/
+    `#finfoPrev`, `#resQ`/`#resMin`, `#selInfo`, `#manualBtn`,
+    `#saveProf`/`#saveProg`, `#addPackBtn`/`#packBtn`, globals `SIDES`,
+    `RESULT`, `PRESETS`, `PACK`, `SUGGESTED_KEY`, functions `exportExcel()`,
+    `saveProgress()`, `saveProfile()`, `acceptAllGroups()`, `commitGroups()`,
+    `uncommitGroup()`, `matchSelected()`, `toggleSel()`, `inAccepted()`,
+    `addToPack()`, `exportPack()`, `renderResults()`, `downloadManual()`.
 
 ## Backlog
 
-- Many-to-many (N-to-M) group suggestions.
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.9)
+## Known limitations (v3.0)
 
-- Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
+- Split search proposes 1-to-N only, same-sign combinations only; N-to-M
+  groups come solely from the same-day pass, in no-key runs, exact date only.
 - Pass 2 matches dated items with dated items (window) and undated with
   undated (amount only) — never mixed.
 - Key suggestion samples the first 3,000 rows per file.
 - Progress JSON matches items by key: if the mapping or files change, stale
-  entries are ignored silently.
+  entries are ignored silently. Progress files saved before v2.8 used
+  sheet-row `#` labels and their keyless entries no longer apply.
+- Carry-forward matches prior open items by `key|cents` exactly — an item
+  whose amount changed since last period is treated as new.
+- The reconciliation pack is in-memory only; reloading the page clears it.
 - The downloadable user manual (MANUAL dict, `downloadManual()`) generates
   in the ACTIVE language; its Greek follows native public-sector register and
   its English plain human prose — keep that tone when editing it.

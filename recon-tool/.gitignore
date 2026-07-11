@@ -7,3 +7,8 @@ tests/progress_v2.json
 tests/shot_*.png
 tests/export_v3.xlsx
 tests/export_fee.xlsx
+tests/export_v4.xlsx
+tests/export_prev.xlsx
+tests/export_pack.xlsx
+tests/export_nm.xlsx
+tests/profile_v4.json
