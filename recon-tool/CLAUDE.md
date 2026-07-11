@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.5**.
+internet. All data stays on the local machine. Current version: **v2.6**.
 
 ## Architecture
 
@@ -49,10 +49,11 @@ Expected values:
     PAY-01+02+03 (exact 1-to-3), INV-250 = PAY-04+05 (diff 0.01, within
     tolerance); decoy INV-300 must stay unexplained after better groups
     consume its members.
-  - export after accepting: `Ομάδες` sheet with `=SUM(E2:E5)-SUM(F2:F5)`
-    block formulas, Summary COUNTA over Groups!A, self-check
-    `ROUND(B12-(C5+C6+C7+C8),2)` = 0, Only-in-A sheet excludes grouped items.
-  - progress JSON round-trip restores categories + accepted groups.
+  - accept-all + commit: 3 groups move to Matched as rule 4, undo returns one
+    to proposals; export after committing: `Ομάδες` sheet with block SUM
+    formulas + Manual rule column, Matched sheet has 0 rule-4 rows, Summary
+    self-check = 0, Only-in-A sheet excludes grouped items.
+  - progress JSON round-trip restores categories + committed groups (state 2).
   - tier_A/tier_B: REF-A1⇄ZZZ-9 matched by rule 2, REF-A2⇄YYY-8 by rule 3.
   - perf_A/perf_B (2,200 open items): run completes <5 s or sets
     `RESULT.splitTruncated` (graceful degradation).
@@ -140,6 +141,14 @@ Expected values:
    are NEVER auto-applied: the user accepts each group (checkbox) in the
    "Προτεινόμενοι συνδυασμοί / Suggested groups" tab; only accepted groups
    leave the open lists (`inAccepted()` filters KPIs, tabs and export).
+   **Manual reconciliation commit** (v2.6, `commitGroups()`/`uncommitGroup()`):
+   the "Move to reconciled" button turns ticked proposals into Matched-tab
+   entries with rule 4 ("Χειροκίνητη / Manual" pill) and per-group Undo in a
+   green "Manually reconciled groups" section. Committed groups persist in the
+   progress JSON as state 2 and are re-committed on load. In the export they
+   live ONLY in the Groups sheet (now with a Rule column = Manual); the
+   Matched sheet and all Summary cached values use matched EXCLUDING rule 4,
+   otherwise amounts double-count.
 4. **Number parsing** (`parseAmount`): must handle Greek format `1.234,56`,
    English `1,234.56`, `€`, parentheses negatives `(50,25)`. CSVs are read
    with `raw:true` so strings reach this parser — SheetJS would otherwise
@@ -194,7 +203,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.5)
+## Known limitations (v2.6)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with

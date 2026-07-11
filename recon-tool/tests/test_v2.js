@@ -64,14 +64,22 @@ async function setMapping(page, side, keys, amt, date, desc) {
   check('decoy INV-300 not explained', r.onlyA.includes('INV-300'), r.onlyA);
   check('search not truncated', r.truncated === false);
 
-  /* accept all groups -> open counts shrink in the UI */
-  await page.evaluate(() => acceptAllGroups(true));
+  /* accept all groups, commit them to Matched as manual reconciliation */
+  await page.evaluate(() => { acceptAllGroups(true); commitGroups(); });
   r = await page.evaluate(() => ({
     openA: [...document.querySelectorAll('#pane-onlyA tbody tr')].length,
     kpiGroups: [...document.querySelectorAll('.kpi')].map(k => k.querySelector('.l').textContent + '=' + k.querySelector('.v').textContent).pop(),
+    committed: RESULT.committed.length, props: RESULT.props.length,
+    manual: RESULT.matched.filter(x => x.rule === 4).map(x => [x.key, +x.diff.toFixed(2)]),
   }));
-  console.log('ACCEPTED:', JSON.stringify(r));
-  check('onlyA shows 1 open row after accepting', r.openA === 1, r.openA);
+  console.log('COMMITTED:', JSON.stringify(r));
+  check('onlyA shows 1 open row after committing', r.openA === 1, r.openA);
+  check('3 groups committed, none pending', r.committed === 3 && r.props === 0, [r.committed, r.props]);
+  check('committed groups sit in Matched marked manual (rule 4)', r.manual.length === 3, r.manual);
+  /* undo returns a group to the proposals list */
+  r = await page.evaluate(() => { uncommitGroup(0); return { c: RESULT.committed.length, p: RESULT.props.length, m: RESULT.matched.filter(x => x.rule === 4).length }; });
+  check('undo moves a group back to proposals', r.c === 2 && r.p === 1 && r.m === 2, r);
+  await page.evaluate(() => { acceptAllGroups(true); commitGroups(); });
 
   /* categorise the remaining open item (via its tab), then export + verify workbook */
   await page.locator('.tab').nth(2).click(); // onlyA tab
@@ -93,6 +101,8 @@ async function setMapping(page, side, keys, amt, date, desc) {
   check('summary self-check includes groups', wsS && /ROUND\(B12-\(C5\+C6\+C7\+C8\),2\)/.test(wsS.B14 && wsS.B14.f || ''), wsS.B14 && wsS.B14.f);
   check('summary totals include groups sheet', /Ομάδες/.test(wsS.B10 && wsS.B10.f || ''), wsS.B10 && wsS.B10.f);
   check('summary self-check evaluates to 0', wsS.B14 && wsS.B14.v === 0, wsS.B14 && wsS.B14.v);
+  const wsM2 = el('Συμφωνούν');
+  check('Matched sheet excludes manual groups (no double count)', XLSX.utils.sheet_to_json(wsM2).length === 0);
   const wsOA = el('Μόνο στο A');
   check('detail diff is live N(E)-N(F) formula', wsOA && wsOA.G2 && /^N\(E2\)-N\(F2\)$/.test(wsOA.G2.f || ''), wsOA.G2 && wsOA.G2.f);
   check('only-A sheet excludes grouped items (1 data row)', wsOA && XLSX.utils.sheet_to_json(wsOA).length === 1);
@@ -122,11 +132,12 @@ async function setMapping(page, side, keys, amt, date, desc) {
   await page.click('#runBtn');
   await page.waitForSelector('#stepRes:not(.hidden)');
   r = await page.evaluate(() => ({
-    accepted: RESULT.props.filter(p => p.accepted).length,
+    committed: RESULT.committed.length,
+    manual: RESULT.matched.filter(x => x.rule === 4).length,
     cat: (RESULT.onlyA.find(x => x.key === 'INV-300') || {}).cat,
   }));
   console.log('RESTORED:', JSON.stringify(r));
-  check('accepted groups restored from progress', r.accepted === 3, r.accepted);
+  check('committed groups restored from progress as manual reconciliations', r.committed === 3 && r.manual === 3, r);
   check('category restored from progress', r.cat === 'catI', r.cat);
   await page.close();
 

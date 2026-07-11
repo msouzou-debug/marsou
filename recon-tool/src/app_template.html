@@ -361,7 +361,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.5</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.6</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -385,7 +385,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.5",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.6",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -411,7 +411,9 @@ const I18N = {
   acceptAll:"Αποδοχή όλων", clearAll:"Αναίρεση όλων",
   grpAccept:"Αποδοχή ομάδας", grpTarget:"Στόχος", grpMembers:"μέλη", grpDiff:"Διαφορά ομάδας",
   truncNote:"Η αναζήτηση συνδυασμών σταμάτησε νωρίς για λόγους απόδοσης — ορισμένα εκκρεμή δεν εξετάστηκαν.",
-  rule:"Κανόνας", rule1:"Κλειδί", rule2:"Ποσό+Ημ/νία", rule3:"Κείμενο",
+  rule:"Κανόνας", rule1:"Κλειδί", rule2:"Ποσό+Ημ/νία", rule3:"Κείμενο", rule4:"Χειροκίνητη",
+  commitGrp:"Μεταφορά στα Συμφωνούν (χειροκίνητη συμφωνία)",
+  committedT:"Χειροκίνητα συμφωνημένες ομάδες", undo:"Αναίρεση",
   grpKpi:"Ομάδες (αποδεκτές)",
   balanced:"Εντός ορίου ανοχής", unbalanced:"Εκτός ορίου ανοχής",
   saveprog:"Αποθήκευση προόδου", loadprog:"Φόρτωση προόδου",
@@ -446,7 +448,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v2.5",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v2.6",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -472,7 +474,9 @@ const I18N = {
   acceptAll:"Accept all", clearAll:"Clear all",
   grpAccept:"Accept group", grpTarget:"Target", grpMembers:"members", grpDiff:"Group difference",
   truncNote:"Combination search stopped early for performance — some open items were not examined.",
-  rule:"Rule", rule1:"Key", rule2:"Amount+date", rule3:"Text",
+  rule:"Rule", rule1:"Key", rule2:"Amount+date", rule3:"Text", rule4:"Manual",
+  commitGrp:"Move to reconciled (manual reconciliation)",
+  committedT:"Manually reconciled groups", undo:"Undo",
   grpKpi:"Groups (accepted)",
   balanced:"Within tolerance", unbalanced:"Out of tolerance",
   saveprog:"Save progress", loadprog:"Load progress",
@@ -1148,7 +1152,7 @@ function runRecon(){
   }
   if(totA&&totB&&Math.sign(totA)!==Math.sign(totB))warns.push(t('warnFlip'));
   const firstTab=diffs.length?'diffs':props.length?'groups':onlyA.length?'onlyA':onlyB.length?'onlyB':'matched';
-  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,
+  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,committed:[],
           props,splitTruncated,splitCfg:scfg,warns,
           mA,mB,ranAt:new Date(),activeTab:firstTab};
   if(PENDING_PROGRESS){applyProgress(PENDING_PROGRESS);PENDING_PROGRESS=null;progStatus(t('progApplied'));}
@@ -1161,7 +1165,10 @@ function runRecon(){
 
 /* ================= results UI ================= */
 function grpAccepted(){return RESULT?RESULT.props.filter(p=>p.accepted):[]}
-function inAccepted(rec){return RESULT.props.some(p=>p.accepted&&(p.target===rec||p.members.includes(rec)))}
+function inAccepted(rec){
+  return RESULT.props.some(p=>p.accepted&&(p.target===rec||p.members.includes(rec)))||
+         RESULT.committed.some(p=>p.target===rec||p.members.includes(rec));
+}
 function openView(arr){return arr.map((r,idx)=>({r,idx})).filter(x=>!inAccepted(x.r))}
 function renderResults(){
   const R=RESULT; if(!R)return;
@@ -1176,7 +1183,7 @@ function renderResults(){
     kpi(t('totA'),fmtNum(R.totA)+' €','')+
     kpi(t('totB'),fmtNum(R.totB)+' €','')+
     kpi(t('netdiff'),fmtNum(net)+' €',Math.abs(net)<=R.tol?'green':'red');
-  if(R.props.length)html+=kpi(t('grpKpi'),grpAccepted().length+'/'+R.props.length,grpAccepted().length?'green':'');
+  if(R.props.length+R.committed.length)html+=kpi(t('grpKpi'),(grpAccepted().length+R.committed.length)+'/'+(R.props.length+R.committed.length),(grpAccepted().length+R.committed.length)?'green':'');
   k.innerHTML=html;
   renderBeam(R.totA,R.totB,net,R.tol);
   const tw=document.getElementById('truncWarn');
@@ -1185,7 +1192,7 @@ function renderResults(){
   if(R.warns&&R.warns.length){rw.textContent=R.warns.join('  ·  ');rw.classList.remove('hidden');}else rw.classList.add('hidden');
   const tabs=[
     ['diffs',t('diffs'),R.diffs.length],
-    ['groups',t('groupsTab'),R.props.length],
+    ['groups',t('groupsTab'),R.props.length+R.committed.length],
     ['onlyA',t('onlyA'),openA.length],
     ['onlyB',t('onlyB'),openB.length],
     ['matched',t('matched'),R.matched.length]
@@ -1236,27 +1243,38 @@ function tableHTML(id,view){
   });
   return h+'</tbody></table>';
 }
+function gcardHTML(p,committed,idx){
+  const amt=r=>r.amtA!==null&&r.amtA!==undefined?r.amtA:r.amtB;
+  return '<div class="gcard'+(committed||p.accepted?' acc':'')+'">'+
+    (committed
+      ?'<span class="rulepill" style="margin-top:3px;flex:none">'+t('rule4')+'</span>'
+      :'<input type="checkbox" '+(p.accepted?'checked':'')+' onchange="toggleGroup('+p.id+',this.checked)" aria-label="'+t('grpAccept')+'">')+
+    '<div class="gbody"><div class="ghead">'+
+      '<span class="gid">#'+p.id+'</span>'+
+      '<span class="pill '+(p.side==='A'?'b':'g')+'">'+p.side+'</span><span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t('grpMembers')+')</span></span>'+
+      '<span class="gdiffchip'+(Math.abs(p.diff)>0.000001?' nz':'')+'">'+t('grpDiff')+': '+fmtNum(p.diff)+' €</span>'+
+      (committed?'<button class="ghostbtn" onclick="uncommitGroup('+idx+')">'+t('undo')+'</button>':'')+
+    '</div>'+
+    '<table class="gtable"><tbody>'+
+    '<tr class="tgt"><td>'+esc(p.target.key)+'</td><td>'+esc(p.target.desc||'')+'</td><td>'+fmtDate(p.target.date)+'</td><td class="num">'+fmtNum(amt(p.target))+' €</td></tr>'+
+    p.members.map(m=>'<tr class="mem"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(amt(m))+' €</td></tr>').join('')+
+    '</tbody></table></div></div>';
+}
 function groupsHTML(){
   const R=RESULT;
-  if(!R.props.length)return '<div class="emptytab">'+t('emptyTab')+'</div>';
-  let h='<div class="grouptools"><button class="ghostbtn" onclick="acceptAllGroups(true)">'+t('acceptAll')+'</button>'+
-    '<button class="ghostbtn" onclick="acceptAllGroups(false)">'+t('clearAll')+'</button>'+
-    '<span class="hint">'+t('grpNote')+'</span></div>';
-  R.props.forEach(p=>{
-    const sideT=p.side;
-    const amt=r=>r.amtA!==null&&r.amtA!==undefined?r.amtA:r.amtB;
-    h+='<div class="gcard'+(p.accepted?' acc':'')+'">'+
-      '<input type="checkbox" '+(p.accepted?'checked':'')+' onchange="toggleGroup('+p.id+',this.checked)" aria-label="'+t('grpAccept')+'">'+
-      '<div class="gbody"><div class="ghead">'+
-        '<span class="gid">#'+p.id+'</span>'+
-        '<span class="pill '+(sideT==='A'?'b':'g')+'">'+sideT+'</span><span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t('grpMembers')+')</span></span>'+
-        '<span class="gdiffchip'+(Math.abs(p.diff)>0.000001?' nz':'')+'">'+t('grpDiff')+': '+fmtNum(p.diff)+' €</span>'+
-      '</div>'+
-      '<table class="gtable"><tbody>'+
-      '<tr class="tgt"><td>'+esc(p.target.key)+'</td><td>'+esc(p.target.desc||'')+'</td><td>'+fmtDate(p.target.date)+'</td><td class="num">'+fmtNum(amt(p.target))+' €</td></tr>'+
-      p.members.map(m=>'<tr class="mem"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(amt(m))+' €</td></tr>').join('')+
-      '</tbody></table></div></div>';
-  });
+  if(!R.props.length&&!R.committed.length)return '<div class="emptytab">'+t('emptyTab')+'</div>';
+  let h='';
+  if(R.props.length){
+    h+='<div class="grouptools"><button class="ghostbtn" onclick="acceptAllGroups(true)">'+t('acceptAll')+'</button>'+
+      '<button class="ghostbtn" onclick="acceptAllGroups(false)">'+t('clearAll')+'</button>'+
+      '<button class="bigbtn green" style="font-size:12.5px;padding:7px 16px" onclick="commitGroups()" '+(grpAccepted().length?'':'disabled')+'>'+t('commitGrp')+'</button>'+
+      '<span class="hint">'+t('grpNote')+'</span></div>';
+    R.props.forEach(p=>{h+=gcardHTML(p,false);});
+  }
+  if(R.committed.length){
+    h+='<div class="grouptools" style="background:var(--wash-green)"><strong style="color:var(--okypy-blue-deep);font-size:12.5px">'+t('committedT')+' ('+R.committed.length+')</strong></div>';
+    R.committed.forEach((p,i)=>{h+=gcardHTML(p,true,i);});
+  }
   return h;
 }
 function toggleGroup(id,on){
@@ -1266,6 +1284,29 @@ function toggleGroup(id,on){
 }
 function acceptAllGroups(on){
   RESULT.props.forEach(p=>p.accepted=on);
+  renderResults();
+}
+/* ticked proposals become reconciled items, marked as manual reconciliation */
+function commitGroups(list){
+  const R=RESULT; if(!R)return;
+  const toCommit=list||R.props.filter(p=>p.accepted);
+  toCommit.forEach(p=>{
+    const amtA=p.side==='A'?p.target.amtA:p.members.reduce((s,m)=>s+(m.amtA||0),0);
+    const amtB=p.side==='B'?p.target.amtB:p.members.reduce((s,m)=>s+(m.amtB||0),0);
+    const nA=p.side==='A'?p.target.nA:p.members.reduce((s,m)=>s+m.nA,0);
+    const nB=p.side==='B'?p.target.nB:p.members.reduce((s,m)=>s+m.nB,0);
+    const rec={key:p.target.key+' ⇄ '+(p.members.length===1?p.members[0].key:p.members.length+' '+t('grpMembers')),
+      amtA,amtB,diff:amtA-amtB,nA,nB,desc:p.target.desc,date:p.target.date,age:p.target.age,cat:'',rule:4};
+    p._rec=rec; R.matched.push(rec); R.committed.push(p);
+  });
+  R.props=R.props.filter(p=>!toCommit.includes(p));
+  renderResults();
+}
+function uncommitGroup(i){
+  const R=RESULT; const p=R.committed[i]; if(!p)return;
+  R.matched.splice(R.matched.indexOf(p._rec),1); delete p._rec;
+  R.committed.splice(i,1);
+  R.props.push(p); R.props.sort((a,b)=>a.id-b.id);
   renderResults();
 }
 
@@ -1286,7 +1327,8 @@ function saveProgress(){
     R[id].forEach(r=>{if(r.cat)cats[id][r.key]=r.cat;});
   });
   const groups={};
-  R.props.forEach(p=>{groups[grpSignature(p)]=p.accepted;});
+  R.props.forEach(p=>{groups[grpSignature(p)]=p.accepted?1:0;});
+  R.committed.forEach(p=>{groups[grpSignature(p)]=2;});
   const data={app:'okypy-recon',version:2,savedAt:new Date().toISOString(),
     preset,lang:LANG,
     settings:{tolerance:document.getElementById('tolerance').value,
@@ -1319,6 +1361,8 @@ function applyProgress(data){
   });
   const g=data.groups||{};
   R.props.forEach(p=>{const s=grpSignature(p); if(g[s]!==undefined)p.accepted=!!g[s];});
+  const toCommit=R.props.filter(p=>g[grpSignature(p)]===2);
+  if(toCommit.length)commitGroups(toCommit);
   renderResults();
 }
 function applyProgressSettings(data){
@@ -1362,7 +1406,7 @@ function exportExcel(){
             onlyB:el?'Μόνο στο B':'Only in B', match:el?'Συμφωνούν':'Matched'};
   const CATLBL=c=>c?t(c):'';
   const eurofmt='#,##0.00\\ "€"';
-  const accepted=grpAccepted();
+  const accepted=[...R.committed,...grpAccepted()];
   const openA=R.onlyA.filter(r=>!inAccepted(r)), openB=R.onlyB.filter(r=>!inAccepted(r));
 
   // --- detail sheets: G = live formula N(E)-N(F) ---
@@ -1386,19 +1430,21 @@ function exportExcel(){
     ws['!autofilter']={ref:'A1:'+(withRule?'K':'J')+(arr.length+1)};
     return ws;
   };
-  const wsD=mkSheet(R.diffs), wsA=mkSheet(openA), wsB=mkSheet(openB), wsM=mkSheet(R.matched,true);
+  // committed groups live in the Groups sheet — keep them out of Matched to avoid double counting
+  const matchedX=R.matched.filter(r=>r.rule!==4);
+  const wsD=mkSheet(R.diffs), wsA=mkSheet(openA), wsB=mkSheet(openB), wsM=mkSheet(matchedX,true);
 
   // --- accepted groups sheet: one block per group, diff = live block SUM formula ---
   // col A carries the group number ONLY on the target row so COUNTA(A:A) counts groups
   let wsG=null;
   if(accepted.length){
-    const gaoa=[[el?'Ομάδα':'Group',t('key'),t('desc'),t('date'),t('amtA'),t('amtB'),t('diff')]];
+    const gaoa=[[el?'Ομάδα':'Group',t('key'),t('desc'),t('date'),t('amtA'),t('amtB'),t('diff'),t('rule')]];
     const gformulas=[];
     accepted.forEach(p=>{
       const first=gaoa.length+1; // 1-based sheet row of the target line
       const tgt=p.target, other=p.side==='A'?'B':'A';
       gaoa.push([p.id,tgt.key,tgt.desc||'',tgt.date?fmtDate(tgt.date):'',
-                 p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null]);
+                 p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null,t('rule4')]);
       p.members.forEach(m=>{
         gaoa.push([null,m.key,m.desc||'',m.date?fmtDate(m.date):'',
                    other==='A'?m.amtA:null,other==='B'?m.amtB:null,null]);
@@ -1409,8 +1455,8 @@ function exportExcel(){
     wsG=XLSX.utils.aoa_to_sheet(gaoa);
     gformulas.forEach(({row,v,f})=>{wsG['G'+row]={t:'n',v,f,z:eurofmt};});
     for(let r=2;r<=gaoa.length;r++)['E','F'].forEach(c=>{const cell=wsG[c+r]; if(cell&&cell.t==='n')cell.z=eurofmt;});
-    wsG['!ref']='A1:G'+gaoa.length; // formulas live in G; keep the column inside the range
-    wsG['!cols']=[{wch:8},{wch:28},{wch:30},{wch:11},{wch:14},{wch:14},{wch:14}];
+    wsG['!ref']='A1:H'+gaoa.length; // formulas live in G; keep the column inside the range
+    wsG['!cols']=[{wch:8},{wch:28},{wch:30},{wch:11},{wch:14},{wch:14},{wch:14},{wch:12}];
   }
 
   // --- summary with live cross-sheet formulas ---
@@ -1438,10 +1484,10 @@ function exportExcel(){
   const gESum=accepted.reduce((s,p)=>s+(p.side==='A'?p.target.amtA:sumBy(p.members,m=>m.amtA)),0);
   const gFSum=accepted.reduce((s,p)=>s+(p.side==='B'?p.target.amtB:sumBy(p.members,m=>m.amtB)),0);
   const gGSum=sumBy(accepted,p=>p.diff);
-  const vB10=eSum(R.matched)+eSum(R.diffs)+eSum(openA)+gESum;
-  const vB11=fSum(R.matched)+fSum(R.diffs)+fSum(openB)+gFSum;
+  const vB10=eSum(matchedX)+eSum(R.diffs)+eSum(openA)+gESum;
+  const vB11=fSum(matchedX)+fSum(R.diffs)+fSum(openB)+gFSum;
   const cnt=(sheet)=>'COUNTA('+q(sheet)+'!A2:A100000)';
-  wsS['B4']={t:'n',v:R.matched.length,f:cnt(SN.match)}; wsS['C4']={t:'n',v:dSum(R.matched),f:'SUM('+q(SN.match)+'!G:G)',z:eurofmt};
+  wsS['B4']={t:'n',v:matchedX.length,f:cnt(SN.match)}; wsS['C4']={t:'n',v:dSum(matchedX),f:'SUM('+q(SN.match)+'!G:G)',z:eurofmt};
   wsS['B5']={t:'n',v:R.diffs.length,f:cnt(SN.diffs)}; wsS['C5']={t:'n',v:dSum(R.diffs),f:'SUM('+q(SN.diffs)+'!G:G)',z:eurofmt};
   wsS['B6']={t:'n',v:openA.length,f:cnt(SN.onlyA)}; wsS['C6']={t:'n',v:dSum(openA),f:'SUM('+q(SN.onlyA)+'!G:G)',z:eurofmt};
   wsS['B7']={t:'n',v:openB.length,f:cnt(SN.onlyB)}; wsS['C7']={t:'n',v:dSum(openB),f:'SUM('+q(SN.onlyB)+'!G:G)',z:eurofmt};
@@ -1484,7 +1530,7 @@ function exportExcel(){
     wsAdj['B7']={t:'n',v:vB10,f:'SUM('+q(SN.match)+'!E:E)+SUM('+q(SN.diffs)+'!E:E)+SUM('+q(SN.onlyA)+'!E:E)'+gE,z:eurofmt};
     wsAdj['B8']={t:'n',v:fSum(openB),f:'SUM('+q(SN.onlyB)+'!F:F)',z:eurofmt};
     wsAdj['B9']={t:'n',v:vAdjBook,f:'B7+B8',z:eurofmt};
-    wsAdj['B11']={t:'n',v:Math.round((vAdjBook-vAdjBank-dSum(R.diffs)-dSum(R.matched)-gGSum)*100)/100,
+    wsAdj['B11']={t:'n',v:Math.round((vAdjBook-vAdjBank-dSum(R.diffs)-dSum(matchedX)-gGSum)*100)/100,
       f:'ROUND(B9-B5-SUM('+q(SN.diffs)+'!G:G)-SUM('+q(SN.match)+'!G:G)'+(wsG?'-SUM('+q(SN.grp)+'!G:G)':'')+',2)',z:eurofmt};
     wsAdj['!cols']=[{wch:58},{wch:18}];
   }
@@ -1519,7 +1565,7 @@ function exportExcel(){
     [el?'Πέρασμα 2 (ποσό+ημ/νία)':'Pass 2 (amount+date)',YN(document.getElementById('tier2on').checked),el?'Παράθυρο (± ημ.)':'Window (± days)',document.getElementById('tier2days').value],
     [el?'Πέρασμα 3 (ομοιότητα)':'Pass 3 (fuzzy text)',YN(document.getElementById('tier3on').checked)],
     [el?'Προτάσεις επιμερισμού':'Split suggestions',YN(sc&&sc.on),el?'Μέγ. συνδυασμός':'Max combination',sc?sc.maxK:''],
-    [el?'Ομάδες: προτάθηκαν / αποδεκτές':'Groups: proposed / accepted',R.props.length+' / '+accepted.length],
+    [el?'Ομάδες: προτάθηκαν / αποδεκτές / χειροκίνητες':'Groups: proposed / accepted / manual',(R.props.length+R.committed.length)+' / '+accepted.length+' / '+R.committed.length],
     [el?'Η αναζήτηση συνδυασμών διακόπηκε':'Combination search truncated',YN(R.splitTruncated)],
     [''],
     [el?'Μέθοδος: άθροιση ανά κλειδί, σύγκριση εντός ορίου· γραμμές χωρίς κλειδί ταιριάζονται ανά γραμμή (ποσό+ημ/νία)· γραμμές γενικού συνόλου εξαιρούνται· έπειτα προαιρετικά περάσματα και προτάσεις επιμερισμού 1-προς-Ν με έγκριση χρήστη.':'Method: sum per key, compare within tolerance; keyless rows matched line-by-line (amount+date); file grand-total rows excluded; then optional passes and user-approved 1-to-N split suggestions.'],
@@ -1545,7 +1591,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 2.5)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 2.6)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Για τραπεζικές συμφωνίες χρησιμοποιήστε το ξεχωριστό εργαλείο τραπεζικών συμφωνιών του Οργανισμού.</p>"],
@@ -1560,7 +1606,7 @@ const MANUAL={
    ["Βήμα 3 — Οι υπόλοιπες επιλογές",
     "<ul><li><strong>Στήλη ποσού:</strong> η αξία που συμφωνείται· αθροίζεται ανά κλειδί.</li><li><strong>Στήλη πίστωσης (αφαιρείται):</strong> για αρχεία με χωριστές στήλες χρέωσης και πίστωσης, όπως οι εξαγωγές SAP. Η αξία κάθε γραμμής υπολογίζεται ως χρέωση μείον πίστωση. Όταν το εργαλείο εντοπίσει τέτοιο ζευγάρι, τη συμπληρώνει μόνο του.</li><li><strong>Στήλη ημερομηνίας:</strong> προαιρετική· δεν επηρεάζει το ταίριασμα με κλειδί. Χρησιμεύει στην ηλικία των εκκρεμοτήτων, στο παράθυρο ± ημερών του δεύτερου περάσματος και της λειτουργίας χωρίς κοινό κλειδί, και εμφανίζεται στα αποτελέσματα και στο Excel. Όταν ένα κλειδί καλύπτει πολλές γραμμές, κρατιέται η παλαιότερη ημερομηνία.</li><li><strong>Στήλη περιγραφής:</strong> προαιρετική· εμφανίζεται στα αποτελέσματα και αξιοποιείται από το τρίτο πέρασμα (ομοιότητα κειμένου).</li><li><strong>Όριο ανοχής (€):</strong> διαφορές έως αυτό το ποσό λογίζονται ως συμφωνία.</li><li><strong>Αντιστροφή προσήμου στο Β:</strong> για κατοπτρικούς λογαριασμούς — η απαίτηση στα δικά σας βιβλία είναι υποχρέωση στα βιβλία του αντισυμβαλλομένου. Αν όλα καταλήγουν στις «Διαφορές» με περίπου διπλάσια ποσά, αυτό σας λείπει· θα το προτείνει και η σχετική προειδοποίηση.</li><li><strong>Χωρίς κοινό κλειδί:</strong> όταν τα δύο αρχεία δεν έχουν κοινή αναφορά. Οι γραμμές ταιριάζονται μία προς μία, με ίσο ποσό (εντός ανοχής) και ημερομηνίες που απέχουν έως ± N ημέρες.</li></ul>"],
    ["Βήμα 3 — Πρόσθετα περάσματα και προτάσεις",
-    "<ul><li><strong>Πέρασμα 2 — ποσό και ημερομηνία:</strong> ό,τι μένει εκκρεμές μετά το κλειδί δοκιμάζεται ξανά, με ίσο ποσό και κοντινή ημερομηνία. Οι αντιστοιχίσεις σημειώνονται «Ποσό+Ημ/νία».</li><li><strong>Πέρασμα 3 — ομοιότητα περιγραφής:</strong> προαιρετικό· ταιριάζει εγγραφές με σχεδόν ίδια περιγραφή και ίσο ποσό.</li><li><strong>Προτάσεις επιμερισμού (1 προς Ν):</strong> εντοπίζουν π.χ. ένα τιμολόγιο απέναντι σε δύο, τρεις ή τέσσερις μερικές πληρωμές. Μεγάλες μεταφορές που εκτελούνται σε ίσες δόσεις ή σε στρογγυλά ποσά — π.χ. 13.000.000 ως δεκατρείς δόσεις του 1.000.000 — αναγνωρίζονται και αυτές, με έως 60 γραμμές ανά ομάδα. Όλα εμφανίζονται ως προτάσεις στην καρτέλα «Προτεινόμενοι συνδυασμοί» και τίποτα δεν αφαιρείται από τις εκκρεμότητες αν δεν το εγκρίνετε εσείς.</li></ul>"],
+    "<ul><li><strong>Πέρασμα 2 — ποσό και ημερομηνία:</strong> ό,τι μένει εκκρεμές μετά το κλειδί δοκιμάζεται ξανά, με ίσο ποσό και κοντινή ημερομηνία. Οι αντιστοιχίσεις σημειώνονται «Ποσό+Ημ/νία».</li><li><strong>Πέρασμα 3 — ομοιότητα περιγραφής:</strong> προαιρετικό· ταιριάζει εγγραφές με σχεδόν ίδια περιγραφή και ίσο ποσό.</li><li><strong>Προτάσεις επιμερισμού (1 προς Ν):</strong> εντοπίζουν π.χ. ένα τιμολόγιο απέναντι σε δύο, τρεις ή τέσσερις μερικές πληρωμές. Μεγάλες μεταφορές που εκτελούνται σε ίσες δόσεις ή σε στρογγυλά ποσά — π.χ. 13.000.000 ως δεκατρείς δόσεις του 1.000.000 — αναγνωρίζονται και αυτές, με έως 60 γραμμές ανά ομάδα. Όλα εμφανίζονται ως προτάσεις στην καρτέλα «Προτεινόμενοι συνδυασμοί» και τίποτα δεν αφαιρείται από τις εκκρεμότητες αν δεν το εγκρίνετε εσείς. Αφού τσεκάρετε όσες ομάδες δέχεστε, πατήστε «Μεταφορά στα Συμφωνούν»: οι ομάδες περνούν στα Συμφωνούν με την ένδειξη «Χειροκίνητη» και μπορείτε να τις αναιρέσετε ανά πάσα στιγμή.</li></ul>"],
    ["Βήμα 4 — Αποτελέσματα",
     "<ul><li><strong>Η ζυγαριά:</strong> ισορροπεί και πρασινίζει όταν η καθαρή διαφορά είναι μέσα στο όριο ανοχής· διαφορετικά γέρνει προς τη βαρύτερη πλευρά.</li><li><strong>Οι δείκτες:</strong> πλήθη ανά κατηγορία, σύνολα A και B, καθαρή διαφορά.</li><li><strong>Οι καρτέλες:</strong> Διαφορές (ίδιο κλειδί, διαφορετικό ποσό), Προτεινόμενοι συνδυασμοί, Μόνο στο A, Μόνο στο B, Συμφωνούν.</li><li><strong>Κατηγορία εκκρεμότητας:</strong> Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Παλαίωση: 0–30 τρέχουσα, 31–60 σε παρακολούθηση, 61–90 κλιμάκωση, 90+ ενημέρωση διοίκησης.</li><li><strong>Προειδοποιήσεις:</strong> το κόκκινο πλαίσιο πάνω από τις καρτέλες εξηγεί τι πήγε στραβά — καθόλου αντιστοιχίσεις, ακατάλληλα κλειδιά, αντίθετα πρόσημα — και προτείνει τη διόρθωση.</li></ul>"],
    ["Εξαγωγή σε Excel",
@@ -1572,7 +1618,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 2.5)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 2.6)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>For bank reconciliations, use the organisation's separate bank reconciliation tool.</p>"],
@@ -1587,7 +1633,7 @@ const MANUAL={
    ["Step 3 — The other settings",
     "<ul><li><strong>Amount column</strong> — the value being reconciled, summed per key.</li><li><strong>Credit column (subtracted)</strong> — for files that keep debit and credit apart, as SAP exports do. Each row is then worth debit minus credit. When the tool spots such a pair, it fills this in for you.</li><li><strong>Date column</strong> — optional, and never part of the key match. It drives the age of open items and the ± day window used by pass 2 and the no-shared-key mode, and it appears in the results and the export. Where one key covers several rows, the earliest date is kept.</li><li><strong>Description column</strong> — optional; shown in the results and used by pass 3, which matches on similar wording.</li><li><strong>Tolerance (€)</strong> — differences up to this amount still count as matched.</li><li><strong>Flip sign on side B</strong> — for mirrored accounts, where your receivable is the other side's payable. If everything lands in “Differences” at roughly double the amount, this is what's missing; the warning banner will say so too.</li><li><strong>No shared key</strong> — for files with no common reference at all. Lines are paired one against one on equal amounts (within tolerance) and dates no more than ± N days apart.</li></ul>"],
    ["Step 3 — Extra passes and suggestions",
-    "<ul><li><strong>Pass 2, amount and date</strong> — whatever the key pass leaves open gets a second chance: equal amount, nearby date. These matches are labelled “Amount+date”.</li><li><strong>Pass 3, similar descriptions</strong> — an optional third pass for entries with nearly identical wording and equal amounts.</li><li><strong>Split suggestions (1 to N)</strong> — the tool looks for one invoice explained by two, three or four partial payments. Large transfers executed in equal instalments or round denominations — say 13,000,000 paid as thirteen lines of 1,000,000 — are recognised too, up to 60 lines per group. Everything lands in the “Suggested groups” tab and stays a suggestion until you approve it; nothing leaves the open lists on its own.</li></ul>"],
+    "<ul><li><strong>Pass 2, amount and date</strong> — whatever the key pass leaves open gets a second chance: equal amount, nearby date. These matches are labelled “Amount+date”.</li><li><strong>Pass 3, similar descriptions</strong> — an optional third pass for entries with nearly identical wording and equal amounts.</li><li><strong>Split suggestions (1 to N)</strong> — the tool looks for one invoice explained by two, three or four partial payments. Large transfers executed in equal instalments or round denominations — say 13,000,000 paid as thirteen lines of 1,000,000 — are recognised too, up to 60 lines per group. Everything lands in the “Suggested groups” tab and stays a suggestion until you approve it; nothing leaves the open lists on its own. Once you have ticked the groups you accept, press “Move to reconciled”: they join the Matched tab marked “Manual”, and each one can be undone at any time.</li></ul>"],
    ["Step 4 — Results",
     "<ul><li><strong>The scale</strong> sits level and turns green when the net difference is within tolerance; otherwise it tips towards the heavier side.</li><li><strong>The figures</strong> give you counts per category, the two totals and the net difference.</li><li><strong>The tabs</strong>: Differences (same key, different amount), Suggested groups, Only in A, Only in B, Matched.</li><li><strong>Open-item categories</strong>: Timing difference, Adjustment required, or Requires investigation. Ageing runs 0–30 current, 31–60 follow up, 61–90 escalate, 90+ inform management.</li><li><strong>Warnings</strong>: the red box above the tabs explains what went wrong — no matches, unsuitable keys, opposite signs — and tells you the fix.</li></ul>"],
    ["The Excel export",
@@ -1618,7 +1664,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v2.5.html':'OKYPY_Reconciliation_Manual_v2.5.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v2.6.html':'OKYPY_Reconciliation_Manual_v2.6.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
