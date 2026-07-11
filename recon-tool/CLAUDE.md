@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v2.7**.
+internet. All data stays on the local machine. Current version: **v2.8**.
 
 ## Architecture
 
@@ -72,9 +72,11 @@ Expected values:
     + keyless pair); keys unticked: 8 raw line pairs. Open = 75/15.50 (A) and
     60/7.77 (B); footer rows excluded there too.
   - fee_A/fee_B (bank style, no-key + keysB=RefNo + pass 4 at 2%): CY222
-    group matches 1,000.00 exactly (rule 2); CY111 group (48,639.52, desc
-    from its principal line) pairs with SAP −48,663.40 → Differences rule 5,
-    diff −23.88; nothing left open.
+    group matches 1,000.00 exactly (rule 2, key '#2 ⇄ CY222'); CY111 group
+    (48,639.52, desc from its principal line) pairs with SAP −48,663.40 →
+    Differences rule 5, diff −23.88; nothing left open. Export: Differences
+    sheet has Περιγραφή A ('HNS PHARMA LTD') and Περιγραφή B (the OUTWARD
+    line) in separate columns, CY111 in the key.
   - guardrail: keying on Document Number → 0 matches → visible banner that
     names the suggested Reference key.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
@@ -107,7 +109,9 @@ Expected values:
    `extractTotalRows()`): rows whose composite key is empty are NOT discarded
    in a keyed run — they are line-matched (amount within tolerance + date
    within the ±N window of `#nokeydays`) against the other side's keyless
-   rows, labelled rule 2 with key `#<sheet-row>`; unexplained ones join the
+   rows, labelled rule 2 with key `#<N>` where N is the DATA-relative row
+   (first row after the headers = #1, regardless of the header-row setting;
+   changed in v2.8 from sheet-row numbering); unexplained ones join the
    open lists, and totals cover every row. A file's grand-total footer (no
    key, no date, amount == net of all other rows within 0.02) is detected,
    excluded and reported with its value in the Documentation sheet — without
@@ -181,7 +185,11 @@ Expected values:
 5. **Excel export** (`exportExcel()`): every computed cell must be a LIVE
    formula — audit requirement. Because of the SheetJS quirk above, each
    formula cell is written as `{t:'n', v:<cached>, f:<formula>}`. Difference
-   cells: `=N(Ex)-N(Fx)`. Accepted groups sheet: one block per group, target
+   cells: `=N(Ex)-N(Fx)`. Detail-sheet layout (v2.8): A key, B Description A,
+   C Description B (both files' wording — recs carry `descA`/`descB` from
+   every creation site), D date, E amount A, F amount B, G diff, H age,
+   I/J row counts, K category, L rule. E/F/G positions are LOAD-BEARING for
+   every summary/adjusted formula — never move them. Accepted groups sheet: one block per group, target
    row carries `=SUM(E first:last)-SUM(F first:last)`; group numbers appear in
    col A only on target rows so `COUNTA` counts groups. Summary: cross-sheet
    SUM/COUNTA incl. Groups, self-check row `ROUND(B12-(C5+C6+C7+C8),2)` must
@@ -228,7 +236,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v2.7)
+## Known limitations (v2.8)
 
 - Split search proposes 1-to-N only (no N-to-M), same-sign combinations only.
 - Pass 2 matches dated items with dated items (window) and undated with

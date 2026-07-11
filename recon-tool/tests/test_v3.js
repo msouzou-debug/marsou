@@ -57,11 +57,11 @@ const check = (name, cond, detail) => {
   check('4 references matched (incl. netted R-103 and credit-side T-9)',
     JSON.stringify(r.keyed) === JSON.stringify([['R-101', 175], ['R-102', 200], ['R-103', 400], ['T-9', -1000]]), r.keyed);
   check('keyless 40.00 pair line-matched automatically (rule 2)',
-    JSON.stringify(r.keyless) === JSON.stringify([['#10 ⇄ #10', 40]]), r.keyless);
+    JSON.stringify(r.keyless) === JSON.stringify([['#9 ⇄ #9', 40]]), r.keyless);
   check('no differences', r.diffs === 0);
   check('open items: true reconciling items plus unexplained keyless lines',
-    JSON.stringify(r.onlyA) === JSON.stringify([['H-77', 75], ['#11', 15.5]]) &&
-    JSON.stringify(r.onlyB) === JSON.stringify([['L-88', -60], ['#11', -7.77]]), [r.onlyA, r.onlyB]);
+    JSON.stringify(r.onlyA) === JSON.stringify([['H-77', 75], ['#10', 15.5]]) &&
+    JSON.stringify(r.onlyB) === JSON.stringify([['L-88', -60], ['#10', -7.77]]), [r.onlyA, r.onlyB]);
   check('totals cover every row except the detected footer', r.totA === -94.5 && r.totB === -117.23, [r.totA, r.totB]);
   check('one grand-total footer row excluded per side', JSON.stringify(r.totalRows) === JSON.stringify([1, 1]), r.totalRows);
   check('no warnings on a healthy run', r.warns.length === 0, r.warns);
@@ -163,11 +163,26 @@ const check = (name, cond, detail) => {
     open: [RESULT.onlyA.length, RESULT.onlyB.length],
   }));
   console.log('FEE:', JSON.stringify(r));
-  check('bank ref-group matches exactly (CY222 = 1,000.00, rule 2)',
-    r.matched.length === 1 && r.matched[0][0] === 2 && /CY222/.test(r.matched[0][1]), r.matched);
+  check('bank ref-group matches exactly (CY222 = 1,000.00, rule 2, data-relative #2)',
+    r.matched.length === 1 && r.matched[0][0] === 2 && r.matched[0][1] === '#2 ⇄ CY222', r.matched);
   check('near-match pairs payee with FX/fee residual in Differences (rule 5, -23.88)',
     r.diffs.length === 1 && r.diffs[0][0] === 5 && r.diffs[0][4] === -23.88 && r.diffs[0][2] === -48663.4 && r.diffs[0][3] === -48639.52, r.diffs);
   check('nothing left open', JSON.stringify(r.open) === JSON.stringify([0, 0]), r.open);
+  /* export: both files' descriptions in separate columns */
+  const [dl2] = await Promise.all([
+    page2.waitForEvent('download'),
+    page2.evaluate(() => exportExcel()),
+  ]);
+  const xp2 = path.join(__dirname, 'export_fee.xlsx');
+  await dl2.saveAs(xp2);
+  const wb2 = XLSX.read(fs.readFileSync(xp2), { type: 'buffer' });
+  const wsDf = wb2.Sheets['Διαφορές'];
+  const dfRows = XLSX.utils.sheet_to_json(wsDf, { header: 1 });
+  check('detail sheets carry Description A and Description B columns',
+    dfRows[0][1] === 'Περιγραφή A' && dfRows[0][2] === 'Περιγραφή B', dfRows[0]);
+  check('both files\' wording exported (SAP payee + bank OUTWARD line)',
+    dfRows[1][1] === 'HNS PHARMA LTD' && /OUTWARD CY111/.test(dfRows[1][2]), [dfRows[1][1], dfRows[1][2]]);
+  check('bank grouping ref exported in the key', /CY111/.test(dfRows[1][0]), dfRows[1][0]);
   await page2.close();
 
   await browser.close();
