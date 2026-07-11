@@ -11,4 +11,5 @@ tests/export_v4.xlsx
 tests/export_prev.xlsx
 tests/export_pack.xlsx
 tests/export_nm.xlsx
+tests/export_easy.xlsx
 tests/profile_v4.json

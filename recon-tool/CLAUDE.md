@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v3.0**.
+internet. All data stays on the local machine. Current version: **v3.1**.
 
 ## Architecture
 
@@ -105,6 +105,13 @@ Expected values:
   - dup_A/dup_B: duplicate line on side A only → `RESULT.dupA=1`, warning.
   - nm_A/nm_B (no-key): one same-day 2-vs-3 N-to-M proposal, diff 0;
     committing it exports as one Groups block `SUM(E2:E6)-SUM(F2:F6)`.
+  - easy_A/easy_B (no-key, ±7d): the 500.00 pair matches (pass 2); one TWIN
+    proposal 77.10 (dates 54 days apart, unique on both sides) and one
+    REVERSAL proposal (+250/−250 on side A); committing both empties the
+    open lists, the Matched keys and Groups sheet carry the Αντιλογισμός /
+    Ίδιο ποσό labels. UI: `toggleSel` keeps the pane DOM node (no scroll
+    reset); `.colgrip` handles render, and `COLW` widths survive a re-render
+    (`table.fixedw`, th width 120px); desc cells have `td.clip` + tooltip.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
   flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
@@ -192,6 +199,15 @@ Expected values:
    **Search & filters** (v3.0, `#resQ`/`#resMin` → `RESULT.filterQ/filterMin`):
    text search across key/descriptions and a minimum-|amount| filter narrow
    the visible tab rows only — they never change RESULT, KPIs or the export.
+   **Results-table ergonomics** (v3.1): description cells are clipped
+   (`td.clip`, max-width 300px, full text in the `title` tooltip) so amounts
+   stay visible; every header carries a `.colgrip` drag handle (`gripDown()`)
+   — first drag freezes the current layout into `COLW[tab]` and switches the
+   table to `table-layout:fixed`; `applyAllColW()` re-applies stored widths
+   after every render. `toggleSel()` MUST NOT call `renderResults()` — it
+   only updates the selection toolbar (`renderSelBar()`), otherwise every
+   tick rebuilds the DOM and throws the scroll position back to the top;
+   renders that do rebuild the panes save and restore each pane's scrollTop.
 2. **Cascading passes** (v2): pass 1 by key; pass 2 (opt-in `#tier2on`) on the
    remainder by amount-within-tolerance + date within ±N days, greedy 1-to-1,
    largest amounts first; pass 3 (opt-in `#tier3on`) by bigram-Dice
@@ -242,6 +258,18 @@ Expected values:
    net within tolerance (and is not a plain 1-to-1) becomes a proposal
    `{nm:true}` labelled "Ν προς Μ / N to M", accepted and committed like any
    other group and exported as one Groups block.
+   **Easy-pair proposals** (v3.1, `proposeEasy()`, ALL runs, after splits and
+   same-day): (a) cross-side TWINS — an exact cent amount that exists exactly
+   ONCE among the open items of each side (ambiguous amounts are skipped on
+   purpose) is proposed as `{tw:true}` "Ίδιο ποσό, άλλη ημερομηνία / Same
+   amount, different date"; these are the equal-amount pairs pass 2 rejects
+   because the dates sit outside the ± day window. (b) same-side REVERSALS —
+   a +x and a −x left open in ONE file are paired (nearest dates first) as
+   `{rev:true}` "Αντιλογισμός / Reversal"; this automates the manual
+   same-side matches users did by hand. Cap 400 proposals. Group-shape
+   helpers `twoSided(p)` (sel/nm/rev/tw → itemsA/itemsB) and `grpTagKey(p)`
+   are used by EVERY consumer — gcardHTML, commitGroups, grpSignature,
+   grpHas, exportExcel — never re-test `p.sel||p.nm` directly.
 4. **Number parsing** (`parseAmount`): must handle Greek format `1.234,56`,
    English `1,234.56`, `€`, parentheses negatives `(50,25)`. CSVs are read
    with `raw:true` so strings reach this parser — SheetJS would otherwise
@@ -325,17 +353,24 @@ Expected values:
     `RESULT`, `PRESETS`, `PACK`, `SUGGESTED_KEY`, functions `exportExcel()`,
     `saveProgress()`, `saveProfile()`, `acceptAllGroups()`, `commitGroups()`,
     `uncommitGroup()`, `matchSelected()`, `toggleSel()`, `inAccepted()`,
-    `addToPack()`, `exportPack()`, `renderResults()`, `downloadManual()`.
+    `addToPack()`, `exportPack()`, `renderResults()`, `downloadManual()`,
+    `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
+    `table.grid[data-tab]`.
 
 ## Backlog
 
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v3.0)
+## Known limitations (v3.1)
 
 - Split search proposes 1-to-N only, same-sign combinations only; N-to-M
   groups come solely from the same-day pass, in no-key runs, exact date only.
+- Easy-pair twins require the amount to be UNIQUE among each side's open
+  items (exact cents); repeated amounts are deliberately left for the user.
+  Reversals pair exact-cent opposites only.
+- Column widths (`COLW`) are per-session — they reset on page reload; that
+  is intentional (no localStorage).
 - Pass 2 matches dated items with dated items (window) and undated with
   undated (amount only) — never mixed.
 - Key suggestion samples the first 3,000 rows per file.

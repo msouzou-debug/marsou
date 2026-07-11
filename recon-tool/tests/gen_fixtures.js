@@ -150,6 +150,18 @@ fs.writeFileSync(S('nm_B.csv'),
   'NB2,05/03/2026,bank leg 2,30.00\n' +
   'NB3,05/03/2026,bank leg 3,40.00\n');
 
+/* ---- easy-pairs fixture: cross-side twin beyond the day window + same-side reversal ---- */
+fs.writeFileSync(S('easy_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  'EA1,01/03/2026,supplier payment,500.00\n' +
+  'EA2,05/03/2026,posted in error,250.00\n' +
+  'EA3,20/03/2026,reversal of error,-250.00\n' +
+  'EA4,02/03/2026,late-cleared cheque,77.10\n');
+fs.writeFileSync(S('easy_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  'EB1,01/03/2026,supplier payment,500.00\n' +
+  'EB2,25/04/2026,cheque presented late,77.10\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

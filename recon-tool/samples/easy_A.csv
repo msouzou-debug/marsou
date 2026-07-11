@@ -1,0 +1,5 @@
+Key,Date,Description,Amount
+EA1,01/03/2026,supplier payment,500.00
+EA2,05/03/2026,posted in error,250.00
+EA3,20/03/2026,reversal of error,-250.00
+EA4,02/03/2026,late-cleared cheque,77.10

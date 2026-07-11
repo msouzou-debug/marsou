@@ -215,6 +215,78 @@ const newAppPage = async browser => {
   check('N-to-M group exports as one live block', wsGnm && wsGnm.G2 && /^SUM\(E2:E6\)-SUM\(F2:F6\)$/.test(wsGnm.G2.f || ''), wsGnm.G2 && wsGnm.G2.f);
   await page.close();
 
+  /* ============ 6. v3.1: easy-pair proposals + column resize + no scroll-jump ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('easy_A.csv'));
+  await page.setInputFiles('#fileB', S('easy_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    matched: RESULT.matched.length,
+    tw: RESULT.props.filter(p => p.tw).map(p => [p.itemsA.length, p.itemsB.length, +p.diff.toFixed(2), p.itemsA[0].amtA]),
+    rev: RESULT.props.filter(p => p.rev).map(p => [p.side, p.itemsA.length + p.itemsB.length, +p.diff.toFixed(2)]),
+  }));
+  console.log('EASY:', JSON.stringify(r));
+  check('same-amount pair beyond the day window proposed as twin',
+    r.tw.length === 1 && JSON.stringify(r.tw[0]) === JSON.stringify([1, 1, 0, 77.1]), r.tw);
+  check('same-side debit/credit reversal proposed',
+    r.rev.length === 1 && JSON.stringify(r.rev[0]) === JSON.stringify(['A', 2, 0]), r.rev);
+  /* committing both easy pairs empties the open lists */
+  r = await page.evaluate(() => {
+    RESULT.props.forEach(p => p.accepted = true); commitGroups();
+    return { openLeft: [RESULT.onlyA.filter(x => !inAccepted(x)).length, RESULT.onlyB.filter(x => !inAccepted(x)).length],
+             keys: RESULT.matched.filter(x => x.rule === 4).map(x => x.key) };
+  });
+  check('committed easy pairs clear the open lists', JSON.stringify(r.openLeft) === JSON.stringify([0, 0]), r);
+  check('committed easy pairs carry their tags',
+    r.keys.some(k => /Αντιλογισμός|Reversal/.test(k)) && r.keys.some(k => /Ίδιο ποσό|Same amount/.test(k)), r.keys);
+  const [dlE] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
+  const easyPath = path.join(__dirname, 'export_easy.xlsx');
+  await dlE.saveAs(easyPath);
+  const wbE = XLSX.read(fs.readFileSync(easyPath), { type: 'buffer', cellFormula: true });
+  const wsGE = wbE.Sheets['Ομάδες'];
+  const gLabels = ['H2', 'H3', 'H4', 'H5'].map(a => wsGE && wsGE[a] && wsGE[a].v).filter(Boolean);
+  check('Groups sheet labels the reversal and twin', gLabels.some(v => /Αντιλογισμός/.test(v)) && gLabels.some(v => /Ίδιο ποσό/.test(v)), gLabels);
+
+  /* no scroll-jump: ticking a selection box must NOT rebuild the panes */
+  r = await page.evaluate(() => {
+    RESULT.activeTab = 'onlyA'; renderResults();
+    const pane = document.getElementById('pane-onlyA');
+    pane._marker = 'kept';
+    // undo one committed group (and untick it) so an open row exists to tick
+    uncommitGroup(0);
+    RESULT.props.forEach(p => p.accepted = false); renderResults();
+    const pane2 = document.getElementById('pane-onlyA');
+    pane2._marker = 'kept2';
+    const idx = RESULT.onlyA.findIndex(x => !inAccepted(x));
+    toggleSel('onlyA', idx, true);
+    return { sameNode: document.getElementById('pane-onlyA')._marker === 'kept2',
+             selInfo: document.getElementById('selInfo').textContent };
+  });
+  check('ticking a row keeps the table DOM (no scroll reset)', r.sameNode === true && r.selInfo.length > 0, r);
+
+  /* column resize: grips exist, widths persist across re-renders */
+  r = await page.evaluate(() => {
+    const grips = document.querySelectorAll('#pane-onlyA .colgrip').length;
+    COLW.onlyA = [40, 120, 90];
+    renderResults();
+    const table = document.querySelector('#pane-onlyA table.grid');
+    const th = table && table.tHead.rows[0].children[1];
+    return { grips, fixed: table && table.classList.contains('fixedw'), w: th && th.style.width,
+             clip: !!document.querySelector('#pane-onlyA td.clip') };
+  });
+  console.log('COLS:', JSON.stringify(r));
+  check('header grips rendered and widths survive a re-render', r.grips > 0 && r.fixed === true && r.w === '120px', r);
+  check('description cells are clipped with a tooltip', r.clip === true, r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);
