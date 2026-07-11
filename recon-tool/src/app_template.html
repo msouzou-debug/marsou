@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ΟΚΥπΥ Εργαλείο Συμφωνιών / SHSO Reconciliation Tool</title>
+<style>
+/* ============ tokens ============ */
+:root{
+  --okypy-green:#8BC53F; --okypy-blue:#069FEC; --okypy-blue-logo:#25A3DC;
+  --okypy-blue-deep:#1B75BB; --okypy-text:#58595B; --okypy-grey-light:#EAEAEA;
+  --okypy-white:#FFFFFF; --okypy-neg:#C0392B; --okypy-muted:#8a8b8d;
+  --wash-blue:rgba(6,159,236,.06); --wash-blue-2:rgba(6,159,236,.12);
+  --wash-green:rgba(139,197,63,.10); --wash-deep:rgba(27,117,187,.07);
+  --okypy-font:"Lato","Source Sans Pro","Open Sans",Arial,"Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+body{font-family:var(--okypy-font);color:var(--okypy-text);background:var(--okypy-white);margin:0;padding-bottom:76px;font-size:14px;line-height:1.45}
+h1,h2,h3{color:var(--okypy-blue-deep);font-weight:700;margin:0}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--okypy-blue);outline-offset:2px;border-radius:3px}
+
+/* ============ header ============ */
+header{display:flex;align-items:center;gap:22px;padding:18px 34px 16px;max-width:1360px;margin:0 auto}
+header img{height:58px}
+header .titles{flex:1}
+header .titles h1{font-size:21px;letter-spacing:-.01em}
+header .titles .sub{font-size:12.5px;color:var(--okypy-muted);margin-top:2px}
+.langswitch{display:flex;border:1px solid var(--okypy-blue);border-radius:6px;overflow:hidden}
+.langbtn{border:none;background:#fff;color:var(--okypy-blue);padding:7px 16px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.04em}
+.langbtn.active{background:var(--okypy-blue);color:#fff}
+
+/* ============ progress rail ============ */
+.rail{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);border-top:1px solid var(--okypy-grey-light);border-bottom:1px solid var(--okypy-grey-light)}
+.rail .in{max-width:1360px;margin:0 auto;padding:10px 34px;display:flex;align-items:center;gap:8px}
+.railstep{display:flex;align-items:center;gap:9px;cursor:pointer;border:none;background:none;padding:4px 6px;color:var(--okypy-muted);font-size:12.5px;font-weight:700}
+.railstep .n{width:24px;height:24px;border-radius:50%;border:2px solid var(--okypy-grey-light);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--okypy-muted);background:#fff;transition:all .25s}
+.railstep.done .n{border-color:var(--okypy-green);background:var(--okypy-green);color:#fff}
+.railstep.active{color:var(--okypy-blue-deep)}
+.railstep.active .n{border-color:var(--okypy-blue);background:var(--okypy-blue);color:#fff}
+.railsep{flex:0 1 56px;height:2px;background:var(--okypy-grey-light);min-width:14px}
+.rail .grow{flex:1}
+.ghostbtn{border:1px solid var(--okypy-grey-light);background:#fff;color:var(--okypy-blue-deep);font-size:12px;font-weight:700;padding:6px 13px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.ghostbtn:hover{border-color:var(--okypy-blue);background:var(--wash-blue)}
+.ghostbtn:disabled{color:#b9bcbe;border-color:var(--okypy-grey-light);background:#fff;cursor:not-allowed}
+#progStatus{font-size:12px;color:var(--okypy-green);font-weight:700;white-space:nowrap}
+#progStatus.err{color:var(--okypy-neg)}
+
+/* ============ sections ============ */
+main{max-width:1360px;margin:0 auto;padding:8px 34px}
+.step{padding:34px 0 8px;border-bottom:1px solid var(--okypy-grey-light);opacity:1;transform:none;transition:opacity .4s,transform .4s}
+.step:last-of-type{border-bottom:none}
+.step.reveal{opacity:0;transform:translateY(10px)}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--okypy-blue);margin-bottom:4px}
+.step h2{font-size:20px;margin-bottom:16px}
+.hidden{display:none!important}
+
+/* ============ presets ============ */
+.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.preset{border:1.5px solid var(--okypy-grey-light);border-radius:10px;padding:14px 16px;cursor:pointer;background:#fff;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s,background .15s}
+.preset:hover{border-color:var(--okypy-blue-logo)}
+.preset.active{border-color:var(--okypy-blue);background:var(--wash-blue);box-shadow:inset 0 0 0 1px var(--okypy-blue)}
+.preset svg{flex:none;margin-top:2px}
+.preset .pt{font-weight:700;color:var(--okypy-blue-deep);font-size:13.5px}
+.preset .pd{font-size:12px;margin-top:3px;color:var(--okypy-muted)}
+
+/* ============ files ============ */
+.twocol{display:flex;gap:26px;flex-wrap:wrap}
+.twocol>div{flex:1;min-width:400px}
+.sidehead{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:9px}
+.pill{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:6px;padding:0 7px;font-size:12px;font-weight:900;color:#fff}
+.pill.b{background:var(--okypy-blue-deep)} .pill.g{background:var(--okypy-green)}
+.pill.r{background:var(--okypy-neg)} .pill.o{background:var(--okypy-muted)}
+.filebox{border:2px dashed var(--okypy-blue-logo);border-radius:10px;padding:20px 16px;text-align:center;cursor:pointer;background:#fff;transition:background .15s,border-color .15s}
+.filebox:hover{background:var(--wash-blue)}
+.filebox.loaded{border-style:solid;background:var(--wash-green);border-color:var(--okypy-green)}
+.filebox .fname{font-weight:700;color:var(--okypy-blue-deep);word-break:break-all;font-size:13.5px}
+.filebox small{color:var(--okypy-muted)}
+.sideA .filebox.loaded{border-color:var(--okypy-blue-deep);background:var(--wash-deep)}
+.filemeta{display:flex;gap:16px;align-items:flex-end;margin-top:10px;flex-wrap:wrap}
+select,input[type=text],input[type=number]{font-family:inherit;font-size:13px;color:var(--okypy-text);border:1px solid #c9cacb;border-radius:5px;padding:6px 9px;background:#fff;max-width:100%}
+select:hover,input[type=text]:hover,input[type=number]:hover{border-color:var(--okypy-blue-logo)}
+label{font-size:11.5px;font-weight:700;display:block;margin:10px 0 3px;letter-spacing:.05em;text-transform:uppercase;color:var(--okypy-text)}
+.preview{overflow:auto;max-height:190px;margin-top:12px;border:1px solid var(--okypy-grey-light);border-radius:6px}
+
+/* ============ tables ============ */
+table.grid{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+table.grid th{background:#fff;color:var(--okypy-blue-deep);padding:7px 10px;text-align:left;position:sticky;top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid var(--okypy-blue);z-index:2}
+table.grid th.num{text-align:right}
+table.grid td{padding:6px 10px;border-bottom:1px solid var(--okypy-grey-light)}
+table.grid tbody tr:hover{background:var(--wash-blue)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.negnum{color:var(--okypy-neg)}
+
+/* ============ mapping ============ */
+.keylist{display:flex;flex-wrap:wrap;gap:7px;padding:2px 0}
+.keychip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--okypy-grey-light);border-radius:16px;padding:4px 12px;font-size:12.5px;font-weight:400;cursor:pointer;margin:0;text-transform:none;letter-spacing:0;background:#fff;transition:all .12s}
+.keychip:hover{border-color:var(--okypy-blue-logo)}
+.keychip input{accent-color:var(--okypy-blue);margin:0}
+.keychip.on{border-color:var(--okypy-blue);background:var(--wash-blue-2);color:var(--okypy-blue-deep);font-weight:700}
+.maprow{display:flex;gap:16px;flex-wrap:wrap}
+.maprow>div{flex:1;min-width:150px}
+.opts{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end;margin-top:18px}
+.chk{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:400;margin:6px 0;text-transform:none;letter-spacing:0}
+.chk input{accent-color:var(--okypy-blue)}
+.advanced{margin-top:18px;border:1px solid var(--okypy-grey-light);border-radius:10px}
+.advanced summary{cursor:pointer;padding:11px 16px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--okypy-blue-deep);list-style:none;display:flex;align-items:center;gap:8px}
+.advanced summary::-webkit-details-marker{display:none}
+.advanced summary::before{content:'';width:7px;height:7px;border-right:2px solid var(--okypy-blue);border-bottom:2px solid var(--okypy-blue);transform:rotate(-45deg);transition:transform .15s;flex:none}
+.advanced[open] summary::before{transform:rotate(45deg)}
+.advanced .adv-in{padding:4px 16px 16px;display:flex;gap:40px;flex-wrap:wrap;border-top:1px solid var(--okypy-grey-light)}
+.advanced .adv-col{min-width:240px}
+.advanced .adv-col>.advt{font-size:12px;font-weight:700;color:var(--okypy-blue-deep);margin:12px 0 4px}
+.inlinenum{width:64px;margin-left:8px}
+.bigbtn{background:var(--okypy-blue);border:none;color:#fff;font-weight:700;font-size:15px;padding:12px 34px;border-radius:8px;cursor:pointer;transition:filter .15s}
+.bigbtn:hover{filter:brightness(1.06)}
+.bigbtn:disabled{background:#b9bcbe;cursor:not-allowed}
+.bigbtn.green{background:var(--okypy-green)}
+.warn{color:var(--okypy-neg);font-size:12.5px;margin-top:8px;font-weight:700}
+.hint{font-size:12px;color:var(--okypy-muted);margin-top:6px;font-weight:400;text-transform:none;letter-spacing:0}
+
+/* ============ results ============ */
+.resulthead{display:flex;gap:36px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.beamwrap{flex:none;text-align:center;padding:4px 0}
+#beamRot{transition:transform .8s cubic-bezier(.34,1.3,.5,1);transform-origin:170px 34px}
+.beamstate{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.beamstate.ok{color:var(--okypy-green)} .beamstate.no{color:var(--okypy-neg)}
+.kpis{flex:1;display:flex;flex-wrap:wrap;min-width:340px}
+.kpi{flex:1;min-width:118px;padding:6px 18px 6px 0;margin-right:18px;border-right:1px solid var(--okypy-grey-light)}
+.kpi:last-child{border-right:none;margin-right:0}
+.kpi .v{font-size:23px;font-weight:900;color:var(--okypy-blue-deep);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.kpi.green .v{color:var(--okypy-green)} .kpi.red .v{color:var(--okypy-neg)}
+.kpi .l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--okypy-muted);font-weight:700;margin-top:1px}
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--okypy-grey-light);flex-wrap:wrap;margin-top:16px}
+.tab{padding:9px 16px 7px;cursor:pointer;font-size:13px;font-weight:700;color:var(--okypy-muted);border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab:hover{color:var(--okypy-blue-deep)}
+.tab.active{color:var(--okypy-blue-deep);border-bottom-color:var(--okypy-blue)}
+.tab .cnt{display:inline-block;min-width:20px;text-align:center;background:var(--okypy-grey-light);color:var(--okypy-text);border-radius:9px;font-size:11px;padding:1px 6px;margin-left:5px}
+.tab.active .cnt{background:var(--okypy-blue);color:#fff}
+.tabpane{display:none;max-height:460px;overflow:auto;border:1px solid var(--okypy-grey-light);border-top:none;border-radius:0 0 8px 8px}
+.tabpane.active{display:block}
+.catsel{font-size:11.5px;padding:3px 5px}
+.rulepill{display:inline-block;border-radius:9px;padding:1px 8px;font-size:10.5px;font-weight:700;background:var(--wash-deep);color:var(--okypy-blue-deep)}
+.emptytab{padding:22px;text-align:center;color:var(--okypy-muted);font-size:13px}
+
+/* ============ proposals ============ */
+.grouptools{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--okypy-grey-light);flex-wrap:wrap}
+.grouptools .hint{margin:0}
+.gcard{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--okypy-grey-light);align-items:flex-start;transition:background .15s;border-left:4px solid transparent}
+.gcard.acc{background:var(--wash-green);border-left-color:var(--okypy-green)}
+.gcard input[type=checkbox]{width:17px;height:17px;accent-color:var(--okypy-green);margin-top:3px;flex:none;cursor:pointer}
+.gcard .gbody{flex:1;min-width:0;overflow-x:auto}
+.gcard .ghead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:7px;font-size:13px}
+.gcard .gid{font-weight:900;color:var(--okypy-blue-deep)}
+.gdiffchip{font-size:11.5px;font-weight:700;border-radius:9px;padding:1px 9px;background:var(--wash-green);color:#5c8f1d}
+.gdiffchip.nz{background:var(--okypy-grey-light);color:var(--okypy-text)}
+.gtable{border-collapse:collapse;font-size:12.5px;white-space:nowrap;min-width:420px}
+.gtable td{padding:3px 12px 3px 0;border-bottom:none}
+.gtable .tgt td{font-weight:700;color:var(--okypy-blue-deep)}
+.gtable .mem td:first-child{padding-left:18px;position:relative}
+.gtable .mem td:first-child::before{content:'└';position:absolute;left:2px;color:var(--okypy-muted);font-size:11px}
+
+/* ============ export row / footer ============ */
+.exportrow{margin-top:18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding-bottom:26px}
+footer{position:fixed;bottom:0;left:0;right:0;background:#fff;z-index:50}
+footer .inner{display:flex;justify-content:space-between;align-items:center;padding:7px 34px;font-size:11.5px;color:var(--okypy-muted)}
+footer .bar{height:10px;background:var(--okypy-blue)}
+@media (max-width:900px){
+  header{padding:14px 18px}
+  .rail .in,main{padding-left:18px;padding-right:18px}
+  .railstep span.rl{display:none}
+  .twocol>div{min-width:100%}
+  footer .inner{padding:6px 18px}
+}
+</style>
+</head>
+<body>
+<header>
+  <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="OKYπY / SHSO">
+  <div class="titles">
+    <h1 data-i18n="title">Εργαλείο Συμφωνιών Λογαριασμών</h1>
+    <div class="sub" data-i18n="subtitle">Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) — State Health Services Organisation (SHSO)</div>
+  </div>
+  <div class="langswitch" role="group" aria-label="Language">
+    <button class="langbtn active" id="btn-el" onclick="setLang('el')" aria-pressed="true">ΕΛ</button>
+    <button class="langbtn" id="btn-en" onclick="setLang('en')" aria-pressed="false">EN</button>
+  </div>
+</header>
+
+<div class="rail"><div class="in" id="railIn">
+  <button class="railstep" data-goto="stepType"><span class="n">1</span><span class="rl" data-i18n="st1">Τύπος</span></button>
+  <div class="railsep"></div>
+  <button class="railstep" data-goto="stepFiles"><span class="n">2</span><span class="rl" data-i18n="st2">Αρχεία</span></button>
+  <div class="railsep"></div>
+  <button class="railstep" data-goto="stepMap"><span class="n">3</span><span class="rl" data-i18n="st3">Αντιστοίχιση</span></button>
+  <div class="railsep"></div>
+  <button class="railstep" data-goto="stepRes"><span class="n">4</span><span class="rl" data-i18n="st4">Αποτελέσματα</span></button>
+  <div class="grow"></div>
+  <span id="progStatus"></span>
+  <button class="ghostbtn" id="saveProg" onclick="saveProgress()" disabled data-i18n="saveprog">Αποθήκευση προόδου</button>
+  <button class="ghostbtn" onclick="document.getElementById('progFile').click()" data-i18n="loadprog">Φόρτωση προόδου</button>
+  <input type="file" id="progFile" class="hidden" accept=".json">
+</div></div>
+
+<main>
+
+<!-- STEP 1: preset -->
+<div class="step" id="stepType">
+  <div class="eyebrow"><span data-i18n="eb1">Βήμα 1</span></div>
+  <h2><span data-i18n="s1">Τύπος συμφωνίας</span></h2>
+  <div class="presets" id="presets"></div>
+</div>
+
+<!-- STEP 2: files -->
+<div class="step" id="stepFiles">
+  <div class="eyebrow"><span data-i18n="eb2">Βήμα 2</span></div>
+  <h2><span data-i18n="s2">Αρχεία</span></h2>
+  <div class="twocol">
+    <div class="sideA">
+      <div class="sidehead"><span class="pill b">A</span> <h3 style="font-size:14px" id="lblA">—</h3></div>
+      <div class="filebox" id="boxA" onclick="document.getElementById('fileA').click()">
+        <div class="fname" id="fnameA" data-i18n="drop">Κάντε κλικ ή σύρετε αρχείο εδώ (.xlsx, .xls, .csv)</div>
+        <small id="finfoA"></small>
+      </div>
+      <input type="file" id="fileA" class="hidden" accept=".xlsx,.xls,.csv,.txt">
+      <div id="sheetselA" class="hidden filemeta">
+        <div><label data-i18n="sheet">Φύλλο</label><select id="sheetA" onchange="sheetChanged('A')"></select></div>
+        <div><label data-i18n="hdrrow">Γραμμή επικεφαλίδων</label><input type="number" id="hdrA" min="1" value="1" style="width:80px" onchange="headerChanged('A')"></div>
+      </div>
+      <div class="preview" id="prevA"></div>
+    </div>
+    <div class="sideB">
+      <div class="sidehead"><span class="pill g">B</span> <h3 style="font-size:14px" id="lblB">—</h3></div>
+      <div class="filebox" id="boxB" onclick="document.getElementById('fileB').click()">
+        <div class="fname" id="fnameB" data-i18n="drop">Κάντε κλικ ή σύρετε αρχείο εδώ (.xlsx, .xls, .csv)</div>
+        <small id="finfoB"></small>
+      </div>
+      <input type="file" id="fileB" class="hidden" accept=".xlsx,.xls,.csv,.txt">
+      <div id="sheetselB" class="hidden filemeta">
+        <div><label data-i18n="sheet">Φύλλο</label><select id="sheetB" onchange="sheetChanged('B')"></select></div>
+        <div><label data-i18n="hdrrow">Γραμμή επικεφαλίδων</label><input type="number" id="hdrB" min="1" value="1" style="width:80px" onchange="headerChanged('B')"></div>
+      </div>
+      <div class="preview" id="prevB"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 3: mapping -->
+<div class="step hidden" id="stepMap">
+  <div class="eyebrow"><span data-i18n="eb3">Βήμα 3</span></div>
+  <h2><span data-i18n="s3">Αντιστοίχιση στηλών</span></h2>
+  <div class="twocol">
+    <div>
+      <div class="sidehead"><span class="pill b">A</span> <h3 style="font-size:14px" id="lblA2">—</h3></div>
+      <label data-i18n="keycols">Στήλες-κλειδιά (μία ή περισσότερες)</label>
+      <div class="keylist" id="keysA"></div>
+      <div class="maprow">
+        <div><label data-i18n="amtcol">Στήλη ποσού</label><select id="amtA"></select></div>
+        <div><label data-i18n="datecol">Στήλη ημερομηνίας (προαιρετικά)</label><select id="dateA"></select></div>
+        <div><label data-i18n="desccol">Στήλη περιγραφής (προαιρετικά)</label><select id="descA"></select></div>
+      </div>
+    </div>
+    <div>
+      <div class="sidehead"><span class="pill g">B</span> <h3 style="font-size:14px" id="lblB2">—</h3></div>
+      <label data-i18n="keycols">Στήλες-κλειδιά (μία ή περισσότερες)</label>
+      <div class="keylist" id="keysB"></div>
+      <div class="maprow">
+        <div><label data-i18n="amtcol">Στήλη ποσού</label><select id="amtB"></select></div>
+        <div><label data-i18n="datecol">Στήλη ημερομηνίας (προαιρετικά)</label><select id="dateB"></select></div>
+        <div><label data-i18n="desccol">Στήλη περιγραφής (προαιρετικά)</label><select id="descB"></select></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opts">
+    <div>
+      <label data-i18n="tol">Όριο ανοχής (€)</label>
+      <input type="number" id="tolerance" value="0.01" step="0.01" min="0" style="width:110px">
+    </div>
+    <div>
+      <label class="chk"><input type="checkbox" id="flipB"><span data-i18n="flipb">Αντιστροφή προσήμου στο Β</span></label>
+      <label class="chk"><input type="checkbox" id="normKeys" checked><span data-i18n="normk">Κανονικοποίηση κλειδιών (κεφαλαία, κενά, αρχικά μηδενικά)</span></label>
+    </div>
+    <div>
+      <label data-i18n="preparer">Συντάκτης</label>
+      <input type="text" id="preparer" placeholder="" style="width:200px">
+    </div>
+    <div><button class="bigbtn" id="runBtn" onclick="runRecon()" data-i18n="run">Εκτέλεση συμφωνίας</button></div>
+  </div>
+
+  <details class="advanced" id="advPanel">
+    <summary data-i18n="adv">Πρόσθετα περάσματα &amp; προτάσεις</summary>
+    <div class="adv-in">
+      <div class="adv-col">
+        <div class="advt" data-i18n="tiersT">Διαδοχικά περάσματα (στα εκκρεμή)</div>
+        <label class="chk"><input type="checkbox" id="tier2on"><span data-i18n="tier2">Πέρασμα 2 — ίδιο ποσό, κοντινή ημερομηνία</span></label>
+        <label class="chk" style="padding-left:24px"><span data-i18n="tier2days">Παράθυρο ημερών (±)</span><input type="number" id="tier2days" value="7" min="0" max="365" class="inlinenum"></label>
+        <label class="chk"><input type="checkbox" id="tier3on"><span data-i18n="tier3">Πέρασμα 3 — ομοιότητα περιγραφής</span></label>
+        <div class="hint" data-i18n="tiersHint">Κάθε πέρασμα εφαρμόζεται σε ό,τι έμεινε από το προηγούμενο. Ο κανόνας αντιστοίχισης εμφανίζεται στα αποτελέσματα.</div>
+      </div>
+      <div class="adv-col">
+        <div class="advt" data-i18n="splitT">Προτάσεις επιμερισμού (1-προς-Ν)</div>
+        <label class="chk"><input type="checkbox" id="spliton" checked><span data-i18n="split">Αναζήτηση συνδυασμών στα εκκρεμή</span></label>
+        <label class="chk" style="padding-left:24px"><span data-i18n="splitmax">Μέγιστο μέγεθος συνδυασμού</span><input type="number" id="splitmax" value="4" min="2" max="6" class="inlinenum"></label>
+        <label class="chk" style="padding-left:24px"><input type="checkbox" id="splitdateon"><span data-i18n="splitdate">Περιορισμός ημερομηνίας (±)</span><input type="number" id="splitdays" value="30" min="0" max="365" class="inlinenum"></label>
+        <label class="chk" style="padding-left:24px"><input type="checkbox" id="splitprefix"><span data-i18n="splitprefix">Ίδιο πρόθεμα κλειδιού (3 χαρακτ.)</span></label>
+        <div class="hint" data-i18n="splitHint">Οι συνδυασμοί είναι προτάσεις — τίποτα δεν αφαιρείται από τα εκκρεμή χωρίς την έγκρισή σας.</div>
+      </div>
+    </div>
+  </details>
+
+  <div class="hint" data-i18n="agghint">Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.</div>
+  <div class="warn hidden" id="mapWarn"></div>
+</div>
+
+<!-- STEP 4: results -->
+<div class="step hidden" id="stepRes">
+  <div class="eyebrow"><span data-i18n="eb4">Βήμα 4</span></div>
+  <h2><span data-i18n="s4">Αποτελέσματα</span></h2>
+  <div class="resulthead">
+    <div class="beamwrap">
+      <svg id="beam" width="250" height="96" viewBox="0 0 340 128" aria-hidden="true">
+        <polygon points="170,40 160,74 180,74" fill="#1B75BB"/>
+        <rect x="140" y="74" width="60" height="6" rx="3" fill="#1B75BB"/>
+        <g id="beamRot">
+          <rect x="38" y="31" width="264" height="6" rx="3" fill="#1B75BB"/>
+          <circle cx="170" cy="34" r="7" fill="#fff" stroke="#1B75BB" stroke-width="4"/>
+          <line x1="46" y1="36" x2="34" y2="62" stroke="#58595B" stroke-width="1.6"/>
+          <line x1="46" y1="36" x2="58" y2="62" stroke="#58595B" stroke-width="1.6"/>
+          <path id="panA" d="M22 62 h48 l-7 14 h-34 z" fill="#1B75BB"/>
+          <text x="46" y="74" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" font-family="Lato,Arial,sans-serif">A</text>
+          <line x1="294" y1="36" x2="282" y2="62" stroke="#58595B" stroke-width="1.6"/>
+          <line x1="294" y1="36" x2="306" y2="62" stroke="#58595B" stroke-width="1.6"/>
+          <path id="panB" d="M270 62 h48 l-7 14 h-34 z" fill="#8BC53F"/>
+          <text x="294" y="74" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" font-family="Lato,Arial,sans-serif">B</text>
+        </g>
+      </svg>
+      <div class="beamstate" id="beamState"></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+  <div class="warn hidden" id="truncWarn"></div>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div id="panes"></div>
+  <div class="exportrow">
+    <button class="bigbtn green" onclick="exportExcel()" data-i18n="export">Εξαγωγή Excel (με τύπους)</button>
+    <span class="hint" data-i18n="exphint">Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.</span>
+  </div>
+</div>
+
+</main>
+<footer>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.0</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="bar"></div>
+</footer>
+
+<script>__XLSX_LIB__</script>
+<script>
+/* ================= i18n ================= */
+const I18N = {
+ el:{
+  title:"Εργαλείο Συμφωνιών Λογαριασμών",
+  subtitle:"Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) — State Health Services Organisation (SHSO)",
+  eb1:"Βήμα 1", eb2:"Βήμα 2", eb3:"Βήμα 3", eb4:"Βήμα 4",
+  s1:"Τύπος συμφωνίας", s2:"Αρχεία", s3:"Αντιστοίχιση στηλών", s4:"Αποτελέσματα",
+  st1:"Τύπος", st2:"Αρχεία", st3:"Αντιστοίχιση", st4:"Αποτελέσματα",
+  drop:"Κάντε κλικ ή σύρετε αρχείο εδώ (.xlsx, .xls, .csv)",
+  sheet:"Φύλλο", hdrrow:"Γραμμή επικεφαλίδων",
+  keycols:"Στήλες-κλειδιά (μία ή περισσότερες)", amtcol:"Στήλη ποσού",
+  datecol:"Στήλη ημερομηνίας (προαιρετικά)", desccol:"Στήλη περιγραφής (προαιρετικά)",
+  tol:"Όριο ανοχής (€)", flipb:"Αντιστροφή προσήμου στο Β",
+  normk:"Κανονικοποίηση κλειδιών (κεφαλαία, κενά, αρχικά μηδενικά)",
+  preparer:"Συντάκτης", run:"Εκτέλεση συμφωνίας",
+  agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
+  export:"Εξαγωγή Excel (με τύπους)",
+  exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v2.0",
+  none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
+  netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
+  key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
+  desc:"Περιγραφή", date:"Ημ/νία", age:"Ηλικία (ημ.)", cat:"Κατηγορία",
+  catT:"Χρονική διαφορά", catA:"Απαιτείται εγγραφή", catI:"Προς διερεύνηση",
+  needfiles:"Φορτώστε και τα δύο αρχεία.", needmap:"Επιλέξτε τουλάχιστον μία στήλη-κλειδί και στήλη ποσού και στις δύο πλευρές.",
+  loaded:"γραμμές", presetHints:{gen:"",gl:"",bank:"Προσοχή στα πρόσημα: αν το αρχείο τράπεζας δείχνει τις πληρωμές ως θετικές, ενεργοποιήστε την αντιστροφή προσήμου στο Β.",hio:""},
+  emptyTab:"Κανένα στοιχείο.",
+  adv:"Πρόσθετα περάσματα & προτάσεις",
+  tiersT:"Διαδοχικά περάσματα (στα εκκρεμή)",
+  tier2:"Πέρασμα 2 — ίδιο ποσό, κοντινή ημερομηνία",
+  tier2days:"Παράθυρο ημερών (±)",
+  tier3:"Πέρασμα 3 — ομοιότητα περιγραφής",
+  tiersHint:"Κάθε πέρασμα εφαρμόζεται σε ό,τι έμεινε από το προηγούμενο. Ο κανόνας αντιστοίχισης εμφανίζεται στα αποτελέσματα.",
+  splitT:"Προτάσεις επιμερισμού (1-προς-Ν)",
+  split:"Αναζήτηση συνδυασμών στα εκκρεμή",
+  splitmax:"Μέγιστο μέγεθος συνδυασμού",
+  splitdate:"Περιορισμός ημερομηνίας (±)",
+  splitprefix:"Ίδιο πρόθεμα κλειδιού (3 χαρακτ.)",
+  splitHint:"Οι συνδυασμοί είναι προτάσεις — τίποτα δεν αφαιρείται από τα εκκρεμή χωρίς την έγκρισή σας.",
+  groupsTab:"Προτεινόμενοι συνδυασμοί",
+  grpNote:"Μόνο οι ομάδες που αποδέχεστε αφαιρούνται από τα εκκρεμή και αποκτούν δικό τους φύλλο στο Excel.",
+  acceptAll:"Αποδοχή όλων", clearAll:"Αναίρεση όλων",
+  grpAccept:"Αποδοχή ομάδας", grpTarget:"Στόχος", grpMembers:"μέλη", grpDiff:"Διαφορά ομάδας",
+  truncNote:"Η αναζήτηση συνδυασμών σταμάτησε νωρίς για λόγους απόδοσης — ορισμένα εκκρεμή δεν εξετάστηκαν.",
+  rule:"Κανόνας", rule1:"Κλειδί", rule2:"Ποσό+Ημ/νία", rule3:"Κείμενο",
+  grpKpi:"Ομάδες (αποδεκτές)",
+  balanced:"Εντός ορίου ανοχής", unbalanced:"Εκτός ορίου ανοχής",
+  saveprog:"Αποθήκευση προόδου", loadprog:"Φόρτωση προόδου",
+  progLoaded:"Η πρόοδος φορτώθηκε.", progApplied:"Η πρόοδος εφαρμόστηκε στα αποτελέσματα.",
+  progPend:"Η πρόοδος θα εφαρμοστεί μετά την εκτέλεση.", progBad:"Μη έγκυρο αρχείο προόδου."
+ },
+ en:{
+  title:"Account Reconciliation Tool",
+  subtitle:"State Health Services Organisation (SHSO) — Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ)",
+  eb1:"Step 1", eb2:"Step 2", eb3:"Step 3", eb4:"Step 4",
+  s1:"Reconciliation type", s2:"Files", s3:"Column mapping", s4:"Results",
+  st1:"Type", st2:"Files", st3:"Mapping", st4:"Results",
+  drop:"Click or drop a file here (.xlsx, .xls, .csv)",
+  sheet:"Sheet", hdrrow:"Header row",
+  keycols:"Key column(s)", amtcol:"Amount column",
+  datecol:"Date column (optional)", desccol:"Description column (optional)",
+  tol:"Tolerance (€)", flipb:"Flip sign on side B",
+  normk:"Normalise keys (case, spaces, leading zeros)",
+  preparer:"Preparer", run:"Run reconciliation",
+  agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
+  export:"Export Excel (with live formulas)",
+  exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v2.0",
+  none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
+  netdiff:"Net difference", totA:"Total A", totB:"Total B",
+  key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
+  desc:"Description", date:"Date", age:"Age (days)", cat:"Category",
+  catT:"Timing difference", catA:"Adjustment required", catI:"Requires investigation",
+  needfiles:"Load both files first.", needmap:"Select at least one key column and an amount column on both sides.",
+  loaded:"rows", presetHints:{gen:"",gl:"",bank:"Watch the signs: if the bank file shows payments as positive, enable sign flip on side B.",hio:""},
+  emptyTab:"No items.",
+  adv:"Extra passes & suggestions",
+  tiersT:"Cascading passes (on open items)",
+  tier2:"Pass 2 — same amount, nearby date",
+  tier2days:"Day window (±)",
+  tier3:"Pass 3 — description similarity",
+  tiersHint:"Each pass works on what the previous one left open. The matching rule is shown in the results.",
+  splitT:"Split-match suggestions (1-to-N)",
+  split:"Search combinations among open items",
+  splitmax:"Max combination size",
+  splitdate:"Date constraint (±)",
+  splitprefix:"Same key prefix (3 chars)",
+  splitHint:"Combinations are suggestions — nothing leaves the open lists without your approval.",
+  groupsTab:"Suggested groups",
+  grpNote:"Only groups you accept leave the open lists and get their own sheet in the Excel export.",
+  acceptAll:"Accept all", clearAll:"Clear all",
+  grpAccept:"Accept group", grpTarget:"Target", grpMembers:"members", grpDiff:"Group difference",
+  truncNote:"Combination search stopped early for performance — some open items were not examined.",
+  rule:"Rule", rule1:"Key", rule2:"Amount+date", rule3:"Text",
+  grpKpi:"Groups (accepted)",
+  balanced:"Within tolerance", unbalanced:"Out of tolerance",
+  saveprog:"Save progress", loadprog:"Load progress",
+  progLoaded:"Progress loaded.", progApplied:"Progress applied to the results.",
+  progPend:"Progress will apply after the next run.", progBad:"Invalid progress file."
+ }
+};
+let LANG='el';
+const PRESETS=[
+ {id:'gen', el:{t:'Γενική σύγκριση δύο αρχείων',d:'Οποιαδήποτε δύο αρχεία με κοινό κλειδί (κωδικός, τιμολόγιο, ασθενής...)',a:'Πλευρά A',b:'Πλευρά B'},
+        en:{t:'Generic two-file match',d:'Any two files sharing a key (code, invoice, patient...)',a:'Side A',b:'Side B'}},
+ {id:'gl', el:{t:'Γεν. Καθολικό vs Αναλυτικό',d:'Λογαριασμός ελέγχου GL vs αναλυτικό καθολικό (χρεώστες, πιστωτές, πάγια...)',a:'Γενικό Καθολικό (GL)',b:'Αναλυτικό καθολικό'},
+        en:{t:'GL vs Subledger',d:'GL control account vs subledger detail (AR, AP, fixed assets...)',a:'General Ledger (GL)',b:'Subledger'}},
+ {id:'bank', el:{t:'Τραπεζική συμφωνία',d:'Λογαριασμός ταμείου GL vs κίνηση τράπεζας',a:'Γεν. Καθολικό (ταμείο)',b:'Κίνηση τράπεζας'},
+        en:{t:'Bank reconciliation',d:'GL cash account vs bank statement',a:'GL cash account',b:'Bank statement'}},
+ {id:'hio', el:{t:'SAP vs ΟΑΥ (HIO)',d:'Εσωτερικά δεδομένα SAP vs αποκοπές/πληρωμές ΟΑΥ',a:'SAP (εσωτερικά)',b:'ΟΑΥ / HIO'},
+        en:{t:'SAP vs HIO (ΟΑΥ)',d:'Internal SAP data vs HIO deductions/payments',a:'SAP (internal)',b:'HIO / ΟΑΥ'}}
+];
+const PRESET_ICONS={
+ gen:'<svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2" y="4" width="10" height="18" rx="2" stroke="#1B75BB" stroke-width="1.8"/><rect x="14" y="4" width="10" height="18" rx="2" stroke="#8BC53F" stroke-width="1.8"/><path d="M5 9h4M5 13h4M17 9h4M17 13h4" stroke="#58595B" stroke-width="1.4" stroke-linecap="round"/></svg>',
+ gl:'<svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 3h13l5 5v15H4z" stroke="#1B75BB" stroke-width="1.8" stroke-linejoin="round"/><path d="M17 3v5h5" stroke="#1B75BB" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 13h10M8 17h10" stroke="#8BC53F" stroke-width="1.8" stroke-linecap="round"/></svg>',
+ bank:'<svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M3 10L13 4l10 6" stroke="#1B75BB" stroke-width="1.8" stroke-linejoin="round"/><path d="M5 11v8M10.5 11v8M15.5 11v8M21 11v8" stroke="#8BC53F" stroke-width="1.8" stroke-linecap="round"/><path d="M3 21h20" stroke="#1B75BB" stroke-width="1.8" stroke-linecap="round"/></svg>',
+ hio:'<svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="3" y="3" width="20" height="20" rx="4" stroke="#1B75BB" stroke-width="1.8"/><path d="M13 8v10M8 13h10" stroke="#8BC53F" stroke-width="2.4" stroke-linecap="round"/></svg>'
+};
+let preset='gen';
+function t(k){return I18N[LANG][k]??k}
+function setLang(l){
+  LANG=l;
+  document.getElementById('btn-el').classList.toggle('active',l==='el');
+  document.getElementById('btn-en').classList.toggle('active',l==='en');
+  document.getElementById('btn-el').setAttribute('aria-pressed',l==='el');
+  document.getElementById('btn-en').setAttribute('aria-pressed',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n'); if(I18N[l][k])el.textContent=I18N[l][k];});
+  renderPresets(); updateSideLabels();
+  if(RESULT)renderResults();
+}
+function renderPresets(){
+  const c=document.getElementById('presets'); c.innerHTML='';
+  PRESETS.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='preset'+(preset===p.id?' active':'');
+    d.setAttribute('role','button'); d.tabIndex=0;
+    d.innerHTML=PRESET_ICONS[p.id]+'<div><div class="pt">'+p[LANG].t+'</div><div class="pd">'+p[LANG].d+'</div></div>';
+    const pick=()=>{preset=p.id; renderPresets(); updateSideLabels();
+      if(p.id==='bank'){document.getElementById('flipB').checked=false;
+        document.getElementById('tier2on').checked=true; document.getElementById('advPanel').open=true;}
+      const h=I18N[LANG].presetHints[p.id];
+      const w=document.getElementById('mapWarn');
+      if(h){w.textContent=h;w.classList.remove('hidden');}else{w.classList.add('hidden');}
+    };
+    d.onclick=pick;
+    d.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick();}};
+    c.appendChild(d);
+  });
+}
+function updateSideLabels(){
+  const p=PRESETS.find(x=>x.id===preset);
+  ['lblA','lblA2'].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=p[LANG].a;});
+  ['lblB','lblB2'].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=p[LANG].b;});
+}
+
+/* ================= progress rail ================= */
+function updateRail(){
+  const steps=[...document.querySelectorAll('.railstep')];
+  const done=[true, !!(SIDES.A.rows&&SIDES.B.rows), !!RESULT, !!RESULT];
+  let activeSet=false;
+  steps.forEach((el,i)=>{
+    el.classList.toggle('done',done[i]&&!(i===0&&!done[1]));
+    el.classList.remove('active');
+    if(!activeSet&&!done[i]){el.classList.add('active');activeSet=true;}
+  });
+  if(!activeSet)steps[3].classList.add('active');
+  document.getElementById('saveProg').disabled=!RESULT;
+}
+document.querySelectorAll('.railstep').forEach(b=>b.addEventListener('click',()=>{
+  const s=document.getElementById(b.dataset.goto);
+  if(s&&!s.classList.contains('hidden'))s.scrollIntoView({behavior:'smooth',block:'start'});
+}));
+
+/* ================= file loading ================= */
+const SIDES={A:{wb:null,rows:null,cols:null,name:''},B:{wb:null,rows:null,cols:null,name:''}};
+function bindFile(side){
+  const inp=document.getElementById('file'+side), box=document.getElementById('box'+side);
+  inp.addEventListener('change',e=>{if(e.target.files[0])loadFile(side,e.target.files[0]);});
+  box.addEventListener('dragover',e=>{e.preventDefault();});
+  box.addEventListener('drop',e=>{e.preventDefault(); if(e.dataTransfer.files[0])loadFile(side,e.dataTransfer.files[0]);});
+}
+function loadFile(side,file){
+  const rd=new FileReader();
+  const isCSV=/\.(csv|txt)$/i.test(file.name);
+  rd.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true,codepage:65001,raw:isCSV});
+      SIDES[side].wb=wb; SIDES[side].name=file.name;
+      const sel=document.getElementById('sheet'+side);
+      sel.innerHTML=wb.SheetNames.map(n=>'<option>'+esc(n)+'</option>').join('');
+      document.getElementById('sheetsel'+side).classList.remove('hidden');
+      document.getElementById('fname'+side).textContent=file.name;
+      document.getElementById('box'+side).classList.add('loaded');
+      document.getElementById('hdr'+side).value=1;
+      sheetChanged(side);
+    }catch(err){alert('Error reading file: '+err.message);}
+  };
+  rd.readAsArrayBuffer(file);
+}
+function sheetChanged(side){
+  const s=SIDES[side]; if(!s.wb)return;
+  const ws=s.wb.Sheets[document.getElementById('sheet'+side).value];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  // auto-detect header row: first row where >=2 non-empty string cells
+  let hdr=0;
+  for(let i=0;i<Math.min(raw.length,25);i++){
+    const r=raw[i]||[], strs=r.filter(c=>typeof c==='string'&&c.trim()!=='').length,
+          filled=r.filter(c=>c!==null&&c!=='').length;
+    if(strs>=2&&filled>=2){hdr=i;break;}
+  }
+  document.getElementById('hdr'+side).value=hdr+1;
+  applyHeader(side,raw,hdr);
+}
+function headerChanged(side){
+  const s=SIDES[side]; if(!s.wb)return;
+  const ws=s.wb.Sheets[document.getElementById('sheet'+side).value];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  applyHeader(side,raw,(parseInt(document.getElementById('hdr'+side).value)||1)-1);
+}
+function applyHeader(side,raw,hdr){
+  const s=SIDES[side];
+  const hrow=raw[hdr]||[];
+  const cols=hrow.map((c,i)=>c===null||String(c).trim()===''?('Col'+(i+1)):String(c).trim());
+  // dedupe col names
+  const seen={}; cols.forEach((c,i)=>{if(seen[c]!==undefined){cols[i]=c+'_'+(++seen[c]);}else seen[c]=0;});
+  const rows=[];
+  for(let i=hdr+1;i<raw.length;i++){
+    const r=raw[i]; if(!r)continue;
+    if(r.every(c=>c===null||c===''))continue;
+    const o={}; cols.forEach((c,j)=>o[c]=r[j]===undefined?null:r[j]); rows.push(o);
+  }
+  s.rows=rows; s.cols=cols;
+  document.getElementById('finfo'+side).textContent=rows.length+' '+t('loaded');
+  renderPreview(side);
+  rebuildMapping();
+  updateRail();
+}
+function esc(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function renderPreview(side){
+  const s=SIDES[side], el=document.getElementById('prev'+side);
+  if(!s.rows){el.innerHTML='';return;}
+  let h='<table class="grid"><thead><tr>'+s.cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+  s.rows.slice(0,6).forEach(r=>{h+='<tr>'+s.cols.map(c=>'<td>'+(r[c]===null?'':esc(fmtCell(r[c])))+'</td>').join('')+'</tr>';});
+  el.innerHTML=h+'</tbody></table>';
+}
+function fmtCell(v){ if(v instanceof Date)return fmtDate(v); return v; }
+
+/* ================= mapping ================= */
+function rebuildMapping(){
+  if(!(SIDES.A.rows&&SIDES.B.rows))return;
+  const st=document.getElementById('stepMap');
+  if(st.classList.contains('hidden')){st.classList.add('reveal');st.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>st.classList.remove('reveal')));}
+  ['A','B'].forEach(side=>{
+    const cols=SIDES[side].cols;
+    const kl=document.getElementById('keys'+side);
+    kl.innerHTML=cols.map(c=>'<label class="keychip"><input type="checkbox" value="'+esc(c)+'" onchange="this.closest(\'.keychip\').classList.toggle(\'on\',this.checked)"> '+esc(c)+'</label>').join('');
+    ['amt','date','desc'].forEach(kind=>{
+      const sel=document.getElementById(kind+side);
+      sel.innerHTML='<option value="">'+t('none')+'</option>'+cols.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+    });
+    // simple auto-guess
+    guess(side);
+  });
+}
+const AMT_HINTS=['ποσό','ποσο','αξία','αξια','amount','value','total','σύνολο','συνολο','balance','υπόλοιπο','υπολοιπο','net','eur','€','amt'];
+const DATE_HINTS=['ημερ','date','ημ/νία','ημ/νια'];
+const KEY_HINTS=['κωδ','code','id','αριθμ','number','no','invoice','τιμολ','material','υλικ','account','λογαριασμ','ref','key','ασθεν','patient','drg'];
+function guess(side){
+  const cols=SIDES[side].cols, rows=SIDES[side].rows;
+  const lower=cols.map(c=>c.toLowerCase());
+  const pick=(hints)=>{for(const h of hints){const i=lower.findIndex(c=>c.includes(h)); if(i>=0)return i;} return -1;};
+  let ai=pick(AMT_HINTS);
+  if(ai<0){ // fall back: last mostly-numeric column
+    for(let i=cols.length-1;i>=0;i--){
+      const vals=rows.slice(0,30).map(r=>r[cols[i]]).filter(v=>v!==null);
+      if(vals.length&&vals.filter(v=>typeof v==='number'||parseAmount(v)!==null).length>=vals.length*0.8){ai=i;break;}
+    }
+  }
+  if(ai>=0)document.getElementById('amt'+side).value=cols[ai];
+  const di=pick(DATE_HINTS); if(di>=0)document.getElementById('date'+side).value=cols[di];
+  const ki=pick(KEY_HINTS);
+  const boxes=document.querySelectorAll('#keys'+side+' input');
+  const check=i=>{boxes[i].checked=true;boxes[i].closest('.keychip').classList.add('on');};
+  if(ki>=0&&ki!==ai)check(ki); else if(cols.length&&ai!==0)check(0);
+}
+function mapping(side){
+  const keys=[...document.querySelectorAll('#keys'+side+' input:checked')].map(x=>x.value);
+  return {keys, amt:document.getElementById('amt'+side).value,
+          date:document.getElementById('date'+side).value, desc:document.getElementById('desc'+side).value};
+}
+
+/* ================= parsing helpers ================= */
+function parseAmount(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='number')return v;
+  let s=String(v).trim().replace(/€/g,'').replace(/\s/g,'');
+  if(!s)return null;
+  let neg=false;
+  if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);}
+  if(/^-/.test(s)){neg=true;s=s.slice(1);}
+  const lastComma=s.lastIndexOf(','), lastDot=s.lastIndexOf('.');
+  if(lastComma>-1&&lastDot>-1){
+    if(lastComma>lastDot)s=s.replace(/\./g,'').replace(',','.'); // 1.234,56
+    else s=s.replace(/,/g,'');                                   // 1,234.56
+  }else if(lastComma>-1){
+    const dec=s.length-lastComma-1;
+    s=(dec===3&&s.split(',').length===2&&s.length>4)?s.replace(/,/g,''):s.replace(/\./g,'').replace(',','.');
+  }
+  const n=parseFloat(s);
+  if(isNaN(n))return null;
+  return neg?-n:n;
+}
+function parseDateVal(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(v instanceof Date)return isNaN(v)?null:v;
+  if(typeof v==='number'){ // excel serial
+    const d=new Date(Math.round((v-25569)*86400*1000)); return isNaN(d)?null:d;
+  }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
+  if(m){let y=+m[3]; if(y<100)y+=2000; const d=new Date(y,+m[2]-1,+m[1]); return isNaN(d)?null:d;}
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m){const d=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(d)?null:d;}
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function fmtDate(d){ if(!d)return''; return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
+function fmtNum(n){ return n===null||n===undefined?'':n.toLocaleString(LANG==='el'?'el-GR':'en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function normKey(s,on){
+  let k=String(s??'').trim();
+  if(!on)return k;
+  k=k.toUpperCase().replace(/\s+/g,' ');
+  if(/^\d+$/.test(k))k=k.replace(/^0+(?=\d)/,'');
+  return k;
+}
+function diceSim(a,b){ // bigram Dice coefficient for the fuzzy pass
+  a=String(a||'').toUpperCase().replace(/\s+/g,' ').trim();
+  b=String(b||'').toUpperCase().replace(/\s+/g,' ').trim();
+  if(!a||!b)return 0; if(a===b)return 1;
+  if(a.length<2||b.length<2)return 0;
+  const grams=s=>{const m=new Map(); for(let i=0;i<s.length-1;i++){const g=s.slice(i,i+2); m.set(g,(m.get(g)||0)+1);} return m;};
+  const A=grams(a),B=grams(b); let inter=0,sa=0,sb=0;
+  A.forEach((n,g)=>{if(B.has(g))inter+=Math.min(n,B.get(g));});
+  A.forEach(n=>sa+=n); B.forEach(n=>sb+=n);
+  return 2*inter/(sa+sb);
+}
+
+/* ================= reconciliation engine ================= */
+let RESULT=null;
+let PENDING_PROGRESS=null;
+function aggregate(side,flip){
+  const m=mapping(side), s=SIDES[side], norm=document.getElementById('normKeys').checked;
+  const map=new Map();
+  let skipped=0;
+  s.rows.forEach(r=>{
+    const kparts=m.keys.map(k=>{const v=r[k]; return v instanceof Date?fmtDate(v):String(v??'').trim();});
+    if(kparts.every(p=>p===''))
+      {skipped++; return;}
+    const key=kparts.map(p=>normKey(p,norm)).join(' | ');
+    const label=kparts.join(' | ');
+    let amt=parseAmount(r[m.amt]); if(amt===null)amt=0;
+    if(flip)amt=-amt;
+    if(!map.has(key))map.set(key,{key,label,sum:0,n:0,desc:'',date:null});
+    const e=map.get(key);
+    e.sum+=amt; e.n++;
+    if(!e.desc&&m.desc&&r[m.desc])e.desc=String(r[m.desc]);
+    if(m.date&&r[m.date]){const d=parseDateVal(r[m.date]); if(d&&(!e.date||d<e.date))e.date=d;}
+  });
+  return {map,skipped};
+}
+
+/* pass 2: amount within tolerance + date within window, greedy 1-to-1 on open items */
+function pass2(onlyA,onlyB,tol,days){
+  const pairs=[]; const usedB=new Set();
+  const As=[...onlyA].sort((x,y)=>Math.abs(y.amtA)-Math.abs(x.amtA));
+  As.forEach(a=>{
+    if(!a.date)return;
+    let best=null,bestDd=Infinity;
+    onlyB.forEach(b=>{
+      if(usedB.has(b)||!b.date)return;
+      if(Math.abs(a.amtA-b.amtB)>tol)return;
+      const dd=Math.abs(a.date-b.date)/86400000;
+      if(dd<=days&&dd<bestDd){bestDd=dd;best=b;}
+    });
+    if(best){usedB.add(best);pairs.push([a,best]);}
+  });
+  return pairs;
+}
+/* pass 3: description similarity + amount within tolerance, greedy 1-to-1 */
+function pass3(onlyA,onlyB,tol){
+  const pairs=[]; const usedB=new Set();
+  const txt=r=>r.desc||r.key;
+  const As=[...onlyA].sort((x,y)=>Math.abs(y.amtA)-Math.abs(x.amtA));
+  As.forEach(a=>{
+    let best=null,bestS=0.7; // similarity threshold
+    onlyB.forEach(b=>{
+      if(usedB.has(b))return;
+      if(Math.abs(a.amtA-b.amtB)>tol)return;
+      const s=diceSim(txt(a),txt(b));
+      if(s>bestS){bestS=s;best=b;}
+    });
+    if(best){usedB.add(best);pairs.push([a,best]);}
+  });
+  return pairs;
+}
+function mergePair(a,b,rule,age){
+  return {key:a.key+' ⇄ '+b.key,amtA:a.amtA,amtB:b.amtB,diff:a.amtA-b.amtB,nA:a.nA,nB:b.nB,
+          desc:a.desc||b.desc,date:a.date||b.date,age:age(a.date||b.date),cat:'',rule};
+}
+
+/* subset-sum split matching: bounded DFS on cent integers, same-sign candidates,
+   descending order + best-possible pruning; greedy largest-|amount| targets first */
+function findCombo(targetC,pool,tolC,maxK,budget){
+  // pool: [{rec,cents}] all same sign as target, sorted by |cents| desc
+  const n=pool.length;
+  const T=Math.abs(targetC);
+  const bestFrom=(i,k)=>{let s=0; for(let j=i;j<Math.min(n,i+k);j++)s+=Math.abs(pool[j].cents); return s;};
+  let nodes=0, found=null;
+  const stack=[];
+  function dfs(idx,k,sum){
+    if(found||nodes>budget)return;
+    for(let i=idx;i<n;i++){
+      nodes++;
+      if(nodes>budget)return;
+      const s=sum+Math.abs(pool[i].cents);
+      if(s>T+tolC)continue; // too big — later (smaller) items may still fit
+      stack.push(pool[i]);
+      if(k+1>=2&&Math.abs(s-T)<=tolC){found=stack.slice();stack.pop();return;}
+      if(k+1<maxK&&s+bestFrom(i+1,maxK-k-1)>=T-tolC)dfs(i+1,k+1,s);
+      stack.pop();
+      if(found)return;
+    }
+  }
+  dfs(0,0,0);
+  return {combo:found,nodes};
+}
+function proposeSplits(onlyA,onlyB,tol,cfg){
+  const now=()=>(typeof performance!=='undefined'?performance.now():Date.now());
+  const t0=now();
+  const tolC=Math.round(tol*100);
+  const cents=v=>Math.round(v*100);
+  const amtOf=(side,r)=>side==='A'?r.amtA:r.amtB;
+  const consumed=new Set();
+  const props=[]; let truncated=false;
+  const targets=[
+    ...onlyA.map(r=>({side:'A',rec:r})),
+    ...onlyB.map(r=>({side:'B',rec:r}))
+  ].sort((x,y)=>Math.abs(amtOf(y.side,y.rec))-Math.abs(amtOf(x.side,x.rec)));
+  const prefix=k=>String(k||'').slice(0,3).toUpperCase();
+  for(const tg of targets){
+    if(now()-t0>cfg.timeMs){truncated=true;break;}
+    if(consumed.has(tg.rec))continue;
+    const tC=cents(amtOf(tg.side,tg.rec));
+    if(tC===0)continue;
+    const other=tg.side==='A'?'B':'A';
+    const srcList=tg.side==='A'?onlyB:onlyA;
+    const pool=srcList
+      .map(r=>({rec:r,cents:cents(amtOf(other,r))}))
+      .filter(x=>!consumed.has(x.rec)&&x.cents!==0&&Math.sign(x.cents)===Math.sign(tC))
+      .filter(x=>!cfg.dateOn||!tg.rec.date||!x.rec.date||Math.abs(tg.rec.date-x.rec.date)/86400000<=cfg.dateDays)
+      .filter(x=>!cfg.prefixOn||prefix(x.rec.key)===prefix(tg.rec.key))
+      .sort((a,b)=>Math.abs(b.cents)-Math.abs(a.cents));
+    if(pool.length<2)continue;
+    const {combo}=findCombo(tC,pool,tolC,cfg.maxK,cfg.budget);
+    if(combo){
+      consumed.add(tg.rec); combo.forEach(x=>consumed.add(x.rec));
+      const members=combo.map(x=>x.rec);
+      const mSum=members.reduce((s,r)=>s+amtOf(other,r),0);
+      props.push({id:props.length+1,side:tg.side,target:tg.rec,members,
+                  diff:tg.side==='A'?tg.rec.amtA-mSum:mSum-tg.rec.amtB,accepted:false});
+    }
+  }
+  return {props,truncated};
+}
+function splitCfg(){
+  return {
+    on:document.getElementById('spliton').checked,
+    maxK:Math.min(6,Math.max(2,parseInt(document.getElementById('splitmax').value)||4)),
+    dateOn:document.getElementById('splitdateon').checked,
+    dateDays:parseInt(document.getElementById('splitdays').value)||30,
+    prefixOn:document.getElementById('splitprefix').checked,
+    budget:60000, timeMs:4500
+  };
+}
+function runRecon(){
+  const w=document.getElementById('mapWarn');
+  if(!(SIDES.A.rows&&SIDES.B.rows)){w.textContent=t('needfiles');w.classList.remove('hidden');return;}
+  const mA=mapping('A'), mB=mapping('B');
+  if(!mA.keys.length||!mB.keys.length||!mA.amt||!mB.amt){w.textContent=t('needmap');w.classList.remove('hidden');return;}
+  w.classList.add('hidden');
+  const tol=parseFloat(document.getElementById('tolerance').value)||0;
+  const flip=document.getElementById('flipB').checked;
+  const A=aggregate('A',false), B=aggregate('B',flip);
+  const matched=[],diffs=[],onlyA=[],onlyB=[];
+  const today=new Date();
+  const age=d=>d?Math.max(0,Math.round((today-d)/86400000)):null;
+  /* pass 1 — composite key */
+  A.map.forEach((a,key)=>{
+    if(B.map.has(key)){
+      const b=B.map.get(key), d=a.sum-b.sum;
+      const rec={key:a.label,amtA:a.sum,amtB:b.sum,diff:d,nA:a.n,nB:b.n,desc:a.desc||b.desc,date:a.date||b.date,age:age(a.date||b.date),cat:'',rule:1};
+      (Math.abs(d)<=tol?matched:diffs).push(rec);
+    }else onlyA.push({key:a.label,amtA:a.sum,amtB:null,diff:a.sum,nA:a.n,nB:0,desc:a.desc,date:a.date,age:age(a.date),cat:''});
+  });
+  B.map.forEach((b,key)=>{
+    if(!A.map.has(key))onlyB.push({key:b.label,amtA:null,amtB:b.sum,diff:-b.sum,nA:0,nB:b.n,desc:b.desc,date:b.date,age:age(b.date),cat:''});
+  });
+  /* pass 2 — amount + date on the remainder */
+  if(document.getElementById('tier2on').checked){
+    const days=parseInt(document.getElementById('tier2days').value)||0;
+    pass2(onlyA,onlyB,tol,days).forEach(([a,b])=>{
+      matched.push(mergePair(a,b,2,age));
+      onlyA.splice(onlyA.indexOf(a),1); onlyB.splice(onlyB.indexOf(b),1);
+    });
+  }
+  /* pass 3 — fuzzy text on the remainder */
+  if(document.getElementById('tier3on').checked){
+    pass3(onlyA,onlyB,tol).forEach(([a,b])=>{
+      matched.push(mergePair(a,b,3,age));
+      onlyA.splice(onlyA.indexOf(a),1); onlyB.splice(onlyB.indexOf(b),1);
+    });
+  }
+  const cmp=(x,y)=>Math.abs(y.diff)-Math.abs(x.diff);
+  diffs.sort(cmp); onlyA.sort(cmp); onlyB.sort(cmp);
+  let totA=0,totB=0; A.map.forEach(a=>totA+=a.sum); B.map.forEach(b=>totB+=b.sum);
+  /* split-match proposals on the final remainder */
+  const scfg=splitCfg();
+  let props=[],splitTruncated=false;
+  if(scfg.on){
+    const r=proposeSplits(onlyA,onlyB,tol,scfg);
+    props=r.props; splitTruncated=r.truncated;
+  }
+  const firstTab=diffs.length?'diffs':props.length?'groups':onlyA.length?'onlyA':onlyB.length?'onlyB':'matched';
+  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA:A.skipped,skippedB:B.skipped,
+          props,splitTruncated,splitCfg:scfg,
+          mA,mB,ranAt:new Date(),activeTab:firstTab};
+  if(PENDING_PROGRESS){applyProgress(PENDING_PROGRESS);PENDING_PROGRESS=null;progStatus(t('progApplied'));}
+  const st=document.getElementById('stepRes');
+  if(st.classList.contains('hidden')){st.classList.add('reveal');st.classList.remove('hidden');requestAnimationFrame(()=>requestAnimationFrame(()=>st.classList.remove('reveal')));}
+  renderResults();
+  updateRail();
+  st.scrollIntoView({behavior:'smooth'});
+}
+
+/* ================= results UI ================= */
+function grpAccepted(){return RESULT?RESULT.props.filter(p=>p.accepted):[]}
+function inAccepted(rec){return RESULT.props.some(p=>p.accepted&&(p.target===rec||p.members.includes(rec)))}
+function openView(arr){return arr.map((r,idx)=>({r,idx})).filter(x=>!inAccepted(x.r))}
+function renderResults(){
+  const R=RESULT; if(!R)return;
+  const net=R.totA-R.totB;
+  const openA=openView(R.onlyA), openB=openView(R.onlyB);
+  const k=document.getElementById('kpis');
+  let html=
+    kpi(t('matched'),R.matched.length,'green')+
+    kpi(t('diffs'),R.diffs.length,R.diffs.length?'red':'green')+
+    kpi(t('onlyA'),openA.length,openA.length?'red':'green')+
+    kpi(t('onlyB'),openB.length,openB.length?'red':'green')+
+    kpi(t('totA'),fmtNum(R.totA)+' €','')+
+    kpi(t('totB'),fmtNum(R.totB)+' €','')+
+    kpi(t('netdiff'),fmtNum(net)+' €',Math.abs(net)<=R.tol?'green':'red');
+  if(R.props.length)html+=kpi(t('grpKpi'),grpAccepted().length+'/'+R.props.length,grpAccepted().length?'green':'');
+  k.innerHTML=html;
+  renderBeam(R.totA,R.totB,net,R.tol);
+  const tw=document.getElementById('truncWarn');
+  if(R.splitTruncated){tw.textContent=t('truncNote');tw.classList.remove('hidden');}else tw.classList.add('hidden');
+  const tabs=[
+    ['diffs',t('diffs'),R.diffs.length],
+    ['groups',t('groupsTab'),R.props.length],
+    ['onlyA',t('onlyA'),openA.length],
+    ['onlyB',t('onlyB'),openB.length],
+    ['matched',t('matched'),R.matched.length]
+  ];
+  document.getElementById('tabs').innerHTML=tabs.map(([id,lbl,n])=>
+    '<button class="tab'+(R.activeTab===id?' active':'')+'" role="tab" aria-selected="'+(R.activeTab===id)+'" onclick="RESULT.activeTab=\''+id+'\';renderResults()">'+lbl+'<span class="cnt">'+n+'</span></button>').join('');
+  document.getElementById('panes').innerHTML=tabs.map(([id])=>
+    '<div class="tabpane'+(R.activeTab===id?' active':'')+'" id="pane-'+id+'">'+
+    (id==='groups'?groupsHTML():id==='matched'?tableHTML(id,R.matched.map((r,idx)=>({r,idx}))):
+     id==='diffs'?tableHTML(id,R.diffs.map((r,idx)=>({r,idx}))):
+     id==='onlyA'?tableHTML(id,openA):tableHTML(id,openB))+'</div>').join('');
+}
+function kpi(l,v,cls){return '<div class="kpi '+cls+'"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'}
+function renderBeam(totA,totB,net,tol){
+  const ok=Math.abs(net)<=tol;
+  const scale=Math.max(Math.abs(totA),Math.abs(totB),1);
+  let deg=0;
+  if(!ok){
+    deg=Math.max(-6,Math.min(6,-(net/scale)*30));
+    if(Math.abs(deg)<1.4)deg=net>0?-1.4:1.4; // out of tolerance must visibly tilt
+  }
+  document.getElementById('beamRot').style.transform='rotate('+deg.toFixed(2)+'deg)';
+  const st=document.getElementById('beamState');
+  st.textContent=ok?t('balanced'):t('unbalanced');
+  st.className='beamstate '+(ok?'ok':'no');
+}
+function tableHTML(id,view){
+  if(!view.length)return '<div class="emptytab">'+t('emptyTab')+'</div>';
+  const withCat=id!=='matched';
+  const withRule=id==='matched'&&view.some(x=>x.r.rule>1);
+  const hasDate=view.some(x=>x.r.date), hasDesc=view.some(x=>x.r.desc);
+  let h='<table class="grid"><thead><tr><th>'+t('key')+'</th>'+
+    (hasDesc?'<th>'+t('desc')+'</th>':'')+(hasDate?'<th>'+t('date')+'</th><th class="num">'+t('age')+'</th>':'')+
+    '<th class="num">'+t('amtA')+'</th><th class="num">'+t('amtB')+'</th><th class="num">'+t('diff')+'</th><th class="num">'+t('rowsA')+'</th><th class="num">'+t('rowsB')+'</th>'+
+    (withRule?'<th>'+t('rule')+'</th>':'')+
+    (withCat?'<th>'+t('cat')+'</th>':'')+'</tr></thead><tbody>';
+  view.forEach(({r,idx})=>{
+    h+='<tr><td>'+esc(r.key)+'</td>'+
+      (hasDesc?'<td>'+esc(r.desc||'')+'</td>':'')+
+      (hasDate?'<td>'+fmtDate(r.date)+'</td><td class="num">'+(r.age??'')+'</td>':'')+
+      '<td class="num">'+fmtNum(r.amtA)+'</td><td class="num">'+fmtNum(r.amtB)+'</td>'+
+      '<td class="num'+(Math.abs(r.diff||0)>RESULT.tol?' negnum':'')+'">'+fmtNum(r.diff)+'</td>'+
+      '<td class="num">'+r.nA+'</td><td class="num">'+r.nB+'</td>'+
+      (withRule?'<td><span class="rulepill">'+t('rule'+(r.rule||1))+'</span></td>':'')+
+      (withCat?'<td><select class="catsel" onchange="RESULT.'+id+'['+idx+'].cat=this.value">'+
+        ['','catT','catA','catI'].map(c=>'<option value="'+c+'"'+(r.cat===c?' selected':'')+'>'+(c?t(c):'—')+'</option>').join('')+'</select></td>':'')+
+      '</tr>';
+  });
+  return h+'</tbody></table>';
+}
+function groupsHTML(){
+  const R=RESULT;
+  if(!R.props.length)return '<div class="emptytab">'+t('emptyTab')+'</div>';
+  let h='<div class="grouptools"><button class="ghostbtn" onclick="acceptAllGroups(true)">'+t('acceptAll')+'</button>'+
+    '<button class="ghostbtn" onclick="acceptAllGroups(false)">'+t('clearAll')+'</button>'+
+    '<span class="hint">'+t('grpNote')+'</span></div>';
+  R.props.forEach(p=>{
+    const sideT=p.side;
+    const amt=r=>r.amtA!==null&&r.amtA!==undefined?r.amtA:r.amtB;
+    h+='<div class="gcard'+(p.accepted?' acc':'')+'">'+
+      '<input type="checkbox" '+(p.accepted?'checked':'')+' onchange="toggleGroup('+p.id+',this.checked)" aria-label="'+t('grpAccept')+'">'+
+      '<div class="gbody"><div class="ghead">'+
+        '<span class="gid">#'+p.id+'</span>'+
+        '<span class="pill '+(sideT==='A'?'b':'g')+'">'+sideT+'</span><span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t('grpMembers')+')</span></span>'+
+        '<span class="gdiffchip'+(Math.abs(p.diff)>0.000001?' nz':'')+'">'+t('grpDiff')+': '+fmtNum(p.diff)+' €</span>'+
+      '</div>'+
+      '<table class="gtable"><tbody>'+
+      '<tr class="tgt"><td>'+esc(p.target.key)+'</td><td>'+esc(p.target.desc||'')+'</td><td>'+fmtDate(p.target.date)+'</td><td class="num">'+fmtNum(amt(p.target))+' €</td></tr>'+
+      p.members.map(m=>'<tr class="mem"><td>'+esc(m.key)+'</td><td>'+esc(m.desc||'')+'</td><td>'+fmtDate(m.date)+'</td><td class="num">'+fmtNum(amt(m))+' €</td></tr>').join('')+
+      '</tbody></table></div></div>';
+  });
+  return h;
+}
+function toggleGroup(id,on){
+  const p=RESULT.props.find(x=>x.id===id); if(!p)return;
+  p.accepted=on;
+  renderResults();
+}
+function acceptAllGroups(on){
+  RESULT.props.forEach(p=>p.accepted=on);
+  renderResults();
+}
+
+/* ================= progress save / load (JSON sidecar, no localStorage) ================= */
+function grpSignature(p){
+  return p.side+'|'+p.target.key+'|'+p.members.map(m=>m.key).sort().join(';');
+}
+function progStatus(msg,err){
+  const el=document.getElementById('progStatus');
+  el.textContent=msg; el.className=err?'err':'';
+  clearTimeout(progStatus._t); progStatus._t=setTimeout(()=>{el.textContent='';},6000);
+}
+function saveProgress(){
+  const R=RESULT; if(!R)return;
+  const cats={};
+  ['diffs','onlyA','onlyB'].forEach(id=>{
+    cats[id]={};
+    R[id].forEach(r=>{if(r.cat)cats[id][r.key]=r.cat;});
+  });
+  const groups={};
+  R.props.forEach(p=>{groups[grpSignature(p)]=p.accepted;});
+  const data={app:'okypy-recon',version:2,savedAt:new Date().toISOString(),
+    preset,lang:LANG,
+    settings:{tolerance:document.getElementById('tolerance').value,
+      flipB:document.getElementById('flipB').checked,normKeys:document.getElementById('normKeys').checked,
+      tier2on:document.getElementById('tier2on').checked,tier2days:document.getElementById('tier2days').value,
+      tier3on:document.getElementById('tier3on').checked,
+      spliton:document.getElementById('spliton').checked,splitmax:document.getElementById('splitmax').value,
+      splitdateon:document.getElementById('splitdateon').checked,splitdays:document.getElementById('splitdays').value,
+      splitprefix:document.getElementById('splitprefix').checked,
+      preparer:document.getElementById('preparer').value},
+    files:{A:{name:SIDES.A.name},B:{name:SIDES.B.name}},
+    mapping:{A:R.mA,B:R.mB},
+    cats,groups};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  const d=R.ranAt;
+  const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  a.href=URL.createObjectURL(blob);
+  a.download=(LANG==='el'?'Πρόοδος_':'Progress_')+preset+'_'+stamp+'.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function applyProgress(data){
+  const R=RESULT; if(!R)return;
+  ['diffs','onlyA','onlyB'].forEach(id=>{
+    const m=(data.cats||{})[id]||{};
+    R[id].forEach(r=>{if(m[r.key]!==undefined)r.cat=m[r.key];});
+  });
+  const g=data.groups||{};
+  R.props.forEach(p=>{const s=grpSignature(p); if(g[s]!==undefined)p.accepted=!!g[s];});
+  renderResults();
+}
+function applyProgressSettings(data){
+  const s=data.settings||{};
+  const set=(id,v,chk)=>{const el=document.getElementById(id); if(el&&v!==undefined){if(chk)el.checked=!!v;else el.value=v;}};
+  set('tolerance',s.tolerance); set('flipB',s.flipB,1); set('normKeys',s.normKeys,1);
+  set('tier2on',s.tier2on,1); set('tier2days',s.tier2days);
+  set('tier3on',s.tier3on,1);
+  set('spliton',s.spliton,1); set('splitmax',s.splitmax);
+  set('splitdateon',s.splitdateon,1); set('splitdays',s.splitdays);
+  set('splitprefix',s.splitprefix,1); set('preparer',s.preparer);
+  if(data.preset&&PRESETS.some(p=>p.id===data.preset)){preset=data.preset;renderPresets();updateSideLabels();}
+}
+document.getElementById('progFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.app!=='okypy-recon')throw new Error('wrong app');
+      applyProgressSettings(data);
+      if(RESULT){applyProgress(data);progStatus(t('progApplied'));}
+      else{PENDING_PROGRESS=data;progStatus(t('progPend'));}
+    }catch(err){progStatus(t('progBad'),true);}
+    e.target.value='';
+  };
+  rd.readAsText(f);
+});
+
+/* ================= Excel export ================= */
+function exportExcel(){
+  const R=RESULT; if(!R)return;
+  const wb=XLSX.utils.book_new();
+  const el=LANG==='el';
+  const SN={doc:el?'Τεκμηρίωση':'Documentation', sum:el?'Σύνοψη':'Summary',
+            adj:el?'Προσαρμοσμένα υπόλοιπα':'Adjusted balances',
+            diffs:el?'Διαφορές':'Differences', grp:el?'Ομάδες':'Groups',
+            onlyA:el?'Μόνο στο A':'Only in A',
+            onlyB:el?'Μόνο στο B':'Only in B', match:el?'Συμφωνούν':'Matched'};
+  const CATLBL=c=>c?t(c):'';
+  const eurofmt='#,##0.00\\ "€"';
+  const accepted=grpAccepted();
+  const openA=R.onlyA.filter(r=>!inAccepted(r)), openB=R.onlyB.filter(r=>!inAccepted(r));
+
+  // --- detail sheets: G = live formula N(E)-N(F) ---
+  const mkSheet=(arr,withRule)=>{
+    const header=[t('key'),t('desc'),t('date'),t('age'),t('amtA'),t('amtB'),t('diff'),t('rowsA'),t('rowsB'),t('cat')];
+    if(withRule)header.push(t('rule'));
+    const aoa=[header];
+    arr.forEach(r=>{
+      const row=[r.key,r.desc||'',r.date?fmtDate(r.date):'',r.age??'',r.amtA,r.amtB,r.diff,r.nA,r.nB,CATLBL(r.cat)];
+      if(withRule)row.push(t('rule'+(r.rule||1)));
+      aoa.push(row);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    for(let i=0;i<arr.length;i++){
+      const row=i+2;
+      // live formula + cached value: SheetJS drops formula cells without v
+      ws['G'+row]={t:'n',v:arr[i].diff??0,f:'N(E'+row+')-N(F'+row+')',z:eurofmt};
+      ['E','F'].forEach(c=>{const cell=ws[c+row]; if(cell&&cell.t==='n')cell.z=eurofmt;});
+    }
+    ws['!cols']=[{wch:28},{wch:30},{wch:11},{wch:9},{wch:14},{wch:14},{wch:14},{wch:8},{wch:8},{wch:22},{wch:12}];
+    ws['!autofilter']={ref:'A1:'+(withRule?'K':'J')+(arr.length+1)};
+    return ws;
+  };
+  const wsD=mkSheet(R.diffs), wsA=mkSheet(openA), wsB=mkSheet(openB), wsM=mkSheet(R.matched,true);
+
+  // --- accepted groups sheet: one block per group, diff = live block SUM formula ---
+  // col A carries the group number ONLY on the target row so COUNTA(A:A) counts groups
+  let wsG=null;
+  if(accepted.length){
+    const gaoa=[[el?'Ομάδα':'Group',t('key'),t('desc'),t('date'),t('amtA'),t('amtB'),t('diff')]];
+    const gformulas=[];
+    accepted.forEach(p=>{
+      const first=gaoa.length+1; // 1-based sheet row of the target line
+      const tgt=p.target, other=p.side==='A'?'B':'A';
+      gaoa.push([p.id,tgt.key,tgt.desc||'',tgt.date?fmtDate(tgt.date):'',
+                 p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null]);
+      p.members.forEach(m=>{
+        gaoa.push([null,m.key,m.desc||'',m.date?fmtDate(m.date):'',
+                   other==='A'?m.amtA:null,other==='B'?m.amtB:null,null]);
+      });
+      const last=first+p.members.length;
+      gformulas.push({row:first,v:p.diff,f:'SUM(E'+first+':E'+last+')-SUM(F'+first+':F'+last+')'});
+    });
+    wsG=XLSX.utils.aoa_to_sheet(gaoa);
+    gformulas.forEach(({row,v,f})=>{wsG['G'+row]={t:'n',v,f,z:eurofmt};});
+    for(let r=2;r<=gaoa.length;r++)['E','F'].forEach(c=>{const cell=wsG[c+r]; if(cell&&cell.t==='n')cell.z=eurofmt;});
+    wsG['!ref']='A1:G'+gaoa.length; // formulas live in G; keep the column inside the range
+    wsG['!cols']=[{wch:8},{wch:28},{wch:30},{wch:11},{wch:14},{wch:14},{wch:14}];
+  }
+
+  // --- summary with live cross-sheet formulas ---
+  const q=n=>"'"+n.replace(/'/g,"''")+"'";
+  const sumRows=[
+    [el?'ΣΥΝΟΨΗ ΣΥΜΦΩΝΙΑΣ':'RECONCILIATION SUMMARY','',''],
+    ['',''],
+    [el?'Κατηγορία':'Category', el?'Πλήθος':'Count', el?'Ποσό διαφοράς (€)':'Difference (€)'],
+    [SN.match,null,null],
+    [SN.diffs,null,null],
+    [SN.onlyA,null,null],
+    [SN.onlyB,null,null],
+    [SN.grp+(el?' (αποδεκτές)':' (accepted)'),null,null],
+    ['',''],
+    [t('totA'),null],
+    [t('totB'),null],
+    [t('netdiff'),null],
+    ['',''],
+    [el?'Έλεγχος: Καθαρή διαφορά = Διαφορές + Μόνο A + Μόνο B + Ομάδες':'Check: Net difference = Differences + Only A + Only B + Groups',null]
+  ];
+  const wsS=XLSX.utils.aoa_to_sheet(sumRows);
+  // cached values for every formula cell (SheetJS drops f-only cells; Excel recalculates)
+  const sumBy=(arr,f)=>arr.reduce((s,r)=>s+(f(r)||0),0);
+  const dSum=arr=>sumBy(arr,r=>r.diff), eSum=arr=>sumBy(arr,r=>r.amtA), fSum=arr=>sumBy(arr,r=>r.amtB);
+  const gESum=accepted.reduce((s,p)=>s+(p.side==='A'?p.target.amtA:sumBy(p.members,m=>m.amtA)),0);
+  const gFSum=accepted.reduce((s,p)=>s+(p.side==='B'?p.target.amtB:sumBy(p.members,m=>m.amtB)),0);
+  const gGSum=sumBy(accepted,p=>p.diff);
+  const vB10=eSum(R.matched)+eSum(R.diffs)+eSum(openA)+gESum;
+  const vB11=fSum(R.matched)+fSum(R.diffs)+fSum(openB)+gFSum;
+  const cnt=(sheet)=>'COUNTA('+q(sheet)+'!A2:A100000)';
+  wsS['B4']={t:'n',v:R.matched.length,f:cnt(SN.match)}; wsS['C4']={t:'n',v:dSum(R.matched),f:'SUM('+q(SN.match)+'!G:G)',z:eurofmt};
+  wsS['B5']={t:'n',v:R.diffs.length,f:cnt(SN.diffs)}; wsS['C5']={t:'n',v:dSum(R.diffs),f:'SUM('+q(SN.diffs)+'!G:G)',z:eurofmt};
+  wsS['B6']={t:'n',v:openA.length,f:cnt(SN.onlyA)}; wsS['C6']={t:'n',v:dSum(openA),f:'SUM('+q(SN.onlyA)+'!G:G)',z:eurofmt};
+  wsS['B7']={t:'n',v:openB.length,f:cnt(SN.onlyB)}; wsS['C7']={t:'n',v:dSum(openB),f:'SUM('+q(SN.onlyB)+'!G:G)',z:eurofmt};
+  if(wsG){
+    wsS['B8']={t:'n',v:accepted.length,f:cnt(SN.grp)}; wsS['C8']={t:'n',v:gGSum,f:'SUM('+q(SN.grp)+'!G:G)',z:eurofmt};
+  }else{
+    wsS['B8']={t:'n',v:0}; wsS['C8']={t:'n',v:0,z:eurofmt};
+  }
+  const gE=wsG?'+SUM('+q(SN.grp)+'!E:E)':'';
+  const gF=wsG?'+SUM('+q(SN.grp)+'!F:F)':'';
+  wsS['B10']={t:'n',v:vB10,f:'SUM('+q(SN.match)+'!E:E)+SUM('+q(SN.diffs)+'!E:E)+SUM('+q(SN.onlyA)+'!E:E)'+gE,z:eurofmt};
+  wsS['B11']={t:'n',v:vB11,f:'SUM('+q(SN.match)+'!F:F)+SUM('+q(SN.diffs)+'!F:F)+SUM('+q(SN.onlyB)+'!F:F)'+gF,z:eurofmt};
+  wsS['B12']={t:'n',v:vB10-vB11,f:'B10-B11',z:eurofmt};
+  wsS['B14']={t:'n',v:Math.round(((vB10-vB11)-(dSum(R.diffs)+dSum(openA)+dSum(openB)+gGSum))*100)/100,f:'ROUND(B12-(C5+C6+C7+C8),2)',z:eurofmt};
+  wsS['!cols']=[{wch:56},{wch:18},{wch:18}];
+
+  // --- adjusted-balance sheet (bank preset): standard presentation, live formulas ---
+  let wsAdj=null;
+  if(preset==='bank'){
+    const adjRows=[
+      [el?'ΠΡΟΣΑΡΜΟΣΜΕΝΑ ΥΠΟΛΟΙΠΑ (ΤΡΑΠΕΖΙΚΗ ΣΥΜΦΩΝΙΑ)':'ADJUSTED BALANCES (BANK RECONCILIATION)',''],
+      ['',''],
+      [el?'Υπόλοιπο κατά την τράπεζα (B)':'Balance per bank statement (B)',null],
+      [el?'Πλέον/μείον: εγγραφές στα βιβλία όχι στην τράπεζα (Μόνο A)':'Add/less: items in books not on statement (Only A)',null],
+      [el?'Προσαρμοσμένο υπόλοιπο τράπεζας':'Adjusted bank balance',null],
+      ['',''],
+      [el?'Υπόλοιπο κατά τα βιβλία (A)':'Balance per books (A)',null],
+      [el?'Πλέον/μείον: εγγραφές στην τράπεζα όχι στα βιβλία (Μόνο B)':'Add/less: items on statement not in books (Only B)',null],
+      [el?'Προσαρμοσμένο υπόλοιπο βιβλίων':'Adjusted book balance',null],
+      ['',''],
+      [el?'Υπόλοιπο προς διερεύνηση (φύλλα Διαφορές/Συμφωνούν/Ομάδες)':'Residual to investigate (Differences/Matched/Groups sheets)',null]
+    ];
+    wsAdj=XLSX.utils.aoa_to_sheet(adjRows);
+    const vAdjBank=vB11+eSum(openA), vAdjBook=vB10+fSum(openB);
+    wsAdj['B3']={t:'n',v:vB11,f:'SUM('+q(SN.match)+'!F:F)+SUM('+q(SN.diffs)+'!F:F)+SUM('+q(SN.onlyB)+'!F:F)'+gF,z:eurofmt};
+    wsAdj['B4']={t:'n',v:eSum(openA),f:'SUM('+q(SN.onlyA)+'!E:E)',z:eurofmt};
+    wsAdj['B5']={t:'n',v:vAdjBank,f:'B3+B4',z:eurofmt};
+    wsAdj['B7']={t:'n',v:vB10,f:'SUM('+q(SN.match)+'!E:E)+SUM('+q(SN.diffs)+'!E:E)+SUM('+q(SN.onlyA)+'!E:E)'+gE,z:eurofmt};
+    wsAdj['B8']={t:'n',v:fSum(openB),f:'SUM('+q(SN.onlyB)+'!F:F)',z:eurofmt};
+    wsAdj['B9']={t:'n',v:vAdjBook,f:'B7+B8',z:eurofmt};
+    wsAdj['B11']={t:'n',v:Math.round((vAdjBook-vAdjBank-dSum(R.diffs)-dSum(R.matched)-gGSum)*100)/100,
+      f:'ROUND(B9-B5-SUM('+q(SN.diffs)+'!G:G)-SUM('+q(SN.match)+'!G:G)'+(wsG?'-SUM('+q(SN.grp)+'!G:G)':'')+',2)',z:eurofmt};
+    wsAdj['!cols']=[{wch:58},{wch:18}];
+  }
+
+  // --- documentation / audit sheet ---
+  const p=PRESETS.find(x=>x.id===preset);
+  const YN=v=>v?(el?'Ναι':'Yes'):(el?'Όχι':'No');
+  const sc=R.splitCfg;
+  const doc=[
+    [el?'ΤΕΚΜΗΡΙΩΣΗ ΣΥΜΦΩΝΙΑΣ':'RECONCILIATION DOCUMENTATION'],
+    [''],
+    [el?'Οργανισμός':'Organisation','ΟΚΥπΥ / SHSO'],
+    [el?'Τύπος συμφωνίας':'Reconciliation type',p[LANG].t],
+    [el?'Ημερομηνία εκτέλεσης':'Run date',fmtDate(R.ranAt)+' '+R.ranAt.toTimeString().slice(0,5)],
+    [el?'Συντάκτης':'Preparer',document.getElementById('preparer').value||''],
+    [el?'Ελεγκτής (υπογραφή)':'Reviewer (sign-off)',''],
+    [''],
+    [el?'Αρχείο A':'File A',SIDES.A.name,el?'Φύλλο':'Sheet',document.getElementById('sheetA').value],
+    [el?'Αρχείο B':'File B',SIDES.B.name,el?'Φύλλο':'Sheet',document.getElementById('sheetB').value],
+    [el?'Κλειδιά A':'Keys A',R.mA.keys.join(', '),el?'Ποσό A':'Amount A',R.mA.amt],
+    [el?'Κλειδιά B':'Keys B',R.mB.keys.join(', '),el?'Ποσό B':'Amount B',R.mB.amt],
+    [el?'Όριο ανοχής':'Tolerance',R.tol,el?'Αντιστροφή προσήμου B':'Sign flip B',YN(R.flip)],
+    [el?'Γραμμές χωρίς κλειδί (A / B)':'Rows without key (A / B)',R.skippedA+' / '+R.skippedB],
+    [''],
+    [el?'Πέρασμα 2 (ποσό+ημ/νία)':'Pass 2 (amount+date)',YN(document.getElementById('tier2on').checked),el?'Παράθυρο (± ημ.)':'Window (± days)',document.getElementById('tier2days').value],
+    [el?'Πέρασμα 3 (ομοιότητα)':'Pass 3 (fuzzy text)',YN(document.getElementById('tier3on').checked)],
+    [el?'Προτάσεις επιμερισμού':'Split suggestions',YN(sc&&sc.on),el?'Μέγ. συνδυασμός':'Max combination',sc?sc.maxK:''],
+    [el?'Ομάδες: προτάθηκαν / αποδεκτές':'Groups: proposed / accepted',R.props.length+' / '+accepted.length],
+    [el?'Η αναζήτηση συνδυασμών διακόπηκε':'Combination search truncated',YN(R.splitTruncated)],
+    [''],
+    [el?'Μέθοδος: άθροιση ανά κλειδί, σύγκριση εντός ορίου· έπειτα προαιρετικά περάσματα (ποσό+ημ/νία, κείμενο) και προτάσεις επιμερισμού 1-προς-Ν με έγκριση χρήστη.':'Method: sum per key, compare within tolerance; then optional passes (amount+date, fuzzy text) and user-approved 1-to-N split suggestions.'],
+    [el?'Κατηγορίες εκκρεμών: Χρονική διαφορά / Απαιτείται εγγραφή / Προς διερεύνηση.':'Open item categories: Timing / Adjustment required / Requires investigation.'],
+    [el?'Παλαίωση: 0-30 τρέχον, 31-60 σε εξέλιξη, 61-90 κλιμάκωση, 90+ σε διοίκηση.':'Ageing: 0-30 current, 31-60 follow up, 61-90 escalate, 90+ management.']
+  ];
+  const wsDoc=XLSX.utils.aoa_to_sheet(doc);
+  wsDoc['!cols']=[{wch:30},{wch:44},{wch:16},{wch:24}];
+
+  XLSX.utils.book_append_sheet(wb,wsDoc,SN.doc);
+  XLSX.utils.book_append_sheet(wb,wsS,SN.sum);
+  if(wsAdj)XLSX.utils.book_append_sheet(wb,wsAdj,SN.adj);
+  XLSX.utils.book_append_sheet(wb,wsD,SN.diffs);
+  if(wsG)XLSX.utils.book_append_sheet(wb,wsG,SN.grp);
+  XLSX.utils.book_append_sheet(wb,wsA,SN.onlyA);
+  XLSX.utils.book_append_sheet(wb,wsB,SN.onlyB);
+  XLSX.utils.book_append_sheet(wb,wsM,SN.match);
+  const d=R.ranAt;
+  const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb,(el?'Συμφωνία_':'Reconciliation_')+preset+'_'+stamp+'.xlsx');
+}
+
+/* ================= init ================= */
+bindFile('A'); bindFile('B');
+renderPresets(); updateSideLabels(); updateRail();
+document.getElementById('ftDate').textContent=fmtDate(new Date());
+</script>
+</body>
+</html>

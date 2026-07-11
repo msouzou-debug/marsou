@@ -1,0 +1,7 @@
+tests/node_modules/
+tests/package.json
+tests/package-lock.json
+tests/export_test.xlsx
+tests/export_v2.xlsx
+tests/progress_v2.json
+tests/shot_*.png
