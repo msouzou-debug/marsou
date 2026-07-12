@@ -196,6 +196,30 @@ fs.writeFileSync(S('warn_B.csv'),
   ',05/03/2026,fee a,5.00\n' +
   ',05/03/2026,fee b,5.00\n');
 
+/* ---- IC matrix fixtures: HO⇄LIM keyed pair with 30.00 residual,
+   HO⇄LAR line-matched pair that ties out, HO→PAF one-sided ---- */
+fs.writeFileSync(S('mx_ho_lim.csv'),
+  'Ref,Date,Description,Amount\n' +
+  'R1,05/03/2026,IC invoice R1,100.00\n' +
+  'R2,05/03/2026,IC invoice R2,200.00\n' +
+  'R3,20/03/2026,IC invoice R3,50.00\n');
+fs.writeFileSync(S('mx_lim_ho.csv'),
+  'Ref,Date,Description,Amount\n' +
+  'R1,05/03/2026,IC payable R1,-100.00\n' +
+  'R2,05/03/2026,IC payable R2,-200.00\n' +
+  'R4,28/03/2026,IC payable R4,-20.00\n');
+fs.writeFileSync(S('mx_ho_lar.csv'),
+  'Ref,Date,Description,Amount\n' +
+  'L1,10/03/2026,IC invoice L1,500.00\n' +
+  'L2,11/03/2026,IC credit L2,-100.00\n');
+fs.writeFileSync(S('mx_lar_ho.csv'),
+  'Ref,Date,Description,Amount\n' +
+  'L1,10/03/2026,IC payable L1,-500.00\n' +
+  'L2,11/03/2026,IC debit L2,100.00\n');
+fs.writeFileSync(S('mx_ho_paf.csv'),
+  'Ref,Date,Description,Amount\n' +
+  'P1,15/03/2026,IC invoice P1,75.00\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

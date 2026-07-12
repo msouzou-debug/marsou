@@ -1,16 +1,23 @@
-# OKYπY / SHSO Reconciliation Tool
+# OKYπY / SHSO Reconciliation Tools
 
-Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
-used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
-Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v3.3**.
+Single-file, offline, bilingual (EL/EN) browser apps for the finance
+departments of the State Health Services Organisation (ΟΚΥπΥ / SHSO), Cyprus.
+Users double-click a built HTML file — no install, no server, no internet.
+All data stays on the local machine. TWO tools share this repo:
+
+1. **Reconciliation Tool** (`src/app_template.html` →
+   `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
+   Current version: **v3.3**.
+2. **IC Matrix Tool** (`src/ic_template.html` →
+   `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
+   intercompany matrix. Current version: **v1.0**. See "IC Matrix Tool" below.
 
 ## Architecture
 
-- `src/app_template.html` — the ONLY file you normally edit. Full app: HTML,
-  CSS, and JS with two placeholders: `__XLSX_LIB__` (SheetJS injection point)
-  and `__LOGO_FULL__` (base64 logo injection point). Never edit `dist/` output
-  directly; it is generated.
+- `src/app_template.html`, `src/ic_template.html` — the ONLY files you
+  normally edit. Each is a full app: HTML, CSS, and JS with two placeholders:
+  `__XLSX_LIB__` (SheetJS injection point) and `__LOGO_FULL__` (base64 logo
+  injection point). Never edit `dist/` output directly; it is generated.
 - `vendor/xlsx-style.full.min.js` — xlsx-js-style 1.2.0 (SheetJS 0.18.5 API
   + cell-style writer, Apache-2.0). Built as `dist/cpexcel.js` +
   `dist/xlsx.min.js` concatenated, plus a Node shim appended
@@ -22,9 +29,9 @@ internet. All data stays on the local machine. Current version: **v3.3**.
   The old `vendor/xlsx.full.min.js` is kept for reference but unused.
 - `assets/okypy_logo_full.png` — official logo, embedded at build time.
 - `build.py` — inlines vendor lib + logo into `dist/OKYpY_Reconciliation_Tool.html`.
-- `tests/` — Playwright headless tests driving the built file
+- `tests/` — Playwright headless tests driving the built files
   (`test_app.js`, `test_edge.js`, `test_v2.js`, `test_v3.js`, `test_v4.js`,
-  `gen_fixtures.js`, `screenshot.js` for design review shots).
+  `test_ic.js`, `gen_fixtures.js`, `screenshot.js` for design review shots).
 - `samples/` — test fixtures with known expected results (see Tests below).
 
 ## Commands
@@ -34,7 +41,7 @@ python3 build.py                 # rebuild dist/ after ANY src change
 cd tests && npm install playwright
 # if the pinned browser is missing, point at any Chromium:
 export CHROMIUM_PATH=/opt/pw-browsers/chromium
-node test_app.js && node test_edge.js && node test_v2.js && node test_v3.js && node test_v4.js
+node test_app.js && node test_edge.js && node test_v2.js && node test_v3.js && node test_v4.js && node test_ic.js
 node gen_fixtures.js             # only to regenerate fixtures
 ```
 
@@ -123,6 +130,19 @@ Expected values:
     FX +0.13 vs bank −8818.27 → exactly one `{adj:true}` proposal
     [2×A, 1×B, diff 0]; committing clears both sides and the Matched key
     carries the 'Ζεύγος με γραμμή προσαρμογής' tag.
+- `test_ic.js` (IC Matrix Tool; mx_*.csv fixtures; asserts, exits 1 on
+  failure): five files load with auto-guessed columns, balances
+  [350, −320, 400, −400, 75]; HO⇄LIM pairs by suggested key `Ref` (2 matched,
+  R3 50 vs R4 20 open, raw = residual = 30 → red cell), HO⇄LAR line-matches
+  with zero residual (Ref value sets too small for the key suggest → line
+  mode, green ✓ cell), mx_ho_paf stays a single (grey cell shows the
+  one-sided 75); matrix cells: 2 ok + 2 bad (symmetric) + 2 miss texts.
+  Drill-down lists the open items and holds categories. Export: 'Πίνακας'
+  sheet first with live formulas (D=B−C, F/G=SUM over the pair sheet's E/F,
+  H=F−G, I=ROUND(D−(E+H),2)=0), brand header fill, per-pair sheets with
+  category labels, 'Τεκμηρίωση' last. Progress JSON stores registry + per-file
+  setup (by filename) + categories; loading it BEFORE the files re-assigns
+  entities automatically and re-applies categories after the next build.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
   flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
@@ -392,10 +412,57 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
+## IC Matrix Tool (src/ic_template.html, v1.0)
+
+Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
+brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,
+D/C netting `netA`, footer-total exclusion in `computeBalance`) — copied,
+not imported; keep fixes in sync when touching shared logic.
+
+- **Model**: `FILES[]` — one file per RELATIONSHIP (entity X's ledger about
+  entity Y). Each card sets entity ('Books of') + cp ('About'), sheet,
+  header row, amount/credit/date/desc (auto-guessed). `ENTITIES[]` registry,
+  names 'Ελληνικά / English' (`entLabel` picks by LANG), editable, persisted
+  in the progress JSON.
+- **Pairing** (`runMatrix`): X-about-Y pairs with Y-about-X; a relationship
+  declared twice is an error; unpaired files land in `MATRIX.singles`.
+- **Per-pair matching** (`matchPair`): `pairKeySuggest` picks the key column
+  pair by value overlap (≥0.5, ≥3 values, amount/date columns excluded) —
+  if none, pure line mode. Keyed aggregates match on equal sum within
+  tolerance; leftovers + keyless rows line-match on amount within tolerance
+  + date within ± days (cent buckets). `mirror` (default ON) flips side Y.
+  Invariant: `raw = balX − balY` and `residual = ΣopenX − ΣopenY`;
+  matched-net is DERIVED as raw − residual so the matrix check row is exact.
+- **Matrix UI**: green ✓ cell = |residual| ≤ tol (difference fully explained),
+  red = unexplained residual (click → drill with categories), grey = missing
+  counterparty file (shows the one-sided balance).
+- **Export**: 'Πίνακας' sheet — per pair: B/C cached balances, D=B−C,
+  E cached matched-net, F/G=SUM over the pair sheet's E/F columns, H=F−G,
+  I=ROUND(D−(E+H),2) must be 0; totals row; singles listed with a note.
+  Pair sheets 'Pn X⇄Y' (sanitized ≤31 chars): Side/Key/Desc/Date/Amt X/
+  Amt Y/Category, category tints, autofilter. Documentation sheet lists every
+  file's setup + balances + footer exclusions + preparer/reviewer lines.
+- **Progress JSON** (`app:'okypy-ic'`): registry, settings, per-file setup
+  keyed BY FILENAME (entity/cp/sheet/hdr/map — applied when a file with the
+  same name loads, `applyPendingFile`), categories keyed
+  `entX|entY|side|key|cents`. Monthly workflow: load progress → add files →
+  everything self-assembles.
+- **Test contract** (test_ic.js): `#fileAdd` (multiple), `#progFile`,
+  `#tolerance`, `#days`, `#mirror`, `#runBtn`, `#stepMx`, `#drill`,
+  `table.mx td.ok/.bad/.miss`, `.kpi .v`, `.catsel`, globals `FILES`,
+  `ENTITIES`, `MATRIX`, `SELPAIR`, functions `runMatrix()`, `renderMatrix()`,
+  `renderDrill()`, `exportExcel()`, `saveProgress()`, `entLabel()`,
+  `renderCards()`, `downloadManual()`.
+- v1 limitations: matching keys are auto-only (no manual key pick per pair);
+  no split/N-to-M proposals inside the matrix (use the pairwise tool for
+  deep work on one pair — the manuals cross-reference); no carry-forward.
+
 ## Backlog
 
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
+- IC Matrix: manual key override per pair, split proposals in the drill,
+  prior-month carry-forward, confirmation-letter sheet per pair.
 
 ## Known limitations (v3.3)
 
