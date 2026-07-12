@@ -162,6 +162,29 @@ fs.writeFileSync(S('easy_B.csv'),
   'EB1,01/03/2026,supplier payment,500.00\n' +
   'EB2,25/04/2026,cheque presented late,77.10\n');
 
+/* ---- fee-sweep fixture: ONE GL bank-charges entry vs 65 small fee lines
+   (past the old 60-member cap; only the take-all shortcut explains it) ---- */
+{
+  let fa = 'Key,Date,Description,Amount\n' +
+    'GL-FEES,30/04/2026,BANK CHARGES APRIL,90.00\n';
+  let fb = 'Key,Date,Description,Amount\n';
+  for (let i = 0; i < 64; i++)
+    fb += `,${String(1 + (i % 28)).padStart(2, '0')}/04/2026,COMMISSION ${i + 1},1.37\n`;
+  fb += ',29/04/2026,SWIFT FEE,2.32\n'; // 64 x 1.37 + 2.32 = 90.00
+  fs.writeFileSync(S('sweep_A.csv'), fa);
+  fs.writeFileSync(S('sweep_B.csv'), fb);
+}
+
+/* ---- live-warning fixture: two identical open fees trigger the no-key
+   duplicate warning until the 10.00 = 5.00 + 5.00 group is committed ---- */
+fs.writeFileSync(S('warn_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',05/03/2026,charges total,10.00\n');
+fs.writeFileSync(S('warn_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',05/03/2026,fee a,5.00\n' +
+  ',05/03/2026,fee b,5.00\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

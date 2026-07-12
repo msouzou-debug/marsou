@@ -98,9 +98,16 @@ const newAppPage = async browser => {
   const wsM = wbPrev.Sheets['Συμφωνούν'];
   check('styled export: header carries the brand fill', !!(wsM && wsM.A1 && wsM.A1.s && wsM.A1.s.fgColor && wsM.A1.s.fgColor.rgb === '069FEC'), wsM && wsM.A1 && wsM.A1.s);
 
-  /* pack: add twice, export */
-  r = await page.evaluate(() => { addToPack(); addToPack(); return PACK.length; });
-  check('pack accumulates runs', r === 2, r);
+  /* pack: the same file pair must update its line, a new pair must append */
+  r = await page.evaluate(() => {
+    addToPack(); addToPack();          // same reconciliation twice
+    const dedup = PACK.length;
+    SIDES.B.name = 'TRANS_other.xlsx'; // a different reconciliation
+    addToPack();
+    return { dedup, total: PACK.length };
+  });
+  check('re-adding the same file pair updates instead of duplicating', r.dedup === 1, r);
+  check('a different file pair still appends to the pack', r.total === 2, r);
   const [dlP] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportPack())]);
   const packPath = path.join(__dirname, 'export_pack.xlsx');
   await dlP.saveAs(packPath);
@@ -285,6 +292,58 @@ const newAppPage = async browser => {
   console.log('COLS:', JSON.stringify(r));
   check('header grips rendered and widths survive a re-render', r.grips > 0 && r.fixed === true && r.w === '120px', r);
   check('description cells are clipped with a tooltip', r.clip === true, r);
+  await page.close();
+
+  /* ============ 7. v3.2: fee sweep (1 vs 65) + live warnings ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('sweep_A.csv'));
+  await page.setInputFiles('#fileB', S('sweep_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    props: RESULT.props.filter(p => p.members).map(p => [p.side, p.members.length, +p.diff.toFixed(2)]),
+  }));
+  console.log('SWEEP:', JSON.stringify(r));
+  check('one charges entry proposed against all 65 fee lines',
+    r.props.length === 1 && JSON.stringify(r.props[0]) === JSON.stringify(['A', 65, 0]), r.props);
+  r = await page.evaluate(() => {
+    RESULT.props.forEach(p => p.accepted = true); commitGroups();
+    return [RESULT.onlyA.filter(x => !inAccepted(x)).length, RESULT.onlyB.filter(x => !inAccepted(x)).length];
+  });
+  check('committing the sweep clears both sides', JSON.stringify(r) === JSON.stringify([0, 0]), r);
+  await page.close();
+
+  /* live warnings: the no-key duplicate alert clears once the items are explained */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('warn_A.csv'));
+  await page.setInputFiles('#fileB', S('warn_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => {
+    const w = document.getElementById('resWarn');
+    const before = { shown: !w.classList.contains('hidden'), text: w.textContent };
+    RESULT.props.forEach(p => p.accepted = true); commitGroups();
+    const after = { shown: !document.getElementById('resWarn').classList.contains('hidden') };
+    return { before, after };
+  });
+  console.log('LIVEWARN:', JSON.stringify(r));
+  check('duplicate warning shows while the identical fees are open',
+    r.before.shown === true && /διπλοεγγραφ|duplicate/i.test(r.before.text), r.before);
+  check('duplicate warning clears after the group is committed', r.after.shown === false, r.after);
   await page.close();
 
   await browser.close();

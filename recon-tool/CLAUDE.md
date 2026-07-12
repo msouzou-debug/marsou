@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v3.1**.
+internet. All data stays on the local machine. Current version: **v3.2**.
 
 ## Architecture
 
@@ -112,6 +112,13 @@ Expected values:
     Ίδιο ποσό labels. UI: `toggleSel` keeps the pane DOM node (no scroll
     reset); `.colgrip` handles render, and `COLW` widths survive a re-render
     (`table.fixedw`, th width 120px); desc cells have `td.clip` + tooltip.
+  - v3.2 — pack dedupe: `addToPack()` twice on the same files keeps
+    PACK.length 1; renaming `SIDES.B.name` then adding appends (total 2).
+  - v3.2 — sweep_A/sweep_B (no-key): ONE charges entry 90.00 vs 65 fee
+    lines (64×1.37 + 2.32) → exactly one proposal ['A', 65 members, diff 0]
+    via the take-all shortcut; committing clears both sides.
+  - v3.2 — warn_A/warn_B (no-key): two identical open 5.00 fees show the
+    live duplicate warning; committing the 10 = 5+5 group hides #resWarn.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
   flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
@@ -186,6 +193,13 @@ Expected values:
    it. After a run, warnings fire for: amount column used as key, one key
    value hoarding >20% of rows (degenerate key), zero/low match rates (with
    the suggested key named), and opposite-sign totals (suggest flip B).
+   **Live warnings** (v3.2, `liveWarns()`): `RESULT.warns` holds only the
+   SETUP-level warnings (flip, key-amount, degenerate key, keyed-run dups);
+   the match-rate warnings (keyed runs) and the duplicate warning for NO-KEY
+   runs (same amount + date among items STILL open) are recomputed on every
+   render, so they clear as the user commits groups or matches manually —
+   users complained the alert outlived the reconciliation. The banner shows
+   `[...R.warns, ...liveWarns()]`.
    **Sign auto-detect** (v3.0, `detectFlip()`): once both files are mapped,
    amount cent-counts are compared; when mirrored pairs dominate (flip ≥5 and
    flip > 2×same) `#flipB` is ticked automatically and `#signHint` says so —
@@ -220,15 +234,22 @@ Expected values:
    INTEGERS (never float-sum), same-sign candidates only, descending order
    with best-possible pruning, 60k node budget per target, ~4.5 s global time
    guard (`splitTruncated` flag + on-screen notice when hit).
+   **Take-all shortcut** (v3.2): before the batch heuristics, if the WHOLE
+   remaining pool (≤400 items, same sign, after date/prefix filters) sums to
+   the target within tolerance, the entire pool is proposed as one group —
+   the month-end shape of one bank-charges GL entry against every small fee
+   line on the statement (a user had to hand-select 71 fee lines before
+   this existed).
    **Large batches** (v2.5): when the DFS finds nothing, two cheap strategies
-   run with an internal cap of 60 members — `findGreedyCompose()` composes
+   run with an internal cap of 120 members (60 until v3.1) —
+   `findGreedyCompose()` composes
    the target from the largest available denominations downwards (13M =
    10 x 1M + 6 x 500k, the shape of real transfer batches; since v2.7 it
    RETRIES skipping progressively more of the largest denominations, so a
    big odd line can no longer dead-end it — 5.5M = 5 x 1M + 500k even with a
    2,557,349.29 line in the pool), then
    `findInstalments()` looks for k equal lines summing exactly to the target
-   (k = 2..60, exact cents division). Both respect the same-sign, date-window
+   (k = 2..120, exact cents division). Both respect the same-sign, date-window
    and prefix filters. Greedy: largest |amount| targets first; every item
    belongs to at most one group. Proposals
    are NEVER auto-applied: the user accepts each group (checkbox) in the
@@ -325,6 +346,8 @@ Expected values:
    sheet with one row per run, live per-run check formulas
    `ROUND(J-(E+G+I),2)` and a SUM totals row, plus one 'Εκκρεμή n / Open n'
    sheet per run. The pack lives in memory only (lost on reload).
+   Re-adding the SAME file pair (`entry.files` match) REPLACES the existing
+   line and reports `packUpd` instead of appending a duplicate (v3.2).
 7. **Reconciliation methodology** comes from the `reconciliation` skill
    (Anthropic finance plugin): open-item categories are exactly Timing
    difference / Adjustment required / Requires investigation; ageing buckets
@@ -362,7 +385,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v3.1)
+## Known limitations (v3.2)
 
 - Split search proposes 1-to-N only, same-sign combinations only; N-to-M
   groups come solely from the same-day pass, in no-key runs, exact date only.
