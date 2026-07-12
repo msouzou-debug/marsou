@@ -60,6 +60,19 @@ const ASSIGN = `
   check('HO⇄LIM pair: keyed match, residual 30 explained by R3 (50) vs R4 (20)',
     r.pairs.length === 2 && r.pairs[0][2] === 30 && r.pairs[0][3] === 30 && r.pairs[0][4] === 2 &&
     r.pairs[0][5] === 1 && r.pairs[0][6] === 1 && r.pairs[0][7] === true, r.pairs);
+  /* the reconciliation itself is retained and visible */
+  let rm = await page.evaluate(() => {
+    SELPAIR = 0; renderMatrix(); renderDrill();
+    return {
+      matched: MATRIX.pairs[0].matched.map(x => [x.key, x.ax, x.ay]),
+      detailsShown: !!document.querySelector('#drill details'),
+      matchedRows: document.querySelectorAll('#drill details tbody tr').length,
+    };
+  });
+  console.log('MATCHED:', JSON.stringify(rm));
+  check('matched entries retained with both sides of the amounts',
+    rm.matched.length === 2 && rm.matched.every(x => /R[12]/.test(x[0]) && x[1] === x[2]), rm.matched);
+  check('drill shows the matched-entries section', rm.detailsShown && rm.matchedRows === 2, rm);
   check('HO⇄LAR pair: line-matched with zero residual (no shared key volume)',
     r.pairs[1][3] === 0 && r.pairs[1][4] === 2 && r.pairs[1][5] === 0 && r.pairs[1][6] === 0 && r.pairs[1][7] === false, r.pairs);
   check('one-sided PAF file reported as missing counterparty', r.singles.length === 1 && /paf/.test(r.singles[0]), r.singles);
@@ -94,7 +107,10 @@ const ASSIGN = `
     wb.SheetNames[0] === 'Πίνακας' && wb.SheetNames.length === 4 && wb.SheetNames[3] === 'Τεκμηρίωση', wb.SheetNames);
   const wsM = wb.Sheets['Πίνακας'];
   check('gross difference is a live formula', wsM.D4 && wsM.D4.f === 'B4-C4' && Math.abs(wsM.D4.v - 30) < 0.005, wsM.D4);
-  check('open sums pull live from the pair sheet', /^SUM\('P1 [^']*'!E:E\)$/.test(wsM.F4 && wsM.F4.f || ''), wsM.F4 && wsM.F4.f);
+  check('open sums pull live from the pair sheet (bounded to the open block)',
+    /^SUM\('P1 [^']*'!E2:E3\)$/.test(wsM.F4 && wsM.F4.f || ''), wsM.F4 && wsM.F4.f);
+  check('matched-net is a live formula over the matched block',
+    /^SUM\('P1 [^']*'!E7:E8\)-SUM\('P1 [^']*'!F7:F8\)$/.test(wsM.E4 && wsM.E4.f || '') && Math.abs(wsM.E4.v) < 0.005, wsM.E4);
   check('residual and check row are live', wsM.H4 && wsM.H4.f === 'F4-G4' && wsM.I4 && wsM.I4.f === 'ROUND(D4-(E4+H4),2)' && wsM.I4.v === 0, { H: wsM.H4, I: wsM.I4 });
   check('uncategorised count is live (R4 still blank)', wsM.J4 && wsM.J4.v === 1 && /^COUNTBLANK\('P1 [^']*'!G2:G3\)$/.test(wsM.J4.f || ''), wsM.J4);
   check('open-items cell filled red while uncategorised remain', wsM.H4.s && wsM.H4.s.fgColor && wsM.H4.s.fgColor.rgb === 'F8DEDA', wsM.H4.s);
@@ -102,6 +118,9 @@ const ASSIGN = `
   const pairSheet = wb.Sheets[wb.SheetNames[1]];
   check('pair sheet lists R3 open on X with its category label',
     pairSheet.B2 && pairSheet.B2.v === 'R3' && pairSheet.E2 && pairSheet.E2.v === 50 && pairSheet.G2 && /Χρονική/.test(pairSheet.G2.v), { B: pairSheet.B2, E: pairSheet.E2, G: pairSheet.G2 });
+  check('pair sheet carries the matched block with live per-row differences',
+    pairSheet.A5 && /ΣΥΜΦΩΝΗΜΕΝΕΣ/.test(pairSheet.A5.v) && pairSheet.E7 && pairSheet.F7 && pairSheet.E7.v === pairSheet.F7.v &&
+    pairSheet.G7 && pairSheet.G7.f === 'E7-F7' && pairSheet.G7.v === 0, { A5: pairSheet.A5, E7: pairSheet.E7, G7: pairSheet.G7 });
 
   /* ============ 3b. bulk categorise turns the pair green ============ */
   r = await page.evaluate(() => {

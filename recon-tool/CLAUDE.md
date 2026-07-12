@@ -10,7 +10,7 @@ All data stays on the local machine. TWO tools share this repo:
    Current version: **v3.3**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.1**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.2**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -416,7 +416,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.1)
+## IC Matrix Tool (src/ic_template.html, v1.2)
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,
@@ -437,6 +437,11 @@ not imported; keep fixes in sync when touching shared logic.
   + date within ± days (cent buckets). `mirror` (default ON) flips side Y.
   Invariant: `raw = balX − balY` and `residual = ΣopenX − ΣopenY`;
   matched-net is DERIVED as raw − residual so the matrix check row is exact.
+  `matched[]` RETAINS every match ({key, descX, descY, date, ax, ay}) —
+  v1.2 was forced by a real run where everything on side Y matched: the
+  user saw an empty Y table and read it as "no numbers load for Y". The
+  drill shows a collapsible 'Συμφωνημένες εγγραφές' table (capped at 800
+  rows on screen, full list in the export).
 - **Matrix UI** (v1.1 semantics — IMPORTANT): a pair's difference is fully
   itemised BY CONSTRUCTION, so "residual ≤ tol" is the WRONG green test
   (real IC pairs almost always keep timing items — the first real run showed
@@ -447,11 +452,16 @@ not imported; keep fixes in sync when touching shared logic.
   missing counterparty file (one-sided balance). `setCat`/`bulkCat` re-render
   the KPIs and matrix live; each drill table has a 'Categorise all' bulk
   select that fills only blank categories.
-- **Export**: 'Πίνακας' sheet — per pair: B/C cached balances, D=B−C,
-  E cached matched-net, F/G=SUM over the pair sheet's E/F columns, H=F−G,
-  I=ROUND(D−(E+H),2) must be 0, J=COUNTBLANK over the pair sheet's category
-  column (uncategorised count, live); H and J fill green when fully
-  categorised, red otherwise; totals row; singles listed with a note.
+- **Export**: each pair sheet = open-items block (rows 2..lastOpen) THEN a
+  blank row, a 'ΣΥΜΦΩΝΗΜΕΝΕΣ ΕΓΓΡΑΦΕΣ (n)' title, a header and the matched
+  rows (E=amt X, F=amt Y, G live '=Er-Fr'). 'Πίνακας' sheet — per pair:
+  B/C cached balances, D=B−C, E=LIVE SUM over the matched block
+  (E{mStart}:E{mEnd} minus F...), F/G=SUM over the OPEN block only
+  (E2:E{lastOpen} — never whole columns, the matched block sits below),
+  H=F−G, I=ROUND(D−(E+H),2) must be 0, J=COUNTBLANK(G2:G{lastOpen})
+  (uncategorised count, live); H and J fill green when fully categorised,
+  red otherwise; totals row; singles listed with a note. Ranges come from
+  `p._mRange` set while writing the pair sheet.
   Pair sheets 'Pn X⇄Y' (sanitized ≤31 chars): Side/Key/Desc/Date/Amt X/
   Amt Y/Category, category tints, autofilter. Documentation sheet lists every
   file's setup + balances + footer exclusions + preparer/reviewer lines.
@@ -466,6 +476,11 @@ not imported; keep fixes in sync when touching shared logic.
   `ENTITIES`, `MATRIX`, `SELPAIR`, functions `runMatrix()`, `renderMatrix()`,
   `renderDrill()`, `exportExcel()`, `saveProgress()`, `entLabel()`,
   `renderCards()`, `downloadManual()`.
+- **Greek copy rule** (v1.2): entity names are interpolated NOMINATIVE-only
+  — never write templates that put a name after an article in another case
+  («Τα βιβλία του {e}» broke on «Κεντρικά Γραφεία»). Card labels are
+  «Βιβλία» / «Έναντι» ("Books" / "Versus"); balances read
+  «{e} — δηλωμένο υπόλοιπο». Keep any new string genitive-safe.
 - v1 limitations: matching keys are auto-only (no manual key pick per pair);
   no split/N-to-M proposals inside the matrix (use the pairwise tool for
   deep work on one pair — the manuals cross-reference); no carry-forward.
