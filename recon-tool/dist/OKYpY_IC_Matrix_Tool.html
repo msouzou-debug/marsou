@@ -188,7 +188,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
     <h2 data-i18n="s2t">Ο πίνακας της οργάνωσης</h2>
     <div class="kpis" id="kpis"></div>
     <div class="mxwrap" id="mxwrap"></div>
-    <p class="hint" data-i18n="mxHint">Πράσινο: η διαφορά εξηγείται πλήρως από τις εκκρεμότητες που καταγράφονται. Κόκκινο: υπάρχει ανεξήγητο υπόλοιπο — πατήστε το κελί. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.</p>
+    <p class="hint" data-i18n="mxHint">Η διαφορά κάθε ζεύγους αναλύεται αυτόματα σε εκκρεμείς εγγραφές. Πράσινο ✓: όλες οι εκκρεμότητες έχουν χαρακτηριστεί — η συμφωνία είναι πλήρης. Κόκκινο: απομένουν αχαρακτήριστες εκκρεμότητες — πατήστε το κελί για να τις χαρακτηρίσετε. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.</p>
     <div class="drill hidden" id="drill"></div>
     <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
       <button class="bigbtn green" style="background:var(--okypy-green)" onclick="exportExcel()" data-i18n="exportX">Εξαγωγή Excel</button>
@@ -196,7 +196,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.0</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.1</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>
@@ -1727,23 +1727,24 @@ const I18N={
   tolL:"Όριο ανοχής (€)", daysL:"Παράθυρο ± ημερών (γραμμές χωρίς κλειδί)", mirrorL:"Κατοπτρικά πρόσημα (η απαίτηση του X είναι υποχρέωση του Y)",
   prepL:"Συντάκτης", run:"Κατάρτιση πίνακα",
   s2e:"Βημα 2", s2t:"Ο πίνακας της οργάνωσης",
-  mxHint:"Πράσινο: η διαφορά εξηγείται πλήρως από τις εκκρεμότητες που καταγράφονται. Κόκκινο: υπάρχει ανεξήγητο υπόλοιπο — πατήστε το κελί. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.",
-  exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.0",
+  mxHint:"Η διαφορά κάθε ζεύγους αναλύεται αυτόματα σε εκκρεμείς εγγραφές. Πράσινο ✓: όλες οι εκκρεμότητες έχουν χαρακτηριστεί — η συμφωνία είναι πλήρης. Κόκκινο: απομένουν αχαρακτήριστες εκκρεμότητες — πατήστε το κελί για να τις χαρακτηρίσετε. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.",
+  exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.1",
   entL:"Βιβλία της", cpL:"Για την", amtL:"Στήλη ποσού", crL:"Στήλη πίστωσης (−)", dateL:"Ημερομηνία", descL:"Περιγραφή",
   sheetL:"Φύλλο", hdrL:"Γραμμή τίτλων", rows:"γραμμές", none:"—", balL:"Καθαρό υπόλοιπο",
   needTwo:"Χρειάζονται τουλάχιστον δύο αρχεία.", needEnt:"Σε κάθε αρχείο πρέπει να οριστούν «Βιβλία της» και «Για την» (διαφορετικές μεταξύ τους).",
   dupRel:"Δύο αρχεία δηλώνουν την ίδια σχέση: {r}. Αφαιρέστε το ένα.",
   needAmt:"Ορίστε στήλη ποσού στο αρχείο «{f}».",
-  kPairs:"Ζεύγη", kOk:"Συμφωνούν", kBad:"Με ανεξήγητο υπόλοιπο", kMiss:"Χωρίς αντίστοιχο αρχείο", kResid:"Συνολικό ανεξήγητο",
-  cellMiss:"λείπει αρχείο", diagLbl:"—",
+  kPairs:"Ζεύγη", kOk:"Πλήρως χαρακτηρισμένα", kBad:"Με αχαρακτήριστες εκκρεμότητες", kMiss:"Χωρίς αντίστοιχο αρχείο", kResid:"Καθαρές εκκρεμότητες",
+  cellMiss:"λείπει αρχείο", diagLbl:"—", cellUncat:"{n} αχαρακτ.",
   drillT:"{x} ⇄ {y}", dSaysX:"Τα βιβλία του {e} δηλώνουν", dSaysY:"Τα βιβλία του {e} δηλώνουν (κατοπτρικά)",
-  dRaw:"Ακαθάριστη διαφορά", dMatched:"Συμφωνήθηκαν", dResid:"Ανεξήγητο υπόλοιπο", items:"εγγραφές",
+  dRaw:"Ακαθάριστη διαφορά", dMatched:"Συμφωνήθηκαν", dResid:"Καθαρές εκκρεμότητες", dUncat:"Αχαρακτήριστες", items:"εγγραφές",
+  bulkL:"Χαρακτηρισμός όλων:",
   openIn:"Εκκρεμή στα βιβλία:", key:"Κλειδί", desc:"Περιγραφή", date:"Ημ/νία", amt:"Ποσό", age:"Ηλικία", cat:"Κατηγορία",
   catT:"Χρονική διαφορά", catA:"Απαιτείται εγγραφή", catI:"Προς διερεύνηση", emptyTab:"Καμία εγγραφή.",
   keyVia:"Κλειδί αντιστοίχισης: {a} ⇄ {b}", keyLine:"Χωρίς κοινό κλειδί — αντιστοίχιση γραμμών κατά ποσό και ημερομηνία",
   loaded:"Φορτώθηκε.", progSaved:"Αποθηκεύτηκε.", progApplied:"Η πρόοδος εφαρμόστηκε.", progPend:"Η πρόοδος θα εφαρμοστεί μετά την κατάρτιση.", progBad:"Μη έγκυρο αρχείο προόδου.",
   xMatrix:"Πίνακας", xDoc:"Τεκμηρίωση", xPair:"Ζεύγος", xSaysX:"Δηλώνει X", xSaysY:"Δηλώνει Y (κατοπτρικά)", xRaw:"Ακαθ. διαφορά",
-  xMatched:"Συμφωνημένα (καθαρό)", xOpenX:"Εκκρεμή X", xOpenY:"Εκκρεμή Y", xResid:"Ανεξήγητο", xCheck:"Έλεγχος", xTotal:"ΣΥΝΟΛΟ",
+  xMatched:"Συμφωνημένα (καθαρό)", xOpenX:"Εκκρεμή X", xOpenY:"Εκκρεμή Y", xResid:"Εκκρεμότητες (καθαρό)", xCheck:"Έλεγχος", xTotal:"ΣΥΝΟΛΟ", xUncat:"Αχαρακτήριστα",
   xSide:"Πλευρά", xMissNote:"χωρίς αρχείο αντισυμβαλλομένου — μονομερές υπόλοιπο",
   xDocT:"ΤΕΚΜΗΡΙΩΣΗ ΠΙΝΑΚΑ ΕΝΔΟΟΜΙΛΙΚΩΝ", xFile:"Αρχείο", xEnt:"Βιβλία της", xCp:"Για την", xSheet:"Φύλλο", xHdr:"Γραμμή τίτλων",
   xBal:"Καθαρό υπόλοιπο", xFooter:"Γραμμές συνόλου που εξαιρέθηκαν", xPrep:"Συντάκτης", xRev:"Ελέγχθηκε από (υπογραφή)", xDate:"Ημερομηνία",
@@ -1759,23 +1760,24 @@ const I18N={
   tolL:"Tolerance (€)", daysL:"± day window (keyless lines)", mirrorL:"Mirrored signs (X's receivable is Y's payable)",
   prepL:"Preparer", run:"Build the matrix",
   s2e:"Step 2", s2t:"The organisation's matrix",
-  mxHint:"Green: the difference is fully explained by the listed open items. Red: an unexplained residual remains — click the cell. Grey: the counterparty file is missing.",
-  exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v1.0",
+  mxHint:"Each pair's difference is automatically broken down into open items. Green ✓: every open item has been categorised — the reconciliation is complete. Red: uncategorised items remain — click the cell to categorise them. Grey: the counterparty file is missing.",
+  exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v1.1",
   entL:"Books of", cpL:"About", amtL:"Amount column", crL:"Credit column (−)", dateL:"Date", descL:"Description",
   sheetL:"Sheet", hdrL:"Header row", rows:"rows", none:"—", balL:"Net balance",
   needTwo:"At least two files are needed.", needEnt:"Every file needs “Books of” and “About” set (and different from each other).",
   dupRel:"Two files declare the same relationship: {r}. Remove one.",
   needAmt:"Set the amount column on file “{f}”.",
-  kPairs:"Pairs", kOk:"Agreed", kBad:"Unexplained residual", kMiss:"Missing counterparty file", kResid:"Total unexplained",
-  cellMiss:"file missing", diagLbl:"—",
+  kPairs:"Pairs", kOk:"Fully categorised", kBad:"With uncategorised items", kMiss:"Missing counterparty file", kResid:"Net open items",
+  cellMiss:"file missing", diagLbl:"—", cellUncat:"{n} uncategorised",
   drillT:"{x} ⇄ {y}", dSaysX:"The books of {e} state", dSaysY:"The books of {e} state (mirrored)",
-  dRaw:"Gross difference", dMatched:"Matched", dResid:"Unexplained residual", items:"items",
+  dRaw:"Gross difference", dMatched:"Matched", dResid:"Net open items", dUncat:"Uncategorised", items:"items",
+  bulkL:"Categorise all:",
   openIn:"Open in the books of:", key:"Key", desc:"Description", date:"Date", amt:"Amount", age:"Age", cat:"Category",
   catT:"Timing difference", catA:"Adjustment required", catI:"Requires investigation", emptyTab:"No items.",
   keyVia:"Matching key: {a} ⇄ {b}", keyLine:"No shared key — lines matched on amount and date",
   loaded:"Loaded.", progSaved:"Saved.", progApplied:"Progress applied.", progPend:"Progress will apply after the build.", progBad:"Not a valid progress file.",
   xMatrix:"Matrix", xDoc:"Documentation", xPair:"Pair", xSaysX:"X states", xSaysY:"Y states (mirrored)", xRaw:"Gross difference",
-  xMatched:"Matched (net)", xOpenX:"Open X", xOpenY:"Open Y", xResid:"Unexplained", xCheck:"Check", xTotal:"TOTAL",
+  xMatched:"Matched (net)", xOpenX:"Open X", xOpenY:"Open Y", xResid:"Open items (net)", xCheck:"Check", xTotal:"TOTAL", xUncat:"Uncategorised",
   xSide:"Side", xMissNote:"no counterparty file — one-sided balance",
   xDocT:"INTERCOMPANY MATRIX DOCUMENTATION", xFile:"File", xEnt:"Books of", xCp:"About", xSheet:"Sheet", xHdr:"Header row",
   xBal:"Net balance", xFooter:"Total rows excluded", xPrep:"Preparer", xRev:"Reviewed by (signature)", xDate:"Date",
@@ -2139,9 +2141,17 @@ function runMatrix(){
   document.getElementById('stepMx').scrollIntoView({behavior:'smooth'});
 }
 function kpi(l,v,cls){return '<div class="kpi '+cls+'"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'}
+/* a pair is DONE when its difference is fully itemised (true by
+   construction) AND every open item carries a category — the sign-off
+   state. Real IC pairs almost always keep open (timing) items, so
+   "residual = 0" was the wrong test for the green cell. */
+function pairState(p){
+  const uncat=p.openX.filter(r=>!r.cat).length+p.openY.filter(r=>!r.cat).length;
+  return {open:p.openX.length+p.openY.length,uncat,ok:uncat===0};
+}
 function renderKpis(){
   const M=MATRIX;if(!M)return;
-  const ok=M.pairs.filter(p=>Math.abs(p.residual)<=M.tol).length;
+  const ok=M.pairs.filter(p=>pairState(p).ok).length;
   const bad=M.pairs.length-ok;
   const resid=M.pairs.reduce((s,p)=>s+Math.abs(p.residual),0);
   document.getElementById('kpis').innerHTML=
@@ -2149,7 +2159,7 @@ function renderKpis(){
     kpi(t('kOk'),ok,ok===M.pairs.length&&M.pairs.length?'green':'')+
     kpi(t('kBad'),bad,bad?'red':'green')+
     kpi(t('kMiss'),M.singles.length,M.singles.length?'red':'green')+
-    kpi(t('kResid'),fmtNum(resid)+' €',resid>M.tol?'red':'green');
+    kpi(t('kResid'),fmtNum(resid)+' €','');
 }
 function pairAt(e1,e2){
   return MATRIX.pairs.findIndex(p=>(p.entX===e1&&p.entY===e2)||(p.entX===e2&&p.entY===e1));
@@ -2165,9 +2175,12 @@ function renderMatrix(){
       const pi=pairAt(e1,e2);
       if(pi>=0){
         const p=M.pairs[pi];
-        const ok=Math.abs(p.residual)<=M.tol;
-        h+='<td class="'+(ok?'ok':'bad')+(SELPAIR===pi?' sel':'')+'"><button class="cellbtn" onclick="SELPAIR='+pi+';renderMatrix();renderDrill();document.getElementById(\'drill\').scrollIntoView({behavior:\'smooth\'})">'+
-           (ok?'✓':fmtNum(p.residual))+'</button></td>';
+        const st=pairState(p);
+        const inner=st.ok
+          ?'✓'+(st.open?'<br><span style="font-weight:400;font-size:10.5px">'+fmtNum(p.residual)+'</span>':'')
+          :fmtNum(p.residual)+'<br><span style="font-weight:400;font-size:10.5px">'+t('cellUncat').replace('{n}',st.uncat)+'</span>';
+        h+='<td class="'+(st.ok?'ok':'bad')+(SELPAIR===pi?' sel':'')+'"><button class="cellbtn" onclick="SELPAIR='+pi+';renderMatrix();renderDrill();document.getElementById(\'drill\').scrollIntoView({behavior:\'smooth\'})">'+
+           inner+'</button></td>';
       }else{
         const single=M.singles.find(f=>(f.entity===e1&&f.cp===e2)||(f.entity===e2&&f.cp===e1));
         h+=single?'<td class="miss"><span class="mtxt">'+t('cellMiss')+'<br>'+fmtNum(single.balance)+'</span></td>':'<td class="miss"></td>';
@@ -2177,9 +2190,23 @@ function renderMatrix(){
   });
   document.getElementById('mxwrap').innerHTML=h+'</tbody></table>';
 }
+function setCat(pi,side,idx,v){
+  MATRIX.pairs[pi][side==='X'?'openX':'openY'][idx].cat=v;
+  renderKpis();renderMatrix(); // cell state follows the categorisation live
+}
+function bulkCat(pi,side,v){
+  if(v==='')return;
+  MATRIX.pairs[pi][side==='X'?'openX':'openY'].forEach(r=>{if(!r.cat)r.cat=v;});
+  renderKpis();renderMatrix();renderDrill();
+}
 function catSel(pi,side,idx,cat){
-  return '<select class="catsel" onchange="MATRIX.pairs['+pi+'].'+(side==='X'?'openX':'openY')+'['+idx+'].cat=this.value">'+
+  return '<select class="catsel" onchange="setCat('+pi+',\''+side+'\','+idx+',this.value)">'+
     ['','catT','catA','catI'].map(c=>'<option value="'+c+'"'+(cat===c?' selected':'')+'>'+(c?t(c):'—')+'</option>').join('')+'</select>';
+}
+function bulkSel(pi,side){
+  return '<span style="font-weight:400;font-size:11.5px;color:var(--okypy-muted)">'+t('bulkL')+'</span> '+
+    '<select class="catsel bulk" onchange="bulkCat('+pi+',\''+side+'\',this.value);this.value=\'\'">'+
+    ['','catT','catA','catI'].map(c=>'<option value="'+c+'">'+(c?t(c):'—')+'</option>').join('')+'</select>';
 }
 function openTable(pi,items,side){
   if(!items.length)return '<div class="emptytab">'+t('emptyTab')+'</div>';
@@ -2195,7 +2222,7 @@ function renderDrill(){
   if(!MATRIX||SELPAIR<0||!MATRIX.pairs[SELPAIR]){el.classList.add('hidden');return;}
   const p=MATRIX.pairs[SELPAIR];
   el.classList.remove('hidden');
-  const ok=Math.abs(p.residual)<=MATRIX.tol;
+  const st=pairState(p);
   el.innerHTML=
     '<h3>'+t('drillT').replace('{x}',esc(entLabel(p.entX))).replace('{y}',esc(entLabel(p.entY)))+'</h3>'+
     '<div class="hint">'+(p.key?t('keyVia').replace('{a}',esc(p.key.c1)).replace('{b}',esc(p.key.c2)):t('keyLine'))+'</div>'+
@@ -2204,11 +2231,14 @@ function renderDrill(){
       '<span class="dstat">'+t('dSaysY').replace('{e}',esc(entLabel(p.entY)))+': <b'+(p.balY<0?' class="neg"':'')+'>'+fmtNum(p.balY)+' €</b></span>'+
       '<span class="dstat">'+t('dRaw')+': <b'+(p.raw<0?' class="neg"':'')+'>'+fmtNum(p.raw)+' €</b></span>'+
       '<span class="dstat">'+t('dMatched')+': <b>'+p.matchedN+' '+t('items')+'</b></span>'+
-      '<span class="dstat">'+t('dResid')+': <b class="'+(ok?'':'neg')+'">'+fmtNum(p.residual)+' €</b></span>'+
+      '<span class="dstat">'+t('dResid')+': <b'+(p.residual<0?' class="neg"':'')+'>'+fmtNum(p.residual)+' €</b></span>'+
+      '<span class="dstat">'+t('dUncat')+': <b class="'+(st.uncat?'neg':'')+'">'+st.uncat+'</b></span>'+
     '</div>'+
     '<div class="twocol">'+
-      '<div><div class="sidehead"><span class="pill b">X</span>'+t('openIn')+' '+esc(entLabel(p.entX))+' ('+p.openX.length+')</div><div class="paneh">'+openTable(SELPAIR,p.openX,'X')+'</div></div>'+
-      '<div><div class="sidehead"><span class="pill g">Y</span>'+t('openIn')+' '+esc(entLabel(p.entY))+' ('+p.openY.length+')</div><div class="paneh">'+openTable(SELPAIR,p.openY,'Y')+'</div></div>'+
+      '<div><div class="sidehead"><span class="pill b">X</span>'+t('openIn')+' '+esc(entLabel(p.entX))+' ('+p.openX.length+')'+
+        (p.openX.length?'<span style="flex:1"></span>'+bulkSel(SELPAIR,'X'):'')+'</div><div class="paneh">'+openTable(SELPAIR,p.openX,'X')+'</div></div>'+
+      '<div><div class="sidehead"><span class="pill g">Y</span>'+t('openIn')+' '+esc(entLabel(p.entY))+' ('+p.openY.length+')'+
+        (p.openY.length?'<span style="flex:1"></span>'+bulkSel(SELPAIR,'Y'):'')+'</div><div class="paneh">'+openTable(SELPAIR,p.openY,'Y')+'</div></div>'+
     '</div>';
 }
 /* ================= excel export (styled, live formulas) ================= */
@@ -2255,38 +2285,43 @@ function exportExcel(){
   });
   /* matrix summary sheet with live cross-sheet formulas */
   const rows=[
-    [el?'ΠΙΝΑΚΑΣ ΕΝΔΟΟΜΙΛΙΚΩΝ ΣΥΜΦΩΝΙΩΝ':'INTERCOMPANY RECONCILIATION MATRIX','','','','','','','',''],
+    [el?'ΠΙΝΑΚΑΣ ΕΝΔΟΟΜΙΛΙΚΩΝ ΣΥΜΦΩΝΙΩΝ':'INTERCOMPANY RECONCILIATION MATRIX','','','','','','','','',''],
     [''],
-    [t('xPair'),t('xSaysX'),t('xSaysY'),t('xRaw'),t('xMatched'),t('xOpenX'),t('xOpenY'),t('xResid'),t('xCheck')]
+    [t('xPair'),t('xSaysX'),t('xSaysY'),t('xRaw'),t('xMatched'),t('xOpenX'),t('xOpenY'),t('xResid'),t('xCheck'),t('xUncat')]
   ];
-  M.pairs.forEach(p=>rows.push([entLabel(p.entX)+' ⇄ '+entLabel(p.entY),p.balX,p.balY,null,p.raw-p.residual,null,null,null,null]));
-  M.singles.forEach(f=>rows.push([entLabel(f.entity)+' → '+entLabel(f.cp)+' — '+t('xMissNote'),f.balance,null,null,null,null,null,null,null]));
-  rows.push([t('xTotal'),null,null,null,null,null,null,null,null]);
+  M.pairs.forEach(p=>rows.push([entLabel(p.entX)+' ⇄ '+entLabel(p.entY),p.balX,p.balY,null,p.raw-p.residual,null,null,null,null,null]));
+  M.singles.forEach(f=>rows.push([entLabel(f.entity)+' → '+entLabel(f.cp)+' — '+t('xMissNote'),f.balance,null,null,null,null,null,null,null,null]));
+  rows.push([t('xTotal'),null,null,null,null,null,null,null,null,null]);
   const wsM=XLSX.utils.aoa_to_sheet(rows);
   M.pairs.forEach((p,i)=>{
     const r=4+i, sn=q(sheetNames[i]);
+    const st=pairState(p), last=1+p.openX.length+p.openY.length;
     wsM['D'+r]={t:'n',v:p.raw,f:'B'+r+'-C'+r,z:eurofmt};
     wsM['F'+r]={t:'n',v:p.openX.reduce((s,x)=>s+x.amt,0),f:'SUM('+sn+'!E:E)',z:eurofmt};
     wsM['G'+r]={t:'n',v:p.openY.reduce((s,x)=>s+x.amt,0),f:'SUM('+sn+'!F:F)',z:eurofmt};
     wsM['H'+r]={t:'n',v:p.residual,f:'F'+r+'-G'+r,z:eurofmt};
     wsM['I'+r]={t:'n',v:Math.round((p.raw-((p.raw-p.residual)+p.residual))*100)/100,f:'ROUND(D'+r+'-(E'+r+'+H'+r+'),2)',z:eurofmt};
+    if(last>1)wsM['J'+r]={t:'n',v:st.uncat,f:'COUNTBLANK('+sn+'!G2:G'+last+')'};
+    else wsM['J'+r]={t:'n',v:0};
     ['B','C','E'].forEach(c=>{const cell=wsM[c+r];if(cell&&cell.t==='n')cell.z=eurofmt;});
-    const ok=Math.abs(p.residual)<=M.tol;
-    styleCell(wsM,'H'+r,ok?ST.ok:ST.bad);
+    // green = every open item categorised (the sign-off state); red otherwise
+    styleCell(wsM,'H'+r,st.ok?ST.ok:ST.bad);
+    styleCell(wsM,'J'+r,st.ok?ST.ok:ST.bad);
     styleCell(wsM,'I'+r,ST.ok);
   });
   const tot=4+M.pairs.length+M.singles.length;
   if(M.pairs.length){
-    ['B','C','D','F','G','H'].forEach(c=>{
-      wsM[c+tot]={t:'n',v:M.pairs.reduce((s,p)=>s+({B:p.balX,C:p.balY,D:p.raw,F:p.openX.reduce((a,x)=>a+x.amt,0),G:p.openY.reduce((a,x)=>a+x.amt,0),H:p.residual})[c],0),
-        f:'SUM('+c+'4:'+c+(tot-1)+')',z:eurofmt};
+    ['B','C','D','F','G','H','J'].forEach(c=>{
+      wsM[c+tot]={t:'n',v:M.pairs.reduce((s,p)=>s+({B:p.balX,C:p.balY,D:p.raw,F:p.openX.reduce((a,x)=>a+x.amt,0),G:p.openY.reduce((a,x)=>a+x.amt,0),H:p.residual,J:pairState(p).uncat})[c],0),
+        f:'SUM('+c+'4:'+c+(tot-1)+')'};
+      if(c!=='J')wsM[c+tot].z=eurofmt;
     });
   }
   M.singles.forEach((f,j)=>{const r=4+M.pairs.length+j;const cell=wsM['B'+r];if(cell&&cell.t==='n')cell.z=eurofmt;});
-  wsM['!ref']='A1:I'+tot;
+  wsM['!ref']='A1:J'+tot;
   styleCell(wsM,'A1',ST.title);
-  styleHead(wsM,9,3);
-  wsM['!cols']=[{wch:44},{wch:16},{wch:16},{wch:15},{wch:16},{wch:15},{wch:15},{wch:15},{wch:11}];
+  styleHead(wsM,10,3);
+  wsM['!cols']=[{wch:44},{wch:16},{wch:16},{wch:15},{wch:16},{wch:15},{wch:15},{wch:15},{wch:11},{wch:13}];
   XLSX.utils.book_append_sheet(wb,wsM,t('xMatrix'));
   wb.SheetNames.unshift(wb.SheetNames.pop()); // matrix first
   /* documentation */
@@ -2383,31 +2418,31 @@ document.getElementById('progFile').addEventListener('change',e=>{
 /* ================= manual ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών Συμφωνιών · Οδηγίες χρήσης (έκδοση 1.0)",
+  title:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών Συμφωνιών · Οδηγίες χρήσης (έκδοση 1.1)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκεντρώνει τα ενδοομιλικά καθολικά όλων των οντοτήτων — νοσοκομεία και Κεντρικά Γραφεία — και δείχνει σε έναν πίνακα ποια ζεύγη συμφωνούν, ποια έχουν ανεξήγητο υπόλοιπο και πού λείπει αρχείο. Για κάθε ζεύγος εκτελείται αυτόματη αντιστοίχιση, ώστε το κόκκινο κελί να σημαίνει πραγματικά ανεξήγητη διαφορά και όχι απλώς χρονική. Όλα γίνονται στο πρόγραμμα περιήγησης: τίποτα δεν εγκαθίσταται και τα δεδομένα δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Για τη λεπτομερή εργασία πάνω σε ένα μόνο ζεύγος λογαριασμών εξακολουθεί να υπάρχει το Εργαλείο Συμφωνιών του Οργανισμού — τα δύο εργαλεία συνεργάζονται.</p>"],
    ["Βήμα 1 — Αρχεία",
     "<p>Φορτώστε ένα αρχείο για κάθε σχέση: το καθολικό της οντότητας X για την οντότητα Y και, αντίστροφα, της Y για την X. Σε κάθε κάρτα δηλώνετε «Βιβλία της» (ποιανού είναι το καθολικό) και «Για την» (ποιον αντισυμβαλλόμενο αφορά). Το εργαλείο βρίσκει μόνο του το φύλλο, τη γραμμή τίτλων και τις στήλες — ποσό, πίστωση (για εξαγωγές SAP με χωριστές στήλες χρέωσης/πίστωσης), ημερομηνία, περιγραφή — και υπολογίζει το καθαρό υπόλοιπο του αρχείου, εξαιρώντας τη γραμμή γενικού συνόλου αν υπάρχει. Ελέγξτε το υπόλοιπο της κάρτας: αν συμφωνεί με το ισοζύγιο, οι στήλες διαβάστηκαν σωστά.</p><p>Στο «Μητρώο οντοτήτων» διορθώνετε ή προσθέτετε ονόματα, με τη μορφή «Ελληνικά / English».</p>"],
    ["Βήμα 2 — Ο πίνακας",
-    "<p>Με την «Κατάρτιση πίνακα» τα αρχεία ζευγαρώνουν αυτόματα (X για Y με Y για X) και για κάθε ζεύγος εκτελείται αντιστοίχιση: πρώτα ανά κοινό κλειδί — το εργαλείο εντοπίζει μόνο του τη στήλη αναφοράς που μοιράζονται τα δύο αρχεία — και έπειτα γραμμή προς γραμμή, με ίσο ποσό και κοντινή ημερομηνία. Με τα «κατοπτρικά πρόσημα» ενεργά, η απαίτηση της μίας πλευράς συγκρίνεται με την υποχρέωση της άλλης.</p><ul><li><strong>Πράσινο κελί ✓:</strong> ό,τι διαφορά υπάρχει εξηγείται πλήρως από τις καταγεγραμμένες εκκρεμότητες.</li><li><strong>Κόκκινο κελί:</strong> απομένει ανεξήγητο υπόλοιπο — πατήστε το για ανάλυση.</li><li><strong>Γκρίζο κελί:</strong> λείπει το αρχείο της άλλης πλευράς· φαίνεται το μονομερές υπόλοιπο.</li></ul><p>Στην ανάλυση ζεύγους βλέπετε τι δηλώνει κάθε πλευρά, την ακαθάριστη διαφορά, πόσες εγγραφές συμφωνήθηκαν και τις εκκρεμότητες κάθε πλευράς, όπου δίνετε χαρακτηρισμό: Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση.</p>"],
+    "<p>Με την «Κατάρτιση πίνακα» τα αρχεία ζευγαρώνουν αυτόματα (X για Y με Y για X) και για κάθε ζεύγος εκτελείται αντιστοίχιση: πρώτα ανά κοινό κλειδί — το εργαλείο εντοπίζει μόνο του τη στήλη αναφοράς που μοιράζονται τα δύο αρχεία — και έπειτα γραμμή προς γραμμή, με ίσο ποσό και κοντινή ημερομηνία. Με τα «κατοπτρικά πρόσημα» ενεργά, η απαίτηση της μίας πλευράς συγκρίνεται με την υποχρέωση της άλλης.</p><p>Η διαφορά κάθε ζεύγους αναλύεται πάντα πλήρως σε συγκεκριμένες εκκρεμείς εγγραφές — αυτό επιβεβαιώνεται από τη γραμμή ελέγχου του Excel. Το χρώμα του κελιού δείχνει πόση δουλειά απομένει:</p><ul><li><strong>Πράσινο κελί ✓:</strong> κάθε εκκρεμότητα έχει πάρει χαρακτηρισμό — η συμφωνία είναι πλήρης και έτοιμη για υπογραφή. Το καθαρό ποσό των εκκρεμοτήτων φαίνεται από κάτω.</li><li><strong>Κόκκινο κελί:</strong> απομένουν αχαρακτήριστες εκκρεμότητες — το κελί δείχνει το ποσό και πόσες είναι. Πατήστε το για να τις χαρακτηρίσετε.</li><li><strong>Γκρίζο κελί:</strong> λείπει το αρχείο της άλλης πλευράς· φαίνεται το μονομερές υπόλοιπο.</li></ul><p>Στην ανάλυση ζεύγους βλέπετε τι δηλώνει κάθε πλευρά, την ακαθάριστη διαφορά, πόσες εγγραφές συμφωνήθηκαν και τις εκκρεμότητες κάθε πλευράς, όπου δίνετε χαρακτηρισμό: Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Ο «Χαρακτηρισμός όλων» δίπλα σε κάθε πίνακα γεμίζει με μία κίνηση όσες εγγραφές δεν έχουν ακόμη χαρακτηρισμό — χρήσιμο όταν δεκάδες μεταφορές είναι όλες χρονικές διαφορές.</p>"],
    ["Εξαγωγή σε Excel",
-    "<p>Το βιβλίο περιλαμβάνει το φύλλο «Πίνακας» — μία γραμμή ανά ζεύγος με ζωντανούς τύπους: ακαθάριστη διαφορά, εκκρεμή κάθε πλευράς με SUM από τα αναλυτικά φύλλα, ανεξήγητο υπόλοιπο και γραμμή ελέγχου που πρέπει να δείχνει μηδέν — ένα αναλυτικό φύλλο ανά ζεύγος με τις εκκρεμότητες και τους χαρακτηρισμούς τους, και φύλλο Τεκμηρίωσης με τα αρχεία, τις στήλες, τα υπόλοιπα, τον συντάκτη και γραμμή υπογραφής ελεγκτή. Οι επικεφαλίδες και οι χαρακτηρισμοί έχουν τη χρωματική κωδικοποίηση του Οργανισμού.</p>"],
+    "<p>Το βιβλίο περιλαμβάνει το φύλλο «Πίνακας» — μία γραμμή ανά ζεύγος με ζωντανούς τύπους: ακαθάριστη διαφορά, εκκρεμή κάθε πλευράς με SUM από τα αναλυτικά φύλλα, καθαρές εκκρεμότητες, πλήθος αχαρακτήριστων εγγραφών και γραμμή ελέγχου που πρέπει να δείχνει μηδέν — ένα αναλυτικό φύλλο ανά ζεύγος με τις εκκρεμότητες και τους χαρακτηρισμούς τους, και φύλλο Τεκμηρίωσης με τα αρχεία, τις στήλες, τα υπόλοιπα, τον συντάκτη και γραμμή υπογραφής ελεγκτή. Οι επικεφαλίδες και οι χαρακτηρισμοί έχουν τη χρωματική κωδικοποίηση του Οργανισμού.</p>"],
    ["Αποθήκευση της εργασίας σας",
     "<p>Η «Αποθήκευση προόδου» κατεβάζει ένα μικρό αρχείο JSON με το μητρώο, τις ρυθμίσεις, τη διάταξη κάθε αρχείου (οντότητα, αντισυμβαλλόμενος, φύλλο, στήλες) και τους χαρακτηρισμούς. Τον επόμενο μήνα φορτώνετε πρώτα την πρόοδο και μετά τα νέα αρχεία: κάθε αρχείο με το ίδιο όνομα στήνεται μόνο του. Στο πρόγραμμα περιήγησης δεν αποθηκεύεται τίποτα.</p>"]
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Intercompany Reconciliation Matrix · User manual (version 1.0)",
+  title:"OKYπY / SHSO — Intercompany Reconciliation Matrix · User manual (version 1.1)",
   sections:[
    ["What the tool does",
     "<p>It gathers every entity's intercompany ledgers — hospitals and Head Office — and shows, in one matrix, which pairs agree, which carry an unexplained residual, and where a file is missing. Each pair is auto-matched first, so a red cell means a genuinely unexplained difference rather than mere timing. Everything runs in your browser: nothing is installed and your data never leaves this computer.</p><p>For detailed work on a single pair of accounts, the organisation's Reconciliation Tool is still there — the two tools work together.</p>"],
    ["Step 1 — Files",
     "<p>Load one file per relationship: entity X's ledger about entity Y and, in reverse, Y's about X. On each card you state whose books they are (“Books of”) and whom they concern (“About”). The tool finds the sheet, the header row and the columns on its own — amount, credit (for SAP exports with separate debit/credit columns), date, description — and computes the file's net balance, excluding its grand-total line if one exists. Glance at the card's balance: if it agrees with the trial balance, the columns were read correctly.</p><p>The “Entity register” lets you correct or add names, written as “Greek / English”.</p>"],
    ["Step 2 — The matrix",
-    "<p>“Build the matrix” pairs the files automatically (X-about-Y with Y-about-X) and reconciles each pair: first by shared key — the tool finds the reference column the two files have in common — then line by line on equal amount and nearby date. With “mirrored signs” on, one side's receivable is compared against the other side's payable.</p><ul><li><strong>Green cell ✓:</strong> whatever difference exists is fully explained by the recorded open items.</li><li><strong>Red cell:</strong> an unexplained residual remains — click it to drill in.</li><li><strong>Grey cell:</strong> the counterparty's file is missing; the one-sided balance is shown.</li></ul><p>The pair view shows what each side states, the gross difference, how many items matched, and each side's open items, where you set a category: Timing difference, Adjustment required, or Requires investigation.</p>"],
+    "<p>“Build the matrix” pairs the files automatically (X-about-Y with Y-about-X) and reconciles each pair: first by shared key — the tool finds the reference column the two files have in common — then line by line on equal amount and nearby date. With “mirrored signs” on, one side's receivable is compared against the other side's payable.</p><p>Each pair's difference is always broken down in full into specific open items — the Excel check line confirms it. The cell's colour shows how much work is left:</p><ul><li><strong>Green cell ✓:</strong> every open item carries a category — the reconciliation is complete and ready to sign. The net open amount shows underneath.</li><li><strong>Red cell:</strong> uncategorised open items remain — the cell shows the amount and how many. Click it to categorise them.</li><li><strong>Grey cell:</strong> the counterparty's file is missing; the one-sided balance is shown.</li></ul><p>The pair view shows what each side states, the gross difference, how many items matched, and each side's open items, where you set a category: Timing difference, Adjustment required, or Requires investigation. The “Categorise all” control beside each table fills every not-yet-categorised item in one move — handy when dozens of transfers are all timing differences.</p>"],
    ["The Excel export",
-    "<p>The workbook holds the “Matrix” sheet — one row per pair with live formulas: gross difference, each side's open items as SUMs over the detail sheets, the unexplained residual and a check line that must show zero — one detail sheet per pair with its open items and categories, and a Documentation sheet with the files, columns, balances, preparer and a reviewer sign-off line. Headers and categories carry the organisation's colour coding.</p>"],
+    "<p>The workbook holds the “Matrix” sheet — one row per pair with live formulas: gross difference, each side's open items as SUMs over the detail sheets, the net open items, the count of uncategorised entries and a check line that must show zero — one detail sheet per pair with its open items and categories, and a Documentation sheet with the files, columns, balances, preparer and a reviewer sign-off line. Headers and categories carry the organisation's colour coding.</p>"],
    ["Saving your work",
     "<p>“Save progress” downloads a small JSON file with the register, the settings, each file's setup (entity, counterparty, sheet, columns) and the categories. Next month, load the progress first and then the new files: any file with the same name sets itself up. Nothing is kept in the browser itself.</p>"]
   ]
@@ -2429,7 +2464,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Ενδοομιλικών_v1.0.html':'OKYPY_IC_Matrix_Manual_v1.0.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Ενδοομιλικών_v1.1.html':'OKYPY_IC_Matrix_Manual_v1.1.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

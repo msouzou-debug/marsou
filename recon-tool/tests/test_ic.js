@@ -63,21 +63,26 @@ const ASSIGN = `
   check('HO⇄LAR pair: line-matched with zero residual (no shared key volume)',
     r.pairs[1][3] === 0 && r.pairs[1][4] === 2 && r.pairs[1][5] === 0 && r.pairs[1][6] === 0 && r.pairs[1][7] === false, r.pairs);
   check('one-sided PAF file reported as missing counterparty', r.singles.length === 1 && /paf/.test(r.singles[0]), r.singles);
-  check('matrix cells: 2 green (symmetric), 2 red, one-sided balance shown',
+  // green = fully categorised: LAR pair has no open items (trivially done),
+  // LIM pair has 2 uncategorised items -> red until they are categorised
+  check('matrix cells: 2 green (symmetric), 2 red-with-uncategorised, one-sided balance shown',
     r.cells.ok === 2 && r.cells.bad === 2 && r.cells.missTxt === 2, r.cells);
 
-  /* ============ 2. drill-down + category ============ */
+  /* ============ 2. drill-down + category (cell state follows live) ============ */
   r = await page.evaluate(() => {
     SELPAIR = 0; renderMatrix(); renderDrill();
-    MATRIX.pairs[0].openX[0].cat = 'catT';
+    setCat(0, 'X', 0, 'catT'); // R3 categorised; R4 still open
     renderDrill();
     return {
       drillShown: !document.getElementById('drill').classList.contains('hidden'),
       openXKeys: MATRIX.pairs[0].openX.map(x => x.key),
-      catSel: document.querySelector('#drill .catsel').value,
+      catSel: document.querySelector('#drill .paneh .catsel').value,
+      stillBad: document.querySelectorAll('table.mx td.bad').length,
+      uncatShown: document.querySelector('#drill .drillhead').textContent,
     };
   });
   check('drill-down opens with the open items and keeps the category', r.drillShown && JSON.stringify(r.openXKeys) === JSON.stringify(['R3']) && r.catSel === 'catT', r);
+  check('cell stays red while one item is uncategorised', r.stillBad === 2 && /1/.test(r.uncatShown), r.stillBad);
 
   /* ============ 3. styled export with live formulas ============ */
   const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
@@ -91,10 +96,24 @@ const ASSIGN = `
   check('gross difference is a live formula', wsM.D4 && wsM.D4.f === 'B4-C4' && Math.abs(wsM.D4.v - 30) < 0.005, wsM.D4);
   check('open sums pull live from the pair sheet', /^SUM\('P1 [^']*'!E:E\)$/.test(wsM.F4 && wsM.F4.f || ''), wsM.F4 && wsM.F4.f);
   check('residual and check row are live', wsM.H4 && wsM.H4.f === 'F4-G4' && wsM.I4 && wsM.I4.f === 'ROUND(D4-(E4+H4),2)' && wsM.I4.v === 0, { H: wsM.H4, I: wsM.I4 });
+  check('uncategorised count is live (R4 still blank)', wsM.J4 && wsM.J4.v === 1 && /^COUNTBLANK\('P1 [^']*'!G2:G3\)$/.test(wsM.J4.f || ''), wsM.J4);
+  check('open-items cell filled red while uncategorised remain', wsM.H4.s && wsM.H4.s.fgColor && wsM.H4.s.fgColor.rgb === 'F8DEDA', wsM.H4.s);
   check('header carries the brand fill', wsM.A3 && wsM.A3.s && wsM.A3.s.fgColor && wsM.A3.s.fgColor.rgb === '069FEC', wsM.A3 && wsM.A3.s);
   const pairSheet = wb.Sheets[wb.SheetNames[1]];
   check('pair sheet lists R3 open on X with its category label',
     pairSheet.B2 && pairSheet.B2.v === 'R3' && pairSheet.E2 && pairSheet.E2.v === 50 && pairSheet.G2 && /Χρονική/.test(pairSheet.G2.v), { B: pairSheet.B2, E: pairSheet.E2, G: pairSheet.G2 });
+
+  /* ============ 3b. bulk categorise turns the pair green ============ */
+  r = await page.evaluate(() => {
+    bulkCat(0, 'Y', 'catT'); // the remaining R4
+    return {
+      ok: document.querySelectorAll('table.mx td.ok').length,
+      bad: document.querySelectorAll('table.mx td.bad').length,
+      kpiOk: document.querySelectorAll('.kpi .v')[1].textContent,
+      catY: MATRIX.pairs[0].openY[0].cat,
+    };
+  });
+  check('bulk categorise clears the pair to green', r.ok === 4 && r.bad === 0 && r.kpiOk === '2' && r.catY === 'catT', r);
 
   /* ============ 4. progress round trip ============ */
   const [dlP] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => saveProgress())]);

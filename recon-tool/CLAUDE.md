@@ -10,7 +10,7 @@ All data stays on the local machine. TWO tools share this repo:
    Current version: **v3.3**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.0**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.1**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -137,12 +137,16 @@ Expected values:
   with zero residual (Ref value sets too small for the key suggest → line
   mode, green ✓ cell), mx_ho_paf stays a single (grey cell shows the
   one-sided 75); matrix cells: 2 ok + 2 bad (symmetric) + 2 miss texts.
-  Drill-down lists the open items and holds categories. Export: 'Πίνακας'
-  sheet first with live formulas (D=B−C, F/G=SUM over the pair sheet's E/F,
-  H=F−G, I=ROUND(D−(E+H),2)=0), brand header fill, per-pair sheets with
-  category labels, 'Τεκμηρίωση' last. Progress JSON stores registry + per-file
-  setup (by filename) + categories; loading it BEFORE the files re-assigns
-  entities automatically and re-applies categories after the next build.
+  Drill-down lists the open items and holds categories; the cell stays red
+  while any item is uncategorised (`setCat` re-renders live) and `bulkCat`
+  turns the pair green (4 ok cells, KPI 'fully categorised' = 2). Export:
+  'Πίνακας' sheet first with live formulas (D=B−C, F/G=SUM over the pair
+  sheet's E/F, H=F−G, I=ROUND(D−(E+H),2)=0, J=COUNTBLANK category count,
+  H filled red while uncategorised remain), brand header fill, per-pair
+  sheets with category labels, 'Τεκμηρίωση' last. Progress JSON stores
+  registry + per-file setup (by filename) + categories; loading it BEFORE
+  the files re-assigns entities automatically and re-applies categories
+  after the next build.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
   flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
@@ -412,7 +416,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.0)
+## IC Matrix Tool (src/ic_template.html, v1.1)
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,
@@ -433,12 +437,21 @@ not imported; keep fixes in sync when touching shared logic.
   + date within ± days (cent buckets). `mirror` (default ON) flips side Y.
   Invariant: `raw = balX − balY` and `residual = ΣopenX − ΣopenY`;
   matched-net is DERIVED as raw − residual so the matrix check row is exact.
-- **Matrix UI**: green ✓ cell = |residual| ≤ tol (difference fully explained),
-  red = unexplained residual (click → drill with categories), grey = missing
-  counterparty file (shows the one-sided balance).
+- **Matrix UI** (v1.1 semantics — IMPORTANT): a pair's difference is fully
+  itemised BY CONSTRUCTION, so "residual ≤ tol" is the WRONG green test
+  (real IC pairs almost always keep timing items — the first real run showed
+  the perfectly reconciled HO⇄Limassol 11,995,952.00 as a red 'unexplained'
+  cell). `pairState(p)` drives everything: green ✓ = every open item
+  CATEGORISED (sign-off state; net open amount shown under the ✓), red =
+  n uncategorised items (amount + count shown; click → drill), grey =
+  missing counterparty file (one-sided balance). `setCat`/`bulkCat` re-render
+  the KPIs and matrix live; each drill table has a 'Categorise all' bulk
+  select that fills only blank categories.
 - **Export**: 'Πίνακας' sheet — per pair: B/C cached balances, D=B−C,
   E cached matched-net, F/G=SUM over the pair sheet's E/F columns, H=F−G,
-  I=ROUND(D−(E+H),2) must be 0; totals row; singles listed with a note.
+  I=ROUND(D−(E+H),2) must be 0, J=COUNTBLANK over the pair sheet's category
+  column (uncategorised count, live); H and J fill green when fully
+  categorised, red otherwise; totals row; singles listed with a note.
   Pair sheets 'Pn X⇄Y' (sanitized ≤31 chars): Side/Key/Desc/Date/Amt X/
   Amt Y/Category, category tints, autofilter. Documentation sheet lists every
   file's setup + balances + footer exclusions + preparer/reviewer lines.
