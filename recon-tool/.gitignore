@@ -15,3 +15,4 @@ tests/export_easy.xlsx
 tests/export_ic.xlsx
 tests/progress_ic.json
 tests/profile_v4.json
+tests/progress_ic2.json

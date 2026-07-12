@@ -181,6 +181,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
       <button class="bigbtn" id="runBtn" onclick="runMatrix()" data-i18n="run">Κατάρτιση πίνακα</button>
     </div>
     <div class="warn hidden" id="runWarn"></div>
+    <div class="hint hidden" id="runInfo"></div>
   </section>
   <!-- ================= step 2: matrix ================= -->
   <section class="step hidden" id="stepMx">
@@ -196,7 +197,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.2</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.3</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>__XLSX_LIB__</script>
@@ -214,9 +215,13 @@ const I18N={
   prepL:"Συντάκτης", run:"Κατάρτιση πίνακα",
   s2e:"Βημα 2", s2t:"Ο πίνακας του Οργανισμού",
   mxHint:"Η διαφορά κάθε ζεύγους αναλύεται αυτόματα σε εκκρεμείς εγγραφές. Πράσινο ✓: όλες οι εκκρεμότητες έχουν χαρακτηριστεί — η συμφωνία είναι πλήρης. Κόκκινο: απομένουν αχαρακτήριστες εκκρεμότητες — πατήστε το κελί για να τις χαρακτηρίσετε. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.",
-  exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.2",
+  exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.3",
   entL:"Βιβλία", cpL:"Έναντι", amtL:"Στήλη ποσού", crL:"Στήλη πίστωσης (−)", dateL:"Ημερομηνία", descL:"Περιγραφή",
   sheetL:"Φύλλο", hdrL:"Γραμμή τίτλων", rows:"γραμμές", none:"—", balL:"Καθαρό υπόλοιπο",
+  cpMulti:"Πολλοί αντισυμβαλλόμενοι…", cpColL:"Στήλη αντισυμβαλλομένου", mapT:"Αντιστοίχιση τιμών σε οντότητες",
+  mappedN:"{n} αντιστοιχισμένοι αντισυμβαλλόμενοι", manyVals:"{n} διαφορετικές τιμές — εμφανίζονται οι 40 συχνότερες.",
+  unmappedN:"«{f}»: {n} γραμμές χωρίς αντιστοιχισμένο αντισυμβαλλόμενο δεν συμπεριλήφθηκαν.",
+  needCpCol:"Στο αρχείο «{f}» επιλέξτε στήλη αντισυμβαλλομένου και αντιστοιχίστε τουλάχιστον μία τιμή.",
   needTwo:"Χρειάζονται τουλάχιστον δύο αρχεία.", needEnt:"Σε κάθε αρχείο πρέπει να συμπληρωθούν τα πεδία «Βιβλία» και «Έναντι», με διαφορετικές οντότητες.",
   dupRel:"Δύο αρχεία δηλώνουν την ίδια σχέση: {r}. Αφαιρέστε το ένα.",
   needAmt:"Ορίστε στήλη ποσού στο αρχείο «{f}».",
@@ -249,9 +254,13 @@ const I18N={
   prepL:"Preparer", run:"Build the matrix",
   s2e:"Step 2", s2t:"The organisation's matrix",
   mxHint:"Each pair's difference is automatically broken down into open items. Green ✓: every open item has been categorised — the reconciliation is complete. Red: uncategorised items remain — click the cell to categorise them. Grey: the counterparty file is missing.",
-  exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v1.2",
+  exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v1.3",
   entL:"Books", cpL:"Versus", amtL:"Amount column", crL:"Credit column (−)", dateL:"Date", descL:"Description",
   sheetL:"Sheet", hdrL:"Header row", rows:"rows", none:"—", balL:"Net balance",
+  cpMulti:"Multiple counterparties…", cpColL:"Counterparty column", mapT:"Map values to entities",
+  mappedN:"{n} counterparties mapped", manyVals:"{n} distinct values — showing the 40 most frequent.",
+  unmappedN:"“{f}”: {n} rows with no mapped counterparty were left out.",
+  needCpCol:"On file “{f}”, pick the counterparty column and map at least one value.",
   needTwo:"At least two files are needed.", needEnt:"Every file needs “Books” and “Versus” set (and different from each other).",
   dupRel:"Two files declare the same relationship: {r}. Remove one.",
   needAmt:"Set the amount column on file “{f}”.",
@@ -459,6 +468,54 @@ function entOptions(sel){
   return '<option value="">'+t('none')+'</option>'+ENTITIES.filter(Boolean).map(n=>
     '<option value="'+esc(n)+'"'+(sel===n?' selected':'')+'>'+esc(entLabel(n))+'</option>').join('');
 }
+/* one file, many counterparties: split by a column's values */
+function setCp(id,v){
+  const f=FILES.find(x=>x.id===id); if(!f)return;
+  if(v==='*'){f.cpMode='multi';f.cp='';}
+  else{f.cpMode='one';f.cp=v;f.cpCol='';f.cpMap={};}
+  renderCards();
+}
+function setCpCol(id,col){
+  const f=FILES.find(x=>x.id===id); if(!f)return;
+  f.cpCol=col; f.cpMap={};
+  if(col)distinctVals(f).forEach(v=>{const g=guessEnt(v); if(g)f.cpMap[v]=g;});
+  renderCards();
+}
+function distinctVals(f){
+  const m=new Map();
+  if(!f.rows||!f.cpCol)return [];
+  f.rows.forEach(r=>{
+    const v=String(r[f.cpCol]??'').trim();
+    if(!v)return;
+    m.set(v,(m.get(v)||0)+1);
+  });
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(([v])=>v);
+}
+function guessEnt(val){
+  const s=String(val).toUpperCase();
+  return ENTITIES.filter(Boolean).find(n=>{
+    return n.split(' / ').some(part=>{
+      const p=part.toUpperCase();
+      return p&&(s.includes(p)||p.includes(s)&&s.length>=4);
+    });
+  })||'';
+}
+function mapVal(id,idx,ent){
+  const f=FILES.find(x=>x.id===id); if(!f)return;
+  const v=f._vals[idx];
+  if(ent)f.cpMap[v]=ent; else delete f.cpMap[v];
+  renderCards();
+}
+function cpMapEditor(f){
+  const vals=distinctVals(f);
+  f._vals=vals;
+  const shown=vals.slice(0,40);
+  return '<label>'+t('mapT')+'</label>'+
+    shown.map((v,i)=>'<div class="entline" style="display:flex;gap:8px;align-items:center;margin:4px 0">'+
+      '<span style="min-width:90px;font-weight:700;font-size:12px;word-break:break-all">'+esc(v)+'</span>'+
+      '<select style="flex:1" onchange="mapVal(\''+f.id+'\','+i+',this.value)">'+entOptions(f.cpMap[v]||'')+'</select></div>').join('')+
+    (vals.length>40?'<div class="hint">'+t('manyVals').replace('{n}',vals.length)+'</div>':'');
+}
 function colOptions(f,sel){
   return '<option value="">'+t('none')+'</option>'+f.cols.map(c=>
     '<option value="'+esc(c)+'"'+(sel===c?' selected':'')+'>'+esc(c)+'</option>').join('');
@@ -466,15 +523,23 @@ function colOptions(f,sel){
 function renderCards(){
   const el=document.getElementById('cards');
   el.innerHTML=FILES.map(f=>{
-    const ready=f.rows&&f.entity&&f.cp&&f.entity!==f.cp&&f.map.amt;
+    const multi=f.cpMode==='multi';
+    const mappedN=multi?Object.keys(f.cpMap||{}).length:0;
+    const ready=f.rows&&f.entity&&f.map.amt&&(multi?(f.cpCol&&mappedN>0):(f.cp&&f.entity!==f.cp));
     return '<div class="fcard'+(ready?' ready':'')+'" id="card'+f.id+'">'+
     '<button class="rm" onclick="removeFile(\''+f.id+'\')" title="✕">✕</button>'+
     '<div class="fname">'+esc(f.name)+'</div>'+
-    (f.rows?'<div class="meta">'+f.rows.length+' '+t('rows')+(f.footer.n?' · '+t('xFooter')+': '+f.footer.n:'')+'</div>':'<div class="meta">…</div>')+
+    (f.rows?'<div class="meta">'+f.rows.length+' '+t('rows')+(f.footer.n?' · '+t('xFooter')+': '+f.footer.n:'')+(multi&&mappedN?' · '+t('mappedN').replace('{n}',mappedN):'')+'</div>':'<div class="meta">…</div>')+
     '<div class="entrow">'+
       '<div><label>'+t('entL')+'</label><select id="ent'+f.id+'" onchange="FILES.find(x=>x.id===\''+f.id+'\').entity=this.value;renderCards()">'+entOptions(f.entity)+'</select></div>'+
-      '<div><label>'+t('cpL')+'</label><select id="cp'+f.id+'" onchange="FILES.find(x=>x.id===\''+f.id+'\').cp=this.value;renderCards()">'+entOptions(f.cp)+'</select></div>'+
+      '<div><label>'+t('cpL')+'</label><select id="cp'+f.id+'" onchange="setCp(\''+f.id+'\',this.value)">'+
+        '<option value="">'+t('none')+'</option>'+
+        ENTITIES.filter(Boolean).map(n=>'<option value="'+esc(n)+'"'+(!multi&&f.cp===n?' selected':'')+'>'+esc(entLabel(n))+'</option>').join('')+
+        '<option value="*"'+(multi?' selected':'')+'>'+t('cpMulti')+'</option>'+
+      '</select></div>'+
     '</div>'+
+    (multi&&f.rows?'<div><label>'+t('cpColL')+'</label><select id="cpcol'+f.id+'" onchange="setCpCol(\''+f.id+'\',this.value)">'+colOptions(f,f.cpCol)+'</select>'+
+      (f.cpCol?cpMapEditor(f):'')+'</div>':'')+
     (f.wb?'<div class="row2">'+
       '<div><label>'+t('sheetL')+'</label><select id="sheet'+f.id+'" onchange="const x=FILES.find(z=>z.id===\''+f.id+'\');x.sheet=this.value;parseSheet(x);renderCards()">'+
         f.wb.SheetNames.map(n=>'<option'+(f.sheet===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></div>'+
@@ -600,16 +665,44 @@ function matchPair(fx,fy,flip,tol,days){
 }
 /* ================= the matrix ================= */
 let MATRIX=null, PENDING=null, SELPAIR=-1;
+/* files in 'multi' mode split into one virtual file per mapped counterparty */
+function expandFiles(list){
+  const out=[], notes=[];
+  list.forEach(f=>{
+    if(f.cpMode!=='multi'){out.push(f);return;}
+    const groups=new Map(); let unmapped=0;
+    f.rows.forEach((r,i)=>{
+      if(f._excluded&&f._excluded.has(i))return;
+      const v=String(r[f.cpCol]??'').trim();
+      const ent=v?(f.cpMap||{})[v]:null;
+      if(!ent||ent===f.entity){unmapped++;return;}
+      if(!groups.has(ent))groups.set(ent,[]);
+      groups.get(ent).push(r);
+    });
+    groups.forEach((rows,ent)=>{
+      out.push({id:f.id+'·'+ent,name:f.name+' — '+entLabel(ent),entity:f.entity,cp:ent,
+        sheet:f.sheet,hdr:f.hdr,cols:f.cols,map:f.map,rows,_excluded:new Set(),
+        footer:{n:0,value:0},balance:rows.reduce((s,r)=>s+(netA(r,f.map)||0),0)});
+    });
+    if(unmapped)notes.push(t('unmappedN').replace('{f}',f.name).replace('{n}',unmapped));
+  });
+  return {files:out,notes};
+}
 function runMatrix(){
   const w=document.getElementById('runWarn');
-  const ready=FILES.filter(f=>f.rows);
+  const loaded=FILES.filter(f=>f.rows);
   const bad=m=>{w.textContent=m;w.classList.remove('hidden');};
   w.classList.add('hidden');
-  if(ready.length<2)return bad(t('needTwo'));
-  for(const f of ready){
-    if(!f.entity||!f.cp||f.entity===f.cp)return bad(t('needEnt'));
+  for(const f of loaded){
     if(!f.map.amt)return bad(t('needAmt').replace('{f}',f.name));
+    if(f.cpMode==='multi'){
+      if(!f.entity)return bad(t('needEnt'));
+      if(!f.cpCol||!Object.keys(f.cpMap||{}).length)return bad(t('needCpCol').replace('{f}',f.name));
+    }else if(!f.entity||!f.cp||f.entity===f.cp)return bad(t('needEnt'));
   }
+  const exp=expandFiles(loaded);
+  const ready=exp.files;
+  if(ready.length<2)return bad(t('needTwo'));
   const rel=new Map();
   for(const f of ready){
     const r=f.entity+'→'+f.cp;
@@ -629,7 +722,10 @@ function runMatrix(){
       pairs.push({fx:f,fy:mate,entX:f.entity,entY:f.cp,...m});
     }else if(!mate){done.add(f.id);singles.push(f);}
   }
-  MATRIX={pairs,singles,tol,days,flip,ranAt:new Date()};
+  MATRIX={pairs,singles,tol,days,flip,filesUsed:ready,ranAt:new Date()};
+  const ri=document.getElementById('runInfo');
+  if(exp.notes.length){ri.textContent=exp.notes.join('  ·  ');ri.classList.remove('hidden');}
+  else ri.classList.add('hidden');
   SELPAIR=-1;
   if(PENDING){applyProgress(PENDING);PENDING=null;progStatus(t('progApplied'));}
   document.getElementById('stepMx').classList.remove('hidden');
@@ -871,11 +967,11 @@ function exportExcel(){
     [t('xDate'),fmtDate(new Date())],[t('xTol'),(M.tol).toString()],[t('xDays'),M.days.toString()],
     [t('xMirror'),M.flip?t('yes'):t('no')],[t('xPrep'),document.getElementById('preparer').value||'—'],[t('xRev'),''],[''],
     [t('xFile'),t('xEnt'),t('xCp'),t('xSheet'),t('xHdr'),t('amt'),t('crL'),t('xBal'),t('xFooter')]];
-  FILES.filter(f=>f.rows).forEach(f=>dr.push([f.name,entLabel(f.entity),entLabel(f.cp),f.sheet,f.hdr,f.map.amt,f.map.cr||'—',f.balance,f.footer.n?fmtNum(f.footer.value):'0']));
+  (M.filesUsed||FILES.filter(f=>f.rows)).forEach(f=>dr.push([f.name,entLabel(f.entity),entLabel(f.cp),f.sheet,f.hdr,f.map.amt,f.map.cr||'—',f.balance,f.footer.n?fmtNum(f.footer.value):'0']));
   const wsD=XLSX.utils.aoa_to_sheet(dr);
   styleCell(wsD,'A1',ST.title);
   for(let c=0;c<9;c++){const cell=wsD[col(c)+'10'];if(cell)cell.s=ST.head;}
-  FILES.filter(f=>f.rows).forEach((f,i)=>{const cell=wsD['H'+(11+i)];if(cell&&cell.t==='n')cell.z=eurofmt;});
+  (M.filesUsed||FILES.filter(f=>f.rows)).forEach((f,i)=>{const cell=wsD['H'+(11+i)];if(cell&&cell.t==='n')cell.z=eurofmt;});
   wsD['!cols']=[{wch:42},{wch:22},{wch:22},{wch:14},{wch:10},{wch:24},{wch:24},{wch:16},{wch:14}];
   XLSX.utils.book_append_sheet(wb,wsD,t('xDoc'));
   const out=XLSX.write(wb,{type:'array',bookType:'xlsx',cellStyles:true});
@@ -903,7 +999,7 @@ function saveProgress(){
     p.openY.forEach(r=>{if(r.cat)cats[catKey(p,'Y',r)]=r.cat;});
   });
   const files={};
-  FILES.filter(f=>f.rows).forEach(f=>{files[f.name]={entity:f.entity,cp:f.cp,sheet:f.sheet,hdr:f.hdr,map:f.map};});
+  FILES.filter(f=>f.rows).forEach(f=>{files[f.name]={entity:f.entity,cp:f.cp,sheet:f.sheet,hdr:f.hdr,map:f.map,cpMode:f.cpMode||'one',cpCol:f.cpCol||'',cpMap:f.cpMap||{}};});
   const data={app:'okypy-ic',version:1,savedAt:new Date().toISOString(),lang:LANG,
     settings:{tolerance:document.getElementById('tolerance').value,days:document.getElementById('days').value,
               mirror:document.getElementById('mirror').checked,preparer:document.getElementById('preparer').value},
@@ -923,6 +1019,9 @@ function applyPendingFile(f){
   ['amt','cr','date','desc'].forEach(k=>{if(pf.map&&pf.map[k]!==undefined&&(pf.map[k]===''||f.cols.includes(pf.map[k])))f.map[k]=pf.map[k];});
   if(pf.entity)f.entity=pf.entity;
   if(pf.cp)f.cp=pf.cp;
+  if(pf.cpMode==='multi'&&pf.cpCol&&f.cols.includes(pf.cpCol)){
+    f.cpMode='multi';f.cp='';f.cpCol=pf.cpCol;f.cpMap=Object.assign({},pf.cpMap||{});
+  }
   computeBalance(f);
 }
 function applyProgress(data){
@@ -960,12 +1059,12 @@ document.getElementById('progFile').addEventListener('change',e=>{
 /* ================= manual ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών Συμφωνιών · Οδηγίες χρήσης (έκδοση 1.2)",
+  title:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών Συμφωνιών · Οδηγίες χρήσης (έκδοση 1.3)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκεντρώνει τα ενδοομιλικά καθολικά όλων των οντοτήτων — νοσοκομεία και Κεντρικά Γραφεία — και δείχνει σε έναν πίνακα ποια ζεύγη συμφωνούν, ποια έχουν ανεξήγητο υπόλοιπο και πού λείπει αρχείο. Για κάθε ζεύγος εκτελείται αυτόματη αντιστοίχιση, ώστε το κόκκινο κελί να σημαίνει πραγματικά ανεξήγητη διαφορά και όχι απλώς χρονική. Όλα γίνονται στο πρόγραμμα περιήγησης: τίποτα δεν εγκαθίσταται και τα δεδομένα δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Για τη λεπτομερή εργασία πάνω σε ένα μόνο ζεύγος λογαριασμών εξακολουθεί να υπάρχει το Εργαλείο Συμφωνιών του Οργανισμού — τα δύο εργαλεία συνεργάζονται.</p>"],
    ["Βήμα 1 — Αρχεία",
-    "<p>Φορτώστε ένα αρχείο για κάθε σχέση: το καθολικό της οντότητας X για την οντότητα Y και, αντίστροφα, της Y για την X. Σε κάθε κάρτα δηλώνετε «Βιβλία» (ποιας οντότητας είναι το καθολικό) και «Έναντι» (ποιον αντισυμβαλλόμενο αφορά). Το εργαλείο βρίσκει μόνο του το φύλλο, τη γραμμή τίτλων και τις στήλες — ποσό, πίστωση (για εξαγωγές SAP με χωριστές στήλες χρέωσης/πίστωσης), ημερομηνία, περιγραφή — και υπολογίζει το καθαρό υπόλοιπο του αρχείου, εξαιρώντας τη γραμμή γενικού συνόλου αν υπάρχει. Ελέγξτε το υπόλοιπο της κάρτας: αν συμφωνεί με το ισοζύγιο, οι στήλες διαβάστηκαν σωστά.</p><p>Στο «Μητρώο οντοτήτων» διορθώνετε ή προσθέτετε ονόματα, με τη μορφή «Ελληνικά / English».</p>"],
+    "<p>Φορτώστε ένα αρχείο για κάθε σχέση: το καθολικό της οντότητας X για την οντότητα Y και, αντίστροφα, της Y για την X. Σε κάθε κάρτα δηλώνετε «Βιβλία» (ποιας οντότητας είναι το καθολικό) και «Έναντι» (ποιον αντισυμβαλλόμενο αφορά). Το εργαλείο βρίσκει μόνο του το φύλλο, τη γραμμή τίτλων και τις στήλες — ποσό, πίστωση (για εξαγωγές SAP με χωριστές στήλες χρέωσης/πίστωσης), ημερομηνία, περιγραφή — και υπολογίζει το καθαρό υπόλοιπο του αρχείου, εξαιρώντας τη γραμμή γενικού συνόλου αν υπάρχει. Ελέγξτε το υπόλοιπο της κάρτας: αν συμφωνεί με το ισοζύγιο, οι στήλες διαβάστηκαν σωστά.</p><p>Αν ένα καθολικό καλύπτει πολλούς αντισυμβαλλομένους σε ένα αρχείο — π.χ. όλοι οι λογαριασμοί 122xxx των Κεντρικών Γραφείων μαζί — επιλέξτε στο «Έναντι» το «Πολλοί αντισυμβαλλόμενοι…», δείξτε τη στήλη που τους ξεχωρίζει (λογαριασμός, trading partner) και αντιστοιχίστε κάθε τιμή της με μια οντότητα. Το εργαλείο χωρίζει το αρχείο σε ένα εικονικό αρχείο ανά αντισυμβαλλόμενο και κάθε ζεύγος συμφωνείται κανονικά· οι γραμμές με τιμές που δεν αντιστοιχίσατε αναφέρονται και μένουν εκτός.</p><p>Στο «Μητρώο οντοτήτων» διορθώνετε ή προσθέτετε ονόματα, με τη μορφή «Ελληνικά / English».</p>"],
    ["Βήμα 2 — Ο πίνακας",
     "<p>Με την «Κατάρτιση πίνακα» τα αρχεία ζευγαρώνουν αυτόματα (X για Y με Y για X) και για κάθε ζεύγος εκτελείται αντιστοίχιση: πρώτα ανά κοινό κλειδί — το εργαλείο εντοπίζει μόνο του τη στήλη αναφοράς που μοιράζονται τα δύο αρχεία — και έπειτα γραμμή προς γραμμή, με ίσο ποσό και κοντινή ημερομηνία. Με τα «κατοπτρικά πρόσημα» ενεργά, η απαίτηση της μίας πλευράς συγκρίνεται με την υποχρέωση της άλλης.</p><p>Η διαφορά κάθε ζεύγους αναλύεται πάντα πλήρως σε συγκεκριμένες εκκρεμείς εγγραφές — αυτό επιβεβαιώνεται από τη γραμμή ελέγχου του Excel. Το χρώμα του κελιού δείχνει πόση δουλειά απομένει:</p><ul><li><strong>Πράσινο κελί ✓:</strong> κάθε εκκρεμότητα έχει πάρει χαρακτηρισμό — η συμφωνία είναι πλήρης και έτοιμη για υπογραφή. Το καθαρό ποσό των εκκρεμοτήτων φαίνεται από κάτω.</li><li><strong>Κόκκινο κελί:</strong> απομένουν αχαρακτήριστες εκκρεμότητες — το κελί δείχνει το ποσό και πόσες είναι. Πατήστε το για να τις χαρακτηρίσετε.</li><li><strong>Γκρίζο κελί:</strong> λείπει το αρχείο της άλλης πλευράς· φαίνεται το μονομερές υπόλοιπο.</li></ul><p>Στην ανάλυση ζεύγους βλέπετε τι δηλώνει κάθε πλευρά, την ακαθάριστη διαφορά, πόσες εγγραφές συμφωνήθηκαν και τις εκκρεμότητες κάθε πλευράς, όπου δίνετε χαρακτηρισμό: Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Ο «Χαρακτηρισμός όλων» δίπλα σε κάθε πίνακα γεμίζει με μία κίνηση όσες εγγραφές δεν έχουν ακόμη χαρακτηρισμό — χρήσιμο όταν δεκάδες μεταφορές είναι όλες χρονικές διαφορές. Κάτω από τις εκκρεμότητες, οι «Συμφωνημένες εγγραφές» ανοίγουν τον πλήρη κατάλογο των αντιστοιχίσεων — τι δήλωσε κάθε πλευρά, εγγραφή προς εγγραφή — ώστε η ίδια η συμφωνία να είναι ορατή και ελέγξιμη, όχι μόνο τα υπόλοιπά της.</p>"],
    ["Εξαγωγή σε Excel",
@@ -975,12 +1074,12 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Intercompany Reconciliation Matrix · User manual (version 1.2)",
+  title:"OKYπY / SHSO — Intercompany Reconciliation Matrix · User manual (version 1.3)",
   sections:[
    ["What the tool does",
     "<p>It gathers every entity's intercompany ledgers — hospitals and Head Office — and shows, in one matrix, which pairs agree, which carry an unexplained residual, and where a file is missing. Each pair is auto-matched first, so a red cell means a genuinely unexplained difference rather than mere timing. Everything runs in your browser: nothing is installed and your data never leaves this computer.</p><p>For detailed work on a single pair of accounts, the organisation's Reconciliation Tool is still there — the two tools work together.</p>"],
    ["Step 1 — Files",
-    "<p>Load one file per relationship: entity X's ledger about entity Y and, in reverse, Y's about X. On each card you state whose books they are (“Books”) and whom they concern (“Versus”). The tool finds the sheet, the header row and the columns on its own — amount, credit (for SAP exports with separate debit/credit columns), date, description — and computes the file's net balance, excluding its grand-total line if one exists. Glance at the card's balance: if it agrees with the trial balance, the columns were read correctly.</p><p>The “Entity register” lets you correct or add names, written as “Greek / English”.</p>"],
+    "<p>Load one file per relationship: entity X's ledger about entity Y and, in reverse, Y's about X. On each card you state whose books they are (“Books”) and whom they concern (“Versus”). The tool finds the sheet, the header row and the columns on its own — amount, credit (for SAP exports with separate debit/credit columns), date, description — and computes the file's net balance, excluding its grand-total line if one exists. Glance at the card's balance: if it agrees with the trial balance, the columns were read correctly.</p><p>When one ledger covers several counterparties in a single file — say every 122xxx account of Head Office together — choose “Multiple counterparties…” under “Versus”, point at the column that tells them apart (account, trading partner) and map each of its values to an entity. The tool splits the file into one virtual file per counterparty and every pair reconciles as usual; rows with values you did not map are reported and left out.</p><p>The “Entity register” lets you correct or add names, written as “Greek / English”.</p>"],
    ["Step 2 — The matrix",
     "<p>“Build the matrix” pairs the files automatically (X-about-Y with Y-about-X) and reconciles each pair: first by shared key — the tool finds the reference column the two files have in common — then line by line on equal amount and nearby date. With “mirrored signs” on, one side's receivable is compared against the other side's payable.</p><p>Each pair's difference is always broken down in full into specific open items — the Excel check line confirms it. The cell's colour shows how much work is left:</p><ul><li><strong>Green cell ✓:</strong> every open item carries a category — the reconciliation is complete and ready to sign. The net open amount shows underneath.</li><li><strong>Red cell:</strong> uncategorised open items remain — the cell shows the amount and how many. Click it to categorise them.</li><li><strong>Grey cell:</strong> the counterparty's file is missing; the one-sided balance is shown.</li></ul><p>The pair view shows what each side states, the gross difference, how many items matched, and each side's open items, where you set a category: Timing difference, Adjustment required, or Requires investigation. The “Categorise all” control beside each table fills every not-yet-categorised item in one move — handy when dozens of transfers are all timing differences. Below the open items, “Matched entries” unfolds the full list of matches — what each side stated, entry by entry — so the reconciliation itself is visible and auditable, not just its leftovers.</p>"],
    ["The Excel export",
@@ -1006,7 +1105,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Ενδοομιλικών_v1.2.html':'OKYPY_IC_Matrix_Manual_v1.2.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Ενδοομιλικών_v1.3.html':'OKYPY_IC_Matrix_Manual_v1.3.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

@@ -1,0 +1,7 @@
+Account,Ref,Date,Description,Amount
+122113,R1,05/03/2026,IC invoice R1,100.00
+122113,R2,05/03/2026,IC invoice R2,200.00
+122113,R3,20/03/2026,IC invoice R3,50.00
+122140,L1,10/03/2026,IC invoice L1,500.00
+122140,L2,11/03/2026,IC credit L2,-100.00
+129999,ZZ,01/03/2026,not an IC row,9.99

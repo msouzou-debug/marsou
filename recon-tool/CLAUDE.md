@@ -10,7 +10,7 @@ All data stays on the local machine. TWO tools share this repo:
    Current version: **v3.3**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.2**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.3**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -416,7 +416,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.2)
+## IC Matrix Tool (src/ic_template.html, v1.3)
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,
@@ -430,6 +430,17 @@ not imported; keep fixes in sync when touching shared logic.
   in the progress JSON.
 - **Pairing** (`runMatrix`): X-about-Y pairs with Y-about-X; a relationship
   declared twice is an error; unpaired files land in `MATRIX.singles`.
+  **One-to-many** (v1.3): a card's «Έναντι» select has a «Πολλοί
+  αντισυμβαλλόμενοι…» option (value `'*'` → `f.cpMode='multi'`): the user
+  picks the column that identifies the counterparty (`f.cpCol`, e.g. the GL
+  account or trading partner) and maps its distinct values to entities
+  (`f.cpMap`, auto-guessed by registry-name overlap, top-40 shown).
+  `expandFiles()` splits such a file into VIRTUAL files (one per mapped
+  entity, name suffixed ' — <entity>', footer rows excluded first, balance
+  = subset sum); unmapped/blank/self rows are counted and reported in
+  `#runInfo` — never silently dropped. `MATRIX.filesUsed` carries the
+  expanded list (doc sheet iterates it). Progress persists
+  cpMode/cpCol/cpMap per filename and `applyPendingFile` restores them.
 - **Per-pair matching** (`matchPair`): `pairKeySuggest` picks the key column
   pair by value overlap (≥0.5, ≥3 values, amount/date columns excluded) —
   if none, pure line mode. Keyed aggregates match on equal sum within
@@ -481,6 +492,11 @@ not imported; keep fixes in sync when touching shared logic.
   («Τα βιβλία του {e}» broke on «Κεντρικά Γραφεία»). Card labels are
   «Βιβλία» / «Έναντι» ("Books" / "Versus"); balances read
   «{e} — δηλωμένο υπόλοιπο». Keep any new string genitive-safe.
+- test_ic one-to-many block: mx_ho_all.csv (Account column: 122113→ΓΝ
+  Λεμεσού, 122140→ΓΝ Λάρνακας, 129999 unmapped) + mx_lim_ho + mx_lar_ho →
+  2 pairs (LIM residual 30, LAR ties out), 0 singles, virtual names carry
+  ' — <entity>', runInfo reports the 1 unmapped row; progress round-trip
+  restores the split (cpMode/cpCol/cpMap) and rebuilds the same 2 pairs.
 - v1 limitations: matching keys are auto-only (no manual key pick per pair);
   no split/N-to-M proposals inside the matrix (use the pairwise tool for
   deep work on one pair — the manuals cross-reference); no carry-forward.

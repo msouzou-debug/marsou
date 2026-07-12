@@ -162,6 +162,60 @@ const ASSIGN = `
   check('category carried back to the reopened matrix', r.cat === 'catT', r);
   await page.close();
 
+  /* ============ 5. one-to-many: single HO file split by the Account column ============ */
+  page = await browser.newPage();
+  await page.goto(APP);
+  await page.setInputFiles('#fileAdd', ['mx_ho_all.csv', 'mx_lim_ho.csv', 'mx_lar_ho.csv'].map(S));
+  await page.waitForFunction(() => FILES.length === 3 && FILES.every(f => f.rows));
+  await page.evaluate(() => {
+    const ho = FILES.find(f => /ho_all/.test(f.name));
+    ho.entity = ENTITIES[0];
+    setCp(ho.id, '*');
+    setCpCol(ho.id, 'Account');
+    ho.cpMap = { '122113': ENTITIES[2], '122140': ENTITIES[3] }; // 129999 left unmapped
+    FILES.find(f => /lim_ho/.test(f.name)).entity = ENTITIES[2];
+    FILES.find(f => /lim_ho/.test(f.name)).cp = ENTITIES[0];
+    FILES.find(f => /lar_ho/.test(f.name)).entity = ENTITIES[3];
+    FILES.find(f => /lar_ho/.test(f.name)).cp = ENTITIES[0];
+    renderCards(); runMatrix();
+  });
+  await page.waitForSelector('#stepMx:not(.hidden)');
+  r = await page.evaluate(() => ({
+    pairs: MATRIX.pairs.map(p => [entLabel(p.entX), entLabel(p.entY), +p.raw.toFixed(2), +p.residual.toFixed(2), p.matchedN]),
+    virt: MATRIX.filesUsed.map(f => f.name),
+    note: document.getElementById('runInfo').textContent,
+    singles: MATRIX.singles.length,
+  }));
+  console.log('MULTI:', JSON.stringify(r));
+  check('one HO file splits into two pairs (LIM residual 30, LAR ties out)',
+    r.pairs.length === 2 && r.singles === 0 &&
+    r.pairs.some(p => p[1] === 'ΓΝ Λεμεσού' && p[3] === 30 && p[4] === 2) &&
+    r.pairs.some(p => p[1] === 'ΓΝ Λάρνακας' && p[3] === 0 && p[4] === 2), r.pairs);
+  check('virtual files carry the counterparty in their name', r.virt.filter(n => /ho_all.*—/.test(n)).length === 2, r.virt);
+  check('unmapped rows are reported, not silently dropped', /1/.test(r.note) && /ho_all/.test(r.note), r.note);
+
+  /* progress keeps the split setup: save, reload, restore */
+  const [dlP2] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => saveProgress())]);
+  const p2Path = path.join(__dirname, 'progress_ic2.json');
+  await dlP2.saveAs(p2Path);
+  const prog2 = JSON.parse(fs.readFileSync(p2Path, 'utf8'));
+  const hoSaved = Object.entries(prog2.files).find(([n]) => /ho_all/.test(n))[1];
+  check('progress stores the multi-counterparty setup',
+    hoSaved.cpMode === 'multi' && hoSaved.cpCol === 'Account' && Object.keys(hoSaved.cpMap).length === 2, hoSaved);
+  await page.close();
+
+  page = await browser.newPage();
+  await page.goto(APP);
+  await page.setInputFiles('#progFile', p2Path);
+  await page.waitForFunction(() => document.getElementById('progStatus').textContent !== '');
+  await page.setInputFiles('#fileAdd', ['mx_ho_all.csv', 'mx_lim_ho.csv', 'mx_lar_ho.csv'].map(S));
+  await page.waitForFunction(() => FILES.length === 3 && FILES.every(f => f.rows));
+  await page.evaluate(() => runMatrix());
+  await page.waitForSelector('#stepMx:not(.hidden)');
+  r = await page.evaluate(() => MATRIX.pairs.length);
+  check('reloaded progress rebuilds the split into the same two pairs', r === 2, r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'IC TESTS FAILED: ' + failures : 'IC TESTS PASSED');
   process.exit(failures ? 1 : 0);

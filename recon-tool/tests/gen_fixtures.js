@@ -219,6 +219,15 @@ fs.writeFileSync(S('mx_lar_ho.csv'),
 fs.writeFileSync(S('mx_ho_paf.csv'),
   'Ref,Date,Description,Amount\n' +
   'P1,15/03/2026,IC invoice P1,75.00\n');
+/* one HO file covering BOTH counterparties, split by the Account column */
+fs.writeFileSync(S('mx_ho_all.csv'),
+  'Account,Ref,Date,Description,Amount\n' +
+  '122113,R1,05/03/2026,IC invoice R1,100.00\n' +
+  '122113,R2,05/03/2026,IC invoice R2,200.00\n' +
+  '122113,R3,20/03/2026,IC invoice R3,50.00\n' +
+  '122140,L1,10/03/2026,IC invoice L1,500.00\n' +
+  '122140,L2,11/03/2026,IC credit L2,-100.00\n' +
+  '129999,ZZ,01/03/2026,not an IC row,9.99\n');
 
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
