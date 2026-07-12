@@ -175,6 +175,17 @@ fs.writeFileSync(S('easy_B.csv'),
   fs.writeFileSync(S('sweep_B.csv'), fb);
 }
 
+/* ---- adjusted-pair fixture (real miss from 05.2026): SAP payment −8818.40
+   + FX line +0.13 vs bank OUTWARD −8818.27 — signs differ, so the split
+   passes can never combine them; only the adjusted-pair pass can ---- */
+fs.writeFileSync(S('adj_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',10/05/2026,HNS PHARMA LTD,-8818.40\n' +
+  ',10/05/2026,FX difference,0.13\n');
+fs.writeFileSync(S('adj_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',12/05/2026,OUTWARD CY260512838749 to HNS PHARMA LTD>INVOICES,-8818.27\n');
+
 /* ---- live-warning fixture: two identical open fees trigger the no-key
    duplicate warning until the 10.00 = 5.00 + 5.00 group is committed ---- */
 fs.writeFileSync(S('warn_A.csv'),

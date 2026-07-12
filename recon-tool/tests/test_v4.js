@@ -346,6 +346,37 @@ const newAppPage = async browser => {
   check('duplicate warning clears after the group is committed', r.after.shown === false, r.after);
   await page.close();
 
+  /* ============ 8. v3.3: adjusted pair — the real 05.2026 HNS miss ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('adj_A.csv'));
+  await page.setInputFiles('#fileB', S('adj_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 90;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    adj: RESULT.props.filter(p => p.adj).map(p => [p.itemsA.length, p.itemsB.length, +p.diff.toFixed(2),
+      p.itemsA.map(x => x.amtA), p.itemsB.map(x => x.amtB)]),
+  }));
+  console.log('ADJ:', JSON.stringify(r));
+  check('near pair + FX line proposed as one zero-diff group',
+    r.adj.length === 1 && r.adj[0][0] === 2 && r.adj[0][1] === 1 && r.adj[0][2] === 0 &&
+    JSON.stringify(r.adj[0][3].sort()) === JSON.stringify([-8818.4, 0.13]) &&
+    JSON.stringify(r.adj[0][4]) === JSON.stringify([-8818.27]), r.adj);
+  r = await page.evaluate(() => {
+    RESULT.props.forEach(p => p.accepted = true); commitGroups();
+    return { open: [RESULT.onlyA.filter(x => !inAccepted(x)).length, RESULT.onlyB.filter(x => !inAccepted(x)).length],
+             key: RESULT.matched.filter(x => x.rule === 4).map(x => x.key) };
+  });
+  check('committing the adjusted pair clears everything', JSON.stringify(r.open) === JSON.stringify([0, 0]), r);
+  check('the committed group carries the adjustment tag', r.key.some(k => /προσαρμογ|adjustment/i.test(k)), r.key);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);

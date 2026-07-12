@@ -3,7 +3,7 @@
 Single-file, offline, bilingual (EL/EN) browser app for account reconciliation,
 used by hospital staff across the State Health Services Organisation (ΟΚΥπΥ / SHSO),
 Cyprus. Users double-click the built HTML file — no install, no server, no
-internet. All data stays on the local machine. Current version: **v3.2**.
+internet. All data stays on the local machine. Current version: **v3.3**.
 
 ## Architecture
 
@@ -119,6 +119,10 @@ Expected values:
     via the take-all shortcut; committing clears both sides.
   - v3.2 — warn_A/warn_B (no-key): two identical open 5.00 fees show the
     live duplicate warning; committing the 10 = 5+5 group hides #resWarn.
+  - v3.3 — adj_A/adj_B (no-key, the real 05.2026 HNS miss): SAP −8818.40 +
+    FX +0.13 vs bank −8818.27 → exactly one `{adj:true}` proposal
+    [2×A, 1×B, diff 0]; committing clears both sides and the Matched key
+    carries the 'Ζεύγος με γραμμή προσαρμογής' tag.
 - Real-world benchmark (files not in repo — hospital data): GL 122105 (Head
   Office 1000) vs GL 122113 (Limassol 1030). Expected with auto-config +
   flip B (v2.4 hybrid): matched = 249 refs (rule 1) + 888 keyless line pairs
@@ -288,9 +292,17 @@ Expected values:
    a +x and a −x left open in ONE file are paired (nearest dates first) as
    `{rev:true}` "Αντιλογισμός / Reversal"; this automates the manual
    same-side matches users did by hand. Cap 400 proposals. Group-shape
-   helpers `twoSided(p)` (sel/nm/rev/tw → itemsA/itemsB) and `grpTagKey(p)`
-   are used by EVERY consumer — gcardHTML, commitGroups, grpSignature,
-   grpHas, exportExcel — never re-test `p.sel||p.nm` directly.
+   helpers `twoSided(p)` (sel/nm/rev/tw/adj → itemsA/itemsB) and
+   `grpTagKey(p)` are used by EVERY consumer — gcardHTML, commitGroups,
+   grpSignature, grpHas, exportExcel — never re-test `p.sel||p.nm` directly.
+   **Adjusted pairs** (v3.3, `proposeAdjusted()`, ALL runs, last): a
+   cross-side pair whose gap is small (≤ €100, and smaller than either main
+   amount) plus ONE small open line on EITHER side (any sign) that closes
+   the gap to the cent → `{adj:true}` "Ζεύγος με γραμμή προσαρμογής / Pair
+   with adjustment line". This is the FX-difference/rounding-line shape the
+   split passes can NEVER find because they filter candidates to the
+   target's sign (real miss: SAP −8,818.40 + FX +0.13 vs bank −8,818.27).
+   Tightest pairs claim their adjustment lines first; cap 400.
 4. **Number parsing** (`parseAmount`): must handle Greek format `1.234,56`,
    English `1,234.56`, `€`, parentheses negatives `(50,25)`. CSVs are read
    with `raw:true` so strings reach this parser — SheetJS would otherwise
@@ -385,7 +397,7 @@ Expected values:
 - Per-pass tolerance overrides.
 - Optional PDF export of the summary for sign-off circulation.
 
-## Known limitations (v3.2)
+## Known limitations (v3.3)
 
 - Split search proposes 1-to-N only, same-sign combinations only; N-to-M
   groups come solely from the same-day pass, in no-key runs, exact date only.
