@@ -216,6 +216,31 @@ const ASSIGN = `
   check('reloaded progress rebuilds the split into the same two pairs', r === 2, r);
   await page.close();
 
+  /* ============ 6. description fallback: empty 'Text' falls through to 'Document Header Text' ============ */
+  page = await browser.newPage();
+  await page.goto(APP);
+  await page.setInputFiles('#fileAdd', ['dh_A.csv', 'dh_B.csv'].map(S));
+  await page.waitForFunction(() => FILES.length === 2 && FILES.every(f => f.rows));
+  await page.evaluate(() => {
+    const a = FILES.find(f => /dh_A/.test(f.name)), b = FILES.find(f => /dh_B/.test(f.name));
+    a.entity = ENTITIES[0]; a.cp = ENTITIES[2];
+    b.entity = ENTITIES[2]; b.cp = ENTITIES[0];
+    renderCards(); runMatrix();
+  });
+  await page.waitForSelector('#stepMx:not(.hidden)');
+  r = await page.evaluate(() => ({
+    descGuess: FILES.map(f => f.map.desc),
+    matched: MATRIX.pairs[0].matched.map(m => [m.key, m.descX, m.descY]).sort(),
+  }));
+  console.log('DESC:', JSON.stringify(r));
+  check('auto-guess still picks the exact Text column', r.descGuess.every(d => d === 'Text'), r.descGuess);
+  check('blank Text rows fall back to Document Header Text on both sides',
+    r.matched.length === 3 &&
+    JSON.stringify(r.matched[0]) === JSON.stringify(['D1', 'HDR ALPHA', 'HDR ALPHA B']) &&
+    JSON.stringify(r.matched[1]) === JSON.stringify(['D2', 'TXT BETA', 'TXT BETA B']) &&
+    JSON.stringify(r.matched[2]) === JSON.stringify(['D3', 'HDR GAMMA', 'HDR GAMMA B']), r.matched);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'IC TESTS FAILED: ' + failures : 'IC TESTS PASSED');
   process.exit(failures ? 1 : 0);

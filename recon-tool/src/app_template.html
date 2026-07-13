@@ -388,7 +388,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.3</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.4</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -412,7 +412,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.3",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.4",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -503,7 +503,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.3",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.4",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -997,9 +997,31 @@ function diceSim(a,b){ // bigram Dice coefficient for the fuzzy pass
 /* ================= reconciliation engine ================= */
 let RESULT=null;
 let PENDING_PROGRESS=null;
+/* per-row description with fallback: the mapped column first, then every
+   other description-like column — SAP leaves 'Text' empty on invoice lines
+   while 'Document Header Text' carries the story */
+function descChain(side){
+  const m=mapping(side), s=SIDES[side];
+  const lower=s.cols.map(c=>c.toLowerCase());
+  const used=new Set([m.amt,m.cr,m.date].filter(Boolean));
+  const out=m.desc?[m.desc]:[];
+  s.cols.forEach((c,i)=>{
+    if(c===m.desc||used.has(c))return;
+    if(DESC_HINTS.some(h=>lower[i].includes(h)))out.push(c);
+  });
+  return out;
+}
+function descOfRow(dcols,r){
+  for(const c of dcols){
+    const v=r[c];
+    if(v!==null&&v!==undefined&&String(v).trim()!=='')return String(v);
+  }
+  return '';
+}
 function aggregate(side,flip){
   const m=mapping(side), s=SIDES[side], norm=document.getElementById('normKeys').checked;
   const map=new Map();
+  const dcols=descChain(side);
   let skipped=0;
   s.rows.forEach(r=>{
     const kparts=m.keys.map(k=>{const v=r[k]; return v instanceof Date?fmtDate(v):String(v??'').trim();});
@@ -1012,8 +1034,9 @@ function aggregate(side,flip){
     if(!map.has(key))map.set(key,{key,label,sum:0,n:0,desc:'',date:null});
     const e=map.get(key);
     e.sum+=amt; e.n++;
-    if(!e.desc&&m.desc&&r[m.desc])e.desc=String(r[m.desc]);
-    if(m.desc&&r[m.desc]&&Math.abs(amt)>=(e._big||0)){e._big=Math.abs(amt);e.descBig=String(r[m.desc]);}
+    const dv=descOfRow(dcols,r);
+    if(!e.desc&&dv)e.desc=dv;
+    if(dv&&Math.abs(amt)>=(e._big||0)){e._big=Math.abs(amt);e.descBig=dv;}
     if(m.date&&r[m.date]){const d=parseDateVal(r[m.date]); if(d&&(!e.date||d<e.date))e.date=d;}
   });
   return {map,skipped};
@@ -1059,6 +1082,7 @@ function lineItems(side,flip,age){
   const m=mapping(side), s=SIDES[side];
   const isA=side==='A';
   const items=[]; let skipped=0;
+  const dcols=descChain(side);
   s.rows.forEach((r,i)=>{
     let amt=netAmount(r,m);
     if(amt===null||amt===0){skipped++;return;}
@@ -1066,7 +1090,7 @@ function lineItems(side,flip,age){
     const kparts=m.keys.map(k=>{const v=r[k];return v instanceof Date?fmtDate(v):String(v??'').trim();}).filter(Boolean);
     const label=kparts.length?kparts.join(' | '):'#'+(i+1); // #N = N-th data row
     const date=m.date&&r[m.date]?parseDateVal(r[m.date]):null;
-    const d=m.desc&&r[m.desc]?String(r[m.desc]):'';
+    const d=descOfRow(dcols,r);
     items.push({key:label,amtA:isA?amt:null,amtB:isA?null:amt,diff:isA?amt:-amt,
                 nA:isA?1:0,nB:isA?0:1,desc:d,descA:isA?d:'',descB:isA?'':d,
                 date,age:age(date),cat:''});
@@ -1078,6 +1102,7 @@ function keylessItems(side,flip,age){
   const m=mapping(side), s=SIDES[side];
   const isA=side==='A';
   const items=[]; let zero=0;
+  const dcols=descChain(side);
   s.rows.forEach((r,i)=>{
     const kparts=m.keys.map(k=>{const v=r[k];return v instanceof Date?fmtDate(v):String(v??'').trim();});
     if(!kparts.every(p=>p===''))return; // keyed rows belong to aggregate()
@@ -1085,7 +1110,7 @@ function keylessItems(side,flip,age){
     if(amt===null||amt===0){zero++;return;}
     if(flip)amt=-amt;
     const date=m.date&&r[m.date]?parseDateVal(r[m.date]):null;
-    const d=m.desc&&r[m.desc]?String(r[m.desc]):'';
+    const d=descOfRow(dcols,r);
     items.push({key:'#'+(i+1),amtA:isA?amt:null,amtB:isA?null:amt,diff:isA?amt:-amt,nA:isA?1:0,nB:isA?0:1,
       desc:d,descA:isA?d:'',descB:isA?'':d,date,age:age(date),cat:''});
   });
@@ -2264,7 +2289,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.3)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.4)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -2297,7 +2322,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.3)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.4)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -2349,7 +2374,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.3.html':'OKYPY_Reconciliation_Manual_v3.3.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.4.html':'OKYPY_Reconciliation_Manual_v3.4.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

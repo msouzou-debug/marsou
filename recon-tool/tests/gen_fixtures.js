@@ -229,6 +229,19 @@ fs.writeFileSync(S('mx_ho_all.csv'),
   '122140,L2,11/03/2026,IC credit L2,-100.00\n' +
   '129999,ZZ,01/03/2026,not an IC row,9.99\n');
 
+/* ---- description-fallback fixture: 'Text' empty on invoice-style rows,
+   'Document Header Text' carries the story (the SAP shape) ---- */
+fs.writeFileSync(S('dh_A.csv'),
+  'Ref,Date,Text,Document Header Text,Amount\n' +
+  'D1,05/03/2026,,HDR ALPHA,100.00\n' +
+  'D2,06/03/2026,TXT BETA,,50.00\n' +
+  'D3,07/03/2026,,HDR GAMMA,25.00\n');
+fs.writeFileSync(S('dh_B.csv'),
+  'Ref,Date,Text,Document Header Text,Amount\n' +
+  'D1,05/03/2026,,HDR ALPHA B,-100.00\n' +
+  'D2,06/03/2026,TXT BETA B,,-50.00\n' +
+  'D3,07/03/2026,,HDR GAMMA B,-25.00\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

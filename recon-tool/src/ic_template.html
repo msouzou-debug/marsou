@@ -197,7 +197,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.3</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.4</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>__XLSX_LIB__</script>
@@ -215,7 +215,7 @@ const I18N={
   prepL:"Συντάκτης", run:"Κατάρτιση πίνακα",
   s2e:"Βημα 2", s2t:"Ο πίνακας του Οργανισμού",
   mxHint:"Η διαφορά κάθε ζεύγους αναλύεται αυτόματα σε εκκρεμείς εγγραφές. Πράσινο ✓: όλες οι εκκρεμότητες έχουν χαρακτηριστεί — η συμφωνία είναι πλήρης. Κόκκινο: απομένουν αχαρακτήριστες εκκρεμότητες — πατήστε το κελί για να τις χαρακτηρίσετε. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.",
-  exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.3",
+  exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.4",
   entL:"Βιβλία", cpL:"Έναντι", amtL:"Στήλη ποσού", crL:"Στήλη πίστωσης (−)", dateL:"Ημερομηνία", descL:"Περιγραφή",
   sheetL:"Φύλλο", hdrL:"Γραμμή τίτλων", rows:"γραμμές", none:"—", balL:"Καθαρό υπόλοιπο",
   cpMulti:"Πολλοί αντισυμβαλλόμενοι…", cpColL:"Στήλη αντισυμβαλλομένου", mapT:"Αντιστοίχιση τιμών σε οντότητες",
@@ -254,7 +254,7 @@ const I18N={
   prepL:"Preparer", run:"Build the matrix",
   s2e:"Step 2", s2t:"The organisation's matrix",
   mxHint:"Each pair's difference is automatically broken down into open items. Green ✓: every open item has been categorised — the reconciliation is complete. Red: uncategorised items remain — click the cell to categorise them. Grey: the counterparty file is missing.",
-  exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v1.3",
+  exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v1.4",
   entL:"Books", cpL:"Versus", amtL:"Amount column", crL:"Credit column (−)", dateL:"Date", descL:"Description",
   sheetL:"Sheet", hdrL:"Header row", rows:"rows", none:"—", balL:"Net balance",
   cpMulti:"Multiple counterparties…", cpColL:"Counterparty column", mapT:"Map values to entities",
@@ -588,15 +588,36 @@ function pairKeySuggest(f1,f2){
   return best;
 }
 /* build items for one file inside a pair: keyed aggregates + keyless lines */
+/* per-row description with fallback: the mapped column first, then every
+   other description-like column — SAP leaves 'Text' empty on invoice lines
+   while 'Document Header Text' carries the story */
+function descChainF(f){
+  const m=f.map, lower=f.cols.map(c=>c.toLowerCase());
+  const used=new Set([m.amt,m.cr,m.date,f.cpCol].filter(Boolean));
+  const out=m.desc?[m.desc]:[];
+  f.cols.forEach((c,i)=>{
+    if(c===m.desc||used.has(c))return;
+    if(DESC_HINTS.some(h=>lower[i].includes(h)))out.push(c);
+  });
+  return out;
+}
 function buildItems(f,keyCol,flip){
   const m=f.map;
   const keyed=new Map(), lines=[];
+  const dcols=descChainF(f);
+  const descOf=r=>{
+    for(const c of dcols){
+      const v=r[c];
+      if(v!==null&&v!==undefined&&String(v).trim()!=='')return String(v);
+    }
+    return '';
+  };
   f.rows.forEach((r,i)=>{
     if(f._excluded&&f._excluded.has(i))return;
     let amt=netA(r,m); if(amt===null||amt===0)return;
     if(flip)amt=-amt;
     const date=m.date&&r[m.date]?parseDateVal(r[m.date]):null;
-    const desc=m.desc&&r[m.desc]?String(r[m.desc]):'';
+    const desc=descOf(r);
     const kv=keyCol?(r[keyCol] instanceof Date?fmtDate(r[keyCol]):String(r[keyCol]??'').trim()):'';
     if(keyCol&&kv!==''){
       const k=normKey(kv);
@@ -1059,7 +1080,7 @@ document.getElementById('progFile').addEventListener('change',e=>{
 /* ================= manual ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών Συμφωνιών · Οδηγίες χρήσης (έκδοση 1.3)",
+  title:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών Συμφωνιών · Οδηγίες χρήσης (έκδοση 1.4)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκεντρώνει τα ενδοομιλικά καθολικά όλων των οντοτήτων — νοσοκομεία και Κεντρικά Γραφεία — και δείχνει σε έναν πίνακα ποια ζεύγη συμφωνούν, ποια έχουν ανεξήγητο υπόλοιπο και πού λείπει αρχείο. Για κάθε ζεύγος εκτελείται αυτόματη αντιστοίχιση, ώστε το κόκκινο κελί να σημαίνει πραγματικά ανεξήγητη διαφορά και όχι απλώς χρονική. Όλα γίνονται στο πρόγραμμα περιήγησης: τίποτα δεν εγκαθίσταται και τα δεδομένα δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Για τη λεπτομερή εργασία πάνω σε ένα μόνο ζεύγος λογαριασμών εξακολουθεί να υπάρχει το Εργαλείο Συμφωνιών του Οργανισμού — τα δύο εργαλεία συνεργάζονται.</p>"],
@@ -1074,7 +1095,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Intercompany Reconciliation Matrix · User manual (version 1.3)",
+  title:"OKYπY / SHSO — Intercompany Reconciliation Matrix · User manual (version 1.4)",
   sections:[
    ["What the tool does",
     "<p>It gathers every entity's intercompany ledgers — hospitals and Head Office — and shows, in one matrix, which pairs agree, which carry an unexplained residual, and where a file is missing. Each pair is auto-matched first, so a red cell means a genuinely unexplained difference rather than mere timing. Everything runs in your browser: nothing is installed and your data never leaves this computer.</p><p>For detailed work on a single pair of accounts, the organisation's Reconciliation Tool is still there — the two tools work together.</p>"],
@@ -1105,7 +1126,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Ενδοομιλικών_v1.3.html':'OKYPY_IC_Matrix_Manual_v1.3.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Ενδοομιλικών_v1.4.html':'OKYPY_IC_Matrix_Manual_v1.4.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

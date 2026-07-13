@@ -377,6 +377,25 @@ const newAppPage = async browser => {
   check('the committed group carries the adjustment tag', r.key.some(k => /προσαρμογ|adjustment/i.test(k)), r.key);
   await page.close();
 
+  /* ============ 9. v3.4: description fallback (Text → Document Header Text) ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('dh_A.csv'));
+  await page.setInputFiles('#fileB', S('dh_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => { document.getElementById('flipB').checked = true; });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    desc: [document.getElementById('descA').value, document.getElementById('descB').value],
+    m: RESULT.matched.map(x => [x.key, x.descA, x.descB]).sort(),
+  }));
+  console.log('DESCFB:', JSON.stringify(r));
+  check('pairwise: blank Text falls back to Document Header Text',
+    r.desc.every(d => d === 'Text') && r.m.length === 3 &&
+    JSON.stringify(r.m[0]) === JSON.stringify(['D1', 'HDR ALPHA', 'HDR ALPHA B']) &&
+    JSON.stringify(r.m[1]) === JSON.stringify(['D2', 'TXT BETA', 'TXT BETA B']), r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);
