@@ -7,10 +7,10 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.3**.
+   Current version: **v3.4**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.3**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.4**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -179,6 +179,14 @@ Expected values:
    date are never picked. Without this the Description A/B export columns
    sat empty whenever users forgot the dropdowns. The doc sheet records the
    description mapping.
+   **Description fallback chain** (v3.4, `descChain()`/`descOfRow()`, same
+   helpers copied into the IC tool as `descChainF`): per ROW, the mapped
+   description column is read first and, when blank, every other
+   description-like column (DESC_HINTS) is tried in order. SAP leaves
+   'Text' empty on invoice lines while 'Document Header Text' carries the
+   story — a real IC run exported 1,137 matched rows with blank
+   descriptions on both sides before this. Used by aggregate(),
+   lineItems(), keylessItems() and the IC buildItems().
    **Keyless rows are first-class** (v2.4, `keylessItems()` +
    `extractTotalRows()`): rows whose composite key is empty are NOT discarded
    in a keyed run — they are line-matched (amount within tolerance + date
@@ -416,7 +424,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.3)
+## IC Matrix Tool (src/ic_template.html, v1.4)
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,
@@ -492,6 +500,10 @@ not imported; keep fixes in sync when touching shared logic.
   («Τα βιβλία του {e}» broke on «Κεντρικά Γραφεία»). Card labels are
   «Βιβλία» / «Έναντι» ("Books" / "Versus"); balances read
   «{e} — δηλωμένο υπόλοιπο». Keep any new string genitive-safe.
+- test_ic description-fallback block: dh_A/dh_B (Text blank on D1/D3,
+  Document Header Text filled) → matched descX/descY carry the header
+  texts; auto-guess still picks 'Text'. Same fixture drives the pairwise
+  check in test_v4 (RESULT.matched descA/descB).
 - test_ic one-to-many block: mx_ho_all.csv (Account column: 122113→ΓΝ
   Λεμεσού, 122140→ΓΝ Λάρνακας, 129999 unmapped) + mx_lim_ho + mx_lar_ho →
   2 pairs (LIM residual 30, LAR ties out), 0 singles, virtual names carry
