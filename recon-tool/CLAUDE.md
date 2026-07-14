@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.4**.
+   Current version: **v3.5**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.4**. See "IC Matrix Tool" below.
@@ -126,6 +126,10 @@ Expected values:
     via the take-all shortcut; committing clears both sides.
   - v3.2 — warn_A/warn_B (no-key): two identical open 5.00 fees show the
     live duplicate warning; committing the 10 = 5+5 group hides #resWarn.
+  - v3.5 — sweep pair, search 'COMMISSION' → 64 visible rows; clicking
+    `#pane-onlyB .selall` selects exactly those 64 (selInfo shows 64),
+    unticking clears them; select-all both sides + matchSelected → 1
+    committed group, both open lists empty.
   - v3.3 — adj_A/adj_B (no-key, the real 05.2026 HNS miss): SAP −8818.40 +
     FX +0.13 vs bank −8818.27 → exactly one `{adj:true}` proposal
     [2×A, 1×B, diff 0]; committing clears both sides and the Matched key
@@ -258,6 +262,12 @@ Expected values:
    only updates the selection toolbar (`renderSelBar()`), otherwise every
    tick rebuilds the DOM and throws the scroll position back to the top;
    renders that do rebuild the panes save and restore each pane's scrollTop.
+   **Select-all-visible** (v3.5, `.selall` master checkbox in the selection
+   column header of Only-in-A/B, `selAll(id,on)`): (de)selects every row the
+   CURRENT filters show (`passFilter`, not accepted) — the 'search, then
+   take them all' flow for manual matching. Updates the visible row
+   checkboxes in place (no re-render, no scroll jump); its own checked
+   state is recomputed per render (`view.every(x=>x.r._sel)`).
 2. **Cascading passes** (v2): pass 1 by key; pass 2 (opt-in `#tier2on`) on the
    remainder by amount-within-tolerance + date within ±N days, greedy 1-to-1,
    largest amounts first; pass 3 (opt-in `#tier3on`) by bigram-Dice

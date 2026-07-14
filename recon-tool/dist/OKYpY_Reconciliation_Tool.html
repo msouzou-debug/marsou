@@ -388,7 +388,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.4</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.5</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -1926,7 +1926,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.4",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.5",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -1986,7 +1986,7 @@ const I18N = {
   search:"Αναζήτηση στα αποτελέσματα…", minAmt:"Ελάχ. ποσό (€)",
   selInfo:"Επιλεγμένα: {a} στο A ({sa} €) · {b} στο B ({sb} €) · Δ {d} €",
   matchSel:"Χειροκίνητο ταίριασμα επιλεγμένων", clearSel:"Καθαρισμός επιλογής",
-  selPick:"Επιλογή", manualKey:"Χειροκίνητο",
+  selPick:"Επιλογή", selAllT:"Επιλογή όλων των ορατών γραμμών", manualKey:"Χειροκίνητο",
   nmTag:"Ν-προς-Μ ίδιας ημέρας",
   revTag:"Αντιλογισμός",
   twinTag:"Ίδιο ποσό, άλλη ημερομηνία",
@@ -2017,7 +2017,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.4",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.5",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -2077,7 +2077,7 @@ const I18N = {
   search:"Search the results…", minAmt:"Min amount (€)",
   selInfo:"Selected: {a} in A ({sa} €) · {b} in B ({sb} €) · Δ {d} €",
   matchSel:"Manually match selected", clearSel:"Clear selection",
-  selPick:"Select", manualKey:"Manual",
+  selPick:"Select", selAllT:"Select all visible rows", manualKey:"Manual",
   nmTag:"Same-day N-to-M",
   revTag:"Reversal",
   twinTag:"Same amount, different date",
@@ -3275,7 +3275,9 @@ function tableHTML(id,view){
   const hasDate=view.some(x=>x.r.date), hasDesc=view.some(x=>x.r.desc);
   const grip='<span class="colgrip" onmousedown="gripDown(event)"></span>';
   const TH=(cls,txt,title)=>'<th'+(cls?' class="'+cls+'"':'')+(title?' title="'+title+'"':'')+'>'+txt+grip+'</th>';
-  let h='<table class="grid" data-tab="'+id+'"><thead><tr>'+(withSel?TH('','',t('selPick')):'')+TH('',t('key'))+
+  const allSel=withSel&&view.length>0&&view.every(x=>x.r._sel);
+  const master=withSel?'<input type="checkbox" class="selall" '+(allSel?'checked ':'')+'onchange="selAll(\''+id+'\',this.checked)" aria-label="'+t('selAllT')+'">':'';
+  let h='<table class="grid" data-tab="'+id+'"><thead><tr>'+(withSel?TH('',master,t('selAllT')):'')+TH('',t('key'))+
     (hasDesc?TH('',t('desc')):'')+(hasDate?TH('',t('date'))+TH('num',t('age')):'')+
     TH('num',t('amtA'))+TH('num',t('amtB'))+TH('num',t('diff'))+TH('num',t('rowsA'))+TH('num',t('rowsB'))+
     (withRule?TH('',t('rule')):'')+
@@ -3345,6 +3347,17 @@ function groupsHTML(){
 function toggleSel(id,idx,on){
   RESULT[id][idx]._sel=on;
   renderSelBar(); // never re-render the tables here — it would reset the scroll position
+}
+/* master checkbox: (de)select every row the filters currently show — the
+   'search, then take them all' flow for manual matching */
+function selAll(id,on){
+  RESULT[id].forEach((r,idx)=>{
+    if(inAccepted(r)||!passFilter(r))return;
+    r._sel=on;
+  });
+  // update the visible checkboxes in place; no re-render, no scroll jump
+  document.querySelectorAll('#pane-'+id+' tbody .selbox').forEach(b=>{b.checked=on;});
+  renderSelBar();
 }
 function clearSelection(){
   RESULT.onlyA.forEach(r=>delete r._sel);
@@ -3803,7 +3816,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.4)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.5)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -3822,7 +3835,7 @@ const MANUAL={
    ["Βήμα 3 — Πρόσθετα περάσματα και προτάσεις",
     "<ul><li><strong>Πέρασμα 2 — ποσό και ημερομηνία:</strong> ό,τι μένει εκκρεμές μετά το κλειδί δοκιμάζεται ξανά, με ίσο ποσό και κοντινή ημερομηνία. Οι αντιστοιχίσεις σημειώνονται «Ποσό+Ημ/νία».</li><li><strong>Πέρασμα 3 — ομοιότητα περιγραφής:</strong> προαιρετικό· ταιριάζει εγγραφές με σχεδόν ίδια περιγραφή και ίσο ποσό.</li><li><strong>Πέρασμα 4 — ίδιος δικαιούχος, μικρή διαφορά:</strong> ζευγαρώνει εγγραφές με συνδεδεμένο κείμενο (π.χ. ο δικαιούχος του SAP μέσα στην περιγραφή της τράπεζας) όταν τα ποσά διαφέρουν έως το ποσοστό που ορίζετε — η διαφορά (συνάλλαγμα, προμήθειες) εμφανίζεται στις «Διαφορές» με την ένδειξη «Προσέγγιση», για να τη χαρακτηρίσετε.</li><li><strong>Προτάσεις επιμερισμού (1 προς Ν):</strong> εντοπίζουν π.χ. ένα τιμολόγιο απέναντι σε δύο, τρεις ή τέσσερις μερικές πληρωμές. Μεγάλες μεταφορές που εκτελούνται σε ίσες δόσεις ή σε στρογγυλά ποσά — π.χ. 13.000.000 ως δεκατρείς δόσεις του 1.000.000 — αναγνωρίζονται και αυτές, με έως 120 γραμμές ανά ομάδα. Αν όλες οι εναπομένουσες εγγραφές της άλλης πλευράς αθροίζουν ακριβώς στο ποσό-στόχο — π.χ. μία εγγραφή τραπεζικών εξόδων στο καθολικό απέναντι σε όλες τις μικροχρεώσεις της κίνησης — προτείνεται ολόκληρο το σύνολο ως μία ομάδα. Όλα εμφανίζονται ως προτάσεις στην καρτέλα «Προτεινόμενοι συνδυασμοί» και τίποτα δεν αφαιρείται από τις εκκρεμότητες αν δεν το εγκρίνετε εσείς. Αφού τσεκάρετε όσες ομάδες δέχεστε, πατήστε «Μεταφορά στα Συμφωνούν»: οι ομάδες περνούν στα Συμφωνούν με την ένδειξη «Χειροκίνητη» και μπορείτε να τις αναιρέσετε ανά πάσα στιγμή.</li><li><strong>Προτάσεις ίδιας ημέρας (Ν προς Μ):</strong> στη λειτουργία χωρίς κοινό κλειδί, ομάδες γραμμών της ίδιας ημερομηνίας που αθροίζουν στο ίδιο ποσό και στις δύο πλευρές — π.χ. δύο εντολές πληρωμής απέναντι σε τρεις τραπεζικές κινήσεις — προτείνονται ως ενιαία ομάδα με την ένδειξη «Ν προς Μ».</li><li><strong>Αντιλογισμοί:</strong> μια χρέωση και η ισόποση αντίθετη πίστωση που έχουν μείνει εκκρεμείς στο ίδιο αρχείο προτείνονται ως ζεύγος με την ένδειξη «Αντιλογισμός».</li><li><strong>Ίδιο ποσό, άλλη ημερομηνία:</strong> όταν ένα ποσό υπάρχει ακριβώς μία φορά σε κάθε πλευρά αλλά οι ημερομηνίες απέχουν περισσότερο από το παράθυρο ± ημερών, το ζεύγος προτείνεται αντί να χαθεί στις εκκρεμότητες. Αν το ίδιο ποσό εμφανίζεται πολλές φορές, το εργαλείο δεν μαντεύει — το αφήνει σε εσάς.</li><li><strong>Ζεύγος με γραμμή προσαρμογής:</strong> δύο σχεδόν ίσες εγγραφές, μία σε κάθε πλευρά, των οποίων η μικρή απόκλιση (έως 100 €) εξηγείται στο λεπτό από μία μικρή εγγραφή που εκκρεμεί σε οποιαδήποτε από τις δύο πλευρές — η κλασική περίπτωση της γραμμής συναλλαγματικής διαφοράς ή στρογγυλοποίησης δίπλα στην κύρια εγγραφή. Και οι τρεις γραμμές προτείνονται ως μία ομάδα με μηδενική διαφορά.</li></ul>"],
    ["Βήμα 4 — Αποτελέσματα",
-    "<ul><li><strong>Η ζυγαριά:</strong> ισορροπεί και πρασινίζει όταν η καθαρή διαφορά είναι μέσα στο όριο ανοχής· διαφορετικά γέρνει προς τη βαρύτερη πλευρά.</li><li><strong>Οι δείκτες:</strong> πλήθη ανά κατηγορία, σύνολα A και B, καθαρή διαφορά.</li><li><strong>Οι καρτέλες:</strong> Διαφορές (ίδιο κλειδί, διαφορετικό ποσό), Προτεινόμενοι συνδυασμοί, Μόνο στο A, Μόνο στο B, Συμφωνούν.</li><li><strong>Κατηγορία εκκρεμότητας:</strong> Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Παλαίωση: 0–30 τρέχουσα, 31–60 σε παρακολούθηση, 61–90 κλιμάκωση, 90+ ενημέρωση διοίκησης.</li><li><strong>Προειδοποιήσεις:</strong> το κόκκινο πλαίσιο πάνω από τις καρτέλες εξηγεί τι πήγε στραβά — καθόλου αντιστοιχίσεις, ακατάλληλα κλειδιά, αντίθετα πρόσημα, πιθανές διπλοεγγραφές (ίδιο κλειδί, ποσό και ημερομηνία στην ίδια πλευρά) — και προτείνει τη διόρθωση. Οι προειδοποιήσεις παρακολουθούν την πορεία της εργασίας: μόλις εξηγήσετε τις σχετικές εγγραφές — με χειροκίνητο ταίριασμα ή έγκριση ομάδων — το μήνυμα σβήνει μόνο του.</li><li><strong>Έλεγχος συνόλων:</strong> όταν το αρχείο έχει δική του γραμμή γενικού συνόλου, το εργαλείο συγκρίνει το σύνολο που υπολόγισε με εκείνη και εμφανίζει το αποτέλεσμα κάτω από τους δείκτες — το ✓ επιβεβαιώνει ότι διαβάστηκαν όλες οι γραμμές.</li><li><strong>Αναζήτηση και φίλτρο ποσού:</strong> πάνω από τις καρτέλες, το πεδίο αναζήτησης περιορίζει τις γραμμές σε όσες περιέχουν το κείμενο που πληκτρολογείτε, και το ελάχιστο ποσό κρύβει τα μικροποσά για να φανούν πρώτα τα σημαντικά. Τα φίλτρα αλλάζουν μόνο ό,τι βλέπετε — όχι τα αποτελέσματα ή την εξαγωγή.</li><li><strong>Χειροκίνητο ταίριασμα:</strong> τσεκάρετε γραμμές στις καρτέλες «Μόνο στο A», «Μόνο στο B» ή «Διαφορές» — η γραμμή εργαλείων δείχνει τα αθροίσματα των επιλεγμένων — και πατήστε «Ταίριασμα επιλεγμένων»: οι γραμμές περνούν στα Συμφωνούν ως χειροκίνητη συμφωνία, με το υπόλοιπό τους ως διαφορά. Δουλεύει και μέσα στην ίδια πλευρά, π.χ. για μια χρέωση και την αντιλογιστική της πίστωση στο ίδιο καθολικό. Το τσεκάρισμα δεν μετακινεί τη λίστα — μένετε εκεί που ήσασταν.</li><li><strong>Πλάτος στηλών:</strong> οι μεγάλες περιγραφές κόβονται με «…» ώστε τα ποσά να μένουν πάντα ορατά — το πλήρες κείμενο εμφανίζεται όταν αφήσετε το ποντίκι πάνω στο κελί. Αν θέλετε άλλη αναλογία, σύρετε τη δεξιά άκρη κάθε επικεφαλίδας για να αλλάξετε το πλάτος της στήλης.</li></ul>"],
+    "<ul><li><strong>Η ζυγαριά:</strong> ισορροπεί και πρασινίζει όταν η καθαρή διαφορά είναι μέσα στο όριο ανοχής· διαφορετικά γέρνει προς τη βαρύτερη πλευρά.</li><li><strong>Οι δείκτες:</strong> πλήθη ανά κατηγορία, σύνολα A και B, καθαρή διαφορά.</li><li><strong>Οι καρτέλες:</strong> Διαφορές (ίδιο κλειδί, διαφορετικό ποσό), Προτεινόμενοι συνδυασμοί, Μόνο στο A, Μόνο στο B, Συμφωνούν.</li><li><strong>Κατηγορία εκκρεμότητας:</strong> Χρονική διαφορά, Απαιτείται εγγραφή ή Προς διερεύνηση. Παλαίωση: 0–30 τρέχουσα, 31–60 σε παρακολούθηση, 61–90 κλιμάκωση, 90+ ενημέρωση διοίκησης.</li><li><strong>Προειδοποιήσεις:</strong> το κόκκινο πλαίσιο πάνω από τις καρτέλες εξηγεί τι πήγε στραβά — καθόλου αντιστοιχίσεις, ακατάλληλα κλειδιά, αντίθετα πρόσημα, πιθανές διπλοεγγραφές (ίδιο κλειδί, ποσό και ημερομηνία στην ίδια πλευρά) — και προτείνει τη διόρθωση. Οι προειδοποιήσεις παρακολουθούν την πορεία της εργασίας: μόλις εξηγήσετε τις σχετικές εγγραφές — με χειροκίνητο ταίριασμα ή έγκριση ομάδων — το μήνυμα σβήνει μόνο του.</li><li><strong>Έλεγχος συνόλων:</strong> όταν το αρχείο έχει δική του γραμμή γενικού συνόλου, το εργαλείο συγκρίνει το σύνολο που υπολόγισε με εκείνη και εμφανίζει το αποτέλεσμα κάτω από τους δείκτες — το ✓ επιβεβαιώνει ότι διαβάστηκαν όλες οι γραμμές.</li><li><strong>Αναζήτηση και φίλτρο ποσού:</strong> πάνω από τις καρτέλες, το πεδίο αναζήτησης περιορίζει τις γραμμές σε όσες περιέχουν το κείμενο που πληκτρολογείτε, και το ελάχιστο ποσό κρύβει τα μικροποσά για να φανούν πρώτα τα σημαντικά. Τα φίλτρα αλλάζουν μόνο ό,τι βλέπετε — όχι τα αποτελέσματα ή την εξαγωγή.</li><li><strong>Χειροκίνητο ταίριασμα:</strong> τσεκάρετε γραμμές στις καρτέλες «Μόνο στο A», «Μόνο στο B» ή «Διαφορές» — η γραμμή εργαλείων δείχνει τα αθροίσματα των επιλεγμένων — και πατήστε «Ταίριασμα επιλεγμένων»: οι γραμμές περνούν στα Συμφωνούν ως χειροκίνητη συμφωνία, με το υπόλοιπό τους ως διαφορά. Δουλεύει και μέσα στην ίδια πλευρά, π.χ. για μια χρέωση και την αντιλογιστική της πίστωση στο ίδιο καθολικό. Το τσεκάρισμα δεν μετακινεί τη λίστα — μένετε εκεί που ήσασταν. Το πλαίσιο στην επικεφαλίδα της στήλης επιλογής τσεκάρει με μία κίνηση όλες τις ορατές γραμμές: γράψτε πρώτα κάτι στην αναζήτηση —π.χ. έναν δικαιούχο ή έναν μήνα— και επιλέξτε όλα τα φιλτραρισμένα μαζί, αντί ένα-ένα.</li><li><strong>Πλάτος στηλών:</strong> οι μεγάλες περιγραφές κόβονται με «…» ώστε τα ποσά να μένουν πάντα ορατά — το πλήρες κείμενο εμφανίζεται όταν αφήσετε το ποντίκι πάνω στο κελί. Αν θέλετε άλλη αναλογία, σύρετε τη δεξιά άκρη κάθε επικεφαλίδας για να αλλάξετε το πλάτος της στήλης.</li></ul>"],
    ["Εξαγωγή σε Excel",
     "<p>Το βιβλίο που παράγεται περιλαμβάνει τα φύλλα Τεκμηρίωση (αρχεία, ρυθμίσεις, συντάκτης και γραμμή υπογραφής ελεγκτή), Σύνοψη, Προσαρμοσμένα υπόλοιπα, Διαφορές, Ομάδες (οι συνδυασμοί που εγκρίνατε), Μόνο στο A, Μόνο στο B και Συμφωνούν. Τα αναλυτικά φύλλα έχουν χωριστές στήλες «Περιγραφή A» και «Περιγραφή B», ώστε να φαίνεται το κείμενο και των δύο αρχείων. Όλα τα υπολογιζόμενα κελιά περιέχουν ζωντανούς, ελέγξιμους τύπους και η Σύνοψη έχει γραμμή αυτοελέγχου που πρέπει να δείχνει μηδέν.</p><p>Το βιβλίο είναι και χρωματικά κωδικοποιημένο: επικεφαλίδες στο μπλε του Οργανισμού, απόχρωση ανά χαρακτηρισμό εκκρεμότητας, αρνητικά ποσά με κόκκινο, και γραμμή αυτοελέγχου που πρασινίζει στο μηδέν και κοκκινίζει σε κάθε άλλη τιμή.</p>"],
    ["Πακέτο συμφωνιών",
@@ -3836,7 +3849,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.4)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.5)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -3855,7 +3868,7 @@ const MANUAL={
    ["Step 3 — Extra passes and suggestions",
     "<ul><li><strong>Pass 2, amount and date</strong> — whatever the key pass leaves open gets a second chance: equal amount, nearby date. These matches are labelled “Amount+date”.</li><li><strong>Pass 3, similar descriptions</strong> — an optional third pass for entries with nearly identical wording and equal amounts.</li><li><strong>Pass 4, same payee with a small difference</strong> — pairs entries whose text is linked (the SAP payee appearing inside the bank description, say) when the amounts differ by no more than the percentage you set. The residual — FX, commissions — lands in “Differences” marked “Near”, ready for you to categorise.</li><li><strong>Split suggestions (1 to N)</strong> — the tool looks for one invoice explained by two, three or four partial payments. Large transfers executed in equal instalments or round denominations — say 13,000,000 paid as thirteen lines of 1,000,000 — are recognised too, up to 120 lines per group. And when everything still open on the other side adds up exactly to a target — one bank-charges entry in the ledger against every small fee line on the statement, say — the whole set is proposed as one group. Everything lands in the “Suggested groups” tab and stays a suggestion until you approve it; nothing leaves the open lists on its own. Once you have ticked the groups you accept, press “Move to reconciled”: they join the Matched tab marked “Manual”, and each one can be undone at any time.</li><li><strong>Same-day suggestions (N to M)</strong> — in the no-shared-key mode, groups of lines dated the same day whose totals agree across the two sides — two payment orders against three bank movements, say — are proposed as a single group labelled “N to M”.</li><li><strong>Reversals</strong> — a debit and its equal-and-opposite credit left open in the SAME file are proposed as a pair marked “Reversal”.</li><li><strong>Same amount, different date</strong> — when an amount exists exactly once on each side but the dates sit further apart than the ± day window, the pair is proposed rather than left hanging in the open lists. If the same amount appears several times, the tool doesn't guess — it leaves the call to you.</li><li><strong>Pair with adjustment line</strong> — two nearly equal entries, one on each side, whose small gap (up to €100) is explained to the cent by one small entry still open on either side — the classic FX-difference or rounding line posted next to the main entry. All three lines are proposed as a single group with zero difference.</li></ul>"],
    ["Step 4 — Results",
-    "<ul><li><strong>The scale</strong> sits level and turns green when the net difference is within tolerance; otherwise it tips towards the heavier side.</li><li><strong>The figures</strong> give you counts per category, the two totals and the net difference.</li><li><strong>The tabs</strong>: Differences (same key, different amount), Suggested groups, Only in A, Only in B, Matched.</li><li><strong>Open-item categories</strong>: Timing difference, Adjustment required, or Requires investigation. Ageing runs 0–30 current, 31–60 follow up, 61–90 escalate, 90+ inform management.</li><li><strong>Warnings</strong>: the red box above the tabs explains what went wrong — no matches, unsuitable keys, opposite signs, possible duplicate postings (same key, amount and date on one side) — and tells you the fix. The warnings follow your work: once the entries concerned are explained — matched manually or through an approved group — the message clears on its own.</li><li><strong>Totals check</strong>: when a file carries its own grand-total line, the tool compares the total it computed against it and shows the verdict under the figures — a ✓ confirms every line was read.</li><li><strong>Search and amount filter</strong>: above the tabs, the search box narrows the rows to those containing whatever you type, and the minimum amount hides the small change so the material items surface first. The filters only change what you see — never the results or the export.</li><li><strong>Manual matching</strong>: tick rows in “Only in A”, “Only in B” or “Differences” — the toolbar shows the running totals of your selection — and press “Match selected”: the rows move to Matched as a manual reconciliation, any remainder carried as the difference. It works within one side too — a debit and its reversing credit in the same ledger, for instance. Ticking never moves the list — you stay right where you were.</li><li><strong>Column widths</strong> — long descriptions are trimmed with “…” so the amounts always stay in view; hover over a cell to read the full text. Want a different balance? Drag the right edge of any column heading to resize it.</li></ul>"],
+    "<ul><li><strong>The scale</strong> sits level and turns green when the net difference is within tolerance; otherwise it tips towards the heavier side.</li><li><strong>The figures</strong> give you counts per category, the two totals and the net difference.</li><li><strong>The tabs</strong>: Differences (same key, different amount), Suggested groups, Only in A, Only in B, Matched.</li><li><strong>Open-item categories</strong>: Timing difference, Adjustment required, or Requires investigation. Ageing runs 0–30 current, 31–60 follow up, 61–90 escalate, 90+ inform management.</li><li><strong>Warnings</strong>: the red box above the tabs explains what went wrong — no matches, unsuitable keys, opposite signs, possible duplicate postings (same key, amount and date on one side) — and tells you the fix. The warnings follow your work: once the entries concerned are explained — matched manually or through an approved group — the message clears on its own.</li><li><strong>Totals check</strong>: when a file carries its own grand-total line, the tool compares the total it computed against it and shows the verdict under the figures — a ✓ confirms every line was read.</li><li><strong>Search and amount filter</strong>: above the tabs, the search box narrows the rows to those containing whatever you type, and the minimum amount hides the small change so the material items surface first. The filters only change what you see — never the results or the export.</li><li><strong>Manual matching</strong>: tick rows in “Only in A”, “Only in B” or “Differences” — the toolbar shows the running totals of your selection — and press “Match selected”: the rows move to Matched as a manual reconciliation, any remainder carried as the difference. It works within one side too — a debit and its reversing credit in the same ledger, for instance. Ticking never moves the list — you stay right where you were. The checkbox in the selection column's header ticks every visible row in one move: type something into the search first — a payee, a month — and take all the filtered rows together instead of one by one.</li><li><strong>Column widths</strong> — long descriptions are trimmed with “…” so the amounts always stay in view; hover over a cell to read the full text. Want a different balance? Drag the right edge of any column heading to resize it.</li></ul>"],
    ["The Excel export",
     "<p>The workbook holds a Documentation sheet (files, settings, preparer, a sign-off line for the reviewer), the Summary, Adjusted balances, Differences, Groups (the combinations you approved), Only in A, Only in B and Matched. The detail sheets carry separate “Description A” and “Description B” columns, so both files' wording is visible. Every computed cell is a live, auditable formula, and the Summary carries a self-check row that must show zero.</p><p>The workbook is colour-coded as well: headers in the organisation's blue, a tint per open-item category, negative amounts in red, and a self-check row that turns green at zero and red at anything else.</p>"],
    ["The reconciliation pack",
@@ -3888,7 +3901,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.4.html':'OKYPY_Reconciliation_Manual_v3.4.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.5.html':'OKYPY_Reconciliation_Manual_v3.5.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

@@ -396,6 +396,43 @@ const newAppPage = async browser => {
     JSON.stringify(r.m[1]) === JSON.stringify(['D2', 'TXT BETA', 'TXT BETA B']), r);
   await page.close();
 
+  /* ============ 10. v3.5: search + select-all-visible for manual matching ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('sweep_A.csv'));
+  await page.setInputFiles('#fileB', S('sweep_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  await page.evaluate(() => { RESULT.activeTab = 'onlyB'; RESULT.filterQ = 'COMMISSION'; renderResults(); });
+  r = await page.evaluate(() => document.querySelectorAll('#pane-onlyB tbody tr').length);
+  check('search narrows Only-in-B to the 64 commission lines', r === 64, r);
+  await page.click('#pane-onlyB .selall');
+  r = await page.evaluate(() => {
+    const { B } = selState();
+    return { sel: B.length, info: document.getElementById('selInfo').textContent };
+  });
+  check('master checkbox selects every filtered row at once', r.sel === 64 && /64/.test(r.info), r);
+  await page.click('#pane-onlyB .selall'); // untick clears them again
+  r = await page.evaluate(() => selState().B.length);
+  check('unticking the master clears the filtered selection', r === 0, r);
+  /* full flow: select everything on both sides and match */
+  r = await page.evaluate(() => {
+    RESULT.filterQ = ''; renderResults();
+    selAll('onlyB', true); selAll('onlyA', true);
+    matchSelected();
+    return { committed: RESULT.committed.length,
+             open: [RESULT.onlyA.filter(x => !inAccepted(x)).length, RESULT.onlyB.filter(x => !inAccepted(x)).length] };
+  });
+  check('select-all on both sides feeds one manual match that clears the lists',
+    r.committed === 1 && JSON.stringify(r.open) === JSON.stringify([0, 0]), r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);
