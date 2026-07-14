@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Επίπτωση Υπέρβασης Εξειδικευμένων Μονάδων — ΟΚΥπΥ</title>
+<style>
+  :root {
+    --navy: #062E5C;
+    --blue: #0072BC;
+    --sky: #00AEEF;
+    --green: #8DC63F;
+    --red: #C0392B;
+    --amber-bg: #FFF6DD;
+    --amber-bd: #E6B800;
+    --gray: #6b7280;
+    --line: #d7dde5;
+    --bg: #f4f6f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0; background: var(--bg); color: #1a2333;
+    font-size: 14px;
+  }
+  header {
+    background: var(--navy); color: #fff; padding: 18px 28px;
+    border-bottom: 4px solid var(--sky);
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header .sub { color: #bcd6ee; font-size: 13px; margin-top: 4px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 28px 60px; }
+  section {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px 22px; margin-top: 20px;
+  }
+  h2 {
+    font-size: 16px; color: var(--navy); margin: 0 0 12px;
+    padding-bottom: 8px; border-bottom: 2px solid var(--sky);
+  }
+  h3 { font-size: 14px; color: var(--blue); margin: 18px 0 8px; }
+  .zones { display: flex; gap: 16px; flex-wrap: wrap; }
+  .zone { flex: 1 1 300px; }
+  .dropzone {
+    border: 2px dashed var(--blue); border-radius: 8px; padding: 18px 12px;
+    text-align: center; color: var(--blue); cursor: pointer; background: #f4faff;
+    transition: background .15s, border-color .15s;
+  }
+  .dropzone.dragover { background: #e2f3ff; border-color: var(--sky); }
+  .dropzone .big { font-size: 15px; font-weight: bold; }
+  .dropzone .hint { font-size: 12px; color: var(--gray); margin-top: 4px; }
+  .filecard {
+    border: 1px solid var(--line); border-left: 4px solid var(--green);
+    border-radius: 6px; padding: 10px 12px; margin-top: 10px; background: #fcfdfe;
+  }
+  .filecard.error { border-left-color: var(--red); }
+  .filecard .fname { font-weight: bold; word-break: break-all; }
+  .filecard .meta { font-size: 12px; color: var(--gray); margin-top: 4px; }
+  .filecard .row { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .filecard select { padding: 4px 6px; font-family: inherit; }
+  .filecard select.unset { border: 2px solid var(--red); background: #fff3f0; }
+  .warnbox {
+    background: #fdecea; border: 1px solid var(--red); color: var(--red);
+    border-radius: 5px; padding: 8px 10px; font-size: 12.5px; margin-top: 8px;
+  }
+  .warnbox label { display: flex; gap: 6px; align-items: center; margin-top: 6px; color: #1a2333; }
+  .removebtn {
+    margin-left: auto; background: none; border: 1px solid var(--line); border-radius: 4px;
+    color: var(--gray); cursor: pointer; padding: 2px 8px; font-size: 13px;
+  }
+  .removebtn:hover { color: var(--red); border-color: var(--red); }
+  table.grid { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  table.grid th {
+    background: var(--navy); color: #fff; font-weight: bold; padding: 6px 8px;
+    border: 1px solid #33507a; font-size: 12.5px; text-align: center;
+  }
+  table.grid td { border: 1px solid var(--line); padding: 4px 8px; text-align: right; }
+  table.grid td.txt { text-align: left; }
+  table.grid td.ctr { text-align: center; }
+  table.grid tr.total td { font-weight: bold; background: #eef3f9; }
+  table.grid tr.amber td { background: var(--amber-bg); }
+  table.grid input[type=number] {
+    width: 100px; padding: 3px 5px; text-align: right; font-family: inherit;
+    border: 1px solid #9db3cc; border-radius: 3px; color: #0000FF; font-weight: bold;
+  }
+  table.grid input.missing { border: 2px solid var(--red); background: #fff3f0; }
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .toolbar label { font-weight: bold; }
+  select.toggle {
+    padding: 5px 8px; font-family: inherit; font-weight: bold;
+    background: #fffbcc; border: 1px solid var(--amber-bd); border-radius: 4px;
+  }
+  button.primary {
+    background: var(--blue); color: #fff; border: none; border-radius: 6px;
+    padding: 12px 26px; font-size: 15px; font-weight: bold; cursor: pointer; font-family: inherit;
+  }
+  button.primary:hover:not(:disabled) { background: var(--navy); }
+  button.primary:disabled { background: #9db3cc; cursor: not-allowed; }
+  button.ghost {
+    background: none; border: 1px solid var(--blue); color: var(--blue); border-radius: 6px;
+    padding: 6px 14px; cursor: pointer; font-family: inherit;
+  }
+  button.ghost:hover { background: #eaf5fd; }
+  .errlist { color: var(--red); font-size: 13px; margin: 10px 0 0; padding-left: 20px; }
+  .errlist li { margin-top: 4px; }
+  .okmsg { color: #21713c; font-weight: bold; margin-top: 10px; }
+  .infomsg { color: var(--gray); font-size: 12.5px; margin-top: 8px; }
+  .legend { font-size: 12px; color: var(--gray); margin-top: 8px; }
+  .legend .swatch {
+    display: inline-block; width: 12px; height: 12px; border: 1px solid var(--amber-bd);
+    background: var(--amber-bg); vertical-align: -2px; margin-right: 4px;
+  }
+  .month-h {
+    display: flex; align-items: baseline; gap: 14px; margin-top: 20px;
+    border-left: 5px solid var(--green); padding-left: 10px;
+  }
+  .month-h b { color: var(--navy); font-size: 15px; }
+  .month-h span { font-size: 12.5px; color: var(--gray); }
+  .empty { color: var(--gray); font-style: italic; padding: 8px 0; }
+  footer {
+    max-width: 1280px; margin: 30px auto 0; padding: 14px 28px 40px;
+    font-size: 12px; color: var(--gray); border-top: 1px solid var(--line);
+  }
+  footer b { color: var(--navy); }
+</style>
+<!--INJECT:XLSX-->
+<!--INJECT:EXCELJS-->
+<!--INJECT:CORE-->
+</head>
+<body>
+<header>
+  <h1>Επίπτωση Υπέρβασης Εξειδικευμένων Μονάδων — ΟΚΥπΥ</h1>
+  <div class="sub">Μηνιαίος υπολογισμός επίπτωσης εσόδων από υπέρβαση συμφωνημένων εξειδικευμένων μονάδων (DRG) · Εξαγωγή Excel με ζωντανές φόρμουλες</div>
+</header>
+<main>
+
+  <!-- ================= 1. ΑΡΧΕΙΑ ================= -->
+  <section id="sec-files">
+    <h2>1 · Αρχεία μήνα</h2>
+    <p class="infomsg" style="margin-top:0">
+      Η εφαρμογή ξαναχτίζει ολόκληρο το έτος σε κάθε χρήση — μεταφορτώστε τα IS Auditor Reports
+      <b>όλων</b> των μηνών κάθε φορά. Κάθε αρχείο πρέπει να αντιστοιχιστεί σε μήνα πριν την εξαγωγή.
+    </p>
+    <div class="zones">
+      <div class="zone">
+        <div class="dropzone" id="dz-is">
+          <div class="big">IS Auditor Reports</div>
+          <div class="hint">Ένα .xlsx ανά μήνα — σύρετε εδώ ή κάντε κλικ (πολλαπλά αρχεία)</div>
+        </div>
+        <input type="file" id="fi-is" accept=".xlsx,.xls" multiple hidden>
+        <div id="list-is"></div>
+      </div>
+      <div class="zone">
+        <div class="dropzone" id="dz-conso">
+          <div class="big">Conso — ΤΑΕΠ &gt; 15%</div>
+          <div class="hint">Προαιρετικό ανά μήνα · φύλλα ανά κωδικό νοσηλευτηρίου</div>
+        </div>
+        <input type="file" id="fi-conso" accept=".xlsx,.xls" multiple hidden>
+        <div id="list-conso"></div>
+      </div>
+      <div class="zone">
+        <div class="dropzone" id="dz-disc">
+          <div class="big">Εκπτώσεις ΟΑΥ (προαιρετικό)</div>
+          <div class="hint">«Ενημέρωση Νοσηλευτηρίων για αποζημίωση μονάδων υπέρβασης» — προσυμπληρώνει τον πίνακα εκπτώσεων</div>
+        </div>
+        <input type="file" id="fi-disc" accept=".xlsx,.xls" hidden>
+        <div id="list-disc"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2. ΠΑΡΑΔΟΧΕΣ ================= -->
+  <section id="sec-assump">
+    <h2>2 · Παραδοχές (επεξεργάσιμες — αποθηκεύονται τοπικά)</h2>
+
+    <div class="toolbar">
+      <label for="in-year">Έτος αναφοράς:</label>
+      <input type="number" id="in-year" min="2020" max="2099" style="width:90px;padding:4px 6px;font-weight:bold;color:#0000FF;">
+      <label for="in-toggle">Αφαίρεση πιστωτικών σημειώσεων;</label>
+      <select id="in-toggle" class="toggle">
+        <option value="ΟΧΙ">ΟΧΙ</option>
+        <option value="ΝΑΙ">ΝΑΙ</option>
+      </select>
+      <button class="ghost" id="btn-reset" style="margin-left:auto">Επαναφορά προεπιλογών</button>
+    </div>
+
+    <h3>Νοσηλευτήρια — συμφωνημένες μονάδες &amp; βασικές τιμές</h3>
+    <table class="grid" id="tbl-hosp">
+      <thead>
+        <tr>
+          <th>Κωδικός</th><th>Νοσηλευτήριο</th>
+          <th>Συμφωνημένες ετήσιες μονάδες</th><th>Μηνιαίες (÷12)</th>
+          <th>Βασική τιμή 01/01–30/06 (€)</th><th>Βασική τιμή 01/07–31/12 (€)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Τελικό % έκπτωσης ΟΑΥ ανά μήνα (αρνητικό, π.χ. −40,32)</h3>
+    <table class="grid" id="tbl-disc">
+      <thead><tr id="tr-disc-head"></tr></thead>
+      <tbody><tr id="tr-disc-body"></tr></tbody>
+    </table>
+    <p class="infomsg">Μήνας με κενή έκπτωση και μεταφορτωμένο IS Auditor Report μπλοκάρει την εξαγωγή. Η τιμή 0% είναι έγκυρη (π.χ. Μάιος 2026).</p>
+  </section>
+
+  <!-- ================= 3. ΕΠΙΣΚΟΠΗΣΗ ================= -->
+  <section id="sec-review">
+    <h2>3 · Επισκόπηση πριν την εξαγωγή</h2>
+    <div class="legend">
+      <span class="swatch"></span> Πορτοκαλί: ΤΑΕΠ&nbsp;&gt;15% = 0 ενώ υπάρχουν μονάδες ΤΑΕΠ — πιθανώς απλώς κάτω από το όριο 15% (πληροφοριακό, όχι σφάλμα).
+    </div>
+    <div id="review"></div>
+  </section>
+
+  <!-- ================= 4. ΕΞΑΓΩΓΗ ================= -->
+  <section id="sec-export">
+    <h2>4 · Εξαγωγή Excel</h2>
+    <p class="infomsg" style="margin-top:0">
+      Το αρχείο περιέχει 4 φύλλα (Σύνοψη · Υπολογισμός · Δεδομένα · Εισαγωγές) με ζωντανές,
+      ελέγξιμες φόρμουλες — αλλάζοντας τις παραδοχές στο φύλλο «Εισαγωγές» τα αποτελέσματα επανυπολογίζονται στο Excel.
+    </p>
+    <ul class="errlist" id="export-errors"></ul>
+    <div class="okmsg" id="export-ok" hidden>Όλοι οι έλεγχοι πέρασαν — έτοιμο για εξαγωγή.</div>
+    <p style="margin-top:14px">
+      <button class="primary" id="btn-export" disabled>⬇ Λήψη Excel</button>
+      <span class="infomsg" id="export-name"></span>
+    </p>
+  </section>
+</main>
+
+<footer>
+  <b>Προστασία δεδομένων:</b> Όλη η επεξεργασία γίνεται τοπικά στον φυλλομετρητή σας —
+  κανένα δεδομένο (δεδομένα υγείας) δεν αποστέλλεται σε διακομιστή ή στο διαδίκτυο.
+  Το αρχείο λειτουργεί πλήρως εκτός σύνδεσης: οι βιβλιοθήκες SheetJS και ExcelJS είναι ενσωματωμένες στο ίδιο το αρχείο HTML.
+  Οι παραδοχές αποθηκεύονται μόνο στο localStorage του φυλλομετρητή.
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var C = window.CeilingCore;
+  var LS_KEY = 'okypy_ceiling_assumptions_v1';
+
+  /* ---------------- Κατάσταση ---------------- */
+  var state = {
+    assumptions: loadAssumptions(),
+    isFiles: [],     // {id, filename, month, year, parsed, includeAnyway}
+    consoFiles: [],  // {id, filename, month, year, parsed}
+    discountFile: null // {filename, parsed}
+  };
+  var nextId = 1;
+
+  function loadAssumptions() {
+    var def = C.defaultAssumptions();
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return def;
+      var saved = JSON.parse(raw);
+      // Ρηχό merge πάνω στις προεπιλογές ώστε νέα πεδία να μη χαθούν.
+      var a = C.defaultAssumptions();
+      if (saved.year) a.year = saved.year;
+      if (saved.creditToggle === 'ΝΑΙ' || saved.creditToggle === 'ΟΧΙ') a.creditToggle = saved.creditToggle;
+      Object.keys(a.hospitals).forEach(function (code) {
+        if (saved.hospitals && saved.hospitals[code]) {
+          ['agreed', 'brH1', 'brH2'].forEach(function (k) {
+            var v = saved.hospitals[code][k];
+            if (v !== undefined) a.hospitals[code][k] = v;
+          });
+        }
+      });
+      for (var m = 1; m <= 12; m++) {
+        if (saved.discounts && saved.discounts[m] !== undefined) a.discounts[m] = saved.discounts[m];
+      }
+      return a;
+    } catch (e) { return def; }
+  }
+  function saveAssumptions() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state.assumptions)); } catch (e) {}
+  }
+
+  /* ---------------- Μορφοποίηση αριθμών ---------------- */
+  var fmtU = new Intl.NumberFormat('el-GR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  var fmtU2 = new Intl.NumberFormat('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var fmtE = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 0 });
+  function eur(v) {
+    if (v === null || v === undefined) return '—';
+    var s = '€' + fmtE.format(Math.abs(Math.round(v)));
+    return v < 0 ? '(' + s + ')' : (v === 0 ? '€0' : s);
+  }
+
+  /* ---------------- Ανάγνωση αρχείων ---------------- */
+  function readWorkbook(file) {
+    return file.arrayBuffer().then(function (buf) {
+      return XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: false });
+    });
+  }
+
+  function addIsFiles(files) {
+    Array.prototype.forEach.call(files, function (file) {
+      readWorkbook(file).then(function (wb) {
+        var parsed = C.parseISAuditor(XLSX, wb, file.name);
+        var det = C.detectMonthYear(file.name);
+        state.isFiles.push({
+          id: nextId++, filename: file.name,
+          month: det.month, year: det.year,
+          parsed: parsed, includeAnyway: false
+        });
+        renderAll();
+      }).catch(function (e) {
+        alert('Αποτυχία ανάγνωσης «' + file.name + '»: ' + e.message);
+      });
+    });
+  }
+
+  function addConsoFiles(files) {
+    Array.prototype.forEach.call(files, function (file) {
+      readWorkbook(file).then(function (wb) {
+        var parsed = C.parseConso(XLSX, wb, file.name);
+        // Προτεραιότητα στο κελί B1 (π.χ. «ΙΑΝΟΥΑΡΙΟΣ 2026»), μετά στο όνομα αρχείου.
+        var det = C.detectMonthYear(parsed.b1);
+        if (det.month === null) det = C.detectMonthYear(file.name);
+        state.consoFiles.push({
+          id: nextId++, filename: file.name,
+          month: det.month, year: det.year, parsed: parsed
+        });
+        renderAll();
+      }).catch(function (e) {
+        alert('Αποτυχία ανάγνωσης «' + file.name + '»: ' + e.message);
+      });
+    });
+  }
+
+  function addDiscountFile(files) {
+    var file = files[0];
+    if (!file) return;
+    readWorkbook(file).then(function (wb) {
+      var parsed = C.parseDiscountFile(XLSX, wb, file.name);
+      state.discountFile = { filename: file.name, parsed: parsed };
+      var applied = 0;
+      parsed.entries.forEach(function (e) {
+        if (e.year === state.assumptions.year) {
+          state.assumptions.discounts[e.month] = e.pct;
+          applied++;
+        }
+      });
+      saveAssumptions();
+      if (!applied) {
+        alert('Το αρχείο εκπτώσεων δεν περιέχει εγγραφές για το έτος ' + state.assumptions.year +
+          ' — ο πίνακας δεν προσυμπληρώθηκε.');
+      }
+      renderAll();
+    }).catch(function (e) {
+      alert('Αποτυχία ανάγνωσης «' + file.name + '»: ' + e.message);
+    });
+  }
+
+  /* ---------------- Dropzones ---------------- */
+  function wireZone(zoneId, inputId, handler) {
+    var dz = document.getElementById(zoneId);
+    var fi = document.getElementById(inputId);
+    dz.addEventListener('click', function () { fi.click(); });
+    fi.addEventListener('change', function () { handler(fi.files); fi.value = ''; });
+    ['dragover', 'dragenter'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('dragover'); });
+    });
+    dz.addEventListener('drop', function (e) { handler(e.dataTransfer.files); });
+  }
+  wireZone('dz-is', 'fi-is', addIsFiles);
+  wireZone('dz-conso', 'fi-conso', addConsoFiles);
+  wireZone('dz-disc', 'fi-disc', addDiscountFile);
+
+  /* ---------------- Rendering: κάρτες αρχείων ---------------- */
+  function monthSelect(current, onchange) {
+    var sel = document.createElement('select');
+    var opt0 = document.createElement('option');
+    opt0.value = ''; opt0.textContent = '— επιλέξτε μήνα —';
+    sel.appendChild(opt0);
+    for (var m = 1; m <= 12; m++) {
+      var o = document.createElement('option');
+      o.value = m; o.textContent = m + ' · ' + C.MONTHS_EL[m];
+      sel.appendChild(o);
+    }
+    sel.value = current || '';
+    if (!current) sel.classList.add('unset');
+    sel.addEventListener('change', function () {
+      onchange(sel.value ? parseInt(sel.value, 10) : null);
+    });
+    return sel;
+  }
+
+  function renderIsList() {
+    var box = document.getElementById('list-is');
+    box.innerHTML = '';
+    state.isFiles.forEach(function (f) {
+      var card = document.createElement('div');
+      card.className = 'filecard' + (f.parsed.error ? ' error' : '');
+      var head = document.createElement('div');
+      head.className = 'row';
+      var nm = document.createElement('span'); nm.className = 'fname'; nm.textContent = f.filename;
+      var rm = document.createElement('button'); rm.className = 'removebtn'; rm.textContent = '× αφαίρεση';
+      rm.addEventListener('click', function () {
+        state.isFiles = state.isFiles.filter(function (x) { return x.id !== f.id; });
+        renderAll();
+      });
+      head.appendChild(nm); head.appendChild(rm);
+      card.appendChild(head);
+
+      if (f.parsed.error) {
+        var eb = document.createElement('div'); eb.className = 'warnbox';
+        eb.textContent = 'Σφάλμα: ' + f.parsed.error;
+        card.appendChild(eb);
+      } else {
+        var meta = document.createElement('div'); meta.className = 'meta';
+        meta.textContent = f.parsed.totalRows.toLocaleString('el-GR') + ' γραμμές · ' +
+          f.parsed.specialisedRows + ' Specialised' +
+          (f.year ? ' · έτος: ' + f.year : '');
+        card.appendChild(meta);
+
+        var row = document.createElement('div'); row.className = 'row';
+        var lbl = document.createElement('span'); lbl.textContent = 'Μήνας:';
+        row.appendChild(lbl);
+        row.appendChild(monthSelect(f.month, function (m) { f.month = m; renderAll(); }));
+        card.appendChild(row);
+
+        if (f.parsed.incomplete) {
+          var wb = document.createElement('div'); wb.className = 'warnbox';
+          wb.textContent = '⚠ Πιθανώς ελλιπές αρχείο: μόνο ' + f.parsed.totalRows.toLocaleString('el-GR') +
+            ' γραμμές (' + f.parsed.specialisedRows + ' Specialised). Πλήρης μήνας ≈ 7.500–10.000 γραμμές / 300–500 Specialised.';
+          var lab = document.createElement('label');
+          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = f.includeAnyway;
+          cb.addEventListener('change', function () { f.includeAnyway = cb.checked; renderAll(); });
+          lab.appendChild(cb);
+          lab.appendChild(document.createTextNode('Συμπερίληψη παρόλα αυτά'));
+          wb.appendChild(lab);
+          card.appendChild(wb);
+        }
+      }
+      box.appendChild(card);
+    });
+  }
+
+  function renderConsoList() {
+    var box = document.getElementById('list-conso');
+    box.innerHTML = '';
+    state.consoFiles.forEach(function (f) {
+      var card = document.createElement('div');
+      card.className = 'filecard' + (f.parsed.error ? ' error' : '');
+      var head = document.createElement('div'); head.className = 'row';
+      var nm = document.createElement('span'); nm.className = 'fname'; nm.textContent = f.filename;
+      var rm = document.createElement('button'); rm.className = 'removebtn'; rm.textContent = '× αφαίρεση';
+      rm.addEventListener('click', function () {
+        state.consoFiles = state.consoFiles.filter(function (x) { return x.id !== f.id; });
+        renderAll();
+      });
+      head.appendChild(nm); head.appendChild(rm);
+      card.appendChild(head);
+
+      if (f.parsed.error) {
+        var eb = document.createElement('div'); eb.className = 'warnbox';
+        eb.textContent = 'Σφάλμα: ' + f.parsed.error;
+        card.appendChild(eb);
+      } else {
+        var meta = document.createElement('div'); meta.className = 'meta';
+        meta.textContent = (f.parsed.b1 ? 'B1: «' + f.parsed.b1 + '» · ' : '') +
+          f.parsed.sheetsUsed.length + ' νοσηλευτήρια με τιμή >15%';
+        card.appendChild(meta);
+        var row = document.createElement('div'); row.className = 'row';
+        var lbl = document.createElement('span'); lbl.textContent = 'Μήνας:';
+        row.appendChild(lbl);
+        row.appendChild(monthSelect(f.month, function (m) { f.month = m; renderAll(); }));
+        card.appendChild(row);
+      }
+      box.appendChild(card);
+    });
+  }
+
+  function renderDiscFile() {
+    var box = document.getElementById('list-disc');
+    box.innerHTML = '';
+    var f = state.discountFile;
+    if (!f) return;
+    var card = document.createElement('div');
+    card.className = 'filecard' + (f.parsed.error ? ' error' : '');
+    var head = document.createElement('div'); head.className = 'row';
+    var nm = document.createElement('span'); nm.className = 'fname'; nm.textContent = f.filename;
+    var rm = document.createElement('button'); rm.className = 'removebtn'; rm.textContent = '× αφαίρεση';
+    rm.addEventListener('click', function () { state.discountFile = null; renderAll(); });
+    head.appendChild(nm); head.appendChild(rm);
+    card.appendChild(head);
+    var meta = document.createElement('div'); meta.className = 'meta';
+    meta.textContent = f.parsed.error ? ('Σφάλμα: ' + f.parsed.error)
+      : (f.parsed.entries.length + ' μηνιαίες εγγραφές έκπτωσης — οι τιμές του πίνακα προσυμπληρώθηκαν (μπορείτε να τις αλλάξετε).');
+    card.appendChild(meta);
+    box.appendChild(card);
+  }
+
+  /* ---------------- Rendering: παραδοχές ---------------- */
+  function numInput(value, decimals, onchange) {
+    var inp = document.createElement('input');
+    inp.type = 'number';
+    inp.step = decimals ? 'any' : '1';
+    inp.value = (value === null || value === undefined || value === '') ? '' :
+      (decimals ? Math.round(value * 100) / 100 : value);
+    inp.addEventListener('change', function () {
+      var v = inp.value === '' ? null : parseFloat(inp.value);
+      onchange(isFinite(v) ? v : null);
+    });
+    return inp;
+  }
+
+  function renderAssumptions() {
+    document.getElementById('in-year').value = state.assumptions.year;
+    document.getElementById('in-toggle').value = state.assumptions.creditToggle;
+
+    var tb = document.querySelector('#tbl-hosp tbody');
+    tb.innerHTML = '';
+    var anyMonthH2 = state.isFiles.some(function (f) { return f.month && f.month > 6; });
+    C.HOSPITALS.forEach(function (h) {
+      var a = state.assumptions.hospitals[h.code];
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td'); td1.className = 'ctr'; td1.textContent = h.code;
+      var td2 = document.createElement('td'); td2.className = 'txt'; td2.textContent = h.name;
+      var td3 = document.createElement('td');
+      td3.appendChild(numInput(a.agreed, false, function (v) { a.agreed = v === null ? 0 : v; saveAssumptions(); renderAll(); }));
+      var td4 = document.createElement('td');
+      td4.textContent = fmtU2.format((a.agreed || 0) / 12);
+      var td5 = document.createElement('td');
+      td5.appendChild(numInput(a.brH1, false, function (v) { a.brH1 = v; saveAssumptions(); renderAll(); }));
+      var td6 = document.createElement('td');
+      var h2inp = numInput(a.brH2, false, function (v) { a.brH2 = v; saveAssumptions(); renderAll(); });
+      if (anyMonthH2 && (a.brH2 === null || a.brH2 === undefined || a.brH2 === '')) h2inp.classList.add('missing');
+      td6.appendChild(h2inp);
+      [td1, td2, td3, td4, td5, td6].forEach(function (td) { tr.appendChild(td); });
+      tb.appendChild(tr);
+    });
+
+    var trh = document.getElementById('tr-disc-head');
+    var trb = document.getElementById('tr-disc-body');
+    trh.innerHTML = ''; trb.innerHTML = '';
+    var monthsWithIs = {};
+    state.isFiles.forEach(function (f) { if (f.month) monthsWithIs[f.month] = true; });
+    for (var m = 1; m <= 12; m++) {
+      var th = document.createElement('th'); th.textContent = C.MONTHS_EL[m].slice(0, 3);
+      th.title = C.MONTHS_EL[m];
+      trh.appendChild(th);
+      var td = document.createElement('td');
+      (function (mm) {
+        var d = state.assumptions.discounts[mm];
+        var inp = numInput(d === null || d === undefined ? null : d * 100, true, function (v) {
+          state.assumptions.discounts[mm] = v === null ? null : v / 100;
+          saveAssumptions(); renderAll();
+        });
+        inp.style.width = '76px';
+        inp.placeholder = '%';
+        if (monthsWithIs[mm] && (d === null || d === undefined)) inp.classList.add('missing');
+        td.appendChild(inp);
+      })(m);
+      trb.appendChild(td);
+    }
+  }
+
+  document.getElementById('in-year').addEventListener('change', function () {
+    var v = parseInt(this.value, 10);
+    if (isFinite(v)) { state.assumptions.year = v; saveAssumptions(); renderAll(); }
+  });
+  document.getElementById('in-toggle').addEventListener('change', function () {
+    state.assumptions.creditToggle = this.value;
+    saveAssumptions(); renderAll();
+  });
+  document.getElementById('btn-reset').addEventListener('click', function () {
+    if (!confirm('Επαναφορά όλων των παραδοχών στις προεπιλογές 2026;')) return;
+    state.assumptions = C.defaultAssumptions();
+    saveAssumptions();
+    renderAll();
+  });
+
+  /* ---------------- Υπολογισμός & επισκόπηση ---------------- */
+  function currentMonths() {
+    var months = {};
+    state.isFiles.forEach(function (f) {
+      if (f.month && f.parsed && f.parsed.ok && (!f.parsed.incomplete || f.includeAnyway)) months[f.month] = f;
+    });
+    return Object.keys(months).map(Number).sort(function (a, b) { return a - b; });
+  }
+
+  function monthData(m) {
+    var isF = state.isFiles.find(function (f) { return f.month === m && f.parsed && f.parsed.ok; });
+    var consoF = state.consoFiles.find(function (f) { return f.month === m && f.parsed && f.parsed.ok; });
+    return {
+      is: isF ? isF.parsed.perProvider : {},
+      over15: consoF ? consoF.parsed.over15 : {}
+    };
+  }
+
+  function computeAllRows() {
+    var rows = [];
+    currentMonths().forEach(function (m) {
+      rows = rows.concat(C.computeMonthRows(m, monthData(m), state.assumptions));
+    });
+    return rows;
+  }
+
+  function renderReview() {
+    var box = document.getElementById('review');
+    box.innerHTML = '';
+    var months = currentMonths();
+    if (!months.length) {
+      var p = document.createElement('div');
+      p.className = 'empty';
+      p.textContent = 'Δεν υπάρχουν ακόμη πλήρη IS Auditor Reports με αντιστοιχισμένο μήνα.';
+      box.appendChild(p);
+      return;
+    }
+
+    var grandImpact = 0, grandExcess = 0;
+    months.forEach(function (m) {
+      var rows = C.computeMonthRows(m, monthData(m), state.assumptions);
+      var d = state.assumptions.discounts[m];
+
+      var head = document.createElement('div');
+      head.className = 'month-h';
+      var b = document.createElement('b');
+      b.textContent = C.MONTHS_EL[m] + ' ' + state.assumptions.year;
+      var s = document.createElement('span');
+      s.textContent = 'Έκπτωση ΟΑΥ: ' + (d === null || d === undefined ? '— ΛΕΙΠΕΙ —' : fmtU2.format(d * 100) + '%');
+      head.appendChild(b); head.appendChild(s);
+      box.appendChild(head);
+
+      var t = document.createElement('table');
+      t.className = 'grid';
+      t.innerHTML = '<thead><tr>' +
+        '<th>Νοσηλευτήριο</th><th>Θετικές</th><th>εκ ΤΑΕΠ</th><th>Αρνητικές</th><th>εκ ΤΑΕΠ (αρν.)</th>' +
+        '<th>ΤΑΕΠ &gt;15%</th><th>± Πιστωτικές</th><th>Προσμετρώμενες</th><th>Συμφ. μηνιαίες</th>' +
+        '<th>Υπέρβαση</th><th>Επίπτωση €</th></tr></thead>';
+      var tb = document.createElement('tbody');
+      var tot = { pos: 0, posAe: 0, neg: 0, negAe: 0, over15: 0, credit: 0, counted: 0, agreedMonthly: 0, excess: 0, impact: 0 };
+      rows.forEach(function (r) {
+        var tr = document.createElement('tr');
+        if (r.amberFlag) { tr.className = 'amber'; tr.title = 'ΤΑΕΠ >15% = 0 ενώ υπάρχουν μονάδες ΤΑΕΠ — ενδεχομένως κάτω από το όριο 15%.'; }
+        function cell(v, cls) {
+          var td = document.createElement('td');
+          if (cls) td.className = cls;
+          td.textContent = v;
+          tr.appendChild(td);
+        }
+        cell(r.code + ' · ' + r.name, 'txt');
+        cell(fmtU2.format(r.pos)); cell(fmtU2.format(r.posAe));
+        cell(fmtU2.format(r.neg)); cell(fmtU2.format(r.negAe));
+        cell(fmtU2.format(r.over15)); cell(fmtU2.format(r.credit));
+        cell(fmtU2.format(r.counted)); cell(fmtU2.format(r.agreedMonthly));
+        cell(fmtU.format(r.excess));
+        cell(r.impact === null ? '—' : eur(r.impact));
+        tb.appendChild(tr);
+        Object.keys(tot).forEach(function (k) { tot[k] += (r[k] || 0); });
+      });
+      var trt = document.createElement('tr');
+      trt.className = 'total';
+      trt.innerHTML = '<td class="txt">Σύνολο ΟΚΥπΥ</td>' +
+        ['pos', 'posAe', 'neg', 'negAe', 'over15', 'credit', 'counted', 'agreedMonthly'].map(function (k) {
+          return '<td>' + fmtU2.format(tot[k]) + '</td>';
+        }).join('') +
+        '<td>' + fmtU.format(tot.excess) + '</td>' +
+        '<td>' + ((d === null || d === undefined) ? '—' : eur(tot.impact)) + '</td>';
+      tb.appendChild(trt);
+      t.appendChild(tb);
+      box.appendChild(t);
+
+      grandExcess += tot.excess;
+      if (d !== null && d !== undefined) grandImpact += tot.impact;
+    });
+
+    var sum = document.createElement('div');
+    sum.className = 'month-h';
+    sum.innerHTML = '<b>Γενικό σύνολο ' + C.MONTHS_EL[months[0]] + '–' + C.MONTHS_EL[months[months.length - 1]] +
+      ':</b> <span>Μονάδες υπέρβασης ' + fmtU.format(grandExcess) +
+      ' · Επίπτωση ' + eur(grandImpact) + '</span>';
+    box.appendChild(sum);
+  }
+
+  /* ---------------- Εξαγωγή ---------------- */
+  function exportState() {
+    return {
+      isFiles: state.isFiles.map(function (f) {
+        return { filename: f.filename, month: f.month, parsed: f.parsed, includeAnyway: f.includeAnyway };
+      }),
+      consoFiles: state.consoFiles.map(function (f) {
+        return { filename: f.filename, month: f.month, parsed: f.parsed };
+      }),
+      assumptions: state.assumptions
+    };
+  }
+
+  function renderExport() {
+    var errors = C.validateForExport(exportState());
+    var ul = document.getElementById('export-errors');
+    var ok = document.getElementById('export-ok');
+    var btn = document.getElementById('btn-export');
+    var nameEl = document.getElementById('export-name');
+    ul.innerHTML = '';
+    errors.forEach(function (e) {
+      var li = document.createElement('li');
+      li.textContent = e;
+      ul.appendChild(li);
+    });
+    ok.hidden = errors.length > 0;
+    btn.disabled = errors.length > 0;
+    var months = currentMonths();
+    nameEl.textContent = (!errors.length && months.length)
+      ? C.exportFilename(state.assumptions.year, months[months.length - 1]) : '';
+  }
+
+  document.getElementById('btn-export').addEventListener('click', function () {
+    var months = currentMonths();
+    var rows = computeAllRows();
+    var payload = {
+      year: state.assumptions.year,
+      months: months,
+      rows: rows,
+      assumptions: state.assumptions,
+      sources: {
+        isFiles: state.isFiles.map(function (f) { return f.filename; }),
+        consoFiles: state.consoFiles.map(function (f) { return f.filename; }),
+        discountFile: state.discountFile ? state.discountFile.filename : null
+      }
+    };
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = '… δημιουργία αρχείου';
+    C.buildWorkbook(ExcelJS, payload).then(function (wb) {
+      return wb.xlsx.writeBuffer();
+    }).then(function (buf) {
+      var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = C.exportFilename(state.assumptions.year, months[months.length - 1]);
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    }).catch(function (e) {
+      alert('Σφάλμα κατά τη δημιουργία του Excel: ' + e.message);
+    }).finally(function () {
+      btn.disabled = false;
+      btn.textContent = '⬇ Λήψη Excel';
+      renderExport();
+    });
+  });
+
+  /* ---------------- Συνολικό render ---------------- */
+  function renderAll() {
+    renderIsList();
+    renderConsoList();
+    renderDiscFile();
+    renderAssumptions();
+    renderReview();
+    renderExport();
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>

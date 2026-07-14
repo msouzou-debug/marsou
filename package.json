@@ -1,0 +1,20 @@
+{
+  "name": "specialized-ceiling-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Επίπτωση Υπέρβασης Εξειδικευμένων Μονάδων (ΟΚΥπΥ) — single-file HTML app",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node test/make-fixtures.js && node test/run-tests.js",
+    "test:e2e": "node test/browser-e2e.js",
+    "test:recalc": "node test/recalc-test.js",
+    "test:all": "npm run build && npm test && npm run test:e2e && npm run test:recalc"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}
