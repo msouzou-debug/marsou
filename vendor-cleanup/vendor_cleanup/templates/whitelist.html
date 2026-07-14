@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Whitelist — legitimate shared IBANs / confirmed non-duplicates</h1>
+<p class="muted">Entries suppress candidate generation on the next import (factoring companies, government collection accounts, …).</p>
+<form method="post">
+  <select name="kind">
+    <option value="iban">IBAN</option>
+    <option value="pair">Supplier pair (A|B)</option>
+  </select>
+  <input type="text" name="value" size="36" placeholder="CY… or 100123|105777" required>
+  <input type="text" name="reason" size="40" placeholder="reason" required>
+  <button type="submit">Add</button>
+</form>
+<table>
+<tr><th>Kind</th><th>Value</th><th>Reason</th><th>By</th><th>When</th></tr>
+{% for e in entries %}
+<tr><td>{{ e.kind }}</td><td>{{ e.value }}</td><td>{{ e.reason }}</td><td>{{ e.created_by }}</td><td>{{ e.created_at[:10] }}</td></tr>
+{% else %}
+<tr><td colspan="5" class="muted">Empty — seed it with known factoring / ministry collection accounts.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

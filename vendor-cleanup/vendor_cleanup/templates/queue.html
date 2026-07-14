@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Duplicate candidate groups</h1>
+<p>
+{% for s in ['open','pending_approval','resolved','stale'] %}
+  <a href="{{ url_for('queue', status=s) }}" class="badge {{ 'hi' if s==status }}">{{ s }} ({{ counts.get(s, 0) }})</a>
+{% endfor %}
+</p>
+<table>
+<tr><th>Score</th><th>Rules</th><th>Members</th><th>Vendors</th><th></th></tr>
+{% for g in groups %}
+<tr>
+  <td>{{ '%.2f' % g.score }}</td>
+  <td>{{ g.rules }}</td>
+  <td>{{ g.n_members }}</td>
+  <td>
+    {% for s, name in previews[g.id] %}<div>{{ s }} — {{ name }}</div>{% endfor %}
+    {% if g.n_members > 4 %}<div class="muted">… +{{ g.n_members - 4 }} more</div>{% endif %}
+  </td>
+  <td><a class="btn" href="{{ url_for('group_view', group_id=g.id) }}">Review</a></td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">Nothing here.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

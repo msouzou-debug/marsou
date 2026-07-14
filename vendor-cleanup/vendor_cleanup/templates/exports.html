@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Exports</h1>
+<p>{{ stats.groups_resolved }} / {{ stats.groups_total }} groups resolved
+   ({{ stats.merges }} merges, {{ stats.not_duplicates }} not duplicates,
+   {{ stats.groups_pending }} pending approval, {{ stats.groups_open }} open).</p>
+<form method="post"><button type="submit">Write all four outputs</button></form>
+{% if paths %}
+<table>
+<tr><th>Output</th><th>Path</th></tr>
+{% for label, p in paths.items() %}<tr><td>{{ label }}</td><td><code>{{ p }}</code></td></tr>{% endfor %}
+</table>
+{% else %}
+<p class="muted">Outputs land in <code>{{ out_dir }}</code>: SAP action list (xlsx), vendor_mapping.csv, clean vendors_agent.csv, progress_report.html.</p>
+{% endif %}
+<h2>SAP actions</h2>
+<table>
+<tr><th>Status</th><th>Count</th></tr>
+{% for k, v in stats.actions.items() %}<tr><td>{{ k }}</td><td>{{ v }}</td></tr>
+{% else %}<tr><td colspan="2" class="muted">none yet</td></tr>{% endfor %}
+</table>
+{% endblock %}

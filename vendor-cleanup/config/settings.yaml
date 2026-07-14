@@ -1,0 +1,28 @@
+# OKYpY Vendor Master Cleanup — settings
+# Same pattern as invoice-agent: role -> list of AD emails.
+# PLACEHOLDERS — fill in before go-live (see §10 of the build brief).
+
+roles:
+  reviewer:
+    - reviewer@okypy.example        # accountant — TODO: real AD email
+  approver:
+    - chief.accountant@okypy.example  # chief accountant — TODO: real AD email
+
+paths:
+  input_dir: input
+  output_dir: output
+  database: vendor_cleanup.db
+
+detection:
+  fuzzy_name_cutoff: 85        # rapidfuzz token_sort_ratio threshold
+  weights:
+    same_iban: 0.9
+    same_vat: 0.95
+    same_tin: 0.95
+    fuzzy_name: 0.5            # scaled up to 0.8 with the match score
+    same_phone: 0.4            # supporting evidence only — never groups on its own
+
+server:
+  host: 127.0.0.1
+  port: 8090
+  secret_key: change-me-on-prem

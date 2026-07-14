@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vendor cleanup</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;color:#1a202c;background:#f7fafc}
+nav{background:#2c5282;color:#fff;padding:0.6rem 1.2rem;display:flex;gap:1.2rem;align-items:center}
+nav a{color:#e2e8f0;text-decoration:none;font-weight:500}
+nav a:hover{color:#fff}
+nav .who{margin-left:auto;font-size:0.85rem;color:#bee3f8}
+main{max-width:70rem;margin:1.4rem auto;padding:0 1rem}
+table{border-collapse:collapse;width:100%;background:#fff}
+td,th{border:1px solid #cbd5e0;padding:0.35rem 0.6rem;text-align:left;font-size:0.9rem;vertical-align:top}
+th{background:#edf2f7}
+.flash{background:#fefcbf;border:1px solid #d69e2e;padding:0.5rem 0.8rem;border-radius:4px;margin-bottom:1rem}
+.badge{display:inline-block;padding:0.05rem 0.5rem;border-radius:9px;font-size:0.78rem;background:#e2e8f0}
+.badge.hi{background:#fed7d7}
+button, .btn{background:#2b6cb0;color:#fff;border:0;padding:0.35rem 0.9rem;border-radius:4px;cursor:pointer;font-size:0.9rem}
+button.warn{background:#c53030}
+button.ok{background:#2f855a}
+input[type=text],select,textarea{padding:0.3rem;border:1px solid #a0aec0;border-radius:4px;font-size:0.9rem}
+form.inline{display:inline}
+.muted{color:#718096;font-size:0.85rem}
+.survivor{background:#c6f6d5}
+</style>
+</head>
+<body>
+<nav>
+  <strong>Vendor cleanup</strong>
+  <a href="{{ url_for('queue') }}">Queue</a>
+  <a href="{{ url_for('approvals') }}">Approvals</a>
+  <a href="{{ url_for('worklists') }}">Worklists</a>
+  <a href="{{ url_for('whitelist') }}">Whitelist</a>
+  <a href="{{ url_for('exports_view') }}">Exports</a>
+  <span class="who">
+    {% if user %}{{ user }} ({{ user_roles|join(', ') }}) — <a href="{{ url_for('logout') }}">log out</a>
+    {% else %}<a href="{{ url_for('login') }}">log in</a>{% endif %}
+  </span>
+</nav>
+<main>
+{% with messages = get_flashed_messages() %}
+  {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+{% endwith %}
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

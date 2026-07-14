@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Group #{{ gr.id }} <span class="badge">{{ gr.status }}</span> <span class="badge">score {{ '%.2f' % gr.score }}</span></h1>
+
+<h2>Side by side</h2>
+<table>
+<tr><th></th>{% for s in members %}<th class="{{ 'survivor' if s == proposal }}">{{ s }}{% if s == proposal %} <span class="badge">proposed survivor</span>{% endif %}</th>{% endfor %}</tr>
+{% for field, label in [('name','Name'),('vat','VAT'),('tin','TIN'),('ibans','IBANs'),('company_codes','Company codes'),('blocked','Central blocks'),('cc_blocked','CC blocks'),('telephone','Telephone')] %}
+<tr><th>{{ label }}</th>
+  {% for v in vendors %}<td>{{ v[field] if v else '— not in current snapshot —' }}</td>{% endfor %}
+</tr>
+{% endfor %}
+<tr><th>Open items</th>
+  {% for s in members %}
+    <td>{% if open_items[s] is none %}<span class="muted">no FBL1N loaded</span>
+        {% else %}{{ open_items[s].item_count }} items ({{ '%.2f' % open_items[s].open_amount }}){% endif %}</td>
+  {% endfor %}
+</tr>
+</table>
+
+<h2>Why grouped</h2>
+<table>
+<tr><th>Rule</th><th>Pair</th><th>Detail</th><th>Weight</th></tr>
+{% for e in edges %}
+<tr><td>{{ e.rule }}</td><td>{{ e.supplier_a }} ↔ {{ e.supplier_b }}</td><td>{{ e.detail }}</td><td>{{ e.weight }}</td></tr>
+{% endfor %}
+</table>
+
+{% if gr.status in ('open', 'pending_approval') and 'reviewer' in user_roles %}
+<h2>Decision</h2>
+<form method="post" action="{{ url_for('decide', group_id=gr.id) }}">
+  <p>
+    <label><input type="radio" name="action" value="merge" checked> Merge — survivor:
+      <select name="survivor">
+        {% for s in members %}<option value="{{ s }}" {{ 'selected' if s == proposal }}>{{ s }}</option>{% endfor %}
+      </select>
+    </label><br>
+    <label><input type="radio" name="action" value="not_duplicate"> Not a duplicate (reason required — feeds the whitelist)</label><br>
+    <label><input type="radio" name="action" value="defer"> Defer</label>
+  </p>
+  <p>Reason: <input type="text" name="reason" size="60"></p>
+  <p>Whitelist this shared IBAN (optional, for legitimate cases like factoring / ministry collection accounts):
+     <input type="text" name="whitelist_iban" size="34" placeholder="CY…"></p>
+  <button type="submit">Record decision</button>
+</form>
+{% endif %}
+
+{% if gr.status == 'resolved' and gr.resolution == 'merge' and 'approver' in user_roles %}
+<h2>Reverse</h2>
+<form method="post" action="{{ url_for('unmerge_group', group_id=gr.id) }}">
+  <input type="text" name="reason" size="50" placeholder="why unmerge">
+  <button class="warn" type="submit">Unmerge — reopen group</button>
+</form>
+{% endif %}
+
+<h2>History</h2>
+<table>
+<tr><th>Action</th><th>Survivor</th><th>Reviewer</th><th>Approver</th><th>Status</th><th>Reason</th></tr>
+{% for d in decisions %}
+<tr><td>{{ d.action }}</td><td>{{ d.survivor }}</td><td>{{ d.reviewer }} {{ d.reviewed_at[:10] }}</td>
+    <td>{{ d.approver }} {{ d.approved_at[:10] }}</td><td>{{ d.status }}</td><td>{{ d.reason }}</td></tr>
+{% else %}
+<tr><td colspan="6" class="muted">No decisions yet.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

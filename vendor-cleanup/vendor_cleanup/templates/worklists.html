@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Worklists</h1>
+<p>
+{% for k, label in [('no_iban','No IBAN'),('no_vat','No VAT'),('blocked_active','Blocked but active')] %}
+  <a href="{{ url_for('worklists', kind=k) }}" class="badge {{ 'hi' if k==kind }}">{{ label }} ({{ counts.get(k, 0) }})</a>
+{% endfor %}
+</p>
+<table>
+<tr><th>Supplier</th><th>Name</th><th>VAT</th><th>IBANs</th><th>Codes</th><th>Blocked</th><th>Status</th><th></th></tr>
+{% for i in items %}
+{% set v = vmap.get(i.supplier) %}
+<tr>
+  <td>{{ i.supplier }}</td>
+  <td>{{ v.name if v else '?' }}</td>
+  <td>{{ v.vat if v else '' }}</td>
+  <td>{{ v.ibans if v else '' }}</td>
+  <td>{{ v.company_codes if v else '' }}</td>
+  <td>{{ v.blocked if v else '' }}</td>
+  <td>{{ i.status }}{% if i.reason %} <span class="muted">{{ i.reason }}</span>{% endif %}</td>
+  <td>
+    {% if i.status == 'open' and 'reviewer' in user_roles %}
+    <form class="inline" method="post" action="{{ url_for('worklist_decide', item_id=i.id) }}">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <input type="text" name="reason" size="18" placeholder="reason / note">
+      <button class="ok" name="action" value="fixed">Fixed in SAP</button>
+      <button name="action" value="accepted">Accept as-is</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="8" class="muted">Worklist empty.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Approvals — four eyes</h1>
+<p class="muted">No merge reaches the export without both signatures. You cannot approve your own decisions.</p>
+
+<h2>Group decisions</h2>
+<table>
+<tr><th>Decision</th><th>Group</th><th>Action</th><th>Survivor</th><th>Reviewer</th><th>Reason</th><th></th></tr>
+{% for d in pending %}
+<tr>
+  <td>#{{ d.id }}</td>
+  <td><a href="{{ url_for('group_view', group_id=d.group_id) }}">group {{ d.group_id }}</a>
+      <span class="badge">{{ '%.2f' % d.score }}</span> <span class="muted">{{ d.rules }}</span></td>
+  <td>{{ d.action }}</td><td>{{ d.survivor }}</td><td>{{ d.reviewer }}</td><td>{{ d.reason }}</td>
+  <td>
+    <form class="inline" method="post" action="{{ url_for('approve', decision_id=d.id) }}">
+      <button class="ok" name="verdict" value="approve">Approve</button>
+      <button class="warn" name="verdict" value="reject">Reject</button>
+    </form>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="muted">Nothing pending.</td></tr>
+{% endfor %}
+</table>
+
+<h2>Worklist items (accepted as-is)</h2>
+<table>
+<tr><th>Item</th><th>Worklist</th><th>Supplier</th><th>Reviewer</th><th>Reason</th><th></th></tr>
+{% for i in wl_pending %}
+<tr>
+  <td>#{{ i.id }}</td><td>{{ i.kind }}</td><td>{{ i.supplier }}</td><td>{{ i.reviewer }}</td><td>{{ i.reason }}</td>
+  <td>
+    <form class="inline" method="post" action="{{ url_for('approve_worklist', item_id=i.id) }}">
+      <button class="ok" name="verdict" value="approve">Approve</button>
+      <button class="warn" name="verdict" value="reject">Send back</button>
+    </form>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">Nothing pending.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}
