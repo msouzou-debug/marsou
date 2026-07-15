@@ -468,6 +468,21 @@
         meta.textContent = (f.parsed.b1 ? 'B1: «' + f.parsed.b1 + '» · ' : '') +
           f.parsed.sheetsUsed.length + ' νοσηλευτήρια με τιμή >15%';
         card.appendChild(meta);
+
+        // Διαφάνεια: τι ακριβώς διαβάστηκε ανά νοσηλευτήριο.
+        if (f.parsed.sheetsUsed.length) {
+          var vals = document.createElement('div'); vals.className = 'meta';
+          vals.textContent = f.parsed.sheetsUsed.map(function (code) {
+            return code + ': ' + fmtU2.format(f.parsed.over15[code]);
+          }).join(' · ');
+          card.appendChild(vals);
+        }
+        (f.parsed.warnings || []).forEach(function (w) {
+          var wb = document.createElement('div'); wb.className = 'warnbox';
+          wb.textContent = '⚠ ' + w;
+          card.appendChild(wb);
+        });
+
         var row = document.createElement('div'); row.className = 'row';
         var lbl = document.createElement('span'); lbl.textContent = 'Μήνας:';
         row.appendChild(lbl);

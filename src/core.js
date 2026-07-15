@@ -215,7 +215,7 @@
    * ------------------------------------------------------------------ */
 
   function parseConso(XLSX, wb, filename) {
-    var res = { ok: false, error: null, filename: filename || '', b1: '', over15: {}, sheetsUsed: [] };
+    var res = { ok: false, error: null, filename: filename || '', b1: '', over15: {}, sheetsUsed: [], warnings: [] };
 
     if (!wb.SheetNames.length) { res.error = 'Κενό αρχείο.'; return res; }
     var first = wb.Sheets[wb.SheetNames[0]];
@@ -223,21 +223,44 @@
     res.b1 = toStr(b1);
 
     wb.SheetNames.forEach(function (name) {
-      var code = toStr(name).toUpperCase();
-      if (HOSPITAL_CODES.indexOf(code) === -1) return; // skip TOTAL κ.ά.
+      // Ανεκτική αντιστοίχιση φύλλου → κωδικός: δεκτά «F1054», «f1054»,
+      // «F1047 - ΓΝ Λεμεσού» κ.λπ. Τα TOTAL/ΣΥΝΟΛΟ αγνοούνται πάντα.
+      var norm = normalizeGreek(name);
+      if (/TOTAL|ΣΥΝΟΛ/.test(norm)) return;
+      var m = norm.match(/F\d{4}/);
+      var code = m ? m[0] : null;
+      if (!code || HOSPITAL_CODES.indexOf(code) === -1) return;
+      if (code in res.over15) return; // πρώτο φύλλο ανά κωδικό
+
       var ws = wb.Sheets[name];
       var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
-      for (var r = 0; r < rows.length; r++) {
-        var b = toStr((rows[r] || [])[1]);
-        if (b === 'Εξειδικευμένα') {
-          var v = toNum((rows[r] || [])[2]);
-          res.over15[code] = v === null ? 0 : v;
-          res.sheetsUsed.push(code);
-          break;
+      // Η ετικέτα «Εξειδικευμένα» μπορεί να μην είναι ακριβώς στη στήλη B
+      // (συγχωνευμένα κελιά, κενά, κεφαλαία)· ψάχνουμε παντού, χωρίς τόνους/πεζά,
+      // και παίρνουμε το πρώτο αριθμητικό κελί δεξιά της στην ίδια γραμμή
+      // (στην κανονική διάταξη B=«Εξειδικευμένα» → C=μονάδες).
+      var found = null;
+      for (var r = 0; r < rows.length && found === null; r++) {
+        var row = rows[r] || [];
+        for (var cIdx = 0; cIdx < row.length; cIdx++) {
+          if (!/^ΕΞΕΙΔΙΚΕΥΜΕΝ/.test(normalizeGreek(row[cIdx]))) continue;
+          for (var v = cIdx + 1; v < row.length; v++) {
+            var num = toNum(row[v]);
+            if (num !== null) { found = num; break; }
+          }
+          if (found !== null) break;
         }
+      }
+      if (found === null) {
+        res.warnings.push('Φύλλο «' + name + '»: δεν βρέθηκε γραμμή «Εξειδικευμένα» με αριθμητική τιμή — θα ληφθεί 0.');
+      } else {
+        res.over15[code] = found;
+        res.sheetsUsed.push(code);
       }
     });
 
+    if (!res.sheetsUsed.length) {
+      res.warnings.push('Δεν εντοπίστηκε καμία τιμή ΤΑΕΠ >15% στο αρχείο — ελέγξτε ότι τα φύλλα ονομάζονται με τους κωδικούς νοσηλευτηρίων (F1054, F1047, …) και περιέχουν γραμμή «Εξειδικευμένα».');
+    }
     res.ok = true;
     return res;
   }

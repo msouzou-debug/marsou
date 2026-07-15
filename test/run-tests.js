@@ -86,6 +86,20 @@ for (const m of Object.keys(CONSO_FILES).map(Number)) {
   ok(det.month === m, 'B1 «' + p.b1 + '» → μήνας ' + m);
 }
 
+{
+  // «Βρόμικη» διάταξη σαν τα πραγματικά αρχεία: ετικέτα εκτός στήλης B /
+  // κεφαλαία / κενά, κωδικός μέσα σε μεγαλύτερο όνομα φύλλου, τιμή ως κείμενο.
+  const p = C.parseConso(XLSX, readWb('Conso_MESSY_LAYOUT.xlsx'), 'messy');
+  ok(p.ok, 'messy conso: parse ok');
+  close(p.over15['F1047'] || 0, 45, 1e-9, 'messy: «f1047 - ΓΝ Λεμεσού» + ΕΞΕΙΔΙΚΕΥΜΕΝΑ στη στήλη A → 45');
+  close(p.over15['F1054'] || 0, 223.85, 1e-9, 'messy: «Εξειδικευμένα » με κενό + τιμή-κείμενο → 223.85');
+  ok(p.over15['F1050'] === undefined, 'messy: φύλλο χωρίς γραμμή «Εξειδικευμένα» → καμία τιμή');
+  ok((p.warnings || []).some(w => /F1050/.test(w)), 'messy: προειδοποίηση για το F1050');
+  ok(Object.values(p.over15).every(v => v !== 9999), 'messy: το φύλλο ΣΥΝΟΛΟ αγνοείται');
+  const det = C.detectMonthYear(p.b1);
+  ok(det.month === 1 && det.year === 2026, 'messy: B1 πρώτου φύλλου → Ιανουάριος 2026');
+}
+
 /* ---------- 4. Αρχείο εκπτώσεων ---------- */
 section('Ανάγνωση αρχείου εκπτώσεων ΟΑΥ');
 {
