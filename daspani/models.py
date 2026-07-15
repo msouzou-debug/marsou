@@ -44,6 +44,22 @@ def normalize_month(text: str) -> str | None:
     return None
 
 
+def parse_date(text: str):
+    """Εξάγει datetime από κείμενο μορφής dd/mm/yyyy (και «ΑΠΟ 23/3/2026»)."""
+    from datetime import datetime
+
+    m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{2,4})", str(text or ""))
+    if not m:
+        return None
+    day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if year < 100:
+        year += 2000
+    try:
+        return datetime(year, month, day)
+    except ValueError:
+        return None
+
+
 def parse_amount(value) -> float:
     """Μετατροπή ποσού από κείμενο σε αριθμό (2 δεκαδικά).
 
@@ -86,6 +102,30 @@ def cents(x: float) -> int:
     return int(round(x * 100))
 
 
+# Αντιστοίχιση κειμένου ΠΑΡΑΤΗΡΗΣΕΩΝ -> κωδικός νοσηλευτηρίου (στήλη H του «Ανάλυση»).
+# Η σειρά έχει σημασία: το ΜΑΚΑΡΙΟ πρέπει να ελεγχθεί πριν από τη γενική ΛΕΥΚΩΣΙΑ.
+HOSPITAL_KEYWORDS = [
+    ("ΜΑΚΑΡΙΟ", 1200),
+    ("ΛΑΤΣΙΑ", 1400),
+    ("ΑΜΜΟΧΩΣΤ", 3200),
+    ("Κ.Ε.Μ", 3200),
+    ("ΛΑΡΝΑΚΑ", 4100),
+    ("ΠΟΛΕΜΙΔΙ", 5100),
+    ("ΛΕΜΕΣ", 5100),
+    ("ΠΑΦΟ", 6100),
+    ("ΛΕΥΚΩΣΙΑ", 1400),  # Γ.Ν. Λευκωσίας, αφού αποκλειστεί το Μακάρειο
+]
+
+
+def hospital_from_remarks(remarks: str) -> int | None:
+    """Κωδικός νοσηλευτηρίου από το κείμενο των παρατηρήσεων του PDF."""
+    t = normalize_label(remarks)
+    for key, code in HOSPITAL_KEYWORDS:
+        if normalize_label(key) in t:
+            return code
+    return None
+
+
 @dataclass
 class TableRow:
     """Μία γραμμή του ονομαστικού πίνακα."""
@@ -101,6 +141,8 @@ class TableRow:
     bardia: float = 0.0
     kyriaki: float = 0.0
     remarks: str = ""
+    adt: str = ""                # ΑΔΤ: δεν υπάρχει στο PDF — συμπληρώνεται από το ιστορικό
+    hospital: int | None = None  # κωδικός νοσηλευτηρίου (από παρατηρήσεις ή ιστορικό)
     needs_review: bool = False
     review_reasons: list[str] = field(default_factory=list)
 
@@ -110,8 +152,12 @@ class TableRow:
 
     @property
     def is_analogia(self) -> bool:
+        """Αναλογική/αναδρομική/διορθωτική γραμμή (όχι πλήρης μήνας)."""
         t = normalize_label(self.name + " " + self.remarks)
-        return "ΑΝΑΛΟΓΙΑ" in t or "ΕΠΙΔΟΜΑΤΑ" in t or "ΑΝΑΔΡΟΜΙΚ" in t
+        if any(k in t for k in ("ΑΝΑΛΟΓΙΑ", "ΑΝΑΔΡΟΜΙΚ", "ΕΠΙΔΟΜΑΤΑ", "ΜΙΣΘΟΣ ")):
+            return True
+        # Γραμμές με ημερομηνία «ΑΠΟ ...» είναι αναλογίες μερικού μήνα.
+        return "ΑΠΟ" in normalize_label(self.date)
 
     def dedupe_key(self) -> tuple:
         return (

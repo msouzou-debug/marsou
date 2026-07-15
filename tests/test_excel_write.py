@@ -1,156 +1,204 @@
-"""Δοκιμές εγγραφής σε συνθετικό workbook που μιμείται τη δομή του πραγματικού."""
+"""Δοκιμές εγγραφής σε συνθετικό workbook που μιμείται τη δομή του πραγματικού
+(φύλλα ΣΥΝΟΠΤΙΚΟ + Ανάλυση, μπλοκ ανά μήνα με κενή γραμμή-διαχωριστικό)."""
+
+from datetime import datetime
 
 import pytest
 from openpyxl import Workbook, load_workbook
 
 from daspani.excel_write import (
-    find_total_row,
-    update_control_block,
-    update_stoixeia_sheet,
-    write_month_sheet,
+    ExcelWriteError,
+    append_month_block,
+    build_history,
+    delete_month_block,
+    last_data_row,
+    month_block,
     write_workbook,
 )
-from daspani.models import LetterTotals, TableRow
+from daspani.models import TableRow, hospital_from_remarks
+
+HEADERS = ["ΜΗΝΑΣ", "Α/Α", "ΑΚΑ", "ΑΔΤ", "Ε/ΑΣΤ", "ΟΝΟΜΑΤΕΠΩΝΥΜΟ",
+           "ΗΜΕΡΟΜΗΝΙΑ ΤΟΠΟΘΕΤΗΣΗΣ", "ΝΟΣΗΛΕΥΤΗΡΙΟ", "ΒΑΣΙΚΟΣ ΜΙΣΘΟΣ",
+           "ΤΙΜΑΡΙΘΜΟΣ\n12,67%", "ΑΥΞΗΣΗ 10/2024", "ΑΥΞΗΣΗ 11/2024",
+           "ΑΥΞΗΣΗ 12/2024", "ΑΥΞΗΣΗ 13ΟΥ", "ΑΥΞΗΣΗ ΜΙΣΘΟΥ", "ΕΠΙΔΟΜΑ ΒΑΡΔΙΑΣ",
+           "ΕΠΙΔΟΜ ΚΥΡΙΑΚΗΣ", "ΣΥΝΟΛΟ", "ΕΙΣΦΟΡΑ", "ΚΟΣΤΟΣ", "ΔΙΟΙΚΗΤΙΚΑ", "ΣΥΝΟΛΙΚΟ"]
 
 
-def build_workbook(akas=("100", "200", "300")):
+def build_workbook(with_january=True):
     wb = Workbook()
-    ws = wb.active
-    ws.title = "ΑΠΡΙΛΙΟΣ"
-    ws["A1"] = "ΔΑΠΑΝΗ ΕΙΔΙΚΩΝ ΑΣΤΥΦΥΛΑΚΩΝ"
-    headers = ["Α/Α", "Α.Κ.Α.", "Ε/Αστ.", "Ονοματεπώνυμο", "Ημ. Τοποθ.", "Νοσηλ.",
-               "Βασικός", "Τιμάριθμος", "Αύξηση", "Βάρδια", "Κυρ/Αργία",
-               "Σύνολο", "Εισφορά", "Διοικητικά", "Μερικό", "Γενικό"]
-    for c, h in enumerate(headers, 1):
-        ws.cell(row=2, column=c).value = h
-    for i, aka in enumerate(akas):
-        r = 3 + i
-        ws.cell(row=r, column=1).value = i + 1
-        ws.cell(row=r, column=2).value = aka
-        ws.cell(row=r, column=4).value = f"ΥΠΑΛΛΗΛΟΣ {aka}"
-        ws.cell(row=r, column=6).value = 1400
-        # Φόρμουλες L–P
-        ws.cell(row=r, column=12).value = f"=SUM(G{r}:K{r})"
-        ws.cell(row=r, column=13).value = f"=L{r}*0.2425"
-        ws.cell(row=r, column=14).value = f"=L{r}*0.1"
-        ws.cell(row=r, column=15).value = f"=L{r}+M{r}"
-        ws.cell(row=r, column=16).value = f"=O{r}+N{r}"
-    total = 3 + len(akas)
-    ws.cell(row=total, column=1).value = "ΣΥΝΟΛΟ"
-    for col in range(7, 17):
-        letter = ws.cell(row=3, column=col).column_letter
-        ws.cell(row=total, column=col).value = f"=SUM({letter}3:{letter}{total - 1})"
-    # Μπλοκ ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ
-    block = total + 2
-    ws.cell(row=block, column=1).value = "ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ"
-    labels = ["Βασικοί Μισθοί", "Τιμαριθμικό Επίδομα", "Αύξηση Μισθού 1,5%",
-              "Επίδομα Βάρδιας", "Επίδομα Κυριακής & Δημ. Αργίας",
-              "Εισφορά Εργοδότη", "Διοικητικά Έξοδα 10%", "Γενικό Σύνολο"]
-    for i, label in enumerate(labels):
-        ws.cell(row=block + 1 + i, column=1).value = label
-    # Φύλλο ΣΤΟΙΧΕΙΑ_ΕΠΙΣΤΟΛΩΝ
-    ws2 = wb.create_sheet("ΣΤΟΙΧΕΙΑ_ΕΠΙΣΤΟΛΩΝ")
-    ws2["A1"] = "ΜΗΝΑΣ"
-    for c, label in enumerate(labels, 2):
-        ws2.cell(row=1, column=c).value = label
-    months = ["ΙΑΝΟΥΑΡΙΟΣ", "ΦΕΒΡΟΥΑΡΙΟΣ", "ΜΑΡΤΙΟΣ", "ΑΠΡΙΛΙΟΣ"]
-    for r, m in enumerate(months, 2):
-        ws2.cell(row=r, column=1).value = m
+    syn = wb.active
+    syn.title = "ΣΥΝΟΠΤΙΚΟ"
+    syn["D4"] = '=SUMIFS(Ανάλυση!$V:$V,Ανάλυση!$H:$H,ΣΥΝΟΠΤΙΚΟ!A4,Ανάλυση!$A:$A,ΣΥΝΟΠΤΙΚΟ!D3)'
+    ws = wb.create_sheet("Ανάλυση")
+    for c, h in enumerate(HEADERS, 1):
+        ws.cell(row=1, column=c).value = h
+    if with_january:
+        data = [
+            ("ΙΑΝΟΥΑΡΙΟΣ", 1, 426310, 644847, 5435, "ΓΕΩΡΓΙΑΔΗΣ ΜΙΧΑΛΗΣ", 1200),
+            ("ΙΑΝΟΥΑΡΙΟΣ", 2, 447126, 674259, 5344, "ΣΤΥΛΙΑΝΟΥ ΑΥΓΗ", 1400),
+        ]
+        for i, (m, aa, aka, adt, east, name, nosil) in enumerate(data):
+            r = 2 + i
+            ws.cell(row=r, column=1).value = m
+            ws.cell(row=r, column=2).value = aa
+            ws.cell(row=r, column=3).value = aka
+            ws.cell(row=r, column=4).value = adt
+            ws.cell(row=r, column=5).value = east
+            ws.cell(row=r, column=6).value = name
+            ws.cell(row=r, column=7).value = datetime(2022, 10, 12)
+            ws.cell(row=r, column=8).value = nosil
+            ws.cell(row=r, column=9).value = 2170.33
+            ws.cell(row=r, column=18).value = f"=SUM(I{r}:Q{r})"
+            ws.cell(row=r, column=19).value = f"=R{r}*24.25%"
+            ws.cell(row=r, column=20).value = f"=R{r}+S{r}"
+            ws.cell(row=r, column=21).value = f"=T{r}*10%"
+            ws.cell(row=r, column=22).value = f"=T{r}+U{r}"
     return wb
 
 
-def sample_totals():
-    return LetterTotals(basic=3000.0, tim=380.0, auxisi=45.0, bardia=300.0, kyriaki=150.0,
-                        eisfora=940.0, dioikitika=390.0, geniko=5205.0,
-                        minas_misthon="ΑΠΡΙΛΙΟΣ", etos="2026")
+def make_row(aa, aka, name, remarks="ΛΕΥΚΩΣΙΑ-Ε.Ο.Φ. ΜΑΚΑΡΙΟ ΝΟΣΟΚΟΜΕΙΟ", **amounts):
+    defaults = dict(basic=2264.67, tim=291.24, auxisi=33.97, bardia=171.58, kyriaki=206.52)
+    defaults.update(amounts)
+    return TableRow(aa=str(aa), aka=str(aka), east="5435", name=name,
+                    date="12/10/2022", remarks=remarks, **defaults)
 
 
-def make_row(aa, aka, basic=1000.0):
-    return TableRow(aa=str(aa), aka=aka, name=f"ΥΠΑΛΛΗΛΟΣ {aka}", basic=basic,
-                    tim=126.89, auxisi=15.0, bardia=100.0, kyriaki=50.0)
+def test_hospital_mapping():
+    assert hospital_from_remarks("ΛΕΥΚΩΣΙΑ-Ε.Ο.Φ. ΜΑΚΑΡΙΟ ΝΟΣΟΚΟΜΕΙΟ") == 1200
+    assert hospital_from_remarks("ΛΕΥΚΩΣΙΑ-ΛΑΤΣΙΑ-ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ") == 1400
+    assert hospital_from_remarks("ΑΜΜΟΧΩΣΤΟΣ - Κ.Ε.Μ. - ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ") == 3200
+    assert hospital_from_remarks("ΛΑΡΝΑΚΑ-ΣΤΑΘΜΟΣ ΠΟΛΕΩΣ-ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ") == 4100
+    assert hospital_from_remarks("ΛΕΜΕΣΟΣ-ΣΤΑΘΜΟΣ ΠΟΛΕΜΙΔΙΩΝ-ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ") == 5100
+    assert hospital_from_remarks("ΠΑΦΟΣ-ΚΕΝΤΡΙΚΟΣ ΣΤΑΘΜΟΣ-ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ") == 6100
+    assert hospital_from_remarks("ΜΙΣΘΟΣ 3/2026") is None
 
 
-def test_write_matches_by_aka():
+def test_append_month_after_existing_with_separator():
     wb = build_workbook()
-    ws = wb["ΑΠΡΙΛΙΟΣ"]
-    rows = [make_row(1, "100"), make_row(2, "200"), make_row(3, "300")]
-    result = write_month_sheet(ws, rows)
-    assert result.matched == 3
-    assert result.inserted == 0
-    assert ws["G3"].value == 1000.0
-    assert ws["K5"].value == 50.0
-    # Οι φόρμουλες L–P δεν πειράχτηκαν.
-    assert ws["L3"].value == "=SUM(G3:K3)"
+    ws = wb["Ανάλυση"]
+    rows = [make_row(1, 426310, "ΓΕΩΡΓΙΑΔΗΣ ΜΙΧΑΛΗΣ"),
+            make_row(2, 447126, "ΣΤΥΛΙΑΝΟΥ ΑΥΓΗ", remarks="ΛΕΥΚΩΣΙΑ-ΛΑΤΣΙΑ-ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ")]
+    result = append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", rows)
+    # ΙΑΝ: γραμμές 2-3, κενή η 4, ΦΕΒ: 5-6.
+    assert (result.first_row, result.last_row) == (5, 6)
+    assert ws.cell(row=4, column=1).value is None
+    assert ws.cell(row=5, column=1).value == "ΦΕΒΡΟΥΑΡΙΟΣ"
+    assert ws.cell(row=5, column=3).value == 426310
+    assert ws.cell(row=5, column=9).value == 2264.67
+    assert ws.cell(row=5, column=18).value == "=SUM(I5:Q5)"
+    assert ws.cell(row=6, column=22).value == "=T6+U6"
+    # Ημερομηνία ως datetime
+    assert ws.cell(row=5, column=7).value == datetime(2022, 10, 12)
 
 
-def test_insert_new_aka_before_total():
+def test_adt_and_hospital_filled_from_history():
     wb = build_workbook()
-    ws = wb["ΑΠΡΙΛΙΟΣ"]
-    rows = [make_row(1, "100"), make_row(9, "999")]  # το 999 δεν υπάρχει
-    result = write_month_sheet(ws, rows)
-    assert result.matched == 1
-    assert result.inserted == 1
-    assert result.unmatched_akas == ["999 ΥΠΑΛΛΗΛΟΣ 999"]
-    new_total = find_total_row(ws)
-    assert new_total == 7  # η γραμμή ΣΥΝΟΛΟ κατέβηκε κατά μία
-    assert ws.cell(row=6, column=2).value == "999"
-    # Οι φόρμουλες L–P αντιγράφηκαν μεταφρασμένες στη νέα γραμμή.
-    assert ws["L6"].value == "=SUM(G6:K6)"
-    # Το εύρος του ΣΥΝΟΛΟΥ επεκτάθηκε ώστε να καλύπτει τη νέα γραμμή.
-    assert ws.cell(row=new_total, column=7).value == "=SUM(G3:G6)"
+    ws = wb["Ανάλυση"]
+    row = make_row(1, 426310, "ΓΕΩΡΓΙΑΔΗΣ ΜΙΧΑΛΗΣ", remarks="")  # χωρίς παρατήρηση
+    result = append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", [row])
+    r = result.first_row
+    assert ws.cell(row=r, column=4).value == 644847   # ΑΔΤ από τον Ιανουάριο
+    assert ws.cell(row=r, column=8).value == 1200     # νοσηλευτήριο από τον Ιανουάριο
+    assert result.filled_from_history == 1
 
 
-def test_second_row_same_aka_becomes_new_row():
+def test_new_hire_without_history_is_flagged():
     wb = build_workbook()
-    ws = wb["ΑΠΡΙΛΙΟΣ"]
-    rows = [make_row(1, "100", basic=1000.0), make_row(2, "100", basic=250.0)]
-    result = write_month_sheet(ws, rows)
-    assert result.matched == 1
-    assert result.inserted == 1
-    assert ws["G3"].value == 1000.0
-    assert ws["G6"].value == 250.0
+    ws = wb["Ανάλυση"]
+    row = make_row(1, 999999, "ΝΕΟΣ ΥΠΑΛΛΗΛΟΣ", remarks="ΠΑΦΟΣ-ΚΕΝΤΡΙΚΟΣ ΣΤΑΘΜΟΣ")
+    result = append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", [row])
+    r = result.first_row
+    assert ws.cell(row=r, column=4).value is None       # χωρίς ΑΔΤ
+    assert ws.cell(row=r, column=8).value == 6100       # από τις παρατηρήσεις
+    assert any("ΑΔΤ" in w for w in result.warnings)
 
 
-def test_idempotent_rerun_on_output(tmp_path):
+def test_apo_date_kept_as_text():
+    wb = build_workbook()
+    ws = wb["Ανάλυση"]
+    row = make_row(1, 426310, "ΓΕΩΡΓΙΑΔΗΣ ΜΙΧΑΛΗΣ")
+    row.date = "ΑΠΟ 23/3/2026"
+    result = append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", [row])
+    assert ws.cell(row=result.first_row, column=7).value == "ΑΠΟ 23/3/2026"
+
+
+def test_unnumbered_correction_row():
+    wb = build_workbook()
+    ws = wb["Ανάλυση"]
+    row = make_row("", 426310, "ΓΕΩΡΓΙΑΔΗΣ ΜΙΧΑΛΗΣ", remarks="ΜΙΣΘΟΣ 3/2026",
+                   basic=-262.54, tim=-33.76, auxisi=-3.94, bardia=0, kyriaki=0)
+    result = append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", [row])
+    r = result.first_row
+    assert ws.cell(row=r, column=2).value is None       # χωρίς Α/Α
+    assert ws.cell(row=r, column=9).value == -262.54
+    assert ws.cell(row=r, column=8).value == 1200       # νοσηλευτήριο από ιστορικό
+
+
+def test_write_workbook_rejects_existing_month_without_replace(tmp_path):
     wb = build_workbook()
     path = tmp_path / "ΧΡΕΩΣΕΙΣ.xlsx"
     wb.save(path)
-    rows = [make_row(1, "100"), make_row(2, "200"), make_row(9, "999")]
-    totals = sample_totals()
-
-    result1 = write_workbook(str(path), "ΑΠΡΙΛΙΟΣ", rows, totals)
-    out1 = result1.output_path
-    assert out1.endswith("ΧΡΕΩΣΕΙΣ_ΑΠΡΙΛΙΟΣ.xlsx")
-
-    # Δεύτερο τρέξιμο πάνω στο παραγόμενο αρχείο: καμία διπλογραφή.
-    result2 = write_workbook(out1, "ΑΠΡΙΛΙΟΣ", rows, totals)
-    wb2 = load_workbook(result2.output_path)
-    ws2 = wb2["ΑΠΡΙΛΙΟΣ"]
-    assert result2.inserted == 0
-    assert result2.skipped_duplicates == 0  # το 999 πλέον ταιριάζει σε υπάρχουσα γραμμή
-    assert result2.matched == 3
-    akas = [ws2.cell(row=r, column=2).value for r in range(3, find_total_row(ws2))]
-    assert akas.count("999") == 1
+    with pytest.raises(ExcelWriteError, match="υπάρχει ήδη"):
+        write_workbook(str(path), "ΙΑΝΟΥΑΡΙΟΣ", [make_row(1, 426310, "Χ")])
 
 
-def test_control_block_and_stoixeia():
+def test_replace_last_month_is_idempotent(tmp_path):
     wb = build_workbook()
-    ws = wb["ΑΠΡΙΛΙΟΣ"]
-    totals = sample_totals()
-    warnings = update_control_block(ws, totals)
-    assert warnings == []
-    block_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(row=r, column=1).value == "ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ")
-    assert ws.cell(row=block_row + 1, column=4).value == 3000.0   # Βασικοί -> στήλη D
-    assert ws.cell(row=block_row + 8, column=4).value == 5205.0   # Γενικό Σύνολο
+    path = tmp_path / "ΧΡΕΩΣΕΙΣ.xlsx"
+    wb.save(path)
+    rows = [make_row(1, 426310, "ΓΕΩΡΓΙΑΔΗΣ ΜΙΧΑΛΗΣ"),
+            make_row(2, 447126, "ΣΤΥΛΙΑΝΟΥ ΑΥΓΗ")]
 
-    warnings = update_stoixeia_sheet(wb, totals)
-    assert warnings == []
-    ws2 = wb["ΣΤΟΙΧΕΙΑ_ΕΠΙΣΤΟΛΩΝ"]
-    assert ws2.cell(row=5, column=2).value == 3000.0  # γραμμή ΑΠΡΙΛΙΟΣ
+    r1 = write_workbook(str(path), "ΦΕΒΡΟΥΑΡΙΟΣ", rows, save_path=str(path))
+    assert r1.written == 2 and not r1.replaced_existing
 
-    # Δεύτερη κλήση: ο μήνας έχει ήδη τιμές -> δεν αντικαθίστανται.
-    totals2 = sample_totals()
-    totals2.basic = 9999.0
-    warnings = update_stoixeia_sheet(wb, totals2)
-    assert any("ήδη τιμές" in w for w in warnings)
-    assert ws2.cell(row=5, column=2).value == 3000.0
+    # Δεύτερο τρέξιμο με το ίδιο PDF: αντικατάσταση, όχι διπλοεγγραφή.
+    r2 = write_workbook(str(path), "ΦΕΒΡΟΥΑΡΙΟΣ", rows, replace_existing=True, save_path=str(path))
+    assert r2.replaced_existing
+    ws = load_workbook(path)["Ανάλυση"]
+    feb_rows = [r for r in range(2, ws.max_row + 1)
+                if ws.cell(row=r, column=1).value == "ΦΕΒΡΟΥΑΡΙΟΣ"]
+    assert len(feb_rows) == 2
+    assert last_data_row(ws) == 6  # ΙΑΝ 2-3, κενή 4, ΦΕΒ 5-6 — ίδιο αποτύπωμα
+
+
+def test_replace_middle_month_refreshes_formulas(tmp_path):
+    wb = build_workbook()
+    ws = wb["Ανάλυση"]
+    append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", [make_row(1, 426310, "Α"), make_row(2, 447126, "Β")])
+    append_month_block(ws, "ΜΑΡΤΙΟΣ", [make_row(1, 426310, "Α")])
+    path = tmp_path / "ΧΡΕΩΣΕΙΣ.xlsx"
+    wb.save(path)
+
+    # Αντικατάσταση του ΦΕΒΡΟΥΑΡΙΟΥ (ενδιάμεσος) με 3 γραμμές πλέον.
+    rows = [make_row(1, 426310, "Α"), make_row(2, 447126, "Β"), make_row("", 426310, "Α", remarks="ΜΙΣΘΟΣ 1/2026")]
+    result = write_workbook(str(path), "ΦΕΒΡΟΥΑΡΙΟΣ", rows, replace_existing=True, save_path=str(path))
+    ws2 = load_workbook(path)["Ανάλυση"]
+    # Ο ΜΑΡΤΙΟΣ ανέβηκε· οι φόρμουλές του δείχνουν στη σωστή (νέα) γραμμή του.
+    mar = month_block(ws2, "ΜΑΡΤΙΟΣ")
+    assert mar is not None
+    r = mar[0]
+    assert ws2.cell(row=r, column=18).value == f"=SUM(I{r}:Q{r})"
+    # Ο ΦΕΒΡΟΥΑΡΙΟΣ ξαναγράφτηκε στο τέλος με 3 γραμμές.
+    feb = month_block(ws2, "ΦΕΒΡΟΥΑΡΙΟΣ")
+    assert feb[1] - feb[0] + 1 == 3
+    assert feb[0] > mar[1]
+    assert any("δεν ήταν ο τελευταίος" in w for w in result.warnings)
+
+
+def test_delete_month_block_removes_separator():
+    wb = build_workbook()
+    ws = wb["Ανάλυση"]
+    append_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ", [make_row(1, 426310, "Α")])
+    assert delete_month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ")
+    assert month_block(ws, "ΦΕΒΡΟΥΑΡΙΟΣ") is None
+    assert last_data_row(ws) == 3  # μόνο ο Ιανουάριος
+
+
+def test_build_history_ignores_target_month():
+    wb = build_workbook()
+    ws = wb["Ανάλυση"]
+    hist = build_history(ws, "ΙΑΝΟΥΑΡΙΟΣ")
+    assert hist == {}  # ο ίδιος ο μήνας δεν μετρά ως ιστορικό
+    hist = build_history(ws, "ΦΕΒΡΟΥΑΡΙΟΣ")
+    assert hist["426310"]["adt"] == 644847

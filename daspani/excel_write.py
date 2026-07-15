@@ -1,48 +1,50 @@
-"""Εγγραφή των δεδομένων στο υπάρχον workbook (openpyxl), χωρίς αλλοίωση φορμουλών."""
+"""Εγγραφή στο workbook: προσθήκη μπλοκ μήνα στο φύλλο «Ανάλυση».
+
+Δομή workbook (όπως το πραγματικό αρχείο ΧΡΕΩΣΕΙΣ ΕΙΔΙΚΟΙ ΑΣΤΥΦΥΛΑΚΕΣ):
+
+- Φύλλο «Ανάλυση»: ενιαίος πίνακας όλων των μηνών, μία γραμμή ανά άτομο ανά
+  μήνα, με κενή γραμμή-διαχωριστικό ανάμεσα στους μήνες.
+    A ΜΗΝΑΣ | B Α/Α | C ΑΚΑ | D ΑΔΤ | E Ε/ΑΣΤ | F ΟΝΟΜΑΤΕΠΩΝΥΜΟ
+    G ΗΜ. ΤΟΠΟΘΕΤΗΣΗΣ | H ΝΟΣΗΛΕΥΤΗΡΙΟ | I ΒΑΣΙΚΟΣ | J ΤΙΜΑΡΙΘΜΟΣ
+    K–N παλιές αυξήσεις (κενές) | O ΑΥΞΗΣΗ | P ΒΑΡΔΙΑ | Q ΚΥΡΙΑΚΗ/ΑΡΓΙΑ
+    R =SUM(I:Q) | S =R*24,25% | T =R+S | U =T*10% | V =T+U
+- Φύλλο «ΣΥΝΟΠΤΙΚΟ»: SUMIFS σε ολόκληρες στήλες του «Ανάλυση» — οι νέες
+  γραμμές πιάνονται αυτόματα, δεν το αγγίζουμε ποτέ.
+
+Το ΑΔΤ και το νοσηλευτήριο (αν λείπει από τις παρατηρήσεις) συμπληρώνονται
+από την πιο πρόσφατη προηγούμενη γραμμή του ίδιου ΑΚΑ στο φύλλο.
+"""
 
 from __future__ import annotations
 
 import copy
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from openpyxl import load_workbook
-from openpyxl.formula.translate import Translator
-from openpyxl.utils import get_column_letter
 
-from .models import AMOUNT_FIELDS, LetterTotals, TableRow, cents, normalize_label
+from .models import TableRow, hospital_from_remarks, normalize_label, parse_date
 
-# Διάταξη φύλλου μήνα (βλ. προδιαγραφή):
-#   στήλες A–F: προσυμπληρωμένες ταυτότητες, B = Α.Κ.Α.
-#   στήλες G–K: κελιά εισαγωγής (Βασικός, Τιμάριθμος, Αύξηση, Βάρδια, Κυρ/Αργία)
-#   στήλες L–P: φόρμουλες — ΔΕΝ τις αγγίζουμε (μόνο αντιγραφή σε νέες γραμμές)
-FIRST_DATA_ROW = 3
-AKA_COL = 2                     # στήλη B
-NAME_COL = 4                    # στήλη D (Ονοματεπώνυμο)
-INPUT_COLS = {"basic": 7, "tim": 8, "auxisi": 9, "bardia": 10, "kyriaki": 11}  # G–K
-FORMULA_COLS = range(12, 17)    # L–P
-TOTAL_LABEL = "ΣΥΝΟΛΟ"
+ANALYSIS_SHEET = "Ανάλυση"
+HEADER_ROW = 1
 
-# Μπλοκ «ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ»: οι τιμές της επιστολής γράφονται στη στήλη D του
-# μπλοκ, δηλ. 3 στήλες δεξιά από τη στήλη της ετικέτας κάθε γραμμής.
-CONTROL_BLOCK_TITLE = "ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ"
-CONTROL_VALUE_OFFSET = 3
+# Στήλες του φύλλου «Ανάλυση» (1-βάσης).
+C_MINAS, C_AA, C_AKA, C_ADT, C_EAST, C_NAME, C_DATE, C_NOSIL = 1, 2, 3, 4, 5, 6, 7, 8
+C_BASIC, C_TIM = 9, 10
+C_AUXISI, C_BARDIA, C_KYRIAKI = 15, 16, 17
+AMOUNT_COLS = {"basic": C_BASIC, "tim": C_TIM, "auxisi": C_AUXISI,
+               "bardia": C_BARDIA, "kyriaki": C_KYRIAKI}
+FORMULA_TEMPLATES = {
+    18: "=SUM(I{r}:Q{r})",   # R: Σύνολο μισθών και επιδομάτων
+    19: "=R{r}*24.25%",      # S: Εισφορά
+    20: "=R{r}+S{r}",        # T: Συνολικό κόστος μισθοδοσίας
+    21: "=T{r}*10%",         # U: Διοικητικά έξοδα
+    22: "=T{r}+U{r}",        # V: Συνολικό κόστος
+}
+LAST_COL = 22
 
-# Ετικέτες του μπλοκ ελέγχου / του φύλλου ΣΤΟΙΧΕΙΑ_ΕΠΙΣΤΟΛΩΝ -> πεδία LetterTotals.
-# Η σειρά έχει σημασία: οι πιο συγκεκριμένες ετικέτες πρώτες.
-CONTROL_LABELS = [
-    ("ΒΑΣΙΚ", "basic"),
-    ("ΤΙΜΑΡΙΘΜ", "tim"),
-    ("ΑΥΞΗΣ", "auxisi"),
-    ("ΒΑΡΔΙΑ", "bardia"),
-    ("ΚΥΡΙΑΚ", "kyriaki"),
-    ("ΕΙΣΦΟΡ", "eisfora"),
-    ("ΔΙΟΙΚΗΤ", "dioikitika"),
-    ("ΓΕΝΙΚΟ", "geniko"),
-]
-
-STOIXEIA_SHEET = "ΣΤΟΙΧΕΙΑ_ΕΠΙΣΤΟΛΩΝ"
+DATE_FORMAT = "dd/mm/yyyy"
+AMOUNT_FORMAT = "#,##0.00"
 
 
 class ExcelWriteError(RuntimeError):
@@ -51,275 +53,289 @@ class ExcelWriteError(RuntimeError):
 
 @dataclass
 class WriteResult:
-    matched: int = 0
-    inserted: int = 0
-    skipped_duplicates: int = 0
-    unmatched_akas: list[str] = field(default_factory=list)
+    written: int = 0
+    replaced_existing: bool = False
+    filled_from_history: int = 0
+    missing_adt: list[str] = field(default_factory=list)
+    missing_hospital: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     output_path: str = ""
+    first_row: int = 0
+    last_row: int = 0
 
 
 def _norm_aka(value) -> str:
     return re.sub(r"\D", "", str(value or "")).lstrip("0")
 
 
-def find_total_row(ws) -> int:
-    """Εντοπίζει τη γραμμή ΣΥΝΟΛΟ σαρώνοντας τις στήλες A–D."""
-    for row in range(FIRST_DATA_ROW, ws.max_row + 1):
-        for col in range(1, 5):
-            value = ws.cell(row=row, column=col).value
-            if value and normalize_label(value).startswith(TOTAL_LABEL):
-                return row
+def get_analysis_sheet(wb):
+    for name in wb.sheetnames:
+        if normalize_label(name) == normalize_label(ANALYSIS_SHEET):
+            return wb[name]
     raise ExcelWriteError(
-        f"Δεν βρέθηκε γραμμή «{TOTAL_LABEL}» στο φύλλο «{ws.title}» — ελέγξτε τη δομή του."
+        f"Δεν βρέθηκε φύλλο «{ANALYSIS_SHEET}» στο workbook. "
+        f"Διαθέσιμα φύλλα: {', '.join(wb.sheetnames)}"
     )
 
 
-def _row_values(ws, row: int) -> dict[str, float]:
-    values = {}
-    for fld, col in INPUT_COLS.items():
-        v = ws.cell(row=row, column=col).value
-        values[fld] = float(v) if isinstance(v, (int, float)) else 0.0
-    return values
+def last_data_row(ws) -> int:
+    """Τελευταία γραμμή με τιμή στη στήλη A (ΜΗΝΑΣ). Η κεφαλίδα αν είναι άδειο."""
+    for r in range(ws.max_row, HEADER_ROW, -1):
+        if ws.cell(row=r, column=C_MINAS).value not in (None, ""):
+            return r
+    return HEADER_ROW
 
 
-def _same_amounts(ws, row: int, table_row: TableRow) -> bool:
-    existing = _row_values(ws, row)
-    return all(cents(existing[f]) == cents(getattr(table_row, f)) for f in AMOUNT_FIELDS)
+def month_block(ws, month: str) -> tuple[int, int] | None:
+    """(πρώτη, τελευταία) γραμμή του μπλοκ ενός μήνα, ή None αν δεν υπάρχει."""
+    target = normalize_label(month)
+    first = last = None
+    for r in range(HEADER_ROW + 1, ws.max_row + 1):
+        v = ws.cell(row=r, column=C_MINAS).value
+        if v and normalize_label(v) == target:
+            if first is None:
+                first = r
+            last = r
+    return (first, last) if first is not None else None
 
 
-def _extend_range_ends(formula: str, old_end: int, new_end: int) -> str:
-    """Επεκτείνει εύρη τύπου G3:G63 όταν το τέλος τους ήταν η παλιά τελευταία γραμμή."""
-    pattern = re.compile(r"(\$?[A-Z]{1,3}\$?\d+:\$?[A-Z]{1,3}\$?)(\d+)")
+def existing_months(ws) -> list[str]:
+    seen: list[str] = []
+    for r in range(HEADER_ROW + 1, ws.max_row + 1):
+        v = ws.cell(row=r, column=C_MINAS).value
+        if v and str(v) not in seen:
+            seen.append(str(v))
+    return seen
 
-    def repl(m: re.Match) -> str:
-        return m.group(1) + (str(new_end) if int(m.group(2)) == old_end else m.group(2))
 
-    return pattern.sub(repl, formula)
+def build_history(ws, month: str) -> dict[str, dict]:
+    """ΑΚΑ -> {adt, nosil} από την πιο πρόσφατη γραμμή ΠΡΙΝ από τον μήνα `month`.
 
-
-def _insert_data_row(ws, total_row: int) -> int:
-    """Εισάγει νέα γραμμή πριν το ΣΥΝΟΛΟ, αντιγράφοντας μορφοποίηση και φόρμουλες L–P.
-
-    Επιστρέφει τον αριθμό της νέας γραμμής. Επεκτείνει και τα εύρη SUM της γραμμής ΣΥΝΟΛΟ.
+    Οι γραμμές του ίδιου του μήνα (αν υπάρχει ήδη και θα αντικατασταθεί)
+    παραλείπονται, ώστε μια επανεγγραφή να μην «κληρονομεί» από τον εαυτό της.
     """
-    template_row = total_row - 1  # τελευταία υπάρχουσα γραμμή δεδομένων
-    ws.insert_rows(total_row)
-    new_row = total_row
-    new_total_row = total_row + 1
-
-    for col in range(1, ws.max_column + 1):
-        src = ws.cell(row=template_row, column=col)
-        dst = ws.cell(row=new_row, column=col)
-        dst._style = copy.copy(src._style)
-        if col in FORMULA_COLS and isinstance(src.value, str) and src.value.startswith("="):
-            dst.value = Translator(src.value, origin=src.coordinate).translate_formula(
-                dst.coordinate
-            )
-    if template_row in ws.row_dimensions:
-        ws.row_dimensions[new_row].height = ws.row_dimensions[template_row].height
-
-    # Επέκταση των ευρών της γραμμής ΣΥΝΟΛΟ ώστε να καλύπτουν τη νέα γραμμή.
-    for col in range(1, ws.max_column + 1):
-        cell = ws.cell(row=new_total_row, column=col)
-        if isinstance(cell.value, str) and cell.value.startswith("="):
-            cell.value = _extend_range_ends(cell.value, template_row, new_row)
-    return new_row
-
-
-def _write_amounts(ws, row: int, table_row: TableRow) -> None:
-    for fld, col in INPUT_COLS.items():
-        ws.cell(row=row, column=col).value = round(getattr(table_row, fld), 2)
-
-
-def write_month_sheet(ws, rows: list[TableRow]) -> WriteResult:
-    """Γράφει τα ποσά G–K στο φύλλο μήνα, ταιριάζοντας μέσω Α.Κ.Α. (στήλη B)."""
-    result = WriteResult()
-    total_row = find_total_row(ws)
-
-    # Ευρετήριο Α.Κ.Α. -> λίστα γραμμών φύλλου (με τη σειρά).
-    index: dict[str, list[int]] = {}
-    for r in range(FIRST_DATA_ROW, total_row):
-        aka = _norm_aka(ws.cell(row=r, column=AKA_COL).value)
-        if aka:
-            index.setdefault(aka, []).append(r)
-    consumed: dict[str, list[int]] = {}
-
-    for table_row in rows:
-        aka = table_row.aka_norm
+    target = normalize_label(month)
+    history: dict[str, dict] = {}
+    for r in range(HEADER_ROW + 1, ws.max_row + 1):
+        m = ws.cell(row=r, column=C_MINAS).value
+        if not m or normalize_label(m) == target:
+            continue
+        aka = _norm_aka(ws.cell(row=r, column=C_AKA).value)
         if not aka:
-            result.unmatched_akas.append(f"(χωρίς ΑΚΑ) {table_row.name}".strip())
-            table_row.flag("Δεν γράφτηκε στο φύλλο — λείπει το Α.Κ.Α.")
             continue
+        entry = history.setdefault(aka, {})
+        adt = ws.cell(row=r, column=C_ADT).value
+        nosil = ws.cell(row=r, column=C_NOSIL).value
+        if adt not in (None, ""):
+            entry["adt"] = adt
+        if nosil not in (None, ""):
+            entry["nosil"] = nosil
+    return history
 
-        available = index.get(aka, [])
-        used = consumed.setdefault(aka, [])
-        target = next((r for r in available if r not in used), None)
 
-        if target is not None:
-            used.append(target)
-            _write_amounts(ws, target, table_row)
-            result.matched += 1
+def build_history_from_workbook(path: str) -> dict[str, dict]:
+    """ΑΚΑ -> {adt, nosil} από άλλο workbook (π.χ. το περσινό, για τους πρώτους
+    μήνες της νέας χρονιάς που το τρέχον αρχείο δεν έχει ακόμη ιστορικό)."""
+    wb = load_workbook(path, read_only=True)
+    ws = get_analysis_sheet(wb)
+    history: dict[str, dict] = {}
+    for row in ws.iter_rows(min_row=HEADER_ROW + 1, max_col=C_NOSIL, values_only=True):
+        aka = _norm_aka(row[C_AKA - 1] if len(row) >= C_AKA else None)
+        if not aka:
             continue
+        entry = history.setdefault(aka, {})
+        adt = row[C_ADT - 1] if len(row) >= C_ADT else None
+        nosil = row[C_NOSIL - 1] if len(row) >= C_NOSIL else None
+        if adt not in (None, ""):
+            entry["adt"] = adt
+        if nosil not in (None, ""):
+            entry["nosil"] = nosil
+    wb.close()
+    return history
 
-        # Δεν υπάρχει διαθέσιμη γραμμή: είτε νέα πρόσληψη, είτε δεύτερη γραμμή
-        # ίδιου ΑΚΑ (αναλογία). Πριν την εισαγωγή, έλεγχος διπλοεγγραφής
-        # (idempotency — π.χ. δεύτερο τρέξιμο πάνω στο ίδιο αρχείο εξόδου).
-        if any(_same_amounts(ws, r, table_row) for r in used):
-            result.skipped_duplicates += 1
+
+def delete_month_block(ws, month: str) -> bool:
+    """Διαγράφει το μπλοκ ενός μήνα (και το διαχωριστικό κενό του)."""
+    block = month_block(ws, month)
+    if block is None:
+        return False
+    first, last = block
+    # Μαζί και η κενή γραμμή-διαχωριστικό ακριβώς μετά (ή πριν) το μπλοκ.
+    count = last - first + 1
+    if last + 1 <= ws.max_row and ws.cell(row=last + 1, column=C_MINAS).value in (None, ""):
+        count += 1
+    elif first > HEADER_ROW + 1 and ws.cell(row=first - 1, column=C_MINAS).value in (None, ""):
+        first -= 1
+        count += 1
+    ws.delete_rows(first, count)
+    return True
+
+
+def refresh_row_formulas(ws) -> None:
+    """Ξαναγράφει τις φόρμουλες R–V κάθε γραμμής δεδομένων ώστε να δείχνουν
+    στη δική τους γραμμή — απαραίτητο μετά από διαγραφή ενδιάμεσου μπλοκ,
+    γιατί το openpyxl δεν αναπροσαρμόζει τις φόρμουλες κατά το delete_rows."""
+    for r in range(HEADER_ROW + 1, ws.max_row + 1):
+        if ws.cell(row=r, column=C_MINAS).value in (None, ""):
             continue
+        if ws.cell(row=r, column=18).value in (None, ""):
+            continue  # γραμμή χωρίς φόρμουλες — δεν προσθέτουμε
+        for col, formula in FORMULA_TEMPLATES.items():
+            ws.cell(row=r, column=col).value = formula.format(r=r)
 
-        total_row = find_total_row(ws)
-        new_row = _insert_data_row(ws, total_row)
-        ws.cell(row=new_row, column=AKA_COL).value = table_row.aka
-        label = table_row.name
-        extra = table_row.remarks or ("ΑΝΑΛΟΓΙΑ" if aka in index else "ΝΕΑ ΠΡΟΣΛΗΨΗ")
-        if extra and extra not in label:
-            label = f"{label} ({extra})" if label else extra
-        ws.cell(row=new_row, column=NAME_COL).value = label
-        _write_amounts(ws, new_row, table_row)
-        used.append(new_row)
-        result.inserted += 1
-        if aka not in index:
-            result.unmatched_akas.append(f"{table_row.aka} {table_row.name}".strip())
+
+def _copy_style(ws, src_row: int, dst_row: int) -> None:
+    for col in range(1, LAST_COL + 1):
+        src = ws.cell(row=src_row, column=col)
+        dst = ws.cell(row=dst_row, column=col)
+        dst._style = copy.copy(src._style)
+
+
+def _style_template_row(ws) -> int | None:
+    """Μια υπάρχουσα γραμμή δεδομένων για αντιγραφή μορφοποίησης (η τελευταία)."""
+    last = last_data_row(ws)
+    return last if last > HEADER_ROW else None
+
+
+def append_month_block(
+    ws, month: str, rows: list[TableRow], extra_history: dict[str, dict] | None = None
+) -> WriteResult:
+    """Προσθέτει το μπλοκ του μήνα στο τέλος του «Ανάλυση».
+
+    Το extra_history (π.χ. από το περσινό workbook) χρησιμοποιείται όπου το
+    τρέχον αρχείο δεν έχει δικό του ιστορικό για ένα ΑΚΑ.
+    """
+    result = WriteResult()
+
+    history = dict(extra_history or {})
+    for aka, entry in build_history(ws, month).items():
+        merged = {**history.get(aka, {}), **entry}
+        history[aka] = merged
+    template = _style_template_row(ws)
+
+    last = last_data_row(ws)
+    start = HEADER_ROW + 1 if last == HEADER_ROW else last + 2  # 1 κενή γραμμή ανάμεσα στους μήνες
+
+    for i, row in enumerate(rows):
+        r = start + i
+        if template:
+            _copy_style(ws, template, r)
+
+        past = history.get(row.aka_norm, {})
+
+        ws.cell(row=r, column=C_MINAS).value = month
+        if row.aa:
+            try:
+                ws.cell(row=r, column=C_AA).value = int(re.sub(r"\D", "", row.aa))
+            except ValueError:
+                ws.cell(row=r, column=C_AA).value = row.aa
+        if row.aka_norm:
+            ws.cell(row=r, column=C_AKA).value = int(row.aka_norm)
+
+        adt = row.adt or past.get("adt")
+        if adt not in (None, ""):
+            ws.cell(row=r, column=C_ADT).value = adt
+            if not row.adt:
+                result.filled_from_history += 1
+        elif row.aka_norm:
+            result.missing_adt.append(f"{row.aka} {row.name}".strip())
+
+        if row.east:
+            try:
+                ws.cell(row=r, column=C_EAST).value = int(re.sub(r"\D", "", row.east))
+            except ValueError:
+                ws.cell(row=r, column=C_EAST).value = row.east
+
+        ws.cell(row=r, column=C_NAME).value = row.name
+
+        date_value = parse_date(row.date)
+        date_cell = ws.cell(row=r, column=C_DATE)
+        if "ΑΠΟ" in normalize_label(row.date):
+            date_cell.value = row.date  # αναλογία «ΑΠΟ ...» — μένει ως κείμενο
+        elif date_value is not None:
+            date_cell.value = date_value
+            date_cell.number_format = DATE_FORMAT if not template else date_cell.number_format
+        elif row.date:
+            date_cell.value = row.date
+
+        hospital = row.hospital or hospital_from_remarks(row.remarks) or past.get("nosil")
+        if hospital:
+            ws.cell(row=r, column=C_NOSIL).value = int(hospital)
+        else:
+            result.missing_hospital.append(f"{row.aka} {row.name}".strip())
+            row.flag("Δεν προσδιορίστηκε νοσηλευτήριο — συμπληρώστε τη στήλη H χειροκίνητα")
+
+        for fld, col in AMOUNT_COLS.items():
+            cell = ws.cell(row=r, column=col)
+            cell.value = round(getattr(row, fld), 2)
+            if not template:
+                cell.number_format = AMOUNT_FORMAT
+        for col, formula in FORMULA_TEMPLATES.items():
+            ws.cell(row=r, column=col).value = formula.format(r=r)
+
+        result.written += 1
+
+    result.first_row, result.last_row = start, start + len(rows) - 1
+    if result.missing_adt:
         result.warnings.append(
-            f"Προστέθηκε νέα γραμμή {new_row} για ΑΚΑ {table_row.aka} ({label}). "
-            "Ελέγξτε ότι τα εύρη των SUMIFS στο ΣΥΝΟΠΤΙΚΟ καλύπτουν τη νέα γραμμή."
+            "Χωρίς ΑΔΤ (νέα πρόσληψη; συμπληρώστε τη στήλη D): "
+            + "; ".join(result.missing_adt)
         )
-
+    if result.missing_hospital:
+        result.warnings.append(
+            "Χωρίς νοσηλευτήριο (στήλη H): " + "; ".join(result.missing_hospital)
+        )
     return result
 
 
-def update_control_block(ws, totals: LetterTotals) -> list[str]:
-    """Ενημερώνει το μπλοκ «ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ» (τιμές επιστολής στη στήλη D του μπλοκ)."""
-    warnings = []
-    anchor = None
-    for row in ws.iter_rows():
-        for cell in row:
-            if cell.value and CONTROL_BLOCK_TITLE in normalize_label(cell.value):
-                anchor = cell
-                break
-        if anchor:
-            break
-    if anchor is None:
-        warnings.append(
-            f"Δεν βρέθηκε μπλοκ «{CONTROL_BLOCK_TITLE}» στο φύλλο «{ws.title}» — "
-            "καταχωρίστε τα σύνολα της επιστολής χειροκίνητα."
-        )
-        return warnings
+def output_path_for(workbook_path: str, month: str):
+    from pathlib import Path
 
-    written = set()
-    for r in range(anchor.row + 1, min(anchor.row + 20, ws.max_row) + 1):
-        label_cell = ws.cell(row=r, column=anchor.column)
-        if not label_cell.value:
-            continue
-        label = normalize_label(label_cell.value)
-        for key, fld in CONTROL_LABELS:
-            if key in label and fld not in written:
-                ws.cell(row=r, column=anchor.column + CONTROL_VALUE_OFFSET).value = round(
-                    getattr(totals, fld), 2
-                )
-                written.add(fld)
-                break
-    missing = [key for key, fld in CONTROL_LABELS if fld not in written]
-    if missing:
-        warnings.append(
-            "Στο μπλοκ ΕΛΕΓΧΟΣ ΣΥΝΟΛΩΝ δεν βρέθηκαν ετικέτες για: "
-            + ", ".join(missing)
-            + " — συμπληρώστε τα χειροκίνητα."
-        )
-    return warnings
-
-
-def update_stoixeia_sheet(wb, totals: LetterTotals) -> list[str]:
-    """Ενημερώνει το φύλλο ΣΤΟΙΧΕΙΑ_ΕΠΙΣΤΟΛΩΝ, μόνο αν ο μήνας δεν έχει ήδη τιμές."""
-    warnings = []
-    if STOIXEIA_SHEET not in wb.sheetnames:
-        warnings.append(f"Δεν βρέθηκε φύλλο «{STOIXEIA_SHEET}» — παραλείφθηκε.")
-        return warnings
-    ws = wb[STOIXEIA_SHEET]
-
-    # Γραμμή κεφαλίδων: η πρώτη που περιέχει ετικέτα "ΒΑΣΙΚ".
-    header_row = None
-    header_cols: dict[str, int] = {}
-    for r in range(1, min(10, ws.max_row) + 1):
-        cols = {}
-        for c in range(1, ws.max_column + 1):
-            v = ws.cell(row=r, column=c).value
-            if not v:
-                continue
-            label = normalize_label(v)
-            for key, fld in CONTROL_LABELS:
-                if key in label and fld not in cols:
-                    cols[fld] = c
-        if "basic" in cols:
-            header_row, header_cols = r, cols
-            break
-    if header_row is None:
-        warnings.append(
-            f"Δεν αναγνωρίστηκαν κεφαλίδες στο «{STOIXEIA_SHEET}» — παραλείφθηκε."
-        )
-        return warnings
-
-    # Γραμμή του μήνα: κελί που περιέχει το όνομα του μήνα μισθών.
-    month = normalize_label(totals.minas_misthon)
-    month_row = None
-    for r in range(header_row + 1, ws.max_row + 1):
-        for c in range(1, ws.max_column + 1):
-            v = ws.cell(row=r, column=c).value
-            if v and month and month in normalize_label(v):
-                month_row = r
-                break
-        if month_row:
-            break
-    if month_row is None:
-        warnings.append(
-            f"Δεν βρέθηκε γραμμή για τον μήνα {totals.minas_misthon} στο «{STOIXEIA_SHEET}» — "
-            "συμπληρώστε τα σύνολα χειροκίνητα."
-        )
-        return warnings
-
-    existing = [
-        ws.cell(row=month_row, column=c).value
-        for c in header_cols.values()
-        if ws.cell(row=month_row, column=c).value not in (None, "", 0)
-    ]
-    if existing:
-        warnings.append(
-            f"Ο μήνας {totals.minas_misthon} έχει ήδη τιμές στο «{STOIXEIA_SHEET}» — δεν αντικαταστάθηκαν."
-        )
-        return warnings
-
-    for fld, c in header_cols.items():
-        ws.cell(row=month_row, column=c).value = round(getattr(totals, fld), 2)
-    return warnings
-
-
-def output_path_for(workbook_path: str, month: str) -> Path:
     p = Path(workbook_path)
     return p.with_name(f"{p.stem}_{month}{p.suffix}")
 
 
 def write_workbook(
     workbook_path: str,
-    month_sheet: str,
+    month: str,
     rows: list[TableRow],
-    totals: LetterTotals,
+    replace_existing: bool = False,
+    save_path: str | None = None,
+    history_workbook: str | None = None,
 ) -> WriteResult:
-    """Ανοίγει το workbook, γράφει τα δεδομένα και το αποθηκεύει ως νέο αρχείο."""
+    """Ανοίγει το workbook, προσθέτει το μπλοκ του μήνα και αποθηκεύει.
+
+    Αν ο μήνας υπάρχει ήδη: με replace_existing=True το παλιό μπλοκ
+    διαγράφεται και ξαναγράφεται (idempotency), αλλιώς σφάλμα.
+    """
     wb = load_workbook(workbook_path)  # data_only=False: διατηρούνται οι φόρμουλες
-    if month_sheet not in wb.sheetnames:
-        raise ExcelWriteError(
-            f"Δεν υπάρχει φύλλο «{month_sheet}» στο workbook. "
-            f"Διαθέσιμα φύλλα: {', '.join(wb.sheetnames)}"
+    ws = get_analysis_sheet(wb)
+
+    replaced = was_middle = False
+    block = month_block(ws, month)
+    if block is not None:
+        if not replace_existing:
+            raise ExcelWriteError(
+                f"Ο μήνας {month} υπάρχει ήδη στο φύλλο «{ws.title}». "
+                "Χρησιμοποιήστε αντικατάσταση για να ξαναγραφτεί χωρίς διπλοεγγραφή."
+            )
+        was_middle = block[1] < last_data_row(ws)
+        delete_month_block(ws, month)
+        if was_middle:
+            refresh_row_formulas(ws)
+        replaced = True
+
+    extra_history = build_history_from_workbook(history_workbook) if history_workbook else None
+    result = append_month_block(ws, month, rows, extra_history=extra_history)
+    result.replaced_existing = replaced
+    if was_middle:
+        result.warnings.append(
+            f"Ο μήνας {month} δεν ήταν ο τελευταίος: το μπλοκ του ξαναγράφτηκε στο ΤΕΛΟΣ "
+            "του φύλλου και οι φόρμουλες R–V των υπόλοιπων γραμμών ανανεώθηκαν. "
+            "Αν η στήλη Α/Α άλλων μηνών χρησιμοποιεί φόρμουλες (=1+B...), ελέγξτε τις."
         )
-    ws = wb[month_sheet]
 
-    result = write_month_sheet(ws, rows)
-    result.warnings += update_control_block(ws, totals)
-    result.warnings += update_stoixeia_sheet(wb, totals)
-
-    out = output_path_for(workbook_path, month_sheet)
+    out = save_path or str(output_path_for(workbook_path, month))
     wb.save(out)
     result.output_path = str(out)
     return result
