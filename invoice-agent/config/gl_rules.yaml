@@ -1,0 +1,19 @@
+# keyword / vendor-category -> GL account + cost center (Stage 6).
+# Order matters: vendor default (vendors.yaml) first, then the first keyword
+# rule that matches a line description, else the invoice goes to the review
+# queue — the agent never guesses silently.
+# TODO §12.5 — seed from the chart-of-accounts extract + cost center list.
+
+rules:
+  - keywords: [ΦΑΡΜΑΚ, PHARMAC, MEDICIN]
+    gl: "531000"
+    cost_center: CC-PHARMA
+  - keywords: [CLEANING, ΚΑΘΑΡΙΣΜ]
+    gl: "540100"
+    cost_center: CC-FACILITIES
+  - keywords: [ELECTRICITY, ΗΛΕΚΤΡ, EAC]
+    gl: "541000"
+    cost_center: CC-UTILITIES
+  - keywords: [MAINTENANCE, ΣΥΝΤΗΡΗΣ, REPAIR]
+    gl: "540200"
+    cost_center: CC-FACILITIES

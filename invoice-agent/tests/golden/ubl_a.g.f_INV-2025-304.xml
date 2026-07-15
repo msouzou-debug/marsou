@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>INV-2025-304</cbc:ID>
+  <cbc:IssueDate>2025-11-15</cbc:IssueDate>
+  <cbc:DueDate>2025-11-15</cbc:DueDate>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+  <cac:OrderReference><cbc:ID></cbc:ID></cac:OrderReference>
+  <cac:AccountingSupplierParty><cac:Party>
+    <cac:PartyName><cbc:Name>A.G.F TRADING AND ENGINEERING LTD</cbc:Name></cac:PartyName>
+    <cac:PartyTaxScheme><cbc:CompanyID>CY10070841B</cbc:CompanyID></cac:PartyTaxScheme>
+    <cac:PartyLegalEntity><cbc:RegistrationName>A.G.F TRADING AND ENGINEERING LTD</cbc:RegistrationName></cac:PartyLegalEntity>
+  </cac:Party></cac:AccountingSupplierParty>
+  <cac:PaymentMeans><cac:PayeeFinancialAccount><cbc:ID>CY77002001950000357013692918</cbc:ID></cac:PayeeFinancialAccount></cac:PaymentMeans>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">237.08</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">2634.25</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">237.08</cbc:TaxAmount>
+      <cac:TaxCategory><cbc:Percent>9</cbc:Percent></cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:TaxExclusiveAmount currencyID="EUR">2634.25</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">2871.33</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="EUR">2871.33</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:InvoicedQuantity>2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">1317.12</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Name>MAINTENANCE SERVICES</cbc:Name>
+      <cac:ClassifiedTaxCategory><cbc:Percent>9</cbc:Percent></cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">658.56</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:InvoicedQuantity>1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">1317.13</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Name>CLEANING MATERIALS</cbc:Name>
+      <cac:ClassifiedTaxCategory><cbc:Percent>9</cbc:Percent></cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">1317.13</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

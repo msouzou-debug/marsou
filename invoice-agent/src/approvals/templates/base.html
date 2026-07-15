@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Έγκριση τιμολογίων</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;color:#1a202c;background:#f7fafc}
+nav{background:#276749;color:#fff;padding:0.6rem 1.2rem;display:flex;gap:1.2rem;align-items:center}
+nav a{color:#e6fffa;text-decoration:none;font-weight:500}
+nav .who{margin-left:auto;font-size:0.85rem;color:#c6f6d5}
+main{max-width:68rem;margin:1.4rem auto;padding:0 1rem}
+table{border-collapse:collapse;width:100%;background:#fff;margin-bottom:1.2rem}
+td,th{border:1px solid #cbd5e0;padding:0.35rem 0.6rem;text-align:left;font-size:0.9rem;vertical-align:top}
+th{background:#edf2f7}
+.flash{background:#fefcbf;border:1px solid #d69e2e;padding:0.5rem 0.8rem;border-radius:4px;margin-bottom:1rem}
+.badge{display:inline-block;padding:0.05rem 0.5rem;border-radius:9px;font-size:0.78rem;background:#e2e8f0}
+.CRITICAL{background:#fed7d7;font-weight:600}
+.WARNING{background:#feebc8}
+.INFO{background:#e2e8f0}
+button{background:#2b6cb0;color:#fff;border:0;padding:0.35rem 0.9rem;border-radius:4px;cursor:pointer}
+button.ok{background:#2f855a} button.warn{background:#c53030}
+input[type=text],select{padding:0.3rem;border:1px solid #a0aec0;border-radius:4px}
+.muted{color:#718096;font-size:0.85rem}
+form.inline{display:inline}
+</style>
+</head>
+<body>
+<nav>
+  <strong>Έγκριση τιμολογίων</strong>
+  <a href="{{ url_for('home') }}">Αρχική</a>
+  <span class="who">
+    {% if user %}{{ user }} ({{ user_roles|join(', ') }}) — <a href="{{ url_for('logout') }}">έξοδος</a>
+    {% else %}<a href="{{ url_for('login') }}">είσοδος</a>{% endif %}
+  </span>
+</nav>
+<main>
+{% with messages = get_flashed_messages() %}
+  {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+{% endwith %}
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "vendor_vat": "CY10114836F",
+  "invoice_number": "INV-2025-204",
+  "invoice_date": "2025-11-15",
+  "net_total": 1948.0,
+  "vat_total": 175.32,
+  "gross_total": 2123.32,
+  "iban": "CY50002001940000001100015200",
+  "source": "xml"
+}

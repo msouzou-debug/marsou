@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Είσοδος</h1>
+<p class="muted">Επιλέξτε τον λογαριασμό σας (AD email από το settings.yaml).</p>
+<form method="post">
+  <select name="email">
+    {% for u in all_users %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
+  </select>
+  <button type="submit">Είσοδος</button>
+</form>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Τιμολόγιο #{{ inv.id }} <span class="badge">{{ inv.status }}</span>
+    <span class="badge">{{ inv.extraction_source }}</span></h1>
+
+<table>
+<tr><th>Προμηθευτής</th><td>{{ inv.vendor_name }} ({{ inv.vendor_account or 'χωρίς αντιστοίχιση' }})</td>
+    <th>ΦΠΑ (VAT)</th><td>{{ inv.vendor_vat }}</td></tr>
+<tr><th>Αριθμός</th><td>{{ inv.invoice_number }}</td>
+    <th>Ημερομηνία</th><td>{{ inv.invoice_date }} (λήξη {{ inv.due_date or '—' }})</td></tr>
+<tr><th>Καθαρό / ΦΠΑ / Σύνολο</th>
+    <td>{{ '%.2f' % inv.net_total }} / {{ '%.2f' % inv.vat_total }} / <b>{{ '%.2f' % inv.gross_total }}</b> {{ inv.currency }}</td>
+    <th>IBAN</th><td>{{ inv.iban or '—' }}</td></tr>
+<tr><th>Οντότητα</th><td>{{ inv.entity }}</td><th>PO</th><td>{{ inv.po_number or '—' }}</td></tr>
+{% if inv.review_reason %}<tr><th>Λόγος ελέγχου</th><td colspan="3">{{ inv.review_reason }}</td></tr>{% endif %}
+</table>
+
+<h2>Γραμμές</h2>
+<table>
+<tr><th>#</th><th>Περιγραφή</th><th>Ποσ.</th><th>Τιμή</th><th>Σύνολο</th><th>ΦΠΑ%</th><th>GL</th><th>Κέντρο κόστους</th></tr>
+{% for l in lines %}
+<tr><td>{{ l.line_no }}</td><td>{{ l.description }}</td><td>{{ l.quantity }}</td>
+    <td>{{ '%.2f' % l.unit_price }}</td><td>{{ '%.2f' % l.line_total }}</td>
+    <td>{{ l.vat_rate }}</td><td>{{ l.gl_account }}</td><td>{{ l.cost_center }}</td></tr>
+{% endfor %}
+</table>
+
+<h2>Ευρήματα</h2>
+<table>
+<tr><th>Σοβαρότητα</th><th>Κανόνας</th><th>Λεπτομέρεια</th><th>Εκκαθάριση</th></tr>
+{% for f in findings %}
+<tr class="{{ f.severity }}">
+  <td>{{ f.severity }}</td><td>{{ f.rule }}</td><td>{{ f.detail }}</td>
+  <td>
+    {% if f.cleared_by %}{{ f.cleared_by }} {{ f.cleared_at[:10] }}
+    {% else %}
+    <form class="inline" method="post" action="{{ url_for('clear_finding', invoice_id=inv.id, finding_id=f.id) }}">
+      <button class="ok" type="submit">Εκκαθάριση</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="4" class="muted">Κανένα.</td></tr>
+{% endfor %}
+</table>
+
+<h2>Αλυσίδα εγκρίσεων</h2>
+{% if snapshot %}<p class="muted">Αλυσίδα: {{ snapshot.steps|map(attribute='role')|join(' → ') }}
+   (κλειδωμένη κατά τη δρομολόγηση)</p>{% endif %}
+<table>
+<tr><th>Βήμα</th><th>Ρόλος</th><th>Χρήστης</th><th>Ενέργεια</th><th>Πότε</th><th>Σημείωση</th></tr>
+{% for a in approvals %}
+<tr><td>{{ a.step }}</td><td>{{ a.role }}</td><td>{{ a.user }}</td><td>{{ a.action }}</td>
+    <td>{{ a.acted_at[:16] }}</td><td>{{ a.note }}</td></tr>
+{% endfor %}
+</table>
+
+{% if can_act %}
+<h2>Ενέργεια ({{ step.role }})</h2>
+<form method="post" action="{{ url_for('act', invoice_id=inv.id) }}">
+  <p><input type="text" name="note" size="50" placeholder="σημείωση / λόγος απόρριψης">
+     <input type="text" name="delegate_to" size="28" placeholder="email για ανάθεση"></p>
+  <button class="ok" name="action" value="approve">Έγκριση</button>
+  <button class="warn" name="action" value="reject">Απόρριψη</button>
+  <button name="action" value="delegate">Ανάθεση</button>
+</form>
+{% endif %}
+
+{% if inv.status == 'needs_review' %}
+<form method="post" action="{{ url_for('requeue', invoice_id=inv.id) }}">
+  <button type="submit">Επανεπεξεργασία στην επόμενη εκτέλεση</button>
+</form>
+{% endif %}
+
+{% if file %}<p class="muted">Αρχείο: {{ file.original_name }} — sha256 {{ file.sha256[:16] }}… ({{ file.source }})</p>{% endif %}
+{% endblock %}

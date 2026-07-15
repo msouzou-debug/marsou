@@ -1,0 +1,12 @@
+# Per-vendor overrides: default GL, cost center, expected IBAN(s), tax code.
+# Key = SAP vendor account. Expected IBANs here EXTEND the vendor master's —
+# Stage 4 flags any invoice IBAN not in the union as CRITICAL.
+#
+# Example:
+# "100298":
+#   default_gl: "530000"
+#   cost_center: "CC1000"
+#   tax_code: V9
+#   expected_ibans:
+#     - CY06002001130000001101780400
+{}

@@ -1,0 +1,94 @@
+# OKYpY Invoice Automation Agent — all runtime knobs live here (§2, §6).
+# PLACEHOLDER values marked TODO must be answered by the operator (§12).
+
+mailbox:
+  address: invoices@okypy.org.cy          # TODO §12.1 — shared mailbox
+  tenant_id: TODO-tenant-guid             # TODO §12.1
+  client_id: TODO-app-registration-guid   # TODO §12.1
+  # client secret comes from the OS keystore / .env (GRAPH_CLIENT_SECRET) — never here
+  processed_folder: Processed
+  failed_folder: Failed
+
+folders:
+  watch: input/watch                      # TODO §12.2 — UNC path in production
+  archive_root: archive
+  output_root: output
+
+schedule:
+  daily_at: "06:30"
+
+entities:                                  # TODO §12.3 — SAP company codes
+  - code: "1000"
+    name: OKYpY Central
+    default: true
+
+vendor_master:
+  # Clean file published by the vendor-cleanup app — the contract file.
+  vendors_csv: ../vendor-cleanup/output/vendors_agent.csv
+  # Merged-account mapping; Stage 4 folds history of merged accounts together (§11 of the
+  # vendor-cleanup brief). Missing file = no mapping yet = shadow-mode gate not met.
+  mapping_csv: ../vendor-cleanup/output/vendor_mapping.csv
+
+# Go-live gate (vendor-cleanup brief §11): until the vendor master is clean the agent
+# runs in shadow mode — ingest + extract + validate + analyze + report, NO park files.
+shadow_mode: true
+
+extraction:
+  confidence_threshold: 0.85               # any critical field below this -> review queue
+
+validation:
+  vat_rates: [19, 9, 5, 3, 0]              # Cyprus set
+  max_invoice_age_months: 12
+  currencies: [EUR]
+
+thresholds:
+  price_change_pct: 10
+  spend_zscore: 2.5
+  dup_window_days: 30
+
+alerts:
+  critical_to: [c.chief@okypy.org.cy]      # TODO §12.8
+  digest_to: [finance@okypy.org.cy]        # TODO §12.8
+
+approval:
+  four_eyes_minimum: 2        # NEVER fewer distinct approvers than this
+  self_approval: forbidden    # requester/extractor can never be an approver
+  chain:                      # an invoice needs all steps UP TO the first limit covering its value
+    - role: clerk             # prepares/confirms — counts as eyes #1
+      approve_up_to: 0        # 0 = preparer only, never sole approver
+    - role: accountant
+      approve_up_to: 2000
+    - role: chief_accountant
+      approve_up_to: 10000
+    - role: cfo
+      approve_up_to: 50000
+    - role: group_cfo
+      approve_up_to: 200000
+    - role: ceo
+      approve_up_to: .inf
+  users:                      # TODO §12.6 — role -> list of AD emails
+    clerk: [a.clerk@okypy.org.cy]
+    accountant: [b.acc@okypy.org.cy]
+    chief_accountant: [c.chief@okypy.org.cy]
+    cfo: [d.cfo@okypy.org.cy]
+    group_cfo: [e.gcfo@okypy.org.cy]
+    ceo: [f.ceo@okypy.org.cy]
+  reminder_after_hours: 24
+  escalate_after_hours: 72
+
+notifications:
+  # outbox: write .eml files to output/outbox (dev / until Graph sendMail is approved)
+  # graph: send via the shared mailbox; smtp: internal relay (host/port from .env)
+  transport: outbox
+
+llm_fallback:
+  enabled: false               # §9 — requires DPO sign-off before enabling (TODO §12.7)
+  model: claude-sonnet-5
+
+audit:
+  retention_years: 6           # Cyprus tax records minimum
+
+server:
+  host: 127.0.0.1
+  port: 8091
+  secret_key: change-me-on-prem

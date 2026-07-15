@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Αρχική</h1>
+<p>
+{% for s, c in counts.items() %}<span class="badge">{{ s }}: {{ c }}</span> {% endfor %}
+</p>
+
+<h2>Προς έγκριση από εσάς ({{ my_pending|length }})</h2>
+<table>
+<tr><th>Προμηθευτής</th><th>Τιμολόγιο</th><th>Ποσό</th><th>Ρόλος</th><th></th></tr>
+{% for inv, step in my_pending %}
+<tr>
+  <td>{{ inv.vendor_name }} ({{ inv.vendor_account }})</td>
+  <td>{{ inv.invoice_number }} / {{ inv.invoice_date }}</td>
+  <td>{{ '%.2f' % inv.gross_total }} {{ inv.currency }}</td>
+  <td>{{ step.role }}</td>
+  <td><a href="{{ url_for('invoice', invoice_id=inv.id) }}">Άνοιγμα</a></td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">Τίποτα σε εκκρεμότητα.</td></tr>
+{% endfor %}
+</table>
+
+<h2>Σε αναμονή λόγω CRITICAL ({{ on_hold|length }})</h2>
+<table>
+<tr><th>Προμηθευτής</th><th>Τιμολόγιο</th><th>Ποσό</th><th></th></tr>
+{% for inv in on_hold %}
+<tr><td>{{ inv.vendor_name }}</td><td>{{ inv.invoice_number }}</td>
+    <td>{{ '%.2f' % inv.gross_total }}</td>
+    <td><a href="{{ url_for('invoice', invoice_id=inv.id) }}">Έλεγχος</a></td></tr>
+{% else %}
+<tr><td colspan="4" class="muted">Κανένα.</td></tr>
+{% endfor %}
+</table>
+
+<h2>Ουρά ελέγχου ({{ review|length }})</h2>
+<table>
+<tr><th>#</th><th>Προμηθευτής</th><th>Λόγος</th><th></th></tr>
+{% for inv in review %}
+<tr><td>{{ inv.id }}</td><td>{{ inv.vendor_name or '—' }}</td><td>{{ inv.review_reason }}</td>
+    <td><a href="{{ url_for('invoice', invoice_id=inv.id) }}">Άνοιγμα</a></td></tr>
+{% else %}
+<tr><td colspan="4" class="muted">Κενή.</td></tr>
+{% endfor %}
+</table>
+{% endblock %}
