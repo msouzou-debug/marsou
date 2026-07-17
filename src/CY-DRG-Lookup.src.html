@@ -1,0 +1,1615 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Αναζήτηση CY-DRG — ΟΚΥπΥ</title>
+<style>
+  :root{
+    --blue:#069FEC;
+    --deep:#1B75BB;
+    --green:#8BC53F;
+    --grey:#58595B;
+    --line:#e3e7ea;
+    --bg-soft:#f4f9fd;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:Lato,"Segoe UI",Arial,sans-serif;
+    color:var(--grey);
+    background:#fff;
+    font-size:15px;
+    line-height:1.45;
+  }
+  h1,h2,h3,h4{color:var(--deep);margin:0 0 .5em;line-height:1.25}
+  a{color:var(--blue)}
+  button{font-family:inherit}
+
+  /* ---------- header ---------- */
+  header.app{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:10px 18px;border-bottom:3px solid var(--blue);
+    position:sticky;top:0;background:#fff;z-index:20;
+  }
+  /* LOGO-PLACEHOLDER: αντικαταστήστε το μπλοκ .brand-mark με το επίσημο λογότυπο ΟΚΥπΥ (base64 <img>) */
+  .brand-mark{
+    background:var(--deep);color:#fff;font-weight:700;letter-spacing:.5px;
+    border-radius:8px;padding:7px 12px;font-size:17px;white-space:nowrap;
+  }
+  .brand-mark span{color:var(--green)}
+  header.app .titles{flex:1;min-width:200px}
+  header.app .titles h1{font-size:19px;margin:0}
+  header.app .titles .sub{font-size:12.5px;color:var(--grey)}
+  .hbtn{
+    border:1px solid var(--line);background:#fff;color:var(--deep);
+    border-radius:8px;padding:8px 13px;font-size:14px;cursor:pointer;position:relative;
+  }
+  .hbtn:hover{border-color:var(--blue);color:var(--blue)}
+  .hbtn .badge{
+    position:absolute;top:-8px;right:-8px;background:var(--green);color:#fff;
+    border-radius:999px;font-size:11.5px;font-weight:700;min-width:20px;height:20px;
+    display:flex;align-items:center;justify-content:center;padding:0 5px;
+  }
+  .lang-toggle{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .lang-toggle button{border:0;background:#fff;color:var(--grey);padding:8px 11px;cursor:pointer;font-size:13.5px}
+  .lang-toggle button.on{background:var(--blue);color:#fff;font-weight:700}
+
+  /* ---------- sample data banner ---------- */
+  #sampleBanner{
+    display:none;background:#fff6e5;border-bottom:1px solid #f0d9a8;
+    color:#7a5b16;padding:8px 18px;font-size:13.5px;
+  }
+  #sampleBanner.on{display:block}
+
+  /* ---------- layout ---------- */
+  main{display:flex;gap:18px;padding:18px;align-items:flex-start;max-width:1280px;margin:0 auto}
+  aside.search{width:400px;min-width:320px;flex-shrink:0}
+  section.detail{flex:1;min-width:340px}
+  @media (max-width:860px){
+    main{flex-direction:column}
+    aside.search{width:100%;min-width:0}
+    section.detail{width:100%;min-width:0}
+  }
+
+  .box{border:1px solid var(--line);border-radius:12px;background:#fff}
+  .box .pad{padding:14px 16px}
+
+  /* ---------- search ---------- */
+  #searchInput{
+    width:100%;padding:11px 13px;font-size:15px;border:2px solid var(--blue);
+    border-radius:10px;outline:none;color:var(--grey);
+  }
+  #searchInput:focus{border-color:var(--deep)}
+  .filters{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:#fff;color:var(--grey);padding:6px 10px;cursor:pointer;font-size:13px}
+  .seg button.on{background:var(--deep);color:#fff}
+  #mdcFilter{
+    flex:1;min-width:140px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;
+    color:var(--grey);font-size:13px;background:#fff;max-width:100%;
+  }
+  #resultMeta{font-size:12.5px;color:var(--grey);margin:10px 2px 6px}
+  #results{max-height:62vh;overflow-y:auto;border:1px solid var(--line);border-radius:12px}
+  .hit{
+    display:flex;gap:10px;align-items:baseline;padding:9px 12px;cursor:pointer;
+    border-bottom:1px solid var(--line);
+  }
+  .hit:last-child{border-bottom:0}
+  .hit:hover{background:var(--bg-soft)}
+  .hit.sel{background:#e7f5fd;box-shadow:inset 3px 0 0 var(--blue)}
+  .hit .code{font-weight:700;color:var(--deep);width:52px;flex-shrink:0}
+  .hit .desc{flex:1;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hit .nums{font-size:12px;color:var(--grey);white-space:nowrap}
+  .pbadge{
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:700;border-radius:6px;width:20px;height:20px;flex-shrink:0;
+    position:relative;top:3px;
+  }
+  .pbadge.X{background:#e7f0fa;color:var(--deep)}
+  .pbadge.P{background:#eef7e2;color:#5c8a1e}
+
+  /* ---------- detail card ---------- */
+  .card-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .card-head .code{font-size:30px;font-weight:800;color:var(--deep);line-height:1}
+  .card-head .desc{flex:1;min-width:220px;font-size:15.5px;color:var(--grey)}
+  .card-head .mdc{font-size:12.5px;color:var(--blue);margin-top:3px}
+  .facts{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .fact{
+    background:var(--bg-soft);border-radius:10px;padding:8px 12px;min-width:120px;flex:1;
+  }
+  .fact .k{font-size:11.5px;color:var(--grey)}
+  .fact .v{font-size:17px;font-weight:700;color:var(--deep);margin-top:2px}
+  .flags{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .flagchip{font-size:12px;background:#eef7e2;color:#5c8a1e;border-radius:999px;padding:4px 10px}
+
+  /* LOS band */
+  .losband-wrap{margin-top:18px}
+  .losband{
+    position:relative;height:26px;border-radius:8px;overflow:hidden;
+    background:linear-gradient(#f1f4f6,#f1f4f6);
+  }
+  .losband .zone{position:absolute;top:0;bottom:0}
+  .losband .zone.low{background:#ffe9cf}
+  .losband .zone.mid{background:#e4f2cf}
+  .losband .zone.high{background:#d9edfb}
+  .losband .tick{position:absolute;top:0;bottom:0;width:2px;background:var(--deep);opacity:.55}
+  .losband .alos-tick{position:absolute;top:0;bottom:0;width:2px;background:var(--green)}
+  .losband .you{
+    position:absolute;top:2px;width:20px;height:20px;border-radius:50%;
+    background:var(--deep);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);
+    transform:translateX(-10px);
+  }
+  .loslabels{position:relative;height:32px;font-size:11.5px;color:var(--grey)}
+  .loslabels span{position:absolute;transform:translateX(-50%);white-space:nowrap;text-align:center}
+
+  /* calculator */
+  .calc{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px}
+  .calc .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--grey)}
+  .field select,.field input[type=number]{
+    padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px;color:var(--grey);background:#fff;
+  }
+  .field input[type=number]{width:120px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:13.5px;padding-bottom:9px}
+  .amount-line{font-size:14px;margin:4px 0}
+  .amount-big{
+    font-size:26px;font-weight:800;color:var(--green);margin:6px 0 2px;
+  }
+  .case-label{
+    display:inline-block;font-size:12.5px;font-weight:700;border-radius:999px;padding:4px 11px;margin-bottom:6px;
+  }
+  .case-label.inlier{background:#e4f2cf;color:#5c8a1e}
+  .case-label.short{background:#ffe9cf;color:#a8630a}
+  .case-label.long{background:#d9edfb;color:var(--deep)}
+  .case-label.transfer{background:#f3e2fb;color:#7c3aad}
+  .case-label.base{background:#eef1f3;color:var(--grey)}
+  .math{
+    background:var(--bg-soft);border-radius:10px;padding:10px 13px;font-size:13.5px;
+    font-variant-numeric:tabular-nums;
+  }
+  .math div{margin:2px 0}
+  .disclaimer{font-size:12px;color:#a8630a;margin-top:8px}
+  .addbtn{
+    margin-top:14px;background:var(--green);color:#fff;border:0;border-radius:10px;
+    padding:11px 18px;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  .addbtn:hover{filter:brightness(.95)}
+  #addedNote{display:none;color:#5c8a1e;font-size:13px;margin-left:10px}
+  .empty-card{padding:60px 20px;text-align:center;color:#9aa2a8;font-size:14.5px}
+
+  /* ---------- overlays ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(27,75,95,.45);z-index:50;display:none;
+    padding:24px;overflow-y:auto;
+  }
+  .overlay.open{display:block}
+  .panel{
+    background:#fff;border-radius:14px;max-width:960px;margin:0 auto;
+    padding:20px 24px 26px;position:relative;
+  }
+  .panel .close{
+    position:absolute;top:12px;right:14px;border:0;background:transparent;font-size:23px;
+    color:var(--grey);cursor:pointer;line-height:1;
+  }
+  .panel h2{margin-right:36px}
+
+  /* basket */
+  table.grid{width:100%;border-collapse:collapse;font-size:13px}
+  table.grid th{
+    text-align:left;color:var(--deep);border-bottom:2px solid var(--blue);
+    padding:6px 8px;font-size:12px;white-space:nowrap;
+  }
+  table.grid td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
+  table.grid td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .tbl-scroll{overflow-x:auto}
+  .rowbtn{border:0;background:transparent;color:#c0392b;cursor:pointer;font-size:15px}
+  .toolbar{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .primary{
+    background:var(--blue);color:#fff;border:0;border-radius:9px;padding:10px 16px;
+    font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .primary:hover{filter:brightness(.95)}
+  .primary.green{background:var(--green)}
+  .secondary{
+    background:#fff;color:var(--deep);border:1px solid var(--line);border-radius:9px;
+    padding:10px 16px;font-size:14px;cursor:pointer;
+  }
+  .secondary:hover{border-color:var(--blue)}
+  .danger{color:#c0392b}
+
+  /* maintenance */
+  .maint-section{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:16px}
+  .maint-section h3{font-size:15.5px}
+  .kv{font-size:13.5px;margin:3px 0}
+  .kv b{color:var(--deep)}
+  .upl-msg{margin-top:10px;font-size:13.5px;border-radius:9px;padding:9px 12px;display:none}
+  .upl-msg.err{display:block;background:#fdecea;color:#b03a2e}
+  .upl-msg.ok{display:block;background:#eef7e2;color:#5c8a1e}
+  .upl-confirm{display:none;margin-top:12px;background:var(--bg-soft);border-radius:10px;padding:12px 14px}
+  .upl-confirm.on{display:block}
+  .field-inline{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+  .field-inline input[type=text],.field-inline input[type=date]{
+    padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px;color:var(--grey);
+  }
+  #ratesTable input[type=number]{
+    width:110px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;text-align:right;
+  }
+  #ratesTable input[type=text]{
+    width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;
+  }
+
+  /* manual */
+  #manualBody{font-size:14.5px}
+  #manualBody h3{margin-top:22px;font-size:16.5px}
+  #manualBody h4{margin-top:14px;font-size:14.5px;color:var(--blue)}
+  #manualBody table{border-collapse:collapse;font-size:13px;margin:8px 0}
+  #manualBody th,#manualBody td{border:1px solid var(--line);padding:5px 9px;text-align:left}
+  #manualBody th{color:var(--deep);background:var(--bg-soft)}
+  #manualBody .ex{
+    background:var(--bg-soft);border-left:3px solid var(--green);border-radius:8px;
+    padding:10px 14px;margin:10px 0;font-variant-numeric:tabular-nums;
+  }
+  #manualBody .warn{background:#fff6e5;border-left:3px solid #e0a93e;border-radius:8px;padding:10px 14px;margin:10px 0}
+
+  /* footer */
+  footer.app{
+    border-top:1px solid var(--line);margin-top:26px;padding:14px 18px 22px;
+    font-size:12.5px;color:var(--grey);display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;
+  }
+  footer.app .meta b{color:var(--deep)}
+
+  /* toast */
+  #toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--deep);color:#fff;border-radius:10px;padding:11px 18px;font-size:14px;
+    display:none;z-index:99;max-width:90vw;
+  }
+
+  /* printing: only the manual */
+  @media print{
+    body.print-manual > header.app,
+    body.print-manual > #sampleBanner,
+    body.print-manual > main,
+    body.print-manual > footer.app,
+    body.print-manual #toast{display:none !important}
+    body.print-manual .overlay{position:static;background:#fff;padding:0;display:none}
+    body.print-manual #manualOverlay{display:block !important}
+    body.print-manual #manualOverlay .panel{box-shadow:none;max-width:none;padding:0}
+    body.print-manual #manualOverlay .close,
+    body.print-manual #manualOverlay .toolbar{display:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand-mark">ΟΚΥπ<span>Υ</span></div>
+  <div class="titles">
+    <h1 data-i18n="app_title"></h1>
+    <div class="sub" data-i18n="app_sub"></div>
+  </div>
+  <button class="hbtn" id="btnManual" data-i18n="manual_title"></button>
+  <button class="hbtn" id="btnMaint" data-i18n="maint_title"></button>
+  <button class="hbtn" id="btnBasket">
+    <span data-i18n="basket_title"></span>
+    <span class="badge" id="basketBadge">0</span>
+  </button>
+  <div class="lang-toggle" role="group" aria-label="Language">
+    <button id="langEl">ΕΛ</button>
+    <button id="langEn">EN</button>
+  </div>
+</header>
+
+<div id="sampleBanner"></div>
+
+<main>
+  <aside class="search">
+    <input id="searchInput" type="text" autocomplete="off" spellcheck="false">
+    <div class="filters">
+      <div class="seg" id="partSeg">
+        <button data-part="" class="on" data-i18n="filter_all"></button>
+        <button data-part="Χ">Χ</button>
+        <button data-part="Π">Π</button>
+      </div>
+      <select id="mdcFilter"></select>
+    </div>
+    <div id="resultMeta"></div>
+    <div id="results"></div>
+  </aside>
+
+  <section class="detail">
+    <div class="box" id="cardBox">
+      <div class="empty-card" id="cardEmpty" data-i18n="card_empty"></div>
+      <div class="pad" id="cardBody" style="display:none"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="app">
+  <div class="meta" id="footerMeta"></div>
+  <div data-i18n="footer_disclaimer"></div>
+</footer>
+
+<!-- ======== basket overlay ======== -->
+<div class="overlay" id="basketOverlay">
+  <div class="panel">
+    <button class="close" data-close="basketOverlay">×</button>
+    <h2 data-i18n="basket_title"></h2>
+    <div id="basketBody"></div>
+    <div class="toolbar">
+      <button class="primary green" id="btnExport" data-i18n="export_excel"></button>
+      <button class="secondary danger" id="btnClearBasket" data-i18n="clear_basket"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== maintenance overlay ======== -->
+<div class="overlay" id="maintOverlay">
+  <div class="panel">
+    <button class="close" data-close="maintOverlay">×</button>
+    <h2 data-i18n="maint_title"></h2>
+    <p data-i18n="maint_intro" style="font-size:13.5px"></p>
+
+    <div class="maint-section">
+      <h3 data-i18n="current_cat"></h3>
+      <div id="catInfo"></div>
+      <div class="toolbar">
+        <button class="secondary" id="btnTemplate" data-i18n="download_template"></button>
+        <button class="secondary" id="btnExportCat" data-i18n="export_catalogue"></button>
+        <button class="secondary danger" id="btnRestore" data-i18n="restore_embedded"></button>
+      </div>
+    </div>
+
+    <div class="maint-section">
+      <h3 data-i18n="upload_title"></h3>
+      <p style="font-size:13.5px" data-i18n="upload_help"></p>
+      <input type="file" id="fileInput" accept=".xlsx,.csv">
+      <div class="upl-msg" id="uplMsg"></div>
+      <div class="upl-confirm" id="uplConfirm">
+        <div id="uplSummary" style="font-weight:700;color:var(--deep)"></div>
+        <div class="field-inline">
+          <div class="field">
+            <label for="verLabel" data-i18n="version_label"></label>
+            <input type="text" id="verLabel" size="34">
+          </div>
+          <div class="field">
+            <label for="verDate" data-i18n="effective_date"></label>
+            <input type="date" id="verDate">
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:6px">
+          <button class="primary" id="btnApplyUpload" data-i18n="apply_upload"></button>
+          <button class="secondary" id="btnCancelUpload" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="maint-section">
+      <h3 data-i18n="rates_title"></h3>
+      <div class="tbl-scroll"><table class="grid" id="ratesTable"></table></div>
+      <div class="toolbar">
+        <button class="secondary" id="btnAddHospital" data-i18n="add_hospital"></button>
+        <button class="primary" id="btnSaveRates" data-i18n="save_rates"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== manual overlay ======== -->
+<div class="overlay" id="manualOverlay">
+  <div class="panel">
+    <button class="close" data-close="manualOverlay">×</button>
+    <h2 data-i18n="manual_title"></h2>
+    <div class="toolbar" style="margin-top:0">
+      <button class="primary" id="btnManualPdf" data-i18n="manual_pdf"></button>
+    </div>
+    <div id="manualBody"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!--SHEETJS-->
+
+<script>
+"use strict";
+/* =========================================================================
+   CY-DRG Lookup — ΟΚΥπΥ
+   Single-file, offline lookup tool for the CY-DRG catalogue.
+   ========================================================================= */
+
+/* ------------------------------------------------------------------ *
+ *  Embedded default data.
+ *  ΠΡΟΣΟΧΗ: οι γραμμές είναι ΔΕΙΓΜΑ για επίδειξη/δοκιμή — δεν είναι ο
+ *  επίσημος κατάλογος CY-DRG v2. Ο επίσημος κατάλογος φορτώνεται από τη
+ *  «Συντήρηση» (ή αντικαθιστά τον πίνακα EMBEDDED_CATALOGUE πριν από τη
+ *  διανομή του αρχείου).
+ * ------------------------------------------------------------------ */
+const EMBEDDED_META = {
+  label: "Ενσωματωμένο δείγμα — ΜΗ επίσημος κατάλογος",
+  label_en: "Embedded sample — NOT the official catalogue",
+  effective: "",
+  uploaded: "",
+  sample: true
+};
+
+const EMBEDDED_CATALOGUE = [
+  {code:"B70A",partition:"Π",mdc:"MDC 01 — Νοσήματα νευρικού συστήματος",desc_el:"Εγκεφαλικό επεισόδιο με σύνθετες συνοδές παθήσεις (δείγμα)",cw:2.101,alos:12.4,lo_first:3,lo_cw_day:0.310,hi_first:25,hi_cw_day:0.120,transfer_cw_day:0.115,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"B70B",partition:"Π",mdc:"MDC 01 — Νοσήματα νευρικού συστήματος",desc_el:"Εγκεφαλικό επεισόδιο χωρίς σύνθετες συνοδές παθήσεις (δείγμα)",cw:1.354,alos:8.6,lo_first:2,lo_cw_day:0.290,hi_first:18,hi_cw_day:0.098,transfer_cw_day:0.101,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"C08B",partition:"Χ",mdc:"MDC 02 — Νοσήματα οφθαλμού",desc_el:"Επέμβαση καταρράκτη χωρίς επιπλοκές (δείγμα)",cw:0.612,alos:1.4,lo_first:1,lo_cw_day:0.180,hi_first:4,hi_cw_day:0.050,transfer_cw_day:0.045,flag_transfer_exempt:true,flag_readmit_exempt:false},
+  {code:"E65A",partition:"Π",mdc:"MDC 04 — Νοσήματα αναπνευστικού συστήματος",desc_el:"Χρόνια αποφρακτική πνευμονοπάθεια με οξεία παρόξυνση (δείγμα)",cw:1.121,alos:7.8,lo_first:2,lo_cw_day:0.260,hi_first:16,hi_cw_day:0.085,transfer_cw_day:0.092,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"E77B",partition:"Π",mdc:"MDC 04 — Νοσήματα αναπνευστικού συστήματος",desc_el:"Πνευμονία με συνοδές παθήσεις (δείγμα)",cw:1.240,alos:8.9,lo_first:2,lo_cw_day:0.270,hi_first:17,hi_cw_day:0.090,transfer_cw_day:0.095,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"F05A",partition:"Χ",mdc:"MDC 05 — Νοσήματα κυκλοφορικού συστήματος",desc_el:"Στεφανιαία παράκαμψη (bypass) με σύνθετη επέμβαση (δείγμα)",cw:6.842,alos:15.2,lo_first:5,lo_cw_day:0.720,hi_first:28,hi_cw_day:0.210,transfer_cw_day:0.240,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"F41B",partition:"Π",mdc:"MDC 05 — Νοσήματα κυκλοφορικού συστήματος",desc_el:"Ισχαιμική καρδιοπάθεια με οξύ έμφραγμα του μυοκαρδίου, χωρίς επεμβατική θεραπεία (δείγμα)",cw:1.032,alos:6.4,lo_first:2,lo_cw_day:0.250,hi_first:14,hi_cw_day:0.088,transfer_cw_day:0.090,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"F49C",partition:"Χ",mdc:"MDC 05 — Νοσήματα κυκλοφορικού συστήματος",desc_el:"Επεμβατική καρδιολογική διερεύνηση σε ισχαιμική καρδιοπάθεια (δείγμα)",cw:1.478,alos:4.2,lo_first:1,lo_cw_day:0.300,hi_first:11,hi_cw_day:0.095,transfer_cw_day:0.102,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"F62B",partition:"Π",mdc:"MDC 05 — Νοσήματα κυκλοφορικού συστήματος",desc_el:"Καρδιακή ανεπάρκεια χωρίς σύνθετες συνοδές παθήσεις (δείγμα)",cw:1.187,alos:9.1,lo_first:2,lo_cw_day:0.265,hi_first:19,hi_cw_day:0.087,transfer_cw_day:0.093,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"G23B",partition:"Χ",mdc:"MDC 06 — Νοσήματα πεπτικού συστήματος",desc_el:"Σκωληκοειδεκτομή χωρίς περιτονίτιδα (δείγμα)",cw:0.981,alos:3.6,lo_first:1,lo_cw_day:0.240,hi_first:9,hi_cw_day:0.075,transfer_cw_day:0.080,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"G67B",partition:"Π",mdc:"MDC 06 — Νοσήματα πεπτικού συστήματος",desc_el:"Γαστρεντερίτιδα και διαταραχές πεπτικού χωρίς σύνθετες συνοδές παθήσεις (δείγμα)",cw:0.642,alos:4.1,lo_first:1,lo_cw_day:0.200,hi_first:10,hi_cw_day:0.060,transfer_cw_day:0.062,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"I44B",partition:"Χ",mdc:"MDC 08 — Νοσήματα μυοσκελετικού συστήματος",desc_el:"Ολική αρθροπλαστική γόνατος χωρίς επιπλοκές (δείγμα)",cw:3.245,alos:8.4,lo_first:3,lo_cw_day:0.520,hi_first:17,hi_cw_day:0.140,transfer_cw_day:0.150,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"I47A",partition:"Χ",mdc:"MDC 08 — Νοσήματα μυοσκελετικού συστήματος",desc_el:"Ολική αρθροπλαστική ισχίου με σύνθετες συνοδές παθήσεις (δείγμα)",cw:3.892,alos:10.6,lo_first:3,lo_cw_day:0.560,hi_first:20,hi_cw_day:0.155,transfer_cw_day:0.165,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"L63B",partition:"Π",mdc:"MDC 11 — Νοσήματα ουροποιητικού συστήματος",desc_el:"Ουρολοίμωξη χωρίς σύνθετες συνοδές παθήσεις (δείγμα)",cw:0.874,alos:5.8,lo_first:2,lo_cw_day:0.220,hi_first:13,hi_cw_day:0.070,transfer_cw_day:0.075,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"O01C",partition:"Χ",mdc:"MDC 14 — Κύηση, τοκετός και λοχεία",desc_el:"Καισαρική τομή χωρίς επιπλοκές (δείγμα)",cw:0.912,alos:4.1,lo_first:1,lo_cw_day:0.230,hi_first:9,hi_cw_day:0.072,transfer_cw_day:0.078,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"O60D",partition:"Π",mdc:"MDC 14 — Κύηση, τοκετός και λοχεία",desc_el:"Φυσιολογικός τοκετός χωρίς επιπλοκές (δείγμα)",cw:0.548,alos:2.7,lo_first:1,lo_cw_day:0.190,hi_first:6,hi_cw_day:0.055,transfer_cw_day:0.050,flag_transfer_exempt:false,flag_readmit_exempt:true},
+  {code:"S63A",partition:"Π",mdc:"MDC 18A — Λοιμώξεις HIV",desc_el:"Λοίμωξη σε νόσο HIV με σύνθετη διάγνωση (δείγμα)",cw:4.159,alos:26.8,lo_first:8,lo_cw_day:0.430,hi_first:45,hi_cw_day:0.151,transfer_cw_day:0.139,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"S63B",partition:"Π",mdc:"MDC 18A — Λοιμώξεις HIV",desc_el:"Λοίμωξη σε νόσο HIV χωρίς σύνθετη διάγνωση (δείγμα)",cw:2.310,alos:15.3,lo_first:4,lo_cw_day:0.360,hi_first:29,hi_cw_day:0.118,transfer_cw_day:0.120,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"T60A",partition:"Π",mdc:"MDC 18B — Λοιμώδη και παρασιτικά νοσήματα",desc_el:"Σήψη με σύνθετες συνοδές παθήσεις, με μηχανική υποστήριξη της αναπνοής (δείγμα)",cw:3.876,alos:18.9,lo_first:5,lo_cw_day:0.480,hi_first:34,hi_cw_day:0.145,transfer_cw_day:0.148,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"T60B",partition:"Π",mdc:"MDC 18B — Λοιμώδη και παρασιτικά νοσήματα",desc_el:"Σήψη με σύνθετες συνοδές παθήσεις (δείγμα)",cw:2.412,alos:13.7,lo_first:4,lo_cw_day:0.380,hi_first:26,hi_cw_day:0.115,transfer_cw_day:0.121,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"T60C",partition:"Π",mdc:"MDC 18B — Λοιμώδη και παρασιτικά νοσήματα",desc_el:"Σήψη χωρίς σύνθετες συνοδές παθήσεις (δείγμα)",cw:1.654,alos:10.2,lo_first:3,lo_cw_day:0.320,hi_first:21,hi_cw_day:0.100,transfer_cw_day:0.104,flag_transfer_exempt:false,flag_readmit_exempt:false},
+  {code:"T60D",partition:"Π",mdc:"MDC 18B — Λοιμώδη και παρασιτικά νοσήματα",desc_el:"Σήψη, βραχεία νοσηλεία (δείγμα)",cw:0.998,alos:5.4,lo_first:1,lo_cw_day:0.260,hi_first:12,hi_cw_day:0.082,transfer_cw_day:0.088,flag_transfer_exempt:false,flag_readmit_exempt:false}
+];
+
+/* Βασικές τιμές — ΔΕΙΓΜΑ· επεξεργάζονται στη «Συντήρηση». */
+const EMBEDDED_BASE_RATES = [
+  {hospital:"ΓΝ Λευκωσίας", rate:2565},
+  {hospital:"ΓΝ Λεμεσού", rate:2565},
+  {hospital:"ΓΝ Λάρνακας", rate:2565},
+  {hospital:"ΓΝ Πάφου", rate:2565},
+  {hospital:"ΓΝ Αμμοχώστου", rate:2565},
+  {hospital:"Μακάρειο Νοσοκομείο", rate:2565}
+];
+
+/* ------------------------------------------------------------------ *
+ *  i18n
+ * ------------------------------------------------------------------ */
+const I18N = {
+el: {
+  app_title:"Αναζήτηση CY-DRG",
+  app_sub:"Κατάλογος DRG Κύπρου — εργαλείο για κωδικοποιητές ΟΚΥπΥ",
+  search_ph:"Κωδικός (π.χ. S63) ή λέξεις-κλειδιά (π.χ. ισχαιμική καρδιοπάθεια)…",
+  filter_all:"Όλα",
+  mdc_all:"Όλα τα MDC",
+  results_count:"{n} αποτελέσματα",
+  results_limited:"Εμφανίζονται τα πρώτα {k} από {n} αποτελέσματα — περιορίστε την αναζήτηση.",
+  no_results:"Κανένα αποτέλεσμα. Δοκιμάστε λιγότερες ή διαφορετικές λέξεις.",
+  card_empty:"Επιλέξτε ένα DRG από τα αποτελέσματα για να δείτε την κάρτα του.",
+  partition_x:"Χειρουργικός",
+  partition_p:"Παθολογικός",
+  cw_label:"Συντελεστής βαρύτητας κόστους (cost weight)",
+  alos_label:"Μέση διάρκεια νοσηλείας (ΜΔΝ)",
+  days_unit:"ημέρες",
+  day_unit:"ημέρα",
+  losband_title:"Όρια διάρκειας νοσηλείας",
+  lo_first_label:"1η ημέρα με μείωση",
+  lo_cw_label:"Μείωση CW ανά ημέρα",
+  hi_first_label:"1η ημέρα με προσαύξηση",
+  hi_cw_label:"Προσαύξηση CW ανά ημέρα",
+  tr_cw_label:"Μείωση CW ανά ημέρα (διακομιδή)",
+  flag_tr:"Εξαίρεση από μείωση λόγω διακομιδής",
+  flag_re:"Εξαίρεση επανομαδοποίησης λόγω επανεισαγωγής",
+  calc_title:"Υπολογισμός ποσού",
+  hospital_label:"Νοσοκομείο",
+  base_rate_label:"Βασική τιμή",
+  los_label:"Πραγματική διάρκεια νοσηλείας (ημέρες)",
+  transfer_label:"Εξωτερική διακομιδή",
+  case_base:"Χωρίς διάρκεια νοσηλείας — βασικό ποσό",
+  case_inlier:"Εντός ορίων (inlier) — πλήρης συντελεστής",
+  case_short:"Βραχεία νοσηλεία — μείωση",
+  case_long:"Παρατεταμένη νοσηλεία — προσαύξηση",
+  case_transfer:"Διακομιδή — μείωση",
+  m_base:"Ποσό: {cw} × {rate} = {amt}",
+  m_days_short:"Ημέρες μείωσης: ({lo} + 1) − {los} = {d}",
+  m_days_long:"Ημέρες προσαύξησης: {los} − {hi} + 1 = {d}",
+  m_days_tr:"Ημέρες μείωσης: {alosr} (ΜΔΝ στρογγυλοποιημένη) − {los} = {d}",
+  m_cw_short:"Συντελεστής: {cw} − {d} × {dcw} = {cweff}",
+  m_cw_long:"Συντελεστής: {cw} + {d} × {dcw} = {cweff}",
+  m_amt:"Ποσό: {cweff} × {rate} = {amt}",
+  m_clamped:"Ο συντελεστής δεν μπορεί να γίνει αρνητικός· περιορίστηκε στο 0.",
+  disclaimer:"Ενδεικτικός υπολογισμός — δεν υποκαθιστά τον grouper του ΟΑΥ.",
+  tr_exempt_note:"Το DRG εξαιρείται από τη μείωση λόγω διακομιδής.",
+  add_to_basket:"Προσθήκη στη λίστα",
+  added_note:"Προστέθηκε ✓",
+  basket_title:"Λίστα",
+  basket_empty:"Η λίστα είναι άδεια. Ανοίξτε μια κάρτα DRG και πατήστε «Προσθήκη στη λίστα».",
+  export_excel:"Λήψη Excel",
+  clear_basket:"Καθαρισμός λίστας",
+  confirm_clear:"Να αδειάσει η λίστα;",
+  remove:"Αφαίρεση",
+  col_code:"Κωδικός",
+  col_desc:"Περιγραφή",
+  col_hospital:"Νοσοκομείο",
+  col_rate:"Βασική τιμή (€)",
+  col_los:"Διάρκεια (ημέρες)",
+  col_transfer:"Διακομιδή",
+  col_amount:"Ποσό (€)",
+  col_case:"Περίπτωση",
+  yes:"Ναι", no:"Όχι",
+  maint_title:"Συντήρηση",
+  maint_intro:"Ενημέρωση καταλόγου και βασικών τιμών. Οι αλλαγές αποθηκεύονται τοπικά στον υπολογιστή (πρόγραμμα περιήγησης) και δεν επηρεάζουν άλλους χρήστες.",
+  current_cat:"Τρέχων κατάλογος",
+  version_label:"Ετικέτα έκδοσης (π.χ. «CY-DRG v2, 17η αναπροσαρμογή»)",
+  effective_date:"Ημερομηνία ισχύος",
+  kv_label:"Έκδοση", kv_rows:"Γραμμές", kv_eff:"Ισχύει από", kv_upl:"Ενημερώθηκε",
+  download_template:"Λήψη προτύπου (Excel)",
+  export_catalogue:"Εξαγωγή τρέχοντος καταλόγου (Excel)",
+  restore_embedded:"Επαναφορά στον ενσωματωμένο κατάλογο",
+  confirm_restore:"Να γίνει επαναφορά στον ενσωματωμένο κατάλογο; Ο κατάλογος που έχει φορτωθεί θα διαγραφεί.",
+  restored:"Έγινε επαναφορά στον ενσωματωμένο κατάλογο.",
+  upload_title:"Ενημέρωση καταλόγου",
+  upload_help:"Ανεβάστε αρχείο .xlsx ή .csv με τη διάταξη στηλών του προτύπου. Το αρχείο ελέγχεται πριν αντικαταστήσει τον κατάλογο.",
+  version_required:"Συμπληρώστε την ετικέτα έκδοσης πριν από την αντικατάσταση.",
+  confirm_replace:"{n} γραμμές θα αντικαταστήσουν {m} — συνέχεια;",
+  apply_upload:"Αντικατάσταση καταλόγου",
+  cancel:"Άκυρο",
+  upload_ok:"Ο κατάλογος ενημερώθηκε: {label} ({n} γραμμές).",
+  err_read:"Το αρχείο δεν ήταν δυνατό να διαβαστεί: {msg}",
+  err_missing_col:"Λείπει η υποχρεωτική στήλη: {col}.",
+  err_no_rows:"Το αρχείο δεν περιέχει γραμμές δεδομένων.",
+  err_empty_code:"Σφάλμα στη γραμμή {row}: κενός κωδικός DRG.",
+  err_dup_code:"Ο κωδικός {code} εμφανίζεται δύο φορές (γραμμές {a} και {b}).",
+  err_not_number:"Σφάλμα στη γραμμή {row}, στήλη {col}: η τιμή «{val}» δεν είναι αριθμός.",
+  err_bad_partition:"Σφάλμα στη γραμμή {row}: το τμήμα πρέπει να είναι Χ ή Π (βρέθηκε «{val}»).",
+  rates_title:"Βασικές τιμές ανά νοσοκομείο",
+  hospital_col:"Νοσοκομείο",
+  rate_col:"Βασική τιμή (€)",
+  add_hospital:"Προσθήκη νοσοκομείου",
+  save_rates:"Αποθήκευση τιμών",
+  rates_saved:"Οι βασικές τιμές αποθηκεύτηκαν.",
+  err_rate:"Σφάλμα στη βασική τιμή του «{h}»: η τιμή δεν είναι έγκυρος αριθμός.",
+  err_rate_name:"Υπάρχει γραμμή νοσοκομείου χωρίς όνομα.",
+  new_hospital:"Νέο νοσοκομείο",
+  manual_title:"Οδηγίες χρήσης",
+  manual_pdf:"Λήψη οδηγιών (PDF)",
+  manual_pdf_hint:"Στο παράθυρο εκτύπωσης επιλέξτε «Αποθήκευση ως PDF».",
+  footer_disclaimer:"Εσωτερικό εργαλείο ΟΚΥπΥ — δεν υποκαθιστά τον grouper του ΟΑΥ.",
+  footer_meta:"Κατάλογος: {label} · {n} γραμμές",
+  footer_meta_upl:" · Ενημέρωση: {d}",
+  footer_meta_eff:" · Ισχύει από: {d}",
+  sample_banner:"Προσοχή: το εργαλείο εμφανίζει δείγμα δεδομένων — όχι τον επίσημο κατάλογο CY-DRG v2. Ο διαχειριστής πρέπει να φορτώσει τον επίσημο κατάλογο από τη «Συντήρηση».",
+  basket_export_empty:"Η λίστα είναι άδεια — δεν υπάρχει κάτι για εξαγωγή."
+},
+en: {
+  app_title:"CY-DRG Lookup",
+  app_sub:"Cyprus DRG catalogue — a tool for OKYpY clinical coders",
+  search_ph:"Code (e.g. S63) or keywords (e.g. ischaemic heart disease)…",
+  filter_all:"All",
+  mdc_all:"All MDCs",
+  results_count:"{n} results",
+  results_limited:"Showing the first {k} of {n} results — narrow your search.",
+  no_results:"No results. Try fewer or different words.",
+  card_empty:"Select a DRG from the results to open its card.",
+  partition_x:"Surgical",
+  partition_p:"Medical",
+  cw_label:"Cost weight",
+  alos_label:"Mean length of stay (ALOS)",
+  days_unit:"days",
+  day_unit:"day",
+  losband_title:"Length-of-stay bounds",
+  lo_first_label:"First day with reduction",
+  lo_cw_label:"CW reduction per day",
+  hi_first_label:"First day with surcharge",
+  hi_cw_label:"CW surcharge per day",
+  tr_cw_label:"CW reduction per day (transfer)",
+  flag_tr:"Exempt from transfer reduction",
+  flag_re:"Exempt from readmission regrouping",
+  calc_title:"Payment calculation",
+  hospital_label:"Hospital",
+  base_rate_label:"Base rate",
+  los_label:"Actual length of stay (days)",
+  transfer_label:"External transfer",
+  case_base:"No length of stay entered — base amount",
+  case_inlier:"Within bounds (inlier) — full cost weight",
+  case_short:"Short stay — reduction",
+  case_long:"Long stay — surcharge",
+  case_transfer:"Transfer — reduction",
+  m_base:"Amount: {cw} × {rate} = {amt}",
+  m_days_short:"Reduction days: ({lo} + 1) − {los} = {d}",
+  m_days_long:"Surcharge days: {los} − {hi} + 1 = {d}",
+  m_days_tr:"Reduction days: {alosr} (rounded ALOS) − {los} = {d}",
+  m_cw_short:"Cost weight: {cw} − {d} × {dcw} = {cweff}",
+  m_cw_long:"Cost weight: {cw} + {d} × {dcw} = {cweff}",
+  m_amt:"Amount: {cweff} × {rate} = {amt}",
+  m_clamped:"The cost weight cannot become negative; it was clamped to 0.",
+  disclaimer:"Indicative calculation — it does not replace the HIO grouper.",
+  tr_exempt_note:"This DRG is exempt from the transfer reduction.",
+  add_to_basket:"Add to list",
+  added_note:"Added ✓",
+  basket_title:"List",
+  basket_empty:"The list is empty. Open a DRG card and press “Add to list”.",
+  export_excel:"Download Excel",
+  clear_basket:"Clear list",
+  confirm_clear:"Empty the list?",
+  remove:"Remove",
+  col_code:"Code",
+  col_desc:"Description",
+  col_hospital:"Hospital",
+  col_rate:"Base rate (€)",
+  col_los:"LOS (days)",
+  col_transfer:"Transfer",
+  col_amount:"Amount (€)",
+  col_case:"Case",
+  yes:"Yes", no:"No",
+  maint_title:"Maintenance",
+  maint_intro:"Update the catalogue and the base rates. Changes are stored locally in this browser and do not affect other users.",
+  current_cat:"Current catalogue",
+  version_label:"Version label (e.g. “CY-DRG v2, 17th adjustment”)",
+  effective_date:"Effective date",
+  kv_label:"Version", kv_rows:"Rows", kv_eff:"Effective from", kv_upl:"Updated",
+  download_template:"Download template (Excel)",
+  export_catalogue:"Export current catalogue (Excel)",
+  restore_embedded:"Restore the embedded catalogue",
+  confirm_restore:"Restore the embedded catalogue? The uploaded catalogue will be deleted.",
+  restored:"The embedded catalogue was restored.",
+  upload_title:"Catalogue update",
+  upload_help:"Upload an .xlsx or .csv file with the template column layout. The file is validated before it replaces the catalogue.",
+  version_required:"Fill in the version label before replacing the catalogue.",
+  confirm_replace:"{n} rows will replace {m} — continue?",
+  apply_upload:"Replace catalogue",
+  cancel:"Cancel",
+  upload_ok:"Catalogue updated: {label} ({n} rows).",
+  err_read:"The file could not be read: {msg}",
+  err_missing_col:"Missing required column: {col}.",
+  err_no_rows:"The file contains no data rows.",
+  err_empty_code:"Error in row {row}: empty DRG code.",
+  err_dup_code:"Code {code} appears twice (rows {a} and {b}).",
+  err_not_number:"Error in row {row}, column {col}: the value “{val}” is not a number.",
+  err_bad_partition:"Error in row {row}: partition must be Χ or Π (found “{val}”).",
+  rates_title:"Base rates per hospital",
+  hospital_col:"Hospital",
+  rate_col:"Base rate (€)",
+  add_hospital:"Add hospital",
+  save_rates:"Save rates",
+  rates_saved:"Base rates saved.",
+  err_rate:"Error in the base rate of “{h}”: the value is not a valid number.",
+  err_rate_name:"There is a hospital row without a name.",
+  new_hospital:"New hospital",
+  manual_title:"User guide",
+  manual_pdf:"Download guide (PDF)",
+  manual_pdf_hint:"In the print dialog choose “Save as PDF”.",
+  footer_disclaimer:"Internal OKYpY tool — it does not replace the HIO grouper.",
+  footer_meta:"Catalogue: {label} · {n} rows",
+  footer_meta_upl:" · Updated: {d}",
+  footer_meta_eff:" · Effective from: {d}",
+  sample_banner:"Warning: the tool is showing sample data — not the official CY-DRG v2 catalogue. An administrator must load the official catalogue via “Maintenance”.",
+  basket_export_empty:"The list is empty — there is nothing to export."
+}
+};
+
+/* ------------------------------------------------------------------ *
+ *  State & persistence
+ * ------------------------------------------------------------------ */
+const LS = {
+  lang:"cydrg.lang", cat:"cydrg.catalogue", meta:"cydrg.meta",
+  rates:"cydrg.baserates", basket:"cydrg.basket"
+};
+function lsGet(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+const state = {
+  lang: lsGet(LS.lang) || "el",
+  catalogue: lsGet(LS.cat) || EMBEDDED_CATALOGUE,
+  meta: lsGet(LS.meta) || EMBEDDED_META,
+  baseRates: lsGet(LS.rates) || EMBEDDED_BASE_RATES.map(r=>({...r})),
+  basket: lsGet(LS.basket) || [],
+  partFilter:"", mdcFilter:"",
+  selected:null,           // selected DRG code
+  hospital:null, los:null, transfer:false,
+  pendingUpload:null
+};
+if (!state.hospital && state.baseRates.length) state.hospital = state.baseRates[0].hospital;
+
+/* ------------------------------------------------------------------ *
+ *  Utilities
+ * ------------------------------------------------------------------ */
+const $ = id => document.getElementById(id);
+function t(key, vars){
+  let s = (I18N[state.lang] && I18N[state.lang][key]) || I18N.el[key] || key;
+  if (vars) for (const k in vars) s = s.split("{"+k+"}").join(String(vars[k]));
+  return s;
+}
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, c => (
+    {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function norm(s){
+  return String(s||"").toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"").replace(/ς/g,"σ");
+}
+function round2(v){ return Math.round(Number((v*100).toFixed(6)))/100; }
+function round3(v){ return Math.round(Number((v*1000).toFixed(6)))/1000; }
+function fmtNum(v, dec){
+  if (v==null || isNaN(v)) return "—";
+  const neg = v<0; v = Math.abs(v);
+  const s = v.toFixed(dec);
+  const [i,f] = s.split(".");
+  const ii = i.replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  return (neg?"−":"") + ii + (f?","+f:"");
+}
+function fmtEuro(v){ return fmtNum(v,2)+" €"; }
+function fmtCw(v){ return fmtNum(v,3); }
+function fmtDateIso(iso){
+  if (!iso) return "";
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[3]+"/"+m[2]+"/"+m[1] : String(iso);
+}
+function todayIso(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+}
+let toastTimer=null;
+function toast(msg){
+  const el = $("toast");
+  el.textContent = msg; el.style.display="block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.style.display="none"; }, 3500);
+}
+function metaLabel(){
+  return (state.lang==="en" && state.meta.label_en) ? state.meta.label_en : state.meta.label;
+}
+function rateFor(hospital){
+  const r = state.baseRates.find(x=>x.hospital===hospital);
+  return r ? r.rate : null;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Payment calculation
+ *  Κανόνες (κατά το πρότυπο G-DRG, ενδεικτικά):
+ *   - Βραχεία νοσηλεία (LOS <= lo_first): ημέρες = lo_first + 1 − LOS,
+ *     CW′ = CW − ημέρες × lo_cw_day
+ *   - Παρατεταμένη (LOS >= hi_first): ημέρες = LOS − hi_first + 1,
+ *     CW′ = CW + ημέρες × hi_cw_day
+ *   - Διακομιδή (όχι εξαιρούμενο DRG, LOS < στρογγυλοποιημένη ΜΔΝ,
+ *     και εκτός βραχείας): ημέρες = round(ΜΔΝ) − LOS,
+ *     CW′ = CW − ημέρες × transfer_cw_day
+ *   - Αλλιώς inlier: CW′ = CW. Ποσό = CW′ × βασική τιμή.
+ * ------------------------------------------------------------------ */
+function computePayment(drg, rate, los, transfer){
+  const out = { kind:"base", days:0, cwEff:drg.cw, amount:null, clamped:false };
+  if (rate==null) return out;
+  if (los==null || isNaN(los)){
+    out.kind="base"; out.amount = round2(drg.cw*rate); return out;
+  }
+  los = Math.floor(los);
+  if (drg.lo_first!=null && drg.lo_cw_day!=null && los <= drg.lo_first){
+    out.kind="short";
+    out.days = drg.lo_first + 1 - los;
+    out.cwEff = round3(drg.cw - out.days*drg.lo_cw_day);
+  } else if (drg.hi_first!=null && drg.hi_cw_day!=null && los >= drg.hi_first){
+    out.kind="long";
+    out.days = los - drg.hi_first + 1;
+    out.cwEff = round3(drg.cw + out.days*drg.hi_cw_day);
+  } else if (transfer && !drg.flag_transfer_exempt && drg.transfer_cw_day!=null
+             && drg.alos!=null && los < Math.round(drg.alos)){
+    out.kind="transfer";
+    out.days = Math.round(drg.alos) - los;
+    out.cwEff = round3(drg.cw - out.days*drg.transfer_cw_day);
+  } else {
+    out.kind="inlier";
+    out.cwEff = drg.cw;
+  }
+  if (out.cwEff < 0){ out.cwEff = 0; out.clamped = true; }
+  out.amount = round2(out.cwEff*rate);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Search
+ * ------------------------------------------------------------------ */
+function searchCatalogue(query){
+  const q = query.trim();
+  const tokens = norm(q).split(/\s+/).filter(Boolean);
+  const codeQ = q.replace(/\s+/g,"").toLowerCase();
+  const codeMode = /^[a-z0-9]{1,6}$/i.test(codeQ);
+  return state.catalogue.filter(r=>{
+    if (state.partFilter && r.partition!==state.partFilter) return false;
+    if (state.mdcFilter && r.mdc!==state.mdcFilter) return false;
+    if (!tokens.length) return true;
+    if (codeMode && r.code.toLowerCase().startsWith(codeQ)) return true;
+    const hay = norm(r.code+" "+r.desc_el+" "+(r.desc_en||"")+" "+(r.mdc||""));
+    return tokens.every(tk => hay.includes(tk));
+  });
+}
+
+const MAX_RESULTS = 150;
+function renderResults(){
+  const hits = searchCatalogue($("searchInput").value);
+  const box = $("results");
+  const meta = $("resultMeta");
+  if (!hits.length){
+    meta.textContent = t("no_results");
+    box.innerHTML = "";
+    return;
+  }
+  meta.textContent = hits.length>MAX_RESULTS
+    ? t("results_limited",{k:MAX_RESULTS,n:hits.length})
+    : t("results_count",{n:hits.length});
+  box.innerHTML = hits.slice(0,MAX_RESULTS).map(r=>`
+    <div class="hit${r.code===state.selected?" sel":""}" data-code="${esc(r.code)}">
+      <span class="code">${esc(r.code)}</span>
+      <span class="pbadge ${r.partition==="Χ"?"X":"P"}">${esc(r.partition)}</span>
+      <span class="desc" title="${esc(r.desc_el)}">${esc(r.desc_el)}</span>
+      <span class="nums">CW ${fmtCw(r.cw)}<br>${state.lang==="en"?"ALOS":"ΜΔΝ"} ${fmtNum(r.alos,1)}</span>
+    </div>`).join("");
+}
+
+/* ------------------------------------------------------------------ *
+ *  Detail card
+ * ------------------------------------------------------------------ */
+function selectDrg(code){
+  state.selected = code;
+  state.los = null; state.transfer = false;
+  renderResults();
+  renderCard();
+}
+function currentDrg(){
+  return state.catalogue.find(r=>r.code===state.selected) || null;
+}
+function losBandHtml(drg, los){
+  const lo = drg.lo_first, hi = drg.hi_first, alos = drg.alos;
+  const max = Math.max(hi!=null?hi*1.25:0, alos!=null?alos*1.6:0, los!=null?los*1.1:0, 10);
+  const pct = v => Math.min(100, Math.max(0, v/max*100));
+  let zones = "";
+  if (lo!=null) zones += `<div class="zone low" style="left:0;width:${pct(lo)}%"></div>`;
+  const midStart = lo!=null?pct(lo):0;
+  const midEnd = hi!=null?pct(hi):100;
+  zones += `<div class="zone mid" style="left:${midStart}%;width:${midEnd-midStart}%"></div>`;
+  if (hi!=null) zones += `<div class="zone high" style="left:${pct(hi)}%;width:${100-pct(hi)}%"></div>`;
+  let ticks = "";
+  if (lo!=null) ticks += `<div class="tick" style="left:${pct(lo)}%"></div>`;
+  if (hi!=null) ticks += `<div class="tick" style="left:${pct(hi)}%"></div>`;
+  if (alos!=null) ticks += `<div class="alos-tick" style="left:${pct(alos)}%"></div>`;
+  const you = (los!=null && !isNaN(los)) ? `<div class="you" style="left:${pct(los)}%"></div>` : "";
+  let labels = "";
+  if (lo!=null) labels += `<span style="left:${pct(lo)}%">${lo}<br>${esc(t("lo_first_label"))}</span>`;
+  if (alos!=null) labels += `<span style="left:${pct(alos)}%;color:#5c8a1e;font-weight:700">${fmtNum(alos,1)}<br>${state.lang==="en"?"ALOS":"ΜΔΝ"}</span>`;
+  if (hi!=null) labels += `<span style="left:${pct(hi)}%">${hi}<br>${esc(t("hi_first_label"))}</span>`;
+  return `<div class="losband-wrap">
+    <div class="fact-k" style="font-size:12px;margin-bottom:5px;color:var(--grey)">${esc(t("losband_title"))}</div>
+    <div class="losband">${zones}${ticks}${you}</div>
+    <div class="loslabels">${labels}</div>
+  </div>`;
+}
+function mathHtml(drg, rate, res){
+  const L = [];
+  const v = {
+    cw:fmtCw(drg.cw), rate:fmtEuro(rate), amt:fmtEuro(res.amount),
+    cweff:fmtCw(res.cwEff), d:res.days, los:state.los,
+    lo:drg.lo_first, hi:drg.hi_first,
+    alosr:drg.alos!=null?Math.round(drg.alos):"—"
+  };
+  if (res.kind==="base" || res.kind==="inlier"){
+    L.push(t("m_base",v));
+  } else if (res.kind==="short"){
+    v.dcw = fmtCw(drg.lo_cw_day);
+    L.push(t("m_days_short",v)); L.push(t("m_cw_short",v)); L.push(t("m_amt",v));
+  } else if (res.kind==="long"){
+    v.dcw = fmtCw(drg.hi_cw_day);
+    L.push(t("m_days_long",v)); L.push(t("m_cw_long",v)); L.push(t("m_amt",v));
+  } else if (res.kind==="transfer"){
+    v.dcw = fmtCw(drg.transfer_cw_day);
+    L.push(t("m_days_tr",v)); L.push(t("m_cw_short",{...v,cweff:fmtCw(res.cwEff)})); L.push(t("m_amt",v));
+  }
+  if (res.clamped) L.push(t("m_clamped"));
+  return L.map(x=>`<div>${esc(x)}</div>`).join("");
+}
+function renderCard(){
+  const drg = currentDrg();
+  $("cardEmpty").style.display = drg ? "none" : "block";
+  $("cardBody").style.display = drg ? "block" : "none";
+  if (!drg) return;
+  if (!state.hospital || rateFor(state.hospital)==null){
+    state.hospital = state.baseRates.length ? state.baseRates[0].hospital : null;
+  }
+  const rate = rateFor(state.hospital);
+  const res = computePayment(drg, rate, state.los, state.transfer);
+  const caseCls = {base:"base",inlier:"inlier",short:"short",long:"long",transfer:"transfer"}[res.kind];
+  const caseTxt = t("case_"+res.kind);
+  const flags = [];
+  if (drg.flag_transfer_exempt) flags.push(t("flag_tr"));
+  if (drg.flag_readmit_exempt) flags.push(t("flag_re"));
+  $("cardBody").innerHTML = `
+    <div class="card-head">
+      <div class="code">${esc(drg.code)}</div>
+      <span class="pbadge ${drg.partition==="Χ"?"X":"P"}" style="top:8px"
+            title="${esc(drg.partition==="Χ"?t("partition_x"):t("partition_p"))}">${esc(drg.partition)}</span>
+      <div class="desc">${esc(drg.desc_el)}
+        <div class="mdc">${esc(drg.mdc||"")}</div>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="k">${esc(t("cw_label"))}</div><div class="v">${fmtCw(drg.cw)}</div></div>
+      <div class="fact"><div class="k">${esc(t("alos_label"))}</div><div class="v">${fmtNum(drg.alos,1)} ${esc(t("days_unit"))}</div></div>
+      <div class="fact"><div class="k">${esc(t("lo_first_label"))} / ${esc(t("lo_cw_label"))}</div>
+        <div class="v">${drg.lo_first!=null?drg.lo_first:"—"} / ${drg.lo_cw_day!=null?fmtCw(drg.lo_cw_day):"—"}</div></div>
+      <div class="fact"><div class="k">${esc(t("hi_first_label"))} / ${esc(t("hi_cw_label"))}</div>
+        <div class="v">${drg.hi_first!=null?drg.hi_first:"—"} / ${drg.hi_cw_day!=null?fmtCw(drg.hi_cw_day):"—"}</div></div>
+      <div class="fact"><div class="k">${esc(t("tr_cw_label"))}</div>
+        <div class="v">${drg.transfer_cw_day!=null?fmtCw(drg.transfer_cw_day):"—"}</div></div>
+    </div>
+    ${flags.length?`<div class="flags">${flags.map(f=>`<span class="flagchip">${esc(f)}</span>`).join("")}</div>`:""}
+    ${losBandHtml(drg, state.los)}
+    <div class="calc">
+      <h3 style="font-size:15.5px">${esc(t("calc_title"))}</h3>
+      <div class="row">
+        <div class="field">
+          <label for="hospitalSel">${esc(t("hospital_label"))}</label>
+          <select id="hospitalSel">
+            ${state.baseRates.map(r=>`<option value="${esc(r.hospital)}"${r.hospital===state.hospital?" selected":""}>${esc(r.hospital)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>${esc(t("base_rate_label"))}</label>
+          <div style="padding:8px 2px;font-weight:700;color:var(--deep)">${rate!=null?fmtEuro(rate):"—"}</div>
+        </div>
+        <div class="field">
+          <label for="losInput">${esc(t("los_label"))}</label>
+          <input type="number" id="losInput" min="1" step="1" value="${state.los!=null?state.los:""}">
+        </div>
+        <label class="chk"><input type="checkbox" id="transferChk"${state.transfer?" checked":""}${drg.flag_transfer_exempt?" disabled":""}>
+          ${esc(t("transfer_label"))}</label>
+      </div>
+      ${drg.flag_transfer_exempt?`<div style="font-size:12.5px;color:var(--grey);margin:-4px 0 8px">${esc(t("tr_exempt_note"))}</div>`:""}
+      <span class="case-label ${caseCls}">${esc(caseTxt)}</span>
+      <div class="amount-big">${res.amount!=null?fmtEuro(res.amount):"—"}</div>
+      <div class="math">${mathHtml(drg, rate, res)}</div>
+      <div class="disclaimer">${esc(t("disclaimer"))}</div>
+      <button class="addbtn" id="btnAdd">${esc(t("add_to_basket"))}</button>
+      <span id="addedNote">${esc(t("added_note"))}</span>
+    </div>`;
+  $("hospitalSel").addEventListener("change", e=>{ state.hospital = e.target.value; renderCard(); });
+  $("losInput").addEventListener("input", e=>{
+    const v = e.target.value.trim();
+    state.los = v==="" ? null : Math.max(1, Math.floor(Number(v)));
+    renderCardCalcOnly();
+  });
+  $("transferChk").addEventListener("change", e=>{ state.transfer = e.target.checked; renderCard(); });
+  $("btnAdd").addEventListener("click", addToBasket);
+}
+/* re-render without rebuilding the LOS input (keeps focus while typing) */
+function renderCardCalcOnly(){
+  const drg = currentDrg(); if (!drg) return;
+  const rate = rateFor(state.hospital);
+  const res = computePayment(drg, rate, state.los, state.transfer);
+  const card = $("cardBody");
+  const caseEl = card.querySelector(".case-label");
+  const amtEl = card.querySelector(".amount-big");
+  const mathEl = card.querySelector(".math");
+  const caseCls = {base:"base",inlier:"inlier",short:"short",long:"long",transfer:"transfer"}[res.kind];
+  caseEl.className = "case-label "+caseCls;
+  caseEl.textContent = t("case_"+res.kind);
+  amtEl.textContent = res.amount!=null?fmtEuro(res.amount):"—";
+  mathEl.innerHTML = mathHtml(drg, rate, res);
+  const band = card.querySelector(".losband-wrap");
+  if (band){ band.outerHTML = losBandHtml(drg, state.los); }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Basket
+ * ------------------------------------------------------------------ */
+function addToBasket(){
+  const drg = currentDrg(); if (!drg) return;
+  const rate = rateFor(state.hospital);
+  const res = computePayment(drg, rate, state.los, state.transfer);
+  state.basket.push({
+    code:drg.code, partition:drg.partition, mdc:drg.mdc, desc_el:drg.desc_el,
+    cw:drg.cw, alos:drg.alos,
+    lo_first:drg.lo_first, lo_cw_day:drg.lo_cw_day,
+    hi_first:drg.hi_first, hi_cw_day:drg.hi_cw_day,
+    transfer_cw_day:drg.transfer_cw_day,
+    hospital:state.hospital, rate:rate,
+    los:state.los, transfer:state.transfer,
+    kind:res.kind, cwEff:res.cwEff, amount:res.amount,
+    catalogue:metaLabel(), added:todayIso()
+  });
+  lsSet(LS.basket, state.basket);
+  updateBadge();
+  const n = $("addedNote");
+  n.style.display="inline"; setTimeout(()=>{ n.style.display="none"; }, 1800);
+}
+function updateBadge(){ $("basketBadge").textContent = String(state.basket.length); }
+function renderBasket(){
+  const body = $("basketBody");
+  if (!state.basket.length){
+    body.innerHTML = `<p style="color:#9aa2a8">${esc(t("basket_empty"))}</p>`;
+    return;
+  }
+  body.innerHTML = `<div class="tbl-scroll"><table class="grid">
+    <tr>
+      <th>${esc(t("col_code"))}</th><th>${esc(t("col_desc"))}</th>
+      <th>CW</th><th>${esc(t("col_hospital"))}</th><th>${esc(t("col_rate"))}</th>
+      <th>${esc(t("col_los"))}</th><th>${esc(t("col_transfer"))}</th>
+      <th>${esc(t("col_case"))}</th><th>${esc(t("col_amount"))}</th><th></th>
+    </tr>
+    ${state.basket.map((b,i)=>`
+    <tr>
+      <td><b style="color:var(--deep)">${esc(b.code)}</b> <span class="pbadge ${b.partition==="Χ"?"X":"P"}" style="top:0">${esc(b.partition)}</span></td>
+      <td style="max-width:280px">${esc(b.desc_el)}</td>
+      <td class="num">${fmtCw(b.cw)}</td>
+      <td>${esc(b.hospital||"—")}</td>
+      <td class="num">${b.rate!=null?fmtNum(b.rate,2):"—"}</td>
+      <td class="num">${b.los!=null?b.los:"—"}</td>
+      <td>${b.transfer?esc(t("yes")):esc(t("no"))}</td>
+      <td>${esc(t("case_"+b.kind))}</td>
+      <td class="num" style="color:#5c8a1e;font-weight:700">${b.amount!=null?fmtNum(b.amount,2):"—"}</td>
+      <td><button class="rowbtn" data-del="${i}" title="${esc(t("remove"))}">✕</button></td>
+    </tr>`).join("")}
+  </table></div>`;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Excel export (basket)
+ * ------------------------------------------------------------------ */
+const EXPORT_COLS = [
+  {k:"code", el:"Κωδικός DRG", en:"DRG code"},
+  {k:"partition", el:"Τμήμα (Χ/Π)", en:"Partition (S/M)"},
+  {k:"mdc", el:"MDC", en:"MDC"},
+  {k:"desc_el", el:"Περιγραφή", en:"Description (Greek)"},
+  {k:"cw", el:"Συντελεστής βαρύτητας (CW)", en:"Cost weight (CW)"},
+  {k:"alos", el:"Μέση διάρκεια νοσηλείας", en:"Mean LOS"},
+  {k:"lo_first", el:"1η ημέρα με μείωση", en:"First day with reduction"},
+  {k:"lo_cw_day", el:"Μείωση CW/ημέρα", en:"CW reduction/day"},
+  {k:"hi_first", el:"1η ημέρα με προσαύξηση", en:"First day with surcharge"},
+  {k:"hi_cw_day", el:"Προσαύξηση CW/ημέρα", en:"CW surcharge/day"},
+  {k:"transfer_cw_day", el:"Μείωση CW/ημέρα (διακομιδή)", en:"CW reduction/day (transfer)"},
+  {k:"hospital", el:"Νοσοκομείο", en:"Hospital"},
+  {k:"rate", el:"Βασική τιμή (€)", en:"Base rate (€)"},
+  {k:"los", el:"Διάρκεια νοσηλείας (ημέρες)", en:"LOS (days)"},
+  {k:"transfer", el:"Διακομιδή", en:"Transfer"},
+  {k:"kind", el:"Περίπτωση", en:"Case"},
+  {k:"amount", el:"Υπολογισμένο ποσό (€)", en:"Computed amount (€)"},
+  {k:"catalogue", el:"Έκδοση καταλόγου", en:"Catalogue version"},
+  {k:"added", el:"Ημερομηνία προσθήκης", en:"Date added"}
+];
+function exportBasket(){
+  if (!state.basket.length){ toast(t("basket_export_empty")); return; }
+  const caseNames = {el:{base:"Βασικό",inlier:"Εντός ορίων",short:"Βραχεία",long:"Παρατεταμένη",transfer:"Διακομιδή"},
+                     en:{base:"Base",inlier:"Inlier",short:"Short stay",long:"Long stay",transfer:"Transfer"}};
+  const rows = state.basket.map(b => EXPORT_COLS.map(c=>{
+    let v = b[c.k];
+    if (c.k==="transfer") return v ? "Ναι / Yes" : "Όχι / No";
+    if (c.k==="kind") return caseNames.el[v]+" / "+caseNames.en[v];
+    if (c.k==="added") return fmtDateIso(v);
+    return v==null ? "" : v;
+  }));
+  const aoa = [EXPORT_COLS.map(c=>c.el), EXPORT_COLS.map(c=>c.en), ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = EXPORT_COLS.map(c=>({wch: c.k==="desc_el"?52 : c.k==="mdc"?34 : c.k==="catalogue"?30 : 16}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "CY-DRG");
+  XLSX.writeFile(wb, "CY-DRG_Λίστα_"+todayIso()+".xlsx");
+}
+
+/* ------------------------------------------------------------------ *
+ *  Catalogue template / export / upload
+ * ------------------------------------------------------------------ */
+const CAT_COLS = ["code","partition","mdc","desc_el","desc_en","cw","alos",
+  "lo_first","lo_cw_day","hi_first","hi_cw_day","transfer_cw_day",
+  "flag_transfer_exempt","flag_readmit_exempt"];
+const CAT_REQUIRED = ["code","partition","desc_el","cw","alos"];
+const TEMPLATE_DOC = [
+  ["code","Κωδικός DRG (μοναδικός)","DRG code (unique)","S63A"],
+  ["partition","Τμήμα: Χ (χειρουργικός) ή Π (παθολογικός)","Partition: Χ (surgical) or Π (medical)","Π"],
+  ["mdc","Πλήρης τίτλος MDC","Full MDC title","MDC 18A — Λοιμώξεις HIV"],
+  ["desc_el","Επίσημη ελληνική περιγραφή","Official Greek description","Λοίμωξη σε νόσο HIV με σύνθετη διάγνωση"],
+  ["desc_en","Αγγλική περιγραφή (προαιρετική)","English description (optional)",""],
+  ["cw","Συντελεστής βαρύτητας κόστους","Cost weight","4,159"],
+  ["alos","Μέση διάρκεια νοσηλείας","Mean length of stay","26,8"],
+  ["lo_first","1η ημέρα με μείωση (κάτω όριο)","First day with reduction (lower bound)","8"],
+  ["lo_cw_day","Μείωση CW ανά ημέρα κάτω από το όριο","CW reduction per day below the bound","0,430"],
+  ["hi_first","1η ημέρα με προσαύξηση (άνω όριο)","First day with surcharge (upper bound)","45"],
+  ["hi_cw_day","Προσαύξηση CW ανά ημέρα πάνω από το όριο","CW surcharge per day above the bound","0,151"],
+  ["transfer_cw_day","Μείωση CW ανά ημέρα λόγω διακομιδής","CW reduction per day for transfers","0,139"],
+  ["flag_transfer_exempt","Εξαίρεση από μείωση διακομιδής: 1/0","Exempt from transfer reduction: 1/0","0"],
+  ["flag_readmit_exempt","Εξαίρεση επανεισαγωγής: 1/0","Readmission exemption: 1/0","0"]
+];
+function downloadTemplate(){
+  const example = {code:"S63A",partition:"Π",mdc:"MDC 18A — Λοιμώξεις HIV",
+    desc_el:"Λοίμωξη σε νόσο HIV με σύνθετη διάγνωση",desc_en:"",
+    cw:4.159,alos:26.8,lo_first:8,lo_cw_day:0.430,hi_first:45,hi_cw_day:0.151,
+    transfer_cw_day:0.139,flag_transfer_exempt:0,flag_readmit_exempt:0};
+  const ws = XLSX.utils.aoa_to_sheet([CAT_COLS, CAT_COLS.map(c=>example[c])]);
+  ws["!cols"] = CAT_COLS.map(c=>({wch: c==="desc_el"||c==="desc_en"?46 : c==="mdc"?34 : 16}));
+  const doc = XLSX.utils.aoa_to_sheet([
+    ["Στήλη / Column","Περιγραφή","Description","Παράδειγμα / Example"],
+    ...TEMPLATE_DOC
+  ]);
+  doc["!cols"] = [{wch:20},{wch:48},{wch:44},{wch:30}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "CY-DRG");
+  XLSX.utils.book_append_sheet(wb, doc, "Οδηγίες");
+  XLSX.writeFile(wb, "CY-DRG_Πρότυπο_καταλόγου.xlsx");
+}
+function exportCatalogue(){
+  const rows = state.catalogue.map(r => CAT_COLS.map(c=>{
+    let v = r[c];
+    if (c==="flag_transfer_exempt"||c==="flag_readmit_exempt") return v?1:0;
+    return v==null?"":v;
+  }));
+  const ws = XLSX.utils.aoa_to_sheet([CAT_COLS, ...rows]);
+  ws["!cols"] = CAT_COLS.map(c=>({wch: c==="desc_el"||c==="desc_en"?46 : c==="mdc"?34 : 14}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "CY-DRG");
+  XLSX.writeFile(wb, "CY-DRG_Κατάλογος_"+todayIso()+".xlsx");
+}
+
+/* number parsing: accepts 4.159 / 4,159 / 1.234,56 */
+function parseNum(v){
+  if (v==null || v==="") return null;
+  if (typeof v==="number") return isNaN(v)?NaN:v;
+  let s = String(v).trim().replace(/\s|€/g,"");
+  if (!s) return null;
+  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g,"").replace(",",".");
+  else if (s.includes(",")) s = s.replace(",",".");
+  const n = Number(s);
+  return isNaN(n) ? NaN : n;
+}
+function parseBool(v){
+  if (v==null || v==="") return false;
+  const s = norm(String(v).trim());
+  return ["1","true","yes","x","ναι"].includes(s) || v===1 || v===true;
+}
+function parsePartition(v){
+  const s = String(v==null?"":v).trim();
+  if (s==="Χ"||s==="X"||s==="x"||s==="χ") return "Χ";
+  if (s==="Π"||s==="P"||s==="p"||s==="π") return "Π";
+  return null;
+}
+/* very small CSV parser with quote support; auto-detects , or ; */
+function parseCsv(text){
+  text = text.replace(/^\uFEFF/,"");
+  const firstLine = text.split(/\r?\n/,1)[0] || "";
+  const delim = (firstLine.split(";").length > firstLine.split(",").length) ? ";" : ",";
+  const rows = []; let row = [], cell = "", inQ = false;
+  for (let i=0;i<text.length;i++){
+    const ch = text[i];
+    if (inQ){
+      if (ch==='"'){ if (text[i+1]==='"'){ cell+='"'; i++; } else inQ=false; }
+      else cell += ch;
+    } else if (ch==='"') inQ = true;
+    else if (ch===delim){ row.push(cell); cell=""; }
+    else if (ch==="\n"){ row.push(cell); rows.push(row); row=[]; cell=""; }
+    else if (ch!=="\r") cell += ch;
+  }
+  if (cell!=="" || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim()!==""));
+}
+/* Validate an uploaded table (array of arrays, first row = header).
+   Returns {ok, rows} or {ok:false, error}. Row numbers are 1-based incl. header. */
+function validateCatalogue(aoa){
+  if (!aoa.length) return {ok:false, error:t("err_no_rows")};
+  const header = aoa[0].map(h=>String(h).trim());
+  for (const col of CAT_REQUIRED){
+    if (!header.includes(col)) return {ok:false, error:t("err_missing_col",{col})};
+  }
+  const idx = {}; header.forEach((h,i)=>{ idx[h]=i; });
+  const dataRows = aoa.slice(1);
+  if (!dataRows.length) return {ok:false, error:t("err_no_rows")};
+  const numericCols = ["cw","alos","lo_first","lo_cw_day","hi_first","hi_cw_day","transfer_cw_day"];
+  const requiredNumeric = ["cw","alos"];
+  const seen = {}; const out = [];
+  for (let i=0;i<dataRows.length;i++){
+    const rowNo = i+2;
+    const raw = dataRows[i];
+    const get = c => idx[c]!=null ? raw[idx[c]] : null;
+    const code = String(get("code")==null?"":get("code")).trim();
+    if (!code) return {ok:false, error:t("err_empty_code",{row:rowNo})};
+    if (seen[code]) return {ok:false, error:t("err_dup_code",{code, a:seen[code], b:rowNo})};
+    seen[code] = rowNo;
+    const partition = parsePartition(get("partition"));
+    if (!partition) return {ok:false, error:t("err_bad_partition",{row:rowNo, val:String(get("partition")==null?"":get("partition"))})};
+    const rec = {code, partition,
+      mdc:String(get("mdc")==null?"":get("mdc")).trim(),
+      desc_el:String(get("desc_el")==null?"":get("desc_el")).trim(),
+      desc_en:String(get("desc_en")==null?"":get("desc_en")).trim() || undefined,
+      flag_transfer_exempt:parseBool(get("flag_transfer_exempt")),
+      flag_readmit_exempt:parseBool(get("flag_readmit_exempt"))};
+    for (const c of numericCols){
+      const rawV = get(c);
+      const n = parseNum(rawV);
+      if (typeof n==="number" && isNaN(n))
+        return {ok:false, error:t("err_not_number",{row:rowNo, col:c, val:String(rawV)})};
+      if (n==null && requiredNumeric.includes(c))
+        return {ok:false, error:t("err_not_number",{row:rowNo, col:c, val:""})};
+      rec[c] = n;
+    }
+    out.push(rec);
+  }
+  return {ok:true, rows:out};
+}
+function handleFile(file){
+  const msg = $("uplMsg");
+  msg.className = "upl-msg"; msg.textContent = "";
+  $("uplConfirm").classList.remove("on");
+  state.pendingUpload = null;
+  const fail = e => { msg.className="upl-msg err"; msg.textContent = e; };
+  const done = aoa => {
+    const res = validateCatalogue(aoa);
+    if (!res.ok){ fail(res.error); return; }
+    state.pendingUpload = res.rows;
+    $("uplSummary").textContent = t("confirm_replace",{n:res.rows.length, m:state.catalogue.length});
+    $("verLabel").value = ""; $("verDate").value = "";
+    $("uplConfirm").classList.add("on");
+  };
+  const reader = new FileReader();
+  reader.onerror = () => fail(t("err_read",{msg:"FileReader"}));
+  if (/\.csv$/i.test(file.name)){
+    reader.onload = () => { try{ done(parseCsv(String(reader.result))); }catch(e){ fail(t("err_read",{msg:e.message})); } };
+    reader.readAsText(file, "utf-8");
+  } else {
+    reader.onload = () => {
+      try{
+        const wb = XLSX.read(new Uint8Array(reader.result), {type:"array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        done(XLSX.utils.sheet_to_json(ws, {header:1, defval:"", raw:true}));
+      }catch(e){ fail(t("err_read",{msg:e.message})); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+function applyUpload(){
+  if (!state.pendingUpload) return;
+  const label = $("verLabel").value.trim();
+  if (!label){ toast(t("version_required")); return; }
+  state.catalogue = state.pendingUpload;
+  state.meta = {label, label_en:label, effective:$("verDate").value||"", uploaded:todayIso(), sample:false};
+  lsSet(LS.cat, state.catalogue); lsSet(LS.meta, state.meta);
+  state.pendingUpload = null;
+  $("uplConfirm").classList.remove("on");
+  $("fileInput").value = "";
+  const msg = $("uplMsg");
+  msg.className = "upl-msg ok";
+  msg.textContent = t("upload_ok",{label, n:state.catalogue.length});
+  state.selected = null;
+  refreshAll();
+}
+function restoreEmbedded(){
+  if (!confirm(t("confirm_restore"))) return;
+  state.catalogue = EMBEDDED_CATALOGUE;
+  state.meta = EMBEDDED_META;
+  lsDel(LS.cat); lsDel(LS.meta);
+  state.selected = null;
+  $("fileInput").value = ""; $("uplConfirm").classList.remove("on");
+  const msg = $("uplMsg"); msg.className="upl-msg ok"; msg.textContent = t("restored");
+  refreshAll();
+  toast(t("restored"));
+}
+
+/* ------------------------------------------------------------------ *
+ *  Base rates editing
+ * ------------------------------------------------------------------ */
+function renderRates(){
+  const tbl = $("ratesTable");
+  tbl.innerHTML = `
+    <tr><th style="min-width:240px">${esc(t("hospital_col"))}</th><th>${esc(t("rate_col"))}</th><th></th></tr>
+    ${state.baseRates.map((r,i)=>`
+    <tr>
+      <td><input type="text" data-h="${i}" value="${esc(r.hospital)}"></td>
+      <td class="num"><input type="number" step="0.01" min="0" data-r="${i}" value="${r.rate!=null?r.rate:""}"></td>
+      <td><button class="rowbtn" data-delrate="${i}">✕</button></td>
+    </tr>`).join("")}`;
+}
+function saveRates(){
+  const tbl = $("ratesTable");
+  const names = [...tbl.querySelectorAll("input[data-h]")];
+  const rates = [...tbl.querySelectorAll("input[data-r]")];
+  const out = [];
+  for (let i=0;i<names.length;i++){
+    const h = names[i].value.trim();
+    if (!h){ toast(t("err_rate_name")); return; }
+    const n = parseNum(rates[i].value);
+    if (n==null || isNaN(n) || n<0){ toast(t("err_rate",{h})); return; }
+    out.push({hospital:h, rate:n});
+  }
+  state.baseRates = out;
+  lsSet(LS.rates, state.baseRates);
+  if (!state.baseRates.find(r=>r.hospital===state.hospital)){
+    state.hospital = state.baseRates.length ? state.baseRates[0].hospital : null;
+  }
+  toast(t("rates_saved"));
+  renderCard();
+}
+
+/* ------------------------------------------------------------------ *
+ *  Maintenance panel
+ * ------------------------------------------------------------------ */
+function renderMaint(){
+  const m = state.meta;
+  $("catInfo").innerHTML = `
+    <div class="kv"><b>${esc(t("kv_label"))}:</b> ${esc(metaLabel())}</div>
+    <div class="kv"><b>${esc(t("kv_rows"))}:</b> ${state.catalogue.length}</div>
+    ${m.effective?`<div class="kv"><b>${esc(t("kv_eff"))}:</b> ${esc(fmtDateIso(m.effective))}</div>`:""}
+    ${m.uploaded?`<div class="kv"><b>${esc(t("kv_upl"))}:</b> ${esc(fmtDateIso(m.uploaded))}</div>`:""}`;
+  renderRates();
+}
+
+/* ------------------------------------------------------------------ *
+ *  Manual
+ * ------------------------------------------------------------------ */
+function manualHtml(){
+  const el = state.lang!=="en";
+  /* Worked examples use the sample DRG S63A (CW 4,159 · ΜΔΝ 26,8 ·
+     κάτω όριο 8/0,430 · άνω όριο 45/0,151 · διακομιδή 0,139)
+     with a base rate of 2.565,00 €. */
+  if (el) return `
+  <h3>1. Τι είναι το εργαλείο — και τι δεν είναι</h3>
+  <p>Το «Αναζήτηση CY-DRG» είναι εσωτερικό βοήθημα του ΟΚΥπΥ για τους κωδικοποιητές.
+  Βρίσκει κωδικούς DRG στον κυπριακό κατάλογο (CY-DRG), δείχνει όλα τα στοιχεία τους σε μία κάρτα
+  και υπολογίζει ενδεικτικά το ποσό αποζημίωσης. Δουλεύει χωρίς σύνδεση στο διαδίκτυο και χωρίς εγκατάσταση.</p>
+  <div class="warn">Το εργαλείο <b>δεν είναι</b> ο επίσημος grouper του ΟΑΥ και <b>δεν ομαδοποιεί</b>
+  περιστατικά από ICD-10 ή ιατρικές πράξεις. Όλα τα ποσά είναι ενδεικτικά· δεσμευτικό είναι μόνο το
+  αποτέλεσμα του grouper και οι αποφάσεις του ΟΑΥ.</div>
+
+  <h3>2. Αναζήτηση</h3>
+  <p>Γράψτε στο πεδίο αναζήτησης:</p>
+  <ul>
+    <li><b>Κωδικό ή αρχή κωδικού</b> — π.χ. <code>s63</code> βρίσκει τα S63A και S63B. Δεν χρειάζονται κεφαλαία.</li>
+    <li><b>Λέξεις-κλειδιά</b> από την περιγραφή — π.χ. «ισχαιμική καρδιοπάθεια». Η σειρά των λέξεων δεν
+    έχει σημασία και οι τόνοι αγνοούνται (νοσος = νόσος = ΝΟΣΟΣ).</li>
+  </ul>
+  <p>Με τα κουμπιά Χ/Π περιορίζετε τα αποτελέσματα σε χειρουργικούς ή παθολογικούς DRG,
+  και από το πτυσσόμενο μενού επιλέγετε συγκεκριμένο MDC. Πατήστε πάνω σε ένα αποτέλεσμα
+  για να ανοίξει η κάρτα του.</p>
+
+  <h3>3. Η κάρτα DRG</h3>
+  <p>Η κάρτα δείχνει όλα τα στοιχεία του καταλόγου: συντελεστή βαρύτητας κόστους
+  (cost weight, CW), μέση διάρκεια νοσηλείας (ΜΔΝ), τα όρια διάρκειας με τις ημερήσιες
+  μειώσεις/προσαυξήσεις και τις τυχόν εξαιρέσεις. Η χρωματιστή μπάρα δείχνει τα όρια:
+  πορτοκαλί = κάτω από το κατώτερο όριο, πράσινο = εντός ορίων, γαλάζιο = πάνω από το ανώτερο όριο.</p>
+
+  <h3>4. Υπολογισμός ποσού</h3>
+  <p>Επιλέξτε νοσοκομείο (η βασική τιμή συμπληρώνεται αυτόματα) και προαιρετικά
+  γράψτε την πραγματική διάρκεια νοσηλείας. Το εργαλείο δείχνει την περίπτωση,
+  το ποσό και όλη την αριθμητική. Παραδείγματα με το δείγμα S63A
+  (CW 4,159 · ΜΔΝ 26,8 · κάτω όριο 8 με 0,430/ημέρα · άνω όριο 45 με 0,151/ημέρα ·
+  διακομιδή 0,139/ημέρα) και βασική τιμή 2.565,00 €:</p>
+  <div class="ex"><b>Εντός ορίων (inlier)</b> — διάρκεια 20 ημέρες (9–44):<br>
+  Ποσό = 4,159 × 2.565,00 € = <b>10.667,84 €</b></div>
+  <div class="ex"><b>Βραχεία νοσηλεία</b> — διάρκεια 5 ημέρες (≤ 8):<br>
+  Ημέρες μείωσης = (8 + 1) − 5 = 4<br>
+  Συντελεστής = 4,159 − 4 × 0,430 = 2,439<br>
+  Ποσό = 2,439 × 2.565,00 € = <b>6.256,04 €</b></div>
+  <div class="ex"><b>Παρατεταμένη νοσηλεία</b> — διάρκεια 50 ημέρες (≥ 45):<br>
+  Ημέρες προσαύξησης = 50 − 45 + 1 = 6<br>
+  Συντελεστής = 4,159 + 6 × 0,151 = 5,065<br>
+  Ποσό = 5,065 × 2.565,00 € = <b>12.991,73 €</b></div>
+  <div class="ex"><b>Διακομιδή</b> — διάρκεια 12 ημέρες, με σημειωμένη εξωτερική διακομιδή
+  (η διάρκεια είναι πάνω από το κάτω όριο αλλά κάτω από τη στρογγυλοποιημένη ΜΔΝ = 27):<br>
+  Ημέρες μείωσης = 27 − 12 = 15<br>
+  Συντελεστής = 4,159 − 15 × 0,139 = 2,074<br>
+  Ποσό = 2,074 × 2.565,00 € = <b>5.319,81 €</b></div>
+  <p>Αν η διάρκεια είναι κάτω από το κατώτερο όριο, εφαρμόζεται η μείωση βραχείας νοσηλείας
+  και όχι της διακομιδής. DRG με ένδειξη «εξαίρεση από μείωση λόγω διακομιδής» δεν παίρνουν
+  ποτέ τη μείωση διακομιδής.</p>
+  <div class="warn">Ενδεικτικός υπολογισμός — δεν υποκαθιστά τον grouper του ΟΑΥ.</div>
+
+  <h3>5. Η λίστα και η εξαγωγή σε Excel</h3>
+  <p>Με το «Προσθήκη στη λίστα» η κάρτα αποθηκεύεται στη λίστα μαζί με τις παραμέτρους
+  του υπολογισμού (νοσοκομείο, βασική τιμή, διάρκεια, ποσό). Η λίστα μένει αποθηκευμένη
+  και μετά το κλείσιμο του προγράμματος περιήγησης. Από το κουμπί «Λίστα» βλέπετε τα
+  περιεχόμενα, αφαιρείτε γραμμές και κατεβάζετε το αρχείο Excel («Λήψη Excel»).
+  Η εξαγωγή δεν αδειάζει τη λίστα.</p>
+
+  <h3>6. Ενημέρωση καταλόγου και βασικών τιμών</h3>
+  <p>Ο κατάλογος αλλάζει όταν ο ΟΑΥ εκδίδει νέα έκδοση ή αναπροσαρμογή. Την ενημέρωση την
+  κάνει ο διαχειριστής του εργαλείου <i>[όνομα/ρόλος — συμπληρώνεται από τον διαχειριστή]</i>
+  από την ενότητα «Συντήρηση»:</p>
+  <ol>
+    <li>Κατεβάστε το πρότυπο («Λήψη προτύπου») — περιέχει τις στήλες και μία γραμμή-παράδειγμα.</li>
+    <li>Συμπληρώστε τον νέο κατάλογο στο Excel και αποθηκεύστε ως .xlsx ή .csv.</li>
+    <li>Ανεβάστε το αρχείο. Το εργαλείο το ελέγχει (στήλες, μοναδικοί κωδικοί, αριθμοί)
+    και δείχνει πόσες γραμμές θα αντικατασταθούν.</li>
+    <li>Γράψτε την ετικέτα έκδοσης και την ημερομηνία ισχύος και πατήστε «Αντικατάσταση καταλόγου».</li>
+  </ol>
+  <p>Η τρέχουσα έκδοση φαίνεται πάντα στο κάτω μέρος της σελίδας. Η «Επαναφορά στον
+  ενσωματωμένο κατάλογο» ξαναφέρνει τα αρχικά δεδομένα του αρχείου. Στην ίδια ενότητα
+  διορθώνονται και οι βασικές τιμές ανά νοσοκομείο.</p>
+  <p><b>Σημείωση:</b> ο κατάλογος που ανεβάζετε αποθηκεύεται τοπικά στον υπολογιστή σας.
+  Για να τον δουν όλοι οι χρήστες, ο διαχειριστής ενσωματώνει τα νέα δεδομένα στο αρχείο HTML
+  και το ξαναμοιράζει, ή κάθε χρήστης ανεβάζει το ίδιο αρχείο καταλόγου.</p>`;
+
+  return `
+  <h3>1. What the tool is — and what it is not</h3>
+  <p>“CY-DRG Lookup” is an internal OKYpY aid for clinical coders. It finds DRG codes in the
+  Cyprus catalogue (CY-DRG), shows everything about a DRG on one card and computes an
+  indicative reimbursement amount. It works offline, with no installation.</p>
+  <div class="warn">The tool is <b>not</b> the official HIO grouper and does <b>not</b> group
+  cases from ICD-10 or procedures. All amounts are indicative; only the grouper output and
+  HIO decisions are binding.</div>
+
+  <h3>2. Searching</h3>
+  <ul>
+    <li><b>Code or code prefix</b> — e.g. <code>s63</code> finds S63A and S63B. Case does not matter.</li>
+    <li><b>Keywords</b> from the description — e.g. “ισχαιμική καρδιοπάθεια”. Word order does not
+    matter and Greek accents are ignored (νοσος = νόσος = ΝΟΣΟΣ).</li>
+  </ul>
+  <p>The Χ/Π buttons filter surgical/medical DRGs; the dropdown filters by MDC.
+  Click a result to open its card.</p>
+
+  <h3>3. The DRG card</h3>
+  <p>The card shows all catalogue fields: cost weight (CW), mean length of stay (ALOS),
+  the LOS bounds with the per-day reductions/surcharges, and any exemptions. The coloured
+  band visualises the bounds: orange = below the lower bound, green = inlier, light blue =
+  above the upper bound.</p>
+
+  <h3>4. Payment calculation</h3>
+  <p>Pick a hospital (the base rate fills in automatically) and optionally enter the actual
+  length of stay. The tool shows the case, the amount and the full arithmetic.
+  Examples with the sample DRG S63A (CW 4.159 · ALOS 26.8 · lower bound 8 at 0.430/day ·
+  upper bound 45 at 0.151/day · transfer 0.139/day) and a base rate of €2,565.00:</p>
+  <div class="ex"><b>Inlier</b> — 20 days (9–44):<br>
+  Amount = 4.159 × €2,565.00 = <b>€10,667.84</b></div>
+  <div class="ex"><b>Short stay</b> — 5 days (≤ 8):<br>
+  Reduction days = (8 + 1) − 5 = 4<br>
+  Cost weight = 4.159 − 4 × 0.430 = 2.439<br>
+  Amount = 2.439 × €2,565.00 = <b>€6,256.04</b></div>
+  <div class="ex"><b>Long stay</b> — 50 days (≥ 45):<br>
+  Surcharge days = 50 − 45 + 1 = 6<br>
+  Cost weight = 4.159 + 6 × 0.151 = 5.065<br>
+  Amount = 5.065 × €2,565.00 = <b>€12,991.73</b></div>
+  <div class="ex"><b>Transfer</b> — 12 days with “external transfer” ticked
+  (LOS above the lower bound but below the rounded ALOS = 27):<br>
+  Reduction days = 27 − 12 = 15<br>
+  Cost weight = 4.159 − 15 × 0.139 = 2.074<br>
+  Amount = 2.074 × €2,565.00 = <b>€5,319.81</b></div>
+  <p>If the stay is below the lower bound, the short-stay reduction applies instead of the
+  transfer reduction. DRGs flagged as exempt never receive the transfer reduction.</p>
+  <div class="warn">Indicative calculation — it does not replace the HIO grouper.</div>
+
+  <h3>5. The list and the Excel export</h3>
+  <p>“Add to list” stores the card in the list together with the calculation parameters
+  (hospital, base rate, LOS, amount). The list survives closing the browser. The “List”
+  button shows its contents, lets you remove rows and download the Excel file
+  (“Download Excel”). Exporting does not clear the list.</p>
+
+  <h3>6. Updating the catalogue and base rates</h3>
+  <p>The catalogue changes when the HIO issues a new version or adjustment. The update is
+  performed by the tool administrator <i>[name/role — to be filled in by the administrator]</i>
+  in the “Maintenance” section:</p>
+  <ol>
+    <li>Download the template — it contains the columns and one example row.</li>
+    <li>Fill in the new catalogue in Excel and save as .xlsx or .csv.</li>
+    <li>Upload the file. The tool validates it (columns, unique codes, numbers) and shows
+    how many rows will be replaced.</li>
+    <li>Enter the version label and the effective date, then press “Replace catalogue”.</li>
+  </ol>
+  <p>The current version is always visible at the bottom of the page. “Restore the embedded
+  catalogue” brings back the data shipped inside the file. Base rates per hospital are edited
+  in the same section.</p>
+  <p><b>Note:</b> an uploaded catalogue is stored locally on your computer. For all users to
+  see it, the administrator embeds the new data in the HTML file and redistributes it, or
+  every user uploads the same catalogue file.</p>`;
+}
+function renderManual(){ $("manualBody").innerHTML = manualHtml(); }
+
+/* ------------------------------------------------------------------ *
+ *  Footer / banner / i18n application
+ * ------------------------------------------------------------------ */
+function renderFooter(){
+  let s = t("footer_meta",{label:metaLabel(), n:state.catalogue.length});
+  if (state.meta.effective) s += t("footer_meta_eff",{d:fmtDateIso(state.meta.effective)});
+  if (state.meta.uploaded) s += t("footer_meta_upl",{d:fmtDateIso(state.meta.uploaded)});
+  $("footerMeta").innerHTML = "<b>"+esc(s)+"</b>";
+  const b = $("sampleBanner");
+  if (state.meta.sample){ b.textContent = "⚠ "+t("sample_banner"); b.classList.add("on"); }
+  else b.classList.remove("on");
+}
+function rebuildMdcFilter(){
+  const mdcs = [...new Set(state.catalogue.map(r=>r.mdc).filter(Boolean))];
+  const sel = $("mdcFilter");
+  const cur = state.mdcFilter;
+  sel.innerHTML = `<option value="">${esc(t("mdc_all"))}</option>`+
+    mdcs.map(m=>`<option value="${esc(m)}"${m===cur?" selected":""}>${esc(m)}</option>`).join("");
+  if (cur && !mdcs.includes(cur)) state.mdcFilter = "";
+}
+function applyI18n(){
+  document.documentElement.lang = state.lang;
+  document.title = state.lang==="en" ? "CY-DRG Lookup — OKYpY" : "Αναζήτηση CY-DRG — ΟΚΥπΥ";
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.getAttribute("data-i18n")); });
+  $("searchInput").placeholder = t("search_ph");
+  $("langEl").classList.toggle("on", state.lang==="el");
+  $("langEn").classList.toggle("on", state.lang==="en");
+}
+function refreshAll(){
+  applyI18n();
+  rebuildMdcFilter();
+  renderResults();
+  renderCard();
+  renderFooter();
+  renderMaint();
+  renderManual();
+  renderBasket();
+  updateBadge();
+}
+function setLang(l){
+  state.lang = l; lsSet(LS.lang, l);
+  refreshAll();
+}
+
+/* ------------------------------------------------------------------ *
+ *  Wiring
+ * ------------------------------------------------------------------ */
+let debounceTimer=null;
+$("searchInput").addEventListener("input", ()=>{
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(renderResults, 150);
+});
+$("results").addEventListener("click", e=>{
+  const hit = e.target.closest(".hit");
+  if (hit) selectDrg(hit.getAttribute("data-code"));
+});
+$("partSeg").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if (!b) return;
+  state.partFilter = b.getAttribute("data-part");
+  [...$("partSeg").children].forEach(x=>x.classList.toggle("on", x===b));
+  renderResults();
+});
+$("mdcFilter").addEventListener("change", e=>{ state.mdcFilter = e.target.value; renderResults(); });
+$("langEl").addEventListener("click", ()=>setLang("el"));
+$("langEn").addEventListener("click", ()=>setLang("en"));
+
+function openOverlay(id){ $(id).classList.add("open"); }
+function closeOverlay(id){ $(id).classList.remove("open"); }
+document.querySelectorAll(".panel .close").forEach(b=>{
+  b.addEventListener("click", ()=>closeOverlay(b.getAttribute("data-close")));
+});
+document.querySelectorAll(".overlay").forEach(o=>{
+  o.addEventListener("mousedown", e=>{ if (e.target===o) o.classList.remove("open"); });
+});
+$("btnBasket").addEventListener("click", ()=>{ renderBasket(); openOverlay("basketOverlay"); });
+$("btnMaint").addEventListener("click", ()=>{ renderMaint(); openOverlay("maintOverlay"); });
+$("btnManual").addEventListener("click", ()=>{ renderManual(); openOverlay("manualOverlay"); });
+$("btnExport").addEventListener("click", exportBasket);
+$("btnClearBasket").addEventListener("click", ()=>{
+  if (!state.basket.length) return;
+  if (!confirm(t("confirm_clear"))) return;
+  state.basket = []; lsSet(LS.basket, state.basket);
+  renderBasket(); updateBadge();
+});
+$("basketBody").addEventListener("click", e=>{
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  state.basket.splice(Number(b.getAttribute("data-del")),1);
+  lsSet(LS.basket, state.basket);
+  renderBasket(); updateBadge();
+});
+$("btnTemplate").addEventListener("click", downloadTemplate);
+$("btnExportCat").addEventListener("click", exportCatalogue);
+$("btnRestore").addEventListener("click", restoreEmbedded);
+$("fileInput").addEventListener("change", e=>{ if (e.target.files[0]) handleFile(e.target.files[0]); });
+$("btnApplyUpload").addEventListener("click", applyUpload);
+$("btnCancelUpload").addEventListener("click", ()=>{
+  state.pendingUpload=null; $("uplConfirm").classList.remove("on"); $("fileInput").value="";
+});
+$("btnAddHospital").addEventListener("click", ()=>{
+  state.baseRates.push({hospital:t("new_hospital"), rate:0});
+  renderRates();
+});
+$("ratesTable").addEventListener("click", e=>{
+  const b = e.target.closest("[data-delrate]"); if (!b) return;
+  state.baseRates.splice(Number(b.getAttribute("data-delrate")),1);
+  renderRates();
+});
+$("btnSaveRates").addEventListener("click", saveRates);
+$("btnManualPdf").addEventListener("click", ()=>{
+  toast(t("manual_pdf_hint"));
+  document.body.classList.add("print-manual");
+  setTimeout(()=>{ window.print(); }, 150);
+});
+window.addEventListener("afterprint", ()=>{ document.body.classList.remove("print-manual"); });
+
+refreshAll();
+</script>
+</body>
+</html>
