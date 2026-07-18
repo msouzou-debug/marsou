@@ -27,6 +27,9 @@ GRAINS_PER_OZ = GRAINS_PER_GRAM * GRAMS_PER_OZ  # 437.5
 # US / international standard shot sizes -> nominal diameter in inches.
 # Covers the sizes used in the reference tables (birdshot through F).
 SHOT_DIAMETERS_IN: dict[str, float] = {
+    "12": 0.050,
+    "11": 0.060,
+    "10": 0.070,
     "9": 0.080,
     "8.5": 0.085,
     "8": 0.090,

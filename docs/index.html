@@ -338,7 +338,9 @@ const MATERIALS={
   steel:{name:"Steel",d:7.86}, lead:{name:"Lead",d:11.1}, bismuth:{name:"Bismuth",d:9.7},
   hevi:{name:"HEVI (tungsten-comp.)",d:12.0}, tungsten:{name:"Tungsten",d:15.0}, tss:{name:"TSS",d:18.0}
 };
-const SHOT={ "9":.08,"8":.09,"7.5":.095,"7":.10,"6":.11,"5":.12,"4":.13,"3":.14,"2":.15,"1":.16,"B":.17,"BB":.18,"BBB":.19,"T":.20 };
+const SHOT={ "12":.05,"11":.06,"10":.07,"9":.08,"8":.09,"7.5":.095,"7":.10,"6":.11,"5":.12,"4":.13,"3":.14,"2":.15,"1":.16,"B":.17,"BB":.18,"BBB":.19,"T":.20 };
+// explicit display order (finest -> largest); JS reorders numeric object keys, so don't rely on SHOT's order
+const SHOT_ORDER=["12","11","10","9","8","7.5","7","6","5","4","3","2","1","B","BB","BBB","T"];
 
 const CHOKE_ORDER=["cylinder","skeet","ic","modified","im","full","extrafull"];
 const CHOKE_NAME={cylinder:"Cylinder",skeet:"Skeet",ic:"Improved Cylinder",modified:"Modified",im:"Improved Modified",full:"Full",extrafull:"Extra Full"};
@@ -419,20 +421,20 @@ function evaluate(s){
   const pen=penetrationIn(s.material,dIn,v);
   const depthGate=pen>=sp.depth;
   const choke=s.choke||sp.choke;
-  let pct, measuredUsed=false;
+  let pct, circle, measuredUsed=false;
   if(s.measured&&s.measured.count>0){
-    // Calibrate absolute density from the measured sheet, then use the chosen
-    // choke curve only for its range-SHAPE to project to other distances.
+    // Project the measured ABSOLUTE in-circle count to this range using the
+    // chosen choke curve's range-SHAPE only (density comes from your sheet).
     const shape=s.measured.choke||choke;
     const base=chokePct(shape,s.measured.dist,steel);
     const here=chokePct(shape,s.range,steel);
-    const pctMeasured=100*s.measured.count/Math.max(1,total);
-    pct=Math.min(100,Math.max(0,pctMeasured*here/base));
+    circle=Math.min(total, s.measured.count*here/Math.max(1,base));
+    pct=100*circle/Math.max(1,total);
     measuredUsed=true;
   }else{
     pct=chokePct(choke,s.range,steel);
+    circle=total*pct/100;
   }
-  const circle=total*pct/100;
   const scale=(s.present==="going")?0.55:1.0;
   const sigma=sigmaFromCircle(total,circle);
   const lam=hitsOnArea(total,sigma,sp.body*scale);
@@ -460,7 +462,7 @@ const circleLabel=()=>isMetric()?"75 cm":"30″";
 
 function fillSelect(el,entries,val){el.innerHTML=entries.map(([k,label])=>`<option value="${k}"${k===val?" selected":""}>${label}</option>`).join("");}
 function shotLabel(k){return isMetric()?("#"+k+" ("+(SHOT[k]*IN_MM).toFixed(1)+" mm)"):("#"+k+" ("+SHOT[k].toFixed(3)+"″)");}
-function buildShot(){fillSelect($("shot"),Object.keys(SHOT).map(k=>[k,shotLabel(k)]),state.shot);}
+function buildShot(){fillSelect($("shot"),SHOT_ORDER.map(k=>[k,shotLabel(k)]),state.shot);}
 fillSelect($("species"),Object.entries(SPECIES).map(([k,v])=>[k,v.name]),state.species);
 fillSelect($("material"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),state.material);
 buildShot();
@@ -731,6 +733,8 @@ $("photoApply").addEventListener("click",()=>{
   const count=parseInt($("holeManual").value)||0;
   if(count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
   state.measured={count,dist:PH.distYd||40,choke:$("pchoke").value};
+  state.range=PH.distYd||40;          // view the pattern at the distance it was shot
+  setControlsFromState();
   updateBanner(); render();
   $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
 });
