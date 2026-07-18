@@ -150,6 +150,37 @@ footer{margin-top:22px;padding:0 4px;font-size:11px;color:var(--muted);line-heig
 footer a{color:var(--accent);text-decoration:none}
 .hint{font-size:11.5px;color:var(--muted);margin-top:8px;text-align:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Header actions + units toggle */
+.head-actions{display:flex;align-items:center;gap:8px;flex:none}
+.units{padding:3px}
+.units button{padding:7px 11px;font-size:11px;font-weight:700;letter-spacing:.04em}
+
+/* Photo pattern tool */
+.bigbtn{appearance:none;border:none;width:100%;font-family:inherit;font-size:15px;font-weight:600;
+  padding:13px;border-radius:12px;background:var(--accent);color:#1a130a;cursor:pointer}
+.bigbtn:active{transform:scale(.99)}
+.bigbtn.ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+#photoStage{margin-top:12px;display:flex;flex-direction:column;gap:12px}
+#photoCanvas{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);touch-action:manipulation}
+.photo-controls{display:flex;flex-direction:column;gap:12px}
+.taghint{font-size:12px;color:var(--muted);line-height:1.4}
+.taghint b{color:var(--accent)}
+.detrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}
+.detrow b{color:var(--text);font-size:16px}
+.stepper.mini{width:130px;flex:none}
+.stepper.mini button{width:38px;font-size:19px}
+.stepper.mini input{font-size:15px}
+.btnrow{display:flex;gap:10px}
+.btnrow .bigbtn{flex:1}
+.mbanner{margin-top:12px;font-size:12.5px;line-height:1.4;padding:10px 12px;border-radius:11px;
+  background:var(--accent-soft);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mbanner b{color:var(--accent)}
+.mbanner button{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  font-family:inherit;font-size:11px;font-weight:600;padding:5px 9px;border-radius:8px;cursor:pointer;flex:none}
+.pill-measured{font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;
+  text-transform:uppercase;color:var(--accent);background:var(--accent-soft);margin-left:6px}
 </style>
 </head>
 <body>
@@ -159,7 +190,13 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="mark"><span class="dot"></span><h1>Clean Shot</h1></div>
       <p>Wingshooting terminal-lethality calculator</p>
     </div>
-    <button class="theme-btn" id="theme" aria-label="Toggle theme">◐</button>
+    <div class="head-actions">
+      <div class="seg units" id="units">
+        <button data-u="imperial" class="on">IMP</button>
+        <button data-u="metric">MET</button>
+      </div>
+      <button class="theme-btn" id="theme" aria-label="Toggle theme">◐</button>
+    </div>
   </header>
 
   <div class="verdict card" id="verdict">
@@ -174,7 +211,7 @@ footer a{color:var(--accent);text-decoration:none}
     <div class="verdict-sub">
       <div class="vstat"><span class="k">Pellets on bird</span><span class="v mono" id="lambda">—</span></div>
       <div class="vstat"><span class="k">Need</span><span class="v mono" id="need">—</span></div>
-      <div class="vstat"><span class="k">In 30″ circle</span><span class="v mono" id="circle">—</span></div>
+      <div class="vstat"><span class="k" id="circleK">In 30″ circle</span><span class="v mono" id="circle">—</span></div>
     </div>
   </div>
 
@@ -193,7 +230,7 @@ footer a{color:var(--accent);text-decoration:none}
       <select id="species"></select>
     </div>
     <div class="field">
-      <label for="range">Range <span class="val mono"><span id="rangeVal">40</span> yd</span></label>
+      <label for="range">Range <span class="val mono"><span id="rangeVal">40</span> <span class="uRange">yd</span></span></label>
       <input type="range" id="range" min="10" max="70" step="1" value="40">
     </div>
     <div class="field">
@@ -213,11 +250,11 @@ footer a{color:var(--accent);text-decoration:none}
     </div>
     <div class="row2">
       <div class="field">
-        <label for="payload">Payload <span class="val mono"><span id="payloadVal">1.13</span> oz</span></label>
+        <label for="payload">Payload <span class="val mono"><span id="payloadVal">1.13</span> <span id="uPay">oz</span></span></label>
         <div class="stepper"><button data-t="payload" data-d="-1">−</button><input class="mono" type="number" id="payload" value="1.125" step="0.125" min="0.5" max="2.25" inputmode="decimal"><button data-t="payload" data-d="1">+</button></div>
       </div>
       <div class="field">
-        <label for="velocity">Muzzle <span class="val mono"><span id="velVal">1350</span> fps</span></label>
+        <label for="velocity">Muzzle <span class="val mono"><span id="velVal">1350</span> <span id="uVel">fps</span></span></label>
         <div class="stepper"><button data-t="velocity" data-d="-1">−</button><input class="mono" type="number" id="velocity" value="1350" step="25" min="1100" max="1700" inputmode="numeric"><button data-t="velocity" data-d="1">+</button></div>
       </div>
     </div>
@@ -241,6 +278,41 @@ footer a{color:var(--accent);text-decoration:none}
   <div class="card pad">
     <div class="section-label">Load guide for this bird</div>
     <div class="reco" id="reco"></div>
+  </div>
+
+  <div class="card pad" id="photoCard">
+    <div class="section-label">Pattern from a photo · optional</div>
+    <p class="taghint">Shoot a plain sheet at a known distance and photograph it square-on. Then
+      ① tap the pattern centre, ② tap the edge of your <span class="uCircle">30″</span> circle to set the scale,
+      ③ tune sensitivity until the markers sit on the holes.</p>
+    <input type="file" id="photoFile" accept="image/*" style="display:none">
+    <button class="bigbtn" id="photoPick">Choose or take a photo</button>
+    <div id="photoStage" style="display:none">
+      <canvas id="photoCanvas"></canvas>
+      <div class="photo-controls">
+        <div class="taghint" id="photoStep"><b>Step 1:</b> tap the centre of the pattern.</div>
+        <div class="field">
+          <label for="thresh">Detection sensitivity <span class="val mono" id="threshVal">50</span></label>
+          <input type="range" id="thresh" min="15" max="85" step="1" value="50">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="pdist">Patterned at <span class="val mono"><span id="pdistVal">40</span> <span class="uRange">yd</span></span></label>
+            <input type="range" id="pdist" min="10" max="70" step="1" value="40">
+          </div>
+          <div class="field"><label for="pchoke">Pattern shape</label><select id="pchoke"></select></div>
+        </div>
+        <div class="detrow">
+          <span>Detected holes: <b class="mono" id="holeCount">—</b></span>
+          <div class="stepper mini"><button id="holeMinus" type="button">−</button><input class="mono" id="holeManual" type="number" value="0" inputmode="numeric"><button id="holePlus" type="button">+</button></div>
+        </div>
+        <div class="btnrow">
+          <button class="bigbtn ghost" id="photoReset" type="button">Reset</button>
+          <button class="bigbtn" id="photoApply" type="button">Use this pattern</button>
+        </div>
+      </div>
+    </div>
+    <div id="measuredBanner" class="mbanner"></div>
   </div>
 
   <footer>
@@ -342,7 +414,19 @@ function evaluate(s){
   const pen=penetrationIn(s.material,dIn,v);
   const depthGate=pen>=sp.depth;
   const choke=s.choke||sp.choke;
-  const pct=chokePct(choke,s.range,steel);
+  let pct, measuredUsed=false;
+  if(s.measured&&s.measured.count>0){
+    // Calibrate absolute density from the measured sheet, then use the chosen
+    // choke curve only for its range-SHAPE to project to other distances.
+    const shape=s.measured.choke||choke;
+    const base=chokePct(shape,s.measured.dist,steel);
+    const here=chokePct(shape,s.range,steel);
+    const pctMeasured=100*s.measured.count/Math.max(1,total);
+    pct=Math.min(100,Math.max(0,pctMeasured*here/base));
+    measuredUsed=true;
+  }else{
+    pct=chokePct(choke,s.range,steel);
+  }
   const circle=total*pct/100;
   const scale=(s.present==="going")?0.55:1.0;
   const sigma=sigmaFromCircle(total,circle);
@@ -356,44 +440,86 @@ function evaluate(s){
   if(!eGate||!patternOk){verdict="wounding-likely";}
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
-  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons};
+  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons,measuredUsed};
 }
 function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
 
 /* ---------------- UI ---------------------------------------------------------- */
 const $=id=>document.getElementById(id);
-const state={species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy"};
+const state={species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy",units:"imperial",measured:null};
+
+/* unit conversion */
+const YD_M=0.9144, FPS_MS=0.3048, OZ_G=28.349523125, FTLB_J=1.35581795, IN_MM=25.4;
+const isMetric=()=>state.units==="metric";
+const circleLabel=()=>isMetric()?"75 cm":"30″";
 
 function fillSelect(el,entries,val){el.innerHTML=entries.map(([k,label])=>`<option value="${k}"${k===val?" selected":""}>${label}</option>`).join("");}
+function shotLabel(k){return isMetric()?("#"+k+" ("+(SHOT[k]*IN_MM).toFixed(1)+" mm)"):("#"+k+" ("+SHOT[k].toFixed(3)+"″)");}
+function buildShot(){fillSelect($("shot"),Object.keys(SHOT).map(k=>[k,shotLabel(k)]),state.shot);}
 fillSelect($("species"),Object.entries(SPECIES).map(([k,v])=>[k,v.name]),state.species);
 fillSelect($("material"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),state.material);
-fillSelect($("shot"),Object.keys(SHOT).map(k=>[k,"#"+k+" ("+SHOT[k].toFixed(3)+"″)"]),state.shot);
+buildShot();
 function fillChoke(){fillSelect($("choke"),[["","Recommended ("+CHOKE_NAME[SPECIES[state.species].choke]+")"],...CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]])],state.choke);}
 fillChoke();
+fillSelect($("pchoke"),CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]]),SPECIES[state.species].choke);
 
 const badgeClass={"clean-kill-likely":"go","marginal":"warn","wounding-likely":"crit"};
 const badgeText={"clean-kill-likely":"Clean kill likely","marginal":"Marginal","wounding-likely":"Wounding likely"};
 
+/* set control ranges + unit labels for the active unit system */
+function setControlsFromState(){
+  const m=isMetric();
+  const rs=$("range");
+  if(m){rs.min=9;rs.max=64;rs.step=1;rs.value=Math.round(state.range*YD_M);}
+  else{rs.min=10;rs.max=70;rs.step=1;rs.value=Math.round(state.range);}
+  $("rangeVal").textContent=rs.value;
+  const pd=$("pdist");
+  if(m){pd.min=9;pd.max=64;pd.value=Math.round((PH.distYd||40)*YD_M);}
+  else{pd.min=10;pd.max=70;pd.value=Math.round(PH.distYd||40);}
+  $("pdistVal").textContent=pd.value;
+  const ve=$("velocity");
+  if(m){ve.min=335;ve.max=518;ve.step=5;ve.value=Math.round(state.velocity*FPS_MS);}
+  else{ve.min=1100;ve.max=1700;ve.step=25;ve.value=Math.round(state.velocity);}
+  $("velVal").textContent=ve.value;
+  const pa=$("payload");
+  if(m){pa.min=16;pa.max=64;pa.step=2;pa.value=Math.round(state.payload*OZ_G);}
+  else{pa.min=0.5;pa.max=2.25;pa.step=0.125;pa.value=state.payload.toFixed(3);}
+  $("payloadVal").textContent=m?pa.value:state.payload.toFixed(2);
+  document.querySelectorAll(".uRange").forEach(e=>e.textContent=m?"m":"yd");
+  document.querySelectorAll(".uCircle").forEach(e=>e.textContent=circleLabel());
+  $("circleK").textContent="In "+circleLabel()+" circle";
+  $("uPay").textContent=m?"g":"oz";
+  $("uVel").textContent=m?"m/s":"fps";
+  buildShot();
+}
+
+function updateBanner(){
+  const b=$("measuredBanner");
+  if(state.measured){
+    const mm=state.measured;
+    b.style.display="flex";
+    b.innerHTML=`<span>Using your pattern: <b>${mm.count}</b> holes at ${isMetric()?Math.round(mm.dist*YD_M)+" m":Math.round(mm.dist)+" yd"} (${CHOKE_NAME[mm.choke]} shape), projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
+    $("clearMeasured").onclick=()=>{state.measured=null;updateBanner();render();};
+  }else b.style.display="none";
+}
+
 function render(){
-  const r=evaluate(state);
-  // verdict
+  const r=evaluate(state), m=isMetric(), j=r.e*FTLB_J;
   const cls=badgeClass[r.verdict];
   $("verdict").className="verdict card "+cls;
   $("badge").className="badge "+cls; $("badgeText").textContent=badgeText[r.verdict];
   $("prob").textContent=Math.round(r.p*100)+"%";
   $("lambda").textContent=r.lam.toFixed(1);
-  $("need").textContent=r.req+(r.present==="going"?"":"");
+  $("need").textContent=r.req;
   $("circle").textContent=Math.round(r.circle);
   const mr=maxRange(state);
-  $("effRange").textContent=mr?("clean to "+mr+" yd"):"no clean-kill range";
-  // readouts
-  $("rv").innerHTML=Math.round(r.v)+" <small>fps</small>";
-  $("eng").innerHTML=r.e.toFixed(2)+" <small>ft·lbf</small>";
+  $("effRange").textContent=mr?("clean to "+(m?Math.round(mr*YD_M)+" m":mr+" yd")):"no clean-kill range";
+  $("rv").innerHTML=(m?Math.round(r.v*FPS_MS):Math.round(r.v))+' <small>'+(m?"m/s":"fps")+'</small>';
+  $("eng").innerHTML=(m?j.toFixed(1):r.e.toFixed(2))+' <small>'+(m?"J":"ft·lbf")+'</small>';
   $("eChip").className="chip "+(r.eGate?"pass":"fail"); $("eChip").textContent=r.eGate?"pass":"low";
-  $("pen").innerHTML=r.pen.toFixed(2)+" <small>in</small>";
+  $("pen").innerHTML=(m?Math.round(r.pen*IN_MM):r.pen.toFixed(2))+' <small>'+(m?"mm":"in")+'</small>';
   $("pChip").className="chip "+(r.depthGate?"pass":"fail"); $("pChip").textContent=r.depthGate?"pass":"shallow";
-  $("patpct").innerHTML=Math.round(r.pct)+"% <small>· "+r.total+" pellets</small>";
-  // notes
+  $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+(r.measuredUsed?'<span class="pill-measured">measured</span>':'');
   $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
   $("reco").innerHTML="<b>"+r.sp.name+".</b> "+r.sp.guide;
   drawBoard(r);
@@ -442,30 +568,124 @@ function drawBoard(r){
   ctx.globalAlpha=1;
 }
 
-/* wiring */
-$("species").addEventListener("change",e=>{state.species=e.target.value;state.choke="";fillChoke();render();});
+/* ---------------- photo pellet counter --------------------------------------- */
+const PH={img:null,cx:null,cy:null,r:null,holes:[],count:0,distYd:40};
+let CW=0,CH=0;
+const pcv=$("photoCanvas"), pctx=pcv.getContext("2d",{willReadFrequently:true});
+const accentOf=()=>getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+
+function loadPhoto(file){
+  const img=new Image();
+  img.onload=()=>{
+    const maxW=720, scale=Math.min(1,maxW/img.naturalWidth);
+    CW=Math.round(img.naturalWidth*scale); CH=Math.round(img.naturalHeight*scale);
+    pcv.width=CW; pcv.height=CH;
+    PH.img=img; PH.cx=PH.cy=PH.r=null; PH.holes=[]; PH.count=0;
+    $("holeCount").textContent="—"; $("holeManual").value=0;
+    $("photoStep").innerHTML="<b>Step 1:</b> tap the centre of the pattern.";
+    $("photoStage").style.display="flex";
+    redrawBase();
+  };
+  const rd=new FileReader(); rd.onload=e=>img.src=e.target.result; rd.readAsDataURL(file);
+}
+function redrawBase(){
+  if(!PH.img)return;
+  pctx.clearRect(0,0,CW,CH); pctx.drawImage(PH.img,0,0,CW,CH);
+  const a=accentOf();
+  if(PH.r){pctx.strokeStyle=a;pctx.lineWidth=2;pctx.beginPath();pctx.arc(PH.cx,PH.cy,PH.r,0,7);pctx.stroke();}
+  if(PH.cx!=null){pctx.fillStyle=a;pctx.beginPath();pctx.arc(PH.cx,PH.cy,4,0,7);pctx.fill();
+    pctx.strokeStyle=a;pctx.lineWidth=1;pctx.beginPath();
+    pctx.moveTo(PH.cx-9,PH.cy);pctx.lineTo(PH.cx+9,PH.cy);pctx.moveTo(PH.cx,PH.cy-9);pctx.lineTo(PH.cx,PH.cy+9);pctx.stroke();}
+}
+function drawMarkers(){
+  redrawBase();
+  pctx.strokeStyle="#3fe08a"; pctx.lineWidth=1.5;
+  for(const h of PH.holes){pctx.beginPath();pctx.arc(h[0],h[1],3.2,0,7);pctx.stroke();}
+}
+function detect(){
+  if(!PH.img||!PH.r)return;
+  redrawBase();
+  const id=pctx.getImageData(0,0,CW,CH), d=id.data, N=CW*CH;
+  const lum=new Float32Array(N);
+  for(let i=0,p=0;p<N;i+=4,p++)lum[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  const r2=PH.r*PH.r, samp=[];
+  for(let p=0;p<N;p+=7){const x=p%CW,y=(p/CW)|0,dx=x-PH.cx,dy=y-PH.cy;if(dx*dx+dy*dy<=r2)samp.push(lum[p]);}
+  samp.sort((a,b)=>a-b);
+  const median=samp.length?samp[samp.length>>1]:128;
+  const cutoff=median*(+$("thresh").value/100);         // darker than this = hole
+  const mask=new Uint8Array(N);
+  for(let y=0;y<CH;y++)for(let x=0;x<CW;x++){const dx=x-PH.cx,dy=y-PH.cy;if(dx*dx+dy*dy>r2)continue;const p=y*CW+x;if(lum[p]<cutoff)mask[p]=1;}
+  const minA=Math.max(2,Math.round(r2*0.00006));
+  const maxA=Math.max(minA+6,Math.round(Math.PI*Math.pow(PH.r*0.07,2)));
+  const seen=new Uint8Array(N), stack=[], holes=[];
+  for(let p0=0;p0<N;p0++){
+    if(!mask[p0]||seen[p0])continue;
+    let area=0,sx=0,sy=0; stack.length=0; stack.push(p0); seen[p0]=1;
+    while(stack.length){
+      const p=stack.pop(); area++; const x=p%CW,y=(p/CW)|0; sx+=x; sy+=y;
+      if(x>0&&mask[p-1]&&!seen[p-1]){seen[p-1]=1;stack.push(p-1);}
+      if(x<CW-1&&mask[p+1]&&!seen[p+1]){seen[p+1]=1;stack.push(p+1);}
+      if(y>0&&mask[p-CW]&&!seen[p-CW]){seen[p-CW]=1;stack.push(p-CW);}
+      if(y<CH-1&&mask[p+CW]&&!seen[p+CW]){seen[p+CW]=1;stack.push(p+CW);}
+    }
+    if(area>=minA&&area<=maxA)holes.push([sx/area,sy/area]);
+  }
+  PH.holes=holes; PH.count=holes.length;
+  $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
+  drawMarkers();
+}
+$("photoPick").addEventListener("click",()=>$("photoFile").click());
+$("photoFile").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(f)loadPhoto(f);});
+pcv.addEventListener("click",ev=>{
+  if(!PH.img)return;
+  const rect=pcv.getBoundingClientRect();
+  const x=(ev.clientX-rect.left)/rect.width*CW, y=(ev.clientY-rect.top)/rect.height*CH;
+  if(PH.cx==null){PH.cx=x;PH.cy=y;$("photoStep").innerHTML="<b>Step 2:</b> tap the edge of your "+circleLabel()+" circle.";redrawBase();}
+  else if(!PH.r){PH.r=Math.hypot(x-PH.cx,y-PH.cy);$("photoStep").innerHTML="<b>Step 3:</b> tune sensitivity so markers sit on holes, then Use this pattern.";detect();}
+});
+$("thresh").addEventListener("input",e=>{$("threshVal").textContent=e.target.value;if(PH.r)detect();});
+$("holeManual").addEventListener("input",()=>{const v=parseInt($("holeManual").value)||0;$("holeCount").textContent=v;});
+$("holeMinus").addEventListener("click",()=>{$("holeManual").value=Math.max(0,(parseInt($("holeManual").value)||0)-1);$("holeManual").dispatchEvent(new Event("input"));});
+$("holePlus").addEventListener("click",()=>{$("holeManual").value=(parseInt($("holeManual").value)||0)+1;$("holeManual").dispatchEvent(new Event("input"));});
+$("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetric()?v/YD_M:v;$("pdistVal").textContent=v;});
+$("photoReset").addEventListener("click",()=>{PH.cx=PH.cy=PH.r=null;PH.holes=[];PH.count=0;$("holeCount").textContent="—";$("holeManual").value=0;$("photoStep").innerHTML="<b>Step 1:</b> tap the centre of the pattern.";redrawBase();});
+$("photoApply").addEventListener("click",()=>{
+  const count=parseInt($("holeManual").value)||0;
+  if(count<=0){$("photoStep").innerHTML="<b>Count first:</b> mark the circle and detect (or type) a hole count above.";return;}
+  state.measured={count,dist:PH.distYd||40,choke:$("pchoke").value};
+  updateBanner(); render();
+  $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
+});
+
+/* ---------------- wiring ------------------------------------------------------ */
+$("species").addEventListener("change",e=>{state.species=e.target.value;state.choke="";fillChoke();$("pchoke").value=SPECIES[state.species].choke;render();});
 $("material").addEventListener("change",e=>{state.material=e.target.value;render();});
 $("shot").addEventListener("change",e=>{state.shot=e.target.value;render();});
 $("choke").addEventListener("change",e=>{state.choke=e.target.value;render();});
-$("range").addEventListener("input",e=>{state.range=+e.target.value;$("rangeVal").textContent=e.target.value;render();});
-function syncNum(id,key,fmt){const el=$(id);el.addEventListener("input",()=>{const v=parseFloat(el.value);if(!isNaN(v)){state[key]=v;$(id+"Val")&&($(id.replace("velocity","vel").replace("payload","payload")+"Val").textContent=fmt(v));render();}});}
-$("payload").addEventListener("input",()=>{const v=parseFloat($("payload").value);if(!isNaN(v)){state.payload=v;$("payloadVal").textContent=v.toFixed(2);render();}});
-$("velocity").addEventListener("input",()=>{const v=parseFloat($("velocity").value);if(!isNaN(v)){state.velocity=v;$("velVal").textContent=Math.round(v);render();}});
-document.querySelectorAll(".stepper button").forEach(b=>b.addEventListener("click",()=>{
+$("range").addEventListener("input",e=>{const v=+e.target.value;state.range=isMetric()?v/YD_M:v;$("rangeVal").textContent=v;render();});
+$("payload").addEventListener("input",()=>{const v=parseFloat($("payload").value);if(!isNaN(v)){state.payload=isMetric()?v/OZ_G:v;$("payloadVal").textContent=isMetric()?Math.round(state.payload*OZ_G):state.payload.toFixed(2);render();}});
+$("velocity").addEventListener("input",()=>{const v=parseFloat($("velocity").value);if(!isNaN(v)){state.velocity=isMetric()?v/FPS_MS:v;$("velVal").textContent=isMetric()?Math.round(state.velocity*FPS_MS):Math.round(state.velocity);render();}});
+document.querySelectorAll(".stepper button[data-t]").forEach(b=>b.addEventListener("click",()=>{
   const t=b.dataset.t,d=+b.dataset.d,inp=$(t),step=parseFloat(inp.step),min=parseFloat(inp.min),max=parseFloat(inp.max);
-  let v=Math.min(max,Math.max(min,parseFloat(inp.value)+d*step));inp.value=(t==="payload")?v.toFixed(3):v;
+  let v=Math.min(max,Math.max(min,parseFloat(inp.value)+d*step));
+  inp.value=(t==="payload"&&!isMetric())?v.toFixed(3):Math.round(v);
   inp.dispatchEvent(new Event("input"));
 }));
 document.querySelectorAll("#present button").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll("#present button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   state.present=b.dataset.mode;render();
 }));
+document.querySelectorAll("#units button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#units button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  state.units=b.dataset.u; setControlsFromState(); updateBanner(); render();
+}));
 $("theme").addEventListener("click",()=>{
   const root=document.documentElement;
-  const cur=root.getAttribute("data-theme")|| (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
-  root.setAttribute("data-theme",cur==="dark"?"light":"dark");render();
+  const cur=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+  root.setAttribute("data-theme",cur==="dark"?"light":"dark"); if(PH.img)redrawBase(); render();
 });
-render();
+
+setControlsFromState(); updateBanner(); render();
 </script>
 </body>
 </html>
