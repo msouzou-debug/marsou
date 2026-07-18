@@ -675,6 +675,17 @@ function blobSizes(base){
   const minA=Math.max(2,Math.round(Math.pow(base*0.004*ms,2)));
   return [minA,Math.max(minA+12,Math.round(base*base*0.02))];
 }
+/* sensitivity -> dark-cutoff, compressed so it never nears paper brightness */
+function holeCutoff(pmed){const t=+((document.getElementById("thresh")||{}).value||50);return pmed*(0.12+0.5*(t-15)/85);}
+/* cap the count at the load's physical pellet total (can't have more holes than pellets) */
+function capCount(raw){
+  PH.raw=raw;
+  const loadTotal=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
+  const shown=Math.min(raw,loadTotal);
+  const hm=document.getElementById("holeManual"); hm.max=loadTotal; hm.value=shown;
+  document.getElementById("holeCount").textContent=shown;
+  return {shown,loadTotal,over:raw>loadTotal};
+}
 /* merge blob centroids that sit within one pellet-width of each other (split holes) */
 function mergeClose(holes,minDist){
   if(holes.length<2)return holes;
@@ -708,34 +719,33 @@ function analyzeAuto(){
     PH.paper=paper; reg=paper;
     PH.r=circleRadiusUnits()*(paper.x1-paper.x0)/(PH.sheetIn||40);
   }else{ PH.paper=null; reg={x0:0,y0:0,x1:CW-1,y1:CH-1}; PH.r=Math.min(CW,CH)*0.4; }
-  const cutoff=paperMedian(lum,reg,T)*(+$("thresh").value/100);
+  const cutoff=holeCutoff(paperMedian(lum,reg,T));
   const base=PH.r||((reg.x1-reg.x0)*0.5);
   const [minA,maxA]=blobSizes(base);
   let holes=mergeClose(findDarkBlobs(lum,reg,cutoff,minA,maxA),Math.max(3,(PH.r||base)*0.011));
   if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
   else if(paper.ok){PH.cx=(paper.x0+paper.x1)/2;PH.cy=(paper.y0+paper.y1)/2;}
   if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
-  PH.holes=holes; PH.count=holes.length;
-  $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
-  const loadTotal=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
-  const over=holes.length>loadTotal*1.05
-    ? " <b>Over-count:</b> more holes than this load's ~"+loadTotal+" pellets — raise Min hole size, lower sensitivity, or type your real count."
+  PH.holes=holes;
+  const cap=capCount(holes.length); PH.count=cap.shown;
+  const over=cap.over
+    ? " <b>Capped:</b> detection found "+holes.length+", above this load's ~"+cap.loadTotal+" pellets — showing "+cap.loadTotal+". Raise Min hole size, lower sensitivity, or tap Fit to load."
     : "";
   $("photoStep").innerHTML=(paper.ok
-    ? ("Auto-detected the sheet; centred the "+circleLabel()+" circle — <b>"+holes.length+"</b> holes inside.")
-    : ("<b>Couldn't read the sheet edges.</b> Use Place by hand, or retake with the sheet fully in frame on a darker background."))+over;
+    ? ("Auto-detected the sheet; centred the "+circleLabel()+" circle — <b>"+cap.shown+"</b> holes inside.")
+    : ("<b>Couldn't read the sheet edges.</b> Use By hand, or retake with the sheet fully in frame on a darker background."))+over;
   drawOverlay();
 }
 function recountManual(){
   if(!PH.img||!PH.r||PH.cx==null)return;
   const lum=lumData();
   const reg={x0:Math.max(0,(PH.cx-PH.r)|0),y0:Math.max(0,(PH.cy-PH.r)|0),x1:Math.min(CW-1,(PH.cx+PH.r)|0),y1:Math.min(CH-1,(PH.cy+PH.r)|0)};
-  const T=otsu(lum), cutoff=paperMedian(lum,reg,T)*(+$("thresh").value/100);
+  const T=otsu(lum), cutoff=holeCutoff(paperMedian(lum,reg,T));
   const [minA,maxA]=blobSizes(PH.r);
   let holes=mergeClose(findDarkBlobs(lum,reg,cutoff,minA,maxA),Math.max(3,PH.r*0.011));
   holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
-  PH.holes=holes; PH.count=holes.length;
-  $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
+  PH.holes=holes;
+  PH.count=capCount(holes.length).shown;
   drawOverlay();
 }
 function drawOverlay(){
@@ -768,15 +778,17 @@ pcv.addEventListener("click",ev=>{
   if(!PH.img||!PH.manual)return;
   const rect=pcv.getBoundingClientRect();
   const x=(ev.clientX-rect.left)/rect.width*CW, y=(ev.clientY-rect.top)/rect.height*CH;
-  if(placeStage===0){PH.paper=null;PH.cx=x;PH.cy=y;PH.r=null;PH.holes=[];placeStage=1;
-    $("photoStep").innerHTML="Now tap the edge of your "+circleLabel()+" circle.";drawOverlay();}
-  else{PH.r=Math.hypot(x-PH.cx,y-PH.cy);placeStage=0;
-    $("photoStep").innerHTML="Manual circle set — tune sensitivity if needed.";recountManual();}
+  if(placeStage===0){PH.paper=null;PH.cx=x;PH.cy=y;PH.r=null;PH._r1=null;PH.holes=[];placeStage=1;
+    $("photoStep").innerHTML="Tap one edge of the "+circleLabel()+" circle.";drawOverlay();}
+  else if(placeStage===1){PH._r1=Math.hypot(x-PH.cx,y-PH.cy);PH.r=PH._r1;placeStage=2;
+    $("photoStep").innerHTML="Tap the opposite edge — the radius is averaged.";drawOverlay();}
+  else{const r2=Math.hypot(x-PH.cx,y-PH.cy);PH.r=(PH._r1+r2)/2;placeStage=0;
+    $("photoStep").innerHTML="Circle set from centre + two edges — tune sensitivity if needed.";recountManual();}
 });
 $("photoAuto").addEventListener("click",analyzeAuto);
 $("photoManual").addEventListener("click",()=>{
   if(!PH.img)return; PH.manual=true; placeStage=0;
-  $("photoStep").innerHTML="<b>Place by hand:</b> tap the pattern centre, then the circle edge.";
+  $("photoStep").innerHTML="<b>By hand:</b> tap the centre, then the two opposite edges of the "+circleLabel()+" circle.";
 });
 $("thresh").addEventListener("input",e=>{$("threshVal").textContent=e.target.value;
   if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
@@ -791,15 +803,16 @@ $("ppay").addEventListener("input",e=>{const v=+e.target.value;PH.payOz=isMetric
 $("photoFit").addEventListener("click",()=>{
   if(!PH.img)return;
   const exp=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz); let ms=+$("minsize").value,g=0;
-  while(PH.count>exp*1.05 && ms<8 && g++<8){ms++;$("minsize").value=ms;$("minsizeVal").textContent=ms;PH.manual&&PH.r?recountManual():analyzeAuto();}
-  if(PH.count>exp*1.05)$("photoStep").innerHTML+=" Still above the load's ~"+exp+" pellets — set the true count with ±.";
+  while((PH.raw||PH.count)>exp*1.05 && ms<8 && g++<8){ms++;$("minsize").value=ms;$("minsizeVal").textContent=ms;PH.manual&&PH.r?recountManual():analyzeAuto();}
+  if((PH.raw||PH.count)>exp*1.05)$("photoStep").innerHTML+=" Still above the load's ~"+exp+" pellets — set the true count with ±.";
 });
-$("holeManual").addEventListener("input",()=>{const v=parseInt($("holeManual").value)||0;$("holeCount").textContent=v;});
+$("holeManual").addEventListener("input",()=>{const mx=parseInt($("holeManual").max)||999999;let v=parseInt($("holeManual").value)||0;v=Math.max(0,Math.min(mx,v));$("holeCount").textContent=v;});
 $("holeMinus").addEventListener("click",()=>{$("holeManual").value=Math.max(0,(parseInt($("holeManual").value)||0)-1);$("holeManual").dispatchEvent(new Event("input"));});
-$("holePlus").addEventListener("click",()=>{$("holeManual").value=(parseInt($("holeManual").value)||0)+1;$("holeManual").dispatchEvent(new Event("input"));});
+$("holePlus").addEventListener("click",()=>{const mx=parseInt($("holeManual").max)||999999;$("holeManual").value=Math.min(mx,(parseInt($("holeManual").value)||0)+1);$("holeManual").dispatchEvent(new Event("input"));});
 $("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetric()?v/YD_M:v;$("pdistVal").textContent=v;});
 $("photoApply").addEventListener("click",()=>{
-  const count=parseInt($("holeManual").value)||0;
+  const cap=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
+  const count=Math.min(parseInt($("holeManual").value)||0, cap);
   if(count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
   // push the patterned cartridge + conditions up into the main calculator
   state.material=PH.mat; state.shot=PH.shot; state.payload=PH.payOz;
