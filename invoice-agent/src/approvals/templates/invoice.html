@@ -67,9 +67,16 @@
 </form>
 {% endif %}
 
+{% if inv.status in ('needs_review', 'on_hold') %}
+<h2>Ενέργειες ουράς ελέγχου</h2>
 {% if inv.status == 'needs_review' %}
-<form method="post" action="{{ url_for('requeue', invoice_id=inv.id) }}">
+<form class="inline" method="post" action="{{ url_for('requeue', invoice_id=inv.id) }}">
   <button type="submit">Επανεπεξεργασία στην επόμενη εκτέλεση</button>
+</form>
+{% endif %}
+<form class="inline" method="post" action="{{ url_for('reject_file', invoice_id=inv.id) }}">
+  <input type="text" name="reason" size="40" placeholder="αιτιολογία απόρριψης (υποχρεωτική)" required>
+  <button class="warn" type="submit">Απόρριψη τιμολογίου</button>
 </form>
 {% endif %}
 

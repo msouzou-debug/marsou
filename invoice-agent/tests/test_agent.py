@@ -192,7 +192,7 @@ class TestPhase2Extract(unittest.TestCase):
         tmp, settings = make_env()
         try:
             conn = db.connect(settings)
-            by_vat, _ = master_data.load_vendor_master(settings)
+            master = master_data.load_vendor_master(settings)
             master_data.sync_vendors_table(conn, settings)
             hist = History(conn, {})
             cases = {
@@ -210,7 +210,7 @@ class TestPhase2Extract(unittest.TestCase):
             for name, data in cases.items():
                 drop(settings, name, data)
             for fid in folder_watch.scan(conn, settings):
-                iid = process_file(conn, settings, fid, by_vat, hist)
+                iid = process_file(conn, settings, fid, master, hist)
                 status = conn.execute("SELECT status, review_reason FROM invoices WHERE id=?",
                                       (iid,)).fetchone()
                 self.assertEqual(status["status"], "needs_review", dict(status))
@@ -222,7 +222,7 @@ class TestPhase2Extract(unittest.TestCase):
         tmp, settings = make_env()
         try:
             conn = db.connect(settings)
-            by_vat, _ = master_data.load_vendor_master(settings)
+            master = master_data.load_vendor_master(settings)
             master_data.sync_vendors_table(conn, settings)
             hist = History(conn, {})
             from src.ingest import folder_watch
@@ -233,7 +233,7 @@ class TestPhase2Extract(unittest.TestCase):
                                              VENDOR[2], [("MAINTENANCE", 1, 999.0)]))
             statuses = []
             for fid in folder_watch.scan(conn, settings):
-                iid = process_file(conn, settings, fid, by_vat, hist)
+                iid = process_file(conn, settings, fid, master, hist)
                 statuses.append(conn.execute(
                     "SELECT status FROM invoices WHERE id=?", (iid,)).fetchone()["status"])
             self.assertIn("needs_review", statuses[1])
@@ -247,7 +247,7 @@ class TestPhase3Analyze(unittest.TestCase):
         self.tmp, self.settings = make_env()
         self.conn = db.connect(self.settings)
         master_data.sync_vendors_table(self.conn, self.settings)
-        self.by_vat, _ = master_data.load_vendor_master(self.settings)
+        self.master = master_data.load_vendor_master(self.settings)
         self.hist = History(self.conn, {})
 
     def tearDown(self):
@@ -258,7 +258,7 @@ class TestPhase3Analyze(unittest.TestCase):
         from src.ingest import folder_watch
         drop(self.settings, name, data)
         fids = folder_watch.scan(self.conn, self.settings)
-        return process_file(self.conn, self.settings, fids[-1], self.by_vat, self.hist)
+        return process_file(self.conn, self.settings, fids[-1], self.master, self.hist)
 
     def test_iban_mismatch_is_critical_and_holds(self):
         wrong_iban = "CY17002001280000001200527600"
@@ -326,7 +326,7 @@ class TestPhase4Approvals(unittest.TestCase):
         self.tmp, self.settings = make_env()
         self.conn = db.connect(self.settings)
         master_data.sync_vendors_table(self.conn, self.settings)
-        self.by_vat, _ = master_data.load_vendor_master(self.settings)
+        self.master = master_data.load_vendor_master(self.settings)
         self.hist = History(self.conn, {})
 
     def tearDown(self):
@@ -340,7 +340,7 @@ class TestPhase4Approvals(unittest.TestCase):
              make_ubl(*VENDOR[:2], number, _recent_date(), net, 19, VENDOR[2],
                       [("MAINTENANCE CONTRACT", 1, net)]))
         fids = folder_watch.scan(self.conn, self.settings)
-        return process_file(self.conn, self.settings, fids[-1], self.by_vat, self.hist)
+        return process_file(self.conn, self.settings, fids[-1], self.master, self.hist)
 
     def _chain_roles(self, iid):
         return [r["role"] for r in self.conn.execute(
@@ -409,6 +409,111 @@ class TestPhase4Approvals(unittest.TestCase):
         hist = History(self.conn, mapping)
         self.assertEqual(hist.canonical("100340"), "100000")
         self.assertIn("100340", hist._family("100000"))
+
+
+class TestVendorMatching(unittest.TestCase):
+    """VAT -> name -> TIN order; 2 of 3 agreeing = pass, 1 = review."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp, cls.settings = make_env()
+        cls.master = master_data.load_vendor_master(cls.settings)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_vat_plus_name_passes(self):
+        record = {"vendor_vat": VENDOR[1], "vendor_name": VENDOR[0], "vendor_tin": ""}
+        failures, account = master_data.check(record, self.master)
+        self.assertEqual(failures, [])
+        self.assertEqual(account, "100000")
+
+    def test_fuzzy_name_still_counts(self):
+        # word-order swap + missing legal suffix must still count as a name match
+        record = {"vendor_vat": VENDOR[1], "vendor_name": "KIRMITSIS A.", "vendor_tin": ""}
+        failures, account = master_data.check(record, self.master)
+        self.assertEqual(failures, [])
+        self.assertEqual(account, "100000")
+
+    def test_name_plus_tin_passes_without_vat(self):
+        # wrong/missing VAT but name + TIN agree -> still a pass (2 of 3)
+        record = {"vendor_vat": "", "vendor_name": VENDOR[0], "vendor_tin": "12131613O"}
+        failures, account = master_data.check(record, self.master)
+        self.assertEqual(failures, [])
+        self.assertEqual(account, "100000")
+
+    def test_vat_only_goes_to_review(self):
+        # VAT matches but the name is a different company -> not trusted alone
+        record = {"vendor_vat": VENDOR[1], "vendor_name": "TOTALLY DIFFERENT TRADING CO",
+                  "vendor_tin": ""}
+        failures, account = master_data.check(record, self.master)
+        self.assertEqual(account, "100000")
+        self.assertTrue(failures and "vat only" in failures[0])
+
+    def test_no_signal_fails(self):
+        record = {"vendor_vat": "CY99999999A", "vendor_name": "GHOST LTD", "vendor_tin": ""}
+        failures, account = master_data.check(record, self.master)
+        self.assertEqual(account, "")
+        self.assertIn("not in the vendor master", failures[0])
+
+
+class TestAmountParsing(unittest.TestCase):
+    def test_gross_not_stolen_from_net_total(self):
+        from src.extract.pdf_text import parse_fields
+        r = parse_fields("ACME LTD\nInvoice No: T-3\nInvoice Date: 01/06/2026\n"
+                         "VAT Reg No: CY10131613M\nNET TOTAL 2000.00\n"
+                         "VAT AMOUNT 380.00\nGRAND TOTAL 2380.00", "text", 0.9)
+        self.assertAlmostEqual(r["net_total"], 2000.00)
+        self.assertAlmostEqual(r["gross_total"], 2380.00)
+
+    def test_plain_total_with_colon(self):
+        from src.extract.pdf_text import parse_fields
+        r = parse_fields("ACME LTD\nInvoice No: T-1\nNet Total: 850.00\n"
+                         "VAT 19%: 161.50\nTotal: 1,011.50", "text", 0.9)
+        self.assertAlmostEqual(r["gross_total"], 1011.50)
+
+
+class TestRejectBeforeProcessing(unittest.TestCase):
+    def test_reject_from_review_queue(self):
+        tmp, settings = make_env()
+        try:
+            conn = db.connect(settings)
+            master = master_data.load_vendor_master(settings)
+            master_data.sync_vendors_table(conn, settings, master)
+            from src.ingest import folder_watch
+            drop(settings, "junk.xml", make_ubl("GHOST LTD", "CY99999999A", "JUNK-1",
+                                                _recent_date(), 100.0, 19, VENDOR[2],
+                                                [("X", 1, 100.0)]))
+            fid = folder_watch.scan(conn, settings)[0]
+            iid = process_file(conn, settings, fid, master, History(conn, {}))
+            self.assertEqual(conn.execute("SELECT status FROM invoices WHERE id=?",
+                                          (iid,)).fetchone()["status"], "needs_review")
+            conn.close()
+
+            from src.approvals.webapp import create_app
+            app = create_app(settings)
+            c = app.test_client()
+            c.post("/login", data={"email": ACCOUNTANT})
+            # no reason -> refused
+            c.post(f"/invoice/{iid}/reject-file", data={"reason": ""})
+            conn = db.connect(settings)
+            self.assertEqual(conn.execute("SELECT status FROM invoices WHERE id=?",
+                                          (iid,)).fetchone()["status"], "needs_review")
+            conn.close()
+            # with reason -> rejected, audit-logged
+            c.post(f"/invoice/{iid}/reject-file", data={"reason": "spam, not an invoice"})
+            conn = db.connect(settings)
+            inv = conn.execute("SELECT * FROM invoices WHERE id=?", (iid,)).fetchone()
+            self.assertEqual(inv["status"], "rejected")
+            self.assertIn("spam", inv["review_reason"])
+            self.assertTrue(conn.execute(
+                "SELECT 1 FROM audit_log WHERE action='rejected_before_processing'").fetchone())
+            ok, _ = audit.verify_chain(conn)
+            self.assertTrue(ok)
+            conn.close()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

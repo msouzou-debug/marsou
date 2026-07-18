@@ -45,12 +45,15 @@ _LABELS = {
     "invoice_date": r"(?:INVOICE\s*DATE|DATE|ΗΜΕΡΟΜΗΝΙΑ)[.:\s]*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})",
     "due_date": r"(?:DUE\s*DATE|ΠΡΟΘΕΣΜΙΑ|ΛΗΞΗ)[.:\s]*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})",
     "vendor_vat": r"(?:VAT\s*(?:REG(?:ISTRATION)?)?\s*(?:NO|NUMBER|#)?|Α\.?Φ\.?Μ\.?|ΦΠΑ)[.:\s]*((?:CY)?\d{8}[A-Z])",
+    "vendor_tin": r"(?:TAX\s*(?:ID|IDENTIFICATION)\s*(?:NO|NUMBER|CODE)?|T\.?I\.?C\.?|T\.?I\.?N\.?|Α\.?Φ\.?Τ\.?)[.:\s]*((?:CY)?\d{8}[A-Z])",
     "po_number": r"(?:P\.?O\.?\s*(?:NO|NUMBER|#)?|ORDER\s*(?:NO|REF)|ΠΑΡΑΓΓΕΛΙΑ)[.:\s]*([A-Z0-9][A-Z0-9\-]{2,})",
 }
 _IBAN = r"\b([A-Z]{2}\d{2}[A-Z0-9]{11,30})\b"
 _AMOUNT = r"(\d[\d., ]*[.,]\d{2})"  # totals must carry decimals — keeps IDs out
+# gross: TOTAL must not be the tail of NET TOTAL / SUBTOTAL / ΥΠΟΣΥΝΟΛΟ —
+# fixed-width lookbehinds guard each case (this mis-picked the net as gross).
 _TOTALS = {
-    "gross_total": rf"(?:GRAND\s+TOTAL|TOTAL\s+(?:DUE|AMOUNT|EUR)?|ΓΕΝΙΚΟ\s+ΣΥΝΟΛΟ|ΣΥΝΟΛΟ|ΠΛΗΡΩΤΕΟ)\D{{0,12}}{_AMOUNT}",
+    "gross_total": rf"(?:GRAND\s+TOTAL|(?<!NET)(?<!NET\s)(?<!SUB)TOTAL\s*:?\s*(?:DUE|AMOUNT|EUR)?|ΓΕΝΙΚΟ\s+ΣΥΝΟΛΟ|(?<!ΥΠΟ)ΣΥΝΟΛΟ|ΠΛΗΡΩΤΕΟ)\D{{0,12}}{_AMOUNT}",
     "net_total": rf"(?:NET(?:\s+TOTAL| AMOUNT)?|SUBTOTAL|ΚΑΘΑΡΗ\s+ΑΞΙΑ|ΥΠΟΣΥΝΟΛΟ)\D{{0,12}}{_AMOUNT}",
     "vat_total": rf"(?:VAT(?!\s*REG)(?:\s*\d+\s*%)?(?:\s+AMOUNT)?|Φ\.?Π\.?Α\.?(?:\s*\d+\s*%)?)\D{{0,12}}{_AMOUNT}",
 }

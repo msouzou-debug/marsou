@@ -32,6 +32,7 @@ def extract(root):
     name = _t(supplier, "cac:PartyLegalEntity/cbc:RegistrationName") or _t(
         supplier, "cac:PartyName/cbc:Name")
     vat = _t(supplier, "cac:PartyTaxScheme/cbc:CompanyID")
+    tin = _t(supplier, "cac:PartyLegalEntity/cbc:CompanyID")
 
     net_by_rate, vat_by_rate = {}, {}
     for sub in root.findall("cac:TaxTotal/cac:TaxSubtotal", NS):
@@ -57,6 +58,7 @@ def extract(root):
     record = {
         "vendor_name": name,
         "vendor_vat": vat,
+        "vendor_tin": tin,
         "invoice_number": _t(root, "cbc:ID"),
         "invoice_date": _t(root, "cbc:IssueDate"),
         "due_date": _t(root, "cbc:DueDate"),

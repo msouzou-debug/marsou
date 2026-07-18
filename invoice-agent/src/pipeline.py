@@ -18,7 +18,7 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def process_file(conn, settings, file_id, by_vat, hist, actor="system"):
+def process_file(conn, settings, file_id, master, hist, actor="system"):
     """Stages 2–4 + 6-prep + 7 for one ingested file. Returns the invoice id."""
     frow = conn.execute("SELECT * FROM files WHERE id=?", (file_id,)).fetchone()
     record, review_reason = normalize.extract_file(frow["path"], frow["original_name"])
@@ -51,8 +51,11 @@ def process_file(conn, settings, file_id, by_vat, hist, actor="system"):
 
     # Stage 3 — validation (hard failures stop the invoice)
     failures = arithmetic.check(record)
-    failures += vat.check(record, settings, known_vat_cores=set(by_vat))
-    master_failures, vendor_account = master_data.check(record, by_vat)
+    failures += vat.check(record, settings,
+                          known_vat_cores=master.vat_cores if master else set())
+    master_failures, vendor_account = (
+        master_data.check(record, master) if master
+        else (["vendor master not loaded"], ""))
     failures += master_failures
     conn.execute("UPDATE invoices SET vendor_account=? WHERE id=?", (vendor_account, invoice_id))
     failures += duplicates.check(conn, record, vendor_account, own_invoice_id=invoice_id)
@@ -109,11 +112,11 @@ def _store_record(conn, invoice_id, record, settings):
     entity = next((e["code"] for e in settings["entities"] if e.get("default")),
                   settings["entities"][0]["code"])
     conn.execute(
-        """UPDATE invoices SET vendor_name=?, vendor_vat=?, invoice_number=?, invoice_date=?,
+        """UPDATE invoices SET vendor_name=?, vendor_vat=?, vendor_tin=?, invoice_number=?, invoice_date=?,
            due_date=?, currency=?, net_by_rate=?, vat_by_rate=?, net_total=?, vat_total=?,
            gross_total=?, iban=?, po_number=?, entity=?, extraction_source=?, confidence=?
            WHERE id=?""",
-        (record["vendor_name"], record["vendor_vat"], record["invoice_number"],
+        (record["vendor_name"], record["vendor_vat"], record["vendor_tin"], record["invoice_number"],
          record["invoice_date"], record["due_date"], record["currency"],
          json.dumps(record["net_by_rate"]), json.dumps(record["vat_by_rate"]),
          record["net_total"], record["vat_total"], record["gross_total"], record["iban"],
@@ -148,11 +151,11 @@ def run_once(conn, settings, graph_client=None, actor="system", send_digest=True
 
     # vendor master sync (the contract with the vendor-cleanup app)
     try:
-        master_data.sync_vendors_table(conn, settings)
-        by_vat, _ = master_data.load_vendor_master(settings)
+        master = master_data.load_vendor_master(settings)
+        master_data.sync_vendors_table(conn, settings, master)
     except FileNotFoundError as e:
         audit.log(conn, actor, "vendor_master_missing", str(e))
-        by_vat = {}
+        master = None
     mapping = master_data.load_mapping(settings)
     if mapping is None:
         audit.log(conn, actor, "vendor_mapping_missing",
@@ -161,7 +164,7 @@ def run_once(conn, settings, graph_client=None, actor="system", send_digest=True
 
     # Stages 2–7 per file
     for fid in new_files:
-        iid = process_file(conn, settings, fid, by_vat, hist, actor)
+        iid = process_file(conn, settings, fid, master, hist, actor)
         stats["invoices"] += 1
         status = conn.execute("SELECT status FROM invoices WHERE id=?", (iid,)).fetchone()["status"]
         if status == "needs_review":

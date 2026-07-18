@@ -145,6 +145,28 @@ def create_app(settings):
         flash("Η ένδειξη εκκαθαρίστηκε")
         return redirect(url_for("invoice", invoice_id=invoice_id))
 
+    @app.route("/invoice/<int:invoice_id>/reject-file", methods=["POST"])
+    @require_login
+    def reject_file(invoice_id):
+        """Reject an invoice straight from the review queue / CRITICAL hold —
+        before it is ever parked or routed (spam, non-invoices, confirmed fraud)."""
+        reason = request.form.get("reason", "").strip()
+        if not reason:
+            flash("Η απόρριψη απαιτεί αιτιολογία")
+            return redirect(url_for("invoice", invoice_id=invoice_id))
+        c = conn()
+        cur = c.execute(
+            "UPDATE invoices SET status='rejected', review_reason=? WHERE id=? AND status IN ('needs_review','on_hold')",
+            (f"rejected before processing by {user()}: {reason}", invoice_id))
+        c.commit()
+        if cur.rowcount:
+            audit.log(c, user(), "rejected_before_processing",
+                      f"invoice={invoice_id} reason={reason}")
+            flash("Το τιμολόγιο απορρίφθηκε")
+        else:
+            flash("Απόρριψη μόνο για τιμολόγια σε έλεγχο ή σε αναμονή")
+        return redirect(url_for("invoice", invoice_id=invoice_id))
+
     @app.route("/invoice/<int:invoice_id>/requeue", methods=["POST"])
     @require_login
     def requeue(invoice_id):

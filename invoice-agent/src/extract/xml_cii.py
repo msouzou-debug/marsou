@@ -64,9 +64,20 @@ def extract(root):
         })
 
     summation = settlement.find("ram:SpecifiedTradeSettlementHeaderMonetarySummation", NS) if settlement is not None else None
+    # tax registrations: schemeID VA = VAT number, FC = fiscal/tax number (TIN)
+    vat = tin = ""
+    for reg in (seller.findall("ram:SpecifiedTaxRegistration/ram:ID", NS) if seller is not None else []):
+        value = (reg.text or "").strip()
+        scheme = reg.get("schemeID", "")
+        if scheme == "FC":
+            tin = tin or value
+        else:
+            vat = vat or value
+
     record = {
         "vendor_name": _t(seller, "ram:Name"),
-        "vendor_vat": _t(seller, "ram:SpecifiedTaxRegistration/ram:ID"),
+        "vendor_vat": vat,
+        "vendor_tin": tin,
         "invoice_number": _t(root, "rsm:ExchangedDocument/ram:ID"),
         "invoice_date": _date(root, "rsm:ExchangedDocument/ram:IssueDateTime/udt:DateTimeString"),
         "due_date": _date(settlement, "ram:SpecifiedTradePaymentTerms/ram:DueDateDateTime/udt:DateTimeString"),

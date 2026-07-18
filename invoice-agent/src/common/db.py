@@ -127,6 +127,10 @@ MIGRATIONS = [
         CREATE INDEX idx_approvals_invoice ON approvals(invoice_id);
         """,
     ),
+    (
+        2,
+        "ALTER TABLE invoices ADD COLUMN vendor_tin TEXT DEFAULT '';",
+    ),
 ]
 
 
