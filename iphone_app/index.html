@@ -295,9 +295,15 @@ footer a{color:var(--accent);text-decoration:none}
       <canvas id="photoCanvas"></canvas>
       <div class="photo-controls">
         <div class="taghint" id="photoStep">Auto-detecting…</div>
-        <div class="field">
-          <label for="thresh">Hole sensitivity <span class="val mono" id="threshVal">50</span></label>
-          <input type="range" id="thresh" min="15" max="85" step="1" value="50">
+        <div class="row2">
+          <div class="field">
+            <label for="thresh">Hole sensitivity <span class="val mono" id="threshVal">50</span></label>
+            <input type="range" id="thresh" min="15" max="100" step="1" value="50">
+          </div>
+          <div class="field">
+            <label for="minsize">Min hole size <span class="val mono" id="minsizeVal">2</span></label>
+            <input type="range" id="minsize" min="1" max="8" step="1" value="2">
+          </div>
         </div>
         <div class="row2">
           <div class="field">
@@ -423,12 +429,15 @@ function evaluate(s){
   const choke=s.choke||sp.choke;
   let pct, circle, measuredUsed=false;
   if(s.measured&&s.measured.count>0){
-    // Project the measured ABSOLUTE in-circle count to this range using the
-    // chosen choke curve's range-SHAPE only (density comes from your sheet).
-    const shape=s.measured.choke||choke;
-    const base=chokePct(shape,s.measured.dist,steel);
-    const here=chokePct(shape,s.range,steel);
-    circle=Math.min(total, s.measured.count*here/Math.max(1,base));
+    // Physical projection: pattern spread sigma grows ~linearly with distance,
+    // so a fixed circle catches fewer pellets as range increases. Calibrate
+    // sigma from your measured count at its distance, then scale sigma by range.
+    const R=15; // 30" circle radius (in), matches the pattern model
+    const f0=Math.min(0.985,Math.max(1e-4,s.measured.count/Math.max(1,total)));
+    const sigma0=R/Math.sqrt(-2*Math.log(1-f0));
+    const sig=sigma0*(s.range/Math.max(1,s.measured.dist));
+    const f=1-Math.exp(-(R*R)/(2*sig*sig));
+    circle=Math.min(total,total*f);
     pct=100*circle/Math.max(1,total);
     measuredUsed=true;
   }else{
@@ -637,7 +646,26 @@ function findDarkBlobs(lum,reg,cutoff,minA,maxA){
   }
   return out;
 }
-function blobSizes(base){return [Math.max(2,Math.round(base*base*0.00006)),Math.max(10,Math.round(base*base*0.02))];}
+function blobSizes(base){
+  const ms=+((document.getElementById("minsize")||{}).value||2);
+  const minA=Math.max(2,Math.round(Math.pow(base*0.004*ms,2)));
+  return [minA,Math.max(minA+12,Math.round(base*base*0.02))];
+}
+/* merge blob centroids that sit within one pellet-width of each other (split holes) */
+function mergeClose(holes,minDist){
+  if(holes.length<2)return holes;
+  const out=[], used=new Uint8Array(holes.length), d2=minDist*minDist;
+  for(let i=0;i<holes.length;i++){
+    if(used[i])continue; let sx=holes[i][0],sy=holes[i][1],n=1; used[i]=1;
+    for(let j=i+1;j<holes.length;j++){
+      if(used[j])continue;
+      const dx=holes[j][0]-holes[i][0],dy=holes[j][1]-holes[i][1];
+      if(dx*dx+dy*dy<=d2){sx+=holes[j][0];sy+=holes[j][1];n++;used[j]=1;}
+    }
+    out.push([sx/n,sy/n]);
+  }
+  return out;
+}
 function paperMedian(lum,reg,T){
   const s=[];
   for(let y=reg.y0;y<=reg.y1;y+=3)for(let x=reg.x0;x<=reg.x1;x+=3){const p=y*CW+x;if(lum[p]>=T)s.push(lum[p]);}
@@ -659,15 +687,19 @@ function analyzeAuto(){
   const cutoff=paperMedian(lum,reg,T)*(+$("thresh").value/100);
   const base=PH.r||((reg.x1-reg.x0)*0.5);
   const [minA,maxA]=blobSizes(base);
-  let holes=findDarkBlobs(lum,reg,cutoff,minA,maxA);
+  let holes=mergeClose(findDarkBlobs(lum,reg,cutoff,minA,maxA),Math.max(3,(PH.r||base)*0.011));
   if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
   else if(paper.ok){PH.cx=(paper.x0+paper.x1)/2;PH.cy=(paper.y0+paper.y1)/2;}
   if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes; PH.count=holes.length;
   $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
-  $("photoStep").innerHTML=paper.ok
-    ? ("Auto-detected the sheet and centred the "+circleLabel()+" circle — <b>"+holes.length+"</b> holes inside. Tune sensitivity or the ± if needed.")
-    : ("<b>Couldn't read the sheet edges.</b> Use Place by hand, or retake with the sheet fully in frame on a darker background.");
+  const loadTotal=pelletCount(state.material,SHOT[state.shot],state.payload);
+  const over=holes.length>loadTotal*1.05
+    ? " <b>Over-count:</b> more holes than this load's ~"+loadTotal+" pellets — raise Min hole size, lower sensitivity, or type your real count."
+    : "";
+  $("photoStep").innerHTML=(paper.ok
+    ? ("Auto-detected the sheet; centred the "+circleLabel()+" circle — <b>"+holes.length+"</b> holes inside.")
+    : ("<b>Couldn't read the sheet edges.</b> Use Place by hand, or retake with the sheet fully in frame on a darker background."))+over;
   drawOverlay();
 }
 function recountManual(){
@@ -676,7 +708,8 @@ function recountManual(){
   const reg={x0:Math.max(0,(PH.cx-PH.r)|0),y0:Math.max(0,(PH.cy-PH.r)|0),x1:Math.min(CW-1,(PH.cx+PH.r)|0),y1:Math.min(CH-1,(PH.cy+PH.r)|0)};
   const T=otsu(lum), cutoff=paperMedian(lum,reg,T)*(+$("thresh").value/100);
   const [minA,maxA]=blobSizes(PH.r);
-  const holes=findDarkBlobs(lum,reg,cutoff,minA,maxA).filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
+  let holes=mergeClose(findDarkBlobs(lum,reg,cutoff,minA,maxA),Math.max(3,PH.r*0.011));
+  holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes; PH.count=holes.length;
   $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
   drawOverlay();
@@ -722,6 +755,8 @@ $("photoManual").addEventListener("click",()=>{
   $("photoStep").innerHTML="<b>Place by hand:</b> tap the pattern centre, then the circle edge.";
 });
 $("thresh").addEventListener("input",e=>{$("threshVal").textContent=e.target.value;
+  if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
+$("minsize").addEventListener("input",e=>{$("minsizeVal").textContent=e.target.value;
   if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
 $("sheetW").addEventListener("input",e=>{const v=+e.target.value;PH.sheetIn=isMetric()?v/2.54:v;
   $("sheetWVal").textContent=v; if(PH.img&&!PH.manual)analyzeAuto();});
