@@ -283,11 +283,29 @@ footer a{color:var(--accent);text-decoration:none}
   <div class="card pad" id="photoCard">
     <div class="section-label">Pattern from a photo · optional</div>
     <p class="taghint">Photograph your target sheet square-on, filling most of the frame on a
-      contrasting background. The app finds the sheet edges for scale, locates the pattern centre,
-      and draws the <span class="uCircle">30″</span> circle automatically. Set your sheet's real width first.</p>
-    <div class="field">
-      <label for="sheetW">Target sheet width <span class="val mono"><span id="sheetWVal">40</span> <span class="uSheet">in</span></span></label>
-      <input type="range" id="sheetW" min="20" max="60" step="1" value="40">
+      contrasting background. Enter the cartridge you patterned and your sheet's real width — the
+      app finds the sheet, centres the <span class="uCircle">30″</span> circle, and counts the holes.
+      <b>Use this pattern</b> loads it all into the calculator above.</p>
+    <div class="row2">
+      <div class="field"><label for="pmat">Material</label><select id="pmat"></select></div>
+      <div class="field"><label for="pshot">Pellet size</label><select id="pshot"></select></div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="ppay">Load weight <span class="val mono"><span id="ppayVal">1.13</span> <span class="uPay2">oz</span></span></label>
+        <input type="range" id="ppay" min="0.5" max="2.25" step="0.125" value="1.125">
+      </div>
+      <div class="field"><label for="pchoke">Choke</label><select id="pchoke"></select></div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="pdist">Patterned at <span class="val mono"><span id="pdistVal">40</span> <span class="uRange">yd</span></span></label>
+        <input type="range" id="pdist" min="10" max="70" step="1" value="40">
+      </div>
+      <div class="field">
+        <label for="sheetW">Sheet width <span class="val mono"><span id="sheetWVal">40</span> <span class="uSheet">in</span></span></label>
+        <input type="range" id="sheetW" min="20" max="60" step="1" value="40">
+      </div>
     </div>
     <input type="file" id="photoFile" accept="image/*" style="display:none">
     <button class="bigbtn" id="photoPick">Choose or take a photo</button>
@@ -305,20 +323,14 @@ footer a{color:var(--accent);text-decoration:none}
             <input type="range" id="minsize" min="1" max="8" step="1" value="2">
           </div>
         </div>
-        <div class="row2">
-          <div class="field">
-            <label for="pdist">Patterned at <span class="val mono"><span id="pdistVal">40</span> <span class="uRange">yd</span></span></label>
-            <input type="range" id="pdist" min="10" max="70" step="1" value="40">
-          </div>
-          <div class="field"><label for="pchoke">Pattern shape</label><select id="pchoke"></select></div>
-        </div>
         <div class="detrow">
           <span>Holes in circle: <b class="mono" id="holeCount">—</b></span>
           <div class="stepper mini"><button id="holeMinus" type="button">−</button><input class="mono" id="holeManual" type="number" value="0" inputmode="numeric"><button id="holePlus" type="button">+</button></div>
         </div>
         <div class="btnrow">
           <button class="bigbtn ghost" id="photoAuto" type="button">Auto-detect</button>
-          <button class="bigbtn ghost" id="photoManual" type="button">Place by hand</button>
+          <button class="bigbtn ghost" id="photoFit" type="button">Fit to load</button>
+          <button class="bigbtn ghost" id="photoManual" type="button">By hand</button>
         </div>
         <button class="bigbtn" id="photoApply" type="button">Use this pattern</button>
       </div>
@@ -463,6 +475,8 @@ function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({..
 /* ---------------- UI ---------------------------------------------------------- */
 const $=id=>document.getElementById(id);
 const state={species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy",units:"imperial",measured:null};
+/* photo-tool state (the cartridge you patterned) */
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:40,sheetIn:40,manual:false,mat:"steel",shot:"2",payOz:1.125};
 
 /* unit conversion */
 const YD_M=0.9144, FPS_MS=0.3048, OZ_G=28.349523125, FTLB_J=1.35581795, IN_MM=25.4;
@@ -478,6 +492,9 @@ buildShot();
 function fillChoke(){fillSelect($("choke"),[["","Recommended ("+CHOKE_NAME[SPECIES[state.species].choke]+")"],...CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]])],state.choke);}
 fillChoke();
 fillSelect($("pchoke"),CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]]),SPECIES[state.species].choke);
+fillSelect($("pmat"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),PH.mat);
+function buildPShot(){fillSelect($("pshot"),SHOT_ORDER.map(k=>[k,shotLabel(k)]),PH.shot);}
+buildPShot();
 
 const badgeClass={"clean-kill-likely":"go","marginal":"warn","wounding-likely":"crit"};
 const badgeText={"clean-kill-likely":"Clean kill likely","marginal":"Marginal","wounding-likely":"Wounding likely"};
@@ -511,6 +528,14 @@ function setControlsFromState(){
   $("circleK").textContent="In "+circleLabel()+" circle";
   $("uPay").textContent=m?"g":"oz";
   $("uVel").textContent=m?"m/s":"fps";
+  // sync top selects + the photo cartridge controls
+  $("material").value=state.material; fillChoke();
+  $("pmat").value=PH.mat; buildPShot();
+  const pp=$("ppay");
+  if(m){pp.min=16;pp.max=64;pp.step=2;pp.value=Math.round((PH.payOz||1.125)*OZ_G);}
+  else{pp.min=0.5;pp.max=2.25;pp.step=0.125;pp.value=(PH.payOz||1.125).toFixed(3);}
+  $("ppayVal").textContent=m?pp.value:(PH.payOz||1.125).toFixed(2);
+  document.querySelectorAll(".uPay2").forEach(e=>e.textContent=m?"g":"oz");
   buildShot();
 }
 
@@ -519,7 +544,7 @@ function updateBanner(){
   if(state.measured){
     const mm=state.measured;
     b.style.display="flex";
-    b.innerHTML=`<span>Using your pattern: <b>${mm.count}</b> holes at ${isMetric()?Math.round(mm.dist*YD_M)+" m":Math.round(mm.dist)+" yd"} (${CHOKE_NAME[mm.choke]} shape), projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
+    b.innerHTML=`<span>Using your pattern: <b>${mm.count}</b> holes at ${isMetric()?Math.round(mm.dist*YD_M)+" m":Math.round(mm.dist)+" yd"} with ${MATERIALS[state.material].name} #${state.shot}, ${CHOKE_NAME[mm.choke]} — projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
     $("clearMeasured").onclick=()=>{state.measured=null;updateBanner();render();};
   }else b.style.display="none";
 }
@@ -590,7 +615,6 @@ function drawBoard(r){
 }
 
 /* ---------------- photo pellet counter (auto) -------------------------------- */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:40,sheetIn:40,manual:false};
 let CW=0,CH=0,placeStage=0;
 const pcv=$("photoCanvas"), pctx=pcv.getContext("2d",{willReadFrequently:true});
 const accentOf=()=>getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
@@ -693,7 +717,7 @@ function analyzeAuto(){
   if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes; PH.count=holes.length;
   $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
-  const loadTotal=pelletCount(state.material,SHOT[state.shot],state.payload);
+  const loadTotal=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
   const over=holes.length>loadTotal*1.05
     ? " <b>Over-count:</b> more holes than this load's ~"+loadTotal+" pellets — raise Min hole size, lower sensitivity, or type your real count."
     : "";
@@ -760,6 +784,16 @@ $("minsize").addEventListener("input",e=>{$("minsizeVal").textContent=e.target.v
   if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
 $("sheetW").addEventListener("input",e=>{const v=+e.target.value;PH.sheetIn=isMetric()?v/2.54:v;
   $("sheetWVal").textContent=v; if(PH.img&&!PH.manual)analyzeAuto();});
+$("pmat").addEventListener("change",e=>{PH.mat=e.target.value; if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
+$("pshot").addEventListener("change",e=>{PH.shot=e.target.value; if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
+$("ppay").addEventListener("input",e=>{const v=+e.target.value;PH.payOz=isMetric()?v/OZ_G:v;
+  $("ppayVal").textContent=isMetric()?Math.round(PH.payOz*OZ_G):PH.payOz.toFixed(2); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
+$("photoFit").addEventListener("click",()=>{
+  if(!PH.img)return;
+  const exp=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz); let ms=+$("minsize").value,g=0;
+  while(PH.count>exp*1.05 && ms<8 && g++<8){ms++;$("minsize").value=ms;$("minsizeVal").textContent=ms;PH.manual&&PH.r?recountManual():analyzeAuto();}
+  if(PH.count>exp*1.05)$("photoStep").innerHTML+=" Still above the load's ~"+exp+" pellets — set the true count with ±.";
+});
 $("holeManual").addEventListener("input",()=>{const v=parseInt($("holeManual").value)||0;$("holeCount").textContent=v;});
 $("holeMinus").addEventListener("click",()=>{$("holeManual").value=Math.max(0,(parseInt($("holeManual").value)||0)-1);$("holeManual").dispatchEvent(new Event("input"));});
 $("holePlus").addEventListener("click",()=>{$("holeManual").value=(parseInt($("holeManual").value)||0)+1;$("holeManual").dispatchEvent(new Event("input"));});
@@ -767,10 +801,11 @@ $("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetr
 $("photoApply").addEventListener("click",()=>{
   const count=parseInt($("holeManual").value)||0;
   if(count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
+  // push the patterned cartridge + conditions up into the main calculator
+  state.material=PH.mat; state.shot=PH.shot; state.payload=PH.payOz;
+  state.choke=$("pchoke").value; state.range=PH.distYd||40;
   state.measured={count,dist:PH.distYd||40,choke:$("pchoke").value};
-  state.range=PH.distYd||40;          // view the pattern at the distance it was shot
-  setControlsFromState();
-  updateBanner(); render();
+  setControlsFromState(); updateBanner(); render();
   $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
 });
 
