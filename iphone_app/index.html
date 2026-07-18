@@ -282,17 +282,21 @@ footer a{color:var(--accent);text-decoration:none}
 
   <div class="card pad" id="photoCard">
     <div class="section-label">Pattern from a photo · optional</div>
-    <p class="taghint">Shoot a plain sheet at a known distance and photograph it square-on. Then
-      ① tap the pattern centre, ② tap the edge of your <span class="uCircle">30″</span> circle to set the scale,
-      ③ tune sensitivity until the markers sit on the holes.</p>
+    <p class="taghint">Photograph your target sheet square-on, filling most of the frame on a
+      contrasting background. The app finds the sheet edges for scale, locates the pattern centre,
+      and draws the <span class="uCircle">30″</span> circle automatically. Set your sheet's real width first.</p>
+    <div class="field">
+      <label for="sheetW">Target sheet width <span class="val mono"><span id="sheetWVal">40</span> <span class="uSheet">in</span></span></label>
+      <input type="range" id="sheetW" min="20" max="60" step="1" value="40">
+    </div>
     <input type="file" id="photoFile" accept="image/*" style="display:none">
     <button class="bigbtn" id="photoPick">Choose or take a photo</button>
     <div id="photoStage" style="display:none">
       <canvas id="photoCanvas"></canvas>
       <div class="photo-controls">
-        <div class="taghint" id="photoStep"><b>Step 1:</b> tap the centre of the pattern.</div>
+        <div class="taghint" id="photoStep">Auto-detecting…</div>
         <div class="field">
-          <label for="thresh">Detection sensitivity <span class="val mono" id="threshVal">50</span></label>
+          <label for="thresh">Hole sensitivity <span class="val mono" id="threshVal">50</span></label>
           <input type="range" id="thresh" min="15" max="85" step="1" value="50">
         </div>
         <div class="row2">
@@ -303,13 +307,14 @@ footer a{color:var(--accent);text-decoration:none}
           <div class="field"><label for="pchoke">Pattern shape</label><select id="pchoke"></select></div>
         </div>
         <div class="detrow">
-          <span>Detected holes: <b class="mono" id="holeCount">—</b></span>
+          <span>Holes in circle: <b class="mono" id="holeCount">—</b></span>
           <div class="stepper mini"><button id="holeMinus" type="button">−</button><input class="mono" id="holeManual" type="number" value="0" inputmode="numeric"><button id="holePlus" type="button">+</button></div>
         </div>
         <div class="btnrow">
-          <button class="bigbtn ghost" id="photoReset" type="button">Reset</button>
-          <button class="bigbtn" id="photoApply" type="button">Use this pattern</button>
+          <button class="bigbtn ghost" id="photoAuto" type="button">Auto-detect</button>
+          <button class="bigbtn ghost" id="photoManual" type="button">Place by hand</button>
         </div>
+        <button class="bigbtn" id="photoApply" type="button">Use this pattern</button>
       </div>
     </div>
     <div id="measuredBanner" class="mbanner"></div>
@@ -477,6 +482,11 @@ function setControlsFromState(){
   if(m){pd.min=9;pd.max=64;pd.value=Math.round((PH.distYd||40)*YD_M);}
   else{pd.min=10;pd.max=70;pd.value=Math.round(PH.distYd||40);}
   $("pdistVal").textContent=pd.value;
+  const sw=$("sheetW");
+  if(m){sw.min=50;sw.max=152;sw.step=1;sw.value=Math.round((PH.sheetIn||40)*2.54);}
+  else{sw.min=20;sw.max=60;sw.step=1;sw.value=Math.round(PH.sheetIn||40);}
+  $("sheetWVal").textContent=sw.value;
+  document.querySelectorAll(".uSheet").forEach(e=>e.textContent=m?"cm":"in");
   const ve=$("velocity");
   if(m){ve.min=335;ve.max=518;ve.step=5;ve.value=Math.round(state.velocity*FPS_MS);}
   else{ve.min=1100;ve.max=1700;ve.step=25;ve.value=Math.round(state.velocity);}
@@ -568,90 +578,158 @@ function drawBoard(r){
   ctx.globalAlpha=1;
 }
 
-/* ---------------- photo pellet counter --------------------------------------- */
-const PH={img:null,cx:null,cy:null,r:null,holes:[],count:0,distYd:40};
-let CW=0,CH=0;
+/* ---------------- photo pellet counter (auto) -------------------------------- */
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:40,sheetIn:40,manual:false};
+let CW=0,CH=0,placeStage=0;
 const pcv=$("photoCanvas"), pctx=pcv.getContext("2d",{willReadFrequently:true});
 const accentOf=()=>getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
 
-function loadPhoto(file){
-  const img=new Image();
-  img.onload=()=>{
-    const maxW=720, scale=Math.min(1,maxW/img.naturalWidth);
-    CW=Math.round(img.naturalWidth*scale); CH=Math.round(img.naturalHeight*scale);
-    pcv.width=CW; pcv.height=CH;
-    PH.img=img; PH.cx=PH.cy=PH.r=null; PH.holes=[]; PH.count=0;
-    $("holeCount").textContent="—"; $("holeManual").value=0;
-    $("photoStep").innerHTML="<b>Step 1:</b> tap the centre of the pattern.";
-    $("photoStage").style.display="flex";
-    redrawBase();
-  };
-  const rd=new FileReader(); rd.onload=e=>img.src=e.target.result; rd.readAsDataURL(file);
+function lumData(){
+  pctx.drawImage(PH.img,0,0,CW,CH);
+  const d=pctx.getImageData(0,0,CW,CH).data, N=CW*CH, l=new Float32Array(N);
+  for(let i=0,p=0;p<N;i+=4,p++)l[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return l;
 }
-function redrawBase(){
+function otsu(lum){
+  const N=lum.length, h=new Float64Array(256);
+  for(let i=0;i<N;i++)h[Math.min(255,Math.max(0,lum[i]|0))]++;
+  let sum=0; for(let t=0;t<256;t++)sum+=t*h[t];
+  let sumB=0,wB=0,maxV=-1,thr=127;
+  for(let t=0;t<256;t++){wB+=h[t];if(!wB)continue;const wF=N-wB;if(!wF)break;sumB+=t*h[t];
+    const mB=sumB/wB,mF=(sum-sumB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>maxV){maxV=v;thr=t;}}
+  return thr;
+}
+/* largest bright (paper) connected component -> bounding box */
+function largestBright(lum,T){
+  const N=CW*CH, seen=new Uint8Array(N), st=[];
+  let best={area:0,x0:0,y0:0,x1:CW-1,y1:CH-1,ok:false};
+  for(let p0=0;p0<N;p0++){
+    if(lum[p0]<T||seen[p0])continue;
+    let area=0,minx=CW,miny=CH,maxx=0,maxy=0; st.length=0; st.push(p0); seen[p0]=1;
+    while(st.length){const p=st.pop();area++;const x=p%CW,y=(p/CW)|0;
+      if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+      if(x>0&&lum[p-1]>=T&&!seen[p-1]){seen[p-1]=1;st.push(p-1);}
+      if(x<CW-1&&lum[p+1]>=T&&!seen[p+1]){seen[p+1]=1;st.push(p+1);}
+      if(y>0&&lum[p-CW]>=T&&!seen[p-CW]){seen[p-CW]=1;st.push(p-CW);}
+      if(y<CH-1&&lum[p+CW]>=T&&!seen[p+CW]){seen[p+CW]=1;st.push(p+CW);}
+    }
+    if(area>best.area)best={area,x0:minx,y0:miny,x1:maxx,y1:maxy,ok:true};
+  }
+  if(best.area<N*0.12)best.ok=false;   // paper should fill a good fraction of frame
+  return best;
+}
+/* dark blobs (pellet holes) inside a rect region, size-filtered, border-excluded */
+function findDarkBlobs(lum,reg,cutoff,minA,maxA){
+  const seen=new Uint8Array(CW*CH), st=[], out=[];
+  for(let y=reg.y0;y<=reg.y1;y++)for(let x=reg.x0;x<=reg.x1;x++){
+    const p0=y*CW+x; if(seen[p0]||lum[p0]>=cutoff)continue;
+    let area=0,sx=0,sy=0,tb=false; st.length=0; st.push(p0); seen[p0]=1;
+    while(st.length){const p=st.pop();area++;const px=p%CW,py=(p/CW)|0;sx+=px;sy+=py;
+      if(px<=reg.x0||px>=reg.x1||py<=reg.y0||py>=reg.y1)tb=true;
+      if(px>reg.x0&&lum[p-1]<cutoff&&!seen[p-1]){seen[p-1]=1;st.push(p-1);}
+      if(px<reg.x1&&lum[p+1]<cutoff&&!seen[p+1]){seen[p+1]=1;st.push(p+1);}
+      if(py>reg.y0&&lum[p-CW]<cutoff&&!seen[p-CW]){seen[p-CW]=1;st.push(p-CW);}
+      if(py<reg.y1&&lum[p+CW]<cutoff&&!seen[p+CW]){seen[p+CW]=1;st.push(p+CW);}
+    }
+    if(area>=minA&&area<=maxA&&!tb)out.push([sx/area,sy/area]);
+  }
+  return out;
+}
+function blobSizes(base){return [Math.max(2,Math.round(base*base*0.00006)),Math.max(10,Math.round(base*base*0.02))];}
+function paperMedian(lum,reg,T){
+  const s=[];
+  for(let y=reg.y0;y<=reg.y1;y+=3)for(let x=reg.x0;x<=reg.x1;x+=3){const p=y*CW+x;if(lum[p]>=T)s.push(lum[p]);}
+  s.sort((a,b)=>a-b); return s.length?s[s.length>>1]:200;
+}
+function circleRadiusUnits(){return isMetric()?(37.5/2.54):15;}   // inches (75 cm dia vs 30" dia)
+
+function analyzeAuto(){
+  if(!PH.img)return;
+  PH.manual=false; placeStage=0;
+  const lum=lumData();
+  const T=otsu(lum);
+  const paper=largestBright(lum,T);
+  let reg;
+  if(paper.ok){
+    PH.paper=paper; reg=paper;
+    PH.r=circleRadiusUnits()*(paper.x1-paper.x0)/(PH.sheetIn||40);
+  }else{ PH.paper=null; reg={x0:0,y0:0,x1:CW-1,y1:CH-1}; PH.r=Math.min(CW,CH)*0.4; }
+  const cutoff=paperMedian(lum,reg,T)*(+$("thresh").value/100);
+  const base=PH.r||((reg.x1-reg.x0)*0.5);
+  const [minA,maxA]=blobSizes(base);
+  let holes=findDarkBlobs(lum,reg,cutoff,minA,maxA);
+  if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
+  else if(paper.ok){PH.cx=(paper.x0+paper.x1)/2;PH.cy=(paper.y0+paper.y1)/2;}
+  if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
+  PH.holes=holes; PH.count=holes.length;
+  $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
+  $("photoStep").innerHTML=paper.ok
+    ? ("Auto-detected the sheet and centred the "+circleLabel()+" circle — <b>"+holes.length+"</b> holes inside. Tune sensitivity or the ± if needed.")
+    : ("<b>Couldn't read the sheet edges.</b> Use Place by hand, or retake with the sheet fully in frame on a darker background.");
+  drawOverlay();
+}
+function recountManual(){
+  if(!PH.img||!PH.r||PH.cx==null)return;
+  const lum=lumData();
+  const reg={x0:Math.max(0,(PH.cx-PH.r)|0),y0:Math.max(0,(PH.cy-PH.r)|0),x1:Math.min(CW-1,(PH.cx+PH.r)|0),y1:Math.min(CH-1,(PH.cy+PH.r)|0)};
+  const T=otsu(lum), cutoff=paperMedian(lum,reg,T)*(+$("thresh").value/100);
+  const [minA,maxA]=blobSizes(PH.r);
+  const holes=findDarkBlobs(lum,reg,cutoff,minA,maxA).filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
+  PH.holes=holes; PH.count=holes.length;
+  $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
+  drawOverlay();
+}
+function drawOverlay(){
   if(!PH.img)return;
   pctx.clearRect(0,0,CW,CH); pctx.drawImage(PH.img,0,0,CW,CH);
   const a=accentOf();
-  if(PH.r){pctx.strokeStyle=a;pctx.lineWidth=2;pctx.beginPath();pctx.arc(PH.cx,PH.cy,PH.r,0,7);pctx.stroke();}
-  if(PH.cx!=null){pctx.fillStyle=a;pctx.beginPath();pctx.arc(PH.cx,PH.cy,4,0,7);pctx.fill();
-    pctx.strokeStyle=a;pctx.lineWidth=1;pctx.beginPath();
-    pctx.moveTo(PH.cx-9,PH.cy);pctx.lineTo(PH.cx+9,PH.cy);pctx.moveTo(PH.cx,PH.cy-9);pctx.lineTo(PH.cx,PH.cy+9);pctx.stroke();}
+  if(PH.paper){pctx.strokeStyle="rgba(255,255,255,.4)";pctx.setLineDash([6,7]);pctx.lineWidth=1.5;
+    pctx.strokeRect(PH.paper.x0,PH.paper.y0,PH.paper.x1-PH.paper.x0,PH.paper.y1-PH.paper.y0);pctx.setLineDash([]);}
+  if(PH.r&&PH.cx!=null){pctx.strokeStyle=a;pctx.lineWidth=2.5;pctx.beginPath();pctx.arc(PH.cx,PH.cy,PH.r,0,7);pctx.stroke();}
+  if(PH.cx!=null){pctx.fillStyle=a;pctx.beginPath();pctx.arc(PH.cx,PH.cy,4.5,0,7);pctx.fill();}
+  pctx.strokeStyle="#3fe08a"; pctx.lineWidth=1.6;
+  for(const h of PH.holes){pctx.beginPath();pctx.arc(h[0],h[1],3.4,0,7);pctx.stroke();}
 }
-function drawMarkers(){
-  redrawBase();
-  pctx.strokeStyle="#3fe08a"; pctx.lineWidth=1.5;
-  for(const h of PH.holes){pctx.beginPath();pctx.arc(h[0],h[1],3.2,0,7);pctx.stroke();}
+function loadPhoto(file){
+  const img=new Image();
+  img.onload=()=>{
+    const maxW=760, scale=Math.min(1,maxW/img.naturalWidth);
+    CW=Math.round(img.naturalWidth*scale); CH=Math.round(img.naturalHeight*scale);
+    pcv.width=CW; pcv.height=CH;
+    PH.img=img; PH.cx=PH.cy=PH.r=null; PH.paper=null; PH.holes=[]; PH.count=0; placeStage=0;
+    $("photoStage").style.display="flex"; $("photoStep").textContent="Auto-detecting…";
+    setTimeout(analyzeAuto,30);
+  };
+  const rd=new FileReader(); rd.onload=e=>img.src=e.target.result; rd.readAsDataURL(file);
 }
-function detect(){
-  if(!PH.img||!PH.r)return;
-  redrawBase();
-  const id=pctx.getImageData(0,0,CW,CH), d=id.data, N=CW*CH;
-  const lum=new Float32Array(N);
-  for(let i=0,p=0;p<N;i+=4,p++)lum[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-  const r2=PH.r*PH.r, samp=[];
-  for(let p=0;p<N;p+=7){const x=p%CW,y=(p/CW)|0,dx=x-PH.cx,dy=y-PH.cy;if(dx*dx+dy*dy<=r2)samp.push(lum[p]);}
-  samp.sort((a,b)=>a-b);
-  const median=samp.length?samp[samp.length>>1]:128;
-  const cutoff=median*(+$("thresh").value/100);         // darker than this = hole
-  const mask=new Uint8Array(N);
-  for(let y=0;y<CH;y++)for(let x=0;x<CW;x++){const dx=x-PH.cx,dy=y-PH.cy;if(dx*dx+dy*dy>r2)continue;const p=y*CW+x;if(lum[p]<cutoff)mask[p]=1;}
-  const minA=Math.max(2,Math.round(r2*0.00006));
-  const maxA=Math.max(minA+6,Math.round(Math.PI*Math.pow(PH.r*0.07,2)));
-  const seen=new Uint8Array(N), stack=[], holes=[];
-  for(let p0=0;p0<N;p0++){
-    if(!mask[p0]||seen[p0])continue;
-    let area=0,sx=0,sy=0; stack.length=0; stack.push(p0); seen[p0]=1;
-    while(stack.length){
-      const p=stack.pop(); area++; const x=p%CW,y=(p/CW)|0; sx+=x; sy+=y;
-      if(x>0&&mask[p-1]&&!seen[p-1]){seen[p-1]=1;stack.push(p-1);}
-      if(x<CW-1&&mask[p+1]&&!seen[p+1]){seen[p+1]=1;stack.push(p+1);}
-      if(y>0&&mask[p-CW]&&!seen[p-CW]){seen[p-CW]=1;stack.push(p-CW);}
-      if(y<CH-1&&mask[p+CW]&&!seen[p+CW]){seen[p+CW]=1;stack.push(p+CW);}
-    }
-    if(area>=minA&&area<=maxA)holes.push([sx/area,sy/area]);
-  }
-  PH.holes=holes; PH.count=holes.length;
-  $("holeCount").textContent=holes.length; $("holeManual").value=holes.length;
-  drawMarkers();
-}
+
 $("photoPick").addEventListener("click",()=>$("photoFile").click());
 $("photoFile").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(f)loadPhoto(f);});
 pcv.addEventListener("click",ev=>{
-  if(!PH.img)return;
+  if(!PH.img||!PH.manual)return;
   const rect=pcv.getBoundingClientRect();
   const x=(ev.clientX-rect.left)/rect.width*CW, y=(ev.clientY-rect.top)/rect.height*CH;
-  if(PH.cx==null){PH.cx=x;PH.cy=y;$("photoStep").innerHTML="<b>Step 2:</b> tap the edge of your "+circleLabel()+" circle.";redrawBase();}
-  else if(!PH.r){PH.r=Math.hypot(x-PH.cx,y-PH.cy);$("photoStep").innerHTML="<b>Step 3:</b> tune sensitivity so markers sit on holes, then Use this pattern.";detect();}
+  if(placeStage===0){PH.paper=null;PH.cx=x;PH.cy=y;PH.r=null;PH.holes=[];placeStage=1;
+    $("photoStep").innerHTML="Now tap the edge of your "+circleLabel()+" circle.";drawOverlay();}
+  else{PH.r=Math.hypot(x-PH.cx,y-PH.cy);placeStage=0;
+    $("photoStep").innerHTML="Manual circle set — tune sensitivity if needed.";recountManual();}
 });
-$("thresh").addEventListener("input",e=>{$("threshVal").textContent=e.target.value;if(PH.r)detect();});
+$("photoAuto").addEventListener("click",analyzeAuto);
+$("photoManual").addEventListener("click",()=>{
+  if(!PH.img)return; PH.manual=true; placeStage=0;
+  $("photoStep").innerHTML="<b>Place by hand:</b> tap the pattern centre, then the circle edge.";
+});
+$("thresh").addEventListener("input",e=>{$("threshVal").textContent=e.target.value;
+  if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
+$("sheetW").addEventListener("input",e=>{const v=+e.target.value;PH.sheetIn=isMetric()?v/2.54:v;
+  $("sheetWVal").textContent=v; if(PH.img&&!PH.manual)analyzeAuto();});
 $("holeManual").addEventListener("input",()=>{const v=parseInt($("holeManual").value)||0;$("holeCount").textContent=v;});
 $("holeMinus").addEventListener("click",()=>{$("holeManual").value=Math.max(0,(parseInt($("holeManual").value)||0)-1);$("holeManual").dispatchEvent(new Event("input"));});
 $("holePlus").addEventListener("click",()=>{$("holeManual").value=(parseInt($("holeManual").value)||0)+1;$("holeManual").dispatchEvent(new Event("input"));});
 $("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetric()?v/YD_M:v;$("pdistVal").textContent=v;});
-$("photoReset").addEventListener("click",()=>{PH.cx=PH.cy=PH.r=null;PH.holes=[];PH.count=0;$("holeCount").textContent="—";$("holeManual").value=0;$("photoStep").innerHTML="<b>Step 1:</b> tap the centre of the pattern.";redrawBase();});
 $("photoApply").addEventListener("click",()=>{
   const count=parseInt($("holeManual").value)||0;
-  if(count<=0){$("photoStep").innerHTML="<b>Count first:</b> mark the circle and detect (or type) a hole count above.";return;}
+  if(count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
   state.measured={count,dist:PH.distYd||40,choke:$("pchoke").value};
   updateBanner(); render();
   $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
@@ -678,6 +756,7 @@ document.querySelectorAll("#present button").forEach(b=>b.addEventListener("clic
 document.querySelectorAll("#units button").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll("#units button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   state.units=b.dataset.u; setControlsFromState(); updateBanner(); render();
+  if(PH.img){PH.manual&&PH.r?recountManual():analyzeAuto();}
 }));
 $("theme").addEventListener("click",()=>{
   const root=document.documentElement;
