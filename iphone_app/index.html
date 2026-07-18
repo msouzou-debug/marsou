@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clean Shot">
+<meta name="theme-color" content="#10141a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+<title>Clean Shot — Wingshooting Lethality</title>
+<style>
+:root{
+  --bg:#10141a; --panel:#181e27; --panel-2:#1f2733; --line:#2a333f;
+  --text:#e8ecf2; --muted:#909aab; --accent:#c99a4e; --accent-soft:rgba(201,154,78,.16);
+  --go:#43b581; --warn:#e6a020; --crit:#d55a48;
+  --go-soft:rgba(67,181,129,.14); --warn-soft:rgba(230,160,32,.14); --crit-soft:rgba(213,90,72,.14);
+  --shadow:0 1px 0 rgba(255,255,255,.03), 0 8px 24px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef1f5; --panel:#ffffff; --panel-2:#f4f6f9; --line:#dde2ea;
+    --text:#1a2029; --muted:#5a6474; --accent:#a9762e; --accent-soft:rgba(169,118,46,.12);
+    --go:#1f9d63; --warn:#b9781a; --crit:#c0402d;
+    --go-soft:rgba(31,157,99,.12); --warn-soft:rgba(185,120,26,.12); --crit-soft:rgba(192,64,45,.12);
+    --shadow:0 1px 2px rgba(20,30,45,.06), 0 8px 20px rgba(20,30,45,.08);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10141a; --panel:#181e27; --panel-2:#1f2733; --line:#2a333f;
+  --text:#e8ecf2; --muted:#909aab; --accent:#c99a4e; --accent-soft:rgba(201,154,78,.16);
+  --go:#43b581; --warn:#e6a020; --crit:#d55a48;
+  --go-soft:rgba(67,181,129,.14); --warn-soft:rgba(230,160,32,.14); --crit-soft:rgba(213,90,72,.14);
+}
+:root[data-theme="light"]{
+  --bg:#eef1f5; --panel:#ffffff; --panel-2:#f4f6f9; --line:#dde2ea;
+  --text:#1a2029; --muted:#5a6474; --accent:#a9762e; --accent-soft:rgba(169,118,46,.12);
+  --go:#1f9d63; --warn:#b9781a; --crit:#c0402d;
+  --go-soft:rgba(31,157,99,.12); --warn-soft:rgba(185,120,26,.12); --crit-soft:rgba(192,64,45,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  -webkit-tap-highlight-color:transparent;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overscroll-behavior-y:none;
+}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Monaco,"Cascadia Mono",monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:520px;margin:0 auto;padding:14px 16px 40px}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 2px 14px}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand .mark{display:flex;align-items:center;gap:8px}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.brand h1{font-size:19px;font-weight:700;letter-spacing:.06em;margin:0;text-transform:uppercase}
+.brand p{margin:0;font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.theme-btn{
+  appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  width:38px;height:38px;border-radius:11px;font-size:16px;cursor:pointer;flex:none;
+}
+.theme-btn:active{transform:scale(.94)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);margin-bottom:14px}
+.card.pad{padding:16px}
+
+/* Verdict */
+.verdict{overflow:hidden;position:relative;padding:18px 18px 16px;border-radius:18px;transition:background .35s ease,border-color .35s ease}
+.verdict.go{background:linear-gradient(180deg,var(--go-soft),transparent 70%);border:1px solid color-mix(in srgb,var(--go) 40%,var(--line))}
+.verdict.warn{background:linear-gradient(180deg,var(--warn-soft),transparent 70%);border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line))}
+.verdict.crit{background:linear-gradient(180deg,var(--crit-soft),transparent 70%);border:1px solid color-mix(in srgb,var(--crit) 40%,var(--line))}
+.verdict-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:7px 12px;border-radius:999px}
+.badge .glyph{width:9px;height:9px;border-radius:50%}
+.badge.go{color:var(--go);background:var(--go-soft)} .badge.go .glyph{background:var(--go)}
+.badge.warn{color:var(--warn);background:var(--warn-soft)} .badge.warn .glyph{background:var(--warn)}
+.badge.crit{color:var(--crit);background:var(--crit-soft)} .badge.crit .glyph{background:var(--crit)}
+.prob{display:flex;align-items:baseline;gap:10px;margin-top:12px}
+.prob .num{font-size:52px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.prob .cap{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;max-width:120px}
+.verdict-sub{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+.vstat{display:flex;flex-direction:column;gap:2px}
+.vstat .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.vstat .v{font-size:16px;font-weight:600}
+
+/* Pattern board */
+.board-card{padding:14px 14px 10px}
+.board-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.board-head .t{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.board-head .legend{display:flex;gap:12px;font-size:11px;color:var(--muted)}
+.board-head .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+canvas{width:100%;height:auto;display:block;border-radius:12px}
+
+/* Controls */
+.section-label{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.09em;margin:2px 2px 8px}
+.field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field label{font-size:12.5px;color:var(--muted);letter-spacing:.02em;display:flex;justify-content:space-between;align-items:baseline}
+.field label .val{color:var(--text);font-weight:600;font-size:14px}
+select,input[type=number]{
+  appearance:none;-webkit-appearance:none;width:100%;font-size:16px;color:var(--text);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
+  font-family:inherit;
+}
+select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23909aab' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right 14px center;padding-right:34px}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Stepper */
+.stepper{display:flex;align-items:stretch;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.stepper button{appearance:none;border:none;background:transparent;color:var(--accent);font-size:21px;font-weight:500;width:40px;flex:none;cursor:pointer;line-height:1;padding:0}
+.stepper button:active{background:var(--accent-soft)}
+.stepper input{background:transparent;border:none;text-align:center;border-radius:0;flex:1;width:100%;min-width:0;font-weight:600;font-size:15px;padding:12px 2px}
+.stepper input:focus{box-shadow:none}
+
+/* Range slider */
+input[type=range]{-webkit-appearance:none;width:100%;height:34px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--accent);margin-top:-11px;border:3px solid var(--panel);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+
+/* Segmented */
+.seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;appearance:none;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 6px;border-radius:9px;cursor:pointer;letter-spacing:.01em}
+.seg button.on{background:var(--accent);color:#1a130a}
+:root[data-theme="light"] .seg button.on,@media (prefers-color-scheme:light){.seg button.on{color:#fff}}
+
+/* Readouts */
+.readgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.read{background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+.read .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
+.read .v{font-size:19px;font-weight:600}
+.read .v small{font-size:12px;color:var(--muted);font-weight:500}
+.chip{font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;text-transform:uppercase}
+.chip.pass{color:var(--go);background:var(--go-soft)}
+.chip.fail{color:var(--crit);background:var(--crit-soft)}
+
+.notes{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.notes li{font-size:13px;color:var(--muted);line-height:1.45;padding-left:16px;position:relative}
+.notes li::before{content:"";position:absolute;left:2px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+.reco{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:6px}
+.reco b{color:var(--text);font-weight:600}
+
+footer{margin-top:22px;padding:0 4px;font-size:11px;color:var(--muted);line-height:1.5}
+footer a{color:var(--accent);text-decoration:none}
+.hint{font-size:11.5px;color:var(--muted);margin-top:8px;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark"><span class="dot"></span><h1>Clean Shot</h1></div>
+      <p>Wingshooting terminal-lethality calculator</p>
+    </div>
+    <button class="theme-btn" id="theme" aria-label="Toggle theme">◐</button>
+  </header>
+
+  <div class="verdict card" id="verdict">
+    <div class="verdict-top">
+      <span class="badge" id="badge"><span class="glyph"></span><span id="badgeText">—</span></span>
+      <span class="mono" id="effRange" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="prob">
+      <span class="num mono" id="prob">—</span>
+      <span class="cap">estimated<br>clean-kill probability</span>
+    </div>
+    <div class="verdict-sub">
+      <div class="vstat"><span class="k">Pellets on bird</span><span class="v mono" id="lambda">—</span></div>
+      <div class="vstat"><span class="k">Need</span><span class="v mono" id="need">—</span></div>
+      <div class="vstat"><span class="k">In 30″ circle</span><span class="v mono" id="circle">—</span></div>
+    </div>
+  </div>
+
+  <div class="board-card card">
+    <div class="board-head">
+      <span class="t">Pattern board · 40″ view</span>
+      <span class="legend"><span><i style="background:var(--accent)"></i>pellet</span><span><i id="zoneSwatch"></i>bird</span></span>
+    </div>
+    <canvas id="board" width="640" height="640"></canvas>
+  </div>
+
+  <div class="card pad">
+    <div class="section-label">Quarry &amp; shot</div>
+    <div class="field">
+      <label for="species">Bird</label>
+      <select id="species"></select>
+    </div>
+    <div class="field">
+      <label for="range">Range <span class="val mono"><span id="rangeVal">40</span> yd</span></label>
+      <input type="range" id="range" min="10" max="70" step="1" value="40">
+    </div>
+    <div class="field">
+      <label>Presentation</label>
+      <div class="seg" id="present">
+        <button data-mode="decoy" class="on">Decoyed / incoming</button>
+        <button data-mode="going">Going-away</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card pad">
+    <div class="section-label">Load</div>
+    <div class="row2">
+      <div class="field"><label for="material">Material</label><select id="material"></select></div>
+      <div class="field"><label for="shot">Shot size</label><select id="shot"></select></div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="payload">Payload <span class="val mono"><span id="payloadVal">1.13</span> oz</span></label>
+        <div class="stepper"><button data-t="payload" data-d="-1">−</button><input class="mono" type="number" id="payload" value="1.125" step="0.125" min="0.5" max="2.25" inputmode="decimal"><button data-t="payload" data-d="1">+</button></div>
+      </div>
+      <div class="field">
+        <label for="velocity">Muzzle <span class="val mono"><span id="velVal">1350</span> fps</span></label>
+        <div class="stepper"><button data-t="velocity" data-d="-1">−</button><input class="mono" type="number" id="velocity" value="1350" step="25" min="1100" max="1700" inputmode="numeric"><button data-t="velocity" data-d="1">+</button></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="choke">Choke</label>
+      <select id="choke"></select>
+    </div>
+  </div>
+
+  <div class="card pad">
+    <div class="section-label">Terminal readout</div>
+    <div class="readgrid">
+      <div class="read"><span class="k">Retained velocity</span><span class="v mono" id="rv">—</span></div>
+      <div class="read"><span class="k">Per-pellet energy <span class="chip" id="eChip">—</span></span><span class="v mono" id="eng">—</span></div>
+      <div class="read"><span class="k">Penetration <span class="chip" id="pChip">—</span></span><span class="v mono" id="pen">—</span></div>
+      <div class="read"><span class="k">Pattern density</span><span class="v mono" id="patpct">—</span></div>
+    </div>
+    <ul class="notes" id="notes"></ul>
+  </div>
+
+  <div class="card pad">
+    <div class="section-label">Load guide for this bird</div>
+    <div class="reco" id="reco"></div>
+  </div>
+
+  <footer>
+    Model anchored on Tom Roster's 2016 Nontoxic Shot Lethality Table and Gough Thomas
+    per-pellet energy minimums; sphere-drag exterior ballistics validated against Lowry.
+    Estimates only — pattern your own gun for real decisions, and know your quarry and local law.
+    <div class="hint">Tip: Share ▸ <b>Add to Home Screen</b> to use it like a native app.</div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ---------------- engine (ported from the shotgun_ballistics package) -------- */
+const GRAINS_PER_GRAM=15.4323584, GRAMS_PER_OZ=28.349523125, CM_PER_IN=2.54;
+const FPS_PER_MS=3.280839895, YARD_M=0.9144, AIR=1.225, SOUND=343.0;
+
+const MATERIALS={
+  steel:{name:"Steel",d:7.86}, lead:{name:"Lead",d:11.1}, bismuth:{name:"Bismuth",d:9.7},
+  hevi:{name:"HEVI (tungsten-comp.)",d:12.0}, tungsten:{name:"Tungsten",d:15.0}, tss:{name:"TSS",d:18.0}
+};
+const SHOT={ "9":.08,"8":.09,"7.5":.095,"7":.10,"6":.11,"5":.12,"4":.13,"3":.14,"2":.15,"1":.16,"B":.17,"BB":.18,"BBB":.19,"T":.20 };
+
+const CHOKE_ORDER=["cylinder","skeet","ic","modified","im","full","extrafull"];
+const CHOKE_NAME={cylinder:"Cylinder",skeet:"Skeet",ic:"Improved Cylinder",modified:"Modified",im:"Improved Modified",full:"Full",extrafull:"Extra Full"};
+const CHOKE={
+  cylinder:{20:75,25:65,30:55,35:47,40:40,45:33,50:27,55:22,60:18},
+  skeet:{20:85,25:75,30:64,35:57,40:50,45:42,50:35,55:29,60:24},
+  ic:{20:90,25:82,30:74,35:64,40:55,45:46,50:38,55:31,60:25},
+  modified:{20:95,25:88,30:80,35:70,40:60,45:51,50:43,55:36,60:29},
+  im:{20:98,25:91,30:83,35:74,40:65,45:56,50:47,55:39,60:32},
+  full:{20:100,25:95,30:87,35:78,40:70,45:60,50:50,55:42,60:35},
+  extrafull:{20:100,25:98,30:92,35:84,40:75,45:65,50:55,55:47,60:39}
+};
+const CD_M=[0,.3,.5,.7,.8,.9,1,1.1,1.2,1.4,1.6,2,3];
+const CD_V=[.48,.46,.46,.47,.52,.63,.78,.88,.94,1,1.01,.98,.90];
+
+const SPECIES={
+  mallard:{name:"Mallard / large duck",body:39,req:4,ros:2,min:85,e:2.0,depth:1.5,choke:"modified",
+    guide:"Steel #2–#1 or HEVI #4, Modified/IM. Effective ~20–50 yd; 1–2 vitals over decoys."},
+  wigeon:{name:"Wigeon / medium duck",body:30,req:3,ros:2,min:115,e:1.8,depth:1.4,choke:"ic",
+    guide:"Steel #4–#3, IC/Modified. Effective ~20–45 yd."},
+  teal:{name:"Teal / small duck",body:22,req:3,ros:2,min:135,e:1.5,depth:1.25,choke:"modified",
+    guide:"Steel #6–#4, Modified. Effective ~20–45 yd."},
+  canada_goose:{name:"Canada / large goose",body:70,req:2,ros:2,min:50,e:1.5,depth:2.25,choke:"im",
+    guide:"Steel BBB–T, IC–IM. Effective to 50–65 yd; needs ≥50 in the circle."},
+  pheasant:{name:"Ring-necked pheasant",body:32,req:4,ros:3,min:90,e:1.2,depth:1.75,choke:"modified",
+    guide:"Lead #5 (close) / #4 (far), or steel #3–#2. IC→Mod. Effective ~20–50 yd."},
+  partridge:{name:"Partridge / chukar",body:22,req:3,ros:3,min:120,e:0.85,depth:1.0,choke:"ic",
+    guide:"Lead #6–#7, IC. Effective to ~35–40 yd."},
+  woodpigeon:{name:"Wood pigeon",body:24,req:3,ros:3,min:145,e:0.8,depth:1.0,choke:"modified",
+    guide:"Lead #6–#7 (30–32 g). Beyond 40 yd clean kills fall off (BASC)."},
+  dove:{name:"Mourning dove",body:12,req:2,ros:2,min:200,e:0.5,depth:0.9,choke:"ic",
+    guide:"Lead #7.5–#8 or steel #7, IC/Mod. Effective ~20–45 yd."},
+  quail:{name:"Bobwhite quail",body:13,req:2,ros:2,min:200,e:0.5,depth:0.9,choke:"ic",
+    guide:"Lead #7.5–#8, IC. Close flushes to ~30 yd."},
+  woodcock:{name:"Woodcock / snipe",body:11,req:2,ros:2,min:200,e:0.5,depth:0.9,choke:"ic",
+    guide:"Lead #9–#7.5 (bismuth #8), IC. Short range ≤30 yd."},
+  turkey:{name:"Wild turkey (head/neck)",body:8,req:4,ros:3,min:210,e:1.5,depth:1.5,choke:"extrafull",
+    guide:"Steel #4 / HEVI #6, Full–Extra Full. Head/neck only, ~20–40 yd."}
+};
+
+function pelletMassG(matKey,dIn){const v=(Math.PI/6)*Math.pow(dIn*CM_PER_IN,3);return MATERIALS[matKey].d*v;}
+function pelletCount(matKey,dIn,oz){return Math.round(oz*GRAMS_PER_OZ/pelletMassG(matKey,dIn));}
+function interp(xs,ys,x){if(x<=xs[0])return ys[0];if(x>=xs[xs.length-1])return ys[ys.length-1];
+  for(let i=1;i<xs.length;i++){if(x<=xs[i]){const t=(x-xs[i-1])/(xs[i]-xs[i-1]);return ys[i-1]+t*(ys[i]-ys[i-1]);}}return ys[ys.length-1];}
+function sphereCd(m){return interp(CD_M,CD_V,m);}
+
+function retainedFps(matKey,dIn,mvFps,rangeYd){
+  const massG=pelletMassG(matKey,dIn), massKg=massG/1000;
+  const r=dIn*CM_PER_IN/100/2, A=Math.PI*r*r, k=AIR*A/(2*massKg);
+  let v=mvFps/FPS_PER_MS; const xT=rangeYd*YARD_M; let x=0; const h0=0.05;
+  while(x<xT-1e-9){const h=Math.min(h0,xT-x);
+    const d=vv=>-k*sphereCd(vv/SOUND)*vv;
+    const k1=d(v), k2=d(v+0.5*h*k1); v=v+h*k2; if(v<=1){v=1;break;} x+=h;}
+  return v*FPS_PER_MS;
+}
+function energyFtlb(massGr,vFps){return massGr*vFps*vFps/450240;}
+
+function chokePct(choke,rangeYd,steel){
+  let c=choke; if(steel){const i=CHOKE_ORDER.indexOf(c); c=CHOKE_ORDER[Math.min(i+1,CHOKE_ORDER.length-1)];}
+  const tab=CHOKE[c], ks=Object.keys(tab).map(Number).sort((a,b)=>a-b);
+  if(rangeYd<=ks[0])return tab[ks[0]];
+  if(rangeYd>=ks[ks.length-1]){const r0=ks[ks.length-2],r1=ks[ks.length-1];const s=(tab[r1]-tab[r0])/(r1-r0);return Math.max(3,tab[r1]+s*(rangeYd-r1));}
+  for(let i=1;i<ks.length;i++){if(rangeYd<=ks[i]){const t=(rangeYd-ks[i-1])/(ks[i]-ks[i-1]);return tab[ks[i-1]]+t*(tab[ks[i]]-tab[ks[i-1]]);}}
+  return tab[ks[ks.length-1]];
+}
+function sigmaFromCircle(total,circle){let f=circle/total;f=Math.min(Math.max(f,1e-6),0.999999);return 15/Math.sqrt(-2*Math.log(1-f));}
+function hitsOnArea(total,sigma,area){const rv=Math.sqrt(area/Math.PI);const f=1-Math.exp(-(rv*rv)/(2*sigma*sigma));return total*f*0.84;}
+function penetrationIn(matKey,dIn,vFps){const massGr=pelletMassG(matKey,dIn)*GRAINS_PER_GRAM;const de=dIn+0.033;const csd=(massGr/7000)/(de*de);return Math.max(0,0.1834*csd*vFps);}
+function poissonAtLeast(k,lam){if(k<=0)return 1;if(lam<=0)return 0;let cdf=Math.exp(-lam),term=cdf;for(let i=1;i<k;i++){term*=lam/i;cdf+=term;}return Math.min(1,Math.max(0,1-cdf));}
+
+function evaluate(s){
+  const sp=SPECIES[s.species], dIn=SHOT[s.shot], steel=(s.material==="steel");
+  const total=pelletCount(s.material,dIn,s.payload);
+  const massGr=pelletMassG(s.material,dIn)*GRAINS_PER_GRAM;
+  const v=retainedFps(s.material,dIn,s.velocity,s.range);
+  const e=energyFtlb(massGr,v);
+  const eGate=e>=sp.e;
+  const pen=penetrationIn(s.material,dIn,v);
+  const depthGate=pen>=sp.depth;
+  const choke=s.choke||sp.choke;
+  const pct=chokePct(choke,s.range,steel);
+  const circle=total*pct/100;
+  const scale=(s.present==="going")?0.55:1.0;
+  const sigma=sigmaFromCircle(total,circle);
+  const lam=hitsOnArea(total,sigma,sp.body*scale);
+  const req=(s.present==="going")?sp.req:sp.ros;
+  const patternOk=circle>=sp.min;
+  const p=eGate?poissonAtLeast(req,lam):0;
+  let verdict, reasons=[];
+  if(!eGate)reasons.push("Retained per-pellet energy is below the "+sp.e.toFixed(2)+" ft·lbf minimum — pellets may not reach vitals.");
+  if(!patternOk)reasons.push("Only ~"+Math.round(circle)+" pellets in the 30″ circle; Roster's minimum for this bird is "+sp.min+".");
+  if(!eGate||!patternOk){verdict="wounding-likely";}
+  else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
+  else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
+  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons};
+}
+function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
+
+/* ---------------- UI ---------------------------------------------------------- */
+const $=id=>document.getElementById(id);
+const state={species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy"};
+
+function fillSelect(el,entries,val){el.innerHTML=entries.map(([k,label])=>`<option value="${k}"${k===val?" selected":""}>${label}</option>`).join("");}
+fillSelect($("species"),Object.entries(SPECIES).map(([k,v])=>[k,v.name]),state.species);
+fillSelect($("material"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),state.material);
+fillSelect($("shot"),Object.keys(SHOT).map(k=>[k,"#"+k+" ("+SHOT[k].toFixed(3)+"″)"]),state.shot);
+function fillChoke(){fillSelect($("choke"),[["","Recommended ("+CHOKE_NAME[SPECIES[state.species].choke]+")"],...CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]])],state.choke);}
+fillChoke();
+
+const badgeClass={"clean-kill-likely":"go","marginal":"warn","wounding-likely":"crit"};
+const badgeText={"clean-kill-likely":"Clean kill likely","marginal":"Marginal","wounding-likely":"Wounding likely"};
+
+function render(){
+  const r=evaluate(state);
+  // verdict
+  const cls=badgeClass[r.verdict];
+  $("verdict").className="verdict card "+cls;
+  $("badge").className="badge "+cls; $("badgeText").textContent=badgeText[r.verdict];
+  $("prob").textContent=Math.round(r.p*100)+"%";
+  $("lambda").textContent=r.lam.toFixed(1);
+  $("need").textContent=r.req+(r.present==="going"?"":"");
+  $("circle").textContent=Math.round(r.circle);
+  const mr=maxRange(state);
+  $("effRange").textContent=mr?("clean to "+mr+" yd"):"no clean-kill range";
+  // readouts
+  $("rv").innerHTML=Math.round(r.v)+" <small>fps</small>";
+  $("eng").innerHTML=r.e.toFixed(2)+" <small>ft·lbf</small>";
+  $("eChip").className="chip "+(r.eGate?"pass":"fail"); $("eChip").textContent=r.eGate?"pass":"low";
+  $("pen").innerHTML=r.pen.toFixed(2)+" <small>in</small>";
+  $("pChip").className="chip "+(r.depthGate?"pass":"fail"); $("pChip").textContent=r.depthGate?"pass":"shallow";
+  $("patpct").innerHTML=Math.round(r.pct)+"% <small>· "+r.total+" pellets</small>";
+  // notes
+  $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
+  $("reco").innerHTML="<b>"+r.sp.name+".</b> "+r.sp.guide;
+  drawBoard(r);
+}
+
+/* pattern board */
+let seedInputs="";
+function hashSeed(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function drawBoard(r){
+  const cv=$("board"), ctx=cv.getContext("2d"), S=cv.width, cx=S/2, cy=S/2;
+  const view=40, ppi=S/view; // pixels per inch
+  const style=getComputedStyle(document.documentElement);
+  const accent=style.getPropertyValue("--accent").trim();
+  const line=style.getPropertyValue("--line").trim();
+  const panel=style.getPropertyValue("--panel-2").trim();
+  const zoneCol=r.verdict==="clean-kill-likely"?style.getPropertyValue("--go").trim()
+    :r.verdict==="marginal"?style.getPropertyValue("--warn").trim():style.getPropertyValue("--crit").trim();
+  $("zoneSwatch").style.background=zoneCol;
+  ctx.clearRect(0,0,S,S);
+  ctx.fillStyle=panel; ctx.beginPath(); ctx.arc(cx,cy,15*ppi,0,7); ctx.fill();
+  // rings 30" and 20"
+  ctx.strokeStyle=line; ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(cx,cy,15*ppi,0,7);ctx.stroke();
+  ctx.setLineDash([4,6]);ctx.beginPath();ctx.arc(cx,cy,10*ppi,0,7);ctx.stroke();ctx.setLineDash([]);
+  // crosshair
+  ctx.strokeStyle=line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx-6,cy);ctx.lineTo(cx+6,cy);ctx.moveTo(cx,cy-6);ctx.lineTo(cx,cy+6);ctx.stroke();
+  // body zone ellipse (area preserved, slightly taller than wide)
+  const scale=(state.present==="going")?0.55:1.0;
+  const area=r.sp.body*scale; const rv=Math.sqrt(area/Math.PI);
+  const ry=rv*1.25*ppi, rx=rv/1.25*ppi;
+  ctx.save();ctx.globalAlpha=0.16;ctx.fillStyle=zoneCol;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();ctx.restore();
+  ctx.strokeStyle=zoneCol;ctx.globalAlpha=0.7;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.stroke();ctx.globalAlpha=1;
+  // pellets — seeded gaussian scatter, sigma from pattern
+  const seed=hashSeed([state.species,state.material,state.shot,state.payload,state.velocity,state.choke,state.range,state.present].join("|"));
+  const rnd=mulberry32(seed); const gauss=()=>{let u=0,v=0;while(u===0)u=rnd();while(v===0)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+  const shown=Math.min(r.total,800);
+  ctx.fillStyle=accent;
+  for(let i=0;i<shown;i++){
+    const px=cx+gauss()*r.sigma*ppi, py=cy+gauss()*r.sigma*ppi;
+    if(px<0||px>S||py<0||py>S)continue;
+    const inZone=((px-cx)*(px-cx))/(rx*rx)+((py-cy)*(py-cy))/(ry*ry)<=1;
+    ctx.globalAlpha=inZone?1:0.5;
+    ctx.beginPath();ctx.arc(px,py,inZone?3.1:2.2,0,7);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+/* wiring */
+$("species").addEventListener("change",e=>{state.species=e.target.value;state.choke="";fillChoke();render();});
+$("material").addEventListener("change",e=>{state.material=e.target.value;render();});
+$("shot").addEventListener("change",e=>{state.shot=e.target.value;render();});
+$("choke").addEventListener("change",e=>{state.choke=e.target.value;render();});
+$("range").addEventListener("input",e=>{state.range=+e.target.value;$("rangeVal").textContent=e.target.value;render();});
+function syncNum(id,key,fmt){const el=$(id);el.addEventListener("input",()=>{const v=parseFloat(el.value);if(!isNaN(v)){state[key]=v;$(id+"Val")&&($(id.replace("velocity","vel").replace("payload","payload")+"Val").textContent=fmt(v));render();}});}
+$("payload").addEventListener("input",()=>{const v=parseFloat($("payload").value);if(!isNaN(v)){state.payload=v;$("payloadVal").textContent=v.toFixed(2);render();}});
+$("velocity").addEventListener("input",()=>{const v=parseFloat($("velocity").value);if(!isNaN(v)){state.velocity=v;$("velVal").textContent=Math.round(v);render();}});
+document.querySelectorAll(".stepper button").forEach(b=>b.addEventListener("click",()=>{
+  const t=b.dataset.t,d=+b.dataset.d,inp=$(t),step=parseFloat(inp.step),min=parseFloat(inp.min),max=parseFloat(inp.max);
+  let v=Math.min(max,Math.max(min,parseFloat(inp.value)+d*step));inp.value=(t==="payload")?v.toFixed(3):v;
+  inp.dispatchEvent(new Event("input"));
+}));
+document.querySelectorAll("#present button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#present button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  state.present=b.dataset.mode;render();
+}));
+$("theme").addEventListener("click",()=>{
+  const root=document.documentElement;
+  const cur=root.getAttribute("data-theme")|| (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+  root.setAttribute("data-theme",cur==="dark"?"light":"dark");render();
+});
+render();
+</script>
+</body>
+</html>
