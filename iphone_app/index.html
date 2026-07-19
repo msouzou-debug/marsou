@@ -790,14 +790,19 @@ function openExport(){
    Priority (most-open choke -> smallest pellet -> lightest payload) subject to:
    penetration (energy gate), density (>= Roster minimum, the anti-gap count),
    and >=90% aim-&-gap-adjusted kill probability. Material = current selection. */
+// game-appropriate shot for the optimiser (exclude #10-#12 dust shot) + a real
+// penetration margin, so it recommends loads a hunter would actually use.
+const OPT_SIZES=SHOT_ORDER.filter(s=>!["10","11","12"].includes(s));
+const OPT_CHOKES=CHOKE_ORDER.filter(c=>!c.startsWith("spreader")); // conventional chokes only
+const ENERGY_MARGIN=1.3;
 function bestComboAt(rangeYd,target){
   const sp=SPECIES[state.species];
   let fallback=null;                      // best (highest-p) combo that meets energy + density
-  for(const ck of CHOKE_ORDER){          // most open first (least choke)
-    for(const sz of SHOT_ORDER){         // smallest pellet first
+  for(const ck of OPT_CHOKES){           // most open first (least choke)
+    for(const sz of OPT_SIZES){          // smallest game pellet first
       for(const pay of PAYLOADS){         // lightest cartridge first
         const r=evaluate({...state,choke:ck,shot:sz,payload:pay,range:rangeYd,measured:null});
-        if(!r.eGate || r.circle<sp.min) continue;
+        if(r.e < sp.e*ENERGY_MARGIN || r.circle<sp.min) continue;   // comfortable penetration + density
         if(r.p>=target) return {choke:ck,shot:sz,payload:pay,r,below:false};
         if(!fallback||r.p>fallback.r.p) fallback={choke:ck,shot:sz,payload:pay,r,below:true};
       }
