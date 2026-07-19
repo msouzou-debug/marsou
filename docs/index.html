@@ -203,6 +203,11 @@ footer a{color:var(--accent);text-decoration:none}
 .xt{border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;width:100%}
 .xt th,.xt td{border:1px solid var(--line);padding:5px 7px;text-align:center;white-space:nowrap}
 .xt th{color:var(--muted);font-weight:600;background:var(--panel-2)}
+.exnote{font-size:11.5px;color:var(--muted);margin:12px 0 6px;line-height:1.45}
+.exnote b{color:var(--accent)}
+.exraw{width:100%;height:110px;font-family:ui-monospace,"SF Mono",monospace;font-size:11px;
+  background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;
+  resize:vertical;white-space:pre;overflow:auto;-webkit-user-select:text;user-select:text}
 .mbanner{margin-top:12px;font-size:12.5px;line-height:1.4;padding:10px 12px;border-radius:11px;
   background:var(--accent-soft);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));
   display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -389,7 +394,11 @@ footer a{color:var(--accent);text-decoration:none}
         <button class="bigbtn" id="exportShare" type="button">Share / Save</button>
         <button class="bigbtn ghost" id="exportCopy" type="button">Copy CSV</button>
       </div>
-      <div id="exportBody" class="modal-body"></div>
+      <div class="modal-body">
+        <div id="exportBody"></div>
+        <p class="exnote">On iPhone the app is sandboxed, so downloads are blocked. Tap <b>Copy CSV</b> (or select the box below), then paste into <b>Numbers</b> or <b>Excel</b>. Direct file save works in the home-screen / web-hosted version.</p>
+        <textarea id="exportRaw" class="exraw" readonly aria-label="CSV data"></textarea>
+      </div>
     </div>
   </div>
 
@@ -709,7 +718,16 @@ function openExport(){
   const d=buildExportData();
   $("exportBody").innerHTML=exportToHtml(d);
   EXPORT_CSV=exportToCsv(d);
+  $("exportRaw").value=EXPORT_CSV;
   $("exportModal").style.display="flex";
+}
+function copyExport(){
+  const ta=$("exportRaw"); ta.focus(); ta.select();
+  try{ta.setSelectionRange(0,ta.value.length);}catch(e){}
+  let ok=false;
+  try{ok=document.execCommand("copy");}catch(e){}
+  if(!ok&&navigator.clipboard){navigator.clipboard.writeText(EXPORT_CSV).then(()=>{},()=>{});ok=true;}
+  return ok;
 }
 
 /* pattern board */
@@ -1015,26 +1033,34 @@ $("theme").addEventListener("click",()=>{
 $("exportBtn").addEventListener("click",openExport);
 $("exportClose").addEventListener("click",()=>$("exportModal").style.display="none");
 $("exportModal").addEventListener("click",e=>{if(e.target.id==="exportModal")$("exportModal").style.display="none";});
-$("exportCopy").addEventListener("click",async()=>{
-  try{ await navigator.clipboard.writeText(EXPORT_CSV);
-    $("exportCopy").textContent="Copied ✓"; setTimeout(()=>$("exportCopy").textContent="Copy CSV",1600);
-  }catch(e){ $("exportCopy").textContent="Copy blocked — screenshot the table"; setTimeout(()=>$("exportCopy").textContent="Copy CSV",2200); }
+$("exportCopy").addEventListener("click",()=>{
+  const ok=copyExport();
+  $("exportCopy").textContent= ok? "Copied ✓" : "Selected — tap Copy";
+  setTimeout(()=>$("exportCopy").textContent="Copy CSV",1800);
 });
+const IN_IFRAME = (function(){try{return window.self!==window.top;}catch(e){return true;}})();
 $("exportShare").addEventListener("click",async()=>{
   const fname="clean-shot-"+state.species+".csv";
-  // 1) native share sheet with a file (best on iPhone -> Save to Files / Mail / etc.)
+  // 1) native share sheet (best on iPhone -> Save to Files / Mail); works only if the frame allows web-share
   try{
     const file=new File([EXPORT_CSV],fname,{type:"text/csv"});
     if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Clean Shot range table"}); return; }
     if(navigator.share){ await navigator.share({title:"Clean Shot range table",text:EXPORT_CSV}); return; }
   }catch(e){ if(e&&e.name==="AbortError")return; }
-  // 2) fallback: classic download (works outside the sandboxed artifact iframe)
-  try{
-    const blob=new Blob([EXPORT_CSV],{type:"text/csv"});
-    const url=URL.createObjectURL(blob), a=document.createElement("a");
-    a.href=url; a.download=fname; document.body.appendChild(a); a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
-  }catch(e){ $("exportShare").textContent="Use Copy CSV / screenshot"; setTimeout(()=>$("exportShare").textContent="Share / Save",2200); }
+  // 2) real file download — only outside the sandboxed artifact iframe (home-screen / Pages / desktop)
+  if(!IN_IFRAME){
+    try{
+      const blob=new Blob([EXPORT_CSV],{type:"text/csv"});
+      const url=URL.createObjectURL(blob), a=document.createElement("a");
+      a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+      setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
+      return;
+    }catch(e){}
+  }
+  // 3) sandbox fallback: copy to clipboard so it can be pasted into Excel/Numbers
+  copyExport();
+  $("exportShare").textContent="Copied — paste into Excel";
+  setTimeout(()=>$("exportShare").textContent="Share / Save",2200);
 });
 
 setControlsFromState(); updateBanner(); render();
