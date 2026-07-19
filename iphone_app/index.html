@@ -230,6 +230,7 @@ footer a{color:var(--accent);text-decoration:none}
         <button data-u="imperial" class="on">IMP</button>
         <button data-u="metric">MET</button>
       </div>
+      <button class="theme-btn" id="reset" aria-label="Reset to defaults" title="Reset to defaults">↺</button>
       <button class="theme-btn" id="theme" aria-label="Toggle theme">◐</button>
     </div>
   </header>
@@ -1030,6 +1031,22 @@ $("theme").addEventListener("click",()=>{
   const cur=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
   root.setAttribute("data-theme",cur==="dark"?"light":"dark"); if(PH.img)drawOverlay(); render();
 });
+function resetAll(){
+  Object.assign(state,{species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy",units:"imperial",measured:null});
+  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:40,sheetIn:40,manual:false,mat:"steel",shot:"2",payOz:1.125,measurements:[]});
+  placeStage=0;
+  $("species").value="mallard";
+  $("thresh").value=50; $("threshVal").textContent="50";
+  $("minsize").value=2; $("minsizeVal").textContent="2";
+  $("photoStage").style.display="none"; $("exportModal").style.display="none";
+  const pf=$("photoFile"); if(pf)pf.value="";
+  document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="decoy"));
+  document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u==="imperial"));
+  $("pchoke").value=SPECIES.mallard.choke;
+  renderMlist(); fillChoke(); setControlsFromState(); updateBanner(); render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$("reset").addEventListener("click",resetAll);
 $("exportBtn").addEventListener("click",openExport);
 $("exportClose").addEventListener("click",()=>$("exportModal").style.display="none");
 $("exportModal").addEventListener("click",e=>{if(e.target.id==="exportModal")$("exportModal").style.display="none";});
