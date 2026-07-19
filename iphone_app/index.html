@@ -172,7 +172,13 @@ footer a{color:var(--accent);text-decoration:none}
 .stepper.mini button{width:38px;font-size:19px}
 .stepper.mini input{font-size:15px}
 .btnrow{display:flex;gap:10px}
-.btnrow .bigbtn{flex:1}
+.btnrow .bigbtn{flex:1;transition:background .15s ease,color .15s ease}
+.btnrow .bigbtn.on{background:var(--accent);color:#1a130a;border-color:transparent}
+@media (prefers-color-scheme:light){.btnrow .bigbtn.on{color:#fff}}
+:root[data-theme="light"] .btnrow .bigbtn.on{color:#fff}
+:root[data-theme="dark"] .btnrow .bigbtn.on{color:#1a130a}
+.loadcount{font-size:12.5px;color:var(--muted);margin-top:12px}
+.loadcount b{color:var(--accent);font-variant-numeric:tabular-nums}
 .mbanner{margin-top:12px;font-size:12.5px;line-height:1.4;padding:10px 12px;border-radius:11px;
   background:var(--accent-soft);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));
   display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -262,6 +268,7 @@ footer a{color:var(--accent);text-decoration:none}
       <label for="choke">Choke</label>
       <select id="choke"></select>
     </div>
+    <div class="loadcount" id="loadCount"></div>
   </div>
 
   <div class="card pad">
@@ -297,6 +304,7 @@ footer a{color:var(--accent);text-decoration:none}
       </div>
       <div class="field"><label for="pchoke">Choke</label><select id="pchoke"></select></div>
     </div>
+    <div class="loadcount" id="pLoadCount"></div>
     <div class="row2">
       <div class="field">
         <label for="pdist">Patterned at <span class="val mono"><span id="pdistVal">40</span> <span class="uRange">yd</span></span></label>
@@ -536,7 +544,7 @@ function setControlsFromState(){
   else{pp.min=0.5;pp.max=2.25;pp.step=0.125;pp.value=(PH.payOz||1.125).toFixed(3);}
   $("ppayVal").textContent=m?pp.value:(PH.payOz||1.125).toFixed(2);
   document.querySelectorAll(".uPay2").forEach(e=>e.textContent=m?"g":"oz");
-  buildShot();
+  buildShot(); updatePLoad();
 }
 
 function updateBanner(){
@@ -568,8 +576,15 @@ function render(){
   $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+(r.measuredUsed?'<span class="pill-measured">measured</span>':'');
   $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
   $("reco").innerHTML="<b>"+r.sp.name+".</b> "+r.sp.guide;
+  $("loadCount").innerHTML="This shell holds ≈ <b>"+r.total+"</b> pellets ("+MATERIALS[state.material].name+" #"+state.shot+").";
   drawBoard(r);
 }
+function updatePLoad(){
+  const el=$("pLoadCount"); if(!el)return;
+  const n=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
+  el.innerHTML="This shell holds ≈ <b>"+n+"</b> pellets — the counting cap.";
+}
+function setPhotoMode(id){["photoAuto","photoManual","photoFit"].forEach(x=>$(x).classList.toggle("on",x===id));}
 
 /* pattern board */
 let seedInputs="";
@@ -767,7 +782,7 @@ function loadPhoto(file){
     pcv.width=CW; pcv.height=CH;
     PH.img=img; PH.cx=PH.cy=PH.r=null; PH.paper=null; PH.holes=[]; PH.count=0; placeStage=0;
     $("photoStage").style.display="flex"; $("photoStep").textContent="Auto-detecting…";
-    setTimeout(analyzeAuto,30);
+    setPhotoMode("photoAuto"); setTimeout(analyzeAuto,30);
   };
   const rd=new FileReader(); rd.onload=e=>img.src=e.target.result; rd.readAsDataURL(file);
 }
@@ -785,9 +800,9 @@ pcv.addEventListener("click",ev=>{
   else{const r2=Math.hypot(x-PH.cx,y-PH.cy);PH.r=(PH._r1+r2)/2;placeStage=0;
     $("photoStep").innerHTML="Circle set from centre + two edges — tune sensitivity if needed.";recountManual();}
 });
-$("photoAuto").addEventListener("click",analyzeAuto);
+$("photoAuto").addEventListener("click",()=>{setPhotoMode("photoAuto");analyzeAuto();});
 $("photoManual").addEventListener("click",()=>{
-  if(!PH.img)return; PH.manual=true; placeStage=0;
+  if(!PH.img)return; PH.manual=true; placeStage=0; setPhotoMode("photoManual");
   $("photoStep").innerHTML="<b>By hand:</b> tap the centre, then the two opposite edges of the "+circleLabel()+" circle.";
 });
 $("thresh").addEventListener("input",e=>{$("threshVal").textContent=e.target.value;
@@ -796,12 +811,13 @@ $("minsize").addEventListener("input",e=>{$("minsizeVal").textContent=e.target.v
   if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
 $("sheetW").addEventListener("input",e=>{const v=+e.target.value;PH.sheetIn=isMetric()?v/2.54:v;
   $("sheetWVal").textContent=v; if(PH.img&&!PH.manual)analyzeAuto();});
-$("pmat").addEventListener("change",e=>{PH.mat=e.target.value; if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
-$("pshot").addEventListener("change",e=>{PH.shot=e.target.value; if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
+$("pmat").addEventListener("change",e=>{PH.mat=e.target.value;updatePLoad(); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
+$("pshot").addEventListener("change",e=>{PH.shot=e.target.value;updatePLoad(); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
 $("ppay").addEventListener("input",e=>{const v=+e.target.value;PH.payOz=isMetric()?v/OZ_G:v;
-  $("ppayVal").textContent=isMetric()?Math.round(PH.payOz*OZ_G):PH.payOz.toFixed(2); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
+  $("ppayVal").textContent=isMetric()?Math.round(PH.payOz*OZ_G):PH.payOz.toFixed(2);updatePLoad(); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
 $("photoFit").addEventListener("click",()=>{
   if(!PH.img)return;
+  setPhotoMode("photoFit");
   const exp=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz); let ms=+$("minsize").value,g=0;
   while((PH.raw||PH.count)>exp*1.05 && ms<8 && g++<8){ms++;$("minsize").value=ms;$("minsizeVal").textContent=ms;PH.manual&&PH.r?recountManual():analyzeAuto();}
   if((PH.raw||PH.count)>exp*1.05)$("photoStep").innerHTML+=" Still above the load's ~"+exp+" pellets — set the true count with ±.";
