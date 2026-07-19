@@ -101,11 +101,12 @@ canvas{width:100%;height:auto;display:block;border-radius:12px}
 .field:last-child{margin-bottom:0}
 .field label{font-size:12.5px;color:var(--muted);letter-spacing:.02em;display:flex;justify-content:space-between;align-items:baseline}
 .field label .val{color:var(--text);font-weight:600;font-size:14px}
-select,input[type=number]{
+select,input[type=number],input[type=text]{
   appearance:none;-webkit-appearance:none;width:100%;font-size:16px;color:var(--text);
   background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
   font-family:inherit;
 }
+input[type=text]::placeholder{color:var(--muted);opacity:.7}
 select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23909aab' stroke-width='1.6' stroke-linecap='round'/></svg>");
   background-repeat:no-repeat;background-position:right 14px center;padding-right:34px}
 input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -311,6 +312,13 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="read"><span class="k">Pattern density</span><span class="v mono" id="patpct">—</span></div>
     </div>
     <ul class="notes" id="notes"></ul>
+  </div>
+
+  <div class="card pad">
+    <div class="section-label">Shoot details</div>
+    <div class="field"><label for="shooter">Shooter name</label><input type="text" id="shooter" placeholder="e.g. J. Smith" autocomplete="name"></div>
+    <div class="field"><label for="gun">Gun / brand</label><input type="text" id="gun" placeholder="e.g. Beretta 686"></div>
+    <p class="taghint" style="margin-top:2px">Appears on the exported range table.</p>
   </div>
 
   <div class="card pad">
@@ -563,9 +571,9 @@ function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({..
 
 /* ---------------- UI ---------------------------------------------------------- */
 const $=id=>document.getElementById(id);
-const state={species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy",units:"imperial",measured:null};
+const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:""};
 /* photo-tool state (the cartridge you patterned) */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:40,sheetIn:40,manual:false,mat:"steel",shot:"2",payOz:1.125,measurements:[]};
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]};
 
 /* unit conversion */
 const YD_M=0.9144, FPS_MS=0.3048, OZ_G=28.349523125, FTLB_J=1.35581795, IN_MM=25.4;
@@ -701,18 +709,22 @@ function buildExportData(){
       Math.round(r.pct), Math.round(r.circle), r.lam.toFixed(1), Math.round(r.p*100), r.verdict];});
   const head2=["Size",...ranges.map(rd=>rd+U.r)];
   const rows2=SHOT_ORDER.map(sz=>["#"+sz,...ranges.map(rd=>Math.round(evaluate({...state,shot:sz,range:toYd(rd)}).p*100))]);
-  return {cfg,head1,rows1,head2,rows2};
+  const who=[state.shooter&&("Shooter: "+state.shooter), state.gun&&("Gun: "+state.gun)].filter(Boolean).join("   ·   ");
+  return {who,cfg,head1,rows1,head2,rows2};
 }
 function exportToHtml(d){
-  const t=(head,rows)=>`<table class="xt"><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr>`
-    +rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")+`</table>`;
-  return `<p class="xcfg">${d.cfg}</p>`+t(d.head1,d.rows1)
+  const eh=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const t=(head,rows)=>`<table class="xt"><tr>${head.map(h=>`<th>${eh(h)}</th>`).join("")}</tr>`
+    +rows.map(r=>`<tr>${r.map(c=>`<td>${eh(c)}</td>`).join("")}</tr>`).join("")+`</table>`;
+  return (d.who?`<p class="xcfg" style="font-size:13px;color:var(--text)"><b>${eh(d.who)}</b></p>`:"")
+    +`<p class="xcfg">${eh(d.cfg)}</p>`+t(d.head1,d.rows1)
     +`<div class="xh">Clean-kill % by pellet size × range</div>`+t(d.head2,d.rows2);
 }
 function exportToCsv(d){
   const esc=v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   const line=a=>a.map(esc).join(",");
-  return [d.cfg,"",line(d.head1),...d.rows1.map(line),"","Clean-kill % by pellet size × range",
+  const pre=[]; if(d.who)pre.push(d.who); pre.push(d.cfg,"");
+  return [...pre,line(d.head1),...d.rows1.map(line),"","Clean-kill % by pellet size × range",
           line(d.head2),...d.rows2.map(line)].join("\n");
 }
 function openExport(){
@@ -1032,21 +1044,24 @@ $("theme").addEventListener("click",()=>{
   root.setAttribute("data-theme",cur==="dark"?"light":"dark"); if(PH.img)drawOverlay(); render();
 });
 function resetAll(){
-  Object.assign(state,{species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy",units:"imperial",measured:null});
-  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:40,sheetIn:40,manual:false,mat:"steel",shot:"2",payOz:1.125,measurements:[]});
+  // shooter + gun are intentionally kept (identity persists across a reset)
+  Object.assign(state,{species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null});
+  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]});
   placeStage=0;
-  $("species").value="mallard";
+  $("species").value="partridge";
   $("thresh").value=50; $("threshVal").textContent="50";
   $("minsize").value=2; $("minsizeVal").textContent="2";
   $("photoStage").style.display="none"; $("exportModal").style.display="none";
   const pf=$("photoFile"); if(pf)pf.value="";
   document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="decoy"));
-  document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u==="imperial"));
-  $("pchoke").value=SPECIES.mallard.choke;
+  document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u==="metric"));
+  $("pchoke").value=SPECIES.partridge.choke;
   renderMlist(); fillChoke(); setControlsFromState(); updateBanner(); render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 $("reset").addEventListener("click",resetAll);
+$("shooter").addEventListener("input",e=>{state.shooter=e.target.value;});
+$("gun").addEventListener("input",e=>{state.gun=e.target.value;});
 $("exportBtn").addEventListener("click",openExport);
 $("exportClose").addEventListener("click",()=>$("exportModal").style.display="none");
 $("exportModal").addEventListener("click",e=>{if(e.target.id==="exportModal")$("exportModal").style.display="none";});
@@ -1080,6 +1095,8 @@ $("exportShare").addEventListener("click",async()=>{
   setTimeout(()=>$("exportShare").textContent="Share / Save",2200);
 });
 
+document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u===state.units));
+document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode===state.present));
 setControlsFromState(); updateBanner(); render();
 </script>
 </body>
