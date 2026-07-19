@@ -453,7 +453,7 @@ const MATERIALS={
 const SHOT={ "12":.05,"11":.06,"10":.07,"9":.08,"8":.09,"7.5":.095,"7":.10,"6":.11,"5":.12,"4":.13,"3":.14,"2":.15,"1":.16,"B":.17,"BB":.18,"BBB":.19,"T":.20 };
 // explicit display order (finest -> largest); JS reorders numeric object keys, so don't rely on SHOT's order
 const SHOT_ORDER=["12","11","10","9","8","7.5","7","6","5","4","3","2","1","B","BB","BBB","T"];
-const PAYLOADS=[0.75,0.875,1.0,1.125,1.25,1.375,1.5,1.625]; // oz, light -> heavy
+const PAYLOADS=[21,24,28,32,36].map(g=>g/28.349523125); // grams -> oz, capped at 36 g (heavier makes no sense)
 
 const CHOKE_ORDER=["spreader1","spreader2","cylinder","skeet","ic","modified","im","full","extrafull"];
 const CHOKE_NAME={spreader1:"Spreader 1 (widest)",spreader2:"Spreader 2",cylinder:"Cylinder",skeet:"Skeet",ic:"Improved Cylinder",modified:"Modified",im:"Improved Modified",full:"Full",extrafull:"Extra Full"};
@@ -793,7 +793,7 @@ function openExport(){
 // game-appropriate shot for the optimiser (exclude #10-#12 dust shot) + a real
 // penetration margin, so it recommends loads a hunter would actually use.
 const OPT_SIZES=SHOT_ORDER.filter(s=>!["10","11","12"].includes(s));
-const OPT_CHOKES=CHOKE_ORDER.filter(c=>!c.startsWith("spreader")); // conventional chokes only
+const OPT_CHOKES=CHOKE_ORDER; // most open (incl. spreaders, best for close shots) -> tightest
 const ENERGY_MARGIN=1.3;
 function bestComboAt(rangeYd,target){
   const sp=SPECIES[state.species];
