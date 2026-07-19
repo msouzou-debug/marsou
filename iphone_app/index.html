@@ -258,7 +258,7 @@ footer a{color:var(--accent);text-decoration:none}
   <div class="board-card card">
     <div class="board-head">
       <span class="t">Pattern board · 40″ view</span>
-      <span class="legend"><span><i style="background:var(--accent)"></i>pellet</span><span><i id="zoneSwatch"></i>bird</span></span>
+      <span class="legend"><span><i style="background:var(--accent)"></i>pellet</span><span><i id="zoneSwatch"></i>bird</span><span><i style="background:#7aa0dc"></i>aim</span></span>
     </div>
     <canvas id="board" width="640" height="640"></canvas>
   </div>
@@ -279,6 +279,14 @@ footer a{color:var(--accent);text-decoration:none}
         <button data-mode="decoy" class="on">Incoming</button>
         <button data-mode="side">Crossing</button>
         <button data-mode="going">Going-away</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Aim / gun fit <span class="taghint" style="font-weight:400">— your pointing error</span></label>
+      <div class="seg" id="aim">
+        <button data-aim="6">Fine</button>
+        <button data-aim="12" class="on">Average</button>
+        <button data-aim="20">Rough</button>
       </div>
     </div>
   </div>
@@ -313,6 +321,8 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="read"><span class="k">Per-pellet energy <span class="chip" id="eChip">—</span></span><span class="v mono" id="eng">—</span></div>
       <div class="read"><span class="k">Penetration <span class="chip" id="pChip">—</span></span><span class="v mono" id="pen">—</span></div>
       <div class="read"><span class="k">Pattern density</span><span class="v mono" id="patpct">—</span></div>
+      <div class="read"><span class="k">Pattern width</span><span class="v mono" id="patw">—</span></div>
+      <div class="read"><span class="k">Aim spread</span><span class="v mono" id="aimw">—</span></div>
     </div>
     <ul class="notes" id="notes"></ul>
   </div>
@@ -496,16 +506,38 @@ function retainedFps(matKey,dIn,mvFps,rangeYd){
 }
 function energyFtlb(massGr,vFps){return massGr*vFps*vFps/450240;}
 
-function chokePct(choke,rangeYd,steel){
+// Nominal spread: pattern sigma grows ~linearly with distance (a cone from the
+// muzzle), anchored to each choke's 40-yd "% in the 30in circle". This gives
+// realistic patterns up close — a tight choke at short range is a small knot,
+// an open/spreader choke a wide one (a flat %-table hid this).
+function chokeSigma40(choke,steel){
   let c=choke; if(steel){const i=CHOKE_ORDER.indexOf(c); c=CHOKE_ORDER[Math.min(i+1,CHOKE_ORDER.length-1)];}
-  const tab=CHOKE[c], ks=Object.keys(tab).map(Number).sort((a,b)=>a-b);
-  if(rangeYd<=ks[0])return tab[ks[0]];
-  if(rangeYd>=ks[ks.length-1]){const r0=ks[ks.length-2],r1=ks[ks.length-1];const s=(tab[r1]-tab[r0])/(r1-r0);return Math.max(3,tab[r1]+s*(rangeYd-r1));}
-  for(let i=1;i<ks.length;i++){if(rangeYd<=ks[i]){const t=(rangeYd-ks[i-1])/(ks[i]-ks[i-1]);return tab[ks[i-1]]+t*(tab[ks[i]]-tab[ks[i-1]]);}}
-  return tab[ks[ks.length-1]];
+  const pct40=Math.min(99.5,Math.max(1,(CHOKE[c]&&CHOKE[c][40])||40));
+  return 15/Math.sqrt(-2*Math.log(1-pct40/100));           // sigma at 40 yd (in)
 }
+function chokeSigmaNominal(choke,range,steel){return Math.max(0.5, chokeSigma40(choke,steel)*range/40);}
+function circleFromSigma(total,sigma){return Math.min(total, total*(1-Math.exp(-(15*15)/(2*sigma*sigma))));}
 function sigmaFromCircle(total,circle){let f=circle/total;f=Math.min(Math.max(f,1e-6),0.999999);return 15/Math.sqrt(-2*Math.log(1-f));}
-function hitsOnArea(total,sigma,area){const rv=Math.sqrt(area/Math.PI);const f=1-Math.exp(-(rv*rv)/(2*sigma*sigma));return total*f*0.84;}
+// --- aim-error-aware terminal hit model ------------------------------------
+// A real shot's pattern centre lands off the aim point by a pointing/lead error.
+// A pattern tighter than that error is often a clean miss; a wider one forgives
+// it. So P(>=k hits) is integrated over the aim offset (Rayleigh), not assumed
+// perfectly centred on the bird — which is why an over-tight choke loses close in.
+function scaledBesselI0(z){z=Math.abs(z);
+  if(z<15){let sum=1,term=1;const y=z*z/4;for(let m=1;m<60;m++){term*=y/(m*m);sum+=term;if(term<1e-13*sum)break;}return Math.exp(-z)*sum;}
+  const t=1/z;return (1/Math.sqrt(2*Math.PI*z))*(1+0.125*t+0.0703125*t*t+0.0732421875*t*t*t);}
+function patternInDisk(rho,sp,rb){ // fraction of a 2-D Gaussian (std sp) centred at distance rho, inside disk radius rb
+  if(sp<=1e-6)return rho<rb?1:0;
+  const inv=1/(sp*sp),N=24,dr=rb/N; let acc=0;
+  for(let i=0;i<N;i++){const r=(i+0.5)*dr,dz=r-rho; acc+=r*inv*Math.exp(-dz*dz*0.5*inv)*scaledBesselI0(r*rho*inv)*dr;}
+  return Math.min(1,acc);}
+function aimSigmaInches(aim,rangeYd){const a=(aim==null?12:aim);return a*rangeYd/40;} // per-axis pointing sigma (in)
+function lethalityWithAim(totalEff,sp,rb,sa,k){
+  if(sa<=1e-6){const lam=totalEff*patternInDisk(0,sp,rb);return {p:poissonAtLeast(k,lam),mean:lam};}
+  const M=18,rhoMax=4.5*sa,drho=rhoMax/M; let P=0,mean=0,wsum=0;
+  for(let j=0;j<M;j++){const rho=(j+0.5)*drho,w=(rho/(sa*sa))*Math.exp(-rho*rho/(2*sa*sa))*drho;
+    const lam=totalEff*patternInDisk(rho,sp,rb); P+=w*poissonAtLeast(k,lam); mean+=w*lam; wsum+=w;}
+  return {p:wsum>0?P/wsum:0, mean:wsum>0?mean/wsum:0};}
 function penetrationIn(matKey,dIn,vFps){const massGr=pelletMassG(matKey,dIn)*GRAINS_PER_GRAM;const de=dIn+0.033;const csd=(massGr/7000)/(de*de);return Math.max(0,0.1834*csd*vFps);}
 function poissonAtLeast(k,lam){if(k<=0)return 1;if(lam<=0)return 0;let cdf=Math.exp(-lam),term=cdf;for(let i=1;i<k;i++){term*=lam/i;cdf+=term;}return Math.min(1,Math.max(0,1-cdf));}
 
@@ -549,32 +581,38 @@ function evaluate(s){
     pct=100*circle/Math.max(1,total);
     measuredUsed=true;
   }else{
-    pct=chokePct(choke,s.range,steel);
-    circle=total*pct/100;
+    const sigp=chokeSigmaNominal(choke,s.range,steel);
+    circle=circleFromSigma(total,sigp);
+    pct=100*circle/Math.max(1,total);
   }
   // presented body area by shot angle: crossing shows the full flank (largest),
   // incoming ~ full frontal, going-away shields the vitals (smallest).
   const scale=s.present==="going"?0.55:s.present==="side"?1.15:1.0;
-  const sigma=sigmaFromCircle(total,circle);
-  const lam=hitsOnArea(total,sigma,sp.body*scale);
+  const sigma=sigmaFromCircle(total,circle);        // pattern spread (in)
+  const rb=Math.sqrt((sp.body*scale)/Math.PI);      // presented bird radius (in)
+  const sa=aimSigmaInches(s.aim,s.range);           // aim/pointing error (in)
+  const totalEff=total*0.84;                        // Lowry core correction
   // decoyed/incoming birds present vitals frontally (Roster's lower count);
   // crossing and going-away birds use the 3-4 torso-hit standard.
   const req=(s.present==="decoy")?sp.ros:sp.req;
   const patternOk=circle>=sp.min;
-  const p=eGate?poissonAtLeast(req,lam):0;
+  const res=eGate?lethalityWithAim(totalEff,sigma,rb,sa,req):{p:0,mean:totalEff*patternInDisk(0,sigma,rb)};
+  const lam=res.mean, p=res.p;
+  const patWidthIn=4.29*sigma;                       // ~90% pattern spread diameter (in)
+  const aimWidthIn=2*sa;                             // typical off-centre miss diameter (in)
   let verdict, reasons=[];
   if(!eGate)reasons.push("Retained per-pellet energy is below the "+sp.e.toFixed(2)+" ft·lbf minimum — pellets may not reach vitals.");
   if(!patternOk)reasons.push("Only ~"+Math.round(circle)+" pellets in the 30″ circle; Roster's minimum for this bird is "+sp.min+".");
   if(!eGate||!patternOk){verdict="wounding-likely";}
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
-  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons,measuredUsed};
+  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons,measuredUsed,patWidthIn,aimWidthIn};
 }
 function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
 
 /* ---------------- UI ---------------------------------------------------------- */
 const $=id=>document.getElementById(id);
-const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:""};
+const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 /* photo-tool state (the cartridge you patterned) */
 const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]};
 
@@ -684,6 +722,8 @@ function render(){
   $("pen").innerHTML=(m?Math.round(r.pen*IN_MM):r.pen.toFixed(2))+' <small>'+(m?"mm":"in")+'</small>';
   $("pChip").className="chip "+(r.depthGate?"pass":"fail"); $("pChip").textContent=r.depthGate?"pass":"shallow";
   $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+(r.measuredUsed?'<span class="pill-measured">measured</span>':'');
+  $("patw").innerHTML=(m?Math.round(r.patWidthIn*2.54):Math.round(r.patWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
+  $("aimw").innerHTML=(m?Math.round(r.aimWidthIn*2.54):Math.round(r.aimWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
   $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
   $("reco").innerHTML="<b>"+r.sp.name+".</b> "+r.sp.guide;
   $("loadCount").innerHTML="This shell holds ≈ <b>"+r.total+"</b> pellets ("+MATERIALS[state.material].name+" #"+state.shot+").";
@@ -705,7 +745,7 @@ function buildExportData(){
   const cfg=`${SPECIES[state.species].name} · ${MATERIALS[state.material].name} #${state.shot} · `
     +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
     +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[SPECIES[state.species].choke]} · ${state.present}`
-    +`${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
+    +` · aim ${state.aim}"@40yd${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
   const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Exp. hits`,`Clean-kill %`,`Verdict`];
   const rows1=ranges.map(rd=>{const r=evaluate({...state,range:toYd(rd)});
     return [rd, m?Math.round(r.v*FPS_MS):Math.round(r.v), m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(2),
@@ -766,6 +806,10 @@ function drawBoard(r){
   ctx.strokeStyle=line; ctx.lineWidth=2;
   ctx.beginPath();ctx.arc(cx,cy,15*ppi,0,7);ctx.stroke();
   ctx.setLineDash([4,6]);ctx.beginPath();ctx.arc(cx,cy,10*ppi,0,7);ctx.stroke();ctx.setLineDash([]);
+  // aim-error ring (how far off-centre your shots typically land)
+  const saIn=aimSigmaInches(state.aim,state.range);
+  if(saIn>0.2){ctx.strokeStyle="rgba(122,160,220,.65)";ctx.setLineDash([3,4]);ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(cx,cy,Math.min(19.5*ppi,saIn*ppi),0,7);ctx.stroke();ctx.setLineDash([]);}
   // crosshair
   ctx.strokeStyle=line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx-6,cy);ctx.lineTo(cx+6,cy);ctx.moveTo(cx,cy-6);ctx.lineTo(cx,cy+6);ctx.stroke();
   // body zone ellipse (area preserved, slightly taller than wide)
@@ -1036,6 +1080,10 @@ document.querySelectorAll("#present button").forEach(b=>b.addEventListener("clic
   document.querySelectorAll("#present button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   state.present=b.dataset.mode;render();
 }));
+document.querySelectorAll("#aim button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#aim button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  state.aim=+b.dataset.aim;render();
+}));
 document.querySelectorAll("#units button").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll("#units button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   state.units=b.dataset.u; setControlsFromState(); updateBanner(); render();
@@ -1048,7 +1096,7 @@ $("theme").addEventListener("click",()=>{
 });
 function resetAll(){
   // shooter + gun are intentionally kept (identity persists across a reset)
-  Object.assign(state,{species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null});
+  Object.assign(state,{species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,aim:12});
   Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]});
   placeStage=0;
   $("species").value="partridge";
@@ -1057,6 +1105,7 @@ function resetAll(){
   $("photoStage").style.display="none"; $("exportModal").style.display="none";
   const pf=$("photoFile"); if(pf)pf.value="";
   document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="decoy"));
+  document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===12));
   document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u==="metric"));
   $("pchoke").value=SPECIES.partridge.choke;
   renderMlist(); fillChoke(); setControlsFromState(); updateBanner(); render();
@@ -1100,6 +1149,7 @@ $("exportShare").addEventListener("click",async()=>{
 
 document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u===state.units));
 document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode===state.present));
+document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim));
 setControlsFromState(); updateBanner(); render();
 </script>
 </body>
