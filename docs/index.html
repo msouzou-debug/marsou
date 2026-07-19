@@ -180,9 +180,29 @@ footer a{color:var(--accent);text-decoration:none}
 .loadcount{font-size:12.5px;color:var(--muted);margin-top:12px}
 .loadcount b{color:var(--accent);font-variant-numeric:tabular-nums}
 .mlist{font-size:12.5px;color:var(--muted);line-height:1.5}
-.mlist b{color:var(--accent);font-variant-numeric:tabular-nums}
-.mlist button{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
-  font-family:inherit;font-size:11px;padding:3px 8px;border-radius:8px;cursor:pointer;margin-left:6px}
+.mtitle{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 4px}
+.mtable{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.mtable td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.mtable td.tick{color:var(--go);font-weight:800;width:18px}
+.mtable td b{color:var(--accent)}
+.mtable td.rm{width:30px;text-align:right}
+.mtable button.mrm{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);width:26px;height:26px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1}
+.mok{font-size:12px;color:var(--go);margin-top:6px}
+.mhint2{font-size:12px;color:var(--muted);margin-top:6px}
+/* export modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:60}
+.modal-card{background:var(--panel);border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-head b{font-size:15px}
+.modal-head button{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);width:34px;height:34px;border-radius:10px;font-size:15px;cursor:pointer}
+.modal-actions{display:flex;gap:10px;margin-bottom:12px}
+.modal-actions .bigbtn{flex:1}
+.modal-body{overflow:auto;-webkit-overflow-scrolling:touch}
+.xcfg{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.4}
+.xh{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px}
+.xt{border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;width:100%}
+.xt th,.xt td{border:1px solid var(--line);padding:5px 7px;text-align:center;white-space:nowrap}
+.xt th{color:var(--muted);font-weight:600;background:var(--panel-2)}
 .mbanner{margin-top:12px;font-size:12.5px;line-height:1.4;padding:10px 12px;border-radius:11px;
   background:var(--accent-soft);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));
   display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -360,6 +380,17 @@ footer a{color:var(--accent);text-decoration:none}
       </div>
     </div>
     <div id="measuredBanner" class="mbanner"></div>
+  </div>
+
+  <div id="exportModal" class="modal" style="display:none">
+    <div class="modal-card">
+      <div class="modal-head"><b>Range table</b><button id="exportClose" type="button" aria-label="Close">✕</button></div>
+      <div class="modal-actions">
+        <button class="bigbtn" id="exportShare" type="button">Share / Save</button>
+        <button class="bigbtn ghost" id="exportCopy" type="button">Copy CSV</button>
+      </div>
+      <div id="exportBody" class="modal-body"></div>
+    </div>
   </div>
 
   <footer>
@@ -591,11 +622,12 @@ function updateBanner(){
   const b=$("measuredBanner");
   if(state.measured&&state.measured.points&&state.measured.points.length){
     const pts=state.measured.points, m=isMetric();
-    const load=`${MATERIALS[state.material].name} #${state.shot}`;
+    const choke=CHOKE_NAME[state.choke]||CHOKE_NAME[SPECIES[state.species].choke];
+    const load=`${MATERIALS[state.material].name} #${state.shot}, ${choke}`;
     const list=pts.map(p=>`<b>${p.count!=null?p.count:Math.round(p.pct*100)+"%"}</b>@${m?Math.round(p.dist*YD_M)+"m":Math.round(p.dist)+"yd"}`).join(" · ");
     const head=pts.length>1?`2-point calibration`:`Your pattern`;
     b.style.display="flex";
-    b.innerHTML=`<span><b>${head}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
+    b.innerHTML=`<span><b>${head}</b> · <b>${choke}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
     $("clearMeasured").onclick=()=>{state.measured=null;updateBanner();render();};
   }else b.style.display="none";
 }
@@ -603,8 +635,15 @@ function renderMlist(){
   const el=$("mlist"); if(!el)return;
   if(!PH.measurements.length){el.innerHTML="";return;}
   const m=isMetric();
-  el.innerHTML="Calibration: "+PH.measurements.map(x=>`<b>${x.count}</b>@${m?Math.round(x.dist*YD_M)+"m":Math.round(x.dist)+"yd"}`).join(" · ")+` <button type="button" id="mclear">clear</button>`;
-  $("mclear").onclick=()=>{PH.measurements=[];renderMlist();};
+  const rows=PH.measurements.map((x,i)=>
+    `<tr><td class="tick">✓</td><td>Pattern ${i+1}</td><td><b>${x.count}</b> holes</td>`
+    +`<td>${m?Math.round(x.dist*YD_M)+" m":Math.round(x.dist)+" yd"}</td><td>${CHOKE_NAME[x.choke]}</td>`
+    +`<td class="rm"><button type="button" class="mrm" data-i="${i}" aria-label="Remove">×</button></td></tr>`).join("");
+  el.innerHTML=`<div class="mtitle">Uploaded patterns (${PH.measurements.length})</div><table class="mtable">${rows}</table>`
+    +(PH.measurements.length>=2
+        ? `<div class="mok">✓ Two distances captured — ready for a 2-point fit.</div>`
+        : `<div class="mhint2">Add a second distance (same cartridge &amp; choke) for a 2-point fit.</div>`);
+  el.querySelectorAll(".mrm").forEach(btn=>btn.onclick=()=>{PH.measurements.splice(+btn.dataset.i,1);renderMlist();});
 }
 
 function render(){
@@ -636,7 +675,8 @@ function updatePLoad(){
   el.innerHTML="This shell holds ≈ <b>"+n+"</b> pellets — the counting cap.";
 }
 function setPhotoMode(id){["photoAuto","photoManual","photoFit"].forEach(x=>$(x).classList.toggle("on",x===id));}
-function exportXls(){
+let EXPORT_CSV="";
+function buildExportData(){
   const m=isMetric(), maxR=m?60:70, step=10, ranges=[];
   for(let r=10;r<=maxR;r+=step)ranges.push(r);
   const toYd=v=>m?v/YD_M:v, U=m?{r:"m",v:"m/s",e:"J"}:{r:"yd",v:"fps",e:"ft·lbf"};
@@ -645,25 +685,31 @@ function exportXls(){
     +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
     +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[SPECIES[state.species].choke]} · ${state.present}`
     +`${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
-  let h=`<meta charset="utf-8"><h3>Clean Shot — range table</h3><p>${cfg}</p>`;
-  h+=`<table border="1" cellspacing="0" cellpadding="4"><tr>`+
-     [`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Exp. hits`,`Clean-kill %`,`Verdict`]
-     .map(t=>`<th>${t}</th>`).join("")+`</tr>`;
-  for(const rd of ranges){ const r=evaluate({...state,range:toYd(rd)});
-    const vel=m?Math.round(r.v*FPS_MS):Math.round(r.v), eng=m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(2);
-    h+=`<tr><td>${rd}</td><td>${vel}</td><td>${eng}</td><td>${Math.round(r.pct)}</td><td>${Math.round(r.circle)}</td><td>${r.lam.toFixed(1)}</td><td>${Math.round(r.p*100)}</td><td>${r.verdict}</td></tr>`;
-  }
-  h+=`</table><br><h4>Clean-kill % by pellet size × range</h4>`;
-  h+=`<table border="1" cellspacing="0" cellpadding="4"><tr><th>Size</th>`+ranges.map(rd=>`<th>${rd}${U.r}</th>`).join("")+`</tr>`;
-  for(const sz of SHOT_ORDER){ h+=`<tr><td>#${sz}</td>`;
-    for(const rd of ranges){ const r=evaluate({...state,shot:sz,range:toYd(rd)}); h+=`<td>${Math.round(r.p*100)}</td>`; }
-    h+=`</tr>`;
-  }
-  h+=`</table>`;
-  const blob=new Blob([h],{type:"application/vnd.ms-excel"});
-  const url=URL.createObjectURL(blob), a=document.createElement("a");
-  a.href=url; a.download="clean-shot-"+state.species+".xls"; document.body.appendChild(a); a.click();
-  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
+  const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Exp. hits`,`Clean-kill %`,`Verdict`];
+  const rows1=ranges.map(rd=>{const r=evaluate({...state,range:toYd(rd)});
+    return [rd, m?Math.round(r.v*FPS_MS):Math.round(r.v), m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(2),
+      Math.round(r.pct), Math.round(r.circle), r.lam.toFixed(1), Math.round(r.p*100), r.verdict];});
+  const head2=["Size",...ranges.map(rd=>rd+U.r)];
+  const rows2=SHOT_ORDER.map(sz=>["#"+sz,...ranges.map(rd=>Math.round(evaluate({...state,shot:sz,range:toYd(rd)}).p*100))]);
+  return {cfg,head1,rows1,head2,rows2};
+}
+function exportToHtml(d){
+  const t=(head,rows)=>`<table class="xt"><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr>`
+    +rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")+`</table>`;
+  return `<p class="xcfg">${d.cfg}</p>`+t(d.head1,d.rows1)
+    +`<div class="xh">Clean-kill % by pellet size × range</div>`+t(d.head2,d.rows2);
+}
+function exportToCsv(d){
+  const esc=v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const line=a=>a.map(esc).join(",");
+  return [d.cfg,"",line(d.head1),...d.rows1.map(line),"","Clean-kill % by pellet size × range",
+          line(d.head2),...d.rows2.map(line)].join("\n");
+}
+function openExport(){
+  const d=buildExportData();
+  $("exportBody").innerHTML=exportToHtml(d);
+  EXPORT_CSV=exportToCsv(d);
+  $("exportModal").style.display="flex";
 }
 
 /* pattern board */
@@ -916,8 +962,8 @@ $("photoAdd").addEventListener("click",()=>{
   if(c.count<=0){$("photoStep").innerHTML="<b>Count first</b> (Auto-detect or By hand), then add this distance.";return;}
   if(PH.measurements.length){
     const a=PH.measurements[0];
-    if(a.mat!==c.mat||a.shot!==c.shot||Math.abs(a.payOz-c.payOz)>1e-6){
-      $("photoStep").innerHTML="<b>Same cartridge only.</b> 2-point calibration needs the identical load — keep material, size and weight as the first measurement.";return;}
+    if(a.mat!==c.mat||a.shot!==c.shot||Math.abs(a.payOz-c.payOz)>1e-6||a.choke!==c.choke){
+      $("photoStep").innerHTML="<b>Same cartridge &amp; choke only.</b> 2-point calibration needs the identical load and choke — match material, size, weight and choke to the first measurement.";return;}
     if(PH.measurements.some(x=>Math.abs(x.dist-c.dist)<0.5)){
       $("photoStep").innerHTML="You already added that distance — change <b>Patterned at</b> and shoot/upload the second sheet.";return;}
   }
@@ -966,7 +1012,30 @@ $("theme").addEventListener("click",()=>{
   const cur=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
   root.setAttribute("data-theme",cur==="dark"?"light":"dark"); if(PH.img)drawOverlay(); render();
 });
-$("exportBtn").addEventListener("click",exportXls);
+$("exportBtn").addEventListener("click",openExport);
+$("exportClose").addEventListener("click",()=>$("exportModal").style.display="none");
+$("exportModal").addEventListener("click",e=>{if(e.target.id==="exportModal")$("exportModal").style.display="none";});
+$("exportCopy").addEventListener("click",async()=>{
+  try{ await navigator.clipboard.writeText(EXPORT_CSV);
+    $("exportCopy").textContent="Copied ✓"; setTimeout(()=>$("exportCopy").textContent="Copy CSV",1600);
+  }catch(e){ $("exportCopy").textContent="Copy blocked — screenshot the table"; setTimeout(()=>$("exportCopy").textContent="Copy CSV",2200); }
+});
+$("exportShare").addEventListener("click",async()=>{
+  const fname="clean-shot-"+state.species+".csv";
+  // 1) native share sheet with a file (best on iPhone -> Save to Files / Mail / etc.)
+  try{
+    const file=new File([EXPORT_CSV],fname,{type:"text/csv"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Clean Shot range table"}); return; }
+    if(navigator.share){ await navigator.share({title:"Clean Shot range table",text:EXPORT_CSV}); return; }
+  }catch(e){ if(e&&e.name==="AbortError")return; }
+  // 2) fallback: classic download (works outside the sandboxed artifact iframe)
+  try{
+    const blob=new Blob([EXPORT_CSV],{type:"text/csv"});
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
+  }catch(e){ $("exportShare").textContent="Use Copy CSV / screenshot"; setTimeout(()=>$("exportShare").textContent="Share / Save",2200); }
+});
 
 setControlsFromState(); updateBanner(); render();
 </script>
