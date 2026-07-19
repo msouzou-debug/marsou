@@ -38,6 +38,9 @@ LOWRY_CORE_CORRECTION = 0.84
 # NOTE: these are gun-independent averages; patterning your own gun is far more
 # accurate and can be fed in directly via ``sigma_from_circle_count``.
 _CHOKE_TABLE: dict[str, dict[int, float]] = {
+    # spreader / paradox / rifled chokes open faster than cylinder
+    "spreader1": {20: 48, 25: 40, 30: 33, 35: 27, 40: 22, 45: 18, 50: 15, 55: 12, 60: 10},
+    "spreader2": {20: 60, 25: 50, 30: 42, 35: 35, 40: 30, 45: 25, 50: 20, 55: 16, 60: 13},
     "cylinder": {20: 75, 25: 65, 30: 55, 35: 47, 40: 40, 45: 33, 50: 27, 55: 22, 60: 18},
     "skeet":    {20: 85, 25: 75, 30: 64, 35: 57, 40: 50, 45: 42, 50: 35, 55: 29, 60: 24},
     "ic":       {20: 90, 25: 82, 30: 74, 35: 64, 40: 55, 45: 46, 50: 38, 55: 31, 60: 25},
@@ -47,10 +50,16 @@ _CHOKE_TABLE: dict[str, dict[int, float]] = {
     "extrafull": {20: 100, 25: 98, 30: 92, 35: 84, 40: 75, 45: 65, 50: 55, 55: 47, 60: 39},
 }
 
-# Order tightest-to-loosest, for the "steel patterns ~1 choke tighter" shift.
-_CHOKE_ORDER = ["cylinder", "skeet", "ic", "modified", "im", "full", "extrafull"]
+# Order loosest-to-tightest, for the "steel patterns ~1 choke tighter" shift.
+_CHOKE_ORDER = [
+    "spreader1", "spreader2", "cylinder", "skeet", "ic",
+    "modified", "im", "full", "extrafull",
+]
 
 _CHOKE_ALIASES = {
+    "spreader": "spreader1",
+    "paradox": "spreader1",
+    "rifled": "spreader1",
     "cyl": "cylinder",
     "improved cylinder": "ic",
     "improved-cylinder": "ic",

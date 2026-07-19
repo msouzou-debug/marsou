@@ -179,6 +179,10 @@ footer a{color:var(--accent);text-decoration:none}
 :root[data-theme="dark"] .btnrow .bigbtn.on{color:#1a130a}
 .loadcount{font-size:12.5px;color:var(--muted);margin-top:12px}
 .loadcount b{color:var(--accent);font-variant-numeric:tabular-nums}
+.mlist{font-size:12.5px;color:var(--muted);line-height:1.5}
+.mlist b{color:var(--accent);font-variant-numeric:tabular-nums}
+.mlist button{appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
+  font-family:inherit;font-size:11px;padding:3px 8px;border-radius:8px;cursor:pointer;margin-left:6px}
 .mbanner{margin-top:12px;font-size:12.5px;line-height:1.4;padding:10px 12px;border-radius:11px;
   background:var(--accent-soft);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));
   display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -284,6 +288,12 @@ footer a{color:var(--accent);text-decoration:none}
   </div>
 
   <div class="card pad">
+    <div class="section-label">Export</div>
+    <button class="bigbtn" id="exportBtn" type="button">⬇︎ Export range table (Excel)</button>
+    <p class="taghint" id="exportNote" style="margin-top:10px"></p>
+  </div>
+
+  <div class="card pad">
     <div class="section-label">Load guide for this bird</div>
     <div class="reco" id="reco"></div>
   </div>
@@ -341,7 +351,12 @@ footer a{color:var(--accent);text-decoration:none}
           <button class="bigbtn ghost" id="photoFit" type="button">Fit to load</button>
           <button class="bigbtn ghost" id="photoManual" type="button">By hand</button>
         </div>
-        <button class="bigbtn" id="photoApply" type="button">Use this pattern</button>
+        <div id="mlist" class="mlist"></div>
+        <div class="btnrow">
+          <button class="bigbtn ghost" id="photoAdd" type="button">＋ Add this distance</button>
+          <button class="bigbtn" id="photoApply" type="button">Use pattern(s)</button>
+        </div>
+        <p class="taghint">One photo works; add a <b>second distance</b> with the same cartridge for a 2-point fit of your gun's real spread.</p>
       </div>
     </div>
     <div id="measuredBanner" class="mbanner"></div>
@@ -369,9 +384,11 @@ const SHOT={ "12":.05,"11":.06,"10":.07,"9":.08,"8":.09,"7.5":.095,"7":.10,"6":.
 // explicit display order (finest -> largest); JS reorders numeric object keys, so don't rely on SHOT's order
 const SHOT_ORDER=["12","11","10","9","8","7.5","7","6","5","4","3","2","1","B","BB","BBB","T"];
 
-const CHOKE_ORDER=["cylinder","skeet","ic","modified","im","full","extrafull"];
-const CHOKE_NAME={cylinder:"Cylinder",skeet:"Skeet",ic:"Improved Cylinder",modified:"Modified",im:"Improved Modified",full:"Full",extrafull:"Extra Full"};
+const CHOKE_ORDER=["spreader1","spreader2","cylinder","skeet","ic","modified","im","full","extrafull"];
+const CHOKE_NAME={spreader1:"Spreader 1 (widest)",spreader2:"Spreader 2",cylinder:"Cylinder",skeet:"Skeet",ic:"Improved Cylinder",modified:"Modified",im:"Improved Modified",full:"Full",extrafull:"Extra Full"};
 const CHOKE={
+  spreader1:{20:48,25:40,30:33,35:27,40:22,45:18,50:15,55:12,60:10},
+  spreader2:{20:60,25:50,30:42,35:35,40:30,45:25,50:20,55:16,60:13},
   cylinder:{20:75,25:65,30:55,35:47,40:40,45:33,50:27,55:22,60:18},
   skeet:{20:85,25:75,30:64,35:57,40:50,45:42,50:35,55:29,60:24},
   ic:{20:90,25:82,30:74,35:64,40:55,45:46,50:38,55:31,60:25},
@@ -451,14 +468,30 @@ function evaluate(s){
   const depthGate=pen>=sp.depth;
   const choke=s.choke||sp.choke;
   let pct, circle, measuredUsed=false;
-  if(s.measured&&s.measured.count>0){
-    // Physical projection: pattern spread sigma grows ~linearly with distance,
-    // so a fixed circle catches fewer pellets as range increases. Calibrate
-    // sigma from your measured count at its distance, then scale sigma by range.
-    const R=15; // 30" circle radius (in), matches the pattern model
-    const f0=Math.min(0.985,Math.max(1e-4,s.measured.count/Math.max(1,total)));
-    const sigma0=R/Math.sqrt(-2*Math.log(1-f0));
-    const sig=sigma0*(s.range/Math.max(1,s.measured.dist));
+  if(s.measured&&s.measured.points&&s.measured.points.length){
+    // Each calibration point stores the pattern PERCENTAGE (holes / pellets in
+    // the patterned shell) at a distance — a property of the gun+choke, not the
+    // pellet count. Convert each to a spread sigma, then:
+    //   1 point  -> assume sigma grows linearly with distance (through origin)
+    //   2+ points-> least-squares fit sigma = m*range + c  (this gun's real rate)
+    // The in-circle COUNT is then that percentage x the CURRENT load's pellet
+    // count, so changing pellet size correctly changes how many arrive.
+    const R=15;
+    const pts=s.measured.points.map(pt=>{
+      const p=Math.min(0.985,Math.max(1e-4,pt.pct));
+      return {d:pt.dist, sig:R/Math.sqrt(-2*Math.log(1-p))};
+    });
+    let sig;
+    if(pts.length===1){
+      sig=pts[0].sig*(s.range/Math.max(1,pts[0].d));
+    }else{
+      const n=pts.length; let sx=0,sy=0,sxx=0,sxy=0;
+      for(const q of pts){sx+=q.d;sy+=q.sig;sxx+=q.d*q.d;sxy+=q.d*q.sig;}
+      const den=(n*sxx-sx*sx)||1, mm=(n*sxy-sx*sy)/den, cc=(sy-mm*sx)/n;
+      sig=mm*s.range+cc;
+      if(sig<=0.5)sig=pts[pts.length-1].sig*(s.range/Math.max(1,pts[pts.length-1].d));
+    }
+    sig=Math.max(0.5,sig);
     const f=1-Math.exp(-(R*R)/(2*sig*sig));
     circle=Math.min(total,total*f);
     pct=100*circle/Math.max(1,total);
@@ -491,7 +524,7 @@ function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({..
 const $=id=>document.getElementById(id);
 const state={species:"mallard",material:"steel",shot:"2",payload:1.125,velocity:1350,choke:"",range:40,present:"decoy",units:"imperial",measured:null};
 /* photo-tool state (the cartridge you patterned) */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:40,sheetIn:40,manual:false,mat:"steel",shot:"2",payOz:1.125};
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:40,sheetIn:40,manual:false,mat:"steel",shot:"2",payOz:1.125,measurements:[]};
 
 /* unit conversion */
 const YD_M=0.9144, FPS_MS=0.3048, OZ_G=28.349523125, FTLB_J=1.35581795, IN_MM=25.4;
@@ -556,12 +589,22 @@ function setControlsFromState(){
 
 function updateBanner(){
   const b=$("measuredBanner");
-  if(state.measured){
-    const mm=state.measured;
+  if(state.measured&&state.measured.points&&state.measured.points.length){
+    const pts=state.measured.points, m=isMetric();
+    const load=`${MATERIALS[state.material].name} #${state.shot}`;
+    const list=pts.map(p=>`<b>${p.count!=null?p.count:Math.round(p.pct*100)+"%"}</b>@${m?Math.round(p.dist*YD_M)+"m":Math.round(p.dist)+"yd"}`).join(" · ");
+    const head=pts.length>1?`2-point calibration`:`Your pattern`;
     b.style.display="flex";
-    b.innerHTML=`<span>Using your pattern: <b>${mm.count}</b> holes at ${isMetric()?Math.round(mm.dist*YD_M)+" m":Math.round(mm.dist)+" yd"} with ${MATERIALS[state.material].name} #${state.shot}, ${CHOKE_NAME[mm.choke]} — projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
+    b.innerHTML=`<span><b>${head}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
     $("clearMeasured").onclick=()=>{state.measured=null;updateBanner();render();};
   }else b.style.display="none";
+}
+function renderMlist(){
+  const el=$("mlist"); if(!el)return;
+  if(!PH.measurements.length){el.innerHTML="";return;}
+  const m=isMetric();
+  el.innerHTML="Calibration: "+PH.measurements.map(x=>`<b>${x.count}</b>@${m?Math.round(x.dist*YD_M)+"m":Math.round(x.dist)+"yd"}`).join(" · ")+` <button type="button" id="mclear">clear</button>`;
+  $("mclear").onclick=()=>{PH.measurements=[];renderMlist();};
 }
 
 function render(){
@@ -584,6 +627,7 @@ function render(){
   $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
   $("reco").innerHTML="<b>"+r.sp.name+".</b> "+r.sp.guide;
   $("loadCount").innerHTML="This shell holds ≈ <b>"+r.total+"</b> pellets ("+MATERIALS[state.material].name+" #"+state.shot+").";
+  $("exportNote").textContent="Velocity, energy, pattern, pellets in circle and clean-kill % every 10 "+(isMetric()?"m":"yd")+" — for this setup, plus a clean-kill matrix across every pellet size.";
   drawBoard(r);
 }
 function updatePLoad(){
@@ -592,6 +636,35 @@ function updatePLoad(){
   el.innerHTML="This shell holds ≈ <b>"+n+"</b> pellets — the counting cap.";
 }
 function setPhotoMode(id){["photoAuto","photoManual","photoFit"].forEach(x=>$(x).classList.toggle("on",x===id));}
+function exportXls(){
+  const m=isMetric(), maxR=m?60:70, step=10, ranges=[];
+  for(let r=10;r<=maxR;r+=step)ranges.push(r);
+  const toYd=v=>m?v/YD_M:v, U=m?{r:"m",v:"m/s",e:"J"}:{r:"yd",v:"fps",e:"ft·lbf"};
+  const cur=evaluate(state);
+  const cfg=`${SPECIES[state.species].name} · ${MATERIALS[state.material].name} #${state.shot} · `
+    +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
+    +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[SPECIES[state.species].choke]} · ${state.present}`
+    +`${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
+  let h=`<html><head><meta charset="utf-8"></head><body><h3>Clean Shot — range table</h3><p>${cfg}</p>`;
+  h+=`<table border="1" cellspacing="0" cellpadding="4"><tr>`+
+     [`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Exp. hits`,`Clean-kill %`,`Verdict`]
+     .map(t=>`<th>${t}</th>`).join("")+`</tr>`;
+  for(const rd of ranges){ const r=evaluate({...state,range:toYd(rd)});
+    const vel=m?Math.round(r.v*FPS_MS):Math.round(r.v), eng=m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(2);
+    h+=`<tr><td>${rd}</td><td>${vel}</td><td>${eng}</td><td>${Math.round(r.pct)}</td><td>${Math.round(r.circle)}</td><td>${r.lam.toFixed(1)}</td><td>${Math.round(r.p*100)}</td><td>${r.verdict}</td></tr>`;
+  }
+  h+=`</table><br><h4>Clean-kill % by pellet size × range</h4>`;
+  h+=`<table border="1" cellspacing="0" cellpadding="4"><tr><th>Size</th>`+ranges.map(rd=>`<th>${rd}${U.r}</th>`).join("")+`</tr>`;
+  for(const sz of SHOT_ORDER){ h+=`<tr><td>#${sz}</td>`;
+    for(const rd of ranges){ const r=evaluate({...state,shot:sz,range:toYd(rd)}); h+=`<td>${Math.round(r.p*100)}</td>`; }
+    h+=`</tr>`;
+  }
+  h+=`</table></body></html>`;
+  const blob=new Blob([h],{type:"application/vnd.ms-excel"});
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download="clean-shot-"+state.species+".xls"; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
+}
 
 /* pattern board */
 let seedInputs="";
@@ -833,14 +906,34 @@ $("holeManual").addEventListener("input",()=>{const mx=parseInt($("holeManual").
 $("holeMinus").addEventListener("click",()=>{$("holeManual").value=Math.max(0,(parseInt($("holeManual").value)||0)-1);$("holeManual").dispatchEvent(new Event("input"));});
 $("holePlus").addEventListener("click",()=>{const mx=parseInt($("holeManual").max)||999999;$("holeManual").value=Math.min(mx,(parseInt($("holeManual").value)||0)+1);$("holeManual").dispatchEvent(new Event("input"));});
 $("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetric()?v/YD_M:v;$("pdistVal").textContent=v;});
-$("photoApply").addEventListener("click",()=>{
+function currentMeasurement(){
   const cap=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
   const count=Math.min(parseInt($("holeManual").value)||0, cap);
-  if(count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
-  // push the patterned cartridge + conditions up into the main calculator
-  state.material=PH.mat; state.shot=PH.shot; state.payload=PH.payOz;
-  state.choke=$("pchoke").value; state.range=PH.distYd||40;
-  state.measured={count,dist:PH.distYd||40,choke:$("pchoke").value};
+  return {dist:PH.distYd||40,count,total0:cap,pct:count/Math.max(1,cap),mat:PH.mat,shot:PH.shot,payOz:PH.payOz,choke:$("pchoke").value};
+}
+$("photoAdd").addEventListener("click",()=>{
+  const c=currentMeasurement();
+  if(c.count<=0){$("photoStep").innerHTML="<b>Count first</b> (Auto-detect or By hand), then add this distance.";return;}
+  if(PH.measurements.length){
+    const a=PH.measurements[0];
+    if(a.mat!==c.mat||a.shot!==c.shot||Math.abs(a.payOz-c.payOz)>1e-6){
+      $("photoStep").innerHTML="<b>Same cartridge only.</b> 2-point calibration needs the identical load — keep material, size and weight as the first measurement.";return;}
+    if(PH.measurements.some(x=>Math.abs(x.dist-c.dist)<0.5)){
+      $("photoStep").innerHTML="You already added that distance — change <b>Patterned at</b> and shoot/upload the second sheet.";return;}
+  }
+  PH.measurements.push(c); renderMlist();
+  $("photoStep").innerHTML="Added <b>"+c.count+"</b> @ "+(isMetric()?Math.round(c.dist*YD_M)+"m":Math.round(c.dist)+"yd")+". Load the next distance, or Use pattern(s).";
+});
+$("photoApply").addEventListener("click",()=>{
+  let pts=PH.measurements.slice();
+  if(!pts.length){
+    const c=currentMeasurement();
+    if(c.count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
+    pts=[c];
+  }
+  const c0=pts[0];
+  state.material=c0.mat; state.shot=c0.shot; state.payload=c0.payOz; state.choke=c0.choke; state.range=c0.dist;
+  state.measured={points: pts.map(p=>({dist:p.dist,pct:p.pct,count:p.count}))};
   setControlsFromState(); updateBanner(); render();
   $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
 });
@@ -871,8 +964,9 @@ document.querySelectorAll("#units button").forEach(b=>b.addEventListener("click"
 $("theme").addEventListener("click",()=>{
   const root=document.documentElement;
   const cur=root.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
-  root.setAttribute("data-theme",cur==="dark"?"light":"dark"); if(PH.img)redrawBase(); render();
+  root.setAttribute("data-theme",cur==="dark"?"light":"dark"); if(PH.img)drawOverlay(); render();
 });
+$("exportBtn").addEventListener("click",exportXls);
 
 setControlsFromState(); updateBanner(); render();
 </script>
