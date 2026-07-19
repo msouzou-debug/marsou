@@ -645,7 +645,7 @@ function exportXls(){
     +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
     +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[SPECIES[state.species].choke]} · ${state.present}`
     +`${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
-  let h=`<html><head><meta charset="utf-8"></head><body><h3>Clean Shot — range table</h3><p>${cfg}</p>`;
+  let h=`<meta charset="utf-8"><h3>Clean Shot — range table</h3><p>${cfg}</p>`;
   h+=`<table border="1" cellspacing="0" cellpadding="4"><tr>`+
      [`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Exp. hits`,`Clean-kill %`,`Verdict`]
      .map(t=>`<th>${t}</th>`).join("")+`</tr>`;
@@ -659,7 +659,7 @@ function exportXls(){
     for(const rd of ranges){ const r=evaluate({...state,shot:sz,range:toYd(rd)}); h+=`<td>${Math.round(r.p*100)}</td>`; }
     h+=`</tr>`;
   }
-  h+=`</table></body></html>`;
+  h+=`</table>`;
   const blob=new Blob([h],{type:"application/vnd.ms-excel"});
   const url=URL.createObjectURL(blob), a=document.createElement("a");
   a.href=url; a.download="clean-shot-"+state.species+".xls"; document.body.appendChild(a); a.click();
