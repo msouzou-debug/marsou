@@ -811,7 +811,7 @@ function bestComboAt(rangeYd,target){
   return fallback;                        // best effort (<target), or null if energy/density unreachable
 }
 function buildBestTable(){
-  const m=isMetric(), maxR=m?60:70, ranges=[]; for(let r=10;r<=maxR;r+=10)ranges.push(r);
+  const m=isMetric(), ranges=[]; for(let r=5;r<=50;r+=5)ranges.push(r);   // 5..50 in 5-unit steps
   const toYd=v=>m?v/YD_M:v, target=0.90;
   let rows="";
   for(const rd of ranges){
