@@ -335,6 +335,14 @@ footer a{color:var(--accent);text-decoration:none}
   </div>
 
   <div class="card pad">
+    <div class="section-label">Best combo by range</div>
+    <button class="bigbtn" id="bestBtn" type="button">Find the leanest load that kills</button>
+    <div id="bestBody" style="margin-top:12px;overflow-x:auto"></div>
+    <p class="taghint" style="margin-top:8px">Least choke · smallest pellet · lightest load that still meets penetration, the
+      required in-circle density (no big gaps), and a ≥90% aim-adjusted kill — at each range, for the current bird, material &amp; aim.</p>
+  </div>
+
+  <div class="card pad">
     <div class="section-label">Export</div>
     <button class="bigbtn" id="exportBtn" type="button">⬇︎ Export range table (Excel)</button>
     <p class="taghint" id="exportNote" style="margin-top:10px"></p>
@@ -445,6 +453,7 @@ const MATERIALS={
 const SHOT={ "12":.05,"11":.06,"10":.07,"9":.08,"8":.09,"7.5":.095,"7":.10,"6":.11,"5":.12,"4":.13,"3":.14,"2":.15,"1":.16,"B":.17,"BB":.18,"BBB":.19,"T":.20 };
 // explicit display order (finest -> largest); JS reorders numeric object keys, so don't rely on SHOT's order
 const SHOT_ORDER=["12","11","10","9","8","7.5","7","6","5","4","3","2","1","B","BB","BBB","T"];
+const PAYLOADS=[0.75,0.875,1.0,1.125,1.25,1.375,1.5,1.625]; // oz, light -> heavy
 
 const CHOKE_ORDER=["spreader1","spreader2","cylinder","skeet","ic","modified","im","full","extrafull"];
 const CHOKE_NAME={spreader1:"Spreader 1 (widest)",spreader2:"Spreader 2",cylinder:"Cylinder",skeet:"Skeet",ic:"Improved Cylinder",modified:"Modified",im:"Improved Modified",full:"Full",extrafull:"Extra Full"};
@@ -776,6 +785,46 @@ function openExport(){
   EXPORT_CSV=exportToCsv(d);
   $("exportRaw").value=EXPORT_CSV;
   $("exportModal").style.display="flex";
+}
+/* Optimiser: the leanest load that still kills at a range.
+   Priority (most-open choke -> smallest pellet -> lightest payload) subject to:
+   penetration (energy gate), density (>= Roster minimum, the anti-gap count),
+   and >=90% aim-&-gap-adjusted kill probability. Material = current selection. */
+function bestComboAt(rangeYd,target){
+  const sp=SPECIES[state.species];
+  let fallback=null;                      // best (highest-p) combo that meets energy + density
+  for(const ck of CHOKE_ORDER){          // most open first (least choke)
+    for(const sz of SHOT_ORDER){         // smallest pellet first
+      for(const pay of PAYLOADS){         // lightest cartridge first
+        const r=evaluate({...state,choke:ck,shot:sz,payload:pay,range:rangeYd,measured:null});
+        if(!r.eGate || r.circle<sp.min) continue;
+        if(r.p>=target) return {choke:ck,shot:sz,payload:pay,r,below:false};
+        if(!fallback||r.p>fallback.r.p) fallback={choke:ck,shot:sz,payload:pay,r,below:true};
+      }
+    }
+  }
+  return fallback;                        // best effort (<target), or null if energy/density unreachable
+}
+function buildBestTable(){
+  const m=isMetric(), maxR=m?60:70, ranges=[]; for(let r=10;r<=maxR;r+=10)ranges.push(r);
+  const toYd=v=>m?v/YD_M:v, target=0.90;
+  let rows="";
+  for(const rd of ranges){
+    const best=bestComboAt(toYd(rd),target);
+    if(best){
+      const r=best.r;
+      const load=m?Math.round(best.payload*OZ_G)+" g":best.payload.toFixed(2)+" oz";
+      const eng=m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(1);
+      const kc=best.below?' style="color:var(--warn)"':'';
+      const tag=best.below?' <small>best</small>':'';
+      rows+=`<tr><td>${rd}${m?"m":"y"}</td><td>#${best.shot}</td><td>${CHOKE_NAME[best.choke].replace(" (widest)","")}</td><td>${load}</td><td>${Math.round(r.circle)}</td><td>${eng}</td><td${kc}>${Math.round(r.p*100)}${tag}</td></tr>`;
+    }else{
+      rows+=`<tr><td>${rd}${m?"m":"y"}</td><td colspan="6" style="color:var(--crit);text-align:left">out of range — no load meets penetration + density</td></tr>`;
+    }
+  }
+  const eU=m?"J":"ft·lbf";
+  return `<p class="xcfg">${SPECIES[state.species].name} · ${MATERIALS[state.material].name} · ${state.present} · aim ${state.aim}"@40 · needs ≥${SPECIES[state.species].min} in circle. Green ≥90% clean; <span style="color:var(--warn)">amber</span> = best achievable.</p>`
+    +`<table class="xt"><tr><th>Range</th><th>Pellet</th><th>Choke</th><th>Load</th><th>In circle</th><th>Energy (${eU})</th><th>Kill%</th></tr>${rows}</table>`;
 }
 function copyExport(){
   const ta=$("exportRaw"); ta.focus(); ta.select();
@@ -1115,6 +1164,10 @@ $("reset").addEventListener("click",resetAll);
 $("shooter").addEventListener("input",e=>{state.shooter=e.target.value;});
 $("gun").addEventListener("input",e=>{state.gun=e.target.value;});
 $("exportBtn").addEventListener("click",openExport);
+$("bestBtn").addEventListener("click",()=>{
+  $("bestBtn").textContent="Working…";
+  setTimeout(()=>{ $("bestBody").innerHTML=buildBestTable(); $("bestBtn").textContent="Find the leanest load that kills"; },20);
+});
 $("exportClose").addEventListener("click",()=>$("exportModal").style.display="none");
 $("exportModal").addEventListener("click",e=>{if(e.target.id==="exportModal")$("exportModal").style.display="none";});
 $("exportCopy").addEventListener("click",()=>{
