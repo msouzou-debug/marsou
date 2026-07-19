@@ -242,7 +242,8 @@ footer a{color:var(--accent);text-decoration:none}
     <div class="field">
       <label>Presentation</label>
       <div class="seg" id="present">
-        <button data-mode="decoy" class="on">Decoyed / incoming</button>
+        <button data-mode="decoy" class="on">Incoming</button>
+        <button data-mode="side">Crossing</button>
         <button data-mode="going">Going-away</button>
       </div>
     </div>
@@ -401,8 +402,10 @@ const SPECIES={
     guide:"Lead #7.5–#8 or steel #7, IC/Mod. Effective ~20–45 yd."},
   quail:{name:"Bobwhite quail",body:13,req:2,ros:2,min:200,e:0.5,depth:0.9,choke:"ic",
     guide:"Lead #7.5–#8, IC. Close flushes to ~30 yd."},
-  woodcock:{name:"Woodcock / snipe",body:11,req:2,ros:2,min:200,e:0.5,depth:0.9,choke:"ic",
-    guide:"Lead #9–#7.5 (bismuth #8), IC. Short range ≤30 yd."},
+  woodcock:{name:"Woodcock (European)",body:16,req:3,ros:2,min:170,e:0.7,depth:1.0,choke:"ic",
+    guide:"Dove-sized (~250–420 g); lead #7–#6 (bismuth #6), IC. Effective ~20–35 yd."},
+  snipe:{name:"Snipe / American woodcock",body:11,req:2,ros:2,min:200,e:0.5,depth:0.9,choke:"ic",
+    guide:"Small (~90–200 g); lead #9–#7.5 (bismuth #8), IC. Short range ≤30 yd."},
   turkey:{name:"Wild turkey (head/neck)",body:8,req:4,ros:3,min:210,e:1.5,depth:1.5,choke:"extrafull",
     guide:"Steel #4 / HEVI #6, Full–Extra Full. Head/neck only, ~20–40 yd."}
 };
@@ -464,10 +467,14 @@ function evaluate(s){
     pct=chokePct(choke,s.range,steel);
     circle=total*pct/100;
   }
-  const scale=(s.present==="going")?0.55:1.0;
+  // presented body area by shot angle: crossing shows the full flank (largest),
+  // incoming ~ full frontal, going-away shields the vitals (smallest).
+  const scale=s.present==="going"?0.55:s.present==="side"?1.15:1.0;
   const sigma=sigmaFromCircle(total,circle);
   const lam=hitsOnArea(total,sigma,sp.body*scale);
-  const req=(s.present==="going")?sp.req:sp.ros;
+  // decoyed/incoming birds present vitals frontally (Roster's lower count);
+  // crossing and going-away birds use the 3-4 torso-hit standard.
+  const req=(s.present==="decoy")?sp.ros:sp.req;
   const patternOk=circle>=sp.min;
   const p=eGate?poissonAtLeast(req,lam):0;
   let verdict, reasons=[];
@@ -609,7 +616,7 @@ function drawBoard(r){
   // crosshair
   ctx.strokeStyle=line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx-6,cy);ctx.lineTo(cx+6,cy);ctx.moveTo(cx,cy-6);ctx.lineTo(cx,cy+6);ctx.stroke();
   // body zone ellipse (area preserved, slightly taller than wide)
-  const scale=(state.present==="going")?0.55:1.0;
+  const scale=state.present==="going"?0.55:state.present==="side"?1.15:1.0;
   const area=r.sp.body*scale; const rv=Math.sqrt(area/Math.PI);
   const ry=rv*1.25*ppi, rx=rv/1.25*ppi;
   ctx.save();ctx.globalAlpha=0.16;ctx.fillStyle=zoneCol;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();ctx.restore();
