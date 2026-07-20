@@ -229,6 +229,10 @@ footer a{color:var(--accent);text-decoration:none}
   font-family:inherit;font-size:11px;font-weight:600;padding:5px 9px;border-radius:8px;cursor:pointer;flex:none}
 .pill-measured{font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;
   text-transform:uppercase;color:var(--accent);background:var(--accent-soft);margin-left:6px}
+.pill-est{font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;
+  text-transform:uppercase;color:var(--muted);background:var(--panel-2);margin-left:6px}
+.smk{font-size:8.5px;font-weight:800;vertical-align:super;margin-left:2px}
+.smk-m{color:var(--go)} .smk-e{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -577,6 +581,51 @@ function lethalityWithAim(totalEff,sp,rb,sa,k){
 function penetrationIn(matKey,dIn,vFps){const massGr=pelletMassG(matKey,dIn)*GRAINS_PER_GRAM;const de=dIn+0.033;const csd=(massGr/7000)/(de*de);return Math.max(0,0.1834*csd*vFps);}
 function poissonAtLeast(k,lam){if(k<=0)return 1;if(lam<=0)return 0;let cdf=Math.exp(-lam),term=cdf;for(let i=1;i<k;i++){term*=lam/i;cdf+=term;}return Math.min(1,Math.max(0,1-cdf));}
 
+// ---- pattern strikes: ONE source of truth ----------------------------------
+// A scanned pattern is authoritative. getStrikes() is the ONLY place a pellet-
+// strike (in-circle) count is produced; the top chart, the leanest-load table
+// and the kill-probability calc all read from it, so they can never disagree.
+function sameLoad(s,l){return !!l && s.shot===l.shot && s.material===l.mat && Math.abs(s.payload-l.payOz)<1e-6;}
+// this gun's measured spread (sigma, in) at a range, fitted from the scan points:
+//   1 point  -> sigma grows linearly from the muzzle;  2+ -> least-squares line.
+function fitSigma(points,rangeYd){
+  const R=15, pts=points.map(pt=>{const p=Math.min(0.985,Math.max(1e-4,pt.pct));return {d:pt.dist,sig:R/Math.sqrt(-2*Math.log(1-p))};});
+  let sig;
+  if(pts.length===1){ sig=pts[0].sig*(rangeYd/Math.max(1,pts[0].d)); }
+  else{
+    const n=pts.length; let sx=0,sy=0,sxx=0,sxy=0;
+    for(const q of pts){sx+=q.d;sy+=q.sig;sxx+=q.d*q.d;sxy+=q.d*q.sig;}
+    const den=(n*sxx-sx*sx)||1, mm=(n*sxy-sx*sy)/den, cc=(sy-mm*sx)/n;
+    sig=mm*rangeYd+cc;
+    if(sig<=0.5)sig=pts[pts.length-1].sig*(rangeYd/Math.max(1,pts[pts.length-1].d));
+  }
+  return Math.max(0.5,sig);
+}
+// pattern sigma for ANY choke: with a scan present we use the gun's measured
+// spread on the choke it was patterned, and carry that gun-vs-nominal tightness
+// across to the other chokes (so the optimiser still derives from the scan).
+function patternSigma(s){
+  const ms=s.measured, chk=s.choke||SPECIES[s.species].choke, steel=s.material==="steel";
+  const nomSig=chokeSigmaNominal(chk,s.range,steel);
+  if(ms&&ms.points&&ms.points.length&&ms.load){
+    const fit=fitSigma(ms.points,s.range);
+    if(chk===ms.load.choke) return fit;                        // the patterned choke
+    const nomScan=chokeSigmaNominal(ms.load.choke,s.range,ms.load.mat==="steel");
+    const tightness=nomScan>0?fit/nomScan:1;                   // this gun vs nominal
+    return Math.max(0.5,nomSig*tightness);
+  }
+  return nomSig;
+}
+function getStrikes(s,total){
+  const ms=s.measured;
+  if(ms&&ms.points&&ms.points.length&&sameLoad(s,ms.load)){
+    // exact scanned count for the patterned load at a patterned distance
+    for(const pt of ms.points) if(Math.abs(pt.dist-s.range)<0.5) return {n:Math.min(total,pt.count),src:"measured"};
+  }
+  const sig=patternSigma(s);
+  return {n:Math.min(total,total*(1-Math.exp(-(15*15)/(2*sig*sig)))),src:"estimated"};
+}
+
 function evaluate(s){
   const sp=SPECIES[s.species], dIn=SHOT[s.shot], steel=(s.material==="steel");
   const total=pelletCount(s.material,dIn,s.payload);
@@ -587,40 +636,10 @@ function evaluate(s){
   const pen=penetrationIn(s.material,dIn,v);
   const depthGate=pen>=sp.depth;
   const choke=s.choke||sp.choke;
-  let pct, circle, measuredUsed=false;
-  if(s.measured&&s.measured.points&&s.measured.points.length){
-    // Each calibration point stores the pattern PERCENTAGE (holes / pellets in
-    // the patterned shell) at a distance — a property of the gun+choke, not the
-    // pellet count. Convert each to a spread sigma, then:
-    //   1 point  -> assume sigma grows linearly with distance (through origin)
-    //   2+ points-> least-squares fit sigma = m*range + c  (this gun's real rate)
-    // The in-circle COUNT is then that percentage x the CURRENT load's pellet
-    // count, so changing pellet size correctly changes how many arrive.
-    const R=15;
-    const pts=s.measured.points.map(pt=>{
-      const p=Math.min(0.985,Math.max(1e-4,pt.pct));
-      return {d:pt.dist, sig:R/Math.sqrt(-2*Math.log(1-p))};
-    });
-    let sig;
-    if(pts.length===1){
-      sig=pts[0].sig*(s.range/Math.max(1,pts[0].d));
-    }else{
-      const n=pts.length; let sx=0,sy=0,sxx=0,sxy=0;
-      for(const q of pts){sx+=q.d;sy+=q.sig;sxx+=q.d*q.d;sxy+=q.d*q.sig;}
-      const den=(n*sxx-sx*sx)||1, mm=(n*sxy-sx*sy)/den, cc=(sy-mm*sx)/n;
-      sig=mm*s.range+cc;
-      if(sig<=0.5)sig=pts[pts.length-1].sig*(s.range/Math.max(1,pts[pts.length-1].d));
-    }
-    sig=Math.max(0.5,sig);
-    const f=1-Math.exp(-(R*R)/(2*sig*sig));
-    circle=Math.min(total,total*f);
-    pct=100*circle/Math.max(1,total);
-    measuredUsed=true;
-  }else{
-    const sigp=chokeSigmaNominal(choke,s.range,steel);
-    circle=circleFromSigma(total,sigp);
-    pct=100*circle/Math.max(1,total);
-  }
+  // Single strike source: measured scan when present, modelled estimate otherwise.
+  const gs=getStrikes(s,total);
+  const circle=gs.n, strikeSrc=gs.src, measuredUsed=(gs.src==="measured");
+  const pct=100*circle/Math.max(1,total);
   // presented body area by shot angle: crossing shows the full flank (largest),
   // incoming ~ full frontal, going-away shields the vitals (smallest).
   const scale=s.present==="going"?0.55:s.present==="side"?1.15:1.0;
@@ -642,15 +661,29 @@ function evaluate(s){
   if(!eGate||!patternOk){verdict="wounding-likely";}
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
-  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons,measuredUsed,patWidthIn,aimWidthIn};
+  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
 }
 function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
 
 /* ---------------- UI ---------------------------------------------------------- */
 const $=id=>document.getElementById(id);
+// audit tags — is a displayed strike count measured (from a scan) or estimated?
+const srcPill=src=>src==="measured"?'<span class="pill-measured">measured</span>':'<span class="pill-est">estimated</span>';
+const miniSrc=src=>src==="measured"?'<span class="smk smk-m">m</span>':'<span class="smk smk-e">e</span>';
 const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 /* photo-tool state (the cartridge you patterned) */
 const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]};
+/* the scanned pattern is persisted so it survives a reload / re-open */
+function persistMeasured(){try{state.measured?localStorage.setItem("measured",JSON.stringify(state.measured)):localStorage.removeItem("measured");}catch(e){}}
+function restoreMeasured(){try{
+  const raw=localStorage.getItem("measured"); if(!raw)return;
+  const m=JSON.parse(raw);
+  if(m&&m.points&&m.points.length&&m.load){
+    state.measured=m;
+    state.material=m.load.mat; state.shot=m.load.shot; state.payload=m.load.payOz; state.choke=m.load.choke;
+    if(m.points[0])state.range=m.points[0].dist;
+  }
+}catch(e){}}
 
 /* unit conversion */
 const YD_M=0.9144, FPS_MS=0.3048, OZ_G=28.349523125, FTLB_J=1.35581795, IN_MM=25.4;
@@ -723,7 +756,7 @@ function updateBanner(){
     const head=pts.length>1?`2-point calibration`:`Your pattern`;
     b.style.display="flex";
     b.innerHTML=`<span><b>${head}</b> · <b>${choke}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
-    $("clearMeasured").onclick=()=>{state.measured=null;updateBanner();render();};
+    $("clearMeasured").onclick=()=>{state.measured=null;persistMeasured();updateBanner();render();};
   }else b.style.display="none";
 }
 function renderMlist(){
@@ -749,7 +782,7 @@ function render(){
   $("prob").textContent=Math.round(r.p*100)+"%";
   $("lambda").textContent=r.lam.toFixed(1);
   $("need").textContent=r.req;
-  $("circle").textContent=Math.round(r.circle);
+  $("circle").innerHTML=Math.round(r.circle)+srcPill(r.strikeSrc);
   const mr=maxRange(state);
   $("effRange").textContent=mr?("clean to "+(m?Math.round(mr*YD_M)+" m":mr+" yd")):"no clean-kill range";
   $("rv").innerHTML=(m?Math.round(r.v*FPS_MS):Math.round(r.v))+' <small>'+(m?"m/s":"fps")+'</small>';
@@ -757,7 +790,7 @@ function render(){
   $("eChip").className="chip "+(r.eGate?"pass":"fail"); $("eChip").textContent=r.eGate?"pass":"low";
   $("pen").innerHTML=(m?Math.round(r.pen*IN_MM):r.pen.toFixed(2))+' <small>'+(m?"mm":"in")+'</small>';
   $("pChip").className="chip "+(r.depthGate?"pass":"fail"); $("pChip").textContent=r.depthGate?"pass":"shallow";
-  $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+(r.measuredUsed?'<span class="pill-measured">measured</span>':'');
+  $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+srcPill(r.strikeSrc);
   $("patw").innerHTML=(m?Math.round(r.patWidthIn*2.54):Math.round(r.patWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
   $("aimw").innerHTML=(m?Math.round(r.aimWidthIn*2.54):Math.round(r.aimWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
   $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
@@ -782,10 +815,10 @@ function buildExportData(){
     +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
     +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[SPECIES[state.species].choke]} · ${state.present}`
     +` · aim ${state.aim}"@40yd${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
-  const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Exp. hits`,`Clean-kill %`,`Verdict`];
+  const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Strikes src`,`Exp. hits`,`Clean-kill %`,`Verdict`];
   const rows1=ranges.map(rd=>{const r=evaluate({...state,range:toYd(rd)});
     return [rd, m?Math.round(r.v*FPS_MS):Math.round(r.v), m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(2),
-      Math.round(r.pct), Math.round(r.circle), r.lam.toFixed(1), Math.round(r.p*100), r.verdict];});
+      Math.round(r.pct), Math.round(r.circle), r.strikeSrc, r.lam.toFixed(1), Math.round(r.p*100), r.verdict];});
   const head2=["Size",...ranges.map(rd=>rd+U.r)];
   const rows2=SHOT_ORDER.map(sz=>["#"+sz,...ranges.map(rd=>Math.round(evaluate({...state,shot:sz,range:toYd(rd)}).p*100))]);
   const who=[state.shooter&&("Shooter: "+state.shooter), state.gun&&("Gun: "+state.gun)].filter(Boolean).join("   ·   ");
@@ -828,7 +861,7 @@ function bestComboAt(rangeYd,target){
   for(const ck of OPT_CHOKES){           // most open first (least choke)
     for(const sz of OPT_SIZES){          // smallest game pellet first
       for(const pay of PAYLOADS){         // lightest cartridge first
-        const r=evaluate({...state,choke:ck,shot:sz,payload:pay,range:rangeYd,measured:null});
+        const r=evaluate({...state,choke:ck,shot:sz,payload:pay,range:rangeYd});
         if(r.e < sp.e*ENERGY_MARGIN || r.circle<sp.min) continue;   // comfortable penetration + density
         if(r.p>=target) return {choke:ck,shot:sz,payload:pay,r,below:false};
         if(!fallback||r.p>fallback.r.p) fallback={choke:ck,shot:sz,payload:pay,r,below:true};
@@ -849,13 +882,13 @@ function buildBestTable(){
       const eng=m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(1);
       const kc=best.below?' style="color:var(--warn)"':'';
       const tag=best.below?' <small>best</small>':'';
-      rows+=`<tr><td>${rd}${m?"m":"y"}</td><td>#${best.shot}</td><td>${CHOKE_NAME[best.choke].replace(" (widest)","")}</td><td>${load}</td><td>${Math.round(r.circle)}</td><td>${eng}</td><td${kc}>${Math.round(r.p*100)}${tag}</td></tr>`;
+      rows+=`<tr><td>${rd}${m?"m":"y"}</td><td>#${best.shot}</td><td>${CHOKE_NAME[best.choke].replace(" (widest)","")}</td><td>${load}</td><td>${Math.round(r.circle)}${miniSrc(r.strikeSrc)}</td><td>${eng}</td><td${kc}>${Math.round(r.p*100)}${tag}</td></tr>`;
     }else{
       rows+=`<tr><td>${rd}${m?"m":"y"}</td><td colspan="6" style="color:var(--crit);text-align:left">out of range — no load meets penetration + density</td></tr>`;
     }
   }
   const eU=m?"J":"ft·lbf";
-  return `<p class="xcfg">${SPECIES[state.species].name} · ${MATERIALS[state.material].name} · ${state.present} · aim ${state.aim}"@40 · needs ≥${SPECIES[state.species].min} in circle. Green ≥90% clean; <span style="color:var(--warn)">amber</span> = best achievable.</p>`
+  return `<p class="xcfg">${SPECIES[state.species].name} · ${MATERIALS[state.material].name} · ${state.present} · aim ${state.aim}"@40 · needs ≥${SPECIES[state.species].min} in circle. Green ≥90% clean; <span style="color:var(--warn)">amber</span> = best achievable. In-circle: <span class="smk smk-m">m</span> measured · <span class="smk smk-e">e</span> estimated.</p>`
     +`<table class="xt"><tr><th>Range</th><th>Pellet</th><th>Choke</th><th>Load</th><th>In circle</th><th>Energy (${eU})</th><th>Kill%</th></tr>${rows}</table>`;
 }
 function copyExport(){
@@ -1114,7 +1147,7 @@ $("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetr
 function currentMeasurement(){
   const cap=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
   const count=Math.min(parseInt($("holeManual").value)||0, cap);
-  return {dist:PH.distYd||40,count,total0:cap,pct:count/Math.max(1,cap),mat:PH.mat,shot:PH.shot,payOz:PH.payOz,choke:$("pchoke").value};
+  return {dist:PH.distYd||40,distDisp:+$("pdist").value||Math.round(PH.distYd||40),count,total0:cap,pct:count/Math.max(1,cap),mat:PH.mat,shot:PH.shot,payOz:PH.payOz,choke:$("pchoke").value};
 }
 $("photoAdd").addEventListener("click",()=>{
   const c=currentMeasurement();
@@ -1138,7 +1171,15 @@ $("photoApply").addEventListener("click",()=>{
   }
   const c0=pts[0];
   state.material=c0.mat; state.shot=c0.shot; state.payload=c0.payOz; state.choke=c0.choke; state.range=c0.dist;
-  state.measured={points: pts.map(p=>({dist:p.dist,pct:p.pct,count:p.count}))};
+  // measuredStrikes: authoritative holes-in-circle keyed by distance (the display
+  // value the shooter typed, e.g. {10:739, 20:286}). Kept as the single truth.
+  const strikes={}; pts.forEach(p=>{strikes[p.distDisp!=null?p.distDisp:Math.round(p.dist)]=p.count;});
+  state.measured={
+    load:{mat:c0.mat,shot:c0.shot,payOz:c0.payOz,choke:c0.choke},
+    points: pts.map(p=>({dist:p.dist,pct:p.pct,count:p.count})),
+    measuredStrikes: strikes
+  };
+  persistMeasured();
   setControlsFromState(); updateBanner(); render();
   $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
 });
@@ -1179,6 +1220,7 @@ function resetAll(){
   // shooter + gun are intentionally kept (identity persists across a reset)
   Object.assign(state,{species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,aim:12});
   Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]});
+  persistMeasured();
   placeStage=0;
   $("species").value="partridge";
   $("thresh").value=50; $("threshVal").textContent="50";
@@ -1232,6 +1274,7 @@ $("exportShare").addEventListener("click",async()=>{
   setTimeout(()=>$("exportShare").textContent="Share / Save",2200);
 });
 
+restoreMeasured();
 document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u===state.units));
 document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode===state.present));
 document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim));
