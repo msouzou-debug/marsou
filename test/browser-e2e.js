@@ -155,7 +155,73 @@ function ok(cond, label) {
     'όνομα ληφθέντος αρχείου: ' + download.suggestedFilename());
   const dlPath = path.join(OUT, 'browser-download.xlsx');
   await download.saveAs(dlPath);
+
+  /* ---------- Σενάριο 2: μεταφορά προηγούμενης περιόδου (Ιαν–Μαρ) + νέα αρχεία Απρ–Μάι ---------- */
+  console.log('▸ Σενάριο μεταφοράς προηγούμενης περιόδου');
+  const prevStaged = path.join(stage, 'prev_output_2026_03.xlsx');
+  fs.copyFileSync(path.join(DIR, 'prev_output_2026_03.xlsx'), prevStaged);
+
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.setInputFiles('#fi-prev', prevStaged);
+  await page.waitForFunction(() => document.querySelectorAll('#list-prev .filecard').length === 1);
+  const prevCard = await page.locator('#list-prev').innerText();
+  ok(/Ιανουάριος, Φεβρουάριος, Μάρτιος/.test(prevCard), 'κάρτα μεταφοράς: μήνες Ιαν–Μαρ');
+  ok(/προσυμπληρώθηκαν/.test(prevCard), 'κάρτα μεταφοράς: σημείωση προσυμπλήρωσης παραδοχών');
+  await page.waitForFunction(() => !document.getElementById('btn-export').disabled);
+  ok(true, 'μόνο με τη μεταφορά: εξαγωγή ενεργή (εκπτώσεις από «Εισαγωγές»)');
+  ok((await page.locator('#review .month-h b').count()) >= 3 &&
+     (await page.locator('#review .month-h:has-text("από εξαγωγή")').count()) === 3,
+    'επισκόπηση: 3 μήνες με σήμανση «από εξαγωγή προηγούμενης περιόδου»');
+
+  // Νέα αρχεία Απριλίου + Μαΐου + Conso Μαΐου.
+  await page.setInputFiles('#fi-is', [path.join(stage, ASCII_IS[4]), path.join(stage, ASCII_IS[5])]);
+  await page.waitForFunction(() => document.querySelectorAll('#list-is .filecard').length === 2);
+  await page.setInputFiles('#fi-conso', [path.join(DIR, CONSO_FILES[5])]);
+  await page.waitForFunction(() => document.querySelectorAll('#list-conso .filecard').length === 1);
+  await page.waitForFunction(() => !document.getElementById('btn-export').disabled);
+  const heads2 = await page.$$eval('#review .month-h b', els => els.map(e => e.textContent));
+  ok(heads2.filter(t => /2026/.test(t)).length === 5, 'year-to-date: 5 μήνες στην επισκόπηση');
+  const badges2 = await page.locator('#review .month-h:has-text("από εξαγωγή")').count();
+  ok(badges2 === 3, 'μόνο οι 3 μεταφερόμενοι μήνες έχουν σήμανση (Απρ–Μάι φρέσκοι)');
+  // Το ίδιο γενικό σύνολο με το σενάριο 1 (όλα φρέσκα) — χωρίς conso Ιαν/Μαρ
+  // δεν θα ίσχυε, αλλά εδώ τα over-15% Ιαν/Μαρ ταξιδεύουν μέσα στη μεταφορά.
+  ok((await page.locator('#review').innerText()).includes(grandStr),
+    'γενικό σύνολο year-to-date ταυτίζεται με το σενάριο «όλα τα αρχεία φρέσκα»: ' + grandStr);
+
+  // Επικάλυψη: νέο IS Μαρτίου → ενημερωτικό μήνυμα, εξαγωγή παραμένει δυνατή.
+  await page.setInputFiles('#fi-is', [path.join(stage, ASCII_IS[3])]);
+  await page.waitForFunction(() => document.querySelectorAll('#list-is .filecard').length === 3);
+  ok(/Μάρτιος/.test(await page.locator('#list-prev').innerText()) &&
+     /θα χρησιμοποιηθούν τα νέα/.test(await page.locator('#list-prev').innerText()),
+    'επικάλυψη Μαρτίου: ενημέρωση ότι υπερισχύει το νέο αρχείο');
+  await page.waitForFunction(() => !document.getElementById('btn-export').disabled);
+  const badges3 = await page.locator('#review .month-h:has-text("από εξαγωγή")').count();
+  ok(badges3 === 2, 'μετά το νέο IS Μαρτίου: μόνο Ιαν–Φεβ σημαίνονται ως μεταφερόμενοι');
+  ok((await page.locator('#review').innerText()).includes(grandStr),
+    'γενικό σύνολο αμετάβλητο (ίδια δεδομένα Μαρτίου από το νέο αρχείο)');
+
+  // Λήψη year-to-date και δομικός έλεγχος.
+  const [dl2] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#btn-export').click()
+  ]);
+  const dl2Path = path.join(OUT, 'browser-download-carry.xlsx');
+  await dl2.saveAs(dl2Path);
   await browser.close();
+
+  {
+    const wbC = new ExcelJS.Workbook();
+    await wbC.xlsx.readFile(dl2Path);
+    const dataC = wbC.getWorksheet('Δεδομένα');
+    let dataRows = 0;
+    for (let r = 5; r <= 60; r++) if (dataC.getCell('A' + r).value) dataRows++;
+    ok(dataRows === 40, 'year-to-date Δεδομένα: 40 γραμμές (8 νοσηλευτήρια × 5 μήνες), got ' + dataRows);
+    const d5 = dataC.getCell('D5').value;
+    ok(Math.abs(d5 - 1260.42) < 1e-6, 'μεταφερόμενο F1054 Ιαν pos στο νέο αρχείο: ' + d5);
+    const inC = wbC.getWorksheet('Εισαγωγές');
+    ok(/prev_output_2026_03/.test(JSON.stringify(inC.getSheetValues())), 'το αρχείο μεταφοράς αναφέρεται στις πηγές');
+  }
 
   // Δομικός έλεγχος του αρχείου που κατέβηκε από τον browser.
   const wb = new ExcelJS.Workbook();

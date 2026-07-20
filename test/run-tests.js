@@ -326,6 +326,59 @@ section('Workbook εξόδου (ExcelJS)');
   ok(syn.views && syn.views[0] && syn.views[0].showGridLines === false, 'Σύνοψη χωρίς γραμμές πλέγματος');
   ok(calc.pageSetup.orientation === 'landscape' && calc.pageSetup.fitToWidth === 1, 'Υπολογισμός landscape fit-to-width');
 
+  /* ---------- 8. Μεταφορά προηγούμενης περιόδου ---------- */
+  section('Εξαγωγή προηγούμενης περιόδου → year-to-date');
+  // Φτιάχνουμε «προηγούμενη» εξαγωγή Ιαν–Μαρ και τη διαβάζουμε ξανά.
+  const prevRows = [1, 2, 3].flatMap(monthRows);
+  const wbPrev = await C.buildWorkbook(ExcelJS, {
+    year: 2026, months: [1, 2, 3], rows: prevRows, assumptions,
+    sources: { isFiles: [IS_FILES[1], IS_FILES[2], IS_FILES[3]], consoFiles: [CONSO_FILES[1], CONSO_FILES[3]], discountFile: null }
+  });
+  const prevPath = path.join(DIR, 'prev_output_2026_03.xlsx');
+  await wbPrev.xlsx.writeFile(prevPath);
+
+  const pp = C.parsePreviousOutput(XLSX, XLSX.read(fs.readFileSync(prevPath), { type: 'buffer' }), 'prev_output_2026_03.xlsx');
+  ok(pp.ok && !pp.error, 'parsePreviousOutput ok' + (pp.error ? ' — ' + pp.error : ''));
+  ok(JSON.stringify(pp.monthsList) === JSON.stringify([1, 2, 3]), 'μεταφερόμενοι μήνες: ' + pp.monthsList.join(','));
+  close(pp.months[1].is['F1054'].pos, 1260.42, 1e-9, 'round-trip: F1054 Ιαν pos');
+  close(pp.months[1].is['F1054'].negAe, -2.1, 1e-9, 'round-trip: F1054 Ιαν negAe');
+  close(pp.months[1].over15['F1054'], 223.85, 1e-9, 'round-trip: F1054 Ιαν over15');
+  close(pp.months[3].over15['F1047'], 45, 1e-9, 'round-trip: F1047 Μαρ over15');
+  ok(pp.year === 2026, 'έτος από «Εισαγωγές»: ' + pp.year);
+  ok(pp.assumptions && pp.assumptions.creditToggle === 'ΟΧΙ', 'διακόπτης από «Εισαγωγές»');
+  close(pp.assumptions.hospitals['F1054'].agreed, 5239, 1e-9, 'agreed F1054 από «Εισαγωγές»');
+  close(pp.assumptions.hospitals['F1047'].brH1, 4331, 1e-9, 'brH1 F1047 από «Εισαγωγές»');
+  close(pp.assumptions.discounts[1], -0.4032, 1e-9, 'έκπτωση Ιαν από «Εισαγωγές»');
+  close(pp.assumptions.discounts[3], -0.6031, 1e-9, 'έκπτωση Μαρ από «Εισαγωγές»');
+
+  // Ο υπολογισμός πάνω στα μεταφερόμενα δεδομένα δίνει ίδια αποτελέσματα.
+  for (const m of [1, 2, 3]) {
+    const carried = C.computeMonthRows(m, { is: pp.months[m].is, over15: pp.months[m].over15 }, assumptions);
+    const fresh = monthRows(m);
+    const dImp = carried.reduce((s, r) => s + r.impact, 0) - fresh.reduce((s, r) => s + r.impact, 0);
+    close(dImp, 0, 1e-6, 'μήνας ' + m + ': ίδια επίπτωση από μεταφορά και από αρχεία πηγής');
+  }
+
+  // Έλεγχοι εξαγωγής με prevMonths.
+  {
+    const s = { isFiles: [], consoFiles: [], prevMonths: [1, 2, 3], assumptions: C.defaultAssumptions() };
+    ok(C.validateForExport(s).length === 0, 'μόνο μεταφορά Ιαν–Μαρ → κανένα σφάλμα');
+    s.consoFiles.push({ filename: 'c2.xlsx', month: 2, parsed: consoParsed[1] });
+    ok(!C.validateForExport(s).some(e => /χωρίς αντίστοιχο/.test(e)), 'Conso σε μεταφερόμενο μήνα → επιτρέπεται');
+    s.consoFiles.push({ filename: 'c6.xlsx', month: 6, parsed: consoParsed[1] });
+    ok(C.validateForExport(s).some(e => /Ιούνιος/.test(e) && /χωρίς αντίστοιχο/.test(e)), 'Conso σε μη καλυμμένο μήνα → μπλοκάρει');
+    s.consoFiles.pop();
+    s.isFiles.push({ filename: IS_FILES[3], month: 3, parsed: isParsed[3], includeAnyway: false });
+    ok(!C.validateForExport(s).some(e => /Δύο IS Auditor/.test(e)), 'νέο IS σε μεταφερόμενο μήνα → επιτρέπεται (υπερισχύει)');
+    s.isFiles.push({ filename: 'x.xlsx', month: 3, parsed: isParsed[3], includeAnyway: false });
+    ok(C.validateForExport(s).some(e => /Δύο IS Auditor/.test(e)), 'δύο ΝΕΑ IS στον ίδιο μήνα → μπλοκάρει');
+    const s7 = { isFiles: [], consoFiles: [], prevMonths: [7], assumptions: C.defaultAssumptions() };
+    s7.assumptions.discounts[7] = -0.2;
+    ok(C.validateForExport(s7).some(e => /Β΄ εξαμήνου/.test(e)), 'μεταφερόμενος μήνας >6 χωρίς τιμή Β΄ εξαμήνου → μπλοκάρει');
+    const sBad = C.parsePreviousOutput(XLSX, readWb('IS_Auditor_Report_JAN_2026.xlsx'), 'not-an-output');
+    ok(!sBad.ok && /Δεδομένα/.test(sBad.error), 'IS Auditor αντί εξαγωγής → καθαρό σφάλμα');
+  }
+
   console.log('\n' + passed + ' πέρασαν, ' + failed + ' απέτυχαν');
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -138,9 +138,21 @@
   <section id="sec-files">
     <h2>1 · Αρχεία μήνα</h2>
     <p class="infomsg" style="margin-top:0">
-      Η εφαρμογή ξαναχτίζει ολόκληρο το έτος σε κάθε χρήση — μεταφορτώστε τα IS Auditor Reports
-      <b>όλων</b> των μηνών κάθε φορά. Κάθε αρχείο πρέπει να αντιστοιχιστεί σε μήνα πριν την εξαγωγή.
+      Δύο τρόποι για πλήρες year-to-date: είτε μεταφορτώστε τα IS Auditor Reports <b>όλων</b> των μηνών,
+      είτε μεταφορτώστε την <b>εξαγωγή Excel της προηγούμενης περιόδου</b> (μεταφέρει τους περασμένους μήνες)
+      μαζί με τα αρχεία μόνο του τρέχοντος μήνα. Κάθε αρχείο πρέπει να αντιστοιχιστεί σε μήνα πριν την εξαγωγή.
     </p>
+    <div class="zones" style="margin-bottom:16px">
+      <div class="zone">
+        <div class="dropzone" id="dz-prev" style="border-color:var(--green);background:#f5fbee">
+          <div class="big" style="color:#5a8a1d">Εξαγωγή προηγούμενης περιόδου</div>
+          <div class="hint">Το «Επίπτωση_Υπέρβασης_….xlsx» που κατεβάσατε την προηγούμενη φορά —
+            μεταφέρει όλους τους μήνες του (φύλλο «Δεδομένα») και τις παραδοχές (φύλλο «Εισαγωγές»)</div>
+        </div>
+        <input type="file" id="fi-prev" accept=".xlsx" hidden>
+        <div id="list-prev"></div>
+      </div>
+    </div>
     <div class="zones">
       <div class="zone">
         <div class="dropzone" id="dz-is">
@@ -247,7 +259,8 @@
     assumptions: loadAssumptions(),
     isFiles: [],     // {id, filename, month, year, parsed, includeAnyway}
     consoFiles: [],  // {id, filename, month, year, parsed}
-    discountFile: null // {filename, parsed}
+    discountFile: null, // {filename, parsed}
+    prevFile: null   // {filename, parsed} — εξαγωγή προηγούμενης περιόδου
   };
   var nextId = 1;
 
@@ -355,6 +368,37 @@
     });
   }
 
+  function addPrevFile(files) {
+    var file = files[0];
+    if (!file) return;
+    readWorkbook(file).then(function (wb) {
+      var parsed = C.parsePreviousOutput(XLSX, wb, file.name);
+      state.prevFile = { filename: file.name, parsed: parsed };
+      // Προσυμπλήρωση παραδοχών από το φύλλο «Εισαγωγές» της προηγούμενης
+      // εξαγωγής (παραμένουν επεξεργάσιμες στη φόρμα).
+      if (parsed.ok && parsed.assumptions) {
+        var pa = parsed.assumptions;
+        if (parsed.year) state.assumptions.year = parsed.year;
+        if (pa.creditToggle) state.assumptions.creditToggle = pa.creditToggle;
+        Object.keys(pa.hospitals || {}).forEach(function (code) {
+          var h = pa.hospitals[code];
+          var cur = state.assumptions.hospitals[code];
+          if (!cur) return;
+          if (h.agreed !== null) cur.agreed = h.agreed;
+          if (h.brH1 !== null) cur.brH1 = h.brH1;
+          if (h.brH2 !== null) cur.brH2 = h.brH2;
+        });
+        Object.keys(pa.discounts || {}).forEach(function (m) {
+          if (pa.discounts[m] !== null) state.assumptions.discounts[m] = pa.discounts[m];
+        });
+        saveAssumptions();
+      }
+      renderAll();
+    }).catch(function (e) {
+      alert('Αποτυχία ανάγνωσης «' + file.name + '»: ' + e.message);
+    });
+  }
+
   /* ---------------- Dropzones ---------------- */
   function wireZone(zoneId, inputId, handler) {
     var dz = document.getElementById(zoneId);
@@ -372,6 +416,7 @@
   wireZone('dz-is', 'fi-is', addIsFiles);
   wireZone('dz-conso', 'fi-conso', addConsoFiles);
   wireZone('dz-disc', 'fi-disc', addDiscountFile);
+  wireZone('dz-prev', 'fi-prev', addPrevFile);
 
   /* ---------------- Rendering: κάρτες αρχείων ---------------- */
   function monthSelect(current, onchange) {
@@ -513,6 +558,55 @@
     box.appendChild(card);
   }
 
+  function renderPrevFile() {
+    var box = document.getElementById('list-prev');
+    box.innerHTML = '';
+    var f = state.prevFile;
+    if (!f) return;
+    var card = document.createElement('div');
+    card.className = 'filecard' + (f.parsed.error ? ' error' : '');
+    var head = document.createElement('div'); head.className = 'row';
+    var nm = document.createElement('span'); nm.className = 'fname'; nm.textContent = f.filename;
+    var rm = document.createElement('button'); rm.className = 'removebtn'; rm.textContent = '× αφαίρεση';
+    rm.addEventListener('click', function () { state.prevFile = null; renderAll(); });
+    head.appendChild(nm); head.appendChild(rm);
+    card.appendChild(head);
+
+    if (f.parsed.error) {
+      var eb = document.createElement('div'); eb.className = 'warnbox';
+      eb.textContent = 'Σφάλμα: ' + f.parsed.error;
+      card.appendChild(eb);
+    } else {
+      var meta = document.createElement('div'); meta.className = 'meta';
+      meta.textContent = 'Μεταφερόμενοι μήνες: ' +
+        f.parsed.monthsList.map(function (m) { return C.MONTHS_EL[m]; }).join(', ') +
+        (f.parsed.year ? ' · έτος: ' + f.parsed.year : '');
+      card.appendChild(meta);
+      if (f.parsed.assumptions) {
+        var meta2 = document.createElement('div'); meta2.className = 'meta';
+        meta2.textContent = 'Οι παραδοχές (εκπτώσεις, τιμές, διακόπτης) προσυμπληρώθηκαν από το φύλλο «Εισαγωγές» — μπορείτε να τις αλλάξετε.';
+        card.appendChild(meta2);
+      }
+      // Επικαλύψεις με νέα IS αρχεία: υπερισχύουν τα νέα.
+      var overlap = f.parsed.monthsList.filter(function (m) {
+        return state.isFiles.some(function (x) { return x.month === m && x.parsed && x.parsed.ok; });
+      });
+      if (overlap.length) {
+        var ob = document.createElement('div'); ob.className = 'warnbox';
+        ob.style.background = '#fff6dd'; ob.style.borderColor = '#e6b800'; ob.style.color = '#7a5b00';
+        ob.textContent = 'ℹ Για τους μήνες ' + overlap.map(function (m) { return C.MONTHS_EL[m]; }).join(', ') +
+          ' έχουν μεταφορτωθεί και νέα IS Auditor Reports — θα χρησιμοποιηθούν τα νέα δεδομένα.';
+        card.appendChild(ob);
+      }
+      (f.parsed.warnings || []).forEach(function (w) {
+        var wb = document.createElement('div'); wb.className = 'warnbox';
+        wb.textContent = '⚠ ' + w;
+        card.appendChild(wb);
+      });
+    }
+    box.appendChild(card);
+  }
+
   /* ---------------- Rendering: παραδοχές ---------------- */
   function numInput(value, decimals, onchange) {
     var inp = document.createElement('input');
@@ -533,7 +627,8 @@
 
     var tb = document.querySelector('#tbl-hosp tbody');
     tb.innerHTML = '';
-    var anyMonthH2 = state.isFiles.some(function (f) { return f.month && f.month > 6; });
+    var anyMonthH2 = state.isFiles.some(function (f) { return f.month && f.month > 6; }) ||
+      prevMonthsList().some(function (m) { return m > 6; });
     C.HOSPITALS.forEach(function (h) {
       var a = state.assumptions.hospitals[h.code];
       var tr = document.createElement('tr');
@@ -558,6 +653,7 @@
     trh.innerHTML = ''; trb.innerHTML = '';
     var monthsWithIs = {};
     state.isFiles.forEach(function (f) { if (f.month) monthsWithIs[f.month] = true; });
+    prevMonthsList().forEach(function (m) { monthsWithIs[m] = true; });
     for (var m = 1; m <= 12; m++) {
       var th = document.createElement('th'); th.textContent = C.MONTHS_EL[m].slice(0, 3);
       th.title = C.MONTHS_EL[m];
@@ -594,20 +690,31 @@
   });
 
   /* ---------------- Υπολογισμός & επισκόπηση ---------------- */
+  function prevMonthsList() {
+    return (state.prevFile && state.prevFile.parsed.ok) ? state.prevFile.parsed.monthsList : [];
+  }
+
   function currentMonths() {
     var months = {};
+    prevMonthsList().forEach(function (m) { months[m] = true; });
     state.isFiles.forEach(function (f) {
-      if (f.month && f.parsed && f.parsed.ok && (!f.parsed.incomplete || f.includeAnyway)) months[f.month] = f;
+      if (f.month && f.parsed && f.parsed.ok && (!f.parsed.incomplete || f.includeAnyway)) months[f.month] = true;
     });
     return Object.keys(months).map(Number).sort(function (a, b) { return a - b; });
   }
 
+  // Πηγές ανά μήνα: νέο IS αρχείο υπερισχύει της μεταφοράς· το ίδιο και νέο
+  // Conso έναντι του μεταφερόμενου over-15%. Οι δύο επιλογές είναι ανεξάρτητες.
   function monthData(m) {
-    var isF = state.isFiles.find(function (f) { return f.month === m && f.parsed && f.parsed.ok; });
+    var isF = state.isFiles.find(function (f) {
+      return f.month === m && f.parsed && f.parsed.ok && (!f.parsed.incomplete || f.includeAnyway);
+    });
     var consoF = state.consoFiles.find(function (f) { return f.month === m && f.parsed && f.parsed.ok; });
+    var prev = (state.prevFile && state.prevFile.parsed.ok) ? state.prevFile.parsed.months[m] : null;
     return {
-      is: isF ? isF.parsed.perProvider : {},
-      over15: consoF ? consoF.parsed.over15 : {}
+      is: isF ? isF.parsed.perProvider : (prev ? prev.is : {}),
+      over15: consoF ? consoF.parsed.over15 : (prev ? prev.over15 : {}),
+      fromPrev: !isF && !!prev
     };
   }
 
@@ -626,14 +733,15 @@
     if (!months.length) {
       var p = document.createElement('div');
       p.className = 'empty';
-      p.textContent = 'Δεν υπάρχουν ακόμη πλήρη IS Auditor Reports με αντιστοιχισμένο μήνα.';
+      p.textContent = 'Δεν υπάρχουν ακόμη πλήρη IS Auditor Reports με αντιστοιχισμένο μήνα ούτε εξαγωγή προηγούμενης περιόδου.';
       box.appendChild(p);
       return;
     }
 
     var grandImpact = 0, grandExcess = 0;
     months.forEach(function (m) {
-      var rows = C.computeMonthRows(m, monthData(m), state.assumptions);
+      var md = monthData(m);
+      var rows = C.computeMonthRows(m, md, state.assumptions);
       var d = state.assumptions.discounts[m];
 
       var head = document.createElement('div');
@@ -643,6 +751,12 @@
       var s = document.createElement('span');
       s.textContent = 'Έκπτωση ΟΑΥ: ' + (d === null || d === undefined ? '— ΛΕΙΠΕΙ —' : fmtU2.format(d * 100) + '%');
       head.appendChild(b); head.appendChild(s);
+      if (md.fromPrev) {
+        var badge = document.createElement('span');
+        badge.textContent = '↻ από εξαγωγή προηγούμενης περιόδου';
+        badge.style.cssText = 'background:#eef7e2;color:#5a8a1d;border:1px solid #8DC63F;border-radius:10px;padding:1px 10px;font-size:12px;';
+        head.appendChild(badge);
+      }
       box.appendChild(head);
 
       var t = document.createElement('table');
@@ -705,6 +819,7 @@
       consoFiles: state.consoFiles.map(function (f) {
         return { filename: f.filename, month: f.month, parsed: f.parsed };
       }),
+      prevMonths: prevMonthsList(),
       assumptions: state.assumptions
     };
   }
@@ -739,7 +854,9 @@
       sources: {
         isFiles: state.isFiles.map(function (f) { return f.filename; }),
         consoFiles: state.consoFiles.map(function (f) { return f.filename; }),
-        discountFile: state.discountFile ? state.discountFile.filename : null
+        discountFile: state.discountFile ? state.discountFile.filename : null,
+        prevOutput: state.prevFile ? state.prevFile.filename : null,
+        prevMonths: currentMonths().filter(function (m) { return monthData(m).fromPrev; })
       }
     };
     var btn = this;
@@ -769,6 +886,7 @@
     renderIsList();
     renderConsoList();
     renderDiscFile();
+    renderPrevFile();
     renderAssumptions();
     renderReview();
     renderExport();

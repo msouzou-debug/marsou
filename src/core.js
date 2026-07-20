@@ -293,6 +293,108 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Ανάγνωση εξαγωγής προηγούμενης περιόδου (το xlsx της ίδιας της εφαρμογής)
+   * ------------------------------------------------------------------ */
+
+  // Διαβάζει το φύλλο «Δεδομένα» (pos, pos_ae, neg, neg_ae, over15 ανά
+  // νοσηλευτήριο × μήνα) ώστε οι περασμένοι μήνες να μεταφέρονται χωρίς να
+  // ξαναμεταφορτωθούν τα IS Auditor Reports τους, και το φύλλο «Εισαγωγές»
+  // για να προσυμπληρωθούν οι παραδοχές (εκπτώσεις, τιμές, διακόπτης, έτος).
+  function parsePreviousOutput(XLSX, wb, filename) {
+    var res = {
+      ok: false, error: null, filename: filename || '',
+      months: {}, monthsList: [], assumptions: null, year: null, warnings: []
+    };
+
+    var dataName = null, inName = null;
+    wb.SheetNames.forEach(function (n) {
+      var norm = normalizeGreek(n);
+      if (norm === 'ΔΕΔΟΜΕΝΑ') dataName = n;
+      if (norm === 'ΕΙΣΑΓΩΓΕΣ') inName = n;
+    });
+    if (!dataName) {
+      res.error = 'Δεν βρέθηκε φύλλο «Δεδομένα» — το αρχείο δεν μοιάζει με εξαγωγή αυτής της εφαρμογής.';
+      return res;
+    }
+
+    var rows = XLSX.utils.sheet_to_json(wb.Sheets[dataName], { header: 1, defval: null, raw: true });
+    var headerIdx = -1;
+    for (var r = 0; r < rows.length; r++) {
+      if (toStr((rows[r] || [])[0]) === 'Κωδικός') { headerIdx = r; break; }
+    }
+    if (headerIdx === -1) {
+      res.error = 'Στο φύλλο «Δεδομένα» δεν βρέθηκε επικεφαλίδα «Κωδικός».';
+      return res;
+    }
+    for (var i = headerIdx + 1; i < rows.length; i++) {
+      var row = rows[i] || [];
+      var code = toStr(row[0]);
+      if (code === '') break; // τέλος πλέγματος
+      if (HOSPITAL_CODES.indexOf(code) === -1) {
+        res.warnings.push('Άγνωστος κωδικός «' + code + '» στο φύλλο «Δεδομένα» — αγνοήθηκε.');
+        continue;
+      }
+      var month = toNum(row[2]);
+      if (month === null || month < 1 || month > 12) {
+        res.warnings.push('Μη έγκυρος μήνας στη γραμμή ' + (i + 1) + ' του φύλλου «Δεδομένα» — αγνοήθηκε.');
+        continue;
+      }
+      month = Math.round(month);
+      if (!res.months[month]) res.months[month] = { is: {}, over15: {} };
+      res.months[month].is[code] = {
+        pos: toNum(row[3]) || 0, posAe: toNum(row[4]) || 0,
+        neg: toNum(row[5]) || 0, negAe: toNum(row[6]) || 0
+      };
+      var o15 = toNum(row[7]);
+      if (o15 !== null && o15 !== 0) res.months[month].over15[code] = o15;
+    }
+    res.monthsList = Object.keys(res.months).map(Number).sort(function (a, b) { return a - b; });
+    if (!res.monthsList.length) {
+      res.error = 'Το φύλλο «Δεδομένα» δεν περιέχει γραμμές δεδομένων.';
+      return res;
+    }
+
+    if (inName) {
+      var irows = XLSX.utils.sheet_to_json(wb.Sheets[inName], { header: 1, defval: null, raw: true });
+      var a = { hospitals: {}, discounts: {}, creditToggle: null };
+      var hospIdx = -1, discIdx = -1;
+      irows.forEach(function (row, idx) {
+        var a0 = toStr((row || [])[0]);
+        var ym = a0.match(/Έτος αναφοράς:\s*(20\d{2})/);
+        if (ym) res.year = parseInt(ym[1], 10);
+        if (a0 === 'Κωδικός' && hospIdx === -1) hospIdx = idx;
+        if (/^Μήνας \(αρ\.\)/.test(a0) && discIdx === -1) discIdx = idx;
+        if (/πιστωτικών σημειώσεων/.test(a0)) {
+          var t = toStr((row || [])[1]);
+          if (t === 'ΝΑΙ' || t === 'ΟΧΙ') a.creditToggle = t;
+        }
+      });
+      if (hospIdx !== -1) {
+        for (var h = hospIdx + 1; h < irows.length; h++) {
+          var hrow = irows[h] || [];
+          var hcode = toStr(hrow[0]);
+          if (HOSPITAL_CODES.indexOf(hcode) === -1) break;
+          a.hospitals[hcode] = { agreed: toNum(hrow[2]), brH1: toNum(hrow[4]), brH2: toNum(hrow[5]) };
+        }
+      }
+      if (discIdx !== -1) {
+        for (var d = discIdx + 1; d < irows.length; d++) {
+          var drow = irows[d] || [];
+          var dm = toNum(drow[0]);
+          if (dm === null || dm < 1 || dm > 12) break;
+          a.discounts[Math.round(dm)] = toNum(drow[2]); // δεκαδικό ή null
+        }
+      }
+      if (Object.keys(a.hospitals).length || Object.keys(a.discounts).length || a.creditToggle) {
+        res.assumptions = a;
+      }
+    }
+
+    res.ok = true;
+    return res;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Υπολογισμός ανά νοσηλευτήριο × μήνα
    * ------------------------------------------------------------------ */
 
@@ -332,22 +434,29 @@
    * ------------------------------------------------------------------ */
 
   // state: { isFiles: [{filename, month, parsed, includeAnyway}],
-  //          consoFiles: [{filename, month, parsed}], assumptions }
+  //          consoFiles: [{filename, month, parsed}],
+  //          prevMonths: [μήνες από την εξαγωγή προηγούμενης περιόδου] (προαιρετικό),
+  //          assumptions }
   function validateForExport(state) {
     var errors = [];
     var a = state.assumptions;
+    var prevMonths = state.prevMonths || [];
 
-    if (!state.isFiles.length) {
-      errors.push('Δεν έχει μεταφορτωθεί κανένα IS Auditor Report.');
+    if (!state.isFiles.length && !prevMonths.length) {
+      errors.push('Δεν έχει μεταφορτωθεί κανένα IS Auditor Report ούτε εξαγωγή προηγούμενης περιόδου.');
       return errors;
     }
 
     var monthsSeen = {};
+    prevMonths.forEach(function (m) { monthsSeen[m] = '(εξαγωγή προηγούμενης περιόδου)'; });
+    // Επικάλυψη νέου IS με μήνα προηγούμενης περιόδου επιτρέπεται (υπερισχύει
+    // το νέο αρχείο) — δύο ΝΕΑ αρχεία στον ίδιο μήνα όμως όχι.
+    var freshSeen = {};
     state.isFiles.forEach(function (f) {
       if (!f.month) errors.push('Το αρχείο «' + f.filename + '» δεν έχει αντιστοιχιστεί σε μήνα.');
-      else if (monthsSeen[f.month])
-        errors.push('Δύο IS Auditor Reports για τον μήνα ' + MONTHS_EL[f.month] + ' («' + monthsSeen[f.month] + '», «' + f.filename + '»).');
-      else monthsSeen[f.month] = f.filename;
+      else if (freshSeen[f.month])
+        errors.push('Δύο IS Auditor Reports για τον μήνα ' + MONTHS_EL[f.month] + ' («' + freshSeen[f.month] + '», «' + f.filename + '»).');
+      else { freshSeen[f.month] = f.filename; monthsSeen[f.month] = f.filename; }
 
       if (f.parsed && f.parsed.incomplete && !f.includeAnyway)
         errors.push('Το αρχείο «' + f.filename + '» είναι πιθανώς ελλιπές — επιβεβαιώστε τη συμπερίληψή του ή αφαιρέστε το.');
@@ -361,7 +470,7 @@
           errors.push('Δύο αρχεία Conso για τον μήνα ' + MONTHS_EL[f.month] + '.');
         consoSeen[f.month] = f.filename;
         if (!monthsSeen[f.month])
-          errors.push('Αρχείο Conso για τον μήνα ' + MONTHS_EL[f.month] + ' χωρίς αντίστοιχο IS Auditor Report.');
+          errors.push('Αρχείο Conso για τον μήνα ' + MONTHS_EL[f.month] + ' χωρίς αντίστοιχο IS Auditor Report ή μεταφορά προηγούμενης περιόδου.');
       }
     });
 
@@ -520,6 +629,15 @@
     var srcRow = lr + 5;
     setCell(wsIn, 'A' + srcRow, { value: 'Πηγές', font: { bold: true, size: 11, color: { argb: COLORS.blue } } });
     setCell(wsIn, 'A' + (srcRow + 1), { value: 'IS Auditor Reports (HIO): ' + (payload.sources.isFiles.join(' · ') || '—'), font: { color: { argb: COLORS.grayNote } } });
+    if (payload.sources.prevOutput) {
+      setCell(wsIn, 'A' + (srcRow + 4), {
+        value: 'Μεταφορά προηγούμενης περιόδου: ' + payload.sources.prevOutput +
+          (payload.sources.prevMonths && payload.sources.prevMonths.length
+            ? ' (μήνες: ' + payload.sources.prevMonths.map(function (m) { return MONTHS_EL[m]; }).join(', ') + ')'
+            : ''),
+        font: { color: { argb: COLORS.grayNote } }
+      });
+    }
     setCell(wsIn, 'A' + (srcRow + 2), { value: 'Conso >15%: ' + (payload.sources.consoFiles.join(' · ') || '—'), font: { color: { argb: COLORS.grayNote } } });
     setCell(wsIn, 'A' + (srcRow + 3), {
       value: 'Εκπτώσεις ΟΑΥ: ' + (payload.sources.discountFile || 'χειροκίνητη καταχώρηση'),
@@ -536,7 +654,8 @@
       font: { color: { argb: COLORS.grayNote } }
     });
     setCell(wsData, 'A3', {
-      value: 'Αρχεία: ' + payload.sources.isFiles.concat(payload.sources.consoFiles).join(' · '),
+      value: 'Αρχεία: ' + payload.sources.isFiles.concat(payload.sources.consoFiles)
+        .concat(payload.sources.prevOutput ? ['Μεταφορά: ' + payload.sources.prevOutput] : []).join(' · '),
       font: { color: { argb: COLORS.grayNote }, size: 8 }
     });
     ['Κωδικός', 'Νοσηλευτήριο', 'Μήνας (αρ.)',
@@ -750,6 +869,7 @@
     parseISAuditor: parseISAuditor,
     parseConso: parseConso,
     parseDiscountFile: parseDiscountFile,
+    parsePreviousOutput: parsePreviousOutput,
     computeMonthRows: computeMonthRows,
     validateForExport: validateForExport,
     buildWorkbook: buildWorkbook,
