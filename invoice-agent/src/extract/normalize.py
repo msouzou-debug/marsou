@@ -15,8 +15,8 @@ CRITICAL_FIELDS = ("vendor_vat", "invoice_number", "invoice_date", "gross_total"
 FIELD_DEFAULTS = {
     "vendor_name": "", "vendor_vat": "", "vendor_tin": "", "invoice_number": "", "invoice_date": "",
     "due_date": "", "currency": "EUR", "net_by_rate": {}, "vat_by_rate": {},
-    "net_total": 0.0, "vat_total": 0.0, "gross_total": 0.0, "iban": "",
-    "po_number": "", "lines": [],
+    "net_total": 0.0, "vat_total": 0.0, "gross_total": 0.0, "total_payable": 0.0,
+    "iban": "", "po_number": "", "lines": [],
 }
 
 

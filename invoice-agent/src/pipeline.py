@@ -114,12 +114,13 @@ def _store_record(conn, invoice_id, record, settings):
     conn.execute(
         """UPDATE invoices SET vendor_name=?, vendor_vat=?, vendor_tin=?, invoice_number=?, invoice_date=?,
            due_date=?, currency=?, net_by_rate=?, vat_by_rate=?, net_total=?, vat_total=?,
-           gross_total=?, iban=?, po_number=?, entity=?, extraction_source=?, confidence=?
+           gross_total=?, total_payable=?, iban=?, po_number=?, entity=?, extraction_source=?, confidence=?
            WHERE id=?""",
         (record["vendor_name"], record["vendor_vat"], record["vendor_tin"], record["invoice_number"],
          record["invoice_date"], record["due_date"], record["currency"],
          json.dumps(record["net_by_rate"]), json.dumps(record["vat_by_rate"]),
-         record["net_total"], record["vat_total"], record["gross_total"], record["iban"],
+         record["net_total"], record["vat_total"], record["gross_total"],
+         record["total_payable"], record["iban"],
          record["po_number"], entity, record["source"],
          json.dumps(record.get("confidence", {})), invoice_id))
     lines = record.get("lines") or [park_file._whole_invoice_line(record)]

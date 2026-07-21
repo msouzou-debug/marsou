@@ -52,11 +52,18 @@ _IBAN = r"\b([A-Z]{2}\d{2}[A-Z0-9]{11,30})\b"
 _AMOUNT = r"(\d[\d., ]*[.,]\d{2})"  # totals must carry decimals — keeps IDs out
 # gross: TOTAL must not be the tail of NET TOTAL / SUBTOTAL / ΥΠΟΣΥΝΟΛΟ —
 # fixed-width lookbehinds guard each case (this mis-picked the net as gross).
+# VAT: must not match the ΦΠΑ inside "ΠΡΙΝ ΑΠΟ ΤΟ ΦΠΑ" (net-before-VAT label).
 _TOTALS = {
-    "gross_total": rf"(?:GRAND\s+TOTAL|(?<!NET)(?<!NET\s)(?<!SUB)TOTAL\s*:?\s*(?:DUE|AMOUNT|EUR)?|ΓΕΝΙΚΟ\s+ΣΥΝΟΛΟ|(?<!ΥΠΟ)ΣΥΝΟΛΟ|ΠΛΗΡΩΤΕΟ)\D{{0,12}}{_AMOUNT}",
-    "net_total": rf"(?:NET(?:\s+TOTAL| AMOUNT)?|SUBTOTAL|ΚΑΘΑΡΗ\s+ΑΞΙΑ|ΥΠΟΣΥΝΟΛΟ)\D{{0,12}}{_AMOUNT}",
-    "vat_total": rf"(?:VAT(?!\s*REG)(?:\s*\d+\s*%)?(?:\s+AMOUNT)?|Φ\.?Π\.?Α\.?(?:\s*\d+\s*%)?)\D{{0,12}}{_AMOUNT}",
+    "gross_total": rf"(?:GRAND\s+TOTAL|(?<!NET)(?<!NET\s)(?<!SUB)TOTAL\s*:?\s*(?:DUE|AMOUNT|EUR)?|ΓΕΝΙΚΟ\s+ΣΥΝΟΛΟ|(?<!ΥΠΟ)ΣΥΝΟΛΟ|ΧΡΕΩΣΗ\s+ΜΗΝΑ)\D{{0,12}}{_AMOUNT}",
+    "net_total": rf"(?:NET(?:\s+TOTAL| AMOUNT)?|SUBTOTAL|ΚΑΘΑΡΗ\s+ΑΞΙΑ|ΥΠΟΣΥΝΟΛΟ|(?:ΟΛΙΚΟ\s+)?ΠΡΙΝ\s+ΑΠΟ\s+(?:ΤΟ\s+)?Φ\.?Π\.?Α\.?)\D{{0,12}}{_AMOUNT}",
+    "vat_total": rf"(?:VAT(?!\s*REG)(?:\s*\d+\s*%)?(?:\s+AMOUNT)?|(?<!ΤΟ\s)(?<!ΑΠΟ\s)Φ\.?Π\.?Α\.?(?:\s*\d+\s*%)?)\D{{0,12}}{_AMOUNT}",
 }
+
+# The amount actually being asked for — on utility bills this includes any
+# unpaid prior balance (Cyta: ΟΛΙΚΟ ΠΛΗΡΩΤΕΟ). Collected separately from the
+# tax-invoice gross; per-section repeats are resolved by taking the maximum.
+_PAYABLE = (rf"(?:ΟΛΙΚΟ\s+ΠΛΗΡΩΤΕΟ|ΣΥΝΟΛΟ\s+ΠΛΗΡΩΤΕΟ|ΠΛΗΡΩΤΕΟ\s+ΠΟΣΟ|TOTAL\s+PAYABLE|"
+            rf"(?:TOTAL\s+)?AMOUNT\s+DUE|BALANCE\s+DUE)\D{{0,12}}{_AMOUNT}")
 
 
 def _num(raw):
@@ -111,6 +118,10 @@ def parse_fields(text, source, base_confidence):
         record[field] = _num(m.group(1)) if m else 0.0
         record["confidence"][field] = base_confidence if m else 0.0
 
+    payable_hits = [_num(v) for v in re.findall(_PAYABLE, up)]
+    record["total_payable"] = max(payable_hits) if payable_hits else 0.0
+    record["confidence"]["total_payable"] = base_confidence if payable_hits else 0.0
+
     # vendor name: first non-empty line that isn't a label line
     for line in text.splitlines():
         line = line.strip()
@@ -129,11 +140,29 @@ def parse_fields(text, source, base_confidence):
         record["vat_by_rate"] = {float(rate): record["vat_total"]}
     if not record.get("gross_total") and record.get("net_total") and record.get("vat_total"):
         record["gross_total"] = round(record["net_total"] + record["vat_total"], 2)
+    # a bill with only a payable amount and no VAT breakdown: payable IS the gross
+    if not record.get("gross_total") and record.get("total_payable"):
+        record["gross_total"] = record["total_payable"]
+        record["confidence"]["gross_total"] = record["confidence"]["total_payable"]
     return record
+
+
+def text_is_garbled(text):
+    """Custom-encoded fonts (e.g. Cyta bills) produce an unusable text layer:
+    pdfminer emits (cid:NN) placeholders and symbol soup. Detect it so the
+    caller falls through to OCR instead of extracting nothing (or nonsense)."""
+    if text.count("(cid:") >= 5:
+        return True
+    letters = sum(1 for c in text if c.isalpha())
+    readable = sum(1 for c in text if ("A" <= c <= "Z" or "a" <= c <= "z"
+                                       or "Ͱ" <= c <= "Ͽ" or "ἀ" <= c <= "῿"))
+    return letters > 40 and readable / letters < 0.6
 
 
 def extract(path):
     text = pdf_to_text(path)
     if len(text.strip()) < 40:  # effectively no text layer -> caller falls through to OCR
+        return None
+    if text_is_garbled(text):   # custom font encoding -> only OCR can read it
         return None
     return parse_fields(text, "text", base_confidence=0.9)

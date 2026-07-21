@@ -131,6 +131,12 @@ MIGRATIONS = [
         2,
         "ALTER TABLE invoices ADD COLUMN vendor_tin TEXT DEFAULT '';",
     ),
+    (
+        3,
+        # amount the bill asks to be paid (incl. any unpaid prior balance) —
+        # can exceed gross_total on utility bills; gross stays the booked amount
+        "ALTER TABLE invoices ADD COLUMN total_payable REAL DEFAULT 0;",
+    ),
 ]
 
 

@@ -20,6 +20,17 @@ def analyze(record, vendor_account, history, settings, invoice_id=None):
         findings.append(("new_vendor", "INFO",
                          f"first invoice ever from vendor {vendor_account}"))
 
+    # bill asks for more than this invoice's gross -> unpaid prior balance.
+    # Only the gross is booked (the arrears belong to the earlier invoice);
+    # the payable is flagged so nobody under- or double-pays.
+    payable = record.get("total_payable") or 0.0
+    if payable > record["gross_total"] + 0.02 and record["gross_total"]:
+        findings.append(("prior_balance", "WARNING",
+                         f"bill total payable {payable:.2f} exceeds this invoice's gross "
+                         f"{record['gross_total']:.2f} — prior balance "
+                         f"{payable - record['gross_total']:.2f} on the account; check whether "
+                         f"the earlier invoice is already booked/paid"))
+
     # IBAN differs from the vendor's known IBAN(s) — fraud flag, always CRITICAL
     if record.get("iban"):
         known = history.known_ibans(vendor_account, exclude_id=invoice_id)

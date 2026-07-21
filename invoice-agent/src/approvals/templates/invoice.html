@@ -9,7 +9,10 @@
 <tr><th>Αριθμός</th><td>{{ inv.invoice_number }}</td>
     <th>Ημερομηνία</th><td>{{ inv.invoice_date }} (λήξη {{ inv.due_date or '—' }})</td></tr>
 <tr><th>Καθαρό / ΦΠΑ / Σύνολο</th>
-    <td>{{ '%.2f' % inv.net_total }} / {{ '%.2f' % inv.vat_total }} / <b>{{ '%.2f' % inv.gross_total }}</b> {{ inv.currency }}</td>
+    <td>{{ '%.2f' % inv.net_total }} / {{ '%.2f' % inv.vat_total }} / <b>{{ '%.2f' % inv.gross_total }}</b> {{ inv.currency }}
+        {% if inv.total_payable and inv.total_payable > inv.gross_total %}
+        <br><span class="WARNING">Ολικό πληρωτέο: {{ '%.2f' % inv.total_payable }} (περιλαμβάνει προηγούμενο υπόλοιπο)</span>
+        {% endif %}</td>
     <th>IBAN</th><td>{{ inv.iban or '—' }}</td></tr>
 <tr><th>Οντότητα</th><td>{{ inv.entity }}</td><th>PO</th><td>{{ inv.po_number or '—' }}</td></tr>
 {% if inv.review_reason %}<tr><th>Λόγος ελέγχου</th><td colspan="3">{{ inv.review_reason }}</td></tr>{% endif %}

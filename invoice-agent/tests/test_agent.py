@@ -473,6 +473,60 @@ class TestAmountParsing(unittest.TestCase):
                          "VAT 19%: 161.50\nTotal: 1,011.50", "text", 0.9)
         self.assertAlmostEqual(r["gross_total"], 1011.50)
 
+    def test_cyta_bill_layout_with_prior_balance(self):
+        # real Cyta layout: month charge 380.80, total payable 761.60 (includes
+        # unpaid prior balance); per-section ΟΛΙΚΟ ΠΛΗΡΩΤΕΟ repeats must not win
+        from src.extract.pdf_text import parse_fields
+        r = parse_fields(
+            "ΗΜΕΡΟΜΗΝΙΑ : 30-06-2026\nΑΦΜ: 19101227X\n"
+            "ΠΡΟΗΓΟΥΜΕΝΟ ΥΠΟΛΟΙΠΟ ΠΛΗΡΩΜΗ ΜΕΧΡΙ 06/07/26 380,80\n"
+            "ΜΗΝΙΑΙΕΣ ΧΡΕΩΣΕΙΣ 320,00\nΟΛΙΚΟ ΠΡΙΝ ΑΠΟ ΤΟ ΦΠΑ 320,00\n"
+            "ΑΡ. ΤΙΜΟΛΟΓΙΟΥ: 2001726151-6-2026\nΦΠΑ 60,80\nΧΡΕΩΣΗ ΜΗΝΑ 380,80\n"
+            "ΠΛΗΡΩΤΕΟ ΜΕΧΡΙ 31/07/26\nΟΛΙΚΟ ΠΛΗΡΩΤΕΟ 761,60\n"
+            "ΟΛΙΚΟ ΠΛΗΡΩΤΕΟ 333,20\nΟΛΙΚΟ ΠΛΗΡΩΤΕΟ 428,40", "ocr", 0.7)
+        self.assertEqual(r["invoice_number"], "2001726151-6-2026")
+        self.assertAlmostEqual(r["net_total"], 320.00)
+        self.assertAlmostEqual(r["vat_total"], 60.80)   # not the 320 next to "ΑΠΟ ΤΟ ΦΠΑ"
+        self.assertAlmostEqual(r["gross_total"], 380.80)
+        self.assertAlmostEqual(r["total_payable"], 761.60)
+
+    def test_garbled_text_layer_falls_through_to_ocr(self):
+        from src.extract import normalize
+        from src.extract.pdf_text import text_is_garbled
+        from tests.helpers import make_pdf
+        self.assertTrue(text_is_garbled("Ø¥¡| (cid:238)˘(cid:230)‚¶ (cid:239)˘“(cid:222) "
+                                        "(cid:244)|¥— (cid:129)380,80 (cid:220) more text here"))
+        self.assertFalse(text_is_garbled("CYTA LTD Invoice No: 123 Total: 100.00"))
+        # a garbled-text PDF must not be trusted: with no OCR stack it must go
+        # to review, never come back with wrong amounts
+        pdf = make_pdf(["(cid:238)" * 30 + " 380,80"] * 6)
+        tmp = tempfile.mkdtemp()
+        try:
+            p = os.path.join(tmp, "garbled.pdf")
+            with open(p, "wb") as f:
+                f.write(pdf)
+            record, reason = normalize.extract_file(p, "garbled.pdf")
+            from src.extract.pdf_ocr import available
+            if not available():
+                self.assertIsNone(record)
+                self.assertIn("OCR", reason)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_prior_balance_finding(self):
+        from src.analyze.anomalies import analyze
+        class _NoHistory:
+            def invoices_for(self, *a, **k): return []
+            def lines_for(self, *a, **k): return []
+            def monthly_spend(self, *a, **k): return {}
+            def known_ibans(self, *a, **k): return set()
+        record = {"invoice_number": "X-1", "invoice_date": _recent_date(), "iban": "",
+                  "gross_total": 380.80, "total_payable": 761.60, "lines": []}
+        settings = load_settings(APP_DIR)
+        findings = analyze(record, "100000", _NoHistory(), settings)
+        rules = {f[0]: f[1] for f in findings}
+        self.assertEqual(rules.get("prior_balance"), "WARNING")
+
 
 class TestRejectBeforeProcessing(unittest.TestCase):
     def test_reject_from_review_queue(self):
