@@ -24,23 +24,25 @@ COLUMNS = ["CompanyCode", "VendorAccount", "InvoiceNumber", "DocumentDate", "Pos
 TAX_CODES = {19.0: "V9", 9.0: "V5", 5.0: "V3", 3.0: "V2", 0.0: "V0"}
 
 
-def gl_for_line(line, vendor_account, settings):
-    """vendor default -> keyword rules -> None (never guess silently)."""
+def gl_for_line(line, vendor_account, settings, vendor_name=""):
+    """vendor default -> keyword rules (line description OR vendor name) ->
+    None (never guess silently)."""
     override = (settings.get("vendors_overrides") or {}).get(vendor_account) or {}
     if override.get("default_gl"):
         return override["default_gl"], override.get("cost_center", "")
-    desc = (line.get("description") or "").upper()
+    haystack = f"{line.get('description') or ''} {vendor_name or ''}".upper()
     for rule in settings.get("gl_rules", []):
-        if any(kw.upper() in desc for kw in rule.get("keywords", [])):
+        if any(kw.upper() in haystack for kw in rule.get("keywords", [])):
             return str(rule["gl"]), rule.get("cost_center", "")
     return None, None
 
 
-def assign_gl(conn, invoice_id, record, vendor_account, settings):
+def assign_gl(conn, invoice_id, record, vendor_account, settings, master_name=""):
     """Assign GL/cost center to every line. Returns list of unmapped line nos."""
     unmapped = []
+    haystack_name = f"{record.get('vendor_name', '')} {master_name}"
     for ln in record.get("lines") or [_whole_invoice_line(record)]:
-        gl, cc = gl_for_line(ln, vendor_account, settings)
+        gl, cc = gl_for_line(ln, vendor_account, settings, vendor_name=haystack_name)
         if gl is None:
             unmapped.append(ln["line_no"])
         conn.execute(

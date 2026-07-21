@@ -36,6 +36,10 @@ def _norm_id(v):
     return v[2:] if v.startswith("CY") else v
 
 
+def _digits(v):
+    return re.sub(r"\D", "", v or "")
+
+
 def norm_name(name):
     s = "".join(c for c in unicodedata.normalize("NFD", (name or "").upper())
                 if unicodedata.category(c) != "Mn")
@@ -52,14 +56,27 @@ class VendorMaster:
     def __init__(self, vendors):
         self.vendors = vendors                       # account -> record
         self.by_vat, self.by_tin, self.by_name = {}, {}, {}
+        self.by_vat_digits, self.by_tin_digits = {}, {}
         for v in vendors.values():
             if v["vat_core"]:
                 self.by_vat.setdefault(v["vat_core"], v)
+                self.by_vat_digits.setdefault(_digits(v["vat_core"]), v)
             if v["tin_core"]:
                 self.by_tin.setdefault(v["tin_core"], v)
+                self.by_tin_digits.setdefault(_digits(v["tin_core"]), v)
             if v["name_norm"]:
                 self.by_name.setdefault(v["name_norm"], v)
         self._names = list(self.by_name)
+
+    def match_id(self, value, kind):
+        """Full VAT/TIN core match, else digit-core match (the check letter is
+        what OCR misreads most; 8-digit cores are unique in practice)."""
+        core = _norm_id(value)
+        if not core:
+            return None
+        full, digits = ((self.by_vat, self.by_vat_digits) if kind == "vat"
+                        else (self.by_tin, self.by_tin_digits))
+        return full.get(core) or (digits.get(_digits(core)) if len(_digits(core)) == 8 else None)
 
     @property
     def vat_cores(self):
@@ -136,19 +153,52 @@ def sync_vendors_table(conn, settings, master=None):
 
 # ---- matching ----------------------------------------------------------------
 
+def _name_agrees(vendor, candidates):
+    """Does this vendor's master name appear among the document's candidate
+    name lines? Targeted check for id-matched vendors — token_set tolerates
+    the extra words OCR glues onto a line (emails, addresses)."""
+    target = vendor["name_norm"]
+    if not target:
+        return False
+    for cand in candidates:
+        n = norm_name(cand)
+        if not n:
+            continue
+        if n == target:
+            return True
+        if fuzz and fuzz.token_set_ratio(n, target) >= 88:
+            return True
+    return False
+
+
 def match_vendor(record, master):
     """Return (account, signals, detail). Signals is the subset of
-    {vat, name, tin} that agree on the winning account."""
-    hits = {}  # account -> set of signals, in VAT -> name -> TIN order
-    vat_hit = master.by_vat.get(_norm_id(record.get("vendor_vat")))
+    {vat, name, tin} that agree on the winning account. Matching order:
+    VAT first, then name, then TIN; the document's candidate name lines are
+    checked against each id-matched vendor's master name, so a match survives
+    an OCR'd header where the seller name isn't the first line."""
+    candidates = [record.get("vendor_name") or ""] + list(record.get("name_candidates") or [])
+    hits = {}  # account -> set of signals
+    vat_hit = master.match_id(record.get("vendor_vat"), "vat")
     if vat_hit:
         hits.setdefault(vat_hit["account"], set()).add("vat")
+    tin_hit = master.match_id(record.get("vendor_tin"), "tin")
+    if tin_hit:
+        hits.setdefault(tin_hit["account"], set()).add("tin")
+    # label-less id tokens harvested from the whole document (multi-column
+    # bills print the VAT/TIN away from their labels)
+    for token in record.get("id_candidates") or []:
+        for kind in ("vat", "tin"):
+            hit = master.match_id(token, kind)
+            if hit:
+                hits.setdefault(hit["account"], set()).add(kind)
+    # name: verify against id-matched vendors first, then open lookup
+    for account in list(hits):
+        if _name_agrees(master.vendors[account], candidates):
+            hits[account].add("name")
     name_hit = master.match_name(record.get("vendor_name"))
     if name_hit:
         hits.setdefault(name_hit["account"], set()).add("name")
-    tin_hit = master.by_tin.get(_norm_id(record.get("vendor_tin")))
-    if tin_hit:
-        hits.setdefault(tin_hit["account"], set()).add("tin")
 
     if not hits:
         return "", set(), "no match by VAT, name or TIN"

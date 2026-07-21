@@ -41,6 +41,36 @@ def process_file(conn, settings, file_id, master, hist, actor="system"):
     # confidence gate: any critical field below threshold -> review, never onward
     threshold = settings["extraction"]["confidence_threshold"]
     weak = normalize.low_confidence_fields(record, threshold)
+    if master:
+        # when two of the three vendor signals (VAT/name/TIN incl. harvested
+        # ids) agree on a master account, the master's ids are authoritative:
+        # backfill unreadable ones and correct OCR'd check letters whose digit
+        # core matches (OCR reads Σ for S, C for G, ...)
+        account, signals, detail = master_data.match_vendor(record, master)
+        if len(signals) >= 2:
+            v = master.vendors[account]
+            changed = False
+            for field, value, core in (("vendor_vat", v["vat"], v["vat_core"]),
+                                       ("vendor_tin", v["tin"], v["tin_core"])):
+                if not value:
+                    continue
+                extracted = master_data._norm_id(record.get(field))
+                weak_field = record["confidence"].get(field, 0.0) < threshold
+                letter_fix = (extracted and extracted != core
+                              and master_data._digits(extracted) == master_data._digits(core))
+                if weak_field or letter_fix:
+                    record[field] = value
+                    record["confidence"][field] = 0.95
+                    changed = True
+            if changed:
+                conn.execute(
+                    "UPDATE invoices SET vendor_vat=?, vendor_tin=?, confidence=? WHERE id=?",
+                    (record["vendor_vat"], record["vendor_tin"],
+                     json.dumps(record["confidence"]), invoice_id))
+                conn.commit()
+                audit.log(conn, actor, "vendor_id_backfilled",
+                          f"invoice={invoice_id} {detail}")
+            weak = normalize.low_confidence_fields(record, threshold)
     if weak:
         conn.execute("UPDATE invoices SET status='needs_review', review_reason=? WHERE id=?",
                      (f"low confidence on critical field(s): {', '.join(weak)}", invoice_id))
@@ -87,8 +117,13 @@ def process_file(conn, settings, file_id, master, hist, actor="system"):
         audit.log(conn, actor, "critical_hold", f"invoice={invoice_id} rules={[c[0] for c in criticals]}")
         return invoice_id
 
-    # Stage 6 prep — GL assignment (vendor default -> keyword rules -> review)
-    unmapped = park_file.assign_gl(conn, invoice_id, record, vendor_account, settings)
+    # Stage 6 prep — GL assignment (vendor default -> keyword rules -> review);
+    # the master's vendor name also feeds the keyword match (utility bills
+    # carry no line items, and OCR'd header names are unreliable)
+    master_name = master.vendors[vendor_account]["name"] if (
+        master and vendor_account in master.vendors) else ""
+    unmapped = park_file.assign_gl(conn, invoice_id, record, vendor_account, settings,
+                                   master_name=master_name)
     if unmapped:
         conn.execute("UPDATE invoices SET status='needs_review', review_reason=? WHERE id=?",
                      (f"no GL rule matched line(s) {unmapped} — never guess silently", invoice_id))

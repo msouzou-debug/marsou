@@ -490,6 +490,45 @@ class TestAmountParsing(unittest.TestCase):
         self.assertAlmostEqual(r["gross_total"], 380.80)
         self.assertAlmostEqual(r["total_payable"], 761.60)
 
+    def test_eac_bill_layout_mixed_vat_rates(self):
+        # real EAC layout: part of the net (ΑΠΕ fund, interest) carries no VAT,
+        # so net 3.864,81 = 19% base 3.777,63 + zero-rated 87,18; OCR reads the
+        # decimal comma as a comma (4,582,56), ΑΠΟ as ANO, accents survive upper()
+        from src.extract.pdf_text import parse_fields
+        r = parse_fields(
+            "Ημερ. Παράδοσης για ΦΠΑ 30/04/2026\n"
+            "Αρ. Μητρώου ΦΠΑ 9000ο02ος\n"
+            "Αρ. Λογαριασμού | 314 615 5589 3\n"
+            "Σύνολο µε Βασική Τιμή Καυσίμων 3.385,28\n"
+            "Σύνολα πριν το ΦΠΑ {19%} 3.777,63\n"
+            "Ταμείο ΑΠΕ & ΕΞΕ 80,71\n"
+            "Σύνολο χρεώσεων περιόδου εκτός ΦΠΑ 3.864,81\n"
+            "ΦΠΑ {19%} 717,75\n"
+            "Σύνολο χρεώσεων περιόδου 4,582,56\n"
+            "Πληρωτέο μέχρι 19/05/2026", "ocr", 0.7)
+        self.assertAlmostEqual(r["net_total"], 3864.81)
+        self.assertAlmostEqual(r["vat_total"], 717.75)
+        self.assertAlmostEqual(r["gross_total"], 4582.56)
+        self.assertEqual(r["net_by_rate"], {19.0: 3777.63, 0.0: 87.18})
+        self.assertEqual(r["invoice_date"], "2026-04-30")
+        self.assertEqual(r["due_date"], "2026-05-19")
+        # repaired from 9000ο02ος: upper() turns ς into Σ -> S; the digit core
+        # is what matters — the master backfill corrects the check letter
+        self.assertEqual(r["vendor_vat"], "90000020S")
+        self.assertEqual(r["invoice_number"], "31461555893/2026-04-30")
+
+    def test_ocr_id_repair_and_digit_core_match(self):
+        from src.extract.pdf_text import repair_id
+        self.assertEqual(repair_id("9000ο02ος"), "90000020C")
+        self.assertEqual(repair_id("CY10131613M"), "CY10131613M")  # clean id untouched
+        settings = {"vendor_master": {"vendors_csv": os.path.join(
+            APP_DIR, "..", "vendor-cleanup", "input", "vendors_agent.csv")}}
+        m = master_data.load_vendor_master(settings)
+        # digit-core match survives a misread check letter (S for C)
+        hit = m.match_id("90000020S", "vat")
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit["account"], "100397")
+
     def test_garbled_text_layer_falls_through_to_ocr(self):
         from src.extract import normalize
         from src.extract.pdf_text import text_is_garbled

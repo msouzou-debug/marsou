@@ -16,7 +16,7 @@ FIELD_DEFAULTS = {
     "vendor_name": "", "vendor_vat": "", "vendor_tin": "", "invoice_number": "", "invoice_date": "",
     "due_date": "", "currency": "EUR", "net_by_rate": {}, "vat_by_rate": {},
     "net_total": 0.0, "vat_total": 0.0, "gross_total": 0.0, "total_payable": 0.0,
-    "iban": "", "po_number": "", "lines": [],
+    "iban": "", "po_number": "", "lines": [], "name_candidates": [], "id_candidates": [],
 }
 
 
