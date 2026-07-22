@@ -1,0 +1,16 @@
+[Unit]
+Description=OKYpY vendor-cleanup review web app (waitress, port 8090)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/okypy/app/vendor-cleanup
+EnvironmentFile=-/opt/okypy/env
+ExecStart=/opt/okypy/venv/bin/python -m vendor_cleanup serve
+Restart=on-failure
+RestartSec=5
+User=okypy
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=OKYpY invoice-agent daily pipeline (built-in scheduler, fires at schedule.daily_at)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/okypy/app/invoice-agent
+EnvironmentFile=-/opt/okypy/env
+ExecStart=/opt/okypy/venv/bin/python run_daily.py
+Restart=on-failure
+RestartSec=30
+User=okypy
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
