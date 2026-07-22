@@ -555,7 +555,16 @@ function chokeSigma40(choke,steel){
   const pct40=Math.min(99.5,Math.max(1,(CHOKE[c]&&CHOKE[c][40])||40));
   return 15/Math.sqrt(-2*Math.log(1-pct40/100));           // sigma at 40 yd (in)
 }
-function chokeSigmaNominal(choke,range,steel){return Math.max(0.5, chokeSigma40(choke,steel)*range/40);}
+// A plain choke's cone projects from the muzzle (origin), so sigma is ~linear in
+// range. A SPREADER/paradox/dispersal load instead throws pellets apart AT the
+// muzzle, so its pattern behaves as a cone from a virtual origin behind the
+// muzzle — wide up close, then converging to the same 40-yd anchor. CHOKE_ORIGIN
+// is that offset (yards behind the muzzle); 0 = ordinary cone.
+const CHOKE_ORIGIN={spreader1:9, spreader2:4.5};
+function chokeSigmaNominal(choke,range,steel){
+  const d0=CHOKE_ORIGIN[choke]||0;
+  return Math.max(0.5, chokeSigma40(choke,steel)*(range+d0)/(40+d0));
+}
 function circleFromSigma(total,sigma){return Math.min(total, total*(1-Math.exp(-(15*15)/(2*sigma*sigma))));}
 function sigmaFromCircle(total,circle){let f=circle/total;f=Math.min(Math.max(f,1e-6),0.999999);return 15/Math.sqrt(-2*Math.log(1-f));}
 // --- aim-error-aware terminal hit model ------------------------------------
