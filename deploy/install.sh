@@ -17,9 +17,24 @@ echo "venv:  $VENV_DIR ($($PY --version))"
 "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/vendor-cleanup/requirements.txt"
 "$VENV_DIR/bin/pip" install -q -r "$REPO_DIR/invoice-agent/requirements.txt"
 
-for tool in tesseract pdftoppm; do
-    command -v "$tool" >/dev/null || \
-        echo "WARNING: $tool not found — install tesseract-ocr tesseract-ocr-ell poppler-utils (OCR path degrades to the review queue without it)"
-done
+# OCR stack — REQUIRED in production: Cyta/EAC and other utility bills are
+# scanned or carry garbled text layers and only extract through tesseract.
+# Install automatically when possible (root or passwordless sudo), else warn.
+if ! command -v tesseract >/dev/null || ! command -v pdftoppm >/dev/null \
+   || ! tesseract --list-langs 2>/dev/null | grep -q '^ell$'; then
+    APT="apt-get install -y tesseract-ocr tesseract-ocr-ell poppler-utils"
+    if [ "$(id -u)" = 0 ]; then
+        $APT
+    elif command -v sudo >/dev/null && sudo -n true 2>/dev/null; then
+        sudo $APT
+    else
+        echo "WARNING: OCR stack missing (tesseract + ell + poppler). Run as root:"
+        echo "         $APT"
+        echo "         Until then, scanned/garbled bills land in the review queue."
+    fi
+fi
+tesseract --list-langs 2>/dev/null | grep -q '^ell$' \
+    && echo "OCR stack OK: $(tesseract --version 2>&1 | head -1), Greek data present" \
+    || echo "OCR stack NOT ready — see warning above"
 
 echo "OK. Configure the two settings.yaml files and /opt/okypy/env, then enable the systemd units in deploy/."
