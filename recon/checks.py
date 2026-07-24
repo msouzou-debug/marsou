@@ -293,6 +293,28 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
                 msgs.append(f"Άθροισμα γραμμών SRA #{cheque} ≠ δηλωμένο σύνολο επιταγής: "
                             f"{format_eur(lines_total)} vs {format_eur(stated)} "
                             f"(διαφορά {format_eur(d)})")
+    # ΟΑΥ-printed totals are never trusted: every report whose row-level
+    # detail is available gets its printed total re-checked against the SUM
+    if bundle.inpatient and bundle.inpatient.by_clinic:
+        clinic_sum = round(sum(r.total for r in bundle.inpatient.by_clinic), 2)
+        d = round(clinic_sum - bundle.inpatient.synolo, 2)
+        if abs(d) > CENT:
+            ok = False
+            msgs.append("Ενδ.: το άθροισμα του πίνακα «per clinic» ≠ Σύνολο "
+                        f"ΣΥΝΟΠΤΙΚΟΥ: {format_eur(clinic_sum)} vs "
+                        f"{format_eur(bundle.inpatient.synolo)} "
+                        f"(διαφορά {format_eur(d)})")
+    for label, rep in (("Capitation report", bundle.capitation),
+                       ("Ποιοτικά Κριτήρια", bundle.quality),
+                       ("Αιμοκάθαρση", bundle.hemo)):
+        if rep is not None and rep.stated_total is not None:
+            d = round(rep.total - rep.stated_total, 2)
+            if abs(d) > CENT:
+                ok = False
+                msgs.append(f"{label}: το δηλωμένο σύνολο της ΟΑΥ ≠ άθροισμα "
+                            f"αναλυτικών γραμμών: {format_eur(rep.stated_total)} "
+                            f"vs {format_eur(rep.total)} (διαφορά {format_eur(d)}) "
+                            "— χρησιμοποιείται το άθροισμα (the summation is used).")
     gates.append(GateResult(4, "Εσωτερικοί έλεγχοι (internal asserts)", ok, "\n".join(msgs)))
     return gates
 

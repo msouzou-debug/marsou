@@ -182,7 +182,8 @@ function extractClaimsAll(bytes) {
       throw new ExtractionError('Claims «all»: λείπει στήλη DR SEGMENT ή HIO REIMB');
     }
     const t = body.filter((r) => r[segCol] != null);
-    const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {}, inpatientRows: [] };
+    const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {},
+                  inpatientRows: [], byDoctor: [] };
     const idCol = colIndex(cols, 'CLAIM ID');
     const dateCol = colIndex(cols, 'INVOICE DATE');
     for (const r of t) {
@@ -197,9 +198,30 @@ function extractClaimsAll(bytes) {
     }
     for (const k of Object.keys(out.bySegment)) out.bySegment[k] = round2(out.bySegment[k]);
     perClinicDetail(t, cols, segCol, amtCol, out);
+    perDoctorDetail(t, cols, segCol, amtCol, out);
     return out;
   }
   throw new ExtractionError('Claims «all»: δεν βρέθηκε στήλη DR SEGMENT');
+}
+
+function perDoctorDetail(t, cols, segCol, amtCol, out) {
+  /* (segment, speciality, doctor) sums off the ROW-LEVEL detail — drives
+   * the By_Doctor tab; never taken from any ΟΑΥ-printed total. */
+  const docCol = colIndex(cols, 'ASSOCIATED DOCTOR', 'DOCTOR NAME', 'ΙΑΤΡΟΣ');
+  const specCol = colIndex(cols, 'DR SPECIALITY', 'SPECIALTY', 'SPECIALITY', 'ΕΙΔΙΚΟΤΗΤΑ');
+  if (docCol == null) return;
+  const sums = new Map();
+  for (const r of t) {
+    const seg = canonSegment(r[segCol]);
+    const spec = specCol != null && r[specCol] != null ? cellText(r[specCol]) : '—';
+    const doc = r[docCol] != null ? cellText(r[docCol]) : '—';
+    const key = [seg, spec, doc].join('\u0001');
+    sums.set(key, (sums.get(key) || 0) + parseAmount(r[amtCol]));
+  }
+  out.byDoctor = [...sums.entries()].map(([k, v]) => {
+    const [seg, spec, doc] = k.split('\u0001');
+    return [seg, spec, doc, round2(v)];
+  }).sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]) || b[3] - a[3]);
 }
 
 function perClinicDetail(t, cols, segCol, amtCol, out) {
@@ -697,9 +719,39 @@ function extractSimpleReport(bytes, rawText) {
     const doc = parseXml(bytes);
     return simpleFromText(doc.documentElement.textContent);
   }
+  // prefer summing an AMOUNT column over any printed total — ΟΑΥ totals
+  // are verified, never trusted
+  const sheets = loadSheets(bytes);
+  for (const { rows } of sheets) {
+    const hr = findHeaderRow(rows, ['AMOUNT']);
+    if (hr === null) continue;
+    const { cols, body } = tableAt(rows, hr);
+    const amtCol = colIndex(cols, 'AMOUNT');
+    if (amtCol === null) continue;
+    let stated = null, colSum = 0;
+    const lines2 = [];
+    for (const row of body) {
+      const cells = row.filter((v) => v != null && cellText(v) !== 'nan');
+      const labels = cells.filter((v) => !isNumberLike(v)).map(cellText);
+      const up = stripAccents(labels.join(' '));
+      if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) {
+        const nums = cells.filter(isNumberLike).map(parseAmount);
+        if (nums.length) stated = nums[nums.length - 1];
+        continue;
+      }
+      if (isNumberLike(row[amtCol])) {
+        const v = parseAmount(row[amtCol]);
+        colSum += v;
+        if (labels.length) lines2.push([labels[0], round2(v)]);
+      }
+    }
+    // no detail rows at all -> the printed total is all there is
+    const total2 = lines2.length ? round2(colSum) : (stated != null ? stated : 0);
+    return { total: round2(total2), lines: lines2, statedTotal: stated };
+  }
   const lines = [];
   let total = null;
-  for (const { rows } of loadSheets(bytes)) {
+  for (const { rows } of sheets) {
     for (const row of rows) {
       const cells = row.filter((v) => v != null && cellText(v) !== 'nan');
       const nums = cells.filter(isNumberLike).map(parseAmount);
@@ -711,8 +763,27 @@ function extractSimpleReport(bytes, rawText) {
       else if (label) lines.push([label, nums[nums.length - 1]]);
     }
   }
-  if (total == null) total = round2(lines.reduce((a, [, v]) => a + v, 0));
-  return { total: round2(total), lines };
+  const stated = total;
+  const computed = round2(lines.reduce((a, [, v]) => a + v, 0));
+  total = lines.length ? computed : (total != null ? total : 0);
+  return { total: round2(total), lines, statedTotal: stated };
+}
+
+const DOCTOR_LINE_RE = /^\s*(D\d{3,5})\s+([^/]+?)\s*\//;
+
+function doctorRows(text) {
+  /* «Dxxxx ΟΝΟΜΑ / ...  Συνολικός 11,141.40 €» rows, summed per doctor
+   * across invoices — capitation per-doctor detail for the By_Doctor tab. */
+  const sums = new Map();
+  for (const raw of String(text).split('\n')) {
+    const m = raw.match(DOCTOR_LINE_RE);
+    if (!m) continue;
+    const amts = findAmounts(raw);
+    if (!amts.length) continue;
+    const key = `${m[1]} ${m[2].trim()}`;
+    sums.set(key, round2((sums.get(key) || 0) + amts[amts.length - 1]));
+  }
+  return [...sums.entries()];
 }
 
 function simpleFromText(text) {
@@ -727,7 +798,8 @@ function simpleFromText(text) {
     }
   }
   if (invoiceRows.length) {
-    return { total: round2(invoiceRows.reduce((a, [, v]) => a + v, 0)), lines: invoiceRows };
+    return { total: round2(invoiceRows.reduce((a, [, v]) => a + v, 0)),
+             lines: invoiceRows, byDoctor: doctorRows(text) };
   }
   const lines = [];
   let total = null;
@@ -741,8 +813,10 @@ function simpleFromText(text) {
       if (label) lines.push([label, amts[amts.length - 1]]);
     }
   }
-  if (total == null) total = round2(lines.reduce((a, [, v]) => a + v, 0));
-  return { total: round2(total), lines };
+  const stated = total;
+  const computed = round2(lines.reduce((a, [, v]) => a + v, 0));
+  total = lines.length ? computed : (total != null ? total : 0);
+  return { total: round2(total), lines, statedTotal: stated, byDoctor: doctorRows(text) };
 }
 
 /* ------------------------------------------------------------ dispatcher */

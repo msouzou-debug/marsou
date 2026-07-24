@@ -265,8 +265,26 @@ def extract_claims_all(data: bytes) -> ClaimsAll:
                     str(t.at[idx, date_col]) if date_col is not None else "",
                     round(parse_amount(t.at[idx, amt_col]), 2)))
         _per_clinic_detail(t, seg_col, amt_col, amounts, out)
+        _per_doctor_detail(t, amt_col, amounts, segs, out)
         return out
     raise ExtractionError("Claims «all»: δεν βρέθηκε στήλη DR SEGMENT")
+
+
+def _per_doctor_detail(t: pd.DataFrame, amt_col: str, amounts: pd.Series,
+                       segs: pd.Series, out: ClaimsAll) -> None:
+    """(segment, speciality, doctor) sums off the ROW-LEVEL detail — drives
+    the By_Doctor tab; never taken from any ΟΑΥ-printed total."""
+    doc_col = _col(t, "ASSOCIATED DOCTOR", "DOCTOR NAME", "ΙΑΤΡΟΣ")
+    spec_col = _col(t, "DR SPECIALITY", "SPECIALTY", "SPECIALITY", "ΕΙΔΙΚΟΤΗΤΑ")
+    if doc_col is None:
+        return
+    specs = (t[spec_col].fillna("—").astype(str) if spec_col is not None
+             else pd.Series("—", index=t.index))
+    docs = t[doc_col].fillna("—").astype(str)
+    g = amounts.groupby([segs, specs, docs]).sum()
+    out.by_doctor = [(str(s), str(sp), str(d), round(float(v), 2))
+                     for (s, sp, d), v in g.items()]
+    out.by_doctor.sort(key=lambda r: (r[0], r[1], -r[3]))
 
 
 def _per_clinic_detail(t: pd.DataFrame, seg_col: str, amt_col: str,
@@ -831,7 +849,38 @@ def extract_simple_report(data: bytes, raw_text: Optional[str] = None) -> Simple
         root = etree.fromstring(data)
         return _simple_from_text("\n".join(root.itertext()))
     sheets = _load_sheets(data)
-    lines: list[tuple[str, float]] = []
+    # prefer summing an AMOUNT column over any printed total — ΟΑΥ totals
+    # are verified, never trusted
+    for _, df in sheets.items():
+        hr = _find_header(df, ["AMOUNT"])
+        if hr is None:
+            continue
+        t = _table_at(df, hr)
+        amt_col = _col(t, "AMOUNT")
+        if amt_col is None:
+            continue
+        stated = None
+        col_sum = 0.0
+        lines = []
+        for _, row in t.iterrows():
+            cells = [v for v in row if v is not None and str(v) != "nan"]
+            labels = [str(v) for v in cells if not _is_number(v)]
+            up = strip_accents(" ".join(labels))
+            if "ΣΥΝΟΛ" in up or "TOTAL" in up:
+                nums = [parse_amount(v) for v in cells if _is_number(v)]
+                if nums:
+                    stated = nums[-1]
+                continue
+            if _is_number(row[amt_col]):
+                v = parse_amount(row[amt_col])
+                col_sum += v
+                if labels:
+                    lines.append((labels[0], round(v, 2)))
+        # no detail rows at all -> the printed total is all there is
+        total = round(col_sum, 2) if lines else (stated if stated is not None else 0.0)
+        return SimpleReport(total=round(total, 2), lines=lines,
+                            stated_total=stated)
+    lines = []
     total = None
     for _, df in sheets.items():
         for _, row in df.iterrows():
@@ -845,9 +894,34 @@ def extract_simple_report(data: bytes, raw_text: Optional[str] = None) -> Simple
                 total = nums[-1]
             elif label:
                 lines.append((label, nums[-1]))
-    if total is None:
-        total = round(sum(v for _, v in lines), 2)
-    return SimpleReport(total=round(total, 2), lines=lines)
+    stated = total
+    computed = round(sum(v for _, v in lines), 2)
+    # when both a printed total and detail lines exist, the SUM wins and the
+    # printed value is kept for the check; a lone printed total stands
+    total = computed if lines else (total or 0.0)
+    return SimpleReport(total=round(total, 2), lines=lines, stated_total=stated)
+
+
+_DOCTOR_LINE_RE = re.compile(r"\s*(D\d{3,5})\s+([^/]+?)\s*/")
+
+
+def _doctor_rows(text: str) -> list[tuple[str, float]]:
+    """«Dxxxx ΟΝΟΜΑ / ...  Συνολικός 11,141.40 €» rows, summed per doctor
+    across invoices — capitation per-doctor detail for the By_Doctor tab."""
+    sums: dict[str, float] = {}
+    order: list[str] = []
+    for raw in text.splitlines():
+        m = _DOCTOR_LINE_RE.match(raw)
+        if not m:
+            continue
+        amts = find_amounts(raw)
+        if not amts:
+            continue
+        key = f"{m.group(1)} {m.group(2).strip()}"
+        if key not in sums:
+            order.append(key)
+        sums[key] = round(sums.get(key, 0.0) + amts[-1], 2)
+    return [(k, sums[k]) for k in order]
 
 
 def _simple_from_text(text: str) -> SimpleReport:
@@ -863,7 +937,7 @@ def _simple_from_text(text: str) -> SimpleReport:
                 invoice_rows.append((raw.strip()[:60], amts[-1]))
     if invoice_rows:
         return SimpleReport(total=round(sum(v for _, v in invoice_rows), 2),
-                            lines=invoice_rows)
+                            lines=invoice_rows, by_doctor=_doctor_rows(text))
     lines: list[tuple[str, float]] = []
     total = None
     for raw in text.splitlines():
@@ -877,9 +951,11 @@ def _simple_from_text(text: str) -> SimpleReport:
             label = AMOUNT_RE.sub("", raw).strip(" .:€")
             if label:
                 lines.append((label, amts[-1]))
-    if total is None:
-        total = round(sum(v for _, v in lines), 2)
-    return SimpleReport(total=round(total, 2), lines=lines)
+    stated = total
+    computed = round(sum(v for _, v in lines), 2)
+    total = computed if lines else (total or 0.0)
+    return SimpleReport(total=round(total, 2), lines=lines, stated_total=stated,
+                        by_doctor=_doctor_rows(text))
 
 
 # ------------------------------------------------------------- dispatcher

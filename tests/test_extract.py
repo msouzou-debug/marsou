@@ -38,7 +38,7 @@ def test_inpatient_summary_total_assert_fires():
 
 def test_claims_all_by_segment():
     # real file: dotted headers (HIO REIMB.), ISO dates from older months,
-    # no clinic/specialty columns, no F-code
+    # DR SPECIALITY + ASSOCIATED DOCTOR columns, no F-code
     c = extract_claims_all(synth.claims_all_xlsx())
     assert c.by_segment["Inpatient"] == 1_061_728.70
     assert c.by_segment["A&E"] == 131_284.66
@@ -46,7 +46,14 @@ def test_claims_all_by_segment():
     assert c.by_segment["Nurses-Midwives"] == 20_000.00
     assert c.by_segment["Allied Health"] == 5_000.00
     assert c.total == 1_258_013.36
-    assert c.inpatient_by_clinic == []      # detail comes from the Ενδ. workbook
+    # per-clinic detail groups the inpatient rows by DR SPECIALITY
+    assert [(r.clinic, r.total) for r in c.inpatient_by_clinic] == \
+        [("GENERAL SURGERY", 1_061_728.70)]
+    # per-doctor detail is summed from the ROW level, never a printed total
+    assert round(sum(v for *_k, v in c.by_doctor), 2) == c.total
+    ip_docs = [(d, v) for s, _sp, d, v in c.by_doctor if s == "Inpatient"]
+    assert len(ip_docs) == 2
+    assert round(sum(v for _d, v in ip_docs), 2) == 1_061_728.70
 
 
 def test_segment_value_variants_all_canonicalise():

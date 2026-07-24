@@ -21,7 +21,7 @@ def test_workbook_has_five_tabs_and_zero_checks_pass():
     data, _ = _build(with_optional=True)
     wb = load_workbook(io.BytesIO(data))
     assert wb.sheetnames == ["SRA_259434", "Reconciliation", "Source_crosscheck",
-                             "By_Clinic_Split", "Πώς_δένουν", "Legend"]
+                             "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν", "Legend"]
     assert verify_workbook(data) == []      # gate 5: every zero-check reads 0
 
 
@@ -81,7 +81,7 @@ def test_crosscheck_mode_workbook():
     data, _ = _build(with_optional=True, crosscheck=True)
     wb = load_workbook(io.BytesIO(data))
     assert wb.sheetnames == ["Crosscheck_Matrix", "Source_crosscheck",
-                             "By_Clinic_Split", "Πώς_δένουν", "Legend"]
+                             "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν", "Legend"]
     assert verify_workbook(data) == []
     ws = wb["Crosscheck_Matrix"]
     # Range column is a live MAX-MIN formula

@@ -93,16 +93,24 @@ def claims_all_xlsx(segments=None, cheque="259434") -> bytes:
     ws.append(["CLAIM ID", "STATUS", "BENEFICIARY NAME", "BENEFICIARY ID",
                "INVOICE DATE", "SUBM. DATE", "VISIT ID", "PAYMENT NO.",
                "CO-PAYMENT", "PERS. CONTR. I", "HIO REIMB.", "TOTAL AMT",
-               "DR SEGMENT"])
+               "ASSOCIATED DOCTOR", "DR SPECIALITY", "DR SEGMENT"])
     cid = 121_989_416
     dates = ["2026-01-25", "2026-02-09", "2024-03-04"]
+    specs = {"Inpatient": "GENERAL SURGERY",
+             "Outpatient Specialists": "CARDIOLOGY",
+             "A&E": "ACCIDENT & EMERGENCY",
+             "Nurses-Midwives": "NURSING",
+             "Allied Health": "PHYSIOTHERAPY"}
+    doctors = ["ΧΡΥΣΤΑΛΛΑ ΣΚΟΡΔΗ / CHRYSTALLA SKORDI",
+               "TZANIS LEONTARIDIS / TZANIS LEONTARIDIS"]
     for seg, amount in segments.items():
         parts = [round(amount * 0.6, 2)]
         parts.append(round(amount - parts[0], 2))
         for k, part in enumerate(parts):
             ws.append([cid, "Paid", "SYNTHETIC BENEFICIARY", "NID 0000000000",
                        dates[k % len(dates)], "2026-03-02", 73_858_185 + cid % 999,
-                       cheque, 0, 0, part, part, seg])
+                       cheque, 0, 0, part, part, doctors[k % 2],
+                       specs.get(seg, "GENERAL"), seg])
             cid += 1
     return _wb_bytes(wb)
 

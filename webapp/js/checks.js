@@ -167,6 +167,30 @@ function gate4InternalAsserts(bundle) {
       }
     }
   }
+  // ΟΑΥ-printed totals are never trusted: every report whose row-level
+  // detail is available gets its printed total re-checked against the SUM
+  if (bundle.inpatient && bundle.inpatient.byClinic && bundle.inpatient.byClinic.length) {
+    const clinicSum = round2(bundle.inpatient.byClinic.reduce((a, r) => a + r.total, 0));
+    const d = round2(clinicSum - bundle.inpatient.synolo);
+    if (Math.abs(d) > CENT) {
+      ok = false;
+      msgs.push('Ενδ.: το άθροισμα του πίνακα «per clinic» ≠ Σύνολο ΣΥΝΟΠΤΙΚΟΥ: '
+        + `${formatEur(clinicSum)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`);
+    }
+  }
+  for (const [label, rep] of [['Capitation report', bundle.capitation],
+                              ['Ποιοτικά Κριτήρια', bundle.quality],
+                              ['Αιμοκάθαρση', bundle.hemo]]) {
+    if (rep != null && rep.statedTotal != null) {
+      const d = round2(rep.total - rep.statedTotal);
+      if (Math.abs(d) > CENT) {
+        ok = false;
+        msgs.push(`${label}: το δηλωμένο σύνολο της ΟΑΥ ≠ άθροισμα αναλυτικών γραμμών: `
+          + `${formatEur(rep.statedTotal)} vs ${formatEur(rep.total)} (διαφορά ${formatEur(d)}) `
+          + '— χρησιμοποιείται το άθροισμα (the summation is used).');
+      }
+    }
+  }
   return [{ number: 4, name: 'Εσωτερικοί έλεγχοι (internal asserts)', passed: ok, message: msgs.join('\n') }];
 }
 

@@ -224,6 +224,9 @@ class ClaimsAll:
     # (claim id, invoice date, amount) per inpatient row — used to name the
     # candidate old-period claims when claims-all ≠ Ενδ. Σύνολο
     inpatient_rows: list[tuple[str, str, float]] = field(default_factory=list)
+    # (segment, speciality, doctor, sum of HIO REIMB.) — summed from the
+    # row-level detail, drives the By_Doctor tab
+    by_doctor: list[tuple[str, str, str, float]] = field(default_factory=list)
 
     @property
     def total(self) -> float:
@@ -288,6 +291,17 @@ class XMLActivity:
 
 @dataclass
 class SimpleReport:
-    """Capitation / quality criteria / hemodialysis: a single total (+ lines)."""
+    """Capitation / quality criteria / hemodialysis: a single total (+ lines).
+
+    total is always RECOMPUTED from row-level data (invoice rows or a summed
+    column) — a total printed by ΟΑΥ is kept apart in stated_total and
+    checked against the summation, never trusted on its own."""
     total: float = 0.0
     lines: list[tuple[str, float]] = field(default_factory=list)
+    stated_total: Optional[float] = None      # the report's own printed total
+    # («Dxxxx Greek name», sum) rows — capitation per-doctor detail
+    by_doctor: list[tuple[str, float]] = field(default_factory=list)
+
+    @property
+    def doctor_total(self) -> float:
+        return round(sum(v for _, v in self.by_doctor), 2)

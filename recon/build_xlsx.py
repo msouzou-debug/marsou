@@ -51,10 +51,11 @@ def _header(ws, row: int, labels: list[str]) -> None:
         c.alignment = Alignment(vertical="center")
 
 
-def _amount(ws, row: int, col: int, value, font: Font) -> None:
+def _amount(ws, row: int, col: int, value, font: Font):
     c = ws.cell(row=row, column=col, value=value)
     c.font = font
     c.number_format = EUR_FMT
+    return c
 
 
 def build_workbook(result: ReconResult) -> bytes:
@@ -73,6 +74,7 @@ def build_workbook(result: ReconResult) -> bytes:
         _tab_matrix(wb, result)
     _tab_crosscheck(wb, result, sra_tab, n_lines)
     _tab_split(wb, result, stated_cell)
+    _tab_by_doctor(wb, result)
     _tab_truth_map(wb)
     _tab_legend(wb, result)
 
@@ -328,7 +330,108 @@ def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) ->
     _autosize(ws)
 
 
-# ------------------------------------------------- tab 5: how reports tie
+# ------------------------------------------- tab 5: by doctor & speciality
+
+def _tab_by_doctor(wb: Workbook, result: ReconResult) -> None:
+    """The SRA payment split by clinic/speciality AND doctor, summed from the
+    ROW-LEVEL claims detail (never from ΟΑΥ-printed totals), plus the
+    capitation per-doctor breakdown.  Live SUM subtotals per stream; bottom
+    block re-ties the tab against the source-report column sums."""
+    b = result.bundle
+    docs = b.claims.by_doctor if b.claims else []
+    cap_docs = b.capitation.by_doctor if b.capitation else []
+    if not docs and not cap_docs:
+        return
+    ws = wb.create_sheet("Ανά_ιατρό")
+    ws.cell(row=1, column=1,
+            value="Ανάλυση πληρωμής ΟΑΥ ανά ειδικότητα/κλινική και ιατρό "
+                  "(SRA payment by speciality & doctor) — αθροισμένη από τις "
+                  "αναλυτικές γραμμές των αρχείων ΟΑΥ").font = \
+        Font(bold=True, size=14, color=NAVY)
+    _header(ws, 3, ["Ροή (Stream)", "Ειδικότητα (Speciality)",
+                    "Ιατρός (Doctor)", "Ποσό (Amount €)"])
+    r = 4
+    subtotal_cells: list[str] = []
+    segments: list[str] = []
+    for seg, _sp, _d, _v in docs:
+        if seg not in segments:
+            segments.append(seg)
+    for seg in segments:
+        head = ws.cell(row=r, column=1, value=f"{seg} — Claims «all»")
+        head.font = Font(bold=True)
+        head.fill = FILL_SECTION
+        r += 1
+        first = r
+        for s, sp, d, v in docs:
+            if s != seg:
+                continue
+            ws.cell(row=r, column=2, value=sp).font = F_INPUT
+            ws.cell(row=r, column=3, value=d).font = F_INPUT
+            _amount(ws, r, 4, v, F_INPUT)
+            r += 1
+        ws.cell(row=r, column=1, value=f"Υποσύνολο {seg}").font = Font(bold=True)
+        _amount(ws, r, 4, f"=SUM(D{first}:D{r - 1})", F_FORMULA)
+        subtotal_cells.append(f"D{r}")
+        r += 1
+    if cap_docs:
+        head = ws.cell(row=r, column=1,
+                       value="Personal Doctors — Capitation report (κατά κεφαλήν)")
+        head.font = Font(bold=True)
+        head.fill = FILL_SECTION
+        r += 1
+        first = r
+        for label, v in cap_docs:
+            ws.cell(row=r, column=2, value="Capitation").font = F_INPUT
+            ws.cell(row=r, column=3, value=label).font = F_INPUT
+            _amount(ws, r, 4, v, F_INPUT)
+            r += 1
+        ws.cell(row=r, column=1, value="Υποσύνολο Capitation").font = Font(bold=True)
+        _amount(ws, r, 4, f"=SUM(D{first}:D{r - 1})", F_FORMULA)
+        subtotal_cells.append(f"D{r}")
+        r += 1
+    total_row = r
+    ws.cell(row=total_row, column=1, value="ΣΥΝΟΛΟ καρτέλας (tab total)").font = \
+        Font(bold=True)
+    _amount(ws, total_row, 4, "=" + "+".join(subtotal_cells), F_FORMULA)
+    r += 2
+    # verification block: the tab re-ties against the source-report column
+    # sums — a gap here means incomplete row-level detail, shown, never hidden
+    src_rows = []
+    if b.claims:
+        ws.cell(row=r, column=1,
+                value="Claims «all» — άθροιση στήλης HIO REIMB. (column sum)"
+                ).font = F_INPUT
+        _amount(ws, r, 4, b.claims.total, F_INPUT)
+        src_rows.append(r)
+        r += 1
+    if b.capitation:
+        ws.cell(row=r, column=1,
+                value="Capitation report — άθροιση τιμολογίων EBS (invoice sum)"
+                ).font = F_INPUT
+        _amount(ws, r, 4, b.capitation.total, F_INPUT)
+        src_rows.append(r)
+        r += 1
+    diff_row = r
+    ws.cell(row=diff_row, column=1,
+            value="Διαφορά καρτέλας − πηγών (πληρότητα αναλυτικών γραμμών / "
+                  "detail completeness)")
+    diff_cell = _amount(ws, diff_row, 4,
+                        f"=D{total_row}-" + "-".join(f"D{x}" for x in src_rows),
+                        F_FORMULA)
+    tab_total = round(sum(v for *_x, v in docs)
+                      + sum(v for _l, v in cap_docs), 2)
+    src_total = round((b.claims.total if b.claims else 0.0)
+                      + (b.capitation.total if b.capitation else 0.0), 2)
+    if abs(tab_total - src_total) > 0.005:
+        diff_cell.font = F_AMBER
+        ws.cell(row=diff_row + 1, column=1,
+                value="Μερική ανάλυση ανά ιατρό στην πηγή (η αναφορά ΟΑΥ δεν "
+                      "αναλύει όλο το ποσό ανά ιατρό) — η διαφορά φαίνεται, "
+                      "δεν κρύβεται.").font = F_AMBER
+    _autosize(ws)
+
+
+# ------------------------------------------------- tab 6: how reports tie
 
 # One universe, many projections: every document in the batch is issued by
 # the ΟΑΥ (HIO) about the SAME paid population.  The rows below are the

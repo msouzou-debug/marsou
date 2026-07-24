@@ -394,6 +394,38 @@ def test_is_auditor_within_rounding_tolerance_is_ok():
     assert c.diff == 2.13                       # the live diff stays visible
 
 
+def test_capitation_by_doctor_and_workbook_doctor_tab():
+    # per-doctor rows parsed from the capitation PDF; workbook gains the
+    # «Ανά_ιατρό» tab with claims + capitation sections summed live
+    import io
+    from openpyxl import load_workbook
+    from recon.build_xlsx import build_workbook
+
+    b = full_bundle()
+    assert b.capitation.by_doctor == [("D1681 ΜΥΡΟΦΟΡΑ ΙΩΑΝΝΟΥ", 3_255.40)]
+    assert b.claims.by_doctor          # populated from ASSOCIATED DOCTOR
+    res = run_reconciliation(b)
+    wb = load_workbook(io.BytesIO(build_workbook(res)))
+    ws = wb["Ανά_ιατρό"]
+    text = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value)
+    assert "CHRYSTALLA SKORDI" in text
+    assert "ΜΥΡΟΦΟΡΑ ΙΩΑΝΝΟΥ" in text
+    assert "GENERAL SURGERY" in text
+    assert "HIO REIMB" in text          # verification block re-ties to sources
+
+
+def test_gate4_flags_printed_total_vs_column_sum_mismatch():
+    # a report whose ΟΑΥ-printed total disagrees with the summation of its
+    # own rows is a finding — the summation is used, the mismatch named
+    from recon.models import SimpleReport
+    b = full_bundle()
+    b.quality = SimpleReport(total=2_585.35, stated_total=2_000.00,
+                             lines=[("KPI", 2_585.35)])
+    g = gate4_internal_asserts(b)[0]
+    assert not g.passed
+    assert "Ποιοτικά" in g.message and "άθροισμα" in g.message
+
+
 def test_gl_capitation_ties_report_when_bundled_in_pd():
     # no PD-CAP line on the SRA (capitation bundled in PD): the GL account
     # must tie the capitation REPORT instead — exact on Apr-2026

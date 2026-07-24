@@ -70,6 +70,7 @@ function buildWorkbook(result) {
   }
   tabCrosscheck(wb, result, sraTab, nLines);
   tabSplit(wb, result, statedCell, zeroChecks);
+  tabByDoctor(wb, result);
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
@@ -301,7 +302,105 @@ function tabSplit(wb, result, statedCell, zeroChecks) {
   autosize(ws);
 }
 
-/* ---------------------------------------------- tab 5: how the reports tie */
+/* ------------------------------------------ tab 5: by doctor & speciality */
+
+function tabByDoctor(wb, result) {
+  /* The SRA payment split by clinic/speciality AND doctor, summed from the
+   * ROW-LEVEL claims detail (never from ΟΑΥ-printed totals), plus the
+   * capitation per-doctor breakdown.  Live SUM subtotals per stream; bottom
+   * block re-ties the tab against the source-report column sums. */
+  const b = result.bundle;
+  const docs = b.claims && b.claims.byDoctor ? b.claims.byDoctor : [];
+  const capDocs = b.capitation && b.capitation.byDoctor ? b.capitation.byDoctor : [];
+  if (!docs.length && !capDocs.length) return;
+  const ws = wb.addWorksheet('Ανά_ιατρό');
+  ws.getCell(1, 1).value = 'Ανάλυση πληρωμής ΟΑΥ ανά ειδικότητα/κλινική και ιατρό '
+    + '(SRA payment by speciality & doctor) — αθροισμένη από τις αναλυτικές γραμμές των αρχείων ΟΑΥ';
+  ws.getCell(1, 1).font = { bold: true, size: 14, color: { argb: NAVY } };
+  writeHeader(ws, 3, ['Ροή (Stream)', 'Ειδικότητα (Speciality)', 'Ιατρός (Doctor)', 'Ποσό (Amount €)']);
+  let r = 4;
+  const subtotalCells = [];
+  const segments = [];
+  for (const [seg] of docs) if (!segments.includes(seg)) segments.push(seg);
+  for (const seg of segments) {
+    const head = ws.getCell(r, 1);
+    head.value = `${seg} — Claims «all»`;
+    head.font = { bold: true };
+    head.fill = FILL_SECTION;
+    r += 1;
+    const first = r;
+    for (const [s, sp, d, v] of docs) {
+      if (s !== seg) continue;
+      ws.getCell(r, 2).value = sp; ws.getCell(r, 2).font = F_INPUT;
+      ws.getCell(r, 3).value = d; ws.getCell(r, 3).font = F_INPUT;
+      writeAmount(ws, r, 4, v, F_INPUT);
+      r += 1;
+    }
+    ws.getCell(r, 1).value = `Υποσύνολο ${seg}`;
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 4, `SUM(D${first}:D${r - 1})`, F_FORMULA);
+    subtotalCells.push(`D${r}`);
+    r += 1;
+  }
+  if (capDocs.length) {
+    const head = ws.getCell(r, 1);
+    head.value = 'Personal Doctors — Capitation report (κατά κεφαλήν)';
+    head.font = { bold: true };
+    head.fill = FILL_SECTION;
+    r += 1;
+    const first = r;
+    for (const [label, v] of capDocs) {
+      ws.getCell(r, 2).value = 'Capitation'; ws.getCell(r, 2).font = F_INPUT;
+      ws.getCell(r, 3).value = label; ws.getCell(r, 3).font = F_INPUT;
+      writeAmount(ws, r, 4, v, F_INPUT);
+      r += 1;
+    }
+    ws.getCell(r, 1).value = 'Υποσύνολο Capitation';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 4, `SUM(D${first}:D${r - 1})`, F_FORMULA);
+    subtotalCells.push(`D${r}`);
+    r += 1;
+  }
+  const totalRow = r;
+  ws.getCell(totalRow, 1).value = 'ΣΥΝΟΛΟ καρτέλας (tab total)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  writeAmount(ws, totalRow, 4, subtotalCells.join('+'), F_FORMULA);
+  r += 2;
+  // verification block: the tab re-ties against the source-report column
+  // sums — a gap here means incomplete row-level detail, shown, never hidden
+  const srcRows = [];
+  if (b.claims) {
+    ws.getCell(r, 1).value = 'Claims «all» — άθροιση στήλης HIO REIMB. (column sum)';
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 4, claimsTotal(b.claims), F_INPUT);
+    srcRows.push(r);
+    r += 1;
+  }
+  if (b.capitation) {
+    ws.getCell(r, 1).value = 'Capitation report — άθροιση τιμολογίων EBS (invoice sum)';
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 4, b.capitation.total, F_INPUT);
+    srcRows.push(r);
+    r += 1;
+  }
+  const diffRow = r;
+  ws.getCell(diffRow, 1).value = 'Διαφορά καρτέλας − πηγών (πληρότητα αναλυτικών γραμμών / detail completeness)';
+  const diffCell = writeAmount(ws, diffRow, 4,
+    `D${totalRow}-` + srcRows.map((x) => `D${x}`).join('-'), F_FORMULA);
+  const tabTotal = round2(docs.reduce((a, x) => a + x[3], 0)
+    + capDocs.reduce((a, [, v]) => a + v, 0));
+  const srcTotal = round2((b.claims ? claimsTotal(b.claims) : 0)
+    + (b.capitation ? b.capitation.total : 0));
+  if (Math.abs(tabTotal - srcTotal) > 0.005) {
+    diffCell.font = F_AMBER;
+    ws.getCell(diffRow + 1, 1).value = 'Μερική ανάλυση ανά ιατρό στην πηγή (η αναφορά ΟΑΥ δεν '
+      + 'αναλύει όλο το ποσό ανά ιατρό) — η διαφορά φαίνεται, δεν κρύβεται.';
+    ws.getCell(diffRow + 1, 1).font = F_AMBER;
+  }
+  autosize(ws);
+}
+
+/* ---------------------------------------------- tab 6: how the reports tie */
 
 // One universe, many projections: every document in the batch is issued by
 // the ΟΑΥ (HIO) about the SAME paid population.  The rows below are the
