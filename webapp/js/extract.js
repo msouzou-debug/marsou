@@ -99,6 +99,11 @@ function extractInpatientSummary(bytes) {
     out.detailTotal = detailTotal;
     out.detailRows = detailRows;
     out.detailHeader = detailHeader;
+    if (out.detailTotal == null) {
+      // no header matched — profile every numeric column of the listing;
+      // the reconciliation resolves against the claims figure
+      out.detailCandidates = detailColumnCandidates(rows, anchor + 6);
+    }
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
@@ -165,6 +170,40 @@ function detailColumnSum(rows, afterRow) {
     break;
   }
   return [null, 0, ''];
+}
+
+function detailColumnCandidates(rows, afterRow) {
+  /* Pass 3 — no recognisable header at all: profile the listing table and
+   * sum EVERY numeric-dense column.  The reconciliation resolves the right
+   * one against the claims figure; the diagnostics list them all. */
+  let headerRow = null;
+  for (let i = afterRow + 1; i < rows.length; i++) {
+    const populated = rows[i].filter((v) => v != null && cellText(v) !== 'nan').length;
+    if (populated >= 6) { headerRow = i; break; }
+  }
+  if (headerRow == null) return [];
+  const out = [];
+  const width = Math.max(...rows.slice(headerRow, headerRow + 5).map((r) => r.length));
+  for (let j = 0; j < width; j++) {
+    let numeric = 0;
+    for (let k = headerRow + 1; k < rows.length; k++) {
+      if (isNumberLike(rows[k][j])) numeric += 1;
+    }
+    if (numeric < 10) continue;
+    const [total, n] = sumDetailCol(rows, headerRow, j);
+    if (!n || total === 0) continue;
+    const hv = rows[headerRow][j];
+    let label = hv != null && cellText(hv) !== 'nan' ? canonCell(hv) : '';
+    label = `στήλη ${colLetterX(j + 1)}` + (label ? ` «${label}»` : '');
+    out.push([label, total, n]);
+  }
+  return out;
+}
+
+function colLetterX(n) {
+  let s = '';
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
 }
 
 function endoBestTotal(inp) {
@@ -463,6 +502,9 @@ const SRA_CODE_MAP = {
   // «ADJ-AE Referral IS» deductions: GL books them against inpatient
   // income (26xxx) — verified to the cent on Apr-2026
   'IS-ADJ': ['Inpatient', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
+  // «ADJ-New Reimb» / COR./REV corrections of the OS reimbursement method
+  // — apart from the daily OS lines so claims-vs-SRA ties stay clean
+  'OS-ADJ': ['Outpatient', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
   // one-off prior-period settlement cheques (year-end DRG true-up,
   // innovative-antibiotics reimbursement): pass-throughs that belong to
   // earlier periods — kept out of every monthly cross-check
@@ -562,6 +604,7 @@ function classifySraLine(code, description) {
       code = 'IS-ADJ';
     }
     else if ((code === 'AE' || code === 'A&E') && ADJ_MARKER_RE.test(upDesc)) code = 'AE-ADJ';
+    else if (code === 'OS' && ADJ_MARKER_RE.test(upDesc)) code = 'OS-ADJ';
     const [b, ch, src] = SRA_CODE_MAP[code];
     return [code, b, ch, src];
   }
@@ -617,22 +660,43 @@ function parseSraText(text) {
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
   const [year, month] = findServicePeriod(text);
   const linesTotal = round2(lines.reduce((a, l) => a + l.amount, 0));
+  // supplier F-code from the header block («...INCOME-LARN-F1085») — the
+  // first F1xxx before the invoice lines; satellite suppliers (health
+  // centres) carry codes outside the 8 hospitals
+  let supplierCode = null;
+  for (const raw of String(text).split('\n').slice(0, 20)) {
+    const sm = raw.match(/\bF1\d{3}\b/);
+    if (sm) { supplierCode = sm[0]; break; }
+  }
   return {
     chequeNo: cheque || 'UNKNOWN', statedTotal, lines,
-    hospitalCode: findHospital(text), year, month, linesTotal,
+    hospitalCode: findHospital(text), year, month, linesTotal, supplierCode,
     parts: [[cheque || 'UNKNOWN', linesTotal, statedTotal]],
   };
 }
 
-function mergeSras(sras) {
+function mergeSras(sras, hospitalCode) {
   /* A month can be settled by several cheques: merge multiple SRAs into one
-   * logical SRA; .parts keeps the per-cheque tie-out for gate 4. */
-  if (sras.length === 1) return sras[0];
+   * logical SRA; .parts keeps the per-cheque tie-out for gate 4.  Cheques
+   * whose SRA header carries a DIFFERENT supplier F-code than the batch
+   * hospital (satellite health centres, e.g. F1085) get code SAT. */
+  const isSat = (s) => hospitalCode != null && s.supplierCode != null
+    && s.supplierCode !== hospitalCode;
+  if (sras.length === 1) {
+    const s = sras[0];
+    if (isSat(s)) for (const l of s.lines) { l.code = 'SAT'; l.channel = 'Satellite'; }
+    return s;
+  }
   const lines = [];
   const parts = [];
   for (const s of sras) {
+    const sat = isSat(s);
     for (const l of s.lines) {
-      lines.push({ ...l, description: `${l.description} [επ. ${s.chequeNo}]` });
+      lines.push({ ...l,
+        code: sat ? 'SAT' : l.code,
+        channel: sat ? 'Satellite' : l.channel,
+        sourceReport: sat ? `SRA δορυφορικού παροχέα ${s.supplierCode}` : l.sourceReport,
+        description: `${l.description} [επ. ${s.chequeNo}]` });
     }
     parts.push([s.chequeNo, s.linesTotal, s.statedTotal]);
   }

@@ -282,12 +282,16 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
             try:
                 from .extract import extract_inpatient_summary
                 s = extract_inpatient_summary(f.data)
-                extra = (f" · αναλυτική στήλη «{s.detail_header}»: "
-                         f"{s.detail_rows} γραμμές = {s.detail_total:,.2f}"
-                         if s.detail_total is not None else
-                         " · ΔΕΝ βρέθηκε στήλη ποσού στην αναλυτική λίστα "
-                         "(no per-claim amount column found — δείτε τις "
-                         "κεφαλίδες στο probe παραπάνω)")
+                if s.detail_total is not None:
+                    extra = (f" · αναλυτική στήλη «{s.detail_header}»: "
+                             f"{s.detail_rows} γραμμές = {s.detail_total:,.2f}")
+                elif s.detail_candidates:
+                    extra = (" · υποψήφιες στήλες ποσών (candidate columns): "
+                             + " · ".join(f"{h}={v:,.2f} ({n} γρ.)"
+                                          for h, v, n in s.detail_candidates))
+                else:
+                    extra = (" · ΔΕΝ βρέθηκε στήλη ποσού στην αναλυτική λίστα "
+                             "(no per-claim amount column found)")
                 f.probe = (f.probe or "") + \
                     f"\nΣΥΝΟΠΤΙΚΟΣ Σύνολο={s.synolo:,.2f}{extra}"
             except Exception as e:  # extraction issues surface at run time too

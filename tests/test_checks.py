@@ -449,6 +449,43 @@ def test_endo_detail_column_beats_printed_synoptikos():
     assert endo_sra.flag == "ok" and "ΣΥΝΟΠΤΙΚΟΣ" in endo_sra.note
 
 
+def test_satellite_cheque_lines_get_sat_code():
+    # a cheque whose SRA header carries another supplier F-code (F1085
+    # health centre) is a satellite: its lines get code SAT so the daily-OS
+    # ties and the doctors bridge itemise it instead of a lumped residual
+    from recon.extract import merge_sras, parse_sra_text
+    a = parse_sra_text(synth.sra_text())              # F1049, cheque 259434
+    sat_text = synth.sra_text_second().replace("PAR-F1049", "PAR-F1085")
+    b = parse_sra_text(sat_text)                      # satellite supplier
+    assert b.supplier_code == "F1085"
+    m = merge_sras([a, b], "F1049")
+    sat_lines = [l for l in m.lines if l.code == "SAT"]
+    assert round(sum(l.amount for l in sat_lines), 2) == 1_000.00
+    assert all("[επ. 900001]" in l.description for l in sat_lines)
+    assert not any(l.code == "SAT" for l in m.lines
+                   if "[επ. 259434]" in l.description)
+    assert m.stated_total == round(1_936_528.19 + 1_000.00, 2)
+
+
+def test_endo_detail_candidates_resolved_against_claims():
+    # a listing whose amount header matches NOTHING known: the profiled
+    # candidate columns are kept and the one equal to the claims Inpatient
+    # figure wins at reconciliation time
+    from recon.models import InpatientSummary
+    b = full_bundle()
+    b.inpatient.detail_total = None
+    b.inpatient.detail_candidates = [
+        ("στήλη S «ΚΑΤΙ ΑΛΛΟ»", 999_999.99, 100),
+        ("στήλη T", 1_061_728.70, 100),                # == claims Inpatient
+        ("στήλη U «ΦΠΑ»", 55_555.55, 100),
+    ]
+    res = run_reconciliation(b)
+    assert b.inpatient.detail_total == 1_061_728.70
+    assert b.inpatient.detail_header == "στήλη T"
+    row = next(c for c in res.crosschecks if c.name.startswith("Claims «all» Inpatient"))
+    assert row.flag == "ok" and row.sra_side == 1_061_728.70
+
+
 def test_doctor_tab_bridge_ties_to_split_grand_total():
     # the by-doctor universe (claims + capitation) plus the non-doctor SRA
     # layers (pharma, hemo, adjustments, fixed-price/quality) must bridge to

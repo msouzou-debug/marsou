@@ -200,7 +200,7 @@ try:
             setattr(bundle, slot[f.report_type],
                     extract(f.report_type, f.data, hospital_code=hospital, raw_text=raw_text))
     if sras:
-        bundle.sra = merge_sras(sras)
+        bundle.sra = merge_sras(sras, hospital)
         if len(sras) > 1:
             st.info(f"Συγχωνεύθηκαν {len(sras)} SRA (επιταγές: "
                     + ", ".join(f"#{c}" for c, _, _ in bundle.sra.parts)

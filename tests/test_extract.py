@@ -159,13 +159,13 @@ def test_classify_splits_adjustments_from_daily_lines():
         "MANUAL ADJ AE - overpayment": "AE-ADJ",
         "CRN-Packages PH - CORRECTION-Packages": "PHF",         # fee corrections
         "ADJ- IS - Adjustment for Hemodialysis": "HEMO",
-        "ADJ-New Reimb OS - Adj. based on new reimb. method-": "OS",
+        "ADJ-New Reimb OS - Adj. based on new reimb. method-": "OS-ADJ",
         "ADJ-MRI/CT QC- CTs Quality Criteria": "MRI",
         # May-2026 (F1048) new line types
         "ADJ-DRG- IS - Year End Adj. for DRG points - JAN_DEC25": "IS-PRIOR",
         "Innovativeantibio Innovativeantibiotic01-Apr2023to30-Sept2025": "PH-PRIOR",
         "HPV-HBVaxPro- HPV-HBVaxPro-JAN-MAR": "PD-FP",
-        "COR.-REV-ADJ- COR.-REV-ADJ-New Reimb Met D5920": "OS",
+        "COR.-REV-ADJ- COR.-REV-ADJ-New Reimb Met D5920": "OS-ADJ",
         "PD-INFLUENZA- PD-INFLUENZA-F1048-MAY": "PD-FP",
         "PD - OOH SERVICES": "PD-FP",
         "Out of hours-APR. PD-Out of hours-": "PD-FP",
@@ -194,7 +194,8 @@ Total paid in this batch: 145.31
 """
     sra = parse_sra_text(text)
     assert sra.lines_total == 145.31 == sra.stated_total
-    assert all(l.code == "OS" for l in sra.lines)
+    assert all(l.code == "OS-ADJ" for l in sra.lines)   # reimb-method corrections
+    assert sra.supplier_code == "F1085"                 # satellite supplier
     from recon.extract import merge_sras
     a = parse_sra_text(synth.sra_text())          # cheque 259434, March
     b = parse_sra_text(synth.sra_text_second())   # cheque 900001

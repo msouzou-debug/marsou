@@ -438,8 +438,9 @@ function tabByDoctor(wb, result, sraTab, nLines, splitTotalRow) {
     for (const [label, codes, byBucket] of [
       ['+ Φάρμακα — μη αποδιδόμενα σε ιατρούς (SRA bucket Pharma)', ['Pharma'], true],
       ['+ Αιμοκάθαρση (HEMO)', ['HEMO'], false],
-      ['+ Προσαρμογές & τακτοποιήσεις (IS-ADJ, AE-ADJ, IS-PRIOR)', ['IS-ADJ', 'AE-ADJ', 'IS-PRIOR'], false],
+      ['+ Προσαρμογές & τακτοποιήσεις (OS-ADJ, IS-ADJ, AE-ADJ, IS-PRIOR)', ['OS-ADJ', 'IS-ADJ', 'AE-ADJ', 'IS-PRIOR'], false],
       ['+ Σταθερές χρεώσεις ΠΙ & Ποιοτικά (PD-FP, KPI, MRI/CT)', ['PD-FP', 'PD-KPI', 'KPI', 'MRI', 'CT', 'MRI/CT'], false],
+      ['+ Επιταγές δορυφορικών παροχέων (SAT — π.χ. κέντρα υγείας F1085)', ['SAT'], false],
     ]) {
       ws.getCell(r, 1).value = label;
       ws.getCell(r, 1).font = F_LINK;

@@ -244,9 +244,15 @@ function identifyExcel(f) {
       try {
         const s = extractInpatientSummary(f.data);
         const fmt = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const extra = s.detailTotal != null
-          ? ` · αναλυτική στήλη «${s.detailHeader}»: ${s.detailRows} γραμμές = ${fmt(s.detailTotal)}`
-          : ' · ΔΕΝ βρέθηκε στήλη ποσού στην αναλυτική λίστα (no per-claim amount column found — δείτε τις κεφαλίδες στο probe παραπάνω)';
+        let extra;
+        if (s.detailTotal != null) {
+          extra = ` · αναλυτική στήλη «${s.detailHeader}»: ${s.detailRows} γραμμές = ${fmt(s.detailTotal)}`;
+        } else if (s.detailCandidates && s.detailCandidates.length) {
+          extra = ' · υποψήφιες στήλες ποσών (candidate columns): '
+            + s.detailCandidates.map(([h, v, n]) => `${h}=${fmt(v)} (${n} γρ.)`).join(' · ');
+        } else {
+          extra = ' · ΔΕΝ βρέθηκε στήλη ποσού στην αναλυτική λίστα (no per-claim amount column found)';
+        }
         f.probe = (f.probe || '') + `\nΣΥΝΟΠΤΙΚΟΣ Σύνολο=${fmt(s.synolo)}${extra}`;
       } catch (e) {
         f.probe = (f.probe || '') + `\n(endo extract failed: ${e.message})`;

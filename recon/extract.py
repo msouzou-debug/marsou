@@ -142,6 +142,10 @@ def extract_inpatient_summary(data: bytes) -> InpatientSummary:
         # universe while the listing includes old-period claims paid now
         out.detail_total, out.detail_rows, out.detail_header = \
             _detail_column_sum(df, i)
+        if out.detail_total is None:
+            # no header matched — profile every numeric column of the
+            # listing; the reconciliation resolves against the claims figure
+            out.detail_candidates = _detail_column_candidates(df, i)
         return out
     raise ExtractionError("Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary")
 
@@ -209,6 +213,36 @@ def _detail_column_sum(df: pd.DataFrame, after_row: int
                 return total, n, c
         break
     return None, 0, ""
+
+
+def _detail_column_candidates(df: pd.DataFrame, after_row: int
+                              ) -> list[tuple[str, float, int]]:
+    """Pass 3 — no recognisable header at all: profile the listing table
+    and sum EVERY numeric-dense column.  The reconciliation resolves the
+    right one against the claims figure; the diagnostics list them all."""
+    header_row = None
+    for i in range(after_row + 1, len(df)):
+        populated = sum(1 for v in df.iloc[i]
+                        if v is not None and str(v) != "nan")
+        if populated >= 6:
+            header_row = i
+            break
+    if header_row is None:
+        return []
+    out: list[tuple[str, float, int]] = []
+    for j in range(df.shape[1]):
+        numeric = sum(1 for v in df.iloc[header_row + 1:, j] if _is_number(v))
+        if numeric < 10:
+            continue
+        total, n = _sum_detail_col(df, header_row, j)
+        if not n or total == 0:
+            continue
+        hv = df.iloc[header_row, j]
+        label = _canon_cell(hv) if hv is not None and str(hv) != "nan" else ""
+        from openpyxl.utils import get_column_letter
+        label = f"στήλη {get_column_letter(j + 1)}" + (f" «{label}»" if label else "")
+        out.append((label, total, n))
+    return out
 
 
 def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
@@ -530,6 +564,9 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     # «ADJ-AE Referral IS» deductions: GL books them against inpatient
     # income (26xxx) — verified to the cent on Apr-2026
     "IS-ADJ": (Bucket.INPATIENT, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
+    # «ADJ-New Reimb» / COR./REV corrections of the OS reimbursement method
+    # — apart from the daily OS lines so claims-vs-SRA ties stay clean
+    "OS-ADJ": (Bucket.OUTPATIENT, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
     # one-off prior-period settlement cheques (year-end DRG true-up,
     # innovative-antibiotics reimbursement): pass-throughs that belong to
     # earlier periods — kept out of every monthly cross-check
@@ -643,11 +680,15 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
             code = "IS-ADJ"
         elif code in ("AE", "A&E") and _ADJ_MARKER_RE.search(up_desc):
             code = "AE-ADJ"
+        elif code == "OS" and _ADJ_MARKER_RE.search(up_desc):
+            code = "OS-ADJ"
         b, ch, src = SRA_CODE_MAP[code]
         return code, b, ch, src
     # unknown line: park in Outpatient and let the zero-checks surface it
     return code or "??", Bucket.OUTPATIENT, "Unmapped", "—"
 
+
+_SUPPLIER_CODE_RE = re.compile(r"\bF1\d{3}\b")
 
 _CHEQUE_RE = re.compile(
     r"(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)"
@@ -678,6 +719,16 @@ def parse_sra_text(text: str) -> SRA:
     m = _CHEQUE_RE.search(strip_accents(text))
     if m:
         cheque = m.group(1)
+
+    # supplier F-code from the header block («...INCOME-LARN-F1085») — the
+    # first F1xxx before the invoice lines; satellite suppliers (health
+    # centres) carry codes outside the 8 hospitals
+    supplier = None
+    for raw in text.splitlines()[:20]:
+        sm = _SUPPLIER_CODE_RE.search(raw)
+        if sm:
+            supplier = sm.group(0)
+            break
 
     lines: list[SRALine] = []
     stated_total: Optional[float] = None
@@ -722,6 +773,7 @@ def parse_sra_text(text: str) -> SRA:
         raise ExtractionError("SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)")
     sra = SRA(cheque_no=cheque or "UNKNOWN", stated_total=stated_total, lines=lines)
     sra.hospital_code = find_hospital(text)
+    sra.supplier_code = supplier
     sra.year, sra.month = find_service_period(text)
     return sra
 
@@ -733,23 +785,38 @@ def extract_sra(data: bytes, raw_text: Optional[str] = None) -> SRA:
     return parse_sra_text(raw_text)
 
 
-def merge_sras(sras: list[SRA]) -> SRA:
+def merge_sras(sras: list[SRA], hospital_code: Optional[str] = None) -> SRA:
     """A month can be settled by several cheques: merge multiple SRAs into
     one logical SRA.  Lines are concatenated (tagged with their cheque so the
     workbook keeps the audit trail), totals summed, and .parts keeps the
-    per-cheque tie-out for gate 4."""
+    per-cheque tie-out for gate 4.
+
+    Cheques whose SRA header carries a DIFFERENT supplier F-code than the
+    batch hospital (satellite health centres, e.g. F1085) get code SAT —
+    they count in the cash but sit outside the hospital's claims/GL files."""
+    def _is_sat(s: SRA) -> bool:
+        return (hospital_code is not None and s.supplier_code is not None
+                and s.supplier_code != hospital_code)
+
     if len(sras) == 1:
         s = sras[0]
         s.parts = [(s.cheque_no, s.lines_total, s.stated_total)]
+        if _is_sat(s):
+            for l in s.lines:
+                l.code, l.channel = "SAT", "Satellite"
         return s
     lines: list[SRALine] = []
     parts: list[tuple[str, float, float]] = []
     for s in sras:
+        sat = _is_sat(s)
         for l in s.lines:
-            lines.append(SRALine(code=l.code,
-                                 description=f"{l.description} [επ. {s.cheque_no}]",
-                                 amount=l.amount, bucket=l.bucket, channel=l.channel,
-                                 source_report=l.source_report))
+            lines.append(SRALine(
+                code="SAT" if sat else l.code,
+                description=f"{l.description} [επ. {s.cheque_no}]",
+                amount=l.amount, bucket=l.bucket,
+                channel="Satellite" if sat else l.channel,
+                source_report=f"SRA δορυφορικού παροχέα {s.supplier_code}" if sat
+                              else l.source_report))
         parts.append((s.cheque_no, s.lines_total, s.stated_total))
     cheques = [s.cheque_no for s in sras]
     label = "+".join(cheques) if len(cheques) <= 2 else \

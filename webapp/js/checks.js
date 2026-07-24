@@ -138,9 +138,25 @@ function claimCandidates(bundle, diff) {
     + `(old-period claim paid in this cheque): ${shown}`;
 }
 
+function resolveEndoDetail(bundle) {
+  /* When no known header matched in the Ενδ. listing, pick the profiled
+   * candidate column whose sum equals the claims Inpatient figure (they are
+   * the same universe); else the rightmost candidate.  Idempotent. */
+  const ip = bundle.inpatient;
+  if (ip == null || ip.detailTotal != null || !ip.detailCandidates || !ip.detailCandidates.length) return;
+  const claimsIp = bundle.claims ? bundle.claims.bySegment['Inpatient'] : null;
+  let pick = null;
+  if (claimsIp != null) {
+    pick = ip.detailCandidates.find((c) => Math.abs(c[1] - claimsIp) <= 0.01) || null;
+  }
+  if (pick == null) pick = ip.detailCandidates[ip.detailCandidates.length - 1];
+  [ip.detailHeader, ip.detailTotal, ip.detailRows] = pick;
+}
+
 function gate4InternalAsserts(bundle) {
   let ok = true;
   const msgs = [];
+  resolveEndoDetail(bundle);
   if (bundle.inpatient && bundle.claims) {
     const claimsIp = bundle.claims.bySegment['Inpatient'] || 0;
     // compare against the per-claim listing sum when the file carries it —
@@ -431,7 +447,7 @@ function buildCrosschecks(bundle) {
     // paid inside the SRA PD lines — compare the two wholes
     add('GL: Εξωνοσοκομειακή & ΠΙ (25xxx clinical + capitation) = SRA OS+NM+AP+PD+KPI',
         round2(gl.outpatient + gl.capitation),
-        ['OS', 'NM', 'AP', 'PD', 'PD-CAP', 'PD-KPI', 'PD-FP', 'KPI', 'MRI', 'CT', 'MRI/CT'],
+        ['OS', 'OS-ADJ', 'NM', 'AP', 'PD', 'PD-CAP', 'PD-KPI', 'PD-FP', 'KPI', 'MRI', 'CT', 'MRI/CT'],
         'Επιταγές δορυφορικών παροχέων (άλλος κωδικός F στην κεφαλίδα SRA, π.χ. κέντρα '
         + 'υγείας) μένουν εκτός του GL αυτού του νοσοκομείου (satellite-supplier cheques '
         + 'sit outside this hospital GL vendor).',
@@ -665,6 +681,10 @@ function buildSplit(bundle) {
   let kpi = sraAmount(['KPI', 'PD-KPI', 'MRI', 'CT', 'MRI/CT']);
   if (kpi == null && bundle.quality) kpi = bundle.quality.total;
   if (kpi) out.rows.push({ label: 'Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)', amount: kpi });
+  const osAdj = sraAmount(['OS-ADJ']);
+  if (osAdj) out.rows.push({ label: 'Εξωνοσοκομειακή — προσαρμογές μεθόδου αποζημίωσης (OS reimb-method adjustments)', amount: osAdj });
+  const sat = sraAmount(['SAT']);
+  if (sat) out.rows.push({ label: 'Επιταγές δορυφορικών παροχέων (satellite suppliers, π.χ. κέντρα υγείας)', amount: sat });
   if (sra) {
     for (const l of sra.lines.filter((x) => x.channel === 'Unmapped')) {
       out.rows.push({ label: `Προσαρμογή (adjustment): ${l.description}`, amount: l.amount });
@@ -704,6 +724,7 @@ function buildSplit(bundle) {
 /* -------------------------------------------------------------- run */
 
 function runReconciliation(bundle, crosscheckMode) {
+  resolveEndoDetail(bundle);
   const result = { bundle, crosscheckMode: !!crosscheckMode, buckets: {}, crosschecks: [],
                    split: [], matrix: [], matrixColumns: [] };
   if (!crosscheckMode && bundle.sra) {

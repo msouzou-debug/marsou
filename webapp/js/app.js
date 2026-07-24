@@ -209,7 +209,7 @@ async function run() {
         bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, null);
       }
     }
-    if (sras.length) bundle.sra = mergeSras(sras);
+    if (sras.length) bundle.sra = mergeSras(sras, hospital);
 
     let condWarning = '';
     if (bundle.sra) {

@@ -262,6 +262,24 @@ def _claim_candidates(bundle: ReconBundle, diff: float) -> str:
             f"(old-period claim paid in this cheque): {shown}")
 
 
+def _resolve_endo_detail(bundle: ReconBundle) -> None:
+    """When no known header matched in the Ενδ. listing, pick the profiled
+    candidate column whose sum equals the claims Inpatient figure (they are
+    the same universe); else the rightmost candidate.  Idempotent."""
+    ip = bundle.inpatient
+    if ip is None or ip.detail_total is not None or not ip.detail_candidates:
+        return
+    claims_ip = (bundle.claims.by_segment.get("Inpatient")
+                 if bundle.claims else None)
+    pick = None
+    if claims_ip is not None:
+        pick = next((c for c in ip.detail_candidates
+                     if abs(c[1] - claims_ip) <= 0.01), None)
+    if pick is None:
+        pick = ip.detail_candidates[-1]
+    ip.detail_header, ip.detail_total, ip.detail_rows = pick[0], pick[1], pick[2]
+
+
 def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
     """Gate 4: Ενδ Σύνολο = sum of lines (already asserted at extraction);
     claims-all Inpatient = Ενδ Σύνολο to the cent; SRA lines sum = cheque.
@@ -270,6 +288,7 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
     gates = []
     ok = True
     msgs = []
+    _resolve_endo_detail(bundle)
     if bundle.inpatient and bundle.claims:
         claims_ip = bundle.claims.by_segment.get("Inpatient", 0.0)
         # compare against the per-claim listing sum when the file carries it —
@@ -335,6 +354,7 @@ SERVICE_CODES = ["IS", "AE", "A&E", "OS", "NM", "AP", "PD"]
 
 
 def run_reconciliation(bundle: ReconBundle, crosscheck_mode: bool = False) -> ReconResult:
+    _resolve_endo_detail(bundle)
     res = ReconResult(bundle=bundle, crosscheck_mode=crosscheck_mode)
     if not crosscheck_mode and bundle.sra:
         for b in BUCKET_ORDER:
@@ -579,8 +599,8 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         add("GL: Εξωνοσοκομειακή & ΠΙ (25xxx clinical + capitation) = "
             "SRA OS+NM+AP+PD+KPI",
             round(gl.outpatient + gl.capitation, 2),
-            ["OS", "NM", "AP", "PD", "PD-CAP", "PD-KPI", "PD-FP", "KPI", "MRI",
-             "CT", "MRI/CT"],
+            ["OS", "OS-ADJ", "NM", "AP", "PD", "PD-CAP", "PD-KPI", "PD-FP",
+             "KPI", "MRI", "CT", "MRI/CT"],
             flag_hint="Επιταγές δορυφορικών παροχέων (άλλος κωδικός F στην "
                       "κεφαλίδα SRA, π.χ. κέντρα υγείας) μένουν εκτός του GL "
                       "αυτού του νοσοκομείου (satellite-supplier cheques sit "
@@ -824,6 +844,16 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         kpi = bundle.quality.total
     if kpi:
         out.rows.append(SplitRow("Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)", kpi))
+    os_adj = sra_amount(["OS-ADJ"])
+    if os_adj:
+        out.rows.append(SplitRow(
+            "Εξωνοσοκομειακή — προσαρμογές μεθόδου αποζημίωσης (OS reimb-method "
+            "adjustments)", os_adj))
+    sat = sra_amount(["SAT"])
+    if sat:
+        out.rows.append(SplitRow(
+            "Επιταγές δορυφορικών παροχέων (satellite suppliers, π.χ. κέντρα "
+            "υγείας)", sat))
     if sra:
         unmapped = [l for l in sra.lines if l.channel == "Unmapped"]
         for l in unmapped:

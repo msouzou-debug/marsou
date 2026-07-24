@@ -175,6 +175,9 @@ class SRA:
     # one entry per source SRA when several cheques are merged:
     # (cheque_no, lines_total, stated_total)
     parts: list[tuple[str, float, float]] = field(default_factory=list)
+    # the supplier F-code from the SRA header — satellite suppliers (e.g.
+    # F1085 health centres) carry a code outside the 8 hospitals
+    supplier_code: Optional[str] = None
 
     @property
     def lines_total(self) -> float:
@@ -198,6 +201,9 @@ class InpatientSummary:
     detail_total: Optional[float] = None
     detail_rows: int = 0
     detail_header: str = ""       # the matched column header, for diagnostics
+    # numeric-profile candidates when no header matched: (header, sum, rows)
+    # — resolved against the claims figure at reconciliation time
+    detail_candidates: list[tuple[str, float, int]] = field(default_factory=list)
 
     @property
     def regular(self) -> float:
