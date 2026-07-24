@@ -69,8 +69,8 @@ function buildWorkbook(result) {
     tabMatrix(wb, result);
   }
   tabCrosscheck(wb, result, sraTab, nLines);
-  tabSplit(wb, result, statedCell, zeroChecks);
-  tabByDoctor(wb, result);
+  const splitTotalRow = tabSplit(wb, result, statedCell, zeroChecks);
+  tabByDoctor(wb, result, sraTab, nLines, splitTotalRow);
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
@@ -300,11 +300,12 @@ function tabSplit(wb, result, statedCell, zeroChecks) {
     ws.getCell(totalRow + 1, 1).value = 'Cross-check mode: χωρίς επιταγή — no cash tie-out (δεν υπάρχει SRA).';
   }
   autosize(ws);
+  return totalRow;
 }
 
 /* ------------------------------------------ tab 5: by doctor & speciality */
 
-function tabByDoctor(wb, result) {
+function tabByDoctor(wb, result, sraTab, nLines, splitTotalRow) {
   /* The SRA payment split by clinic/speciality AND doctor, summed from the
    * ROW-LEVEL claims detail (never from ΟΑΥ-printed totals), plus the
    * capitation per-doctor breakdown.  Live SUM subtotals per stream; bottom
@@ -408,6 +409,56 @@ function tabByDoctor(wb, result) {
     ws.getCell(diffRow + 1, 1).value = 'Μερική ανάλυση ανά ιατρό στην πηγή (η αναφορά ΟΑΥ δεν '
       + 'αναλύει όλο το ποσό ανά ιατρό) — η διαφορά φαίνεται, δεν κρύβεται.';
     ws.getCell(diffRow + 1, 1).font = F_AMBER;
+  }
+  r = diffRow + 2;
+
+  // ------- bridge: from the by-doctor universe to By_Clinic_Split / cheque
+  // (only when an SRA exists — cross-check mode has no cash side)
+  if (sraTab && srcRows.length) {
+    const head = ws.getCell(r, 1);
+    head.value = 'ΓΕΦΥΡΑ ΠΡΟΣ ΤΟ BY_CLINIC_SPLIT / ΤΗΝ ΕΠΙΤΑΓΗ (bridge: doctors → cheque)';
+    head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    head.fill = FILL_SECTION;
+    r += 1;
+    const bridgeRows = [];
+    ws.getCell(r, 1).value = 'Αποδιδόμενα σε ιατρούς: Claims «all» + Capitation (οι πηγές της καρτέλας)';
+    ws.getCell(r, 1).font = F_FORMULA;
+    writeAmount(ws, r, 4, srcRows.map((x) => `D${x}`).join('+'), F_FORMULA);
+    bridgeRows.push(r);
+    r += 1;
+    const sumifsCodes = (row, codes, colRef) => {
+      const terms = codes.map((code, k) => {
+        const col = colLetter(6 + k);
+        ws.getCell(row, 6 + k).value = code;
+        ws.getCell(row, 6 + k).font = F_INPUT;
+        return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$${colRef}$2:$${colRef}$${nLines},${col}${row})`;
+      });
+      return terms.join('+');
+    };
+    for (const [label, codes, byBucket] of [
+      ['+ Φάρμακα — μη αποδιδόμενα σε ιατρούς (SRA bucket Pharma)', ['Pharma'], true],
+      ['+ Αιμοκάθαρση (HEMO)', ['HEMO'], false],
+      ['+ Προσαρμογές & τακτοποιήσεις (IS-ADJ, AE-ADJ, IS-PRIOR)', ['IS-ADJ', 'AE-ADJ', 'IS-PRIOR'], false],
+      ['+ Σταθερές χρεώσεις ΠΙ & Ποιοτικά (PD-FP, KPI, MRI/CT)', ['PD-FP', 'PD-KPI', 'KPI', 'MRI', 'CT', 'MRI/CT'], false],
+    ]) {
+      ws.getCell(r, 1).value = label;
+      ws.getCell(r, 1).font = F_LINK;
+      writeAmount(ws, r, 4, sumifsCodes(r, codes, byBucket ? 'D' : 'A'), F_LINK);
+      bridgeRows.push(r);
+      r += 1;
+    }
+    const bridgeTotalRow = r;
+    ws.getCell(r, 1).value = 'Σύνολο γέφυρας (bridge total)';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 4, bridgeRows.map((x) => `D${x}`).join('+'), F_FORMULA);
+    r += 1;
+    const splitRow = r;
+    ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ By_Clinic_Split (= επιταγή ΟΑΥ)';
+    writeAmount(ws, r, 4, `'By_Clinic_Split'!D${splitTotalRow}`, F_LINK);
+    r += 1;
+    ws.getCell(r, 1).value = 'Διαφορά γέφυρας — γραμμές SRA χωρίς αναλυτικό ανά ιατρό '
+      + '(προσαρμογές OS/NM/AP/PD, επιταγές δορυφορικών παροχέων, υπόλοιπο ανάλυσης)';
+    writeAmount(ws, r, 4, `D${bridgeTotalRow}-D${splitRow}`, F_FORMULA).font = F_AMBER;
   }
   autosize(ws);
 }

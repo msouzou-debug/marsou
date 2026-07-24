@@ -99,7 +99,7 @@ def extract_inpatient_summary(data: bytes) -> InpatientSummary:
         amount_col = None
         for i in range(anchor, min(anchor + 6, len(df))):
             for j, v in enumerate(df.iloc[i]):
-                if v is not None and "ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ" in strip_accents(str(v)):
+                if v is not None and "ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ" in _canon_cell(v):
                     amount_col = j
                     break
             if amount_col is not None:
@@ -140,34 +140,75 @@ def extract_inpatient_summary(data: bytes) -> InpatientSummary:
         # the file ALSO carries the full per-claim listing below the summary —
         # sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
         # universe while the listing includes old-period claims paid now
-        out.detail_total, out.detail_rows = _detail_column_sum(df, i)
+        out.detail_total, out.detail_rows, out.detail_header = \
+            _detail_column_sum(df, i)
         return out
     raise ExtractionError("Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary")
 
 
+# amount-column headers of the per-claim listing (whitespace collapsed —
+# real exports wrap header text with newlines inside the cell)
+_DETAIL_NEEDLES = ("ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ", "HIO REIMB", "ΑΜΟΙΒΗ ΑΠΟ ΟΑΥ")
+# headers that look like amounts but are the WRONG column
+_DETAIL_EXCLUDE = ("ΙΑΤΡΩΝ", "ΝΟΣΗΛΕΥΤΗΡΙΟΥ", "TOTAL AMT", "CO-PAY", "COPAY",
+                   "VAT", "ΜΟΝΑΔ", "BASE RATE", "ΣΥΜΜΕΤΟΧ")
+
+
+def _canon_cell(v) -> str:
+    return re.sub(r"\s+", " ", strip_accents(str(v))).strip()
+
+
+def _sum_detail_col(df: pd.DataFrame, header_row: int, j: int
+                    ) -> tuple[float, int]:
+    total, n = 0.0, 0
+    col = df.iloc[header_row + 1:, j]
+    for k, cell in zip(col.index, col):
+        if not _is_number(cell):
+            continue
+        labels = " ".join(str(x) for x in df.loc[k]
+                          if x is not None and str(x) != "nan"
+                          and not _is_number(x))
+        up = strip_accents(labels)
+        if "ΣΥΝΟΛ" in up or "TOTAL" in up:
+            continue                # a printed total row is not a claim
+        total += parse_amount(cell)
+        n += 1
+    return round(total, 2), n
+
+
 def _detail_column_sum(df: pd.DataFrame, after_row: int
-                       ) -> tuple[Optional[float], int]:
-    """Locate the per-claim listing's «Συνολική αμοιβή» column BELOW the
-    ΣΥΝΟΠΤΙΚΟΣ block and sum it row by row (skipping any printed total)."""
+                       ) -> tuple[Optional[float], int, str]:
+    """Locate the per-claim listing's amount column BELOW the ΣΥΝΟΠΤΙΚΟΣ
+    block and sum it row by row (skipping any printed total).  Returns
+    (sum, row count, matched header label) — the label goes to diagnostics
+    so a mismatched real-world header can be spotted instantly."""
+    # pass 1 — known header names (newline/space differences collapsed)
     for i in range(after_row + 1, len(df)):
         for j, v in enumerate(df.iloc[i]):
-            if v is None or "ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ" not in strip_accents(str(v)):
+            if v is None or str(v) == "nan":
                 continue
-            total, n = 0.0, 0
-            col = df.iloc[i + 1:, j]
-            for k, cell in zip(col.index, col):
-                if not _is_number(cell):
-                    continue
-                labels = " ".join(str(x) for x in df.loc[k]
-                                  if x is not None and str(x) != "nan"
-                                  and not _is_number(x))
-                up = strip_accents(labels)
-                if "ΣΥΝΟΛ" in up or "TOTAL" in up:
-                    continue        # a printed total row is not a claim
-                total += parse_amount(cell)
-                n += 1
-            return (round(total, 2), n) if n else (None, 0)
-    return None, 0
+            c = _canon_cell(v)
+            if any(nd in c for nd in _DETAIL_NEEDLES):
+                total, n = _sum_detail_col(df, i, j)
+                if n:
+                    return total, n, c
+    # pass 2 — the FIRST wide header row below the block: take the rightmost
+    # amount-like column that isn't a known wrong one
+    for i in range(after_row + 1, len(df)):
+        texts = [(j, _canon_cell(v)) for j, v in enumerate(df.iloc[i])
+                 if v is not None and str(v) != "nan" and not _is_number(v)]
+        if len(texts) < 6:
+            continue
+        cands = [(j, c) for j, c in texts
+                 if ("ΑΜΟΙΒΗ" in c or "REIMB" in c or "AMOUNT" in c)
+                 and not any(x in c for x in _DETAIL_EXCLUDE)]
+        if cands:
+            j, c = cands[-1]
+            total, n = _sum_detail_col(df, i, j)
+            if n:
+                return total, n, c
+        break
+    return None, 0, ""
 
 
 def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:

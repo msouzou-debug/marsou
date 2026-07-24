@@ -197,6 +197,7 @@ class InpatientSummary:
     # summary (the listing includes old-period claims paid in this cheque)
     detail_total: Optional[float] = None
     detail_rows: int = 0
+    detail_header: str = ""       # the matched column header, for diagnostics
 
     @property
     def regular(self) -> float:

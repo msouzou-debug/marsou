@@ -95,36 +95,76 @@ function extractInpatientSummary(bytes) {
     // the file ALSO carries the full per-claim listing below the summary —
     // sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
     // universe while the listing includes old-period claims paid now
-    const [detailTotal, detailRows] = detailColumnSum(rows, anchor + 6);
+    const [detailTotal, detailRows, detailHeader] = detailColumnSum(rows, anchor + 6);
     out.detailTotal = detailTotal;
     out.detailRows = detailRows;
+    out.detailHeader = detailHeader;
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
 }
 
+// amount-column headers of the per-claim listing (whitespace collapsed —
+// real exports wrap header text with newlines inside the cell)
+const DETAIL_NEEDLES = ['ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ', 'HIO REIMB', 'ΑΜΟΙΒΗ ΑΠΟ ΟΑΥ'];
+// headers that look like amounts but are the WRONG column
+const DETAIL_EXCLUDE = ['ΙΑΤΡΩΝ', 'ΝΟΣΗΛΕΥΤΗΡΙΟΥ', 'TOTAL AMT', 'CO-PAY', 'COPAY',
+                        'VAT', 'ΜΟΝΑΔ', 'BASE RATE', 'ΣΥΜΜΕΤΟΧ'];
+
+function canonCell(v) {
+  return stripAccents(cellText(v)).replace(/\s+/g, ' ').trim();
+}
+
+function sumDetailCol(rows, headerRow, j) {
+  let total = 0, n = 0;
+  for (let k = headerRow + 1; k < rows.length; k++) {
+    const cell = rows[k][j];
+    if (!isNumberLike(cell)) continue;
+    const labels = rows[k].filter((x) => x != null && cellText(x) !== 'nan' && !isNumberLike(x))
+      .map(cellText).join(' ');
+    const up = stripAccents(labels);
+    if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) continue; // printed total row
+    total += parseAmount(cell);
+    n += 1;
+  }
+  return [round2(total), n];
+}
+
 function detailColumnSum(rows, afterRow) {
-  /* Locate the per-claim listing's «Συνολική αμοιβή» column BELOW the
-   * ΣΥΝΟΠΤΙΚΟΣ block and sum it row by row (skipping any printed total). */
+  /* Locate the per-claim listing's amount column BELOW the ΣΥΝΟΠΤΙΚΟΣ block
+   * and sum it row by row.  Returns [sum, rowCount, matchedHeader]. */
+  // pass 1 — known header names (newline/space differences collapsed)
   for (let i = afterRow + 1; i < rows.length; i++) {
     for (let j = 0; j < rows[i].length; j++) {
       const v = rows[i][j];
-      if (v == null || !stripAccents(cellText(v)).includes('ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ')) continue;
-      let total = 0, n = 0;
-      for (let k = i + 1; k < rows.length; k++) {
-        const cell = rows[k][j];
-        if (!isNumberLike(cell)) continue;
-        const labels = rows[k].filter((x) => x != null && cellText(x) !== 'nan' && !isNumberLike(x))
-          .map(cellText).join(' ');
-        const up = stripAccents(labels);
-        if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) continue; // printed total row
-        total += parseAmount(cell);
-        n += 1;
+      if (v == null || cellText(v) === 'nan') continue;
+      const c = canonCell(v);
+      if (DETAIL_NEEDLES.some((nd) => c.includes(nd))) {
+        const [total, n] = sumDetailCol(rows, i, j);
+        if (n) return [total, n, c];
       }
-      return n ? [round2(total), n] : [null, 0];
     }
   }
-  return [null, 0];
+  // pass 2 — the FIRST wide header row below the block: take the rightmost
+  // amount-like column that isn't a known wrong one
+  for (let i = afterRow + 1; i < rows.length; i++) {
+    const texts = [];
+    for (let j = 0; j < rows[i].length; j++) {
+      const v = rows[i][j];
+      if (v != null && cellText(v) !== 'nan' && !isNumberLike(v)) texts.push([j, canonCell(v)]);
+    }
+    if (texts.length < 6) continue;
+    const cands = texts.filter(([, c]) =>
+      (c.includes('ΑΜΟΙΒΗ') || c.includes('REIMB') || c.includes('AMOUNT'))
+      && !DETAIL_EXCLUDE.some((x) => c.includes(x)));
+    if (cands.length) {
+      const [j, c] = cands[cands.length - 1];
+      const [total, n] = sumDetailCol(rows, i, j);
+      if (n) return [total, n, c];
+    }
+    break;
+  }
+  return [null, 0, ''];
 }
 
 function endoBestTotal(inp) {

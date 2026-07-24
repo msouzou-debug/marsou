@@ -679,8 +679,8 @@ function identifyExcel(f) {
         const s = extractInpatientSummary(f.data);
         const fmt = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const extra = s.detailTotal != null
-          ? ` · αναλυτική στήλη «Συνολική αμοιβή»: ${s.detailRows} γραμμές = ${fmt(s.detailTotal)}`
-          : ' · δεν βρέθηκε αναλυτική στήλη «Συνολική αμοιβή» (no per-claim listing found)';
+          ? ` · αναλυτική στήλη «${s.detailHeader}»: ${s.detailRows} γραμμές = ${fmt(s.detailTotal)}`
+          : ' · ΔΕΝ βρέθηκε στήλη ποσού στην αναλυτική λίστα (no per-claim amount column found — δείτε τις κεφαλίδες στο probe παραπάνω)';
         f.probe = (f.probe || '') + `\nΣΥΝΟΠΤΙΚΟΣ Σύνολο=${fmt(s.synolo)}${extra}`;
       } catch (e) {
         f.probe = (f.probe || '') + `\n(endo extract failed: ${e.message})`;
@@ -1046,36 +1046,76 @@ function extractInpatientSummary(bytes) {
     // the file ALSO carries the full per-claim listing below the summary —
     // sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
     // universe while the listing includes old-period claims paid now
-    const [detailTotal, detailRows] = detailColumnSum(rows, anchor + 6);
+    const [detailTotal, detailRows, detailHeader] = detailColumnSum(rows, anchor + 6);
     out.detailTotal = detailTotal;
     out.detailRows = detailRows;
+    out.detailHeader = detailHeader;
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
 }
 
+// amount-column headers of the per-claim listing (whitespace collapsed —
+// real exports wrap header text with newlines inside the cell)
+const DETAIL_NEEDLES = ['ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ', 'HIO REIMB', 'ΑΜΟΙΒΗ ΑΠΟ ΟΑΥ'];
+// headers that look like amounts but are the WRONG column
+const DETAIL_EXCLUDE = ['ΙΑΤΡΩΝ', 'ΝΟΣΗΛΕΥΤΗΡΙΟΥ', 'TOTAL AMT', 'CO-PAY', 'COPAY',
+                        'VAT', 'ΜΟΝΑΔ', 'BASE RATE', 'ΣΥΜΜΕΤΟΧ'];
+
+function canonCell(v) {
+  return stripAccents(cellText(v)).replace(/\s+/g, ' ').trim();
+}
+
+function sumDetailCol(rows, headerRow, j) {
+  let total = 0, n = 0;
+  for (let k = headerRow + 1; k < rows.length; k++) {
+    const cell = rows[k][j];
+    if (!isNumberLike(cell)) continue;
+    const labels = rows[k].filter((x) => x != null && cellText(x) !== 'nan' && !isNumberLike(x))
+      .map(cellText).join(' ');
+    const up = stripAccents(labels);
+    if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) continue; // printed total row
+    total += parseAmount(cell);
+    n += 1;
+  }
+  return [round2(total), n];
+}
+
 function detailColumnSum(rows, afterRow) {
-  /* Locate the per-claim listing's «Συνολική αμοιβή» column BELOW the
-   * ΣΥΝΟΠΤΙΚΟΣ block and sum it row by row (skipping any printed total). */
+  /* Locate the per-claim listing's amount column BELOW the ΣΥΝΟΠΤΙΚΟΣ block
+   * and sum it row by row.  Returns [sum, rowCount, matchedHeader]. */
+  // pass 1 — known header names (newline/space differences collapsed)
   for (let i = afterRow + 1; i < rows.length; i++) {
     for (let j = 0; j < rows[i].length; j++) {
       const v = rows[i][j];
-      if (v == null || !stripAccents(cellText(v)).includes('ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ')) continue;
-      let total = 0, n = 0;
-      for (let k = i + 1; k < rows.length; k++) {
-        const cell = rows[k][j];
-        if (!isNumberLike(cell)) continue;
-        const labels = rows[k].filter((x) => x != null && cellText(x) !== 'nan' && !isNumberLike(x))
-          .map(cellText).join(' ');
-        const up = stripAccents(labels);
-        if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) continue; // printed total row
-        total += parseAmount(cell);
-        n += 1;
+      if (v == null || cellText(v) === 'nan') continue;
+      const c = canonCell(v);
+      if (DETAIL_NEEDLES.some((nd) => c.includes(nd))) {
+        const [total, n] = sumDetailCol(rows, i, j);
+        if (n) return [total, n, c];
       }
-      return n ? [round2(total), n] : [null, 0];
     }
   }
-  return [null, 0];
+  // pass 2 — the FIRST wide header row below the block: take the rightmost
+  // amount-like column that isn't a known wrong one
+  for (let i = afterRow + 1; i < rows.length; i++) {
+    const texts = [];
+    for (let j = 0; j < rows[i].length; j++) {
+      const v = rows[i][j];
+      if (v != null && cellText(v) !== 'nan' && !isNumberLike(v)) texts.push([j, canonCell(v)]);
+    }
+    if (texts.length < 6) continue;
+    const cands = texts.filter(([, c]) =>
+      (c.includes('ΑΜΟΙΒΗ') || c.includes('REIMB') || c.includes('AMOUNT'))
+      && !DETAIL_EXCLUDE.some((x) => c.includes(x)));
+    if (cands.length) {
+      const [j, c] = cands[cands.length - 1];
+      const [total, n] = sumDetailCol(rows, i, j);
+      if (n) return [total, n, c];
+    }
+    break;
+  }
+  return [null, 0, ''];
 }
 
 function endoBestTotal(inp) {
@@ -2630,8 +2670,8 @@ function buildWorkbook(result) {
     tabMatrix(wb, result);
   }
   tabCrosscheck(wb, result, sraTab, nLines);
-  tabSplit(wb, result, statedCell, zeroChecks);
-  tabByDoctor(wb, result);
+  const splitTotalRow = tabSplit(wb, result, statedCell, zeroChecks);
+  tabByDoctor(wb, result, sraTab, nLines, splitTotalRow);
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
@@ -2861,11 +2901,12 @@ function tabSplit(wb, result, statedCell, zeroChecks) {
     ws.getCell(totalRow + 1, 1).value = 'Cross-check mode: χωρίς επιταγή — no cash tie-out (δεν υπάρχει SRA).';
   }
   autosize(ws);
+  return totalRow;
 }
 
 /* ------------------------------------------ tab 5: by doctor & speciality */
 
-function tabByDoctor(wb, result) {
+function tabByDoctor(wb, result, sraTab, nLines, splitTotalRow) {
   /* The SRA payment split by clinic/speciality AND doctor, summed from the
    * ROW-LEVEL claims detail (never from ΟΑΥ-printed totals), plus the
    * capitation per-doctor breakdown.  Live SUM subtotals per stream; bottom
@@ -2969,6 +3010,56 @@ function tabByDoctor(wb, result) {
     ws.getCell(diffRow + 1, 1).value = 'Μερική ανάλυση ανά ιατρό στην πηγή (η αναφορά ΟΑΥ δεν '
       + 'αναλύει όλο το ποσό ανά ιατρό) — η διαφορά φαίνεται, δεν κρύβεται.';
     ws.getCell(diffRow + 1, 1).font = F_AMBER;
+  }
+  r = diffRow + 2;
+
+  // ------- bridge: from the by-doctor universe to By_Clinic_Split / cheque
+  // (only when an SRA exists — cross-check mode has no cash side)
+  if (sraTab && srcRows.length) {
+    const head = ws.getCell(r, 1);
+    head.value = 'ΓΕΦΥΡΑ ΠΡΟΣ ΤΟ BY_CLINIC_SPLIT / ΤΗΝ ΕΠΙΤΑΓΗ (bridge: doctors → cheque)';
+    head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    head.fill = FILL_SECTION;
+    r += 1;
+    const bridgeRows = [];
+    ws.getCell(r, 1).value = 'Αποδιδόμενα σε ιατρούς: Claims «all» + Capitation (οι πηγές της καρτέλας)';
+    ws.getCell(r, 1).font = F_FORMULA;
+    writeAmount(ws, r, 4, srcRows.map((x) => `D${x}`).join('+'), F_FORMULA);
+    bridgeRows.push(r);
+    r += 1;
+    const sumifsCodes = (row, codes, colRef) => {
+      const terms = codes.map((code, k) => {
+        const col = colLetter(6 + k);
+        ws.getCell(row, 6 + k).value = code;
+        ws.getCell(row, 6 + k).font = F_INPUT;
+        return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$${colRef}$2:$${colRef}$${nLines},${col}${row})`;
+      });
+      return terms.join('+');
+    };
+    for (const [label, codes, byBucket] of [
+      ['+ Φάρμακα — μη αποδιδόμενα σε ιατρούς (SRA bucket Pharma)', ['Pharma'], true],
+      ['+ Αιμοκάθαρση (HEMO)', ['HEMO'], false],
+      ['+ Προσαρμογές & τακτοποιήσεις (IS-ADJ, AE-ADJ, IS-PRIOR)', ['IS-ADJ', 'AE-ADJ', 'IS-PRIOR'], false],
+      ['+ Σταθερές χρεώσεις ΠΙ & Ποιοτικά (PD-FP, KPI, MRI/CT)', ['PD-FP', 'PD-KPI', 'KPI', 'MRI', 'CT', 'MRI/CT'], false],
+    ]) {
+      ws.getCell(r, 1).value = label;
+      ws.getCell(r, 1).font = F_LINK;
+      writeAmount(ws, r, 4, sumifsCodes(r, codes, byBucket ? 'D' : 'A'), F_LINK);
+      bridgeRows.push(r);
+      r += 1;
+    }
+    const bridgeTotalRow = r;
+    ws.getCell(r, 1).value = 'Σύνολο γέφυρας (bridge total)';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 4, bridgeRows.map((x) => `D${x}`).join('+'), F_FORMULA);
+    r += 1;
+    const splitRow = r;
+    ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ By_Clinic_Split (= επιταγή ΟΑΥ)';
+    writeAmount(ws, r, 4, `'By_Clinic_Split'!D${splitTotalRow}`, F_LINK);
+    r += 1;
+    ws.getCell(r, 1).value = 'Διαφορά γέφυρας — γραμμές SRA χωρίς αναλυτικό ανά ιατρό '
+      + '(προσαρμογές OS/NM/AP/PD, επιταγές δορυφορικών παροχέων, υπόλοιπο ανάλυσης)';
+    writeAmount(ws, r, 4, `D${bridgeTotalRow}-D${splitRow}`, F_FORMULA).font = F_AMBER;
   }
   autosize(ws);
 }

@@ -73,8 +73,8 @@ def build_workbook(result: ReconResult) -> bytes:
     else:
         _tab_matrix(wb, result)
     _tab_crosscheck(wb, result, sra_tab, n_lines)
-    _tab_split(wb, result, stated_cell)
-    _tab_by_doctor(wb, result)
+    split_total_row = _tab_split(wb, result, stated_cell)
+    _tab_by_doctor(wb, result, sra_tab, n_lines, split_total_row)
     _tab_truth_map(wb)
     _tab_legend(wb, result)
 
@@ -276,7 +276,7 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
 
 # --------------------------------------------------- tab 4: By_Clinic_Split
 
-def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) -> None:
+def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) -> int:
     ws = wb.create_sheet("By_Clinic_Split")
     b = result.bundle
     hosp = HOSPITALS[b.hospital_code]
@@ -328,11 +328,14 @@ def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) ->
         ws.cell(row=total_row + 1, column=1,
                 value="Cross-check mode: χωρίς επιταγή — no cash tie-out (δεν υπάρχει SRA).")
     _autosize(ws)
+    return total_row
 
 
 # ------------------------------------------- tab 5: by doctor & speciality
 
-def _tab_by_doctor(wb: Workbook, result: ReconResult) -> None:
+def _tab_by_doctor(wb: Workbook, result: ReconResult,
+                   sra_tab: Optional[str] = None, n_lines: int = 0,
+                   split_total_row: Optional[int] = None) -> None:
     """The SRA payment split by clinic/speciality AND doctor, summed from the
     ROW-LEVEL claims detail (never from ΟΑΥ-printed totals), plus the
     capitation per-doctor breakdown.  Live SUM subtotals per stream; bottom
@@ -437,6 +440,68 @@ def _tab_by_doctor(wb: Workbook, result: ReconResult) -> None:
                 value="Μερική ανάλυση ανά ιατρό στην πηγή (η αναφορά ΟΑΥ δεν "
                       "αναλύει όλο το ποσό ανά ιατρό) — η διαφορά φαίνεται, "
                       "δεν κρύβεται.").font = F_AMBER
+        r += 1
+    r = diff_row + 2
+
+    # ------- bridge: from the by-doctor universe to By_Clinic_Split / cheque
+    # (only when an SRA exists — cross-check mode has no cash side)
+    if sra_tab and src_rows:
+        head = ws.cell(row=r, column=1,
+                       value="ΓΕΦΥΡΑ ΠΡΟΣ ΤΟ BY_CLINIC_SPLIT / ΤΗΝ ΕΠΙΤΑΓΗ "
+                             "(bridge: doctors → cheque)")
+        head.font = Font(bold=True, color="FFFFFF")
+        head.fill = FILL_SECTION
+        r += 1
+        bridge_rows: list[int] = []
+        first_src = src_rows[0]
+        ws.cell(row=r, column=1,
+                value="Αποδιδόμενα σε ιατρούς: Claims «all» + Capitation "
+                      "(οι πηγές της καρτέλας)").font = F_FORMULA
+        _amount(ws, r, 4, "=" + "+".join(f"D{x}" for x in src_rows), F_FORMULA)
+        bridge_rows.append(r)
+        r += 1
+
+        def sumifs_codes(row: int, codes: list[str], col_letter_ref: str = "A") -> str:
+            terms = []
+            for k, code in enumerate(codes):
+                col = get_column_letter(6 + k)
+                ws.cell(row=row, column=6 + k, value=code).font = F_INPUT
+                terms.append(
+                    f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
+                    f"'{sra_tab}'!${col_letter_ref}$2:${col_letter_ref}${n_lines},"
+                    f"{col}{row})")
+            return "=" + "+".join(terms)
+
+        for label, codes, by_bucket in [
+            ("+ Φάρμακα — μη αποδιδόμενα σε ιατρούς (SRA bucket Pharma)",
+             ["Pharma"], True),
+            ("+ Αιμοκάθαρση (HEMO)", ["HEMO"], False),
+            ("+ Προσαρμογές & τακτοποιήσεις (IS-ADJ, AE-ADJ, IS-PRIOR)",
+             ["IS-ADJ", "AE-ADJ", "IS-PRIOR"], False),
+            ("+ Σταθερές χρεώσεις ΠΙ & Ποιοτικά (PD-FP, KPI, MRI/CT)",
+             ["PD-FP", "PD-KPI", "KPI", "MRI", "CT", "MRI/CT"], False),
+        ]:
+            ws.cell(row=r, column=1, value=label).font = F_LINK
+            _amount(ws, r, 4,
+                    sumifs_codes(r, codes, "D" if by_bucket else "A"), F_LINK)
+            bridge_rows.append(r)
+            r += 1
+        bridge_total_row = r
+        ws.cell(row=r, column=1, value="Σύνολο γέφυρας (bridge total)"
+                ).font = Font(bold=True)
+        _amount(ws, r, 4, "=" + "+".join(f"D{x}" for x in bridge_rows), F_FORMULA)
+        r += 1
+        split_row = r
+        ws.cell(row=r, column=1,
+                value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ By_Clinic_Split (= επιταγή ΟΑΥ)")
+        _amount(ws, r, 4, f"='By_Clinic_Split'!D{split_total_row}", F_LINK)
+        r += 1
+        ws.cell(row=r, column=1,
+                value="Διαφορά γέφυρας — γραμμές SRA χωρίς αναλυτικό ανά ιατρό "
+                      "(προσαρμογές OS/NM/AP/PD, επιταγές δορυφορικών παροχέων, "
+                      "υπόλοιπο ανάλυσης)")
+        d = _amount(ws, r, 4, f"=D{bridge_total_row}-D{split_row}", F_FORMULA)
+        d.font = F_AMBER
     _autosize(ws)
 
 

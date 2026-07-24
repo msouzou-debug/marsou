@@ -449,6 +449,30 @@ def test_endo_detail_column_beats_printed_synoptikos():
     assert endo_sra.flag == "ok" and "ΣΥΝΟΠΤΙΚΟΣ" in endo_sra.note
 
 
+def test_doctor_tab_bridge_ties_to_split_grand_total():
+    # the by-doctor universe (claims + capitation) plus the non-doctor SRA
+    # layers (pharma, hemo, adjustments, fixed-price/quality) must bridge to
+    # the By_Clinic_Split grand total (= the cheque) — live formulas
+    import io
+    from openpyxl import load_workbook
+    from recon.build_xlsx import _Evaluator, build_workbook
+
+    res = run_reconciliation(full_bundle())
+    wb = load_workbook(io.BytesIO(build_workbook(res)))
+    ws = wb["Ανά_ιατρό"]
+    ev = _Evaluator(wb)
+    vals = {}
+    for r in range(1, ws.max_row + 1):
+        label = str(ws.cell(row=r, column=1).value or "")
+        v = ws.cell(row=r, column=4).value
+        if isinstance(v, str) and v.startswith("="):
+            vals[label] = round(ev.evaluate(v, "Ανά_ιατρό"), 2)
+    assert vals["Σύνολο γέφυρας (bridge total)"] == 1_936_528.19
+    assert vals["ΓΕΝΙΚΟ ΣΥΝΟΛΟ By_Clinic_Split (= επιταγή ΟΑΥ)"] == 1_936_528.19
+    diff_label = next(k for k in vals if k.startswith("Διαφορά γέφυρας"))
+    assert vals[diff_label] == 0.0
+
+
 def test_gate4_flags_printed_total_vs_column_sum_mismatch():
     # a report whose ΟΑΥ-printed total disagrees with the summation of its
     # own rows is a finding — the summation is used, the mismatch named
