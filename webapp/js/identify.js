@@ -239,6 +239,18 @@ function identifyExcel(f) {
       [f.year, f.month] = labeledYearMonth(rows);   // real files: Έτος|Μήνας cells
       if (f.year == null) [f.year, f.month] = findPeriod(top);
       if (f.year == null) [f.year, f.month] = findPeriod(allText);
+      // diagnostics: the printed ΣΥΝΟΠΤΙΚΟΣ total vs the SUM of the
+      // per-claim listing column — the reconciliation trusts the sum
+      try {
+        const s = extractInpatientSummary(f.data);
+        const fmt = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const extra = s.detailTotal != null
+          ? ` · αναλυτική στήλη «Συνολική αμοιβή»: ${s.detailRows} γραμμές = ${fmt(s.detailTotal)}`
+          : ' · δεν βρέθηκε αναλυτική στήλη «Συνολική αμοιβή» (no per-claim listing found)';
+        f.probe = (f.probe || '') + `\nΣΥΝΟΠΤΙΚΟΣ Σύνολο=${fmt(s.synolo)}${extra}`;
+      } catch (e) {
+        f.probe = (f.probe || '') + `\n(endo extract failed: ${e.message})`;
+      }
       return;
     }
     let hr = findHeaderRow(rows, ['DR SEGMENT']);

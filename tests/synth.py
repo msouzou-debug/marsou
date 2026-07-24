@@ -32,7 +32,7 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
                            gennes=25_000.00, z=100_000.00, hospital="F1049",
                            hospital_name="ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)",
                            year=2026, month=3, synolo=None,
-                           with_per_clinic=True) -> bytes:
+                           with_per_clinic=True, detail_extra=0.0) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
@@ -54,6 +54,18 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
     total = synolo if synolo is not None else round(
         kanonika + kanonika_parap + exeidikevmena + exeid_parap + gennes + z, 2)
     ws.append(["Σύνολο", None, None, None, total, total])
+
+    # per-claim listing below the summary — the WIDER universe: with
+    # detail_extra it also holds an old-period claim absent from the
+    # ΣΥΝΟΠΤΙΚΟΣ (the real Apr-2026 F1048 case, claim 99476712)
+    ws.append([])
+    ws.append(["Αρ. Απαίτησης", "Ημ. Εισαγωγής", "DRG", "Συνολική αμοιβή (€)"])
+    half = round(total * 0.5, 2)
+    ws.append([99_000_001, "2026-03-05", "K60A", half])
+    ws.append([99_000_002, "2026-03-14", "F62B", round(total - half, 2)])
+    if detail_extra:
+        ws.append([99_476_712, "2022-10-18", "G67B", detail_extra])
+    ws.append(["Σύνολο", None, None, round(total + detail_extra, 2)])
 
     if with_per_clinic:
         # real workbooks carry a «per clinic» pivot (headers duplicated twice)

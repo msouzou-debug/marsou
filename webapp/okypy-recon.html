@@ -673,6 +673,18 @@ function identifyExcel(f) {
       [f.year, f.month] = labeledYearMonth(rows);   // real files: Έτος|Μήνας cells
       if (f.year == null) [f.year, f.month] = findPeriod(top);
       if (f.year == null) [f.year, f.month] = findPeriod(allText);
+      // diagnostics: the printed ΣΥΝΟΠΤΙΚΟΣ total vs the SUM of the
+      // per-claim listing column — the reconciliation trusts the sum
+      try {
+        const s = extractInpatientSummary(f.data);
+        const fmt = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const extra = s.detailTotal != null
+          ? ` · αναλυτική στήλη «Συνολική αμοιβή»: ${s.detailRows} γραμμές = ${fmt(s.detailTotal)}`
+          : ' · δεν βρέθηκε αναλυτική στήλη «Συνολική αμοιβή» (no per-claim listing found)';
+        f.probe = (f.probe || '') + `\nΣΥΝΟΠΤΙΚΟΣ Σύνολο=${fmt(s.synolo)}${extra}`;
+      } catch (e) {
+        f.probe = (f.probe || '') + `\n(endo extract failed: ${e.message})`;
+      }
       return;
     }
     let hr = findHeaderRow(rows, ['DR SEGMENT']);
@@ -1031,9 +1043,44 @@ function extractInpatientSummary(bytes) {
         + `(Σύνολο ${formatEur(out.synolo)} vs άθροισμα ${formatEur(out.computedTotal)})`);
     }
     out.byClinic = perClinicDetailSheet(sheets);
+    // the file ALSO carries the full per-claim listing below the summary —
+    // sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
+    // universe while the listing includes old-period claims paid now
+    const [detailTotal, detailRows] = detailColumnSum(rows, anchor + 6);
+    out.detailTotal = detailTotal;
+    out.detailRows = detailRows;
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
+}
+
+function detailColumnSum(rows, afterRow) {
+  /* Locate the per-claim listing's «Συνολική αμοιβή» column BELOW the
+   * ΣΥΝΟΠΤΙΚΟΣ block and sum it row by row (skipping any printed total). */
+  for (let i = afterRow + 1; i < rows.length; i++) {
+    for (let j = 0; j < rows[i].length; j++) {
+      const v = rows[i][j];
+      if (v == null || !stripAccents(cellText(v)).includes('ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ')) continue;
+      let total = 0, n = 0;
+      for (let k = i + 1; k < rows.length; k++) {
+        const cell = rows[k][j];
+        if (!isNumberLike(cell)) continue;
+        const labels = rows[k].filter((x) => x != null && cellText(x) !== 'nan' && !isNumberLike(x))
+          .map(cellText).join(' ');
+        const up = stripAccents(labels);
+        if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) continue; // printed total row
+        total += parseAmount(cell);
+        n += 1;
+      }
+      return n ? [round2(total), n] : [null, 0];
+    }
+  }
+  return [null, 0];
+}
+
+function endoBestTotal(inp) {
+  /* the per-claim listing sum when present, else the ΣΥΝΟΠΤΙΚΟΣ Σύνολο */
+  return inp.detailTotal != null ? inp.detailTotal : inp.synolo;
 }
 
 function perClinicDetailSheet(sheets) {
@@ -1923,13 +1970,16 @@ function gate4InternalAsserts(bundle) {
   const msgs = [];
   if (bundle.inpatient && bundle.claims) {
     const claimsIp = bundle.claims.bySegment['Inpatient'] || 0;
-    const d = round2(claimsIp - bundle.inpatient.synolo);
+    // compare against the per-claim listing sum when the file carries it —
+    // the ΣΥΝΟΠΤΙΚΟΣ leaves out old-period claims paid in this cheque
+    const endoSide = endoBestTotal(bundle.inpatient);
+    const d = round2(claimsIp - endoSide);
     if (Math.abs(d) > CENT) {
       ok = false;
       const segs = Object.entries(bundle.claims.bySegment).sort((a, b) => b[1] - a[1])
         .map(([k, v]) => `«${k}»: ${formatEur(v)}`).join(' · ');
-      msgs.push('Claims «all» Inpatient ≠ Ενδ. Σύνολο: '
-        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`
+      msgs.push('Claims «all» Inpatient ≠ Ενδ.: '
+        + `${formatEur(claimsIp)} vs ${formatEur(endoSide)} (διαφορά ${formatEur(d)})`
         + claimCandidates(bundle, d)
         + `\nΤιμές DR SEGMENT στο αρχείο claims: ${segs}`);
     }
@@ -1951,8 +2001,9 @@ function gate4InternalAsserts(bundle) {
   // detail is available gets its printed total re-checked against the SUM
   if (bundle.inpatient && bundle.inpatient.byClinic && bundle.inpatient.byClinic.length) {
     const clinicSum = round2(bundle.inpatient.byClinic.reduce((a, r) => a + r.total, 0));
+    const dt = bundle.inpatient.detailTotal;
     const d = round2(clinicSum - bundle.inpatient.synolo);
-    if (Math.abs(d) > CENT) {
+    if (Math.abs(d) > CENT && (dt == null || Math.abs(clinicSum - dt) > CENT)) {
       ok = false;
       msgs.push('Ενδ.: το άθροισμα του πίνακα «per clinic» ≠ Σύνολο ΣΥΝΟΠΤΙΚΟΥ: '
         + `${formatEur(clinicSum)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`);
@@ -2045,20 +2096,38 @@ function buildCrosschecks(bundle) {
         flag: 'red' }));
     }
   }
-  // claims-file vs Ενδ. summary (report-vs-report) with old-claim candidates
+  // claims-file vs Ενδ. (report-vs-report).  The Ενδ. side is the SUM of the
+  // file's per-claim listing («στήλη Συνολική αμοιβή») when present — NOT
+  // the printed ΣΥΝΟΠΤΙΚΟΣ Σύνολο, which leaves out old-period claims.
+  const endo = bundle.inpatient;
+  let synoptikosNote = '';
+  if (endo != null && endo.detailTotal != null) {
+    const gap = round2(endo.detailTotal - endo.synolo);
+    if (Math.abs(gap) > CENT) {
+      synoptikosNote = ` Το ΣΥΝΟΠΤΙΚΟΣ Σύνολο (${formatEur(endo.synolo)}) διαφέρει κατά `
+        + `${formatEur(gap)} — απαιτήσεις εκτός του μηνιαίου πίνακα DRG (the printed `
+        + 'summary excludes old-period claims).' + claimCandidates(bundle, gap);
+    }
+  }
   if (bundle.inpatient && bundle.claims) {
-    const d = round2((claimsIp || 0) - bundle.inpatient.synolo);
+    const endoSide = endoBestTotal(endo);
+    const d = round2((claimsIp || 0) - endoSide);
     checks.push(mk({
-      name: 'Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)',
-      sourceTotal: claimsIp || 0, sraCodes: [], sraSide: bundle.inpatient.synolo,
-      note: Math.abs(d) <= CENT ? 'OK — ταυτίζεται (ties out)'
+      name: endo.detailTotal != null
+        ? 'Claims «all» Inpatient = Ενδ. (άθροιση στήλης «Συνολική αμοιβή»)'
+        : 'Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)',
+      sourceTotal: claimsIp || 0, sraCodes: [], sraSide: endoSide,
+      note: Math.abs(d) <= CENT ? ('OK — ταυτίζεται (ties out).' + synoptikosNote)
         : 'Ανεξήγητη διαφορά claims vs Ενδ.' + claimCandidates(bundle, d),
       flag: Math.abs(d) <= CENT ? 'ok' : 'red' }));
   }
 
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
-        bundle.inpatient.synolo, ['IS'], null, claimsIp);
+        endoBestTotal(endo), ['IS'], null, claimsIp);
+    if (checks[checks.length - 1].flag === 'ok' && synoptikosNote) {
+      checks[checks.length - 1].note += synoptikosNote;
+    }
     const c = checks[checks.length - 1];
     // when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
     // summary is the old-period claims — name them instead of «unexplained»
@@ -2163,7 +2232,7 @@ function buildCrosschecks(bundle) {
     // 26xxx = SRA IS + HEMO + IS-ADJ
     add('GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS + αιμοκάθαρση + προσαρμογές',
         gl.inpatient, ['IS', 'IS-ADJ', 'HEMO'],
-        null, bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
+        null, bundle.inpatient ? endoBestTotal(bundle.inpatient) : claimsIp);
     const glIpCheck = checks[checks.length - 1];
     add('GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση', gl.zCatalogue, []);
     if (bundle.inpatient) {
@@ -2231,7 +2300,7 @@ function buildCrosschecks(bundle) {
   if (bundle.isaud) {
     add('IS Auditor: inpatient (DRG fees + Z-catalogue) = SRA IS', bundle.isaud.inpatientTotal, ['IS'],
         'IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.',
-        bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
+        bundle.inpatient ? endoBestTotal(bundle.inpatient) : claimsIp);
     const c = checks[checks.length - 1];
     // per-row rounding across ~10k detail rows — the brief accepts small
     // tolerances (F1054: €0.45); the Diff cell still shows the live gap
@@ -2284,7 +2353,7 @@ function buildMatrix(bundle) {
 
   if (bundle.inpatient) {
     const ip = bundle.inpatient;
-    put('Ενδ. summary', STREAMS[0], ip.synolo);
+    put('Ενδ. summary', STREAMS[0], endoBestTotal(ip));
     put('Ενδ. summary', STREAMS[1], ip.regular + ip.specialized);
     put('Ενδ. summary', STREAMS[2], ip.zCatalogue);
   }
@@ -2820,17 +2889,29 @@ function tabByDoctor(wb, result) {
     head.font = { bold: true };
     head.fill = FILL_SECTION;
     r += 1;
-    const first = r;
-    for (const [s, sp, d, v] of docs) {
-      if (s !== seg) continue;
-      ws.getCell(r, 2).value = sp; ws.getCell(r, 2).font = F_INPUT;
-      ws.getCell(r, 3).value = d; ws.getCell(r, 3).font = F_INPUT;
-      writeAmount(ws, r, 4, v, F_INPUT);
+    // BY CLINIC FIRST, THEN BY DOCTOR: specialities ordered by size,
+    // each with a live subtotal over its doctor rows beneath
+    const segRows = docs.filter(([s]) => s === seg).map(([, sp, d, v]) => [sp, d, v]);
+    const specTotals = new Map();
+    for (const [sp, , v] of segRows) specTotals.set(sp, round2((specTotals.get(sp) || 0) + v));
+    const specCells = [];
+    const specs = [...specTotals.keys()].sort((a, b) => specTotals.get(b) - specTotals.get(a));
+    for (const sp of specs) {
+      const drs = segRows.filter(([s2]) => s2 === sp);
+      ws.getCell(r, 2).value = sp;
+      ws.getCell(r, 2).font = { bold: true };
+      writeAmount(ws, r, 4, `SUM(D${r + 1}:D${r + drs.length})`, F_FORMULA);
+      specCells.push(`D${r}`);
       r += 1;
+      for (const [, d, v] of drs) {
+        ws.getCell(r, 3).value = d; ws.getCell(r, 3).font = F_INPUT;
+        writeAmount(ws, r, 4, v, F_INPUT);
+        r += 1;
+      }
     }
     ws.getCell(r, 1).value = `Υποσύνολο ${seg}`;
     ws.getCell(r, 1).font = { bold: true };
-    writeAmount(ws, r, 4, `SUM(D${first}:D${r - 1})`, F_FORMULA);
+    writeAmount(ws, r, 4, specCells.join('+'), F_FORMULA);
     subtotalCells.push(`D${r}`);
     r += 1;
   }

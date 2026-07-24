@@ -143,13 +143,16 @@ function gate4InternalAsserts(bundle) {
   const msgs = [];
   if (bundle.inpatient && bundle.claims) {
     const claimsIp = bundle.claims.bySegment['Inpatient'] || 0;
-    const d = round2(claimsIp - bundle.inpatient.synolo);
+    // compare against the per-claim listing sum when the file carries it —
+    // the ΣΥΝΟΠΤΙΚΟΣ leaves out old-period claims paid in this cheque
+    const endoSide = endoBestTotal(bundle.inpatient);
+    const d = round2(claimsIp - endoSide);
     if (Math.abs(d) > CENT) {
       ok = false;
       const segs = Object.entries(bundle.claims.bySegment).sort((a, b) => b[1] - a[1])
         .map(([k, v]) => `«${k}»: ${formatEur(v)}`).join(' · ');
-      msgs.push('Claims «all» Inpatient ≠ Ενδ. Σύνολο: '
-        + `${formatEur(claimsIp)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`
+      msgs.push('Claims «all» Inpatient ≠ Ενδ.: '
+        + `${formatEur(claimsIp)} vs ${formatEur(endoSide)} (διαφορά ${formatEur(d)})`
         + claimCandidates(bundle, d)
         + `\nΤιμές DR SEGMENT στο αρχείο claims: ${segs}`);
     }
@@ -171,8 +174,9 @@ function gate4InternalAsserts(bundle) {
   // detail is available gets its printed total re-checked against the SUM
   if (bundle.inpatient && bundle.inpatient.byClinic && bundle.inpatient.byClinic.length) {
     const clinicSum = round2(bundle.inpatient.byClinic.reduce((a, r) => a + r.total, 0));
+    const dt = bundle.inpatient.detailTotal;
     const d = round2(clinicSum - bundle.inpatient.synolo);
-    if (Math.abs(d) > CENT) {
+    if (Math.abs(d) > CENT && (dt == null || Math.abs(clinicSum - dt) > CENT)) {
       ok = false;
       msgs.push('Ενδ.: το άθροισμα του πίνακα «per clinic» ≠ Σύνολο ΣΥΝΟΠΤΙΚΟΥ: '
         + `${formatEur(clinicSum)} vs ${formatEur(bundle.inpatient.synolo)} (διαφορά ${formatEur(d)})`);
@@ -265,20 +269,38 @@ function buildCrosschecks(bundle) {
         flag: 'red' }));
     }
   }
-  // claims-file vs Ενδ. summary (report-vs-report) with old-claim candidates
+  // claims-file vs Ενδ. (report-vs-report).  The Ενδ. side is the SUM of the
+  // file's per-claim listing («στήλη Συνολική αμοιβή») when present — NOT
+  // the printed ΣΥΝΟΠΤΙΚΟΣ Σύνολο, which leaves out old-period claims.
+  const endo = bundle.inpatient;
+  let synoptikosNote = '';
+  if (endo != null && endo.detailTotal != null) {
+    const gap = round2(endo.detailTotal - endo.synolo);
+    if (Math.abs(gap) > CENT) {
+      synoptikosNote = ` Το ΣΥΝΟΠΤΙΚΟΣ Σύνολο (${formatEur(endo.synolo)}) διαφέρει κατά `
+        + `${formatEur(gap)} — απαιτήσεις εκτός του μηνιαίου πίνακα DRG (the printed `
+        + 'summary excludes old-period claims).' + claimCandidates(bundle, gap);
+    }
+  }
   if (bundle.inpatient && bundle.claims) {
-    const d = round2((claimsIp || 0) - bundle.inpatient.synolo);
+    const endoSide = endoBestTotal(endo);
+    const d = round2((claimsIp || 0) - endoSide);
     checks.push(mk({
-      name: 'Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)',
-      sourceTotal: claimsIp || 0, sraCodes: [], sraSide: bundle.inpatient.synolo,
-      note: Math.abs(d) <= CENT ? 'OK — ταυτίζεται (ties out)'
+      name: endo.detailTotal != null
+        ? 'Claims «all» Inpatient = Ενδ. (άθροιση στήλης «Συνολική αμοιβή»)'
+        : 'Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)',
+      sourceTotal: claimsIp || 0, sraCodes: [], sraSide: endoSide,
+      note: Math.abs(d) <= CENT ? ('OK — ταυτίζεται (ties out).' + synoptikosNote)
         : 'Ανεξήγητη διαφορά claims vs Ενδ.' + claimCandidates(bundle, d),
       flag: Math.abs(d) <= CENT ? 'ok' : 'red' }));
   }
 
   if (bundle.inpatient) {
     add('Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS',
-        bundle.inpatient.synolo, ['IS'], null, claimsIp);
+        endoBestTotal(endo), ['IS'], null, claimsIp);
+    if (checks[checks.length - 1].flag === 'ok' && synoptikosNote) {
+      checks[checks.length - 1].note += synoptikosNote;
+    }
     const c = checks[checks.length - 1];
     // when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
     // summary is the old-period claims — name them instead of «unexplained»
@@ -383,7 +405,7 @@ function buildCrosschecks(bundle) {
     // 26xxx = SRA IS + HEMO + IS-ADJ
     add('GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS + αιμοκάθαρση + προσαρμογές',
         gl.inpatient, ['IS', 'IS-ADJ', 'HEMO'],
-        null, bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
+        null, bundle.inpatient ? endoBestTotal(bundle.inpatient) : claimsIp);
     const glIpCheck = checks[checks.length - 1];
     add('GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση', gl.zCatalogue, []);
     if (bundle.inpatient) {
@@ -451,7 +473,7 @@ function buildCrosschecks(bundle) {
   if (bundle.isaud) {
     add('IS Auditor: inpatient (DRG fees + Z-catalogue) = SRA IS', bundle.isaud.inpatientTotal, ['IS'],
         'IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.',
-        bundle.inpatient ? bundle.inpatient.synolo : claimsIp);
+        bundle.inpatient ? endoBestTotal(bundle.inpatient) : claimsIp);
     const c = checks[checks.length - 1];
     // per-row rounding across ~10k detail rows — the brief accepts small
     // tolerances (F1054: €0.45); the Diff cell still shows the live gap
@@ -504,7 +526,7 @@ function buildMatrix(bundle) {
 
   if (bundle.inpatient) {
     const ip = bundle.inpatient;
-    put('Ενδ. summary', STREAMS[0], ip.synolo);
+    put('Ενδ. summary', STREAMS[0], endoBestTotal(ip));
     put('Ενδ. summary', STREAMS[1], ip.regular + ip.specialized);
     put('Ενδ. summary', STREAMS[2], ip.zCatalogue);
   }

@@ -142,6 +142,7 @@ def test_gate4_ties():
 def test_gate4_catches_claims_vs_endo_break():
     b = full_bundle()
     b.inpatient.synolo = 1_000_000.00
+    b.inpatient.detail_total = 1_000_000.00     # both universes broken
     g = gate4_internal_asserts(b)[0]
     assert not g.passed and "Ενδ" in g.message
 
@@ -412,6 +413,40 @@ def test_capitation_by_doctor_and_workbook_doctor_tab():
     assert "ΜΥΡΟΦΟΡΑ ΙΩΑΝΝΟΥ" in text
     assert "GENERAL SURGERY" in text
     assert "HIO REIMB" in text          # verification block re-ties to sources
+    # BY CLINIC FIRST, THEN BY DOCTOR: the speciality row carries a live SUM
+    # over the doctor rows beneath it
+    spec_row = next(r for r in range(1, ws.max_row + 1)
+                    if ws.cell(row=r, column=2).value == "GENERAL SURGERY")
+    assert str(ws.cell(row=spec_row, column=4).value).startswith("=SUM(")
+    assert ws.cell(row=spec_row + 1, column=3).value      # doctor beneath it
+
+
+def test_endo_detail_column_beats_printed_synoptikos():
+    # the real Apr-2026 F1048 case: the Ενδ. file's per-claim listing (στήλη
+    # «Συνολική αμοιβή») includes an old 2022 claim the printed ΣΥΝΟΠΤΙΚΟΣ
+    # leaves out — the reconciliation must use the COLUMN SUM, tie green,
+    # and explain the ΣΥΝΟΠΤΙΚΟΣ gap
+    from recon.models import SRALine
+    b = full_bundle()
+    b.inpatient = extract_inpatient_summary(
+        synth.inpatient_summary_xlsx(detail_extra=1_297.43))
+    assert b.inpatient.synolo == 1_061_728.70
+    assert b.inpatient.detail_total == 1_063_026.13
+    assert b.inpatient.detail_rows == 3
+    b.claims.by_segment["Inpatient"] = round(
+        b.claims.by_segment["Inpatient"] + 1_297.43, 2)
+    b.claims.inpatient_rows.append(("99476712", "2022-10-18", 1_297.43))
+    b.sra.lines.append(SRALine(code="IS", description="IS - HCP SERVICES old",
+                               amount=1_297.43, bucket=Bucket.INPATIENT,
+                               channel="Claims", source_report="—"))
+    b.sra.stated_total = round(b.sra.stated_total + 1_297.43, 2)
+    assert all(g.passed for g in gate4_internal_asserts(b))
+    res = run_reconciliation(b)
+    rvr = next(c for c in res.crosschecks if "άθροιση στήλης" in c.name)
+    assert rvr.flag == "ok" and rvr.diff == 0.0
+    assert "ΣΥΝΟΠΤΙΚΟΣ" in rvr.note and "99476712" in rvr.note
+    endo_sra = next(c for c in res.crosschecks if "= SRA IS" in c.name)
+    assert endo_sra.flag == "ok" and "ΣΥΝΟΠΤΙΚΟΣ" in endo_sra.note
 
 
 def test_gate4_flags_printed_total_vs_column_sum_mismatch():
@@ -449,7 +484,7 @@ def test_old_period_claim_named_in_gate4_finding():
     assert "99476712" in g.message and "2022-10-18" in g.message
     # and the report-vs-report crosscheck row carries the same candidate
     res = run_reconciliation(b)
-    row = next(c for c in res.crosschecks if "report vs report" in c.name)
+    row = next(c for c in res.crosschecks if c.name.startswith("Claims «all» Inpatient"))
     assert row.flag == "red" and "99476712" in row.note
 
 

@@ -192,6 +192,11 @@ class InpatientSummary:
     other: dict[str, float] = field(default_factory=dict)  # unrecognised categories
     synolo: float = 0.0
     by_clinic: list["ClinicRow"] = field(default_factory=list)  # «per clinic» sheet
+    # sum of the per-claim listing's «Συνολική αμοιβή» column below the
+    # ΣΥΝΟΠΤΙΚΟΣ — the summation the reconciliation trusts over the printed
+    # summary (the listing includes old-period claims paid in this cheque)
+    detail_total: Optional[float] = None
+    detail_rows: int = 0
 
     @property
     def regular(self) -> float:
@@ -206,6 +211,13 @@ class InpatientSummary:
         return round(self.kanonika + self.kanonika_parap + self.exeidikevmena
                      + self.exeid_parap + self.gennes + self.z_catalogue
                      + sum(self.other.values()), 2)
+
+    @property
+    def best_total(self) -> float:
+        """The per-claim listing sum when present, else the ΣΥΝΟΠΤΙΚΟΣ Σύνολο.
+        The listing is the wider universe: it includes old-period claims paid
+        now, which the month's DRG summary table leaves out."""
+        return self.detail_total if self.detail_total is not None else self.synolo
 
 
 @dataclass

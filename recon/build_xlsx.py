@@ -361,16 +361,25 @@ def _tab_by_doctor(wb: Workbook, result: ReconResult) -> None:
         head.font = Font(bold=True)
         head.fill = FILL_SECTION
         r += 1
-        first = r
-        for s, sp, d, v in docs:
-            if s != seg:
-                continue
-            ws.cell(row=r, column=2, value=sp).font = F_INPUT
-            ws.cell(row=r, column=3, value=d).font = F_INPUT
-            _amount(ws, r, 4, v, F_INPUT)
+        # BY CLINIC FIRST, THEN BY DOCTOR: specialities ordered by size,
+        # each with a live subtotal over its doctor rows beneath
+        seg_rows = [(sp, d, v) for s, sp, d, v in docs if s == seg]
+        spec_totals: dict[str, float] = {}
+        for sp, _d, v in seg_rows:
+            spec_totals[sp] = round(spec_totals.get(sp, 0.0) + v, 2)
+        spec_cells: list[str] = []
+        for sp in sorted(spec_totals, key=lambda k: -spec_totals[k]):
+            drs = [(d, v) for s2, d, v in seg_rows if s2 == sp]
+            ws.cell(row=r, column=2, value=sp).font = Font(bold=True)
+            _amount(ws, r, 4, f"=SUM(D{r + 1}:D{r + len(drs)})", F_FORMULA)
+            spec_cells.append(f"D{r}")
             r += 1
+            for d, v in drs:
+                ws.cell(row=r, column=3, value=d).font = F_INPUT
+                _amount(ws, r, 4, v, F_INPUT)
+                r += 1
         ws.cell(row=r, column=1, value=f"Υποσύνολο {seg}").font = Font(bold=True)
-        _amount(ws, r, 4, f"=SUM(D{first}:D{r - 1})", F_FORMULA)
+        _amount(ws, r, 4, "=" + "+".join(spec_cells), F_FORMULA)
         subtotal_cells.append(f"D{r}")
         r += 1
     if cap_docs:

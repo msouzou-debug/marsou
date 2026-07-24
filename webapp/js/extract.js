@@ -92,9 +92,44 @@ function extractInpatientSummary(bytes) {
         + `(Σύνολο ${formatEur(out.synolo)} vs άθροισμα ${formatEur(out.computedTotal)})`);
     }
     out.byClinic = perClinicDetailSheet(sheets);
+    // the file ALSO carries the full per-claim listing below the summary —
+    // sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
+    // universe while the listing includes old-period claims paid now
+    const [detailTotal, detailRows] = detailColumnSum(rows, anchor + 6);
+    out.detailTotal = detailTotal;
+    out.detailRows = detailRows;
     return out;
   }
   throw new ExtractionError('Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary');
+}
+
+function detailColumnSum(rows, afterRow) {
+  /* Locate the per-claim listing's «Συνολική αμοιβή» column BELOW the
+   * ΣΥΝΟΠΤΙΚΟΣ block and sum it row by row (skipping any printed total). */
+  for (let i = afterRow + 1; i < rows.length; i++) {
+    for (let j = 0; j < rows[i].length; j++) {
+      const v = rows[i][j];
+      if (v == null || !stripAccents(cellText(v)).includes('ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ')) continue;
+      let total = 0, n = 0;
+      for (let k = i + 1; k < rows.length; k++) {
+        const cell = rows[k][j];
+        if (!isNumberLike(cell)) continue;
+        const labels = rows[k].filter((x) => x != null && cellText(x) !== 'nan' && !isNumberLike(x))
+          .map(cellText).join(' ');
+        const up = stripAccents(labels);
+        if (up.includes('ΣΥΝΟΛ') || up.includes('TOTAL')) continue; // printed total row
+        total += parseAmount(cell);
+        n += 1;
+      }
+      return n ? [round2(total), n] : [null, 0];
+    }
+  }
+  return [null, 0];
+}
+
+function endoBestTotal(inp) {
+  /* the per-claim listing sum when present, else the ΣΥΝΟΠΤΙΚΟΣ Σύνολο */
+  return inp.detailTotal != null ? inp.detailTotal : inp.synolo;
 }
 
 function perClinicDetailSheet(sheets) {

@@ -328,17 +328,29 @@ function tabByDoctor(wb, result) {
     head.font = { bold: true };
     head.fill = FILL_SECTION;
     r += 1;
-    const first = r;
-    for (const [s, sp, d, v] of docs) {
-      if (s !== seg) continue;
-      ws.getCell(r, 2).value = sp; ws.getCell(r, 2).font = F_INPUT;
-      ws.getCell(r, 3).value = d; ws.getCell(r, 3).font = F_INPUT;
-      writeAmount(ws, r, 4, v, F_INPUT);
+    // BY CLINIC FIRST, THEN BY DOCTOR: specialities ordered by size,
+    // each with a live subtotal over its doctor rows beneath
+    const segRows = docs.filter(([s]) => s === seg).map(([, sp, d, v]) => [sp, d, v]);
+    const specTotals = new Map();
+    for (const [sp, , v] of segRows) specTotals.set(sp, round2((specTotals.get(sp) || 0) + v));
+    const specCells = [];
+    const specs = [...specTotals.keys()].sort((a, b) => specTotals.get(b) - specTotals.get(a));
+    for (const sp of specs) {
+      const drs = segRows.filter(([s2]) => s2 === sp);
+      ws.getCell(r, 2).value = sp;
+      ws.getCell(r, 2).font = { bold: true };
+      writeAmount(ws, r, 4, `SUM(D${r + 1}:D${r + drs.length})`, F_FORMULA);
+      specCells.push(`D${r}`);
       r += 1;
+      for (const [, d, v] of drs) {
+        ws.getCell(r, 3).value = d; ws.getCell(r, 3).font = F_INPUT;
+        writeAmount(ws, r, 4, v, F_INPUT);
+        r += 1;
+      }
     }
     ws.getCell(r, 1).value = `Υποσύνολο ${seg}`;
     ws.getCell(r, 1).font = { bold: true };
-    writeAmount(ws, r, 4, `SUM(D${first}:D${r - 1})`, F_FORMULA);
+    writeAmount(ws, r, 4, specCells.join('+'), F_FORMULA);
     subtotalCells.push(`D${r}`);
     r += 1;
   }

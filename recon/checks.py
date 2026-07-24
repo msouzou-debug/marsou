@@ -272,14 +272,17 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
     msgs = []
     if bundle.inpatient and bundle.claims:
         claims_ip = bundle.claims.by_segment.get("Inpatient", 0.0)
-        d = round(claims_ip - bundle.inpatient.synolo, 2)
+        # compare against the per-claim listing sum when the file carries it —
+        # the ΣΥΝΟΠΤΙΚΟΣ leaves out old-period claims paid in this cheque
+        endo_side = bundle.inpatient.best_total
+        d = round(claims_ip - endo_side, 2)
         if abs(d) > CENT:
             ok = False
             segs = " · ".join(f"«{k}»: {format_eur(v)}"
                               for k, v in sorted(bundle.claims.by_segment.items(),
                                                  key=lambda kv: -kv[1]))
-            msgs.append("Claims «all» Inpatient ≠ Ενδ. Σύνολο: "
-                        f"{format_eur(claims_ip)} vs {format_eur(bundle.inpatient.synolo)} "
+            msgs.append("Claims «all» Inpatient ≠ Ενδ.: "
+                        f"{format_eur(claims_ip)} vs {format_eur(endo_side)} "
                         f"(διαφορά {format_eur(d)})"
                         + _claim_candidates(bundle, d)
                         + f"\nΤιμές DR SEGMENT στο αρχείο claims: {segs}")
@@ -297,13 +300,16 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
     # detail is available gets its printed total re-checked against the SUM
     if bundle.inpatient and bundle.inpatient.by_clinic:
         clinic_sum = round(sum(r.total for r in bundle.inpatient.by_clinic), 2)
-        d = round(clinic_sum - bundle.inpatient.synolo, 2)
-        if abs(d) > CENT:
+        dt = bundle.inpatient.detail_total
+        # the pivot may cover either universe: the month's ΣΥΝΟΠΤΙΚΟΣ or the
+        # full listing (incl. old-period claims) — accept a tie to either
+        if (abs(clinic_sum - bundle.inpatient.synolo) > CENT
+                and (dt is None or abs(clinic_sum - dt) > CENT)):
             ok = False
             msgs.append("Ενδ.: το άθροισμα του πίνακα «per clinic» ≠ Σύνολο "
                         f"ΣΥΝΟΠΤΙΚΟΥ: {format_eur(clinic_sum)} vs "
                         f"{format_eur(bundle.inpatient.synolo)} "
-                        f"(διαφορά {format_eur(d)})")
+                        f"(διαφορά {format_eur(round(clinic_sum - bundle.inpatient.synolo, 2))})")
     for label, rep in (("Capitation report", bundle.capitation),
                        ("Ποιοτικά Κριτήρια", bundle.quality),
                        ("Αιμοκάθαρση", bundle.hemo)):
@@ -404,21 +410,38 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                      "zero-checks (documented parsing residual).",
                 flag="red"))
 
-    # claims-file vs Ενδ. summary (report-vs-report) — the gate-4 tie as a
-    # visible row, with old-claim candidates named when it breaks
+    # claims-file vs Ενδ. (report-vs-report) — the gate-4 tie as a visible
+    # row.  The Ενδ. side is the SUM of the file's per-claim listing («στήλη
+    # Συνολική αμοιβή») when present — NOT the printed ΣΥΝΟΠΤΙΚΟΣ Σύνολο,
+    # which leaves out old-period claims paid in this cheque.
+    endo = bundle.inpatient
+    synoptikos_note = ""
+    if endo is not None and endo.detail_total is not None:
+        gap = round(endo.detail_total - endo.synolo, 2)
+        if abs(gap) > CENT:
+            synoptikos_note = (
+                f" Το ΣΥΝΟΠΤΙΚΟΣ Σύνολο ({format_eur(endo.synolo)}) διαφέρει "
+                f"κατά {format_eur(gap)} — απαιτήσεις εκτός του μηνιαίου "
+                "πίνακα DRG (the printed summary excludes old-period claims)."
+                + _claim_candidates(bundle, gap))
     if bundle.inpatient and bundle.claims:
-        d = round((claims_ip or 0.0) - bundle.inpatient.synolo, 2)
-        note = ("OK — ταυτίζεται (ties out)" if abs(d) <= CENT else
-                "Ανεξήγητη διαφορά claims vs Ενδ." + _claim_candidates(bundle, d))
+        endo_side = endo.best_total
+        d = round((claims_ip or 0.0) - endo_side, 2)
+        note = (("OK — ταυτίζεται (ties out)." + synoptikos_note) if abs(d) <= CENT
+                else "Ανεξήγητη διαφορά claims vs Ενδ." + _claim_candidates(bundle, d))
+        name = ("Claims «all» Inpatient = Ενδ. (άθροιση στήλης «Συνολική αμοιβή»)"
+                if endo.detail_total is not None else
+                "Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)")
         checks.append(CrossCheck(
-            name="Claims «all» Inpatient = Ενδ. Σύνολο (report vs report)",
-            source_total=claims_ip or 0.0, sra_codes=[],
-            sra_side=bundle.inpatient.synolo, note=note,
+            name=name, source_total=claims_ip or 0.0, sra_codes=[],
+            sra_side=endo_side, note=note,
             flag="ok" if abs(d) <= CENT else "red"))
 
     if bundle.inpatient:
         add("Ενδ. Πληρωμένες Απαιτήσεις (inpatient claims file) = SRA IS",
-            bundle.inpatient.synolo, ["IS"], alt=claims_ip)
+            endo.best_total, ["IS"], alt=claims_ip)
+        if checks[-1].flag == "ok" and synoptikos_note:
+            checks[-1].note += synoptikos_note
         c = checks[-1]
         # when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
         # summary is the old-period claims — name them instead of «unexplained»
@@ -526,7 +549,7 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         add("GL: Ενδονοσοκομειακή (26001+26002+26003+26007) = SRA IS + "
             "αιμοκάθαρση + προσαρμογές", gl.inpatient,
             ["IS", "IS-ADJ", "HEMO"],
-            alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
+            alt=bundle.inpatient.best_total if bundle.inpatient else claims_ip)
         gl_ip_check = checks[-1]
         add("GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση",
             gl.z_catalogue, [])  # report-vs-report, noted below
@@ -598,7 +621,7 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         add("IS Auditor: inpatient (DRG fees + Z-catalogue) = SRA IS",
             bundle.isaud.inpatient_total, ["IS"],
             flag_hint="IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.",
-            alt=bundle.inpatient.synolo if bundle.inpatient else claims_ip)
+            alt=bundle.inpatient.best_total if bundle.inpatient else claims_ip)
         c = checks[-1]
         # per-row rounding across ~10k detail rows — the brief accepts small
         # tolerances (F1054: €0.45); the Diff cell still shows the live gap
@@ -646,7 +669,7 @@ def _build_matrix(bundle: ReconBundle) -> tuple[list[dict], list[str]]:
 
     if bundle.inpatient:
         ip = bundle.inpatient
-        put("Ενδ. summary", STREAMS[0], ip.synolo)
+        put("Ενδ. summary", STREAMS[0], ip.best_total)
         put("Ενδ. summary", STREAMS[1], ip.regular + ip.specialized)
         put("Ενδ. summary", STREAMS[2], ip.z_catalogue)
     if bundle.claims:

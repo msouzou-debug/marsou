@@ -137,8 +137,37 @@ def extract_inpatient_summary(data: bytes) -> InpatientSummary:
                 "Ενδ. summary: το Σύνολο δεν ισούται με το άθροισμα των γραμμών "
                 f"(Σύνολο {out.synolo:,.2f} vs άθροισμα {out.computed_total:,.2f})")
         out.by_clinic = _per_clinic_detail_sheet(sheets)
+        # the file ALSO carries the full per-claim listing below the summary —
+        # sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
+        # universe while the listing includes old-period claims paid now
+        out.detail_total, out.detail_rows = _detail_column_sum(df, i)
         return out
     raise ExtractionError("Δεν βρέθηκε ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ στο αρχείο Ενδ. summary")
+
+
+def _detail_column_sum(df: pd.DataFrame, after_row: int
+                       ) -> tuple[Optional[float], int]:
+    """Locate the per-claim listing's «Συνολική αμοιβή» column BELOW the
+    ΣΥΝΟΠΤΙΚΟΣ block and sum it row by row (skipping any printed total)."""
+    for i in range(after_row + 1, len(df)):
+        for j, v in enumerate(df.iloc[i]):
+            if v is None or "ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ" not in strip_accents(str(v)):
+                continue
+            total, n = 0.0, 0
+            col = df.iloc[i + 1:, j]
+            for k, cell in zip(col.index, col):
+                if not _is_number(cell):
+                    continue
+                labels = " ".join(str(x) for x in df.loc[k]
+                                  if x is not None and str(x) != "nan"
+                                  and not _is_number(x))
+                up = strip_accents(labels)
+                if "ΣΥΝΟΛ" in up or "TOTAL" in up:
+                    continue        # a printed total row is not a claim
+                total += parse_amount(cell)
+                n += 1
+            return (round(total, 2), n) if n else (None, 0)
+    return None, 0
 
 
 def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
