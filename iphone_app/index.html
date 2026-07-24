@@ -658,7 +658,9 @@ function evaluate(s){
   const totalEff=total*0.84;                        // Lowry core correction
   // decoyed/incoming birds present vitals frontally (Roster's lower count);
   // crossing and going-away birds use the 3-4 torso-hit standard.
-  const req=(s.present==="decoy")?sp.ros:sp.req;
+  // s.reqMin floors the required hits (the leanest optimiser asks for >=3).
+  let req=(s.present==="decoy")?sp.ros:sp.req;
+  if(s.reqMin)req=Math.max(req,s.reqMin);
   const patternOk=circle>=sp.min;
   const res=eGate?lethalityWithAim(totalEff,sigma,rb,sa,req):{p:0,mean:totalEff*patternInDisk(0,sigma,rb)};
   const lam=res.mean, p=res.p;
@@ -856,28 +858,33 @@ function openExport(){
   $("exportModal").style.display="flex";
 }
 /* Optimiser: the leanest load that still kills at a range.
-   Priority (most-open choke -> smallest pellet -> lightest payload) subject to:
-   penetration (energy gate), density (>= Roster minimum, the anti-gap count),
-   and >=90% aim-&-gap-adjusted kill probability. Material = current selection. */
-// game-appropriate shot for the optimiser (exclude #10-#12 dust shot) + a real
-// penetration margin, so it recommends loads a hunter would actually use.
+   Priority (most-open choke -> smallest pellet -> lightest payload). The score is
+   the physically-meaningful one the user asked for: the combo must put enough
+   pellets in the 75 cm circle to land >=3 strikes on the presented bird, each
+   carrying comfortable killing energy, at >=90% probability (aim error and the
+   pattern gaps are already integrated into that probability). Material = current
+   selection. */
+// game-appropriate shot for the optimiser (exclude #10-#12 dust shot).
 const OPT_SIZES=SHOT_ORDER.filter(s=>!["10","11","12"].includes(s));
 const OPT_CHOKES=CHOKE_ORDER; // most open (incl. spreaders, best for close shots) -> tightest
-const ENERGY_MARGIN=1.3;
+const ENERGY_MARGIN=1.3;      // per-pellet energy comfortably above the kill minimum
+const OPT_MIN_HITS=3;         // a clean kill = at least three energetic strikes on the bird
 function bestComboAt(rangeYd,target){
   const sp=SPECIES[state.species];
-  let fallback=null;                      // best (highest-p) combo that meets energy + density
+  let fallback=null;                      // best (highest-p) combo that clears the energy gate
   for(const ck of OPT_CHOKES){           // most open first (least choke)
     for(const sz of OPT_SIZES){          // smallest game pellet first
       for(const pay of PAYLOADS){         // lightest cartridge first
-        const r=evaluate({...state,choke:ck,shot:sz,payload:pay,range:rangeYd});
-        if(r.e < sp.e*ENERGY_MARGIN || r.circle<sp.min) continue;   // comfortable penetration + density
+        // reqMin -> r.p is P(>=3 strikes on the bird); the pattern must hold enough
+        // pellets in the circle to make that likely wherever the bird sits in it.
+        const r=evaluate({...state,choke:ck,shot:sz,payload:pay,range:rangeYd,reqMin:OPT_MIN_HITS});
+        if(r.e < sp.e*ENERGY_MARGIN) continue;               // each pellet kills comfortably
         if(r.p>=target) return {choke:ck,shot:sz,payload:pay,r,below:false};
         if(!fallback||r.p>fallback.r.p) fallback={choke:ck,shot:sz,payload:pay,r,below:true};
       }
     }
   }
-  return fallback;                        // best effort (<target), or null if energy/density unreachable
+  return fallback;                        // best effort (<target), or null if energy is unreachable
 }
 function buildBestTable(){
   const m=isMetric(), ranges=[]; for(let r=5;r<=50;r+=5)ranges.push(r);   // 5..50 in 5-unit steps
@@ -893,12 +900,12 @@ function buildBestTable(){
       const tag=best.below?' <small>best</small>':'';
       rows+=`<tr><td>${rd}${m?"m":"y"}</td><td>#${best.shot}</td><td>${CHOKE_NAME[best.choke].replace(" (widest)","")}</td><td>${load}</td><td>${Math.round(r.circle)}${miniSrc(r.strikeSrc)}</td><td>${eng}</td><td${kc}>${Math.round(r.p*100)}${tag}</td></tr>`;
     }else{
-      rows+=`<tr><td>${rd}${m?"m":"y"}</td><td colspan="6" style="color:var(--crit);text-align:left">out of range — no load meets penetration + density</td></tr>`;
+      rows+=`<tr><td>${rd}${m?"m":"y"}</td><td colspan="6" style="color:var(--crit);text-align:left">out of range — no load lands ≥3 energetic strikes at ≥90%</td></tr>`;
     }
   }
   const eU=m?"J":"ft·lbf";
-  return `<p class="xcfg">${SPECIES[state.species].name} · ${MATERIALS[state.material].name} · ${state.present} · aim ${state.aim}"@40 · needs ≥${SPECIES[state.species].min} in circle. Green ≥90% clean; <span style="color:var(--warn)">amber</span> = best achievable. In-circle: <span class="smk smk-m">m</span> measured · <span class="smk smk-e">e</span> estimated.</p>`
-    +`<table class="xt"><tr><th>Range</th><th>Pellet</th><th>Choke</th><th>Load</th><th>In circle</th><th>Energy (${eU})</th><th>Kill%</th></tr>${rows}</table>`;
+  return `<p class="xcfg">${SPECIES[state.species].name} · ${MATERIALS[state.material].name} · ${state.present} · aim ${state.aim}"@40. Leanest choke/pellet/load that lands <b>≥3 energetic strikes</b> on the bird at <b>≥90%</b>. Green = 90% reached; <span style="color:var(--warn)">amber</span> = best achievable. In-circle: <span class="smk smk-m">m</span> measured · <span class="smk smk-e">e</span> estimated.</p>`
+    +`<table class="xt"><tr><th>Range</th><th>Pellet</th><th>Choke</th><th>Load</th><th>In circle</th><th>Energy (${eU})</th><th>P(≥3)</th></tr>${rows}</table>`;
 }
 function copyExport(){
   const ta=$("exportRaw"); ta.focus(); ta.select();
