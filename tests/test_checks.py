@@ -449,6 +449,36 @@ def test_endo_detail_column_beats_printed_synoptikos():
     assert endo_sra.flag == "ok" and "ΣΥΝΟΠΤΙΚΟΣ" in endo_sra.note
 
 
+def test_gl_z_row_includes_old_period_layer():
+    # Apr-2026 (F1048) verified on the REAL GL file: 26007 «ZERO COST WEIGHT
+    # DRGs / Fee per diem» also holds the old-period claims outside the
+    # ΣΥΝΟΠΤΙΚΟΣ — GL(26003+26007) = Ενδ.Z + hemo + (detail − ΣΥΝΟΠΤΙΚΟΣ)
+    from recon.models import SRALine
+    b = full_bundle()
+    b.inpatient = extract_inpatient_summary(
+        synth.inpatient_summary_xlsx(detail_extra=1_297.43))
+    b.claims.by_segment["Inpatient"] = round(
+        b.claims.by_segment["Inpatient"] + 1_297.43, 2)
+    b.claims.inpatient_rows.append(("99476712", "2022-10-18", 1_297.43))
+    b.sra.lines.append(SRALine(code="IS", description="IS - HCP SERVICES old",
+                               amount=1_297.43, bucket=Bucket.INPATIENT,
+                               channel="Claims", source_report="—"))
+    b.sra.stated_total = round(b.sra.stated_total + 1_297.43, 2)
+    rows = [
+        ("F1049", "26001", "51101099", 561_728.70),
+        ("F1049", "26002", "51101099", 400_000.00),
+        ("F1049", "26003", "51201099", 60_000.00),
+        ("F1049", "26007", "51301011", round(40_000.00 + 1_297.43, 2)),
+    ]
+    b.gl = extract_gl(synth.gl_xlsx(rows=rows), "F1049")
+    res = run_reconciliation(b)
+    z = next(c for c in res.crosschecks if "Z-catalogue" in c.name and "GL" in c.name)
+    assert z.sra_side == 101_297.43 and z.flag == "ok"
+    assert "παλαιών περιόδων" in z.note and "99476712" in z.note
+    gl_ip = next(c for c in res.crosschecks if c.name.startswith("GL: Ενδονοσοκομειακή"))
+    assert gl_ip.flag == "ok"
+
+
 def test_satellite_cheque_lines_get_sat_code():
     # a cheque whose SRA header carries another supplier F-code (F1085
     # health centre) is a satellite: its lines get code SAT so the daily-OS

@@ -571,12 +571,27 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             ["IS", "IS-ADJ", "HEMO"],
             alt=bundle.inpatient.best_total if bundle.inpatient else claims_ip)
         gl_ip_check = checks[-1]
-        add("GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση",
+        add("GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση "
+            "+ παλαιές περίοδοι",
             gl.z_catalogue, [])  # report-vs-report, noted below
         if bundle.inpatient:
             c = checks[-1]
-            c.sra_side = round(bundle.inpatient.z_catalogue + hemo_amt, 2)
+            # 26007 «ZERO COST WEIGHT DRGs / Fee per diem» also holds the
+            # old-period claims the monthly ΣΥΝΟΠΤΙΚΟΣ leaves out — that
+            # layer is exactly (detail listing − ΣΥΝΟΠΤΙΚΟΣ).  Verified to
+            # the cent on Apr-2026 (claim 99476712: 1.297,43).
+            old_layer = 0.0
+            if bundle.inpatient.detail_total is not None:
+                old_layer = round(bundle.inpatient.detail_total
+                                  - bundle.inpatient.synolo, 2)
+            c.sra_side = round(bundle.inpatient.z_catalogue + hemo_amt
+                               + old_layer, 2)
             c.note, c.flag = _annotate("Z-CATALOGUE GL", c.source_total, c.sra_side)
+            if abs(c.diff or 0) <= CENT and abs(old_layer) > CENT:
+                c.note = ("OK — το 26007 (Fee per diem / zero cost weight) "
+                          "περιλαμβάνει και τις απαιτήσεις παλαιών περιόδων "
+                          f"εκτός ΣΥΝΟΠΤΙΚΟΥ ({format_eur(old_layer)})."
+                          + _claim_candidates(bundle, old_layer))
             cand = _claim_candidates(bundle, c.diff or 0.0)
             if abs(c.diff or 0) > CENT and cand:
                 c.note += cand

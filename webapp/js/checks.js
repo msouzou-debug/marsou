@@ -423,11 +423,22 @@ function buildCrosschecks(bundle) {
         gl.inpatient, ['IS', 'IS-ADJ', 'HEMO'],
         null, bundle.inpatient ? endoBestTotal(bundle.inpatient) : claimsIp);
     const glIpCheck = checks[checks.length - 1];
-    add('GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση', gl.zCatalogue, []);
+    add('GL: Z-catalogue & per diem (26003+26007) vs ΟΑΥ Z + αιμοκάθαρση + παλαιές περίοδοι',
+        gl.zCatalogue, []);
     if (bundle.inpatient) {
       const c = checks[checks.length - 1];
-      c.sraSide = round2(bundle.inpatient.zCatalogue + hemoAmt);
+      // 26007 «ZERO COST WEIGHT DRGs / Fee per diem» also holds the
+      // old-period claims the monthly ΣΥΝΟΠΤΙΚΟΣ leaves out — that layer is
+      // exactly (detail listing − ΣΥΝΟΠΤΙΚΟΣ).  Verified on Apr-2026.
+      const oldLayer = bundle.inpatient.detailTotal != null
+        ? round2(bundle.inpatient.detailTotal - bundle.inpatient.synolo) : 0;
+      c.sraSide = round2(bundle.inpatient.zCatalogue + hemoAmt + oldLayer);
       [c.note, c.flag] = annotate('Z-CATALOGUE GL', c.sourceTotal, c.sraSide);
+      if (Math.abs(c.diff || 0) <= CENT && Math.abs(oldLayer) > CENT) {
+        c.note = 'OK — το 26007 (Fee per diem / zero cost weight) περιλαμβάνει και τις '
+          + `απαιτήσεις παλαιών περιόδων εκτός ΣΥΝΟΠΤΙΚΟΥ (${formatEur(oldLayer)}).`
+          + claimCandidates(bundle, oldLayer);
+      }
       const cand = claimCandidates(bundle, c.diff || 0);
       if (Math.abs(c.diff || 0) > CENT && cand) { c.note += cand; c.flag = 'amber'; }
       // the SAME gap on both rows = the known Z-tail classification issue,
