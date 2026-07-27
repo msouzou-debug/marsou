@@ -840,6 +840,8 @@ def parse_sra_text(text: str) -> SRA:
     if stated_total is None:
         raise ExtractionError("SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)")
     sra = SRA(cheque_no=cheque or "UNKNOWN", stated_total=stated_total, lines=lines)
+    for l in sra.lines:
+        l.cheque = sra.cheque_no
     sra.hospital_code = find_hospital(text)
     sra.supplier_code = supplier
     sra.year, sra.month = find_service_period(text)
@@ -883,7 +885,7 @@ def merge_sras(sras: list[SRA], hospital_code: Optional[str] = None) -> SRA:
         sat = _is_sat(s)
         for l in s.lines:
             lines.append(SRALine(
-                code="SAT" if sat else l.code, date=l.date,
+                code="SAT" if sat else l.code, date=l.date, cheque=s.cheque_no,
                 description=f"{l.description} [επ. {s.cheque_no}]",
                 amount=l.amount, bucket=l.bucket,
                 channel="Satellite" if sat else l.channel,
@@ -1054,8 +1056,15 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
                 claims.add(el.text.strip())
     if not found:
         raise ExtractionError("XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount")
+    window = {}
+    for el in root.iter():
+        tag = _local(el)
+        if tag in ("claimsdatefrom", "claimsdateto") and el.text:
+            window[tag] = el.text.strip()[:10]
     return XMLActivity(total=round(total, 2), n_claims=len(claims),
-                       by_payment=by_payment, by_claim=by_claim)
+                       by_payment=by_payment, by_claim=by_claim,
+                       date_from=window.get("claimsdatefrom", ""),
+                       date_to=window.get("claimsdateto", ""))
 
 
 # ------------------------------------- capitation / quality / hemo (any fmt)

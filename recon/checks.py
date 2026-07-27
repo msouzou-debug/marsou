@@ -38,8 +38,15 @@ class CrossCheck:
     flag: str = "ok"              # ok | amber | red
     # workbook formula shape: "codes" (SUMIFS over sra_codes),
     # "ph_minus_fee" (SUMIFS(PH) − fee packages×unit),
-    # "fee_net" (SUMIFS(PH) − pharma-claims source cell)
+    # "fee_net" (SUMIFS(PH) − pharma-claims source cell),
+    # "codes_minus" (SUMIFS over sra_codes, restricted to `cheques` when set,
+    #                minus the `minus` amount — the XML activity row)
     side_kind: str = "codes"
+    # cheque numbers the SRA side is restricted to (empty = every cheque):
+    # a source file that covers ONE cheque must not be compared with all
+    cheques: list = field(default_factory=list)
+    minus: float = 0.0            # subtracted from the SUMIFS side
+    minus_label: str = ""         # what the subtraction is, for the helper cell
 
     @property
     def diff(self) -> Optional[float]:
@@ -733,44 +740,89 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                       f"αρχείου (rounding tolerance, διαφορά {format_eur(c.diff)}).")
     if bundle.xml_activity:
         x = bundle.xml_activity
-        src, name = x.total, "XML activity export (OS+NM+AP) = SRA OS+NM+AP"
-        if sra and x.by_payment:
-            # the PAYMENT NO. gate: keep only activities the uploaded
-            # cheques actually paid — the export may span other payments
-            cheques = {p[0] for p in sra.parts} or {sra.cheque_no}
-            matched = round(sum(v for k, v in x.by_payment.items()
+        # Compare LIKE WITH LIKE.  The export prices ACTIVITIES and carries a
+        # ClaimPaymentNumber per claim, so both sides are restricted to the
+        # cheques the export actually covers, and the SRA side keeps only the
+        # activity-priced streams: OS + NM + AP + the FFS part of PD
+        # (personal doctors bill visits per activity; only their capitation is
+        # not activity-priced).  Everything else in the outpatient bucket is
+        # itemised in the note instead of being dumped into the diff.
+        src = x.total
+        name = "XML activity export (OS+NM+AP+ΠΙ FFS) = SRA ίδιες επιταγές"
+        cheques: set[str] = set()
+        dropped = 0.0
+        if sra:
+            all_cheques = {p[0] for p in sra.parts} or {sra.cheque_no}
+            cheques = {k for k in x.by_payment if k in all_cheques} \
+                if x.by_payment else set(all_cheques)
+            if x.by_payment and cheques:
+                src = round(sum(v for k, v in x.by_payment.items()
                                 if k in cheques), 2)
-            dropped = round(x.total - matched, 2)
-            if matched and abs(dropped) > CENT:
-                src = matched
-                name = ("XML activity (μόνο PAYMENT NO. αυτών των επιταγών) "
-                        "= SRA OS+NM+AP")
-        # The export prices ACTIVITIES: it covers the whole outpatient
-        # bucket EXCEPT the daily PD lines (personal doctors are paid by
-        # capitation + FFS, not per activity).  Apr-2026 F1048: bucket
-        # 220.721,94 − PD 31.072,83 = 189.649,11 vs XML 189.590,88.
-        act_codes = ["OS", "OS-ADJ", "NM", "AP", "PD-FP", "PD-KPI", "KPI",
-                     "MRI", "CT", "MRI/CT", "SAT"]
-        add("XML activity export = SRA εξωνοσοκομειακά ΕΚΤΟΣ των ημερήσιων "
-            "γραμμών ΠΙ (activity-priced streams)", src, act_codes,
-            alt=claims_out,
+                dropped = round(x.total - src, 2)
+        # capitation is NOT activity-priced, so it comes off the PD side —
+        # but only when it is bundled INSIDE the daily PD lines.  When the SRA
+        # pays it as its own PD-CAP line it is already outside the PD code and
+        # nothing is deducted.
+        cap_own_line = bool(sra) and abs(_sra_sum(sra, ["PD-CAP"])) > CENT
+        cap = 0.0 if cap_own_line else (
+            bundle.capitation.total if bundle.capitation else 0.0)
+        act_codes = ["OS", "NM", "AP", "PD"]
+        add(name, src, act_codes, alt=claims_out,
             flag_hint="Κατά προσέγγιση: activity-level έναντι γραμμών SRA "
                       "(προσαρμογές/χρονισμός εκτός export).")
         c = checks[-1]
         if sra:
+            # both sides on the same cheques
+            in_ch = [l for l in sra.lines if not cheques or l.cheque in cheques]
+            ssum = lambda codes: round(  # noqa: E731
+                sum(l.amount for l in in_ch if l.code in codes), 2)
+            osn, nm, ap, pd_daily = (ssum(["OS"]), ssum(["NM"]), ssum(["AP"]),
+                                     ssum(["PD"]))
+            c.sra_side = round(osn + nm + ap + pd_daily - cap, 2)
+            c.sra_codes = act_codes
+            c.side_kind = "codes_minus"
+            # restrict the workbook formula to the same cheques, and net off
+            # capitation, so the Excel side reproduces this number live
+            c.cheques = sorted(cheques) if cheques != all_cheques else []
+            c.minus, c.minus_label = cap, "Κατά κεφαλήν ΠΙ (capitation) €"
+            excluded = []
+            if abs(cap) > CENT:
+                excluded.append(("Κατά κεφαλήν ΠΙ μέσα στις γραμμές PD "
+                                 "(capitation, δεν τιμολογείται ανά πράξη)", cap))
+            elif cap_own_line:
+                excluded.append(("Κατά κεφαλήν ΠΙ σε δική της γραμμή PD-CAP "
+                                 "(capitation, εκτός των activity streams)",
+                                 ssum(["PD-CAP"])))
+            for label, codes in (
+                    ("Δορυφορικός παροχέας (satellite cheque)", ["SAT"]),
+                    ("Αναδρομική προσαρμογή μεθόδου αποζημίωσης (OS-ADJ)", ["OS-ADJ"]),
+                    ("Σταθερές χρεώσεις ΠΙ: OOH/εμβολιασμοί (PD-FP)", ["PD-FP"]),
+                    ("Ποιοτικά κριτήρια ΠΙ (PD-KPI)", ["PD-KPI", "KPI"]),
+                    ("Ποιοτικά κριτήρια MRI/CT", ["MRI", "CT", "MRI/CT"])):
+                v = ssum(codes)
+                if abs(v) > CENT:
+                    excluded.append((label, v))
             bucket = round(sum(l.amount for l in sra.lines
                                if l.bucket == Bucket.OUTPATIENT), 2)
-            pd_daily = _sra_sum(sra, ["PD"])
+            bridge = " ".join(f"− {lbl} {format_eur(v)}." for lbl, v in excluded)
             c.note = (
-                f"Γέφυρα: σύνολο εξωνοσοκομειακών SRA {format_eur(bucket)} "
-                f"− ημερήσιες γραμμές ΠΙ {format_eur(pd_daily)} "
-                f"= {format_eur(round(bucket - pd_daily, 2))} έναντι XML "
-                f"{format_eur(x.total)}. Οι Προσωπικοί Ιατροί πληρώνονται με "
-                "κατά κεφαλήν + FFS, δεν τιμολογούνται ανά πράξη, γι' αυτό "
-                "λείπουν από το activity export. " + c.note)
-        if src != x.total:
-            c.note += (f" Εκτός επιταγών: {format_eur(round(x.total - src, 2))} "
-                       "(activities paid by other cheques, excluded).")
+                f"Γέφυρα: σύνολο εξωνοσοκομειακών SRA {format_eur(bucket)}. "
+                + bridge +
+                f" = τιμολογημένα ανά πράξη {format_eur(c.sra_side)} έναντι XML "
+                f"{format_eur(src)}"
+                + (f" (επιταγές {', '.join(sorted(cheques))})" if cheques else "")
+                + f", υπόλοιπο {format_eur(round(src - (c.sra_side or 0), 2))}. "
+                + c.note)
+        if x.date_from or x.date_to:
+            c.note += (f" Παράθυρο export: {x.date_from} — {x.date_to}· πράξεις "
+                       "που πλήρωσε η ίδια επιταγή αλλά με ημερομηνία εκτός "
+                       "παραθύρου δεν περιλαμβάνονται στο αρχείο (the export "
+                       "is date-windowed).")
+        if abs(dropped) > CENT:
+            c.note += (f" Εκτός επιταγών: {format_eur(dropped)} — απαιτήσεις "
+                       "του export που πλήρωσαν άλλες επιταγές, εκτός και από "
+                       "τις δύο πλευρές (activities paid by other cheques, "
+                       "excluded from BOTH sides).")
         # claim-level join with the claims file: name what is in one file
         # and not the other, so the residual explains itself
         if x.by_claim and bundle.claims and bundle.claims.outpatient_by_claim:

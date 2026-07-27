@@ -702,6 +702,9 @@ function parseSraText(text) {
     const sm = raw.match(/\bF1\d{3}\b/);
     if (sm) { supplierCode = sm[0]; break; }
   }
+  // tag every line with its paying cheque, so a check can be restricted to
+  // the same cheques a source file covers
+  for (const l of lines) l.cheque = cheque || 'UNKNOWN';
   return {
     chequeNo: cheque || 'UNKNOWN', statedTotal, lines,
     hospitalCode: findHospital(text), year, month, linesTotal, supplierCode,
@@ -755,6 +758,7 @@ function mergeSras(sras, hospitalCode) {
     const sat = isSat(s);
     for (const l of s.lines) {
       lines.push({ ...l,
+        cheque: s.chequeNo,
         code: sat ? 'SAT' : l.code,
         channel: sat ? 'Satellite' : l.channel,
         sourceReport: sat ? `SRA δορυφορικού παροχέα ${s.supplierCode}` : l.sourceReport,
@@ -923,7 +927,15 @@ function extractXmlActivity(bytes) {
     }
   }
   if (!found) throw new ExtractionError('XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount');
-  return { total: round2(total), nClaims: claims.size, byPayment, byClaim };
+  /* the export's own date window: activities paid by the cheque but dated
+   * outside it are simply not in the file — shown, never guessed at */
+  let dateFrom = '', dateTo = '';
+  for (const el of doc.getElementsByTagName('*')) {
+    const tag = el.localName.toLowerCase();
+    if (tag === 'claimsdatefrom' && el.textContent) dateFrom = el.textContent.trim().slice(0, 10);
+    else if (tag === 'claimsdateto' && el.textContent) dateTo = el.textContent.trim().slice(0, 10);
+  }
+  return { total: round2(total), nClaims: claims.size, byPayment, byClaim, dateFrom, dateTo };
 }
 
 /* ---------------------------------- capitation / quality / hemo (any fmt) */

@@ -90,7 +90,8 @@ def _tab_sra(wb: Workbook, result: ReconResult):
     name = f"SRA_{sra.cheque_no}"[:31]
     ws = wb.create_sheet(name)
     _header(ws, 1, ["Κωδικός (Code)", "Περιγραφή (Description)", "Κανάλι (Channel)",
-                    "Κατηγορία (Bucket)", "Πηγή ΟΑΥ (Source report)", "Ποσό (Amount €)"])
+                    "Κατηγορία (Bucket)", "Πηγή ΟΑΥ (Source report)", "Ποσό (Amount €)",
+                    "Επιταγή (Cheque)"])
     r = 2
     for line in sra.lines:
         ws.cell(row=r, column=1, value=line.code).font = F_INPUT
@@ -99,6 +100,9 @@ def _tab_sra(wb: Workbook, result: ReconResult):
         ws.cell(row=r, column=4, value=line.bucket.value).font = F_INPUT
         ws.cell(row=r, column=5, value=line.source_report).font = F_INPUT
         _amount(ws, r, 6, line.amount, F_INPUT)
+        # the paying cheque, so a check can be restricted to the same cheques
+        # a source file covers (SUMIFS second criteria pair)
+        ws.cell(row=r, column=7, value=line.cheque or sra.cheque_no).font = F_INPUT
         r += 1
     last_line = r - 1
     total_row = r
@@ -230,13 +234,32 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
             # as a LIVE formula off two blue inputs
             ws.cell(row=r, column=6, value=b.phfee.packages).font = F_INPUT
             _amount(ws, r, 7, b.phfee.unit_price, F_INPUT)
-        def _sumifs(code_cols):
-            terms = []
-            for k, code in enumerate(code_cols):
-                col = get_column_letter(8 + k)
-                ws.cell(row=r, column=8 + k, value=code).font = F_INPUT
-                terms.append(f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
-                             f"'{sra_tab}'!$A$2:$A${n_lines},{col}{r})")
+        def _sumifs(code_cols, cheques=()):
+            """SUMIFS terms over the SRA Code column, criteria referencing
+            helper cells (never quoted strings).  With `cheques`, one term per
+            (code, cheque) pair adds a second criteria pair on the Cheque
+            column — that is how a source file covering ONE cheque is compared
+            with that cheque only."""
+            terms, j = [], 8
+            code_cells = []
+            for code in code_cols:
+                ws.cell(row=r, column=j, value=code).font = F_INPUT
+                code_cells.append(f"{get_column_letter(j)}{r}")
+                j += 1
+            cheque_cells = []
+            for cheque in cheques:
+                ws.cell(row=r, column=j, value=cheque).font = F_INPUT
+                cheque_cells.append(f"{get_column_letter(j)}{r}")
+                j += 1
+            base = (f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
+                    f"'{sra_tab}'!$A$2:$A${n_lines},")
+            for cc in code_cells:
+                if cheque_cells:
+                    for qc in cheque_cells:
+                        terms.append(base + cc + f",'{sra_tab}'!$G$2:$G${n_lines},{qc})")
+                else:
+                    terms.append(base + cc + ")")
+            _sumifs.next_col = j
             return "+".join(terms)
         if chk.side_kind == "fee_net" and sra_tab and b.sra:
             # source = packages × unit (live); side = SRA PH − claims gross
@@ -253,6 +276,16 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
             side = "=" + _sumifs(["PH"])
             if fee_net_row is not None:
                 side += f"-F{fee_net_row}*G{fee_net_row}"
+            _amount(ws, r, 3, side, F_LINK)
+        elif chk.side_kind == "codes_minus" and sra_tab and b.sra:
+            _amount(ws, r, 2, chk.source_total, F_INPUT)
+            side = "=" + _sumifs(chk.sra_codes, chk.cheques)
+            if abs(chk.minus) > 0.005:
+                j = _sumifs.next_col
+                ws.cell(row=1, column=j, value=chk.minus_label).font = F_HEADER
+                ws.cell(row=1, column=j).fill = FILL_HEADER
+                _amount(ws, r, j, chk.minus, F_INPUT)
+                side += f"-{get_column_letter(j)}{r}"
             _amount(ws, r, 3, side, F_LINK)
         else:
             if is_phfee and b.phfee:
@@ -795,17 +828,21 @@ class _Evaluator:
         if name == "ROUND":
             return round(args[0], int(args[1]))
         if name == "SUMIFS":
+            # any number of (criteria range, criteria) pairs — a row is
+            # counted only when EVERY pair matches
             sum_cells = cells_of(args[0])
-            crit_cells = cells_of(args[1])
-            crit = args[2]
-            if isinstance(crit, tuple):
-                s, c = cells_of(crit)[0]
-                crit_val = self.cell_raw(s, c)
-            else:
-                crit_val = crit
+            pairs = []
+            for k in range(1, len(args) - 1, 2):
+                crit = args[k + 1]
+                if isinstance(crit, tuple):
+                    s, c = cells_of(crit)[0]
+                    crit_val = self.cell_raw(s, c)
+                else:
+                    crit_val = crit
+                pairs.append((cells_of(args[k]), crit_val))
             total = 0.0
-            for (ss, sc), (cs, cc) in zip(sum_cells, crit_cells):
-                if self.cell_raw(cs, cc) == crit_val:
+            for i, (ss, sc) in enumerate(sum_cells):
+                if all(self.cell_raw(*cells[i]) == val for cells, val in pairs):
                     total += self.cell_value(ss, sc)
             return total
         raise ValueError(f"unsupported function {name}")

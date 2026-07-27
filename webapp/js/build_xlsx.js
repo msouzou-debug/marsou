@@ -83,7 +83,8 @@ function tabSra(wb, result, zeroChecks) {
   const name = `SRA_${sra.chequeNo}`.slice(0, 31);
   const ws = wb.addWorksheet(name);
   writeHeader(ws, 1, ['Κωδικός (Code)', 'Περιγραφή (Description)', 'Κανάλι (Channel)',
-                      'Κατηγορία (Bucket)', 'Πηγή ΟΑΥ (Source report)', 'Ποσό (Amount €)']);
+                      'Κατηγορία (Bucket)', 'Πηγή ΟΑΥ (Source report)', 'Ποσό (Amount €)',
+                      'Επιταγή (Cheque)']);
   let r = 2;
   for (const line of sra.lines) {
     ws.getCell(r, 1).value = line.code; ws.getCell(r, 1).font = F_INPUT;
@@ -92,6 +93,10 @@ function tabSra(wb, result, zeroChecks) {
     ws.getCell(r, 4).value = line.bucket; ws.getCell(r, 4).font = F_INPUT;
     ws.getCell(r, 5).value = line.sourceReport; ws.getCell(r, 5).font = F_INPUT;
     writeAmount(ws, r, 6, line.amount, F_INPUT);
+    // the paying cheque, so a check can be restricted to the same cheques a
+    // source file covers (SUMIFS second criteria pair)
+    ws.getCell(r, 7).value = line.cheque || sra.chequeNo;
+    ws.getCell(r, 7).font = F_INPUT;
     r += 1;
   }
   const lastLine = r - 1, totalRow = r;
@@ -215,12 +220,36 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
       writeAmount(ws, r, 7, b.phfee.unitPrice, F_INPUT);
     }
     const row = r;
-    const sumifs = (codes) => codes.map((code, k) => {
-      const col = colLetter(8 + k);
-      ws.getCell(row, 8 + k).value = code;
-      ws.getCell(row, 8 + k).font = F_INPUT;
-      return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${row})`;
-    });
+    let nextHelperCol = 8;
+    const sumifs = (codes, cheques = []) => {
+      /* SUMIFS terms over the SRA Code column, criteria referencing helper
+       * cells (never quoted strings).  With `cheques`, one term per
+       * (code, cheque) pair adds a second criteria pair on the Cheque
+       * column — that is how a source file covering ONE cheque is compared
+       * with that cheque only. */
+      let j = 8;
+      const codeCells = codes.map((code) => {
+        ws.getCell(row, j).value = code;
+        ws.getCell(row, j).font = F_INPUT;
+        return `${colLetter(j++)}${row}`;
+      });
+      const chequeCells = cheques.map((q) => {
+        ws.getCell(row, j).value = q;
+        ws.getCell(row, j).font = F_INPUT;
+        return `${colLetter(j++)}${row}`;
+      });
+      nextHelperCol = j;
+      const base = `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},`;
+      const terms = [];
+      for (const cc of codeCells) {
+        if (chequeCells.length) {
+          for (const qc of chequeCells) {
+            terms.push(`${base}${cc},'${sraTab}'!$G$2:$G$${nLines},${qc})`);
+          }
+        } else terms.push(`${base}${cc})`);
+      }
+      return terms;
+    };
     if (chk.sideKind === 'fee_net' && sraTab && b.sra) {
       // source = packages × unit (live); side = SRA PH − claims gross
       const [phTerm] = sumifs(['PH']);
@@ -233,6 +262,18 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
       const [phTerm] = sumifs(['PH']);
       let side = phTerm;
       if (feeRow != null) side += `-F${feeRow}*G${feeRow}`;
+      writeAmount(ws, r, 3, side, F_LINK);
+    } else if (chk.sideKind === 'codes_minus' && sraTab && b.sra) {
+      writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
+      let side = sumifs(chk.sraCodes, chk.cheques || []).join('+');
+      if (Math.abs(chk.minus || 0) > 0.005) {
+        const j = nextHelperCol;
+        ws.getCell(1, j).value = chk.minusLabel;
+        ws.getCell(1, j).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        ws.getCell(1, j).fill = FILL_HEADER;
+        writeAmount(ws, r, j, chk.minus, F_INPUT);
+        side += `-${colLetter(j)}${r}`;
+      }
       writeAmount(ws, r, 3, side, F_LINK);
     } else {
       if (isPhfee && b.phfee) writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);

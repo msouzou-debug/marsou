@@ -571,43 +571,83 @@ function buildCrosschecks(bundle) {
   }
   if (bundle.xmlActivity) {
     const x = bundle.xmlActivity;
+    /* Compare LIKE WITH LIKE.  The export prices ACTIVITIES and carries a
+     * ClaimPaymentNumber per claim, so both sides are restricted to the
+     * cheques the export actually covers, and the SRA side keeps only the
+     * activity-priced streams: OS + NM + AP + the FFS part of PD (personal
+     * doctors bill visits per activity; only their capitation is not
+     * activity-priced).  Everything else in the outpatient bucket is
+     * itemised in the note instead of being dumped into the diff. */
     let src = x.total;
-    let name = 'XML activity export (OS+NM+AP) = SRA OS+NM+AP';
-    if (sra && x.byPayment && Object.keys(x.byPayment).length) {
-      // the PAYMENT NO. gate: keep only activities the uploaded cheques
-      // actually paid — the export may span other payments
-      const cheques = new Set((sra.parts || []).map((p) => p[0]));
-      if (!cheques.size) cheques.add(sra.chequeNo);
-      const matched = round2(Object.entries(x.byPayment)
-        .filter(([k]) => cheques.has(k)).reduce((a, [, v]) => a + v, 0));
-      if (matched && Math.abs(x.total - matched) > CENT) {
-        src = matched;
-        name = 'XML activity (μόνο PAYMENT NO. αυτών των επιταγών) = SRA OS+NM+AP';
+    const name = 'XML activity export (OS+NM+AP+ΠΙ FFS) = SRA ίδιες επιταγές';
+    let cheques = [];
+    let allCheques = [];
+    let dropped = 0;
+    if (sra) {
+      allCheques = (sra.parts || []).map((p) => p[0]);
+      if (!allCheques.length) allCheques = [sra.chequeNo];
+      const hasPay = x.byPayment && Object.keys(x.byPayment).length;
+      cheques = hasPay ? allCheques.filter((q) => q in x.byPayment) : allCheques.slice();
+      if (hasPay && cheques.length) {
+        src = round2(Object.entries(x.byPayment)
+          .filter(([k]) => cheques.includes(k)).reduce((a, [, v]) => a + v, 0));
+        dropped = round2(x.total - src);
       }
     }
-    // The export prices ACTIVITIES: it covers the whole outpatient bucket
-    // EXCEPT the daily PD lines (personal doctors are paid by capitation +
-    // FFS, not per activity).  Apr-2026 F1048: bucket 220.721,94 − PD
-    // 31.072,83 = 189.649,11 vs XML 189.590,88.
-    const actCodes = ['OS', 'OS-ADJ', 'NM', 'AP', 'PD-FP', 'PD-KPI', 'KPI',
-                      'MRI', 'CT', 'MRI/CT', 'SAT'];
-    add('XML activity export = SRA εξωνοσοκομειακά ΕΚΤΟΣ των ημερήσιων γραμμών ΠΙ (activity-priced streams)',
-        src, actCodes,
+    /* capitation is NOT activity-priced, so it comes off the PD side — but
+     * only when it is bundled INSIDE the daily PD lines.  When the SRA pays
+     * it as its own PD-CAP line it is already outside the PD code. */
+    const capOwnLine = !!sra && Math.abs(sraSum(sra, ['PD-CAP'])) > CENT;
+    const cap = capOwnLine ? 0
+      : (bundle.capitation ? bundle.capitation.total : 0);
+    const actCodes = ['OS', 'NM', 'AP', 'PD'];
+    add(name, src, actCodes,
         'Κατά προσέγγιση: activity-level έναντι γραμμών SRA (προσαρμογές/χρονισμός εκτός export).',
         claimsOut);
     const cx = checks[checks.length - 1];
     if (sra) {
+      const inCh = sra.lines.filter((l) => !cheques.length || cheques.includes(l.cheque));
+      const ssum = (codes) => round2(inCh.filter((l) => codes.includes(l.code))
+        .reduce((a, l) => a + l.amount, 0));
+      cx.sraSide = round2(ssum(['OS']) + ssum(['NM']) + ssum(['AP']) + ssum(['PD']) - cap);
+      cx.sraCodes = actCodes;
+      cx.sideKind = 'codes_minus';
+      cx.cheques = cheques.length === allCheques.length ? [] : cheques.slice().sort();
+      cx.minus = cap;
+      cx.minusLabel = 'Κατά κεφαλήν ΠΙ (capitation) €';
+      const excluded = [];
+      if (Math.abs(cap) > CENT) {
+        excluded.push(['Κατά κεφαλήν ΠΙ μέσα στις γραμμές PD (capitation, δεν τιμολογείται ανά πράξη)', cap]);
+      } else if (capOwnLine) {
+        excluded.push(['Κατά κεφαλήν ΠΙ σε δική της γραμμή PD-CAP (capitation, εκτός των activity streams)',
+                       ssum(['PD-CAP'])]);
+      }
+      for (const [label, codes] of [
+        ['Δορυφορικός παροχέας (satellite cheque)', ['SAT']],
+        ['Αναδρομική προσαρμογή μεθόδου αποζημίωσης (OS-ADJ)', ['OS-ADJ']],
+        ['Σταθερές χρεώσεις ΠΙ: OOH/εμβολιασμοί (PD-FP)', ['PD-FP']],
+        ['Ποιοτικά κριτήρια ΠΙ (PD-KPI)', ['PD-KPI', 'KPI']],
+        ['Ποιοτικά κριτήρια MRI/CT', ['MRI', 'CT', 'MRI/CT']]]) {
+        const v = ssum(codes);
+        if (Math.abs(v) > CENT) excluded.push([label, v]);
+      }
       const bucket = round2(sra.lines.filter((l) => l.bucket === 'Outpatient')
         .reduce((a, l) => a + l.amount, 0));
-      const pdDaily = sraSum(sra, ['PD']);
-      cx.note = `Γέφυρα: σύνολο εξωνοσοκομειακών SRA ${formatEur(bucket)} − ημερήσιες `
-        + `γραμμές ΠΙ ${formatEur(pdDaily)} = ${formatEur(round2(bucket - pdDaily))} έναντι XML `
-        + `${formatEur(x.total)}. Οι Προσωπικοί Ιατροί πληρώνονται με κατά κεφαλήν + FFS, `
-        + "δεν τιμολογούνται ανά πράξη, γι' αυτό λείπουν από το activity export. " + cx.note;
+      const bridge = excluded.map(([lbl, v]) => `− ${lbl} ${formatEur(v)}.`).join(' ');
+      cx.note = `Γέφυρα: σύνολο εξωνοσοκομειακών SRA ${formatEur(bucket)}. ${bridge}`
+        + ` = τιμολογημένα ανά πράξη ${formatEur(cx.sraSide)} έναντι XML ${formatEur(src)}`
+        + (cheques.length ? ` (επιταγές ${cheques.slice().sort().join(', ')})` : '')
+        + `, υπόλοιπο ${formatEur(round2(src - (cx.sraSide || 0)))}. ` + cx.note;
     }
-    if (src !== x.total) {
-      cx.note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
-        + '(activities paid by other cheques, excluded).';
+    if (x.dateFrom || x.dateTo) {
+      cx.note += ` Παράθυρο export: ${x.dateFrom} — ${x.dateTo}· πράξεις που πλήρωσε η ίδια `
+        + 'επιταγή αλλά με ημερομηνία εκτός παραθύρου δεν περιλαμβάνονται στο αρχείο '
+        + '(the export is date-windowed).';
+    }
+    if (Math.abs(dropped) > CENT) {
+      cx.note += ` Εκτός επιταγών: ${formatEur(dropped)} — απαιτήσεις του export που `
+        + 'πλήρωσαν άλλες επιταγές, εκτός και από τις δύο πλευρές (activities paid by '
+        + 'other cheques, excluded from BOTH sides).';
     }
     // claim-level join with the claims file: name what is in one file and
     // not the other, so the residual explains itself

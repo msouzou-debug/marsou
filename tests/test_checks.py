@@ -268,6 +268,60 @@ def test_xml_activity_filtered_by_payment_number():
     assert "777,77" in row.note
 
 
+def test_xml_row_compares_the_same_cheques_and_nets_capitation():
+    """Apr-2026 F1048 shape: two cheques, the XML export covering only the
+    first, a satellite cheque, and personal doctors paid capitation + FFS.
+
+    Both sides must be restricted to the cheques the export covers, and the
+    SRA side must keep only the activity-priced streams (OS+NM+AP+PD FFS) —
+    comparing a cheque-gated XML against every cheque's lines was inflating
+    the diff by the satellite cheque and the quality/adjustment lines.
+    """
+    from recon.extract import merge_sras
+    from recon.models import SRALine
+    b = full_bundle()
+    main = parse_sra_text(synth.sra_text())                  # cheque 259434
+    # the real April SRA pays personal doctors as DAILY PD lines with the
+    # capitation bundled inside them, plus an FFS remainder
+    for l in main.lines:
+        if l.code == "PD-CAP":
+            l.code = "PD"
+    main.lines.append(SRALine(code="PD", description="PD - HCP SERVICES",
+                              amount=9_833.89, bucket=Bucket.OUTPATIENT,
+                              channel="Claims", source_report="—"))
+    main.stated_total = round(main.stated_total + 9_833.89, 2)
+    sat = parse_sra_text(synth.sra_text_second(cheque="900001", hospital="F1085"))
+    b.sra = merge_sras([main, sat], hospital_code="F1049")
+    b.xml_activity = extract_xml_activity(synth.xml_claims_export_bytes(claims=[
+        ("1", "259434", [40_000.00, 20_000.00, 5_000.00]),   # OS+NM+AP
+        ("2", "259434", [9_833.89]),                         # the PD FFS part
+        ("3", "990001", [777.77]),                           # another cheque
+    ]))
+    res = run_reconciliation(b)
+    row = next(c for c in res.crosschecks if "XML activity" in c.name)
+    # A: only the cheque the export names
+    assert row.source_total == 74_833.89
+    # B: OS+NM+AP+PD of THAT cheque, less capitation — the satellite cheque
+    # (1.000,00 €, code SAT) is not in the export and not on this side either
+    assert row.sra_side == 74_833.89
+    assert row.diff == 0.0
+    assert "900001" not in str(row.cheques) and row.cheques == ["259434"]
+    assert "capitation" in row.note and "Εκτός επιταγών" in row.note
+    # and the workbook reproduces that side LIVE (cheque-restricted SUMIFS)
+    import io
+    from openpyxl import load_workbook
+    from recon.build_xlsx import _Evaluator, build_workbook, verify_workbook
+    data = build_workbook(res)
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["Source_crosscheck"]
+    r = next(i for i in range(2, ws.max_row + 1)
+             if "XML activity" in str(ws.cell(row=i, column=1).value))
+    f = ws.cell(row=r, column=3).value
+    assert f.startswith("=SUMIFS(") and '"' not in f
+    assert round(_Evaluator(wb).evaluate(f, "Source_crosscheck"), 2) == 74_833.89
+    assert verify_workbook(data, res.sra_residual) == []
+
+
 def test_endo_vs_sra_gap_named_when_claims_tie_sra():
     # SRA IS == claims file but Ενδ. lags by an old-period claim: the row
     # must say so (amber) instead of «unexplained» (red)

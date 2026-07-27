@@ -1664,6 +1664,9 @@ function parseSraText(text) {
     const sm = raw.match(/\bF1\d{3}\b/);
     if (sm) { supplierCode = sm[0]; break; }
   }
+  // tag every line with its paying cheque, so a check can be restricted to
+  // the same cheques a source file covers
+  for (const l of lines) l.cheque = cheque || 'UNKNOWN';
   return {
     chequeNo: cheque || 'UNKNOWN', statedTotal, lines,
     hospitalCode: findHospital(text), year, month, linesTotal, supplierCode,
@@ -1717,6 +1720,7 @@ function mergeSras(sras, hospitalCode) {
     const sat = isSat(s);
     for (const l of s.lines) {
       lines.push({ ...l,
+        cheque: s.chequeNo,
         code: sat ? 'SAT' : l.code,
         channel: sat ? 'Satellite' : l.channel,
         sourceReport: sat ? `SRA δορυφορικού παροχέα ${s.supplierCode}` : l.sourceReport,
@@ -1885,7 +1889,15 @@ function extractXmlActivity(bytes) {
     }
   }
   if (!found) throw new ExtractionError('XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount');
-  return { total: round2(total), nClaims: claims.size, byPayment, byClaim };
+  /* the export's own date window: activities paid by the cheque but dated
+   * outside it are simply not in the file — shown, never guessed at */
+  let dateFrom = '', dateTo = '';
+  for (const el of doc.getElementsByTagName('*')) {
+    const tag = el.localName.toLowerCase();
+    if (tag === 'claimsdatefrom' && el.textContent) dateFrom = el.textContent.trim().slice(0, 10);
+    else if (tag === 'claimsdateto' && el.textContent) dateTo = el.textContent.trim().slice(0, 10);
+  }
+  return { total: round2(total), nClaims: claims.size, byPayment, byClaim, dateFrom, dateTo };
 }
 
 /* ---------------------------------- capitation / quality / hemo (any fmt) */
@@ -2590,43 +2602,83 @@ function buildCrosschecks(bundle) {
   }
   if (bundle.xmlActivity) {
     const x = bundle.xmlActivity;
+    /* Compare LIKE WITH LIKE.  The export prices ACTIVITIES and carries a
+     * ClaimPaymentNumber per claim, so both sides are restricted to the
+     * cheques the export actually covers, and the SRA side keeps only the
+     * activity-priced streams: OS + NM + AP + the FFS part of PD (personal
+     * doctors bill visits per activity; only their capitation is not
+     * activity-priced).  Everything else in the outpatient bucket is
+     * itemised in the note instead of being dumped into the diff. */
     let src = x.total;
-    let name = 'XML activity export (OS+NM+AP) = SRA OS+NM+AP';
-    if (sra && x.byPayment && Object.keys(x.byPayment).length) {
-      // the PAYMENT NO. gate: keep only activities the uploaded cheques
-      // actually paid — the export may span other payments
-      const cheques = new Set((sra.parts || []).map((p) => p[0]));
-      if (!cheques.size) cheques.add(sra.chequeNo);
-      const matched = round2(Object.entries(x.byPayment)
-        .filter(([k]) => cheques.has(k)).reduce((a, [, v]) => a + v, 0));
-      if (matched && Math.abs(x.total - matched) > CENT) {
-        src = matched;
-        name = 'XML activity (μόνο PAYMENT NO. αυτών των επιταγών) = SRA OS+NM+AP';
+    const name = 'XML activity export (OS+NM+AP+ΠΙ FFS) = SRA ίδιες επιταγές';
+    let cheques = [];
+    let allCheques = [];
+    let dropped = 0;
+    if (sra) {
+      allCheques = (sra.parts || []).map((p) => p[0]);
+      if (!allCheques.length) allCheques = [sra.chequeNo];
+      const hasPay = x.byPayment && Object.keys(x.byPayment).length;
+      cheques = hasPay ? allCheques.filter((q) => q in x.byPayment) : allCheques.slice();
+      if (hasPay && cheques.length) {
+        src = round2(Object.entries(x.byPayment)
+          .filter(([k]) => cheques.includes(k)).reduce((a, [, v]) => a + v, 0));
+        dropped = round2(x.total - src);
       }
     }
-    // The export prices ACTIVITIES: it covers the whole outpatient bucket
-    // EXCEPT the daily PD lines (personal doctors are paid by capitation +
-    // FFS, not per activity).  Apr-2026 F1048: bucket 220.721,94 − PD
-    // 31.072,83 = 189.649,11 vs XML 189.590,88.
-    const actCodes = ['OS', 'OS-ADJ', 'NM', 'AP', 'PD-FP', 'PD-KPI', 'KPI',
-                      'MRI', 'CT', 'MRI/CT', 'SAT'];
-    add('XML activity export = SRA εξωνοσοκομειακά ΕΚΤΟΣ των ημερήσιων γραμμών ΠΙ (activity-priced streams)',
-        src, actCodes,
+    /* capitation is NOT activity-priced, so it comes off the PD side — but
+     * only when it is bundled INSIDE the daily PD lines.  When the SRA pays
+     * it as its own PD-CAP line it is already outside the PD code. */
+    const capOwnLine = !!sra && Math.abs(sraSum(sra, ['PD-CAP'])) > CENT;
+    const cap = capOwnLine ? 0
+      : (bundle.capitation ? bundle.capitation.total : 0);
+    const actCodes = ['OS', 'NM', 'AP', 'PD'];
+    add(name, src, actCodes,
         'Κατά προσέγγιση: activity-level έναντι γραμμών SRA (προσαρμογές/χρονισμός εκτός export).',
         claimsOut);
     const cx = checks[checks.length - 1];
     if (sra) {
+      const inCh = sra.lines.filter((l) => !cheques.length || cheques.includes(l.cheque));
+      const ssum = (codes) => round2(inCh.filter((l) => codes.includes(l.code))
+        .reduce((a, l) => a + l.amount, 0));
+      cx.sraSide = round2(ssum(['OS']) + ssum(['NM']) + ssum(['AP']) + ssum(['PD']) - cap);
+      cx.sraCodes = actCodes;
+      cx.sideKind = 'codes_minus';
+      cx.cheques = cheques.length === allCheques.length ? [] : cheques.slice().sort();
+      cx.minus = cap;
+      cx.minusLabel = 'Κατά κεφαλήν ΠΙ (capitation) €';
+      const excluded = [];
+      if (Math.abs(cap) > CENT) {
+        excluded.push(['Κατά κεφαλήν ΠΙ μέσα στις γραμμές PD (capitation, δεν τιμολογείται ανά πράξη)', cap]);
+      } else if (capOwnLine) {
+        excluded.push(['Κατά κεφαλήν ΠΙ σε δική της γραμμή PD-CAP (capitation, εκτός των activity streams)',
+                       ssum(['PD-CAP'])]);
+      }
+      for (const [label, codes] of [
+        ['Δορυφορικός παροχέας (satellite cheque)', ['SAT']],
+        ['Αναδρομική προσαρμογή μεθόδου αποζημίωσης (OS-ADJ)', ['OS-ADJ']],
+        ['Σταθερές χρεώσεις ΠΙ: OOH/εμβολιασμοί (PD-FP)', ['PD-FP']],
+        ['Ποιοτικά κριτήρια ΠΙ (PD-KPI)', ['PD-KPI', 'KPI']],
+        ['Ποιοτικά κριτήρια MRI/CT', ['MRI', 'CT', 'MRI/CT']]]) {
+        const v = ssum(codes);
+        if (Math.abs(v) > CENT) excluded.push([label, v]);
+      }
       const bucket = round2(sra.lines.filter((l) => l.bucket === 'Outpatient')
         .reduce((a, l) => a + l.amount, 0));
-      const pdDaily = sraSum(sra, ['PD']);
-      cx.note = `Γέφυρα: σύνολο εξωνοσοκομειακών SRA ${formatEur(bucket)} − ημερήσιες `
-        + `γραμμές ΠΙ ${formatEur(pdDaily)} = ${formatEur(round2(bucket - pdDaily))} έναντι XML `
-        + `${formatEur(x.total)}. Οι Προσωπικοί Ιατροί πληρώνονται με κατά κεφαλήν + FFS, `
-        + "δεν τιμολογούνται ανά πράξη, γι' αυτό λείπουν από το activity export. " + cx.note;
+      const bridge = excluded.map(([lbl, v]) => `− ${lbl} ${formatEur(v)}.`).join(' ');
+      cx.note = `Γέφυρα: σύνολο εξωνοσοκομειακών SRA ${formatEur(bucket)}. ${bridge}`
+        + ` = τιμολογημένα ανά πράξη ${formatEur(cx.sraSide)} έναντι XML ${formatEur(src)}`
+        + (cheques.length ? ` (επιταγές ${cheques.slice().sort().join(', ')})` : '')
+        + `, υπόλοιπο ${formatEur(round2(src - (cx.sraSide || 0)))}. ` + cx.note;
     }
-    if (src !== x.total) {
-      cx.note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
-        + '(activities paid by other cheques, excluded).';
+    if (x.dateFrom || x.dateTo) {
+      cx.note += ` Παράθυρο export: ${x.dateFrom} — ${x.dateTo}· πράξεις που πλήρωσε η ίδια `
+        + 'επιταγή αλλά με ημερομηνία εκτός παραθύρου δεν περιλαμβάνονται στο αρχείο '
+        + '(the export is date-windowed).';
+    }
+    if (Math.abs(dropped) > CENT) {
+      cx.note += ` Εκτός επιταγών: ${formatEur(dropped)} — απαιτήσεις του export που `
+        + 'πλήρωσαν άλλες επιταγές, εκτός και από τις δύο πλευρές (activities paid by '
+        + 'other cheques, excluded from BOTH sides).';
     }
     // claim-level join with the claims file: name what is in one file and
     // not the other, so the residual explains itself
@@ -2979,7 +3031,8 @@ function tabSra(wb, result, zeroChecks) {
   const name = `SRA_${sra.chequeNo}`.slice(0, 31);
   const ws = wb.addWorksheet(name);
   writeHeader(ws, 1, ['Κωδικός (Code)', 'Περιγραφή (Description)', 'Κανάλι (Channel)',
-                      'Κατηγορία (Bucket)', 'Πηγή ΟΑΥ (Source report)', 'Ποσό (Amount €)']);
+                      'Κατηγορία (Bucket)', 'Πηγή ΟΑΥ (Source report)', 'Ποσό (Amount €)',
+                      'Επιταγή (Cheque)']);
   let r = 2;
   for (const line of sra.lines) {
     ws.getCell(r, 1).value = line.code; ws.getCell(r, 1).font = F_INPUT;
@@ -2988,6 +3041,10 @@ function tabSra(wb, result, zeroChecks) {
     ws.getCell(r, 4).value = line.bucket; ws.getCell(r, 4).font = F_INPUT;
     ws.getCell(r, 5).value = line.sourceReport; ws.getCell(r, 5).font = F_INPUT;
     writeAmount(ws, r, 6, line.amount, F_INPUT);
+    // the paying cheque, so a check can be restricted to the same cheques a
+    // source file covers (SUMIFS second criteria pair)
+    ws.getCell(r, 7).value = line.cheque || sra.chequeNo;
+    ws.getCell(r, 7).font = F_INPUT;
     r += 1;
   }
   const lastLine = r - 1, totalRow = r;
@@ -3111,12 +3168,36 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
       writeAmount(ws, r, 7, b.phfee.unitPrice, F_INPUT);
     }
     const row = r;
-    const sumifs = (codes) => codes.map((code, k) => {
-      const col = colLetter(8 + k);
-      ws.getCell(row, 8 + k).value = code;
-      ws.getCell(row, 8 + k).font = F_INPUT;
-      return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},${col}${row})`;
-    });
+    let nextHelperCol = 8;
+    const sumifs = (codes, cheques = []) => {
+      /* SUMIFS terms over the SRA Code column, criteria referencing helper
+       * cells (never quoted strings).  With `cheques`, one term per
+       * (code, cheque) pair adds a second criteria pair on the Cheque
+       * column — that is how a source file covering ONE cheque is compared
+       * with that cheque only. */
+      let j = 8;
+      const codeCells = codes.map((code) => {
+        ws.getCell(row, j).value = code;
+        ws.getCell(row, j).font = F_INPUT;
+        return `${colLetter(j++)}${row}`;
+      });
+      const chequeCells = cheques.map((q) => {
+        ws.getCell(row, j).value = q;
+        ws.getCell(row, j).font = F_INPUT;
+        return `${colLetter(j++)}${row}`;
+      });
+      nextHelperCol = j;
+      const base = `SUMIFS('${sraTab}'!$F$2:$F$${nLines},'${sraTab}'!$A$2:$A$${nLines},`;
+      const terms = [];
+      for (const cc of codeCells) {
+        if (chequeCells.length) {
+          for (const qc of chequeCells) {
+            terms.push(`${base}${cc},'${sraTab}'!$G$2:$G$${nLines},${qc})`);
+          }
+        } else terms.push(`${base}${cc})`);
+      }
+      return terms;
+    };
     if (chk.sideKind === 'fee_net' && sraTab && b.sra) {
       // source = packages × unit (live); side = SRA PH − claims gross
       const [phTerm] = sumifs(['PH']);
@@ -3129,6 +3210,18 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
       const [phTerm] = sumifs(['PH']);
       let side = phTerm;
       if (feeRow != null) side += `-F${feeRow}*G${feeRow}`;
+      writeAmount(ws, r, 3, side, F_LINK);
+    } else if (chk.sideKind === 'codes_minus' && sraTab && b.sra) {
+      writeAmount(ws, r, 2, chk.sourceTotal, F_INPUT);
+      let side = sumifs(chk.sraCodes, chk.cheques || []).join('+');
+      if (Math.abs(chk.minus || 0) > 0.005) {
+        const j = nextHelperCol;
+        ws.getCell(1, j).value = chk.minusLabel;
+        ws.getCell(1, j).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        ws.getCell(1, j).fill = FILL_HEADER;
+        writeAmount(ws, r, j, chk.minus, F_INPUT);
+        side += `-${colLetter(j)}${r}`;
+      }
       writeAmount(ws, r, 3, side, F_LINK);
     } else {
       if (isPhfee && b.phfee) writeAmount(ws, r, 2, `F${r}*G${r}`, F_FORMULA);

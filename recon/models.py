@@ -164,6 +164,9 @@ class SRALine:
     source_report: str = "" # which HIO report supports the line
     date: str = ""          # invoice date dd/mm/yyyy — separates current-month
                             # corrections from prior-month ones
+    cheque: str = ""        # which cheque paid this line (a month can be
+                            # settled by several) — lets a cross-check compare
+                            # like with like when a source file covers only one
 
 
 @dataclass
@@ -317,6 +320,11 @@ class XMLActivity:
     by_payment: dict[str, float] = field(default_factory=dict)
     # ClaimId → activity sum, for the claim-level join with the claims file
     by_claim: dict[str, float] = field(default_factory=dict)
+    # the export's own date window (ClaimsDateFrom/To): activities paid by the
+    # cheque but dated outside it are simply not in the file — the usual
+    # explanation for a small residual, so it is shown, not guessed at
+    date_from: str = ""
+    date_to: str = ""
 
 
 @dataclass
