@@ -297,12 +297,20 @@ function extractClaimsAll(bytes) {
     }
     const t = body.filter((r) => r[segCol] != null);
     const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {},
-                  inpatientRows: [], byDoctor: [] };
+                  inpatientRows: [], byDoctor: [], outpatientByClaim: {} };
     const idCol = colIndex(cols, 'CLAIM ID');
     const dateCol = colIndex(cols, 'INVOICE DATE');
     for (const r of t) {
       const seg = canonSegment(r[segCol]);
       out.bySegment[seg] = (out.bySegment[seg] || 0) + parseAmount(r[amtCol]);
+      if (seg !== 'Inpatient' && seg !== 'A&E' && idCol != null) {
+        // CLAIM ID → amount for the outpatient streams (the XML universe)
+        const cid = cellText(r[idCol]).trim();
+        if (cid && cid !== 'nan') {
+          out.outpatientByClaim[cid] = round2((out.outpatientByClaim[cid] || 0)
+            + parseAmount(r[amtCol]));
+        }
+      }
       if (seg === 'Inpatient' && idCol != null) {
         // kept to name candidate old-period claims when claims ≠ Ενδ.
         out.inpatientRows.push([cellText(r[idCol]),
@@ -857,19 +865,24 @@ function extractXmlActivity(bytes) {
   let total = 0, found = false;
   const claims = new Set();
   const byPayment = {};
+  const byClaim = {};
   // group per <Claim>: each carries ClaimPaymentNumber (the SRA cheque that
   // paid it) — the join key for the payment-number gate
   for (const claim of doc.getElementsByTagName('*')) {
     if (claim.localName.toLowerCase() !== 'claim') continue;
-    let pay = '', amt = 0, hasAmount = false;
+    let pay = '', cid = '', amt = 0, hasAmount = false;
     for (const el of claim.getElementsByTagName('*')) {
       const tag = el.localName.toLowerCase();
       if (tag === 'activityreimbursementamount') { amt += parseAmount(el.textContent); hasAmount = true; }
-      else if (tag === 'claimid' && el.textContent) claims.add(el.textContent.trim());
+      else if (tag === 'claimid' && el.textContent) { cid = el.textContent.trim(); claims.add(cid); }
       else if (tag === 'claimpaymentnumber' && el.textContent) pay = el.textContent.trim();
     }
     total += amt;
-    if (hasAmount) { found = true; byPayment[pay] = round2((byPayment[pay] || 0) + amt); }
+    if (hasAmount) {
+      found = true;
+      byPayment[pay] = round2((byPayment[pay] || 0) + amt);
+      if (cid) byClaim[cid] = round2((byClaim[cid] || 0) + amt);
+    }
   }
   if (!found) {
     // flat exports without a <Claim> wrapper: sum what's there
@@ -880,7 +893,7 @@ function extractXmlActivity(bytes) {
     }
   }
   if (!found) throw new ExtractionError('XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount');
-  return { total: round2(total), nClaims: claims.size, byPayment };
+  return { total: round2(total), nClaims: claims.size, byPayment, byClaim };
 }
 
 /* ---------------------------------- capitation / quality / hemo (any fmt) */

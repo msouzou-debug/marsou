@@ -368,6 +368,15 @@ def extract_claims_all(data: bytes) -> ClaimsAll:
                     str(t.at[idx, id_col]),
                     str(t.at[idx, date_col]) if date_col is not None else "",
                     round(parse_amount(t.at[idx, amt_col]), 2)))
+        # CLAIM ID → amount for the outpatient streams (the XML universe)
+        if id_col is not None:
+            out_mask = ~segs.isin(["Inpatient", "A&E"])
+            for idx in t.index[out_mask]:
+                cid = str(t.at[idx, id_col]).strip()
+                if cid and cid != "nan":
+                    out.outpatient_by_claim[cid] = round(
+                        out.outpatient_by_claim.get(cid, 0.0)
+                        + parse_amount(t.at[idx, amt_col]), 2)
         _per_clinic_detail(t, seg_col, amt_col, amounts, out)
         _per_doctor_detail(t, amt_col, amounts, segs, out)
         return out
@@ -974,6 +983,7 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
     total = 0.0
     claims = set()
     by_payment: dict[str, float] = {}
+    by_claim: dict[str, float] = {}
     found = False
 
     def _local(el) -> str:
@@ -1000,6 +1010,10 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
         if has_amount:
             found = True
             by_payment[pay] = round(by_payment.get(pay, 0.0) + amt, 2)
+            cid = next((e.text.strip() for e in claim.iter()
+                        if _local(e) == "claimid" and e.text), "")
+            if cid:
+                by_claim[cid] = round(by_claim.get(cid, 0.0) + amt, 2)
     if not found:
         # flat exports without a <Claim> wrapper: sum what's there
         for el in root.iter():
@@ -1012,7 +1026,7 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
     if not found:
         raise ExtractionError("XML activity: δεν βρέθηκαν πεδία ActivityReimbursementAmount")
     return XMLActivity(total=round(total, 2), n_claims=len(claims),
-                       by_payment=by_payment)
+                       by_payment=by_payment, by_claim=by_claim)
 
 
 # ------------------------------------- capitation / quality / hemo (any fmt)

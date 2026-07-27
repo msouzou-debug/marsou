@@ -756,6 +756,40 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         if src != x.total:
             c.note += (f" Εκτός επιταγών: {format_eur(round(x.total - src, 2))} "
                        "(activities paid by other cheques, excluded).")
+        # claim-level join with the claims file: name what is in one file
+        # and not the other, so the residual explains itself
+        if x.by_claim and bundle.claims and bundle.claims.outpatient_by_claim:
+            cl = bundle.claims.outpatient_by_claim
+            only_xml = {k: v for k, v in x.by_claim.items() if k not in cl}
+            only_cl = {k: v for k, v in cl.items() if k not in x.by_claim}
+            both_diff = [(k, round(cl[k] - v, 2)) for k, v in x.by_claim.items()
+                         if k in cl and abs(cl[k] - v) > CENT]
+            bits = []
+            if only_xml:
+                top = sorted(only_xml.items(), key=lambda kv: -abs(kv[1]))[:3]
+                bits.append(f"μόνο στο XML: {len(only_xml)} απαιτήσεις / "
+                            f"{format_eur(round(sum(only_xml.values()), 2))} "
+                            "(π.χ. " + ", ".join(f"{k} {format_eur(v)}"
+                                                 for k, v in top) + ")")
+            if only_cl:
+                top = sorted(only_cl.items(), key=lambda kv: -abs(kv[1]))[:3]
+                bits.append(f"μόνο στο claims: {len(only_cl)} απαιτήσεις / "
+                            f"{format_eur(round(sum(only_cl.values()), 2))} "
+                            "(π.χ. " + ", ".join(f"{k} {format_eur(v)}"
+                                                 for k, v in top) + ")")
+            if both_diff:
+                tot = round(sum(v for _k, v in both_diff), 2)
+                top = sorted(both_diff, key=lambda kv: -abs(kv[1]))[:3]
+                bits.append(f"διαφορετικό ποσό στις ίδιες απαιτήσεις: "
+                            f"{len(both_diff)} / {format_eur(tot)} "
+                            "(π.χ. " + ", ".join(f"{k} {format_eur(v)}"
+                                                 for k, v in top) + ")")
+            if bits:
+                c.note += (" Σύγκριση ανά ClaimId με το αρχείο claims — "
+                           + " · ".join(bits) + ".")
+            else:
+                c.note += (" Σύγκριση ανά ClaimId με το αρχείο claims: κάθε "
+                           "απαίτηση ταυτίζεται (every claim matches).")
     return checks
 
 

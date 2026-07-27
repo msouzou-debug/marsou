@@ -248,6 +248,9 @@ class ClaimsAll:
     # (segment, speciality, doctor, sum of HIO REIMB.) — summed from the
     # row-level detail, drives the By_Doctor tab
     by_doctor: list[tuple[str, str, str, float]] = field(default_factory=list)
+    # CLAIM ID → HIO REIMB. for the OUTPATIENT streams (OS/NM/AP/PD), for
+    # the claim-level join with the XML activity export
+    outpatient_by_claim: dict[str, float] = field(default_factory=dict)
 
     @property
     def total(self) -> float:
@@ -309,6 +312,8 @@ class XMLActivity:
     # ClaimPaymentNumber → sum: lets the cross-check keep only activities
     # actually paid by the uploaded cheques (the PAYMENT NO. gate)
     by_payment: dict[str, float] = field(default_factory=dict)
+    # ClaimId → activity sum, for the claim-level join with the claims file
+    by_claim: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass

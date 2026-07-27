@@ -594,6 +594,36 @@ function buildCrosschecks(bundle) {
       cx.note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
         + '(activities paid by other cheques, excluded).';
     }
+    // claim-level join with the claims file: name what is in one file and
+    // not the other, so the residual explains itself
+    if (x.byClaim && bundle.claims && bundle.claims.outpatientByClaim
+        && Object.keys(bundle.claims.outpatientByClaim).length) {
+      const cl = bundle.claims.outpatientByClaim;
+      const onlyXml = Object.entries(x.byClaim).filter(([k]) => !(k in cl));
+      const onlyCl = Object.entries(cl).filter(([k]) => !(k in x.byClaim));
+      const bothDiff = Object.entries(x.byClaim)
+        .filter(([k, v]) => k in cl && Math.abs(cl[k] - v) > CENT)
+        .map(([k, v]) => [k, round2(cl[k] - v)]);
+      const fmtTop = (rows) => rows.slice()
+        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 3)
+        .map(([k, v]) => `${k} ${formatEur(v)}`).join(', ');
+      const bits = [];
+      if (onlyXml.length) {
+        bits.push(`μόνο στο XML: ${onlyXml.length} απαιτήσεις / `
+          + `${formatEur(round2(onlyXml.reduce((a, [, v]) => a + v, 0)))} (π.χ. ${fmtTop(onlyXml)})`);
+      }
+      if (onlyCl.length) {
+        bits.push(`μόνο στο claims: ${onlyCl.length} απαιτήσεις / `
+          + `${formatEur(round2(onlyCl.reduce((a, [, v]) => a + v, 0)))} (π.χ. ${fmtTop(onlyCl)})`);
+      }
+      if (bothDiff.length) {
+        bits.push(`διαφορετικό ποσό στις ίδιες απαιτήσεις: ${bothDiff.length} / `
+          + `${formatEur(round2(bothDiff.reduce((a, [, v]) => a + v, 0)))} (π.χ. ${fmtTop(bothDiff)})`);
+      }
+      cx.note += bits.length
+        ? ' Σύγκριση ανά ClaimId με το αρχείο claims — ' + bits.join(' · ') + '.'
+        : ' Σύγκριση ανά ClaimId με το αρχείο claims: κάθε απαίτηση ταυτίζεται (every claim matches).';
+    }
   }
   return checks;
 }
