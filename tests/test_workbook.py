@@ -21,7 +21,8 @@ def test_workbook_has_five_tabs_and_zero_checks_pass():
     data, _ = _build(with_optional=True)
     wb = load_workbook(io.BytesIO(data))
     assert wb.sheetnames == ["SRA_259434", "Reconciliation", "Source_crosscheck",
-                             "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν", "Legend"]
+                             "Ανάλυση_ελέγχων", "By_Clinic_Split", "Ανά_ιατρό",
+                             "Πώς_δένουν", "Legend"]
     assert verify_workbook(data) == []      # gate 5: every zero-check reads 0
 
 
@@ -81,10 +82,105 @@ def test_crosscheck_mode_workbook():
     data, _ = _build(with_optional=True, crosscheck=True)
     wb = load_workbook(io.BytesIO(data))
     assert wb.sheetnames == ["Crosscheck_Matrix", "Source_crosscheck",
-                             "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν", "Legend"]
+                             "Ανάλυση_ελέγχων", "By_Clinic_Split", "Ανά_ιατρό",
+                             "Πώς_δένουν", "Legend"]
     assert verify_workbook(data) == []
     ws = wb["Crosscheck_Matrix"]
     # Range column is a live MAX-MIN formula
     found = any(isinstance(c.value, str) and c.value.startswith("=MAX(")
                 for row in ws.iter_rows() for c in row)
     assert found
+
+
+# ------------------------------------------- Ανάλυση_ελέγχων (audit trail)
+
+def _audit_rows(ws):
+    return {str(ws.cell(row=r, column=1).value or ""): r
+            for r in range(1, ws.max_row + 1)}
+
+
+def test_audit_tab_reconciles_every_check_with_live_subtotals():
+    data, res = _build(with_optional=True)
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["Ανάλυση_ελέγχων"]
+    labels = _audit_rows(ws)
+    # one block per check that has both sides
+    blocks = [k for k in labels if k[:1].isdigit() and ". " in k]
+    assert len(blocks) == len([c for c in res.crosschecks if c.sra_side is not None])
+    # every subtotal / difference / tie-back is a formula, never a typed number
+    for key, row in labels.items():
+        if key.startswith(("   Σύνολο —", "Διαφορά Α", "Έλεγχος: Σύνολο")):
+            assert str(ws.cell(row=row, column=2).value).startswith("=")
+
+
+def test_audit_tab_ties_back_to_source_crosscheck():
+    """The two tie-back cells per block prove the audit sheet and
+    Source_crosscheck print the same figures — recomputed, not asserted."""
+    data, _ = _build(with_optional=True)
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["Ανάλυση_ελέγχων"]
+    ev = _Evaluator(wb)
+    ties = [r for r in range(1, ws.max_row + 1)
+            if str(ws.cell(row=r, column=1).value or "").startswith("Έλεγχος: Σύνολο")]
+    assert ties, "no tie-back cells written"
+    for r in ties:
+        assert round(ev.evaluate(ws.cell(row=r, column=2).value,
+                                 "Ανάλυση_ελέγχων"), 2) == 0.0
+
+
+def test_audit_tab_breaks_out_the_sides_into_components():
+    data, _ = _build(with_optional=True)
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["Ανάλυση_ελέγχων"]
+    labels = _audit_rows(ws)
+    # the claims row is broken out per DR SEGMENT
+    assert "   DR SEGMENT: Inpatient" in labels
+    assert "   DR SEGMENT: Outpatient Specialists" in labels
+    # the IS Auditor row separates DRG fees from the Z-catalogue
+    assert "   DRG / Fixed-fee αμοιβές" in labels
+    # the GL fee row names the ledger centre against packages × unit price
+    assert any(k.startswith("   Κέντρο κόστους 25501") for k in labels)
+    assert any(k.startswith("   Συσκευασίες 8076 × 1,60 €") for k in labels)
+    # SRA components are LIVE SUMIFS whose criteria reference helper cells
+    for key, row in labels.items():
+        if key.startswith("   SRA γραμμές") or key.startswith("   SRA OS"):
+            f = str(ws.cell(row=row, column=2).value)
+            assert f.startswith("=SUMIFS(") and '"' not in f
+            assert ws.cell(row=row, column=4).value      # the code helper cell
+
+
+def test_audit_tab_shows_an_unexplained_gap_instead_of_hiding_it():
+    """A side whose itemisation doesn't add up gets an explicit
+    «not itemised» row — the block still ties, and the gap is visible."""
+    from recon.checks import CheckPart
+    data, res = _build(with_optional=True)
+    chk = next(c for c in res.crosschecks if c.parts_a)
+    chk.parts_a = [CheckPart(label="μερική ανάλυση", amount=chk.source_total - 100.0)]
+    wb = load_workbook(io.BytesIO(build_workbook(res)))
+    ws = wb["Ανάλυση_ελέγχων"]
+    row = next(r for r in range(1, ws.max_row + 1)
+               if "μη αναλυμένα" in str(ws.cell(row=r, column=1).value or ""))
+    assert ws.cell(row=row, column=2).value == 100.0
+    assert verify_workbook(build_workbook(res)) == []
+
+
+def test_audit_tab_breaks_out_the_pharmacy_stream_month():
+    """On a PH-stream month the pharma block reads A = drugs + consumables,
+    B = the SRA PH lines less the pharmacist-fee invoice."""
+    from recon.extract import parse_sra_text
+    import synth
+    from test_checks import full_bundle
+    b = full_bundle()
+    b.sra = parse_sra_text(synth.sra_text_feb())
+    res = run_reconciliation(b)
+    wb = load_workbook(io.BytesIO(build_workbook(res)))
+    ws = wb["Ανάλυση_ελέγχων"]
+    labels = _audit_rows(ws)
+    assert "   Φάρμακα (Drugs)" in labels and "   Αναλώσιμα (Consumables)" in labels
+    assert "   SRA γραμμές PH (φαρμακείο)" in labels
+    assert "   μείον τιμολόγιο αμοιβής φαρμακοποιού" in labels
+    ev = _Evaluator(wb)
+    row = labels["   SRA γραμμές PH (φαρμακείο)"]
+    f = ws.cell(row=row, column=2).value
+    assert f.startswith("=SUMIFS(")
+    assert round(ev.evaluate(f, "Ανάλυση_ελέγχων"), 2) == 54_646.65

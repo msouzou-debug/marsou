@@ -77,11 +77,19 @@ on screen for correction before the run — the app never guesses an amount.
 4. **No SRA?** Tick *cross-check mode*: the cash tie-out is skipped and a
    report-vs-report matrix (streams × reports, Range column) is produced
    instead.
-5. Download the workbook. Five tabs: `SRA_<cheque>`, `Reconciliation`,
-   `Source_crosscheck`, `By_Clinic_Split`, `Legend`. Blue font = input off a
-   source report, black = live formula, green = cross-sheet link, yellow
-   fill = zero-check. Every total is a live formula — edit a blue cell and
-   the workbook re-ties or shows the break.
+5. Download the workbook: `SRA_<cheque>`, `Reconciliation`,
+   `Source_crosscheck`, `Ανάλυση_ελέγχων`, `By_Clinic_Split`, `Ανά_ιατρό`,
+   `Πώς_δένουν`, `Legend`. Blue font = input off a source report, black =
+   live formula, green = cross-sheet link, yellow fill = zero-check. Every
+   total is a live formula — edit a blue cell and the workbook re-ties or
+   shows the break.
+
+   `Ανάλυση_ελέγχων` is the audit trail: every `Source_crosscheck` row
+   written out as a full reconciliation — each side broken into its
+   components (report figures, SRA lines as live SUMIFS, reconciling items),
+   live subtotals, the difference, and two cells proving the block agrees
+   with `Source_crosscheck`. A side whose itemisation doesn't add up gets an
+   explicit *not itemised* row, so nothing is absorbed silently.
 
 ## Validation gates (in order, stop on failure)
 

@@ -29,6 +29,19 @@ class GateResult:
 
 
 @dataclass
+class CheckPart:
+    """One component of a check's A or B side, for the audit-trail tab.
+
+    code: an SRA line code — the workbook writes a LIVE SUMIFS on it instead
+    of a typed number, so the component re-ties when a line changes.
+    cheques: restrict that SUMIFS to these cheques (empty = all)."""
+    label: str
+    amount: float
+    code: str = ""
+    cheques: list = field(default_factory=list)
+
+
+@dataclass
 class CrossCheck:
     name: str
     source_total: float           # blue input off the source report
@@ -47,6 +60,12 @@ class CrossCheck:
     cheques: list = field(default_factory=list)
     minus: float = 0.0            # subtracted from the SUMIFS side
     minus_label: str = ""         # what the subtraction is, for the helper cell
+    # how each side is BUILT UP — the audit trail.  Empty = the side is a
+    # single figure (A: the source report; B: the SRA codes).
+    parts_a: list = field(default_factory=list)
+    parts_b: list = field(default_factory=list)
+    label_a: str = ""             # what side A is, in words
+    label_b: str = ""             # what side B is, in words
 
     @property
     def diff(self) -> Optional[float]:
@@ -408,6 +427,11 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
     sra = bundle.sra
     checks: list[CrossCheck] = []
 
+    def P(label: str, amount: float, code: str = "", cheques=()) -> CheckPart:
+        """One component of a side, for the audit-trail tab."""
+        return CheckPart(label=label, amount=round(amount, 2), code=code,
+                         cheques=list(cheques))
+
     def add(name: str, source: float, codes: list[str], flag_hint: str = "",
             alt: Optional[float] = None):
         # alt = report-vs-report comparison side used in cross-check mode
@@ -471,6 +495,13 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         if checks[-1].flag == "ok" and synoptikos_note:
             checks[-1].note += synoptikos_note
         c = checks[-1]
+        c.label_a, c.label_b = "Ενδ. Πληρωμένες Απαιτήσεις", "SRA"
+        if endo.detail_total is not None:
+            layer = round(endo.detail_total - endo.synolo, 2)
+            c.parts_a = [P("ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ — Σύνολο μήνα", endo.synolo)]
+            if abs(layer) > CENT:
+                c.parts_a.append(P("Απαιτήσεις παλαιών περιόδων στο αναλυτικό "
+                                   "(εκτός ΣΥΝΟΠΤΙΚΟΥ)", layer))
         # when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
         # summary is the old-period claims — name them instead of «unexplained»
         if (sra and claims_ip is not None and c.sra_side is not None
@@ -509,7 +540,12 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                 name=f"Αμοιβή Φαρμακοποιού (packages × {unit_str} €) = "
                      "SRA PH − claims",
                 source_total=round(fee, 2), sra_codes=["PH"], sra_side=side_net,
-                note=note, flag=flag, side_kind="fee_net"))
+                note=note, flag=flag, side_kind="fee_net",
+                label_a="Αναφορά Αμοιβής Φαρμακοποιού", label_b="SRA",
+                parts_a=[P("Συσκευασίες × τιμή μονάδας", fee)],
+                parts_b=[P("SRA γραμμές PH (φαρμακείο)", ph_sum, code="PH"),
+                         P("μείον Πληρωμένες ΦΑΡΜΑΚΑ (μικτά)",
+                           -(bundle.pharma.total if bundle.pharma else 0.0))]))
         if bundle.pharma:
             side_a = round(ph_sum - fee, 2)
             note, flag = _annotate("pharma vs PH", bundle.pharma.total, side_a)
@@ -520,7 +556,13 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                 name="Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH − αμοιβή "
                      "φαρμακοποιού", source_total=bundle.pharma.total,
                 sra_codes=["PH"], sra_side=side_a, note=note, flag=flag,
-                side_kind="ph_minus_fee"))
+                side_kind="ph_minus_fee",
+                label_a="Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ", label_b="SRA",
+                parts_a=[P("Φάρμακα (Drugs)", bundle.pharma.by_type.get("Drugs", 0.0)),
+                         P("Αναλώσιμα (Consumables)",
+                           bundle.pharma.by_type.get("Consumables", 0.0))],
+                parts_b=[P("SRA γραμμές PH (φαρμακείο)", ph_sum, code="PH"),
+                         P("μείον τιμολόγιο αμοιβής φαρμακοποιού", -fee)]))
     else:
         if bundle.pharma:
             drugs = bundle.pharma.by_type.get("Drugs", 0.0)
@@ -545,6 +587,12 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                       "υπάρχουν στο αρχείο claims (approximate: SRA includes "
                       "adjustments and satellite-supplier cheques absent from "
                       "the claims export).")
+        c = checks[-1]
+        c.label_a, c.label_b = "Πληρωμένες Απαιτήσεις «all»", "SRA"
+        c.parts_a = [P(f"DR SEGMENT: {seg}", amt)
+                     for seg, amt in sorted(bundle.claims.by_segment.items())]
+        if cap_extra:
+            c.parts_a.append(P("Αναφορά κατά κεφαλήν (capitation)", cap_extra))
     claims_pd = (bundle.claims.by_segment.get("Personal Doctors")
                  if bundle.claims else None)
     if bundle.capitation:
@@ -554,6 +602,10 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             # (OOH, vaccinations) are classified apart as PD-FP
             add("Capitation + Claims «Personal Doctors» = SRA PD (ημερήσιες γραμμές)",
                 round(bundle.capitation.total + claims_pd, 2), ["PD"])
+            c = checks[-1]
+            c.label_a, c.label_b = "Αναφορές ΟΑΥ", "SRA"
+            c.parts_a = [P("Αναφορά κατά κεφαλήν (capitation)", bundle.capitation.total),
+                         P("Claims «all» — DR SEGMENT Personal Doctors", claims_pd)]
         elif cap_bundled:
             # newer SRAs bundle capitation inside the PD service lines
             add("Capitation report ≈ SRA PD (bundled with FFS)",
@@ -594,6 +646,14 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                                   - bundle.inpatient.synolo, 2)
             c.sra_side = round(bundle.inpatient.z_catalogue + hemo_amt
                                + old_layer, 2)
+            c.label_a, c.label_b = "Καθολικό ΟΑΥ (GL)", "Αναφορές ΟΑΥ"
+            c.parts_a = [P("Κέντρα κόστους 26003 + 26007", gl.z_catalogue)]
+            c.parts_b = [P("Ενδ. — Κατάλογος Ζ", bundle.inpatient.z_catalogue)]
+            if abs(hemo_amt) > CENT:
+                c.parts_b.append(P("Αιμοκάθαρση (SRA HEMO)", hemo_amt, code="HEMO"))
+            if abs(old_layer) > CENT:
+                c.parts_b.append(P("Απαιτήσεις παλαιών περιόδων (26007, εκτός "
+                                   "ΣΥΝΟΠΤΙΚΟΥ)", old_layer))
             c.note, c.flag = _annotate("Z-CATALOGUE GL", c.source_total, c.sra_side)
             if abs(c.diff or 0) <= CENT and abs(old_layer) > CENT:
                 c.note = ("OK — το 26007 (Fee per diem / zero cost weight) "
@@ -646,6 +706,14 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         if bundle.phfee:
             c = checks[-1]
             c.sra_side = round(bundle.phfee.computed + crn_now, 2)
+            c.label_a, c.label_b = "Καθολικό ΟΑΥ (GL)", "Αναφορά + SRA"
+            c.parts_a = [P("Κέντρο κόστους 25501", gl.pharmacist_fee)]
+            unit_txt = f"{bundle.phfee.unit_price:.2f}".replace(".", ",")
+            c.parts_b = [P(f"Συσκευασίες {bundle.phfee.packages} × {unit_txt} €",
+                           bundle.phfee.computed)]
+            if abs(crn_now) > CENT:
+                c.parts_b.append(P("Διορθώσεις CRN-Packages τρέχοντος μήνα (SRA)",
+                                   crn_now))
             c.note, c.flag = _annotate(c.name, c.source_total, c.sra_side)
             if abs(c.diff or 0) <= CENT and abs(crn_now) > CENT:
                 c.note = (
@@ -671,6 +739,13 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
         if bundle.pharma:
             c = checks[-1]
             c.sra_side = round(bundle.pharma.total + ph_adj_now, 2)
+            c.label_a, c.label_b = "Καθολικό ΟΑΥ (GL)", "Αναφορά + SRA"
+            c.parts_a = [P("Κέντρα κόστους 255xx (εκτός 25501)", gl.pharma_other)]
+            c.parts_b = [P("Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ (μικτά)",
+                           bundle.pharma.total)]
+            if abs(ph_adj_now) > CENT:
+                c.parts_b.append(P("Διορθώσεις φαρμάκων τρέχοντος μήνα (CRN/OTC, SRA)",
+                                   ph_adj_now))
             c.note, c.flag = _annotate("PHARMA GL", c.sra_side, c.source_total)
             if abs(c.diff or 0) <= CENT:
                 c.note = "OK — ταυτίζεται (ties out)."
@@ -732,6 +807,9 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             flag_hint="IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.",
             alt=bundle.inpatient.best_total if bundle.inpatient else claims_ip)
         c = checks[-1]
+        c.label_a, c.label_b = "IS Auditor Report", "SRA"
+        c.parts_a = [P("DRG / Fixed-fee αμοιβές", bundle.isaud.drg_fees),
+                     P("Κατάλογος Ζ (Procedures Total)", bundle.isaud.z_catalogue)]
         # per-row rounding across ~10k detail rows — the brief accepts small
         # tolerances (F1054: €0.45); the Diff cell still shows the live gap
         if c.flag != "ok" and c.diff is not None and abs(c.diff) <= 5.00:
@@ -785,6 +863,20 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             # capitation, so the Excel side reproduces this number live
             c.cheques = sorted(cheques) if cheques != all_cheques else []
             c.minus, c.minus_label = cap, "Κατά κεφαλήν ΠΙ (capitation) €"
+            c.label_a, c.label_b = "XML activity export", "SRA (ίδιες επιταγές)"
+            c.parts_a = [P("Σύνολο export (όλες οι επιταγές)", x.total)]
+            if abs(dropped) > CENT:
+                c.parts_a.append(P("μείον πράξεις άλλων επιταγών", -dropped))
+            c.parts_b = [P("SRA OS — εξωτερικά ιατρεία", osn, code="OS",
+                           cheques=c.cheques),
+                         P("SRA NM — νοσηλευτές/μαίες", nm, code="NM",
+                           cheques=c.cheques),
+                         P("SRA AP — επαγγελματίες υγείας", ap, code="AP",
+                           cheques=c.cheques),
+                         P("SRA PD — ημερήσιες γραμμές ΠΙ", pd_daily, code="PD",
+                           cheques=c.cheques)]
+            if abs(cap) > CENT:
+                c.parts_b.append(P("μείον κατά κεφαλήν ΠΙ (capitation)", -cap))
             excluded = []
             if abs(cap) > CENT:
                 excluded.append(("Κατά κεφαλήν ΠΙ μέσα στις γραμμές PD "

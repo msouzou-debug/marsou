@@ -258,9 +258,14 @@ function buildCrosschecks(bundle) {
     const side = sra ? sraSum(sra, codes) : (alt != null ? alt : null);
     const [note, flag] = annotate(name, source, side, flagHint);
     checks.push({ name, sourceTotal: round2(source), sraCodes: sra ? codes : [], sraSide: side,
-                  note, flag,
+                  note, flag, partsA: [], partsB: [], labelA: '', labelB: '',
                   get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
   };
+  /* One component of a side, for the audit-trail tab.  code: an SRA line
+   * code — the workbook writes a LIVE SUMIFS on it instead of a typed
+   * number; cheques restricts that SUMIFS to those cheques. */
+  const P = (label, amount, code = '', cheques = []) =>
+    ({ label, amount: round2(amount), code, cheques: cheques.slice() });
 
   const claimsIp = bundle.claims ? (bundle.claims.bySegment['Inpatient'] || 0) : null;
   const claimsOut = bundle.claims
@@ -318,6 +323,17 @@ function buildCrosschecks(bundle) {
     if (checks[checks.length - 1].flag === 'ok' && synoptikosNote) {
       checks[checks.length - 1].note += synoptikosNote;
     }
+    {
+      const ce = checks[checks.length - 1];
+      ce.labelA = 'Ενδ. Πληρωμένες Απαιτήσεις'; ce.labelB = 'SRA';
+      if (endo.detailTotal != null) {
+        const layer = round2(endo.detailTotal - endo.synolo);
+        ce.partsA = [P('ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ — Σύνολο μήνα', endo.synolo)];
+        if (Math.abs(layer) > CENT) {
+          ce.partsA.push(P('Απαιτήσεις παλαιών περιόδων στο αναλυτικό (εκτός ΣΥΝΟΠΤΙΚΟΥ)', layer));
+        }
+      }
+    }
     const c = checks[checks.length - 1];
     // when SRA IS ties the claims file to the cent, the gap vs the Ενδ.
     // summary is the old-period claims — name them instead of «unexplained»
@@ -354,6 +370,11 @@ function buildCrosschecks(bundle) {
       checks.push({ name: `Αμοιβή Φαρμακοποιού (packages × ${unitStr} €) = SRA PH − claims`,
                     sourceTotal: round2(fee), sraCodes: ['PH'], sraSide: sideNet2,
                     note, flag, sideKind: 'fee_net',
+                    labelA: 'Αναφορά Αμοιβής Φαρμακοποιού', labelB: 'SRA',
+                    partsA: [P('Συσκευασίες × τιμή μονάδας', fee)],
+                    partsB: [P('SRA γραμμές PH (φαρμακείο)', phSum, 'PH'),
+                             P('μείον Πληρωμένες ΦΑΡΜΑΚΑ (μικτά)',
+                               -(bundle.pharma ? bundle.pharma.total : 0))],
                     get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
     }
     if (bundle.pharma) {
@@ -366,6 +387,11 @@ function buildCrosschecks(bundle) {
       checks.push({ name: 'Φάρμακα & Αναλώσιμα (pharma claims gross) = SRA PH − αμοιβή φαρμακοποιού',
                     sourceTotal: bundle.pharma.total, sraCodes: ['PH'], sraSide: sideA,
                     note, flag, sideKind: 'ph_minus_fee',
+                    labelA: 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ', labelB: 'SRA',
+                    partsA: [P('Φάρμακα (Drugs)', bundle.pharma.byType['Drugs'] || 0),
+                             P('Αναλώσιμα (Consumables)', bundle.pharma.byType['Consumables'] || 0)],
+                    partsB: [P('SRA γραμμές PH (φαρμακείο)', phSum, 'PH'),
+                             P('μείον τιμολόγιο αμοιβής φαρμακοποιού', -fee)],
                     get diff() { return this.sraSide == null ? null : round2(this.sourceTotal - this.sraSide); } });
     }
   } else {
@@ -389,6 +415,11 @@ function buildCrosschecks(bundle) {
         'Κατά προσέγγιση: οι γραμμές SRA περιέχουν προσαρμογές (ADJ/COR) και επιταγές '
         + 'δορυφορικών παροχέων που δεν υπάρχουν στο αρχείο claims (approximate: SRA '
         + 'includes adjustments and satellite-supplier cheques absent from the claims export).');
+    const cc = checks[checks.length - 1];
+    cc.labelA = 'Πληρωμένες Απαιτήσεις «all»'; cc.labelB = 'SRA';
+    cc.partsA = Object.keys(bundle.claims.bySegment).sort()
+      .map((seg) => P(`DR SEGMENT: ${seg}`, bundle.claims.bySegment[seg]));
+    if (capExtra) cc.partsA.push(P('Αναφορά κατά κεφαλήν (capitation)', capExtra));
   }
   const claimsPd = bundle.claims ? bundle.claims.bySegment['Personal Doctors'] : null;
   if (bundle.capitation) {
@@ -398,6 +429,10 @@ function buildCrosschecks(bundle) {
       // (OOH, vaccinations) are classified apart as PD-FP
       add('Capitation + Claims «Personal Doctors» = SRA PD (ημερήσιες γραμμές)',
           round2(bundle.capitation.total + claimsPd), ['PD']);
+      const cp = checks[checks.length - 1];
+      cp.labelA = 'Αναφορές ΟΑΥ'; cp.labelB = 'SRA';
+      cp.partsA = [P('Αναφορά κατά κεφαλήν (capitation)', bundle.capitation.total),
+                   P('Claims «all» — DR SEGMENT Personal Doctors', claimsPd)];
     } else if (capBundled) {
       // newer SRAs bundle capitation inside the PD service lines
       add('Capitation report ≈ SRA PD (bundled with FFS)', bundle.capitation.total,
@@ -434,6 +469,13 @@ function buildCrosschecks(bundle) {
       const oldLayer = bundle.inpatient.detailTotal != null
         ? round2(bundle.inpatient.detailTotal - bundle.inpatient.synolo) : 0;
       c.sraSide = round2(bundle.inpatient.zCatalogue + hemoAmt + oldLayer);
+      c.labelA = 'Καθολικό ΟΑΥ (GL)'; c.labelB = 'Αναφορές ΟΑΥ';
+      c.partsA = [P('Κέντρα κόστους 26003 + 26007', gl.zCatalogue)];
+      c.partsB = [P('Ενδ. — Κατάλογος Ζ', bundle.inpatient.zCatalogue)];
+      if (Math.abs(hemoAmt) > CENT) c.partsB.push(P('Αιμοκάθαρση (SRA HEMO)', hemoAmt, 'HEMO'));
+      if (Math.abs(oldLayer) > CENT) {
+        c.partsB.push(P('Απαιτήσεις παλαιών περιόδων (26007, εκτός ΣΥΝΟΠΤΙΚΟΥ)', oldLayer));
+      }
       [c.note, c.flag] = annotate('Z-CATALOGUE GL', c.sourceTotal, c.sraSide);
       if (Math.abs(c.diff || 0) <= CENT && Math.abs(oldLayer) > CENT) {
         c.note = 'OK — το 26007 (Fee per diem / zero cost weight) περιλαμβάνει και τις '
@@ -476,6 +518,13 @@ function buildCrosschecks(bundle) {
     if (bundle.phfee) {
       const c = checks[checks.length - 1];
       c.sraSide = round2(bundle.phfee.computed + crnNow);
+      c.labelA = 'Καθολικό ΟΑΥ (GL)'; c.labelB = 'Αναφορά + SRA';
+      c.partsA = [P('Κέντρο κόστους 25501', gl.pharmacistFee)];
+      c.partsB = [P(`Συσκευασίες ${bundle.phfee.packages} × `
+        + `${bundle.phfee.unitPrice.toFixed(2).replace('.', ',')} €`, bundle.phfee.computed)];
+      if (Math.abs(crnNow) > CENT) {
+        c.partsB.push(P('Διορθώσεις CRN-Packages τρέχοντος μήνα (SRA)', crnNow));
+      }
       [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
       if (Math.abs(c.diff || 0) <= CENT && Math.abs(crnNow) > CENT) {
         c.note = 'OK — το καθολικό ΟΑΥ κρατά την αμοιβή ΚΑΘΑΡΗ από τις διορθώσεις '
@@ -497,6 +546,12 @@ function buildCrosschecks(bundle) {
     if (bundle.pharma) {
       const c = checks[checks.length - 1];
       c.sraSide = round2(bundle.pharma.total + phAdjNow);
+      c.labelA = 'Καθολικό ΟΑΥ (GL)'; c.labelB = 'Αναφορά + SRA';
+      c.partsA = [P('Κέντρα κόστους 255xx (εκτός 25501)', gl.pharmaOther)];
+      c.partsB = [P('Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ (μικτά)', bundle.pharma.total)];
+      if (Math.abs(phAdjNow) > CENT) {
+        c.partsB.push(P('Διορθώσεις φαρμάκων τρέχοντος μήνα (CRN/OTC, SRA)', phAdjNow));
+      }
       [c.note, c.flag] = annotate('PHARMA GL', c.sraSide, c.sourceTotal);
       if (Math.abs(c.diff || 0) <= CENT) {
         c.note = 'OK — ταυτίζεται (ties out).';
@@ -561,6 +616,9 @@ function buildCrosschecks(bundle) {
         'IS Auditor org-wide detail; μικρές διαφορές στρογγυλοποίησης.',
         bundle.inpatient ? endoBestTotal(bundle.inpatient) : claimsIp);
     const c = checks[checks.length - 1];
+    c.labelA = 'IS Auditor Report'; c.labelB = 'SRA';
+    c.partsA = [P('DRG / Fixed-fee αμοιβές', bundle.isaud.drgFees),
+                P('Κατάλογος Ζ (Procedures Total)', bundle.isaud.zCatalogue)];
     // per-row rounding across ~10k detail rows — the brief accepts small
     // tolerances (F1054: €0.45); the Diff cell still shows the live gap
     if (c.flag !== 'ok' && c.diff != null && Math.abs(c.diff) <= 5.00) {
@@ -615,6 +673,14 @@ function buildCrosschecks(bundle) {
       cx.cheques = cheques.length === allCheques.length ? [] : cheques.slice().sort();
       cx.minus = cap;
       cx.minusLabel = 'Κατά κεφαλήν ΠΙ (capitation) €';
+      cx.labelA = 'XML activity export'; cx.labelB = 'SRA (ίδιες επιταγές)';
+      cx.partsA = [P('Σύνολο export (όλες οι επιταγές)', x.total)];
+      if (Math.abs(dropped) > CENT) cx.partsA.push(P('μείον πράξεις άλλων επιταγών', -dropped));
+      cx.partsB = [P('SRA OS — εξωτερικά ιατρεία', ssum(['OS']), 'OS', cx.cheques),
+                   P('SRA NM — νοσηλευτές/μαίες', ssum(['NM']), 'NM', cx.cheques),
+                   P('SRA AP — επαγγελματίες υγείας', ssum(['AP']), 'AP', cx.cheques),
+                   P('SRA PD — ημερήσιες γραμμές ΠΙ', ssum(['PD']), 'PD', cx.cheques)];
+      if (Math.abs(cap) > CENT) cx.partsB.push(P('μείον κατά κεφαλήν ΠΙ (capitation)', -cap));
       const excluded = [];
       if (Math.abs(cap) > CENT) {
         excluded.push(['Κατά κεφαλήν ΠΙ μέσα στις γραμμές PD (capitation, δεν τιμολογείται ανά πράξη)', cap]);

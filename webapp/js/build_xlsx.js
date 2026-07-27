@@ -69,6 +69,7 @@ function buildWorkbook(result) {
     tabMatrix(wb, result);
   }
   tabCrosscheck(wb, result, sraTab, nLines);
+  tabAudit(wb, result, sraTab, nLines, zeroChecks);
   const splitTotalRow = tabSplit(wb, result, statedCell, zeroChecks);
   tabByDoctor(wb, result, sraTab, nLines, splitTotalRow);
   tabTruthMap(wb);
@@ -295,6 +296,136 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
     if (chk.flag === 'amber') ws.getCell(r, 5).fill = FILL_AMBER;
     r += 1;
   }
+  autosize(ws);
+}
+
+
+/* ------------------------------- tab: Ανάλυση_ελέγχων (audit trail) */
+
+/* The A or B half of a check name («X = Y», «X vs Y», «X ≈ Y») — used as the
+ * row label when a side has no itemised components. */
+function nameSide(name, first) {
+  const bits = String(name).split(/\s+(?:=|≈|vs)\s+/);
+  return bits.length > 1 ? (first ? bits[0] : bits[bits.length - 1]).trim() : String(name).trim();
+}
+
+function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
+  /* Every Source_crosscheck row written out as a full reconciliation: each
+   * side broken into its components, live subtotals, the difference, and a
+   * tie-back cell proving this sheet agrees with Source_crosscheck.  An
+   * auditor reads one block top to bottom and sees exactly which report
+   * figure, which SRA lines and which reconciling items make up each side. */
+  const ws = wb.addWorksheet('Ανάλυση_ελέγχων');
+  ws.getCell(1, 1).value = 'Ανάλυση ελέγχων — κάθε συμφωνία βήμα προς βήμα '
+    + '(audit trail: every check, both sides, live)';
+  ws.getCell(1, 1).font = { bold: true, color: { argb: NAVY } };
+  writeHeader(ws, 3, ['Στοιχείο (Item)', 'Ποσό (Amount €)', 'Πηγή (Source)',
+                      'Κωδικός SRA (code)', 'Επιταγή (cheque)']);
+  let r = 5;
+  result.crosschecks.forEach((chk, i) => {
+    if (chk.sraSide == null) return;
+    const ccRow = 2 + i;                       // its row on Source_crosscheck
+    const title = ws.getCell(r, 1);
+    title.value = `${i + 1}. ${chk.name}`;
+    title.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let col = 1; col <= 5; col++) ws.getCell(r, col).fill = FILL_SECTION;
+    r += 1;
+
+    const side = (parts, label, fallbackAmount, fallbackLabel, useCodes) => {
+      ws.getCell(r, 1).value = label;
+      ws.getCell(r, 1).font = { bold: true };
+      r += 1;
+      const first = r;
+      let rows = (parts || []).slice();
+      if (!rows.length && useCodes && chk.sraCodes && chk.sraCodes.length && sraTab) {
+        rows = chk.sraCodes.map((code) => ({ label: `SRA γραμμές ${code}`, amount: 0,
+                                             code, cheques: chk.cheques || [] }));
+      }
+      if (!rows.length) {
+        rows = [{ label: fallbackLabel, amount: fallbackAmount, code: '', cheques: [] }];
+      } else if (!(useCodes && rows.some((p) => p.code))) {
+        // never let an itemisation silently miss part of its side
+        const itemised = round2(rows.reduce((a, p) => a + p.amount, 0));
+        const gap = round2(fallbackAmount - itemised);
+        if (Math.abs(gap) > CENT) {
+          rows = rows.concat([{ label: 'Λοιπά μη αναλυμένα (not itemised)',
+                                amount: gap, code: '', cheques: [] }]);
+        }
+      }
+      for (const part of rows) {
+        ws.getCell(r, 1).value = '   ' + part.label;
+        ws.getCell(r, 1).font = F_INPUT;
+        if (part.code && sraTab) {
+          ws.getCell(r, 4).value = part.code;
+          ws.getCell(r, 4).font = F_INPUT;
+          const crit = `'${sraTab}'!$A$2:$A$${nLines},D${r}`;
+          if (part.cheques && part.cheques.length) {
+            // criteria always reference helper CELLS, never quoted strings
+            const terms = part.cheques.map((q, k) => {
+              ws.getCell(r, 5 + k).value = q;
+              ws.getCell(r, 5 + k).font = F_INPUT;
+              return `SUMIFS('${sraTab}'!$F$2:$F$${nLines},${crit},`
+                + `'${sraTab}'!$G$2:$G$${nLines},${colLetter(5 + k)}${r})`;
+            });
+            writeAmount(ws, r, 2, terms.join('+'), F_LINK);
+          } else {
+            writeAmount(ws, r, 2, `SUMIFS('${sraTab}'!$F$2:$F$${nLines},${crit})`, F_LINK);
+          }
+          ws.getCell(r, 3).value = sraTab;
+          ws.getCell(r, 3).font = F_INPUT;
+        } else {
+          writeAmount(ws, r, 2, part.amount, F_INPUT);
+          ws.getCell(r, 3).value = 'Αναφορά ΟΑΥ';
+          ws.getCell(r, 3).font = F_INPUT;
+        }
+        r += 1;
+      }
+      const last = r - 1;
+      ws.getCell(r, 1).value = `   Σύνολο — ${label}`;
+      ws.getCell(r, 1).font = { bold: true };
+      writeAmount(ws, r, 2, `SUM(B${first}:B${last})`, F_FORMULA).font = { bold: true };
+      const totalRow = r;
+      r += 1;
+      return totalRow;
+    };
+
+    const aTotal = side(chk.partsA, `Α — ${chk.labelA || 'Πηγή (source report)'}`,
+                        chk.sourceTotal, nameSide(chk.name, true), false);
+    const defaultB = sraTab ? 'SRA' : 'σύγκριση αναφοράς με αναφορά (report vs report)';
+    const bTotal = side(chk.partsB, `Β — ${chk.labelB || defaultB}`,
+                        chk.sraSide, nameSide(chk.name, false), true);
+
+    ws.getCell(r, 1).value = 'Διαφορά Α − Β (difference)';
+    ws.getCell(r, 1).font = { bold: true };
+    const diffCell = writeAmount(ws, r, 2, `B${aTotal}-B${bTotal}`, F_FORMULA);
+    diffCell.font = { bold: true };
+    if (chk.flag === 'red') diffCell.font = F_RED;
+    else if (chk.flag === 'amber') diffCell.font = F_AMBER;
+    else {
+      diffCell.fill = FILL_CHECK;   // ties: a zero-check the verifier recomputes
+      zeroChecks.push({ sheet: 'Ανάλυση_ελέγχων', addr: `B${r}` });
+    }
+    r += 1;
+    /* provable consistency with Source_crosscheck: both sides must equal the
+     * figures printed there */
+    for (const [label, thisRow, ccCol] of [
+      ['Έλεγχος: Σύνολο Α = Source_crosscheck (must be 0)', aTotal, 'B'],
+      ['Έλεγχος: Σύνολο Β = Source_crosscheck (must be 0)', bTotal, 'C']]) {
+      ws.getCell(r, 1).value = label;
+      writeAmount(ws, r, 2, `B${thisRow}-'Source_crosscheck'!${ccCol}${ccRow}`,
+                  F_FORMULA).fill = FILL_CHECK;
+      zeroChecks.push({ sheet: 'Ανάλυση_ελέγχων', addr: `B${r}` });
+      r += 1;
+    }
+    if (chk.note) {
+      const note = ws.getCell(r, 1);
+      note.value = 'Σημείωση (note): ' + chk.note;
+      note.font = { italic: true, color: { argb: GRAY } };
+      note.alignment = { wrapText: true, vertical: 'top' };
+      r += 1;
+    }
+    r += 1;
+  });
   autosize(ws);
 }
 
@@ -600,6 +731,9 @@ function tabLegend(wb) {
   }
   r += 1;
   const notes = [
+    'Ανάλυση_ελέγχων: κάθε έλεγχος του Source_crosscheck γραμμένος αναλυτικά — τα συστατικά κάθε '
+      + 'πλευράς, ζωντανά υποσύνολα, η διαφορά, και δύο κελιά που αποδεικνύουν ότι το φύλλο συμφωνεί '
+      + 'με το Source_crosscheck (audit trail: every check, both sides, component by component).',
     'Κάθε υποσύνολο/σύνολο/διαφορά είναι ζωντανός τύπος — αλλάζοντας ένα μπλε κελί, το βιβλίο ξανα-δένει ή δείχνει το σπάσιμο.',
     'Never plug a difference: κάθε ανεξήγητη διαφορά εμφανίζεται με τις δύο πλευρές και το άνοιγμα.',
     'Stateless: όλα τρέχουν στον browser — κανένα αρχείο δεν φεύγει από τον υπολογιστή σας.',

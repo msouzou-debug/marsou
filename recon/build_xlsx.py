@@ -22,7 +22,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter, range_boundaries
 
-from .checks import CENT, ReconResult
+from .checks import CENT, CheckPart as _Part, ReconResult
 from .models import (Bucket, BUCKET_ORDER, HOSPITALS, MONTH_NAMES_EL,
                      PHARMACIST_FEE_UNIT_PRICE)
 
@@ -73,6 +73,7 @@ def build_workbook(result: ReconResult) -> bytes:
     else:
         _tab_matrix(wb, result)
     _tab_crosscheck(wb, result, sra_tab, n_lines)
+    _tab_audit(wb, result, sra_tab, n_lines)
     split_total_row = _tab_split(wb, result, stated_cell)
     _tab_by_doctor(wb, result, sra_tab, n_lines, split_total_row)
     _tab_truth_map(wb)
@@ -307,6 +308,136 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
         note = ws.cell(row=r, column=5, value=chk.note)
         if chk.flag == "amber":
             note.fill = FILL_AMBER
+        r += 1
+    _autosize(ws)
+
+
+_NAME_SPLIT_RE = re.compile(r"\s+(?:=|≈|vs)\s+")
+
+
+def _name_side(name: str, first: bool) -> str:
+    """The A or B half of a check name («X = Y», «X vs Y», «X ≈ Y») — used as
+    the row label when a side has no itemised components."""
+    bits = _NAME_SPLIT_RE.split(name)
+    return (bits[0] if first else bits[-1]).strip() if len(bits) > 1 else name.strip()
+
+
+# ------------------------------------------- tab: Ανάλυση_ελέγχων (audit)
+
+def _tab_audit(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
+               n_lines: int) -> None:
+    """Every Source_crosscheck row written out as a full reconciliation:
+    each side broken into its components, live subtotals, the difference,
+    and a tie-back cell proving this sheet agrees with Source_crosscheck.
+
+    An auditor reads one block top to bottom and sees exactly which report
+    figure, which SRA lines and which reconciling items make up each side —
+    nothing is asserted in prose only."""
+    ws = wb.create_sheet("Ανάλυση_ελέγχων")
+    ws.cell(row=1, column=1,
+            value="Ανάλυση ελέγχων — κάθε συμφωνία βήμα προς βήμα "
+                  "(audit trail: every check, both sides, live)"
+            ).font = Font(bold=True, color=NAVY)
+    _header(ws, 3, ["Στοιχείο (Item)", "Ποσό (Amount €)", "Πηγή (Source)",
+                    "Κωδικός SRA (code)", "Επιταγή (cheque)"])
+    r = 5
+    for i, chk in enumerate(result.crosschecks):
+        if chk.sra_side is None:
+            continue                      # nothing to reconcile against
+        cc_row = 2 + i                    # its row on Source_crosscheck
+        title = ws.cell(row=r, column=1, value=f"{i + 1}. {chk.name}")
+        title.font = Font(bold=True, color="FFFFFF")
+        title.fill = FILL_SECTION
+        for col in range(2, 6):
+            ws.cell(row=r, column=col).fill = FILL_SECTION
+        r += 1
+
+        def _side(parts, label, fallback_amount, fallback_label, use_codes):
+            """Write one side's components; returns (first_row, last_row)."""
+            nonlocal r
+            ws.cell(row=r, column=1, value=label).font = Font(bold=True)
+            r += 1
+            first = r
+            rows = list(parts)
+            if not rows and use_codes and chk.sra_codes and sra_tab:
+                rows = [_Part(f"SRA γραμμές {code}", 0.0, code, chk.cheques)
+                        for code in chk.sra_codes]
+            if not rows:
+                rows = [_Part(fallback_label, fallback_amount, "", [])]
+            else:
+                # never let an itemisation silently miss part of its side
+                itemised = round(sum(p.amount for p in rows), 2)
+                if not (use_codes and any(p.code for p in rows)):
+                    gap = round(fallback_amount - itemised, 2)
+                    if abs(gap) > CENT:
+                        rows = rows + [_Part("Λοιπά μη αναλυμένα (not itemised)",
+                                             gap, "", [])]
+            for part in rows:
+                ws.cell(row=r, column=1, value="   " + part.label).font = F_INPUT
+                if part.code and sra_tab:
+                    ws.cell(row=r, column=4, value=part.code).font = F_INPUT
+                    crit = f"'{sra_tab}'!$A$2:$A${n_lines},D{r}"
+                    if part.cheques:
+                        # criteria always reference helper CELLS, never
+                        # quoted strings — one cell per cheque, from col E
+                        terms = []
+                        for k, q in enumerate(part.cheques):
+                            ws.cell(row=r, column=5 + k, value=q).font = F_INPUT
+                            qc = f"{get_column_letter(5 + k)}{r}"
+                            terms.append(
+                                f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},{crit},"
+                                f"'{sra_tab}'!$G$2:$G${n_lines},{qc})")
+                        _amount(ws, r, 2, "=" + "+".join(terms), F_LINK)
+                    else:
+                        _amount(ws, r, 2,
+                                f"=SUMIFS('{sra_tab}'!$F$2:$F${n_lines},{crit})",
+                                F_LINK)
+                    ws.cell(row=r, column=3, value=sra_tab).font = F_INPUT
+                else:
+                    _amount(ws, r, 2, part.amount, F_INPUT)
+                    ws.cell(row=r, column=3, value="Αναφορά ΟΑΥ").font = F_INPUT
+                r += 1
+            last = r - 1
+            ws.cell(row=r, column=1, value=f"   Σύνολο — {label}").font = Font(bold=True)
+            _amount(ws, r, 2, f"=SUM(B{first}:B{last})", F_FORMULA)
+            ws.cell(row=r, column=2).font = Font(bold=True)
+            total_row = r
+            r += 1
+            return total_row
+
+        a_total = _side(chk.parts_a, f"Α — {chk.label_a or 'Πηγή (source report)'}",
+                        chk.source_total, _name_side(chk.name, True), False)
+        default_b = "SRA" if sra_tab else "σύγκριση αναφοράς με αναφορά (report vs report)"
+        b_total = _side(chk.parts_b, f"Β — {chk.label_b or default_b}",
+                        chk.sra_side, _name_side(chk.name, False), True)
+
+        ws.cell(row=r, column=1, value="Διαφορά Α − Β (difference)").font = Font(bold=True)
+        _amount(ws, r, 2, f"=B{a_total}-B{b_total}", F_FORMULA)
+        cell = ws.cell(row=r, column=2)
+        cell.font = Font(bold=True)
+        if chk.flag == "red":
+            cell.font = F_RED
+        elif chk.flag == "amber":
+            cell.font = F_AMBER
+        else:
+            cell.fill = FILL_CHECK      # ties: a zero-check gate 5 recomputes
+        r += 1
+        # provable consistency with Source_crosscheck: both sides must equal
+        # the figures printed there
+        for label, this_row, cc_col in (
+                ("Έλεγχος: Σύνολο Α = Source_crosscheck (must be 0)", a_total, "B"),
+                ("Έλεγχος: Σύνολο Β = Source_crosscheck (must be 0)", b_total, "C")):
+            ws.cell(row=r, column=1, value=label)
+            _amount(ws, r, 2,
+                    f"=B{this_row}-'Source_crosscheck'!{cc_col}{cc_row}",
+                    F_FORMULA)
+            ws.cell(row=r, column=2).fill = FILL_CHECK
+            r += 1
+        if chk.note:
+            note = ws.cell(row=r, column=1, value="Σημείωση (note): " + chk.note)
+            note.font = Font(italic=True, color=GRAY)
+            note.alignment = Alignment(wrap_text=True, vertical="top")
+            r += 1
         r += 1
     _autosize(ws)
 
@@ -656,6 +787,10 @@ def _tab_legend(wb: Workbook, result: ReconResult) -> None:
         "Source_crosscheck: οι στήλες Α και Β ακολουθούν τη σειρά του ονόματος "
         "του ελέγχου. Π.χ. «GL ΟΑΥ 25501 vs Αναφορά Αμοιβής» → Α = το ποσό του "
         "καθολικού ΟΑΥ, Β = το ποσό της αναφοράς αμοιβής (packages × τιμή).",
+        "Ανάλυση_ελέγχων: κάθε έλεγχος του Source_crosscheck γραμμένος αναλυτικά — "
+        "τα συστατικά κάθε πλευράς, ζωντανά υποσύνολα, η διαφορά, και δύο κελιά "
+        "που αποδεικνύουν ότι το φύλλο συμφωνεί με το Source_crosscheck "
+        "(audit trail: every check, both sides, component by component).",
         "Κάθε υποσύνολο/σύνολο/διαφορά είναι ζωντανός τύπος — αλλάζοντας ένα μπλε κελί, "
         "το βιβλίο ξανα-δένει ή δείχνει το σπάσιμο.",
         "Never plug a difference: κάθε ανεξήγητη διαφορά εμφανίζεται με τις δύο πλευρές και το άνοιγμα.",
