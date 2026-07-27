@@ -207,8 +207,12 @@ def _tab_matrix(wb: Workbook, result: ReconResult) -> None:
 def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
                     n_lines: int) -> None:
     ws = wb.create_sheet("Source_crosscheck")
-    _header(ws, 1, ["Έλεγχος (Check)", "Σύνολο πηγής (Source total €)",
-                    "Πλευρά SRA (SRA side €)", "Διαφορά (Diff €)", "Σημείωση (Note)",
+    # column names follow the CHECK NAME order: A = the first thing named,
+    # B = the second.  (A is not always "the source report" — on GL rows A is
+    # the ΟΑΥ ledger and B the report it is compared with.)
+    _header(ws, 1, ["Έλεγχος: Α = Β (Check)", "Α — ποσό πρώτης πηγής (Amount A €)",
+                    "Β — ποσό δεύτερης πηγής / SRA (Amount B €)",
+                    "Διαφορά Α−Β (Diff €)", "Σημείωση (Note)",
                     "Συσκευασίες (Packages)", "Τιμή μονάδας (Unit €)",
                     "Κωδικοί SRA (codes)"])
     r = 2
@@ -616,6 +620,9 @@ def _tab_legend(wb: Workbook, result: ReconResult) -> None:
         r += 1
     r += 1
     notes = [
+        "Source_crosscheck: οι στήλες Α και Β ακολουθούν τη σειρά του ονόματος "
+        "του ελέγχου. Π.χ. «GL ΟΑΥ 25501 vs Αναφορά Αμοιβής» → Α = το ποσό του "
+        "καθολικού ΟΑΥ, Β = το ποσό της αναφοράς αμοιβής (packages × τιμή).",
         "Κάθε υποσύνολο/σύνολο/διαφορά είναι ζωντανός τύπος — αλλάζοντας ένα μπλε κελί, "
         "το βιβλίο ξανα-δένει ή δείχνει το σπάσιμο.",
         "Never plug a difference: κάθε ανεξήγητη διαφορά εμφανίζεται με τις δύο πλευρές και το άνοιγμα.",

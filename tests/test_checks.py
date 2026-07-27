@@ -616,3 +616,18 @@ def test_crosscheck_mode_matrix():
     assert ip["range"] == 0.0          # three-way tie
     fee = next(r for r in res.matrix if "Φαρμακοποιού" in r["stream"])
     assert fee["range"] == round(24_000.00 - 12_921.60, 2)
+
+
+def test_gl_fee_row_names_and_orders_its_two_sides():
+    # the GL 25501 row compares the ΟΑΥ LEDGER (A) with the fee REPORT (B):
+    # column A must carry the ledger figure, not the fee — the row name
+    # states the order, and the fee's own check keeps packages × unit
+    res = run_reconciliation(full_bundle(with_optional=True))
+    gl_fee = next(c for c in res.crosschecks if "25501" in c.name)
+    assert gl_fee.name.startswith("GL ΟΑΥ λογ. 25501")
+    assert gl_fee.source_total == 24_000.00          # GL ledger side (A)
+    assert gl_fee.sra_side == 12_921.60              # fee report side (B)
+    assert gl_fee.flag == "amber"
+    fee = next(c for c in res.crosschecks
+               if "Φαρμακοποιού (packages" in c.name and "25501" not in c.name)
+    assert fee.source_total == 12_921.60             # 8.076 × 1,60

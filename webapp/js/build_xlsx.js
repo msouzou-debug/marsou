@@ -190,8 +190,12 @@ function tabMatrix(wb, result) {
 
 function tabCrosscheck(wb, result, sraTab, nLines) {
   const ws = wb.addWorksheet('Source_crosscheck');
-  writeHeader(ws, 1, ['Έλεγχος (Check)', 'Σύνολο πηγής (Source total €)',
-                      'Πλευρά SRA (SRA side €)', 'Διαφορά (Diff €)', 'Σημείωση (Note)',
+  // column names follow the CHECK NAME order: A = the first thing named,
+  // B = the second.  (A is not always "the source report" — on GL rows A is
+  // the ΟΑΥ ledger and B the report it is compared with.)
+  writeHeader(ws, 1, ['Έλεγχος: Α = Β (Check)', 'Α — ποσό πρώτης πηγής (Amount A €)',
+                      'Β — ποσό δεύτερης πηγής / SRA (Amount B €)',
+                      'Διαφορά Α−Β (Diff €)', 'Σημείωση (Note)',
                       'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)',
                       'Κωδικοί SRA (codes)']);
   let r = 2;

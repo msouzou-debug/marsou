@@ -236,11 +236,11 @@ function annotate(name, source, sraSide, flagHint) {
     return ['Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο καθολικό της ΟΑΥ '
       + '(HIO-ledger classification, not cash).', 'amber'];
   }
-  if (up.includes('PHARMACIST') && up.includes('GL')) {
+  if ((up.includes('PHARMACIST') || up.includes('25501')) && up.includes('GL')) {
     return ['GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό θέμα ταξινόμησης '
       + 'στο καθολικό της ΟΑΥ (known HIO-ledger booking issue), flag amber.', 'amber'];
   }
-  if (up.includes('PHARMA') && up.includes('GL') && diff > 0) {
+  if ((up.includes('PHARMA') || up.includes('ΦΑΡΜΑΚΑ')) && up.includes('GL') && diff > 0) {
     return ['Pharma claims gross above GL: generics/discounts/co-pay reclass στο καθολικό '
       + 'της ΟΑΥ (HIO ledger).', 'amber'];
   }
@@ -465,7 +465,7 @@ function buildCrosschecks(bundle) {
         claimsOut);
     // the SRA pays the fee invoice inside the daily PH lines, so compare
     // GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
-    add('GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) vs αναφορά αμοιβής',
+    add('GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού (packages × τιμή μονάδας)',
         gl.pharmacistFee, []);
     if (bundle.phfee) {
       const c = checks[checks.length - 1];

@@ -383,11 +383,11 @@ def _annotate(name: str, source: float, sra_side: Optional[float], flag_hint: st
     if "Z-CATALOGUE" in up and "GL" in up and diff < 0:
         return ("Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο "
                 "καθολικό της ΟΑΥ (HIO-ledger classification, not cash)."), "amber"
-    if "PHARMACIST" in up and "GL" in up:
+    if ("PHARMACIST" in up or "25501" in up) and "GL" in up:
         return ("GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό "
                 "θέμα ταξινόμησης στο καθολικό της ΟΑΥ (known HIO-ledger "
                 "booking issue), flag amber."), "amber"
-    if "PHARMA" in up and "GL" in up and diff > 0:
+    if ("PHARMA" in up or "ΦΑΡΜΑΚΑ" in up) and "GL" in up and diff > 0:
         return ("Pharma claims gross above GL: generics/discounts/co-pay "
                 "reclass στο καθολικό της ΟΑΥ (HIO ledger)."), "amber"
     if flag_hint:
@@ -623,8 +623,8 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             alt=claims_out)
         # the SRA pays the fee invoice inside the daily PH lines, so compare
         # GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
-        add("GL: Αμοιβή Φαρμακοποιού - pharmacist fee (25501) vs αναφορά "
-            "αμοιβής", gl.pharmacist_fee, [])
+        add("GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού "
+            "(packages × τιμή μονάδας)", gl.pharmacist_fee, [])
         if bundle.phfee:
             c = checks[-1]
             c.sra_side = bundle.phfee.computed
