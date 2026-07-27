@@ -651,13 +651,43 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                                f"({format_eur(crn_prior)}) βαρύνουν τα "
                                "καθολικά εκείνων των μηνών (prior-month "
                                "corrections belong to prior-month ledgers).")
-        add("GL: Φάρμακα (255xx) vs pharma claims gross", gl.pharma_other, [])
+        # same netting rule as the fee: the 255xx pharma centres are booked
+        # NET of the CURRENT month's CRN-Drugs/OTC deductions.  ISSUANCES /
+        # EOAF settlements are NOT there — they go to 11202192 (below).
+        # Verified Apr-2026 F1048: 1.477.341,74 − 114.331,91 = 1.363.009,83
+        ph_adj_now = (sra_sum_in_period(sra, ["PH-ADJ"], sra.year, sra.month, True)
+                      if sra else 0.0)
+        ph_adj_prior = (sra_sum_in_period(sra, ["PH-ADJ"], sra.year, sra.month, False)
+                        if sra else 0.0)
+        add("GL ΟΑΥ Φάρμακα 255xx (καθολικό) vs Πληρωμένες ΦΑΡΜΑΚΑ "
+            "+ διορθώσεις τρέχοντος μήνα", gl.pharma_other, [])
         if bundle.pharma:
             c = checks[-1]
-            c.sra_side = bundle.pharma.total
-            # source=GL, comparison=claims; per brief the note is on claims>GL
+            c.sra_side = round(bundle.pharma.total + ph_adj_now, 2)
             c.note, c.flag = _annotate("PHARMA GL", c.sra_side, c.source_total)
-            c.note = c.note if abs(c.diff or 0) > CENT else "OK — ταυτίζεται (ties out)"
+            if abs(c.diff or 0) <= CENT:
+                c.note = "OK — ταυτίζεται (ties out)."
+                if abs(ph_adj_now) > CENT:
+                    c.note = ("OK — το καθολικό ΟΑΥ κρατά τα φάρμακα ΚΑΘΑΡΑ από "
+                              "τις διορθώσεις (CRN-Drugs/OTC) του ίδιου μήνα: "
+                              f"{format_eur(bundle.pharma.total)} "
+                              f"{format_eur(ph_adj_now)} = {format_eur(c.sra_side)}.")
+                    if abs(ph_adj_prior) > CENT:
+                        c.note += (f" Διορθώσεις προηγούμενων μηνών: "
+                                   f"{format_eur(ph_adj_prior)} (σε εκείνα τα καθολικά).")
+        # EOAF / ISSUANCES settlements land on the balance-sheet account
+        if sra and any(l.code == "PH-EOAF" for l in sra.lines):
+            eoaf_now = sra_sum_in_period(sra, ["PH-EOAF"], sra.year, sra.month, True)
+            add("GL ΟΑΥ λογ. 11202192 (AR- Unearned Revenue- EOAF) = SRA "
+                "ISSUANCES/EOAF τρέχοντος μήνα", gl.unearned_eoaf, [])
+            c = checks[-1]
+            c.sra_side = eoaf_now
+            c.note, c.flag = _annotate(c.name, c.source_total, c.sra_side)
+            if abs(c.diff or 0) <= CENT:
+                c.note = ("OK — οι τακτοποιήσεις EOAF/ISSUANCES δεν περνούν από "
+                          "τα κέντρα κόστους φαρμάκων· βιβλιώνονται στον "
+                          "λογαριασμό ισολογισμού 11202192 (balance-sheet "
+                          "account, not the 255xx pharma centres).")
         if gl.capitation:
             if sra and "PD-CAP" in sra_code_set:
                 add("GL: Capitation (51001001) = SRA PD capitation",
@@ -922,6 +952,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     if ph_adj:
         ph.rows.append(SplitRow(
             "Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)", ph_adj))
+    ph_eoaf = sra_amount(["PH-EOAF"])
+    if ph_eoaf:
+        ph.rows.append(SplitRow(
+            "Φάρμακα — τακτοποιήσεις EOAF/ISSUANCES (GL 11202192 unearned "
+            "revenue)", ph_eoaf))
     ph_prior = sra_amount(["PH-PRIOR"])
     if ph_prior:
         ph.rows.append(SplitRow(

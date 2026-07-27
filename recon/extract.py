@@ -559,6 +559,10 @@ SRA_CODE_MAP: dict[str, tuple[Bucket, str, str]] = {
     # pharmacy credit notes / deductions / manual adjustments — kept apart
     # from the daily PH lines so «claims gross = PH − fee» ties exactly
     "PH-ADJ": (Bucket.PHARMA, "Adjustment", "Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ"),
+    # ISSUANCES / EOAF settlements: ΟΑΥ books these to the balance-sheet
+    # account 11202192 «AR- Unearned Revenue- EOAF», not to the 255xx
+    # pharma centres — so they must not pollute the pharma tie
+    "PH-EOAF": (Bucket.PHARMA, "EOAF settlement", "—"),
     # A&E-referral and similar A&E adjustments, apart from the daily AE lines
     "AE-ADJ": (Bucket.AE, "Adjustment", "Πληρωμένες Απαιτήσεις «all»"),
     # «ADJ-AE Referral IS» deductions: GL books them against inpatient
@@ -672,6 +676,9 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
             # «ADJ-DRG- IS - Year End Adj.»: prior-year settlement, not part
             # of the month's inpatient claims
             code = "IS-PRIOR"
+        elif (code in ("PH", "PHD", "PHC") and _ADJ_MARKER_RE.search(up_desc)
+                and ("ISSUANCE" in up_desc or "EOAF" in up_desc)):
+            code = "PH-EOAF"
         elif code in ("PH", "PHD", "PHC") and _ADJ_MARKER_RE.search(up_desc):
             code = "PH-ADJ"
         elif (code in ("AE", "A&E", "IS") and _ADJ_MARKER_RE.search(up_desc)
@@ -890,6 +897,8 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
             centre = str(row[cc]).strip().split(".")[0] if cc else ""
             if account == "51001001":
                 out.capitation += amount
+            elif account == "11202192":
+                out.unearned_eoaf += amount
             elif centre == "26001":
                 out.regular_drg += amount
             elif centre == "26002":
@@ -907,7 +916,8 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
             else:
                 out.other += amount
         for attr in ("regular_drg", "specialized", "z_catalogue", "ae", "pharmacist_fee",
-                     "pharma_other", "outpatient", "capitation", "other"):
+                     "pharma_other", "outpatient", "capitation", "unearned_eoaf",
+                     "other"):
             setattr(out, attr, round(getattr(out, attr), 2))
         return out
     raise ExtractionError("GL extract: δεν βρέθηκαν στήλες VENDOR_CODE / EURO_AMOUNT")

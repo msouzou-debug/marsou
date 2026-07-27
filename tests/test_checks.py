@@ -657,3 +657,38 @@ def test_gl_fee_reconciles_with_current_month_crn_packages():
     assert c.flag == "ok" and c.diff == 0.0
     assert "ΚΑΘΑΡΗ" in c.note                   # explains the netting
     assert "6.079,33" in c.note                 # prior-month corrections named
+
+
+def test_gl_pharma_and_eoaf_reconcile_with_current_month_adjustments():
+    # Apr-2026 F1048, verified against the REAL SRA + GL:
+    #   GL 255xx (excl. fee) = pharma claims gross + current-month CRN/OTC
+    #   1.477.341,74 − 114.331,91 = 1.363.009,83
+    #   and the ISSUANCES/EOAF line lands on GL 11202192, not on 255xx
+    from recon.models import GLExtract, PharmaClaims, SRALine
+    b = full_bundle()
+    b.sra.year, b.sra.month = 2026, 4
+    b.pharma = PharmaClaims(by_type={"Drugs": 1_473_545.70, "Consumables": 3_796.04})
+    for date, amt, desc in [
+        ("30/04/2026", -101_458.50, "CRN-Drugs- PH - DEDUCTIONS-Drugs-Phase2-"),
+        ("30/04/2026", -5_072.93, "CRN-Drugs- PH - DEDUCTIONS-Drugs-Phase2-VAT"),
+        ("30/04/2026", -6_512.38, "OTC-CORR- PH-OTC-CORR-COST-04-2026"),
+        ("30/04/2026", -325.62, "OTC-CORR-VAT- PH-OTC-CORR-VAT-04-2026"),
+        ("30/04/2026", -962.48, "CRN-Drugs- CRN-Drugs-Phase1-COST&VAT-MAR"),
+        ("31/03/2026", -189_967.50, "CRN-Drugs- PH - DEDUCTIONS-Drugs-Phase2-"),
+    ]:
+        b.sra.lines.append(SRALine(code="PH-ADJ", date=date, amount=amt,
+                                   description=f"{date} {desc}", bucket=Bucket.PHARMA,
+                                   channel="Adjustment", source_report="—"))
+    b.sra.lines.append(SRALine(
+        code="PH-EOAF", date="30/04/2026", amount=-4_000_000.00,
+        description="30/04/2026 ISSUANCES ISSUANCES 11.24-10.25",
+        bucket=Bucket.PHARMA, channel="EOAF settlement", source_report="—"))
+    b.gl = GLExtract(pharma_other=1_363_009.83, unearned_eoaf=-4_000_000.00)
+    res = run_reconciliation(b)
+    ph = next(c for c in res.crosschecks if "Φάρμακα 255xx" in c.name)
+    assert ph.source_total == 1_363_009.83      # A: ΟΑΥ ledger
+    assert ph.sra_side == 1_363_009.83          # B: claims + current-month adj
+    assert ph.flag == "ok" and "ΚΑΘΑΡΑ" in ph.note
+    eoaf = next(c for c in res.crosschecks if "11202192" in c.name)
+    assert eoaf.source_total == -4_000_000.00 and eoaf.sra_side == -4_000_000.00
+    assert eoaf.flag == "ok"

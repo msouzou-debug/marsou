@@ -486,12 +486,42 @@ function buildCrosschecks(bundle) {
         }
       }
     }
-    add('GL: Φάρμακα (255xx) vs pharma claims gross', gl.pharmaOther, []);
+    // same netting rule as the fee: the 255xx pharma centres are booked NET
+    // of the CURRENT month's CRN-Drugs/OTC deductions.  ISSUANCES / EOAF
+    // settlements are NOT there — they go to 11202192 (below).
+    const phAdjNow = sra ? sraSumInPeriod(sra, ['PH-ADJ'], sra.year, sra.month, true) : 0;
+    const phAdjPrior = sra ? sraSumInPeriod(sra, ['PH-ADJ'], sra.year, sra.month, false) : 0;
+    add('GL ΟΑΥ Φάρμακα 255xx (καθολικό) vs Πληρωμένες ΦΑΡΜΑΚΑ + διορθώσεις τρέχοντος μήνα',
+        gl.pharmaOther, []);
     if (bundle.pharma) {
       const c = checks[checks.length - 1];
-      c.sraSide = bundle.pharma.total;
+      c.sraSide = round2(bundle.pharma.total + phAdjNow);
       [c.note, c.flag] = annotate('PHARMA GL', c.sraSide, c.sourceTotal);
-      if (Math.abs(c.diff || 0) <= CENT) c.note = 'OK — ταυτίζεται (ties out)';
+      if (Math.abs(c.diff || 0) <= CENT) {
+        c.note = 'OK — ταυτίζεται (ties out).';
+        if (Math.abs(phAdjNow) > CENT) {
+          c.note = 'OK — το καθολικό ΟΑΥ κρατά τα φάρμακα ΚΑΘΑΡΑ από τις διορθώσεις '
+            + `(CRN-Drugs/OTC) του ίδιου μήνα: ${formatEur(bundle.pharma.total)} `
+            + `${formatEur(phAdjNow)} = ${formatEur(c.sraSide)}.`;
+          if (Math.abs(phAdjPrior) > CENT) {
+            c.note += ` Διορθώσεις προηγούμενων μηνών: ${formatEur(phAdjPrior)} (σε εκείνα τα καθολικά).`;
+          }
+        }
+      }
+    }
+    // EOAF / ISSUANCES settlements land on the balance-sheet account
+    if (sra && sra.lines.some((l) => l.code === 'PH-EOAF')) {
+      const eoafNow = sraSumInPeriod(sra, ['PH-EOAF'], sra.year, sra.month, true);
+      add('GL ΟΑΥ λογ. 11202192 (AR- Unearned Revenue- EOAF) = SRA ISSUANCES/EOAF τρέχοντος μήνα',
+          gl.unearnedEoaf, []);
+      const c = checks[checks.length - 1];
+      c.sraSide = eoafNow;
+      [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+      if (Math.abs(c.diff || 0) <= CENT) {
+        c.note = 'OK — οι τακτοποιήσεις EOAF/ISSUANCES δεν περνούν από τα κέντρα κόστους '
+          + 'φαρμάκων· βιβλιώνονται στον λογαριασμό ισολογισμού 11202192 (balance-sheet '
+          + 'account, not the 255xx pharma centres).';
+      }
     }
     if (gl.capitation) {
       if (sra && sraCodeSet.has('PD-CAP')) {
@@ -735,6 +765,11 @@ function buildSplit(bundle) {
   }
   const phAdj = sraAmount(['PH-ADJ']);
   if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });
+  const phEoaf = sraAmount(['PH-EOAF']);
+  if (phEoaf) {
+    ph.rows.push({ label: 'Φάρμακα — τακτοποιήσεις EOAF/ISSUANCES (GL 11202192 unearned revenue)',
+                   amount: phEoaf });
+  }
   const phPrior = sraAmount(['PH-PRIOR']);
   if (phPrior) {
     ph.rows.push({ label: 'Τακτοποίηση προηγούμενων περιόδων — φάρμακα (prior-period settlement, e.g. innovative antibiotics)',

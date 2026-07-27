@@ -1454,6 +1454,10 @@ const SRA_CODE_MAP = {
   // pharmacy credit notes / deductions / manual adjustments — kept apart
   // from the daily PH lines so «claims gross = PH − fee» ties exactly
   'PH-ADJ': ['Pharma', 'Adjustment', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
+  // ISSUANCES / EOAF settlements: ΟΑΥ books these to the balance-sheet
+  // account 11202192 «AR- Unearned Revenue- EOAF», not to the 255xx pharma
+  // centres — so they must not pollute the pharma tie
+  'PH-EOAF': ['Pharma', 'EOAF settlement', '—'],
   // A&E-referral and similar A&E adjustments, apart from the daily AE lines
   'AE-ADJ': ['A&E', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
   // «ADJ-AE Referral IS» deductions: GL books them against inpatient
@@ -1554,6 +1558,8 @@ function classifySraLine(code, description) {
       // the month's inpatient claims
       code = 'IS-PRIOR';
     }
+    else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)
+             && (upDesc.includes('ISSUANCE') || upDesc.includes('EOAF'))) code = 'PH-EOAF';
     else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)) code = 'PH-ADJ';
     else if ((code === 'AE' || code === 'A&E' || code === 'IS') && ADJ_MARKER_RE.test(upDesc)
              && upDesc.includes('REFERRAL') && /\bIS\b/.test(upDesc)) {
@@ -1717,13 +1723,15 @@ function extractGl(bytes, hospitalCode) {
     const acc = colIndex(cols, 'ACCOUNT');
     const amt = colIndex(cols, 'EURO_AMOUNT');
     const out = { regularDrg: 0, specialized: 0, zCatalogue: 0, ae: 0,
-                  pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0, other: 0 };
+                  pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0,
+                  unearnedEoaf: 0, other: 0 };
     for (const r of body) {
       if (r[vc] == null || cellText(r[vc]).trim().toUpperCase() !== hospitalCode.toUpperCase()) continue;
       const amount = parseAmount(r[amt]);
       const account = acc != null && r[acc] != null ? cellText(r[acc]).trim().split('.')[0] : '';
       const centre = cc != null && r[cc] != null ? cellText(r[cc]).trim().split('.')[0] : '';
       if (account === '51001001') out.capitation += amount;
+      else if (account === '11202192') out.unearnedEoaf += amount;
       else if (centre === '26001') out.regularDrg += amount;
       else if (centre === '26002') out.specialized += amount;
       else if (centre === '26003' || centre === '26007') out.zCatalogue += amount;
@@ -2449,12 +2457,42 @@ function buildCrosschecks(bundle) {
         }
       }
     }
-    add('GL: Φάρμακα (255xx) vs pharma claims gross', gl.pharmaOther, []);
+    // same netting rule as the fee: the 255xx pharma centres are booked NET
+    // of the CURRENT month's CRN-Drugs/OTC deductions.  ISSUANCES / EOAF
+    // settlements are NOT there — they go to 11202192 (below).
+    const phAdjNow = sra ? sraSumInPeriod(sra, ['PH-ADJ'], sra.year, sra.month, true) : 0;
+    const phAdjPrior = sra ? sraSumInPeriod(sra, ['PH-ADJ'], sra.year, sra.month, false) : 0;
+    add('GL ΟΑΥ Φάρμακα 255xx (καθολικό) vs Πληρωμένες ΦΑΡΜΑΚΑ + διορθώσεις τρέχοντος μήνα',
+        gl.pharmaOther, []);
     if (bundle.pharma) {
       const c = checks[checks.length - 1];
-      c.sraSide = bundle.pharma.total;
+      c.sraSide = round2(bundle.pharma.total + phAdjNow);
       [c.note, c.flag] = annotate('PHARMA GL', c.sraSide, c.sourceTotal);
-      if (Math.abs(c.diff || 0) <= CENT) c.note = 'OK — ταυτίζεται (ties out)';
+      if (Math.abs(c.diff || 0) <= CENT) {
+        c.note = 'OK — ταυτίζεται (ties out).';
+        if (Math.abs(phAdjNow) > CENT) {
+          c.note = 'OK — το καθολικό ΟΑΥ κρατά τα φάρμακα ΚΑΘΑΡΑ από τις διορθώσεις '
+            + `(CRN-Drugs/OTC) του ίδιου μήνα: ${formatEur(bundle.pharma.total)} `
+            + `${formatEur(phAdjNow)} = ${formatEur(c.sraSide)}.`;
+          if (Math.abs(phAdjPrior) > CENT) {
+            c.note += ` Διορθώσεις προηγούμενων μηνών: ${formatEur(phAdjPrior)} (σε εκείνα τα καθολικά).`;
+          }
+        }
+      }
+    }
+    // EOAF / ISSUANCES settlements land on the balance-sheet account
+    if (sra && sra.lines.some((l) => l.code === 'PH-EOAF')) {
+      const eoafNow = sraSumInPeriod(sra, ['PH-EOAF'], sra.year, sra.month, true);
+      add('GL ΟΑΥ λογ. 11202192 (AR- Unearned Revenue- EOAF) = SRA ISSUANCES/EOAF τρέχοντος μήνα',
+          gl.unearnedEoaf, []);
+      const c = checks[checks.length - 1];
+      c.sraSide = eoafNow;
+      [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+      if (Math.abs(c.diff || 0) <= CENT) {
+        c.note = 'OK — οι τακτοποιήσεις EOAF/ISSUANCES δεν περνούν από τα κέντρα κόστους '
+          + 'φαρμάκων· βιβλιώνονται στον λογαριασμό ισολογισμού 11202192 (balance-sheet '
+          + 'account, not the 255xx pharma centres).';
+      }
     }
     if (gl.capitation) {
       if (sra && sraCodeSet.has('PD-CAP')) {
@@ -2698,6 +2736,11 @@ function buildSplit(bundle) {
   }
   const phAdj = sraAmount(['PH-ADJ']);
   if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });
+  const phEoaf = sraAmount(['PH-EOAF']);
+  if (phEoaf) {
+    ph.rows.push({ label: 'Φάρμακα — τακτοποιήσεις EOAF/ISSUANCES (GL 11202192 unearned revenue)',
+                   amount: phEoaf });
+  }
   const phPrior = sraAmount(['PH-PRIOR']);
   if (phPrior) {
     ph.rows.push({ label: 'Τακτοποίηση προηγούμενων περιόδων — φάρμακα (prior-period settlement, e.g. innovative antibiotics)',

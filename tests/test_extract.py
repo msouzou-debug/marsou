@@ -153,7 +153,8 @@ def test_classify_splits_adjustments_from_daily_lines():
         "OTC-CORR-VAT- PH-OTC-CORR-VAT-04-2026": "PH-ADJ",
         "CRN-Drugs- CRN-Drugs-Phase1-COST&VAT": "PH-ADJ",       # PHD token
         "ADJ- Adjustment PharmacyLine - Feb26": "PH-ADJ",
-        "ISSUANCES ISSUANCES 11.24-10.25": "PH-ADJ",
+        "ISSUANCES ISSUANCES 11.24-10.25": "PH-EOAF",   # → GL 11202192
+        "Issuances of Issuances of EOAF & Mixed Drugs": "PH-EOAF",
         # GL books the referral deduction against inpatient income (26xxx)
         "ADJ-AE Referral IS - Adjustment for referrals": "IS-ADJ",
         "MANUAL ADJ AE - overpayment": "AE-ADJ",

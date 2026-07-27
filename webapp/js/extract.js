@@ -497,6 +497,10 @@ const SRA_CODE_MAP = {
   // pharmacy credit notes / deductions / manual adjustments — kept apart
   // from the daily PH lines so «claims gross = PH − fee» ties exactly
   'PH-ADJ': ['Pharma', 'Adjustment', 'Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ'],
+  // ISSUANCES / EOAF settlements: ΟΑΥ books these to the balance-sheet
+  // account 11202192 «AR- Unearned Revenue- EOAF», not to the 255xx pharma
+  // centres — so they must not pollute the pharma tie
+  'PH-EOAF': ['Pharma', 'EOAF settlement', '—'],
   // A&E-referral and similar A&E adjustments, apart from the daily AE lines
   'AE-ADJ': ['A&E', 'Adjustment', 'Πληρωμένες Απαιτήσεις «all»'],
   // «ADJ-AE Referral IS» deductions: GL books them against inpatient
@@ -597,6 +601,8 @@ function classifySraLine(code, description) {
       // the month's inpatient claims
       code = 'IS-PRIOR';
     }
+    else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)
+             && (upDesc.includes('ISSUANCE') || upDesc.includes('EOAF'))) code = 'PH-EOAF';
     else if ((code === 'PH' || code === 'PHD' || code === 'PHC') && ADJ_MARKER_RE.test(upDesc)) code = 'PH-ADJ';
     else if ((code === 'AE' || code === 'A&E' || code === 'IS') && ADJ_MARKER_RE.test(upDesc)
              && upDesc.includes('REFERRAL') && /\bIS\b/.test(upDesc)) {
@@ -760,13 +766,15 @@ function extractGl(bytes, hospitalCode) {
     const acc = colIndex(cols, 'ACCOUNT');
     const amt = colIndex(cols, 'EURO_AMOUNT');
     const out = { regularDrg: 0, specialized: 0, zCatalogue: 0, ae: 0,
-                  pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0, other: 0 };
+                  pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0,
+                  unearnedEoaf: 0, other: 0 };
     for (const r of body) {
       if (r[vc] == null || cellText(r[vc]).trim().toUpperCase() !== hospitalCode.toUpperCase()) continue;
       const amount = parseAmount(r[amt]);
       const account = acc != null && r[acc] != null ? cellText(r[acc]).trim().split('.')[0] : '';
       const centre = cc != null && r[cc] != null ? cellText(r[cc]).trim().split('.')[0] : '';
       if (account === '51001001') out.capitation += amount;
+      else if (account === '11202192') out.unearnedEoaf += amount;
       else if (centre === '26001') out.regularDrg += amount;
       else if (centre === '26002') out.specialized += amount;
       else if (centre === '26003' || centre === '26007') out.zCatalogue += amount;

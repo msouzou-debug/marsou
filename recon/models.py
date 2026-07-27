@@ -285,6 +285,7 @@ class GLExtract:
     pharma_other: float = 0.0      # other 255xx
     outpatient: float = 0.0        # remaining clinical 25xxx (OS+NM+AP)
     capitation: float = 0.0        # account 51001001
+    unearned_eoaf: float = 0.0     # account 11202192 (EOAF settlements)
     other: float = 0.0
 
     @property
