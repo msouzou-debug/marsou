@@ -237,8 +237,9 @@ function annotate(name, source, sraSide, flagHint) {
       + '(HIO-ledger classification, not cash).', 'amber'];
   }
   if ((up.includes('PHARMACIST') || up.includes('25501')) && up.includes('GL')) {
-    return ['GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό θέμα ταξινόμησης '
-      + 'στο καθολικό της ΟΑΥ (known HIO-ledger booking issue), flag amber.', 'amber'];
+    return ['GL ΟΑΥ ≈ flat booking vs report packages × τιμή μονάδας — γνωστό θέμα '
+      + 'ταξινόμησης στο καθολικό της ΟΑΥ (known HIO-ledger booking issue), flag amber.',
+      'amber'];
   }
   if ((up.includes('PHARMA') || up.includes('ΦΑΡΜΑΚΑ')) && up.includes('GL') && diff > 0) {
     return ['Pharma claims gross above GL: generics/discounts/co-pay reclass στο καθολικό '
@@ -522,6 +523,20 @@ function buildCrosschecks(bundle) {
           + 'φαρμάκων· βιβλιώνονται στον λογαριασμό ισολογισμού 11202192 (balance-sheet '
           + 'account, not the 255xx pharma centres).';
       }
+    }
+    if (Math.abs(gl.other) > CENT) {
+      /* a cost centre outside the map: never absorbed silently — show it,
+       * name the centres, and let the reviewer classify it */
+      const centres = Object.entries(gl.otherCentres || {})
+        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 8)
+        .map(([k, v]) => `${k}: ${formatEur(v)}`).join(', ');
+      add('GL ΟΑΥ: κέντρα κόστους εκτός χάρτη (unmapped cost centres)', gl.other, []);
+      const c = checks[checks.length - 1];
+      c.sraSide = 0;
+      c.flag = 'amber';
+      c.note = 'Ποσά του καθολικού ΟΑΥ σε κέντρα κόστους/λογαριασμούς που δεν καλύπτει '
+        + 'ο χάρτης — δεν εντάχθηκαν σε κανένα καλάθι (not mapped to any bucket): '
+        + centres + '. Στείλτε τα διαγνωστικά ώστε να προστεθούν στον χάρτη.';
     }
     if (gl.capitation) {
       if (sra && sraCodeSet.has('PD-CAP')) {

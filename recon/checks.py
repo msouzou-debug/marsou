@@ -385,9 +385,9 @@ def _annotate(name: str, source: float, sra_side: Optional[float], flag_hint: st
         return ("Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο "
                 "καθολικό της ΟΑΥ (HIO-ledger classification, not cash)."), "amber"
     if ("PHARMACIST" in up or "25501" in up) and "GL" in up:
-        return ("GL ΟΑΥ ≈ flat booking vs report packages × 1,60 € — γνωστό "
-                "θέμα ταξινόμησης στο καθολικό της ΟΑΥ (known HIO-ledger "
-                "booking issue), flag amber."), "amber"
+        return ("GL ΟΑΥ ≈ flat booking vs report packages × τιμή μονάδας — "
+                "γνωστό θέμα ταξινόμησης στο καθολικό της ΟΑΥ (known "
+                "HIO-ledger booking issue), flag amber."), "amber"
     if ("PHARMA" in up or "ΦΑΡΜΑΚΑ" in up) and "GL" in up and diff > 0:
         return ("Pharma claims gross above GL: generics/discounts/co-pay "
                 "reclass στο καθολικό της ΟΑΥ (HIO ledger)."), "amber"
@@ -688,6 +688,21 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                           "τα κέντρα κόστους φαρμάκων· βιβλιώνονται στον "
                           "λογαριασμό ισολογισμού 11202192 (balance-sheet "
                           "account, not the 255xx pharma centres).")
+        if abs(gl.other) > CENT:
+            # a cost centre outside the map: never absorbed silently — show
+            # it, name the centres, and let the reviewer classify it
+            centres = ", ".join(
+                f"{k}: {format_eur(v)}" for k, v in
+                sorted(gl.other_centres.items(), key=lambda kv: -abs(kv[1]))[:8])
+            add("GL ΟΑΥ: κέντρα κόστους εκτός χάρτη (unmapped cost centres)",
+                gl.other, [])
+            c = checks[-1]
+            c.sra_side = 0.0
+            c.flag = "amber"
+            c.note = ("Ποσά του καθολικού ΟΑΥ σε κέντρα κόστους/λογαριασμούς "
+                      "που δεν καλύπτει ο χάρτης — δεν εντάχθηκαν σε κανένα "
+                      "καλάθι (not mapped to any bucket): " + centres
+                      + ". Στείλτε τα διαγνωστικά ώστε να προστεθούν στον χάρτη.")
         if gl.capitation:
             if sra and "PD-CAP" in sra_code_set:
                 add("GL: Capitation (51001001) = SRA PD capitation",

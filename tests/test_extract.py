@@ -115,6 +115,20 @@ def test_pharmacist_fee_reads_unit_price_from_document():
     assert fee.computed == 12_023.64
 
 
+def test_pharmacist_fee_summary_only_report_uses_the_stated_unit_price():
+    # some hospitals' export carries no parsable table row — only a Σύνολο.
+    # The unit price must still come from the document («Τιμή Μονάδας»),
+    # never from the 1,60 € constant, or a 1,62 € month derives wrong packages
+    text = ("Αμοιβή Φαρμακοποιού\nΜήνας: 4\nΈτος: 2026\n"
+            "Κωδικός Παροχέα Χρέωσης: F1055\n"
+            "Τιμή Μονάδας: 1,62 €\n"
+            "ΣΥΝΟΛΟ 12.023,64 €\n")
+    fee = parse_pharmacist_fee_text(text)
+    assert fee.unit_price == 1.62
+    assert fee.packages == 7422
+    assert fee.amount == 12_023.64
+
+
 def test_sra_feb_format_ph_stream_adjustment_and_credit():
     # Feb-style SRA: PH pharmacy stream incl. the fee invoice, CRN-Packages
     # (→ PHF), hemodialysis adjustment (→ HEMO, its own code so the IS check

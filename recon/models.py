@@ -290,6 +290,9 @@ class GLExtract:
     capitation: float = 0.0        # account 51001001
     unearned_eoaf: float = 0.0     # account 11202192 (EOAF settlements)
     other: float = 0.0
+    # cost centre (or account) -> amount for everything the map doesn't
+    # cover: surfaced as its own cross-check row, never silently dropped
+    other_centres: dict = field(default_factory=dict)
 
     @property
     def inpatient(self) -> float:

@@ -95,6 +95,36 @@ on screen for correction before the run — the app never guesses an amount.
    pharmacist-fee flat booking) are annotated in `Source_crosscheck`, never
    silently absorbed. Unexplained differences are findings, in red.
 
+## All eight hospitals (universality)
+
+Nothing in the app is tied to one hospital or one month. The rules were
+validated on real months of Famagusta, Larnaca and Nicosia, and every one of
+them is keyed off content, not off an F-code:
+
+- the eight codes live **only** in `HOSPITALS` (`recon/models.py`,
+  `webapp/js/core.js`); the F-code regex and the checklist are derived from
+  it, so adding a hospital is a one-line change;
+- the org-wide reports (GL extract, IS Auditor) are filtered by
+  `VENDOR_CODE` / provider name — «ΛΕΥΚΩΣΙΑΣ» alone is never used, it also
+  appears in Makarios exports;
+- the GL cost-centre map (26001 / 26002 / 26003+26007 / 25801 / 25501 /
+  255xx / 25xxx, capitation 51001001, EOAF 11202192) is org-wide: verified
+  on the real April-2026 extract for all eight vendors. Anything booked to a
+  centre the map doesn't know is **shown** as its own `Source_crosscheck`
+  row naming the centre — never absorbed into a bucket;
+- streams a hospital doesn't have simply come out zero (Makarios has no
+  ΤΑΕΠ; some hospitals have no capitation line), and thinner exports (no
+  per-claim listing, no ASSOCIATED DOCTOR column) degrade the by-clinic /
+  by-doctor detail without touching the cash reconciliation;
+- the pharmacist-fee unit price is read from the report (1,60 € historically,
+  1,62 € later) — including in the summary-only fallback;
+- a cheque made out to a **satellite** provider (an F-code outside the eight,
+  e.g. F1085) is tagged `SAT` and reported separately; a cheque for another
+  OKYπY hospital is a mixed batch and trips gate 2.
+
+`tests/test_universal.py` drives the whole chain — identify → gates →
+extract → reconcile → build → gate-5 verify — once per hospital.
+
 ## Layout
 
 ```

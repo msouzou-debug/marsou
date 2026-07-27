@@ -32,7 +32,8 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
                            gennes=25_000.00, z=100_000.00, hospital="F1049",
                            hospital_name="ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)",
                            year=2026, month=3, synolo=None,
-                           with_per_clinic=True, detail_extra=0.0) -> bytes:
+                           with_per_clinic=True, detail_extra=0.0,
+                           with_detail=True) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
@@ -58,14 +59,15 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
     # per-claim listing below the summary — the WIDER universe: with
     # detail_extra it also holds an old-period claim absent from the
     # ΣΥΝΟΠΤΙΚΟΣ (the real Apr-2026 F1048 case, claim 99476712)
-    ws.append([])
-    ws.append(["Αρ. Απαίτησης", "Ημ. Εισαγωγής", "DRG", "Συνολική αμοιβή (€)"])
-    half = round(total * 0.5, 2)
-    ws.append([99_000_001, "2026-03-05", "K60A", half])
-    ws.append([99_000_002, "2026-03-14", "F62B", round(total - half, 2)])
-    if detail_extra:
-        ws.append([99_476_712, "2022-10-18", "G67B", detail_extra])
-    ws.append(["Σύνολο", None, None, round(total + detail_extra, 2)])
+    if with_detail:
+        ws.append([])
+        ws.append(["Αρ. Απαίτησης", "Ημ. Εισαγωγής", "DRG", "Συνολική αμοιβή (€)"])
+        half = round(total * 0.5, 2)
+        ws.append([99_000_001, "2026-03-05", "K60A", half])
+        ws.append([99_000_002, "2026-03-14", "F62B", round(total - half, 2)])
+        if detail_extra:
+            ws.append([99_476_712, "2022-10-18", "G67B", detail_extra])
+        ws.append(["Σύνολο", None, None, round(total + detail_extra, 2)])
 
     if with_per_clinic:
         # real workbooks carry a «per clinic» pivot (headers duplicated twice)
@@ -94,18 +96,22 @@ DEFAULT_SEGMENTS = {
 }
 
 
-def claims_all_xlsx(segments=None, cheque="259434") -> bytes:
+def claims_all_xlsx(segments=None, cheque="259434", with_doctor=True) -> bytes:
     """Real shape: dotted headers, ISO claim dates from EARLIER months (old
     claims paid in this cheque), PAYMENT NO. = the cheque, DR SEGMENT in the
-    trailing columns, NO clinic/specialty columns, NO F-code anywhere."""
+    trailing columns, NO clinic/specialty columns, NO F-code anywhere.
+
+    with_doctor=False reproduces the thinner export some hospitals get: no
+    ASSOCIATED DOCTOR / DR SPECIALITY columns, so no per-doctor detail."""
     segments = segments if segments is not None else DEFAULT_SEGMENTS
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
-    ws.append(["CLAIM ID", "STATUS", "BENEFICIARY NAME", "BENEFICIARY ID",
-               "INVOICE DATE", "SUBM. DATE", "VISIT ID", "PAYMENT NO.",
-               "CO-PAYMENT", "PERS. CONTR. I", "HIO REIMB.", "TOTAL AMT",
-               "ASSOCIATED DOCTOR", "DR SPECIALITY", "DR SEGMENT"])
+    head = ["CLAIM ID", "STATUS", "BENEFICIARY NAME", "BENEFICIARY ID",
+            "INVOICE DATE", "SUBM. DATE", "VISIT ID", "PAYMENT NO.",
+            "CO-PAYMENT", "PERS. CONTR. I", "HIO REIMB.", "TOTAL AMT"]
+    ws.append(head + (["ASSOCIATED DOCTOR", "DR SPECIALITY", "DR SEGMENT"]
+                      if with_doctor else ["DR SEGMENT"]))
     cid = 121_989_416
     dates = ["2026-01-25", "2026-02-09", "2024-03-04"]
     specs = {"Inpatient": "GENERAL SURGERY",
@@ -119,10 +125,12 @@ def claims_all_xlsx(segments=None, cheque="259434") -> bytes:
         parts = [round(amount * 0.6, 2)]
         parts.append(round(amount - parts[0], 2))
         for k, part in enumerate(parts):
-            ws.append([cid, "Paid", "SYNTHETIC BENEFICIARY", "NID 0000000000",
-                       dates[k % len(dates)], "2026-03-02", 73_858_185 + cid % 999,
-                       cheque, 0, 0, part, part, doctors[k % 2],
-                       specs.get(seg, "GENERAL"), seg])
+            row = [cid, "Paid", "SYNTHETIC BENEFICIARY", "NID 0000000000",
+                   dates[k % len(dates)], "2026-03-02", 73_858_185 + cid % 999,
+                   cheque, 0, 0, part, part]
+            row += ([doctors[k % 2], specs.get(seg, "GENERAL"), seg]
+                    if with_doctor else [seg])
+            ws.append(row)
             cid += 1
     return _wb_bytes(wb)
 
@@ -274,21 +282,25 @@ def quality_criteria_xlsx(total=0.0) -> bytes:
 
 # -------------------------------------------------------------------- GL / IS
 
-def gl_xlsx(rows=None, sheet_name="ALL OKYPY 03.26") -> bytes:
+def gl_xlsx(rows=None, sheet_name="ALL OKYPY 03.26", hospital="F1049") -> bytes:
     """(vendor, cost_center, account, amount) rows; defaults tie to the synthetic
-    month except the pharmacist fee, which reproduces the known flat-booking gap."""
+    month except the pharmacist fee, which reproduces the known flat-booking gap.
+
+    The GL is org-wide: it always carries a foreign vendor row that the
+    extractor must filter out, whichever hospital is being reconciled."""
+    other = "F1054" if hospital != "F1054" else "F1050"
     if rows is None:
         rows = [
-            ("F1049", "26001", "40001001", 561_728.70),   # regular DRG
-            ("F1049", "26002", "40001002", 400_000.00),   # specialized
-            ("F1049", "26003", "40001003", 60_000.00),    # Z-catalogue
-            ("F1049", "26007", "40001003", 40_000.00),    # Z-catalogue
-            ("F1049", "25801", "40002001", 131_284.66),   # A&E
-            ("F1049", "25301", "40003001", 65_000.00),    # outpatient clinical
-            ("F1049", "25501", "40004001", 24_000.00),    # pharmacist fee (flat!)
-            ("F1049", "25502", "40004002", 651_863.49),   # pharma
-            ("F1049", "10101", "51001001", 13_729.74),    # capitation account
-            ("F1054", "26001", "40001001", 9_999_999.99), # another hospital, filtered out
+            (hospital, "26001", "40001001", 561_728.70),   # regular DRG
+            (hospital, "26002", "40001002", 400_000.00),   # specialized
+            (hospital, "26003", "40001003", 60_000.00),    # Z-catalogue
+            (hospital, "26007", "40001003", 40_000.00),    # Z-catalogue
+            (hospital, "25801", "40002001", 131_284.66),   # A&E
+            (hospital, "25301", "40003001", 65_000.00),    # outpatient clinical
+            (hospital, "25501", "40004001", 24_000.00),    # pharmacist fee (flat!)
+            (hospital, "25502", "40004002", 651_863.49),   # pharma
+            (hospital, "10101", "51001001", 13_729.74),    # capitation account
+            (other, "26001", "40001001", 9_999_999.99),    # another hospital, filtered out
         ]
     wb = Workbook()
     # decoy sheet FIRST, like the real Apr-2026 workbook: an A&E-only clinic
@@ -297,9 +309,9 @@ def gl_xlsx(rows=None, sheet_name="ALL OKYPY 03.26") -> bytes:
     decoy = wb.active
     decoy.title = "A&E detail"
     decoy.append(["VENDOR_CODE", "COST_CENTER", "ACCOUNT", "JHDF", "EURO_AMOUNT"])
-    decoy.append(["F1049", "25801", "51101099", "A&E income", 141_284.66])
-    decoy.append(["F1049", "25801", "43010001", "Copayments", -10_000.00])
-    decoy.append(["F1049 Total", "", "", "", 131_284.66])   # subtotal row
+    decoy.append([hospital, "25801", "51101099", "A&E income", 141_284.66])
+    decoy.append([hospital, "25801", "43010001", "Copayments", -10_000.00])
+    decoy.append([f"{hospital} Total", "", "", "", 131_284.66])   # subtotal row
     ws = wb.create_sheet(sheet_name)
     ws.append(["VENDOR_CODE", "COST_CENTER", "ACCOUNT", "EURO_AMOUNT"])
     for r in rows:
@@ -307,18 +319,25 @@ def gl_xlsx(rows=None, sheet_name="ALL OKYPY 03.26") -> bytes:
     return _wb_bytes(wb)
 
 
-def is_auditor_xlsx(rows=None) -> bytes:
+def provider_long_name(hospital="F1049") -> str:
+    """The org-wide reports spell the provider out in full, e.g.
+    «ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)»."""
+    from recon.models import HOSPITALS
+    return f"{HOSPITALS[hospital][0]} (ΟΚΥπΥ)"
+
+
+def is_auditor_xlsx(rows=None, hospital="F1049") -> bytes:
     """(provider, drg_id, drg_ff_amount, procedures_amount, invoice_category).
     Invoice dates span YEARS (old claims paid now) like the real report."""
-    famagusta = "ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)"
+    mine = provider_long_name(hospital)
+    other = provider_long_name("F1054" if hospital != "F1054" else "F1050")
     if rows is None:
         rows = [
-            (famagusta, "DRG001", 500_000.00, 30_000.00, "Normal", "31/08/2023"),
-            (famagusta, "DRG002", 400_000.00, 51_728.70, "Specialised", "14/10/2024"),
-            (famagusta, None, None, 50_000.00, "Normal", "07/02/2026"),
-            (famagusta, "", None, 30_000.00, "Normal", "30/04/2025"),
-            ("ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ (ΟΚΥπΥ)", "DRG003", 8_888_888.88, 0,
-             "Normal", "31/08/2025"),
+            (mine, "DRG001", 500_000.00, 30_000.00, "Normal", "31/08/2023"),
+            (mine, "DRG002", 400_000.00, 51_728.70, "Specialised", "14/10/2024"),
+            (mine, None, None, 50_000.00, "Normal", "07/02/2026"),
+            (mine, "", None, 30_000.00, "Normal", "30/04/2025"),
+            (other, "DRG003", 8_888_888.88, 0, "Normal", "31/08/2025"),
         ]
     wb = Workbook()
     ws = wb.active

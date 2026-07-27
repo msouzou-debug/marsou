@@ -563,6 +563,21 @@ def test_gl_capitation_ties_report_when_bundled_in_pd():
     assert cap.sra_side == b.capitation.total and cap.flag == "ok"
 
 
+def test_unmapped_gl_cost_centre_is_shown_not_absorbed():
+    # another hospital may book to a centre the map doesn't know — the amount
+    # must surface as its own row, naming the centre, never vanish into a bucket
+    rows = [("F1049", "26001", "40001001", 561_728.70),
+            ("F1049", "24900", "40009001", 12_345.67)]   # outside the map
+    b = full_bundle(with_optional=True)
+    b.gl = extract_gl(synth.gl_xlsx(rows=rows), "F1049")
+    assert b.gl.other == 12_345.67
+    assert b.gl.other_centres == {"24900": 12_345.67}
+    res = run_reconciliation(b)
+    row = next(c for c in res.crosschecks if "εκτός χάρτη" in c.name)
+    assert row.source_total == 12_345.67 and row.flag == "amber"
+    assert "24900" in row.note
+
+
 def test_old_period_claim_named_in_gate4_finding():
     # a 2022 claim paid in this cheque but absent from the Ενδ. summary must
     # be NAMED in the gate-4 finding (Larnaca Apr-2026 case: 1,297.43)

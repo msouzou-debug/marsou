@@ -18,7 +18,10 @@ from lxml import etree
 from .models import (GREEK_MONTHS, HOSPITALS, IdentifiedFile, ReportType,
                      norm_label, strip_accents)
 
-F_CODE_RE = re.compile(r"\bF10(?:25|26|47|48|49|50|54|55)\b")
+# derived from HOSPITALS so a new hospital is added in ONE place; note this
+# deliberately does NOT match satellite providers (e.g. F1085) — those are
+# recognised as satellites on the SRA, not as the batch hospital
+F_CODE_RE = re.compile(r"\b(?:" + "|".join(sorted(HOSPITALS)) + r")\b")
 
 
 # ---------------------------------------------------------------- sniffing
@@ -175,9 +178,10 @@ def _excel_probe(sheets: dict[str, pd.DataFrame]) -> str:
 def _gl_cost_centre_probe(df: pd.DataFrame, header_row: int,
                           sheet_name: str = "") -> str:
     """Per-hospital cost-centre sums off a GL extract, for the diagnostics
-    panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
-    hospital books to its own centres, and this breakdown is the raw data
-    needed to extend the map when a new hospital's GL shows up."""
+    panel.  The bucket map (26001 regular, 25801 A&E, …) is org-wide —
+    verified on the real April-2026 extract for all eight vendors — so this
+    breakdown is the evidence, and the raw data needed to extend the map if
+    ΟΑΥ ever books a hospital to a centre the map doesn't know."""
     hdr = [norm_label(str(v)) if v is not None else "" for v in df.iloc[header_row]]
 
     def col(name: str) -> Optional[int]:

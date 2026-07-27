@@ -3,7 +3,11 @@
  * year, month, warnings, error, rawText }.  Filenames are NEVER trusted. */
 'use strict';
 
-const F_CODE_RE = /\bF10(?:25|26|47|48|49|50|54|55)\b/;
+/* derived from HOSPITALS so a new hospital is added in ONE place; it
+ * deliberately does NOT match satellite providers (e.g. F1085) — those are
+ * recognised as satellites on the SRA, not as the batch hospital */
+const F_CODE_RE = new RegExp('\\b(?:'
+  + Object.keys(HOSPITALS).sort().join('|') + ')\\b');
 
 function sniffFormat(bytes) {
   const b = bytes.subarray(0, 8);
@@ -153,9 +157,10 @@ function columnValues(rows, headerRow, headerName) {
 
 function glCostCentreProbe(rows, headerRow, sheetName = '') {
   /* Per-hospital cost-centre sums off a GL extract, for the diagnostics
-   * panel.  The bucket map (26001 regular, 25801 A&E, …) is Nicosia's; each
-   * hospital books to its own centres, and this breakdown is the raw data
-   * needed to extend the map when a new hospital's GL shows up. */
+   * panel.  The bucket map (26001 regular, 25801 A&E, …) is org-wide —
+   * verified on the real April-2026 extract for all eight vendors — so this
+   * breakdown is the evidence, and the raw data needed to extend the map if
+   * ΟΑΥ ever books a hospital to a centre the map doesn't know. */
   const hdr = rows[headerRow].map((v) => (v == null ? '' : normLabel(cellText(v))));
   const col = (name) => {
     const want = normLabel(name);

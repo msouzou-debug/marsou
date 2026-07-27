@@ -480,6 +480,21 @@ def extract_pharma_claims(data: bytes) -> PharmaClaims:
 
 # ----------------------------------------------- 5. pharmacist fee (PDF)
 
+def _stated_unit_prices(text: str) -> list[float]:
+    """Every plausible per-package fee stated on a «Τιμή Μονάδας» line, most
+    frequent first — the price changes month to month, so it is read, never
+    assumed."""
+    seen: dict[float, int] = {}
+    for line in text.splitlines():
+        up = strip_accents(line)
+        if "ΤΙΜΗ ΜΟΝΑΔΑΣ" not in up and "UNIT PRICE" not in up:
+            continue
+        for amt in find_amounts(line):
+            if 0.05 <= amt <= 20:
+                seen[amt] = seen.get(amt, 0) + 1
+    return [a for a, _ in sorted(seen.items(), key=lambda kv: -kv[1])]
+
+
 def parse_pharmacist_fee_text(text: str) -> PharmacistFee:
     """Parse the Αμοιβή Φαρμακοποιού table: invoice ID, unit price, packages,
     amount.  The unit price is READ from the document (1.60 € historically,
@@ -514,7 +529,10 @@ def parse_pharmacist_fee_text(text: str) -> PharmacistFee:
                             best = cand
     if best:
         return best
-    # fallback: stated total on a Σύνολο line + a packages count elsewhere
+    # fallback: stated total on a Σύνολο line, divided by the unit price.
+    # The price is per-month (1,60 € historically, 1,62 € later) — look for a
+    # stated «Τιμή Μονάδας» first and only then fall back to the constant, so
+    # a month priced differently is never silently converted at 1,60 €.
     total = None
     for line in text.splitlines():
         if "ΣΥΝΟΛ" in strip_accents(line):
@@ -522,11 +540,12 @@ def parse_pharmacist_fee_text(text: str) -> PharmacistFee:
             if amts:
                 total = amts[-1]
     if total is not None:
-        pkg = round(total / PHARMACIST_FEE_UNIT_PRICE)
-        if abs(pkg * PHARMACIST_FEE_UNIT_PRICE - total) < 0.005:
-            return PharmacistFee(packages=pkg, unit_price=PHARMACIST_FEE_UNIT_PRICE, amount=total)
+        for unit in _stated_unit_prices(text) + [PHARMACIST_FEE_UNIT_PRICE]:
+            pkg = round(total / unit)
+            if pkg > 0 and abs(pkg * unit - total) < 0.005:
+                return PharmacistFee(packages=pkg, unit_price=unit, amount=total)
     raise ExtractionError(
-        "Αμοιβή Φαρμακοποιού: δεν βρέθηκε γραμμή συσκευασίες × 1,60 € = ποσό")
+        "Αμοιβή Φαρμακοποιού: δεν βρέθηκε γραμμή συσκευασίες × τιμή μονάδας = ποσό")
 
 
 def extract_pharmacist_fee(data: bytes, raw_text: Optional[str] = None) -> PharmacistFee:
@@ -840,12 +859,16 @@ def merge_sras(sras: list[SRA], hospital_code: Optional[str] = None) -> SRA:
     workbook keeps the audit trail), totals summed, and .parts keeps the
     per-cheque tie-out for gate 4.
 
-    Cheques whose SRA header carries a DIFFERENT supplier F-code than the
-    batch hospital (satellite health centres, e.g. F1085) get code SAT —
-    they count in the cash but sit outside the hospital's claims/GL files."""
+    Cheques whose SRA header carries a supplier F-code that is neither the
+    batch hospital nor any of the 8 OKYπY hospitals (satellite health
+    centres, e.g. F1085) get code SAT — they count in the cash but sit
+    outside the hospital's claims/GL files.  A cheque made out to ANOTHER
+    OKYπY hospital is NOT a satellite: it is a mixed batch and must trip
+    validation gate 2 instead of being silently reclassified."""
     def _is_sat(s: SRA) -> bool:
         return (hospital_code is not None and s.supplier_code is not None
-                and s.supplier_code != hospital_code)
+                and s.supplier_code != hospital_code
+                and s.supplier_code not in HOSPITALS)
 
     if len(sras) == 1:
         s = sras[0]
@@ -923,7 +946,13 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
             elif centre.startswith("25"):
                 out.outpatient += amount
             else:
+                # a cost centre the map doesn't know: keep it AND remember
+                # which centre it was, so the reconciliation can show it
+                # instead of silently absorbing another hospital's coding
                 out.other += amount
+                key = centre or (account or "—")
+                out.other_centres[key] = round(
+                    out.other_centres.get(key, 0.0) + amount, 2)
         for attr in ("regular_drg", "specialized", "z_catalogue", "ae", "pharmacist_fee",
                      "pharma_other", "outpatient", "capitation", "unearned_eoaf",
                      "other"):

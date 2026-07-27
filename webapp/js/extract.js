@@ -426,6 +426,20 @@ function extractPharmaClaims(bytes) {
 
 /* ----------------------------------------------- pharmacist fee (PDF) */
 
+function statedUnitPrices(text) {
+  /* Every plausible per-package fee stated on a «Τιμή Μονάδας» line, most
+   * frequent first — the price changes month to month, so it is read. */
+  const seen = new Map();
+  for (const line of String(text).split('\n')) {
+    const up = stripAccents(line);
+    if (!up.includes('ΤΙΜΗ ΜΟΝΑΔΑΣ') && !up.includes('UNIT PRICE')) continue;
+    for (const amt of findAmounts(line)) {
+      if (amt >= 0.05 && amt <= 20) seen.set(amt, (seen.get(amt) || 0) + 1);
+    }
+  }
+  return [...seen.entries()].sort((a, b) => b[1] - a[1]).map((kv) => kv[0]);
+}
+
 function parsePharmacistFeeText(text) {
   /* The unit price is READ from the document (1.60 € historically, 1.62 € in
    * newer months): find (unit, packages, amount) where packages × unit = amount. */
@@ -465,14 +479,19 @@ function parsePharmacistFeeText(text) {
       if (amts.length) total = amts[amts.length - 1];
     }
   }
+  /* The price is per-month (1,60 € historically, 1,62 € later): use a stated
+   * «Τιμή Μονάδας» when the document carries one and only then the constant,
+   * so a month priced differently is never silently converted at 1,60 €. */
   if (total != null) {
-    const pkg = Math.round(total / PHARMACIST_FEE_UNIT_PRICE);
-    if (Math.abs(pkg * PHARMACIST_FEE_UNIT_PRICE - total) < 0.005) {
-      return { packages: pkg, unitPrice: PHARMACIST_FEE_UNIT_PRICE, amount: total,
-               invoiceId: '', computed: round2(pkg * PHARMACIST_FEE_UNIT_PRICE) };
+    for (const unit of statedUnitPrices(text).concat([PHARMACIST_FEE_UNIT_PRICE])) {
+      const pkg = Math.round(total / unit);
+      if (pkg > 0 && Math.abs(pkg * unit - total) < 0.005) {
+        return { packages: pkg, unitPrice: unit, amount: total,
+                 invoiceId: '', computed: round2(pkg * unit) };
+      }
     }
   }
-  throw new ExtractionError('Αμοιβή Φαρμακοποιού: δεν βρέθηκε γραμμή συσκευασίες × 1,60 € = ποσό');
+  throw new ExtractionError('Αμοιβή Φαρμακοποιού: δεν βρέθηκε γραμμή συσκευασίες × τιμή μονάδας = ποσό');
 }
 
 /* --------------------------------------------------------- SRA (text) */
@@ -718,10 +737,13 @@ function sraSumInPeriod(sra, codes, year, month, current, correctionsOnly) {
 function mergeSras(sras, hospitalCode) {
   /* A month can be settled by several cheques: merge multiple SRAs into one
    * logical SRA; .parts keeps the per-cheque tie-out for gate 4.  Cheques
-   * whose SRA header carries a DIFFERENT supplier F-code than the batch
-   * hospital (satellite health centres, e.g. F1085) get code SAT. */
+   * whose SRA header carries a supplier F-code that is neither the batch
+   * hospital nor any of the 8 OKYπY hospitals (satellite health centres,
+   * e.g. F1085) get code SAT.  A cheque made out to ANOTHER OKYπY hospital
+   * is a mixed batch, not a satellite — it must trip gate 2. */
   const isSat = (s) => hospitalCode != null && s.supplierCode != null
-    && s.supplierCode !== hospitalCode;
+    && s.supplierCode !== hospitalCode
+    && !Object.prototype.hasOwnProperty.call(HOSPITALS, s.supplierCode);
   if (sras.length === 1) {
     const s = sras[0];
     if (isSat(s)) for (const l of s.lines) { l.code = 'SAT'; l.channel = 'Satellite'; }
@@ -776,6 +798,9 @@ function extractGl(bytes, hospitalCode) {
     const out = { regularDrg: 0, specialized: 0, zCatalogue: 0, ae: 0,
                   pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0,
                   unearnedEoaf: 0, other: 0 };
+    // cost centre (or account) -> amount for everything the map doesn't
+    // cover: surfaced as its own cross-check row, never silently dropped
+    const otherCentres = {};
     for (const r of body) {
       if (r[vc] == null || cellText(r[vc]).trim().toUpperCase() !== hospitalCode.toUpperCase()) continue;
       const amount = parseAmount(r[amt]);
@@ -790,9 +815,14 @@ function extractGl(bytes, hospitalCode) {
       else if (centre === '25501') out.pharmacistFee += amount;
       else if (centre.startsWith('255')) out.pharmaOther += amount;
       else if (centre.startsWith('25')) out.outpatient += amount;
-      else out.other += amount;
+      else {
+        out.other += amount;
+        const key = centre || account || '—';
+        otherCentres[key] = round2((otherCentres[key] || 0) + amount);
+      }
     }
     for (const k of Object.keys(out)) out[k] = round2(out[k]);
+    out.otherCentres = otherCentres;
     out.inpatient = round2(out.regularDrg + out.specialized + out.zCatalogue);
     return out;
   }
