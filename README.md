@@ -127,9 +127,15 @@ them at once. The app detects that shape and switches to **provider mode**:
 - output is ONE workbook: `Σύνοψη_παρόχων` (a row per provider — the cheque
   split by stream as live SUMIFS into that provider's own SRA tab, its claims
   and activity figures, the differences, and a grand total that must equal
-  the sum of the cheques), one `SRA_<cheque>` tab per provider, and the
-  shared `Source_crosscheck` / `Ανάλυση_ελέγχων` / `Legend` sectioned per
-  provider.
+  the sum of the cheques), one `SRA_<cheque>` tab per provider,
+  `Ανά_μονάδα_ιατρό`, and the shared `Source_crosscheck` /
+  `Ανάλυση_ελέγχων` / `Legend` sectioned per provider;
+- `Ανά_μονάδα_ιατρό` is the posting sheet: each unit's cheque split by
+  speciality and by professional off the claims file's `ASSOCIATED DOCTOR` /
+  `DR SPECIALITY` columns, then bridged to the cheque in live formulas. The
+  claims-vs-SRA gap and the SRA lines outside OS/NM/AP are their own rows —
+  nothing is spread across professionals to force a tie — and each unit block
+  ends in a zero-check.
 
 Verified on the real May-2026 month (five units, cheques 266444 / 266457 /
 266458 / 266474 / 266475, €211.006,20 in total) — see

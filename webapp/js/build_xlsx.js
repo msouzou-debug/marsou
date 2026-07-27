@@ -95,6 +95,7 @@ function buildProviderWorkbook(entries) {
   }
   const ccRows = tabCrosscheck(wb, sections);
   tabAudit(wb, sections, ccRows, zeroChecks);
+  tabProviderByDoctor(wb, sections, zeroChecks);
   tabLegend(wb);
   tabProviderSummary(summary, sections, zeroChecks);
   return { wb, zeroChecks };
@@ -182,6 +183,124 @@ function tabProviderSummary(ws, sections, zeroChecks) {
     + `+${adjLetter}${totalRow}-${totalLetter}${totalRow}`, F_FORMULA)
     .fill = FILL_CHECK;
   zeroChecks.push({ sheet: 'Σύνοψη_παρόχων', addr: `${colLetter(checkCol)}${checkRow}` });
+  autosize(ws);
+}
+
+function tabProviderByDoctor(wb, sections, zeroChecks) {
+  /* The posting sheet for a mental-health month: each unit's cheque split by
+   * speciality and by professional, off the paid-claims file's ASSOCIATED
+   * DOCTOR / DR SPECIALITY columns.  Every unit block bridges from the
+   * per-doctor total to its cheque in live formulas: the claims-vs-SRA
+   * difference and the SRA lines outside the service streams are their OWN
+   * rows, so nothing is spread across professionals to force a tie. */
+  const ws = wb.addWorksheet('Ανά_μονάδα_ιατρό');
+  ws.getCell(1, 1).value = 'Κατανομή πληρωμών ανά μονάδα και ιατρό/επαγγελματία '
+    + '(by unit and professional)';
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  writeHeader(ws, 3, ['Μονάδα (Unit)', 'Ροή (Stream)', 'Ειδικότητα (Speciality)',
+                      'Ιατρός / Επαγγελματίας (Professional)', 'Ποσό (Amount €)']);
+  let r = 4;
+  const unitClaimCells = [];
+  const unitChequeCells = [];
+  for (const section of sections) {
+    const b = section.result.bundle;
+    const tab = section.sraTab, n = section.nLines;
+    const head = ws.getCell(r, 1);
+    head.value = section.label;
+    head.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let col = 1; col <= 5; col++) ws.getCell(r, col).fill = FILL_SECTION;
+    const chq = ws.getCell(r, 5);
+    chq.value = b.sra ? `Επιταγή #${b.sra.chequeNo}` : '';
+    chq.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    r += 1;
+    const rows = (b.claims && b.claims.byDoctor) ? b.claims.byDoctor : [];
+    const subtotalCells = [];
+    if (rows.length) {
+      const groups = new Map();
+      for (const [seg, spec, doc, amt] of rows) {
+        const key = `${seg || '—'}\u0001${spec || '—'}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push([doc || '—', amt]);
+      }
+      const ordered = [...groups.entries()].sort((a, bb) =>
+        bb[1].reduce((x, d) => x + d[1], 0) - a[1].reduce((x, d) => x + d[1], 0));
+      for (const [key, docs] of ordered) {
+        const [seg, spec] = key.split('\u0001');
+        const first = r;
+        for (const [doc, amt] of docs.slice().sort((a, bb) => bb[1] - a[1])) {
+          ws.getCell(r, 2).value = seg; ws.getCell(r, 2).font = F_INPUT;
+          ws.getCell(r, 3).value = spec; ws.getCell(r, 3).font = F_INPUT;
+          ws.getCell(r, 4).value = doc; ws.getCell(r, 4).font = F_INPUT;
+          writeAmount(ws, r, 5, amt, F_INPUT);
+          r += 1;
+        }
+        ws.getCell(r, 3).value = `Υποσύνολο — ${spec}`;
+        ws.getCell(r, 3).font = { bold: true };
+        writeAmount(ws, r, 5, `SUM(E${first}:E${r - 1})`, F_FORMULA).font = { bold: true };
+        subtotalCells.push(`E${r}`);
+        r += 1;
+      }
+    } else {
+      ws.getCell(r, 2).value = 'Το αρχείο claims δεν έχει στήλη ιατρού '
+        + '(no ASSOCIATED DOCTOR column)';
+      ws.getCell(r, 2).font = { italic: true, color: { argb: GRAY } };
+      r += 1;
+    }
+    const claimsRow = r;
+    ws.getCell(claimsRow, 1).value = 'Σύνολο ανά ιατρό (claims file)';
+    ws.getCell(claimsRow, 1).font = { bold: true };
+    if (subtotalCells.length) writeAmount(ws, claimsRow, 5, subtotalCells.join('+'), F_FORMULA);
+    else writeAmount(ws, claimsRow, 5, 0, F_INPUT);
+    r += 1;
+    const codes = PROVIDER_STREAMS.map(([c]) => c);
+    const codeCells = codes.map((code, i) => {
+      ws.getCell(2, 6 + i).value = code;
+      ws.getCell(2, 6 + i).font = F_INPUT;
+      return `${colLetter(6 + i)}$2`;
+    });
+    const svc = codeCells
+      .map((c) => `SUMIFS('${tab}'!$F$2:$F$${n},'${tab}'!$A$2:$A$${n},${c})`).join('+');
+    const diffRow = r;
+    ws.getCell(diffRow, 1).value =
+      'Διαφορά claims έναντι γραμμών υπηρεσιών SRA (μη κατανεμημένη)';
+    const diffCell = writeAmount(ws, diffRow, 5, `${svc}-E${claimsRow}`, F_FORMULA);
+    /* a real gap between the claims file and the cheque's service lines:
+     * shown on its own line, never spread across the professionals */
+    const claimsSum = b.claims ? claimsTotal(b.claims) : 0;
+    const services = b.sra
+      ? round2(b.sra.lines.filter((l) => codes.includes(l.code))
+        .reduce((a, l) => a + l.amount, 0)) : 0;
+    if (Math.abs(services - claimsSum) > CENT) diffCell.font = F_AMBER;
+    r += 1;
+    const adjRow = r;
+    ws.getCell(adjRow, 1).value = 'Λοιπές γραμμές SRA εκτός OS/NM/AP (προσαρμογές)';
+    const chequeRef = `'${tab}'!F${section.statedRow}`;
+    writeAmount(ws, adjRow, 5, `${chequeRef}-(${svc})`, F_FORMULA);
+    r += 1;
+    const chequeRow = r;
+    ws.getCell(chequeRow, 1).value = 'Επιταγή ΟΑΥ (HIO cheque)';
+    ws.getCell(chequeRow, 1).font = { bold: true };
+    writeAmount(ws, chequeRow, 5, chequeRef, F_LINK).font =
+      { bold: true, color: { argb: GREEN_LINK } };
+    r += 1;
+    const checkRow = r;
+    ws.getCell(checkRow, 1).value = 'Zero-check = κατανομή + γέφυρα − επιταγή (must be 0)';
+    writeAmount(ws, checkRow, 5,
+      `E${claimsRow}+E${diffRow}+E${adjRow}-E${chequeRow}`, F_FORMULA).fill = FILL_CHECK;
+    zeroChecks.push({ sheet: 'Ανά_μονάδα_ιατρό', addr: `E${checkRow}` });
+    unitClaimCells.push(`E${claimsRow}`);
+    unitChequeCells.push(`E${chequeRow}`);
+    r += 2;
+  }
+  if (unitChequeCells.length) {
+    ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ — κατανεμημένο ανά ιατρό';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 5, unitClaimCells.join('+'), F_FORMULA);
+    r += 1;
+    ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ — επιταγές';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 5, unitChequeCells.join('+'), F_FORMULA);
+  }
   autosize(ws);
 }
 

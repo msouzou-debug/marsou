@@ -138,7 +138,8 @@ def test_provider_workbook_ties_every_cheque_and_verifies():
     assert wb.sheetnames[0] == "Σύνοψη_παρόχων"
     assert [s for s in wb.sheetnames if s.startswith("SRA_")] == [
         "SRA_266444", "SRA_266457", "SRA_266458", "SRA_266474", "SRA_266475"]
-    assert wb.sheetnames[-3:] == ["Source_crosscheck", "Ανάλυση_ελέγχων", "Legend"]
+    assert wb.sheetnames[-4:] == ["Source_crosscheck", "Ανάλυση_ελέγχων",
+                                  "Ανά_μονάδα_ιατρό", "Legend"]
     ws = wb["Σύνοψη_παρόχων"]
     ev = _Evaluator(wb)
     total_row = next(r for r in range(1, ws.max_row + 1)
@@ -167,3 +168,34 @@ def test_crosscheck_and_audit_tabs_are_sectioned_per_provider():
     assert ties
     for r in ties:
         assert round(ev.evaluate(ws.cell(row=r, column=2).value, "Ανάλυση_ελέγχων"), 2) == 0.0
+
+
+def test_by_unit_and_doctor_tab_splits_each_cheque_and_ties_to_it():
+    """The posting sheet: every unit's cheque split by speciality and
+    professional, bridged to the cheque in live formulas — the claims-vs-SRA
+    gap is its OWN row, never spread across the professionals."""
+    batches, leftovers = group_by_provider(_batch())
+    _gates, period, _notes = validate_provider_batches(batches, leftovers)
+    entries = run_provider_batches(batches, period)
+    wb = load_workbook(io.BytesIO(build_provider_workbook(entries)))
+    ws = wb["Ανά_μονάδα_ιατρό"]
+    ev = _Evaluator(wb)
+    labels = {r: str(ws.cell(row=r, column=1).value or "") for r in range(1, ws.max_row + 1)}
+    # one block per unit, each ending in a zero-check that recomputes to 0
+    checks = [r for r, l in labels.items() if l.startswith("Zero-check")]
+    assert len(checks) == len(entries)
+    for r in checks:
+        assert round(ev.evaluate(ws.cell(row=r, column=5).value, "Ανά_μονάδα_ιατρό"), 2) == 0.0
+    # professionals are listed under their speciality, with live subtotals
+    specs = [r for r in range(1, ws.max_row + 1)
+             if str(ws.cell(row=r, column=3).value or "").startswith("Υποσύνολο —")]
+    assert specs
+    for r in specs:
+        assert str(ws.cell(row=r, column=5).value).startswith("=SUM(")
+    docs = {str(ws.cell(row=r, column=4).value) for r in range(1, ws.max_row + 1)
+            if ws.cell(row=r, column=4).value}
+    assert any("SKORDI" in d or "ΣΚΟΡΔΗ" in d for d in docs)
+    # the two grand totals: allocated by professional, and the cheques
+    cheques_row = next(r for r, l in labels.items() if l.startswith("ΓΕΝΙΚΟ ΣΥΝΟΛΟ — επιταγές"))
+    grand = round(ev.evaluate(ws.cell(row=cheques_row, column=5).value, "Ανά_μονάδα_ιατρό"), 2)
+    assert grand == round(sum(round(sum(u[2:]), 2) for u in UNITS), 2)

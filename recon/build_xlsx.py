@@ -115,6 +115,7 @@ def build_provider_workbook(entries: list) -> bytes:
         sections[-1].stated_row = stated_row
     cc_rows = _tab_crosscheck(wb, sections)
     _tab_audit(wb, sections, cc_rows)
+    _tab_provider_by_doctor(wb, sections)
     _tab_legend(wb, entries[0][2] if entries else None)
     _tab_provider_summary(summary, sections)
     buf = io.BytesIO()
@@ -208,6 +209,118 @@ def _tab_provider_summary(ws, sections: list) -> None:
             "=" + "+".join(f"{c}{total_row}" for c in stream_letters)
             + f"+{adj_letter}{total_row}-{total_letter}{total_row}", F_FORMULA)
     ws.cell(row=check_row, column=5 + len(_PROVIDER_STREAMS)).fill = FILL_CHECK
+    _autosize(ws)
+
+
+def _tab_provider_by_doctor(wb: Workbook, sections: list) -> None:
+    """The posting sheet for a mental-health month: each unit's cheque split
+    by speciality and by professional, off the paid-claims file's ASSOCIATED
+    DOCTOR / DR SPECIALITY columns.
+
+    Every unit block bridges from the per-doctor total to its cheque in live
+    formulas: the claims-vs-SRA difference and the SRA lines outside the
+    service streams are their OWN rows, so nothing is spread across doctors
+    to force a tie."""
+    ws = wb.create_sheet("Ανά_μονάδα_ιατρό")
+    ws.cell(row=1, column=1,
+            value="Κατανομή πληρωμών ανά μονάδα και ιατρό/επαγγελματία "
+                  "(by unit and professional)").font = Font(bold=True, size=12,
+                                                            color=NAVY)
+    _header(ws, 3, ["Μονάδα (Unit)", "Ροή (Stream)", "Ειδικότητα (Speciality)",
+                    "Ιατρός / Επαγγελματίας (Professional)", "Ποσό (Amount €)"])
+    r = 4
+    unit_cheque_cells = []
+    unit_total_cells = []
+    for section in sections:
+        b = section.result.bundle
+        tab, n = section.sra_tab, section.n_lines
+        head = ws.cell(row=r, column=1, value=section.label)
+        head.font = Font(bold=True, color="FFFFFF")
+        for col in range(1, 6):
+            ws.cell(row=r, column=col).fill = FILL_SECTION
+        ws.cell(row=r, column=5,
+                value=f"Επιταγή #{b.sra.cheque_no}" if b.sra else "").font =             Font(bold=True, color="FFFFFF")
+        r += 1
+        rows = list(b.claims.by_doctor) if b.claims else []
+        subtotal_cells = []
+        if rows:
+            # clinic (speciality) first, then the professionals inside it
+            groups: dict[tuple[str, str], list[tuple[str, float]]] = {}
+            for seg, spec, doc, amt in rows:
+                groups.setdefault((seg or "—", spec or "—"), []).append((doc or "—", amt))
+            for (seg, spec), docs in sorted(groups.items(),
+                                            key=lambda kv: -sum(a for _d, a in kv[1])):
+                first = r
+                for doc, amt in sorted(docs, key=lambda d: -d[1]):
+                    ws.cell(row=r, column=2, value=seg).font = F_INPUT
+                    ws.cell(row=r, column=3, value=spec).font = F_INPUT
+                    ws.cell(row=r, column=4, value=doc).font = F_INPUT
+                    _amount(ws, r, 5, amt, F_INPUT)
+                    r += 1
+                ws.cell(row=r, column=3, value=f"Υποσύνολο — {spec}").font = Font(bold=True)
+                _amount(ws, r, 5, f"=SUM(E{first}:E{r - 1})", F_FORMULA)
+                ws.cell(row=r, column=5).font = Font(bold=True)
+                subtotal_cells.append(f"E{r}")
+                r += 1
+        else:
+            ws.cell(row=r, column=2,
+                    value="Το αρχείο claims δεν έχει στήλη ιατρού (no ASSOCIATED "
+                          "DOCTOR column)").font = Font(italic=True, color=GRAY)
+            r += 1
+        claims_row = r
+        ws.cell(row=claims_row, column=1,
+                value="Σύνολο ανά ιατρό (claims file)").font = Font(bold=True)
+        _amount(ws, claims_row, 5,
+                ("=" + "+".join(subtotal_cells)) if subtotal_cells else 0.0,
+                F_FORMULA if subtotal_cells else F_INPUT)
+        r += 1
+        # bridge to the cheque, every step live
+        codes = [c for c, _l in _PROVIDER_STREAMS]
+        code_cells = []
+        for i, code in enumerate(codes):
+            ws.cell(row=2, column=6 + i, value=code).font = F_INPUT
+            code_cells.append(f"{get_column_letter(6 + i)}$2")
+        svc = "+".join(f"SUMIFS('{tab}'!$F$2:$F${n},'{tab}'!$A$2:$A${n},{c})"
+                       for c in code_cells)
+        diff_row = r
+        ws.cell(row=diff_row, column=1,
+                value="Διαφορά claims έναντι γραμμών υπηρεσιών SRA (μη κατανεμημένη)")
+        _amount(ws, diff_row, 5, f"={svc}-E{claims_row}", F_FORMULA)
+        # a real gap between the claims file and the cheque's service lines:
+        # shown on its own line, never spread across the professionals
+        claims_total = b.claims.total if b.claims else 0.0
+        services = round(sum(l.amount for l in b.sra.lines
+                             if l.code in codes), 2) if b.sra else 0.0
+        if abs(services - claims_total) > CENT:
+            ws.cell(row=diff_row, column=5).font = F_AMBER
+        r += 1
+        adj_row = r
+        ws.cell(row=adj_row, column=1,
+                value="Λοιπές γραμμές SRA εκτός OS/NM/AP (προσαρμογές)")
+        cheque_ref = f"'{tab}'!F{getattr(section, 'stated_row', 2)}"
+        _amount(ws, adj_row, 5, f"={cheque_ref}-({svc})", F_FORMULA)
+        r += 1
+        cheque_row = r
+        ws.cell(row=cheque_row, column=1, value="Επιταγή ΟΑΥ (HIO cheque)").font = Font(bold=True)
+        _amount(ws, cheque_row, 5, f"={cheque_ref}", F_LINK)
+        ws.cell(row=cheque_row, column=5).font = Font(bold=True, color=GREEN_LINK)
+        r += 1
+        check_row = r
+        ws.cell(row=check_row, column=1,
+                value="Zero-check = κατανομή + γέφυρα − επιταγή (must be 0)")
+        _amount(ws, check_row, 5,
+                f"=E{claims_row}+E{diff_row}+E{adj_row}-E{cheque_row}", F_FORMULA)
+        ws.cell(row=check_row, column=5).fill = FILL_CHECK
+        unit_cheque_cells.append(f"E{cheque_row}")
+        unit_total_cells.append(f"E{claims_row}")
+        r += 2
+    if unit_cheque_cells:
+        ws.cell(row=r, column=1, value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ — κατανεμημένο ανά ιατρό"
+                ).font = Font(bold=True)
+        _amount(ws, r, 5, "=" + "+".join(unit_total_cells), F_FORMULA)
+        r += 1
+        ws.cell(row=r, column=1, value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ — επιταγές").font = Font(bold=True)
+        _amount(ws, r, 5, "=" + "+".join(unit_cheque_cells), F_FORMULA)
     _autosize(ws)
 
 
