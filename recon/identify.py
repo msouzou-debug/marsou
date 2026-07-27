@@ -22,6 +22,8 @@ from .models import (GREEK_MONTHS, HOSPITALS, IdentifiedFile, ReportType,
 # deliberately does NOT match satellite providers (e.g. F1085) — those are
 # recognised as satellites on the SRA, not as the batch hospital
 F_CODE_RE = re.compile(r"\b(?:" + "|".join(sorted(HOSPITALS)) + r")\b")
+# ANY ΟΑΥ provider code — hospitals and the mental-health units alike
+_PROVIDER_CODE_RE = re.compile(r"F1\d{3}")
 
 
 # ---------------------------------------------------------------- sniffing
@@ -302,10 +304,48 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
                 f.probe = (f.probe or "") + f"\n(endo extract failed: {e})"
             return
 
+        # activity export flattened to a spreadsheet (ΟΑΥ ships it in an
+        # «XMLS» folder but the files are .xlsx): same fields as the XML
+        hr = find_header_row(df, ["CLAIMID", "ACTIVITYREIMBURSEMENTAMOUNT"])
+        if hr is None:
+            hr = find_header_row(df, ["CLAIM ID", "ACTIVITY REIMBURSEMENT AMOUNT"])
+        if hr is not None:
+            f.report_type = ReportType.XML_ACTIVITY
+            prov = _column_values(df, hr, "PROVIDERID")
+            if prov is not None:
+                codes = {str(v).strip() for v in prov.dropna()
+                         if _PROVIDER_CODE_RE.fullmatch(str(v).strip())}
+                if len(codes) == 1:
+                    f.provider_code = codes.pop()
+                    f.hospital_code = (f.provider_code
+                                       if f.provider_code in HOSPITALS else None)
+            names = _column_values(df, hr, "PROVIDERNAME")
+            if names is not None:
+                labels = {str(v).strip() for v in names.dropna()}
+                if len(labels) == 1:
+                    f.provider_label = labels.pop()
+            pays = _column_values(df, hr, "CLAIMPAYMENTNUMBER")
+            if pays is not None:
+                f.cheques = sorted({str(v).strip().split(".")[0]
+                                    for v in pays.dropna() if str(v).strip()})
+            dates = _column_values(df, hr, "CLAIMSDATEFROM")
+            if dates is not None and len(dates.dropna()):
+                f.year, f.month = find_period(str(dates.dropna().iloc[0]))
+            if f.year is None:
+                f.year, f.month = find_period(_cells_text(df, hr + 3))
+            return
+
         hr = find_header_row(df, ["DR SEGMENT"])
         if hr is not None:
             f.report_type = ReportType.CLAIMS_ALL
             _fill_from_table(f, df, hr, sheets)
+            # a claims file carries no F-code; PAYMENT NO. is what ties it to
+            # a cheque — the only content-based way to attribute it when a
+            # batch holds several providers
+            pays = _column_values(df, hr, "PAYMENT NO")
+            if pays is not None:
+                f.cheques = sorted({str(v).strip().split(".")[0]
+                                    for v in pays.dropna() if str(v).strip()})
             # diagnostics: the ACTUAL segment values with sums — the column
             # sits past the probe's visible width and its labels vary
             try:
@@ -480,6 +520,14 @@ def _identify_pdf(f: IdentifiedFile) -> None:
         return
     f.report_type = rt
     f.hospital_code = find_hospital(text)
+    if rt == ReportType.SRA:
+        # the payee may be an OKYπY unit that is NOT one of the 8 hospitals
+        # (mental health services) — keep its code so the batch can group by
+        # provider instead of refusing the run
+        from .extract import parse_sra_supplier
+        f.provider_code, f.provider_label, cheque = parse_sra_supplier(text)
+        if cheque:
+            f.cheques = [cheque]
     # SRAs are dated in the payment month (arrears) — dig for the service period
     if rt == ReportType.SRA:
         f.year, f.month = find_service_period(text)

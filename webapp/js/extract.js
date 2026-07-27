@@ -717,6 +717,29 @@ const LEAD_DATE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})/;
 // CRN-Packages corrections vs the fee invoice itself (both carry code PHF)
 const CORRECTION_RE = /CRN|COR\.|CORRECTION|ADJ/;
 
+function parseSraSupplier(text) {
+  /* [provider F-code, printed payee label, cheque number] from an SRA header,
+   * WITHOUT parsing the payment lines.  ΟΑΥ pays OKYπY units that are not one
+   * of the 8 hospitals (the mental health services), each on its own cheque;
+   * identification needs the code and the cheque to group a multi-provider
+   * batch.  The payee wraps across two header lines («...INCOME-MENTAL /
+   * HEALTH-F1070 Payment Currency: EUR»), so the label is stitched back. */
+  const head = String(text).split('\n').slice(0, 20);
+  let code = null, label = null;
+  for (let i = 0; i < head.length; i++) {
+    const m = head[i].match(/\bF1\d{3}\b/);
+    if (m) {
+      code = m[0];
+      const joined = `${i ? head[i - 1] : ''} ${head[i].slice(0, m.index)}`.trim();
+      label = stripAccents(joined).replace(/\b(?:PAYMENT|CURRENCY|DATE|CHEQUE|NO)\b[\s\S]*/, '')
+        .replace(/^[\s\-:]+|[\s\-:]+$/g, '').replace(/\s{2,}/g, ' ') || null;
+      break;
+    }
+  }
+  const cm = stripAccents(text).match(CHEQUE_RE);
+  return [code, label, cm ? cm[1] : ''];
+}
+
 function sraSumInPeriod(sra, codes, year, month, current, correctionsOnly) {
   /* Sum SRA lines of the given codes whose invoice date falls IN (current)
    * or OUTSIDE the service month.  ΟΑΥ's ledger books corrections in the
@@ -938,6 +961,46 @@ function extractXmlActivity(bytes) {
   return { total: round2(total), nClaims: claims.size, byPayment, byClaim, dateFrom, dateTo };
 }
 
+function extractActivityTable(bytes) {
+  /* The activity export flattened into a spreadsheet: one row per ACTIVITY,
+   * the claim-level fields repeated on each row.  Produces exactly what the
+   * XML path produces, so every downstream check is format-agnostic. */
+  for (const { rows } of loadSheets(bytes)) {
+    let hr = findHeaderRow(rows, ['CLAIMID', 'ACTIVITYREIMBURSEMENTAMOUNT']);
+    if (hr === null) hr = findHeaderRow(rows, ['CLAIM ID', 'ACTIVITY REIMBURSEMENT AMOUNT']);
+    if (hr === null) continue;
+    const { cols, body } = tableAt(rows, hr);
+    const amt = colIndex(cols, 'ACTIVITYREIMBURSEMENTAMOUNT', 'ACTIVITY REIMBURSEMENT AMOUNT');
+    const cid = colIndex(cols, 'CLAIMID', 'CLAIM ID');
+    const pay = colIndex(cols, 'CLAIMPAYMENTNUMBER', 'CLAIM PAYMENT NUMBER');
+    const out = { total: 0, nClaims: 0, byPayment: {}, byClaim: {},
+                  dateFrom: '', dateTo: '' };
+    const claims = new Set();
+    for (const row of body) {
+      if (amt == null || !isNumberLike(row[amt])) continue;
+      const a = parseAmount(row[amt]);
+      out.total = round2(out.total + a);
+      const key = cid != null && row[cid] != null ? cellText(row[cid]).trim().split('.')[0] : '';
+      if (key && key !== 'nan') {
+        claims.add(key);
+        out.byClaim[key] = round2((out.byClaim[key] || 0) + a);
+      }
+      let p = pay != null && row[pay] != null ? cellText(row[pay]).trim().split('.')[0] : '';
+      if (p === 'nan') p = '';
+      out.byPayment[p] = round2((out.byPayment[p] || 0) + a);
+    }
+    out.nClaims = claims.size;
+    for (const [needle, attr] of [['CLAIMSDATEFROM', 'dateFrom'], ['CLAIMSDATETO', 'dateTo']]) {
+      const j = colIndex(cols, needle);
+      if (j == null) continue;
+      const v = body.map((r) => cellText(r[j])).find((t) => t && t !== 'nan');
+      if (v) out[attr] = v.slice(0, 10);
+    }
+    if (out.total || Object.keys(out.byClaim).length) return out;
+  }
+  throw new ExtractionError('Activity export: δεν βρέθηκαν στήλες ClaimId / ActivityReimbursementAmount');
+}
+
 /* ---------------------------------- capitation / quality / hemo (any fmt) */
 
 function extractSimpleReport(bytes, rawText) {
@@ -1060,7 +1123,11 @@ async function extractReport(reportType, f, hospitalCode, sraTextOverride) {
       return parsePharmacistFeeText(rawText != null ? rawText : await extractPdfText(f.data));
     case RT.GL_EXTRACT: return extractGl(f.data, hospitalCode);
     case RT.IS_AUDITOR: return extractIsAuditor(f.data, hospitalCode);
-    case RT.XML_ACTIVITY: return extractXmlActivity(f.data);
+    case RT.XML_ACTIVITY:
+      /* ΟΑΥ ships the activity export as XML for the hospitals and as a
+       * flattened SPREADSHEET for the mental-health units — same fields */
+      return (sniffFormat(f.data) === 'xml'
+        ? extractXmlActivity(f.data) : extractActivityTable(f.data));
     default: return extractSimpleReport(f.data, rawText);
   }
 }

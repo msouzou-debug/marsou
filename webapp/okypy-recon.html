@@ -308,6 +308,8 @@ const RT = {
 const REQUIRED_TYPES = [RT.SRA, RT.INPATIENT_SUMMARY, RT.CLAIMS_ALL,
                         RT.PHARMA_CLAIMS, RT.PHARMACIST_FEE];
 const ORG_WIDE_TYPES = new Set([RT.GL_EXTRACT, RT.IS_AUDITOR]);
+// a non-hospital provider bills service streams only
+const REQUIRED_TYPES_PROVIDER = [RT.SRA, RT.CLAIMS_ALL];
 
 const REPORT_LABELS = {
   [RT.SRA]: 'Κατάσταση Πληρωμής / SRA (Remittance Advice)',
@@ -335,6 +337,33 @@ const HOSPITALS = {
   F1055: ['ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ', 'Kyperounta'],
   F1026: ['ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΗΣ ΧΡΥΣΟΧΟΥΣ', 'Polis'],
 };
+
+/* ΟΑΥ also pays OKYπY units that are NOT one of the 8 hospitals — the mental
+ * health services, each with its own F-code and its own cheque.  They bill
+ * service streams only (OS / NM / AP): no DRG summary, no pharmacy, no
+ * pharmacist fee, so they need their own required set.  Display names only:
+ * the real name is read from the file content when the activity export is
+ * present, and a provider is NEVER decided from a filename. */
+const OTHER_PROVIDERS = {
+  F1070: 'ΕΣΩΤΕΡΙΚΗ ΝΟΣΗΛΕΙΑ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ',
+  F1088: 'ΙΑΤΡΕΙΑ ΔΙΠΛΗΣ ΔΙΑΓΝΩΣΗΣ',
+  F1089: 'ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΕΝΗΛΙΚΕΣ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ',
+  F1090: 'ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΠΑΙΔΙΑ ΚΑΙ ΕΦΗΒΟΥΣ',
+  F1097: 'ΚΕΝΤΡΟ ΕΞΕΙΔΙΚΕΥΜΕΝΩΝ ΑΞΙΟΛΟΓΗΣΕΩΝ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ',
+};
+
+function isHospital(code) {
+  return !!code && Object.prototype.hasOwnProperty.call(HOSPITALS, code);
+}
+
+function providerName(code, learned) {
+  /* A name read from the file content always wins over the built-in
+   * registry, so a provider the app has never seen still shows its name. */
+  if (!code) return '—';
+  if (isHospital(code)) return HOSPITALS[code][0];
+  if (learned) return String(learned).trim();
+  return OTHER_PROVIDERS[code] || code;
+}
 
 const BUCKETS = ['Inpatient', 'A&E', 'Outpatient', 'Pharma'];
 const BUCKET_LABELS = {
@@ -442,6 +471,8 @@ function isNumberLike(v) {
  * recognised as satellites on the SRA, not as the batch hospital */
 const F_CODE_RE = new RegExp('\\b(?:'
   + Object.keys(HOSPITALS).sort().join('|') + ')\\b');
+/* ANY ΟΑΥ provider code — hospitals and the mental-health units alike */
+const PROVIDER_CODE_RE = /F1\d{3}/;
 
 function sniffFormat(bytes) {
   const b = bytes.subarray(0, 8);
@@ -698,10 +729,51 @@ function identifyExcel(f) {
       }
       return;
     }
-    let hr = findHeaderRow(rows, ['DR SEGMENT']);
+    /* activity export flattened to a spreadsheet (ΟΑΥ ships it in an «XMLS»
+     * folder but the files are .xlsx): same fields as the XML */
+    let hr = findHeaderRow(rows, ['CLAIMID', 'ACTIVITYREIMBURSEMENTAMOUNT']);
+    if (hr === null) hr = findHeaderRow(rows, ['CLAIM ID', 'ACTIVITY REIMBURSEMENT AMOUNT']);
+    if (hr !== null) {
+      f.reportType = RT.XML_ACTIVITY;
+      const prov = columnValues(rows, hr, 'PROVIDERID');
+      if (prov) {
+        const codes = [...new Set(prov.map((v) => cellText(v).trim())
+          .filter((v) => PROVIDER_CODE_RE.test(v) && v.length === 5))];
+        if (codes.length === 1) {
+          f.providerCode = codes[0];
+          f.hospitalCode = isHospital(codes[0]) ? codes[0] : null;
+        }
+      }
+      const names = columnValues(rows, hr, 'PROVIDERNAME');
+      if (names) {
+        const labels = [...new Set(names.map((v) => cellText(v).trim())
+          .filter((v) => v && v !== 'nan'))];
+        if (labels.length === 1) f.providerLabel = labels[0];
+      }
+      const pays = columnValues(rows, hr, 'CLAIMPAYMENTNUMBER');
+      if (pays) {
+        f.cheques = [...new Set(pays.map((v) => cellText(v).trim().split('.')[0])
+          .filter((v) => v && v !== 'nan'))].sort();
+      }
+      const dates = columnValues(rows, hr, 'CLAIMSDATEFROM');
+      const first = dates ? dates.find((v) => v != null && cellText(v) !== 'nan') : null;
+      if (first) [f.year, f.month] = findPeriod(cellText(first));
+      if (f.year == null) [f.year, f.month] = findPeriod(cellsText(rows.slice(hr, hr + 3)));
+      return;
+    }
+
+    hr = findHeaderRow(rows, ['DR SEGMENT']);
     if (hr !== null) {
       f.reportType = RT.CLAIMS_ALL;
       fillFromTable(f, rows, hr, sheets);
+      /* a claims file carries no F-code; PAYMENT NO. is what ties it to a
+       * cheque — the only content-based way to attribute it when a batch
+       * holds several providers */
+      const pays = columnValues(rows, hr, 'PAYMENT NO');
+      if (pays) {
+        f.cheques = [...new Set(pays.map((v) => cellText(v).trim().split('.')[0])
+          .filter((v) => v && v !== 'nan'))].sort();
+      }
       // diagnostics: the ACTUAL segment values with sums — the column sits
       // past the probe's visible width and its labels vary
       try {
@@ -861,6 +933,13 @@ async function identifyPdf(f) {
   // SRAs are dated in the payment month (arrears) — dig for the service period
   if (rt === RT.SRA) {
     [f.year, f.month] = findServicePeriod(text);
+    /* the payee may be an OKYπY unit that is NOT one of the 8 hospitals
+     * (mental health services) — keep its code so the batch can group by
+     * provider instead of refusing the run */
+    const [code, label, cheque] = parseSraSupplier(text);
+    f.providerCode = code;
+    f.providerLabel = label;
+    if (cheque) f.cheques = [cheque];
     f.probe = (f.probe || '') + '\n\n' + sraProbeSummary(text);
   } else {
     [f.year, f.month] = findPeriod(text);
@@ -949,7 +1028,12 @@ function identifyXml(f) {
 async function identify(filename, bytes) {
   const f = { filename, data: bytes, reportType: null, hospitalCode: null,
               year: null, month: null, warnings: [], error: null, rawText: null,
-              needsManualText: false, probe: null };
+              needsManualText: false, probe: null,
+              /* NON-hospital ΟΑΥ provider (mental-health unit): its F-code,
+               * the name printed in the file, and the cheque(s) the file
+               * belongs to — a batch can carry several such providers at
+               * once, so every file must say which one it belongs to. */
+              providerCode: null, providerLabel: null, cheques: [] };
   const fmt = sniffFormat(bytes);
   if (fmt === 'xlsx' || fmt === 'xls') identifyExcel(f);
   else if (fmt === 'pdf') await identifyPdf(f);
@@ -1679,6 +1763,29 @@ const LEAD_DATE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})/;
 // CRN-Packages corrections vs the fee invoice itself (both carry code PHF)
 const CORRECTION_RE = /CRN|COR\.|CORRECTION|ADJ/;
 
+function parseSraSupplier(text) {
+  /* [provider F-code, printed payee label, cheque number] from an SRA header,
+   * WITHOUT parsing the payment lines.  ΟΑΥ pays OKYπY units that are not one
+   * of the 8 hospitals (the mental health services), each on its own cheque;
+   * identification needs the code and the cheque to group a multi-provider
+   * batch.  The payee wraps across two header lines («...INCOME-MENTAL /
+   * HEALTH-F1070 Payment Currency: EUR»), so the label is stitched back. */
+  const head = String(text).split('\n').slice(0, 20);
+  let code = null, label = null;
+  for (let i = 0; i < head.length; i++) {
+    const m = head[i].match(/\bF1\d{3}\b/);
+    if (m) {
+      code = m[0];
+      const joined = `${i ? head[i - 1] : ''} ${head[i].slice(0, m.index)}`.trim();
+      label = stripAccents(joined).replace(/\b(?:PAYMENT|CURRENCY|DATE|CHEQUE|NO)\b[\s\S]*/, '')
+        .replace(/^[\s\-:]+|[\s\-:]+$/g, '').replace(/\s{2,}/g, ' ') || null;
+      break;
+    }
+  }
+  const cm = stripAccents(text).match(CHEQUE_RE);
+  return [code, label, cm ? cm[1] : ''];
+}
+
 function sraSumInPeriod(sra, codes, year, month, current, correctionsOnly) {
   /* Sum SRA lines of the given codes whose invoice date falls IN (current)
    * or OUTSIDE the service month.  ΟΑΥ's ledger books corrections in the
@@ -1900,6 +2007,46 @@ function extractXmlActivity(bytes) {
   return { total: round2(total), nClaims: claims.size, byPayment, byClaim, dateFrom, dateTo };
 }
 
+function extractActivityTable(bytes) {
+  /* The activity export flattened into a spreadsheet: one row per ACTIVITY,
+   * the claim-level fields repeated on each row.  Produces exactly what the
+   * XML path produces, so every downstream check is format-agnostic. */
+  for (const { rows } of loadSheets(bytes)) {
+    let hr = findHeaderRow(rows, ['CLAIMID', 'ACTIVITYREIMBURSEMENTAMOUNT']);
+    if (hr === null) hr = findHeaderRow(rows, ['CLAIM ID', 'ACTIVITY REIMBURSEMENT AMOUNT']);
+    if (hr === null) continue;
+    const { cols, body } = tableAt(rows, hr);
+    const amt = colIndex(cols, 'ACTIVITYREIMBURSEMENTAMOUNT', 'ACTIVITY REIMBURSEMENT AMOUNT');
+    const cid = colIndex(cols, 'CLAIMID', 'CLAIM ID');
+    const pay = colIndex(cols, 'CLAIMPAYMENTNUMBER', 'CLAIM PAYMENT NUMBER');
+    const out = { total: 0, nClaims: 0, byPayment: {}, byClaim: {},
+                  dateFrom: '', dateTo: '' };
+    const claims = new Set();
+    for (const row of body) {
+      if (amt == null || !isNumberLike(row[amt])) continue;
+      const a = parseAmount(row[amt]);
+      out.total = round2(out.total + a);
+      const key = cid != null && row[cid] != null ? cellText(row[cid]).trim().split('.')[0] : '';
+      if (key && key !== 'nan') {
+        claims.add(key);
+        out.byClaim[key] = round2((out.byClaim[key] || 0) + a);
+      }
+      let p = pay != null && row[pay] != null ? cellText(row[pay]).trim().split('.')[0] : '';
+      if (p === 'nan') p = '';
+      out.byPayment[p] = round2((out.byPayment[p] || 0) + a);
+    }
+    out.nClaims = claims.size;
+    for (const [needle, attr] of [['CLAIMSDATEFROM', 'dateFrom'], ['CLAIMSDATETO', 'dateTo']]) {
+      const j = colIndex(cols, needle);
+      if (j == null) continue;
+      const v = body.map((r) => cellText(r[j])).find((t) => t && t !== 'nan');
+      if (v) out[attr] = v.slice(0, 10);
+    }
+    if (out.total || Object.keys(out.byClaim).length) return out;
+  }
+  throw new ExtractionError('Activity export: δεν βρέθηκαν στήλες ClaimId / ActivityReimbursementAmount');
+}
+
 /* ---------------------------------- capitation / quality / hemo (any fmt) */
 
 function extractSimpleReport(bytes, rawText) {
@@ -2022,7 +2169,11 @@ async function extractReport(reportType, f, hospitalCode, sraTextOverride) {
       return parsePharmacistFeeText(rawText != null ? rawText : await extractPdfText(f.data));
     case RT.GL_EXTRACT: return extractGl(f.data, hospitalCode);
     case RT.IS_AUDITOR: return extractIsAuditor(f.data, hospitalCode);
-    case RT.XML_ACTIVITY: return extractXmlActivity(f.data);
+    case RT.XML_ACTIVITY:
+      /* ΟΑΥ ships the activity export as XML for the hospitals and as a
+       * flattened SPREADSHEET for the mental-health units — same fields */
+      return (sniffFormat(f.data) === 'xml'
+        ? extractXmlActivity(f.data) : extractActivityTable(f.data));
     default: return extractSimpleReport(f.data, rawText);
   }
 }
@@ -2033,6 +2184,162 @@ async function extractReport(reportType, f, hospitalCode, sraTextOverride) {
  * recon/checks.py.  Never plug a difference: unexplained diffs are red
  * findings; known variances are noted, never absorbed. */
 'use strict';
+
+/* --------------------------------------- non-hospital provider batches */
+
+function isProviderBatch(files) {
+  /* True when the upload is a NON-hospital provider month: at least one SRA
+   * made out to a provider outside the 8 hospitals, and no hospital anywhere.
+   * (A satellite SRA alongside a hospital's files is not this — that stays
+   * the hospital's own batch.) */
+  if (files.some((f) => f.hospitalCode)) return false;
+  return files.some((f) => f.reportType === RT.SRA && f.providerCode
+    && !isHospital(f.providerCode));
+}
+
+function batchCheques(batch) {
+  const out = [];
+  for (const f of batch.files) {
+    if (f.reportType === RT.SRA) {
+      for (const c of (f.cheques || [])) if (!out.includes(c)) out.push(c);
+    }
+  }
+  return out;
+}
+
+function groupByProvider(files) {
+  /* Split a multi-provider upload into one batch per provider.  Attribution
+   * is ALWAYS content-based — folder and file names are never consulted (ΟΑΥ
+   * ships every unit's file under the same three folder names):
+   *   · SRA             → the supplier F-code in its header
+   *   · claims «all»    → its PAYMENT NO. = one provider's cheque
+   *   · activity export → its ProviderId column                          */
+  const batches = new Map();
+  const chequeOwner = new Map();
+  for (const f of files) {
+    if (f.reportType === RT.SRA && f.providerCode) {
+      if (!batches.has(f.providerCode)) {
+        batches.set(f.providerCode, { code: f.providerCode,
+          label: providerName(f.providerCode, f.providerLabel), files: [] });
+      }
+      batches.get(f.providerCode).files.push(f);
+      for (const c of (f.cheques || [])) chequeOwner.set(c, f.providerCode);
+    }
+  }
+  const leftovers = [];
+  for (const f of files) {
+    if (f.reportType === RT.SRA && f.providerCode) continue;
+    let code = batches.has(f.providerCode) ? f.providerCode : null;
+    if (code == null) {
+      const owners = [...new Set((f.cheques || []).map((c) => chequeOwner.get(c))
+        .filter(Boolean))];
+      code = owners.length === 1 ? owners[0] : null;
+    }
+    if (code == null) { leftovers.push(f); continue; }
+    batches.get(code).files.push(f);
+    // the activity export prints the provider's real name — prefer it
+    if (f.providerLabel && f.providerCode === code) {
+      batches.get(code).label = providerName(code, f.providerLabel);
+    }
+  }
+  const ordered = [...batches.values()]
+    .sort((a, b) => String(batchCheques(a)[0] || '').localeCompare(String(batchCheques(b)[0] || '')));
+  for (const b of ordered) b.cheques = batchCheques(b);
+  return { batches: ordered, leftovers };
+}
+
+function validateProviderBatches(batches, leftovers) {
+  /* Gates 1-3 for a multi-provider month: one file of each type per
+   * provider, one month across the upload, SRA + paid claims per provider. */
+  const gates = [];
+  const notes = [];
+  if (leftovers.length) {
+    notes.push('Προσοχή (warning): τα εξής αρχεία δεν αποδόθηκαν σε πάροχο και ΑΓΝΟΟΥΝΤΑΙ '
+      + '(could not be attributed to a provider — no F-code and no matching cheque): '
+      + leftovers.map((f) => f.filename).join(' · '));
+  }
+  const dupes = [];
+  for (const b of batches) {
+    const seen = new Map();
+    for (const f of b.files) {
+      if (f.reportType && f.reportType !== RT.SRA) {
+        if (!seen.has(f.reportType)) seen.set(f.reportType, []);
+        seen.get(f.reportType).push(f.filename);
+      }
+    }
+    for (const [t, names] of seen) {
+      if (names.length > 1) {
+        dupes.push(`${b.label} (${b.code}) — ${REPORT_LABELS[t]}: ${names.join(', ')}`);
+      }
+    }
+  }
+  const name1 = 'Αναγνώριση αρχείων ανά πάροχο (files per provider)';
+  if (dupes.length) {
+    gates.push({ number: 1, name: name1, passed: false,
+      message: 'Διπλά αρχεία για τον ίδιο τύπο αναφοράς στον ίδιο πάροχο '
+        + '(duplicate files for one report type):\n• ' + dupes.join('\n• ') });
+    return { gates, period: null, notes };
+  }
+  gates.push({ number: 1, name: name1, passed: true, message: '' });
+
+  const periods = new Set();
+  for (const b of batches) {
+    for (const f of b.files) {
+      if (f.reportType === RT.SRA && f.year && f.month) periods.add(`${f.year}-${f.month}`);
+    }
+  }
+  const name2 = 'Ένας μήνας για όλους τους παρόχους (single month)';
+  if (periods.size > 1) {
+    const ps = [...periods].sort().map((p) => {
+      const [y, m] = p.split('-').map(Number);
+      return `${String(m).padStart(2, '0')}/${y}`;
+    }).join(', ');
+    gates.push({ number: 2, name: name2, passed: false,
+      message: `Η παρτίδα περιέχει δύο μήνες (mixed months): ${ps}. Ανεβάστε έναν μήνα τη φορά.` });
+    return { gates, period: null, notes };
+  }
+  gates.push({ number: 2, name: name2, passed: true, message: '' });
+  const period = periods.size ? [...periods][0].split('-').map(Number) : [null, null];
+
+  const missing = [];
+  for (const b of batches) {
+    const have = new Set(b.files.map((f) => f.reportType));
+    for (const t of REQUIRED_TYPES_PROVIDER) {
+      if (!have.has(t)) missing.push(`${b.label} (${b.code}): ${REPORT_LABELS[t]}`);
+    }
+  }
+  const name3 = 'Πλήρες σετ ανά πάροχο (required set per provider)';
+  if (missing.length) {
+    gates.push({ number: 3, name: name3, passed: false,
+      message: 'Λείπουν αναφορές (missing reports):\n• ' + missing.join('\n• ') });
+    return { gates, period, notes };
+  }
+  gates.push({ number: 3, name: name3, passed: true, message: '' });
+  return { gates, period, notes };
+}
+
+async function runProviderBatches(batches, period) {
+  /* Reconcile every provider in a multi-provider month.
+   * -> [{code, label, result}] in the batches' order. */
+  const [year, month] = period || [null, null];
+  const out = [];
+  for (const b of batches) {
+    const bundle = { hospitalCode: b.code, year, month };
+    const sras = [];
+    for (const f of b.files) {
+      if (f.reportType === RT.SRA) {
+        sras.push(await extractReport(RT.SRA, f, b.code));
+      } else if (f.reportType === RT.CLAIMS_ALL) {
+        bundle.claims = await extractReport(RT.CLAIMS_ALL, f, b.code);
+      } else if (f.reportType === RT.XML_ACTIVITY) {
+        bundle.xmlActivity = await extractReport(RT.XML_ACTIVITY, f, b.code);
+      }
+    }
+    if (sras.length) bundle.sra = mergeSras(sras, b.code);
+    out.push({ code: b.code, label: b.label, result: runReconciliation(bundle, false) });
+  }
+  return out;
+}
 
 /* ------------------------------------------------------------------ gates */
 
@@ -3082,13 +3389,121 @@ function buildWorkbook(result) {
   } else {
     tabMatrix(wb, result);
   }
-  tabCrosscheck(wb, result, sraTab, nLines);
-  tabAudit(wb, result, sraTab, nLines, zeroChecks);
+  const sections = [{ label: '', result, sraTab, nLines }];
+  const ccRows = tabCrosscheck(wb, sections);
+  tabAudit(wb, sections, ccRows, zeroChecks);
   const splitTotalRow = tabSplit(wb, result, statedCell, zeroChecks);
   tabByDoctor(wb, result, sraTab, nLines, splitTotalRow);
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
+}
+
+/* ------------------------------- multi-provider (mental-health) workbook */
+
+function buildProviderWorkbook(entries) {
+  /* Workbook for a NON-hospital month: several ΟΑΥ providers (the mental
+   * health units), each with its own cheque, reconciled in one run.
+   * entries: [{code, label, result}] in cheque order. */
+  const wb = new ExcelJS.Workbook();
+  const zeroChecks = [];
+  const summary = wb.addWorksheet('Σύνοψη_παρόχων');   // filled last
+  const sections = [];
+  for (const { code, label, result } of entries) {
+    const built = tabSra(wb, result, zeroChecks);
+    sections.push({ label: `${label} (${code})`, result, sraTab: built.name,
+                    nLines: built.nLines, code, statedRow: built.statedRow });
+  }
+  const ccRows = tabCrosscheck(wb, sections);
+  tabAudit(wb, sections, ccRows, zeroChecks);
+  tabLegend(wb);
+  tabProviderSummary(summary, sections, zeroChecks);
+  return { wb, zeroChecks };
+}
+
+/* streams a non-hospital provider bills; everything else stays visible in an
+ * «adjustments» column rather than being dropped */
+const PROVIDER_STREAMS = [['OS', 'Εξωτερικά ιατρεία (OS)'],
+                          ['NM', 'Νοσηλευτές/Μαίες (NM)'],
+                          ['AP', 'Επαγγελματίες υγείας (AP)']];
+
+function tabProviderSummary(ws, sections, zeroChecks) {
+  /* One row per provider: the cheque split by stream as live SUMIFS into that
+   * provider's own SRA tab, its claims and activity figures, and the
+   * differences — plus a grand total that must equal the sum of the cheques. */
+  ws.getCell(1, 1).value = 'Σύνοψη παρόχων ΟΑΥ — μία γραμμή ανά πάροχο '
+    + '(one row per provider, live off each SRA tab)';
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  const heads = ['Πάροχος (Provider)', 'Κωδικός', 'Επιταγή (Cheque)']
+    .concat(PROVIDER_STREAMS.map(([, lbl]) => lbl))
+    .concat(['Προσαρμογές (Adjustments)', 'Σύνολο επιταγής (Cheque total)',
+             'Claims «all»', 'Διαφορά (Diff)', 'Activity export', 'Διαφορά (Diff)']);
+  writeHeader(ws, 3, heads);
+  let r = 4;
+  const first = r;
+  for (const section of sections) {
+    const { result, sraTab: tab, nLines: n } = section;
+    const b = result.bundle;
+    ws.getCell(r, 1).value = section.label.replace(/\s\([^()]*\)$/, '');
+    ws.getCell(r, 1).font = F_INPUT;
+    ws.getCell(r, 2).value = section.code;
+    ws.getCell(r, 2).font = F_INPUT;
+    ws.getCell(r, 3).value = b.sra ? b.sra.chequeNo : '';
+    ws.getCell(r, 3).font = F_INPUT;
+    let col = 4;
+    const streamCols = [];
+    for (const [code] of PROVIDER_STREAMS) {
+      const letter = colLetter(col);
+      ws.getCell(2, col).value = code;      // criteria helper cell
+      ws.getCell(2, col).font = F_INPUT;
+      writeAmount(ws, r, col,
+        `SUMIFS('${tab}'!$F$2:$F$${n},'${tab}'!$A$2:$A$${n},${letter}$2)`, F_LINK);
+      streamCols.push(letter);
+      col += 1;
+    }
+    const adjCol = col, totalCol = col + 1;
+    writeAmount(ws, r, totalCol, `'${tab}'!F${section.statedRow}`, F_LINK);
+    writeAmount(ws, r, adjCol,
+      `${colLetter(totalCol)}${r}-` + streamCols.map((c) => `${c}${r}`).join('-'),
+      F_FORMULA);
+    const claimsCol = totalCol + 1, cdiffCol = totalCol + 2;
+    const actCol = totalCol + 3, adiffCol = totalCol + 4;
+    const streamSum = streamCols.map((c) => `${c}${r}`).join('+');
+    if (b.claims) {
+      writeAmount(ws, r, claimsCol, claimsTotal(b.claims), F_INPUT);
+      writeAmount(ws, r, cdiffCol, `${colLetter(claimsCol)}${r}-(${streamSum})`, F_FORMULA);
+    }
+    if (b.xmlActivity) {
+      // the export may span other cheques — use the cheque-gated figure the
+      // cross-check already computed, so this Δ means the same thing
+      const gated = (result.crosschecks.find((c) => c.name.includes('XML activity'))
+                     || {}).sourceTotal;
+      writeAmount(ws, r, actCol, gated != null ? gated : b.xmlActivity.total, F_INPUT);
+      writeAmount(ws, r, adiffCol, `${colLetter(actCol)}${r}-(${streamSum})`, F_FORMULA);
+    }
+    r += 1;
+  }
+  const totalRow = r;
+  ws.getCell(totalRow, 1).value = 'ΣΥΝΟΛΟ (all providers)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  for (let c = 4; c < 4 + PROVIDER_STREAMS.length + 6; c++) {
+    const letter = colLetter(c);
+    writeAmount(ws, totalRow, c, `SUM(${letter}${first}:${letter}${totalRow - 1})`,
+                F_FORMULA).font = { bold: true };
+  }
+  const checkRow = totalRow + 1;
+  ws.getCell(checkRow, 1).value =
+    'Zero-check = σύνολο ροών + προσαρμογές − επιταγές (must be 0)';
+  const streamLetters = PROVIDER_STREAMS.map((_s, i) => colLetter(4 + i));
+  const adjLetter = colLetter(4 + PROVIDER_STREAMS.length);
+  const totalLetter = colLetter(5 + PROVIDER_STREAMS.length);
+  const checkCol = 5 + PROVIDER_STREAMS.length;
+  writeAmount(ws, checkRow, checkCol,
+    streamLetters.map((c) => `${c}${totalRow}`).join('+')
+    + `+${adjLetter}${totalRow}-${totalLetter}${totalRow}`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Σύνοψη_παρόχων', addr: `${colLetter(checkCol)}${checkRow}` });
+  autosize(ws);
 }
 
 /* ------------------------------------------------------------- tab 1: SRA */
@@ -3208,7 +3623,9 @@ function tabMatrix(wb, result) {
 
 /* ------------------------------------------------ tab 3: Source_crosscheck */
 
-function tabCrosscheck(wb, result, sraTab, nLines) {
+function tabCrosscheck(wb, sections) {
+  /* Returns a map «sectionIndex:checkIndex» -> row, so the audit tab can tie
+   * each of its blocks back to the exact row printed here. */
   const ws = wb.addWorksheet('Source_crosscheck');
   // column names follow the CHECK NAME order: A = the first thing named,
   // B = the second.  (A is not always "the source report" — on GL rows A is
@@ -3219,13 +3636,25 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
                       'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)',
                       'Κωδικοί SRA (codes)']);
   let r = 2;
+  const ccRows = new Map();
+  sections.forEach((section, si) => {
+  const { result, sraTab, nLines } = section;
   const b = result.bundle;
+  if (section.label) {
+    const sec = ws.getCell(r, 1);
+    sec.value = section.label;
+    sec.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let col = 1; col <= 5; col++) ws.getCell(r, col).fill = FILL_SECTION;
+    r += 1;
+  }
+  const firstCheckRow = r;
   // row numbers of the netted pharma/fee pair (they reference each other)
   const feeNetRow = result.crosschecks.findIndex((c) => c.sideKind === 'fee_net');
   const pharmaRowIdx = result.crosschecks.findIndex((c) => c.sideKind === 'ph_minus_fee');
-  const feeRow = feeNetRow >= 0 ? 2 + feeNetRow : null;
-  const pharmaRow = pharmaRowIdx >= 0 ? 2 + pharmaRowIdx : null;
-  for (const chk of result.crosschecks) {
+  const feeRow = feeNetRow >= 0 ? firstCheckRow + feeNetRow : null;
+  const pharmaRow = pharmaRowIdx >= 0 ? firstCheckRow + pharmaRowIdx : null;
+  result.crosschecks.forEach((chk, ci) => {
+    ccRows.set(`${si}:${ci}`, r);
     ws.getCell(r, 1).value = chk.name; ws.getCell(r, 1).font = F_INPUT;
     const isPhfee = chk.name.includes('Φαρμακοποιού (packages') || chk.sideKind === 'fee_net';
     if (isPhfee && b.phfee) {
@@ -3309,8 +3738,10 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
     ws.getCell(r, 5).value = chk.note;
     if (chk.flag === 'amber') ws.getCell(r, 5).fill = FILL_AMBER;
     r += 1;
-  }
+  });
+  });
   autosize(ws);
+  return ccRows;
 }
 
 
@@ -3323,7 +3754,7 @@ function nameSide(name, first) {
   return bits.length > 1 ? (first ? bits[0] : bits[bits.length - 1]).trim() : String(name).trim();
 }
 
-function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
+function tabAudit(wb, sections, ccRows, zeroChecks) {
   /* Every Source_crosscheck row written out as a full reconciliation: each
    * side broken into its components, live subtotals, the difference, and a
    * tie-back cell proving this sheet agrees with Source_crosscheck.  An
@@ -3336,11 +3767,16 @@ function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
   writeHeader(ws, 3, ['Στοιχείο (Item)', 'Ποσό (Amount €)', 'Πηγή (Source)',
                       'Κωδικός SRA (code)', 'Επιταγή (cheque)']);
   let r = 5;
+  let n = 0;
+  sections.forEach((section, si) => {
+  const { result, sraTab, nLines } = section;
   result.crosschecks.forEach((chk, i) => {
     if (chk.sraSide == null) return;
-    const ccRow = 2 + i;                       // its row on Source_crosscheck
+    const ccRow = ccRows.get(`${si}:${i}`);    // its row on Source_crosscheck
+    n += 1;
+    const prefix = section.label ? `${section.label} — ` : '';
     const title = ws.getCell(r, 1);
-    title.value = `${i + 1}. ${chk.name}`;
+    title.value = `${n}. ${prefix}${chk.name}`;
     title.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     for (let col = 1; col <= 5; col++) ws.getCell(r, col).fill = FILL_SECTION;
     r += 1;
@@ -3442,6 +3878,7 @@ function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
       r += 1;
     }
     r += 1;
+  });
   });
   autosize(ws);
 }
@@ -4017,8 +4454,13 @@ function render() {
     return;
   }
 
-  const { gates, notes } = validateBatch(files, crosscheck);
-  renderChecklist(files, crosscheck);
+  const provider = isProviderBatch(files);
+  const grouped = provider ? groupByProvider(files) : null;
+  const { gates, notes } = provider
+    ? validateProviderBatches(grouped.batches, grouped.leftovers)
+    : validateBatch(files, crosscheck);
+  if (provider) renderProviderChecklist(grouped.batches);
+  else renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
   renderDiagnostics();
@@ -4033,6 +4475,28 @@ function render() {
   $('run-btn').disabled = blocked || state.running;
   // a failing gate points at the fallbacks + diagnostics so nobody is stuck
   if (blocked) $('manual-fallback').open = true;
+}
+
+function renderProviderChecklist(batches) {
+  /* A non-hospital month: one row per ΟΑΥ provider, showing which of its
+   * files arrived.  Attribution is by content (F-code / PAYMENT NO.), so the
+   * table also proves which cheque each provider's claims file belongs to. */
+  const rows = batches.map((b) => {
+    const have = new Set(b.files.map((f) => f.reportType));
+    const cells = REQUIRED_TYPES_PROVIDER.concat([RT.XML_ACTIVITY])
+      .map((t) => `<td>${have.has(t) ? '✔' : (REQUIRED_TYPES_PROVIDER.includes(t) ? '✖' : '—')}</td>`)
+      .join('');
+    return `<tr><td>${esc(b.label)}</td><td>${esc(b.code)}</td>`
+      + `<td>${esc((b.cheques || []).join(', '))}</td>${cells}</tr>`;
+  }).join('');
+  $('checklist-wrap').innerHTML =
+    '<h2>Πάροχοι στην παρτίδα (providers in this batch)</h2>'
+    + '<p class="hint">Μη-νοσοκομειακοί πάροχοι ΟΑΥ (υπηρεσίες ψυχικής υγείας): κάθε '
+    + 'μονάδα με δική της επιταγή. Η αντιστοίχιση γίνεται από το περιεχόμενο '
+    + '(κωδικός F / PAYMENT NO.), ποτέ από το όνομα αρχείου.</p>'
+    + '<table><thead><tr><th>Πάροχος (Provider)</th><th>Κωδικός</th>'
+    + '<th>Επιταγή (Cheque)</th><th>SRA</th><th>Claims «all»</th>'
+    + '<th>Activity export</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function diagnosticsText() {
@@ -4127,6 +4591,7 @@ const SLOT = {
 async function run() {
   const crosscheck = $('crosscheck-mode').checked;
   const files = effectiveFiles();
+  if (isProviderBatch(files)) return runProviders(files);
   const { gates, hospital, period } = validateBatch(files, crosscheck);
   if (!gates.every((g) => g.passed)) return;
   state.running = true;
@@ -4201,6 +4666,86 @@ async function run() {
     state.running = false;
     $('run-btn').disabled = false;
   }
+}
+
+async function runProviders(files) {
+  /* A NON-hospital month (the mental-health units): several providers in one
+   * upload, each on its own cheque — reconciled per provider, delivered as
+   * one workbook with a consolidated summary. */
+  const { batches, leftovers } = groupByProvider(files);
+  const { gates, period } = validateProviderBatches(batches, leftovers);
+  if (!gates.every((g) => g.passed)) return;
+  state.running = true;
+  $('run-btn').disabled = true;
+  $('results').innerHTML = '<p>Εκτέλεση… (running)</p>';
+  try {
+    const entries = await runProviderBatches(batches, period);
+    const { wb, zeroChecks } = buildProviderWorkbook(entries);
+    const failures = verifyWorkbook(wb, zeroChecks, 0);
+    if (failures.length) {
+      throw new ExtractionError('Πύλη 5 — Zero-checks: κάποια κελιά ελέγχου δεν είναι 0:\n• '
+        + failures.map((f) => `${f.sheet}!${f.addr} = ${formatEur(f.value)}`).join('\n• '));
+    }
+    const buffer = await wb.xlsx.writeBuffer();
+    const [year, month] = period || [null, null];
+    renderProviderResults(entries, buffer, year, month);
+  } catch (e) {
+    $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
+  } finally {
+    state.running = false;
+    $('run-btn').disabled = false;
+  }
+}
+
+function renderProviderResults(entries, buffer, year, month) {
+  const total = round2(entries.reduce((a, e) => a + (e.result.bundle.sra
+    ? e.result.bundle.sra.statedTotal : 0), 0));
+  let html = '<h2>Αποτέλεσμα (Result)</h2><div class="metrics">'
+    + metric('Σύνολο επιταγών (all cheques)', total)
+    + '<div class="metric"><div class="metric-label">Πάροχοι (providers)</div>'
+    + `<div class="metric-value">${entries.length}</div></div></div>`;
+  html += '<h3>Σύνοψη παρόχων (provider summary)</h3><table><thead><tr>'
+    + '<th>Πάροχος</th><th>Κωδικός</th><th>Επιταγή</th><th>Ποσό</th>'
+    + '<th>Claims «all»</th><th>Ανοιχτές αποκλίσεις</th></tr></thead><tbody>';
+  for (const { code, label, result } of entries) {
+    const b = result.bundle;
+    html += `<tr><td>${esc(label)}</td><td>${esc(code)}</td>`
+      + `<td>${esc(b.sra ? b.sra.chequeNo : '—')}</td>`
+      + `<td class="num">${formatEur(b.sra ? b.sra.statedTotal : 0)}</td>`
+      + `<td class="num">${b.claims ? formatEur(claimsTotal(b.claims)) : '—'}</td>`
+      + `<td class="num">${result.crosschecks.filter((c) => c.flag !== 'ok'
+        && c.diff != null && Math.abs(c.diff) > CENT).length}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  const openRows = entries.flatMap(({ label, result }) => result.crosschecks
+    .filter((c) => c.flag !== 'ok' && c.diff != null && Math.abs(c.diff) > CENT)
+    .map((c) => ({ label, c })));
+  if (openRows.length) {
+    html += '<h3>Ανοιχτές αποκλίσεις (open variances)</h3><table><thead><tr>'
+      + '<th>Πάροχος</th><th>Έλεγχος</th><th>Α</th><th>Β</th><th>Διαφορά</th>'
+      + '<th>Σημείωση</th></tr></thead><tbody>';
+    for (const { label, c } of openRows) {
+      html += `<tr class="${c.flag}"><td>${esc(label)}</td><td>${esc(c.name)}</td>`
+        + `<td class="num">${formatEur(c.sourceTotal)}</td>`
+        + `<td class="num">${formatEur(c.sraSide)}</td>`
+        + `<td class="num">${formatEur(c.diff)}</td><td>${esc(c.note)}</td></tr>`;
+    }
+    html += '</tbody></table>';
+  }
+  html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
+    + '(Download Excel workbook)</button></p>';
+  $('results').innerHTML = html;
+  const fname = `OKYPY_HIO_MENTAL_HEALTH_${month ? MONTH_ABBR[month] : 'XX'}`
+    + `${year || ''}_Reconciliation.xlsx`;
+  $('download-btn').addEventListener('click', () => {
+    const blob = new Blob([buffer],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
 }
 
 function renderResults(result, buffer, hospital, year, month) {

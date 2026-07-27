@@ -103,6 +103,38 @@ on screen for correction before the run — the app never guesses an amount.
    pharmacist-fee flat booking) are annotated in `Source_crosscheck`, never
    silently absorbed. Unexplained differences are findings, in red.
 
+## Mental-health units (non-hospital ΟΑΥ providers)
+
+ΟΑΥ also pays OKYπY units that are not one of the 8 hospitals — the mental
+health services — and ships a whole month as ONE folder covering several of
+them at once. The app detects that shape and switches to **provider mode**:
+
+- a batch is grouped **by provider, from file content only**: the SRA by the
+  supplier F-code in its header (which wraps across two lines,
+  `...INCOME-MENTAL / HEALTH-F1070`), the paid-claims file by its
+  `PAYMENT NO.` (= that provider's cheque), the activity export by its
+  `ProviderId`. ΟΑΥ names every unit's file identically, so filenames are
+  never consulted;
+- the required set per provider is **SRA + Πληρωμένες Απαιτήσεις «all»** —
+  these units bill service streams only (OS / NM / AP), with no DRG summary,
+  no pharmacy and no pharmacist fee;
+- the activity export arrives as **.xlsx** (in a folder called `XMLS`); it is
+  normalised to exactly what the XML path produces, so every cross-check is
+  format-agnostic;
+- provider names are read from the file content (`ProviderName`) and only
+  fall back to the built-in registry, so a unit the app has never seen still
+  shows its real name;
+- output is ONE workbook: `Σύνοψη_παρόχων` (a row per provider — the cheque
+  split by stream as live SUMIFS into that provider's own SRA tab, its claims
+  and activity figures, the differences, and a grand total that must equal
+  the sum of the cheques), one `SRA_<cheque>` tab per provider, and the
+  shared `Source_crosscheck` / `Ανάλυση_ελέγχων` / `Legend` sectioned per
+  provider.
+
+Verified on the real May-2026 month (five units, cheques 266444 / 266457 /
+266458 / 266474 / 266475, €211.006,20 in total) — see
+`tests/test_providers.py`, which runs the same chain on synthetic fixtures.
+
 ## All eight hospitals (universality)
 
 Nothing in the app is tied to one hospital or one month. The rules were

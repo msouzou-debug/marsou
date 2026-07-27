@@ -20,6 +20,8 @@ const RT = {
 const REQUIRED_TYPES = [RT.SRA, RT.INPATIENT_SUMMARY, RT.CLAIMS_ALL,
                         RT.PHARMA_CLAIMS, RT.PHARMACIST_FEE];
 const ORG_WIDE_TYPES = new Set([RT.GL_EXTRACT, RT.IS_AUDITOR]);
+// a non-hospital provider bills service streams only
+const REQUIRED_TYPES_PROVIDER = [RT.SRA, RT.CLAIMS_ALL];
 
 const REPORT_LABELS = {
   [RT.SRA]: 'Κατάσταση Πληρωμής / SRA (Remittance Advice)',
@@ -47,6 +49,33 @@ const HOSPITALS = {
   F1055: ['ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ', 'Kyperounta'],
   F1026: ['ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΗΣ ΧΡΥΣΟΧΟΥΣ', 'Polis'],
 };
+
+/* ΟΑΥ also pays OKYπY units that are NOT one of the 8 hospitals — the mental
+ * health services, each with its own F-code and its own cheque.  They bill
+ * service streams only (OS / NM / AP): no DRG summary, no pharmacy, no
+ * pharmacist fee, so they need their own required set.  Display names only:
+ * the real name is read from the file content when the activity export is
+ * present, and a provider is NEVER decided from a filename. */
+const OTHER_PROVIDERS = {
+  F1070: 'ΕΣΩΤΕΡΙΚΗ ΝΟΣΗΛΕΙΑ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ',
+  F1088: 'ΙΑΤΡΕΙΑ ΔΙΠΛΗΣ ΔΙΑΓΝΩΣΗΣ',
+  F1089: 'ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΕΝΗΛΙΚΕΣ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ',
+  F1090: 'ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΠΑΙΔΙΑ ΚΑΙ ΕΦΗΒΟΥΣ',
+  F1097: 'ΚΕΝΤΡΟ ΕΞΕΙΔΙΚΕΥΜΕΝΩΝ ΑΞΙΟΛΟΓΗΣΕΩΝ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ',
+};
+
+function isHospital(code) {
+  return !!code && Object.prototype.hasOwnProperty.call(HOSPITALS, code);
+}
+
+function providerName(code, learned) {
+  /* A name read from the file content always wins over the built-in
+   * registry, so a provider the app has never seen still shows its name. */
+  if (!code) return '—';
+  if (isHospital(code)) return HOSPITALS[code][0];
+  if (learned) return String(learned).trim();
+  return OTHER_PROVIDERS[code] || code;
+}
 
 const BUCKETS = ['Inpatient', 'A&E', 'Outpatient', 'Pharma'];
 const BUCKET_LABELS = {

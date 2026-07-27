@@ -3,6 +3,162 @@
  * findings; known variances are noted, never absorbed. */
 'use strict';
 
+/* --------------------------------------- non-hospital provider batches */
+
+function isProviderBatch(files) {
+  /* True when the upload is a NON-hospital provider month: at least one SRA
+   * made out to a provider outside the 8 hospitals, and no hospital anywhere.
+   * (A satellite SRA alongside a hospital's files is not this — that stays
+   * the hospital's own batch.) */
+  if (files.some((f) => f.hospitalCode)) return false;
+  return files.some((f) => f.reportType === RT.SRA && f.providerCode
+    && !isHospital(f.providerCode));
+}
+
+function batchCheques(batch) {
+  const out = [];
+  for (const f of batch.files) {
+    if (f.reportType === RT.SRA) {
+      for (const c of (f.cheques || [])) if (!out.includes(c)) out.push(c);
+    }
+  }
+  return out;
+}
+
+function groupByProvider(files) {
+  /* Split a multi-provider upload into one batch per provider.  Attribution
+   * is ALWAYS content-based — folder and file names are never consulted (ΟΑΥ
+   * ships every unit's file under the same three folder names):
+   *   · SRA             → the supplier F-code in its header
+   *   · claims «all»    → its PAYMENT NO. = one provider's cheque
+   *   · activity export → its ProviderId column                          */
+  const batches = new Map();
+  const chequeOwner = new Map();
+  for (const f of files) {
+    if (f.reportType === RT.SRA && f.providerCode) {
+      if (!batches.has(f.providerCode)) {
+        batches.set(f.providerCode, { code: f.providerCode,
+          label: providerName(f.providerCode, f.providerLabel), files: [] });
+      }
+      batches.get(f.providerCode).files.push(f);
+      for (const c of (f.cheques || [])) chequeOwner.set(c, f.providerCode);
+    }
+  }
+  const leftovers = [];
+  for (const f of files) {
+    if (f.reportType === RT.SRA && f.providerCode) continue;
+    let code = batches.has(f.providerCode) ? f.providerCode : null;
+    if (code == null) {
+      const owners = [...new Set((f.cheques || []).map((c) => chequeOwner.get(c))
+        .filter(Boolean))];
+      code = owners.length === 1 ? owners[0] : null;
+    }
+    if (code == null) { leftovers.push(f); continue; }
+    batches.get(code).files.push(f);
+    // the activity export prints the provider's real name — prefer it
+    if (f.providerLabel && f.providerCode === code) {
+      batches.get(code).label = providerName(code, f.providerLabel);
+    }
+  }
+  const ordered = [...batches.values()]
+    .sort((a, b) => String(batchCheques(a)[0] || '').localeCompare(String(batchCheques(b)[0] || '')));
+  for (const b of ordered) b.cheques = batchCheques(b);
+  return { batches: ordered, leftovers };
+}
+
+function validateProviderBatches(batches, leftovers) {
+  /* Gates 1-3 for a multi-provider month: one file of each type per
+   * provider, one month across the upload, SRA + paid claims per provider. */
+  const gates = [];
+  const notes = [];
+  if (leftovers.length) {
+    notes.push('Προσοχή (warning): τα εξής αρχεία δεν αποδόθηκαν σε πάροχο και ΑΓΝΟΟΥΝΤΑΙ '
+      + '(could not be attributed to a provider — no F-code and no matching cheque): '
+      + leftovers.map((f) => f.filename).join(' · '));
+  }
+  const dupes = [];
+  for (const b of batches) {
+    const seen = new Map();
+    for (const f of b.files) {
+      if (f.reportType && f.reportType !== RT.SRA) {
+        if (!seen.has(f.reportType)) seen.set(f.reportType, []);
+        seen.get(f.reportType).push(f.filename);
+      }
+    }
+    for (const [t, names] of seen) {
+      if (names.length > 1) {
+        dupes.push(`${b.label} (${b.code}) — ${REPORT_LABELS[t]}: ${names.join(', ')}`);
+      }
+    }
+  }
+  const name1 = 'Αναγνώριση αρχείων ανά πάροχο (files per provider)';
+  if (dupes.length) {
+    gates.push({ number: 1, name: name1, passed: false,
+      message: 'Διπλά αρχεία για τον ίδιο τύπο αναφοράς στον ίδιο πάροχο '
+        + '(duplicate files for one report type):\n• ' + dupes.join('\n• ') });
+    return { gates, period: null, notes };
+  }
+  gates.push({ number: 1, name: name1, passed: true, message: '' });
+
+  const periods = new Set();
+  for (const b of batches) {
+    for (const f of b.files) {
+      if (f.reportType === RT.SRA && f.year && f.month) periods.add(`${f.year}-${f.month}`);
+    }
+  }
+  const name2 = 'Ένας μήνας για όλους τους παρόχους (single month)';
+  if (periods.size > 1) {
+    const ps = [...periods].sort().map((p) => {
+      const [y, m] = p.split('-').map(Number);
+      return `${String(m).padStart(2, '0')}/${y}`;
+    }).join(', ');
+    gates.push({ number: 2, name: name2, passed: false,
+      message: `Η παρτίδα περιέχει δύο μήνες (mixed months): ${ps}. Ανεβάστε έναν μήνα τη φορά.` });
+    return { gates, period: null, notes };
+  }
+  gates.push({ number: 2, name: name2, passed: true, message: '' });
+  const period = periods.size ? [...periods][0].split('-').map(Number) : [null, null];
+
+  const missing = [];
+  for (const b of batches) {
+    const have = new Set(b.files.map((f) => f.reportType));
+    for (const t of REQUIRED_TYPES_PROVIDER) {
+      if (!have.has(t)) missing.push(`${b.label} (${b.code}): ${REPORT_LABELS[t]}`);
+    }
+  }
+  const name3 = 'Πλήρες σετ ανά πάροχο (required set per provider)';
+  if (missing.length) {
+    gates.push({ number: 3, name: name3, passed: false,
+      message: 'Λείπουν αναφορές (missing reports):\n• ' + missing.join('\n• ') });
+    return { gates, period, notes };
+  }
+  gates.push({ number: 3, name: name3, passed: true, message: '' });
+  return { gates, period, notes };
+}
+
+async function runProviderBatches(batches, period) {
+  /* Reconcile every provider in a multi-provider month.
+   * -> [{code, label, result}] in the batches' order. */
+  const [year, month] = period || [null, null];
+  const out = [];
+  for (const b of batches) {
+    const bundle = { hospitalCode: b.code, year, month };
+    const sras = [];
+    for (const f of b.files) {
+      if (f.reportType === RT.SRA) {
+        sras.push(await extractReport(RT.SRA, f, b.code));
+      } else if (f.reportType === RT.CLAIMS_ALL) {
+        bundle.claims = await extractReport(RT.CLAIMS_ALL, f, b.code);
+      } else if (f.reportType === RT.XML_ACTIVITY) {
+        bundle.xmlActivity = await extractReport(RT.XML_ACTIVITY, f, b.code);
+      }
+    }
+    if (sras.length) bundle.sra = mergeSras(sras, b.code);
+    out.push({ code: b.code, label: b.label, result: runReconciliation(bundle, false) });
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ gates */
 
 function nextMonth([y, m]) {

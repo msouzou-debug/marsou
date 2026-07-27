@@ -78,8 +78,13 @@ function render() {
     return;
   }
 
-  const { gates, notes } = validateBatch(files, crosscheck);
-  renderChecklist(files, crosscheck);
+  const provider = isProviderBatch(files);
+  const grouped = provider ? groupByProvider(files) : null;
+  const { gates, notes } = provider
+    ? validateProviderBatches(grouped.batches, grouped.leftovers)
+    : validateBatch(files, crosscheck);
+  if (provider) renderProviderChecklist(grouped.batches);
+  else renderChecklist(files, crosscheck);
   renderGates(gates.filter((g) => !g.passed));
   renderSraReview(files);
   renderDiagnostics();
@@ -94,6 +99,28 @@ function render() {
   $('run-btn').disabled = blocked || state.running;
   // a failing gate points at the fallbacks + diagnostics so nobody is stuck
   if (blocked) $('manual-fallback').open = true;
+}
+
+function renderProviderChecklist(batches) {
+  /* A non-hospital month: one row per ΟΑΥ provider, showing which of its
+   * files arrived.  Attribution is by content (F-code / PAYMENT NO.), so the
+   * table also proves which cheque each provider's claims file belongs to. */
+  const rows = batches.map((b) => {
+    const have = new Set(b.files.map((f) => f.reportType));
+    const cells = REQUIRED_TYPES_PROVIDER.concat([RT.XML_ACTIVITY])
+      .map((t) => `<td>${have.has(t) ? '✔' : (REQUIRED_TYPES_PROVIDER.includes(t) ? '✖' : '—')}</td>`)
+      .join('');
+    return `<tr><td>${esc(b.label)}</td><td>${esc(b.code)}</td>`
+      + `<td>${esc((b.cheques || []).join(', '))}</td>${cells}</tr>`;
+  }).join('');
+  $('checklist-wrap').innerHTML =
+    '<h2>Πάροχοι στην παρτίδα (providers in this batch)</h2>'
+    + '<p class="hint">Μη-νοσοκομειακοί πάροχοι ΟΑΥ (υπηρεσίες ψυχικής υγείας): κάθε '
+    + 'μονάδα με δική της επιταγή. Η αντιστοίχιση γίνεται από το περιεχόμενο '
+    + '(κωδικός F / PAYMENT NO.), ποτέ από το όνομα αρχείου.</p>'
+    + '<table><thead><tr><th>Πάροχος (Provider)</th><th>Κωδικός</th>'
+    + '<th>Επιταγή (Cheque)</th><th>SRA</th><th>Claims «all»</th>'
+    + '<th>Activity export</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function diagnosticsText() {
@@ -188,6 +215,7 @@ const SLOT = {
 async function run() {
   const crosscheck = $('crosscheck-mode').checked;
   const files = effectiveFiles();
+  if (isProviderBatch(files)) return runProviders(files);
   const { gates, hospital, period } = validateBatch(files, crosscheck);
   if (!gates.every((g) => g.passed)) return;
   state.running = true;
@@ -262,6 +290,86 @@ async function run() {
     state.running = false;
     $('run-btn').disabled = false;
   }
+}
+
+async function runProviders(files) {
+  /* A NON-hospital month (the mental-health units): several providers in one
+   * upload, each on its own cheque — reconciled per provider, delivered as
+   * one workbook with a consolidated summary. */
+  const { batches, leftovers } = groupByProvider(files);
+  const { gates, period } = validateProviderBatches(batches, leftovers);
+  if (!gates.every((g) => g.passed)) return;
+  state.running = true;
+  $('run-btn').disabled = true;
+  $('results').innerHTML = '<p>Εκτέλεση… (running)</p>';
+  try {
+    const entries = await runProviderBatches(batches, period);
+    const { wb, zeroChecks } = buildProviderWorkbook(entries);
+    const failures = verifyWorkbook(wb, zeroChecks, 0);
+    if (failures.length) {
+      throw new ExtractionError('Πύλη 5 — Zero-checks: κάποια κελιά ελέγχου δεν είναι 0:\n• '
+        + failures.map((f) => `${f.sheet}!${f.addr} = ${formatEur(f.value)}`).join('\n• '));
+    }
+    const buffer = await wb.xlsx.writeBuffer();
+    const [year, month] = period || [null, null];
+    renderProviderResults(entries, buffer, year, month);
+  } catch (e) {
+    $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
+  } finally {
+    state.running = false;
+    $('run-btn').disabled = false;
+  }
+}
+
+function renderProviderResults(entries, buffer, year, month) {
+  const total = round2(entries.reduce((a, e) => a + (e.result.bundle.sra
+    ? e.result.bundle.sra.statedTotal : 0), 0));
+  let html = '<h2>Αποτέλεσμα (Result)</h2><div class="metrics">'
+    + metric('Σύνολο επιταγών (all cheques)', total)
+    + '<div class="metric"><div class="metric-label">Πάροχοι (providers)</div>'
+    + `<div class="metric-value">${entries.length}</div></div></div>`;
+  html += '<h3>Σύνοψη παρόχων (provider summary)</h3><table><thead><tr>'
+    + '<th>Πάροχος</th><th>Κωδικός</th><th>Επιταγή</th><th>Ποσό</th>'
+    + '<th>Claims «all»</th><th>Ανοιχτές αποκλίσεις</th></tr></thead><tbody>';
+  for (const { code, label, result } of entries) {
+    const b = result.bundle;
+    html += `<tr><td>${esc(label)}</td><td>${esc(code)}</td>`
+      + `<td>${esc(b.sra ? b.sra.chequeNo : '—')}</td>`
+      + `<td class="num">${formatEur(b.sra ? b.sra.statedTotal : 0)}</td>`
+      + `<td class="num">${b.claims ? formatEur(claimsTotal(b.claims)) : '—'}</td>`
+      + `<td class="num">${result.crosschecks.filter((c) => c.flag !== 'ok'
+        && c.diff != null && Math.abs(c.diff) > CENT).length}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  const openRows = entries.flatMap(({ label, result }) => result.crosschecks
+    .filter((c) => c.flag !== 'ok' && c.diff != null && Math.abs(c.diff) > CENT)
+    .map((c) => ({ label, c })));
+  if (openRows.length) {
+    html += '<h3>Ανοιχτές αποκλίσεις (open variances)</h3><table><thead><tr>'
+      + '<th>Πάροχος</th><th>Έλεγχος</th><th>Α</th><th>Β</th><th>Διαφορά</th>'
+      + '<th>Σημείωση</th></tr></thead><tbody>';
+    for (const { label, c } of openRows) {
+      html += `<tr class="${c.flag}"><td>${esc(label)}</td><td>${esc(c.name)}</td>`
+        + `<td class="num">${formatEur(c.sourceTotal)}</td>`
+        + `<td class="num">${formatEur(c.sraSide)}</td>`
+        + `<td class="num">${formatEur(c.diff)}</td><td>${esc(c.note)}</td></tr>`;
+    }
+    html += '</tbody></table>';
+  }
+  html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
+    + '(Download Excel workbook)</button></p>';
+  $('results').innerHTML = html;
+  const fname = `OKYPY_HIO_MENTAL_HEALTH_${month ? MONTH_ABBR[month] : 'XX'}`
+    + `${year || ''}_Reconciliation.xlsx`;
+  $('download-btn').addEventListener('click', () => {
+    const blob = new Blob([buffer],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
 }
 
 function renderResults(result, buffer, hospital, year, month) {

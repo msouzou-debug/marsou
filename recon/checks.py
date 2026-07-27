@@ -11,9 +11,10 @@ from typing import Optional
 
 from .extract import sra_sum_in_period
 from .models import (Bucket, BUCKET_ORDER, ClaimsAll, GLExtract, HOSPITALS,
-                     IdentifiedFile, InpatientSummary, ISAuditor,
+                     IdentifiedFile, InpatientSummary, is_hospital, ISAuditor,
                      ORG_WIDE_TYPES, PharmaClaims, PharmacistFee,
-                     REPORT_LABELS, REQUIRED_TYPES, ReportType, SimpleReport,
+                     provider_name, REPORT_LABELS, REQUIRED_TYPES,
+                     REQUIRED_TYPES_PROVIDER, ReportType, SimpleReport,
                      SRA, XMLActivity)
 from .numbers import format_eur
 
@@ -138,6 +139,156 @@ class ReconResult:
     def open_variances(self) -> list[CrossCheck]:
         return [c for c in self.crosschecks
                 if c.diff is not None and abs(c.diff) > CENT and c.flag != "ok"]
+
+
+# ------------------------------------------- non-hospital provider batches
+
+@dataclass
+class ProviderBatch:
+    """One ΟΑΥ provider (a mental-health unit) inside a multi-provider upload:
+    its own F-code, its own cheque, its own files."""
+    code: str
+    label: str
+    files: list = field(default_factory=list)
+
+    @property
+    def cheques(self) -> list[str]:
+        out: list[str] = []
+        for f in self.files:
+            if f.report_type == ReportType.SRA:
+                out += [c for c in f.cheques if c not in out]
+        return out
+
+
+def is_provider_batch(files: list[IdentifiedFile]) -> bool:
+    """True when the upload is a NON-hospital provider month: at least one SRA
+    made out to a provider outside the 8 hospitals, and no hospital anywhere.
+    (An SRA for a satellite alongside a hospital's files is not this — that is
+    the hospital's own batch and keeps the hospital path.)"""
+    if any(f.hospital_code for f in files):
+        return False
+    return any(f.report_type == ReportType.SRA and f.provider_code
+               and not is_hospital(f.provider_code) for f in files)
+
+
+def group_by_provider(files: list[IdentifiedFile]
+                      ) -> tuple[list[ProviderBatch], list[IdentifiedFile]]:
+    """Split a multi-provider upload into one batch per provider.
+
+    Attribution is ALWAYS content-based — folder and file names are never
+    consulted (ΟΑΥ ships every unit's file under the same three folder names):
+      · SRA               → the supplier F-code in its header
+      · claims «all»      → its PAYMENT NO. = one provider's cheque
+      · activity export   → its ProviderId column
+    Returns (batches in cheque order, files that could not be attributed)."""
+    batches: dict[str, ProviderBatch] = {}
+    cheque_owner: dict[str, str] = {}
+    for f in files:
+        if f.report_type == ReportType.SRA and f.provider_code:
+            b = batches.setdefault(f.provider_code, ProviderBatch(
+                code=f.provider_code,
+                label=provider_name(f.provider_code, f.provider_label)))
+            b.files.append(f)
+            for c in f.cheques:
+                cheque_owner[c] = f.provider_code
+    leftovers: list[IdentifiedFile] = []
+    for f in files:
+        if f.report_type == ReportType.SRA and f.provider_code:
+            continue
+        code = f.provider_code if f.provider_code in batches else None
+        if code is None:
+            owners = {cheque_owner[c] for c in f.cheques if c in cheque_owner}
+            code = owners.pop() if len(owners) == 1 else None
+        if code is None:
+            leftovers.append(f)
+            continue
+        batches[code].files.append(f)
+        # the activity export prints the provider's real name — prefer it
+        if f.provider_label and f.provider_code == code:
+            batches[code].label = provider_name(code, f.provider_label)
+    ordered = sorted(batches.values(), key=lambda b: (b.cheques or [""])[0])
+    return ordered, leftovers
+
+
+def validate_provider_batches(batches: list[ProviderBatch],
+                              leftovers: list[IdentifiedFile]
+                              ) -> tuple[list[GateResult], Optional[tuple[int, int]], list[str]]:
+    """Gates 1-3 for a multi-provider month.  Same rules as a hospital batch,
+    applied PER PROVIDER: one file of each type per provider, one month
+    across the upload, and each provider needs its SRA + paid claims."""
+    gates: list[GateResult] = []
+    notes: list[str] = []
+    if leftovers:
+        notes.append(
+            "Προσοχή (warning): τα εξής αρχεία δεν αποδόθηκαν σε πάροχο και "
+            "ΑΓΝΟΟΥΝΤΑΙ (could not be attributed to a provider — no F-code and "
+            "no matching cheque): " + " · ".join(f.filename for f in leftovers))
+    dupes = []
+    for b in batches:
+        seen: dict[ReportType, list[str]] = {}
+        for f in b.files:
+            if f.report_type and f.report_type != ReportType.SRA:
+                seen.setdefault(f.report_type, []).append(f.filename)
+        dupes += [f"{b.label} ({b.code}) — {REPORT_LABELS[t]}: {', '.join(n)}"
+                  for t, n in seen.items() if len(n) > 1]
+    name1 = "Αναγνώριση αρχείων ανά πάροχο (files per provider)"
+    if dupes:
+        gates.append(GateResult(1, name1, False,
+                                "Διπλά αρχεία για τον ίδιο τύπο αναφοράς στον ίδιο "
+                                "πάροχο (duplicate files for one report type):\n· "
+                                + "\n· ".join(dupes)))
+        return gates, None, notes
+    gates.append(GateResult(1, name1, True))
+
+    periods = {(f.year, f.month) for b in batches for f in b.files
+               if f.report_type == ReportType.SRA and f.year and f.month}
+    name2 = "Ένας μήνας για όλους τους παρόχους (single month)"
+    if len(periods) > 1:
+        ps = ", ".join(f"{m:02d}/{y}" for y, m in sorted(periods))
+        gates.append(GateResult(2, name2, False,
+                                f"Η παρτίδα περιέχει δύο μήνες (mixed months): {ps}. "
+                                "Ανεβάστε έναν μήνα τη φορά."))
+        return gates, None, notes
+    gates.append(GateResult(2, name2, True))
+    period = periods.pop() if periods else (None, None)
+
+    missing = []
+    for b in batches:
+        have = {f.report_type for f in b.files}
+        for t in REQUIRED_TYPES_PROVIDER:
+            if t not in have:
+                missing.append(f"{b.label} ({b.code}): {REPORT_LABELS[t]}")
+    name3 = "Πλήρες σετ ανά πάροχο (required set per provider)"
+    if missing:
+        gates.append(GateResult(3, name3, False,
+                                "Λείπουν αναφορές (missing reports):\n· "
+                                + "\n· ".join(missing)))
+        return gates, period, notes
+    gates.append(GateResult(3, name3, True))
+    return gates, period, notes
+
+
+def run_provider_batches(batches: list, period) -> list:
+    """Reconcile every provider in a multi-provider month.
+    Returns [(code, label, ReconResult), ...] in the batches' order."""
+    from .extract import extract, merge_sras
+    slot = {ReportType.CLAIMS_ALL: "claims", ReportType.XML_ACTIVITY: "xml_activity"}
+    out = []
+    year, month = period if period else (None, None)
+    for b in batches:
+        bundle = ReconBundle(hospital_code=b.code, year=year, month=month)
+        sras = []
+        for f in b.files:
+            if f.report_type == ReportType.SRA:
+                sras.append(extract(f.report_type, f.data, raw_text=f.raw_text))
+            elif f.report_type in slot:
+                setattr(bundle, slot[f.report_type],
+                        extract(f.report_type, f.data, hospital_code=b.code,
+                                raw_text=f.raw_text))
+        if sras:
+            bundle.sra = merge_sras(sras, hospital_code=b.code)
+        out.append((b.code, b.label, run_reconciliation(bundle)))
+    return out
 
 
 # ------------------------------------------------------------------ gates

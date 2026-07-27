@@ -58,6 +58,18 @@ def _amount(ws, row: int, col: int, value, font: Font):
     return c
 
 
+class _Section:
+    """One provider inside a workbook: its result and its own SRA tab.  A
+    hospital month has exactly one; a mental-health month has one per unit."""
+
+    def __init__(self, label: str, result: ReconResult, sra_tab: Optional[str],
+                 n_lines: int):
+        self.label = label
+        self.result = result
+        self.sra_tab = sra_tab
+        self.n_lines = n_lines
+
+
 def build_workbook(result: ReconResult) -> bytes:
     wb = Workbook()
     wb.remove(wb.active)
@@ -72,8 +84,9 @@ def build_workbook(result: ReconResult) -> bytes:
         _tab_reconciliation(wb, result, sra_tab, n_lines, stated_cell)
     else:
         _tab_matrix(wb, result)
-    _tab_crosscheck(wb, result, sra_tab, n_lines)
-    _tab_audit(wb, result, sra_tab, n_lines)
+    sections = [_Section("", result, sra_tab, n_lines)]
+    cc_rows = _tab_crosscheck(wb, sections)
+    _tab_audit(wb, sections, cc_rows)
     split_total_row = _tab_split(wb, result, stated_cell)
     _tab_by_doctor(wb, result, sra_tab, n_lines, split_total_row)
     _tab_truth_map(wb)
@@ -82,6 +95,120 @@ def build_workbook(result: ReconResult) -> bytes:
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def build_provider_workbook(entries: list) -> bytes:
+    """Workbook for a NON-hospital month: several ΟΑΥ providers (the mental
+    health units), each with its own cheque, reconciled in one run.
+
+    entries: [(code, label, ReconResult), ...] in cheque order.  Tabs are a
+    consolidated Σύνοψη, one SRA tab per provider, and the shared
+    Source_crosscheck / Ανάλυση_ελέγχων / Legend, sectioned per provider."""
+    wb = Workbook()
+    wb.remove(wb.active)
+    summary = wb.create_sheet("Σύνοψη_παρόχων")     # filled last: needs the tabs
+    sections = []
+    for code, label, result in entries:
+        sra_tab, _total_row, stated_row, n_lines = _tab_sra(wb, result)
+        sections.append(_Section(f"{label} ({code})", result, sra_tab, n_lines))
+        sections[-1].code = code
+        sections[-1].stated_row = stated_row
+    cc_rows = _tab_crosscheck(wb, sections)
+    _tab_audit(wb, sections, cc_rows)
+    _tab_legend(wb, entries[0][2] if entries else None)
+    _tab_provider_summary(summary, sections)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# streams a non-hospital provider bills: everything else stays visible as an
+# «adjustments» column rather than being dropped
+_PROVIDER_STREAMS = [("OS", "Εξωτερικά ιατρεία (OS)"),
+                     ("NM", "Νοσηλευτές/Μαίες (NM)"),
+                     ("AP", "Επαγγελματίες υγείας (AP)")]
+
+
+def _tab_provider_summary(ws, sections: list) -> None:
+    """One row per provider: the cheque split by stream as live SUMIFS into
+    that provider's own SRA tab, its claims and activity figures, and the
+    differences — plus a grand total that must equal the sum of the cheques."""
+    ws.cell(row=1, column=1,
+            value="Σύνοψη παρόχων ΟΑΥ — μία γραμμή ανά πάροχο "
+                  "(one row per provider, live off each SRA tab)"
+            ).font = Font(bold=True, size=12, color=NAVY)
+    heads = ["Πάροχος (Provider)", "Κωδικός", "Επιταγή (Cheque)"]
+    heads += [lbl for _c, lbl in _PROVIDER_STREAMS]
+    heads += ["Προσαρμογές (Adjustments)", "Σύνολο επιταγής (Cheque total)",
+              "Claims «all»", "Διαφορά (Diff)", "Activity export", "Διαφορά (Diff)"]
+    _header(ws, 3, heads)
+    r = 4
+    first = r
+    for section in sections:
+        res = section.result
+        b = res.bundle
+        ws.cell(row=r, column=1, value=section.label.rsplit(" (", 1)[0]).font = F_INPUT
+        ws.cell(row=r, column=2, value=getattr(section, "code", "")).font = F_INPUT
+        ws.cell(row=r, column=3, value=b.sra.cheque_no if b.sra else "").font = F_INPUT
+        tab, n = section.sra_tab, section.n_lines
+        col = 4
+        stream_cols = []
+        for code, _lbl in _PROVIDER_STREAMS:
+            # criteria reference a helper cell on the SRA tab's own header row
+            _amount(ws, r, col,
+                    f"=SUMIFS('{tab}'!$F$2:$F${n},'{tab}'!$A$2:$A${n},$D$3)"
+                    .replace("$D$3", f"{get_column_letter(col)}$2"), F_LINK)
+            ws.cell(row=2, column=col, value=code).font = F_INPUT
+            stream_cols.append(get_column_letter(col))
+            col += 1
+        # adjustments = the cheque minus the three streams: whatever ΟΑΥ paid
+        # outside them stays visible instead of silently vanishing
+        adj_col, total_col = col, col + 1
+        _amount(ws, r, total_col,
+                f"='{tab}'!F{getattr(section, 'stated_row', 2)}", F_LINK)
+        _amount(ws, r, adj_col,
+                f"={get_column_letter(total_col)}{r}-"
+                + "-".join(f"{c}{r}" for c in stream_cols), F_FORMULA)
+        claims_col, cdiff_col = total_col + 1, total_col + 2
+        act_col, adiff_col = total_col + 3, total_col + 4
+        claims = b.claims.total if b.claims else None
+        if claims is not None:
+            _amount(ws, r, claims_col, claims, F_INPUT)
+            _amount(ws, r, cdiff_col,
+                    f"={get_column_letter(claims_col)}{r}-("
+                    + "+".join(f"{c}{r}" for c in stream_cols) + ")", F_FORMULA)
+        # the export may span other cheques — use the cheque-gated figure the
+        # cross-check already computed, so this Δ means the same thing
+        act = None
+        if b.xml_activity:
+            gated = next((c.source_total for c in res.crosschecks
+                          if "XML activity" in c.name), None)
+            act = gated if gated is not None else b.xml_activity.total
+        if act is not None:
+            _amount(ws, r, act_col, act, F_INPUT)
+            _amount(ws, r, adiff_col,
+                    f"={get_column_letter(act_col)}{r}-("
+                    + "+".join(f"{c}{r}" for c in stream_cols) + ")", F_FORMULA)
+        r += 1
+    total_row = r
+    ws.cell(row=total_row, column=1, value="ΣΥΝΟΛΟ (all providers)").font = Font(bold=True)
+    for c in range(4, 4 + len(_PROVIDER_STREAMS) + 6):
+        letter = get_column_letter(c)
+        _amount(ws, total_row, c, f"=SUM({letter}{first}:{letter}{total_row - 1})",
+                F_FORMULA)
+        ws.cell(row=total_row, column=c).font = Font(bold=True)
+    # the streams + adjustments must add back to the cheques, live
+    check_row = total_row + 1
+    ws.cell(row=check_row, column=1,
+            value="Zero-check = σύνολο ροών + προσαρμογές − επιταγές (must be 0)")
+    stream_letters = [get_column_letter(4 + i) for i in range(len(_PROVIDER_STREAMS))]
+    adj_letter = get_column_letter(4 + len(_PROVIDER_STREAMS))
+    total_letter = get_column_letter(5 + len(_PROVIDER_STREAMS))
+    _amount(ws, check_row, 5 + len(_PROVIDER_STREAMS),
+            "=" + "+".join(f"{c}{total_row}" for c in stream_letters)
+            + f"+{adj_letter}{total_row}-{total_letter}{total_row}", F_FORMULA)
+    ws.cell(row=check_row, column=5 + len(_PROVIDER_STREAMS)).fill = FILL_CHECK
+    _autosize(ws)
 
 
 # ------------------------------------------------------------- tab 1: SRA
@@ -209,8 +336,9 @@ def _tab_matrix(wb: Workbook, result: ReconResult) -> None:
 
 # ------------------------------------------------ tab 3: Source_crosscheck
 
-def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
-                    n_lines: int) -> None:
+def _tab_crosscheck(wb: Workbook, sections: list) -> dict:
+    """Returns {(section index, check index): row} so the audit tab can tie
+    each of its blocks back to the exact row printed here."""
     ws = wb.create_sheet("Source_crosscheck")
     # column names follow the CHECK NAME order: A = the first thing named,
     # B = the second.  (A is not always "the source report" — on GL rows A is
@@ -221,95 +349,114 @@ def _tab_crosscheck(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
                     "Συσκευασίες (Packages)", "Τιμή μονάδας (Unit €)",
                     "Κωδικοί SRA (codes)"])
     r = 2
-    b = result.bundle
-    # row numbers of the netted pharma/fee pair (they reference each other)
-    fee_net_row = next((2 + i for i, c in enumerate(result.crosschecks)
-                        if c.side_kind == "fee_net"), None)
-    pharma_row = next((2 + i for i, c in enumerate(result.crosschecks)
-                       if c.side_kind == "ph_minus_fee"), None)
-    for chk in result.crosschecks:
-        ws.cell(row=r, column=1, value=chk.name).font = F_INPUT
-        is_phfee = "Φαρμακοποιού (packages" in chk.name or chk.side_kind == "fee_net"
-        if is_phfee and b.phfee:
-            # packages × unit price (READ from the report — 1.60/1.62 €)
-            # as a LIVE formula off two blue inputs
-            ws.cell(row=r, column=6, value=b.phfee.packages).font = F_INPUT
-            _amount(ws, r, 7, b.phfee.unit_price, F_INPUT)
-        def _sumifs(code_cols, cheques=()):
-            """SUMIFS terms over the SRA Code column, criteria referencing
-            helper cells (never quoted strings).  With `cheques`, one term per
-            (code, cheque) pair adds a second criteria pair on the Cheque
-            column — that is how a source file covering ONE cheque is compared
-            with that cheque only."""
-            terms, j = [], 8
-            code_cells = []
-            for code in code_cols:
-                ws.cell(row=r, column=j, value=code).font = F_INPUT
-                code_cells.append(f"{get_column_letter(j)}{r}")
-                j += 1
-            cheque_cells = []
-            for cheque in cheques:
-                ws.cell(row=r, column=j, value=cheque).font = F_INPUT
-                cheque_cells.append(f"{get_column_letter(j)}{r}")
-                j += 1
-            base = (f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
-                    f"'{sra_tab}'!$A$2:$A${n_lines},")
-            for cc in code_cells:
-                if cheque_cells:
-                    for qc in cheque_cells:
-                        terms.append(base + cc + f",'{sra_tab}'!$G$2:$G${n_lines},{qc})")
-                else:
-                    terms.append(base + cc + ")")
-            _sumifs.next_col = j
-            return "+".join(terms)
-        if chk.side_kind == "fee_net" and sra_tab and b.sra:
-            # source = packages × unit (live); side = SRA PH − claims gross
-            _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
-            side = "=" + _sumifs(["PH"])
-            if pharma_row is not None:
-                side += f"-B{pharma_row}"
-            _amount(ws, r, 3, side, F_LINK)
-        elif chk.side_kind == "ph_minus_fee" and sra_tab and b.sra:
-            if is_phfee and b.phfee:
-                _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
-            else:
-                _amount(ws, r, 2, chk.source_total, F_INPUT)
-            side = "=" + _sumifs(["PH"])
-            if fee_net_row is not None:
-                side += f"-F{fee_net_row}*G{fee_net_row}"
-            _amount(ws, r, 3, side, F_LINK)
-        elif chk.side_kind == "codes_minus" and sra_tab and b.sra:
-            _amount(ws, r, 2, chk.source_total, F_INPUT)
-            side = "=" + _sumifs(chk.sra_codes, chk.cheques)
-            if abs(chk.minus) > 0.005:
-                j = _sumifs.next_col
-                ws.cell(row=1, column=j, value=chk.minus_label).font = F_HEADER
-                ws.cell(row=1, column=j).fill = FILL_HEADER
-                _amount(ws, r, j, chk.minus, F_INPUT)
-                side += f"-{get_column_letter(j)}{r}"
-            _amount(ws, r, 3, side, F_LINK)
-        else:
-            if is_phfee and b.phfee:
-                _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
-            else:
-                _amount(ws, r, 2, chk.source_total, F_INPUT)
-            if sra_tab and chk.sra_codes and b.sra:
-                # SUMIFS over the SRA Code column, criteria referencing the
-                # code helper cells (never quoted strings)
-                _amount(ws, r, 3, "=" + _sumifs(chk.sra_codes), F_LINK)
-            elif chk.sra_side is not None:
-                _amount(ws, r, 3, chk.sra_side, F_INPUT)
-        if chk.sra_side is not None:
-            _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
-            if chk.flag == "red":
-                ws.cell(row=r, column=4).font = F_RED
-            elif chk.flag == "amber":
-                ws.cell(row=r, column=4).font = F_AMBER
-        note = ws.cell(row=r, column=5, value=chk.note)
-        if chk.flag == "amber":
-            note.fill = FILL_AMBER
-        r += 1
+    cc_rows: dict = {}
+    for si, section in enumerate(sections):
+        result, sra_tab, n_lines = section.result, section.sra_tab, section.n_lines
+        b = result.bundle
+        if section.label:
+            sec = ws.cell(row=r, column=1, value=section.label)
+            sec.font = Font(bold=True, color="FFFFFF")
+            for col in range(1, 6):
+                ws.cell(row=r, column=col).fill = FILL_SECTION
+            r += 1
+        first_check_row = r
+        # row numbers of the netted pharma/fee pair (they reference each other)
+        fee_net_row = next((first_check_row + i for i, c in enumerate(result.crosschecks)
+                            if c.side_kind == "fee_net"), None)
+        pharma_row = next((first_check_row + i for i, c in enumerate(result.crosschecks)
+                           if c.side_kind == "ph_minus_fee"), None)
+        for ci, chk in enumerate(result.crosschecks):
+            cc_rows[(si, ci)] = r
+            r = _crosscheck_row(ws, r, chk, b, sra_tab, n_lines,
+                                fee_net_row, pharma_row)
     _autosize(ws)
+    return cc_rows
+
+
+def _crosscheck_row(ws, r: int, chk, b, sra_tab, n_lines,
+                    fee_net_row, pharma_row) -> int:
+    """Write ONE cross-check row; returns the next free row."""
+    ws.cell(row=r, column=1, value=chk.name).font = F_INPUT
+    is_phfee = "Φαρμακοποιού (packages" in chk.name or chk.side_kind == "fee_net"
+    if is_phfee and b.phfee:
+        # packages × unit price (READ from the report — 1.60/1.62 €)
+        # as a LIVE formula off two blue inputs
+        ws.cell(row=r, column=6, value=b.phfee.packages).font = F_INPUT
+        _amount(ws, r, 7, b.phfee.unit_price, F_INPUT)
+    def _sumifs(code_cols, cheques=()):
+        """SUMIFS terms over the SRA Code column, criteria referencing
+        helper cells (never quoted strings).  With `cheques`, one term per
+        (code, cheque) pair adds a second criteria pair on the Cheque
+        column — that is how a source file covering ONE cheque is compared
+        with that cheque only."""
+        terms, j = [], 8
+        code_cells = []
+        for code in code_cols:
+            ws.cell(row=r, column=j, value=code).font = F_INPUT
+            code_cells.append(f"{get_column_letter(j)}{r}")
+            j += 1
+        cheque_cells = []
+        for cheque in cheques:
+            ws.cell(row=r, column=j, value=cheque).font = F_INPUT
+            cheque_cells.append(f"{get_column_letter(j)}{r}")
+            j += 1
+        base = (f"SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
+                f"'{sra_tab}'!$A$2:$A${n_lines},")
+        for cc in code_cells:
+            if cheque_cells:
+                for qc in cheque_cells:
+                    terms.append(base + cc + f",'{sra_tab}'!$G$2:$G${n_lines},{qc})")
+            else:
+                terms.append(base + cc + ")")
+        _sumifs.next_col = j
+        return "+".join(terms)
+    if chk.side_kind == "fee_net" and sra_tab and b.sra:
+        # source = packages × unit (live); side = SRA PH − claims gross
+        _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
+        side = "=" + _sumifs(["PH"])
+        if pharma_row is not None:
+            side += f"-B{pharma_row}"
+        _amount(ws, r, 3, side, F_LINK)
+    elif chk.side_kind == "ph_minus_fee" and sra_tab and b.sra:
+        if is_phfee and b.phfee:
+            _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
+        else:
+            _amount(ws, r, 2, chk.source_total, F_INPUT)
+        side = "=" + _sumifs(["PH"])
+        if fee_net_row is not None:
+            side += f"-F{fee_net_row}*G{fee_net_row}"
+        _amount(ws, r, 3, side, F_LINK)
+    elif chk.side_kind == "codes_minus" and sra_tab and b.sra:
+        _amount(ws, r, 2, chk.source_total, F_INPUT)
+        side = "=" + _sumifs(chk.sra_codes, chk.cheques)
+        if abs(chk.minus) > 0.005:
+            j = _sumifs.next_col
+            ws.cell(row=1, column=j, value=chk.minus_label).font = F_HEADER
+            ws.cell(row=1, column=j).fill = FILL_HEADER
+            _amount(ws, r, j, chk.minus, F_INPUT)
+            side += f"-{get_column_letter(j)}{r}"
+        _amount(ws, r, 3, side, F_LINK)
+    else:
+        if is_phfee and b.phfee:
+            _amount(ws, r, 2, f"=F{r}*G{r}", F_FORMULA)
+        else:
+            _amount(ws, r, 2, chk.source_total, F_INPUT)
+        if sra_tab and chk.sra_codes and b.sra:
+            # SUMIFS over the SRA Code column, criteria referencing the
+            # code helper cells (never quoted strings)
+            _amount(ws, r, 3, "=" + _sumifs(chk.sra_codes), F_LINK)
+        elif chk.sra_side is not None:
+            _amount(ws, r, 3, chk.sra_side, F_INPUT)
+    if chk.sra_side is not None:
+        _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
+        if chk.flag == "red":
+            ws.cell(row=r, column=4).font = F_RED
+        elif chk.flag == "amber":
+            ws.cell(row=r, column=4).font = F_AMBER
+    note = ws.cell(row=r, column=5, value=chk.note)
+    if chk.flag == "amber":
+        note.fill = FILL_AMBER
+    return r + 1
 
 
 _NAME_SPLIT_RE = re.compile(r"\s+(?:=|≈|vs)\s+")
@@ -324,8 +471,7 @@ def _name_side(name: str, first: bool) -> str:
 
 # ------------------------------------------- tab: Ανάλυση_ελέγχων (audit)
 
-def _tab_audit(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
-               n_lines: int) -> None:
+def _tab_audit(wb: Workbook, sections: list, cc_rows: dict) -> None:
     """Every Source_crosscheck row written out as a full reconciliation:
     each side broken into its components, live subtotals, the difference,
     and a tie-back cell proving this sheet agrees with Source_crosscheck.
@@ -341,11 +487,16 @@ def _tab_audit(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
     _header(ws, 3, ["Στοιχείο (Item)", "Ποσό (Amount €)", "Πηγή (Source)",
                     "Κωδικός SRA (code)", "Επιταγή (cheque)"])
     r = 5
-    for i, chk in enumerate(result.crosschecks):
+    n = 0
+    for si, section in enumerate(sections):
+      result, sra_tab, n_lines = section.result, section.sra_tab, section.n_lines
+      for i, chk in enumerate(result.crosschecks):
         if chk.sra_side is None:
             continue                      # nothing to reconcile against
-        cc_row = 2 + i                    # its row on Source_crosscheck
-        title = ws.cell(row=r, column=1, value=f"{i + 1}. {chk.name}")
+        cc_row = cc_rows[(si, i)]         # its row on Source_crosscheck
+        n += 1
+        prefix = f"{section.label} — " if section.label else ""
+        title = ws.cell(row=r, column=1, value=f"{n}. {prefix}{chk.name}")
         title.font = Font(bold=True, color="FFFFFF")
         title.fill = FILL_SECTION
         for col in range(2, 6):

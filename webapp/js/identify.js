@@ -8,6 +8,8 @@
  * recognised as satellites on the SRA, not as the batch hospital */
 const F_CODE_RE = new RegExp('\\b(?:'
   + Object.keys(HOSPITALS).sort().join('|') + ')\\b');
+/* ANY ΟΑΥ provider code — hospitals and the mental-health units alike */
+const PROVIDER_CODE_RE = /F1\d{3}/;
 
 function sniffFormat(bytes) {
   const b = bytes.subarray(0, 8);
@@ -264,10 +266,51 @@ function identifyExcel(f) {
       }
       return;
     }
-    let hr = findHeaderRow(rows, ['DR SEGMENT']);
+    /* activity export flattened to a spreadsheet (ΟΑΥ ships it in an «XMLS»
+     * folder but the files are .xlsx): same fields as the XML */
+    let hr = findHeaderRow(rows, ['CLAIMID', 'ACTIVITYREIMBURSEMENTAMOUNT']);
+    if (hr === null) hr = findHeaderRow(rows, ['CLAIM ID', 'ACTIVITY REIMBURSEMENT AMOUNT']);
+    if (hr !== null) {
+      f.reportType = RT.XML_ACTIVITY;
+      const prov = columnValues(rows, hr, 'PROVIDERID');
+      if (prov) {
+        const codes = [...new Set(prov.map((v) => cellText(v).trim())
+          .filter((v) => PROVIDER_CODE_RE.test(v) && v.length === 5))];
+        if (codes.length === 1) {
+          f.providerCode = codes[0];
+          f.hospitalCode = isHospital(codes[0]) ? codes[0] : null;
+        }
+      }
+      const names = columnValues(rows, hr, 'PROVIDERNAME');
+      if (names) {
+        const labels = [...new Set(names.map((v) => cellText(v).trim())
+          .filter((v) => v && v !== 'nan'))];
+        if (labels.length === 1) f.providerLabel = labels[0];
+      }
+      const pays = columnValues(rows, hr, 'CLAIMPAYMENTNUMBER');
+      if (pays) {
+        f.cheques = [...new Set(pays.map((v) => cellText(v).trim().split('.')[0])
+          .filter((v) => v && v !== 'nan'))].sort();
+      }
+      const dates = columnValues(rows, hr, 'CLAIMSDATEFROM');
+      const first = dates ? dates.find((v) => v != null && cellText(v) !== 'nan') : null;
+      if (first) [f.year, f.month] = findPeriod(cellText(first));
+      if (f.year == null) [f.year, f.month] = findPeriod(cellsText(rows.slice(hr, hr + 3)));
+      return;
+    }
+
+    hr = findHeaderRow(rows, ['DR SEGMENT']);
     if (hr !== null) {
       f.reportType = RT.CLAIMS_ALL;
       fillFromTable(f, rows, hr, sheets);
+      /* a claims file carries no F-code; PAYMENT NO. is what ties it to a
+       * cheque — the only content-based way to attribute it when a batch
+       * holds several providers */
+      const pays = columnValues(rows, hr, 'PAYMENT NO');
+      if (pays) {
+        f.cheques = [...new Set(pays.map((v) => cellText(v).trim().split('.')[0])
+          .filter((v) => v && v !== 'nan'))].sort();
+      }
       // diagnostics: the ACTUAL segment values with sums — the column sits
       // past the probe's visible width and its labels vary
       try {
@@ -427,6 +470,13 @@ async function identifyPdf(f) {
   // SRAs are dated in the payment month (arrears) — dig for the service period
   if (rt === RT.SRA) {
     [f.year, f.month] = findServicePeriod(text);
+    /* the payee may be an OKYπY unit that is NOT one of the 8 hospitals
+     * (mental health services) — keep its code so the batch can group by
+     * provider instead of refusing the run */
+    const [code, label, cheque] = parseSraSupplier(text);
+    f.providerCode = code;
+    f.providerLabel = label;
+    if (cheque) f.cheques = [cheque];
     f.probe = (f.probe || '') + '\n\n' + sraProbeSummary(text);
   } else {
     [f.year, f.month] = findPeriod(text);
@@ -515,7 +565,12 @@ function identifyXml(f) {
 async function identify(filename, bytes) {
   const f = { filename, data: bytes, reportType: null, hospitalCode: null,
               year: null, month: null, warnings: [], error: null, rawText: null,
-              needsManualText: false, probe: null };
+              needsManualText: false, probe: null,
+              /* NON-hospital ΟΑΥ provider (mental-health unit): its F-code,
+               * the name printed in the file, and the cheque(s) the file
+               * belongs to — a batch can carry several such providers at
+               * once, so every file must say which one it belongs to. */
+              providerCode: null, providerLabel: null, cheques: [] };
   const fmt = sniffFormat(bytes);
   if (fmt === 'xlsx' || fmt === 'xls') identifyExcel(f);
   else if (fmt === 'pdf') await identifyPdf(f);

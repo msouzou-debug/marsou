@@ -11,10 +11,13 @@ import io
 
 import streamlit as st
 
-from recon.build_xlsx import build_workbook, verify_workbook
+from recon.build_xlsx import (build_provider_workbook, build_workbook,
+                              verify_workbook)
 from recon.checks import (ReconBundle, conditional_requirements,
-                          gate4_internal_asserts, run_reconciliation,
-                          validate_batch)
+                          gate4_internal_asserts, group_by_provider,
+                          is_provider_batch, run_provider_batches,
+                          run_reconciliation, validate_batch,
+                          validate_provider_batches)
 from recon.extract import (ExtractionError, extract, merge_sras,
                            parse_sra_text)
 from recon.identify import identify
@@ -154,6 +157,51 @@ for f in files:
                  "(scanned PDF — correct the extracted lines before running).")
         sra_text_override[f.filename] = st.text_area(
             f"Κείμενο SRA ({f.filename})", value=f.raw_text or "", height=300)
+
+# A NON-hospital month (the mental-health units) arrives as one folder with
+# several providers, each on its own cheque — group and reconcile per provider.
+if is_provider_batch(files):
+    batches, leftovers = group_by_provider(files)
+    gates, period, batch_notes = validate_provider_batches(batches, leftovers)
+    st.subheader("Πάροχοι στην παρτίδα (providers in this batch)")
+    st.dataframe([{
+        "Πάροχος (Provider)": b.label, "Κωδικός": b.code,
+        "Επιταγή (Cheque)": ", ".join(b.cheques),
+        "Αρχεία (Files)": ", ".join(sorted(
+            REPORT_LABELS[f.report_type] for f in b.files if f.report_type)),
+    } for b in batches], hide_index=True, use_container_width=True)
+    for g in [g for g in gates if not g.passed]:
+        st.error(f"Πύλη {g.number} — {g.name}\n\n{g.message}")
+    if any(not g.passed for g in gates):
+        st.stop()
+    for note in batch_notes:
+        st.info(note)
+    year, month = period
+    st.success(f"Πλήρες σετ: {len(batches)} πάροχοι — "
+               f"{MONTH_NAMES_EL[month] if month else '—'} {year or ''}")
+    if not st.button("▶ Εκτέλεση συμφωνίας (Run reconciliation)", type="primary"):
+        st.stop()
+    entries = run_provider_batches(batches, period)
+    workbook_bytes = build_provider_workbook(entries)
+    st.subheader("Σύνοψη παρόχων (provider summary)")
+    st.dataframe([{
+        "Πάροχος": label, "Κωδικός": code,
+        "Επιταγή (Cheque)": format_eur(res.bundle.sra.stated_total),
+        "Claims «all»": format_eur(res.bundle.claims.total) if res.bundle.claims else "—",
+        "Ανοιχτές αποκλίσεις": len(res.open_variances),
+    } for code, label, res in entries], hide_index=True, use_container_width=True)
+    total = sum(res.bundle.sra.stated_total for _c, _l, res in entries)
+    st.metric("Σύνολο επιταγών (all cheques)", format_eur(round(total, 2)))
+    broken = verify_workbook(workbook_bytes)
+    if broken:
+        st.error("Πύλη 5 — Zero-checks: " + ", ".join(
+            f"{s}!{c} = {format_eur(v)}" for s, c, v in broken))
+    st.download_button(
+        "⬇ Λήψη Excel (Download Excel workbook)", data=workbook_bytes,
+        file_name=f"OKYPY_HIO_MENTAL_HEALTH_{MONTH_ABBR[month or 0]}{year or ''}"
+                  "_Reconciliation.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.stop()
 
 gates, hospital, period, batch_notes = validate_batch(files, crosscheck_mode)
 _checklist(files)

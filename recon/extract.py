@@ -733,6 +733,36 @@ _LEAD_DATE_RE = re.compile(r"^\s*(\d{1,2}/\d{1,2}/\d{4})")
 _CORRECTION_RE = re.compile(r"CRN|COR\.|CORRECTION|ADJ")
 
 
+def parse_sra_supplier(text: str) -> tuple[Optional[str], Optional[str], str]:
+    """(provider F-code, printed payee label, cheque number) from an SRA
+    header — WITHOUT parsing the payment lines.
+
+    ΟΑΥ pays OKYπY units that are not one of the 8 hospitals (the mental
+    health services), each on its own cheque; identification needs the code
+    and the cheque to group a multi-provider batch.  The payee text wraps
+    across two header lines («...INCOME-MENTAL / HEALTH-F1070 Payment
+    Currency: EUR»), so the label is stitched back together."""
+    head = text.splitlines()[:20]
+    code = None
+    label = None
+    for i, raw in enumerate(head):
+        m = _SUPPLIER_CODE_RE.search(raw)
+        if m:
+            code = m.group(0)
+            here = raw[:m.start()]
+            before = head[i - 1] if i else ""
+            joined = f"{before} {here}".strip()
+            joined = re.sub(r"\b(?:PAYMENT|CURRENCY|DATE|CHEQUE|NO)\b.*", "",
+                            strip_accents(joined)).strip(" -:")
+            label = re.sub(r"\s{2,}", " ", joined) or None
+            break
+    cheque = ""
+    cm = _CHEQUE_RE.search(strip_accents(text))
+    if cm:
+        cheque = cm.group(1)
+    return code, label, cheque
+
+
 def sra_sum_in_period(sra, codes: list[str], year: Optional[int],
                       month: Optional[int], current: bool = True,
                       corrections_only: bool = False) -> float:
@@ -1067,6 +1097,48 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
                        date_to=window.get("claimsdateto", ""))
 
 
+def extract_activity_table(data: bytes) -> XMLActivity:
+    """The activity export flattened into a spreadsheet: one row per ACTIVITY,
+    the claim-level fields repeated on each row.  Produces exactly what the
+    XML path produces, so every downstream check is format-agnostic."""
+    for _name, df in _load_sheets(data).items():
+        hr = _find_header(df, ["CLAIMID", "ACTIVITYREIMBURSEMENTAMOUNT"])
+        if hr is None:
+            hr = _find_header(df, ["CLAIM ID", "ACTIVITY REIMBURSEMENT AMOUNT"])
+        if hr is None:
+            continue
+        t = _table_at(df, hr)
+        amt = _col(t, "ACTIVITYREIMBURSEMENTAMOUNT", "ACTIVITY REIMBURSEMENT AMOUNT")
+        cid = _col(t, "CLAIMID", "CLAIM ID")
+        pay = _col(t, "CLAIMPAYMENTNUMBER", "CLAIM PAYMENT NUMBER")
+        out = XMLActivity()
+        claims: set[str] = set()
+        for _, row in t.iterrows():
+            if amt is None or not _is_number(row[amt]):
+                continue
+            a = parse_amount(row[amt])
+            out.total = round(out.total + a, 2)
+            key = str(row[cid]).strip().split(".")[0] if cid else ""
+            if key and key.lower() != "nan":
+                claims.add(key)
+                out.by_claim[key] = round(out.by_claim.get(key, 0.0) + a, 2)
+            p = str(row[pay]).strip().split(".")[0] if pay else ""
+            if p.lower() == "nan":
+                p = ""
+            out.by_payment[p] = round(out.by_payment.get(p, 0.0) + a, 2)
+        out.n_claims = len(claims)
+        dfrom, dto = _col(t, "CLAIMSDATEFROM"), _col(t, "CLAIMSDATETO")
+        for col, attr in ((dfrom, "date_from"), (dto, "date_to")):
+            if col is not None:
+                vals = [str(v)[:10] for v in t[col] if str(v) not in ("nan", "None")]
+                if vals:
+                    setattr(out, attr, vals[0])
+        if out.total or out.by_claim:
+            return out
+    raise ExtractionError(
+        "Activity export: δεν βρέθηκαν στήλες ClaimId / ActivityReimbursementAmount")
+
+
 # ------------------------------------- capitation / quality / hemo (any fmt)
 
 def extract_simple_report(data: bytes, raw_text: Optional[str] = None) -> SimpleReport:
@@ -1209,5 +1281,9 @@ def extract(report_type: ReportType, data: bytes, hospital_code: Optional[str] =
     if report_type == ReportType.IS_AUDITOR:
         return extract_is_auditor(data, hospital_code)
     if report_type == ReportType.XML_ACTIVITY:
-        return extract_xml_activity(data)
+        # ΟΑΥ ships the activity export as XML for the hospitals and as a
+        # flattened SPREADSHEET for the mental-health units — same fields
+        return (extract_activity_table(data) if data[:4] == b"PK\x03\x04"
+                or data[:8].startswith(b"\xd0\xcf\x11\xe0")
+                else extract_xml_activity(data))
     return extract_simple_report(data, raw_text)

@@ -68,13 +68,121 @@ function buildWorkbook(result) {
   } else {
     tabMatrix(wb, result);
   }
-  tabCrosscheck(wb, result, sraTab, nLines);
-  tabAudit(wb, result, sraTab, nLines, zeroChecks);
+  const sections = [{ label: '', result, sraTab, nLines }];
+  const ccRows = tabCrosscheck(wb, sections);
+  tabAudit(wb, sections, ccRows, zeroChecks);
   const splitTotalRow = tabSplit(wb, result, statedCell, zeroChecks);
   tabByDoctor(wb, result, sraTab, nLines, splitTotalRow);
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
+}
+
+/* ------------------------------- multi-provider (mental-health) workbook */
+
+function buildProviderWorkbook(entries) {
+  /* Workbook for a NON-hospital month: several ΟΑΥ providers (the mental
+   * health units), each with its own cheque, reconciled in one run.
+   * entries: [{code, label, result}] in cheque order. */
+  const wb = new ExcelJS.Workbook();
+  const zeroChecks = [];
+  const summary = wb.addWorksheet('Σύνοψη_παρόχων');   // filled last
+  const sections = [];
+  for (const { code, label, result } of entries) {
+    const built = tabSra(wb, result, zeroChecks);
+    sections.push({ label: `${label} (${code})`, result, sraTab: built.name,
+                    nLines: built.nLines, code, statedRow: built.statedRow });
+  }
+  const ccRows = tabCrosscheck(wb, sections);
+  tabAudit(wb, sections, ccRows, zeroChecks);
+  tabLegend(wb);
+  tabProviderSummary(summary, sections, zeroChecks);
+  return { wb, zeroChecks };
+}
+
+/* streams a non-hospital provider bills; everything else stays visible in an
+ * «adjustments» column rather than being dropped */
+const PROVIDER_STREAMS = [['OS', 'Εξωτερικά ιατρεία (OS)'],
+                          ['NM', 'Νοσηλευτές/Μαίες (NM)'],
+                          ['AP', 'Επαγγελματίες υγείας (AP)']];
+
+function tabProviderSummary(ws, sections, zeroChecks) {
+  /* One row per provider: the cheque split by stream as live SUMIFS into that
+   * provider's own SRA tab, its claims and activity figures, and the
+   * differences — plus a grand total that must equal the sum of the cheques. */
+  ws.getCell(1, 1).value = 'Σύνοψη παρόχων ΟΑΥ — μία γραμμή ανά πάροχο '
+    + '(one row per provider, live off each SRA tab)';
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  const heads = ['Πάροχος (Provider)', 'Κωδικός', 'Επιταγή (Cheque)']
+    .concat(PROVIDER_STREAMS.map(([, lbl]) => lbl))
+    .concat(['Προσαρμογές (Adjustments)', 'Σύνολο επιταγής (Cheque total)',
+             'Claims «all»', 'Διαφορά (Diff)', 'Activity export', 'Διαφορά (Diff)']);
+  writeHeader(ws, 3, heads);
+  let r = 4;
+  const first = r;
+  for (const section of sections) {
+    const { result, sraTab: tab, nLines: n } = section;
+    const b = result.bundle;
+    ws.getCell(r, 1).value = section.label.replace(/\s\([^()]*\)$/, '');
+    ws.getCell(r, 1).font = F_INPUT;
+    ws.getCell(r, 2).value = section.code;
+    ws.getCell(r, 2).font = F_INPUT;
+    ws.getCell(r, 3).value = b.sra ? b.sra.chequeNo : '';
+    ws.getCell(r, 3).font = F_INPUT;
+    let col = 4;
+    const streamCols = [];
+    for (const [code] of PROVIDER_STREAMS) {
+      const letter = colLetter(col);
+      ws.getCell(2, col).value = code;      // criteria helper cell
+      ws.getCell(2, col).font = F_INPUT;
+      writeAmount(ws, r, col,
+        `SUMIFS('${tab}'!$F$2:$F$${n},'${tab}'!$A$2:$A$${n},${letter}$2)`, F_LINK);
+      streamCols.push(letter);
+      col += 1;
+    }
+    const adjCol = col, totalCol = col + 1;
+    writeAmount(ws, r, totalCol, `'${tab}'!F${section.statedRow}`, F_LINK);
+    writeAmount(ws, r, adjCol,
+      `${colLetter(totalCol)}${r}-` + streamCols.map((c) => `${c}${r}`).join('-'),
+      F_FORMULA);
+    const claimsCol = totalCol + 1, cdiffCol = totalCol + 2;
+    const actCol = totalCol + 3, adiffCol = totalCol + 4;
+    const streamSum = streamCols.map((c) => `${c}${r}`).join('+');
+    if (b.claims) {
+      writeAmount(ws, r, claimsCol, claimsTotal(b.claims), F_INPUT);
+      writeAmount(ws, r, cdiffCol, `${colLetter(claimsCol)}${r}-(${streamSum})`, F_FORMULA);
+    }
+    if (b.xmlActivity) {
+      // the export may span other cheques — use the cheque-gated figure the
+      // cross-check already computed, so this Δ means the same thing
+      const gated = (result.crosschecks.find((c) => c.name.includes('XML activity'))
+                     || {}).sourceTotal;
+      writeAmount(ws, r, actCol, gated != null ? gated : b.xmlActivity.total, F_INPUT);
+      writeAmount(ws, r, adiffCol, `${colLetter(actCol)}${r}-(${streamSum})`, F_FORMULA);
+    }
+    r += 1;
+  }
+  const totalRow = r;
+  ws.getCell(totalRow, 1).value = 'ΣΥΝΟΛΟ (all providers)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  for (let c = 4; c < 4 + PROVIDER_STREAMS.length + 6; c++) {
+    const letter = colLetter(c);
+    writeAmount(ws, totalRow, c, `SUM(${letter}${first}:${letter}${totalRow - 1})`,
+                F_FORMULA).font = { bold: true };
+  }
+  const checkRow = totalRow + 1;
+  ws.getCell(checkRow, 1).value =
+    'Zero-check = σύνολο ροών + προσαρμογές − επιταγές (must be 0)';
+  const streamLetters = PROVIDER_STREAMS.map((_s, i) => colLetter(4 + i));
+  const adjLetter = colLetter(4 + PROVIDER_STREAMS.length);
+  const totalLetter = colLetter(5 + PROVIDER_STREAMS.length);
+  const checkCol = 5 + PROVIDER_STREAMS.length;
+  writeAmount(ws, checkRow, checkCol,
+    streamLetters.map((c) => `${c}${totalRow}`).join('+')
+    + `+${adjLetter}${totalRow}-${totalLetter}${totalRow}`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Σύνοψη_παρόχων', addr: `${colLetter(checkCol)}${checkRow}` });
+  autosize(ws);
 }
 
 /* ------------------------------------------------------------- tab 1: SRA */
@@ -194,7 +302,9 @@ function tabMatrix(wb, result) {
 
 /* ------------------------------------------------ tab 3: Source_crosscheck */
 
-function tabCrosscheck(wb, result, sraTab, nLines) {
+function tabCrosscheck(wb, sections) {
+  /* Returns a map «sectionIndex:checkIndex» -> row, so the audit tab can tie
+   * each of its blocks back to the exact row printed here. */
   const ws = wb.addWorksheet('Source_crosscheck');
   // column names follow the CHECK NAME order: A = the first thing named,
   // B = the second.  (A is not always "the source report" — on GL rows A is
@@ -205,13 +315,25 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
                       'Συσκευασίες (Packages)', 'Τιμή μονάδας (Unit €)',
                       'Κωδικοί SRA (codes)']);
   let r = 2;
+  const ccRows = new Map();
+  sections.forEach((section, si) => {
+  const { result, sraTab, nLines } = section;
   const b = result.bundle;
+  if (section.label) {
+    const sec = ws.getCell(r, 1);
+    sec.value = section.label;
+    sec.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let col = 1; col <= 5; col++) ws.getCell(r, col).fill = FILL_SECTION;
+    r += 1;
+  }
+  const firstCheckRow = r;
   // row numbers of the netted pharma/fee pair (they reference each other)
   const feeNetRow = result.crosschecks.findIndex((c) => c.sideKind === 'fee_net');
   const pharmaRowIdx = result.crosschecks.findIndex((c) => c.sideKind === 'ph_minus_fee');
-  const feeRow = feeNetRow >= 0 ? 2 + feeNetRow : null;
-  const pharmaRow = pharmaRowIdx >= 0 ? 2 + pharmaRowIdx : null;
-  for (const chk of result.crosschecks) {
+  const feeRow = feeNetRow >= 0 ? firstCheckRow + feeNetRow : null;
+  const pharmaRow = pharmaRowIdx >= 0 ? firstCheckRow + pharmaRowIdx : null;
+  result.crosschecks.forEach((chk, ci) => {
+    ccRows.set(`${si}:${ci}`, r);
     ws.getCell(r, 1).value = chk.name; ws.getCell(r, 1).font = F_INPUT;
     const isPhfee = chk.name.includes('Φαρμακοποιού (packages') || chk.sideKind === 'fee_net';
     if (isPhfee && b.phfee) {
@@ -295,8 +417,10 @@ function tabCrosscheck(wb, result, sraTab, nLines) {
     ws.getCell(r, 5).value = chk.note;
     if (chk.flag === 'amber') ws.getCell(r, 5).fill = FILL_AMBER;
     r += 1;
-  }
+  });
+  });
   autosize(ws);
+  return ccRows;
 }
 
 
@@ -309,7 +433,7 @@ function nameSide(name, first) {
   return bits.length > 1 ? (first ? bits[0] : bits[bits.length - 1]).trim() : String(name).trim();
 }
 
-function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
+function tabAudit(wb, sections, ccRows, zeroChecks) {
   /* Every Source_crosscheck row written out as a full reconciliation: each
    * side broken into its components, live subtotals, the difference, and a
    * tie-back cell proving this sheet agrees with Source_crosscheck.  An
@@ -322,11 +446,16 @@ function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
   writeHeader(ws, 3, ['Στοιχείο (Item)', 'Ποσό (Amount €)', 'Πηγή (Source)',
                       'Κωδικός SRA (code)', 'Επιταγή (cheque)']);
   let r = 5;
+  let n = 0;
+  sections.forEach((section, si) => {
+  const { result, sraTab, nLines } = section;
   result.crosschecks.forEach((chk, i) => {
     if (chk.sraSide == null) return;
-    const ccRow = 2 + i;                       // its row on Source_crosscheck
+    const ccRow = ccRows.get(`${si}:${i}`);    // its row on Source_crosscheck
+    n += 1;
+    const prefix = section.label ? `${section.label} — ` : '';
     const title = ws.getCell(r, 1);
-    title.value = `${i + 1}. ${chk.name}`;
+    title.value = `${n}. ${prefix}${chk.name}`;
     title.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     for (let col = 1; col <= 5; col++) ws.getCell(r, col).fill = FILL_SECTION;
     r += 1;
@@ -428,6 +557,7 @@ function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
       r += 1;
     }
     r += 1;
+  });
   });
   autosize(ws);
 }

@@ -40,6 +40,12 @@ OPTIONAL_TYPES = [ReportType.XML_ACTIVITY, ReportType.GL_EXTRACT, ReportType.IS_
 # so they never trip the single-hospital gate.
 ORG_WIDE_TYPES = {ReportType.GL_EXTRACT, ReportType.IS_AUDITOR}
 
+# ΟΑΥ also pays OKYπY units that are NOT one of the 8 hospitals — the mental
+# health services, each with its own F-code and its own cheque.  They bill
+# service streams only (OS / NM / AP): no DRG summary, no pharmacy, no
+# pharmacist fee, so they need their own required set.
+REQUIRED_TYPES_PROVIDER = [ReportType.SRA, ReportType.CLAIMS_ALL]
+
 REPORT_LABELS = {
     ReportType.SRA: "Κατάσταση Πληρωμής / SRA (Remittance Advice)",
     ReportType.INPATIENT_SUMMARY: "Ενδ. Πληρωμένες Απαιτήσεις (Inpatient summary)",
@@ -67,6 +73,35 @@ HOSPITALS = {
     "F1055": ("ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Kyperounta"),
     "F1026": ("ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΗΣ ΧΡΥΣΟΧΟΥΣ", "Polis"),
 }
+
+
+# Mental-health (and other non-hospital) OKYπY providers.  Display names
+# only: the app reads the real name from the file content when the activity
+# export is present, and NEVER decides a provider from a filename.
+OTHER_PROVIDERS = {
+    "F1070": "ΕΣΩΤΕΡΙΚΗ ΝΟΣΗΛΕΙΑ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ",
+    "F1088": "ΙΑΤΡΕΙΑ ΔΙΠΛΗΣ ΔΙΑΓΝΩΣΗΣ",
+    "F1089": "ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΕΝΗΛΙΚΕΣ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ",
+    "F1090": "ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΠΑΙΔΙΑ ΚΑΙ ΕΦΗΒΟΥΣ",
+    "F1097": "ΚΕΝΤΡΟ ΕΞΕΙΔΙΚΕΥΜΕΝΩΝ ΑΞΙΟΛΟΓΗΣΕΩΝ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ",
+}
+
+
+def provider_name(code: Optional[str], learned: Optional[str] = None) -> str:
+    """Display name for any ΟΑΥ provider code.  A name read from the file
+    content (learned) always wins over the built-in registry, so a provider
+    the app has never seen still shows its real name."""
+    if not code:
+        return "—"
+    if code in HOSPITALS:
+        return HOSPITALS[code][0]
+    if learned:
+        return learned.strip()
+    return OTHER_PROVIDERS.get(code, code)
+
+
+def is_hospital(code: Optional[str]) -> bool:
+    return bool(code) and code in HOSPITALS
 
 
 # Provider-name matching tokens for org-wide detail reports (IS Auditor),
@@ -152,6 +187,13 @@ class IdentifiedFile:
     raw_text: Optional[str] = None
     # what the identifier actually read from the file (diagnostics panel)
     probe: Optional[str] = None
+    # NON-hospital ΟΑΥ provider (mental health unit): its F-code, the name as
+    # printed in the file, and the cheque(s) the file belongs to.  A batch can
+    # carry several such providers at once — one cheque each — so every file
+    # has to say, from its own content, which provider it belongs to.
+    provider_code: Optional[str] = None
+    provider_label: Optional[str] = None
+    cheques: list = field(default_factory=list)
 
 
 @dataclass

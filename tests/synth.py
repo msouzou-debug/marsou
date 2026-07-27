@@ -382,3 +382,62 @@ def xml_claims_export_bytes(claims=None) -> bytes:
             a = etree.SubElement(acts, "Activity")
             etree.SubElement(a, "ActivityReimbursementAmount").text = f"{amt:.2f}"
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+
+
+# ------------------------------------------- mental-health (non-hospital)
+
+def provider_sra_text(code="F1089", cheque="266458", os_amt=42_358.08,
+                      nm_amt=71_252.16, ap_amt=30_917.80, adj=896.21) -> str:
+    """Real mental-health SRA shape: the payee wraps across two header lines
+    («...INCOME-MENTAL / HEALTH-F1089 Payment Currency: EUR») and only the
+    service streams OS / NM / AP are paid — no DRG, no pharmacy."""
+    total = round(os_amt + nm_amt + ap_amt + adj, 2)
+    lines = [
+        "ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ",
+        "REMITTANCE ADVICE",
+        "Klimentos 17 & 19, 4th floor",
+        "1061 Nicosia",
+        "STATE HEALTH SERVICES ORGANIZATION INCOME-MENTAL Payment Date: 12/06/2026",
+        f"HEALTH-{code} Payment Currency: EUR",
+        f"Προδρόμου 1 Payment/Cheque No: {cheque}",
+        "Strovolos 2063 Supplier No: 2951",
+        f"Cyprus Total paid in this batch: {_anglo(total)}",
+        "Invoice Date Invoice No. Description Invoice Total Currency Amount Paid",
+    ]
+    for i, (desc, amt) in enumerate((("OS - HCP SERVICES", os_amt),
+                                     ("NM - HCP SERVICES", nm_amt),
+                                     ("AP - HCP SERVICES", ap_amt))):
+        if amt:
+            lines.append(f"31/05/2026 {5800001 + i} {desc} {_anglo(amt)} EUR {_anglo(amt)}")
+    if adj:
+        lines.append("31/05/2026 ADJ-New Reimb OS - Adj. based on new reimb. method- "
+                     f"{_anglo(adj)} EUR {_anglo(adj)}")
+    lines.append(f"Total paid in this batch: {_anglo(total)}")
+    return "\n".join(lines)
+
+
+def provider_claims_xlsx(cheque="266458", segments=None) -> bytes:
+    """Paid claims for one unit: no F-code anywhere — PAYMENT NO. is the only
+    content-based link back to its provider."""
+    segments = segments if segments is not None else {
+        "Outpatient Specialists": 42_358.08, "Nurses-Midwives": 71_252.16,
+        "Allied Health": 30_917.80}
+    return claims_all_xlsx(segments=segments, cheque=cheque)
+
+
+def activity_table_xlsx(provider="F1089", name="ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ ΓΙΑ ΕΝΗΛΙΚΕΣ "
+                        "ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ (ΟΚΥπΥ)", rows=None) -> bytes:
+    """The activity export as ΟΑΥ ships it for these units: a SPREADSHEET
+    (in a folder called «XMLS»), one row per activity."""
+    rows = rows if rows is not None else [
+        ("CL1", "266458", 100_000.00), ("CL2", "266458", 44_528.04),
+        ("CL3", "263370", 1_492.73)]        # paid by an earlier cheque
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["ExportDate", "ClaimsDateFrom", "ClaimsDateTo", "ProviderId",
+               "ProviderName", "ClaimId", "ClaimPaymentNumber",
+               "ActivityReimbursementAmount"])
+    for cid, pay, amt in rows:
+        ws.append(["2026-07-07", "2026-05-01", "2026-06-01", provider, name,
+                   cid, pay, amt])
+    return _wb_bytes(wb)
