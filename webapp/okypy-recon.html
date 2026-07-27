@@ -1592,7 +1592,7 @@ function parseSraText(text) {
       const amount = parseAmount(inv[6]);   // Amount Paid column
       const [canon, bucket, channel, src] = classifySraLine('', desc);
       lines.push({ code: canon, description: `${desc} (${inv[1]} #${inv[2]})`,
-                   amount, bucket, channel, sourceReport: src });
+                   amount, bucket, channel, sourceReport: src, date: inv[1] });
       continue;
     }
     const m = line.match(SRA_LINE_RE);
@@ -1610,8 +1610,9 @@ function parseSraText(text) {
     const letters = ((code || '') + desc).replace(/[^A-Za-zΑ-Ωα-ωΆ-Ώά-ώ]/g, '');
     if (letters.length < 3) continue;
     const [canon, bucket, channel, src] = classifySraLine(code, desc || code);
+    const dm = `${code} ${desc}`.trim().match(LEAD_DATE_RE);
     lines.push({ code: canon, description: desc || canon, amount, bucket,
-                 channel, sourceReport: src });
+                 channel, sourceReport: src, date: dm ? dm[1] : '' });
   }
   if (!lines.length) throw new ExtractionError('SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF');
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
@@ -1630,6 +1631,31 @@ function parseSraText(text) {
     hospitalCode: findHospital(text), year, month, linesTotal, supplierCode,
     parts: [[cheque || 'UNKNOWN', linesTotal, statedTotal]],
   };
+}
+
+// leading invoice date on wrapped/adjustment lines («30/04/2026 CRN-Packages …»)
+const LEAD_DATE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})/;
+// CRN-Packages corrections vs the fee invoice itself (both carry code PHF)
+const CORRECTION_RE = /CRN|COR\.|CORRECTION|ADJ/;
+
+function sraSumInPeriod(sra, codes, year, month, current, correctionsOnly) {
+  /* Sum SRA lines of the given codes whose invoice date falls IN (current)
+   * or OUTSIDE the service month.  ΟΑΥ's ledger books corrections in the
+   * month they belong to — that split is what makes the GL fee account
+   * reconcile.  correctionsOnly skips the fee invoice itself. */
+  let total = 0;
+  for (const l of sra.lines) {
+    if (!codes.includes(l.code)) continue;
+    if (correctionsOnly && !CORRECTION_RE.test(stripAccents(l.description))) continue;
+    const m = (l.date || '').match(LEAD_DATE_RE);
+    let inPeriod = false;
+    if (m && year && month) {
+      const [d, mo, y] = m[1].split('/');
+      inPeriod = (parseInt(y, 10) === year && parseInt(mo, 10) === month);
+    }
+    if (inPeriod === !!current) total += l.amount;
+  }
+  return round2(total);
 }
 
 function mergeSras(sras, hospitalCode) {
@@ -2402,12 +2428,26 @@ function buildCrosschecks(bundle) {
         claimsOut);
     // the SRA pays the fee invoice inside the daily PH lines, so compare
     // GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
-    add('GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού (packages × τιμή μονάδας)',
+    // ΟΑΥ books the fee account NET of the CURRENT month's CRN-Packages
+    // corrections, while the fee report shows it gross — verified to the
+    // cent on Apr-2026 F1048: 27.584,00 − 13.141,60 = 14.442,40.
+    const crnNow = sra ? sraSumInPeriod(sra, ['PHF'], sra.year, sra.month, true, true) : 0;
+    const crnPrior = sra ? sraSumInPeriod(sra, ['PHF'], sra.year, sra.month, false, true) : 0;
+    add('GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού + διορθώσεις CRN-Packages τρέχοντος μήνα',
         gl.pharmacistFee, []);
     if (bundle.phfee) {
       const c = checks[checks.length - 1];
-      c.sraSide = bundle.phfee.computed;
+      c.sraSide = round2(bundle.phfee.computed + crnNow);
       [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+      if (Math.abs(c.diff || 0) <= CENT && Math.abs(crnNow) > CENT) {
+        c.note = 'OK — το καθολικό ΟΑΥ κρατά την αμοιβή ΚΑΘΑΡΗ από τις διορθώσεις '
+          + `CRN-Packages του ίδιου μήνα: ${formatEur(bundle.phfee.computed)} `
+          + `(packages × τιμή) ${formatEur(crnNow)} = ${formatEur(c.sraSide)}.`;
+        if (Math.abs(crnPrior) > CENT) {
+          c.note += ` Οι διορθώσεις προηγούμενων μηνών (${formatEur(crnPrior)}) βαρύνουν `
+            + 'τα καθολικά εκείνων των μηνών (prior-month corrections belong to prior-month ledgers).';
+        }
+      }
     }
     add('GL: Φάρμακα (255xx) vs pharma claims gross', gl.pharmaOther, []);
     if (bundle.pharma) {

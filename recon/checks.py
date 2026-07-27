@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .extract import sra_sum_in_period
 from .models import (Bucket, BUCKET_ORDER, ClaimsAll, GLExtract, HOSPITALS,
                      IdentifiedFile, InpatientSummary, ISAuditor,
                      ORG_WIDE_TYPES, PharmaClaims, PharmacistFee,
@@ -623,12 +624,33 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
             alt=claims_out)
         # the SRA pays the fee invoice inside the daily PH lines, so compare
         # GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
+        # ΟΑΥ books the fee account NET of the CURRENT month's CRN-Packages
+        # corrections, while the fee report shows it gross — verified to the
+        # cent on Apr-2026 F1048: 27.584,00 − 13.141,60 = 14.442,40.
+        # Corrections dated in earlier months belong to those months' ledgers.
+        crn_now = (sra_sum_in_period(sra, ["PHF"], sra.year, sra.month, True,
+                                     corrections_only=True)
+                   if sra else 0.0)
+        crn_prior = (sra_sum_in_period(sra, ["PHF"], sra.year, sra.month, False,
+                                       corrections_only=True)
+                     if sra else 0.0)
         add("GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού "
-            "(packages × τιμή μονάδας)", gl.pharmacist_fee, [])
+            "+ διορθώσεις CRN-Packages τρέχοντος μήνα", gl.pharmacist_fee, [])
         if bundle.phfee:
             c = checks[-1]
-            c.sra_side = bundle.phfee.computed
+            c.sra_side = round(bundle.phfee.computed + crn_now, 2)
             c.note, c.flag = _annotate(c.name, c.source_total, c.sra_side)
+            if abs(c.diff or 0) <= CENT and abs(crn_now) > CENT:
+                c.note = (
+                    "OK — το καθολικό ΟΑΥ κρατά την αμοιβή ΚΑΘΑΡΗ από τις "
+                    "διορθώσεις CRN-Packages του ίδιου μήνα: "
+                    f"{format_eur(bundle.phfee.computed)} (packages × τιμή) "
+                    f"{format_eur(crn_now)} = {format_eur(c.sra_side)}.")
+                if abs(crn_prior) > CENT:
+                    c.note += (f" Οι διορθώσεις προηγούμενων μηνών "
+                               f"({format_eur(crn_prior)}) βαρύνουν τα "
+                               "καθολικά εκείνων των μηνών (prior-month "
+                               "corrections belong to prior-month ledgers).")
         add("GL: Φάρμακα (255xx) vs pharma claims gross", gl.pharma_other, [])
         if bundle.pharma:
             c = checks[-1]

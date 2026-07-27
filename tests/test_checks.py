@@ -631,3 +631,29 @@ def test_gl_fee_row_names_and_orders_its_two_sides():
     fee = next(c for c in res.crosschecks
                if "Φαρμακοποιού (packages" in c.name and "25501" not in c.name)
     assert fee.source_total == 12_921.60             # 8.076 × 1,60
+
+
+def test_gl_fee_reconciles_with_current_month_crn_packages():
+    # Apr-2026 F1048 identity, verified against the REAL SRA + GL:
+    #   GL 25501 = fee report (packages × unit) + CURRENT-month CRN-Packages
+    #   27.584,00 − 13.141,60 = 14.442,40
+    # prior-month corrections belong to the prior month's ledger
+    from recon.models import GLExtract, PharmacistFee, SRALine
+    b = full_bundle()
+    b.sra.year, b.sra.month = 2026, 4
+    b.phfee = PharmacistFee(packages=17_240, unit_price=1.60, amount=27_584.00)
+    for date, amt in [("30/04/2026", -5_119.18), ("30/04/2026", -255.96),
+                      ("30/04/2026", -7_396.63), ("30/04/2026", -369.83),
+                      ("31/03/2026", -5_789.84), ("31/03/2026", -289.49)]:
+        b.sra.lines.append(SRALine(
+            code="PHF", date=date, amount=amt, bucket=Bucket.PHARMA,
+            description=f"{date} CRN-Packages PH - CORRECTION-Packages",
+            channel="Fee", source_report="Pharmacist Fee Report"))
+    b.gl = GLExtract(pharmacist_fee=14_442.40)
+    res = run_reconciliation(b)
+    c = next(ch for ch in res.crosschecks if "25501" in ch.name)
+    assert c.source_total == 14_442.40          # A: ΟΑΥ ledger
+    assert c.sra_side == 14_442.40              # B: fee + current-month CRN
+    assert c.flag == "ok" and c.diff == 0.0
+    assert "ΚΑΘΑΡΗ" in c.note                   # explains the netting
+    assert "6.079,33" in c.note                 # prior-month corrections named

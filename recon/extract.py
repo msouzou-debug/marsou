@@ -690,6 +690,37 @@ def classify_sra_line(code: str, description: str) -> tuple[str, Bucket, str, st
 
 _SUPPLIER_CODE_RE = re.compile(r"\bF1\d{3}\b")
 
+# leading invoice date on wrapped/adjustment lines («30/04/2026 CRN-Packages …»)
+_LEAD_DATE_RE = re.compile(r"^\s*(\d{1,2}/\d{1,2}/\d{4})")
+
+
+# CRN-Packages corrections vs the fee invoice itself (both carry code PHF)
+_CORRECTION_RE = re.compile(r"CRN|COR\.|CORRECTION|ADJ")
+
+
+def sra_sum_in_period(sra, codes: list[str], year: Optional[int],
+                      month: Optional[int], current: bool = True,
+                      corrections_only: bool = False) -> float:
+    """Sum SRA lines of the given codes whose invoice date falls IN (current)
+    or OUTSIDE (current=False) the service month.  ΟΑΥ's ledger books
+    corrections in the month they belong to, so this split is what makes the
+    GL fee account reconcile.  corrections_only skips the fee invoice itself
+    (older SRAs pay it as its own PHF line)."""
+    total = 0.0
+    for l in sra.lines:
+        if l.code not in codes:
+            continue
+        if corrections_only and not _CORRECTION_RE.search(strip_accents(l.description)):
+            continue
+        m = _LEAD_DATE_RE.match(l.date or "")
+        in_period = False
+        if m and year and month:
+            d, mo, y = m.group(1).split("/")
+            in_period = (int(y) == year and int(mo) == month)
+        if in_period == current:
+            total += l.amount
+    return round(total, 2)
+
 _CHEQUE_RE = re.compile(
     r"(?:ΑΡ\.?\s*ΕΠΙΤΑΓΗΣ|ΕΠΙΤΑΓΗ|CHEQUE(?:\s*NO\.?)?|ΑΡ\.?\s*ΠΛΗΡΩΜΗΣ|PAYMENT\s*(?:NO|REF)\.?)"
     r"\s*[:.]?\s*#?(\d{4,})", re.IGNORECASE)
@@ -746,7 +777,7 @@ def parse_sra_text(text: str) -> SRA:
             lines.append(SRALine(code=canon,
                                  description=f"{desc} ({inv.group('date')} #{inv.group('inv')})",
                                  amount=amount, bucket=bucket, channel=channel,
-                                 source_report=src))
+                                 source_report=src, date=inv.group("date")))
             continue
         m = _LINE_RE.match(line)
         if not m:
@@ -765,8 +796,10 @@ def parse_sra_text(text: str) -> SRA:
         if len(letters) < 3:
             continue
         canon, bucket, channel, src = classify_sra_line(code, desc or code)
+        dm = _LEAD_DATE_RE.match((code + " " + desc).strip())
         lines.append(SRALine(code=canon, description=desc or canon, amount=amount,
-                             bucket=bucket, channel=channel, source_report=src))
+                             bucket=bucket, channel=channel, source_report=src,
+                             date=dm.group(1) if dm else ""))
     if not lines:
         raise ExtractionError("SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF")
     if stated_total is None:
@@ -811,7 +844,7 @@ def merge_sras(sras: list[SRA], hospital_code: Optional[str] = None) -> SRA:
         sat = _is_sat(s)
         for l in s.lines:
             lines.append(SRALine(
-                code="SAT" if sat else l.code,
+                code="SAT" if sat else l.code, date=l.date,
                 description=f"{l.description} [επ. {s.cheque_no}]",
                 amount=l.amount, bucket=l.bucket,
                 channel="Satellite" if sat else l.channel,

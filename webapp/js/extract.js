@@ -635,7 +635,7 @@ function parseSraText(text) {
       const amount = parseAmount(inv[6]);   // Amount Paid column
       const [canon, bucket, channel, src] = classifySraLine('', desc);
       lines.push({ code: canon, description: `${desc} (${inv[1]} #${inv[2]})`,
-                   amount, bucket, channel, sourceReport: src });
+                   amount, bucket, channel, sourceReport: src, date: inv[1] });
       continue;
     }
     const m = line.match(SRA_LINE_RE);
@@ -653,8 +653,9 @@ function parseSraText(text) {
     const letters = ((code || '') + desc).replace(/[^A-Za-zΑ-Ωα-ωΆ-Ώά-ώ]/g, '');
     if (letters.length < 3) continue;
     const [canon, bucket, channel, src] = classifySraLine(code, desc || code);
+    const dm = `${code} ${desc}`.trim().match(LEAD_DATE_RE);
     lines.push({ code: canon, description: desc || canon, amount, bucket,
-                 channel, sourceReport: src });
+                 channel, sourceReport: src, date: dm ? dm[1] : '' });
   }
   if (!lines.length) throw new ExtractionError('SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF');
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
@@ -673,6 +674,31 @@ function parseSraText(text) {
     hospitalCode: findHospital(text), year, month, linesTotal, supplierCode,
     parts: [[cheque || 'UNKNOWN', linesTotal, statedTotal]],
   };
+}
+
+// leading invoice date on wrapped/adjustment lines («30/04/2026 CRN-Packages …»)
+const LEAD_DATE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})/;
+// CRN-Packages corrections vs the fee invoice itself (both carry code PHF)
+const CORRECTION_RE = /CRN|COR\.|CORRECTION|ADJ/;
+
+function sraSumInPeriod(sra, codes, year, month, current, correctionsOnly) {
+  /* Sum SRA lines of the given codes whose invoice date falls IN (current)
+   * or OUTSIDE the service month.  ΟΑΥ's ledger books corrections in the
+   * month they belong to — that split is what makes the GL fee account
+   * reconcile.  correctionsOnly skips the fee invoice itself. */
+  let total = 0;
+  for (const l of sra.lines) {
+    if (!codes.includes(l.code)) continue;
+    if (correctionsOnly && !CORRECTION_RE.test(stripAccents(l.description))) continue;
+    const m = (l.date || '').match(LEAD_DATE_RE);
+    let inPeriod = false;
+    if (m && year && month) {
+      const [d, mo, y] = m[1].split('/');
+      inPeriod = (parseInt(y, 10) === year && parseInt(mo, 10) === month);
+    }
+    if (inPeriod === !!current) total += l.amount;
+  }
+  return round2(total);
 }
 
 function mergeSras(sras, hospitalCode) {

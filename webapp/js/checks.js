@@ -465,12 +465,26 @@ function buildCrosschecks(bundle) {
         claimsOut);
     // the SRA pays the fee invoice inside the daily PH lines, so compare
     // GL 25501 to the fee REPORT (packages × unit) — known flat-booking gap
-    add('GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού (packages × τιμή μονάδας)',
+    // ΟΑΥ books the fee account NET of the CURRENT month's CRN-Packages
+    // corrections, while the fee report shows it gross — verified to the
+    // cent on Apr-2026 F1048: 27.584,00 − 13.141,60 = 14.442,40.
+    const crnNow = sra ? sraSumInPeriod(sra, ['PHF'], sra.year, sra.month, true, true) : 0;
+    const crnPrior = sra ? sraSumInPeriod(sra, ['PHF'], sra.year, sra.month, false, true) : 0;
+    add('GL ΟΑΥ λογ. 25501 (καθολικό) vs Αναφορά Αμοιβής Φαρμακοποιού + διορθώσεις CRN-Packages τρέχοντος μήνα',
         gl.pharmacistFee, []);
     if (bundle.phfee) {
       const c = checks[checks.length - 1];
-      c.sraSide = bundle.phfee.computed;
+      c.sraSide = round2(bundle.phfee.computed + crnNow);
       [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+      if (Math.abs(c.diff || 0) <= CENT && Math.abs(crnNow) > CENT) {
+        c.note = 'OK — το καθολικό ΟΑΥ κρατά την αμοιβή ΚΑΘΑΡΗ από τις διορθώσεις '
+          + `CRN-Packages του ίδιου μήνα: ${formatEur(bundle.phfee.computed)} `
+          + `(packages × τιμή) ${formatEur(crnNow)} = ${formatEur(c.sraSide)}.`;
+        if (Math.abs(crnPrior) > CENT) {
+          c.note += ` Οι διορθώσεις προηγούμενων μηνών (${formatEur(crnPrior)}) βαρύνουν `
+            + 'τα καθολικά εκείνων των μηνών (prior-month corrections belong to prior-month ledgers).';
+        }
+      }
     }
     add('GL: Φάρμακα (255xx) vs pharma claims gross', gl.pharmaOther, []);
     if (bundle.pharma) {

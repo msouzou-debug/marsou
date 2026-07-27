@@ -162,6 +162,8 @@ class SRALine:
     bucket: Bucket
     channel: str = ""       # payment channel (e.g. claims / capitation / adjustment)
     source_report: str = "" # which HIO report supports the line
+    date: str = ""          # invoice date dd/mm/yyyy — separates current-month
+                            # corrections from prior-month ones
 
 
 @dataclass
