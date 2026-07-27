@@ -570,11 +570,28 @@ function buildCrosschecks(bundle) {
         name = 'XML activity (μόνο PAYMENT NO. αυτών των επιταγών) = SRA OS+NM+AP';
       }
     }
-    add(name, src, ['OS', 'NM', 'AP'],
+    // The export prices ACTIVITIES: it covers the whole outpatient bucket
+    // EXCEPT the daily PD lines (personal doctors are paid by capitation +
+    // FFS, not per activity).  Apr-2026 F1048: bucket 220.721,94 − PD
+    // 31.072,83 = 189.649,11 vs XML 189.590,88.
+    const actCodes = ['OS', 'OS-ADJ', 'NM', 'AP', 'PD-FP', 'PD-KPI', 'KPI',
+                      'MRI', 'CT', 'MRI/CT', 'SAT'];
+    add('XML activity export = SRA εξωνοσοκομειακά ΕΚΤΟΣ των ημερήσιων γραμμών ΠΙ (activity-priced streams)',
+        src, actCodes,
         'Κατά προσέγγιση: activity-level έναντι γραμμών SRA (προσαρμογές/χρονισμός εκτός export).',
         claimsOut);
+    const cx = checks[checks.length - 1];
+    if (sra) {
+      const bucket = round2(sra.lines.filter((l) => l.bucket === 'Outpatient')
+        .reduce((a, l) => a + l.amount, 0));
+      const pdDaily = sraSum(sra, ['PD']);
+      cx.note = `Γέφυρα: σύνολο εξωνοσοκομειακών SRA ${formatEur(bucket)} − ημερήσιες `
+        + `γραμμές ΠΙ ${formatEur(pdDaily)} = ${formatEur(round2(bucket - pdDaily))} έναντι XML `
+        + `${formatEur(x.total)}. Οι Προσωπικοί Ιατροί πληρώνονται με κατά κεφαλήν + FFS, `
+        + "δεν τιμολογούνται ανά πράξη, γι' αυτό λείπουν από το activity export. " + cx.note;
+    }
     if (src !== x.total) {
-      checks[checks.length - 1].note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
+      cx.note += ` Εκτός επιταγών: ${formatEur(round2(x.total - src))} `
         + '(activities paid by other cheques, excluded).';
     }
   }

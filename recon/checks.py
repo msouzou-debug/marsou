@@ -730,12 +730,32 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                 src = matched
                 name = ("XML activity (μόνο PAYMENT NO. αυτών των επιταγών) "
                         "= SRA OS+NM+AP")
-        add(name, src, ["OS", "NM", "AP"], alt=claims_out,
+        # The export prices ACTIVITIES: it covers the whole outpatient
+        # bucket EXCEPT the daily PD lines (personal doctors are paid by
+        # capitation + FFS, not per activity).  Apr-2026 F1048: bucket
+        # 220.721,94 − PD 31.072,83 = 189.649,11 vs XML 189.590,88.
+        act_codes = ["OS", "OS-ADJ", "NM", "AP", "PD-FP", "PD-KPI", "KPI",
+                     "MRI", "CT", "MRI/CT", "SAT"]
+        add("XML activity export = SRA εξωνοσοκομειακά ΕΚΤΟΣ των ημερήσιων "
+            "γραμμών ΠΙ (activity-priced streams)", src, act_codes,
+            alt=claims_out,
             flag_hint="Κατά προσέγγιση: activity-level έναντι γραμμών SRA "
                       "(προσαρμογές/χρονισμός εκτός export).")
+        c = checks[-1]
+        if sra:
+            bucket = round(sum(l.amount for l in sra.lines
+                               if l.bucket == Bucket.OUTPATIENT), 2)
+            pd_daily = _sra_sum(sra, ["PD"])
+            c.note = (
+                f"Γέφυρα: σύνολο εξωνοσοκομειακών SRA {format_eur(bucket)} "
+                f"− ημερήσιες γραμμές ΠΙ {format_eur(pd_daily)} "
+                f"= {format_eur(round(bucket - pd_daily, 2))} έναντι XML "
+                f"{format_eur(x.total)}. Οι Προσωπικοί Ιατροί πληρώνονται με "
+                "κατά κεφαλήν + FFS, δεν τιμολογούνται ανά πράξη, γι' αυτό "
+                "λείπουν από το activity export. " + c.note)
         if src != x.total:
-            checks[-1].note += (f" Εκτός επιταγών: {format_eur(round(x.total - src, 2))} "
-                                "(activities paid by other cheques, excluded).")
+            c.note += (f" Εκτός επιταγών: {format_eur(round(x.total - src, 2))} "
+                       "(activities paid by other cheques, excluded).")
     return checks
 
 

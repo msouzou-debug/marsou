@@ -264,7 +264,6 @@ def test_xml_activity_filtered_by_payment_number():
     ]))
     res = run_reconciliation(b)
     row = next(c for c in res.crosschecks if "XML activity" in c.name)
-    assert "PAYMENT NO." in row.name
     assert row.source_total == 65_000.00
     assert "777,77" in row.note
 
