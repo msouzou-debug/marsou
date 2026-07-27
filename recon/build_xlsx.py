@@ -419,8 +419,11 @@ def _tab_audit(wb: Workbook, result: ReconResult, sra_tab: Optional[str],
             cell.font = F_RED
         elif chk.flag == "amber":
             cell.font = F_AMBER
-        else:
-            cell.fill = FILL_CHECK      # ties: a zero-check gate 5 recomputes
+        elif abs(chk.diff or 0) <= CENT:
+            # a REAL zero: gate 5 recomputes it.  A check that is "ok" within
+            # a documented tolerance (e.g. IS Auditor per-row rounding) keeps
+            # its live difference visible and is NOT claimed to be zero.
+            cell.fill = FILL_CHECK
         r += 1
         # provable consistency with Source_crosscheck: both sides must equal
         # the figures printed there

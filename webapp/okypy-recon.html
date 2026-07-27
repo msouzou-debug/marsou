@@ -3415,8 +3415,11 @@ function tabAudit(wb, result, sraTab, nLines, zeroChecks) {
     diffCell.font = { bold: true };
     if (chk.flag === 'red') diffCell.font = F_RED;
     else if (chk.flag === 'amber') diffCell.font = F_AMBER;
-    else {
-      diffCell.fill = FILL_CHECK;   // ties: a zero-check the verifier recomputes
+    else if (Math.abs(chk.diff || 0) <= CENT) {
+      /* a REAL zero: the verifier recomputes it.  A check that is "ok" within
+       * a documented tolerance (e.g. IS Auditor per-row rounding) keeps its
+       * live difference visible and is NOT claimed to be zero. */
+      diffCell.fill = FILL_CHECK;
       zeroChecks.push({ sheet: 'Ανάλυση_ελέγχων', addr: `B${r}` });
     }
     r += 1;

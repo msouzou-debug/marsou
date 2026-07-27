@@ -184,3 +184,28 @@ def test_audit_tab_breaks_out_the_pharmacy_stream_month():
     f = ws.cell(row=row, column=2).value
     assert f.startswith("=SUMIFS(")
     assert round(ev.evaluate(f, "Ανάλυση_ελέγχων"), 2) == 54_646.65
+
+
+def test_tolerance_ok_check_is_not_claimed_to_be_zero():
+    """A check that passes WITHIN a documented tolerance (IS Auditor per-row
+    rounding) has a non-zero difference — it must stay visible, not be
+    painted as a zero-check that gate 5 then fails on."""
+    from test_checks import full_bundle
+    b = full_bundle(with_optional=True)
+    b.isaud.drg_fees = round(b.isaud.drg_fees + 2.61, 2)   # rounding drift
+    b.isaud.inpatient_total = round(b.isaud.inpatient_total + 2.61, 2)
+    res = run_reconciliation(b)
+    chk = next(c for c in res.crosschecks if "IS Auditor" in c.name)
+    assert chk.flag == "ok" and chk.diff == 2.61            # ok, but NOT zero
+    data = build_workbook(res)
+    assert verify_workbook(data) == []                      # gate 5 still passes
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["Ανάλυση_ελέγχων"]
+    block = next(r for r in range(1, ws.max_row + 1)
+                 if "IS Auditor" in str(ws.cell(row=r, column=1).value or "")
+                 and str(ws.cell(row=r, column=1).value or "")[:1].isdigit())
+    diff = next(r for r in range(block, block + 30)
+                if str(ws.cell(row=r, column=1).value or "").startswith("Διαφορά"))
+    cell = ws.cell(row=diff, column=2)
+    assert not str(cell.fill.fgColor.rgb).endswith("FFFF00")
+    assert round(_Evaluator(wb).evaluate(cell.value, "Ανάλυση_ελέγχων"), 2) == 2.61
