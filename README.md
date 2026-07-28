@@ -137,9 +137,42 @@ them at once. The app detects that shape and switches to **provider mode**:
   nothing is spread across professionals to force a tie — and each unit block
   ends in a zero-check.
 
+### Clinic split and the SAP upload file
+
+These units have a clinic structure the ΟΑΥ files do not carry: a
+professional works, say, 3/5 of the week in one Ε.Ι.Ψ.Υ. and 2/5 in another.
+ΟΑΥ pays the UNIT; the service posts by CLINIC. The bridge is the **monthly
+staff roster**, uploaded with the month's files:
+
+- the roster is any workbook with `Personal ID / First Name / Last Name` and
+  one column per month («ΙΑΝΟΥΑΡΙΟΣ 2026» …). The month cell holds the
+  placement — «3/5 Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ και 2/5 Ψ.Ν.Α» — and a «√» means
+  *unchanged*, so the last stated month to its left is carried forward.
+  Upload **one roster per profession**; the app merges them;
+- professionals are matched to the roster across alphabets (ΟΑΥ prints
+  «ΟΘΩΝ ΤΣΙΡΚΑΣ / OTHON TSIRKAS», the roster is Greek only). A fuzzy match is
+  accepted only when it is both very close and unique — otherwise the
+  professional lands in a visible «no roster row» block with the full amount
+  intact. Money is never attributed on a maybe;
+- `Ανά_κλινική` shows clinic → professional → share → amount, with a
+  zero-check against the claims files;
+- `SAP_Upload` writes the month in the SAP journal-upload layout: one
+  document per cheque — a debit line for the cheque, then one credit line per
+  cost centre × internal order. Whatever the clinic split does not cover
+  (claims-vs-SRA, adjustment lines) becomes an explicit *TO CLASSIFY* line so
+  every document balances. It also downloads as its own one-sheet file.
+
+The SAP codes come from an **optional lookup** — a sheet or a file with
+`Κλινική | Κέντρο κόστους | Εσωτερική εντολή | Κείμενο SAP` (plus an optional
+`Ειδικότητα` column when the internal order follows the professional category
+rather than the clinic). Without it the sheet is still produced, keyed by
+clinic, with those two columns blank and every clinic that needs a code
+listed at the bottom — the app never invents an account code.
+
 Verified on the real May-2026 month (five units, cheques 266444 / 266457 /
 266458 / 266474 / 266475, €211.006,20 in total) — see
-`tests/test_providers.py`, which runs the same chain on synthetic fixtures.
+`tests/test_providers.py` and `tests/test_mapping.py`, which run the same
+chain on synthetic fixtures.
 
 ## All eight hospitals (universality)
 
@@ -181,6 +214,7 @@ recon/
   identify.py        identify(file) -> report type, hospital, year, month
   extract.py         one normalizer per report type (xlsx/xls/xml/pdf/OCR)
   checks.py          gates, cross-checks, variance annotation, clinic split
+  mapping.py         staff roster -> clinic split, SAP cost-centre lookup
   build_xlsx.py      workbook builder + gate-5 formula re-verification
 webapp/              self-contained HTML app (same logic, ported to JS)
   okypy-recon.html   SINGLE-FILE build — the whole app in one file

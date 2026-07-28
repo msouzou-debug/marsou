@@ -96,6 +96,8 @@ function buildProviderWorkbook(entries) {
   const ccRows = tabCrosscheck(wb, sections);
   tabAudit(wb, sections, ccRows, zeroChecks);
   tabProviderByDoctor(wb, sections, zeroChecks);
+  tabByClinic(wb, sections, zeroChecks);
+  tabSapUpload(wb, sections, zeroChecks);
   tabLegend(wb);
   tabProviderSummary(summary, sections, zeroChecks);
   return { wb, zeroChecks };
@@ -300,6 +302,252 @@ function tabProviderByDoctor(wb, sections, zeroChecks) {
     ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ — επιταγές';
     ws.getCell(r, 1).font = { bold: true };
     writeAmount(ws, r, 5, unitChequeCells.join('+'), F_FORMULA);
+  }
+  autosize(ws);
+}
+
+function buildSapWorkbook(entries) {
+  /* The SAP journal upload as its OWN one-sheet file — what finance actually
+   * feeds to SAP.  Identical content to the workbook's SAP_Upload tab. */
+  const wb = new ExcelJS.Workbook();
+  const zeroChecks = [];
+  const sections = entries.map(({ code, label, result }) =>
+    ({ label: `${label} (${code})`, result, sraTab: null, nLines: 0, code }));
+  tabSapUpload(wb, sections, zeroChecks);
+  return { wb, zeroChecks };
+}
+
+function clinicShares(sections) {
+  /* every professional's clinic share for the whole batch, unit by unit */
+  let out = [];
+  for (const section of sections) {
+    const b = section.result.bundle;
+    if (!b.claims) continue;
+    out = out.concat(allocateByClinic(b.claims.byDoctor, b.staff, section.label));
+  }
+  return out;
+}
+
+function tabByClinic(wb, sections, zeroChecks) {
+  /* The clinic split ΟΑΥ's files cannot give: the service posts by CLINIC
+   * while ΟΑΥ pays by unit, so each professional's amount is re-split across
+   * the clinics the monthly roster puts them in.  A professional the roster
+   * does not cover keeps the whole amount in an «unmapped» block. */
+  const ws = wb.addWorksheet('Ανά_κλινική');
+  ws.getCell(1, 1).value = 'Κατανομή ανά κλινική βάσει μητρώου προσωπικού '
+    + '(by clinic, from the monthly staff roster)';
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  const shares = clinicShares(sections);
+  const staff = (sections.find((s) => s.result.bundle.staff) || {}).result;
+  if (!staff) {
+    ws.getCell(2, 1).value = 'Δεν ανέβηκε μητρώο προσωπικού — ανεβάστε το μηνιαίο αρχείο '
+      + '«Personal ID / First Name / Last Name / <μήνας>» για να γίνει η κατανομή ανά '
+      + 'κλινική (no staff roster uploaded).';
+    ws.getCell(2, 1).font = { italic: true, color: { argb: GRAY } };
+    autosize(ws);
+    return;
+  }
+  writeHeader(ws, 3, ['Κλινική (Clinic)', 'Μονάδα ΟΑΥ (Unit / cheque)',
+                      'Ειδικότητα (Speciality)', 'Ιατρός / Επαγγελματίας',
+                      'Ποσοστό (Share)', 'Ποσό (Amount €)', 'Σημείωση (Note)']);
+  let r = 4;
+  const groups = new Map();
+  for (const sh of shares) {
+    const k = clinicKey(sh.clinic);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(sh);
+  }
+  const ordered = [...groups.values()].sort((a, b) => {
+    const am = a[0].matched ? 0 : 1, bm = b[0].matched ? 0 : 1;
+    if (am !== bm) return am - bm;
+    return (b.reduce((x, s) => x + s.amount, 0) - a.reduce((x, s) => x + s.amount, 0))
+      || (a[0].clinic < b[0].clinic ? -1 : a[0].clinic > b[0].clinic ? 1 : 0);
+  });
+  const subtotalCells = [];
+  for (const group of ordered) {
+    const title = ws.getCell(r, 1);
+    title.value = group[0].clinic;
+    title.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let col = 1; col <= 7; col++) ws.getCell(r, col).fill = FILL_SECTION;
+    r += 1;
+    const first = r;
+    /* tie-break on the ASCII name key, not the Greek string: locale
+     * collation differs between the two ports, the key does not */
+    const tie = (x) => nameKey(x.professional).join(' ');
+    for (const sh of group.slice().sort((a, b) => (b.amount - a.amount)
+      || (tie(a) < tie(b) ? -1 : tie(a) > tie(b) ? 1 : 0)
+      || (a.unit < b.unit ? -1 : a.unit > b.unit ? 1 : 0))) {
+      ws.getCell(r, 2).value = sh.unit; ws.getCell(r, 2).font = F_INPUT;
+      ws.getCell(r, 3).value = sh.speciality; ws.getCell(r, 3).font = F_INPUT;
+      ws.getCell(r, 4).value = sh.professional; ws.getCell(r, 4).font = F_INPUT;
+      const pct = ws.getCell(r, 5);
+      pct.value = Math.round(sh.weight * 10000) / 10000;   // 4 dp, as Python
+      pct.numFmt = '0.0%';
+      pct.font = F_INPUT;
+      writeAmount(ws, r, 6, sh.amount, F_INPUT);
+      if (sh.note) {
+        const note = ws.getCell(r, 7);
+        note.value = sh.note;
+        note.font = { italic: true, color: { argb: GRAY } };
+        if (!sh.matched) note.fill = FILL_AMBER;
+      }
+      r += 1;
+    }
+    ws.getCell(r, 1).value = 'Υποσύνολο κλινικής';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 6, `SUM(F${first}:F${r - 1})`, F_FORMULA).font = { bold: true };
+    subtotalCells.push(`F${r}`);
+    r += 2;
+  }
+  const totalRow = r;
+  ws.getCell(totalRow, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ κατανομής (all clinics)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  if (subtotalCells.length) writeAmount(ws, totalRow, 6, subtotalCells.join('+'), F_FORMULA);
+  else writeAmount(ws, totalRow, 6, 0, F_INPUT);
+  r += 1;
+  ws.getCell(r, 1).value = 'Σύνολο claims των μονάδων (claims files)';
+  ws.getCell(r, 1).font = { bold: true };
+  const claimsSum = round2(sections.reduce((a, s) =>
+    a + (s.result.bundle.claims ? claimsTotal(s.result.bundle.claims) : 0), 0));
+  writeAmount(ws, r, 6, claimsSum, F_INPUT);
+  r += 1;
+  ws.getCell(r, 1).value = 'Zero-check = κατανομή − claims (must be 0)';
+  writeAmount(ws, r, 6, `F${totalRow}-F${r - 1}`, F_FORMULA).fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Ανά_κλινική', addr: `F${r}` });
+  r += 2;
+  const unmapped = round2(shares.filter((x) => !x.matched)
+    .reduce((a, x) => a + x.amount, 0));
+  if (unmapped) {
+    ws.getCell(r, 1).value = `Προσοχή: ${formatEur(unmapped)} δεν κατανεμήθηκε σε κλινική `
+      + '— επαγγελματίες εκτός μητρώου. Ανεβάστε και τα μητρώα των υπόλοιπων ειδικοτήτων '
+      + '(professionals with no roster row; upload the rosters for the remaining professions).';
+    ws.getCell(r, 1).font = F_AMBER;
+  }
+  autosize(ws);
+}
+
+/* the SAP journal template's column order (BKPF header + BSEG line item) */
+const SAP_COLUMNS = [
+  ['BKPF-BLDAT', 'Document Date'], ['BKPF-BUDAT', 'Posting Date'],
+  ['BKPF-BLART', 'Document type'], ['BKPF-BUKRS', 'Company code'],
+  ['BKPF-WAERS', 'Currency'], ['BKPF-MONAT', 'Period'],
+  ['BKPF-XBLNR', 'Reference'], ['BKPF-BKTXT', 'Header Text'],
+  ['BSEG-BSCHL', 'Posting key'], ['BSEG-HKONT', 'Account'],
+  ['BSEG-ANBWA', 'Asset trans. type'], ['BSEG-DMBTR', 'Amount'],
+  ['BSEG-MWSKZ', 'Tax code'], ['BSEG-KOSTL', 'Cost Center'],
+  ['BSEG-AUFNR', 'Internal order'], ['BSEG-GEBER', 'Fund'],
+  ['BSEG-FISTL', 'Fund center'], ['BSEG-FIPOS', 'Commitment item'],
+  ['BSEG-ZUONR', 'Assignment'], ['BSEG-SGTXT', 'Text'],
+  ['BSEG-XREF1', 'XREF1'], ['BSEG-XREF2', 'XREF2'], ['BSEG-XREF3', 'XREF3'],
+  ['', 'Επιταγή (cheque)'],
+];
+const SAP_DEFAULTS = { docType: 'SA', company: '1003', currency: 'EUR',
+  debitKey: '01', debitAccount: '200000', creditKey: '50',
+  creditAccount: '412002', tax: 'O0' };
+
+function tabSapUpload(wb, sections, zeroChecks) {
+  /* The month's postings in the SAP journal-upload layout: one document per
+   * cheque — a debit line for the cheque total, then one credit line per
+   * (cost centre × internal order).  Codes come from the uploaded lookup;
+   * without it the lines are still written with those columns blank and
+   * every clinic that needs a code listed — no account code is invented. */
+  const ws = wb.addWorksheet('SAP_Upload');
+  writeHeader(ws, 1, SAP_COLUMNS.map(([tag, label]) => (tag ? `${tag}\n${label}` : label)));
+  const lookup = (sections.find((s) => s.result.bundle.costCentres) || { result: { bundle: {} } })
+    .result.bundle.costCentres;
+  const company = (lookup && lookup.companyCode) ? lookup.companyCode : SAP_DEFAULTS.company;
+  const b0 = sections.length ? sections[0].result.bundle : null;
+  const year = b0 ? b0.year : null, month = b0 ? b0.month : null;
+  const docDate = (year && month)
+    ? `${String(monthEnd(year, month)).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}` : '';
+  const periodLabel = monthLabelEn(year, month);
+  const short = (year && month)
+    ? `${String(month).padStart(2, '0')}/${String(year).slice(-2)}` : '';
+  let r = 2;
+  const missing = new Map();
+  for (const section of sections) {
+    const b = section.result.bundle;
+    if (!b.sra) continue;
+    const cheque = b.sra.chequeNo;
+    const head = [docDate, docDate, SAP_DEFAULTS.docType, company, SAP_DEFAULTS.currency,
+      '', periodLabel, `HIO OUTP. INV.${cheque}`.slice(0, 25), SAP_DEFAULTS.debitKey,
+      SAP_DEFAULTS.debitAccount, '', b.sra.statedTotal, '', '', '', '', '', '',
+      company, `HIO OUTP. ${short} INV.${cheque}`.slice(0, 40), '', '', '', cheque];
+    head.forEach((v, j) => {
+      const c = ws.getCell(r, j + 1);
+      c.value = v;
+      c.font = F_INPUT;
+      if (j === 11) c.numFmt = EUR_FMT;
+    });
+    r += 1;
+    const shares = clinicShares([section]);
+    const buckets = new Map();
+    const labels = new Map();
+    for (const sh of shares) {
+      const row = lookup ? findCostCentre(lookup, sh.clinic, sh.speciality) : null;
+      const kostl = row ? row.costCentre : '';
+      const aufnr = row ? row.internalOrder : '';
+      const text = (row && row.text) ? row.text : sh.clinic;
+      const key = [kostl, aufnr, clinicKey(sh.clinic),
+                   (!row || !row.costCentre) ? sh.speciality : ''].join('\u0001');
+      buckets.set(key, round2((buckets.get(key) || 0) + sh.amount));
+      labels.set(key, [text, sh.clinic, sh.speciality, kostl, aufnr]);
+      if (!kostl) missing.set(clinicKey(sh.clinic), sh.clinic);
+    }
+    /* the credit side must equal the cheque: whatever the clinic split does
+     * not cover (claims vs SRA, adjustment lines) becomes its own line, to be
+     * classified — never silently spread over the clinics */
+    let credited = 0;
+    for (const v of buckets.values()) credited = round2(credited + v);
+    const residual = round2(b.sra.statedTotal - credited);
+    if (Math.abs(residual) > 0.005) {
+      const key = ['', '', '__RESIDUAL__', ''].join('\u0001');
+      buckets.set(key, residual);
+      labels.set(key, ['TO CLASSIFY (claims vs SRA + adj.)',
+        'ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές', '', '', '']);
+    }
+    const keys = [...buckets.keys()].sort((a, b2) => buckets.get(b2) - buckets.get(a));
+    for (const key of keys) {
+      const [text, clinic, spec, kostl, aufnr] = labels.get(key);
+      const sgtxt = `HIO OUTP. ${short} INV.${cheque} ${text}`.slice(0, 40);
+      const line = ['', '', '', '', '', '', '', '', SAP_DEFAULTS.creditKey,
+        SAP_DEFAULTS.creditAccount, '', buckets.get(key), SAP_DEFAULTS.tax,
+        kostl, aufnr, '', '', '', company, sgtxt, clinic, spec, '', cheque];
+      line.forEach((v, j) => {
+        const c = ws.getCell(r, j + 1);
+        c.value = v;
+        c.font = F_INPUT;
+        if (j === 11) c.numFmt = EUR_FMT;
+        if ((j === 13 || j === 14) && !v) c.fill = FILL_AMBER;
+      });
+      r += 1;
+    }
+  }
+  const last = r - 1;
+  const totalRow = r + 1;
+  /* SUMIFS criteria reference helper cells, never quoted strings */
+  ws.getCell(totalRow, 1).value = 'Σύνολο πιστωτικών γραμμών (credit lines)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  ws.getCell(totalRow, 9).value = SAP_DEFAULTS.creditKey;
+  ws.getCell(totalRow, 9).font = F_INPUT;
+  writeAmount(ws, totalRow, 12, `SUMIFS(L2:L${last},I2:I${last},I${totalRow})`, F_FORMULA);
+  ws.getCell(totalRow + 1, 1).value = 'Σύνολο χρεωστικών γραμμών (cheques)';
+  ws.getCell(totalRow + 1, 1).font = { bold: true };
+  ws.getCell(totalRow + 1, 9).value = SAP_DEFAULTS.debitKey;
+  ws.getCell(totalRow + 1, 9).font = F_INPUT;
+  writeAmount(ws, totalRow + 1, 12,
+    `SUMIFS(L2:L${last},I2:I${last},I${totalRow + 1})`, F_FORMULA);
+  ws.getCell(totalRow + 2, 1).value = 'Zero-check = πιστωτικές − χρεωστικές (must be 0)';
+  writeAmount(ws, totalRow + 2, 12, `L${totalRow}-L${totalRow + 1}`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'SAP_Upload', addr: `L${totalRow + 2}` });
+  if (missing.size) {
+    const note = ws.getCell(totalRow + 4, 1);
+    note.value = 'Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο αντιστοίχισης '
+      + 'και ανεβάστε το ξανά (clinics with no cost centre in the lookup): '
+      + [...missing.values()].sort().join(' · ');
+    note.font = F_AMBER;
+    note.alignment = { wrapText: true, vertical: 'top' };
   }
   autosize(ws);
 }
@@ -983,6 +1231,9 @@ function tabLegend(wb) {
   }
   r += 1;
   const notes = [
+    'Source_crosscheck: οι στήλες Α και Β ακολουθούν τη σειρά του ονόματος του ελέγχου. '
+      + 'Π.χ. «GL ΟΑΥ 25501 vs Αναφορά Αμοιβής» → Α = το ποσό του καθολικού ΟΑΥ, '
+      + 'Β = το ποσό της αναφοράς αμοιβής (packages × τιμή).',
     'Ανάλυση_ελέγχων: κάθε έλεγχος του Source_crosscheck γραμμένος αναλυτικά — τα συστατικά κάθε '
       + 'πλευράς, ζωντανά υποσύνολα, η διαφορά, και δύο κελιά που αποδεικνύουν ότι το φύλλο συμφωνεί '
       + 'με το Source_crosscheck (audit trail: every check, both sides, component by component).',

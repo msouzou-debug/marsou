@@ -11,8 +11,8 @@ import io
 
 import streamlit as st
 
-from recon.build_xlsx import (build_provider_workbook, build_workbook,
-                              verify_workbook)
+from recon.build_xlsx import (build_provider_workbook, build_sap_workbook,
+                              build_workbook, verify_workbook)
 from recon.checks import (ReconBundle, conditional_requirements,
                           gate4_internal_asserts, group_by_provider,
                           is_provider_batch, run_provider_batches,
@@ -196,11 +196,16 @@ if is_provider_batch(files):
     if broken:
         st.error("Πύλη 5 — Zero-checks: " + ", ".join(
             f"{s}!{c} = {format_eur(v)}" for s, c, v in broken))
-    st.download_button(
+    stamp = f"{MONTH_ABBR[month or 0]}{year or ''}"
+    mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    c1, c2 = st.columns(2)
+    c1.download_button(
         "⬇ Λήψη Excel (Download Excel workbook)", data=workbook_bytes,
-        file_name=f"OKYPY_HIO_MENTAL_HEALTH_{MONTH_ABBR[month or 0]}{year or ''}"
-                  "_Reconciliation.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        file_name=f"OKYPY_HIO_MENTAL_HEALTH_{stamp}_Reconciliation.xlsx", mime=mime)
+    c2.download_button(
+        "⬇ Λήψη αρχείου SAP (Download SAP upload file)",
+        data=build_sap_workbook(entries),
+        file_name=f"OKYPY_HIO_MENTAL_HEALTH_{stamp}_SAP_Upload.xlsx", mime=mime)
     st.stop()
 
 gates, hospital, period, batch_notes = validate_batch(files, crosscheck_mode)

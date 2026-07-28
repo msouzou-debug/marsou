@@ -266,6 +266,30 @@ function identifyExcel(f) {
       }
       return;
     }
+    /* staff roster: which clinic each professional worked in this month */
+    if (findHeaderRow(rows, ['PERSONAL ID', 'FIRST NAME', 'LAST NAME'], 8) !== null) {
+      f.reportType = RT.STAFF_MAPPING;
+      try {
+        const sm = extractStaffMapping(f.data);
+        f.probe = (f.probe || '') + `\nΜητρώο: ${sm.rows.length} άτομα, φύλλα `
+          + `${JSON.stringify(sm.sheets)}, στήλες μηνών: ${sm.monthColumns.slice(0, 14).join(', ')}`;
+      } catch (e) {
+        f.probe = (f.probe || '') + `\n(staff roster parse failed: ${e.message})`;
+      }
+      return;
+    }
+
+    /* optional SAP lookup: only when a clinic column AND a cost-centre column
+     * sit on the same header row and produce rows — the SAP upload TEMPLATE
+     * also mentions «Cost Center» and must not be mistaken for it */
+    let cc = null;
+    try { cc = extractCostCentres(f.data); } catch (e) { cc = null; }
+    if (cc && cc.rows.length) {
+      f.reportType = RT.COST_CENTRE_MAP;
+      f.probe = (f.probe || '') + `\nΚέντρα κόστους: ${cc.rows.length} γραμμές`;
+      return;
+    }
+
     /* activity export flattened to a spreadsheet (ΟΑΥ ships it in an «XMLS»
      * folder but the files are .xlsx): same fields as the XML */
     let hr = findHeaderRow(rows, ['CLAIMID', 'ACTIVITYREIMBURSEMENTAMOUNT']);

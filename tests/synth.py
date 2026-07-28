@@ -441,3 +441,47 @@ def activity_table_xlsx(provider="F1089", name="ΚΟΙΝΟΤΙΚΑ ΚΕΝΤΡΑ 
         ws.append(["2026-07-07", "2026-05-01", "2026-06-01", provider, name,
                    cid, pay, amt])
     return _wb_bytes(wb)
+
+
+def staff_roster_xlsx(sheet="ΨΥΧΙΑΤΡΟΙ", rows=None, months=None) -> bytes:
+    """The monthly staff roster: one row per professional, one column per
+    month holding the clinic placement — «√» meaning «unchanged since the
+    last stated month», which is how the service maintains the file."""
+    months = months or ["ΙΑΝΟΥΑΡΙΟΣ 2026", "ΦΕΒΡΟΥΑΡΙΟΣ 2026", "ΜΑΡΤΙΟΣ 2026",
+                        "ΑΠΡΙΛΙΟΣ 2026", "ΜΑΙΟΣ 2026"]
+    if rows is None:
+        rows = [
+            # (id, first, last, area, subarea, per-month cells)
+            (849068, "ΧΡΥΣΤΑΛΛΑ", "ΣΚΟΡΔΗ", "Larnaca_Old_Hospital_MHS", "ΚΚΨΥΧΙΚΗΣ ΥΓΕΙΑ",
+             ["3/5 Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ και 2/5 Ψ.Ν.Α (21)", "√", "√", "√", "√"]),
+            (760193, "TZANIS", "LEONTARIDIS", "Limassol_General_Hospital", "ΨΥΧ.ΚΛΙ.ΛΕΜ.",
+             ["5/5 Ε.Ι.Ψ.Υ.ΛΕΜΕΣΟΥ", "√", "√", "√", "√"]),
+        ]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet
+    ws.append(["Personal ID", "First Name", "Last Name", "Date of Birth",
+               "Hiring Date", "Personnel Area", "Personnel Subarea",
+               "Employee Subgroup"] + months)
+    for pid, first, last, area, sub, cells in rows:
+        ws.append([pid, first, last, "1980-01-01", "2010-01-01", area, sub,
+                   "ΙΑΤΡ ΛΕΙΤΟΥΡ 1 ΤΑΞΗΣ"] + list(cells))
+    return _wb_bytes(wb)
+
+
+def cost_centre_map_xlsx(rows=None) -> bytes:
+    """The optional SAP lookup finance maintains: clinic -> cost centre,
+    internal order, and the Latin text SAP shows on the line."""
+    rows = rows if rows is not None else [
+        ("Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ", "1030300543", "13", "KOINOTIKI LARNAKAS", ""),
+        ("Ψ.Ν.Α", "1030300507", "13", "COMM. MH SECTOR A", ""),
+        ("Ε.Ι.Ψ.Υ.ΛΕΜΕΣΟΥ", "1030300533", "16", "KOINOTIKI LEMESOU", ""),
+    ]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "ΚΕΝΤΡΑ ΚΟΣΤΟΥΣ"
+    ws.append(["Κλινική (clinic)", "Κέντρο κόστους", "Εσωτερική εντολή",
+               "Κείμενο SAP", "Ειδικότητα"])
+    for r in rows:
+        ws.append(list(r))
+    return _wb_bytes(wb)

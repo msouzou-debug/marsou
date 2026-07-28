@@ -25,6 +25,8 @@ from openpyxl.utils import get_column_letter, range_boundaries
 from .checks import CENT, CheckPart as _Part, ReconResult
 from .models import (Bucket, BUCKET_ORDER, HOSPITALS, MONTH_NAMES_EL,
                      PHARMACIST_FEE_UNIT_PRICE)
+from .mapping import name_key as _name_key
+from .numbers import format_eur
 
 NAVY, BLUE, SKY, GREEN_BRAND, GRAY = "062E5C", "0072BC", "00AEEF", "8DC63F", "595959"
 GREEN_LINK = "1F7A1F"
@@ -116,6 +118,8 @@ def build_provider_workbook(entries: list) -> bytes:
     cc_rows = _tab_crosscheck(wb, sections)
     _tab_audit(wb, sections, cc_rows)
     _tab_provider_by_doctor(wb, sections)
+    _tab_by_clinic(wb, sections)
+    _tab_sap_upload(wb, sections)
     _tab_legend(wb, entries[0][2] if entries else None)
     _tab_provider_summary(summary, sections)
     buf = io.BytesIO()
@@ -322,6 +326,266 @@ def _tab_provider_by_doctor(wb: Workbook, sections: list) -> None:
         ws.cell(row=r, column=1, value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ — επιταγές").font = Font(bold=True)
         _amount(ws, r, 5, "=" + "+".join(unit_cheque_cells), F_FORMULA)
     _autosize(ws)
+
+
+def build_sap_workbook(entries: list) -> bytes:
+    """The SAP journal upload as its OWN one-sheet file — what finance
+    actually feeds to SAP.  Identical content to the workbook's SAP_Upload
+    tab; kept separate so nothing else travels with it."""
+    wb = Workbook()
+    wb.remove(wb.active)
+    sections = []
+    for code, label, result in entries:
+        sections.append(_Section(f"{label} ({code})", result, None, 0))
+        sections[-1].code = code
+    _tab_sap_upload(wb, sections)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _clinic_shares(sections: list) -> list:
+    """Every professional's clinic share for the whole batch, unit by unit."""
+    from .mapping import allocate_by_clinic
+    out = []
+    for section in sections:
+        b = section.result.bundle
+        if not b.claims:
+            continue
+        out += allocate_by_clinic(b.claims.by_doctor, getattr(b, "staff", None),
+                                  unit_label=section.label)
+    return out
+
+
+def _tab_by_clinic(wb: Workbook, sections: list) -> None:
+    """The clinic split ΟΑΥ's files cannot give: the mental-health service
+    posts by CLINIC, but ΟΑΥ pays by unit, so each professional's amount is
+    re-split across the clinics the monthly roster puts them in.
+
+    A professional the roster does not cover keeps the whole amount in an
+    «unmapped» block — visible, never spread across clinics."""
+    from .mapping import clinic_key
+    ws = wb.create_sheet("Ανά_κλινική")
+    ws.cell(row=1, column=1,
+            value="Κατανομή ανά κλινική βάσει μητρώου προσωπικού "
+                  "(by clinic, from the monthly staff roster)"
+            ).font = Font(bold=True, size=12, color=NAVY)
+    shares = _clinic_shares(sections)
+    staff = next((getattr(s.result.bundle, "staff", None) for s in sections
+                  if getattr(s.result.bundle, "staff", None)), None)
+    if not staff:
+        ws.cell(row=2, column=1,
+                value="Δεν ανέβηκε μητρώο προσωπικού — ανεβάστε το μηνιαίο αρχείο "
+                      "«Personal ID / First Name / Last Name / <μήνας>» για να "
+                      "γίνει η κατανομή ανά κλινική (no staff roster uploaded)."
+                ).font = Font(italic=True, color=GRAY)
+        _autosize(ws)
+        return
+    _header(ws, 3, ["Κλινική (Clinic)", "Μονάδα ΟΑΥ (Unit / cheque)",
+                    "Ειδικότητα (Speciality)", "Ιατρός / Επαγγελματίας",
+                    "Ποσοστό (Share)", "Ποσό (Amount €)", "Σημείωση (Note)"])
+    r = 4
+    groups: dict[str, list] = {}
+    for sh in shares:
+        groups.setdefault(clinic_key(sh.clinic), []).append(sh)
+    ordered = sorted(groups.values(),
+                     key=lambda g: (not g[0].matched, -sum(x.amount for x in g),
+                                    g[0].clinic))
+    subtotal_cells = []
+    for group in ordered:
+        title = ws.cell(row=r, column=1, value=group[0].clinic)
+        title.font = Font(bold=True, color="FFFFFF")
+        for col in range(1, 8):
+            ws.cell(row=r, column=col).fill = FILL_SECTION
+        r += 1
+        first = r
+        # tie-break on the ASCII name key, not the Greek string: locale
+        # collation differs between the two ports, the key does not
+        for sh in sorted(group, key=lambda x: (-x.amount,
+                                               " ".join(_name_key(x.professional)),
+                                               x.unit)):
+            ws.cell(row=r, column=2, value=sh.unit).font = F_INPUT
+            ws.cell(row=r, column=3, value=sh.speciality).font = F_INPUT
+            ws.cell(row=r, column=4, value=sh.professional).font = F_INPUT
+            pct = ws.cell(row=r, column=5, value=round(sh.weight, 4))
+            pct.number_format = "0.0%"
+            pct.font = F_INPUT
+            _amount(ws, r, 6, sh.amount, F_INPUT)
+            if sh.note:
+                note = ws.cell(row=r, column=7, value=sh.note)
+                note.font = Font(italic=True, color=GRAY)
+                if not sh.matched:
+                    note.fill = FILL_AMBER
+            r += 1
+        ws.cell(row=r, column=1, value="Υποσύνολο κλινικής").font = Font(bold=True)
+        _amount(ws, r, 6, f"=SUM(F{first}:F{r - 1})", F_FORMULA)
+        ws.cell(row=r, column=6).font = Font(bold=True)
+        subtotal_cells.append(f"F{r}")
+        r += 2
+    total_row = r
+    ws.cell(row=total_row, column=1,
+            value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ κατανομής (all clinics)").font = Font(bold=True)
+    _amount(ws, total_row, 6, "=" + "+".join(subtotal_cells) if subtotal_cells else 0.0,
+            F_FORMULA)
+    r += 1
+    ws.cell(row=r, column=1,
+            value="Σύνολο claims των μονάδων (claims files)").font = Font(bold=True)
+    claims_total = round(sum(s.result.bundle.claims.total for s in sections
+                             if s.result.bundle.claims), 2)
+    _amount(ws, r, 6, claims_total, F_INPUT)
+    r += 1
+    ws.cell(row=r, column=1,
+            value="Zero-check = κατανομή − claims (must be 0)")
+    _amount(ws, r, 6, f"=F{total_row}-F{r - 1}", F_FORMULA)
+    ws.cell(row=r, column=6).fill = FILL_CHECK
+    r += 2
+    unmapped = round(sum(x.amount for x in shares if not x.matched), 2)
+    if unmapped:
+        ws.cell(row=r, column=1, value=(
+            f"Προσοχή: {format_eur(unmapped)} δεν κατανεμήθηκε σε κλινική — "
+            "επαγγελματίες εκτός μητρώου. Ανεβάστε και τα μητρώα των υπόλοιπων "
+            "ειδικοτήτων (professionals with no roster row; upload the rosters "
+            "for the remaining professions).")).font = F_AMBER
+    _autosize(ws)
+
+
+# the SAP journal template's column order (BKPF header + BSEG line item)
+_SAP_COLUMNS = [
+    ("BKPF-BLDAT", "Document Date"), ("BKPF-BUDAT", "Posting Date"),
+    ("BKPF-BLART", "Document type"), ("BKPF-BUKRS", "Company code"),
+    ("BKPF-WAERS", "Currency"), ("BKPF-MONAT", "Period"),
+    ("BKPF-XBLNR", "Reference"), ("BKPF-BKTXT", "Header Text"),
+    ("BSEG-BSCHL", "Posting key"), ("BSEG-HKONT", "Account"),
+    ("BSEG-ANBWA", "Asset trans. type"), ("BSEG-DMBTR", "Amount"),
+    ("BSEG-MWSKZ", "Tax code"), ("BSEG-KOSTL", "Cost Center"),
+    ("BSEG-AUFNR", "Internal order"), ("BSEG-GEBER", "Fund"),
+    ("BSEG-FISTL", "Fund center"), ("BSEG-FIPOS", "Commitment item"),
+    ("BSEG-ZUONR", "Assignment"), ("BSEG-SGTXT", "Text"),
+    ("BSEG-XREF1", "XREF1"), ("BSEG-XREF2", "XREF2"), ("BSEG-XREF3", "XREF3"),
+    ("", "Επιταγή (cheque)"),
+]
+SAP_DEFAULTS = {"doc_type": "SA", "company": "1003", "currency": "EUR",
+                "debit_key": "01", "debit_account": "200000",
+                "credit_key": "50", "credit_account": "412002", "tax": "O0"}
+
+
+def _tab_sap_upload(wb: Workbook, sections: list) -> None:
+    """The month's postings in the SAP journal-upload layout: one document per
+    cheque — a debit line for the cheque total, then one credit line per
+    (cost centre × internal order), i.e. per clinic and professional
+    category.
+
+    Cost centre and internal order come from the uploaded lookup.  Without it
+    the lines are still written, keyed by clinic name, with those two columns
+    blank and every clinic that needs a code listed at the bottom — the app
+    never invents an account code."""
+    from .mapping import clinic_key, month_label
+    ws = wb.create_sheet("SAP_Upload")
+    _header(ws, 1, [f"{tag}\n{label}" if tag else label
+                    for tag, label in _SAP_COLUMNS])
+    lookup = next((getattr(s.result.bundle, "cost_centres", None) for s in sections
+                   if getattr(s.result.bundle, "cost_centres", None)), None)
+    company = (lookup.company_code if lookup and lookup.company_code
+               else SAP_DEFAULTS["company"])
+    b0 = sections[0].result.bundle if sections else None
+    year, month = (b0.year, b0.month) if b0 else (None, None)
+    doc_date = (f"{_month_end(year, month):02d}.{month:02d}.{year}"
+                if year and month else "")
+    period_label = month_label(year, month)
+    short = f"{month:02d}/{str(year)[-2:]}" if year and month else ""
+    r = 2
+    missing: dict[str, str] = {}
+    for section in sections:
+        b = section.result.bundle
+        if not b.sra:
+            continue
+        cheque = b.sra.cheque_no
+        # header (debit) line: the cheque as a receivable
+        head = [doc_date, doc_date, SAP_DEFAULTS["doc_type"], company,
+                SAP_DEFAULTS["currency"], "", period_label,
+                f"HIO OUTP. INV.{cheque}"[:25], SAP_DEFAULTS["debit_key"],
+                SAP_DEFAULTS["debit_account"], "", b.sra.stated_total, "", "",
+                "", "", "", "", company, f"HIO OUTP. {short} INV.{cheque}"[:40],
+                "", "", "", cheque]
+        for j, v in enumerate(head, start=1):
+            c = ws.cell(row=r, column=j, value=v)
+            c.font = F_INPUT
+            if j == 12:
+                c.number_format = EUR_FMT
+        r += 1
+        shares = _clinic_shares([section])
+        buckets: dict[tuple, float] = {}
+        labels: dict[tuple, tuple] = {}
+        for sh in shares:
+            row = lookup.find(sh.clinic, sh.speciality) if lookup else None
+            kostl = row.cost_centre if row else ""
+            aufnr = row.internal_order if row else ""
+            text = (row.text if row and row.text else sh.clinic)
+            key = (kostl, aufnr, clinic_key(sh.clinic), sh.speciality if not row
+                   or not row.cost_centre else "")
+            buckets[key] = round(buckets.get(key, 0.0) + sh.amount, 2)
+            labels[key] = (text, sh.clinic, sh.speciality)
+            if not kostl:
+                missing[clinic_key(sh.clinic)] = sh.clinic
+        # the credit side must equal the cheque: whatever the clinic split
+        # does not cover (claims vs SRA, adjustment lines) becomes its own
+        # line, to be classified — never silently spread over the clinics
+        residual = round(b.sra.stated_total - sum(buckets.values()), 2)
+        if abs(residual) > 0.005:
+            buckets[("", "", "__RESIDUAL__", "")] = residual
+            labels[("", "", "__RESIDUAL__", "")] = (
+                "TO CLASSIFY (claims vs SRA + adj.)",
+                "ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές", "")
+        for key in sorted(buckets, key=lambda k: -buckets[k]):
+            kostl, aufnr, _ck, _sp = key
+            text, clinic, spec = labels[key]
+            sgtxt = f"HIO OUTP. {short} INV.{cheque} {text}"[:40]
+            line = ["", "", "", "", "", "", "", "", SAP_DEFAULTS["credit_key"],
+                    SAP_DEFAULTS["credit_account"], "", buckets[key],
+                    SAP_DEFAULTS["tax"], kostl, aufnr, "", "", "", company,
+                    sgtxt, clinic, spec, "", cheque]
+            for j, v in enumerate(line, start=1):
+                c = ws.cell(row=r, column=j, value=v)
+                c.font = F_INPUT
+                if j == 12:
+                    c.number_format = EUR_FMT
+                if j in (14, 15) and not v:
+                    c.fill = FILL_AMBER      # code still to be filled in
+            r += 1
+    last = r - 1
+    total_row = r + 1
+    # SUMIFS criteria reference helper cells, never quoted strings
+    ws.cell(row=total_row, column=1,
+            value="Σύνολο πιστωτικών γραμμών (credit lines)").font = Font(bold=True)
+    ws.cell(row=total_row, column=9, value=SAP_DEFAULTS["credit_key"]).font = F_INPUT
+    _amount(ws, total_row, 12,
+            f"=SUMIFS(L2:L{last},I2:I{last},I{total_row})", F_FORMULA)
+    ws.cell(row=total_row + 1, column=1,
+            value="Σύνολο χρεωστικών γραμμών (cheques)").font = Font(bold=True)
+    ws.cell(row=total_row + 1, column=9,
+            value=SAP_DEFAULTS["debit_key"]).font = F_INPUT
+    _amount(ws, total_row + 1, 12,
+            f"=SUMIFS(L2:L{last},I2:I{last},I{total_row + 1})", F_FORMULA)
+    ws.cell(row=total_row + 2, column=1,
+            value="Zero-check = πιστωτικές − χρεωστικές (must be 0)")
+    _amount(ws, total_row + 2, 12, f"=L{total_row}-L{total_row + 1}", F_FORMULA)
+    ws.cell(row=total_row + 2, column=12).fill = FILL_CHECK
+    if missing:
+        note = ws.cell(row=total_row + 4, column=1, value=(
+            "Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο "
+            "αντιστοίχισης και ανεβάστε το ξανά (clinics with no cost centre "
+            "in the lookup): " + " · ".join(sorted(missing.values()))))
+        note.font = F_AMBER
+        note.alignment = Alignment(wrap_text=True, vertical="top")
+    _autosize(ws)
+
+
+def _month_end(year: Optional[int], month: Optional[int]) -> int:
+    if not year or not month:
+        return 1
+    if month == 2:
+        return 29 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 28
+    return 30 if month in (4, 6, 9, 11) else 31
 
 
 # ------------------------------------------------------------- tab 1: SRA

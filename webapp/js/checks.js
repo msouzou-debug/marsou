@@ -47,6 +47,9 @@ function groupByProvider(files) {
   const leftovers = [];
   for (const f of files) {
     if (f.reportType === RT.SRA && f.providerCode) continue;
+    /* the roster and the SAP lookup belong to the whole batch, not to one
+     * provider — they are loaded once and shared */
+    if (ORG_WIDE_TYPES.has(f.reportType)) continue;
     let code = batches.has(f.providerCode) ? f.providerCode : null;
     if (code == null) {
       const owners = [...new Set((f.cheques || []).map((c) => chequeOwner.get(c))
@@ -80,7 +83,7 @@ function validateProviderBatches(batches, leftovers) {
   for (const b of batches) {
     const seen = new Map();
     for (const f of b.files) {
-      if (f.reportType && f.reportType !== RT.SRA) {
+      if (f.reportType && !MULTI_FILE_TYPES.has(f.reportType)) {
         if (!seen.has(f.reportType)) seen.set(f.reportType, []);
         seen.get(f.reportType).push(f.filename);
       }
@@ -136,13 +139,31 @@ function validateProviderBatches(batches, leftovers) {
   return { gates, period, notes };
 }
 
-async function runProviderBatches(batches, period) {
+async function loadSharedFiles(files, year, month) {
+  /* the roster(s) and the SAP lookup are shared by every provider */
+  let staff = null;
+  let cost = null;
+  for (const f of files) {
+    if (f.reportType === RT.STAFF_MAPPING) {
+      staff = mergeStaffMappings(staff, extractStaffMapping(f.data, year, month));
+    } else if (f.reportType === RT.COST_CENTRE_MAP) {
+      const got = extractCostCentres(f.data);
+      if (!cost) cost = got;
+      else cost.rows = cost.rows.concat(got.rows);
+    }
+  }
+  return { staff, cost };
+}
+
+async function runProviderBatches(batches, period, files) {
   /* Reconcile every provider in a multi-provider month.
    * -> [{code, label, result}] in the batches' order. */
   const [year, month] = period || [null, null];
   const out = [];
+  const all = files || batches.reduce((a, b) => a.concat(b.files), []);
+  const { staff, cost } = await loadSharedFiles(all, year, month);
   for (const b of batches) {
-    const bundle = { hospitalCode: b.code, year, month };
+    const bundle = { hospitalCode: b.code, year, month, staff, costCentres: cost };
     const sras = [];
     for (const f of b.files) {
       if (f.reportType === RT.SRA) {
@@ -188,9 +209,10 @@ function validateBatch(files, crosscheckMode) {
       byType.get(f.reportType).push(f.filename);
     }
   }
-  // multiple SRAs are allowed — a month can be settled by several cheques
+  /* several files of the same type are EXPECTED for: SRA (a month can be
+   * settled by several cheques) and the staff roster (one per profession) */
   const dupeMsgs = [...byType.entries()]
-    .filter(([t, names]) => names.length > 1 && t !== RT.SRA)
+    .filter(([t, names]) => names.length > 1 && !MULTI_FILE_TYPES.has(t))
     .map(([t, names]) => `${REPORT_LABELS[t]}: ${names.join(', ')}`);
   if (dupeMsgs.length) {
     gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,

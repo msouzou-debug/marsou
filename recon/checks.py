@@ -20,6 +20,9 @@ from .numbers import format_eur
 
 CENT = 0.011  # "to the cent"
 
+# report types a batch may legitimately carry more than once
+_MULTI_FILE_TYPES = {ReportType.SRA, ReportType.STAFF_MAPPING}
+
 
 @dataclass
 class GateResult:
@@ -91,6 +94,10 @@ class ReconBundle:
     gl: Optional[GLExtract] = None
     isaud: Optional[ISAuditor] = None
     xml_activity: Optional[XMLActivity] = None
+    # mental-health only: the monthly staff roster (clinic per professional)
+    # and the optional SAP cost-centre lookup
+    staff: object = None
+    cost_centres: object = None
 
 
 @dataclass
@@ -195,6 +202,10 @@ def group_by_provider(files: list[IdentifiedFile]
     for f in files:
         if f.report_type == ReportType.SRA and f.provider_code:
             continue
+        if f.report_type in ORG_WIDE_TYPES:
+            # the roster and the SAP lookup belong to the whole batch, not to
+            # one provider — they are loaded once and shared
+            continue
         code = f.provider_code if f.provider_code in batches else None
         if code is None:
             owners = {cheque_owner[c] for c in f.cheques if c in cheque_owner}
@@ -227,7 +238,7 @@ def validate_provider_batches(batches: list[ProviderBatch],
     for b in batches:
         seen: dict[ReportType, list[str]] = {}
         for f in b.files:
-            if f.report_type and f.report_type != ReportType.SRA:
+            if f.report_type and f.report_type not in _MULTI_FILE_TYPES:
                 seen.setdefault(f.report_type, []).append(f.filename)
         dupes += [f"{b.label} ({b.code}) — {REPORT_LABELS[t]}: {', '.join(n)}"
                   for t, n in seen.items() if len(n) > 1]
@@ -268,15 +279,42 @@ def validate_provider_batches(batches: list[ProviderBatch],
     return gates, period, notes
 
 
-def run_provider_batches(batches: list, period) -> list:
+def _load_shared_files(files: list):
+    """The roster(s) and the SAP lookup are shared by every provider in the
+    batch — they are org-wide files, not one unit's."""
+    from .mapping import extract_cost_centres, extract_staff_mapping
+    staff = None
+    cost = None
+    year, month = None, None
+    for f in files:
+        if f.report_type == ReportType.SRA and f.year:
+            year, month = f.year, f.month
+            break
+    for f in files:
+        if f.report_type == ReportType.STAFF_MAPPING:
+            got = extract_staff_mapping(f.data, year, month)
+            staff = got if staff is None else staff.merge(got)
+        elif f.report_type == ReportType.COST_CENTRE_MAP:
+            got = extract_cost_centres(f.data)
+            if cost is None:
+                cost = got
+            else:
+                cost.rows += got.rows
+    return staff, cost
+
+
+def run_provider_batches(batches: list, period, files: Optional[list] = None) -> list:
     """Reconcile every provider in a multi-provider month.
     Returns [(code, label, ReconResult), ...] in the batches' order."""
     from .extract import extract, merge_sras
     slot = {ReportType.CLAIMS_ALL: "claims", ReportType.XML_ACTIVITY: "xml_activity"}
     out = []
     year, month = period if period else (None, None)
+    staff, cost = _load_shared_files(files if files is not None
+                                     else [f for b in batches for f in b.files])
     for b in batches:
         bundle = ReconBundle(hospital_code=b.code, year=year, month=month)
+        bundle.staff, bundle.cost_centres = staff, cost
         sras = []
         for f in b.files:
             if f.report_type == ReportType.SRA:
@@ -325,10 +363,12 @@ def validate_batch(files: list[IdentifiedFile], crosscheck_mode: bool = False
     for f in files:
         if f.report_type:
             dupes.setdefault(f.report_type, []).append(f.filename)
-    # multiple SRAs are allowed — a month can be settled by several cheques
+    # several files of the same type are EXPECTED for: SRA (a month can be
+    # settled by several cheques) and the staff roster (the mental-health
+    # service keeps one per profession)
     dupe_msgs = [f"{REPORT_LABELS[t]}: {', '.join(names)}"
                  for t, names in dupes.items()
-                 if len(names) > 1 and t != ReportType.SRA]
+                 if len(names) > 1 and t not in _MULTI_FILE_TYPES]
     if dupe_msgs:
         gates.append(GateResult(1, "Αναγνώριση αρχείων (file identification)", False,
                                 "Διπλά αρχεία για τον ίδιο τύπο αναφοράς (duplicate files "

@@ -113,6 +113,15 @@ function renderProviderChecklist(batches) {
     return `<tr><td>${esc(b.label)}</td><td>${esc(b.code)}</td>`
       + `<td>${esc((b.cheques || []).join(', '))}</td>${cells}</tr>`;
   }).join('');
+  const shared = (state.files || []).filter((f) =>
+    f.reportType === RT.STAFF_MAPPING || f.reportType === RT.COST_CENTRE_MAP);
+  const sharedHtml = shared.length
+    ? '<p class="note">📋 Κοινά αρχεία παρτίδας: '
+      + shared.map((f) => `${esc(REPORT_LABELS[f.reportType])} — ${esc(f.filename)}`).join(' · ')
+      + '</p>'
+    : '<p class="hint">Χωρίς μητρώο προσωπικού δεν γίνεται κατανομή ανά κλινική· '
+      + 'ανεβάστε το μηνιαίο αρχείο προσωπικού (και προαιρετικά την αντιστοίχιση '
+      + 'κέντρων κόστους SAP) μαζί με τα αρχεία του μήνα.</p>';
   $('checklist-wrap').innerHTML =
     '<h2>Πάροχοι στην παρτίδα (providers in this batch)</h2>'
     + '<p class="hint">Μη-νοσοκομειακοί πάροχοι ΟΑΥ (υπηρεσίες ψυχικής υγείας): κάθε '
@@ -120,7 +129,8 @@ function renderProviderChecklist(batches) {
     + '(κωδικός F / PAYMENT NO.), ποτέ από το όνομα αρχείου.</p>'
     + '<table><thead><tr><th>Πάροχος (Provider)</th><th>Κωδικός</th>'
     + '<th>Επιταγή (Cheque)</th><th>SRA</th><th>Claims «all»</th>'
-    + '<th>Activity export</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    + '<th>Activity export</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + sharedHtml;
 }
 
 function diagnosticsText() {
@@ -303,7 +313,7 @@ async function runProviders(files) {
   $('run-btn').disabled = true;
   $('results').innerHTML = '<p>Εκτέλεση… (running)</p>';
   try {
-    const entries = await runProviderBatches(batches, period);
+    const entries = await runProviderBatches(batches, period, files);
     const { wb, zeroChecks } = buildProviderWorkbook(entries);
     const failures = verifyWorkbook(wb, zeroChecks, 0);
     if (failures.length) {
@@ -311,8 +321,11 @@ async function runProviders(files) {
         + failures.map((f) => `${f.sheet}!${f.addr} = ${formatEur(f.value)}`).join('\n• '));
     }
     const buffer = await wb.xlsx.writeBuffer();
+    // the SAP journal as its own file, ready to upload
+    const sap = buildSapWorkbook(entries);
+    const sapBuffer = await sap.wb.xlsx.writeBuffer();
     const [year, month] = period || [null, null];
-    renderProviderResults(entries, buffer, year, month);
+    renderProviderResults(entries, buffer, year, month, sapBuffer);
   } catch (e) {
     $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
   } finally {
@@ -321,7 +334,7 @@ async function runProviders(files) {
   }
 }
 
-function renderProviderResults(entries, buffer, year, month) {
+function renderProviderResults(entries, buffer, year, month, sapBuffer) {
   const total = round2(entries.reduce((a, e) => a + (e.result.bundle.sra
     ? e.result.bundle.sra.statedTotal : 0), 0));
   let html = '<h2>Αποτέλεσμα (Result)</h2><div class="metrics">'
@@ -357,19 +370,24 @@ function renderProviderResults(entries, buffer, year, month) {
     html += '</tbody></table>';
   }
   html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
-    + '(Download Excel workbook)</button></p>';
+    + '(Download Excel workbook)</button> '
+    + '<button id="download-sap" class="primary">⬇ Λήψη αρχείου SAP '
+    + '(Download SAP upload file)</button></p>';
   $('results').innerHTML = html;
-  const fname = `OKYPY_HIO_MENTAL_HEALTH_${month ? MONTH_ABBR[month] : 'XX'}`
-    + `${year || ''}_Reconciliation.xlsx`;
-  $('download-btn').addEventListener('click', () => {
-    const blob = new Blob([buffer],
+  const stamp = `${month ? MONTH_ABBR[month] : 'XX'}${year || ''}`;
+  const save = (buf, name) => {
+    const blob = new Blob([buf],
       { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = fname;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  });
+  };
+  $('download-btn').addEventListener('click', () =>
+    save(buffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_Reconciliation.xlsx`));
+  $('download-sap').addEventListener('click', () =>
+    save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_Upload.xlsx`));
 }
 
 function renderResults(result, buffer, hospital, year, month) {

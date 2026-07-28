@@ -138,8 +138,8 @@ def test_provider_workbook_ties_every_cheque_and_verifies():
     assert wb.sheetnames[0] == "Σύνοψη_παρόχων"
     assert [s for s in wb.sheetnames if s.startswith("SRA_")] == [
         "SRA_266444", "SRA_266457", "SRA_266458", "SRA_266474", "SRA_266475"]
-    assert wb.sheetnames[-4:] == ["Source_crosscheck", "Ανάλυση_ελέγχων",
-                                  "Ανά_μονάδα_ιατρό", "Legend"]
+    assert wb.sheetnames[-5:] == ["Ανάλυση_ελέγχων", "Ανά_μονάδα_ιατρό",
+                                  "Ανά_κλινική", "SAP_Upload", "Legend"]
     ws = wb["Σύνοψη_παρόχων"]
     ev = _Evaluator(wb)
     total_row = next(r for r in range(1, ws.max_row + 1)

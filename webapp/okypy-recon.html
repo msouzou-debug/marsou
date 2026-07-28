@@ -303,11 +303,16 @@ const RT = {
   XML_ACTIVITY: 'xml_activity',
   GL_EXTRACT: 'gl_extract',
   IS_AUDITOR: 'is_auditor',
+  STAFF_MAPPING: 'staff_mapping',
+  COST_CENTRE_MAP: 'cost_centre_map',
 };
 
 const REQUIRED_TYPES = [RT.SRA, RT.INPATIENT_SUMMARY, RT.CLAIMS_ALL,
                         RT.PHARMA_CLAIMS, RT.PHARMACIST_FEE];
-const ORG_WIDE_TYPES = new Set([RT.GL_EXTRACT, RT.IS_AUDITOR]);
+const ORG_WIDE_TYPES = new Set([RT.GL_EXTRACT, RT.IS_AUDITOR,
+                                RT.STAFF_MAPPING, RT.COST_CENTRE_MAP]);
+/* report types a batch may legitimately carry more than once */
+const MULTI_FILE_TYPES = new Set([RT.SRA, RT.STAFF_MAPPING]);
 // a non-hospital provider bills service streams only
 const REQUIRED_TYPES_PROVIDER = [RT.SRA, RT.CLAIMS_ALL];
 
@@ -323,6 +328,8 @@ const REPORT_LABELS = {
   [RT.XML_ACTIVITY]: 'XML activity export (Outpatient activity)',
   [RT.GL_EXTRACT]: 'OKYPY ALL GL extract',
   [RT.IS_AUDITOR]: 'IS Auditor Report (Inpatient detail)',
+  [RT.STAFF_MAPPING]: 'Μητρώο προσωπικού ανά κλινική (staff roster)',
+  [RT.COST_CENTRE_MAP]: 'Αντιστοίχιση κέντρων κόστους SAP (cost centres)',
 };
 
 /* F-code -> [Greek name, English name].  «ΛΕΥΚΩΣΙΑΣ» alone must never be
@@ -729,6 +736,30 @@ function identifyExcel(f) {
       }
       return;
     }
+    /* staff roster: which clinic each professional worked in this month */
+    if (findHeaderRow(rows, ['PERSONAL ID', 'FIRST NAME', 'LAST NAME'], 8) !== null) {
+      f.reportType = RT.STAFF_MAPPING;
+      try {
+        const sm = extractStaffMapping(f.data);
+        f.probe = (f.probe || '') + `\nΜητρώο: ${sm.rows.length} άτομα, φύλλα `
+          + `${JSON.stringify(sm.sheets)}, στήλες μηνών: ${sm.monthColumns.slice(0, 14).join(', ')}`;
+      } catch (e) {
+        f.probe = (f.probe || '') + `\n(staff roster parse failed: ${e.message})`;
+      }
+      return;
+    }
+
+    /* optional SAP lookup: only when a clinic column AND a cost-centre column
+     * sit on the same header row and produce rows — the SAP upload TEMPLATE
+     * also mentions «Cost Center» and must not be mistaken for it */
+    let cc = null;
+    try { cc = extractCostCentres(f.data); } catch (e) { cc = null; }
+    if (cc && cc.rows.length) {
+      f.reportType = RT.COST_CENTRE_MAP;
+      f.probe = (f.probe || '') + `\nΚέντρα κόστους: ${cc.rows.length} γραμμές`;
+      return;
+    }
+
     /* activity export flattened to a spreadsheet (ΟΑΥ ships it in an «XMLS»
      * folder but the files are .xlsx): same fields as the XML */
     let hr = findHeaderRow(rows, ['CLAIMID', 'ACTIVITYREIMBURSEMENTAMOUNT']);
@@ -2179,6 +2210,373 @@ async function extractReport(reportType, f, hospitalCode, sraTextOverride) {
 }
 
 </script>
+<script>/* inlined: js/mapping.js */
+/* Staff mapping — JS port of recon/mapping.py.
+ *
+ * The mental-health services post by CLINIC while ΟΑΥ pays by unit, so each
+ * professional's amount is re-split across the clinics the monthly roster
+ * puts them in.  Nothing here guesses money: a professional the roster does
+ * not cover stays in an explicit «no roster row» bucket, and a fuzzy name
+ * match counts only when it is both close and unique. */
+'use strict';
+
+/* Greek -> Latin, digraphs first: ΟΑΥ prints professionals as
+ * «ΟΘΩΝ ΤΣΙΡΚΑΣ / OTHON TSIRKAS» (sometimes only one half) while the roster
+ * is Greek only, so both sides are reduced to one alphabet. */
+const TRANSLIT_PAIRS = [['ΟΥ', 'OU'], ['ΑΥ', 'AV'], ['ΕΥ', 'EV'], ['ΜΠ', 'B'],
+  ['ΝΤ', 'D'], ['ΓΚ', 'G'], ['ΤΣ', 'TS'], ['ΤΖ', 'TZ'], ['Θ', 'TH'], ['Χ', 'CH'],
+  ['Ψ', 'PS'], ['Ξ', 'X'], ['Φ', 'F'], ['Ω', 'O'], ['Η', 'I'], ['Υ', 'Y'],
+  ['Β', 'V'], ['Γ', 'G'], ['Δ', 'D'], ['Ζ', 'Z'], ['Λ', 'L'], ['Μ', 'M'],
+  ['Ν', 'N'], ['Π', 'P'], ['Ρ', 'R'], ['Σ', 'S'], ['Τ', 'T'], ['Κ', 'K'],
+  ['Α', 'A'], ['Ε', 'E'], ['Ι', 'I'], ['Ο', 'O']];
+
+/* a fuzzy match is only accepted this close AND only when unique */
+const FUZZY_MIN = 0.92;
+
+function translitName(s) {
+  let out = String(s).normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
+  for (const [gr, la] of TRANSLIT_PAIRS) out = out.split(gr).join(la);
+  return out.replace(/[^A-Z ]/g, ' ');
+}
+
+function nameKey(s) {
+  /* order-insensitive: «ΜΑΡΙΑ ΠΑΛΕΞΑ ΧΑΡΑΛΑΜΠΙΔΗ» equals
+   * «ΧΑΡΑΛΑΜΠΙΔΗ ΠΑΛΕΞΑ ΜΑΡΙΑ» */
+  return translitName(s).split(/\s+/).filter((t) => t.length > 1).sort();
+}
+
+/* Python difflib.SequenceMatcher.ratio(), ported so both ports accept and
+ * reject exactly the same names. */
+function findLongestMatch(a, b, alo, ahi, blo, bhi, b2j) {
+  let bestI = alo, bestJ = blo, bestSize = 0;
+  let j2len = new Map();
+  for (let i = alo; i < ahi; i++) {
+    const newj2len = new Map();
+    for (const j of (b2j.get(a[i]) || [])) {
+      if (j < blo) continue;
+      if (j >= bhi) break;
+      const k = (j2len.get(j - 1) || 0) + 1;
+      newj2len.set(j, k);
+      if (k > bestSize) { bestI = i - k + 1; bestJ = j - k + 1; bestSize = k; }
+    }
+    j2len = newj2len;
+  }
+  return [bestI, bestJ, bestSize];
+}
+
+function seqRatio(a, b) {
+  a = String(a); b = String(b);
+  if (!a.length && !b.length) return 1;
+  const b2j = new Map();
+  for (let j = 0; j < b.length; j++) {
+    if (!b2j.has(b[j])) b2j.set(b[j], []);
+    b2j.get(b[j]).push(j);
+  }
+  let matches = 0;
+  const queue = [[0, a.length, 0, b.length]];
+  while (queue.length) {
+    const [alo, ahi, blo, bhi] = queue.pop();
+    const [i, j, k] = findLongestMatch(a, b, alo, ahi, blo, bhi, b2j);
+    if (!k) continue;
+    matches += k;
+    if (alo < i && blo < j) queue.push([alo, i, blo, j]);
+    if (i + k < ahi && j + k < bhi) queue.push([i + k, ahi, j + k, bhi]);
+  }
+  return (2.0 * matches) / (a.length + b.length);
+}
+
+/* a placement fraction («3/5»), NOT a date («1/1/2025») */
+const FRACTION_RE = /(?<![\d/])(\d{1,2})\s*\/\s*([1-9]|10)(?![\d/])/g;
+/* JS \b is ASCII-only, so Greek word boundaries are spelled out — without
+ * this the tail («ΑΠΌ 30/10/2025», «ΚΑΙ δυο Τρίτες») is never cut and the
+ * clinic name differs from the Python port. */
+const W = '[Α-Ωα-ωΆ-Ώά-ώA-Za-z]';
+const PLACEMENT_TAIL_RE = new RegExp(
+  `\\s*(?:,|·|\\(|(?<!${W})ΚΑΙ\\s+(?:ΔΥΟ|ΤΡΕΙΣ|ΜΙΑ|\\d)|(?<!${W})ΑΠΟ(?!${W})`
+  + `|(?<!${W})ΕΩΣ(?!${W}))[\\s\\S]*$`, 'i');
+const TIME_WORDS = new Set(['ΠΡΩΙ', 'ΑΠΟΓΕΥΜΑ', 'ΒΡΑΔΥ', 'ΚΑΙ', 'AM', 'PM']);
+/* accented Greek -> plain, length-preserving so a cut index found on the
+ * folded copy still applies to the original text */
+const ACCENT_FROM = 'ΆΈΉΊΌΎΏΪΫάέήίόύώϊϋΐΰ';
+const ACCENT_TO = 'ΑΕΗΙΟΥΩΙΥαεηιουωιυιυ';
+
+function foldAccents(s) {
+  let out = '';
+  for (const ch of String(s)) {
+    const i = ACCENT_FROM.indexOf(ch);
+    out += i >= 0 ? ACCENT_TO[i] : ch;
+  }
+  return out;
+}
+
+function clinicKey(name) {
+  /* «Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ», «Ε.Ι. Ψ.Υ. ΛΑΡΝΑΚΑΣ» and «Ε.Ι.Ψ.Υ.ΛΑΡΝΑΚΑΣ» are
+   * one clinic written three ways */
+  return String(name).normalize('NFD').replace(/\p{M}/gu, '').toUpperCase()
+    .replace(/[^Α-ΩA-Z0-9]/g, '');
+}
+
+function cleanClinic(raw) {
+  let name = String(raw).replace(/\([^)]*\)/g, ' ');
+  const cut = PLACEMENT_TAIL_RE.exec(foldAccents(name));
+  if (cut) name = name.slice(0, cut.index);
+  name = name.replace(/^\s*(?:και|and)\s+/i, '').replace(/\s+/g, ' ')
+    .replace(/^[\s,.·\-)/]+|[\s,.·\-)/]+$/g, '');
+  name = name.split(' ').filter((w) => !TIME_WORDS.has(w.toUpperCase().replace(/[.,]/g, '')))
+    .join(' ').replace(/^[\s,.·-]+|[\s,.·-]+$/g, '');
+  return name.slice(0, 60);
+}
+
+function parsePlacements(text) {
+  /* «3/5 Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ και 2/5 Ψ.Ν.Α (21)» -> [[clinic, weight], …].
+   * Weights are normalised to sum to 1: the roster sometimes states more
+   * than a full week, and the split still distributes exactly 100%. */
+  const t = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+  if (!t || t.toLowerCase() === 'nan') return [];
+  const marks = [...t.matchAll(FRACTION_RE)];
+  if (!marks.length) return [[cleanClinic(t) || t, 1.0]];
+  const out = [];
+  marks.forEach((m, i) => {
+    const denom = parseInt(m[2], 10) || 1;
+    const weight = parseInt(m[1], 10) / denom;
+    const end = i + 1 < marks.length ? marks[i + 1].index : t.length;
+    const name = cleanClinic(t.slice(m.index + m[0].length, end));
+    if (name) out.push([name, weight]);
+  });
+  const total = out.reduce((a, [, w]) => a + w, 0);
+  if (!total) return [[t, 1.0]];
+  return out.map(([n, w]) => [n, w / total]);
+}
+
+const ROSTER_HEADERS = ['PERSONAL ID', 'FIRST NAME', 'LAST NAME'];
+
+function monthColumns(cols, year, month) {
+  const months = [];
+  cols.forEach((c, j) => {
+    const up = normLabel(String(c));
+    const hit = Object.entries(GREEK_MONTHS).find(([name]) => up.startsWith(name));
+    if (!hit) return;
+    const ym = up.match(/(20\d\d)/);
+    months.push([j, ym ? parseInt(ym[1], 10) : null, hit[1]]);
+  });
+  let want = null;
+  for (const [j, y, m] of months) {
+    if (m === month && (y == null || year == null || y === year)) { want = j; break; }
+  }
+  return [want, months.map(([j]) => j)];
+}
+
+function extractStaffMapping(bytes, year, month) {
+  /* Read every sheet that looks like a roster.  A «√» cell means «unchanged»
+   * — the last explicit value to its LEFT is carried forward, which is how
+   * the service maintains the file. */
+  const out = { rows: [], monthColumns: [], sheets: [] };
+  const blank = new Set(['', 'nan', '√', 'V', 'v', '-']);
+  for (const { name: sheetName, rows } of loadSheets(bytes)) {
+    if (!rows.length) continue;
+    let headerRow = null;
+    for (let i = 0; i < Math.min(6, rows.length); i++) {
+      const joined = rows[i].filter((v) => v != null && cellText(v) !== 'nan')
+        .map((v) => normLabel(cellText(v))).join(' | ');
+      if (ROSTER_HEADERS.every((h) => joined.includes(h))) { headerRow = i; break; }
+    }
+    if (headerRow === null) continue;
+    const cols = rows[headerRow].map((v) =>
+      (v != null && cellText(v) !== 'nan' ? cellText(v).trim() : ''));
+    const idx = {};
+    cols.forEach((c, j) => { if (c) idx[normLabel(c)] = j; });
+    const [wantRaw, monthCols] = monthColumns(cols, year, month);
+    const want = wantRaw == null && monthCols.length
+      ? monthCols[monthCols.length - 1] : wantRaw;
+    for (const j of monthCols) out.monthColumns.push(cols[j]);
+    out.sheets.push(sheetName);
+    for (const row of rows.slice(headerRow + 1)) {
+      const first = cellText(row[idx['FIRST NAME'] != null ? idx['FIRST NAME'] : 1] || '').trim();
+      const last = cellText(row[idx['LAST NAME'] != null ? idx['LAST NAME'] : 2] || '').trim();
+      if (!first || first === 'nan' || last === 'nan') continue;
+      let text = want != null ? cellText(row[want] || '').trim() : '';
+      let source = want != null ? cols[want] : '';
+      if (blank.has(text)) {
+        const left = monthCols.filter((c) => want == null || c < want).reverse();
+        for (const j of left) {
+          const prev = cellText(row[j] || '').trim();
+          if (!blank.has(prev)) { text = prev; source = cols[j]; break; }
+        }
+      }
+      const name = `${first} ${last}`;
+      out.rows.push({ name, key: nameKey(name), placements: parsePlacements(text),
+        personnelArea: idx['PERSONNEL AREA'] != null
+          ? cellText(row[idx['PERSONNEL AREA']] || '').trim() : '',
+        sourceMonth: source });
+    }
+  }
+  if (!out.rows.length) {
+    throw new ExtractionError('Μητρώο προσωπικού: δεν βρέθηκαν γραμμές '
+      + '(Personal ID / First Name / Last Name)');
+  }
+  return out;
+}
+
+function mergeStaffMappings(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const seen = new Set(a.rows.map((r) => r.key.join(' ')));
+  for (const r of b.rows) if (!seen.has(r.key.join(' '))) a.rows.push(r);
+  for (const c of b.monthColumns) if (!a.monthColumns.includes(c)) a.monthColumns.push(c);
+  a.sheets = a.sheets.concat(b.sheets);
+  return a;
+}
+
+function matchProfessional(displayName, mapping) {
+  /* [roster row, score].  Every half of «ΕΛΛΗΝΙΚΑ / LATIN» is tried; a fuzzy
+   * hit counts only when it clears FUZZY_MIN and is the ONLY candidate that
+   * does — otherwise the professional is reported unmatched rather than paid
+   * to the wrong clinic. */
+  const halves = String(displayName).split('/').filter((p) => p.trim());
+  const probes = halves.length ? halves : [displayName];
+  const byKey = new Map(mapping.rows.map((r) => [r.key.join(' '), r]));
+  for (const half of probes) {
+    const row = byKey.get(nameKey(half).join(' '));
+    if (row) return [row, 1.0];
+  }
+  const best = [];
+  let closest = 0;
+  for (const half of probes) {
+    const probe = nameKey(half).join(' ');
+    for (const row of mapping.rows) {
+      const score = seqRatio(probe, row.key.join(' '));
+      if (score > closest) closest = score;
+      if (score >= FUZZY_MIN) best.push([score, row]);
+    }
+  }
+  if (!best.length) return [null, closest];
+  best.sort((x, y) => y[0] - x[0]);
+  const winners = new Set(best.filter(([s]) => Math.abs(s - best[0][0]) < 1e-9)
+    .map(([, r]) => r));
+  if (winners.size > 1) return [null, best[0][0]];
+  return [best[0][1], best[0][0]];
+}
+
+function shareRound(x) {
+  /* Half-away-from-zero to the cent, computed identically in both ports:
+   * Python rounds halves to even and JavaScript rounds them up, so an exact
+   * midpoint (7.512,49 ÷ 2) would otherwise put a stray cent on a different
+   * clinic in the browser than on the server. */
+  const sign = x < 0 ? -1 : 1;
+  return sign * Math.floor(Math.abs(x) * 100 + 0.5) / 100;
+}
+
+function allocateByClinic(byDoctor, mapping, unitLabel = '') {
+  /* Split each professional's amount across the clinics the roster puts them
+   * in.  No roster row -> the whole amount stays in one clearly-labelled
+   * «unmapped» share; never dropped, never spread across clinics. */
+  const out = [];
+  for (const [seg, spec, doctor, amount] of (byDoctor || [])) {
+    const [row, score] = (mapping && mapping.rows.length)
+      ? matchProfessional(doctor, mapping) : [null, 0];
+    if (!row || !row.placements.length) {
+      let note = row == null
+        ? 'Δεν βρέθηκε στο μητρώο προσωπικού (no roster row)'
+        : 'Το μητρώο δεν δηλώνει κλινική για τον μήνα (roster cell empty)';
+      /* floor(x+0.5), matching the Python port's note exactly */
+      if (row == null && score) {
+        note += ` — πλησιέστερο ταίριασμα ${Math.floor(score * 100 + 0.5)}%`;
+      }
+      out.push({ unit: unitLabel, clinic: 'ΧΩΡΙΣ ΑΝΤΙΣΤΟΙΧΙΣΗ (unmapped)',
+        segment: seg || '', speciality: spec || '', professional: doctor || '',
+        weight: 1.0, amount: shareRound(amount), matched: false, note });
+      continue;
+    }
+    let allocated = 0;
+    row.placements.forEach(([clinic, weight], i) => {
+      const share = i === row.placements.length - 1
+        ? shareRound(amount - allocated) : shareRound(amount * weight);
+      allocated = shareRound(allocated + share);
+      out.push({ unit: unitLabel, clinic, segment: seg || '', speciality: spec || '',
+        professional: doctor || '', weight, amount: share, matched: true,
+        note: score === 1.0 ? ''
+          : `Ταίριασμα κατά προσέγγιση ${Math.floor(score * 100 + 0.5)}% με «${row.name}»` });
+    });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------ SAP cost centres */
+
+const CC_CLINIC = ['ΚΛΙΝΙΚΗ', 'CLINIC', 'ΜΟΝΑΔΑ', 'UNIT', 'ΤΟΠΟΘΕΤΗΣΗ'];
+const CC_CENTRE = ['ΚΕΝΤΡΟ ΚΟΣΤΟΥΣ', 'COST CENTRE', 'COST CENTER', 'KOSTL'];
+
+function extractCostCentres(bytes) {
+  /* Optional lookup: clinic -> SAP cost centre / internal order / text.
+   * Accepted as a sheet inside the roster workbook or as its own file. */
+  const out = { rows: [], companyCode: '' };
+  for (const { rows } of loadSheets(bytes)) {
+    if (!rows.length) continue;
+    let headerRow = null;
+    for (let i = 0; i < Math.min(8, rows.length); i++) {
+      const joined = rows[i].filter((v) => v != null && cellText(v) !== 'nan')
+        .map((v) => normLabel(cellText(v))).join(' | ');
+      if (CC_CLINIC.some((c) => joined.includes(c)) && CC_CENTRE.some((c) => joined.includes(c))) {
+        headerRow = i; break;
+      }
+    }
+    if (headerRow === null) continue;
+    const cols = rows[headerRow].map((v) => (v == null ? '' : normLabel(cellText(v))));
+    const col = (...needles) => {
+      for (const needle of needles) {
+        for (let j = 0; j < cols.length; j++) if (cols[j].includes(needle)) return j;
+      }
+      return null;
+    };
+    const jc = col(...CC_CLINIC), jk = col(...CC_CENTRE);
+    const jo = col('ΕΣΩΤΕΡΙΚΗ ΕΝΤΟΛΗ', 'INTERNAL ORDER', 'AUFNR');
+    const jt = col('ΚΕΙΜΕΝΟ', 'TEXT', 'SGTXT');
+    const js = col('ΕΙΔΙΚΟΤΗΤΑ', 'SPECIALITY', 'SPECIALTY');
+    const jb = col('ΕΤΑΙΡΕΙΑ', 'COMPANY', 'BUKRS');
+    if (jc == null || jk == null) continue;
+    for (const row of rows.slice(headerRow + 1)) {
+      const clinic = row[jc] == null ? '' : cellText(row[jc]).trim();
+      if (!clinic || clinic === 'nan') continue;
+      const cell = (j) => (j == null || row[j] == null || cellText(row[j]) === 'nan'
+        ? '' : cellText(row[j]).trim().split('.')[0]);
+      out.rows.push({ clinic, costCentre: cell(jk), internalOrder: cell(jo),
+        text: jt != null && row[jt] != null && cellText(row[jt]) !== 'nan'
+          ? cellText(row[jt]).trim() : '',
+        speciality: js != null && row[js] != null && cellText(row[js]) !== 'nan'
+          ? cellText(row[js]).trim() : '' });
+      if (jb != null && !out.companyCode) out.companyCode = cell(jb);
+    }
+  }
+  return out;
+}
+
+function findCostCentre(lookup, clinic, speciality = '') {
+  if (!lookup) return null;
+  const want = normLabel(clinic);
+  const spec = normLabel(speciality);
+  const exact = lookup.rows.filter((r) => normLabel(r.clinic) === want);
+  /* a row that also names a speciality wins over a clinic-only row, so the
+   * lookup works whether the internal order belongs to the clinic or to the
+   * professional category */
+  for (const r of exact) if (r.speciality && normLabel(r.speciality) === spec) return r;
+  for (const r of exact) if (!r.speciality) return r;
+  return exact.length ? exact[0] : null;
+}
+
+const MONTH_EN = ['', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+
+function monthLabelEn(year, month) {
+  return year && month ? `${MONTH_EN[month]} ${year}` : '';
+}
+
+function monthEnd(year, month) {
+  if (!year || !month) return 1;
+  if (month === 2) return (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+</script>
 <script>/* inlined: js/checks.js */
 /* Validation gates, reconciliation and cross-checks — JS port of
  * recon/checks.py.  Never plug a difference: unexplained diffs are red
@@ -2229,6 +2627,9 @@ function groupByProvider(files) {
   const leftovers = [];
   for (const f of files) {
     if (f.reportType === RT.SRA && f.providerCode) continue;
+    /* the roster and the SAP lookup belong to the whole batch, not to one
+     * provider — they are loaded once and shared */
+    if (ORG_WIDE_TYPES.has(f.reportType)) continue;
     let code = batches.has(f.providerCode) ? f.providerCode : null;
     if (code == null) {
       const owners = [...new Set((f.cheques || []).map((c) => chequeOwner.get(c))
@@ -2262,7 +2663,7 @@ function validateProviderBatches(batches, leftovers) {
   for (const b of batches) {
     const seen = new Map();
     for (const f of b.files) {
-      if (f.reportType && f.reportType !== RT.SRA) {
+      if (f.reportType && !MULTI_FILE_TYPES.has(f.reportType)) {
         if (!seen.has(f.reportType)) seen.set(f.reportType, []);
         seen.get(f.reportType).push(f.filename);
       }
@@ -2318,13 +2719,31 @@ function validateProviderBatches(batches, leftovers) {
   return { gates, period, notes };
 }
 
-async function runProviderBatches(batches, period) {
+async function loadSharedFiles(files, year, month) {
+  /* the roster(s) and the SAP lookup are shared by every provider */
+  let staff = null;
+  let cost = null;
+  for (const f of files) {
+    if (f.reportType === RT.STAFF_MAPPING) {
+      staff = mergeStaffMappings(staff, extractStaffMapping(f.data, year, month));
+    } else if (f.reportType === RT.COST_CENTRE_MAP) {
+      const got = extractCostCentres(f.data);
+      if (!cost) cost = got;
+      else cost.rows = cost.rows.concat(got.rows);
+    }
+  }
+  return { staff, cost };
+}
+
+async function runProviderBatches(batches, period, files) {
   /* Reconcile every provider in a multi-provider month.
    * -> [{code, label, result}] in the batches' order. */
   const [year, month] = period || [null, null];
   const out = [];
+  const all = files || batches.reduce((a, b) => a.concat(b.files), []);
+  const { staff, cost } = await loadSharedFiles(all, year, month);
   for (const b of batches) {
-    const bundle = { hospitalCode: b.code, year, month };
+    const bundle = { hospitalCode: b.code, year, month, staff, costCentres: cost };
     const sras = [];
     for (const f of b.files) {
       if (f.reportType === RT.SRA) {
@@ -2370,9 +2789,10 @@ function validateBatch(files, crosscheckMode) {
       byType.get(f.reportType).push(f.filename);
     }
   }
-  // multiple SRAs are allowed — a month can be settled by several cheques
+  /* several files of the same type are EXPECTED for: SRA (a month can be
+   * settled by several cheques) and the staff roster (one per profession) */
   const dupeMsgs = [...byType.entries()]
-    .filter(([t, names]) => names.length > 1 && t !== RT.SRA)
+    .filter(([t, names]) => names.length > 1 && !MULTI_FILE_TYPES.has(t))
     .map(([t, names]) => `${REPORT_LABELS[t]}: ${names.join(', ')}`);
   if (dupeMsgs.length) {
     gates.push({ number: 1, name: 'Αναγνώριση αρχείων (file identification)', passed: false,
@@ -3417,6 +3837,8 @@ function buildProviderWorkbook(entries) {
   const ccRows = tabCrosscheck(wb, sections);
   tabAudit(wb, sections, ccRows, zeroChecks);
   tabProviderByDoctor(wb, sections, zeroChecks);
+  tabByClinic(wb, sections, zeroChecks);
+  tabSapUpload(wb, sections, zeroChecks);
   tabLegend(wb);
   tabProviderSummary(summary, sections, zeroChecks);
   return { wb, zeroChecks };
@@ -3621,6 +4043,252 @@ function tabProviderByDoctor(wb, sections, zeroChecks) {
     ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ — επιταγές';
     ws.getCell(r, 1).font = { bold: true };
     writeAmount(ws, r, 5, unitChequeCells.join('+'), F_FORMULA);
+  }
+  autosize(ws);
+}
+
+function buildSapWorkbook(entries) {
+  /* The SAP journal upload as its OWN one-sheet file — what finance actually
+   * feeds to SAP.  Identical content to the workbook's SAP_Upload tab. */
+  const wb = new ExcelJS.Workbook();
+  const zeroChecks = [];
+  const sections = entries.map(({ code, label, result }) =>
+    ({ label: `${label} (${code})`, result, sraTab: null, nLines: 0, code }));
+  tabSapUpload(wb, sections, zeroChecks);
+  return { wb, zeroChecks };
+}
+
+function clinicShares(sections) {
+  /* every professional's clinic share for the whole batch, unit by unit */
+  let out = [];
+  for (const section of sections) {
+    const b = section.result.bundle;
+    if (!b.claims) continue;
+    out = out.concat(allocateByClinic(b.claims.byDoctor, b.staff, section.label));
+  }
+  return out;
+}
+
+function tabByClinic(wb, sections, zeroChecks) {
+  /* The clinic split ΟΑΥ's files cannot give: the service posts by CLINIC
+   * while ΟΑΥ pays by unit, so each professional's amount is re-split across
+   * the clinics the monthly roster puts them in.  A professional the roster
+   * does not cover keeps the whole amount in an «unmapped» block. */
+  const ws = wb.addWorksheet('Ανά_κλινική');
+  ws.getCell(1, 1).value = 'Κατανομή ανά κλινική βάσει μητρώου προσωπικού '
+    + '(by clinic, from the monthly staff roster)';
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  const shares = clinicShares(sections);
+  const staff = (sections.find((s) => s.result.bundle.staff) || {}).result;
+  if (!staff) {
+    ws.getCell(2, 1).value = 'Δεν ανέβηκε μητρώο προσωπικού — ανεβάστε το μηνιαίο αρχείο '
+      + '«Personal ID / First Name / Last Name / <μήνας>» για να γίνει η κατανομή ανά '
+      + 'κλινική (no staff roster uploaded).';
+    ws.getCell(2, 1).font = { italic: true, color: { argb: GRAY } };
+    autosize(ws);
+    return;
+  }
+  writeHeader(ws, 3, ['Κλινική (Clinic)', 'Μονάδα ΟΑΥ (Unit / cheque)',
+                      'Ειδικότητα (Speciality)', 'Ιατρός / Επαγγελματίας',
+                      'Ποσοστό (Share)', 'Ποσό (Amount €)', 'Σημείωση (Note)']);
+  let r = 4;
+  const groups = new Map();
+  for (const sh of shares) {
+    const k = clinicKey(sh.clinic);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(sh);
+  }
+  const ordered = [...groups.values()].sort((a, b) => {
+    const am = a[0].matched ? 0 : 1, bm = b[0].matched ? 0 : 1;
+    if (am !== bm) return am - bm;
+    return (b.reduce((x, s) => x + s.amount, 0) - a.reduce((x, s) => x + s.amount, 0))
+      || (a[0].clinic < b[0].clinic ? -1 : a[0].clinic > b[0].clinic ? 1 : 0);
+  });
+  const subtotalCells = [];
+  for (const group of ordered) {
+    const title = ws.getCell(r, 1);
+    title.value = group[0].clinic;
+    title.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let col = 1; col <= 7; col++) ws.getCell(r, col).fill = FILL_SECTION;
+    r += 1;
+    const first = r;
+    /* tie-break on the ASCII name key, not the Greek string: locale
+     * collation differs between the two ports, the key does not */
+    const tie = (x) => nameKey(x.professional).join(' ');
+    for (const sh of group.slice().sort((a, b) => (b.amount - a.amount)
+      || (tie(a) < tie(b) ? -1 : tie(a) > tie(b) ? 1 : 0)
+      || (a.unit < b.unit ? -1 : a.unit > b.unit ? 1 : 0))) {
+      ws.getCell(r, 2).value = sh.unit; ws.getCell(r, 2).font = F_INPUT;
+      ws.getCell(r, 3).value = sh.speciality; ws.getCell(r, 3).font = F_INPUT;
+      ws.getCell(r, 4).value = sh.professional; ws.getCell(r, 4).font = F_INPUT;
+      const pct = ws.getCell(r, 5);
+      pct.value = Math.round(sh.weight * 10000) / 10000;   // 4 dp, as Python
+      pct.numFmt = '0.0%';
+      pct.font = F_INPUT;
+      writeAmount(ws, r, 6, sh.amount, F_INPUT);
+      if (sh.note) {
+        const note = ws.getCell(r, 7);
+        note.value = sh.note;
+        note.font = { italic: true, color: { argb: GRAY } };
+        if (!sh.matched) note.fill = FILL_AMBER;
+      }
+      r += 1;
+    }
+    ws.getCell(r, 1).value = 'Υποσύνολο κλινικής';
+    ws.getCell(r, 1).font = { bold: true };
+    writeAmount(ws, r, 6, `SUM(F${first}:F${r - 1})`, F_FORMULA).font = { bold: true };
+    subtotalCells.push(`F${r}`);
+    r += 2;
+  }
+  const totalRow = r;
+  ws.getCell(totalRow, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ κατανομής (all clinics)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  if (subtotalCells.length) writeAmount(ws, totalRow, 6, subtotalCells.join('+'), F_FORMULA);
+  else writeAmount(ws, totalRow, 6, 0, F_INPUT);
+  r += 1;
+  ws.getCell(r, 1).value = 'Σύνολο claims των μονάδων (claims files)';
+  ws.getCell(r, 1).font = { bold: true };
+  const claimsSum = round2(sections.reduce((a, s) =>
+    a + (s.result.bundle.claims ? claimsTotal(s.result.bundle.claims) : 0), 0));
+  writeAmount(ws, r, 6, claimsSum, F_INPUT);
+  r += 1;
+  ws.getCell(r, 1).value = 'Zero-check = κατανομή − claims (must be 0)';
+  writeAmount(ws, r, 6, `F${totalRow}-F${r - 1}`, F_FORMULA).fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Ανά_κλινική', addr: `F${r}` });
+  r += 2;
+  const unmapped = round2(shares.filter((x) => !x.matched)
+    .reduce((a, x) => a + x.amount, 0));
+  if (unmapped) {
+    ws.getCell(r, 1).value = `Προσοχή: ${formatEur(unmapped)} δεν κατανεμήθηκε σε κλινική `
+      + '— επαγγελματίες εκτός μητρώου. Ανεβάστε και τα μητρώα των υπόλοιπων ειδικοτήτων '
+      + '(professionals with no roster row; upload the rosters for the remaining professions).';
+    ws.getCell(r, 1).font = F_AMBER;
+  }
+  autosize(ws);
+}
+
+/* the SAP journal template's column order (BKPF header + BSEG line item) */
+const SAP_COLUMNS = [
+  ['BKPF-BLDAT', 'Document Date'], ['BKPF-BUDAT', 'Posting Date'],
+  ['BKPF-BLART', 'Document type'], ['BKPF-BUKRS', 'Company code'],
+  ['BKPF-WAERS', 'Currency'], ['BKPF-MONAT', 'Period'],
+  ['BKPF-XBLNR', 'Reference'], ['BKPF-BKTXT', 'Header Text'],
+  ['BSEG-BSCHL', 'Posting key'], ['BSEG-HKONT', 'Account'],
+  ['BSEG-ANBWA', 'Asset trans. type'], ['BSEG-DMBTR', 'Amount'],
+  ['BSEG-MWSKZ', 'Tax code'], ['BSEG-KOSTL', 'Cost Center'],
+  ['BSEG-AUFNR', 'Internal order'], ['BSEG-GEBER', 'Fund'],
+  ['BSEG-FISTL', 'Fund center'], ['BSEG-FIPOS', 'Commitment item'],
+  ['BSEG-ZUONR', 'Assignment'], ['BSEG-SGTXT', 'Text'],
+  ['BSEG-XREF1', 'XREF1'], ['BSEG-XREF2', 'XREF2'], ['BSEG-XREF3', 'XREF3'],
+  ['', 'Επιταγή (cheque)'],
+];
+const SAP_DEFAULTS = { docType: 'SA', company: '1003', currency: 'EUR',
+  debitKey: '01', debitAccount: '200000', creditKey: '50',
+  creditAccount: '412002', tax: 'O0' };
+
+function tabSapUpload(wb, sections, zeroChecks) {
+  /* The month's postings in the SAP journal-upload layout: one document per
+   * cheque — a debit line for the cheque total, then one credit line per
+   * (cost centre × internal order).  Codes come from the uploaded lookup;
+   * without it the lines are still written with those columns blank and
+   * every clinic that needs a code listed — no account code is invented. */
+  const ws = wb.addWorksheet('SAP_Upload');
+  writeHeader(ws, 1, SAP_COLUMNS.map(([tag, label]) => (tag ? `${tag}\n${label}` : label)));
+  const lookup = (sections.find((s) => s.result.bundle.costCentres) || { result: { bundle: {} } })
+    .result.bundle.costCentres;
+  const company = (lookup && lookup.companyCode) ? lookup.companyCode : SAP_DEFAULTS.company;
+  const b0 = sections.length ? sections[0].result.bundle : null;
+  const year = b0 ? b0.year : null, month = b0 ? b0.month : null;
+  const docDate = (year && month)
+    ? `${String(monthEnd(year, month)).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}` : '';
+  const periodLabel = monthLabelEn(year, month);
+  const short = (year && month)
+    ? `${String(month).padStart(2, '0')}/${String(year).slice(-2)}` : '';
+  let r = 2;
+  const missing = new Map();
+  for (const section of sections) {
+    const b = section.result.bundle;
+    if (!b.sra) continue;
+    const cheque = b.sra.chequeNo;
+    const head = [docDate, docDate, SAP_DEFAULTS.docType, company, SAP_DEFAULTS.currency,
+      '', periodLabel, `HIO OUTP. INV.${cheque}`.slice(0, 25), SAP_DEFAULTS.debitKey,
+      SAP_DEFAULTS.debitAccount, '', b.sra.statedTotal, '', '', '', '', '', '',
+      company, `HIO OUTP. ${short} INV.${cheque}`.slice(0, 40), '', '', '', cheque];
+    head.forEach((v, j) => {
+      const c = ws.getCell(r, j + 1);
+      c.value = v;
+      c.font = F_INPUT;
+      if (j === 11) c.numFmt = EUR_FMT;
+    });
+    r += 1;
+    const shares = clinicShares([section]);
+    const buckets = new Map();
+    const labels = new Map();
+    for (const sh of shares) {
+      const row = lookup ? findCostCentre(lookup, sh.clinic, sh.speciality) : null;
+      const kostl = row ? row.costCentre : '';
+      const aufnr = row ? row.internalOrder : '';
+      const text = (row && row.text) ? row.text : sh.clinic;
+      const key = [kostl, aufnr, clinicKey(sh.clinic),
+                   (!row || !row.costCentre) ? sh.speciality : ''].join('\u0001');
+      buckets.set(key, round2((buckets.get(key) || 0) + sh.amount));
+      labels.set(key, [text, sh.clinic, sh.speciality, kostl, aufnr]);
+      if (!kostl) missing.set(clinicKey(sh.clinic), sh.clinic);
+    }
+    /* the credit side must equal the cheque: whatever the clinic split does
+     * not cover (claims vs SRA, adjustment lines) becomes its own line, to be
+     * classified — never silently spread over the clinics */
+    let credited = 0;
+    for (const v of buckets.values()) credited = round2(credited + v);
+    const residual = round2(b.sra.statedTotal - credited);
+    if (Math.abs(residual) > 0.005) {
+      const key = ['', '', '__RESIDUAL__', ''].join('\u0001');
+      buckets.set(key, residual);
+      labels.set(key, ['TO CLASSIFY (claims vs SRA + adj.)',
+        'ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές', '', '', '']);
+    }
+    const keys = [...buckets.keys()].sort((a, b2) => buckets.get(b2) - buckets.get(a));
+    for (const key of keys) {
+      const [text, clinic, spec, kostl, aufnr] = labels.get(key);
+      const sgtxt = `HIO OUTP. ${short} INV.${cheque} ${text}`.slice(0, 40);
+      const line = ['', '', '', '', '', '', '', '', SAP_DEFAULTS.creditKey,
+        SAP_DEFAULTS.creditAccount, '', buckets.get(key), SAP_DEFAULTS.tax,
+        kostl, aufnr, '', '', '', company, sgtxt, clinic, spec, '', cheque];
+      line.forEach((v, j) => {
+        const c = ws.getCell(r, j + 1);
+        c.value = v;
+        c.font = F_INPUT;
+        if (j === 11) c.numFmt = EUR_FMT;
+        if ((j === 13 || j === 14) && !v) c.fill = FILL_AMBER;
+      });
+      r += 1;
+    }
+  }
+  const last = r - 1;
+  const totalRow = r + 1;
+  /* SUMIFS criteria reference helper cells, never quoted strings */
+  ws.getCell(totalRow, 1).value = 'Σύνολο πιστωτικών γραμμών (credit lines)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  ws.getCell(totalRow, 9).value = SAP_DEFAULTS.creditKey;
+  ws.getCell(totalRow, 9).font = F_INPUT;
+  writeAmount(ws, totalRow, 12, `SUMIFS(L2:L${last},I2:I${last},I${totalRow})`, F_FORMULA);
+  ws.getCell(totalRow + 1, 1).value = 'Σύνολο χρεωστικών γραμμών (cheques)';
+  ws.getCell(totalRow + 1, 1).font = { bold: true };
+  ws.getCell(totalRow + 1, 9).value = SAP_DEFAULTS.debitKey;
+  ws.getCell(totalRow + 1, 9).font = F_INPUT;
+  writeAmount(ws, totalRow + 1, 12,
+    `SUMIFS(L2:L${last},I2:I${last},I${totalRow + 1})`, F_FORMULA);
+  ws.getCell(totalRow + 2, 1).value = 'Zero-check = πιστωτικές − χρεωστικές (must be 0)';
+  writeAmount(ws, totalRow + 2, 12, `L${totalRow}-L${totalRow + 1}`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'SAP_Upload', addr: `L${totalRow + 2}` });
+  if (missing.size) {
+    const note = ws.getCell(totalRow + 4, 1);
+    note.value = 'Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο αντιστοίχισης '
+      + 'και ανεβάστε το ξανά (clinics with no cost centre in the lookup): '
+      + [...missing.values()].sort().join(' · ');
+    note.font = F_AMBER;
+    note.alignment = { wrapText: true, vertical: 'top' };
   }
   autosize(ws);
 }
@@ -4304,6 +4972,9 @@ function tabLegend(wb) {
   }
   r += 1;
   const notes = [
+    'Source_crosscheck: οι στήλες Α και Β ακολουθούν τη σειρά του ονόματος του ελέγχου. '
+      + 'Π.χ. «GL ΟΑΥ 25501 vs Αναφορά Αμοιβής» → Α = το ποσό του καθολικού ΟΑΥ, '
+      + 'Β = το ποσό της αναφοράς αμοιβής (packages × τιμή).',
     'Ανάλυση_ελέγχων: κάθε έλεγχος του Source_crosscheck γραμμένος αναλυτικά — τα συστατικά κάθε '
       + 'πλευράς, ζωντανά υποσύνολα, η διαφορά, και δύο κελιά που αποδεικνύουν ότι το φύλλο συμφωνεί '
       + 'με το Source_crosscheck (audit trail: every check, both sides, component by component).',
@@ -4608,6 +5279,15 @@ function renderProviderChecklist(batches) {
     return `<tr><td>${esc(b.label)}</td><td>${esc(b.code)}</td>`
       + `<td>${esc((b.cheques || []).join(', '))}</td>${cells}</tr>`;
   }).join('');
+  const shared = (state.files || []).filter((f) =>
+    f.reportType === RT.STAFF_MAPPING || f.reportType === RT.COST_CENTRE_MAP);
+  const sharedHtml = shared.length
+    ? '<p class="note">📋 Κοινά αρχεία παρτίδας: '
+      + shared.map((f) => `${esc(REPORT_LABELS[f.reportType])} — ${esc(f.filename)}`).join(' · ')
+      + '</p>'
+    : '<p class="hint">Χωρίς μητρώο προσωπικού δεν γίνεται κατανομή ανά κλινική· '
+      + 'ανεβάστε το μηνιαίο αρχείο προσωπικού (και προαιρετικά την αντιστοίχιση '
+      + 'κέντρων κόστους SAP) μαζί με τα αρχεία του μήνα.</p>';
   $('checklist-wrap').innerHTML =
     '<h2>Πάροχοι στην παρτίδα (providers in this batch)</h2>'
     + '<p class="hint">Μη-νοσοκομειακοί πάροχοι ΟΑΥ (υπηρεσίες ψυχικής υγείας): κάθε '
@@ -4615,7 +5295,8 @@ function renderProviderChecklist(batches) {
     + '(κωδικός F / PAYMENT NO.), ποτέ από το όνομα αρχείου.</p>'
     + '<table><thead><tr><th>Πάροχος (Provider)</th><th>Κωδικός</th>'
     + '<th>Επιταγή (Cheque)</th><th>SRA</th><th>Claims «all»</th>'
-    + '<th>Activity export</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    + '<th>Activity export</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + sharedHtml;
 }
 
 function diagnosticsText() {
@@ -4798,7 +5479,7 @@ async function runProviders(files) {
   $('run-btn').disabled = true;
   $('results').innerHTML = '<p>Εκτέλεση… (running)</p>';
   try {
-    const entries = await runProviderBatches(batches, period);
+    const entries = await runProviderBatches(batches, period, files);
     const { wb, zeroChecks } = buildProviderWorkbook(entries);
     const failures = verifyWorkbook(wb, zeroChecks, 0);
     if (failures.length) {
@@ -4806,8 +5487,11 @@ async function runProviders(files) {
         + failures.map((f) => `${f.sheet}!${f.addr} = ${formatEur(f.value)}`).join('\n• '));
     }
     const buffer = await wb.xlsx.writeBuffer();
+    // the SAP journal as its own file, ready to upload
+    const sap = buildSapWorkbook(entries);
+    const sapBuffer = await sap.wb.xlsx.writeBuffer();
     const [year, month] = period || [null, null];
-    renderProviderResults(entries, buffer, year, month);
+    renderProviderResults(entries, buffer, year, month, sapBuffer);
   } catch (e) {
     $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
   } finally {
@@ -4816,7 +5500,7 @@ async function runProviders(files) {
   }
 }
 
-function renderProviderResults(entries, buffer, year, month) {
+function renderProviderResults(entries, buffer, year, month, sapBuffer) {
   const total = round2(entries.reduce((a, e) => a + (e.result.bundle.sra
     ? e.result.bundle.sra.statedTotal : 0), 0));
   let html = '<h2>Αποτέλεσμα (Result)</h2><div class="metrics">'
@@ -4852,19 +5536,24 @@ function renderProviderResults(entries, buffer, year, month) {
     html += '</tbody></table>';
   }
   html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
-    + '(Download Excel workbook)</button></p>';
+    + '(Download Excel workbook)</button> '
+    + '<button id="download-sap" class="primary">⬇ Λήψη αρχείου SAP '
+    + '(Download SAP upload file)</button></p>';
   $('results').innerHTML = html;
-  const fname = `OKYPY_HIO_MENTAL_HEALTH_${month ? MONTH_ABBR[month] : 'XX'}`
-    + `${year || ''}_Reconciliation.xlsx`;
-  $('download-btn').addEventListener('click', () => {
-    const blob = new Blob([buffer],
+  const stamp = `${month ? MONTH_ABBR[month] : 'XX'}${year || ''}`;
+  const save = (buf, name) => {
+    const blob = new Blob([buf],
       { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = fname;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  });
+  };
+  $('download-btn').addEventListener('click', () =>
+    save(buffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_Reconciliation.xlsx`));
+  $('download-sap').addEventListener('click', () =>
+    save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_Upload.xlsx`));
 }
 
 function renderResults(result, buffer, hospital, year, month) {

@@ -304,6 +304,35 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
                 f.probe = (f.probe or "") + f"\n(endo extract failed: {e})"
             return
 
+        # staff roster: which clinic each professional worked in this month
+        if find_header_row(df, ["PERSONAL ID", "FIRST NAME", "LAST NAME"],
+                           max_rows=8) is not None:
+            f.report_type = ReportType.STAFF_MAPPING
+            try:
+                from .mapping import extract_staff_mapping
+                sm = extract_staff_mapping(f.data)
+                f.probe = (f.probe or "") + (
+                    f"\nΜητρώο: {len(sm.rows)} άτομα, φύλλα {sm.sheets}, "
+                    f"στήλες μηνών: {sm.month_columns[:14]}")
+            except Exception as e:
+                f.probe = (f.probe or "") + f"\n(staff roster parse failed: {e})"
+            return
+
+        # optional SAP lookup: clinic -> cost centre / internal order.  It is
+        # only this if a clinic column AND a cost-centre column sit on the
+        # same header row and produce rows — the SAP upload TEMPLATE also
+        # mentions «Cost Center» and must not be mistaken for it
+        try:
+            from .mapping import extract_cost_centres
+            cc = extract_cost_centres(f.data)
+        except Exception:
+            cc = None
+        if cc is not None and cc.rows:
+            f.report_type = ReportType.COST_CENTRE_MAP
+            f.probe = (f.probe or "") + \
+                f"\nΚέντρα κόστους: {len(cc.rows)} γραμμές"
+            return
+
         # activity export flattened to a spreadsheet (ΟΑΥ ships it in an
         # «XMLS» folder but the files are .xlsx): same fields as the XML
         hr = find_header_row(df, ["CLAIMID", "ACTIVITYREIMBURSEMENTAMOUNT"])
