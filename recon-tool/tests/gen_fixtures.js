@@ -242,6 +242,25 @@ fs.writeFileSync(S('dh_B.csv'),
   'D2,06/03/2026,TXT BETA B,,-50.00\n' +
   'D3,07/03/2026,,HDR GAMMA B,-25.00\n');
 
+/* ---- month-shift carry-forward: M1's open item is NOT in M2's files;
+   it must roll INTO the M2 run and clear against M2's other side ---- */
+fs.writeFileSync(S('bfm1_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/03/2026,march transfer,100.00\n' +
+  ',15/03/2026,cheque not yet presented,555.55\n');
+fs.writeFileSync(S('bfm1_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/03/2026,march transfer,100.00\n');
+fs.writeFileSync(S('bfm2_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/04/2026,april transfer,70.00\n' +
+  ',02/04/2026,april fees,80.00\n');
+fs.writeFileSync(S('bfm2_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/04/2026,april transfer,70.00\n' +
+  ',02/04/2026,april fees,80.00\n' +
+  ',20/04/2026,cheque presented,555.55\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

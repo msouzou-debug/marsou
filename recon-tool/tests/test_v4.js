@@ -433,6 +433,72 @@ const newAppPage = async browser => {
     r.committed === 1 && JSON.stringify(r.open) === JSON.stringify([0, 0]), r);
   await page.close();
 
+  /* ============ 11. v3.6: month-shift carry-forward — items roll INTO the next run ============ */
+  const nokeySetup = () => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 90;
+  };
+  /* month 1: one open cheque, categorised, exported */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('bfm1_A.csv'));
+  await page.setInputFiles('#fileB', S('bfm1_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(nokeySetup);
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  await page.evaluate(() => { RESULT.onlyA[0].cat = 'catT'; });
+  const [dlBfm] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
+  const bfmPath = path.join(__dirname, 'export_bfm.xlsx');
+  await dlBfm.saveAs(bfmPath);
+  await page.close();
+
+  /* month 2: the cheque is NOT in month 2's files — it must roll in and clear against B */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('bfm2_A.csv'));
+  await page.setInputFiles('#fileB', S('bfm2_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.setInputFiles('#filePrev', bfmPath);
+  await page.waitForFunction(() => document.getElementById('finfoPrev').textContent !== '');
+  await page.evaluate(nokeySetup);
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    bf: RESULT.bf, totals: [RESULT.totA, RESULT.totAFile, RESULT.totB],
+    matchedBf: RESULT.matched.filter(x => /B\/F/.test(x.key)).map(x => [x.key, x.amtA, x.amtB]),
+    open: [RESULT.onlyA.length, RESULT.onlyB.length],
+  }));
+  console.log('BFM-RESOLVED:', JSON.stringify(r));
+  check('carried cheque clears against next month\'s bank entry',
+    r.bf && r.bf.n === 0 && r.bf.resolved === 1 && r.matchedBf.length === 1 &&
+    r.matchedBf[0][1] === 555.55 && r.matchedBf[0][2] === 555.55 &&
+    JSON.stringify(r.open) === JSON.stringify([0, 0]), r);
+  check('recon totals include the carried item, file totals do not',
+    Math.abs(r.totals[0] - 705.55) < 0.005 && Math.abs(r.totals[1] - 150) < 0.005, r.totals);
+  await page.close();
+
+  /* month 2 again with a tight window: the carried cheque STAYS OPEN, flagged, category intact */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('bfm2_A.csv'));
+  await page.setInputFiles('#fileB', S('bfm2_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.setInputFiles('#filePrev', bfmPath);
+  await page.waitForFunction(() => document.getElementById('finfoPrev').textContent !== '');
+  await page.evaluate(nokeySetup);
+  await page.evaluate(() => { document.getElementById('nokeydays').value = 20; document.getElementById('spliton').checked = false; });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    bf: RESULT.bf,
+    openA: RESULT.onlyA.map(x => [x.key, x.amtA, x.cat, !!x.bf]),
+  }));
+  console.log('BFM-OPEN:', JSON.stringify(r));
+  check('outside the window the carried cheque stays open as B/F with its category',
+    r.bf && r.bf.n === 1 && r.openA.length === 1 &&
+    JSON.stringify(r.openA[0]) === JSON.stringify(['B/F #2', 555.55, 'catT', true]), r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);

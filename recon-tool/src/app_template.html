@@ -388,7 +388,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.5</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.6</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -412,7 +412,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.5",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.6",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -503,7 +503,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.5",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.6",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -648,23 +648,26 @@ function bindPrev(){
           return '';
         };
         const grab=(ws,amtCol)=>{
-          const m=new Map();
-          if(!ws)return m;
+          const list=[];
+          if(!ws)return list;
           XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true}).slice(1).forEach(r=>{
             if(!r||r[0]===null||r[0]==='')return;
-            const amt=typeof r[amtCol]==='number'?r[amtCol]:null;
+            const amt=typeof r[amtCol]==='number'?r[amtCol]:parseAmount(r[amtCol]);
             if(amt===null)return;
-            m.set(String(r[0])+'|'+Math.round(amt*100),catOf(String(r[10]||'')));
+            list.push({key:String(r[0]),cents:Math.round(amt*100),
+              date:r[3]?String(r[3]).trim():'',
+              descA:r[1]?String(r[1]):'',descB:r[2]?String(r[2]):'',
+              cat:catOf(String(r[10]||''))});
           });
-          return m;
+          return list;
         };
         const a=grab(find(['Μόνο στο A','Only in A']),4);   // E = amount A
         const b=grab(find(['Μόνο στο B','Only in B']),5);   // F = amount B
         const d=grab(find(['Διαφορές','Differences']),6);   // G = difference
-        if(!a.size&&!b.size&&!d.size)throw new Error('empty');
+        if(!a.length&&!b.length&&!d.length)throw new Error('empty');
         PRIOR={a,b,d,name:file.name};
         document.getElementById('fnamePrev').textContent=file.name;
-        document.getElementById('finfoPrev').textContent=(a.size+b.size+d.size)+' '+t('prevLoaded');
+        document.getElementById('finfoPrev').textContent=(a.length+b.length+d.length)+' '+t('prevLoaded');
         document.getElementById('boxPrev').classList.add('loaded');
       }catch(err){
         PRIOR=null;
@@ -678,17 +681,58 @@ function bindPrev(){
   box.addEventListener('dragover',e=>e.preventDefault());
   box.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0])load(e.dataTransfer.files[0]);});
 }
-function applyPrior(R){
-  if(!PRIOR)return;
-  let bf=0;
-  const mark=(arr,map,amtOf)=>arr.forEach(r=>{
-    const cat=map.get(r.key+'|'+Math.round((amtOf(r)||0)*100));
-    if(cat!==undefined){r.bf=true;bf++;if(!r.cat&&cat)r.cat=cat;}
+/* prior items present in THIS month's files are flagged in place — by key,
+   then by amount+date, because '#N' keys are row numbers that shift every
+   month. Runs against a list of prior entries, consuming each once. */
+function markPrior(arr,list,amtOf){
+  arr.forEach(r=>{
+    if(r.bf)return;
+    const c=Math.round((amtOf(r)||0)*100);
+    const e=list.find(x=>!x.used&&x.cents===c&&x.key===r.key);
+    if(e){e.used=true;r.bf=true;if(!r.cat&&e.cat)r.cat=e.cat;}
   });
-  mark(R.onlyA,PRIOR.a,r=>r.amtA);
-  mark(R.onlyB,PRIOR.b,r=>r.amtB);
-  mark(R.diffs,PRIOR.d,r=>r.diff);
-  R.bf={n:bf,resolved:PRIOR.a.size+PRIOR.b.size+PRIOR.d.size-bf,name:PRIOR.name};
+  arr.forEach(r=>{
+    if(r.bf)return;
+    const c=Math.round((amtOf(r)||0)*100), ds=r.date?fmtDate(r.date):'';
+    const e=list.find(x=>!x.used&&x.cents===c&&x.date===ds);
+    if(e){e.used=true;r.bf=true;if(!r.cat&&e.cat)r.cat=e.cat;}
+  });
+}
+/* prior open items NOT found in this month's files (a monthly bank
+   statement never re-lists last month's lines) are brought INTO the run as
+   first-class items: they can clear against the other side's entries, join
+   proposals, or stay open flagged B/F. Runs BEFORE the matching passes. */
+function injectPrior(onlyA,onlyB,age){
+  const out={aN:0,aV:0,bN:0,bV:0};
+  if(!PRIOR)return out;
+  markPrior(onlyA,PRIOR.a,r=>r.amtA);
+  markPrior(onlyB,PRIOR.b,r=>r.amtB);
+  PRIOR.a.forEach(e=>{
+    if(e.used)return;
+    const amt=e.cents/100, date=parseDateVal(e.date);
+    onlyA.push({key:'B/F '+e.key,amtA:amt,amtB:null,diff:amt,nA:1,nB:0,
+      desc:e.descA||e.descB||'',descA:e.descA||'',descB:'',
+      date,age:age(date),cat:e.cat||'',bf:true,inj:true});
+    out.aN++;out.aV+=amt;
+  });
+  PRIOR.b.forEach(e=>{
+    if(e.used)return;
+    const amt=e.cents/100, date=parseDateVal(e.date);
+    onlyB.push({key:'B/F '+e.key,amtA:null,amtB:amt,diff:-amt,nA:0,nB:1,
+      desc:e.descB||e.descA||'',descA:'',descB:e.descB||'',
+      date,age:age(date),cat:e.cat||'',bf:true,inj:true});
+    out.bN++;out.bV+=amt;
+  });
+  return out;
+}
+/* after the run: flag recurring difference rows, then count what is still
+   open from the prior period vs what cleared this month */
+function finishPrior(R){
+  if(!PRIOR)return;
+  markPrior(R.diffs,PRIOR.d,r=>r.diff);
+  const carried=PRIOR.a.length+PRIOR.b.length+PRIOR.d.length;
+  const openBf=R.onlyA.filter(r=>r.bf).length+R.onlyB.filter(r=>r.bf).length+R.diffs.filter(r=>r.bf).length;
+  R.bf={n:openBf,resolved:carried-openBf,name:PRIOR.name};
 }
 
 /* ================= progress rail ================= */
@@ -1438,6 +1482,7 @@ function runRecon(){
   const age=d=>d?Math.max(0,Math.round((today-d)/86400000)):null;
   const warns=[];
   let totA=0,totB=0,skippedA=0,skippedB=0,keylessA=0,keylessB=0;
+  let totAFile=0,totBFile=0,bfInj={aN:0,aV:0,bN:0,bV:0};
   let totalRowA={n:0,value:0},totalRowB={n:0,value:0};
   /* possible duplicate postings: same key + amount + date more than once in one file */
   const dupCount=side=>{
@@ -1485,6 +1530,9 @@ function runRecon(){
     onlyA=LA.items; onlyB=LB.items; skippedA=LA.skipped; skippedB=LB.skipped;
     totalRowA=extractTotalRows(onlyA,'A',0); totalRowB=extractTotalRows(onlyB,'B',0);
     onlyA.forEach(x=>totA+=x.amtA); onlyB.forEach(x=>totB+=x.amtB);
+    totAFile=totA; totBFile=totB;
+    bfInj=injectPrior(onlyA,onlyB,age); // b/f items join the pools BEFORE matching
+    totA+=bfInj.aV; totB+=bfInj.bV;
     pass2(onlyA,onlyB,tol,days).forEach(([a,b])=>{
       matched.push(mergePair(a,b,2,age));
       onlyA.splice(onlyA.indexOf(a),1); onlyB.splice(onlyB.indexOf(b),1);
@@ -1519,6 +1567,9 @@ function runRecon(){
     });
     onlyA.push(...KA.items); onlyB.push(...KB.items);
     skippedA=KA.zero; skippedB=KB.zero;
+    totAFile=totA; totBFile=totB;
+    bfInj=injectPrior(onlyA,onlyB,age); // b/f items join the pools BEFORE tier passes
+    totA+=bfInj.aV; totB+=bfInj.bV;
     /* pass 2 — amount + date on the remainder */
     if(document.getElementById('tier2on').checked){
       const days=parseInt(document.getElementById('tier2days').value)||0;
@@ -1570,10 +1621,10 @@ function runRecon(){
   // warnings stay static here
   if(totA&&totB&&Math.sign(totA)!==Math.sign(totB))warns.push(t('warnFlip'));
   const firstTab=diffs.length?'diffs':props.length?'groups':onlyA.length?'onlyA':onlyB.length?'onlyB':'matched';
-  RESULT={matched,diffs,onlyA,onlyB,totA,totB,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,dupA,dupB,committed:[],filterQ:'',filterMin:0,
+  RESULT={matched,diffs,onlyA,onlyB,totA,totB,totAFile,totBFile,bfInj,tol,flip,skippedA,skippedB,nokey,keylessA,keylessB,totalRowA,totalRowB,dupA,dupB,committed:[],filterQ:'',filterMin:0,
           props,splitTruncated,splitCfg:scfg,warns,
           mA,mB,ranAt:new Date(),activeTab:firstTab};
-  applyPrior(RESULT);
+  finishPrior(RESULT);
   document.getElementById('resQ').value=''; document.getElementById('resMin').value='';
   if(PENDING_PROGRESS){applyProgress(PENDING_PROGRESS);PENDING_PROGRESS=null;progStatus(t('progApplied'));}
   const st=document.getElementById('stepRes');
@@ -1636,7 +1687,8 @@ function renderResults(){
         ?{ok:true,txt:side+': '+t('tieOk')+' ✓'}
         :{ok:false,txt:side+': '+t('tieBad')+' '+fmtNum(d)+' €'};
     };
-    const parts=[tie('A',R.totalRowA,R.totA),tie('B',R.totalRowB,R.totB)].filter(Boolean);
+    // tie-out is against the FILE's own total — injected b/f items are not in the file
+    const parts=[tie('A',R.totalRowA,R.totAFile??R.totA),tie('B',R.totalRowB,R.totBFile??R.totB)].filter(Boolean);
     if(parts.length){
       ti.innerHTML=parts.map(p=>'<span style="color:'+(p.ok?'var(--okypy-green)':'var(--okypy-neg)')+'">'+esc(p.txt)+'</span>').join('  ·  ');
       ti.classList.remove('hidden');
@@ -2302,7 +2354,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.5)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.6)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -2313,7 +2365,7 @@ const MANUAL={
    ["Βήμα 2 — Αρχεία",
     "<p>Δεκτά είναι αρχεία .xlsx, .xls και .csv. Αν το βιβλίο εργασίας έχει περισσότερα φύλλα, επιλέγετε ποιο θα διαβαστεί. Τη γραμμή με τις επικεφαλίδες το εργαλείο τη βρίσκει συνήθως μόνο του· αν οι τίτλοι βρίσκονται αλλού, δώστε τον σωστό αριθμό γραμμής. Ό,τι βλέπετε στην προεπισκόπηση είναι ακριβώς αυτό που θα διαβαστεί — αν εκεί τα στοιχεία φαίνονται σωστά, θα διαβαστούν σωστά παντού.</p>"],
    ["Βήμα 2 — Προηγούμενη περίοδος (προαιρετικό)",
-    "<p>Στο ίδιο βήμα υπάρχει ένα τρίτο πλαίσιο για την εξαγωγή Excel της προηγούμενης συμφωνίας. Αν τη φορτώσετε, το εργαλείο διαβάζει τα φύλλα «Μόνο στο A», «Μόνο στο B» και «Διαφορές» και, μετά την εκτέλεση, σημειώνει με την ένδειξη «B/F» όσες εκκρεμότητες εμφανίζονται ξανά — ίδιο κλειδί, ίδιο ποσό. Ο δείκτης «Από προηγ. περίοδο» δείχνει πόσες μεταφέρθηκαν, και ο χαρακτηρισμός που τους είχατε δώσει (π.χ. Χρονική διαφορά) επανέρχεται μόνος του. Έτσι ξεχωρίζετε με μια ματιά τι σέρνεται από μήνα σε μήνα και τι είναι καινούριο.</p>"],
+    "<p>Στο ίδιο βήμα υπάρχει ένα τρίτο πλαίσιο για την εξαγωγή Excel της προηγούμενης συμφωνίας. Αν τη φορτώσετε, το εργαλείο διαβάζει τα φύλλα «Μόνο στο A», «Μόνο στο B» και «Διαφορές» και ενσωματώνει τις περσινές εκκρεμότητες στη φετινή εκτέλεση:</p><ul><li>Όσες υπάρχουν και στα φετινά αρχεία — ίδιο κλειδί ή ίδιο ποσό με ίδια ημερομηνία — απλώς σημειώνονται με την ένδειξη «B/F».</li><li>Όσες δεν υπάρχουν στα φετινά αρχεία — ο κανόνας στις τραπεζικές συμφωνίες, αφού το extrait κάθε μήνα ξεκινά από την αρχή — μπαίνουν στην εκτέλεση ως κανονικές εγγραφές με κλειδί «B/F …»: μπορούν να συμψηφιστούν με τις φετινές εγγραφές της άλλης πλευράς, να συμμετάσχουν σε προτάσεις, ή να μείνουν εκκρεμείς.</li></ul><p>Ο χαρακτηρισμός που τους είχατε δώσει (π.χ. Χρονική διαφορά) επανέρχεται μόνος του, ο δείκτης «Από προηγ. περίοδο» μετρά όσες παραμένουν ανοιχτές, και ο έλεγχος συνόλων εξακολουθεί να συγκρίνεται με το σύνολο του αρχείου, χωρίς τις μεταφερόμενες.</p>"],
    ["Βήμα 3 — Τι κάνουν οι στήλες-κλειδιά",
     "<p>Το κλειδί ορίζει πότε δύο εγγραφές θεωρούνται το ίδιο στοιχείο. Πριν από τη σύγκριση, οι γραμμές με το ίδιο κλειδί αθροίζονται σε κάθε πλευρά· στη συνέχεια το άθροισμα της πλευράς A συγκρίνεται με το άθροισμα της πλευράς B για το ίδιο κλειδί.</p><p>Παράδειγμα: με κλειδί τη στήλη «Reference», όλες οι γραμμές του A με αναφορά 136388 γίνονται ένα ποσό και συγκρίνονται με το αντίστοιχο άθροισμα του B.</p><ul><li>Όσο περισσότερες στήλες τσεκάρετε, τόσο αυστηρότερο το ταίριασμα — π.χ. αναφορά και ημερομηνία μαζί.</li><li>Η κανονικοποίηση αγνοεί κεφαλαία και πεζά, περιττά κενά και αρχικά μηδενικά· το 000123 ταυτίζεται με το 123.</li><li>Το εργαλείο συγκρίνει τις τιμές των στηλών στα δύο αρχεία και προτείνει το καταλληλότερο ζευγάρι κλειδιών. Αν η τρέχουσα επιλογή δεν οδηγεί πουθενά, τη διορθώνει μόνο του και το αναφέρει.</li><li>Μη χρησιμοποιείτε στήλες ποσών ως κλειδιά· τα ποσά δεν είναι αναγνωριστικά. Αν συμβεί, θα εμφανιστεί προειδοποίηση.</li><li>Οι γραμμές χωρίς τιμή στο κλειδί δεν παραλείπονται: ταιριάζονται μία προς μία, με ίσο ποσό και κοντινή ημερομηνία, και όσες δεν εξηγηθούν εμφανίζονται στα εκκρεμή. Η γραμμή γενικού συνόλου στο τέλος του αρχείου αναγνωρίζεται και εξαιρείται αυτόματα.</li></ul>"],
    ["Βήμα 3 — Οι υπόλοιπες επιλογές",
@@ -2335,7 +2387,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.5)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.6)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -2346,7 +2398,7 @@ const MANUAL={
    ["Step 2 — Files",
     "<p>The tool reads .xlsx, .xls and .csv files. If a workbook has several sheets, you choose which one to use. It usually finds the header row on its own; if your column titles sit somewhere else, type the right row number. The preview shows the first rows exactly as they were read — if they look right there, they will be read right everywhere.</p>"],
    ["Step 2 — Previous period (optional)",
-    "<p>The same step has a third box, meant for the Excel export of last period's reconciliation. Load it, and after the run the tool reads its “Only in A”, “Only in B” and “Differences” sheets and flags every open item that has come back — same key, same amount — with a “B/F” mark. The “From prior period” figure shows how many carried over, and the category you gave each item last time (Timing difference, say) comes back on its own. One glance tells you what has been dragging on for months and what is genuinely new.</p>"],
+    "<p>The same step has a third box, meant for the Excel export of last period's reconciliation. Load it, and the tool reads its “Only in A”, “Only in B” and “Differences” sheets and folds last period's open items into this run:</p><ul><li>Items also present in this month's files — same key, or same amount on the same date — are simply flagged “B/F”.</li><li>Items NOT in this month's files — the rule in bank work, since each statement starts afresh — join the run as ordinary entries keyed “B/F …”: they can clear against the other side's current entries, take part in suggestions, or stay open.</li></ul><p>The category you gave each item last time (Timing difference, say) comes back on its own, the “From prior period” figure counts those still open, and the totals check still compares against the file's own total, without the carried items.</p>"],
    ["Step 3 — What the key columns do",
     "<p>The key decides when two entries count as the same item. Before anything is compared, rows sharing a key value are added up on each side; then side A's total is compared with side B's total for that key.</p><p>Say the key is the “Reference” column: every line in file A carrying reference 136388 becomes one figure, which is compared with the sum of file B's 136388 lines.</p><ul><li>Ticking more columns makes the match stricter — reference and date together, for instance.</li><li>Normalisation ignores capitals, stray spaces and leading zeros, so 000123 and 123 are the same key.</li><li>The tool compares column values across the two files and suggests the pair that fits best. If your current selection leads nowhere, it corrects it on its own and says so.</li><li>Don't use amount columns as keys — an amount identifies nothing. The tool warns you if that happens.</li><li>Rows with an empty key aren't dropped: they are paired one against one on equal amount and nearby date, and whatever stays unexplained shows up in the open lists. The grand-total line at the bottom of a file is recognised and left out automatically.</li></ul>"],
    ["Step 3 — The other settings",
@@ -2387,7 +2439,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.5.html':'OKYPY_Reconciliation_Manual_v3.5.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.6.html':'OKYPY_Reconciliation_Manual_v3.6.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

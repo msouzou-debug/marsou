@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.5**.
+   Current version: **v3.6**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.4**. See "IC Matrix Tool" below.
@@ -106,6 +106,11 @@ Expected values:
     `SUM(E4:E5)`) plus two 'Εκκρεμή n' sheets.
   - carry-forward: fresh ic run + `#filePrev` = export_prev.xlsx → `bf.n=4`,
     flagged keys ['#10','#10','H-77','L-88'], 'Από προηγ. περίοδο' KPI shown.
+  - v3.6 month-shift roll-forward (bfm1/bfm2 fixtures): M1's open 555.55
+    cheque (cat catT) exported; M2 files don't contain it → injected as
+    'B/F #2' and CLEARS against M2's bank entry (matched 'B/F #2 ⇄ #3',
+    bf.n=0, resolved=1, totA=705.55 vs totAFile=150); with a ±20d window it
+    STAYS OPEN as ['B/F #2', 555.55, 'catT', bf=true], bf.n=1.
   - profile round-trip on the fee pair: save profile, reload page, load the
     profile BEFORE the files → keysB RefNo, amtB/crB Debit/Credit, no-key on,
     days 9, pass 4 on, flip on all re-applied.
@@ -386,14 +391,25 @@ Expected values:
    (`applyProfileSheet`), column mapping at the end of `rebuildMapping`
    (`applyProfileMapping` via `PENDING_PROFILE`) — so a profile loaded BEFORE
    the files still lands. This is what makes the tool universal per account.
-   **Prior-period carry-forward** (v3.0, `#filePrev` + `applyPrior()`): the
-   third filebox in Step 2 accepts LAST period's Excel export; `bindPrev`
-   reads its Only-in-A (col E), Only-in-B (col F) and Differences (col G)
-   sheets into `PRIOR` maps keyed `key|cents` (category text from col K).
-   After each run, matching open items get `r.bf=true` (B/F pill), their old
-   category carries over if none set, and `RESULT.bf` feeds the 'Από προηγ.
-   περίοδο / From prior period' KPI + a Documentation row. A prior file with
-   no open items is rejected as empty on purpose.
+   **Prior-period carry-forward** (reworked v3.6 — `#filePrev` + `bindPrev`
+   → `PRIOR` entry lists {key,cents,date,descA,descB,cat} from the export's
+   Only-in-A (col E), Only-in-B (col F), Differences (col G), date col D,
+   category col K; empty prior file rejected on purpose). Two-stage:
+   `injectPrior(onlyA,onlyB,age)` runs INSIDE runRecon, in both branches,
+   BEFORE the matching passes — (1) `markPrior` flags current items that
+   were open before, by key+cents first then by cents+date ('#N' keys are
+   ROW NUMBERS that shift every month — the original key-only match silently
+   failed for every keyless bank item); (2) prior entries NOT found in this
+   month's files (monthly bank statements never re-list last month's lines)
+   are PUSHED into the pools as first-class items keyed 'B/F <oldkey>'
+   (bf+inj flags, category carried) so they can clear against the other
+   side, join proposals, or stay open. `finishPrior(RESULT)` then flags
+   recurring Differences rows and sets `RESULT.bf = {n: open bf items,
+   resolved: carried − n}`. Totals: `totA/totB` INCLUDE injected values
+   (summary identity holds); `totAFile/totBFile` exclude them and drive the
+   tie-out (the file's footer can't know about carried items). Validated on
+   the real 04→05.2026 BOC pair: payroll 3,043,862.78 / 1,369.87 /
+   ΩΡΟΜΙΣΘΙΟ 3,043,832.54 all roll forward with their categories.
    **Reconciliation pack** (v3.0, `PACK[]` + `addToPack()`/`exportPack()`):
    'Add to pack' snapshots the current run (labels, totals, counts, open
    items); 'Export pack' writes one workbook — a 'Πακέτο / Pack' summary
