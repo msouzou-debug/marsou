@@ -261,6 +261,21 @@ fs.writeFileSync(S('bfm2_B.csv'),
   ',02/04/2026,april fees,80.00\n' +
   ',20/04/2026,cheque presented,555.55\n');
 
+/* ---- many-files-per-side: two statements vs one ledger ---- */
+fs.writeFileSync(S('multi_A1.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/03/2026,march salary,100.00\n' +
+  ',02/03/2026,march rent,200.00\n');
+fs.writeFileSync(S('multi_A2.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/04/2026,april salary,300.00\n' +
+  ',02/04/2026,april odd item,45.67\n');
+fs.writeFileSync(S('multi_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/03/2026,march salary,100.00\n' +
+  ',02/03/2026,march rent,200.00\n' +
+  ',01/04/2026,april salary,300.00\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

@@ -83,6 +83,11 @@ main{max-width:1360px;margin:0 auto;padding:8px 34px}
 .filebox small{color:var(--okypy-muted)}
 .sideA .filebox.loaded{border-color:var(--okypy-blue-deep);background:var(--wash-deep)}
 .filemeta{display:flex;gap:16px;align-items:flex-end;margin-top:10px;flex-wrap:wrap}
+.extras{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.fchip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--okypy-grey-light);border-radius:16px;padding:4px 11px;font-size:12px;background:#fff}
+.fchip b{color:var(--okypy-blue-deep);font-weight:700;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fchip .x{border:none;background:none;color:var(--okypy-muted);cursor:pointer;font-size:13px;line-height:1;padding:0}
+.fchip .x:hover{color:var(--okypy-neg)}
 select,input[type=text],input[type=number]{font-family:inherit;font-size:13px;color:var(--okypy-text);border:1px solid #c9cacb;border-radius:5px;padding:6px 9px;background:#fff;max-width:100%}
 select:hover,input[type=text]:hover,input[type=number]:hover{border-color:var(--okypy-blue-logo)}
 label{font-size:11.5px;font-weight:700;display:block;margin:10px 0 3px;letter-spacing:.05em;text-transform:uppercase;color:var(--okypy-text)}
@@ -235,7 +240,9 @@ footer .bar{height:10px;background:var(--okypy-blue)}
         <div class="fname" id="fnameA" data-i18n="drop">Κάντε κλικ ή σύρετε αρχείο εδώ (.xlsx, .xls, .csv)</div>
         <small id="finfoA"></small>
       </div>
-      <input type="file" id="fileA" class="hidden" accept=".xlsx,.xls,.csv,.txt">
+      <input type="file" id="fileA" class="hidden" accept=".xlsx,.xls,.csv,.txt" multiple>
+      <input type="file" id="fileAddA" class="hidden" accept=".xlsx,.xls,.csv,.txt" multiple>
+      <div class="extras" id="extraA"></div>
       <div id="sheetselA" class="hidden filemeta">
         <div><label data-i18n="sheet">Φύλλο</label><select id="sheetA" onchange="sheetChanged('A')"></select></div>
         <div><label data-i18n="hdrrow">Γραμμή επικεφαλίδων</label><input type="number" id="hdrA" min="1" value="1" style="width:80px" onchange="headerChanged('A')"></div>
@@ -248,7 +255,9 @@ footer .bar{height:10px;background:var(--okypy-blue)}
         <div class="fname" id="fnameB" data-i18n="drop">Κάντε κλικ ή σύρετε αρχείο εδώ (.xlsx, .xls, .csv)</div>
         <small id="finfoB"></small>
       </div>
-      <input type="file" id="fileB" class="hidden" accept=".xlsx,.xls,.csv,.txt">
+      <input type="file" id="fileB" class="hidden" accept=".xlsx,.xls,.csv,.txt" multiple>
+      <input type="file" id="fileAddB" class="hidden" accept=".xlsx,.xls,.csv,.txt" multiple>
+      <div class="extras" id="extraB"></div>
       <div id="sheetselB" class="hidden filemeta">
         <div><label data-i18n="sheet">Φύλλο</label><select id="sheetB" onchange="sheetChanged('B')"></select></div>
         <div><label data-i18n="hdrrow">Γραμμή επικεφαλίδων</label><input type="number" id="hdrB" min="1" value="1" style="width:80px" onchange="headerChanged('B')"></div>
@@ -388,7 +397,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.6</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.7</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -1926,7 +1935,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.6",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.7",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -1987,6 +1996,7 @@ const I18N = {
   selInfo:"Επιλεγμένα: {a} στο A ({sa} €) · {b} στο B ({sb} €) · Δ {d} €",
   matchSel:"Χειροκίνητο ταίριασμα επιλεγμένων", clearSel:"Καθαρισμός επιλογής",
   selPick:"Επιλογή", selAllT:"Επιλογή όλων των ορατών γραμμών", manualKey:"Χειροκίνητο",
+  filesN:"αρχεία", addFileL:"+ Αρχείο στην ίδια πλευρά",
   nmTag:"Ν-προς-Μ ίδιας ημέρας",
   revTag:"Αντιλογισμός",
   twinTag:"Ίδιο ποσό, άλλη ημερομηνία",
@@ -2017,7 +2027,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.6",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.7",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -2078,6 +2088,7 @@ const I18N = {
   selInfo:"Selected: {a} in A ({sa} €) · {b} in B ({sb} €) · Δ {d} €",
   matchSel:"Manually match selected", clearSel:"Clear selection",
   selPick:"Select", selAllT:"Select all visible rows", manualKey:"Manual",
+  filesN:"files", addFileL:"+ File on this side",
   nmTag:"Same-day N-to-M",
   revTag:"Reversal",
   twinTag:"Same amount, different date",
@@ -2271,35 +2282,46 @@ document.querySelectorAll('.railstep').forEach(b=>b.addEventListener('click',()=
 }));
 
 /* ================= file loading ================= */
-const SIDES={A:{wb:null,rows:null,cols:null,name:''},B:{wb:null,rows:null,cols:null,name:''}};
+/* each side holds a LIST of files; their rows merge into one logical side
+   (many statements vs one ledger, or any mix). The FIRST file drives the
+   sheet/header controls; extra files auto-detect and show as chips. */
+const SIDES={A:{files:[],wb:null,rows:null,cols:null,name:''},B:{files:[],wb:null,rows:null,cols:null,name:''}};
 function bindFile(side){
   const inp=document.getElementById('file'+side), box=document.getElementById('box'+side);
-  inp.addEventListener('change',e=>{if(e.target.files[0])loadFile(side,e.target.files[0]);});
+  const add=document.getElementById('fileAdd'+side);
+  inp.addEventListener('change',e=>{if(e.target.files[0])setSideFiles(side,e.target.files);e.target.value='';});
+  add.addEventListener('change',e=>{if(e.target.files[0])appendSideFiles(side,e.target.files);e.target.value='';});
   box.addEventListener('dragover',e=>{e.preventDefault();});
-  box.addEventListener('drop',e=>{e.preventDefault(); if(e.dataTransfer.files[0])loadFile(side,e.dataTransfer.files[0]);});
+  box.addEventListener('drop',e=>{e.preventDefault(); if(e.dataTransfer.files[0])setSideFiles(side,e.dataTransfer.files);});
 }
-function loadFile(side,file){
+function setSideFiles(side,list){ SIDES[side].files=[]; appendSideFiles(side,list); }
+function appendSideFiles(side,list){ [...list].forEach(f=>loadOne(side,f)); }
+function loadOne(side,file){
+  const s=SIDES[side];
+  const slot={name:file.name,wb:null,sheet:'',hdr:1,rows:null,cols:null};
+  s.files.push(slot); // slot order fixed NOW — readers finish in any order
   const rd=new FileReader();
   const isCSV=/\.(csv|txt)$/i.test(file.name);
   rd.onload=e=>{
     try{
-      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true,codepage:65001,raw:isCSV});
-      SIDES[side].wb=wb; SIDES[side].name=file.name;
-      const sel=document.getElementById('sheet'+side);
-      sel.innerHTML=wb.SheetNames.map(n=>'<option>'+esc(n)+'</option>').join('');
-      document.getElementById('sheetsel'+side).classList.remove('hidden');
-      document.getElementById('fname'+side).textContent=file.name;
-      document.getElementById('box'+side).classList.add('loaded');
-      document.getElementById('hdr'+side).value=1;
-      sheetChanged(side);
-      if(PENDING_PROFILE)applyProfileSheet(side);
-    }catch(err){alert('Error reading file: '+err.message);}
+      slot.wb=XLSX.read(e.target.result,{type:'array',cellDates:true,codepage:65001,raw:isCSV});
+      slot.sheet=slot.wb.SheetNames[0];
+      if(s.files[0]===slot){
+        const sel=document.getElementById('sheet'+side);
+        sel.innerHTML=slot.wb.SheetNames.map(n=>'<option>'+esc(n)+'</option>').join('');
+        document.getElementById('sheetsel'+side).classList.remove('hidden');
+      }
+      parseSlot(side,slot);
+      if(s.files[0]===slot&&PENDING_PROFILE)applyProfileSheet(side);
+    }catch(err){
+      const i=s.files.indexOf(slot); if(i>=0)s.files.splice(i,1);
+      alert('Error reading file: '+err.message);
+    }
   };
   rd.readAsArrayBuffer(file);
 }
-function sheetChanged(side){
-  const s=SIDES[side]; if(!s.wb)return;
-  const ws=s.wb.Sheets[document.getElementById('sheet'+side).value];
+function parseSlot(side,slot){
+  const ws=slot.wb.Sheets[slot.sheet];
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
   // auto-detect header row: first row where >=2 non-empty string cells
   let hdr=0;
@@ -2308,20 +2330,14 @@ function sheetChanged(side){
           filled=r.filter(c=>c!==null&&c!=='').length;
     if(strs>=2&&filled>=2){hdr=i;break;}
   }
-  document.getElementById('hdr'+side).value=hdr+1;
-  applyHeader(side,raw,hdr);
+  slot.hdr=hdr+1;
+  applySlotHeader(slot,raw,hdr);
+  if(SIDES[side].files[0]===slot)document.getElementById('hdr'+side).value=slot.hdr;
+  afterSideChange(side);
 }
-function headerChanged(side){
-  const s=SIDES[side]; if(!s.wb)return;
-  const ws=s.wb.Sheets[document.getElementById('sheet'+side).value];
-  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-  applyHeader(side,raw,(parseInt(document.getElementById('hdr'+side).value)||1)-1);
-}
-function applyHeader(side,raw,hdr){
-  const s=SIDES[side];
+function applySlotHeader(slot,raw,hdr){
   const hrow=raw[hdr]||[];
   const cols=hrow.map((c,i)=>c===null||String(c).trim()===''?('Col'+(i+1)):String(c).trim());
-  // dedupe col names
   const seen={}; cols.forEach((c,i)=>{if(seen[c]!==undefined){cols[i]=c+'_'+(++seen[c]);}else seen[c]=0;});
   const rows=[];
   for(let i=hdr+1;i<raw.length;i++){
@@ -2329,11 +2345,73 @@ function applyHeader(side,raw,hdr){
     if(r.every(c=>c===null||c===''))continue;
     const o={}; cols.forEach((c,j)=>o[c]=r[j]===undefined?null:r[j]); rows.push(o);
   }
+  slot.rows=rows; slot.cols=cols;
+}
+/* concatenate the side's files: union of columns (missing cells null),
+   rows in file order — '#N' labels keep counting straight through */
+function mergeSide(side){
+  const s=SIDES[side];
+  const ready=s.files.filter(f=>f.rows);
+  if(!ready.length){s.rows=null;s.cols=null;s.name='';s.wb=null;return;}
+  const cols=[]; const seen=new Set();
+  ready.forEach(f=>f.cols.forEach(c=>{if(!seen.has(c)){seen.add(c);cols.push(c);}}));
+  const rows=[];
+  ready.forEach(f=>{
+    const missing=cols.filter(c=>!f.cols.includes(c));
+    if(!missing.length)rows.push(...f.rows);
+    else f.rows.forEach(r=>{const o=Object.assign({},r);missing.forEach(c=>o[c]=null);rows.push(o);});
+  });
   s.rows=rows; s.cols=cols;
-  document.getElementById('finfo'+side).textContent=rows.length+' '+t('loaded');
+  s.name=ready.map(f=>f.name).join(' + ');
+  s.wb=ready[0].wb; // primary workbook, kept for profile re-application
+}
+function afterSideChange(side){
+  const s=SIDES[side];
+  mergeSide(side);
+  const ready=s.files.filter(f=>f.rows);
+  document.getElementById('fname'+side).textContent=
+    ready.length>1?ready.length+' '+t('filesN'):(ready[0]?ready[0].name:t('drop'));
+  document.getElementById('finfo'+side).textContent=s.rows?s.rows.length+' '+t('loaded'):'';
+  document.getElementById('box'+side).classList.toggle('loaded',!!s.rows);
+  renderExtras(side);
   renderPreview(side);
   rebuildMapping();
   updateRail();
+}
+function renderExtras(side){
+  const el=document.getElementById('extra'+side);
+  const s=SIDES[side];
+  if(!s.files.length){el.innerHTML='';return;}
+  el.innerHTML=s.files.map((f,i)=>
+    '<span class="fchip"><b title="'+esc(f.name)+'">'+esc(f.name)+'</b>'+
+    '<span style="color:var(--okypy-muted)">'+(f.rows?f.rows.length:'…')+'</span>'+
+    '<button class="x" onclick="removeSideFile(\''+side+'\','+i+')" title="✕">✕</button></span>').join('')+
+    '<button class="ghostbtn" onclick="document.getElementById(\'fileAdd'+side+'\').click()">'+t('addFileL')+'</button>';
+}
+function removeSideFile(side,i){
+  const s=SIDES[side];
+  s.files.splice(i,1);
+  if(i===0&&s.files[0]&&s.files[0].wb){
+    const p=s.files[0];
+    const sel=document.getElementById('sheet'+side);
+    sel.innerHTML=p.wb.SheetNames.map(n=>'<option'+(p.sheet===n?' selected':'')+'>'+esc(n)+'</option>').join('');
+    document.getElementById('hdr'+side).value=p.hdr;
+  }
+  if(!s.files.length)document.getElementById('sheetsel'+side).classList.add('hidden');
+  afterSideChange(side);
+}
+function sheetChanged(side){
+  const p=SIDES[side].files[0]; if(!p||!p.wb)return;
+  p.sheet=document.getElementById('sheet'+side).value;
+  parseSlot(side,p);
+}
+function headerChanged(side){
+  const p=SIDES[side].files[0]; if(!p||!p.wb)return;
+  const ws=p.wb.Sheets[p.sheet];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  p.hdr=parseInt(document.getElementById('hdr'+side).value)||1;
+  applySlotHeader(p,raw,p.hdr-1);
+  afterSideChange(side);
 }
 function esc(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function renderPreview(side){
@@ -3511,10 +3589,11 @@ function saveProfile(){
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 function applyProfileSheet(side){
-  const p=PENDING_PROFILE; if(!p||!SIDES[side].wb)return;
+  const p=PENDING_PROFILE; if(!p)return;
+  const prim=SIDES[side].files[0]; if(!prim||!prim.wb)return;
   const cfg=p.sides&&p.sides[side]; if(!cfg)return;
   const sel=document.getElementById('sheet'+side);
-  if(cfg.sheet&&[...sel.options].some(o=>o.value===cfg.sheet))sel.value=cfg.sheet;
+  if(cfg.sheet&&[...sel.options].some(o=>o.value===cfg.sheet)){sel.value=cfg.sheet;prim.sheet=cfg.sheet;}
   if(cfg.hdr)document.getElementById('hdr'+side).value=cfg.hdr;
   headerChanged(side);
 }
@@ -3868,7 +3947,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.6)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.7)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -3877,7 +3956,7 @@ const MANUAL={
    ["Βήμα 1 — Τύπος συμφωνίας",
     "<p>Οι τρεις επιλογές (γενική σύγκριση, Γενικό Καθολικό έναντι αναλυτικού καθολικού, SAP έναντι ΟΑΥ) αλλάζουν μόνο τις ετικέτες και ορισμένες προεπιλογές. Αν δεν είστε βέβαιοι, η γενική σύγκριση καλύπτει κάθε περίπτωση.</p>"],
    ["Βήμα 2 — Αρχεία",
-    "<p>Δεκτά είναι αρχεία .xlsx, .xls και .csv. Αν το βιβλίο εργασίας έχει περισσότερα φύλλα, επιλέγετε ποιο θα διαβαστεί. Τη γραμμή με τις επικεφαλίδες το εργαλείο τη βρίσκει συνήθως μόνο του· αν οι τίτλοι βρίσκονται αλλού, δώστε τον σωστό αριθμό γραμμής. Ό,τι βλέπετε στην προεπισκόπηση είναι ακριβώς αυτό που θα διαβαστεί — αν εκεί τα στοιχεία φαίνονται σωστά, θα διαβαστούν σωστά παντού.</p>"],
+    "<p>Δεκτά είναι αρχεία .xlsx, .xls και .csv. Αν το βιβλίο εργασίας έχει περισσότερα φύλλα, επιλέγετε ποιο θα διαβαστεί. Τη γραμμή με τις επικεφαλίδες το εργαλείο τη βρίσκει συνήθως μόνο του· αν οι τίτλοι βρίσκονται αλλού, δώστε τον σωστό αριθμό γραμμής. Ό,τι βλέπετε στην προεπισκόπηση είναι ακριβώς αυτό που θα διαβαστεί — αν εκεί τα στοιχεία φαίνονται σωστά, θα διαβαστούν σωστά παντού.</p><p>Κάθε πλευρά δέχεται και περισσότερα από ένα αρχεία — π.χ. τρία extrait του ίδιου λογαριασμού απέναντι σε ένα καθολικό, ή το αντίστροφο. Επιλέξτε πολλά αρχεία μαζί στο παράθυρο επιλογής, ή προσθέστε κι άλλα αργότερα με το «+ Αρχείο στην ίδια πλευρά». Οι γραμμές τους ενώνονται σε μία πλευρά με τη σειρά φόρτωσης· το φύλλο και η γραμμή τίτλων που ορίζετε αφορούν το πρώτο αρχείο, ενώ τα υπόλοιπα εντοπίζονται αυτόματα και εμφανίζονται ως πλακίδια που αφαιρούνται με το ✕.</p>"],
    ["Βήμα 2 — Προηγούμενη περίοδος (προαιρετικό)",
     "<p>Στο ίδιο βήμα υπάρχει ένα τρίτο πλαίσιο για την εξαγωγή Excel της προηγούμενης συμφωνίας. Αν τη φορτώσετε, το εργαλείο διαβάζει τα φύλλα «Μόνο στο A», «Μόνο στο B» και «Διαφορές» και ενσωματώνει τις περσινές εκκρεμότητες στη φετινή εκτέλεση:</p><ul><li>Όσες υπάρχουν και στα φετινά αρχεία — ίδιο κλειδί ή ίδιο ποσό με ίδια ημερομηνία — απλώς σημειώνονται με την ένδειξη «B/F».</li><li>Όσες δεν υπάρχουν στα φετινά αρχεία — ο κανόνας στις τραπεζικές συμφωνίες, αφού το extrait κάθε μήνα ξεκινά από την αρχή — μπαίνουν στην εκτέλεση ως κανονικές εγγραφές με κλειδί «B/F …»: μπορούν να συμψηφιστούν με τις φετινές εγγραφές της άλλης πλευράς, να συμμετάσχουν σε προτάσεις, ή να μείνουν εκκρεμείς.</li></ul><p>Ο χαρακτηρισμός που τους είχατε δώσει (π.χ. Χρονική διαφορά) επανέρχεται μόνος του, ο δείκτης «Από προηγ. περίοδο» μετρά όσες παραμένουν ανοιχτές, και ο έλεγχος συνόλων εξακολουθεί να συγκρίνεται με το σύνολο του αρχείου, χωρίς τις μεταφερόμενες.</p>"],
    ["Βήμα 3 — Τι κάνουν οι στήλες-κλειδιά",
@@ -3901,7 +3980,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.6)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.7)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -3910,7 +3989,7 @@ const MANUAL={
    ["Step 1 — Reconciliation type",
     "<p>The three choices (generic comparison, General Ledger against subledger, SAP against HIO) only change the labels and a few defaults. When in doubt, the generic comparison handles anything.</p>"],
    ["Step 2 — Files",
-    "<p>The tool reads .xlsx, .xls and .csv files. If a workbook has several sheets, you choose which one to use. It usually finds the header row on its own; if your column titles sit somewhere else, type the right row number. The preview shows the first rows exactly as they were read — if they look right there, they will be read right everywhere.</p>"],
+    "<p>The tool reads .xlsx, .xls and .csv files. If a workbook has several sheets, you choose which one to use. It usually finds the header row on its own; if your column titles sit somewhere else, type the right row number. The preview shows the first rows exactly as they were read — if they look right there, they will be read right everywhere.</p><p>Each side also takes more than one file — three statements of the same account against one ledger, say, or the other way round. Pick several files at once in the chooser, or add more later with “+ File on this side”. Their rows join into one side in loading order; the sheet and header row you set apply to the first file, while the rest are detected automatically and appear as small chips you can remove with ✕.</p>"],
    ["Step 2 — Previous period (optional)",
     "<p>The same step has a third box, meant for the Excel export of last period's reconciliation. Load it, and the tool reads its “Only in A”, “Only in B” and “Differences” sheets and folds last period's open items into this run:</p><ul><li>Items also present in this month's files — same key, or same amount on the same date — are simply flagged “B/F”.</li><li>Items NOT in this month's files — the rule in bank work, since each statement starts afresh — join the run as ordinary entries keyed “B/F …”: they can clear against the other side's current entries, take part in suggestions, or stay open.</li></ul><p>The category you gave each item last time (Timing difference, say) comes back on its own, the “From prior period” figure counts those still open, and the totals check still compares against the file's own total, without the carried items.</p>"],
    ["Step 3 — What the key columns do",
@@ -3953,7 +4032,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.6.html':'OKYPY_Reconciliation_Manual_v3.6.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.7.html':'OKYPY_Reconciliation_Manual_v3.7.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

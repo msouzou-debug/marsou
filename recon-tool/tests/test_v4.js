@@ -499,6 +499,39 @@ const newAppPage = async browser => {
     JSON.stringify(r.openA[0]) === JSON.stringify(['B/F #2', 555.55, 'catT', true]), r);
   await page.close();
 
+  /* ============ 12. v3.7: many files on one side ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', [S('multi_A1.csv'), S('multi_A2.csv')]);
+  await page.setInputFiles('#fileB', S('multi_B.csv'));
+  await page.waitForFunction(() => SIDES.A.files.length === 2 && SIDES.A.files.every(f => f.rows) && SIDES.B.rows);
+  r = await page.evaluate(() => ({
+    rows: SIDES.A.rows.length, name: SIDES.A.name,
+    chips: document.querySelectorAll('#extraA .fchip').length,
+    fname: document.getElementById('fnameA').textContent,
+  }));
+  console.log('MULTIFILE:', JSON.stringify(r));
+  check('two files merge into side A in order', r.rows === 4 && /multi_A1.*\+.*multi_A2/.test(r.name) && r.chips === 2 && /2/.test(r.fname), r);
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    matched: RESULT.matched.length,
+    openA: RESULT.onlyA.map(x => [x.key, x.amtA]),
+    totA: RESULT.totA,
+  }));
+  check('rows from BOTH A files match B; the merged #N numbering carries through',
+    r.matched === 3 && r.openA.length === 1 &&
+    JSON.stringify(r.openA[0]) === JSON.stringify(['#4', 45.67]) && Math.abs(r.totA - 645.67) < 0.005, r);
+  /* removing one file re-merges the side */
+  r = await page.evaluate(() => { removeSideFile('A', 1); return { rows: SIDES.A.rows.length, chips: document.querySelectorAll('#extraA .fchip').length }; });
+  check('removing a chip re-merges the side', r.rows === 2 && r.chips === 1, r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);
