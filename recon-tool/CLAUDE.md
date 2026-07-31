@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.6**.
+   Current version: **v3.7**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.4**. See "IC Matrix Tool" below.
@@ -106,6 +106,11 @@ Expected values:
     `SUM(E4:E5)`) plus two 'Εκκρεμή n' sheets.
   - carry-forward: fresh ic run + `#filePrev` = export_prev.xlsx → `bf.n=4`,
     flagged keys ['#10','#10','H-77','L-88'], 'Από προηγ. περίοδο' KPI shown.
+  - v3.7 many-files (multi_A1/A2 vs multi_B): setInputFiles with two files
+    → SIDES.A.files.length 2, merged rows 4, name 'multi_A1.csv +
+    multi_A2.csv', 2 chips; no-key run matches 3 rows ACROSS both A files
+    ('#N' continues through the merge: open = ['#4', 45.67], totA 645.67);
+    removeSideFile(1) re-merges to 2 rows.
   - v3.6 month-shift roll-forward (bfm1/bfm2 fixtures): M1's open 555.55
     cheque (cat catT) exported; M2 files don't contain it → injected as
     'B/F #2' and CLEARS against M2's bank entry (matched 'B/F #2 ⇄ #3',
@@ -172,6 +177,20 @@ Expected values:
   HNS PHARMA −48,663.40 vs −48,557.40 → diff −106.00 (FX/fees).
 
 ## Domain logic (do not break)
+
+0. **Many files per side** (v3.7): `SIDES[side].files[]` holds slots
+   {name,wb,sheet,hdr,rows,cols}; `mergeSide()` concatenates their rows in
+   slot order (slots are pushed SYNCHRONOUSLY on selection, so FileReader
+   completion order cannot scramble '#N' numbering) with a UNION of columns
+   (missing cells padded null — never undefined, which would leak
+   'UNDEFINED' into key-overlap sets). `SIDES[side].rows/cols/name/wb`
+   remain the merged view every consumer uses; `wb` is the primary file's
+   workbook (profiles re-apply sheet/header to it). Choosing files via the
+   main box REPLACES the side; the '+ Αρχείο' button (`#fileAddA/B`)
+   APPENDS; chips in `#extraA/B` remove single files (`removeSideFile`
+   promotes the next file's sheet list when the primary goes). The sheet
+   and header controls always describe `files[0]`; extra files auto-detect
+   their own header row.
 
 1. **Matching engine** (`aggregate()` + `runRecon()`): rows are summed per
    composite key on each side, then compared within tolerance. Keys are the
