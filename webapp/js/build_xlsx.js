@@ -68,6 +68,7 @@ function buildWorkbook(result) {
   } else {
     tabMatrix(wb, result);
   }
+  tabGlBridge(wb, result, sraTab, zeroChecks);
   const sections = [{ label: '', result, sraTab, nLines }];
   const ccRows = tabCrosscheck(wb, sections);
   tabAudit(wb, sections, ccRows, zeroChecks);
@@ -76,6 +77,113 @@ function buildWorkbook(result) {
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
+}
+
+/* --------------------------------- tab: GL_Bridge (cash vs booked) */
+
+/* ΟΑΥ's own ledger, bucket by bucket: which cost centres carry each stream */
+const GL_BRIDGE_ROWS = [
+  ['Inpatient', 'Ενδονοσοκομειακή (Inpatient)', '26001 + 26002 + 26003 + 26007',
+   ['regularDrg', 'specialized', 'zCatalogueOnly', 'perDiem']],
+  ['A&E', 'ΤΑΕΠ (A&E)', '25801', ['ae']],
+  ['Outpatient', 'Εξωνοσοκομειακή & ΠΙ (Outpatient)', '25xxx κλινικά + 51001001',
+   ['outpatient', 'capitation']],
+  ['Pharma', 'Φάρμακα (Pharma)', '25501 + λοιπά 255xx',
+   ['pharmacistFee', 'pharmaOther']],
+];
+
+function annotateBridge(bucket) {
+  /* why a bucket's cash and booked figures differ — the known ΟΑΥ ledger
+   * classifications, stated, never absorbed */
+  if (bucket === 'Inpatient') {
+    return ['Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο καθολικό της ΟΑΥ '
+      + '— ταξινόμηση, όχι ταμείο (HIO-ledger classification, not cash).', 'amber'];
+  }
+  if (bucket === 'Pharma') {
+    return ['Το καθολικό ΟΑΥ κρατά τα φάρμακα και την αμοιβή φαρμακοποιού ΚΑΘΑΡΑ από τις '
+      + 'διορθώσεις του μήνα (CRN/OTC, CRN-Packages)· οι τακτοποιήσεις EOAF πάνε στον '
+      + '11202192.', 'amber'];
+  }
+  if (bucket === 'Outpatient') {
+    return ['Επιταγές δορυφορικών παροχέων και προσαρμογές μεθόδου αποζημίωσης μένουν '
+      + 'εκτός του GL αυτού του παρόχου.', 'amber'];
+  }
+  return ['Ανεξήγητη διαφορά (unexplained difference) — δείτε το Source_crosscheck.', 'red'];
+}
+
+function tabGlBridge(wb, result, sraTab, zeroChecks) {
+  /* Cash vs booked on one page: what the cheque paid per bucket (panel A),
+   * what the ΟΑΥ ledger booked for the same bucket (panel B), and the
+   * variance (panel C).  Panel A links to the Reconciliation tab, so it is
+   * the same number the cheque ties to; the bottom zero-check proves the
+   * per-bucket variances add up to (SRA total − GL total). */
+  const b = result.bundle;
+  if (!b.gl || result.crosscheckMode || !b.sra) return;
+  const ws = wb.addWorksheet('GL_Bridge');
+  const gr = (HOSPITALS[b.hospitalCode] || [b.hospitalCode])[0];
+  ws.getCell(1, 1).value = `Γέφυρα ταμείου ↔ καθολικού ΟΑΥ (SRA cash vs booked GL) — `
+    + `${gr} — ${b.month ? MONTH_NAMES_EL[b.month] : ''} ${b.year || ''}`;
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  writeHeader(ws, 3, ['Καλάθι (Bucket)', 'Α — Ταμείο SRA (cash) €',
+                      'Κέντρα κόστους ΟΑΥ (GL cost centres)',
+                      'Β — Καθολικό ΟΑΥ (booked) €', 'Διαφορά Α−Β (Variance) €',
+                      'Σημείωση (Note)']);
+  let r = 4;
+  const first = r;
+  for (const [bucket, label, centres, fields] of GL_BRIDGE_ROWS) {
+    ws.getCell(r, 1).value = label;
+    ws.getCell(r, 1).font = F_INPUT;
+    const reconRow = 4 + BUCKETS.indexOf(bucket);
+    writeAmount(ws, r, 2, `'Reconciliation'!C${reconRow}`, F_LINK);
+    ws.getCell(r, 3).value = centres;
+    ws.getCell(r, 3).font = F_INPUT;
+    const booked = round2(fields.reduce((a, f) => a + (b.gl[f] || 0), 0));
+    writeAmount(ws, r, 4, booked, F_INPUT);
+    const diffCell = writeAmount(ws, r, 5, `B${r}-D${r}`, F_FORMULA);
+    const cash = result.buckets[bucket] || 0;
+    const diff = round2(cash - booked);
+    if (Math.abs(diff) > CENT) {
+      const [note, flag] = annotateBridge(bucket);
+      const cell = ws.getCell(r, 6);
+      cell.value = note;
+      cell.alignment = { wrapText: true, vertical: 'top' };
+      diffCell.font = flag === 'amber' ? F_AMBER : F_RED;
+      if (flag === 'amber') cell.fill = FILL_AMBER;
+    } else {
+      ws.getCell(r, 6).value = 'OK — ταυτίζεται (ties out).';
+      ws.getCell(r, 6).font = { italic: true, color: { argb: GRAY } };
+    }
+    r += 1;
+  }
+  const totalRow = r;
+  ws.getCell(totalRow, 1).value = 'ΣΥΝΟΛΟ (TOTAL)';
+  ws.getCell(totalRow, 1).font = { bold: true };
+  for (const col of [2, 4, 5]) {
+    const letter = colLetter(col);
+    writeAmount(ws, totalRow, col, `SUM(${letter}${first}:${letter}${totalRow - 1})`,
+                { bold: true });
+  }
+  r += 2;
+  const chequeRow = r;
+  ws.getCell(chequeRow, 1).value = 'Επιταγή ΟΑΥ (HIO cheque)';
+  ws.getCell(chequeRow, 1).font = { bold: true };
+  writeAmount(ws, chequeRow, 2, `'Reconciliation'!C${4 + BUCKETS.length + 1}`, F_LINK);
+  r += 1;
+  ws.getCell(r, 1).value = 'Zero-check = ταμείο ανά καλάθι − επιταγή (must be 0)';
+  writeAmount(ws, r, 2, `B${totalRow}-B${chequeRow}`, F_FORMULA).fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'GL_Bridge', addr: `B${r}` });
+  r += 1;
+  ws.getCell(r, 1).value = 'Zero-check = άθροισμα διαφορών − (ταμείο − καθολικό) (must be 0)';
+  writeAmount(ws, r, 5, `E${totalRow}-(B${totalRow}-D${totalRow})`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'GL_Bridge', addr: `E${r}` });
+  r += 2;
+  ws.getCell(r, 1).value = 'Η διαφορά ΔΕΝ κλείνει με προσαρμογή: κάθε καλάθι δείχνει τις '
+    + 'δύο πλευρές και το άνοιγμα, με τη σημείωση που το εξηγεί. Αναλυτικά ανά λογαριασμό: '
+    + 'φύλλο Source_crosscheck (the gap is never plugged — see Source_crosscheck for the '
+    + 'account-level detail).';
+  ws.getCell(r, 1).font = { italic: true, color: { argb: GRAY } };
+  autosize(ws);
 }
 
 /* ------------------------------- multi-provider (mental-health) workbook */
@@ -937,7 +1045,12 @@ function tabSplit(wb, result, statedCell, zeroChecks) {
   const [gr] = HOSPITALS[b.hospitalCode];
   ws.getCell(1, 1).value = `Κατανομή ανά κλινική για SAP (By-clinic split) — ${gr} — ${MONTH_NAMES_EL[b.month]} ${b.year}`;
   ws.getCell(1, 1).font = { bold: true, color: { argb: NAVY } };
-  writeHeader(ws, 3, ['Κλινική / Γραμμή (Clinic / Line)', 'Fixed Fee €', 'DRG €', 'Ποσό (Amount €)']);
+  /* the inpatient fee splits three ways: DRG, daily treatments and the
+   * Z-catalogue drugs/procedures — ΟΑΥ's own pivot lumps the last two
+   * together under «FIXED FEE», the per-claim detail table tells them apart */
+  writeHeader(ws, 3, ['Κλινική / Γραμμή (Clinic / Line)', 'DRG €',
+                      'Ημερήσιες θεραπείες (Daily treat.) €',
+                      'Ζ-φάρμακα/πράξεις (Z-drugs) €', 'Ποσό (Amount €)']);
   let r = 4;
   const subtotalCells = [];
   for (const section of result.split) {
@@ -949,29 +1062,35 @@ function tabSplit(wb, result, statedCell, zeroChecks) {
     const first = r;
     for (const row of section.rows) {
       ws.getCell(r, 1).value = row.label; ws.getCell(r, 1).font = F_INPUT;
-      if (row.fixedFee != null) writeAmount(ws, r, 2, row.fixedFee, F_INPUT);
-      if (row.drg != null) writeAmount(ws, r, 3, row.drg, F_INPUT);
-      writeAmount(ws, r, 4, row.amount, F_INPUT);
+      if (row.drg != null) writeAmount(ws, r, 2, row.drg, F_INPUT);
+      if (row.fixedFee != null) writeAmount(ws, r, 3, row.fixedFee, F_INPUT);
+      if (row.zDrugs != null) writeAmount(ws, r, 4, row.zDrugs, F_INPUT);
+      writeAmount(ws, r, 5, row.amount, F_INPUT);
       r += 1;
     }
     ws.getCell(r, 1).value = `Υποσύνολο (Subtotal) — ${section.title}`;
     ws.getCell(r, 1).font = { bold: true };
-    if (r > first) writeAmount(ws, r, 4, `SUM(D${first}:D${r - 1})`, { bold: true });
-    else writeAmount(ws, r, 4, 0, { bold: true });
-    subtotalCells.push(`D${r}`);
+    /* every column carries its own live subtotal, so the three inpatient
+     * streams add up on the page as well as across */
+    for (const col of [2, 3, 4, 5]) {
+      const letter = colLetter(col);
+      if (r > first) writeAmount(ws, r, col, `SUM(${letter}${first}:${letter}${r - 1})`, { bold: true });
+      else writeAmount(ws, r, col, 0, { bold: true });
+    }
+    subtotalCells.push(`E${r}`);
     r += 2;
   }
   const totalRow = r;
   ws.getCell(totalRow, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ (GRAND TOTAL)';
   ws.getCell(totalRow, 1).font = { bold: true, color: { argb: NAVY } };
-  writeAmount(ws, totalRow, 4, subtotalCells.join('+'), { bold: true });
+  writeAmount(ws, totalRow, 5, subtotalCells.join('+'), { bold: true });
   if (statedCell) {
     const chequeRow = totalRow + 1, checkRow = totalRow + 2;
     ws.getCell(chequeRow, 1).value = 'Επιταγή ΟΑΥ (HIO cheque)';
-    writeAmount(ws, chequeRow, 4, statedCell, F_LINK);
+    writeAmount(ws, chequeRow, 5, statedCell, F_LINK);
     ws.getCell(checkRow, 1).value = 'Zero-check = ΓΕΝΙΚΟ ΣΥΝΟΛΟ − επιταγή (must be 0)';
-    writeAmount(ws, checkRow, 4, `D${totalRow}-D${chequeRow}`, F_FORMULA).fill = FILL_CHECK;
-    zeroChecks.push({ sheet: 'By_Clinic_Split', addr: `D${checkRow}` });
+    writeAmount(ws, checkRow, 5, `E${totalRow}-E${chequeRow}`, F_FORMULA).fill = FILL_CHECK;
+    zeroChecks.push({ sheet: 'By_Clinic_Split', addr: `E${checkRow}` });
   } else {
     ws.getCell(totalRow + 1, 1).value = 'Cross-check mode: χωρίς επιταγή — no cash tie-out (δεν υπάρχει SRA).';
   }
@@ -1131,7 +1250,7 @@ function tabByDoctor(wb, result, sraTab, nLines, splitTotalRow) {
     r += 1;
     const splitRow = r;
     ws.getCell(r, 1).value = 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ By_Clinic_Split (= επιταγή ΟΑΥ)';
-    writeAmount(ws, r, 4, `'By_Clinic_Split'!D${splitTotalRow}`, F_LINK);
+    writeAmount(ws, r, 4, `'By_Clinic_Split'!E${splitTotalRow}`, F_LINK);
     r += 1;
     ws.getCell(r, 1).value = 'Διαφορά γέφυρας — γραμμές SRA χωρίς αναλυτικό ανά ιατρό '
       + '(προσαρμογές OS/NM/AP/PD, επιταγές δορυφορικών παροχέων, υπόλοιπο ανάλυσης)';

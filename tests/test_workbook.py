@@ -20,9 +20,10 @@ def _build(with_optional=False, crosscheck=False):
 def test_workbook_has_five_tabs_and_zero_checks_pass():
     data, _ = _build(with_optional=True)
     wb = load_workbook(io.BytesIO(data))
-    assert wb.sheetnames == ["SRA_259434", "Reconciliation", "Source_crosscheck",
-                             "Ανάλυση_ελέγχων", "By_Clinic_Split", "Ανά_ιατρό",
-                             "Πώς_δένουν", "Legend"]
+    assert wb.sheetnames == ["SRA_259434", "Reconciliation", "GL_Bridge",
+                             "Source_crosscheck", "Ανάλυση_ελέγχων",
+                             "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν",
+                             "Legend"]
     assert verify_workbook(data) == []      # gate 5: every zero-check reads 0
 
 
@@ -209,3 +210,67 @@ def test_tolerance_ok_check_is_not_claimed_to_be_zero():
     cell = ws.cell(row=diff, column=2)
     assert not str(cell.fill.fgColor.rgb).endswith("FFFF00")
     assert round(_Evaluator(wb).evaluate(cell.value, "Ανάλυση_ελέγχων"), 2) == 2.61
+
+
+# ------------------------------- three-column inpatient split + GL bridge
+
+def test_split_tab_writes_drg_daily_and_zdrugs_with_column_subtotals():
+    """The inpatient fee splits three ways. Each column carries its own live
+    subtotal, and the grand total still ties to the cheque."""
+    import synth
+    from recon.checks import ReconBundle
+    from test_checks import full_bundle
+    b = full_bundle()
+    b.inpatient = __import__("recon.extract", fromlist=["x"]).extract_inpatient_summary(
+        synth.inpatient_summary_xlsx(with_procedure_detail=True))
+    b.claims.inpatient_by_clinic = []          # use the Ενδ. per-clinic detail
+    res = run_reconciliation(b)
+    data = build_workbook(res)
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["By_Clinic_Split"]
+    assert [ws.cell(row=3, column=c).value for c in range(1, 6)] == [
+        "Κλινική / Γραμμή (Clinic / Line)", "DRG €",
+        "Ημερήσιες θεραπείες (Daily treat.) €",
+        "Ζ-φάρμακα/πράξεις (Z-drugs) €", "Ποσό (Amount €)"]
+    ev = _Evaluator(wb)
+    sub = next(r for r in range(4, ws.max_row + 1)
+               if str(ws.cell(row=r, column=1).value or "").startswith("Υποσύνολο")
+               and "Inpatient" in str(ws.cell(row=r, column=1).value))
+    drg, daily, z = (round(ev.evaluate(ws.cell(row=sub, column=c).value,
+                                       "By_Clinic_Split"), 2) for c in (2, 3, 4))
+    assert (drg, daily, z) == (812_890.31, 224_260.00, 19_862.39)
+    assert verify_workbook(data) == []         # still ties to the cheque
+
+
+def test_gl_bridge_tab_compares_cash_with_booked_and_checks_the_variances():
+    data, res = _build(with_optional=True)
+    wb = load_workbook(io.BytesIO(data))
+    assert "GL_Bridge" in wb.sheetnames
+    ws = wb["GL_Bridge"]
+    ev = _Evaluator(wb)
+    rows = {str(ws.cell(row=r, column=1).value or ""): r
+            for r in range(1, ws.max_row + 1)}
+    # panel A links to Reconciliation — the same figure the cheque ties to
+    ip = next(r for k, r in rows.items() if k.startswith("Ενδονοσοκομειακή"))
+    assert str(ws.cell(row=ip, column=2).value).startswith("='Reconciliation'!")
+    assert round(ev.evaluate(ws.cell(row=ip, column=2).value, "GL_Bridge"), 2) == \
+        1_061_728.70
+    # panel B is the ledger, panel C the live variance
+    assert ws.cell(row=ip, column=4).value == 1_061_728.70
+    assert ws.cell(row=ip, column=5).value == f"=B{ip}-D{ip}"
+    ph = next(r for k, r in rows.items() if k.startswith("Φάρμακα"))
+    assert round(ev.evaluate(ws.cell(row=ph, column=5).value, "GL_Bridge"), 2) == \
+        round(664_785.09 - (24_000.00 + 651_863.49), 2)
+    assert ws.cell(row=ph, column=6).value      # the variance is explained
+    # both zero-checks recompute to 0 (gate 5 covers them too)
+    for key in ("Zero-check = ταμείο ανά καλάθι − επιταγή (must be 0)",
+                "Zero-check = άθροισμα διαφορών − (ταμείο − καθολικό) (must be 0)"):
+        r = rows[key]
+        cell = next(c for c in (2, 5) if isinstance(ws.cell(row=r, column=c).value, str))
+        assert round(ev.evaluate(ws.cell(row=r, column=cell).value, "GL_Bridge"), 2) == 0.0
+    assert verify_workbook(data) == []
+
+
+def test_gl_bridge_is_absent_without_a_gl_extract():
+    data, _res = _build(with_optional=False)
+    assert "GL_Bridge" not in load_workbook(io.BytesIO(data)).sheetnames

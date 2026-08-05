@@ -104,8 +104,9 @@ class ReconBundle:
 class SplitRow:
     label: str
     amount: float
-    fixed_fee: Optional[float] = None
+    fixed_fee: Optional[float] = None   # daily treatments (FixedFee class)
     drg: Optional[float] = None
+    z_drugs: Optional[float] = None     # ZDRUG + ZPROC + ZCONSU
 
 
 @dataclass
@@ -1222,12 +1223,19 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     # Inpatient by clinic (Fixed Fee / DRG columns) — from the claims detail
     # when present, else the Ενδ. workbook's «per clinic» pivot sheet
     ip = SplitSection("Ενδονοσοκομειακή περίθαλψη (Inpatient)", Bucket.INPATIENT)
-    clinic_rows = (bundle.claims.inpatient_by_clinic if bundle.claims else []) \
-        or (bundle.inpatient.by_clinic if bundle.inpatient else [])
+    # prefer whichever source carries the THREE-WAY split (DRG / daily
+    # treatments / Z-drugs) — only the Ενδ. per-claim detail table has the
+    # «Procedure Class Id» that separates them; the claims file groups by
+    # speciality with a single total
+    endo_rows = bundle.inpatient.by_clinic if bundle.inpatient else []
+    claims_rows = bundle.claims.inpatient_by_clinic if bundle.claims else []
+    split_rows = [r for r in endo_rows if r.z_drugs or r.fixed_fee]
+    clinic_rows = endo_rows if split_rows else (claims_rows or endo_rows)
     if clinic_rows:
         for r in clinic_rows:
             ip.rows.append(SplitRow(label=r.clinic, amount=r.total,
-                                    fixed_fee=r.fixed_fee or None, drg=r.drg or None))
+                                    fixed_fee=r.fixed_fee or None, drg=r.drg or None,
+                                    z_drugs=r.z_drugs or None))
     elif bundle.claims:
         ip.rows.append(SplitRow("Ενδονοσοκομειακή (inpatient claims)",
                                 bundle.claims.by_segment.get("Inpatient", 0.0)))
@@ -1236,7 +1244,9 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         ip.rows.append(SplitRow("Εξειδικευμένα (Specialized)", bundle.inpatient.specialized))
         if bundle.inpatient.gennes:
             ip.rows.append(SplitRow("Γέννες (Births)", bundle.inpatient.gennes))
-        ip.rows.append(SplitRow("Κατάλογος Z (Z-catalogue)", bundle.inpatient.z_catalogue))
+        ip.rows.append(SplitRow("Κατάλογος Z — φάρμακα/πράξεις (Z-drugs)",
+                                bundle.inpatient.z_catalogue,
+                                z_drugs=bundle.inpatient.z_catalogue))
         for label, amount in bundle.inpatient.other.items():
             ip.rows.append(SplitRow(label, amount))
     elif sra:

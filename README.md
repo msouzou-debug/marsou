@@ -77,7 +77,7 @@ on screen for correction before the run — the app never guesses an amount.
 4. **No SRA?** Tick *cross-check mode*: the cash tie-out is skipped and a
    report-vs-report matrix (streams × reports, Range column) is produced
    instead.
-5. Download the workbook: `SRA_<cheque>`, `Reconciliation`,
+5. Download the workbook: `SRA_<cheque>`, `Reconciliation`, `GL_Bridge`,
    `Source_crosscheck`, `Ανάλυση_ελέγχων`, `By_Clinic_Split`, `Ανά_ιατρό`,
    `Πώς_δένουν`, `Legend`. Blue font = input off a source report, black =
    live formula, green = cross-sheet link, yellow fill = zero-check. Every
@@ -90,6 +90,23 @@ on screen for correction before the run — the app never guesses an amount.
    live subtotals, the difference, and two cells proving the block agrees
    with `Source_crosscheck`. A side whose itemisation doesn't add up gets an
    explicit *not itemised* row, so nothing is absorbed silently.
+
+`By_Clinic_Split` splits the inpatient fee **three ways** — DRG, daily
+treatments, and Z-catalogue drugs/procedures — each with its own live column
+subtotal. ΟΑΥ's per-clinic pivot lumps the last two together under «FIXED
+FEE»; the separation comes from the per-claim detail table's
+`Procedure Class Id` (`FixedFee` → daily, `ZDRUG`/`ZPROC`/`ZCONSU` → Z-drugs,
+`INPATIENTS` → DRG), grouped by `Specialty`. Files without that table fall
+back to the pivot, with the Z column empty.
+
+`GL_Bridge` is the cash-vs-booked page: the cheque per bucket (linked from
+`Reconciliation`), the ΟΑΥ ledger's own cost centres for the same bucket, and
+the live variance, with two zero-checks — the cash side equals the cheque,
+and the bucket variances add up to (cash − booked). Known ledger
+classifications are annotated per bucket; the account-level detail stays in
+`Source_crosscheck`. The GL also now reads 26003 (Z-catalogue) and 26007
+(per diem / daily) apart, while `z_catalogue` still returns the pair so the
+existing 26003+26007 check is unchanged.
 
 ## Validation gates (in order, stop on failure)
 

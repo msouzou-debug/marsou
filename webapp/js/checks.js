@@ -1005,14 +1005,19 @@ function buildSplit(bundle) {
   };
 
   const ip = { title: 'Ενδονοσοκομειακή περίθαλψη (Inpatient)', bucket: 'Inpatient', rows: [] };
-  // per-clinic detail: claims file when present, else the Ενδ. «per clinic» pivot
-  const clinicRows = (bundle.claims && bundle.claims.inpatientByClinic.length
-    ? bundle.claims.inpatientByClinic
-    : (bundle.inpatient && bundle.inpatient.byClinic ? bundle.inpatient.byClinic : []));
+  /* prefer whichever source carries the THREE-WAY split (DRG / daily
+   * treatments / Z-drugs) — only the Ενδ. per-claim detail table has the
+   * «Procedure Class Id» that separates them; the claims file groups by
+   * speciality with a single total */
+  const endoRows = (bundle.inpatient && bundle.inpatient.byClinic) || [];
+  const claimsRows = (bundle.claims && bundle.claims.inpatientByClinic) || [];
+  const clinicRows = endoRows.some((r) => r.zDrugs || r.fixedFee)
+    ? endoRows : (claimsRows.length ? claimsRows : endoRows);
   if (clinicRows.length) {
     for (const r of clinicRows) {
       ip.rows.push({ label: r.clinic, amount: r.total,
-                     fixedFee: r.fixedFee || null, drg: r.drg || null });
+                     fixedFee: r.fixedFee || null, drg: r.drg || null,
+                     zDrugs: r.zDrugs || null });
     }
   } else if (bundle.claims) {
     ip.rows.push({ label: 'Ενδονοσοκομειακή (inpatient claims)', amount: bundle.claims.bySegment['Inpatient'] || 0 });
@@ -1020,7 +1025,9 @@ function buildSplit(bundle) {
     ip.rows.push({ label: 'Κανονικά (Regular)', amount: bundle.inpatient.regular });
     ip.rows.push({ label: 'Εξειδικευμένα (Specialized)', amount: bundle.inpatient.specialized });
     if (bundle.inpatient.gennes) ip.rows.push({ label: 'Γέννες (Births)', amount: bundle.inpatient.gennes });
-    ip.rows.push({ label: 'Κατάλογος Z (Z-catalogue)', amount: bundle.inpatient.zCatalogue });
+    ip.rows.push({ label: 'Κατάλογος Z — φάρμακα/πράξεις (Z-drugs)',
+                   amount: bundle.inpatient.zCatalogue,
+                   zDrugs: bundle.inpatient.zCatalogue });
     for (const [label, amount] of Object.entries(bundle.inpatient.other || {})) {
       ip.rows.push({ label, amount });
     }

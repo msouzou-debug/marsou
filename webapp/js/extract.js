@@ -91,7 +91,7 @@ function extractInpatientSummary(bytes) {
       throw new ExtractionError('Ενδ. summary: το Σύνολο δεν ισούται με το άθροισμα των γραμμών '
         + `(Σύνολο ${formatEur(out.synolo)} vs άθροισμα ${formatEur(out.computedTotal)})`);
     }
-    out.byClinic = perClinicDetailSheet(sheets);
+    out.byClinic = perClinicRows(sheets);
     // the file ALSO carries the full per-claim listing below the summary —
     // sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
     // universe while the listing includes old-period claims paid now
@@ -211,6 +211,71 @@ function endoBestTotal(inp) {
   return inp.detailTotal != null ? inp.detailTotal : inp.synolo;
 }
 
+/* «Procedure Class Id» in the Ενδ. per-claim detail table.  ΟΑΥ's per-clinic
+ * pivot lumps daily treatments and Z-catalogue items together under FIXED
+ * FEE; this is what tells them apart. */
+const CLASS_DRG = ['INPATIENT'];
+const CLASS_DAILY = ['FIXEDFEE'];
+const CLASS_ZDRUG = ['ZDRUG', 'ZPROC', 'ZCONSU'];
+
+function classifyProcedureClass(value) {
+  const up = normLabel(cellText(value)).split(' ').join('');
+  if (CLASS_ZDRUG.some((k) => up.includes(k))) return 'zDrugs';
+  if (CLASS_DAILY.some((k) => up.includes(k))) return 'fixedFee';   // daily treatments
+  if (CLASS_DRG.some((k) => up.includes(k))) return 'drg';
+  return null;
+}
+
+function perClinicFromDetail(sheets) {
+  /* Per-clinic inpatient split from the per-claim DETAIL table, which carries
+   * «Procedure Class Id» — the only place daily treatments (FixedFee) and the
+   * Z-catalogue items (ZDRUG / ZPROC / ZCONSU) can be told apart.  Grouped by
+   * «Specialty», summing the per-claim hospital amount. */
+  for (const { rows } of sheets) {
+    const hr = findHeaderRow(rows, ['PROCEDURE CLASS ID'], 40);
+    if (hr === null) continue;
+    const { cols, body } = tableAt(rows, hr);
+    const cls = colIndex(cols, 'PROCEDURE CLASS ID');
+    const spec = colIndex(cols, 'SPECIALTY', 'SPECIALITY', 'ΕΙΔΙΚΟΤΗΤΑ', 'ΚΛΙΝΙΚΗ');
+    const amt = colIndex(cols, 'HOSPITAL AMOUNT PER CLAIM ACTIVITY',
+      'HOSPITAL AMOUNT', 'ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ', 'ΑΜΟΙΒΗ ΑΠΟ ΟΑΥ');
+    if (cls == null || amt == null) continue;
+    const byClinic = new Map();
+    for (const row of body) {
+      if (!isNumberLike(row[amt])) continue;
+      let clinic = spec != null && row[spec] != null ? cellText(row[spec]).trim() : '';
+      if (!clinic || clinic.toLowerCase() === 'nan') clinic = '—';
+      const nl = normLabel(clinic);
+      if (nl.includes('ΣΥΝΟΛ') || nl.includes('TOTAL')) continue;
+      const bucket = classifyProcedureClass(row[cls]);
+      if (!bucket) continue;
+      if (!byClinic.has(clinic)) {
+        byClinic.set(clinic, { clinic, fixedFee: 0, drg: 0, zDrugs: 0, total: 0 });
+      }
+      const cr = byClinic.get(clinic);
+      cr[bucket] = round2(cr[bucket] + parseAmount(row[amt]));
+    }
+    const out = [];
+    for (const cr of byClinic.values()) {
+      cr.total = round2(cr.drg + cr.fixedFee + cr.zDrugs);
+      if (cr.total || cr.drg || cr.fixedFee || cr.zDrugs) out.push(cr);
+    }
+    if (out.length) {
+      out.sort((a, b) => b.total - a.total);
+      return out;
+    }
+  }
+  return [];
+}
+
+function perClinicRows(sheets) {
+  /* Prefer the per-claim detail table (it separates daily treatments from
+   * Z-catalogue items); fall back to ΟΑΥ's per-clinic pivot, where the two
+   * are lumped together under FIXED FEE. */
+  const detail = perClinicFromDetail(sheets);
+  return detail.length ? detail : perClinicDetailSheet(sheets);
+}
+
 function perClinicDetailSheet(sheets) {
   /* Real Ενδ. workbooks carry a «per clinic» pivot: Row Labels | Sum of
    * FIXED FEE | Sum of INPATIENTS | Sum of Grand Total. */
@@ -236,7 +301,8 @@ function perClinicDetailSheet(sheets) {
       const gtv = gt != null ? parseAmount(rows[i][gt]) : 0;
       const total = gtv || round2(ffv + ipv);
       if (!total && !ffv && !ipv) continue;
-      out.push({ clinic, fixedFee: round2(ffv), drg: round2(ipv), total: round2(total) });
+      out.push({ clinic, fixedFee: round2(ffv), drg: round2(ipv), zDrugs: 0,
+                 total: round2(total) });
     }
     out.sort((a, b) => b.total - a.total);
     return out;
@@ -822,7 +888,7 @@ function extractGl(bytes, hospitalCode) {
     const cc = colIndex(cols, 'COST_CENTER', 'COST_CENTRE');
     const acc = colIndex(cols, 'ACCOUNT');
     const amt = colIndex(cols, 'EURO_AMOUNT');
-    const out = { regularDrg: 0, specialized: 0, zCatalogue: 0, ae: 0,
+    const out = { regularDrg: 0, specialized: 0, zCatalogueOnly: 0, perDiem: 0, ae: 0,
                   pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0,
                   unearnedEoaf: 0, other: 0 };
     // cost centre (or account) -> amount for everything the map doesn't
@@ -837,7 +903,10 @@ function extractGl(bytes, hospitalCode) {
       else if (account === '11202192') out.unearnedEoaf += amount;
       else if (centre === '26001') out.regularDrg += amount;
       else if (centre === '26002') out.specialized += amount;
-      else if (centre === '26003' || centre === '26007') out.zCatalogue += amount;
+      else if (centre === '26003') out.zCatalogueOnly += amount;
+      /* per diem / zero-cost-weight DRGs — the daily treatments, kept apart
+       * from the Z-catalogue proper (zCatalogue below stays 26003+26007) */
+      else if (centre === '26007') out.perDiem += amount;
       else if (centre === '25801') out.ae += amount;
       else if (centre === '25501') out.pharmacistFee += amount;
       else if (centre.startsWith('255')) out.pharmaOther += amount;
@@ -850,6 +919,7 @@ function extractGl(bytes, hospitalCode) {
     }
     for (const k of Object.keys(out)) out[k] = round2(out[k]);
     out.otherCentres = otherCentres;
+    out.zCatalogue = round2(out.zCatalogueOnly + out.perDiem);
     out.inpatient = round2(out.regularDrg + out.specialized + out.zCatalogue);
     return out;
   }

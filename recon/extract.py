@@ -136,7 +136,7 @@ def extract_inpatient_summary(data: bytes) -> InpatientSummary:
             raise ExtractionError(
                 "Ενδ. summary: το Σύνολο δεν ισούται με το άθροισμα των γραμμών "
                 f"(Σύνολο {out.synolo:,.2f} vs άθροισμα {out.computed_total:,.2f})")
-        out.by_clinic = _per_clinic_detail_sheet(sheets)
+        out.by_clinic = _per_clinic_rows(sheets)
         # the file ALSO carries the full per-claim listing below the summary —
         # sum its amount column too: the ΣΥΝΟΠΤΙΚΟΣ covers the month's DRG
         # universe while the listing includes old-period claims paid now
@@ -245,6 +245,66 @@ def _detail_column_candidates(df: pd.DataFrame, after_row: int
     return out
 
 
+# «Procedure Class Id» in the Ενδ. per-claim detail table.  ΟΑΥ's per-clinic
+# pivot lumps daily treatments and Z-catalogue items together under FIXED
+# FEE; this is what tells them apart.
+_CLASS_DRG = ("INPATIENT",)
+_CLASS_DAILY = ("FIXEDFEE", "FIXED FEE")
+_CLASS_ZDRUG = ("ZDRUG", "ZPROC", "ZCONSU")
+
+
+def _classify_procedure_class(value: str) -> Optional[str]:
+    up = norm_label(str(value)).replace(" ", "")
+    if any(k.replace(" ", "") in up for k in _CLASS_ZDRUG):
+        return "z_drugs"
+    if any(k.replace(" ", "") in up for k in _CLASS_DAILY):
+        return "fixed_fee"      # daily treatments
+    if any(k in up for k in _CLASS_DRG):
+        return "drg"
+    return None
+
+
+def _per_clinic_from_detail(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
+    """Per-clinic inpatient split from the per-claim DETAIL table, which
+    carries «Procedure Class Id» — the only place the daily treatments
+    (FixedFee) and the Z-catalogue items (ZDRUG / ZPROC / ZCONSU) can be told
+    apart.  Grouped by «Specialty», summing the per-claim hospital amount."""
+    for _, df in sheets.items():
+        hr = _find_header(df, ["PROCEDURE CLASS ID"], max_rows=40)
+        if hr is None:
+            continue
+        t = _table_at(df, hr)
+        cls = _col(t, "PROCEDURE CLASS ID")
+        spec = _col(t, "SPECIALTY", "SPECIALITY", "ΕΙΔΙΚΟΤΗΤΑ", "ΚΛΙΝΙΚΗ")
+        amt = _col(t, "HOSPITAL AMOUNT PER CLAIM ACTIVITY",
+                   "HOSPITAL AMOUNT", "ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ", "ΑΜΟΙΒΗ ΑΠΟ ΟΑΥ")
+        if cls is None or amt is None:
+            continue
+        rows: dict[str, ClinicRow] = {}
+        for _, row in t.iterrows():
+            if not _is_number(row[amt]):
+                continue
+            clinic = (str(row[spec]).strip() if spec is not None else "").strip()
+            if not clinic or clinic.lower() == "nan":
+                clinic = "—"
+            if "ΣΥΝΟΛ" in norm_label(clinic) or "TOTAL" in norm_label(clinic):
+                continue
+            bucket = _classify_procedure_class(row[cls])
+            if bucket is None:
+                continue
+            value = parse_amount(row[amt])
+            cr = rows.setdefault(clinic, ClinicRow(clinic=clinic))
+            setattr(cr, bucket, round(getattr(cr, bucket) + value, 2))
+        for cr in rows.values():
+            cr.total = round(cr.drg + cr.fixed_fee + cr.z_drugs, 2)
+        out = [cr for cr in rows.values() if cr.total or cr.drg or cr.fixed_fee
+               or cr.z_drugs]
+        if out:
+            out.sort(key=lambda r: -r.total)
+            return out
+    return []
+
+
 def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
     """Real Ενδ. workbooks carry a «per clinic» pivot: Row Labels | Sum of
     FIXED FEE | Sum of INPATIENTS | Sum of Grand Total — the per-clinic
@@ -283,6 +343,13 @@ def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]
         rows.sort(key=lambda r: -r.total)
         return rows
     return []
+
+
+def _per_clinic_rows(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
+    """Prefer the per-claim detail table (it separates daily treatments from
+    Z-catalogue items); fall back to ΟΑΥ's per-clinic pivot, where the two
+    are lumped together under FIXED FEE."""
+    return _per_clinic_from_detail(sheets) or _per_clinic_detail_sheet(sheets)
 
 
 def _is_number(v) -> bool:
@@ -967,8 +1034,13 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
                 out.regular_drg += amount
             elif centre == "26002":
                 out.specialized += amount
-            elif centre in ("26003", "26007"):
-                out.z_catalogue += amount
+            elif centre == "26003":
+                out.z_catalogue_only += amount
+            elif centre == "26007":
+                # per diem / zero-cost-weight DRGs — the daily treatments,
+                # kept apart from the Z-catalogue proper (the .z_catalogue
+                # property still returns 26003+26007 for the existing check)
+                out.per_diem += amount
             elif centre == "25801":
                 out.ae += amount
             elif centre == "25501":
@@ -985,9 +1057,9 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
                 key = centre or (account or "—")
                 out.other_centres[key] = round(
                     out.other_centres.get(key, 0.0) + amount, 2)
-        for attr in ("regular_drg", "specialized", "z_catalogue", "ae", "pharmacist_fee",
-                     "pharma_other", "outpatient", "capitation", "unearned_eoaf",
-                     "other"):
+        for attr in ("regular_drg", "specialized", "z_catalogue_only", "per_diem",
+                     "ae", "pharmacist_fee", "pharma_other", "outpatient",
+                     "capitation", "unearned_eoaf", "other"):
             setattr(out, attr, round(getattr(out, attr), 2))
         return out
     raise ExtractionError("GL extract: δεν βρέθηκαν στήλες VENDOR_CODE / EURO_AMOUNT")

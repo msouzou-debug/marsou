@@ -281,9 +281,14 @@ class InpatientSummary:
 
 @dataclass
 class ClinicRow:
+    """Per-clinic inpatient detail.  «Fixed fee» in ΟΑΥ's per-clinic pivot
+    lumps two different things together — daily treatments and Z-catalogue
+    drugs/procedures — so when the file carries the per-claim detail table
+    they are split apart here (Procedure Class Id)."""
     clinic: str
-    fixed_fee: float = 0.0
-    drg: float = 0.0
+    fixed_fee: float = 0.0      # daily treatments (FixedFee class)
+    drg: float = 0.0            # DRG / INPATIENTS
+    z_drugs: float = 0.0        # ZDRUG + ZPROC + ZCONSU
     total: float = 0.0
 
 
@@ -332,7 +337,8 @@ class PharmacistFee:
 class GLExtract:
     regular_drg: float = 0.0       # 26001
     specialized: float = 0.0       # 26002
-    z_catalogue: float = 0.0       # 26003 + 26007
+    z_catalogue_only: float = 0.0  # 26003 — Z-catalogue
+    per_diem: float = 0.0          # 26007 — per diem / daily (zero cost weight)
     ae: float = 0.0                # 25801
     pharmacist_fee: float = 0.0    # 25501
     pharma_other: float = 0.0      # other 255xx
@@ -343,6 +349,11 @@ class GLExtract:
     # cost centre (or account) -> amount for everything the map doesn't
     # cover: surfaced as its own cross-check row, never silently dropped
     other_centres: dict = field(default_factory=dict)
+
+    @property
+    def z_catalogue(self) -> float:
+        """26003 + 26007 together — what the existing Z cross-check compares."""
+        return round(self.z_catalogue_only + self.per_diem, 2)
 
     @property
     def inpatient(self) -> float:

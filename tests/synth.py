@@ -33,7 +33,7 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
                            hospital_name="ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΑΜΜΟΧΩΣΤΟΥ (ΟΚΥπΥ)",
                            year=2026, month=3, synolo=None,
                            with_per_clinic=True, detail_extra=0.0,
-                           with_detail=True) -> bytes:
+                           with_detail=True, with_procedure_detail=False) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
@@ -68,6 +68,22 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
         if detail_extra:
             ws.append([99_476_712, "2022-10-18", "G67B", detail_extra])
         ws.append(["Σύνολο", None, None, round(total + detail_extra, 2)])
+
+    if with_procedure_detail:
+        # the per-claim DETAIL table: «Procedure Class Id» is the only place
+        # daily treatments (FixedFee) and Z-catalogue items (ZDRUG/ZPROC/
+        # ZCONSU) can be told apart — ΟΑΥ's per-clinic pivot lumps them
+        det = wb.create_sheet("detail")
+        det.append(["Claim Id", "Specialty", "Procedure Class Id",
+                    "Hospital amount per claim activity (€)"])
+        for clinic, drg, daily, zdrug, zproc in (
+                ("INTERNAL MEDICINE", 500_000.00, 120_000.00, 10_000.00, 1_000.00),
+                ("GENERAL SURGERY", 312_890.31, 104_260.00, 8_222.39, 640.00)):
+            det.append([1, clinic, "INPATIENTS", drg])
+            det.append([2, clinic, "FixedFee", daily])
+            det.append([3, clinic, "ZDRUG", zdrug])
+            det.append([4, clinic, "ZPROC", zproc])
+            det.append([5, clinic, "ZCONSU", 0.0])
 
     if with_per_clinic:
         # real workbooks carry a «per clinic» pivot (headers duplicated twice)

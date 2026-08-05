@@ -86,6 +86,7 @@ def build_workbook(result: ReconResult) -> bytes:
         _tab_reconciliation(wb, result, sra_tab, n_lines, stated_cell)
     else:
         _tab_matrix(wb, result)
+    _tab_gl_bridge(wb, result, sra_tab)
     sections = [_Section("", result, sra_tab, n_lines)]
     cc_rows = _tab_crosscheck(wb, sections)
     _tab_audit(wb, sections, cc_rows)
@@ -846,6 +847,124 @@ def _name_side(name: str, first: bool) -> str:
     return (bits[0] if first else bits[-1]).strip() if len(bits) > 1 else name.strip()
 
 
+# ------------------------------------------ tab: GL_Bridge (cash vs booked)
+
+# ΟΑΥ's own ledger, bucket by bucket: which cost centres carry each stream
+_GL_BRIDGE_ROWS = [
+    (Bucket.INPATIENT, "Ενδονοσοκομειακή (Inpatient)",
+     "26001 + 26002 + 26003 + 26007", ("regular_drg", "specialized",
+                                       "z_catalogue_only", "per_diem")),
+    (Bucket.AE, "ΤΑΕΠ (A&E)", "25801", ("ae",)),
+    (Bucket.OUTPATIENT, "Εξωνοσοκομειακή & ΠΙ (Outpatient)",
+     "25xxx κλινικά + 51001001", ("outpatient", "capitation")),
+    (Bucket.PHARMA, "Φάρμακα (Pharma)", "25501 + λοιπά 255xx",
+     ("pharmacist_fee", "pharma_other")),
+]
+
+
+def _tab_gl_bridge(wb: Workbook, result: ReconResult,
+                   sra_tab: Optional[str] = None) -> None:
+    """Cash vs booked, on one page: what the cheque paid per bucket (panel A),
+    what the ΟΑΥ ledger booked for the same bucket (panel B), and the variance
+    (panel C).
+
+    Panel A links to the Reconciliation tab, so it is the same number the
+    cheque ties to; panel B is the GL extract's own cost centres. The variance
+    column is live, and the bottom zero-check proves the per-bucket variances
+    add up to (SRA total − GL total) — no gap can hide in a rounding."""
+    b = result.bundle
+    if not b.gl or result.crosscheck_mode or not b.sra:
+        return
+    ws = wb.create_sheet("GL_Bridge")
+    hosp = HOSPITALS.get(b.hospital_code, (b.hospital_code, ""))[0]
+    ws.cell(row=1, column=1,
+            value=f"Γέφυρα ταμείου ↔ καθολικού ΟΑΥ (SRA cash vs booked GL) — "
+                  f"{hosp} — {MONTH_NAMES_EL[b.month] if b.month else ''} "
+                  f"{b.year or ''}").font = Font(bold=True, size=12, color=NAVY)
+    _header(ws, 3, ["Καλάθι (Bucket)", "Α — Ταμείο SRA (cash) €",
+                    "Κέντρα κόστους ΟΑΥ (GL cost centres)",
+                    "Β — Καθολικό ΟΑΥ (booked) €", "Διαφορά Α−Β (Variance) €",
+                    "Σημείωση (Note)"])
+    r = 4
+    first = r
+    for bucket, label, centres, fields in _GL_BRIDGE_ROWS:
+        ws.cell(row=r, column=1, value=label).font = F_INPUT
+        # panel A: the cheque's own bucket figure, linked from Reconciliation
+        recon_row = 4 + BUCKET_ORDER.index(bucket)
+        _amount(ws, r, 2, f"='Reconciliation'!C{recon_row}", F_LINK)
+        ws.cell(row=r, column=3, value=centres).font = F_INPUT
+        # panel B: what the ΟΑΥ ledger booked — every component a blue input
+        booked = round(sum(getattr(b.gl, f, 0.0) or 0.0 for f in fields), 2)
+        _amount(ws, r, 4, booked, F_INPUT)
+        _amount(ws, r, 5, f"=B{r}-D{r}", F_FORMULA)
+        cash = result.buckets.get(bucket, 0.0)
+        diff = round(cash - booked, 2)
+        if abs(diff) > CENT:
+            note, flag = _annotate_bridge(bucket, diff)
+            cell = ws.cell(row=r, column=6, value=note)
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            ws.cell(row=r, column=5).font = F_AMBER if flag == "amber" else F_RED
+            if flag == "amber":
+                cell.fill = FILL_AMBER
+        else:
+            ws.cell(row=r, column=6, value="OK — ταυτίζεται (ties out).").font = \
+                Font(italic=True, color=GRAY)
+        r += 1
+    total_row = r
+    ws.cell(row=total_row, column=1, value="ΣΥΝΟΛΟ (TOTAL)").font = Font(bold=True)
+    for col in (2, 4, 5):
+        letter = get_column_letter(col)
+        _amount(ws, total_row, col,
+                f"=SUM({letter}{first}:{letter}{total_row - 1})", F_FORMULA)
+        ws.cell(row=total_row, column=col).font = Font(bold=True)
+    r += 2
+    # the cash side must also equal the cheque itself, and the variances must
+    # add up to (cash − booked): two live checks, nothing asserted in prose
+    cheque_row = r
+    ws.cell(row=cheque_row, column=1, value="Επιταγή ΟΑΥ (HIO cheque)").font = Font(bold=True)
+    if sra_tab:
+        _amount(ws, cheque_row, 2, f"='Reconciliation'!C{4 + len(BUCKET_ORDER) + 1}",
+                F_LINK)
+    else:
+        _amount(ws, cheque_row, 2, b.sra.stated_total, F_INPUT)
+    r += 1
+    ws.cell(row=r, column=1,
+            value="Zero-check = ταμείο ανά καλάθι − επιταγή (must be 0)")
+    _amount(ws, r, 2, f"=B{total_row}-B{cheque_row}", F_FORMULA)
+    ws.cell(row=r, column=2).fill = FILL_CHECK
+    r += 1
+    ws.cell(row=r, column=1,
+            value="Zero-check = άθροισμα διαφορών − (ταμείο − καθολικό) (must be 0)")
+    _amount(ws, r, 5, f"=E{total_row}-(B{total_row}-D{total_row})", F_FORMULA)
+    ws.cell(row=r, column=5).fill = FILL_CHECK
+    r += 2
+    ws.cell(row=r, column=1, value=(
+        "Η διαφορά ΔΕΝ κλείνει με προσαρμογή: κάθε καλάθι δείχνει τις δύο "
+        "πλευρές και το άνοιγμα, με τη σημείωση που το εξηγεί. Αναλυτικά ανά "
+        "λογαριασμό: φύλλο Source_crosscheck (the gap is never plugged — see "
+        "Source_crosscheck for the account-level detail).")
+    ).font = Font(italic=True, color=GRAY)
+    _autosize(ws)
+
+
+def _annotate_bridge(bucket: Bucket, diff: float) -> tuple[str, str]:
+    """Why a bucket's cash and booked figures differ — the known ΟΑΥ ledger
+    classifications, stated, never absorbed."""
+    if bucket == Bucket.INPATIENT:
+        return ("Z-procedures/tail χρεωμένα σε κλινικούς λογαριασμούς στο "
+                "καθολικό της ΟΑΥ — ταξινόμηση, όχι ταμείο (HIO-ledger "
+                "classification, not cash)."), "amber"
+    if bucket == Bucket.PHARMA:
+        return ("Το καθολικό ΟΑΥ κρατά τα φάρμακα και την αμοιβή "
+                "φαρμακοποιού ΚΑΘΑΡΑ από τις διορθώσεις του μήνα (CRN/OTC, "
+                "CRN-Packages)· οι τακτοποιήσεις EOAF πάνε στον 11202192."), "amber"
+    if bucket == Bucket.OUTPATIENT:
+        return ("Επιταγές δορυφορικών παροχέων και προσαρμογές μεθόδου "
+                "αποζημίωσης μένουν εκτός του GL αυτού του παρόχου."), "amber"
+    return ("Ανεξήγητη διαφορά (unexplained difference) — δείτε το "
+            "Source_crosscheck."), "red"
+
+
 # ------------------------------------------- tab: Ανάλυση_ελέγχων (audit)
 
 def _tab_audit(wb: Workbook, sections: list, cc_rows: dict) -> None:
@@ -982,8 +1101,12 @@ def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) ->
     ws.cell(row=1, column=1, value=f"Κατανομή ανά κλινική για SAP (By-clinic split) — "
                                    f"{hosp[0]} — {MONTH_NAMES_EL[b.month]} {b.year}"
             ).font = Font(bold=True, color=NAVY)
-    _header(ws, 3, ["Κλινική / Γραμμή (Clinic / Line)", "Fixed Fee €", "DRG €",
-                    "Ποσό (Amount €)"])
+    # the inpatient fee splits three ways: DRG, daily treatments and the
+    # Z-catalogue drugs/procedures — ΟΑΥ's own pivot lumps the last two
+    # together under «FIXED FEE», the per-claim detail table tells them apart
+    _header(ws, 3, ["Κλινική / Γραμμή (Clinic / Line)", "DRG €",
+                    "Ημερήσιες θεραπείες (Daily treat.) €",
+                    "Ζ-φάρμακα/πράξεις (Z-drugs) €", "Ποσό (Amount €)"])
     r = 4
     subtotal_cells = []
     for section in result.split:
@@ -994,35 +1117,41 @@ def _tab_split(wb: Workbook, result: ReconResult, stated_cell: Optional[str]) ->
         first = r
         for row in section.rows:
             ws.cell(row=r, column=1, value=row.label).font = F_INPUT
-            if row.fixed_fee is not None:
-                _amount(ws, r, 2, row.fixed_fee, F_INPUT)
             if row.drg is not None:
-                _amount(ws, r, 3, row.drg, F_INPUT)
-            _amount(ws, r, 4, row.amount, F_INPUT)
+                _amount(ws, r, 2, row.drg, F_INPUT)
+            if row.fixed_fee is not None:
+                _amount(ws, r, 3, row.fixed_fee, F_INPUT)
+            if row.z_drugs is not None:
+                _amount(ws, r, 4, row.z_drugs, F_INPUT)
+            _amount(ws, r, 5, row.amount, F_INPUT)
             r += 1
         ws.cell(row=r, column=1, value=f"Υποσύνολο (Subtotal) — {section.title}"
                 ).font = Font(bold=True)
-        if r > first:
-            _amount(ws, r, 4, f"=SUM(D{first}:D{r - 1})", F_FORMULA)
-        else:
-            _amount(ws, r, 4, 0.0, F_FORMULA)
-        ws.cell(row=r, column=4).font = Font(bold=True)
-        for col in range(1, 5):
+        # every column carries its own live subtotal, so the three inpatient
+        # streams add up on the page as well as across
+        for col in (2, 3, 4, 5):
+            if r > first:
+                letter = get_column_letter(col)
+                _amount(ws, r, col, f"=SUM({letter}{first}:{letter}{r - 1})", F_FORMULA)
+            else:
+                _amount(ws, r, col, 0.0, F_FORMULA)
+            ws.cell(row=r, column=col).font = Font(bold=True)
+        for col in range(1, 6):
             ws.cell(row=r, column=col).border = THIN
-        subtotal_cells.append(f"D{r}")
+        subtotal_cells.append(f"E{r}")
         r += 2
     total_row = r
     ws.cell(row=total_row, column=1, value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ (GRAND TOTAL)").font = Font(bold=True, color=NAVY)
-    _amount(ws, total_row, 4, "=" + "+".join(subtotal_cells), F_FORMULA)
-    ws.cell(row=total_row, column=4).font = Font(bold=True)
+    _amount(ws, total_row, 5, "=" + "+".join(subtotal_cells), F_FORMULA)
+    ws.cell(row=total_row, column=5).font = Font(bold=True)
     if stated_cell:
         cheque_row = total_row + 1
         ws.cell(row=cheque_row, column=1, value="Επιταγή ΟΑΥ (HIO cheque)")
-        _amount(ws, cheque_row, 4, f"={stated_cell}", F_LINK)
+        _amount(ws, cheque_row, 5, f"={stated_cell}", F_LINK)
         check_row = cheque_row + 1
         ws.cell(row=check_row, column=1, value="Zero-check = ΓΕΝΙΚΟ ΣΥΝΟΛΟ − επιταγή (must be 0)")
-        _amount(ws, check_row, 4, f"=D{total_row}-D{cheque_row}", F_FORMULA)
-        ws.cell(row=check_row, column=4).fill = FILL_CHECK
+        _amount(ws, check_row, 5, f"=E{total_row}-E{cheque_row}", F_FORMULA)
+        ws.cell(row=check_row, column=5).fill = FILL_CHECK
     else:
         ws.cell(row=total_row + 1, column=1,
                 value="Cross-check mode: χωρίς επιταγή — no cash tie-out (δεν υπάρχει SRA).")
@@ -1195,7 +1324,7 @@ def _tab_by_doctor(wb: Workbook, result: ReconResult,
         split_row = r
         ws.cell(row=r, column=1,
                 value="ΓΕΝΙΚΟ ΣΥΝΟΛΟ By_Clinic_Split (= επιταγή ΟΑΥ)")
-        _amount(ws, r, 4, f"='By_Clinic_Split'!D{split_total_row}", F_LINK)
+        _amount(ws, r, 4, f"='By_Clinic_Split'!E{split_total_row}", F_LINK)
         r += 1
         ws.cell(row=r, column=1,
                 value="Διαφορά γέφυρας — γραμμές SRA χωρίς αναλυτικό ανά ιατρό "
