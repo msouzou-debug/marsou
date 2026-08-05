@@ -73,17 +73,20 @@ def inpatient_summary_xlsx(kanonika=475_000.00, kanonika_parap=61_728.70,
         # the per-claim DETAIL table: «Procedure Class Id» is the only place
         # daily treatments (FixedFee) and Z-catalogue items (ZDRUG/ZPROC/
         # ZCONSU) can be told apart — ΟΑΥ's per-clinic pivot lumps them
+        # — and, as in the real Apr-2026 files, it lists only the FIXED FEE
+        # side: the DRG euros stay in the per-clinic pivot alone, so the two
+        # tables have to be combined, not chosen between
         det = wb.create_sheet("detail")
         det.append(["Claim Id", "Specialty", "Procedure Class Id",
                     "Hospital amount per claim activity (€)"])
-        for clinic, drg, daily, zdrug, zproc in (
-                ("INTERNAL MEDICINE", 500_000.00, 120_000.00, 10_000.00, 1_000.00),
-                ("GENERAL SURGERY", 312_890.31, 104_260.00, 8_222.39, 640.00)):
-            det.append([1, clinic, "INPATIENTS", drg])
-            det.append([2, clinic, "FixedFee", daily])
-            det.append([3, clinic, "ZDRUG", zdrug])
-            det.append([4, clinic, "ZPROC", zproc])
-            det.append([5, clinic, "ZCONSU", 0.0])
+        for clinic, daily, zdrug, zproc in (
+                ("INTERNAL MEDICINE", 100_000.00, 10_728.70, 1_000.00),
+                ("GENERAL SURGERY", 140_000.00, 9_360.00, 640.00),
+                ("CARDIOLOGY", 96_000.00, 4_000.00, 0.0)):
+            det.append([1, clinic, "FixedFee", daily])
+            det.append([2, clinic, "ZDRUG", zdrug])
+            det.append([3, clinic, "ZPROC", zproc])
+            det.append([4, clinic, "ZCONSU", 0.0])
 
     if with_per_clinic:
         # real workbooks carry a «per clinic» pivot (headers duplicated twice)

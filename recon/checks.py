@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .extract import sra_sum_in_period
+from .extract import merge_clinic_rows, sra_sum_in_period
 from .models import (Bucket, BUCKET_ORDER, ClaimsAll, GLExtract, HOSPITALS,
                      IdentifiedFile, InpatientSummary, is_hospital, ISAuditor,
                      ORG_WIDE_TYPES, PharmaClaims, PharmacistFee,
@@ -565,8 +565,11 @@ def gate4_internal_asserts(bundle: ReconBundle) -> list[GateResult]:
 
 # --------------------------------------------------------- reconciliation
 
-def _sra_sum(sra: SRA, codes: list[str]) -> float:
+def sra_sum(sra: SRA, codes: list[str]) -> float:
     return round(sum(l.amount for l in sra.lines if l.code in codes), 2)
+
+
+_sra_sum = sra_sum
 
 
 SERVICE_CODES = ["IS", "AE", "A&E", "OS", "NM", "AP", "PD"]
@@ -1223,14 +1226,14 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     # Inpatient by clinic (Fixed Fee / DRG columns) — from the claims detail
     # when present, else the Ενδ. workbook's «per clinic» pivot sheet
     ip = SplitSection("Ενδονοσοκομειακή περίθαλψη (Inpatient)", Bucket.INPATIENT)
-    # prefer whichever source carries the THREE-WAY split (DRG / daily
-    # treatments / Z-drugs) — only the Ενδ. per-claim detail table has the
-    # «Procedure Class Id» that separates them; the claims file groups by
-    # speciality with a single total
+    # the two files see the same clinics differently: the claims file groups
+    # by speciality with one total per clinic, the Ενδ. workbook adds the
+    # «Procedure Class Id» that tells daily treatments from Z-catalogue items
+    # — but often only for the fixed-fee side.  Keep the fuller set of totals,
+    # borrow the classification from the other.
     endo_rows = bundle.inpatient.by_clinic if bundle.inpatient else []
     claims_rows = bundle.claims.inpatient_by_clinic if bundle.claims else []
-    split_rows = [r for r in endo_rows if r.z_drugs or r.fixed_fee]
-    clinic_rows = endo_rows if split_rows else (claims_rows or endo_rows)
+    clinic_rows = merge_clinic_rows(endo_rows, claims_rows)
     if clinic_rows:
         for r in clinic_rows:
             ip.rows.append(SplitRow(label=r.clinic, amount=r.total,

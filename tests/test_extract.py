@@ -339,21 +339,36 @@ def test_gl_prefers_all_okypy_sheet_over_detail_sheets():
 
 def test_per_clinic_split_separates_daily_treatments_from_z_drugs():
     """ΟΑΥ's per-clinic pivot lumps daily treatments and Z-catalogue items
-    under FIXED FEE. When the file carries the per-claim detail table, the
-    «Procedure Class Id» column tells them apart — DRG / daily / Z-drugs."""
+    under FIXED FEE; the per-claim detail table's «Procedure Class Id» tells
+    them apart but lists only that fixed-fee side. The two must be COMBINED —
+    totals from the pivot, classification from the detail — or the DRG euros
+    (the bulk of the bucket) fall out of the split entirely."""
     s = extract_inpatient_summary(synth.inpatient_summary_xlsx(with_procedure_detail=True))
     rows = {r.clinic: r for r in s.by_clinic}
-    assert set(rows) == {"INTERNAL MEDICINE", "GENERAL SURGERY"}
+    assert set(rows) == {"INTERNAL MEDICINE", "GENERAL SURGERY", "CARDIOLOGY"}
     im = rows["INTERNAL MEDICINE"]
-    assert im.drg == 500_000.00
-    assert im.fixed_fee == 120_000.00          # daily treatments
-    assert im.z_drugs == 11_000.00             # ZDRUG + ZPROC + ZCONSU
-    assert im.total == 631_000.00
-    # the three streams add up across every clinic
-    assert round(sum(r.drg for r in s.by_clinic), 2) == 812_890.31
-    assert round(sum(r.fixed_fee for r in s.by_clinic), 2) == 224_260.00
-    assert round(sum(r.z_drugs for r in s.by_clinic), 2) == 19_862.39
-    assert round(sum(r.total for r in s.by_clinic), 2) == 1_057_012.70
+    assert im.drg == 250_000.00                # pivot total less the classified
+    assert im.fixed_fee == 100_000.00          # daily treatments
+    assert im.z_drugs == 11_728.70             # ZDRUG + ZPROC + ZCONSU
+    assert im.total == 361_728.70
+    # the three streams add up across every clinic — and to the pivot's total
+    assert round(sum(r.drg for r in s.by_clinic), 2) == 700_000.00
+    assert round(sum(r.fixed_fee for r in s.by_clinic), 2) == 336_000.00
+    assert round(sum(r.z_drugs for r in s.by_clinic), 2) == 25_728.70
+    assert round(sum(r.total for r in s.by_clinic), 2) == 1_061_728.70
+
+
+def test_per_clinic_leaves_a_clinic_unsplit_when_the_detail_overshoots():
+    """A clinic whose classified euros exceed its own total is a finding, not
+    something to force into the columns — it stays unsplit."""
+    from recon.extract import ClinicRow, apply_class_split
+    base = [ClinicRow(clinic="A", total=100.0), ClinicRow(clinic="B", total=100.0)]
+    detail = [ClinicRow(clinic="A", fixed_fee=60.0, z_drugs=10.0),
+              ClinicRow(clinic="B", fixed_fee=90.0, z_drugs=30.0)]
+    out = {r.clinic: r for r in apply_class_split(base, detail)}
+    assert (out["A"].drg, out["A"].fixed_fee, out["A"].z_drugs) == (30.0, 60.0, 10.0)
+    assert (out["B"].drg, out["B"].fixed_fee, out["B"].z_drugs) == (0.0, 0.0, 0.0)
+    assert out["B"].total == 100.0
 
 
 def test_per_clinic_falls_back_to_the_pivot_without_a_detail_table():

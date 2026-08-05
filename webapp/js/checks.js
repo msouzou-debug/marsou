@@ -1005,14 +1005,14 @@ function buildSplit(bundle) {
   };
 
   const ip = { title: 'Ενδονοσοκομειακή περίθαλψη (Inpatient)', bucket: 'Inpatient', rows: [] };
-  /* prefer whichever source carries the THREE-WAY split (DRG / daily
-   * treatments / Z-drugs) — only the Ενδ. per-claim detail table has the
-   * «Procedure Class Id» that separates them; the claims file groups by
-   * speciality with a single total */
+  /* the two files see the same clinics differently: the claims file groups by
+   * speciality with one total per clinic, the Ενδ. workbook adds the
+   * «Procedure Class Id» that tells daily treatments from Z-catalogue items —
+   * but often only for the fixed-fee side.  Keep the fuller set of totals,
+   * borrow the classification from the other. */
   const endoRows = (bundle.inpatient && bundle.inpatient.byClinic) || [];
   const claimsRows = (bundle.claims && bundle.claims.inpatientByClinic) || [];
-  const clinicRows = endoRows.some((r) => r.zDrugs || r.fixedFee)
-    ? endoRows : (claimsRows.length ? claimsRows : endoRows);
+  const clinicRows = mergeClinicRows(endoRows, claimsRows);
   if (clinicRows.length) {
     for (const r of clinicRows) {
       ip.rows.push({ label: r.clinic, amount: r.total,

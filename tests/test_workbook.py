@@ -21,6 +21,7 @@ def test_workbook_has_five_tabs_and_zero_checks_pass():
     data, _ = _build(with_optional=True)
     wb = load_workbook(io.BytesIO(data))
     assert wb.sheetnames == ["SRA_259434", "Reconciliation", "GL_Bridge",
+                             "Απαιτήσεις_vs_SRA",
                              "Source_crosscheck", "Ανάλυση_ελέγχων",
                              "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν",
                              "Legend"]
@@ -238,7 +239,7 @@ def test_split_tab_writes_drg_daily_and_zdrugs_with_column_subtotals():
                and "Inpatient" in str(ws.cell(row=r, column=1).value))
     drg, daily, z = (round(ev.evaluate(ws.cell(row=sub, column=c).value,
                                        "By_Clinic_Split"), 2) for c in (2, 3, 4))
-    assert (drg, daily, z) == (812_890.31, 224_260.00, 19_862.39)
+    assert (drg, daily, z) == (700_000.00, 336_000.00, 25_728.70)
     assert verify_workbook(data) == []         # still ties to the cheque
 
 

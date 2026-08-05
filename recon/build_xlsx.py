@@ -22,7 +22,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter, range_boundaries
 
-from .checks import CENT, CheckPart as _Part, ReconResult
+from .checks import CENT, CheckPart as _Part, ReconResult, sra_sum
 from .models import (Bucket, BUCKET_ORDER, HOSPITALS, MONTH_NAMES_EL,
                      PHARMACIST_FEE_UNIT_PRICE)
 from .mapping import name_key as _name_key
@@ -87,6 +87,7 @@ def build_workbook(result: ReconResult) -> bytes:
     else:
         _tab_matrix(wb, result)
     _tab_gl_bridge(wb, result, sra_tab)
+    _tab_claims_bridge(wb, result, sra_tab, n_lines)
     sections = [_Section("", result, sra_tab, n_lines)]
     cc_rows = _tab_crosscheck(wb, sections)
     _tab_audit(wb, sections, cc_rows)
@@ -963,6 +964,219 @@ def _annotate_bridge(bucket: Bucket, diff: float) -> tuple[str, str]:
                 "αποζημίωσης μένουν εκτός του GL αυτού του παρόχου."), "amber"
     return ("Ανεξήγητη διαφορά (unexplained difference) — δείτε το "
             "Source_crosscheck."), "red"
+
+
+# ------------------------------ tab: Απαιτήσεις_vs_SRA (claims file → SRA)
+
+# DR SEGMENT in the «Πληρωμένες Απαιτήσεις all» file → the SRA's daily code
+_SEGMENT_CODES = [
+    ("Inpatient", ("IS",), "Ενδονοσοκομειακή (Inpatient)"),
+    ("A&E", ("AE", "A&E"), "ΤΑΕΠ (A&E)"),
+    ("Outpatient Specialists", ("OS",), "Ειδικοί Ιατροί (Outpatient Specialists)"),
+    ("Nurses-Midwives", ("NM",), "Νοσηλευτές/Μαίες (Nurses-Midwives)"),
+    ("Allied Health", ("AP",), "Άλλοι Επαγγελματίες Υγείας (Allied Health)"),
+    ("Personal Doctors", ("PD",), "Προσωπικοί Ιατροί (Personal Doctors)"),
+]
+
+
+def _segment_code(sra, candidates: tuple) -> str:
+    """ΟΑΥ writes the A&E line as «AE» in some months and «A&E» in others —
+    use whichever the cheque actually carries."""
+    present = {ln.code for ln in sra.lines}
+    return next((c for c in candidates if c in present), candidates[0])
+
+# every other service code the SRA can pay — things the claims export does
+# not contain, named so the two sides close without a residual line
+_RECON_LABELS = {
+    "HEMO": "Αιμοκάθαρση — μηνιαία αναφορά (hemodialysis report)",
+    "IS-ADJ": "Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ (A&E-referral adj.)",
+    "AE-ADJ": "ΤΑΕΠ — προσαρμογή (A&E adjustment)",
+    "OS-ADJ": "Εξωνοσοκομειακή — προσαρμογή μεθόδου αποζημίωσης (reimb.-method adj.)",
+    "PD-CAP": "Κατά κεφαλήν ΠΙ (capitation — δεν τιμολογείται ανά πράξη)",
+    "PD-FP": "Σταθερές χρεώσεις ΠΙ: OOH, εμβολιασμοί (PD fixed price)",
+    "PD-KPI": "Ποιοτικά κριτήρια ΠΙ (PD quality criteria)",
+    "KPI": "Ποιοτικά κριτήρια (quality criteria)",
+    "MRI": "Ποιοτικά κριτήρια MRI (MRI)",
+    "CT": "Ποιοτικά κριτήρια CT (CT)",
+    "MRI/CT": "Ποιοτικά κριτήρια MRI/CT",
+    "SAT": "Επιταγές δορυφορικών παροχέων (satellite suppliers)",
+    "IS-PRIOR": "Τακτοποίηση παλαιότερης περιόδου (prior-period settlement)",
+}
+
+
+def _tab_claims_bridge(wb: Workbook, result: ReconResult,
+                       sra_tab: Optional[str], n_lines: int) -> None:
+    """The «Πληρωμένες Απαιτήσεις all» export (A&E included) reconciled to the
+    SRA, segment by segment.
+
+    Panel A is the claims file's own DR SEGMENT totals against the SRA's daily
+    line for that stream.  Panel B is every OTHER service code the cheque
+    pays — built from the codes actually present on the SRA tab, so the two
+    panels together are the whole non-pharma cheque by construction and the
+    zero-check underneath is a real identity, not a residual line.  Panel C
+    then names what explains the panel-A gap and leaves the rest visible."""
+    b = result.bundle
+    if result.crosscheck_mode or not b.sra or not sra_tab or not b.claims:
+        return
+    ws = wb.create_sheet("Απαιτήσεις_vs_SRA")
+    hosp = HOSPITALS.get(b.hospital_code, (b.hospital_code, ""))[0]
+    ws.cell(row=1, column=1,
+            value=f"Συμφωνία «Πληρωμένες Απαιτήσεις all» (+ΤΑΕΠ) με το SRA "
+                  f"(claims export → SRA) — {hosp} — "
+                  f"{MONTH_NAMES_EL[b.month] if b.month else ''} "
+                  f"{b.year or ''}").font = Font(bold=True, size=12, color=NAVY)
+    _header(ws, 3, ["Ροή / γραμμή (Stream / line)",
+                    "Α — Αρχείο ΟΑΥ (claims export) €", "Κωδικός SRA (code)",
+                    "Β — SRA €", "Διαφορά Α−Β (Diff) €", "Σημείωση (Note)"])
+
+    def sumifs(code_cell: str) -> str:
+        return (f"=SUMIFS('{sra_tab}'!$F$2:$F${n_lines},"
+                f"'{sra_tab}'!$A$2:$A${n_lines},{code_cell})")
+
+    r = 4
+    ws.cell(row=r, column=1, value="Α. Ανά DR SEGMENT (per DR SEGMENT)").font = \
+        Font(bold=True, color=BLUE)
+    r += 1
+    seg_first = r
+    codes_seen = {ln.code for ln in b.sra.lines}
+    for segment, candidates, label in _SEGMENT_CODES:
+        code = _segment_code(b.sra, candidates)
+        amount = b.claims.by_segment.get(segment)
+        if amount is None and code not in codes_seen:
+            continue
+        ws.cell(row=r, column=1, value=label).font = F_INPUT
+        _amount(ws, r, 2, round(amount or 0.0, 2), F_INPUT)
+        ws.cell(row=r, column=3, value=code).font = F_INPUT
+        _amount(ws, r, 4, sumifs(f"$C{r}"), F_LINK)
+        _amount(ws, r, 5, f"=B{r}-D{r}", F_FORMULA)
+        diff = round((amount or 0.0) - sra_sum(b.sra, [code]), 2)
+        if abs(diff) > CENT:
+            ws.cell(row=r, column=5).font = F_RED
+            ws.cell(row=r, column=6, value=_annotate_segment(segment, result)
+                    ).alignment = Alignment(wrap_text=True, vertical="top")
+        else:
+            ws.cell(row=r, column=6, value="OK — ταυτίζεται (ties out).").font = \
+                Font(italic=True, color=GRAY)
+        r += 1
+    seg_total = r
+    ws.cell(row=seg_total, column=1,
+            value="Σύνολο ημερησίων γραμμών (daily service lines)").font = Font(bold=True)
+    for col in (2, 4, 5):
+        letter = get_column_letter(col)
+        _amount(ws, seg_total, col,
+                f"=SUM({letter}{seg_first}:{letter}{seg_total - 1})", F_FORMULA)
+        ws.cell(row=seg_total, column=col).font = Font(bold=True)
+    r += 2
+
+    # panel B — the rest of the cheque's service lines, straight off the SRA
+    ws.cell(row=r, column=1,
+            value="Β. Γραμμές SRA εκτός του αρχείου claims (SRA lines the claims "
+                  "export does not carry)").font = Font(bold=True, color=BLUE)
+    r += 1
+    other_first = r
+    daily = {_segment_code(b.sra, c) for _, c, _ in _SEGMENT_CODES}
+    rest_codes: list[str] = []
+    for line in b.sra.lines:
+        if line.bucket == Bucket.PHARMA or line.code in daily:
+            continue
+        if line.code not in rest_codes:
+            rest_codes.append(line.code)
+    for code in rest_codes:
+        label = _RECON_LABELS.get(code)
+        if not label:
+            desc = next((ln.description for ln in b.sra.lines
+                         if ln.code == code and ln.description), "")
+            label = f"{code} — {desc}" if desc else code
+        ws.cell(row=r, column=1, value=label).font = F_INPUT
+        ws.cell(row=r, column=3, value=code).font = F_INPUT
+        _amount(ws, r, 4, sumifs(f"$C{r}"), F_LINK)
+        r += 1
+    other_total = r
+    ws.cell(row=other_total, column=1,
+            value="Σύνολο λοιπών γραμμών (other service lines)").font = Font(bold=True)
+    if rest_codes:
+        _amount(ws, other_total, 4,
+                f"=SUM(D{other_first}:D{other_total - 1})", F_FORMULA)
+    else:
+        _amount(ws, other_total, 4, 0.0, F_FORMULA)
+    ws.cell(row=other_total, column=4).font = Font(bold=True)
+    r += 2
+
+    # panel C — completeness, then what explains the gap
+    ws.cell(row=r, column=1,
+            value="Γ. Έλεγχος πληρότητας και εξήγηση της διαφοράς (completeness "
+                  "and explanation)").font = Font(bold=True, color=BLUE)
+    r += 1
+    svc_row = r
+    ws.cell(row=svc_row, column=1,
+            value="Σύνολο υπηρεσιών SRA — καλάθια Ενδονοσοκ. + ΤΑΕΠ + Εξωνοσοκ. "
+                  "(SRA service buckets, pharma excluded)").font = Font(bold=True)
+    _amount(ws, svc_row, 4,
+            "='Reconciliation'!C4+'Reconciliation'!C5+'Reconciliation'!C6", F_LINK)
+    r += 1
+    ws.cell(row=r, column=1,
+            value="Zero-check = ημερήσιες + λοιπές − σύνολο υπηρεσιών SRA (must be 0)")
+    _amount(ws, r, 4, f"=D{seg_total}+D{other_total}-D{svc_row}", F_FORMULA)
+    ws.cell(row=r, column=4).fill = FILL_CHECK
+    r += 2
+    gap_row = r
+    ws.cell(row=gap_row, column=1,
+            value="Διαφορά αρχείου προς SRA (claims export vs SRA daily lines)")
+    _amount(ws, gap_row, 5, f"=E{seg_total}", F_FORMULA)
+    r += 1
+    first_expl = r
+    cap_bundled = (b.capitation is not None
+                   and "PD-CAP" not in {ln.code for ln in b.sra.lines})
+    if cap_bundled:
+        ws.cell(row=r, column=1,
+                value="Πλέον: κατά κεφαλήν ΠΙ μέσα στις γραμμές PD — αναφορά capitation "
+                      "(capitation paid inside the PD lines, not claimed per activity)"
+                ).font = F_INPUT
+        _amount(ws, r, 5, b.capitation.total, F_INPUT)
+        r += 1
+    ws.cell(row=r, column=1,
+            value="Ανεξήγητη διαφορά (unexplained — never plugged)").font = Font(bold=True)
+    _amount(ws, r, 5, f"=SUM(E{gap_row}:E{r - 1})", F_FORMULA)
+    unexplained = round(_sum_segment_gap(result) + (b.capitation.total if cap_bundled
+                                                    else 0.0), 2)
+    ws.cell(row=r, column=5).font = Font(bold=True, color=("C00000" if abs(unexplained) > CENT
+                                              else GREEN_LINK))
+    ws.cell(row=r, column=6, value=(
+        "Το άνοιγμα μένει ορατό: καμία γραμμή δεν το απορροφά (the gap is shown, "
+        "never absorbed). Αναλυτικά ανά απαίτηση: φύλλο Source_crosscheck.")
+    ).alignment = Alignment(wrap_text=True, vertical="top")
+    if abs(unexplained) <= CENT:
+        ws.cell(row=r, column=5).fill = FILL_CHECK
+    _autosize(ws)
+
+
+def _sum_segment_gap(result: ReconResult) -> float:
+    """Σ (claims file − SRA daily line) across the DR SEGMENTs — the panel-A
+    gap, recomputed in Python so the note can be coloured."""
+    b = result.bundle
+    total = 0.0
+    for segment, candidates, _ in _SEGMENT_CODES:
+        code = _segment_code(b.sra, candidates)
+        amount = b.claims.by_segment.get(segment)
+        if amount is None and not any(ln.code == code for ln in b.sra.lines):
+            continue
+        total += (amount or 0.0) - sra_sum(b.sra, [code])
+    return round(total, 2)
+
+
+def _annotate_segment(segment: str, result: ReconResult) -> str:
+    b = result.bundle
+    if segment == "Personal Doctors" and b.capitation:
+        return ("Οι γραμμές PD του SRA περιέχουν και το κατά κεφαλήν "
+                f"({format_eur(b.capitation.total)}), που δεν τιμολογείται ανά πράξη "
+                "(the SRA PD lines also carry capitation, absent from the claims "
+                "export).")
+    if segment == "Inpatient":
+        return ("Απαιτήσεις παλαιότερων περιόδων που πληρώθηκαν με αυτή την "
+                "επιταγή λείπουν από τον μηνιαίο πίνακα (old-period claims "
+                "sit outside the monthly table) — δείτε Source_crosscheck.")
+    return ("Διαφορά προς διερεύνηση (difference to investigate) — δείτε "
+            "Source_crosscheck.")
 
 
 # ------------------------------------------- tab: Ανάλυση_ελέγχων (audit)

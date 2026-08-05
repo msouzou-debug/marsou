@@ -78,8 +78,8 @@ on screen for correction before the run — the app never guesses an amount.
    report-vs-report matrix (streams × reports, Range column) is produced
    instead.
 5. Download the workbook: `SRA_<cheque>`, `Reconciliation`, `GL_Bridge`,
-   `Source_crosscheck`, `Ανάλυση_ελέγχων`, `By_Clinic_Split`, `Ανά_ιατρό`,
-   `Πώς_δένουν`, `Legend`. Blue font = input off a source report, black =
+   `Απαιτήσεις_vs_SRA`, `Source_crosscheck`, `Ανάλυση_ελέγχων`,
+   `By_Clinic_Split`, `Ανά_ιατρό`, `Πώς_δένουν`, `Legend`. Blue font = input off a source report, black =
    live formula, green = cross-sheet link, yellow fill = zero-check. Every
    total is a live formula — edit a blue cell and the workbook re-ties or
    shows the break.
@@ -93,10 +93,15 @@ on screen for correction before the run — the app never guesses an amount.
 
 `By_Clinic_Split` splits the inpatient fee **three ways** — DRG, daily
 treatments, and Z-catalogue drugs/procedures — each with its own live column
-subtotal. ΟΑΥ's per-clinic pivot lumps the last two together under «FIXED
-FEE»; the separation comes from the per-claim detail table's
-`Procedure Class Id` (`FixedFee` → daily, `ZDRUG`/`ZPROC`/`ZCONSU` → Z-drugs,
-`INPATIENTS` → DRG), grouped by `Specialty`. Files without that table fall
+subtotal. The three sources are **combined, never chosen between**: whichever
+per-clinic view accounts for more of the bucket (the claims file's
+per-speciality grouping, or ΟΑΥ's per-clinic pivot) supplies the totals, and
+the per-claim detail table's `Procedure Class Id` supplies the classification
+(`FixedFee` → daily, `ZDRUG`/`ZPROC`/`ZCONSU` → Z-drugs). DRG is then what is
+left of each clinic's own total. That matters because the detail table
+usually lists **only** the fixed-fee side — reading it alone drops the DRG
+euros, the bulk of the bucket. A clinic whose classified euros exceed its
+total is left unsplit rather than forced; files with no detail table fall
 back to the pivot, with the Z column empty.
 
 `GL_Bridge` is the cash-vs-booked page: the cheque per bucket (linked from
@@ -107,6 +112,16 @@ classifications are annotated per bucket; the account-level detail stays in
 `Source_crosscheck`. The GL also now reads 26003 (Z-catalogue) and 26007
 (per diem / daily) apart, while `z_catalogue` still returns the pair so the
 existing 26003+26007 check is unchanged.
+
+`Απαιτήσεις_vs_SRA` reconciles the «Πληρωμένες Απαιτήσεις all» export (A&E
+included) to the cheque, segment by segment: panel A puts each `DR SEGMENT`
+total next to the SRA's daily line for that stream, panel B lists every other
+service code the cheque pays — built from the codes actually present on the
+SRA tab, so the two panels are the whole non-pharma cheque **by
+construction** — and panel C carries the completeness zero-check plus the
+named explanation of the panel-A gap (capitation paid inside the PD lines).
+Whatever is left is written out as *unexplained*, in red. Nothing is absorbed
+into a residual line.
 
 ## Validation gates (in order, stop on failure)
 

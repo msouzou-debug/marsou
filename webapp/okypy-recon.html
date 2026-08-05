@@ -1345,12 +1345,61 @@ function perClinicFromDetail(sheets) {
   return [];
 }
 
+function clinicKey(name) {
+  /* «RENAL DISEASES», «Renal  Diseases» and «RENAL-DISEASES» are one clinic
+   * written three ways. */
+  return String(name).normalize('NFD').replace(/\p{M}/gu, '').toUpperCase()
+    .replace(/[^Α-ΩA-Z0-9]/g, '');
+}
+
+function applyClassSplit(base, detail) {
+  /* `base` holds the authoritative per-clinic totals; `detail` only knows how
+   * to *classify* — which euros are daily treatments and which are
+   * Z-catalogue drugs/procedures.  Carry that classification across clinic by
+   * clinic and let the DRG column be what is left of the clinic's own total.
+   * A clinic whose classified euros exceed its total is left unsplit: that is
+   * a finding to look at, not something to force into the columns. */
+  if (!detail.length) return base;
+  const cls = new Map();
+  for (const d of detail) {
+    const k = clinicKey(d.clinic);
+    const cur = cls.get(k) || [0, 0];
+    cur[0] = round2(cur[0] + d.fixedFee);
+    cur[1] = round2(cur[1] + d.zDrugs);
+    cls.set(k, cur);
+  }
+  return base.map((r) => {
+    const [daily, z] = cls.get(clinicKey(r.clinic)) || [0, 0];
+    const rest = round2(r.total - daily - z);
+    if ((daily || z) && rest >= -0.005) {
+      return { clinic: r.clinic, drg: Math.max(rest, 0), fixedFee: daily,
+               zDrugs: z, total: r.total };
+    }
+    return r;
+  });
+}
+
+function mergeClinicRows(a, b) {
+  /* Two per-clinic views of the same inpatient population (ΟΑΥ's pivot, the
+   * per-claim detail table, the claims file's per-speciality grouping).  Keep
+   * the totals from whichever accounts for more of the bucket — a partial
+   * table must never shrink the split — and borrow the daily/Z classification
+   * from the other one when only it carries a classification. */
+  if (!a || !a.length) return b || [];
+  if (!b || !b.length) return a;
+  const sum = (rs) => round2(rs.reduce((t, r) => t + r.total, 0));
+  const [base, other] = sum(a) >= sum(b) ? [a, b] : [b, a];
+  if (base.some((r) => r.zDrugs)) return base;
+  if (other.some((r) => r.zDrugs)) return applyClassSplit(base, other);
+  return base;
+}
+
 function perClinicRows(sheets) {
-  /* Prefer the per-claim detail table (it separates daily treatments from
-   * Z-catalogue items); fall back to ΟΑΥ's per-clinic pivot, where the two
-   * are lumped together under FIXED FEE. */
-  const detail = perClinicFromDetail(sheets);
-  return detail.length ? detail : perClinicDetailSheet(sheets);
+  /* ΟΑΥ's per-clinic pivot carries every clinic's total but lumps daily
+   * treatments and Z-catalogue items together under FIXED FEE; the per-claim
+   * detail table carries «Procedure Class Id», which tells those two apart
+   * but often lists only the fixed-fee side.  Combine them. */
+  return mergeClinicRows(perClinicDetailSheet(sheets), perClinicFromDetail(sheets));
 }
 
 function perClinicDetailSheet(sheets) {
@@ -3655,14 +3704,14 @@ function buildSplit(bundle) {
   };
 
   const ip = { title: 'Ενδονοσοκομειακή περίθαλψη (Inpatient)', bucket: 'Inpatient', rows: [] };
-  /* prefer whichever source carries the THREE-WAY split (DRG / daily
-   * treatments / Z-drugs) — only the Ενδ. per-claim detail table has the
-   * «Procedure Class Id» that separates them; the claims file groups by
-   * speciality with a single total */
+  /* the two files see the same clinics differently: the claims file groups by
+   * speciality with one total per clinic, the Ενδ. workbook adds the
+   * «Procedure Class Id» that tells daily treatments from Z-catalogue items —
+   * but often only for the fixed-fee side.  Keep the fuller set of totals,
+   * borrow the classification from the other. */
   const endoRows = (bundle.inpatient && bundle.inpatient.byClinic) || [];
   const claimsRows = (bundle.claims && bundle.claims.inpatientByClinic) || [];
-  const clinicRows = endoRows.some((r) => r.zDrugs || r.fixedFee)
-    ? endoRows : (claimsRows.length ? claimsRows : endoRows);
+  const clinicRows = mergeClinicRows(endoRows, claimsRows);
   if (clinicRows.length) {
     for (const r of clinicRows) {
       ip.rows.push({ label: r.clinic, amount: r.total,
@@ -3887,6 +3936,7 @@ function buildWorkbook(result) {
     tabMatrix(wb, result);
   }
   tabGlBridge(wb, result, sraTab, zeroChecks);
+  tabClaimsBridge(wb, result, sraTab, nLines, zeroChecks);
   const sections = [{ label: '', result, sraTab, nLines }];
   const ccRows = tabCrosscheck(wb, sections);
   tabAudit(wb, sections, ccRows, zeroChecks);
@@ -4001,6 +4051,200 @@ function tabGlBridge(wb, result, sraTab, zeroChecks) {
     + 'φύλλο Source_crosscheck (the gap is never plugged — see Source_crosscheck for the '
     + 'account-level detail).';
   ws.getCell(r, 1).font = { italic: true, color: { argb: GRAY } };
+  autosize(ws);
+}
+
+/* -------------------- tab: Απαιτήσεις_vs_SRA (claims export → SRA) */
+
+/* DR SEGMENT in the «Πληρωμένες Απαιτήσεις all» file → the SRA's daily code */
+const SEGMENT_CODES = [
+  ['Inpatient', ['IS'], 'Ενδονοσοκομειακή (Inpatient)'],
+  ['A&E', ['AE', 'A&E'], 'ΤΑΕΠ (A&E)'],
+  ['Outpatient Specialists', ['OS'], 'Ειδικοί Ιατροί (Outpatient Specialists)'],
+  ['Nurses-Midwives', ['NM'], 'Νοσηλευτές/Μαίες (Nurses-Midwives)'],
+  ['Allied Health', ['AP'], 'Άλλοι Επαγγελματίες Υγείας (Allied Health)'],
+  ['Personal Doctors', ['PD'], 'Προσωπικοί Ιατροί (Personal Doctors)'],
+];
+
+/* every other service code the SRA can pay — things the claims export does
+ * not contain, named so the two sides close without a residual line */
+const RECON_LABELS = {
+  HEMO: 'Αιμοκάθαρση — μηνιαία αναφορά (hemodialysis report)',
+  'IS-ADJ': 'Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ (A&E-referral adj.)',
+  'AE-ADJ': 'ΤΑΕΠ — προσαρμογή (A&E adjustment)',
+  'OS-ADJ': 'Εξωνοσοκομειακή — προσαρμογή μεθόδου αποζημίωσης (reimb.-method adj.)',
+  'PD-CAP': 'Κατά κεφαλήν ΠΙ (capitation — δεν τιμολογείται ανά πράξη)',
+  'PD-FP': 'Σταθερές χρεώσεις ΠΙ: OOH, εμβολιασμοί (PD fixed price)',
+  'PD-KPI': 'Ποιοτικά κριτήρια ΠΙ (PD quality criteria)',
+  KPI: 'Ποιοτικά κριτήρια (quality criteria)',
+  MRI: 'Ποιοτικά κριτήρια MRI (MRI)',
+  CT: 'Ποιοτικά κριτήρια CT (CT)',
+  'MRI/CT': 'Ποιοτικά κριτήρια MRI/CT',
+  SAT: 'Επιταγές δορυφορικών παροχέων (satellite suppliers)',
+  'IS-PRIOR': 'Τακτοποίηση παλαιότερης περιόδου (prior-period settlement)',
+};
+
+function segmentCode(sra, candidates) {
+  /* ΟΑΥ writes the A&E line as «AE» in some months and «A&E» in others — use
+   * whichever the cheque actually carries. */
+  const present = new Set(sra.lines.map((l) => l.code));
+  return candidates.find((c) => present.has(c)) || candidates[0];
+}
+
+function annotateSegment(segment, bundle) {
+  if (segment === 'Personal Doctors' && bundle.capitation) {
+    return 'Οι γραμμές PD του SRA περιέχουν και το κατά κεφαλήν ('
+      + `${formatEur(bundle.capitation.total)}), που δεν τιμολογείται ανά πράξη `
+      + '(the SRA PD lines also carry capitation, absent from the claims export).';
+  }
+  if (segment === 'Inpatient') {
+    return 'Απαιτήσεις παλαιότερων περιόδων που πληρώθηκαν με αυτή την επιταγή '
+      + 'λείπουν από τον μηνιαίο πίνακα (old-period claims sit outside the monthly '
+      + 'table) — δείτε Source_crosscheck.';
+  }
+  return 'Διαφορά προς διερεύνηση (difference to investigate) — δείτε Source_crosscheck.';
+}
+
+function tabClaimsBridge(wb, result, sraTab, nLines, zeroChecks) {
+  /* The «Πληρωμένες Απαιτήσεις all» export (A&E included) reconciled to the
+   * SRA, segment by segment.  Panel A is the claims file's own DR SEGMENT
+   * totals against the SRA's daily line for that stream.  Panel B is every
+   * OTHER service code the cheque pays — built from the codes actually on the
+   * SRA tab, so the two panels together are the whole non-pharma cheque by
+   * construction and the zero-check underneath is a real identity, not a
+   * residual line.  Panel C names what explains the panel-A gap and leaves
+   * the rest visible. */
+  const b = result.bundle;
+  if (result.crosscheckMode || !b.sra || !sraTab || !b.claims) return;
+  const ws = wb.addWorksheet('Απαιτήσεις_vs_SRA');
+  const gr = (HOSPITALS[b.hospitalCode] || [b.hospitalCode])[0];
+  ws.getCell(1, 1).value = 'Συμφωνία «Πληρωμένες Απαιτήσεις all» (+ΤΑΕΠ) με το SRA '
+    + `(claims export → SRA) — ${gr} — ${b.month ? MONTH_NAMES_EL[b.month] : ''} `
+    + `${b.year || ''}`;
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  writeHeader(ws, 3, ['Ροή / γραμμή (Stream / line)',
+                      'Α — Αρχείο ΟΑΥ (claims export) €', 'Κωδικός SRA (code)',
+                      'Β — SRA €', 'Διαφορά Α−Β (Diff) €', 'Σημείωση (Note)']);
+  const sumifs = (cell) => `SUMIFS('${sraTab}'!$F$2:$F$${nLines},`
+    + `'${sraTab}'!$A$2:$A$${nLines},${cell})`;
+
+  let r = 4;
+  ws.getCell(r, 1).value = 'Α. Ανά DR SEGMENT (per DR SEGMENT)';
+  ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+  r += 1;
+  const segFirst = r;
+  const codesSeen = new Set(b.sra.lines.map((l) => l.code));
+  let gap = 0;
+  for (const [segment, candidates, label] of SEGMENT_CODES) {
+    const code = segmentCode(b.sra, candidates);
+    const amount = b.claims.bySegment[segment];
+    if ((amount === undefined || amount === null) && !codesSeen.has(code)) continue;
+    ws.getCell(r, 1).value = label;
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 2, round2(amount || 0), F_INPUT);
+    ws.getCell(r, 3).value = code;
+    ws.getCell(r, 3).font = F_INPUT;
+    writeAmount(ws, r, 4, sumifs(`$C${r}`), F_LINK);
+    writeAmount(ws, r, 5, `B${r}-D${r}`, F_FORMULA);
+    const diff = round2((amount || 0) - sraSum(b.sra, [code]));
+    gap = round2(gap + diff);
+    if (Math.abs(diff) > CENT) {
+      ws.getCell(r, 5).font = F_RED;
+      ws.getCell(r, 6).value = annotateSegment(segment, b);
+      ws.getCell(r, 6).alignment = { wrapText: true, vertical: 'top' };
+    } else {
+      ws.getCell(r, 6).value = 'OK — ταυτίζεται (ties out).';
+      ws.getCell(r, 6).font = { italic: true, color: { argb: GRAY } };
+    }
+    r += 1;
+  }
+  const segTotal = r;
+  ws.getCell(segTotal, 1).value = 'Σύνολο ημερησίων γραμμών (daily service lines)';
+  ws.getCell(segTotal, 1).font = { bold: true };
+  for (const col of [2, 4, 5]) {
+    const letter = colLetter(col);
+    writeAmount(ws, segTotal, col, `SUM(${letter}${segFirst}:${letter}${segTotal - 1})`,
+                { bold: true });
+  }
+  r += 2;
+
+  /* panel B — the rest of the cheque's service lines, straight off the SRA */
+  ws.getCell(r, 1).value = 'Β. Γραμμές SRA εκτός του αρχείου claims (SRA lines the '
+    + 'claims export does not carry)';
+  ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+  r += 1;
+  const otherFirst = r;
+  const daily = new Set(SEGMENT_CODES.map(([, c]) => segmentCode(b.sra, c)));
+  const restCodes = [];
+  for (const line of b.sra.lines) {
+    if (line.bucket === 'Pharma' || daily.has(line.code)) continue;
+    if (!restCodes.includes(line.code)) restCodes.push(line.code);
+  }
+  for (const code of restCodes) {
+    let label = RECON_LABELS[code];
+    if (!label) {
+      const ln = b.sra.lines.find((l) => l.code === code && l.description);
+      label = ln ? `${code} — ${ln.description}` : code;
+    }
+    ws.getCell(r, 1).value = label;
+    ws.getCell(r, 1).font = F_INPUT;
+    ws.getCell(r, 3).value = code;
+    ws.getCell(r, 3).font = F_INPUT;
+    writeAmount(ws, r, 4, sumifs(`$C${r}`), F_LINK);
+    r += 1;
+  }
+  const otherTotal = r;
+  ws.getCell(otherTotal, 1).value = 'Σύνολο λοιπών γραμμών (other service lines)';
+  ws.getCell(otherTotal, 1).font = { bold: true };
+  writeAmount(ws, otherTotal, 4,
+              restCodes.length ? `SUM(D${otherFirst}:D${otherTotal - 1})` : 0,
+              { bold: true });
+  r += 2;
+
+  /* panel C — completeness, then what explains the gap */
+  ws.getCell(r, 1).value = 'Γ. Έλεγχος πληρότητας και εξήγηση της διαφοράς '
+    + '(completeness and explanation)';
+  ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+  r += 1;
+  const svcRow = r;
+  ws.getCell(svcRow, 1).value = 'Σύνολο υπηρεσιών SRA — καλάθια Ενδονοσοκ. + ΤΑΕΠ + '
+    + 'Εξωνοσοκ. (SRA service buckets, pharma excluded)';
+  ws.getCell(svcRow, 1).font = { bold: true };
+  writeAmount(ws, svcRow, 4,
+              "'Reconciliation'!C4+'Reconciliation'!C5+'Reconciliation'!C6", F_LINK);
+  r += 1;
+  ws.getCell(r, 1).value = 'Zero-check = ημερήσιες + λοιπές − σύνολο υπηρεσιών SRA (must be 0)';
+  writeAmount(ws, r, 4, `D${segTotal}+D${otherTotal}-D${svcRow}`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Απαιτήσεις_vs_SRA', addr: `D${r}` });
+  r += 2;
+  const gapRow = r;
+  ws.getCell(gapRow, 1).value = 'Διαφορά αρχείου προς SRA (claims export vs SRA daily lines)';
+  writeAmount(ws, gapRow, 5, `E${segTotal}`, F_FORMULA);
+  r += 1;
+  const capBundled = !!b.capitation && !codesSeen.has('PD-CAP');
+  let unexplained = gap;
+  if (capBundled) {
+    ws.getCell(r, 1).value = 'Πλέον: κατά κεφαλήν ΠΙ μέσα στις γραμμές PD — αναφορά '
+      + 'capitation (capitation paid inside the PD lines, not claimed per activity)';
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 5, b.capitation.total, F_INPUT);
+    unexplained = round2(unexplained + b.capitation.total);
+    r += 1;
+  }
+  ws.getCell(r, 1).value = 'Ανεξήγητη διαφορά (unexplained — never plugged)';
+  ws.getCell(r, 1).font = { bold: true };
+  const cell = writeAmount(ws, r, 5, `SUM(E${gapRow}:E${r - 1})`,
+                           { bold: true,
+                             color: { argb: Math.abs(unexplained) > CENT
+                                      ? 'FFC00000' : GREEN_LINK } });
+  ws.getCell(r, 6).value = 'Το άνοιγμα μένει ορατό: καμία γραμμή δεν το απορροφά (the '
+    + 'gap is shown, never absorbed). Αναλυτικά ανά απαίτηση: φύλλο Source_crosscheck.';
+  ws.getCell(r, 6).alignment = { wrapText: true, vertical: 'top' };
+  if (Math.abs(unexplained) <= CENT) {
+    cell.fill = FILL_CHECK;
+    zeroChecks.push({ sheet: 'Απαιτήσεις_vs_SRA', addr: `E${r}` });
+  }
   autosize(ws);
 }
 

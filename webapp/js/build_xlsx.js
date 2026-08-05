@@ -69,6 +69,7 @@ function buildWorkbook(result) {
     tabMatrix(wb, result);
   }
   tabGlBridge(wb, result, sraTab, zeroChecks);
+  tabClaimsBridge(wb, result, sraTab, nLines, zeroChecks);
   const sections = [{ label: '', result, sraTab, nLines }];
   const ccRows = tabCrosscheck(wb, sections);
   tabAudit(wb, sections, ccRows, zeroChecks);
@@ -183,6 +184,200 @@ function tabGlBridge(wb, result, sraTab, zeroChecks) {
     + 'φύλλο Source_crosscheck (the gap is never plugged — see Source_crosscheck for the '
     + 'account-level detail).';
   ws.getCell(r, 1).font = { italic: true, color: { argb: GRAY } };
+  autosize(ws);
+}
+
+/* -------------------- tab: Απαιτήσεις_vs_SRA (claims export → SRA) */
+
+/* DR SEGMENT in the «Πληρωμένες Απαιτήσεις all» file → the SRA's daily code */
+const SEGMENT_CODES = [
+  ['Inpatient', ['IS'], 'Ενδονοσοκομειακή (Inpatient)'],
+  ['A&E', ['AE', 'A&E'], 'ΤΑΕΠ (A&E)'],
+  ['Outpatient Specialists', ['OS'], 'Ειδικοί Ιατροί (Outpatient Specialists)'],
+  ['Nurses-Midwives', ['NM'], 'Νοσηλευτές/Μαίες (Nurses-Midwives)'],
+  ['Allied Health', ['AP'], 'Άλλοι Επαγγελματίες Υγείας (Allied Health)'],
+  ['Personal Doctors', ['PD'], 'Προσωπικοί Ιατροί (Personal Doctors)'],
+];
+
+/* every other service code the SRA can pay — things the claims export does
+ * not contain, named so the two sides close without a residual line */
+const RECON_LABELS = {
+  HEMO: 'Αιμοκάθαρση — μηνιαία αναφορά (hemodialysis report)',
+  'IS-ADJ': 'Ενδονοσοκομειακή — προσαρμογή παραπομπών ΤΑΕΠ (A&E-referral adj.)',
+  'AE-ADJ': 'ΤΑΕΠ — προσαρμογή (A&E adjustment)',
+  'OS-ADJ': 'Εξωνοσοκομειακή — προσαρμογή μεθόδου αποζημίωσης (reimb.-method adj.)',
+  'PD-CAP': 'Κατά κεφαλήν ΠΙ (capitation — δεν τιμολογείται ανά πράξη)',
+  'PD-FP': 'Σταθερές χρεώσεις ΠΙ: OOH, εμβολιασμοί (PD fixed price)',
+  'PD-KPI': 'Ποιοτικά κριτήρια ΠΙ (PD quality criteria)',
+  KPI: 'Ποιοτικά κριτήρια (quality criteria)',
+  MRI: 'Ποιοτικά κριτήρια MRI (MRI)',
+  CT: 'Ποιοτικά κριτήρια CT (CT)',
+  'MRI/CT': 'Ποιοτικά κριτήρια MRI/CT',
+  SAT: 'Επιταγές δορυφορικών παροχέων (satellite suppliers)',
+  'IS-PRIOR': 'Τακτοποίηση παλαιότερης περιόδου (prior-period settlement)',
+};
+
+function segmentCode(sra, candidates) {
+  /* ΟΑΥ writes the A&E line as «AE» in some months and «A&E» in others — use
+   * whichever the cheque actually carries. */
+  const present = new Set(sra.lines.map((l) => l.code));
+  return candidates.find((c) => present.has(c)) || candidates[0];
+}
+
+function annotateSegment(segment, bundle) {
+  if (segment === 'Personal Doctors' && bundle.capitation) {
+    return 'Οι γραμμές PD του SRA περιέχουν και το κατά κεφαλήν ('
+      + `${formatEur(bundle.capitation.total)}), που δεν τιμολογείται ανά πράξη `
+      + '(the SRA PD lines also carry capitation, absent from the claims export).';
+  }
+  if (segment === 'Inpatient') {
+    return 'Απαιτήσεις παλαιότερων περιόδων που πληρώθηκαν με αυτή την επιταγή '
+      + 'λείπουν από τον μηνιαίο πίνακα (old-period claims sit outside the monthly '
+      + 'table) — δείτε Source_crosscheck.';
+  }
+  return 'Διαφορά προς διερεύνηση (difference to investigate) — δείτε Source_crosscheck.';
+}
+
+function tabClaimsBridge(wb, result, sraTab, nLines, zeroChecks) {
+  /* The «Πληρωμένες Απαιτήσεις all» export (A&E included) reconciled to the
+   * SRA, segment by segment.  Panel A is the claims file's own DR SEGMENT
+   * totals against the SRA's daily line for that stream.  Panel B is every
+   * OTHER service code the cheque pays — built from the codes actually on the
+   * SRA tab, so the two panels together are the whole non-pharma cheque by
+   * construction and the zero-check underneath is a real identity, not a
+   * residual line.  Panel C names what explains the panel-A gap and leaves
+   * the rest visible. */
+  const b = result.bundle;
+  if (result.crosscheckMode || !b.sra || !sraTab || !b.claims) return;
+  const ws = wb.addWorksheet('Απαιτήσεις_vs_SRA');
+  const gr = (HOSPITALS[b.hospitalCode] || [b.hospitalCode])[0];
+  ws.getCell(1, 1).value = 'Συμφωνία «Πληρωμένες Απαιτήσεις all» (+ΤΑΕΠ) με το SRA '
+    + `(claims export → SRA) — ${gr} — ${b.month ? MONTH_NAMES_EL[b.month] : ''} `
+    + `${b.year || ''}`;
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  writeHeader(ws, 3, ['Ροή / γραμμή (Stream / line)',
+                      'Α — Αρχείο ΟΑΥ (claims export) €', 'Κωδικός SRA (code)',
+                      'Β — SRA €', 'Διαφορά Α−Β (Diff) €', 'Σημείωση (Note)']);
+  const sumifs = (cell) => `SUMIFS('${sraTab}'!$F$2:$F$${nLines},`
+    + `'${sraTab}'!$A$2:$A$${nLines},${cell})`;
+
+  let r = 4;
+  ws.getCell(r, 1).value = 'Α. Ανά DR SEGMENT (per DR SEGMENT)';
+  ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+  r += 1;
+  const segFirst = r;
+  const codesSeen = new Set(b.sra.lines.map((l) => l.code));
+  let gap = 0;
+  for (const [segment, candidates, label] of SEGMENT_CODES) {
+    const code = segmentCode(b.sra, candidates);
+    const amount = b.claims.bySegment[segment];
+    if ((amount === undefined || amount === null) && !codesSeen.has(code)) continue;
+    ws.getCell(r, 1).value = label;
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 2, round2(amount || 0), F_INPUT);
+    ws.getCell(r, 3).value = code;
+    ws.getCell(r, 3).font = F_INPUT;
+    writeAmount(ws, r, 4, sumifs(`$C${r}`), F_LINK);
+    writeAmount(ws, r, 5, `B${r}-D${r}`, F_FORMULA);
+    const diff = round2((amount || 0) - sraSum(b.sra, [code]));
+    gap = round2(gap + diff);
+    if (Math.abs(diff) > CENT) {
+      ws.getCell(r, 5).font = F_RED;
+      ws.getCell(r, 6).value = annotateSegment(segment, b);
+      ws.getCell(r, 6).alignment = { wrapText: true, vertical: 'top' };
+    } else {
+      ws.getCell(r, 6).value = 'OK — ταυτίζεται (ties out).';
+      ws.getCell(r, 6).font = { italic: true, color: { argb: GRAY } };
+    }
+    r += 1;
+  }
+  const segTotal = r;
+  ws.getCell(segTotal, 1).value = 'Σύνολο ημερησίων γραμμών (daily service lines)';
+  ws.getCell(segTotal, 1).font = { bold: true };
+  for (const col of [2, 4, 5]) {
+    const letter = colLetter(col);
+    writeAmount(ws, segTotal, col, `SUM(${letter}${segFirst}:${letter}${segTotal - 1})`,
+                { bold: true });
+  }
+  r += 2;
+
+  /* panel B — the rest of the cheque's service lines, straight off the SRA */
+  ws.getCell(r, 1).value = 'Β. Γραμμές SRA εκτός του αρχείου claims (SRA lines the '
+    + 'claims export does not carry)';
+  ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+  r += 1;
+  const otherFirst = r;
+  const daily = new Set(SEGMENT_CODES.map(([, c]) => segmentCode(b.sra, c)));
+  const restCodes = [];
+  for (const line of b.sra.lines) {
+    if (line.bucket === 'Pharma' || daily.has(line.code)) continue;
+    if (!restCodes.includes(line.code)) restCodes.push(line.code);
+  }
+  for (const code of restCodes) {
+    let label = RECON_LABELS[code];
+    if (!label) {
+      const ln = b.sra.lines.find((l) => l.code === code && l.description);
+      label = ln ? `${code} — ${ln.description}` : code;
+    }
+    ws.getCell(r, 1).value = label;
+    ws.getCell(r, 1).font = F_INPUT;
+    ws.getCell(r, 3).value = code;
+    ws.getCell(r, 3).font = F_INPUT;
+    writeAmount(ws, r, 4, sumifs(`$C${r}`), F_LINK);
+    r += 1;
+  }
+  const otherTotal = r;
+  ws.getCell(otherTotal, 1).value = 'Σύνολο λοιπών γραμμών (other service lines)';
+  ws.getCell(otherTotal, 1).font = { bold: true };
+  writeAmount(ws, otherTotal, 4,
+              restCodes.length ? `SUM(D${otherFirst}:D${otherTotal - 1})` : 0,
+              { bold: true });
+  r += 2;
+
+  /* panel C — completeness, then what explains the gap */
+  ws.getCell(r, 1).value = 'Γ. Έλεγχος πληρότητας και εξήγηση της διαφοράς '
+    + '(completeness and explanation)';
+  ws.getCell(r, 1).font = { bold: true, color: { argb: BLUE } };
+  r += 1;
+  const svcRow = r;
+  ws.getCell(svcRow, 1).value = 'Σύνολο υπηρεσιών SRA — καλάθια Ενδονοσοκ. + ΤΑΕΠ + '
+    + 'Εξωνοσοκ. (SRA service buckets, pharma excluded)';
+  ws.getCell(svcRow, 1).font = { bold: true };
+  writeAmount(ws, svcRow, 4,
+              "'Reconciliation'!C4+'Reconciliation'!C5+'Reconciliation'!C6", F_LINK);
+  r += 1;
+  ws.getCell(r, 1).value = 'Zero-check = ημερήσιες + λοιπές − σύνολο υπηρεσιών SRA (must be 0)';
+  writeAmount(ws, r, 4, `D${segTotal}+D${otherTotal}-D${svcRow}`, F_FORMULA)
+    .fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Απαιτήσεις_vs_SRA', addr: `D${r}` });
+  r += 2;
+  const gapRow = r;
+  ws.getCell(gapRow, 1).value = 'Διαφορά αρχείου προς SRA (claims export vs SRA daily lines)';
+  writeAmount(ws, gapRow, 5, `E${segTotal}`, F_FORMULA);
+  r += 1;
+  const capBundled = !!b.capitation && !codesSeen.has('PD-CAP');
+  let unexplained = gap;
+  if (capBundled) {
+    ws.getCell(r, 1).value = 'Πλέον: κατά κεφαλήν ΠΙ μέσα στις γραμμές PD — αναφορά '
+      + 'capitation (capitation paid inside the PD lines, not claimed per activity)';
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 5, b.capitation.total, F_INPUT);
+    unexplained = round2(unexplained + b.capitation.total);
+    r += 1;
+  }
+  ws.getCell(r, 1).value = 'Ανεξήγητη διαφορά (unexplained — never plugged)';
+  ws.getCell(r, 1).font = { bold: true };
+  const cell = writeAmount(ws, r, 5, `SUM(E${gapRow}:E${r - 1})`,
+                           { bold: true,
+                             color: { argb: Math.abs(unexplained) > CENT
+                                      ? 'FFC00000' : GREEN_LINK } });
+  ws.getCell(r, 6).value = 'Το άνοιγμα μένει ορατό: καμία γραμμή δεν το απορροφά (the '
+    + 'gap is shown, never absorbed). Αναλυτικά ανά απαίτηση: φύλλο Source_crosscheck.';
+  ws.getCell(r, 6).alignment = { wrapText: true, vertical: 'top' };
+  if (Math.abs(unexplained) <= CENT) {
+    cell.fill = FILL_CHECK;
+    zeroChecks.push({ sheet: 'Απαιτήσεις_vs_SRA', addr: `E${r}` });
+  }
   autosize(ws);
 }
 

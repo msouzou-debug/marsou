@@ -268,12 +268,61 @@ function perClinicFromDetail(sheets) {
   return [];
 }
 
+function clinicKey(name) {
+  /* «RENAL DISEASES», «Renal  Diseases» and «RENAL-DISEASES» are one clinic
+   * written three ways. */
+  return String(name).normalize('NFD').replace(/\p{M}/gu, '').toUpperCase()
+    .replace(/[^Α-ΩA-Z0-9]/g, '');
+}
+
+function applyClassSplit(base, detail) {
+  /* `base` holds the authoritative per-clinic totals; `detail` only knows how
+   * to *classify* — which euros are daily treatments and which are
+   * Z-catalogue drugs/procedures.  Carry that classification across clinic by
+   * clinic and let the DRG column be what is left of the clinic's own total.
+   * A clinic whose classified euros exceed its total is left unsplit: that is
+   * a finding to look at, not something to force into the columns. */
+  if (!detail.length) return base;
+  const cls = new Map();
+  for (const d of detail) {
+    const k = clinicKey(d.clinic);
+    const cur = cls.get(k) || [0, 0];
+    cur[0] = round2(cur[0] + d.fixedFee);
+    cur[1] = round2(cur[1] + d.zDrugs);
+    cls.set(k, cur);
+  }
+  return base.map((r) => {
+    const [daily, z] = cls.get(clinicKey(r.clinic)) || [0, 0];
+    const rest = round2(r.total - daily - z);
+    if ((daily || z) && rest >= -0.005) {
+      return { clinic: r.clinic, drg: Math.max(rest, 0), fixedFee: daily,
+               zDrugs: z, total: r.total };
+    }
+    return r;
+  });
+}
+
+function mergeClinicRows(a, b) {
+  /* Two per-clinic views of the same inpatient population (ΟΑΥ's pivot, the
+   * per-claim detail table, the claims file's per-speciality grouping).  Keep
+   * the totals from whichever accounts for more of the bucket — a partial
+   * table must never shrink the split — and borrow the daily/Z classification
+   * from the other one when only it carries a classification. */
+  if (!a || !a.length) return b || [];
+  if (!b || !b.length) return a;
+  const sum = (rs) => round2(rs.reduce((t, r) => t + r.total, 0));
+  const [base, other] = sum(a) >= sum(b) ? [a, b] : [b, a];
+  if (base.some((r) => r.zDrugs)) return base;
+  if (other.some((r) => r.zDrugs)) return applyClassSplit(base, other);
+  return base;
+}
+
 function perClinicRows(sheets) {
-  /* Prefer the per-claim detail table (it separates daily treatments from
-   * Z-catalogue items); fall back to ΟΑΥ's per-clinic pivot, where the two
-   * are lumped together under FIXED FEE. */
-  const detail = perClinicFromDetail(sheets);
-  return detail.length ? detail : perClinicDetailSheet(sheets);
+  /* ΟΑΥ's per-clinic pivot carries every clinic's total but lumps daily
+   * treatments and Z-catalogue items together under FIXED FEE; the per-claim
+   * detail table carries «Procedure Class Id», which tells those two apart
+   * but often lists only the fixed-fee side.  Combine them. */
+  return mergeClinicRows(perClinicDetailSheet(sheets), perClinicFromDetail(sheets));
 }
 
 function perClinicDetailSheet(sheets) {

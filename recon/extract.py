@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 from typing import Optional
 
 import pandas as pd
@@ -345,11 +346,68 @@ def _per_clinic_detail_sheet(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]
     return []
 
 
+def _clinic_key(name: str) -> str:
+    """«RENAL DISEASES», «Renal  Diseases» and «RENAL-DISEASES» are one
+    clinic written three ways."""
+    up = unicodedata.normalize("NFD", str(name)).upper()
+    up = "".join(c for c in up if not unicodedata.combining(c))
+    return re.sub(r"[^Α-ΩA-Z0-9]", "", up)
+
+
+def apply_class_split(base: list[ClinicRow],
+                      detail: list[ClinicRow]) -> list[ClinicRow]:
+    """`base` holds the authoritative per-clinic totals; `detail` only knows
+    how to *classify* — which euros are daily treatments and which are
+    Z-catalogue drugs/procedures.  Carry that classification across clinic by
+    clinic and let the DRG column be what is left of the clinic's own total.
+
+    A clinic whose classified euros exceed its total is left unsplit: that is
+    a finding to look at, not something to force into the columns."""
+    if not detail:
+        return base
+    cls: dict[str, list[float]] = {}
+    for d in detail:
+        cur = cls.setdefault(_clinic_key(d.clinic), [0.0, 0.0])
+        cur[0] = round(cur[0] + d.fixed_fee, 2)
+        cur[1] = round(cur[1] + d.z_drugs, 2)
+    out: list[ClinicRow] = []
+    for r in base:
+        daily, z = cls.get(_clinic_key(r.clinic), (0.0, 0.0))
+        rest = round(r.total - daily - z, 2)
+        if (daily or z) and rest >= -0.005:
+            out.append(ClinicRow(clinic=r.clinic, drg=max(rest, 0.0),
+                                 fixed_fee=daily, z_drugs=z, total=r.total))
+        else:
+            out.append(r)
+    return out
+
+
+def merge_clinic_rows(a: list[ClinicRow], b: list[ClinicRow]) -> list[ClinicRow]:
+    """Two per-clinic views of the same inpatient population (ΟΑΥ's pivot, the
+    per-claim detail table, the claims file's per-speciality grouping).  Keep
+    the totals from whichever accounts for more of the bucket — a partial
+    table must never shrink the split — and borrow the daily/Z classification
+    from the other one when only it carries a classification."""
+    if not a:
+        return b
+    if not b:
+        return a
+    base, other = ((a, b) if round(sum(r.total for r in a), 2)
+                   >= round(sum(r.total for r in b), 2) else (b, a))
+    if any(r.z_drugs for r in base):
+        return base
+    if any(r.z_drugs for r in other):
+        return apply_class_split(base, other)
+    return base
+
+
 def _per_clinic_rows(sheets: dict[str, pd.DataFrame]) -> list[ClinicRow]:
-    """Prefer the per-claim detail table (it separates daily treatments from
-    Z-catalogue items); fall back to ΟΑΥ's per-clinic pivot, where the two
-    are lumped together under FIXED FEE."""
-    return _per_clinic_from_detail(sheets) or _per_clinic_detail_sheet(sheets)
+    """ΟΑΥ's per-clinic pivot carries every clinic's total but lumps daily
+    treatments and Z-catalogue items together under FIXED FEE; the per-claim
+    detail table carries «Procedure Class Id», which tells those two apart but
+    often lists only the fixed-fee side.  Combine them."""
+    return merge_clinic_rows(_per_clinic_detail_sheet(sheets),
+                             _per_clinic_from_detail(sheets))
 
 
 def _is_number(v) -> bool:
