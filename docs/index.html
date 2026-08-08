@@ -175,7 +175,13 @@ footer a{color:var(--accent);text-decoration:none}
 .bigbtn:active{transform:scale(.99)}
 .bigbtn.ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
 #photoStage{margin-top:12px;display:flex;flex-direction:column;gap:12px}
-#photoCanvas{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);touch-action:manipulation}
+#photoView{overflow:auto;max-height:70vh;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+#photoCanvas{width:100%;height:auto;display:block;transform-origin:0 0;touch-action:manipulation}
+.zoombar{display:flex;align-items:center;gap:9px;font-size:13px}
+.zoombar input[type=range]{flex:1;min-width:50px}
+.zoombar button{width:34px;height:34px;flex:none;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:19px;font-weight:700;line-height:1;padding:0}
+.zoombar .zreset{width:auto;padding:0 12px;font-size:12px;font-weight:600}
+.zoombar #zoomVal{min-width:40px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
 .photo-controls{display:flex;flex-direction:column;gap:12px}
 .taghint{font-size:12px;color:var(--muted);line-height:1.4}
 .taghint b{color:var(--accent)}
@@ -402,7 +408,15 @@ footer a{color:var(--accent);text-decoration:none}
     <input type="file" id="photoFile" accept="image/*" style="display:none">
     <button class="bigbtn" id="photoPick">Choose or take a photo</button>
     <div id="photoStage" style="display:none">
-      <canvas id="photoCanvas"></canvas>
+      <div id="photoView"><canvas id="photoCanvas"></canvas></div>
+      <div class="zoombar">
+        <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
+        <input id="zoom" type="range" min="1" max="6" step="0.2" value="1" aria-label="Zoom">
+        <span id="zoomVal">1.0×</span>
+        <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
+        <button id="zoomReset" class="zreset" type="button">Reset</button>
+      </div>
+      <p class="taghint" style="margin:-4px 0 0">Zoom in and drag to scroll — check each green ring sits on a real hole.</p>
       <div class="photo-controls">
         <div class="taghint" id="photoStep">Auto-detecting…</div>
         <div class="row2">
@@ -683,7 +697,7 @@ const srcPill=src=>src==="measured"?'<span class="pill-measured">measured</span>
 const miniSrc=src=>src==="measured"?'<span class="smk smk-m">m</span>':'<span class="smk smk-e">e</span>';
 const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 /* photo-tool state (the cartridge you patterned) */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]};
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1};
 /* the scanned pattern is persisted so it survives a reload / re-open */
 function persistMeasured(){try{state.measured?localStorage.setItem("measured",JSON.stringify(state.measured)):localStorage.removeItem("measured");}catch(e){}}
 function restoreMeasured(){try{
@@ -1105,8 +1119,12 @@ function drawOverlay(){
     pctx.strokeRect(PH.paper.x0,PH.paper.y0,PH.paper.x1-PH.paper.x0,PH.paper.y1-PH.paper.y0);pctx.setLineDash([]);}
   if(PH.r&&PH.cx!=null){pctx.strokeStyle=a;pctx.lineWidth=2.5;pctx.beginPath();pctx.arc(PH.cx,PH.cy,PH.r,0,7);pctx.stroke();}
   if(PH.cx!=null){pctx.fillStyle=a;pctx.beginPath();pctx.arc(PH.cx,PH.cy,4.5,0,7);pctx.fill();}
-  pctx.strokeStyle="#3fe08a"; pctx.lineWidth=1.6;
-  for(const h of PH.holes){pctx.beginPath();pctx.arc(h[0],h[1],3.4,0,7);pctx.stroke();}
+  for(const h of PH.holes){
+    pctx.strokeStyle="#3fe08a"; pctx.lineWidth=1.4;
+    pctx.beginPath();pctx.arc(h[0],h[1],3.4,0,7);pctx.stroke();
+    pctx.fillStyle="#3fe08a";                     // centre dot: clearer at high zoom
+    pctx.beginPath();pctx.arc(h[0],h[1],1,0,7);pctx.fill();
+  }
 }
 function loadPhoto(file){
   const img=new Image();
@@ -1115,12 +1133,26 @@ function loadPhoto(file){
     CW=Math.round(img.naturalWidth*scale); CH=Math.round(img.naturalHeight*scale);
     pcv.width=CW; pcv.height=CH;
     PH.img=img; PH.cx=PH.cy=PH.r=null; PH.paper=null; PH.holes=[]; PH.count=0; placeStage=0;
+    applyZoom(1);
     $("photoStage").style.display="flex"; $("photoStep").textContent="Auto-detecting…";
     setPhotoMode("photoAuto"); setTimeout(analyzeAuto,30);
   };
   const rd=new FileReader(); rd.onload=e=>img.src=e.target.result; rd.readAsDataURL(file);
 }
 
+// Zoom is a CSS transform on the canvas inside a scrollable viewport, so the
+// bitmap and every tap coordinate (via getBoundingClientRect) stay correct —
+// detection is untouched; this only magnifies the view for inspection.
+function applyZoom(z){
+  PH.zoom=Math.max(1,Math.min(6,Math.round(z*10)/10));
+  pcv.style.transform="scale("+PH.zoom+")";
+  const zs=$("zoom"); if(zs)zs.value=PH.zoom;
+  const zv=$("zoomVal"); if(zv)zv.textContent=PH.zoom.toFixed(1)+"×";
+}
+$("zoom").addEventListener("input",e=>applyZoom(+e.target.value));
+$("zoomIn").addEventListener("click",()=>applyZoom(PH.zoom+0.4));
+$("zoomOut").addEventListener("click",()=>applyZoom(PH.zoom-0.4));
+$("zoomReset").addEventListener("click",()=>{applyZoom(1);const v=$("photoView");if(v&&v.scrollTo)v.scrollTo(0,0);});
 $("photoPick").addEventListener("click",()=>$("photoFile").click());
 $("photoFile").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(f)loadPhoto(f);});
 pcv.addEventListener("click",ev=>{
@@ -1235,7 +1267,7 @@ $("theme").addEventListener("click",()=>{
 function resetAll(){
   // shooter + gun are intentionally kept (identity persists across a reset)
   Object.assign(state,{species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,aim:12});
-  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[]});
+  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1});
   persistMeasured();
   placeStage=0;
   $("species").value="partridge";
