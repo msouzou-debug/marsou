@@ -273,7 +273,7 @@ footer a{color:var(--accent);text-decoration:none}
       <span class="cap">estimated<br>clean-kill probability</span>
     </div>
     <div class="verdict-sub">
-      <div class="vstat"><span class="k">Pellets on bird</span><span class="v mono" id="lambda">—</span></div>
+      <div class="vstat"><span class="k">Pellets on bird <small style="opacity:.65">typical shot</small></span><span class="v mono" id="lambda">—</span></div>
       <div class="vstat"><span class="k">Need</span><span class="v mono" id="need">—</span></div>
       <div class="vstat"><span class="k" id="circleK">In 30″ circle</span><span class="v mono" id="circle">—</span></div>
     </div>
@@ -701,6 +701,13 @@ function evaluate(s){
   const lam=res.mean, p=res.p;
   const lamHit=total*0.84*res.frac;   // pellets that physically STRIKE the bird
   const lamPen=lam;                   // of those, the ones that penetrate to vitals
+  // Spread of strikes across a typical shot. A mean alone is misleading: a tight
+  // pattern piles on hits when centred (most of them wasted past the few needed)
+  // and delivers none when off, so it can out-score an open one on the average
+  // while killing less often. These quartiles show that consistency directly.
+  const rhoGood=sa*Math.sqrt(-2*Math.log(0.75)), rhoPoor=sa*Math.sqrt(-2*Math.log(0.25));
+  const hitsGood=total*0.84*patternInDisk(rhoGood,sigma,rb);   // better-aimed quarter
+  const hitsPoor=total*0.84*patternInDisk(rhoPoor,sigma,rb);   // poorer-aimed quarter
   const patWidthIn=4.29*sigma;                       // ~90% pattern spread diameter (in)
   const aimWidthIn=2*sa;                             // typical off-centre miss diameter (in)
   let verdict, reasons=[];
@@ -709,7 +716,7 @@ function evaluate(s){
   if(!eGate||!patternOk){verdict="wounding-likely";}
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
-  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
+  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,hitsGood,hitsPoor,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
 }
 function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
 
@@ -848,8 +855,8 @@ function render(){
   $("verdict").className="verdict card "+cls;
   $("badge").className="badge "+cls; $("badgeText").textContent=badgeText[r.verdict];
   $("prob").textContent=Math.round(r.p*100)+"%";
-  // strikes on the bird, then how many of those actually penetrate to the vitals
-  $("lambda").innerHTML=r.lamHit.toFixed(1)
+  // strikes on the bird: the spread across a typical shot says more than the mean
+  $("lambda").innerHTML=Math.round(r.hitsPoor)+"–"+Math.round(r.hitsGood)
     +(r.effShare<0.97?' <small style="color:var(--muted)">· '+r.lamPen.toFixed(1)+' penetrate</small>':'');
   $("need").textContent=r.req;
   $("circle").innerHTML=Math.round(r.circle)+srcPill(r.strikeSrc);
