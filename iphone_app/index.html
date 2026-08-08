@@ -600,12 +600,17 @@ function patternInDisk(rho,sp,rb){ // fraction of a 2-D Gaussian (std sp) centre
   for(let i=0;i<N;i++){const r=(i+0.5)*dr,dz=r-rho; acc+=r*inv*Math.exp(-dz*dz*0.5*inv)*scaledBesselI0(r*rho*inv)*dr;}
   return Math.min(1,acc);}
 function aimSigmaInches(aim,rangeYd){const a=(aim==null?12:aim);return a*rangeYd/40;} // per-axis pointing sigma (in)
+// Returns p (kill probability), mean (expected EFFECTIVE hits) and frac — the
+// aim-weighted share of the pattern falling on the bird. frac is what turns into
+// the number of pellets that physically strike; mean additionally carries the
+// penetration discount, so the two must not be shown under the same label.
 function lethalityWithAim(totalEff,sp,rb,sa,k){
-  if(sa<=1e-6){const lam=totalEff*patternInDisk(0,sp,rb);return {p:poissonAtLeast(k,lam),mean:lam};}
-  const M=18,rhoMax=4.5*sa,drho=rhoMax/M; let P=0,mean=0,wsum=0;
+  if(sa<=1e-6){const f=patternInDisk(0,sp,rb),lam=totalEff*f;return {p:poissonAtLeast(k,lam),mean:lam,frac:f};}
+  const M=18,rhoMax=4.5*sa,drho=rhoMax/M; let P=0,mean=0,wsum=0,fr=0;
   for(let j=0;j<M;j++){const rho=(j+0.5)*drho,w=(rho/(sa*sa))*Math.exp(-rho*rho/(2*sa*sa))*drho;
-    const lam=totalEff*patternInDisk(rho,sp,rb); P+=w*poissonAtLeast(k,lam); mean+=w*lam; wsum+=w;}
-  return {p:wsum>0?P/wsum:0, mean:wsum>0?mean/wsum:0};}
+    const f=patternInDisk(rho,sp,rb), lam=totalEff*f;
+    P+=w*poissonAtLeast(k,lam); mean+=w*lam; fr+=w*f; wsum+=w;}
+  return {p:wsum>0?P/wsum:0, mean:wsum>0?mean/wsum:0, frac:wsum>0?fr/wsum:0};}
 // Penetration efficacy: the share of striking pellets carrying enough energy to
 // reach the vitals. Real penetration has no razor edge — striking energy varies
 // shot to shot, and so do the angle and what the pellet meets (feather, bone,
@@ -694,6 +699,8 @@ function evaluate(s){
   const patternOk=circle>=sp.min;
   const res=lethalityWithAim(totalEff,sigma,rb,sa,req);
   const lam=res.mean, p=res.p;
+  const lamHit=total*0.84*res.frac;   // pellets that physically STRIKE the bird
+  const lamPen=lam;                   // of those, the ones that penetrate to vitals
   const patWidthIn=4.29*sigma;                       // ~90% pattern spread diameter (in)
   const aimWidthIn=2*sa;                             // typical off-centre miss diameter (in)
   let verdict, reasons=[];
@@ -702,7 +709,7 @@ function evaluate(s){
   if(!eGate||!patternOk){verdict="wounding-likely";}
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
-  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
+  return {sp,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
 }
 function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
 
@@ -841,7 +848,9 @@ function render(){
   $("verdict").className="verdict card "+cls;
   $("badge").className="badge "+cls; $("badgeText").textContent=badgeText[r.verdict];
   $("prob").textContent=Math.round(r.p*100)+"%";
-  $("lambda").textContent=r.lam.toFixed(1);
+  // strikes on the bird, then how many of those actually penetrate to the vitals
+  $("lambda").innerHTML=r.lamHit.toFixed(1)
+    +(r.effShare<0.97?' <small style="color:var(--muted)">· '+r.lamPen.toFixed(1)+' penetrate</small>':'');
   $("need").textContent=r.req;
   $("circle").innerHTML=Math.round(r.circle)+srcPill(r.strikeSrc);
   const mr=maxRange(state);
@@ -876,10 +885,10 @@ function buildExportData(){
     +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
     +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[SPECIES[state.species].choke]} · ${state.present}`
     +` · aim ${state.aim}"@40yd${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
-  const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Strikes src`,`Exp. hits`,`Clean-kill %`,`Verdict`];
+  const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Strikes src`,`Hits on bird`,`Penetrating hits`,`Clean-kill %`,`Verdict`];
   const rows1=ranges.map(rd=>{const r=evaluate({...state,range:toYd(rd)});
     return [rd, m?Math.round(r.v*FPS_MS):Math.round(r.v), m?(r.e*FTLB_J).toFixed(1):r.e.toFixed(2),
-      Math.round(r.pct), Math.round(r.circle), r.strikeSrc, r.lam.toFixed(1), Math.round(r.p*100), r.verdict];});
+      Math.round(r.pct), Math.round(r.circle), r.strikeSrc, r.lamHit.toFixed(1), r.lamPen.toFixed(1), Math.round(r.p*100), r.verdict];});
   const head2=["Size",...ranges.map(rd=>rd+U.r)];
   const rows2=SHOT_ORDER.map(sz=>["#"+sz,...ranges.map(rd=>Math.round(evaluate({...state,shot:sz,range:toYd(rd)}).p*100))]);
   const who=[state.shooter&&("Shooter: "+state.shooter), state.gun&&("Gun: "+state.gun)].filter(Boolean).join("   ·   ");
