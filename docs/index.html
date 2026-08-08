@@ -430,7 +430,7 @@ footer a{color:var(--accent);text-decoration:none}
           </div>
         </div>
         <div class="detrow">
-          <span>Holes in circle: <b class="mono" id="holeCount">—</b></span>
+          <span>Holes in circle: <b class="mono" id="holeCount">—</b><small id="holeRaw" style="font-size:11px"></small></span>
           <div class="stepper mini"><button id="holeMinus" type="button">−</button><input class="mono" id="holeManual" type="number" value="0" inputmode="numeric"><button id="holePlus" type="button">+</button></div>
         </div>
         <div class="btnrow">
@@ -1084,15 +1084,23 @@ function findDarkBlobs(mask,reg,minA,maxA){
   const N=CW*CH, seen=new Uint8Array(N), st=new Int32Array(N), out=[]; let sp=0;
   for(let y=reg.y0;y<=reg.y1;y++)for(let x=reg.x0;x<=reg.x1;x++){
     const p0=y*CW+x; if(seen[p0]||!mask[p0])continue;
-    let area=0,sx=0,sy=0,tb=false; sp=0; st[sp++]=p0; seen[p0]=1;
+    let area=0,sx=0,sy=0,tb=false,bx0=CW,bx1=0,by0=CH,by1=0; sp=0; st[sp++]=p0; seen[p0]=1;
     while(sp){const p=st[--sp];area++;const px=p%CW,py=(p/CW)|0;sx+=px;sy+=py;
+      if(px<bx0)bx0=px; if(px>bx1)bx1=px; if(py<by0)by0=py; if(py>by1)by1=py;
       if(px<=reg.x0||px>=reg.x1||py<=reg.y0||py>=reg.y1)tb=true;
       if(px>reg.x0&&mask[p-1]&&!seen[p-1]){seen[p-1]=1;st[sp++]=p-1;}
       if(px<reg.x1&&mask[p+1]&&!seen[p+1]){seen[p+1]=1;st[sp++]=p+1;}
       if(py>reg.y0&&mask[p-CW]&&!seen[p-CW]){seen[p-CW]=1;st[sp++]=p-CW;}
       if(py<reg.y1&&mask[p+CW]&&!seen[p+CW]){seen[p+CW]=1;st[sp++]=p+CW;}
     }
-    if(area>=minA&&area<=maxA&&!tb)out.push([sx/area,sy/area]);
+    if(area<minA||area>maxA||tb)continue;
+    // Pellet holes are round. Creases, sheet edges, printed rings, text and
+    // paper texture are elongated or straggly, so reject on shape — this is
+    // what stops a sensitive detector from counting the target's own markings.
+    const bw=bx1-bx0+1, bh=by1-by0+1;
+    if(Math.max(bw,bh)/Math.max(1,Math.min(bw,bh))>2.6)continue;   // too elongated
+    if(area/(bw*bh)<0.38)continue;                                 // too straggly
+    out.push([sx/area,sy/area]);
   }
   return out;
 }
@@ -1110,13 +1118,20 @@ function holeParams(){
 }
 /* local-mean window: several hole widths, still small enough to track shading */
 function maskRadius(base){return Math.max(8,Math.min(60,Math.round(base*0.035)));}
-/* cap the count at the load's physical pellet total (can't have more holes than pellets) */
+/* cap the count at the load's physical pellet total (can't have more holes than
+   pellets). The raw figure is shown alongside whenever it is capped, otherwise
+   the readout looks frozen while the sensitivity slider is plainly doing
+   something — which reads as a broken control. */
 function capCount(raw){
   PH.raw=raw;
   const loadTotal=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
   const shown=Math.min(raw,loadTotal);
   const hm=document.getElementById("holeManual"); hm.max=loadTotal; hm.value=shown;
   document.getElementById("holeCount").textContent=shown;
+  const rawEl=document.getElementById("holeRaw");
+  if(rawEl)rawEl.innerHTML = raw>loadTotal
+    ? ' <span style="color:var(--warn)">detected '+raw+' — above this shell\'s '+loadTotal+', so capped</span>'
+    : (raw?' <span style="color:var(--muted)">detected '+raw+'</span>':"");
   return {shown,loadTotal,over:raw>loadTotal};
 }
 /* merge blob centroids that sit within one pellet-width of each other (split holes) */
