@@ -1,6 +1,6 @@
 /* Clean Shot service worker — installability + offline.
    Network-first for the page (so updates show online), cache-first for assets. */
-const CACHE = "clean-shot-v1";
+const CACHE = "clean-shot-v3";
 const ASSETS = ["./", "index.html", "install.html", "manifest.webmanifest",
   "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 

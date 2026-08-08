@@ -580,6 +580,11 @@ function chokeSigmaNominal(choke,range,steel){
   return Math.max(0.5, chokeSigma40(choke,steel)*(range+d0)/(40+d0));
 }
 function circleFromSigma(total,sigma){return Math.min(total, total*(1-Math.exp(-(15*15)/(2*sigma*sigma))));}
+/* % of the payload a choke nominally puts in the 30" circle at a range */
+function nominalPct(choke,rangeYd,steel){
+  const s=chokeSigmaNominal(choke||"cylinder",rangeYd,steel);
+  return 100*(1-Math.exp(-(15*15)/(2*s*s)));
+}
 function sigmaFromCircle(total,circle){let f=circle/total;f=Math.min(Math.max(f,1e-6),0.999999);return 15/Math.sqrt(-2*Math.log(1-f));}
 // --- aim-error-aware terminal hit model ------------------------------------
 // A real shot's pattern centre lands off the aim point by a pointing/lead error.
@@ -709,11 +714,20 @@ const miniSrc=src=>src==="measured"?'<span class="smk smk-m">m</span>':'<span cl
 const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 /* photo-tool state (the cartridge you patterned) */
 const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1};
-/* the scanned pattern is persisted so it survives a reload / re-open */
-function persistMeasured(){try{state.measured?localStorage.setItem("measured",JSON.stringify(state.measured)):localStorage.removeItem("measured");}catch(e){}}
+/* the scanned pattern is persisted so it survives a reload / re-open.
+   SCAN_VERSION is bumped whenever the hole detector changes materially, so a
+   pattern counted by an older (less accurate) detector is dropped rather than
+   silently skewing every projection — an under-counted scan makes the gun look
+   as if it patterns badly, and the optimiser then over-chokes to compensate. */
+const SCAN_VERSION=2;
+function persistMeasured(){try{
+  if(state.measured){state.measured.v=SCAN_VERSION;localStorage.setItem("measured",JSON.stringify(state.measured));}
+  else localStorage.removeItem("measured");
+}catch(e){}}
 function restoreMeasured(){try{
   const raw=localStorage.getItem("measured"); if(!raw)return;
   const m=JSON.parse(raw);
+  if(m&&m.v!==SCAN_VERSION){localStorage.removeItem("measured");return;}
   if(m&&m.points&&m.points.length&&m.load){
     state.measured=m;
     state.material=m.load.mat; state.shot=m.load.shot; state.payload=m.load.payOz; state.choke=m.load.choke;
@@ -791,7 +805,18 @@ function updateBanner(){
     const list=pts.map(p=>`<b>${p.count!=null?p.count:Math.round(p.pct*100)+"%"}</b>@${m?Math.round(p.dist*YD_M)+"m":Math.round(p.dist)+"yd"}`).join(" · ");
     const head=pts.length>1?`2-point calibration`:`Your pattern`;
     b.style.display="flex";
-    b.innerHTML=`<span><b>${head}</b> · <b>${choke}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.</span><button type="button" id="clearMeasured">Nominal</button>`;
+    // Sanity check: a scan far sparser than the choke could physically shoot is
+    // almost always an under-count, and it silently drives the whole model.
+    const lk=state.measured.load, steel=(lk?lk.mat:state.material)==="steel";
+    let worst=0;
+    for(const p of pts){
+      const nom=nominalPct(lk?lk.choke:state.choke||SPECIES[state.species].choke,p.dist,steel);
+      if(nom>0){const ratio=(p.pct*100)/nom; if(!worst||ratio<worst)worst=ratio;}
+    }
+    const warn=(worst&&worst<0.6)
+      ? `<br><span style="color:var(--warn)">⚠ This pattern is only ~${Math.round(worst*100)}% of what a ${CHOKE_NAME[lk?lk.choke:state.choke]||"this choke"} normally throws — the scan probably missed holes. Re-scan (zoom in to check the rings) or the app will over-choke to compensate.</span>`
+      : "";
+    b.innerHTML=`<span><b>${head}</b> · <b>${choke}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.${warn}</span><button type="button" id="clearMeasured">Nominal</button>`;
     $("clearMeasured").onclick=()=>{state.measured=null;persistMeasured();updateBanner();render();};
   }else b.style.display="none";
 }
