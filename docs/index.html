@@ -999,35 +999,62 @@ function otsu(lum){
 }
 /* largest bright (paper) connected component -> bounding box */
 function largestBright(lum,T){
-  const N=CW*CH, seen=new Uint8Array(N), st=[];
+  const N=CW*CH, seen=new Uint8Array(N), st=new Int32Array(N); let sp=0;
   let best={area:0,x0:0,y0:0,x1:CW-1,y1:CH-1,ok:false};
   for(let p0=0;p0<N;p0++){
     if(lum[p0]<T||seen[p0])continue;
-    let area=0,minx=CW,miny=CH,maxx=0,maxy=0; st.length=0; st.push(p0); seen[p0]=1;
-    while(st.length){const p=st.pop();area++;const x=p%CW,y=(p/CW)|0;
+    let area=0,minx=CW,miny=CH,maxx=0,maxy=0; sp=0; st[sp++]=p0; seen[p0]=1;
+    while(sp){const p=st[--sp];area++;const x=p%CW,y=(p/CW)|0;
       if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
-      if(x>0&&lum[p-1]>=T&&!seen[p-1]){seen[p-1]=1;st.push(p-1);}
-      if(x<CW-1&&lum[p+1]>=T&&!seen[p+1]){seen[p+1]=1;st.push(p+1);}
-      if(y>0&&lum[p-CW]>=T&&!seen[p-CW]){seen[p-CW]=1;st.push(p-CW);}
-      if(y<CH-1&&lum[p+CW]>=T&&!seen[p+CW]){seen[p+CW]=1;st.push(p+CW);}
+      if(x>0&&lum[p-1]>=T&&!seen[p-1]){seen[p-1]=1;st[sp++]=p-1;}
+      if(x<CW-1&&lum[p+1]>=T&&!seen[p+1]){seen[p+1]=1;st[sp++]=p+1;}
+      if(y>0&&lum[p-CW]>=T&&!seen[p-CW]){seen[p-CW]=1;st[sp++]=p-CW;}
+      if(y<CH-1&&lum[p+CW]>=T&&!seen[p+CW]){seen[p+CW]=1;st[sp++]=p+CW;}
     }
     if(area>best.area)best={area,x0:minx,y0:miny,x1:maxx,y1:maxy,ok:true};
   }
   if(best.area<N*0.12)best.ok=false;   // paper should fill a good fraction of frame
   return best;
 }
+/* Summed-area table, so a local paper-brightness mean costs 4 lookups/pixel. */
+function integralImage(lum){
+  const W=CW+1, I=new Float64Array(W*(CH+1));
+  for(let y=0;y<CH;y++){
+    let row=0;
+    for(let x=0;x<CW;x++){row+=lum[y*CW+x]; I[(y+1)*W+(x+1)]=I[y*W+(x+1)]+row;}
+  }
+  return I;
+}
+/* Adaptive (local) hole mask — the key to not missing holes.
+   A single global cutoff misses any hole that photographs grey rather than
+   black, and misses whole regions when the sheet is unevenly lit. Instead
+   compare each pixel with the paper brightness immediately AROUND it: a hole
+   is a pixel clearly darker than its own local background. */
+function buildDarkMask(lum,reg,rad,k,minContrast){
+  const I=integralImage(lum), W=CW+1, m=new Uint8Array(CW*CH);
+  for(let y=reg.y0;y<=reg.y1;y++){
+    const y0=Math.max(0,y-rad), y1=Math.min(CH-1,y+rad);
+    for(let x=reg.x0;x<=reg.x1;x++){
+      const x0=Math.max(0,x-rad), x1=Math.min(CW-1,x+rad);
+      const s=I[(y1+1)*W+(x1+1)]-I[y0*W+(x1+1)]-I[(y1+1)*W+x0]+I[y0*W+x0];
+      const mean=s/((x1-x0+1)*(y1-y0+1)), p=y*CW+x, v=lum[p];
+      if(v<mean*k && (mean-v)>=minContrast)m[p]=1;
+    }
+  }
+  return m;
+}
 /* dark blobs (pellet holes) inside a rect region, size-filtered, border-excluded */
-function findDarkBlobs(lum,reg,cutoff,minA,maxA){
-  const seen=new Uint8Array(CW*CH), st=[], out=[];
+function findDarkBlobs(mask,reg,minA,maxA){
+  const N=CW*CH, seen=new Uint8Array(N), st=new Int32Array(N), out=[]; let sp=0;
   for(let y=reg.y0;y<=reg.y1;y++)for(let x=reg.x0;x<=reg.x1;x++){
-    const p0=y*CW+x; if(seen[p0]||lum[p0]>=cutoff)continue;
-    let area=0,sx=0,sy=0,tb=false; st.length=0; st.push(p0); seen[p0]=1;
-    while(st.length){const p=st.pop();area++;const px=p%CW,py=(p/CW)|0;sx+=px;sy+=py;
+    const p0=y*CW+x; if(seen[p0]||!mask[p0])continue;
+    let area=0,sx=0,sy=0,tb=false; sp=0; st[sp++]=p0; seen[p0]=1;
+    while(sp){const p=st[--sp];area++;const px=p%CW,py=(p/CW)|0;sx+=px;sy+=py;
       if(px<=reg.x0||px>=reg.x1||py<=reg.y0||py>=reg.y1)tb=true;
-      if(px>reg.x0&&lum[p-1]<cutoff&&!seen[p-1]){seen[p-1]=1;st.push(p-1);}
-      if(px<reg.x1&&lum[p+1]<cutoff&&!seen[p+1]){seen[p+1]=1;st.push(p+1);}
-      if(py>reg.y0&&lum[p-CW]<cutoff&&!seen[p-CW]){seen[p-CW]=1;st.push(p-CW);}
-      if(py<reg.y1&&lum[p+CW]<cutoff&&!seen[p+CW]){seen[p+CW]=1;st.push(p+CW);}
+      if(px>reg.x0&&mask[p-1]&&!seen[p-1]){seen[p-1]=1;st[sp++]=p-1;}
+      if(px<reg.x1&&mask[p+1]&&!seen[p+1]){seen[p+1]=1;st[sp++]=p+1;}
+      if(py>reg.y0&&mask[p-CW]&&!seen[p-CW]){seen[p-CW]=1;st[sp++]=p-CW;}
+      if(py<reg.y1&&mask[p+CW]&&!seen[p+CW]){seen[p+CW]=1;st[sp++]=p+CW;}
     }
     if(area>=minA&&area<=maxA&&!tb)out.push([sx/area,sy/area]);
   }
@@ -1035,11 +1062,18 @@ function findDarkBlobs(lum,reg,cutoff,minA,maxA){
 }
 function blobSizes(base){
   const ms=+((document.getElementById("minsize")||{}).value||2);
-  const minA=Math.max(2,Math.round(Math.pow(base*0.004*ms,2)));
+  const minA=Math.max(2,Math.round(Math.pow(base*0.0026*ms,2)));
   return [minA,Math.max(minA+12,Math.round(base*base*0.02))];
 }
-/* sensitivity -> dark-cutoff, compressed so it never nears paper brightness */
-function holeCutoff(pmed){const t=+((document.getElementById("thresh")||{}).value||50);return pmed*(0.12+0.5*(t-15)/85);}
+/* sensitivity -> local-contrast parameters. Higher = catch fainter holes.
+   k: a pixel is dark below this fraction of local paper brightness.
+   minContrast: absolute grey-level drop required, which suppresses paper noise. */
+function holeParams(){
+  const t=+((document.getElementById("thresh")||{}).value||50), u=(t-15)/85;
+  return {k:Math.min(0.95,0.75+0.28*u), mc:Math.max(4,24-20*u)};
+}
+/* local-mean window: several hole widths, still small enough to track shading */
+function maskRadius(base){return Math.max(8,Math.min(60,Math.round(base*0.035)));}
 /* cap the count at the load's physical pellet total (can't have more holes than pellets) */
 function capCount(raw){
   PH.raw=raw;
@@ -1064,11 +1098,6 @@ function mergeClose(holes,minDist){
   }
   return out;
 }
-function paperMedian(lum,reg,T){
-  const s=[];
-  for(let y=reg.y0;y<=reg.y1;y+=3)for(let x=reg.x0;x<=reg.x1;x+=3){const p=y*CW+x;if(lum[p]>=T)s.push(lum[p]);}
-  s.sort((a,b)=>a-b); return s.length?s[s.length>>1]:200;
-}
 function circleRadiusUnits(){return isMetric()?(37.5/2.54):15;}   // inches (75 cm dia vs 30" dia)
 
 function analyzeAuto(){
@@ -1082,10 +1111,11 @@ function analyzeAuto(){
     PH.paper=paper; reg=paper;
     PH.r=circleRadiusUnits()*(paper.x1-paper.x0)/(PH.sheetIn||40);
   }else{ PH.paper=null; reg={x0:0,y0:0,x1:CW-1,y1:CH-1}; PH.r=Math.min(CW,CH)*0.4; }
-  const cutoff=holeCutoff(paperMedian(lum,reg,T));
   const base=PH.r||((reg.x1-reg.x0)*0.5);
   const [minA,maxA]=blobSizes(base);
-  let holes=mergeClose(findDarkBlobs(lum,reg,cutoff,minA,maxA),Math.max(3,(PH.r||base)*0.011));
+  const hp=holeParams();
+  const mask=buildDarkMask(lum,reg,maskRadius(base),hp.k,hp.mc);
+  let holes=mergeClose(findDarkBlobs(mask,reg,minA,maxA),Math.max(2,(PH.r||base)*0.006));
   if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
   else if(paper.ok){PH.cx=(paper.x0+paper.x1)/2;PH.cy=(paper.y0+paper.y1)/2;}
   if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
@@ -1103,9 +1133,10 @@ function recountManual(){
   if(!PH.img||!PH.r||PH.cx==null)return;
   const lum=lumData();
   const reg={x0:Math.max(0,(PH.cx-PH.r)|0),y0:Math.max(0,(PH.cy-PH.r)|0),x1:Math.min(CW-1,(PH.cx+PH.r)|0),y1:Math.min(CH-1,(PH.cy+PH.r)|0)};
-  const T=otsu(lum), cutoff=holeCutoff(paperMedian(lum,reg,T));
   const [minA,maxA]=blobSizes(PH.r);
-  let holes=mergeClose(findDarkBlobs(lum,reg,cutoff,minA,maxA),Math.max(3,PH.r*0.011));
+  const hp=holeParams();
+  const mask=buildDarkMask(lum,reg,maskRadius(PH.r),hp.k,hp.mc);
+  let holes=mergeClose(findDarkBlobs(mask,reg,minA,maxA),Math.max(2,PH.r*0.006));
   holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes;
   PH.count=capCount(holes.length).shown;
@@ -1129,7 +1160,9 @@ function drawOverlay(){
 function loadPhoto(file){
   const img=new Image();
   img.onload=()=>{
-    const maxW=760, scale=Math.min(1,maxW/img.naturalWidth);
+    // Work at a high enough resolution that a pellet hole is several pixels
+    // across — at 760 px a hole on a 75 cm sheet is ~2 px and blurs away.
+    const maxW=1400, scale=Math.min(1,maxW/img.naturalWidth);
     CW=Math.round(img.naturalWidth*scale); CH=Math.round(img.naturalHeight*scale);
     pcv.width=CW; pcv.height=CH;
     PH.img=img; PH.cx=PH.cy=PH.r=null; PH.paper=null; PH.holes=[]; PH.count=0; placeStage=0;
