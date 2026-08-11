@@ -2682,6 +2682,17 @@ function findCostCentre(lookup, clinic, speciality = '') {
   return exact.length ? exact[0] : null;
 }
 
+function findCostCentreBySpeciality(lookup, speciality) {
+  /* The internal order belongs to the professional category, not the clinic
+   * (13 nurses, 14/16 allied health, 15 doctors…), so the lookup may carry it
+   * on a speciality-only row.  Used only to fill an internal order a clinic
+   * row leaves blank — never to invent a cost centre. */
+  const spec = normLabel(speciality);
+  if (!lookup || !spec) return null;
+  return lookup.rows.find((r) => r.speciality && normLabel(r.speciality) === spec
+                                 && r.internalOrder) || null;
+}
+
 const MONTH_EN = ['', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
   'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
 
@@ -4483,7 +4494,8 @@ function buildSapWorkbook(entries) {
   const zeroChecks = [];
   const sections = entries.map(({ code, label, result }) =>
     ({ label: `${label} (${code})`, result, sraTab: null, nLines: 0, code }));
-  tabSapUpload(wb, sections, zeroChecks);
+  const info = tabSapUpload(wb, sections, zeroChecks, false);
+  tabSapChecks(wb, info, zeroChecks);
   return { wb, zeroChecks };
 }
 
@@ -4596,35 +4608,125 @@ function tabByClinic(wb, sections, zeroChecks) {
   autosize(ws);
 }
 
-/* the SAP journal template's column order (BKPF header + BSEG line item) */
+/* The SAP journal template, reproduced from the service's own workbook
+ * («JOURNAL ENTRIES» sheet): three header rows — a group row, the descriptive
+ * row finance reads, and the technical BKPF/BSEG field names — then the data. */
 const SAP_COLUMNS = [
-  ['BKPF-BLDAT', 'Document Date'], ['BKPF-BUDAT', 'Posting Date'],
-  ['BKPF-BLART', 'Document type'], ['BKPF-BUKRS', 'Company code'],
-  ['BKPF-WAERS', 'Currency'], ['BKPF-MONAT', 'Period'],
-  ['BKPF-XBLNR', 'Reference'], ['BKPF-BKTXT', 'Header Text'],
-  ['BSEG-BSCHL', 'Posting key'], ['BSEG-HKONT', 'Account'],
-  ['BSEG-ANBWA', 'Asset trans. type'], ['BSEG-DMBTR', 'Amount'],
-  ['BSEG-MWSKZ', 'Tax code'], ['BSEG-KOSTL', 'Cost Center'],
-  ['BSEG-AUFNR', 'Internal order'], ['BSEG-GEBER', 'Fund'],
-  ['BSEG-FISTL', 'Fund center'], ['BSEG-FIPOS', 'Commitment item'],
-  ['BSEG-ZUONR', 'Assignment'], ['BSEG-SGTXT', 'Text'],
+  ['BKPF-BLDAT', 'Document Date (8)'],
+  ['BKPF-BUDAT', 'Posting Date (8)'],
+  ['BKPF-BLART', 'Document type (2)\n(KR invoice, KG-Vendor Credit memo etc)'],
+  ['BKPF-BUKRS', 'Hospital  (4)\n1000, 1010 etc'],
+  ['BKPF-WAERS', 'Currency (5)\ne.g. EUR'],
+  ['BKPF-MONAT', 'Period (2)'],
+  ['BKPF-XBLNR', 'Reference (16)\neg. Vendor invoice'],
+  ['BKPF-BKTXT', 'Header Text (25)'],
+  ['BSEG-BSCHL', 'Posting key (2)\neg. 31 vendor invoice\n40 - debit expense\n70 - debit asset'],
+  ['BSEG-HKONT/KUNNR/LIFNR/ANLN1/ANLN2',
+   'Account (17)\ne.g. 535320 (expense)\n102020 (Vendor account)\n10300000140 (Asset)'],
+  ['BSEG-ANBWA', 'Asset Transaction type Pruchase - 100'],
+  ['BSEG-DMBTR', 'Amount in document currency (16)\ne.g. 100,20'],
+  ['BSEG-MWSKZ', 'Tax cde (2)\ne.g. 19'],
+  ['BSEG-KOSTL', 'Cost Center (10)\ne.g. 202016'],
+  ['BSEG-AUFNR', 'Internal order (12)\ne.g. 13'],
+  ['BSEG-GEBER', 'Fund (10)  e.g. 100000'],
+  ['BSEG-FISTL', 'fund center (16)\ne.g. 1.07.00'],
+  ['BSEG-FIPOS', 'Commitment item (24)\ne.g. 03433'],
+  ['BSEG-ZUONR', 'Assignment (18)\ne.g. 2000'],
+  ['BSEG-SGTXT', 'Text (40)\ne.g. ηλεκτρολογικά υλικά covid'],
   ['BSEG-XREF1', 'XREF1'], ['BSEG-XREF2', 'XREF2'], ['BSEG-XREF3', 'XREF3'],
-  ['', 'Επιταγή (cheque)'],
+  ['', ''],            // helper: the remittance advice the document posts
 ];
+const SAP_SHEET = 'JOURNAL ENTRIES';
 const SAP_DEFAULTS = { docType: 'SA', company: '1003', currency: 'EUR',
   debitKey: '01', debitAccount: '200000', creditKey: '50',
   creditAccount: '412002', tax: 'O0' };
 
-function tabSapUpload(wb, sections, zeroChecks) {
-  /* The month's postings in the SAP journal-upload layout: one document per
-   * cheque — a debit line for the cheque total, then one credit line per
-   * (cost centre × internal order).  Codes come from the uploaded lookup;
-   * without it the lines are still written with those columns blank and
-   * every clinic that needs a code listed — no account code is invented. */
-  const ws = wb.addWorksheet('SAP_Upload');
-  writeHeader(ws, 1, SAP_COLUMNS.map(([tag, label]) => (tag ? `${tag}\n${label}` : label)));
-  const lookup = (sections.find((s) => s.result.bundle.costCentres) || { result: { bundle: {} } })
-    .result.bundle.costCentres;
+function sapHeader(ws) {
+  /* the template's three header rows, verbatim — data starts on row 4 */
+  ws.getCell(1, 1).value = 'Header Data';
+  ws.getCell(1, 1).font = { bold: true };
+  ws.getCell(1, 9).value = 'Line item Data';
+  ws.getCell(1, 9).font = { bold: true };
+  ws.getCell(1, 24).value = 'Remittance advice';
+  ws.getCell(1, 24).font = { bold: true };
+  SAP_COLUMNS.forEach(([tag, label], j) => {
+    const c = ws.getCell(2, j + 1);
+    c.value = label;
+    c.alignment = { wrapText: true, vertical: 'top' };
+    const t = ws.getCell(3, j + 1);
+    t.value = tag;
+    t.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    t.fill = FILL_HEADER;
+  });
+  ws.views = [{ state: 'frozen', ySplit: 3 }];
+}
+
+function journalLines(section, lookup) {
+  /* One provider unit's credit lines: {kostl, aufnr, text, amount}, ordered by
+   * cost centre then internal order — the order the service's own journal
+   * uses.  Whatever the clinic split does not cover (claims vs SRA, adjustment
+   * lines) becomes its own TO CLASSIFY line rather than being spread over the
+   * clinics, so the document still posts the whole remittance advice and the
+   * unallocated part stays visible. */
+  const b = section.result.bundle;
+  const buckets = new Map();
+  const labels = new Map();
+  const missing = new Map();
+  for (const sh of clinicShares([section])) {
+    const row = lookup ? findCostCentre(lookup, sh.clinic, sh.speciality) : null;
+    const kostl = row ? row.costCentre : '';
+    let aufnr = row ? row.internalOrder : '';
+    if (lookup && !aufnr) {
+      /* the internal order belongs to the professional category, so a
+       * speciality-only row in the lookup may carry it */
+      const alt = findCostCentreBySpeciality(lookup, sh.speciality);
+      aufnr = alt ? alt.internalOrder : '';
+    }
+    const text = (row && row.text) ? row.text : sh.clinic;
+    const key = [kostl, aufnr, clinicKey(sh.clinic),
+                 kostl ? '' : sh.speciality].join('|');
+    buckets.set(key, round2((buckets.get(key) || 0) + sh.amount));
+    labels.set(key, [text, kostl, aufnr, clinicKey(sh.clinic)]);
+    if (!kostl) missing.set(clinicKey(sh.clinic), sh.clinic);
+  }
+  let credited = 0;
+  for (const v of buckets.values()) credited = round2(credited + v);
+  const residual = round2(b.sra.statedTotal - credited);
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const keys = [...buckets.keys()].sort((a, b2) => {
+    const [, ka, oa, ca] = labels.get(a);
+    const [, kb, ob, cb] = labels.get(b2);
+    if (!ka !== !kb) return ka ? -1 : 1;      // coded lines first
+    return cmp(ka, kb) || cmp(oa, ob) || cmp(ca, cb);
+  });
+  const out = keys.map((key) => {
+    const [text, kostl, aufnr] = labels.get(key);
+    return { kostl, aufnr, text, amount: buckets.get(key) };
+  });
+  if (Math.abs(residual) > 0.005) {
+    out.push({ kostl: '', aufnr: '', text: 'TO CLASSIFY (claims vs SRA + adj.)',
+               amount: residual });
+  }
+  return { lines: out, missing };
+}
+
+function sapQuote(text) {
+  /* a cost-centre name going inside a formula string literal */
+  return String(text).replace(/"/g, "'").slice(0, 32);
+}
+
+function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
+  /* The month's postings in the service's own SAP journal layout: one document
+   * per remittance advice — a debit line (posting key 01, account 200000)
+   * whose amount is a live SUM of the credit lines beneath it, then one credit
+   * line (50 / 412002 / O0) per cost centre × internal order.  Codes come from
+   * the uploaded lookup; without it the lines are still written with those
+   * columns blank and highlighted, and every clinic that needs a code is
+   * listed — no account code is ever invented. */
+  const ws = wb.addWorksheet(SAP_SHEET);
+  sapHeader(ws);
+  const found = sections.find((s) => s.result.bundle.costCentres);
+  const lookup = found ? found.result.bundle.costCentres : null;
   const company = (lookup && lookup.companyCode) ? lookup.companyCode : SAP_DEFAULTS.company;
   const b0 = sections.length ? sections[0].result.bundle : null;
   const year = b0 ? b0.year : null, month = b0 ? b0.month : null;
@@ -4633,92 +4735,135 @@ function tabSapUpload(wb, sections, zeroChecks) {
   const periodLabel = monthLabelEn(year, month);
   const short = (year && month)
     ? `${String(month).padStart(2, '0')}/${String(year).slice(-2)}` : '';
-  let r = 2;
+  let r = 4;
   const missing = new Map();
+  const docs = [];
   for (const section of sections) {
     const b = section.result.bundle;
     if (!b.sra) continue;
     const cheque = b.sra.chequeNo;
-    const head = [docDate, docDate, SAP_DEFAULTS.docType, company, SAP_DEFAULTS.currency,
-      '', periodLabel, `HIO OUTP. INV.${cheque}`.slice(0, 25), SAP_DEFAULTS.debitKey,
-      SAP_DEFAULTS.debitAccount, '', b.sra.statedTotal, '', '', '', '', '', '',
-      company, `HIO OUTP. ${short} INV.${cheque}`.slice(0, 40), '', '', '', cheque];
+    const built = journalLines(section, lookup);
+    for (const [k, v] of built.missing) missing.set(k, v);
+    const lines = built.lines;
+    const headRow = r;
+    const head = [docDate, { formula: `A${headRow}` }, SAP_DEFAULTS.docType, company,
+      SAP_DEFAULTS.currency, '', periodLabel,
+      { formula: `"HIO OUTP. INV."&X${headRow}` }, SAP_DEFAULTS.debitKey,
+      SAP_DEFAULTS.debitAccount, '',
+      { formula: `SUM(L${headRow + 1}:L${headRow + lines.length})` }, '', '',
+      '', '', '', '', company,
+      { formula: `"HIO OUTP. ${short} INV."&X${headRow}` },
+      '', '', '', cheque];
     head.forEach((v, j) => {
       const c = ws.getCell(r, j + 1);
       c.value = v;
-      c.font = F_INPUT;
+      c.font = (v && v.formula) ? F_FORMULA : F_INPUT;
       if (j === 11) c.numFmt = EUR_FMT;
     });
     r += 1;
-    const shares = clinicShares([section]);
-    const buckets = new Map();
-    const labels = new Map();
-    for (const sh of shares) {
-      const row = lookup ? findCostCentre(lookup, sh.clinic, sh.speciality) : null;
-      const kostl = row ? row.costCentre : '';
-      const aufnr = row ? row.internalOrder : '';
-      const text = (row && row.text) ? row.text : sh.clinic;
-      const key = [kostl, aufnr, clinicKey(sh.clinic),
-                   (!row || !row.costCentre) ? sh.speciality : ''].join('\u0001');
-      buckets.set(key, round2((buckets.get(key) || 0) + sh.amount));
-      labels.set(key, [text, sh.clinic, sh.speciality, kostl, aufnr]);
-      if (!kostl) missing.set(clinicKey(sh.clinic), sh.clinic);
-    }
-    /* the credit side must equal the cheque: whatever the clinic split does
-     * not cover (claims vs SRA, adjustment lines) becomes its own line, to be
-     * classified — never silently spread over the clinics */
-    let credited = 0;
-    for (const v of buckets.values()) credited = round2(credited + v);
-    const residual = round2(b.sra.statedTotal - credited);
-    if (Math.abs(residual) > 0.005) {
-      const key = ['', '', '__RESIDUAL__', ''].join('\u0001');
-      buckets.set(key, residual);
-      labels.set(key, ['TO CLASSIFY (claims vs SRA + adj.)',
-        'ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές', '', '', '']);
-    }
-    const keys = [...buckets.keys()].sort((a, b2) => buckets.get(b2) - buckets.get(a));
-    for (const key of keys) {
-      const [text, clinic, spec, kostl, aufnr] = labels.get(key);
-      const sgtxt = `HIO OUTP. ${short} INV.${cheque} ${text}`.slice(0, 40);
+    for (const ln of lines) {
+      const sgtxt = { formula: `"HIO OUTP. ${short} INV."&X${r}&" ${sapQuote(ln.text)}"` };
       const line = ['', '', '', '', '', '', '', '', SAP_DEFAULTS.creditKey,
-        SAP_DEFAULTS.creditAccount, '', buckets.get(key), SAP_DEFAULTS.tax,
-        kostl, aufnr, '', '', '', company, sgtxt, clinic, spec, '', cheque];
+        SAP_DEFAULTS.creditAccount, '', ln.amount, SAP_DEFAULTS.tax,
+        ln.kostl, ln.aufnr, '', '', '', company, sgtxt, '', '', '', cheque];
       line.forEach((v, j) => {
         const c = ws.getCell(r, j + 1);
         c.value = v;
-        c.font = F_INPUT;
+        c.font = (v && v.formula) ? F_FORMULA : F_INPUT;
         if (j === 11) c.numFmt = EUR_FMT;
         if ((j === 13 || j === 14) && !v) c.fill = FILL_AMBER;
       });
       r += 1;
     }
+    docs.push({ cheque, label: section.label, headRow, stated: b.sra.statedTotal });
   }
-  const last = r - 1;
-  const totalRow = r + 1;
-  /* SUMIFS criteria reference helper cells, never quoted strings */
-  ws.getCell(totalRow, 1).value = 'Σύνολο πιστωτικών γραμμών (credit lines)';
-  ws.getCell(totalRow, 1).font = { bold: true };
-  ws.getCell(totalRow, 9).value = SAP_DEFAULTS.creditKey;
-  ws.getCell(totalRow, 9).font = F_INPUT;
-  writeAmount(ws, totalRow, 12, `SUMIFS(L2:L${last},I2:I${last},I${totalRow})`, F_FORMULA);
-  ws.getCell(totalRow + 1, 1).value = 'Σύνολο χρεωστικών γραμμών (cheques)';
-  ws.getCell(totalRow + 1, 1).font = { bold: true };
-  ws.getCell(totalRow + 1, 9).value = SAP_DEFAULTS.debitKey;
-  ws.getCell(totalRow + 1, 9).font = F_INPUT;
-  writeAmount(ws, totalRow + 1, 12,
-    `SUMIFS(L2:L${last},I2:I${last},I${totalRow + 1})`, F_FORMULA);
-  ws.getCell(totalRow + 2, 1).value = 'Zero-check = πιστωτικές − χρεωστικές (must be 0)';
-  writeAmount(ws, totalRow + 2, 12, `L${totalRow}-L${totalRow + 1}`, F_FORMULA)
-    .fill = FILL_CHECK;
-  zeroChecks.push({ sheet: 'SAP_Upload', addr: `L${totalRow + 2}` });
-  if (missing.size) {
-    const note = ws.getCell(totalRow + 4, 1);
-    note.value = 'Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο αντιστοίχισης '
-      + 'και ανεβάστε το ξανά (clinics with no cost centre in the lookup): '
-      + [...missing.values()].sort().join(' · ');
-    note.font = F_AMBER;
-    note.alignment = { wrapText: true, vertical: 'top' };
+  const info = { last: r - 1, docs, missing };
+  if (inlineChecks) sapChecks(ws, info, r + 1, zeroChecks);
+  autosize(ws);
+  ws.columns.forEach((col) => { col.width = Math.min(col.width || 12, 26); });
+  return info;
+}
+
+function sapChecks(ws, info, row, zeroChecks) {
+  /* credits = debits, and every document = its own remittance advice */
+  const last = info.last;
+  let r = row;
+  ws.getCell(r, 1).value = 'Σύνολο πιστωτικών γραμμών (credit lines)';
+  ws.getCell(r, 1).font = { bold: true };
+  ws.getCell(r, 9).value = SAP_DEFAULTS.creditKey;
+  ws.getCell(r, 9).font = F_INPUT;
+  writeAmount(ws, r, 12, `SUMIFS(L4:L${last},I4:I${last},I${r})`, F_FORMULA);
+  ws.getCell(r + 1, 1).value = 'Σύνολο χρεωστικών γραμμών (debit lines)';
+  ws.getCell(r + 1, 1).font = { bold: true };
+  ws.getCell(r + 1, 9).value = SAP_DEFAULTS.debitKey;
+  ws.getCell(r + 1, 9).font = F_INPUT;
+  writeAmount(ws, r + 1, 12, `SUMIFS(L4:L${last},I4:I${last},I${r + 1})`, F_FORMULA);
+  ws.getCell(r + 2, 1).value = 'Zero-check = πιστωτικές − χρεωστικές (must be 0)';
+  writeAmount(ws, r + 2, 12, `L${r}-L${r + 1}`, F_FORMULA).fill = FILL_CHECK;
+  zeroChecks.push({ sheet: SAP_SHEET, addr: `L${r + 2}` });
+  r += 4;
+  writeHeader(ws, r, ['Επιταγή / remittance advice', 'Ανάρτηση (posted) €',
+                      'Επιταγή ΟΑΥ (advice total) €', 'Διαφορά (Diff) €']);
+  r += 1;
+  for (const d of info.docs) {
+    ws.getCell(r, 1).value = `${d.cheque} — ${d.label}`.replace(/ — $/, '');
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 2, `L${d.headRow}`, F_LINK);
+    writeAmount(ws, r, 3, d.stated, F_INPUT);
+    writeAmount(ws, r, 4, `B${r}-C${r}`, F_FORMULA).fill = FILL_CHECK;
+    zeroChecks.push({ sheet: SAP_SHEET, addr: `D${r}` });
+    r += 1;
   }
+  sapMissingNote(ws, info, r + 1);
+}
+
+function sapMissingNote(ws, info, r) {
+  if (!info.missing.size) return;
+  const note = ws.getCell(r, 1);
+  note.value = 'Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο αντιστοίχισης '
+    + 'και ανεβάστε το ξανά (clinics with no cost centre in the lookup): '
+    + [...info.missing.values()].sort().join(' · ');
+  note.font = F_AMBER;
+  note.alignment = { wrapText: true, vertical: 'top' };
+}
+
+function tabSapChecks(wb, info, zeroChecks) {
+  /* The upload sheet stays clean — finance selects it whole and feeds it to
+   * SAP — so the checks live on their own sheet, pointing back at it. */
+  const ws = wb.addWorksheet('Έλεγχος_SAP');
+  ws.getCell(1, 1).value = 'Έλεγχοι της ανάρτησης SAP (checks on the journal above)';
+  ws.getCell(1, 1).font = { bold: true, size: 12, color: { argb: NAVY } };
+  const last = info.last;
+  let r = 3;
+  ws.getCell(r, 1).value = 'Σύνολο πιστωτικών γραμμών (credit lines)';
+  ws.getCell(r, 1).font = { bold: true };
+  writeAmount(ws, r, 2,
+    `SUMIFS('${SAP_SHEET}'!L4:L${last},'${SAP_SHEET}'!I4:I${last},C${r})`, F_LINK);
+  ws.getCell(r, 3).value = SAP_DEFAULTS.creditKey;
+  ws.getCell(r, 3).font = F_INPUT;
+  ws.getCell(r + 1, 1).value = 'Σύνολο χρεωστικών γραμμών (debit lines)';
+  ws.getCell(r + 1, 1).font = { bold: true };
+  writeAmount(ws, r + 1, 2,
+    `SUMIFS('${SAP_SHEET}'!L4:L${last},'${SAP_SHEET}'!I4:I${last},C${r + 1})`, F_LINK);
+  ws.getCell(r + 1, 3).value = SAP_DEFAULTS.debitKey;
+  ws.getCell(r + 1, 3).font = F_INPUT;
+  ws.getCell(r + 2, 1).value = 'Zero-check = πιστωτικές − χρεωστικές (must be 0)';
+  writeAmount(ws, r + 2, 2, `B${r}-B${r + 1}`, F_FORMULA).fill = FILL_CHECK;
+  zeroChecks.push({ sheet: 'Έλεγχος_SAP', addr: `B${r + 2}` });
+  r += 4;
+  writeHeader(ws, r, ['Επιταγή / remittance advice', 'Ανάρτηση (posted) €',
+                      'Επιταγή ΟΑΥ (advice total) €', 'Διαφορά (Diff) €']);
+  r += 1;
+  for (const d of info.docs) {
+    ws.getCell(r, 1).value = `${d.cheque} — ${d.label}`.replace(/ — $/, '');
+    ws.getCell(r, 1).font = F_INPUT;
+    writeAmount(ws, r, 2, `'${SAP_SHEET}'!L${d.headRow}`, F_LINK);
+    writeAmount(ws, r, 3, d.stated, F_INPUT);
+    writeAmount(ws, r, 4, `B${r}-C${r}`, F_FORMULA).fill = FILL_CHECK;
+    zeroChecks.push({ sheet: 'Έλεγχος_SAP', addr: `D${r}` });
+    r += 1;
+  }
+  sapMissingNote(ws, info, r + 1);
   autosize(ws);
 }
 
@@ -5977,8 +6122,8 @@ function renderProviderResults(entries, buffer, year, month, sapBuffer) {
   }
   html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
     + '(Download Excel workbook)</button> '
-    + '<button id="download-sap" class="primary">⬇ Λήψη αρχείου SAP '
-    + '(Download SAP upload file)</button></p>';
+    + '<button id="download-sap" class="primary">⬇ Λήψη ημερολογίου SAP '
+    + '(Download SAP JOURNAL ENTRIES)</button></p>';
   $('results').innerHTML = html;
   const stamp = `${month ? MONTH_ABBR[month] : 'XX'}${year || ''}`;
   const save = (buf, name) => {
@@ -5993,7 +6138,7 @@ function renderProviderResults(entries, buffer, year, month, sapBuffer) {
   $('download-btn').addEventListener('click', () =>
     save(buffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_Reconciliation.xlsx`));
   $('download-sap').addEventListener('click', () =>
-    save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_Upload.xlsx`));
+    save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_JOURNAL_ENTRIES.xlsx`));
 }
 
 function renderResults(result, buffer, hospital, year, month) {

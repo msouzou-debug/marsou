@@ -350,6 +350,17 @@ function findCostCentre(lookup, clinic, speciality = '') {
   return exact.length ? exact[0] : null;
 }
 
+function findCostCentreBySpeciality(lookup, speciality) {
+  /* The internal order belongs to the professional category, not the clinic
+   * (13 nurses, 14/16 allied health, 15 doctors…), so the lookup may carry it
+   * on a speciality-only row.  Used only to fill an internal order a clinic
+   * row leaves blank — never to invent a cost centre. */
+  const spec = normLabel(speciality);
+  if (!lookup || !spec) return null;
+  return lookup.rows.find((r) => r.speciality && normLabel(r.speciality) === spec
+                                 && r.internalOrder) || null;
+}
+
 const MONTH_EN = ['', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
   'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
 

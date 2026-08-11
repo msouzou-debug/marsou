@@ -188,18 +188,35 @@ staff roster**, uploaded with the month's files:
   intact. Money is never attributed on a maybe;
 - `Ανά_κλινική` shows clinic → professional → share → amount, with a
   zero-check against the claims files;
-- `SAP_Upload` writes the month in the SAP journal-upload layout: one
-  document per cheque — a debit line for the cheque, then one credit line per
-  cost centre × internal order. Whatever the clinic split does not cover
-  (claims-vs-SRA, adjustment lines) becomes an explicit *TO CLASSIFY* line so
-  every document balances. It also downloads as its own one-sheet file.
+- `JOURNAL ENTRIES` writes the month in the service's own SAP journal
+  template, reproduced from their workbook: three header rows (group row,
+  the descriptive row finance reads, then the technical `BKPF-`/`BSEG-` field
+  names), data from row 4, and the remittance advice in the last column.
+  **One document per remittance advice** — a debit line (`01` / `200000`)
+  whose amount is a live `SUM` of its own credit lines, then one credit line
+  (`50` / `412002`, tax `O0`) per cost centre × internal order, ordered by
+  cost centre then order. `BKTXT` and `SGTXT` are formulas off the advice
+  column, so changing the advice number updates both texts.
+
+  Whatever the clinic split does not cover (claims-vs-SRA, adjustment lines)
+  becomes an explicit *TO CLASSIFY* line so every document still posts the
+  whole advice with the unallocated part visible — it is never spread over
+  the clinics.
+
+  It downloads as its own file, where the journal sheet stays **clean** —
+  finance selects it whole and feeds it to SAP — and the checks (credits =
+  debits, and each document against its own advice) sit on a separate
+  `Έλεγχος_SAP` sheet.
 
 The SAP codes come from an **optional lookup** — a sheet or a file with
 `Κλινική | Κέντρο κόστους | Εσωτερική εντολή | Κείμενο SAP` (plus an optional
-`Ειδικότητα` column when the internal order follows the professional category
-rather than the clinic). Without it the sheet is still produced, keyed by
-clinic, with those two columns blank and every clinic that needs a code
-listed at the bottom — the app never invents an account code.
+`Ειδικότητα` column). The internal order follows the professional category
+(13 nurses, 14/16 allied health, 15 doctors…) rather than the clinic, so when
+a clinic row leaves it blank a speciality-keyed row supplies it — that
+fallback fills the internal order only, never the cost centre. Without the
+lookup the sheet is still produced, keyed by clinic, with those two columns
+blank and highlighted and every clinic that needs a code listed — the app
+never invents an account code.
 
 Verified on the real May-2026 month (five units, cheques 266444 / 266457 /
 266458 / 266474 / 266475, €211.006,20 in total) — see

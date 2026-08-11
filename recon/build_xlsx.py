@@ -340,7 +340,8 @@ def build_sap_workbook(entries: list) -> bytes:
     for code, label, result in entries:
         sections.append(_Section(f"{label} ({code})", result, None, 0))
         sections[-1].code = code
-    _tab_sap_upload(wb, sections)
+    info = _tab_sap_upload(wb, sections, inline_checks=False)
+    _tab_sap_checks(wb, info)
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
@@ -451,40 +452,115 @@ def _tab_by_clinic(wb: Workbook, sections: list) -> None:
     _autosize(ws)
 
 
-# the SAP journal template's column order (BKPF header + BSEG line item)
+# The SAP journal template, reproduced from the service's own workbook
+# («JOURNAL ENTRIES» sheet): three header rows — a group row, the descriptive
+# row finance reads, and the technical BKPF/BSEG field names — then the data.
 _SAP_COLUMNS = [
-    ("BKPF-BLDAT", "Document Date"), ("BKPF-BUDAT", "Posting Date"),
-    ("BKPF-BLART", "Document type"), ("BKPF-BUKRS", "Company code"),
-    ("BKPF-WAERS", "Currency"), ("BKPF-MONAT", "Period"),
-    ("BKPF-XBLNR", "Reference"), ("BKPF-BKTXT", "Header Text"),
-    ("BSEG-BSCHL", "Posting key"), ("BSEG-HKONT", "Account"),
-    ("BSEG-ANBWA", "Asset trans. type"), ("BSEG-DMBTR", "Amount"),
-    ("BSEG-MWSKZ", "Tax code"), ("BSEG-KOSTL", "Cost Center"),
-    ("BSEG-AUFNR", "Internal order"), ("BSEG-GEBER", "Fund"),
-    ("BSEG-FISTL", "Fund center"), ("BSEG-FIPOS", "Commitment item"),
-    ("BSEG-ZUONR", "Assignment"), ("BSEG-SGTXT", "Text"),
+    ("BKPF-BLDAT", "Document Date (8)"),
+    ("BKPF-BUDAT", "Posting Date (8)"),
+    ("BKPF-BLART", "Document type (2)\n(KR invoice, KG-Vendor Credit memo etc)"),
+    ("BKPF-BUKRS", "Hospital  (4)\n1000, 1010 etc"),
+    ("BKPF-WAERS", "Currency (5)\ne.g. EUR"),
+    ("BKPF-MONAT", "Period (2)"),
+    ("BKPF-XBLNR", "Reference (16)\neg. Vendor invoice"),
+    ("BKPF-BKTXT", "Header Text (25)"),
+    ("BSEG-BSCHL", "Posting key (2)\neg. 31 vendor invoice\n40 - debit expense\n"
+                   "70 - debit asset"),
+    ("BSEG-HKONT/KUNNR/LIFNR/ANLN1/ANLN2",
+     "Account (17)\ne.g. 535320 (expense)\n102020 (Vendor account)\n"
+     "10300000140 (Asset)"),
+    ("BSEG-ANBWA", "Asset Transaction type Pruchase - 100"),
+    ("BSEG-DMBTR", "Amount in document currency (16)\ne.g. 100,20"),
+    ("BSEG-MWSKZ", "Tax cde (2)\ne.g. 19"),
+    ("BSEG-KOSTL", "Cost Center (10)\ne.g. 202016"),
+    ("BSEG-AUFNR", "Internal order (12)\ne.g. 13"),
+    ("BSEG-GEBER", "Fund (10)  e.g. 100000"),
+    ("BSEG-FISTL", "fund center (16)\ne.g. 1.07.00"),
+    ("BSEG-FIPOS", "Commitment item (24)\ne.g. 03433"),
+    ("BSEG-ZUONR", "Assignment (18)\ne.g. 2000"),
+    ("BSEG-SGTXT", "Text (40)\ne.g. ηλεκτρολογικά υλικά covid"),
     ("BSEG-XREF1", "XREF1"), ("BSEG-XREF2", "XREF2"), ("BSEG-XREF3", "XREF3"),
-    ("", "Επιταγή (cheque)"),
+    ("", ""),          # helper: the remittance advice the document posts
 ]
+SAP_SHEET = "JOURNAL ENTRIES"
 SAP_DEFAULTS = {"doc_type": "SA", "company": "1003", "currency": "EUR",
                 "debit_key": "01", "debit_account": "200000",
                 "credit_key": "50", "credit_account": "412002", "tax": "O0"}
 
 
-def _tab_sap_upload(wb: Workbook, sections: list) -> None:
-    """The month's postings in the SAP journal-upload layout: one document per
-    cheque — a debit line for the cheque total, then one credit line per
-    (cost centre × internal order), i.e. per clinic and professional
-    category.
+def _sap_header(ws) -> None:
+    """The template's three header rows, verbatim — data starts on row 4."""
+    ws.cell(row=1, column=1, value="Header Data").font = Font(bold=True)
+    ws.cell(row=1, column=9, value="Line item Data").font = Font(bold=True)
+    ws.cell(row=1, column=24,
+            value="Remittance advice").font = Font(bold=True)
+    for j, (tag, label) in enumerate(_SAP_COLUMNS, start=1):
+        c = ws.cell(row=2, column=j, value=label)
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+        t = ws.cell(row=3, column=j, value=tag)
+        t.font = Font(color="FFFFFF", bold=True)
+        t.fill = PatternFill("solid", fgColor=NAVY)
+    ws.freeze_panes = "A4"
 
-    Cost centre and internal order come from the uploaded lookup.  Without it
+
+def _journal_lines(section) -> tuple[list[tuple], dict]:
+    """One provider unit's credit lines: (cost centre, internal order, text,
+    clinic, speciality, amount), ordered by cost centre then internal order —
+    the order the service's own journal uses.
+
+    Whatever the clinic split does not cover (claims vs SRA, adjustment lines)
+    becomes its own TO CLASSIFY line rather than being spread over the
+    clinics, so the document still posts the whole remittance advice and the
+    unallocated part stays visible."""
+    from .mapping import clinic_key
+    b = section.result.bundle
+    lookup = getattr(b, "cost_centres", None)
+    buckets: dict[tuple, float] = {}
+    labels: dict[tuple, tuple] = {}
+    missing: dict[str, str] = {}
+    for sh in _clinic_shares([section]):
+        row = lookup.find(sh.clinic, sh.speciality) if lookup else None
+        kostl = row.cost_centre if row else ""
+        aufnr = row.internal_order if row else ""
+        if lookup and not aufnr:
+            # the internal order belongs to the professional category, so a
+            # speciality-only row in the lookup may carry it
+            alt = lookup.find_speciality(sh.speciality) if lookup else None
+            aufnr = alt.internal_order if alt else ""
+        text = row.text if row and row.text else sh.clinic
+        key = (kostl, aufnr, clinic_key(sh.clinic),
+               sh.speciality if not kostl else "")
+        buckets[key] = round(buckets.get(key, 0.0) + sh.amount, 2)
+        labels[key] = (text, sh.clinic, sh.speciality)
+        if not kostl:
+            missing[clinic_key(sh.clinic)] = sh.clinic
+    residual = round(b.sra.stated_total - sum(buckets.values()), 2)
+    out = []
+    for key in sorted(buckets, key=lambda k: (k[0] == "", k[0], k[1], k[2])):
+        kostl, aufnr, _ck, _sp = key
+        text, clinic, spec = labels[key]
+        out.append((kostl, aufnr, text, clinic, spec, buckets[key]))
+    if abs(residual) > 0.005:
+        out.append(("", "", "TO CLASSIFY (claims vs SRA + adj.)",
+                    "ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές",
+                    "", residual))
+    return out, missing
+
+
+def _tab_sap_upload(wb: Workbook, sections: list,
+                    inline_checks: bool = True) -> dict:
+    """The month's postings in the service's own SAP journal layout: one
+    document per remittance advice — a debit line (posting key 01, account
+    200000) whose amount is a live SUM of the credit lines beneath it, then
+    one credit line (50 / 412002 / O0) per cost centre × internal order.
+
+    Cost centre and internal order come from the uploaded lookup. Without it
     the lines are still written, keyed by clinic name, with those two columns
-    blank and every clinic that needs a code listed at the bottom — the app
-    never invents an account code."""
-    from .mapping import clinic_key, month_label
-    ws = wb.create_sheet("SAP_Upload")
-    _header(ws, 1, [f"{tag}\n{label}" if tag else label
-                    for tag, label in _SAP_COLUMNS])
+    blank and highlighted, and every clinic that needs a code listed on the
+    check sheet — the app never invents an account code."""
+    from .mapping import month_label
+    ws = wb.create_sheet(SAP_SHEET)
+    _sap_header(ws)
     lookup = next((getattr(s.result.bundle, "cost_centres", None) for s in sections
                    if getattr(s.result.bundle, "cost_centres", None)), None)
     company = (lookup.company_code if lookup and lookup.company_code
@@ -495,88 +571,143 @@ def _tab_sap_upload(wb: Workbook, sections: list) -> None:
                 if year and month else "")
     period_label = month_label(year, month)
     short = f"{month:02d}/{str(year)[-2:]}" if year and month else ""
-    r = 2
+    r = 4
     missing: dict[str, str] = {}
+    docs: list[tuple] = []          # (cheque, unit label, head row, total)
     for section in sections:
         b = section.result.bundle
         if not b.sra:
             continue
         cheque = b.sra.cheque_no
-        # header (debit) line: the cheque as a receivable
-        head = [doc_date, doc_date, SAP_DEFAULTS["doc_type"], company,
+        lines, miss = _journal_lines(section)
+        missing.update(miss)
+        head_row = r
+        # header (debit) line — the amount is the live sum of its own credits
+        head = [doc_date, f"=A{head_row}", SAP_DEFAULTS["doc_type"], company,
                 SAP_DEFAULTS["currency"], "", period_label,
-                f"HIO OUTP. INV.{cheque}"[:25], SAP_DEFAULTS["debit_key"],
-                SAP_DEFAULTS["debit_account"], "", b.sra.stated_total, "", "",
-                "", "", "", "", company, f"HIO OUTP. {short} INV.{cheque}"[:40],
+                f'="HIO OUTP. INV."&X{head_row}', SAP_DEFAULTS["debit_key"],
+                SAP_DEFAULTS["debit_account"], "",
+                f"=SUM(L{head_row + 1}:L{head_row + len(lines)})", "", "",
+                "", "", "", "", company,
+                f'="HIO OUTP. {short} INV."&X{head_row}',
                 "", "", "", cheque]
         for j, v in enumerate(head, start=1):
             c = ws.cell(row=r, column=j, value=v)
-            c.font = F_INPUT
+            c.font = F_INPUT if not str(v).startswith("=") else F_FORMULA
             if j == 12:
                 c.number_format = EUR_FMT
         r += 1
-        shares = _clinic_shares([section])
-        buckets: dict[tuple, float] = {}
-        labels: dict[tuple, tuple] = {}
-        for sh in shares:
-            row = lookup.find(sh.clinic, sh.speciality) if lookup else None
-            kostl = row.cost_centre if row else ""
-            aufnr = row.internal_order if row else ""
-            text = (row.text if row and row.text else sh.clinic)
-            key = (kostl, aufnr, clinic_key(sh.clinic), sh.speciality if not row
-                   or not row.cost_centre else "")
-            buckets[key] = round(buckets.get(key, 0.0) + sh.amount, 2)
-            labels[key] = (text, sh.clinic, sh.speciality)
-            if not kostl:
-                missing[clinic_key(sh.clinic)] = sh.clinic
-        # the credit side must equal the cheque: whatever the clinic split
-        # does not cover (claims vs SRA, adjustment lines) becomes its own
-        # line, to be classified — never silently spread over the clinics
-        residual = round(b.sra.stated_total - sum(buckets.values()), 2)
-        if abs(residual) > 0.005:
-            buckets[("", "", "__RESIDUAL__", "")] = residual
-            labels[("", "", "__RESIDUAL__", "")] = (
-                "TO CLASSIFY (claims vs SRA + adj.)",
-                "ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές", "")
-        for key in sorted(buckets, key=lambda k: -buckets[k]):
-            kostl, aufnr, _ck, _sp = key
-            text, clinic, spec = labels[key]
-            sgtxt = f"HIO OUTP. {short} INV.{cheque} {text}"[:40]
+        for kostl, aufnr, text, clinic, spec, amount in lines:
+            sgtxt = f'="HIO OUTP. {short} INV."&X{r}&" {_q(text)}"'
             line = ["", "", "", "", "", "", "", "", SAP_DEFAULTS["credit_key"],
-                    SAP_DEFAULTS["credit_account"], "", buckets[key],
+                    SAP_DEFAULTS["credit_account"], "", amount,
                     SAP_DEFAULTS["tax"], kostl, aufnr, "", "", "", company,
-                    sgtxt, clinic, spec, "", cheque]
+                    sgtxt, "", "", "", cheque]
             for j, v in enumerate(line, start=1):
                 c = ws.cell(row=r, column=j, value=v)
-                c.font = F_INPUT
+                c.font = F_FORMULA if str(v).startswith("=") else F_INPUT
                 if j == 12:
                     c.number_format = EUR_FMT
                 if j in (14, 15) and not v:
                     c.fill = FILL_AMBER      # code still to be filled in
             r += 1
-    last = r - 1
-    total_row = r + 1
-    # SUMIFS criteria reference helper cells, never quoted strings
-    ws.cell(row=total_row, column=1,
+        docs.append((cheque, section.label, head_row, b.sra.stated_total))
+    info = {"last": r - 1, "docs": docs, "missing": missing}
+    if inline_checks:
+        _sap_checks(ws, info, r + 1)
+    _autosize(ws)
+    for j in range(1, len(_SAP_COLUMNS) + 1):
+        ws.column_dimensions[get_column_letter(j)].width = min(
+            ws.column_dimensions[get_column_letter(j)].width or 12, 26)
+    return info
+
+
+def _q(text: str) -> str:
+    """A cost-centre name going inside a formula string literal."""
+    return str(text).replace('"', "'")[:32]
+
+
+def _sap_checks(ws, info: dict, row: int) -> int:
+    """Credits = debits, and every document = its own remittance advice."""
+    last = info["last"]
+    r = row
+    ws.cell(row=r, column=1,
             value="Σύνολο πιστωτικών γραμμών (credit lines)").font = Font(bold=True)
-    ws.cell(row=total_row, column=9, value=SAP_DEFAULTS["credit_key"]).font = F_INPUT
-    _amount(ws, total_row, 12,
-            f"=SUMIFS(L2:L{last},I2:I{last},I{total_row})", F_FORMULA)
-    ws.cell(row=total_row + 1, column=1,
-            value="Σύνολο χρεωστικών γραμμών (cheques)").font = Font(bold=True)
-    ws.cell(row=total_row + 1, column=9,
-            value=SAP_DEFAULTS["debit_key"]).font = F_INPUT
-    _amount(ws, total_row + 1, 12,
-            f"=SUMIFS(L2:L{last},I2:I{last},I{total_row + 1})", F_FORMULA)
-    ws.cell(row=total_row + 2, column=1,
+    ws.cell(row=r, column=9, value=SAP_DEFAULTS["credit_key"]).font = F_INPUT
+    _amount(ws, r, 12, f"=SUMIFS(L4:L{last},I4:I{last},I{r})", F_FORMULA)
+    ws.cell(row=r + 1, column=1,
+            value="Σύνολο χρεωστικών γραμμών (debit lines)").font = Font(bold=True)
+    ws.cell(row=r + 1, column=9, value=SAP_DEFAULTS["debit_key"]).font = F_INPUT
+    _amount(ws, r + 1, 12, f"=SUMIFS(L4:L{last},I4:I{last},I{r + 1})", F_FORMULA)
+    ws.cell(row=r + 2, column=1,
             value="Zero-check = πιστωτικές − χρεωστικές (must be 0)")
-    _amount(ws, total_row + 2, 12, f"=L{total_row}-L{total_row + 1}", F_FORMULA)
-    ws.cell(row=total_row + 2, column=12).fill = FILL_CHECK
-    if missing:
-        note = ws.cell(row=total_row + 4, column=1, value=(
+    _amount(ws, r + 2, 12, f"=L{r}-L{r + 1}", F_FORMULA)
+    ws.cell(row=r + 2, column=12).fill = FILL_CHECK
+    r += 4
+    _header(ws, r, ["Επιταγή / remittance advice", "Ανάρτηση (posted) €",
+                    "Επιταγή ΟΑΥ (advice total) €", "Διαφορά (Diff) €"])
+    r += 1
+    for cheque, label, head_row, stated in info["docs"]:
+        ws.cell(row=r, column=1, value=f"{cheque} — {label}".strip(" —")).font = F_INPUT
+        _amount(ws, r, 2, f"=L{head_row}", F_LINK)
+        _amount(ws, r, 3, stated, F_INPUT)
+        _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
+        ws.cell(row=r, column=4).fill = FILL_CHECK
+        r += 1
+    if info["missing"]:
+        r += 1
+        note = ws.cell(row=r, column=1, value=(
             "Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο "
             "αντιστοίχισης και ανεβάστε το ξανά (clinics with no cost centre "
-            "in the lookup): " + " · ".join(sorted(missing.values()))))
+            "in the lookup): " + " · ".join(sorted(info["missing"].values()))))
+        note.font = F_AMBER
+        note.alignment = Alignment(wrap_text=True, vertical="top")
+        r += 1
+    return r
+
+
+def _tab_sap_checks(wb: Workbook, info: dict) -> None:
+    """The upload sheet stays clean — finance selects it whole and feeds it to
+    SAP — so the checks live on their own sheet, pointing back at it."""
+    ws = wb.create_sheet("Έλεγχος_SAP")
+    ws.cell(row=1, column=1,
+            value="Έλεγχοι της ανάρτησης SAP (checks on the journal above)"
+            ).font = Font(bold=True, size=12, color=NAVY)
+    last = info["last"]
+    r = 3
+    ws.cell(row=r, column=1,
+            value="Σύνολο πιστωτικών γραμμών (credit lines)").font = Font(bold=True)
+    _amount(ws, r, 2,
+            f"=SUMIFS('{SAP_SHEET}'!L4:L{last},'{SAP_SHEET}'!I4:I{last},C{r})",
+            F_LINK)
+    ws.cell(row=r, column=3, value=SAP_DEFAULTS["credit_key"]).font = F_INPUT
+    ws.cell(row=r + 1, column=1,
+            value="Σύνολο χρεωστικών γραμμών (debit lines)").font = Font(bold=True)
+    _amount(ws, r + 1, 2,
+            f"=SUMIFS('{SAP_SHEET}'!L4:L{last},'{SAP_SHEET}'!I4:I{last},C{r + 1})",
+            F_LINK)
+    ws.cell(row=r + 1, column=3, value=SAP_DEFAULTS["debit_key"]).font = F_INPUT
+    ws.cell(row=r + 2, column=1,
+            value="Zero-check = πιστωτικές − χρεωστικές (must be 0)")
+    _amount(ws, r + 2, 2, f"=B{r}-B{r + 1}", F_FORMULA)
+    ws.cell(row=r + 2, column=2).fill = FILL_CHECK
+    r += 4
+    _header(ws, r, ["Επιταγή / remittance advice", "Ανάρτηση (posted) €",
+                    "Επιταγή ΟΑΥ (advice total) €", "Διαφορά (Diff) €"])
+    r += 1
+    for cheque, label, head_row, stated in info["docs"]:
+        ws.cell(row=r, column=1, value=f"{cheque} — {label}".strip(" —")).font = F_INPUT
+        _amount(ws, r, 2, f"='{SAP_SHEET}'!L{head_row}", F_LINK)
+        _amount(ws, r, 3, stated, F_INPUT)
+        _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
+        ws.cell(row=r, column=4).fill = FILL_CHECK
+        r += 1
+    if info["missing"]:
+        r += 1
+        note = ws.cell(row=r, column=1, value=(
+            "Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο "
+            "αντιστοίχισης και ανεβάστε το ξανά (clinics with no cost centre "
+            "in the lookup): " + " · ".join(sorted(info["missing"].values()))))
         note.font = F_AMBER
         note.alignment = Alignment(wrap_text=True, vertical="top")
     _autosize(ws)

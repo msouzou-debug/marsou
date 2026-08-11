@@ -133,13 +133,13 @@ def test_clinic_tab_allocates_and_ties_to_the_claims_files():
 def test_sap_sheet_balances_every_document_and_uses_the_lookup():
     data, entries = _built()
     wb = load_workbook(io.BytesIO(data))
-    ws = wb["SAP_Upload"]
+    ws = wb["JOURNAL ENTRIES"]
     ev = _Evaluator(wb)
     # one debit line per cheque, credit lines carrying cost centre + order
-    debits = [r for r in range(2, ws.max_row + 1)
+    debits = [r for r in range(4, ws.max_row + 1)
               if ws.cell(row=r, column=9).value == "01"
               and ws.cell(row=r, column=10).value == "200000"]
-    credits = [r for r in range(2, ws.max_row + 1)
+    credits = [r for r in range(4, ws.max_row + 1)
                if ws.cell(row=r, column=9).value == "50"
                and ws.cell(row=r, column=10).value == "412002"]
     assert len(debits) == len(entries) and credits
@@ -147,21 +147,22 @@ def test_sap_sheet_balances_every_document_and_uses_the_lookup():
     assert any(ws.cell(row=r, column=15).value == "13" for r in credits)
     check = next(r for r in range(1, ws.max_row + 1)
                  if str(ws.cell(row=r, column=1).value or "").startswith("Zero-check"))
-    assert round(ev.evaluate(ws.cell(row=check, column=12).value, "SAP_Upload"), 2) == 0.0
+    assert round(ev.evaluate(ws.cell(row=check, column=12).value, "JOURNAL ENTRIES"), 2) == 0.0
     # the debit side is the cheques, to the cent
     total = round(sum(round(sum(u[2:]), 2) for u in UNITS), 2)
-    assert round(sum(ws.cell(row=r, column=12).value for r in debits), 2) == total
+    assert round(sum(ev.evaluate(ws.cell(row=r, column=12).value, "JOURNAL ENTRIES")
+                     for r in debits), 2) == total
 
 
 def test_sap_sheet_without_a_lookup_lists_the_clinics_needing_codes():
     data, _entries = _built(with_costs=False)
     assert verify_workbook(data) == []
     wb = load_workbook(io.BytesIO(data))
-    ws = wb["SAP_Upload"]
+    ws = wb["JOURNAL ENTRIES"]
     note = next((str(ws.cell(row=r, column=1).value) for r in range(1, ws.max_row + 1)
                  if "χωρίς κέντρο κόστους" in str(ws.cell(row=r, column=1).value or "")), "")
     assert "ΛΑΡΝΑΚΑΣ" in note
-    credits = [r for r in range(2, ws.max_row + 1)
+    credits = [r for r in range(4, ws.max_row + 1)
                if ws.cell(row=r, column=9).value == "50"
                and ws.cell(row=r, column=10).value == "412002"]
     assert credits and all(not ws.cell(row=r, column=14).value for r in credits)

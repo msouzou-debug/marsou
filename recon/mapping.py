@@ -360,6 +360,20 @@ class CostCentreMap:
                 return r
         return exact[0] if exact else None
 
+    def find_speciality(self, speciality: str) -> Optional["CostCentreRow"]:
+        """The internal order belongs to the professional category, not the
+        clinic (13 nurses, 14/16 allied health, 15 doctors…), so the lookup may
+        carry it on a speciality-only row.  Used only to fill an internal order
+        a clinic row leaves blank — never to invent a cost centre."""
+        spec = norm_label(speciality)
+        if not spec:
+            return None
+        for r in self.rows:
+            if r.speciality and norm_label(r.speciality) == spec \
+                    and r.internal_order:
+                return r
+        return None
+
 
 _CC_CLINIC = ("ΚΛΙΝΙΚΗ", "CLINIC", "ΜΟΝΑΔΑ", "UNIT", "ΤΟΠΟΘΕΤΗΣΗ")
 _CC_CENTRE = ("ΚΕΝΤΡΟ ΚΟΣΤΟΥΣ", "COST CENTRE", "COST CENTER", "KOSTL")

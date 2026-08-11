@@ -371,8 +371,8 @@ function renderProviderResults(entries, buffer, year, month, sapBuffer) {
   }
   html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
     + '(Download Excel workbook)</button> '
-    + '<button id="download-sap" class="primary">⬇ Λήψη αρχείου SAP '
-    + '(Download SAP upload file)</button></p>';
+    + '<button id="download-sap" class="primary">⬇ Λήψη ημερολογίου SAP '
+    + '(Download SAP JOURNAL ENTRIES)</button></p>';
   $('results').innerHTML = html;
   const stamp = `${month ? MONTH_ABBR[month] : 'XX'}${year || ''}`;
   const save = (buf, name) => {
@@ -387,7 +387,7 @@ function renderProviderResults(entries, buffer, year, month, sapBuffer) {
   $('download-btn').addEventListener('click', () =>
     save(buffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_Reconciliation.xlsx`));
   $('download-sap').addEventListener('click', () =>
-    save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_Upload.xlsx`));
+    save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_JOURNAL_ENTRIES.xlsx`));
 }
 
 function renderResults(result, buffer, hospital, year, month) {
