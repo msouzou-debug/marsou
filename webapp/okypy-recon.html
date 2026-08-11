@@ -4635,6 +4635,7 @@ const SAP_COLUMNS = [
   ['BSEG-SGTXT', 'Text (40)\ne.g. ηλεκτρολογικά υλικά covid'],
   ['BSEG-XREF1', 'XREF1'], ['BSEG-XREF2', 'XREF2'], ['BSEG-XREF3', 'XREF3'],
   ['', ''],            // helper: the remittance advice the document posts
+  ['', ''],            // helper: whose money the line is
 ];
 const SAP_SHEET = 'JOURNAL ENTRIES';
 const SAP_DEFAULTS = { docType: 'SA', company: '1003', currency: 'EUR',
@@ -4649,6 +4650,8 @@ function sapHeader(ws) {
   ws.getCell(1, 9).font = { bold: true };
   ws.getCell(1, 24).value = 'Remittance advice';
   ws.getCell(1, 24).font = { bold: true };
+  ws.getCell(1, 25).value = 'Ιατρός / Επαγγελματίας (Professional)';
+  ws.getCell(1, 25).font = { bold: true };
   SAP_COLUMNS.forEach(([tag, label], j) => {
     const c = ws.getCell(2, j + 1);
     c.value = label;
@@ -4662,9 +4665,15 @@ function sapHeader(ws) {
 }
 
 function journalLines(section, lookup) {
-  /* One provider unit's credit lines: {kostl, aufnr, text, amount}, ordered by
-   * cost centre then internal order — the order the service's own journal
-   * uses.  Whatever the clinic split does not cover (claims vs SRA, adjustment
+  /* One provider unit's credit lines, ordered by cost centre, internal order,
+   * then professional — the order the service's own journal uses.
+   *
+   * The amount column is broken down BY PROFESSIONAL, the same figures the
+   * «Ανά_μονάδα_ιατρό» sheet shows, re-split across the clinics the roster
+   * puts each professional in.  A professional working two clinics therefore
+   * appears once per clinic, and their lines add back to that sheet's total.
+   *
+   * Whatever the clinic split does not cover (claims vs SRA, adjustment
    * lines) becomes its own TO CLASSIFY line rather than being spread over the
    * clinics, so the document still posts the whole remittance advice and the
    * unallocated part stays visible. */
@@ -4683,10 +4692,11 @@ function journalLines(section, lookup) {
       aufnr = alt ? alt.internalOrder : '';
     }
     const text = (row && row.text) ? row.text : sh.clinic;
+    const who = String(nameKey(sh.professional));
     const key = [kostl, aufnr, clinicKey(sh.clinic),
-                 kostl ? '' : sh.speciality].join('|');
+                 kostl ? '' : sh.speciality, who].join('|');
     buckets.set(key, round2((buckets.get(key) || 0) + sh.amount));
-    labels.set(key, [text, kostl, aufnr, clinicKey(sh.clinic)]);
+    labels.set(key, [text, kostl, aufnr, clinicKey(sh.clinic), who, sh.professional]);
     if (!kostl) missing.set(clinicKey(sh.clinic), sh.clinic);
   }
   let credited = 0;
@@ -4694,18 +4704,18 @@ function journalLines(section, lookup) {
   const residual = round2(b.sra.statedTotal - credited);
   const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
   const keys = [...buckets.keys()].sort((a, b2) => {
-    const [, ka, oa, ca] = labels.get(a);
-    const [, kb, ob, cb] = labels.get(b2);
+    const [, ka, oa, ca, wa] = labels.get(a);
+    const [, kb, ob, cb, wb] = labels.get(b2);
     if (!ka !== !kb) return ka ? -1 : 1;      // coded lines first
-    return cmp(ka, kb) || cmp(oa, ob) || cmp(ca, cb);
+    return cmp(ka, kb) || cmp(oa, ob) || cmp(ca, cb) || cmp(wa, wb);
   });
   const out = keys.map((key) => {
-    const [text, kostl, aufnr] = labels.get(key);
-    return { kostl, aufnr, text, amount: buckets.get(key) };
+    const [text, kostl, aufnr, , , professional] = labels.get(key);
+    return { kostl, aufnr, text, professional, amount: buckets.get(key) };
   });
   if (Math.abs(residual) > 0.005) {
     out.push({ kostl: '', aufnr: '', text: 'TO CLASSIFY (claims vs SRA + adj.)',
-               amount: residual });
+               professional: '', amount: residual });
   }
   return { lines: out, missing };
 }
@@ -4753,7 +4763,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
       { formula: `SUM(L${headRow + 1}:L${headRow + lines.length})` }, '', '',
       '', '', '', '', company,
       { formula: `"HIO OUTP. ${short} INV."&X${headRow}` },
-      '', '', '', cheque];
+      '', '', '', cheque, ''];
     head.forEach((v, j) => {
       const c = ws.getCell(r, j + 1);
       c.value = v;
@@ -4765,7 +4775,8 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
       const sgtxt = { formula: `"HIO OUTP. ${short} INV."&X${r}&" ${sapQuote(ln.text)}"` };
       const line = ['', '', '', '', '', '', '', '', SAP_DEFAULTS.creditKey,
         SAP_DEFAULTS.creditAccount, '', ln.amount, SAP_DEFAULTS.tax,
-        ln.kostl, ln.aufnr, '', '', '', company, sgtxt, '', '', '', cheque];
+        ln.kostl, ln.aufnr, '', '', '', company, sgtxt, '', '', '', cheque,
+        ln.professional];
       line.forEach((v, j) => {
         const c = ws.getCell(r, j + 1);
         c.value = v;

@@ -194,9 +194,16 @@ staff roster**, uploaded with the month's files:
   names), data from row 4, and the remittance advice in the last column.
   **One document per remittance advice** — a debit line (`01` / `200000`)
   whose amount is a live `SUM` of its own credit lines, then one credit line
-  (`50` / `412002`, tax `O0`) per cost centre × internal order, ordered by
-  cost centre then order. `BKTXT` and `SGTXT` are formulas off the advice
-  column, so changing the advice number updates both texts.
+  (`50` / `412002`, tax `O0`) per cost centre × internal order × **professional**,
+  ordered by cost centre, order, then professional. `BKTXT` and `SGTXT` are
+  formulas off the advice column, so changing the advice number updates both
+  texts.
+
+  The amount column (`BSEG-DMBTR`) therefore breaks down by professional, and
+  a helper column beside the advice names whose money each line is. Each
+  professional's lines add back to what the `Ανά_μονάδα_ιατρό` sheet pays them
+  (its column E) — the roster only re-splits that money across clinics, it
+  never changes it, so a professional working two clinics gets a line in each.
 
   Whatever the clinic split does not cover (claims-vs-SRA, adjustment lines)
   becomes an explicit *TO CLASSIFY* line so every document still posts the

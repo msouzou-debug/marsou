@@ -481,6 +481,7 @@ _SAP_COLUMNS = [
     ("BSEG-SGTXT", "Text (40)\ne.g. ηλεκτρολογικά υλικά covid"),
     ("BSEG-XREF1", "XREF1"), ("BSEG-XREF2", "XREF2"), ("BSEG-XREF3", "XREF3"),
     ("", ""),          # helper: the remittance advice the document posts
+    ("", ""),          # helper: whose money the line is
 ]
 SAP_SHEET = "JOURNAL ENTRIES"
 SAP_DEFAULTS = {"doc_type": "SA", "company": "1003", "currency": "EUR",
@@ -494,6 +495,8 @@ def _sap_header(ws) -> None:
     ws.cell(row=1, column=9, value="Line item Data").font = Font(bold=True)
     ws.cell(row=1, column=24,
             value="Remittance advice").font = Font(bold=True)
+    ws.cell(row=1, column=25,
+            value="Ιατρός / Επαγγελματίας (Professional)").font = Font(bold=True)
     for j, (tag, label) in enumerate(_SAP_COLUMNS, start=1):
         c = ws.cell(row=2, column=j, value=label)
         c.alignment = Alignment(wrap_text=True, vertical="top")
@@ -503,16 +506,20 @@ def _sap_header(ws) -> None:
     ws.freeze_panes = "A4"
 
 
-def _journal_lines(section) -> tuple[list[tuple], dict]:
-    """One provider unit's credit lines: (cost centre, internal order, text,
-    clinic, speciality, amount), ordered by cost centre then internal order —
-    the order the service's own journal uses.
+def _journal_lines(section) -> tuple[list[dict], dict]:
+    """One provider unit's credit lines, ordered by cost centre, internal
+    order, then professional — the order the service's own journal uses.
+
+    The amount column is broken down BY PROFESSIONAL, the same figures the
+    «Anά_μονάδα_ιατρό» sheet shows, re-split across the clinics the roster
+    puts each professional in.  A professional working two clinics therefore
+    appears once per clinic, and their lines add back to that sheet's total.
 
     Whatever the clinic split does not cover (claims vs SRA, adjustment lines)
     becomes its own TO CLASSIFY line rather than being spread over the
     clinics, so the document still posts the whole remittance advice and the
     unallocated part stays visible."""
-    from .mapping import clinic_key
+    from .mapping import clinic_key, name_key
     b = section.result.bundle
     lookup = getattr(b, "cost_centres", None)
     buckets: dict[tuple, float] = {}
@@ -529,21 +536,22 @@ def _journal_lines(section) -> tuple[list[tuple], dict]:
             aufnr = alt.internal_order if alt else ""
         text = row.text if row and row.text else sh.clinic
         key = (kostl, aufnr, clinic_key(sh.clinic),
-               sh.speciality if not kostl else "")
+               sh.speciality if not kostl else "", str(name_key(sh.professional)))
         buckets[key] = round(buckets.get(key, 0.0) + sh.amount, 2)
-        labels[key] = (text, sh.clinic, sh.speciality)
+        labels[key] = (text, sh.professional)
         if not kostl:
             missing[clinic_key(sh.clinic)] = sh.clinic
     residual = round(b.sra.stated_total - sum(buckets.values()), 2)
     out = []
-    for key in sorted(buckets, key=lambda k: (k[0] == "", k[0], k[1], k[2])):
-        kostl, aufnr, _ck, _sp = key
-        text, clinic, spec = labels[key]
-        out.append((kostl, aufnr, text, clinic, spec, buckets[key]))
+    for key in sorted(buckets, key=lambda k: (k[0] == "", k[0], k[1], k[2], k[4])):
+        kostl, aufnr = key[0], key[1]
+        text, professional = labels[key]
+        out.append({"kostl": kostl, "aufnr": aufnr, "text": text,
+                    "professional": professional, "amount": buckets[key]})
     if abs(residual) > 0.005:
-        out.append(("", "", "TO CLASSIFY (claims vs SRA + adj.)",
-                    "ΠΡΟΣ ΤΑΞΙΝΟΜΗΣΗ — διαφορά claims/SRA και προσαρμογές",
-                    "", residual))
+        out.append({"kostl": "", "aufnr": "",
+                    "text": "TO CLASSIFY (claims vs SRA + adj.)",
+                    "professional": "", "amount": residual})
     return out, missing
 
 
@@ -590,19 +598,19 @@ def _tab_sap_upload(wb: Workbook, sections: list,
                 f"=SUM(L{head_row + 1}:L{head_row + len(lines)})", "", "",
                 "", "", "", "", company,
                 f'="HIO OUTP. {short} INV."&X{head_row}',
-                "", "", "", cheque]
+                "", "", "", cheque, ""]
         for j, v in enumerate(head, start=1):
             c = ws.cell(row=r, column=j, value=v)
             c.font = F_INPUT if not str(v).startswith("=") else F_FORMULA
             if j == 12:
                 c.number_format = EUR_FMT
         r += 1
-        for kostl, aufnr, text, clinic, spec, amount in lines:
-            sgtxt = f'="HIO OUTP. {short} INV."&X{r}&" {_q(text)}"'
+        for ln in lines:
+            sgtxt = f'="HIO OUTP. {short} INV."&X{r}&" {_q(ln["text"])}"'
             line = ["", "", "", "", "", "", "", "", SAP_DEFAULTS["credit_key"],
-                    SAP_DEFAULTS["credit_account"], "", amount,
-                    SAP_DEFAULTS["tax"], kostl, aufnr, "", "", "", company,
-                    sgtxt, "", "", "", cheque]
+                    SAP_DEFAULTS["credit_account"], "", ln["amount"],
+                    SAP_DEFAULTS["tax"], ln["kostl"], ln["aufnr"], "", "", "",
+                    company, sgtxt, "", "", "", cheque, ln["professional"]]
             for j, v in enumerate(line, start=1):
                 c = ws.cell(row=r, column=j, value=v)
                 c.font = F_FORMULA if str(v).startswith("=") else F_INPUT

@@ -154,6 +154,32 @@ def test_sap_sheet_balances_every_document_and_uses_the_lookup():
                      for r in debits), 2) == total
 
 
+def test_sap_amounts_are_split_by_professional_and_tie_to_the_per_doctor_tab():
+    """Column L breaks down by professional. Each one's journal lines must add
+    back to what the «Ανά_μονάδα_ιατρό» sheet pays them (its column E) — the
+    roster only re-splits that money across clinics, it never changes it."""
+    data, _entries = _built()
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["JOURNAL ENTRIES"]
+
+    def totals(sheet, who_col, amount_col):
+        out: dict[str, float] = {}
+        for r in range(4, sheet.max_row + 1):
+            who, amount = sheet.cell(row=r, column=who_col).value, \
+                sheet.cell(row=r, column=amount_col).value
+            if who and isinstance(amount, (int, float)):
+                out[str(who)] = round(out.get(str(who), 0.0) + amount, 2)
+        return out
+
+    journal = totals(ws, 25, 12)
+    per_doctor = totals(wb["Ανά_μονάδα_ιατρό"], 4, 5)
+    assert journal and journal == per_doctor
+    # a professional working two clinics gets a line in each, not one merged
+    lines = [r for r in range(4, ws.max_row + 1)
+             if ws.cell(row=r, column=25).value and ws.cell(row=r, column=9).value == "50"]
+    assert len(lines) > len(journal)
+
+
 def test_sap_sheet_without_a_lookup_lists_the_clinics_needing_codes():
     data, _entries = _built(with_costs=False)
     assert verify_workbook(data) == []
