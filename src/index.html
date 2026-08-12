@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ΟΚΥπΥ — Πίνακας Δεικτών Νοσοκομείου</title>
+<script>/* SheetJS 0.18.5 (Apache-2.0) inlined for full offline use */
+<!--VENDOR_XLSX-->
+</script>
+<style>
+<!--STYLES-->
+</style>
+</head>
+<body>
+<header>
+  <img src="data:image/png;base64,<!--LOGO_HEADER-->" alt="ΟΚΥπΥ">
+  <div class="title">
+    <h1 id="hTitle">Πίνακας Δεικτών Νοσοκομείου</h1>
+    <div class="sub">Οργανισμός Κρατικών Υπηρεσιών Υγείας · State Health Services Organisation</div>
+    <div class="period hidden" id="hPeriod"></div>
+  </div>
+</header>
+<main>
+  <div class="drop" id="drop">
+    <h2>Σύρετε εδώ τα αρχεία Excel — ή πατήστε για επιλογή</h2>
+    <p><b>1.</b> Το μηνιαίο αρχείο «ΣΤΑΤΙΣΤΙΚΑ ΣΤΟΙΧΕΙΑ» του νοσοκομείου (υποχρεωτικό)<br>
+       <b>2.</b> Προαιρετικά: τα μηνιαία IS Auditor Reports του ΟΑΥ — ενεργοποιούν τη διασταύρωση δραστηριότητας/τιμολόγησης<br>
+       <b>3.</b> Προαιρετικά: τα μηνιαία ALL and AE (πληρωμές ΟΑΥ) — προσθέτουν έσοδα ανά επίσκεψη ΤΑΕΠ/εξωτερικών<br>
+       <b>4.</b> Προαιρετικά: τα αρχεία «Πληρωμένες Απαιτήσεις OS» (F1054 κ.λπ.) — προσθέτουν κάλυψη ΓεΣΥ ανά επίσκεψη</p>
+    <p class="hint">Όλα τρέχουν τοπικά στον browser σας — τίποτα δεν φεύγει από τον υπολογιστή σας.</p>
+    <div class="filechips" id="chips"></div>
+    <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm" style="display:none">
+  </div>
+
+  <div id="dash" class="hidden">
+    <section id="secStory"><h2>Η εικόνα της περιόδου</h2><div class="narrative" id="story"></div></section>
+    <section><h2>Βασικοί δείκτες <small>έναντι της ίδιας περιόδου του προηγούμενου έτους</small></h2><div class="kpis" id="kpis"></div></section>
+    <section id="secTrends"><h2>Τάσεις <small>ανά μήνα</small></h2><div class="grid3" id="trends"></div></section>
+    <section id="secTargets"><h2>Στόχοι έτους — αναλογική πορεία <small id="targetNote"></small></h2><div class="grid2" id="targets"></div></section>
+    <section id="secFlags"><h2>Σημεία προσοχής</h2><div class="flags" id="flags"></div></section>
+    <section id="secHio" class="hidden"><h2>Διασταύρωση με ΟΑΥ <small>IS Auditor — μόνο νοσηλεία/ημερήσια/αιμοκάθαρση</small></h2>
+      <div id="hio"></div></section>
+    <section id="secAllae" class="hidden"><h2>Έσοδα ΟΑΥ ανά επίσκεψη <small>ALL and AE — ΤΑΕΠ &amp; εξωτερικά ιατρεία</small></h2>
+      <div id="allae"></div></section>
+    <section id="secOs" class="hidden"><h2>Κάλυψη ΓεΣΥ — πληρωμένες απαιτήσεις <small>αρχεία «Πληρωμένες Απαιτήσεις OS» — ΤΑΕΠ &amp; εξωτερικά</small></h2>
+      <div id="os"></div></section>
+    <section><div class="foot-method" id="method"></div></section>
+  </div>
+</main>
+<footer>
+  <img src="data:image/png;base64,<!--LOGO_FOOTER-->" alt="ΟΚΥπΥ">
+  <div>Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) · <span id="fDate"></span> · v1.3</div>
+</footer>
+
+<script>
+<!--APP_BUNDLE-->
+</script>
+</body>
+</html>
