@@ -279,6 +279,24 @@ function identifyExcel(f) {
       return;
     }
 
+    /* OKYπY's own SAP master data (company codes + cost centres + chart of
+     * accounts).  Checked BEFORE the clinic lookup: the master also carries a
+     * «Cost Center» column and must not be read as one */
+    try {
+      if (looksLikeSapMaster(loadSheets(f.data).map((sh) => sh.name))) {
+        const m = extractSapMaster(f.data);
+        if (m.costCentres.length || Object.keys(m.accounts).length) {
+          f.reportType = RT.SAP_MASTER;
+          f.probe = (f.probe || '') + `\nSAP: ${Object.keys(m.companies).length} εταιρείες, `
+            + `${m.costCentres.length} κέντρα κόστους, `
+            + `${Object.keys(m.accounts).length} λογαριασμοί`;
+          return;
+        }
+      }
+    } catch (e) {
+      f.probe = (f.probe || '') + `\n(SAP master parse failed: ${e.message})`;
+    }
+
     /* optional SAP lookup: only when a clinic column AND a cost-centre column
      * sit on the same header row and produce rows — the SAP upload TEMPLATE
      * also mentions «Cost Center» and must not be mistaken for it */

@@ -98,6 +98,7 @@ class ReconBundle:
     # and the optional SAP cost-centre lookup
     staff: object = None
     cost_centres: object = None
+    sap: object = None       # OKYπY's SAP master (accounts, cost centres)
 
 
 @dataclass
@@ -286,6 +287,7 @@ def _load_shared_files(files: list):
     from .mapping import extract_cost_centres, extract_staff_mapping
     staff = None
     cost = None
+    master = None
     year, month = None, None
     for f in files:
         if f.report_type == ReportType.SRA and f.year:
@@ -301,7 +303,10 @@ def _load_shared_files(files: list):
                 cost = got
             else:
                 cost.rows += got.rows
-    return staff, cost
+        elif f.report_type == ReportType.SAP_MASTER:
+            from .sapmaster import extract_sap_master
+            master = extract_sap_master(f.data)
+    return staff, cost, master
 
 
 def run_provider_batches(batches: list, period, files: Optional[list] = None) -> list:
@@ -311,11 +316,12 @@ def run_provider_batches(batches: list, period, files: Optional[list] = None) ->
     slot = {ReportType.CLAIMS_ALL: "claims", ReportType.XML_ACTIVITY: "xml_activity"}
     out = []
     year, month = period if period else (None, None)
-    staff, cost = _load_shared_files(files if files is not None
-                                     else [f for b in batches for f in b.files])
+    staff, cost, master = _load_shared_files(
+        files if files is not None else [f for b in batches for f in b.files])
     for b in batches:
         bundle = ReconBundle(hospital_code=b.code, year=year, month=month)
         bundle.staff, bundle.cost_centres = staff, cost
+        bundle.sap = master
         sras = []
         for f in b.files:
             if f.report_type == ReportType.SRA:

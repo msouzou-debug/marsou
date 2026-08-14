@@ -249,7 +249,13 @@ try:
             sras.append(parse_sra_text(raw_text) if f.filename in sra_text_override
                         else extract(f.report_type, f.data, hospital_code=hospital,
                                      raw_text=raw_text))
-        else:
+        elif f.report_type == ReportType.SAP_MASTER:
+            from recon.sapmaster import extract_sap_master
+            bundle.sap = extract_sap_master(f.data)
+        elif f.report_type == ReportType.COST_CENTRE_MAP:
+            from recon.mapping import extract_cost_centres
+            bundle.cost_centres = extract_cost_centres(f.data)
+        elif f.report_type in slot:
             setattr(bundle, slot[f.report_type],
                     extract(f.report_type, f.data, hospital_code=hospital, raw_text=raw_text))
     if sras:

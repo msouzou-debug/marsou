@@ -114,7 +114,8 @@ function renderProviderChecklist(batches) {
       + `<td>${esc((b.cheques || []).join(', '))}</td>${cells}</tr>`;
   }).join('');
   const shared = (state.files || []).filter((f) =>
-    f.reportType === RT.STAFF_MAPPING || f.reportType === RT.COST_CENTRE_MAP);
+    f.reportType === RT.STAFF_MAPPING || f.reportType === RT.COST_CENTRE_MAP
+    || f.reportType === RT.SAP_MASTER);
   const sharedHtml = shared.length
     ? '<p class="note">📋 Κοινά αρχεία παρτίδας: '
       + shared.map((f) => `${esc(REPORT_LABELS[f.reportType])} — ${esc(f.filename)}`).join(' · ')
@@ -243,7 +244,11 @@ async function run() {
         const override = f.data && files.filter((x) => x.reportType === RT.SRA).length === 1
           ? sraOverride : null;
         sras.push(await extractReport(RT.SRA, f, hospital, override));
-      } else {
+      } else if (f.reportType === RT.SAP_MASTER) {
+        bundle.sap = extractSapMaster(f.data);
+      } else if (f.reportType === RT.COST_CENTRE_MAP) {
+        bundle.costCentres = extractCostCentres(f.data);
+      } else if (SLOT[f.reportType]) {
         bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, null);
       }
     }

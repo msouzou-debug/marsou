@@ -318,6 +318,23 @@ def _identify_excel(f: IdentifiedFile, fmt: str) -> None:
                 f.probe = (f.probe or "") + f"\n(staff roster parse failed: {e})"
             return
 
+        # OKYπY's own SAP master data (company codes + cost centres + chart
+        # of accounts).  Checked BEFORE the clinic lookup: the master also
+        # carries a «Cost Center» column and must not be read as one
+        try:
+            from .sapmaster import extract_sap_master, looks_like_sap_master
+            if looks_like_sap_master(sheets.keys()):
+                m = extract_sap_master(f.data)
+                if m.cost_centres or m.accounts:
+                    f.report_type = ReportType.SAP_MASTER
+                    f.probe = (f.probe or "") + (
+                        f"\nSAP: {len(m.companies)} εταιρείες, "
+                        f"{len(m.cost_centres)} κέντρα κόστους, "
+                        f"{len(m.accounts)} λογαριασμοί")
+                    return
+        except Exception as e:
+            f.probe = (f.probe or "") + f"\n(SAP master parse failed: {e})"
+
         # optional SAP lookup: clinic -> cost centre / internal order.  It is
         # only this if a clinic column AND a cost-centre column sit on the
         # same header row and produce rows — the SAP upload TEMPLATE also

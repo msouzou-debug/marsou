@@ -17,12 +17,14 @@ const RT = {
   IS_AUDITOR: 'is_auditor',
   STAFF_MAPPING: 'staff_mapping',
   COST_CENTRE_MAP: 'cost_centre_map',
+  SAP_MASTER: 'sap_master',
 };
 
 const REQUIRED_TYPES = [RT.SRA, RT.INPATIENT_SUMMARY, RT.CLAIMS_ALL,
                         RT.PHARMA_CLAIMS, RT.PHARMACIST_FEE];
 const ORG_WIDE_TYPES = new Set([RT.GL_EXTRACT, RT.IS_AUDITOR,
-                                RT.STAFF_MAPPING, RT.COST_CENTRE_MAP]);
+                                RT.STAFF_MAPPING, RT.COST_CENTRE_MAP,
+                                RT.SAP_MASTER]);
 /* report types a batch may legitimately carry more than once */
 const MULTI_FILE_TYPES = new Set([RT.SRA, RT.STAFF_MAPPING]);
 // a non-hospital provider bills service streams only
@@ -42,6 +44,7 @@ const REPORT_LABELS = {
   [RT.IS_AUDITOR]: 'IS Auditor Report (Inpatient detail)',
   [RT.STAFF_MAPPING]: 'Μητρώο προσωπικού ανά κλινική (staff roster)',
   [RT.COST_CENTRE_MAP]: 'Αντιστοίχιση κέντρων κόστους SAP (cost centres)',
+  [RT.SAP_MASTER]: 'Βασικά δεδομένα SAP (chart of accounts, cost centres)',
 };
 
 /* F-code -> [Greek name, English name].  «ΛΕΥΚΩΣΙΑΣ» alone must never be

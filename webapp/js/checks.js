@@ -143,6 +143,7 @@ async function loadSharedFiles(files, year, month) {
   /* the roster(s) and the SAP lookup are shared by every provider */
   let staff = null;
   let cost = null;
+  let master = null;
   for (const f of files) {
     if (f.reportType === RT.STAFF_MAPPING) {
       staff = mergeStaffMappings(staff, extractStaffMapping(f.data, year, month));
@@ -150,9 +151,11 @@ async function loadSharedFiles(files, year, month) {
       const got = extractCostCentres(f.data);
       if (!cost) cost = got;
       else cost.rows = cost.rows.concat(got.rows);
+    } else if (f.reportType === RT.SAP_MASTER) {
+      master = extractSapMaster(f.data);
     }
   }
-  return { staff, cost };
+  return { staff, cost, master };
 }
 
 async function runProviderBatches(batches, period, files) {
@@ -161,9 +164,10 @@ async function runProviderBatches(batches, period, files) {
   const [year, month] = period || [null, null];
   const out = [];
   const all = files || batches.reduce((a, b) => a.concat(b.files), []);
-  const { staff, cost } = await loadSharedFiles(all, year, month);
+  const { staff, cost, master } = await loadSharedFiles(all, year, month);
   for (const b of batches) {
-    const bundle = { hospitalCode: b.code, year, month, staff, costCentres: cost };
+    const bundle = { hospitalCode: b.code, year, month, staff,
+                     costCentres: cost, sap: master };
     const sras = [];
     for (const f of b.files) {
       if (f.reportType === RT.SRA) {

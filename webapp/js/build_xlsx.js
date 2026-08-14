@@ -799,6 +799,52 @@ function journalLines(section, lookup) {
     : journalLinesByProfessional(section, lookup);
 }
 
+/* A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
+ * account and which flavour of the clinic's cost centre it posts to. */
+const LINE_KINDS = [
+  ['ΠΟΙΟΤΙΚΑ', 'quality', 'general'],
+  ['ΣΤΑΘΕΡΕΣ ΧΡΕΩΣΕΙΣ', 'oncall', 'general'],
+  ['ΕΜΒΟΛΙΑΣΜ', 'vaccines', 'general'],
+  ['ΚΑΤΑ ΚΕΦΑΛΗΝ', 'capitation', 'general'],
+  ['CAPITATION', 'capitation', 'general'],
+];
+const BUCKET_KINDS = {
+  Inpatient: ['inpatient_drg', 'ward'],
+  'A&E': ['ae', 'general'],
+  Outpatient: ['outpatient', 'clinic'],
+  Pharma: ['pharma', 'general'],
+};
+/* «Ειδικοί Ιατροί — GASTROENTEROLOGY (OS)» -> GASTROENTEROLOGY */
+const SPEC_IN_LABEL = /[—-]\s*([A-Z][A-Z &/'-]{3,})\s*(?:\(|$)/;
+
+function lineKind(label, bucket) {
+  const up = normLabel(label);
+  for (const [needle, kind, variant] of LINE_KINDS) {
+    if (up.includes(needle)) return [kind, variant];
+  }
+  return BUCKET_KINDS[bucket] || ['outpatient', 'general'];
+}
+
+function specialtyOf(label) {
+  /* inpatient rows ARE the clinic name; outpatient rows carry it after the dash */
+  const m = SPEC_IN_LABEL.exec(String(label));
+  return (m ? m[1] : String(label)).trim();
+}
+
+function rowParts(row, kind, variant) {
+  /* An inpatient clinic row is three different things at once — DRG, daily
+   * treatments and Z-catalogue items — and SAP keeps a separate revenue
+   * account for each, so it becomes up to three credit lines that still add
+   * back to the row. */
+  if (kind !== 'inpatient_drg') return [[row.amount, kind, variant]];
+  const three = [[row.drg || 0, 'inpatient_drg', 'ward'],
+                 [row.fixedFee || 0, 'inpatient_daily', 'daycare'],
+                 [row.zDrugs || 0, 'inpatient_z', 'daycare']];
+  const sum = round2(three.reduce((a, [x]) => a + x, 0));
+  if (sum !== round2(row.amount)) return [[row.amount, kind, variant]];
+  return three.filter(([a]) => a);
+}
+
 function journalLinesByStream(section, lookup) {
   /* A HOSPITAL month: the credit lines are the By_Clinic_Split rows, so one
    * document carries every revenue stream of the month — inpatient by clinic,
@@ -810,26 +856,40 @@ function journalLinesByStream(section, lookup) {
   const out = [];
   const missing = new Map();
   const code = b.hospitalCode || '';
+  const master = b.sap || null;
+  const company = master ? companyFor(code) : '';
   for (const sec of section.result.split) {
     const stream = sec.bucket || sec.title;
     for (const row of sec.rows) {
       if (!row.amount) continue;
-      let hit = lookup ? findCostCentre(lookup, row.label, stream, code) : null;
-      if (lookup && (!hit || !hit.costCentre)) {
-        /* a row keyed on the BUCKET codes every line in that bucket — four
-         * rows per hospital are enough to post at stream level */
-        hit = findCostCentre(lookup, stream, '', code)
-          || findCostCentre(lookup, sec.title, '', code) || hit;
+      const [kind, variant] = lineKind(row.label, stream);
+      for (const [amount, partKind, partVariant] of rowParts(row, kind, variant)) {
+        let hit = lookup ? findCostCentre(lookup, row.label, stream, code) : null;
+        if (lookup && (!hit || !hit.costCentre)) {
+          /* a row keyed on the BUCKET codes every line in that bucket — four
+           * rows per hospital are enough to post at stream level */
+          hit = findCostCentre(lookup, stream, '', code)
+            || findCostCentre(lookup, sec.title, '', code) || hit;
+        }
+        let kostl = hit ? hit.costCentre : '';
+        let aufnr = hit ? hit.internalOrder : '';
+        let text = (hit && hit.text) ? hit.text : '';
+        if (master && !kostl) {
+          /* the line's own speciality first, then the stream it belongs to
+           * («Αναλώσιμα» is still pharmacy) */
+          const centre = findSapCentre(master, company, specialtyOf(row.label), partVariant)
+            || findSapCentre(master, company, stream, partVariant);
+          if (centre) { kostl = centre.code; text = centre.name; }
+        }
+        if (lookup && !aufnr) {
+          const alt = findCostCentreBySpeciality(lookup, stream, code);
+          aufnr = alt ? alt.internalOrder : '';
+        }
+        const [account] = master ? sapAccount(master, partKind) : ['', ''];
+        out.push({ kostl, aufnr, text: text || row.label, account,
+                   professional: stream, amount: round2(amount) });
+        if (!kostl) missing.set(row.label, row.label);
       }
-      const kostl = hit ? hit.costCentre : '';
-      let aufnr = hit ? hit.internalOrder : '';
-      if (lookup && !aufnr) {
-        const alt = findCostCentreBySpeciality(lookup, stream, code);
-        aufnr = alt ? alt.internalOrder : '';
-      }
-      out.push({ kostl, aufnr, text: (hit && hit.text) ? hit.text : row.label,
-                 professional: stream, amount: row.amount });
-      if (!kostl) missing.set(row.label, row.label);
     }
   }
   /* the split already ties to the cheque with its own zero-check; anything
@@ -838,7 +898,8 @@ function journalLinesByStream(section, lookup) {
   for (const x of out) credited = round2(credited + x.amount);
   const residual = round2(b.sra.statedTotal - credited);
   if (Math.abs(residual) > 0.005) {
-    out.push({ kostl: '', aufnr: '', text: 'TO CLASSIFY (split vs SRA)',
+    out.push({ kostl: '', aufnr: '', account: '',
+               text: 'TO CLASSIFY (split vs SRA)',
                professional: '', amount: residual });
   }
   return { lines: out, missing };
@@ -918,8 +979,10 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
   sapHeader(ws);
   const found = sections.find((s) => s.result.bundle.costCentres);
   const lookup = found ? found.result.bundle.costCentres : null;
-  const company = (lookup && lookup.companyCode) ? lookup.companyCode : SAP_DEFAULTS.company;
   const b0 = sections.length ? sections[0].result.bundle : null;
+  const master = b0 ? b0.sap : null;
+  const company = (lookup && lookup.companyCode) ? lookup.companyCode
+    : ((master && b0) ? companyFor(b0.hospitalCode) : SAP_DEFAULTS.company);
   const year = b0 ? b0.year : null, month = b0 ? b0.month : null;
   const docDate = (year && month)
     ? `${String(monthEnd(year, month)).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}` : '';
@@ -958,6 +1021,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
         SAP_DEFAULTS.creditAccount, '', ln.amount, SAP_DEFAULTS.tax,
         ln.kostl, ln.aufnr, '', '', '', company, sgtxt, '', '', '', cheque,
         ln.professional];
+      line[9] = ln.account || SAP_DEFAULTS.creditAccount;
       line.forEach((v, j) => {
         const c = ws.getCell(r, j + 1);
         c.value = v;

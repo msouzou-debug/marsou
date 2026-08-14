@@ -24,6 +24,7 @@ from openpyxl.utils import get_column_letter, range_boundaries
 
 from .checks import CENT, CheckPart as _Part, ReconResult, sra_sum
 from .models import (Bucket, BUCKET_ORDER, HOSPITALS, is_hospital, MONTH_NAMES_EL,
+                     norm_label,
                      PHARMACIST_FEE_UNIT_PRICE)
 from .mapping import name_key as _name_key
 from .numbers import format_eur
@@ -521,6 +522,57 @@ def _journal_lines(section) -> tuple[list[dict], dict]:
     return _journal_lines_by_professional(section)
 
 
+# A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
+# account and which flavour of the clinic's cost centre it posts to.
+_LINE_KINDS = [
+    ("ΠΟΙΟΤΙΚΑ", "quality", "general"),
+    ("ΣΤΑΘΕΡΕΣ ΧΡΕΩΣΕΙΣ", "oncall", "general"),
+    ("ΕΜΒΟΛΙΑΣΜ", "vaccines", "general"),
+    ("ΚΑΤΑ ΚΕΦΑΛΗΝ", "capitation", "general"),
+    ("CAPITATION", "capitation", "general"),
+]
+_BUCKET_KINDS = {
+    "Inpatient": ("inpatient_drg", "ward"),
+    "A&E": ("ae", "general"),
+    "Outpatient": ("outpatient", "clinic"),
+    "Pharma": ("pharma", "general"),
+}
+# «Ειδικοί Ιατροί — GASTROENTEROLOGY (OS)» -> GASTROENTEROLOGY
+_SPEC_IN_LABEL = re.compile(r"[—\-]\s*([A-Z][A-Z &/'\-]{3,})\s*(?:\(|$)")
+
+
+def _line_kind(label: str, bucket: str) -> tuple[str, str]:
+    up = norm_label(label)
+    for needle, kind, variant in _LINE_KINDS:
+        if needle in up:
+            return kind, variant
+    return _BUCKET_KINDS.get(bucket, ("outpatient", "general"))
+
+
+def _specialty_of(label: str) -> str:
+    """The ΟΑΥ speciality a split line belongs to: inpatient rows ARE the
+    clinic name, outpatient rows carry it after the dash."""
+    m = _SPEC_IN_LABEL.search(str(label))
+    return (m.group(1) if m else str(label)).strip()
+
+
+def _row_parts(row, kind: str, variant: str) -> list[tuple[float, str, str]]:
+    """(amount, account key, cost-centre flavour) for one split row.
+
+    An inpatient clinic row is three different things at once — DRG, daily
+    treatments and Z-catalogue items — and SAP keeps a separate revenue
+    account for each, so it becomes up to three credit lines that still add
+    back to the row."""
+    if kind != "inpatient_drg":
+        return [(row.amount, kind, variant)]
+    three = [(row.drg or 0.0, "inpatient_drg", "ward"),
+             (row.fixed_fee or 0.0, "inpatient_daily", "daycare"),
+             (row.z_drugs or 0.0, "inpatient_z", "daycare")]
+    if round(sum(a for a, _k, _v in three), 2) != round(row.amount, 2):
+        return [(row.amount, kind, variant)]     # no split on this row
+    return [(a, k, v) for a, k, v in three if a]
+
+
 def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
     """A HOSPITAL month: the credit lines are the By_Clinic_Split rows, so one
     document carries every revenue stream of the month — inpatient by clinic,
@@ -528,39 +580,60 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
     adjustment lines — and its total is the same figure that sheet ties to the
     cheque.
 
-    The lookup is consulted with the line's own label and its bucket, so a
-    cost centre can be keyed either per clinic or per stream."""
+    Codes come from OKYπY's own SAP master when it is uploaded: the revenue
+    account per stream (412001 in-patient, 412005 day care, 412007 catalogue
+    Z, 412003 ΤΑΕΠ …) and the clinic's cost centre inside this hospital's
+    company code, picked by flavour — ward for DRG, ημερήσια φροντίδα for
+    daily treatments, εξωτερικά ιατρεία for the outpatient specialists.  A
+    hand-kept lookup still wins where it names a line, and anything neither
+    can resolve stays blank and is listed."""
+    from .sapmaster import company_for
     b = section.result.bundle
     lookup = getattr(b, "cost_centres", None)
+    master = getattr(b, "sap", None)
+    code = b.hospital_code or ""
+    company = company_for(code) if master else ""
     out: list[dict] = []
     missing: dict[str, str] = {}
-    code = b.hospital_code or ""
     for sec in section.result.split:
         stream = sec.bucket.value if sec.bucket else sec.title
         for row in sec.rows:
             if not row.amount:
                 continue
-            hit = lookup.find(row.label, stream, code) if lookup else None
-            if lookup and (hit is None or not hit.cost_centre):
-                # a row keyed on the BUCKET codes every line in that bucket —
-                # four rows per hospital are enough to post at stream level
-                hit = (lookup.find(stream, "", code)
-                       or lookup.find(sec.title, "", code) or hit)
-            kostl = hit.cost_centre if hit else ""
-            aufnr = hit.internal_order if hit else ""
-            if lookup and not aufnr:
-                alt = lookup.find_speciality(stream, code)
-                aufnr = alt.internal_order if alt else ""
-            out.append({"kostl": kostl, "aufnr": aufnr,
-                        "text": hit.text if hit and hit.text else row.label,
-                        "professional": stream, "amount": row.amount})
-            if not kostl:
-                missing[row.label] = row.label
+            kind, variant = _line_kind(row.label, stream)
+            for amount, part_kind, part_variant in _row_parts(row, kind, variant):
+                hit = lookup.find(row.label, stream, code) if lookup else None
+                if lookup and (hit is None or not hit.cost_centre):
+                    # a row keyed on the BUCKET codes every line in that
+                    # bucket — four rows per hospital post at stream level
+                    hit = (lookup.find(stream, "", code)
+                           or lookup.find(sec.title, "", code) or hit)
+                kostl = hit.cost_centre if hit else ""
+                aufnr = hit.internal_order if hit else ""
+                text = hit.text if hit and hit.text else ""
+                centre = None
+                if master and not kostl:
+                    # the line's own speciality first, then the stream it
+                    # belongs to («Αναλώσιμα» is still pharmacy)
+                    centre = (master.find_centre(company, _specialty_of(row.label),
+                                                 part_variant)
+                              or master.find_centre(company, stream, part_variant))
+                    if centre:
+                        kostl, text = centre.code, centre.name
+                if lookup and not aufnr:
+                    alt = lookup.find_speciality(stream, code)
+                    aufnr = alt.internal_order if alt else ""
+                account, _atext = master.account(part_kind) if master else ("", "")
+                out.append({"kostl": kostl, "aufnr": aufnr,
+                            "text": text or row.label, "account": account,
+                            "professional": stream, "amount": round(amount, 2)})
+                if not kostl:
+                    missing[row.label] = row.label
     # the split already ties to the cheque with its own zero-check; anything
     # left is still shown rather than absorbed
     residual = round(b.sra.stated_total - sum(x["amount"] for x in out), 2)
     if abs(residual) > 0.005:
-        out.append({"kostl": "", "aufnr": "",
+        out.append({"kostl": "", "aufnr": "", "account": "",
                     "text": "TO CLASSIFY (split vs SRA)",
                     "professional": "", "amount": residual})
     return out, missing
@@ -630,11 +703,14 @@ def _tab_sap_upload(wb: Workbook, sections: list,
     from .mapping import month_label
     ws = wb.create_sheet(SAP_SHEET)
     _sap_header(ws)
+    from .sapmaster import company_for
     lookup = next((getattr(s.result.bundle, "cost_centres", None) for s in sections
                    if getattr(s.result.bundle, "cost_centres", None)), None)
-    company = (lookup.company_code if lookup and lookup.company_code
-               else SAP_DEFAULTS["company"])
     b0 = sections[0].result.bundle if sections else None
+    master = getattr(b0, "sap", None) if b0 else None
+    company = (lookup.company_code if lookup and lookup.company_code
+               else (company_for(b0.hospital_code) if master and b0
+                     else SAP_DEFAULTS["company"]))
     year, month = (b0.year, b0.month) if b0 else (None, None)
     doc_date = (f"{_month_end(year, month):02d}.{month:02d}.{year}"
                 if year and month else "")
@@ -669,7 +745,8 @@ def _tab_sap_upload(wb: Workbook, sections: list,
         for ln in lines:
             sgtxt = f'="HIO OUTP. {short} INV."&X{r}&" {_q(ln["text"])}"'
             line = ["", "", "", "", "", "", "", "", SAP_DEFAULTS["credit_key"],
-                    SAP_DEFAULTS["credit_account"], "", ln["amount"],
+                    ln.get("account") or SAP_DEFAULTS["credit_account"],
+                    "", ln["amount"],
                     SAP_DEFAULTS["tax"], ln["kostl"], ln["aufnr"], "", "", "",
                     company, sgtxt, "", "", "", cheque, ln["professional"]]
             for j, v in enumerate(line, start=1):

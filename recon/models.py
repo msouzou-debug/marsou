@@ -26,6 +26,7 @@ class ReportType(str, Enum):
     IS_AUDITOR = "is_auditor"                # optional cross-check (org-wide)
     STAFF_MAPPING = "staff_mapping"          # μητρώο προσωπικού: ιατρός -> κλινική
     COST_CENTRE_MAP = "cost_centre_map"      # κλινική -> κέντρο κόστους SAP
+    SAP_MASTER = "sap_master"                # SAP: εταιρείες, κέντρα κόστους, λογαριασμοί
 
 
 REQUIRED_TYPES = [
@@ -41,7 +42,8 @@ OPTIONAL_TYPES = [ReportType.XML_ACTIVITY, ReportType.GL_EXTRACT, ReportType.IS_
 # Org-wide reports carry no single hospital / are filtered at extract time,
 # so they never trip the single-hospital gate.
 ORG_WIDE_TYPES = {ReportType.GL_EXTRACT, ReportType.IS_AUDITOR,
-                  ReportType.STAFF_MAPPING, ReportType.COST_CENTRE_MAP}
+                  ReportType.STAFF_MAPPING, ReportType.COST_CENTRE_MAP,
+                  ReportType.SAP_MASTER}
 
 # ΟΑΥ also pays OKYπY units that are NOT one of the 8 hospitals — the mental
 # health services, each with its own F-code and its own cheque.  They bill
@@ -63,6 +65,7 @@ REPORT_LABELS = {
     ReportType.IS_AUDITOR: "IS Auditor Report (Inpatient detail)",
     ReportType.STAFF_MAPPING: "Μητρώο προσωπικού ανά κλινική (staff roster)",
     ReportType.COST_CENTRE_MAP: "Αντιστοίχιση κέντρων κόστους SAP (cost centres)",
+    ReportType.SAP_MASTER: "Βασικά δεδομένα SAP (chart of accounts, cost centres)",
 }
 
 # F-code -> (Greek name, English name).  NB: «ΛΕΥΚΩΣΙΑΣ» alone also matches

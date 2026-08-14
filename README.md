@@ -236,6 +236,40 @@ lookup the sheet is still produced, keyed by clinic, with those two columns
 blank and highlighted and every clinic that needs a code listed — the app
 never invents an account code.
 
+### OKYπY's SAP master data
+
+Upload the SAP export (`Company Codes` + `Cost centers` + `Chart of accounts`,
+identified by content) and the journal codes itself:
+
+- **Company code** — the hospital's own `BUKRS` (1020 Nicosia, 1021 Makarios,
+  1030 Limassol, 1031 Paphos, 1032 Troodos, 1033 Polis, 1040 Larnaca,
+  1041 Famagusta; 1003 ΔΥΨΥ for every mental-health unit).
+- **Revenue account per stream**, each checked against the uploaded chart of
+  accounts before it is written — an account the chart does not carry is left
+  blank rather than assumed:
+
+  | stream | account |
+  |---|---|
+  | inpatient DRG | 412001 HIO In-Patient Fees |
+  | daily treatments | 412005 HIO Day Care Fees |
+  | Z-catalogue drugs/procedures | 412007 HIO Catalogue Z Items |
+  | ΤΑΕΠ | 412003 HIO TAEP Fees |
+  | outpatient (OS/NM/AP) | 412002 HIO Out-Patient Fees |
+  | capitation | 412000 HIO - Capitation Fees |
+  | quality criteria | 412008 HIO Quality Criteria |
+  | pharma | 412006 HIO Drugs Phase B |
+
+  An inpatient clinic row is three of those things at once, so it becomes up
+  to three credit lines that still add back to the row.
+
+- **Cost centre**, matched inside that company code: ΟΑΥ's English speciality
+  → the Greek stem SAP uses, then the flavour the stream posts to — `ΘΑΛ`
+  (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments and Z items,
+  `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
+  and exactly one centre must survive the flavour, so an ambiguous clinic is
+  left blank for a human rather than guessed. A hand-kept lookup still wins
+  wherever it names a line.
+
 ### The same journal for a hospital month
 
 A hospital and a mental-health unit post the same cheque differently, so the
