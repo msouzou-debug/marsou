@@ -266,3 +266,39 @@ def test_the_alert_says_why_each_line_could_not_be_coded():
     note = _missing_note({"missing": {"UROLOGY": 900.0},
                           "why": {"UROLOGY": "no such centre in SAP"}}, True)
     assert "UROLOGY" in note and "no such centre in SAP" in note
+
+
+def test_the_whole_label_is_searched_not_a_slice_of_it():
+    """Cutting the speciality out of the label first mangled the hyphenated
+    ones — «DERMATO-VENEREOLOGY» became «VENEREOLOGY» and «Προσωπικοί Ιατροί —
+    FFS (…)» became «FFS», and neither is in any dictionary."""
+    m = extract_sap_master(_centres(
+        ("1040", "1064001002", "ΔΕΡΜΑΤΟΛΟΓΙΚΗ-ΘΑΛ"),
+        ("1040", "1064004600", "ΠΙ ΕΝΗΛΙΚΩΝ"),
+        ("1040", "1064013100", "ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ"),
+        ("1040", "1064010701", "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ"),
+        ("1040", "1064000902", "ΓΥΝΑΙΚΟΛΟΓΙΚΗ-ΘΑΛ"),
+        ("1040", "1064003901", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΕΙ")))
+    cases = [
+        ("DERMATO-VENEREOLOGY", "ward", "1064001002"),
+        ("Προσωπικοί Ιατροί — FFS (PD fee-for-service)", "general", "1064004600"),
+        ("SPECIALISED IN INFECTIOUS DISEASES", "ward", "1064013100"),
+        ("Ειδικοί Ιατροί — OPHTHALMOLOGY (OS)", "clinic", "1064003901"),
+        # longest name wins, so this is not read as «GYNAECOLOGY» alone
+        ("OBSTETRICS - GYNAECOLOGY", "ward", "1064000902"),
+    ]
+    for label, variant, want in cases:
+        got = m.find_centre("1040", label, variant)
+        assert got is not None and got.code == want, f"{label} -> {got}"
+
+
+def test_the_outpatient_bucket_catches_its_own_leftovers():
+    """Quality criteria, reimbursement adjustments and satellite-supplier
+    cheques are not clinical specialities, but they are outpatient."""
+    m = extract_sap_master(_centres(("1040", "1064010701", "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ")))
+    assert m.find_centre("1040", "Outpatient").code == "1064010701"
+    for label in ("Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)",
+                  "Επιταγές δορυφορικών παροχέων (satellite suppliers)",
+                  "Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)"):
+        assert m.find_centre("1040", label) is None      # not a speciality…
+    assert m.find_centre("1040", "Outpatient") is not None   # …the bucket is

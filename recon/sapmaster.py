@@ -93,6 +93,12 @@ SPECIALTY_GREEK = {
     "ΝΟΣΗΛΕΥΤΕΣ": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
     "ALLIED HEALTH": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
     "ΑΛΛΟΙ ΕΠΑΓΓΕΛΜΑΤΙΕΣ": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
+    "INFECTIOUS DISEASES": "ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ",
+    "ΛΟΙΜΩΞΕΩΝ": "ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ",
+    # the outpatient bucket's own leftovers — quality criteria, reimbursement
+    # adjustments, satellite-supplier cheques, the OS reconciling difference:
+    # none is a clinical speciality, all are outpatient
+    "OUTPATIENT": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
     "PERSONAL DOCTORS": "ΠΙ ΕΝΗΛΙΚΩΝ",
     "ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ": "ΠΙ ΕΝΗΛΙΚΩΝ",
 }
@@ -191,13 +197,22 @@ def _fold(s: str) -> str:
 _SPEC_NORM = {norm_label(k): v for k, v in SPECIALTY_GREEK.items()}
 
 
+# longest name first, so «OBSTETRICS GYNAECOLOGY» is not read as
+# «GYNAECOLOGY» and the answer does not depend on dictionary order
+_SPEC_ORDER = sorted(_SPEC_NORM, key=len, reverse=True)
+
+
 def _stem_for(specialty: str) -> str:
+    """The whole label is searched, not a slice of it: ΟΑΥ writes clinics both
+    bare («DERMATO-VENEREOLOGY») and inside a sentence («Ειδικοί Ιατροί —
+    OPHTHALMOLOGY (OS)»), and any attempt to cut the speciality out first
+    mangles the hyphenated ones."""
     up = norm_label(specialty)
     if up in _SPEC_NORM:
         return _fold(_SPEC_NORM[up])
-    for name, stem in _SPEC_NORM.items():
+    for name in _SPEC_ORDER:
         if name in up:
-            return _fold(stem)
+            return _fold(_SPEC_NORM[name])
     return ""
 
 

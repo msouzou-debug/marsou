@@ -816,21 +816,12 @@ const BUCKET_KINDS = {
   Outpatient: ['outpatient', 'clinic'],
   Pharma: ['pharma', 'general'],
 };
-/* «Ειδικοί Ιατροί — GASTROENTEROLOGY (OS)» -> GASTROENTEROLOGY */
-const SPEC_IN_LABEL = /[—-]\s*([A-Z][A-Z &/'-]{3,})\s*(?:\(|$)/;
-
 function lineKind(label, bucket) {
   const up = normLabel(label);
   for (const [needle, kind, variant] of LINE_KINDS) {
     if (up.includes(needle)) return [kind, variant];
   }
   return BUCKET_KINDS[bucket] || ['outpatient', 'general'];
-}
-
-function specialtyOf(label) {
-  /* inpatient rows ARE the clinic name; outpatient rows carry it after the dash */
-  const m = SPEC_IN_LABEL.exec(String(label));
-  return (m ? m[1] : String(label)).trim();
 }
 
 function rowParts(row, kind, variant) {
@@ -882,7 +873,7 @@ function journalLinesByStream(section, lookup) {
         if (master && !kostl) {
           /* the line's own speciality first, then the stream it belongs to
            * («Αναλώσιμα» is still pharmacy) */
-          const centre = findSapCentre(master, company, specialtyOf(row.label), partVariant)
+          const centre = findSapCentre(master, company, row.label, partVariant)
             || findSapCentre(master, company, stream, partVariant);
           if (centre) { kostl = centre.code; text = centre.name; }
         }
@@ -892,7 +883,7 @@ function journalLinesByStream(section, lookup) {
         if (!kostl) {
           missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
           why.set(row.label, master
-            ? whyNoSapCentre(master, company, specialtyOf(row.label))
+            ? whyNoSapCentre(master, company, row.label)
             : 'χωρίς βασικά δεδομένα SAP (no SAP master)');
         }
       }

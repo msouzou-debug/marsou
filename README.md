@@ -262,8 +262,11 @@ identified by content) and the journal codes itself:
   An inpatient clinic row is three of those things at once, so it becomes up
   to three credit lines that still add back to the row.
 
-- **Cost centre**, matched inside that company code: ΟΑΥ's English speciality
-  → the Greek stem SAP uses, then the flavour the stream posts to — `ΘΑΛ`
+- **Cost centre**, matched inside that company code: the **whole** line label
+  is searched for a speciality — ΟΑΥ writes clinics both bare
+  («DERMATO-VENEREOLOGY») and inside a sentence («Ειδικοί Ιατροί —
+  OPHTHALMOLOGY (OS)»), and cutting the speciality out first mangles the
+  hyphenated ones — longest name first, then the Greek stem SAP uses, then the flavour the stream posts to — `ΘΑΛ`
   (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments **and for the
   Z-catalogue items**, `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
   and exactly one centre must survive the flavour. Two details the real master
@@ -273,8 +276,14 @@ identified by content) and the journal codes itself:
   contains «ΕΙ»). A clinic split across a ΘΑΛ Α and a ΘΑΛ Β — Nicosia keeps
   both — books to Α; anything still ambiguous is left blank for a human.
 
-  What could not be coded is reported **with the amount on it**, biggest
-  first, and a line with nothing allocated to it is not reported at all. If
+  A line that is not a clinical speciality at all — quality criteria, a
+  reimbursement adjustment, a satellite-supplier cheque, the OS reconciling
+  difference — falls back to its **bucket**, so the whole outpatient bucket
+  lands on `ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ`, pharma on `ΦΑΡΜΑΚΕΙΟ` and ΤΑΕΠ on `ΤΑΕΠ`.
+
+  What could not be coded is reported **with the amount on it and the reason**
+  — speciality not in the dictionary, no such centre in SAP, ambiguous (with
+  the candidates named), or no master uploaded — biggest and a line with nothing allocated to it is not reported at all. If
   the SAP master was never uploaded the alert says so first, since that alone
   explains most of the list. Νοσηλευτές/Μαίες and Άλλοι
   Επαγγελματίες Υγείας carry no speciality of their own — ΟΑΥ pays each as one

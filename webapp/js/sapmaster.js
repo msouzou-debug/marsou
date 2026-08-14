@@ -81,6 +81,12 @@ const SPECIALTY_GREEK = {
   'ΝΟΣΗΛΕΥΤΕΣ': 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'ALLIED HEALTH': 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'ΑΛΛΟΙ ΕΠΑΓΓΕΛΜΑΤΙΕΣ': 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
+  'INFECTIOUS DISEASES': 'ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ',
+  'ΛΟΙΜΩΞΕΩΝ': 'ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ',
+  /* the outpatient bucket's own leftovers — quality criteria, reimbursement
+   * adjustments, satellite-supplier cheques, the OS reconciling difference:
+   * none is a clinical speciality, all are outpatient */
+  OUTPATIENT: 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'PERSONAL DOCTORS': 'ΠΙ ΕΝΗΛΙΚΩΝ',
   'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ': 'ΠΙ ΕΝΗΛΙΚΩΝ',
 };
@@ -103,11 +109,19 @@ function sapFold(s) {
 const SPEC_NORM = Object.fromEntries(
   Object.entries(SPECIALTY_GREEK).map(([k, v]) => [normLabel(k), v]));
 
+/* longest name first, so «OBSTETRICS GYNAECOLOGY» is not read as
+ * «GYNAECOLOGY» and the answer does not depend on dictionary order */
+const SPEC_ORDER = Object.keys(SPEC_NORM).sort((a, b) => b.length - a.length);
+
 function sapStemFor(specialty) {
+  /* The whole label is searched, not a slice of it: ΟΑΥ writes clinics both
+   * bare («DERMATO-VENEREOLOGY») and inside a sentence («Ειδικοί Ιατροί —
+   * OPHTHALMOLOGY (OS)»), and any attempt to cut the speciality out first
+   * mangles the hyphenated ones. */
   const up = normLabel(specialty);
   if (SPEC_NORM[up]) return sapFold(SPEC_NORM[up]);
-  for (const [name, stem] of Object.entries(SPEC_NORM)) {
-    if (up.includes(name)) return sapFold(stem);
+  for (const name of SPEC_ORDER) {
+    if (up.includes(name)) return sapFold(SPEC_NORM[name]);
   }
   return '';
 }

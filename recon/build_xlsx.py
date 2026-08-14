@@ -538,23 +538,12 @@ _BUCKET_KINDS = {
     "Outpatient": ("outpatient", "clinic"),
     "Pharma": ("pharma", "general"),
 }
-# «Ειδικοί Ιατροί — GASTROENTEROLOGY (OS)» -> GASTROENTEROLOGY
-_SPEC_IN_LABEL = re.compile(r"[—\-]\s*([A-Z][A-Z &/'\-]{3,})\s*(?:\(|$)")
-
-
 def _line_kind(label: str, bucket: str) -> tuple[str, str]:
     up = norm_label(label)
     for needle, kind, variant in _LINE_KINDS:
         if needle in up:
             return kind, variant
     return _BUCKET_KINDS.get(bucket, ("outpatient", "general"))
-
-
-def _specialty_of(label: str) -> str:
-    """The ΟΑΥ speciality a split line belongs to: inpatient rows ARE the
-    clinic name, outpatient rows carry it after the dash."""
-    m = _SPEC_IN_LABEL.search(str(label))
-    return (m.group(1) if m else str(label)).strip()
 
 
 def _row_parts(row, kind: str, variant: str) -> list[tuple[float, str, str]]:
@@ -619,7 +608,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                 if master and not kostl:
                     # the line's own speciality first, then the stream it
                     # belongs to («Αναλώσιμα» is still pharmacy)
-                    centre = (master.find_centre(company, _specialty_of(row.label),
+                    centre = (master.find_centre(company, row.label,
                                                  part_variant)
                               or master.find_centre(company, stream, part_variant))
                     if centre:
@@ -632,7 +621,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                     missing[row.label] = round(
                         missing.get(row.label, 0.0) + amount, 2)
                     why[row.label] = (
-                        master.why_no_centre(company, _specialty_of(row.label),
+                        master.why_no_centre(company, row.label,
                                              part_variant) if master
                         else "χωρίς βασικά δεδομένα SAP (no SAP master)")
     # the split already ties to the cheque with its own zero-check; anything

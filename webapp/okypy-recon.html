@@ -2825,6 +2825,12 @@ const SPECIALTY_GREEK = {
   'ΝΟΣΗΛΕΥΤΕΣ': 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'ALLIED HEALTH': 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'ΑΛΛΟΙ ΕΠΑΓΓΕΛΜΑΤΙΕΣ': 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
+  'INFECTIOUS DISEASES': 'ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ',
+  'ΛΟΙΜΩΞΕΩΝ': 'ΤΜΗΜΑ ΛΟΙΜΩΞΕΩΝ',
+  /* the outpatient bucket's own leftovers — quality criteria, reimbursement
+   * adjustments, satellite-supplier cheques, the OS reconciling difference:
+   * none is a clinical speciality, all are outpatient */
+  OUTPATIENT: 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'PERSONAL DOCTORS': 'ΠΙ ΕΝΗΛΙΚΩΝ',
   'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ': 'ΠΙ ΕΝΗΛΙΚΩΝ',
 };
@@ -2847,11 +2853,19 @@ function sapFold(s) {
 const SPEC_NORM = Object.fromEntries(
   Object.entries(SPECIALTY_GREEK).map(([k, v]) => [normLabel(k), v]));
 
+/* longest name first, so «OBSTETRICS GYNAECOLOGY» is not read as
+ * «GYNAECOLOGY» and the answer does not depend on dictionary order */
+const SPEC_ORDER = Object.keys(SPEC_NORM).sort((a, b) => b.length - a.length);
+
 function sapStemFor(specialty) {
+  /* The whole label is searched, not a slice of it: ΟΑΥ writes clinics both
+   * bare («DERMATO-VENEREOLOGY») and inside a sentence («Ειδικοί Ιατροί —
+   * OPHTHALMOLOGY (OS)»), and any attempt to cut the speciality out first
+   * mangles the hyphenated ones. */
   const up = normLabel(specialty);
   if (SPEC_NORM[up]) return sapFold(SPEC_NORM[up]);
-  for (const [name, stem] of Object.entries(SPEC_NORM)) {
-    if (up.includes(name)) return sapFold(stem);
+  for (const name of SPEC_ORDER) {
+    if (up.includes(name)) return sapFold(SPEC_NORM[name]);
   }
   return '';
 }
@@ -4978,21 +4992,12 @@ const BUCKET_KINDS = {
   Outpatient: ['outpatient', 'clinic'],
   Pharma: ['pharma', 'general'],
 };
-/* «Ειδικοί Ιατροί — GASTROENTEROLOGY (OS)» -> GASTROENTEROLOGY */
-const SPEC_IN_LABEL = /[—-]\s*([A-Z][A-Z &/'-]{3,})\s*(?:\(|$)/;
-
 function lineKind(label, bucket) {
   const up = normLabel(label);
   for (const [needle, kind, variant] of LINE_KINDS) {
     if (up.includes(needle)) return [kind, variant];
   }
   return BUCKET_KINDS[bucket] || ['outpatient', 'general'];
-}
-
-function specialtyOf(label) {
-  /* inpatient rows ARE the clinic name; outpatient rows carry it after the dash */
-  const m = SPEC_IN_LABEL.exec(String(label));
-  return (m ? m[1] : String(label)).trim();
 }
 
 function rowParts(row, kind, variant) {
@@ -5044,7 +5049,7 @@ function journalLinesByStream(section, lookup) {
         if (master && !kostl) {
           /* the line's own speciality first, then the stream it belongs to
            * («Αναλώσιμα» is still pharmacy) */
-          const centre = findSapCentre(master, company, specialtyOf(row.label), partVariant)
+          const centre = findSapCentre(master, company, row.label, partVariant)
             || findSapCentre(master, company, stream, partVariant);
           if (centre) { kostl = centre.code; text = centre.name; }
         }
@@ -5054,7 +5059,7 @@ function journalLinesByStream(section, lookup) {
         if (!kostl) {
           missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
           why.set(row.label, master
-            ? whyNoSapCentre(master, company, specialtyOf(row.label))
+            ? whyNoSapCentre(master, company, row.label)
             : 'χωρίς βασικά δεδομένα SAP (no SAP master)');
         }
       }
