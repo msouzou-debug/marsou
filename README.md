@@ -218,8 +218,17 @@ staff roster**, uploaded with the month's files:
   `Έλεγχος_SAP` sheet.
 
 The SAP codes come from an **optional lookup** — a sheet or a file with
-`Κλινική | Κέντρο κόστους | Εσωτερική εντολή | Κείμενο SAP` (plus an optional
-`Ειδικότητα` column). The internal order follows the professional category
+`Κλινική | Κέντρο κόστους | Εσωτερική εντολή | Κείμενο SAP`, plus optional
+`Ειδικότητα`, `Νοσοκομείο` and `Εταιρεία` columns.
+`docs/OKYPY_SAP_cost_centres_TEMPLATE.xlsx` is a ready-to-fill starter.
+
+`Νοσοκομείο` holds the F-code, so **one file covers all eight hospitals and
+the mental-health units**; a row with the column blank applies to every payee.
+The `Κλινική` cell may hold either a clinic/line name as it appears in
+`By_Clinic_Split` or a **bucket** (`Inpatient` / `A&E` / `Outpatient` /
+`Pharma`) — a bucket row codes every line in that bucket, so four rows per
+hospital are enough to post at stream level, and a clinic-named row beats it
+when you want finer detail. The internal order follows the professional category
 (13 nurses, 14/16 allied health, 15 doctors…) rather than the clinic, so when
 a clinic row leaves it blank a speciality-keyed row supplies it — that
 fallback fills the internal order only, never the cost centre. Without the

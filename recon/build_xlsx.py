@@ -534,16 +534,22 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
     lookup = getattr(b, "cost_centres", None)
     out: list[dict] = []
     missing: dict[str, str] = {}
+    code = b.hospital_code or ""
     for sec in section.result.split:
         stream = sec.bucket.value if sec.bucket else sec.title
         for row in sec.rows:
             if not row.amount:
                 continue
-            hit = lookup.find(row.label, stream) if lookup else None
+            hit = lookup.find(row.label, stream, code) if lookup else None
+            if lookup and (hit is None or not hit.cost_centre):
+                # a row keyed on the BUCKET codes every line in that bucket —
+                # four rows per hospital are enough to post at stream level
+                hit = (lookup.find(stream, "", code)
+                       or lookup.find(sec.title, "", code) or hit)
             kostl = hit.cost_centre if hit else ""
             aufnr = hit.internal_order if hit else ""
             if lookup and not aufnr:
-                alt = lookup.find_speciality(stream)
+                alt = lookup.find_speciality(stream, code)
                 aufnr = alt.internal_order if alt else ""
             out.append({"kostl": kostl, "aufnr": aufnr,
                         "text": hit.text if hit and hit.text else row.label,
@@ -580,13 +586,14 @@ def _journal_lines_by_professional(section) -> tuple[list[dict], dict]:
     labels: dict[tuple, tuple] = {}
     missing: dict[str, str] = {}
     for sh in _clinic_shares([section]):
-        row = lookup.find(sh.clinic, sh.speciality) if lookup else None
+        code = b.hospital_code or ""
+        row = lookup.find(sh.clinic, sh.speciality, code) if lookup else None
         kostl = row.cost_centre if row else ""
         aufnr = row.internal_order if row else ""
         if lookup and not aufnr:
             # the internal order belongs to the professional category, so a
             # speciality-only row in the lookup may carry it
-            alt = lookup.find_speciality(sh.speciality) if lookup else None
+            alt = lookup.find_speciality(sh.speciality, code)
             aufnr = alt.internal_order if alt else ""
         text = row.text if row and row.text else sh.clinic
         key = (kostl, aufnr, clinic_key(sh.clinic),

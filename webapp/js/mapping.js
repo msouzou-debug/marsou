@@ -319,6 +319,7 @@ function extractCostCentres(bytes) {
     const jo = col('ΕΣΩΤΕΡΙΚΗ ΕΝΤΟΛΗ', 'INTERNAL ORDER', 'AUFNR');
     const jt = col('ΚΕΙΜΕΝΟ', 'TEXT', 'SGTXT');
     const js = col('ΕΙΔΙΚΟΤΗΤΑ', 'SPECIALITY', 'SPECIALTY');
+    const jh = col('ΝΟΣΟΚΟΜΕΙΟ', 'HOSPITAL', 'ΠΑΡΟΧΕΑ', 'PROVIDER', 'F-CODE');
     const jb = col('ΕΤΑΙΡΕΙΑ', 'COMPANY', 'BUKRS');
     if (jc == null || jk == null) continue;
     for (const row of rows.slice(headerRow + 1)) {
@@ -330,18 +331,29 @@ function extractCostCentres(bytes) {
         text: jt != null && row[jt] != null && cellText(row[jt]) !== 'nan'
           ? cellText(row[jt]).trim() : '',
         speciality: js != null && row[js] != null && cellText(row[js]) !== 'nan'
-          ? cellText(row[js]).trim() : '' });
+          ? cellText(row[js]).trim() : '',
+        hospital: cell(jh) });
       if (jb != null && !out.companyCode) out.companyCode = cell(jb);
     }
   }
   return out;
 }
 
-function findCostCentre(lookup, clinic, speciality = '') {
+function costCentreRowsFor(lookup, hospital) {
+  /* Rows belonging to this payee, plus the rows that name no hospital at all
+   * — so one file can carry all eight hospitals and the mental health units,
+   * with shared lines written once. */
+  const code = normLabel(hospital || '');
+  return lookup.rows.filter((r) => !r.hospital || !code
+                                   || normLabel(r.hospital) === code);
+}
+
+function findCostCentre(lookup, clinic, speciality = '', hospital = '') {
   if (!lookup) return null;
   const want = normLabel(clinic);
   const spec = normLabel(speciality);
-  const exact = lookup.rows.filter((r) => normLabel(r.clinic) === want);
+  const exact = costCentreRowsFor(lookup, hospital)
+    .filter((r) => normLabel(r.clinic) === want);
   /* a row that also names a speciality wins over a clinic-only row, so the
    * lookup works whether the internal order belongs to the clinic or to the
    * professional category */
@@ -350,15 +362,16 @@ function findCostCentre(lookup, clinic, speciality = '') {
   return exact.length ? exact[0] : null;
 }
 
-function findCostCentreBySpeciality(lookup, speciality) {
+function findCostCentreBySpeciality(lookup, speciality, hospital = '') {
   /* The internal order belongs to the professional category, not the clinic
    * (13 nurses, 14/16 allied health, 15 doctors…), so the lookup may carry it
    * on a speciality-only row.  Used only to fill an internal order a clinic
    * row leaves blank — never to invent a cost centre. */
   const spec = normLabel(speciality);
   if (!lookup || !spec) return null;
-  return lookup.rows.find((r) => r.speciality && normLabel(r.speciality) === spec
-                                 && r.internalOrder) || null;
+  return costCentreRowsFor(lookup, hospital)
+    .find((r) => r.speciality && normLabel(r.speciality) === spec
+                 && r.internalOrder) || null;
 }
 
 const MONTH_EN = ['', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',

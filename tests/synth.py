@@ -488,19 +488,23 @@ def staff_roster_xlsx(sheet="ΨΥΧΙΑΤΡΟΙ", rows=None, months=None) -> byt
     return _wb_bytes(wb)
 
 
-def cost_centre_map_xlsx(rows=None) -> bytes:
+def cost_centre_map_xlsx(rows=None, with_hospital=False) -> bytes:
     """The optional SAP lookup finance maintains: clinic -> cost centre,
-    internal order, and the Latin text SAP shows on the line."""
+    internal order, and the Latin text SAP shows on the line.  The optional
+    hospital column lets ONE file cover every payee."""
     rows = rows if rows is not None else [
-        ("Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ", "1030300543", "13", "KOINOTIKI LARNAKAS", ""),
-        ("Ψ.Ν.Α", "1030300507", "13", "COMM. MH SECTOR A", ""),
-        ("Ε.Ι.Ψ.Υ.ΛΕΜΕΣΟΥ", "1030300533", "16", "KOINOTIKI LEMESOU", ""),
+        ("Ε.Ι.Ψ.Υ. ΛΑΡΝΑΚΑΣ", "1030300543", "13", "KOINOTIKI LARNAKAS", "", ""),
+        ("Ψ.Ν.Α", "1030300507", "13", "COMM. MH SECTOR A", "", ""),
+        ("Ε.Ι.Ψ.Υ.ΛΕΜΕΣΟΥ", "1030300533", "16", "KOINOTIKI LEMESOU", "", ""),
     ]
     wb = Workbook()
     ws = wb.active
     ws.title = "ΚΕΝΤΡΑ ΚΟΣΤΟΥΣ"
-    ws.append(["Κλινική (clinic)", "Κέντρο κόστους", "Εσωτερική εντολή",
-               "Κείμενο SAP", "Ειδικότητα"])
+    head = ["Κλινική (clinic)", "Κέντρο κόστους", "Εσωτερική εντολή",
+            "Κείμενο SAP", "Ειδικότητα"]
+    if with_hospital:
+        head.append("Νοσοκομείο (hospital)")
+    ws.append(head)
     for r in rows:
-        ws.append(list(r))
+        ws.append(list(r)[:len(head)])
     return _wb_bytes(wb)

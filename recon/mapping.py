@@ -338,6 +338,7 @@ class CostCentreRow:
     internal_order: str = ""
     text: str = ""
     speciality: str = ""
+    hospital: str = ""      # F-code, so ONE file can cover all eight
 
 
 @dataclass
@@ -345,10 +346,19 @@ class CostCentreMap:
     rows: list[CostCentreRow] = field(default_factory=list)
     company_code: str = ""
 
-    def find(self, clinic: str, speciality: str = "") -> Optional[CostCentreRow]:
+    def rows_for(self, hospital: str = "") -> list[CostCentreRow]:
+        """Rows belonging to this payee, plus the rows that name no hospital
+        at all — so one file can carry all eight hospitals and the mental
+        health units, with shared lines written once."""
+        code = norm_label(hospital)
+        return [r for r in self.rows
+                if not r.hospital or not code or norm_label(r.hospital) == code]
+
+    def find(self, clinic: str, speciality: str = "",
+             hospital: str = "") -> Optional[CostCentreRow]:
         want = norm_label(clinic)
         spec = norm_label(speciality)
-        exact = [r for r in self.rows if norm_label(r.clinic) == want]
+        exact = [r for r in self.rows_for(hospital) if norm_label(r.clinic) == want]
         # a row that also names a speciality wins over a clinic-only row, so
         # the lookup works whether the internal order belongs to the clinic
         # or to the professional category
@@ -360,7 +370,8 @@ class CostCentreMap:
                 return r
         return exact[0] if exact else None
 
-    def find_speciality(self, speciality: str) -> Optional["CostCentreRow"]:
+    def find_speciality(self, speciality: str,
+                        hospital: str = "") -> Optional["CostCentreRow"]:
         """The internal order belongs to the professional category, not the
         clinic (13 nurses, 14/16 allied health, 15 doctors…), so the lookup may
         carry it on a speciality-only row.  Used only to fill an internal order
@@ -368,7 +379,7 @@ class CostCentreMap:
         spec = norm_label(speciality)
         if not spec:
             return None
-        for r in self.rows:
+        for r in self.rows_for(hospital):
             if r.speciality and norm_label(r.speciality) == spec \
                     and r.internal_order:
                 return r
@@ -416,6 +427,7 @@ def extract_cost_centres(data: bytes) -> CostCentreMap:
         jt = col("ΚΕΙΜΕΝΟ", "TEXT", "SGTXT")
         js = col("ΕΙΔΙΚΟΤΗΤΑ", "SPECIALITY", "SPECIALTY")
         jb = col("ΕΤΑΙΡΕΙΑ", "COMPANY", "BUKRS")
+        jh = col("ΝΟΣΟΚΟΜΕΙΟ", "HOSPITAL", "ΠΑΡΟΧΕΑ", "PROVIDER", "F-CODE")
         if jc is None or jk is None:
             continue
         for _, row in df.iloc[header_row + 1:].iterrows():
@@ -432,7 +444,8 @@ def extract_cost_centres(data: bytes) -> CostCentreMap:
                 text=str(row.iloc[jt]).strip() if jt is not None
                      and str(row.iloc[jt]) != "nan" else "",
                 speciality=str(row.iloc[js]).strip() if js is not None
-                           and str(row.iloc[js]) != "nan" else ""))
+                           and str(row.iloc[js]) != "nan" else "",
+                hospital=cell(jh)))
             if jb is not None and not out.company_code:
                 out.company_code = cell(jb)
     return out

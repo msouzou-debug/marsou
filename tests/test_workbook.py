@@ -308,3 +308,31 @@ def test_hospital_sap_journal_posts_every_revenue_stream_in_one_document():
         assert posted == round(ev.evaluate(rec.cell(row=4 + i, column=3).value,
                                            "Reconciliation"), 2)
     assert verify_workbook(data) == []
+
+
+def test_hospital_journal_codes_a_whole_bucket_from_one_lookup_row():
+    """Eight hospitals, one lookup file: rows carry an F-code so a cost centre
+    belongs to one hospital, and a row keyed on the BUCKET codes every line in
+    it — four rows per hospital are enough to post at stream level."""
+    import synth
+    from recon.mapping import extract_cost_centres
+    data, res = _build(with_optional=True)
+    res.bundle.cost_centres = extract_cost_centres(synth.cost_centre_map_xlsx(
+        rows=[("Inpatient", "26001", "11", "INPATIENT", "", "F1049"),
+              ("A&E", "25801", "12", "A AND E", "", "F1049"),
+              ("Outpatient", "25500", "13", "OUTPATIENT", "", "F1049"),
+              ("Pharma", "25501", "14", "PHARMA", "", "F1049"),
+              # another hospital's codes must never leak into this one
+              ("Inpatient", "99999", "99", "OTHER HOSPITAL", "", "F1054")],
+        with_hospital=True))
+    wb = load_workbook(io.BytesIO(build_workbook(res)))
+    ws = wb["JOURNAL ENTRIES"]
+    credits = [r for r in range(4, ws.max_row + 1)
+               if ws.cell(row=r, column=9).value == "50"
+               and ws.cell(row=r, column=10).value == "412002"]
+    assert credits and all(ws.cell(row=r, column=14).value for r in credits)
+    assert "99999" not in {ws.cell(row=r, column=14).value for r in credits}
+    coded = {ws.cell(row=r, column=25).value: ws.cell(row=r, column=14).value
+             for r in credits}
+    assert coded == {"Inpatient": "26001", "A&E": "25801",
+                     "Outpatient": "25500", "Pharma": "25501"}

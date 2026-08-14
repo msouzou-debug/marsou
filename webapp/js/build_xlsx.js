@@ -809,15 +809,22 @@ function journalLinesByStream(section, lookup) {
   const b = section.result.bundle;
   const out = [];
   const missing = new Map();
+  const code = b.hospitalCode || '';
   for (const sec of section.result.split) {
     const stream = sec.bucket || sec.title;
     for (const row of sec.rows) {
       if (!row.amount) continue;
-      const hit = lookup ? findCostCentre(lookup, row.label, stream) : null;
+      let hit = lookup ? findCostCentre(lookup, row.label, stream, code) : null;
+      if (lookup && (!hit || !hit.costCentre)) {
+        /* a row keyed on the BUCKET codes every line in that bucket — four
+         * rows per hospital are enough to post at stream level */
+        hit = findCostCentre(lookup, stream, '', code)
+          || findCostCentre(lookup, sec.title, '', code) || hit;
+      }
       const kostl = hit ? hit.costCentre : '';
       let aufnr = hit ? hit.internalOrder : '';
       if (lookup && !aufnr) {
-        const alt = findCostCentreBySpeciality(lookup, stream);
+        const alt = findCostCentreBySpeciality(lookup, stream, code);
         aufnr = alt ? alt.internalOrder : '';
       }
       out.push({ kostl, aufnr, text: (hit && hit.text) ? hit.text : row.label,
@@ -854,14 +861,15 @@ function journalLinesByProfessional(section, lookup) {
   const buckets = new Map();
   const labels = new Map();
   const missing = new Map();
+  const code = b.hospitalCode || '';
   for (const sh of clinicShares([section])) {
-    const row = lookup ? findCostCentre(lookup, sh.clinic, sh.speciality) : null;
+    const row = lookup ? findCostCentre(lookup, sh.clinic, sh.speciality, code) : null;
     const kostl = row ? row.costCentre : '';
     let aufnr = row ? row.internalOrder : '';
     if (lookup && !aufnr) {
       /* the internal order belongs to the professional category, so a
        * speciality-only row in the lookup may carry it */
-      const alt = findCostCentreBySpeciality(lookup, sh.speciality);
+      const alt = findCostCentreBySpeciality(lookup, sh.speciality, code);
       aufnr = alt ? alt.internalOrder : '';
     }
     const text = (row && row.text) ? row.text : sh.clinic;
