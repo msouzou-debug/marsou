@@ -794,9 +794,11 @@ function journalLines(section, lookup) {
    * A hospital and a mental-health unit post the same cheque differently, so
    * the lines come from different places — but the journal LAYOUT is one, and
    * finance uploads one kind of file either way. */
-  return isHospital(section.result.bundle.hospitalCode)
-    ? journalLinesByStream(section, lookup)
-    : journalLinesByProfessional(section, lookup);
+  if (isHospital(section.result.bundle.hospitalCode)) {
+    return journalLinesByStream(section, lookup);
+  }
+  const built = journalLinesByProfessional(section, lookup);
+  return { lines: built.lines, missing: built.missing, why: new Map() };
 }
 
 /* A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
@@ -855,6 +857,7 @@ function journalLinesByStream(section, lookup) {
   const b = section.result.bundle;
   const out = [];
   const missing = new Map();
+  const why = new Map();
   const code = b.hospitalCode || '';
   const master = b.sap || null;
   const company = master ? companyFor(code) : '';
@@ -888,6 +891,9 @@ function journalLinesByStream(section, lookup) {
                    professional: stream, amount: round2(amount) });
         if (!kostl) {
           missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
+          why.set(row.label, master
+            ? whyNoSapCentre(master, company, specialtyOf(row.label))
+            : 'χωρίς βασικά δεδομένα SAP (no SAP master)');
         }
       }
     }
@@ -902,7 +908,7 @@ function journalLinesByStream(section, lookup) {
                text: 'TO CLASSIFY (split vs SRA)',
                professional: '', amount: residual });
   }
-  return { lines: out, missing };
+  return { lines: out, missing, why };
 }
 
 function journalLinesByProfessional(section, lookup) {
@@ -993,6 +999,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     ? `${String(month).padStart(2, '0')}/${String(year).slice(-2)}` : '';
   let r = 4;
   const missing = new Map();
+  const why = new Map();
   const docs = [];
   for (const section of sections) {
     const b = section.result.bundle;
@@ -1002,6 +1009,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     for (const [k, v] of built.missing) {
       missing.set(k, round2((missing.get(k) || 0) + v));
     }
+    for (const [k, v] of (built.why || [])) why.set(k, v);
     const lines = built.lines;
     const headRow = r;
     const head = [docDate, { formula: `A${headRow}` }, SAP_DEFAULTS.docType, company,
@@ -1037,7 +1045,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     }
     docs.push({ cheque, label: section.label, headRow, stated: b.sra.statedTotal });
   }
-  const info = { last: r - 1, docs, missing, masterSeen: !!master };
+  const info = { last: r - 1, docs, missing, why, masterSeen: !!master };
   if (inlineChecks) sapChecks(ws, info, r + 1, zeroChecks);
   autosize(ws);
   ws.columns.forEach((col) => { col.width = Math.min(col.width || 12, 26); });
@@ -1084,7 +1092,9 @@ function sapMissingNote(ws, info, r) {
   const worth = [...info.missing.entries()].filter(([, v]) => Math.abs(v) > 0.005);
   if (!worth.length) return;
   worth.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-  const named = worth.map(([k, v]) => `${k} — ${formatEur(v)}`).join(' · ');
+  const reasons = info.why || new Map();
+  const named = worth.map(([k, v]) => `${k} — ${formatEur(v)}`
+    + (reasons.get(k) ? ` [${reasons.get(k)}]` : '')).join(' · ');
   const head = info.masterSeen
     ? 'Γραμμές με ποσό αλλά χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο '
       + 'αντιστοίχισης και ανεβάστε το ξανά (lines carrying an amount with no '

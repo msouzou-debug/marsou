@@ -164,6 +164,23 @@ class SapMaster:
         return hits[0] if len(hits) == 1 else None
 
 
+    def why_no_centre(self, company: str, specialty: str,
+                      variant: str = "general") -> str:
+        """Why a line could not be coded — so the alert is a diagnosis rather
+        than a list to stare at."""
+        if not company:
+            return "χωρίς εταιρεία (no company code)"
+        stem = _stem_for(specialty)
+        if not stem:
+            return "άγνωστη ειδικότητα (speciality not in the dictionary)"
+        hits = [c for c in self.centres_for(company)
+                if _fold(c.name).startswith(stem)]
+        if not hits:
+            return "κανένα κέντρο με αυτό το όνομα (no such centre in SAP)"
+        names = ", ".join(c.name for c in hits[:4])
+        return f"ασαφές — υποψήφια: {names} (ambiguous)"
+
+
 def _fold(s: str) -> str:
     return norm_label(str(s)).replace(".", "").replace(" ", "")
 

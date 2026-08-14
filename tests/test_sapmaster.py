@@ -248,3 +248,21 @@ def test_the_alert_names_only_lines_that_carry_money():
     assert _missing_note({"missing": {"X": 0.0}}, True) is None
     # and when the master was never uploaded, say so first
     assert "Chart_of_Accounts" in _missing_note(info, False)
+
+
+def test_the_alert_says_why_each_line_could_not_be_coded():
+    """A list of names is something to stare at; a reason is something to act
+    on — so each uncoded line carries why the app could not code it."""
+    from recon.build_xlsx import _missing_note
+    m = extract_sap_master(_centres(
+        ("1040", "1064003900", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΓΕΝΙΚΑ"),
+        ("1040", "1064003902", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΘΑΛ"),
+        ("1040", "1064003912", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΘΑΛ Γ")))
+    assert "not in the dictionary" in m.why_no_centre("1040", "SOMETHING ELSE")
+    assert "no such centre" in m.why_no_centre("1040", "UROLOGY")
+    # two wards, neither of them Α — a human picks
+    assert "ambiguous" in m.why_no_centre("1040", "OPHTHALMOLOGY", "ward")
+    assert "no company" in m.why_no_centre("", "OPHTHALMOLOGY")
+    note = _missing_note({"missing": {"UROLOGY": 900.0},
+                          "why": {"UROLOGY": "no such centre in SAP"}}, True)
+    assert "UROLOGY" in note and "no such centre in SAP" in note

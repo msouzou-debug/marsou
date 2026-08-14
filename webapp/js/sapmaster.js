@@ -170,6 +170,18 @@ function findSapCentre(master, company, specialty, variant = 'general') {
   return hits.length === 1 ? hits[0] : null;
 }
 
+function whyNoSapCentre(master, company, specialty) {
+  /* Why a line could not be coded — so the alert is a diagnosis rather than a
+   * list to stare at. */
+  if (!company) return 'χωρίς εταιρεία (no company code)';
+  const stem = sapStemFor(specialty);
+  if (!stem) return 'άγνωστη ειδικότητα (speciality not in the dictionary)';
+  const hits = master.costCentres.filter((c) => c.company === company
+                                                && sapFold(c.name).startsWith(stem));
+  if (!hits.length) return 'κανένα κέντρο με αυτό το όνομα (no such centre in SAP)';
+  return `ασαφές — υποψήφια: ${hits.slice(0, 4).map((c) => c.name).join(', ')} (ambiguous)`;
+}
+
 const MASTER_SHEETS = ['COMPANY CODES', 'COST CENTERS', 'COST CENTRES',
                        'CHART OF ACCOUNTS'];
 

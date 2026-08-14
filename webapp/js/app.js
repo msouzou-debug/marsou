@@ -297,6 +297,18 @@ async function run() {
         + `${formatEur(result.sraResidual)} (SRA γραμμές − δηλωμένο σύνολο) — `
         + 'βλ. κόκκινη γραμμή στο Source_crosscheck.</div>';
     }
+    // say plainly whether the SAP master was picked up: without it nothing
+    // in the journal can be coded, and that is the usual reason it is blank
+    if (bundle.sra && !crosscheck) {
+      banner += bundle.sap
+        ? `<div class="note">📗 Βασικά δεδομένα SAP: εταιρεία `
+          + `${esc(companyFor(hospital))}, ${bundle.sap.costCentres.length} κέντρα `
+          + `κόστους, ${Object.keys(bundle.sap.accounts).length} λογαριασμοί `
+          + `(SAP master loaded).</div>`
+        : '<div class="warn">⚠️ Δεν ανέβηκαν τα βασικά δεδομένα SAP '
+          + '(Chart_of_Accounts.xlsx): το ημερολόγιο SAP θα βγει χωρίς κέντρα '
+          + 'κόστους και λογαριασμούς (no SAP master in this batch).</div>';
+    }
     // the SAP journal as its own file, ready to upload — every revenue
     // stream of the month in one document
     let sapBuffer = null;

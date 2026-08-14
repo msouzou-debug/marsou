@@ -519,7 +519,8 @@ def _journal_lines(section) -> tuple[list[dict], dict]:
     b = section.result.bundle
     if is_hospital(b.hospital_code):
         return _journal_lines_by_stream(section)
-    return _journal_lines_by_professional(section)
+    lines, missing = _journal_lines_by_professional(section)
+    return lines, missing, {}
 
 
 # A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
@@ -594,7 +595,8 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
     code = b.hospital_code or ""
     company = company_for(code) if master else ""
     out: list[dict] = []
-    missing: dict[str, str] = {}
+    missing: dict = {}
+    why: dict = {}
     for sec in section.result.split:
         stream = sec.bucket.value if sec.bucket else sec.title
         for row in sec.rows:
@@ -629,6 +631,10 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                 if not kostl:
                     missing[row.label] = round(
                         missing.get(row.label, 0.0) + amount, 2)
+                    why[row.label] = (
+                        master.why_no_centre(company, _specialty_of(row.label),
+                                             part_variant) if master
+                        else "χωρίς βασικά δεδομένα SAP (no SAP master)")
     # the split already ties to the cheque with its own zero-check; anything
     # left is still shown rather than absorbed
     residual = round(b.sra.stated_total - sum(x["amount"] for x in out), 2)
@@ -636,7 +642,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
         out.append({"kostl": "", "aufnr": "", "account": "",
                     "text": "TO CLASSIFY (split vs SRA)",
                     "professional": "", "amount": residual})
-    return out, missing
+    return out, missing, why
 
 
 def _journal_lines_by_professional(section) -> tuple[list[dict], dict]:
@@ -717,16 +723,18 @@ def _tab_sap_upload(wb: Workbook, sections: list,
     period_label = month_label(year, month)
     short = f"{month:02d}/{str(year)[-2:]}" if year and month else ""
     r = 4
-    missing: dict[str, str] = {}
+    missing: dict = {}
+    why: dict = {}
     docs: list[tuple] = []          # (cheque, unit label, head row, total)
     for section in sections:
         b = section.result.bundle
         if not b.sra:
             continue
         cheque = b.sra.cheque_no
-        lines, miss = _journal_lines(section)
+        lines, miss, miss_why = _journal_lines(section)
         for label, amount in miss.items():
             missing[label] = round(missing.get(label, 0.0) + amount, 2)
+        why.update(miss_why)
         head_row = r
         # header (debit) line — the amount is the live sum of its own credits
         head = [doc_date, f"=A{head_row}", SAP_DEFAULTS["doc_type"], company,
@@ -759,7 +767,7 @@ def _tab_sap_upload(wb: Workbook, sections: list,
                     c.fill = FILL_AMBER      # code still to be filled in
             r += 1
         docs.append((cheque, section.label, head_row, b.sra.stated_total))
-    info = {"last": r - 1, "docs": docs, "missing": missing,
+    info = {"last": r - 1, "docs": docs, "missing": missing, "why": why,
             "master_seen": master is not None}
     if inline_checks:
         _sap_checks(ws, info, r + 1)
@@ -819,8 +827,11 @@ def _missing_note(info: dict, master_seen: bool) -> Optional[str]:
     worth = {k: v for k, v in info["missing"].items() if abs(v) > 0.005}
     if not worth:
         return None
-    named = " · ".join(f"{k} — {format_eur(v)}" for k, v in
-                       sorted(worth.items(), key=lambda kv: -abs(kv[1])))
+    reasons = info.get("why", {})
+    named = " · ".join(
+        f"{k} — {format_eur(v)}"
+        + (f" [{reasons[k]}]" if reasons.get(k) else "")
+        for k, v in sorted(worth.items(), key=lambda kv: -abs(kv[1])))
     head = ("Γραμμές με ποσό αλλά χωρίς κέντρο κόστους — συμπληρώστε τα στο "
             "αρχείο αντιστοίχισης και ανεβάστε το ξανά (lines carrying an "
             "amount with no cost centre): ")
