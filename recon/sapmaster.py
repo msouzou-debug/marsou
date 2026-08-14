@@ -150,7 +150,7 @@ class SapMaster:
             return exact[0]
         for key in (variant, "general"):
             marks = _VARIANTS.get(key, ())
-            picked = [c for c in hits if _has_variant(c.name, marks)]
+            picked = [c for c in hits if _has_variant(_tail(c.name, stem), marks)]
             if len(picked) == 1:
                 return picked[0]
             if len(picked) > 1:
@@ -162,14 +162,32 @@ def _fold(s: str) -> str:
     return norm_label(str(s)).replace(".", "").replace(" ", "")
 
 
+# the dictionary keyed the way a label actually normalises: norm_label turns
+# «DERMATO-VENEREOLOGY» into «DERMATO VENEREOLOGY», so a hyphenated key would
+# otherwise never match the speciality it was written for
+_SPEC_NORM = {norm_label(k): v for k, v in SPECIALTY_GREEK.items()}
+
+
 def _stem_for(specialty: str) -> str:
     up = norm_label(specialty)
-    if up in SPECIALTY_GREEK:
-        return _fold(SPECIALTY_GREEK[up])
-    for name, stem in SPECIALTY_GREEK.items():
+    if up in _SPEC_NORM:
+        return _fold(_SPEC_NORM[up])
+    for name, stem in _SPEC_NORM.items():
         if name in up:
             return _fold(stem)
     return ""
+
+
+def _tail(name: str, stem: str) -> str:
+    """What follows the speciality's own stem in the centre's name.
+
+    The flavour must be read from THERE, not from the whole name: «ΟΦΘΑΛ»
+    contains «ΘΑΛ» and «ΧΕΙΡΟΥΡΓΙΚΗ» contains «ΕΙ», so testing the whole name
+    makes every ophthalmology centre look like a ward and every surgery centre
+    like an outpatient clinic — and the match is then thrown out as ambiguous."""
+    folded = _fold(name)
+    i = folded.find(stem)
+    return folded[i + len(stem):] if i >= 0 else folded
 
 
 def _has_variant(name: str, marks: tuple) -> bool:

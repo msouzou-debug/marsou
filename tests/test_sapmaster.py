@@ -170,3 +170,52 @@ def test_nurses_and_allied_health_post_to_the_outpatient_clinics():
                   "Άλλοι Επαγγελματίες Υγείας (Allied Health)"):
         assert m.find_centre("1041", label).code == "1064110701"
         assert m.find_centre("1033", label) is None
+
+
+def _centres(*rows) -> bytes:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cost centers"
+    ws.append(["Company Code", "Cost Center", "Name"])
+    for r in rows:
+        ws.append(list(r))
+    coa = wb.create_sheet("Chart of accounts")
+    coa.append(["G/L Account", "G/L Acct Long Text"])
+    coa.append(["412002", "HIO Out-Patient Fees"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_the_flavour_is_read_after_the_speciality_not_inside_it():
+    """«ΟΦΘΑΛ» contains «ΘΑΛ» and «ΧΕΙΡΟΥΡΓΙΚΗ» contains «ΕΙ». Testing the whole
+    name made every ophthalmology centre look like a ward and every surgery
+    centre like an outpatient clinic, so the match was thrown out as ambiguous
+    and the line came out uncoded — the real F1048 symptom."""
+    m = extract_sap_master(_centres(
+        ("1040", "1064003900", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΓΕΝΙΚΑ"),
+        ("1040", "1064003901", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΕΙ"),
+        ("1040", "1064003902", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ-ΘΑΛ"),
+        ("1040", "1064003903", "ΟΦΘΑΛΜΟΛΟΓΙΚΗ Η.Φ."),
+        ("1040", "1064000601", "ΧΕΙΡΟΥΡΓΙΚΗ-ΕΙ"),
+        ("1040", "1064000602", "ΧΕΙΡΟΥΡΓΙΚΗ-ΘΑΛ Α"),
+        ("1040", "1064000603", "ΧΕΙΡΟΥΡΓΙΚΗ Η.Φ.")))
+    got = {v: m.find_centre("1040", "OPHTHALMOLOGY", v)
+           for v in ("ward", "daycare", "clinic", "general")}
+    assert {v: c.code for v, c in got.items()} == {
+        "ward": "1064003902", "daycare": "1064003903",
+        "clinic": "1064003901", "general": "1064003900"}
+    assert m.find_centre("1040", "GENERAL SURGERY", "clinic").code == "1064000601"
+    assert m.find_centre("1040", "GENERAL SURGERY", "ward").code == "1064000602"
+
+
+def test_a_hyphenated_speciality_still_finds_its_stem():
+    """norm_label turns «DERMATO-VENEREOLOGY» into «DERMATO VENEREOLOGY», so a
+    hyphenated dictionary key never matched the speciality it was written for."""
+    m = extract_sap_master(_centres(
+        ("1040", "1064001001", "ΔΕΡΜΑΤΟΛΟΓΙΚΗ-ΕΙ"),
+        ("1040", "1064001002", "ΔΕΡΜΑΤΟΛΟΓΙΚΗ-ΘΑΛ")))
+    assert m.find_centre("1040", "DERMATO-VENEREOLOGY", "clinic").code == "1064001001"
+    # and the label as By_Clinic_Split writes it
+    assert m.find_centre("1040", "Ειδικοί Ιατροί — DERMATO-VENEREOLOGY (OS)",
+                         "clinic").code == "1064001001"

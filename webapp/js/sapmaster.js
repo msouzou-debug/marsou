@@ -97,13 +97,30 @@ function sapFold(s) {
   return normLabel(String(s)).replace(/\./g, '').replace(/\s/g, '');
 }
 
+/* the dictionary keyed the way a label actually normalises: normLabel turns
+ * «DERMATO-VENEREOLOGY» into «DERMATO VENEREOLOGY», so a hyphenated key would
+ * otherwise never match the speciality it was written for */
+const SPEC_NORM = Object.fromEntries(
+  Object.entries(SPECIALTY_GREEK).map(([k, v]) => [normLabel(k), v]));
+
 function sapStemFor(specialty) {
   const up = normLabel(specialty);
-  if (SPECIALTY_GREEK[up]) return sapFold(SPECIALTY_GREEK[up]);
-  for (const [name, stem] of Object.entries(SPECIALTY_GREEK)) {
+  if (SPEC_NORM[up]) return sapFold(SPEC_NORM[up]);
+  for (const [name, stem] of Object.entries(SPEC_NORM)) {
     if (up.includes(name)) return sapFold(stem);
   }
   return '';
+}
+
+function sapTail(name, stem) {
+  /* What follows the speciality's own stem in the centre's name.  The flavour
+   * must be read from THERE, not from the whole name: «ΟΦΘΑΛ» contains «ΘΑΛ»
+   * and «ΧΕΙΡΟΥΡΓΙΚΗ» contains «ΕΙ», so testing the whole name makes every
+   * ophthalmology centre look like a ward and every surgery centre like an
+   * outpatient clinic — and the match is then thrown out as ambiguous. */
+  const folded = sapFold(name);
+  const i = folded.indexOf(stem);
+  return i >= 0 ? folded.slice(i + stem.length) : folded;
 }
 
 function hasVariant(name, marks) {
@@ -139,7 +156,7 @@ function findSapCentre(master, company, specialty, variant = 'general') {
   if (exact.length === 1) return exact[0];
   for (const key of [variant, 'general']) {
     const marks = CENTRE_VARIANTS[key] || [];
-    const picked = hits.filter((c) => hasVariant(c.name, marks));
+    const picked = hits.filter((c) => hasVariant(sapTail(c.name, stem), marks));
     if (picked.length === 1) return picked[0];
     if (picked.length > 1) return null;   // ambiguous — a human decides
   }
