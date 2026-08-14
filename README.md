@@ -264,8 +264,8 @@ identified by content) and the journal codes itself:
 
 - **Cost centre**, matched inside that company code: ΟΑΥ's English speciality
   → the Greek stem SAP uses, then the flavour the stream posts to — `ΘΑΛ`
-  (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments and Z items,
-  `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
+  (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments **and for the
+  Z-catalogue items**, `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
   and exactly one centre must survive the flavour, so an ambiguous clinic is
   left blank for a human rather than guessed. A hand-kept lookup still wins
   wherever it names a line.
@@ -279,6 +279,7 @@ template**, and finance uploads the same kind of thing either way:
 | | mental-health unit | hospital |
 |---|---|---|
 | document | one per remittance advice / unit | one for the month |
+| internal order | the professional category (11-16) | none — the column stays empty |
 | credit line | cost centre × internal order × professional | one per `By_Clinic_Split` row |
 | driven by | the monthly staff roster | the reconciliation itself |
 | analysis column | the professional | the bucket (Inpatient / A&E / Outpatient / Pharma) |

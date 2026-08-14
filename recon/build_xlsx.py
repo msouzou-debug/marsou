@@ -609,7 +609,9 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                     hit = (lookup.find(stream, "", code)
                            or lookup.find(sec.title, "", code) or hit)
                 kostl = hit.cost_centre if hit else ""
-                aufnr = hit.internal_order if hit else ""
+                # a hospital posts no internal order — that column belongs to
+                # the mental-health professional categories (11-16)
+                aufnr = ""
                 text = hit.text if hit and hit.text else ""
                 centre = None
                 if master and not kostl:
@@ -620,9 +622,6 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                               or master.find_centre(company, stream, part_variant))
                     if centre:
                         kostl, text = centre.code, centre.name
-                if lookup and not aufnr:
-                    alt = lookup.find_speciality(stream, code)
-                    aufnr = alt.internal_order if alt else ""
                 account, _atext = master.account(part_kind) if master else ("", "")
                 out.append({"kostl": kostl, "aufnr": aufnr,
                             "text": text or row.label, "account": account,

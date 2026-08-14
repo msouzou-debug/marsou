@@ -4992,7 +4992,9 @@ function journalLinesByStream(section, lookup) {
             || findCostCentre(lookup, sec.title, '', code) || hit;
         }
         let kostl = hit ? hit.costCentre : '';
-        let aufnr = hit ? hit.internalOrder : '';
+        /* a hospital posts no internal order — that column belongs to the
+         * mental-health professional categories (11-16) */
+        const aufnr = '';
         let text = (hit && hit.text) ? hit.text : '';
         if (master && !kostl) {
           /* the line's own speciality first, then the stream it belongs to
@@ -5000,10 +5002,6 @@ function journalLinesByStream(section, lookup) {
           const centre = findSapCentre(master, company, specialtyOf(row.label), partVariant)
             || findSapCentre(master, company, stream, partVariant);
           if (centre) { kostl = centre.code; text = centre.name; }
-        }
-        if (lookup && !aufnr) {
-          const alt = findCostCentreBySpeciality(lookup, stream, code);
-          aufnr = alt ? alt.internalOrder : '';
         }
         const [account] = master ? sapAccount(master, partKind) : ['', ''];
         out.push({ kostl, aufnr, text: text || row.label, account,

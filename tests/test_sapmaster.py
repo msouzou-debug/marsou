@@ -130,3 +130,21 @@ def test_without_the_master_the_journal_falls_back_and_invents_nothing():
     assert credits
     assert all(ws.cell(row=r, column=10).value == "412002" for r in credits)
     assert all(not ws.cell(row=r, column=14).value for r in credits)
+
+
+def test_a_hospital_posts_no_internal_order():
+    """The internal order (11-16) is the mental-health professional category.
+    A hospital has none, so that column stays empty even when a lookup offers
+    one."""
+    from recon.mapping import extract_cost_centres
+    _data, res = _build(with_optional=True)
+    res.bundle.sap = extract_sap_master(master_xlsx())
+    res.bundle.cost_centres = extract_cost_centres(synth.cost_centre_map_xlsx(
+        rows=[("Inpatient", "26001", "77", "INPATIENT", "", "F1049")],
+        with_hospital=True))
+    ws = load_workbook(io.BytesIO(build_workbook(res)))["JOURNAL ENTRIES"]
+    credits = [r for r in range(4, ws.max_row + 1)
+               if ws.cell(row=r, column=9).value == "50"
+               and isinstance(ws.cell(row=r, column=12).value, (int, float))]
+    assert credits
+    assert all(not ws.cell(row=r, column=15).value for r in credits)
