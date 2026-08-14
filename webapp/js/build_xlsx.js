@@ -886,7 +886,9 @@ function journalLinesByStream(section, lookup) {
         const [account] = master ? sapAccount(master, partKind) : ['', ''];
         out.push({ kostl, aufnr, text: text || row.label, account,
                    professional: stream, amount: round2(amount) });
-        if (!kostl) missing.set(row.label, row.label);
+        if (!kostl) {
+          missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
+        }
       }
     }
   }
@@ -937,7 +939,9 @@ function journalLinesByProfessional(section, lookup) {
                  kostl ? '' : sh.speciality, who].join('|');
     buckets.set(key, round2((buckets.get(key) || 0) + sh.amount));
     labels.set(key, [text, kostl, aufnr, clinicKey(sh.clinic), who, sh.professional]);
-    if (!kostl) missing.set(clinicKey(sh.clinic), sh.clinic);
+    if (!kostl) {
+      missing.set(sh.clinic, round2((missing.get(sh.clinic) || 0) + sh.amount));
+    }
   }
   let credited = 0;
   for (const v of buckets.values()) credited = round2(credited + v);
@@ -995,7 +999,9 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     if (!b.sra) continue;
     const cheque = b.sra.chequeNo;
     const built = journalLines(section, lookup);
-    for (const [k, v] of built.missing) missing.set(k, v);
+    for (const [k, v] of built.missing) {
+      missing.set(k, round2((missing.get(k) || 0) + v));
+    }
     const lines = built.lines;
     const headRow = r;
     const head = [docDate, { formula: `A${headRow}` }, SAP_DEFAULTS.docType, company,
@@ -1031,7 +1037,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     }
     docs.push({ cheque, label: section.label, headRow, stated: b.sra.statedTotal });
   }
-  const info = { last: r - 1, docs, missing };
+  const info = { last: r - 1, docs, missing, masterSeen: !!master };
   if (inlineChecks) sapChecks(ws, info, r + 1, zeroChecks);
   autosize(ws);
   ws.columns.forEach((col) => { col.width = Math.min(col.width || 12, 26); });
@@ -1072,11 +1078,23 @@ function sapChecks(ws, info, row, zeroChecks) {
 }
 
 function sapMissingNote(ws, info, r) {
-  if (!info.missing.size) return;
+  /* The alert: which lines carry money the app could not code, and what each is
+   * worth.  A line with nothing allocated to it is not a problem, so it is not
+   * reported. */
+  const worth = [...info.missing.entries()].filter(([, v]) => Math.abs(v) > 0.005);
+  if (!worth.length) return;
+  worth.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const named = worth.map(([k, v]) => `${k} — ${formatEur(v)}`).join(' · ');
+  const head = info.masterSeen
+    ? 'Γραμμές με ποσό αλλά χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο '
+      + 'αντιστοίχισης και ανεβάστε το ξανά (lines carrying an amount with no '
+      + 'cost centre): '
+    : 'ΔΕΝ ανέβηκαν τα βασικά δεδομένα SAP: ανεβάστε το Chart_of_Accounts.xlsx '
+      + 'μαζί με τα αρχεία του μήνα και οι περισσότερες από αυτές τις γραμμές θα '
+      + 'κωδικοποιηθούν μόνες τους (the SAP master was not uploaded). Γραμμές με '
+      + 'ποσό χωρίς κέντρο κόστους: ';
   const note = ws.getCell(r, 1);
-  note.value = 'Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο αντιστοίχισης '
-    + 'και ανεβάστε το ξανά (clinics with no cost centre in the lookup): '
-    + [...info.missing.values()].sort().join(' · ');
+  note.value = head + named;
   note.font = F_AMBER;
   note.alignment = { wrapText: true, vertical: 'top' };
 }

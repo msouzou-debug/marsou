@@ -139,8 +139,10 @@ class SapMaster:
         stem = _stem_for(specialty)
         if not stem or not company:
             return None
+        # the stem must START the centre's name: «ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ» contains
+        # «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery
         hits = [c for c in self.centres_for(company)
-                if stem in _fold(c.name)]
+                if _fold(c.name).startswith(stem)]
         if not hits:
             return None
         # a centre NAMED exactly as the stem is that stream's own centre —
@@ -154,7 +156,11 @@ class SapMaster:
             if len(picked) == 1:
                 return picked[0]
             if len(picked) > 1:
-                return None       # ambiguous — a human decides, not the app
+                # a clinic split across «ΘΑΛ Α» and «ΘΑΛ Β» books to Α
+                alpha = [c for c in picked if _tail(c.name, stem).endswith("Α")]
+                if len(alpha) == 1:
+                    return alpha[0]
+                return None       # still ambiguous — a human decides
         return hits[0] if len(hits) == 1 else None
 
 

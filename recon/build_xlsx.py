@@ -627,7 +627,8 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                             "text": text or row.label, "account": account,
                             "professional": stream, "amount": round(amount, 2)})
                 if not kostl:
-                    missing[row.label] = row.label
+                    missing[row.label] = round(
+                        missing.get(row.label, 0.0) + amount, 2)
     # the split already ties to the cheque with its own zero-check; anything
     # left is still shown rather than absorbed
     residual = round(b.sra.stated_total - sum(x["amount"] for x in out), 2)
@@ -673,7 +674,7 @@ def _journal_lines_by_professional(section) -> tuple[list[dict], dict]:
         buckets[key] = round(buckets.get(key, 0.0) + sh.amount, 2)
         labels[key] = (text, sh.professional)
         if not kostl:
-            missing[clinic_key(sh.clinic)] = sh.clinic
+            missing[sh.clinic] = round(missing.get(sh.clinic, 0.0) + sh.amount, 2)
     residual = round(b.sra.stated_total - sum(buckets.values()), 2)
     out = []
     for key in sorted(buckets, key=lambda k: (k[0] == "", k[0], k[1], k[2], k[4])):
@@ -724,7 +725,8 @@ def _tab_sap_upload(wb: Workbook, sections: list,
             continue
         cheque = b.sra.cheque_no
         lines, miss = _journal_lines(section)
-        missing.update(miss)
+        for label, amount in miss.items():
+            missing[label] = round(missing.get(label, 0.0) + amount, 2)
         head_row = r
         # header (debit) line — the amount is the live sum of its own credits
         head = [doc_date, f"=A{head_row}", SAP_DEFAULTS["doc_type"], company,
@@ -757,7 +759,8 @@ def _tab_sap_upload(wb: Workbook, sections: list,
                     c.fill = FILL_AMBER      # code still to be filled in
             r += 1
         docs.append((cheque, section.label, head_row, b.sra.stated_total))
-    info = {"last": r - 1, "docs": docs, "missing": missing}
+    info = {"last": r - 1, "docs": docs, "missing": missing,
+            "master_seen": master is not None}
     if inline_checks:
         _sap_checks(ws, info, r + 1)
     _autosize(ws)
@@ -799,16 +802,35 @@ def _sap_checks(ws, info: dict, row: int) -> int:
         _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
         ws.cell(row=r, column=4).fill = FILL_CHECK
         r += 1
-    if info["missing"]:
+    text = _missing_note(info, info.get("master_seen", False))
+    if text:
         r += 1
-        note = ws.cell(row=r, column=1, value=(
-            "Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο "
-            "αντιστοίχισης και ανεβάστε το ξανά (clinics with no cost centre "
-            "in the lookup): " + " · ".join(sorted(info["missing"].values()))))
+        note = ws.cell(row=r, column=1, value=text)
         note.font = F_AMBER
         note.alignment = Alignment(wrap_text=True, vertical="top")
         r += 1
     return r
+
+
+def _missing_note(info: dict, master_seen: bool) -> Optional[str]:
+    """The alert: which lines carry money the app could not code, and what
+    each is worth.  A line with nothing allocated to it is not a problem, so
+    it is not reported."""
+    worth = {k: v for k, v in info["missing"].items() if abs(v) > 0.005}
+    if not worth:
+        return None
+    named = " · ".join(f"{k} — {format_eur(v)}" for k, v in
+                       sorted(worth.items(), key=lambda kv: -abs(kv[1])))
+    head = ("Γραμμές με ποσό αλλά χωρίς κέντρο κόστους — συμπληρώστε τα στο "
+            "αρχείο αντιστοίχισης και ανεβάστε το ξανά (lines carrying an "
+            "amount with no cost centre): ")
+    if not master_seen:
+        head = ("ΔΕΝ ανέβηκαν τα βασικά δεδομένα SAP: ανεβάστε το "
+                "Chart_of_Accounts.xlsx μαζί με τα αρχεία του μήνα και οι "
+                "περισσότερες από αυτές τις γραμμές θα κωδικοποιηθούν μόνες "
+                "τους (the SAP master was not uploaded). Γραμμές με ποσό "
+                "χωρίς κέντρο κόστους: ")
+    return head + named
 
 
 def _tab_sap_checks(wb: Workbook, info: dict) -> None:
@@ -847,12 +869,10 @@ def _tab_sap_checks(wb: Workbook, info: dict) -> None:
         _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
         ws.cell(row=r, column=4).fill = FILL_CHECK
         r += 1
-    if info["missing"]:
+    text = _missing_note(info, info.get("master_seen", False))
+    if text:
         r += 1
-        note = ws.cell(row=r, column=1, value=(
-            "Κλινικές χωρίς κέντρο κόστους — συμπληρώστε τα στο αρχείο "
-            "αντιστοίχισης και ανεβάστε το ξανά (clinics with no cost centre "
-            "in the lookup): " + " · ".join(sorted(info["missing"].values()))))
+        note = ws.cell(row=r, column=1, value=text)
         note.font = F_AMBER
         note.alignment = Alignment(wrap_text=True, vertical="top")
     _autosize(ws)

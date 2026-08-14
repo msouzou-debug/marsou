@@ -147,8 +147,10 @@ function findSapCentre(master, company, specialty, variant = 'general') {
    * flavour is applied, exactly one centre must remain. */
   const stem = sapStemFor(specialty);
   if (!master || !stem || !company) return null;
+  /* the stem must START the centre's name: «ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ» contains
+   * «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery */
   const hits = master.costCentres.filter((c) => c.company === company
-                                                && sapFold(c.name).includes(stem));
+                                                && sapFold(c.name).startsWith(stem));
   if (!hits.length) return null;
   /* a centre NAMED exactly as the stem is that stream's own centre —
    * «ΤΑΕΠ» is not «ΚΩΔΙΚΟΠΟΙΗΣΗ ΤΑΕΠ» */
@@ -158,7 +160,12 @@ function findSapCentre(master, company, specialty, variant = 'general') {
     const marks = CENTRE_VARIANTS[key] || [];
     const picked = hits.filter((c) => hasVariant(sapTail(c.name, stem), marks));
     if (picked.length === 1) return picked[0];
-    if (picked.length > 1) return null;   // ambiguous — a human decides
+    if (picked.length > 1) {
+      /* a clinic split across «ΘΑΛ Α» and «ΘΑΛ Β» books to Α */
+      const alpha = picked.filter((c) => sapTail(c.name, stem).endsWith('Α'));
+      if (alpha.length === 1) return alpha[0];
+      return null;                        // still ambiguous — a human decides
+    }
   }
   return hits.length === 1 ? hits[0] : null;
 }

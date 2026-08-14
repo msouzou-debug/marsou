@@ -266,11 +266,17 @@ identified by content) and the journal codes itself:
   → the Greek stem SAP uses, then the flavour the stream posts to — `ΘΑΛ`
   (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments **and for the
   Z-catalogue items**, `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
-  and exactly one centre must survive the flavour, so an ambiguous clinic —
-  Nicosia keeps a ΘΑΛ Α **and** a ΘΑΛ Β for cardiology — is left blank for a
-  human rather than guessed. The flavour is read from what follows the stem,
-  not from the whole name: «ΟΦΘΑΛ» contains «ΘΑΛ» and «ΧΕΙΡΟΥΡΓΙΚΗ» contains
-  «ΕΙ». Νοσηλευτές/Μαίες and Άλλοι
+  and exactly one centre must survive the flavour. Two details the real master
+  forces: the stem must **start** the centre's name («ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ»
+  contains «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery), and the flavour is read
+  from what **follows** the stem («ΟΦΘΑΛ» contains «ΘΑΛ», «ΧΕΙΡΟΥΡΓΙΚΗ»
+  contains «ΕΙ»). A clinic split across a ΘΑΛ Α and a ΘΑΛ Β — Nicosia keeps
+  both — books to Α; anything still ambiguous is left blank for a human.
+
+  What could not be coded is reported **with the amount on it**, biggest
+  first, and a line with nothing allocated to it is not reported at all. If
+  the SAP master was never uploaded the alert says so first, since that alone
+  explains most of the list. Νοσηλευτές/Μαίες and Άλλοι
   Επαγγελματίες Υγείας carry no speciality of their own — ΟΑΥ pays each as one
   number — so both post to `ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ`. A hand-kept lookup still wins
   wherever it names a line.

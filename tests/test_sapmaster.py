@@ -219,3 +219,32 @@ def test_a_hyphenated_speciality_still_finds_its_stem():
     # and the label as By_Clinic_Split writes it
     assert m.find_centre("1040", "Ειδικοί Ιατροί — DERMATO-VENEREOLOGY (OS)",
                          "clinic").code == "1064001001"
+
+
+def test_nicosia_books_the_alpha_ward_when_a_clinic_has_two():
+    m = extract_sap_master(_centres(
+        ("1020", "1042002200", "ΚΑΡΔΙΟΛΟΓΙΚΗ-ΓΕΝΙΚΑ"),
+        ("1020", "1042002205", "ΚΑΡΔΙΟΛΟΓΙΚΗ-ΘΑΛ Α"),
+        ("1020", "1042002206", "ΚΑΡΔΙΟΛΟΓΙΚΗ-ΘΑΛ Β"),
+        ("1020", "1042000602", "ΧΕΙΡΟΥΡΓΙΚΗ-ΘΑΛ Α"),
+        ("1020", "1042000603", "ΧΕΙΡΟΥΡΓΙΚΗ-ΘΑΛ Β"),
+        # not general surgery, and must not be picked as one
+        ("1020", "1042006102", "ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ-ΘΑΛ")))
+    assert m.find_centre("1020", "CARDIOLOGY", "ward").code == "1042002205"
+    assert m.find_centre("1020", "GENERAL SURGERY", "ward").code == "1042000602"
+    assert m.find_centre("1020", "NEUROLOGICAL SURGERY", "ward").code == "1042006102"
+
+
+def test_the_alert_names_only_lines_that_carry_money():
+    """«Alert and ignore if they don't have amounts allocated to them»: a line
+    with no cost centre AND no amount is not a finding."""
+    from recon.build_xlsx import _missing_note
+    info = {"missing": {"RENAL DISEASES": 12_345.67, "PLASTIC SURGERY": 0.0,
+                        "UROLOGY": -250.00}, "master_seen": True}
+    note = _missing_note(info, True)
+    assert "RENAL DISEASES" in note and "UROLOGY" in note
+    assert "PLASTIC SURGERY" not in note
+    assert note.index("RENAL") < note.index("UROLOGY")     # biggest first
+    assert _missing_note({"missing": {"X": 0.0}}, True) is None
+    # and when the master was never uploaded, say so first
+    assert "Chart_of_Accounts" in _missing_note(info, False)
