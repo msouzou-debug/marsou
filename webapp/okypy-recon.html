@@ -3953,6 +3953,9 @@ function buildWorkbook(result) {
   tabAudit(wb, sections, ccRows, zeroChecks);
   const splitTotalRow = tabSplit(wb, result, statedCell, zeroChecks);
   tabByDoctor(wb, result, sraTab, nLines, splitTotalRow);
+  if (bundle.sra && !result.crosscheckMode) {
+    tabSapUpload(wb, [{ label: '', result, sraTab, nLines }], zeroChecks);
+  }
   tabTruthMap(wb);
   tabLegend(wb);
   return { wb, zeroChecks };
@@ -4650,7 +4653,7 @@ function sapHeader(ws) {
   ws.getCell(1, 9).font = { bold: true };
   ws.getCell(1, 24).value = 'Remittance advice';
   ws.getCell(1, 24).font = { bold: true };
-  ws.getCell(1, 25).value = 'Ιατρός / Επαγγελματίας (Professional)';
+  ws.getCell(1, 25).value = 'Ανάλυση (Professional / stream)';
   ws.getCell(1, 25).font = { bold: true };
   SAP_COLUMNS.forEach(([tag, label], j) => {
     const c = ws.getCell(2, j + 1);
@@ -4665,8 +4668,56 @@ function sapHeader(ws) {
 }
 
 function journalLines(section, lookup) {
-  /* One provider unit's credit lines, ordered by cost centre, internal order,
-   * then professional — the order the service's own journal uses.
+  /* A month's credit lines for one payee, in the service's own journal order.
+   * A hospital and a mental-health unit post the same cheque differently, so
+   * the lines come from different places — but the journal LAYOUT is one, and
+   * finance uploads one kind of file either way. */
+  return isHospital(section.result.bundle.hospitalCode)
+    ? journalLinesByStream(section, lookup)
+    : journalLinesByProfessional(section, lookup);
+}
+
+function journalLinesByStream(section, lookup) {
+  /* A HOSPITAL month: the credit lines are the By_Clinic_Split rows, so one
+   * document carries every revenue stream of the month — inpatient by clinic,
+   * ΤΑΕΠ, outpatient by speciality, personal doctors, pharma and the
+   * adjustment lines — and its total is the same figure that sheet ties to
+   * the cheque.  The lookup is consulted with the line's own label and its
+   * bucket, so a cost centre can be keyed either per clinic or per stream. */
+  const b = section.result.bundle;
+  const out = [];
+  const missing = new Map();
+  for (const sec of section.result.split) {
+    const stream = sec.bucket || sec.title;
+    for (const row of sec.rows) {
+      if (!row.amount) continue;
+      const hit = lookup ? findCostCentre(lookup, row.label, stream) : null;
+      const kostl = hit ? hit.costCentre : '';
+      let aufnr = hit ? hit.internalOrder : '';
+      if (lookup && !aufnr) {
+        const alt = findCostCentreBySpeciality(lookup, stream);
+        aufnr = alt ? alt.internalOrder : '';
+      }
+      out.push({ kostl, aufnr, text: (hit && hit.text) ? hit.text : row.label,
+                 professional: stream, amount: row.amount });
+      if (!kostl) missing.set(row.label, row.label);
+    }
+  }
+  /* the split already ties to the cheque with its own zero-check; anything
+   * left is still shown rather than absorbed */
+  let credited = 0;
+  for (const x of out) credited = round2(credited + x.amount);
+  const residual = round2(b.sra.statedTotal - credited);
+  if (Math.abs(residual) > 0.005) {
+    out.push({ kostl: '', aufnr: '', text: 'TO CLASSIFY (split vs SRA)',
+               professional: '', amount: residual });
+  }
+  return { lines: out, missing };
+}
+
+function journalLinesByProfessional(section, lookup) {
+  /* A MENTAL-HEALTH unit: credit lines ordered by cost centre, internal
+   * order, then professional — the order the service's own journal uses.
    *
    * The amount column is broken down BY PROFESSIONAL, the same figures the
    * «Ανά_μονάδα_ιατρό» sheet shows, re-split across the clinics the roster
@@ -6054,7 +6105,15 @@ async function run() {
         + `${formatEur(result.sraResidual)} (SRA γραμμές − δηλωμένο σύνολο) — `
         + 'βλ. κόκκινη γραμμή στο Source_crosscheck.</div>';
     }
-    renderResults(result, buffer, hospital, year, month);
+    // the SAP journal as its own file, ready to upload — every revenue
+    // stream of the month in one document
+    let sapBuffer = null;
+    if (bundle.sra && !result.crosscheckMode) {
+      const sap = buildSapWorkbook([{ code: hospital,
+        label: (HOSPITALS[hospital] || [hospital])[0], result }]);
+      sapBuffer = await sap.wb.xlsx.writeBuffer();
+    }
+    renderResults(result, buffer, hospital, year, month, sapBuffer);
     if (banner) $('results').insertAdjacentHTML('afterbegin', banner);
   } catch (e) {
     $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
@@ -6152,7 +6211,7 @@ function renderProviderResults(entries, buffer, year, month, sapBuffer) {
     save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_JOURNAL_ENTRIES.xlsx`));
 }
 
-function renderResults(result, buffer, hospital, year, month) {
+function renderResults(result, buffer, hospital, year, month, sapBuffer) {
   let html = '<h2>Αποτέλεσμα (Result)</h2>';
   if (result.chequeTotal != null) {
     html += '<div class="metrics">';
@@ -6177,20 +6236,29 @@ function renderResults(result, buffer, hospital, year, month) {
   } else {
     html += '<p>Καμία ανοιχτή απόκλιση (no open variances).</p>';
   }
-  html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel (Download Excel workbook)</button></p>';
+  html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
+    + '(Download Excel workbook)</button>'
+    + (sapBuffer ? ' <button id="download-sap" class="primary">⬇ Λήψη ημερολογίου SAP '
+      + '(Download SAP JOURNAL ENTRIES)</button>' : '') + '</p>';
   $('results').innerHTML = html;
 
   const abbr = month ? MONTH_ABBR[month] : 'XX';
-  const fname = `OKYPY_HIO_${hospital}_${abbr}${year || ''}_Reconciliation.xlsx`;
-  $('download-btn').addEventListener('click', () => {
-    const blob = new Blob([buffer],
+  const stamp = `${hospital}_${abbr}${year || ''}`;
+  const save = (buf, name) => {
+    const blob = new Blob([buf],
       { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = fname;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  });
+  };
+  $('download-btn').addEventListener('click', () =>
+    save(buffer, `OKYPY_HIO_${stamp}_Reconciliation.xlsx`));
+  if (sapBuffer) {
+    $('download-sap').addEventListener('click', () =>
+      save(sapBuffer, `OKYPY_HIO_${stamp}_SAP_JOURNAL_ENTRIES.xlsx`));
+  }
 }
 
 function metric(label, value) {

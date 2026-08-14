@@ -192,6 +192,8 @@ staff roster**, uploaded with the month's files:
   template, reproduced from their workbook: three header rows (group row,
   the descriptive row finance reads, then the technical `BKPF-`/`BSEG-` field
   names), data from row 4, and the remittance advice in the last column.
+  **One layout for both kinds of month** — see below for how a hospital fills
+  it.
   **One document per remittance advice** — a debit line (`01` / `200000`)
   whose amount is a live `SUM` of its own credit lines, then one credit line
   (`50` / `412002`, tax `O0`) per cost centre × internal order × **professional**,
@@ -224,6 +226,25 @@ fallback fills the internal order only, never the cost centre. Without the
 lookup the sheet is still produced, keyed by clinic, with those two columns
 blank and highlighted and every clinic that needs a code listed — the app
 never invents an account code.
+
+### The same journal for a hospital month
+
+A hospital and a mental-health unit post the same cheque differently, so the
+credit lines come from different places — but the **layout is one file and one
+template**, and finance uploads the same kind of thing either way:
+
+| | mental-health unit | hospital |
+|---|---|---|
+| document | one per remittance advice / unit | one for the month |
+| credit line | cost centre × internal order × professional | one per `By_Clinic_Split` row |
+| driven by | the monthly staff roster | the reconciliation itself |
+| analysis column | the professional | the bucket (Inpatient / A&E / Outpatient / Pharma) |
+
+So a hospital month exports **all four revenue streams in one go** — inpatient
+by clinic, ΤΑΕΠ, outpatient by speciality, personal doctors, pharma and the
+adjustment lines — and the document's total is the same figure
+`By_Clinic_Split` already ties to the cheque, bucket by bucket. The tab is in
+the workbook and downloads as its own file from the results page.
 
 Verified on the real May-2026 month (five units, cheques 266444 / 266457 /
 266458 / 266474 / 266475, €211.006,20 in total) — see

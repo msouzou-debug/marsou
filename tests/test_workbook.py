@@ -23,8 +23,8 @@ def test_workbook_has_five_tabs_and_zero_checks_pass():
     assert wb.sheetnames == ["SRA_259434", "Reconciliation", "GL_Bridge",
                              "Απαιτήσεις_vs_SRA",
                              "Source_crosscheck", "Ανάλυση_ελέγχων",
-                             "By_Clinic_Split", "Ανά_ιατρό", "Πώς_δένουν",
-                             "Legend"]
+                             "By_Clinic_Split", "Ανά_ιατρό",
+                             "JOURNAL ENTRIES", "Πώς_δένουν", "Legend"]
     assert verify_workbook(data) == []      # gate 5: every zero-check reads 0
 
 
@@ -275,3 +275,36 @@ def test_gl_bridge_tab_compares_cash_with_booked_and_checks_the_variances():
 def test_gl_bridge_is_absent_without_a_gl_extract():
     data, _res = _build(with_optional=False)
     assert "GL_Bridge" not in load_workbook(io.BytesIO(data)).sheetnames
+
+
+def test_hospital_sap_journal_posts_every_revenue_stream_in_one_document():
+    """A hospital posts by clinic and stream, not by professional, so its
+    journal lines are the By_Clinic_Split rows — one document carrying the
+    whole month's revenue and tying to the cheque."""
+    data, _res = _build(with_optional=True)
+    wb = load_workbook(io.BytesIO(data))
+    ws = wb["JOURNAL ENTRIES"]
+    ev = _Evaluator(wb)
+    debits = [r for r in range(4, ws.max_row + 1)
+              if ws.cell(row=r, column=9).value == "01"
+              and ws.cell(row=r, column=10).value == "200000"]
+    credits = [r for r in range(4, ws.max_row + 1)
+               if ws.cell(row=r, column=9).value == "50"
+               and ws.cell(row=r, column=10).value == "412002"]
+    assert len(debits) == 1                       # the month, in one document
+    # all four buckets present, named in the analysis column
+    assert {ws.cell(row=r, column=25).value for r in credits} == \
+        {"Inpatient", "A&E", "Outpatient", "Pharma"}
+    # credits = the cheque, and the debit line is their live SUM
+    assert round(sum(ws.cell(row=r, column=12).value for r in credits), 2) == \
+        1_936_528.19
+    assert round(ev.evaluate(ws.cell(row=debits[0], column=12).value,
+                             "JOURNAL ENTRIES"), 2) == 1_936_528.19
+    # every bucket adds up to what the Reconciliation tab pays it
+    rec = wb["Reconciliation"]
+    for i, bucket in enumerate(("Inpatient", "A&E", "Outpatient", "Pharma")):
+        posted = round(sum(ws.cell(row=r, column=12).value for r in credits
+                           if ws.cell(row=r, column=25).value == bucket), 2)
+        assert posted == round(ev.evaluate(rec.cell(row=4 + i, column=3).value,
+                                           "Reconciliation"), 2)
+    assert verify_workbook(data) == []

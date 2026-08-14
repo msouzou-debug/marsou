@@ -23,7 +23,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter, range_boundaries
 
 from .checks import CENT, CheckPart as _Part, ReconResult, sra_sum
-from .models import (Bucket, BUCKET_ORDER, HOSPITALS, MONTH_NAMES_EL,
+from .models import (Bucket, BUCKET_ORDER, HOSPITALS, is_hospital, MONTH_NAMES_EL,
                      PHARMACIST_FEE_UNIT_PRICE)
 from .mapping import name_key as _name_key
 from .numbers import format_eur
@@ -93,6 +93,8 @@ def build_workbook(result: ReconResult) -> bytes:
     _tab_audit(wb, sections, cc_rows)
     split_total_row = _tab_split(wb, result, stated_cell)
     _tab_by_doctor(wb, result, sra_tab, n_lines, split_total_row)
+    if bundle.sra and not result.crosscheck_mode:
+        _tab_sap_upload(wb, [_Section("", result, sra_tab, n_lines)])
     _tab_truth_map(wb)
     _tab_legend(wb, result)
 
@@ -496,7 +498,7 @@ def _sap_header(ws) -> None:
     ws.cell(row=1, column=24,
             value="Remittance advice").font = Font(bold=True)
     ws.cell(row=1, column=25,
-            value="Ιατρός / Επαγγελματίας (Professional)").font = Font(bold=True)
+            value="Ανάλυση (Professional / stream)").font = Font(bold=True)
     for j, (tag, label) in enumerate(_SAP_COLUMNS, start=1):
         c = ws.cell(row=2, column=j, value=label)
         c.alignment = Alignment(wrap_text=True, vertical="top")
@@ -507,7 +509,59 @@ def _sap_header(ws) -> None:
 
 
 def _journal_lines(section) -> tuple[list[dict], dict]:
-    """One provider unit's credit lines, ordered by cost centre, internal
+    """A month's credit lines for one payee, in the service's own journal
+    order.
+
+    A hospital and a mental-health unit post the same cheque differently, so
+    the lines come from different places — but the journal LAYOUT is one, and
+    finance uploads one kind of file either way."""
+    b = section.result.bundle
+    if is_hospital(b.hospital_code):
+        return _journal_lines_by_stream(section)
+    return _journal_lines_by_professional(section)
+
+
+def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
+    """A HOSPITAL month: the credit lines are the By_Clinic_Split rows, so one
+    document carries every revenue stream of the month — inpatient by clinic,
+    ΤΑΕΠ, outpatient by speciality, personal doctors, pharma and the
+    adjustment lines — and its total is the same figure that sheet ties to the
+    cheque.
+
+    The lookup is consulted with the line's own label and its bucket, so a
+    cost centre can be keyed either per clinic or per stream."""
+    b = section.result.bundle
+    lookup = getattr(b, "cost_centres", None)
+    out: list[dict] = []
+    missing: dict[str, str] = {}
+    for sec in section.result.split:
+        stream = sec.bucket.value if sec.bucket else sec.title
+        for row in sec.rows:
+            if not row.amount:
+                continue
+            hit = lookup.find(row.label, stream) if lookup else None
+            kostl = hit.cost_centre if hit else ""
+            aufnr = hit.internal_order if hit else ""
+            if lookup and not aufnr:
+                alt = lookup.find_speciality(stream)
+                aufnr = alt.internal_order if alt else ""
+            out.append({"kostl": kostl, "aufnr": aufnr,
+                        "text": hit.text if hit and hit.text else row.label,
+                        "professional": stream, "amount": row.amount})
+            if not kostl:
+                missing[row.label] = row.label
+    # the split already ties to the cheque with its own zero-check; anything
+    # left is still shown rather than absorbed
+    residual = round(b.sra.stated_total - sum(x["amount"] for x in out), 2)
+    if abs(residual) > 0.005:
+        out.append({"kostl": "", "aufnr": "",
+                    "text": "TO CLASSIFY (split vs SRA)",
+                    "professional": "", "amount": residual})
+    return out, missing
+
+
+def _journal_lines_by_professional(section) -> tuple[list[dict], dict]:
+    """A MENTAL-HEALTH unit: credit lines ordered by cost centre, internal
     order, then professional — the order the service's own journal uses.
 
     The amount column is broken down BY PROFESSIONAL, the same figures the

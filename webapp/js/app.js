@@ -292,7 +292,15 @@ async function run() {
         + `${formatEur(result.sraResidual)} (SRA γραμμές − δηλωμένο σύνολο) — `
         + 'βλ. κόκκινη γραμμή στο Source_crosscheck.</div>';
     }
-    renderResults(result, buffer, hospital, year, month);
+    // the SAP journal as its own file, ready to upload — every revenue
+    // stream of the month in one document
+    let sapBuffer = null;
+    if (bundle.sra && !result.crosscheckMode) {
+      const sap = buildSapWorkbook([{ code: hospital,
+        label: (HOSPITALS[hospital] || [hospital])[0], result }]);
+      sapBuffer = await sap.wb.xlsx.writeBuffer();
+    }
+    renderResults(result, buffer, hospital, year, month, sapBuffer);
     if (banner) $('results').insertAdjacentHTML('afterbegin', banner);
   } catch (e) {
     $('results').innerHTML = `<div class="error">${esc(e.message).replace(/\n/g, '<br>')}</div>`;
@@ -390,7 +398,7 @@ function renderProviderResults(entries, buffer, year, month, sapBuffer) {
     save(sapBuffer, `OKYPY_HIO_MENTAL_HEALTH_${stamp}_SAP_JOURNAL_ENTRIES.xlsx`));
 }
 
-function renderResults(result, buffer, hospital, year, month) {
+function renderResults(result, buffer, hospital, year, month, sapBuffer) {
   let html = '<h2>Αποτέλεσμα (Result)</h2>';
   if (result.chequeTotal != null) {
     html += '<div class="metrics">';
@@ -415,20 +423,29 @@ function renderResults(result, buffer, hospital, year, month) {
   } else {
     html += '<p>Καμία ανοιχτή απόκλιση (no open variances).</p>';
   }
-  html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel (Download Excel workbook)</button></p>';
+  html += '<p><button id="download-btn" class="primary">⬇ Λήψη Excel '
+    + '(Download Excel workbook)</button>'
+    + (sapBuffer ? ' <button id="download-sap" class="primary">⬇ Λήψη ημερολογίου SAP '
+      + '(Download SAP JOURNAL ENTRIES)</button>' : '') + '</p>';
   $('results').innerHTML = html;
 
   const abbr = month ? MONTH_ABBR[month] : 'XX';
-  const fname = `OKYPY_HIO_${hospital}_${abbr}${year || ''}_Reconciliation.xlsx`;
-  $('download-btn').addEventListener('click', () => {
-    const blob = new Blob([buffer],
+  const stamp = `${hospital}_${abbr}${year || ''}`;
+  const save = (buf, name) => {
+    const blob = new Blob([buf],
       { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = fname;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  });
+  };
+  $('download-btn').addEventListener('click', () =>
+    save(buffer, `OKYPY_HIO_${stamp}_Reconciliation.xlsx`));
+  if (sapBuffer) {
+    $('download-sap').addEventListener('click', () =>
+      save(sapBuffer, `OKYPY_HIO_${stamp}_SAP_JOURNAL_ENTRIES.xlsx`));
+  }
 }
 
 function metric(label, value) {
