@@ -267,7 +267,9 @@ identified by content) and the journal codes itself:
   (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments **and for the
   Z-catalogue items**, `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
   and exactly one centre must survive the flavour, so an ambiguous clinic is
-  left blank for a human rather than guessed. A hand-kept lookup still wins
+  left blank for a human rather than guessed. Νοσηλευτές/Μαίες and Άλλοι
+  Επαγγελματίες Υγείας carry no speciality of their own — ΟΑΥ pays each as one
+  number — so both post to `ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ`. A hand-kept lookup still wins
   wherever it names a line.
 
 ### The same journal for a hospital month

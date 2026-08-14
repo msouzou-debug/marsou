@@ -148,3 +148,25 @@ def test_a_hospital_posts_no_internal_order():
                and isinstance(ws.cell(row=r, column=12).value, (int, float))]
     assert credits
     assert all(not ws.cell(row=r, column=15).value for r in credits)
+
+
+def test_nurses_and_allied_health_post_to_the_outpatient_clinics():
+    """ΟΑΥ pays both segments as one number with no speciality of their own,
+    so both post to «ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ» — and a hospital whose master has no
+    such centre still gets a blank rather than a guess."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cost centers"
+    ws.append(["Company Code", "Cost Center", "Name"])
+    ws.append(["1041", "1064110701", "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ"])
+    ws.append(["1033", "1053305600", "ΦΑΡΜΑΚΕΙΟ"])          # Polis has none
+    coa = wb.create_sheet("Chart of accounts")
+    coa.append(["G/L Account", "G/L Acct Long Text"])
+    coa.append(["412002", "HIO Out-Patient Fees"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    m = extract_sap_master(buf.getvalue())
+    for label in ("Νοσηλευτές/Μαίες (Nurses-Midwives)",
+                  "Άλλοι Επαγγελματίες Υγείας (Allied Health)"):
+        assert m.find_centre("1041", label).code == "1064110701"
+        assert m.find_centre("1033", label) is None

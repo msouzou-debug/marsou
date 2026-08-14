@@ -87,6 +87,12 @@ SPECIALTY_GREEK = {
     "ΦΑΡΜΑΚΑ": "ΦΑΡΜΑΚΕΙΟ",
     "HEMODIALYSIS": "ΝΕΦ-ΑΙΜΟΚΑΘΑΡΣΗ",
     "ΑΙΜΟΚΑΘΑΡΣΗ": "ΝΕΦ-ΑΙΜΟΚΑΘΑΡΣΗ",
+    # ΟΑΥ pays these two as one number with no speciality of their own —
+    # they post to the outpatient clinics generally
+    "NURSES MIDWIVES": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
+    "ΝΟΣΗΛΕΥΤΕΣ": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
+    "ALLIED HEALTH": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
+    "ΑΛΛΟΙ ΕΠΑΓΓΕΛΜΑΤΙΕΣ": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
     "PERSONAL DOCTORS": "ΠΙ ΕΝΗΛΙΚΩΝ",
     "ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ": "ΠΙ ΕΝΗΛΙΚΩΝ",
 }
