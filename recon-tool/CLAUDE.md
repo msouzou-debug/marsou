@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.7**.
+   Current version: **v3.8**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.4**. See "IC Matrix Tool" below.
@@ -106,6 +106,10 @@ Expected values:
     `SUM(E4:E5)`) plus two 'Εκκρεμή n' sheets.
   - carry-forward: fresh ic run + `#filePrev` = export_prev.xlsx → `bf.n=4`,
     flagged keys ['#10','#10','H-77','L-88'], 'Από προηγ. περίοδο' KPI shown.
+  - v3.8 unmatch (ic pair keyed): 5 matched rows → 5 ↩ buttons; undoing
+    R-101 → matched 4, both open lists +1 with ['R-101', 175], totA
+    unchanged, sig '1|R-101|17500|17500'; saving progress and rerunning
+    fresh replays the undo (R-101 stays open).
   - v3.7 many-files (multi_A1/A2 vs multi_B): setInputFiles with two files
     → SIDES.A.files.length 2, merged rows 4, name 'multi_A1.csv +
     multi_A2.csv', 2 chips; no-key run matches 3 rows ACROSS both A files
@@ -286,6 +290,16 @@ Expected values:
    only updates the selection toolbar (`renderSelBar()`), otherwise every
    tick rebuilds the DOM and throws the scroll position back to the top;
    renders that do rebuild the panes save and restore each pane's scrollTop.
+   **Unmatch** (v3.8, `unmatchRec(tab,idx)` + the ↩ `.unbtn` column on the
+   Matched and Differences tabs): every auto-matched rec (rules 1/2/3/5)
+   carries `_a`/`_b` — the per-side originals attached by `mergePair` and
+   by the rule-1 rec builder — so a wrong match (same amount, wrong
+   counterpart) splits back into two open items with dates, descriptions
+   and bf flags intact; totals are untouched. Rule-4 rows are excluded
+   (their undo lives in the Groups tab). Each undo records
+   `unmatchSig(r)` = rule|key|centsA|centsB into `RESULT.unmatched`,
+   saved in the progress JSON and REPLAYED at the top of `applyProgress`
+   (before categories, so cats can land on the released items).
    **Select-all-visible** (v3.5, `.selall` master checkbox in the selection
    column header of Only-in-A/B, `selAll(id,on)`): (de)selects every row the
    CURRENT filters show (`passFilter`, not accepted) — the 'search, then

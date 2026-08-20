@@ -532,6 +532,52 @@ const newAppPage = async browser => {
   check('removing a chip re-merges the side', r.rows === 2 && r.chips === 1, r);
   await page.close();
 
+  /* ============ 13. v3.8: undo a wrong automatic match ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('ic_A.xlsx'));
+  await page.setInputFiles('#fileB', S('ic_B.xlsx'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => {
+    const before = { m: RESULT.matched.length, a: RESULT.onlyA.length, b: RESULT.onlyB.length, totA: RESULT.totA };
+    RESULT.activeTab = 'matched'; renderResults();
+    const btns = document.querySelectorAll('#pane-matched .unbtn').length;
+    const i = RESULT.matched.findIndex(x => x.key === 'R-101');
+    unmatchRec('matched', i);
+    return { before, btns,
+      after: { m: RESULT.matched.length, a: RESULT.onlyA.length, b: RESULT.onlyB.length, totA: RESULT.totA },
+      backA: RESULT.onlyA.map(x => [x.key, x.amtA]).filter(x => x[0] === 'R-101'),
+      backB: RESULT.onlyB.map(x => [x.key, x.amtB]).filter(x => x[0] === 'R-101'),
+      sigs: RESULT.unmatched };
+  });
+  console.log('UNMATCH:', JSON.stringify(r));
+  check('every auto-matched row offers an undo button', r.btns === r.before.m, r.btns);
+  check('undoing a key match returns both sides to the open lists, totals untouched',
+    r.after.m === r.before.m - 1 && r.after.a === r.before.a + 1 && r.after.b === r.before.b + 1 &&
+    r.after.totA === r.before.totA &&
+    JSON.stringify(r.backA) === JSON.stringify([['R-101', 175]]) &&
+    JSON.stringify(r.backB) === JSON.stringify([['R-101', 175]]) && r.sigs.length === 1, r);
+  /* the undo survives a save/reload/rerun cycle */
+  const [dlU] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => saveProgress())]);
+  const uPath = path.join(__dirname, 'progress_un.json');
+  await dlU.saveAs(uPath);
+  await page.close();
+
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('ic_A.xlsx'));
+  await page.setInputFiles('#fileB', S('ic_B.xlsx'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.setInputFiles('#progFile', uPath);
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    m: RESULT.matched.map(x => x.key), openA: RESULT.onlyA.some(x => x.key === 'R-101'),
+  }));
+  console.log('UNMATCH-RT:', JSON.stringify(r));
+  check('the undo replays automatically on the next run', !r.m.includes('R-101') && r.openA === true, r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);
