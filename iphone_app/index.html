@@ -727,7 +727,7 @@ const srcPill=src=>src==="measured"?'<span class="pill-measured">measured</span>
 const miniSrc=src=>src==="measured"?'<span class="smk smk-m">m</span>':'<span class="smk smk-e">e</span>';
 const state={species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 /* photo-tool state (the cartridge you patterned) */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1};
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1,drawn:false};
 /* the scanned pattern is persisted so it survives a reload / re-open.
    SCAN_VERSION is bumped whenever the hole detector changes materially, so a
    pattern counted by an older (less accurate) detector is dropped rather than
@@ -1150,6 +1150,77 @@ function capCount(raw){
     : (raw?' <span style="color:var(--muted)">detected '+raw+'</span>':"");
   return {shown,loadTotal,over:raw>loadTotal};
 }
+/* The circle drawn on the sheet is the best reference available: the shooter
+   drew it at a known 75 cm, so measuring it removes every paper-size, rotation
+   and perspective error at once. It also fixes a real failure of deriving the
+   circle from the paper: a drawn ring SPLITS the bright sheet into inside and
+   outside, so "largest bright region" latches onto the ring's interior and the
+   scale comes out far too small.
+   Find a large, thin, round dark structure and fit a circle to it. */
+function fitCircle(px,py){
+  const n=px.length; let sx=0,sy=0,sxx=0,syy=0,sxy=0,sxz=0,syz=0,sz=0;
+  for(let i=0;i<n;i++){const x=px[i],y=py[i],z=x*x+y*y;
+    sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y;sxz+=x*z;syz+=y*z;sz+=z;}
+  // normal equations for  z = 2a*x + 2b*y + c
+  const A=[[2*sxx,2*sxy,sx],[2*sxy,2*syy,sy],[2*sx,2*sy,n]], B=[sxz,syz,sz];
+  for(let i=0;i<3;i++){
+    let piv=i; for(let r=i+1;r<3;r++) if(Math.abs(A[r][i])>Math.abs(A[piv][i]))piv=r;
+    if(Math.abs(A[piv][i])<1e-9)return null;
+    [A[i],A[piv]]=[A[piv],A[i]]; [B[i],B[piv]]=[B[piv],B[i]];
+    for(let r=0;r<3;r++){ if(r===i)continue; const f=A[r][i]/A[i][i];
+      for(let c=i;c<3;c++)A[r][c]-=f*A[i][c]; B[r]-=f*B[i]; }
+  }
+  const a=B[0]/A[0][0], b=B[1]/A[1][1], c=B[2]/A[2][2];
+  const R=Math.sqrt(Math.max(0,c+a*a+b*b));
+  if(!(R>0))return null;
+  let se=0; for(let i=0;i<n;i++){const d=Math.hypot(px[i]-a,py[i]-b)-R; se+=d*d;}
+  return {cx:a,cy:b,r:R,rms:Math.sqrt(se/n)};
+}
+function findDrawnCircle(lum,T){
+  const N=CW*CH, seen=new Uint8Array(N), st=new Int32Array(N);
+  const span=Math.min(CW,CH), minSpan=span*0.40;
+  const cands=[];
+  for(let p0=0;p0<N;p0++){
+    if(seen[p0]||lum[p0]>=T)continue;
+    let sp=0; st[sp++]=p0; seen[p0]=1;
+    let n=0,x0=CW,x1=0,y0=CH,y1=0,edge=false;
+    while(sp){const p=st[--sp];n++;const ax=p%CW,ay=(p/CW)|0;
+      if(ax===0||ay===0||ax===CW-1||ay===CH-1)edge=true;
+      if(ax<x0)x0=ax; if(ax>x1)x1=ax; if(ay<y0)y0=ay; if(ay>y1)y1=ay;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        if(!dx&&!dy)continue; const nx=ax+dx,ny=ay+dy;
+        if(nx<0||ny<0||nx>=CW||ny>=CH)continue;
+        const q=ny*CW+nx; if(!seen[q]&&lum[q]<T){seen[q]=1;st[sp++]=q;}
+      }
+    }
+    const bw=x1-x0+1, bh=y1-y0+1;
+    if(edge)continue;                                         // the background, not a drawn mark
+    if(bw<minSpan||bh<minSpan)continue;                       // must be large
+    if(Math.abs(bw-bh)/Math.max(bw,bh)>0.18)continue;         // must be round
+    if(n/(bw*bh)>0.25)continue;                               // must be a thin ring
+    cands.push({n,seed:p0});
+  }
+  if(!cands.length)return null;
+  cands.sort((a,b)=>b.n-a.n);
+  // fit each candidate; keep the first that really is a circle
+  const seen2=new Uint8Array(N);
+  for(const cand of cands.slice(0,4)){
+    seen2.fill(0);
+    const px=[],py=[]; let sp=0; st[sp++]=cand.seed; seen2[cand.seed]=1;
+    while(sp){const p=st[--sp];const ax=p%CW,ay=(p/CW)|0; px.push(ax);py.push(ay);
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        if(!dx&&!dy)continue; const nx=ax+dx,ny=ay+dy;
+        if(nx<0||ny<0||nx>=CW||ny>=CH)continue;
+        const q=ny*CW+nx; if(!seen2[q]&&lum[q]<T){seen2[q]=1;st[sp++]=q;}
+      }
+    }
+    const f=fitCircle(px,py);
+    if(!f||f.rms>f.r*0.06)continue;                           // must really be a circle
+    if(f.r<span*0.18||f.r>span*0.60)continue;                 // sane size
+    return f;
+  }
+  return null;
+}
 /* merge blob centroids that sit within one pellet-width of each other (split holes) */
 function mergeClose(holes,minDist){
   if(holes.length<2)return holes;
@@ -1172,27 +1243,41 @@ function analyzeAuto(){
   PH.manual=false; placeStage=0;
   const lum=lumData();
   const T=otsu(lum);
+  // Prefer the circle drawn on the sheet — it is a known 75 cm, so it beats any
+  // estimate derived from the paper's apparent width.
+  const drawn=findDrawnCircle(lum,T);
   const paper=largestBright(lum,T);
   let reg;
-  if(paper.ok){
-    PH.paper=paper; reg=paper;
+  if(drawn){
+    PH.drawn=true; PH.paper=null;
+    PH.cx=drawn.cx; PH.cy=drawn.cy; PH.r=drawn.r;
+    const pad=Math.round(drawn.r*1.06);
+    reg={x0:Math.max(0,Math.round(drawn.cx-pad)),y0:Math.max(0,Math.round(drawn.cy-pad)),
+         x1:Math.min(CW-1,Math.round(drawn.cx+pad)),y1:Math.min(CH-1,Math.round(drawn.cy+pad))};
+  }else if(paper.ok){
+    PH.drawn=false; PH.paper=paper; reg=paper;
     PH.r=circleRadiusUnits()*(paper.x1-paper.x0)/(PH.sheetIn||40);
-  }else{ PH.paper=null; reg={x0:0,y0:0,x1:CW-1,y1:CH-1}; PH.r=Math.min(CW,CH)*0.4; }
+  }else{ PH.drawn=false; PH.paper=null; reg={x0:0,y0:0,x1:CW-1,y1:CH-1}; PH.r=Math.min(CW,CH)*0.4; }
   const base=PH.r||((reg.x1-reg.x0)*0.5);
   const [minA,maxA]=blobSizes(base);
   const hp=holeParams();
   const mask=buildDarkMask(lum,reg,maskRadius(base),hp.k,hp.mc);
   let holes=mergeClose(findDarkBlobs(mask,reg,minA,maxA),Math.max(2,(PH.r||base)*0.006));
-  if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
-  else if(paper.ok){PH.cx=(paper.x0+paper.x1)/2;PH.cy=(paper.y0+paper.y1)/2;}
+  // with a drawn circle the centre is already known; otherwise infer it
+  if(!drawn){
+    if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
+    else if(paper.ok){PH.cx=(paper.x0+paper.x1)/2;PH.cy=(paper.y0+paper.y1)/2;}
+  }
   if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes;
   const cap=capCount(holes.length); PH.count=cap.shown;
   const over=cap.over
     ? " <b>Capped:</b> detection found "+holes.length+", above this load's ~"+cap.loadTotal+" pellets — showing "+cap.loadTotal+". Raise Min hole size, lower sensitivity, or tap Fit to load."
     : "";
-  $("photoStep").innerHTML=(paper.ok
-    ? ("Auto-detected the sheet; centred the "+circleLabel()+" circle — <b>"+cap.shown+"</b> holes inside.")
+  $("photoStep").innerHTML=(drawn
+    ? ("Locked onto the <b>circle you drew</b> and measured it — <b>"+cap.shown+"</b> holes inside. This is the most accurate mode: no paper-size guess involved.")
+    : paper.ok
+    ? ("Auto-detected the sheet; centred the "+circleLabel()+" circle from the sheet width — <b>"+cap.shown+"</b> holes inside. Drawing the circle on the sheet gives a more accurate scale.")
     : ("<b>Couldn't read the sheet edges.</b> Use By hand, or retake with the sheet fully in frame on a darker background."))+over;
   drawOverlay();
 }
@@ -1232,7 +1317,7 @@ function loadPhoto(file){
     const maxW=1400, scale=Math.min(1,maxW/img.naturalWidth);
     CW=Math.round(img.naturalWidth*scale); CH=Math.round(img.naturalHeight*scale);
     pcv.width=CW; pcv.height=CH;
-    PH.img=img; PH.cx=PH.cy=PH.r=null; PH.paper=null; PH.holes=[]; PH.count=0; placeStage=0;
+    PH.img=img; PH.cx=PH.cy=PH.r=null; PH.paper=null; PH.drawn=false; PH.holes=[]; PH.count=0; placeStage=0;
     applyZoom(1);
     $("photoStage").style.display="flex"; $("photoStep").textContent="Auto-detecting…";
     setPhotoMode("photoAuto"); setTimeout(analyzeAuto,30);
