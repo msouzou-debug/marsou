@@ -48,9 +48,16 @@ test('τα λογότυπα και η SheetJS είναι ενσωματωμέν�
   assert.ok(!html.includes('<!--LOGO_HEADER-->'));
 });
 
-test('το δημόσιο API μένει ίδιο με το v1.4', () => {
-  const surface = /window\.OKYPY\s*=\s*\{\s*state\s*,\s*handleFiles\s*,\s*parseStats\s*,\s*parseIS\s*,\s*computeHIO\s*,\s*U\s*\}/;
-  assert.match(html, surface);
+test('το δημόσιο API του v1.4 μένει διαθέσιμο', () => {
+  /* the surface may grow — the exports are part of it now — but nothing the
+     v1.4 harness relied on may disappear */
+  const assigned = html.match(/window\.OKYPY\s*=\s*\{([^}]*)\}/);
+  assert.ok(assigned, 'το window.OKYPY δεν ανατίθεται');
+  const names = assigned[1].split(',').map(s => s.trim());
+  for (const n of ['state', 'handleFiles', 'parseStats', 'parseIS', 'computeHIO', 'U']) {
+    assert.ok(names.includes(n), `λείπει το ${n} από το window.OKYPY`);
+  }
+  assert.ok(names.includes('exportHTML') && names.includes('exportPPTX'));
 });
 
 test('το σημείο εκκίνησης του v1.4 μένει στο αποθετήριο για σύγκριση', () => {
@@ -59,14 +66,18 @@ test('το σημείο εκκίνησης του v1.4 μένει στο απο�
   assert.match(ref, /id="fileInput"/);
 });
 
-/* Positions added after v1.4 — the section, its container, and the two ids the
-   clinic panel creates at runtime. Listing them here means a section can only
-   appear deliberately, and that nothing v1.4 rendered can quietly disappear. */
-const ADDED_IDS = ['secClinics', 'clinics', 'clinicDetail', 'secFinance', 'finance'];
+/* Positions added to the page after v1.4. Listing them here means a section or
+   a control can only appear deliberately, and that nothing v1.4 rendered can
+   quietly disappear. */
+const ADDED_IDS = ['secFinance', 'finance', 'secClinics', 'clinics',
+  'exportbar', 'btnHtml', 'btnPptx'];
 
 test('η σήμανση του v1.4 διατηρείται· οι νέες ενότητες δηλώνονται ρητά', () => {
   const ref = readFileSync(REFERENCE_FILE, 'utf8');
-  const ids = s => [...s.matchAll(/\sid="([\w]+)"/g)].map(m => m[1]).sort();
+  /* only the page's own markup — the bundle carries OOXML template strings with
+     their own id attributes, which are not positions on the page */
+  const markup = s => s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  const ids = s => [...markup(s).matchAll(/\sid="([\w]+)"/g)].map(m => m[1]).sort();
   const before = ids(ref), now = ids(html);
   assert.deepEqual(before.filter(id => !now.includes(id)), [], 'δεν χάθηκε καμία θέση του v1.4');
   assert.deepEqual(now.filter(id => !before.includes(id)).sort(), [...ADDED_IDS].sort());

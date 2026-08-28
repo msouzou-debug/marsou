@@ -64,3 +64,32 @@ export function assertSame(t, label, reference, built) {
     throw new Error(`${label}: το build διαφέρει από το v1.4 στη θέση ${d.at}`);
   }
 }
+
+/* ---------- a small ZIP reader, so tests can look inside the exports ---------- */
+import { inflateRawSync } from 'node:zlib';
+
+export function unzip(buffer) {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  let eocd = -1;
+  for (let i = buffer.length - 22; i >= Math.max(0, buffer.length - 65557); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('δεν είναι αρχείο ZIP');
+  const count = view.getUint16(eocd + 10, true);
+  let p = view.getUint32(eocd + 16, true);
+  const out = new Map();
+  for (let i = 0; i < count; i++) {
+    const method = view.getUint16(p + 10, true);
+    const compressed = view.getUint32(p + 20, true);
+    const nameLen = view.getUint16(p + 28, true);
+    const extraLen = view.getUint16(p + 30, true);
+    const commentLen = view.getUint16(p + 32, true);
+    const local = view.getUint32(p + 42, true);
+    const name = buffer.subarray(p + 46, p + 46 + nameLen).toString('utf8');
+    const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+    const raw = buffer.subarray(start, start + compressed);
+    out.set(name, method === 8 ? inflateRawSync(raw) : Buffer.from(raw));
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}

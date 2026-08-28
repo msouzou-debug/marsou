@@ -65,10 +65,10 @@ export function renderClinics() {
   renderDetail(model, S);
 }
 
-function renderDetail(model, S) {
-  const c = model.clinics.find(x => x.key === selectedKey);
-  if (!c) return;
-  el('clinicDetail').innerHTML = `
+/* The whole card as a string — the live panel and the static export render the
+   same markup, so what a director sees on screen is what lands in the file. */
+export function clinicCardHTML(c, model, S) {
+  return `
     <div class="clinic-head"><h3>${U.esc(c.label)}</h3>${pills(model, c, S)}</div>
     <div class="narrative">${U.esc(clinicStory(c, model, S))}</div>
     ${revenueBlock(c, S)}
@@ -78,6 +78,34 @@ function renderDetail(model, S) {
     ${chartsBlock(c, model, S)}
     ${actionsBlock(c, model, S)}
     ${notesBlock(c)}`;
+}
+
+function renderDetail(model, S) {
+  const c = model.clinics.find(x => x.key === selectedKey);
+  if (!c) return;
+  el('clinicDetail').innerHTML = clinicCardHTML(c, model, S);
+}
+
+/* Every clinic, as radio-driven tabs. A static file has no JavaScript, but a
+   hidden radio per clinic and a sibling selector give the same one-click pick —
+   and it works in any browser, on a phone, and when printed. */
+export function clinicTabsHTML(model, S) {
+  const id = (k) => 'exp-' + String(k).replace(/[^Α-Ωα-ωA-Za-z0-9]+/g, '-');
+  const radios = model.clinics.map((c, i) =>
+    `<input type="radio" class="exp-pick" name="exp-clinic" id="${id(c.key)}"${i ? '' : ' checked'}>`).join('');
+  const labels = model.clinics.map(c =>
+    `<label class="cbtn" for="${id(c.key)}">${U.esc(c.label)}</label>`).join('');
+  const panels = model.clinics.map(c =>
+    `<div class="exp-panel" id="p-${id(c.key)}">${clinicCardHTML(c, model, S)}</div>`).join('');
+  const rules = model.clinics.map(c => `#${id(c.key)}:checked~.exp-panels>#p-${id(c.key)}{display:block}`).join('');
+  return `<div class="exp-clinics">${radios}
+    <style>${rules}</style>
+    <div class="clinicbar">${labels}</div>
+    <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_EL[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
+    <div class="exp-panels">${panels}</div>
+    <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>
+    <div class="scrollx">${summaryTable(model, S)}</div>
+    ${unmatchedNote(model)}</div>`;
 }
 
 /* where the clinic sits in the hospital */

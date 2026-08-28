@@ -8,10 +8,11 @@
     "build": "node build.mjs",
     "fixtures": "node test/fixtures/make-fixtures.mjs",
     "pretest": "npm run build && npm run fixtures",
-    "test": "node --test test/unit.test.mjs test/build.test.mjs test/golden.test.mjs",
+    "test": "node --test test/unit.test.mjs test/build.test.mjs test/golden.test.mjs test/export.test.mjs",
     "test:unit": "node --test test/unit.test.mjs",
     "test:build": "node --test test/build.test.mjs",
-    "test:golden": "node --test test/golden.test.mjs"
+    "test:golden": "node --test test/golden.test.mjs",
+    "test:export": "node --test test/export.test.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

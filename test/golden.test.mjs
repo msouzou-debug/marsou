@@ -59,8 +59,22 @@ async function snapshot(file, files = FILES) {
     const S = window.OKYPY.state;
     const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) =>
       x instanceof Set ? { set: [...x] } : x instanceof Map ? { map: [...x.entries()] } : x));
+    /* Wide tables are now wrapped in a scroll box so a phone does not have to
+       scroll the whole page sideways. That wrapper is layout, not content, so
+       it is unwrapped before comparing with v1.4. */
+    const unwrapScrollx = (node) => {
+      const copy = node.cloneNode(true);
+      for (const box of [...copy.querySelectorAll('div.scrollx')]) {
+        if (box.className !== 'scrollx') continue;
+        box.replaceWith(...box.childNodes);
+      }
+      return copy.innerHTML;
+    };
     const legacy = {};
-    for (const id of regions) legacy[id] = document.getElementById(id)?.innerHTML ?? null;
+    for (const id of regions) {
+      const node = document.getElementById(id);
+      legacy[id] = node ? unwrapScrollx(node) : null;
+    }
     return {
       renderError: window.__renderError ?? null,
       stats: JSON.stringify(plain(Object.fromEntries([

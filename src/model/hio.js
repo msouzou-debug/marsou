@@ -43,10 +43,11 @@ export function computeHIO(isRows,S){
 }
 
 /* ---------- submission maturity ----------
-   A month's discharges are not submitted in that month. In the real ΓΝ
-   Λευκωσίας files, January's inpatient discharges arrived as 91 claims in the
-   January run, 996 in February and a further 349 in March — so a month is only
-   worth comparing once two more submission runs have been filed.
+   The ΟΑΥ settles over a three-month window: a month's discharges reach it in
+   that month's run and the two that follow. In the real ΓΝ Λευκωσίας files,
+   January's inpatient discharges arrived as 91 claims in the January run, 996
+   in February and a further 349 in March — so a month is only worth comparing
+   once those three runs are in hand.
 
    The submission month of a file is the month most of its claims were filed in,
    taken from `Submission Date`: a handful of stragglers years old must not be

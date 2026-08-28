@@ -1,9 +1,10 @@
 /* ---------- Διασταύρωση με ΟΑΥ (IS Auditor) ----------
    The comparison only means something for months whose claims have finished
-   arriving. A month is submitted over the following two runs — in the real
-   files, January's discharges came in as 91 claims in the January run, 996 in
-   February and 349 in March — so the headline coverage is computed on the
-   mature months alone, and the rest of the period is shown but not counted. */
+   arriving. The ΟΑΥ settles over a three-month window, so a month is complete
+   only once its own submission run and the two after it are in hand — in the
+   real files, January's discharges came in as 91 claims in the January run,
+   996 in February and 349 in March. The headline coverage is computed on those
+   months alone; the rest of the period is shown but not counted. */
 import { U } from '../util.js';
 import { state } from '../state.js';
 import { computeHIO } from '../model/hio.js';
@@ -56,7 +57,7 @@ export function renderHIO() {
     const runs = H.maturity.missingRuns.map(monthName).join(' και ');
     const immature = H.maturity.mature.map((m, i) => (m ? null : U.MONTHS_EL[i])).filter(Boolean).join(', ');
     html += `<div class="flag warn" style="margin-top:12px"><b>Η περίοδος δεν έχει υποβληθεί ολόκληρη.</b>
-      Ένας μήνας εξιτηρίων υποβάλλεται στον ΟΑΥ κατά τους δύο επόμενους μήνες. Με τα αρχεία που φορτώθηκαν
+      Ο ΟΑΥ εξοφλεί σε παράθυρο τριών μηνών: τα εξιτήρια ενός μήνα υποβάλλονται στη δική του υποβολή και στις δύο επόμενες. Με τα αρχεία που φορτώθηκαν
       (τελευταία υποβολή ${monthName(H.maturity.lastSubmission)}), οι μήνες ${immature} είναι ακόμη ελλιπείς και
       <b>δεν προσμετρώνται</b> στην κάλυψη. Χρειάζονται τα IS Auditor ${runs}.</div>`;
   }

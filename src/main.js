@@ -11,7 +11,26 @@ import { parseStats } from './parsers/stats.js';
 import { parseIS } from './parsers/is.js';
 import { computeHIO } from './model/hio.js';
 import { handleFiles } from './intake.js';
+import { exportHTML } from './export/html.js';
+import { exportPPTX } from './export/pptx.js';
 import { el } from './render/dom.js';
+
+/* An export must never leave the user staring at a dead button: the work runs
+   with the button disabled, and any failure is said out loud. */
+function wireExport(id, label, run) {
+  const btn = el(id);
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const original = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Δημιουργία…';
+    try { await run(); }
+    catch (e) {
+      console.error(e);
+      alert(`Η εξαγωγή ${label} απέτυχε: ${e.message || e}`);
+    }
+    finally { btn.disabled = false; btn.textContent = original; }
+  });
+}
 
 /* ---------- wiring ---------- */
 function init(){
@@ -22,7 +41,9 @@ function init(){
   ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
   ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
   drop.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files]));
+  wireExport('btnHtml','HTML',exportHTML);
+  wireExport('btnPptx','PowerPoint',exportPPTX);
 }
 document.addEventListener('DOMContentLoaded',init);
 
-window.OKYPY={state,handleFiles,parseStats,parseIS,computeHIO,U};
+window.OKYPY={state,handleFiles,parseStats,parseIS,computeHIO,U,exportHTML,exportPPTX};
