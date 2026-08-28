@@ -1,26 +1,31 @@
 /* ---------- «Ανά κλινική» ----------
-   A clinic director opens this and sees only their own clinic: the indicators,
-   the ΟΑΥ revenue filed under it, the move against the same period last year,
-   and the multi-year line. The table underneath keeps the whole hospital in
-   view so a clinic can be read in context — and so a director can find their
-   own row quickly. */
+   A clinic director opens this, presses their clinic, and sees only their own:
+   the ΟΑΥ revenue booked under it and how it moved, the activity behind that
+   revenue, what a bed and a visit are worth, the multi-year line, and the
+   paragraphs the quarterly report wrote about them. */
 import { U } from '../util.js';
 import { state } from '../state.js';
-import { CLINIC_INDICATORS, buildClinics, clinicYoY, clinicTrend } from '../model/clinic.js';
-import { C, lineChart, barChartYears } from './charts.js';
+import {
+  CLINIC_INDICATORS, CLINIC_ANNUAL, REVENUE_STREAMS,
+  buildClinics, clinicYoY, clinicTrend, clinicEfficiency, pctChange,
+} from '../model/clinic.js';
+import { C, lineChart, barChartYears, barChartPaired } from './charts.js';
 import { el } from './dom.js';
 
 /* survives a re-render when more files are loaded */
 let selectedKey = null;
 
-const delta = (d) => {
+const ALL_INDICATORS = [...CLINIC_INDICATORS, ...CLINIC_ANNUAL];
+
+const money = (v, dec = 0) => (v == null ? '—' : U.fmt(v, dec) + ' €');
+const val = (v, def) => (v == null ? '—' : U.fmt(v, def.dec) + def.unit);
+
+function delta(d) {
   if (d == null) return '<span class="delta flat">—</span>';
   const cls = d > 1 ? 'up' : d < -1 ? 'down' : 'flat';
   const arrow = d > 1 ? '▲ ' : d < -1 ? '▼ ' : '≈ ';
   return `<span class="delta ${cls}">${arrow}${U.pct(d)}</span>`;
-};
-
-const val = (v, def) => v == null ? '—' : U.fmt(v, def.dec) + def.unit;
+}
 
 export function renderClinics() {
   const S = state.stats, box = el('clinics');
@@ -31,30 +36,30 @@ export function renderClinics() {
 
   if (!model.clinics.some(c => c.key === selectedKey)) selectedKey = model.clinics[0].key;
 
-  const options = model.clinics
-    .map(c => `<option value="${U.esc(c.key)}"${c.key === selectedKey ? ' selected' : ''}>${U.esc(c.label)}</option>`)
-    .join('');
+  /* one button per clinic, ordered by size so a director finds theirs fast */
+  const buttons = model.clinics.map(c =>
+    `<button type="button" class="cbtn${c.key === selectedKey ? ' on' : ''}" data-clinic="${U.esc(c.key)}">${U.esc(c.label)}</button>`
+  ).join('');
 
   box.innerHTML = `
-    <div class="clinicbar">
-      <label for="clinicPick">Κλινική:</label>
-      <select id="clinicPick">${options}</select>
-      <span class="note" style="margin:0">Σύγκριση με την ίδια περίοδο (Ιαν–${U.MONTHS_EL[S.mN - 1]}) κάθε έτους.</span>
-    </div>
+    <div class="clinicbar" role="group" aria-label="Επιλογή κλινικής">${buttons}</div>
+    <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_EL[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
     <div id="clinicDetail"></div>
-    <h3 class="clinic-h3">Όλες οι κλινικές — περίοδος ${S.year} έναντι ${S.year - 1}</h3>
+    <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>
     <div class="scrollx">${summaryTable(model, S)}</div>
     ${unmatchedNote(model)}`;
 
-  el('clinicPick').addEventListener('change', (e) => {
-    selectedKey = e.target.value;
+  box.querySelectorAll('.cbtn').forEach(b => b.addEventListener('click', () => {
+    selectedKey = b.dataset.clinic;
+    box.querySelectorAll('.cbtn').forEach(x => x.classList.toggle('on', x === b));
     renderDetail(model, S);
-  });
-  box.querySelectorAll('[data-clinic]').forEach(row => row.addEventListener('click', () => {
+  }));
+  box.querySelectorAll('tr[data-clinic]').forEach(row => row.addEventListener('click', () => {
     selectedKey = row.dataset.clinic;
-    el('clinicPick').value = selectedKey;
+    box.querySelectorAll('.cbtn').forEach(x => x.classList.toggle('on', x.dataset.clinic === selectedKey));
+    box.querySelectorAll('tr[data-clinic]').forEach(x => x.classList.toggle('on', x === row));
     renderDetail(model, S);
-    el('clinicDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    el('clinicDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
 
   renderDetail(model, S);
@@ -63,132 +68,219 @@ export function renderClinics() {
 function renderDetail(model, S) {
   const c = model.clinics.find(x => x.key === selectedKey);
   if (!c) return;
-  const y = S.year;
+  el('clinicDetail').innerHTML = `
+    <div class="clinic-head"><h3>${U.esc(c.label)}</h3>${pills(model, c, S)}</div>
+    <div class="narrative">${U.esc(clinicStory(c, model, S))}</div>
+    ${revenueBlock(c, S)}
+    ${activityBlock(c, model, S)}
+    ${efficiencyBlock(c, S)}
+    ${hioBlock(c, S)}
+    ${chartsBlock(c, model, S)}
+    ${actionsBlock(c, model, S)}
+    ${notesBlock(c)}`;
+}
 
-  /* one tile per indicator the workbook actually carries for this clinic */
-  const tiles = CLINIC_INDICATORS.filter(def => c.series[def.key]?.[y] != null).map(def => {
-    const d = clinicYoY(c, def.key, y);
+/* where the clinic sits in the hospital */
+function pills(model, c, S) {
+  const out = [];
+  if (c.revenue) {
+    const ranked = model.clinics.filter(x => x.revenue).sort((a, b) => b.revenue.cur.total - a.revenue.cur.total);
+    const pos = ranked.findIndex(x => x.key === c.key) + 1;
+    const total = model.totals?.cur?.total || ranked.reduce((a, x) => a + x.revenue.cur.total, 0);
+    out.push(`${pos}η από ${ranked.length} σε έσοδα ΟΑΥ`);
+    if (total) out.push(`${U.fmt(100 * c.revenue.cur.total / total, 1)}% των εσόδων του νοσοκομείου`);
+  }
+  if (c.beds?.beds) out.push(`${U.fmt(c.beds.beds)} κλίνες`);
+  if (c.beds?.dayCareBeds) out.push(`${U.fmt(c.beds.dayCareBeds)} θέσεις ημερήσιας`);
+  return out.map(t => `<span class="pill">${t}</span>`).join('');
+}
+
+function revenueBlock(c, S) {
+  if (!c.revenue) {
+    return `<div class="flag warn" style="margin-top:16px">Το φύλλο «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ» του αρχείου δεν έχει γραμμή εσόδων ΟΑΥ με αυτή την ονομασία.
+      Συνήθως πρόκειται για μονάδα που τιμολογείται μέσα σε άλλη κλινική (π.χ. ΜΕΛ, ΚΑΡΕ, Επεμβατική Καρδιολογία).</div>`;
+  }
+  const { cur, prev } = c.revenue;
+  const tile = (label, k, accent) => {
+    const v = k === 'total' ? cur.total : cur[k];
+    const p = k === 'total' ? prev.total : prev[k];
+    const d = pctChange(v, p);
+    const abs = (v ?? 0) - (p ?? 0);
+    /* against a zero base a percentage says nothing; the euro move already does */
+    const move = d == null ? '' : delta(d) + ' ';
+    return `<div class="kpi"${accent ? ` style="border-top-color:${C.green}"` : ''}>
+      <div class="label">${label}</div>
+      <div class="value" style="font-size:${accent ? 30 : 24}px">${money(v)}</div>
+      <div class="subline">${move}<span style="color:#8a8b8d">${abs >= 0 ? '+' : ''}${U.fmt(abs, 0)} € έναντι ${S.year - 1}</span></div>
+    </div>`;
+  };
+  const sources = c.revenueSources.length > 1
+    ? `<div class="note">Αθροίζονται οι γραμμές τιμολόγησης του ΟΑΥ: ${c.revenueSources.map(U.esc).join(' · ')}.</div>` : '';
+  return `<h3 class="clinic-h3">Έσοδα ΟΑΥ — Ιανουάριος-${U.MONTHS_EL[S.mN - 1]} ${S.year}</h3>
+    <div class="kpis">
+      ${tile('Σύνολο εσόδων ΟΑΥ', 'total', true)}
+      ${REVENUE_STREAMS.map(s => tile(s.label, s.key)).join('')}
+    </div>${sources}`;
+}
+
+function activityBlock(c, model, S) {
+  const tiles = ALL_INDICATORS.filter(def => c.series[def.key]?.[S.year] != null).map(def => {
+    const d = clinicYoY(c, def.key, S.year);
     const t = clinicTrend(c, def.key, model.years);
     return `<div class="kpi"><div class="label">${def.label}</div>
-      <div class="value">${val(c.series[def.key][y], def)}</div>
-      <div class="subline">${delta(d)}
-        <span style="color:#8a8b8d">(${val(c.series[def.key][y - 1], def)} το ${y - 1})</span></div>
+      <div class="value">${val(c.series[def.key][S.year], def)}</div>
+      <div class="subline">${delta(d)} <span style="color:#8a8b8d">(${val(c.series[def.key][S.year - 1], def)} το ${S.year - 1})</span></div>
       ${t ? `<div class="note" style="margin-top:6px">Διαχρονικά ${t.from}→${t.to}: ${U.pct(t.total)}${t.perYear == null ? '' : ` (${U.pct(t.perYear)}/έτος)`}</div>` : ''}
     </div>`;
   }).join('');
+  if (!tiles) return '<div class="note" style="margin-top:16px">Τα φύλλα στατιστικών δεν περιέχουν δείκτες για αυτή την κλινική.</div>';
+  return `<h3 class="clinic-h3">Δραστηριότητα</h3><div class="kpis">${tiles}</div>`;
+}
 
-  /* «διαχρονικά»: the same period of every year the workbook holds */
-  const yearCards = CLINIC_INDICATORS.filter(def => Object.keys(c.series[def.key] || {}).length >= 2).map(def => {
-    const items = model.years.map(yy => ({ label: String(yy), val: c.series[def.key][yy] ?? null, current: yy === y }));
-    return `<div class="card"><h3>${def.label} — διαχρονικά</h3>
-      ${barChartYears(items, { dec: def.dec, unit: def.unit })}</div>`;
-  }).join('');
+/* what a bed, an admission and a visit are worth — the numbers a director can
+   actually move */
+function efficiencyBlock(c, S) {
+  const e = clinicEfficiency(c, S);
+  const items = [
+    ['Έσοδο ανά εισαγωγή', e.perAdmission == null ? '—' : money(e.perAdmission), 'ενδονοσοκομειακά έσοδα ÷ εισαγωγές'],
+    ['Έσοδο ανά επίσκεψη', e.perVisit == null ? '—' : money(e.perVisit, 2), 'έσοδα εξωτερικών ÷ επισκέψεις'],
+    ['Έσοδο ανά κλίνη', e.perBed == null ? '—' : money(e.perBed), 'σύνολο εσόδων ÷ κλίνες της περιόδου'],
+    ['Εισαγωγές ανά κλίνη', e.admissionsPerBed == null ? '—' : U.fmt(e.admissionsPerBed, 1), 'ρυθμός εναλλαγής κλίνης'],
+  ].filter(x => x[1] !== '—');
+  if (!items.length) return '';
+  return `<h3 class="clinic-h3">Αποδοτικότητα</h3><div class="kpis">${items.map(([label, v, note]) =>
+    `<div class="kpi" style="border-top-color:${C.y1}"><div class="label">${label}</div>
+      <div class="value" style="font-size:24px">${v}</div><div class="note" style="margin-top:4px">${note}</div></div>`).join('')}</div>`;
+}
 
+/* only what the IS Auditor uniquely knows; the € come from the workbook */
+function hioBlock(c, S) {
+  if (!state.isRows.length || !c.hio) return '';
+  const h = c.hio;
+  const chip = (label, v, note) => `<div class="kpi" style="border-top-color:${C.green}">
+    <div class="label">${label}</div><div class="value" style="font-size:22px">${v}</div>
+    ${note ? `<div class="note" style="margin-top:4px">${note}</div>` : ''}</div>`;
+  return `<h3 class="clinic-h3">Τιμολόγηση ΟΑΥ — IS Auditor</h3><div class="kpis">
+      ${chip('Περιστατικά DRG', U.fmt(h.cases), h.daycare ? U.fmt(h.daycare) + ' ημερήσια επιπλέον' : '')}
+      ${chip('CMI (θετικά βάρη)', h.cmi == null ? '—' : U.fmt(h.cmi, 3))}
+      ${chip('Μέση διάρκεια νοσηλείας', h.alos == null ? '—' : U.fmt(h.alos, 1) + ' ημ.')}
+      ${chip('Επείγουσες εισαγωγές', h.emergPct == null ? '—' : U.fmt(h.emergPct, 0) + '%')}
+      ${chip('Απορρίψεις / Αναθεωρήσεις', U.fmt(h.revRows) + ' · ' + money(h.revAmt))}
+    </div>
+    <div class="note">Ειδικότητα «${U.esc(h.label)}», με καταμέτρηση κατά ημερομηνία εξιτηρίου εντός της περιόδου.
+      Τα ποσά εδώ είναι όπως υποβλήθηκαν στον ΟΑΥ και μπορεί να διαφέρουν από τα έσοδα του φύλλου «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ», που είναι η λογιστική εικόνα της περιόδου.</div>`;
+}
+
+function chartsBlock(c, model, S) {
+  const cards = [];
+  if (c.revenue) {
+    const items = REVENUE_STREAMS.map(s => ({ name: s.label.split(' ')[0], cur: c.revenue.cur[s.key], prev: c.revenue.prev[s.key] }));
+    cards.push(`<div class="card"><h3>Έσοδα ΟΑΥ ανά ροή</h3>
+      ${barChartPaired(items, { curLabel: String(S.year), prevLabel: String(S.year - 1) })}</div>`);
+  }
   /* monthly shape of the two indicators that drive a clinic's workload */
-  const monthCards = ['adm', 'out'].map(k => {
-    const def = CLINIC_INDICATORS.find(d => d.key === k);
+  for (const k of ['adm', 'out']) {
+    const def = ALL_INDICATORS.find(d => d.key === k);
     const months = c.ind[k]?.years;
-    if (!months || !months[y]) return '';
+    if (!months?.[S.year]) continue;
     const f = (yy) => { const m = months[yy]; const v = []; for (let i = 0; i < 12; i++) v.push(m?.[i] ?? null); return v; };
     const series = [
-      { name: String(y - 2), color: C.old, vals: f(y - 2), w: 1.6 },
-      { name: String(y - 1), color: C.y1, vals: f(y - 1), dash: true, w: 1.8 },
-      { name: String(y), color: C.y0, vals: f(y), w: 2.6 },
+      { name: String(S.year - 2), color: C.old, vals: f(S.year - 2), w: 1.6 },
+      { name: String(S.year - 1), color: C.y1, vals: f(S.year - 1), dash: true, w: 1.8 },
+      { name: String(S.year), color: C.y0, vals: f(S.year), w: 2.6 },
     ].filter(s => s.vals.some(v => v != null));
     const leg = series.map(s => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');
-    return `<div class="card"><h3>${def.label} — ανά μήνα</h3><div class="legend">${leg}</div>${lineChart(series, U.MONTHS_EL)}</div>`;
-  }).join('');
-
-  el('clinicDetail').innerHTML = `
-    <div class="clinic-head"><h3>${U.esc(c.label)}</h3>${rank(model, c, S)}</div>
-    <div class="narrative">${U.esc(clinicStory(c, model, S))}</div>
-    <div class="kpis" style="margin-top:16px">${tiles || '<div class="note">Το αρχείο στατιστικών δεν περιέχει δείκτες για αυτή την κλινική.</div>'}</div>
-    ${hioCard(c, S)}
-    <div class="grid2" style="margin-top:20px">${monthCards}</div>
-    <div class="grid3" style="margin-top:20px">${yearCards}</div>`;
+    cards.push(`<div class="card"><h3>${def.label} — ανά μήνα</h3><div class="legend">${leg}</div>${lineChart(series, U.MONTHS_EL)}</div>`);
+  }
+  const years = ALL_INDICATORS.filter(def => Object.keys(c.series[def.key] || {}).length >= 2).map(def => {
+    const items = model.years.map(y => ({ label: String(y), val: c.series[def.key][y] ?? null, current: y === S.year }));
+    return `<div class="card"><h3>${def.label} — διαχρονικά</h3>${barChartYears(items, { dec: def.dec, unit: def.unit })}</div>`;
+  });
+  return `<div class="grid2" style="margin-top:20px">${cards.join('')}</div>` +
+    (years.length ? `<div class="grid3" style="margin-top:20px">${years.join('')}</div>` : '');
 }
 
-/* where the clinic sits in the hospital, and how much of it the clinic is */
-function rank(model, c, S) {
-  const key = c.series.adm ? 'adm' : c.series.out ? 'out' : null;
-  if (!key) return '';
-  const def = CLINIC_INDICATORS.find(d => d.key === key);
-  const ranked = model.clinics.filter(x => x.series[key]?.[S.year] != null)
-    .sort((a, b) => b.series[key][S.year] - a.series[key][S.year]);
-  const pos = ranked.findIndex(x => x.key === c.key) + 1;
-  const total = ranked.reduce((a, x) => a + x.series[key][S.year], 0);
-  const share = total ? 100 * c.series[key][S.year] / total : null;
-  return `<span class="pill">${pos}η από ${ranked.length} σε ${def.label.toLowerCase()}</span>` +
-    (share == null ? '' : `<span class="pill">${U.fmt(share, 1)}% του νοσοκομείου</span>`);
+/* the two or three things worth raising in a clinic meeting */
+function actionsBlock(c, model, S) {
+  const out = [];
+  const rev = c.revenue ? pctChange(c.revenue.cur.total, c.revenue.prev.total) : null;
+  const adm = clinicYoY(c, 'adm', S.year);
+  if (rev != null && adm != null && rev < -5 && adm >= -2) {
+    out.push({ t: 'warn', m: `Τα έσοδα υποχώρησαν ${U.pct(rev)} ενώ οι εισαγωγές κρατήθηκαν (${U.pct(adm)}) — το μείγμα περιστατικών ή η τιμολόγηση θέλουν έλεγχο, όχι ο όγκος.` });
+  }
+  if (rev != null && adm != null && rev > 5 && adm < -2) {
+    out.push({ t: 'good', m: `Τα έσοδα ανέβηκαν ${U.pct(rev)} με λιγότερες εισαγωγές (${U.pct(adm)}) — βαρύτερα περιστατικά ανά νοσηλεία.` });
+  }
+  const occ = c.series.occ?.[S.year];
+  if (occ != null && occ > 100) out.push({ t: 'flag', m: `Πληρότητα ${U.fmt(occ, 1)}% — συστηματική υπερφόρτωση κλινών· η ΜΔΝ και οι διασπορές θέλουν παρακολούθηση.` });
+  else if (occ != null && occ < 55) out.push({ t: 'warn', m: `Πληρότητα ${U.fmt(occ, 1)}% — υπάρχει περιθώριο για περισσότερα προγραμματισμένα περιστατικά ή ανακατανομή κλινών.` });
+  const alosD = clinicYoY(c, 'alos', S.year);
+  if (alosD != null && alosD > 8) out.push({ t: 'warn', m: `Η μέση διάρκεια νοσηλείας αυξήθηκε ${U.pct(alosD)} — κάθε επιπλέον ημέρα δεσμεύει κλίνη χωρίς πρόσθετο έσοδο DRG.` });
+  const outD = clinicYoY(c, 'out', S.year);
+  if (outD != null && outD < -8) out.push({ t: 'warn', m: `Οι επισκέψεις εξωτερικών ιατρείων μειώθηκαν ${U.pct(outD)} — λιγότερες παραπομπές σημαίνει και λιγότερες μελλοντικές εισαγωγές.` });
+  const dcD = clinicYoY(c, 'dc', S.year);
+  if (dcD != null && dcD > 15) out.push({ t: 'good', m: `Η ημερήσια νοσηλεία αυξήθηκε ${U.pct(dcD)} — μετατόπιση από την κλασική νοσηλεία, με χαμηλότερο κόστος ανά περιστατικό.` });
+  if (!out.length) return '';
+  return `<h3 class="clinic-h3">Σημεία δράσης</h3><div class="flags">${out.map(f => `<div class="flag ${f.t === 'flag' ? '' : f.t}">${U.esc(f.m)}</div>`).join('')}</div>`;
 }
 
-function hioCard(c, S) {
-  if (!state.isRows.length) {
-    return `<div class="flag info" style="margin-top:16px">Ανεβάστε τα IS Auditor Ιαν–${U.MONTHS_EL[S.mN - 1]} ${S.year}
-      (και του επόμενου μήνα, για τις καθυστερημένες υποβολές) για να δείτε τα τιμολογημένα έσοδα ΟΑΥ και το CMI της κλινικής.</div>`;
+/* what the quarterly report says about this clinic, quoted as written */
+function notesBlock(c) {
+  if (!state.report) return '';
+  if (!c.notes.length) {
+    return `<h3 class="clinic-h3">Από την έκθεση</h3><div class="note">Η έκθεση «${U.esc(state.report.file)}» δεν αναφέρει ονομαστικά αυτή την κλινική.</div>`;
   }
-  const h = c.hio;
-  if (!h) {
-    return `<div class="flag warn" style="margin-top:16px">Δεν βρέθηκαν τιμολογημένες απαιτήσεις ΟΑΥ με ειδικότητα που να αντιστοιχεί
-      σε αυτή την κλινική. Πιθανή αιτία: η ειδικότητα γράφεται διαφορετικά στα αρχεία IS Auditor — δείτε τη λίστα κάτω από τον πίνακα.</div>`;
-  }
-  const chip = (label, value, note) => `<div class="kpi" style="border-top-color:${C.green}">
-    <div class="label">${label}</div><div class="value" style="font-size:22px">${value}</div>
-    ${note ? `<div class="note" style="margin-top:4px">${note}</div>` : ''}</div>`;
-  return `<h3 class="clinic-h3">Έσοδα και τιμολόγηση ΟΑΥ</h3>
-    <div class="kpis">
-      ${chip('Τιμολογημένα έσοδα ΟΑΥ', U.fmt(h.revenue, 0) + ' €', 'DRG/FFS + πράξεις, καθαρά από αναθεωρήσεις')}
-      ${chip('Περιστατικά DRG', U.fmt(h.cases), h.daycare ? U.fmt(h.daycare) + ' ημερήσια νοσηλεία επιπλέον' : '')}
-      ${chip('Έσοδο ανά περιστατικό', h.revPerCase == null ? '—' : U.fmt(h.revPerCase, 0) + ' €')}
-      ${chip('CMI (θετικά βάρη)', h.cmi == null ? '—' : U.fmt(h.cmi, 3))}
-      ${chip('Μέση διάρκεια νοσηλείας (ΟΑΥ)', h.alos == null ? '—' : U.fmt(h.alos, 1) + ' ημ.')}
-      ${chip('Επείγουσες εισαγωγές', h.emergPct == null ? '—' : U.fmt(h.emergPct, 0) + '%')}
-      ${chip('Απορρίψεις / Αναθεωρήσεις', U.fmt(h.revRows) + ' · ' + U.fmt(h.revAmt, 0) + ' €')}
-    </div>
-    <div class="note">Ειδικότητα «${U.esc(h.label)}» στα αρχεία IS Auditor, με καταμέτρηση κατά ημερομηνία εξιτηρίου εντός της περιόδου.
-      Τα έσοδα είναι τιμολογημένα προς τον ΟΑΥ, όχι εισπραγμένα, και δεν περιλαμβάνουν ΤΑΕΠ ή εξωτερικά ιατρεία — αυτά πληρώνονται συνολικά
-      ανά νοσοκομείο και δεν επιμερίζονται ανά κλινική στα αρχεία του ΟΑΥ.</div>`;
+  const items = c.notes.slice(0, 6).map(n => `<li><b>${U.esc(n.section)}</b> — ${U.esc(n.text)}
+    ${n.figures.length ? `<div class="note" style="margin-top:2px">${n.figures.map(U.esc).join(' · ')}</div>` : ''}</li>`).join('');
+  return `<h3 class="clinic-h3">Από την έκθεση</h3><ul class="reportnotes">${items}</ul>
+    <div class="note">Αυτούσια αποσπάσματα από «${U.esc(state.report.file)}».</div>`;
 }
 
 function summaryTable(model, S) {
   const y = S.year;
-  const cols = CLINIC_INDICATORS.filter(def => model.clinics.some(c => c.series[def.key]?.[y] != null));
+  const cols = ALL_INDICATORS.filter(def => model.clinics.some(c => c.series[def.key]?.[y] != null));
   const head = cols.map(def => `<th class="r" colspan="2">${def.label}</th>`).join('');
   const sub = cols.map(() => `<th class="r">${y}</th><th class="r">Δ%</th>`).join('');
   const rows = model.clinics.map(c => {
-    const cells = cols.map(def => {
-      const v = c.series[def.key]?.[y];
-      return `<td class="r">${val(v, def)}</td><td class="r">${delta(clinicYoY(c, def.key, y))}</td>`;
-    }).join('');
-    const rev = c.hio ? U.fmt(c.hio.revenue, 0) + ' €' : model.hasHio ? '—' : '';
+    const cells = cols.map(def =>
+      `<td class="r">${val(c.series[def.key]?.[y], def)}</td><td class="r">${delta(clinicYoY(c, def.key, y))}</td>`).join('');
+    const rev = c.revenue
+      ? `<td class="r">${money(c.revenue.cur.total)}</td><td class="r">${delta(pctChange(c.revenue.cur.total, c.revenue.prev.total))}</td>`
+      : '<td class="r">—</td><td class="r">—</td>';
     return `<tr data-clinic="${U.esc(c.key)}" class="pick${c.key === selectedKey ? ' on' : ''}">
-      <td><b>${U.esc(c.label)}</b></td>${cells}${model.hasHio ? `<td class="r">${rev}</td>` : ''}</tr>`;
+      <td><b>${U.esc(c.label)}</b></td>${model.hasRevenue ? rev : ''}${cells}</tr>`;
   }).join('');
   return `<table class="ok clinics"><thead>
-      <tr><th rowspan="2">Κλινική</th>${head}${model.hasHio ? '<th rowspan="2" class="r">Έσοδα ΟΑΥ</th>' : ''}</tr>
-      <tr>${sub}</tr></thead><tbody>${rows}</tbody></table>`;
+      <tr><th rowspan="2">Κλινική</th>${model.hasRevenue ? '<th class="r" colspan="2">Έσοδα ΟΑΥ</th>' : ''}${head}</tr>
+      <tr>${model.hasRevenue ? `<th class="r">${y}</th><th class="r">Δ%</th>` : ''}${sub}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function unmatchedNote(model) {
   if (!model.unmatched.length) return '';
-  const list = model.unmatched.slice(0, 12)
-    .map(h => `${U.esc(h.label)} (${U.fmt(h.revenue, 0)} €)`).join(' · ');
-  return `<div class="flag info" style="margin-top:12px">Ειδικότητες του ΟΑΥ χωρίς αντίστοιχη κλινική στο αρχείο στατιστικών:
-    ${list}${model.unmatched.length > 12 ? ' κ.ά.' : ''}. Τα ποσά αυτά δεν εμφανίζονται σε καμία κλινική παραπάνω — συνήθως πρόκειται
-    για διαφορετική ονομασία της ίδιας ειδικότητας ή για δραστηριότητα εκτός κλινικών (π.χ. ΤΑΕΠ, εργαστήρια).</div>`;
+  const list = model.unmatched.slice(0, 12).map(h => `${U.esc(h.label)} (${U.fmt(h.cases)} περιστατικά)`).join(' · ');
+  return `<div class="flag info" style="margin-top:12px">Ειδικότητες των IS Auditor χωρίς αντίστοιχη κλινική στο αρχείο στατιστικών:
+    ${list}${model.unmatched.length > 12 ? ' κ.ά.' : ''}. Δεν προσμετρώνται σε καμία κλινική παραπάνω.</div>`;
 }
 
-/* two to four sentences a director can put in a report as they are */
+/* three to five sentences a director can put in a report as they are */
 function clinicStory(c, model, S) {
   const y = S.year, s = [];
+  if (c.revenue) {
+    const d = pctChange(c.revenue.cur.total, c.revenue.prev.total);
+    s.push(`Η κλινική τιμολόγησε στον ΟΑΥ ${money(c.revenue.cur.total)} την περίοδο Ιανουαρίου–${U.MONTHS_EL[S.mN - 1]} ${y}` +
+      (d == null ? '.' : Math.abs(d) < 1 ? `, στα ίδια επίπεδα με το ${y - 1}.` : `, ${U.pct(d)} έναντι του ${y - 1}.`));
+    const streams = REVENUE_STREAMS.map(st => ({ st, v: c.revenue.cur[st.key] || 0 })).sort((a, b) => b.v - a.v);
+    if (streams[0].v > 0) {
+      s.push(`Το μεγαλύτερο μέρος προέρχεται από ${streams[0].st.label.toLowerCase()} (${U.fmt(100 * streams[0].v / c.revenue.cur.total, 0)}% των εσόδων).`);
+    }
+  }
   const admD = clinicYoY(c, 'adm', y);
   if (c.series.adm?.[y] != null) {
-    s.push(`Η κλινική έκλεισε την περίοδο με ${U.fmt(c.series.adm[y])} εισαγωγές` +
-      (admD == null ? '.' : Math.abs(admD) < 1 ? ', στα ίδια επίπεδα με πέρσι.' : `, ${U.pct(admD)} σε σχέση με πέρσι.`));
+    s.push(`Έγιναν ${U.fmt(c.series.adm[y])} εισαγωγές` +
+      (admD == null ? '.' : Math.abs(admD) < 1 ? ', όσες και πέρσι.' : `, ${U.pct(admD)} σε σχέση με πέρσι.`));
   } else if (c.series.out?.[y] != null) {
     const d = clinicYoY(c, 'out', y);
-    s.push(`Η κλινική έκλεισε την περίοδο με ${U.fmt(c.series.out[y])} επισκέψεις εξωτερικών ιατρείων` +
-      (d == null ? '.' : `, ${U.pct(d)} σε σχέση με πέρσι.`));
+    s.push(`Καταγράφηκαν ${U.fmt(c.series.out[y])} επισκέψεις εξωτερικών ιατρείων` + (d == null ? '.' : `, ${U.pct(d)} σε σχέση με πέρσι.`));
   }
   const t = clinicTrend(c, c.series.adm ? 'adm' : 'out', model.years);
   if (t) {
@@ -197,15 +289,6 @@ function clinicStory(c, model, S) {
       : `Διαχρονικά τα μεγέθη μένουν σταθερά (${U.pct(t.total)} από το ${t.from}).`);
   }
   const occ = c.series.occ?.[y];
-  if (occ != null) {
-    s.push(occ > 100 ? `Η πληρότητα στο ${U.fmt(occ, 1)}% δείχνει συστηματική υπερφόρτωση κλινών.`
-      : occ < 50 ? `Η πληρότητα στο ${U.fmt(occ, 1)}% αφήνει περιθώριο ανακατανομής κλινών.`
-      : `Η πληρότητα κινείται στο ${U.fmt(occ, 1)}%.`);
-  }
-  if (c.hio) {
-    s.push(`Ο ΟΑΥ έχει τιμολογημένα ${U.fmt(c.hio.revenue, 0)} € για την κλινική` +
-      (c.hio.revPerCase == null ? '.' : `, δηλαδή ${U.fmt(c.hio.revPerCase, 0)} € ανά περιστατικό DRG.`) +
-      (c.hio.revRows ? ` Καταγράφηκαν ${U.fmt(c.hio.revRows)} αναθεωρήσεις/απορρίψεις (${U.fmt(c.hio.revAmt, 0)} €).` : ''));
-  }
+  if (occ != null) s.push(`Η πληρότητα κινείται στο ${U.fmt(occ, 1)}%${c.beds?.beds ? ` με ${U.fmt(c.beds.beds)} κλίνες` : ''}.`);
   return s.join(' ');
 }

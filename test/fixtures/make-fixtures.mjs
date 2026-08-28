@@ -41,7 +41,7 @@ const pad = (v3) => [...v3, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 const ADM_CLINICS = [
   { name: 'Παθολογική',    2024: [58,55,60,57,59,56,54,50,57,60,58,56], 2025: [60,57,62,58,60,57,55,51,58,61,59,57], 2026: pad([64,63,60]) },
-  { name: 'Χειρουργική',   2024: [40,38,41,39,40,38,36,33,39,41,40,38], 2025: [42,40,43,41,42,40,38,34,41,43,42,40], 2026: pad([41,39,38]) },
+  { name: 'Γενική Χειρουργική', 2024: [40,38,41,39,40,38,36,33,39,41,40,38], 2025: [42,40,43,41,42,40,38,34,41,43,42,40], 2026: pad([41,39,38]) },
   { name: 'Καρδιολογική',  2024: [25,24,26,25,25,24,23,21,25,26,25,24], 2025: [26,25,27,26,26,25,24,22,26,27,26,25], 2026: pad([34,33,31]) },
   { name: 'Ορθοπεδική',    2024: [22,21,23,22,22,21,20,18,22,23,22,21], 2025: [23,22,24,23,23,22,21,19,23,24,23,22], 2026: pad([21,20,19]) },
   { name: 'Παιδιατρική',   2024: [17,16,18,17,17,16,15,14,17,18,17,16], 2025: [18,17,19,18,18,17,16,15,18,19,18,17], 2026: pad([19,19,18]) },
@@ -53,7 +53,7 @@ const DC_UNITS = [
 ];
 const OPD_CLINICS = [
   { name: 'Παθολογικά',   2024: [520,505,530,515,522,508,498,455,518,532,524,510], 2025: [536,520,546,531,538,523,513,469,534,548,540,526], 2026: pad([548,573,594]) },
-  { name: 'Χειρουργικά',  2024: [410,398,418,406,412,400,392,358,408,420,413,402], 2025: [422,410,430,418,424,412,404,369,420,432,425,414], 2026: pad([431,451,466]) },
+  { name: 'Γενική Χειρουργική', 2024: [410,398,418,406,412,400,392,358,408,420,413,402], 2025: [422,410,430,418,424,412,404,369,420,432,425,414], 2026: pad([431,451,466]) },
   { name: 'Παιδιατρικά',  2024: [232,225,236,229,233,226,222,203,231,237,233,227], 2025: [239,232,243,236,240,233,229,209,238,244,240,234], 2026: pad([244,256,265]) },
 ];
 const TAEP_BLOCKS = [
@@ -62,15 +62,15 @@ const TAEP_BLOCKS = [
 ];
 const OCC_CLINICS = [   // πληρότητα % — one over 100, one under 50 (flag rules)
   { name: 'Παθολογική',    2024: [ 98, 99,100, 97, 98, 96, 94, 90, 97, 99, 98, 97], 2025: [101,102,103,100,101, 99, 97, 93,100,102,101,100], 2026: pad([106,109,104]) },
-  { name: 'Χειρουργική',   2024: [ 84, 85, 86, 83, 84, 82, 80, 76, 83, 85, 84, 83], 2025: [ 85, 86, 87, 84, 85, 83, 81, 77, 84, 86, 85, 84], 2026: pad([ 86, 88, 84]) },
+  { name: 'Γεν. Χειρουργική', 2024: [ 84, 85, 86, 83, 84, 82, 80, 76, 83, 85, 84, 83], 2025: [ 85, 86, 87, 84, 85, 83, 81, 77, 84, 86, 85, 84], 2026: pad([ 86, 88, 84]) },
   { name: 'Γυναικολογική', 2024: [ 52, 53, 54, 51, 52, 50, 48, 44, 51, 53, 52, 51], 2025: [ 48, 49, 50, 47, 48, 46, 44, 40, 47, 49, 48, 47], 2026: pad([ 44, 46, 42]) },
 ];
 const ALOS_CLINICS = [
   { name: 'Παθολογική',  2024: [5.1,5.2,5.0,5.1,5.2,5.1,5.0,4.9,5.1,5.2,5.1,5.0], 2025: [5.0,5.1,4.9,5.0,5.1,5.0,4.9,4.8,5.0,5.1,5.0,4.9], 2026: pad([4.8,4.9,4.7]) },
-  { name: 'Χειρουργική', 2024: [3.4,3.5,3.3,3.4,3.5,3.4,3.3,3.2,3.4,3.5,3.4,3.3], 2025: [3.3,3.4,3.2,3.3,3.4,3.3,3.2,3.1,3.3,3.4,3.3,3.2], 2026: pad([3.2,3.3,3.1]) },
+  { name: 'Γεν. Χειρουργική', 2024: [3.4,3.5,3.3,3.4,3.5,3.4,3.3,3.2,3.4,3.5,3.4,3.3], 2025: [3.3,3.4,3.2,3.3,3.4,3.3,3.2,3.1,3.3,3.4,3.3,3.2], 2026: pad([3.2,3.3,3.1]) },
 ];
 const SURG_CLINICS = [
-  { name: 'Χειρουργική', 2024: [48,46,49,47,48,46,45,41,47,49,48,46], 2025: [50,48,51,49,50,48,47,43,49,51,50,48], 2026: pad([49,47,45]) },
+  { name: 'Γενική Χειρουργική', 2024: [48,46,49,47,48,46,45,41,47,49,48,46], 2025: [50,48,51,49,50,48,47,43,49,51,50,48], 2026: pad([49,47,45]) },
   { name: 'Ορθοπεδική',  2024: [12,11,12,12,12,11,11,10,12,12,12,11], 2025: [13,12,13,13,13,12,12,11,13,13,13,12], 2026: pad([10,10, 8]) },
 ];
 
@@ -178,6 +178,88 @@ function statsWorkbook() {
     ...monthlyBlocks(SURG_CLINICS),
   ]), '7. Χειρουργικές επεμβάσεις');
 
+  /* «Μικρά Χειρουργεία»: a per-clinic table by year, not a monthly block */
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Κλινική', ...[YEAR - 5, YEAR - 4, YEAR - 3, YEAR - 2, YEAR - 1, YEAR, YEAR + 1].map(y => `${y}  Νο`)],
+    [],
+    ['Γενική Χειρουργική', 41, 44, 47, 50, 52, 48, null],
+    ['Ορθοπεδική',  18, 19, 21, 22, 24, 20, null],   // the sheet spells it with -ε-
+  ]), 'Μικρά Χειρουργεία');
+
+  /* bed snapshot, with the group subtotals the real sheet carries */
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    [`${['','Ιανουάριος','Φεβρουάριος','Μάρτιος'][MN]} ${YEAR}`],
+    ['Κλινική', 'Κλίνες', 'Αναλογία', 'Ημερήσια Φροντίδα'],
+    [null, 'Αρ.', '%', 'Αρ.'],
+    ['Γενική Χειρουργική', 54, 0.31, null],
+    ['Ορθοπαιδική', 22, 0.12, null],
+    ['Γυναικολογική', 18, 0.10, null],
+    ['Σύνολο Χειρουργικών Κλινικών', 94, 0.53, null],
+    ['Παθολογική', 52, 0.29, null],
+    ['Καρδιολογική', 20, 0.11, null],
+    ['Ογκολογικό', 10, 0.06, 8],
+    ['Σύνολο Παθολογικών Κλινικών', 82, 0.47, 8],
+    ['ΣΥΝΟΛΟ ΚΛΙΝΩΝ', 176, 1, 8],
+  ]), 'Συνολο Κλινών');
+
+  /* «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ»: ΟΑΥ revenue per clinic, two periods side by side.
+     «Ογκολογία: …» is billed on two lines that belong to one clinic, and the
+     rows after ΣΥΝΟΛΟ are pharmacy lines and adjustments, not clinics. */
+  const rev = (name, c, p) => [name, ...c, c.reduce((a, b) => a + b, 0), ...p, p.reduce((a, b) => a + b, 0)];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['ΠΙΝΑΚΑΣ ΣΥΝΟΛΙΚΩΝ ΕΣΟΔΩΝ'],
+    [],
+    [null, `JAN-ΜΑΡ ${YEAR}`, null, null, null, `JAN-ΜΑΡ${YEAR - 1}`],
+    ['Κλινική /Τμήμα', 'INPATIENT', 'OUTPATIENT', 'DAY CARE', 'TOTAL', 'INPATIENT', 'OUTPATIENT', 'DAY CARE', 'TOTAL'],
+    [null, '€', '€', '€', '€', '€', '€', '€', '€'],
+    rev('Παθολογία',            [214600, 18400, 9200],  [232700, 17900, 8100]),
+    rev('Γενική Χειρουργική',   [186900, 12300, 4100],  [201400, 11800, 5200]),
+    rev('Καρδιολογία',          [163400,  9800, 2600],  [128900,  9200,    0]),
+    rev('Ορθοπαιδική',          [ 98200,  7400,  500],  [ 86300,  7100,  300]),
+    rev('Παιδιατρική',          [ 61500,  6900,  700],  [ 58800,  6400,  600]),
+    rev('Γυναικολογία',         [ 54300,  5200,  200],  [ 66100,  5600,  400]),
+    rev('Ογκολογία: Ιατρική',   [ 21400,     0, 12800], [ 19100,     0, 11200]),
+    rev('Ογκολογία: Παθολογική',[     0,  3100,     0], [     0,  2800,     0]),
+    rev('Νεφρολογία',           [ 18900,  4100, 41200], [ 16400,  3900, 38700]),
+    ['Σύνολο', 819200, 67200, 71300, 957700, 809700, 64700, 64500, 938900],
+    ['Αναλώσιμα', null, 508, null, 508, null, 631, null, 631],
+    ['Προσαρμογή 05/2025', -12000, null, null, -12000, 0, null, null, 0],
+  ]), 'ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    [`ΛΟΓΑΡΙΑΣΜΟΣ ΑΠΟΤΕΛΕΣΜΑΤΩΝ ΓΙΑ ΤΗΝ ΠΕΡΙΟΔΟ ΙΑΝΟΥΑΡΙΟΣ - ΜΑΡΤΙΟΣ ${YEAR}`],
+    [],
+    [null, YEAR, YEAR - 1],
+    ['ΕΣΟΔΑ'],
+    ['Ενδονοσοκομειακή Φρ. ΟΑΥ', 819200, 809700],
+    ['Εξωνοσοκομειακή Φρ. ΟΑΥ', 67200, 64700],
+    ['Ημερήσιες Νοσηλείες ΟΑΥ', 71300, 64500],
+    ['ΤΑΕΠ Ενηλίκων ΟΑΥ', 84500, 78200],
+    ['ΥΠΑΣ ΟΑΥ²'],
+    ['ΣΥΝΟΛΟ ΕΣΟΔΩΝ', 1042200, 1017100],
+    [],
+    ['ΕΞΟΔΑ'],
+    ['Έξοδα Μισθοδοσίας'],
+    ['Συμβόλαιο ΟΚΥπΥ', 611400, 588300],
+    ['Σύνολο', 611400, 588300],
+    ['Λειτουργικές Δαπάνες'],
+    ['Ανάλωση Προμηθειών', 288300, 301700],
+    ['Σύνολο', 288300, 301700],
+    ['ΣΥΝΟΛΟ ΕΞΟΔΩΝ', 899700, 890000],
+    [],
+    ['ΠΛΕΟΝΑΣΜΑ / (ΕΛΛΕΙΜΜΑ)', 142500, -9400],
+    ['² ΥΠΑΣ = Υπηρεσία Ασθενοφόρων'],
+  ]), 'P&L');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Υ.Γ.Ο.Σ.', YEAR, YEAR - 1, YEAR - 2, null, null, 'Αρμόδιες Αρχές', null, YEAR, YEAR - 1],
+    [null, '€', '€', '€'],
+    ['Μεταμοσχευτική Κλινική', 114899, 112646, 110437, null, null, 'Δημόσια Υγεία', null, 31522, 31449],
+    ['Κέντρο Τραύματος', 108513, 106385, 104299],
+    ['ΣΥΝΟΛΟ', 223412, 219031, 214736],
+    ['Για να βρω τα αναλυτικά ποσά υπολογίζω 2% αύξηση.'],
+  ]), 'ΥΓΟΣ&ΤΑΕΠ');
+
   return wb;
 }
 
@@ -283,6 +365,28 @@ function isWorkbook(subMonth) {
       });
     }
   }
+  /* a specialty the stats workbook has no clinic for: it is billed, it is not
+     day-care and not DRG, and it must stay visible instead of being folded into
+     someone else's row */
+  for (let i = 0; i < 4; i++) {
+    push({
+      'Billing Provider Name': NGH,
+      'Case Nbr': `P${++caseSeq}`,
+      'DRG Id': 'nan',
+      'Procedure Id': 'ZP-200',
+      'Hospitalisation Type': '2 - Outpatient',
+      'Admission Type': 'P - Planned',
+      'Discharge Type': '1 - Home',
+      'Quantity': 1,
+      'Adjusted Cost Weight': 0,
+      'Actual Length Of Stay': 0,
+      'DRG/FF Total Amount(Hospital + Total Doctor)': 640,
+      'Procedures Total Amount': 120,
+      'Claim Speciality': 'PALLIATIVE CARE',
+      'Discharge Date': dmy(2026, Math.min(subMonth, 3), 6 + i),
+    });
+  }
+
   /* Makarios rows in the same file — they must stay out of the Nicosia figures */
   for (let i = 0; i < 12; i++) {
     push({
@@ -403,6 +507,77 @@ function osWorkbook(code, month) {
   return wb;
 }
 
+/* ---------- «Έκθεση Στατιστικών» (.docx) ----------
+   A Word file is a ZIP of XML. Only the parts the reader looks at are written,
+   and every entry is stored uncompressed — which the app's ZIP reader supports
+   without inflating, so the fixture needs no compression library. */
+const CRC_TABLE = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c; }
+  return t;
+})();
+const crc32 = (buf) => {
+  let c = -1;
+  for (const b of buf) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+};
+
+function storedZip(entries) {
+  const locals = [], central = [];
+  let offset = 0;
+  for (const [name, text] of entries) {
+    const nameBuf = Buffer.from(name, 'utf8');
+    const data = Buffer.from(text, 'utf8');
+    const crc = crc32(data);
+    const local = Buffer.alloc(30 + nameBuf.length);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(0x800, 6);
+    local.writeUInt16LE(0, 8);                       // stored
+    local.writeUInt32LE(crc, 14); local.writeUInt32LE(data.length, 18); local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    nameBuf.copy(local, 30);
+    const dir = Buffer.alloc(46 + nameBuf.length);
+    dir.writeUInt32LE(0x02014b50, 0); dir.writeUInt16LE(20, 4); dir.writeUInt16LE(20, 6); dir.writeUInt16LE(0x800, 8);
+    dir.writeUInt16LE(0, 10);
+    dir.writeUInt32LE(crc, 16); dir.writeUInt32LE(data.length, 20); dir.writeUInt32LE(data.length, 24);
+    dir.writeUInt16LE(nameBuf.length, 28); dir.writeUInt32LE(offset, 42);
+    nameBuf.copy(dir, 46);
+    locals.push(local, data); central.push(dir);
+    offset += local.length + data.length;
+  }
+  const dirBuf = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(dirBuf.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, dirBuf, end]);
+}
+
+const REPORT_PARAGRAPHS = [
+  'ΣΤΑΤΙΣΤΙΚΑ ΣΤΟΙΧΕΙΑ 2019-2026',
+  'Περίοδος Σύγκρισης: Ιανουάριος - Μάρτιος 2019-2026',
+  'Αγαπητοί Διευθυντές Κλινικών / Τμημάτων,',
+  'ΑΝΑΛΥΣΗ ΣΤΑΤΙΣΤΙΚΩΝ ΔΕΔΟΜΕΝΩΝ',
+  'Επισκέψεις Εξωτερικών Ιατρείων (Διαφάνεια 6)',
+  'Οι επισκέψεις στα Εξωτερικά Ιατρεία παρουσίασαν μικρή αύξηση σε σχέση με το 2025.',
+  'Παθολογική',
+  '2026 → 1.715',
+  '2025 → 1.602',
+  'Η Ορθοπαιδική και η Καρδιολογική συνέχισαν την ανοδική τους πορεία.',
+  'Εισαγωγές Ασθενών (Διαφάνεια 8)',
+  'Οι εισαγωγές της Γενικής Χειρουργικής υποχώρησαν σε σχέση με την αντίστοιχη περίοδο του 2025.',
+];
+
+function reportDocx() {
+  const body = REPORT_PARAGRAPHS
+    .map(p => `<w:p><w:r><w:t xml:space="preserve">${p.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</w:t></w:r></w:p>`)
+    .join('');
+  return storedZip([
+    ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'],
+    ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
+    ['word/document.xml', `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`],
+  ]);
+}
+
 /* ---------- an unrecognised file, to prove the error path ---------- */
 function junkWorkbook() {
   const wb = XLSX.utils.book_new();
@@ -423,6 +598,7 @@ export const FIXTURES = {
   allae: [1, 2, 3].map(m => `ALL and AE ${String(m).padStart(2, '0')}.2026.xlsx`),
   os: OS_CODES.flatMap(c => [1, 2, 3, 4].map(m => `${c} Πληρωμένες Απαιτήσεις OS ${String(m).padStart(2, '0')}.2026.xlsx`)),
   junk: 'Τιμολόγιο Προμηθευτή.xlsx',
+  report: 'Έκθεση Στατιστικών ΓΝ Λευκωσίας Ιανουάριος Μάρτιος 2026.docx',
 };
 
 export async function makeFixtures({ quiet = false } = {}) {
@@ -434,6 +610,7 @@ export async function makeFixtures({ quiet = false } = {}) {
   let i = 0;
   for (const c of OS_CODES) for (let m = 1; m <= 4; m++) await write(osWorkbook(c, m), FIXTURES.os[i++]);
   await write(junkWorkbook(), FIXTURES.junk);
+  await writeFile(join(OUT_DIR, FIXTURES.report), reportDocx());
   if (!quiet) console.log(`✓ ${OUT_DIR}`);
   return OUT_DIR;
 }

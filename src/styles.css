@@ -82,3 +82,16 @@ table.ok .delta{font-size:12.5px;font-weight:700;white-space:nowrap}
    card instead of one stretched across the row */
 #clinicDetail .kpis{grid-template-columns:repeat(auto-fill,minmax(215px,1fr))}
 .kpi .subline{font-size:13.5px;margin-top:2px}
+/* clinic picker buttons */
+.clinicbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.cbtn{font:inherit;font-size:13px;line-height:1.2;color:var(--blue-deep);background:#fff;border:1px solid var(--grey);
+  border-radius:16px;padding:6px 12px;cursor:pointer;transition:background .12s,border-color .12s}
+.cbtn:hover{background:#eaf6fd;border-color:var(--blue-logo)}
+.cbtn:focus-visible{outline:2px solid var(--blue-logo);outline-offset:1px}
+.cbtn.on{background:var(--blue-deep);border-color:var(--blue-deep);color:#fff;font-weight:700}
+ul.reportnotes{margin:0 0 6px 18px;font-size:13.5px;line-height:1.5}
+ul.reportnotes li{margin-bottom:7px}
+table.ok.pl tr.plhead td{background:#f0f8fd;font-weight:700;color:var(--blue-deep)}
+table.ok.pl{min-width:420px}
+table.ok td.r,table.ok th.r{white-space:nowrap}
+table.ok.pl tr.plstrong td{font-weight:700;background:#f4f9ee}

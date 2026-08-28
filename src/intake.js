@@ -7,6 +7,8 @@ import { parseStats } from './parsers/stats.js';
 import { parseIS } from './parsers/is.js';
 import { parseOS } from './parsers/os.js';
 import { parseALLAE } from './parsers/allae.js';
+import { parseReport } from './parsers/report.js';
+import { zipIndex } from './zip.js';
 import { render } from './render/dashboard.js';
 import { el } from './render/dom.js';
 
@@ -14,6 +16,16 @@ export async function handleFiles(files){
   for(const f of files){
     try{
       const ab=await f.arrayBuffer();
+      /* .docx and .xlsx are both ZIPs; the entries say which, so the type is
+         still decided by content and not by the file name */
+      const bytes=new Uint8Array(ab);
+      if(zipIndex(bytes)?.has('word/document.xml')){
+        if(state.reportFiles.has(f.name)){ addChip(f.name+' (ήδη φορτωμένο)','bad'); continue; }
+        const rep=await parseReport(bytes,f.name);
+        if(rep){ state.report=rep; state.reportFiles.add(f.name); addChip(f.name+' — έκθεση, '+rep.paraCount+' παράγραφοι','stats'); }
+        else addChip(f.name+' — δεν διαβάστηκε η έκθεση (χρειάζεται πρόσφατος Chrome/Edge)','bad');
+        continue;
+      }
       const wb=XLSX.read(ab,{type:'array'});
       const cls=classify(wb);
       if(cls==='stats'){ state.stats=parseStats(wb); addChip(f.name,'stats'); }
@@ -36,7 +48,7 @@ export async function handleFiles(files){
         if(rec&&rec.month){ state.allae.push(rec); state.aeFiles.add(f.name); addChip(f.name,'is'); }
         else addChip(f.name+' — άγνωστη δομή ALL and AE','bad');
       }
-      else addChip(f.name+' — δεν αναγνωρίστηκε ο τύπος αρχείου (υποστηρίζονται: στατιστικά νοσοκομείου, IS Auditor, ALL and AE, Πληρωμένες Απαιτήσεις OS)','bad');
+      else addChip(f.name+' — δεν αναγνωρίστηκε ο τύπος αρχείου (υποστηρίζονται: στατιστικά νοσοκομείου, IS Auditor, ALL and AE, Πληρωμένες Απαιτήσεις OS, Έκθεση Στατιστικών)','bad');
     }catch(e){ addChip(f.name+' — σφάλμα ανάγνωσης','bad'); console.error(e); }
   }
   try{ render(); }catch(e){ window.__renderError=e.stack||e.message; console.error('render failed',e); }

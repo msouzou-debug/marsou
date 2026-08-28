@@ -18,16 +18,23 @@ import { requirePrerequisites, DIST_FILE, REFERENCE_FILE, fixturePayloads, asser
 requirePrerequisites();
 
 const FILES = fixturePayloads();
+/* v1.4 only ever read spreadsheets; handing it the Word report would make it
+   log a parse error that has nothing to do with a regression */
+const SPREADSHEETS = FILES.filter(f => !/\.docx$/i.test(f.name));
 
 /* the regions v1.4 rendered — the contract this test defends */
 const LEGACY_REGIONS = ['story', 'kpis', 'trends', 'targets', 'flags', 'hio', 'allae', 'os', 'method'];
 /* the row fields v1.4's IS parser produced; the parser has since gained
    `spec` and `proc` for the per-clinic view */
 const LEGACY_IS_FIELDS = ['prov', 'caseNbr', 'drg', 'pid', 'ht', 'at', 'dt', 'qty', 'acw', 'alos', 'ff', 'dd', 'file'];
+/* likewise the stats model, which has since gained `beds`, `fin` and the
+   «Μικρά Χειρουργεία» table */
+const LEGACY_STATS_FIELDS = ['kpi', 'dq', 'title', 'hospital', 'hospitalGr', 'year', 'mN', 'blocks'];
+const LEGACY_ANNUAL = ['adm', 'out', 'surg'];
 
 let browser;
 
-async function snapshot(file) {
+async function snapshot(file, files = FILES) {
   const page = await browser.newPage();
   const problems = [], failedRequests = [];
   page.on('pageerror', e => problems.push(`pageerror: ${e.message}`));
@@ -37,14 +44,14 @@ async function snapshot(file) {
   page.on('requestfailed', r => failedRequests.push(r.url()));
 
   await page.goto(pathToFileURL(file).href);
-  await page.setInputFiles('#fileInput', FILES);
+  await page.setInputFiles('#fileInput', files);
   await page.waitForFunction(
     n => document.querySelectorAll('#chips .chip').length === n && document.getElementById('method').innerHTML.length > 0,
-    FILES.length,
+    files.length,
     { timeout: 120_000 },
   );
 
-  const snap = await page.evaluate(({ regions, isFields }) => {
+  const snap = await page.evaluate(({ regions, isFields, statsFields, annualKeys }) => {
     const S = window.OKYPY.state;
     const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) =>
       x instanceof Set ? { set: [...x] } : x instanceof Map ? { map: [...x.entries()] } : x));
@@ -52,7 +59,10 @@ async function snapshot(file) {
     for (const id of regions) legacy[id] = document.getElementById(id)?.innerHTML ?? null;
     return {
       renderError: window.__renderError ?? null,
-      stats: JSON.stringify(plain(S.stats)),
+      stats: JSON.stringify(plain(Object.fromEntries([
+        ...statsFields.map(f => [f, S.stats?.[f] ?? null]),
+        ['annual', Object.fromEntries(annualKeys.map(k => [k, S.stats?.annual?.[k] ?? null]))],
+      ]))),
       isRows: JSON.stringify(S.isRows.map(r => isFields.map(f => plain(r[f])))),
       allae: JSON.stringify(plain(S.allae)),
       files: JSON.stringify({ is: [...S.isFiles], ae: [...S.aeFiles], os: [...S.osFiles], codes: [...S.osCodes] }),
@@ -62,11 +72,15 @@ async function snapshot(file) {
       legacy: JSON.stringify(legacy),
       /* v1.4 has no such element at all — absent must not read as «visible» */
       hasClinics: document.getElementById('secClinics')?.classList.contains('hidden') === false,
-      clinicOptions: [...document.querySelectorAll('#clinicPick option')].map(o => o.textContent),
+      hasFinance: document.getElementById('secFinance')?.classList.contains('hidden') === false,
+      clinicButtons: [...document.querySelectorAll('#clinics .cbtn')].map(b => b.textContent),
+      selected: document.querySelector('#clinics .cbtn.on')?.textContent ?? null,
       clinicsHTML: document.getElementById('clinics')?.innerHTML ?? '',
+      financeHTML: document.getElementById('finance')?.innerHTML ?? '',
+      reportParas: window.OKYPY.state.report?.paraCount ?? null,
       main: document.querySelector('main').innerHTML,
     };
-  }, { regions: LEGACY_REGIONS, isFields: LEGACY_IS_FIELDS });
+  }, { regions: LEGACY_REGIONS, isFields: LEGACY_IS_FIELDS, statsFields: LEGACY_STATS_FIELDS, annualKeys: LEGACY_ANNUAL });
   await page.close();
   return { snap, problems, failedRequests };
 }
@@ -79,7 +93,7 @@ const ALLOWED_FAILED_REQUEST = /^https:\/\/fonts\.googleapis\.com\//;
 let ref, built;
 before(async () => {
   browser = await chromium.launch();
-  ref = await snapshot(REFERENCE_FILE);
+  ref = await snapshot(REFERENCE_FILE, SPREADSHEETS);
   built = await snapshot(DIST_FILE);
 });
 after(async () => { await browser?.close(); });
@@ -98,26 +112,51 @@ test('ό,τι έδειχνε το v1.4, το δείχνει ακόμη ίδιο'
   }
 });
 
-test('η ενότητα «Ανά κλινική» υπάρχει μόνο στο νέο build', () => {
+test('οι νέες ενότητες υπάρχουν μόνο στο νέο build', () => {
   assert.equal(ref.snap.hasClinics, false, 'το v1.4 δεν είχε ανάλυση ανά κλινική');
+  assert.equal(ref.snap.hasFinance, false);
   assert.equal(built.snap.hasClinics, true);
-  assert.deepEqual(built.snap.clinicOptions,
-    ['Παθολογική', 'Χειρουργική', 'Καρδιολογική', 'Γυναικολογική', 'Ορθοπεδική', 'Παιδιατρική', 'Ογκολογικό', 'Ρευματολογικό'],
-    'όλες οι κλινικές των φύλλων, ταξινομημένες κατά εισαγωγές');
+  assert.equal(built.snap.hasFinance, true);
 });
 
-test('η καρτέλα κλινικής δείχνει δείκτες, έσοδα ΟΑΥ και διαχρονική πορεία', () => {
+test('ένα κουμπί ανά κλινική, ταξινομημένα κατά έσοδα ΟΑΥ', () => {
+  assert.deepEqual(built.snap.clinicButtons,
+    ['Παθολογία', 'Γενική Χειρουργική', 'Καρδιολογία', 'Ορθοπαιδική', 'Παιδιατρική',
+     'Νεφρολογία', 'Γυναικολογία', 'Ογκολογία', 'Ρευματολογικό'],
+    'κάθε κλινική των φύλλων και του οικονομικού πίνακα, μία φορά');
+  assert.equal(built.snap.selected, 'Παθολογία', 'η πρώτη είναι επιλεγμένη εξ αρχής');
+});
+
+test('η καρτέλα κλινικής δείχνει έσοδα, δραστηριότητα και διαχρονική πορεία', () => {
   const html = built.snap.clinicsHTML;
-  assert.match(html, /Η κλινική έκλεισε την περίοδο με 187 εισαγωγές, \+4,5% σε σχέση με πέρσι/);
+  assert.match(html, /Η κλινική τιμολόγησε στον ΟΑΥ 242\.200 €/);
+  assert.match(html, /Έσοδα ΟΑΥ — Ιανουάριος-Μαρ 2026/);
+  assert.match(html, /Ενδονοσοκομειακή φροντίδα/);
+  assert.match(html, /Έγιναν 187 εισαγωγές/);
   assert.match(html, /Διαχρονικά 2024→2026/);
-  assert.match(html, /Τιμολογημένα έσοδα ΟΑΥ/);
-  assert.match(html, /221\.309 €/, 'έσοδα ΟΑΥ της Παθολογικής');
-  assert.match(html, /1η από 6 σε εισαγωγές/);
-  assert.match(html, /31,4% του νοσοκομείου/);
-  /* revenue with no matching clinic is shown, not quietly dropped */
-  assert.match(html, /NEPHROLOGY \(79\.288 €\)/);
-  /* and the caveat about what per-clinic revenue does not include */
-  assert.match(html, /δεν περιλαμβάνουν ΤΑΕΠ ή εξωτερικά ιατρεία/);
+  assert.match(html, /Έσοδο ανά κλίνη/);
+  assert.match(html, /52 κλίνες/);
+  /* a specialty with no clinic stays visible instead of being folded in */
+  assert.match(html, /PALLIATIVE CARE/);
+});
+
+test('η καρτέλα δείχνει τα σχόλια της έκθεσης για τη συγκεκριμένη κλινική', () => {
+  assert.equal(built.snap.reportParas, 12, 'το .docx διαβάστηκε στον browser');
+  const html = built.snap.clinicsHTML;
+  assert.match(html, /Από την έκθεση/);
+  assert.match(html, /Επισκέψεις Εξωτερικών Ιατρείων \(Διαφάνεια 6\)/);
+  assert.match(html, /2026 → 1\.715/);
+});
+
+test('τα οικονομικά αποτελέσματα βγαίνουν από το ίδιο αρχείο', () => {
+  const html = built.snap.financeHTML;
+  assert.match(html, /Σύνολο εσόδων ΟΑΥ ανά κλινική/);
+  assert.match(html, /957\.700 €/);
+  assert.match(html, /Λογαριασμός αποτελεσμάτων/);
+  assert.match(html, /ΣΥΝΟΛΟ ΕΣΟΔΩΝ/);
+  /* a percentage against a negative base would be nonsense; the move is in € */
+  assert.match(html, /\+151\.900 €/);
+  assert.match(html, /Υπηρεσίες Γενικού Οικονομικού Συμφέροντος/);
 });
 
 test('το πακέτο διαβάζει και τις τέσσερις οικογένειες αρχείων και απορρίπτει τα άγνωστα', () => {

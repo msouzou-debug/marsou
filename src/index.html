@@ -26,10 +26,11 @@
     <p><b>1.</b> Το μηνιαίο αρχείο «ΣΤΑΤΙΣΤΙΚΑ ΣΤΟΙΧΕΙΑ» του νοσοκομείου (υποχρεωτικό)<br>
        <b>2.</b> Προαιρετικά: τα μηνιαία IS Auditor Reports του ΟΑΥ — ενεργοποιούν τη διασταύρωση δραστηριότητας/τιμολόγησης<br>
        <b>3.</b> Προαιρετικά: τα μηνιαία ALL and AE (πληρωμές ΟΑΥ) — προσθέτουν έσοδα ανά επίσκεψη ΤΑΕΠ/εξωτερικών<br>
-       <b>4.</b> Προαιρετικά: τα αρχεία «Πληρωμένες Απαιτήσεις OS» (F1054 κ.λπ.) — προσθέτουν κάλυψη ΓεΣΥ ανά επίσκεψη</p>
+       <b>4.</b> Προαιρετικά: τα αρχεία «Πληρωμένες Απαιτήσεις OS» (F1054 κ.λπ.) — προσθέτουν κάλυψη ΓεΣΥ ανά επίσκεψη<br>
+       <b>5.</b> Προαιρετικά: η «Έκθεση Στατιστικών» (.docx) — τα σχόλιά της εμφανίζονται στην καρτέλα κάθε κλινικής</p>
     <p class="hint">Όλα τρέχουν τοπικά στον browser σας — τίποτα δεν φεύγει από τον υπολογιστή σας.</p>
     <div class="filechips" id="chips"></div>
-    <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm" style="display:none">
+    <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.docx" style="display:none">
   </div>
 
   <div id="dash" class="hidden">
@@ -37,6 +38,8 @@
     <section><h2>Βασικοί δείκτες <small>έναντι της ίδιας περιόδου του προηγούμενου έτους</small></h2><div class="kpis" id="kpis"></div></section>
     <section id="secTrends"><h2>Τάσεις <small>ανά μήνα</small></h2><div class="grid3" id="trends"></div></section>
     <section id="secTargets"><h2>Στόχοι έτους — αναλογική πορεία <small id="targetNote"></small></h2><div class="grid2" id="targets"></div></section>
+    <section id="secFinance" class="hidden"><h2>Οικονομικά αποτελέσματα <small>έσοδα ΟΑΥ, λογαριασμός αποτελεσμάτων και ΥΓΟΣ</small></h2>
+      <div id="finance"></div></section>
     <section id="secClinics" class="hidden"><h2>Ανά κλινική <small>δείκτες, έσοδα ΟΑΥ και διαχρονική πορεία της κάθε κλινικής</small></h2>
       <div id="clinics"></div></section>
     <section id="secFlags"><h2>Σημεία προσοχής</h2><div class="flags" id="flags"></div></section>

@@ -2,6 +2,28 @@
 import { U } from '../util.js';
 import { grid, findSheet, parseBlocks, parseAnnualTable } from '../workbook.js';
 import { KPI_DEFS, HOSP_KEYS } from '../domain.js';
+import { parseFinancials } from './financials.js';
+
+/* «Συνολο Κλινών»: a month-end snapshot, one row per clinic —
+   Κλινική | Κλίνες Αρ. | % | Ημερήσια Φροντίδα Αρ. | Αιμοκάθαρση Αρ.
+   The table carries group subtotals («Σύνολο Χειρουργικών Κλινικών») between
+   the clinics; those are skipped, not treated as the end of the list. */
+function parseBedTable(g){
+  for(let r=0;r<Math.min(g.length,10);r++){
+    if(!/^Κλινικ/i.test(String(g[r]?.[0]??'').trim())) continue;
+    const rows=[];
+    for(let rr=r+1;rr<g.length;rr++){
+      const label=typeof g[rr]?.[0]==='string'?g[rr][0].trim():'';
+      if(!label||/^ΣΥΝΟΛ/i.test(U.deacc(label).toUpperCase())) continue;
+      const beds=U.numRaw(g[rr][1]);
+      const dayCare=U.numRaw(g[rr][3]);
+      if(beds==null&&dayCare==null) continue;
+      rows.push({name:label,beds:beds>0?beds:null,dayCareBeds:dayCare>0?dayCare:null});
+    }
+    if(rows.length) return rows;
+  }
+  return null;
+}
 
 export function parseStats(wb){
   const S={kpi:{},dq:[],title:'',hospital:null,hospitalGr:'',year:null,mN:null};
@@ -65,6 +87,13 @@ export function parseStats(wb){
   if(sheets.adm) S.annual.adm=parseAnnualTable(grid(sheets.adm));
   if(sheets.out) S.annual.out=parseAnnualTable(grid(sheets.out));
   if(sheets.surg) S.annual.surg=parseAnnualTable(grid(sheets.surg));
+  /* per-clinic tables that are not monthly blocks */
+  const wsMinor=findSheet(wb,/Μικρά Χειρουργ/i);
+  if(wsMinor) S.annual.minor=parseAnnualTable(grid(wsMinor));
+  const wsBeds=findSheet(wb,/Συν[οό]λο Κλιν[ώω]ν/i);   // not «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ», which is the revenue sheet
+  S.beds=wsBeds?parseBedTable(grid(wsBeds)):null;
+  /* the same workbook carries the ΟΑΥ revenue per clinic and the hospital P&L */
+  S.fin=parseFinancials(wb);
   // months elapsed fallback: TAEP adults 2026 months present
   if(!S.mN&&S.blocks.taep){
     const ad=S.blocks.taep.find(b=>/Ενηλίκων/i.test(b.name));

@@ -62,7 +62,7 @@ test('το σημείο εκκίνησης του v1.4 μένει στο απο�
 /* Positions added after v1.4 — the section, its container, and the two ids the
    clinic panel creates at runtime. Listing them here means a section can only
    appear deliberately, and that nothing v1.4 rendered can quietly disappear. */
-const ADDED_IDS = ['secClinics', 'clinics', 'clinicPick', 'clinicDetail'];
+const ADDED_IDS = ['secClinics', 'clinics', 'clinicDetail', 'secFinance', 'finance'];
 
 test('η σήμανση του v1.4 διατηρείται· οι νέες ενότητες δηλώνονται ρητά', () => {
   const ref = readFileSync(REFERENCE_FILE, 'utf8');

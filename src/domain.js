@@ -36,47 +36,108 @@ export const OP_EXCLUDE=['PHARMA','MED EQ','BASIC TESTS','Inpatient','DRUGS','DR
 export const OS_LAB=['DIAGNOSTIC RADIOLOGY','PATHOLOGICAL ANATOMY','CYTOLOGY','MEDICAL MICROBIOLOGY','BIOPATHOLOGY'];
 
 /* ---------- clinic identity ----------
-   The same clinic is written differently on every sheet — «Παθολογική» on the
-   admissions sheet, «Παθολογικά» (ιατρεία) on the outpatient one, «Παθολογικό»
-   on a day-care unit — and the ΟΑΥ files name it in English under
-   `Claim Speciality`. Everything is reduced to one key so the indicators of a
-   clinic land in the same row.
+   The same clinic is written a different way on every sheet of the same
+   workbook. From the real ΓΝ Λευκωσίας file: «Παθολογία» (εισαγωγές),
+   «Παθολογίας» (εξωτερικά), «Γεν. Χειρουργική» vs «Γενική Χειρουργική»,
+   «Νευροχειρ.» vs «Νευροχειρουργική», «Nεφρολογία» with a Latin N,
+   «Γναθοπροσωποχειρουργκή» with a typo, «Πυρινική» for «Πυρηνική», plus
+   abbreviations the sheets use as names of their own (ΩΡΛ, ΜΕΘ, ΚΑΡΕ).
 
-   The rule is deliberately narrow: strip the wrapper words, then cut the
-   adjective ending back to its -ΙΚ- stem. It merges declensions of the same
-   word and nothing else. */
-/* \b is ASCII-only in JavaScript, so Greek words need explicit letter boundaries */
-const CLINIC_WRAPPERS=/(?<![Α-ΩA-Z])(ΚΛΙΝΙΚΗ|ΚΛΙΝΙΚΕΣ|ΚΛΙΝΙΚΩΝ|ΙΑΤΡΕΙΟ|ΙΑΤΡΕΙΑ|ΙΑΤΡΕΙΩΝ|ΜΟΝΑΔΑ|ΜΟΝΑΔΕΣ|ΤΜΗΜΑ|ΤΜΗΜΑΤΑ|ΘΑΛΑΜΟΣ|ΤΟΜΕΑΣ)(?![Α-ΩA-Z])/g;
+   Everything is reduced to one key so a clinic's indicators, its ΟΑΥ revenue
+   and the report's commentary all land on the same row. The rules are narrow
+   and ordered: fix the characters, fix the known misspellings, drop the wrapper
+   words, cut each word to its stem, then look up the aliases that cannot be
+   derived. Anything that still fails to match is shown in the UI as unmatched
+   rather than guessed at. */
 
-/* `Claim Speciality` arrives in English. Only the mappings below are trusted;
-   anything else is stemmed as Greek and, if it still matches no clinic, listed
-   in the UI as unmatched rather than silently dropped. */
-export const SPECIALITY_SYNONYMS={
-  'INTERNAL MEDICINE':'ΠΑΘΟΛΟΓΙΚ', 'GENERAL MEDICINE':'ΠΑΘΟΛΟΓΙΚ',
-  'GENERAL SURGERY':'ΧΕΙΡΟΥΡΓΙΚ', 'SURGERY':'ΧΕΙΡΟΥΡΓΙΚ',
-  'CARDIOLOGY':'ΚΑΡΔΙΟΛΟΓΙΚ', 'CARDIAC SURGERY':'ΚΑΡΔΙΟΧΕΙΡΟΥΡΓΙΚ',
-  'ORTHOPAEDICS':'ΟΡΘΟΠΕΔΙΚ', 'ORTHOPEDICS':'ΟΡΘΟΠΕΔΙΚ',
-  'PAEDIATRICS':'ΠΑΙΔΙΑΤΡΙΚ', 'PEDIATRICS':'ΠΑΙΔΙΑΤΡΙΚ',
-  'OBSTETRICS AND GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓΙΚ', 'OBSTETRICS GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓΙΚ',
-  'GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓΙΚ', 'GYNECOLOGY':'ΓΥΝΑΙΚΟΛΟΓΙΚ', 'OBSTETRICS':'ΓΥΝΑΙΚΟΛΟΓΙΚ',
-  'ONCOLOGY':'ΟΓΚΟΛΟΓΙΚ', 'MEDICAL ONCOLOGY':'ΟΓΚΟΛΟΓΙΚ', 'RADIATION ONCOLOGY':'ΑΚΤΙΝΟΘΕΡΑΠΕΥΤΙΚ',
-  'RHEUMATOLOGY':'ΡΕΥΜΑΤΟΛΟΓΙΚ', 'NEPHROLOGY':'ΝΕΦΡΟΛΟΓΙΚ', 'NEUROLOGY':'ΝΕΥΡΟΛΟΓΙΚ',
-  'NEUROSURGERY':'ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚ', 'UROLOGY':'ΟΥΡΟΛΟΓΙΚ',
-  'OTORHINOLARYNGOLOGY':'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓΙΚ', 'ENT':'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓΙΚ',
-  'OPHTHALMOLOGY':'ΟΦΘΑΛΜΟΛΟΓΙΚ', 'GASTROENTEROLOGY':'ΓΑΣΤΡΕΝΤΕΡΟΛΟΓΙΚ',
-  'PULMONOLOGY':'ΠΝΕΥΜΟΝΟΛΟΓΙΚ', 'RESPIRATORY MEDICINE':'ΠΝΕΥΜΟΝΟΛΟΓΙΚ',
-  'HAEMATOLOGY':'ΑΙΜΑΤΟΛΟΓΙΚ', 'HEMATOLOGY':'ΑΙΜΑΤΟΛΟΓΙΚ',
-  'ENDOCRINOLOGY':'ΕΝΔΟΚΡΙΝΟΛΟΓΙΚ', 'DERMATOLOGY':'ΔΕΡΜΑΤΟΛΟΓΙΚ',
-  'PSYCHIATRY':'ΨΥΧΙΑΤΡΙΚ', 'PLASTIC SURGERY':'ΠΛΑΣΤΙΚ ΧΕΙΡΟΥΡΓΙΚ',
-  'VASCULAR SURGERY':'ΑΓΓΕΙΟΧΕΙΡΟΥΡΓΙΚ', 'THORACIC SURGERY':'ΘΩΡΑΚΟΧΕΙΡΟΥΡΓΙΚ',
-  'INTENSIVE CARE UNIT':'ΜΕΘ', 'INTENSIVE CARE':'ΜΕΘ',
+/* the sheets mix Latin lookalikes into Greek words */
+const HOMOGLYPHS = { A:'Α', B:'Β', E:'Ε', Z:'Ζ', H:'Η', I:'Ι', K:'Κ', M:'Μ', N:'Ν',
+  O:'Ο', P:'Ρ', T:'Τ', X:'Χ', Y:'Υ' };
+
+/* misspellings that recur in the source files, normalised on the stem */
+const SPELLING = [
+  [/ΓΑΣΤΡΟΕΝΤΕΡ/g, 'ΓΑΣΤΡΕΝΤΕΡ'],
+  [/ΠΥΡΙΝΙΚ/g, 'ΠΥΡΗΝΙΚ'],
+  [/ΟΡΘΟΠΕΔ/g, 'ΟΡΘΟΠΑΙΔ'],
+  [/ΝΕΥΡΟΛΟΓΗΚ/g, 'ΝΕΥΡΟΛΟΓΙΚ'],
+];
+
+/* words that describe the unit rather than name it. ΕΡΓΑΣΤΗΡΙΟ is deliberately
+   not here: «Κλινικά Εργαστήρια» would be left with nothing. */
+const WRAPPERS = new Set(['ΚΛΙΝΙΚΗ','ΚΛΙΝΙΚΗΣ','ΚΛΙΝΙΚΕΣ','ΚΛΙΝΙΚΩΝ','ΚΛΙΝΙΚΟ',
+  'ΙΑΤΡΕΙΟ','ΙΑΤΡΕΙΑ','ΙΑΤΡΕΙΩΝ','ΤΜΗΜΑ','ΤΜΗΜΑΤΑ','ΜΟΝΑΔΑ','ΜΟΝΑΔΕΣ','ΘΑΛΑΜΟΣ','ΤΟΜΕΑΣ']);
+
+/* Greek declension endings, longest first so «ΙΚΗΣ» is cut before «ΗΣ» */
+const ENDINGS = /(ΙΚΗΣ|ΙΚΟΥ|ΙΚΩΝ|ΙΚΕΣ|ΙΚΟΙ|ΙΚΟΣ|ΙΚΗ|ΙΚΟ|ΙΚΑ|ΙΑΣ|ΙΑ|ΟΣ|ΟΥ|ΗΣ|ΩΝ|ΕΣ|Η|Α|Ο)$/;
+
+/* keys that no rule can produce: abbreviations, and the Greek↔English pairs the
+   ΟΑΥ files use. Applied after stemming, so «ΩΡΛ» and «Ωτορινολαρυγγολογική»
+   meet on the same key. */
+export const CLINIC_ALIASES = {
+  'ΩΡΛ': 'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓ',
+  'ΜΕΘ': 'ΕΝΤΑΤΙΚΟΛΟΓ',
+  'ΚΑΡΔΙΟΛ': 'ΚΑΡΔΙΟΛΟΓ',
+  'ΝΕΥΡΟΧΕΙΡ': 'ΝΕΥΡΟΧΕΙΡΟΥΡΓ',
+  'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡ': 'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡΟΥΡΓ',
+  'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡΟΥΡΓΚ': 'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡΟΥΡΓ',
+  'ΠΟΝΟΥ': 'ΠΟΝ',
+  'ΜΙΚΡΟΒΙΟΛΟΓ ΕΡΓΑΣΤΗΡΙ': 'ΜΙΚΡΟΒΙΟΛΟΓ',
+  'ΔΙΑΓΝΩΣΤ ΑΚΤΙΝΟΛΟΓ': 'ΑΚΤΙΝΟΛΟΓ',
+  'ΦΥΣΙΚ ΙΑΤΡ ΚΑΙ ΑΠΟΚΑΤΑΣΤΑΣ': 'ΑΠΟΚΑΤΑΣΤΑΣ',
+  'ΚΑΤ ΟΙΚΟΝ ΝΟΣΗΛΕΙ': 'ΚΑΤ ΟΙΚΟΝ',
+  'ΕΠΕΜΒΑΤ ΑΚΤΙΝΟΛΟΓ ΑΕΝΑ': 'ΕΠΕΜΒΑΤ ΑΚΤΙΝΟΛΟΓ',
+  'ΜΕΛ ΜΟΛ': 'ΜΕΛ',
+  /* the ΟΑΥ bills oncology on three lines; the clinic is one */
+  'ΟΓΚΟΛΟΓ ΙΑΤΡ': 'ΟΓΚΟΛΟΓ',
+  'ΟΓΚΟΛΟΓ ΠΑΘΟΛΟΓ': 'ΟΓΚΟΛΟΓ',
+  'ΟΓΚΟΛΟΓ ΑΚΤΙΝΟΘΕΡΑΠΕΥΤ': 'ΟΓΚΟΛΟΓ',
+};
+
+/* `Claim Speciality` arrives in English in the ΟΑΥ files. Only these mappings
+   are trusted; anything else is stemmed as Greek. */
+export const SPECIALITY_SYNONYMS = {
+  'INTERNAL MEDICINE':'ΠΑΘΟΛΟΓ', 'GENERAL MEDICINE':'ΠΑΘΟΛΟΓ',
+  'GENERAL SURGERY':'ΓΕΝ ΧΕΙΡΟΥΡΓ', 'SURGERY':'ΧΕΙΡΟΥΡΓ',
+  'CARDIOLOGY':'ΚΑΡΔΙΟΛΟΓ', 'CARDIAC SURGERY':'ΚΑΡΔΙΟΘΩΡΑΚΟΧΕΙΡΟΥΡΓ',
+  'CARDIOTHORACIC SURGERY':'ΚΑΡΔΙΟΘΩΡΑΚΟΧΕΙΡΟΥΡΓ',
+  'ORTHOPAEDICS':'ΟΡΘΟΠΑΙΔ', 'ORTHOPEDICS':'ΟΡΘΟΠΑΙΔ',
+  'PAEDIATRICS':'ΠΑΙΔΙΑΤΡ', 'PEDIATRICS':'ΠΑΙΔΙΑΤΡ',
+  'OBSTETRICS AND GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ', 'GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ',
+  'GYNECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ', 'OBSTETRICS':'ΓΥΝΑΙΚΟΛΟΓ',
+  'ONCOLOGY':'ΟΓΚΟΛΟΓ', 'MEDICAL ONCOLOGY':'ΟΓΚΟΛΟΓ',
+  'RADIATION ONCOLOGY':'ΑΚΤΙΝΟΘΕΡΑΠΕΥΤ',
+  'RHEUMATOLOGY':'ΡΕΥΜΑΤΟΛΟΓ', 'NEPHROLOGY':'ΝΕΦΡΟΛΟΓ', 'NEUROLOGY':'ΝΕΥΡΟΛΟΓ',
+  'NEUROSURGERY':'ΝΕΥΡΟΧΕΙΡΟΥΡΓ', 'UROLOGY':'ΟΥΡΟΛΟΓ',
+  'OTORHINOLARYNGOLOGY':'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓ', 'ENT':'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓ',
+  'OPHTHALMOLOGY':'ΟΦΘΑΛΜΟΛΟΓ', 'GASTROENTEROLOGY':'ΓΑΣΤΡΕΝΤΕΡΟΛΟΓ',
+  'PULMONOLOGY':'ΠΝΕΥΜΟΝΟΛΟΓ', 'RESPIRATORY MEDICINE':'ΠΝΕΥΜΟΝΟΛΟΓ',
+  'HAEMATOLOGY':'ΑΙΜΑΤΟΛΟΓ', 'HEMATOLOGY':'ΑΙΜΑΤΟΛΟΓ',
+  'ENDOCRINOLOGY':'ΕΝΔΟΚΡΙΝΟΛΟΓ', 'DERMATOLOGY':'ΔΕΡΜΑΤΟΛΟΓ',
+  'PSYCHIATRY':'ΨΥΧΙΑΤΡ', 'PLASTIC SURGERY':'ΠΛΑΣΤ ΧΕΙΡΟΥΡΓ',
+  'VASCULAR SURGERY':'ΑΓΓΕΙΟΧΕΙΡΟΥΡΓ', 'THORACIC SURGERY':'ΘΩΡΑΚΟΧΕΙΡΟΥΡΓ',
+  'INTENSIVE CARE UNIT':'ΕΝΤΑΤΙΚΟΛΟΓ', 'INTENSIVE CARE':'ΕΝΤΑΤΙΚΟΛΟΓ',
+  'INFECTIOUS DISEASES':'ΛΟΙΜΩΞΙΟΛΟΓ', 'ALLERGOLOGY':'ΑΛΛΕΡΓΙΟΛΟΓ',
+  'ANAESTHESIOLOGY':'ΑΝΑΙΣΘΗΣΙΟΛΟΓ', 'ANESTHESIOLOGY':'ΑΝΑΙΣΘΗΣΙΟΛΟΓ',
+  'NUCLEAR MEDICINE':'ΠΥΡΗΝ ΙΑΤΡ', 'DIAGNOSTIC RADIOLOGY':'ΑΚΤΙΝΟΛΟΓ',
+  'PHYSIOTHERAPY':'ΦΥΣΙΟΘΕΡΑΠΕΙ', 'SPEECH THERAPY':'ΛΟΓΟΘΕΡΑΠΕΙ',
+  'MAXILLOFACIAL SURGERY':'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡΟΥΡΓ',
+  'TRANSPLANT':'ΜΕΤΑΜΟΣΧΕΥΤ', 'TRANSPLANTATION':'ΜΕΤΑΜΟΣΧΕΥΤ',
 };
 
 export function clinicKey(name){
-  let s=String(name??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
-  s=s.replace(/[^Α-ΩA-Z ]+/g,' ').replace(CLINIC_WRAPPERS,' ').replace(/\s+/g,' ').trim();
-  if(!s) return '';
-  if(SPECIALITY_SYNONYMS[s]) return SPECIALITY_SYNONYMS[s];
-  return s.split(' ').map(w=>w.replace(/ΙΚ(Η|Ο|Α|ΟΣ|ΟΙ|ΕΣ|ΩΝ|ΟΥ|ΗΣ|Ε)$/,'ΙΚ')).join(' ');
-}
+  let s = String(name ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+    .replace(/[^Α-ΩA-Z]+/g, ' ').trim();
+  if (!s) return '';
+  /* the English lookup has to happen before the homoglyph fix, which would
+     turn CARDIOLOGY into a half-Greek word that matches nothing */
+  if (SPECIALITY_SYNONYMS[s]) return SPECIALITY_SYNONYMS[s];
+  s = s.replace(/[A-Z]/g, (ch) => HOMOGLYPHS[ch] ?? ch);
+  for (const [re, to] of SPELLING) s = s.replace(re, to);
 
+  let words = s.split(' ').filter(Boolean);
+  const kept = words.filter(w => !WRAPPERS.has(w));
+  if (kept.length) words = kept;                    // never strip a name to nothing
+
+  const stem = words.map(w => (w.length > 4 ? w.replace(ENDINGS, '') : w)).join(' ');
+  return CLINIC_ALIASES[stem] ?? stem;
+}

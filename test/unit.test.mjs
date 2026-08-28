@@ -89,7 +89,7 @@ test('hospOf — ΜΑΚΑΡΕΙΟ ελέγχεται πριν από ΛΕΥΚΩ�
 });
 
 test('parseIS — στήλες, ημερομηνίες εξιτηρίου και τύποι νοσηλείας', () => {
-  assert.equal(isRows.length, 870);
+  assert.equal(isRows.length, 886);
   assert.equal(parseIS(readWorkbook(FIXTURES.stats), 'x'), null, 'λάθος αρχείο → null, όχι εξαίρεση');
   const drg = isRows.filter(r => r.drg);
   assert.ok(drg.length > 0);
@@ -103,7 +103,7 @@ test('computeHIO — καταμέτρηση κατά ημερομηνία εξι
   const H = computeHIO(isRows, S);
   assert.deepEqual(H.byMonth, [182, 183, 141]);
   assert.equal(H.inpTot, 506);
-  assert.equal(H.nRows, 822, 'οι γραμμές του ΜΑΚΑΡΕΙΟΥ μένουν εκτός');
+  assert.equal(H.nRows, 838, 'οι γραμμές του ΜΑΚΑΡΕΙΟΥ μένουν εκτός');
   assert.equal(H.dcCount, 198);
   assert.equal(H.dialSum, 748, 'όγκος = Σ Quantity, όχι πλήθος γραμμών');
   assert.ok(H.tailLag, 'ο τελευταίος μήνας υπολείπεται — αναμενόμενη υστέρηση υποβολών');
@@ -175,74 +175,194 @@ test('η SheetJS είναι καθολική, όπως και στο build', () 
 
 /* ---------- ανάλυση ανά κλινική ---------- */
 const { clinicKey } = await import('../src/domain.js');
-const { buildClinics, clinicYoY, clinicTrend, computeClinicHIO } = await import('../src/model/clinic.js');
+const { buildClinics, clinicYoY, clinicTrend, computeClinicHIO, clinicEfficiency } = await import('../src/model/clinic.js');
+const { parseReport, reportNotesFor } = await import('../src/parsers/report.js');
+const { zipIndex } = await import('../src/zip.js');
+const { readFileSync } = await import('node:fs');
+const { fixturePath } = await import('./helpers.mjs');
 
 test('clinicKey — η ίδια κλινική γράφεται αλλιώς σε κάθε φύλλο', () => {
-  const paths = ['Παθολογική', 'Παθολογικά', 'Παθολογικό', 'Παθολογική Κλινική', 'Κλινική Παθολογικών'];
-  const keys = new Set(paths.map(clinicKey));
-  assert.equal(keys.size, 1, [...keys].join(' / '));
-  assert.equal(clinicKey('CARDIOLOGY'), clinicKey('Καρδιολογική'), 'ο ΟΑΥ γράφει την ειδικότητα στα αγγλικά');
-  assert.equal(clinicKey('GENERAL SURGERY'), clinicKey('Χειρουργικά Ιατρεία'));
-  assert.notEqual(clinicKey('Παθολογική'), clinicKey('Παιδιατρική'), 'ο κανόνας δεν ενώνει διαφορετικές κλινικές');
+  /* every group below is one clinic as the real ΓΝ Λευκωσίας workbook spells it
+     across its sheets, plus the English name the ΟΑΥ files use */
+  const groups = [
+    ['Παθολογία', 'Παθολογίας', 'Παθολογική', 'Παθολογικό', 'Παθολογική Κλινική', 'INTERNAL MEDICINE'],
+    ['Καρδιολογία', 'Καρδιολ.', 'CARDIOLOGY'],
+    ['Γενική Χειρουργική', 'Γεν. Χειρουργική', 'GENERAL SURGERY'],
+    ['Νευροχειρ.', 'Νευροχειρουργική', 'Νευροχειρουργικό', 'NEUROSURGERY'],
+    ['Γναθοπροσωποχειρουργκή', 'Γναθοπροσωποχειρ.', 'Γναθοπροσωποχειρουργική'],   // typo in the source
+    ['Νεφρολογία', 'Nεφρολογία', 'NEPHROLOGY'],                                   // Latin N
+    ['Πυρινική ιατρική', 'Πυρηνική Ιατρική', 'NUCLEAR MEDICINE'],                  // misspelling
+    ['Γαστρεντερολογικό', 'Γαστροεντερολογία', 'GASTROENTEROLOGY'],
+    ['Ορθοπαιδική', 'Ορθοπεδική', 'ORTHOPAEDICS'],
+    ['ΩΡΛ', 'Ωτορινολαρυγγολογική', 'ENT'],
+    ['ΜΕΘ', 'Εντατικολογία', 'INTENSIVE CARE'],
+    ['Ιατρεία πόνου', 'Κλινική Πόνου'],
+  ];
+  for (const g of groups) {
+    assert.equal(new Set(g.map(clinicKey)).size, 1, g.join(' / ') + ' → ' + [...new Set(g.map(clinicKey))].join(' | '));
+  }
+  /* and the rule must not over-merge */
+  const distinct = ['Παθολογία', 'Παθολογική Ανατομία', 'Κλινικά Εργαστήρια', 'Μικροβιολογικό Εργαστήριο',
+    'Ογκολογία', 'Νευρολογική', 'Νεφρολογία', 'Καρδιοθωρακοχειρουργική', 'Γενική Χειρουργική'];
+  assert.equal(new Set(distinct.map(clinicKey)).size, distinct.length);
   assert.equal(clinicKey(null), '');
 });
 
 test('buildClinics — οι δείκτες κάθε κλινικής ενώνονται από όλα τα φύλλα', () => {
   const M = buildClinics();
-  assert.deepEqual(M.years, [2024, 2025, 2026]);
-  assert.deepEqual(M.clinics.map(c => c.label),
-    ['Παθολογική', 'Χειρουργική', 'Καρδιολογική', 'Γυναικολογική', 'Ορθοπεδική', 'Παιδιατρική', 'Ογκολογικό', 'Ρευματολογικό']);
+  /* the years span every sheet, and the workbook's column for next year is
+     dropped — it carries no data yet */
+  assert.deepEqual(M.years, [2021, 2022, 2023, 2024, 2025, 2026]);
+  assert.ok(!M.years.includes(2027));
 
-  const path = M.clinics.find(c => c.key === 'ΠΑΘΟΛΟΓΙΚ');
+  const path = M.clinics.find(c => c.key === clinicKey('Παθολογία'));
   assert.equal(path.series.adm[2026], 187, 'εισαγωγές Ιαν–Μαρ');
   assert.equal(path.series.adm[2025], 179, 'ίδια περίοδος πέρσι, όχι ολόκληρο το έτος');
   assert.equal(path.series.out[2026], 1715, 'από το φύλλο εξωτερικών, με άλλη ονομασία («Παθολογικά»)');
   assert.ok(Math.abs(path.series.occ[2026] - 106.333) < 0.01, 'η πληρότητα είναι μέσος όρος, όχι άθροισμα');
   assert.ok(Math.abs(path.series.alos[2026] - 4.8) < 0.01);
 
-  const surg = M.clinics.find(c => c.key === 'ΧΕΙΡΟΥΡΓΙΚ');
+  const surg = M.clinics.find(c => c.key === clinicKey('Γενική Χειρουργική'));
   assert.equal(surg.series.surg[2026], 141);
-  const onco = M.clinics.find(c => c.key === 'ΟΓΚΟΛΟΓΙΚ');
+  assert.equal(surg.series.minor[2026], 48, 'από το φύλλο «Μικρά Χειρουργεία»');
+  const onco = M.clinics.find(c => c.key === clinicKey('Ογκολογικό'));
   assert.equal(onco.series.dc[2026], 190, 'μονάδα ημερήσιας νοσηλείας χωρίς εισαγωγές');
 });
 
 test('μεταβολή έναντι πέρσι και διαχρονική πορεία', () => {
   const M = buildClinics();
-  const path = M.clinics.find(c => c.key === 'ΠΑΘΟΛΟΓΙΚ');
+  const path = M.clinics.find(c => c.key === clinicKey('Παθολογία'));
   assert.ok(Math.abs(clinicYoY(path, 'adm', 2026) - 4.469) < 0.01);
   const t = clinicTrend(path, 'adm', M.years);
-  assert.deepEqual([t.from, t.to], [2024, 2026]);
+  assert.deepEqual([t.from, t.to], [2024, 2026], 'μόνο τα έτη που έχουν τιμή');
   assert.ok(Math.abs(t.total - 8.092) < 0.01, '173 → 187 από το 2024');
   assert.ok(Math.abs(t.perYear - 3.968) < 0.01, 'μέση ετήσια μεταβολή');
-  assert.equal(clinicTrend(path, 'surg', M.years), null, 'χωρίς σειρά ετών δεν βγαίνει τάση');
+  assert.equal(clinicTrend(path, 'dc', M.years), null, 'χωρίς σειρά ετών δεν βγαίνει τάση');
 });
 
-test('έσοδα ΟΑΥ ανά κλινική από το Claim Speciality', () => {
+test('IS Auditor — κλινικά μεγέθη ανά Claim Speciality', () => {
   const byClinic = computeClinicHIO(isRows, S);
-  const cardio = byClinic.get('ΚΑΡΔΙΟΛΟΓΙΚ');
+  const cardio = byClinic.get(clinicKey('Καρδιολογία'));
   assert.equal(cardio.cases, 81);
   assert.equal(cardio.revRows, 2, 'δύο αναθεωρήσεις χρεώθηκαν στην καρδιολογική');
   assert.equal(cardio.revAmt, -4800);
-  assert.ok(Math.abs(cardio.revenue - 224826) < 1, 'DRG/FFS + πράξεις, καθαρά από αναθεωρήσεις');
+  assert.ok(cardio.cmi > 0 && cardio.alos > 0);
 
-  /* the sum over clinics must equal the hospital's DRG cases — nothing lost, nothing double-counted */
+  /* the sum over specialties must equal the hospital's DRG cases — nothing
+     lost, nothing double-counted */
   const H = computeHIO(isRows, S);
-  const cases = [...byClinic.values()].reduce((a, c) => a + c.cases, 0);
-  assert.equal(cases, H.inpTot);
-  const daycare = [...byClinic.values()].reduce((a, c) => a + c.daycare, 0);
-  assert.equal(daycare, H.dcCount);
-
+  assert.equal([...byClinic.values()].reduce((a, c) => a + c.cases, 0), H.inpTot);
+  assert.equal([...byClinic.values()].reduce((a, c) => a + c.daycare, 0), H.dcCount);
   assert.ok(!byClinic.has(clinicKey('ΜΑΚΑΡΕΙΟ')), 'άλλα νοσοκομεία μένουν εκτός');
 });
 
 test('ειδικότητες ΟΑΥ χωρίς κλινική εμφανίζονται, δεν εξαφανίζονται', () => {
   const M = buildClinics();
-  assert.deepEqual(M.unmatched.map(u => u.label), ['NEPHROLOGY']);
-  assert.ok(M.unmatched[0].revenue > 0);
+  assert.deepEqual(M.unmatched.map(u => u.label), ['PALLIATIVE CARE']);
+  assert.equal(M.unmatched[0].cases, 0, 'τιμολογείται χωρίς περιστατικά DRG');
+  assert.ok(M.unmatched[0].billed > 0, 'και το ποσό δεν εξαφανίζεται');
+});
 
-  /* every euro is either on a clinic row or on the unmatched list */
-  const onClinics = M.clinics.reduce((a, c) => a + (c.hio?.revenue ?? 0), 0);
-  const unmatched = M.unmatched.reduce((a, u) => a + u.revenue, 0);
-  const total = [...computeClinicHIO(isRows, S).values()].reduce((a, c) => a + c.revenue, 0);
-  assert.ok(Math.abs(onClinics + unmatched - total) < 0.01);
+/* ---------- οικονομικά φύλλα του ίδιου αρχείου ---------- */
+
+test('parseFinancials — έσοδα ΟΑΥ ανά κλινική, σε τρεις ροές και δύο περιόδους', () => {
+  const rev = S.fin.revenue;
+  assert.equal(rev.rows.length, 9);
+  const path = rev.rows.find(r => r.name === 'Παθολογία');
+  assert.deepEqual(path.cur, { inpatient: 214600, outpatient: 18400, daycare: 9200, total: 242200 });
+  assert.deepEqual(path.prev, { inpatient: 232700, outpatient: 17900, daycare: 8100, total: 258700 });
+  /* the clinic list stops at ΣΥΝΟΛΟ — the pharmacy lines and the accounting
+     adjustment underneath belong to no clinic */
+  assert.ok(!rev.rows.some(r => /Αναλώσιμα|Προσαρμογή/.test(r.name)));
+  assert.equal(rev.totals.cur.total, 957700);
+});
+
+test('parseFinancials — P&L με ενότητες, χωρίς ψεύτικα μηδενικά', () => {
+  const pl = S.fin.pl;
+  const headings = pl.filter(l => l.heading).map(l => l.label);
+  assert.deepEqual(headings, ['ΕΣΟΔΑ', 'ΕΞΟΔΑ', 'Έξοδα Μισθοδοσίας', 'Λειτουργικές Δαπάνες']);
+  /* a line with a footnote marker and no figure is a line item, not a heading */
+  const ypas = pl.find(l => l.label.startsWith('ΥΠΑΣ'));
+  assert.equal(ypas.heading, false);
+  assert.equal(ypas.cur, null, 'κενό κελί δεν γίνεται 0 €');
+  const surplus = pl.find(l => l.label.startsWith('ΠΛΕΟΝΑΣΜΑ'));
+  assert.deepEqual([surplus.cur, surplus.prev], [142500, -9400]);
+  assert.ok(pl.every(l => !/ΛΟΓΑΡΙΑΣΜΟΣ ΑΠΟΤΕΛΕΣΜΑΤΩΝ/.test(l.label)), 'ο τίτλος του φύλλου δεν είναι γραμμή');
+});
+
+test('parseFinancials — ΥΓΟΣ μόνο ο πρώτος πίνακας, ως το ΣΥΝΟΛΟ', () => {
+  const svc = S.fin.services;
+  assert.deepEqual(svc.years, [2026, 2025, 2024]);
+  assert.deepEqual(svc.rows.map(r => r.name), ['Μεταμοσχευτική Κλινική', 'Κέντρο Τραύματος', 'ΣΥΝΟΛΟ']);
+  assert.equal(svc.rows.at(-1).total, true);
+});
+
+test('κλίνες και μικρά χειρουργεία ανά κλινική', () => {
+  assert.deepEqual(S.beds.map(b => b.name),
+    ['Γενική Χειρουργική', 'Ορθοπαιδική', 'Γυναικολογική', 'Παθολογική', 'Καρδιολογική', 'Ογκολογικό'],
+    'τα υποσύνολα των ομάδων δεν είναι κλινικές και δεν τερματίζουν τον πίνακα');
+  assert.equal(S.beds.find(b => b.name === 'Ογκολογικό').dayCareBeds, 8);
+  assert.equal(S.annual.minor.rows.length, 2);
+});
+
+test('buildClinics — τα έσοδα προσαρτώνται στην κλινική, χωρίς επιμερισμό', () => {
+  const M = buildClinics();
+  assert.ok(M.hasRevenue);
+  const path = M.clinics.find(c => c.key === clinicKey('Παθολογία'));
+  assert.equal(path.label, 'Παθολογία', 'το οικονομικό φύλλο δίνει τη σωστή ονομασία');
+  assert.equal(path.revenue.cur.total, 242200);
+  assert.equal(path.beds.beds, 52);
+  assert.equal(path.series.adm[2026], 187, 'οι δείκτες και τα έσοδα κάθονται στην ίδια γραμμή');
+
+  /* every euro of the sheet lands on exactly one clinic */
+  const sum = M.clinics.reduce((a, c) => a + (c.revenue?.cur.total ?? 0), 0);
+  assert.equal(Math.round(sum), Math.round(M.totals.cur.total));
+
+  /* the ΟΑΥ bills oncology on two lines; the clinic is one */
+  const onco = M.clinics.find(c => c.key === clinicKey('Ογκολογία'));
+  assert.equal(onco.revenueSources.length, 2);
+  assert.equal(onco.revenue.cur.total, 34200 + 3100);
+  assert.equal(onco.label, 'Ογκολογία');
+
+  /* a unit that is billed inside another clinic keeps its indicators and says
+     so, rather than being given someone else's money */
+  const rheum = M.clinics.find(c => c.key === clinicKey('Ρευματολογικό'));
+  assert.equal(rheum.revenue, null);
+  assert.ok(rheum.series.dc[2026] > 0);
+});
+
+test('clinicEfficiency — τι αξίζει μια κλίνη και μια επίσκεψη', () => {
+  const M = buildClinics();
+  const path = M.clinics.find(c => c.key === clinicKey('Παθολογία'));
+  const e = clinicEfficiency(path, S);
+  assert.equal(Math.round(e.perAdmission), Math.round(214600 / 187));
+  assert.equal(Math.round(e.perVisit), Math.round(18400 / 1715));
+  assert.equal(Math.round(e.perBed), Math.round(242200 / 52));
+  assert.ok(Math.abs(e.admissionsPerBed - 187 / 52) < 1e-9);
+});
+
+/* ---------- η «Έκθεση Στατιστικών» (.docx) ---------- */
+
+test('η έκθεση διαβάζεται χωρίς βιβλιοθήκη συμπίεσης', async () => {
+  const bytes = new Uint8Array(readFileSync(fixturePath(FIXTURES.report)));
+  assert.ok(zipIndex(bytes).has('word/document.xml'), 'ο τύπος αναγνωρίζεται από το περιεχόμενο');
+  assert.equal(zipIndex(new Uint8Array(readFileSync(fixturePath(FIXTURES.stats)))).has('word/document.xml'), false);
+
+  const report = await parseReport(bytes, FIXTURES.report);
+  assert.equal(report.paraCount, 12);
+  assert.deepEqual(report.sections.map(s => s.title), [
+    'ΣΤΑΤΙΣΤΙΚΑ ΣΤΟΙΧΕΙΑ 2019-2026',
+    'Επισκέψεις Εξωτερικών Ιατρείων (Διαφάνεια 6)',
+    'Εισαγωγές Ασθενών (Διαφάνεια 8)',
+  ], 'μόνο οι πραγματικοί τίτλοι· τα ονόματα κλινικών μέσα στο κείμενο δεν είναι τίτλοι');
+});
+
+test('τα σχόλια της έκθεσης προσαρτώνται στη σωστή κλινική', async () => {
+  const report = await parseReport(new Uint8Array(readFileSync(fixturePath(FIXTURES.report))), FIXTURES.report);
+  const notes = reportNotesFor(report, ['Παθολογική', 'Παθολογία']);
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0].section, 'Επισκέψεις Εξωτερικών Ιατρείων (Διαφάνεια 6)');
+  assert.deepEqual(notes[0].figures, ['2026 → 1.715', '2025 → 1.602'], 'τα νούμερα που ακολουθούν το όνομα');
+  assert.equal(reportNotesFor(null, ['Παθολογική']).length, 0);
+  assert.equal(reportNotesFor(report, ['Οφθαλμολογία']).length, 0);
 });

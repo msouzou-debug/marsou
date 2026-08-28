@@ -63,6 +63,35 @@ export function barChartYears(items,{dec=0,unit='',h=150}={}){
   return out+'</svg>';
 }
 
+/* Two periods side by side per category — the ΟΑΥ revenue streams of a clinic,
+   this period against the same period last year. */
+export function barChartPaired(items,{curLabel,prevLabel,h=160,money=true}={}){
+  const w=380,padL=8,padR=8,padT=16,padB=34;
+  const vals=items.flatMap(i=>[i.cur,i.prev]).filter(v=>v!=null);
+  if(!vals.length) return '';
+  const mx=Math.max(...vals,0)||1;
+  const slot=(w-padL-padR)/items.length;
+  const bar=Math.min(slot*0.32,34);
+  const Y=v=>padT+(1-v/mx)*(h-padT-padB);
+  const base=h-padB;
+  const fmt=v=>money?U.fmt(v,0)+' €':U.fmt(v);
+  let out=`<svg viewBox="0 0 ${w} ${h}" style="width:100%">`;
+  out+=`<line x1="${padL}" y1="${base}" x2="${w-padR}" y2="${base}" stroke="#EAEAEA"/>`;
+  items.forEach((it,i)=>{
+    const mid=padL+slot*i+slot/2;
+    [['prev',it.prev,C.old],['cur',it.cur,C.y0]].forEach(([which,v,fill],j)=>{
+      if(v==null) return;
+      const x=mid+(j?2:-bar-2), y=Y(Math.max(v,0));
+      out+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bar.toFixed(1)}" height="${Math.max(base-y,1).toFixed(1)}" rx="2" fill="${fill}"/>`;
+    });
+    out+=`<text x="${mid}" y="${h-14}" font-size="9.5" fill="#58595B" text-anchor="middle">${U.esc(it.name)}</text>`;
+    if(it.cur!=null) out+=`<text x="${mid}" y="${h-3}" font-size="9.5" fill="#8a8b8d" text-anchor="middle">${fmt(it.cur)}</text>`;
+  });
+  out+=`<text x="${padL}" y="10" font-size="9.5" fill="#8a8b8d">▪ ${U.esc(prevLabel)}</text>`;
+  out+=`<text x="${padL+70}" y="10" font-size="9.5" fill="${C.y0}">▪ ${U.esc(curLabel)}</text>`;
+  return out+'</svg>';
+}
+
 export function barChartSigned(items,h){
   // items: [{name,val}] val = % change
   const w=380,rowH=22; h=h||items.length*rowH+8;
