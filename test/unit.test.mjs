@@ -13,7 +13,7 @@ const { parseIS } = await import('../src/parsers/is.js');
 const { parseOS } = await import('../src/parsers/os.js');
 const { parseALLAE } = await import('../src/parsers/allae.js');
 const { classify } = await import('../src/parsers/classify.js');
-const { computeHIO } = await import('../src/model/hio.js');
+const { computeHIO, submissionMonths, maturity } = await import('../src/model/hio.js');
 const { computeOS } = await import('../src/model/os.js');
 const { hospOf } = await import('../src/domain.js');
 const { state } = await import('../src/state.js');
@@ -365,4 +365,63 @@ test('τα σχόλια της έκθεσης προσαρτώνται στη σ
   assert.deepEqual(notes[0].figures, ['2026 → 1.715', '2025 → 1.602'], 'τα νούμερα που ακολουθούν το όνομα');
   assert.equal(reportNotesFor(null, ['Παθολογική']).length, 0);
   assert.equal(reportNotesFor(report, ['Οφθαλμολογία']).length, 0);
+});
+
+
+/* ---------- υποβολές: πότε ένας μήνας είναι πλήρης ---------- */
+
+test('ο μήνας υποβολής βγαίνει από τα δεδομένα, όχι από το όνομα του αρχείου', () => {
+  const { files, last } = submissionMonths(isRows);
+  assert.equal(files.length, 4);
+  /* the run's month is the month most of its claims were filed in — a handful
+     of two-year-old stragglers must not decide it */
+  assert.deepEqual(files.map(f => f.month), [2026 * 12 + 0, 2026 * 12 + 1, 2026 * 12 + 2, 2026 * 12 + 3]);
+  assert.equal(last, 2026 * 12 + 3, 'η τελευταία υποβολή που κρατάμε είναι ο Απρίλιος');
+});
+
+test('πλήρης είναι ο μήνας που έχει δύο επόμενες υποβολές', () => {
+  const M = maturity(isRows, S);
+  assert.deepEqual(M.mature, [true, true, false], 'ο Μάρτιος χρειάζεται ακόμη τον Μάιο');
+  assert.deepEqual(M.missingRuns, [2026 * 12 + 4]);
+  assert.equal(M.lag, 2);
+
+  /* with only the January run in hand, no month of the period is comparable */
+  const janOnly = isRows.filter(r => r.file === FIXTURES.is[0]);
+  assert.deepEqual(maturity(janOnly, S).mature, [false, false, false]);
+});
+
+test('η κάλυψη μετριέται μόνο στους πλήρεις μήνες', () => {
+  const H = computeHIO(isRows, S);
+  assert.deepEqual(H.byMonth, [182, 183, 141]);
+  assert.equal(H.matureCount, 2);
+  assert.equal(H.matureTot, 182 + 183, 'ο ελλιπής Μάρτιος μένει εκτός του αθροίσματος');
+  assert.equal(H.inpTot, 506, 'το σύνολο της περιόδου παραμένει διαθέσιμο');
+  assert.equal(H.dcByMonth.reduce((a, b) => a + b, 0), H.dcCount);
+  assert.equal(H.dialByMonth.reduce((a, b) => a + b, 0), H.dialSum);
+  assert.equal(H.matureDc, H.dcByMonth[0] + H.dcByMonth[1]);
+  assert.equal(H.matureDial, H.dialByMonth[0] + H.dialByMonth[1]);
+});
+
+test('οι ονομασίες ειδικοτήτων των πραγματικών αρχείων αντιστοιχίζονται', () => {
+  /* every wording seen in the ΓΝ Λευκωσίας IS Auditor files for Ιαν–Μαρ 2026 */
+  const pairs = [
+    ['RENAL DISEASES', 'Νεφρολογία'],
+    ['NEUROLOGICAL SURGERY', 'Νευροχειρουργική'],
+    ['THORACIC SURGERY / CARDIO SURGERY', 'Καρδιοθωρακοχειρουργική'],
+    ['ORAL AND MAXILLO-FACIAL SURGERY', 'Γναθοπροσωποχειρουργική'],
+    ['SPECIALISED IN COMMUNICABLE DISEASES', 'Λοιμωξιολογία'],
+    ['DERMATO-VENEREOLOGY', 'Δερματολογία'],
+    ['SPECIALISED IN INTENSIVE CARE', 'ΜΕΘ'],
+    ['PHYSICAL MEDICINE AND REHABILITATION', 'Φυσική Ιατρική και Αποκατάσταση'],
+    ['OBSTETRICS - GYNAECOLOGY', 'Γυναικολογική'],
+    ['RESPIRATORY MEDICINE', 'Πνευμονολογία'],
+    ['MEDICAL ONCOLOGY', 'Ογκολογία'],
+    ['RADIATION ONCOLOGY', 'Ογκολογία: Ακτινοθεραπευτική'],
+  ];
+  for (const [english, greek] of pairs) {
+    assert.equal(clinicKey(english), clinicKey(greek), `${english} ↔ ${greek}`);
+  }
+  /* an English name with no mapping stays readable instead of turning into
+     half-Greek nonsense */
+  assert.equal(clinicKey('SOMETHING UNMAPPED'), 'SOMETHING UNMAPPED');
 });

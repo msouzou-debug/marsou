@@ -268,7 +268,8 @@ function statsWorkbook() {
    January file mostly carries December discharges. */
 const IS_COLUMNS = ['Billing Provider Name','Case Nbr','DRG Id','Procedure Id','Hospitalisation Type',
   'Admission Type','Discharge Type','Quantity','Adjusted Cost Weight','Actual Length Of Stay',
-  'DRG/FF Total Amount(Hospital + Total Doctor)','Procedures Total Amount','Claim Speciality','Discharge Date'];
+  'DRG/FF Total Amount(Hospital + Total Doctor)','Procedures Total Amount','Claim Speciality',
+  'Discharge Date','Submission Date'];
 
 /* `Claim Speciality` is written in English in the ΟΑΥ files; these map onto the
    Greek clinic names of the stats workbook. NEPHROLOGY deliberately has no
@@ -293,7 +294,14 @@ function isWorkbook(subMonth) {
   const rows = [IS_COLUMNS];
   let caseSeq = subMonth * 10000;
 
-  const push = (o) => rows.push(IS_COLUMNS.map(c => (c in o ? o[c] : null)));
+  /* every claim of a run is filed in that run's month, with a handful of old
+     stragglers — which is what makes the modal month the run's month */
+  const filed = (i) => (i % 40 === 7
+    ? `${dmy(2024, 1 + (i % 11), 1 + (i % 27))} 09:12:03`
+    : `${dmy(2026, subMonth, 1 + (i % 27))} 09:12:03`);
+  let filedSeq = 0;
+  const push = (o) => rows.push(IS_COLUMNS.map(c =>
+    (c === 'Submission Date' ? filed(filedSeq++) : (c in o ? o[c] : null))));
   const dischargeCell = (y, m, d) =>
     /* the real files mix text dd/mm/yyyy with Excel serial dates — cover both */
     (d % 7 === 0) ? new Date(Date.UTC(y, m - 1, d)) : dmy(y, m, d);

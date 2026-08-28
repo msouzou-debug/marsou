@@ -26,6 +26,9 @@ export function parseIS(wb,fname){
     spec:String(r['Claim Speciality']??'').trim(),
     proc:U.numRaw(r['Procedures Total Amount'])||0,
     dd:parseDMY(r['Discharge Date']),
+    /* when the claim reached the ΟΑΥ — this is what says whether a discharge
+       month has finished arriving or is still filling up */
+    subm:parseDMY(r['Submission Date']),
     file:fname
   }));
 }

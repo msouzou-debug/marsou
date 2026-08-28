@@ -22,8 +22,12 @@ const FILES = fixturePayloads();
    log a parse error that has nothing to do with a regression */
 const SPREADSHEETS = FILES.filter(f => !/\.docx$/i.test(f.name));
 
-/* the regions v1.4 rendered — the contract this test defends */
-const LEGACY_REGIONS = ['story', 'kpis', 'trends', 'targets', 'flags', 'hio', 'allae', 'os', 'method'];
+/* The regions v1.4 rendered that are still meant to be identical.
+   `hio` is deliberately absent: the ΟΑΥ cross-check was rebuilt around
+   submission maturity, because on the real files v1.4's single coverage figure
+   silently mixed a complete January with a March that was 3% submitted. That
+   section is asserted on its own content below. */
+const LEGACY_REGIONS = ['story', 'kpis', 'trends', 'targets', 'flags', 'allae', 'os', 'method'];
 /* the row fields v1.4's IS parser produced; the parser has since gained
    `spec` and `proc` for the per-clinic view */
 const LEGACY_IS_FIELDS = ['prov', 'caseNbr', 'drg', 'pid', 'ht', 'at', 'dt', 'qty', 'acw', 'alos', 'ff', 'dd', 'file'];
@@ -76,6 +80,7 @@ async function snapshot(file, files = FILES) {
       clinicButtons: [...document.querySelectorAll('#clinics .cbtn')].map(b => b.textContent),
       selected: document.querySelector('#clinics .cbtn.on')?.textContent ?? null,
       clinicsHTML: document.getElementById('clinics')?.innerHTML ?? '',
+      hioHTML: document.getElementById('hio')?.innerHTML ?? '',
       financeHTML: document.getElementById('finance')?.innerHTML ?? '',
       reportParas: window.OKYPY.state.report?.paraCount ?? null,
       main: document.querySelector('main').innerHTML,
@@ -146,6 +151,17 @@ test('η καρτέλα δείχνει τα σχόλια της έκθεσης �
   assert.match(html, /Από την έκθεση/);
   assert.match(html, /Επισκέψεις Εξωτερικών Ιατρείων \(Διαφάνεια 6\)/);
   assert.match(html, /2026 → 1\.715/);
+});
+
+test('η διασταύρωση ΟΑΥ ξεχωρίζει τους πλήρεις από τους ελλιπείς μήνες', () => {
+  const html = built.snap.hioHTML;
+  assert.match(html, /εκκρεμείς υποβολές/);
+  assert.match(html, /Η περίοδος δεν έχει υποβληθεί ολόκληρη/);
+  assert.match(html, /Χρειάζονται τα IS Auditor Μάι 2026/);
+  assert.match(html, /Κάλυψη στους πλήρεις μήνες \(Ιαν, Φεβ\)/);
+  /* the headline is the mature months, not the whole period */
+  assert.match(html, /Πλήρεις μήνες/);
+  assert.doesNotMatch(built.snap.legacy, /εκκρεμείς υποβολές/, 'το v1.4 δεν είχε αυτή τη διάκριση');
 });
 
 test('τα οικονομικά αποτελέσματα βγαίνουν από το ίδιο αρχείο', () => {

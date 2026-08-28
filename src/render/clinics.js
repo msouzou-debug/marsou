@@ -160,6 +160,7 @@ function hioBlock(c, S) {
   const chip = (label, v, note) => `<div class="kpi" style="border-top-color:${C.green}">
     <div class="label">${label}</div><div class="value" style="font-size:22px">${v}</div>
     ${note ? `<div class="note" style="margin-top:4px">${note}</div>` : ''}</div>`;
+  const M = c.hio.maturity;
   return `<h3 class="clinic-h3">Τιμολόγηση ΟΑΥ — IS Auditor</h3><div class="kpis">
       ${chip('Περιστατικά DRG', U.fmt(h.cases), h.daycare ? U.fmt(h.daycare) + ' ημερήσια επιπλέον' : '')}
       ${chip('CMI (θετικά βάρη)', h.cmi == null ? '—' : U.fmt(h.cmi, 3))}
@@ -168,6 +169,8 @@ function hioBlock(c, S) {
       ${chip('Απορρίψεις / Αναθεωρήσεις', U.fmt(h.revRows) + ' · ' + money(h.revAmt))}
     </div>
     <div class="note">Ειδικότητα «${U.esc(h.label)}», με καταμέτρηση κατά ημερομηνία εξιτηρίου εντός της περιόδου.
+      ${M ? `Προσοχή: όσα εξιτήρια δεν έχουν ακόμη υποβληθεί λείπουν από τα νούμερα αυτά — ${M.immature
+        ? `οι μήνες ${M.immature} είναι ελλιπείς.` : 'όλοι οι μήνες της περιόδου έχουν υποβληθεί.'} ` : ''}
       Τα ποσά εδώ είναι όπως υποβλήθηκαν στον ΟΑΥ και μπορεί να διαφέρουν από τα έσοδα του φύλλου «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ», που είναι η λογιστική εικόνα της περιόδου.</div>`;
 }
 

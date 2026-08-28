@@ -83,7 +83,7 @@ export const CLINIC_ALIASES = {
   'ΠΟΝΟΥ': 'ΠΟΝ',
   'ΜΙΚΡΟΒΙΟΛΟΓ ΕΡΓΑΣΤΗΡΙ': 'ΜΙΚΡΟΒΙΟΛΟΓ',
   'ΔΙΑΓΝΩΣΤ ΑΚΤΙΝΟΛΟΓ': 'ΑΚΤΙΝΟΛΟΓ',
-  'ΦΥΣΙΚ ΙΑΤΡ ΚΑΙ ΑΠΟΚΑΤΑΣΤΑΣ': 'ΑΠΟΚΑΤΑΣΤΑΣ',
+  'ΦΥΣ ΙΑΤΡ ΚΑΙ ΑΠΟΚΑΤΑΣΤΑΣ': 'ΑΠΟΚΑΤΑΣΤΑΣ',
   'ΚΑΤ ΟΙΚΟΝ ΝΟΣΗΛΕΙ': 'ΚΑΤ ΟΙΚΟΝ',
   'ΕΠΕΜΒΑΤ ΑΚΤΙΝΟΛΟΓ ΑΕΝΑ': 'ΕΠΕΜΒΑΤ ΑΚΤΙΝΟΛΟΓ',
   'ΜΕΛ ΜΟΛ': 'ΜΕΛ',
@@ -105,7 +105,8 @@ export const SPECIALITY_SYNONYMS = {
   'OBSTETRICS AND GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ', 'GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ',
   'GYNECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ', 'OBSTETRICS':'ΓΥΝΑΙΚΟΛΟΓ',
   'ONCOLOGY':'ΟΓΚΟΛΟΓ', 'MEDICAL ONCOLOGY':'ΟΓΚΟΛΟΓ',
-  'RADIATION ONCOLOGY':'ΑΚΤΙΝΟΘΕΡΑΠΕΥΤ',
+  /* the financial sheet bills it as «Ογκολογία: Ακτινοθεραπευτική» — one clinic */
+  'RADIATION ONCOLOGY':'ΟΓΚΟΛΟΓ',
   'RHEUMATOLOGY':'ΡΕΥΜΑΤΟΛΟΓ', 'NEPHROLOGY':'ΝΕΦΡΟΛΟΓ', 'NEUROLOGY':'ΝΕΥΡΟΛΟΓ',
   'NEUROSURGERY':'ΝΕΥΡΟΧΕΙΡΟΥΡΓ', 'UROLOGY':'ΟΥΡΟΛΟΓ',
   'OTORHINOLARYNGOLOGY':'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓ', 'ENT':'ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓ',
@@ -122,6 +123,20 @@ export const SPECIALITY_SYNONYMS = {
   'PHYSIOTHERAPY':'ΦΥΣΙΟΘΕΡΑΠΕΙ', 'SPEECH THERAPY':'ΛΟΓΟΘΕΡΑΠΕΙ',
   'MAXILLOFACIAL SURGERY':'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡΟΥΡΓ',
   'TRANSPLANT':'ΜΕΤΑΜΟΣΧΕΥΤ', 'TRANSPLANTATION':'ΜΕΤΑΜΟΣΧΕΥΤ',
+  /* the wordings the real ΓΝ Λευκωσίας IS Auditor files actually use — the
+     separators are already collapsed to spaces by the time we look them up */
+  'RENAL DISEASES':'ΝΕΦΡΟΛΟΓ',
+  'NEUROLOGICAL SURGERY':'ΝΕΥΡΟΧΕΙΡΟΥΡΓ',
+  'THORACIC SURGERY CARDIO SURGERY':'ΚΑΡΔΙΟΘΩΡΑΚΟΧΕΙΡΟΥΡΓ',
+  'ORAL AND MAXILLO FACIAL SURGERY':'ΓΝΑΘΟΠΡΟΣΩΠΟΧΕΙΡΟΥΡΓ',
+  'SPECIALISED IN COMMUNICABLE DISEASES':'ΛΟΙΜΩΞΙΟΛΟΓ',
+  'DERMATO VENEREOLOGY':'ΔΕΡΜΑΤΟΛΟΓ',
+  'SPECIALISED IN INTENSIVE CARE':'ΕΝΤΑΤΙΚΟΛΟΓ',
+  'PHYSICAL MEDICINE AND REHABILITATION':'ΑΠΟΚΑΤΑΣΤΑΣ',
+  'OBSTETRICS GYNAECOLOGY':'ΓΥΝΑΙΚΟΛΟΓ',
+  'PD CHILD PEDIATRICS':'ΠΑΙΔΙΑΤΡ',
+  'PAEDIATRIC SURGERY':'ΠΑΙΔΟΧΕΙΡΟΥΡΓ',
+  'SPECIALISED IN NEONATOLOGY':'ΝΕΟΓΝΟΛΟΓ',
 };
 
 export function clinicKey(name){
@@ -131,6 +146,10 @@ export function clinicKey(name){
   /* the English lookup has to happen before the homoglyph fix, which would
      turn CARDIOLOGY into a half-Greek word that matches nothing */
   if (SPECIALITY_SYNONYMS[s]) return SPECIALITY_SYNONYMS[s];
+  /* An English name with no mapping stays English. Pushing it through the Greek
+     pipeline would turn «RENAL DISEASES» into «RΕΝΑL DΙSΕΑSΕS» — a key nobody
+     can read in the list of unmatched specialties. */
+  if (/^[A-Z ]+$/.test(s)) return s;
   s = s.replace(/[A-Z]/g, (ch) => HOMOGLYPHS[ch] ?? ch);
   for (const [re, to] of SPELLING) s = s.replace(re, to);
 

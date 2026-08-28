@@ -18,6 +18,8 @@
 import { state } from '../state.js';
 import { clinicKey, hospOf } from '../domain.js';
 import { reportNotesFor } from '../parsers/report.js';
+import { maturity } from './hio.js';
+import { U } from '../util.js';
 
 /* which stats sheet feeds which indicator, and how a period value is formed */
 export const CLINIC_INDICATORS = [
@@ -87,7 +89,11 @@ export function computeClinicHIO(isRows, S) {
       if (r.at.startsWith('E')) c.emerg++;
     }
   }
+  /* the same submission lag applies to every clinic — say so on each card */
+  const M = maturity(isRows, S);
+  const immature = M.mature.map((m, i) => (m ? null : U.MONTHS_EL[i])).filter(Boolean).join(', ');
   for (const c of out.values()) {
+    c.maturity = { ...M, immature };
     c.cmi = c.cwN ? c.cwSum / c.cwN : null;
     c.alos = c.alosN ? c.alosSum / c.alosN : null;
     c.emergPct = c.cases ? 100 * c.emerg / c.cases : null;
