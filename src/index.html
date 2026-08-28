@@ -33,12 +33,21 @@
     <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.docx" style="display:none">
   </div>
 
-  <div id="dash" class="hidden">
-    <div class="exportbar" id="exportbar">
-      <b>Εξαγωγή:</b>
-      <button type="button" class="xbtn" id="btnHtml">HTML</button>
-      <button type="button" class="xbtn" id="btnPptx">PowerPoint</button>
-      <span class="note">Αυτόνομα αρχεία, χωρίς σύνδεση — ανοίγουν και σε κινητό.</span>
+  <div id="dash" class="hidden scope-hosp">
+    <div class="scopebar" id="scopebar">
+      <div class="scopeswitch hidden" id="scopeswitch" role="group" aria-label="Επίπεδο ανάλυσης">
+        <button type="button" class="sbtn on" id="btnScopeHosp">Σύνολο νοσοκομείου</button>
+        <button type="button" class="sbtn" id="btnScopeClinic">Ανά κλινική</button>
+      </div>
+      <label class="scopepick hidden" id="clinicPick" for="clinicSelect">Κλινική:
+        <select id="clinicSelect"></select>
+      </label>
+      <div class="exportbar" id="exportbar">
+        <b>Εξαγωγή:</b>
+        <button type="button" class="xbtn" id="btnHtml">HTML</button>
+        <button type="button" class="xbtn" id="btnPptx">PowerPoint</button>
+        <button type="button" class="xbtn" id="btnDocx">Word</button>
+      </div>
     </div>
     <section id="secStory"><h2>Η εικόνα της περιόδου</h2><div class="narrative" id="story"></div></section>
     <section><h2>Βασικοί δείκτες <small>έναντι της ίδιας περιόδου του προηγούμενου έτους</small></h2><div class="kpis" id="kpis"></div></section>
@@ -55,7 +64,7 @@
       <div id="allae"></div></section>
     <section id="secOs" class="hidden"><h2>Κάλυψη ΓεΣΥ — πληρωμένες απαιτήσεις <small>αρχεία «Πληρωμένες Απαιτήσεις OS» — ΤΑΕΠ &amp; εξωτερικά</small></h2>
       <div id="os"></div></section>
-    <section><div class="foot-method" id="method"></div></section>
+    <section id="secMethod"><div class="foot-method" id="method"></div></section>
   </div>
 </main>
 <footer>

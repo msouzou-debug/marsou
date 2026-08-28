@@ -1,6 +1,7 @@
-/* The two exports, produced by the built page from the fixture files and then
+/* The three exports, produced by the built page from the fixture files and then
    opened the way a recipient would: the HTML with JavaScript switched off on a
-   phone-sized screen, the PowerPoint by unzipping the package. */
+   phone-sized screen, the PowerPoint and the Word report by unzipping the
+   package and reading the parts Office would read. */
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
@@ -10,7 +11,7 @@ import { requirePrerequisites, DIST_FILE, fixturePayloads, unzip } from './helpe
 requirePrerequisites();
 
 const FILES = fixturePayloads();
-let browser, page, htmlExport, pptxExport;
+let browser, page, htmlExport, pptxExport, docxExport;
 
 before(async () => {
   browser = await chromium.launch();
@@ -30,6 +31,7 @@ before(async () => {
   };
   htmlExport = await grab('#btnHtml');
   pptxExport = await grab('#btnPptx');
+  docxExport = await grab('#btnDocx');
 });
 after(async () => { await browser?.close(); });
 
@@ -65,8 +67,12 @@ test('η εξαγωγή HTML ανοίγει σε κινητό, χωρίς JavaSc
     els => els.filter(e => getComputedStyle(e).display !== 'none').map(e => e.querySelector('.clinic-head h3')?.textContent));
   assert.deepEqual(await visible(), ['Παθολογία']);
 
-  /* the picker works with the radio alone — no script involved */
-  await p.click(`.exp-clinics label.cbtn:nth-of-type(4)`);
+  /* the dropdown opens and picks with no script involved: <details> for the
+     list, a radio for the choice */
+  assert.equal(await p.isVisible('.exp-pickbox label.cbtn'), false, 'η λίστα ξεκινά κλειστή');
+  await p.click('.exp-pickbox > summary');
+  assert.equal(await p.isVisible('.exp-pickbox label.cbtn'), true);
+  await p.click('.exp-pickbox label.cbtn:nth-of-type(4)');
   assert.deepEqual(await visible(), [labels[3]]);
   await ctx.close();
 });
@@ -150,4 +156,67 @@ test('τα γραφήματα ταξιδεύουν ως εικόνες μέσα 
     assert.deepEqual([...bytes.subarray(0, 4)], [0x89, 0x50, 0x4E, 0x47], `${m} δεν είναι PNG`);
     assert.ok(bytes.length > 200);
   }
+});
+
+/* ---------- the Word report ---------- */
+
+test('η εξαγωγή Word είναι έγκυρο πακέτο OOXML', () => {
+  const parts = unzip(docxExport.body);
+  for (const required of ['[Content_Types].xml', '_rels/.rels', 'word/document.xml',
+    'word/_rels/document.xml.rels', 'word/styles.xml', 'word/numbering.xml',
+    'word/fontTable.xml', 'word/header1.xml', 'word/footer1.xml',
+    'docProps/core.xml', 'docProps/app.xml']) {
+    assert.ok(parts.has(required), `λείπει το ${required}`);
+  }
+  /* every part the package declares is typed, and every relationship resolves */
+  const types = parts.get('[Content_Types].xml').toString('utf8');
+  for (const p of ['/word/document.xml', '/word/styles.xml', '/word/header1.xml', '/word/footer1.xml']) {
+    assert.ok(types.includes(`PartName="${p}"`), `${p} χωρίς content type`);
+  }
+  for (const [name, body] of parts) {
+    if (!name.endsWith('.rels')) continue;
+    const base = name.replace(/_rels\/[^/]+$/, '');
+    for (const [, target] of body.toString('utf8').matchAll(/Target="([^"]+)"/g)) {
+      const full = new URL(target, `file:///${base}`).pathname.replace(/^\//, '');
+      assert.ok(parts.has(full), `${name} → ${target} δεν υπάρχει`);
+    }
+  }
+  const doc = parts.get('word/document.xml').toString('utf8');
+  const rels = parts.get('word/_rels/document.xml.rels').toString('utf8');
+  const have = new Set([...rels.matchAll(/Id="([^"]+)"/g)].map(m => m[1]));
+  for (const [, id] of doc.matchAll(/r:(?:id|embed)="([^"]+)"/g)) {
+    assert.ok(have.has(id), `το ${id} δεν αντιστοιχεί σε σχέση`);
+  }
+  /* A4 with 2 cm margins — the tables are laid out against exactly this width */
+  assert.match(doc, /<w:pgSz w:w="11906" w:h="16838"\/>/);
+  assert.match(doc, /<w:pgMar w:top="1134"/);
+});
+
+test('η έκθεση Word λέει τα ίδια νούμερα, ανά ενότητα και ανά κλινική', () => {
+  const parts = unzip(docxExport.body);
+  const text = parts.get('word/document.xml').toString('utf8')
+    .replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#8364;/g, '€');
+
+  for (const section of ['Η εικόνα της περιόδου', 'Στόχοι έτους', 'Οικονομικά αποτελέσματα',
+    'Διασταύρωση με τον ΟΑΥ', 'Σημεία προσοχής', 'Ανά κλινική', 'Μεθοδολογία και προέλευση δεδομένων']) {
+    assert.ok(text.includes(section), `λείπει η ενότητα «${section}»`);
+  }
+  assert.match(text, /ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ/);
+  assert.match(text, /Ιανουάριος – Μάρτιος 2026/);
+  /* the hospital total and a clinic's revenue, unchanged from the screen */
+  assert.match(text, /957\.700 €/);
+  assert.match(text, /242\.200 €/);
+  /* the submission caveat travels with the report */
+  assert.match(text, /παράθυρο τριών μηνών/);
+  /* one section per clinic, each starting on its own page */
+  const headings = [...parts.get('word/document.xml').toString('utf8')
+    .matchAll(/<w:pStyle w:val="Heading1"\/><w:keepNext\/><w:pageBreakBefore\/>/g)];
+  /* Heading1 + keepNext + pageBreakBefore, in the schema's order */
+  assert.ok(headings.length >= 9, 'κάθε κλινική ξεκινά σε νέα σελίδα');
+  for (const clinic of ['Παθολογία', 'Γενική Χειρουργική', 'Ρευματολογικό']) {
+    assert.ok(text.includes(clinic), `λείπει η κλινική ${clinic}`);
+  }
+  /* and the report keeps the type rule of the brief */
+  assert.match(parts.get('word/fontTable.xml').toString('utf8'),
+    /w:name="Lato"><w:altName w:val="Arial"/);
 });

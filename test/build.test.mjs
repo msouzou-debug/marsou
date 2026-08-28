@@ -57,7 +57,7 @@ test('το δημόσιο API του v1.4 μένει διαθέσιμο', () => 
   for (const n of ['state', 'handleFiles', 'parseStats', 'parseIS', 'computeHIO', 'U']) {
     assert.ok(names.includes(n), `λείπει το ${n} από το window.OKYPY`);
   }
-  assert.ok(names.includes('exportHTML') && names.includes('exportPPTX'));
+  for (const n of ['exportHTML', 'exportPPTX', 'exportDOCX']) assert.ok(names.includes(n), `λείπει το ${n}`);
 });
 
 test('το σημείο εκκίνησης του v1.4 μένει στο αποθετήριο για σύγκριση', () => {
@@ -70,7 +70,9 @@ test('το σημείο εκκίνησης του v1.4 μένει στο απο�
    a control can only appear deliberately, and that nothing v1.4 rendered can
    quietly disappear. */
 const ADDED_IDS = ['secFinance', 'finance', 'secClinics', 'clinics',
-  'exportbar', 'btnHtml', 'btnPptx'];
+  'scopebar', 'scopeswitch', 'clinicPick', 'btnScopeHosp', 'btnScopeClinic',
+  'clinicSelect', 'secMethod',
+  'exportbar', 'btnHtml', 'btnPptx', 'btnDocx'];
 
 test('η σήμανση του v1.4 διατηρείται· οι νέες ενότητες δηλώνονται ρητά', () => {
   const ref = readFileSync(REFERENCE_FILE, 'utf8');

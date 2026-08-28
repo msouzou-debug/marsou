@@ -11,11 +11,15 @@ import {
 } from '../model/clinic.js';
 import { C, lineChart, barChartYears, barChartPaired } from './charts.js';
 import { el } from './dom.js';
-
-/* survives a re-render when more files are loaded */
-let selectedKey = null;
+import { syncClinics, currentClinic, setClinic, onClinicChange } from './scope.js';
 
 const ALL_INDICATORS = [...CLINIC_INDICATORS, ...CLINIC_ANNUAL];
+
+/* The picked clinic lives in the scope bar at the top of the page, so this
+   module only has to redraw when the bar says the choice changed. The model is
+   kept alongside because that redraw arrives without one. */
+let lastModel = null, lastS = null;
+onClinicChange(() => { if (lastModel) renderDetail(lastModel, lastS); });
 
 const money = (v, dec = 0) => (v == null ? '—' : U.fmt(v, dec) + ' €');
 const val = (v, def) => (v == null ? '—' : U.fmt(v, def.dec) + def.unit);
@@ -34,31 +38,21 @@ export function renderClinics() {
   if (!model.clinics.length) { el('secClinics').classList.add('hidden'); return; }
   el('secClinics').classList.remove('hidden');
 
-  if (!model.clinics.some(c => c.key === selectedKey)) selectedKey = model.clinics[0].key;
-
-  /* one button per clinic, ordered by size so a director finds theirs fast */
-  const buttons = model.clinics.map(c =>
-    `<button type="button" class="cbtn${c.key === selectedKey ? ' on' : ''}" data-clinic="${U.esc(c.key)}">${U.esc(c.label)}</button>`
-  ).join('');
+  lastModel = model; lastS = S;
+  /* the list at the top of the page is the only clinic picker there is */
+  syncClinics(model.clinics);
 
   box.innerHTML = `
-    <div class="clinicbar" role="group" aria-label="Επιλογή κλινικής">${buttons}</div>
-    <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_EL[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
+    <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_GEN[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
     <div id="clinicDetail"></div>
     <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>
     <div class="scrollx">${summaryTable(model, S)}</div>
     ${unmatchedNote(model)}`;
 
-  box.querySelectorAll('.cbtn').forEach(b => b.addEventListener('click', () => {
-    selectedKey = b.dataset.clinic;
-    box.querySelectorAll('.cbtn').forEach(x => x.classList.toggle('on', x === b));
-    renderDetail(model, S);
-  }));
+  /* the summary table doubles as a picker: a row is the same choice as the list */
   box.querySelectorAll('tr[data-clinic]').forEach(row => row.addEventListener('click', () => {
-    selectedKey = row.dataset.clinic;
-    box.querySelectorAll('.cbtn').forEach(x => x.classList.toggle('on', x.dataset.clinic === selectedKey));
+    setClinic(row.dataset.clinic, { focus: false });
     box.querySelectorAll('tr[data-clinic]').forEach(x => x.classList.toggle('on', x === row));
-    renderDetail(model, S);
     el('clinicDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
 
@@ -81,14 +75,18 @@ export function clinicCardHTML(c, model, S) {
 }
 
 function renderDetail(model, S) {
-  const c = model.clinics.find(x => x.key === selectedKey);
+  const c = model.clinics.find(x => x.key === currentClinic());
   if (!c) return;
-  el('clinicDetail').innerHTML = clinicCardHTML(c, model, S);
+  const box = el('clinicDetail');
+  if (box) box.innerHTML = clinicCardHTML(c, model, S);
+  document.querySelectorAll('tr[data-clinic]').forEach(x =>
+    x.classList.toggle('on', x.dataset.clinic === c.key));
 }
 
-/* Every clinic, as radio-driven tabs. A static file has no JavaScript, but a
-   hidden radio per clinic and a sibling selector give the same one-click pick —
-   and it works in any browser, on a phone, and when printed. */
+/* Every clinic, as a radio-driven dropdown. The screen picks a clinic from a
+   <select>, which needs script; a file has none, so the same list is written as
+   a <details> of labels over hidden radios. One click, same result, in any
+   browser, on a phone, and when printed. */
 export function clinicTabsHTML(model, S) {
   const id = (k) => 'exp-' + String(k).replace(/[^Α-Ωα-ωA-Za-z0-9]+/g, '-');
   const radios = model.clinics.map((c, i) =>
@@ -97,11 +95,15 @@ export function clinicTabsHTML(model, S) {
     `<label class="cbtn" for="${id(c.key)}">${U.esc(c.label)}</label>`).join('');
   const panels = model.clinics.map(c =>
     `<div class="exp-panel" id="p-${id(c.key)}">${clinicCardHTML(c, model, S)}</div>`).join('');
-  const rules = model.clinics.map(c => `#${id(c.key)}:checked~.exp-panels>#p-${id(c.key)}{display:block}`).join('');
+  /* one pair of rules per clinic: reveal its panel, and mark its name in the list */
+  const rules = model.clinics.map(c =>
+    `#${id(c.key)}:checked~.exp-panels>#p-${id(c.key)}{display:block}` +
+    `#${id(c.key)}:checked~.exp-pickbox label[for="${id(c.key)}"]{background:var(--blue-deep);border-color:var(--blue-deep);color:#fff;font-weight:700}`).join('');
   return `<div class="exp-clinics">${radios}
     <style>${rules}</style>
-    <div class="clinicbar">${labels}</div>
-    <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_EL[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
+    <details class="exp-pickbox"><summary>Επιλογή κλινικής — ${model.clinics.length} κλινικές</summary>
+      <div class="clinicbar">${labels}</div></details>
+    <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_GEN[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
     <div class="exp-panels">${panels}</div>
     <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>
     <div class="scrollx">${summaryTable(model, S)}</div>
@@ -144,7 +146,7 @@ function revenueBlock(c, S) {
   };
   const sources = c.revenueSources.length > 1
     ? `<div class="note">Αθροίζονται οι γραμμές τιμολόγησης του ΟΑΥ: ${c.revenueSources.map(U.esc).join(' · ')}.</div>` : '';
-  return `<h3 class="clinic-h3">Έσοδα ΟΑΥ — Ιανουάριος-${U.MONTHS_EL[S.mN - 1]} ${S.year}</h3>
+  return `<h3 class="clinic-h3">Έσοδα ΟΑΥ — Ιανουάριος–${U.MONTHS_FULL[S.mN - 1]} ${S.year}</h3>
     <div class="kpis">
       ${tile('Σύνολο εσόδων ΟΑΥ', 'total', true)}
       ${REVENUE_STREAMS.map(s => tile(s.label, s.key)).join('')}
@@ -278,7 +280,7 @@ function summaryTable(model, S) {
     const rev = c.revenue
       ? `<td class="r">${money(c.revenue.cur.total)}</td><td class="r">${delta(pctChange(c.revenue.cur.total, c.revenue.prev.total))}</td>`
       : '<td class="r">—</td><td class="r">—</td>';
-    return `<tr data-clinic="${U.esc(c.key)}" class="pick${c.key === selectedKey ? ' on' : ''}">
+    return `<tr data-clinic="${U.esc(c.key)}" class="pick${c.key === currentClinic() ? ' on' : ''}">
       <td><b>${U.esc(c.label)}</b></td>${model.hasRevenue ? rev : ''}${cells}</tr>`;
   }).join('');
   return `<table class="ok clinics"><thead>
@@ -294,11 +296,11 @@ function unmatchedNote(model) {
 }
 
 /* three to five sentences a director can put in a report as they are */
-function clinicStory(c, model, S) {
+export function clinicStory(c, model, S) {
   const y = S.year, s = [];
   if (c.revenue) {
     const d = pctChange(c.revenue.cur.total, c.revenue.prev.total);
-    s.push(`Η κλινική τιμολόγησε στον ΟΑΥ ${money(c.revenue.cur.total)} την περίοδο Ιανουαρίου–${U.MONTHS_EL[S.mN - 1]} ${y}` +
+    s.push(`Η κλινική τιμολόγησε στον ΟΑΥ ${money(c.revenue.cur.total)} την περίοδο Ιανουαρίου–${U.MONTHS_GEN[S.mN - 1]} ${y}` +
       (d == null ? '.' : Math.abs(d) < 1 ? `, στα ίδια επίπεδα με το ${y - 1}.` : `, ${U.pct(d)} έναντι του ${y - 1}.`));
     const streams = REVENUE_STREAMS.map(st => ({ st, v: c.revenue.cur[st.key] || 0 })).sort((a, b) => b.v - a.v);
     if (streams[0].v > 0) {

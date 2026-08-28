@@ -2,7 +2,7 @@
    OKYPY Hospital KPI Dashboard — entry point.
    Bundled by build.mjs into one self-contained HTML file: hospital PCs run it
    from disk with no server and no network. The public surface stays
-   window.OKYPY = {state, handleFiles, parseStats, parseIS, computeHIO, U} —
+   window.OKYPY = {state, handleFiles, parseStats, parseIS, computeHIO, U, …} —
    the headless test harness drives the app through it.
    ============================================================ */
 import { U } from './util.js';
@@ -13,7 +13,9 @@ import { computeHIO } from './model/hio.js';
 import { handleFiles } from './intake.js';
 import { exportHTML } from './export/html.js';
 import { exportPPTX } from './export/pptx.js';
+import { exportDOCX } from './export/docx.js';
 import { el } from './render/dom.js';
+import { initScope } from './render/scope.js';
 
 /* An export must never leave the user staring at a dead button: the work runs
    with the button disabled, and any failure is said out loud. */
@@ -43,7 +45,9 @@ function init(){
   drop.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files]));
   wireExport('btnHtml','HTML',exportHTML);
   wireExport('btnPptx','PowerPoint',exportPPTX);
+  wireExport('btnDocx','Word',exportDOCX);
+  initScope();
 }
 document.addEventListener('DOMContentLoaded',init);
 
-window.OKYPY={state,handleFiles,parseStats,parseIS,computeHIO,U,exportHTML,exportPPTX};
+window.OKYPY={state,handleFiles,parseStats,parseIS,computeHIO,U,exportHTML,exportPPTX,exportDOCX};

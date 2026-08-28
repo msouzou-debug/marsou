@@ -119,6 +119,14 @@ table.ok.pl tr.plstrong td{font-weight:700;background:#f4f9ee}
   table.ok th,table.ok td{padding:6px 7px}
   .cbtn{font-size:12px;padding:5px 10px}
   .clinic-head h3{font-size:16px}
+  .scopebar{gap:9px;padding:10px 0}
+  .scopeswitch{width:100%}
+  .sbtn{flex:1;padding:9px 8px;font-size:12.5px}
+  .scopepick{width:100%}
+  .scopepick select{flex:1;max-width:none;min-width:0}
+  /* three rows of controls stuck to the top would eat a phone screen */
+  .scopebar{position:static}
+  .scopebar .exportbar{margin:2px 0 0}
   footer{padding:12px 16px;flex-direction:column;gap:8px;text-align:center}
 }
 /* every wide table scrolls inside its own box instead of stretching the page.
@@ -127,6 +135,26 @@ table.ok.pl tr.plstrong td{font-weight:700;background:#f4f9ee}
 .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch;min-width:0;max-width:100%}
 .grid2>*,.grid3>*,.card{min-width:0}
 @media (max-width:760px){ table.ok.clinics{min-width:620px} }
+
+/* ---- scope bar: the whole hospital, or one clinic ----
+   Sticky, because on a long page the answer to «whose numbers am I reading?»
+   has to stay in view. */
+.scopebar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  padding:12px 0 12px;margin-bottom:14px;background:#fff;border-bottom:1px solid var(--grey)}
+.scopeswitch{display:flex;border:1px solid var(--blue-deep);border-radius:8px;overflow:hidden}
+.sbtn{font:inherit;font-size:13.5px;font-weight:700;color:var(--blue-deep);background:#fff;border:0;
+  padding:9px 16px;cursor:pointer;transition:background .12s,color .12s}
+.sbtn+.sbtn{border-left:1px solid var(--blue-deep)}
+.sbtn:hover{background:#eaf6fd}
+.sbtn.on{background:var(--blue-deep);color:#fff}
+.sbtn:focus-visible{outline:2px solid var(--blue-logo);outline-offset:2px}
+.scopepick{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--blue-deep)}
+.scopepick select{font:inherit;font-size:14px;font-weight:400;color:var(--text);padding:8px 10px;
+  border:1px solid var(--grey);border-radius:6px;background:#fff;max-width:320px}
+.scopepick select:focus-visible{outline:2px solid var(--blue-logo);outline-offset:1px}
+/* one scope at a time. The method note stays: it explains both views. */
+#dash.scope-hosp #secClinics{display:none}
+#dash.scope-clinic>section:not(#secClinics):not(#secMethod){display:none}
 
 /* ---- export toolbar ---- */
 .exportbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:22px}
@@ -137,8 +165,21 @@ table.ok.pl tr.plstrong td{font-weight:700;background:#f4f9ee}
 .xbtn:disabled{background:#b9bbbe;cursor:progress}
 .xbtn:focus-visible{outline:2px solid var(--blue-logo);outline-offset:2px}
 .exportbar .note{margin:0}
+/* inside the scope bar the toolbar is just the right-hand end of it */
+.scopebar .exportbar{margin:0 0 0 auto}
 
-/* ---- static export: clinic tabs without a line of JavaScript ---- */
+/* ---- static export: the clinic picker without a line of JavaScript ----
+   A <select> needs script to do anything, so the file uses a <details> that
+   opens the same list of clinics; each entry is a <label> for a hidden radio,
+   and a sibling rule reveals that clinic's panel. */
 .exp-clinics input.exp-pick{position:absolute;opacity:0;pointer-events:none}
 .exp-clinics .exp-panel{display:none}
 .exp-clinics label.cbtn{display:inline-block}
+.exp-pickbox{border:1px solid var(--grey);border-radius:8px;padding:0;margin-bottom:14px;background:#fff}
+.exp-pickbox>summary{list-style:none;cursor:pointer;padding:10px 14px;font-size:13.5px;font-weight:700;
+  color:var(--blue-deep);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.exp-pickbox>summary::-webkit-details-marker{display:none}
+.exp-pickbox>summary::after{content:'▾';font-size:14px}
+.exp-pickbox[open]>summary::after{content:'▴'}
+.exp-pickbox[open]>summary{border-bottom:1px solid var(--grey)}
+.exp-pickbox .clinicbar{padding:12px 14px;margin:0;max-height:44vh;overflow-y:auto}

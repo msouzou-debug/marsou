@@ -55,7 +55,11 @@ export function buildExportHTML() {
 
   const dash = el('dash').cloneNode(true);
   dash.classList.remove('hidden');
-  /* the toolbar belongs to the app, not to the snapshot */
+  /* The scope switch and the export buttons belong to the app, not to the
+     snapshot; the file carries both views, one after the other. The scope
+     classes have to go with them, or their rules would hide half the file. */
+  dash.classList.remove('scope-hosp', 'scope-clinic');
+  dash.querySelector('#scopebar')?.remove();
   dash.querySelector('#exportbar')?.remove();
   /* the live picker only shows the selected clinic; the file shows them all */
   const clinics = dash.querySelector('#clinics');

@@ -91,8 +91,9 @@ async function snapshot(file, files = FILES) {
       /* v1.4 has no such element at all — absent must not read as «visible» */
       hasClinics: document.getElementById('secClinics')?.classList.contains('hidden') === false,
       hasFinance: document.getElementById('secFinance')?.classList.contains('hidden') === false,
-      clinicButtons: [...document.querySelectorAll('#clinics .cbtn')].map(b => b.textContent),
-      selected: document.querySelector('#clinics .cbtn.on')?.textContent ?? null,
+      clinicOptions: [...document.querySelectorAll('#clinicSelect option')].map(o => o.textContent),
+      scope: document.getElementById('dash')?.classList.contains('scope-clinic') ? 'scope-clinic' : 'scope-hosp',
+      selected: document.querySelector('#clinicDetail .clinic-head h3')?.textContent ?? null,
       clinicsHTML: document.getElementById('clinics')?.innerHTML ?? '',
       hioHTML: document.getElementById('hio')?.innerHTML ?? '',
       financeHTML: document.getElementById('finance')?.innerHTML ?? '',
@@ -138,18 +139,19 @@ test('οι νέες ενότητες υπάρχουν μόνο στο νέο bui
   assert.equal(built.snap.hasFinance, true);
 });
 
-test('ένα κουμπί ανά κλινική, ταξινομημένα κατά έσοδα ΟΑΥ', () => {
-  assert.deepEqual(built.snap.clinicButtons,
+test('μία επιλογή ανά κλινική στη λίστα, ταξινομημένες κατά έσοδα ΟΑΥ', () => {
+  assert.deepEqual(built.snap.clinicOptions,
     ['Παθολογία', 'Γενική Χειρουργική', 'Καρδιολογία', 'Ορθοπαιδική', 'Παιδιατρική',
      'Νεφρολογία', 'Γυναικολογία', 'Ογκολογία', 'Ρευματολογικό'],
     'κάθε κλινική των φύλλων και του οικονομικού πίνακα, μία φορά');
   assert.equal(built.snap.selected, 'Παθολογία', 'η πρώτη είναι επιλεγμένη εξ αρχής');
+  assert.equal(built.snap.scope, 'scope-hosp', 'η σελίδα ανοίγει στο σύνολο του νοσοκομείου');
 });
 
 test('η καρτέλα κλινικής δείχνει έσοδα, δραστηριότητα και διαχρονική πορεία', () => {
   const html = built.snap.clinicsHTML;
-  assert.match(html, /Η κλινική τιμολόγησε στον ΟΑΥ 242\.200 €/);
-  assert.match(html, /Έσοδα ΟΑΥ — Ιανουάριος-Μαρ 2026/);
+  assert.match(html, /Η κλινική τιμολόγησε στον ΟΑΥ 242\.200 € την περίοδο Ιανουαρίου–Μαρτίου 2026/);
+  assert.match(html, /Έσοδα ΟΑΥ — Ιανουάριος–Μάρτιος 2026/);
   assert.match(html, /Ενδονοσοκομειακή φροντίδα/);
   assert.match(html, /Έγιναν 187 εισαγωγές/);
   assert.match(html, /Διαχρονικά 2024→2026/);
