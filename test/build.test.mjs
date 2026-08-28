@@ -59,8 +59,15 @@ test('το σημείο εκκίνησης του v1.4 μένει στο απο�
   assert.match(ref, /id="fileInput"/);
 });
 
-test('η σήμανση και οι θέσεις του πίνακα δεν άλλαξαν', () => {
+/* Positions added after v1.4 — the section, its container, and the two ids the
+   clinic panel creates at runtime. Listing them here means a section can only
+   appear deliberately, and that nothing v1.4 rendered can quietly disappear. */
+const ADDED_IDS = ['secClinics', 'clinics', 'clinicPick', 'clinicDetail'];
+
+test('η σήμανση του v1.4 διατηρείται· οι νέες ενότητες δηλώνονται ρητά', () => {
   const ref = readFileSync(REFERENCE_FILE, 'utf8');
   const ids = s => [...s.matchAll(/\sid="([\w]+)"/g)].map(m => m[1]).sort();
-  assert.deepEqual(ids(html), ids(ref), 'ίδια δομή DOM με το v1.4');
+  const before = ids(ref), now = ids(html);
+  assert.deepEqual(before.filter(id => !now.includes(id)), [], 'δεν χάθηκε καμία θέση του v1.4');
+  assert.deepEqual(now.filter(id => !before.includes(id)).sort(), [...ADDED_IDS].sort());
 });

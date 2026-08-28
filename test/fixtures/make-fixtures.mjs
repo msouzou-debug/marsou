@@ -69,9 +69,9 @@ const ALOS_CLINICS = [
   { name: 'Παθολογική',  2024: [5.1,5.2,5.0,5.1,5.2,5.1,5.0,4.9,5.1,5.2,5.1,5.0], 2025: [5.0,5.1,4.9,5.0,5.1,5.0,4.9,4.8,5.0,5.1,5.0,4.9], 2026: pad([4.8,4.9,4.7]) },
   { name: 'Χειρουργική', 2024: [3.4,3.5,3.3,3.4,3.5,3.4,3.3,3.2,3.4,3.5,3.4,3.3], 2025: [3.3,3.4,3.2,3.3,3.4,3.3,3.2,3.1,3.3,3.4,3.3,3.2], 2026: pad([3.2,3.3,3.1]) },
 ];
-const SURG_ROOMS = [
-  { name: 'Κεντρικά χειρουργεία', 2024: [48,46,49,47,48,46,45,41,47,49,48,46], 2025: [50,48,51,49,50,48,47,43,49,51,50,48], 2026: pad([49,47,45]) },
-  { name: 'Ημερήσια χειρουργεία', 2024: [12,11,12,12,12,11,11,10,12,12,12,11], 2025: [13,12,13,13,13,12,12,11,13,13,13,12], 2026: pad([10,10, 8]) },
+const SURG_CLINICS = [
+  { name: 'Χειρουργική', 2024: [48,46,49,47,48,46,45,41,47,49,48,46], 2025: [50,48,51,49,50,48,47,43,49,51,50,48], 2026: pad([49,47,45]) },
+  { name: 'Ορθοπεδική',  2024: [12,11,12,12,12,11,11,10,12,12,12,11], 2025: [13,12,13,13,13,12,12,11,13,13,13,12], 2026: pad([10,10, 8]) },
 ];
 
 /* every column of the annual table is the same Ιαν–Μαρ window, so «2025» means
@@ -174,8 +174,8 @@ function statsWorkbook() {
   ]), '6. Εξωτερικοί ασθενείς');
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    ...annualTable('ΧΕΙΡΟΥΡΓΙΚΕΣ ΕΠΕΜΒΑΣΕΙΣ', SURG_ROOMS),
-    ...monthlyBlocks(SURG_ROOMS),
+    ...annualTable('ΧΕΙΡΟΥΡΓΙΚΕΣ ΕΠΕΜΒΑΣΕΙΣ', SURG_CLINICS),
+    ...monthlyBlocks(SURG_CLINICS),
   ]), '7. Χειρουργικές επεμβάσεις');
 
   return wb;
@@ -186,7 +186,12 @@ function statsWorkbook() {
    January file mostly carries December discharges. */
 const IS_COLUMNS = ['Billing Provider Name','Case Nbr','DRG Id','Procedure Id','Hospitalisation Type',
   'Admission Type','Discharge Type','Quantity','Adjusted Cost Weight','Actual Length Of Stay',
-  'DRG/FF Total Amount(Hospital + Total Doctor)','Discharge Date'];
+  'DRG/FF Total Amount(Hospital + Total Doctor)','Procedures Total Amount','Claim Speciality','Discharge Date'];
+
+/* `Claim Speciality` is written in English in the ΟΑΥ files; these map onto the
+   Greek clinic names of the stats workbook. NEPHROLOGY deliberately has no
+   clinic on the stats side — it exercises the «unmatched specialty» path. */
+const IS_SPECIALITIES = ['INTERNAL MEDICINE','GENERAL SURGERY','CARDIOLOGY','ORTHOPAEDICS','PAEDIATRICS','OBSTETRICS AND GYNAECOLOGY'];
 const NGH = 'ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ';
 const MAK = 'ΜΑΚΑΡΕΙΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ';   // must not be counted as Λευκωσίας
 
@@ -227,6 +232,8 @@ function isWorkbook(subMonth) {
         'Adjusted Cost Weight': Math.round((0.6 + rnd() * 1.8) * 1000) / 1000,
         'Actual Length Of Stay': 1 + Math.floor(rnd() * 9),
         'DRG/FF Total Amount(Hospital + Total Doctor)': Math.round(900 + rnd() * 4200),
+        'Procedures Total Amount': 0,
+        'Claim Speciality': IS_SPECIALITIES[Math.floor(rnd() * IS_SPECIALITIES.length)],
         'Discharge Date': dischargeCell(y, m, day),
       });
     }
@@ -246,6 +253,8 @@ function isWorkbook(subMonth) {
         'Adjusted Cost Weight': 0,
         'Actual Length Of Stay': 0,
         'DRG/FF Total Amount(Hospital + Total Doctor)': Math.round(180 + rnd() * 400),
+        'Procedures Total Amount': Math.round(200 + rnd() * 900),   // biologics / chemo
+        'Claim Speciality': rnd() < 0.6 ? 'ONCOLOGY' : 'RHEUMATOLOGY',
         'Discharge Date': dmy(y, m, 1 + Math.floor(rnd() * 27)),
       });
     }
@@ -268,6 +277,8 @@ function isWorkbook(subMonth) {
         'Adjusted Cost Weight': 0,
         'Actual Length Of Stay': 0,
         'DRG/FF Total Amount(Hospital + Total Doctor)': qty * 92,
+        'Procedures Total Amount': qty * 14,
+        'Claim Speciality': 'NEPHROLOGY',   // no clinic on the stats side
         'Discharge Date': dmy(y, m, 1 + Math.floor(rnd() * 27)),
       });
     }
@@ -286,6 +297,8 @@ function isWorkbook(subMonth) {
       'Adjusted Cost Weight': 1.2,
       'Actual Length Of Stay': 3,
       'DRG/FF Total Amount(Hospital + Total Doctor)': 2100,
+      'Procedures Total Amount': 0,
+      'Claim Speciality': 'PAEDIATRICS',
       'Discharge Date': dmy(2026, Math.min(subMonth, 3), 10),
     });
   }
@@ -295,16 +308,19 @@ function isWorkbook(subMonth) {
     push({ 'Billing Provider Name': NGH, 'Case Nbr': reversed, 'DRG Id': 'F62A', 'Procedure Id': '',
       'Hospitalisation Type': '1 - Regular', 'Admission Type': 'E - Emergency', 'Discharge Type': '1 - Home',
       'Quantity': 1, 'Adjusted Cost Weight': 1.1, 'Actual Length Of Stay': 4,
-      'DRG/FF Total Amount(Hospital + Total Doctor)': -2400, 'Discharge Date': dmy(2026, subMonth, 12) });
+      'DRG/FF Total Amount(Hospital + Total Doctor)': -2400, 'Procedures Total Amount': 0,
+      'Claim Speciality': 'CARDIOLOGY', 'Discharge Date': dmy(2026, subMonth, 12) });
     push({ 'Billing Provider Name': NGH, 'Case Nbr': reversed, 'DRG Id': 'F62A', 'Procedure Id': '',
       'Hospitalisation Type': '1 - Regular', 'Admission Type': 'E - Emergency', 'Discharge Type': '1 - Home',
       'Quantity': 1, 'Adjusted Cost Weight': 1.1, 'Actual Length Of Stay': 4,
-      'DRG/FF Total Amount(Hospital + Total Doctor)': 2400, 'Discharge Date': dmy(2026, subMonth, 12) });
+      'DRG/FF Total Amount(Hospital + Total Doctor)': 2400, 'Procedures Total Amount': 0,
+      'Claim Speciality': 'CARDIOLOGY', 'Discharge Date': dmy(2026, subMonth, 12) });
     /* left open — no resubmission */
     push({ 'Billing Provider Name': NGH, 'Case Nbr': `X${subMonth}9`, 'DRG Id': 'F71B', 'Procedure Id': '',
       'Hospitalisation Type': '1 - Regular', 'Admission Type': 'P - Planned', 'Discharge Type': '1 - Home',
       'Quantity': 1, 'Adjusted Cost Weight': 0.9, 'Actual Length Of Stay': 2,
-      'DRG/FF Total Amount(Hospital + Total Doctor)': -1750, 'Discharge Date': dmy(2026, subMonth, 18) });
+      'DRG/FF Total Amount(Hospital + Total Doctor)': -1750, 'Procedures Total Amount': 0,
+      'Claim Speciality': 'GENERAL SURGERY', 'Discharge Date': dmy(2026, subMonth, 18) });
   }
 
   const wb = XLSX.utils.book_new();

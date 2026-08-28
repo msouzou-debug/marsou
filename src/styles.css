@@ -64,3 +64,21 @@ footer{border-top:8px solid var(--blue);padding:14px 40px;display:flex;align-ite
 footer img{height:38px}
 .hidden{display:none}
 .pill{font-size:11px;background:var(--grey);border-radius:9px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+/* ---- «Ανά κλινική» ---- */
+.clinicbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.clinicbar label{font-size:13.5px;font-weight:700;color:var(--blue-deep)}
+.clinicbar select{font:inherit;font-size:14px;color:var(--text);padding:6px 10px;border:1px solid var(--grey);border-radius:6px;background:#fff;max-width:340px}
+.clinicbar select:focus{outline:2px solid var(--blue-logo);outline-offset:1px}
+.clinic-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.clinic-head h3{font-size:18px;font-weight:900;color:var(--blue-deep)}
+h3.clinic-h3{font-size:15px;color:var(--blue-deep);margin:22px 0 10px}
+.scrollx{overflow-x:auto}
+table.ok.clinics{min-width:760px}
+table.ok.clinics tr.pick{cursor:pointer}
+table.ok.clinics tr.pick:hover td{background:#eaf6fd}
+table.ok.clinics tr.pick.on td{background:#eaf6fd;box-shadow:inset 3px 0 0 var(--blue)}
+table.ok .delta{font-size:12.5px;font-weight:700;white-space:nowrap}
+/* auto-fill, not auto-fit: a clinic with a single indicator keeps a tile-sized
+   card instead of one stretched across the row */
+#clinicDetail .kpis{grid-template-columns:repeat(auto-fill,minmax(215px,1fr))}
+.kpi .subline{font-size:13.5px;margin-top:2px}

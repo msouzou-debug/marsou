@@ -25,6 +25,7 @@ const S = parseStats(readWorkbook(FIXTURES.stats));
 const isRows = FIXTURES.is.flatMap(n => parseIS(readWorkbook(n), n));
 /* the derived helpers read the shared state, exactly as the browser does */
 state.stats = S;
+state.isRows.push(...isRows);
 
 test('classify αναγνωρίζει τους τέσσερις τύπους από το περιεχόμενο', () => {
   assert.equal(classify(readWorkbook(FIXTURES.stats)), 'stats');
@@ -106,8 +107,8 @@ test('computeHIO — καταμέτρηση κατά ημερομηνία εξι
   assert.equal(H.dcCount, 198);
   assert.equal(H.dialSum, 748, 'όγκος = Σ Quantity, όχι πλήθος γραμμών');
   assert.ok(H.tailLag, 'ο τελευταίος μήνας υπολείπεται — αναμενόμενη υστέρηση υποβολών');
-  assert.ok(Math.abs(H.cmi - 1.494) < 0.001);
-  assert.ok(Math.abs(H.emergPct - 63.24) < 0.01);
+  assert.ok(Math.abs(H.cmi - 1.526) < 0.001);
+  assert.ok(Math.abs(H.emergPct - 60.47) < 0.01);
 });
 
 test('computeHIO — ανακτήσεις αναθεωρήσεων ανά Case Nbr', () => {
@@ -170,4 +171,78 @@ test('buildStory / buildFlags — αφήγηση και σημεία προσο�
 test('η SheetJS είναι καθολική, όπως και στο build', () => {
   assert.equal(XLSX.version, '0.18.5');
   assert.equal(globalThis.XLSX, XLSX);
+});
+
+/* ---------- ανάλυση ανά κλινική ---------- */
+const { clinicKey } = await import('../src/domain.js');
+const { buildClinics, clinicYoY, clinicTrend, computeClinicHIO } = await import('../src/model/clinic.js');
+
+test('clinicKey — η ίδια κλινική γράφεται αλλιώς σε κάθε φύλλο', () => {
+  const paths = ['Παθολογική', 'Παθολογικά', 'Παθολογικό', 'Παθολογική Κλινική', 'Κλινική Παθολογικών'];
+  const keys = new Set(paths.map(clinicKey));
+  assert.equal(keys.size, 1, [...keys].join(' / '));
+  assert.equal(clinicKey('CARDIOLOGY'), clinicKey('Καρδιολογική'), 'ο ΟΑΥ γράφει την ειδικότητα στα αγγλικά');
+  assert.equal(clinicKey('GENERAL SURGERY'), clinicKey('Χειρουργικά Ιατρεία'));
+  assert.notEqual(clinicKey('Παθολογική'), clinicKey('Παιδιατρική'), 'ο κανόνας δεν ενώνει διαφορετικές κλινικές');
+  assert.equal(clinicKey(null), '');
+});
+
+test('buildClinics — οι δείκτες κάθε κλινικής ενώνονται από όλα τα φύλλα', () => {
+  const M = buildClinics();
+  assert.deepEqual(M.years, [2024, 2025, 2026]);
+  assert.deepEqual(M.clinics.map(c => c.label),
+    ['Παθολογική', 'Χειρουργική', 'Καρδιολογική', 'Γυναικολογική', 'Ορθοπεδική', 'Παιδιατρική', 'Ογκολογικό', 'Ρευματολογικό']);
+
+  const path = M.clinics.find(c => c.key === 'ΠΑΘΟΛΟΓΙΚ');
+  assert.equal(path.series.adm[2026], 187, 'εισαγωγές Ιαν–Μαρ');
+  assert.equal(path.series.adm[2025], 179, 'ίδια περίοδος πέρσι, όχι ολόκληρο το έτος');
+  assert.equal(path.series.out[2026], 1715, 'από το φύλλο εξωτερικών, με άλλη ονομασία («Παθολογικά»)');
+  assert.ok(Math.abs(path.series.occ[2026] - 106.333) < 0.01, 'η πληρότητα είναι μέσος όρος, όχι άθροισμα');
+  assert.ok(Math.abs(path.series.alos[2026] - 4.8) < 0.01);
+
+  const surg = M.clinics.find(c => c.key === 'ΧΕΙΡΟΥΡΓΙΚ');
+  assert.equal(surg.series.surg[2026], 141);
+  const onco = M.clinics.find(c => c.key === 'ΟΓΚΟΛΟΓΙΚ');
+  assert.equal(onco.series.dc[2026], 190, 'μονάδα ημερήσιας νοσηλείας χωρίς εισαγωγές');
+});
+
+test('μεταβολή έναντι πέρσι και διαχρονική πορεία', () => {
+  const M = buildClinics();
+  const path = M.clinics.find(c => c.key === 'ΠΑΘΟΛΟΓΙΚ');
+  assert.ok(Math.abs(clinicYoY(path, 'adm', 2026) - 4.469) < 0.01);
+  const t = clinicTrend(path, 'adm', M.years);
+  assert.deepEqual([t.from, t.to], [2024, 2026]);
+  assert.ok(Math.abs(t.total - 8.092) < 0.01, '173 → 187 από το 2024');
+  assert.ok(Math.abs(t.perYear - 3.968) < 0.01, 'μέση ετήσια μεταβολή');
+  assert.equal(clinicTrend(path, 'surg', M.years), null, 'χωρίς σειρά ετών δεν βγαίνει τάση');
+});
+
+test('έσοδα ΟΑΥ ανά κλινική από το Claim Speciality', () => {
+  const byClinic = computeClinicHIO(isRows, S);
+  const cardio = byClinic.get('ΚΑΡΔΙΟΛΟΓΙΚ');
+  assert.equal(cardio.cases, 81);
+  assert.equal(cardio.revRows, 2, 'δύο αναθεωρήσεις χρεώθηκαν στην καρδιολογική');
+  assert.equal(cardio.revAmt, -4800);
+  assert.ok(Math.abs(cardio.revenue - 224826) < 1, 'DRG/FFS + πράξεις, καθαρά από αναθεωρήσεις');
+
+  /* the sum over clinics must equal the hospital's DRG cases — nothing lost, nothing double-counted */
+  const H = computeHIO(isRows, S);
+  const cases = [...byClinic.values()].reduce((a, c) => a + c.cases, 0);
+  assert.equal(cases, H.inpTot);
+  const daycare = [...byClinic.values()].reduce((a, c) => a + c.daycare, 0);
+  assert.equal(daycare, H.dcCount);
+
+  assert.ok(!byClinic.has(clinicKey('ΜΑΚΑΡΕΙΟ')), 'άλλα νοσοκομεία μένουν εκτός');
+});
+
+test('ειδικότητες ΟΑΥ χωρίς κλινική εμφανίζονται, δεν εξαφανίζονται', () => {
+  const M = buildClinics();
+  assert.deepEqual(M.unmatched.map(u => u.label), ['NEPHROLOGY']);
+  assert.ok(M.unmatched[0].revenue > 0);
+
+  /* every euro is either on a clinic row or on the unmatched list */
+  const onClinics = M.clinics.reduce((a, c) => a + (c.hio?.revenue ?? 0), 0);
+  const unmatched = M.unmatched.reduce((a, u) => a + u.revenue, 0);
+  const total = [...computeClinicHIO(isRows, S).values()].reduce((a, c) => a + c.revenue, 0);
+  assert.ok(Math.abs(onClinics + unmatched - total) < 0.01);
 });

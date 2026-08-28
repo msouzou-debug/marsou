@@ -36,6 +36,33 @@ export function lineChart(series,labels,h=190){
   return out;
 }
 
+/* Multi-year column chart — the «διαχρονικά» view of one indicator for one
+   clinic. The current year is the deep-blue column; earlier years are muted, so
+   the eye reads the direction of travel first and the values second. */
+export function barChartYears(items,{dec=0,unit='',h=150}={}){
+  const w=380,padL=8,padR=8,padT=16,padB=20;
+  const vals=items.map(i=>i.val).filter(v=>v!=null);
+  if(vals.length<2) return '';
+  const mx=Math.max(...vals,0), mn=Math.min(...vals,0);
+  const span=(mx-mn)||1;
+  const bw=(w-padL-padR)/items.length;
+  const Y=v=>padT+(1-(v-mn)/span)*(h-padT-padB);
+  let out=`<svg viewBox="0 0 ${w} ${h}" style="width:100%">`;
+  out+=`<line x1="${padL}" y1="${Y(mn)}" x2="${w-padR}" y2="${Y(mn)}" stroke="#EAEAEA"/>`;
+  items.forEach((it,i)=>{
+    const x=padL+i*bw+bw*0.18, bar=bw*0.64;
+    if(it.val==null){
+      out+=`<text x="${x+bar/2}" y="${h-6}" font-size="9.5" fill="#8a8b8d" text-anchor="middle">${it.label}</text>`;
+      return;
+    }
+    const y=Y(it.val), base=Y(mn);
+    out+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bar.toFixed(1)}" height="${Math.max(base-y,1).toFixed(1)}" rx="2" fill="${it.current?C.y0:C.old}"/>`;
+    out+=`<text x="${(x+bar/2).toFixed(1)}" y="${(y-4).toFixed(1)}" font-size="9.5" fill="${it.current?C.y0:'#8a8b8d'}" font-weight="${it.current?700:400}" text-anchor="middle">${U.fmt(it.val,dec)}${unit}</text>`;
+    out+=`<text x="${(x+bar/2).toFixed(1)}" y="${h-6}" font-size="9.5" fill="#8a8b8d" text-anchor="middle">${it.label}</text>`;
+  });
+  return out+'</svg>';
+}
+
 export function barChartSigned(items,h){
   // items: [{name,val}] val = % change
   const w=380,rowH=22; h=h||items.length*rowH+8;

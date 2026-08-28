@@ -4,6 +4,7 @@ import { state } from '../state.js';
 import { yoy, sumBlocksMonthly } from '../model/blocks.js';
 import { buildStory, buildFlags } from '../model/story.js';
 import { C, sparkline, lineChart, barChartSigned } from './charts.js';
+import { renderClinics } from './clinics.js';
 import { renderHIO } from './hio.js';
 import { renderALLAE } from './allae.js';
 import { renderOS } from './os.js';
@@ -34,6 +35,8 @@ export function render(){
   renderTrends();
   /* targets */
   renderTargets();
+  /* per-clinic view */
+  renderClinics();
   /* flags */
   el('flags').innerHTML=buildFlags().map(f=>`<div class="flag ${f.t==='flag'?'':f.t}">${U.esc(f.m)}</div>`).join('')||'<div class="flag good">Κανένα σημείο προσοχής με βάση τους κανόνες ελέγχου.</div>';
   /* HIO */

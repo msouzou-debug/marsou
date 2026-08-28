@@ -21,6 +21,10 @@ export function parseIS(wb,fname){
     acw:U.numRaw(r['Adjusted Cost Weight'])||0,
     alos:U.numRaw(r['Actual Length Of Stay'])||0,
     ff:U.numRaw(r['DRG/FF Total Amount(Hospital + Total Doctor)'])||0,
+    /* per-clinic view: the specialty the claim was filed under, and the
+       procedures amount that completes the billed total (DRG/FFS + procedures) */
+    spec:String(r['Claim Speciality']??'').trim(),
+    proc:U.numRaw(r['Procedures Total Amount'])||0,
     dd:parseDMY(r['Discharge Date']),
     file:fname
   }));
