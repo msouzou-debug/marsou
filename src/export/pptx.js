@@ -17,8 +17,11 @@ import { download, exportFileName } from './html.js';
 import {
   SLIDE_W, SLIDE_H, BRAND, textBox, rect, picture, table, slideXml, slideRels,
   theme, slideMaster, slideMasterRels, slideLayout, slideLayoutRels,
-  presentation, presentationRels, rootRels, contentTypes, coreProps, appProps,
+  presentation, presentationRels, presProps, viewProps, tableStyles,
+  rootRels, contentTypes, coreProps, appProps,
 } from './ooxml.js';
+
+const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
 /* ---------- images ---------- */
 
@@ -393,6 +396,9 @@ export async function buildPptxBlob() {
     { name: 'ppt/presentation.xml', data: presentation(total) },
     { name: 'ppt/_rels/presentation.xml.rels', data: presentationRels(total) },
     { name: 'ppt/theme/theme1.xml', data: theme },
+    { name: 'ppt/presProps.xml', data: presProps },
+    { name: 'ppt/viewProps.xml', data: viewProps },
+    { name: 'ppt/tableStyles.xml', data: tableStyles },
     { name: 'ppt/slideMasters/slideMaster1.xml', data: slideMaster },
     { name: 'ppt/slideMasters/_rels/slideMaster1.xml.rels', data: slideMasterRels },
     { name: 'ppt/slideLayouts/slideLayout1.xml', data: slideLayout },
@@ -414,7 +420,7 @@ export async function buildPptxBlob() {
 
   for (const m of media) parts.push({ name: `ppt/media/${m.name}`, data: m.bytes });
 
-  return { blob: await zipWrite(parts), slideCount: total };
+  return { blob: await zipWrite(parts, PPTX_MIME), slideCount: total };
 }
 
 export async function exportPPTX() {

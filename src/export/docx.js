@@ -26,6 +26,7 @@ import {
   rootRels, documentRels, contentTypes, coreProps, appProps,
 } from './wordxml.js';
 
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const ALL_INDICATORS = [...CLINIC_INDICATORS, ...CLINIC_ANNUAL];
 
 const money = (v) => (v == null ? '—' : U.fmt(v, 0) + ' €');
@@ -387,7 +388,7 @@ export async function buildDocxBlob() {
     { name: 'word/footer1.xml', data: footer('Οργανισμός Κρατικών Υπηρεσιών Υγείας') },
     ...media.map(m => ({ name: `word/media/${m.name}`, data: m.bytes })),
   ];
-  return { blob: await zipWrite(parts), clinicCount: model.clinics.length };
+  return { blob: await zipWrite(parts, DOCX_MIME), clinicCount: model.clinics.length };
 }
 
 export async function exportDOCX() {

@@ -1,8 +1,8 @@
 /* ---------- minimal ZIP writer ----------
-   A .pptx is a ZIP of XML parts. Rather than inline a packaging library, this
+   A .pptx and a .docx are both a ZIP of XML parts. Rather than inline a packaging library, this
    writes the archive itself and compresses with the browser's own
    CompressionStream. Where that is unavailable the entries are stored
-   uncompressed — a larger file, but a valid one that PowerPoint still opens. */
+   uncompressed — a larger file, but a valid one that Office still opens. */
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -28,9 +28,21 @@ async function deflate(bytes) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
+/* A ZIP entry carries an MS-DOS timestamp. Left at zero it encodes day 0 of
+   month 0 — not a date, and enough for a strict OPC reader to give up on the
+   package. */
+function dosStamp(d = new Date()) {
+  const year = Math.max(1980, d.getFullYear());
+  return {
+    time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+    date: ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+  };
+}
+
 /* entries: [{ name, data: string | Uint8Array }] */
-export async function zipWrite(entries) {
+export async function zipWrite(entries, mime = 'application/zip') {
   const locals = [], central = [];
+  const { time, date } = dosStamp();
   let offset = 0;
 
   for (const entry of entries) {
@@ -50,6 +62,8 @@ export async function zipWrite(entries) {
     lv.setUint16(4, 20, true);
     lv.setUint16(6, 0x0800, true);        // names are UTF-8
     lv.setUint16(8, method, true);
+    lv.setUint16(10, time, true);
+    lv.setUint16(12, date, true);
     lv.setUint32(14, crc, true);
     lv.setUint32(18, body.length, true);
     lv.setUint32(22, raw.length, true);
@@ -63,6 +77,8 @@ export async function zipWrite(entries) {
     dv.setUint16(6, 20, true);
     dv.setUint16(8, 0x0800, true);
     dv.setUint16(10, method, true);
+    dv.setUint16(12, time, true);
+    dv.setUint16(14, date, true);
     dv.setUint32(16, crc, true);
     dv.setUint32(20, body.length, true);
     dv.setUint32(24, raw.length, true);
@@ -84,7 +100,5 @@ export async function zipWrite(entries) {
   ev.setUint32(12, dirSize, true);
   ev.setUint32(16, offset, true);
 
-  return new Blob([...locals, ...central, end], {
-    type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  });
+  return new Blob([...locals, ...central, end], { type: mime });
 }

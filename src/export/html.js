@@ -4,12 +4,13 @@
    script removed. It opens from an email attachment, from a shared folder, or
    on a phone, with no network and nothing to install.
 
-   The clinic picker survives without JavaScript: the export writes one hidden
-   radio per clinic and a sibling rule that reveals its panel. */
+   It also keeps the tool's shape: the same bar at the top, the same two scope
+   buttons and the same clinic list. None of it needs JavaScript — every control
+   is a hidden radio with a `~` rule behind it (see clinicScopeHTML). */
 import { U } from '../util.js';
 import { state } from '../state.js';
 import { buildClinics } from '../model/clinic.js';
-import { clinicTabsHTML } from '../render/clinics.js';
+import { clinicScopeHTML, clinicPanelsHTML } from '../render/clinics.js';
 import { el, wrapWideTables } from '../render/dom.js';
 
 const stamp = (d = new Date()) =>
@@ -53,17 +54,18 @@ export function buildExportHTML() {
   const S = state.stats;
   if (!S) throw new Error('Δεν έχει φορτωθεί αρχείο στατιστικών.');
 
+  const model = buildClinics();
   const dash = el('dash').cloneNode(true);
   dash.classList.remove('hidden');
-  /* The scope switch and the export buttons belong to the app, not to the
-     snapshot; the file carries both views, one after the other. The scope
-     classes have to go with them, or their rules would hide half the file. */
+  /* The bar is rebuilt outside #dash, where its radios can reach the sections
+     they show and hide; the app's own bar and its scope classes go, or their
+     rules would hide half the file. */
   dash.classList.remove('scope-hosp', 'scope-clinic');
   dash.querySelector('#scopebar')?.remove();
   dash.querySelector('#exportbar')?.remove();
-  /* the live picker only shows the selected clinic; the file shows them all */
+  /* the live page renders one clinic; the file carries them all */
   const clinics = dash.querySelector('#clinics');
-  if (clinics) clinics.innerHTML = clinicTabsHTML(buildClinics(), S);
+  if (clinics) clinics.innerHTML = clinicPanelsHTML(model, S);
   /* nothing in a snapshot should be able to run. The ids stay: the clinic tabs
      are radio inputs addressed by id, which is what makes them work with no
      JavaScript at all. */
@@ -90,7 +92,8 @@ ${css}
 <body>
 ${header}
 <main>
-${dash.innerHTML}
+${model.clinics.length ? clinicScopeHTML(model, S) : ''}
+<div id="dash">${dash.innerHTML}</div>
 ${provenance(S)}
 </main>
 ${footer}

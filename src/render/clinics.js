@@ -83,26 +83,66 @@ function renderDetail(model, S) {
     x.classList.toggle('on', x.dataset.clinic === c.key));
 }
 
-/* Every clinic, as a radio-driven dropdown. The screen picks a clinic from a
-   <select>, which needs script; a file has none, so the same list is written as
-   a <details> of labels over hidden radios. One click, same result, in any
-   browser, on a phone, and when printed. */
-export function clinicTabsHTML(model, S) {
-  const id = (k) => 'exp-' + String(k).replace(/[^Α-Ωα-ωA-Za-z0-9]+/g, '-');
-  const radios = model.clinics.map((c, i) =>
-    `<input type="radio" class="exp-pick" name="exp-clinic" id="${id(c.key)}"${i ? '' : ' checked'}>`).join('');
-  const labels = model.clinics.map(c =>
-    `<label class="cbtn" for="${id(c.key)}">${U.esc(c.label)}</label>`).join('');
+/* ---------- the same page, as a file ----------
+   The export has to look and work like the tool: the same bar at the top, the
+   same two buttons, the same clinic list. It just cannot use a line of
+   JavaScript, so every control is a hidden radio with a `~` rule behind it —
+   the two scope buttons and the clinic picker alike.
+
+   The radios sit next to #dash in the document, because that is the only way a
+   sibling selector can reach the sections it has to show and hide. */
+const expId = (k) => 'exp-' + String(k).replace(/[^Α-Ωα-ωA-Za-z0-9]+/g, '-');
+const HOSP = 'exp-scope-hosp', CLIN = 'exp-scope-clinic';
+const ON = 'background:var(--blue-deep);border-color:var(--blue-deep);color:#fff;font-weight:700';
+
+export function clinicScopeHTML(model, S) {
+  const ids = model.clinics.map(c => expId(c.key));
+  const radios = `<input type="radio" class="exp-pick" name="exp-scope" id="${HOSP}" checked>`
+    + `<input type="radio" class="exp-pick" name="exp-scope" id="${CLIN}">`
+    + model.clinics.map((c, i) =>
+      `<input type="radio" class="exp-pick" name="exp-clinic" id="${ids[i]}"${i ? '' : ' checked'}>`).join('');
+
+  const rules = [
+    /* one scope at a time, exactly as the live page does it with a class */
+    `#${HOSP}:checked~#dash #secClinics{display:none}`,
+    `#${CLIN}:checked~#dash>section:not(#secClinics):not(#secMethod){display:none}`,
+    /* label.sbtn[for=…] and not label[for=…]: the .sbtn:hover rule is more
+       specific than a bare attribute selector and would win under the cursor */
+    `#${HOSP}:checked~.scopebar label.sbtn[for="${HOSP}"]{${ON}}`,
+    `#${CLIN}:checked~.scopebar label.sbtn[for="${CLIN}"]{${ON}}`,
+    /* the clinic list belongs to the clinic view */
+    `#${HOSP}:checked~.scopebar .scopepick{display:none}`,
+    ...model.clinics.map((c, i) => [
+      `#${ids[i]}:checked~#dash .exp-panels>#p-${ids[i]}{display:block}`,
+      `#${ids[i]}:checked~.scopebar label.cbtn[for="${ids[i]}"]{${ON}}`,
+      /* the closed box shows the chosen clinic, the way a <select> would */
+      `#${ids[i]}:checked~.scopebar #cur-${ids[i]}{display:inline}`,
+    ].join('')),
+  ].join('');
+
+  const labels = model.clinics.map((c, i) =>
+    `<label class="cbtn" for="${ids[i]}">${U.esc(c.label)}</label>`).join('');
+  const current = model.clinics.map((c, i) =>
+    `<span id="cur-${ids[i]}">${U.esc(c.label)}</span>`).join('');
+
+  return `${radios}<style>${rules}</style>
+    <div class="scopebar">
+      <div class="scopeswitch">
+        <label class="sbtn" for="${HOSP}">Σύνολο νοσοκομείου</label>
+        <label class="sbtn" for="${CLIN}">Ανά κλινική</label>
+      </div>
+      <div class="scopepick">Κλινική:
+        <details class="exp-pickbox"><summary><span class="cur">${current}</span></summary>
+          <div class="clinicbar">${labels}</div></details>
+      </div>
+    </div>`;
+}
+
+/* what goes inside #clinics: every clinic's card, one shown at a time */
+export function clinicPanelsHTML(model, S) {
   const panels = model.clinics.map(c =>
-    `<div class="exp-panel" id="p-${id(c.key)}">${clinicCardHTML(c, model, S)}</div>`).join('');
-  /* one pair of rules per clinic: reveal its panel, and mark its name in the list */
-  const rules = model.clinics.map(c =>
-    `#${id(c.key)}:checked~.exp-panels>#p-${id(c.key)}{display:block}` +
-    `#${id(c.key)}:checked~.exp-pickbox label[for="${id(c.key)}"]{background:var(--blue-deep);border-color:var(--blue-deep);color:#fff;font-weight:700}`).join('');
-  return `<div class="exp-clinics">${radios}
-    <style>${rules}</style>
-    <details class="exp-pickbox"><summary>Επιλογή κλινικής — ${model.clinics.length} κλινικές</summary>
-      <div class="clinicbar">${labels}</div></details>
+    `<div class="exp-panel" id="p-${expId(c.key)}">${clinicCardHTML(c, model, S)}</div>`).join('');
+  return `<div class="exp-clinics">
     <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_GEN[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
     <div class="exp-panels">${panels}</div>
     <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>

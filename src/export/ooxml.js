@@ -97,11 +97,17 @@ export function table({ x, y, w, colWidths, rows, rowHeight = 20, headerFill = B
 }
 
 export function slideXml(shapes) {
+  /* Shape ids only have to be unique inside one slide, but the builders draw
+     from a single counter and the chrome is added later — so the ids are
+     renumbered here, at the one place that knows the whole slide. A repeated id
+     is a file PowerPoint refuses to read. */
+  let n = 1;
+  const tree = shapes.join('\n').replace(/<p:cNvPr id="\d+"/g, () => `<p:cNvPr id="${++n}"`);
   shapeId = 1;
   return XML + `<p:sld ${NS_P}><p:cSld><p:spTree>
     <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
     <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
-    ${shapes.join('\n')}
+    ${tree}
     </p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
 }
 
@@ -114,6 +120,9 @@ export const slideRels = (images) => XML + `<Relationships ${REL_NS}>
 
 const CLR = (name, val) => `<a:${name}><a:srgbClr val="${val}"/></a:${name}>`;
 
+/* Every one of the four style lists below takes at least THREE entries. With
+   two in a:bgFillStyleLst the theme is schema-invalid, and PowerPoint rejects
+   the whole package rather than the part: «PowerPoint can't read …». */
 export const theme = XML + `<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="ΟΚΥπΥ">
 <a:themeElements>
 <a:clrScheme name="ΟΚΥπΥ"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>
@@ -132,6 +141,7 @@ ${CLR('hlink', BRAND.blue)}${CLR('folHlink', BRAND.muted)}</a:clrScheme>
 <a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle>
 <a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>
 <a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
 <a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst>
 </a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>`;
 
@@ -160,10 +170,20 @@ export const presentation = (n) => XML + `<p:presentation ${NS_P} saveSubsetFont
 <p:sldSz cx="${emu(SLIDE_W)}" cy="${emu(SLIDE_H)}"/><p:notesSz cx="${emu(SLIDE_H)}" cy="${emu(SLIDE_W)}"/>
 </p:presentation>`;
 
+/* A PresentationML package carries exactly one presentation-properties, one
+   view-properties and one table-styles part. They hold nothing we care about,
+   but a package without them is not a presentation. */
+export const presProps = XML + `<p:presentationPr ${NS_P}/>`;
+export const viewProps = XML + `<p:viewPr ${NS_P}/>`;
+export const tableStyles = XML + `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`;
+
 export const presentationRels = (n) => XML + `<Relationships ${REL_NS}>
   <Relationship Id="rIdMaster" Type="${REL}/slideMaster" Target="slideMasters/slideMaster1.xml"/>
   ${Array.from({ length: n }, (_, i) => `<Relationship Id="rIdSlide${i + 1}" Type="${REL}/slide" Target="slides/slide${i + 1}.xml"/>`).join('')}
   <Relationship Id="rIdTheme" Type="${REL}/theme" Target="theme/theme1.xml"/>
+  <Relationship Id="rIdPresProps" Type="${REL}/presProps" Target="presProps.xml"/>
+  <Relationship Id="rIdViewProps" Type="${REL}/viewProps" Target="viewProps.xml"/>
+  <Relationship Id="rIdTableStyles" Type="${REL}/tableStyles" Target="tableStyles.xml"/>
 </Relationships>`;
 
 export const rootRels = XML + `<Relationships ${REL_NS}>
@@ -180,6 +200,9 @@ ${[...mediaExts].map(e => `<Default Extension="${e}" ContentType="image/${e}"/>`
 <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
 <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
 <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>
+<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>
+<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>
 ${Array.from({ length: n }, (_, i) => `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join('')}
 <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
 <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>

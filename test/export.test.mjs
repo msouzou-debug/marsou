@@ -60,20 +60,39 @@ test('η εξαγωγή HTML ανοίγει σε κινητό, χωρίς JavaSc
   /* nothing may push the page sideways on a narrow screen */
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), 390);
 
+  /* the file opens the way the tool does: hospital first, clinics behind the
+     «Ανά κλινική» button, and the picker only where it means something */
+  const shows = (sel) => p.$eval(sel, e => getComputedStyle(e).display !== 'none');
+  assert.equal(await shows('#secStory'), true);
+  assert.equal(await shows('#secClinics'), false, 'το σύνολο νοσοκομείου ανοίγει πρώτο');
+  assert.equal(await shows('.scopepick'), false, 'ο επιλογέας ανήκει στην προβολή κλινικής');
+
+  await p.click('label[for="exp-scope-clinic"]');
+  /* the pressed button has to read as pressed even with the cursor on it —
+     .sbtn:hover outranks a bare label[for=…] selector */
+  assert.equal(await p.$eval('label[for="exp-scope-clinic"]', e => getComputedStyle(e).fontWeight), '700');
+  assert.equal(await shows('#secStory'), false, 'η προβολή κλινικής δείχνει μόνο την κλινική');
+  assert.equal(await shows('#secClinics'), true);
+  assert.equal(await shows('#secMethod'), true, 'η μεθοδολογία ισχύει και στις δύο προβολές');
+  assert.equal(await shows('.scopepick'), true);
+
   /* every clinic is in the file, and exactly one panel shows at a time */
-  const labels = await p.$$eval('.exp-clinics label.cbtn', els => els.map(e => e.textContent));
+  const labels = await p.$$eval('.exp-pickbox label.cbtn', els => els.map(e => e.textContent));
   assert.equal(labels.length, 9);
   const visible = () => p.$$eval('.exp-panels .exp-panel',
     els => els.filter(e => getComputedStyle(e).display !== 'none').map(e => e.querySelector('.clinic-head h3')?.textContent));
   assert.deepEqual(await visible(), ['Παθολογία']);
+  /* the closed box names the chosen clinic, the way a <select> does */
+  const shown = () => p.$eval('.exp-pickbox > summary', e => e.innerText.trim());
+  assert.equal(await shown(), 'Παθολογία');
 
-  /* the dropdown opens and picks with no script involved: <details> for the
-     list, a radio for the choice */
+  /* and picking works with the radio alone — no script involved */
   assert.equal(await p.isVisible('.exp-pickbox label.cbtn'), false, 'η λίστα ξεκινά κλειστή');
   await p.click('.exp-pickbox > summary');
   assert.equal(await p.isVisible('.exp-pickbox label.cbtn'), true);
   await p.click('.exp-pickbox label.cbtn:nth-of-type(4)');
   assert.deepEqual(await visible(), [labels[3]]);
+  assert.equal(await shown(), labels[3], 'το κλειστό κουτί δείχνει την επιλεγμένη κλινική');
   await ctx.close();
 });
 
@@ -82,12 +101,46 @@ test('η εξαγωγή PowerPoint είναι έγκυρο πακέτο OOXML', 
   const names = [...parts.keys()];
   const slides = names.filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n));
 
-  /* the parts a presentation cannot open without */
+  /* the parts a presentation cannot open without. presProps/viewProps/
+     tableStyles look dispensable and are not: without them PowerPoint does not
+     report a damaged slide, it refuses to read the file at all. */
   for (const required of ['[Content_Types].xml', '_rels/.rels', 'ppt/presentation.xml',
     'ppt/_rels/presentation.xml.rels', 'ppt/theme/theme1.xml',
-    'ppt/slideMasters/slideMaster1.xml', 'ppt/slideLayouts/slideLayout1.xml']) {
+    'ppt/slideMasters/slideMaster1.xml', 'ppt/slideLayouts/slideLayout1.xml',
+    'ppt/presProps.xml', 'ppt/viewProps.xml', 'ppt/tableStyles.xml']) {
     assert.ok(parts.has(required), `λείπει το ${required}`);
   }
+
+  /* Every style list of the theme takes at least three entries. Two in
+     a:bgFillStyleLst cost a release: PowerPoint rejected the whole file. */
+  const themeXml = parts.get('ppt/theme/theme1.xml').toString('utf8');
+  for (const list of ['fillStyleLst', 'lnStyleLst', 'effectStyleLst', 'bgFillStyleLst']) {
+    const body = themeXml.match(new RegExp(`<a:${list}>([\\s\\S]*?)</a:${list}>`))?.[1] ?? '';
+    const depth = { fillStyleLst: 'solidFill|gradFill|blipFill|pattFill|noFill', lnStyleLst: 'ln',
+      effectStyleLst: 'effectStyle', bgFillStyleLst: 'solidFill|gradFill|blipFill|pattFill|noFill' }[list];
+    const n = [...body.matchAll(new RegExp(`<a:(?:${depth})[ />]`, 'g'))].length;
+    assert.ok(n >= 3, `το a:${list} έχει ${n} στοιχεία, χρειάζεται τουλάχιστον 3`);
+  }
+
+  /* a repeated shape id inside one slide is another file PowerPoint will not read */
+  for (const slide of slides) {
+    const ids = [...parts.get(slide).toString('utf8').matchAll(/<p:cNvPr id="(\d+)"/g)].map(m => m[1]);
+    assert.equal(new Set(ids).size, ids.length, `${slide}: διπλό id σχήματος`);
+  }
+
+  /* and every part the package declares must exist, and every part be typed */
+  const typesXml = parts.get('[Content_Types].xml').toString('utf8');
+  const defaults = new Set([...typesXml.matchAll(/Extension="([^"]+)"/g)].map(m => m[1].toLowerCase()));
+  const declared = new Set([...typesXml.matchAll(/PartName="\/([^"]+)"/g)].map(m => m[1]));
+  for (const part of declared) assert.ok(parts.has(part), `το ${part} δηλώνεται αλλά λείπει`);
+  for (const name of names) {
+    if (declared.has(name) || defaults.has(name.split('.').pop().toLowerCase())) continue;
+    assert.fail(`το ${name} δεν έχει content type`);
+  }
+  /* A ZIP entry left without a timestamp encodes day 0 of month 0, which is
+     not a date — enough for a strict reader to give up on the package. */
+  assert.notEqual(pptxExport.body.readUInt16LE(12), 0, 'το πρώτο μέρος δεν έχει ημερομηνία');
+
   /* 14 hospital slides, then one per clinic */
   assert.equal(slides.length, 14 + 9);
   assert.match(parts.get('ppt/presentation.xml').toString('utf8'), /<p:sldSz cx="12192000" cy="6858000"\/>/);
