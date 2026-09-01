@@ -46,7 +46,7 @@ export function renderClinics() {
     <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_GEN[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
     <div id="clinicDetail"></div>
     <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>
-    <div class="scrollx">${summaryTable(model, S)}</div>
+    ${summaryBlock(model, S, true)}
     ${unmatchedNote(model)}`;
 
   /* the summary table doubles as a picker: a row is the same choice as the list */
@@ -56,7 +56,37 @@ export function renderClinics() {
     el('clinicDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
 
+  /* ticking a clinic joins it to the group total — it is not the same act as
+     opening it, so the click must not reach the row */
+  box.querySelectorAll('input.focus').forEach(cb => cb.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (cb.checked) focus.add(cb.dataset.clinic); else focus.delete(cb.dataset.clinic);
+    refreshFocus(model, S);
+  }));
+  el('focusOnly')?.addEventListener('change', () => refreshFocus(model, S));
+  el('focusClear')?.addEventListener('click', () => {
+    focus.clear();
+    box.querySelectorAll('input.focus').forEach(cb => { cb.checked = false; });
+    refreshFocus(model, S);
+  });
+
   renderDetail(model, S);
+  refreshFocus(model, S);
+}
+
+/* The rows hide and show through CSS; only the count and the group total have
+   to be rebuilt, so the tick boxes never lose focus under the cursor. */
+function refreshFocus(model, S) {
+  const box = el('clinics');
+  if (!box) return;
+  const n = model.clinics.filter(c => focus.has(c.key)).length;
+  const count = el('focusCount');
+  if (count) count.textContent = n ? `${U.fmt(n)} επιλεγμένες` : 'Τσεκάρετε κλινικές για να τις δείτε μαζί';
+  const table = box.querySelector('table.ok.clinics');
+  if (!table) return;
+  const cols = ALL_INDICATORS.filter(def => model.clinics.some(c => c.series[def.key]?.[S.year] != null));
+  table.querySelector('tfoot')?.remove();
+  table.insertAdjacentHTML('beforeend', focusRow(model, S, cols));
 }
 
 /* The whole card as a string — the live panel and the static export render the
@@ -146,7 +176,7 @@ export function clinicPanelsHTML(model, S) {
     <div class="note" style="margin:0 0 16px">Κάθε μέγεθος αφορά την περίοδο Ιανουαρίου–${U.MONTHS_GEN[S.mN - 1]} και συγκρίνεται με την ίδια περίοδο κάθε προηγούμενου έτους.</div>
     <div class="exp-panels">${panels}</div>
     <h3 class="clinic-h3">Όλες οι κλινικές — ${S.year} έναντι ${S.year - 1}</h3>
-    <div class="scrollx">${summaryTable(model, S)}</div>
+    ${summaryBlock(model, S, false)}
     ${unmatchedNote(model)}</div>`;
 }
 
@@ -309,7 +339,53 @@ function notesBlock(c) {
     <div class="note">Αυτούσια αποσπάσματα από «${U.esc(state.report.file)}».</div>`;
 }
 
-function summaryTable(model, S) {
+/* ---------- «Όλες οι κλινικές» ----------
+   The table is wider than any screen, so the clinic name is pinned to the left
+   edge and everything else scrolls under it: a figure eight columns along still
+   has a name against it.
+
+   The tick boxes answer a question the per-clinic view cannot — «how are *these*
+   clinics doing together?» — for a director with two units, or for the surgical
+   block as a whole. */
+
+/* the ticked clinics, kept across a re-render */
+const focus = new Set();
+export const focusKeys = () => focus;
+
+/* A rate does not add up. Occupancy is weighted by beds and length of stay by
+   admissions — the denominators they were computed against; anything else would
+   invent a number, so where the weights are missing the cell stays «—». */
+function groupValue(picked, def, year) {
+  const rows = picked.filter(c => c.series[def.key]?.[year] != null);
+  if (!rows.length) return null;
+  if (def.agg !== 'avg') return rows.reduce((a, c) => a + c.series[def.key][year], 0);
+  const weights = rows.map(c => (def.key === 'occ' ? c.beds?.beds : c.series.adm?.[year]));
+  if (weights.some(w => !(w > 0))) return null;
+  const total = weights.reduce((a, b) => a + b, 0);
+  return rows.reduce((a, c, i) => a + c.series[def.key][year] * weights[i], 0) / total;
+}
+
+function focusRow(model, S, cols) {
+  const picked = model.clinics.filter(c => focus.has(c.key));
+  if (picked.length < 2) return '';
+  const y = S.year;
+  const withRev = picked.filter(c => c.revenue);
+  const sum = (k, yy) => withRev.reduce((a, c) => a + (yy === y ? c.revenue.cur.total : c.revenue.prev.total), 0);
+  const rev = withRev.length
+    ? `<td class="r"><b>${money(sum('total', y))}</b></td><td class="r">${delta(pctChange(sum('total', y), sum('total', y - 1)))}</td>`
+    : '<td class="r">—</td><td class="r">—</td>';
+  const cells = cols.map(def => {
+    const cur = groupValue(picked, def, y);
+    return `<td class="r"><b>${val(cur, def)}</b></td><td class="r">${delta(pctChange(cur, groupValue(picked, def, y - 1)))}</td>`;
+  }).join('');
+  return `<tfoot><tr class="focustotal">
+    <td class="pin"><b>Σύνολο επιλογής</b> <span class="note" style="margin:0">${U.fmt(picked.length)} κλινικές</span></td>
+    ${model.hasRevenue ? rev : ''}${cells}</tr></tfoot>`;
+}
+
+/* `live` marks the version the app renders: the static file keeps the tick
+   boxes — CSS alone can filter by them — but not the buttons, which need code. */
+function summaryTable(model, S, { live = false } = {}) {
   const y = S.year;
   const cols = ALL_INDICATORS.filter(def => model.clinics.some(c => c.series[def.key]?.[y] != null));
   const head = cols.map(def => `<th class="r" colspan="2">${def.label}</th>`).join('');
@@ -320,12 +396,32 @@ function summaryTable(model, S) {
     const rev = c.revenue
       ? `<td class="r">${money(c.revenue.cur.total)}</td><td class="r">${delta(pctChange(c.revenue.cur.total, c.revenue.prev.total))}</td>`
       : '<td class="r">—</td><td class="r">—</td>';
+    const ticked = live && focus.has(c.key);
     return `<tr data-clinic="${U.esc(c.key)}" class="pick${c.key === currentClinic() ? ' on' : ''}">
-      <td><b>${U.esc(c.label)}</b></td>${model.hasRevenue ? rev : ''}${cells}</tr>`;
+      <td class="pin"><input type="checkbox" class="focus" data-clinic="${U.esc(c.key)}"${ticked ? ' checked' : ''}
+        aria-label="Επιλογή ${U.esc(c.label)}"><b>${U.esc(c.label)}</b></td>${model.hasRevenue ? rev : ''}${cells}</tr>`;
   }).join('');
   return `<table class="ok clinics"><thead>
-      <tr><th rowspan="2">Κλινική</th>${model.hasRevenue ? '<th class="r" colspan="2">Έσοδα ΟΑΥ</th>' : ''}${head}</tr>
-      <tr>${model.hasRevenue ? `<th class="r">${y}</th><th class="r">Δ%</th>` : ''}${sub}</tr></thead><tbody>${rows}</tbody></table>`;
+      <tr><th rowspan="2" class="pin">Κλινική</th>${model.hasRevenue ? '<th class="r" colspan="2">Έσοδα ΟΑΥ</th>' : ''}${head}</tr>
+      <tr>${model.hasRevenue ? `<th class="r">${y}</th><th class="r">Δ%</th>` : ''}${sub}</tr></thead>
+      <tbody>${rows}</tbody>${live ? focusRow(model, S, cols) : ''}</table>`;
+}
+
+function focusBar(model, live) {
+  const n = live ? [...focus].filter(k => model.clinics.some(c => c.key === k)).length : 0;
+  return `<div class="focusbar">
+    <label class="focustoggle"><input type="checkbox" class="focus-only"${live ? ' id="focusOnly"' : ''}> Μόνο οι επιλεγμένες</label>
+    ${live ? `<button type="button" class="cbtn" id="focusClear">Καθαρισμός</button>
+      <span class="note" style="margin:0" id="focusCount">${n ? `${U.fmt(n)} επιλεγμένες` : 'Τσεκάρετε κλινικές για να τις δείτε μαζί'}</span>`
+      : '<span class="note" style="margin:0">Τσεκάρετε κλινικές για να μείνουν μόνο αυτές στον πίνακα.</span>'}
+  </div>`;
+}
+
+/* the toolbar and the table travel together: the filter rule looks for a ticked
+   box anywhere inside this wrapper */
+function summaryBlock(model, S, live) {
+  return `<div class="clinicwrap">${focusBar(model, live)}
+    <div class="scrollx">${summaryTable(model, S, { live })}</div></div>`;
 }
 
 function unmatchedNote(model) {

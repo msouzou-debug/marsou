@@ -76,7 +76,29 @@ h3.clinic-h3{font-size:15px;color:var(--blue-deep);margin:22px 0 10px}
 table.ok.clinics{min-width:760px}
 table.ok.clinics tr.pick{cursor:pointer}
 table.ok.clinics tr.pick:hover td{background:#eaf6fd}
-table.ok.clinics tr.pick.on td{background:#eaf6fd;box-shadow:inset 3px 0 0 var(--blue)}
+table.ok.clinics tr.pick.on td{background:#eaf6fd}
+/* ---- the clinic name stays put while the figures scroll under it ----
+   A sticky cell has to be opaque, so every row state repeats its own
+   background here; the 1px shadow is the edge of the frozen column. */
+table.ok.clinics th.pin,table.ok.clinics td.pin{position:sticky;left:0}
+table.ok.clinics th.pin{z-index:3;background:var(--blue-deep)}
+table.ok.clinics td.pin{z-index:2;background:#fff;box-shadow:1px 0 0 var(--grey)}
+table.ok.clinics tbody tr:nth-child(even) td.pin{background:#f6f6f6}
+table.ok.clinics tbody tr:has(input.focus:checked) td.pin{background:#f4f9ee}
+table.ok.clinics tr.pick.on td.pin{background:#eaf6fd;box-shadow:inset 3px 0 0 var(--blue),1px 0 0 var(--grey)}
+/* the name and its tick box stay on one line — wrapped, a long clinic pushed
+   the box onto a line of its own and made the row twice as tall */
+table.ok.clinics th.pin,table.ok.clinics td.pin{white-space:nowrap}
+input.focus{margin-right:8px;vertical-align:-1px;accent-color:var(--blue-deep);cursor:pointer}
+/* ---- ticking clinics to look at them together ---- */
+.focusbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px}
+.focustoggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--blue-deep);cursor:pointer}
+.focustoggle input{accent-color:var(--blue-deep);cursor:pointer}
+/* the filter is pure CSS, so it works in the exported file too; where :has is
+   unsupported the rule is ignored and every clinic simply stays visible */
+.clinicwrap:has(.focus-only:checked) table.ok.clinics tbody tr:not(:has(input.focus:checked)){display:none}
+table.ok.clinics tfoot td{border-top:2px solid var(--blue-deep);background:#f4f9ee;padding:9px 10px}
+table.ok.clinics tfoot td.pin{background:#f4f9ee}
 table.ok .delta{font-size:12.5px;font-weight:700;white-space:nowrap}
 /* auto-fill, not auto-fit: a clinic with a single indicator keeps a tile-sized
    card instead of one stretched across the row */

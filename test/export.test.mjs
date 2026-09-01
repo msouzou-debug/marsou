@@ -93,6 +93,24 @@ test('η εξαγωγή HTML ανοίγει σε κινητό, χωρίς JavaSc
   await p.click('.exp-pickbox label.cbtn:nth-of-type(4)');
   assert.deepEqual(await visible(), [labels[3]]);
   assert.equal(await shown(), labels[3], 'το κλειστό κουτί δείχνει την επιλεγμένη κλινική');
+
+  /* the summary table keeps the pinned name column and the tick boxes; the
+     filter is a CSS rule, so it works here with no script at all */
+  const scroller = p.locator('.clinicwrap .scrollx');
+  await scroller.evaluate(e => { e.scrollLeft = 300; });
+  const [pinned, frame] = await Promise.all([
+    p.$eval('table.ok.clinics tbody tr:first-child td.pin', e => Math.round(e.getBoundingClientRect().left)),
+    scroller.evaluate(e => Math.round(e.getBoundingClientRect().left)),
+  ]);
+  assert.equal(pinned, frame, 'το όνομα της κλινικής δεν μένει στη θέση του');
+
+  const shownRows = () => p.$$eval('table.ok.clinics tbody tr',
+    rs => rs.filter(row => getComputedStyle(row).display !== 'none').length);
+  assert.equal(await shownRows(), 9);
+  await p.check('table.ok.clinics tbody tr:nth-child(2) input.focus');
+  await p.check('table.ok.clinics tbody tr:nth-child(5) input.focus');
+  await p.check('.focus-only');
+  assert.equal(await shownRows(), 2, 'το φιλτράρισμα με :has() δεν λειτούργησε');
   await ctx.close();
 });
 

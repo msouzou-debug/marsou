@@ -161,6 +161,82 @@ test('η καρτέλα κλινικής δείχνει έσοδα, δραστη
   assert.match(html, /PALLIATIVE CARE/);
 });
 
+test('ο συγκεντρωτικός πίνακας παγώνει το όνομα και αθροίζει τις επιλεγμένες', { timeout: 300_000 }, async () => {
+  const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
+  await page.goto(pathToFileURL(DIST_FILE).href);
+  await page.setInputFiles('#fileInput', FILES);
+  await page.waitForFunction(() => document.getElementById('method').innerHTML.length > 0, null, { timeout: 120_000 });
+  await page.click('#btnScopeClinic');
+
+  /* scrolled sideways, the clinic name stays against the left edge */
+  const scroller = page.locator('.clinicwrap .scrollx');
+  await scroller.evaluate(e => { e.scrollLeft = 400; });
+  const [pinned, frame] = await Promise.all([
+    page.$eval('table.ok.clinics tbody tr:first-child td.pin', e => Math.round(e.getBoundingClientRect().left)),
+    scroller.evaluate(e => Math.round(e.getBoundingClientRect().left)),
+  ]);
+  assert.equal(pinned, frame, 'το όνομα της κλινικής ξεφεύγει από την οθόνη όταν κυλάει ο πίνακας');
+  assert.equal(await page.$eval('table.ok.clinics tbody tr:first-child td.pin', e => e.innerText.trim()), 'Παθολογία');
+
+  /* ticking two clinics adds their combined line, and it really is their sum */
+  const euro = (s) => Number(s.replace(/[^\d]/g, ''));
+  assert.equal(await page.$$eval('table.ok.clinics tfoot', e => e.length), 0, 'χωρίς επιλογή δεν υπάρχει σύνολο');
+  for (const i of [1, 2]) await page.click(`table.ok.clinics tbody tr:nth-child(${i}) input.focus`);
+  const rows = await page.$$eval('table.ok.clinics tbody tr:nth-child(-n+2)',
+    rs => rs.map(r => [r.children[1].innerText, r.children[3].innerText]));
+  const foot = await page.$$eval('table.ok.clinics tfoot tr td', c => c.map(x => x.innerText));
+  assert.equal(euro(foot[1]), euro(rows[0][0]) + euro(rows[1][0]), 'τα έσοδα της επιλογής');
+  assert.equal(euro(foot[3]), euro(rows[0][1]) + euro(rows[1][1]), 'οι εισαγωγές της επιλογής');
+  assert.match(foot[0], /Σύνολο επιλογής/);
+  assert.match(await page.textContent('#focusCount'), /2 επιλεγμένες/);
+
+  /* the filter leaves only the ticked clinics — pure CSS, so it works in the file too */
+  const shownRows = () => page.$$eval('table.ok.clinics tbody tr',
+    rs => rs.filter(r => getComputedStyle(r).display !== 'none').length);
+  const all = await shownRows();
+  assert.ok(all > 2);
+  await page.check('#focusOnly');
+  assert.equal(await shownRows(), 2);
+  await page.uncheck('#focusOnly');
+
+  await page.click('#focusClear');
+  assert.equal(await page.$$eval('table.ok.clinics tfoot', e => e.length), 0);
+  assert.equal(await page.$$eval('table.ok.clinics input.focus:checked', e => e.length), 0);
+  await page.close();
+});
+
+/* A rate cannot be added up, so the combined line weights it: occupancy by
+   beds, length of stay by admissions. */
+test('το σύνολο επιλογής σταθμίζει τους δείκτες που δεν αθροίζονται', { timeout: 300_000 }, async () => {
+  const page = await browser.newPage();
+  await page.goto(pathToFileURL(DIST_FILE).href);
+  await page.setInputFiles('#fileInput', FILES);
+  await page.waitForFunction(() => document.getElementById('method').innerHTML.length > 0, null, { timeout: 120_000 });
+  await page.click('#btnScopeClinic');
+
+  const result = await page.evaluate(() => {
+    const heads = [...document.querySelectorAll('table.ok.clinics thead tr:first-child th')].map(t => t.innerText.trim());
+    const col = heads.indexOf('Πληρότητα κλινών');
+    /* two clinics with beds and an occupancy figure */
+    const rows = [...document.querySelectorAll('table.ok.clinics tbody tr')];
+    const pick = rows.filter(r => r.children[2 * col - 1]?.innerText.includes('%')).slice(0, 2);
+    pick.forEach(r => r.querySelector('input.focus').click());
+    const foot = document.querySelector('table.ok.clinics tfoot tr');
+    return {
+      col,
+      values: pick.map(r => r.children[2 * col - 1].innerText.trim()),
+      total: foot.children[2 * col - 1].innerText.trim(),
+    };
+  });
+  const pct = (s) => Number(s.replace('%', '').replace('.', '').replace(',', '.'));
+  const [a, b] = result.values.map(pct);
+  const total = pct(result.total);
+  assert.ok(total >= Math.min(a, b) && total <= Math.max(a, b),
+    `η σταθμισμένη πληρότητα ${total} πρέπει να πέφτει ανάμεσα σε ${a} και ${b}`);
+  assert.notEqual(total, a + b, 'τα ποσοστά δεν αθροίζονται');
+  await page.close();
+});
+
 test('η καρτέλα δείχνει τα σχόλια της έκθεσης για τη συγκεκριμένη κλινική', () => {
   assert.equal(built.snap.reportParas, 12, 'το .docx διαβάστηκε στον browser');
   const html = built.snap.clinicsHTML;
