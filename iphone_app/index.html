@@ -569,25 +569,73 @@ const CLAY_PRESENT={
   rolling:{name:"Rabbit (rolling)",face:0.95,note:"on edge across you — full disc face"},
   edgeon:{name:"Battue edge-on",face:0.10,note:"knife-edge until it turns — the hardest look"}
 };
+/* ISSF Skeet stands, derived from the field itself rather than guessed.
+   Semicircle radius 19.20 m on a 40.30 m base chord, high and low house at the
+   chord ends, target crossing point 5.49 m out from the centre stake and 4.57 m
+   (15 ft) up. That fixes both the true slant range of every shot and how much of
+   the clay's face is turned toward the gun: looking along the flight line shows
+   the disc, square across it shows only the rim, and a target high overhead
+   shows its belly. Station 4 falls out as the pure crosser and station 8 as the
+   very close, steeply-overhead shot — which is exactly how skeet plays. */
+const SKEET_STANDS=(function(){
+  const R=19.20, HALF=40.30/2, TCP=[0,5.49], TH=4.57, out={};
+  const HH=[-HALF,0], LH=[HALF,0];
+  const nrm=v=>{const m=Math.hypot(v[0],v[1]);return [v[0]/m,v[1]/m,m];};
+  for(let i=1;i<=8;i++){
+    const a=(180-(i-1)*30)*Math.PI/180;
+    const S=(i===8)?[0,0]:[R*Math.cos(a),R*Math.sin(a)];
+    const los=nrm([TCP[0]-S[0],TCP[1]-S[1]]);
+    const horiz=los[2], slant=Math.hypot(horiz,TH), elev=Math.atan2(TH,horiz);
+    for(const [h,H] of [["h",HH],["l",LH]]){
+      const d=nrm([TCP[0]-H[0],TCP[1]-H[1]]);
+      const cosA=Math.abs(los[0]*d[0]+los[1]*d[1]);
+      const face=Math.max(0.15,Math.min(0.90,0.18+0.30*cosA+0.55*Math.sin(elev)));
+      out["sk"+i+h]={name:"Station "+i+(h==="h"?" · High house":" · Low house"),
+        face,rangeM:Math.round(slant*10)/10,
+        note:(cosA>0.8?"straight down the flight line":cosA<0.45?"square crosser — rim on":"quartering")
+             +", "+Math.round(slant)+" m"};
+    }
+  }
+  return out;
+})();
+/* ISSF Trap: targets leave a bunker 15 m in front of the line, thrown up to 45
+   degrees either side and rising, and are normally broken 30-35 m out. */
+const TRAP_STANDS={
+  tstraight:{name:"Straight away",face:0.60,rangeM:33,note:"rising straight away — you see the back"},
+  tquarter:{name:"Quartering (≈22°)",face:0.52,rangeM:33,note:"angled away and rising"},
+  twide:{name:"Wide angle (≈45°)",face:0.42,rangeM:34,note:"hard angle — more rim, less face"}
+};
+function presentTable(disc){
+  if(disc==="skeet")return SKEET_STANDS;
+  if(disc==="trap"||disc==="dtl")return TRAP_STANDS;
+  return CLAY_PRESENT;
+}
 const DISCIPLINES={
-  trap:{name:"ISSF Trap",range:33,present:"goingaway",target:"standard",choke:"im",
-    guide:"Targets thrown away and rising, broken around 30-38 m. Tight chokes, hard targets."},
-  skeet:{name:"ISSF Skeet",range:20,present:"crossing",target:"standard",choke:"cylinder",
-    guide:"68 m targets on fixed crossing paths, broken close — 18-25 m. Open chokes win."},
-  sporting:{name:"Sporting",range:30,present:"crossing",target:"standard",choke:"modified",
-    guide:"Anything from 15 to 50 m and every target type — choke to the stand."},
-  dtl:{name:"Down-the-Line",range:32,present:"goingaway",target:"standard",choke:"full",
+  trap:{name:"ISSF Trap",range:33,present:"tstraight",target:"standard",choke:"im",aim:6,maxG:24,maxSize:"7.5",
+    guide:"Thrown from a bunker 15 m out, rising and angled up to 45\u00b0, broken 30-35 m. 24 g max, shot \u22642.5 mm."},
+  skeet:{name:"ISSF Skeet",range:20,present:"sk4h",target:"standard",choke:"cylinder",aim:6,maxG:24,maxSize:"7.5",
+    guide:"Fixed 68 m crossing paths over eight stations, broken 7-21 m. Open chokes and small shot win."},
+  sporting:{name:"English Sporting",range:30,present:"crossing",target:"standard",choke:"modified",aim:6,maxG:28,maxSize:"6",
+    guide:"Anything from 15 to 50 m and every target type \u2014 choke to the stand. Gun may be pre-mounted."},
+  compak:{name:"Compak Sporting",range:28,present:"crossing",target:"standard",choke:"modified",aim:6,maxG:28,maxSize:"7.5",
+    guide:"Five stands facing at least six traps over a 40 x 25 m field \u2014 the full variety of sporting targets, but close and fast. Gun may be pre-mounted; 28 g max, shot 2.0-2.5 mm."},
+  fitasc:{name:"FITASC Sporting",range:35,present:"crossing",target:"standard",choke:"im",aim:12,maxG:28,maxSize:"7.5",
+    guide:"Parcours de chasse from pegs, targets longer and more varied than English Sporting. The gun must start DOWN \u2014 stock 25 cm below the shoulder \u2014 which costs real pointing accuracy, so the aim setting is stepped back a notch. 28 g max, shot 2.0-2.5 mm."},
+  dtl:{name:"Down-the-Line",range:32,present:"tstraight",target:"standard",choke:"full",aim:6,maxG:28,maxSize:"7.5",
     guide:"Straighter, slower going-away targets than ISSF Trap."}
 };
+
+
 const IN2_PER_MM2=1/645.16;
 /* build a target profile with the same shape evaluate() uses for a bird */
 function clayProfile(s){
   const t=CLAY_TARGETS[s.clayTarget]||CLAY_TARGETS.standard;
-  const pr=CLAY_PRESENT[s.clayPresent]||CLAY_PRESENT.crossing;
+  const tbl=presentTable(s.discipline);
+  const pr=tbl[s.clayPresent]||tbl[Object.keys(tbl)[0]];
   const faceIn2=Math.PI*(t.dia/2)*(t.dia/2)*IN2_PER_MM2;   // full disc
   const edgeIn2=t.dia*t.h*IN2_PER_MM2;                     // rim band
   const body=pr.face*faceIn2+(1-pr.face)*edgeIn2;
-  return {name:t.name+" · "+pr.name,body,req:t.req,ros:t.req,min:0,e:t.e,depth:0,
+  return {name:t.name+" · "+pr.name,body,req:t.req,ros:t.req,min:0,e:t.e,depth:0,presentName:pr.name,presentNote:pr.note||"",
     choke:(DISCIPLINES[s.discipline]||DISCIPLINES.sporting).choke,
     guide:t.guide+" "+(DISCIPLINES[s.discipline]||DISCIPLINES.sporting).guide,
     faceIn2,edgeIn2,clay:true};
@@ -793,7 +841,7 @@ function evaluate(s){
   const aimWidthIn=2*sa;                             // typical off-centre miss diameter (in)
   let verdict, reasons=[];
   if(clay){
-    reasons.push("Presented area "+(sp.body*6.4516).toFixed(0)+" cm² ("+CLAY_PRESENT[s.clayPresent].note+"); needs "+req+" strike"+(req>1?"s":"")+" at ≥"+sp.e.toFixed(2)+" ft·lbf to break.");
+    reasons.push("Presented area "+(sp.body*6.4516).toFixed(0)+" cm² ("+sp.presentNote+"); needs "+req+" strike"+(req>1?"s":"")+" at ≥"+sp.e.toFixed(2)+" ft·lbf to break.");
     if(!eGate)reasons.push("Per-pellet energy is under the "+sp.e.toFixed(2)+" ft·lbf break threshold — only ~"+Math.round(effShare*100)+"% of strikes should carry enough energy to fracture the clay. Chips, not kills.");
     if(p>=0.90){verdict="clean-kill-likely";reasons.push("P(break) ≥ 90% at this range.");}
     else if(p>=0.70){verdict="marginal";reasons.push("P(break) is "+Math.round(p*100)+"% — workable but not a confident kill. More pattern or a tighter choke.");}
@@ -818,6 +866,7 @@ const state={mode:"game",species:"partridge",discipline:"sporting",clayTarget:"s
   material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 const isClay=()=>state.mode==="clay";
 const targetName=()=>isClay()?clayProfile(state).name:SPECIES[state.species].name;
+const presentLabel=()=>isClay()?clayProfile(state).presentName:state.present;
 /* the recommended choke depends on bird or discipline, so resolve it in one place */
 function defaultChoke(){return isClay()?(DISCIPLINES[state.discipline]||DISCIPLINES.sporting).choke:SPECIES[state.species].choke;}
 /* photo-tool state (the cartridge you patterned) */
@@ -854,7 +903,12 @@ function buildShot(){fillSelect($("shot"),SHOT_ORDER.map(k=>[k,shotLabel(k)]),st
 fillSelect($("species"),Object.entries(SPECIES).map(([k,v])=>[k,v.name]),state.species);
 fillSelect($("discipline"),Object.entries(DISCIPLINES).map(([k,v])=>[k,v.name]),state.discipline);
 fillSelect($("clayTarget"),Object.entries(CLAY_TARGETS).map(([k,v])=>[k,v.name]),state.clayTarget);
-fillSelect($("clayPresent"),Object.entries(CLAY_PRESENT).map(([k,v])=>[k,v.name]),state.clayPresent);
+function buildClayPresent(){
+  const tbl=presentTable(state.discipline);
+  if(!tbl[state.clayPresent])state.clayPresent=Object.keys(tbl)[0];
+  fillSelect($("clayPresent"),Object.entries(tbl).map(([k,v])=>[k,v.name]),state.clayPresent);
+}
+buildClayPresent();
 fillSelect($("material"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),state.material);
 buildShot();
 function fillChoke(){fillSelect($("choke"),[["","Recommended ("+CHOKE_NAME[defaultChoke()]+")"],...CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]])],state.choke);}
@@ -1003,7 +1057,7 @@ function buildExportData(){
   const cur=evaluate(state);
   const cfg=`${targetName()} · ${MATERIALS[state.material].name} #${state.shot} · `
     +`${m?Math.round(state.payload*OZ_G)+" g":state.payload.toFixed(3)+" oz"} · `
-    +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[defaultChoke()]} · ${isClay()?CLAY_PRESENT[state.clayPresent].name:state.present}`
+    +`${state.choke?CHOKE_NAME[state.choke]:CHOKE_NAME[defaultChoke()]} · ${presentLabel()}`
     +` · aim ${state.aim}"@40yd${state.measured?" · MEASURED pattern":""} · ${cur.total} pellets/shell`;
   const head1=[`Range (${U.r})`,`Velocity (${U.v})`,`Energy (${U.e})`,`Pattern %`,`In ${circleLabel()} circle`,`Strikes src`,`Hits on bird`,`Penetrating hits`,`Clean-kill %`,`Verdict`];
   const rows1=ranges.map(rd=>{const r=evaluate({...state,range:toYd(rd)});
@@ -1049,13 +1103,25 @@ const OPT_SIZES=SHOT_ORDER.filter(s=>!["10","11","12"].includes(s));
 // nothing bigger than about #6 is either useful or legal on a clay ground.
 const CLAY_SIZES=["9","8","7.5","7","6"];
 const CLAY_PAYLOADS=[21,24,28].map(g=>g/28.349523125);
+/* Competition rules cap both the charge and the shot diameter — ISSF 24 g and
+   2.5 mm, FITASC/Compak 28 g and 2.0-2.5 mm — so the optimiser must not offer a
+   load that would be disallowed on that layout. */
+function claySizesFor(disc){
+  const cap=(DISCIPLINES[disc]||DISCIPLINES.sporting).maxSize||"6";
+  const capD=SHOT[cap];
+  return CLAY_SIZES.filter(z=>SHOT[z]<=capD+1e-9);
+}
+function clayPayloadsFor(disc){
+  const maxG=(DISCIPLINES[disc]||DISCIPLINES.sporting).maxG||28;
+  return CLAY_PAYLOADS.filter(oz=>oz*28.349523125<=maxG+1e-6);
+}
 const OPT_CHOKES=CHOKE_ORDER; // most open (incl. spreaders, best for close shots) -> tightest
 const ENERGY_MARGIN=1.3;      // per-pellet energy comfortably above the kill minimum
 const OPT_MIN_HITS=3;         // a clean kill = at least three energetic strikes on the bird
 function bestComboAt(rangeYd,target){
   const clay=isClay();
   const sp=clay?clayProfile(state):SPECIES[state.species];
-  const sizes=clay?CLAY_SIZES:OPT_SIZES, pays=clay?CLAY_PAYLOADS:PAYLOADS;
+  const sizes=clay?claySizesFor(state.discipline):OPT_SIZES, pays=clay?clayPayloadsFor(state.discipline):PAYLOADS;
   // a clay needs only its own breaking-strike count, not the 3-hit game standard
   const need=clay?sp.req:OPT_MIN_HITS;
   let fallback=null;                      // best (highest-p) combo that clears the energy gate
@@ -1092,7 +1158,7 @@ function buildBestTable(){
   }
   const eU=m?"J":"ft·lbf";
   const goal=isClay()?`lands <b>\u2265${clayProfile(state).req} breaking strike(s)</b> on the clay`:"lands <b>\u22653 energetic strikes</b> on the bird";
-  return `<p class="xcfg">${targetName()} \u00b7 ${MATERIALS[state.material].name} \u00b7 ${isClay()?CLAY_PRESENT[state.clayPresent].name:state.present} \u00b7 aim ${state.aim}"@40. Leanest choke/pellet/load that ${goal} at <b>\u226590%</b>. Green = 90% reached; <span style="color:var(--warn)">amber</span> = best achievable. In-circle: <span class="smk smk-m">m</span> measured \u00b7 <span class="smk smk-e">e</span> estimated.</p>`
+  return `<p class="xcfg">${targetName()} \u00b7 ${MATERIALS[state.material].name} \u00b7 ${presentLabel()} \u00b7 aim ${state.aim}"@40. Leanest choke/pellet/load that ${goal} at <b>\u226590%</b>. Green = 90% reached; <span style="color:var(--warn)">amber</span> = best achievable. In-circle: <span class="smk smk-m">m</span> measured \u00b7 <span class="smk smk-e">e</span> estimated.</p>`
     +`<table class="xt"><tr><th>Range</th><th>Pellet</th><th>Choke</th><th>Load</th><th>In circle</th><th>Energy (${eU})</th><th>P(≥3)</th></tr>${rows}</table>`;
 }
 function copyExport(){
@@ -1542,23 +1608,30 @@ $("photoApply").addEventListener("click",()=>{
 /* ---------------- wiring ------------------------------------------------------ */
 document.querySelectorAll("#mode button").forEach(b=>b.addEventListener("click",()=>{
   state.mode=b.dataset.m; state.choke="";
-  if(isClay()){                       // adopt the discipline's stand defaults
-    const d=DISCIPLINES[state.discipline];
-    state.clayTarget=d.target; state.clayPresent=d.present; state.range=d.range/YD_M;
-    $("clayTarget").value=state.clayTarget; $("clayPresent").value=state.clayPresent;
-    state.aim=6;   // on a clay ground the target's line is known, so pointing is far tighter
-  }else state.aim=12;
-  document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim));
+  if(isClay()){ adoptDiscipline(); }
+  else{ state.aim=12;
+    document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim)); }
   applyMode(); setControlsFromState(); render();
 }));
+function adoptDiscipline(){
+  const d=DISCIPLINES[state.discipline];
+  state.clayTarget=d.target; state.clayPresent=d.present; state.choke="";
+  state.aim=d.aim!=null?d.aim:6;          // FITASC starts gun-down, so it is stepped back
+  buildClayPresent(); applyStandRange();
+  $("clayTarget").value=state.clayTarget;
+  document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim));
+}
+/* a named stand carries its own true distance; otherwise use the discipline default */
+function applyStandRange(){
+  const tbl=presentTable(state.discipline), pr=tbl[state.clayPresent];
+  state.range=((pr&&pr.rangeM)?pr.rangeM:DISCIPLINES[state.discipline].range)/YD_M;
+}
 $("discipline").addEventListener("change",e=>{
-  state.discipline=e.target.value; const d=DISCIPLINES[state.discipline];
-  state.clayTarget=d.target; state.clayPresent=d.present; state.range=d.range/YD_M; state.choke="";
-  $("clayTarget").value=d.target; $("clayPresent").value=d.present;
-  fillChoke(); setControlsFromState(); render();
+  state.discipline=e.target.value;
+  adoptDiscipline(); fillChoke(); setControlsFromState(); render();
 });
 $("clayTarget").addEventListener("change",e=>{state.clayTarget=e.target.value;render();});
-$("clayPresent").addEventListener("change",e=>{state.clayPresent=e.target.value;render();});
+$("clayPresent").addEventListener("change",e=>{state.clayPresent=e.target.value;applyStandRange();setControlsFromState();render();});
 $("species").addEventListener("change",e=>{state.species=e.target.value;state.choke="";fillChoke();$("pchoke").value=SPECIES[state.species].choke;render();});
 $("material").addEventListener("change",e=>{state.material=e.target.value;render();});
 $("shot").addEventListener("change",e=>{state.shot=e.target.value;render();});
