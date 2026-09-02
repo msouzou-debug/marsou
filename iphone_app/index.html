@@ -276,6 +276,7 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="vstat"><span class="k" id="lambdaK">Pellets on bird <small style="opacity:.65">typical shot</small></span><span class="v mono" id="lambda">—</span></div>
       <div class="vstat"><span class="k" id="needK">Need</span><span class="v mono" id="need">—</span></div>
       <div class="vstat"><span class="k" id="circleK">In 30″ circle</span><span class="v mono" id="circle">—</span></div>
+      <div class="vstat" id="bar2Stat" style="display:none"><span class="k">With 2nd barrel</span><span class="v mono" id="bar2">—</span></div>
     </div>
   </div>
 
@@ -327,6 +328,13 @@ footer a{color:var(--accent);text-decoration:none}
       </div>
     </div>
     <div class="field">
+      <label>Barrels</label>
+      <div class="seg" id="barrels">
+        <button data-b="1" class="on">Single</button>
+        <button data-b="2">Two (pair)</button>
+      </div>
+    </div>
+    <div class="field">
       <label>Aim / gun fit <span class="taghint" style="font-weight:400" id="aimHint">— your pointing error</span></label>
       <div class="seg" id="aim">
         <button data-aim="6">Fine</button>
@@ -356,6 +364,14 @@ footer a{color:var(--accent);text-decoration:none}
       <label for="choke">Choke</label>
       <select id="choke"></select>
     </div>
+    <div class="field">
+      <label for="cartLib">Saved cartridges</label>
+      <select id="cartLib"></select>
+    </div>
+    <div class="btnrow">
+      <button class="bigbtn ghost" id="cartSave" type="button">Save this cartridge</button>
+      <button class="bigbtn ghost" id="cartDel" type="button">Delete</button>
+    </div>
     <div class="loadcount" id="loadCount"></div>
   </div>
 
@@ -368,6 +384,7 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="read"><span class="k">Pattern density</span><span class="v mono" id="patpct">—</span></div>
       <div class="read"><span class="k">Pattern width</span><span class="v mono" id="patw">—</span></div>
       <div class="read"><span class="k">Aim spread</span><span class="v mono" id="aimw">—</span></div>
+      <div class="read"><span class="k">Lead needed <span class="chip" id="tofChip">—</span></span><span class="v mono" id="lead">—</span></div>
     </div>
     <ul class="notes" id="notes"></ul>
   </div>
@@ -560,15 +577,16 @@ const CLAY_TARGETS={
    the rim band (diameter x height). Each presentation sets how much of the face
    is turned toward the gun. */
 const CLAY_PRESENT={
-  crossing:{name:"Crossing",face:0.25,note:"flat across you — you see mostly the rim"},
-  quartering:{name:"Quartering",face:0.45,note:"angling away or in"},
-  goingaway:{name:"Going-away / Trap",face:0.55,note:"rising away, foreshortened"},
-  driven:{name:"Driven / Incoming",face:0.85,note:"belly toward you — the biggest face"},
-  looper:{name:"Looper",face:0.75,note:"arcing over — belly shows near the top"},
-  teal:{name:"Teal (rising)",face:0.70,note:"climbing vertically"},
-  rolling:{name:"Rabbit (rolling)",face:0.95,note:"on edge across you — full disc face"},
-  edgeon:{name:"Battue edge-on",face:0.10,note:"knife-edge until it turns — the hardest look"}
+  crossing:{name:"Crossing",face:0.25,speed:20,cross:1.00,note:"flat across you — you see mostly the rim"},
+  quartering:{name:"Quartering",face:0.45,speed:20,cross:0.70,note:"angling away or in"},
+  goingaway:{name:"Going-away / Trap",face:0.55,speed:18,cross:0.25,note:"rising away, foreshortened"},
+  driven:{name:"Driven / Incoming",face:0.85,speed:20,cross:0.60,note:"belly toward you — the biggest face"},
+  looper:{name:"Looper",face:0.75,speed:15,cross:0.80,note:"arcing over — belly shows near the top"},
+  teal:{name:"Teal (rising)",face:0.70,speed:15,cross:0.45,note:"climbing vertically"},
+  rolling:{name:"Rabbit (rolling)",face:0.95,speed:14,cross:0.90,note:"on edge across you — full disc face"},
+  edgeon:{name:"Battue edge-on",face:0.10,speed:22,cross:0.85,note:"knife-edge until it turns — the hardest look"}
 };
+
 /* ISSF Skeet stands, derived from the field itself rather than guessed.
    Semicircle radius 19.20 m on a 40.30 m base chord, high and low house at the
    chord ends, target crossing point 5.49 m out from the centre stake and 4.57 m
@@ -590,8 +608,10 @@ const SKEET_STANDS=(function(){
       const d=nrm([TCP[0]-H[0],TCP[1]-H[1]]);
       const cosA=Math.abs(los[0]*d[0]+los[1]*d[1]);
       const face=Math.max(0.15,Math.min(0.90,0.18+0.30*cosA+0.55*Math.sin(elev)));
+      // how much of the target's motion is across the gun -> how much lead is needed
+      const cross=Math.sqrt(Math.max(0,1-cosA*cosA));
       out["sk"+i+h]={name:"Station "+i+(h==="h"?" · High house":" · Low house"),
-        face,rangeM:Math.round(slant*10)/10,
+        face,speed:19,cross,rangeM:Math.round(slant*10)/10,
         note:(cosA>0.8?"straight down the flight line":cosA<0.45?"square crosser — rim on":"quartering")
              +", "+Math.round(slant)+" m"};
     }
@@ -601,10 +621,11 @@ const SKEET_STANDS=(function(){
 /* ISSF Trap: targets leave a bunker 15 m in front of the line, thrown up to 45
    degrees either side and rising, and are normally broken 30-35 m out. */
 const TRAP_STANDS={
-  tstraight:{name:"Straight away",face:0.60,rangeM:33,note:"rising straight away — you see the back"},
-  tquarter:{name:"Quartering (≈22°)",face:0.52,rangeM:33,note:"angled away and rising"},
-  twide:{name:"Wide angle (≈45°)",face:0.42,rangeM:34,note:"hard angle — more rim, less face"}
+  tstraight:{name:"Straight away",face:0.60,speed:21,cross:0.12,rangeM:33,note:"rising straight away — you see the back"},
+  tquarter:{name:"Quartering (≈22°)",face:0.52,speed:21,cross:0.38,rangeM:33,note:"angled away and rising"},
+  twide:{name:"Wide angle (≈45°)",face:0.42,speed:21,cross:0.62,rangeM:34,note:"hard angle — more rim, less face"}
 };
+
 function presentTable(disc){
   if(disc==="skeet")return SKEET_STANDS;
   if(disc==="trap"||disc==="dtl")return TRAP_STANDS;
@@ -619,8 +640,8 @@ const DISCIPLINES={
     guide:"Anything from 15 to 50 m and every target type \u2014 choke to the stand. Gun may be pre-mounted."},
   compak:{name:"Compak Sporting",range:28,present:"crossing",target:"standard",choke:"modified",aim:6,maxG:28,maxSize:"7.5",
     guide:"Five stands facing at least six traps over a 40 x 25 m field \u2014 the full variety of sporting targets, but close and fast. Gun may be pre-mounted; 28 g max, shot 2.0-2.5 mm."},
-  fitasc:{name:"FITASC Sporting",range:35,present:"crossing",target:"standard",choke:"im",aim:12,maxG:28,maxSize:"7.5",
-    guide:"Parcours de chasse from pegs, targets longer and more varied than English Sporting. The gun must start DOWN \u2014 stock 25 cm below the shoulder \u2014 which costs real pointing accuracy, so the aim setting is stepped back a notch. 28 g max, shot 2.0-2.5 mm."},
+  fitasc:{name:"FITASC Sporting",range:35,present:"crossing",target:"standard",choke:"im",aim:6,aimMul:1.35,maxG:28,maxSize:"7.5",
+    guide:"Parcours de chasse from pegs, targets longer and more varied than English Sporting. The gun must start DOWN \u2014 stock 25 cm below the shoulder \u2014 which costs real consistency \u2014 modelled as a 35% handicap on whatever standard you pick, not a whole grade. 28 g max, shot 2.0-2.5 mm."},
   dtl:{name:"Down-the-Line",range:32,present:"tstraight",target:"standard",choke:"full",aim:6,maxG:28,maxSize:"7.5",
     guide:"Straighter, slower going-away targets than ISSF Trap."}
 };
@@ -676,15 +697,18 @@ function interp(xs,ys,x){if(x<=xs[0])return ys[0];if(x>=xs[xs.length-1])return y
   for(let i=1;i<xs.length;i++){if(x<=xs[i]){const t=(x-xs[i-1])/(xs[i]-xs[i-1]);return ys[i-1]+t*(ys[i]-ys[i-1]);}}return ys[ys.length-1];}
 function sphereCd(m){return interp(CD_M,CD_V,m);}
 
-function retainedFps(matKey,dIn,mvFps,rangeYd){
+function ballistics(matKey,dIn,mvFps,rangeYd){
   const massG=pelletMassG(matKey,dIn), massKg=massG/1000;
   const r=dIn*CM_PER_IN/100/2, A=Math.PI*r*r, k=AIR*A/(2*massKg);
-  let v=mvFps/FPS_PER_MS; const xT=rangeYd*YARD_M; let x=0; const h0=0.05;
+  let v=mvFps/FPS_PER_MS; const xT=rangeYd*YARD_M; let x=0,t=0; const h0=0.05;
   while(x<xT-1e-9){const h=Math.min(h0,xT-x);
     const d=vv=>-k*sphereCd(vv/SOUND)*vv;
-    const k1=d(v), k2=d(v+0.5*h*k1); v=v+h*k2; if(v<=1){v=1;break;} x+=h;}
-  return v*FPS_PER_MS;
+    const k1=d(v), k2=d(v+0.5*h*k1); const v2=v+h*k2;
+    t+=h/Math.max(1,(v+v2)/2);                      // dt = dx / v
+    v=v2; if(v<=1){v=1;break;} x+=h;}
+  return {vFps:v*FPS_PER_MS, tSec:t};
 }
+function retainedFps(matKey,dIn,mvFps,rangeYd){return ballistics(matKey,dIn,mvFps,rangeYd).vFps;}
 function energyFtlb(massGr,vFps){return massGr*vFps*vFps/450240;}
 
 // Nominal spread: pattern sigma grows ~linearly with distance (a cone from the
@@ -726,7 +750,44 @@ function patternInDisk(rho,sp,rb){ // fraction of a 2-D Gaussian (std sp) centre
   const inv=1/(sp*sp),N=24,dr=rb/N; let acc=0;
   for(let i=0;i<N;i++){const r=(i+0.5)*dr,dz=r-rho; acc+=r*inv*Math.exp(-dz*dz*0.5*inv)*scaledBesselI0(r*rho*inv)*dr;}
   return Math.min(1,acc);}
-function aimSigmaInches(aim,rangeYd){const a=(aim==null?12:aim);return a*rangeYd/40;} // per-axis pointing sigma (in)
+/* The old single "pointing error" lumped two different mistakes together. They
+   are separated here because they scale differently: gun-mount/pointing error
+   grows with range, while LEAD error grows with the lead itself — which depends
+   on how fast the target crosses and how long the shot takes to get there. That
+   is why a going-away target is forgiving and a long crosser is brutal, and it
+   is what makes a fast close target (skeet 8) harder than its range suggests.
+   The three settings now carry a mount sigma (inches at 40 yd) and the fraction
+   of the required lead a shooter of that standard typically misjudges. */
+const AIM_PROFILE={6:{mount:4,lead:0.06},12:{mount:8,lead:0.10},20:{mount:14,lead:0.16}};
+function aimProfile(aim){return AIM_PROFILE[aim]||AIM_PROFILE[12];}
+function aimSigmaInches(aim,rangeYd){return aimProfile(aim).mount*rangeYd/40;} // mount sigma (in)
+/* target motion for the current shot: speed (m/s) and the share of it crossing the gun */
+function targetMotion(s){
+  if(s.mode==="clay"){
+    const tbl=presentTable(s.discipline), pr=tbl[s.clayPresent]||tbl[Object.keys(tbl)[0]];
+    return {speed:pr.speed||18,cross:pr.cross!=null?pr.cross:0.8};
+  }
+  return s.present==="side"?{speed:18,cross:1.0}
+       : s.present==="going"?{speed:15,cross:0.25}
+       : {speed:15,cross:0.5};
+}
+/* inches of lead the shot actually needs, and the error in judging it */
+function leadInches(s,tSec){const m=targetMotion(s);return m.speed*m.cross*tSec*39.3701;}
+/* A discipline may carry its own handicap on top of the shooter's standard —
+   FITASC's mandatory gun-down start costs consistency without demoting the
+   shooter a whole grade. */
+function aimHandicap(s){
+  const rush=s._rush?RUSH:1;
+  if(s.mode!=="clay")return rush;
+  const d=DISCIPLINES[s.discipline];
+  return rush*((d&&d.aimMul)?d.aimMul:1);
+}
+function totalAimSigma(s,tSec){
+  const h=aimHandicap(s);
+  const mount=aimSigmaInches(s.aim,s.range)*h;
+  const leadErr=aimProfile(s.aim).lead*h*leadInches(s,tSec);
+  return Math.sqrt(mount*mount+leadErr*leadErr);
+}
 // Returns p (kill probability), mean (expected EFFECTIVE hits) and frac — the
 // aim-weighted share of the pattern falling on the bird. frac is what turns into
 // the number of pellets that physically strike; mean additionally carries the
@@ -801,7 +862,8 @@ function evaluate(s){
   const sp=clay?clayProfile(s):SPECIES[s.species], dIn=SHOT[s.shot], steel=(s.material==="steel");
   const total=pelletCount(s.material,dIn,s.payload);
   const massGr=pelletMassG(s.material,dIn)*GRAINS_PER_GRAM;
-  const v=retainedFps(s.material,dIn,s.velocity,s.range);
+  const bal=ballistics(s.material,dIn,s.velocity,s.range);
+  const v=bal.vFps, tof=bal.tSec;
   const e=energyFtlb(massGr,v);
   const eGate=e>=sp.e;
   const pen=penetrationIn(s.material,dIn,v);
@@ -817,7 +879,8 @@ function evaluate(s){
   const scale=clay?1.0:(s.present==="going"?0.55:s.present==="side"?1.15:1.0);
   const sigma=sigmaFromCircle(total,circle);        // pattern spread (in)
   const rb=Math.sqrt((sp.body*scale)/Math.PI);      // presented bird radius (in)
-  const sa=aimSigmaInches(s.aim,s.range);           // aim/pointing error (in)
+  const leadIn=leadInches(s,tof);                   // lead the shot needs (in)
+  const sa=totalAimSigma(s,tof);                    // mount error + lead error (in)
   const effShare=pelletEfficacy(e,sp.e);            // share of pellets that penetrate
   const totalEff=total*0.84*effShare;               // Lowry core correction x efficacy
   // decoyed/incoming birds present vitals frontally (Roster's lower count);
@@ -853,7 +916,23 @@ function evaluate(s){
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
   }
-  return {sp,clay,total,dIn,steel,v,e,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,hitsGood,hitsPoor,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
+  return {sp,clay,total,dIn,steel,v,e,tof,leadIn,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,hitsGood,hitsPoor,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
+}
+/* Second barrel. In the time it takes to recover and fire again the target has
+   moved: the component along the line of sight lengthens the shot, the crossing
+   component swings it wider. The shot is also rushed, so pointing suffers. */
+const REACT_S=0.55, RUSH=1.20;
+function secondBarrel(s){
+  const m=targetMotion(s), t=REACT_S;
+  const along=m.speed*Math.sqrt(Math.max(0,1-m.cross*m.cross))*t/YARD_M; // yd
+  const across=m.speed*m.cross*t/YARD_M;
+  const r2=Math.hypot(s.range+along,across);
+  return evaluate({...s,range:r2,aim:s.aim,_rush:true});
+}
+function pairProbability(s){
+  const a=evaluate(s); if(s.barrels!==2)return {first:a,second:null,combined:a.p};
+  const b=secondBarrel(s);
+  return {first:a,second:b,combined:1-(1-a.p)*(1-b.p)};
 }
 function maxRange(s){let best=null;for(let r=10;r<=75;r++){const rr=evaluate({...s,range:r});if(rr.verdict==="clean-kill-likely")best=r;}return best;}
 
@@ -862,7 +941,7 @@ const $=id=>document.getElementById(id);
 // audit tags — is a displayed strike count measured (from a scan) or estimated?
 const srcPill=src=>src==="measured"?'<span class="pill-measured">measured</span>':'<span class="pill-est">estimated</span>';
 const miniSrc=src=>src==="measured"?'<span class="smk smk-m">m</span>':'<span class="smk smk-e">e</span>';
-const state={mode:"game",species:"partridge",discipline:"sporting",clayTarget:"standard",clayPresent:"crossing",
+const state={mode:"game",barrels:1,species:"partridge",discipline:"sporting",clayTarget:"standard",clayPresent:"crossing",
   material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,shooter:"",gun:"",aim:12};
 const isClay=()=>state.mode==="clay";
 const targetName=()=>isClay()?clayProfile(state).name:SPECIES[state.species].name;
@@ -871,6 +950,22 @@ const presentLabel=()=>isClay()?clayProfile(state).presentName:state.present;
 function defaultChoke(){return isClay()?(DISCIPLINES[state.discipline]||DISCIPLINES.sporting).choke:SPECIES[state.species].choke;}
 /* photo-tool state (the cartridge you patterned) */
 const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1,drawn:false};
+/* Cartridge library: name a load once and pick it again later. Stored per
+   browser alongside the scanned pattern. */
+let CARTS=[];
+function loadCarts(){try{CARTS=JSON.parse(localStorage.getItem("cartridges")||"[]");}catch(e){CARTS=[];}
+  if(!Array.isArray(CARTS))CARTS=[];}
+function saveCarts(){try{localStorage.setItem("cartridges",JSON.stringify(CARTS));}catch(e){}}
+function cartLabel(c){
+  return c.name+" — "+MATERIALS[c.material].name+" #"+c.shot+" "+Math.round(c.payload*28.349523125)+"g @"+Math.round(c.velocity)+"fps";
+}
+function buildCartLib(){
+  const el=$("cartLib"); if(!el)return;
+  fillSelect(el,[["","— pick a saved cartridge —"],...CARTS.map((c,i)=>[String(i),cartLabel(c)])],"");
+}
+function currentCartName(){
+  return MATERIALS[state.material].name+" #"+state.shot+" "+Math.round(state.payload*28.349523125)+"g";
+}
 /* the scanned pattern is persisted so it survives a reload / re-open.
    SCAN_VERSION is bumped whenever the hole detector changes materially, so a
    pattern counted by an older (less accurate) detector is dropped rather than
@@ -1037,6 +1132,12 @@ function render(){
   $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+srcPill(r.strikeSrc);
   $("patw").innerHTML=(m?Math.round(r.patWidthIn*2.54):Math.round(r.patWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
   $("aimw").innerHTML=(m?Math.round(r.aimWidthIn*2.54):Math.round(r.aimWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
+  $("lead").innerHTML=(m?Math.round(r.leadIn*2.54):Math.round(r.leadIn))+' <small>'+(m?"cm":"in")+'</small>';
+  $("tofChip").className="chip"; $("tofChip").textContent=r.tof.toFixed(2)+"s";
+  if(state.barrels===2){
+    const pr=pairProbability(state);
+    $("bar2Stat").style.display=""; $("bar2").textContent=Math.round(pr.combined*100)+"%";
+  }else $("bar2Stat").style.display="none";
   $("notes").innerHTML=r.reasons.map(t=>`<li>${t}</li>`).join("");
   $("reco").innerHTML="<b>"+r.sp.name+".</b> "+r.sp.guide;
   $("loadCount").innerHTML="This shell holds ≈ <b>"+r.total+"</b> pellets ("+MATERIALS[state.material].name+" #"+state.shot+").";
@@ -1606,6 +1707,10 @@ $("photoApply").addEventListener("click",()=>{
 });
 
 /* ---------------- wiring ------------------------------------------------------ */
+document.querySelectorAll("#barrels button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#barrels button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  state.barrels=+b.dataset.b; render();
+}));
 document.querySelectorAll("#mode button").forEach(b=>b.addEventListener("click",()=>{
   state.mode=b.dataset.m; state.choke="";
   if(isClay()){ adoptDiscipline(); }
@@ -1665,7 +1770,7 @@ $("theme").addEventListener("click",()=>{
 });
 function resetAll(){
   // shooter + gun are intentionally kept (identity persists across a reset)
-  Object.assign(state,{mode:"game",discipline:"sporting",clayTarget:"standard",clayPresent:"crossing",species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,aim:12});
+  Object.assign(state,{mode:"game",barrels:1,discipline:"sporting",clayTarget:"standard",clayPresent:"crossing",species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,aim:12});
   Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1});
   persistMeasured();
   placeStage=0;
@@ -1678,11 +1783,28 @@ function resetAll(){
   document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===12));
   document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u==="metric"));
   $("pchoke").value=SPECIES.partridge.choke;
+  document.querySelectorAll("#barrels button").forEach(x=>x.classList.toggle("on",x.dataset.b==="1"));
   $("discipline").value="sporting";$("clayTarget").value="standard";$("clayPresent").value="crossing";
   renderMlist(); applyMode(); fillChoke(); setControlsFromState(); updateBanner(); render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 $("reset").addEventListener("click",resetAll);
+$("cartLib").addEventListener("change",e=>{
+  const i=e.target.value; if(i==="")return;
+  const c=CARTS[+i]; if(!c)return;
+  state.material=c.material; state.shot=c.shot; state.payload=c.payload; state.velocity=c.velocity;
+  setControlsFromState(); render();
+});
+$("cartSave").addEventListener("click",()=>{
+  const nm=prompt("Name this cartridge",currentCartName());
+  if(!nm)return;
+  CARTS.push({name:nm.slice(0,40),material:state.material,shot:state.shot,payload:state.payload,velocity:state.velocity});
+  saveCarts(); buildCartLib(); $("cartLib").value=String(CARTS.length-1);
+});
+$("cartDel").addEventListener("click",()=>{
+  const i=$("cartLib").value; if(i==="")return;
+  CARTS.splice(+i,1); saveCarts(); buildCartLib();
+});
 $("shooter").addEventListener("input",e=>{state.shooter=e.target.value;});
 $("gun").addEventListener("input",e=>{state.gun=e.target.value;});
 $("exportBtn").addEventListener("click",openExport);
@@ -1723,6 +1845,7 @@ $("exportShare").addEventListener("click",async()=>{
 });
 
 restoreMeasured();
+loadCarts(); buildCartLib();
 applyMode();
 document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u===state.units));
 document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode===state.present));
