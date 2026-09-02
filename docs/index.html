@@ -758,7 +758,7 @@ function patternInDisk(rho,sp,rb){ // fraction of a 2-D Gaussian (std sp) centre
    is what makes a fast close target (skeet 8) harder than its range suggests.
    The three settings now carry a mount sigma (inches at 40 yd) and the fraction
    of the required lead a shooter of that standard typically misjudges. */
-const AIM_PROFILE={6:{mount:4,lead:0.06},12:{mount:8,lead:0.10},20:{mount:14,lead:0.16}};
+const AIM_PROFILE={6:{mount:4,lead:0.06,jit:0.0045},12:{mount:8,lead:0.10,jit:0.0079},20:{mount:14,lead:0.16,jit:0.0131}};
 function aimProfile(aim){return AIM_PROFILE[aim]||AIM_PROFILE[12];}
 function aimSigmaInches(aim,rangeYd){return aimProfile(aim).mount*rangeYd/40;} // mount sigma (in)
 /* target motion for the current shot: speed (m/s) and the share of it crossing the gun */
@@ -782,11 +782,30 @@ function aimHandicap(s){
   const d=DISCIPLINES[s.discipline];
   return rush*((d&&d.aimMul)?d.aimMul:1);
 }
+/* Swing/timing error — why a fast CLOSE target is hard even when the pattern is
+   dense and the lead tiny. The gun has to rotate at the target's angular rate,
+   w = v_perp / range, so halving the range doubles the required swing. A small
+   jitter in when the shot breaks becomes a linear miss of v_perp * jitter, and
+   because a fast swing is disproportionately harder to hold, that grows again
+   with w. Skeet station 8 needs roughly twice station 4's swing rate at half the
+   distance; this is the term that separates them. */
+const OMEGA0=1.3;                                   // swing rate a shooter holds comfortably, rad/s
+function swingErrorIn(s,aimMul){
+  const m=targetMotion(s);
+  const vPerp=m.speed*m.cross;                      // m/s across the line of sight
+  const rM=Math.max(2,s.range*YARD_M);              // metres
+  const omega=vPerp/rM;                             // rad/s the gun must swing
+  if(omega<=OMEGA0)return 0;                        // an ordinary swing costs nothing
+  const excess=(omega-OMEGA0)/OMEGA0;               // how far past comfortable
+  const jitter=aimProfile(s.aim).jit*aimMul;
+  return jitter*vPerp*excess*39.3701;               // -> inches at the target
+}
 function totalAimSigma(s,tSec){
   const h=aimHandicap(s);
   const mount=aimSigmaInches(s.aim,s.range)*h;
   const leadErr=aimProfile(s.aim).lead*h*leadInches(s,tSec);
-  return Math.sqrt(mount*mount+leadErr*leadErr);
+  const swing=swingErrorIn(s,h);
+  return Math.sqrt(mount*mount+leadErr*leadErr+swing*swing);
 }
 // Returns p (kill probability), mean (expected EFFECTIVE hits) and frac — the
 // aim-weighted share of the pattern falling on the bird. frac is what turns into
@@ -880,7 +899,8 @@ function evaluate(s){
   const sigma=sigmaFromCircle(total,circle);        // pattern spread (in)
   const rb=Math.sqrt((sp.body*scale)/Math.PI);      // presented bird radius (in)
   const leadIn=leadInches(s,tof);                   // lead the shot needs (in)
-  const sa=totalAimSigma(s,tof);                    // mount error + lead error (in)
+  const swingIn=swingErrorIn(s,aimHandicap(s));     // fast-swing / timing error (in)
+  const sa=totalAimSigma(s,tof);                    // mount + lead + swing (in)
   const effShare=pelletEfficacy(e,sp.e);            // share of pellets that penetrate
   const totalEff=total*0.84*effShare;               // Lowry core correction x efficacy
   // decoyed/incoming birds present vitals frontally (Roster's lower count);
@@ -903,6 +923,11 @@ function evaluate(s){
   const patWidthIn=4.29*sigma;                       // ~90% pattern spread diameter (in)
   const aimWidthIn=2*sa;                             // typical off-centre miss diameter (in)
   let verdict, reasons=[];
+  if(swingIn>1.2){
+    const m=targetMotion(s), om=m.speed*m.cross/Math.max(2,s.range*YARD_M);
+    reasons.push("Fast, close target: the gun must swing at "+Math.round(om*57.3)+"\u00b0/s, well past a comfortable rate, which adds about "
+      +Math.round(swingIn)+"\u2033 of pointing scatter. Closer is not automatically easier.");
+  }
   if(clay){
     reasons.push("Presented area "+(sp.body*6.4516).toFixed(0)+" cm² ("+sp.presentNote+"); needs "+req+" strike"+(req>1?"s":"")+" at ≥"+sp.e.toFixed(2)+" ft·lbf to break.");
     if(!eGate)reasons.push("Per-pellet energy is under the "+sp.e.toFixed(2)+" ft·lbf break threshold — only ~"+Math.round(effShare*100)+"% of strikes should carry enough energy to fracture the clay. Chips, not kills.");
@@ -916,7 +941,7 @@ function evaluate(s){
   else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
   else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
   }
-  return {sp,clay,total,dIn,steel,v,e,tof,leadIn,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,hitsGood,hitsPoor,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
+  return {sp,clay,total,dIn,steel,v,e,tof,leadIn,swingIn,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,hitsGood,hitsPoor,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
 }
 /* Second barrel. In the time it takes to recover and fire again the target has
    moved: the component along the line of sight lengthens the shot, the crossing
@@ -1132,6 +1157,7 @@ function render(){
   $("patpct").innerHTML=Math.round(r.pct)+'% <small>· '+r.total+' pellets</small>'+srcPill(r.strikeSrc);
   $("patw").innerHTML=(m?Math.round(r.patWidthIn*2.54):Math.round(r.patWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
   $("aimw").innerHTML=(m?Math.round(r.aimWidthIn*2.54):Math.round(r.aimWidthIn))+' <small>'+(m?"cm":"in")+'</small>';
+  $("aimw").innerHTML+=(r.swingIn>1.2?' <span class="pill-est" style="color:var(--warn)">fast swing</span>':"");
   $("lead").innerHTML=(m?Math.round(r.leadIn*2.54):Math.round(r.leadIn))+' <small>'+(m?"cm":"in")+'</small>';
   $("tofChip").className="chip"; $("tofChip").textContent=r.tof.toFixed(2)+"s";
   if(state.barrels===2){
