@@ -117,12 +117,13 @@ section('Ανάγνωση αρχείου εκπτώσεων ΟΑΥ');
 section('Υπολογισμός — δείγματα-άγκυρες προδιαγραφών');
 const assumptions = C.defaultAssumptions();
 
-function monthRows(m) {
-  return C.computeMonthRows(m, {
-    is: isParsed[m].perProvider,
-    over15: consoParsed[m] ? consoParsed[m].over15 : {}
-  }, assumptions);
+const ALL_MONTHS = [1, 2, 3, 4, 5];
+function seriesAll(a) {
+  const dataByMonth = {};
+  for (const m of ALL_MONTHS) dataByMonth[m] = { is: isParsed[m].perProvider, over15: consoParsed[m] ? consoParsed[m].over15 : {} };
+  return C.computeSeries(ALL_MONTHS, dataByMonth, a || assumptions);
 }
+function monthRows(m) { return seriesAll().filter(r => r.month === m); }
 
 {
   const jan = monthRows(1);
@@ -131,7 +132,8 @@ function monthRows(m) {
   close(f54.posAe, 734.31, 1e-6, 'F1054 Ιαν posAe');
   close(f54.over15, 223.85, 1e-9, 'F1054 Ιαν over15');
   close(f54.counted, 749.96, 1e-6, 'F1054 Ιαν προσμετρώμενες');
-  close(f54.agreedMonthly, 5239 / 12, 1e-9, 'F1054 Ιαν συμφωνημένες μηνιαίες (436.58)');
+  close(f54.carryover, 0, 1e-12, 'F1054 Ιαν μεταφορά = 0 (πρώτος μήνας)');
+  close(f54.agreedMonth, 5239 / 12, 1e-9, 'F1054 Ιαν συμφ. μονάδες μηνός (436.58)');
   close(f54.excess, 749.96 - 5239 / 12, 1e-6, 'F1054 Ιαν υπέρβαση (≈313.38)');
   // Οι προδιαγραφές δίνουν −613.054 € με τα πλήρη (μη στρογγυλεμένα) δεδομένα πηγής·
   // με τις στρογγυλεμένες τιμές pos/posAe των προδιαγραφών βγαίνει −613.067 €.
@@ -141,10 +143,20 @@ function monthRows(m) {
   ok(f54.amberFlag === false, 'F1054 Ιαν: χωρίς πορτοκαλί σήμανση');
 }
 {
-  const mar = monthRows(3);
-  const f47 = mar.find(r => r.code === 'F1047');
-  close(f47.excess, 194.1, 1e-6, 'F1047 Μαρ υπέρβαση 194.1');
-  close(f47.impact, -506994, 5, 'F1047 Μαρ επίπτωση ≈ −506.994 €');
+  // Μεταφορά πλεονάσματος — αναλυτικός έλεγχος για το F1047 (κάτω τον Ιαν/Φεβ,
+  // πάνω τον Μαρ, οπότε το πλεόνασμα Ιαν+Φεβ μειώνει την υπέρβαση Μαρτίου).
+  const base47 = 1519 / 12;
+  const series = seriesAll().filter(r => r.code === 'F1047');
+  const jan = series.find(r => r.month === 1), feb = series.find(r => r.month === 2), mar = series.find(r => r.month === 3);
+  close(jan.counted, 150 - 40 + 10, 1e-9, 'F1047 Ιαν counted 120');
+  close(jan.carryover, 0, 1e-12, 'F1047 Ιαν μεταφορά 0');
+  close(jan.excess, 0, 1e-12, 'F1047 Ιαν υπέρβαση 0 (κάτω από το όριο)');
+  close(feb.carryover, Math.max(0, base47 - jan.counted), 1e-9, 'F1047 Φεβ μεταφορά = πλεόνασμα Ιαν');
+  close(feb.agreedMonth, base47 + (base47 - jan.counted), 1e-9, 'F1047 Φεβ συμφ. μονάδες = βάση + μεταφορά');
+  close(mar.carryover, Math.max(0, feb.agreedMonth - feb.counted), 1e-9, 'F1047 Μαρ μεταφορά = πλεόνασμα Φεβ');
+  // Με μεταφορά, η υπέρβαση Μαρτίου είναι μικρότερη από την «χωρίς μεταφορά» (194.1).
+  close(mar.excess, mar.counted - mar.agreedMonth, 1e-9, 'F1047 Μαρ υπέρβαση = counted − συμφ. μονάδες μηνός');
+  ok(mar.excess < 194.1 - 1, 'F1047 Μαρ υπέρβαση μειωμένη λόγω μεταφοράς (' + mar.excess.toFixed(2) + ' < 194.1)');
 }
 {
   const may = monthRows(5);
@@ -153,26 +165,29 @@ function monthRows(m) {
   close(f54.excess, 48.1, 1e-6, 'F1054 Μάιος υπέρβαση 48.1 (εμφανίζεται παρά το 0%)');
 }
 {
-  // Ανεξάρτητος επανυπολογισμός του γενικού συνόλου από τα δεδομένα εισόδου.
+  // Ανεξάρτητος επανυπολογισμός του γενικού συνόλου, χρονολογικά ανά νοσηλευτήριο.
   let expectedTotal = 0;
-  for (const m of [1, 2, 3, 4, 5]) {
-    for (const h of C.HOSPITALS) {
+  for (const h of C.HOSPITALS) {
+    let prevAgreed = null, prevCounted = null;
+    for (const m of ALL_MONTHS) {
       const t = MONTH_INPUTS[m][h.code];
       const o15 = (CONSO[m] && CONSO[m][h.code]) || 0;
       const counted = t.pos - t.posAe + o15; // toggle ΟΧΙ
-      const excess = Math.max(0, counted - h.agreed / 12);
+      const carry = prevAgreed === null ? 0 : Math.max(0, prevAgreed - prevCounted);
+      const agreed = h.agreed / 12 + carry;
+      const excess = Math.max(0, counted - agreed);
       expectedTotal += excess * h.brH1 * DISCOUNTS[m];
+      prevAgreed = agreed; prevCounted = counted;
     }
   }
-  const total = [1, 2, 3, 4, 5].flatMap(monthRows).reduce((s, r) => s + r.impact, 0);
-  close(total, expectedTotal, 0.01, 'γενικό σύνολο επίπτωσης = ανεξάρτητος επανυπολογισμός (' + Math.round(expectedTotal) + ' €)');
+  const total = seriesAll().reduce((s, r) => s + r.impact, 0);
+  close(total, expectedTotal, 0.01, 'γενικό σύνολο επίπτωσης = ανεξάρτητος επανυπολογισμός με μεταφορά (' + Math.round(expectedTotal) + ' €)');
 }
 {
   // Διακόπτης πιστωτικών ΝΑΙ: το counted του F1054 Ιαν μειώνεται κατά neg−negAe = −6.3.
   const aYes = C.defaultAssumptions();
   aYes.creditToggle = 'ΝΑΙ';
-  const jan = C.computeMonthRows(1, { is: isParsed[1].perProvider, over15: consoParsed[1].over15 }, aYes);
-  const f54 = jan.find(r => r.code === 'F1054');
+  const f54 = seriesAll(aYes).find(r => r.code === 'F1054' && r.month === 1);
   close(f54.counted, 749.96 - 6.3, 1e-6, 'toggle ΝΑΙ: counted −6.3');
 }
 
@@ -230,7 +245,7 @@ ok(C.validateForExport(baseState()).length === 0, 'πλήρης κατάστασ
 section('Workbook εξόδου (ExcelJS)');
 (async () => {
   const months = [1, 2, 3, 4, 5];
-  const rows = months.flatMap(monthRows);
+  const rows = seriesAll(); // ανά νοσηλευτήριο, μήνες αύξοντες (όπως το απαιτεί το buildWorkbook)
   const payload = {
     year: 2026, months, rows,
     assumptions,
@@ -272,32 +287,41 @@ section('Workbook εξόδου (ExcelJS)');
     return (c.value && typeof c.value === 'object' && 'result' in c.value) ? c.value.result : c.value;
   };
 
-  // Γραμμή 5 = Ιανουάριος F1054 (μήνες ταξινομημένοι, νοσηλευτήρια με τη σειρά των προεπιλογών).
+  // Σειρά ανά νοσηλευτήριο, μήνες αύξοντες: γραμμή 5 = F1054 Ιαν, 6 = F1054 Φεβ …
   ok(f(calc, 'A5').includes('Δεδομένα'), 'Υπολογισμός A5 σύνδεση στο Δεδομένα: ' + f(calc, 'A5'));
   ok(f(calc, 'I5') === 'E5-F5+G5+H5', 'I5 = E5-F5+G5+H5, got ' + f(calc, 'I5'));
-  ok(/^MAX\(0,I5-J5\)$/.test(f(calc, 'K5')), 'K5 = MAX(0,I5-J5)');
-  ok(/INDEX\('Εισαγωγές'!\$D\$5:\$D\$12,MATCH\(\$A5/.test(f(calc, 'J5')), 'J5 INDEX/MATCH στις Εισαγωγές');
+  ok(/INDEX\('Εισαγωγές'!\$D\$5:\$D\$12,MATCH\(\$A5/.test(f(calc, 'J5')), 'J5 βάση μηνός INDEX/MATCH (÷12)');
+  ok(res(calc, 'K5') === 0 && !f(calc, 'K5'), 'K5 μεταφορά = 0 (πρώτος μήνας F1054, χωρίς φόρμουλα)');
+  ok(f(calc, 'K6') === 'MAX(0,L5-I5)', 'K6 μεταφορά = MAX(0,L5-I5) (προηγούμενη γραμμή ίδιου νοσηλευτηρίου), got ' + f(calc, 'K6'));
+  ok(f(calc, 'L5') === 'J5+K5', 'L5 συμφ. μονάδες μηνός = J5+K5');
+  ok(f(calc, 'M5') === 'MAX(0,I5-L5)', 'M5 υπέρβαση = MAX(0,I5-L5)');
+  ok(/IF\(C5<=6,INDEX\('Εισαγωγές'!\$E\$5/.test(f(calc, 'N5')), 'N5 επιλέγει βασική τιμή Α΄/Β΄ εξαμήνου');
   ok(/IF\('Εισαγωγές'!\$B\$29="ΝΑΙ"/.test(f(calc, 'H5')), 'H5 διαβάζει τον διακόπτη');
-  ok(/IF\(C5<=6,INDEX\('Εισαγωγές'!\$E\$5/.test(f(calc, 'L5')), 'L5 επιλέγει τιμή Α΄/Β΄ εξαμήνου');
-  ok(/INDEX\('Εισαγωγές'!\$C\$16:\$C\$27,MATCH\(\$C5/.test(f(calc, 'M5')), 'M5 έκπτωση με INDEX/MATCH στον μήνα');
-  ok(f(calc, 'N5') === 'L5*(1+M5)', 'N5 = L5*(1+M5)');
-  ok(f(calc, 'Q5') === 'P5-O5', 'Q5 = P5-O5');
+  ok(/INDEX\('Εισαγωγές'!\$C\$16:\$C\$27,MATCH\(\$C5/.test(f(calc, 'O5')), 'O5 έκπτωση με INDEX/MATCH στον μήνα');
+  ok(f(calc, 'P5') === 'N5*(1+O5)', 'P5 = N5*(1+O5)');
+  ok(f(calc, 'Q5') === 'M5*N5', 'Q5 = M5*N5 (πλήρες)');
+  ok(f(calc, 'R5') === 'M5*P5', 'R5 = M5*P5 (μειωμένο)');
+  ok(f(calc, 'S5') === 'R5-Q5', 'S5 = R5-Q5 (επίπτωση)');
 
   const f54jan = rows[0];
-  close(res(calc, 'Q5'), f54jan.impact, 1, 'Q5 αποθηκευμένο αποτέλεσμα = επίπτωση F1054 Ιαν');
+  close(res(calc, 'S5'), f54jan.impact, 1, 'S5 αποθηκευμένο αποτέλεσμα = επίπτωση F1054 Ιαν');
   close(res(data, 'D5'), 1260.42, 1e-6, 'Δεδομένα D5 = 1260.42');
+  // Έλεγχος ότι η carryover-φόρμουλα δίνει το σωστό: F1047 (row 15 = F1047 Ιαν).
+  ok(rows[10].code === 'F1047' && rows[10].month === 1, 'σειρά ανά νοσηλευτήριο: γραμμή 15 = F1047 Ιαν');
+  ok(res(calc, 'K15') === 0, 'K15 (F1047 Ιαν) μεταφορά 0');
+  ok(f(calc, 'K16') === 'MAX(0,L15-I15)', 'K16 (F1047 Φεβ) μεταφορά από Ιαν');
 
-  // Σύνοψη: πίνακας 1 — τίτλος στη γραμμή 4, αριθμοί μηνών στη γραμμή 5,
-  // επικεφαλίδες στη 6, δεδομένα 7–14, Σύνολο ΟΚΥπΥ στη 15. F1054 = γραμμή 7.
-  ok(/^SUMIFS\('Υπολογισμός'!\$Q\$5:\$Q\$44,'Υπολογισμός'!\$A\$5:\$A\$44,\$A7,'Υπολογισμός'!\$C\$5:\$C\$44,C\$5\)$/.test(f(syn, 'C7')),
-    'Σύνοψη C7 SUMIFS: ' + f(syn, 'C7'));
+  // Σύνοψη: πίνακας 1 — τίτλος 4, αριθμοί μηνών 5, επικεφαλίδες 6, δεδομένα 7–14,
+  // Σύνολο ΟΚΥπΥ 15. F1054 = γραμμή 7. SUMIFS στη στήλη S (επίπτωση).
+  ok(/^SUMIFS\('Υπολογισμός'!\$S\$5:\$S\$44,'Υπολογισμός'!\$A\$5:\$A\$44,\$A7,'Υπολογισμός'!\$C\$5:\$C\$44,C\$5\)$/.test(f(syn, 'C7')),
+    'Σύνοψη C7 SUMIFS στη στήλη S: ' + f(syn, 'C7'));
   close(res(syn, 'C7'), f54jan.impact, 1, 'Σύνοψη C7 = επίπτωση F1054 Ιαν');
   ok(res(syn, 'C5') === 1 && res(syn, 'C6') === 'Ιανουάριος', 'Σύνοψη: γραμμή κριτηρίων (αρ. μήνα) + επικεφαλίδα μήνα');
   const grand = rows.reduce((s, r) => s + r.impact, 0);
   close(res(syn, 'H15'), grand, 1, 'Σύνοψη H15 (Σύνολο ΟΚΥπΥ × Σύνολο) = γενικό σύνολο');
   const grandExcess = rows.reduce((s, r) => s + r.excess, 0);
-  // Πίνακας 2 (μονάδες υπέρβασης): τίτλος στη 17, δεδομένα 20–27, σύνολο στη 28.
-  ok(/^SUMIFS\('Υπολογισμός'!\$K\$5:\$K\$44/.test(f(syn, 'C20')), 'Σύνοψη πίνακας 2: SUMIFS στη στήλη K');
+  // Πίνακας 2 (μονάδες υπέρβασης): SUMIFS στη στήλη M.
+  ok(/^SUMIFS\('Υπολογισμός'!\$M\$5:\$M\$44/.test(f(syn, 'C20')), 'Σύνοψη πίνακας 2: SUMIFS στη στήλη M');
   close(res(syn, 'H28'), grandExcess, 0.01, 'Σύνοψη H28 = συνολικές μονάδες υπέρβασης');
 
   // Εισαγωγές: μηνιαίες = ετήσιες/12 (ζωντανή φόρμουλα).
@@ -311,8 +335,8 @@ section('Workbook εξόδου (ExcelJS)');
 
   // Μορφές αριθμών.
   ok(calc.getCell('I5').numFmt === '#,##0.0', 'μορφή μονάδων');
-  ok(calc.getCell('Q5').numFmt === '€#,##0;(€#,##0);-', 'μορφή ευρώ');
-  ok(calc.getCell('M5').numFmt === '0.0%', 'μορφή ποσοστού');
+  ok(calc.getCell('S5').numFmt === '€#,##0;(€#,##0);-', 'μορφή ευρώ (επίπτωση S)');
+  ok(calc.getCell('O5').numFmt === '0.0%', 'μορφή ποσοστού (έκπτωση O)');
 
   // Απαγορευμένες συναρτήσεις πουθενά.
   let forbidden = 0;
@@ -329,7 +353,9 @@ section('Workbook εξόδου (ExcelJS)');
   /* ---------- 8. Μεταφορά προηγούμενης περιόδου ---------- */
   section('Εξαγωγή προηγούμενης περιόδου → year-to-date');
   // Φτιάχνουμε «προηγούμενη» εξαγωγή Ιαν–Μαρ και τη διαβάζουμε ξανά.
-  const prevRows = [1, 2, 3].flatMap(monthRows);
+  const prevDataByMonth = {};
+  for (const m of [1, 2, 3]) prevDataByMonth[m] = { is: isParsed[m].perProvider, over15: consoParsed[m] ? consoParsed[m].over15 : {} };
+  const prevRows = C.computeSeries([1, 2, 3], prevDataByMonth, assumptions); // ανά νοσηλευτήριο
   const wbPrev = await C.buildWorkbook(ExcelJS, {
     year: 2026, months: [1, 2, 3], rows: prevRows, assumptions,
     sources: { isFiles: [IS_FILES[1], IS_FILES[2], IS_FILES[3]], consoFiles: [CONSO_FILES[1], CONSO_FILES[3]], discountFile: null }
@@ -351,12 +377,16 @@ section('Workbook εξόδου (ExcelJS)');
   close(pp.assumptions.discounts[1], -0.4032, 1e-9, 'έκπτωση Ιαν από «Εισαγωγές»');
   close(pp.assumptions.discounts[3], -0.6031, 1e-9, 'έκπτωση Μαρ από «Εισαγωγές»');
 
-  // Ο υπολογισμός πάνω στα μεταφερόμενα δεδομένα δίνει ίδια αποτελέσματα.
+  // Ο υπολογισμός πάνω στα μεταφερόμενα δεδομένα (σειρά με μεταφορά πλεονάσματος)
+  // δίνει ίδια αποτελέσματα με τα αρχεία πηγής.
+  const carriedSeries = C.computeSeries([1, 2, 3], pp.months, assumptions);
   for (const m of [1, 2, 3]) {
-    const carried = C.computeMonthRows(m, { is: pp.months[m].is, over15: pp.months[m].over15 }, assumptions);
+    const carried = carriedSeries.filter(r => r.month === m);
     const fresh = monthRows(m);
     const dImp = carried.reduce((s, r) => s + r.impact, 0) - fresh.reduce((s, r) => s + r.impact, 0);
     close(dImp, 0, 1e-6, 'μήνας ' + m + ': ίδια επίπτωση από μεταφορά και από αρχεία πηγής');
+    const dCarry = carried.reduce((s, r) => s + r.carryover, 0) - fresh.reduce((s, r) => s + r.carryover, 0);
+    close(dCarry, 0, 1e-6, 'μήνας ' + m + ': ίδια μεταφορά πλεονάσματος από τα δύο μονοπάτια');
   }
 
   // Έλεγχοι εξαγωγής με prevMonths.

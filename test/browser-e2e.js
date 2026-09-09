@@ -113,11 +113,16 @@ function ok(cond, label) {
 
   // Αναμενόμενο γενικό σύνολο από ανεξάρτητο υπολογισμό.
   let grand = 0;
-  for (const m of [1, 2, 3, 4, 5]) {
-    for (const h of C.HOSPITALS) {
+  for (const h of C.HOSPITALS) {
+    let prevAgreed = null, prevCounted = null;
+    for (const m of [1, 2, 3, 4, 5]) {
       const t = MONTH_INPUTS[m][h.code];
       const o15 = (CONSO[m] && CONSO[m][h.code]) || 0;
-      grand += Math.max(0, t.pos - t.posAe + o15 - h.agreed / 12) * h.brH1 * DISCOUNTS[m];
+      const counted = t.pos - t.posAe + o15;
+      const carry = prevAgreed === null ? 0 : Math.max(0, prevAgreed - prevCounted);
+      const agreed = h.agreed / 12 + carry;
+      grand += Math.max(0, counted - agreed) * h.brH1 * DISCOUNTS[m];
+      prevAgreed = agreed; prevCounted = counted;
     }
   }
   const grandStr = '(€' + new Intl.NumberFormat('el-GR').format(Math.abs(Math.round(grand))) + ')';
@@ -231,10 +236,13 @@ function ok(cond, label) {
   const calc = wb.getWorksheet('Υπολογισμός');
   const fI5 = calc.getCell('I5').formula || (calc.getCell('I5').value || {}).formula;
   ok(fI5 === 'E5-F5+G5+H5', 'ζωντανή φόρμουλα I5 στο ληφθέν αρχείο');
-  const q5 = calc.getCell('Q5').value;
+  // Επίπτωση στη στήλη S· γραμμή 5 = F1054 Ιαν (πρώτος μήνας → μεταφορά 0).
+  const s5 = calc.getCell('S5').value;
   const f54janImpact = Math.max(0, 1260.42 - 734.31 + 223.85 - 5239 / 12) * 4852 * DISCOUNTS[1];
-  ok(q5 && typeof q5 === 'object' && Math.abs(q5.result - f54janImpact) < 1,
-    'Q5 (F1054 Ιαν) = ' + Math.round(q5.result) + ' € ≈ αναμενόμενο ' + Math.round(f54janImpact) + ' €');
+  ok(s5 && typeof s5 === 'object' && Math.abs(s5.result - f54janImpact) < 1,
+    'S5 (F1054 Ιαν) = ' + Math.round(s5.result) + ' € ≈ αναμενόμενο ' + Math.round(f54janImpact) + ' €');
+  ok((calc.getCell('K6').formula || (calc.getCell('K6').value || {}).formula) === 'MAX(0,L5-I5)',
+    'ζωντανή φόρμουλα μεταφοράς K6 = MAX(0,L5-I5) στο ληφθέν αρχείο');
 
   console.log('\n' + passed + ' πέρασαν, ' + failed + ' απέτυχαν');
   process.exit(failed ? 1 : 0);

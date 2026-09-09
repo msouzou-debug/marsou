@@ -718,12 +718,21 @@
     };
   }
 
+  // Πλήρης σειρά (ανά νοσηλευτήριο, μήνες αύξοντες) με μεταφορά πλεονάσματος.
   function computeAllRows() {
-    var rows = [];
-    currentMonths().forEach(function (m) {
-      rows = rows.concat(C.computeMonthRows(m, monthData(m), state.assumptions));
+    var months = currentMonths();
+    var dataByMonth = {};
+    months.forEach(function (m) { dataByMonth[m] = monthData(m); });
+    return C.computeSeries(months, dataByMonth, state.assumptions);
+  }
+
+  // Ίδια σειρά, ομαδοποιημένη ανά μήνα για την οθόνη επισκόπησης.
+  function computeRowsByMonth() {
+    var byMonth = {};
+    computeAllRows().forEach(function (r) {
+      (byMonth[r.month] = byMonth[r.month] || []).push(r);
     });
-    return rows;
+    return byMonth;
   }
 
   function renderReview() {
@@ -738,10 +747,11 @@
       return;
     }
 
+    var byMonth = computeRowsByMonth();
     var grandImpact = 0, grandExcess = 0;
     months.forEach(function (m) {
       var md = monthData(m);
-      var rows = C.computeMonthRows(m, md, state.assumptions);
+      var rows = byMonth[m] || [];
       var d = state.assumptions.discounts[m];
 
       var head = document.createElement('div');
@@ -763,10 +773,12 @@
       t.className = 'grid';
       t.innerHTML = '<thead><tr>' +
         '<th>Νοσηλευτήριο</th><th>Θετικές</th><th>εκ ΤΑΕΠ</th><th>Αρνητικές</th><th>εκ ΤΑΕΠ (αρν.)</th>' +
-        '<th>ΤΑΕΠ &gt;15%</th><th>± Πιστωτικές</th><th>Προσμετρώμενες</th><th>Συμφ. μηνιαίες</th>' +
+        '<th>ΤΑΕΠ &gt;15%</th><th>± Πιστωτικές</th><th>Προσμετρώμενες</th>' +
+        '<th>Βάση μηνός</th><th>Μεταφορά</th><th>Συμφ. μονάδες μηνός</th>' +
         '<th>Υπέρβαση</th><th>Επίπτωση €</th></tr></thead>';
       var tb = document.createElement('tbody');
-      var tot = { pos: 0, posAe: 0, neg: 0, negAe: 0, over15: 0, credit: 0, counted: 0, agreedMonthly: 0, excess: 0, impact: 0 };
+      var tot = { pos: 0, posAe: 0, neg: 0, negAe: 0, over15: 0, credit: 0, counted: 0,
+        baseMonthly: 0, carryover: 0, agreedMonth: 0, excess: 0, impact: 0 };
       rows.forEach(function (r) {
         var tr = document.createElement('tr');
         if (r.amberFlag) { tr.className = 'amber'; tr.title = 'ΤΑΕΠ >15% = 0 ενώ υπάρχουν μονάδες ΤΑΕΠ — ενδεχομένως κάτω από το όριο 15%.'; }
@@ -780,7 +792,8 @@
         cell(fmtU2.format(r.pos)); cell(fmtU2.format(r.posAe));
         cell(fmtU2.format(r.neg)); cell(fmtU2.format(r.negAe));
         cell(fmtU2.format(r.over15)); cell(fmtU2.format(r.credit));
-        cell(fmtU2.format(r.counted)); cell(fmtU2.format(r.agreedMonthly));
+        cell(fmtU2.format(r.counted));
+        cell(fmtU2.format(r.baseMonthly)); cell(fmtU2.format(r.carryover)); cell(fmtU2.format(r.agreedMonth));
         cell(fmtU.format(r.excess));
         cell(r.impact === null ? '—' : eur(r.impact));
         tb.appendChild(tr);
@@ -789,7 +802,7 @@
       var trt = document.createElement('tr');
       trt.className = 'total';
       trt.innerHTML = '<td class="txt">Σύνολο ΟΚΥπΥ</td>' +
-        ['pos', 'posAe', 'neg', 'negAe', 'over15', 'credit', 'counted', 'agreedMonthly'].map(function (k) {
+        ['pos', 'posAe', 'neg', 'negAe', 'over15', 'credit', 'counted', 'baseMonthly', 'carryover', 'agreedMonth'].map(function (k) {
           return '<td>' + fmtU2.format(tot[k]) + '</td>';
         }).join('') +
         '<td>' + fmtU.format(tot.excess) + '</td>' +

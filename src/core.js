@@ -395,37 +395,71 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Υπολογισμός ανά νοσηλευτήριο × μήνα
+   * Υπολογισμός ανά νοσηλευτήριο × μήνα (με μεταφορά πλεονάσματος)
    * ------------------------------------------------------------------ */
 
-  // assumptions: { hospitals: {code:{agreed, brH1, brH2}}, discounts: {1..12: δεκαδικό|null},
-  //               creditToggle: 'ΝΑΙ'|'ΟΧΙ' }
-  // monthData:   { is: perProvider map, over15: {code: units} }
-  function computeMonthRows(month, monthData, assumptions) {
+  // Υπολογισμός ενός νοσηλευτηρίου × μήνα. Το carryover (μεταφορά πλεονάσματος
+  // από τον προηγούμενο υπολογισμένο μήνα του ΙΔΙΟΥ νοσηλευτηρίου) δίνεται
+  // απ' έξω, ώστε η σειρά να υπολογίζεται χρονολογικά.
+  //   base_monthly   = agreed_annual / 12
+  //   agreed_month   = base_monthly + carryover
+  //   excess         = MAX(0, counted − agreed_month)
+  //   carryover(m)   = MAX(0, agreed_month(m−1) − counted(m−1))   [0 τον 1ο μήνα]
+  function computeRow(h, month, monthData, assumptions, carryover) {
     var toggle = assumptions.creditToggle === 'ΝΑΙ';
     var discount = assumptions.discounts[month];
+    var a = assumptions.hospitals[h.code] || {};
+    var p = (monthData.is && monthData.is[h.code]) || { pos: 0, posAe: 0, neg: 0, negAe: 0 };
+    var over15 = (monthData.over15 && monthData.over15[h.code]) || 0;
+    var credit = toggle ? (p.neg - p.negAe) : 0;
+    var counted = p.pos - p.posAe + over15 + credit;
+    var baseMonthly = (a.agreed || 0) / 12;
+    var carry = carryover || 0;
+    var agreedMonth = baseMonthly + carry;
+    var excess = Math.max(0, counted - agreedMonth);
+    var br = month <= 6 ? a.brH1 : a.brH2;
+    var d = (discount === null || discount === undefined) ? null : discount;
+    var reducedBr = (br !== null && br !== undefined && d !== null) ? br * (1 + d) : null;
+    var fullAmt = (br !== null && br !== undefined) ? excess * br : null;
+    var redAmt = reducedBr !== null ? excess * reducedBr : null;
+    var impact = (fullAmt !== null && redAmt !== null) ? redAmt - fullAmt : null;
+    return {
+      code: h.code, name: h.name, month: month,
+      pos: p.pos, posAe: p.posAe, neg: p.neg, negAe: p.negAe, over15: over15,
+      credit: credit, counted: counted,
+      baseMonthly: baseMonthly, carryover: carry, agreedMonth: agreedMonth, excess: excess,
+      br: (br === undefined ? null : br), discount: d, reducedBr: reducedBr,
+      fullAmt: fullAmt, redAmt: redAmt, impact: impact,
+      amberFlag: over15 === 0 && p.posAe > 0
+    };
+  }
+
+  // Πλήρης σειρά όλων των νοσηλευτηρίων × μηνών, ΤΑΞΙΝΟΜΗΜΕΝΗ ανά νοσηλευτήριο
+  // (μήνες αύξοντες) ώστε η μεταφορά πλεονάσματος να αλυσιδώνεται σωστά και να
+  // αναφέρεται η φόρμουλα carryover στην ακριβώς προηγούμενη γραμμή.
+  //   months:      πίνακας αριθμών μηνών (θα ταξινομηθεί)
+  //   dataByMonth: { month: { is, over15 } }
+  function computeSeries(months, dataByMonth, assumptions) {
+    var sorted = months.slice().sort(function (a, b) { return a - b; });
+    var rows = [];
+    HOSPITALS.forEach(function (h) {
+      var prevAgreed = null, prevCounted = null;
+      sorted.forEach(function (m) {
+        var carry = (prevAgreed === null) ? 0 : Math.max(0, prevAgreed - prevCounted);
+        var row = computeRow(h, m, dataByMonth[m] || {}, assumptions, carry);
+        rows.push(row);
+        prevAgreed = row.agreedMonth;
+        prevCounted = row.counted;
+      });
+    });
+    return rows;
+  }
+
+  // Συμβατότητα: ένας μεμονωμένος μήνας χωρίς μεταφορά (carryover = 0).
+  // Για σωστό year-to-date χρησιμοποιήστε computeSeries.
+  function computeMonthRows(month, monthData, assumptions) {
     return HOSPITALS.map(function (h) {
-      var a = assumptions.hospitals[h.code] || {};
-      var p = (monthData.is && monthData.is[h.code]) || { pos: 0, posAe: 0, neg: 0, negAe: 0 };
-      var over15 = (monthData.over15 && monthData.over15[h.code]) || 0;
-      var credit = toggle ? (p.neg - p.negAe) : 0;
-      var counted = p.pos - p.posAe + over15 + credit;
-      var agreedMonthly = (a.agreed || 0) / 12;
-      var excess = Math.max(0, counted - agreedMonthly);
-      var br = month <= 6 ? a.brH1 : a.brH2;
-      var d = (discount === null || discount === undefined) ? null : discount;
-      var reducedBr = (br !== null && br !== undefined && d !== null) ? br * (1 + d) : null;
-      var fullAmt = (br !== null && br !== undefined) ? excess * br : null;
-      var redAmt = reducedBr !== null ? excess * reducedBr : null;
-      var impact = (fullAmt !== null && redAmt !== null) ? redAmt - fullAmt : null;
-      return {
-        code: h.code, name: h.name, month: month,
-        pos: p.pos, posAe: p.posAe, neg: p.neg, negAe: p.negAe, over15: over15,
-        credit: credit, counted: counted, agreedMonthly: agreedMonthly, excess: excess,
-        br: (br === undefined ? null : br), discount: d, reducedBr: reducedBr,
-        fullAmt: fullAmt, redAmt: redAmt, impact: impact,
-        amberFlag: over15 === 0 && p.posAe > 0
-      };
+      return computeRow(h, month, monthData, assumptions, 0);
     });
   }
 
@@ -683,13 +717,13 @@
 
     setCell(wsCalc, 'A1', { value: 'Υπολογισμός επίπτωσης υπέρβασης', font: { bold: true, size: 14, color: { argb: COLORS.navy } } });
     setCell(wsCalc, 'A2', {
-      value: 'Προσμετρώμενες = Θετικές − ΤΑΕΠ + ΤΑΕΠ>15% ± Πιστωτικές · Υπέρβαση = MAX(0, Προσμετρώμενες − Συμφωνημένες μηνιαίες) · Επίπτωση = Υπέρβαση × Βασική τιμή × % Έκπτωσης',
+      value: 'Προσμετρώμενες = Θετικές − ΤΑΕΠ + ΤΑΕΠ>15% ± Πιστωτικές · Συμφ. μονάδες μηνός = Βάση (÷12) + Μεταφορά πλεονάσματος προηγ. μηνών · Υπέρβαση = MAX(0, Προσμετρώμενες − Συμφ. μονάδες μηνός) · Επίπτωση = Υπέρβαση × Βασική τιμή × % Έκπτωσης',
       font: { color: { argb: COLORS.grayNote } }
     });
     ['Κωδικός', 'Νοσηλευτήριο', 'Μήνας (αρ.)', 'Έτος',
       'Θετικές μονάδες', 'μείον ΤΑΕΠ', 'συν ΤΑΕΠ >15%', '± Πιστωτικές',
-      'Προσμετρώμενες μονάδες', 'Συμφωνημένες μηνιαίες', 'Μονάδες υπέρβασης',
-      'Βασική τιμή (€)', 'Έκπτωση ΟΑΥ %', 'Μειωμένη βασική τιμή (€)',
+      'Προσμετρώμενες μονάδες', 'Βάση μηνός (÷12)', 'Μεταφορά πλεονάσματος', 'Συμφ. μονάδες μηνός',
+      'Μονάδες υπέρβασης', 'Βασική τιμή (€)', 'Έκπτωση ΟΑΥ %', 'Μειωμένη βασική τιμή (€)',
       'Ποσό με πλήρη τιμή (€)', 'Ποσό με μειωμένη τιμή (€)', 'Επίπτωση εσόδων (€)'
     ].forEach(function (t, i) { headerCell(wsCalc, colLetter(i + 1) + 4, t); });
 
@@ -698,6 +732,8 @@
       var r = CALC_FIRST + i;
       var dr = DATA_FIRST + i; // ίδια σειρά γραμμών με το φύλλο Δεδομένα
       var mm = hMatch.replace('{r}', r);
+      // Πρώτη γραμμή του νοσηλευτηρίου (αλλάζει κωδικός) → μηδενική μεταφορά.
+      var firstOfHospital = (i === 0) || (rows[i - 1].code !== row.code);
       function F(addr, formula, result, numFmt, green) {
         setCell(wsCalc, addr + r, {
           value: { formula: formula, result: (result === null || result === undefined) ? undefined : result },
@@ -714,20 +750,27 @@
       F('G', "'Δεδομένα'!H" + dr, row.over15, FMT.units, true);
       F('H', 'IF(\'Εισαγωγές\'!$B$' + IN.toggleRow + '="ΝΑΙ",\'Δεδομένα\'!F' + dr + "-'Δεδομένα'!G" + dr + ',0)', row.credit, FMT.units);
       F('I', 'E' + r + '-F' + r + '+G' + r + '+H' + r, row.counted, FMT.units);
-      F('J', "INDEX('Εισαγωγές'!$D$" + IN.hospFirst + ':$D$' + IN.hospLast + ',' + mm + ')', row.agreedMonthly, FMT.units);
-      F('K', 'MAX(0,I' + r + '-J' + r + ')', row.excess, FMT.units);
-      F('L', 'IF(C' + r + "<=6,INDEX('Εισαγωγές'!$E$" + IN.hospFirst + ':$E$' + IN.hospLast + ',' + mm + ')' +
+      F('J', "INDEX('Εισαγωγές'!$D$" + IN.hospFirst + ':$D$' + IN.hospLast + ',' + mm + ')', row.baseMonthly, FMT.units);
+      // K: μεταφορά πλεονάσματος από την προηγούμενη γραμμή (ίδιο νοσηλευτήριο).
+      if (firstOfHospital) {
+        setCell(wsCalc, 'K' + r, { value: 0, border: true, numFmt: FMT.units });
+      } else {
+        F('K', 'MAX(0,L' + (r - 1) + '-I' + (r - 1) + ')', row.carryover, FMT.units);
+      }
+      F('L', 'J' + r + '+K' + r, row.agreedMonth, FMT.units);
+      F('M', 'MAX(0,I' + r + '-L' + r + ')', row.excess, FMT.units);
+      F('N', 'IF(C' + r + "<=6,INDEX('Εισαγωγές'!$E$" + IN.hospFirst + ':$E$' + IN.hospLast + ',' + mm + ')' +
              ",INDEX('Εισαγωγές'!$F$" + IN.hospFirst + ':$F$' + IN.hospLast + ',' + mm + '))', row.br, FMT.euro);
-      F('M', "INDEX('Εισαγωγές'!$C$" + IN.discFirst + ':$C$' + IN.discLast + ',MATCH($C' + r + ",'Εισαγωγές'!$A$" + IN.discFirst + ':$A$' + IN.discLast + ',0))', row.discount, FMT.pct);
-      F('N', 'L' + r + '*(1+M' + r + ')', row.reducedBr, FMT.euro);
-      F('O', 'K' + r + '*L' + r, row.fullAmt, FMT.euro);
-      F('P', 'K' + r + '*N' + r, row.redAmt, FMT.euro);
-      F('Q', 'P' + r + '-O' + r, row.impact, FMT.euro);
+      F('O', "INDEX('Εισαγωγές'!$C$" + IN.discFirst + ':$C$' + IN.discLast + ',MATCH($C' + r + ",'Εισαγωγές'!$A$" + IN.discFirst + ':$A$' + IN.discLast + ',0))', row.discount, FMT.pct);
+      F('P', 'N' + r + '*(1+O' + r + ')', row.reducedBr, FMT.euro);
+      F('Q', 'M' + r + '*N' + r, row.fullAmt, FMT.euro);
+      F('R', 'M' + r + '*P' + r, row.redAmt, FMT.euro);
+      F('S', 'R' + r + '-Q' + r, row.impact, FMT.euro);
     });
 
     // Γραμμή συνόλων
     setCell(wsCalc, 'B' + TOT_ROW, { value: 'Σύνολο ΟΚΥπΥ', border: true, fill: COLORS.navy, font: { bold: true, color: { argb: 'FFFFFFFF' } } });
-    [['K', FMT.units, 'excess'], ['O', FMT.euro, 'fullAmt'], ['P', FMT.euro, 'redAmt'], ['Q', FMT.euro, 'impact']]
+    [['M', FMT.units, 'excess'], ['Q', FMT.euro, 'fullAmt'], ['R', FMT.euro, 'redAmt'], ['S', FMT.euro, 'impact']]
       .forEach(function (cf) {
         var sum = rows.reduce(function (s, row) { return s + (row[cf[2]] || 0); }, 0);
         setCell(wsCalc, cf[0] + TOT_ROW, {
@@ -737,15 +780,16 @@
       });
 
     wsCalc.columns = [{ width: 10 }, { width: 22 }, { width: 9 }, { width: 7 },
-      { width: 12 }, { width: 11 }, { width: 12 }, { width: 12 }, { width: 15 }, { width: 14 },
-      { width: 12 }, { width: 13 }, { width: 11 }, { width: 14 }, { width: 15 }, { width: 15 }, { width: 16 }];
+      { width: 12 }, { width: 11 }, { width: 12 }, { width: 12 }, { width: 15 }, { width: 13 },
+      { width: 14 }, { width: 15 }, { width: 12 }, { width: 13 }, { width: 11 }, { width: 14 },
+      { width: 15 }, { width: 15 }, { width: 16 }];
 
     /* ---------------- Σύνοψη ---------------- */
     setCell(wsSyn, 'A1', { value: 'Επίπτωση Υπέρβασης Εξειδικευμένων Μονάδων — ΟΚΥπΥ ' + year, font: { bold: true, size: 14, color: { argb: COLORS.navy } } });
     setCell(wsSyn, 'A2', { value: 'Σύνοψη ανά νοσηλευτήριο και μήνα (όλα τα ποσά υπολογίζονται με ζωντανές φόρμουλες SUMIFS από το φύλλο «Υπολογισμός»)', font: { color: { argb: COLORS.grayNote } } });
 
-    var qCol = "'Υπολογισμός'!$Q$" + CALC_FIRST + ':$Q$' + CALC_LAST;
-    var kCol = "'Υπολογισμός'!$K$" + CALC_FIRST + ':$K$' + CALC_LAST;
+    var qCol = "'Υπολογισμός'!$S$" + CALC_FIRST + ':$S$' + CALC_LAST; // επίπτωση €
+    var kCol = "'Υπολογισμός'!$M$" + CALC_FIRST + ':$M$' + CALC_LAST; // μονάδες υπέρβασης
     var aCol = "'Υπολογισμός'!$A$" + CALC_FIRST + ':$A$' + CALC_LAST;
     var cCol = "'Υπολογισμός'!$C$" + CALC_FIRST + ':$C$' + CALC_LAST;
 
@@ -816,8 +860,9 @@
     }
     var notes = [
       'Σημειώσεις',
-      '• Μεθοδολογία: Προσμετρώμενες μονάδες = Θετικές εξειδικευμένες − ΤΑΕΠ παραπομπές + ΤΑΕΠ >15% (Conso) ± πιστωτικές σημειώσεις (βλ. διακόπτη). Υπέρβαση = MAX(0, Προσμετρώμενες − Συμφωνημένες μηνιαίες).',
-      '• Συμφωνημένες μηνιαίες μονάδες = ετήσιες ÷ 12 (φύλλο «Εισαγωγές»).',
+      '• Μεθοδολογία: Προσμετρώμενες μονάδες = Θετικές εξειδικευμένες − ΤΑΕΠ παραπομπές + ΤΑΕΠ >15% (Conso) ± πιστωτικές σημειώσεις (βλ. διακόπτη). Υπέρβαση = MAX(0, Προσμετρώμενες − Συμφ. μονάδες μηνός).',
+      '• Συμφ. μονάδες μηνός = ετήσιες ÷ 12 (βάση, φύλλο «Εισαγωγές») + μεταφορά πλεονάσματος προηγούμενων μηνών. Νοσηλευτήριο που παραμένει κάτω από τον συμφωνημένο αριθμό μεταφέρει το αχρησιμοποίητο πλεόνασμα στον επόμενο μήνα· μήνας με υπέρβαση καταναλώνει το πλεόνασμα και μεταφέρει μηδέν. Οι μήνες υπολογίζονται χρονολογικά ανά νοσηλευτήριο.',
+      '• Παραδοχή: μηδενική μεταφορά πλεονάσματος στην 01/01 (καμία μεταφορά από το προηγούμενο έτος).',
       '• Επίπτωση εσόδων = Υπέρβαση × Βασική τιμή × Τελικό % Έκπτωσης ΟΑΥ (πανκύπριο μηνιαίο ποσοστό, φύλλο «Εισαγωγές»). Αρνητικό ποσό = απώλεια εσόδων.',
       '• Αφαίρεση πιστωτικών σημειώσεων: ' + (a.creditToggle === 'ΝΑΙ' ? 'ΝΑΙ' : 'ΟΧΙ') +
         '. Προσοχή: η βάση καταμέτρησης του ΟΑΥ δεν έχει επιβεβαιωθεί ως προς τον χειρισμό των πιστωτικών σημειώσεων.',
@@ -871,6 +916,7 @@
     parseDiscountFile: parseDiscountFile,
     parsePreviousOutput: parsePreviousOutput,
     computeMonthRows: computeMonthRows,
+    computeSeries: computeSeries,
     validateForExport: validateForExport,
     buildWorkbook: buildWorkbook,
     exportFilename: exportFilename,

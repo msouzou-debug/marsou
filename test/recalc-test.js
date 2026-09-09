@@ -77,12 +77,13 @@ function close(a, b, tol, label) { ok(Math.abs(a - b) <= tol, label + ' (got ' +
   assumptions.hospitals['F1054'].agreed = 6000;
   assumptions.creditToggle = 'ΝΑΙ';
   const readFx = fn => XLSX.read(fs.readFileSync(path.join(DIR, fn)), { type: 'buffer' });
-  const rows = [];
+  const dataByMonth = {};
   for (const m of [1, 2, 3, 4, 5]) {
     const is = C.parseISAuditor(XLSX, readFx(IS_FILES[m]), IS_FILES[m]);
     const conso = CONSO_FILES[m] ? C.parseConso(XLSX, readFx(CONSO_FILES[m]), CONSO_FILES[m]) : null;
-    rows.push(...C.computeMonthRows(m, { is: is.perProvider, over15: conso ? conso.over15 : {} }, assumptions));
+    dataByMonth[m] = { is: is.perProvider, over15: conso ? conso.over15 : {} };
   }
+  const rows = C.computeSeries([1, 2, 3, 4, 5], dataByMonth, assumptions); // με μεταφορά πλεονάσματος
   const f54jan = rows.find(r => r.code === 'F1054' && r.month === 1);
   const grand = rows.reduce((s, r) => s + r.impact, 0);
   const grandExcess = rows.reduce((s, r) => s + r.excess, 0);
