@@ -409,6 +409,47 @@ section('Workbook εξόδου (ExcelJS)');
     ok(!sBad.ok && /Δεδομένα/.test(sBad.error), 'IS Auditor αντί εξαγωγής → καθαρό σφάλμα');
   }
 
+  /* ---------- 9. Αποθήκη YTD (τοπική) ---------- */
+  section('Αποθήκη YTD — στιγμιότυπο & επαναχρησιμοποίηση');
+  {
+    // Στιγμιότυπο από τις γραμμές Ιαν–Μαρ και αναδόμηση σειράς από αυτό.
+    const janMar = C.computeSeries([1, 2, 3], prevDataByMonth, assumptions);
+    const store = C.ytdStoreFromRows(2026, janMar);
+    store.savedAt = new Date().toISOString();
+    ok(store.year === 2026, 'αποθήκη: έτος 2026');
+    ok(JSON.stringify(store.monthsList) === JSON.stringify([1, 2, 3]), 'αποθήκη: monthsList Ιαν–Μαρ');
+    ok(store.lastMonth === 3, 'αποθήκη: lastMonth = 3');
+    close(store.months[1].is['F1054'].pos, 1260.42, 1e-9, 'αποθήκη: F1054 Ιαν pos διατηρήθηκε');
+    close(store.months[1].is['F1054'].negAe, -2.1, 1e-9, 'αποθήκη: F1054 Ιαν negAe διατηρήθηκε');
+    close(store.months[1].over15['F1054'], 223.85, 1e-9, 'αποθήκη: F1054 Ιαν over15 διατηρήθηκε');
+    close(store.months[3].over15['F1047'], 45, 1e-9, 'αποθήκη: F1047 Μαρ over15 διατηρήθηκε');
+
+    // Ίδια δομή με parsePreviousOutput → εναλλάξιμα ως βάση: ίδια αποτελέσματα.
+    const fromStore = C.computeSeries([1, 2, 3], store.months, assumptions);
+    for (const m of [1, 2, 3]) {
+      const a = fromStore.filter(r => r.month === m).reduce((s, r) => s + r.impact, 0);
+      const b = janMar.filter(r => r.month === m).reduce((s, r) => s + r.impact, 0);
+      close(a, b, 1e-6, 'μήνας ' + m + ': αποθήκη YTD δίνει ίδια επίπτωση με τα αρχεία πηγής');
+    }
+
+    // JSON round-trip (όπως το localStorage) διατηρεί τα δεδομένα.
+    const round = JSON.parse(JSON.stringify(store));
+    const fromRound = C.computeSeries([1, 2, 3], round.months, assumptions);
+    close(fromRound.reduce((s, r) => s + r.impact, 0), janMar.reduce((s, r) => s + r.impact, 0), 1e-6,
+      'JSON round-trip αποθήκης → ίδιο γενικό σύνολο');
+
+    // Επέκταση: αποθήκη Ιαν–Μαρ + φρέσκος Απρ → year-to-date Ιαν–Απρ.
+    const dataAprFresh = Object.assign({}, round.months,
+      { 4: { is: isParsed[4].perProvider, over15: {} } });
+    const ytd4 = C.computeSeries([1, 2, 3, 4], dataAprFresh, assumptions);
+    const ref4 = C.computeSeries([1, 2, 3, 4], {
+      1: prevDataByMonth[1], 2: prevDataByMonth[2], 3: prevDataByMonth[3],
+      4: { is: isParsed[4].perProvider, over15: {} }
+    }, assumptions);
+    close(ytd4.reduce((s, r) => s + r.impact, 0), ref4.reduce((s, r) => s + r.impact, 0), 1e-6,
+      'αποθήκη Ιαν–Μαρ + φρέσκος Απρ = πλήρες year-to-date Ιαν–Απρ');
+  }
+
   console.log('\n' + passed + ' πέρασαν, ' + failed + ' απέτυχαν');
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

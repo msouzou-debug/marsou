@@ -662,6 +662,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   /* ------------------------------------------------------------------ *
+   * Αποθήκη YTD (τοπική) — ίδια δομή με parsePreviousOutput.months, ώστε τα
+   * αποθηκευμένα δεδομένα να είναι εναλλάξιμα με την εξαγωγή προηγούμενης
+   * περιόδου ως βάση υπολογισμού.
+   * ------------------------------------------------------------------ */
+
+  // Χτίζει αποθήκη { year, savedAt, lastMonth, monthsList, months:{m:{is,over15}} }
+  // από τις υπολογισμένες γραμμές (κρατά μόνο τα συγκεντρωτικά μεγέθη ανά
+  // νοσηλευτήριο — pos/posAe/neg/negAe & ΤΑΕΠ>15% — όχι πρωτογενείς γραμμές).
+  function ytdStoreFromRows(year, rows) {
+    var store = { year: year, savedAt: null, lastMonth: null, monthsList: [], months: {} };
+    rows.forEach(function (r) {
+      var m = store.months[r.month] || (store.months[r.month] = { is: {}, over15: {} });
+      m.is[r.code] = { pos: r.pos || 0, posAe: r.posAe || 0, neg: r.neg || 0, negAe: r.negAe || 0 };
+      if (r.over15) m.over15[r.code] = r.over15;
+    });
+    store.monthsList = Object.keys(store.months).map(Number).sort(function (a, b) { return a - b; });
+    store.lastMonth = store.monthsList.length ? store.monthsList[store.monthsList.length - 1] : null;
+    return store;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Έλεγχοι πριν την εξαγωγή
    * ------------------------------------------------------------------ */
 
@@ -1115,6 +1136,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     parsePreviousOutput: parsePreviousOutput,
     computeMonthRows: computeMonthRows,
     computeSeries: computeSeries,
+    ytdStoreFromRows: ytdStoreFromRows,
     validateForExport: validateForExport,
     buildWorkbook: buildWorkbook,
     exportFilename: exportFilename,
@@ -1135,10 +1157,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <section id="sec-files">
     <h2>1 · Αρχεία μήνα</h2>
     <p class="infomsg" style="margin-top:0">
-      Δύο τρόποι για πλήρες year-to-date: είτε μεταφορτώστε τα IS Auditor Reports <b>όλων</b> των μηνών,
-      είτε μεταφορτώστε την <b>εξαγωγή Excel της προηγούμενης περιόδου</b> (μεταφέρει τους περασμένους μήνες)
-      μαζί με τα αρχεία μόνο του τρέχοντος μήνα. Κάθε αρχείο πρέπει να αντιστοιχιστεί σε μήνα πριν την εξαγωγή.
+      Τρόποι για πλήρες year-to-date: (α) <b>αποθηκευμένα YTD</b> στον φυλλομετρητή — φορτώνονται αυτόματα ως βάση,
+      ανεβάζετε μόνο τα αρχεία του νέου μήνα (βλ. πίνακα πιο κάτω)· (β) μεταφόρτωση της <b>εξαγωγής Excel της
+      προηγούμενης περιόδου</b>· (γ) μεταφόρτωση των IS Auditor Reports <b>όλων</b> των μηνών.
+      Κάθε αρχείο πρέπει να αντιστοιχιστεί σε μήνα πριν την εξαγωγή.
     </p>
+    <div id="ytd-panel" style="margin-bottom:16px"></div>
     <div class="zones" style="margin-bottom:16px">
       <div class="zone">
         <div class="dropzone" id="dz-prev" style="border-color:var(--green);background:#f5fbee">
@@ -1242,7 +1266,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   <b>Προστασία δεδομένων:</b> Όλη η επεξεργασία γίνεται τοπικά στον φυλλομετρητή σας —
   κανένα δεδομένο (δεδομένα υγείας) δεν αποστέλλεται σε διακομιστή ή στο διαδίκτυο.
   Το αρχείο λειτουργεί πλήρως εκτός σύνδεσης: οι βιβλιοθήκες SheetJS και ExcelJS είναι ενσωματωμένες στο ίδιο το αρχείο HTML.
-  Οι παραδοχές αποθηκεύονται μόνο στο localStorage του φυλλομετρητή.
+  Οι παραδοχές και τα αποθηκευμένα YTD (συγκεντρωτικά μεγέθη ανά νοσηλευτήριο) αποθηκεύονται μόνο στο localStorage του φυλλομετρητή.
 </footer>
 
 <script>
@@ -1250,6 +1274,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   'use strict';
   var C = window.CeilingCore;
   var LS_KEY = 'okypy_ceiling_assumptions_v1';
+  var LS_YTD = 'okypy_ceiling_ytd_v1';        // αποθηκευμένα YTD δεδομένα
+  var LS_AUTOSAVE = 'okypy_ceiling_autosave_v1';
 
   /* ---------------- Κατάσταση ---------------- */
   var state = {
@@ -1257,9 +1283,45 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     isFiles: [],     // {id, filename, month, year, parsed, includeAnyway}
     consoFiles: [],  // {id, filename, month, year, parsed}
     discountFile: null, // {filename, parsed}
-    prevFile: null   // {filename, parsed} — εξαγωγή προηγούμενης περιόδου
+    prevFile: null,  // {filename, parsed} — εξαγωγή προηγούμενης περιόδου
+    savedYtd: loadSavedYtd(),  // { year, savedAt, lastMonth, monthsList, months } | null
+    autoSave: loadAutoSave()   // αυτόματη αποθήκευση YTD κατά την εξαγωγή
   };
   var nextId = 1;
+
+  /* ---------------- Αποθηκευμένα YTD (localStorage) ---------------- */
+  function loadSavedYtd() {
+    try { var raw = localStorage.getItem(LS_YTD); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
+  }
+  function persistSavedYtd(store) {
+    try { localStorage.setItem(LS_YTD, JSON.stringify(store)); return true; }
+    catch (e) { alert('Αποτυχία αποθήκευσης YTD στον φυλλομετρητή: ' + e.message); return false; }
+  }
+  function clearSavedYtd() {
+    try { localStorage.removeItem(LS_YTD); } catch (e) {}
+    state.savedYtd = null;
+  }
+  function loadAutoSave() {
+    try { var v = localStorage.getItem(LS_AUTOSAVE); return v === null ? true : v === '1'; }
+    catch (e) { return true; }
+  }
+  function setAutoSave(on) {
+    state.autoSave = !!on;
+    try { localStorage.setItem(LS_AUTOSAVE, on ? '1' : '0'); } catch (e) {}
+  }
+  // Στιγμιότυπο των τρεχόντων μηνών (φρέσκα + μεταφερόμενα) ως αποθήκη YTD.
+  function snapshotYtd() {
+    var store = C.ytdStoreFromRows(state.assumptions.year, computeAllRows());
+    store.savedAt = new Date().toISOString();
+    return store;
+  }
+  function saveYtdNow() {
+    if (!currentMonths().length) { alert('Δεν υπάρχουν μήνες προς αποθήκευση.'); return; }
+    state.savedYtd = snapshotYtd();
+    persistSavedYtd(state.savedYtd);
+    renderAll();
+  }
 
   function loadAssumptions() {
     var def = C.defaultAssumptions();
@@ -1604,6 +1666,82 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     box.appendChild(card);
   }
 
+  /* ---------------- Rendering: πίνακας αποθηκευμένων YTD ---------------- */
+  function fmtDate(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      return d.toLocaleDateString('el-GR') + ' ' + d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return iso; }
+  }
+
+  function renderYtdPanel() {
+    var box = document.getElementById('ytd-panel');
+    box.innerHTML = '';
+    var card = document.createElement('div');
+    card.className = 'filecard';
+    card.style.borderLeftColor = savedYtdActive() ? 'var(--green)' : 'var(--line)';
+
+    var title = document.createElement('div');
+    title.className = 'fname';
+    title.textContent = 'Αποθηκευμένα δεδομένα YTD (στον φυλλομετρητή)';
+    card.appendChild(title);
+
+    var body = document.createElement('div');
+    body.className = 'meta';
+    if (state.savedYtd && state.savedYtd.monthsList && state.savedYtd.monthsList.length) {
+      var mnames = state.savedYtd.monthsList.map(function (m) { return C.MONTHS_EL[m]; }).join(', ');
+      if (savedYtdActive()) {
+        body.innerHTML = '✓ Μήνες: <b>' + mnames + '</b> · έτος ' + state.savedYtd.year +
+          ' · αποθηκεύτηκαν ' + fmtDate(state.savedYtd.savedAt) +
+          '. Χρησιμοποιούνται αυτόματα ως βάση — ανεβάστε μόνο τα αρχεία του νέου μήνα.';
+      } else {
+        body.innerHTML = '⚠ Τα αποθηκευμένα YTD αφορούν το έτος <b>' + state.savedYtd.year +
+          '</b>, ενώ το τρέχον έτος αναφοράς είναι <b>' + state.assumptions.year +
+          '</b> — δεν χρησιμοποιούνται. Αλλάξτε το έτος αναφοράς ή διαγράψτε τα.';
+        body.style.color = '#7a5b00';
+      }
+    } else {
+      body.textContent = 'Δεν υπάρχουν αποθηκευμένα YTD. Θα αποθηκευτούν αυτόματα με την επόμενη εξαγωγή ' +
+        '(ή πατήστε «Αποθήκευση YTD τώρα»). Αποθηκεύονται μόνο τα συγκεντρωτικά μεγέθη ανά νοσηλευτήριο — τοπικά, τίποτα δεν φεύγει από τον φυλλομετρητή.';
+    }
+    card.appendChild(body);
+
+    var row = document.createElement('div');
+    row.className = 'row';
+
+    var lab = document.createElement('label');
+    lab.style.cssText = 'display:flex;gap:6px;align-items:center;font-weight:normal;';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = state.autoSave;
+    cb.addEventListener('change', function () { setAutoSave(cb.checked); renderYtdPanel(); });
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode('Αυτόματη αποθήκευση YTD κατά την εξαγωγή'));
+    row.appendChild(lab);
+
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'ghost';
+    saveBtn.textContent = 'Αποθήκευση YTD τώρα';
+    saveBtn.style.marginLeft = 'auto';
+    saveBtn.disabled = !currentMonths().length;
+    saveBtn.addEventListener('click', saveYtdNow);
+    row.appendChild(saveBtn);
+
+    if (state.savedYtd) {
+      var clr = document.createElement('button');
+      clr.className = 'removebtn';
+      clr.textContent = '× Διαγραφή αποθηκευμένων';
+      clr.addEventListener('click', function () {
+        if (!confirm('Διαγραφή των αποθηκευμένων YTD δεδομένων από τον φυλλομετρητή;')) return;
+        clearSavedYtd();
+        renderAll();
+      });
+      row.appendChild(clr);
+    }
+    card.appendChild(row);
+    box.appendChild(card);
+  }
+
   /* ---------------- Rendering: παραδοχές ---------------- */
   function numInput(value, decimals, onchange) {
     var inp = document.createElement('input');
@@ -1687,8 +1825,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
 
   /* ---------------- Υπολογισμός & επισκόπηση ---------------- */
+  // Είναι τα αποθηκευμένα YTD διαθέσιμα για το τρέχον έτος;
+  function savedYtdActive() {
+    return !!(state.savedYtd && state.savedYtd.months && state.savedYtd.year === state.assumptions.year);
+  }
+
+  // Μεταφερόμενοι μήνες ανά μήνα από βάση: πρώτα τα αποθηκευμένα YTD (τοπικά),
+  // μετά επικαλύπτει η μεταφορτωμένη εξαγωγή προηγούμενης περιόδου (υπερισχύει).
+  function carriedMonths() {
+    var out = {};
+    if (savedYtdActive()) {
+      state.savedYtd.monthsList.forEach(function (m) {
+        out[m] = { data: state.savedYtd.months[m], source: 'saved' };
+      });
+    }
+    if (state.prevFile && state.prevFile.parsed.ok) {
+      state.prevFile.parsed.monthsList.forEach(function (m) {
+        out[m] = { data: state.prevFile.parsed.months[m], source: 'prev' };
+      });
+    }
+    return out;
+  }
   function prevMonthsList() {
-    return (state.prevFile && state.prevFile.parsed.ok) ? state.prevFile.parsed.monthsList : [];
+    return Object.keys(carriedMonths()).map(Number).sort(function (a, b) { return a - b; });
   }
 
   function currentMonths() {
@@ -1707,11 +1866,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return f.month === m && f.parsed && f.parsed.ok && (!f.parsed.incomplete || f.includeAnyway);
     });
     var consoF = state.consoFiles.find(function (f) { return f.month === m && f.parsed && f.parsed.ok; });
-    var prev = (state.prevFile && state.prevFile.parsed.ok) ? state.prevFile.parsed.months[m] : null;
+    var carried = carriedMonths()[m];
+    var prev = carried ? carried.data : null;
     return {
       is: isF ? isF.parsed.perProvider : (prev ? prev.is : {}),
       over15: consoF ? consoF.parsed.over15 : (prev ? prev.over15 : {}),
-      fromPrev: !isF && !!prev
+      fromPrev: !isF && !!prev,
+      carrySource: (!isF && carried) ? carried.source : null
     };
   }
 
@@ -1760,7 +1921,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       head.appendChild(b); head.appendChild(s);
       if (md.fromPrev) {
         var badge = document.createElement('span');
-        badge.textContent = '↻ από εξαγωγή προηγούμενης περιόδου';
+        badge.textContent = md.carrySource === 'saved'
+          ? '↻ από αποθηκευμένα YTD' : '↻ από εξαγωγή προηγούμενης περιόδου';
         badge.style.cssText = 'background:#eef7e2;color:#5a8a1d;border:1px solid #8DC63F;border-radius:10px;padding:1px 10px;font-size:12px;';
         head.appendChild(badge);
       }
@@ -1882,11 +2044,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       document.body.appendChild(a);
       a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      // Αυτόματη αποθήκευση YTD: το ληφθέν αρχείο και τα αποθηκευμένα δεδομένα
+      // μένουν συγχρονισμένα, ώστε τον επόμενο μήνα να μη χρειάζεται επισύναψη.
+      if (state.autoSave) {
+        state.savedYtd = snapshotYtd();
+        persistSavedYtd(state.savedYtd);
+      }
     }).catch(function (e) {
       alert('Σφάλμα κατά τη δημιουργία του Excel: ' + e.message);
     }).finally(function () {
       btn.disabled = false;
       btn.textContent = '⬇ Λήψη Excel';
+      renderYtdPanel(); // αντικατοπτρίζει την αυτόματη αποθήκευση YTD
       renderExport();
     });
   });
@@ -1897,6 +2066,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderConsoList();
     renderDiscFile();
     renderPrevFile();
+    renderYtdPanel();
     renderAssumptions();
     renderReview();
     renderExport();

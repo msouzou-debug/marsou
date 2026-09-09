@@ -464,6 +464,27 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Αποθήκη YTD (τοπική) — ίδια δομή με parsePreviousOutput.months, ώστε τα
+   * αποθηκευμένα δεδομένα να είναι εναλλάξιμα με την εξαγωγή προηγούμενης
+   * περιόδου ως βάση υπολογισμού.
+   * ------------------------------------------------------------------ */
+
+  // Χτίζει αποθήκη { year, savedAt, lastMonth, monthsList, months:{m:{is,over15}} }
+  // από τις υπολογισμένες γραμμές (κρατά μόνο τα συγκεντρωτικά μεγέθη ανά
+  // νοσηλευτήριο — pos/posAe/neg/negAe & ΤΑΕΠ>15% — όχι πρωτογενείς γραμμές).
+  function ytdStoreFromRows(year, rows) {
+    var store = { year: year, savedAt: null, lastMonth: null, monthsList: [], months: {} };
+    rows.forEach(function (r) {
+      var m = store.months[r.month] || (store.months[r.month] = { is: {}, over15: {} });
+      m.is[r.code] = { pos: r.pos || 0, posAe: r.posAe || 0, neg: r.neg || 0, negAe: r.negAe || 0 };
+      if (r.over15) m.over15[r.code] = r.over15;
+    });
+    store.monthsList = Object.keys(store.months).map(Number).sort(function (a, b) { return a - b; });
+    store.lastMonth = store.monthsList.length ? store.monthsList[store.monthsList.length - 1] : null;
+    return store;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Έλεγχοι πριν την εξαγωγή
    * ------------------------------------------------------------------ */
 
@@ -917,6 +938,7 @@
     parsePreviousOutput: parsePreviousOutput,
     computeMonthRows: computeMonthRows,
     computeSeries: computeSeries,
+    ytdStoreFromRows: ytdStoreFromRows,
     validateForExport: validateForExport,
     buildWorkbook: buildWorkbook,
     exportFilename: exportFilename,

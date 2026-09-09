@@ -213,7 +213,64 @@ function ok(cond, label) {
   ]);
   const dl2Path = path.join(OUT, 'browser-download-carry.xlsx');
   await dl2.saveAs(dl2Path);
+
+  /* ---------- Σενάριο 3: αποθηκευμένα YTD στον φυλλομετρητή (χωρίς επισύναψη) ---------- */
+  console.log('▸ Σενάριο αποθηκευμένων YTD (localStorage)');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  ok(/Δεν υπάρχουν αποθηκευμένα YTD/.test(await page.locator('#ytd-panel').innerText()), 'αρχικά: κανένα αποθηκευμένο YTD');
+
+  // Ανεβάζουμε Ιαν + Μαρ (φρέσκα) + Conso, και εξάγουμε — αυτόματη αποθήκευση YTD.
+  await page.setInputFiles('#fi-is', [path.join(stage, ASCII_IS[1]), path.join(stage, ASCII_IS[3])]);
+  await page.waitForFunction(() => document.querySelectorAll('#list-is .filecard').length === 2);
+  await page.setInputFiles('#fi-conso', [path.join(DIR, CONSO_FILES[1]), path.join(DIR, CONSO_FILES[3])]);
+  await page.waitForFunction(() => document.querySelectorAll('#list-conso .filecard').length === 2);
+  await page.waitForFunction(() => !document.getElementById('btn-export').disabled);
+  const [dl3] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-export').click()]);
+  await dl3.saveAs(path.join(OUT, 'ytd-first.xlsx'));
+  await page.waitForFunction(() => /Μήνες:/.test(document.getElementById('ytd-panel').innerText));
+  ok(/Ιανουάριος, Μάρτιος/.test(await page.locator('#ytd-panel').innerText()), 'μετά την εξαγωγή: αποθηκεύτηκαν YTD Ιαν+Μαρ');
+
+  // Επαναφόρτωση σελίδας — τα αποθηκευμένα YTD πρέπει να επιβιώσουν και να φορτωθούν ως βάση.
+  await page.reload();
+  ok(/Ιανουάριος, Μάρτιος/.test(await page.locator('#ytd-panel').innerText()), 'μετά reload: τα αποθηκευμένα YTD διατηρήθηκαν');
+  const monthHeaders = () => page.$$eval('#review .month-h b', els => els.filter(e => /2026/.test(e.textContent)).length);
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('#review .month-h b')).filter(e => /2026/.test(e.textContent)).length === 2);
+  ok((await page.locator('#review .month-h:has-text("από αποθηκευμένα YTD")').count()) === 2,
+    'μετά reload: 2 μήνες σημαίνονται «από αποθηκευμένα YTD»');
+  ok((await page.locator('#list-is .filecard').count()) === 0, 'μετά reload: κανένα μεταφορτωμένο αρχείο (μόνο η αποθήκη)');
+  await page.waitForFunction(() => !document.getElementById('btn-export').disabled);
+  ok(true, 'μόνο με τα αποθηκευμένα YTD: εξαγωγή ενεργή χωρίς επισύναψη');
+
+  // Ανεβάζουμε ΜΟΝΟ τον νέο μήνα (Απρ) — year-to-date = Ιαν+Μαρ (αποθήκη) + Απρ.
+  await page.setInputFiles('#fi-is', [path.join(stage, ASCII_IS[4])]);
+  await page.waitForFunction(() => document.querySelectorAll('#list-is .filecard').length === 1);
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('#review .month-h b')).filter(e => /2026/.test(e.textContent)).length === 3);
+  ok((await monthHeaders()) === 3 && (await page.locator('#review .month-h:has-text("από αποθηκευμένα YTD")').count()) === 2,
+    'Απρ φρέσκος, Ιαν+Μαρ από αποθήκη (3 μήνες συνολικά)');
+  const [dl4] = await Promise.all([page.waitForEvent('download'), page.locator('#btn-export').click()]);
+  const dl4Path = path.join(OUT, 'ytd-second.xlsx');
+  await dl4.saveAs(dl4Path);
+  await page.waitForFunction(() => /Ιανουάριος, Μάρτιος, Απρίλιος/.test(document.getElementById('ytd-panel').innerText));
+  ok(true, 'μετά τη 2η εξαγωγή: η αποθήκη YTD επεκτάθηκε σε Ιαν+Μαρ+Απρ');
+
+  // Διαγραφή αποθηκευμένων YTD (το confirm το αποδέχεται ο global dialog handler).
+  await page.locator('#ytd-panel .removebtn').click();
+  await page.waitForFunction(() => /Δεν υπάρχουν αποθηκευμένα YTD/.test(document.getElementById('ytd-panel').innerText));
+  ok(true, 'διαγραφή αποθηκευμένων YTD λειτουργεί');
+
   await browser.close();
+
+  {
+    const wbY = new ExcelJS.Workbook();
+    await wbY.xlsx.readFile(dl4Path);
+    const dataY = wbY.getWorksheet('Δεδομένα');
+    let n = 0;
+    for (let r = 5; r <= 60; r++) if (dataY.getCell('A' + r).value) n++;
+    ok(n === 24, 'YTD από αποθήκη+Απρ: 24 γραμμές Δεδομένα (8 νοσηλευτήρια × 3 μήνες), got ' + n);
+    // Γραμμή 5 = F1054 Ιαν (από την αποθήκη) — η τιμή pos διατηρήθηκε.
+    ok(Math.abs(dataY.getCell('D5').value - 1260.42) < 1e-6, 'YTD: F1054 Ιαν pos από αποθήκη = 1260.42');
+  }
 
   {
     const wbC = new ExcelJS.Workbook();
