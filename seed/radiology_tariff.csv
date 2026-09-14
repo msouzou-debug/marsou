@@ -1,0 +1,318 @@
+cpt_code,group_en,description_en,description_el,price_eur
+CY251,,"Fine needle aspiration, with imaging guidance; each additional lesion (List separately in addition to code for primary procedure)","Αναρρόφηση με λεπτή βελόνα, με καθοδήγηση απεικόνισης. κάθε πρόσθετη βλάβη ",29.5
+10005-LT,ULTRASOUND,"Fıne needle aspıratıon bıopsy, including ultrasound guidance ; first lesion","Βιοψία με λεπτή βελόνα, συμπεριλαμβανομένης της καθοδήγησης με υπερήχους. πρώτη βλάβη (Αριστερά)",74
+10006,ULTRASOUND,"Fine needle aspiration biopsy, including ultrasound guidance; each additional lesion ","Βιοψία αναρρόφησης με λεπτή βελόνα, συμπεριλαμβανομένης της καθοδήγησης με υπερήχους, κάθε πρόσθετη βλάβη ",29.5
+60300,ULTRASOUND,"Aspiration and/or injection, thyroid cyst","Αναρρόφηση ή/και έγχυση, θυρεοειδική κύστη",122
+CY156,Activities,Facilities and Consumables for Anesthesia,Εγκαταστάσεις και αναλώσιμα για την αναισθησία,85
+10022,Activities,Fine needle aspiration; with imaging guidance,"Αναρρόφηση διά λεπτής βελόνης, με απεικονιστική καθοδήγηση",86.5
+49405,Activities,"Ιmage-guided fluid collection drainage by catheter (eg, abscess, hematoma, seroma, lymphocele, cyst); visceral (eg, kidney, liver, spleen, lung/mediastinum), percutaneous","Παροχέτευση συλλογής υγρών καθοδηγούμενη από εικόνα με καθετήρα (π.χ. απόστημα, αιμάτωμα, ορός, λεμφοκήλη, κύστη)· σπλαχνικό (π.χ. νεφρός, ήπαρ, σπλήνα, πνεύμονας/μεσοθωράκιο), διαδερμικό»",98.5
+49406,Activities,"Image-guided fluid collection drainage by catheter (eg, abscess, hematoma, seroma,lymphocele, cyst); peritoneal or retroperitoneal, percutaneous","Αποστράγγιση συλλογής υγρού με καθοδήγηση με εικόνα με καθετήρα (π.χ. απόστημα, αιμάτωμα, ορός, λεμφοκήλη, κύστη), περιτοναϊκή ή οπισθοπεριτοναϊκή, διαδερμική",98.5
+55700,Activities,"Biopsy, prostate; needle or punch, single or multiple, any approach","Βιοψία προστάτη, με βελόνα ή τεχνική punch, μία ή πολλαπλές, οποιαδήποτε προσέγγιση",118.5
+CY157,Activities,"Biopsy, soft tissue",Βιοψία μαλακών μορίων,74
+64483,Activities,"Injection(s), anesthetic agent and/or steroid, transforaminal epidural, with imaging guidance (fluoroscopy or CT); lumbar or sacral, single level","Έγχυση(εις) αναισθητικού παράγονται ή/και στεροειδούς, διατρηματική επισκληρίδιος, με απεικονιστική καθοδήγηση (ακτινοσκόπηση ή υπολογιστική τομογραφία), οσφυϊκή ή ιερά, ένα επίπεδο",61.5
+64484,Activities,"Injection(s), anesthetic agent and/or steroid, transforaminal epidural, with imaging guidance (fluoroscopy or CT); lumbar or sacral, each additional level (List separately in addition to code for primary procedure)","Έγχυση(εις) αναισθητικού παράγονται ή/και στεροειδούς, διατρηματική επισκληρίδιος, με απεικονιστική καθοδήγηση (ακτινοσκόπηση ή υπολογιστική τομογραφία), οσφυϊκή ή ιερά, κάθε επιπλέον επίπεδο ",29.5
+64490,Activities,"Injection(s), diagnostic or therapeutic agent, paravertebral facet (zygapophyseal) joint (or nerves innervating that joint) with image guidance (fluoroscopy or CT), cervical or thoracic; single level","Ένεση(εις), διαγνωστικού ή θεραπευτικού παράγοντα, ζυγοαποφυσιακή άρθρωση ή νεύρα που νευρώνουν την άρθρωση, με απεικονιστική καθοδήγηση (ακτινοσκόπηση ή υπολογιστική τομογραφία), αυχενική ή θωρακική, ένα επίπεδο",61.5
+76506,Activities,"Echoencephalography, real time with image documentation (gray scale) (for determination of ventricular size, delineation of cerebral contents, and detection of fluid masses or other intracranial abnormalities), including A-mode encephalography as secondary component where indicated","Ηχοεγκεφαλογραφία, σε πραγματικό χρόνο με τεκμηρίωση εικόνας (γκρι κλίμακα) (για τον προσδιορισμό του μεγέθους της κοιλίας, καθορισμός του εγκεφαλικού περιεχομένου και εντοπισμός υγρών μαζών ή άλλων ενδοκρανιακών ανωμαλιών), συμπεριλαμαβνομένης της Α mode  όπως δευτερεύον συστατικό, όπου υποδεικνύεται",38.5
+77003-RAD,Activities,Fluoroscopic guidance and localization of needle or catheter tip for spine or paraspinous diagnostic or therapeutic injection procedures (epidural or subarachnoid),Ακτινοσκοπική καθοδήγηση και εντόπιση κορυφής βελόνης ή καθετήρα για σπονδυλική ή παρασπονδύλια διαδικασία διαγνωστικής ή θεραπευτικής έγχυσης (επισκληρίδια ή υπαραχνοειδής,57.5
+23350,Activities,Injection procedure for shoulder arthrography or enhanced CT/MRI shoulder arthrography,Διαδικασία ένεσης για αρθρογραφία ώμου ή ενισχυμένη CT/MRI αρθρογραφία ώμου,178.5
+25246,Activities,Injection procedure for wrist arthrography,Διαδικασία ένεσης για αρθρογραφία καρπού,178.5
+27093,Activities,"Injection procedure for hip arthrography; without anesthesia""",Διαδικασία ένεσης για αρθρογραφία ισχίου. χωρίς αναισθησία,178.5
+27369,Activities,Injection procedure for contrast knee arthrography or contrast enhanced CT/MRI knee arthrography,Διαδικασία έγχυσης για αρθρογραφία γόνατος με αντίθεση ή αρθρογραφία γόνατος CT/MRI ενισχυμένη με σκιαγραφικό,178.5
+24220,Activities,Injection procedure for elbow arthrography,Διαδικασία ένεσης για αρθρογραφία αγκώνα,178.5
+27648,Activities,Injection procedure for ankle arthrography,Διαδικασία ένεσης για αρθρογραφία ποδοκνημικής,178.5
+36901,Activities,"Introduction of needle(s) and/or catheter(s), dialysis circuit, with diagnostic angiography of the dialysis circuit, including all direct puncture(s) and catheter placement(s), injection(s) of contrast, all necessary imaging from the arterial anastomosis and adjacent artery through entire venous outflow including the inferior or superior vena cava, fluoroscopic guidance, radiological supervision and interpretation and image documentation and report","Εισαγωγή βελόνας ή/και καθετήρας, κυκλώματος αιμοκάθαρσης, με διαγνωστική αγγειογραφία του κυκλώματος αιμοκάθαρσης, συμπεριλαμβανομένων όλων των άμεσων παρακεντήσεων και τοποθέτησης καθετήρα, ενέσεων σκιαγραφικού, όλων των απαραίτητων απεικονίσεων από  αρτηριακή αναστόμωση και γειτονική αρτηρία μέσω ολόκληρης της φλεβικής εκροής συμπεριλαμβανομένης της κάτω ή άνω κοίλης φλέβας, ακτινοσκοπική καθοδήγηση, ακτινολογική επίβλεψη και ερμηνεία και τεκμηρίωση και αναφορά εικόνας",156
+91200,Activities,"Liver elastography, mechanically induced shear wave (eg, vibration), without imaging, with interpretation and report","Ελαστογραφία ήπατος, μηχανικά επαγόμενο διατμητικό κύμα (π.χ. δόνηση), χωρίς απεικόνιση, με ερμηνεία και αναφορά",64
+1922,Activities,Anesthesia for non-invasive imaging or radiation therapy; requiring the presence of an anaesthesiologist,"Αναισθησία για μη επεμβατική απεικόνιση ή ακτινοθεραπεία, απαραίτητη η παρουσία αναισθησιολόγου",45.5
+CY155,Consumable,"BREAST BIOPSY  KIT (Biopsy Probe/Vacuum,Rinse Tubing Cassette/Vacuum Canister/Clip Marker)","ΚΙΤ ΒΙΟΨΙΑΣ ΜΑΣΤΟΥ (Biopsy Probe/Vacuum,Rinse Tubing Cassette/Vacuum Canister/Clip)",395
+70450,CT,"Computed tomography, head or brain; without contrast material","Υπολογιστική τομογραφία κεφαλής ή εγκεφάλου, χωρίς σκιαγραφικό μέσο",73
+70480,CT,"Computed tomography, orbit, sella, or posterior fossa or outer, middle, or inner ear; without
+contrast material","Υπολογιστική τομογραφία οφθαλμικού κόγχου, τουρκικού εφιππίου, οπίσθιου ή εξωτερικού βόθρου, μέσου ή έσω ωτός, χωρίς σκιαγραφικό μέσο",64
+70490,CT,"Computed tomography, soft tissue neck; without contrast material","Υπολογιστική τομογραφία μαλακών μορίων του αυχένα, χωρίς σκιαγραφικό μέσο",64
+71250,CT,"Computed tomography, thorax; without contrast material","Υπολογιστική τομογραφία θώρακα, χωρίς σκιαγραφικό μέσο",73
+72125,CT,"Computed tomography, cervical spine; without contrast material","Υπολογιστική τομογραφία αυχενικής μοίρας σπονδυλικής στήλης, χωρίς σκιαγραφικό μέσο",64
+72128,CT,"Computed tomography, thoracic spine; without contrast material","Υπολογιστική τομογραφία θωρακικής μοίρας σπονδυλικής στήλης, χωρίς σκιαγραφικό μέσο",64
+72131,CT,"Computed tomography, lumbar spine; without contrast material","Υπολογιστική τομογραφία οσφϋικής μοίρας σπονδυλικής στήλης, χωρίς σκιαγραφικό μέσο",64
+72192,CT,"Computed tomography, pelvis; without contrast material","Υπολογιστική τομογραφία πυέλου, χωρίς σκιαγραφικό μέσο",64
+73200,CT,"Computed tomography, upper extremity; without contrast material","Υπολογιστική τομογραφία άνω άκρου, χωρίς σκιαγραφικό μέσο",64
+73700,CT,"Computed tomography, lower extremity; without contrast material","Υπολογιστική τομογραφία κάτω άκρου, χωρίς σκιαγραφικό μέσο",64
+73700-51,CT,"Computed tomography, lower extremity; without contrast material","Υπολογιστική τομογραφία κάτω άκρου, χωρίς σκιαγραφικό μέσο",38.5
+74150,CT,"Computed tomography, abdomen; without contrast material","Υπολογιστική τομογραφία κοιλίας, χωρίς σκιαγραφικό",76
+74176,CT,"Computed tomography, abdomen and pelvis; without contrast material","Υπολογιστική τομογραφία κοιλίας και πυέλου, χωρίς σκιαγραφικό",103
+74261,CT,"Computed tomographic (CT) colonography, diagnostic, including image postprocessing; without contrast material","Υπολογιστική κολονογραφία (CT), διαγνωστική, συμπεριλαμβανομένης της μετεπεξεργασίας εικόνας, χωρίς σκιαγραφικό",178.5
+74400,CT,"Urography (pyelography), intravenous, with or without KUB, with or without tomography","Ουρογραφία (πυελογραφία), ενδοφλέβια, με ή χωρίς ακτινογραφία νεφρών, ουρητήρα, ουροδόχου κύστεως, με ή χωρίς τομογραφία",64
+75571,CT,"Computed tomography, heart, without contrast material, with quantitative evaluation of coronary calcium","Υπολογιστική τομογραφία καρδίας, χωρίς σκιαγραφικό, με ποσοτική αξιολόγηση του στεφανιαίου ασβεστίου",109.5
+75572,CT,"Computed tomography, heart, with contrast material, for evaluation of cardiac structure and morphology (including 3D image postprocessing, assessment of cardiac function, and evaluation of venous structures, if performed)","Υπολογιστική τομογραφία, καρδιά, με σκιαγραφικό υλικό, για αξιολόγηση της καρδιακής δομής και μορφολογίας (συμπεριλαμβανομένης της μετεπεξεργασίας τρισδιάστατης εικόνας, της αξιολόγησης της καρδιακής λειτουργίας και της αξιολόγησης των φλεβικών δομών, εάν εκτελείται",178.5
+77012-RAD,CT,"Computed tomography guidance for needle placement (eg, biopsy, aspiration, injection, localization device), radiological supervision and interpretation","Καθοδήγηση υπολογιστικής τομογραφίας για την τοποθέτηση βελόνας (π.χ. βιοψίας, αναρρόφησης, έγχυσης, συσκευής εντοπισμού), ακτινολογική επίβλεψη και ερμηνεία",66
+CY061,CT,"Whole body computed tomography screening, without contrast material","Αξονική τομογραφία όλου του σώματος, χωρίς σκιαγραφικό υλικό",205
+CY062,CT,"Computed tomography, thoracic and lumbar spine or cervical and thoracic spine; without contrast material","Αξονική τομογραφία, θωρακικής και οσφυϊκής μοίρας της σπονδυλικής στήλης ή αυχενικής και θωρακικής μοίρας της σπονδυλικής στήλης, χωρίς σκιαγραφικό υλικό",106.5
+CY063,CT,"Computed tomography, whole spine; without contrast material","Αξονική τομογραφία, ολόκληρης της σπονδυλικής στήλης; χωρίς σκιαγραφικό υλικό",141.5
+CY043,CT,Computed tomography with contrast agent,Σκιαγραφικό μέσο υπολογιστικής τομογραφίας,56.5
+CY058,CT,Oral computed tomography contrast agent,Σκιαγραφικό μέσο υπολογιστικής τομογραφίας από του στόματος,6.5
+CY130,CT,Computed tomography chest/abdomen/pelvis without contrast,Αξονική τομογραφία θώρακα/κοιλίας/λεκάνης χωρίς σκιαγραφικό,157.5
+CY131,CT,Computed tomography neck/chest/abdomen/ pelvis without contrast,Αξονική τομογραφία αυχένα/θώρακα/κοιλίας/λεκάνης χωρίς σκιαγραφικό,196
+CY132,CT,Computed tomography brain/neck/chest/abdomen/pelvis without contrast,Αξονική τομογραφία εγκεφάλου/λαιμού/θώρακα/κοιλίας/λεκάνης χωρίς σκιαγραφικό,239.5
+CY133,CT,Computed tomography neck/chest without contrast,Αξονική τομογραφία λαιμού/θώρακα χωρίς σκιαγραφικό,111.5
+CY134,CT,Computed tomography chest/abdomen without contrast,Αξονική τομογραφία θώρακος/κοιλίας χωρίς σκιαγραφικό,119.5
+70486,CT,"Computed tomography, maxillofacial area; without contrast material","Αξονική τομογραφία, γναθοπροσωπική περιοχή; χωρίς σκιαγραφικό υλικό",64
+73200-51,CT,"Computed tomography, upper extremity; without contrast material","Υπολογιστική τομογραφία άνω άκρου, χωρίς σκιαγραφικό μέσο",38.5
+70496,CTA,"Computed tomographic angiography, head, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία κεφαλής, με σκιαγραφικό μέσο(α), συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται και μετεπεξεργασία εικόνας",156
+71275,CTA,"Computed tomographic angiography, chest (noncoronary), with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία θώρακα (μη στεφανιαία), με σκιαγραφικό μέσο(α), συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται, και μετεπεξεργασία εικόνας",156
+73206,CTA,"Computed tomographic angiography, upper extremity, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία άνω άκρου, με σκιαγραφικό μέσο(α), συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται και μετεπεξεργασία εικόνας",156
+73706,CTA,"Computed tomographic angiography, lower extremity, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία κάτω άκρου, με σκιαγραφικό μέσο(α), συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται και μετεπεξεργασία εικόνας",164
+74174,CTA,"Computed tomographic angiography, abdomen and pelvis, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία κοιλίας και πυέλου, με σκιαγραφικό μέσο(α), συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται και μετεπεξεργασία εικόνας",188.5
+74175,CTA,"Computed tomographic angiography, abdomen, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία κοιλίας, με σκιαγραφικό μέσο (α),συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται και μετεπεξεργασία εικόνας",156
+75574,CTA,"Computed tomographic angiography, heart, coronary arteries and bypass grafts (when present), with contrast material, including 3D image postprocessing (including evaluation of cardiac structure and morphology, assessment of cardiac function, and evaluation of venous structures, if performed)","Υπολογιστική αξονική αγγειογραφία καρδίας, στεφανιαίων αρτηριών και μοσχευμάτων αορτοστεφανιαίας παράκαμψης (όταν υφίστανται), με σκιαγραφικό μέσο, συμπεριλαμβανομένης μετεπεξεργασίας εικόνας 3D, (συμπεριλαμβανομένης αξιολόγησης της καρδιακής δομής και μορφολογίας καθώς και της αξιολόγησης των φλεβικών δομών, εάν πραγματοποιηθεί)",200.5
+75635,CTA,"Computed tomographic angiography, abdominal aorta and bilateral iliofemoral lower extremity runoff, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία κοιλιακής αορτής και αμφοτερόπλευρη λαγονομηριαία απόφραξη κάτω άκρου, με σκιαγραφικό μέσο(α), συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται και μετεπεξεργασία εικόνας",200.5
+CY137,CTA,"Computed tomographic angiography, head and neck",Αξονική τομογραφία αγγειογραφία κεφαλής και τραχήλου,248.5
+70498,CTA,"Computed tomographic angiography, neck, with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική τομογραφική αγγειογραφία, λαιμού, με υλικό(α) αντίθεσης, συμπεριλαμβανομένων εικόνων χωρίς σκιαγραφικό, εάν εκτελείται, και επεξεργασίας εικόνας",156
+71275-51,CTA,"Computed tomographic angiography, chest (noncoronary), with contrast material(s), including noncontrast images, if performed, and image postprocessing","Υπολογιστική αξονική αγγειογραφία θώρακα (μη στεφανιαία), με σκιαγραφικό μέσο(α),
+συμπεριλαμβανομένων εικόνων χωρίς αντίθεση, εάν εκτελείται, και μετεπεξεργασία εικόνας",93.5
+CY135,CTA/CT,"Computed tomographic angiography, head/ Computed tomography, head or brain","Αξονική τομογραφία αγγειογραφία, κεφαλής/ αξονική τομογραφία, κεφαλής ή εγκεφάλου",199.5
+CY136,CTA/CT,"Computed tomographic angiography, neck/ Computed tomography, head or brain","Αξονική τομογραφία αγγειογραφία, τραχήλου/ Αξονική τομογραφία, κεφαλής ή εγκεφάλου",199.5
+77080,DEXA,"Dual-energy X-ray absorptiometry (DXA), bone density study, 1 or more sites; axial skeleton (eg, hips, pelvis, spine)","Απορροφησιομετρία ακτίνων Χ διπλής ενέργειας (DXA), μελέτη οστικής πυκνότητας, μία ή περισσότερες τοποθεσίες αξονικού σκελετού (π.χ. ισχία, πύελος, σπονδυλική στήλη)",29
+77085,DEXA,"Dual-energy X-ray absorptiometry (DXA), bone density study, 1 or more sites; axial skeleton (eg, hips, pelvis, spine), including vertebral fracture assessment","Απορροφησιομετρία ακτίνων Χ διπλής ενέργειας (DXA), μελέτη οστικής πυκνότητας, 1 ή περισσότερες θέσεις, αξονικός σκελετός (π.χ. ισχία, πύελος, σπονδυλική στήλη, συμπεριλαμβανομένης της αξιολόγησης σπονδυλικού κατάγματος",29
+77086,DEXA,Vertebral fracture assessment via dual-energy X-ray absorptiometry (DXA),Αξιολόγηση σπονδυλικού κατάγματος μέσω απορρόφησης ακτίνων Χ διπλής ενέργειας (DXA),9.5
+74220,FLUOROSCOPY,Radiologic examination; esophagus,Ακτινογραφία οισοφάγου,55
+74230,FLUOROSCOPY,"Radiologic examination, swallowing function, with cineradiography/videoradiography, including scout neck radiograph(s) and delayed image(s), when performed, contrast (eg, barium) study","Ακτινολογική εξέταση, λειτουργία κατάποσης, με ακτινογραφία /βιντεοακτινογραφία, συμπεριλαμβανομένης της ακτινογραφίας(ων) αυχένα και καθυστερημένης εικόνας(ων), όταν εκτελείται, μελέτη σκιαγραφικού (π.χ. βάριο)",61.5
+74240,FLUOROSCOPY,"Radiologic examination, upper gastrointestinal tract, including scout abdominal radiograph(s) and delayed image(s), when performed; single-contrast (eg, barium) study","Ακτινολογική εξέταση, ανώτερη γαστρεντερική οδός, συμπεριλαμβανομένης της προσκοπικής ακτινογραφίας(ων) κοιλίας και καθυστερημένης εικόνας(ων), όταν εκτελείται. μελέτη μονής αντίθεσης (π.χ. βάριο).",61.5
+74246,FLUOROSCOPY,"Radiologic examination, upper gastrointestinal tract, including scout abdominal radiograph(s) and delayed image(s), when performed; double-contrast (eg, high-density barium and effervescent agent) study, including glucagon, when administered","Ακτινολογική εξέταση, ανώτερη γαστρεντερική οδός, συμπεριλαμβανομένης της προσκοπικής ακτινογραφίας(ων) κοιλίας και καθυστερημένης εικόνας(ων), όταν εκτελείται. μελέτη διπλής αντίθεσης (π.χ. βάριο υψηλής πυκνότητας και αναβράζον παράγοντα), συμπεριλαμβανομένης της γλυκαγόνης, όταν χορηγείται",70
+74250,FLUOROSCOPY,"Radiologic examination, small intestine, includes multiple serial images","Ακτινογραφία λεπτού εντέρου, περιλαμβάνει πολλαπλές σειριακές εικόνες",64
+74251,FLUOROSCOPY,"Radiologic examination, small intestine, including multiple serial images and scout abdominal radiograph(s), when performed; double-contrast (eg, high-density barium and air via enteroclysis tube) study, including glucagon, when administered","Ακτινολογική εξέταση, λεπτού εντέρου, συμπεριλαμβανομένων πολλαπλών σειριακών εικόνων και προσκοπικής ακτινογραφίας κοιλίας, όταν εκτελείται. μελέτη διπλής αντίθεσης (π.χ. βάριο υψηλής πυκνότητας και αέρας μέσω σωλήνα εντεροκλύσης), συμπεριλαμβανομένης της γλυκαγόνης, όταν χορηγείται",66
+74270,FLUOROSCOPY,"Radiologic examination, colon; contrast (eg, barium) enema, with or without KUB","Ακτινογραφία παχέος εντέρου, υποκλυσμός με σκιαγραφικά μέσα (π.χ. βάριο), με ή χωρίς απεικόνιση νεφρών, ουρητήρα, ουροδόχου κύστης",73
+74280,FLUOROSCOPY,"Radiologic examination, colon; air contrast with specific high density barium, with or without glucagon","Ακτινογραφία παχέος εντέρου, με βάριο ειδικής υψηλής πυκνότητας με αντίθεση αέρα, με ή χωρίς γλυκαγόνη",66
+74420,FLUOROSCOPY,"Urography, retrograde, with or without KUB","Ουρογραφία, παλίνδρομη, με ή χωρίς απεικόνιση νεφρών, ουρητήρα, ουροδόχου κύστης",57.5
+74455,FLUOROSCOPY,"Urethrocystography, voiding, radiological supervision and interpretation","Ουρηθροκυστογραφία, κένωση ουροδόχου κύστης, ακτινολογική παρακολούθηση και ερμηνεία",61.5
+74740,FLUOROSCOPY,"Hysterosalpingography, radiological supervision and interpretation","Υστεροσαλπιγγογραφία, ακτινολογική καθοδήγηση και ερμηνεία",74
+76080,FLUOROSCOPY,"Radiologic examination, abscess, fistula or sinus tract study, radiological supervision and interpretation","Ακτινογραφία αποστήματος, συριγγίου ή μελέτη παραρρινίων κόλπων, ακτινολογική επίβλεψη και ερμηνεία",55
+77061,MAMMO,Digital breast tomosynthesis; unilateral,"Ψηφιακή τομοσύνθεση μαστού, ετερόπλευρη",45.5
+77061-ONCO,MAMMO,Digital breast tomosynthesis; unilateral,"Ψηφιακή τομοσύνθεση μαστού, ετερόπλευρη",45.5
+77062,MAMMO,Digital breast tomosynthesis; bilateral,"Ψηφιακή τομοσύνθεση μαστού, αμφοτερόπλευρη",57.5
+77062-ONCO,MAMMO,Digital breast tomosynthesis; bilateral,"Ψηφιακή τομοσύνθεση μαστού, αμφοτερόπλευρη",57.5
+77065,MAMMO,"Diagnostic mammography, including computer-aided detection (CAD) when performed; unilateral","Διαγνωστική μαστογραφία, συμπεριλαμβανομένης της ανίχνευσης με τη βοήθεια (CAD) όταν εκτελείται, ετερόπλευρη",25
+77065-ONCO,MAMMO,"Diagnostic mammography, including computer-aided detection (CAD) when performed; unilateral","Διαγνωστική μαστογραφία, συμπεριλαμβανομένης της ανίχνευσης με τη βοήθεια (CAD) όταν εκτελείται, ετερόπλευρη",25
+77066,MAMMO,"Diagnostic mammography, including computer-aided detection (CAD) when performed; bilateral","Διαγνωστική μαστογραφία, συμπεριλαμβανομένης της ανίχνευσης με τη βοήθεια (CAD) όταν εκτελείται, αμφοτερόπλευρη",39.5
+77066-ONCO,MAMMO,"Diagnostic mammography, including computer-aided detection (CAD) when performed; bilateral","Διαγνωστική μαστογραφία, συμπεριλαμβανομένης της ανίχνευσης με τη βοήθεια (CAD) όταν εκτελείται, αμφοτερόπλευρη",39.5
+CY126,MAMMO,Digital Mammography and Tomosynthesis; unilateral,Ψηφιακή Μαστογραφία και Τομοσύνθεση; μονομερής,70.5
+CY127,MAMMO,Digital Mammography and Tomosynthesis; bilateral,Ψηφιακή Μαστογραφία και Τομοσύνθεση; Αμφίπλευρη,96.5
+19081,MAMMO,"Biopsy, breast, with placement of breast localization device(s) (eg, clip, metallic pellet), when performed, and imaging of the biopsy specimen, when performed, percutaneous; first lesion, including stereotactic guidance","Βιοψία, μαστός, με τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο), όταν εκτελείται και απεικόνιση του δείγματος βιοψίας, όταν εκτελείται, διαδερμική· πρώτη βλάβη, συμπεριλαμβανομένης της στερεοτακτικής καθοδήγησης",537
+19082,MAMMO,"Biopsy, breast, with placement of breast localization device(s) (eg, clip, metallic pellet), when performed, and imaging of the biopsy specimen, when performed, percutaneous; each additional lesion, including stereotactic guidance","Βιοψία, μαστός, με τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο), όταν εκτελείται, και απεικόνιση του δείγματος βιοψίας, όταν εκτελείται, διαδερμική. πρόσθετη βλάβη, συμπεριλαμβανομένης της στερεοτακτικής καθοδήγησης",55
+19083,MAMMO,"Biopsy, breast, with placement of breast localization device(s) (eg, clip, metallic pellet), when performed, and imaging of the biopsy specimen, when performed, percutaneous; first lesion, including ultrasound guidance","Βιοψία, μαστός, με τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο), όταν εκτελείται και απεικόνιση του δείγματος βιοψίας, όταν εκτελείται, διαδερμική· πρώτη βλάβη, συμπεριλαμβανομένης της καθοδήγησης με υπερήχους",118.5
+19084,MAMMO,"Biopsy, breast, with placement of breast localization device(s) (eg, clip, metallic pellet), when performed, and imaging of the biopsy specimen, when performed, percutaneous; each
+additional lesion, including ultrasound guidance","Βιοψία, μαστός, με τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο), όταν εκτελείται, και απεικόνιση του δείγματος βιοψίας, όταν εκτελείται, διαδερμική. πρόσθετη βλάβη, συμπεριλαμβανομένης της καθοδήγησης με υπερήχους",55
+19283,MAMMO,"Placement of breast localization device(s) (eg, clip, metallic pellet, wire/needle, radioactive seeds), percutaneous; first lesion, including stereotactic guidance","Τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο, σύρμα/βελόνα, ραδιενεργοί σπόροι), διαδερμική· πρώτη βλάβη, συμπεριλαμβανομένης της στερεοτακτικής καθοδήγησης",74
+19284,MAMMO,"Placement of breast localization device(s) (eg, clip, metallic pellet, wire/needle, radioactive seeds), percutaneous; each additional lesion, including stereotactic guidance (List separately in
+addition to code for primary procedure)","Τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο, σύρμα/βελόνα, ραδιενεργοί σπόροι), διαδερμική· κάθε πρόσθετη βλάβη, συμπεριλαμβανομένης της στερεοτακτικής καθοδήγησης (Προσθήκη στον κωδικό για την κύρια διαδικασία)",45.5
+19285,MAMMO,"Placement of breast localization device(s) (eg, clip, metallic pellet, wire/needle, radioactive seeds), percutaneous; first lesion, including ultrasound guidance","Τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο, σύρμα/βελόνα, ραδιενεργοί σπόροι), διαδερμική· πρώτη βλάβη, συμπεριλαμβανομένης της καθοδήγησης με υπερήχους",82
+19286,MAMMO,"Placement of breast localization device(s) (eg, clip, metallic pellet, wire/needle, radioactive seeds), percutaneous; each additional lesion, including ultrasound guidance (List separately in
+addition to code for primary procedure)","Τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο, σύρμα/βελόνα, ραδιενεργοί σπόροι), διαδερμική· κάθε πρόσθετη βλάβη, συμπεριλαμβανομένης της καθοδήγησης με υπερήχους (Προσθήκη στον κωδικό για την κύρια διαδικασία)",45.5
+19287,MAMMO,"Placement of breast localization device(s) (eg clip, metallic pellet, wire/needle, radioactive seeds), percutaneous; first lesion, including magnetic resonance guidance","Τοποθέτηση συσκευής εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο, σύρμα/βελόνα, ραδιενεργοί σπόροι), διαδερμική. πρώτη βλάβη, συμπεριλαμβανομένης της καθοδήγησης με μαγνητικό συντονισμό",123
+19288,MAMMO,"Placement of breast localization device(s) (eg clip, metallic pellet, wire/needle, radioactive seeds), percutaneous; each additional lesion, including magnetic resonance guidance (List separately in addition to code for primary procedure)","Τοποθέτηση συσκευής(ών) εντοπισμού του μαστού (π.χ. κλιπ, μεταλλικό σφαιρίδιο, σύρμα/βελόνα, ραδιενεργοί σπόροι), διαδερμική· κάθε πρόσθετη βλάβη, συμπεριλαμβανομένης της καθοδήγησης μαγνητικού συντονισμού (Κατάλογος ξεχωριστά εκτός από τον κωδικό για την κύρια επέμβαση)",55
+19100,MAMMO,"Biopsy of breast; percutaneous, needle core, not using imaging guidance (separate procedure)","Βιοψία μαστού; διαδερμική, πυρήνας βελόνας, χωρίς χρήση απεικονιστικής καθοδήγησης (ξεχωριστή διαδικασία",100.5
+19100-51,MAMMO,"Biopsy of breast; percutaneous, needle core, not using imaging guidance (separate procedure)","Βιοψία μαστού; διαδερμική, πυρήνας βελόνας, χωρίς χρήση απεικονιστικής καθοδήγησης (ξεχωριστή διαδικασία)",55
+70544,MRA,"Magnetic resonance angiography, head; without contrast material(s)","Μαγνητική αγγειογραφία κεφαλής, χωρίς σκιαγραφικό μέσο(α)",164
+70547,MRA,"Magnetic resonance angiography, neck; without contrast material(s)","Μαγνητική αγγειογραφία αυχένα, χωρίς σκιαγραφικό μέσο(α)",164
+71555,MRA,"Magnetic resonance angiography, chest (excluding myocardium), with or without contrast material(s)","Μαγνητική αγγειογραφία θώρακα (εξαιρουμένου του μυοκαρδίου), με ή χωρίς σκιαγραφικό μέσο(α)",164
+72198,MRA,"Magnetic resonance angiography, pelvis, with or without contrast material(s)","Μαγνητική αγγειογραφία πυέλου, με ή χωρίς σκιαγραφικό μέσο(α)",164
+73225,MRA,"Magnetic resonance angiography, upper extremity, with or without contrast material(s)","Μαγνητική αγγειογραφία άνω άκρου, με ή χωρίς σκιαγραφικό μέσο(α)",164
+73725,MRA,"Magnetic resonance angiography, lower extremity, with or without contrast material(s)","Μαγνητική αγγειογραφία κάτω άκρου, με ή χωρίς σκιαγραφικό μέσο(α)",164
+74185,MRA,"Magnetic resonance angiography, abdomen, with or without contrast material(s)","Μαγνητική αγγειογραφία κοιλίας, με ή χωρίς σκιαγραφικό μέσο(α)",164
+CY057,MRA,Magnetic resonance angiography with contrast agent,Σκιαγραφικό μέσο μαγνητικής αγγειογραφίας,30.029999999999998
+CY138,MRA,"Magnetic resonance angiograpy abdomen/pelvis, with or without contrast","Μαγνητική αγγειογραφία κοιλίας/πυέλου, με ή χωρίς σκιαγραφικό μέσο(α)",262.5
+CY139,MRA,"Magnetic resonance angiograpy abdomen/pelvis/lower extremity, with or without contrast","Μαγνητική αγγειογραφία κοιλίας/πυέλου/κάτω άκρων , με ή χωρίς σκιαγραφικό μέσο(α)",393.5
+CY140,MRA,"Magnetic resonance angiograpy pelvis/lower extremity, with or without contrast","Μαγνητική αγγειογραφία πυέλου/κάτω άκρων , με ή χωρίς σκιαγραφικό μέσο(α)",262.5
+70544-51,MRA,"Magnetic resonance angiography, head; without contrast material(s)","Μαγνητική αγγειογραφία κεφαλής, χωρίς σκιαγραφικό μέσο(α)",98.5
+77021,MRI,"Magnetic resonance imaging guidance for needle placement (eg, for biopsy, needle aspiration, injection, or placement of localization device) radiological supervision and interpretation","Οδηγίες μαγνητικής τομογραφίας για τοποθέτηση βελόνας (π.χ. για βιοψία, αναρρόφηση με βελόνα, ένεση ή τοποθέτηση συσκευής εντοπισμού) ακτινολογική επίβλεψη και ερμηνεία",98.5
+70336,MRI,"Magnetic resonance (eg, proton) imaging, temporomandibular joint(s)",Μαγνητική τομογραφία (π.χ. πρωτονίων) κροταφογναθικής άρθρωσης,164
+70540,MRI,"Magnetic resonance (eg, proton) imaging, orbit, face, and/or neck; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) οφθαλμικών κόγχων, προσώπου ή/και αυχένα, χωρίς σκιαγραφικό μέσο(α)",109.5
+70551,MRI,"Magnetic resonance (eg, proton) imaging, brain (including brain stem); without contrast material","Απεικόνιση μαγνητικής τομογραφίας (π.χ. πρωτονίων), εγκέφαλος (συμπεριλαμβανομένου εγκεφαλικού στελέχους), χωρίς σκιαγραφικό μέσο",109.5
+70554,MRI,"Magnetic resonance imaging, brain, functional MRI; including test selection and administration of repetitive body part movement and/or visual stimulation, not requiring physician or psychologist administration","Μαγνητική τομογραφία εγκεφάλου, λειτουργική MRI, συμπεριλαμβανομένης της επιλογής δοκιμής και της διαχείρισης επαναλαμβανόμενης κίνησης ενός μέρους του σώματος και/ή οπτικής διέγερσης, χωρίς να απαιτείται ιατρική ή ψυχολογική υποστήριξη",244.5
+CY068,MRI,"Magnetic resonance imaging, brain perfusion","Μαγνητική τομογραφία, αιμάτωση εγκεφάλου",229.5
+71550,MRI,"Magnetic resonance (eg, proton) imaging, chest (eg, for evaluation of hilar and mediastinal lymphadenopathy); without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) θώρακα (π.χ. για την αξιολόγηση της λεμφαδενοπάθειας μεσοθωρακίου και πυλών), χωρίς σκιαγραφικό μέσο(α)",164
+72141,MRI,"Magnetic resonance (eg, proton) imaging, spinal canal and contents, cervical; without contrast material","Μαγνητική τομογραφία (π.χ. πρωτονίων), σπονδυλικός σωλήνας και περιεχόμενα, αυχένας, χωρίς σκιαγραφικό μέσο",109.5
+72146,MRI,"Magnetic resonance (eg, proton) imaging, spinal canal and contents, thoracic; without contrast material","Μαγνητική τομογραφία (π.χ. πρωτονίων), σπονδυλικός σωλήνας και περιεχόμενα, θώρακας, χωρίς σκιαγραφικό μέσο",109.5
+72148,MRI,"Magnetic resonance (eg, proton) imaging, spinal canal and contents, lumbar; without contrast material","Μαγνητική τομογραφία (π.χ. πρωτονίων), σπονδυλικός σωλήνας και περιεχόμενα, οσφύς, χωρίς σκιαγραφικό μέσο",109.5
+72195,MRI,"Magnetic resonance (eg, proton) imaging, pelvis; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) πυέλου, χωρίς σκιαγραφικό μέσο(α)",109.5
+73218,MRI,"Magnetic resonance (eg, proton) imaging, upper extremity, other than joint; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) άνω άκρων εκτός από αρθρώσεις, χωρίς σκιαγραφικό μέσο(α)",109.5
+73221,MRI,"Magnetic resonance (eg, proton) imaging, any joint of upper extremity; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) οποιασδήποτε άρθρωσης του άνω άκρου, χωρίς σκιαγραφικό μέσο(α)",109.5
+73718,MRI,"Magnetic resonance (eg, proton) imaging, lower extremity other than joint; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) κάτω άκρων εκτός από αρθρώσεις, χωρίς σκιαγραφικό μέσο(α)",109.5
+73721,MRI,"Magnetic resonance (eg, proton) imaging, any joint of lower extremity; without contrast material","Μαγνητική τομογραφία (π.χ. πρωτονίων) οποιασδήποτε άρθρωσης του κάτω άκρου, χωρίς σκιαγραφικό μέσο(α)",109.5
+74181,MRI,"Magnetic resonance (eg, proton) imaging, abdomen; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) κοιλίας, χωρίς σκιαγραφικό μέσο(α)",116
+CY088,MRI,"Magnetic resonance imaging, liver, with gadoxetate disodium","Μαγνητική τομογραφία, ήπατος, με δινάτριο γαδοξετάτη",178.5
+75557,MRI,Cardiac magnetic resonance imaging for morphology and function without contrast material,Μαγνητική τομογραφία καρδίας για απεικόνιση της μορφολογίας και της λειτουργίας χωρίς σκιαγραφικό μέσο,178.5
+75565,MRI,Cardiac magnetic resonance imaging for velocity flow mapping,Μαγνητική τομογραφία καρδίας για απεικόνιση της χαρτογράφησης ταχύτητας ροής,178.5
+76390,MRI,Magnetic resonance spectroscopy,Φασματοσκοπία μαγνητικού συντονισμού,178.5
+76498,MRI,"Unlisted magnetic resonance procedure (eg, diagnostic, interventional)","Μη καταχωρισμένη διαδικασία μαγνητικού συντονισμού (π.χ. διαγνωστική, επεμβατική)",437
+77047,MRI,"Magnetic resonance imaging, breast, without contrast material; bilateral","Μαγνητική τομογραφία μαστού, χωρίς σκιαγραφικό υλικό (άμφω)",164
+CY069,MRI,"Magnetic resonance imaging, cervical and dorsal spine, or cervical and lumbar spine, or lumbar and dorsal spine; without contrast material","Απεικόνιση μαγνητικής τομογραφιας, αυχενική και ραχιαία σπονδυλική στήλη ή αυχενική και οσφυϊκή μοίρα της σπονδυλικής στήλης ή οσφυϊκή και ραχιαία σπονδυλική στήλη, χωρίς σκιαγραφικό υλικό",164
+CY070,MRI,"Magnetic resonance imaging, whole spine; without contrast material","Μαγνητική τομογραφία, ολόκληρη η σπονδυλική στήλη. χωρίς σκιαγραφικό ",216
+CY071,MRI,"Magnetic resonance imaging, brain tractography","Μαγνητική τομογραφία, τρακτογραφία εγκεφάλου",229.5
+CY072,MRI,Cardiac magnetic resonance imaging of the coronary arteries,Καρδιακή μαγνητική τομογραφία των στεφανιαίων αρτηριών,178.5
+CY073,MRI,Cardiac magnetic resonance imaging perfusion,Αιμάτωση καρδιακής μαγνητικής τομογραφίας,178.5
+CY074,MRI,Cardiac magnetic resonance imaging for viability analysis,Καρδιακή μαγνητική τομογραφία για ανάλυση βιωσιμότητας,173
+CY075,MRI,"Magnetic resonance imaging, enterography, without contrast","Μαγνητική τομογραφία, εντερογραφία, χωρίς σκιαγραφικό",164
+CY076,MRI,"Magnetic resonance imaging, multiparametric prostate/rectum/pelvis soft tissue; without contrast material(s)","Απεικόνιση μαγνητικής τομογραφίας, πολυπαραμετρικός μαλακός ιστός προστάτη/ορθού/λεκάνης, χωρίς σκιαγραφικό(α) υλικό(α)",164
+CY144,MRI,"Magnetic resonance imaging, Brain/Orbits without contrast","Απεικόνιση μαγνητικού συντονισμού, Brain/Orbits χωρίς σκιαγραφικό ",175
+CY145,MRI,Magnetic resonance imaging Brain/Pituitary gland without contrast,Μαγνητική τομογραφία Εγκεφάλου/Υπόφυσης χωρίς σκιαγραφικό,175
+CY146,MRI,Magnetic resonance imaging Brain/auditory canal without contrast,Μαγνητική τομογραφία  Εγκεφάλου/ Γερυφοπαρεγκεφαλιδικες δομές,175
+CY147,MRI,Magnetic resonance imaging  Brain/spinal cord without contrast,Μαγνητική τομογραφία Εγκεφάλου/νωτιαίου μυελού χωρίς σκιαγραφικό,240.5
+CY148,MRI,Magnetic resonance imaging  Abdomen/pelvis,Μαγνητική τομογραφία κοιλίας/λεκάνης,209.5
+CY149,MRI,Magnetic resonance imaging  Abdomen/MRCP,Μαγνητική τομογραφία κοιλίας/MRCP,181.5
+CY154,MRI,Magnetic resonance imaging gadoxetate disodium,Μαγνητική τομογραφία δινάτριο γαδοξετάτη,109.5
+CY054,MRI,Magnetic resonance imaging with contrast agent,Σκιαγραφικό μέσο μαγνητικής τομογραφίας,79.5
+CY128,MRI,T2-Star,T2-Star,123
+73218-51,MRI,"Magnetic resonance (eg, proton) imaging, upper extremity, other than joint; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) άνω άκρων εκτός από αρθρώσεις, χωρίς σκιαγραφικό μέσο(α)",66
+73221-51,MRI,"Magnetic resonance (eg, proton) imaging, any joint of upper extremity; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) οποιασδήποτε άρθρωσης του άνω άκρου, χωρίς σκιαγραφικό μέσο(α)",66
+73718-51,MRI,"Magnetic resonance (eg, proton) imaging, lower extremity other than joint; without contrast material(s)","Μαγνητική τομογραφία (π.χ. πρωτονίων) κάτω άκρων εκτός από αρθρώσεις, χωρίς σκιαγραφικό μέσο(α)",66
+73721-51,MRI,"Magnetic resonance (eg, proton) imaging, any joint of lower extremity; without contrast material","Μαγνητική τομογραφία (π.χ. πρωτονίων) οποιασδήποτε άρθρωσης του κάτω άκρου, χωρίς σκιαγραφικό μέσο(α)",66
+CY150,MRI/MRA,Magnetic resonance angiograhy brain/ Magnetic resonance imaging Brain,Μαγνητική αγγειογραφία εγκεφάλου/ Μαγνητική τομογραφία εγκεφάλου,229.5
+CY151,MRI/MRA,Magnetic resonance angiography Neck/Magnetic resonance imaging Brain,Αγγειογραφία μαγνητική τομογραφία Τραχήλου/Απεικόνιση μαγνητικής τομογραφίας Εγκεφάλου,229.5
+CY152,MRI/MRA,Magnetic resonance angiography Neck/Magnetic resonance angiography Brain/Magnetic resonance imaging Brain,Μαγνητική τομογραφία αγγειογραφία τραχήλου/μαγνητική τομογραφία αγγειογραφία εγκεφάλου/μαγνητική τομογραφία εγκεφάλου,328
+76512,ULTRASOUND,"Ophthalmic ultrasound, diagnostic; B-scan (with or without superimposed non-quantitative A- scan)","Οφθαλμική υπερηχογραφία, διαγνωστική, Β σάρωση (με ή χωρίς υπερκείμενη μη ποσοτική Α σάρωση)",27.5
+76536,ULTRASOUND,"Ultrasound, soft tissues of head and neck (eg, thyroid, parathyroid, parotid), real time with image documentation","Υπερηχογράφημα μαλακών μορίων κεφαλής και τραχήλου (π.χ. θυρεοειδής, παραθυρεοειδής αδένας, παρωτίδα), σε πραγματικό χρόνο με τεκμηρίωση εικόνων",41
+76604,ULTRASOUND,"Ultrasound, chest (includes mediastinum), real time with image documentation","Υπερηχογράφημα θώρακος (συμπεριλαμβανομένου του μεσοθωρακίου), σε πραγματικό χρόνο με τεκμηρίωση εικόνων",32
+76700,ULTRASOUND,"Ultrasound, abdominal, real time with image documentation; complete","Υπερηχογράφημα κοιλίας, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, πλήρες",36.5
+CY129,ULTRASOUND,Ultrasound contrast agent,Σκιαγραφικός παράγοντας υπερήχων,36.5
+76776,ULTRASOUND,"Ultrasound, transplanted kidney, real time and duplex Doppler with image documentation","Υπερηχογράφημα μεταμοσχευμένου νεφρού, σε πραγματικό χρόνο και αμφίδρομο Doppler με τεκμηρίωση εικόνων",36.5
+76801,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, fetal and maternal evaluation, first trimester (< 14 weeks 0 days), transabdominal approach; single or first gestation","Υπερηχογράφημα μήτρας εγκύου, σε πραγματικό χρόνο με τεκμηρίωση εικόνων, αξιολόγηση εμβρύου και μητέρας, πρώτο τρίμηνο (<14 εβδομάδες 0 ημέρες), διακοιλιακή προσέγγιση, μονήρης ή πρώτη κύηση",44
+76811-RAD,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, fetal and maternal evaluation plus detailed fetal anatomic examination, transabdominal approach; single or first gestation","Υπερηχογράφημα, μήτρα εγκύου, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, αξιολόγηση εμβρύου και μητέρας συν λεπτομερής ανατομική εξέταση εμβρύου, διακοιλιακή προσέγγιση, μονή ή πρώτη κύηση",41
+76813,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, first trimester fetal nuchal translucency measurement, transabdominal or transvaginal approach; single or first gestation","Υπερηχογράφημα κυήσεως πρώτου τριμήνου, με μέτρηση της αυχενικής διαφάνειας, διακοιλιακό ή διακολπτικό, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, μονήρης ή πρώτη
+κύηση",35
+76815,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, limited (eg, fetal heart beat, placental location, fetal position and/or qualitative amniotic fluid volume), 1 or more fetuses","Υπερηχογράφημα μήτρας εγκύου, σε πραγματικό χρόνο με τεκμηρίωση εικόνων, περιορισμένο (π.χ. εμβρϋικός καρδιακός ρυθμός, θέση πλακούντα, θέση εμβρύου, και/ή ποιοτικός όγκος αμνιακού υγρού), 1 ή περισσότερα έμβρυα",25
+76818,ULTRASOUND,Fetal biophysical profile; with non-stress testing,"Βιοφυσικό προφίλ εμβρύου, με καρδιοτοκογράφημα ηρεμίας",60.5
+76820,ULTRASOUND,"Doppler velocimetry, fetal; umbilical artery","Ταχυμετρία Doppler, εμβρυϊκή; ομφαλική αρτηρία",35
+76821,ULTRASOUND,"Doppler velocimetry, fetal; middle cerebral artery","Ταχυμετρία Doppler, εμβρυϊκή; μέση εγκεφαλική αρτηρία",35
+76830-RAD,ULTRASOUND,"Ultrasound, transvaginal",Διακολπικό υπερηχογράφημα,29
+76856-RAD,ULTRASOUND,"Ultrasound, pelvic (nonobstetric), real time with image documentation; complete","Υπερηχογράφημα πυέλου, (μη μαιευτικό), σε πραγματικό χρόνο με τεκμηρίωση εικόνων,
+πλήρες",27.5
+76870,ULTRASOUND,"Ultrasound, scrotum and contents",Υπερηχογράφημα οσχέου και περιεχομένων,36.5
+76872,ULTRASOUND,"Ultrasound, transrectal","Υπερηχογράφημα, διορθικό",41
+76881,ULTRASOUND,"Ultrasound, complete joint (ie, joint space and peri-articular soft-tissue structures), real-time with image documentation","Υπερηχογράφημα, πλήρης άρθρωση (δηλαδή, χώρος άρθρωσης και περιαρθρικές δομές μαλακών ιστών), σε πραγματικό χρόνο με τεκμηρίωση εικόνας",35
+76882,ULTRASOUND,"Ultrasound, limited, joint or other nonvascular extremity structure(s) (eg, joint space, peri- articular tendon[s], muscle[s], nerve[s], other soft tissue structure[s], or soft tissue mass[es]),
+real-time with image documentation","Υπερηχογράφημα, περιορισμένο, άρθρωσης ή άλλης μη αγγειακής δομής άκρου(ων), [π.χ. περιοχή της άρθρωσης, περιαρθρικός(οί) τένοντας(ες), μυς(ες), νεύρο(α), άλλη(ες) δομή(ές)
+μαλακών μορίων], σε πραγματικό χρόνο με τεκμηρίωση εικόνας",33
+76885-RAD,ULTRASOUND,"Ultrasound, infant hips, real time with imaging documentation; dynamic","Υπερηχογράφημα ισχίων παιδιού, σε πραγματικό χρόνο με τεκμηρίωση εικόνων, δυναμικό (απαιτεί χειρισμό από ιατρό ή άλλο πιστοποιημένο επαγγελματία υγείας)",33
+76942,ULTRASOUND,"Ultrasonic guidance for needle placement (eg, biopsy, aspiration, injection, localization device), imaging supervision and interpretation","Υπερηχογραφική καθοδήγηση για τοποθέτηση βελόνης (π.χ. βιοψία, αναρρόφηση, έγχυση, συσκευή εντοπισμού), επίβλεψη απεικόνισης και ερμηνεία",33
+93880,ULTRASOUND,Duplex scan of extracranial arteries; complete bilateral study,"Σάρωση duplex εξωκρανιακών αρτηριών, πλήρης αμφοτερόπλευρη μελέτη",66.5
+93925,ULTRASOUND,Duplex scan of lower extremity arteries or arterial bypass grafts; complete bilateral study,"Αμφίδρομη σάρωση αρτηριών κάτω άκρων ή αρτηριακών μοσχευμάτων αορτοστεφανιαίας παράκαμψης, πλήρης αμφίδρομη μελέτη",66
+93926,ULTRASOUND,Duplex scan of lower extremity arteries or arterial bypass grafts; unilateral or limited study,"Αμφίδρομη σάρωση αρτηριών κάτω άκρων ή αρτηριακών μοσχευμάτων αορτοστεφανιαίας παράκαμψης, ετερόπλευρη ή περιορισμένη μελέτη",41
+93930,ULTRASOUND,Duplex scan of upper extremity arteries or arterial bypass grafts; complete bilateral study,"Αμφίδρομη σάρωση αρτηριών άνω άκρων ή αρτηριακών μοσχευμάτων αορτοστεφανιαίας παράκαμψης, πλήρης αμφίδρομη μελέτη",66
+93931,ULTRASOUND,Duplex scan of upper extremity arteries or arterial bypass grafts; unilateral or limited study,"Αμφίδρομη σάρωση αρτηριών άνω άκρων ή αρτηριακών μοσχευμάτων αορτοστεφανιαίας παράκαμψης, ετερόπλευρη ή περιορισμένη μελέτη",49.5
+93970,ULTRASOUND,Duplex scan of extremity veins including responses to compression and other maneuvers; complete bilateral study,"Αμφίδρομη σάρωση των φλεβών των άκρων συμπεριλαμβανομένων των αποκρίσεων σε συμπίεση και άλλες μαλάξεις, πλήρης αμφοτερόπλευρη μελέτη",66
+93971,ULTRASOUND,Duplex scan of extremity veins including responses to compression and other maneuvers; unilateral or limited study,"Αμφίδρομη σάρωση των φλεβών των άκρων συμπεριλαμβανομένων των αποκρίσεων σε συμπίεση και άλλες μαλάξεις, ετερόπλευρη ή περιορισμένη μελέτη",49.5
+93975,ULTRASOUND,"Duplex scan of arterial inflow and venous outflow of abdominal, pelvic, scrotal contents and/or retroperitoneal organs; complete study","Σάρωση διπλής όψης της αρτηριακής εισροής και φλεβικής εκροής κοιλιακών, πυελικών, οσφϋικών περιεχομένων και/ή οπισθοπεριτοναϊκών οργάνων, πλήρης μελέτη",49.5
+93990,ULTRASOUND,"Duplex scan of hemodialysis access (including arterial inflow, body of access and venous outflow)","Αμφίδρομη σάρωση για πρόσβαση αιμοκάθαρασης (συμπεριλαμβανομένης της αρτηριακής εισροής, του σώματος πρόσβασης και της φλεβικής εκροής)",55
+76981,ULTRASOUND,"Ultrasound, elastography; parenchyma (eg, organ)","Υπερηχογράφημα, ελαστογραφία; παρέγχυμα (π.χ. όργανο)",25.5
+76510,ULTRASOUND,"Ophthalmic ultrasound, diagnostic; B-scan and quantitative A-scan performed during the same patient encounter","Οφθαλμικό υπερηχογράφημα, διαγνωστικό B-scan and quantitative A-scan performed during the same patient encounter",35
+76770,ULTRASOUND,"Ultrasound, retroperitoneal (eg, renal, aorta, nodes), real time with image documentation; complete","Υπερηχογράφημα οπισθοπεριτοναϊκού χώρου (π.χ. νεφρά, αορτή, λεμφαδένες), σε πραγματικό χρόνο με τεκμηρίωση εικόνων, πλήρες",36.5
+76805,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, fetal and maternal evaluation, after first trimester (> or = 14 weeks 0 days), transabdominal approach; single or
+first gestation","Υπερηχογράφημα κυήσεως μετά το πρώτο τρίμηνο (> ή = 14 εβδομάδες 0 ημέρες), με αξιολόγηση μητέρας και εμβρύου, διακοιλιακό, σε πραγματικό χρόνο με τεκμηρίωση
+εικόνας, μονήρης ή πρώτη κύηση",55
+76810,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, fetal and maternal evaluation, after first trimester (> or = 14 weeks 0 days), transabdominal approach; each additional gestation (List separately in addition to code for primary procedure)","Υπερηχογράφημα, μήτρα εγκύου, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, αξιολόγηση εμβρύου και μητέρας, μετά το πρώτο τρίμηνο (> ή = 14 εβδομάδες 0 ημέρες), διακοιλιακή προσέγγιση. κάθε επιπλέον κύηση (Κατάλογος ξεχωριστά εκτός από τον κωδικό για την κύρια διαδικασία)",33
+76814,ULTRASOUND,"Ultrasound, pregnant uterus, real time with image documentation, first trimester fetal nuchal translucency measurement, transabdominal or transvaginal approach; each additional gestation (List separately in addition to code for primary procedure)","Υπερηχογράφημα, μήτρα εγκύου, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, μέτρηση αυχενικής διαφάνειας εμβρύου πρώτου τριμήνου, διακοιλιακή ή διακολπική προσέγγιση. κάθε επιπλέον κύηση (Κατάλογος ξεχωριστά εκτός από τον κωδικό για την κύρια διαδικασία)",29
+93980,ULTRASOUND,Duplex scan of arterial inflow and venous outflow of penile vessels; complete study,Διπλή σάρωση αρτηριακής εισροής και φλεβικής εκροής αγγείων του πέους. πλήρης μελέτη,55
+76641-50,ULTRASOUND,"Ultrasound, breast, unilateral, real time with image documentation, including axilla when performed; complete","Υπερηχογράφημα, μαστού, μονόπλευρη, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, συμπεριλαμβανομένης της μασχάλης όταν εκτελείται, πλήρης""",43
+CY242,ULTRASOUND,"Ultrasound, axilla, bilateral, real time with image documentation; complete","Υπέρηχος, μασχαλιαία, αμφίπλευρη, σε πραγματικό χρόνο με τεκμηρίωση εικόνας. πλήρης",35
+CY245,ULTRASOUND,"Ultrasound, breast, bilateral, real time with image documentation, including axilla when performed; complete within the context of Breast Screening Programme of the Ministry of Health","Υπερηχογράφημα, μαστού, αμφοτερόπλευρο, σε πραγματικό χρόνο με τεκμηρίωση εικόνας, συμπεριλαμβανομένης της μασχάλης όταν εκτελείται· ολοκληρώθηκε στο πλαίσιο του Προγράμματος Ελέγχου Μαστού του Υπουργείου Υγείας»",43
+70110,XRAY,"Radiologic examination, mandible; complete, minimum of 4 views","Ακτινολογική εξέταση, κάτω γνάθος; πλήρης, τουλάχιστον 4 προβολές",32
+70150,XRAY,"Radiologic examination, facial bones; complete, minimum of 3 views","Ακτινολογική εξέταση, οστά προσώπου; πλήρης, τουλάχιστον 3 προβολές",32
+70160,XRAY,"Radiologic examination, nasal bones, complete, minimum of 3 views","Ακτινολογικός έλεγχος, ρινικά οστά, πλήρης, τουλάχιστον 3 προβολές",27.5
+70210,XRAY,"Radiologic examination, sinuses, paranasal, less than 3 views","Ακτινογραφία παραρρινίων κόλπων, λιγότερες από 3 προβολές",33
+70250,XRAY,"Radiologic examination, skull; less than 4 views","Ακτινογραφία κρανίου, λιγότερες από 4 προβολές",32
+70330,XRAY,"Radiologic examination, temporomandibular joint, open and closed mouth; bilateral","Ακτινολογική εξέταση, κροταφογναθική άρθρωση, ανοιχτό και κλειστό στόμα. Άμφω",27.5
+71045,XRAY,"Radiologic examination, chest; single view","Ακτινογραφία θώρακος, μία προβολή",23
+71046,XRAY,"Radiologic examination, chest; 2 views","Ακτινογραφία θώρακος, 2 προβολές",27.5
+70328,XRAY,"Radiologic examination, temporomandibular joint, open and closed mouth; unilateral","Ακτινολογική εξέταση, κροταφογναθική άρθρωση, ανοιχτό και κλειστό στόμα. μονόπλευρη",27.5
+71100,XRAY,"Radiologic examination, ribs, unilateral; 2 views","Ακτινολογική εξέταση, πλευρά, μονόπλευρη. 2 προβολές",27.5
+71120,XRAY,"Radiologic examination; sternum, minimum of 2 views","Ακτινολογική εξέταση; στέρνο, τουλάχιστον 2 προβολές",23
+72040,XRAY,"Radiologic examination, spine, cervical; 2 or 3 views","Ακτινογραφία αυχενικής μοίρας σπονδυλικής στήλης, 2 ή 3 προβολές",27.5
+72050,XRAY,"Radiologic examination, spine, cervical; 4 or 5 views","Ακτινογραφία αυχενικής μοίρας σπονδυλικής στήλης, 4 ή 5 προβολές",36.5
+72070,XRAY,"Radiologic examination, spine; thoracic, 2 views","Ακτινογραφία θωρακικής μοίρας σπονδυλικής στήλης, 2 προβολές",27.5
+72072,XRAY,"Radiologic examination, spine; thoracic, 3 views","Ακτινογραφία θωρακικής μοίρας σπονδυλικής στήλης, 3 προβολές",36.5
+72080,XRAY,"Radiologic examination, spine; thoracolumbar junction, minimum of 2 views","Ακτινογραφία θωρακο-οσφυϊκής μοίρας σπονδυλικής στήλης, τουλάχιστον 2 προβολές",36.5
+72081,XRAY,"Radiologic examination, spine, entire thoracic and lumbar, including skull, cervical and sacral spine if performed (eg, scoliosis evaluation); one view","Ακτινολογική εξέταση, σπονδυλικής στήλης, ολόκληρου του θωρακικού και οσφυϊκού τμήματος, συμπεριλαμβανομένου του κρανίου, της αυχενικής και της ιερής μοίρας της σπονδυλικής στήλης εάν πραγματοποιηθεί (π.χ. αξιολόγηση σκολίωσης), μία προβολή",45.5
+72082,XRAY,"Radiologic examination, spine, entire thoracic and lumbar, including skull, cervical and sacral
+spine if performed (eg, scoliosis evaluation); 2 or 3 views","Ακτινολογική εξέταση, σπονδυλική στήλη, ολόκληρο το θωρακικό και οσφυϊκό τμήμα, συμπεριλαμβανομένου του κρανίου, της αυχενικής και της ιερής μοίρας της σπονδυλικής στήλης, εάν πραγματοποιηθεί (π.χ. αξιολόγηση σκολίωσης), 2 ή 3 προβολές",64
+72100,XRAY,"Radiologic examination, spine, lumbosacral; 2 or 3 views","Ακτινογραφία οσφυοϊεράς μοίρας σπονδυλικής στήλης, 2 ή 3 προβολές",35
+72110,XRAY,"Radiologic examination, spine, lumbosacral; minimum of 4 views","Ακτινογραφία οσφυοϊεράς μοίρας σπονδυλικής στήλης, τουλάχιστον 4 προβολές",35
+72170,XRAY,"Radiologic examination, pelvis; 1 or 2 views","Ακτινογραφία πυέλου, 1 ή 2 προβολές",25
+72200,XRAY,"Radiologic examination, sacroiliac joints; less than 3 views","Ακτινολογική εξέταση, ιερολαγόνιες αρθρώσεις; λιγότερες από 3 προβολές",27.5
+72202,XRAY,"Radiologic examination, sacroiliac joints; 3 or more views","Ακτινολογική εξέταση, ιερολαγόνιες αρθρώσεις; 3 ή περισσότερες προβολές",27.5
+72220,XRAY,"Radiologic examination, sacrum and coccyx, minimum of 2 views","Ακτινολογικός έλεγχος ιερού οστού και κόκκυγα, τουλάχιστον 2 προβολές",27.5
+73000-50,XRAY,"Radiologic examination; clavicle, complete","Ακτινολογική εξέταση; κλείδα, άμφω",36.5
+73000-RT,XRAY,"Radiologic examination; clavicle, complete","Ακτινολογική εξέταση; κλείδα, δεξιά",23
+73000-LT,XRAY,"Radiologic examination; clavicle, complete","Ακτινολογική εξέταση; κλείδα, αριστερά",23
+73010-50,XRAY,"Radiologic examination; scapula, complete","Ακτινολογική εξέταση; ωμοπλάτη,άμφω",32
+73010-RT,XRAY,"Radiologic examination; scapula, complete","Ακτινολογική εξέταση; ωμοπλάτη,δεξιά",23
+73010-LT,XRAY,"Radiologic examination; scapula, complete","Ακτινολογική εξέταση; ωμοπλάτη,αριστερά",23
+73030-50,XRAY,"Radiologic examination, shoulder; complete, minimum of 2 views","Ακτινολογική εξέταση, ώμος; πλήρης, τουλάχιστον 2 προβολές άμφω",36.5
+73030-RT,XRAY,"Radiologic examination, shoulder; complete, minimum of 2 views","Ακτινολογική εξέταση, ώμος; πλήρης, τουλάχιστον 2 προβολές δεξιά",27.5
+73030-LT,XRAY,"Radiologic examination, shoulder; complete, minimum of 2 views","Ακτινολογική εξέταση, ώμος; πλήρης, τουλάχιστον 2 προβολές αριστερά",27.5
+73050,XRAY,"Radiologic examination; acromioclavicular joints, bilateral, with or without weighted distraction","Ακτινολογική εξέταση; ακρωμιοκλειδικές αρθρώσεις, άμφω with or without weighted distraction",27.5
+73060-50,XRAY,"Radiologic examination; humerus, minimum of 2 views","Ακτινολογική εξέταση; βραχιόνιο, τουλάχιστον 2 προβολές άμφω",32
+73060-RT,XRAY,"Radiologic examination; humerus, minimum of 2 views","Ακτινολογική εξέταση; βραχιόνιο, τουλάχιστον 2 προβολές δεξιά",23
+73060-LT,XRAY,"Radiologic examination; humerus, minimum of 2 views","Ακτινολογική εξέταση; βραχιόνιο, τουλάχιστον 2 προβολές αριστερά",23
+73070-50,XRAY,"Radiologic examination, elbow; 2 views","Ακτινολογική εξέταση, αγκώνα; 2 προβολές, άμφω",36.5
+73070-RT,XRAY,"Radiologic examination, elbow; 2 views","Ακτινολογική εξέταση, αγκώνα; 2 προβολές, δεξιά",27.5
+73070-LT,XRAY,"Radiologic examination, elbow; 2 views","Ακτινολογική εξέταση, αγκώνα; 2 προβολές, αριστερά",27.5
+73080-50,XRAY,"Radiologic examination, elbow; complete, minimum of 3 views","Ακτινολογική εξέταση, αγκώνα; πλήρης, τουλάχιστον 3 προβολές, άμφω",36.5
+73080-RT,XRAY,"Radiologic examination, elbow; complete, minimum of 3 views","Ακτινολογική εξέταση, αγκώνα; πλήρης, τουλάχιστον 3 προβολές, δεξιά",27.5
+73080-LT,XRAY,"Radiologic examination, elbow; complete, minimum of 3 views","Ακτινολογική εξέταση, αγκώνα; πλήρης, τουλάχιστον 3 προβολές, αριστερά",27.5
+73090-50,XRAY,"Radiologic examination; forearm, 2 views","Ακτινολογική εξέταση; αντιβράχιο, 2 προβολές, άμφω",27.5
+73090-RT,XRAY,"Radiologic examination; forearm, 2 views","Ακτινολογική εξέταση; αντιβράχιο, 2 προβολές, δεξιά",23
+73090-LT,XRAY,"Radiologic examination; forearm, 2 views","Ακτινολογική εξέταση; αντιβράχιο, 2 προβολές, αριστερά",23
+73100-50,XRAY,"Radiologic examination, wrist; 2 views","Ακτινογραφία καρπού, 2 προβολές",36.5
+73100-RT,XRAY,"Radiologic examination, wrist; 2 views","Ακτινογραφία καρπού, 2 προβολές",27.5
+73100-LT,XRAY,"Radiologic examination, wrist; 2 views","Ακτινογραφία καρπού, 2 προβολές",27.5
+73110-50,XRAY,"Radiologic examination, wrist; complete, minimum of 3 views","Ακτινογραφία καρπού, πλήρης, τουλάχιστον 3 προβολές",36.5
+73110-RT,XRAY,"Radiologic examination, wrist; complete, minimum of 3 views","Ακτινογραφία καρπού, πλήρης, τουλάχιστον 3 προβολές",27.5
+73110-LT,XRAY,"Radiologic examination, wrist; complete, minimum of 3 views","Ακτινογραφία καρπού, πλήρης, τουλάχιστον 3 προβολές",27.5
+73120-50,XRAY,"Radiologic examination, hand; 2 views","Ακτινολογική εξέταση, χέρι; 2 προβολές (άμφω)",36.5
+73120-RT,XRAY,"Radiologic examination, hand; 2 views","Ακτινολογική εξέταση, χέρι; 2 προβολές (δεξιά)",27.5
+73120-LT,XRAY,"Radiologic examination, hand; 2 views","Ακτινολογική εξέταση, χέρι; 2 προβολές (αριστερά)",27.5
+73130-50,XRAY,"Radiologic examination, hand; minimum of 3 views","Ακτινολογική εξέταση, χέρι; 3 προβολές (άμφω)",36.5
+73130-RT,XRAY,"Radiologic examination, hand; minimum of 3 views","Ακτινολογική εξέταση, χέρι; 3 προβολές (δεξιά)",27.5
+73130-LT,XRAY,"Radiologic examination, hand; minimum of 3 views","Ακτινολογική εξέταση, χέρι; 3 προβολές (αριστερά)",27.5
+73140,XRAY,"Radiologic examination, finger(s), minimum of 2 views","Ακτινολογική εξέταση, δάχτυλο(α), τουλάχιστον 2 προβολές",23
+73502,XRAY,"Radiologic examination, hip, unilateral, with pelvis when performed; 2-3 views","Ακτινογραφία ισχίου, ετερόπλευρη, με πύελο εφόσον εκτελείται, 2-3 προβολές",27.5
+73521,XRAY,"Radiologic examination, hips, bilateral, with pelvis when performed; 2 views","Ακτινογραφία ισχίου, αμφοτερόπλευρη, με πύελο εφόσον εκτελείται, 2 προβολές",32
+73522,XRAY,"Radiologic examination, hips, bilateral, with pelvis when performed; 3-4 views","Ακτινογραφία ισχίου, αμφοτερόπλευρη, με πύελο εφόσον εκτελείται, 3-4 προβολές",36.5
+73552-50,XRAY,"Radiologic examination, femur; minimum 2 views","Ακτινογραφία μηρού, τουλάχιστον 2 προβολές",36.5
+73552-RT,XRAY,"Radiologic examination, femur; minimum 2 views","Ακτινογραφία μηρού, τουλάχιστον 2 προβολές",27.5
+73552-LT,XRAY,"Radiologic examination, femur; minimum 2 views","Ακτινογραφία μηρού, τουλάχιστον 2 προβολές",27.5
+73560-50,XRAY,"Radiologic examination, knee; 1 or 2 views","Ακτινογραφία γόνατος, 1 ή 2 προβολές",36.5
+73560-RT,XRAY,"Radiologic examination, knee; 1 or 2 views","Ακτινογραφία γόνατος, 1 ή 2 προβολές",23
+73560-LT,XRAY,"Radiologic examination, knee; 1 or 2 views","Ακτινογραφία γόνατος, 1 ή 2 προβολές",23
+73562-50,XRAY,"Radiologic examination, knee; 3 views","Ακτινογραφία γόνατος, 3 προβολές",32
+73562-RT,XRAY,"Radiologic examination, knee; 3 views","Ακτινογραφία γόνατος, 3 προβολές",23
+73562-LT,XRAY,"Radiologic examination, knee; 3 views","Ακτινογραφία γόνατος, 3 προβολές",23
+73564-50,XRAY,"Radiologic examination, knee; complete, 4 or more views","Ακτινογραφία γόνατος, πλήρης, 4 ή περισσότερες προβολές",36.5
+73564-RT,XRAY,"Radiologic examination, knee; complete, 4 or more views","Ακτινογραφία γόνατος, πλήρης, 4 ή περισσότερες προβολές",27.5
+73564-LT,XRAY,"Radiologic examination, knee; complete, 4 or more views","Ακτινογραφία γόνατος, πλήρης, 4 ή περισσότερες προβολές",27.5
+73590-50,XRAY,"Radiologic examination; tibia and fibula, 2 views","Ακτινολογική εξέταση; κνήμη και περόνη, 2 προβολές (άμφω)",36.5
+73590-RT,XRAY,"Radiologic examination; tibia and fibula, 2 views","Ακτινολογική εξέταση; κνήμη και περόνη, 2 προβολές (δεξιά)",23
+73590-LT,XRAY,"Radiologic examination; tibia and fibula, 2 views","Ακτινολογική εξέταση; κνήμη και περόνη, 2 προβολές (αριστερά)",23
+73600-50,XRAY,"Radiologic examination, ankle; 2 views","Ακτινολογική εξέταση, αστράγαλος; 2 προβολές (άμφω)",36.5
+73600-RT,XRAY,"Radiologic examination, ankle; 2 views","Ακτινολογική εξέταση, αστράγαλος; 2 προβολές (δεξιά)",23
+73600-LT,XRAY,"Radiologic examination, ankle; 2 views","Ακτινολογική εξέταση, αστράγαλος; 2 προβολές (αριστερά)",23
+73610-50,XRAY,"Radiologic examination, ankle; complete, minimum of 3 views","Ακτινολογική εξέταση, αστράγαλος; πλήρης, τουλάχιστον 3 προβολές (άμφω)",36.5
+73610-RT,XRAY,"Radiologic examination, ankle; complete, minimum of 3 views","Ακτινολογική εξέταση, αστράγαλος; πλήρης, τουλάχιστον 3 προβολές (δεξιά)",27.5
+73610-LT,XRAY,"Radiologic examination, ankle; complete, minimum of 3 views","Ακτινολογική εξέταση, αστράγαλος; πλήρης, τουλάχιστον 3 προβολές (αριστερά)",27.5
+73620-50,XRAY,"Radiologic examination, foot; 2 views","Ακτινογραφία άκρου ποδός, 2 προβολές",36.5
+73620-RT,XRAY,"Radiologic examination, foot; 2 views","Ακτινογραφία άκρου ποδός, 2 προβολές",23
+73620-LT,XRAY,"Radiologic examination, foot; 2 views","Ακτινογραφία άκρου ποδός, 2 προβολές",23
+73630-50,XRAY,"Radiologic examination, foot; complete, minimum of 3 views","Ακτινογραφία άκρου ποδός, πλήρης, τουλάχιστον 3 προβολές",36.5
+73630-RT,XRAY,"Radiologic examination, foot; complete, minimum of 3 views","Ακτινογραφία άκρου ποδός, πλήρης, τουλάχιστον 3 προβολές",27.5
+73630-LT,XRAY,"Radiologic examination, foot; complete, minimum of 3 views","Ακτινογραφία άκρου ποδός, πλήρης, τουλάχιστον 3 προβολές",27.5
+73660,XRAY,"Radiologic examination; toe(s), minimum of 2 views","Ακτινολογική εξέταση; δάχτυλα των ποδιών, τουλάχιστον 2 προβολές",23
+74018,XRAY,"Radiologic examination, abdomen; 1 view","Ακτινογραφία κοιλίας, 1 προβολή",23
+74019,XRAY,"Radiologic examination, abdomen; 2 views","Ακτινογραφία κοιλίας, 2 προβολές",27.5
+75820,XRAY,"Venography, extremity, unilateral, radiological supervision and interpretation","Φλεβογραφία άκρου, ετερόπλευρη, ακτινολογική επίβλεψη και ερμηνεία",61
+75822,XRAY,"Venography, extremity, bilateral, radiological supervision and interpretation","Φλεβογραφία άκρου, αμφοτερόπλευρη, ακτινολογική επίβλεψη και ερμηνεία",68.5
+77075,XRAY,"Radiologic examination, osseous survey; complete (axial and appendicular skeleton)","Ακτινολογική εξέταση, οστική μελέτη. πλήρης (αξονικός και σκωληκοειδής σκελετός)",61
+77072,XRAY,Bone age studies,Μελέτες οστικής ηλικίας,27.5
+CY086,XRAY,"Radiologic examination, full leg","Ακτινολογικός έλεγχος, ολόκληρο το πόδι (άμφω)",59.5
+CY086-RT,XRAY,"Radiologic examination, full leg","Ακτινολογικός έλεγχος, ολόκληρο το πόδι (δεξιά)",36.5
+CY086-LT,XRAY,"Radiologic examination, full leg","Ακτινολογικός έλεγχος, ολόκληρο το πόδι (αριστερά)",36.5
+70355,XRAY,Orthopantogrma (eg panoramıc x ray),Ορθοπαντόγραμμα (π.χ. πανοραμική ακτινογραφία),23
+CY247,XRAY,"Radiologic examination, adenoid vegetation; complete, 1 view","Ακτινογραφία αδενοϊδών εκβλαστήσεων, πλήρης, 1 προβολή",25
+CY141,ΜRΑ,"Magnetic resonance angiography, chest/abdomen, with or without contrast material(s)","Μαγνητική αγγειογραφία θώρακα /κοιλιάς, με ή χωρίς σκιαγραφικό μέσο(α)",262.5
