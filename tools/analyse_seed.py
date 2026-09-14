@@ -99,12 +99,13 @@ def write_workbook(pairs, unmatched):
 
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = "Overlap decisions"
+    sheet.title = "Αποφάσεις επικάλυψης"
 
     headers = [
-        "Service code", "Type", "Cat", "Service description (EL)",
-        "Tariff code", "Tariff description (EL)", "Tariff price (raw)",
-        "Tariff price €", "Proposed", "RULING (fill in)", "Ruled by", "Ruled on", "Exposure €",
+        "Κωδικός υπηρεσίας", "Τύπος", "Κατ.", "Περιγραφή υπηρεσίας",
+        "Κωδικός τιμοκαταλόγου", "Περιγραφή τιμοκαταλόγου", "Τιμή (όπως δόθηκε)",
+        "Τιμή €", "Πρόταση", "ΑΠΟΦΑΣΗ (συμπληρώστε)", "Από", "Ημερομηνία",
+        "Πρόσθετη χρέωση €",
     ]
     sheet.append(headers)
     for cell in sheet[1]:
@@ -137,19 +138,21 @@ def write_workbook(pairs, unmatched):
     rule = DataValidation(
         type="list", formula1='"weight_only,tariff_only,both"',
         allow_blank=True, showDropDown=False,
-        error="Choose weight_only, tariff_only or both.",
-        errorTitle="Invalid ruling",
+        error="Επιλέξτε weight_only, tariff_only ή both.",
+        errorTitle="Μη έγκυρη απόφαση",
     )
     sheet.add_data_validation(rule)
     rule.add(f"J2:J{last}")
 
     total = last + 2
-    sheet.cell(row=total, column=9, value="Unruled pairs").font = Font(bold=True)
+    sheet.cell(row=total, column=9, value="Ζεύγη χωρίς απόφαση").font = Font(bold=True)
     sheet.cell(row=total, column=10, value=f'=COUNTBLANK(J2:J{last})').font = Font(bold=True)
-    sheet.cell(row=total + 1, column=9, value="Exposure at current rulings €").font = Font(bold=True)
+    sheet.cell(row=total + 1, column=9,
+               value="Πρόσθετη χρέωση με τις τρέχουσες αποφάσεις €").font = Font(bold=True)
     cell = sheet.cell(row=total + 1, column=10, value=f'=SUM(M2:M{last})')
     cell.font, cell.number_format = Font(bold=True), money
-    sheet.cell(row=total + 2, column=9, value="Exposure if all ruled 'both' €").font = Font(bold=True)
+    sheet.cell(row=total + 2, column=9,
+               value="Πρόσθετη χρέωση αν όλα κριθούν «both» €").font = Font(bold=True)
     cell = sheet.cell(row=total + 2, column=10, value=f'=SUM(H2:H{last})')
     cell.font, cell.number_format = Font(bold=True), money
 
@@ -158,8 +161,8 @@ def write_workbook(pairs, unmatched):
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = f"A1:M{last}"
 
-    extra = workbook.create_sheet("Genuine extras")
-    extra.append(["Tariff code", "Description (EL)", "Price (raw)", "Price €"])
+    extra = workbook.create_sheet("Πράγματι πρόσθετες")
+    extra.append(["Κωδικός", "Περιγραφή", "Τιμή (όπως δόθηκε)", "Τιμή €"])
     for cell in extra[1]:
         cell.fill, cell.font = header_fill, header_font
     for tariff in unmatched:
