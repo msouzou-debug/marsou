@@ -91,6 +91,17 @@ const SPECIALTY_GREEK = {
   'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ': 'ΠΙ ΕΝΗΛΙΚΩΝ',
 };
 
+/* Where a stream looks for its centre, in order.  Day treatments prefer the
+ * ημερήσια φροντίδα centre but fall back to the ΕΙ clinic, not to nothing:
+ * several hospitals run their day cases out of the outpatient clinic and keep
+ * no ΗΦ centre at all (Famagusta nephrology, for one). */
+const VARIANT_CHAIN = {
+  ward: ['ward', 'general'],
+  daycare: ['daycare', 'clinic', 'general'],
+  clinic: ['clinic', 'general'],
+  general: ['general'],
+};
+
 /* which flavour of a clinic's cost centre a stream posts to */
 const CENTRE_VARIANTS = {
   ward: ['ΘΑΛ'],               // ΘΑΛΑΜΟΣ / ΘΑΛ Α / Θαλ. Α — inpatient
@@ -170,7 +181,7 @@ function findSapCentre(master, company, specialty, variant = 'general') {
    * «ΤΑΕΠ» is not «ΚΩΔΙΚΟΠΟΙΗΣΗ ΤΑΕΠ» */
   const exact = hits.filter((c) => sapFold(c.name) === stem);
   if (exact.length === 1) return exact[0];
-  for (const key of [variant, 'general']) {
+  for (const key of (VARIANT_CHAIN[variant] || [variant, 'general'])) {
     const marks = CENTRE_VARIANTS[key] || [];
     const picked = hits.filter((c) => hasVariant(sapTail(c.name, stem), marks));
     if (picked.length === 1) return picked[0];

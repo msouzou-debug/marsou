@@ -302,3 +302,34 @@ def test_the_outpatient_bucket_catches_its_own_leftovers():
                   "Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)"):
         assert m.find_centre("1040", label) is None      # not a speciality…
     assert m.find_centre("1040", "Outpatient") is not None   # …the bucket is
+
+
+def test_day_treatments_fall_back_to_the_outpatient_clinic():
+    """Several hospitals run their day cases out of the ΕΙ clinic and keep no
+    ΗΦ centre at all — Famagusta nephrology, where €145.420 of renal day
+    treatments belong to 1064103401 — so day care looks ΗΦ → ΕΙ → ΓΕΝΙΚΑ
+    rather than giving up after ΗΦ."""
+    m = extract_sap_master(_centres(
+        ("1041", "1064103402", "ΝΕΦΡΟΛΟΓΙΚΗ-ΘΑΛΑΜΟΣ"),
+        ("1041", "1064103401", "ΝΕΦΡΟΛΟΓΙΚΗ-ΕΙ"),
+        ("1041", "1064102205", "ΚΑΡΔΙΟΛΟΓΙΚΗ-ΘΑΛ Α"),
+        ("1041", "1064102203", "ΚΑΡΔΙΟΛΟΓΙΚΗ-ΗΦ"),
+        ("1041", "1064102202", "ΚΑΡΔΙΟΛΟΓΙΚΗ-ΕΙ")))
+    assert m.find_centre("1041", "RENAL DISEASES", "daycare").code == "1064103401"
+    assert m.find_centre("1041", "RENAL DISEASES", "ward").code == "1064103402"
+    # where an ΗΦ centre does exist it still wins
+    assert m.find_centre("1041", "CARDIOLOGY", "daycare").code == "1064102203"
+
+
+def test_every_personal_doctors_euro_posts_to_the_capitation_account():
+    """ΟΑΥ pays Personal Doctors per head and fee-for-service; SAP keeps one
+    account for both (412000).  The fixed-price and quality lines keep theirs."""
+    from recon.build_xlsx import _line_kind
+    assert _line_kind("Προσωπικοί Ιατροί — FFS (PD fee-for-service)",
+                      "Outpatient")[0] == "capitation"
+    assert _line_kind("Προσωπικοί Ιατροί — κατά κεφαλήν (capitation)",
+                      "Outpatient")[0] == "capitation"
+    assert _line_kind("Προσωπικοί Ιατροί — σταθερές χρεώσεις (OOH, εμβολιασμοί)",
+                      "Outpatient")[0] == "oncall"
+    assert _line_kind("Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)",
+                      "Outpatient")[0] == "quality"

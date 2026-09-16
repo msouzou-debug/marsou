@@ -755,6 +755,7 @@ _KEYWORD_CODES = [
     (["ΣΥΝΤΑΓ"], "PHD"),      # χειρόγραφες συνταγές (handwritten prescriptions)
     (["ISSUANCE"], "PHD"),    # EOAF issuances deductions
     (["EOAF"], "PHD"),
+    (["OTC"], "PHD"),         # over-the-counter reversals / VAT corrections
     (["PHARMACY"], "PH"),     # PharmacyLine adjustments
     (["ΑΙΜΟΚΑΘΑΡΣ"], "HEMO"),
     (["HEMODIALYSIS"], "HEMO"),

@@ -103,6 +103,17 @@ SPECIALTY_GREEK = {
     "ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ": "ΠΙ ΕΝΗΛΙΚΩΝ",
 }
 
+# where a stream looks for its centre, in order.  Day treatments prefer the
+# ημερήσια φροντίδα centre but fall back to the ΕΙ clinic, not to nothing:
+# several hospitals run their day cases out of the outpatient clinic and keep
+# no ΗΦ centre at all (Famagusta nephrology, for one).
+_VARIANT_CHAIN = {
+    "ward": ("ward", "general"),
+    "daycare": ("daycare", "clinic", "general"),
+    "clinic": ("clinic", "general"),
+    "general": ("general",),
+}
+
 # which flavour of a clinic's cost centre a stream posts to
 _VARIANTS = {
     "ward": ("ΘΑΛ",),               # ΘΑΛΑΜΟΣ / ΘΑΛ Α / Θαλ. Α — inpatient
@@ -156,7 +167,7 @@ class SapMaster:
         exact = [c for c in hits if _fold(c.name) == stem]
         if len(exact) == 1:
             return exact[0]
-        for key in (variant, "general"):
+        for key in _VARIANT_CHAIN.get(variant, (variant, "general")):
             marks = _VARIANTS.get(key, ())
             picked = [c for c in hits if _has_variant(_tail(c.name, stem), marks)]
             if len(picked) == 1:

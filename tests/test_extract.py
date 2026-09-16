@@ -386,3 +386,14 @@ def test_gl_separates_z_catalogue_from_per_diem_but_keeps_the_pair():
     assert gl.per_diem == 40_000.00
     assert gl.z_catalogue == 100_000.00
     assert gl.inpatient == 1_061_728.70
+
+
+def test_an_otc_reversal_is_a_pharmacy_adjustment_not_an_outpatient_line():
+    """«RVRSL OTC-CORR-VAT-06-2026» carries no stream token, so it used to be
+    parked in Outpatient as an unmapped «??» line — €3.148,07 of pharmacy VAT
+    correction inflating the outpatient bucket."""
+    from recon.extract import classify_sra_line
+    from recon.models import Bucket
+    code, bucket, _ch, _src = classify_sra_line(
+        "", "30/06/2026 RVRSL OTC- RVRSL OTC-CORR-VAT-06-2026 3,148.07 EUR")
+    assert (code, bucket) == ("PH-ADJ", Bucket.PHARMA)

@@ -255,7 +255,7 @@ identified by content) and the journal codes itself:
   | Z-catalogue drugs/procedures | 412007 HIO Catalogue Z Items |
   | ΤΑΕΠ | 412003 HIO TAEP Fees |
   | outpatient (OS/NM/AP) | 412002 HIO Out-Patient Fees |
-  | capitation | 412000 HIO - Capitation Fees |
+  | Personal Doctors — capitation **and** fee-for-service | 412000 HIO - Capitation Fees |
   | quality criteria | 412008 HIO Quality Criteria |
   | pharma | 412006 HIO Drugs Phase B |
 
@@ -268,7 +268,9 @@ identified by content) and the journal codes itself:
   OPHTHALMOLOGY (OS)»), and cutting the speciality out first mangles the
   hyphenated ones — longest name first, then the Greek stem SAP uses, then the flavour the stream posts to — `ΘΑΛ`
   (ward) for DRG, `ΗΦ` (ημερήσια φροντίδα) for daily treatments **and for the
-  Z-catalogue items**, `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists. The stem must match
+  Z-catalogue items**, `ΕΙ` (εξωτερικά ιατρεία) for the outpatient specialists.
+  Day treatments fall back `ΗΦ → ΕΙ → ΓΕΝΙΚΑ`: several hospitals run their day
+  cases out of the outpatient clinic and keep no ΗΦ centre at all. The stem must match
   and exactly one centre must survive the flavour. Two details the real master
   forces: the stem must **start** the centre's name («ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ»
   contains «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery), and the flavour is read

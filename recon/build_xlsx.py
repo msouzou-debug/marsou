@@ -531,6 +531,11 @@ _LINE_KINDS = [
     ("ΕΜΒΟΛΙΑΣΜ", "vaccines", "general"),
     ("ΚΑΤΑ ΚΕΦΑΛΗΝ", "capitation", "general"),
     ("CAPITATION", "capitation", "general"),
+    # every Personal-Doctors euro is capitation revenue to SAP, whether ΟΑΥ
+    # paid it per head or fee-for-service.  Listed AFTER the quality, on-call
+    # and vaccination rules, which have accounts of their own.
+    ("ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ", "capitation", "general"),
+    ("PERSONAL DOCTORS", "capitation", "general"),
 ]
 _BUCKET_KINDS = {
     "Inpatient": ("inpatient_drg", "ward"),
