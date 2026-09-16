@@ -321,12 +321,13 @@ def test_day_treatments_fall_back_to_the_outpatient_clinic():
     assert m.find_centre("1041", "CARDIOLOGY", "daycare").code == "1064102203"
 
 
-def test_every_personal_doctors_euro_posts_to_the_capitation_account():
-    """ΟΑΥ pays Personal Doctors per head and fee-for-service; SAP keeps one
-    account for both (412000).  The fixed-price and quality lines keep theirs."""
+def test_the_pd_line_parts_each_reach_their_own_account():
+    """Only the capitation half of «PD - HCP Services» is capitation revenue;
+    the fixed-price and quality lines keep their own accounts, and whatever is
+    left of the PD line is outpatient."""
     from recon.build_xlsx import _line_kind
-    assert _line_kind("Προσωπικοί Ιατροί — FFS (PD fee-for-service)",
-                      "Outpatient")[0] == "capitation"
+    assert _line_kind("Προσωπικοί Ιατροί — εξωνοσοκομειακές χρεώσεις",
+                      "Outpatient")[0] == "outpatient"
     assert _line_kind("Προσωπικοί Ιατροί — κατά κεφαλήν (capitation)",
                       "Outpatient")[0] == "capitation"
     assert _line_kind("Προσωπικοί Ιατροί — σταθερές χρεώσεις (OOH, εμβολιασμοί)",

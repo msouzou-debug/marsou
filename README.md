@@ -91,11 +91,19 @@ on screen for correction before the run — the app never guesses an amount.
    with `Source_crosscheck`. A side whose itemisation doesn't add up gets an
    explicit *not itemised* row, so nothing is absorbed silently.
 
-ΟΑΥ usually pays the **capitation inside the daily PD lines** rather than on a
-PD-CAP line of its own. The capitation report is then the only place the two
-halves are stated apart, so `By_Clinic_Split` names both — «κατά κεφαλήν» at
-the report's own figure and «FFS» at what is left of the SRA line — instead of
-calling the whole line fee-for-service. Both post to 412000.
+`PD - HCP Services` is up to **three things in one SRA line**, peeled off in
+order:
+
+1. **κατά κεφαλήν** — always the Capitation Reimbursement Report's own figure,
+   to 412000. ΟΑΥ usually pays it inside the daily PD lines rather than on a
+   PD-CAP line of its own, and the report is then the only place it is stated
+   apart.
+2. **σταθερές χρεώσεις** — the fixed-fee element (OOH, εμβολιασμοί), to
+   412009 / 412010.
+3. **εξωνοσοκομειακές χρεώσεις** — only what is left, to 412002.
+
+The three add back to the SRA line, so the bucket and the cheque are
+untouched. A month whose SRA already carries a PD-CAP code is left alone.
 
 `By_Clinic_Split` splits the inpatient fee **three ways** — DRG, daily
 treatments, and Z-catalogue drugs/procedures — each with its own live column

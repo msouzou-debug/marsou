@@ -762,12 +762,11 @@ def test_gl_pharma_and_eoaf_reconcile_with_current_month_adjustments():
     assert eoaf.flag == "ok"
 
 
-def test_capitation_inside_the_pd_lines_is_named_not_called_ffs():
-    """ΟΑΥ usually pays the capitation INSIDE the daily PD lines instead of on
-    a PD-CAP line of its own (F1049 Jun-2026: SRA PD 6.131,09 against a
-    capitation report of 4.924,84).  Calling the whole line «FFS» hid the
-    capitation; both halves are named now, and they still add to the SRA line
-    so the cheque ties."""
+def test_the_pd_line_is_peeled_capitation_then_fixed_fee_then_outpatient():
+    """«PD - HCP Services» is up to three things in one line.  The capitation
+    ALWAYS equals the capitation report (F1049 Jun-2026: SRA PD 6.131,09
+    against a report of 4.924,84); the fixed-fee element comes off next; only
+    what is left is outpatient.  The three add back to the SRA line."""
     b = full_bundle()
     for line in b.sra.lines:
         if line.code == "PD-CAP":
@@ -777,12 +776,24 @@ def test_capitation_inside_the_pd_lines_is_named_not_called_ffs():
     res = run_reconciliation(b)
     rows = {r.label: r.amount for sec in res.split for r in sec.rows}
     cap = next(v for k, v in rows.items() if "κατά κεφαλήν" in k)
-    ffs = next(v for k, v in rows.items() if "FFS" in k)
+    rest = next(v for k, v in rows.items() if "εξωνοσοκομειακές" in k)
     assert cap == b.capitation.total              # the report's own figure
-    assert ffs == 1_206.25                        # what is left of the SRA line
-    assert round(cap + ffs, 2) == pd_line         # nothing invented or lost
+    assert rest == 1_206.25                       # what is left of the SRA line
+    assert round(cap + rest, 2) == pd_line        # nothing invented or lost
     out = next(s for s in res.split if s.bucket == Bucket.OUTPATIENT)
     assert out.subtotal == 78_729.74              # the bucket is untouched
+
+
+def test_the_pd_remainder_posts_to_outpatient_fees_not_to_capitation():
+    """Only the capitation belongs on 412000; the rest of the PD line is
+    outpatient fees, and a fixed-fee element keeps its own account."""
+    from recon.build_xlsx import _line_kind
+    assert _line_kind("Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)",
+                      "Outpatient")[0] == "capitation"
+    assert _line_kind("Προσωπικοί Ιατροί — σταθερές χρεώσεις (OOH, εμβολιασμοί)",
+                      "Outpatient")[0] == "oncall"
+    assert _line_kind("Προσωπικοί Ιατροί — εξωνοσοκομειακές χρεώσεις (PD "
+                      "outpatient fees)", "Outpatient")[0] == "outpatient"
 
 
 def test_a_pd_cap_line_of_its_own_is_left_alone():
@@ -792,4 +803,4 @@ def test_a_pd_cap_line_of_its_own_is_left_alone():
     res = run_reconciliation(b)
     rows = {r.label: r.amount for sec in res.split for r in sec.rows}
     assert next(v for k, v in rows.items() if "κατά κεφαλήν" in k) == 13_729.74
-    assert not any("FFS" in k for k in rows)      # no PD daily lines this month
+    assert not any("εξωνοσοκομειακές" in k for k in rows)   # no PD daily lines

@@ -1316,27 +1316,33 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         ap_amt = bundle.claims.by_segment.get("Allied Health", 0.0)
     if ap_amt:
         out.rows.append(SplitRow("Άλλοι Επαγγελματίες Υγείας (Allied Health)", ap_amt))
-    pd_ffs = sra_amount(["PD"])
+    # «PD - HCP Services» is up to three things in one line.  Peel them off in
+    # order: the capitation, which ALWAYS equals the capitation report; then
+    # any fixed-fee element (σταθερές χρεώσεις — OOH, εμβολιασμοί); and only
+    # what is left is outpatient.  Nothing is invented — the three add back to
+    # the SRA line, so the bucket and the cheque are untouched.
+    pd_rest = sra_amount(["PD"])
     pd_cap = sra_amount(["PD-CAP"])
+    pd_fp = sra_amount(["PD-FP"])
     cap_report = bundle.capitation.total if bundle.capitation else 0.0
     if pd_cap is None:                  # cross-check mode: no SRA to read
         pd_cap = cap_report or None
-    elif not pd_cap and pd_ffs and cap_report:
+    elif not pd_cap and pd_rest and cap_report:
         # ΟΑΥ usually pays the capitation INSIDE the daily PD lines rather than
-        # on a PD-CAP line of its own.  The capitation report is then the only
-        # place the two halves are stated apart, so name both — calling the
-        # whole line «FFS» hides the capitation inside a fee-for-service row.
+        # on a PD-CAP line of its own; the capitation report is then the only
+        # place it is stated apart
         pd_cap = cap_report
-        pd_ffs = round(pd_ffs - cap_report, 2)
+        pd_rest = round(pd_rest - cap_report, 2)
     if pd_cap:
         out.rows.append(SplitRow("Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)", pd_cap))
-    if pd_ffs:
-        out.rows.append(SplitRow("Προσωπικοί Ιατροί — FFS (PD fee-for-service)", pd_ffs))
-    pd_fp = sra_amount(["PD-FP"])
     if pd_fp:
         out.rows.append(SplitRow(
             "Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, "
             "εμβολιασμοί)", pd_fp))
+    if pd_rest:
+        out.rows.append(SplitRow(
+            "Προσωπικοί Ιατροί — εξωνοσοκομειακές χρεώσεις (PD outpatient fees)",
+            pd_rest))
     kpi = sra_amount(["KPI", "PD-KPI", "MRI", "CT", "MRI/CT"])
     if kpi is None and bundle.quality:
         kpi = bundle.quality.total
