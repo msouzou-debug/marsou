@@ -760,3 +760,36 @@ def test_gl_pharma_and_eoaf_reconcile_with_current_month_adjustments():
     eoaf = next(c for c in res.crosschecks if "11202192" in c.name)
     assert eoaf.source_total == -4_000_000.00 and eoaf.sra_side == -4_000_000.00
     assert eoaf.flag == "ok"
+
+
+def test_capitation_inside_the_pd_lines_is_named_not_called_ffs():
+    """ΟΑΥ usually pays the capitation INSIDE the daily PD lines instead of on
+    a PD-CAP line of its own (F1049 Jun-2026: SRA PD 6.131,09 against a
+    capitation report of 4.924,84).  Calling the whole line «FFS» hid the
+    capitation; both halves are named now, and they still add to the SRA line
+    so the cheque ties."""
+    b = full_bundle()
+    for line in b.sra.lines:
+        if line.code == "PD-CAP":
+            line.code = "PD"                      # paid inside the daily lines
+    pd_line = round(sum(l.amount for l in b.sra.lines if l.code == "PD"), 2)
+    b.capitation.total = round(pd_line - 1_206.25, 2)
+    res = run_reconciliation(b)
+    rows = {r.label: r.amount for sec in res.split for r in sec.rows}
+    cap = next(v for k, v in rows.items() if "κατά κεφαλήν" in k)
+    ffs = next(v for k, v in rows.items() if "FFS" in k)
+    assert cap == b.capitation.total              # the report's own figure
+    assert ffs == 1_206.25                        # what is left of the SRA line
+    assert round(cap + ffs, 2) == pd_line         # nothing invented or lost
+    out = next(s for s in res.split if s.bucket == Bucket.OUTPATIENT)
+    assert out.subtotal == 78_729.74              # the bucket is untouched
+
+
+def test_a_pd_cap_line_of_its_own_is_left_alone():
+    """When the SRA does carry a PD-CAP code, the two are already apart and
+    nothing is subtracted."""
+    b = full_bundle()
+    res = run_reconciliation(b)
+    rows = {r.label: r.amount for sec in res.split for r in sec.rows}
+    assert next(v for k, v in rows.items() if "κατά κεφαλήν" in k) == 13_729.74
+    assert not any("FFS" in k for k in rows)      # no PD daily lines this month

@@ -91,6 +91,12 @@ on screen for correction before the run — the app never guesses an amount.
    with `Source_crosscheck`. A side whose itemisation doesn't add up gets an
    explicit *not itemised* row, so nothing is absorbed silently.
 
+ΟΑΥ usually pays the **capitation inside the daily PD lines** rather than on a
+PD-CAP line of its own. The capitation report is then the only place the two
+halves are stated apart, so `By_Clinic_Split` names both — «κατά κεφαλήν» at
+the report's own figure and «FFS» at what is left of the SRA line — instead of
+calling the whole line fee-for-service. Both post to 412000.
+
 `By_Clinic_Split` splits the inpatient fee **three ways** — DRG, daily
 treatments, and Z-catalogue drugs/procedures — each with its own live column
 subtotal. The three sources are **combined, never chosen between**: whichever

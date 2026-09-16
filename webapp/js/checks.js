@@ -1083,13 +1083,23 @@ function buildSplit(bundle) {
   let apAmt = sraAmount(['AP']);
   if (apAmt == null && bundle.claims) apAmt = bundle.claims.bySegment['Allied Health'] || 0;
   if (apAmt) out.rows.push({ label: 'Άλλοι Επαγγελματίες Υγείας (Allied Health)', amount: apAmt });
-  const pdFfs = sraAmount(['PD']);
+  let pdFfs = sraAmount(['PD']);
+  let pdCap = sraAmount(['PD-CAP']);
+  const capReport = bundle.capitation ? bundle.capitation.total : 0;
+  if (pdCap == null) {                    // cross-check mode: no SRA to read
+    pdCap = capReport || null;
+  } else if (!pdCap && pdFfs && capReport) {
+    /* ΟΑΥ usually pays the capitation INSIDE the daily PD lines rather than on
+     * a PD-CAP line of its own.  The capitation report is then the only place
+     * the two halves are stated apart, so name both — calling the whole line
+     * «FFS» hides the capitation inside a fee-for-service row. */
+    pdCap = capReport;
+    pdFfs = round2(pdFfs - capReport);
+  }
+  if (pdCap) out.rows.push({ label: 'Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)', amount: pdCap });
   if (pdFfs) out.rows.push({ label: 'Προσωπικοί Ιατροί — FFS (PD fee-for-service)', amount: pdFfs });
   const pdFp = sraAmount(['PD-FP']);
   if (pdFp) out.rows.push({ label: 'Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, εμβολιασμοί)', amount: pdFp });
-  let pdCap = sraAmount(['PD-CAP']);
-  if (pdCap == null && bundle.capitation) pdCap = bundle.capitation.total;
-  if (pdCap) out.rows.push({ label: 'Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)', amount: pdCap });
   let kpi = sraAmount(['KPI', 'PD-KPI', 'MRI', 'CT', 'MRI/CT']);
   if (kpi == null && bundle.quality) kpi = bundle.quality.total;
   if (kpi) out.rows.push({ label: 'Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)', amount: kpi });

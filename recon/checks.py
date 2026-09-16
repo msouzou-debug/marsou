@@ -1317,6 +1317,19 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     if ap_amt:
         out.rows.append(SplitRow("Άλλοι Επαγγελματίες Υγείας (Allied Health)", ap_amt))
     pd_ffs = sra_amount(["PD"])
+    pd_cap = sra_amount(["PD-CAP"])
+    cap_report = bundle.capitation.total if bundle.capitation else 0.0
+    if pd_cap is None:                  # cross-check mode: no SRA to read
+        pd_cap = cap_report or None
+    elif not pd_cap and pd_ffs and cap_report:
+        # ΟΑΥ usually pays the capitation INSIDE the daily PD lines rather than
+        # on a PD-CAP line of its own.  The capitation report is then the only
+        # place the two halves are stated apart, so name both — calling the
+        # whole line «FFS» hides the capitation inside a fee-for-service row.
+        pd_cap = cap_report
+        pd_ffs = round(pd_ffs - cap_report, 2)
+    if pd_cap:
+        out.rows.append(SplitRow("Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)", pd_cap))
     if pd_ffs:
         out.rows.append(SplitRow("Προσωπικοί Ιατροί — FFS (PD fee-for-service)", pd_ffs))
     pd_fp = sra_amount(["PD-FP"])
@@ -1324,11 +1337,6 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         out.rows.append(SplitRow(
             "Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, "
             "εμβολιασμοί)", pd_fp))
-    pd_cap = sra_amount(["PD-CAP"])
-    if pd_cap is None and bundle.capitation:
-        pd_cap = bundle.capitation.total
-    if pd_cap:
-        out.rows.append(SplitRow("Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)", pd_cap))
     kpi = sra_amount(["KPI", "PD-KPI", "MRI", "CT", "MRI/CT"])
     if kpi is None and bundle.quality:
         kpi = bundle.quality.total
