@@ -306,7 +306,10 @@ def _load_shared_files(files: list):
         elif f.report_type == ReportType.SAP_MASTER:
             from .sapmaster import extract_sap_master
             master = extract_sap_master(f.data)
-    return staff, cost, master
+    from .sapmaster import master_or_embedded
+    # no chart of accounts in this batch — the tool carries one, so the journal
+    # is still coded.  An upload always wins over it.
+    return staff, cost, master_or_embedded(master)
 
 
 def run_provider_batches(batches: list, period, files: Optional[list] = None) -> list:

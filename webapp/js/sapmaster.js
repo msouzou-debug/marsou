@@ -216,11 +216,42 @@ function looksLikeSapMaster(names) {
   return hits.length >= 2;
 }
 
+function embeddedSapMaster() {
+  /* The SAP master the tool carries — the export finance last handed over,
+   * baked in by tools/embed_sap_master.py.  Used whenever a month's batch does
+   * not bring a newer one, so the journal is coded even when nobody remembered
+   * to attach the chart of accounts. */
+  const out = { companies: {}, costCentres: [], accounts: {},
+                source: SAP_EMBEDDED_SOURCE, stamp: SAP_EMBEDDED_STAMP,
+                embedded: true };
+  for (const line of SAP_EMBEDDED_COMPANIES.split('\n')) {
+    const i = line.indexOf('|');
+    if (i > 0) out.companies[line.slice(0, i)] = line.slice(i + 1);
+  }
+  for (const line of SAP_EMBEDDED_CENTRES.split('\n')) {
+    const parts = line.split('|');
+    if (parts.length === 3 && parts[0] && parts[1]) {
+      out.costCentres.push({ company: parts[0], code: parts[1], name: parts[2] });
+    }
+  }
+  for (const line of SAP_EMBEDDED_ACCOUNTS.split('\n')) {
+    const i = line.indexOf('|');
+    if (i > 0) out.accounts[line.slice(0, i)] = line.slice(i + 1);
+  }
+  return out;
+}
+
+function masterOrEmbedded(uploaded) {
+  /* an uploaded master always wins; the built-in one is the fallback */
+  return uploaded || embeddedSapMaster();
+}
+
 function extractSapMaster(bytes) {
   /* the export as it comes out of SAP: one sheet of company codes, one of cost
    * centres, one chart of accounts.  Sheets are found by their headers, so a
    * renamed tab still works. */
-  const out = { companies: {}, costCentres: [], accounts: {} };
+  const out = { companies: {}, costCentres: [], accounts: {},
+                source: 'upload', stamp: '', embedded: false };
   for (const { rows } of loadSheets(bytes)) {
     if (!rows.length) continue;
     let headerRow = null;
@@ -242,7 +273,13 @@ function extractSapMaster(bytes) {
     const jComp = col('COMP CODE', 'COMPANY CODE');
     const jCentre = col('COST CENTER', 'COST CENTRE');
     const jAcct = col('G L ACCOUNT', 'GL ACCOUNT');
+    const jItem = col('COMMITMENT ITEM');
     const jName = col('NAME', 'ΠΕΡΙΓΡΑΦΗ', 'LONG TEXT');
+    /* the G/L <-> commitment-item sheet: an account list per company, not the
+     * chart of accounts and not the company list.  Its «Name» is the commitment
+     * item's, so reading it as either would put budget text on the hospitals.
+     * The journal leaves BSEG-FIPOS blank, so skip it. */
+    if (jItem != null && jCentre == null) continue;
     const txt = (row, j) => {
       if (j == null || row[j] == null) return '';
       const v = cellText(row[j]).trim();
@@ -255,12 +292,12 @@ function extractSapMaster(bytes) {
         if (company && code) {
           out.costCentres.push({ company, code, name: txt(row, jName) });
         }
-      } else if (jComp != null) {
-        const company = txt(row, jComp);
-        if (company) out.companies[company] = txt(row, jName);
       } else if (jAcct != null) {
         const acct = txt(row, jAcct);
         if (acct) out.accounts[acct] = txt(row, jName);
+      } else if (jComp != null) {
+        const company = txt(row, jComp);
+        if (company) out.companies[company] = txt(row, jName);
       }
     }
   }

@@ -135,6 +135,9 @@ class SapMaster:
     companies: dict = field(default_factory=dict)        # code -> description
     cost_centres: list = field(default_factory=list)     # CostCentre
     accounts: dict = field(default_factory=dict)         # G/L -> long text
+    source: str = ""        # the export this came from
+    stamp: str = ""         # when it was issued
+    embedded: bool = False  # built into the tool, rather than uploaded today
 
     def account(self, key: str) -> tuple[str, str]:
         """The HIO revenue account for a kind of line, checked against the
@@ -280,6 +283,7 @@ def extract_sap_master(data: bytes) -> SapMaster:
         j_comp = col("COMP CODE", "COMPANY CODE")
         j_centre = col("COST CENTER", "COST CENTRE")
         j_acct = col("G L ACCOUNT", "GL ACCOUNT")
+        j_item = col("COMMITMENT ITEM")
         j_name = col("NAME", "ΠΕΡΙΓΡΑΦΗ", "LONG TEXT")
         body = df.iloc[header_row + 1:]
         if j_centre is not None and j_comp is not None:
@@ -288,17 +292,52 @@ def extract_sap_master(data: bytes) -> SapMaster:
                 if company and code:
                     out.cost_centres.append(
                         CostCentre(company, code, _text(row, j_name)))
-        elif j_comp is not None:
-            for _, row in body.iterrows():
-                company = _text(row, j_comp)
-                if company:
-                    out.companies[company] = _text(row, j_name)
+        elif j_item is not None:
+            # the G/L ↔ commitment-item sheet: an account list per company, not
+            # the chart of accounts and not the company list.  Its «Name» is the
+            # commitment item's, so reading it as either would put budget text
+            # on the hospitals.  The journal leaves BSEG-FIPOS blank, so skip it.
+            continue
         elif j_acct is not None:
             for _, row in body.iterrows():
                 acct = _text(row, j_acct)
                 if acct:
                     out.accounts[acct] = _text(row, j_name)
+        elif j_comp is not None:
+            for _, row in body.iterrows():
+                company = _text(row, j_comp)
+                if company:
+                    out.companies[company] = _text(row, j_name)
+    out.source = "upload"
     return out
+
+
+def embedded_master() -> SapMaster:
+    """The SAP master the tool carries — the export finance last handed over,
+    baked in by tools/embed_sap_master.py.  Used whenever a month's batch does
+    not bring a newer one, so the journal is coded even when nobody remembered
+    to attach the chart of accounts."""
+    from . import sap_embedded as data
+    out = SapMaster(source=data.EMBEDDED_SOURCE, stamp=data.EMBEDDED_STAMP,
+                    embedded=True)
+    for line in data.COMPANIES.splitlines():
+        code, _, name = line.partition("|")
+        if code:
+            out.companies[code] = name
+    for line in data.CENTRES.splitlines():
+        parts = line.split("|")
+        if len(parts) == 3 and parts[0] and parts[1]:
+            out.cost_centres.append(CostCentre(*parts))
+    for line in data.ACCOUNTS.splitlines():
+        code, _, name = line.partition("|")
+        if code:
+            out.accounts[code] = name
+    return out
+
+
+def master_or_embedded(uploaded: Optional[SapMaster]) -> SapMaster:
+    """An uploaded master always wins; the built-in one is the fallback."""
+    return uploaded if uploaded is not None else embedded_master()
 
 
 def _header(df) -> tuple[Optional[int], list]:

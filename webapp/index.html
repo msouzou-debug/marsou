@@ -51,6 +51,23 @@
   .success { background: #EAF7E5; border-left: 4px solid var(--green); padding: .7rem 1rem;
              margin: .8rem 0; border-radius: 4px; }
   .hint { color: var(--gray); font-size: .88rem; }
+  .manual { background: #fff; border-radius: 8px; padding: .4rem 1.4rem 1.2rem;
+            line-height: 1.55; font-size: .92rem; }
+  .manual h2 { color: var(--navy); font-size: 1.15rem; margin: 1rem 0 .3rem; }
+  .manual h3 { color: var(--blue); font-size: 1rem; margin: 1.3rem 0 .3rem;
+               border-bottom: 2px solid #eaf0f6; padding-bottom: .2rem; }
+  .manual h4 { color: var(--navy); font-size: .93rem; margin: .9rem 0 .2rem; }
+  .manual table { font-size: .86rem; }
+  .manual code { background: #eef2f7; border-radius: 3px; padding: 0 .25rem;
+                 font-family: ui-monospace, Consolas, monospace; font-size: .9em; }
+  .manual pre { background: var(--navy); color: #eaf5fc; border-radius: 6px;
+                padding: .7rem 1rem; overflow-x: auto; }
+  .manual pre code { background: none; color: inherit; padding: 0; }
+  .manual blockquote { margin: .8rem 0; background: #FFF6DC;
+                       border-left: 4px solid #B45F06; padding: .6rem 1rem;
+                       border-radius: 4px; }
+  .manual hr { border: 0; border-top: 1px solid #e3e8ee; margin: 1.2rem 0; }
+  .manual li { margin: .18rem 0; }
   .metrics { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
   .metric { background: #fff; border-radius: 8px; padding: .8rem 1.2rem;
             border-top: 3px solid var(--sky); min-width: 165px; }
@@ -124,6 +141,11 @@
       καθυστέρηση) — ο μήνας υπηρεσιών προκύπτει αυτόματα (ημερομηνία − 1 μήνας). Λάθος
       SRA για τον μήνα δεν θα δέσει — οι έλεγχοι θα δείξουν τη διαφορά.</p>
   </details>
+  <details id="user-manual">
+    <summary>📘 Εγχειρίδιο χρήσης (user manual) — πώς τρέχει, τι βγάζει, πώς
+      ανεβαίνει στο SAP</summary>
+    <div id="manual-body" class="manual"></div>
+  </details>
   <div id="drop-zone">
     <strong>Σύρετε εδώ τα αρχεία του μήνα</strong> ή κάντε κλικ για επιλογή<br>
     <span class="hint">(drop the month's ΟΑΥ files here, or click to browse — xlsx, xls, xml, pdf)</span>
@@ -173,6 +195,8 @@
 <script src="js/identify.js"></script>
 <script src="js/extract.js"></script>
 <script src="js/mapping.js"></script>
+<script src="js/manual.js"></script>
+<script src="js/sap_embedded.js"></script>
   <script src="js/sapmaster.js"></script>
 <script src="js/checks.js"></script>
 <script src="js/build_xlsx.js"></script>

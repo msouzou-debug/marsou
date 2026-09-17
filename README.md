@@ -39,6 +39,11 @@ python -m http.server 8080 -d webapp
 After editing anything under `webapp/`, regenerate the single file with
 `python webapp/build_single.py`.
 
+The user manual lives in **`docs/MANUAL.md`** and is shown inside both apps —
+what to upload, what each tab means, how the chart of accounts is refreshed and
+how the journal is posted with `ZSHSO_FI_POST_UPL_V1`. After editing it, run
+`python tools/embed_manual.py && python webapp/build_single.py`.
+
 ## Run — Streamlit app
 
 ```bash
@@ -252,8 +257,22 @@ never invents an account code.
 
 ### OKYπY's SAP master data
 
-Upload the SAP export (`Company Codes` + `Cost centers` + `Chart of accounts`,
-identified by content) and the journal codes itself:
+The SAP export (`Company Codes` + `Cost centers` + `Chart of accounts`) is
+**built into the tool** — `recon/sap_embedded.py` and
+`webapp/js/sap_embedded.js`, generated from the real export — so the journal is
+coded without anyone attaching a chart of accounts every month. Uploading a
+newer export (identified by content, as always) overrides the built-in one for
+that run. To replace it permanently:
+
+```
+python tools/embed_sap_master.py <path>/Chart_of_accounts.XLSX 2027-01
+python webapp/build_single.py
+```
+
+The export's `SAP GL AC - COM ITEM` sheet (G/L account ↔ commitment item) is
+skipped: `BSEG-FIPOS` / `GEBER` / `FISTL` stay blank rather than guessed.
+
+From either source, the journal codes itself:
 
 - **Company code** — the hospital's own `BUKRS` (1020 Nicosia, 1021 Makarios,
   1030 Limassol, 1031 Paphos, 1032 Troodos, 1033 Polis, 1040 Larnaca,
@@ -269,7 +288,8 @@ identified by content) and the journal codes itself:
   | Z-catalogue drugs/procedures | 412007 HIO Catalogue Z Items |
   | ΤΑΕΠ | 412003 HIO TAEP Fees |
   | outpatient (OS/NM/AP) | 412002 HIO Out-Patient Fees |
-  | Personal Doctors — capitation **and** fee-for-service | 412000 HIO - Capitation Fees |
+  | Personal Doctors — capitation only | 412000 HIO - Capitation Fees |
+  | Personal Doctors — fixed charges (OOH, vaccinations) | 412009 / 412010 |
   | quality criteria | 412008 HIO Quality Criteria |
   | pharma | 412006 HIO Drugs Phase B |
 
@@ -373,12 +393,17 @@ recon/
   checks.py          gates, cross-checks, variance annotation, clinic split
   mapping.py         staff roster -> clinic split, SAP cost-centre lookup
   build_xlsx.py      workbook builder + gate-5 formula re-verification
+  sapmaster.py       company codes, revenue accounts, cost-centre matching
+  sap_embedded.py    GENERATED — the SAP master the tool carries
 webapp/              self-contained HTML app (same logic, ported to JS)
   okypy-recon.html   SINGLE-FILE build — the whole app in one file
   index.html         multi-file entry (needs js/ and vendor/ next to it)
-  js/                core / identify / extract / checks / build_xlsx / app
+  js/                core / identify / extract / checks / build_xlsx / app,
+                     plus GENERATED manual.js and sap_embedded.js
   vendor/            SheetJS, pdf.js, ExcelJS (vendored, works offline)
   build_single.py    regenerates okypy-recon.html from the parts
+docs/MANUAL.md       the user manual — one text, shown inside both apps
+tools/               embed_sap_master.py, embed_manual.py (the generators)
 tests/               unit + end-to-end tests on synthetic Greek fixtures
 fixtures/            put the real ΟΑΥ months here (see fixtures/README.md)
 ```

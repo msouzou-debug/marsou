@@ -345,6 +345,7 @@ def build_sap_workbook(entries: list) -> bytes:
         sections[-1].code = code
     info = _tab_sap_upload(wb, sections, inline_checks=False)
     _tab_sap_checks(wb, info)
+    _tab_sap_guide(wb)
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
@@ -876,6 +877,57 @@ def _tab_sap_checks(wb: Workbook, info: dict) -> None:
         note.font = F_AMBER
         note.alignment = Alignment(wrap_text=True, vertical="top")
     _autosize(ws)
+
+
+# How finance gets this file into SAP.  It travels INSIDE the workbook, so the
+# instructions cannot be separated from the journal they describe.
+SAP_GUIDE = [
+    ("h", "Τι περιέχει το αρχείο (what is in this file)"),
+    ("s", "«JOURNAL ENTRIES» — οι εγγραφές. Γραμμές 1-3 επικεφαλίδες (η γραμμή 3 φέρει τα ονόματα πεδίων BKPF-* / BSEG-*), δεδομένα από τη γραμμή 4."),
+    ("s", "Στήλες A-W είναι πεδία SAP. Οι στήλες X και Y είναι βοηθητικές του ΟΚΥπΥ (ποια επιταγή ΟΑΥ, τίνος το ποσό) και ΔΕΝ ανεβαίνουν."),
+    ("s", "«Έλεγχος_SAP» — χρέωση = πίστωση = επιταγή, και κάθε γραμμή χωρίς κέντρο κόστους με τον λόγο της."),
+    ("h", "Ανάρτηση με την έκθεση ZSHSO_FI_POST_UPL_V1 (posting the journal)"),
+    ("s", "Πρώτα ανοίξτε το «Έλεγχος_SAP». Κάθε κελί ελέγχου πρέπει να διαβάζει 0 και καμία γραμμή με ποσό δεν πρέπει να είναι χωρίς κέντρο κόστους."),
+    ("s", "Στο SAP τρέξτε την έκθεση ZSHSO_FI_POST_UPL_V1 (μέσω SA38 / SE38, ή με τον κωδικό συναλλαγής που σας έχει δοθεί)."),
+    ("s", "Στην οθόνη επιλογής δώστε το αρχείο, φύλλο «JOURNAL ENTRIES», πρώτη γραμμή δεδομένων 4."),
+    ("s", "Τρέξτε ΠΡΩΤΑ σε δοκιμαστική εκτέλεση (test run) και διαβάστε το log. Συνήθη σφάλματα: κλειστή περίοδος, μπλοκαρισμένος λογαριασμός ή κέντρο κόστους, κέντρο κόστους άλλης εταιρείας, απαιτούμενα πεδία Funds Management."),
+    ("s", "Ξανατρέξτε χωρίς τη σήμανση δοκιμής και κρατήστε τους αριθμούς παραστατικών που επιστρέφει."),
+    ("s", "Επαληθεύστε σε FB03 / FAGLL03 ότι το σύνολο του παραστατικού ισούται με το ποσό της επιταγής του SRA."),
+    ("s", "Αρχειοθετήστε μαζί: βιβλίο συμφωνίας, αυτό το αρχείο, αριθμοί παραστατικών."),
+    ("n", "Σημείωση: τα βήματα 2-3 εξαρτώνται από τη ρύθμιση της έκθεσης στο δικό σας σύστημα (κωδικός συναλλαγής, αναμενόμενη μορφή αρχείου, ονόματα παραμέτρων) — επιβεβαιώστε τα μία φορά με την ομάδα SAP. Αν η έκθεση ζητά επίπεδο αρχείο αντί για Excel, αποθηκεύστε το φύλλο «JOURNAL ENTRIES» ως Text (Tab delimited) αφού διαγράψετε τις στήλες X-Y."),
+    ("n", "Οι στήλες BSEG-FIPOS / GEBER / FISTL μένουν κενές: το εργαλείο δεν επινοεί commitment item, fund ή fund center. Αν το σύστημά σας τα απαιτεί, συμπληρώνονται από το φύλλο «SAP GL AC - COM ITEM» του λογιστικού σχεδίου πριν την ανάρτηση."),
+]
+
+
+def _tab_sap_guide(wb: Workbook) -> None:
+    """The upload procedure, on its own sheet."""
+    ws = wb.create_sheet("Οδηγίες_SAP")
+    ws.cell(row=1, column=1,
+            value="Οδηγίες ανάρτησης στο SAP (how to post this journal)"
+            ).font = Font(bold=True, size=12, color=NAVY)
+    ws.column_dimensions["A"].width = 6
+    ws.column_dimensions["B"].width = 110
+    r, n = 3, 0
+    for kind, text in SAP_GUIDE:
+        if kind == "h":
+            n = 0
+            c = ws.cell(row=r, column=1, value=text)
+            c.font = Font(bold=True, color=NAVY, size=11)
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
+        elif kind == "s":
+            n += 1
+            ws.cell(row=r, column=1, value=n).font = Font(bold=True, color=BLUE)
+            c = ws.cell(row=r, column=2, value=text)
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+        else:
+            c = ws.cell(row=r, column=2, value=text)
+            c.font = F_AMBER
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.row_dimensions[r].height = max(15, 13 * (len(text) // 95 + 1))
+        r += 2 if kind == "h" else 1
+    ws.cell(row=r + 1, column=2,
+            value="Πλήρες εγχειρίδιο: docs/MANUAL.md, ή το πλαίσιο «Εγχειρίδιο "
+                  "χρήσης» μέσα στην εφαρμογή.").font = Font(color=GRAY, italic=True)
 
 
 def _month_end(year: Optional[int], month: Optional[int]) -> int:

@@ -252,6 +252,9 @@ async function run() {
         bundle[SLOT[f.reportType]] = await extractReport(f.reportType, f, hospital, null);
       }
     }
+    /* no chart of accounts in this batch — the tool carries one, so the
+     * journal is still coded.  An upload always wins over it. */
+    bundle.sap = masterOrEmbedded(bundle.sap);
     if (sras.length) bundle.sra = mergeSras(sras, hospital);
 
     let condWarning = '';
@@ -300,14 +303,15 @@ async function run() {
     // say plainly whether the SAP master was picked up: without it nothing
     // in the journal can be coded, and that is the usual reason it is blank
     if (bundle.sra && !crosscheck) {
-      banner += bundle.sap
-        ? `<div class="note">📗 Βασικά δεδομένα SAP: εταιρεία `
-          + `${esc(companyFor(hospital))}, ${bundle.sap.costCentres.length} κέντρα `
-          + `κόστους, ${Object.keys(bundle.sap.accounts).length} λογαριασμοί `
-          + `(SAP master loaded).</div>`
-        : '<div class="warn">⚠️ Δεν ανέβηκαν τα βασικά δεδομένα SAP '
-          + '(Chart_of_Accounts.xlsx): το ημερολόγιο SAP θα βγει χωρίς κέντρα '
-          + 'κόστους και λογαριασμούς (no SAP master in this batch).</div>';
+      const m = bundle.sap;
+      const origin = m.embedded
+        ? `ενσωματωμένο λογιστικό σχέδιο ${esc(m.source)} (${esc(m.stamp)}) — `
+          + 'ανεβάστε νεότερο αρχείο για αντικατάσταση (built-in chart of accounts)'
+        : 'από το λογιστικό σχέδιο που ανεβάσατε με τα αρχεία του μήνα '
+          + '(uploaded chart of accounts)';
+      banner += `<div class="note">📗 Βασικά δεδομένα SAP: εταιρεία `
+        + `${esc(companyFor(hospital))}, ${m.costCentres.length} κέντρα κόστους, `
+        + `${Object.keys(m.accounts).length} λογαριασμοί — ${origin}.</div>`;
     }
     // the SAP journal as its own file, ready to upload — every revenue
     // stream of the month in one document
@@ -488,6 +492,13 @@ function matrixTable(result) {
 window.__okypyReady = true;  // index.html shows a banner if scripts failed to load
 
 window.addEventListener('DOMContentLoaded', () => {
+  /* the manual is written in docs/MANUAL.md and baked in by
+   * tools/embed_manual.py — filled first, so it is readable even if a vendor
+   * library is missing and the rest of the page gives up below */
+  if (typeof MANUAL_HTML === 'string') {
+    $('manual-body').innerHTML = MANUAL_HTML
+      .replace('{{MASTER}}', esc(`${SAP_EMBEDDED_SOURCE} (${SAP_EMBEDDED_STAMP})`));
+  }
   const missing = [];
   if (typeof XLSX === 'undefined') missing.push('SheetJS (vendor/xlsx.full.min.js)');
   if (typeof pdfjsLib === 'undefined') missing.push('pdf.js (vendor/pdf.min.js)');

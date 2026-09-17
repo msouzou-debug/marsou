@@ -60,6 +60,18 @@ with st.expander("📋 Τι να ανεβάσετε — Αναφορές ΟΑΥ 
                  expanded=not st.session_state.get("uploads")):
     st.markdown(REPORT_GUIDE_MD)
 
+with st.expander("📘 Εγχειρίδιο χρήσης (user manual) — πώς τρέχει, τι βγάζει, "
+                 "πώς ανεβαίνει στο SAP"):
+    # one manual, one text: docs/MANUAL.md is what the single-file app shows too
+    from pathlib import Path
+
+    from recon.sap_embedded import EMBEDDED_SOURCE, EMBEDDED_STAMP
+    manual = Path(__file__).with_name("docs") / "MANUAL.md"
+    st.markdown(manual.read_text(encoding="utf-8").replace(
+        "{{MASTER}}", f"{EMBEDDED_SOURCE} ({EMBEDDED_STAMP})")
+        if manual.exists() else
+        "Το `docs/MANUAL.md` δεν βρέθηκε δίπλα στην εφαρμογή.")
+
 uploads = st.file_uploader(
     "Αρχεία αναφορών ΟΑΥ για έναν μήνα (HIO report files for one month)",
     type=["xlsx", "xls", "xml", "pdf"],
@@ -258,6 +270,18 @@ try:
         elif f.report_type in slot:
             setattr(bundle, slot[f.report_type],
                     extract(f.report_type, f.data, hospital_code=hospital, raw_text=raw_text))
+    if bundle.sap is None:
+        # no chart of accounts in this batch — the tool carries one
+        from recon.sapmaster import embedded_master
+        bundle.sap = embedded_master()
+    st.caption(
+        f"📗 Βασικά δεδομένα SAP: {len(bundle.sap.cost_centres)} κέντρα κόστους, "
+        f"{len(bundle.sap.accounts)} λογαριασμοί — "
+        + (f"ενσωματωμένο λογιστικό σχέδιο {bundle.sap.source} "
+           f"({bundle.sap.stamp}) — ανεβάστε νεότερο αρχείο για αντικατάσταση "
+           "(built-in chart of accounts)." if bundle.sap.embedded else
+           "από το λογιστικό σχέδιο που ανεβάσατε με τα αρχεία του μήνα "
+           "(uploaded chart of accounts)."))
     if sras:
         bundle.sra = merge_sras(sras, hospital)
         if len(sras) > 1:

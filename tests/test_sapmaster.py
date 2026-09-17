@@ -334,3 +334,57 @@ def test_the_pd_line_parts_each_reach_their_own_account():
                       "Outpatient")[0] == "oncall"
     assert _line_kind("Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)",
                       "Outpatient")[0] == "quality"
+
+
+def test_the_tool_carries_its_own_chart_of_accounts():
+    """Finance should not have to attach the SAP master every month: the
+    export it last handed over is baked into the tool."""
+    from recon.sapmaster import COMPANY_CODES, REVENUE_ACCOUNTS, embedded_master
+    m = embedded_master()
+    assert m.embedded and m.stamp and m.source
+    # every hospital's company code is a company the master actually knows
+    for f_code, company in COMPANY_CODES.items():
+        assert company in m.companies, f_code
+        assert m.centres_for(company), company
+    # and every account the journal can write is in the chart
+    assert [k for k, v in REVENUE_ACCOUNTS.items() if v not in m.accounts] == []
+    # a real clinic resolves to its real centre, flavour by flavour
+    assert m.find_centre("1040", "OPHTHALMOLOGY", "clinic").code == "1064003901"
+    assert m.find_centre("1040", "OPHTHALMOLOGY", "ward").code == "1064003902"
+    assert m.find_centre("1040", "A&E").code == "1064005001"
+
+
+def test_an_uploaded_chart_of_accounts_replaces_the_built_in_one():
+    from recon.sapmaster import master_or_embedded
+    uploaded = extract_sap_master(master_xlsx())
+    assert master_or_embedded(uploaded) is uploaded
+    assert master_or_embedded(None).embedded
+
+
+def test_the_gl_commitment_item_sheet_is_not_read_as_the_company_list():
+    """The export grew a «SAP GL AC - COM ITEM» sheet that carries BOTH a
+    company code and a G/L account.  Read as either of the sheets it resembles,
+    it would put budget wording on the hospitals — so it is skipped."""
+    wb = load_workbook(io.BytesIO(master_xlsx()))
+    ws = wb.create_sheet("SAP GL AC - COM ITEM")
+    ws.append(["Company Code", "G/L Account", "Short Text", "FM Area",
+               "Commitment Item", "Name"])
+    ws.append(["1041", "412001", "HIO In-Patient Fees", "SHSO", "9500",
+               "No Budget Releated E"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    m = extract_sap_master(buf.getvalue())
+    assert m.companies["1041"] == "ΓΝ Αμμοχώστου"
+    assert m.accounts["412001"] == "HIO In-Patient Fees"
+
+
+def test_the_journal_carries_its_own_upload_instructions():
+    from recon.build_xlsx import build_sap_workbook
+    _data, res = _build(with_optional=True)
+    wb = load_workbook(io.BytesIO(build_sap_workbook(
+        [("F1049", "ΓΝ ΑΜΜΟΧΩΣΤΟΥ", res)])))
+    assert "Οδηγίες_SAP" in wb.sheetnames
+    text = "\n".join(str(c.value) for row in wb["Οδηγίες_SAP"].iter_rows()
+                     for c in row if c.value is not None)
+    assert "ZSHSO_FI_POST_UPL_V1" in text
+    assert "JOURNAL ENTRIES" in text and "Έλεγχος_SAP" in text
