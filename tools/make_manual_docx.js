@@ -8,22 +8,30 @@
  *
  * Keep it in step with docs/MANUAL.md — same instructions, two audiences. */
 const fs = require('fs');
+const path = require('path');
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle,
-  LevelFormat, Footer, PageNumber,
+  LevelFormat, Footer, PageNumber, ImageRun, PositionalTab,
+  PositionalTabAlignment, PositionalTabLeader,
 } = require('docx');
 
-const NAVY = '062E5C';
-const BLUE = '0072BC';
-const GRAY = '595959';
+const ASSETS = path.join(__dirname, '..', 'docs', 'assets');
+
+/* ΟΚΥπΥ brand palette — the official tokens, not the app's screen colours */
+const GREEN = '8BC53F';              // accent
+const BLUE_BRIGHT = '069FEC';        // accent bar, sub-headings
+const BLUE_DEEP = '1B75BB';          // titles, table headers
+const GRAY_TEXT = '58595B';          // body text
+const GRAY_LIGHT = 'EAEAEA';         // zebra rows, code blocks
+const FONT = 'Arial';                // Lato -> Source Sans Pro -> Arial
 const W = 9026;                      // A4 content width in DXA
 
 const P = (text, opt = {}) => new Paragraph({
   spacing: { after: opt.after ?? 140, line: 276 },
   alignment: opt.align,
   children: [new TextRun({ text, bold: opt.bold, italics: opt.italics,
-                           color: opt.color, size: opt.size })],
+                           color: opt.color ?? GRAY_TEXT, size: opt.size })],
 });
 
 const RICH = (runs, opt = {}) => new Paragraph({
@@ -36,49 +44,51 @@ const RICH = (runs, opt = {}) => new Paragraph({
 const H1 = (text) => new Paragraph({
   heading: HeadingLevel.HEADING_1,
   spacing: { before: 320, after: 160 },
-  children: [new TextRun({ text, bold: true, color: NAVY, size: 30 })],
+  children: [new TextRun({ text, bold: true, color: BLUE_DEEP, size: 30 })],
 });
 
 const H2 = (text) => new Paragraph({
   heading: HeadingLevel.HEADING_2,
   spacing: { before: 240, after: 120 },
-  children: [new TextRun({ text, bold: true, color: BLUE, size: 24 })],
+  children: [new TextRun({ text, bold: true, color: BLUE_BRIGHT, size: 24 })],
 });
 
 const BULLET = (text) => new Paragraph({
   numbering: { reference: 'bullets', level: 0 },
   spacing: { after: 80, line: 276 },
-  children: [new TextRun({ text })],
+  children: [new TextRun({ text, color: GRAY_TEXT })],
 });
 
 const STEP = (text) => new Paragraph({
   numbering: { reference: 'steps', level: 0 },
   spacing: { after: 80, line: 276 },
-  children: [new TextRun({ text })],
+  children: [new TextRun({ text, color: GRAY_TEXT })],
 });
 
 const CODE = (text) => new Paragraph({
   spacing: { before: 60, after: 60 },
-  shading: { type: ShadingType.CLEAR, fill: 'F2F5F8' },
+  shading: { type: ShadingType.CLEAR, fill: GRAY_LIGHT },
   indent: { left: 240 },
-  children: [new TextRun({ text, font: 'Consolas', size: 19, color: NAVY })],
+  children: [new TextRun({ text, font: 'Consolas', size: 19, color: BLUE_DEEP })],
 });
 
 const NOTE = (text) => new Paragraph({
   spacing: { before: 140, after: 160, line: 276 },
   indent: { left: 200 },
-  border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'B45F06', space: 8 } },
-  children: [new TextRun({ text, italics: true, color: '6B4A10' })],
+  border: { left: { style: BorderStyle.SINGLE, size: 18, color: GREEN, space: 8 } },
+  shading: { type: ShadingType.CLEAR, fill: 'F4F9EC' },
+  children: [new TextRun({ text, italics: true, color: GRAY_TEXT })],
 });
 
 const cell = (text, width, opt = {}) => new TableCell({
   width: { size: width, type: WidthType.DXA },
-  shading: opt.head ? { type: ShadingType.CLEAR, fill: NAVY } : undefined,
+  shading: opt.head ? { type: ShadingType.CLEAR, fill: BLUE_DEEP }
+    : (opt.zebra ? { type: ShadingType.CLEAR, fill: GRAY_LIGHT } : undefined),
   margins: { top: 60, bottom: 60, left: 100, right: 100 },
   children: [new Paragraph({
     spacing: { after: 0, line: 252 },
     children: [new TextRun({ text, bold: opt.head || opt.bold,
-                             color: opt.head ? 'FFFFFF' : undefined, size: 19 })],
+                             color: opt.head ? 'FFFFFF' : GRAY_TEXT, size: 19 })],
   })],
 });
 
@@ -90,8 +100,8 @@ const TABLE = (widths, head, rows) => new Table({
       tableHeader: true,
       children: head.map((t, i) => cell(t, widths[i], { head: true })),
     }),
-    ...rows.map((r) => new TableRow({
-      children: r.map((t, i) => cell(t, widths[i])),
+    ...rows.map((r, n) => new TableRow({
+      children: r.map((t, i) => cell(t, widths[i], { zebra: n % 2 === 1 })),
     })),
   ],
 });
@@ -100,21 +110,25 @@ const body = [];
 
 /* ---------------------------------------------------------------- εξώφυλλο */
 body.push(new Paragraph({
-  spacing: { after: 60 },
-  children: [new TextRun({ text: 'ΟΚΥπΥ — Οργανισμός Κρατικών Υπηρεσιών Υγείας',
-                           bold: true, color: BLUE, size: 20 })],
+  spacing: { after: 220 },
+  children: [new ImageRun({
+    type: 'png',
+    data: fs.readFileSync(path.join(ASSETS, 'okypy_logo_full.png')),
+    transformation: { width: 196, height: 122 },
+  })],
 }));
 body.push(new Paragraph({
-  spacing: { after: 80 },
-  border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: NAVY, space: 6 } },
+  spacing: { after: 100 },
+  border: { bottom: { style: BorderStyle.SINGLE, size: 18, color: BLUE_BRIGHT, space: 8 } },
   children: [new TextRun({ text: 'Συμφωνία Πληρωμών ΟΑΥ — Οδηγίες χρήσης',
-                           bold: true, color: NAVY, size: 40 })],
+                           bold: true, color: BLUE_DEEP, size: 40 })],
 }));
 body.push(P('Μηνιαία συμφωνία των πληρωμών του Οργανισμού Ασφάλισης Υγείας (ΟΑΥ) '
-  + 'ανά νοσοκομείο και ετοιμασία των λογιστικών εγγραφών για το SAP.',
-  { color: GRAY }));
-body.push(P('Έκδοση Σεπτεμβρίου 2026 · Εσωτερικό εργαλείο Διεύθυνσης Οικονομικών '
-  + 'Υπηρεσιών', { color: GRAY, size: 18, after: 300 }));
+  + 'ανά νοσοκομείο και ετοιμασία των λογιστικών εγγραφών για το SAP.'));
+body.push(P('Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) · State Health Services '
+  + 'Organisation (SHSO)', { size: 18 }));
+body.push(P('Διεύθυνση Οικονομικών Υπηρεσιών · Έκδοση 17/09/2026 · Εσωτερικό έγγραφο',
+  { size: 18, after: 320 }));
 
 /* ------------------------------------------------------------------- 1 */
 body.push(H1('1. Τι κάνει το εργαλείο'));
@@ -317,13 +331,13 @@ body.push(P('Το εργαλείο υπάρχει σε δύο εκδόσεις �
   + 'αυτόνομο okypy-recon.html, που ανοίγει με διπλό κλικ, και η έκδοση που τρέχει '
   + 'στον εσωτερικό server με streamlit run app.py.', { after: 200 }));
 body.push(P('Το πλήρες κείμενο των οδηγιών υπάρχει και μέσα στην εφαρμογή, στο '
-  + 'πλαίσιο «Εγχειρίδιο χρήσης».', { color: GRAY, italics: true, size: 18 }));
+  + 'πλαίσιο «Εγχειρίδιο χρήσης».', { color: GRAY_TEXT, italics: true, size: 18 }));
 
 const doc = new Document({
   creator: 'ΟΚΥπΥ — Διεύθυνση Οικονομικών Υπηρεσιών',
   title: 'Συμφωνία Πληρωμών ΟΑΥ — Οδηγίες χρήσης',
   styles: {
-    default: { document: { run: { font: 'Calibri', size: 21 } } },
+    default: { document: { run: { font: FONT, size: 21, color: GRAY_TEXT } } },
   },
   numbering: {
     config: [
@@ -341,13 +355,23 @@ const doc = new Document({
     properties: { page: { margin: { top: 1134, bottom: 1134, left: 1440, right: 1440 } } },
     footers: {
       default: new Footer({
-        children: [new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          children: [new TextRun({
-            children: ['ΟΚΥπΥ — Συμφωνία Πληρωμών ΟΑΥ · σελ. ', PageNumber.CURRENT,
-                       ' από ', PageNumber.TOTAL_PAGES],
-            size: 16, color: GRAY })],
-        })],
+        children: [
+          new Paragraph({          // the house accent bar, full width
+            spacing: { before: 0, after: 40 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 24,
+                                color: BLUE_BRIGHT, space: 1 } },
+            children: [],
+          }),
+          new Paragraph({
+            children: [new TextRun({
+              children: ['ΟΚΥπΥ — Συμφωνία Πληρωμών ΟΑΥ',
+                new PositionalTab({ alignment: PositionalTabAlignment.RIGHT,
+                                    relativeTo: 'margin',
+                                    leader: PositionalTabLeader.NONE }),
+                'σελ. ', PageNumber.CURRENT, ' από ', PageNumber.TOTAL_PAGES],
+              size: 16, color: GRAY_TEXT })],
+          }),
+        ],
       }),
     },
     children: body,
