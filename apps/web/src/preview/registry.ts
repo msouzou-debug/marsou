@@ -1,3 +1,4 @@
+import appShell from "@/components/app-shell/AppShell.preview";
 import type { PreviewEntry } from "./types";
 import assetBreadcrumb from "@/components/asset-breadcrumb/AssetBreadcrumb.preview";
 import confirmDialog from "@/components/confirm-dialog/ConfirmDialog.preview";
@@ -20,6 +21,7 @@ import wizardShell from "@/components/wizard-shell/WizardShell.preview";
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
 const entries: PreviewEntry[] = [
+  appShell,
   assetBreadcrumb,
   confirmDialog,
   costBar,

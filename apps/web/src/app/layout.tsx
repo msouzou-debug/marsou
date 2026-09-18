@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Lato } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { AppShell } from "@/components/app-shell";
+import { QueryProvider } from "@/data/provider";
 import "./globals.css";
 
 // Self-hosted at build time (ADR-0003). Weights 400/700 only per UI §1.
@@ -31,7 +33,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang={locale} className={`${lato.variable} ${plexMono.variable} h-full`}>
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Nicosia">
-          {children}
+          <QueryProvider>
+            <AppShell>{children}</AppShell>
+          </QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>

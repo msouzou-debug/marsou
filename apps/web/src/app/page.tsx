@@ -1,13 +1,13 @@
 import { getTranslations } from "next-intl/server";
+import { PageTitle } from "@/components/app-shell";
 
 // Placeholder until S01 lands on this route. Screen id: S01.
 export default async function Home() {
-  const t = await getTranslations("app");
+  const [app, nav] = await Promise.all([getTranslations("app"), getTranslations("nav")]);
   return (
-    <main className="p-s-8">
-      <p className="eyebrow text-k-text-muted">{t("org")}</p>
-      <h1 className="text-fs-24">{t("name")}</h1>
-      <p className="text-fs-16">{t("tagline")}</p>
-    </main>
+    <>
+      <PageTitle eyebrow={app("org")} title={nav("portfolio")} />
+      <p className="text-fs-16">{app("tagline")}</p>
+    </>
   );
 }
