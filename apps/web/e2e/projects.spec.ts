@@ -7,8 +7,8 @@ import { launchOptions, nativeClick, signIn } from "./support";
 
 test.use({ launchOptions });
 
-// The administrator sees all eleven units, which is what the mock project
-// fixtures are spread across (src/mocks/projects.ts).
+// The administrator sees all eleven units, which is what the 42 seeded
+// projects are spread across (apps/api/src/db/seed-data.ts).
 test.beforeEach(async ({ page }) => {
   await signIn(page, "admin@ecapital.test");
 });
@@ -41,7 +41,9 @@ test("S02 project list filters by unit via the URL and opens a project into S03"
   const firstProjectLink = page.locator('a[href^="/projects/"]:visible').first();
   await firstProjectLink.waitFor({ state: "visible" });
   await firstProjectLink.click();
-  await page.waitForURL(/\/projects\/PRJ-\d+/);
+  // The seeded id is a database uuid, not a fixture-style "PRJ-001" (the
+  // code column keeps that shape; the route segment is the row id).
+  await page.waitForURL(/\/projects\/[^/?]+$/);
 
   // S03: the cost bar and the audit timeline both render.
   await expect(page.getByRole("img", { name: /Εγκεκριμένος προϋπολογισμός/ })).toBeVisible();
@@ -70,7 +72,36 @@ test("S02 sorting a column updates the URL and re-renders the list", async ({ pa
 
 test("S03 shows «Διαθέσιμο σε επόμενη οθόνη» on the disabled tabs", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-1440", "one breakpoint is enough for this tooltip check");
-  await page.goto("/projects/PRJ-001");
+  // Seeded ids are database uuids, so this walks in through S02 rather than
+  // guessing a fixture-style path.
+  await page.goto("/projects");
+  const firstProjectLink = page.locator('a[href^="/projects/"]:visible').first();
+  await firstProjectLink.waitFor({ state: "visible" });
+  await firstProjectLink.click();
+  await page.waitForURL(/\/projects\/[^/?]+$/);
+
   await expect(page.getByRole("tab", { name: "Κόστος" })).toBeDisabled();
   await expect(page.getByRole("tab", { name: "Κόστος" })).toHaveAttribute("title", "Διαθέσιμο σε επόμενη οθόνη");
+});
+
+test("a project in IDEA phase shows «—» for commitments and spend in S02, and S03 says why", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "phone-390", "the dense table is hidden in favour of cards below tablet width");
+  await page.goto("/projects?phase=IDEA");
+  await expect(page.getByRole("heading", { name: "Έργα" })).toBeVisible();
+
+  // PRJ-001 in the seed: IDEA phase, so its commitments and spend are
+  // unknown until the SAP import (CAPEX-01 §7) — «—», never «€ 0». Its
+  // planned finish is dated, so these are the only two dashes in the row.
+  const row = page.locator("tbody tr", { hasText: "Ανακαίνιση χειρουργείων" });
+  await row.waitFor({ state: "visible" });
+  await expect(row.getByText("—")).toHaveCount(2);
+  await expect(row.getByText("€ 0")).toHaveCount(0);
+
+  await row.getByRole("link").first().click();
+  await page.waitForURL(/\/projects\/[^/?]+$/);
+  await expect(
+    page.getByText("Δεσμεύσεις και δαπάνες θα εμφανιστούν μετά την εισαγωγή SAP."),
+  ).toBeVisible();
 });

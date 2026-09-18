@@ -35,6 +35,30 @@ test("S01 portfolio dashboard has no horizontal page overflow", async ({ page },
   });
 });
 
+test("S01 KPI tiles show «—» for ledgers the seed has no SAP data for, and the exception list is not empty", async ({
+  page,
+}) => {
+  await expect(page.getByRole("heading", { name: "Χαρτοφυλάκιο έργων" })).toBeVisible();
+  await expect(page.getByText(/Δεδομένα στις/)).toBeVisible();
+
+  // RULE (CAPEX-01 §7): committed, spent and forecast are null until the SAP
+  // ingestion lands (M2) — the seed has none, so every KPI tile but
+  // Εγκεκριμένος προϋπολογισμός shows «—», never «€ 0».
+  for (const label of ["Δεσμεύσεις", "Δαπάνες", "Πρόβλεψη τελικού κόστους"]) {
+    const tile = page.locator("p.eyebrow").filter({ hasText: label }).locator("xpath=..");
+    await expect(tile.getByText("—", { exact: true })).toBeVisible();
+  }
+  await expect(
+    page.locator("p.eyebrow").filter({ hasText: "Εγκεκριμένος προϋπολογισμός" }).locator("xpath=..").getByText("—"),
+  ).not.toBeVisible();
+
+  // The seed has slipped gate milestones and undated projects (CAPEX-01
+  // §15), so "Χρειάζονται προσοχή" always has something in it here.
+  const exceptionsPanel = page.getByRole("heading", { name: "Χρειάζονται προσοχή" }).locator("xpath=..");
+  await expect(exceptionsPanel.getByText("Δεν υπάρχουν θέματα που χρειάζονται προσοχή.")).not.toBeVisible();
+  await expect(exceptionsPanel.getByRole("listitem").first()).toBeVisible();
+});
+
 test("S01 at 1024: the exception list is reachable without scrolling when grouping is off", async ({
   page,
 }, testInfo) => {

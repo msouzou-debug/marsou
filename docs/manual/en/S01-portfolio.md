@@ -16,3 +16,4 @@ This screen shows every SHSO project on one page: what is approved, what is comm
 - **The figures do not match SAP.** Spend is updated by the latest SAP file import. Check the date of the last import on the Administration page.
 - **A unit is missing.** You only see the units you have access to. Ask the system administrator for access.
 - **The "Needs attention" list is empty.** That is good news. The screen says so in words; it never shows an empty box.
+- **You see "—" instead of a figure.** SAP has not sent that figure yet.
