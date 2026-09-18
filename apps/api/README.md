@@ -53,4 +53,4 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 
 - All timestamps are `timestamptz` and stored UTC. Europe/Nicosia is a display concern, and it belongs to the web app.
 - Logs are JSON, one line per request, with a request id. Bodies and the `authorization` header are never logged.
-- `pnpm build` type-checks and emits to `dist/`. The API runs from source through `tsx`; packaging it for the ΟΚΥπΥ server — `@ecapital/shared` ships as TypeScript — is part of the deploy work in M1.
+- `pnpm build` type-checks and emits to `dist/`. The API runs from source through `@swc-node/register`, which keeps the decorator metadata Nest needs (esbuild-based runners such as tsx drop it); packaging it for the ΟΚΥπΥ server — `@ecapital/shared` ships as TypeScript — is part of the deploy work in M1.

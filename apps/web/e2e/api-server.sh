@@ -40,17 +40,9 @@ export DEV_AUTH_SECRET=ecapital-e2e-secret-0123456789
 pnpm --filter @ecapital/api migrate >/dev/null
 pnpm --filter @ecapital/api seed >/dev/null
 
-# Run the compiled API, not `pnpm --filter @ecapital/api start`.
-# `start` goes through tsx, and esbuild — which tsx transpiles with — drops
-# `emitDecoratorMetadata`, so Nest cannot resolve a provider that is injected
-# by class token and every request fails inside the exception filter. The
-# API's own suite hits this too, which is why it transpiles with SWC
-# (apps/api/vitest.config.ts, ADR-0012). `tsc` keeps the metadata, so the
-# build output runs correctly; it still goes through tsx because
-# `@ecapital/shared` ships as TypeScript and node cannot load it directly.
-# Left as a note for apps/api rather than fixed here — this brief does not
-# touch that app.
-pnpm --filter @ecapital/api build >/dev/null
-"$API_DIR/node_modules/.bin/tsx" "$API_DIR/dist/apps/api/src/main.js" &
+# `pnpm --filter @ecapital/api start` runs the source through @swc-node/register,
+# which emits decorator metadata (tsx could not, and Nest's DI failed inside
+# the exception filter). Same command a developer uses.
+pnpm --filter @ecapital/api start &
 API_PID=$!
 wait "$API_PID"
