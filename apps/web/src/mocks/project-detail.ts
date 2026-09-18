@@ -176,7 +176,7 @@ function buildIssues(project: ProjectSummary): ProjectDetail["issues"] {
 // i18n key suffixes resolved through `screens.s03.audit.*` (contract
 // §AuditEntry: "action: i18n key suffix"). Index 0 is reserved for "created"
 // so every project's trail opens with the one entry that is always true.
-const AUDIT_ACTIONS = ["created", "phaseChanged", "milestoneUpdated", "riskAdded", "issueRaised", "budgetApproved"];
+const AUDIT_ACTIONS = ["created", "phaseChanged", "milestoneUpdated", "riskAdded", "issueAdded", "updated"]; // the API's action keys (apps/api/src/projects)
 const AUDIT_ACTORS = ["Μ. Ιωάννου", "Α. Παπαδοπούλου", "Ν. Χριστοφή", "Δ. Κωνσταντίνου"];
 
 function buildAudit(project: ProjectSummary): ProjectDetail["audit"] {

@@ -233,8 +233,8 @@
         "plannedFinish": "Planned finish"
       },
       "pagination": "{from}–{to} of {total}",
-    "prevPage": "Previous page",
-    "nextPage": "Next page",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
       "caption": "The table lists the projects matching the active filters, with each one's budget, commitments, spend and RAG status."
     },
     "s03": {
@@ -282,11 +282,14 @@
       "issuesNextDue": "Next due {date}",
       "audit": {
         "created": "created the project",
+        "updated": "updated the project details",
         "phaseChanged": "changed the project phase",
+        "milestoneAdded": "added a milestone",
         "milestoneUpdated": "updated a milestone",
         "riskAdded": "logged a risk",
-        "issueRaised": "raised an issue",
-        "budgetApproved": "approved the budget"
+        "riskUpdated": "updated a risk",
+        "issueAdded": "raised an issue",
+        "issueUpdated": "updated an issue"
       }
     }
   },
