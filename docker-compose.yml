@@ -1,0 +1,127 @@
+# eCapital — the local and on-prem stack (CAPEX-01 §3).
+#
+# NOT TESTED. There is no Docker daemon in the environment this file was
+# written in, so nothing here has ever been started. Treat it as a first draft
+# for the ops team: the versions and the wiring follow the brief, but expect to
+# fix something on the first `docker compose up`. The API test suite does not
+# use it — it starts its own throwaway PostgreSQL cluster (ADR-0012).
+#
+# minio and redis are here because §3 names them and the ops team will want
+# them in place. Nothing in M0 talks to either; files land in M8 and the queue
+# in M7.
+#
+#   docker compose up -d postgres        just a database to develop against
+#   docker compose up -d                 the lot
+#
+# Copy .env.example next to this file and change every password before this
+# goes anywhere near the ΟΚΥπΥ server.
+
+name: ecapital
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ecapital}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-ecapital}
+      # The database keeps UTC; Europe/Nicosia is a display concern
+      # (CAPEX-01 §12).
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecapital} -d ${POSTGRES_DB:-ecapital}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-ecapital}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-too}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    # No Dockerfile yet: the API runs from source until the packaging work in
+    # M1 decides how @ecapital/shared, which ships as TypeScript, is built.
+    command: >
+      sh -c "corepack enable &&
+             pnpm install --frozen-lockfile &&
+             pnpm --filter @ecapital/api migrate &&
+             pnpm --filter @ecapital/api start"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://${POSTGRES_USER:-ecapital}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-ecapital}
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_USER:-ecapital}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-ecapital}
+      # DEV_AUTH is refused when NODE_ENV is production; fill these in.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "corepack enable &&
+             pnpm install --frozen-lockfile &&
+             pnpm --filter @ecapital/web build &&
+             pnpm --filter @ecapital/web start"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:
+  minio-data:
+  redis-data:
