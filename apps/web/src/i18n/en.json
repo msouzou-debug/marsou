@@ -148,6 +148,29 @@
     "reports": "Reports",
     "admin": "Administration"
   },
+  "screens": {
+    "s01": {
+      "title": "Project portfolio",
+      "asOf": "Data as of {date}",
+      "comparator": "% of year elapsed: {value}",
+      "empty": "There are no projects yet.",
+      "exceptions": {
+        "title": "Needs attention",
+        "empty": "Nothing needs attention."
+      },
+      "unitTable": {
+        "caption": "Shows the number of projects, approved budget and spend for each unit.",
+        "columns": {
+          "projects": "Projects",
+          "progress": "Progress",
+          "rag": "RAG"
+        },
+        "groupByDirectorate": "Group by directorate",
+        "subtotal": "Subtotal",
+        "sparklineAria": "Spend {spend} against plan {plan}"
+      }
+    }
+  },
   "states": {
     "noPermission": {
       "title": "You do not have access to this page.",

@@ -1,13 +1,12 @@
-import { getTranslations } from "next-intl/server";
-import { PageTitle } from "@/components/app-shell";
+// S01 — R03
 
-// Placeholder until S01 lands on this route. Screen id: S01.
-export default async function Home() {
-  const [app, nav] = await Promise.all([getTranslations("app"), getTranslations("nav")]);
-  return (
-    <>
-      <PageTitle eyebrow={app("org")} title={nav("portfolio")} />
-      <p className="text-fs-16">{app("tagline")}</p>
-    </>
-  );
+import { NoPermission } from "@/components/app-shell";
+import { PortfolioScreen } from "@/screens/s01-portfolio/PortfolioScreen";
+
+// Server Component: the only job here is to resolve `NoPermission` (an async
+// Server Component) once and hand the element to `PortfolioScreen` (a Client
+// Component) as a prop, since a Client Component cannot render a Server
+// Component itself — see PortfolioScreen's header comment.
+export default function Home() {
+  return <PortfolioScreen noPermission={<NoPermission />} />;
 }

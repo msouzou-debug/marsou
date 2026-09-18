@@ -17,6 +17,7 @@ import slaChip from "@/components/sla-chip/SlaChip.preview";
 import table from "@/components/table/Table.preview";
 import timeline from "@/components/timeline/Timeline.preview";
 import wizardShell from "@/components/wizard-shell/WizardShell.preview";
+import s01Portfolio from "@/screens/s01-portfolio/Portfolio.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
@@ -39,6 +40,7 @@ const entries: PreviewEntry[] = [
   table,
   timeline,
   wizardShell,
+  s01Portfolio,
 ];
 
 export function getPreviewEntries(): PreviewEntry[] {
