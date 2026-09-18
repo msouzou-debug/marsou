@@ -129,6 +129,17 @@ describe("Portfolio unit table", () => {
     expect(screen.getByRole("button", { name: "Εξαγωγή σε Excel" })).toBeInTheDocument();
   });
 
+  it("renders «—», never «€ 0», for a unit row whose spent is null (CAPEX-01 §7)", () => {
+    const withNullSpent = fixture({
+      units: units.map((u, i) => (i === 0 ? { ...u, spent: null } : u)),
+    });
+    renderWithIntl(<Portfolio data={withNullSpent} state="default" noPermission={noPermission} />);
+    const row = screen.getByText("Μονάδα Α").closest("tr");
+    expect(row).not.toBeNull();
+    expect(within(row!).getByText("—")).toBeInTheDocument();
+    expect(within(row!).queryByText("€ 0")).not.toBeInTheDocument();
+  });
+
   it("gives every numeric cell the num class", () => {
     renderWithIntl(<Portfolio data={fixture()} state="default" noPermission={noPermission} />);
     // Έργα, Εγκεκριμένος and Δαπάνες are numeric for all four unit rows.

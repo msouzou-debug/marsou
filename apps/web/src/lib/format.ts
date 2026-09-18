@@ -27,6 +27,16 @@ export function formatEUR(value: number): string {
   return `${neg ? "-" : ""}€${THIN}${body}`;
 }
 
+/**
+ * `formatEUR`, but a ledger the system does not know yet (CAPEX-01 §7) is
+ * `null`, never zero — this renders «—» for it instead of «€ 0». Shared by
+ * every screen that shows a nullable ledger figure (S01's KPI tiles and unit
+ * table, S02's Δεσμεύσεις/Δαπάνες columns, S03's CostBar legend).
+ */
+export function formatEURorDash(value: number | null): string {
+  return value === null ? "—" : formatEUR(value);
+}
+
 /** 12,4 % — one decimal, comma, thin space before the sign. */
 export function formatPct(value: number, decimals = 1): string {
   if (!Number.isFinite(value)) return "—";

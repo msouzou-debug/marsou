@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatEUR, formatInt, formatPct } from "./format";
+import { formatDate, formatDateTime, formatEUR, formatEURorDash, formatInt, formatPct } from "./format";
 
 const T = " "; // narrow no-break space
 
@@ -19,6 +19,16 @@ describe("formatEUR", () => {
   });
   it("returns a dash for non-finite input", () => {
     expect(formatEUR(NaN)).toBe("—");
+  });
+});
+
+describe("formatEURorDash", () => {
+  it("renders «—» for null, never «€ 0» (CAPEX-01 §7)", () => {
+    expect(formatEURorDash(null)).toBe("—");
+  });
+  it("formats a real figure the same way formatEUR does", () => {
+    expect(formatEURorDash(1000)).toBe(`€${T}1.000`);
+    expect(formatEURorDash(0)).toBe(`€${T}0,00`);
   });
 });
 

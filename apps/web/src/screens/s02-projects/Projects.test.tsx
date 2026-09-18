@@ -90,6 +90,17 @@ describe("Projects ledgers", () => {
   });
 });
 
+describe("Projects column order", () => {
+  it("puts RAG right after Κωδικός so it is visible at 1440 without horizontal scroll", () => {
+    renderWithIntl(
+      <Projects data={list()} state="default" query={query} orgUnits={orgUnits} eyebrow="Όλες οι μονάδες" noPermission={noPermission} />,
+    );
+    const headers = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent);
+    expect(headers[0]).toBe("Κωδικός");
+    expect(headers[1]).toBe("RAG");
+  });
+});
+
 describe("Projects empty state", () => {
   it("shows the no-results-for-these-filters sentence and the clear-filters action", () => {
     renderWithIntl(

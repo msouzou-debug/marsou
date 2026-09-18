@@ -180,6 +180,14 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
         cell: (row) => <span className="font-k-mono">{row.code}</span>,
       },
       {
+        // RULE: second column, right after Κωδικός, so RAG is visible at
+        // 1440 without having to scroll the table (moved from last).
+        id: "rag",
+        headerKey: "common.rag",
+        accessor: (row) => row.rag,
+        cell: (row) => <RagChip value={ragChipKey(row.rag)} />,
+      },
+      {
         id: "title",
         headerKey: "screens.s02.columns.project",
         accessor: (row) => row.titleEl,
@@ -235,12 +243,6 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
         accessor: (row) => row.plannedFinish ?? "",
         cell: (row) => (row.plannedFinish ? formatDate(row.plannedFinish) : t("common.notAvailable")),
         numeric: true,
-      },
-      {
-        id: "rag",
-        headerKey: "common.rag",
-        accessor: (row) => row.rag,
-        cell: (row) => <RagChip value={ragChipKey(row.rag)} />,
       },
     ],
     [t, unitNameById],

@@ -31,7 +31,7 @@ import type { PortfolioResponse } from "@ecapital/shared";
 import { EmptyState } from "@/components/empty-state";
 import { KpiTile } from "@/components/kpi-tile";
 import { PageTitle } from "@/components/app-shell";
-import { formatDate, formatEUR, formatPct } from "@/lib/format";
+import { formatDate, formatEURorDash, formatPct } from "@/lib/format";
 import { ExceptionList } from "./ExceptionList";
 import { UnitTable } from "./UnitTable";
 
@@ -122,7 +122,7 @@ export function Portfolio({ data, state, onRetry, onAddProject, noPermission }: 
           <KpiTile
             key={tile.id}
             label={tile.label}
-            value={loading || tile.value == null ? "" : formatEUR(tile.value)}
+            value={loading ? "" : formatEURorDash(tile.value ?? null)}
             comparator={loading ? undefined : comparator}
             state={loading ? "loading" : "default"}
           />

@@ -26,7 +26,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { UnitRow } from "@ecapital/shared";
 import { directorateLabels } from "@ecapital/shared";
 import type { Locale } from "@/i18n/config";
-import { formatEUR, formatInt } from "@/lib/format";
+import { formatEUR, formatEURorDash, formatInt } from "@/lib/format";
 import { RagChip } from "@/components/rag-chip";
 import { Table, type TableColumn } from "@/components/table";
 import { Sparkline } from "./Sparkline";
@@ -97,8 +97,10 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
       {
         id: "spent",
         headerKey: "components.costBar.spent",
+        // RULE (CAPEX-01 §7): null, never zero, until the SAP ingestion —
+        // «—», not «€ 0» (same rule and same helper as the KPI tiles).
         accessor: (row) => row.spent,
-        cell: (row) => formatEUR(row.spent),
+        cell: (row) => formatEURorDash(row.spent),
         numeric: true,
       },
       {
@@ -111,7 +113,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
             plan={row.sparkline.plan}
             spend={row.sparkline.spend}
             ariaLabel={t("screens.s01.unitTable.sparklineAria", {
-              spend: formatEUR(row.spent),
+              spend: formatEURorDash(row.spent),
               plan: formatEUR(row.approved),
             })}
           />
@@ -262,13 +264,16 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
           <tbody>
             {groups.map((group) => {
               const label = directorateLabels[group.directorate as keyof typeof directorateLabels];
+              // RULE (CAPEX-01 §7): a subtotal of a ledger that is unknown
+              // for any row in the group is itself unknown — null, not the
+              // sum of whichever rows happen to have a figure.
               const subtotal = group.rows.reduce(
                 (acc, row) => ({
                   projects: acc.projects + row.projectCount,
                   approved: acc.approved + row.approved,
-                  spent: acc.spent + row.spent,
+                  spent: acc.spent === null || row.spent === null ? null : acc.spent + row.spent,
                 }),
-                { projects: 0, approved: 0, spent: 0 },
+                { projects: 0, approved: 0, spent: 0 as number | null },
               );
               return (
                 <Fragment key={group.directorate}>
@@ -303,13 +308,13 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
                       </td>
                       <td className="num border-b border-k-grey px-s-3">{formatInt(row.projectCount)}</td>
                       <td className="num border-b border-k-grey px-s-3">{formatEUR(row.approved)}</td>
-                      <td className="num border-b border-k-grey px-s-3">{formatEUR(row.spent)}</td>
+                      <td className="num border-b border-k-grey px-s-3">{formatEURorDash(row.spent)}</td>
                       <td className="border-b border-k-grey px-s-3">
                         <Sparkline
                           plan={row.sparkline.plan}
                           spend={row.sparkline.spend}
                           ariaLabel={t("screens.s01.unitTable.sparklineAria", {
-                            spend: formatEUR(row.spent),
+                            spend: formatEURorDash(row.spent),
                             plan: formatEUR(row.approved),
                           })}
                         />
@@ -327,7 +332,7 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
                     <td className="border-b border-k-grey px-s-3">{t("screens.s01.unitTable.subtotal")}</td>
                     <td className="num border-b border-k-grey px-s-3">{formatInt(subtotal.projects)}</td>
                     <td className="num border-b border-k-grey px-s-3">{formatEUR(subtotal.approved)}</td>
-                    <td className="num border-b border-k-grey px-s-3">{formatEUR(subtotal.spent)}</td>
+                    <td className="num border-b border-k-grey px-s-3">{formatEURorDash(subtotal.spent)}</td>
                     <td className="border-b border-k-grey px-s-3" />
                     <td className="border-b border-k-grey px-s-3" />
                   </tr>
