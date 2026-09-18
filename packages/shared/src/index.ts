@@ -2,3 +2,6 @@
 // Everything the API will return is typed here first so the frontend
 // never invents a shape the backend has to chase.
 export * from "./org-unit";
+export * from "./project";
+export * from "./portfolio";
+export * from "./directorate-labels";
