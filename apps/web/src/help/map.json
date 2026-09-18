@@ -1,5 +1,7 @@
 {
   "S00": { "route": "/sign-in", "section": "S00-sign-in", "persona": ["estates_head", "project_engineer", "technician", "finance", "clinical_approver", "executive_readonly", "admin", "auditor_readonly"] },
   "S01": { "route": "/", "section": "S01-portfolio", "persona": ["estates_head", "executive_readonly", "finance"] },
+  "S02": { "route": "/projects", "section": "S02-projects", "persona": ["estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S03": { "route": "/projects/[id]", "section": "S03-project", "persona": ["estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
   "S16": { "route": "/units/[id]/areas", "section": "S16-areas", "persona": ["estates_head", "project_engineer", "technician"] }
 }

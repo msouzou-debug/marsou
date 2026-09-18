@@ -18,7 +18,11 @@
     "yes": "Yes",
     "no": "No",
     "days": "{count} d",
-    "notAvailable": "—"
+    "notAvailable": "—",
+    "allUnits": "All units",
+    "phase": "Phase",
+    "category": "Category",
+    "rag": "RAG"
   },
   "buttons": {
     "save": "Save",
@@ -59,7 +63,8 @@
       "summary": "Approved budget {approved}, commitments {committed}, spend {spent}, forecast final cost {forecast}",
       "loading": "Loading cost figures",
       "empty": "No budget has been recorded for this project yet.",
-      "error": "The cost figures did not load. Try again."
+      "error": "The cost figures did not load. Try again.",
+      "pendingSap": "Commitments and spend will appear once the SAP import is live."
     },
     "decision-panel": {
       "commentPlaceholder": "Write your comment",
@@ -208,6 +213,81 @@
         "HIGH": "high",
         "HIGHEST": "highest"
       }
+    },
+    "s02": {
+      "title": "Projects",
+      "addTooltip": "Available in the next step",
+      "searchLabel": "Search projects",
+      "searchPlaceholder": "Search by code or title",
+      "empty": "No projects match these filters.",
+      "clearFilters": "Clear filters",
+      "filters": {
+        "unit": "Unit",
+        "phase": "Phase",
+        "category": "Category",
+        "rag": "RAG"
+      },
+      "columns": {
+        "code": "Code",
+        "project": "Project",
+        "plannedFinish": "Planned finish"
+      },
+      "pagination": "{from}–{to} of {total}",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+      "caption": "The table lists the projects matching the active filters, with each one's budget, commitments, spend and RAG status."
+    },
+    "s03": {
+      "tabs": {
+        "overview": "Overview",
+        "cost": "Cost",
+        "schedule": "Schedule",
+        "risksIssues": "Risks and issues"
+      },
+      "tabsDisabledTooltip": "Available in a later screen",
+      "facts": {
+        "phase": "Phase",
+        "category": "Category",
+        "funding": "Funding source",
+        "plannedStart": "Planned start",
+        "plannedFinish": "Planned finish",
+        "revisedStart": "Revised start",
+        "revisedFinish": "Revised finish",
+        "actualStart": "Actual start",
+        "actualFinish": "Actual finish",
+        "budgetYears": "Budget years",
+        "wbs": "WBS code",
+        "tenderRef": "Tender reference",
+        "sponsor": "Sponsor",
+        "projectManager": "Project manager",
+        "article": "Budget article",
+        "commitmentFlag": "ΠτΚΔ commitment",
+        "actionPlan": "Action plan",
+        "contractualCommitment": "Contractual commitment"
+      },
+      "factsCaption": "Project facts",
+      "milestonesTitle": "Milestones",
+      "milestonesEmpty": "No milestones recorded.",
+      "gateLabel": "Phase gate",
+      "milestoneBaseline": "Baseline",
+      "milestoneForecast": "Forecast",
+      "milestoneActual": "Actual",
+      "risksTitle": "Risks",
+      "risksEmpty": "No open risks.",
+      "risksOpenSummary": "{count, plural, one {# open risk} other {# open risks}}",
+      "riskScore": "Likelihood {likelihood} × impact {impact}",
+      "issuesTitle": "Issues",
+      "issuesEmpty": "No open issues.",
+      "issuesOpenSummary": "{count, plural, one {# open issue} other {# open issues}}",
+      "issuesNextDue": "Next due {date}",
+      "audit": {
+        "created": "created the project",
+        "phaseChanged": "changed the project phase",
+        "milestoneUpdated": "updated a milestone",
+        "riskAdded": "logged a risk",
+        "issueRaised": "raised an issue",
+        "budgetApproved": "approved the budget"
+      }
     }
   },
   "states": {
@@ -265,5 +345,30 @@
       "noPermission": "No permission",
       "offline": "Offline"
     }
+  },
+  "phases": {
+    "IDEA": "Idea",
+    "PREPARATION": "Preparation",
+    "APPROVED": "Approved",
+    "TENDERED": "Out to tender",
+    "AWARDED": "Awarded",
+    "IN_PROGRESS": "In progress",
+    "PRACTICAL_COMPLETION": "Provisional handover",
+    "DEFECTS_LIABILITY": "Defects liability period",
+    "CLOSED": "Closed"
+  },
+  "categories": {
+    "NEW_BUILD": "New build",
+    "RENOVATION": "Renovation",
+    "SMALL_WORKS": "Small works",
+    "EQUIPMENT": "Equipment",
+    "MAINTENANCE_CAPITAL": "Maintenance capital",
+    "IT": "IT"
+  },
+  "fundingSources": {
+    "STATE_BUDGET": "State budget",
+    "EU": "European Union",
+    "DONATION": "Donation",
+    "OWN": "Own resources"
   }
 }

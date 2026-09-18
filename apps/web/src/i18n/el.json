@@ -18,7 +18,11 @@
     "yes": "Ναι",
     "no": "Όχι",
     "days": "{count} ημ",
-    "notAvailable": "—"
+    "notAvailable": "—",
+    "allUnits": "Όλες οι μονάδες",
+    "phase": "Φάση",
+    "category": "Κατηγορία",
+    "rag": "RAG"
   },
   "buttons": {
     "save": "Αποθήκευση",
@@ -59,7 +63,8 @@
       "summary": "Εγκεκριμένος προϋπολογισμός {approved}, δεσμεύσεις {committed}, δαπάνες {spent}, πρόβλεψη τελικού κόστους {forecast}",
       "loading": "Φόρτωση στοιχείων κόστους",
       "empty": "Δεν έχει καταχωριστεί προϋπολογισμός για αυτό το έργο.",
-      "error": "Τα στοιχεία κόστους δεν φορτώθηκαν. Δοκιμάστε ξανά."
+      "error": "Τα στοιχεία κόστους δεν φορτώθηκαν. Δοκιμάστε ξανά.",
+      "pendingSap": "Δεσμεύσεις και δαπάνες θα εμφανιστούν μετά την εισαγωγή SAP."
     },
     "decision-panel": {
       "commentPlaceholder": "Γράψτε το σχόλιό σας",
@@ -208,6 +213,81 @@
         "HIGH": "υψηλή",
         "HIGHEST": "πολύ υψηλή"
       }
+    },
+    "s02": {
+      "title": "Έργα",
+      "addTooltip": "Διαθέσιμο στο επόμενο βήμα",
+      "searchLabel": "Αναζήτηση έργων",
+      "searchPlaceholder": "Αναζήτηση κωδικού ή τίτλου",
+      "empty": "Δεν βρέθηκαν έργα με αυτά τα φίλτρα.",
+      "clearFilters": "Καθαρισμός φίλτρων",
+      "filters": {
+        "unit": "Μονάδα",
+        "phase": "Φάση",
+        "category": "Κατηγορία",
+        "rag": "RAG"
+      },
+      "columns": {
+        "code": "Κωδικός",
+        "project": "Έργο",
+        "plannedFinish": "Προγρ. ολοκλήρωση"
+      },
+      "pagination": "{from}–{to} από {total}",
+    "prevPage": "Προηγούμενη σελίδα",
+    "nextPage": "Επόμενη σελίδα",
+      "caption": "Ο πίνακας δείχνει τα έργα που ταιριάζουν με τα ενεργά φίλτρα, με τον προϋπολογισμό, τις δεσμεύσεις, τις δαπάνες και την κατάσταση RAG του καθενός."
+    },
+    "s03": {
+      "tabs": {
+        "overview": "Επισκόπηση",
+        "cost": "Κόστος",
+        "schedule": "Χρονοδιάγραμμα",
+        "risksIssues": "Κίνδυνοι και θέματα"
+      },
+      "tabsDisabledTooltip": "Διαθέσιμο σε επόμενη οθόνη",
+      "facts": {
+        "phase": "Φάση",
+        "category": "Κατηγορία",
+        "funding": "Χρηματοδότηση",
+        "plannedStart": "Προγραμματισμένη έναρξη",
+        "plannedFinish": "Προγραμματισμένη ολοκλήρωση",
+        "revisedStart": "Αναθεωρημένη έναρξη",
+        "revisedFinish": "Αναθεωρημένη ολοκλήρωση",
+        "actualStart": "Πραγματική έναρξη",
+        "actualFinish": "Πραγματική ολοκλήρωση",
+        "budgetYears": "Έτη προϋπολογισμού",
+        "wbs": "Κωδικός WBS",
+        "tenderRef": "Αναφορά διαγωνισμού",
+        "sponsor": "Χορηγός",
+        "projectManager": "Υπεύθυνος έργου",
+        "article": "Άρθρο",
+        "commitmentFlag": "Δέσμευση ΠτΚΔ",
+        "actionPlan": "Σχέδιο δράσης",
+        "contractualCommitment": "Συμβατική υποχρέωση"
+      },
+      "factsCaption": "Στοιχεία έργου",
+      "milestonesTitle": "Ορόσημα",
+      "milestonesEmpty": "Δεν έχουν καταχωριστεί ορόσημα.",
+      "gateLabel": "Πύλη φάσης",
+      "milestoneBaseline": "Βάση",
+      "milestoneForecast": "Πρόβλεψη",
+      "milestoneActual": "Πραγματοποίηση",
+      "risksTitle": "Κίνδυνοι",
+      "risksEmpty": "Δεν υπάρχουν ανοιχτοί κίνδυνοι.",
+      "risksOpenSummary": "{count, plural, one {# ανοιχτός κίνδυνος} other {# ανοιχτοί κίνδυνοι}}",
+      "riskScore": "Πιθανότητα {likelihood} × επίπτωση {impact}",
+      "issuesTitle": "Θέματα",
+      "issuesEmpty": "Δεν υπάρχουν ανοιχτά θέματα.",
+      "issuesOpenSummary": "{count, plural, one {# ανοιχτό θέμα} other {# ανοιχτά θέματα}}",
+      "issuesNextDue": "Επόμενη προθεσμία {date}",
+      "audit": {
+        "created": "δημιούργησε το έργο",
+        "phaseChanged": "άλλαξε τη φάση του έργου",
+        "milestoneUpdated": "ενημέρωσε ένα ορόσημο",
+        "riskAdded": "κατέγραψε έναν κίνδυνο",
+        "issueRaised": "ανέφερε ένα θέμα",
+        "budgetApproved": "ενέκρινε τον προϋπολογισμό"
+      }
     }
   },
   "states": {
@@ -265,5 +345,30 @@
       "noPermission": "Χωρίς πρόσβαση",
       "offline": "Εκτός σύνδεσης"
     }
+  },
+  "phases": {
+    "IDEA": "Ιδέα",
+    "PREPARATION": "Προετοιμασία",
+    "APPROVED": "Εγκεκριμένο",
+    "TENDERED": "Σε διαγωνισμό",
+    "AWARDED": "Κατακυρωμένο",
+    "IN_PROGRESS": "Σε εξέλιξη",
+    "PRACTICAL_COMPLETION": "Προσωρινή παραλαβή",
+    "DEFECTS_LIABILITY": "Περίοδος εγγύησης",
+    "CLOSED": "Ολοκληρωμένο"
+  },
+  "categories": {
+    "NEW_BUILD": "Νέα κατασκευή",
+    "RENOVATION": "Ανακαίνιση",
+    "SMALL_WORKS": "Μικρές εργασίες",
+    "EQUIPMENT": "Εξοπλισμός",
+    "MAINTENANCE_CAPITAL": "Κεφαλαιουχική συντήρηση",
+    "IT": "Πληροφορική"
+  },
+  "fundingSources": {
+    "STATE_BUDGET": "Κρατικός προϋπολογισμός",
+    "EU": "Ευρωπαϊκή Ένωση",
+    "DONATION": "Δωρεά",
+    "OWN": "Ίδιοι πόροι"
   }
 }
