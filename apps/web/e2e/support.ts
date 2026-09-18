@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 // The sandbox's preinstalled Chromium (/opt/pw-browsers, per the build
 // instructions) is an older revision than the `@playwright/test` version in
@@ -23,4 +23,20 @@ export async function signIn(page: Page, email: string, next = "/"): Promise<voi
   await page.getByRole("button", { name: "Σύνδεση", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"));
   await expect(page.locator("header")).toBeVisible();
+}
+
+/**
+ * A native DOM `.click()`, dispatched through `page.evaluate` instead of
+ * Playwright's CDP-simulated mouse click. Some real clicks hang this
+ * sandbox's Chromium/CDP input pipeline indefinitely — the same class of
+ * issue as the "?" key note on the S25 test in s01.spec.ts — reproduced in
+ * isolation against a `Table` sort header button, unrelated to the app: the
+ * identical click dispatched natively completes immediately and produces the
+ * correct navigation. Use only where a real Playwright `.click()` has been
+ * confirmed to hang; an ordinary `.click()` works everywhere else in this
+ * suite (including the sign-in button above and the S02 row-open link).
+ */
+export async function nativeClick(locator: Locator): Promise<void> {
+  await locator.waitFor({ state: "visible" });
+  await locator.evaluate((element) => (element as HTMLElement).click());
 }

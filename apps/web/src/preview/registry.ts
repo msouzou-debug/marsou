@@ -18,6 +18,8 @@ import table from "@/components/table/Table.preview";
 import timeline from "@/components/timeline/Timeline.preview";
 import wizardShell from "@/components/wizard-shell/WizardShell.preview";
 import s01Portfolio from "@/screens/s01-portfolio/Portfolio.preview";
+import s02Projects from "@/screens/s02-projects/Projects.preview";
+import s03Project from "@/screens/s03-project/ProjectOverview.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
@@ -41,6 +43,8 @@ const entries: PreviewEntry[] = [
   timeline,
   wizardShell,
   s01Portfolio,
+  s02Projects,
+  s03Project,
 ];
 
 export function getPreviewEntries(): PreviewEntry[] {
