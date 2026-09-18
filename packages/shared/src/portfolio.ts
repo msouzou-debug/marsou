@@ -18,11 +18,14 @@ export type PortfolioKpis = z.infer<typeof PortfolioKpis>;
 
 // UI instructions §5 S01: unit table, one row per org unit. Sparkline is a
 // 96×24 SVG in the UI, fed by 12 monthly cumulative points.
+// RULE (CAPEX-01 §7, M1): `spent` is a ledger the system does not know yet —
+// null, never zero, until the SAP ingestion lands (M2, R14). The table shows
+// «—» for it, the same rule `PortfolioKpis.spent` above already follows.
 export const UnitRow = z.object({
   orgUnit: OrgUnit,
   projectCount: z.number().int().nonnegative(),
   approved: z.number(),
-  spent: z.number(),
+  spent: z.number().nullable(),
   sparkline: z.object({
     plan: z.array(z.number()).length(12),
     spend: z.array(z.number()).length(12),

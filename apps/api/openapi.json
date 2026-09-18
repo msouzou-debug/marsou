@@ -5996,7 +5996,10 @@
                             "type": "number"
                           },
                           "spent": {
-                            "type": "number"
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           },
                           "sparkline": {
                             "type": "object",

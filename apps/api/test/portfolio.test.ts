@@ -60,6 +60,10 @@ describe("GET /portfolio", () => {
     expect(view.kpis.committed).toBeNull();
     expect(view.kpis.spent).toBeNull();
     expect(view.kpis.forecast).toBeNull();
+    // Every unit row's own `spent` is null too, not zero — the sparkline's
+    // spend series is a shape (flat, for lack of anything to plot), not a
+    // figure, so it stays zero without breaking this rule.
+    expect(view.units.every((u) => u.spent === null)).toBe(true);
     expect(view.units.every((u) => u.sparkline.spend.every((point) => point === 0))).toBe(true);
     expect(view.units.every((u) => u.sparkline.plan.length === 12)).toBe(true);
   });

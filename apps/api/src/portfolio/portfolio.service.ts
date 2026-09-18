@@ -100,15 +100,18 @@ export class PortfolioService {
       orgUnit: unit,
       projectCount: mine.length,
       approved,
-      // The four-ledger rule wants null here too, but UnitRow.spent is typed
-      // as a number in packages/shared and widening it was not in scope for
-      // M1. Zero until the SAP ingestion lands (M2, R14) — flagged.
-      spent: 0,
+      // RULE (CAPEX-01 §7): null, never zero, until the SAP ingestion lands
+      // (M2, R14) — `UnitRow.spent` is nullable in packages/shared for
+      // exactly this.
+      spent: null,
       sparkline: {
         // Plan is the approved budget spread evenly over the twelve months,
         // cumulative: a straight ramp is an honest picture of "we have a
-        // budget and no profile yet". Spend is flat zero for the same reason
-        // the spent ledger is unknown. Both become real in M2.
+        // budget and no profile yet". Spend stays flat zero — this is a
+        // shape (there is nothing to plot yet), not a figure, so it does not
+        // carry the same "null, never zero" rule the ledgers above do; a
+        // sparkline has no way to draw "unknown" as a line. Both become real
+        // in M2.
         plan: linearRamp(approved),
         spend: Array.from({ length: 12 }, () => 0),
       },
