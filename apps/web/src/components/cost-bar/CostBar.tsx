@@ -9,14 +9,20 @@
  * Serves R13 (four-ledger cost model) and R03 (the same figures roll up to the
  * portfolio dashboard).
  *
- * | Prop        | Type            | Default     | Meaning |
- * |-------------|-----------------|-------------|---------|
- * | `approved`  | `number`        | —           | Εγκεκριμένος προϋπολογισμός, EUR. Sets the track and the marker line. |
- * | `committed` | `number`        | —           | Δεσμεύσεις, EUR. |
- * | `spent`     | `number`        | —           | Δαπάνες, EUR. |
- * | `forecast`  | `number`        | —           | Πρόβλεψη τελικού κόστους, EUR. Drawn as a hollow marker. |
- * | `state`     | `CostBarState`  | `"default"` | `default` \| `loading` \| `empty` \| `error` (UI §6). |
- * | `onRetry`   | `() => void`    | —           | Retry button in the `error` state; hidden without it. |
+ * | Prop        | Type              | Default     | Meaning |
+ * |-------------|-------------------|-------------|---------|
+ * | `approved`  | `number`          | —           | Εγκεκριμένος προϋπολογισμός, EUR. Sets the track and the marker line. |
+ * | `committed` | `number \| null`  | —           | Δεσμεύσεις, EUR. `null` before the SAP import (M2, contract §`ProjectLedgers`). |
+ * | `spent`     | `number \| null`  | —           | Δαπάνες, EUR. `null` before the SAP import. |
+ * | `forecast`  | `number \| null`  | —           | Πρόβλεψη τελικού κόστους, EUR. Drawn as a hollow marker. `null` before the SAP import. |
+ * | `state`     | `CostBarState`    | `"default"` | `default` \| `loading` \| `empty` \| `error` (UI §6). |
+ * | `onRetry`   | `() => void`      | —           | Retry button in the `error` state; hidden without it. |
+ *
+ * RULE (S03): when `committed`, `spent` and `forecast` are all `null` — a
+ * project with no SAP data yet — the bar draws only the approved track (no
+ * commitment/spend segments, no overflow, no forecast marker, since there is
+ * nothing to compare against the line) and a 14px line explains why, instead
+ * of silently showing zeroes.
  *
  * No permission and offline are not implemented here: the bar holds no controls
  * and no writes, so offline shows the cached figures unchanged and access is
@@ -31,9 +37,9 @@ export type CostBarState = "default" | "loading" | "empty" | "error";
 
 export interface CostBarProps {
   approved: number;
-  committed: number;
-  spent: number;
-  forecast: number;
+  committed: number | null;
+  spent: number | null;
+  forecast: number | null;
   state?: CostBarState;
   onRetry?: () => void;
 }
@@ -106,7 +112,12 @@ export function CostBar({
     );
   }
 
-  const domainMax = Math.max(approved, committed, spent, forecast, 0);
+  // RULE (contract `ProjectLedgers`): a project with no SAP data yet reports
+  // all three ledgers as `null`, never zero. Nothing to compare against the
+  // approved track, so the bar draws the track alone and says why underneath.
+  const pending = committed === null && spent === null && forecast === null;
+
+  const domainMax = Math.max(approved, committed ?? 0, spent ?? 0, forecast ?? 0, 0);
 
   // Empty is "no budget yet": nothing has been approved and nothing booked.
   if (state === "empty" || domainMax <= 0) {
@@ -120,19 +131,20 @@ export function CostBar({
   // RULE: if commitments or spend exceed the approved budget the bar runs past
   // the approved line and the part beyond it is drawn in --k-red, with the
   // overflow amount written to the right of the bar (UI instructions §4).
-  const overrunTo = Math.max(committed, spent);
+  const overrunTo = Math.max(committed ?? 0, spent ?? 0);
   const overflow = Math.max(0, overrunTo - approved);
   const hasOverflow = overflow > 0;
 
   const approvedPct = percent(approved, domainMax);
+  const eurOrDash = (value: number | null) => (value === null ? tRoot("common.notAvailable") : formatEUR(value));
   const summary = t("summary", {
     approved: formatEUR(approved),
-    committed: formatEUR(committed),
-    spent: formatEUR(spent),
-    forecast: formatEUR(forecast),
+    committed: eurOrDash(committed),
+    spent: eurOrDash(spent),
+    forecast: eurOrDash(forecast),
   });
 
-  const legend: Array<{ key: string; label: string; value: number; swatch: CSSProperties }> = [
+  const legend: Array<{ key: string; label: string; value: number | null; swatch: CSSProperties }> = [
     {
       key: "approved",
       label: t("approved"),
@@ -175,21 +187,28 @@ export function CostBar({
               }}
             />
           )}
-          {/* Commitments, then spend, drawn inside the approved track. */}
-          <span
-            className="absolute inset-y-0 left-0 rounded-k-chip"
-            style={{
-              width: `${percent(Math.min(committed, approved), domainMax)}%`,
-              background: COMMITTED_FILL,
-            }}
-          />
-          <span
-            className="absolute inset-y-0 left-0 rounded-k-chip"
-            style={{
-              width: `${percent(Math.min(spent, approved), domainMax)}%`,
-              background: SPENT_FILL,
-            }}
-          />
+          {/* Commitments, then spend, drawn inside the approved track. Skipped
+              entirely while pending: there is nothing booked to draw yet, and
+              a zero-width segment would read as "zero spend" rather than
+              "unknown" (contract `ProjectLedgers`: null, never zero). */}
+          {!pending && (
+            <>
+              <span
+                className="absolute inset-y-0 left-0 rounded-k-chip"
+                style={{
+                  width: `${percent(Math.min(committed ?? 0, approved), domainMax)}%`,
+                  background: COMMITTED_FILL,
+                }}
+              />
+              <span
+                className="absolute inset-y-0 left-0 rounded-k-chip"
+                style={{
+                  width: `${percent(Math.min(spent ?? 0, approved), domainMax)}%`,
+                  background: SPENT_FILL,
+                }}
+              />
+            </>
+          )}
           {/* The approved budget line. */}
           <span
             title={t("approvedLine")}
@@ -202,20 +221,23 @@ export function CostBar({
               background: "var(--k-ink)",
             }}
           />
-          {/* Forecast: hollow marker on the same axis. */}
-          <svg
-            aria-hidden="true"
-            width={FORECAST_MARKER_PX}
-            height={FORECAST_MARKER_PX}
-            viewBox="0 0 12 12"
-            className="absolute"
-            style={{
-              left: `calc(${percent(forecast, domainMax)}% - ${FORECAST_MARKER_PX / 2}px)`,
-              top: `calc(50% - ${FORECAST_MARKER_PX / 2}px)`,
-            }}
-          >
-            <circle cx="6" cy="6" r="5" fill="var(--k-white)" stroke="var(--k-ink)" strokeWidth="2" />
-          </svg>
+          {/* Forecast: hollow marker on the same axis. Skipped while pending —
+              there is no forecast yet either. */}
+          {forecast !== null && (
+            <svg
+              aria-hidden="true"
+              width={FORECAST_MARKER_PX}
+              height={FORECAST_MARKER_PX}
+              viewBox="0 0 12 12"
+              className="absolute"
+              style={{
+                left: `calc(${percent(forecast, domainMax)}% - ${FORECAST_MARKER_PX / 2}px)`,
+                top: `calc(50% - ${FORECAST_MARKER_PX / 2}px)`,
+              }}
+            >
+              <circle cx="6" cy="6" r="5" fill="var(--k-white)" stroke="var(--k-ink)" strokeWidth="2" />
+            </svg>
+          )}
         </div>
 
         {hasOverflow && (
@@ -225,6 +247,11 @@ export function CostBar({
           </p>
         )}
       </div>
+
+      {/* RULE (S03): while committed/spent/forecast are all null, a 14px line
+          explains why the bar shows only the approved track — never a blank
+          space the reader has to guess about. */}
+      {pending && <p className="mt-s-2 text-fs-14 text-k-text">{t("pendingSap")}</p>}
 
       <ul className="mt-s-4 grid grid-cols-2 gap-s-3 tablet:grid-cols-4">
         {legend.map((item) => (
@@ -237,7 +264,7 @@ export function CostBar({
             <span>
               <span className="block text-fs-14 text-k-text">{item.label}</span>
               <span className="block font-k-mono text-fs-14 tabular-nums text-k-ink">
-                {formatEUR(item.value)}
+                {eurOrDash(item.value)}
               </span>
             </span>
           </li>

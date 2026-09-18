@@ -74,4 +74,18 @@ describe("CostBar", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Δοκιμάστε ξανά" })).toBeInTheDocument();
   });
+
+  // RULE (contract `ProjectLedgers`, S03): before the SAP import, committed,
+  // spent and forecast are null, never zero.
+  it("shows only the approved track and a note, never zeroes, while committed/spent/forecast are null", () => {
+    renderWithIntl(<CostBar approved={2_400_000} committed={null} spent={null} forecast={null} />);
+
+    expect(
+      screen.getByText("Δεσμεύσεις και δαπάνες θα εμφανιστούν μετά την εισαγωγή SAP."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(eur(2_400_000))).toBeInTheDocument();
+    // "—", not "€ 0" — never zero (UI instructions §6 nullable ledgers).
+    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.queryByTestId("cost-bar-overflow")).not.toBeInTheDocument();
+  });
 });
