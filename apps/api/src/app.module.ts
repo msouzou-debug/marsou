@@ -13,6 +13,8 @@ import { CONFIG, type AppConfig } from "./config";
 import { CoreModule } from "./core.module";
 import { HealthModule } from "./health/health.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
+import { PortfolioModule } from "./portfolio/portfolio.module";
+import { ProjectsModule } from "./projects/projects.module";
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { OrgUnitsModule } from "./org-units/org-units.module";
     AuthModule,
     OrgUnitsModule,
     AreasModule,
+    ProjectsModule,
+    PortfolioModule,
     HealthModule,
     AuditModule,
   ],

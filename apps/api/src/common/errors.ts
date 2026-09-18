@@ -30,6 +30,15 @@ export class AppError extends HttpException {
     return new AppError(key, HttpStatus.BAD_REQUEST, params);
   }
 
+  /**
+   * The body is well formed but the rule says no — a phase that is not the
+   * next one, a gate still open, a baseline somebody tried to move (R04, R06).
+   * 400 would say "you typed it wrong", which is not what happened.
+   */
+  static unprocessable(key: string, params: Record<string, string> = {}): AppError {
+    return new AppError(key, HttpStatus.UNPROCESSABLE_ENTITY, params);
+  }
+
   static internal(key = "errors.unexpected"): AppError {
     return new AppError(key, HttpStatus.INTERNAL_SERVER_ERROR);
   }

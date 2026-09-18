@@ -95,7 +95,10 @@ export function Portfolio({ data, state, onRetry, onAddProject, noPermission }: 
     ? t("screens.s01.comparator", { value: formatPct(data.kpis.yearElapsedPct) })
     : undefined;
 
-  const kpiTiles: Array<{ id: string; label: string; value: number | undefined }> = [
+  // A ledger the system does not know yet comes back null, never zero
+  // (CAPEX-01 §7): committed, spent and forecast stay null until the SAP
+  // ingestion lands in M2, so the tile has no figure to show for them.
+  const kpiTiles: Array<{ id: string; label: string; value: number | null | undefined }> = [
     { id: "approved", label: t("components.costBar.approved"), value: data?.kpis.approved },
     { id: "committed", label: t("components.costBar.committed"), value: data?.kpis.committed },
     { id: "spent", label: t("components.costBar.spent"), value: data?.kpis.spent },
@@ -119,7 +122,7 @@ export function Portfolio({ data, state, onRetry, onAddProject, noPermission }: 
           <KpiTile
             key={tile.id}
             label={tile.label}
-            value={loading || tile.value === undefined ? "" : formatEUR(tile.value)}
+            value={loading || tile.value == null ? "" : formatEUR(tile.value)}
             comparator={loading ? undefined : comparator}
             state={loading ? "loading" : "default"}
           />
