@@ -1,7 +1,7 @@
 /**
  * Seed the eleven org units and their aliases, one building at Nicosia
- * General with two floors and six areas, five development users and the
- * group→role mappings.
+ * General with two floors and six areas, six development users, the
+ * group→role mappings and the 42-project M1 register (see ./seed-projects).
  *
  *   pnpm --filter @ecapital/api seed
  *
@@ -16,6 +16,7 @@ import { Client } from "pg";
 import { loadConfig } from "../config";
 import * as schema from "./schema";
 import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-data";
+import { seedProjectRegister } from "./seed-projects";
 
 export interface SeedSummary {
   orgUnits: number;
@@ -25,6 +26,10 @@ export interface SeedSummary {
   areas: number;
   users: number;
   roleMappings: number;
+  projects: number;
+  milestones: number;
+  risks: number;
+  issues: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -177,6 +182,10 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
         .onConflictDoNothing();
     }
 
+    // M1: the project register, after the users, because a project points at
+    // a sponsor and a manager.
+    const register = await seedProjectRegister(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -185,6 +194,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       areas,
       users: seedUsers.length,
       roleMappings: seedRoleMappings.length,
+      ...register,
     };
   } finally {
     await client.end();
@@ -197,7 +207,8 @@ if (require.main === module) {
     .then((s) => {
       console.log(
         `seed: ${s.orgUnits} org units, ${s.aliases} aliases, ${s.buildings} building, ` +
-          `${s.floors} floors, ${s.areas} areas, ${s.users} users, ${s.roleMappings} role mappings`,
+          `${s.floors} floors, ${s.areas} areas, ${s.users} users, ${s.roleMappings} role mappings, ` +
+          `${s.projects} projects, ${s.milestones} milestones, ${s.risks} risks, ${s.issues} issues`,
       );
     })
     .catch((error: unknown) => {
