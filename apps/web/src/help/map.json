@@ -1,3 +1,5 @@
 {
-  "S01": { "route": "/", "section": "S01-portfolio", "persona": ["estates_head", "executive_readonly", "finance"] }
+  "S00": { "route": "/sign-in", "section": "S00-sign-in", "persona": ["estates_head", "project_engineer", "technician", "finance", "clinical_approver", "executive_readonly", "admin", "auditor_readonly"] },
+  "S01": { "route": "/", "section": "S01-portfolio", "persona": ["estates_head", "executive_readonly", "finance"] },
+  "S16": { "route": "/units/[id]/areas", "section": "S16-areas", "persona": ["estates_head", "project_engineer", "technician"] }
 }

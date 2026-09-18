@@ -31,7 +31,9 @@
     "exportExcel": "Export to Excel",
     "print": "Print",
     "scanQr": "Scan QR",
-    "continue": "Continue"
+    "continue": "Continue",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
   },
   "components": {
     "asset-breadcrumb": {
@@ -149,6 +151,19 @@
     "admin": "Administration"
   },
   "screens": {
+    "s00": {
+      "emailLabel": "Email address",
+      "emailPlaceholder": "name@okypy.org.cy",
+      "signingIn": "Signing in…",
+      "devTitle": "Development accounts",
+      "devHint": "Development only. Pick an account to fill the field.",
+      "errors": {
+        "emailNeeded": "Enter your address and try again.",
+        "devAuthOff": "Development sign-in is off. Start the API with DEV_AUTH=1, or sign in with your SHSO account.",
+        "unknownAccount": "No account has that address. Check it and try again.",
+        "unreachable": "The server did not answer. Try again in a moment."
+      }
+    },
     "s01": {
       "title": "Project portfolio",
       "asOf": "Data as of {date}",
@@ -168,6 +183,30 @@
         "groupByDirectorate": "Group by directorate",
         "subtotal": "Subtotal",
         "sparklineAria": "Spend {spend} against plan {plan}"
+      }
+    },
+    "s16": {
+      "empty": "No areas have been recorded for this unit.",
+      "askRole": "Ask the unit's head of estates for access.",
+      "storeys": "{count, plural, one {# storey} other {# storeys}}",
+      "yearBuilt": "built {year}",
+      "beds": "{count, plural, one {# bed} other {# beds}}",
+      "riskGroupValue": "risk group: {group}",
+      "areaType": {
+        "THEATRE": "Theatre",
+        "ICU": "Intensive care unit",
+        "WARD": "Ward",
+        "OPD": "Outpatients",
+        "LAB": "Laboratory",
+        "PLANT": "Plant room",
+        "OFFICE": "Office",
+        "OTHER": "Other"
+      },
+      "riskGroup": {
+        "LOW": "low",
+        "MEDIUM": "medium",
+        "HIGH": "high",
+        "HIGHEST": "highest"
       }
     }
   },
@@ -213,7 +252,8 @@
     "moreSheetLabel": "Other sections",
     "skipToContent": "Skip to content",
     "approvalsWaiting": "{count} approvals waiting",
-    "logoHome": "eCapital home"
+    "logoHome": "eCapital home",
+    "account": "Account: {name}"
   },
   "preview": {
     "title": "Component preview",

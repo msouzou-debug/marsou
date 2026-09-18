@@ -43,6 +43,13 @@ function unitName(unit: UnitRow["orgUnit"], locale: Locale): string {
   return locale === "en" ? unit.nameEn : unit.nameEl;
 }
 
+// TODO(S02): the project list is where a unit row belongs. It does not exist
+// yet, so a row opens the unit's area tree — the one screen M0 has that is
+// scoped to a single unit.
+function unitHref(unitId: string): string {
+  return `/units/${encodeURIComponent(unitId)}/areas`;
+}
+
 export function UnitTable({ units, state = "default", onRetry }: UnitTableProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -53,7 +60,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
   // regardless of the order the data arrives in.
   const sortedUnits = useMemo(() => [...units].sort((a, b) => b.approved - a.approved), [units]);
 
-  const openUnit = (unitId: string) => router.push(`/projects?unit=${encodeURIComponent(unitId)}`);
+  const openUnit = (unitId: string) => router.push(unitHref(unitId));
 
   // TODO(M6, R39): live-formula Excel export.
   const handleExport = () => undefined;
@@ -66,7 +73,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         accessor: (row) => unitName(row.orgUnit, locale),
         cell: (row) => (
           <Link
-            href={`/projects?unit=${encodeURIComponent(row.orgUnit.id)}`}
+            href={unitHref(row.orgUnit.id)}
             className="text-k-blue underline-offset-2 hover:underline"
           >
             {unitName(row.orgUnit, locale)}
@@ -287,7 +294,7 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
                     >
                       <td className="border-b border-k-grey px-s-3">
                         <Link
-                          href={`/projects?unit=${encodeURIComponent(row.orgUnit.id)}`}
+                          href={unitHref(row.orgUnit.id)}
                           onClick={(event) => event.stopPropagation()}
                           className="text-k-blue underline-offset-2 hover:underline"
                         >

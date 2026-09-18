@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import type { OrgUnit } from "@ecapital/shared";
 import { renderWithIntl } from "@/test/render";
-import { FALLBACK_ORG_UNITS } from "./fallback-org-units";
+import { orgUnits } from "@/mocks/org-units";
 import { NAV_ITEMS } from "./nav-items";
 import { NavRail } from "./NavRail";
 import { UnitSwitcher } from "./UnitSwitcher";
@@ -12,16 +13,22 @@ import { UnitSwitcher } from "./UnitSwitcher";
 // cannot render async function components directly, only Next's real RSC
 // pipeline can. That full composition is exercised by Playwright instead;
 // here we test the islands that carry the business rules directly.
+const push = vi.fn();
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), push }),
 }));
+
+// The switcher now renders whatever `GET /org-units` gave the server; there is
+// no fallback list any more (see AppShell's header comment). These fixtures
+// stand in for that response.
+const visible: OrgUnit[] = orgUnits;
 
 describe("UnitSwitcher", () => {
   // RULE: the org unit switcher is labelled «Μονάδα», never «Νοσοκομείο»
   // (UI instructions §2; CAPEX-02 §7) — hospital names are values only.
   it("is labelled «Μονάδα» in Greek, never «Νοσοκομείο»", () => {
-    renderWithIntl(<UnitSwitcher orgUnits={FALLBACK_ORG_UNITS} />, { locale: "el" });
+    renderWithIntl(<UnitSwitcher orgUnits={visible} />, { locale: "el" });
     const select = document.querySelector("select");
     expect(select).toBeTruthy();
     const label = select?.getAttribute("aria-label");
@@ -29,10 +36,20 @@ describe("UnitSwitcher", () => {
     expect(label).not.toContain("Νοσοκομείο");
   });
 
-  it("lists every seeded org unit as an option", () => {
-    renderWithIntl(<UnitSwitcher orgUnits={FALLBACK_ORG_UNITS} />, { locale: "el" });
-    expect(document.querySelectorAll("option")).toHaveLength(FALLBACK_ORG_UNITS.length);
-    expect(FALLBACK_ORG_UNITS.length).toBe(11);
+  // RULE (R01, ADR-0010): the options are exactly what the API returned for
+  // this caller. A caller with one unit gets one option — not eleven with ten
+  // of them disabled, and not a seeded fallback.
+  it("lists only the units it was given", () => {
+    const own = visible.slice(0, 1);
+    renderWithIntl(<UnitSwitcher orgUnits={own} />, { locale: "el" });
+    const options = document.querySelectorAll("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]?.textContent).toBe(own[0]!.nameEl);
+  });
+
+  it("disables itself when the caller has no visible units", () => {
+    renderWithIntl(<UnitSwitcher orgUnits={[]} />, { locale: "el" });
+    expect(document.querySelector("select")?.disabled).toBe(true);
   });
 });
 
