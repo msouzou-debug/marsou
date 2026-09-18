@@ -1,10 +1,9 @@
 import { z } from "zod";
 
 // CAPEX-01 §4: the first organisational level is the org unit, never
-// "hospital". CAPEX-01 §4 says nine hospitals plus three services (twelve);
-// CAPEX-03 §3 lists eleven distinct source values — eight hospitals and
-// three services. Seeded from CAPEX-03 §3, so eleven units, not twelve
-// (see apps/web/src/mocks/org-units.ts for the reconciliation note).
+// "hospital". Eight hospitals plus three services, eleven units in all
+// (CAPEX-03 §3; CAPEX-01's "nine hospitals" counted Troodos and Kyperounta
+// twice — they are one hospital, confirmed by the owner on 18/09/2026).
 export const OrgUnitType = z.enum(["HOSPITAL", "SERVICE"]);
 export type OrgUnitType = z.infer<typeof OrgUnitType>;
 

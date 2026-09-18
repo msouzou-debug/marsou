@@ -75,7 +75,9 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-TRD-01",
     timezone: "Europe/Nicosia",
-    aliases: ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ"],
+    // Troodos and Kyperounta are one hospital (owner decision, 18/09/2026):
+    // both spellings resolve here so a future sheet revision cannot split them.
+    aliases: ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"],
   },
   {
     id: "namiii",

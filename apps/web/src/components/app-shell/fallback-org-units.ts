@@ -6,7 +6,6 @@ import { orgUnits } from "@/mocks/org-units";
 // instructions §2; CAPEX-02 §7). Hospital names appear only as values.
 //
 // The shell falls back to the same eleven units the data layer seeds from
-// CAPEX-03 §3 (ADR-0005). CAPEX-01 counts nine hospitals; the migration
-// source lists eight plus Troodos. Nothing is invented here to close that
-// gap — the owner decides which hospital, if any, is missing.
+// CAPEX-03 §3 (ADR-0005): eight hospitals plus three services. CAPEX-01's
+// "nine hospitals" double-counted Troodos and Kyperounta, which are one.
 export const FALLBACK_ORG_UNITS: OrgUnit[] = orgUnits;
