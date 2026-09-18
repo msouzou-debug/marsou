@@ -1,25 +1,80 @@
 import type { ZodType } from "zod";
 
-// ADR-0005: the frontend only ever talks to /api/..., through this
-// fetcher. When NestJS lands, NEXT_PUBLIC_API_BASE moves and this file is
-// the only thing that changes (R15: swappable cost/data source).
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+// Two fetchers, because M0 talks to two things at once.
+//
+// `apiFetch` is the real NestJS API (apps/api): absolute base URL, a bearer
+// token, and the error body shape from the API's exception filter. Everything
+// the session and the org-unit screens need comes through here.
+//
+// `mockFetch` is the route handlers still living in `src/app/api` (ADR-0005),
+// which serve the S01 portfolio fixtures until M1 moves them onto the API.
+// It is relative on purpose: those handlers are part of this Next app.
+//
+// R15: the data source is swapped by changing `NEXT_PUBLIC_API_BASE`, not by
+// changing a caller. `apps/web/.env.example` documents the variable.
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3001";
 
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** The API's i18n key (`errors.*`) when it sent one. */
+    readonly key?: string,
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-export async function apiFetch<T>(path: string, schema: ZodType<T>): Promise<T> {
-  const res = await fetch(`${API_BASE}/api${path}`);
-  if (!res.ok) {
-    throw new ApiError(`Request to ${path} failed with ${res.status}`, res.status);
+export interface ApiFetchOptions {
+  /** Bearer token. Server callers get it from `serverApi()`; nothing in the
+   *  browser ever holds one (ADR-0013). */
+  token?: string;
+  method?: "GET" | "POST";
+  body?: unknown;
+  signal?: AbortSignal;
+}
+
+async function errorFrom(res: Response, path: string): Promise<ApiError> {
+  let key: string | undefined;
+  try {
+    const body: unknown = await res.json();
+    if (body && typeof body === "object" && typeof (body as { key?: unknown }).key === "string") {
+      key = (body as { key: string }).key;
+    }
+  } catch {
+    // A non-JSON body (a proxy page, an empty 502) is still an error; the
+    // status is what callers branch on.
   }
-  const json = await res.json();
-  return schema.parse(json);
+  return new ApiError(`Request to ${path} failed with ${res.status}`, res.status, key);
+}
+
+/** The NestJS API. `path` starts with a slash and carries no `/api` prefix. */
+export async function apiFetch<T>(
+  path: string,
+  schema: ZodType<T>,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (options.token) headers.authorization = `Bearer ${options.token}`;
+  if (options.body !== undefined) headers["content-type"] = "application/json";
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: options.method ?? "GET",
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: options.signal,
+    // Never cached: every response is scoped to the caller's units by the
+    // row policies (ADR-0010), so a shared cache entry would be a leak.
+    cache: "no-store",
+  });
+  if (!res.ok) throw await errorFrom(res, path);
+  return schema.parse(await res.json());
+}
+
+/** The mock route handlers in `src/app/api` (ADR-0005). Deleted in M1. */
+export async function mockFetch<T>(path: string, schema: ZodType<T>): Promise<T> {
+  const res = await fetch(`/api${path}`);
+  if (!res.ok) throw await errorFrom(res, path);
+  return schema.parse(await res.json());
 }
