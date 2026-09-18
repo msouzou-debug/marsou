@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatDate, formatDateTime, formatEUR, formatInt, formatPct } from "./format";
 
-const T = " ";
+const T = " "; // narrow no-break space
 
 describe("formatEUR", () => {
   it("groups thousands with dots and drops decimals at or above 1.000", () => {

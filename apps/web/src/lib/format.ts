@@ -1,7 +1,7 @@
 // Number, date and duration formatting per UI instructions §1 "Money".
 // Both languages use the same numeric conventions (Greek separators, DD/MM/YYYY).
 
-const THIN = " "; // thin space
+const THIN = " "; // narrow no-break space: reads as a thin space, never breaks a line
 const NBSP = " ";
 
 function groupThousands(int: string): string {

@@ -34,7 +34,7 @@ export function UnitSwitcher({ orgUnits, defaultUnitId, onChange }: UnitSwitcher
         setValue(event.target.value);
         onChange?.(event.target.value);
       }}
-      className="max-w-[180px] rounded-k border border-k-grey bg-k-white px-s-2 py-s-1 text-fs-14 text-k-text tablet:max-w-[220px]"
+      className="max-w-[240px] rounded-k border border-k-grey bg-k-white px-s-2 py-s-1 text-fs-14 text-k-text tablet:max-w-[320px]"
     >
       {orgUnits.map((unit) => (
         <option key={unit.id} value={unit.id}>

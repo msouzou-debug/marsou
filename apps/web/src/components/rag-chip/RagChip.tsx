@@ -41,7 +41,7 @@ export function RagChip(props: RagChipProps) {
 
   return (
     <span
-      className={`inline-flex items-center gap-s-1 rounded-k-chip px-s-2 py-s-1 text-fs-14 text-k-ink ${BG[value]}`}
+      className={`inline-flex items-center gap-s-1 whitespace-nowrap rounded-k-chip py-s-1 text-fs-14 text-k-ink ${props.variant === "count" ? "px-s-1" : "px-s-2"} ${BG[value]}`}
     >
       {/* RULE (UI instructions §4): RAG is never colour alone — the icon shape already
           differs per status (check / triangle / x) so the chip survives greyscale

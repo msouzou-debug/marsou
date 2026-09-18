@@ -410,7 +410,7 @@ export function Table<T>({
                         // RULE: numeric columns are mono, tabular and right-aligned
                         // in the header as well as the body, so figures line up
                         // under their label (UI instructions §1 and §4).
-                        className={`border-b border-k-grey px-s-3 font-bold text-k-blue-deep ${
+                        className={`border-b border-k-grey px-s-2 font-bold text-k-blue-deep ${
                           definition?.numeric ? "num" : "text-left"
                         }`}
                       >
@@ -457,7 +457,7 @@ export function Table<T>({
                     style={{ height: rowHeight, backgroundColor: index % 2 === 1 ? ZEBRA : undefined }}
                   >
                     {Array.from({ length: visibleColumnCount }, (_, cellIndex) => (
-                      <td key={cellIndex} className="px-s-3">
+                      <td key={cellIndex} className="px-s-2">
                         <span
                           aria-hidden="true"
                           className="block h-s-3 rounded-k-chip bg-k-grey"
@@ -500,7 +500,7 @@ export function Table<T>({
                       return (
                         <td
                           key={cell.id}
-                          className={`border-b border-k-grey px-s-3 ${definition?.numeric ? "num" : ""}`}
+                          className={`border-b border-k-grey px-s-2 ${definition?.numeric ? "num whitespace-nowrap" : ""}`}
                           onDoubleClick={() =>
                             startEdit(row.id, cell.column.id, definition?.accessor(row.original))
                           }

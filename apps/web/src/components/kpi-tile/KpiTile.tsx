@@ -37,7 +37,7 @@ export function KpiTile({ label, value, comparator, trend, state = "default", on
   const TrendIcon = trend ? TREND_ICON[trend] : undefined;
 
   return (
-    <div className="bg-k-white rounded-k shadow-k p-s-6" data-state={state}>
+    <div className="bg-k-white rounded-k shadow-k p-s-4 tablet:p-s-5" style={{ containerType: "inline-size" }} data-state={state}>
       <p className="eyebrow text-k-text">{label}</p>
 
       {state === "loading" && (
@@ -61,7 +61,15 @@ export function KpiTile({ label, value, comparator, trend, state = "default", on
 
       {state === "default" && (
         <>
-          <p className="mt-s-1 text-fs-32 font-k-mono text-k-ink leading-[1.2]">{value}</p>
+          {/* RULE (UI instructions §1, §3): figures never wrap or truncate. 32px is the
+              target; on a narrow tile the size follows the tile width (container
+              query) down to 24px so «€ 221.590.000» stays on one line. */}
+          <p
+            className="mt-s-1 whitespace-nowrap font-k-mono text-k-ink leading-[1.2]"
+            style={{ fontSize: "clamp(var(--fs-24), 12cqw, var(--fs-32))" }}
+          >
+            {value}
+          </p>
           {comparator && (
             // RULE (UI instructions §1): --k-text-muted is only used at 14px+ on white — the
             // comparator line qualifies (14px, on the tile's white background).
