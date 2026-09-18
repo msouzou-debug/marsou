@@ -12,3 +12,6 @@ coverage/
 **/playwright-report/
 .DS_Store
 .claude/worktrees/
+
+# throwaway Postgres cluster used by the API tests
+**/.tmp/

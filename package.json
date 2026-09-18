@@ -8,7 +8,19 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "check:i18n": "node scripts/check-i18n-parity.mjs",
-    "check:help": "node scripts/check-help-mapping.mjs"
+    "check:i18n": "node scripts/check-i18n-parity.mjs apps/web/src/i18n && node scripts/check-api-i18n-parity.mjs",
+    "check:help": "node scripts/check-help-mapping.mjs",
+    "api:dev": "pnpm --filter @ecapital/api dev",
+    "api:migrate": "pnpm --filter @ecapital/api migrate",
+    "api:seed": "pnpm --filter @ecapital/api seed",
+    "api:openapi": "pnpm --filter @ecapital/api openapi"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild",
+      "unrs-resolver",
+      "@parcel/watcher"
+    ]
   }
 }

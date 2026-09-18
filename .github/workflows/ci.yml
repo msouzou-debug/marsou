@@ -15,6 +15,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      # The API tests bring up their own throwaway PostgreSQL 16 cluster
+      # (ADR-0012), so the runner needs the server binaries but no service
+      # container and no daemon. Ubuntu's own postgresql-16 lands in
+      # /usr/lib/postgresql/16/bin, which is where scripts/test-db.sh looks.
+      - name: Install PostgreSQL 16
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-client-16
+          /usr/lib/postgresql/16/bin/initdb --version
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:i18n
       - run: pnpm check:help

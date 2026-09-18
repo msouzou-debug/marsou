@@ -1,0 +1,17 @@
+{
+  "errors": {
+    "notSignedIn": "You are not signed in. Sign in again and repeat what you were doing.",
+    "notAllowed": "You do not have access to this. Ask the system administrator for access.",
+    "readOnlyAccount": "Your account reads records but does not change them. Ask a colleague with write access to make the entry.",
+    "routeNotFound": "That page does not exist. Check the link or go back to the home page.",
+    "unitNotFound": "The unit was not found, or you have no access to it. Pick one of your own units, or ask the system administrator for access.",
+    "floorNotFound": "There is no such floor in this unit. Pick a floor from the unit's area tree.",
+    "userNotFound": "No user has the address {email}. Check the address, or load the sample data again.",
+    "badRequest": "The request is not valid. Check what you sent and try again.",
+    "emailNeeded": "An email address is needed. Fill it in and try again.",
+    "areaNotValid": "The area is missing something. Fill in the code, the name, the type and the risk group, then try again.",
+    "areaCodeTaken": "Code {code} is already in use on this floor. Give the area a different code.",
+    "auditQueryNotValid": "The search terms are not usable. Check the record type and the record id, then try again.",
+    "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening."
+  }
+}

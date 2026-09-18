@@ -1,0 +1,1277 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's claims",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sub": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      }
+                    },
+                    "orgUnitIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "sub",
+                    "name",
+                    "email",
+                    "roles",
+                    "orgUnitIds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "The signed-in user, their roles and their org units",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/dev-token": {
+      "post": {
+        "operationId": "AuthController_devToken",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A token valid for eight hours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "claims": {
+                      "type": "object",
+                      "properties": {
+                        "sub": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "estates_head",
+                              "project_engineer",
+                              "technician",
+                              "finance",
+                              "clinical_approver",
+                              "executive_readonly",
+                              "auditor_readonly"
+                            ]
+                          }
+                        },
+                        "orgUnitIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "sub",
+                        "name",
+                        "email",
+                        "roles",
+                        "orgUnitIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "claims"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "DEV_AUTH is off, or no seeded user has that address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Development only: a signed token for a seeded user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/org-units": {
+      "get": {
+        "operationId": "OrgUnitsController_list",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eleven units for a central user, fewer for everyone else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      },
+                      "nameEl": {
+                        "type": "string"
+                      },
+                      "nameEn": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "HOSPITAL",
+                          "SERVICE"
+                        ]
+                      },
+                      "directorate": {
+                        "type": "string",
+                        "enum": [
+                          "LEMESOU_PAFOU",
+                          "LEFKOSIAS",
+                          "LARNAKAS_AMMOCHOSTOU",
+                          "DYPSY",
+                          "PFY",
+                          "AMBULANCE"
+                        ]
+                      },
+                      "costCentre": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "timezone": {
+                        "type": "string",
+                        "const": "Europe/Nicosia"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "code",
+                      "nameEl",
+                      "nameEn",
+                      "type",
+                      "directorate",
+                      "costCentre",
+                      "timezone"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The org units the caller may see",
+        "tags": [
+          "org-units"
+        ]
+      }
+    },
+    "/org-units/{id}/areas": {
+      "get": {
+        "operationId": "AreasController_tree",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Org unit id, for example nicosia-general"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tree, buildings ordered by code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "buildings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "nameEl": {
+                            "type": "string"
+                          },
+                          "grossAreaM2": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "yearBuilt": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "storeys": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "floors": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "buildingId": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "nameEl": {
+                                  "type": "string"
+                                },
+                                "level": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "areas": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "floorId": {
+                                        "type": "string"
+                                      },
+                                      "code": {
+                                        "type": "string"
+                                      },
+                                      "nameEl": {
+                                        "type": "string"
+                                      },
+                                      "areaType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "THEATRE",
+                                          "ICU",
+                                          "WARD",
+                                          "OPD",
+                                          "LAB",
+                                          "PLANT",
+                                          "OFFICE",
+                                          "OTHER"
+                                        ]
+                                      },
+                                      "patientRiskGroup": {
+                                        "type": "string",
+                                        "enum": [
+                                          "LOW",
+                                          "MEDIUM",
+                                          "HIGH",
+                                          "HIGHEST"
+                                        ]
+                                      },
+                                      "costCentre": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "beds": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "floorId",
+                                      "code",
+                                      "nameEl",
+                                      "areaType",
+                                      "patientRiskGroup",
+                                      "costCentre",
+                                      "beds"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "buildingId",
+                                "code",
+                                "nameEl",
+                                "level",
+                                "areas"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "orgUnitId",
+                          "code",
+                          "nameEl",
+                          "grossAreaM2",
+                          "yearBuilt",
+                          "storeys",
+                          "floors"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "orgUnitId",
+                    "buildings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such unit, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The building, floor and area tree of one org unit",
+        "tags": [
+          "areas"
+        ]
+      },
+      "post": {
+        "operationId": "AreasController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Org unit id"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "floorId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "nameEl": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "areaType": {
+                    "type": "string",
+                    "enum": [
+                      "THEATRE",
+                      "ICU",
+                      "WARD",
+                      "OPD",
+                      "LAB",
+                      "PLANT",
+                      "OFFICE",
+                      "OTHER"
+                    ]
+                  },
+                  "patientRiskGroup": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "HIGHEST"
+                    ]
+                  },
+                  "costCentre": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 32
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "beds": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "floorId",
+                  "code",
+                  "nameEl",
+                  "areaType",
+                  "patientRiskGroup"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The area as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "floorId": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "nameEl": {
+                      "type": "string"
+                    },
+                    "areaType": {
+                      "type": "string",
+                      "enum": [
+                        "THEATRE",
+                        "ICU",
+                        "WARD",
+                        "OPD",
+                        "LAB",
+                        "PLANT",
+                        "OFFICE",
+                        "OTHER"
+                      ]
+                    },
+                    "patientRiskGroup": {
+                      "type": "string",
+                      "enum": [
+                        "LOW",
+                        "MEDIUM",
+                        "HIGH",
+                        "HIGHEST"
+                      ]
+                    },
+                    "costCentre": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "beds": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "floorId",
+                    "code",
+                    "nameEl",
+                    "areaType",
+                    "patientRiskGroup",
+                    "costCentre",
+                    "beds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid area",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a unit the caller may not write to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such floor in this unit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add an area to a floor of this unit",
+        "tags": [
+          "areas"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ]
+                    },
+                    "db": {
+                      "type": "boolean",
+                      "description": "Whether the database answered"
+                    },
+                    "lastMigrationId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "at": {
+                      "type": "string",
+                      "description": "UTC, ISO 8601"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "db",
+                    "lastMigrationId",
+                    "at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database did not answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ]
+                    },
+                    "db": {
+                      "type": "boolean",
+                      "description": "Whether the database answered"
+                    },
+                    "lastMigrationId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "at": {
+                      "type": "string",
+                      "description": "UTC, ISO 8601"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "db",
+                    "lastMigrationId",
+                    "at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Is the database reachable and which migration is applied",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/audit-log": {
+      "get": {
+        "operationId": "AuditController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 100
+            }
+          },
+          {
+            "name": "entity_id",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "entity_type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "area"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matching entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "actorId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "entityType": {
+                        "type": "string"
+                      },
+                      "entityId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "INSERT",
+                          "UPDATE",
+                          "DELETE"
+                        ]
+                      },
+                      "before": {
+                        "anyOf": [
+                          {},
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "after": {
+                        "anyOf": [
+                          {},
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "at": {
+                        "type": "string",
+                        "description": "UTC, ISO 8601"
+                      },
+                      "ip": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "orgUnitId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "actorId",
+                      "entityType",
+                      "entityId",
+                      "action",
+                      "before",
+                      "after",
+                      "at",
+                      "ip",
+                      "orgUnitId"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter is not usable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is neither an auditor nor an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Audit trail, newest first",
+        "tags": [
+          "audit"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "eCapital API",
+    "description": "Capital projects and maintenance for ΟΚΥπΥ. M0: sign in, see your own org units and their area tree, read the audit log. Error messages come back in Greek unless Accept-Language asks for English.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Entra ID access token, or a development token while DEV_AUTH is on."
+      }
+    },
+    "schemas": {}
+  }
+}
