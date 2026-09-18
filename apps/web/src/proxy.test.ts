@@ -23,7 +23,7 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  it.each(["/sign-in", "/preview", "/preview/app-shell", "/api/portfolio"])(
+  it.each(["/sign-in", "/preview", "/preview/app-shell", "/api/proxy/portfolio"])(
     "leaves %s open",
     (path) => {
       expect(proxy(request(path)).headers.get("location")).toBeNull();

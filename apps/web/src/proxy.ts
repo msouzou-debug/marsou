@@ -5,11 +5,14 @@ import { isPublicPath, SESSION_COOKIE } from "@/auth/cookies";
 // `middleware.ts` under its new name, and it runs before any route renders.
 //
 // RULE: everything except `/sign-in`, `/preview` (the dev-only component
-// gallery, ADR-0004) and `/api/*` (the mock route handlers, ADR-0005) needs a
-// session. This file checks that the cookie is *there*, not that it is good:
-// whether the token still verifies is the API's answer to give, and asking it
-// here would put a network call in front of every request, including the ones
-// for CSS. The `(app)` layout does the real check once, with `getSession()`.
+// gallery, ADR-0004) and `/api/*` (the same-origin proxy route, ADR-0005's
+// "status" paragraph) needs a session. `/api/proxy/*` checks for the cookie
+// itself, with `getSession()`, and answers 401 without it — this file does
+// not need to gate it too. This file checks that the cookie is *there*, not
+// that it is good: whether the token still verifies is the API's answer to
+// give, and asking it here would put a network call in front of every
+// request, including the ones for CSS. The `(app)` layout does the real
+// check once, with `getSession()`.
 //
 // RULE: never a redirect loop (UI instructions §6). Two cases, one hop each:
 //   - no cookie        -> /sign-in?next=<path>, and /sign-in is outside the gate.

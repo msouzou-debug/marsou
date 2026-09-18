@@ -2,13 +2,13 @@
 //
 // The single place that turns the browser's `URLSearchParams` into a full
 // `ProjectListQuery` and back. Both `ProjectsScreen` (reading the current
-// URL) and the mock `GET /api/projects` handler (`src/app/api/projects/route.ts`)
+// URL) and the real API's `GET /projects` (`apps/api/src/projects/project-query.ts`)
 // parse query strings the same way — repeated params for the array filters,
 // case- and accent-insensitive `q` — so this module intentionally mirrors
-// that handler's `parseQuery` rather than reusing it directly (one is a
-// server module reading `NextRequest`, the other a plain client helper
-// reading the browser's `URLSearchParams`; the parsing rule is the shared
-// contract, `ProjectListQuery` itself, not the code).
+// that handler's parsing rather than reusing it directly (one is a NestJS
+// controller reading an Express query object, the other a plain client
+// helper reading the browser's `URLSearchParams`; the parsing rule is the
+// shared contract, `ProjectListQuery` itself, not the code).
 
 import { ProjectListQuery } from "@ecapital/shared";
 
@@ -45,7 +45,7 @@ export function projectsQueryToSearchParams(query: ProjectListQuery): URLSearchP
   return params;
 }
 
-/** The mock handler's path (relative, no leading `/api` — `mockFetch` adds that). */
+/** The API's path (relative, no leading `/api` — `proxyFetch` adds that). */
 export function projectsApiPath(query: ProjectListQuery): string {
   const qs = projectsQueryToSearchParams(query).toString();
   return qs ? `/projects?${qs}` : "/projects";

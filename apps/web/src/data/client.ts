@@ -1,14 +1,20 @@
 import type { ZodType } from "zod";
 
-// Two fetchers, because M0 talks to two things at once.
+// Two fetchers, because two different things call the API.
 //
-// `apiFetch` is the real NestJS API (apps/api): absolute base URL, a bearer
-// token, and the error body shape from the API's exception filter. Everything
-// the session and the org-unit screens need comes through here.
+// `apiFetch` is `serverApi()`'s fetcher (see `src/data/server.ts`): absolute
+// base URL, a bearer token, and the error body shape from the API's
+// exception filter. Every server-side caller — the session, the org-unit
+// screens — goes through here directly.
 //
-// `mockFetch` is the route handlers still living in `src/app/api` (ADR-0005),
-// which serve the S01 portfolio fixtures until M1 moves them onto the API.
-// It is relative on purpose: those handlers are part of this Next app.
+// `proxyFetch` is what the browser calls. The bearer token lives in an
+// httpOnly cookie (ADR-0013) and never reaches client JavaScript, so S01–S03's
+// TanStack Query hooks (`src/data/queries.ts`) cannot call `apiFetch`
+// themselves — they call the same-origin `/api/proxy/*` route instead
+// (`src/app/api/proxy/[...path]/route.ts`), which reads that cookie on the
+// server and forwards the request to the real API with the bearer attached.
+// M0's mock route handlers under `src/app/api/{portfolio,projects}` (ADR-0005)
+// are gone; this proxy is the M1 replacement, not a third data source.
 //
 // R15: the data source is swapped by changing `NEXT_PUBLIC_API_BASE`, not by
 // changing a caller. `apps/web/.env.example` documents the variable.
@@ -72,9 +78,14 @@ export async function apiFetch<T>(
   return schema.parse(await res.json());
 }
 
-/** The mock route handlers in `src/app/api` (ADR-0005). Deleted in M1. */
-export async function mockFetch<T>(path: string, schema: ZodType<T>): Promise<T> {
-  const res = await fetch(`/api${path}`);
+/**
+ * The same-origin proxy (`src/app/api/proxy/[...path]/route.ts`). `path`
+ * starts with a slash and carries no `/api/proxy` prefix, the same shape
+ * `apiFetch`'s `path` has — a caller can be pointed at either fetcher without
+ * changing the path it passes.
+ */
+export async function proxyFetch<T>(path: string, schema: ZodType<T>): Promise<T> {
+  const res = await fetch(`/api/proxy${path}`, { cache: "no-store" });
   if (!res.ok) throw await errorFrom(res, path);
   return schema.parse(await res.json());
 }
