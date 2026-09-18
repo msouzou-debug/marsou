@@ -195,7 +195,17 @@
     "unwritten": "Help for this screen has not been written yet.",
     "goToCentre": "Open the user guide",
     "whatCanGoWrong": "What can go wrong",
-    "pdfGuide": "PDF guide for {role}"
+    "pdfGuide": "PDF guide for {role}",
+    "roles": {
+      "projectEngineer": "Project engineer",
+      "estatesHead": "Head of estates",
+      "technician": "Technician",
+      "finance": "Finance",
+      "clinicalApprover": "Clinical approver",
+      "executiveReadonly": "Management",
+      "admin": "Administrator",
+      "auditorReadonly": "Auditor"
+    }
   },
   "shell": {
     "primaryNav": "Main navigation",

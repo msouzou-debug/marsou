@@ -9,6 +9,7 @@ This screen shows every SHSO project on one page: what is approved, what is comm
 3. Turn on "Group by directorate" for subtotals per directorate.
 4. In the "Needs attention" list, click an item to go straight to the project.
 5. Click "Export to Excel" at the top right of the table to get the same figures with live formulas.
+6. Press "?" anywhere on the screen to open this guide in a side panel without leaving the page. Press Esc to close it.
 
 ## What can go wrong
 

@@ -195,7 +195,17 @@
     "unwritten": "Η βοήθεια για αυτή την οθόνη δεν έχει γραφτεί ακόμη.",
     "goToCentre": "Άνοιγμα οδηγού χρήσης",
     "whatCanGoWrong": "Τι μπορεί να πάει λάθος",
-    "pdfGuide": "Οδηγός PDF για {role}"
+    "pdfGuide": "Οδηγός PDF για {role}",
+    "roles": {
+      "projectEngineer": "Μηχανικός έργου",
+      "estatesHead": "Προϊστάμενος Τεχνικών Υπηρεσιών",
+      "technician": "Τεχνίτης",
+      "finance": "Οικονομική Διεύθυνση",
+      "clinicalApprover": "Κλινικός εγκριτής",
+      "executiveReadonly": "Διοίκηση",
+      "admin": "Διαχειριστής",
+      "auditorReadonly": "Ελεγκτής"
+    }
   },
   "shell": {
     "primaryNav": "Κύριο μενού",

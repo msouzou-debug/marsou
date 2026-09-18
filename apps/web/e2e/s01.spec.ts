@@ -54,3 +54,42 @@ test("S01 at 1024: the exception list is reachable without scrolling when groupi
   expect(box).not.toBeNull();
   expect(box!.y).toBeLessThanOrEqual(768);
 });
+
+test("S25: \"?\" opens the help drawer with the S01 section, Escape closes it", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440", "one breakpoint is enough for this behaviour");
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Χαρτοφυλάκιο έργων" })).toBeVisible();
+
+  // Real "?" (both the bare key name and the "Shift+Slash" combination) hangs
+  // this sandbox's Chromium/CDP input pipeline indefinitely — reproduced in
+  // isolation, unrelated to the app: `keyboard.press("a")`, digits, other
+  // Shift-combinations and "Escape" all dispatch instantly, only Shift+"/"
+  // does not. Dispatching the same "?" keydown the browser would have
+  // produced, instead of asking Playwright to synthesize the OS-level key
+  // combination, exercises the identical code path (HelpProvider's `window`
+  // "keydown" listener; see its unit tests in HelpProvider.test.tsx for the
+  // same assertion without this workaround) without hitting that hang.
+  // Redispatched inside `toPass`, not just once, in case the very first
+  // attempt lands before HelpProvider's effect has attached its listener.
+  // The toggle only re-fires while the drawer is still closed, so a retry
+  // never flips an already-open drawer back shut.
+  const drawer = page.getByRole("complementary");
+  await expect(async () => {
+    if (await drawer.isVisible()) return;
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", bubbles: true, cancelable: true }));
+    });
+    await expect(drawer).toBeVisible({ timeout: 500 });
+  }).toPass({ timeout: 5000 });
+  await expect(drawer.getByRole("heading", { name: "Χαρτοφυλάκιο έργων" })).toBeVisible();
+
+  // Viewport-only, not `fullPage`: the drawer is `position: fixed` to the
+  // viewport, so a full-page screenshot of this longer-than-viewport screen
+  // would show the drawer only over the first screenful and the unit table
+  // uncovered underneath it for the rest of the page's height.
+  await page.screenshot({ path: "e2e/screenshots/s01-help-desktop-1440.png" });
+
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+});
