@@ -20,4 +20,4 @@ A row the caller may not see does not exist for them. The API therefore answers 
 - A service method with no permission check in it is correct, not suspicious. `AreasService.treeFor` has none on purpose.
 - A query outside the transaction returns nothing, which fails loudly in tests rather than leaking quietly.
 - Every new table needs `enable row level security` and its policies in the same migration; without them it is readable by nobody, so the omission shows up immediately.
-- **Open, flagged rather than guessed:** `executive_readonly` sees every unit but is not denied writes at the policy level, because CAPEX-01 §10 names only the auditor as read-only. If executives should also be read-only in the database, that is a one-line change to `ecapital.can_write_unit` and it needs the owner to say so.
+- **Decided 18/09/2026:** `executive_readonly` is read-only at the policy level, like `auditor_readonly`. `ecapital.can_write_unit` refuses both. The difference between the two is the audit log, which only admin and the auditor can read.

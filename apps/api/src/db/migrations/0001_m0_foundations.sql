@@ -107,11 +107,13 @@ language sql stable parallel safe as $$
       or (p_org_unit_id is not null and p_org_unit_id = any (ecapital.current_org_unit_ids()))
 $$;
 
--- auditor_readonly sees everything and writes nothing. The policy, not the
--- controller, is what enforces that (CAPEX-01 §10).
+-- auditor_readonly and executive_readonly see everything and write nothing.
+-- The policy, not the controller, is what enforces that (CAPEX-01 §10; the
+-- executive block was the owner's decision on 18/09/2026, ADR-0010).
 create or replace function ecapital.can_write_unit(p_org_unit_id text) returns boolean
 language sql stable parallel safe as $$
   select not ecapital.has_role('auditor_readonly')
+     and not ecapital.has_role('executive_readonly')
      and ecapital.can_read_unit(p_org_unit_id)
 $$;
 

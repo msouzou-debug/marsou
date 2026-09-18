@@ -7,13 +7,14 @@ import { TokenClaims } from "@ecapital/shared";
 
 export { DEV_AUDIENCE, DEV_ISSUER };
 
-/** The five seeded development users, by the address they sign in with. */
+/** The six seeded development users, by the address they sign in with. */
 export const USERS = {
   admin: "admin@ecapital.test",
   estatesNicosia: "estates.nicosia@ecapital.test",
   engineerLarnaca: "engineer.larnaca@ecapital.test",
   clinicalNicosia: "clinical.nicosia@ecapital.test",
   auditor: "auditor@ecapital.test",
+  executive: "executive@ecapital.test",
 } as const;
 
 export async function createTestApp(): Promise<INestApplication> {

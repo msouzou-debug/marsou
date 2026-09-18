@@ -184,6 +184,15 @@ export const seedUsers: SeedUser[] = [
     // The auditor sees every unit through the role, not through a list.
     orgUnitIds: [],
   },
+  {
+    subject: "dev-executive",
+    name: "Ανδρέας Παπαδόπουλος",
+    email: "executive@ecapital.test",
+    roles: ["executive_readonly"],
+    // Board and CEO office: every unit, read-only, like the auditor but
+    // without access to the audit log.
+    orgUnitIds: [],
+  },
 ];
 
 // Groups→roles is a config table, not code (ADR-0009). These are placeholder

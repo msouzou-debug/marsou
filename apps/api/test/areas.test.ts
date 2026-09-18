@@ -156,6 +156,26 @@ describe("POST /org-units/:id/areas", () => {
     expect(response.body.key).toBe("errors.readOnlyAccount");
   });
 
+  it("refuses the executive, who also reads and never writes", async () => {
+    // Owner decision 18/09/2026: executive_readonly is read-only at the policy
+    // level, same as the auditor (ADR-0010).
+    const estatesToken = await tokenFor(app, USERS.estatesNicosia);
+    const floorId = await nicosiaGroundFloorId(estatesToken);
+    const token = await tokenFor(app, USERS.executive);
+    const response = await request(app.getHttpServer())
+      .post("/org-units/nicosia-general/areas")
+      .set(bearer(token))
+      .send({
+        floorId,
+        code: `EXE-${Date.now()}`,
+        nameEl: "Δοκιμή",
+        areaType: "OFFICE",
+        patientRiskGroup: "LOW",
+      });
+    expect(response.status).toBe(403);
+    expect(response.body.key).toBe("errors.readOnlyAccount");
+  });
+
   it("refuses an engineer writing into somebody else's unit", async () => {
     const estatesToken = await tokenFor(app, USERS.estatesNicosia);
     const floorId = await nicosiaGroundFloorId(estatesToken);

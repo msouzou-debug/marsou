@@ -10,7 +10,7 @@ M0 is the foundation and nothing more — sign in, see your own org units, see t
 pnpm install                                   # 1. from the repo root
 cp apps/api/.env.example apps/api/.env         # 2. the defaults work for local Postgres
 pnpm --filter @ecapital/api migrate            # 3. create the schema, policies and triggers
-pnpm --filter @ecapital/api seed               # 4. eleven org units, one building, five users
+pnpm --filter @ecapital/api seed               # 4. eleven org units, one building, six users
 pnpm --filter @ecapital/api dev                # 5. http://localhost:3001, docs at /docs
 ```
 
@@ -24,7 +24,7 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 |---|---|
 | `src/db/migrations/*.sql` | The schema. Tables, enums, row-level-security policies, grants, audit triggers. Hand-written and authoritative (ADR-0008). |
 | `src/db/schema.ts` | The Drizzle view of the same tables, for typed queries. |
-| `src/db/seed-data.ts` | The eleven units and their source spellings, one seeded building, five users, the group→role mappings. |
+| `src/db/seed-data.ts` | The eleven units and their source spellings, one seeded building, six users, the group→role mappings. |
 | `src/auth/` | The OIDC guard, the development stub, `GET /me` (ADR-0009). |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
 | `src/i18n/{el,en}.json` | Every error sentence, keyed, Greek and English. |
