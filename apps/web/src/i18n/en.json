@@ -33,6 +33,45 @@
     "scanQr": "Scan QR",
     "continue": "Continue"
   },
+  "components": {
+    "table": {
+      "density": {
+        "label": "Row density",
+        "dense": "Dense",
+        "comfortable": "Comfortable"
+      },
+      "columns": {
+        "label": "Columns",
+        "hint": "Choose the columns you want to see."
+      },
+      "select": {
+        "all": "Select all rows",
+        "row": "Select row"
+      },
+      "editCell": "Edit: {column}",
+      "editHint": "Double-click a cell to change it. Enter saves, Esc cancels.",
+      "loading": "Loading data",
+      "loadingExport": "Wait for the data to load.",
+      "offlineExport": "Offline. The export runs as soon as the connection is back.",
+      "sample": {
+        "caption": "Cost by category — Operating theatre refurbishment, Larnaca General Hospital",
+        "category": "Cost category",
+        "emptyMessage": "No cost categories have been recorded for this project."
+      }
+    },
+    "costBar": {
+      "approved": "Approved budget",
+      "committed": "Commitments",
+      "spent": "Actual spend",
+      "forecast": "Forecast final cost",
+      "overflow": "Overrun",
+      "approvedLine": "Approved budget limit",
+      "summary": "Approved budget {approved}, commitments {committed}, spend {spent}, forecast final cost {forecast}",
+      "loading": "Loading cost figures",
+      "empty": "No budget has been recorded for this project yet.",
+      "error": "The cost figures did not load. Try again."
+    }
+  },
   "nav": {
     "portfolio": "Portfolio",
     "projects": "Projects",
