@@ -34,6 +34,43 @@
     "continue": "Συνέχεια"
   },
   "components": {
+    "costBar": {
+      "approved": "Εγκεκριμένος προϋπολογισμός",
+      "committed": "Δεσμεύσεις",
+      "spent": "Δαπάνες",
+      "forecast": "Πρόβλεψη τελικού κόστους",
+      "overflow": "Υπέρβαση",
+      "approvedLine": "Όριο εγκεκριμένου προϋπολογισμού",
+      "summary": "Εγκεκριμένος προϋπολογισμός {approved}, δεσμεύσεις {committed}, δαπάνες {spent}, πρόβλεψη τελικού κόστους {forecast}",
+      "loading": "Φόρτωση στοιχείων κόστους",
+      "empty": "Δεν έχει καταχωριστεί προϋπολογισμός για αυτό το έργο.",
+      "error": "Τα στοιχεία κόστους δεν φορτώθηκαν. Δοκιμάστε ξανά."
+    },
+    "icraBadge": {
+      "matrix": "Τύπος εργασίας {activityType} × Ομάδα κινδύνου {riskGroup} → Κατηγορία {icraClass}",
+      "matrixVersion": "Έκδοση πίνακα {version}"
+    },
+    "kpiTile": {
+      "error": "Η τιμή δεν φορτώθηκε."
+    },
+    "permitBanner": {
+      "state": {
+        "inForce": "Σε ισχύ",
+        "pendingApproval": "Εκκρεμεί έγκριση",
+        "expired": "Έληξε",
+        "revoked": "Ανακλήθηκε"
+      }
+    },
+    "ragChip": {
+      "green": "Εντός ορίων",
+      "amber": "Σε κίνδυνο",
+      "red": "Παράβαση"
+    },
+    "slaChip": {
+      "daysLeft": "Απομένουν {count} ημ",
+      "hoursLeft": "Απομένουν {count} ω",
+      "breached": "Εκπρόθεσμο"
+    },
     "table": {
       "density": {
         "label": "Πυκνότητα γραμμών",
@@ -58,18 +95,6 @@
         "category": "Κατηγορία κόστους",
         "emptyMessage": "Δεν έχουν καταχωριστεί κατηγορίες κόστους για αυτό το έργο."
       }
-    },
-    "costBar": {
-      "approved": "Εγκεκριμένος προϋπολογισμός",
-      "committed": "Δεσμεύσεις",
-      "spent": "Δαπάνες",
-      "forecast": "Πρόβλεψη τελικού κόστους",
-      "overflow": "Υπέρβαση",
-      "approvedLine": "Όριο εγκεκριμένου προϋπολογισμού",
-      "summary": "Εγκεκριμένος προϋπολογισμός {approved}, δεσμεύσεις {committed}, δαπάνες {spent}, πρόβλεψη τελικού κόστους {forecast}",
-      "loading": "Φόρτωση στοιχείων κόστους",
-      "empty": "Δεν έχει καταχωριστεί προϋπολογισμός για αυτό το έργο.",
-      "error": "Τα στοιχεία κόστους δεν φορτώθηκαν. Δοκιμάστε ξανά."
     }
   },
   "nav": {
@@ -118,33 +143,6 @@
       "error": "Σφάλμα",
       "noPermission": "Χωρίς πρόσβαση",
       "offline": "Εκτός σύνδεσης"
-    }
-  },
-  "components": {
-    "kpiTile": {
-      "error": "Η τιμή δεν φορτώθηκε."
-    },
-    "ragChip": {
-      "green": "Εντός ορίων",
-      "amber": "Σε κίνδυνο",
-      "red": "Παράβαση"
-    },
-    "slaChip": {
-      "daysLeft": "Απομένουν {count} ημ",
-      "hoursLeft": "Απομένουν {count} ω",
-      "breached": "Εκπρόθεσμο"
-    },
-    "icraBadge": {
-      "matrix": "Τύπος εργασίας {activityType} × Ομάδα κινδύνου {riskGroup} → Κατηγορία {icraClass}",
-      "matrixVersion": "Έκδοση πίνακα {version}"
-    },
-    "permitBanner": {
-      "state": {
-        "inForce": "Σε ισχύ",
-        "pendingApproval": "Εκκρεμεί έγκριση",
-        "expired": "Έληξε",
-        "revoked": "Ανακλήθηκε"
-      }
     }
   }
 }

@@ -6,8 +6,41 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const dir = resolve(process.cwd(), "apps/web/src/i18n");
-const el = JSON.parse(readFileSync(resolve(dir, "el.json"), "utf8"));
-const en = JSON.parse(readFileSync(resolve(dir, "en.json"), "utf8"));
+// JSON.parse silently keeps the last of two duplicate keys, which is how a
+// merge can drop a whole block without any tool noticing. Refuse duplicates.
+function parseStrict(file) {
+  return checkDuplicates(readFileSync(file, "utf8"), file);
+}
+function checkDuplicates(text, file) {
+  // Walk the text and track keys per object depth.
+  const stack = [];
+  let i = 0, inStr = false, esc = false, str = "", expectKey = false;
+  const dups = [];
+  while (i < text.length) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) { esc = false; str += c; }
+      else if (c === "\\") esc = true;
+      else if (c === '"') { inStr = false; if (expectKey) { const top = stack[stack.length - 1]; if (top.has(str)) dups.push(str); top.add(str); expectKey = false; } }
+      else str += c;
+    } else if (c === '"') { inStr = true; str = ""; }
+    else if (c === "{") { stack.push(new Set()); expectKey = true; }
+    else if (c === "}") { stack.pop(); }
+    else if (c === ",") { const top = stack[stack.length - 1]; if (top) expectKey = true; }
+    else if (c === ":") { expectKey = false; }
+    else if (c === "[") { stack.push(null); }
+    else if (c === "]") { stack.pop(); }
+    i++;
+  }
+  if (dups.length) {
+    console.error(`${file}: duplicate keys ${[...new Set(dups)].map((d) => `"${d}"`).join(", ")}`);
+    process.exit(1);
+  }
+  return JSON.parse(text);
+}
+
+const el = parseStrict(resolve(dir, "el.json"));
+const en = parseStrict(resolve(dir, "en.json"));
 
 function flatten(obj, prefix = "", out = new Map()) {
   for (const [k, v] of Object.entries(obj)) {

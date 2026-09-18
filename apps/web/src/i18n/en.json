@@ -34,6 +34,43 @@
     "continue": "Continue"
   },
   "components": {
+    "costBar": {
+      "approved": "Approved budget",
+      "committed": "Commitments",
+      "spent": "Actual spend",
+      "forecast": "Forecast final cost",
+      "overflow": "Overrun",
+      "approvedLine": "Approved budget limit",
+      "summary": "Approved budget {approved}, commitments {committed}, spend {spent}, forecast final cost {forecast}",
+      "loading": "Loading cost figures",
+      "empty": "No budget has been recorded for this project yet.",
+      "error": "The cost figures did not load. Try again."
+    },
+    "icraBadge": {
+      "matrix": "Work type {activityType} × Risk group {riskGroup} → Category {icraClass}",
+      "matrixVersion": "Matrix version {version}"
+    },
+    "kpiTile": {
+      "error": "The value didn't load."
+    },
+    "permitBanner": {
+      "state": {
+        "inForce": "In force",
+        "pendingApproval": "Approval pending",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      }
+    },
+    "ragChip": {
+      "green": "Within limits",
+      "amber": "At risk",
+      "red": "Breach"
+    },
+    "slaChip": {
+      "daysLeft": "{count} d left",
+      "hoursLeft": "{count} h left",
+      "breached": "Overdue"
+    },
     "table": {
       "density": {
         "label": "Row density",
@@ -58,18 +95,6 @@
         "category": "Cost category",
         "emptyMessage": "No cost categories have been recorded for this project."
       }
-    },
-    "costBar": {
-      "approved": "Approved budget",
-      "committed": "Commitments",
-      "spent": "Actual spend",
-      "forecast": "Forecast final cost",
-      "overflow": "Overrun",
-      "approvedLine": "Approved budget limit",
-      "summary": "Approved budget {approved}, commitments {committed}, spend {spent}, forecast final cost {forecast}",
-      "loading": "Loading cost figures",
-      "empty": "No budget has been recorded for this project yet.",
-      "error": "The cost figures did not load. Try again."
     }
   },
   "nav": {
@@ -118,33 +143,6 @@
       "error": "Error",
       "noPermission": "No permission",
       "offline": "Offline"
-    }
-  },
-  "components": {
-    "kpiTile": {
-      "error": "The value didn't load."
-    },
-    "ragChip": {
-      "green": "Within limits",
-      "amber": "At risk",
-      "red": "Breach"
-    },
-    "slaChip": {
-      "daysLeft": "{count} d left",
-      "hoursLeft": "{count} h left",
-      "breached": "Overdue"
-    },
-    "icraBadge": {
-      "matrix": "Work type {activityType} × Risk group {riskGroup} → Category {icraClass}",
-      "matrixVersion": "Matrix version {version}"
-    },
-    "permitBanner": {
-      "state": {
-        "inForce": "In force",
-        "pendingApproval": "Approval pending",
-        "expired": "Expired",
-        "revoked": "Revoked"
-      }
     }
   }
 }
