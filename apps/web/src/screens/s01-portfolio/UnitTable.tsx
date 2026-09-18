@@ -43,11 +43,11 @@ function unitName(unit: UnitRow["orgUnit"], locale: Locale): string {
   return locale === "en" ? unit.nameEn : unit.nameEl;
 }
 
-// TODO(S02): the project list is where a unit row belongs. It does not exist
-// yet, so a row opens the unit's area tree — the one screen M0 has that is
-// scoped to a single unit.
+// S02: a unit row opens the project list filtered to that unit (UI
+// instructions §5 "Rows link to S02 filtered by unit"). The unit switcher
+// itself keeps linking to the area tree — only this row link changes.
 function unitHref(unitId: string): string {
-  return `/units/${encodeURIComponent(unitId)}/areas`;
+  return `/projects?unit=${encodeURIComponent(unitId)}`;
 }
 
 export function UnitTable({ units, state = "default", onRetry }: UnitTableProps) {
