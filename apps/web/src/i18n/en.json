@@ -119,5 +119,32 @@
       "noPermission": "No permission",
       "offline": "Offline"
     }
+  },
+  "components": {
+    "kpiTile": {
+      "error": "The value didn't load."
+    },
+    "ragChip": {
+      "green": "Within limits",
+      "amber": "At risk",
+      "red": "Breach"
+    },
+    "slaChip": {
+      "daysLeft": "{count} d left",
+      "hoursLeft": "{count} h left",
+      "breached": "Overdue"
+    },
+    "icraBadge": {
+      "matrix": "Work type {activityType} × Risk group {riskGroup} → Category {icraClass}",
+      "matrixVersion": "Matrix version {version}"
+    },
+    "permitBanner": {
+      "state": {
+        "inForce": "In force",
+        "pendingApproval": "Approval pending",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      }
+    }
   }
 }

@@ -119,5 +119,32 @@
       "noPermission": "Χωρίς πρόσβαση",
       "offline": "Εκτός σύνδεσης"
     }
+  },
+  "components": {
+    "kpiTile": {
+      "error": "Η τιμή δεν φορτώθηκε."
+    },
+    "ragChip": {
+      "green": "Εντός ορίων",
+      "amber": "Σε κίνδυνο",
+      "red": "Παράβαση"
+    },
+    "slaChip": {
+      "daysLeft": "Απομένουν {count} ημ",
+      "hoursLeft": "Απομένουν {count} ω",
+      "breached": "Εκπρόθεσμο"
+    },
+    "icraBadge": {
+      "matrix": "Τύπος εργασίας {activityType} × Ομάδα κινδύνου {riskGroup} → Κατηγορία {icraClass}",
+      "matrixVersion": "Έκδοση πίνακα {version}"
+    },
+    "permitBanner": {
+      "state": {
+        "inForce": "Σε ισχύ",
+        "pendingApproval": "Εκκρεμεί έγκριση",
+        "expired": "Έληξε",
+        "revoked": "Ανακλήθηκε"
+      }
+    }
   }
 }
