@@ -1,23 +1,21 @@
 import { expect, test } from "@playwright/test";
+import { launchOptions, signIn } from "./support";
 
 // S01 — R03. Runs at all three configured breakpoints (phone-390,
 // tablet-1024, desktop-1440 — see playwright.config.ts). Screenshots land
 // in e2e/screenshots (gitignored).
 
-// The sandbox's preinstalled Chromium (/opt/pw-browsers, per the build
-// instructions) is an older revision than the `@playwright/test` version in
-// this repo's lockfile expects, so the default "chromium-headless-shell"
-// lookup 404s on a revision folder that was never downloaded. Pointing at
-// the preinstalled full Chromium binary directly — a standard Playwright
-// override — sidesteps the revision check without touching
-// playwright.config.ts or running `playwright install`.
-test.use({
-  launchOptions: { executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" },
+// The Chromium override lives in e2e/support.ts; see the note there.
+test.use({ launchOptions });
+
+// S01 is behind the gate now (src/proxy.ts), so every case starts signed in.
+// The administrator is the account that sees all eleven units, which is what
+// the portfolio fixtures are built for.
+test.beforeEach(async ({ page }) => {
+  await signIn(page, "admin@ecapital.test");
 });
 
 test("S01 portfolio dashboard has no horizontal page overflow", async ({ page }, testInfo) => {
-  await page.goto("/");
-
   // KPI tiles are the first thing the query resolves into, but the eyebrow
   // caption alone renders in the loading skeleton too — wait for the "as of"
   // line instead, which only appears once real data has arrived.
@@ -41,8 +39,6 @@ test("S01 at 1024: the exception list is reachable without scrolling when groupi
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "tablet-1024", "only meaningful at the tablet breakpoint");
-
-  await page.goto("/");
   await expect(page.getByRole("heading", { name: "Χαρτοφυλάκιο έργων" })).toBeVisible();
 
   // RULE (UI instructions §2, §5): at 1024×768 the KPI strip plus the table
@@ -57,8 +53,6 @@ test("S01 at 1024: the exception list is reachable without scrolling when groupi
 
 test("S25: \"?\" opens the help drawer with the S01 section, Escape closes it", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-1440", "one breakpoint is enough for this behaviour");
-
-  await page.goto("/");
   await expect(page.getByRole("heading", { name: "Χαρτοφυλάκιο έργων" })).toBeVisible();
 
   // Real "?" (both the bare key name and the "Shift+Slash" combination) hangs
