@@ -12,6 +12,24 @@
     "areaNotValid": "The area is missing something. Fill in the code, the name, the type and the risk group, then try again.",
     "areaCodeTaken": "Code {code} is already in use on this floor. Give the area a different code.",
     "auditQueryNotValid": "The search terms are not usable. Check the record type and the record id, then try again.",
+    "projectNotFound": "The project was not found, or you have no access to it. Pick a project from one of your own units.",
+    "projectNotValid": "The project is missing something. Fill in the title, the category, the budget and the funding source, then try again.",
+    "projectQueryNotValid": "The list settings are not usable. Check the filters, the sort order and the page number, then try again.",
+    "phaseChangeNotValid": "A phase change needs the new phase and a reason. Fill in both and try again.",
+    "phaseNotNext": "A project moves one phase at a time, forwards only. Pick the next phase, or ask the system administrator to move the project back.",
+    "gateOpen": "Milestone {milestone} closes the current phase and is not done yet. Record its actual date, then move the project on.",
+    "baselineFixed": "The milestone's baseline date stays at {baseline} and does not change. Put the movement in the forecast date or the actual date.",
+    "milestoneNotFound": "There is no such milestone on this project. Reload the page and pick one from the list.",
+    "milestoneNotValid": "The milestone is missing something. Fill in the title and the baseline date, then try again.",
+    "riskNotFound": "There is no such risk on this project. Reload the page and pick one from the list.",
+    "riskNotValid": "The risk is missing something. Write the description and give a likelihood and an impact from 1 to 5.",
+    "issueNotFound": "There is no such issue on this project. Reload the page and pick one from the list.",
+    "issueNotValid": "The issue is missing something. Write the description and try again.",
     "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening."
+  },
+  "exceptions": {
+    "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
+    "noPlannedDates": "{project} ({unit}) has no planned start and finish dates.",
+    "finishOverdue": "{project} ({unit}) is in progress and its planned finish passed {days} days ago."
   }
 }

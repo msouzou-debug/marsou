@@ -3,11 +3,15 @@ import { OrgUnit } from "./org-unit";
 
 // S01 Χαρτοφυλάκιο — UI instructions §5. KPI strip: four ledgers plus the
 // comparator every tile shows ("% έτους που έχει παρέλθει").
+// RULE (CAPEX-01 §7): a ledger the system does not know yet is null, never
+// zero, and the tile shows «—». Committed, spent and forecast stay null until
+// the SAP ingestion lands (M2, R14, R16), so the three of them are nullable
+// here; `approved` is known from the day a project is opened.
 export const PortfolioKpis = z.object({
   approved: z.number(),
-  committed: z.number(),
-  spent: z.number(),
-  forecast: z.number(),
+  committed: z.number().nullable(),
+  spent: z.number().nullable(),
+  forecast: z.number().nullable(),
   yearElapsedPct: z.number(),
 });
 export type PortfolioKpis = z.infer<typeof PortfolioKpis>;

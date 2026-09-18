@@ -950,6 +950,5221 @@
         ]
       }
     },
+    "/projects": {
+      "get": {
+        "operationId": "ProjectsController_list",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "dir",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "desc"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "approvedBudget"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Matches the code and the Greek title, ignoring case and accents"
+          },
+          {
+            "name": "rag",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "phase",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "One of the nine phases; repeat for several"
+          },
+          {
+            "name": "unit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Org unit ids; repeat the parameter for several"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of projects, with the total behind it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "titleEn": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "noteEl": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "NEW_BUILD",
+                              "RENOVATION",
+                              "SMALL_WORKS",
+                              "EQUIPMENT",
+                              "MAINTENANCE_CAPITAL",
+                              "IT"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "IDEA",
+                              "PREPARATION",
+                              "APPROVED",
+                              "TENDERED",
+                              "AWARDED",
+                              "IN_PROGRESS",
+                              "PRACTICAL_COMPLETION",
+                              "DEFECTS_LIABILITY",
+                              "CLOSED"
+                            ]
+                          },
+                          "approvedBudget": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "fundingSource": {
+                            "type": "string",
+                            "enum": [
+                              "STATE_BUDGET",
+                              "EU",
+                              "DONATION",
+                              "OWN"
+                            ]
+                          },
+                          "plannedStart": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "plannedFinish": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "forecastStart": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "forecastFinish": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actualStart": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actualFinish": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "budgetYearFrom": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "budgetYearTo": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rag": {
+                            "type": "string",
+                            "enum": [
+                              "GREEN",
+                              "AMBER",
+                              "RED"
+                            ]
+                          },
+                          "ragReason": {
+                            "type": "string"
+                          },
+                          "sapWbs": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "tenderReference": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "budgetArticle": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "commitmentFlag": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "commitmentNote": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actionPlanRef": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "inBudget2026": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "contractualCommitment": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "internalAuditFile": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "sourceRowRef": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sponsorId": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "projectManagerId": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ledgers": {
+                            "type": "object",
+                            "properties": {
+                              "approved": {
+                                "type": "number"
+                              },
+                              "committed": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "spent": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "forecast": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "approved",
+                              "committed",
+                              "spent",
+                              "forecast"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "code",
+                          "orgUnitId",
+                          "titleEl",
+                          "titleEn",
+                          "noteEl",
+                          "category",
+                          "phase",
+                          "approvedBudget",
+                          "fundingSource",
+                          "plannedStart",
+                          "plannedFinish",
+                          "forecastStart",
+                          "forecastFinish",
+                          "actualStart",
+                          "actualFinish",
+                          "budgetYearFrom",
+                          "budgetYearTo",
+                          "rag",
+                          "ragReason",
+                          "sapWbs",
+                          "tenderReference",
+                          "budgetArticle",
+                          "commitmentFlag",
+                          "commitmentNote",
+                          "actionPlanRef",
+                          "inBudget2026",
+                          "contractualCommitment",
+                          "internalAuditFile",
+                          "sourceRowRef",
+                          "sponsorId",
+                          "projectManagerId",
+                          "createdAt",
+                          "updatedAt",
+                          "ledgers"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total",
+                    "page",
+                    "pageSize"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter, a sort key or a page number is not usable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The projects the caller may see, filtered, sorted and paged",
+        "tags": [
+          "projects"
+        ]
+      },
+      "post": {
+        "operationId": "ProjectsController_create",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orgUnitId": {
+                    "type": "string"
+                  },
+                  "titleEl": {
+                    "type": "string"
+                  },
+                  "titleEn": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "NEW_BUILD",
+                      "RENOVATION",
+                      "SMALL_WORKS",
+                      "EQUIPMENT",
+                      "MAINTENANCE_CAPITAL",
+                      "IT"
+                    ]
+                  },
+                  "approvedBudget": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "fundingSource": {
+                    "type": "string",
+                    "enum": [
+                      "STATE_BUDGET",
+                      "EU",
+                      "DONATION",
+                      "OWN"
+                    ]
+                  },
+                  "plannedStart": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "plannedFinish": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "budgetYearFrom": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "budgetYearTo": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sapWbs": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tenderReference": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sponsorId": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "projectManagerId": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "code": {}
+                },
+                "required": [
+                  "orgUnitId",
+                  "titleEl",
+                  "titleEn",
+                  "category",
+                  "approvedBudget",
+                  "fundingSource",
+                  "plannedStart",
+                  "plannedFinish",
+                  "budgetYearFrom",
+                  "budgetYearTo",
+                  "sapWbs",
+                  "tenderReference",
+                  "sponsorId",
+                  "projectManagerId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The project as stored, code included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "titleEn": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "noteEl": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "NEW_BUILD",
+                        "RENOVATION",
+                        "SMALL_WORKS",
+                        "EQUIPMENT",
+                        "MAINTENANCE_CAPITAL",
+                        "IT"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "IDEA",
+                        "PREPARATION",
+                        "APPROVED",
+                        "TENDERED",
+                        "AWARDED",
+                        "IN_PROGRESS",
+                        "PRACTICAL_COMPLETION",
+                        "DEFECTS_LIABILITY",
+                        "CLOSED"
+                      ]
+                    },
+                    "approvedBudget": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "fundingSource": {
+                      "type": "string",
+                      "enum": [
+                        "STATE_BUDGET",
+                        "EU",
+                        "DONATION",
+                        "OWN"
+                      ]
+                    },
+                    "plannedStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "plannedFinish": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetYearFrom": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "budgetYearTo": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "rag": {
+                      "type": "string",
+                      "enum": [
+                        "GREEN",
+                        "AMBER",
+                        "RED"
+                      ]
+                    },
+                    "ragReason": {
+                      "type": "string"
+                    },
+                    "sapWbs": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tenderReference": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetArticle": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "commitmentFlag": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "commitmentNote": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actionPlanRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "inBudget2026": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "contractualCommitment": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "internalAuditFile": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "sourceRowRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sponsorId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "updatedAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ledgers": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "orgUnit": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameEl": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameEl",
+                        "nameEn"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sponsorName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "baselineDate": {
+                            "type": "string"
+                          },
+                          "forecastDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actualDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "isGate": {
+                            "type": "boolean"
+                          },
+                          "sortOrder": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "titleEl",
+                          "baselineDate",
+                          "forecastDate",
+                          "actualDate",
+                          "isGate",
+                          "sortOrder"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "risks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "likelihood": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "impact": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "ownerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ownerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mitigationEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "MITIGATED",
+                              "CLOSED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "likelihood",
+                          "impact",
+                          "ownerId",
+                          "ownerName",
+                          "mitigationEl",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "raisedById": {
+                            "type": "string"
+                          },
+                          "raisedByName": {
+                            "type": "string"
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "RESOLVED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "raisedById",
+                          "raisedByName",
+                          "dueDate",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "audit": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "actorName",
+                          "action",
+                          "at",
+                          "detail"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "orgUnitId",
+                    "titleEl",
+                    "titleEn",
+                    "noteEl",
+                    "category",
+                    "phase",
+                    "approvedBudget",
+                    "fundingSource",
+                    "plannedStart",
+                    "plannedFinish",
+                    "forecastStart",
+                    "forecastFinish",
+                    "actualStart",
+                    "actualFinish",
+                    "budgetYearFrom",
+                    "budgetYearTo",
+                    "rag",
+                    "ragReason",
+                    "sapWbs",
+                    "tenderReference",
+                    "budgetArticle",
+                    "commitmentFlag",
+                    "commitmentNote",
+                    "actionPlanRef",
+                    "inBudget2026",
+                    "contractualCommitment",
+                    "internalAuditFile",
+                    "sourceRowRef",
+                    "sponsorId",
+                    "projectManagerId",
+                    "createdAt",
+                    "updatedAt",
+                    "ledgers",
+                    "orgUnit",
+                    "sponsorName",
+                    "projectManagerName",
+                    "milestones",
+                    "risks",
+                    "issues",
+                    "audit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Open a new project; the API allocates the code",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "operationId": "ProjectsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Everything the project overview screen needs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "titleEn": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "noteEl": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "NEW_BUILD",
+                        "RENOVATION",
+                        "SMALL_WORKS",
+                        "EQUIPMENT",
+                        "MAINTENANCE_CAPITAL",
+                        "IT"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "IDEA",
+                        "PREPARATION",
+                        "APPROVED",
+                        "TENDERED",
+                        "AWARDED",
+                        "IN_PROGRESS",
+                        "PRACTICAL_COMPLETION",
+                        "DEFECTS_LIABILITY",
+                        "CLOSED"
+                      ]
+                    },
+                    "approvedBudget": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "fundingSource": {
+                      "type": "string",
+                      "enum": [
+                        "STATE_BUDGET",
+                        "EU",
+                        "DONATION",
+                        "OWN"
+                      ]
+                    },
+                    "plannedStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "plannedFinish": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetYearFrom": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "budgetYearTo": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "rag": {
+                      "type": "string",
+                      "enum": [
+                        "GREEN",
+                        "AMBER",
+                        "RED"
+                      ]
+                    },
+                    "ragReason": {
+                      "type": "string"
+                    },
+                    "sapWbs": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tenderReference": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetArticle": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "commitmentFlag": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "commitmentNote": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actionPlanRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "inBudget2026": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "contractualCommitment": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "internalAuditFile": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "sourceRowRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sponsorId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "updatedAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ledgers": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "orgUnit": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameEl": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameEl",
+                        "nameEn"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sponsorName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "baselineDate": {
+                            "type": "string"
+                          },
+                          "forecastDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actualDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "isGate": {
+                            "type": "boolean"
+                          },
+                          "sortOrder": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "titleEl",
+                          "baselineDate",
+                          "forecastDate",
+                          "actualDate",
+                          "isGate",
+                          "sortOrder"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "risks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "likelihood": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "impact": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "ownerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ownerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mitigationEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "MITIGATED",
+                              "CLOSED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "likelihood",
+                          "impact",
+                          "ownerId",
+                          "ownerName",
+                          "mitigationEl",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "raisedById": {
+                            "type": "string"
+                          },
+                          "raisedByName": {
+                            "type": "string"
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "RESOLVED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "raisedById",
+                          "raisedByName",
+                          "dueDate",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "audit": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "actorName",
+                          "action",
+                          "at",
+                          "detail"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "orgUnitId",
+                    "titleEl",
+                    "titleEn",
+                    "noteEl",
+                    "category",
+                    "phase",
+                    "approvedBudget",
+                    "fundingSource",
+                    "plannedStart",
+                    "plannedFinish",
+                    "forecastStart",
+                    "forecastFinish",
+                    "actualStart",
+                    "actualFinish",
+                    "budgetYearFrom",
+                    "budgetYearTo",
+                    "rag",
+                    "ragReason",
+                    "sapWbs",
+                    "tenderReference",
+                    "budgetArticle",
+                    "commitmentFlag",
+                    "commitmentNote",
+                    "actionPlanRef",
+                    "inBudget2026",
+                    "contractualCommitment",
+                    "internalAuditFile",
+                    "sourceRowRef",
+                    "sponsorId",
+                    "projectManagerId",
+                    "createdAt",
+                    "updatedAt",
+                    "ledgers",
+                    "orgUnit",
+                    "sponsorName",
+                    "projectManagerName",
+                    "milestones",
+                    "risks",
+                    "issues",
+                    "audit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "One project with its milestones, risks, issues and history",
+        "tags": [
+          "projects"
+        ]
+      },
+      "patch": {
+        "operationId": "ProjectsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titleEl": {
+                    "type": "string"
+                  },
+                  "titleEn": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "NEW_BUILD",
+                      "RENOVATION",
+                      "SMALL_WORKS",
+                      "EQUIPMENT",
+                      "MAINTENANCE_CAPITAL",
+                      "IT"
+                    ]
+                  },
+                  "approvedBudget": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "fundingSource": {
+                    "type": "string",
+                    "enum": [
+                      "STATE_BUDGET",
+                      "EU",
+                      "DONATION",
+                      "OWN"
+                    ]
+                  },
+                  "plannedStart": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "plannedFinish": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "budgetYearFrom": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "budgetYearTo": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sapWbs": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tenderReference": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sponsorId": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "projectManagerId": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The project after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "titleEn": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "noteEl": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "NEW_BUILD",
+                        "RENOVATION",
+                        "SMALL_WORKS",
+                        "EQUIPMENT",
+                        "MAINTENANCE_CAPITAL",
+                        "IT"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "IDEA",
+                        "PREPARATION",
+                        "APPROVED",
+                        "TENDERED",
+                        "AWARDED",
+                        "IN_PROGRESS",
+                        "PRACTICAL_COMPLETION",
+                        "DEFECTS_LIABILITY",
+                        "CLOSED"
+                      ]
+                    },
+                    "approvedBudget": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "fundingSource": {
+                      "type": "string",
+                      "enum": [
+                        "STATE_BUDGET",
+                        "EU",
+                        "DONATION",
+                        "OWN"
+                      ]
+                    },
+                    "plannedStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "plannedFinish": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetYearFrom": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "budgetYearTo": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "rag": {
+                      "type": "string",
+                      "enum": [
+                        "GREEN",
+                        "AMBER",
+                        "RED"
+                      ]
+                    },
+                    "ragReason": {
+                      "type": "string"
+                    },
+                    "sapWbs": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tenderReference": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetArticle": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "commitmentFlag": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "commitmentNote": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actionPlanRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "inBudget2026": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "contractualCommitment": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "internalAuditFile": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "sourceRowRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sponsorId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "updatedAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ledgers": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "orgUnit": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameEl": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameEl",
+                        "nameEn"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sponsorName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "baselineDate": {
+                            "type": "string"
+                          },
+                          "forecastDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actualDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "isGate": {
+                            "type": "boolean"
+                          },
+                          "sortOrder": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "titleEl",
+                          "baselineDate",
+                          "forecastDate",
+                          "actualDate",
+                          "isGate",
+                          "sortOrder"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "risks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "likelihood": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "impact": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "ownerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ownerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mitigationEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "MITIGATED",
+                              "CLOSED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "likelihood",
+                          "impact",
+                          "ownerId",
+                          "ownerName",
+                          "mitigationEl",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "raisedById": {
+                            "type": "string"
+                          },
+                          "raisedByName": {
+                            "type": "string"
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "RESOLVED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "raisedById",
+                          "raisedByName",
+                          "dueDate",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "audit": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "actorName",
+                          "action",
+                          "at",
+                          "detail"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "orgUnitId",
+                    "titleEl",
+                    "titleEn",
+                    "noteEl",
+                    "category",
+                    "phase",
+                    "approvedBudget",
+                    "fundingSource",
+                    "plannedStart",
+                    "plannedFinish",
+                    "forecastStart",
+                    "forecastFinish",
+                    "actualStart",
+                    "actualFinish",
+                    "budgetYearFrom",
+                    "budgetYearTo",
+                    "rag",
+                    "ragReason",
+                    "sapWbs",
+                    "tenderReference",
+                    "budgetArticle",
+                    "commitmentFlag",
+                    "commitmentNote",
+                    "actionPlanRef",
+                    "inBudget2026",
+                    "contractualCommitment",
+                    "internalAuditFile",
+                    "sourceRowRef",
+                    "sponsorId",
+                    "projectManagerId",
+                    "createdAt",
+                    "updatedAt",
+                    "ledgers",
+                    "orgUnit",
+                    "sponsorName",
+                    "projectManagerName",
+                    "milestones",
+                    "risks",
+                    "issues",
+                    "audit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change the fields of a project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/phase": {
+      "post": {
+        "operationId": "ProjectsController_changePhase",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phase": {
+                    "type": "string",
+                    "enum": [
+                      "IDEA",
+                      "PREPARATION",
+                      "APPROVED",
+                      "TENDERED",
+                      "AWARDED",
+                      "IN_PROGRESS",
+                      "PRACTICAL_COMPLETION",
+                      "DEFECTS_LIABILITY",
+                      "CLOSED"
+                    ]
+                  },
+                  "reasonEl": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "phase",
+                  "reasonEl"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The project in its new phase",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "titleEn": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "noteEl": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "NEW_BUILD",
+                        "RENOVATION",
+                        "SMALL_WORKS",
+                        "EQUIPMENT",
+                        "MAINTENANCE_CAPITAL",
+                        "IT"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "IDEA",
+                        "PREPARATION",
+                        "APPROVED",
+                        "TENDERED",
+                        "AWARDED",
+                        "IN_PROGRESS",
+                        "PRACTICAL_COMPLETION",
+                        "DEFECTS_LIABILITY",
+                        "CLOSED"
+                      ]
+                    },
+                    "approvedBudget": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "fundingSource": {
+                      "type": "string",
+                      "enum": [
+                        "STATE_BUDGET",
+                        "EU",
+                        "DONATION",
+                        "OWN"
+                      ]
+                    },
+                    "plannedStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "plannedFinish": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forecastFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualStart": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualFinish": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetYearFrom": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "budgetYearTo": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "rag": {
+                      "type": "string",
+                      "enum": [
+                        "GREEN",
+                        "AMBER",
+                        "RED"
+                      ]
+                    },
+                    "ragReason": {
+                      "type": "string"
+                    },
+                    "sapWbs": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tenderReference": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetArticle": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "commitmentFlag": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "commitmentNote": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actionPlanRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "inBudget2026": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "contractualCommitment": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "internalAuditFile": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "sourceRowRef": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sponsorId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerId": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "updatedAt": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ledgers": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "orgUnit": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nameEl": {
+                          "type": "string"
+                        },
+                        "nameEn": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nameEl",
+                        "nameEn"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sponsorName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "projectManagerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "baselineDate": {
+                            "type": "string"
+                          },
+                          "forecastDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "actualDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "isGate": {
+                            "type": "boolean"
+                          },
+                          "sortOrder": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "titleEl",
+                          "baselineDate",
+                          "forecastDate",
+                          "actualDate",
+                          "isGate",
+                          "sortOrder"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "risks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "likelihood": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "impact": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "ownerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ownerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mitigationEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "MITIGATED",
+                              "CLOSED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "likelihood",
+                          "impact",
+                          "ownerId",
+                          "ownerName",
+                          "mitigationEl",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "raisedById": {
+                            "type": "string"
+                          },
+                          "raisedByName": {
+                            "type": "string"
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OPEN",
+                              "RESOLVED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "descriptionEl",
+                          "raisedById",
+                          "raisedByName",
+                          "dueDate",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "audit": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "actorName": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "actorName",
+                          "action",
+                          "at",
+                          "detail"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "orgUnitId",
+                    "titleEl",
+                    "titleEn",
+                    "noteEl",
+                    "category",
+                    "phase",
+                    "approvedBudget",
+                    "fundingSource",
+                    "plannedStart",
+                    "plannedFinish",
+                    "forecastStart",
+                    "forecastFinish",
+                    "actualStart",
+                    "actualFinish",
+                    "budgetYearFrom",
+                    "budgetYearTo",
+                    "rag",
+                    "ragReason",
+                    "sapWbs",
+                    "tenderReference",
+                    "budgetArticle",
+                    "commitmentFlag",
+                    "commitmentNote",
+                    "actionPlanRef",
+                    "inBudget2026",
+                    "contractualCommitment",
+                    "internalAuditFile",
+                    "sourceRowRef",
+                    "sponsorId",
+                    "projectManagerId",
+                    "createdAt",
+                    "updatedAt",
+                    "ledgers",
+                    "orgUnit",
+                    "sponsorName",
+                    "projectManagerName",
+                    "milestones",
+                    "risks",
+                    "issues",
+                    "audit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid phase change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not the next phase, or a gate milestone is still open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Move the project to the next phase",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/milestones": {
+      "post": {
+        "operationId": "ProjectsController_addMilestone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titleEl": {
+                    "type": "string"
+                  },
+                  "baselineDate": {
+                    "type": "string"
+                  },
+                  "forecastDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "actualDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "isGate": {
+                    "type": "boolean"
+                  },
+                  "sortOrder": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "titleEl",
+                  "baselineDate",
+                  "isGate"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The milestone as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "baselineDate": {
+                      "type": "string"
+                    },
+                    "forecastDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "isGate": {
+                      "type": "boolean"
+                    },
+                    "sortOrder": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "projectId",
+                    "titleEl",
+                    "baselineDate",
+                    "forecastDate",
+                    "actualDate",
+                    "isGate",
+                    "sortOrder"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid milestone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a milestone to the project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/milestones/{mid}": {
+      "patch": {
+        "operationId": "ProjectsController_updateMilestone",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titleEl": {
+                    "type": "string"
+                  },
+                  "baselineDate": {
+                    "type": "string"
+                  },
+                  "forecastDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "actualDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "isGate": {
+                    "type": "boolean"
+                  },
+                  "sortOrder": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "titleEl",
+                  "baselineDate",
+                  "isGate"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The milestone after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "baselineDate": {
+                      "type": "string"
+                    },
+                    "forecastDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "isGate": {
+                      "type": "boolean"
+                    },
+                    "sortOrder": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "projectId",
+                    "titleEl",
+                    "baselineDate",
+                    "forecastDate",
+                    "actualDate",
+                    "isGate",
+                    "sortOrder"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid milestone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project or milestone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body asks to move the baseline date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change a milestone; the baseline date cannot move",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/risks": {
+      "post": {
+        "operationId": "ProjectsController_addRisk",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "descriptionEl": {
+                    "type": "string"
+                  },
+                  "likelihood": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "impact": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "ownerId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "mitigationEl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "MITIGATED",
+                      "CLOSED"
+                    ]
+                  }
+                },
+                "required": [
+                  "descriptionEl",
+                  "likelihood",
+                  "impact"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The risk as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "descriptionEl": {
+                      "type": "string"
+                    },
+                    "likelihood": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "impact": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "ownerId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ownerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mitigationEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "MITIGATED",
+                        "CLOSED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "projectId",
+                    "descriptionEl",
+                    "likelihood",
+                    "impact",
+                    "ownerId",
+                    "ownerName",
+                    "mitigationEl",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid risk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a risk to the project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/risks/{rid}": {
+      "patch": {
+        "operationId": "ProjectsController_updateRisk",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "descriptionEl": {
+                    "type": "string"
+                  },
+                  "likelihood": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "impact": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "ownerId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "mitigationEl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "MITIGATED",
+                      "CLOSED"
+                    ]
+                  }
+                },
+                "required": [
+                  "descriptionEl",
+                  "likelihood",
+                  "impact"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The risk after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "descriptionEl": {
+                      "type": "string"
+                    },
+                    "likelihood": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "impact": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "ownerId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ownerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mitigationEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "MITIGATED",
+                        "CLOSED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "projectId",
+                    "descriptionEl",
+                    "likelihood",
+                    "impact",
+                    "ownerId",
+                    "ownerName",
+                    "mitigationEl",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid risk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project or risk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change a risk",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/issues": {
+      "post": {
+        "operationId": "ProjectsController_addIssue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "descriptionEl": {
+                    "type": "string"
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "RESOLVED"
+                    ]
+                  }
+                },
+                "required": [
+                  "descriptionEl"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The issue as stored, raised by the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "descriptionEl": {
+                      "type": "string"
+                    },
+                    "raisedById": {
+                      "type": "string"
+                    },
+                    "raisedByName": {
+                      "type": "string"
+                    },
+                    "dueDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "RESOLVED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "projectId",
+                    "descriptionEl",
+                    "raisedById",
+                    "raisedByName",
+                    "dueDate",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Raise an issue on the project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/projects/{id}/issues/{iid}": {
+      "patch": {
+        "operationId": "ProjectsController_updateIssue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "iid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "descriptionEl": {
+                    "type": "string"
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "RESOLVED"
+                    ]
+                  }
+                },
+                "required": [
+                  "descriptionEl"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The issue after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "descriptionEl": {
+                      "type": "string"
+                    },
+                    "raisedById": {
+                      "type": "string"
+                    },
+                    "raisedByName": {
+                      "type": "string"
+                    },
+                    "dueDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "RESOLVED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "projectId",
+                    "descriptionEl",
+                    "raisedById",
+                    "raisedByName",
+                    "dueDate",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project or issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change an issue",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/portfolio": {
+      "get": {
+        "operationId": "PortfolioController_build",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "KPI strip, one row per visible unit, up to eight exceptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kpis": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "yearElapsedPct": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast",
+                        "yearElapsedPct"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "units": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "orgUnit": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "nameEl": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "HOSPITAL",
+                                  "SERVICE"
+                                ]
+                              },
+                              "directorate": {
+                                "type": "string",
+                                "enum": [
+                                  "LEMESOU_PAFOU",
+                                  "LEFKOSIAS",
+                                  "LARNAKAS_AMMOCHOSTOU",
+                                  "DYPSY",
+                                  "PFY",
+                                  "AMBULANCE"
+                                ]
+                              },
+                              "costCentre": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "timezone": {
+                                "type": "string",
+                                "const": "Europe/Nicosia"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "code",
+                              "nameEl",
+                              "nameEn",
+                              "type",
+                              "directorate",
+                              "costCentre",
+                              "timezone"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "projectCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "approved": {
+                            "type": "number"
+                          },
+                          "spent": {
+                            "type": "number"
+                          },
+                          "sparkline": {
+                            "type": "object",
+                            "properties": {
+                              "plan": {
+                                "minItems": 12,
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                }
+                              },
+                              "spend": {
+                                "minItems": 12,
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            "required": [
+                              "plan",
+                              "spend"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "rag": {
+                            "type": "object",
+                            "properties": {
+                              "green": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "amber": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "red": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "green",
+                              "amber",
+                              "red"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "orgUnit",
+                          "projectCount",
+                          "approved",
+                          "spent",
+                          "sparkline",
+                          "rag"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "exceptions": {
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "sentenceEl": {
+                            "type": "string"
+                          },
+                          "sentenceEn": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "amber",
+                              "red"
+                            ]
+                          },
+                          "href": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "orgUnitId",
+                          "sentenceEl",
+                          "sentenceEn",
+                          "severity",
+                          "href"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "asOf": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kpis",
+                    "units",
+                    "exceptions",
+                    "asOf"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The portfolio the caller may see: KPIs, units and exceptions",
+        "tags": [
+          "portfolio"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_check",

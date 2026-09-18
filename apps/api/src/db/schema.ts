@@ -18,6 +18,7 @@
 import {
   bigint,
   boolean,
+  date,
   index,
   inet,
   integer,
@@ -245,3 +246,179 @@ export const schemaMigration = ecapital.table("schema_migration", {
   checksum: text("checksum").notNull(),
   appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ------------------------------------------------------------------- M1 --
+// The project register (R04–R07). Same rule as above: the SQL in
+// ./migrations/0002_m1_projects.sql is the source of truth; policies, the
+// code-allocation function and the audit triggers live only there.
+
+export const projectCategory = ecapital.enum("project_category", [
+  "NEW_BUILD",
+  "RENOVATION",
+  "SMALL_WORKS",
+  "EQUIPMENT",
+  "MAINTENANCE_CAPITAL",
+  "IT",
+]);
+
+// The order is the rule (R04): a phase may move exactly one step along this
+// list. PROJECT_PHASES below is the same list as plain data for the service.
+export const projectPhase = ecapital.enum("project_phase", [
+  "IDEA",
+  "PREPARATION",
+  "APPROVED",
+  "TENDERED",
+  "AWARDED",
+  "IN_PROGRESS",
+  "PRACTICAL_COMPLETION",
+  "DEFECTS_LIABILITY",
+  "CLOSED",
+]);
+
+export const fundingSource = ecapital.enum("funding_source", [
+  "STATE_BUDGET",
+  "EU",
+  "DONATION",
+  "OWN",
+]);
+export const rag = ecapital.enum("rag", ["GREEN", "AMBER", "RED"]);
+export const riskStatus = ecapital.enum("risk_status", ["OPEN", "MITIGATED", "CLOSED"]);
+export const issueStatus = ecapital.enum("issue_status", ["OPEN", "RESOLVED"]);
+
+export const project = ecapital.table(
+  "project",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull().unique(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    titleEl: text("title_el").notNull(),
+    titleEn: text("title_en"),
+    noteEl: text("note_el"),
+    category: projectCategory("category").notNull(),
+    phase: projectPhase("phase").notNull().default("IDEA"),
+    phaseReasonEl: text("phase_reason_el"),
+    phaseChangedAt: timestamp("phase_changed_at", { withTimezone: true }),
+    approvedBudget: numeric("approved_budget", { precision: 14, scale: 2 }).notNull(),
+    fundingSource: fundingSource("funding_source").notNull(),
+    plannedStart: date("planned_start"),
+    plannedFinish: date("planned_finish"),
+    forecastStart: date("forecast_start"),
+    forecastFinish: date("forecast_finish"),
+    actualStart: date("actual_start"),
+    actualFinish: date("actual_finish"),
+    budgetYearFrom: integer("budget_year_from"),
+    budgetYearTo: integer("budget_year_to"),
+    rag: rag("rag").notNull().default("GREEN"),
+    ragReason: text("rag_reason").notNull().default(""),
+    sapWbs: text("sap_wbs"),
+    tenderReference: text("tender_reference"),
+    budgetArticle: text("budget_article"),
+    commitmentFlag: boolean("commitment_flag").notNull().default(false),
+    commitmentNote: text("commitment_note"),
+    actionPlanRef: text("action_plan_ref"),
+    inBudget2026: boolean("in_budget_2026").notNull().default(false),
+    contractualCommitment: boolean("contractual_commitment").notNull().default(false),
+    internalAuditFile: boolean("internal_audit_file").notNull().default(false),
+    sourceRowRef: text("source_row_ref"),
+    sponsorId: uuid("sponsor_id").references(() => appUser.id, { onDelete: "set null" }),
+    projectManagerId: uuid("project_manager_id").references(() => appUser.id, {
+      onDelete: "set null",
+    }),
+    createdAt,
+    updatedAt,
+    // Generated in the database from code and title_el; never written from here.
+    searchNorm: text("search_norm"),
+  },
+  (t) => [
+    index("project_unit_idx").on(t.orgUnitId),
+    index("project_phase_idx").on(t.phase),
+    index("project_rag_idx").on(t.rag),
+    index("project_updated_idx").on(t.updatedAt),
+  ],
+);
+
+export const milestone = ecapital.table(
+  "milestone",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    titleEl: text("title_el").notNull(),
+    baselineDate: date("baseline_date").notNull(),
+    forecastDate: date("forecast_date"),
+    actualDate: date("actual_date"),
+    isGate: boolean("is_gate").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("milestone_project_idx").on(t.projectId, t.sortOrder),
+    index("milestone_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+export const risk = ecapital.table(
+  "risk",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    descriptionEl: text("description_el").notNull(),
+    likelihood: integer("likelihood").notNull(),
+    impact: integer("impact").notNull(),
+    ownerId: uuid("owner_id").references(() => appUser.id, { onDelete: "set null" }),
+    mitigationEl: text("mitigation_el"),
+    status: riskStatus("status").notNull().default("OPEN"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("risk_project_idx").on(t.projectId), index("risk_unit_idx").on(t.orgUnitId)],
+);
+
+export const issue = ecapital.table(
+  "issue",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    descriptionEl: text("description_el").notNull(),
+    raisedBy: uuid("raised_by")
+      .notNull()
+      .references(() => appUser.id),
+    dueDate: date("due_date"),
+    status: issueStatus("status").notNull().default("OPEN"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("issue_project_idx").on(t.projectId), index("issue_unit_idx").on(t.orgUnitId)],
+);
+
+// Machinery behind ADR-0014. Row-level security is on and there is no policy,
+// so nothing reaches it except ecapital.allocate_project_code.
+export const projectCodeSeq = ecapital.table(
+  "project_code_seq",
+  {
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    nextSeq: integer("next_seq").notNull().default(1),
+    updatedAt,
+  },
+  (t) => [primaryKey({ columns: [t.orgUnitId, t.year] })],
+);

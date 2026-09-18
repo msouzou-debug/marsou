@@ -32,7 +32,8 @@ describe("migrations", () => {
   it("applies from an empty database", async () => {
     const result = await runMigrations(targetUrl);
     expect(result.applied).toContain("0001_m0_foundations");
-    expect(result.lastMigrationId).toBe("0001_m0_foundations");
+    expect(result.applied).toContain("0002_m1_projects");
+    expect(result.lastMigrationId).toBe("0002_m1_projects");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -48,8 +49,13 @@ describe("migrations", () => {
       "audit_log",
       "building",
       "floor",
+      "issue",
+      "milestone",
       "org_unit",
       "org_unit_alias",
+      "project",
+      "project_code_seq",
+      "risk",
       "role_mapping",
       "schema_migration",
     ]);
@@ -60,6 +66,7 @@ describe("migrations", () => {
     const result = await runMigrations(targetUrl);
     expect(result.applied).toEqual([]);
     expect(result.skipped).toContain("0001_m0_foundations");
+    expect(result.skipped).toContain("0002_m1_projects");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
