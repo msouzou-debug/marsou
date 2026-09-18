@@ -34,6 +34,19 @@
     "continue": "Continue"
   },
   "components": {
+    "asset-breadcrumb": {
+      "levels": {
+        "building": "Building",
+        "floor": "Floor",
+        "room": "Room",
+        "asset": "Asset"
+      },
+      "collapsed": "…"
+    },
+    "confirm-dialog": {
+      "codeLabel": "Type the code {code} to confirm",
+      "codePlaceholder": "Record code"
+    },
     "costBar": {
       "approved": "Approved budget",
       "committed": "Commitments",
@@ -45,6 +58,19 @@
       "loading": "Loading cost figures",
       "empty": "No budget has been recorded for this project yet.",
       "error": "The cost figures did not load. Try again."
+    },
+    "decision-panel": {
+      "commentPlaceholder": "Write your comment",
+      "commentRequired": "A comment is required to return this."
+    },
+    "filter-bar": {
+      "savedViews": "Saved views",
+      "selectView": "Select a view",
+      "saveView": "Save view",
+      "clearAll": "Clear all",
+      "removeFilter": "Remove filter {label}",
+      "viewNamePlaceholder": "View name",
+      "noSavedViews": "No saved views"
     },
     "icraBadge": {
       "matrix": "Work type {activityType} × Risk group {riskGroup} → Category {icraClass}",
@@ -60,6 +86,14 @@
         "expired": "Expired",
         "revoked": "Revoked"
       }
+    },
+    "photo-strip": {
+      "capture": "Take photo",
+      "empty": "There are no photos yet.",
+      "previous": "Previous photo",
+      "next": "Next photo",
+      "gps": "GPS location",
+      "photoAlt": "Photo {index} of {total}"
     },
     "ragChip": {
       "green": "Within limits",
@@ -95,6 +129,12 @@
         "category": "Cost category",
         "emptyMessage": "No cost categories have been recorded for this project."
       }
+    },
+    "timeline": {
+      "empty": "There are no entries yet."
+    },
+    "wizard-shell": {
+      "stepOf": "Step {current} of {total}"
     }
   },
   "nav": {

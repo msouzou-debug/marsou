@@ -1,16 +1,43 @@
 import type { PreviewEntry } from "./types";
+import assetBreadcrumb from "@/components/asset-breadcrumb/AssetBreadcrumb.preview";
+import confirmDialog from "@/components/confirm-dialog/ConfirmDialog.preview";
 import costBar from "@/components/cost-bar/CostBar.preview";
+import decisionPanel from "@/components/decision-panel/DecisionPanel.preview";
+import emptyState from "@/components/empty-state/EmptyState.preview";
+import filterBar from "@/components/filter-bar/FilterBar.preview";
+import helpDrawer from "@/components/help-drawer/HelpDrawer.preview";
 import icraBadge from "@/components/icra-badge/IcraBadge.preview";
 import kpiTile from "@/components/kpi-tile/KpiTile.preview";
 import offlineChip from "@/components/offline-chip/OfflineChip.preview";
 import permitBanner from "@/components/permit-banner/PermitBanner.preview";
+import photoStrip from "@/components/photo-strip/PhotoStrip.preview";
 import ragChip from "@/components/rag-chip/RagChip.preview";
 import slaChip from "@/components/sla-chip/SlaChip.preview";
 import table from "@/components/table/Table.preview";
+import timeline from "@/components/timeline/Timeline.preview";
+import wizardShell from "@/components/wizard-shell/WizardShell.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
-const entries: PreviewEntry[] = [costBar, icraBadge, kpiTile, offlineChip, permitBanner, ragChip, slaChip, table];
+const entries: PreviewEntry[] = [
+  assetBreadcrumb,
+  confirmDialog,
+  costBar,
+  decisionPanel,
+  emptyState,
+  filterBar,
+  helpDrawer,
+  icraBadge,
+  kpiTile,
+  offlineChip,
+  permitBanner,
+  photoStrip,
+  ragChip,
+  slaChip,
+  table,
+  timeline,
+  wizardShell,
+];
 
 export function getPreviewEntries(): PreviewEntry[] {
   return entries;

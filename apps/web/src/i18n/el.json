@@ -34,6 +34,19 @@
     "continue": "Συνέχεια"
   },
   "components": {
+    "asset-breadcrumb": {
+      "levels": {
+        "building": "Κτίριο",
+        "floor": "Όροφος",
+        "room": "Χώρος",
+        "asset": "Πάγιο"
+      },
+      "collapsed": "…"
+    },
+    "confirm-dialog": {
+      "codeLabel": "Πληκτρολογήστε τον κωδικό {code} για επιβεβαίωση",
+      "codePlaceholder": "Κωδικός καταχώρησης"
+    },
     "costBar": {
       "approved": "Εγκεκριμένος προϋπολογισμός",
       "committed": "Δεσμεύσεις",
@@ -45,6 +58,19 @@
       "loading": "Φόρτωση στοιχείων κόστους",
       "empty": "Δεν έχει καταχωριστεί προϋπολογισμός για αυτό το έργο.",
       "error": "Τα στοιχεία κόστους δεν φορτώθηκαν. Δοκιμάστε ξανά."
+    },
+    "decision-panel": {
+      "commentPlaceholder": "Γράψτε το σχόλιό σας",
+      "commentRequired": "Η επιστροφή απαιτεί σχόλιο."
+    },
+    "filter-bar": {
+      "savedViews": "Αποθηκευμένες προβολές",
+      "selectView": "Επιλογή προβολής",
+      "saveView": "Αποθήκευση προβολής",
+      "clearAll": "Καθαρισμός όλων",
+      "removeFilter": "Αφαίρεση φίλτρου {label}",
+      "viewNamePlaceholder": "Όνομα προβολής",
+      "noSavedViews": "Δεν υπάρχουν αποθηκευμένες προβολές"
     },
     "icraBadge": {
       "matrix": "Τύπος εργασίας {activityType} × Ομάδα κινδύνου {riskGroup} → Κατηγορία {icraClass}",
@@ -60,6 +86,14 @@
         "expired": "Έληξε",
         "revoked": "Ανακλήθηκε"
       }
+    },
+    "photo-strip": {
+      "capture": "Λήψη φωτογραφίας",
+      "empty": "Δεν υπάρχουν φωτογραφίες ακόμη.",
+      "previous": "Προηγούμενη φωτογραφία",
+      "next": "Επόμενη φωτογραφία",
+      "gps": "Τοποθεσία GPS",
+      "photoAlt": "Φωτογραφία {index} από {total}"
     },
     "ragChip": {
       "green": "Εντός ορίων",
@@ -95,6 +129,12 @@
         "category": "Κατηγορία κόστους",
         "emptyMessage": "Δεν έχουν καταχωριστεί κατηγορίες κόστους για αυτό το έργο."
       }
+    },
+    "timeline": {
+      "empty": "Δεν υπάρχουν καταχωρήσεις ακόμη."
+    },
+    "wizard-shell": {
+      "stepOf": "Βήμα {current} από {total}"
     }
   },
   "nav": {
