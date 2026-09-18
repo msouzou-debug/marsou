@@ -1,4 +1,5 @@
-import type { ProjectSummary } from "@ecapital/shared";
+import { ProjectSummary } from "@ecapital/shared";
+import { z } from "zod";
 
 // ~40 fixture projects spread across the eleven org units roughly in
 // proportion to the CAPEX-03 §3 row counts (113 real rows -> ~0.37
@@ -53,7 +54,9 @@ export function computeRag(
   return { rag: "GREEN", reasonKind: "NONE" };
 }
 
-export const projects: ProjectSummary[] = [
+// Fixtures are written in the contract's input shape (M1 fields take their
+// defaults) and parsed once so every consumer sees the full output type.
+const rawProjects: z.input<typeof ProjectSummary>[] = [
   {
     id: "PRJ-001",
     code: "PCH-001",
@@ -979,3 +982,5 @@ export const projects: ProjectSummary[] = [
     },
   },
 ];
+
+export const projects: ProjectSummary[] = z.array(ProjectSummary).parse(rawProjects);

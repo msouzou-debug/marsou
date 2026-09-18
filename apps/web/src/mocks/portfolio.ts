@@ -71,7 +71,7 @@ function reasonSentences(
 function buildUnitRow(orgUnit: OrgUnit, asOf: Date): UnitRow {
   const unitProjects = projects.filter((p) => p.orgUnitId === orgUnit.id);
   const approved = unitProjects.reduce((sum, p) => sum + p.ledgers.approved, 0);
-  const spent = unitProjects.reduce((sum, p) => sum + p.ledgers.spent, 0);
+  const spent = unitProjects.reduce((sum, p) => sum + (p.ledgers.spent ?? 0), 0);
   const rag = { green: 0, amber: 0, red: 0 };
   for (const p of unitProjects) {
     if (p.rag === "GREEN") rag.green++;
@@ -100,14 +100,16 @@ function buildExceptions(): Exception[] {
       if (!unit) throw new Error(`Project ${p.id} references unknown org unit ${p.orgUnitId}`);
       const { reasonKind } = computeRag(
         p.ledgers.approved,
-        p.ledgers.committed,
-        p.ledgers.spent,
-        p.ledgers.forecast,
-        p.plannedStart,
-        p.plannedFinish,
+        (p.ledgers.committed ?? 0),
+        (p.ledgers.spent ?? 0),
+        (p.ledgers.forecast ?? 0),
+        // Fixture dates are always present; the contract allows null for
+        // imported rows whose date cell was empty or text (CAPEX-03 V06).
+        p.plannedStart ?? "",
+        p.plannedFinish ?? "",
       );
-      const sentences = reasonSentences(reasonKind, p.ledgers.approved, p.ledgers.committed, p.ledgers.forecast);
-      const overage = Math.max(p.ledgers.committed - p.ledgers.approved, p.ledgers.forecast - p.ledgers.approved, 0);
+      const sentences = reasonSentences(reasonKind, p.ledgers.approved, (p.ledgers.committed ?? 0), (p.ledgers.forecast ?? 0));
+      const overage = Math.max((p.ledgers.committed ?? 0) - p.ledgers.approved, (p.ledgers.forecast ?? 0) - p.ledgers.approved, 0);
       const exception: Exception = {
         id: `EXC-${p.id}`,
         projectId: p.id,
@@ -130,9 +132,9 @@ export function buildPortfolio(asOf: Date): PortfolioResponse {
   const kpis = projects.reduce(
     (acc, p) => ({
       approved: acc.approved + p.ledgers.approved,
-      committed: acc.committed + p.ledgers.committed,
-      spent: acc.spent + p.ledgers.spent,
-      forecast: acc.forecast + p.ledgers.forecast,
+      committed: acc.committed + (p.ledgers.committed ?? 0),
+      spent: acc.spent + (p.ledgers.spent ?? 0),
+      forecast: acc.forecast + (p.ledgers.forecast ?? 0),
     }),
     { approved: 0, committed: 0, spent: 0, forecast: 0 },
   );

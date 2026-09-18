@@ -17,9 +17,9 @@ describe("buildPortfolio", () => {
     const expected = projects.reduce(
       (acc, p) => ({
         approved: acc.approved + p.ledgers.approved,
-        committed: acc.committed + p.ledgers.committed,
-        spent: acc.spent + p.ledgers.spent,
-        forecast: acc.forecast + p.ledgers.forecast,
+        committed: acc.committed + (p.ledgers.committed ?? 0),
+        spent: acc.spent + (p.ledgers.spent ?? 0),
+        forecast: acc.forecast + (p.ledgers.forecast ?? 0),
       }),
       { approved: 0, committed: 0, spent: 0, forecast: 0 },
     );
