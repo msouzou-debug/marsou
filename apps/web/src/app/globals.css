@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/* Expose the tokens to Tailwind so utilities like bg-k-blue, p-s-4 and
+   text-fs-14 resolve to the same variables the components use. */
+@theme inline {
+  --color-k-green: var(--k-green);
+  --color-k-blue: var(--k-blue);
+  --color-k-blue-deep: var(--k-blue-deep);
+  --color-k-text: var(--k-text);
+  --color-k-grey: var(--k-grey);
+  --color-k-red: var(--k-red);
+  --color-k-amber: var(--k-amber);
+  --color-k-purple: var(--k-purple);
+  --color-k-green-bg: var(--k-green-bg);
+  --color-k-red-bg: var(--k-red-bg);
+  --color-k-amber-bg: var(--k-amber-bg);
+  --color-k-purple-bg: var(--k-purple-bg);
+  --color-k-blue-bg: var(--k-blue-bg);
+  --color-k-white: var(--k-white);
+  --color-k-surface: var(--k-surface);
+  --color-k-text-muted: var(--k-text-muted);
+  --color-k-ink: var(--k-ink);
+
+  --font-k: var(--k-font);
+  --font-k-mono: var(--k-font-mono);
+
+  --text-fs-12: 12px;
+  --text-fs-14: 14px;
+  --text-fs-16: 16px;
+  --text-fs-20: 20px;
+  --text-fs-24: 24px;
+  --text-fs-32: 32px;
+
+  --spacing-s-1: 4px;
+  --spacing-s-2: 8px;
+  --spacing-s-3: 12px;
+  --spacing-s-4: 16px;
+  --spacing-s-5: 20px;
+  --spacing-s-6: 24px;
+  --spacing-s-8: 32px;
+  --spacing-s-10: 40px;
+  --spacing-s-12: 48px;
+
+  --radius-k: 6px;
+  --radius-k-chip: 2px;
+  --shadow-k: 0 1px 2px rgba(31, 34, 36, .08);
+
+  --breakpoint-phone: 390px;
+  --breakpoint-tablet: 1024px;
+  --breakpoint-desktop: 1440px;
+}
+
+/* No dark mode in this product (UI instructions §0.5). */
+html { color-scheme: light only; }
+
+body {
+  font-family: var(--k-font);
+  font-size: var(--fs-14);
+  line-height: 1.5;
+  color: var(--k-text);
+  background: var(--k-white);
+}
+
+h1, h2, h3 { color: var(--k-blue-deep); line-height: 1.2; font-weight: 700; }
+
+/* Focus ring on everything focusable (UI instructions §7). */
+:focus-visible { outline: 2px solid var(--k-blue); outline-offset: 2px; }
+
+/* Numeric cells: mono, tabular, right-aligned. Apply with class "num". */
+.num { font-family: var(--k-font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Eyebrow labels: uppercase, tracked, 12px. Greek uppercase carries no accents. */
+.eyebrow { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: .08em; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

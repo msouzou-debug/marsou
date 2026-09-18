@@ -1,0 +1,84 @@
+{
+  "app": {
+    "name": "eCapital",
+    "tagline": "Projects, assets and maintenance for SHSO",
+    "org": "State Health Services Organisation"
+  },
+  "common": {
+    "unit": "Unit",
+    "directorate": "Directorate",
+    "language": "Language",
+    "help": "Help",
+    "search": "Search",
+    "user": "User",
+    "loading": "Loading",
+    "retry": "Try again",
+    "back": "Back",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "days": "{count} d",
+    "notAvailable": "—"
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "approve": "Approve",
+    "returnWithComments": "Return with comments",
+    "complete": "Complete",
+    "add": "Add",
+    "exportExcel": "Export to Excel",
+    "print": "Print",
+    "scanQr": "Scan QR",
+    "continue": "Continue"
+  },
+  "nav": {
+    "portfolio": "Portfolio",
+    "projects": "Projects",
+    "contracts": "Contracts",
+    "shutdowns": "Shutdowns and permits",
+    "assets": "Assets",
+    "maintenance": "Maintenance",
+    "approvals": "Approvals",
+    "reports": "Reports",
+    "admin": "Administration"
+  },
+  "states": {
+    "noPermission": {
+      "title": "You do not have access to this page.",
+      "askRole": "Ask the system administrator for access.",
+      "backLink": "Back to home"
+    },
+    "offline": {
+      "readOnly": "Offline. You are seeing saved data.",
+      "queued": "Offline — {count} records waiting",
+      "syncing": "Syncing…",
+      "failed": "Sync failed — {count} record",
+      "retry": "Retry"
+    },
+    "error": {
+      "generic": "Something went wrong. Try again in a moment.",
+      "loadFailed": "The data did not load. Try again."
+    }
+  },
+  "help": {
+    "title": "Help",
+    "searchPlaceholder": "Search the user guide",
+    "unwritten": "Help for this screen has not been written yet.",
+    "goToCentre": "Open the user guide",
+    "whatCanGoWrong": "What can go wrong",
+    "pdfGuide": "PDF guide for {role}"
+  },
+  "preview": {
+    "title": "Component preview",
+    "state": {
+      "default": "Default",
+      "loading": "Loading",
+      "empty": "Empty",
+      "error": "Error",
+      "noPermission": "No permission",
+      "offline": "Offline"
+    }
+  }
+}

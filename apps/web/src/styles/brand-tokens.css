@@ -1,0 +1,51 @@
+/* OKYπY / SHSO brand tokens — vendored copy of /brand/brand-tokens.css.
+   The Google Fonts @import is removed: fonts are self-hosted through next/font
+   (see ADR-0003) because the hospital LAN may have no internet. Everything else
+   is byte-for-byte the brand file. Do not edit; re-vendor from /brand instead. */
+
+
+:root {
+  /* identity */
+  --okypy-green:      #8BC53F;
+  --okypy-blue:       #069FEC; /* bright / primary accent */
+  --okypy-blue-logo:  #25A3DC;
+  --okypy-blue-deep:  #1B75BB;
+  /* neutrals */
+  --okypy-text:       #58595B;
+  --okypy-grey-light: #EAEAEA;
+  --okypy-white:      #FFFFFF;
+  /* data semantics */
+  --okypy-pos:        #8BC53F;
+  --okypy-neg:        #C0392B;
+  /* gradient */
+  --okypy-blue-grad:  linear-gradient(90deg, #1B75BB 0%, #069FEC 100%);
+  /* type */
+  --okypy-font: "Lato","Source Sans Pro","Open Sans",Arial,"Helvetica Neue",sans-serif;
+}
+
+body { font-family: var(--okypy-font); color: var(--okypy-text); background: var(--okypy-white); }
+
+h1,h2,h3 { font-family: var(--okypy-font); color: var(--okypy-blue-deep); font-weight: 700; }
+
+a, .okypy-link { color: var(--okypy-blue); }
+
+/* accent bars */
+.okypy-bar-bottom { height: 10px; background: var(--okypy-blue); width: 100%; }
+.okypy-bar-left   { width: 10px;  background: var(--okypy-blue); min-height: 100%; }
+.okypy-rule       { border: none; border-top: 1px solid var(--okypy-grey-light); margin: 8px 0 16px; }
+
+/* KPI / accents */
+.okypy-accent-green { color: var(--okypy-green); }
+.okypy-accent-blue  { color: var(--okypy-blue); }
+.okypy-pos { color: var(--okypy-pos); }
+.okypy-neg { color: var(--okypy-neg); }
+
+/* table styling */
+.okypy-table { border-collapse: collapse; width: 100%; font-family: var(--okypy-font); }
+.okypy-table thead th { background: var(--okypy-blue); color: #fff; padding: 8px 12px; text-align: left; }
+.okypy-table tbody td { padding: 6px 12px; border-bottom: 1px solid var(--okypy-grey-light); }
+.okypy-table tbody tr:nth-child(even) { background: var(--okypy-grey-light); }
+
+/* footer logo */
+.okypy-footer { display:flex; align-items:center; justify-content:space-between; }
+.okypy-footer img { height: 48px; }
