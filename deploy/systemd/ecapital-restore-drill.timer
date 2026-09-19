@@ -1,0 +1,13 @@
+# Fires ecapital-restore-drill.service on the 1st of every month at 03:00,
+# after that night's backup (02:20) has had time to finish.
+
+[Unit]
+Description=Monthly eCapital restore drill
+
+[Timer]
+OnCalendar=*-*-01 03:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

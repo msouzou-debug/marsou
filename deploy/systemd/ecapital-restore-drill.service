@@ -1,0 +1,24 @@
+# Monthly restore drill (CAPEX-01 §3: "monthly test restore, logged").
+# Restores the latest nightly dump into a scratch database, counts the
+# projects, compares against the live count, and writes one line to
+# /var/log/ecapital/restore-drill.log either way. Never touches the live
+# `ecapital` database.
+
+[Unit]
+Description=eCapital monthly restore drill
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=ecapital
+Group=ecapital
+ExecStart=/opt/ecapital/deploy/restore-drill.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/backups/ecapital /var/log/ecapital
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ecapital-restore-drill

@@ -1,0 +1,14 @@
+# Fires ecapital-backup.service every night. eFinance's own backup runs at
+# 02:00 (CLAUDE.md §3); eCapital picks 02:20 so the two pg_dump jobs on the
+# same disk do not overlap.
+
+[Unit]
+Description=Nightly eCapital database backup
+
+[Timer]
+OnCalendar=*-*-* 02:20:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,40 @@
+# eCapital web app (Next.js) — systemd unit for the ΟΚΥπΥ server (10.227.56.22).
+#
+# Install once with `deploy/install.sh`; `deploy/release.sh` only restarts it.
+# Binds 0.0.0.0:5005 — this is the address cloudflared (running on another
+# box) proxies capital.shso.online to. Nothing else on this host should reach
+# 5005 from outside; there is no nginx vhost in front of it (see
+# docs/deploy/RUNBOOK-10.227.56.22.md and deploy/cloudflared-request.md).
+
+[Unit]
+Description=eCapital web app (Next.js)
+Documentation=https://github.com/ (see docs/deploy/RUNBOOK-10.227.56.22.md in the repo)
+After=network.target ecapital-api.service
+Wants=ecapital-api.service
+
+[Service]
+Type=simple
+User=ecapital
+Group=ecapital
+WorkingDirectory=/opt/ecapital/apps/web
+EnvironmentFile=/etc/ecapital/web.env
+ExecStart=/usr/bin/pnpm --filter @ecapital/web start -- -p 5005 -H 0.0.0.0
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+# --- hardening -------------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/log/ecapital /opt/ecapital/apps/web
+UMask=0027
+
+# --- logging -----------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ecapital-web
+
+[Install]
+WantedBy=multi-user.target
