@@ -15,6 +15,7 @@
 // is the typed view the query builder uses. Row-level security, grants and
 // the audit trigger live only in the SQL, because Drizzle cannot express them.
 
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -421,4 +422,172 @@ export const projectCodeSeq = ecapital.table(
     updatedAt,
   },
   (t) => [primaryKey({ columns: [t.orgUnitId, t.year] })],
+);
+
+// ------------------------------------------------------------------- M1 --
+// The contract register (R08, R10, R13). Same rule as above: the SQL in
+// ./migrations/0003_m1_contracts.sql is the source of truth; the policies,
+// the commitment trigger, the variation-number function and the segregation
+// CHECK live only there.
+
+export const contractorCategory = ecapital.enum("contractor_category", [
+  "BUILDING",
+  "MECHANICAL",
+  "ELECTRICAL",
+  "BIOMEDICAL",
+  "IT",
+  "CONSULTANT",
+  "OTHER",
+]);
+
+export const contractType = ecapital.enum("contract_type", [
+  "LUMP_SUM",
+  "BOQ",
+  "FRAMEWORK",
+  "MEASURE_TERM",
+  "SUPPLY",
+  "SERVICE",
+]);
+
+export const variationReason = ecapital.enum("variation_reason", [
+  "CLIENT_CHANGE",
+  "SITE_CONDITION",
+  "DESIGN_ERROR",
+  "STATUTORY",
+  "OTHER",
+]);
+
+// Only APPROVED counts towards a contract's current value.
+export const variationStatus = ecapital.enum("variation_status", [
+  "DRAFT",
+  "SUBMITTED",
+  "APPROVED",
+  "RETURNED",
+  "REJECTED",
+]);
+
+// No org_unit_id: a contractor works for the whole organisation and the same
+// company holds contracts at more than one hospital.
+export const contractor = ecapital.table(
+  "contractor",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    vatNumber: text("vat_number"),
+    registrationNo: text("registration_no"),
+    category: contractorCategory("category").notNull().default("OTHER"),
+    sapVendorId: text("sap_vendor_id"),
+    blacklisted: boolean("blacklisted").notNull().default(false),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("contractor_category_idx").on(t.category)],
+);
+
+export const contract = ecapital.table(
+  "contract",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    contractorId: uuid("contractor_id")
+      .notNull()
+      .references(() => contractor.id),
+    contractNo: text("contract_no").notNull(),
+    type: contractType("type").notNull(),
+    awardDate: date("award_date").notNull(),
+    awardDecisionDocId: text("award_decision_doc_id"),
+    originalValue: numeric("original_value", { precision: 14, scale: 2 }).notNull(),
+    // Derived in the database from the original value and the approved
+    // variations (CAPEX-01 §7). Never written from here.
+    currentValue: numeric("current_value", { precision: 14, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    startDate: date("start_date"),
+    completionDate: date("completion_date"),
+    extensionDays: integer("extension_days").notNull().default(0),
+    retentionPct: numeric("retention_pct", { precision: 5, scale: 2 }).notNull().default("0"),
+    performanceBondValue: numeric("performance_bond_value", { precision: 14, scale: 2 }),
+    bondExpiry: date("bond_expiry"),
+    liquidatedDamagesPerDay: numeric("liquidated_damages_per_day", { precision: 14, scale: 2 }),
+    defectsLiabilityMonths: integer("defects_liability_months").notNull().default(0),
+    sapPoNumber: text("sap_po_number"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("contract_unit_no_key").on(t.orgUnitId, t.contractNo),
+    index("contract_project_idx").on(t.projectId),
+    index("contract_unit_idx").on(t.orgUnitId),
+    index("contract_contractor_idx").on(t.contractorId),
+  ],
+);
+
+export const boqItem = ecapital.table(
+  "boq_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    itemNo: text("item_no").notNull(),
+    descriptionEl: text("description_el").notNull(),
+    unit: text("unit").notNull(),
+    qty: numeric("qty", { precision: 14, scale: 3 }).notNull(),
+    rate: numeric("rate", { precision: 14, scale: 2 }).notNull(),
+    // Generated in the database as qty × rate; never written from here.
+    amount: numeric("amount", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`round(qty * rate, 2)`,
+    ),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("boq_item_contract_no_key").on(t.contractId, t.itemNo),
+    index("boq_item_contract_idx").on(t.contractId),
+    index("boq_item_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+export const variation = ecapital.table(
+  "variation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    // Allocated by ecapital.allocate_variation_number, never typed.
+    number: integer("number").notNull(),
+    descriptionEl: text("description_el").notNull(),
+    reason: variationReason("reason").notNull(),
+    value: numeric("value", { precision: 14, scale: 2 }).notNull(),
+    timeImpactDays: integer("time_impact_days").notNull().default(0),
+    status: variationStatus("status").notNull().default("DRAFT"),
+    raisedBy: uuid("raised_by")
+      .notNull()
+      .references(() => appUser.id),
+    raisedAt: timestamp("raised_at", { withTimezone: true }).notNull().defaultNow(),
+    // R10: the CHECK in the migration refuses a row where this equals
+    // raised_by, whoever is asking and whichever code path asks.
+    decidedBy: uuid("decided_by").references(() => appUser.id),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionCommentEl: text("decision_comment_el"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("variation_contract_number_key").on(t.contractId, t.number),
+    index("variation_contract_idx").on(t.contractId),
+    index("variation_unit_idx").on(t.orgUnitId),
+    index("variation_status_idx").on(t.status),
+  ],
 );
