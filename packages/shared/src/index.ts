@@ -10,5 +10,6 @@ export * from "./config-links";
 export * from "./project";
 export * from "./contract";
 export * from "./site";
+export * from "./cost";
 export * from "./portfolio";
 export * from "./directorate-labels";
