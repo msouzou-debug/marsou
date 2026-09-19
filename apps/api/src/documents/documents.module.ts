@@ -3,6 +3,8 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { CONFIG, type AppConfig } from "../config";
 import { DMS_CLIENT, EArchiveClient, NullClient, type DmsClient } from "./dms-client";
 import { DmsAdminController } from "./dms-admin.controller";
+import { DmsEventsController } from "./dms-events.controller";
+import { DmsEventsService } from "./dms-events.service";
 import { DmsSenderService } from "./dms-sender.service";
 import { DocumentsController } from "./documents.controller";
 import { DocumentsService } from "./documents.service";
@@ -19,7 +21,7 @@ import { LocalDiskObjectStore, OBJECT_STORE } from "./object-store";
  */
 @Module({
   imports: [ScheduleModule.forRoot()],
-  controllers: [DocumentsController, DmsAdminController],
+  controllers: [DocumentsController, DmsAdminController, DmsEventsController],
   providers: [
     { provide: OBJECT_STORE, useClass: LocalDiskObjectStore },
     {
@@ -31,6 +33,7 @@ import { LocalDiskObjectStore, OBJECT_STORE } from "./object-store";
           : new NullClient(),
     },
     DocumentsService,
+    DmsEventsService,
     DmsSenderService,
   ],
   exports: [DocumentsService, DmsSenderService, OBJECT_STORE, DMS_CLIENT],
