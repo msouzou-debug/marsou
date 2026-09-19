@@ -11,6 +11,18 @@ const noop = () => undefined;
 const rows = [
   buildAccrualRow(),
   buildAccrualRow({ contractId: "c-2", certNumber: 5, projectCode: "PRJ-040", projectTitleEl: "Ανακαίνιση χειρουργείων Γ.Ν. Λάρνακας", certifiedNet: 900_000, invoiced: 850_000, accrual: 50_000 }),
+  // Over-invoiced (screenshot review 19/09/2026): the API already clamps
+  // this to accrual: 0 and flags it — the row stays, «Σημείωση» says why.
+  buildAccrualRow({
+    contractId: "c-3",
+    certNumber: 2,
+    projectCode: "PRJ-LAR-04",
+    projectTitleEl: "Ανακατασκευή ΤΑΕΠ Γ.Ν. Λάρνακας",
+    certifiedNet: 1_200_000,
+    invoiced: 1_770_550,
+    accrual: 0,
+    overInvoiced: true,
+  }),
 ];
 
 const entry: PreviewEntry = {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FORECAST_INPUTS,
+  accrualOf,
   categoryOf,
   costToCompleteOf,
   derivePaymentCert,
@@ -150,5 +151,22 @@ describe("categories", () => {
       toCategoryRow("works", { approved: 1, committed: null, spent: null, forecast: null }),
     ]);
     expect(rows.map((row) => row.category)).toEqual(["works", "fees", "uncategorised"]);
+  });
+});
+
+describe("accrualOf", () => {
+  // RULE (screenshot review 19/09/2026, R18): certified − invoiced, but
+  // never negative — a seeded LAR row showed −570.550 €, which is
+  // over-invoicing, not an accrual.
+  it("is certified net less invoiced when work is ahead of billing", () => {
+    expect(accrualOf(480_000, 420_000)).toEqual({ accrual: 60_000, overInvoiced: false });
+  });
+
+  it("clamps to zero and flags over-invoicing when invoiced exceeds certified", () => {
+    expect(accrualOf(1_000_000, 1_570_550)).toEqual({ accrual: 0, overInvoiced: true });
+  });
+
+  it("is not over-invoiced when the two are exactly equal", () => {
+    expect(accrualOf(100_000, 100_000)).toEqual({ accrual: 0, overInvoiced: false });
   });
 });

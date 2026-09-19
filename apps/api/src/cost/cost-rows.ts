@@ -291,6 +291,18 @@ export function toCategoryRow(category: string, totals: CategoryTotals): CostCat
   };
 }
 
+/**
+ * R18 — the year-end accrual: certified net less invoiced. Clamped to zero,
+ * because a negative result is not an accrual, it is over-invoicing — the
+ * organisation has been billed for more than it has certified, and that is
+ * flagged rather than shown as a negative "amount owed" (screenshot review
+ * 19/09/2026).
+ */
+export function accrualOf(certifiedNet: number, invoiced: number): { accrual: number; overInvoiced: boolean } {
+  const raw = round2(certifiedNet - invoiced);
+  return { accrual: Math.max(0, raw), overInvoiced: raw < 0 };
+}
+
 /** The order S04 reads the categories in; anything else follows, then the bucket. */
 export function sortCategories(rows: CostCategoryRow[]): CostCategoryRow[] {
   const order = new Map<string, number>(COST_CATEGORIES.map((name, index) => [name, index]));

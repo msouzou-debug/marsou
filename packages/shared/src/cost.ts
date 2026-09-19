@@ -257,7 +257,8 @@ export const AccrualRow = z.object({
   certNumber: z.number().int(),
   certifiedNet: z.number(),
   invoiced: z.number(),
-  accrual: z.number(), // certifiedNet − invoiced
+  accrual: z.number(), // max(0, certifiedNet − invoiced) — never negative, see overInvoiced
+  overInvoiced: z.boolean(), // true when invoiced exceeds certifiedNet: over-invoicing, not an accrual
   asOf: z.string(),
 });
 export type AccrualRow = z.infer<typeof AccrualRow>;

@@ -254,7 +254,16 @@ describe("payment certificates (R11, R18, R31)", () => {
     );
     expect(mine.length).toBeGreaterThan(0);
     for (const row of mine) {
-      expect(row.accrual).toBeCloseTo(row.certifiedNet - row.invoiced, 2);
+      // R18, screenshot review 19/09/2026: certified − invoiced, clamped to
+      // zero — invoiced above certified is over-invoicing, not an accrual.
+      const raw = row.certifiedNet - row.invoiced;
+      if (raw < 0) {
+        expect(row.accrual).toBe(0);
+        expect(row.overInvoiced).toBe(true);
+      } else {
+        expect(row.accrual).toBeCloseTo(raw, 2);
+        expect(row.overInvoiced).toBe(false);
+      }
       expect(row.invoiced).toBe(90_000);
       expect(row.asOf).toBe("2026-12-31");
     }
@@ -291,9 +300,10 @@ describe("payment certificates (R11, R18, R31)", () => {
     expect(sheet.getCell("H2").value).toBe("Accrual");
     expect(sheet.getCell("F1").value).toBe("Καθαρό πληρωτέο");
 
-    // The owner's requirement: live and auditable, never a pasted value.
+    // The owner's requirement: live and auditable, never a pasted value —
+    // clamped to zero, so invoiced above certified never exports negative.
     const accrual = sheet.getCell("H3").value as { formula?: string };
-    expect(accrual.formula).toBe("F3-G3");
+    expect(accrual.formula).toBe("MAX(0,F3-G3)");
     expect(sheet.getCell("F3").numFmt).toBe("#,##0.00");
 
     let totalsRow = 0;

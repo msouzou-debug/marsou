@@ -95,7 +95,9 @@ export async function accrualsWorkbook(
       row.certifiedNet,
       row.invoiced,
       // RULE (owner): a formula, never the answer. F − G, in the cell.
-      { formula: `F${at}-G${at}` },
+      // Clamped to zero: invoiced above certified is over-invoicing, not a
+      // negative accrual (screenshot review 19/09/2026).
+      { formula: `MAX(0,F${at}-G${at})` },
       row.costCentre ?? "",
       row.asOf,
     ]);
@@ -172,8 +174,16 @@ export async function projectCostWorkbook(
   const totals = sheet.addRow([
     i18n.translate("cost.export.total", "el", {}),
     ...(input.categories.length
-      ? ["B", "C", "D", "E", "F"].map((column) => ({ formula: `SUM(${column}${first}:${column}${last})` }))
-      : [0, 0, 0, 0, 0]),
+      ? ["B", "C", "D", "E"].map((column) => ({ formula: `SUM(${column}${first}:${column}${last})` }))
+      : [0, 0, 0, 0]),
+    // RULE: the totals' own Απόκλιση is E−B on the totals row, not
+    // SUM(F...) — a category with only one of the two ledgers contributes
+    // "" (blank) to F but still moves the B or E total, so summing F would
+    // silently drop it. Same rule as the row cells: forecast − approved,
+    // blank when either total is missing.
+    input.categories.length
+      ? { formula: `IF(OR(E${totalsAt}="",B${totalsAt}=""),"",E${totalsAt}-B${totalsAt})` }
+      : 0,
   ]);
   totals.font = { bold: true };
   for (const column of ["B", "C", "D", "E", "F"]) {

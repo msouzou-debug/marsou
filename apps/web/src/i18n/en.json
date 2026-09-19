@@ -883,8 +883,10 @@
         "certNumber": "Certificate",
         "certifiedNet": "Certified net",
         "invoiced": "Invoiced",
-        "accrual": "Accrual"
+        "accrual": "Accrual",
+        "note": "Note"
       },
+      "overInvoiced": "Invoiced above certified",
       "totalsRow": "Total"
     },
     "s10": {

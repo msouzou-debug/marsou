@@ -14,6 +14,7 @@ export function buildAccrualRow(overrides: Partial<AccrualRow> = {}): AccrualRow
     certifiedNet: 480_000,
     invoiced: 420_000,
     accrual: 60_000,
+    overInvoiced: false,
     asOf: "2026-12-31",
     ...overrides,
   };

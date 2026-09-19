@@ -13,4 +13,5 @@ The screen shows accruals by project and contract: certified amounts not yet inv
 
 - **You cannot see the screen at all.** It is visible to Finance, the administrator, the head of estates and the two read-only roles.
 - **The table is empty.** There are no certified amounts still unbilled for the selected year.
+- **A row shows an accrual of 0,00 € with the note "Invoiced above certified".** The invoiced amount is higher than the certified net — that is over-invoicing, not an accrual. The row stays in the table with a zero accrual so you can see it and check it with the contractor.
 - **"Data did not load".** The API did not respond. Click "Try again".
