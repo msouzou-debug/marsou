@@ -286,6 +286,65 @@ describe("filing documents with eArchive", () => {
     expect(refused.status).toBe(404);
   });
 
+  /**
+   * «Service-only, admin read» (migration 0014). The queue is not anybody's
+   * unit: an engineer who may file a document may not read the queue at all,
+   * and an administrator sees whether the sender is configured.
+   */
+  it("keeps the queue to the administrator and the auditor", async () => {
+    const engineer = await tokenFor(app, USERS.engineerLarnaca);
+    const refused = await request(app.getHttpServer())
+      .get("/admin/dms/outbox")
+      .set(bearer(engineer));
+    expect(refused.status).toBe(403);
+
+    const admin_ = await tokenFor(app, USERS.admin);
+    const listed = await request(app.getHttpServer())
+      .get("/admin/dms/outbox?status=QUEUED&limit=5")
+      .set(bearer(admin_));
+    expect(listed.status).toBe(200);
+    // No EARCHIVE token in the test environment, so nothing is sent and the
+    // queue holds — ADR-0023's NullClient rule, visible to an administrator.
+    expect(listed.body.senderConfigured).toBe(false);
+    expect(listed.body.items.every((i: { status: string }) => i.status === "QUEUED")).toBe(true);
+  });
+
+  it("puts a failed item back in the queue when an administrator says so", async () => {
+    const { contract } = await fileAward(`retry-${Date.now()}`);
+    const queued = await outboxRow(`award:${contract.id}`);
+    await admin.query(
+      "update ecapital.dms_outbox set status = 'FAILED', last_error_code = 'SCHEMA_INVALID', attempts = 1 where id = $1",
+      [queued.id],
+    );
+
+    const admin_ = await tokenFor(app, USERS.admin);
+    const retried = await request(app.getHttpServer())
+      .post(`/admin/dms/outbox/${queued.id}/retry`)
+      .set(bearer(admin_));
+    expect(retried.status).toBe(200);
+    expect(retried.body.status).toBe("QUEUED");
+    // The attempt count is the history, not the state, so it is not reset.
+    expect(retried.body.attempts).toBe(1);
+    expect(retried.body.lastErrorCode).toBe("SCHEMA_INVALID");
+  });
+
+  it("will not resend something that already has a protocol number", async () => {
+    const { contract } = await fileAward(`sent-${Date.now()}`);
+    const queued = await outboxRow(`award:${contract.id}`);
+    await admin.query(
+      `update ecapital.dms_outbox
+          set status = 'SENT', protocol_id = 'p-1', protocol_number = 'ΤΥ/2026/00001', sent_at = now()
+        where id = $1`,
+      [queued.id],
+    );
+    const admin_ = await tokenFor(app, USERS.admin);
+    const refused = await request(app.getHttpServer())
+      .post(`/admin/dms/outbox/${queued.id}/retry`)
+      .set(bearer(admin_));
+    expect(refused.status).toBe(422);
+    expect(refused.body.key).toBe("errors.dmsAlreadyFiled");
+  });
+
   /** R42: every mutation, including this one. */
   it("audits the document row", async () => {
     const { response } = await fileAward(`audit-${Date.now()}`);
