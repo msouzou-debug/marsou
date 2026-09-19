@@ -104,6 +104,20 @@ describe("UnmatchedQueue (S10)", () => {
     expect(phoneBranch?.querySelector("input[type=checkbox]")).toBeNull();
   });
 
+  // RULE (screenshot review 19/09/2026, build brief §5 S10): «Κέντρο
+  // κόστους» starts hidden so the left pane's more useful columns (WBS, PO)
+  // are not squeezed off screen, and can be switched back on.
+  it("hides «Κέντρο κόστους» by default and shows it once switched on", () => {
+    const queue = buildUnmatchedQueue(1);
+    renderWithIntl(<UnmatchedQueue {...baseProps} queue={queue} />);
+    const desktopPane = document.querySelector(".hidden.tablet\\:block") as HTMLElement;
+    expect(desktopPane.querySelector("th[scope=col]")?.parentElement?.textContent).not.toContain("Κέντρο κόστους");
+
+    const toggle = desktopPane.querySelector("input[type=checkbox]:not([aria-label])") as HTMLInputElement;
+    toggle.click();
+    expect(desktopPane.textContent).toContain("Κέντρο κόστους");
+  });
+
   it("returns just the noPermission node for the noPermission state", () => {
     renderWithIntl(<UnmatchedQueue {...baseProps} state="noPermission" />);
     expect(document.body.textContent).toBe("δεν έχετε πρόσβαση");

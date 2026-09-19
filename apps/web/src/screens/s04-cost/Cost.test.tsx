@@ -54,6 +54,44 @@ describe("Cost (S04)", () => {
     expect(row?.textContent).not.toContain("0 €");
   });
 
+  // RULE (ADR-0021 §7, screenshot review 19/09/2026): every category value
+  // is rendered through i18n, «uncategorised» included — never the raw key.
+  it("renders the localised label for every known category, including uncategorised", () => {
+    const data = buildProjectCost({
+      categories: [
+        { category: "works", approved: 1, committed: 1, spent: 1, forecast: 1, variance: 0 },
+        { category: "uncategorised", approved: 1, committed: 1, spent: 1, forecast: 1, variance: 0 },
+      ],
+    });
+    renderWithIntl(<Cost {...baseProps} data={data} state="default" roles={["project_engineer"]} />);
+    expect(document.body.textContent).toContain("Χωρίς κατηγορία");
+    expect(document.body.textContent).not.toContain("uncategorised");
+  });
+
+  it("falls back to the raw value for a category key with no translation", () => {
+    const data = buildProjectCost({
+      categories: [{ category: "not_a_real_category", approved: 1, committed: 1, spent: 1, forecast: 1, variance: 0 }],
+    });
+    renderWithIntl(<Cost {...baseProps} data={data} state="default" roles={["project_engineer"]} />);
+    expect(document.body.textContent).toContain("not_a_real_category");
+  });
+
+  // RULE (build brief §5 S04): Απόκλιση is forecast − approved, computed on
+  // the totals even when some categories only have one of the two figures.
+  it("computes the totals «Απόκλιση» as forecast − approved when both totals exist", () => {
+    const data = buildProjectCost({
+      categories: [
+        { category: "works", approved: 100, committed: 100, spent: 100, forecast: null, variance: null },
+        { category: "fees", approved: null, committed: null, spent: null, forecast: 250, variance: null },
+      ],
+    });
+    renderWithIntl(<Cost {...baseProps} data={data} state="default" roles={["project_engineer"]} />);
+    const footer = document.querySelector(".border-t-2.border-k-ink");
+    // totals approved = 100, totals forecast = 250, so totals variance = 150.
+    expect(footer?.textContent).toContain(formatEUR(150));
+    expect(footer?.textContent).not.toContain("—");
+  });
+
   // RULE (build brief §5 S04): visible to project_engineer/estates_head/admin, read-only otherwise.
   it("shows the forecast-inputs form as editable for a project engineer", () => {
     renderWithIntl(<Cost {...baseProps} data={buildProjectCost()} state="default" roles={["project_engineer"]} />);

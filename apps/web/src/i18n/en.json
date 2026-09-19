@@ -777,7 +777,8 @@
         "equipment": "Equipment",
         "fees": "Fees",
         "contingency": "Contingency",
-        "other": "Other"
+        "other": "Other",
+        "uncategorised": "Uncategorised"
       },
       "lastSapImport": "Last SAP import",
       "forecastInputs": {

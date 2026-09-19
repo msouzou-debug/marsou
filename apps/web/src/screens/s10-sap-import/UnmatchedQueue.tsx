@@ -24,7 +24,7 @@
  * | onMoveFocus / onAccept / onSkip / onToggleSelect / onBulkAssign / onCommit | — | see `useUnmatchedQueueKeyboard`'s own prop names. |
  * | picker…        | —                   | Forwarded to `BulkAssignPicker`.                                |
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { AppRole, ImportBatch, UnmatchedQueue as UnmatchedQueueData } from "@ecapital/shared";
 import { KeyboardHintBar } from "@/components/keyboard-hint-bar";
@@ -35,6 +35,24 @@ import { BulkAssignPicker, type BulkAssignContractOption, type BulkAssignProject
 import { useUnmatchedQueueKeyboard } from "./useUnmatchedQueueKeyboard";
 
 export type UnmatchedQueueScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
+
+// RULE (screenshot review 19/09/2026): the left pane is 55% of the desktop
+// split (build brief §5 S10) and the transactions table has more columns
+// than that width comfortably shows. «Κέντρο κόστους» is the least useful of
+// them day to day (WBS and PO carry the match), so it starts hidden and can
+// be switched back on — the same `defaultHidden` idea `Table` uses, kept
+// local here because this pane is not built on that component.
+const QUEUE_COLUMNS = [
+  { id: "postingDate", numeric: false, defaultHidden: false },
+  { id: "vendor", numeric: false, defaultHidden: false },
+  { id: "description", numeric: false, defaultHidden: false },
+  { id: "amount", numeric: true, defaultHidden: false },
+  { id: "wbs", numeric: false, defaultHidden: false },
+  { id: "po", numeric: false, defaultHidden: false },
+  { id: "costCentre", numeric: false, defaultHidden: true },
+] as const;
+
+type QueueColumnId = (typeof QUEUE_COLUMNS)[number]["id"];
 
 export interface UnmatchedQueueProps {
   batch?: ImportBatch;
@@ -98,8 +116,30 @@ export function UnmatchedQueue({
 }: UnmatchedQueueProps) {
   const t = useTranslations();
 
+  const [showCostCentre, setShowCostCentre] = useState(false);
+  const visibleColumns = QUEUE_COLUMNS.filter((col) => !col.defaultHidden || showCostCentre);
+
   const items = queue?.items ?? [];
   const focused = items[focusedIndex];
+
+  function queueCell(columnId: QueueColumnId, row: UnmatchedQueueData["items"][number]): string {
+    switch (columnId) {
+      case "postingDate":
+        return formatDate(row.txn.postingDate);
+      case "vendor":
+        return row.txn.vendorName ?? t("common.notAvailable");
+      case "description":
+        return row.txn.description;
+      case "amount":
+        return formatEUR(row.txn.amount);
+      case "wbs":
+        return row.txn.sapWbs ?? "—";
+      case "po":
+        return row.txn.sapPo ?? "—";
+      case "costCentre":
+        return row.txn.costCentre ?? "—";
+    }
+  }
 
   // RULE (rules-of-hooks): called on every render, before any early return
   // below — `disabled` (not a conditional call) is what turns the listener
@@ -192,18 +232,32 @@ export function UnmatchedQueue({
         ) : (
           <div className="desktop:flex desktop:gap-s-4">
             <div className="desktop:w-[55%]">
-              <div className="overflow-auto rounded-k border border-k-grey bg-k-white">
-                <table className="w-full border-collapse text-fs-14">
+              <label className="mb-s-2 flex w-fit items-center gap-s-2 text-fs-12 text-k-text">
+                <input
+                  type="checkbox"
+                  checked={showCostCentre}
+                  onChange={(e) => setShowCostCentre(e.target.checked)}
+                />
+                {t("screens.s10.queue.columns.costCentre")}
+              </label>
+              {/* RULE (screenshot review 19/09/2026): the table's natural
+                  width (nowrap cells, no `w-full`) can exceed the 55% pane,
+                  and this wrapper is what turns that into a real horizontal
+                  scrollbar instead of clipped/wrapped text. Only `overflow-x`
+                  scrolls — the row's own `:focus-visible` outline still
+                  paints inside it and is never clipped vertically. */}
+              <div className="overflow-x-auto rounded-k border border-k-grey bg-k-white">
+                <table className="w-max min-w-full border-collapse text-fs-14">
                   <caption className="sr-only">{t("screens.s10.caption")}</caption>
                   <thead className="sticky top-0 bg-k-white">
                     <tr style={{ height: 36 }}>
-                      {(["postingDate", "vendor", "description", "amount", "wbs", "po", "costCentre"] as const).map((col) => (
+                      {visibleColumns.map((col) => (
                         <th
-                          key={col}
+                          key={col.id}
                           scope="col"
-                          className={`border-b border-k-grey px-s-2 font-bold text-k-blue-deep ${col === "amount" ? "num" : "text-left"}`}
+                          className={`whitespace-nowrap border-b border-k-grey px-s-2 font-bold text-k-blue-deep ${col.numeric ? "num" : "text-left"}`}
                         >
-                          {t(`screens.s10.queue.columns.${col}`)}
+                          {t(`screens.s10.queue.columns.${col.id}`)}
                         </th>
                       ))}
                       <th scope="col" className="border-b border-k-grey px-s-2" />
@@ -229,13 +283,14 @@ export function UnmatchedQueue({
                                 : undefined,
                           }}
                         >
-                          <td className="border-b border-k-grey px-s-2 num whitespace-nowrap">{formatDate(row.txn.postingDate)}</td>
-                          <td className="border-b border-k-grey px-s-2">{row.txn.vendorName ?? t("common.notAvailable")}</td>
-                          <td className="border-b border-k-grey px-s-2">{row.txn.description}</td>
-                          <td className="num border-b border-k-grey px-s-2 whitespace-nowrap">{formatEUR(row.txn.amount)}</td>
-                          <td className="border-b border-k-grey px-s-2">{row.txn.sapWbs ?? "—"}</td>
-                          <td className="border-b border-k-grey px-s-2">{row.txn.sapPo ?? "—"}</td>
-                          <td className="border-b border-k-grey px-s-2">{row.txn.costCentre ?? "—"}</td>
+                          {visibleColumns.map((col) => (
+                            <td
+                              key={col.id}
+                              className={`whitespace-nowrap border-b border-k-grey px-s-2 ${col.numeric ? "num" : ""}`}
+                            >
+                              {queueCell(col.id, row)}
+                            </td>
+                          ))}
                           <td className="border-b border-k-grey px-s-2">
                             <input
                               type="checkbox"

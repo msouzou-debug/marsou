@@ -10,7 +10,7 @@ The screen shows a project's cost: the four figures (approved budget, commitment
 4. In the table, read cost by category, with the variance (forecast minus approved budget) in the last column.
 5. Click «Export to Excel» top right to download the table.
 6. If you have the right role, change the «Forecast inputs» (contingency, pending-variation weight) and click «Save» to recalculate the forecast.
-7. In the «Cash flow» section, pick the month range you want to see.
+7. In the «Cash flow» section, pick the month range you want to see. The month picker is a browser control, so month names follow your browser's language, not necessarily the application's.
 8. Finance additionally sees the «Budget lines» by year and can edit them.
 
 ## What can go wrong
