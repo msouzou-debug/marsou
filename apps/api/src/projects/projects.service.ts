@@ -15,30 +15,24 @@ import {
 } from "@ecapital/shared";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { AppError } from "../common/errors";
+import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import {
   type AuditRow,
   isNextPhase,
+  money,
   phaseIndex,
   type ProjectRow,
   toAuditEntry,
   toSummary,
 } from "./project-rows";
 
-/** Postgres says 42501 when a row violates a policy or a grant. */
-const INSUFFICIENT_PRIVILEGE = "42501";
-
-/** Drizzle wraps the driver's error, so the SQLSTATE is one level down. */
-function sqlState(error: unknown): string | undefined {
-  let current: unknown = error;
-  for (let depth = 0; current && depth < 5; depth += 1) {
-    const code = (current as { code?: unknown }).code;
-    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) return code;
-    current = (current as { cause?: unknown }).cause;
-  }
-  return undefined;
-}
+/**
+ * RULE (ADR-0014, owner decision 19/09/2026): from this phase on, the
+ * approved budget is finance's to change and nobody else's.
+ */
+const BUDGET_LOCKED_FROM = "APPROVED" as const;
 
 /** The last audit lines a project page shows (the contract's `audit`). */
 const AUDIT_LINES = 50;
@@ -157,10 +151,8 @@ export class ProjectsService {
    * back to nobody and two engineers pressing the button together get two
    * different numbers.
    *
-   * RULE (not settled): who may change `approvedBudget` once a project is
-   * APPROVED is an open question for the owner. Today it is an ordinary
-   * field — anyone who may edit the project may edit it, and the audit log
-   * records who did. Flagged in the M1 summary.
+   * RULE (ADR-0014, owner decision 19/09/2026): once a project is APPROVED or
+   * later, only `finance` may change `approvedBudget`; see `update` below.
    */
   async create(input: ProjectCreate): Promise<ProjectDetail> {
     const tx = currentTx();
@@ -206,16 +198,47 @@ export class ProjectsService {
     }
   }
 
+  /**
+   * RULE (ADR-0014, owner decision 19/09/2026): once a project reaches
+   * APPROVED, its approved budget is a finance figure. Only somebody with the
+   * `finance` role may change it; everybody else is refused with
+   * errors.budgetFinanceOnly, and an administrator is not exempt — the
+   * segregation is the whole point of the rule. Before APPROVED it is an
+   * ordinary field and anybody who may edit the project may edit it.
+   *
+   * The change itself goes through ecapital.set_approved_budget, which moves
+   * that one column and checks the role itself, because the register's write
+   * policy deliberately does not give the project to finance (ADR-0015). The
+   * audit trigger records the before and the after as it does for any change.
+   */
   async update(id: string, input: ProjectUpdate): Promise<ProjectDetail> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(id);
+    const project = await this.load(id);
+
+    const budget = input.approvedBudget;
+    const changingBudget = budget !== undefined && budget !== money(project.approvedBudget);
+    const needsFinance = changingBudget && phaseIndex(project.phase) >= phaseIndex(BUDGET_LOCKED_FROM);
+    if (needsFinance && !(tx.context.roles ?? []).includes("finance")) {
+      throw AppError.forbidden("errors.budgetFinanceOnly");
+    }
+    if (needsFinance) {
+      const [{ done }] = await tx.db
+        .select({
+          done: sql<boolean>`ecapital.set_approved_budget(${id}::uuid, ${String(budget)}::numeric)`,
+        })
+        .from(sql`(select 1) as one`);
+      if (!done) throw AppError.forbidden("errors.budgetFinanceOnly");
+    }
 
     const values = pruned({
       titleEl: input.titleEl,
       titleEn: input.titleEn,
       category: input.category,
-      approvedBudget: input.approvedBudget === undefined ? undefined : String(input.approvedBudget),
+      approvedBudget:
+        input.approvedBudget === undefined || needsFinance
+          ? undefined
+          : String(input.approvedBudget),
       fundingSource: input.fundingSource,
       plannedStart: input.plannedStart,
       plannedFinish: input.plannedFinish,
@@ -666,6 +689,21 @@ const PROJECT_COLUMNS = {
   projectManagerId: schema.project.projectManagerId,
   createdAt: schema.project.createdAt,
   updatedAt: schema.project.updatedAt,
+  /**
+   * RULE (CAPEX-01 §7, R13): the commitment ledger — the sum of the current
+   * value of the project's contracts, each of which is its own value plus its
+   * approved variations. `sum` over no rows is null, which is exactly the
+   * answer for a project with no contract: null, never zero.
+   *
+   * The subquery runs inside the caller's transaction, so it sums the
+   * contracts the caller may read. Anyone who may read the project may read
+   * its contracts — same unit, same policy — so the figure is the same for
+   * everybody who can see it at all (ADR-0010).
+   */
+  committed: sql<
+    string | null
+  >`(select sum(c.current_value) from ecapital.contract c
+      where c.project_id = ecapital.project.id)`,
 };
 
 /** ProjectSort → the column it orders by. `orgUnit` is handled separately. */

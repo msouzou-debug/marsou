@@ -65,13 +65,25 @@ export interface ProjectRow {
   projectManagerId: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+  /**
+   * The sum of the current value of the project's contracts, as the database
+   * adds it up: null when the project has no contract at all, because a sum
+   * over no rows is not zero (CAPEX-01 §7).
+   */
+  committed?: string | number | null;
 }
 
 /**
  * RULE (CAPEX-01 §7): the four ledgers are never collapsed, and a ledger the
- * system does not know yet is null, not zero. M1 knows the approved budget
- * and nothing else; committed, spent and forecast arrive with the SAP
- * ingestion in M2 (R14, R16), so they are null and the screens show «—».
+ * system does not know yet is null, not zero.
+ *
+ * M1 knows two of them. The approved budget is known from the day a project
+ * is opened. The commitment is the sum of the current value of the project's
+ * contracts — the contract value plus its approved variations (R13, R08) —
+ * and is null, not zero, while the project has no contract: a project that
+ * has not been awarded has not committed nothing, it has committed nothing
+ * *yet*, and the screens show «—» for the difference. Spent and forecast
+ * arrive with the SAP ingestion in M2 (R14, R16).
  */
 export function toSummary(row: ProjectRow): ProjectSummary {
   return {
@@ -109,7 +121,13 @@ export function toSummary(row: ProjectRow): ProjectSummary {
     projectManagerId: row.projectManagerId,
     createdAt: row.createdAt ? row.createdAt.toISOString() : null,
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
-    ledgers: { approved: money(row.approvedBudget), committed: null, spent: null, forecast: null },
+    ledgers: {
+      approved: money(row.approvedBudget),
+      committed:
+        row.committed === undefined || row.committed === null ? null : money(row.committed),
+      spent: null,
+      forecast: null,
+    },
   };
 }
 
