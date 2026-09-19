@@ -1,7 +1,8 @@
 /**
  * Seed the eleven org units and their aliases, one building at Nicosia
- * General with two floors and six areas, six development users, the
- * group→role mappings and the 42-project M1 register (see ./seed-projects).
+ * General with two floors and six areas, seven development users, the
+ * group→role mappings, the 42-project M1 register (see ./seed-projects) and
+ * the contract register on top of it (see ./seed-contracts).
  *
  *   pnpm --filter @ecapital/api seed
  *
@@ -16,6 +17,7 @@ import { Client } from "pg";
 import { loadConfig } from "../config";
 import * as schema from "./schema";
 import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-data";
+import { seedContractRegister } from "./seed-contracts";
 import { seedProjectRegister } from "./seed-projects";
 
 export interface SeedSummary {
@@ -30,6 +32,10 @@ export interface SeedSummary {
   milestones: number;
   risks: number;
   issues: number;
+  contractors: number;
+  contracts: number;
+  boqItems: number;
+  variations: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -186,6 +192,10 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     // a sponsor and a manager.
     const register = await seedProjectRegister(db);
 
+    // M1: the contract register, after the projects, because a contract hangs
+    // off a project and takes its org unit from it.
+    const contracts = await seedContractRegister(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -195,6 +205,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       users: seedUsers.length,
       roleMappings: seedRoleMappings.length,
       ...register,
+      ...contracts,
     };
   } finally {
     await client.end();
@@ -208,7 +219,9 @@ if (require.main === module) {
       console.log(
         `seed: ${s.orgUnits} org units, ${s.aliases} aliases, ${s.buildings} building, ` +
           `${s.floors} floors, ${s.areas} areas, ${s.users} users, ${s.roleMappings} role mappings, ` +
-          `${s.projects} projects, ${s.milestones} milestones, ${s.risks} risks, ${s.issues} issues`,
+          `${s.projects} projects, ${s.milestones} milestones, ${s.risks} risks, ${s.issues} issues, ` +
+          `${s.contractors} contractors, ${s.contracts} contracts, ${s.boqItems} bill lines, ` +
+          `${s.variations} variations`,
       );
     })
     .catch((error: unknown) => {

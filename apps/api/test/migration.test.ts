@@ -33,7 +33,8 @@ describe("migrations", () => {
     const result = await runMigrations(targetUrl);
     expect(result.applied).toContain("0001_m0_foundations");
     expect(result.applied).toContain("0002_m1_projects");
-    expect(result.lastMigrationId).toBe("0002_m1_projects");
+    expect(result.applied).toContain("0003_m1_contracts");
+    expect(result.lastMigrationId).toBe("0003_m1_contracts");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -47,7 +48,10 @@ describe("migrations", () => {
       "app_user_role",
       "area",
       "audit_log",
+      "boq_item",
       "building",
+      "contract",
+      "contractor",
       "floor",
       "issue",
       "milestone",
@@ -58,6 +62,7 @@ describe("migrations", () => {
       "risk",
       "role_mapping",
       "schema_migration",
+      "variation",
     ]);
   });
 
@@ -67,6 +72,7 @@ describe("migrations", () => {
     expect(result.applied).toEqual([]);
     expect(result.skipped).toContain("0001_m0_foundations");
     expect(result.skipped).toContain("0002_m1_projects");
+    expect(result.skipped).toContain("0003_m1_contracts");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
