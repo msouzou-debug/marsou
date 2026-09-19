@@ -560,7 +560,8 @@ export async function runImport(options: RunOptions): Promise<RunOutcome> {
     await client.query(
       `update ecapital.import_batch
           set rows_created = $2, rows_updated = $3, rows_rejected = $4,
-              report = $5::jsonb, committed = $6, updated_at = now()
+              report_json = $5::jsonb, committed = $6, updated_at = now(),
+              status = case when $6 then 'COMMITTED' else 'DRY_RUN' end::ecapital.import_batch_status
         where id = $1`,
       [batchId, created, updated, rejected, JSON.stringify(report), shouldCommit],
     );

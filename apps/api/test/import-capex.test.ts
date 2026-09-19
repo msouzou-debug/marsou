@@ -32,6 +32,17 @@ import { loadWorkbook } from "../src/cli/workbook";
 import { buildFixture, fixturePath, type Variant } from "./fixtures/build-capex-fixture";
 
 const PROFILE = "capex_plan_2026_02";
+
+/**
+ * M2 (migration 0011) put the SAP cost extracts in `import_batch` beside the
+ * capex plan's own batches, and the seed writes two of them along with a
+ * budget line for every project. These two predicates keep this suite's
+ * counts on what the capex importer wrote and nothing else: a capex batch is
+ * the one with no SAP report on it, and everything it writes carries the
+ * batch id.
+ */
+const CAPEX_BATCH = "report is null";
+const CAPEX_WRITTEN = "import_batch_id is not null";
 const PROBE_PROFILE = fixturePath("capex_plan_probe.yaml");
 const ADMIN = "admin@ecapital.test";
 
@@ -143,7 +154,7 @@ describe("capex plan import (R41)", () => {
     expect(outcome.report.counts.footer).toBe(2);
     expect(outcome.batchId).toBeNull();
     expect(await count("project")).toBe(before);
-    expect(await count("import_batch")).toBe(0);
+    expect(await count("import_batch", CAPEX_BATCH)).toBe(0);
     expect(outcome.markdown).toContain("Δεν γράφτηκε τίποτα στη βάση");
   });
 
@@ -245,9 +256,9 @@ describe("capex plan import (R41)", () => {
     expect(outcome.report.committed).toBe(false);
     expect(outcome.batchId).toBeNull();
     expect(await count("project", "import_batch_id is not null")).toBe(0);
-    expect(await count("import_batch")).toBe(0);
-    expect(await count("budget_line")).toBe(0);
-    expect(await count("cost_txn")).toBe(0);
+    expect(await count("import_batch", CAPEX_BATCH)).toBe(0);
+    expect(await count("budget_line", CAPEX_WRITTEN)).toBe(0);
+    expect(await count("cost_txn", "source = 'EXCEL_MIGRATION'")).toBe(0);
     expect(outcome.markdown).toContain("Εκτελέστε ξανά την ίδια εντολή με --commit");
   });
 
@@ -255,7 +266,7 @@ describe("capex plan import (R41)", () => {
     await expect(
       run(FILES.clean, { commit: true, actorEmail: "estates.nicosia@ecapital.test" }),
     ).rejects.toThrow(ImportError);
-    expect(await count("import_batch")).toBe(0);
+    expect(await count("import_batch", CAPEX_BATCH)).toBe(0);
     expect(await count("project", "import_batch_id is not null")).toBe(0);
   });
 
@@ -275,7 +286,7 @@ describe("capex plan import (R41)", () => {
     expect(outcome.batchId).not.toBeNull();
 
     expect(await count("project", "import_batch_id is not null")).toBe(113);
-    expect(await count("budget_line")).toBe(523);
+    expect(await count("budget_line", CAPEX_WRITTEN)).toBe(523);
     expect(await count("cost_txn", "txn_type = 'ACTUAL' and source = 'EXCEL_MIGRATION'")).toBe(62);
     expect(await count("project_note", "kind = 'TECHNICAL'")).toBe(74);
 
@@ -290,7 +301,7 @@ describe("capex plan import (R41)", () => {
       committed: boolean;
       imported_by: string;
       profile_id: string;
-    }>("select * from ecapital.import_batch");
+    }>(`select * from ecapital.import_batch where ${CAPEX_BATCH}`);
     expect(batch.rows).toHaveLength(1);
     expect(batch.rows[0]).toMatchObject({
       rows_in: 123,
@@ -315,7 +326,7 @@ describe("capex plan import (R41)", () => {
   it("puts the money where CAPEX-03 §0 says it goes", async () => {
     const lines = await db.query<{ vintage_id: string; budget_year: number; total: string }>(
       `select vintage_id, budget_year, sum(amount)::text as total
-         from ecapital.budget_line group by 1, 2 order by 1, 2`,
+         from ecapital.budget_line where ${CAPEX_WRITTEN} group by 1, 2 order by 1, 2`,
     );
     expect(
       Object.fromEntries(lines.rows.map((r) => [`${r.vintage_id}:${r.budget_year}`, Number(r.total)])),
@@ -388,7 +399,7 @@ describe("capex plan import (R41)", () => {
     expect(outcome.report.counts.updated).toBe(0);
     expect(outcome.report.counts.unchanged).toBe(113);
     expect(await count("project", "import_batch_id is not null")).toBe(113);
-    expect(await count("budget_line")).toBe(523);
+    expect(await count("budget_line", CAPEX_WRITTEN)).toBe(523);
     // R42, ADR-0004: an update that changes nothing is not a change, so the
     // second run leaves no new audit rows on the register itself.
     expect(await count("audit_log", "actor_id = 'dev-admin' and entity_type = 'project'")).toBe(113);
@@ -410,10 +421,12 @@ describe("capex plan import (R41)", () => {
   });
 
   it("carries the whole report into import_batch, so it can be reprinted", async () => {
-    const { rows } = await db.query<{ report: { counts: { project: number } } }>(
-      "select report from ecapital.import_batch order by imported_at desc limit 1",
+    // 0011 renamed the column to report_json: `report` on import_batch is now
+    // the SAP report a cost extract came from (M2, R14).
+    const { rows } = await db.query<{ report_json: { counts: { project: number } } }>(
+      "select report_json from ecapital.import_batch order by imported_at desc limit 1",
     );
-    expect(rows[0].report.counts.project).toBe(113);
+    expect(rows[0].report_json.counts.project).toBe(113);
   });
 
   it("builds the same figures every time", async () => {
