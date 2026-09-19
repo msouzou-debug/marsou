@@ -38,10 +38,18 @@ export default defineConfig({
       timeout: 300_000,
     },
     {
-      command: "pnpm dev",
+      // A production build, not `pnpm dev`: turbopack's on-demand compile
+      // and fast refresh made the first visit to each M2 route a coin toss
+      // on a loaded machine (a native click or key dispatched into a page
+      // that was being re-hydrated went nowhere, with nothing in the
+      // console), and the deployed app runs `next start` anyway. The build
+      // takes a couple of minutes on a cold cache, hence the timeout. A
+      // developer who already has `pnpm dev` up on :3000 keeps it
+      // (`reuseExistingServer`).
+      command: "pnpm build && pnpm start",
       url: "http://localhost:3000",
       reuseExistingServer: true,
-      timeout: 120_000,
+      timeout: 420_000,
       env: {
         // The six seeded accounts on S00 (ADR-0009), and the API they sign in
         // against. Both are the defaults; named here so the run does not
