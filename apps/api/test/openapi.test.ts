@@ -27,6 +27,8 @@ describe("openapi.json", () => {
       "/audit-log",
       "/auth/dev-token",
       "/auth/login",
+      "/budget-codes",
+      "/budget-codes/sync",
       "/config/links",
       "/contractors",
       "/contractors/{id}",

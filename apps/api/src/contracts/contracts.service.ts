@@ -177,6 +177,11 @@ export class ContractsService {
     if (contractor.blacklisted) {
       throw AppError.unprocessable("errors.contractorBlacklisted", { contractor: contractor.name });
     }
+    // RULE (ADR-0025, owner decision 19/09/2026): a budget code that is sent
+    // has to be one of eFinance's active CAPEX codes. Null passes through
+    // untouched — the shared schema allows it, S07a's own form is what
+    // makes it required for a human creating a contract.
+    if (input.budgetCode !== null) await this.assertBudgetCode(input.budgetCode);
 
     // ADR-0019. Allocated inside this request's transaction, by the database,
     // behind an advisory lock on the year — the same pattern ADR-0014 uses
@@ -213,6 +218,7 @@ export class ContractsService {
           defectsLiabilityMonths: input.defectsLiabilityMonths,
           sapPoNumber: input.sapPoNumber,
           emapRef: input.emapRef,
+          budgetCode: input.budgetCode,
         })
         .returning({ id: schema.contract.id });
       return await this.detail(row.id);
@@ -241,7 +247,7 @@ export class ContractsService {
       .where(eq(schema.project.id, row.projectId))
       .limit(1);
 
-    const [contractor, boq, variations, defects, rfis, instructionsWithoutVariation] =
+    const [contractor, boq, variations, defects, rfis, instructionsWithoutVariation, budgetCodeDescriptions] =
       await Promise.all([
         this.contractors.load(row.contractorId),
         this.boqOf(id),
@@ -249,6 +255,7 @@ export class ContractsService {
         this.defectsOf(id),
         this.rfiCounts(id),
         this.instructionsWithoutVariation(id),
+        this.budgetCodeDescriptions(row.budgetCode),
       ]);
 
     const approvedVariationsTotal = sumOf(variations, "APPROVED");
@@ -275,6 +282,8 @@ export class ContractsService {
       ...contract,
       project: { id: project.id, code: project.code, titleEl: project.titleEl },
       contractor,
+      budgetCodeDescriptionEl: budgetCodeDescriptions.el,
+      budgetCodeDescriptionEn: budgetCodeDescriptions.en,
       boq,
       variations,
       approvedVariationsTotal,
@@ -296,6 +305,13 @@ export class ContractsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.load(id);
+
+    // RULE (ADR-0025): editable later, by the same roles that edit a
+    // contract at all (the row policy). Clearing it (`null`) is allowed;
+    // setting it to something needs it to be one of eFinance's active codes.
+    if (input.budgetCode !== undefined && input.budgetCode !== null) {
+      await this.assertBudgetCode(input.budgetCode);
+    }
 
     const values = pruned({
       contractNo: input.contractNo,
@@ -324,6 +340,9 @@ export class ContractsService {
       // the fact when the eMAP contract is found. `ref` is not, and is not
       // in `ContractUpdate` at all; a trigger refuses it whatever asks.
       emapRef: input.emapRef,
+      // ADR-0025: editable later. `null` clears it, a string sets it (already
+      // checked above), `undefined` (not sent) leaves it untouched.
+      budgetCode: input.budgetCode,
     });
     if (Object.keys(values).length === 0) return this.detail(id);
 
@@ -575,6 +594,42 @@ export class ContractsService {
     return rows[0];
   }
 
+  /**
+   * RULE (ADR-0025, owner decision 19/09/2026): a budget code a contract
+   * points at has to be one of eFinance's CAPEX codes and has to be active —
+   * a code the sync has since retired is not one to hand out on a new
+   * contract, even though a contract already carrying it keeps it
+   * (migration 0013's `on delete restrict`, not a cascade).
+   */
+  private async assertBudgetCode(code: string): Promise<void> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const [row] = await tx.db
+      .select({ active: schema.budgetCode.active })
+      .from(schema.budgetCode)
+      .where(eq(schema.budgetCode.code, code))
+      .limit(1);
+    if (!row || !row.active) throw AppError.badRequest("errors.budgetCodeNotFound", { code });
+  }
+
+  /** S07's facts list: both languages, so the screen never machine-translates. */
+  private async budgetCodeDescriptions(
+    code: string | null,
+  ): Promise<{ el: string | null; en: string | null }> {
+    if (!code) return { el: null, en: null };
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const [row] = await tx.db
+      .select({
+        descriptionEl: schema.budgetCode.descriptionEl,
+        descriptionEn: schema.budgetCode.descriptionEn,
+      })
+      .from(schema.budgetCode)
+      .where(eq(schema.budgetCode.code, code))
+      .limit(1);
+    return { el: row?.descriptionEl ?? null, en: row?.descriptionEn ?? null };
+  }
+
   /** R12: the defects raised against this contract, newest first. */
   private async defectsOf(contractId: string): Promise<Defect[]> {
     const tx = currentTx();
@@ -800,6 +855,7 @@ const CONTRACT_COLUMNS = {
   defectsLiabilityMonths: schema.contract.defectsLiabilityMonths,
   sapPoNumber: schema.contract.sapPoNumber,
   emapRef: schema.contract.emapRef,
+  budgetCode: schema.contract.budgetCode,
   createdAt: schema.contract.createdAt,
   updatedAt: schema.contract.updatedAt,
 };

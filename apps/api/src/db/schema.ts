@@ -520,6 +520,26 @@ export const contractor = ecapital.table(
   (t) => [index("contractor_category_idx").on(t.category)],
 );
 
+// ADR-0025, owner decision 19/09/2026: eFinance's CAPEX budget codes, the
+// reference table `contract.budgetCode` points at (migration 0013). No
+// org_unit_id — the same twenty rows apply across every unit, like the
+// enums above rather than like org_unit itself.
+export const budgetCode = ecapital.table("budget_code", {
+  code: text("code").primaryKey(),
+  descriptionEl: text("description_el").notNull(),
+  descriptionEn: text("description_en").notNull(),
+  category: text("category"),
+  isCapex: boolean("is_capex").notNull().default(true),
+  active: boolean("active").notNull().default(true),
+  // 'SEED' | 'EFINANCE' — a plain text CHECK (migration 0013), not a
+  // Postgres enum: the API's `BudgetCodeSyncService` is the only writer of
+  // 'EFINANCE' and a CHECK is enough to keep the column honest.
+  source: text("source").notNull().default("SEED"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  createdAt,
+  updatedAt,
+});
+
 export const contract = ecapital.table(
   "contract",
   {
@@ -556,6 +576,10 @@ export const contract = ecapital.table(
     sapPoNumber: text("sap_po_number"),
     // ADR-0019: the eMAP contract, CON-<YEAR>-<NNNN>, when there is one.
     emapRef: text("emap_ref"),
+    // ADR-0025, owner decision 19/09/2026: the one CAPEX budget code this
+    // contract is charged to. Null on a contract recorded before this
+    // column existed; the service refuses to leave it null on create.
+    budgetCode: text("budget_code").references(() => budgetCode.code),
     createdAt,
     updatedAt,
   },
@@ -564,6 +588,7 @@ export const contract = ecapital.table(
     index("contract_project_idx").on(t.projectId),
     index("contract_unit_idx").on(t.orgUnitId),
     index("contract_contractor_idx").on(t.contractorId),
+    index("contract_budget_code_idx").on(t.budgetCode),
   ],
 );
 

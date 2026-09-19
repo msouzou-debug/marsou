@@ -77,6 +77,10 @@ export const Contract = z.object({
   // one. Null until somebody types it; the link-out to eMAP appears either
   // from here or from a `contractNo` that is already a CON- reference.
   emapRef: z.string().regex(EMAP_CONTRACT_REF).nullable().default(null),
+  // ADR-0025, owner decision 19/09/2026: one CAPEX budget code per contract,
+  // from ecapital.budget_code. Null on a contract recorded before this field
+  // existed; the API refuses to leave it null on a brand-new one.
+  budgetCode: z.string().nullable().default(null),
   createdAt: z.string().nullable().default(null),
   updatedAt: z.string().nullable().default(null),
 });
@@ -145,6 +149,11 @@ export type ContractWarning = z.infer<typeof ContractWarning>;
 export const ContractDetail = Contract.extend({
   project: z.object({ id: z.string(), code: z.string(), titleEl: z.string() }),
   contractor: Contractor,
+  // The two descriptions of `budgetCode`, so S07 shows the Greek and English
+  // text without a second call to `GET /budget-codes`. Both null when
+  // `budgetCode` itself is null.
+  budgetCodeDescriptionEl: z.string().nullable(),
+  budgetCodeDescriptionEn: z.string().nullable(),
   boq: z.array(BoqItem),
   variations: z.array(Variation),
   approvedVariationsTotal: z.number(),
@@ -186,6 +195,14 @@ export const ContractCreate = Contract.pick({
   defectsLiabilityMonths: true,
   sapPoNumber: true,
   emapRef: true,
+  // ADR-0025, owner decision 19/09/2026: nullable at this level, like on
+  // `Contract` itself — a caller that has not resolved a code yet (or an
+  // older integration) may still send null. `errors.budgetCodeNotFound` is
+  // what the API answers when a non-null value does not name an active row
+  // in ecapital.budget_code. S07a's own form tightens this to "required" for
+  // a human creating a contract (schema.ts), which is a stricter check on
+  // top of this one, not a relaxation of it.
+  budgetCode: true,
 });
 export type ContractCreate = z.infer<typeof ContractCreate>;
 

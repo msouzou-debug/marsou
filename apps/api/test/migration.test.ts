@@ -43,7 +43,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0010_admin_users");
     expect(result.applied).toContain("0011_m2_cost");
     expect(result.applied).toContain("0012_unit_codes_earchive");
-    expect(result.lastMigrationId).toBe("0012_unit_codes_earchive");
+    expect(result.applied).toContain("0013_contract_budget_code");
+    expect(result.lastMigrationId).toBe("0013_contract_budget_code");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -59,6 +60,7 @@ describe("migrations", () => {
       "area",
       "audit_log",
       "boq_item",
+      "budget_code",
       "budget_line",
       "building",
       "contract",
@@ -105,6 +107,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0010_admin_users");
     expect(result.skipped).toContain("0011_m2_cost");
     expect(result.skipped).toContain("0012_unit_codes_earchive");
+    expect(result.skipped).toContain("0013_contract_budget_code");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -264,6 +267,55 @@ describe("migrations", () => {
       await cleanup.end();
     }
   }, 180_000);
+
+  /**
+   * ADR-0025, owner decision 19/09/2026: one CAPEX budget code per contract,
+   * chosen from a reference table eCapital carries until eFinance's
+   * `GET /api/v1/master/budget-codes?kind=capex` exists.
+   */
+  it("0013 seeds twenty CAPEX budget codes and gives the contract a nullable column pointing at them", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    const { rows } = await client.query<{
+      code: string;
+      description_el: string;
+      is_capex: boolean;
+      active: boolean;
+      source: string;
+    }>(
+      "select code, description_el, is_capex, active, source from ecapital.budget_code order by code",
+    );
+
+    expect(rows).toHaveLength(20);
+    expect(rows.every((r) => r.is_capex && r.active && r.source === "SEED")).toBe(true);
+
+    // The five the owner named by number and description carry no
+    // placeholder marker; the other fifteen do.
+    const byCode = new Map(rows.map((r) => [r.code, r]));
+    expect(byCode.get("7402")?.description_el).toBe("Ιατρικός και λοιπός εξοπλισμός");
+    expect(byCode.get("7501")?.description_el).toBe("Μηχανήματα και εξοπλισμός");
+    expect(byCode.get("7502")?.description_el).toBe("Κλιματισμός");
+    expect(byCode.get("7551")?.description_el).toBe("Επιβατικά οχήματα");
+    expect(byCode.get("7585")?.description_el).toBe("Ασθενοφόρα");
+    const namedFive = new Set(["7402", "7501", "7502", "7551", "7585"]);
+    for (const row of rows) {
+      if (namedFive.has(row.code)) {
+        expect(row.description_el).not.toContain("προσωρινή περιγραφή");
+      } else {
+        expect(row.description_el).toContain("προσωρινή περιγραφή");
+      }
+    }
+
+    const { rows: fk } = await client.query<{ conname: string; confrelid: string }>(
+      `select c.conname, tf.relname as confrelid
+         from pg_constraint c
+         join pg_class t on t.oid = c.conrelid
+         join pg_class tf on tf.oid = c.confrelid
+        where t.relname = 'contract' and c.contype = 'f' and tf.relname = 'budget_code'`,
+    );
+    await client.end();
+    expect(fk).toHaveLength(1);
+  });
 
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });
