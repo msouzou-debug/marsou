@@ -1,0 +1,38 @@
+export const ITEMS = [
+  {
+    id: "s1",
+    type: "SHUTDOWN" as const,
+    whatEl: "Διακοπή ρεύματος — Χειρουργείο 1",
+    whereEl: "Λάρνακα › Χειρουργείο 1",
+    requestedByName: "Ν. Νικολάου",
+    requestedAt: "2026-03-12T09:00:00.000Z",
+    dueAt: "2026-03-14T09:00:00.000Z",
+    slaState: "AMBER" as const,
+    unread: true,
+    facts: [
+      { label: "Κατηγορία", value: "IV" },
+      { label: "Παράθυρο", value: "14/03/2026 08:00–16:00" },
+      { label: "Ζήτησε", value: "Ν. Νικολάου" },
+    ],
+    href: "/permits/1",
+    decidable: true,
+  },
+  {
+    id: "v1",
+    type: "VARIATION" as const,
+    whatEl: "Τροποποίηση Νο 3 — € 84.000",
+    whereEl: "Λευκωσία › Πτέρυγα Α",
+    requestedByName: "Γ. Παύλου",
+    requestedAt: "2026-03-10T09:00:00.000Z",
+    dueAt: null,
+    slaState: null,
+    unread: false,
+    facts: [
+      { label: "Αξία", value: "€ 84.000" },
+      { label: "Λόγος", value: "Αλλαγή σχεδιασμού" },
+      { label: "Ζήτησε", value: "Γ. Παύλου" },
+    ],
+    href: "/contracts/1/variations",
+    decidable: false,
+  },
+];
