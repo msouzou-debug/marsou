@@ -136,8 +136,10 @@ export const seedBuilding = {
   ],
 };
 
-// Five users so every M0 access path has somebody to walk it. They exist only
-// where DEV_AUTH is on; on the real server the users come from Entra ID.
+// Seven users, so every access path the API has has somebody to walk it —
+// including the finance account that ADR-0014 gives the approved budget to.
+// They exist only where DEV_AUTH is on; on the real server the users come
+// from Entra ID.
 export interface SeedUser {
   subject: string;
   name: string;
@@ -175,6 +177,16 @@ export const seedUsers: SeedUser[] = [
     email: "clinical.nicosia@ecapital.test",
     roles: ["clinical_approver"],
     orgUnitIds: ["nicosia-general"],
+  },
+  {
+    subject: "dev-finance",
+    name: "Δέσποινα Ιωάννου",
+    email: "finance@ecapital.test",
+    roles: ["finance"],
+    // ADR-0014 (owner decision, 19/09/2026): once a project is APPROVED the
+    // approved budget is finance's to change, and the Οικονομική Διεύθυνση
+    // works across the organisation, so this account carries every unit.
+    orgUnitIds: seedOrgUnits.map((u) => u.id),
   },
   {
     subject: "dev-auditor",
@@ -220,6 +232,12 @@ export const seedRoleMappings: {
     role: "auditor_readonly",
     orgUnitId: null,
     note: "eCapital Auditors",
+  },
+  {
+    entraGroupId: "00000000-0000-0000-0000-0000000000a4",
+    role: "finance",
+    orgUnitId: null,
+    note: "eCapital Finance",
   },
   {
     entraGroupId: "00000000-0000-0000-0000-0000000000b1",
@@ -964,3 +982,193 @@ export const seedIssueTexts: string[] = [
   "Το χρονοδιάγραμμα διακοπών ρεύματος δεν έχει συμφωνηθεί με τη μονάδα",
   "Δεν έχει οριστεί υπεύθυνος παραλαβής για τον νέο εξοπλισμό",
 ];
+
+// ------------------------------------------------------------------- M1 --
+// The contract register fixtures (R08, R10, R13, R31).
+//
+// The twelve companies below are invented. They are shaped like the firms a
+// Cypriot hospital actually contracts with — building, mechanical and
+// electrical, biomedical, IT, a consultant — and every one of them carries a
+// registration number and a VAT number in the local format, but none of them
+// exists and none of the figures is anybody's real turnover. Sample data,
+// obviously sample, as CAPEX-01 §15 asks for: enough in it that every screen
+// has something to show on first run.
+//
+// One of them is blacklisted, so the rule that a blacklisted contractor takes
+// no new contract has something to refuse.
+
+export interface SeedContractor {
+  name: string;
+  vatNumber: string;
+  registrationNo: string;
+  category:
+    | "BUILDING"
+    | "MECHANICAL"
+    | "ELECTRICAL"
+    | "BIOMEDICAL"
+    | "IT"
+    | "CONSULTANT"
+    | "OTHER";
+  sapVendorId: string;
+  blacklisted: boolean;
+}
+
+export const seedContractors: SeedContractor[] = [
+  { name: "Κυριάκου Τεχνικές Κατασκευές Λτδ", vatNumber: "CY10231455X", registrationNo: "HE 118422", category: "BUILDING", sapVendorId: "V-100101", blacklisted: false },
+  { name: "Α. Χαραλάμπους & Υιοί Οικοδομικά Έργα Λτδ", vatNumber: "CY10244870P", registrationNo: "HE 124067", category: "BUILDING", sapVendorId: "V-100102", blacklisted: false },
+  { name: "Medcon Constructions (Cyprus) Ltd", vatNumber: "CY10259013D", registrationNo: "HE 131905", category: "BUILDING", sapVendorId: "V-100103", blacklisted: false },
+  { name: "Ιωνάς Ηλεκτρομηχανολογικά Έργα Λτδ", vatNumber: "CY10262288M", registrationNo: "HE 135210", category: "MECHANICAL", sapVendorId: "V-100104", blacklisted: false },
+  { name: "Thermotec Μηχανολογικές Εγκαταστάσεις Λτδ", vatNumber: "CY10270941K", registrationNo: "HE 140338", category: "MECHANICAL", sapVendorId: "V-100105", blacklisted: false },
+  { name: "Παπαέλληνας Ηλεκτρολογικά Δίκτυα Λτδ", vatNumber: "CY10283706T", registrationNo: "HE 147712", category: "ELECTRICAL", sapVendorId: "V-100106", blacklisted: false },
+  { name: "Elektra Power Systems Ltd", vatNumber: "CY10291554B", registrationNo: "HE 152489", category: "ELECTRICAL", sapVendorId: "V-100107", blacklisted: false },
+  { name: "Biomed Cyprus Ιατρικός Εξοπλισμός Λτδ", vatNumber: "CY10304127N", registrationNo: "HE 159044", category: "BIOMEDICAL", sapVendorId: "V-100108", blacklisted: false },
+  { name: "Medisys Ιατροτεχνολογικά Λτδ", vatNumber: "CY10318662R", registrationNo: "HE 163901", category: "BIOMEDICAL", sapVendorId: "V-100109", blacklisted: false },
+  { name: "Netcom Δίκτυα και Πληροφορική Λτδ", vatNumber: "CY10327390G", registrationNo: "HE 168255", category: "IT", sapVendorId: "V-100110", blacklisted: false },
+  { name: "Αρχιτεκτονικό Γραφείο Σ. Νικολάου Λτδ", vatNumber: "CY10335018L", registrationNo: "HE 171630", category: "CONSULTANT", sapVendorId: "V-100111", blacklisted: false },
+  // The blacklisted one. In real life this is a decision with a file behind
+  // it; here it exists so errors.contractorBlacklisted has something to fire on.
+  { name: "Λευκαρίτης Γενικές Εργολαβίες Λτδ", vatNumber: "CY10348275W", registrationNo: "HE 176184", category: "OTHER", sapVendorId: "V-100112", blacklisted: true },
+];
+
+/** A project at one of these phases has been awarded, so it has a contract. */
+export const seedContractPhases = [
+  "AWARDED",
+  "IN_PROGRESS",
+  "PRACTICAL_COMPLETION",
+  "DEFECTS_LIABILITY",
+  "CLOSED",
+] as const;
+
+/**
+ * A short bill of quantities on three of the contracts — enough for the
+ * contract screen to show a real table without pretending the whole register
+ * has been priced out line by line.
+ */
+export const seedBoqProjects = ["PRJ-031", "PRJ-034", "PRJ-041"];
+
+export const seedBoqItems: {
+  itemNo: string;
+  descriptionEl: string;
+  unit: string;
+  qty: number;
+  rate: number;
+}[] = [
+  { itemNo: "A.01", descriptionEl: "Καθαιρέσεις και αποκομιδή υλικών", unit: "m3", qty: 240, rate: 38.5 },
+  { itemNo: "A.02", descriptionEl: "Οπλισμένο σκυρόδεμα C25/30", unit: "m3", qty: 185, rate: 145 },
+  { itemNo: "B.01", descriptionEl: "Γυψοσανίδες με μεταλλικό σκελετό", unit: "m2", qty: 1240, rate: 42 },
+  { itemNo: "B.02", descriptionEl: "Χρωματισμοί εσωτερικών επιφανειών", unit: "m2", qty: 2650, rate: 11.5 },
+  { itemNo: "C.01", descriptionEl: "Αεραγωγοί γαλβανισμένης λαμαρίνας", unit: "kg", qty: 4100, rate: 9.8 },
+  { itemNo: "C.02", descriptionEl: "Κλιματιστικές μονάδες ανάκτησης θερμότητας", unit: "τεμ", qty: 6, rate: 18500 },
+];
+
+/**
+ * The variations the seed carries, by the project their contract belongs to.
+ * `valuePct` is a share of the contract's original value, so the figures stay
+ * sensible whatever the project's budget happens to be.
+ *
+ * ΤΥ/2026 on PRJ-031 is deliberately past the 10% mark (6 + 5 + 3 = 14%), so
+ * the R31 warning has a real contract to fire on. Two variations sit
+ * SUBMITTED waiting for somebody to decide them, one has come back RETURNED
+ * with comments and one was REJECTED outright.
+ */
+export interface SeedVariation {
+  projectRef: string;
+  number: number;
+  descriptionEl: string;
+  reason: "CLIENT_CHANGE" | "SITE_CONDITION" | "DESIGN_ERROR" | "STATUTORY" | "OTHER";
+  valuePct: number;
+  timeImpactDays: number;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "RETURNED" | "REJECTED";
+  commentEl: string | null;
+}
+
+export const seedVariations: SeedVariation[] = [
+  {
+    projectRef: "PRJ-031",
+    number: 1,
+    descriptionEl: "Αντικατάσταση δικτύου αποχέτευσης που βρέθηκε διαβρωμένο κατά τις καθαιρέσεις",
+    reason: "SITE_CONDITION",
+    valuePct: 6,
+    timeImpactDays: 21,
+    status: "APPROVED",
+    commentEl: null,
+  },
+  {
+    projectRef: "PRJ-031",
+    number: 2,
+    descriptionEl: "Προσθήκη πυράντοχων θυρών μετά από υπόδειξη της Πυροσβεστικής Υπηρεσίας",
+    reason: "STATUTORY",
+    valuePct: 5,
+    timeImpactDays: 14,
+    status: "APPROVED",
+    commentEl: null,
+  },
+  {
+    projectRef: "PRJ-031",
+    number: 3,
+    descriptionEl: "Ενίσχυση ηλεκτρικής παροχής για τον νέο εξοπλισμό του θαλάμου",
+    reason: "CLIENT_CHANGE",
+    valuePct: 3,
+    timeImpactDays: 7,
+    status: "APPROVED",
+    commentEl: null,
+  },
+  {
+    projectRef: "PRJ-031",
+    number: 4,
+    descriptionEl: "Αναβάθμιση δαπέδων σε αντιστατικό υλικό στους χώρους επεμβάσεων",
+    reason: "CLIENT_CHANGE",
+    valuePct: 2,
+    timeImpactDays: 10,
+    status: "SUBMITTED",
+    commentEl: null,
+  },
+  {
+    projectRef: "PRJ-031",
+    number: 5,
+    descriptionEl: "Πρόσθετες εργασίες στεγανοποίησης δώματος",
+    reason: "DESIGN_ERROR",
+    valuePct: 1.5,
+    timeImpactDays: 5,
+    status: "RETURNED",
+    commentEl: "Στείλτε αναλυτική προμέτρηση και φωτογραφίες πριν προχωρήσουμε στην έγκριση.",
+  },
+  {
+    projectRef: "PRJ-036",
+    number: 1,
+    descriptionEl: "Αντικατάσταση σωληνώσεων ιατρικών αερίων σε τμήμα του ορόφου",
+    reason: "SITE_CONDITION",
+    valuePct: 4,
+    timeImpactDays: 18,
+    status: "SUBMITTED",
+    commentEl: null,
+  },
+  {
+    projectRef: "PRJ-036",
+    number: 2,
+    descriptionEl: "Προμήθεια εφεδρικής μονάδας αδιάλειπτης παροχής πέραν της σύμβασης",
+    reason: "CLIENT_CHANGE",
+    valuePct: 9,
+    timeImpactDays: 30,
+    status: "REJECTED",
+    commentEl: "Ο εξοπλισμός καλύπτεται από χωριστή σύμβαση προμήθειας και δεν εντάσσεται εδώ.",
+  },
+  {
+    projectRef: "PRJ-041",
+    number: 1,
+    descriptionEl: "Τακτοποίηση ποσοτήτων μόνωσης σύμφωνα με την τελική επιμέτρηση",
+    reason: "OTHER",
+    valuePct: 4,
+    timeImpactDays: 0,
+    status: "APPROVED",
+    commentEl: null,
+  },
+];
+
+/**
+ * The one contract whose performance bond has been allowed to lapse while the
+ * works are still running, so the R31 bond warning has something to fire on.
+ * A fixed date, not "a while ago": the seed has to look the same on every
+ * machine and on every run.
+ */
+export const seedExpiredBond = { projectRef: "PRJ-036", bondExpiry: "2026-06-30" };

@@ -10,6 +10,8 @@ import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { MutationInterceptor } from "./common/mutation.interceptor";
 import { RlsInterceptor } from "./common/rls.interceptor";
 import { CONFIG, type AppConfig } from "./config";
+import { ContractorsModule } from "./contractors/contractors.module";
+import { ContractsModule } from "./contracts/contracts.module";
 import { CoreModule } from "./core.module";
 import { HealthModule } from "./health/health.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
@@ -50,6 +52,8 @@ import { ProjectsModule } from "./projects/projects.module";
     OrgUnitsModule,
     AreasModule,
     ProjectsModule,
+    ContractorsModule,
+    ContractsModule,
     PortfolioModule,
     HealthModule,
     AuditModule,

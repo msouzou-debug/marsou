@@ -25,6 +25,11 @@ export const UnitRow = z.object({
   orgUnit: OrgUnit,
   projectCount: z.number().int().nonnegative(),
   approved: z.number(),
+  // RULE (CAPEX-01 §7, M1): the unit's commitments — the sum of the current
+  // value of its contracts, null when none of its projects has one. Optional
+  // because the unit table shipped before the contract register did and the
+  // existing fixtures do not carry it; the API always sends it.
+  committed: z.number().nullable().optional(),
   spent: z.number().nullable(),
   sparkline: z.object({
     plan: z.array(z.number()).length(12),

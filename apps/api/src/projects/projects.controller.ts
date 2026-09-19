@@ -15,6 +15,7 @@ import {
 } from "@ecapital/shared";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
+import { sentKeysOnly } from "../common/patch";
 import { parseProjectListQuery } from "./project-query";
 import { ProjectsService } from "./projects.service";
 
@@ -87,7 +88,9 @@ export class ProjectsController {
   update(@Param("id") id: string, @Body() body: unknown): Promise<ProjectDetail> {
     const parsed = ProjectUpdate.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.projectNotValid");
-    return this.projects.update(id, parsed.data);
+    // A PATCH changes what it names. The contract's defaults would otherwise
+    // add five nulls the caller never sent; see common/patch.ts.
+    return this.projects.update(id, sentKeysOnly(parsed.data, body));
   }
 
   /**

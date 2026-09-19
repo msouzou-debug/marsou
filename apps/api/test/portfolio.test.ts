@@ -54,10 +54,9 @@ describe("GET /portfolio", () => {
     expect(board.units).toHaveLength(11);
   });
 
-  it("leaves the three ledgers it does not know null and spends nothing", async () => {
+  it("leaves the two ledgers it does not know null and spends nothing", async () => {
     // CAPEX-01 §7: never zero for a figure the system has not been told.
     const view = await portfolio(USERS.admin);
-    expect(view.kpis.committed).toBeNull();
     expect(view.kpis.spent).toBeNull();
     expect(view.kpis.forecast).toBeNull();
     // Every unit row's own `spent` is null too, not zero — the sparkline's
@@ -82,7 +81,11 @@ describe("GET /portfolio", () => {
       expect(exception.sentenceEl).not.toBe("");
       expect(exception.sentenceEn).not.toBe("");
       expect(exception.sentenceEl).not.toBe(exception.sentenceEn);
-      expect(exception.href).toBe(`/projects/${exception.projectId}`);
+      // A project exception points at the project; a contract warning (R31)
+      // points at the contract, which is where somebody puts it right.
+      expect(exception.href).toMatch(
+        new RegExp(`^/(projects/${exception.projectId}|contracts/[0-9a-f-]{36})$`),
+      );
       const unit = view.units.find((u) => u.orgUnit.id === exception.orgUnitId);
       expect(exception.sentenceEl).toContain(unit?.orgUnit.nameEl);
       expect(exception.sentenceEn).toContain(unit?.orgUnit.nameEn);

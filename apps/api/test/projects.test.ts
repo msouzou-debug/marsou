@@ -104,13 +104,21 @@ describe("GET /projects", () => {
     expect(response.body.key).toBe("errors.projectQueryNotValid");
   });
 
-  it("keeps the four ledgers apart and leaves the three it does not know null", async () => {
+  it("keeps the four ledgers apart and leaves the two it does not know null", async () => {
     // CAPEX-01 §7: a ledger the system has not been told is null, never zero.
-    const page = await list(USERS.admin, "?pageSize=1");
+    // M1 knows two of them — the approved budget from the day the project is
+    // opened, and the commitment once a contract exists (R13).
+    const page = await list(USERS.admin, "?pageSize=200");
     expect(page.items[0].ledgers.approved).toBe(page.items[0].approvedBudget);
-    expect(page.items[0].ledgers.committed).toBeNull();
-    expect(page.items[0].ledgers.spent).toBeNull();
-    expect(page.items[0].ledgers.forecast).toBeNull();
+    expect(page.items.every((p) => p.ledgers.spent === null)).toBe(true);
+    expect(page.items.every((p) => p.ledgers.forecast === null)).toBe(true);
+
+    // A project before award has no contract and therefore no commitment.
+    const early = page.items.find((p) => p.phase === "IDEA");
+    expect(early?.ledgers.committed).toBeNull();
+    // One that has been awarded has one, and it is a figure, not a zero.
+    const awarded = page.items.find((p) => p.phase === "IN_PROGRESS" && p.sourceRowRef !== null);
+    expect(awarded?.ledgers.committed).toBeGreaterThan(0);
   });
 
   it("refuses a caller with no token", async () => {

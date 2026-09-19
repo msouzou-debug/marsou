@@ -12,6 +12,8 @@ import { AppError } from "../common/errors";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { money } from "../projects/project-rows";
+import { warningFacts } from "../contracts/contract-rows";
+import { toWarning } from "../contracts/contract-warnings";
 
 /** UI instructions §5: the exceptions list shows at most eight. */
 const MAX_EXCEPTIONS = 8;
@@ -57,6 +59,12 @@ export class PortfolioService {
         orgUnitId: schema.project.orgUnitId,
         approvedBudget: schema.project.approvedBudget,
         rag: schema.project.rag,
+        // RULE (CAPEX-01 §7, R13): the commitment — the sum of the current
+        // value of this project's contracts, null where it has none.
+        committed: sql<
+          string | null
+        >`(select sum(c.current_value) from ecapital.contract c
+      where c.project_id = ecapital.project.id)`,
       })
       .from(schema.project);
 
@@ -71,9 +79,11 @@ export class PortfolioService {
       kpis: {
         approved,
         // RULE (CAPEX-01 §7): a ledger the system does not know yet is null,
-        // never zero. Committed, spent and forecast arrive with the SAP
-        // ingestion in M2 (R14, R16); until then the tiles show «—».
-        committed: null,
+        // never zero. The commitment is the sum over the projects that have a
+        // contract; where none of the caller's projects has one there is
+        // nothing to add up and the tile shows «—». Spent and forecast arrive
+        // with the SAP ingestion in M2 (R14, R16).
+        committed: committedOf(projects),
         spent: null,
         forecast: null,
         yearElapsedPct: yearElapsedPct(asOf),
@@ -84,10 +94,7 @@ export class PortfolioService {
     };
   }
 
-  private unitRow(
-    unit: OrgUnit,
-    projects: { orgUnitId: string; approvedBudget: string | number; rag: Rag }[],
-  ): UnitRow {
+  private unitRow(unit: OrgUnit, projects: PortfolioProjectRow[]): UnitRow {
     const mine = projects.filter((p) => p.orgUnitId === unit.id);
     const approved = mine.reduce((sum, p) => sum + money(p.approvedBudget), 0);
     const rag = { green: 0, amber: 0, red: 0 };
@@ -100,6 +107,9 @@ export class PortfolioService {
       orgUnit: unit,
       projectCount: mine.length,
       approved,
+      // Same rule as the KPI tile: the sum over this unit's projects that
+      // have a contract, null where none of them has.
+      committed: committedOf(mine),
       // RULE (CAPEX-01 §7): null, never zero, until the SAP ingestion lands
       // (M2, R14) — `UnitRow.spent` is nullable in packages/shared for
       // exactly this.
@@ -224,10 +234,85 @@ export class PortfolioService {
       });
     }
 
+    for (const candidate of await this.contractWarnings(today, byId)) candidates.push(candidate);
+
     // Red before amber, then by how big the slip is, so the eight that
     // survive the cap are the eight worth reading.
     candidates.sort((a, b) => b.weight - a.weight || b.size - a.size);
     return candidates.slice(0, MAX_EXCEPTIONS).map((c) => c.exception);
+  }
+
+  /**
+   * RULE (R31): the three contract warnings are the same three the contract
+   * screen shows, computed by the same function over the same facts, and they
+   * come into the portfolio as amber exceptions pointing at the contract
+   * rather than the project — the contract is where somebody fixes them.
+   * They compete with the project exceptions for the same eight places.
+   *
+   * They never block anything, here or anywhere else (CAPEX-01 §1).
+   */
+  private async contractWarnings(
+    today: string,
+    byId: Map<string, OrgUnit>,
+  ): Promise<{ exception: Exception; weight: number; size: number }[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const rows = await tx.db
+      .select({
+        contractId: schema.contract.id,
+        contractNo: schema.contract.contractNo,
+        originalValue: schema.contract.originalValue,
+        bondExpiry: schema.contract.bondExpiry,
+        completionDate: schema.contract.completionDate,
+        extensionDays: schema.contract.extensionDays,
+        orgUnitId: schema.contract.orgUnitId,
+        projectId: schema.project.id,
+        projectTitle: schema.project.titleEl,
+        phase: schema.project.phase,
+        approved: sql<string>`coalesce((select sum(v.value) from ecapital.variation v
+                                         where v.contract_id = ${schema.contract.id}
+                                           and v.status = 'APPROVED'), 0)`,
+      })
+      .from(schema.contract)
+      .innerJoin(schema.project, eq(schema.project.id, schema.contract.projectId));
+
+    const out: { exception: Exception; weight: number; size: number }[] = [];
+    for (const row of rows) {
+      const unit = byId.get(row.orgUnitId);
+      if (!unit) continue;
+      const facts = warningFacts(
+        {
+          contractNo: row.contractNo,
+          projectTitleEl: row.projectTitle,
+          originalValue: money(row.originalValue),
+          approvedVariationsTotal: money(row.approved),
+          bondExpiry: row.bondExpiry,
+          completionDate: row.completionDate,
+          extensionDays: row.extensionDays,
+          projectPhase: row.phase,
+        },
+        today,
+      );
+      for (const fact of facts) {
+        const warning = toWarning(this.i18n, fact, { nameEl: unit.nameEl, nameEn: unit.nameEn });
+        out.push({
+          exception: {
+            id: `EXC-CT-${fact.key}-${row.contractId}`,
+            projectId: row.projectId,
+            orgUnitId: unit.id,
+            sentenceEl: warning.sentenceEl,
+            sentenceEn: warning.sentenceEn,
+            // Warn and flag, never block (R31): amber, always.
+            severity: "amber",
+            href: `/contracts/${row.contractId}`,
+          },
+          weight: 1,
+          size: fact.amount ?? fact.facts.days ?? 0,
+        });
+      }
+    }
+    return out;
   }
 
   /**
@@ -254,6 +339,27 @@ export class PortfolioService {
       href: `/projects/${projectId}`,
     };
   }
+}
+
+/** One project as the portfolio reads it: enough for the sums and the counts. */
+export interface PortfolioProjectRow {
+  id: string;
+  orgUnitId: string;
+  approvedBudget: string | number;
+  rag: Rag;
+  committed: string | number | null;
+}
+
+/**
+ * RULE (CAPEX-01 §7): the commitment of a set of projects is the sum over the
+ * ones that have a contract. Where none of them has, there is nothing to add
+ * up and the answer is null — never zero, which would read as "committed
+ * nothing" rather than "nothing committed yet".
+ */
+export function committedOf(projects: { committed: string | number | null }[]): number | null {
+  const known = projects.filter((p) => p.committed !== null);
+  if (!known.length) return null;
+  return known.reduce((sum, p) => sum + money(p.committed), 0);
 }
 
 /** % of the calendar year gone at `asOf`, UTC — the comparator every KPI tile shows. */
