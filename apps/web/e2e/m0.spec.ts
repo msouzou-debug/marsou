@@ -87,11 +87,11 @@ test("a unit that is not yours is a refusal, not a tree", async ({ page }, testI
   });
 });
 
-test("a Central Administration account sees all twelve units", async ({ page }, testInfo) => {
+test("a Central Administration account sees all eleven units", async ({ page }, testInfo) => {
   await signIn(page, "admin@ecapital.test");
 
   await expect(page.getByTitle("Λογαριασμός: Μαρία Κωνσταντίνου")).toBeVisible();
-  await expect(page.getByLabel("Μονάδα").locator("option")).toHaveCount(12);
+  await expect(page.getByLabel("Μονάδα").locator("option")).toHaveCount(11);
 
   await page.screenshot({ path: `e2e/screenshots/m0-admin-${testInfo.project.name}.png`, fullPage: true });
 });
