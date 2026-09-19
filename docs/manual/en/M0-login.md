@@ -32,11 +32,11 @@ On the ΟΚΥπΥ server you sign in with the same account you use for eMAP and 
 2. Type your password. It is your network password; eCapital keeps no copy of it and cannot change it.
 3. Press Sign in. The session lasts eight hours.
 
-Your roles and your units come from the Active Directory groups you belong to. Which group grants which role is set by the system administrator inside eCapital, and does not change with a new release.
+Your roles and your units are set by the system administrator inside eCapital, on the «Διαχείριση › Χρήστες» screen. Active Directory only says who you are; what you can see and change is the administrator's to decide, and it applies from your next sign-in.
 
 ## What can go wrong signing in with a ΟΚΥπΥ account
 
 - **"That username or password is not right."** You get the same sentence for an account that does not exist and for a password that is wrong, on purpose. Check you are typing your username and not your email address, and that Caps Lock is off. If your network password has expired or the account is locked, sort that out on your own computer first and then come back.
-- **You get in but see nothing.** Your account is not yet in any group that maps to an eCapital role. Nothing is broken: the sign-in worked and the role is missing. Ask the administrator to add your AD group to eCapital's roles.
+- **You get in but see nothing.** You have not been given a role yet. Nothing is broken: the sign-in worked and the role is missing. Ask the system administrator to give you a role and units on the «Διαχείριση › Χρήστες» screen.
 - **"Signing in with a ΟΚΥπΥ account is not switched on for this server."** The server has not been configured for Active Directory. Ask the administrator to check `AUTH_MODE`, `LDAP_URL`, `LDAP_BASE_DN` and `LDAP_DOMAIN`.
 - **"The server did not answer."** eCapital could not reach the directory. That is a network or configuration problem, not your password.

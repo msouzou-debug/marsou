@@ -129,10 +129,11 @@ sitting in the live register.
   from the first sign-in, sample projects included.
 - **Production: do NOT run `seed`.** This warning stands regardless of which
   decision above put a given deployment in "production": the twelve org
-  units and the group→role mappings are the only pieces of the seed
-  production needs, and they go in by hand (§5) or by trimming the seed to
-  just the org-unit rows if that becomes a maintained option later — check
-  `seed-data.ts` before assuming it already offers that split.
+  units are the only piece of the seed production needs, and they go in by
+  hand or by trimming the seed to just the org-unit rows if that becomes a
+  maintained option later — check `seed-data.ts` before assuming it already
+  offers that split. The group→role mappings are no longer needed at all:
+  roles are assigned per user in Διαχείριση › Χρήστες (§5, ADR-0020).
 - **Production's real seed is the Capex Plan import**, `import:capex`
   (`apps/api/README.md` "Importing the Capex Plan"). That is what puts the
   113 real projects and their budget lines into the live register. Run
@@ -143,33 +144,99 @@ sitting in the live register.
 
 ---
 
-## 5. Mapping AD groups to roles
+## 5. The first administrator, and giving people their roles
 
-There is **no admin screen for this today** — `apps/web/src/app/(app)/admin`
-holds only the contractor register (`admin/contractors`). Role mapping is
-SQL against `ecapital.role_mapping` until that screen exists; flag this as
-a follow-up if it keeps happening by hand more than a few times.
+Roles are **not** AD groups (ADR-0020, owner decision 19/09/2026). Active
+Directory only authenticates; who may do what is assigned to a person, inside
+eCapital, by an administrator — the same way eFinance does it. So a fresh
+database needs exactly one thing done from the server, and everything after
+that happens in the screen.
 
-The table keys on the AD group identifier in the column `group_id`
-(migration `0007_active_directory_sign_in.sql` renamed it from the M0
-`entra_group_id`; ADR-0018). Under `AUTH_MODE=ldap` it holds the AD group's
-**distinguished name**, for example
-`CN=eCapital-EstatesHead,OU=Groups,DC=ihcis,DC=local`. A null
-`org_unit_id` means the mapping applies to every unit.
+### 5.1 Create the first administrator
+
+The screen that assigns roles is administrator-only, and a fresh database has
+no administrator in it. Break into it once, with a shell:
+
+```bash
+cd /opt/ecapital
+sudo -u ecapital env $(grep -v '^#' /etc/ecapital/api.env | xargs) \
+  pnpm --filter @ecapital/api grant-admin -- \
+    --username a.papadopoulos \
+    --name "Ανδρέας Παπαδόπουλος" \
+    --email a.papadopoulos@shso.org.cy
+```
+
+`--username` is the **sAMAccountName**, exactly as the person types it at the
+sign-in screen — not the UPN and not the address. `--name` and `--email` are
+optional: they fill the row until the first Active Directory sign-in
+overwrites them with what the directory holds.
+
+It prints what it did:
+
+```
+account a.papadopoulos: created (subject ad:a.papadopoulos)
+role admin: granted
+units: 12 unit(s)
+```
+
+The account does not have to exist in eCapital first. The row is
+pre-registered with `subject = ad:<username>`; the first AD bind finds it by
+account name and moves the subject onto the objectGUID, so the role is in
+force the first time the person signs in. Running the command twice is safe —
+the second run prints `already held`.
+
+The command runs over the migration connection and writes an audit row under
+the actor `cli:<os user>`. There is no way to run it without that trail.
+
+### 5.2 Sign in and use the screen
+
+1. Open `https://<the eCapital hostname>/` and sign in with that AD account.
+2. Go to **Διαχείριση › Χρήστες**.
+3. Either press «Προσθήκη» and pre-register the people you already know about
+   — account name, name, roles, units — or wait for them to sign in once and
+   then open their row and give them their roles.
+
+A person who has signed in but has no role sees an empty application. That is
+the safe direction and not a fault: the account exists, nobody has given it
+anything yet. Their row in Διαχείριση › Χρήστες shows a last sign-in and no
+roles, which is where to look first when somebody reports a blank screen.
+
+Roles that reach every unit — Διαχειριστής, Οικονομική Διεύθυνση, Διοίκηση,
+Ελεγκτής — ignore the unit list. Every other role needs at least one unit or
+it grants nothing.
+
+### 5.3 Appoint the auditor
+
+CAPEX-01 §10: the auditor cannot be edited by an administrator. The screen
+refuses `auditor_readonly` in both directions, so the appointment is made on
+the server:
+
+```bash
+cd /opt/ecapital
+sudo -u ecapital env $(grep -v '^#' /etc/ecapital/api.env | xargs) \
+  pnpm --filter @ecapital/api grant-role -- \
+    --username c.loizou --role auditor_readonly
+```
+
+Add `--revoke` to take it away again. `--role` accepts only the eight roles;
+anything else is refused with the list printed.
+
+### 5.4 AD groups, if you ever want them (optional)
+
+`ecapital.role_mapping` is still there and still read. A sign-in takes the
+**union** of the roles assigned in the screen and whatever the caller's AD
+groups map to here, and never deletes an assignment. The table is empty on a
+fresh database and nothing needs it.
+
+Use it only if the organisation decides it would rather drive some roles from
+AD after all. The column `group_id` holds the group's **distinguished name**
+under `AUTH_MODE=ldap`; a null `org_unit_id` means every unit.
 
 ```sql
--- One group, one role, every unit:
 insert into ecapital.role_mapping (group_id, role, org_unit_id, note)
 values ('CN=eCapital-Admins,OU=Groups,DC=ihcis,DC=local', 'admin', null,
         'Central IT — added 2026-xx-xx');
 
--- One group, one role, scoped to a single unit (org_unit.id, not .code):
-insert into ecapital.role_mapping (group_id, role, org_unit_id, note)
-select 'CN=eCapital-NGH-Estates,OU=Groups,DC=ihcis,DC=local', 'estates_head',
-       id, 'ΝΓΗ estates head — added 2026-xx-xx'
-from ecapital.org_unit where code = 'NGH';
-
--- Check what is mapped so far:
 select rm.role, coalesce(ou.code, '(all units)') as unit, rm.group_id, rm.note
 from ecapital.role_mapping rm
 left join ecapital.org_unit ou on ou.id = rm.org_unit_id
@@ -177,14 +244,15 @@ order by rm.role, unit;
 ```
 
 Run these as the `ecapital` (owner) role — `psql "$MIGRATION_DATABASE_URL"`
-from `/etc/ecapital/api.env`, or `sudo -u ecapital psql ecapital` on the
-server. A row here is what ADR-0009 calls "an administrative act with an
-audit row behind it" — it takes effect the next time that user signs in,
-nothing needs restarting.
+from `/etc/ecapital/api.env`. A row takes effect the next time that user signs
+in; nothing needs restarting.
 
-**A user in no mapped group gets no roles and sees nothing** — the safe
-direction, per ADR-0009. If someone reports an empty screen after a
-successful AD sign-in, check here first.
+### 5.5 Switching an account off
+
+Open the person's row in Διαχείριση › Χρήστες and clear «Ενεργός
+λογαριασμός». They are refused at the next sign-in, and the session they are
+already holding stops at their next request. There is no need to touch Active
+Directory, and an account switched off in AD is refused at the bind anyway.
 
 ---
 

@@ -4,9 +4,10 @@ This screen holds the register of contractors working with the organisation, sha
 
 ## Steps
 
-1. Press "Add" for a new contractor, or open a row to edit it.
-2. Fill in the name, VAT number, registration number, category and SAP code, and press "Save".
-3. The system administrator also sees a "Blacklist" toggle when editing a contractor.
+1. Open «Διαχείριση» and choose the «Ανάδοχοι» tab. The first tab is «Χρήστες».
+2. Press "Add" for a new contractor, or open a row to edit it.
+3. Fill in the name, VAT number, registration number, category and SAP code, and press "Save".
+4. The system administrator also sees a "Blacklist" toggle when editing a contractor.
 
 ## What can go wrong
 
