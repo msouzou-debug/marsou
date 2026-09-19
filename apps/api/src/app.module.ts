@@ -14,6 +14,7 @@ import { CONFIG, type AppConfig } from "./config";
 import { ContractorsModule } from "./contractors/contractors.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { CoreModule } from "./core.module";
+import { CostModule } from "./cost/cost.module";
 import { DefectsModule } from "./defects/defects.module";
 import { HealthModule } from "./health/health.module";
 import { LinksModule } from "./links/links.module";
@@ -59,6 +60,7 @@ import { SiteInstructionsModule } from "./site-instructions/site-instructions.mo
     ProjectsModule,
     ContractorsModule,
     ContractsModule,
+    CostModule,
     RfisModule,
     SiteInstructionsModule,
     DefectsModule,

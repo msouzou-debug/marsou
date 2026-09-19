@@ -17,7 +17,7 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0 and M1 route", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1 and M2 route", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
@@ -34,6 +34,7 @@ describe("openapi.json", () => {
       "/contracts/lookup",
       "/contracts/{id}",
       "/contracts/{id}/boq",
+      "/contracts/{id}/payment-certs",
       "/contracts/{id}/rfis",
       "/contracts/{id}/rfis/{rid}/answer",
       "/contracts/{id}/rfis/{rid}/close",
@@ -43,6 +44,14 @@ describe("openapi.json", () => {
       "/contracts/{id}/variations/{vid}",
       "/contracts/{id}/variations/{vid}/decide",
       "/contracts/{id}/variations/{vid}/submit",
+      "/cost/accruals",
+      "/cost/accruals/export",
+      "/cost/imports",
+      "/cost/imports/{id}",
+      "/cost/imports/{id}/allocate",
+      "/cost/imports/{id}/commit",
+      "/cost/imports/{id}/skip",
+      "/cost/imports/{id}/unmatched",
       "/defects",
       "/defects/backlog",
       "/defects/{id}",
@@ -50,10 +59,19 @@ describe("openapi.json", () => {
       "/me",
       "/org-units",
       "/org-units/{id}/areas",
+      "/org-units/{id}/cost/cashflow",
+      "/payment-certs/{id}",
+      "/payment-certs/{id}/transition",
       "/portfolio",
       "/projects",
       "/projects/{id}",
+      "/projects/{id}/budget-lines",
       "/projects/{id}/contracts",
+      "/projects/{id}/cost",
+      "/projects/{id}/cost/cashflow",
+      "/projects/{id}/cost/export",
+      "/projects/{id}/cost/forecast-inputs",
+      "/projects/{id}/cost/warnings/{wid}/dismiss",
       "/projects/{id}/issues",
       "/projects/{id}/issues/{iid}",
       "/projects/{id}/milestones",
