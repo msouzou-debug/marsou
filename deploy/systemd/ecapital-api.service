@@ -4,8 +4,9 @@
 # Binds 127.0.0.1:5015 only — the API is never reached by a browser, only by
 # the web app running server-side on the same host (see docs/deploy/RUNBOOK-10.227.56.22.md).
 # NO_PROXY below matters because systemd units do not read /etc/environment's
-# http_proxy: without it, any loopback call the API makes (e.g. to eFinance's
-# own loopback port) goes through the host's Squid proxy and gets a fake 503.
+# http_proxy: without it, any loopback call the API makes — eFinance on 5004,
+# eArchive's ingest route on 5011 — goes through the host's Squid proxy and
+# gets a fake 503. It is unconditional and covers both (ADR-0022, ADR-0023).
 
 [Unit]
 Description=eCapital API (NestJS)
@@ -33,7 +34,10 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/var/log/ecapital /opt/ecapital/apps/api
+# /var/lib/ecapital/documents is the eArchive object store (ADR-0023,
+# DOCUMENT_STORE_DIR): the operational copy of a file the API has to have in
+# hand to upload it. Nothing else outside the release tree is writable.
+ReadWritePaths=/var/log/ecapital /opt/ecapital/apps/api /var/lib/ecapital/documents
 UMask=0027
 
 # --- logging -----------------------------------------------------------

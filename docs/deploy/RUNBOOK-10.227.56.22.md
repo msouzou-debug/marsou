@@ -498,3 +498,115 @@ password has been set to match the env file. `sudo -u postgres psql -c
 **Empty output from a privileged command.** Treat it as "the command
 failed", never as "the answer is empty" or "everything differs" — the same
 rule eFinance's CLAUDE.md gives for `sudo md5sum` with no password.
+
+---
+
+## 11. eArchive
+
+eArchive (formerly eMetroon — the paths on this host still say `emetroon`)
+is ΟΚΥπΥ's protocol and records system, and it runs on this same server.
+eCapital files three kinds of paper with it: the award decision on a
+contract, the business case behind a project and an approved variation. It
+keeps the protocol number eArchive assigns and a pointer to it — **eCapital
+is not an archive and never holds a second copy of one** (ADR-0023,
+`docs/INTEGRATION-eFinance-eMAP-eCapital.md` §6).
+
+Three things have to be true before a document can leave this server: the
+directory exists and is the API's to write, the token is in both
+configurations, and the unit has been restarted since.
+
+### 11.1 The document directory
+
+Paste-ready, once, as `administrator`:
+
+```bash
+sudo install -d -o ecapital -g ecapital -m 0750 /var/lib/ecapital/documents
+sudo ls -ld /var/lib/ecapital/documents
+```
+
+Expected: `drwxr-x--- … ecapital ecapital … /var/lib/ecapital/documents`.
+
+This is `DOCUMENT_STORE_DIR` in `/etc/ecapital/api.env`. The systemd unit
+lists it under `ReadWritePaths`, so it is the only place outside the release
+tree the API may write — if the directory is missing or owned by somebody
+else, uploads fail with a permission error and nothing is queued.
+
+What lives here is the operational copy: the bytes the multipart upload
+needs in hand, and which a retry an hour later still needs. It is not a
+document store for people to browse, it is not backed up as if it were the
+archive, and a file in it whose item has been filed is of no further
+interest — eArchive has it.
+
+### 11.2 The token
+
+**Marios generates it on the server and writes it into both files himself.**
+It is never sent by email, never pasted into a chat, never committed to the
+repository, and never written into a deployment note — including this one.
+
+```bash
+openssl rand -hex 32
+```
+
+The same string goes in two places:
+
+1. `/etc/ecapital/api.env` → `ECAPITAL_INGEST_TOKEN=…` (replacing
+   `CHANGE-ME`). eCapital sends it to eArchive on every ingest call **and**
+   checks it on every callback eArchive makes back.
+2. eArchive's own configuration, as the token it issues eCapital. That side
+   is eArchive's to place; ask them for the setting name.
+
+Then:
+
+```bash
+sudo systemctl restart ecapital-api
+journalctl -u ecapital-api --since -2min | grep -i earchive
+```
+
+With no token — or with `CHANGE-ME` still in the file — the API boots
+normally and logs a warning, documents are recorded and queued, and
+**nothing is sent**. That is the intended state until the token is placed;
+it is a hold, not a fault. `GET /admin/dms/outbox` reports
+`senderConfigured: false` while it lasts.
+
+### 11.3 Checking it works
+
+```bash
+# The queue, as an administrator (a signed-in admin token, not the eArchive one).
+curl --noproxy '*' -H "Authorization: Bearer <admin token>" \
+  http://127.0.0.1:5015/admin/dms/outbox | head -c 400
+```
+
+`senderConfigured: true` and items moving from `QUEUED` to `SENT` with a
+`protocolNumber` like `ΤΥ/2026/00001` is what success looks like. An item at
+`FAILED` carries eArchive's own code — `SCHEMA_INVALID`, `MIME_REJECTED`,
+`DUPLICATE_SOURCE_REF` and the rest — and the administrator has had an
+`email_outbox` line about it. A failed item is never retried on its own;
+`POST /admin/dms/outbox/<id>/retry` is how somebody says try again after
+the cause has been dealt with.
+
+The callback runs the other way: eArchive calls
+`POST http://127.0.0.1:5015/api/v1/dms/events` with the same bearer token,
+for `protocol.deleted`, `legal_hold.set` and `legal_hold.cleared`. It is
+**loopback only** — a request carrying `X-Forwarded-For`, `X-Real-IP`,
+`Forwarded`, `CF-Connecting-IP` or `CF-Ray` is refused `403`, the same rule
+§10's eFinance contract states in the other direction (ADR-0022). If
+eArchive's calls are being refused with 403, something is putting the
+request through a proxy that adds one of those headers; that is the thing to
+fix, not the rule.
+
+**A 503, or a `CONNECTION_FAILED` on every item.** Same cause as §10's
+entry: the host's Squid proxy. The unit sets
+`Environment=NO_PROXY=127.0.0.1,localhost`, which covers eFinance on `5004`
+and eArchive on `5011` alike; if that line has gone from the unit file, that
+is the fix. Confirm with:
+
+```bash
+systemctl show ecapital-api -p Environment | tr ' ' '\n' | grep -i no_proxy
+```
+
+### 11.4 Samples for eArchive
+
+`docs/integration/ecapital-dms-samples/` holds one `meta.json` per item
+type and a `curl` example with placeholders, the same way the eFinance
+contract was handed over. Send that directory to eArchive when asking them
+to test the route — it carries no token and no real document.

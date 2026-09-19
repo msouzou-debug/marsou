@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "outbox_id": "1d8b4e30-77aa-4f52-8e19-2c40b9d61f03",
+  "sent_at": "2026-02-03T11:12:45+02:00",
+  "source_system": "eCapital",
+  "source_module": "business_case",
+  "source_ref": "business_case:NGH-2026-002",
+  "source_url": "https://capital.shso.online/projects/33333333-3333-3333-3333-333333333333",
+  "doc_type": "Μελέτη σκοπιμότητας",
+  "subject": "Μελέτη σκοπιμότητας — NGH-2026-002 — Επέκταση ΤΑΕΠ — 90.000,00 €",
+  "direction": "INTERNAL",
+  "registry_hint": "ΤΥ",
+  "sender_name": "Τεχνικές Υπηρεσίες ΟΚΥπΥ",
+  "sender_ref": "NGH-2026-002",
+  "letter_date": "2026-02-02",
+  "category": "Διοίκηση",
+  "classification": "BUSINESS",
+  "personal_data": false,
+  "retention_class_hint": "rc-capital",
+  "folder_hints": [
+    { "hospital": "NGH", "title": "Γενικό Νοσοκομείο Λευκωσίας" }
+  ],
+  "counterparties": [],
+  "amount": 90000,
+  "currency": "EUR",
+  "related": [],
+  "approvals": [
+    {
+      "actor_name": "Ανδρέας Παπαδόπουλος",
+      "role": "Προϊστάμενος Τεχνικών Υπηρεσιών",
+      "action": "Καταχώριση",
+      "at": "2026-02-02T14:05:00+02:00"
+    }
+  ],
+  "files": [
+    {
+      "kind": "MAIN",
+      "part_name": "file_main",
+      "filename": "meleti-skopimotitas.pdf",
+      "mime": "application/pdf",
+      "size": 962144,
+      "sha256": "aa0f19c7b25d38e4f6071a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f"
+    }
+  ]
+}
