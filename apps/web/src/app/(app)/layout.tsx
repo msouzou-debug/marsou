@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const selectedUnitId = orgUnits.some((u) => u.id === remembered) ? remembered : orgUnits[0]?.id;
 
   return (
-    <HelpProvider>
+    <HelpProvider userRole={session.me.roles[0]}>
       {/* S25: mounted above every page so it survives client-side navigation
           while each page.tsx registers its own section underneath it. */}
       <AppShell me={session.me} orgUnits={orgUnits} defaultOrgUnitId={selectedUnitId}>

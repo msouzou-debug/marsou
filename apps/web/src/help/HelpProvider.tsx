@@ -23,8 +23,10 @@
 // RegisterHelpSection" option named in the build task, chosen over a portal
 // because there is no stable DOM node inside `page.tsx` to portal from.
 import { useCallback, useMemo, useRef, useState, createContext, useContext, useEffect, type ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { AppRole } from "@ecapital/shared";
 import { HelpDrawer } from "@/components/help-drawer";
+import type { Locale } from "@/i18n/config";
 
 interface RegisteredSection {
   node: ReactNode;
@@ -62,8 +64,20 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-export function HelpProvider({ children }: { children: ReactNode }) {
+export interface HelpProviderProps {
+  children: ReactNode;
+  /** The signed-in user's first role (`Me.roles[0]`, apps/web/src/auth/session.ts),
+   *  passed down from `src/app/(app)/layout.tsx`. Drives the footer's
+   *  «Οδηγός PDF για {role}» link (R50): the guide is the reader's own
+   *  persona guide, not the guide for whatever screen they happen to be on.
+   *  Undefined when there is no session (or the user has no role yet) —
+   *  the link then falls back to the help centre, which lists all sixteen. */
+  userRole?: AppRole;
+}
+
+export function HelpProvider({ children, userRole }: HelpProviderProps) {
   const t = useTranslations();
+  const locale = useLocale() as Locale;
   const [isOpen, setIsOpen] = useState(false);
   const [section, setSection] = useState<RegisteredSection | null>(null);
   const nextIdRef = useRef(0);
@@ -106,16 +120,18 @@ export function HelpProvider({ children }: { children: ReactNode }) {
     [isOpen, open, close, toggle, registerSection],
   );
 
-  const persona = section?.personas[0];
-  const role = persona ? t(ROLE_LABEL_KEYS[persona] ?? "common.user") : t("common.user");
-  // TODO(R50): /help/guides/<persona>.pdf does not exist yet — the
-  // per-persona PDF guides are generated at release, not at runtime.
-  const pdfHref = persona ? `/help/guides/${persona}.pdf` : "/help/guides";
+  // The footer PDF link is the signed-in user's own persona guide (R50),
+  // not a guide for whichever screen's section happens to be registered —
+  // those are two different personas whenever an admin looks at a
+  // technician's screen, say. Falls back to the help centre (which lists
+  // all sixteen guides) when there is no session role to build a link from.
+  const roleLabel = userRole ? t(ROLE_LABEL_KEYS[userRole] ?? "common.user") : t("common.user");
+  const pdfHref = userRole ? `/guides/${userRole}.${locale}.pdf` : "/help";
 
   return (
     <HelpContext.Provider value={value}>
       {children}
-      <HelpDrawer open={isOpen} onClose={close} role={role} pdfHref={pdfHref} helpCentreHref="/help">
+      <HelpDrawer open={isOpen} onClose={close} role={roleLabel} pdfHref={pdfHref} helpCentreHref="/help">
         {section?.node}
       </HelpDrawer>
     </HelpContext.Provider>
