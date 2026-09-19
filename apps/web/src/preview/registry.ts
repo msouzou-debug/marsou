@@ -32,6 +32,7 @@ import s07dDefects from "@/screens/s07d-defects/Defects.preview";
 import s07eContracts from "@/screens/s07e-contracts/Contracts.preview";
 import s08Variations from "@/screens/s08-variations/Variations.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
+import s24Users from "@/screens/s24-users/Users.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
@@ -69,6 +70,7 @@ const entries: PreviewEntry[] = [
   s07eContracts,
   s08Variations,
   s24Contractors,
+  s24Users,
 ];
 
 export function getPreviewEntries(): PreviewEntry[] {

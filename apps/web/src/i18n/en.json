@@ -153,6 +153,11 @@
     },
     "wizard-shell": {
       "stepOf": "Step {current} of {total}"
+    },
+    "admin-tabs": {
+      "users": "Users",
+      "contractors": "Contractors",
+      "label": "Administration sections"
     }
   },
   "nav": {
@@ -654,6 +659,57 @@
       "notFoundHint": "Check the reference, or find the contract from your own projects. A reference starting CON- belongs to eMAP, not here.",
       "allContracts": "All contracts",
       "allProjects": "Project list"
+    },
+    "s24users": {
+      "title": "Users",
+      "caption": "Users and their roles",
+      "empty": "No user matches these filters.",
+      "columns": {
+        "name": "Name",
+        "username": "Account",
+        "roles": "Roles",
+        "units": "Units",
+        "lastSignIn": "Last sign-in",
+        "status": "Status"
+      },
+      "allUnits": "All",
+      "noRole": "No role",
+      "active": "Active",
+      "inactive": "Inactive",
+      "filters": {
+        "search": "Search",
+        "searchPlaceholder": "Name or account",
+        "role": "Role",
+        "unit": "Unit",
+        "status": "Status",
+        "all": "All",
+        "activeOnly": "Active",
+        "inactiveOnly": "Inactive"
+      },
+      "titleNew": "New user",
+      "titleEdit": "Edit user",
+      "fields": {
+        "name": "Name",
+        "username": "Account",
+        "email": "Email",
+        "source": "Source",
+        "roles": "Roles",
+        "units": "Units",
+        "active": "Account is on"
+      },
+      "sources": {
+        "dev": "Development account",
+        "ldap": "ΟΚΥπΥ Active Directory",
+        "oidc": "Entra ID"
+      },
+      "auditorLocked": "The server administrator appoints the auditor with the grant-role command.",
+      "unitsAllHint": "The roles you picked apply to every unit.",
+      "unitsHint": "Pick at least one unit.",
+      "newHint": "The user signs in with their ΟΚΥπΥ account; their permissions apply from that first sign-in.",
+      "deactivateTitle": "Switch off the account for {name}?",
+      "deactivateConsequence": "They will not be able to sign in, and the session they have open stops at their next action.",
+      "deactivateConfirm": "Switch off",
+      "noPermissionAskRole": "The system administrator manages users and their roles."
     }
   },
   "states": {
@@ -801,5 +857,15 @@
     "IT": "IT",
     "CONSULTANT": "Consultant",
     "OTHER": "Other"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "estates_head": "Head of estates",
+    "project_engineer": "Project engineer",
+    "technician": "Technician",
+    "finance": "Finance",
+    "clinical_approver": "Clinical approver",
+    "executive_readonly": "Executive, read-only",
+    "auditor_readonly": "Auditor, read-only"
   }
 }

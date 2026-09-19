@@ -50,9 +50,10 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "maintenance", href: "/maintenance", labelKey: "nav.maintenance", icon: Wrench },
   { id: "approvals", href: "/approvals", labelKey: "nav.approvals", icon: Inbox, hasBadge: true },
   { id: "reports", href: "/reports", labelKey: "nav.reports", icon: BarChart3 },
-  // RULE (S24, build brief): «Διαχείριση» has no index page yet — it lands
-  // on Ανάδοχοι (S24, one of its tabs) for now, rather than 404ing.
-  { id: "admin", href: "/admin/contractors", labelKey: "nav.admin", icon: Settings },
+  // RULE (ADR-0020): «Διαχείριση» lands on Χρήστες, which is the first tab
+  // and the reason most people open the area at all. Ανάδοχοι is the second
+  // tab and keeps its own route.
+  { id: "admin", href: "/admin/users", labelKey: "nav.admin", icon: Settings },
 ];
 
 // Phone bottom tab bar: 4 slots total. Three come from the rail, in this

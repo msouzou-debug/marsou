@@ -1,4 +1,5 @@
 import {
+  AdminUserList,
   AreaTree,
   ConfigLinks,
   Contractor,
@@ -9,6 +10,7 @@ import {
   ProjectDetail,
   ProjectList,
   Rfi,
+  RoleCatalogue,
   SiteInstruction,
   type ProjectListQuery,
 } from "@ecapital/shared";
@@ -184,5 +186,45 @@ export function useProjectsForUnit(orgUnitId: string) {
       ),
     retry: false,
     enabled: orgUnitId.length > 0,
+  });
+}
+
+// S24 «Χρήστες» (ADR-0020). Administrator only: the routes answer 403 to
+// anybody else and the page itself never renders the screen for them, so a
+// failure here is a real one, not a permission check in disguise.
+export interface AdminUsersQuery {
+  q: string;
+  role: string;
+  unit: string;
+  active: "" | "true" | "false";
+}
+
+export function adminUsersApiPath(query: AdminUsersQuery): string {
+  const params = new URLSearchParams();
+  if (query.q.trim()) params.set("q", query.q.trim());
+  if (query.role) params.set("role", query.role);
+  if (query.unit) params.set("unit", query.unit);
+  if (query.active) params.set("active", query.active);
+  // The organisation is a few hundred staff at most, so one page is the
+  // whole list and the screen needs no pager. The API pages regardless.
+  params.set("pageSize", "200");
+  return `/admin/users?${params.toString()}`;
+}
+
+export function useAdminUsers(query: AdminUsersQuery) {
+  return useQuery({
+    queryKey: ["admin-users", query],
+    queryFn: () => proxyFetch(adminUsersApiPath(query), AdminUserList),
+    retry: false,
+  });
+}
+
+/** The eight roles and their scope, so the screen hardcodes neither. */
+export function useRoleCatalogue() {
+  return useQuery({
+    queryKey: ["admin-roles"],
+    queryFn: () => proxyFetch("/admin/roles", RoleCatalogue),
+    retry: false,
+    staleTime: Infinity,
   });
 }

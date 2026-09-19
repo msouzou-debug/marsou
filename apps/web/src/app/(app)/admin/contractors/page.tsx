@@ -3,7 +3,7 @@
 import { getTranslations } from "next-intl/server";
 import { getSession } from "@/auth/session";
 import { canManageContractors, isAdmin } from "@/auth/roles";
-import { NoPermission } from "@/components/app-shell";
+import { AdminTabs, NoPermission } from "@/components/app-shell";
 import { HelpSection } from "@/help/HelpSection";
 import { ContractorsScreen } from "@/screens/s24-contractors/ContractorsScreen";
 
@@ -20,11 +20,19 @@ export default async function ContractorsPage() {
 
   if (!canManageContractors(roles)) {
     const t = await getTranslations("screens.s24");
-    return <NoPermission askRole={t("noPermissionAskRole")} />;
+    return (
+      <>
+        <AdminTabs />
+        <NoPermission askRole={t("noPermissionAskRole")} />
+      </>
+    );
   }
 
   return (
     <>
+      {/* ADR-0020: Ανάδοχοι is now the second tab of Διαχείριση. The route is
+          unchanged — a link somebody saved still lands here. */}
+      <AdminTabs />
       <ContractorsScreen isAdmin={isAdmin(roles)} noPermission={<NoPermission />} />
       <HelpSection route="/admin/contractors" />
     </>

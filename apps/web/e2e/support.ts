@@ -40,3 +40,32 @@ export async function nativeClick(locator: Locator): Promise<void> {
   await locator.waitFor({ state: "visible" });
   await locator.evaluate((element) => (element as HTMLElement).click());
 }
+
+/**
+ * A native value set plus an `input` event, instead of Playwright's
+ * CDP-driven `fill()`.
+ *
+ * Same sandbox problem `nativeClick` documents, in the other half of the
+ * input pipeline: at phone-390 a `fill()` against a field inside the S24
+ * user sheet hangs indefinitely on "waiting for element to be visible,
+ * enabled and editable", while the identical value set natively completes at
+ * once and React sees the change. The prototype setter is used rather than
+ * `element.value = …` because React installs its own value tracker on the
+ * node and would otherwise treat the assignment as a no-op and skip the
+ * `onChange`.
+ *
+ * Use only where a real `fill()` has been confirmed to hang; `signIn` above
+ * uses an ordinary one and works everywhere in this suite.
+ */
+export async function nativeFill(locator: Locator, value: string): Promise<void> {
+  await locator.waitFor({ state: "attached" });
+  await locator.evaluate((element, text) => {
+    const input = element as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+}
