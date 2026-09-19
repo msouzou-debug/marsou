@@ -6,6 +6,8 @@ M0 is the foundation — sign in, see your own org units, see their building →
 
 M1 adds the project register on top of it: projects, milestones, risks and issues, and the portfolio the board opens on. It serves R03 (portfolio across the units with drill-through), R04 (phases and gate approvals), R05 and R06 (the business-case fields carried from the capex plan, and baseline vs forecast vs actual) and R07 (risk and issue registers).
 
+M1 then adds the site log on top of the contracts: RFIs with an SLA clock, site instructions that turn into variations, and the defects found at handover and on inspection (R09, R12, R35). The SLA band is computed and never stored, a breach is a state and never a block, and a defect always belongs to an org unit even when it belongs to no contract and no project (ADR-0017).
+
 M1 then adds the contract register: contractors, contracts, bills of quantities and variations (R08, R10), the commitment ledger they produce (R13) and the three warnings they raise (R31). A contract starts at award — the tender stage stays in e-Procurement (CAPEX-01 §1) — and a variation is approved by somebody other than the person who raised it, which is enforced in the service, on the route and in the table (ADR-0015).
 
 Two of the four ledgers are now real. `approved` is known from the day a project is opened and `committed` is the sum of the current value of its contracts, null before the first one is awarded. `spent` and `forecast` arrive with the SAP ingestion in M2 (R14, R16); until then they come back null and the screens show «—» (CAPEX-01 §7). Cost, permits, assets and maintenance are M2 and later.
@@ -16,7 +18,7 @@ Two of the four ledgers are now real. `approved` is known from the day a project
 pnpm install                                   # 1. from the repo root
 cp apps/api/.env.example apps/api/.env         # 2. the defaults work for local Postgres
 pnpm --filter @ecapital/api migrate            # 3. create the schema, policies and triggers
-pnpm --filter @ecapital/api seed               # 4. eleven org units, one building, six users
+pnpm --filter @ecapital/api seed               # 4. eleven org units, one building, eight users
 pnpm --filter @ecapital/api dev                # 5. http://localhost:3001, docs at /docs
 ```
 
@@ -30,11 +32,13 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 |---|---|
 | `src/db/migrations/*.sql` | The schema. Tables, enums, row-level-security policies, grants, audit triggers. Hand-written and authoritative (ADR-0008). |
 | `src/db/schema.ts` | The Drizzle view of the same tables, for typed queries. |
-| `src/db/seed-data.ts` | The eleven units and their source spellings, one seeded building, seven users, the group→role mappings, the 42 fixture projects and the twelve fixture contractors. |
+| `src/db/seed-data.ts` | The eleven units and their source spellings, one seeded building, eight users, the group→role mappings, the 42 fixture projects and the twelve fixture contractors. |
 | `src/db/seed-projects.ts` | The M1 half of the seed: projects, milestones, risks and issues, idempotent, codes allocated by the same function the API uses. |
 | `src/db/seed-contracts.ts` | The contract half: a contract on every awarded project, a bill of quantities on three of them, and the variations R10 and R31 need something to fire on. Idempotent. |
+| `src/db/seed-site.ts` | The site log half: two or three RFIs on every contract with one breached and one red, an instruction each with three of them left to price, twelve handover defects over three finished contracts across all four risk bands with two past their liability date, and three inspection defects that belong to a unit and nothing else. Idempotent. |
 | `src/projects/`, `src/portfolio/` | The M1 modules. `project-rows.ts` holds the phase order and the audit-line rules as pure functions. |
-| `src/contractors/`, `src/contracts/` | The contract register. `contract-rows.ts` holds the commitment arithmetic and the three warn-and-flag rules as pure functions. |
+| `src/contractors/`, `src/contracts/` | The contract register. `contract-rows.ts` holds the commitment arithmetic and the four warn-and-flag rules as pure functions. |
+| `src/rfis/`, `src/site-instructions/`, `src/defects/` | The site log. `rfi-rows.ts` holds the SLA band, `defect-rows.ts` the defects-liability arithmetic and the backlog banding, all as pure functions. |
 | `src/auth/` | The OIDC guard, the development stub, `GET /me` (ADR-0009). |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
 | `src/i18n/{el,en}.json` | Every error sentence, keyed, Greek and English. |
@@ -74,8 +78,22 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `PATCH /contracts/:id/variations/:vid` | Change one while it is DRAFT or RETURNED, and only as its raiser or an administrator. | M1 |
 | `POST /contracts/:id/variations/:vid/submit` | Send it for a decision. The raiser only. | M1 |
 | `POST /contracts/:id/variations/:vid/decide` | Approve, return or reject. `estates_head` or `admin`, never the raiser (R10), and a comment is required to return or reject. | M1 |
+| `GET /contracts/:id/rfis` | The RFIs on the contract, newest first, each with the SLA band the chip draws. | M1 |
+| `POST /contracts/:id/rfis` | Raise an RFI. The API sets the clock: `slaDueAt` is `raisedAt + slaDays × 24h`, seven days by default. | M1 |
+| `POST /contracts/:id/rfis/:rid/answer` | Answer an open one. The answerer may be the raiser (ADR-0017). | M1 |
+| `POST /contracts/:id/rfis/:rid/close` | ANSWERED → CLOSED. 422 on an RFI nobody has answered. | M1 |
+| `GET /contracts/:id/site-instructions` | The site instructions on the contract, newest first. | M1 |
+| `POST /contracts/:id/site-instructions` | Issue one. The API numbers it. | M1 |
+| `POST /contracts/:id/site-instructions/:sid/variation` | Turn it into a DRAFT variation, priced at zero for the engineer. Only with cost impact, and only once. | M1 |
+| `GET /defects` | The defect log, filtered by `unit`, `contract`, `project`, `status`, `riskBand` and `source`. | M1 |
+| `GET /defects/backlog` | R35: the costed backlog, one row per unit per NHS ERIC risk band, over the defects still open. | M1 |
+| `GET /defects/:id`, `POST /defects`, `PATCH /defects/:id` | One defect. A handover defect's due date comes from the contract (R12); `funded` needs a `targetProjectId`. | M1 |
 
 Who may write to the register: `admin`, `estates_head` and `project_engineer`, in units they belong to. `finance`, `technician` and `clinical_approver` read it; `executive_readonly` and `auditor_readonly` read everything and write nothing. All of that is in the policies, not in the controllers (ADR-0010).
+
+One exception, and it is a policy too. A `technician` may create and update a **defect** whose source is `INSPECTION` or `WORK_ORDER`, in their own unit — the field persona of CAPEX-01 §2 and §8. Not a `HANDOVER` one, which is a contractual position on somebody else's work, and not a `CONDITION_SURVEY` one, which is an estates exercise. `ecapital.can_manage_defect` is the first policy in the schema that reads a column other than `org_unit_id` (ADR-0017).
+
+Three more rules sit on top of the policies and none of them is an access rule. An RFI is closed after it has been answered and not before (422 `errors.rfiNotAnswered`). A site instruction becomes a variation only if it carries cost impact (422 `errors.noCostImpact`) and only once (422 `errors.alreadyLinked`). A defect marked `funded` names the project paying for it (422 `errors.fundedNeedsProject`). Each is a CHECK or a unique index as well as a service rule, for the reason ADR-0015 gives and ADR-0017 repeats.
 
 Two narrower rules sit on top of the policies, and both are decisions rather than access rules. A variation is decided by `estates_head` or `admin` and never by the person who raised it (R10, ADR-0015). And once a project is APPROVED or later, only `finance` may change its `approvedBudget` — `PATCH /projects/:id` refuses everyone else with 403 `errors.budgetFinanceOnly`, and an administrator is not exempt (ADR-0014, owner's decision of 19/09/2026).
 
