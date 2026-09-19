@@ -38,6 +38,7 @@ import s07eContracts from "@/screens/s07e-contracts/Contracts.preview";
 import s08Variations from "@/screens/s08-variations/Variations.preview";
 import s09PaymentCerts from "@/screens/s09-payment-certs/PaymentCerts.preview";
 import s09CertificateDetail from "@/screens/s09-payment-certs/CertificateDetail.preview";
+import s09aAccruals from "@/screens/s09a-accruals/Accruals.preview";
 import s10Imports from "@/screens/s10-sap-import/Imports.preview";
 import s10UnmatchedQueue from "@/screens/s10-sap-import/UnmatchedQueue.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
@@ -85,6 +86,7 @@ const entries: PreviewEntry[] = [
   s08Variations,
   s09PaymentCerts,
   s09CertificateDetail,
+  s09aAccruals,
   s10Imports,
   s10UnmatchedQueue,
   s24Contractors,
