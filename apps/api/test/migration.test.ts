@@ -35,7 +35,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0002_m1_projects");
     expect(result.applied).toContain("0003_m1_contracts");
     expect(result.applied).toContain("0004_audit_skip_noop_updates");
-    expect(result.lastMigrationId).toBe("0004_audit_skip_noop_updates");
+    expect(result.applied).toContain("0005_m1_import");
+    expect(result.lastMigrationId).toBe("0005_m1_import");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -50,16 +51,21 @@ describe("migrations", () => {
       "area",
       "audit_log",
       "boq_item",
+      "budget_line",
       "building",
       "contract",
       "contractor",
+      "cost_txn",
       "floor",
+      "import_batch",
+      "import_exception",
       "issue",
       "milestone",
       "org_unit",
       "org_unit_alias",
       "project",
       "project_code_seq",
+      "project_note",
       "risk",
       "role_mapping",
       "schema_migration",
@@ -75,6 +81,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0002_m1_projects");
     expect(result.skipped).toContain("0003_m1_contracts");
     expect(result.skipped).toContain("0004_audit_skip_noop_updates");
+    expect(result.skipped).toContain("0005_m1_import");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
