@@ -46,7 +46,7 @@ export type CostScreenState = "default" | "loading" | "error" | "noPermission" |
 
 type CategoryRow = ProjectCost["categories"][number];
 
-const KNOWN_CATEGORIES = ["works", "equipment", "fees", "contingency", "other"];
+const KNOWN_CATEGORIES = ["works", "equipment", "fees", "contingency", "other", "uncategorised"];
 
 export interface CostProps {
   data?: ProjectCost;
@@ -141,12 +141,18 @@ export function Cost({
   }
 
   const categories = data?.categories ?? [];
+  const totalsApproved = sumOrNull(categories.map((c) => c.approved));
+  const totalsForecast = sumOrNull(categories.map((c) => c.forecast));
   const totals = {
-    approved: sumOrNull(categories.map((c) => c.approved)),
+    approved: totalsApproved,
     committed: sumOrNull(categories.map((c) => c.committed)),
     spent: sumOrNull(categories.map((c) => c.spent)),
-    forecast: sumOrNull(categories.map((c) => c.forecast)),
-    variance: sumOrNull(categories.map((c) => c.variance)),
+    forecast: totalsForecast,
+    // RULE (build brief §5 S04): Απόκλιση is forecast − approved, computed on
+    // the totals themselves rather than summed from the per-category values,
+    // which are null whenever a single category has an incomplete ledger and
+    // would otherwise mask a totals row that has both figures.
+    variance: totalsApproved !== null && totalsForecast !== null ? totalsForecast - totalsApproved : null,
   };
 
   const tableState = state === "loading" ? "loading" : state === "error" ? "error" : categories.length === 0 && state === "default" ? "empty" : "default";

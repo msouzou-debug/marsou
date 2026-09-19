@@ -129,6 +129,8 @@ R17's plan is the year's budget line spread evenly over its twelve months. Nobod
 
 R18's accrual proposal and the project's category table are written with exceljs. The accrual column is `=Fn-Gn` in the cell and the totals are `=SUM(...)`; the variance column is `=En-Bn`. **Nothing writes a calculated value into a calculated column.** A pasted number is not auditable, and the point of the file is that whoever receives it can change a figure and watch the total move. Greek headers in row 1, English in row 2, `#,##0.00` on every money column.
 
+Invoiced can exceed certified net (a contractor billed ahead of what has been certified), and a negative accrual is not a smaller accrual, it is over-invoicing — the API clamps `accrual` to `max(0, certifiedNet − invoiced)`, the exported formula is `=MAX(0,Fn-Gn)`, and the row carries a new `overInvoiced` flag the accruals screen shows as a note rather than a negative euro figure (screenshot review 19/09/2026).
+
 ## Consequences
 
 - Swapping the file reader for the SAP MCP interface is work in `SapMcpReader` and nowhere else. If it turns out to be work in three other files as well, the seam was wrong and this ADR was optimistic.

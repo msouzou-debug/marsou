@@ -36,6 +36,24 @@ describe("Accruals (S09a)", () => {
     expect(onYearChange).toHaveBeenCalledWith(2025);
   });
 
+  // RULE (screenshot review 19/09/2026, R18): invoiced above certified is
+  // over-invoicing, not a negative accrual — the row stays, reads 0,00 €,
+  // and the note explains why.
+  it("shows the amber over-invoiced note and a 0,00 € accrual for an over-invoiced row", () => {
+    const rows = [buildAccrualRow({ certifiedNet: 100_000, invoiced: 170_550, accrual: 0, overInvoiced: true })];
+    renderWithIntl(<Accruals data={rows} year={2026} onYearChange={noop} state="default" noPermission={noPermission} onExport={noop} />);
+    const row = document.querySelector("tbody tr");
+    expect(row?.textContent).toContain(formatEUR(0));
+    expect(row?.textContent).toContain("Τιμολογημένα πάνω από τα πιστοποιημένα");
+  });
+
+  it("shows no over-invoiced note for a normal accrual row", () => {
+    const rows = [buildAccrualRow({ certifiedNet: 480_000, invoiced: 420_000, accrual: 60_000, overInvoiced: false })];
+    renderWithIntl(<Accruals data={rows} year={2026} onYearChange={noop} state="default" noPermission={noPermission} onExport={noop} />);
+    const row = document.querySelector("tbody tr");
+    expect(row?.textContent).not.toContain("Τιμολογημένα πάνω από τα πιστοποιημένα");
+  });
+
   it("returns just the noPermission node for the noPermission state", () => {
     renderWithIntl(<Accruals year={2026} onYearChange={noop} state="noPermission" noPermission={noPermission} onExport={noop} />);
     expect(document.body.textContent).toBe("δεν έχετε πρόσβαση");

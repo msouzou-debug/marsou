@@ -13800,6 +13800,9 @@
                       "accrual": {
                         "type": "number"
                       },
+                      "overInvoiced": {
+                        "type": "boolean"
+                      },
                       "asOf": {
                         "type": "string"
                       }
@@ -13816,6 +13819,7 @@
                       "certifiedNet",
                       "invoiced",
                       "accrual",
+                      "overInvoiced",
                       "asOf"
                     ],
                     "additionalProperties": false

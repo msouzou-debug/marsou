@@ -55,6 +55,21 @@ export function Accruals({ data, year, onYearChange, state, onRetry, noPermissio
     { id: "certifiedNet", headerKey: "screens.s09a.columns.certifiedNet", accessor: (row) => row.certifiedNet, numeric: true, cell: (row) => formatEUR(row.certifiedNet) },
     { id: "invoiced", headerKey: "screens.s09a.columns.invoiced", accessor: (row) => row.invoiced, numeric: true, cell: (row) => formatEUR(row.invoiced) },
     { id: "accrual", headerKey: "screens.s09a.columns.accrual", accessor: (row) => row.accrual, numeric: true, cell: (row) => formatEUR(row.accrual) },
+    {
+      id: "note",
+      headerKey: "screens.s09a.columns.note",
+      accessor: (row) => (row.overInvoiced ? t("screens.s09a.overInvoiced") : ""),
+      // RULE (screenshot review 19/09/2026): a certificate with invoiced
+      // above certified nets to an accrual of 0,00 € (API clamp, R18) — the
+      // row stays, and this note is the only place that says why the
+      // accrual reads zero instead of a negative figure.
+      cell: (row) =>
+        row.overInvoiced ? (
+          <span className="rounded-k-chip bg-k-amber-bg px-s-2 py-[2px] text-fs-12 text-k-ink">
+            {t("screens.s09a.overInvoiced")}
+          </span>
+        ) : null,
+    },
   ];
 
   const rows = data ?? [];

@@ -777,7 +777,8 @@
         "equipment": "Equipment",
         "fees": "Fees",
         "contingency": "Contingency",
-        "other": "Other"
+        "other": "Other",
+        "uncategorised": "Uncategorised"
       },
       "lastSapImport": "Last SAP import",
       "forecastInputs": {
@@ -882,8 +883,10 @@
         "certNumber": "Certificate",
         "certifiedNet": "Certified net",
         "invoiced": "Invoiced",
-        "accrual": "Accrual"
+        "accrual": "Accrual",
+        "note": "Note"
       },
+      "overInvoiced": "Invoiced above certified",
       "totalsRow": "Total"
     },
     "s10": {

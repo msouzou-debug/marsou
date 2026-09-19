@@ -777,7 +777,8 @@
         "equipment": "Εξοπλισμός",
         "fees": "Αμοιβές",
         "contingency": "Απρόβλεπτα",
-        "other": "Λοιπά"
+        "other": "Λοιπά",
+        "uncategorised": "Χωρίς κατηγορία"
       },
       "lastSapImport": "Τελευταία εισαγωγή SAP",
       "forecastInputs": {
@@ -882,8 +883,10 @@
         "certNumber": "Πιστοποίηση",
         "certifiedNet": "Πιστοποιημένο καθαρό",
         "invoiced": "Τιμολογημένο",
-        "accrual": "Δεδουλευμένο"
+        "accrual": "Δεδουλευμένο",
+        "note": "Σημείωση"
       },
+      "overInvoiced": "Τιμολογημένα πάνω από τα πιστοποιημένα",
       "totalsRow": "Σύνολο"
     },
     "s10": {
@@ -921,12 +924,12 @@
       "queue": {
         "remaining": "Απομένουν {remaining} από {total}",
         "columns": {
-          "postingDate": "Ημ/νία καταχώρισης",
+          "postingDate": "Ημ/νία",
           "vendor": "Προμηθευτής",
           "description": "Περιγραφή",
           "amount": "Ποσό",
           "wbs": "WBS",
-          "po": "Εντολή αγοράς",
+          "po": "Εντ. αγοράς",
           "costCentre": "Κέντρο κόστους"
         },
         "commit": "Ολοκλήρωση εισαγωγής",

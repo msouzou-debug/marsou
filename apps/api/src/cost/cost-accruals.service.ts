@@ -20,7 +20,7 @@ import type { AccrualRow } from "@ecapital/shared";
 import { sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { currentTx } from "../db/client";
-import { money, round2 } from "./cost-rows";
+import { accrualOf, money } from "./cost-rows";
 import type { AccrualQuery } from "./cost-contracts";
 
 @Injectable()
@@ -70,6 +70,7 @@ export class CostAccrualsService {
     return result.rows.map((row) => {
       const certifiedNet = money(row.certified_net);
       const invoiced = money(row.invoiced);
+      const { accrual, overInvoiced } = accrualOf(certifiedNet, invoiced);
       return {
         projectId: row.project_id,
         projectCode: row.project_code,
@@ -81,7 +82,8 @@ export class CostAccrualsService {
         certNumber: row.cert_number,
         certifiedNet,
         invoiced,
-        accrual: round2(certifiedNet - invoiced),
+        accrual,
+        overInvoiced,
         asOf,
       };
     });
