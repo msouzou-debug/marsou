@@ -1,0 +1,45 @@
+# KSB1 — «Γραμμές κόστους κέντρου κόστους», actual cost line items.
+#
+# R14, CAPEX-01 §7: KSB1 is the actuals ledger by cost centre. A posting
+# carries a WBS element only where the works were booked against one, so the
+# cost centre is what most of these rows match on — which is why migration
+# 0011 put `cost_centre` on `project`.
+profile: sap_ksb1_v1
+report: KSB1
+txn_type: ACTUAL
+sheet: null
+header_row: 1
+first_data_row: 2
+number_format: european
+date_format: dmy_dot
+# A cost posting is a debit on the cost centre: positive as posted, and a
+# reversal or a credit note arrives negative and stays negative.
+sign: as_posted
+csv_delimiter: ";"
+columns:
+  sourceRef:
+    headers: ["Document Number", "Doc. No.", "Αριθμός εγγράφου", "Παραστατικό"]
+    required: true
+  lineItem:
+    headers: ["Line Item", "Item", "Θέση"]
+  docDate:
+    headers: ["Document Date", "Ημερομηνία εγγράφου"]
+  postingDate:
+    headers: ["Posting Date", "Ημερομηνία καταχώρισης"]
+    required: true
+  amount:
+    headers: ["Val.in rep.cur.", "Value in Object Currency", "Αξία", "Ποσό"]
+    required: true
+  description:
+    headers: ["Name", "Text", "Κείμενο", "Περιγραφή"]
+  vendorName:
+    headers: ["Partner", "Vendor", "Προμηθευτής", "Ανάδοχος"]
+  sapWbs:
+    headers: ["WBS Element", "WBS", "Στοιχείο WBS"]
+  sapPo:
+    headers: ["Purchasing Document", "Purch.Doc.", "Έγγραφο αγοράς"]
+  costCentre:
+    headers: ["Cost Center", "Cost Centre", "Κέντρο κόστους"]
+    required: true
+  glAccount:
+    headers: ["Cost Element", "G/L Account", "Λογαριασμός"]
