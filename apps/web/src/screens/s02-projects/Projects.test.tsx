@@ -170,6 +170,43 @@ describe("Projects filters", () => {
   });
 });
 
+// RULE (@/auth/roles): «Προσθήκη» links to S02a for a writer, and stays a
+// disabled button naming the reason for a read-only role.
+describe("Projects add button", () => {
+  it("is a live link to /projects/new for a role that may write", () => {
+    renderWithIntl(
+      <Projects
+        data={list()}
+        state="default"
+        query={query}
+        orgUnits={orgUnits}
+        eyebrow="Όλες οι μονάδες"
+        noPermission={noPermission}
+        roles={["estates_head"]}
+      />,
+    );
+    const add = screen.getByRole("link", { name: "Προσθήκη" });
+    expect(add).toHaveAttribute("href", "/projects/new");
+  });
+
+  it("stays a disabled button with a tooltip for the auditor", () => {
+    renderWithIntl(
+      <Projects
+        data={list()}
+        state="default"
+        query={query}
+        orgUnits={orgUnits}
+        eyebrow="Όλες οι μονάδες"
+        noPermission={noPermission}
+        roles={["auditor_readonly"]}
+      />,
+    );
+    const add = screen.getByRole("button", { name: "Προσθήκη" });
+    expect(add).toBeDisabled();
+    expect(add).toHaveAttribute("title", "Δεν έχετε δικαίωμα να δημιουργήσετε νέο έργο");
+  });
+});
+
 describe("Projects no permission", () => {
   it("renders the shell's NoPermission instead of the table", () => {
     renderWithIntl(

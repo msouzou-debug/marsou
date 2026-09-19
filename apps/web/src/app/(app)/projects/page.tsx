@@ -2,6 +2,7 @@
 
 import type { OrgUnit } from "@ecapital/shared";
 import { getLocale, getTranslations } from "next-intl/server";
+import { getSession } from "@/auth/session";
 import { NoPermission } from "@/components/app-shell";
 import { getVisibleOrgUnits } from "@/data/server";
 import { HelpSection } from "@/help/HelpSection";
@@ -21,12 +22,22 @@ function unitContextEyebrow(orgUnits: OrgUnit[], locale: Locale, allUnitsLabel: 
 }
 
 export default async function ProjectsPage() {
-  const [orgUnits, t, locale] = await Promise.all([getVisibleOrgUnits(), getTranslations(), getLocale()]);
+  const [orgUnits, t, locale, session] = await Promise.all([
+    getVisibleOrgUnits(),
+    getTranslations(),
+    getLocale(),
+    getSession(),
+  ]);
   const eyebrow = unitContextEyebrow(orgUnits, locale as Locale, t("common.allUnits"));
 
   return (
     <>
-      <ProjectsScreen orgUnits={orgUnits} eyebrow={eyebrow} noPermission={<NoPermission />} />
+      <ProjectsScreen
+        orgUnits={orgUnits}
+        eyebrow={eyebrow}
+        roles={session?.me.roles ?? []}
+        noPermission={<NoPermission />}
+      />
       <HelpSection route="/projects" />
     </>
   );

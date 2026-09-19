@@ -38,7 +38,14 @@ export function MilestonesCard({ milestones, today = new Date() }: MilestonesCar
           {sorted.map((milestone) => {
             const overdue = isOverdue(milestone, today);
             return (
-              <li key={milestone.id} className="border-t border-k-grey pt-s-2 first:border-t-0 first:pt-0">
+              <li
+                key={milestone.id}
+                // RULE (R04): the target of the phase-change dialog's
+                // gateOpen link (`PhaseDialog`) — a stable anchor per
+                // milestone, not styled, so it costs nothing when unused.
+                id={`milestone-${milestone.id}`}
+                className="scroll-mt-s-4 border-t border-k-grey pt-s-2 first:border-t-0 first:pt-0"
+              >
                 <div className="flex items-center gap-s-2">
                   <span className="text-fs-14 text-k-ink">{milestone.titleEl}</span>
                   {milestone.isGate && (

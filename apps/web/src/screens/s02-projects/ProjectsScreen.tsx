@@ -21,12 +21,13 @@
  * |--------------|------------|----------------------------------------------------|
  * | orgUnits     | OrgUnit[]  | The caller's own visible units (R01), from the server. |
  * | eyebrow      | string     | Resolved server-side; passed straight through to `Projects`. |
+ * | roles        | AppRole[]  | `me.roles`, from the server session — gates the «Προσθήκη» button. |
  * | noPermission | ReactNode  | The shell's `NoPermission`, resolved by the caller (a Server Component). |
  */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import type { OrgUnit } from "@ecapital/shared";
+import type { AppRole, OrgUnit } from "@ecapital/shared";
 import { ApiError } from "@/data/client";
 import { useProjects } from "@/data/queries";
 import { parseProjectsQuery } from "./query";
@@ -35,6 +36,7 @@ import { Projects, type ProjectsScreenState } from "./Projects";
 export interface ProjectsScreenProps {
   orgUnits: OrgUnit[];
   eyebrow: string;
+  roles: AppRole[];
   noPermission: ReactNode;
 }
 
@@ -56,7 +58,7 @@ function useOnlineStatus(): boolean {
   return online;
 }
 
-export function ProjectsScreen({ orgUnits, eyebrow, noPermission }: ProjectsScreenProps) {
+export function ProjectsScreen({ orgUnits, eyebrow, roles, noPermission }: ProjectsScreenProps) {
   const searchParams = useSearchParams();
   const query = parseProjectsQuery(searchParams);
   const { data, error, isLoading, refetch } = useProjects(query);
@@ -82,6 +84,7 @@ export function ProjectsScreen({ orgUnits, eyebrow, noPermission }: ProjectsScre
       query={query}
       orgUnits={orgUnits}
       eyebrow={eyebrow}
+      roles={roles}
       onRetry={() => void refetch()}
       noPermission={noPermission}
     />

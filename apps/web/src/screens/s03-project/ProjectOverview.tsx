@@ -17,11 +17,24 @@
  * | state        | ProjectOverviewScreenState  | Which state to render. No `empty` — a detail page always names one project or none at all (never a filtered-down list), so "empty" does not apply (UI instructions §6, noted again in the preview). |
  * | onRetry      | () => void?                 | Wired to the error state's retry button.                        |
  * | noPermission | ReactNode                   | The shell's `NoPermission`. RULE: the API answers 404 for both "no such project" and "not yours" — this screen renders the same `noPermission` for that 404 either way, never distinguishing them (ADR-0010). |
+ * | roles        | AppRole[]                   | The caller's own roles (`me.roles`), for the write controls below. |
+ * | phaseDialog* / onSubmitPhaseChange / onOpenPhaseDialog / onClosePhaseDialog | — | `ProjectOverviewScreen` owns the `POST /projects/:id/phase` call and the dialog's open/submitting/error state — same Screen/pure split as the network fetch itself. |
+ *
+ * RULE (`@/auth/roles`): the «Επεξεργασία» link (PageTitle's action slot)
+ * is hidden for `auditor_readonly`/`executive_readonly` — both are
+ * read-only at the row-policy level (ADR-0010), so the link would only ever
+ * come back 403. The «Αλλαγή φάσης» button (next to the Φάση fact) is
+ * additionally hidden for `clinical_approver` and `finance` — a
+ * segregation call this build makes rather than one ADR-0014 states in so
+ * many words; see the hand-back summary. Neither hides the *field*, only
+ * the control: read access to the project itself is unaffected.
  */
 
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import type { ProjectDetail, Rag } from "@ecapital/shared";
+import Link from "next/link";
+import type { AppRole, ProjectDetail, ProjectPhase, Rag } from "@ecapital/shared";
+import { canChangeProjectPhase, canWriteProjects, isAdmin } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
 import { RagChip } from "@/components/rag-chip";
@@ -30,6 +43,7 @@ import type { Locale } from "@/i18n/config";
 import { FactsList } from "./FactsList";
 import { IssuesCard } from "./IssuesCard";
 import { MilestonesCard } from "./MilestonesCard";
+import { canOfferPhaseChange, PhaseDialog, type PhaseDialogApiError } from "./PhaseDialog";
 import { RisksCard } from "./RisksCard";
 
 export type ProjectOverviewScreenState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -43,6 +57,17 @@ export interface ProjectOverviewProps {
    *  clock. Exists so tests and the preview do not depend on the date they
    *  happen to run on. */
   today?: Date;
+  /** Defaults to `[]` — no write role — so every existing caller (tests,
+   *  the "noPermission"/"error"/"loading" preview stories) that has no
+   *  reason to care about the edit link or the phase dialog does not have
+   *  to pass one. */
+  roles?: AppRole[];
+  phaseDialogOpen?: boolean;
+  onOpenPhaseDialog?: () => void;
+  onClosePhaseDialog?: () => void;
+  onSubmitPhaseChange?: (phase: ProjectPhase, reasonEl: string) => void;
+  phaseSubmitting?: boolean;
+  phaseApiError?: PhaseDialogApiError;
 }
 
 function ragChipValue(rag: Rag): "green" | "amber" | "red" {
@@ -51,7 +76,20 @@ function ragChipValue(rag: Rag): "green" | "amber" | "red" {
 
 const DISABLED_TABS = ["cost", "schedule", "risksIssues"] as const;
 
-export function ProjectOverview({ data, state, onRetry, noPermission, today }: ProjectOverviewProps) {
+export function ProjectOverview({
+  data,
+  state,
+  onRetry,
+  noPermission,
+  today,
+  roles = [],
+  phaseDialogOpen = false,
+  onOpenPhaseDialog = () => undefined,
+  onClosePhaseDialog = () => undefined,
+  onSubmitPhaseChange = () => undefined,
+  phaseSubmitting = false,
+  phaseApiError,
+}: ProjectOverviewProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
 
@@ -131,15 +169,48 @@ export function ProjectOverview({ data, state, onRetry, noPermission, today }: P
     diff: entry.detail ?? undefined,
   }));
 
+  const offline = state === "offline";
+  const canEdit = canWriteProjects(roles);
+  const canChangePhase = canChangeProjectPhase(roles) && canOfferPhaseChange(data.phase, isAdmin(roles));
+
   return (
     <>
-      <PageTitle eyebrow={`${data.code} · ${unitName}`} title={data.titleEl} tabs={tabs} />
+      <PageTitle
+        eyebrow={`${data.code} · ${unitName}`}
+        title={data.titleEl}
+        tabs={tabs}
+        action={
+          canEdit ? (
+            offline ? (
+              <span
+                title={t("states.offline.readOnly")}
+                aria-disabled="true"
+                className="rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 font-bold text-k-text opacity-50"
+              >
+                {t("buttons.edit")}
+              </span>
+            ) : (
+              <Link
+                href={`/projects/${encodeURIComponent(data.id)}/edit`}
+                className="rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 font-bold text-k-blue-deep"
+              >
+                {t("buttons.edit")}
+              </Link>
+            )
+          ) : undefined
+        }
+      />
 
       {state === "offline" && <p className="mb-s-4 text-fs-14 text-k-text">{t("states.offline.readOnly")}</p>}
 
       <div className="grid grid-cols-1 gap-s-8 desktop:grid-cols-12">
         <div className="desktop:col-span-7">
-          <FactsList project={data} />
+          <FactsList
+            project={data}
+            canChangePhase={canChangePhase}
+            onChangePhase={onOpenPhaseDialog}
+            phaseChangeOfflineReason={offline ? t("states.offline.readOnly") : undefined}
+          />
           <div className="mt-s-6">
             <Timeline entries={timelineEntries} />
           </div>
@@ -163,6 +234,18 @@ export function ProjectOverview({ data, state, onRetry, noPermission, today }: P
           <IssuesCard issues={data.issues} />
         </div>
       </div>
+
+      {canChangePhase && (
+        <PhaseDialog
+          open={phaseDialogOpen}
+          currentPhase={data.phase}
+          isAdmin={isAdmin(roles)}
+          submitting={phaseSubmitting}
+          apiError={phaseApiError}
+          onCancel={onClosePhaseDialog}
+          onSubmit={onSubmitPhaseChange}
+        />
+      )}
     </>
   );
 }

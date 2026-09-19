@@ -94,3 +94,24 @@ describe("ProjectOverview cost", () => {
     expect(screen.getByText("€ 2.000.000")).toBeInTheDocument();
   });
 });
+
+// RULE (@/auth/roles): the write controls mirror the row-policy roles.
+describe("ProjectOverview write controls", () => {
+  it("shows Επεξεργασία and Αλλαγή φάσης for a role that may write", () => {
+    renderWithIntl(<ProjectOverview data={detail} state="default" noPermission={noPermission} roles={["estates_head"]} />);
+    expect(screen.getByRole("link", { name: "Επεξεργασία" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Αλλαγή φάσης" })).toBeInTheDocument();
+  });
+
+  it("hides both for the auditor", () => {
+    renderWithIntl(<ProjectOverview data={detail} state="default" noPermission={noPermission} roles={["auditor_readonly"]} />);
+    expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Αλλαγή φάσης" })).not.toBeInTheDocument();
+  });
+
+  it("hides Αλλαγή φάσης but not Επεξεργασία for finance", () => {
+    renderWithIntl(<ProjectOverview data={detail} state="default" noPermission={noPermission} roles={["finance"]} />);
+    expect(screen.getByRole("link", { name: "Επεξεργασία" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Αλλαγή φάσης" })).not.toBeInTheDocument();
+  });
+});

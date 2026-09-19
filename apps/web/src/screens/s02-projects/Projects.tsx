@@ -25,6 +25,7 @@
  * | eyebrow      | string               | Resolved by the caller: the one visible unit's name, or «Όλες οι μονάδες». |
  * | onRetry      | () => void?          | Wired to the error state's retry button.                        |
  * | noPermission | ReactNode            | The shell's `NoPermission`, rendered as-is (see S01's `Portfolio` for why an element, not a component, crosses this boundary). |
+ * | roles        | AppRole[]            | `me.roles`. RULE (`@/auth/roles`): «Προσθήκη» is a live link to S02a for anyone who may write a project, and a disabled button with a tooltip (ADR-0010's read-only roles) otherwise — never disabled with no reason given. |
  */
 
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
@@ -37,11 +38,13 @@ import {
   ProjectListQuery,
   ProjectPhase,
   Rag,
+  type AppRole,
   type OrgUnit,
   type ProjectList,
   type ProjectSort,
   type ProjectSummary,
 } from "@ecapital/shared";
+import { canWriteProjects } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { FilterBar, type FilterItem } from "@/components/filter-bar";
 import { RagChip } from "@/components/rag-chip";
@@ -63,6 +66,10 @@ export interface ProjectsProps {
   eyebrow: string;
   onRetry?: () => void;
   noPermission: ReactNode;
+  /** Defaults to `[]` — no write role — so an existing caller with no
+   *  reason to care about «Προσθήκη» (most of this screen's own tests)
+   *  does not have to pass one. */
+  roles?: AppRole[];
 }
 
 // Table headers wired to a sortable ProjectSort field, by column id.
@@ -78,7 +85,7 @@ const SORT_BY_COLUMN_ID: Partial<Record<string, ProjectSort>> = {
   rag: "rag",
 };
 
-export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPermission }: ProjectsProps) {
+export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPermission, roles = [] }: ProjectsProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const router = useRouter();
@@ -282,20 +289,36 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
 
   if (state === "noPermission") return <>{noPermission}</>;
 
+  // RULE (`@/auth/roles`): a live link for anyone who may open S02a, a
+  // disabled button naming the reason for anyone who cannot — never
+  // disabled with nothing said, offline included (there is nowhere for an
+  // offline create to queue to; UI instructions §6 "disabled with the
+  // reason in the button tooltip").
+  const canCreate = state !== "offline" && canWriteProjects(roles);
+
   return (
     <>
       <PageTitle
         eyebrow={eyebrow}
         title={t("screens.s02.title")}
         action={
-          <button
-            type="button"
-            disabled
-            title={t("screens.s02.addTooltip")}
-            className="rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white disabled:opacity-50"
-          >
-            {t("buttons.add")}
-          </button>
+          canCreate ? (
+            <Link
+              href="/projects/new"
+              className="rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white shadow-k"
+            >
+              {t("buttons.add")}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title={state === "offline" ? t("states.offline.readOnly") : t("screens.s02.addTooltip")}
+              className="rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white disabled:opacity-50"
+            >
+              {t("buttons.add")}
+            </button>
+          )
         }
       />
 

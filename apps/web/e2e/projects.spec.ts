@@ -35,10 +35,11 @@ test("S02 project list filters by unit via the URL and opens a project into S03"
   // desktop, the compact card on phone; both point at the same
   // `/projects/<id>` href (UI instructions §5 "Phone: rows become compact
   // cards"), so this works at every breakpoint without branching on it.
-  // Waits for the row to actually exist first — the query is still in
-  // flight for a moment after the heading and the filter chip (derived from
-  // the URL alone) already render.
-  const firstProjectLink = page.locator('a[href^="/projects/"]:visible').first();
+  // `:not([href="/projects/new"])` excludes S02's own «Προσθήκη» link, which
+  // shares the `/projects/` prefix (S02a). Waits for the row to actually
+  // exist first — the query is still in flight for a moment after the
+  // heading and the filter chip (derived from the URL alone) already render.
+  const firstProjectLink = page.locator('a[href^="/projects/"]:not([href="/projects/new"]):visible').first();
   await firstProjectLink.waitFor({ state: "visible" });
   await firstProjectLink.click();
   // The seeded id is a database uuid, not a fixture-style "PRJ-001" (the
@@ -75,7 +76,7 @@ test("S03 shows «Διαθέσιμο σε επόμενη οθόνη» on the dis
   // Seeded ids are database uuids, so this walks in through S02 rather than
   // guessing a fixture-style path.
   await page.goto("/projects");
-  const firstProjectLink = page.locator('a[href^="/projects/"]:visible').first();
+  const firstProjectLink = page.locator('a[href^="/projects/"]:not([href="/projects/new"]):visible').first();
   await firstProjectLink.waitFor({ state: "visible" });
   await firstProjectLink.click();
   await page.waitForURL(/\/projects\/[^/?]+$/);

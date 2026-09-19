@@ -37,7 +37,14 @@
     "scanQr": "Scan QR",
     "continue": "Continue",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "edit": "Edit",
+    "changePhase": "Change phase"
+  },
+  "forms": {
+    "required": "Fill in this field.",
+    "dateOrder": "The finish date cannot be before the start date.",
+    "nonNegative": "The budget cannot be a negative number."
   },
   "components": {
     "asset-breadcrumb": {
@@ -216,7 +223,7 @@
     },
     "s02": {
       "title": "Projects",
-      "addTooltip": "Available in the next step",
+      "addTooltip": "You do not have permission to create a new project",
       "searchLabel": "Search projects",
       "searchPlaceholder": "Search by code or title",
       "empty": "No projects match these filters.",
@@ -237,6 +244,25 @@
       "nextPage": "Next page",
       "caption": "The table lists the projects matching the active filters, with each one's budget, commitments, spend and RAG status."
     },
+    "s02a": {
+      "titleNew": "New project",
+      "titleEdit": "Edit project",
+      "saving": "Saving…",
+      "fields": {
+        "unit": "Unit",
+        "titleEl": "Title",
+        "titleEn": "Title in English",
+        "category": "Category",
+        "fundingSource": "Funding source",
+        "approvedBudget": "Approved budget",
+        "plannedStart": "Planned start",
+        "plannedFinish": "Planned finish",
+        "budgetYearFrom": "Budget year from",
+        "budgetYearTo": "Budget year to",
+        "sapWbs": "WBS code",
+        "tenderReference": "Tender reference"
+      }
+    },
     "s03": {
       "tabs": {
         "overview": "Overview",
@@ -245,6 +271,14 @@
         "risksIssues": "Risks and issues"
       },
       "tabsDisabledTooltip": "Available in a later screen",
+      "phaseDialog": {
+        "title": "Change phase",
+        "directionLabel": "Select a phase",
+        "moveTo": "Next phase: {phase}",
+        "previousPhaseOption": "Previous phase: {phase}",
+        "reasonLabel": "Reason",
+        "gateLinkLabel": "View the milestone"
+      },
       "facts": {
         "phase": "Phase",
         "category": "Category",
@@ -346,7 +380,8 @@
       "empty": "Empty",
       "error": "Error",
       "noPermission": "No permission",
-      "offline": "Offline"
+      "offline": "Offline",
+      "submitting": "Submitting"
     }
   },
   "phases": {

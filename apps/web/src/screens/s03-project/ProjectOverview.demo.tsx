@@ -26,5 +26,17 @@ export interface ProjectOverviewDemoProps {
 
 export function ProjectOverviewDemo({ state, noPermission }: ProjectOverviewDemoProps) {
   const data = state === "error" || state === "loading" || state === "noPermission" ? undefined : detail;
-  return <ProjectOverview data={data} state={state} onRetry={() => undefined} noPermission={noPermission} today={today} />;
+  return (
+    <ProjectOverview
+      data={data}
+      state={state}
+      onRetry={() => undefined}
+      noPermission={noPermission}
+      today={today}
+      // estates_head, so the preview also shows the «Επεξεργασία» link and
+      // the «Αλλαγή φάσης» button this build adds (S02a's own preview and
+      // `PhaseDialog`'s cover the dialog and the form themselves).
+      roles={["estates_head"]}
+    />
+  );
 }

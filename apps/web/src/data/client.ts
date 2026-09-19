@@ -41,18 +41,28 @@ export interface ApiFetchOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Reads the API's error body — `{key, message, requestId}` (the NestJS
+ * `HttpExceptionFilter`) — and turns it into an `ApiError`. `message` is
+ * already a sentence in the caller's language (`Accept-Language`), so a form
+ * that catches an `ApiError` can show `.message` straight to the user rather
+ * than re-translating `.key` itself.
+ */
 async function errorFrom(res: Response, path: string): Promise<ApiError> {
   let key: string | undefined;
+  let message: string | undefined;
   try {
     const body: unknown = await res.json();
-    if (body && typeof body === "object" && typeof (body as { key?: unknown }).key === "string") {
-      key = (body as { key: string }).key;
+    if (body && typeof body === "object") {
+      const candidate = body as { key?: unknown; message?: unknown };
+      if (typeof candidate.key === "string") key = candidate.key;
+      if (typeof candidate.message === "string") message = candidate.message;
     }
   } catch {
     // A non-JSON body (a proxy page, an empty 502) is still an error; the
     // status is what callers branch on.
   }
-  return new ApiError(`Request to ${path} failed with ${res.status}`, res.status, key);
+  return new ApiError(message ?? `Request to ${path} failed with ${res.status}`, res.status, key);
 }
 
 /** The NestJS API. `path` starts with a slash and carries no `/api` prefix. */
@@ -88,4 +98,40 @@ export async function proxyFetch<T>(path: string, schema: ZodType<T>): Promise<T
   const res = await fetch(`/api/proxy${path}`, { cache: "no-store" });
   if (!res.ok) throw await errorFrom(res, path);
   return schema.parse(await res.json());
+}
+
+export type ApiMutateMethod = "POST" | "PATCH" | "PUT" | "DELETE";
+
+export interface ApiMutateOptions {
+  signal?: AbortSignal;
+}
+
+/**
+ * The proxy's write side (`src/app/api/proxy/[...path]/route.ts`). Every
+ * write form (S02a create/edit, the S03 phase-change dialog) goes through
+ * here — never `apiFetch` directly, for the same reason `proxyFetch` exists:
+ * the browser never holds the bearer token (ADR-0013).
+ *
+ * Throws `ApiError` on a non-2xx response, with `.status`, `.key` and
+ * `.message` from the API's own error body — `.message` is already a
+ * sentence in the caller's language, so a form's error strip or field error
+ * can show it directly instead of re-translating `.key`.
+ */
+export async function apiMutate<T>(
+  path: string,
+  method: ApiMutateMethod,
+  body: unknown,
+  schema: ZodType<T>,
+  options: ApiMutateOptions = {},
+): Promise<T> {
+  const res = await fetch(`/api/proxy${path}`, {
+    method,
+    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: options.signal,
+    cache: "no-store",
+  });
+  if (!res.ok) throw await errorFrom(res, path);
+  const text = await res.text();
+  return schema.parse(text ? JSON.parse(text) : undefined);
 }

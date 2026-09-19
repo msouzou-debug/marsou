@@ -16,6 +16,20 @@ import { formatDate } from "@/lib/format";
 
 export interface FactsListProps {
   project: ProjectDetail;
+  /** RULE (R04): hidden for a role that cannot write the phase (auditor,
+   *  executive, clinical_approver, finance — see `ProjectOverview`'s header
+   *  comment for the full reasoning), and for a phase with no next (or, for
+   *  an admin, previous) phase to move to. Omit or `false` to hide the
+   *  button entirely rather than disabling it — there is nothing for a
+   *  read-only visitor to be told about a control they were never going to
+   *  use, and nothing an admin at CLOSED-with-no-admin-rights-back can do
+   *  with it either. */
+  canChangePhase?: boolean;
+  onChangePhase?: () => void;
+  /** UI instructions §6 "Offline": shown, but disabled with the reason in
+   *  its own tooltip, rather than hidden — offline is a connectivity fact,
+   *  not a permission one. */
+  phaseChangeOfflineReason?: string;
 }
 
 interface FactRow {
@@ -23,13 +37,36 @@ interface FactRow {
   value: ReactNode;
 }
 
-export function FactsList({ project }: FactsListProps) {
+export function FactsList({
+  project,
+  canChangePhase = false,
+  onChangePhase,
+  phaseChangeOfflineReason,
+}: FactsListProps) {
   const t = useTranslations();
   const dash = t("common.notAvailable");
   const yesNo = (value: boolean) => (value ? t("common.yes") : t("common.no"));
 
   const rows: FactRow[] = [
-    { label: t("screens.s03.facts.phase"), value: t(`phases.${project.phase}`) },
+    {
+      label: t("screens.s03.facts.phase"),
+      value: (
+        <span className="flex flex-wrap items-center gap-s-3">
+          <span>{t(`phases.${project.phase}`)}</span>
+          {canChangePhase && (
+            <button
+              type="button"
+              onClick={onChangePhase}
+              disabled={!!phaseChangeOfflineReason}
+              title={phaseChangeOfflineReason}
+              className="text-fs-12 font-bold text-k-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+            >
+              {t("buttons.changePhase")}
+            </button>
+          )}
+        </span>
+      ),
+    },
     { label: t("screens.s03.facts.category"), value: t(`categories.${project.category}`) },
     { label: t("screens.s03.facts.funding"), value: t(`fundingSources.${project.fundingSource}`) },
     { label: t("screens.s03.facts.plannedStart"), value: project.plannedStart ? formatDate(project.plannedStart) : dash },
