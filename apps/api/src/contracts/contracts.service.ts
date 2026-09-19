@@ -6,12 +6,13 @@ import {
   type ContractDetail,
   type ContractList,
   type ContractUpdate,
+  type Defect,
   type ProjectPhase,
   type Variation,
   type VariationCreate,
   type VariationDecision,
 } from "@ecapital/shared";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import {
@@ -23,6 +24,7 @@ import {
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { ContractorsService } from "../contractors/contractors.service";
+import { type DefectRow, toDefect } from "../defects/defect-rows";
 import { phaseIndex } from "../projects/project-rows";
 import {
   type BoqRow,
@@ -154,11 +156,15 @@ export class ContractsService {
       .where(eq(schema.project.id, row.projectId))
       .limit(1);
 
-    const [contractor, boq, variations] = await Promise.all([
-      this.contractors.load(row.contractorId),
-      this.boqOf(id),
-      this.variationsOf(id),
-    ]);
+    const [contractor, boq, variations, defects, rfis, instructionsWithoutVariation] =
+      await Promise.all([
+        this.contractors.load(row.contractorId),
+        this.boqOf(id),
+        this.variationsOf(id),
+        this.defectsOf(id),
+        this.rfiCounts(id),
+        this.instructionsWithoutVariation(id),
+      ]);
 
     const approvedVariationsTotal = sumOf(variations, "APPROVED");
     const pendingVariationsTotal = sumOf(variations, "SUBMITTED");
@@ -175,6 +181,7 @@ export class ContractsService {
         completionDate: contract.completionDate,
         extensionDays: contract.extensionDays,
         projectPhase: project.phase,
+        instructionsWithoutVariation,
       },
       today(),
     );
@@ -191,6 +198,12 @@ export class ContractsService {
       warnings: facts.map((fact) =>
         toWarning(this.i18n, fact, { nameEl: project.unitNameEl, nameEn: project.unitNameEn }),
       ),
+      // M1 site log (R09, R12): what the contract screen shows under the
+      // variations — the snags raised against these works and how the RFI
+      // clock is doing. Breached is a count and never a block (CAPEX-01 §1).
+      defects,
+      rfisOpen: rfis.open,
+      rfisBreached: rfis.breached,
     };
   }
 
@@ -459,6 +472,77 @@ export class ContractsService {
       .limit(1);
     if (!rows.length) throw AppError.notFound("errors.projectNotFound");
     return rows[0];
+  }
+
+  /** R12: the defects raised against this contract, newest first. */
+  private async defectsOf(contractId: string): Promise<Defect[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const rows = await tx.db
+      .select({
+        id: schema.defect.id,
+        orgUnitId: schema.defect.orgUnitId,
+        source: schema.defect.source,
+        contractId: schema.defect.contractId,
+        projectId: schema.defect.projectId,
+        areaId: schema.defect.areaId,
+        assetId: schema.defect.assetId,
+        descriptionEl: schema.defect.descriptionEl,
+        photoIds: schema.defect.photoIds,
+        estimatedCost: schema.defect.estimatedCost,
+        riskBand: schema.defect.riskBand,
+        funded: schema.defect.funded,
+        targetProjectId: schema.defect.targetProjectId,
+        status: schema.defect.status,
+        raisedById: schema.defect.raisedBy,
+        raisedByName: sql<string | null>`ecapital.user_display_name(${schema.defect.raisedBy})`,
+        raisedAt: schema.defect.raisedAt,
+        dueDate: schema.defect.dueDate,
+        closedAt: schema.defect.closedAt,
+        closedById: schema.defect.closedBy,
+        closedByName: sql<string | null>`ecapital.user_display_name(${schema.defect.closedBy})`,
+      })
+      .from(schema.defect)
+      .where(eq(schema.defect.contractId, contractId))
+      .orderBy(desc(schema.defect.raisedAt));
+    return rows.map((row) => toDefect(row as DefectRow));
+  }
+
+  /**
+   * RULE (R09): an RFI is breached when its due moment has passed and nobody
+   * has answered it. Counted in SQL rather than by loading every row, because
+   * `BREACHED` needs no threshold arithmetic — it is simply the clock having
+   * run out on a question still open.
+   */
+  private async rfiCounts(contractId: string): Promise<{ open: number; breached: number }> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const [row] = await tx.db
+      .select({
+        open: sql<number>`count(*) filter (where ${schema.rfi.status} = 'OPEN')::int`,
+        breached: sql<number>`count(*) filter (where ${schema.rfi.status} = 'OPEN'
+                                                and ${schema.rfi.slaDueAt} <= now())::int`,
+      })
+      .from(schema.rfi)
+      .where(eq(schema.rfi.contractId, contractId));
+    return { open: row?.open ?? 0, breached: row?.breached ?? 0 };
+  }
+
+  /** R09: cost-impact instructions with no variation behind them yet. */
+  private async instructionsWithoutVariation(contractId: string): Promise<number> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const [row] = await tx.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.siteInstruction)
+      .where(
+        and(
+          eq(schema.siteInstruction.contractId, contractId),
+          eq(schema.siteInstruction.costImpactFlag, true),
+          isNull(schema.siteInstruction.variationId),
+        ),
+      );
+    return row?.count ?? 0;
   }
 
   private async boqOf(contractId: string): Promise<BoqItem[]> {

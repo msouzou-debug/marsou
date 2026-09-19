@@ -81,10 +81,13 @@ describe("GET /portfolio", () => {
       expect(exception.sentenceEl).not.toBe("");
       expect(exception.sentenceEn).not.toBe("");
       expect(exception.sentenceEl).not.toBe(exception.sentenceEn);
-      // A project exception points at the project; a contract warning (R31)
-      // points at the contract, which is where somebody puts it right.
+      // The link goes where somebody puts it right: a project exception
+      // points at the project, a contract warning (R31) and a breached RFI
+      // (R09) at the contract, an overdue handover defect (R12) at the defect.
       expect(exception.href).toMatch(
-        new RegExp(`^/(projects/${exception.projectId}|contracts/[0-9a-f-]{36})$`),
+        new RegExp(
+          `^/(projects/${exception.projectId}|contracts/[0-9a-f-]{36}|defects/[0-9a-f-]{36})$`,
+        ),
       );
       const unit = view.units.find((u) => u.orgUnit.id === exception.orgUnitId);
       expect(exception.sentenceEl).toContain(unit?.orgUnit.nameEl);

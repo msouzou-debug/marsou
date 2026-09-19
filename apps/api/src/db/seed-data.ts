@@ -179,6 +179,17 @@ export const seedUsers: SeedUser[] = [
     orgUnitIds: ["nicosia-general"],
   },
   {
+    // The field persona (CAPEX-01 §2, §8): a technician raises and works the
+    // defects they find on an inspection round or on a work order, and
+    // nothing else. ADR-0017 says why that is a row policy and not a role
+    // check on the route.
+    subject: "dev-technician-nicosia",
+    name: "Κυριάκος Στυλιανού",
+    email: "technician.nicosia@ecapital.test",
+    roles: ["technician"],
+    orgUnitIds: ["nicosia-general"],
+  },
+  {
     subject: "dev-finance",
     name: "Δέσποινα Ιωάννου",
     email: "finance@ecapital.test",
@@ -256,6 +267,12 @@ export const seedRoleMappings: {
     role: "clinical_approver",
     orgUnitId: "nicosia-general",
     note: "eCapital Clinical Approvers — Nicosia General",
+  },
+  {
+    entraGroupId: "00000000-0000-0000-0000-0000000000b4",
+    role: "technician",
+    orgUnitId: "nicosia-general",
+    note: "eCapital Technicians — Nicosia General",
   },
 ];
 
@@ -1172,3 +1189,284 @@ export const seedVariations: SeedVariation[] = [
  * machine and on every run.
  */
 export const seedExpiredBond = { projectRef: "PRJ-036", bondExpiry: "2026-06-30" };
+
+
+// ------------------------------------------------------------------- M1 --
+// The site log fixtures (R09, R12, R35). Every one of them exists so a screen
+// or a rule has something real to work on: an RFI in each state with one
+// breached and one red, a site instruction with cost impact that nobody has
+// priced, twelve handover defects across three finished contracts covering
+// all four NHS ERIC bands with two of them past their liability date, and
+// three inspection defects that belong to a unit and to nothing else.
+//
+// Figures are obviously fake. Nothing here is patient data: a defect
+// describes a room or a piece of plant, never a person.
+
+/**
+ * An RFI as the fixture says it is. The dates are relative to the moment the
+ * seed runs, because the SLA band is a fact about the clock: an RFI pinned to
+ * a fixed date would be GREEN in October and BREACHED by Christmas. `slaDays`
+ * is the promise, `raisedHoursAgo` is how long ago the question was asked,
+ * and `answeredHoursAgo` is null while it is still open.
+ */
+export interface SeedRfi {
+  /** 1..n within the contract, the number the API would have allocated. */
+  number: number;
+  questionEl: string;
+  answerEl: string | null;
+  slaDays: number;
+  raisedHoursAgo: number;
+  answeredHoursAgo: number | null;
+  status: "OPEN" | "ANSWERED" | "CLOSED";
+}
+
+/** Every seeded contract gets these two: one settled, one running green. */
+export const seedRfisEveryContract: SeedRfi[] = [
+  {
+    number: 1,
+    questionEl: "Ποια στάθμη τελειωμένου δαπέδου ισχύει στον διάδρομο του ισογείου;",
+    answerEl: "Ισχύει η στάθμη του αρχιτεκτονικού σχεδίου, αναθεώρηση Γ.",
+    slaDays: 7,
+    raisedHoursAgo: 30 * 24,
+    answeredHoursAgo: 26 * 24,
+    status: "CLOSED",
+  },
+  {
+    number: 2,
+    questionEl: "Επιβεβαιώνετε τον τύπο των πυράντοχων θυρών στον θάλαμο Α1;",
+    answerEl: null,
+    slaDays: 7,
+    // Four days of seven still to run: comfortably above half, so GREEN.
+    raisedHoursAgo: 3 * 24,
+    answeredHoursAgo: null,
+    status: "OPEN",
+  },
+];
+
+/**
+ * The third RFI, on two nominated contracts only. One has run out of time and
+ * one is nearly out of it, so `slaState` has a BREACHED and a RED to show
+ * without every contract in the register shouting at once.
+ */
+export const seedRfiBreached = {
+  projectRef: "PRJ-036",
+  rfi: {
+    number: 3,
+    questionEl: "Πώς αντιμετωπίζεται η διαφορά υψομέτρου που βρέθηκε στη θεμελίωση;",
+    answerEl: null,
+    slaDays: 7,
+    // Ten days on a seven-day promise: the clock ran out three days ago.
+    raisedHoursAgo: 10 * 24,
+    answeredHoursAgo: null,
+    status: "OPEN",
+  } as SeedRfi,
+};
+
+export const seedRfiRed = {
+  projectRef: "PRJ-034",
+  rfi: {
+    number: 3,
+    questionEl: "Ποιος είναι ο τελικός χρωματολόγιος κατάλογος για τους θαλάμους;",
+    answerEl: null,
+    slaDays: 7,
+    // Eight hours left of a hundred and sixty-eight: under a tenth, so RED.
+    raisedHoursAgo: 160,
+    answeredHoursAgo: null,
+    status: "OPEN",
+  } as SeedRfi,
+};
+
+export interface SeedSiteInstruction {
+  number: number;
+  textEl: string;
+  costImpactFlag: boolean;
+}
+
+/** Every seeded contract gets one instruction that costs nothing. */
+export const seedInstructionEveryContract: SeedSiteInstruction = {
+  number: 1,
+  textEl: "Μεταφέρετε τον χώρο φύλαξης υλικών στον βόρειο περιβάλλοντα χώρο.",
+  costImpactFlag: false,
+};
+
+/**
+ * Three contracts also carry an instruction with cost impact that nobody has
+ * turned into a variation yet, which is what the fourth contract warning
+ * fires on (R09, R31). Three and not fourteen: the warning has to be worth
+ * reading when it appears.
+ */
+export const seedInstructionCostImpact = {
+  projectRefs: ["PRJ-031", "PRJ-034", "PRJ-039"],
+  instruction: {
+    number: 2,
+    textEl: "Προσθέστε δεύτερη σειρά ηχομονωτικών πάνελ στον θάλαμο μηχανημάτων.",
+    costImpactFlag: true,
+  } as SeedSiteInstruction,
+};
+
+export interface SeedDefect {
+  /** Unique across the fixture: it is what makes the re-run idempotent. */
+  descriptionEl: string;
+  riskBand: "HIGH" | "SIGNIFICANT" | "MODERATE" | "LOW";
+  estimatedCost: number | null;
+  status: "OPEN" | "IN_PROGRESS" | "CLOSED";
+  funded: boolean;
+}
+
+/**
+ * Twelve handover defects over three finished contracts, four each, one per
+ * risk band (R12, R35). The two contracts whose liability period has already
+ * ended keep one defect open apiece — those are the two the portfolio calls
+ * out in red, and the rest on them are closed, which is what a finished
+ * handover normally looks like.
+ */
+export const seedHandoverDefects: { projectRef: string; defects: SeedDefect[] }[] = [
+  {
+    // Liability runs to 2026-11-18: still inside it, so nothing is overdue.
+    projectRef: "PRJ-039",
+    defects: [
+      {
+        descriptionEl: "Διαρροή στη μόνωση οροφής του χώρου του τομογράφου",
+        riskBand: "HIGH",
+        estimatedCost: 18500,
+        status: "OPEN",
+        // The one defect in the fixture that a capital project is paying for.
+        funded: true,
+      },
+      {
+        descriptionEl: "Αστοχία στεγάνωσης στο δάπεδο του προθαλάμου τομογραφίας",
+        riskBand: "SIGNIFICANT",
+        estimatedCost: 7400,
+        status: "IN_PROGRESS",
+        funded: false,
+      },
+      {
+        descriptionEl: "Ελλιπής σήμανση εξόδου κινδύνου στον διάδρομο τομογραφίας",
+        riskBand: "MODERATE",
+        estimatedCost: 1200,
+        status: "OPEN",
+        funded: false,
+      },
+      {
+        descriptionEl: "Φθορές βαφής στον προθάλαμο αναμονής τομογραφίας",
+        riskBand: "LOW",
+        estimatedCost: 450,
+        status: "CLOSED",
+        funded: false,
+      },
+    ],
+  },
+  {
+    // Liability ended on 2025-08-22, so the one still open is overdue.
+    projectRef: "PRJ-041",
+    defects: [
+      {
+        descriptionEl: "Θόρυβος και δόνηση στον μηχανισμό του ανελκυστήρα 2",
+        riskBand: "HIGH",
+        estimatedCost: 22000,
+        status: "OPEN",
+        funded: false,
+      },
+      {
+        descriptionEl: "Απόκλιση στάθμης στάσης του ανελκυστήρα 1",
+        riskBand: "SIGNIFICANT",
+        estimatedCost: 5600,
+        status: "CLOSED",
+        funded: false,
+      },
+      {
+        descriptionEl: "Ελαττωματικό μπουτόν κλήσης ανελκυστήρα στον δεύτερο όροφο",
+        riskBand: "MODERATE",
+        estimatedCost: 900,
+        status: "CLOSED",
+        funded: false,
+      },
+      {
+        descriptionEl: "Χαραγές στην επένδυση του θαλάμου του ανελκυστήρα 3",
+        riskBand: "LOW",
+        estimatedCost: null,
+        status: "CLOSED",
+        funded: false,
+      },
+    ],
+  },
+  {
+    // Liability ended on 2025-11-25, so the one still in hand is overdue.
+    projectRef: "PRJ-042",
+    defects: [
+      {
+        descriptionEl: "Ανεπαρκής παροχή ιατρικών αερίων στην κλίνη 4 της ΜΕΘ",
+        riskBand: "HIGH",
+        estimatedCost: 31000,
+        status: "IN_PROGRESS",
+        funded: false,
+      },
+      {
+        descriptionEl: "Αστάθεια θερμοκρασίας στο κλιματιστικό συγκρότημα της ΜΕΘ",
+        riskBand: "SIGNIFICANT",
+        estimatedCost: 12800,
+        status: "CLOSED",
+        funded: false,
+      },
+      {
+        descriptionEl: "Ελλιπής στεγανοποίηση διελεύσεων καλωδίων στη ΜΕΘ",
+        riskBand: "MODERATE",
+        estimatedCost: 2100,
+        status: "CLOSED",
+        funded: false,
+      },
+      {
+        descriptionEl: "Φθαρμένα αρμοκάλυπτρα δαπέδου στον διάδρομο της ΜΕΘ",
+        riskBand: "LOW",
+        estimatedCost: 700,
+        status: "CLOSED",
+        funded: false,
+      },
+    ],
+  },
+];
+
+/**
+ * Three defects found on inspection rounds that belong to a unit and to
+ * nothing else — no contract, no project, no due date. This is the shape the
+ * technician's offline capture produces (CAPEX-01 §2, §8) and the reason the
+ * defect table carries its own org unit.
+ */
+export const seedInspectionDefects: { orgUnitId: string; defect: SeedDefect }[] = [
+  {
+    orgUnitId: "nicosia-general",
+    defect: {
+      descriptionEl: "Σκουριά στη βάση του εφεδρικού ηλεκτροπαραγωγού ζεύγους",
+      riskBand: "SIGNIFICANT",
+      estimatedCost: 4300,
+      status: "OPEN",
+      funded: false,
+    },
+  },
+  {
+    orgUnitId: "troodos",
+    defect: {
+      descriptionEl: "Ρωγμές στο δάπεδο του μηχανοστασίου ψύξης",
+      riskBand: "MODERATE",
+      estimatedCost: 2600,
+      status: "OPEN",
+      funded: false,
+    },
+  },
+  {
+    orgUnitId: "pfy",
+    defect: {
+      descriptionEl: "Διάβρωση σωληνώσεων ζεστού νερού στο κέντρο υγείας",
+      riskBand: "HIGH",
+      estimatedCost: 9800,
+      status: "IN_PROGRESS",
+      funded: false,
+    },
+  },
+];
+
+/** Which project the one funded handover defect is funded from. */
+export const seedFundedDefect = {
+  descriptionEl: "Διαρροή στη μόνωση οροφής του χώρου του τομογράφου",
+  targetProjectRef: "PRJ-035",
+};

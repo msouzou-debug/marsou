@@ -35,7 +35,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0002_m1_projects");
     expect(result.applied).toContain("0003_m1_contracts");
     expect(result.applied).toContain("0004_audit_skip_noop_updates");
-    expect(result.lastMigrationId).toBe("0004_audit_skip_noop_updates");
+    expect(result.applied).toContain("0006_m1_site_logs");
+    expect(result.lastMigrationId).toBe("0006_m1_site_logs");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -53,6 +54,7 @@ describe("migrations", () => {
       "building",
       "contract",
       "contractor",
+      "defect",
       "floor",
       "issue",
       "milestone",
@@ -60,9 +62,11 @@ describe("migrations", () => {
       "org_unit_alias",
       "project",
       "project_code_seq",
+      "rfi",
       "risk",
       "role_mapping",
       "schema_migration",
+      "site_instruction",
       "variation",
     ]);
   });
@@ -75,6 +79,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0002_m1_projects");
     expect(result.skipped).toContain("0003_m1_contracts");
     expect(result.skipped).toContain("0004_audit_skip_noop_updates");
+    expect(result.skipped).toContain("0006_m1_site_logs");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -88,6 +93,54 @@ describe("migrations", () => {
     );
     await client.end();
     expect(rows.every((r) => r.relrowsecurity)).toBe(true);
+  });
+
+  /**
+   * ADR-0015 and ADR-0017: the rules that are written twice. Each of these is
+   * also a service rule with a sentence behind it; the constraint is what
+   * makes the rule true of the importer and the repair script as well.
+   */
+  it("keeps the site log's rules as constraints and not only as service code", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    const { rows } = await client.query<{ conname: string }>(
+      `select c.conname from pg_constraint c
+         join pg_class t on t.oid = c.conrelid
+         join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'ecapital'
+          and t.relname in ('rfi', 'site_instruction', 'defect')
+          and c.contype = 'c'
+        order by c.conname`,
+    );
+    await client.end();
+    const names = rows.map((r) => r.conname);
+    // R09: an RFI is closed after it has been answered.
+    expect(names).toContain("rfi_answered_before_closed");
+    // R09: only a cost-impact instruction turns into a variation.
+    expect(names).toContain("site_instruction_variation_needs_cost_impact");
+    // R35: funded means a capital project is paying for it.
+    expect(names).toContain("defect_funded_needs_project");
+  });
+
+  it("gives a technician the two defect sources the field produces and no others", async () => {
+    // ADR-0017. The policy is the rule; this asserts it exists and reads the
+    // row's own source column, which no other policy in the schema does.
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    const { rows } = await client.query<{ qual: string; with_check: string }>(
+      "select qual, with_check from pg_policies where schemaname = 'ecapital' and tablename = 'defect' and policyname = 'defect_write'",
+    );
+    const { rows: fn } = await client.query<{ src: string }>(
+      "select prosrc as src from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'ecapital' and p.proname = 'can_manage_defect'",
+    );
+    await client.end();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].qual).toContain("can_manage_defect");
+    expect(rows[0].with_check).toContain("can_manage_defect");
+    expect(fn[0].src).toContain("technician");
+    expect(fn[0].src).toContain("INSPECTION");
+    expect(fn[0].src).toContain("WORK_ORDER");
+    expect(fn[0].src).not.toContain("HANDOVER");
   });
 
   it("gives the application role no way to change the audit log", async () => {

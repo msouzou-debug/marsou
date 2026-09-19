@@ -1,8 +1,9 @@
 /**
  * Seed the eleven org units and their aliases, one building at Nicosia
- * General with two floors and six areas, seven development users, the
- * group→role mappings, the 42-project M1 register (see ./seed-projects) and
- * the contract register on top of it (see ./seed-contracts).
+ * General with two floors and six areas, eight development users, the
+ * group→role mappings, the 42-project M1 register (see ./seed-projects), the
+ * contract register on top of it (see ./seed-contracts) and the site log on
+ * top of that (see ./seed-site).
  *
  *   pnpm --filter @ecapital/api seed
  *
@@ -19,6 +20,7 @@ import * as schema from "./schema";
 import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-data";
 import { seedContractRegister } from "./seed-contracts";
 import { seedProjectRegister } from "./seed-projects";
+import { seedSiteLog } from "./seed-site";
 
 export interface SeedSummary {
   orgUnits: number;
@@ -36,6 +38,9 @@ export interface SeedSummary {
   contracts: number;
   boqItems: number;
   variations: number;
+  rfis: number;
+  siteInstructions: number;
+  defects: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -196,6 +201,11 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     // off a project and takes its org unit from it.
     const contracts = await seedContractRegister(db);
 
+    // M1: the site log, after the contracts, because an RFI and a site
+    // instruction hang off one and a handover defect takes its due date from
+    // one (R09, R12).
+    const siteLog = await seedSiteLog(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -206,6 +216,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       roleMappings: seedRoleMappings.length,
       ...register,
       ...contracts,
+      ...siteLog,
     };
   } finally {
     await client.end();
@@ -221,7 +232,8 @@ if (require.main === module) {
           `${s.floors} floors, ${s.areas} areas, ${s.users} users, ${s.roleMappings} role mappings, ` +
           `${s.projects} projects, ${s.milestones} milestones, ${s.risks} risks, ${s.issues} issues, ` +
           `${s.contractors} contractors, ${s.contracts} contracts, ${s.boqItems} bill lines, ` +
-          `${s.variations} variations`,
+          `${s.variations} variations, ${s.rfis} RFIs, ${s.siteInstructions} site instructions, ` +
+          `${s.defects} defects`,
       );
     })
     .catch((error: unknown) => {
