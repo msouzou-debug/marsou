@@ -15,7 +15,7 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Μαρία Κωνσταντίνου"
+        meUserId="user-engineer"
         canDecide
         canEdit
         onClose={vi.fn()}
@@ -49,7 +49,7 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Ελένη Χριστοδούλου"
+        meUserId="user-engineer"
         canDecide={false}
         canEdit
         onClose={vi.fn()}
@@ -75,7 +75,7 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Μαρία Κωνσταντίνου"
+        meUserId="user-other"
         canDecide
         canEdit={false}
         onClose={vi.fn()}
@@ -109,7 +109,7 @@ describe("VariationSheet — SUBMITTED, no decision to make", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Ελένη Χριστοδούλου"
+        meUserId="user-other"
         canDecide={false}
         canEdit
         onClose={vi.fn()}
@@ -139,7 +139,7 @@ describe("VariationSheet — REJECTED", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Ελένη Χριστοδούλου"
+        meUserId="user-other"
         canDecide={false}
         canEdit
         onClose={vi.fn()}
@@ -166,7 +166,7 @@ describe("VariationSheet — DRAFT/RETURNED", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Ελένη Χριστοδούλου"
+        meUserId="user-engineer"
         canDecide={false}
         canEdit
         onClose={vi.fn()}
@@ -192,7 +192,7 @@ describe("VariationSheet — DRAFT/RETURNED", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
-        meName="Ελένη Χριστοδούλου"
+        meUserId="user-engineer"
         canDecide={false}
         canEdit
         onClose={vi.fn()}

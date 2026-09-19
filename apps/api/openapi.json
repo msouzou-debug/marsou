@@ -27,6 +27,9 @@
                     "sub": {
                       "type": "string"
                     },
+                    "userId": {
+                      "type": "string"
+                    },
                     "name": {
                       "type": "string"
                     },
@@ -58,6 +61,7 @@
                   },
                   "required": [
                     "sub",
+                    "userId",
                     "name",
                     "email",
                     "roles",
@@ -157,6 +161,9 @@
                         "sub": {
                           "type": "string"
                         },
+                        "userId": {
+                          "type": "string"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -188,6 +195,7 @@
                       },
                       "required": [
                         "sub",
+                        "userId",
                         "name",
                         "email",
                         "roles",

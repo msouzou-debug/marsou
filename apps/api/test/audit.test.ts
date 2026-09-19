@@ -53,6 +53,51 @@ describe("audit log", () => {
     expect(new Date(entry.at).getTime()).toBeLessThanOrEqual(Date.now() + 1000);
   });
 
+  it("writes nothing for an update that changes nothing", async () => {
+    // R42: the log records changes. Saving a record with the values it
+    // already has (a form submitted untouched, an idempotent seed re-run)
+    // must not add a row, or real entries drown in noise.
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const tree = await request(app.getHttpServer())
+      .get("/org-units/nicosia-general/areas")
+      .set(bearer(token));
+    const floorId = AreaTree.parse(tree.body).buildings[0].floors[0].id;
+    const body = {
+      floorId,
+      code: `NOP-${Date.now()}`,
+      nameEl: "Γραφείο δοκιμής",
+      areaType: "OFFICE",
+      patientRiskGroup: "LOW",
+    };
+    const created = await request(app.getHttpServer())
+      .post("/org-units/nicosia-general/areas")
+      .set(bearer(token))
+      .send(body);
+    expect(created.status).toBe(201);
+
+    // Same values again through the database itself, as the API role would
+    // write them: no audit row may appear.
+    const { Client } = await import("pg");
+    const client = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
+    await client.connect();
+    try {
+      await client.query("update ecapital.area set name_el = $1, updated_at = now() where id = $2", [
+        body.nameEl,
+        created.body.id,
+      ]);
+    } finally {
+      await client.end();
+    }
+
+    const auditorToken = await tokenFor(app, USERS.auditor);
+    const log = await request(app.getHttpServer())
+      .get("/audit-log")
+      .query({ entity_type: "area", entity_id: created.body.id })
+      .set(bearer(auditorToken));
+    expect(log.status).toBe(200);
+    expect(log.body.map((e: { action: string }) => e.action)).toEqual(["INSERT"]);
+  });
+
   it("writes nothing when the mutation is refused", async () => {
     const estatesToken = await tokenFor(app, USERS.estatesNicosia);
     const tree = await request(app.getHttpServer())

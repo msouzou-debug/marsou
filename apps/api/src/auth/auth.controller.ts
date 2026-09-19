@@ -1,4 +1,7 @@
 import { Body, Controller, Get, Post, Req } from "@nestjs/common";
+import { eq } from "drizzle-orm";
+import * as schema from "../db/schema";
+import { currentTx } from "../db/client";
 import { ApiBody, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Me } from "@ecapital/shared";
 import { z } from "zod";
@@ -21,11 +24,23 @@ export class AuthController {
   @ApiOperation({ summary: "The signed-in user, their roles and their org units" })
   @ApiZodResponse(200, Me, "The caller's claims")
   @ApiZodError(401, "No token, or a token that does not verify")
-  me(@Req() request: AuthenticatedRequest): Me {
+  async me(@Req() request: AuthenticatedRequest): Promise<Me> {
     const claims = request.claims;
     if (!claims) throw AppError.unauthorized();
+    // The app_user row id, read inside the caller's own RLS transaction. A
+    // verified token whose subject has no row means the directory and the
+    // seed have drifted — not the caller's fault, so it is a 500, not a 401.
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const rows = await tx.db
+      .select({ id: schema.appUser.id })
+      .from(schema.appUser)
+      .where(eq(schema.appUser.subject, claims.sub))
+      .limit(1);
+    if (!rows.length) throw AppError.internal();
     return Me.parse({
       sub: claims.sub,
+      userId: rows[0].id,
       name: claims.name,
       email: claims.email,
       roles: claims.roles,
@@ -48,11 +63,12 @@ export class AuthController {
   async devToken(@Body() body: unknown) {
     const parsed = DevTokenRequest.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.emailNeeded");
-    const { token, claims } = await this.auth.devTokenFor(parsed.data.email);
+    const { token, claims, userId } = await this.auth.devTokenFor(parsed.data.email);
     return {
       token,
       claims: Me.parse({
         sub: claims.sub,
+        userId,
         name: claims.name,
         email: claims.email,
         roles: claims.roles,

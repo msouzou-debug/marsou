@@ -19,7 +19,7 @@
  *   the caller is the raiser — possible for `admin`, who may do both, and
  *   shown to a `project_engineer` raiser too even though that role could
  *   never decide anything at all — the panel's own buttons are disabled up
- *   front (`DecisionPanel`'s `disabled`/`disabledReason`, comparing `meName`
+ *   front (`DecisionPanel`'s `disabled`/`disabledReason`, comparing `meUserId`
  *   to `raisedByName` — see the route's own header comment for why not an
  *   id) with `errors.sameUserApproval`'s own sentence, rather
  *   than waiting for the API to refuse it. This makes the segregation rule
@@ -36,7 +36,7 @@
  * | open               | boolean                     |                                                        |
  * | variation          | Variation?                  | Omit for the "new" form.                              |
  * | contractCurrentValue | number                    | For the decision panel's third fact.                  |
- * | meName              | string                      | `me.name` — who is looking, compared against `raisedByName` (see the route's own header comment for why not an id). |
+ * | meUserId              | string                      | `me.userId` — who is looking, compared against `raisedById` (the app_user row id the API also stores). |
  * | canDecide          | boolean                     | `canDecideVariations(roles)`.                          |
  * | canEdit            | boolean                     | `canRaiseVariations(roles)` — gates the "new"/"edit" forms. |
  * | saving             | boolean                     |                                                        |
@@ -63,7 +63,7 @@ export interface VariationSheetProps {
   variation?: Variation;
   contractNo: string;
   contractCurrentValue: number;
-  meName: string;
+  meUserId: string;
   canDecide: boolean;
   canEdit: boolean;
   saving?: boolean;
@@ -111,7 +111,7 @@ export function VariationSheet({
   variation,
   contractNo,
   contractCurrentValue,
-  meName,
+  meUserId,
   canDecide,
   canEdit,
   saving = false,
@@ -152,7 +152,7 @@ export function VariationSheet({
   // sheet only opens the edit form for the raiser themselves — since
   // nothing in the brief asks for an "edit on someone else's behalf"
   // control; an admin who needs it can still reach the endpoint directly.
-  const isRaiser = variation ? variation.raisedByName === meName : true;
+  const isRaiser = variation ? variation.raisedById === meUserId : true;
   const editableStatus = isNew || variation?.status === "DRAFT" || variation?.status === "RETURNED";
 
   // ---------------------------------------------------------- new / edit --
@@ -290,7 +290,7 @@ export function VariationSheet({
   // a role that cannot raise/edit at all): fall through to the read-only
   // views below by treating it like any other non-actionable state.
   if (variation?.status === "SUBMITTED") {
-    const selfRaised = variation.raisedByName === meName;
+    const selfRaised = variation.raisedById === meUserId;
     // RULE (R10, ADR-0015): a raiser sees the segregation rule applied to
     // *their own* submitted work even when their role could never decide
     // anything at all (a `project_engineer` never gets `canDecide`) — the

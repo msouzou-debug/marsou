@@ -24,7 +24,10 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # DATABASE_URL, MIGRATION_DATABASE_URL and PGPORT, straight from the script
-# the API's own test suite uses.
+# the API's own test suite uses. Stop any cluster a previous run left behind
+# first: `start` reuses a running cluster, and re-seeding the same database on
+# every run piles up audit rows until the timeline tests see nothing else.
+"$API_DIR/scripts/test-db.sh" stop >/dev/null 2>&1 || true
 set -a
 eval "$("$API_DIR/scripts/test-db.sh" start)"
 set +a

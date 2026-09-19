@@ -44,7 +44,7 @@ export class AuthService {
    * and under the policy on app_user a session with no identity sees no
    * users — correctly. In production this route does not exist at all.
    */
-  async devTokenFor(email: string): Promise<{ token: string; claims: TokenClaims }> {
+  async devTokenFor(email: string): Promise<{ token: string; claims: TokenClaims; userId: string }> {
     if (!this.config.DEV_AUTH) throw AppError.notFound("errors.routeNotFound");
 
     const client = new Client({ connectionString: this.config.migrationDatabaseUrl });
@@ -73,7 +73,7 @@ export class AuthService {
         roles: roles.rows.map((r) => r.role),
         org_unit_ids: units.rows.map((u) => u.org_unit_id),
       });
-      return { token: await signDevToken(claims, this.config.DEV_AUTH_SECRET), claims };
+      return { token: await signDevToken(claims, this.config.DEV_AUTH_SECRET), claims, userId: user.id };
     } finally {
       await client.end();
     }

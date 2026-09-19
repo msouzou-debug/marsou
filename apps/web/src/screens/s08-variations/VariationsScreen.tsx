@@ -26,7 +26,7 @@ import { Variations, type VariationsScreenState } from "./Variations";
 export interface VariationsScreenProps {
   contractId: string;
   roles: AppRole[];
-  meName: string;
+  meUserId: string;
   noPermission: ReactNode;
 }
 
@@ -45,7 +45,7 @@ function useOnlineStatus(): boolean {
   return online;
 }
 
-export function VariationsScreen({ contractId, roles, meName, noPermission }: VariationsScreenProps) {
+export function VariationsScreen({ contractId, roles, meUserId, noPermission }: VariationsScreenProps) {
   const { data, error, isLoading, refetch } = useContract(contractId);
   const online = useOnlineStatus();
   const [selectedId, setSelectedId] = useState<string | "new" | null>(null);
@@ -140,7 +140,7 @@ export function VariationsScreen({ contractId, roles, meName, noPermission }: Va
       onRetry={() => void refetch()}
       noPermission={noPermission}
       roles={roles}
-      meName={meName}
+      meUserId={meUserId}
       selectedId={selectedId}
       onSelect={selectRow}
       sheetSaving={sheetSaving}

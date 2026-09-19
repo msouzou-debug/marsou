@@ -34,7 +34,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0001_m0_foundations");
     expect(result.applied).toContain("0002_m1_projects");
     expect(result.applied).toContain("0003_m1_contracts");
-    expect(result.lastMigrationId).toBe("0003_m1_contracts");
+    expect(result.applied).toContain("0004_audit_skip_noop_updates");
+    expect(result.lastMigrationId).toBe("0004_audit_skip_noop_updates");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -73,6 +74,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0001_m0_foundations");
     expect(result.skipped).toContain("0002_m1_projects");
     expect(result.skipped).toContain("0003_m1_contracts");
+    expect(result.skipped).toContain("0004_audit_skip_noop_updates");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

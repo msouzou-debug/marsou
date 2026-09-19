@@ -25,6 +25,7 @@ const { getSession, startSession, endSession, SESSION_COOKIE } = await import(".
 
 const me = {
   sub: "dev-estates-nicosia",
+  userId: "00000000-0000-0000-0000-00000000e5e5",
   name: "Ανδρέας Παπαδόπουλος",
   email: "estates.nicosia@ecapital.test",
   roles: ["estates_head"],

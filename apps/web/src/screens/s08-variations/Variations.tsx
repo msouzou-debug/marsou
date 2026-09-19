@@ -11,7 +11,7 @@
  * | data         | ContractDetail?            | Ignored in `noPermission` \| `loading` \| `error`.               |
  * | state        | VariationsScreenState      | The five states (build brief §6) — this screen does have an `empty`. |
  * | roles        | AppRole[]                  | The caller's roles — `canRaiseVariations`/`canDecideVariations`.  |
- * | meName        | string                     | `me.name` — the raiser comparisons live in `VariationSheet`.       |
+ * | meUserId        | string                     | `me.userId` — the raiser comparisons live in `VariationSheet`.       |
  * | selectedId   | string \| "new" \| null    | Which row (or the new-variation form) has the sheet open.        |
  * | onSelect / onCloseSheet / onSave / onSubmit / onDecide / onRetry | — | Wired by `VariationsScreen`. |
  */
@@ -35,7 +35,7 @@ export interface VariationsProps {
   onRetry?: () => void;
   noPermission: ReactNode;
   roles?: AppRole[];
-  meName?: string;
+  meUserId?: string;
   selectedId?: string | "new" | null;
   onSelect: (id: string | "new" | null) => void;
   sheetSaving?: boolean;
@@ -51,7 +51,7 @@ export function Variations({
   onRetry,
   noPermission,
   roles = [],
-  meName = "",
+  meUserId = "",
   selectedId,
   onSelect,
   sheetSaving = false,
@@ -160,7 +160,7 @@ export function Variations({
           variation={selectedVariation}
           contractNo={data.contractNo}
           contractCurrentValue={data.currentValue}
-          meName={meName}
+          meUserId={meUserId}
           canDecide={canDecide}
           canEdit={canRaise}
           saving={sheetSaving}

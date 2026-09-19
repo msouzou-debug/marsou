@@ -15,6 +15,7 @@ import { NoPermission } from "./NoPermission";
 // both from `src/app/(app)/layout.tsx`.
 const me: Me = {
   sub: "preview",
+  userId: "preview-user",
   name: "Μ. Ιωάννου",
   email: "preview@ecapital.test",
   roles: ["estates_head"],

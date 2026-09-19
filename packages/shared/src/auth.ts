@@ -31,6 +31,10 @@ export type TokenClaims = z.infer<typeof TokenClaims>;
 // What GET /me answers. Same facts, camelCase like every other response.
 export const Me = z.object({
   sub: z.string(),
+  // The app_user row id. Records that name a person (variation.raisedById,
+  // sponsorId, …) carry this, not the token subject, so the client compares
+  // against it — the API's own check is still what enforces anything.
+  userId: z.string(),
   name: z.string(),
   email: z.string(),
   roles: z.array(AppRole),
