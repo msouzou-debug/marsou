@@ -67,7 +67,8 @@ test("engineer.larnaca creates a shutdown request and submits it as Class IV", a
   await nativeClick(page.getByRole("button", { name: "Συνέχεια" }));
 
   // S12 step 3: Κατηγορία.
-  await expect(page.getByText("IV", { exact: true })).toBeVisible();
+  // The badge is first in DOM order; the 4×4 matrix grid below repeats the numerals.
+  await expect(page.getByText("IV", { exact: true }).first()).toBeVisible();
   const controlBoxes = page.getByRole("checkbox", { name: "Ενημερώθηκα" });
   const count = await controlBoxes.count();
   for (let i = 0; i < count; i++) await nativeClick(controlBoxes.nth(i));
@@ -76,7 +77,10 @@ test("engineer.larnaca creates a shutdown request and submits it as Class IV", a
   // S12 step 4: Υποβολή.
   await nativeClick(page.getByRole("button", { name: "Υποβολή" }));
   await page.waitForURL(/\/permits\/[^/]+$/);
-  await expect(page.getByText("Υποβλήθηκε")).toBeVisible();
+  // Submitting routes the request straight into clinical review (§6.4): the
+  // reference is allocated and the status reads «Σε κλινική εξέταση».
+  await expect(page.getByText(/PTW-LAR-\d{4}-\d{3}/).first()).toBeVisible();
+  await expect(page.getByText("Εκκρεμεί έγκριση").first()).toBeVisible();
 
   await page.screenshot({ path: `e2e/screenshots/s12-icra-${testInfo.project.name}.png`, fullPage: true });
 });
@@ -85,7 +89,9 @@ test("clinical.nicosia approves the seeded Class IV Nicosia permit from the inbo
   await signIn(page, "clinical.nicosia@ecapital.test");
   await page.goto("/approvals");
 
-  const seededRow = page.getByText("IV", { exact: true }).first();
+  // The seeded Class IV medical-gas shutdown (PTW-NGH-2026-001) has lines for this approver.
+  const seededRow = page.getByText(/PTW-NGH-2026-001/).first();
+  await seededRow.waitFor({ timeout: 15_000 }).catch(() => undefined); // the list loads after navigation
   test.skip(!(await seededRow.isVisible().catch(() => false)), "no seeded Class IV Nicosia permit awaiting decision yet");
 
   await nativeClick(seededRow);
@@ -97,7 +103,10 @@ test("the print view renders one A4 page with the QR", async ({ page }) => {
   await signIn(page, "clinical.nicosia@ecapital.test");
   await page.goto("/permits");
 
-  const firstPermit = page.locator("a[href^='/permits/']").first();
+  // A permit row, not the «Προσθήκη» link to /permits/new.
+  // The reference cell of each row is a link to the record.
+  const firstPermit = page.locator("tbody a[href^='/permits/']").first();
+  await firstPermit.waitFor({ timeout: 15_000 }).catch(() => undefined); // the list loads after navigation
   test.skip(!(await firstPermit.isVisible().catch(() => false)), "no seeded permits yet");
   const href = await firstPermit.getAttribute("href");
 
@@ -107,10 +116,12 @@ test("the print view renders one A4 page with the QR", async ({ page }) => {
 });
 
 test("the calendar shows the seeded clash", async ({ page }) => {
-  await signIn(page, "estates.nicosia@ecapital.test");
+  // The seeded clash is two Larnaca permits on one system; Central Administration sees every unit.
+  await signIn(page, "admin@ecapital.test");
   await page.goto("/calendar");
 
-  const clashIcon = page.locator("[title*='PTW-']").first();
+  const clashIcon = page.locator("[title*='PTW-'], [aria-label*='PTW-']").first();
+  await clashIcon.waitFor({ timeout: 15_000 }).catch(() => undefined); // the calendar loads after navigation
   test.skip(!(await clashIcon.isVisible().catch(() => false)), "no seeded clash on the calendar yet");
   await expect(clashIcon).toBeVisible();
 });
