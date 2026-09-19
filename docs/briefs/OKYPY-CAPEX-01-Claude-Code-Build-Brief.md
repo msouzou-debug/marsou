@@ -1,6 +1,6 @@
 # eCapital — ΟΚΥπΥ Capital & Maintenance Management System — build brief for Claude Code
 
-Product name: **eCapital**. Repo: `ecapital`. Brand mark written in Latin letters everywhere, including Greek screens, in line with eArchive (formerly eMetroon). Greek tagline: «Τα έργα, τα πάγια και η συντήρηση του ΟΚΥπΥ». The name is fixed — it goes into table prefixes, URLs and the document footers.
+Product name: **eCapital**. Repo: `ecapital`. Brand mark written in Latin letters everywhere, including Greek screens, in line with eMetroon. Greek tagline: «Τα έργα, τα πάγια και η συντήρηση του ΟΚΥπΥ». The name is fixed — it goes into table prefixes, URLs and the document footers.
 
 Read this file end to end before writing code. Read `OKYPY-CAPEX-02-Claude-Design-UI-Brief.md` and the exported design tokens before touching the frontend. Every feature you build cites an R-number from §13.
 
@@ -73,7 +73,7 @@ Three things nothing on the market does for a network like ΟΚΥπΥ. Build the
 
 ## 3. Architecture
 
-Same stack as eArchive so one ops team supports both. Deviate only with a written ADR.
+Same stack as eMetroon so one ops team supports both. Deviate only with a written ADR.
 
 - **Frontend**: Next.js (App Router) + React + TypeScript, Tailwind on the exported tokens. TanStack Query and Table, react-hook-form + zod. `next-intl`, `el` default, `en` second.
 - **PWA**: same Next.js app. Service worker + IndexedDB (Dexie) outbox for the offline surfaces in §8.
@@ -199,7 +199,7 @@ Every mutating endpoint writes `audit_log`. No exceptions, no soft edits that by
 | M5 | Διακοπές & άδειες εργασίας | Shutdown requests, ICRA, ILSM, permit-to-work, clinical approvals, disruption calendar |
 | M6 | Πάγια (assets) | Register, hierarchy, criticality, condition, warranty, O&M docs, whole-life cost, replacement forecast |
 | M7 | Συντήρηση | PM schedules from uploaded SLAs, corrective and statutory work orders, backlog, contractor performance |
-| M8 | Έγγραφα | Drawings, contracts, certificates, manuals, versioning, links to eArchive protocol numbers |
+| M8 | Έγγραφα | Drawings, contracts, certificates, manuals, versioning, links to eMetroon protocol numbers |
 | M9 | Αναφορές | Board pack, capital programme, contractor scorecard, backlog by risk band, asset lifecycle cost, Excel/PDF export |
 | M10 | Γλώσσα & εγχειρίδια | Full Greek/English parity, in-app contextual help, embedded user manuals per persona, printable PDF guides generated from the same source |
 
@@ -329,7 +329,7 @@ Greek default, English full second language (§6.1). WCAG 2.1 AA. p95 page load 
 | R35 | Backlog costed and banded by risk | M7 |
 | R36 | Backlog-to-capital auto-draft business case | M7 |
 | R37 | Contractor performance scorecard | M7/M9 |
-| R38 | Document versioning, eArchive protocol link | M8 |
+| R38 | Document versioning, eMetroon protocol link | M8 |
 | R39 | Reporting set per §11 with Excel and PDF export | M9 |
 | R40 | Offline PWA for the five field surfaces | Platform |
 | R41 | Excel migration CLI with reconciliation report | Platform |
