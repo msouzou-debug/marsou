@@ -20,3 +20,4 @@ CAPEX-03 replaces §9 of CAPEX-01. Where CAPEX-01 §4 and CAPEX-03 disagree on a
 
 - **Unit count.** CAPEX-01 §1 and §4 say "nine hospitals plus three services". The Capex Plan has eleven units: eight hospitals plus three services. Troodos and Kyperounta are the same hospital, so the ninth was a double count (18/09/2026). Code and seeds use eleven; the Troodos unit carries both spellings as aliases.
 - **Project phases.** CAPEX-01 §4 lists eight phases, CAPEX-03 §4 says the target has nine. The code inserts `PREPARATION` between `IDEA` and `APPROVED` to hold the 70 preparation rows. Not yet confirmed by the owner; change `packages/shared/src/project.ts` if the ninth phase is something else.
+- **Budget changes after approval.** Finance only (19/09/2026). See ADR-0014.

@@ -47,3 +47,10 @@ The contract puts a project's own history and the names of its sponsor, manager,
 - A project whose current phase has an open gate is stuck until somebody records the gate's actual date. That is the intent, and the seeded register is deliberately in that state: every seeded project has the gate of its current phase open.
 - Changing the order of `ProjectPhase` in `packages/shared` changes what "one step" means for every project already in the register. It needs its own ADR, and a migration that says what happens to the rows.
 - Still open, and deliberately not decided here: **who may change `approvedBudget` after a project reaches APPROVED.** Today it is an ordinary field — anyone who may edit the project may edit it, and the audit log records who did and what it was before. If the owner wants a second pair of eyes on it, that is a segregation rule like the ones CAPEX-01 §10 already asks for on variations and payment certificates, and it belongs with them in M3.
+
+
+## Decisions taken 19/09/2026 (owner)
+
+- **`approvedBudget` after APPROVED.** Only `finance` may change it once the phase is APPROVED or later; `PATCH /projects/:id` refuses anyone else with `errors.budgetFinanceOnly`, and the change is audited with before and after. Before APPROVED the field is editable like any other project field. Admin is not exempt — the segregation is the point; widen it here if operations need it.
+- **`ecapital.user_display_name`** (names only, never emails) — confirmed.
+- **Unit-scoped audit reads** on project, milestone, risk and issue rows for whoever may read the unit — confirmed. `GET /audit-log` stays admin and auditor only.
