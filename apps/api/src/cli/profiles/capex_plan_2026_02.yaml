@@ -1,0 +1,199 @@
+# Import profile for MASTER_FILE - ΑΝΑΠΤΥΞΙΑΚΟΣ ΠΡΟΫΠΟΛΟΓΙΣΜΟΣ,
+# sheet «Α)Capex Plan-Updated - clean», February 2026 revision.
+#
+# CAPEX-03 §8: the mapping ships as versioned YAML, not code, so the next
+# revision of the spreadsheet is a config change. A column that moved, a
+# header that was reworded, a footer line that was renamed, a new expected
+# row count — all of them are edits to this file. Copy it to
+# capex_plan_<yyyy>_<mm>.yaml, change what moved, run `inspect` against the
+# new file, and only then run the import.
+#
+# What is NOT configurable here: the transform vocabulary. Each column names
+# one of the transforms the importer implements (see src/cli/profile.ts).
+# A genuinely new kind of cell is a code change plus an ADR.
+
+profile: capex_plan_2026_02
+source: EXCEL_CAPEX_PLAN
+period: "2026-02"
+sheet: "Α)Capex Plan-Updated - clean"
+header_row: 4
+first_data_row: 6
+last_data_row: auto # stop at 20 consecutive blank column-E rows
+blank_run_to_stop: 20
+
+# CAPEX-03 §1. A row is a FOOTER when column E is one of these, or when
+# columns A–D are all empty. Row numbers are never hardcoded: the next
+# revision will move them.
+footer_titles: ["ΣΥΝΟΛΟ", "ΑΠΟΖΗΜΙΩΣΗ ΑΠΌ ΣΑΑ", "ΔΑΠΑΝΗ (ΝΕΤ)"]
+
+# CAPEX-03 §2 col E. The register's own key, because the sheet has none:
+# column B is blank on four rows and holds text on seven (ADR-0014).
+natural_key: [hospital, title_normalised]
+
+# CAPEX-03 §0 and §1. The import stops and reports rather than writing
+# anything when the classification does not produce exactly these.
+expected_counts:
+  project: 113
+  footer: 3
+
+# CAPEX-03 §2 col E: the trailing parenthetical is a note, not part of the
+# title, when it opens with one of these. Matched with accents folded and
+# case ignored. «or similar» in the spec is this list.
+title_note_prefixes:
+  - "μικρές ανάγκες"
+  - "μικρές εργασίες"
+  - "μικροεργασίες"
+  - "μικρής κλίμακας"
+
+# CAPEX-03 §2 col F.
+budget_articles: ["08021", "08022", "08023"]
+
+# CAPEX-03 §2 col A. «Αναπτυξιακά Έργα» is the only value the sheet holds and
+# nine rows are blank; both land on the same category and the blank ones are
+# flagged V03. The raw cell is kept in project.category_source either way.
+category_map:
+  "Αναπτυξιακά Έργα": CAPITAL_WORKS
+category_default: CAPITAL_WORKS
+
+# CAPEX-03 §3 col C. The directorate is a grouping above the unit and is
+# stored on org_unit, never derived from the unit's name — Troodos sits under
+# Λεμεσού–Πάφου and nothing in its name says so. The importer reads this
+# column to CHECK the unit it resolved, and reports a disagreement; it does
+# not rewrite an organisational fact from a project row.
+directorate_map:
+  "ΛΕΜΕΣΟΥ-ΠΑΦΟΥ": LEMESOU_PAFOU
+  "ΛΕΜΕΣΟΥ–ΠΑΦΟΥ": LEMESOU_PAFOU
+  "ΛΕΥΚΩΣΙΑΣ": LEFKOSIAS
+  "ΛΑΡΝΑΚΑΣ-ΑΜΜΟΧΩΣΤΟΥ": LARNAKAS_AMMOCHOSTOU
+  "ΛΑΡΝΑΚΑΣ–ΑΜΜΟΧΩΣΤΟΥ": LARNAKAS_AMMOCHOSTOU
+  "ΔΥΨΥ": DYPSY
+  "ΠΦΥ": PFY
+  "ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ": PFY
+  "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ": AMBULANCE
+
+# CAPEX-03 §2 col L.
+funding_map:
+  "ΣΑΑ": RRF
+funding_default: STATE_BUDGET
+
+# CAPEX-03 §4. The source has three states, the register has nine.
+#
+# AMBIGUITY, resolved in this file rather than in code: §4 maps
+# ΟΛΟΚΛΗΡΩΘΗΚΕ to a phase it calls COMPLETED, which is not one of the nine
+# phases in packages/shared/src/project.ts (IDEA … CLOSED). CLOSED is the
+# terminal phase and is what a finished works programme is, so that is what
+# this profile maps it to. If ΟΚΥπΥ means PRACTICAL_COMPLETION, change the
+# line below — nothing in the code names a phase.
+phase_map:
+  "ΣΤΑΔΙΟ ΠΡΟΕΤΟΙΜΑΣΙΑΣ": PREPARATION
+  "ΣΕ ΕΞΕΛΙΞΗ": IN_PROGRESS
+  "ΟΛΟΚΛΗΡΩΘΗΚΕ": CLOSED
+phase_default: PREPARATION # blank → PREPARATION and flagged (§4)
+# V09: «phase = PREPARATION and contractual commitment = true».
+preparation_phase: PREPARATION
+
+# V08: «phase = COMPLETED implies actual ≥ 95% of estimated total» reads
+# against whichever phases this profile treats as finished.
+completed_phases: [CLOSED, PRACTICAL_COMPLETION]
+v08_min_actual_ratio: 0.95
+
+# CAPEX-03 §5 V01: estimated total (O) = actual (S) + forecast years (U:X),
+# to within this many euro.
+v01_tolerance_eur: 10
+
+# CAPEX-03 §9: a changed amount larger than this is listed in the diff
+# against the previous import.
+diff_amount_threshold_eur: 1000
+
+# CAPEX-03 §8.
+budget_vintages:
+  - { id: "2026-02", type: FORECAST, columns: { 2026: U, 2027: V, 2028: W, 9999: X } }
+  - { id: "2025-prior", type: BUDGET, columns: { 2025: AF, 2026: AG, 2027: AH, 9999: AI } }
+
+# CAPEX-03 §2 col S: cumulative from the start of the project to this date
+# despite what the header says, so it is posted as one opening balance.
+opening_actual: { column: S, as_at: "2026-03-31" }
+
+ignore_columns: [G, R, T, Y, Z, AJ]
+
+# CAPEX-03 §2 col N and §5 V12. The column sums €141.9m with a €70.9m
+# maximum, larger than any single project's cost, so it is read and logged
+# and NOT written until V12 clears on it. Deleting this block is what
+# "importing column N" means; it is not a code change.
+deferred_columns:
+  - column: N
+    target: external_funding_amount_v2
+    until: V12
+    reason_el: "Η στήλη N δεν εισάγεται όσο ο κανόνας V12 δεν περνά."
+    reason_en: "Column N is not imported while rule V12 does not pass."
+
+# CAPEX-03 §9: the per-column value totals the report ties back to the file,
+# to the cent, and the rule V11 batch check.
+footer_total_columns: [O, S, U, V, W, X, AF, AG, AH, AI]
+footer_total_row_title: "ΣΥΝΟΛΟ"
+
+# CAPEX-03 §2, every column of the sheet. `target` names the field, and
+# `transform` names how the cell is read. A column the profile does not list
+# is reported by `inspect` as unknown.
+columns:
+  A: { header: "ΚΑΤΗΓΟΡΙΑ ΔΑΠΑΝΗΣ", target: project.category, transform: category }
+  B: { header: "Α/Α", target: project.source_row_ref, transform: text }
+  C: { header: "Διεύθυνση", target: org_unit.directorate, transform: directorate }
+  D: { header: "ΝΟΣΟΚΟΜΕΙΟ", target: project.org_unit_id, transform: org_unit }
+  E: { header: "ΕΡΓΟ", target: project.title_el, transform: title }
+  F: { header: "ΑΡΘΡΟ", target: project.budget_article, transform: budget_article }
+  G: { header: "", target: none, transform: ignore }
+  H:
+    {
+      header: "Δεσμεύσεις ΠτΚΔ?",
+      target: project.commitment_flag,
+      transform: flag_with_note,
+    }
+  I: { header: "Στο Σχέδιο Δράσης?", target: project.action_plan_ref, transform: flag_with_ref }
+  J: { header: "Προϋπολογισμός 2026?", target: project.in_budget_2026, transform: flag_with_note }
+  K: { header: "Συμβατική Υποχρέωση", target: project.contractual_commitment, transform: flag }
+  L: { header: "Χρηματοδότηση από 3ους?", target: project.funding_source, transform: funding_source }
+  M: { header: "Ποσό Χρηματοδότησης", target: project.external_funding_amount, transform: amount }
+  N:
+    {
+      header: "Ποσό Χρηματοδότησης (Αναθεωρημένο)",
+      target: project.external_funding_amount_v2,
+      transform: amount,
+    }
+  O:
+    {
+      header: "ΕΚΤΙΜΩΜΕΝΗ ΣΥΝΟΛΙΚΗ ΔΑΠΑΝΗ (incl. VAT)",
+      target: project.approved_budget,
+      transform: amount,
+    }
+  P: { header: "Ημερομηνία έναρξης", target: project.planned_start, transform: date }
+  Q: { header: "Ημερομηνία ολοκλήρωσης", target: project.planned_finish, transform: date }
+  R: { header: "% Υλοποίησης", target: none, transform: ignore }
+  S:
+    {
+      header: "Πραγματική δαπάνη από αρχή έργου μέχρι 03/2026",
+      target: cost_txn.opening_actual,
+      transform: amount,
+    }
+  T: { header: "Εκτιμώμενη δαπάνη υπόλοιπο 2026", target: none, transform: ignore }
+  U: { header: "ΔΑΠΑΝΗ 2026", target: budget_line.2026-02.2026, transform: amount }
+  V: { header: "ΔΑΠΑΝΗ 2027", target: budget_line.2026-02.2027, transform: amount }
+  W: { header: "ΔΑΠΑΝΗ 2028", target: budget_line.2026-02.2028, transform: amount }
+  X: { header: "ΔΑΠΑΝΕΣ ΜΕΤΑ ΤΟ 2028", target: budget_line.2026-02.9999, transform: amount }
+  Y: { header: "ΣΥΝΟΛΟ", target: none, transform: ignore }
+  Z: { header: "TOTALS CHECK", target: none, transform: ignore }
+  AA: { header: "ΣΤΑΔΙΟ ΥΛΟΠΟΙΗΣΗΣ", target: project.phase, transform: phase }
+  AB: { header: "Αναθεωρημένη ημ. έναρξης", target: project.forecast_start, transform: date }
+  AC: { header: "Αναθεωρημένη ημ. ολοκλήρωσης", target: project.forecast_finish, transform: date }
+  AD: { header: "Σχόλια από Τεχνικό Τμήμα", target: project_note.technical, transform: note }
+  AE: { header: "Αρχείο Εσωτερικού Ελέγχου", target: project.internal_audit_file, transform: flag }
+  AF: { header: "ΠΡΟΫΠΟΛΟΓΙΣΜΟΣ 2025", target: budget_line.2025-prior.2025, transform: amount }
+  AG: { header: "ΠΡΟΫΠΟΛΟΓΙΣΜΟΣ 2026", target: budget_line.2025-prior.2026, transform: amount }
+  AH: { header: "ΠΡΟΫΠΟΛΟΓΙΣΜΟΣ 2027", target: budget_line.2025-prior.2027, transform: amount }
+  AI:
+    {
+      header: "ΠΡΟΫΠΟΛΟΓΙΣΜΟΣ μετά το 2027",
+      target: budget_line.2025-prior.9999,
+      transform: amount,
+    }
+  AJ: { header: "ΣΥΝΟΛΟ", target: none, transform: ignore }
