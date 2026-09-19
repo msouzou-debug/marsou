@@ -76,7 +76,27 @@ directorate_map:
   "ΔΥΨΥ": DYPSY
   "ΠΦΥ": PFY
   "ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ": PFY
-  "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ": AMBULANCE
+# «ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ» is deliberately absent from the map above. The
+# directorate of a unit that is not ΟΚΥπΥ's is not a fact this register
+# carries; the spelling is listed below instead, and the row never reaches a
+# unit for its directorate to be checked against.
+
+# ADR-0024 and the CAPEX-03 errata (owner decision, 19/09/2026). Spellings in
+# column D that name an organisation ΟΚΥπΥ does not run. A row on one of them
+# is rejected with V15 — «unit not in scope» — and is not imported, blocking
+# the commit the way any other ERROR rule does.
+#
+# This is not the same thing as V04. V04 says a spelling was not recognised
+# and tells the reader to add it as an alias of the unit it belongs to; doing
+# that here would put the Ambulance Service back in the register, which is
+# precisely what the owner decided against. The two rules give opposite
+# instructions, so they are two rules.
+#
+# The February file has four ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows. They will be reported,
+# per row, in Greek, and the file cannot be committed until Technical Services
+# take them out of the spreadsheet. That is the intended answer.
+units_out_of_scope:
+  - "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"
 
 # CAPEX-03 §2 col L.
 funding_map:

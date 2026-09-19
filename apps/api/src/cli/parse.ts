@@ -371,6 +371,9 @@ function parseProjectRow(
   // each column's own transform. Both are honoured, so a column added to
   // `ignore_columns` alone still stops being read.
   const ignored = new Set(profile.ignore_columns);
+  // ADR-0024: the spellings that name an organisation outside ΟΚΥπΥ, folded
+  // the same way the alias index folds its keys.
+  const outOfScope = new Set(profile.units_out_of_scope.map(key));
 
   for (const [column, spec] of Object.entries(profile.columns)) {
     const cell = cellOf(row, column);
@@ -411,6 +414,19 @@ function parseProjectRow(
           break;
         }
         draft.unitSource = collapse(cell.raw);
+        // RULE (V15, ADR-0024): a spelling the profile lists as out of scope
+        // names an organisation ΟΚΥπΥ does not run, so the row is rejected
+        // and no unit is resolved for it. This is checked before the lookup,
+        // not after: V04's answer — "add this spelling as an alias" — is the
+        // wrong instruction for a unit that must never exist here.
+        if (outOfScope.has(key(cell.raw))) {
+          exceptions.push(
+            exception("V15", "ERROR", rowNo, title, collapse(cell.raw), {
+              value: collapse(cell.raw),
+            }),
+          );
+          break;
+        }
         const unit = units.get(key(cell.raw));
         if (!unit) {
           exceptions.push(

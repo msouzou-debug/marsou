@@ -1,23 +1,28 @@
 /**
- * The fourteen validation rules of CAPEX-03 §5, with the severities the spec
- * gives them.
+ * The fifteen validation rules — CAPEX-03 §5's fourteen and V15, added by the
+ * errata of 19/09/2026 (ADR-0024) — with the severities the spec gives them.
  *
  * R41. ERROR blocks the row, WARN imports it flagged, INFO is logged only.
  * V11 runs at batch level. The importer commits only if V04, V06, V07, V10,
- * V11, V12 and V13 all pass (§9); everything else imports flagged, and
+ * V11, V12, V13 and V15 all pass (§9); everything else imports flagged, and
  * nothing is ever fixed in the spreadsheet — the exceptions go into the
  * report and somebody at Technical Services resolves them in the system with
  * their name against it.
  *
- * V03, V04, V05 and V06 fire while the cells are being read and come out of
- * `parse.ts`; the rest need the whole row, or the whole file, and are here.
+ * V03, V04, V05, V06 and V15 fire while the cells are being read and come out
+ * of `parse.ts`; the rest need the whole row, or the whole file, and are here.
  */
 import type { ImportException, ParseResult } from "./parse";
 import type { ImportProfile } from "./profile";
 import { formatEur, toCents } from "./text";
 
-/** §9: these seven have to pass or the run stays a dry run. */
-export const BLOCKING_RULES = ["V04", "V06", "V07", "V10", "V11", "V12", "V13"] as const;
+/**
+ * §9: these have to pass or the run stays a dry run. V15 is one of them for
+ * the same reason V04 is — a row whose unit could not be resolved has nowhere
+ * to go — except that V15's row has a unit and it is the wrong organisation's.
+ * Importing it would put another body's capital works in ΟΚΥπΥ's register.
+ */
+export const BLOCKING_RULES = ["V04", "V06", "V07", "V10", "V11", "V12", "V13", "V15"] as const;
 
 export interface ColumnTotal {
   column: string;

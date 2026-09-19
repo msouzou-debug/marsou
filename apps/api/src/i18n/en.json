@@ -139,7 +139,8 @@
       "V11": "Column totals tie to the file",
       "V12": "External funding fits inside the project cost",
       "V13": "Unit and title are unique",
-      "V14": "Forecast years are not negative"
+      "V14": "Forecast years are not negative",
+      "V15": "The unit is part of ΟΚΥπΥ"
     },
     "rules": {
       "V01": "The estimated total ({total}) does not equal actual spend plus the forecast years ({sum}); the difference is {diff}. Check the row in the file and correct the amount in the system after the import.",
@@ -155,7 +156,8 @@
       "V11": "Column {column} adds up to {imported}, while the file's own total says {footer}; the difference is {diff}. Check the file's totals before committing the import.",
       "V12": "External funding ({funding}) is larger than the estimated total cost ({total}). Settle which of the two is right before importing.",
       "V13": "Another row already has this unit ({unit}) and this title, at row {other}. Give one of the two projects a distinct title.",
-      "V14": "The forecast for {year} in column {column} is negative ({value}). Fix the amount in the file."
+      "V14": "The forecast for {year} in column {column} is negative ({value}). Fix the amount in the file.",
+      "V15": "The unit «{value}» is not part of ΟΚΥπΥ. The project is not imported into the register. Take the row out of the file, or send it to the body that now runs the service."
     },
     "report": {
       "title": "Import reconciliation report — capital budget",

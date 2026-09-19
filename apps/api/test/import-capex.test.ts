@@ -171,7 +171,7 @@ describe("capex plan import (R41)", () => {
 
   // --------------------------------------------------------------- §5 --
 
-  it("fires V01, V02, V03, V05, V06, V08 and V09 on the February file", async () => {
+  it("fires V01, V02, V03, V05, V06, V08, V09 and V15 on the February file", async () => {
     const outcome = await run(FILES.main);
     const byRule = new Map(outcome.report.ruleCounts.map((r) => [r.rule, r]));
 
@@ -183,6 +183,7 @@ describe("capex plan import (R41)", () => {
       "V06",
       "V08",
       "V09",
+      "V15",
     ]);
     // CAPEX-03 §0 and §5, the counts the file is built to produce. V01 is
     // the one that differs from §5's "3 rows": the third row misses by €2,
@@ -195,6 +196,9 @@ describe("capex plan import (R41)", () => {
     expect(byRule.get("V06")).toMatchObject({ count: 6, severity: "ERROR" });
     expect(byRule.get("V08")).toMatchObject({ count: 1, severity: "WARN" });
     expect(byRule.get("V09")).toMatchObject({ count: 1, severity: "WARN" });
+    // ADR-0024: the four ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows the February file still
+    // carries. They are rejected, not re-homed, and the sentence says so.
+    expect(byRule.get("V15")).toMatchObject({ count: 4, severity: "ERROR" });
 
     // Every exception names the row, the project and the offending value.
     const v06 = outcome.report.exceptions.filter((e) => e.rule === "V06");
@@ -202,9 +206,17 @@ describe("capex plan import (R41)", () => {
     expect(v06.some((e) => e.value === "περίπου 1,2 εκ.")).toBe(true);
     expect(v06.some((e) => e.messageEl.includes("Διορθώστε τον τύπο του κελιού"))).toBe(true);
 
-    // V06 blocks, so the six rows it fired on are not imported.
-    expect(outcome.report.counts.rejected).toBe(6);
-    expect(outcome.report.blockingRules).toEqual(["V06"]);
+    const v15 = outcome.report.exceptions.filter((e) => e.rule === "V15");
+    expect(v15).toHaveLength(4);
+    expect(v15.every((e) => e.value === "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ")).toBe(true);
+    expect(v15[0].messageEl).toContain("δεν ανήκει στον ΟΚΥπΥ");
+    // V15 is not V04: nothing here tells the reader to add an alias.
+    expect(v15.every((e) => !e.messageEl.includes("εναλλακτικές ονομασίες"))).toBe(true);
+
+    // V06 and V15 both block, so the six rows one fired on and the four rows
+    // the other fired on are not imported.
+    expect(outcome.report.counts.rejected).toBe(10);
+    expect(outcome.report.blockingRules).toEqual(["V06", "V15"]);
   });
 
   it("fires V04, V07, V10, V11, V12, V13 and V14 on the rows built for them", async () => {

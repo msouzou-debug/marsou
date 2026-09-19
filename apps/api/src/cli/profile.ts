@@ -81,6 +81,14 @@ export const ImportProfile = z
     category_map: z.record(z.string(), z.string()).default({}),
     category_default: z.string().min(1),
     directorate_map: z.record(z.string(), z.string()).default({}),
+    /**
+     * CAPEX-03 errata, ADR-0024: spellings in column D that name a unit
+     * ΟΚΥπΥ does not run. They are not aliases with a missing row — they are
+     * organisations outside the register — so a row on one of them is
+     * rejected with V15 and never resolved to a unit. Matched the way every
+     * other lookup in this file is: folded and collapsed.
+     */
+    units_out_of_scope: z.array(z.string().min(1)).default([]),
     funding_map: z.record(z.string(), z.string()).default({}),
     funding_default: z.string().min(1),
     phase_map: z.record(z.string(), z.string()),
