@@ -24,5 +24,13 @@
   "S09-detail": { "route": "/certificates/[id]", "section": "S09-payment-certs", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
   "S09a": { "route": "/cost/accruals", "section": "S09a-accruals", "persona": ["admin", "estates_head", "finance", "executive_readonly", "auditor_readonly"] },
   "S10": { "route": "/cost/imports", "section": "S10-sap-import", "persona": ["admin", "finance"] },
-  "S10-detail": { "route": "/cost/imports/[id]", "section": "S10-sap-import", "persona": ["admin", "finance"] }
+  "S10-detail": { "route": "/cost/imports/[id]", "section": "S10-sap-import", "persona": ["admin", "finance"] },
+  "S11": { "route": "/permits", "section": "S11-permits", "persona": ["admin", "estates_head", "project_engineer", "technician", "clinical_approver", "executive_readonly", "auditor_readonly"] },
+  "S11a-new": { "route": "/permits/new", "section": "S11a-permit-request", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S11a-edit": { "route": "/permits/[id]/edit", "section": "S11a-permit-request", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S11-detail": { "route": "/permits/[id]", "section": "S11-permits", "persona": ["admin", "estates_head", "project_engineer", "technician", "clinical_approver", "executive_readonly", "auditor_readonly"] },
+  "S12": { "route": "/permits/[id]/icra", "section": "S12-icra", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S13": { "route": "/permits/[id]/print", "section": "S13-permit-print", "persona": ["admin", "estates_head", "project_engineer", "technician", "clinical_approver"] },
+  "S14": { "route": "/approvals", "section": "S14-approvals", "persona": ["admin", "estates_head", "clinical_approver"] },
+  "S15": { "route": "/calendar", "section": "S15-calendar", "persona": ["admin", "estates_head", "project_engineer", "clinical_approver", "executive_readonly", "auditor_readonly"] }
 }

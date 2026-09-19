@@ -204,6 +204,60 @@
       "label": "Cost navigation",
       "imports": "SAP import",
       "accruals": "Accruals"
+    },
+    "area-picker": {
+      "empty": "No areas are recorded for this unit.",
+      "indirectTitle": "Indirectly affected areas",
+      "viaSystem": "Indirect impact through {system}",
+      "highestRiskGroup": "Highest risk group: {group}"
+    },
+    "icra-matrix-grid": {
+      "caption": "ICRA matrix, work type by risk group"
+    },
+    "controls-checklist": {
+      "acknowledge": "Acknowledged",
+      "during": "During",
+      "onCompletion": "On completion",
+      "empty": "No controls are recorded."
+    },
+    "closeout-checklist": {
+      "legend": "Closeout checklist",
+      "boxes": {
+        "barriersRemoved": "Temporary barriers removed.",
+        "areaCleaned": "Area cleaned.",
+        "airBalanceRestored": "Air balance restored.",
+        "systemsTestedAndReturned": "Systems tested and returned to service.",
+        "fireSystemsReenabled": "Fire systems re-enabled."
+      },
+      "noteLabel": "Note",
+      "clinicalAcceptance": "Accepted by the clinical owner",
+      "acceptedBy": "Accepted by {name}.",
+      "notClinicalOwner": "Only the clinical owner can accept it.",
+      "incomplete": "The checklist is not complete yet."
+    },
+    "calendar-grid": {
+      "empty": "There are no shutdowns for this period.",
+      "clashWith": "Clashes with permit {ref}."
+    },
+    "inbox-list": {
+      "empty": "There are no pending approvals.",
+      "groups": {
+        "SHUTDOWN": "Shutdowns",
+        "VARIATION": "Variations",
+        "PAYMENT_CERT": "Certificates",
+        "OTHER": "Other"
+      },
+      "sla": {
+        "GREEN": "Within SLA",
+        "AMBER": "Approaching due",
+        "RED": "Close to breach",
+        "BREACHED": "Breached"
+      }
+    },
+    "permit-tabs": {
+      "label": "Permit tabs",
+      "permits": "Permits",
+      "calendar": "Disruption calendar"
     }
   },
   "nav": {
@@ -394,7 +448,9 @@
       "contractsEmpty": "This project has no contracts.",
       "milestonesViewAll": "All milestones",
       "risksViewAll": "All risks",
-      "issuesViewAll": "All issues"
+      "issuesViewAll": "All issues",
+      "openPermitsTitle": "Open permits",
+      "openPermitsEmpty": "There are no open permits for this project."
     },
     "s05": {
       "title": "Schedule",
@@ -763,7 +819,13 @@
       "deactivateTitle": "Switch off the account for {name}?",
       "deactivateConsequence": "They will not be able to sign in, and the session they have open stops at their next action.",
       "deactivateConfirm": "Switch off",
-      "noPermissionAskRole": "The system administrator manages users and their roles."
+      "noPermissionAskRole": "The system administrator manages users and their roles.",
+      "approverScopes": {
+        "title": "Approval areas and roles",
+        "areasLabel": "Roles by area",
+        "unitsLabel": "Roles by unit",
+        "pickArea": "Choose an area"
+      }
     },
     "s04": {
       "title": "Cost",
@@ -950,6 +1012,149 @@
         "readOnlyPhone": "The matching queue is view-only on this screen. Use a computer or tablet to assign.",
         "committed": "The import was committed."
       }
+    },
+    "s11": {
+      "title": "Shutdowns and permits",
+      "caption": "Permits table",
+      "empty": "There are no work permits.",
+      "noRefYet": "No reference yet",
+      "columns": {
+        "ref": "Reference",
+        "title": "Title",
+        "systems": "Systems",
+        "window": "Work window",
+        "icraClass": "ICRA class",
+        "pendingApprovals": "Pending approvals"
+      },
+      "filters": {
+        "status": "Status",
+        "system": "System",
+        "all": "All"
+      },
+      "prevPage": "Previous page",
+      "nextPage": "Next page"
+    },
+    "s11a": {
+      "titleNew": "New shutdown request",
+      "titleEdit": "Edit shutdown request",
+      "continueToIcra": "Continue to ICRA",
+      "saving": "Saving…",
+      "duration": "Duration: {hours} hours {minutes} minutes",
+      "ilsmMandatory": "Interim life safety measures (ILSM) become mandatory.",
+      "steps": {
+        "system": "System",
+        "areas": "Affected areas",
+        "dates": "Date and duration",
+        "overview": "Overview",
+        "areasHint": "Choose the areas affected in {unit}."
+      },
+      "fields": {
+        "systems": "Systems",
+        "workKind": "Work kind",
+        "title": "Title",
+        "description": "Description",
+        "project": "Project",
+        "contract": "Contract",
+        "none": "None",
+        "plannedStart": "Planned start",
+        "plannedEnd": "Planned end",
+        "ilsmTriggers": "Are fire or escape systems affected?",
+        "contingencyPlan": "Contingency plan"
+      }
+    },
+    "s11detail": {
+      "facts": "Facts",
+      "areasDirect": "Directly affected areas",
+      "areasIndirect": "Indirectly affected areas",
+      "ilsmTitle": "Interim life safety measures (ILSM)",
+      "fireOfficerNotified": "The fire officer was notified on {date}.",
+      "fireOfficerNotNotified": "The fire officer has not been notified yet.",
+      "approvals": "Approvals",
+      "timelineTitle": "History",
+      "breachLine": "Work window breach: {time}",
+      "closedSummary": "The permit was closed on {date}.",
+      "startWork": {
+        "button": "Start work",
+        "notApproved": "The permit must be approved before starting.",
+        "beforeWindow": "The planned window has not started yet.",
+        "afterWindow": "The planned window has ended."
+      },
+      "closeout": {
+        "button": "Close out",
+        "title": "Permit closeout"
+      },
+      "decide": {
+        "commentPlaceholder": "Write your comment.",
+        "reject": "Reject"
+      },
+      "rejectDialog": {
+        "title": "Reject the permit?",
+        "consequence": "The permit will be marked rejected and the requester notified."
+      },
+      "timeline": {
+        "requested": "raised the request",
+        "submitted": "submitted the permit for approval",
+        "approved": "approved",
+        "returned": "returned with comments",
+        "rejected": "rejected",
+        "breached": "breached the work window",
+        "closed": "closed the permit"
+      }
+    },
+    "s12": {
+      "title": "ICRA for permit {ref}",
+      "steps": {
+        "activity": "Work type",
+        "surrounding": "Area risk group",
+        "class": "Class",
+        "submit": "Submit"
+      },
+      "affectedAreasTitle": "Affected areas",
+      "surroundingTitle": "Surrounding areas"
+    },
+    "s13": {
+      "headerTitle": "PERMIT TO WORK",
+      "controlsTitle": "Controls",
+      "approversTitle": "Approvals"
+    },
+    "s14": {
+      "notDecidable": "Open the full record to decide.",
+      "open": "Open",
+      "shortcuts": {
+        "title": "Keyboard shortcuts",
+        "move": "Move",
+        "open": "Open",
+        "forward": "Forward to next"
+      }
+    },
+    "s15": {
+      "title": "Disruption calendar",
+      "hoursTitle": "Clinical disruption hours",
+      "filters": {
+        "areaType": "Area type"
+      },
+      "months": {
+        "jan": "January",
+        "feb": "February",
+        "mar": "March",
+        "apr": "April",
+        "may": "May",
+        "jun": "June",
+        "jul": "July",
+        "aug": "August",
+        "sep": "September",
+        "oct": "October",
+        "nov": "November",
+        "dec": "December"
+      },
+      "hours": {
+        "month": "Month",
+        "theatre": "Theatre hours",
+        "icu": "ICU hours",
+        "permits": "Permits",
+        "caption": "Clinical disruption hours by unit and month",
+        "empty": "No disruption hours are recorded."
+      }
     }
   },
   "states": {
@@ -1107,5 +1312,142 @@
     "clinical_approver": "Clinical approver",
     "executive_readonly": "Executive, read-only",
     "auditor_readonly": "Auditor, read-only"
+  },
+  "areaType": {
+    "THEATRE": "Theatre",
+    "ICU": "ICU",
+    "WARD": "Ward",
+    "OPD": "Outpatient clinics",
+    "LAB": "Laboratory",
+    "PLANT": "Plant room",
+    "OFFICE": "Office",
+    "OTHER": "Other area"
+  },
+  "permitSystem": {
+    "ELECTRICAL": "Electrical",
+    "HVAC": "HVAC",
+    "MEDICAL_GAS": "Medical gases",
+    "WATER": "Water",
+    "FIRE": "Fire",
+    "IT": "IT",
+    "STEAM": "Steam",
+    "DRAINAGE": "Drainage"
+  },
+  "riskGroup": {
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High",
+    "HIGHEST": "Highest"
+  },
+  "riskGroupShort": {
+    "LOW": "1",
+    "MEDIUM": "2",
+    "HIGH": "3",
+    "HIGHEST": "4"
+  },
+  "permitStatus": {
+    "DRAFT": "Draft",
+    "SUBMITTED": "Submitted",
+    "CLINICAL_REVIEW": "Clinical review",
+    "APPROVED": "Approved",
+    "ACTIVE": "Active",
+    "BREACH": "Breach",
+    "CLOSED": "Closed",
+    "REJECTED": "Rejected"
+  },
+  "approvalRole": {
+    "INFECTION_CONTROL": "Infection control",
+    "WARD_MANAGER": "Ward manager",
+    "NURSING": "Nursing",
+    "TECHNICAL": "Technical services",
+    "SAFETY": "Safety",
+    "HOSPITAL_DIRECTOR": "Hospital director"
+  },
+  "approvalDecision": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "RETURNED": "Returned",
+    "REJECTED": "Rejected"
+  },
+  "routingReason": {
+    "classThreeOrAbove": "Required because the class is III or above.",
+    "clinicalAreaTouched": "Required because a clinical area is affected.",
+    "inpatientAreaTouched": "Required because an inpatient area is affected.",
+    "always": "Always required for a system shutdown.",
+    "ilsmRequired": "Required because interim life safety measures (ILSM) are needed.",
+    "durationAboveThreshold": "Required because the duration is above the threshold.",
+    "classFive": "Required because the class is V."
+  },
+  "ilsmTrigger": {
+    "FIRE_DETECTION": "Fire detection",
+    "FIRE_SUPPRESSION": "Fire suppression",
+    "COMPARTMENTATION": "Compartmentation",
+    "EXITS": "Exits",
+    "EVACUATION_ROUTES": "Evacuation routes"
+  },
+  "ilsmMeasure": {
+    "INTERIM_MEASURES_LIST": "Interim measures list",
+    "FIRE_WATCH": "Fire watch",
+    "EXTRA_DRILLS": "Extra drills",
+    "NOTIFY_FIRE_OFFICER": "Notify the fire officer",
+    "TEMPORARY_DETECTION": "Temporary detection",
+    "TEMPORARY_SIGNAGE": "Temporary signage",
+    "ALTERNATIVE_EXIT_ROUTE": "Alternative exit route"
+  },
+  "surroundingSide": {
+    "ABOVE": "Above",
+    "BELOW": "Below",
+    "LATERAL": "Lateral",
+    "BEHIND": "Behind",
+    "IN_FRONT": "In front"
+  },
+  "workKind": {
+    "CONSTRUCTION": "Construction",
+    "RENOVATION": "Renovation",
+    "MAINTENANCE": "Maintenance",
+    "INSPECTION": "Inspection",
+    "OTHER": "Other"
+  },
+  "icraActivityType": {
+    "A": {
+      "label": "Τύπος A",
+      "descriptionEl": "Επιθεώρηση και μη επεμβατικές δραστηριότητες, χωρίς παραγωγή σκόνης.",
+      "descriptionEn": "Inspection and non-invasive activities, no dust generated."
+    },
+    "B": {
+      "label": "Τύπος B",
+      "descriptionEl": "Μικρής κλίμακας, μικρής διάρκειας εργασίες, με περιορισμένη παραγωγή σκόνης.",
+      "descriptionEn": "Small scale, short duration work, minimal dust generated."
+    },
+    "C": {
+      "label": "Τύπος C",
+      "descriptionEl": "Εργασίες μεσαίας έως μεγάλης διάρκειας, με παραγωγή σκόνης.",
+      "descriptionEn": "Medium to long duration work generating dust."
+    },
+    "D": {
+      "label": "Τύπος D",
+      "descriptionEl": "Εκτεταμένες κατασκευαστικές εργασίες μεγάλης διάρκειας.",
+      "descriptionEn": "Major, long duration construction activities."
+    }
+  },
+  "icraRefusal": {
+    "classTwoInvalidForWorks": "Class II does not apply to construction or renovation work. Choose a different work type or review the areas."
+  },
+  "permitClash": {
+    "REDUNDANT_HALVES": "Both halves of the same redundant system are being shut down.",
+    "TWO_THEATRES": "Two theatres in the same unit are shut down at the same time.",
+    "SAME_AREA_OVERLAP": "Another permit overlaps the same area and time window ({ref})."
+  },
+  "areaApprovalRole": {
+    "WARD_MANAGER": "Ward manager",
+    "NURSING": "Nursing",
+    "INFECTION_CONTROL": "Infection control"
+  },
+  "unitApprovalRole": {
+    "TECHNICAL": "Technical services",
+    "SAFETY": "Safety",
+    "HOSPITAL_DIRECTOR": "Hospital director",
+    "INFECTION_CONTROL": "Infection control",
+    "NURSING": "Nursing"
   }
 }

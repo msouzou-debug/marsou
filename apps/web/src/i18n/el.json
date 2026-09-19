@@ -204,6 +204,60 @@
       "label": "Πλοήγηση κόστους",
       "imports": "Εισαγωγή SAP",
       "accruals": "Δεδουλευμένα"
+    },
+    "area-picker": {
+      "empty": "Δεν υπάρχουν καταχωρισμένοι χώροι για αυτή τη μονάδα.",
+      "indirectTitle": "Έμμεσα επηρεαζόμενοι χώροι",
+      "viaSystem": "Έμμεση επίπτωση μέσω {system}",
+      "highestRiskGroup": "Υψηλότερη ομάδα κινδύνου: {group}"
+    },
+    "icra-matrix-grid": {
+      "caption": "Πίνακας ICRA, τύπος εργασίας επί ομάδα κινδύνου"
+    },
+    "controls-checklist": {
+      "acknowledge": "Ενημερώθηκα",
+      "during": "Κατά τη διάρκεια",
+      "onCompletion": "Με την ολοκλήρωση",
+      "empty": "Δεν υπάρχουν καταχωρισμένα μέτρα ελέγχου."
+    },
+    "closeout-checklist": {
+      "legend": "Λίστα ελέγχου κλεισίματος",
+      "boxes": {
+        "barriersRemoved": "Αφαιρέθηκαν τα προσωρινά φράγματα.",
+        "areaCleaned": "Καθαρίστηκε ο χώρος.",
+        "airBalanceRestored": "Αποκαταστάθηκε η ισορροπία αέρα.",
+        "systemsTestedAndReturned": "Τα συστήματα ελέγχθηκαν και επανήλθαν σε λειτουργία.",
+        "fireSystemsReenabled": "Επανενεργοποιήθηκαν τα συστήματα πυρασφάλειας."
+      },
+      "noteLabel": "Σημείωση",
+      "clinicalAcceptance": "Αποδοχή από κλινικό υπεύθυνο",
+      "acceptedBy": "Την αποδέχθηκε ο/η {name}.",
+      "notClinicalOwner": "Μόνο ο κλινικός υπεύθυνος μπορεί να την αποδεχθεί.",
+      "incomplete": "Η λίστα ελέγχου δεν έχει ολοκληρωθεί ακόμη."
+    },
+    "calendar-grid": {
+      "empty": "Δεν υπάρχουν διακοπές για αυτό το διάστημα.",
+      "clashWith": "Συγκρούεται με την άδεια {ref}."
+    },
+    "inbox-list": {
+      "empty": "Δεν υπάρχουν εκκρεμείς εγκρίσεις.",
+      "groups": {
+        "SHUTDOWN": "Διακοπές",
+        "VARIATION": "Τροποποιήσεις",
+        "PAYMENT_CERT": "Πιστοποιήσεις",
+        "OTHER": "Άλλα"
+      },
+      "sla": {
+        "GREEN": "Εντός SLA",
+        "AMBER": "Πλησιάζει η προθεσμία",
+        "RED": "Κοντά στην εκπρόθεσμη",
+        "BREACHED": "Εκπρόθεσμο"
+      }
+    },
+    "permit-tabs": {
+      "label": "Καρτέλες αδειών",
+      "permits": "Άδειες",
+      "calendar": "Ημερολόγιο διαταράξεων"
     }
   },
   "nav": {
@@ -394,7 +448,9 @@
       "contractsEmpty": "Δεν υπάρχουν συμβάσεις για αυτό το έργο.",
       "milestonesViewAll": "Όλα τα ορόσημα",
       "risksViewAll": "Όλοι οι κίνδυνοι",
-      "issuesViewAll": "Όλα τα θέματα"
+      "issuesViewAll": "Όλα τα θέματα",
+      "openPermitsTitle": "Ανοικτές άδειες",
+      "openPermitsEmpty": "Δεν υπάρχουν ανοικτές άδειες για αυτό το έργο."
     },
     "s05": {
       "title": "Χρονοδιάγραμμα",
@@ -763,7 +819,13 @@
       "deactivateTitle": "Απενεργοποιείτε τον λογαριασμό {name};",
       "deactivateConsequence": "Ο χρήστης δεν θα μπορεί να συνδεθεί και η ανοικτή συνεδρία του σταματά με την επόμενη κίνησή του.",
       "deactivateConfirm": "Απενεργοποίηση",
-      "noPermissionAskRole": "Τους χρήστες και τους ρόλους τους τα διαχειρίζεται ο Διαχειριστής συστήματος."
+      "noPermissionAskRole": "Τους χρήστες και τους ρόλους τους τα διαχειρίζεται ο Διαχειριστής συστήματος.",
+      "approverScopes": {
+        "title": "Χώροι και ρόλοι έγκρισης",
+        "areasLabel": "Ρόλοι ανά χώρο",
+        "unitsLabel": "Ρόλοι ανά μονάδα",
+        "pickArea": "Επιλέξτε χώρο"
+      }
     },
     "s04": {
       "title": "Κόστος",
@@ -950,6 +1012,149 @@
         "readOnlyPhone": "Η ουρά αντιστοίχισης είναι διαθέσιμη μόνο για ανάγνωση σε αυτή την οθόνη. Χρησιμοποιήστε υπολογιστή ή tablet για ανάθεση.",
         "committed": "Η εισαγωγή καταχωρήθηκε."
       }
+    },
+    "s11": {
+      "title": "Διακοπές και άδειες",
+      "caption": "Πίνακας αδειών εργασίας",
+      "empty": "Δεν υπάρχουν άδειες εργασίας.",
+      "noRefYet": "Χωρίς αριθμό ακόμη",
+      "columns": {
+        "ref": "Αριθμός",
+        "title": "Τίτλος",
+        "systems": "Συστήματα",
+        "window": "Παράθυρο εργασιών",
+        "icraClass": "Κατηγορία ICRA",
+        "pendingApprovals": "Εκκρεμείς εγκρίσεις"
+      },
+      "filters": {
+        "status": "Κατάσταση",
+        "system": "Σύστημα",
+        "all": "Όλα"
+      },
+      "prevPage": "Προηγούμενη σελίδα",
+      "nextPage": "Επόμενη σελίδα"
+    },
+    "s11a": {
+      "titleNew": "Νέο αίτημα διακοπής",
+      "titleEdit": "Επεξεργασία αιτήματος διακοπής",
+      "continueToIcra": "Συνέχεια στην ICRA",
+      "saving": "Αποθηκεύεται…",
+      "duration": "Διάρκεια: {hours} ώρες {minutes} λεπτά",
+      "ilsmMandatory": "Τα προσωρινά μέτρα ασφάλειας ζωής (ILSM) γίνονται υποχρεωτικά.",
+      "steps": {
+        "system": "Σύστημα",
+        "areas": "Χώροι που επηρεάζονται",
+        "dates": "Ημερομηνία και διάρκεια",
+        "overview": "Επισκόπηση",
+        "areasHint": "Επιλέξτε τους χώρους που επηρεάζονται στη μονάδα {unit}."
+      },
+      "fields": {
+        "systems": "Συστήματα",
+        "workKind": "Είδος εργασίας",
+        "title": "Τίτλος",
+        "description": "Περιγραφή",
+        "project": "Έργο",
+        "contract": "Σύμβαση",
+        "none": "Κανένα",
+        "plannedStart": "Προγραμματισμένη έναρξη",
+        "plannedEnd": "Προγραμματισμένη λήξη",
+        "ilsmTriggers": "Επηρεάζονται συστήματα πυρασφάλειας ή διαφυγής;",
+        "contingencyPlan": "Σχέδιο έκτακτης ανάγκης"
+      }
+    },
+    "s11detail": {
+      "facts": "Στοιχεία",
+      "areasDirect": "Άμεσα επηρεαζόμενοι χώροι",
+      "areasIndirect": "Έμμεσα επηρεαζόμενοι χώροι",
+      "ilsmTitle": "Προσωρινά μέτρα ασφάλειας ζωής (ILSM)",
+      "fireOfficerNotified": "Ενημερώθηκε ο πυροσβέστης ασφαλείας στις {date}.",
+      "fireOfficerNotNotified": "Δεν έχει ενημερωθεί ακόμη ο πυροσβέστης ασφαλείας.",
+      "approvals": "Εγκρίσεις",
+      "timelineTitle": "Ιστορικό",
+      "breachLine": "Υπέρβαση παραθύρου εργασιών: {time}",
+      "closedSummary": "Η άδεια έκλεισε στις {date}.",
+      "startWork": {
+        "button": "Έναρξη εργασιών",
+        "notApproved": "Η άδεια πρέπει να εγκριθεί πριν την έναρξη.",
+        "beforeWindow": "Δεν έχει ξεκινήσει ακόμη το προγραμματισμένο παράθυρο.",
+        "afterWindow": "Το προγραμματισμένο παράθυρο έχει λήξει."
+      },
+      "closeout": {
+        "button": "Κλείσιμο",
+        "title": "Κλείσιμο άδειας εργασίας"
+      },
+      "decide": {
+        "commentPlaceholder": "Γράψτε το σχόλιό σας.",
+        "reject": "Απόρριψη"
+      },
+      "rejectDialog": {
+        "title": "Απορρίπτετε την άδεια;",
+        "consequence": "Η άδεια θα σημειωθεί ως απορριφθείσα και ο αιτών θα ενημερωθεί."
+      },
+      "timeline": {
+        "requested": "υπέβαλε το αίτημα",
+        "submitted": "υπέβαλε την άδεια για έγκριση",
+        "approved": "ενέκρινε",
+        "returned": "επέστρεψε με σχόλια",
+        "rejected": "απέρριψε",
+        "breached": "υπερέβη το παράθυρο εργασιών",
+        "closed": "έκλεισε την άδεια"
+      }
+    },
+    "s12": {
+      "title": "ICRA για την άδεια {ref}",
+      "steps": {
+        "activity": "Τύπος εργασίας",
+        "surrounding": "Ομάδα κινδύνου χώρων",
+        "class": "Κατηγορία",
+        "submit": "Υποβολή"
+      },
+      "affectedAreasTitle": "Επηρεαζόμενοι χώροι",
+      "surroundingTitle": "Γειτονικοί χώροι"
+    },
+    "s13": {
+      "headerTitle": "ΑΔΕΙΑ ΕΡΓΑΣΙΑΣ",
+      "controlsTitle": "Μέτρα ελέγχου",
+      "approversTitle": "Εγκρίσεις"
+    },
+    "s14": {
+      "notDecidable": "Ανοίξτε την πλήρη εγγραφή για να αποφασίσετε.",
+      "open": "Άνοιγμα",
+      "shortcuts": {
+        "title": "Συντομεύσεις πληκτρολογίου",
+        "move": "Μετακίνηση",
+        "open": "Άνοιγμα",
+        "forward": "Προώθηση στο επόμενο"
+      }
+    },
+    "s15": {
+      "title": "Ημερολόγιο διαταράξεων",
+      "hoursTitle": "Ώρες κλινικής διατάραξης",
+      "filters": {
+        "areaType": "Τύπος χώρου"
+      },
+      "months": {
+        "jan": "Ιανουάριος",
+        "feb": "Φεβρουάριος",
+        "mar": "Μάρτιος",
+        "apr": "Απρίλιος",
+        "may": "Μάιος",
+        "jun": "Ιούνιος",
+        "jul": "Ιούλιος",
+        "aug": "Αύγουστος",
+        "sep": "Σεπτέμβριος",
+        "oct": "Οκτώβριος",
+        "nov": "Νοέμβριος",
+        "dec": "Δεκέμβριος"
+      },
+      "hours": {
+        "month": "Μήνας",
+        "theatre": "Ώρες χειρουργείου",
+        "icu": "Ώρες ΜΕΘ",
+        "permits": "Άδειες",
+        "caption": "Ώρες κλινικής διατάραξης ανά μονάδα και μήνα",
+        "empty": "Δεν υπάρχουν καταχωρισμένες ώρες διατάραξης."
+      }
     }
   },
   "states": {
@@ -1107,5 +1312,142 @@
     "clinical_approver": "Κλινικός εγκριτής",
     "executive_readonly": "Διοίκηση",
     "auditor_readonly": "Ελεγκτής"
+  },
+  "areaType": {
+    "THEATRE": "Χειρουργείο",
+    "ICU": "Μονάδα εντατικής θεραπείας",
+    "WARD": "Θάλαμος",
+    "OPD": "Εξωτερικά ιατρεία",
+    "LAB": "Εργαστήριο",
+    "PLANT": "Μηχανοστάσιο",
+    "OFFICE": "Γραφείο",
+    "OTHER": "Άλλος χώρος"
+  },
+  "permitSystem": {
+    "ELECTRICAL": "Ηλεκτρικό",
+    "HVAC": "Κλιματισμός (HVAC)",
+    "MEDICAL_GAS": "Ιατρικά αέρια",
+    "WATER": "Νερό",
+    "FIRE": "Πυρασφάλεια",
+    "IT": "Δίκτυο (IT)",
+    "STEAM": "Ατμός",
+    "DRAINAGE": "Αποχέτευση"
+  },
+  "riskGroup": {
+    "LOW": "Χαμηλή",
+    "MEDIUM": "Μέτρια",
+    "HIGH": "Υψηλή",
+    "HIGHEST": "Πολύ υψηλή"
+  },
+  "riskGroupShort": {
+    "LOW": "1",
+    "MEDIUM": "2",
+    "HIGH": "3",
+    "HIGHEST": "4"
+  },
+  "permitStatus": {
+    "DRAFT": "Πρόχειρο",
+    "SUBMITTED": "Υποβλήθηκε",
+    "CLINICAL_REVIEW": "Σε κλινική εξέταση",
+    "APPROVED": "Εγκρίθηκε",
+    "ACTIVE": "Σε εξέλιξη",
+    "BREACH": "Υπέρβαση",
+    "CLOSED": "Έκλεισε",
+    "REJECTED": "Απορρίφθηκε"
+  },
+  "approvalRole": {
+    "INFECTION_CONTROL": "Έλεγχος λοιμώξεων",
+    "WARD_MANAGER": "Προϊστάμενος θαλάμου",
+    "NURSING": "Νοσηλευτική υπηρεσία",
+    "TECHNICAL": "Τεχνική υπηρεσία",
+    "SAFETY": "Ασφάλεια",
+    "HOSPITAL_DIRECTOR": "Διευθυντής μονάδας"
+  },
+  "approvalDecision": {
+    "PENDING": "Εκκρεμεί",
+    "APPROVED": "Εγκρίθηκε",
+    "RETURNED": "Επιστράφηκε",
+    "REJECTED": "Απορρίφθηκε"
+  },
+  "routingReason": {
+    "classThreeOrAbove": "Απαιτείται λόγω κατηγορίας ΙΙΙ και άνω.",
+    "clinicalAreaTouched": "Απαιτείται γιατί επηρεάζεται κλινικός χώρος.",
+    "inpatientAreaTouched": "Απαιτείται γιατί επηρεάζεται χώρος νοσηλείας.",
+    "always": "Απαιτείται πάντα για διακοπή συστήματος.",
+    "ilsmRequired": "Απαιτείται γιατί χρειάζονται προσωρινά μέτρα ασφάλειας ζωής (ILSM).",
+    "durationAboveThreshold": "Απαιτείται λόγω διάρκειας πέραν του ορίου.",
+    "classFive": "Απαιτείται λόγω κατηγορίας V."
+  },
+  "ilsmTrigger": {
+    "FIRE_DETECTION": "Ανίχνευση πυρκαγιάς",
+    "FIRE_SUPPRESSION": "Κατάσβεση πυρκαγιάς",
+    "COMPARTMENTATION": "Πυροδιαμερισματοποίηση",
+    "EXITS": "Έξοδοι κινδύνου",
+    "EVACUATION_ROUTES": "Διαδρομές διαφυγής"
+  },
+  "ilsmMeasure": {
+    "INTERIM_MEASURES_LIST": "Κατάλογος προσωρινών μέτρων",
+    "FIRE_WATCH": "Επιτήρηση πυρκαγιάς",
+    "EXTRA_DRILLS": "Επιπλέον ασκήσεις ετοιμότητας",
+    "NOTIFY_FIRE_OFFICER": "Ενημέρωση πυροσβέστη ασφαλείας",
+    "TEMPORARY_DETECTION": "Προσωρινή ανίχνευση",
+    "TEMPORARY_SIGNAGE": "Προσωρινή σήμανση",
+    "ALTERNATIVE_EXIT_ROUTE": "Εναλλακτική διαδρομή εξόδου"
+  },
+  "surroundingSide": {
+    "ABOVE": "Πάνω",
+    "BELOW": "Κάτω",
+    "LATERAL": "Πλευρικά",
+    "BEHIND": "Πίσω",
+    "IN_FRONT": "Μπροστά"
+  },
+  "workKind": {
+    "CONSTRUCTION": "Κατασκευή",
+    "RENOVATION": "Ανακαίνιση",
+    "MAINTENANCE": "Συντήρηση",
+    "INSPECTION": "Επιθεώρηση",
+    "OTHER": "Άλλο"
+  },
+  "icraActivityType": {
+    "A": {
+      "label": "Τύπος A",
+      "descriptionEl": "Επιθεώρηση και μη επεμβατικές δραστηριότητες, χωρίς παραγωγή σκόνης.",
+      "descriptionEn": "Inspection and non-invasive activities, no dust generated."
+    },
+    "B": {
+      "label": "Τύπος B",
+      "descriptionEl": "Μικρής κλίμακας, μικρής διάρκειας εργασίες, με περιορισμένη παραγωγή σκόνης.",
+      "descriptionEn": "Small scale, short duration work, minimal dust generated."
+    },
+    "C": {
+      "label": "Τύπος C",
+      "descriptionEl": "Εργασίες μεσαίας έως μεγάλης διάρκειας, με παραγωγή σκόνης.",
+      "descriptionEn": "Medium to long duration work generating dust."
+    },
+    "D": {
+      "label": "Τύπος D",
+      "descriptionEl": "Εκτεταμένες κατασκευαστικές εργασίες μεγάλης διάρκειας.",
+      "descriptionEn": "Major, long duration construction activities."
+    }
+  },
+  "icraRefusal": {
+    "classTwoInvalidForWorks": "Η Κατηγορία II δεν ισχύει για κατασκευαστικές εργασίες ή ανακαινίσεις. Επιλέξτε άλλο τύπο εργασίας ή επανεξετάστε τους χώρους."
+  },
+  "permitClash": {
+    "REDUNDANT_HALVES": "Διακόπτονται και τα δύο σκέλη του ίδιου συστήματος.",
+    "TWO_THEATRES": "Δύο χειρουργεία της ίδιας μονάδας διακόπτονται ταυτόχρονα.",
+    "SAME_AREA_OVERLAP": "Υπάρχει άλλη άδεια για τον ίδιο χώρο και το ίδιο χρονικό διάστημα ({ref})."
+  },
+  "areaApprovalRole": {
+    "WARD_MANAGER": "Προϊστάμενος θαλάμου",
+    "NURSING": "Νοσηλευτική υπηρεσία",
+    "INFECTION_CONTROL": "Έλεγχος λοιμώξεων"
+  },
+  "unitApprovalRole": {
+    "TECHNICAL": "Τεχνική υπηρεσία",
+    "SAFETY": "Ασφάλεια",
+    "HOSPITAL_DIRECTOR": "Διευθυντής μονάδας",
+    "INFECTION_CONTROL": "Έλεγχος λοιμώξεων",
+    "NURSING": "Νοσηλευτική υπηρεσία"
   }
 }
