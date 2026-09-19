@@ -457,7 +457,7 @@ async function writePermit(
   const decideAll = fixture.target !== "CLINICAL_REVIEW";
 
   for (const line of lines) {
-    const approverId = await resolveApprover(db, fixture.orgUnitId, line.role, line.areaId);
+    const approverId = await resolveApprover(db, fixture.orgUnitId, line.role, line.areaId, context.requestedBy);
     await db.insert(schema.permitApproval).values({
       permitId: permit.id,
       orgUnitId: fixture.orgUnitId,
@@ -575,12 +575,17 @@ async function clashesFor(
 }
 
 /** The same resolution the service does, so the seed routes to the same people. */
+// RULE (ADR-0015's principle, ADR-0026): the requester never resolves as an
+// approver of their own permit — same rule as PermitsService.resolveApprover,
+// so the seeded demo permits behave like real ones.
 async function resolveApprover(
   db: Db,
   orgUnitId: string,
   role: ApprovalRoleValue,
   areaId: string | null,
+  excludeUserId: string | null = null,
 ): Promise<string | null> {
+  const notRequester = (rows: Array<{ userId: string }>) => rows.find((r) => r.userId !== excludeUserId)?.userId ?? null;
   if (areaId) {
     const owners = await db
       .select({ userId: schema.areaClinicalOwner.userId })
@@ -590,9 +595,8 @@ async function resolveApprover(
           eq(schema.areaClinicalOwner.areaId, areaId),
           eq(schema.areaClinicalOwner.approvalRole, role),
         ),
-      )
-      .limit(1);
-    return owners[0]?.userId ?? null;
+      );
+    return notRequester(owners);
   }
   const unitWide = await db
     .select({ userId: schema.unitApprover.userId })
@@ -602,9 +606,9 @@ async function resolveApprover(
         eq(schema.unitApprover.orgUnitId, orgUnitId),
         eq(schema.unitApprover.approvalRole, role),
       ),
-    )
-    .limit(1);
-  if (unitWide.length) return unitWide[0].userId;
+    );
+  const unitPick = notRequester(unitWide);
+  if (unitPick) return unitPick;
 
   const byArea = await db
     .select({ userId: schema.areaClinicalOwner.userId })
@@ -614,9 +618,8 @@ async function resolveApprover(
         eq(schema.areaClinicalOwner.orgUnitId, orgUnitId),
         eq(schema.areaClinicalOwner.approvalRole, role),
       ),
-    )
-    .limit(1);
-  return byArea[0]?.userId ?? null;
+    );
+  return notRequester(byArea);
 }
 
 /** §6.6: somebody who could have signed the clinical acceptance. */

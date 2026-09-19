@@ -11,11 +11,14 @@ import { M3_USERS, draftPermit, runIcra, submit } from "./permit-support";
  * approvers, and never decides one of its own lines either — an
  * administrator standing in for a missing approver included.
  *
- * Λάρνακα is the exact case the fix was found from: the seed's only
- * TECHNICAL appointment there is `engineer.larnaca`, who also raises most of
- * Λάρνακα's shutdowns — so before this fix, submitting her own permit
- * resolved TECHNICAL to herself, with live decide buttons on her own record.
+ * Λάρνακα is the exact case the fix was found from: before it, the unit's
+ * only TECHNICAL appointment was the engineer who raised most of its
+ * shutdowns, so submitting her own permit resolved TECHNICAL to herself,
+ * with live decide buttons on her own record. The seed now appoints the
+ * Larnaca estates head instead; these tests make her the requester so the
+ * same collision is exercised on purpose.
  */
+const ESTATES_LARNACA = "estates.larnaca@ecapital.test";
 describe("segregation of duties on the permit route", () => {
   let app: INestApplication;
   let adminToken: string;
@@ -82,10 +85,10 @@ describe("segregation of duties on the permit route", () => {
       const draft = await draftPermit(app, {
         titleEl: title("Λάρνακα με δεύτερο τεχνικό"),
         areaIds: [larnacaPlantAreaId],
-        email: USERS.engineerLarnaca,
+        email: ESTATES_LARNACA,
       });
-      await runIcra(app, draft.id, "A", USERS.engineerLarnaca);
-      const submitted = await submit(app, draft.id, USERS.engineerLarnaca);
+      await runIcra(app, draft.id, "A", ESTATES_LARNACA);
+      const submitted = await submit(app, draft.id, ESTATES_LARNACA);
       const technical = submitted.approvals.find((line) => line.role === "TECHNICAL");
       expect(technical?.approverId).not.toBe(submitted.requestedById);
       expect(technical?.approverId).toBe(nursingId);
@@ -99,13 +102,13 @@ describe("segregation of duties on the permit route", () => {
     const draft = await draftPermit(app, {
       titleEl: title("Λάρνακα χωρίς άλλον τεχνικό"),
       areaIds: [larnacaPlantAreaId],
-      email: USERS.engineerLarnaca,
+      email: ESTATES_LARNACA,
     });
-    await runIcra(app, draft.id, "A", USERS.engineerLarnaca);
-    const submitted = await submit(app, draft.id, USERS.engineerLarnaca);
+    await runIcra(app, draft.id, "A", ESTATES_LARNACA);
+    const submitted = await submit(app, draft.id, ESTATES_LARNACA);
     const technical = submitted.approvals.find((line) => line.role === "TECHNICAL");
     // The seed's only TECHNICAL appointment at Λάρνακα is the requester
-    // herself, so the line blocks — the strict reading — rather than
+    // herself here, so the line blocks — the strict reading — rather than
     // resolving to her.
     expect(technical?.approverId).toBeNull();
     expect(technical?.decision).toBe("PENDING");
@@ -113,8 +116,8 @@ describe("segregation of duties on the permit route", () => {
   });
 
   it("refuses 409 when the caller is the permit's own requester, even standing in as an administrator", async () => {
-    // Raised by an administrator, not by `engineer.larnaca` — so TECHNICAL
-    // resolves normally to her, with nothing left unassigned. This isolates
+    // Raised by an administrator, not by the Larnaca estates head — so
+    // TECHNICAL resolves normally to her, with nothing left unassigned. This isolates
     // the second guard, in `decide()`, from the first one (in routing,
     // exercised above): an administrator's own bypass for a line nobody
     // else could be resolved for must not become a way to decide her own

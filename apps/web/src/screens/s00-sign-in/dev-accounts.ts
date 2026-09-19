@@ -22,4 +22,8 @@ export const DEV_ACCOUNTS: DevAccount[] = [
   { email: "executive@ecapital.test", roleKey: "executiveReadonly" },
   { email: "finance@ecapital.test", roleKey: "finance" },
   { email: "technician.nicosia@ecapital.test", roleKey: "technician" },
+  { email: "engineer.nicosia@ecapital.test", roleKey: "projectEngineer" },
+  { email: "estates.larnaca@ecapital.test", roleKey: "estatesHead" },
+  { email: "nursing.nicosia@ecapital.test", roleKey: "clinicalApprover" },
+  { email: "director.nicosia@ecapital.test", roleKey: "clinicalApprover" },
 ];

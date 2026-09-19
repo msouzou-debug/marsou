@@ -225,6 +225,23 @@ export const seedUsers: SeedUser[] = [
     roles: ["project_engineer"],
     orgUnitIds: ["larnaca-general"],
   },
+  // ADR-0026 + ADR-0015's principle: the requester of a permit is never one of
+  // its approvers, so each pilot unit needs an engineer who requests and an
+  // estates head who signs the TECHNICAL line.
+  {
+    subject: "dev-engineer-nicosia",
+    name: "Νικόλας Γεωργίου",
+    email: "engineer.nicosia@ecapital.test",
+    roles: ["project_engineer"],
+    orgUnitIds: ["nicosia-general"],
+  },
+  {
+    subject: "dev-estates-larnaca",
+    name: "Χριστίνα Λοΐζου",
+    email: "estates.larnaca@ecapital.test",
+    roles: ["estates_head"],
+    orgUnitIds: ["larnaca-general"],
+  },
   {
     subject: "dev-clinical-nicosia",
     name: "Γιώργος Σάββα",
@@ -1967,7 +1984,7 @@ export const seedUnitApprovers: SeedUnitApprover[] = [
   // SAFETY one when ILSM is required (ASSUMPTION, ADR-0026).
   { email: "estates.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "TECHNICAL" },
   { email: "estates.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "SAFETY" },
-  { email: "engineer.larnaca@ecapital.test", orgUnitId: "larnaca-general", approvalRole: "TECHNICAL" },
+  { email: "estates.larnaca@ecapital.test", orgUnitId: "larnaca-general", approvalRole: "TECHNICAL" },
 ];
 
 export const seedAreaOwners: SeedAreaOwner[] = [
@@ -2029,7 +2046,7 @@ export const seedPermits: SeedPermit[] = [
     ilsmTriggers: [],
     startInHours: 24 * 10,
     endInHours: 24 * 10 + 4,
-    requestedByEmail: "estates.nicosia@ecapital.test",
+    requestedByEmail: "engineer.nicosia@ecapital.test",
     target: "DRAFT",
     contingencyPlanEl: "Εφεδρικός φωτισμός από τη γεννήτρια σε όλη τη διάρκεια.",
   },
@@ -2049,7 +2066,7 @@ export const seedPermits: SeedPermit[] = [
     ilsmTriggers: [],
     startInHours: 24 * 14,
     endInHours: 24 * 14 + 8,
-    requestedByEmail: "estates.nicosia@ecapital.test",
+    requestedByEmail: "engineer.nicosia@ecapital.test",
     target: "CLINICAL_REVIEW",
     contingencyPlanEl:
       "Φιάλες οξυγόνου στον θάλαμο και στη ΜΕΘ, με τεχνικό σε ετοιμότητα στο μηχανοστάσιο.",
@@ -2066,7 +2083,7 @@ export const seedPermits: SeedPermit[] = [
     ilsmTriggers: [],
     startInHours: 24,
     endInHours: 24 + 6,
-    requestedByEmail: "estates.nicosia@ecapital.test",
+    requestedByEmail: "engineer.nicosia@ecapital.test",
     target: "APPROVED",
     contingencyPlanEl: "Το χειρουργείο μένει εκτός προγράμματος για τη διάρκεια της εργασίας.",
   },
@@ -2082,7 +2099,7 @@ export const seedPermits: SeedPermit[] = [
     ilsmTriggers: [],
     startInHours: -2,
     endInHours: 6,
-    requestedByEmail: "estates.nicosia@ecapital.test",
+    requestedByEmail: "engineer.nicosia@ecapital.test",
     target: "ACTIVE",
     contingencyPlanEl: "Εμφιαλωμένο νερό στον θάλαμο και χρήση του διπλανού λουτρού.",
   },
@@ -2099,7 +2116,7 @@ export const seedPermits: SeedPermit[] = [
     ilsmTriggers: ["FIRE_DETECTION"],
     startInHours: -48,
     endInHours: -24,
-    requestedByEmail: "estates.nicosia@ecapital.test",
+    requestedByEmail: "engineer.nicosia@ecapital.test",
     target: "BREACH",
     contingencyPlanEl: "Περιπολία πυρασφάλειας κάθε ώρα όσο η ζώνη είναι εκτός.",
   },
@@ -2115,7 +2132,7 @@ export const seedPermits: SeedPermit[] = [
     ilsmTriggers: [],
     startInHours: -24 * 20,
     endInHours: -24 * 20 + 8,
-    requestedByEmail: "estates.nicosia@ecapital.test",
+    requestedByEmail: "engineer.nicosia@ecapital.test",
     target: "CLOSED",
     contingencyPlanEl: "Τροφοδοσία από τον εφεδρικό πίνακα σε όλη τη διάρκεια.",
   },
