@@ -329,6 +329,45 @@ This is drawn from the eFinance session's check of the live server on
 against eArchive's actual API; treat route and payload shapes here as
 subject to the same confirmation §5 asks of eFinance.
 
+### Unit codes eArchive needs alongside eFinance's
+
+eCapital's twelve org units already carry `code` (eCapital) and `entityCode`
+(eFinance, §2). eArchive files by its own site code, which is not always the
+same string as either of those. eCapital will carry all three on `org_unit`:
+the eArchive code lands as `org_unit.dms_site_code` in the eArchive
+integration work, **not yet built**.
+
+| eCapital unit code | eFinance entity_code | eArchive site code |
+|---|---|---|
+| `NGH` | `NGH` | `NGH` |
+| `LAR` | `LAR` | `LAR` |
+| `PAF` | `PAP` | `PAF` |
+| `LMS` | `LGH` | `LGH` |
+| `TRD` | `TRD` | `KYP` |
+| `NAM3` | `ARC` | `NAM` |
+| `PCH` | `CHR` | `POL` |
+| `FAM` | `FAM` | `FAM` |
+| `DYP` | `MH` | `MHS` |
+| `PFY` | `HC` | `PHC` |
+| `AMB` | `AMB` | (none — open question: eArchive to add a site or file under HQ) |
+| `HQ` | `HQ` | `HQ` |
+| (no unit) | `CNS` = Central Nursing Services | (n/a) |
+
+### eArchive brief facts (19/09/2026)
+
+- **Registry:** «ΤΥ, Αρχείο Τεχνικών Υπηρεσιών», numbering `ΤΥ/2026/00001`.
+- **Retention:** class `rc-capital`, permanent.
+- **Auth:** eCapital gets its own token, `ECAPITAL_INGEST_TOKEN`, on
+  eArchive's side.
+- **`source_ref` scheme:** `award:<contract_id>`,
+  `variation:<cap_ref>:<n>`, `business_case:<project_code>`,
+  `permit:<permit_id>`.
+- **Callback:** `POST 127.0.0.1:5015/api/v1/dms/events`, events
+  `protocol.deleted`, `legal_hold.set`, `legal_hold.cleared`.
+- **Limits:** 50 MB per file, 200 MB per request, 20 files per request.
+- **MIME whitelist:** PDF, office documents, images, text, email. No DWG,
+  no ZIP.
+
 ---
 
 ## 7. Identity
