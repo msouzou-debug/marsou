@@ -165,6 +165,19 @@ describe("Table", () => {
     expect(screen.getByRole("button", { name: "Προσθήκη" })).toBeInTheDocument();
   });
 
+  // RULE: a caller without the role to act omits `onAction` rather than
+  // wiring a button that would only ever come back 403 (`@/auth/roles`'s
+  // own convention) — the sentence still has to render on its own.
+  it("shows the empty sentence with no action button when the caller may not act", () => {
+    renderTable({
+      state: "empty",
+      rows: [],
+      emptyState: { messageKey: "components.table.sample.emptyMessage", actionLabelKey: "buttons.add" },
+    });
+    expect(screen.getByText("Δεν έχουν καταχωριστεί κατηγορίες κόστους για αυτό το έργο.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Προσθήκη" })).not.toBeInTheDocument();
+  });
+
   it("offers a retry in the error state and says who to ask in the no-permission state", async () => {
     const onRetry = vi.fn();
     const { unmount } = renderTable({ state: "error", onRetry });

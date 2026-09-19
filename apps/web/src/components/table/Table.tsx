@@ -82,6 +82,8 @@ export interface TableEmptyState {
   messageKey: string;
   /** Full i18n key for the one action, from the fixed `buttons.*` set. */
   actionLabelKey: string;
+  /** Omit for a caller that may not perform the action (a read-only role) —
+   *  the sentence still renders, the button does not. */
   onAction?: () => void;
 }
 
@@ -374,13 +376,19 @@ export function Table<T>({
       ) : state === "empty" && emptyState ? (
         <div className="mx-auto max-w-[400px] p-s-8 text-center">
           <p className="text-fs-16 text-k-ink">{tRoot(emptyState.messageKey)}</p>
-          <button
-            type="button"
-            onClick={emptyState.onAction}
-            className="mt-s-4 rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 text-k-white"
-          >
-            {tRoot(emptyState.actionLabelKey)}
-          </button>
+          {/* RULE (`@/auth/roles`'s own convention, ADR-0010): a caller that
+              cannot act simply leaves `onAction` unset — this never shows a
+              button that could only ever come back 403, rather than showing
+              it disabled with no reason. */}
+          {emptyState.onAction && (
+            <button
+              type="button"
+              onClick={emptyState.onAction}
+              className="mt-s-4 rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 text-k-white"
+            >
+              {tRoot(emptyState.actionLabelKey)}
+            </button>
+          )}
         </div>
       ) : (
         <div className="overflow-auto">

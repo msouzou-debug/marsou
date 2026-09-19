@@ -22,6 +22,8 @@ import s02aProjectForm from "@/screens/s02a-project-form/ProjectForm.preview";
 import s02Projects from "@/screens/s02-projects/Projects.preview";
 import s03Project from "@/screens/s03-project/ProjectOverview.preview";
 import s03PhaseDialog from "@/screens/s03-project/PhaseDialog.preview";
+import s05Schedule from "@/screens/s05-schedule/Schedule.preview";
+import s06RisksIssues from "@/screens/s06-risks-issues/RisksIssues.preview";
 import s07Contract from "@/screens/s07-contract/ContractOverview.preview";
 import s07aContractForm from "@/screens/s07a-contract-form/ContractForm.preview";
 import s08Variations from "@/screens/s08-variations/Variations.preview";
@@ -53,6 +55,8 @@ const entries: PreviewEntry[] = [
   s02Projects,
   s03Project,
   s03PhaseDialog,
+  s05Schedule,
+  s06RisksIssues,
   s07Contract,
   s07aContractForm,
   s08Variations,
