@@ -55,6 +55,11 @@ describe("milestone-status helpers", () => {
     expect(deviationDays(milestone({ forecastDate: "2026-06-10", baselineDate: "2026-06-01" }))).toBe(9);
     expect(deviationDays(milestone({ forecastDate: "2026-05-28", baselineDate: "2026-06-01" }))).toBe(-4);
     expect(deviationDays(milestone({ forecastDate: null }))).toBeNull();
+    // A completed milestone is measured by its actual date, not a stale forecast.
+    expect(
+      deviationDays(milestone({ forecastDate: "2026-09-01", actualDate: "2026-06-03", baselineDate: "2026-06-01" })),
+    ).toBe(2);
+    expect(deviationDays(milestone({ forecastDate: null, actualDate: "2026-05-30", baselineDate: "2026-06-01" }))).toBe(-2);
   });
 
   it("derives Εκκρεμεί / Σε καθυστέρηση / Ολοκληρώθηκε from the dates alone", () => {

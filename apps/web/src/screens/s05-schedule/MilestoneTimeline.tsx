@@ -76,6 +76,10 @@ export function MilestoneTimeline({ milestones, today = new Date() }: MilestoneT
   const xOf = (time: number) => LABEL_WIDTH + ((time - minTime) / span) * PLOT_WIDTH;
 
   const ticks = monthStarts(minTime, maxTime);
+  // A month column narrower than a label gets its gridline but no text; the
+  // label then appears on every second (or third…) month so none overlap.
+  const monthWidth = ticks.length > 1 ? (PLOT_WIDTH / span) * (ticks[1] - ticks[0]) : PLOT_WIDTH;
+  const labelEvery = Math.max(1, Math.ceil(52 / monthWidth));
   const monthFormat = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "el-GR", {
     month: "short",
     year: "2-digit",
@@ -89,12 +93,14 @@ export function MilestoneTimeline({ milestones, today = new Date() }: MilestoneT
   return (
     <div className="mt-s-4 overflow-auto rounded-k border border-k-grey bg-k-white p-s-3">
       <svg role="img" aria-label={t("screens.s05.timelineCaption")} viewBox={`0 0 ${width} ${height}`} width="100%" style={{ minWidth: width }}>
-        {ticks.map((tick) => (
+        {ticks.map((tick, index) => (
           <g key={tick}>
             <line x1={xOf(tick)} y1={HEADER_HEIGHT} x2={xOf(tick)} y2={height} stroke="var(--k-grey)" strokeWidth={1} />
-            <text x={xOf(tick) + 4} y={16} fontSize={11} fill="var(--k-text)">
-              {monthFormat.format(tick)}
-            </text>
+            {index % labelEvery === 0 && (
+              <text x={xOf(tick) + 4} y={16} fontSize={11} fill="var(--k-text)">
+                {monthFormat.format(tick)}
+              </text>
+            )}
           </g>
         ))}
 

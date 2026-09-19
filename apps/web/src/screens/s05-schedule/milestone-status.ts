@@ -29,13 +29,15 @@ export function daysBetween(a: string, b: string): number {
 }
 
 /**
- * Απόκλιση: forecast − baseline, in days. `null` when there is no forecast
- * yet. RULE (build brief): the deviation is marked red only when it is
- * positive — the forecast has slipped past the baseline; a forecast that is
- * early (negative) or on the baseline (zero) is not a problem.
+ * Απόκλιση in days against the baseline (R06: baseline vs forecast vs
+ * actual). Once a milestone has an actual date that is the fact, so the
+ * deviation is actual − baseline; before that it is forecast − baseline;
+ * `null` when there is neither. RULE (build brief): marked red only when
+ * positive — slipped past the baseline; early or on time is not a problem.
  */
 export function deviationDays(milestone: Milestone): number | null {
-  return milestone.forecastDate ? daysBetween(milestone.forecastDate, milestone.baselineDate) : null;
+  const reference = milestone.actualDate ?? milestone.forecastDate;
+  return reference ? daysBetween(reference, milestone.baselineDate) : null;
 }
 
 /**

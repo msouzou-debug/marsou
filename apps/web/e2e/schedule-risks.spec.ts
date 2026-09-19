@@ -40,14 +40,18 @@ test("engineer.larnaca edits a forecast date and sees the deviation update, then
   await expect(page.getByRole("heading", { name: PROJECT_TITLE })).toBeVisible();
   const projectUrl = page.url();
 
-  // --- S05: edit the first milestone's forecast date -----------------------
+  // --- S05: edit an open milestone's forecast date -------------------------
   // `ProjectTabs` renders each tab as an `<a role="tab">` — the explicit
   // ARIA role overrides the anchor's implicit "link" role.
   await nativeClick(page.getByRole("tab", { name: "Χρονοδιάγραμμα" }));
   await page.waitForURL(/\/schedule$/);
 
-  const firstRow = page.locator("table tbody tr").first();
-  const cells = firstRow.locator("td");
+  // A completed milestone's deviation follows its actual date (R06), so a
+  // forecast edit would not move it. Pick a row whose Πραγματοποίηση cell
+  // is still «—»: every seeded project has at least one.
+  const openRow = page.locator("table tbody tr").filter({ has: page.locator("td:nth-child(5)", { hasText: "—" }) }).first();
+  await openRow.waitFor({ state: "visible" });
+  const cells = openRow.locator("td");
   const forecastCell = cells.nth(3);
   const forecastDisplayBefore = await forecastCell.innerText();
   const deviationBefore = await cells.nth(5).innerText();
