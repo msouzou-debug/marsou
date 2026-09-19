@@ -1,0 +1,41 @@
+-- eCapital — Central Administration becomes an org unit (owner decision,
+-- 19/09/2026).
+--
+-- CAPEX-01 §4 and 0001's org_unit_type enum only ever had HOSPITAL and
+-- SERVICE because the Capex Plan sheet has no HQ rows to count — not because
+-- Central Administration could never own a project. It can (IT, HQ works),
+-- so it needs a unit like any other: code HQ, entity_code HQ (it is also
+-- eFinance's own code for the same place, ADR-0019), directorate
+-- KENTRIKI_DIOIKISI.
+--
+-- This migration only widens the two enums. It does not insert the HQ row
+-- itself: `ecapital.org_unit`'s eleven-then-twelve rows have never been
+-- migration data (0001 creates the table; the rows arrive from
+-- `pnpm --filter @ecapital/api seed`, or by hand on a server that never runs
+-- seed, docs/deploy/RUNBOOK-10.227.56.22.md §4 and §5). Splitting it this way
+-- keeps this file a pure schema change, safe to run on UAT and on production
+-- alike, whether or not either has run seed yet.
+--
+-- NO PATIENT DATA. An enum label and a directorate label; nothing here can
+-- hold a patient fact.
+
+-- RULE: `alter type … add value` could not run inside a transaction block at
+-- all before PostgreSQL 12 — the whole statement was refused, even when the
+-- new value was never used in the same transaction. PostgreSQL 12 lifted
+-- that: the ALTER itself is now allowed inside a transaction block, and the
+-- remaining restriction is narrower — the *new* value cannot be read or
+-- written until that transaction commits. This deployment runs PostgreSQL 16
+-- (docs/deploy/RUNBOOK-10.227.56.22.md), so both statements below are safe to
+-- run exactly as migrate.ts runs every migration: inside one
+-- `begin` … `commit` block (apps/api/src/db/migrate.ts). Tested directly
+-- against a throwaway PostgreSQL 16 cluster (apps/api/scripts/test-db.sh) —
+-- see the "migrations" suite in apps/api/test/migration.test.ts — before this
+-- file inserts any row that uses either new value: neither statement below
+-- does, and the seed script that does insert the HQ row runs afterwards, in
+-- its own, later transaction, by which time this one has long committed.
+--
+-- `add value if not exists` is what makes this idempotent on a second run,
+-- the same guarantee every other migration gives migrate.ts's "no-op on a
+-- second run" test.
+alter type ecapital.org_unit_type add value if not exists 'CENTRAL';
+alter type ecapital.directorate add value if not exists 'KENTRIKI_DIOIKISI';

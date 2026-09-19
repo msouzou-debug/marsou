@@ -1,9 +1,10 @@
 /**
- * Seed the eleven org units and their aliases, one building at Nicosia
- * General with two floors and six areas, eight development users, the
- * group→role mappings, the 42-project M1 register (see ./seed-projects), the
- * contract register on top of it (see ./seed-contracts) and the site log on
- * top of that (see ./seed-site).
+ * Seed the twelve org units and their aliases (owner decision, 19/09/2026,
+ * added HQ as the twelfth), one building at Nicosia General with two floors
+ * and six areas, eight development users, the group→role mappings, the
+ * 43-project M1 register (see ./seed-projects), the contract register on top
+ * of it (see ./seed-contracts) and the site log on top of that (see
+ * ./seed-site).
  *
  *   pnpm --filter @ecapital/api seed
  *

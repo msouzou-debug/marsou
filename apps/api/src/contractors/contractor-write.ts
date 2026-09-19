@@ -6,7 +6,7 @@
  * its own, plus the one field a create cannot set: `blacklisted`.
  *
  * RULE (R08, CAPEX-01 §10): blacklisting a company stops it taking new work
- * across all eleven units, so only an administrator may set it. Everyone else
+ * across all twelve units, so only an administrator may set it. Everyone else
  * is refused with errors.blacklistAdminOnly.
  */
 import { ContractorCreate } from "@ecapital/shared";

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, tokenFor } from "./app";
 
 /**
- * R08 — the supplier register. It is shared across the eleven units, so the
+ * R08 — the supplier register. It is shared across the twelve units, so the
  * questions here are who reads it (everybody) and who keeps it (admin and the
  * heads of estates), plus the one field that is an administrator's alone.
  */
@@ -86,7 +86,7 @@ describe("/contractors", () => {
   });
 
   it("lets only an administrator blacklist a contractor", async () => {
-    // RULE (R08): blacklisting stops a firm taking new work across all eleven
+    // RULE (R08): blacklisting stops a firm taking new work across all twelve
     // units, so it is not a unit's decision to make.
     const admin = await tokenFor(app, USERS.admin);
     const created = await request(app.getHttpServer())

@@ -20,10 +20,11 @@ export interface UnitSwitcherProps {
   onChange?: (unitId: string) => void;
 }
 
-// RULE: the first organisational level is the org unit — eight hospitals plus
-// three services — and its label is «Μονάδα», never «Νοσοκομείο» (UI
-// instructions §2; CAPEX-02 §7). Hospital names appear only as the option
-// values below, never as the label.
+// RULE: the first organisational level is the org unit — eight hospitals,
+// three services and, since owner decision 19/09/2026, Central
+// Administration itself (HQ) — and its label is «Μονάδα», never
+// «Νοσοκομείο» (UI instructions §2; CAPEX-02 §7). Hospital names appear only
+// as the option values below, never as the label.
 //
 // RULE (R01): the options are whatever `GET /org-units` returned for this
 // caller. Switching to a unit is not a permission check — the screen it opens

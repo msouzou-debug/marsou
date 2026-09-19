@@ -86,7 +86,14 @@ interface ExistingProject {
   fields: Record<string, string | null>;
 }
 
-/** CAPEX-03 §3: the alias table is what makes the next spelling a data fix. */
+/**
+ * CAPEX-03 §3: the alias table is what makes the next spelling a data fix.
+ * Built fresh from whatever `ecapital.org_unit` and `org_unit_alias` hold, so
+ * a unit with no rows in the source sheet and no aliases — HQ, added by
+ * owner decision on 19/09/2026 — changes nothing here: it is indexed by its
+ * own code and names like every other unit, simply never matched, because no
+ * cell in the Capex Plan spells it.
+ */
 async function orgUnitIndex(client: Client): Promise<OrgUnitIndex> {
   const index: OrgUnitIndex = new Map();
   const units = await client.query<{

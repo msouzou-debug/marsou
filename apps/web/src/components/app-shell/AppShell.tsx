@@ -31,7 +31,7 @@ export interface AppShellProps {
 // instead (UI instructions §2).
 //
 // RULE (R01, ADR-0010): `orgUnits` is required and has no default. The shell
-// used to fall back to the eleven seeded units, which was fine while the data
+// used to fall back to the twelve seeded units, which was fine while the data
 // was a fixture and is a leak now — the switcher must show the caller's own
 // units and nothing else, so an empty list is the honest answer to "the API
 // told us nothing", not a reason to invent one.

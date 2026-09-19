@@ -26,7 +26,7 @@ describe("entity codes", () => {
     expect(response.status).toBe(200);
 
     const units = response.body as OrgUnit[];
-    expect(units).toHaveLength(11);
+    expect(units).toHaveLength(12);
     const codes = units.map((u) => u.entityCode);
     expect(codes.every((c) => typeof c === "string" && c.length > 0)).toBe(true);
     expect(new Set(codes).size).toBe(codes.length);
@@ -49,15 +49,37 @@ describe("entity codes", () => {
     expect(byId.get("famagusta-general")).toBe("FAM");
     expect(byId.get("dypsy")).toBe("MH");
     expect(byId.get("ambulance")).toBe("AMB");
-    // ASSUMPTION, flagged in ADR-0019: ΠΦΥ = Κέντρα Υγείας = HC.
+    // CONFIRMED, ADR-0019 (owner, 19/09/2026): ΠΦΥ = Κέντρα Υγείας = HC.
     expect(byId.get("pfy")).toBe("HC");
+    // Owner decision, 19/09/2026: HQ is now a unit and carries eFinance's own
+    // code for the same place.
+    expect(byId.get("hq")).toBe("HQ");
   });
 
-  it("invents no unit for eFinance's HQ or CNS", async () => {
+  it("gives HQ its own unit, entity code and CENTRAL type", async () => {
+    // Owner decision, 19/09/2026 (ADR-0019, INTEGRATION-eFinance-eMAP-eCapital
+    // §2): Central Administration can own projects too, so it is a unit like
+    // any other now, not one of the two eFinance codes left unmapped.
+    const token = await tokenFor(app, USERS.admin);
+    const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
+    const hq = (response.body as OrgUnit[]).find((u) => u.id === "hq");
+    expect(hq).toMatchObject({
+      code: "HQ",
+      nameEl: "Κεντρικά Γραφεία",
+      nameEn: "Central Offices",
+      type: "CENTRAL",
+      directorate: "KENTRIKI_DIOIKISI",
+      costCentre: null,
+      entityCode: "HQ",
+    });
+  });
+
+  it("invents no unit for eFinance's CNS", async () => {
+    // CNS (Κοινοτική Νοσηλευτική Υπηρεσία) stays unmapped: eCapital has no
+    // unit for it and none is invented (ADR-0019).
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     const codes = (response.body as OrgUnit[]).map((u) => u.entityCode);
-    expect(codes).not.toContain("HQ");
     expect(codes).not.toContain("CNS");
   });
 });

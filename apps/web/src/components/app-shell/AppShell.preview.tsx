@@ -11,7 +11,7 @@ import { NoPermission } from "./NoPermission";
 //
 // The gallery is outside the gate (ADR-0004, src/proxy.ts), so there is no
 // session here and no `GET /org-units` to call: these props are fixtures, the
-// same eleven units the mock portfolio uses. In the product the shell gets
+// same twelve units the mock portfolio uses. In the product the shell gets
 // both from `src/app/(app)/layout.tsx`.
 const me: Me = {
   sub: "preview",

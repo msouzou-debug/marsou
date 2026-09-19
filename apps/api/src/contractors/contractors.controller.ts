@@ -9,7 +9,7 @@ import { ContractorUpdate } from "./contractor-write";
 import { ContractorsService } from "./contractors.service";
 
 /**
- * M1 — the supplier register (R08). Shared across the eleven units: a
+ * M1 — the supplier register (R08). Shared across the twelve units: a
  * contractor is a company, not a hospital's property, so there is no unit
  * filter here and every signed-in user reads the list.
  *

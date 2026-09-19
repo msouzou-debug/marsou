@@ -20,7 +20,7 @@ Two of the four ledgers are now real. `approved` is known from the day a project
 pnpm install                                   # 1. from the repo root
 cp apps/api/.env.example apps/api/.env         # 2. the defaults work for local Postgres
 pnpm --filter @ecapital/api migrate            # 3. create the schema, policies and triggers
-pnpm --filter @ecapital/api seed               # 4. eleven org units, one building, eight users
+pnpm --filter @ecapital/api seed               # 4. twelve org units, one building, eight users
 pnpm --filter @ecapital/api dev                # 5. http://localhost:3001, docs at /docs
 ```
 
@@ -34,7 +34,7 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 |---|---|
 | `src/db/migrations/*.sql` | The schema. Tables, enums, row-level-security policies, grants, audit triggers. Hand-written and authoritative (ADR-0008). |
 | `src/db/schema.ts` | The Drizzle view of the same tables, for typed queries. |
-| `src/db/seed-data.ts` | The eleven units and their source spellings, one seeded building, eight users, the group→role mappings, the 42 fixture projects and the twelve fixture contractors. |
+| `src/db/seed-data.ts` | The twelve units (HQ added 19/09/2026) and their source spellings, one seeded building, eight users, the group→role mappings, the 43 fixture projects and the twelve fixture contractors. |
 | `src/db/seed-projects.ts` | The M1 half of the seed: projects, milestones, risks and issues, idempotent, codes allocated by the same function the API uses. |
 | `src/db/seed-contracts.ts` | The contract half: a contract on every awarded project, a bill of quantities on three of them, and the variations R10 and R31 need something to fire on. Idempotent. |
 | `src/db/seed-site.ts` | The site log half: two or three RFIs on every contract with one breached and one red, an instruction each with three of them left to price, twelve handover defects over three finished contracts across all four risk bands with two past their liability date, and three inspection defects that belong to a unit and nothing else. Idempotent. |

@@ -31,11 +31,12 @@ describe("GET /projects", () => {
     return ProjectList.parse(response.body);
   }
 
-  it("gives the administrator all forty-two seeded projects", async () => {
+  it("gives the administrator all forty-three seeded projects", async () => {
     const page = await list(USERS.admin, "?pageSize=200");
     // Other suites add projects to the same cluster, so count the seeded ones
     // rather than everything: only the seed carries a source row reference.
-    expect(page.items.filter((p) => p.sourceRowRef !== null)).toHaveLength(42);
+    // 43, not 42, since owner decision 19/09/2026 added HQ's own project.
+    expect(page.items.filter((p) => p.sourceRowRef !== null)).toHaveLength(43);
   });
 
   it("gives the Larnaca engineer only Larnaca", async () => {
@@ -55,6 +56,26 @@ describe("GET /projects", () => {
       .set(bearer(token));
     expect(response.status).toBe(404);
     expect(response.body.key).toBe("errors.projectNotFound");
+  });
+
+  it("shows HQ's own project to the administrator and hides it from a Nicosia estates head", async () => {
+    // Owner decision, 19/09/2026: HQ is a unit like any other now, so its one
+    // project follows the same row-level rule every other unit's does.
+    const admin = await list(USERS.admin, "?unit=hq&pageSize=10");
+    expect(admin.items).toHaveLength(1);
+    const hqProject = admin.items[0];
+    expect(hqProject.titleEl).toBe("Αναβάθμιση δικτύου δεδομένων Κεντρικών Γραφείων");
+    expect(hqProject.orgUnitId).toBe("hq");
+
+    const nicosiaEstates = await tokenFor(app, USERS.estatesNicosia);
+    const direct = await request(app.getHttpServer())
+      .get(`/projects/${hqProject.id}`)
+      .set(bearer(nicosiaEstates));
+    expect(direct.status).toBe(404);
+    expect(direct.body.key).toBe("errors.projectNotFound");
+
+    const listedForNicosia = await list(USERS.estatesNicosia, "?pageSize=200");
+    expect(listedForNicosia.items.some((p) => p.id === hqProject.id)).toBe(false);
   });
 
   it("matches «ΑΝΑΚΑΙΝΙΣΗ» against «Ανακαίνιση χειρουργείων»", async () => {

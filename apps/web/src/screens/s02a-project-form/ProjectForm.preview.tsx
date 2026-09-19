@@ -51,7 +51,7 @@ const entry: PreviewEntry = {
   },
   notes:
     "The create form, at the S02a route's own Μονάδα field (hidden here it would be if there " +
-    "were only one visible unit — the eleven-unit fixture keeps it visible). The edit form " +
+    "were only one visible unit — the twelve-unit fixture keeps it visible). The edit form " +
     "(`/projects/[id]/edit`) is the same component with `mode=\"edit\"` and `initialValues` set, " +
     "which drops the Μονάδα field — not previewed separately since nothing else about it " +
     "differs. \"error\" shows both failure paths at once for space: the general strip (any " +

@@ -37,8 +37,8 @@ describe("UnitSwitcher", () => {
   });
 
   // RULE (R01, ADR-0010): the options are exactly what the API returned for
-  // this caller. A caller with one unit gets one option — not eleven with ten
-  // of them disabled, and not a seeded fallback.
+  // this caller. A caller with one unit gets one option — not twelve with
+  // eleven of them disabled, and not a seeded fallback.
   it("lists only the units it was given", () => {
     const own = visible.slice(0, 1);
     renderWithIntl(<UnitSwitcher orgUnits={own} />, { locale: "el" });
@@ -50,6 +50,15 @@ describe("UnitSwitcher", () => {
   it("disables itself when the caller has no visible units", () => {
     renderWithIntl(<UnitSwitcher orgUnits={[]} />, { locale: "el" });
     expect(document.querySelector("select")?.disabled).toBe(true);
+  });
+
+  // RULE: Central Administration sees every unit (R01, ADR-0010), and since
+  // owner decision 19/09/2026 that is twelve, HQ included, not eleven.
+  it("lists all twelve units for a Central Administration caller", () => {
+    renderWithIntl(<UnitSwitcher orgUnits={visible} />, { locale: "el" });
+    const options = document.querySelectorAll("option");
+    expect(options).toHaveLength(12);
+    expect(Array.from(options).map((o) => o.textContent)).toContain("Κεντρικά Γραφεία");
   });
 });
 

@@ -1,30 +1,40 @@
 import type { AppRole, Directorate, OrgUnit, OrgUnitType } from "@ecapital/shared";
 
-// CAPEX-03 §3 — the eleven org units and the spellings column D of the capex
-// plan uses for them. Values copied from apps/web/src/mocks/org-units.ts so
-// the seeded API answers GET /org-units with exactly what the frontend mock
-// answered (ADR-0005): the frontend swaps by base URL and sees no difference.
+// CAPEX-03 §3 — the eleven org units the Capex Plan sheet counts, and the
+// spellings column D of it uses for them, plus HQ, the twelfth (owner
+// decision, 19/09/2026 — see below). The first eleven are copied from
+// apps/web/src/mocks/org-units.ts so the seeded API answers GET /org-units
+// with exactly what the frontend mock answered (ADR-0005): the frontend
+// swaps by base URL and sees no difference.
 //
 // Errata (docs/briefs/README.md): Troodos and Kyperounta are one hospital, so
-// ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ is an alias of Troodos, not a twelfth unit.
-
+// ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ is an alias of Troodos, not a separate unit.
+//
+// HQ (owner decision, 19/09/2026): Central Administration is now a unit —
+// type CENTRAL, directorate KENTRIKI_DIOIKISI (migration 0009_hq_unit.sql).
+// It carries no aliases: the Capex Plan sheet has no HQ rows for the Excel
+// importer to match against, unlike the other eleven, so there is no source
+// spelling to record. `apps/api/src/cli/run.ts`'s orgUnitIndex builds its
+// alias map from whatever is in `ecapital.org_unit` and `org_unit_alias` at
+// import time, with no assumption about how many rows either table has, so a
+// twelfth unit with zero aliases does not change what the importer does with
+// a workbook that never mentions it.
 export interface SeedOrgUnit extends OrgUnit {
   aliases: string[];
 }
 
 // ADR-0019 — the eFinance entity code for each unit, which is also the SAP
-// Fund Center. Taken from INTEGRATION-eMAP §2's table of thirteen; eleven of
-// them have an eCapital unit.
+// Fund Center. Taken from INTEGRATION-eMAP §2's table of thirteen; twelve of
+// them now have an eCapital unit, HQ included (owner decision, 19/09/2026).
 //
-// Two eFinance codes are deliberately absent, because eCapital has no unit
-// for them and inventing one would put a fictional hospital in the capital
-// register: HQ (Κεντρικά Γραφεία) and CNS (Κοινοτική Νοσηλευτική Υπηρεσία).
-// ADR-0019 lists them as unmapped.
+// One eFinance code is still deliberately absent, because eCapital has no
+// unit for it and inventing one would put a fictional service in the capital
+// register: CNS (Κοινοτική Νοσηλευτική Υπηρεσία). ADR-0019 lists it as
+// unmapped, and nothing here invents a unit for it.
 //
-// ASSUMPTION, flagged in ADR-0019 and not yet confirmed by the owner: ΠΦΥ
-// (Πρωτοβάθμια Φροντίδα Υγείας) is eFinance's HC (Κέντρα Υγείας). The two
-// names describe the same service from two directions — the directorate and
-// its health centres — but nobody has said so in writing.
+// CONFIRMED, ADR-0019 and INTEGRATION-eFinance-eMAP-eCapital.md §2 (owner,
+// 19/09/2026): ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) is eFinance's HC (Κέντρα
+// Υγείας). This was an assumption until this date; it no longer is.
 const unit = (
   id: string,
   code: string,
@@ -32,7 +42,7 @@ const unit = (
   nameEn: string,
   type: OrgUnitType,
   directorate: Directorate,
-  costCentre: string,
+  costCentre: string | null,
   entityCode: string | null,
   aliases: string[],
 ): SeedOrgUnit => ({
@@ -72,6 +82,11 @@ export const seedOrgUnits: SeedOrgUnit[] = [
     "SERVICE", "PFY", "CC-PFY-01", "HC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
   unit("ambulance", "AMB", "Υπηρεσία Ασθενοφόρων", "Ambulance Service",
     "SERVICE", "AMBULANCE", "CC-AMB-01", "AMB", ["ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"]),
+  // Owner decision, 19/09/2026. No cost centre — Central Administration has
+  // never had one in this register, and nothing assigns it one now — and no
+  // aliases, for the reason in the header comment above.
+  unit("hq", "HQ", "Κεντρικά Γραφεία", "Central Offices",
+    "CENTRAL", "KENTRIKI_DIOIKISI", null, "HQ", []),
 ];
 
 // One building at Nicosia General with two floors and six areas, enough for
@@ -300,10 +315,15 @@ export const seedRoleMappings: {
 
 
 // ------------------------------------------------------------------- M1 --
-// The 42 fixture projects, copied from apps/web/src/mocks/projects.ts so the
-// seeded API answers GET /projects with what the frontend mock answered
-// (ADR-0005). Copied and not imported: apps/api does not depend on apps/web,
-// and a shared fixture would make the API's seed hostage to a frontend edit.
+// The 42 fixture projects from the Capex Plan units, copied from
+// apps/web/src/mocks/projects.ts so the seeded API answers GET /projects with
+// what the frontend mock answered (ADR-0005). Copied and not imported:
+// apps/api does not depend on apps/web, and a shared fixture would make the
+// API's seed hostage to a frontend edit. PRJ-043 below is a 43rd, API-only
+// fixture (owner decision, 19/09/2026): HQ has no rows in the Capex Plan
+// sheet and so no equivalent in the frontend mock, but it needs one project
+// of its own so S01's unit table does not show it with an empty row and a
+// flat sparkline.
 //
 // Figures are obviously fake and round. `ref` is the fixture's own id, kept
 // only so the two files can be compared by eye; the code each project ends up
@@ -968,6 +988,26 @@ export const seedProjects: SeedProject[] = [
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
     sapWbs: "WBS-LAR-042",
     tenderReference: "TND-2026-042",
+  },
+  {
+    // Owner decision, 19/09/2026: HQ's one project, so the S01 unit table
+    // shows a real row and sparkline for it and not an empty one. Small and
+    // APPROVED — not one of seedContractPhases, so it does not also need a
+    // contract, a contractor and a bill of quantities the way the awarded
+    // fixtures below do.
+    ref: "PRJ-043",
+    orgUnitId: "hq",
+    titleEl: "Αναβάθμιση δικτύου δεδομένων Κεντρικών Γραφείων",
+    category: "IT",
+    phase: "APPROVED",
+    approvedBudget: 185000,
+    fundingSource: "STATE_BUDGET",
+    plannedStart: "2027-01-18",
+    plannedFinish: "2027-07-30",
+    rag: "GREEN",
+    ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
+    sapWbs: null,
+    tenderReference: null,
   },
 ];
 

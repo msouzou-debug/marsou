@@ -35,7 +35,11 @@ import {
 
 export const ecapital = pgSchema("ecapital");
 
-export const orgUnitType = ecapital.enum("org_unit_type", ["HOSPITAL", "SERVICE"]);
+// CENTRAL and KENTRIKI_DIOIKISI (0009_hq_unit.sql, owner decision 19/09/2026):
+// Central Administration's own unit and directorate, added by `alter type …
+// add value` — Drizzle only needs the TS-side list to match what is now in
+// Postgres, in the order it was added.
+export const orgUnitType = ecapital.enum("org_unit_type", ["HOSPITAL", "SERVICE", "CENTRAL"]);
 export const directorate = ecapital.enum("directorate", [
   "LEMESOU_PAFOU",
   "LEFKOSIAS",
@@ -43,6 +47,7 @@ export const directorate = ecapital.enum("directorate", [
   "DYPSY",
   "PFY",
   "AMBULANCE",
+  "KENTRIKI_DIOIKISI",
 ]);
 export const areaType = ecapital.enum("area_type", [
   "THEATRE",

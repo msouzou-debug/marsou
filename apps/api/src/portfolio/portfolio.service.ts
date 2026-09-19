@@ -32,7 +32,7 @@ export class PortfolioService {
    * S01 Χαρτοφυλάκιο (R03), computed from the projects the caller may see.
    * There is no unit filter in any query below: row-level security is what
    * decides which projects and which units are in the sums, so an engineer at
-   * Larnaca gets a portfolio of Larnaca and the board gets all eleven units
+   * Larnaca gets a portfolio of Larnaca and the board gets all twelve units
    * (ADR-0010).
    */
   async build(asOf: Date): Promise<PortfolioResponse> {

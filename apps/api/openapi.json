@@ -479,7 +479,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Eleven units for a central user, fewer for everyone else",
+            "description": "Twelve units for a central user, fewer for everyone else",
             "content": {
               "application/json": {
                 "schema": {
@@ -503,7 +503,8 @@
                         "type": "string",
                         "enum": [
                           "HOSPITAL",
-                          "SERVICE"
+                          "SERVICE",
+                          "CENTRAL"
                         ]
                       },
                       "directorate": {
@@ -514,7 +515,8 @@
                           "LARNAKAS_AMMOCHOSTOU",
                           "DYPSY",
                           "PFY",
-                          "AMBULANCE"
+                          "AMBULANCE",
+                          "KENTRIKI_DIOIKISI"
                         ]
                       },
                       "costCentre": {
@@ -14567,7 +14569,8 @@
                                 "type": "string",
                                 "enum": [
                                   "HOSPITAL",
-                                  "SERVICE"
+                                  "SERVICE",
+                                  "CENTRAL"
                                 ]
                               },
                               "directorate": {
@@ -14578,7 +14581,8 @@
                                   "LARNAKAS_AMMOCHOSTOU",
                                   "DYPSY",
                                   "PFY",
-                                  "AMBULANCE"
+                                  "AMBULANCE",
+                                  "KENTRIKI_DIOIKISI"
                                 ]
                               },
                               "costCentre": {

@@ -12,7 +12,7 @@ export class PortfolioController {
 
   /**
    * R03 — S01 Χαρτοφυλάκιο. Computed from the caller's own projects, so the
-   * board sees eleven units and an engineer sees one. The exception
+   * board sees twelve units and an engineer sees one. The exception
    * sentences come back in both languages at once; the screen picks.
    */
   @Get()

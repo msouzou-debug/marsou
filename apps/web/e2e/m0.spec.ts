@@ -41,7 +41,7 @@ test("the head of estates for Nicosia sees their own unit and its area tree", as
   await expect(page.getByRole("button", { name: "Αποσύνδεση" })).toBeVisible();
 
   // RULE (R01, ADR-0010): the switcher lists what GET /org-units returned for
-  // this caller. One unit, not eleven.
+  // this caller. One unit, not twelve.
   const switcher = page.getByLabel("Μονάδα");
   await expect(switcher.locator("option")).toHaveCount(1);
   await expect(switcher.locator("option")).toHaveText(["Γενικό Νοσοκομείο Λευκωσίας"]);
@@ -87,11 +87,11 @@ test("a unit that is not yours is a refusal, not a tree", async ({ page }, testI
   });
 });
 
-test("a Central Administration account sees all eleven units", async ({ page }, testInfo) => {
+test("a Central Administration account sees all twelve units", async ({ page }, testInfo) => {
   await signIn(page, "admin@ecapital.test");
 
   await expect(page.getByTitle("Λογαριασμός: Μαρία Κωνσταντίνου")).toBeVisible();
-  await expect(page.getByLabel("Μονάδα").locator("option")).toHaveCount(11);
+  await expect(page.getByLabel("Μονάδα").locator("option")).toHaveCount(12);
 
   await page.screenshot({ path: `e2e/screenshots/m0-admin-${testInfo.project.name}.png`, fullPage: true });
 });

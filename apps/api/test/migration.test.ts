@@ -39,7 +39,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0005_m1_import");
     expect(result.applied).toContain("0007_active_directory_sign_in");
     expect(result.applied).toContain("0008_entity_codes_and_contract_refs");
-    expect(result.lastMigrationId).toBe("0008_entity_codes_and_contract_refs");
+    expect(result.applied).toContain("0009_hq_unit");
+    expect(result.lastMigrationId).toBe("0009_hq_unit");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -92,7 +93,37 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0005_m1_import");
     expect(result.skipped).toContain("0007_active_directory_sign_in");
     expect(result.skipped).toContain("0008_entity_codes_and_contract_refs");
+    expect(result.skipped).toContain("0009_hq_unit");
     expect(await snapshot(targetUrl)).toEqual(before);
+  });
+
+  it("0009_hq_unit adds both enum values and is a no-op the second time", async () => {
+    // The migration itself only widens two enums (the HQ row is the seed's
+    // job, not this migration's — see the file's own header comment). What
+    // has to be true after it, on a fresh database and again after a second
+    // run: both new values exist, in both enums, exactly once.
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    const { rows } = await client.query<{ typname: string; enumlabel: string }>(
+      `select t.typname, e.enumlabel
+         from pg_enum e join pg_type t on t.oid = e.enumtypid
+         join pg_namespace n on n.oid = t.typnamespace
+        where n.nspname = 'ecapital' and t.typname in ('org_unit_type', 'directorate')
+        order by t.typname, e.enumsortorder`,
+    );
+    await client.end();
+    const orgUnitTypeLabels = rows.filter((r) => r.typname === "org_unit_type").map((r) => r.enumlabel);
+    const directorateLabels = rows.filter((r) => r.typname === "directorate").map((r) => r.enumlabel);
+    expect(orgUnitTypeLabels).toEqual(["HOSPITAL", "SERVICE", "CENTRAL"]);
+    expect(directorateLabels).toEqual([
+      "LEMESOU_PAFOU",
+      "LEFKOSIAS",
+      "LARNAKAS_AMMOCHOSTOU",
+      "DYPSY",
+      "PFY",
+      "AMBULANCE",
+      "KENTRIKI_DIOIKISI",
+    ]);
   });
 
   it("leaves row-level security on every table that has a policy", async () => {
