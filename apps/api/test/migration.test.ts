@@ -43,7 +43,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0010_admin_users");
     expect(result.applied).toContain("0011_m2_cost");
     expect(result.applied).toContain("0012_unit_codes_earchive");
-    expect(result.lastMigrationId).toBe("0012_unit_codes_earchive");
+    expect(result.applied).toContain("0014_earchive_outbox");
+    expect(result.lastMigrationId).toBe("0014_earchive_outbox");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -67,6 +68,9 @@ describe("migrations", () => {
       "cost_txn",
       "cost_warning",
       "defect",
+      "dms_event",
+      "dms_outbox",
+      "document",
       "email_outbox",
       "floor",
       "forecast_inputs",
@@ -105,6 +109,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0010_admin_users");
     expect(result.skipped).toContain("0011_m2_cost");
     expect(result.skipped).toContain("0012_unit_codes_earchive");
+    expect(result.skipped).toContain("0014_earchive_outbox");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -323,6 +328,119 @@ describe("migrations", () => {
     expect(fn[0].src).toContain("INSPECTION");
     expect(fn[0].src).toContain("WORK_ORDER");
     expect(fn[0].src).not.toContain("HANDOVER");
+  });
+
+  /**
+   * 0014, the eArchive outbox (ADR-0023). Three tables, and the two rules a
+   * reader of the ADR would want to see written down somewhere that runs:
+   * a source_ref is unique so the same item cannot be filed twice, and the
+   * queue and the callbacks belong to the service and not to a unit.
+   */
+  it("0014 gives the document its eArchive columns and its unique source_ref", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const { rows: columns } = await client.query<{ column_name: string; column_default: string }>(
+        `select column_name, column_default from information_schema.columns
+          where table_schema = 'ecapital' and table_name = 'document' order by column_name`,
+      );
+      const names = columns.map((c) => c.column_name);
+      // CAPEX-01 §4's line, then the eArchive contract on the end of it.
+      for (const column of [
+        "id", "entity_type", "entity_id", "kind", "title_el", "mime", "size", "sha256",
+        "version", "object_key",
+        "protocol_id", "protocol_number", "legal_hold", "deleted_at", "source_ref",
+      ]) {
+        expect(names, column).toContain(column);
+      }
+      expect(columns.find((c) => c.column_name === "legal_hold")?.column_default).toBe("false");
+
+      // A source_ref is the key eArchive files by. Twice is a mistake.
+      const { rows: unique } = await client.query<{ indexdef: string }>(
+        `select indexdef from pg_indexes
+          where schemaname = 'ecapital' and tablename = 'document'
+            and indexdef like '%source_ref%'`,
+      );
+      expect(unique.some((u) => u.indexdef.includes("UNIQUE"))).toBe(true);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it("0014 makes the callback idempotent at the table, not only in the controller", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const { rows } = await client.query<{ def: string }>(
+        `select pg_get_constraintdef(c.oid) as def from pg_constraint c
+           join pg_class t on t.oid = c.conrelid
+           join pg_namespace n on n.oid = t.relnamespace
+          where n.nspname = 'ecapital' and t.relname = 'dms_event' and c.conname = 'dms_event_once'`,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].def).toContain("UNIQUE");
+      for (const column of ["event", "protocol_id", "at"]) {
+        expect(rows[0].def, column).toContain(column);
+      }
+    } finally {
+      await client.end();
+    }
+  });
+
+  it("0014 keeps the queue and the callbacks off every unit-scoped account", async () => {
+    // «Service-only, admin read»: there is a SELECT policy for the
+    // administrator and the auditor and no write policy at all, because every
+    // write goes through a SECURITY DEFINER function.
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const { rows } = await client.query<{ tablename: string; policyname: string; cmd: string; qual: string }>(
+        `select tablename, policyname, cmd, qual from pg_policies
+          where schemaname = 'ecapital' and tablename in ('dms_outbox', 'dms_event')
+          order by tablename, policyname`,
+      );
+      expect(rows.map((r) => `${r.tablename}.${r.cmd}`)).toEqual([
+        "dms_event.SELECT",
+        "dms_outbox.SELECT",
+      ]);
+      for (const row of rows) {
+        expect(row.qual, row.tablename).toContain("admin");
+        expect(row.qual, row.tablename).toContain("auditor_readonly");
+      }
+
+      // And a document is read by whoever may read its unit, as everything
+      // else that belongs to a unit is (ADR-0010).
+      const { rows: doc } = await client.query<{ policyname: string; qual: string; with_check: string }>(
+        `select policyname, qual, with_check from pg_policies
+          where schemaname = 'ecapital' and tablename = 'document' order by policyname`,
+      );
+      expect(doc.map((d) => d.policyname)).toEqual(["document_read", "document_write"]);
+      expect(doc[0].qual).toContain("can_read_unit");
+      expect(doc[1].with_check).toContain("can_manage_document");
+    } finally {
+      await client.end();
+    }
+  });
+
+  it("0014 audits all three of its tables", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const { rows } = await client.query<{ event_object_table: string; trigger_name: string }>(
+        `select distinct event_object_table, trigger_name from information_schema.triggers
+          where trigger_schema = 'ecapital'
+            and event_object_table in ('document', 'dms_outbox', 'dms_event')
+            and trigger_name like '%_audit'
+          order by event_object_table`,
+      );
+      expect(rows.map((r) => r.event_object_table)).toEqual([
+        "dms_event",
+        "dms_outbox",
+        "document",
+      ]);
+    } finally {
+      await client.end();
+    }
   });
 
   it("gives the application role no way to change the audit log", async () => {
