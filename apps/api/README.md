@@ -12,7 +12,9 @@ M1 then adds the contract register: contractors, contracts, bills of quantities 
 
 M1 also brings the register in from where it lives today. `import:capex` reads the ΟΚΥπΥ capital budget workbook, checks it against fourteen validation rules and loads 113 projects with their budget lines, their opening actual spend and the Technical Services notes, under one transaction and one reconciliation report (R41). See «Importing the Capex Plan» below.
 
-Two of the four ledgers are now real. `approved` is known from the day a project is opened and `committed` is the sum of the current value of its contracts, null before the first one is awarded. `spent` and `forecast` arrive with the SAP ingestion in M2 (R14, R16); until then they come back null and the screens show «—» (CAPEX-01 §7). Cost, permits, assets and maintenance are M2 and later.
+M2 is the cost module. All four ledgers are now real: `approved` from the budget lines, `committed` from the contracts or from the SAP purchase-order balance once an extract has posted one, `spent` from the SAP postings, and `forecast` from the commitment plus the submitted variations at a weight plus the contingency the engineer sets (R13, R16). On top of them: the monthly SAP extract import and the unmatched-allocation queue that is the point of it (R14), a `CostSourceReader` seam with the MCP reader stubbed and registered beside the file reader (R15), the cash-flow profile by month (R17), the year-end accrual proposal with live Excel formulas (R18), payment certificates from draft to paid (R11), and the five warn-and-flag rules, which fire on read as well as on write and never block anything (R31). ADR-0021 says why each of those is where it is. Permits, assets and maintenance are M5 and later.
+
+A ledger with no source comes back **null and never zero** — a project nobody has committed anything on has no commitment, and «€0» would be a claim the system has not got. The screens show «—».
 
 ## Run it locally, in five commands
 
@@ -47,6 +49,11 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/links/` | `GET /config/links` — where eMAP and eFinance are, for the S07 link-outs (ADR-0019). |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
 | `src/cli/` | The capex plan import (R41). `profiles/*.yaml` is the mapping as data; `parse.ts` and `validate.ts` are the column transforms and the fourteen rules as pure functions (ADR-0016). |
+| `src/cost/` | The M2 cost module. `cost-rows.ts` holds the ledger and certificate arithmetic as pure functions, `cost-warnings.service.ts` the five R31 rules, `cost-export.ts` the two workbooks with their live formulas. |
+| `src/cost/source/` | The R15 seam. `cost-source.ts` is the interface, `sap-extract.reader.ts` the only thing in the module that knows a file exists, `sap-mcp.reader.ts` the registered stub, `values.ts` the Greek and SAP number, date and sign formats. |
+| `src/cost/profiles/*.yaml` | One column map per SAP report — ME2N, KSB1, FBL1N — matched on header text, with the number format, the date format and the sign convention (ADR-0021 §2). |
+| `src/db/seed-cost.ts` | The M2 half of the seed: a budget by year for every project, a month already matched, a month of twelve rows still in the queue, three payment certificates, two remembered rules and two live warnings. Idempotent. |
+| `test/fixtures/sap/*.xlsx` | The synthetic extracts, built by `test/fixtures/build-sap-fixtures.ts` and checked in: matched, unmatched, repeated and unreadable rows, in the formats a Greek SAP client produces. |
 | `src/i18n/{el,en}.json` | Every error sentence, keyed, Greek and English. |
 | `openapi.json` | Checked in, generated from the controllers, and a test fails when it is stale. |
 
@@ -103,12 +110,29 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `GET /defects` | The defect log, filtered by `unit`, `contract`, `project`, `status`, `riskBand` and `source`. | M1 |
 | `GET /defects/backlog` | R35: the costed backlog, one row per unit per NHS ERIC risk band, over the defects still open. | M1 |
 | `GET /defects/:id`, `POST /defects`, `PATCH /defects/:id` | One defect. A handover defect's due date comes from the contract (R12); `funded` needs a `targetProjectId`. | M1 |
+| `POST /cost/imports` | Multipart: the monthly extract, the report (`ME2N`, `KSB1`, `FBL1N`), the period and `dryRun`. A dry run is the default and writes nothing. 409 on a file already imported for the same report. `finance`, `estates_head`, `admin` (R14). | M2 |
+| `GET /cost/imports`, `GET /cost/imports/:id` | The batches, newest first, and one with its first fifty exceptions. | M2 |
+| `GET /cost/imports/:id/unmatched` | The queue: each row with up to nine suggestions, best evidence first — same WBS, same PO, same cost centre, a vendor somebody allocated before, a similar narrative (S10). | M2 |
+| `POST /cost/imports/:id/allocate` | Put rows on a project, and remember it unless told not to. Answers `{remaining, next}`. Engineers too — in their own units, which the row policy decides, not the route. | M2 |
+| `POST /cost/imports/:id/skip` | Pass over rows. They stay unmatched and stay in the batch; the queue stops offering them. | M2 |
+| `POST /cost/imports/:id/commit` | Close the batch. Whatever is still unmatched becomes an exception on it. | M2 |
+| `GET /projects/:id/cost` | S04: the four ledgers with the provenance of the commitment, the category table with its variance, the live warnings, and when SAP last posted here (R13). | M2 |
+| `PUT /projects/:id/cost/forecast-inputs` | The contingency and the weight submitted variations carry (R16). `project_engineer`, `estates_head`, `admin`. | M2 |
+| `GET /projects/:id/budget-lines`, `PUT …` | The approved budget by year and vintage. Writing is `finance` and `admin` only, like `approvedBudget` after APPROVED (ADR-0014). | M2 |
+| `POST /projects/:id/cost/warnings/:wid/dismiss` | Dismiss a warning. It stays on the record, and fires again as a new row if the figure moves (R31). | M2 |
+| `GET /projects/:id/cost/cashflow`, `GET /org-units/:id/cost/cashflow` | Planned against actual by month, with both running totals, `?from=YYYY-MM&to=YYYY-MM` (R17). | M2 |
+| `GET /projects/:id/cost/export` | The category table as Excel, with «Απόκλιση» and the totals as live formulas. | M2 |
+| `GET /contracts/:id/payment-certs`, `POST …` | The certificates of a contract, and a new one. The number, the retention, the previously certified total and the net payable are all the API's (R11). | M2 |
+| `GET /payment-certs/:id`, `POST /payment-certs/:id/transition` | DRAFT → ENGINEER_APPROVED → FINANCE_RECEIVED → PAID, forward only, never by the person who created it. | M2 |
+| `GET /cost/accruals`, `GET /cost/accruals/export` | R18: certified and not yet invoiced, per project and cost centre, and the same as a workbook whose accrual column is `=F−G`. | M2 |
 
 Who may write to the register: `admin`, `estates_head` and `project_engineer`, in units they belong to. `finance`, `technician` and `clinical_approver` read it; `executive_readonly` and `auditor_readonly` read everything and write nothing. All of that is in the policies, not in the controllers (ADR-0010).
 
 One exception, and it is a policy too. A `technician` may create and update a **defect** whose source is `INSPECTION` or `WORK_ORDER`, in their own unit — the field persona of CAPEX-01 §2 and §8. Not a `HANDOVER` one, which is a contractual position on somebody else's work, and not a `CONDITION_SURVEY` one, which is an estates exercise. `ecapital.can_manage_defect` is the first policy in the schema that reads a column other than `org_unit_id` (ADR-0017).
 
 Three more rules sit on top of the policies and none of them is an access rule. An RFI is closed after it has been answered and not before (422 `errors.rfiNotAnswered`). A site instruction becomes a variation only if it carries cost impact (422 `errors.noCostImpact`) and only once (422 `errors.alreadyLinked`). A defect marked `funded` names the project paying for it (422 `errors.fundedNeedsProject`). Each is a CHECK or a unique index as well as a service rule, for the reason ADR-0015 gives and ADR-0017 repeats.
+
+M2 adds three rules of the same kind. A payment certificate is approved by somebody other than the person who created it and moves one status at a time, both enforced in the service and in the table (R11, ADR-0021 §10). The budget lines behind the approved figure are finance's, like the figure itself (ADR-0014). And a row in the unmatched queue belongs to no unit until it is allocated, so the policy — not the controller — is what stops an engineer putting one on a project outside their units (ADR-0021 §4).
 
 Two narrower rules sit on top of the policies, and both are decisions rather than access rules. A variation is decided by `estates_head` or `admin` and never by the person who raised it (R10, ADR-0015). And once a project is APPROVED or later, only `finance` may change its `approvedBudget` — `PATCH /projects/:id` refuses everyone else with 403 `errors.budgetFinanceOnly`, and an administrator is not exempt (ADR-0014, owner's decision of 19/09/2026).
 
@@ -124,6 +148,7 @@ Two narrower rules sit on top of the policies, and both are decisions rather tha
 | `pnpm --filter @ecapital/api grant-admin -- --username <sAMAccountName> [--name "…"] [--email …]` | Give somebody the administrator role, creating the account if it does not exist. How the first administrator exists on a fresh database (ADR-0020). |
 | `pnpm --filter @ecapital/api grant-role -- --username <sAMAccountName> --role <role> [--revoke]` | Grant or revoke one role. The only way `auditor_readonly` moves in either direction (CAPEX-01 §10). |
 | `pnpm --filter @ecapital/api openapi` | Rewrite `openapi.json` from the controllers. |
+| `node -r @swc-node/register test/fixtures/build-sap-fixtures.ts` | Rebuild the checked-in synthetic SAP extracts. |
 | `./scripts/test-db.sh start` / `stop` | The throwaway cluster, by hand, if you want to poke at it. |
 
 ## Importing the Capex Plan
