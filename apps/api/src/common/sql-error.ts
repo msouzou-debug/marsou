@@ -16,6 +16,14 @@ export const UNIQUE_VIOLATION = "23505";
 /** 23514: a CHECK constraint refused the row — R10's guard is one of these. */
 export const CHECK_VIOLATION = "23514";
 
+/**
+ * 23001: a trigger raised `restrict_violation` on purpose. The append-only
+ * audit log uses it (ADR-0011) and so do M3's two immutability triggers — a
+ * permit reference that cannot move and a closed or rejected permit that
+ * cannot be edited (ADR-0026).
+ */
+export const RESTRICT_VIOLATION = "23001";
+
 export function sqlState(error: unknown): string | undefined {
   let current: unknown = error;
   for (let depth = 0; current && depth < 5; depth += 1) {

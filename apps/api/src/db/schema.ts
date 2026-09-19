@@ -1260,3 +1260,294 @@ export const dmsEvent = ecapital.table(
   },
   (t) => [uniqueIndex("dms_event_once").on(t.event, t.protocolId, t.at)],
 );
+
+// ------------------------------------------------------------------- M3 --
+// Διακοπές συστήματος και άδειες εργασίας — the shutdown and permit-to-work
+// module (R19–R25). Migration 0015_m3_permits.sql is the source of truth;
+// ADR-0026 says why the matrix is versioned, why a system feed exists until
+// M4 brings the asset register, and which rules are ASSUMPTIONS.
+//
+// NO PATIENT DATA: a permit records rooms, systems, times and staff
+// decisions. Nothing below can hold anything about a person in a bed.
+
+export const permitSystem = ecapital.enum("permit_system", [
+  "ELECTRICAL",
+  "HVAC",
+  "MEDICAL_GAS",
+  "WATER",
+  "FIRE",
+  "IT",
+  "STEAM",
+  "DRAINAGE",
+]);
+export const permitWorkKind = ecapital.enum("permit_work_kind", [
+  "CONSTRUCTION",
+  "RENOVATION",
+  "MAINTENANCE",
+  "INSPECTION",
+  "OTHER",
+]);
+export const icraActivityType = ecapital.enum("icra_activity_type", ["A", "B", "C", "D"]);
+export const icraClass = ecapital.enum("icra_class", ["I", "II", "III", "IV", "V"]);
+export const icraMatrixStatus = ecapital.enum("icra_matrix_status", [
+  "DRAFT",
+  "ACTIVE",
+  "RETIRED",
+]);
+export const permitImpact = ecapital.enum("permit_impact", ["DIRECT", "INDIRECT"]);
+export const approvalRole = ecapital.enum("approval_role", [
+  "INFECTION_CONTROL",
+  "WARD_MANAGER",
+  "NURSING",
+  "TECHNICAL",
+  "SAFETY",
+  "HOSPITAL_DIRECTOR",
+]);
+export const routingReason = ecapital.enum("routing_reason", [
+  "classThreeOrAbove",
+  "clinicalAreaTouched",
+  "inpatientAreaTouched",
+  "always",
+  "ilsmRequired",
+  "durationAboveThreshold",
+  "classFive",
+]);
+export const approvalDecision = ecapital.enum("approval_decision", [
+  "PENDING",
+  "APPROVED",
+  "RETURNED",
+  "REJECTED",
+]);
+export const permitStatus = ecapital.enum("permit_status", [
+  "DRAFT",
+  "SUBMITTED",
+  "CLINICAL_REVIEW",
+  "APPROVED",
+  "ACTIVE",
+  "BREACH",
+  "CLOSED",
+  "REJECTED",
+]);
+export const permitClashKind = ecapital.enum("permit_clash_kind", [
+  "REDUNDANT_HALVES",
+  "TWO_THEATRES",
+  "SAME_AREA_OVERLAP",
+]);
+
+/** R20: the local edition of the ASHE ICRA 2.0 matrix, versioned, never edited. */
+export const icraMatrixVersion = ecapital.table("icra_matrix_version", {
+  id: text("id").primaryKey(),
+  basedOn: text("based_on").notNull(),
+  effectiveFrom: date("effective_from").notNull(),
+  approvedByName: text("approved_by_name"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  status: icraMatrixStatus("status").notNull().default("DRAFT"),
+  notesEl: text("notes_el"),
+  createdAt,
+  updatedAt,
+});
+
+export const icraMatrixCell = ecapital.table(
+  "icra_matrix_cell",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => icraMatrixVersion.id, { onDelete: "cascade" }),
+    activityType: icraActivityType("activity_type").notNull(),
+    riskGroup: patientRiskGroup("risk_group").notNull(),
+    icraClass: icraClass("icra_class").notNull(),
+    controls: jsonb("controls").notNull().default(sql`'[]'::jsonb`),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("icra_matrix_cell_version_id_activity_type_risk_group_key").on(
+      t.versionId,
+      t.activityType,
+      t.riskGroup,
+    ),
+    index("icra_matrix_cell_version_idx").on(t.versionId),
+  ],
+);
+
+/** R19 (§6.1): which areas a system serves, until M4's asset register says so. */
+export const systemFeed = ecapital.table(
+  "system_feed",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    system: permitSystem("system").notNull(),
+    sourceAreaId: uuid("source_area_id").references(() => area.id, { onDelete: "set null" }),
+    servesAreaIds: uuid("serves_area_ids").array().notNull().default(sql`'{}'`),
+    labelEl: text("label_el").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("system_feed_unit_idx").on(t.orgUnitId, t.system)],
+);
+
+export const shutdownPermit = ecapital.table(
+  "shutdown_permit",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ref: text("ref"),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
+    titleEl: text("title_el").notNull(),
+    descriptionEl: text("description_el").notNull().default(""),
+    workKind: permitWorkKind("work_kind").notNull(),
+    systems: permitSystem("systems").array().notNull(),
+    plannedStart: timestamp("planned_start", { withTimezone: true }).notNull(),
+    plannedEnd: timestamp("planned_end", { withTimezone: true }).notNull(),
+    actualStart: timestamp("actual_start", { withTimezone: true }),
+    actualEnd: timestamp("actual_end", { withTimezone: true }),
+    icra: jsonb("icra"),
+    icraClass: icraClass("icra_class"),
+    surrounding: jsonb("surrounding").notNull().default(sql`'[]'::jsonb`),
+    ilsm: jsonb("ilsm"),
+    contingencyPlanEl: text("contingency_plan_el"),
+    status: permitStatus("status").notNull().default("DRAFT"),
+    /** True while the window is the placeholder the API invented (0016). */
+    windowProvisional: boolean("window_provisional").notNull().default(false),
+    closeout: jsonb("closeout"),
+    clashes: jsonb("clashes").notNull().default(sql`'[]'::jsonb`),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => appUser.id),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    closedBy: uuid("closed_by").references(() => appUser.id),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    breachedAt: timestamp("breached_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("shutdown_permit_unit_idx").on(t.orgUnitId, t.status),
+    index("shutdown_permit_window_idx").on(t.plannedStart, t.plannedEnd),
+  ],
+);
+
+export const shutdownPermitArea = ecapital.table(
+  "shutdown_permit_area",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    permitId: uuid("permit_id")
+      .notNull()
+      .references(() => shutdownPermit.id, { onDelete: "cascade" }),
+    areaId: uuid("area_id")
+      .notNull()
+      .references(() => area.id),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    impact: permitImpact("impact").notNull(),
+    viaSystem: permitSystem("via_system"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("shutdown_permit_area_permit_id_area_id_key").on(t.permitId, t.areaId),
+    index("shutdown_permit_area_permit_idx").on(t.permitId),
+  ],
+);
+
+export const permitApproval = ecapital.table(
+  "permit_approval",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    permitId: uuid("permit_id")
+      .notNull()
+      .references(() => shutdownPermit.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    role: approvalRole("role").notNull(),
+    reason: routingReason("reason").notNull(),
+    areaId: uuid("area_id").references(() => area.id),
+    approverId: uuid("approver_id").references(() => appUser.id),
+    decision: approvalDecision("decision").notNull().default("PENDING"),
+    commentEl: text("comment_el"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    slaHours: integer("sla_hours").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("permit_approval_permit_idx").on(t.permitId),
+    index("permit_approval_approver_idx").on(t.approverId, t.decision),
+  ],
+);
+
+/** §6.4 and §9: who answers for a room, and in which capacity (ADR-0020's shape). */
+export const areaClinicalOwner = ecapital.table(
+  "area_clinical_owner",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    areaId: uuid("area_id")
+      .notNull()
+      .references(() => area.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => appUser.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    approvalRole: approvalRole("approval_role").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("area_clinical_owner_area_id_user_id_approval_role_key").on(
+      t.areaId,
+      t.userId,
+      t.approvalRole,
+    ),
+  ],
+);
+
+/** The capacities that answer for a whole unit rather than for one room. */
+export const unitApprover = ecapital.table(
+  "unit_approver",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => appUser.id, { onDelete: "cascade" }),
+    approvalRole: approvalRole("approval_role").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("unit_approver_org_unit_id_user_id_approval_role_key").on(
+      t.orgUnitId,
+      t.userId,
+      t.approvalRole,
+    ),
+    index("unit_approver_unit_idx").on(t.orgUnitId, t.approvalRole),
+  ],
+);
+
+/** S14: unread, per person, per item. Never a gate on anything. */
+export const inboxRead = ecapital.table(
+  "inbox_read",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => appUser.id, { onDelete: "cascade" }),
+    itemId: text("item_id").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.itemId] })],
+);
