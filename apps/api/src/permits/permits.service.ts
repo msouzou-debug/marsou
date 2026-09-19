@@ -449,7 +449,7 @@ export class PermitsService {
       // class, and a stale line would ask the wrong person the wrong question.
       await tx.db.delete(schema.permitApproval).where(eq(schema.permitApproval.permitId, id));
       for (const line of lines) {
-        await this.writeLine(id, existing.orgUnitId, line, now);
+        await this.writeLine(id, existing.orgUnitId, line, existing.requestedById, now);
       }
 
       const status: PermitStatus = lines.length ? "CLINICAL_REVIEW" : "APPROVED";
@@ -653,6 +653,14 @@ export class PermitsService {
     if (line.decision !== "PENDING") throw AppError.unprocessable("errors.permitAlreadyDecided");
 
     const caller = await callerUserId();
+    // RULE (ADR-0015's segregation principle, applied to permits, ADR-0026
+    // Errata): whoever requested the permit never decides one of its own
+    // lines — not even an administrator standing in for a missing approver.
+    // The body is fine and the rule is fine; it is who is asking that makes
+    // it wrong, which is what 409 says and 403 does not.
+    if (existing.requestedById === caller) {
+      throw AppError.conflict("errors.permitSelfApproval");
+    }
     const isAdmin = tx.context.roles.includes("admin");
     if (!isAdmin && line.approverId !== caller) {
       throw AppError.forbidden("errors.permitDecisionNotYours");
@@ -995,11 +1003,12 @@ export class PermitsService {
     permitId: string,
     orgUnitId: string,
     line: RouteLine,
+    requestedById: string,
     now: Date,
   ): Promise<void> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    const approverId = await this.resolveApprover(orgUnitId, line.role, line.areaId);
+    const approverId = await this.resolveApprover(orgUnitId, line.role, line.areaId, requestedById);
     const sla = approvalSlaWindow(now);
     await tx.db.insert(schema.permitApproval).values({
       permitId,
@@ -1027,11 +1036,21 @@ export class PermitsService {
    * permit, which is the strict reading and the right one: a route with a
    * signature missing is not an approved permit, and an administrator can
    * decide the line while somebody is appointed.
+   *
+   * RULE (ADR-0015's segregation principle, applied here per ADR-0026
+   * Errata): the person who asked for the permit never resolves as the one
+   * who signs off one of its own lines. When the natural answer is the
+   * requester, another holder of the same role anywhere in the unit is
+   * looked for instead (`anotherHolderInUnit`); when there is not one, the
+   * line is left unassigned rather than handed back to its own requester —
+   * an administrator can still decide it, subject to the same rule, once
+   * somebody else is appointed.
    */
   private async resolveApprover(
     orgUnitId: string,
     role: ApprovalRole,
     areaId: string | null,
+    requestedById: string,
   ): Promise<string | null> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
@@ -1048,7 +1067,11 @@ export class PermitsService {
         )
         .orderBy(asc(schema.areaClinicalOwner.createdAt))
         .limit(1);
-      return owners[0]?.userId ?? null;
+      const candidate = owners[0]?.userId ?? null;
+      if (candidate === null || candidate === requestedById) {
+        return this.anotherHolderInUnit(orgUnitId, role, requestedById);
+      }
+      return candidate;
     }
 
     const unitWide = await tx.db
@@ -1062,6 +1085,53 @@ export class PermitsService {
       )
       .orderBy(asc(schema.unitApprover.createdAt))
       .limit(1);
+    if (unitWide.length && unitWide[0].userId !== requestedById) return unitWide[0].userId;
+
+    const byArea = await tx.db
+      .select({ userId: schema.areaClinicalOwner.userId })
+      .from(schema.areaClinicalOwner)
+      .where(
+        and(
+          eq(schema.areaClinicalOwner.orgUnitId, orgUnitId),
+          eq(schema.areaClinicalOwner.approvalRole, role),
+        ),
+      )
+      .orderBy(asc(schema.areaClinicalOwner.createdAt))
+      .limit(1);
+    if (byArea.length && byArea[0].userId !== requestedById) return byArea[0].userId;
+
+    if (unitWide.length || byArea.length) {
+      // The only holder(s) found are the requester themselves — look
+      // further before giving up.
+      return this.anotherHolderInUnit(orgUnitId, role, requestedById);
+    }
+    return null;
+  }
+
+  /**
+   * Any other holder of `role` in the unit, unit-wide appointments first —
+   * used only when the natural resolution above landed on the requester.
+   */
+  private async anotherHolderInUnit(
+    orgUnitId: string,
+    role: ApprovalRole,
+    excludeUserId: string,
+  ): Promise<string | null> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const unitWide = await tx.db
+      .select({ userId: schema.unitApprover.userId })
+      .from(schema.unitApprover)
+      .where(
+        and(
+          eq(schema.unitApprover.orgUnitId, orgUnitId),
+          eq(schema.unitApprover.approvalRole, role),
+          ne(schema.unitApprover.userId, excludeUserId),
+        ),
+      )
+      .orderBy(asc(schema.unitApprover.createdAt))
+      .limit(1);
     if (unitWide.length) return unitWide[0].userId;
 
     const byArea = await tx.db
@@ -1071,6 +1141,7 @@ export class PermitsService {
         and(
           eq(schema.areaClinicalOwner.orgUnitId, orgUnitId),
           eq(schema.areaClinicalOwner.approvalRole, role),
+          ne(schema.areaClinicalOwner.userId, excludeUserId),
         ),
       )
       .orderBy(asc(schema.areaClinicalOwner.createdAt))

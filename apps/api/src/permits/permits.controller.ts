@@ -196,6 +196,7 @@ export class PermitsController {
   @ApiZodError(400, "The body is not a valid decision")
   @ApiZodError(403, "This line is waiting on somebody else")
   @ApiZodError(404, "No such permit or approval line")
+  @ApiZodError(409, "The caller is the permit's own requester (ADR-0015's segregation, admin included)")
   @ApiZodError(422, "The line has been decided already, or the permit is not in review")
   decide(
     @Param("id") id: string,

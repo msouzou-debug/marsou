@@ -298,11 +298,17 @@ describe("shutdown permits", () => {
   });
 
   it("puts Safety on the route when ILSM is required, with all four measures (§6.3)", async () => {
+    // Raised by somebody other than the head of estates: she is the seeded
+    // SAFETY holder at Λευκωσία and the only one, so a permit she raised
+    // herself would leave this line unassigned (ADR-0015's segregation,
+    // ADR-0026) — a real case, exercised on its own in
+    // permit-segregation.test.ts, but not the one this test is about.
     const permit = await draftPermit(app, {
       titleEl: title("Πυρανίχνευση"),
       areaIds: [areas.office],
       systems: ["FIRE"],
       ilsmTriggers: ["FIRE_DETECTION"],
+      email: USERS.admin,
     });
     await runIcra(app, permit.id, "A");
     const submitted = await submit(app, permit.id);
@@ -378,14 +384,16 @@ describe("shutdown permits", () => {
     const submitted = await submit(app, permit.id);
     const ic = submitted.approvals.find((line) => line.role === "INFECTION_CONTROL");
 
-    // The engineer who raised it is not the person it is waiting on.
+    // The engineer who raised it is not the person it is waiting on — and,
+    // being the permit's own requester, gets the segregation refusal
+    // (ADR-0015, ADR-0026) rather than the generic "not yours" one.
     const engineer = await tokenFor(app, USERS.estatesNicosia);
     const refused = await request(app.getHttpServer())
       .post(`/permits/${permit.id}/approvals/${ic?.id}/decide`)
       .set(bearer(engineer))
       .send({ decision: "APPROVED", commentEl: null });
-    expect(refused.status).toBe(403);
-    expect(refused.body.key).toBe("errors.permitDecisionNotYours");
+    expect(refused.status).toBe(409);
+    expect(refused.body.key).toBe("errors.permitSelfApproval");
 
     const clinical = await tokenFor(app, USERS.clinicalNicosia);
     const allowed = await request(app.getHttpServer())

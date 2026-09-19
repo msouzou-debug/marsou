@@ -149,6 +149,7 @@
     "permitApprovalNotFound": "That approval line is not on this permit. Refresh the page and try again.",
     "permitAlreadyDecided": "That approval line has already been decided. Refresh the page to see who decided it and when.",
     "permitDecisionNotYours": "That approval line is waiting on somebody else. Your own lines are in Approvals.",
+    "permitSelfApproval": "You cannot approve a permit you requested. Assign the approval to someone else.",
     "permitSettled": "The permit has been closed or rejected and cannot be changed. Raise a new shutdown request.",
     "calendarQueryNotValid": "The calendar criteria are not valid. Give a window as YYYY-MM-DD and try again.",
     "openPermitBlocksMilestone": "Permit {permit} is still open on this project. Close the permit, then record the milestone's actual date.",
