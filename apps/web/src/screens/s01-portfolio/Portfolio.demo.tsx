@@ -19,6 +19,7 @@ function unit(id: string, code: string, nameEl: string, nameEn: string, director
     type: id === "dypsy" || id === "ambulance" ? "SERVICE" : "HOSPITAL",
     directorate,
     costCentre: `CC-${code}-01`,
+    entityCode: null,
     timezone: "Europe/Nicosia",
   };
 }

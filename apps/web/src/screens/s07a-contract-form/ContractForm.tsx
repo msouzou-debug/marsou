@@ -52,6 +52,7 @@ const EMPTY_VALUES: ContractFormValues = {
   liquidatedDamagesPerDay: null,
   defectsLiabilityMonths: 12,
   sapPoNumber: null,
+  emapRef: null,
 };
 
 export interface ContractFormProps {
@@ -378,16 +379,44 @@ export function ContractForm({
           </div>
         </div>
 
-        <div className="flex flex-col gap-s-1">
-          <label htmlFor="cf-sap" className="text-fs-14 text-k-text">
-            {tf("sapPoNumber")}
-          </label>
-          <input
-            id="cf-sap"
-            type="text"
-            {...register("sapPoNumber", { setValueAs: blankToNull })}
-            className="num h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
-          />
+        <div className="grid grid-cols-1 gap-s-4 desktop:grid-cols-2">
+          <div className="flex flex-col gap-s-1">
+            <label htmlFor="cf-sap" className="text-fs-14 text-k-text">
+              {tf("sapPoNumber")}
+            </label>
+            <input
+              id="cf-sap"
+              type="text"
+              {...register("sapPoNumber", { setValueAs: blankToNull })}
+              className="num h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+            />
+          </div>
+
+          {/* ADR-0019 §4: fill this in and S07 offers «Άνοιγμα στο eMAP». The
+              hint carries the format, because CON-2026-0042 is not something
+              anybody guesses. */}
+          <div className="flex flex-col gap-s-1">
+            <label htmlFor="cf-emap" className="text-fs-14 text-k-text">
+              {tf("emapRef")}
+            </label>
+            <input
+              id="cf-emap"
+              type="text"
+              placeholder="CON-2026-0042"
+              {...register("emapRef", { setValueAs: blankToNull })}
+              aria-invalid={errors.emapRef ? "true" : undefined}
+              aria-describedby="cf-emap-hint"
+              className="num h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+            />
+            <p id="cf-emap-hint" className="text-fs-14 text-k-text">
+              {tf("emapRefHint")}
+            </p>
+            {fieldError("emapRef") && (
+              <p role="alert" className="text-fs-14 text-k-red">
+                {fieldError("emapRef")}
+              </p>
+            )}
+          </div>
         </div>
 
         {apiError && (

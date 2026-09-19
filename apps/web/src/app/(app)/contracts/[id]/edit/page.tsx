@@ -20,6 +20,7 @@ function toFormValues(contract: ContractDetail): ContractFormValues {
     liquidatedDamagesPerDay: contract.liquidatedDamagesPerDay,
     defectsLiabilityMonths: contract.defectsLiabilityMonths,
     sapPoNumber: contract.sapPoNumber,
+    emapRef: contract.emapRef,
   };
 }
 

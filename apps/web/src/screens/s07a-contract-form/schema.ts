@@ -8,7 +8,7 @@
 // message a person actually sees, as an i18n key (`forms.*`) — see
 // `lib/zod-resolver.ts` for why the message is a key, not a sentence.
 import { z } from "zod";
-import { ContractType } from "@ecapital/shared";
+import { ContractType, EMAP_CONTRACT_REF } from "@ecapital/shared";
 
 // The fields the form edits. `contractorId` and `originalValue` are in the
 // create schema only — RULE (ADR-0015, contract `ContractUpdate`): a
@@ -29,6 +29,10 @@ export interface ContractFormValues {
   liquidatedDamagesPerDay: number | null;
   defectsLiabilityMonths: number;
   sapPoNumber: string | null;
+  // ADR-0019: the eMAP contract this one was procured under. Optional, and
+  // validated rather than trusted — a mistyped reference makes a link on S07
+  // that lands nowhere, which is worse than no link at all.
+  emapRef: string | null;
 }
 
 export interface ContractCreateFormValues extends ContractFormValues {
@@ -47,6 +51,13 @@ const nullableNonNegative = z
   .nullable()
   .refine((value) => value === null || value >= 0, "forms.nonNegative");
 const nullableString = z.string().nullable();
+// RULE (INTEGRATION-eMAP §4): eMAP's own format, exactly — CON-YYYY-NNNN.
+// The API re-checks it with the same regular expression and the database
+// refuses anything else as a CHECK constraint (migration 0007).
+const emapRef = z
+  .string()
+  .nullable()
+  .refine((value) => value === null || EMAP_CONTRACT_REF.test(value), "forms.emapRefFormat");
 const retentionPct = z
   .number()
   .refine((value) => !Number.isNaN(value), "forms.required")
@@ -81,6 +92,7 @@ const sharedFields = {
   liquidatedDamagesPerDay: nullableNonNegative,
   defectsLiabilityMonths,
   sapPoNumber: nullableString,
+  emapRef,
 };
 
 /** S07a Νέα σύμβαση — `POST /projects/:id/contracts`. */

@@ -47,7 +47,8 @@
     "dateOrder": "The finish date cannot be before the start date.",
     "nonNegative": "The budget cannot be a negative number.",
     "percentRange": "The percentage must be between 0 and 100.",
-    "invalidDate": "Enter a valid date (YYYY-MM-DD)."
+    "invalidDate": "Enter a valid date (YYYY-MM-DD).",
+    "emapRefFormat": "An eMAP reference is written CON-2026-0042."
   },
   "components": {
     "asset-breadcrumb": {
@@ -176,8 +177,17 @@
         "emailNeeded": "Enter your address and try again.",
         "devAuthOff": "Development sign-in is off. Start the API with DEV_AUTH=1, or sign in with your SHSO account.",
         "unknownAccount": "No account has that address. Check it and try again.",
-        "unreachable": "The server did not answer. Try again in a moment."
-      }
+        "unreachable": "The server did not answer. Try again in a moment.",
+        "credentialsNeeded": "Fill in your username and password, then try again.",
+        "badCredentials": "That username or password is not right. Try again, and if it keeps failing ask the system administrator.",
+        "ldapOff": "Signing in with a ΟΚΥπΥ account is not switched on for this server. Ask the system administrator."
+      },
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "name.surname",
+      "passwordLabel": "Password",
+      "ldapHint": "Sign in with your ΟΚΥπΥ account.",
+      "oidcHint": "Sign-in goes through your ΟΚΥπΥ account in Microsoft Entra ID.",
+      "oidcButton": "Sign in with your ΟΚΥπΥ account"
     },
     "s01": {
       "title": "Project portfolio",
@@ -463,7 +473,12 @@
       },
       "variationsTitle": "Contract variations",
       "variationsEmpty": "This contract has no variations.",
-      "variationsViewAll": "All variations"
+      "variationsViewAll": "All variations",
+      "links": {
+        "label": "Links to the other ΟΚΥπΥ systems",
+        "emap": "Open in eMAP",
+        "efinance": "Invoices in eFinance"
+      }
     },
     "s07a": {
       "titleNew": "New contract",
@@ -482,7 +497,9 @@
         "bondExpiry": "Bond expiry",
         "liquidatedDamagesPerDay": "Liquidated damages per day",
         "defectsLiabilityMonths": "Defects liability period (months)",
-        "sapPoNumber": "SAP PO number"
+        "sapPoNumber": "SAP PO number",
+        "emapRef": "eMAP reference",
+        "emapRefHint": "The contract's reference in eMAP, written CON-2026-0042. Leave it empty if there is none."
       },
       "contractorBlacklistedTitle": "This contractor is blacklisted and takes no new contract.",
       "contractorReadOnlyNote": "The contractor cannot change once the contract exists.",
@@ -622,6 +639,21 @@
       "blacklistToggle": "Blacklist",
       "blacklistHint": "A blacklisted contractor takes no new contract. Its existing contracts carry on as they are.",
       "noPermissionAskRole": "The contractor register is managed by the system administrator and the head of estates."
+    },
+    "s07e": {
+      "eyebrow": "CONTRACTS",
+      "title": "Contracts",
+      "searchLabel": "Search for a contract",
+      "searchPlaceholder": "Reference, contract number or contractor",
+      "empty": "There are no contracts in your units.",
+      "emptySearch": "No contract matches “{q}”.",
+      "emptyBody": "Try a different search term.",
+      "clearSearch": "Clear the search",
+      "notFoundTitle": "Contract not found",
+      "notFound": "No contract carries the reference {q}.",
+      "notFoundHint": "Check the reference, or find the contract from your own projects. A reference starting CON- belongs to eMAP, not here.",
+      "allContracts": "All contracts",
+      "allProjects": "Project list"
     }
   },
   "states": {

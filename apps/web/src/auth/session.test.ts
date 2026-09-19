@@ -21,7 +21,8 @@ const jar = {
 
 vi.mock("next/headers", () => ({ cookies: async () => jar }));
 
-const { getSession, startSession, endSession, SESSION_COOKIE } = await import("./session");
+const { getSession, startSession, startSessionWithPassword, endSession, SESSION_COOKIE } =
+  await import("./session");
 
 const me = {
   sub: "dev-estates-nicosia",
@@ -112,6 +113,65 @@ describe("startSession", () => {
   it("asks for an address before calling anything", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     expect(await startSession("   ")).toEqual({ ok: false, error: "emailNeeded" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * ADR-0018 — the Active Directory way in. The API's own test suite covers the
+ * bind (apps/api test/auth-ldap.test.ts); what matters here is what the web
+ * app does with the answer, and what it does with the password.
+ */
+describe("startSessionWithPassword", () => {
+  it("sends the username and the password once, and keeps only the token", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ token: "ldap-token", claims: me }, 201));
+
+    expect(await startSessionWithPassword("apapadopoulos", "correct horse")).toEqual({ ok: true });
+    expect(jar.values.get(SESSION_COOKIE)).toBe("ldap-token");
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/auth/login");
+    expect(JSON.parse(init.body as string)).toEqual({
+      username: "apapadopoulos",
+      password: "correct horse",
+    });
+    // RULE (ADR-0018): the password is never what gets stored.
+    expect(JSON.stringify([...jar.values.values()])).not.toContain("correct horse");
+  });
+
+  it("gives one sentence for a wrong password and for an unknown account alike", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ key: "errors.notSignedIn" }, 401),
+    );
+    expect(await startSessionWithPassword("apapadopoulos", "wrong")).toEqual({
+      ok: false,
+      error: "badCredentials",
+    });
+    expect(jar.values.has(SESSION_COOKIE)).toBe(false);
+  });
+
+  it("says the directory sign-in is not switched on when the route is not there", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ key: "errors.routeNotFound" }, 404),
+    );
+    expect(await startSessionWithPassword("apapadopoulos", "anything")).toEqual({
+      ok: false,
+      error: "ldapOff",
+    });
+  });
+
+  it("asks for both halves before calling anything", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    expect(await startSessionWithPassword("apapadopoulos", "")).toEqual({
+      ok: false,
+      error: "credentialsNeeded",
+    });
+    expect(await startSessionWithPassword("  ", "a password")).toEqual({
+      ok: false,
+      error: "credentialsNeeded",
+    });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

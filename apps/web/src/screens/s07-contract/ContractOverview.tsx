@@ -18,6 +18,7 @@
  * | roles        | AppRole[]                     | The caller's own roles — the «Επεξεργασία» gate (`canWriteContracts`). |
  * | today        | Date?                         | Injectable "now" for the expired-bond rule; tests and the preview pass a fixed date. |
  * | onSaveBoq / boqSaving / boqError | — | `ContractOverviewScreen` owns the `PUT /contracts/:id/boq` call. |
+ * | links        | ConfigLinks?                  | `GET /config/links` (ADR-0019 §4) — where eMAP and eFinance are, or null. Undefined while it loads; the link-outs simply do not appear. |
  *
  * RULE (build brief §5): the warnings strip is amber, one line per
  * `ContractWarning`, in the caller's own language (`sentenceEl`/`sentenceEn`
@@ -27,7 +28,7 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import type { AppRole, ContractDetail } from "@ecapital/shared";
+import type { AppRole, ConfigLinks, ContractDetail } from "@ecapital/shared";
 import { TriangleAlert } from "lucide-react";
 import { canWriteContracts } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
@@ -37,6 +38,7 @@ import { formatEUR, formatPct } from "@/lib/format";
 import { BoqSection, type BoqDraftRow } from "./BoqSection";
 import { ContractFacts } from "./ContractFacts";
 import { ContractTabs } from "./ContractTabs";
+import { LinkOuts } from "./LinkOuts";
 import { VariationsList } from "./VariationsList";
 
 export type ContractOverviewScreenState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -51,6 +53,7 @@ export interface ContractOverviewProps {
   onSaveBoq?: (rows: BoqDraftRow[]) => void;
   boqSaving?: boolean;
   boqError?: string;
+  links?: ConfigLinks;
 }
 
 // RULE (R31): variationPctOfOriginal over 10% is --k-red, per the build
@@ -67,6 +70,7 @@ export function ContractOverview({
   onSaveBoq = () => undefined,
   boqSaving = false,
   boqError,
+  links,
 }: ContractOverviewProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -119,8 +123,18 @@ export function ContractOverview({
 
   return (
     <>
+      {/* RULE (ADR-0019): the eCapital reference comes first — it is the
+          string eFinance stores against an invoice and the one people read
+          out over the telephone. The legal number off the tender papers
+          keeps its place next to it; neither replaces the other. The eyebrow
+          is already mono (`.eyebrow`, CONVENTIONS.md). */}
       <PageTitle
-        eyebrow={`${data.contractNo} · ${data.project.code}`}
+        eyebrow={
+          <>
+            <span className="num">{data.ref}</span>
+            {` · ${data.contractNo} · ${data.project.code}`}
+          </>
+        }
         title={data.contractorName}
         tabs={
           <ContractTabs
@@ -152,7 +166,10 @@ export function ContractOverview({
         }
       />
 
-      {offline && <p className="mb-s-4 text-fs-14 text-k-text">{t("states.offline.readOnly")}</p>}
+      {/* ADR-0019 §4: only what this deployment was actually told about. */}
+      <LinkOuts contract={data} links={links} />
+
+      {offline && <p className="mb-s-4 mt-s-4 text-fs-14 text-k-text">{t("states.offline.readOnly")}</p>}
 
       {data.warnings.length > 0 && (
         <div className="mb-s-6 grid gap-s-2" role="status">

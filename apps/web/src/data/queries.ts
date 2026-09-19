@@ -1,5 +1,6 @@
 import {
   AreaTree,
+  ConfigLinks,
   Contractor,
   ContractDetail,
   ContractList,
@@ -69,6 +70,30 @@ export function useProjectContracts(projectId: string) {
   return useQuery({
     queryKey: ["project-contracts", projectId],
     queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/contracts`, ContractList),
+    retry: false,
+  });
+}
+
+// S07e — the contract register (ADR-0019). `q` searches the two references
+// and the contractor; an empty one lists everything the caller may see.
+export function useContracts(q?: string) {
+  const search = q?.trim() ?? "";
+  return useQuery({
+    queryKey: ["contracts", search],
+    queryFn: () =>
+      proxyFetch(search ? `/contracts?q=${encodeURIComponent(search)}` : "/contracts", ContractList),
+    retry: false,
+  });
+}
+
+// ADR-0019 §4 — where eMAP and eFinance live, so S07 can offer a link to
+// them. Configuration, not data: it changes when the estate changes, which
+// is roughly never, so it is worth caching for the length of the session.
+export function useConfigLinks() {
+  return useQuery({
+    queryKey: ["config-links"],
+    queryFn: () => proxyFetch("/config/links", ConfigLinks),
+    staleTime: Infinity,
     retry: false,
   });
 }

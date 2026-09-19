@@ -22,6 +22,7 @@ function unit(id: string, code: string, nameEl: string): OrgUnit {
     type: "HOSPITAL",
     directorate: "LEFKOSIAS",
     costCentre: null,
+    entityCode: null,
     timezone: "Europe/Nicosia",
   };
 }

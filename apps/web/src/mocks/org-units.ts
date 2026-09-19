@@ -21,6 +21,10 @@ import type { OrgUnit } from "@ecapital/shared";
 // Λάρνακας–Αμμοχώστου 19, ΔΥΨΥ 11, ΠΦΥ 5, Ασθενοφόρων 4 — summing to 113,
 // the exact total project-row count) match only one grouping of the
 // eleven units, which is the one used below.
+// ADR-0019: `entityCode` is the eFinance entity code for the same unit
+// (INTEGRATION-eMAP §2), which is also the SAP Fund Center. It is not the
+// `code` above — Πάφος is PAF here and PAP there, Λεμεσός LMS and LGH,
+// Μακάριος NAM3 and ARC — which is exactly why both exist.
 export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
   {
     id: "nicosia-general",
@@ -30,6 +34,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEFKOSIAS",
     costCentre: "CC-NGH-01",
+    entityCode: "NGH",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"],
   },
@@ -41,6 +46,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LARNAKAS_AMMOCHOSTOU",
     costCentre: "CC-LAR-01",
+    entityCode: "LAR",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΛΑΡΝΑΚΑΣ"],
   },
@@ -52,6 +58,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-PAF-01",
+    entityCode: "PAP",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΠΑΦΟΥ"],
   },
@@ -63,6 +70,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-LMS-01",
+    entityCode: "LGH",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΛΕΜΕΣΟΥ"],
   },
@@ -74,6 +82,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-TRD-01",
+    entityCode: "TRD",
     timezone: "Europe/Nicosia",
     // Troodos and Kyperounta are one hospital (owner decision, 18/09/2026):
     // both spellings resolve here so a future sheet revision cannot split them.
@@ -87,6 +96,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEFKOSIAS",
     costCentre: "CC-NAM3-01",
+    entityCode: "ARC",
     timezone: "Europe/Nicosia",
     aliases: ["ΝΑΜΙΙΙ"],
   },
@@ -98,6 +108,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-PCH-01",
+    entityCode: "CHR",
     timezone: "Europe/Nicosia",
     aliases: ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"],
   },
@@ -109,6 +120,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LARNAKAS_AMMOCHOSTOU",
     costCentre: "CC-FAM-01",
+    entityCode: "FAM",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"],
   },
@@ -120,6 +132,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "SERVICE",
     directorate: "DYPSY",
     costCentre: "CC-DYP-01",
+    entityCode: "MH",
     timezone: "Europe/Nicosia",
     aliases: ["ΔΥΨΥ"],
   },
@@ -131,6 +144,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "SERVICE",
     directorate: "PFY",
     costCentre: "CC-PFY-01",
+    entityCode: "HC",
     timezone: "Europe/Nicosia",
     aliases: ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"],
   },
@@ -142,6 +156,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "SERVICE",
     directorate: "AMBULANCE",
     costCentre: "CC-AMB-01",
+    entityCode: "AMB",
     timezone: "Europe/Nicosia",
     aliases: ["ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"],
   },

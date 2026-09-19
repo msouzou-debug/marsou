@@ -29,6 +29,7 @@ import s07aContractForm from "@/screens/s07a-contract-form/ContractForm.preview"
 import s07bRfis from "@/screens/s07b-rfis/Rfis.preview";
 import s07cInstructions from "@/screens/s07c-instructions/Instructions.preview";
 import s07dDefects from "@/screens/s07d-defects/Defects.preview";
+import s07eContracts from "@/screens/s07e-contracts/Contracts.preview";
 import s08Variations from "@/screens/s08-variations/Variations.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 
@@ -65,6 +66,7 @@ const entries: PreviewEntry[] = [
   s07bRfis,
   s07cInstructions,
   s07dDefects,
+  s07eContracts,
   s08Variations,
   s24Contractors,
 ];
