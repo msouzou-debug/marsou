@@ -1,12 +1,12 @@
 "use client";
 
-// S07, S07b, S07c, S07d, S08 — R08, R09, R10, R12, R31
+// S07, S07b, S07c, S07d, S08, S09 — R08, R09, R10, R11, R12, R31
 //
 /**
  * ContractTabs — the tab strip a contract's own screens share, the same
  * pattern `ProjectTabs` (S03) sets: Επισκόπηση (S07), Τροποποιήσεις (S08),
- * Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου (S07c) and Ελλείψεις
- * (S07d), in that fixed order.
+ * Πιστοποιητικά (S09), Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου
+ * (S07c) and Ελλείψεις (S07d), in that fixed order.
  *
  * | Prop              | Type           | Notes                                                       |
  * |-------------------|----------------|-------------------------------------------------------------|
@@ -24,7 +24,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-export type ContractTabId = "overview" | "variations" | "rfis" | "instructions" | "defects";
+export type ContractTabId = "overview" | "variations" | "certificates" | "rfis" | "instructions" | "defects";
 
 export interface ContractTabsProps {
   contractId: string;
@@ -40,6 +40,8 @@ function hrefFor(id: ContractTabId, contractId: string): string {
       return base;
     case "variations":
       return `${base}/variations`;
+    case "certificates":
+      return `${base}/certificates`;
     case "rfis":
       return `${base}/rfis`;
     case "instructions":
@@ -49,7 +51,7 @@ function hrefFor(id: ContractTabId, contractId: string): string {
   }
 }
 
-const TAB_ORDER: ContractTabId[] = ["overview", "variations", "rfis", "instructions", "defects"];
+const TAB_ORDER: ContractTabId[] = ["overview", "variations", "certificates", "rfis", "instructions", "defects"];
 
 export function ContractTabs({ contractId, active, rfisOpenCount, defectsOpenCount }: ContractTabsProps) {
   const t = useTranslations();
