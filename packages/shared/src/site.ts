@@ -8,6 +8,16 @@ import { z } from "zod";
 export const RfiStatus = z.enum(["OPEN", "ANSWERED", "CLOSED"]);
 export type RfiStatus = z.infer<typeof RfiStatus>;
 
+// The SLA band of an RFI, the same four the SlaChip draws
+// (apps/web/src/components/sla-chip/SlaChip.tsx `slaState`): GREEN above half
+// the SLA remaining, AMBER from half down to a tenth, RED below a tenth, and
+// BREACHED once the due moment has passed. The API computes it and sends it
+// with every RFI so a list can be sorted and counted on the server; the chip
+// keeps computing its own so it can tick without a round trip. Uppercase
+// here, lowercase there, because this is data and that is a CSS class.
+export const SlaState = z.enum(["GREEN", "AMBER", "RED", "BREACHED"]);
+export type SlaState = z.infer<typeof SlaState>;
+
 // An RFI carries an SLA (R09). slaDueAt is set by the API from raisedAt +
 // slaDays; the SlaChip reads slaDueAt and slaHours. Breach is a state, not a
 // block (CAPEX-01 §1: warn-and-flag).
@@ -27,6 +37,12 @@ export const Rfi = z.object({
   slaDueAt: z.string(),
   slaHours: z.number().int().positive(),
   status: RfiStatus,
+  // Computed by the API on the way out, never stored: a band that was stored
+  // would be wrong the minute after it was written. RULE (R09, R33): the
+  // clock stops when the question is answered, so an RFI answered inside its
+  // SLA keeps the band it was answered in instead of drifting to BREACHED
+  // while it waits to be closed.
+  slaState: SlaState,
 });
 export type Rfi = z.infer<typeof Rfi>;
 

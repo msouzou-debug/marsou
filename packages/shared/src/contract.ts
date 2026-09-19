@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Defect } from "./site";
 
 // ------------------------------------------------------------ M1 (R08–R10)
 // CAPEX-01 §4 contractor / contract / boq_item / variation. Glossary
@@ -104,7 +105,16 @@ export type Variation = z.infer<typeof Variation>;
 
 // Warn-and-flag (R31): fires on the project, never blocks.
 export const ContractWarning = z.object({
-  key: z.enum(["variationsOverTenPct", "bondExpired", "completionPast"]),
+  // `instructionsWithoutVariation` is the R09 rule: a site instruction with
+  // cost impact has to end up as a variation, and one that has not been
+  // turned into one yet is work the contractor is doing that the commitment
+  // does not know about.
+  key: z.enum([
+    "variationsOverTenPct",
+    "bondExpired",
+    "completionPast",
+    "instructionsWithoutVariation",
+  ]),
   sentenceEl: z.string(),
   sentenceEn: z.string(),
   amount: z.number().nullable(),
@@ -121,6 +131,12 @@ export const ContractDetail = Contract.extend({
   pendingVariationsTotal: z.number(),
   variationPctOfOriginal: z.number(), // approved ÷ original × 100
   warnings: z.array(ContractWarning),
+  // M1 site logs (R09, R12). Optional for the same reason `UnitRow.committed`
+  // is: the contract screen and its fixtures shipped before the site log did,
+  // and they do not carry these. The API always sends all three.
+  defects: z.array(Defect).optional(),
+  rfisOpen: z.number().int().nonnegative().optional(),
+  rfisBreached: z.number().int().nonnegative().optional(),
 });
 export type ContractDetail = z.infer<typeof ContractDetail>;
 

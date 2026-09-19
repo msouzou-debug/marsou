@@ -182,6 +182,10 @@ export const ProjectDetail = ProjectSummary.extend({
   risks: z.array(Risk),
   issues: z.array(Issue),
   audit: z.array(AuditEntry),
+  // M1 site logs (R12): the defects still open or in hand on this project.
+  // Optional for the same reason `UnitRow.committed` is — the project screen
+  // and its fixtures shipped before the defect log did. The API always sends it.
+  openDefects: z.number().int().nonnegative().optional(),
 });
 export type ProjectDetail = z.infer<typeof ProjectDetail>;
 

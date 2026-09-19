@@ -591,3 +591,137 @@ export const variation = ecapital.table(
     index("variation_status_idx").on(t.status),
   ],
 );
+
+// ------------------------------------------------------------------- M1 --
+// The site log: RFIs with their SLA clock, site instructions and the defects
+// found at handover and on inspection (R09, R12, R35). Migration
+// 0006_m1_site_logs.sql is the source of truth; ADR-0017 says why the rules
+// are where they are.
+
+export const rfiStatus = ecapital.enum("rfi_status", ["OPEN", "ANSWERED", "CLOSED"]);
+export const defectSource = ecapital.enum("defect_source", [
+  "HANDOVER",
+  "INSPECTION",
+  "WORK_ORDER",
+  "CONDITION_SURVEY",
+]);
+// NHS ERIC backlog bands (CAPEX-01 §2).
+export const riskBand = ecapital.enum("risk_band", ["HIGH", "SIGNIFICANT", "MODERATE", "LOW"]);
+export const defectStatus = ecapital.enum("defect_status", ["OPEN", "IN_PROGRESS", "CLOSED"]);
+
+export const rfi = ecapital.table(
+  "rfi",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    // Allocated by ecapital.allocate_rfi_number, never typed.
+    number: integer("number").notNull(),
+    questionEl: text("question_el").notNull(),
+    answerEl: text("answer_el"),
+    raisedBy: uuid("raised_by")
+      .notNull()
+      .references(() => appUser.id),
+    raisedAt: timestamp("raised_at", { withTimezone: true }).notNull().defaultNow(),
+    // RULE (CAPEX-01 §1, ADR-0017): the answerer may be the raiser. An RFI is
+    // a question to the ΟΚΥπΥ side and staff attach the contractor's reply.
+    answeredBy: uuid("answered_by").references(() => appUser.id),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    // R09: raisedAt + slaDays × 24h, and the length of that promise in hours.
+    // The band is computed on the way out and is not a column (ADR-0017).
+    slaDueAt: timestamp("sla_due_at", { withTimezone: true }).notNull(),
+    slaHours: integer("sla_hours").notNull(),
+    status: rfiStatus("status").notNull().default("OPEN"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("rfi_contract_number_key").on(t.contractId, t.number),
+    index("rfi_contract_idx").on(t.contractId),
+    index("rfi_unit_idx").on(t.orgUnitId),
+    index("rfi_status_idx").on(t.status),
+  ],
+);
+
+export const siteInstruction = ecapital.table(
+  "site_instruction",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    // Allocated by ecapital.allocate_site_instruction_number, never typed.
+    number: integer("number").notNull(),
+    textEl: text("text_el").notNull(),
+    issuedBy: uuid("issued_by")
+      .notNull()
+      .references(() => appUser.id),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    costImpactFlag: boolean("cost_impact_flag").notNull().default(false),
+    // RULE (R09): set once, only on an instruction that carries cost impact,
+    // and only once. Both halves are CHECK constraints in migration 0006.
+    variationId: uuid("variation_id").references(() => variation.id),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("site_instruction_contract_number_key").on(t.contractId, t.number),
+    uniqueIndex("site_instruction_variation_key").on(t.variationId),
+    index("site_instruction_contract_idx").on(t.contractId),
+    index("site_instruction_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+export const defect = ecapital.table(
+  "defect",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // RULE (R12, ADR-0017): a defect always belongs to a unit, whether or not
+    // it belongs to a contract or a project. The trigger in 0006 takes it
+    // from the parent where there is one.
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    source: defectSource("source").notNull(),
+    contractId: uuid("contract_id").references(() => contract.id),
+    projectId: uuid("project_id").references(() => project.id),
+    areaId: uuid("area_id").references(() => area.id),
+    // M6 asset register; text and unreferenced until that table exists.
+    assetId: text("asset_id"),
+    descriptionEl: text("description_el").notNull(),
+    // M8 document register; empty until then.
+    photoIds: text("photo_ids").array().notNull().default(sql`'{}'`),
+    estimatedCost: numeric("estimated_cost", { precision: 14, scale: 2 }),
+    riskBand: riskBand("risk_band").notNull(),
+    // RULE (R35): funded means a capital project is paying for it, so a
+    // funded defect carries the project it is funded from (CHECK in 0006).
+    funded: boolean("funded").notNull().default(false),
+    targetProjectId: uuid("target_project_id").references(() => project.id),
+    status: defectStatus("status").notNull().default("OPEN"),
+    raisedBy: uuid("raised_by")
+      .notNull()
+      .references(() => appUser.id),
+    raisedAt: timestamp("raised_at", { withTimezone: true }).notNull().defaultNow(),
+    // R12: contract completion + extensions + defectsLiabilityMonths, for a
+    // HANDOVER defect; null for every other source.
+    dueDate: date("due_date"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedBy: uuid("closed_by").references(() => appUser.id),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("defect_unit_idx").on(t.orgUnitId),
+    index("defect_contract_idx").on(t.contractId),
+    index("defect_project_idx").on(t.projectId),
+    index("defect_target_project_idx").on(t.targetProjectId),
+    index("defect_status_idx").on(t.status),
+  ],
+);
