@@ -116,3 +116,85 @@ describe("proxy route — forwarding a same-origin mutation", () => {
     expect((init.headers as Record<string, string>)["accept-language"]).toBe("el");
   });
 });
+
+// M2 (R14) — S10's `POST /cost/imports` multipart upload.
+describe("proxy route — multipart passthrough (S10 SAP import)", () => {
+  it("forwards a multipart body as a stream, untouched, with its original content-type", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    const upstream = new Response(JSON.stringify({ id: "batch-1" }), {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(upstream);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const form = new FormData();
+    form.set("report", "ME2N");
+    form.set("period", "2026-09");
+    form.set("dryRun", "true");
+    form.set("file", new File(["a,b,c"], "me2n.csv", { type: "text/csv" }));
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/cost/imports"), {
+      method: "POST",
+      headers: { origin: "http://localhost:3000" },
+      body: form,
+    });
+    const originalContentType = req.headers.get("content-type");
+    expect(originalContentType).toMatch(/^multipart\/form-data/);
+
+    const res = await POST(req, context(["cost", "imports"]));
+
+    expect(res.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit & { duplex?: string }];
+    // Never parsed into a plain object and never re-serialised: the raw
+    // request stream (or, once NextRequest has consumed it once, the same
+    // multipart content-type) is what goes out.
+    expect((init.headers as Record<string, string>)["content-type"]).toBe(originalContentType);
+    expect(init.body).not.toBeUndefined();
+    expect(init.duplex).toBe("half");
+  });
+});
+
+// M2 (R13, R18) — S04's and S09a's xlsx export.
+describe("proxy route — binary response passthrough (xlsx export)", () => {
+  it("passes an xlsx body and Content-Disposition through unparsed", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    const xlsxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]); // a "PK.." zip header
+    const upstream = new Response(xlsxBytes, {
+      status: 200,
+      headers: {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": 'attachment; filename="cost-export.xlsx"',
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(upstream);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/projects/p-1/cost/export"));
+    const res = await GET(req, context(["projects", "p-1", "cost", "export"]));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    expect(res.headers.get("content-disposition")).toBe('attachment; filename="cost-export.xlsx"');
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(Array.from(bytes)).toEqual(Array.from(xlsxBytes));
+  });
+
+  it("still returns JSON as text when the upstream sends JSON", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    const upstream = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstream));
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/cost/accruals?year=2026"));
+    const res = await GET(req, context(["cost", "accruals"]));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+});

@@ -23,7 +23,25 @@ import { defaultLocale, isLocale, LOCALE_COOKIE } from "@/i18n/config";
 //     forwarded from the browser's own header, so the API's error sentence
 //     (`errors.*`, `{key, message, requestId}`) comes back in the language
 //     the app is actually showing, not whatever the browser's OS locale is.
+//
+// M2 (R14) adds two more shapes this route has to carry without touching:
+//   - S10's `POST /cost/imports` is `multipart/form-data` (the file, the
+//     report, the period, the dryRun flag). This route never parses a
+//     multipart body — doing so would mean reassembling it to forward,
+//     which risks corrupting the file — so a multipart request's body
+//     streams straight through as `request.body` with its original
+//     `content-type` (boundary and all), instead of going through
+//     `request.text()` the way every JSON body does.
+//   - S04's `.../cost/export` and S09a's `.../accruals/export` answer with
+//     an xlsx file, not JSON: a real `Content-Disposition` header and a
+//     binary body. `text()`/`JSON` would corrupt it, so a response whose
+//     `content-type` is not JSON or plain text is read as bytes
+//     (`arrayBuffer`) and `Content-Disposition` is forwarded alongside
+//     `Content-Type`, so the browser's own download (the export buttons'
+//     plain `<a>`/`window.location` — no client-side blob handling) sees the
+//     same headers the real API sent.
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+const JSON_OR_TEXT = /^(application\/json|text\/)/i;
 
 type ProxyContext = RouteContext<"/api/proxy/[...path]">;
 
@@ -63,12 +81,26 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
     "accept-language": locale,
   };
 
-  let body: string | undefined;
+  const requestContentType = request.headers.get("content-type") ?? "";
+  const isMultipart = requestContentType.toLowerCase().startsWith("multipart/form-data");
+
+  let body: BodyInit | undefined;
+  let duplex: "half" | undefined;
   if (method !== "GET" && method !== "HEAD") {
-    const text = await request.text();
-    if (text) {
-      body = text;
-      headers["content-type"] = request.headers.get("content-type") ?? "application/json";
+    if (isMultipart) {
+      // RULE: never parsed, never reassembled — the file's bytes reach the
+      // API exactly as the browser sent them. `request.body` is the raw
+      // stream; forwarding it through `fetch` with a body needs `duplex:
+      // "half"` (Node/undici's own requirement for a streamed body).
+      body = request.body ?? undefined;
+      headers["content-type"] = requestContentType;
+      duplex = "half";
+    } else {
+      const text = await request.text();
+      if (text) {
+        body = text;
+        headers["content-type"] = requestContentType || "application/json";
+      }
     }
   }
 
@@ -79,12 +111,24 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
     // Never cached: every response is scoped to the caller's units by the
     // row policies (ADR-0010), so a shared cache entry would be a leak.
     cache: "no-store",
-  });
+    ...(duplex ? ({ duplex } as Record<string, unknown>) : {}),
+  } as RequestInit);
+
+  const upstreamContentType = upstream.headers.get("content-type") ?? "application/json";
+  if (!JSON_OR_TEXT.test(upstreamContentType)) {
+    // A binary response (the xlsx exports): read as bytes, forward
+    // Content-Type and, when present, Content-Disposition unchanged.
+    const bytes = await upstream.arrayBuffer();
+    const responseHeaders: Record<string, string> = { "content-type": upstreamContentType };
+    const disposition = upstream.headers.get("content-disposition");
+    if (disposition) responseHeaders["content-disposition"] = disposition;
+    return new NextResponse(bytes, { status: upstream.status, headers: responseHeaders });
+  }
 
   const responseBody = await upstream.text();
   return new NextResponse(responseBody, {
     status: upstream.status,
-    headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
+    headers: { "content-type": upstreamContentType },
   });
 }
 
