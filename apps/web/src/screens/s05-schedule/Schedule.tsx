@@ -17,7 +17,7 @@
  * | today        | Date?               | Injectable "now" for the deviation/status rules and the timeline.  |
  * | addOpen / onOpenAdd / onCloseAdd / onSubmitAdd / addSaving / addApiError | — | The «Προσθήκη» dialog, owned by `ScheduleScreen`. |
  * | onCellEdit   | (milestone, columnId, value) => void | Forwarded to `Table`'s own double-click editor. |
- * | cellApiError | string?             | The last inline-edit failure — e.g. `errors.baselineFixed`, if the API ever refuses one — shown as a banner above the table. |
+ * | cellApiError | string?             | The last inline-edit failure — e.g. `errors.baselineFixed`, or item 9 (M3)'s `errors.openPermitBlocksMilestone` when an open shutdown permit blocks the completion date — shown as a banner above the table, already in the caller's language (`ApiError.message`, `src/data/client.ts`). |
  */
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";

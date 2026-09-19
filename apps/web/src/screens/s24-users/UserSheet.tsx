@@ -30,6 +30,7 @@ import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
 import type { AdminUser, AppRole, OrgUnit, RoleCatalogueEntry } from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ApproverScopesEditor } from "./ApproverScopesEditor";
 import { coversAllUnits, needsAUnit, type UserFormValues } from "./schema";
 
 export interface UserSheetProps {
@@ -244,6 +245,13 @@ export function UserSheet({
             <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
               {apiError}
             </p>
+          )}
+
+          {/* item 8 (M3, R22): only for an existing clinical_approver — routing
+              scopes have no meaning before the account exists or the role is
+              ticked. */}
+          {user && roles.includes("clinical_approver") && (
+            <ApproverScopesEditor userId={user.id} orgUnits={orgUnits} />
           )}
 
           <div className="mt-s-2 flex items-center gap-s-3">

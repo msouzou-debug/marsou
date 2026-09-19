@@ -29,7 +29,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { AppRole, ProjectPhase } from "@ecapital/shared";
 import { ProjectDetail as ProjectDetailSchema } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
-import { useProjectContracts, useProjectDetail } from "@/data/queries";
+import { useProjectContracts, useProjectDetail, useProjectPermits } from "@/data/queries";
 import type { PhaseDialogApiError } from "./PhaseDialog";
 import { ProjectOverview, type ProjectOverviewScreenState } from "./ProjectOverview";
 
@@ -57,6 +57,7 @@ function useOnlineStatus(): boolean {
 export function ProjectOverviewScreen({ projectId, roles, noPermission }: ProjectOverviewScreenProps) {
   const { data, error, isLoading, refetch } = useProjectDetail(projectId);
   const contracts = useProjectContracts(projectId);
+  const openPermits = useProjectPermits(projectId);
   const online = useOnlineStatus();
 
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
@@ -133,6 +134,9 @@ export function ProjectOverviewScreen({ projectId, roles, noPermission }: Projec
       contracts={contracts.data?.items}
       contractsLoading={contracts.isLoading}
       contractsError={!!contracts.error}
+      openPermits={openPermits.data}
+      openPermitsLoading={openPermits.isLoading}
+      openPermitsError={!!openPermits.error}
     />
   );
 }

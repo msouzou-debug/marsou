@@ -40,10 +40,12 @@ import { CostBar } from "@/components/cost-bar";
 import { RagChip } from "@/components/rag-chip";
 import { Timeline, type TimelineEntry } from "@/components/timeline";
 import type { Locale } from "@/i18n/config";
+import type { PermitListRow } from "@ecapital/shared";
 import { ContractsCard } from "./ContractsCard";
 import { FactsList } from "./FactsList";
 import { IssuesCard } from "./IssuesCard";
 import { MilestonesCard } from "./MilestonesCard";
+import { OpenPermitsCard } from "./OpenPermitsCard";
 import { canOfferPhaseChange, PhaseDialog, type PhaseDialogApiError } from "./PhaseDialog";
 import { ProjectTabs } from "./ProjectTabs";
 import { RisksCard } from "./RisksCard";
@@ -76,6 +78,10 @@ export interface ProjectOverviewProps {
   contracts?: Contract[];
   contractsLoading?: boolean;
   contractsError?: boolean;
+  /** «Ανοικτές άδειες» card (item 9, M3) — same reasoning as `contracts` above: a permit has a life of its own once it exists (M3, R19–R25), so this is an extra query the Screen makes and an extra prop this card takes. */
+  openPermits?: PermitListRow[];
+  openPermitsLoading?: boolean;
+  openPermitsError?: boolean;
 }
 
 function ragChipValue(rag: Rag): "green" | "amber" | "red" {
@@ -98,6 +104,9 @@ export function ProjectOverview({
   contracts,
   contractsLoading = false,
   contractsError = false,
+  openPermits,
+  openPermitsLoading = false,
+  openPermitsError = false,
 }: ProjectOverviewProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -222,6 +231,7 @@ export function ProjectOverview({
             loading={contractsLoading}
             error={contractsError}
           />
+          <OpenPermitsCard permits={openPermits} loading={openPermitsLoading} error={openPermitsError} />
         </div>
       </div>
 
