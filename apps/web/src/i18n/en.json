@@ -48,7 +48,8 @@
     "nonNegative": "The budget cannot be a negative number.",
     "percentRange": "The percentage must be between 0 and 100.",
     "invalidDate": "Enter a valid date (YYYY-MM-DD).",
-    "emapRefFormat": "An eMAP reference is written CON-2026-0042."
+    "emapRefFormat": "An eMAP reference is written CON-2026-0042.",
+    "weightRange": "The value must be between 0 and 1."
   },
   "components": {
     "asset-breadcrumb": {
@@ -158,6 +159,51 @@
       "users": "Users",
       "contractors": "Contractors",
       "label": "Administration sections"
+    },
+    "warning-strip": {
+      "label": "Cost warnings",
+      "dismiss": "Dismiss",
+      "dismissedBy": "Dismissed by {name}, {when}"
+    },
+    "suggestion-panel": {
+      "empty": "No matching suggestion. Use bulk assign to search instead.",
+      "topSuggestion": "Suggested match",
+      "acceptHint": "Enter accepts this suggestion",
+      "shortlist": "Alternatives",
+      "confidence": {
+        "HIGH": "High match",
+        "MEDIUM": "Medium match",
+        "LOW": "Low match"
+      },
+      "reason": {
+        "SAME_WBS": "same WBS code",
+        "SAME_PO": "same purchase order",
+        "SAME_COST_CENTRE": "same cost centre",
+        "REMEMBERED_VENDOR": "remembered vendor",
+        "SIMILAR_TEXT": "similar text"
+      }
+    },
+    "keyboard-hint-bar": {
+      "label": "Matching queue keys",
+      "moveFocus": "move",
+      "acceptTop": "accept suggestion",
+      "pickNumbered": "pick suggestion",
+      "skip": "skip",
+      "select": "select row",
+      "bulkAssign": "bulk assign selected",
+      "bulkAssignCount": "bulk assign selected ({count})"
+    },
+    "cashflow-chart": {
+      "empty": "No cash flow data for this range.",
+      "error": "Cash flow did not load. Try again.",
+      "planned": "Planned",
+      "actual": "Actual",
+      "summary": "Cumulative cash flow from {from} to {to}"
+    },
+    "cost-nav-tabs": {
+      "label": "Cost navigation",
+      "imports": "SAP import",
+      "accruals": "Accruals"
     }
   },
   "nav": {
@@ -169,7 +215,8 @@
     "maintenance": "Maintenance",
     "approvals": "Approvals",
     "reports": "Reports",
-    "admin": "Administration"
+    "admin": "Administration",
+    "cost": "Cost"
   },
   "screens": {
     "s00": {
@@ -435,7 +482,8 @@
         "variations": "Variations",
         "rfis": "RFIs",
         "instructions": "Site instructions",
-        "defects": "Defects"
+        "defects": "Defects",
+        "certificates": "Certificates"
       },
       "factsCaption": "Contract facts",
       "facts": {
@@ -710,6 +758,189 @@
       "deactivateConsequence": "They will not be able to sign in, and the session they have open stops at their next action.",
       "deactivateConfirm": "Switch off",
       "noPermissionAskRole": "The system administrator manages users and their roles."
+    },
+    "s04": {
+      "title": "Cost",
+      "caption": "Project cost by category",
+      "empty": "There is no cost data yet for this project.",
+      "columns": {
+        "category": "Category",
+        "approved": "Approved",
+        "committed": "Committed",
+        "spent": "Spent",
+        "forecast": "Forecast",
+        "variance": "Variance"
+      },
+      "totalsRow": "Total",
+      "categories": {
+        "works": "Works",
+        "equipment": "Equipment",
+        "fees": "Fees",
+        "contingency": "Contingency",
+        "other": "Other"
+      },
+      "lastSapImport": "Last SAP import",
+      "forecastInputs": {
+        "title": "Forecast inputs",
+        "contingency": "Contingency (€)",
+        "pendingVariationWeight": "Pending variation weight",
+        "pendingVariationWeightHint": "A value from 0 to 1, applied to variations that have been submitted but not yet approved.",
+        "note": "Note",
+        "readOnlyHint": "Only the project engineer, the head of estates or an administrator can change the forecast inputs."
+      },
+      "cashflow": {
+        "title": "Cash flow",
+        "from": "From month",
+        "to": "To month",
+        "caption": "Cash flow by month",
+        "columns": {
+          "period": "Month",
+          "planned": "Planned",
+          "actual": "Actual",
+          "cumulativePlanned": "Cumulative planned",
+          "cumulativeActual": "Cumulative actual"
+        },
+        "empty": "There is no cash flow data for the selected range."
+      },
+      "budgetLines": {
+        "title": "Budget lines",
+        "year": "Year",
+        "columns": {
+          "vintage": "Vintage",
+          "type": "Type",
+          "category": "Category",
+          "sapGl": "SAP GL account",
+          "amount": "Amount"
+        },
+        "type": {
+          "BUDGET": "Budget",
+          "FORECAST": "Forecast"
+        },
+        "empty": "There are no budget lines for this project.",
+        "financeOnlyHint": "Only Finance or an administrator can change the budget lines."
+      }
+    },
+    "s09": {
+      "title": "Payment certificates",
+      "caption": "Payment certificates for the contract",
+      "empty": "There are no payment certificates for this contract.",
+      "columns": {
+        "number": "No.",
+        "period": "Period",
+        "workDone": "Work done",
+        "materials": "Materials on site",
+        "retentionHeld": "Retention",
+        "previousCertified": "Previously certified",
+        "netPayable": "Net payable",
+        "status": "Status",
+        "sapInvoiceRef": "SAP invoice ref"
+      },
+      "status": {
+        "DRAFT": "Draft",
+        "ENGINEER_APPROVED": "Engineer approved",
+        "FINANCE_RECEIVED": "Received by finance",
+        "PAID": "Paid"
+      },
+      "newTitle": "New payment certificate",
+      "detailTitle": "Certificate {number}",
+      "fields": {
+        "periodFrom": "Period from",
+        "periodTo": "Period to",
+        "workDoneValue": "Work done value (cumulative)",
+        "materialsOnSite": "Materials on site"
+      },
+      "detail": {
+        "retentionHeld": "Retention",
+        "previousCertified": "Previously certified",
+        "netPayable": "Net payable",
+        "sapInvoiceRef": "SAP invoice ref",
+        "paidDate": "Paid date",
+        "createdBy": "Created by",
+        "approvedBy": "Approved by",
+        "retentionRelease": "Release retention",
+        "retentionReleaseWarning": "The contract's defects liability period has not ended yet. Releasing retention before it ends is unusual."
+      },
+      "transitions": {
+        "engineerApprove": "Engineer approval",
+        "financeReceive": "Received by finance",
+        "pay": "Mark as paid",
+        "sapInvoiceRefLabel": "SAP invoice ref",
+        "paidDateLabel": "Paid date",
+        "sameUserApprovalHint": "You cannot approve a certificate you created yourself. Assign the approval to someone else with approval rights."
+      }
+    },
+    "s09a": {
+      "title": "Accruals",
+      "caption": "Accruals by project and contract",
+      "empty": "There are no accruals for the selected year.",
+      "year": "Year",
+      "columns": {
+        "project": "Project",
+        "contract": "Contract",
+        "contractor": "Contractor",
+        "costCentre": "Cost centre",
+        "certNumber": "Certificate",
+        "certifiedNet": "Certified net",
+        "invoiced": "Invoiced",
+        "accrual": "Accrual"
+      },
+      "totalsRow": "Total"
+    },
+    "s10": {
+      "title": "SAP import",
+      "caption": "SAP import batches",
+      "empty": "There are no SAP imports yet.",
+      "columns": {
+        "period": "Period",
+        "report": "Report",
+        "file": "File",
+        "rowsIn": "Rows",
+        "rowsMatched": "Matched",
+        "rowsUnmatched": "Unmatched",
+        "status": "Status",
+        "importedBy": "Imported by"
+      },
+      "status": {
+        "DRY_RUN": "Dry run",
+        "PENDING_ALLOCATION": "Awaiting allocation",
+        "COMMITTED": "Committed",
+        "FAILED": "Failed"
+      },
+      "upload": {
+        "title": "New import",
+        "file": "File",
+        "report": "SAP report",
+        "period": "Period",
+        "dryRun": "Dry run",
+        "import": "Import",
+        "dryRunResult": "Dry run result: {matched} of {total} rows matched automatically.",
+        "exceptionsTitle": "Exceptions",
+        "fileRequired": "Choose a file to import.",
+        "openQueue": "Open matching queue"
+      },
+      "queue": {
+        "remaining": "{remaining} of {total} remaining",
+        "columns": {
+          "postingDate": "Posting date",
+          "vendor": "Vendor",
+          "description": "Description",
+          "amount": "Amount",
+          "wbs": "WBS",
+          "po": "Purchase order",
+          "costCentre": "Cost centre"
+        },
+        "commit": "Complete import",
+        "bulkAssignTitle": "Bulk assign selected",
+        "bulkAssignProject": "Project",
+        "bulkAssignContract": "Contract (optional)",
+        "bulkAssignSearchPlaceholder": "Search a project by code or title",
+        "skipConfirmTitle": "Skip the selected transactions?",
+        "skipConfirmConsequence": "The transactions stay unmatched and do not count toward completing the import.",
+        "empty": "There are no unmatched transactions.",
+        "done": "Every transaction is matched. You can complete the import now.",
+        "readOnlyPhone": "The matching queue is view-only on this screen. Use a computer or tablet to assign.",
+        "committed": "The import was committed."
+      }
     }
   },
   "states": {

@@ -64,7 +64,7 @@ export async function AppShell({
           chip itself; this slot is the phone position, under the top bar). */}
       {offlineSlot ? <div className="border-b border-k-grey bg-k-white">{offlineSlot}</div> : null}
       <div className="flex flex-1">
-        <NavRail approvalsCount={approvalsCount} />
+        <NavRail approvalsCount={approvalsCount} roles={me?.roles} />
         <main
           id="main-content"
           className="min-w-0 flex-1 overflow-x-hidden p-s-4 pb-[calc(56px+var(--s-4))] tablet:p-s-8 tablet:pb-s-8"
@@ -72,7 +72,7 @@ export async function AppShell({
           {children}
         </main>
       </div>
-      <BottomTabBar approvalsCount={approvalsCount} />
+      <BottomTabBar approvalsCount={approvalsCount} roles={me?.roles} />
     </div>
   );
 }

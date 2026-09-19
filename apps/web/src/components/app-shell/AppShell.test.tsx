@@ -63,12 +63,27 @@ describe("UnitSwitcher", () => {
 });
 
 describe("NavRail", () => {
-  it("renders all nine nav groups", () => {
+  // M2 added «Κόστος» as the tenth nav group, gated by role rather than
+  // always shown — see the two tests below.
+  it("defines all ten nav groups, one of them role-gated", () => {
+    expect(NAV_ITEMS).toHaveLength(10);
+  });
+
+  it("hides the role-gated «Κόστος» item for a caller with no role that reaches it", () => {
     renderWithIntl(<NavRail />, { locale: "el" });
     const nav = document.querySelector("nav");
     expect(nav).toBeTruthy();
     expect(nav?.querySelectorAll("a")).toHaveLength(9);
-    expect(NAV_ITEMS).toHaveLength(9);
+    expect(document.body.textContent).not.toContain("Κόστος");
+  });
+
+  // RULE (`canViewCostNav`, `@/auth/roles`): visible to a caller who can
+  // reach either S10 (Εισαγωγή SAP) or S09a (Δεδουλευμένα).
+  it("shows «Κόστος» for a finance caller", () => {
+    renderWithIntl(<NavRail roles={["finance"]} />, { locale: "el" });
+    const nav = document.querySelector("nav");
+    expect(nav?.querySelectorAll("a")).toHaveLength(10);
+    expect(document.body.textContent).toContain("Κόστος");
   });
 
   it("shows the approvals count as a badge", () => {

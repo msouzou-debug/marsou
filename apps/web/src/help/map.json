@@ -17,5 +17,12 @@
   "S07c": { "route": "/contracts/[id]/instructions", "section": "S07c-instructions", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
   "S07d": { "route": "/contracts/[id]/defects", "section": "S07d-defects", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
   "S24": { "route": "/admin/contractors", "section": "S24-contractors", "persona": ["admin", "estates_head"] },
-  "S24u": { "route": "/admin/users", "section": "S24-users", "persona": ["admin"] }
+  "S24u": { "route": "/admin/users", "section": "S24-users", "persona": ["admin"] },
+  "S04": { "route": "/projects/[id]/cost", "section": "S04-cost", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S09": { "route": "/contracts/[id]/certificates", "section": "S09-payment-certs", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S09-new": { "route": "/contracts/[id]/certificates/new", "section": "S09-payment-certs", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S09-detail": { "route": "/certificates/[id]", "section": "S09-payment-certs", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S09a": { "route": "/cost/accruals", "section": "S09a-accruals", "persona": ["admin", "estates_head", "finance", "executive_readonly", "auditor_readonly"] },
+  "S10": { "route": "/cost/imports", "section": "S10-sap-import", "persona": ["admin", "finance"] },
+  "S10-detail": { "route": "/cost/imports/[id]", "section": "S10-sap-import", "persona": ["admin", "finance"] }
 }

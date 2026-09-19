@@ -5,22 +5,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import type { AppRole } from "@ecapital/shared";
 import { LanguageToggle } from "./LanguageToggle";
 import { moreSheetItems, phoneTabItems } from "./nav-items";
 
 export interface BottomTabBarProps {
   /** Count for the Εγκρίσεις (approvals) badge. 0 hides the badge. */
   approvalsCount?: number;
+  /** `me.roles` — same gate `NavRail` applies to a `visibleFor` item. */
+  roles?: AppRole[];
 }
 
 // Phone only (<1024): 4 tabs, 56px tall, 44px minimum touch targets (UI
 // instructions §2, §7). The 4th slot opens a sheet with the remaining nav
 // items plus the language toggle, since a phone screen has no room for all
 // nine sections.
-export function BottomTabBar({ approvalsCount = 0 }: BottomTabBarProps) {
+export function BottomTabBar({ approvalsCount = 0, roles = [] }: BottomTabBarProps) {
   const t = useTranslations();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const visibleMoreItems = moreSheetItems.filter((item) => !item.visibleFor || item.visibleFor(roles));
 
   useEffect(() => {
     if (!open) return;
@@ -108,7 +112,7 @@ export function BottomTabBar({ approvalsCount = 0 }: BottomTabBarProps) {
               </button>
             </div>
             <ul className="grid gap-s-1">
-              {moreSheetItems.map((item) => {
+              {visibleMoreItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <li key={item.id}>

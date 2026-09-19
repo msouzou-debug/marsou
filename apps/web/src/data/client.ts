@@ -135,3 +135,27 @@ export async function apiMutate<T>(
   const text = await res.text();
   return schema.parse(text ? JSON.parse(text) : undefined);
 }
+
+/**
+ * S10's `POST /cost/imports`: the one write in this app whose body is not
+ * JSON. Never set a `content-type` header by hand here — the browser adds
+ * `multipart/form-data; boundary=…` itself when the body is a `FormData`,
+ * and the proxy route forwards whatever content-type it receives untouched
+ * (`src/app/api/proxy/[...path]/route.ts`).
+ */
+export async function apiMutateMultipart<T>(
+  path: string,
+  form: FormData,
+  schema: ZodType<T>,
+  options: ApiMutateOptions = {},
+): Promise<T> {
+  const res = await fetch(`/api/proxy${path}`, {
+    method: "POST",
+    body: form,
+    signal: options.signal,
+    cache: "no-store",
+  });
+  if (!res.ok) throw await errorFrom(res, path);
+  const text = await res.text();
+  return schema.parse(text ? JSON.parse(text) : undefined);
+}

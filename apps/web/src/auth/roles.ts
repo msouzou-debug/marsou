@@ -96,3 +96,66 @@ export function canManageDefect(roles: AppRole[], source: DefectSource): boolean
   if (canWriteContracts(roles)) return true;
   return roles.includes("technician") && (source === "INSPECTION" || source === "WORK_ORDER");
 }
+
+// ------------------------------------------------------------ M2 (R13, R14, R16, R18, R31)
+//
+// FLAGGED (not settled by an ADR the way R10/R15's segregation is): the build
+// brief names who *sees* S04's forecast-inputs form ("visible to
+// project_engineer/estates_head/admin, read-only otherwise") and who sees
+// accruals (finance/admin/estates_head/executive_readonly/auditor_readonly),
+// but the API contract does not itself carry a role list for the SAP import,
+// the warning dismissal or the budget-lines write. This build takes the
+// narrowest reading consistent with the rest of the app: the same three
+// roles that run a project's works may set the forecast inputs and dismiss a
+// warning on it; finance/admin — the two roles CAPEX-01 §7 already gives
+// every ledger to — own the budget lines and the SAP import; a payment
+// certificate is created by whoever runs the contract and moves through
+// finance from there. Worth a line in the hand-back summary, same as the
+// contract-write set above.
+
+/** S04's «Παράμετροι πρόβλεψης» form — read-only for everyone else. */
+export function canSetForecastInputs(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** S04's «Απόρριψη» link on a warning line. */
+export function canDismissCostWarning(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** S04's «Γραμμές προϋπολογισμού» editor and the finance-only budget rule generally. */
+export function canManageBudgetLines(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "finance" || role === "admin");
+}
+
+/** S10: who may run a SAP import and work its unmatched queue. */
+export function canImportSap(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "finance" || role === "admin");
+}
+
+/** S09: creating a payment certificate is the contract team's job. */
+export function canCreatePaymentCert(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** S09's «Έγκριση μηχανικού» — segregation from the creator is enforced by the caller, same pattern as S08. */
+export function canApprovePaymentCertEngineer(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** S09's «Παραλαβή από Οικονομικές» and «Εξόφληση». */
+export function canProcessPaymentCertFinance(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "finance" || role === "admin");
+}
+
+/** S09a — explicit in the build brief. */
+export function canViewAccruals(roles: AppRole[]): boolean {
+  return roles.some((role) =>
+    ["finance", "admin", "estates_head", "executive_readonly", "auditor_readonly"].includes(role),
+  );
+}
+
+/** The «Κόστος» nav entry (Εισαγωγή SAP + Δεδουλευμένα): visible to anyone who can reach either sub-screen. */
+export function canViewCostNav(roles: AppRole[]): boolean {
+  return canImportSap(roles) || canViewAccruals(roles);
+}

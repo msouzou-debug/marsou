@@ -1,17 +1,24 @@
 import {
+  AccrualRow,
   AdminUserList,
   AreaTree,
+  BudgetLine,
+  CashflowRow,
   ConfigLinks,
   Contractor,
   ContractDetail,
   ContractList,
   Defect,
+  ImportBatch,
+  PaymentCert,
   PortfolioResponse,
+  ProjectCost,
   ProjectDetail,
   ProjectList,
   Rfi,
   RoleCatalogue,
   SiteInstruction,
+  UnmatchedQueue,
   type ProjectListQuery,
 } from "@ecapital/shared";
 import { useQuery } from "@tanstack/react-query";
@@ -215,6 +222,109 @@ export function useAdminUsers(query: AdminUsersQuery) {
   return useQuery({
     queryKey: ["admin-users", query],
     queryFn: () => proxyFetch(adminUsersApiPath(query), AdminUserList),
+    retry: false,
+  });
+}
+
+// ------------------------------------------------------------ M2 (R13, R14, R16–R18, R31)
+// S04, S09, S09a, S10. Same shape as every hook above: `proxyFetch`, keyed on
+// the arguments that change the result, `retry: false` so a real 403/404/5xx
+// reaches the screen's own error/noPermission state promptly instead of
+// being retried into a slower failure.
+
+// S04.
+export function useProjectCost(projectId: string) {
+  return useQuery({
+    queryKey: ["project-cost", projectId],
+    queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/cost`, ProjectCost),
+    retry: false,
+  });
+}
+
+// S04's «Ταμειακή ροή» section. `from`/`to` are "YYYY-MM".
+export function useCashflow(projectId: string, from: string, to: string) {
+  return useQuery({
+    queryKey: ["project-cashflow", projectId, from, to],
+    queryFn: () =>
+      proxyFetch(
+        `/projects/${encodeURIComponent(projectId)}/cost/cashflow?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+        z.array(CashflowRow),
+      ),
+    retry: false,
+    enabled: from.length > 0 && to.length > 0,
+  });
+}
+
+// S04's finance-only «Γραμμές προϋπολογισμού» editor.
+export function useBudgetLines(projectId: string) {
+  return useQuery({
+    queryKey: ["budget-lines", projectId],
+    queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/budget-lines`, z.array(BudgetLine)),
+    retry: false,
+  });
+}
+
+// S10 list.
+export function useImportBatches() {
+  return useQuery({
+    queryKey: ["cost-imports"],
+    queryFn: () => proxyFetch("/cost/imports", z.array(ImportBatch)),
+    retry: false,
+  });
+}
+
+// S10 batch detail (the header facts above the unmatched queue).
+export function useImportBatch(id: string) {
+  return useQuery({
+    queryKey: ["cost-import", id],
+    queryFn: () => proxyFetch(`/cost/imports/${encodeURIComponent(id)}`, ImportBatch),
+    retry: false,
+  });
+}
+
+// S10's own unmatched queue. Not kept "fresh" by refetch — S10's own screen
+// applies `allocate`/`skip` optimistically from each call's own response
+// (the build brief: "no confirmation … using the `next` row from the
+// response"), and refetches this only when the queue needs to be rebuilt
+// from scratch (opening the batch, or after `commit`).
+export function useUnmatchedQueue(batchId: string) {
+  return useQuery({
+    queryKey: ["cost-import-unmatched", batchId],
+    queryFn: () => proxyFetch(`/cost/imports/${encodeURIComponent(batchId)}/unmatched`, UnmatchedQueue),
+    retry: false,
+  });
+}
+
+// S09 list, on a contract.
+export function usePaymentCerts(contractId: string) {
+  return useQuery({
+    queryKey: ["payment-certs", contractId],
+    queryFn: () => proxyFetch(`/contracts/${encodeURIComponent(contractId)}/payment-certs`, z.array(PaymentCert)),
+    retry: false,
+  });
+}
+
+// S09 detail.
+export function usePaymentCert(id: string) {
+  return useQuery({
+    queryKey: ["payment-cert", id],
+    queryFn: () => proxyFetch(`/payment-certs/${encodeURIComponent(id)}`, PaymentCert),
+    retry: false,
+  });
+}
+
+// S09a. `orgUnitId` narrows to one unit; omitted (or "") lists every unit the
+// caller may see.
+export function useAccruals(year: number, orgUnitId?: string) {
+  return useQuery({
+    queryKey: ["accruals", year, orgUnitId ?? ""],
+    queryFn: () =>
+      proxyFetch(
+        orgUnitId
+          ? `/cost/accruals?year=${year}&orgUnitId=${encodeURIComponent(orgUnitId)}`
+          : `/cost/accruals?year=${year}`,
+        z.array(AccrualRow),
+      ),
     retry: false,
   });
 }

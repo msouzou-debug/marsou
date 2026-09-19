@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { AppRole } from "@ecapital/shared";
 import { NAV_ITEMS } from "./nav-items";
 
 export interface NavRailProps {
   /** Count for the Εγκρίσεις (approvals) badge. 0 hides the badge. */
   approvalsCount?: number;
+  /** `me.roles` — hides a `visibleFor`-gated item (M2's «Κόστος») for a caller it excludes. Omitted (or empty) hides every gated item. */
+  roles?: AppRole[];
 }
 
 // Desktop (≥1440): 240px, icon + label. Tablet (1024–1439): 56px, icon only
@@ -18,7 +21,7 @@ export interface NavRailProps {
 // never a filled blue element — the rail never uses --k-blue as a fill (UI
 // instructions §1: at most one filled-blue element per view, the primary
 // button, and this is not it).
-export function NavRail({ approvalsCount = 0 }: NavRailProps) {
+export function NavRail({ approvalsCount = 0, roles = [] }: NavRailProps) {
   const t = useTranslations();
   const pathname = usePathname();
 
@@ -27,7 +30,7 @@ export function NavRail({ approvalsCount = 0 }: NavRailProps) {
       aria-label={t("shell.primaryNav")}
       className="hidden w-14 shrink-0 flex-col gap-s-1 border-r border-k-grey bg-k-white py-s-4 tablet:flex desktop:w-60"
     >
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => !item.visibleFor || item.visibleFor(roles)).map((item) => {
         const Icon = item.icon;
         const active = item.href === "/" ? pathname === "/" : (pathname ?? "").startsWith(item.href);
         const label = t(item.labelKey);
