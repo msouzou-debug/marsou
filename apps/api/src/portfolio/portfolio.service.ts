@@ -235,6 +235,7 @@ export class PortfolioService {
     }
 
     for (const candidate of await this.contractWarnings(today, byId)) candidates.push(candidate);
+    for (const candidate of await this.siteLog(asOf, byId)) candidates.push(candidate);
 
     // Red before amber, then by how big the slip is, so the eight that
     // survive the cap are the eight worth reading.
@@ -243,7 +244,106 @@ export class PortfolioService {
   }
 
   /**
-   * RULE (R31): the three contract warnings are the same three the contract
+   * RULE (R12, R09): two more things the site log knows without waiting for
+   * anything, and they are the two the head of estates is answerable for.
+   *
+   *   1. a handover defect whose due date has gone past and which is still
+   *      open — red, because the defects liability period is a contractual
+   *      window and a defect that misses it is a defect ΟΚΥπΥ pays to fix
+   *      itself (R12);
+   *   2. an RFI whose SLA has run out with no answer on it — amber, because
+   *      it holds the contractor up rather than costing money directly (R09).
+   *
+   * Neither blocks anything (CAPEX-01 §1, R31). Both compete with the project
+   * and contract exceptions for the same eight places.
+   */
+  private async siteLog(
+    asOf: Date,
+    byId: Map<string, OrgUnit>,
+  ): Promise<{ exception: Exception; weight: number; size: number }[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const today = asOf.toISOString().slice(0, 10);
+    const out: { exception: Exception; weight: number; size: number }[] = [];
+
+    const overdueDefects = await tx.db
+      .select({
+        id: schema.defect.id,
+        orgUnitId: schema.defect.orgUnitId,
+        descriptionEl: schema.defect.descriptionEl,
+        dueDate: schema.defect.dueDate,
+        days: sql<number>`(${today}::date - ${schema.defect.dueDate})::int`,
+        // A handover defect always has a contract behind it, and the contract
+        // always has a project; `project_id` is filled from the contract when
+        // the defect is raised, so this is belt and braces.
+        projectId: sql<
+          string | null
+        >`coalesce(${schema.defect.projectId}, (select c.project_id from ecapital.contract c
+                                                 where c.id = ${schema.defect.contractId}))`,
+      })
+      .from(schema.defect)
+      .where(
+        sql`${schema.defect.source} = 'HANDOVER'
+            and ${schema.defect.status} <> 'CLOSED'
+            and ${schema.defect.dueDate} is not null
+            and ${schema.defect.dueDate} < ${today}::date`,
+      );
+
+    for (const row of overdueDefects) {
+      const unit = byId.get(row.orgUnitId);
+      if (!unit || row.projectId === null) continue;
+      out.push({
+        exception: this.sentence(
+          "defectOverdue",
+          `EXC-DF-${row.id}`,
+          row.projectId,
+          unit,
+          "red",
+          { defect: row.descriptionEl, days: String(row.days) },
+          `/defects/${row.id}`,
+        ),
+        weight: 2,
+        size: row.days,
+      });
+    }
+
+    const breachedRfis = await tx.db
+      .select({
+        id: schema.rfi.id,
+        number: schema.rfi.number,
+        orgUnitId: schema.rfi.orgUnitId,
+        contractId: schema.rfi.contractId,
+        contractNo: schema.contract.contractNo,
+        projectId: schema.contract.projectId,
+        hours: sql<number>`(extract(epoch from (now() - ${schema.rfi.slaDueAt})) / 3600)::int`,
+      })
+      .from(schema.rfi)
+      .innerJoin(schema.contract, eq(schema.contract.id, schema.rfi.contractId))
+      .where(sql`${schema.rfi.status} = 'OPEN' and ${schema.rfi.slaDueAt} <= now()`);
+
+    for (const row of breachedRfis) {
+      const unit = byId.get(row.orgUnitId);
+      if (!unit) continue;
+      out.push({
+        exception: this.sentence(
+          "rfiBreached",
+          `EXC-RFI-${row.id}`,
+          row.projectId,
+          unit,
+          "amber",
+          { number: String(row.number), contract: row.contractNo, hours: String(row.hours) },
+          `/contracts/${row.contractId}`,
+        ),
+        weight: 1,
+        size: row.hours,
+      });
+    }
+
+    return out;
+  }
+
+  /**
+   * RULE (R31): the contract warnings are the same ones the contract
    * screen shows, computed by the same function over the same facts, and they
    * come into the portfolio as amber exceptions pointing at the contract
    * rather than the project — the contract is where somebody fixes them.
@@ -273,6 +373,11 @@ export class PortfolioService {
         approved: sql<string>`coalesce((select sum(v.value) from ecapital.variation v
                                          where v.contract_id = ${schema.contract.id}
                                            and v.status = 'APPROVED'), 0)`,
+        // R09: cost-impact instructions nobody has turned into a variation.
+        unpriced: sql<number>`(select count(*)::int from ecapital.site_instruction s
+                                where s.contract_id = ${schema.contract.id}
+                                  and s.cost_impact_flag
+                                  and s.variation_id is null)`,
       })
       .from(schema.contract)
       .innerJoin(schema.project, eq(schema.project.id, schema.contract.projectId));
@@ -291,6 +396,7 @@ export class PortfolioService {
           completionDate: row.completionDate,
           extensionDays: row.extensionDays,
           projectPhase: row.phase,
+          instructionsWithoutVariation: row.unpriced,
         },
         today,
       );
@@ -328,6 +434,7 @@ export class PortfolioService {
     unit: OrgUnit,
     severity: Exception["severity"],
     params: Record<string, string>,
+    href?: string,
   ): Exception {
     return {
       id,
@@ -336,7 +443,9 @@ export class PortfolioService {
       sentenceEl: this.i18n.translate(`exceptions.${key}`, "el", { ...params, unit: unit.nameEl }),
       sentenceEn: this.i18n.translate(`exceptions.${key}`, "en", { ...params, unit: unit.nameEn }),
       severity,
-      href: `/projects/${projectId}`,
+      // The link goes where somebody fixes it, which is not always the
+      // project: a defect is fixed on the defect and an RFI on the contract.
+      href: href ?? `/projects/${projectId}`,
     };
   }
 }

@@ -128,6 +128,12 @@ export interface WarningInput {
   completionDate: string | null;
   extensionDays: number;
   projectPhase: ProjectPhase;
+  /**
+   * R09: how many site instructions on this contract carry cost impact and
+   * have not been turned into a variation yet. Work the contractor is doing
+   * that the commitment does not know about.
+   */
+  instructionsWithoutVariation: number;
 }
 
 /** One fired rule, before anybody has decided which language to say it in. */
@@ -141,6 +147,7 @@ export interface WarningFact {
     pct?: number;
     date?: string;
     days?: number;
+    count?: number;
   };
 }
 
@@ -194,6 +201,19 @@ export function warningFacts(input: WarningInput, today: string): WarningFact[] 
         facts: { ...named, date: due, days: daysBetween(due, today) },
       });
     }
+  }
+
+  // 4. Site instructions with cost impact that nobody has priced (R09).
+  //    CAPEX-01 §4: an instruction that costs money has to end up as a
+  //    variation, because otherwise the works grow and the commitment does
+  //    not. Warn and flag, like the other three: the instruction stands, the
+  //    contractor keeps working, and somebody has to go and price it.
+  if (input.instructionsWithoutVariation > 0) {
+    facts.push({
+      key: "instructionsWithoutVariation",
+      amount: null,
+      facts: { ...named, count: input.instructionsWithoutVariation },
+    });
   }
 
   return facts;

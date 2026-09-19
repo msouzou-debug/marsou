@@ -12,9 +12,9 @@ import {
 } from "./contract-rows";
 
 /**
- * R31 — the three warn-and-flag rules, tested as what they are: arithmetic on
- * a row. No database, no request, no clock; the day is an argument, so the
- * test says the same thing in September as it does in March.
+ * R31 and R09 — the four warn-and-flag rules, tested as what they are:
+ * arithmetic on a row. No database, no request, no clock; the day is an
+ * argument, so the test says the same thing in September as it does in March.
  */
 const base: WarningInput = {
   contractNo: "ΤΥ/2026/014",
@@ -25,6 +25,7 @@ const base: WarningInput = {
   completionDate: null,
   extensionDays: 0,
   projectPhase: "IN_PROGRESS",
+  instructionsWithoutVariation: 0,
 };
 
 const TODAY = "2026-09-19";
@@ -32,6 +33,16 @@ const TODAY = "2026-09-19";
 describe("warningFacts", () => {
   it("says nothing about a contract that is behaving", () => {
     expect(warningFacts(base, TODAY)).toEqual([]);
+  });
+
+  // R09: an instruction with cost impact has to end up as a variation.
+  it("counts the cost-impact instructions nobody has turned into a variation", () => {
+    expect(warningFacts({ ...base, instructionsWithoutVariation: 0 }, TODAY)).toEqual([]);
+    const flagged = warningFacts({ ...base, instructionsWithoutVariation: 2 }, TODAY);
+    expect(flagged.map((f) => f.key)).toEqual(["instructionsWithoutVariation"]);
+    expect(flagged[0].facts.count).toBe(2);
+    // Warn and flag: it carries no money, because nobody has priced it yet.
+    expect(flagged[0].amount).toBeNull();
   });
 
   it("stays quiet at exactly a tenth and fires above it", () => {

@@ -44,5 +44,6 @@ function sentence(
   if (fact.facts.pct !== undefined) params.pct = formatPct(fact.facts.pct, locale);
   if (fact.facts.date !== undefined) params.date = formatDate(fact.facts.date);
   if (fact.facts.days !== undefined) params.days = String(fact.facts.days);
+  if (fact.facts.count !== undefined) params.count = String(fact.facts.count);
   return i18n.translate(`warnings.${fact.key}`, locale, params);
 }

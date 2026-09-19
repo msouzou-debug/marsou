@@ -17,6 +17,7 @@ import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
+import { BACKLOG_STATUSES } from "../defects/defect-rows";
 import * as schema from "../db/schema";
 import {
   type AuditRow,
@@ -126,11 +127,12 @@ export class ProjectsService {
       })
       .from(sql`(select 1) as one`);
 
-    const [milestones, risks, issues, audit] = await Promise.all([
+    const [milestones, risks, issues, audit, openDefects] = await Promise.all([
       this.milestonesOf(id),
       this.risksOf(id),
       this.issuesOf(id),
       this.auditOf(id),
+      this.openDefectsOf(id),
     ]);
 
     return {
@@ -142,7 +144,30 @@ export class ProjectsService {
       risks,
       issues,
       audit,
+      // M1 site log (R12): how many defects on this project are still to be
+      // dealt with. A count and not a list — the list is `GET /defects?project=`.
+      openDefects,
     };
+  }
+
+  /**
+   * RULE (R12, R35): "open" on a project page means work still to do, which
+   * is OPEN and IN_PROGRESS together — the same two statuses the backlog
+   * counts. A defect somebody has started is not one somebody has finished.
+   */
+  private async openDefectsOf(projectId: string): Promise<number> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const [row] = await tx.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.defect)
+      .where(
+        and(
+          eq(schema.defect.projectId, projectId),
+          inArray(schema.defect.status, BACKLOG_STATUSES),
+        ),
+      );
+    return row?.count ?? 0;
   }
 
   /**

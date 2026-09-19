@@ -13,10 +13,13 @@ import { CONFIG, type AppConfig } from "./config";
 import { ContractorsModule } from "./contractors/contractors.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { CoreModule } from "./core.module";
+import { DefectsModule } from "./defects/defects.module";
 import { HealthModule } from "./health/health.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { RfisModule } from "./rfis/rfis.module";
+import { SiteInstructionsModule } from "./site-instructions/site-instructions.module";
 
 @Module({
   imports: [
@@ -54,6 +57,9 @@ import { ProjectsModule } from "./projects/projects.module";
     ProjectsModule,
     ContractorsModule,
     ContractsModule,
+    RfisModule,
+    SiteInstructionsModule,
+    DefectsModule,
     PortfolioModule,
     HealthModule,
     AuditModule,
