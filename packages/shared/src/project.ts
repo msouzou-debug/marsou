@@ -98,8 +98,10 @@ export type Project = z.infer<typeof Project>;
 export const ProjectLedgers = z.object({
   approved: z.number(),
   // RULE (CAPEX-01 §7): a ledger the system does not know yet is null, never
-  // zero. Committed and spent arrive with the SAP ingestion (M2, R14) and the
-  // forecast is derived from them (R16); until then screens show «—».
+  // zero. Committed = the sum of contract currentValue (original + approved
+  // variations) once the project has a contract, null before; spent arrives
+  // with the SAP ingestion (M2, R14) and the forecast is derived from them
+  // (R16); until then screens show «—».
   committed: z.number().nullable(),
   spent: z.number().nullable(),
   forecast: z.number().nullable(),
