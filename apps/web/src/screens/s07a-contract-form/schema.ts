@@ -33,6 +33,13 @@ export interface ContractFormValues {
   // validated rather than trusted — a mistyped reference makes a link on S07
   // that lands nowhere, which is worse than no link at all.
   emapRef: string | null;
+  // ADR-0025, owner decision 19/09/2026: one CAPEX budget code per contract.
+  // "" means none, the same convention S07d's `targetProjectId` uses for its
+  // own optional select — `ContractFormScreen` turns "" into `null` before
+  // the request body is built. `ContractCreateFormSchema` below refuses the
+  // empty value: required on a new contract, editable (including back to
+  // nothing) afterwards.
+  budgetCode: string;
 }
 
 export interface ContractCreateFormValues extends ContractFormValues {
@@ -68,6 +75,12 @@ const defectsLiabilityMonths = z
   .int()
   .refine((value) => !Number.isNaN(value), "forms.required")
   .nonnegative("forms.nonNegative");
+// RULE (ADR-0025): required on a new contract — the shared `ContractCreate`
+// allows null, but S07a's own form does not let a person start one without
+// picking a code. Editable back to nothing afterwards (plain `z.string()`,
+// used for the field in `sharedFields` below — "" passes there and is
+// turned into `null` by `ContractFormScreen` before the request is sent).
+const budgetCodeRequired = z.string().trim().min(1, "forms.required");
 
 // RULE (CAPEX-03 §2 pattern reused from S02a): a start or completion date can
 // be missing, but a completion before its own start never is.
@@ -93,11 +106,20 @@ const sharedFields = {
   defectsLiabilityMonths,
   sapPoNumber: nullableString,
   emapRef,
+  // "" here for the edit schema below (means "no change" is not the rule —
+  // it means "clear it"); the create schema overrides it with
+  // `budgetCodeRequired`.
+  budgetCode: z.string(),
 };
 
 /** S07a Νέα σύμβαση — `POST /projects/:id/contracts`. */
 export const ContractCreateFormSchema = refineDateOrder(
-  z.object({ contractorId, originalValue: nonNegativeRequired, ...sharedFields }),
+  z.object({
+    contractorId,
+    originalValue: nonNegativeRequired,
+    ...sharedFields,
+    budgetCode: budgetCodeRequired,
+  }),
 );
 
 /**

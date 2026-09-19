@@ -21,12 +21,19 @@
  * | initialValues         | ContractFormValues? | Required in "edit"; prefills the form.             |
  * | initialContractorName | string?             | "edit" only — the read-only Ανάδοχος fact.         |
  * | initialOriginalValue  | number?             | "edit" only — the read-only Αρχική αξία fact.      |
+ *
+ * ADR-0025: `values.budgetCode` arrives from the form as `""` (unpicked, or
+ * cleared) or a code; this file is what turns `""` into `null` before either
+ * request goes out, the same job it already does nowhere else because every
+ * other nullable field on this form is a text input that is `null` from
+ * `blankToNull` well before `handleSubmit` sees it.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ContractDetail, type Contractor } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
+import { useBudgetCodes } from "@/data/queries";
 import { ContractForm } from "./ContractForm";
 import type { ContractCreateFormValues, ContractFormValues } from "./schema";
 
@@ -53,17 +60,25 @@ export function ContractFormScreen({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | undefined>(undefined);
+  // ADR-0025: fed by its own query rather than a server-fetched prop, unlike
+  // `contractors` above — the register is short and worth caching for the
+  // whole session (`useBudgetCodes`'s own `staleTime`), and both S07a routes
+  // (create and edit) need it equally.
+  const budgetCodesQuery = useBudgetCodes();
 
   async function handleSubmit(values: ContractCreateFormValues) {
     setSubmitting(true);
     setApiError(undefined);
+    // ADR-0025: "" is the form's own "nothing picked / cleared" value; the
+    // API's `budgetCode` is `string | null`.
+    const budgetCode = values.budgetCode.trim() === "" ? null : values.budgetCode;
     try {
       const contract =
         mode === "create"
           ? await apiMutate(
               `/projects/${encodeURIComponent(projectId ?? "")}/contracts`,
               "POST",
-              { ...values, projectId },
+              { ...values, budgetCode, projectId },
               ContractDetail,
             )
           : await apiMutate(
@@ -71,7 +86,7 @@ export function ContractFormScreen({
               "PATCH",
               // `contractorId`/`originalValue` never reach `PATCH` — see
               // `schema.ts`'s header comment for why they cannot change.
-              { ...values, contractorId: undefined, originalValue: undefined },
+              { ...values, budgetCode, contractorId: undefined, originalValue: undefined },
               ContractDetail,
             );
       router.push(`/contracts/${encodeURIComponent(contract.id)}`);
@@ -100,6 +115,7 @@ export function ContractFormScreen({
     <ContractForm
       mode={mode}
       contractors={contractors}
+      budgetCodes={budgetCodesQuery.data ?? []}
       initialValues={initialValues}
       initialContractorName={initialContractorName}
       initialOriginalValue={initialOriginalValue}

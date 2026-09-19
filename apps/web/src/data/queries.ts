@@ -2,6 +2,7 @@ import {
   AccrualRow,
   AdminUserList,
   AreaTree,
+  BudgetCodeList,
   BudgetLine,
   CashflowRow,
   ConfigLinks,
@@ -196,6 +197,20 @@ export function useProjectsForUnit(orgUnitId: string) {
       ),
     retry: false,
     enabled: orgUnitId.length > 0,
+  });
+}
+
+// S07a's «Κωδικός προϋπολογισμού» select, S07's facts list and S07e's
+// optional column (ADR-0025). Any signed-in role may read the list, and it
+// changes about as often as the org unit list does — worth caching for the
+// length of the session the same way `useConfigLinks` does.
+export function useBudgetCodes() {
+  return useQuery({
+    queryKey: ["budget-codes"],
+    queryFn: () => proxyFetch("/budget-codes?kind=capex", BudgetCodeList),
+    select: (page) => page.items,
+    staleTime: Infinity,
+    retry: false,
   });
 }
 
