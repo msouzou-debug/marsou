@@ -18,6 +18,7 @@ import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import { BACKLOG_STATUSES } from "../defects/defect-rows";
+import { OPEN_PERMIT_STATUSES } from "../permits/permit-rows";
 import * as schema from "../db/schema";
 import {
   type AuditRow,
@@ -402,6 +403,25 @@ export class ProjectsService {
       throw AppError.unprocessable("errors.baselineFixed", { baseline: existing[0].baselineDate });
     }
 
+    /**
+     * RULE (R24, CAPEX-01 §6.6): «an open permit blocks the project
+     * milestone». Completing a milestone is the project saying a piece of
+     * work is finished, and it is not finished while a shutdown on it is
+     * still open — the barriers are up, the theatre is down, and somebody has
+     * to go and close the permit before the date goes in the book.
+     *
+     * It fires on the moment the actual date arrives, not on every save, so
+     * editing the title of an already-completed milestone is not refused by a
+     * permit raised afterwards. 409 and not 422: the body is right and the
+     * state of the world is what makes it wrong (see AppError.conflict).
+     */
+    if (input.actualDate && !existing[0].actualDate) {
+      const open = await this.openPermitOn(projectId);
+      if (open) {
+        throw AppError.conflict("errors.openPermitBlocksMilestone", { permit: open });
+      }
+    }
+
     const touched = await tx.db
       .update(schema.milestone)
       .set({
@@ -563,6 +583,30 @@ export class ProjectsService {
     // seed and the directory have drifted, which is not the caller's fault.
     if (!rows.length) throw AppError.internal();
     return rows[0].id;
+  }
+
+  /**
+   * R24: the permit statuses that block a milestone — everything from the
+   * moment somebody submitted a request to the moment the area was handed
+   * back. A draft blocks nothing (nobody has asked for anything yet) and a
+   * closed or rejected permit blocks nothing either.
+   */
+  private async openPermitOn(projectId: string): Promise<string | null> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const rows = await tx.db
+      .select({ ref: schema.shutdownPermit.ref, id: schema.shutdownPermit.id })
+      .from(schema.shutdownPermit)
+      .where(
+        and(
+          eq(schema.shutdownPermit.projectId, projectId),
+          inArray(schema.shutdownPermit.status, OPEN_PERMIT_STATUSES),
+        ),
+      )
+      .orderBy(asc(schema.shutdownPermit.ref))
+      .limit(1);
+    if (!rows.length) return null;
+    return rows[0].ref ?? rows[0].id;
   }
 
   private async milestonesOf(projectId: string): Promise<Milestone[]> {

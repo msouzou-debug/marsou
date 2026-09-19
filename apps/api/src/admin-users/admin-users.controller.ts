@@ -1,10 +1,11 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from "@nestjs/swagger";
 import {
   AdminUser,
   AdminUserCreate,
   AdminUserList,
   AdminUserUpdate,
+  ApproverScopes,
   RoleCatalogue,
 } from "@ecapital/shared";
 import { AppError } from "../common/errors";
@@ -13,6 +14,7 @@ import { sentKeysOnly } from "../common/patch";
 import { Roles, RolesGuard } from "../common/roles.guard";
 import { parseAdminUserListQuery } from "./admin-user-query";
 import { AdminUsersService } from "./admin-users.service";
+import { ApproverScopesService } from "./approver-scopes.service";
 
 /**
  * ADR-0020 — Διαχείριση › Χρήστες. R01 (who may see what), R02 (the eight
@@ -31,7 +33,10 @@ import { AdminUsersService } from "./admin-users.service";
 @UseGuards(RolesGuard)
 @Roles("admin")
 export class AdminUsersController {
-  constructor(private readonly users: AdminUsersService) {}
+  constructor(
+    private readonly users: AdminUsersService,
+    private readonly scopes: ApproverScopesService,
+  ) {}
 
   /**
    * The eight roles with their scope, so the screen does not hardcode which
@@ -106,5 +111,36 @@ export class AdminUsersController {
     const parsed = AdminUserUpdate.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.adminUserNotValid");
     return this.users.update(id, sentKeysOnly(parsed.data, body));
+  }
+
+  /**
+   * M3, §6.4 and §9 — which rooms and which units this clinical approver
+   * answers for. The routing resolves an approval line through these, and §9
+   * decides what they can see through the same rows (ADR-0026).
+   */
+  @Get("users/:id/approver-scopes")
+  @ApiOperation({ summary: "The areas and units this account approves for" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiZodResponse(200, ApproverScopes, "The scopes, areas first")
+  @ApiZodError(403, "The caller is not an administrator")
+  @ApiZodError(404, "No such account")
+  approverScopes(@Param("id") id: string): Promise<ApproverScopes> {
+    return this.scopes.read(id);
+  }
+
+  /** The whole picture in and the whole picture out, in one transaction. */
+  @Put("users/:id/approver-scopes")
+  @ApiOperation({ summary: "Replace the areas and units this account approves for" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(ApproverScopes) as never })
+  @ApiZodResponse(200, ApproverScopes, "The scopes as stored")
+  @ApiZodError(400, "The body is not a valid set of scopes")
+  @ApiZodError(403, "The caller is not an administrator")
+  @ApiZodError(404, "No such account, area or unit")
+  @ApiZodError(422, "The account does not hold the clinical approver role")
+  setApproverScopes(@Param("id") id: string, @Body() body: unknown): Promise<ApproverScopes> {
+    const parsed = ApproverScopes.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.approverScopesNotValid");
+    return this.scopes.replace(id, parsed.data);
   }
 }

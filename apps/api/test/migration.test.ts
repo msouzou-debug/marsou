@@ -44,7 +44,9 @@ describe("migrations", () => {
     expect(result.applied).toContain("0011_m2_cost");
     expect(result.applied).toContain("0012_unit_codes_earchive");
     expect(result.applied).toContain("0014_earchive_outbox");
-    expect(result.lastMigrationId).toBe("0014_earchive_outbox");
+    expect(result.applied).toContain("0015_m3_permits");
+    expect(result.applied).toContain("0016_permit_partial_draft");
+    expect(result.lastMigrationId).toBe("0016_permit_partial_draft");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -58,6 +60,7 @@ describe("migrations", () => {
       "app_user_org_unit",
       "app_user_role",
       "area",
+      "area_clinical_owner",
       "audit_log",
       "boq_item",
       "budget_code",
@@ -75,13 +78,18 @@ describe("migrations", () => {
       "email_outbox",
       "floor",
       "forecast_inputs",
+      "icra_matrix_cell",
+      "icra_matrix_version",
       "import_batch",
       "import_exception",
+      "inbox_read",
       "issue",
       "milestone",
       "org_unit",
       "org_unit_alias",
       "payment_cert",
+      "permit_approval",
+      "permit_ref_seq",
       "project",
       "project_code_seq",
       "project_note",
@@ -89,7 +97,11 @@ describe("migrations", () => {
       "risk",
       "role_mapping",
       "schema_migration",
+      "shutdown_permit",
+      "shutdown_permit_area",
       "site_instruction",
+      "system_feed",
+      "unit_approver",
       "variation",
     ]);
   });
@@ -111,6 +123,8 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0011_m2_cost");
     expect(result.skipped).toContain("0012_unit_codes_earchive");
     expect(result.skipped).toContain("0014_earchive_outbox");
+    expect(result.skipped).toContain("0015_m3_permits");
+    expect(result.skipped).toContain("0016_permit_partial_draft");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

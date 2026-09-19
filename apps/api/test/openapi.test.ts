@@ -17,7 +17,7 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0, M1, M2 and M8 route", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3 and M8 route", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
@@ -26,12 +26,16 @@ describe("openapi.json", () => {
       "/admin/roles",
       "/admin/users",
       "/admin/users/{id}",
+      "/admin/users/{id}/approver-scopes",
       "/api/v1/dms/events",
+      "/areas/impact",
       "/audit-log",
       "/auth/dev-token",
       "/auth/login",
       "/budget-codes",
       "/budget-codes/sync",
+      "/calendar",
+      "/calendar/disruption-hours",
       "/config/links",
       "/contractors",
       "/contractors/{id}",
@@ -62,12 +66,24 @@ describe("openapi.json", () => {
       "/defects/backlog",
       "/defects/{id}",
       "/health",
+      "/icra/evaluate",
+      "/icra/matrix",
+      "/icra/matrix/versions",
+      "/icra/matrix/versions/{id}/activate",
+      "/inbox",
+      "/inbox/{id}/read",
       "/me",
       "/org-units",
       "/org-units/{id}/areas",
       "/org-units/{id}/cost/cashflow",
       "/payment-certs/{id}",
       "/payment-certs/{id}/transition",
+      "/permits",
+      "/permits/{id}",
+      "/permits/{id}/approvals/{approvalId}/decide",
+      "/permits/{id}/audit",
+      "/permits/{id}/icra",
+      "/permits/{id}/transition",
       "/portfolio",
       "/projects",
       "/projects/{id}",
@@ -86,6 +102,8 @@ describe("openapi.json", () => {
       "/projects/{id}/phase",
       "/projects/{id}/risks",
       "/projects/{id}/risks/{rid}",
+      "/system-feeds",
+      "/system-feeds/{id}",
       "/variations/{id}/documents",
     ]);
   });

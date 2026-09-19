@@ -1,10 +1,11 @@
 /**
  * Seed the eleven org units and their aliases (owner decisions of 19/09/2026:
  * HQ added, the Ambulance Service removed — ADR-0024), one building at
- * Nicosia General with two floors and six areas, eight development users, the
+ * Nicosia General with two floors and six areas, ten development users, the
  * group→role mappings, the 41-project M1 register (see ./seed-projects), the
- * contract register on top of it (see ./seed-contracts) and the site log on
- * top of that (see ./seed-site).
+ * contract register on top of it (see ./seed-contracts), the site log on top
+ * of that (see ./seed-site), the cost register (see ./seed-cost) and the
+ * shutdown permits with their ICRA matrix (see ./seed-permits).
  *
  *   pnpm --filter @ecapital/api seed
  *
@@ -21,6 +22,7 @@ import * as schema from "./schema";
 import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-data";
 import { seedContractRegister } from "./seed-contracts";
 import { seedCostRegister } from "./seed-cost";
+import { seedPermitRegister } from "./seed-permits";
 import { seedProjectRegister } from "./seed-projects";
 import { seedSiteLog } from "./seed-site";
 
@@ -50,6 +52,12 @@ export interface SeedSummary {
   paymentCerts: number;
   allocationRules: number;
   costWarnings: number;
+  icraMatrixCells: number;
+  systemFeeds: number;
+  permits: number;
+  permitApprovals: number;
+  areaOwners: number;
+  unitApprovers: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -228,6 +236,11 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     // both (R11, R13, R14, R31).
     const cost = await seedCostRegister(db);
 
+    // M3: the permit register, last, because a permit needs the areas, the
+    // users, the ICRA matrix and the system feeds to already be there
+    // (R19–R25).
+    const permits = await seedPermitRegister(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -240,6 +253,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       ...contracts,
       ...siteLog,
       ...cost,
+      ...permits,
     };
   } finally {
     await client.end();
@@ -259,7 +273,10 @@ if (require.main === module) {
           `${s.defects} defects, ${s.budgetLines} budget lines, ${s.costTxns} cost transactions, ` +
           `${s.importBatches} import batches (${s.unmatchedRows} unmatched), ` +
           `${s.paymentCerts} payment certificates, ${s.allocationRules} allocation rules, ` +
-          `${s.costWarnings} cost warnings`,
+          `${s.costWarnings} cost warnings, ${s.icraMatrixCells} ICRA matrix cells, ` +
+          `${s.systemFeeds} system feeds, ${s.permits} permits ` +
+          `(${s.permitApprovals} approval lines), ${s.areaOwners} area owners, ` +
+          `${s.unitApprovers} unit approvers`,
       );
     })
     .catch((error: unknown) => {

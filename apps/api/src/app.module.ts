@@ -19,12 +19,15 @@ import { CostModule } from "./cost/cost.module";
 import { DefectsModule } from "./defects/defects.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { HealthModule } from "./health/health.module";
+import { IcraModule } from "./icra/icra.module";
 import { LinksModule } from "./links/links.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
+import { PermitsModule } from "./permits/permits.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { RfisModule } from "./rfis/rfis.module";
 import { SiteInstructionsModule } from "./site-instructions/site-instructions.module";
+import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
 
 @Module({
   imports: [
@@ -68,6 +71,9 @@ import { SiteInstructionsModule } from "./site-instructions/site-instructions.mo
     SiteInstructionsModule,
     DefectsModule,
     DocumentsModule,
+    IcraModule,
+    SystemFeedsModule,
+    PermitsModule,
     PortfolioModule,
     HealthModule,
     LinksModule,

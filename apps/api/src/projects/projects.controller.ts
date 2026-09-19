@@ -138,6 +138,7 @@ export class ProjectsController {
   @ApiZodError(400, "The body is not a valid milestone")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such project or milestone")
+  @ApiZodError(409, "An open shutdown permit on this project blocks the completion (R24, §6.6)")
   @ApiZodError(422, "The body asks to move the baseline date")
   updateMilestone(
     @Param("id") id: string,

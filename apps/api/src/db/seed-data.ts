@@ -1,4 +1,17 @@
-import type { AppRole, Directorate, OrgUnit, OrgUnitType } from "@ecapital/shared";
+import type {
+  AppRole,
+  ApprovalRole,
+  Directorate,
+  IcraActivityType,
+  IcraClass,
+  IcraControl,
+  IcraMatrixCell,
+  IlsmTrigger,
+  OrgUnit,
+  OrgUnitType,
+  PatientRiskGroup,
+  PermitSystem,
+} from "@ecapital/shared";
 
 // CAPEX-03 §3 — the org units the Capex Plan sheet counts, and the spellings
 // column D of it uses for them, plus HQ (owner decision, 19/09/2026). They
@@ -177,7 +190,7 @@ export const seedBuilding = {
   ],
 };
 
-// Seven users, so every access path the API has has somebody to walk it —
+// Ten users, so every access path the API has has somebody to walk it —
 // including the finance account that ADR-0014 gives the approved budget to.
 // They exist only where DEV_AUTH is on; on the real server the users come
 // from Entra ID.
@@ -216,6 +229,24 @@ export const seedUsers: SeedUser[] = [
     subject: "dev-clinical-nicosia",
     name: "Γιώργος Σάββα",
     email: "clinical.nicosia@ecapital.test",
+    roles: ["clinical_approver"],
+    orgUnitIds: ["nicosia-general"],
+  },
+  {
+    // M3 (§6.4): Nursing answers for the hospital's inpatient areas, so a
+    // permit touching a ward or the ICU waits on this account.
+    subject: "dev-nursing-nicosia",
+    name: "Μαρίνα Αντωνίου",
+    email: "nursing.nicosia@ecapital.test",
+    roles: ["clinical_approver"],
+    orgUnitIds: ["nicosia-general"],
+  },
+  {
+    // M3 (§6.4): the Hospital Director, on Class V and on anything longer
+    // than PERMIT_DIRECTOR_THRESHOLD_HOURS (ASSUMPTION, ADR-0026).
+    subject: "dev-director-nicosia",
+    name: "Στέλιος Χατζηγεωργίου",
+    email: "director.nicosia@ecapital.test",
     roles: ["clinical_approver"],
     orgUnitIds: ["nicosia-general"],
   },
@@ -1525,3 +1556,601 @@ export const seedFundedDefect = {
   descriptionEl: "Διαρροή στη μόνωση οροφής του χώρου του τομογράφου",
   targetProjectRef: "PRJ-035",
 };
+
+// ------------------------------------------------------------------- M3 --
+// Διακοπές συστήματος και άδειες εργασίας (R19–R25). ADR-0026.
+//
+// NO PATIENT DATA: every figure below is a room, a system, a time or a staff
+// name. Nothing here says anything about anybody in a bed.
+
+/**
+ * The controls each class **adds** to the class below it (ASHE ICRA 2.0,
+ * 2022, Table 4). They are cumulative in the standard and cumulative here:
+ * Class IV is everything Class III asks for plus an anteroom and the rest,
+ * which is why `icraControls` concatenates rather than replaces.
+ *
+ * FLAG — these are a faithful local rendering of ICRA 2.0's precautions and
+ * they are **not yet the ΟΚΥπΥ edition**. CAPEX-01 §6.2: «ΟΚΥπΥ Infection
+ * Control approves the local edition and can amend it without a release.»
+ * Until the Επιτροπή Ελέγχου Λοιμώξεων has been through them the seeded
+ * version carries that in `notesEl`, and the way to change them is a new
+ * version through POST /icra/matrix/versions, never an edit here.
+ */
+const CONTROLS_BY_LEVEL: Record<IcraClass, IcraControl[]> = {
+  I: [
+    {
+      id: "I-01",
+      textEl: "Εκτελέστε την εργασία με μεθόδους που περιορίζουν τη σκόνη.",
+      textEn: "Use work methods that keep dust to a minimum.",
+      phase: "DURING",
+    },
+    {
+      id: "I-02",
+      textEl: "Επανατοποθετήστε αμέσως κάθε πλακίδιο ψευδοροφής που ανοίξατε.",
+      textEn: "Put back every ceiling tile you open as soon as you finish with it.",
+      phase: "DURING",
+    },
+    {
+      id: "I-03",
+      textEl: "Καθαρίστε τον χώρο και απομακρύνετε υλικά και εργαλεία.",
+      textEn: "Clean the area and take the materials and tools away.",
+      phase: "ON_COMPLETION",
+    },
+  ],
+  II: [
+    {
+      id: "II-01",
+      textEl: "Διαβρέχετε τις επιφάνειες που κόβετε, ώστε να μη σηκώνεται σκόνη.",
+      textEn: "Wet the surfaces you cut so that dust does not lift.",
+      phase: "DURING",
+    },
+    {
+      id: "II-02",
+      textEl: "Σφραγίστε με ταινία τις πόρτες και τα ανοίγματα προς τους διπλανούς χώρους.",
+      textEn: "Tape the doors and any openings into the neighbouring areas shut.",
+      phase: "DURING",
+    },
+    {
+      id: "II-03",
+      textEl: "Κλείστε και καλύψτε τα στόμια αερισμού μέσα στον χώρο εργασίας.",
+      textEn: "Close and cover the ventilation grilles inside the work area.",
+      phase: "DURING",
+    },
+    {
+      id: "II-04",
+      textEl: "Μεταφέρετε τα μπάζα σε κλειστά δοχεία ή σε σφραγισμένες σακούλες.",
+      textEn: "Move debris in closed containers or sealed bags.",
+      phase: "DURING",
+    },
+    {
+      id: "II-05",
+      textEl:
+        "Σκουπίστε τις επιφάνειες με υγρό πανί και καθαρίστε το δάπεδο με σκούπα φίλτρου HEPA.",
+      textEn: "Wipe the surfaces down and vacuum the floor with a HEPA-filtered vacuum.",
+      phase: "ON_COMPLETION",
+    },
+    {
+      id: "II-06",
+      textEl: "Ανοίξτε ξανά τα στόμια αερισμού και βεβαιωθείτε ότι λειτουργούν.",
+      textEn: "Reopen the ventilation grilles and check that they are working.",
+      phase: "ON_COMPLETION",
+    },
+  ],
+  III: [
+    {
+      id: "III-01",
+      textEl: "Στήστε στεγανό φράγμα σκόνης από άκαμπτο υλικό πριν ξεκινήσει η εργασία.",
+      textEn: "Put up a sealed rigid dust barrier before the work starts.",
+      phase: "DURING",
+    },
+    {
+      id: "III-02",
+      textEl:
+        "Διατηρήστε αρνητική πίεση στον χώρο εργασίας με μονάδα HEPA σε συνεχή λειτουργία.",
+      textEn: "Hold the work area under negative pressure with a HEPA unit running continuously.",
+      phase: "DURING",
+    },
+    {
+      id: "III-03",
+      textEl: "Σφραγίστε τα παράθυρα, τις πόρτες και τα περάσματα σωληνώσεων του χώρου.",
+      textEn: "Seal the windows, the doors and the pipe penetrations of the area.",
+      phase: "DURING",
+    },
+    {
+      id: "III-04",
+      textEl: "Απομονώστε το σύστημα κλιματισμού που εξυπηρετεί τον χώρο εργασίας.",
+      textEn: "Isolate the air-handling system that serves the work area.",
+      phase: "DURING",
+    },
+    {
+      id: "III-05",
+      textEl: "Φοράτε τα μέσα ατομικής προστασίας και βγάλτε τα πριν βγείτε από τον χώρο.",
+      textEn: "Wear the protective equipment and take it off before you leave the area.",
+      phase: "DURING",
+    },
+    {
+      id: "III-06",
+      textEl:
+        "Μεταφέρετε τα απορρίμματα από διαδρομή που δεν περνά από κλινικούς χώρους.",
+      textEn: "Route the waste out along a way that does not pass through clinical areas.",
+      phase: "DURING",
+    },
+    {
+      id: "III-07",
+      textEl: "Αφαιρέστε το φράγμα με προσοχή, ώστε να μη διασπαρεί σκόνη.",
+      textEn: "Take the barrier down carefully so that no dust is spread.",
+      phase: "ON_COMPLETION",
+    },
+    {
+      id: "III-08",
+      textEl: "Καθαρίστε και απολυμάνετε όλες τις επιφάνειες του χώρου.",
+      textEn: "Clean and disinfect every surface in the area.",
+      phase: "ON_COMPLETION",
+    },
+    {
+      id: "III-09",
+      textEl: "Ελέγξτε τη ζύγιση του αέρα και επαναφέρετε το σύστημα κλιματισμού.",
+      textEn: "Check the air balance and put the air-handling system back into service.",
+      phase: "ON_COMPLETION",
+    },
+    {
+      id: "III-10",
+      textEl:
+        "Ζητήστε επιθεώρηση από την Επιτροπή Ελέγχου Λοιμώξεων πριν παραδώσετε τον χώρο.",
+      textEn: "Ask Infection Control to inspect the area before you hand it back.",
+      phase: "ON_COMPLETION",
+    },
+  ],
+  IV: [
+    {
+      id: "IV-01",
+      textEl: "Κατασκευάστε προθάλαμο στην είσοδο του χώρου εργασίας.",
+      textEn: "Build an anteroom at the entrance to the work area.",
+      phase: "DURING",
+    },
+    {
+      id: "IV-02",
+      textEl: "Το προσωπικό αλλάζει ρούχα στον προθάλαμο, μπαίνοντας και βγαίνοντας.",
+      textEn: "Staff change clothing in the anteroom, both on the way in and on the way out.",
+      phase: "DURING",
+    },
+    {
+      id: "IV-03",
+      textEl:
+        "Καλύψτε με υγρά πατάκια τη διαδρομή εξόδου και αλλάξτε τα όταν γεμίσουν σκόνη.",
+      textEn: "Lay tacky mats along the way out and change them when they fill with dust.",
+      phase: "DURING",
+    },
+    {
+      id: "IV-04",
+      textEl:
+        "Ενημερώστε τον υπεύθυνο του κλινικού χώρου πριν από κάθε εργασία που κάνει θόρυβο ή σκόνη.",
+      textEn: "Tell the clinical area's manager before any work that makes noise or dust.",
+      phase: "DURING",
+    },
+    {
+      id: "IV-05",
+      textEl: "Καθαρίστε τον χώρο κάθε ημέρα, με υγρό καθαρισμό και σκούπα HEPA.",
+      textEn: "Clean the area every day, with wet cleaning and a HEPA vacuum.",
+      phase: "DURING",
+    },
+    {
+      id: "IV-06",
+      textEl:
+        "Πριν παραδώσετε τον χώρο, λάβετε γραπτή αποδοχή από την Επιτροπή Ελέγχου Λοιμώξεων.",
+      textEn: "Get Infection Control's written acceptance before you hand the area back.",
+      phase: "ON_COMPLETION",
+    },
+  ],
+  V: [
+    {
+      id: "V-01",
+      textEl: "Μεταφέρετε τους διπλανούς κλινικούς χώρους σε άλλη πτέρυγα πριν ξεκινήσετε.",
+      textEn: "Move the neighbouring clinical areas to another wing before you start.",
+      phase: "DURING",
+    },
+    {
+      id: "V-02",
+      textEl: "Κρατήστε τη μονάδα HEPA σε λειτουργία όλο το εικοσιτετράωρο.",
+      textEn: "Keep the HEPA unit running round the clock.",
+      phase: "DURING",
+    },
+    {
+      id: "V-03",
+      textEl:
+        "Ελέγχετε καθημερινά την αρνητική πίεση και καταγράφετε τη μέτρηση στο ημερολόγιο.",
+      textEn: "Check the negative pressure daily and write the reading in the log.",
+      phase: "DURING",
+    },
+    {
+      id: "V-04",
+      textEl:
+        "Κάντε δειγματοληψία αέρα και παραδώστε τον χώρο μόνο όταν το αποτέλεσμα είναι αποδεκτό.",
+      textEn: "Take air samples and hand the area back only when the result is acceptable.",
+      phase: "ON_COMPLETION",
+    },
+  ],
+};
+
+const CLASS_LADDER: IcraClass[] = ["I", "II", "III", "IV", "V"];
+
+/** Every control of this class: its own, and everything the classes below ask for. */
+export function icraControls(icraClass: IcraClass): IcraControl[] {
+  const upTo = CLASS_LADDER.slice(0, CLASS_LADDER.indexOf(icraClass) + 1);
+  const all = upTo.flatMap((level) => CONTROLS_BY_LEVEL[level]);
+  // DURING first, then what has to happen before the area goes back.
+  return [
+    ...all.filter((control) => control.phase === "DURING"),
+    ...all.filter((control) => control.phase === "ON_COMPLETION"),
+  ];
+}
+
+/**
+ * The sixteen cells, activity type × patient risk group → class of
+ * precautions. ASHE ICRA 2.0 (2022) Table 3, as CAPEX-01 §2 has it, and the
+ * two rules that section calls out by name are in here as data:
+ *
+ *   «Type C in a high-risk area is Class IV, not III»  → HIGH × C = IV.
+ *   «Class II is never valid for construction or renovation» — which is not
+ *   a cell at all. It is a refusal the engine applies on top of whichever
+ *   cell is found, because it depends on the kind of work and the matrix
+ *   does not know that.
+ */
+export const seedIcraGrid: Record<PatientRiskGroup, Record<IcraActivityType, IcraClass>> = {
+  LOW: { A: "I", B: "II", C: "II", D: "III" },
+  MEDIUM: { A: "I", B: "II", C: "III", D: "IV" },
+  HIGH: { A: "I", B: "II", C: "IV", D: "IV" },
+  HIGHEST: { A: "II", B: "III", C: "IV", D: "V" },
+};
+
+export const seedIcraMatrixVersion = {
+  id: "OKYPY-ICRA-2.0-2026.1",
+  basedOn: "ASHE ICRA 2.0 (2022)",
+  effectiveFrom: "2026-01-01",
+  approvedByName: null as string | null,
+  // CAPEX-01 §6.2: the local edition is Infection Control's to approve. The
+  // seeded one is the standard, rendered into Greek, waiting for them.
+  notesEl: "Προς επικύρωση από την Επιτροπή Ελέγχου Λοιμώξεων",
+};
+
+export const seedIcraCells: IcraMatrixCell[] = (
+  ["LOW", "MEDIUM", "HIGH", "HIGHEST"] as PatientRiskGroup[]
+).flatMap((riskGroup) =>
+  (["A", "B", "C", "D"] as IcraActivityType[]).map((activityType) => ({
+    activityType,
+    riskGroup,
+    icraClass: seedIcraGrid[riskGroup][activityType],
+    controls: icraControls(seedIcraGrid[riskGroup][activityType]),
+  })),
+);
+
+// ------------------------------------------------- a second unit's estate --
+
+// Λάρνακα gets a building of its own so M3 has two hospitals to clash
+// between (§6.7) and so the disruption calendar has more than one column.
+export const seedLarnacaBuilding = {
+  orgUnitId: "larnaca-general",
+  code: "LAR-A",
+  nameEl: "Κτίριο Α — Νέα Πτέρυγα",
+  grossAreaM2: "12600.00",
+  yearBuilt: 2011,
+  storeys: 2,
+  floors: [
+    {
+      code: "00",
+      nameEl: "Ισόγειο",
+      level: 0,
+      areas: [
+        {
+          code: "PLT-01",
+          nameEl: "Μηχανοστάσιο",
+          areaType: "PLANT" as const,
+          patientRiskGroup: "LOW" as const,
+          costCentre: "CC-LAR-TEC",
+          beds: null,
+        },
+        {
+          code: "OPD-01",
+          nameEl: "Εξωτερικά Ιατρεία",
+          areaType: "OPD" as const,
+          patientRiskGroup: "MEDIUM" as const,
+          costCentre: "CC-LAR-OPD",
+          beds: null,
+        },
+      ],
+    },
+    {
+      code: "01",
+      nameEl: "Πρώτος όροφος",
+      level: 1,
+      areas: [
+        {
+          code: "THE-01",
+          nameEl: "Χειρουργείο 1",
+          areaType: "THEATRE" as const,
+          patientRiskGroup: "HIGHEST" as const,
+          costCentre: "CC-LAR-THE",
+          beds: null,
+        },
+        {
+          code: "WRD-01",
+          nameEl: "Θάλαμος Β1",
+          areaType: "WARD" as const,
+          patientRiskGroup: "HIGH" as const,
+          costCentre: "CC-LAR-WRD",
+          beds: 18,
+        },
+      ],
+    },
+  ],
+};
+
+// ------------------------------------------------------- the system feeds --
+
+/**
+ * R19, §6.1 — what each riser and board serves, until M4's asset register
+ * carries it (ADR-0026). Areas are named by their code, because the seed does
+ * not know the uuids until it has written them.
+ */
+export interface SeedSystemFeed {
+  orgUnitId: string;
+  system: PermitSystem;
+  /** Area code, or null for a feed that serves the whole unit. */
+  sourceAreaCode: string | null;
+  servesAreaCodes: string[];
+  labelEl: string;
+}
+
+export const seedSystemFeeds: SeedSystemFeed[] = [
+  {
+    orgUnitId: "nicosia-general",
+    system: "MEDICAL_GAS",
+    sourceAreaCode: "PLT-01",
+    servesAreaCodes: ["ICU-01", "THE-01"],
+    labelEl: "Στήλη ιατρικών αερίων Α — εξυπηρετεί ΜΕΘ και χειρουργεία",
+  },
+  {
+    orgUnitId: "nicosia-general",
+    system: "ELECTRICAL",
+    sourceAreaCode: null,
+    servesAreaCodes: ["OPD-01", "PLT-01", "OFF-01", "THE-01", "ICU-01", "WRD-01"],
+    labelEl: "Κεντρικός πίνακας χαμηλής τάσης — εξυπηρετεί όλο το κτίριο",
+  },
+  {
+    orgUnitId: "nicosia-general",
+    system: "HVAC",
+    sourceAreaCode: "PLT-01",
+    servesAreaCodes: ["THE-01"],
+    labelEl: "Κλιματιστική μονάδα ΚΚΜ-1 — εξυπηρετεί τα χειρουργεία",
+  },
+  {
+    orgUnitId: "larnaca-general",
+    system: "MEDICAL_GAS",
+    sourceAreaCode: "PLT-01",
+    servesAreaCodes: ["THE-01", "WRD-01"],
+    labelEl: "Στήλη ιατρικών αερίων — εξυπηρετεί χειρουργείο και θάλαμο",
+  },
+  {
+    orgUnitId: "larnaca-general",
+    system: "ELECTRICAL",
+    sourceAreaCode: null,
+    servesAreaCodes: ["PLT-01", "OPD-01", "THE-01", "WRD-01"],
+    labelEl: "Κεντρικός πίνακας χαμηλής τάσης — εξυπηρετεί όλο το κτίριο",
+  },
+];
+
+// ------------------------------------------------------- who approves what --
+
+/** §6.4: a capacity somebody holds for a whole unit. */
+export interface SeedUnitApprover {
+  email: string;
+  orgUnitId: string;
+  approvalRole: ApprovalRole;
+}
+
+/** §6.4 and §9: a capacity somebody holds over one room. */
+export interface SeedAreaOwner {
+  email: string;
+  orgUnitId: string;
+  areaCode: string;
+  approvalRole: ApprovalRole;
+}
+
+export const seedUnitApprovers: SeedUnitApprover[] = [
+  // The M3 definition of done is Infection Control approving a real Class IV
+  // permit, so the Infection Control officer of Λευκωσία is the seeded
+  // clinical approver.
+  { email: "clinical.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "INFECTION_CONTROL" },
+  { email: "nursing.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "NURSING" },
+  { email: "director.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "HOSPITAL_DIRECTOR" },
+  // The head of estates answers the TECHNICAL line always (§6.4) and the
+  // SAFETY one when ILSM is required (ASSUMPTION, ADR-0026).
+  { email: "estates.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "TECHNICAL" },
+  { email: "estates.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "SAFETY" },
+  { email: "engineer.larnaca@ecapital.test", orgUnitId: "larnaca-general", approvalRole: "TECHNICAL" },
+];
+
+export const seedAreaOwners: SeedAreaOwner[] = [
+  {
+    email: "clinical.nicosia@ecapital.test",
+    orgUnitId: "nicosia-general",
+    areaCode: "THE-01",
+    approvalRole: "WARD_MANAGER",
+  },
+  {
+    email: "clinical.nicosia@ecapital.test",
+    orgUnitId: "nicosia-general",
+    areaCode: "ICU-01",
+    approvalRole: "WARD_MANAGER",
+  },
+];
+
+// ---------------------------------------------------------- the permits --
+
+/**
+ * Six permits at Λευκωσία across the states a screen has to draw, plus one
+ * at Λάρνακα that clashes with another on the same system (§6.7, §15's «5
+ * permits at different states so every screen has something in it»).
+ *
+ * Windows are relative to the seed run, in days from now, so a seeded
+ * database is always «one starting tomorrow, one running, one overdue»
+ * whenever somebody loads it.
+ */
+export interface SeedPermit {
+  key: string;
+  orgUnitId: string;
+  titleEl: string;
+  descriptionEl: string;
+  workKind: "CONSTRUCTION" | "RENOVATION" | "MAINTENANCE" | "INSPECTION" | "OTHER";
+  systems: PermitSystem[];
+  /** Area codes the engineer picked; the impact resolver adds the rest. */
+  areaCodes: string[];
+  activityType: IcraActivityType;
+  ilsmTriggers: IlsmTrigger[];
+  startInHours: number;
+  endInHours: number;
+  requestedByEmail: string;
+  /** Where the seed leaves it. */
+  target: "DRAFT" | "CLINICAL_REVIEW" | "APPROVED" | "ACTIVE" | "BREACH" | "CLOSED";
+  contingencyPlanEl: string | null;
+}
+
+export const seedPermits: SeedPermit[] = [
+  {
+    key: "draft",
+    orgUnitId: "nicosia-general",
+    titleEl: "Αντικατάσταση φωτιστικών στα εξωτερικά ιατρεία",
+    descriptionEl:
+      "Αντικατάσταση των φωτιστικών σωμάτων του διαδρόμου, με διακοπή ρεύματος δύο ωρών.",
+    workKind: "MAINTENANCE",
+    systems: ["ELECTRICAL"],
+    areaCodes: ["OPD-01"],
+    activityType: "B",
+    ilsmTriggers: [],
+    startInHours: 24 * 10,
+    endInHours: 24 * 10 + 4,
+    requestedByEmail: "estates.nicosia@ecapital.test",
+    target: "DRAFT",
+    contingencyPlanEl: "Εφεδρικός φωτισμός από τη γεννήτρια σε όλη τη διάρκεια.",
+  },
+  {
+    // The M3 definition of done: «Infection Control approves a real Class IV
+    // permit in the system». Medical gas at Λευκωσία takes the riser, so the
+    // theatre and the ICU come in directly and indirectly.
+    key: "class-four",
+    orgUnitId: "nicosia-general",
+    titleEl: "Διακοπή ιατρικών αερίων για αντικατάσταση βαλβίδων",
+    descriptionEl:
+      "Αντικατάσταση των βαλβίδων απομόνωσης της στήλης ιατρικών αερίων στο μηχανοστάσιο.",
+    workKind: "RENOVATION",
+    systems: ["MEDICAL_GAS"],
+    areaCodes: ["PLT-01", "THE-01"],
+    activityType: "C",
+    ilsmTriggers: [],
+    startInHours: 24 * 14,
+    endInHours: 24 * 14 + 8,
+    requestedByEmail: "estates.nicosia@ecapital.test",
+    target: "CLINICAL_REVIEW",
+    contingencyPlanEl:
+      "Φιάλες οξυγόνου στον θάλαμο και στη ΜΕΘ, με τεχνικό σε ετοιμότητα στο μηχανοστάσιο.",
+  },
+  {
+    key: "approved",
+    orgUnitId: "nicosia-general",
+    titleEl: "Καθαρισμός αεραγωγών χειρουργείου",
+    descriptionEl: "Καθαρισμός και απολύμανση των αεραγωγών της κλιματιστικής μονάδας ΚΚΜ-1.",
+    workKind: "MAINTENANCE",
+    systems: ["HVAC"],
+    areaCodes: ["PLT-01"],
+    activityType: "B",
+    ilsmTriggers: [],
+    startInHours: 24,
+    endInHours: 24 + 6,
+    requestedByEmail: "estates.nicosia@ecapital.test",
+    target: "APPROVED",
+    contingencyPlanEl: "Το χειρουργείο μένει εκτός προγράμματος για τη διάρκεια της εργασίας.",
+  },
+  {
+    key: "active",
+    orgUnitId: "nicosia-general",
+    titleEl: "Επισκευή δικτύου νερού στον θάλαμο Α1",
+    descriptionEl: "Αντικατάσταση τμήματος του δικτύου κρύου νερού στον θάλαμο.",
+    workKind: "MAINTENANCE",
+    systems: ["WATER"],
+    areaCodes: ["WRD-01"],
+    activityType: "B",
+    ilsmTriggers: [],
+    startInHours: -2,
+    endInHours: 6,
+    requestedByEmail: "estates.nicosia@ecapital.test",
+    target: "ACTIVE",
+    contingencyPlanEl: "Εμφιαλωμένο νερό στον θάλαμο και χρήση του διπλανού λουτρού.",
+  },
+  {
+    key: "breach",
+    orgUnitId: "nicosia-general",
+    titleEl: "Έλεγχος πυρανίχνευσης στα γραφεία",
+    descriptionEl:
+      "Ετήσιος έλεγχος του βρόχου πυρανίχνευσης, με προσωρινή απενεργοποίηση της ζώνης.",
+    workKind: "INSPECTION",
+    systems: ["FIRE"],
+    areaCodes: ["OFF-01"],
+    activityType: "A",
+    ilsmTriggers: ["FIRE_DETECTION"],
+    startInHours: -48,
+    endInHours: -24,
+    requestedByEmail: "estates.nicosia@ecapital.test",
+    target: "BREACH",
+    contingencyPlanEl: "Περιπολία πυρασφάλειας κάθε ώρα όσο η ζώνη είναι εκτός.",
+  },
+  {
+    key: "closed",
+    orgUnitId: "nicosia-general",
+    titleEl: "Αντικατάσταση πίνακα στο μηχανοστάσιο",
+    descriptionEl: "Αντικατάσταση του υποπίνακα του μηχανοστασίου.",
+    workKind: "MAINTENANCE",
+    systems: ["ELECTRICAL"],
+    areaCodes: ["PLT-01"],
+    activityType: "B",
+    ilsmTriggers: [],
+    startInHours: -24 * 20,
+    endInHours: -24 * 20 + 8,
+    requestedByEmail: "estates.nicosia@ecapital.test",
+    target: "CLOSED",
+    contingencyPlanEl: "Τροφοδοσία από τον εφεδρικό πίνακα σε όλη τη διάρκεια.",
+  },
+  {
+    // §6.7: two permits on the same system, in the same unit, at the same
+    // time. The second one carries the warning.
+    key: "larnaca-a",
+    orgUnitId: "larnaca-general",
+    titleEl: "Διακοπή ιατρικών αερίων για δοκιμή πίεσης",
+    descriptionEl: "Δοκιμή πίεσης στη στήλη ιατρικών αερίων.",
+    workKind: "INSPECTION",
+    systems: ["MEDICAL_GAS"],
+    areaCodes: ["PLT-01"],
+    activityType: "A",
+    ilsmTriggers: [],
+    startInHours: 24 * 7,
+    endInHours: 24 * 7 + 6,
+    requestedByEmail: "engineer.larnaca@ecapital.test",
+    target: "CLINICAL_REVIEW",
+    contingencyPlanEl: "Φιάλες οξυγόνου στο χειρουργείο για τη διάρκεια της δοκιμής.",
+  },
+  {
+    key: "larnaca-b",
+    orgUnitId: "larnaca-general",
+    titleEl: "Αντικατάσταση ρυθμιστή ιατρικών αερίων",
+    descriptionEl: "Αντικατάσταση του ρυθμιστή πίεσης στη γραμμή των ιατρικών αερίων.",
+    workKind: "MAINTENANCE",
+    systems: ["MEDICAL_GAS"],
+    areaCodes: ["PLT-01"],
+    activityType: "A",
+    ilsmTriggers: [],
+    startInHours: 24 * 7 + 2,
+    endInHours: 24 * 7 + 10,
+    requestedByEmail: "engineer.larnaca@ecapital.test",
+    target: "CLINICAL_REVIEW",
+    contingencyPlanEl: "Φιάλες οξυγόνου στο χειρουργείο για τη διάρκεια της εργασίας.",
+  },
+];
