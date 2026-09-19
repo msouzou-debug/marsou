@@ -1,14 +1,20 @@
 import appShell from "@/components/app-shell/AppShell.preview";
 import type { PreviewEntry } from "./types";
+import areaPicker from "@/components/area-picker/AreaPicker.preview";
 import assetBreadcrumb from "@/components/asset-breadcrumb/AssetBreadcrumb.preview";
+import calendarGrid from "@/components/calendar-grid/CalendarGrid.preview";
 import cashflowChart from "@/components/cashflow-chart/CashflowChart.preview";
+import closeoutChecklist from "@/components/closeout-checklist/CloseoutChecklist.preview";
 import confirmDialog from "@/components/confirm-dialog/ConfirmDialog.preview";
+import controlsChecklist from "@/components/controls-checklist/ControlsChecklist.preview";
 import costBar from "@/components/cost-bar/CostBar.preview";
 import decisionPanel from "@/components/decision-panel/DecisionPanel.preview";
 import emptyState from "@/components/empty-state/EmptyState.preview";
 import filterBar from "@/components/filter-bar/FilterBar.preview";
 import helpDrawer from "@/components/help-drawer/HelpDrawer.preview";
 import icraBadge from "@/components/icra-badge/IcraBadge.preview";
+import icraMatrixGrid from "@/components/icra-matrix-grid/IcraMatrixGrid.preview";
+import inboxList from "@/components/inbox-list/InboxList.preview";
 import keyboardHintBar from "@/components/keyboard-hint-bar/KeyboardHintBar.preview";
 import kpiTile from "@/components/kpi-tile/KpiTile.preview";
 import offlineChip from "@/components/offline-chip/OfflineChip.preview";
@@ -48,15 +54,21 @@ import s24Users from "@/screens/s24-users/Users.preview";
 // Keep alphabetical. The gallery at /preview reads this list.
 const entries: PreviewEntry[] = [
   appShell,
+  areaPicker,
   assetBreadcrumb,
+  calendarGrid,
   cashflowChart,
+  closeoutChecklist,
   confirmDialog,
+  controlsChecklist,
   costBar,
   decisionPanel,
   emptyState,
   filterBar,
   helpDrawer,
   icraBadge,
+  icraMatrixGrid,
+  inboxList,
   keyboardHintBar,
   kpiTile,
   offlineChip,
