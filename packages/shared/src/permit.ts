@@ -257,7 +257,12 @@ export const ShutdownPermit = z.object({
   descriptionEl: z.string(),
   workKind: IcraInput.shape.workKind,
   systems: z.array(PermitSystem).min(1),
-  affectedAreas: z.array(AffectedArea).min(1),
+  // RULE (S11 autosave, reconciled with the web agent 19/09/2026): the draft
+  // is created the moment the requester leaves step 1, which is before any
+  // area has been picked, so a DRAFT can legitimately carry none. The list is
+  // never empty from SUBMITTED on — the API refuses the transition — and the
+  // `.min(1)` that used to say so here said it about the wrong moment.
+  affectedAreas: z.array(AffectedArea),
   plannedStart: z.string(), // ISO datetime, Europe/Nicosia on screen
   plannedEnd: z.string(),
   actualStart: z.string().nullable(),
@@ -284,6 +289,8 @@ export const ShutdownPermit = z.object({
       kind: z.enum(["REDUNDANT_HALVES", "TWO_THEATRES", "SAME_AREA_OVERLAP"]),
       otherPermitId: z.string(),
       otherPermitRef: z.string().nullable(),
+      // `permitClash.<KIND>`, rendered with `{ ref }` — the other permit's
+      // reference. Both catalogues carry the three keys.
       messageKey: z.string(),
     }),
   ),
@@ -300,9 +307,13 @@ export const ShutdownPermitDraft = z.object({
   descriptionEl: z.string().max(4000).default(""),
   workKind: IcraInput.shape.workKind,
   systems: z.array(PermitSystem).min(1),
-  affectedAreaIds: z.array(z.string()).min(1),
-  plannedStart: z.string(),
-  plannedEnd: z.string(),
+  // Step 2 and step 3 of the wizard, which the create call has not reached
+  // yet. Absent means «not answered»; the API keeps a provisional window on
+  // the record until step 3 gives it a real one, and refuses SUBMITTED until
+  // both are answered (ADR-0026).
+  affectedAreaIds: z.array(z.string()).default([]),
+  plannedStart: z.string().optional(),
+  plannedEnd: z.string().optional(),
   contingencyPlanEl: z.string().max(4000).nullable().default(null),
   ilsmTriggers: z.array(IlsmTrigger).default([]),
 });
