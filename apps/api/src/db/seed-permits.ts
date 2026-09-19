@@ -74,7 +74,14 @@ export async function seedPermitRegister(db: Db): Promise<PermitSeedSummary> {
     areaOwners: 0,
     unitApprovers: 0,
   };
-  const now = Date.now();
+  // RULE (review nit, 19/09/2026): rounded to the whole hour rather than the
+  // millisecond the seed happens to run at. Europe/Nicosia sits on a whole
+  // hour offset from UTC year-round (+2 EET, +3 EEST), so a UTC timestamp on
+  // the hour is also on the hour locally — every window below still reads as
+  // something a person would type, e.g. 08:00–16:00, not 22:44:39.451.
+  const nowOnTheHour = new Date();
+  nowOnTheHour.setUTCMinutes(0, 0, 0);
+  const now = nowOnTheHour.getTime();
 
   // ------------------------------------------------------- the matrix, R20 --
   await db

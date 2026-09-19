@@ -1,6 +1,7 @@
-import { Controller, Get, HttpCode, Param, Post, UseGuards } from "@nestjs/common";
+import { Controller, Get, Headers, HttpCode, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { Inbox } from "@ecapital/shared";
+import { I18nService } from "../common/i18n.service";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
 import { RolesGuard } from "../common/roles.guard";
 import { InboxService } from "./inbox.service";
@@ -18,14 +19,17 @@ import { InboxService } from "./inbox.service";
 @UseGuards(RolesGuard)
 @Controller("inbox")
 export class InboxController {
-  constructor(private readonly inbox: InboxService) {}
+  constructor(
+    private readonly inbox: InboxService,
+    private readonly i18n: I18nService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "The approvals waiting on the caller, with a count per type" })
   @ApiZodResponse(200, Inbox, "The items and the counts behind the tabs")
   @ApiZodError(401, "No token, or a token that does not verify")
-  list(): Promise<Inbox> {
-    return this.inbox.forCaller(new Date());
+  list(@Headers("accept-language") acceptLanguage: string | undefined): Promise<Inbox> {
+    return this.inbox.forCaller(new Date(), this.i18n.resolve(acceptLanguage));
   }
 
   @Post(":id/read")
