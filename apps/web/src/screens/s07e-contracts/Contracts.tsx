@@ -23,6 +23,14 @@
  * phone as often as on a desktop, and the export button CONVENTIONS.md asks
  * of every table belongs to the screens that are meant to be exported (S02's
  * project register). This one is a way through to a contract.
+ *
+ * ADR-0025: the budget code is an optional, hidden-by-default line on each
+ * row, switched on with the checkbox above the list — this screen's own
+ * equivalent of `Table`'s hidden-by-default column, since it is a list of
+ * cards and not a table with columns to choose from. Off by default, and not
+ * persisted across visits: showing it is a rare need (checking that a batch
+ * of contracts all carry the code they should), not the ordinary way this
+ * register is read.
  */
 import type { ReactNode } from "react";
 import { useState, type FormEvent } from "react";
@@ -55,6 +63,8 @@ export function Contracts({
 }: ContractsProps) {
   const t = useTranslations();
   const [term, setTerm] = useState(q);
+  // ADR-0025: off by default, per-visit only — see the header comment.
+  const [showBudgetCode, setShowBudgetCode] = useState(false);
 
   if (state === "noPermission") return <>{noPermission}</>;
 
@@ -126,31 +136,50 @@ export function Contracts({
       )}
 
       {state === "default" && (
-        <ul className="grid gap-s-2" data-testid="contract-list">
-          {items.map((contract) => (
-            <li
-              key={contract.id}
-              className="flex flex-wrap items-baseline justify-between gap-s-3 rounded-k border border-k-grey bg-k-white px-s-4 py-s-3"
-            >
-              <div>
-                {/* RULE (ADR-0019): the eCapital reference is what eFinance
-                    stores against an invoice, so it is the first thing on the
-                    row and it is mono — it is read character by character. */}
-                <span className="num text-fs-12 text-k-text">{contract.ref}</span>
-                <Link
-                  href={`/contracts/${encodeURIComponent(contract.id)}`}
-                  className="block text-fs-16 font-bold text-k-blue-deep underline-offset-2 hover:underline"
-                >
-                  {contract.contractorName}
-                </Link>
-                <p className="text-fs-14 text-k-text">
-                  {contract.contractNo} · {formatDate(contract.awardDate)}
-                </p>
-              </div>
-              <span className="num text-fs-16 text-k-ink">{formatEUR(contract.currentValue)}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* ADR-0025: hidden-by-default, this list's own equivalent of a
+              `Table` column the person switches on themselves. */}
+          <label className="mb-s-3 flex h-11 w-fit items-center gap-s-2 text-fs-14 text-k-text">
+            <input
+              type="checkbox"
+              checked={showBudgetCode}
+              onChange={(event) => setShowBudgetCode(event.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>{t("screens.s07e.showBudgetCode")}</span>
+          </label>
+
+          <ul className="grid gap-s-2" data-testid="contract-list">
+            {items.map((contract) => (
+              <li
+                key={contract.id}
+                className="flex flex-wrap items-baseline justify-between gap-s-3 rounded-k border border-k-grey bg-k-white px-s-4 py-s-3"
+              >
+                <div>
+                  {/* RULE (ADR-0019): the eCapital reference is what eFinance
+                      stores against an invoice, so it is the first thing on the
+                      row and it is mono — it is read character by character. */}
+                  <span className="num text-fs-12 text-k-text">{contract.ref}</span>
+                  <Link
+                    href={`/contracts/${encodeURIComponent(contract.id)}`}
+                    className="block text-fs-16 font-bold text-k-blue-deep underline-offset-2 hover:underline"
+                  >
+                    {contract.contractorName}
+                  </Link>
+                  <p className="text-fs-14 text-k-text">
+                    {contract.contractNo} · {formatDate(contract.awardDate)}
+                  </p>
+                  {showBudgetCode && (
+                    <p className="num text-fs-14 text-k-text">
+                      {t("screens.s07e.budgetCodeLabel")}: {contract.budgetCode ?? t("common.notAvailable")}
+                    </p>
+                  )}
+                </div>
+                <span className="num text-fs-16 text-k-ink">{formatEUR(contract.currentValue)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );

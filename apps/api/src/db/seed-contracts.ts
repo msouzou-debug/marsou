@@ -59,6 +59,24 @@ const CONTRACTOR_CATEGORY_BY_PROJECT = {
   IT: ["IT"],
 } as const;
 
+/**
+ * ADR-0025, owner decision 19/09/2026: one CAPEX budget code per contract.
+ * Picked sensibly by the project's own category, from the twenty codes
+ * migration 0013 seeds — the five real ones where a category matches
+ * cleanly (EQUIPMENT → medical equipment, MAINTENANCE_CAPITAL → air
+ * conditioning, the kind of replacement CAPEX-03's own fixture rows are
+ * usually about) and one of the fifteen placeholders otherwise, since the
+ * real fifteen are not published yet.
+ */
+const BUDGET_CODE_BY_CATEGORY = {
+  NEW_BUILD: "7401", // Κτίρια (placeholder)
+  RENOVATION: "7561", // Ανακαινίσεις κτιρίων (placeholder)
+  SMALL_WORKS: "7562", // Έργα υποδομής (placeholder)
+  EQUIPMENT: "7402", // Ιατρικός και λοιπός εξοπλισμός (real)
+  MAINTENANCE_CAPITAL: "7502", // Κλιματισμός (real)
+  IT: "7404", // Ηλεκτρονικός εξοπλισμός και λογισμικό (placeholder)
+} as const;
+
 function addDays(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -221,6 +239,7 @@ export async function seedContractRegister(db: Db): Promise<ContractSeedSummary>
       liquidatedDamagesPerDay: String(fixture.liquidatedDamagesPerDay),
       defectsLiabilityMonths: fixture.defectsLiabilityMonths,
       sapPoNumber: fixture.sapPoNumber,
+      budgetCode: BUDGET_CODE_BY_CATEGORY[project.category],
       updatedAt: sql`now()`,
     };
 

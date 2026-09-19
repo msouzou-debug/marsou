@@ -13,6 +13,7 @@
  * |------------------|-------------------------|--------------------------------------------------------------------|
  * | mode             | "create" \| "edit"      | Hides the Ανάδοχος select and shows the Αρχική αξία as read-only text in "edit" (see the field-level RULE below). |
  * | contractors      | Contractor[]            | The register (`GET /contractors`), for the Ανάδοχος select in "create" only. |
+ * | budgetCodes      | BudgetCode[]            | The active CAPEX codes (`GET /budget-codes?kind=capex`, ADR-0025), for the Κωδικός προϋπολογισμού select in both modes. |
  * | initialValues    | ContractFormValues?     | Prefills every field in "edit"; ignored in "create".              |
  * | initialContractorName / initialOriginalValue | string / number | "edit" only — the read-only facts shown where the create fields would be. |
  * | submitting       | boolean                 | Disables the form and shows the spinner in Αποθήκευση.            |
@@ -27,7 +28,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { ContractType, type Contractor } from "@ecapital/shared";
+import { ContractType, type BudgetCode, type Contractor } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatEUR } from "@/lib/format";
@@ -53,11 +54,16 @@ const EMPTY_VALUES: ContractFormValues = {
   defectsLiabilityMonths: 12,
   sapPoNumber: null,
   emapRef: null,
+  // ADR-0025: "" means none, same convention as S07d's targetProjectId.
+  budgetCode: "",
 };
 
 export interface ContractFormProps {
   mode: ContractFormMode;
   contractors?: Contractor[];
+  // ADR-0025. The active CAPEX codes (`GET /budget-codes?kind=capex`),
+  // fed by `useBudgetCodes()` in `ContractFormScreen`.
+  budgetCodes?: BudgetCode[];
   initialValues?: ContractFormValues;
   initialContractorName?: string;
   initialOriginalValue?: number;
@@ -74,6 +80,7 @@ function blankToNull(value: string): string | null {
 export function ContractForm({
   mode,
   contractors = [],
+  budgetCodes = [],
   initialValues,
   initialContractorName,
   initialOriginalValue,
@@ -173,6 +180,34 @@ export function ContractForm({
           {fieldError("contractNo") && (
             <p role="alert" className="text-fs-14 text-k-red">
               {fieldError("contractNo")}
+            </p>
+          )}
+        </div>
+
+        {/* RULE (ADR-0025, owner decision 19/09/2026): one CAPEX budget code
+            per contract, required to start one and editable later by the
+            same roles that edit a contract at all. "" is the unpicked state
+            in "create" and, in "edit", the way to clear a code back out. */}
+        <div className="flex flex-col gap-s-1">
+          <label htmlFor="cf-budget-code" className="text-fs-14 text-k-text">
+            {tf("budgetCode")}
+          </label>
+          <select
+            id="cf-budget-code"
+            {...register("budgetCode")}
+            aria-invalid={errors.budgetCode ? "true" : undefined}
+            className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+          >
+            <option value="">{tf("budgetCodePlaceholder")}</option>
+            {budgetCodes.map((code) => (
+              <option key={code.code} value={code.code}>
+                {code.code} — {code.descriptionEl}
+              </option>
+            ))}
+          </select>
+          {fieldError("budgetCode") && (
+            <p role="alert" className="text-fs-14 text-k-red">
+              {fieldError("budgetCode")}
             </p>
           )}
         </div>

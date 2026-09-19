@@ -56,6 +56,13 @@ const EnvSchema = z
     // neither set, the link-outs simply do not appear.
     EMAP_URL: z.string().optional(),
     EFINANCE_URL: z.string().optional(),
+    // ADR-0022 §5 — the bearer token eFinance issues eCapital as its one
+    // caller on the loopback contract. Only read by
+    // `BudgetCodesService`/`EFinanceBudgetCodeReader` today, for
+    // `POST /budget-codes/sync`; both EMAP_URL/EFINANCE_URL and this token
+    // being set is what turns that route from the seed fallback to an actual
+    // eFinance call (ADR-0025).
+    EFINANCE_TOKEN: z.string().optional(),
 
     // Production hardening (ADR-0018 §5). Behind cloudflared the API is
     // reached only over the loopback, so it should not listen anywhere else.

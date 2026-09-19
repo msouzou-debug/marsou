@@ -45,6 +45,7 @@ export interface ContractRow {
   defectsLiabilityMonths: number;
   sapPoNumber: string | null;
   emapRef: string | null;
+  budgetCode: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -78,6 +79,7 @@ export function toContract(row: ContractRow): Contract {
     defectsLiabilityMonths: row.defectsLiabilityMonths,
     sapPoNumber: row.sapPoNumber,
     emapRef: row.emapRef,
+    budgetCode: row.budgetCode,
     createdAt: row.createdAt ? row.createdAt.toISOString() : null,
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
   };

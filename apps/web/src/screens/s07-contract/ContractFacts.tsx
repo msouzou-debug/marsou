@@ -31,8 +31,19 @@ export function ContractFacts({ contract, today = new Date() }: ContractFactsPro
   // `numeric` marks the facts that are money, dates, percentages or counts —
   // mono, tabular, right-aligned (CONVENTIONS.md); `type`/`awardDecision`
   // stay plain text, same split S03's own `FactsList` makes.
+  // RULE (ADR-0025, owner decision 19/09/2026): one CAPEX budget code per
+  // contract. Shown as "code — Greek description" so the fact is legible on
+  // its own, without a second lookup against the reference list; a contract
+  // recorded before this field existed shows the same dash every other
+  // not-yet-filled fact does.
+  const budgetCode =
+    contract.budgetCode === null
+      ? t("screens.s07.facts.budgetCodeNone")
+      : `${contract.budgetCode} — ${contract.budgetCodeDescriptionEl ?? contract.budgetCode}`;
+
   const rows: Array<{ label: string; value: ReactNode; numeric?: boolean }> = [
     { label: t("screens.s07.facts.type"), value: t(`contractTypes.${contract.type}`) },
+    { label: t("screens.s07.facts.budgetCode"), value: budgetCode },
     { label: t("screens.s07.facts.awardDate"), value: formatDate(contract.awardDate), numeric: true },
     {
       label: t("screens.s07.facts.startDate"),

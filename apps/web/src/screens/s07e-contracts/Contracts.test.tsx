@@ -72,4 +72,32 @@ describe("Contracts — ADR-0019's register", () => {
     await user.click(screen.getByRole("button", { name: "Δοκιμάστε ξανά" }));
     expect(onRetry).toHaveBeenCalled();
   });
+
+  // ADR-0025: the budget code is hidden by default, and shown on request.
+  describe("the budget code column", () => {
+    it("is off by default", () => {
+      renderWithIntl(<Contracts items={[contract()]} state="default" noPermission={noPermission} />);
+      expect(screen.queryByText(/Κωδικός προϋπολογισμού: 7402/)).not.toBeInTheDocument();
+    });
+
+    it("shows the code once the checkbox is switched on", async () => {
+      const user = userEvent.setup();
+      renderWithIntl(<Contracts items={[contract()]} state="default" noPermission={noPermission} />);
+
+      await user.click(screen.getByLabelText("Εμφάνιση κωδικού προϋπολογισμού"));
+
+      expect(screen.getByText("Κωδικός προϋπολογισμού: 7402")).toBeInTheDocument();
+    });
+
+    it("shows the dash for a contract that has none", async () => {
+      const user = userEvent.setup();
+      renderWithIntl(
+        <Contracts items={[contract({ budgetCode: null })]} state="default" noPermission={noPermission} />,
+      );
+
+      await user.click(screen.getByLabelText("Εμφάνιση κωδικού προϋπολογισμού"));
+
+      expect(screen.getByText("Κωδικός προϋπολογισμού: —")).toBeInTheDocument();
+    });
+  });
 });

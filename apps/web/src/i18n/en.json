@@ -488,6 +488,8 @@
       "factsCaption": "Contract facts",
       "facts": {
         "type": "Contract type",
+        "budgetCode": "Budget code",
+        "budgetCodeNone": "Not recorded",
         "awardDate": "Award date",
         "startDate": "Start",
         "completionDate": "Contract completion",
@@ -540,6 +542,8 @@
       "fields": {
         "contractor": "Contractor",
         "contractNo": "Contract number",
+        "budgetCode": "Budget code",
+        "budgetCodePlaceholder": "Pick a budget code",
         "type": "Contract type",
         "awardDate": "Award date",
         "originalValue": "Original value",
@@ -706,7 +710,9 @@
       "notFound": "No contract carries the reference {q}.",
       "notFoundHint": "Check the reference, or find the contract from your own projects. A reference starting CON- belongs to eMAP, not here.",
       "allContracts": "All contracts",
-      "allProjects": "Project list"
+      "allProjects": "Project list",
+      "showBudgetCode": "Show budget code",
+      "budgetCodeLabel": "Budget code"
     },
     "s24users": {
       "title": "Users",

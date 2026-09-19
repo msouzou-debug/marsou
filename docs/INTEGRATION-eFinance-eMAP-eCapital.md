@@ -294,6 +294,15 @@ status (active|closed), updated_at`. eFinance answers `409` if the same
 those two are the join keys, and a silent overwrite of either would point
 existing eFinance invoices at the wrong entity or budget line.
 
+**eCapital now carries the `budget_code` this write route needs (ADR-0025,
+19/09/2026).** `contract.budget_code` references a small reference table of
+eFinance's CAPEX codes (`GET /budget-codes?kind=capex`, `POST
+/budget-codes/sync`) that eCapital refreshes from eFinance's own `GET
+/api/v1/master/budget-codes?kind=capex` above once that route exists, and
+seeds by hand until it does. When this write route is built, `budget_code`
+is a field eCapital already has an answer for on every contract, not one
+this integration has to invent a source for at that point.
+
 **Ownership, restated plainly.** eCapital owns planning, contract
 commitment, retention and certification. eFinance owns execution against
 budget codes. **eCapital never writes to `budget_allocations`** — that

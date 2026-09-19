@@ -7,6 +7,7 @@ import { AuditModule } from "./audit/audit.module";
 import { AreasModule } from "./areas/areas.module";
 import { AuthGuard } from "./auth/auth.guard";
 import { AuthModule } from "./auth/auth.module";
+import { BudgetCodesModule } from "./budget-codes/budget-codes.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { MutationInterceptor } from "./common/mutation.interceptor";
 import { RlsInterceptor } from "./common/rls.interceptor";
@@ -60,6 +61,7 @@ import { SiteInstructionsModule } from "./site-instructions/site-instructions.mo
     ProjectsModule,
     ContractorsModule,
     ContractsModule,
+    BudgetCodesModule,
     CostModule,
     RfisModule,
     SiteInstructionsModule,

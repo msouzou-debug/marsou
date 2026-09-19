@@ -21,6 +21,10 @@ function toFormValues(contract: ContractDetail): ContractFormValues {
     defectsLiabilityMonths: contract.defectsLiabilityMonths,
     sapPoNumber: contract.sapPoNumber,
     emapRef: contract.emapRef,
+    // ADR-0025: "" is the form's own "nothing picked" value (see
+    // `ContractFormScreen`'s header comment); a contract with no budget code
+    // yet opens the select on the placeholder rather than a stray option.
+    budgetCode: contract.budgetCode ?? "",
   };
 }
 

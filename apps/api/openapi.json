@@ -6927,6 +6927,13 @@
                               }
                             ]
                           },
+                          "budgetCode": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "default": null,
                             "type": [
@@ -6966,6 +6973,7 @@
                           "defectsLiabilityMonths",
                           "sapPoNumber",
                           "emapRef",
+                          "budgetCode",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -7186,6 +7194,13 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "budgetCode": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
@@ -7203,7 +7218,8 @@
                   "liquidatedDamagesPerDay",
                   "defectsLiabilityMonths",
                   "sapPoNumber",
-                  "emapRef"
+                  "emapRef",
+                  "budgetCode"
                 ],
                 "additionalProperties": false
               }
@@ -7345,6 +7361,13 @@
                         }
                       ]
                     },
+                    "budgetCode": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "default": null,
                       "type": [
@@ -7432,6 +7455,18 @@
                         "blacklisted"
                       ],
                       "additionalProperties": false
+                    },
+                    "budgetCodeDescriptionEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetCodeDescriptionEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "boq": {
                       "type": "array",
@@ -7807,10 +7842,13 @@
                     "defectsLiabilityMonths",
                     "sapPoNumber",
                     "emapRef",
+                    "budgetCode",
                     "createdAt",
                     "updatedAt",
                     "project",
                     "contractor",
+                    "budgetCodeDescriptionEl",
+                    "budgetCodeDescriptionEn",
                     "boq",
                     "variations",
                     "approvedVariationsTotal",
@@ -7824,7 +7862,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid contract",
+            "description": "The body is not a valid contract, or budgetCode does not name an active code",
             "content": {
               "application/json": {
                 "schema": {
@@ -8134,6 +8172,13 @@
                               }
                             ]
                           },
+                          "budgetCode": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "default": null,
                             "type": [
@@ -8173,6 +8218,7 @@
                           "defectsLiabilityMonths",
                           "sapPoNumber",
                           "emapRef",
+                          "budgetCode",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -8580,6 +8626,13 @@
                         }
                       ]
                     },
+                    "budgetCode": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "default": null,
                       "type": [
@@ -8667,6 +8720,18 @@
                         "blacklisted"
                       ],
                       "additionalProperties": false
+                    },
+                    "budgetCodeDescriptionEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetCodeDescriptionEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "boq": {
                       "type": "array",
@@ -9042,10 +9107,13 @@
                     "defectsLiabilityMonths",
                     "sapPoNumber",
                     "emapRef",
+                    "budgetCode",
                     "createdAt",
                     "updatedAt",
                     "project",
                     "contractor",
+                    "budgetCodeDescriptionEl",
+                    "budgetCodeDescriptionEn",
                     "boq",
                     "variations",
                     "approvedVariationsTotal",
@@ -9248,6 +9316,13 @@
                       }
                     ]
                   },
+                  "budgetCode": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "extensionDays": {
                     "type": "integer",
                     "minimum": 0,
@@ -9394,6 +9469,13 @@
                         }
                       ]
                     },
+                    "budgetCode": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "default": null,
                       "type": [
@@ -9481,6 +9563,18 @@
                         "blacklisted"
                       ],
                       "additionalProperties": false
+                    },
+                    "budgetCodeDescriptionEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "budgetCodeDescriptionEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "boq": {
                       "type": "array",
@@ -9856,10 +9950,13 @@
                     "defectsLiabilityMonths",
                     "sapPoNumber",
                     "emapRef",
+                    "budgetCode",
                     "createdAt",
                     "updatedAt",
                     "project",
                     "contractor",
+                    "budgetCodeDescriptionEl",
+                    "budgetCodeDescriptionEn",
                     "boq",
                     "variations",
                     "approvedVariationsTotal",
@@ -9873,7 +9970,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or budgetCode does not name an active code",
             "content": {
               "application/json": {
                 "schema": {
@@ -16858,6 +16955,342 @@
         "summary": "Move the certificate to the next status",
         "tags": [
           "cost"
+        ]
+      }
+    },
+    "/budget-codes": {
+      "get": {
+        "operationId": "BudgetCodesController_list",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "capex"
+              ]
+            },
+            "description": "The only kind there is today; any other value is refused"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The active CAPEX codes, ordered by code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "descriptionEl": {
+                            "type": "string"
+                          },
+                          "descriptionEn": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "isCapex": {
+                            "type": "boolean"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "SEED",
+                              "EFINANCE"
+                            ]
+                          },
+                          "syncedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "descriptionEl",
+                          "descriptionEn",
+                          "category",
+                          "isCapex",
+                          "active",
+                          "source",
+                          "syncedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "kind was given and was not capex",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The active CAPEX budget codes",
+        "tags": [
+          "budget-codes"
+        ]
+      }
+    },
+    "/budget-codes/sync": {
+      "post": {
+        "operationId": "BudgetCodesController_sync",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the sync did",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "SEED",
+                        "EFINANCE"
+                      ]
+                    },
+                    "upserted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "deactivated": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "syncedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "upserted",
+                    "deactivated",
+                    "syncedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that is not admin or finance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "eFinance did not answer within 5 seconds, or answered with an error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Refresh the budget code list from eFinance, or from the seed",
+        "tags": [
+          "budget-codes"
         ]
       }
     },

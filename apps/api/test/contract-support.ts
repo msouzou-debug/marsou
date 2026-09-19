@@ -119,6 +119,10 @@ export function contractBody(
     liquidatedDamagesPerDay: 250,
     defectsLiabilityMonths: 12,
     sapPoNumber: "4500900001",
+    // ADR-0025: one of the seeded CAPEX codes, so the ordinary fixture path
+    // exercises a contract that has one rather than every test having to opt
+    // in. `budget-codes.test.ts` covers null, an unknown code and a change.
+    budgetCode: "7402",
     ...overrides,
   };
 }

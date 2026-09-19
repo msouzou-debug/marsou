@@ -30,6 +30,10 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
     defectsLiabilityMonths: 12,
     sapPoNumber: "45100031",
     emapRef: null,
+    // ADR-0025, owner decision 19/09/2026: one CAPEX budget code per contract.
+    budgetCode: "7402",
+    budgetCodeDescriptionEl: "Ιατρικός και λοιπός εξοπλισμός",
+    budgetCodeDescriptionEn: "Medical and other equipment",
     createdAt: null,
     updatedAt: null,
     project: { id: "project-1", code: "LAR-2026-031", titleEl: "Αντικατάσταση ακτινολογικού εξοπλισμού" },
