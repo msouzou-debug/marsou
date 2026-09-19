@@ -25,11 +25,36 @@
     "riskNotValid": "The risk is missing something. Write the description and give a likelihood and an impact from 1 to 5.",
     "issueNotFound": "There is no such issue on this project. Reload the page and pick one from the list.",
     "issueNotValid": "The issue is missing something. Write the description and try again.",
+    "contractorNotValid": "The contractor is missing something. Fill in the name and the category, then try again.",
+    "contractorNotFound": "There is no such contractor. Reload the page and pick one from the register.",
+    "contractorNameTaken": "{name} is already in the contractor register. Open the record that exists, or give this one a different name.",
+    "blacklistAdminOnly": "Only the system administrator blacklists a contractor or lifts a blacklisting. Ask them to record the change and the reason for it.",
+    "contractNotFound": "The contract was not found, or you have no access to it. Pick a contract from a project in one of your own units.",
+    "contractNotValid": "The contract is missing something. Fill in the number, the type, the award date and the original value, then try again.",
+    "contractNoTaken": "Contract number {contractNo} is already in use in your unit. Use the number on the award decision.",
+    "contractorBlacklisted": "{contractor} is blacklisted and takes no new contract. The ones already running carry on as they are.",
+    "projectNotAwarded": "{project} has not been awarded yet, so it cannot hold a contract. Move the project to the award phase first.",
+    "boqNotValid": "The bill of quantities is not usable. Give every line an item number, a description, a unit, a quantity and a rate.",
+    "boqItemNoRepeated": "Two lines carry the same item number. Give each line its own.",
+    "variationNotFound": "There is no such variation on this contract. Reload the page and pick one from the list.",
+    "variationNotValid": "The variation is missing something. Write the description, pick a reason, and give the value and the time impact in days.",
+    "variationDecisionNotValid": "The decision is not usable. Choose approve, return or reject, and write a comment where one is needed.",
+    "variationNotEditable": "The variation is no longer yours to change. You can change it while it is a draft, or while it has come back with comments.",
+    "variationNotSubmitted": "The variation is not waiting for a decision. You decide on variations that have been submitted.",
+    "notRaiser": "A variation stays with the person who raised it. Ask the colleague who wrote it to make the change.",
+    "sameUserApproval": "You cannot approve a variation you raised yourself. Pass the decision to someone else who may approve.",
+    "commentRequired": "Returning or rejecting a variation needs a comment. Write what has to change, then send the decision again.",
+    "budgetFinanceOnly": "From the approval phase onwards, only finance changes the approved budget. Ask them to record the change.",
     "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
     "noPlannedDates": "{project} ({unit}) has no planned start and finish dates.",
     "finishOverdue": "{project} ({unit}) is in progress and its planned finish passed {days} days ago."
+  },
+  "warnings": {
+    "variationsOverTenPct": "Approved variations on contract {contract} for {project} ({unit}) now come to {pct} of the original value, {amount} over the 10% mark.",
+    "bondExpired": "The performance bond on contract {contract} for {project} ({unit}) expired on {date}. Ask the contractor to renew it.",
+    "completionPast": "Contract {contract} for {project} ({unit}) was due to finish on {date}, {days} days ago. Record an extension, or move the project to practical completion."
   }
 }
