@@ -101,6 +101,14 @@ const EnvSchema = z
     // write whatever address it likes into the audit log.
     TRUST_PROXY: booleanish.default(false),
 
+    // CAPEX-01 §6.4 — «Hospital Director for anything above a threshold
+    // duration or any Class V». The brief names no threshold, so 72 hours is
+    // an ASSUMPTION (ADR-0026) and it is a setting rather than a constant, so
+    // a hospital that wants the Director on anything over two days changes it
+    // without a release. Stricter readings are safe: lowering it adds an
+    // approver, it never removes one.
+    PERMIT_DIRECTOR_THRESHOLD_HOURS: z.coerce.number().int().positive().default(72),
+
     DEFAULT_LOCALE: z.enum(["el", "en"]).default("el"),
     CORS_ORIGINS: z.string().default("http://localhost:3000"),
   })
