@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runMigrations } from "../src/db/migrate";
 import { seed } from "../src/db/seed";
@@ -11,6 +13,8 @@ import { seed } from "../src/db/seed";
  * a fake would prove nothing.
  */
 const SCRIPT = join(__dirname, "..", "scripts", "test-db.sh");
+
+let documentStore: string | undefined;
 
 function run(command: "start" | "stop"): string {
   return execFileSync(SCRIPT, [command], { encoding: "utf8" });
@@ -29,6 +33,11 @@ export async function setup(): Promise<void> {
   process.env.LOG_LEVEL = "silent";
   process.env.ECAPITAL_TEST_ADMIN_URL =
     `postgres://postgres@127.0.0.1:${process.env.PGPORT}/postgres`;
+  // M8: the eArchive object store. A throwaway directory for the same reason
+  // the database is one (ADR-0012) — the suites write real files into it and
+  // a run must not leave bytes behind or find another run's.
+  documentStore = mkdtempSync(join(tmpdir(), "ecapital-documents-"));
+  process.env.DOCUMENT_STORE_DIR = documentStore;
 
   await runMigrations(process.env.MIGRATION_DATABASE_URL as string);
   await seed(process.env.MIGRATION_DATABASE_URL as string);
@@ -36,4 +45,5 @@ export async function setup(): Promise<void> {
 
 export async function teardown(): Promise<void> {
   run("stop");
+  if (documentStore) rmSync(documentStore, { recursive: true, force: true });
 }

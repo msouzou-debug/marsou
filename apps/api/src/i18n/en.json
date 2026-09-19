@@ -96,7 +96,20 @@
     "certTransitionNotAllowed": "A certificate moves one status at a time and only forward. Choose the next status.",
     "certRoleNotAllowed": "Your role does not take this step. The project engineer approves the work; finance receives and pays.",
     "sapInvoiceRefNeeded": "The SAP invoice reference is needed before finance can receive the certificate. Fill it in and try again.",
-    "paidDateNeeded": "The date of payment is needed. Fill it in and try again."
+    "paidDateNeeded": "The date of payment is needed. Fill it in and try again.",
+    "documentNeeded": "No file was attached. Choose the document file and try again.",
+    "documentEmpty": "The file is empty. Choose the right file and try again.",
+    "documentTooLarge": "The file is over 50 MB, which is eArchive's limit. Send a smaller file or split it.",
+    "documentMimeRejected": "eArchive does not accept this kind of file. Send a PDF, an Office document, an image, text or an email message; DWG and ZIP are not accepted.",
+    "documentNameNotValid": "That file name cannot be used. Rename the file and try again.",
+    "documentAlreadyFiled": "That document is already filed under the same reference. Upload a new version to correct it.",
+    "documentNotFound": "The document was not found, or you do not have access to it.",
+    "variationNotApproved": "Only approved variations are filed with eArchive. Approve the variation and try again.",
+    "dmsOutboxNotFound": "That eArchive queue entry was not found. Refresh the list and try again.",
+    "dmsAlreadyFiled": "That document already has an eArchive protocol number. It is not sent a second time.",
+    "dmsEventNotValid": "The message from eArchive is not valid. Check the event, the protocol id and the date.",
+    "dmsTokenNotAccepted": "The bearer token was not accepted. Check the token eArchive was given.",
+    "dmsLoopbackOnly": "This route accepts calls from the same server only. The request was refused."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",

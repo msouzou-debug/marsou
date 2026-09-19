@@ -57,6 +57,31 @@ const EnvSchema = z
     EMAP_URL: z.string().optional(),
     EFINANCE_URL: z.string().optional(),
 
+    // ADR-0023 — eArchive, ΟΚΥπΥ's protocol and records system (formerly
+    // eMetroon), on the loopback beside eCapital's own API.
+    EARCHIVE_URL: z.string().default("http://127.0.0.1:5011"),
+    // The bearer token eArchive issues eCapital. **Never in the repo.**
+    // Marios generates it on the server and writes it into both .env files
+    // himself; it is never sent in email or chat. Left unset, the API wires
+    // the NullClient: documents are recorded and queued and nothing is sent,
+    // which is the «hold until the token is placed» rule.
+    // A blank value, or the CHANGE-ME the template ships with, counts as
+    // «not placed yet» rather than as a boot failure: the server is meant to
+    // run with the queue holding until the real token lands.
+    ECAPITAL_INGEST_TOKEN: z
+      .string()
+      .optional()
+      .transform((value) => {
+        const token = value?.trim();
+        return token && token !== "CHANGE-ME" && token.length >= 16 ? token : undefined;
+      }),
+    EARCHIVE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    // Where the bytes wait until eArchive has them. eCapital is not an
+    // archive (INTEGRATION §6): this is the operational copy a multipart
+    // upload needs in hand, and nothing else. `/var/lib/ecapital/documents`
+    // on the ΟΚΥπΥ server (RUNBOOK §11).
+    DOCUMENT_STORE_DIR: z.string().min(1).default("./var/documents"),
+
     // Production hardening (ADR-0018 §5). Behind cloudflared the API is
     // reached only over the loopback, so it should not listen anywhere else.
     BIND_HOST: z.string().optional(),
