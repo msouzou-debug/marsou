@@ -1085,7 +1085,8 @@
       },
       "decide": {
         "commentPlaceholder": "Write your comment.",
-        "reject": "Reject"
+        "reject": "Reject",
+        "selfApproval": "You cannot approve a permit you requested. Assign the approval to someone else."
       },
       "rejectDialog": {
         "title": "Reject the permit?",

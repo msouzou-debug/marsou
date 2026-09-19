@@ -44,7 +44,7 @@ import { PermitBanner } from "@/components/permit-banner";
 import { SlaChip } from "@/components/sla-chip";
 import { Timeline } from "@/components/timeline";
 import type { Locale } from "@/i18n/config";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatDateTimeRange } from "@/lib/format";
 import { closeoutComplete, permitBannerState, permitTimelineFrom, startWorkDisabledReasonKey } from "@/lib/permit-rules";
 
 export type PermitDetailState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -249,14 +249,20 @@ export function PermitDetail(props: PermitDetailProps) {
         </div>
       )}
 
+      {/* RULE (task item 4): `self-start` keeps each column its own natural
+          height instead of the parent grid stretching it to match its
+          sibling's row — without it, a shorter left column's own rows
+          (`align-content: normal` ⇒ stretch on a grid container) spread out
+          to fill the extra height, opening a gap between «Στοιχεία» and
+          «Άμεσα επηρεαζόμενοι χώροι» that has nothing to do with either. */}
       <div className="grid grid-cols-1 gap-s-6 desktop:grid-cols-2">
-        <div className="grid gap-s-5">
+        <div className="grid gap-s-5 self-start">
           <section>
             <h2 className="text-fs-20 text-k-blue-deep">{t("screens.s11detail.facts")}</h2>
             <dl className="mt-s-3 grid gap-s-2 text-fs-14">
               <div><dt className="text-k-text-muted">{t("common.unit")}</dt><dd className="text-k-ink">{unitLabel}</dd></div>
               <div><dt className="text-k-text-muted">{t("screens.s11.columns.systems")}</dt><dd className="text-k-ink">{permit.systems.map((s) => t(`permitSystem.${s}`)).join(", ")}</dd></div>
-              <div><dt className="text-k-text-muted">{t("screens.s11.columns.window")}</dt><dd className="num text-k-ink">{formatDateTime(permit.plannedStart)} – {formatDateTime(permit.plannedEnd)}</dd></div>
+              <div><dt className="text-k-text-muted">{t("screens.s11.columns.window")}</dt><dd className="num text-k-ink">{formatDateTimeRange(permit.plannedStart, permit.plannedEnd)}</dd></div>
               {permit.icra && (
                 <div><dt className="text-k-text-muted">{t("screens.s11.columns.icraClass")}</dt><dd><IcraBadge icraClass={permit.icra.icraClass} size="list" /></dd></div>
               )}
@@ -302,7 +308,7 @@ export function PermitDetail(props: PermitDetailProps) {
           )}
         </div>
 
-        <div className="grid gap-s-5">
+        <div className="grid gap-s-5 self-start">
           <section>
             <h2 className="text-fs-20 text-k-blue-deep">{t("screens.s11detail.approvals")}</h2>
             <ul className="mt-s-3 grid gap-s-3">
@@ -320,8 +326,18 @@ export function PermitDetail(props: PermitDetailProps) {
                   {approval.areaNameEl && <p className="text-fs-12 text-k-text-muted">{approval.areaNameEl}</p>}
                   {approval.approverName && <p className="text-fs-12 text-k-text-muted">{approval.approverName}</p>}
                   {approval.commentEl && <p className="mt-s-1 text-fs-14 text-k-ink">{approval.commentEl}</p>}
+                  {/* RULE (ADR-0015's segregation, applied here per ADR-0026):
+                      the requester never gets decide buttons on their own
+                      permit, even on a line the API resolved to them — the
+                      API itself now avoids that resolution and refuses the
+                      decision with 409 either way, so this is the second,
+                      visible half of the same guard. */}
                   {approval.decision === "PENDING" && approval.approverId === myUserId && (
-                    <DecideRow approvalId={approval.id} onDecide={onDecide} />
+                    permit.requestedById === myUserId ? (
+                      <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s11detail.decide.selfApproval")}</p>
+                    ) : (
+                      <DecideRow approvalId={approval.id} onDecide={onDecide} />
+                    )
                   )}
                 </li>
               ))}

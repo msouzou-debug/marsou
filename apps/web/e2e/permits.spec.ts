@@ -81,6 +81,13 @@ test("engineer.larnaca creates a shutdown request and submits it as Class IV", a
   // reference is allocated and the status reads «Σε κλινική εξέταση».
   await expect(page.getByText(/PTW-LAR-\d{4}-\d{3}/).first()).toBeVisible();
   await expect(page.getByText("Εκκρεμεί έγκριση").first()).toBeVisible();
+  // RULE (task item 1): the window entered at step 3 — 08:00–16:00 — reads
+  // back unchanged, same day, both times, never shifted by a timezone. This
+  // only holds with the browser's own zone pinned to Europe/Nicosia
+  // (`playwright.config.ts`'s `timezoneId`), which is what makes
+  // `src/lib/datetime.ts`'s conversion and the record's own
+  // Europe/Nicosia display agree.
+  await expect(page.getByText(/01\/04\/2026\s*08:00\s*[–-]\s*16:00/).first()).toBeVisible();
 
   await page.screenshot({ path: `e2e/screenshots/s12-icra-${testInfo.project.name}.png`, fullPage: true });
 });

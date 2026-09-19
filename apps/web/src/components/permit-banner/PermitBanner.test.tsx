@@ -7,12 +7,27 @@ import { PermitBanner } from "./PermitBanner";
 const BASE = { validFrom: "2026-03-01T00:00:00Z", validTo: "2026-06-01T00:00:00Z", icraClass: "IV" as const };
 
 describe("PermitBanner", () => {
-  it("renders the state label, dates and ICRA class", () => {
+  it("renders the state label, the window and the ICRA class", () => {
     renderWithIntl(<PermitBanner {...BASE} state="inForce" />);
     expect(screen.getByText("Σε ισχύ")).toBeInTheDocument();
-    expect(screen.getByText("01/03/2026 – 01/06/2026")).toBeInTheDocument();
+    // A permit window is hours, not just a date — different days, so both ends
+    // print in full (formatDateTimeRange, R23).
+    expect(screen.getByText(/01\/03\/2026\s*02:00 – 01\/06\/2026\s*03:00/)).toBeInTheDocument();
     expect(screen.getByText("IV")).toBeInTheDocument();
     expect(screen.getByText("Εκτύπωση")).toBeInTheDocument();
+  });
+
+  it("collapses the window to one date with two times when both ends fall on the same day", () => {
+    renderWithIntl(
+      <PermitBanner
+        {...BASE}
+        validFrom="2026-04-01T05:00:00Z"
+        validTo="2026-04-01T13:00:00Z"
+        state="inForce"
+      />,
+    );
+    // Europe/Nicosia is UTC+3 on 1 April (EEST): 08:00 – 16:00.
+    expect(screen.getByText(/01\/04\/2026\s*08:00 – 16:00/)).toBeInTheDocument();
   });
 
   it("never renders a dismiss control while the permit is in force", () => {

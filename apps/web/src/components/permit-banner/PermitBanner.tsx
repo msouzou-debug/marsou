@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { formatDate } from "@/lib/format";
+import { formatDateTimeRange } from "@/lib/format";
 import { IcraBadge, type IcraClass } from "@/components/icra-badge";
 
 /**
@@ -12,8 +12,8 @@ import { IcraBadge, type IcraClass } from "@/components/icra-badge";
  * | Prop       | Type                                                              | Notes                          |
  * |------------|-------------------------------------------------------------------|----------------------------------|
  * | state      | "inForce" \| "pendingApproval" \| "expired" \| "revoked"           | Permit lifecycle state.          |
- * | validFrom  | string (ISO)                                                       | Formatted via `formatDate`.       |
- * | validTo    | string (ISO)                                                       | Formatted via `formatDate`.       |
+ * | validFrom  | string (ISO)                                                       | With `validTo`, formatted as a window via `formatDateTimeRange` — a permit window is hours, not just a date. |
+ * | validTo    | string (ISO)                                                       | See `validFrom`.                  |
  * | icraClass  | "I" \| "II" \| "III" \| "IV" \| "V"                                | Rendered as an on-purple IcraBadge (list size). |
  * | onPrint    | () => void?                                                        | Defaults to `window.print()`.    |
  * | onDismiss  | () => void?                                                        | See RULE below.                  |
@@ -44,9 +44,7 @@ export function PermitBanner({ state, validFrom, validTo, icraClass, onPrint, on
     <div className="w-full flex flex-wrap items-center justify-between gap-s-4 rounded-k bg-k-purple px-s-6 py-s-4 text-k-white">
       <div className="flex flex-wrap items-center gap-s-4">
         <span className="text-fs-16 font-bold">{t(`components.permitBanner.state.${state}`)}</span>
-        <span className="text-fs-14">
-          {formatDate(validFrom)} – {formatDate(validTo)}
-        </span>
+        <span className="text-fs-14">{formatDateTimeRange(validFrom, validTo)}</span>
         <IcraBadge icraClass={icraClass} size="list" onPurple />
       </div>
       <div className="flex items-center gap-s-4">

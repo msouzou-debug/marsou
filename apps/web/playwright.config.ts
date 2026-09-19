@@ -19,6 +19,13 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
+    // S11a step 3's `datetime-local` fields convert with the browser's own
+    // offset (`src/lib/datetime.ts`) and the record displays fixed to
+    // Europe/Nicosia — the two agree only when the browser's own timezone
+    // is Nicosia's, which is true of a real user's own machine but not of
+    // this sandbox's default zone. Pinned here so every project's run is the
+    // same permits.spec.ts assertion regardless of where it runs.
+    timezoneId: "Europe/Nicosia",
   },
   projects: [
     { name: "phone-390", use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },

@@ -130,6 +130,21 @@ describe("PermitDetail", () => {
     expect(screen.getByRole("button", { name: "Έναρξη εργασιών" })).not.toBeDisabled();
   });
 
+  it("hides the decide buttons on the requester's own line and shows the segregation sentence instead", () => {
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        permit={{ ...BASE_PERMIT, requestedById: "me" }}
+        state="default"
+        now={new Date("2026-03-14T09:00:00.000Z")}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Έγκριση" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Δεν εγκρίνετε άδεια που ζητήσατε εσείς. Αναθέστε την έγκριση σε άλλο πρόσωπο."),
+    ).toBeInTheDocument();
+  });
+
   it("shows no PermitBanner for a CLOSED permit, only a closed summary line", () => {
     renderWithIntl(
       <PermitDetail

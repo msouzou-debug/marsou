@@ -60,18 +60,37 @@ export function formatDate(input: Date | string | number): string {
   }).format(d);
 }
 
-/** 14/03/2026 10:42 */
-export function formatDateTime(input: Date | string | number): string {
-  const d = input instanceof Date ? input : new Date(input);
-  if (Number.isNaN(d.getTime())) return "—";
-  const date = formatDate(d);
-  const time = new Intl.DateTimeFormat("el-GR", {
+function formatTimeOnly(d: Date): string {
+  return new Intl.DateTimeFormat("el-GR", {
     timeZone: "Europe/Nicosia",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).format(d);
-  return `${date}${NBSP}${time}`;
+}
+
+/** 14/03/2026 10:42 */
+export function formatDateTime(input: Date | string | number): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${formatDate(d)}${NBSP}${formatTimeOnly(d)}`;
+}
+
+/**
+ * A permit window (PermitBanner, S13's print sheet, S12's facts): both ends
+ * are hours, not just a date, so a window is never rendered as two bare
+ * dates. `dd/mm/yyyy HH:mm – HH:mm` when both ends fall on the same day in
+ * Europe/Nicosia; otherwise the full `formatDateTime` on both ends, because
+ * a window spanning midnight needs both dates to read unambiguously.
+ */
+export function formatDateTimeRange(from: Date | string | number, to: Date | string | number): string {
+  const start = from instanceof Date ? from : new Date(from);
+  const end = to instanceof Date ? to : new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "—";
+  if (formatDate(start) === formatDate(end)) {
+    return `${formatDate(start)}${NBSP}${formatTimeOnly(start)} – ${formatTimeOnly(end)}`;
+  }
+  return `${formatDateTime(start)} – ${formatDateTime(end)}`;
 }
 
 /** 3 ημ / 3 d — the unit label comes from i18n; this only formats the number. */

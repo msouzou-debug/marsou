@@ -29,7 +29,7 @@ import Image from "next/image";
 import type { ShutdownPermit } from "@ecapital/shared";
 import { IcraBadge } from "@/components/icra-badge";
 import type { Locale } from "@/i18n/config";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDateTimeRange } from "@/lib/format";
 import { qrMatrix } from "@/lib/qr";
 
 export type PermitPrintState = "default" | "loading" | "error" | "noPermission";
@@ -112,9 +112,7 @@ export function PermitPrint({ permit, state, recordUrl, onRetry, noPermission }:
           {permit.icra && <IcraBadge icraClass={permit.icra.icraClass} size="print" />}
           <div>
             <p className="text-fs-20 text-k-ink">{permit.titleEl}</p>
-            <p className="text-fs-20 text-k-ink">
-              {formatDate(permit.plannedStart)} – {formatDate(permit.plannedEnd)}
-            </p>
+            <p className="text-fs-20 text-k-ink">{formatDateTimeRange(permit.plannedStart, permit.plannedEnd)}</p>
             <p className="text-fs-20 text-k-ink">{permit.systems.map((s) => t(`permitSystem.${s}`)).join(" · ")}</p>
           </div>
         </div>

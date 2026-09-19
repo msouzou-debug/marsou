@@ -43,7 +43,8 @@ import { AreaPicker } from "@/components/area-picker";
 import { WizardShell } from "@/components/wizard-shell";
 import { ApiError, apiMutate } from "@/data/client";
 import { useAreaImpact, usePermit, useProjectsForUnit, useContracts, useAreaTree } from "@/data/queries";
-import { formatDateTime } from "@/lib/format";
+import { isoInstantToLocalInput, localInputToIsoInstant } from "@/lib/datetime";
+import { formatDateTimeRange } from "@/lib/format";
 import { durationMinutes, EMPTY_WIZARD_DRAFT, step1Complete, step2Complete, step3Complete, type PermitWizardDraft } from "./schema";
 
 export interface PermitWizardScreenProps {
@@ -67,8 +68,13 @@ export function draftToBody(draft: PermitWizardDraft): Partial<ShutdownPermitDra
     affectedAreaIds: draft.areaIds,
     projectId: draft.projectId,
     contractId: draft.contractId,
-    plannedStart: draft.plannedStart ? new Date(draft.plannedStart).toISOString() : undefined,
-    plannedEnd: draft.plannedEnd ? new Date(draft.plannedEnd).toISOString() : undefined,
+    // RULE (task item 1, S11a step 3): the browser's own offset turns the
+    // naive `datetime-local` value into an ISO instant — never a value
+    // reinterpreted through a fixed timezone — and `isoInstantToLocalInput`
+    // below is its exact inverse, so autosave, the review step and an
+    // edited permit's own re-hydration all agree on the same conversion.
+    plannedStart: draft.plannedStart ? localInputToIsoInstant(draft.plannedStart) : undefined,
+    plannedEnd: draft.plannedEnd ? localInputToIsoInstant(draft.plannedEnd) : undefined,
     ilsmTriggers: draft.ilsmTriggers,
     contingencyPlanEl: draft.contingencyPlanEl || null,
   };
@@ -111,8 +117,12 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
       projectId: p.projectId,
       contractId: p.contractId,
       areaIds: p.affectedAreas.filter((a) => a.impact === "DIRECT").map((a) => a.areaId),
-      plannedStart: p.plannedStart ? p.plannedStart.slice(0, 16) : "",
-      plannedEnd: p.plannedEnd ? p.plannedEnd.slice(0, 16) : "",
+      // `isoInstantToLocalInput`, not a slice of the ISO string: the stored
+      // value is a UTC instant, and truncating it would put that UTC
+      // wall-clock time straight into a field the browser reads as its own
+      // local time (the 19/09/2026 screenshot's bug, on the way back in).
+      plannedStart: p.plannedStart ? isoInstantToLocalInput(p.plannedStart) : "",
+      plannedEnd: p.plannedEnd ? isoInstantToLocalInput(p.plannedEnd) : "",
       ilsmTriggers: [],
       contingencyPlanEl: p.contingencyPlanEl ?? "",
     });
@@ -385,7 +395,12 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
             <p><span className="text-k-text-muted">{t("screens.s11a.fields.title")}:</span> {draft.titleEl}</p>
             <p><span className="text-k-text-muted">{t("screens.s11.columns.systems")}:</span> {draft.systems.map((s) => t(`permitSystem.${s}`)).join(", ")}</p>
             <p><span className="text-k-text-muted">{t("screens.s11a.fields.workKind")}:</span> {t(`workKind.${draft.workKind}`)}</p>
-            <p><span className="text-k-text-muted">{t("screens.s11.columns.window")}:</span> {draft.plannedStart && formatDateTime(draft.plannedStart)} – {draft.plannedEnd && formatDateTime(draft.plannedEnd)}</p>
+            <p>
+              <span className="text-k-text-muted">{t("screens.s11.columns.window")}:</span>{" "}
+              {draft.plannedStart && draft.plannedEnd
+                ? formatDateTimeRange(localInputToIsoInstant(draft.plannedStart), localInputToIsoInstant(draft.plannedEnd))
+                : ""}
+            </p>
             <p><span className="text-k-text-muted">{t("screens.s11a.fields.ilsmTriggers")}:</span> {ilsmRequired ? t("common.yes") : t("common.no")}</p>
             {apiError && <p role="alert" className="text-fs-14 text-k-red">{apiError}</p>}
           </div>
