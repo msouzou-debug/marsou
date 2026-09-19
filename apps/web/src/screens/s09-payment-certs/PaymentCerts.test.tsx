@@ -18,14 +18,14 @@ describe("PaymentCerts (S09)", () => {
     expect(document.body.textContent).toContain(formatEUR(cert.netPayable));
   });
 
-  it("shows «Νέο πιστοποιητικό» only for a role that can create one", () => {
+  it("shows «Νέα πιστοποίηση» only for a role that can create one", () => {
     renderWithIntl(
       <PaymentCerts data={[]} contractId="contract-1" state="empty" noPermission={noPermission} roles={["project_engineer"]} onAdd={noop} onRowOpen={noop} />,
     );
     expect(document.body.textContent).toContain("Προσθήκη");
   });
 
-  it("hides «Νέο πιστοποιητικό» for finance", () => {
+  it("hides «Νέα πιστοποίηση» for finance", () => {
     renderWithIntl(
       <PaymentCerts data={[]} contractId="contract-1" state="empty" noPermission={noPermission} roles={["finance"]} onAdd={noop} onRowOpen={noop} />,
     );

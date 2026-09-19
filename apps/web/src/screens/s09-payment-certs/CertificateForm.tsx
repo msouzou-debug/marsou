@@ -3,7 +3,7 @@
 // S09 — R11
 //
 /**
- * CertificateForm — the pure S09 «Νέο πιστοποιητικό» form: period from/to,
+ * CertificateForm — the pure S09 «Νέα πιστοποίηση» form: period from/to,
  * work done (cumulative) and materials on site. Retention, previous
  * certified and net payable are never typed here — the API derives them
  * (contract `PaymentCert`), so they only ever appear read-only on the

@@ -6,7 +6,7 @@
  * PaymentCerts — the pure S09 list screen: the contract tab strip, and the
  * dense table of payment certificates (number, period, work done, materials,
  * retention held, previous certified, net payable, status chip, SAP invoice
- * ref). «Νέο πιστοποιητικό» is `canCreatePaymentCert` (project_engineer/
+ * ref). «Νέα πιστοποίηση» is `canCreatePaymentCert` (project_engineer/
  * estates_head/admin), the same set that runs the rest of the contract.
  *
  * RULE (build brief §5 S09): retention is its own column here too — never

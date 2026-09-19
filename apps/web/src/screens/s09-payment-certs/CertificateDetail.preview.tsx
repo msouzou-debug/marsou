@@ -10,7 +10,7 @@ const noop = () => undefined;
 
 const entry: PreviewEntry = {
   id: "s09-certificate-detail",
-  title: "S09 Πιστοποιητικό (λεπτομέρεια)",
+  title: "S09 Πιστοποίηση (λεπτομέρεια)",
   states: {
     default: () => (
       <CertificateDetail

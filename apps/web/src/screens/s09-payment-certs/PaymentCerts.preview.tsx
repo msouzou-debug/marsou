@@ -17,7 +17,7 @@ const certs = [
 
 const entry: PreviewEntry = {
   id: "s09-payment-certs",
-  title: "S09 Πιστοποιητικά πληρωμής",
+  title: "S09 Πιστοποιήσεις πληρωμής",
   states: {
     default: () => (
       <PaymentCerts data={certs} contractId="contract-1" contractNo="ΤΥ/2026/012" state="default" noPermission={noPermission} roles={["project_engineer"]} onAdd={noop} onRowOpen={noop} />
