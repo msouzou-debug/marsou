@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { LoggerModule } from "nestjs-pino";
+import { AdminUsersModule } from "./admin-users/admin-users.module";
 import { AuditModule } from "./audit/audit.module";
 import { AreasModule } from "./areas/areas.module";
 import { AuthGuard } from "./auth/auth.guard";
@@ -65,6 +66,7 @@ import { SiteInstructionsModule } from "./site-instructions/site-instructions.mo
     HealthModule,
     LinksModule,
     AuditModule,
+    AdminUsersModule,
   ],
   providers: [
     // Order matters. The guard verifies the token, then the RLS interceptor

@@ -66,9 +66,23 @@ export class AuthService {
   /**
    * ADR-0018 — sign in with a ΟΚΥπΥ Active Directory account.
    *
-   * Bind as the person, read their groups, turn those groups into roles and
-   * units through `role_mapping`, write (or refresh) their `app_user` row and
-   * hand back the same signed session token the development stub issues.
+   * Bind as the person, write (or refresh) their `app_user` row and hand back
+   * the same signed session token the development stub issues.
+   *
+   * RULE (ADR-0020): the roles on the token are the roles an administrator
+   * assigned to this person in Διαχείριση › Χρήστες, unioned with whatever
+   * `role_mapping` makes of their directory groups. The manual assignment is
+   * the one that matters and a sign-in never deletes it; the group layer is
+   * optional, empty on a fresh database, and still there for a deployment
+   * that would rather drive roles from AD.
+   *
+   * RULE (ADR-0020): an account pre-registered by username adopts its
+   * objectGUID on this first bind rather than being duplicated, so the roles
+   * an administrator set before the person ever signed in survive the moment
+   * they do.
+   *
+   * RULE (ADR-0020): a deactivated account is refused here, with the password
+   * already proved correct — 401 `errors.accountDeactivated`.
    *
    * RULE: a bind failure is 401 `errors.notSignedIn` and nothing more. Not
    * "no such user", not "wrong password" — either would tell somebody
@@ -111,14 +125,23 @@ export class AuthService {
       await client.query("begin");
       await client.query("select set_config('app.user_id', $1, true)", [subject]);
 
-      const { roles, orgUnitIds } = await mappedAccess(client, user.memberOf);
-      const userId = await upsertUser(client, { subject, name, email, roles, orgUnitIds });
+      const userId = await upsertUser(client, {
+        subject,
+        username: user.uid,
+        name,
+        email,
+      });
+
+      const mapped = await mappedAccess(client, user.memberOf);
+      const assigned = await assignedAccess(client, userId);
+      const roles = union(assigned.roles, mapped.roles) as AppRole[];
+      const orgUnitIds = union(assigned.orgUnitIds, mapped.orgUnitIds);
 
       await client.query("commit");
 
       if (!roles.length) {
         this.logger.warn(
-          `${user.uid} signed in with no mapped group: groups=${user.memberOf.length}. Add a role_mapping row for their AD group.`,
+          `${user.uid} signed in with no role at all. An administrator assigns one in Διαχείριση › Χρήστες (ADR-0020).`,
         );
       }
 
@@ -154,12 +177,21 @@ export class AuthService {
     const client = new Client({ connectionString: this.config.migrationDatabaseUrl });
     await client.connect();
     try {
-      const { rows } = await client.query<{ id: string; subject: string; name: string }>(
-        "select id, subject, name from ecapital.app_user where email = $1 and is_active limit 1",
+      const { rows } = await client.query<{
+        id: string;
+        subject: string;
+        name: string;
+        is_active: boolean;
+      }>(
+        "select id, subject, name, is_active from ecapital.app_user where email = $1 limit 1",
         [email],
       );
       const user = rows[0];
       if (!user) throw AppError.notFound("errors.userNotFound", { email });
+      // RULE (ADR-0020): a deactivated account is refused at the door, in
+      // every mode. Not 404 — the account exists and an administrator turned
+      // it off, which is a different fact and a more useful one.
+      if (!user.is_active) throw AppError.unauthorized("errors.accountDeactivated");
 
       const roles = await client.query<{ role: string }>(
         "select role from ecapital.app_user_role where app_user_id = $1 order by role",
@@ -167,6 +199,13 @@ export class AuthService {
       );
       const units = await client.query<{ org_unit_id: string }>(
         "select org_unit_id from ecapital.app_user_org_unit where app_user_id = $1 order by org_unit_id",
+        [user.id],
+      );
+
+      // ADR-0020: the stub is a sign-in like any other, so it stamps the
+      // same column the directory bind does.
+      await client.query(
+        "update ecapital.app_user set last_sign_in_at = now() where id = $1",
         [user.id],
       );
 
@@ -197,6 +236,10 @@ export class AuthService {
  * through the role anyway, so for them the list is belt and braces; for
  * `finance`, which the owner's decision of 19/09/2026 put across the whole
  * organisation, the list is what does the work.
+ *
+ * ADR-0020 keeps this as an optional layer on top of the per-user
+ * assignment, not as the way roles arrive. On a fresh ΟΚΥπΥ database there
+ * are no rows here at all and this returns nothing, which is correct.
  */
 async function mappedAccess(
   client: Client,
@@ -222,45 +265,97 @@ async function mappedAccess(
 }
 
 /**
- * Create the row on first sign-in, refresh it afterwards. The display name,
- * the address, the roles and the units all come from the directory every
- * time: somebody moved from Λάρνακα to Λεμεσό last week should see Λεμεσό
- * today, without an administrator touching eCapital.
+ * What an administrator assigned to this person in Διαχείριση › Χρήστες
+ * (ADR-0020) — the manual half of the union, and the half that normally
+ * carries everything.
+ */
+async function assignedAccess(
+  client: Client,
+  userId: string,
+): Promise<{ roles: AppRole[]; orgUnitIds: string[] }> {
+  const roles = await client.query<{ role: AppRole }>(
+    "select role from ecapital.app_user_role where app_user_id = $1",
+    [userId],
+  );
+  const units = await client.query<{ org_unit_id: string }>(
+    "select org_unit_id from ecapital.app_user_org_unit where app_user_id = $1",
+    [userId],
+  );
+  return {
+    roles: roles.rows.map((r) => r.role),
+    orgUnitIds: units.rows.map((u) => u.org_unit_id),
+  };
+}
+
+function union(a: string[], b: string[]): string[] {
+  return [...new Set([...a, ...b])].sort();
+}
+
+/**
+ * Create the row on the first sign-in, refresh it afterwards — and adopt a
+ * pre-registered one rather than making a second (ADR-0020).
+ *
+ * RULE (ADR-0020): an administrator can pre-register an AD account before it
+ * has ever signed in. That row has no objectGUID to key on, so it carries
+ * `subject = 'ad:<username>'` and the account name in `username`. The first
+ * real bind looks for the objectGUID, does not find it, finds the row by
+ * account name instead and moves the subject onto the GUID. The roles the
+ * administrator set therefore survive the first sign-in, which is the whole
+ * point of pre-registering.
+ *
+ * RULE (ADR-0020): roles and units are NOT touched here. A sign-in refreshes
+ * who somebody is — their name, their address, when they last arrived — and
+ * never what they may do. That is an administrator's to set and a login's to
+ * read.
+ *
+ * RULE (ADR-0020): a deactivated account is refused, with 401
+ * `errors.accountDeactivated`, and is not quietly reactivated by signing in.
  */
 async function upsertUser(
   client: Client,
-  user: { subject: string; name: string; email: string; roles: AppRole[]; orgUnitIds: string[] },
+  user: { subject: string; username: string; name: string; email: string },
 ): Promise<string> {
-  const { rows } = await client.query<{ id: string }>(
-    `insert into ecapital.app_user (subject, name, email, auth_source, is_active)
-          values ($1, $2, $3, 'ldap', true)
-     on conflict (subject) do update
-            set name = excluded.name,
-                email = excluded.email,
-                auth_source = 'ldap',
-                is_active = true,
-                updated_at = now()
-       returning id`,
-    [user.subject, user.name, user.email],
+  const existing = await client.query<{ id: string; is_active: boolean }>(
+    `select id, is_active
+       from ecapital.app_user
+      where subject = $1
+         or (username is not null and lower(username) = lower($2))
+      order by (subject = $1) desc
+      limit 1`,
+    [user.subject, user.username],
   );
-  const id = rows[0].id;
 
-  await client.query("delete from ecapital.app_user_role where app_user_id = $1", [id]);
-  if (user.roles.length) {
-    await client.query(
-      `insert into ecapital.app_user_role (app_user_id, role)
-            select $1, unnest($2::ecapital.app_role[])`,
-      [id, user.roles],
+  if (!existing.rows.length) {
+    const inserted = await client.query<{ id: string }>(
+      `insert into ecapital.app_user (subject, username, name, email, auth_source, is_active, last_sign_in_at)
+            values ($1, $2, $3, $4, 'ldap', true, now())
+         returning id`,
+      [user.subject, user.username, user.name, user.email],
     );
+    return inserted.rows[0].id;
   }
 
-  await client.query("delete from ecapital.app_user_org_unit where app_user_id = $1", [id]);
-  if (user.orgUnitIds.length) {
-    await client.query(
-      `insert into ecapital.app_user_org_unit (app_user_id, org_unit_id)
-            select $1, unnest($2::text[])`,
-      [id, user.orgUnitIds],
-    );
-  }
-  return id;
+  const row = existing.rows[0];
+  if (!row.is_active) throw AppError.unauthorized("errors.accountDeactivated");
+
+  // The address is refreshed only when nobody else holds it. `app_user.email`
+  // is unique and a directory can hand back an address a seeded row already
+  // has; losing the sign-in over that would be absurd, and the old address is
+  // still a working one.
+  await client.query(
+    `update ecapital.app_user
+        set subject = $2,
+            username = $3,
+            name = $4,
+            email = case
+                      when exists (select 1 from ecapital.app_user other
+                                    where other.email = $5 and other.id <> app_user.id)
+                      then email else $5 end,
+            auth_source = 'ldap',
+            last_sign_in_at = now(),
+            updated_at = now()
+      where id = $1`,
+    [row.id, user.subject, user.username, user.name, user.email],
+  );
+  return row.id;
 }

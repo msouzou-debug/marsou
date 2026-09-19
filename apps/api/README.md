@@ -42,6 +42,8 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/contractors/`, `src/contracts/` | The contract register. `contract-rows.ts` holds the commitment arithmetic and the four warn-and-flag rules as pure functions. |
 | `src/rfis/`, `src/site-instructions/`, `src/defects/` | The site log. `rfi-rows.ts` holds the SLA band, `defect-rows.ts` the defects-liability arithmetic and the backlog banding, all as pure functions. |
 | `src/auth/` | The guard, the three ways in and `GET /me` (ADR-0009, ADR-0018). `directory.ts` is the port between "who is this person" and "which directory says so"; `ldap.directory.ts` is the one implementation, against the ΟΚΥπΥ Active Directory. |
+| `src/admin-users/` | Διαχείριση › Χρήστες — who exists, what they may do and in which units (ADR-0020). The four rules an administrator can break by accident live in the service, each a 422 with a sentence. |
+| `src/cli/grant-role.ts` | The bootstrap CLI: the first administrator on a fresh database, and the only way the auditor is appointed or unappointed. |
 | `src/links/` | `GET /config/links` — where eMAP and eFinance are, for the S07 link-outs (ADR-0019). |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
 | `src/cli/` | The capex plan import (R41). `profiles/*.yaml` is the mapping as data; `parse.ts` and `validate.ts` are the column transforms and the fourteen rules as pure functions (ADR-0016). |
@@ -63,6 +65,11 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `GET /org-units/:id/areas` | That unit's building → floor → area tree. | M0 |
 | `POST /org-units/:id/areas` | Add an area to a floor of the unit. | M0 |
 | `GET /audit-log` | The organisation's audit trail. `admin` and `auditor_readonly` only. | M0 |
+| `GET /admin/users` | Διαχείριση › Χρήστες: the accounts, searched (`q` over the name, the account name and the address), filtered by `role`, `unit` and `active`, and paged. `admin` only (ADR-0020). | M1 |
+| `GET /admin/users/:id` | One account with its roles and its units. | M1 |
+| `POST /admin/users` | Pre-register an Active Directory account before its first sign-in. The subject is `ad:<username>` until the first bind adopts the objectGUID, so the roles set here are in force the moment the person arrives. | M1 |
+| `PATCH /admin/users/:id` | Roles, units, display name, on or off. Four 422s: `errors.selfLockout`, `errors.lastAdmin`, `errors.auditorProtected`, `errors.unitRequired` (ADR-0020). | M1 |
+| `GET /admin/roles` | The eight roles with `scope: all \| unit`, so no client hardcodes which carry units. | M1 |
 | `GET /projects` | The register, filtered (`unit`, `phase`, `category`, `rag`, repeated for several), searched (`q`, matching the code and the Greek title without regard to case or accents), sorted and paged. | M1 |
 | `GET /projects/:id` | One project with its unit, its sponsor and manager by name, its milestones, risks and issues, and the last fifty lines of its own history. | M1 |
 | `POST /projects` | Open a project. The API allocates the code (ADR-0014); a body that carries one is refused. | M1 |
@@ -114,6 +121,8 @@ Two narrower rules sit on top of the policies, and both are decisions rather tha
 | `pnpm --filter @ecapital/api migrate` | Apply pending migrations. Safe to run twice. |
 | `pnpm --filter @ecapital/api seed` | Load or refresh the seed data. Safe to run twice. |
 | `pnpm --filter @ecapital/api import:capex -- …` | Import the capex plan workbook. Dry run unless `--commit`. See below. |
+| `pnpm --filter @ecapital/api grant-admin -- --username <sAMAccountName> [--name "…"] [--email …]` | Give somebody the administrator role, creating the account if it does not exist. How the first administrator exists on a fresh database (ADR-0020). |
+| `pnpm --filter @ecapital/api grant-role -- --username <sAMAccountName> --role <role> [--revoke]` | Grant or revoke one role. The only way `auditor_readonly` moves in either direction (CAPEX-01 §10). |
 | `pnpm --filter @ecapital/api openapi` | Rewrite `openapi.json` from the controllers. |
 | `./scripts/test-db.sh start` / `stop` | The throwaway cluster, by hand, if you want to poke at it. |
 

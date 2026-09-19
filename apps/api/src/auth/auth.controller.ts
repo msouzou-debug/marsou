@@ -23,7 +23,7 @@ export class AuthController {
   @Get("me")
   @ApiOperation({ summary: "The signed-in user, their roles and their org units" })
   @ApiZodResponse(200, Me, "The caller's claims")
-  @ApiZodError(401, "No token, or a token that does not verify")
+  @ApiZodError(401, "No token, a token that does not verify, or a deactivated account")
   async me(@Req() request: AuthenticatedRequest): Promise<Me> {
     const claims = request.claims;
     if (!claims) throw AppError.unauthorized();
@@ -33,11 +33,17 @@ export class AuthController {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     const rows = await tx.db
-      .select({ id: schema.appUser.id })
+      .select({ id: schema.appUser.id, isActive: schema.appUser.isActive })
       .from(schema.appUser)
       .where(eq(schema.appUser.subject, claims.sub))
       .limit(1);
     if (!rows.length) throw AppError.internal();
+    // RULE (ADR-0020): an administrator who deactivates somebody expects the
+    // session they are already holding to stop working, not to run for the
+    // remaining hours of its eight. The token is still valid and still
+    // verifies — the account behind it is not, so this is 401 and the web
+    // app's stale-cookie path clears the cookie and sends them to sign-in.
+    if (!rows[0].isActive) throw AppError.unauthorized("errors.accountDeactivated");
     return Me.parse({
       sub: claims.sub,
       userId: rows[0].id,

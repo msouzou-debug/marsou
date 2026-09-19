@@ -188,9 +188,15 @@ export const appUser = ecapital.table("app_user", {
   subject: text("subject").notNull().unique(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  // ADR-0020: the sAMAccountName the person signs in with — what a
+  // pre-registered account is matched on until its first bind hands over an
+  // objectGUID. Null on the rows the M0 seed wrote, which sign in by address.
+  username: text("username"),
   // ADR-0018: dev | ldap | oidc — which directory this row came from.
   authSource: text("auth_source").notNull().default("oidc"),
   isActive: boolean("is_active").notNull().default(true),
+  // ADR-0020: set on every successful sign-in, by all three ways in.
+  lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true }),
   createdAt,
   updatedAt,
 });

@@ -40,7 +40,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0007_active_directory_sign_in");
     expect(result.applied).toContain("0008_entity_codes_and_contract_refs");
     expect(result.applied).toContain("0009_hq_unit");
-    expect(result.lastMigrationId).toBe("0009_hq_unit");
+    expect(result.applied).toContain("0010_admin_users");
+    expect(result.lastMigrationId).toBe("0010_admin_users");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();

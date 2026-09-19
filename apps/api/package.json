@@ -14,6 +14,8 @@
     "migrate": "node -r @swc-node/register src/db/migrate.ts",
     "seed": "node -r @swc-node/register src/db/seed.ts",
     "import:capex": "node -r @swc-node/register src/cli/import-capex.ts",
+    "grant-admin": "node -r @swc-node/register src/cli/grant-admin.ts",
+    "grant-role": "node -r @swc-node/register src/cli/grant-role-cli.ts",
     "openapi": "node -r @swc-node/register scripts/generate-openapi.ts"
   },
   "dependencies": {

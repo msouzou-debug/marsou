@@ -73,7 +73,7 @@
             }
           },
           "401": {
-            "description": "No token, or a token that does not verify",
+            "description": "No token, a token that does not verify, or a deactivated account",
             "content": {
               "application/json": {
                 "schema": {
@@ -15193,6 +15193,1112 @@
         "summary": "Audit trail, newest first",
         "tags": [
           "audit"
+        ]
+      }
+    },
+    "/admin/roles": {
+      "get": {
+        "operationId": "AdminUsersController_roles",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The role catalogue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      },
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "all",
+                          "unit"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "role",
+                      "scope"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The eight roles and whether each is scoped to units",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "operationId": "AdminUsersController_list",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "active",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Left out, both"
+          },
+          {
+            "name": "unit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Matches the name, the account name and the address"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of accounts, with the total behind it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "authSource": {
+                            "type": "string",
+                            "enum": [
+                              "dev",
+                              "ldap",
+                              "oidc"
+                            ]
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "roles": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "admin",
+                                "estates_head",
+                                "project_engineer",
+                                "technician",
+                                "finance",
+                                "clinical_approver",
+                                "executive_readonly",
+                                "auditor_readonly"
+                              ]
+                            }
+                          },
+                          "orgUnitIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "lastSignInAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "subject",
+                          "username",
+                          "name",
+                          "email",
+                          "authSource",
+                          "active",
+                          "roles",
+                          "orgUnitIds",
+                          "lastSignInAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "pageSize": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total",
+                    "page",
+                    "pageSize"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter or a page number is not usable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The accounts, filtered, searched and paged",
+        "tags": [
+          "admin-users"
+        ]
+      },
+      "post": {
+        "operationId": "AdminUsersController_create",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "roles": {
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "estates_head",
+                        "project_engineer",
+                        "technician",
+                        "finance",
+                        "clinical_approver",
+                        "executive_readonly",
+                        "auditor_readonly"
+                      ]
+                    }
+                  },
+                  "orgUnitIds": {
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "username",
+                  "roles",
+                  "orgUnitIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The account as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "authSource": {
+                      "type": "string",
+                      "enum": [
+                        "dev",
+                        "ldap",
+                        "oidc"
+                      ]
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      }
+                    },
+                    "orgUnitIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "lastSignInAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "subject",
+                    "username",
+                    "name",
+                    "email",
+                    "authSource",
+                    "active",
+                    "roles",
+                    "orgUnitIds",
+                    "lastSignInAt",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "That account name is taken, a unit is missing, or the auditor was asked for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pre-register an account, with its roles and units",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "operationId": "AdminUsersController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "authSource": {
+                      "type": "string",
+                      "enum": [
+                        "dev",
+                        "ldap",
+                        "oidc"
+                      ]
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      }
+                    },
+                    "orgUnitIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "lastSignInAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "subject",
+                    "username",
+                    "name",
+                    "email",
+                    "authSource",
+                    "active",
+                    "roles",
+                    "orgUnitIds",
+                    "lastSignInAt",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "One account, with its roles and its units",
+        "tags": [
+          "admin-users"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminUsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "estates_head",
+                        "project_engineer",
+                        "technician",
+                        "finance",
+                        "clinical_approver",
+                        "executive_readonly",
+                        "auditor_readonly"
+                      ]
+                    }
+                  },
+                  "orgUnitIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "authSource": {
+                      "type": "string",
+                      "enum": [
+                        "dev",
+                        "ldap",
+                        "oidc"
+                      ]
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      }
+                    },
+                    "orgUnitIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "lastSignInAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "subject",
+                    "username",
+                    "name",
+                    "email",
+                    "authSource",
+                    "active",
+                    "roles",
+                    "orgUnitIds",
+                    "lastSignInAt",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "errors.selfLockout, errors.lastAdmin, errors.auditorProtected or errors.unitRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change an account's roles, units, name or whether it is on",
+        "tags": [
+          "admin-users"
         ]
       }
     }

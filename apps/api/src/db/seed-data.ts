@@ -249,14 +249,14 @@ export const seedUsers: SeedUser[] = [
 ];
 
 // Groups→roles is a config table, not code (ADR-0009). These are placeholder
-// object ids; at deployment an administrator replaces them with the real
-// values — Entra object ids in oidc mode, Active Directory group DNs such as
-// `CN=eCapital Admins,OU=Groups,DC=ihcis,DC=local` in ldap mode (ADR-0018).
+// object ids; they match no real directory group and are here so the mapping
+// path has something to exercise in development.
 //
-// FLAG (ADR-0018): which ΟΚΥπΥ AD group grants which eCapital role is an
-// administrator's decision at deployment and is not ours to guess. Nothing
-// below is a real group. Until those rows exist, an AD user signs in and
-// sees nothing — ADR-0009's safe direction.
+// ADR-0020 (owner decision, 19/09/2026) answered ADR-0018's flag: roles are
+// assigned per user by an administrator in Διαχείριση › Χρήστες, and this
+// table is an optional layer on top of that, empty on a real ΟΚΥπΥ database.
+// A sign-in takes the union of the two and never deletes an assignment, so
+// nothing below is needed for anybody to have a role.
 export const seedRoleMappings: {
   groupId: string;
   role: AppRole;

@@ -21,6 +21,9 @@ describe("openapi.json", () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
+      "/admin/roles",
+      "/admin/users",
+      "/admin/users/{id}",
       "/audit-log",
       "/auth/dev-token",
       "/auth/login",
