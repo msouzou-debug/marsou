@@ -8,12 +8,14 @@
 // own «Εκπρόθεσμο» label (UI instructions §4, RagChip's own rule reused here
 // for the same reason).
 
+import Link from "next/link";
 import { Flag, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Milestone } from "@ecapital/shared";
 import { formatDate } from "@/lib/format";
 
 export interface MilestonesCardProps {
+  projectId: string;
   milestones: Milestone[];
   /** Injectable for tests; defaults to "now" for the real screen. */
   today?: Date;
@@ -23,14 +25,24 @@ function isOverdue(milestone: Milestone, today: Date): boolean {
   return milestone.actualDate === null && milestone.forecastDate !== null && new Date(milestone.forecastDate) < today;
 }
 
-export function MilestonesCard({ milestones, today = new Date() }: MilestonesCardProps) {
+export function MilestonesCard({ projectId, milestones, today = new Date() }: MilestonesCardProps) {
   const t = useTranslations();
   const dash = t("common.notAvailable");
   const sorted = [...milestones].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <section className="rounded-k border border-k-grey bg-k-white p-s-4">
-      <h2 className="text-fs-16 font-bold text-k-blue-deep">{t("screens.s03.milestonesTitle")}</h2>
+      <div className="flex items-center justify-between gap-s-3">
+        <h2 className="text-fs-16 font-bold text-k-blue-deep">{t("screens.s03.milestonesTitle")}</h2>
+        {/* RULE: S05 is the full milestone register — this card only shows a
+            summary, so it always links out to it, whatever the state below. */}
+        <Link
+          href={`/projects/${encodeURIComponent(projectId)}/schedule`}
+          className="text-fs-14 font-bold text-k-blue-deep underline-offset-2 hover:underline"
+        >
+          {t("screens.s03.milestonesViewAll")}
+        </Link>
+      </div>
       {sorted.length === 0 ? (
         <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s03.milestonesEmpty")}</p>
       ) : (

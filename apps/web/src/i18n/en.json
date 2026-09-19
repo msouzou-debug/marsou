@@ -46,7 +46,8 @@
     "required": "Fill in this field.",
     "dateOrder": "The finish date cannot be before the start date.",
     "nonNegative": "The budget cannot be a negative number.",
-    "percentRange": "The percentage must be between 0 and 100."
+    "percentRange": "The percentage must be between 0 and 100.",
+    "invalidDate": "Enter a valid date (YYYY-MM-DD)."
   },
   "components": {
     "asset-breadcrumb": {
@@ -328,7 +329,90 @@
         "issueUpdated": "updated an issue"
       },
       "contractsTitle": "Contracts",
-      "contractsEmpty": "This project has no contracts."
+      "contractsEmpty": "This project has no contracts.",
+      "milestonesViewAll": "All milestones",
+      "risksViewAll": "All risks",
+      "issuesViewAll": "All issues"
+    },
+    "s05": {
+      "title": "Schedule",
+      "caption": "Project milestones",
+      "empty": "No milestones are set for this project.",
+      "addTitle": "New milestone",
+      "daysUnit": "d",
+      "timelineCaption": "Timeline of the project's milestones",
+      "timelineToday": "Today: {date}",
+      "timelineRow": "{title}. Baseline {baseline}. Forecast {forecast}. Actual {actual}.",
+      "columns": {
+        "title": "Milestone",
+        "gate": "Gate",
+        "baseline": "Baseline",
+        "forecast": "Forecast",
+        "actual": "Actual",
+        "deviation": "Deviation",
+        "status": "Status"
+      },
+      "status": {
+        "PENDING": "Pending",
+        "DELAYED": "Delayed",
+        "DONE": "Done"
+      },
+      "fields": {
+        "title": "Milestone title",
+        "baseline": "Baseline date",
+        "isGate": "Phase gate"
+      }
+    },
+    "s06": {
+      "title": "Risks and issues",
+      "risksTitle": "Risks",
+      "risksCaption": "Project risk register",
+      "risksEmpty": "No risks are recorded for this project.",
+      "issuesTitle": "Issues",
+      "issuesCaption": "Project issue register",
+      "issuesEmpty": "No issues are recorded for this project.",
+      "addRiskTitle": "New risk",
+      "editRiskTitle": "Edit risk",
+      "addIssueTitle": "New issue",
+      "editIssueTitle": "Edit issue",
+      "matrix": {
+        "title": "Risk matrix",
+        "likelihoodAxis": "Likelihood",
+        "impactAxis": "Impact",
+        "bandLow": "low band",
+        "bandMedium": "medium band",
+        "bandHigh": "high band",
+        "cellLabel": "Likelihood {likelihood}, impact {impact}: {count, plural, one {# risk} other {# risks}}, {band}"
+      },
+      "riskColumns": {
+        "description": "Description",
+        "likelihood": "Likelihood",
+        "impact": "Impact",
+        "score": "Score",
+        "owner": "Owner",
+        "mitigation": "Mitigation",
+        "status": "Status"
+      },
+      "issueColumns": {
+        "description": "Description",
+        "raisedBy": "Raised by",
+        "dueDate": "Due date",
+        "status": "Status"
+      },
+      "riskFields": {
+        "description": "Risk description",
+        "likelihood": "Likelihood (1-5)",
+        "impact": "Impact (1-5)",
+        "owner": "Owner user ID",
+        "ownerHint": "There is no user directory to pick from yet — enter the owner's user ID.",
+        "mitigation": "Mitigation",
+        "status": "Status"
+      },
+      "issueFields": {
+        "description": "Issue description",
+        "dueDate": "Due date",
+        "status": "Status"
+      }
     },
     "s07": {
       "factsCaption": "Contract facts",
@@ -564,6 +648,15 @@
     "APPROVED": "Approved",
     "RETURNED": "Returned",
     "REJECTED": "Rejected"
+  },
+  "riskStatus": {
+    "OPEN": "Open",
+    "MITIGATED": "Mitigated",
+    "CLOSED": "Closed"
+  },
+  "issueStatus": {
+    "OPEN": "Open",
+    "RESOLVED": "Resolved"
   },
   "contractorCategories": {
     "BUILDING": "Building",

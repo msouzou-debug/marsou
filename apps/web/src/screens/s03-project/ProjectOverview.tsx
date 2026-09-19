@@ -45,6 +45,7 @@ import { FactsList } from "./FactsList";
 import { IssuesCard } from "./IssuesCard";
 import { MilestonesCard } from "./MilestonesCard";
 import { canOfferPhaseChange, PhaseDialog, type PhaseDialogApiError } from "./PhaseDialog";
+import { ProjectTabs } from "./ProjectTabs";
 import { RisksCard } from "./RisksCard";
 
 export type ProjectOverviewScreenState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -81,8 +82,6 @@ function ragChipValue(rag: Rag): "green" | "amber" | "red" {
   return rag.toLowerCase() as "green" | "amber" | "red";
 }
 
-const DISABLED_TABS = ["cost", "schedule", "risksIssues"] as const;
-
 export function ProjectOverview({
   data,
   state,
@@ -104,32 +103,6 @@ export function ProjectOverview({
   const locale = useLocale() as Locale;
 
   if (state === "noPermission") return <>{noPermission}</>;
-
-  const tabs = (
-    <div role="tablist" aria-label={t("screens.s03.tabs.overview")} className="flex flex-wrap gap-s-2 border-b border-k-grey">
-      <button
-        type="button"
-        role="tab"
-        aria-selected="true"
-        className="border-b-2 border-k-blue-deep px-s-3 py-s-2 text-fs-14 font-bold text-k-blue-deep"
-      >
-        {t("screens.s03.tabs.overview")}
-      </button>
-      {DISABLED_TABS.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          role="tab"
-          aria-selected="false"
-          disabled
-          title={t("screens.s03.tabsDisabledTooltip")}
-          className="px-s-3 py-s-2 text-fs-14 text-k-text disabled:opacity-50"
-        >
-          {t(`screens.s03.tabs.${tab}`)}
-        </button>
-      ))}
-    </div>
-  );
 
   if (state === "loading") {
     return (
@@ -188,7 +161,7 @@ export function ProjectOverview({
       <PageTitle
         eyebrow={`${data.code} · ${unitName}`}
         title={data.titleEl}
-        tabs={tabs}
+        tabs={<ProjectTabs projectId={data.id} active="overview" />}
         action={
           canEdit ? (
             offline ? (
@@ -239,9 +212,9 @@ export function ProjectOverview({
             <RagChip value={ragChipValue(data.rag)} />
             <p className="mt-s-2 text-fs-14 text-k-text">{data.ragReason}</p>
           </div>
-          <MilestonesCard milestones={data.milestones} today={today} />
-          <RisksCard risks={data.risks} />
-          <IssuesCard issues={data.issues} />
+          <MilestonesCard projectId={data.id} milestones={data.milestones} today={today} />
+          <RisksCard projectId={data.id} risks={data.risks} />
+          <IssuesCard projectId={data.id} issues={data.issues} />
           <ContractsCard
             projectId={data.id}
             roles={roles}

@@ -46,7 +46,8 @@
     "required": "Συμπληρώστε αυτό το πεδίο.",
     "dateOrder": "Η ημερομηνία ολοκλήρωσης δεν μπορεί να είναι πριν την ημερομηνία έναρξης.",
     "nonNegative": "Ο προϋπολογισμός δεν μπορεί να είναι αρνητικός αριθμός.",
-    "percentRange": "Το ποσοστό πρέπει να είναι από 0 έως 100."
+    "percentRange": "Το ποσοστό πρέπει να είναι από 0 έως 100.",
+    "invalidDate": "Καταχωρίστε έγκυρη ημερομηνία (ΕΕΕΕ-ΜΜ-ΗΗ)."
   },
   "components": {
     "asset-breadcrumb": {
@@ -328,7 +329,90 @@
         "issueUpdated": "ενημέρωσε ένα θέμα"
       },
       "contractsTitle": "Συμβάσεις",
-      "contractsEmpty": "Δεν υπάρχουν συμβάσεις για αυτό το έργο."
+      "contractsEmpty": "Δεν υπάρχουν συμβάσεις για αυτό το έργο.",
+      "milestonesViewAll": "Όλα τα ορόσημα",
+      "risksViewAll": "Όλοι οι κίνδυνοι",
+      "issuesViewAll": "Όλα τα θέματα"
+    },
+    "s05": {
+      "title": "Χρονοδιάγραμμα",
+      "caption": "Ορόσημα έργου",
+      "empty": "Δεν έχουν οριστεί ορόσημα για αυτό το έργο.",
+      "addTitle": "Νέο ορόσημο",
+      "daysUnit": "ημ",
+      "timelineCaption": "Γραμμή χρόνου των ορόσημων του έργου",
+      "timelineToday": "Σήμερα: {date}",
+      "timelineRow": "{title}. Βάση {baseline}. Πρόβλεψη {forecast}. Πραγματοποίηση {actual}.",
+      "columns": {
+        "title": "Ορόσημο",
+        "gate": "Πύλη",
+        "baseline": "Βάση",
+        "forecast": "Πρόβλεψη",
+        "actual": "Πραγματοποίηση",
+        "deviation": "Απόκλιση",
+        "status": "Κατάσταση"
+      },
+      "status": {
+        "PENDING": "Εκκρεμεί",
+        "DELAYED": "Σε καθυστέρηση",
+        "DONE": "Ολοκληρώθηκε"
+      },
+      "fields": {
+        "title": "Τίτλος ορόσημου",
+        "baseline": "Ημερομηνία βάσης",
+        "isGate": "Πύλη φάσης"
+      }
+    },
+    "s06": {
+      "title": "Κίνδυνοι και θέματα",
+      "risksTitle": "Κίνδυνοι",
+      "risksCaption": "Μητρώο κινδύνων έργου",
+      "risksEmpty": "Δεν έχουν καταχωριστεί κίνδυνοι για αυτό το έργο.",
+      "issuesTitle": "Θέματα",
+      "issuesCaption": "Μητρώο θεμάτων έργου",
+      "issuesEmpty": "Δεν έχουν καταχωριστεί θέματα για αυτό το έργο.",
+      "addRiskTitle": "Νέος κίνδυνος",
+      "editRiskTitle": "Επεξεργασία κινδύνου",
+      "addIssueTitle": "Νέο θέμα",
+      "editIssueTitle": "Επεξεργασία θέματος",
+      "matrix": {
+        "title": "Μήτρα κινδύνων",
+        "likelihoodAxis": "Πιθανότητα",
+        "impactAxis": "Επίπτωση",
+        "bandLow": "χαμηλή ζώνη",
+        "bandMedium": "μέτρια ζώνη",
+        "bandHigh": "υψηλή ζώνη",
+        "cellLabel": "Πιθανότητα {likelihood}, επίπτωση {impact}: {count, plural, one {# κίνδυνος} other {# κίνδυνοι}}, {band}"
+      },
+      "riskColumns": {
+        "description": "Περιγραφή",
+        "likelihood": "Πιθανότητα",
+        "impact": "Επίπτωση",
+        "score": "Βαθμολογία",
+        "owner": "Ιδιοκτήτης",
+        "mitigation": "Μέτρα",
+        "status": "Κατάσταση"
+      },
+      "issueColumns": {
+        "description": "Περιγραφή",
+        "raisedBy": "Ανέφερε",
+        "dueDate": "Προθεσμία",
+        "status": "Κατάσταση"
+      },
+      "riskFields": {
+        "description": "Περιγραφή κινδύνου",
+        "likelihood": "Πιθανότητα (1–5)",
+        "impact": "Επίπτωση (1–5)",
+        "owner": "Αναγνωριστικό ιδιοκτήτη",
+        "ownerHint": "Καταχωρίστε το αναγνωριστικό του ιδιοκτήτη· κατάλογος χρηστών για επιλογή δεν υπάρχει ακόμη.",
+        "mitigation": "Μέτρα αντιμετώπισης",
+        "status": "Κατάσταση"
+      },
+      "issueFields": {
+        "description": "Περιγραφή θέματος",
+        "dueDate": "Προθεσμία",
+        "status": "Κατάσταση"
+      }
     },
     "s07": {
       "factsCaption": "Στοιχεία σύμβασης",
@@ -564,6 +648,15 @@
     "APPROVED": "Εγκρίθηκε",
     "RETURNED": "Επιστράφηκε",
     "REJECTED": "Απορρίφθηκε"
+  },
+  "riskStatus": {
+    "OPEN": "Ανοιχτός",
+    "MITIGATED": "Αντιμετωπίστηκε",
+    "CLOSED": "Έκλεισε"
+  },
+  "issueStatus": {
+    "OPEN": "Ανοιχτό",
+    "RESOLVED": "Επιλύθηκε"
   },
   "contractorCategories": {
     "BUILDING": "Οικοδομικά",

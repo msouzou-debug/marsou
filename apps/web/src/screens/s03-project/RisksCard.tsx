@@ -5,21 +5,33 @@
 // «Κίνδυνοι» card (UI instructions §5): count of open risks, top three by
 // likelihood × impact.
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { Risk } from "@ecapital/shared";
 
 export interface RisksCardProps {
+  projectId: string;
   risks: Risk[];
 }
 
-export function RisksCard({ risks }: RisksCardProps) {
+export function RisksCard({ projectId, risks }: RisksCardProps) {
   const t = useTranslations();
   const open = risks.filter((risk) => risk.status === "OPEN");
   const top3 = [...open].sort((a, b) => b.likelihood * b.impact - a.likelihood * a.impact).slice(0, 3);
 
   return (
     <section className="rounded-k border border-k-grey bg-k-white p-s-4">
-      <h2 className="text-fs-16 font-bold text-k-blue-deep">{t("screens.s03.risksTitle")}</h2>
+      <div className="flex items-center justify-between gap-s-3">
+        <h2 className="text-fs-16 font-bold text-k-blue-deep">{t("screens.s03.risksTitle")}</h2>
+        {/* RULE: S06 holds the full register (open, mitigated and closed) —
+            this card only summarises open risks, so it always links out. */}
+        <Link
+          href={`/projects/${encodeURIComponent(projectId)}/risks`}
+          className="text-fs-14 font-bold text-k-blue-deep underline-offset-2 hover:underline"
+        >
+          {t("screens.s03.risksViewAll")}
+        </Link>
+      </div>
       {open.length === 0 ? (
         <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s03.risksEmpty")}</p>
       ) : (

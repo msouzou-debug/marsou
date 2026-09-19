@@ -7,8 +7,8 @@ This screen shows one project's facts: phase, funding, dates, cost, RAG status, 
 1. Open a project from the "Projects" list to get here.
 2. Read the facts in the left column: phase, category, funding, dates and the project's note, if it has one.
 3. Check the activity log below the facts, with the most recent entry first.
-4. In the right column, check the cost bar, the RAG status with its reason, and the "Milestones", "Risks" and "Issues" cards.
-5. The "Cost", "Schedule" and "Risks and issues" tabs come in a later screen, so they are disabled for now.
+4. In the right column, check the cost bar, the RAG status with its reason, and the "Milestones", "Risks" and "Issues" cards. Each card has a link ("All milestones", "All risks", "All issues") to its full register.
+5. The "Schedule" and "Risks and issues" tabs open the full milestone or risk-and-issue register. The "Cost" tab comes in a later screen, so it stays disabled for now.
 
 ## What can go wrong
 
