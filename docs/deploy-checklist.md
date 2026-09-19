@@ -53,6 +53,7 @@ Release stamp (from deploy/release.sh): <YYYYMMDD-HHMMSS>
       | `NEXT_PUBLIC_DEV_AUTH` | | |
       | `EMAP_URL` | | |
       | `EFINANCE_URL` | | |
+      | Seed: UAT sample data — yes/no | | |
 
 - [ ] **Greek/English parity check passed.** `pnpm check:i18n` — every
       screen string exists in both `el` and `en`.

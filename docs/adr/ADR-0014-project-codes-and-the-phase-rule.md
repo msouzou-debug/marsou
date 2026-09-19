@@ -18,7 +18,7 @@ The second is the phase. CAPEX-01 §4 lists eight phases and CAPEX-03 §4 says t
 
 `ecapital.allocate_project_code(org_unit_id, year)` issues it, inside the caller's own transaction:
 
-- a counter row per unit per year in `ecapital.project_code_seq`, not a Postgres sequence. A sequence per unit per year is eleven DDL statements a year, and a sequence does not roll back — a create that fails would burn a number and leave a hole that somebody has to explain;
+- a counter row per unit per year in `ecapital.project_code_seq`, not a Postgres sequence. A sequence per unit per year is twelve DDL statements a year (eleven when this ADR was accepted; HQ became the twelfth unit by owner decision on 19/09/2026, ADR-0019 §5), and a sequence does not roll back — a create that fails would burn a number and leave a hole that somebody has to explain;
 - a transaction-scoped advisory lock on the unit, so a second caller waits for the first to commit or roll back rather than reading the same counter. The `update … returning` would serialise on its own through the row lock; the advisory lock is what also covers two transactions both inserting a unit's first row of a year;
 - `SECURITY DEFINER`, because the counter table has row-level security on and no policy at all. The application role cannot read a counter, cannot move one, and cannot do anything with it except ask for the next number.
 

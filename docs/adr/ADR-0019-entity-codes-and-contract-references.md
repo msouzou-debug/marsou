@@ -18,7 +18,7 @@ A nullable, unique text column holding the eFinance entity code, exposed as `ent
 
 It is a second column and not a rename of `code` because the two genuinely differ, and the differences are exactly the ones that would be silently wrong if anybody assumed they were the same: Πάφος is `PAF` here and `PAP` there, Λεμεσός `LMS` and `LGH`, Μακάριος `NAM3` and `ARC`, Πόλις `PCH` and `CHR`, ΔΥΨΥ `DYP` and `MH`.
 
-The eleven seeded units:
+The twelve seeded units (eleven from the Capex Plan, plus HQ — owner decision, 19/09/2026, §5 below):
 
 | eCapital unit | eCapital `code` | eFinance `entity_code` |
 |---|---|---|
@@ -33,10 +33,11 @@ The eleven seeded units:
 | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | DYP | `MH` |
 | Πρωτοβάθμια Φροντίδα Υγείας | PFY | `HC` |
 | Υπηρεσία Ασθενοφόρων | AMB | `AMB` |
+| Κεντρικά Γραφεία | HQ | `HQ` |
 
-**FLAG — an assumption, not a fact.** ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) is mapped to eFinance's `HC` (Κέντρα Υγείας). The two names describe the same service from two directions — the directorate, and the health centres it runs — and no other eFinance code is a plausible home for it. But nobody has said so in writing, and if the two are not the same thing then every figure eCapital sends for ΠΦΥ lands in the wrong Fund Center. **The owner has to confirm this before anything is sent to eFinance.**
+**CONFIRMED by the owner, 19/09/2026.** ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) is eFinance's `HC` (Κέντρα Υγείας). This was flagged as an assumption when this ADR was first written; it no longer is one, and nothing about it is open now.
 
-**Two eFinance codes have no eCapital unit and are deliberately left unmapped:** `HQ` (Κεντρικά Γραφεία) and `CNS` (Κοινοτική Νοσηλευτική Υπηρεσία). Inventing units for them would put two fictional hospitals in the capital register, which is worse than a gap that is visible. If capital work is ever raised against either, the unit is opened properly and the code is filled in then.
+**One eFinance code still has no eCapital unit and is deliberately left unmapped:** `CNS` (Κοινοτική Νοσηλευτική Υπηρεσία). Inventing a unit for it would put a fictional service in the capital register, which is worse than a gap that is visible. If capital work is ever raised against it, the unit is opened properly and the code is filled in then.
 
 The column is nullable for the same reason in reverse: a unit opened here before finance gives it a code simply has none, and the API says `null` rather than guessing.
 
@@ -76,9 +77,21 @@ Both open in a new tab with `rel="noopener"`: the other system must not be hande
 
 **A request to the eFinance team, recorded here so it is not lost:** eFinance does not support `/invoices?contract_ref=` today. eCapital sends it anyway (a query string is harmless where it is not read) and there is a `TODO` on the line, but until eFinance reads that parameter the link opens the invoice list and the clerk searches by hand. This is the mirror image of INTEGRATION-eMAP §8's own asks of eMAP, and it should go on the same list: **please make `/invoices?contract_ref=<ref>` filter, and tell us if the route changes.**
 
+### 5. `HQ` becomes an org unit (owner decision, 19/09/2026)
+
+Central Administration can commission capital works of its own — the seed carries an example, an IT network upgrade at Κεντρικά Γραφεία — so it needed the same standing as any hospital or service: a row in `org_unit` it can own a project against and be filtered on.
+
+- **`org_unit.type` gains a third value, `CENTRAL`.** CAPEX-01 §4 and the original `HOSPITAL`/`SERVICE` pair only ever covered the Capex Plan sheet's rows, which has none for HQ — that was a gap in what the sheet counts, not a decision that Central Administration could never hold a project.
+- **`directorate` gains a seventh value, `KENTRIKI_DIOIKISI`** (Κεντρική Διοίκηση), the directorate HQ sits under. It has no row-count arithmetic behind it the way the other six do (INTEGRATION-eFinance-eMAP-eCapital.md §2) — there is no Capex Plan column to derive it from.
+- **`entity_code` is `HQ`**, eFinance's own code for the same place, filled in rather than left null for the first time.
+- **`cost_centre` is null.** Central Administration has never had one in this register.
+- **No `org_unit_alias` row.** The Excel importer's alias table exists to match spellings in the Capex Plan sheet, and the sheet has no HQ rows to spell.
+- Both enum values are added by migration `0009_hq_unit.sql`, `alter type … add value`, and are pure schema — the HQ row itself is inserted the same way the other eleven are, by the seed (`apps/api/src/db/seed-data.ts`), not by the migration.
+- Row-level security needs no change: `ecapital.can_read_unit` and `can_write_unit` compare `org_unit_id` against the caller's own unit ids and role, with no branch on `type` — HQ is filtered exactly like any other unit, and a Central Administration user already carries every unit id (`admin`, `finance`), while `executive_readonly` and `auditor_readonly` see everything through `sees_all_units()` regardless.
+
 ## Consequences
 
 - eFinance can point an invoice at an eCapital contract with a one-line settings change, and the two systems stay independent.
 - Every contract gets a reference whether or not anybody uses it yet. The cost is one counter table and four characters; the cost of adding it later would be back-filling references onto contracts already printed and filed.
 - `entity_code` is stored and never derived, so if eFinance renames a hospital nothing here breaks, and if eFinance adds an entity somebody fills in a row.
-- Two flags remain open and both belong to the owner, not to this repository: whether ΠΦΥ is `HC`, and whether `HQ` and `CNS` will ever need eCapital units.
+- Both flags this ADR opened are closed, both by the owner on 19/09/2026: ΠΦΥ is confirmed as `HC`, and `HQ` is now an eCapital unit (§5). `CNS` remains the one open question, and it belongs to the owner, not to this repository — nothing here invents a unit for it.

@@ -42,7 +42,7 @@ All three systems, and SAP, describe organisational units and money along
 axes that already line up — the work here is confirming the mapping, not
 inventing one.
 
-### Entity codes — eFinance's 13, eCapital's eleven org units
+### Entity codes — eFinance's 13, eCapital's twelve org units
 
 eFinance's 13 entity codes are the reference (`INTEGRATION-eMAP.md` §2).
 `ecapital.org_unit.entity_code` carries the same strings, so a record in
@@ -60,14 +60,18 @@ either system can be joined on this column without a lookup table.
 | `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | FAM | mapped |
 | `AMB` | Διεύθυνση Ασθενοφόρων | Υπηρεσία Ασθενοφόρων | mapped |
 | `MH` | Υπηρεσίες Ψυχικής Υγείας | ΔΥΨΥ | mapped |
-| `HC` | Κέντρα Υγείας | ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) | **mapped, unconfirmed** — see §8 |
-| `HQ` | Κεντρικά Γραφεία | — | **unmapped** — no eCapital org unit today |
+| `HC` | Κέντρα Υγείας | ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) | mapped, confirmed by the owner 19/09/2026 |
+| `HQ` | Κεντρικά Γραφεία | HQ (Κεντρικά Γραφεία) | mapped — added as an eCapital unit, owner decision 19/09/2026 |
 | `CNS` | Κοινοτική Νοσηλευτική Υπηρεσία | — | **unmapped** — no eCapital org unit today |
 
-Eleven of thirteen. `HC ↔ ΠΦΥ` is the one mapping this document is asserting
-rather than one somebody confirmed — flagged in §8. `HQ` and `CNS` have no
-capital-projects register today; if either starts running capital works,
-adding the org unit is the fix, not renaming an existing one to fit.
+Twelve of thirteen. `HC ↔ ΠΦΥ` was this document's own assertion; the owner
+has since confirmed it (19/09/2026), and it is no longer a flag. `HQ` used to
+be unmapped for the same reason `CNS` still is — no capital-projects register
+to attach it to — but Central Administration can commission capital works of
+its own, so the owner opened the unit on 19/09/2026 rather than waiting for
+one to be raised against it. `CNS` has no capital-projects register today; if
+it ever starts running capital works, adding the org unit is the fix, not
+renaming an existing one to fit.
 
 > **Send codes, never names**, exactly as eFinance's own rule says. `NGH`,
 > not `Γενικό Νοσοκομείο Λευκωσίας`.
@@ -275,25 +279,27 @@ to any third system joining this pair:
 
 ## 8. Open questions for the owner
 
-1. **Is `HC ↔ ΠΦΥ` the right mapping?** §2 asserts it because both names
-   plausibly mean "primary/community health care", but nobody has confirmed
-   it against a source that ties the two codes together explicitly.
-2. **Should `HQ` become an eCapital org unit?** Central Administration may
-   run or commission capital works of its own; if so, it needs a unit, an
-   `entity_code` of `HQ`, and everything else that comes with being a unit
-   in the register.
-3. **Does eFinance want to read eCapital's committed ledger?** §5's feed is
+Two questions this section used to carry are closed, both decided by the
+owner on 19/09/2026: `HC ↔ ΠΦΥ` is confirmed (§2), and `HQ` is now an
+eCapital org unit (§2, ADR-0019 §5) — done, not open. What remains:
+
+1. **Does eFinance want to read eCapital's committed ledger?** §5's feed is
    drawn eCapital-to-eFinance because that is the direction the multi-year
    commitment rule requires; nothing here has asked whether eFinance's own
    budget dashboard would want to *show* eCapital's committed figures
    before that pipe exists, as an interim, manual reconciliation step.
-4. **Who posts eCapital's commitments to SAP once the feed exists** — a
+2. **Who posts eCapital's commitments to SAP once the feed exists** — a
    human, the same as eFinance's budget transfers today, or something more
    automatic, the same open question eMAP's own PO flow has not settled
    either (`INTEGRATION-eMAP.md` §9)? Whatever eFinance decides for its own
    PO flow is the strongest signal for what eCapital's contracts should do,
    since the volume argument (few transfers vs. many POs/contracts) applies
    to both.
+
+`CNS` (Κοινοτική Νοσηλευτική Υπηρεσία) is not on this list: it stays
+unmapped, on the same reasoning as ever — no capital-projects register to
+attach it to today — and that is a standing decision, not a question waiting
+on the owner.
 
 ---
 

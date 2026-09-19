@@ -18,6 +18,6 @@ CAPEX-03 replaces §9 of CAPEX-01. Where CAPEX-01 §4 and CAPEX-03 disagree on a
 
 ## Errata agreed with the owner
 
-- **Unit count.** CAPEX-01 §1 and §4 say "nine hospitals plus three services". The Capex Plan has eleven units: eight hospitals plus three services. Troodos and Kyperounta are the same hospital, so the ninth was a double count (18/09/2026). Code and seeds use eleven; the Troodos unit carries both spellings as aliases.
+- **Unit count.** CAPEX-01 §1 and §4 say "nine hospitals plus three services". The Capex Plan has eleven units: eight hospitals plus three services. Troodos and Kyperounta are the same hospital, so the ninth was a double count (18/09/2026). Code and seeds used eleven units from that reconciliation. **Update, 19/09/2026:** the owner added `HQ` (Κεντρικά Γραφεία) as a twelfth unit, type `CENTRAL`, directorate `KENTRIKI_DIOIKISI` — Central Administration can commission capital works of its own, and CAPEX-01 §4's count never covered it because the Capex Plan sheet has no HQ rows to count. Code and seeds now use twelve units: eight hospitals, three services and HQ; the Troodos unit still carries both spellings as aliases, and HQ carries none (see ADR-0019 §5).
 - **Project phases.** CAPEX-01 §4 lists eight phases, CAPEX-03 §4 says the target has nine. The code inserts `PREPARATION` between `IDEA` and `APPROVED` to hold the 70 preparation rows. Not yet confirmed by the owner; change `packages/shared/src/project.ts` if the ninth phase is something else.
 - **Budget changes after approval.** Finance only (19/09/2026). See ADR-0014.

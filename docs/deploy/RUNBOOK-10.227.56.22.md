@@ -109,8 +109,16 @@ ssh -t administrator@10.227.56.22 'sudo -u ecapital /opt/ecapital/deploy/migrate
 
 ### Seed: yes on UAT, no on production
 
-`pnpm --filter @ecapital/api seed` loads the eleven org units, one building,
-eight development users **and 42 fixture projects with twelve fixture
+**The first deployment on `10.227.56.22` is UAT.** Run
+`pnpm --filter @ecapital/api seed` — sample projects included — on it, per
+the decision below. When this server is later promoted to production, or a
+separate production host is stood up, that deployment does **not** run
+`seed`; it takes the Capex Plan import instead. Nothing about this decision
+changes which host `10.227.56.22` ends up being long-term, only what its
+first deployment does.
+
+`pnpm --filter @ecapital/api seed` loads the twelve org units, one building,
+eight development users **and 43 fixture projects with twelve fixture
 contractors** (`apps/api/src/db/seed-data.ts`, `seed-projects.ts`,
 `seed-contracts.ts`, `seed-site.ts` — all idempotent). That fixture data is
 exactly what a UAT environment needs and exactly what production must never
@@ -118,12 +126,13 @@ see: a board member or a real estates head must not find a made-up project
 sitting in the live register.
 
 - **UAT: run `seed`.** It gives testers real screens with real-looking data
-  from the first sign-in.
-- **Production: do NOT run `seed`.** The eleven org units and the group→role
-  mappings are the only pieces of it production needs, and they go in by
-  hand (§5) or by trimming the seed to just the org-unit rows if that
-  becomes a maintained option later — check `seed-data.ts` before assuming
-  it already offers that split.
+  from the first sign-in, sample projects included.
+- **Production: do NOT run `seed`.** This warning stands regardless of which
+  decision above put a given deployment in "production": the twelve org
+  units and the group→role mappings are the only pieces of the seed
+  production needs, and they go in by hand (§5) or by trimming the seed to
+  just the org-unit rows if that becomes a maintained option later — check
+  `seed-data.ts` before assuming it already offers that split.
 - **Production's real seed is the Capex Plan import**, `import:capex`
   (`apps/api/README.md` "Importing the Capex Plan"). That is what puts the
   113 real projects and their budget lines into the live register. Run

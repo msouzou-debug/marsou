@@ -50,7 +50,7 @@ The same reasoning puts `ecapital.set_approved_budget` behind the budget decisio
 
 ### Who keeps the contractor register
 
-CAPEX-01 §10 lists the roles and the row-level rule but names no owner for the supplier register, and the register is not unit-scoped — the same company works at Larnaca and at Paphos, so one row, readable by everybody signed in. **Owner's answer, 19/09/2026: `admin` and `estates_head` write it; engineers pick from it.** `blacklisted` is narrower still: blacklisting stops a firm taking new work across all eleven units, so only an administrator moves it (`errors.blacklistAdminOnly`). A blacklisted contractor is refused a *new* contract (422, `errors.contractorBlacklisted`); the ones it already holds run to their end, because the alternative is the organisation breaking its own contracts.
+CAPEX-01 §10 lists the roles and the row-level rule but names no owner for the supplier register, and the register is not unit-scoped — the same company works at Larnaca and at Paphos, so one row, readable by everybody signed in. **Owner's answer, 19/09/2026: `admin` and `estates_head` write it; engineers pick from it.** `blacklisted` is narrower still: blacklisting stops a firm taking new work across all twelve units (eleven when this ADR was written; HQ became the twelfth by owner decision on 19/09/2026, ADR-0019 §5), so only an administrator moves it (`errors.blacklistAdminOnly`). A blacklisted contractor is refused a *new* contract (422, `errors.contractorBlacklisted`); the ones it already holds run to their end, because the alternative is the organisation breaking its own contracts.
 
 ### Where a contract starts
 

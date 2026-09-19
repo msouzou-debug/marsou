@@ -10,7 +10,7 @@ The database decides.
 
 - Every request that carries a token runs inside one transaction. Before the handler runs, the interceptor sets `app.user_id`, `app.roles`, `app.org_unit_ids` and `app.ip` with `SET LOCAL`, so the settings die with the transaction and a pooled connection cannot be handed on wearing somebody else's units.
 - Every table with an `org_unit_id` has a policy comparing it to `ecapital.current_org_unit_ids()`. `floor` and `area` carry a copy of `org_unit_id`, filled by a trigger from the parent row, so the policy is a column comparison and not a walk up the tree.
-- `admin`, `executive_readonly` and `auditor_readonly` see every unit. A Central Administration user sees every unit because the token carries all eleven ids, which is also how it will arrive from Entra.
+- `admin`, `executive_readonly` and `auditor_readonly` see every unit. A Central Administration user sees every unit because the token carries all unit ids — eleven when this ADR was accepted, twelve since HQ was added as a unit (owner decision, 19/09/2026, ADR-0019 §5) — which is also how it will arrive from Entra.
 - `auditor_readonly` fails the write predicate on every table, so a mutation by an auditor is refused by Postgres and never reaches a service.
 - The API connects as `ecapital_app`, which does not own the tables. Ownership stays with the migration role, so the application cannot disable a policy on itself.
 

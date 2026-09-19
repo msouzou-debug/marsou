@@ -19,7 +19,7 @@ The eight accounts: `admin@ecapital.test` (administrator, all units), `estates.n
 
 - **The reply says you are not signed in.** The token is missing, expired, or signed with a different key. Get a new one from step 2; development tokens last eight hours.
 - **No user has that address.** The sample data has not been loaded. Run `pnpm --filter @ecapital/api migrate`, then `pnpm --filter @ecapital/api seed`.
-- **A unit comes back as not found.** You have no access to it. That is the correct answer: you see your own units and nothing else. Sign in as `admin@ecapital.test` to see all eleven.
+- **A unit comes back as not found.** You have no access to it. That is the correct answer: you see your own units and nothing else. Sign in as `admin@ecapital.test` to see all twelve.
 - **An entry is refused because the account only reads.** The auditor and management accounts cannot change anything. Use an account with write access.
 - **A change to the approved budget is refused.** Once a project is approved, only the finance account may change that figure. Sign in as `finance@ecapital.test`, or ask finance to record the change.
 - **The API will not start and names an environment variable.** Copy `apps/api/.env.example` to `apps/api/.env` and fill in the variable the message names.
