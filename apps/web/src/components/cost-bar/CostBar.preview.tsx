@@ -23,12 +23,12 @@ const entry: PreviewEntry = {
   },
   notes:
     "Three bars in the default panel: the first is inside budget, the second shows " +
-    "the overflow rule — commitments of € 2.610.000 against € 2.400.000 approved, " +
+    "the overflow rule — commitments of 2.610.000 € against 2.400.000 € approved, " +
     "so the bar runs past the approved line and the overrun is hatched in --k-red " +
-    "and written out as «Υπέρβαση € 210.000». The hatch and the written amount are " +
+    "and written out as «Υπέρβαση 210.000 €». The hatch and the written amount are " +
     "there so the rule survives greyscale print. The third has committed/spent/forecast " +
     "all null (S03, contract ProjectLedgers pre-SAP-import): only the approved track " +
-    "draws, the legend shows «—» rather than € 0, and a 14px line explains why. No " +
+    "draws, the legend shows «—» rather than 0 €, and a 14px line explains why. No " +
     "permission and offline are skipped: the bar holds no controls and no writes, so " +
     "offline shows the cached figures unchanged and access is decided by the screen " +
     "that renders it.",

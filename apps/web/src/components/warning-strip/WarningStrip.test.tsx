@@ -9,8 +9,8 @@ function warning(overrides: Partial<CostWarning> = {}): CostWarning {
     key: "forecastOverApproved",
     projectId: "p-1",
     contractId: null,
-    sentenceEl: "Η πρόβλεψη υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά € 84.000",
-    sentenceEn: "The forecast exceeds the approved budget by € 84,000",
+    sentenceEl: "Η πρόβλεψη υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 84.000 €",
+    sentenceEn: "The forecast exceeds the approved budget by 84,000 €",
     amount: 84000,
     firedAt: "2026-09-01T10:00:00.000Z",
     dismissedById: null,
@@ -28,7 +28,7 @@ describe("WarningStrip", () => {
 
   it("shows the plain Greek sentence with the amount for a live warning", () => {
     renderWithIntl(<WarningStrip warnings={[warning()]} onDismiss={vi.fn()} />);
-    expect(document.body.textContent).toContain("Η πρόβλεψη υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά € 84.000");
+    expect(document.body.textContent).toContain("Η πρόβλεψη υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 84.000 €");
   });
 
   it("fires onDismiss with the warning id when «Απόρριψη» is clicked", () => {
@@ -58,11 +58,11 @@ describe("WarningStrip", () => {
   it("hides the dismiss link (not the sentence) for a caller who cannot dismiss", () => {
     renderWithIntl(<WarningStrip warnings={[warning()]} canDismiss={false} onDismiss={vi.fn()} />);
     expect(document.querySelector("button")).toBeNull();
-    expect(document.body.textContent).toContain("€ 84.000");
+    expect(document.body.textContent).toContain("84.000 €");
   });
 
   it("shows the English sentence in the en locale", () => {
     renderWithIntl(<WarningStrip warnings={[warning()]} onDismiss={vi.fn()} />, { locale: "en" });
-    expect(document.body.textContent).toContain("The forecast exceeds the approved budget by € 84,000");
+    expect(document.body.textContent).toContain("The forecast exceeds the approved budget by 84,000 €");
   });
 });

@@ -106,7 +106,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         id: "spent",
         headerKey: "components.costBar.spent",
         // RULE (CAPEX-01 §7): null, never zero, until the SAP ingestion —
-        // «—», not «€ 0» (same rule and same helper as the KPI tiles).
+        // «—», not «0 €» (same rule and same helper as the KPI tiles).
         accessor: (row) => row.spent,
         cell: (row) => formatEURorDash(row.spent),
         numeric: true,

@@ -231,7 +231,7 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
         id: "committed",
         headerKey: "components.costBar.committed",
         accessor: (row) => row.ledgers.committed,
-        // RULE (contract `ProjectLedgers`): null until the SAP import — «—», never «€ 0».
+        // RULE (contract `ProjectLedgers`): null until the SAP import — «—», never «0 €».
         cell: (row) => (row.ledgers.committed === null ? t("common.notAvailable") : formatEUR(row.ledgers.committed)),
         numeric: true,
         sortable: false,

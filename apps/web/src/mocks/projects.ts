@@ -597,7 +597,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2026-09-04",
     plannedFinish: "2027-06-05",
     rag: "RED",
-    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά €134.000",
+    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 134.000 €",
     sapWbs: "WBS-TRD-025",
     tenderReference: "TND-2026-025",
     ledgers: {
@@ -707,7 +707,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2026-02-06",
     plannedFinish: "2027-10-13",
     rag: "RED",
-    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά €1.702.000",
+    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 1.702.000 €",
     sapWbs: "WBS-DYP-030",
     tenderReference: "TND-2026-030",
     ledgers: {
@@ -729,7 +729,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2025-10-16",
     plannedFinish: "2026-10-01",
     rag: "RED",
-    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά €295.000",
+    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 295.000 €",
     sapWbs: "WBS-LAR-031",
     tenderReference: "TND-2026-031",
     ledgers: {
@@ -773,7 +773,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2026-01-19",
     plannedFinish: "2026-12-07",
     rag: "RED",
-    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά €30.000",
+    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 30.000 €",
     sapWbs: "WBS-PAF-033",
     tenderReference: "TND-2026-033",
     ledgers: {
@@ -839,7 +839,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2025-10-19",
     plannedFinish: "2026-08-18",
     rag: "RED",
-    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά €110.000",
+    ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 110.000 €",
     sapWbs: "WBS-LAR-036",
     tenderReference: "TND-2026-036",
     ledgers: {
@@ -861,7 +861,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2025-01-21",
     plannedFinish: "2025-12-19",
     rag: "RED",
-    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά €171.000",
+    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 171.000 €",
     sapWbs: "WBS-AMB-037",
     tenderReference: "TND-2026-037",
     ledgers: {
@@ -883,7 +883,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedStart: "2025-03-25",
     plannedFinish: "2026-01-09",
     rag: "RED",
-    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά €52.000",
+    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 52.000 €",
     sapWbs: "WBS-TRD-038",
     tenderReference: "TND-2026-038",
     ledgers: {

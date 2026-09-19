@@ -63,7 +63,7 @@ export function KpiTile({ label, value, comparator, trend, state = "default", on
         <>
           {/* RULE (UI instructions §1, §3): figures never wrap or truncate. 32px is the
               target; on a narrow tile the size follows the tile width (container
-              query) down to 24px so «€ 221.590.000» stays on one line. */}
+              query) down to 24px so «221.590.000 €» stays on one line. */}
           <p
             className="mt-s-1 whitespace-nowrap font-k-mono text-k-ink leading-[1.2]"
             style={{ fontSize: "clamp(var(--fs-24), 12cqw, var(--fs-32))" }}

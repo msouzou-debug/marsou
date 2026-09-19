@@ -77,8 +77,8 @@ const exceptions: PortfolioResponse["exceptions"] = [
     projectId: "P-1001",
     orgUnitId: "nicosia-general",
     sentenceEl:
-      "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά € 210.000 — Ανακαίνιση Μονάδας Εντατικής Θεραπείας, Γενικό Νοσοκομείο Λευκωσίας",
-    sentenceEn: "The forecast final cost exceeds the approved budget by € 210,000 — ICU renovation, Nicosia General Hospital",
+      "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 210.000 € — Ανακαίνιση Μονάδας Εντατικής Θεραπείας, Γενικό Νοσοκομείο Λευκωσίας",
+    sentenceEn: "The forecast final cost exceeds the approved budget by 210,000 € — ICU renovation, Nicosia General Hospital",
     severity: "red",
     href: "/projects/P-1001",
   },
@@ -87,8 +87,8 @@ const exceptions: PortfolioResponse["exceptions"] = [
     projectId: "P-1042",
     orgUnitId: "larnaca-general",
     sentenceEl:
-      "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά € 45.000 — Αντικατάσταση στέγης χειρουργείου, Γενικό Νοσοκομείο Λάρνακας",
-    sentenceEn: "Commitments exceed the approved budget by € 45,000 — Operating theatre roof replacement, Larnaca General Hospital",
+      "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 45.000 € — Αντικατάσταση στέγης χειρουργείου, Γενικό Νοσοκομείο Λάρνακας",
+    sentenceEn: "Commitments exceed the approved budget by 45,000 € — Operating theatre roof replacement, Larnaca General Hospital",
     severity: "amber",
     href: "/projects/P-1042",
   },

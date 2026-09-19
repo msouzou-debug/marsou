@@ -100,7 +100,7 @@ describe("CostBar", () => {
       screen.getByText("Δεσμεύσεις και δαπάνες θα εμφανιστούν μετά την εισαγωγή SAP."),
     ).toBeInTheDocument();
     expect(screen.getByText(eur(2_400_000))).toBeInTheDocument();
-    // "—", not "€ 0" — never zero (UI instructions §6 nullable ledgers).
+    // "—", not "0 €" — never zero (UI instructions §6 nullable ledgers).
     expect(screen.getAllByText("—")).toHaveLength(3);
     expect(screen.queryByTestId("cost-bar-overflow")).not.toBeInTheDocument();
   });

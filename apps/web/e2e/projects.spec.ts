@@ -93,12 +93,12 @@ test("a project in IDEA phase shows «—» for commitments and spend in S02, an
   await expect(page.getByRole("heading", { name: "Έργα" })).toBeVisible();
 
   // PRJ-001 in the seed: IDEA phase, so its commitments and spend are
-  // unknown until the SAP import (CAPEX-01 §7) — «—», never «€ 0». Its
+  // unknown until the SAP import (CAPEX-01 §7) — «—», never «0 €». Its
   // planned finish is dated, so these are the only two dashes in the row.
   const row = page.locator("tbody tr", { hasText: "Ανακαίνιση χειρουργείων" });
   await row.waitFor({ state: "visible" });
   await expect(row.getByText("—")).toHaveCount(2);
-  await expect(row.getByText("€ 0")).toHaveCount(0);
+  await expect(row.getByText("0 €")).toHaveCount(0);
 
   await row.getByRole("link").first().click();
   await page.waitForURL(/\/projects\/[^/?]+$/);

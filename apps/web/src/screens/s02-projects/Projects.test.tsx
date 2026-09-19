@@ -80,14 +80,14 @@ const query = ProjectListQuery.parse({});
 const noPermission = <div data-testid="no-permission-stub" />;
 
 describe("Projects ledgers", () => {
-  it("renders «—» for null committed and spent, never «€ 0»", () => {
+  it("renders «—» for null committed and spent, never «0 €»", () => {
     renderWithIntl(
       <Projects data={list()} state="default" query={query} orgUnits={orgUnits} eyebrow="Όλες οι μονάδες" noPermission={noPermission} />,
     );
     // PRJ-1 has both ledgers null.
     const dashes = screen.getAllByText("—");
     expect(dashes.length).toBeGreaterThanOrEqual(2);
-    expect(screen.queryByText("€ 0")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 €")).not.toBeInTheDocument();
   });
 });
 

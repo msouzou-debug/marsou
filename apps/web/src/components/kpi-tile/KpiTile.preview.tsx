@@ -8,9 +8,9 @@ const entry: PreviewEntry = {
   states: {
     default: () => (
       <div className="grid grid-cols-2 gap-s-4 max-w-[520px]">
-        <KpiTile label="Εγκεκριμένος προϋπολογισμός" value="€ 4.250.000" comparator="% έτους που έχει παρέλθει: 62 %" />
-        <KpiTile label="Δαπάνες" value="€ 2.980.000" comparator="70 % του προϋπολογισμού" trend="up" />
-        <KpiTile label="Δεσμεύσεις" value="€ 3.610.000" comparator="85 % του προϋπολογισμού" trend="down" />
+        <KpiTile label="Εγκεκριμένος προϋπολογισμός" value="4.250.000 €" comparator="% έτους που έχει παρέλθει: 62 %" />
+        <KpiTile label="Δαπάνες" value="2.980.000 €" comparator="70 % του προϋπολογισμού" trend="up" />
+        <KpiTile label="Δεσμεύσεις" value="3.610.000 €" comparator="85 % του προϋπολογισμού" trend="down" />
       </div>
     ),
     loading: () => (

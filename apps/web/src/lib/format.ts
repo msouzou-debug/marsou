@@ -1,5 +1,9 @@
 // Number, date and duration formatting per UI instructions §1 "Money".
 // Both languages use the same numeric conventions (Greek separators, DD/MM/YYYY).
+//
+// Owner decision 19/09/2026 (docs/briefs/README.md Errata): money renders the
+// way eFinance does, `1.234,56 €` — number first, thin space, euro sign after
+// — replacing the previous `€ 1.234,56`. Rounding rules are unchanged.
 
 const THIN = " "; // narrow no-break space: reads as a thin space, never breaks a line
 const NBSP = " ";
@@ -9,9 +13,9 @@ function groupThousands(int: string): string {
 }
 
 /**
- * € 1.234.567   ≥ €1.000: no decimals, dot thousands separator, thin space after €
- * € 845,20      < €1.000: two decimals, comma decimal
- * -€ 12.400     negative: leading minus. Never brackets. Caller colours it --k-red.
+ * 1.234.567 €   ≥ 1.000: no decimals, dot thousands separator, thin space before €
+ * 845,20 €      < 1.000: two decimals, comma decimal
+ * -12.400 €     negative: leading minus in front of the number. Never brackets. Caller colours it --k-red.
  */
 export function formatEUR(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -24,12 +28,12 @@ export function formatEUR(value: number): string {
     const [int, dec] = abs.toFixed(2).split(".");
     body = `${int},${dec}`;
   }
-  return `${neg ? "-" : ""}€${THIN}${body}`;
+  return `${neg ? "-" : ""}${body}${THIN}€`;
 }
 
 /**
  * `formatEUR`, but a ledger the system does not know yet (CAPEX-01 §7) is
- * `null`, never zero — this renders «—» for it instead of «€ 0». Shared by
+ * `null`, never zero — this renders «—» for it instead of «0 €». Shared by
  * every screen that shows a nullable ledger figure (S01's KPI tiles and unit
  * table, S02's Δεσμεύσεις/Δαπάνες columns, S03's CostBar legend).
  */

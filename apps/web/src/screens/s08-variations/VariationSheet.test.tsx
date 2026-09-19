@@ -92,9 +92,9 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
     const dialog = screen.getByRole("dialog");
     const dl = dialog.querySelector("dl");
     expect(dl?.querySelectorAll("dt")).toHaveLength(3);
-    expect(screen.getByText("€ 48.000")).toBeInTheDocument();
+    expect(screen.getByText("48.000 €")).toBeInTheDocument();
     expect(screen.getByText("Αλλαγή από τον φορέα")).toBeInTheDocument();
-    expect(screen.getByText("€ 2.448.000")).toBeInTheDocument();
+    expect(screen.getByText("2.448.000 €")).toBeInTheDocument();
 
     expect(screen.getByText("Απόρριψη")).toBeInTheDocument();
   });

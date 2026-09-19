@@ -43,15 +43,15 @@ describe("Cost (S04)", () => {
     expect(positiveCell?.querySelector("span.text-k-red")).toBeNull();
   });
 
-  // RULE (contract ProjectCost / formatEURorDash): a null ledger renders "—", never "€ 0".
-  it("renders «—» for a null category ledger, never € 0", () => {
+  // RULE (contract ProjectCost / formatEURorDash): a null ledger renders "—", never "0 €".
+  it("renders «—» for a null category ledger, never 0 €", () => {
     const data = buildProjectCost({
       categories: [{ category: "works", approved: 100_000, committed: null, spent: null, forecast: null, variance: null }],
     });
     renderWithIntl(<Cost {...baseProps} data={data} state="default" roles={["project_engineer"]} />);
     const row = document.querySelector("tbody tr");
     expect(row?.textContent).toContain("—");
-    expect(row?.textContent).not.toContain("€ 0");
+    expect(row?.textContent).not.toContain("0 €");
   });
 
   // RULE (build brief §5 S04): visible to project_engineer/estates_head/admin, read-only otherwise.
@@ -87,7 +87,7 @@ describe("Cost (S04)", () => {
           key: "forecastOverApproved",
           projectId: "p-1",
           contractId: null,
-          sentenceEl: "Η πρόβλεψη υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά € 84.000",
+          sentenceEl: "Η πρόβλεψη υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 84.000 €",
           sentenceEn: "x",
           amount: 84_000,
           firedAt: "2026-09-01T10:00:00.000Z",
@@ -98,7 +98,7 @@ describe("Cost (S04)", () => {
       ],
     });
     renderWithIntl(<Cost {...baseProps} data={data} state="default" roles={["project_engineer"]} />);
-    expect(document.body.textContent).toContain("€ 84.000");
+    expect(document.body.textContent).toContain("84.000 €");
     const contingencyInput = document.getElementById("fi-contingency") as HTMLInputElement;
     expect(contingencyInput.disabled).toBe(false);
   });

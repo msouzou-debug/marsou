@@ -5,17 +5,17 @@ const T = " "; // narrow no-break space
 
 describe("formatEUR", () => {
   it("groups thousands with dots and drops decimals at or above 1.000", () => {
-    expect(formatEUR(1234567)).toBe(`€${T}1.234.567`);
-    expect(formatEUR(1000)).toBe(`€${T}1.000`);
-    expect(formatEUR(999.999)).toBe(`€${T}1000,00`); // below the threshold, so two decimals and no grouping
+    expect(formatEUR(1234567)).toBe(`1.234.567${T}€`);
+    expect(formatEUR(1000)).toBe(`1.000${T}€`);
+    expect(formatEUR(999.999)).toBe(`1000,00${T}€`); // below the threshold, so two decimals and no grouping
   });
   it("keeps two decimals with a comma below 1.000", () => {
-    expect(formatEUR(845.2)).toBe(`€${T}845,20`);
-    expect(formatEUR(0)).toBe(`€${T}0,00`);
+    expect(formatEUR(845.2)).toBe(`845,20${T}€`);
+    expect(formatEUR(0)).toBe(`0,00${T}€`);
   });
-  it("uses a leading minus, never brackets", () => {
-    expect(formatEUR(-12400)).toBe(`-€${T}12.400`);
-    expect(formatEUR(-5.5)).toBe(`-€${T}5,50`);
+  it("uses a leading minus in front of the number, never brackets", () => {
+    expect(formatEUR(-12400)).toBe(`-12.400${T}€`);
+    expect(formatEUR(-5.5)).toBe(`-5,50${T}€`);
   });
   it("returns a dash for non-finite input", () => {
     expect(formatEUR(NaN)).toBe("—");
@@ -23,12 +23,12 @@ describe("formatEUR", () => {
 });
 
 describe("formatEURorDash", () => {
-  it("renders «—» for null, never «€ 0» (CAPEX-01 §7)", () => {
+  it("renders «—» for null, never «0 €» (CAPEX-01 §7)", () => {
     expect(formatEURorDash(null)).toBe("—");
   });
   it("formats a real figure the same way formatEUR does", () => {
-    expect(formatEURorDash(1000)).toBe(`€${T}1.000`);
-    expect(formatEURorDash(0)).toBe(`€${T}0,00`);
+    expect(formatEURorDash(1000)).toBe(`1.000${T}€`);
+    expect(formatEURorDash(0)).toBe(`0,00${T}€`);
   });
 });
 

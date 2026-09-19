@@ -42,7 +42,7 @@ test("S01 KPI tiles show «—» for ledgers the seed has no SAP data for, and t
   await expect(page.getByText(/Δεδομένα στις/)).toBeVisible();
 
   // RULE (CAPEX-01 §7): spent and forecast are null until the SAP ingestion
-  // lands (M2), so those tiles show «—», never «€ 0». Committed is real since
+  // lands (M2), so those tiles show «—», never «0 €». Committed is real since
   // the seed carries contracts (original value + approved variations).
   for (const label of ["Δαπάνες", "Πρόβλεψη τελικού κόστους"]) {
     const tile = page.locator("p.eyebrow").filter({ hasText: label }).locator("xpath=..");

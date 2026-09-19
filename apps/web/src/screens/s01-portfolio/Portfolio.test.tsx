@@ -130,7 +130,7 @@ describe("Portfolio unit table", () => {
     expect(screen.getByRole("button", { name: "Εξαγωγή σε Excel" })).toBeInTheDocument();
   });
 
-  it("renders «—», never «€ 0», for a unit row whose spent is null (CAPEX-01 §7)", () => {
+  it("renders «—», never «0 €», for a unit row whose spent is null (CAPEX-01 §7)", () => {
     const withNullSpent = fixture({
       units: units.map((u, i) => (i === 0 ? { ...u, spent: null } : u)),
     });
@@ -138,7 +138,7 @@ describe("Portfolio unit table", () => {
     const row = screen.getByText("Μονάδα Α").closest("tr");
     expect(row).not.toBeNull();
     expect(within(row!).getByText("—")).toBeInTheDocument();
-    expect(within(row!).queryByText("€ 0")).not.toBeInTheDocument();
+    expect(within(row!).queryByText("0 €")).not.toBeInTheDocument();
   });
 
   it("gives every numeric cell the num class", () => {
@@ -159,7 +159,7 @@ describe("Portfolio unit table", () => {
     expect(screen.getByText("Υπηρεσία Ασθενοφόρων")).toBeInTheDocument();
 
     // Λευκωσίας subtotal: unit A (500.000 / 300.000, 3 projects) + unit C
-    // (800.000 / 750.000, 4 projects) = 7 projects, € 1.300.000, € 1.050.000.
+    // (800.000 / 750.000, 4 projects) = 7 projects, 1.300.000 €, 1.050.000 €.
     const lefkosiasHeader = screen.getByText("Λευκωσίας").closest("tr");
     const subtotalRow = lefkosiasHeader?.parentElement
       ? Array.from(lefkosiasHeader.parentElement.querySelectorAll("tr")).find(
@@ -167,7 +167,7 @@ describe("Portfolio unit table", () => {
         )
       : undefined;
     expect(subtotalRow).toBeTruthy();
-    expect(within(subtotalRow!).getByText("€ 1.300.000")).toBeInTheDocument();
-    expect(within(subtotalRow!).getByText("€ 1.050.000")).toBeInTheDocument();
+    expect(within(subtotalRow!).getByText("1.300.000 €")).toBeInTheDocument();
+    expect(within(subtotalRow!).getByText("1.050.000 €")).toBeInTheDocument();
   });
 });

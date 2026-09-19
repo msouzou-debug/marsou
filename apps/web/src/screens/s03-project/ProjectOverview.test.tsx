@@ -91,7 +91,7 @@ describe("ProjectOverview no permission", () => {
 describe("ProjectOverview cost", () => {
   it("passes the four ledgers straight through to CostBar", () => {
     renderWithIntl(<ProjectOverview data={detail} state="default" noPermission={noPermission} />);
-    expect(screen.getByText("€ 2.000.000")).toBeInTheDocument();
+    expect(screen.getByText("2.000.000 €")).toBeInTheDocument();
   });
 });
 
