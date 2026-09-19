@@ -31,12 +31,13 @@ describe("GET /projects", () => {
     return ProjectList.parse(response.body);
   }
 
-  it("gives the administrator all forty-three seeded projects", async () => {
+  it("gives the administrator all forty-one seeded projects", async () => {
     const page = await list(USERS.admin, "?pageSize=200");
     // Other suites add projects to the same cluster, so count the seeded ones
     // rather than everything: only the seed carries a source row reference.
-    // 43, not 42, since owner decision 19/09/2026 added HQ's own project.
-    expect(page.items.filter((p) => p.sourceRowRef !== null)).toHaveLength(43);
+    // 41: 42 from the Capex Plan units plus HQ's own (owner decision,
+    // 19/09/2026), less the Ambulance Service's two (ADR-0024).
+    expect(page.items.filter((p) => p.sourceRowRef !== null)).toHaveLength(41);
   });
 
   it("gives the Larnaca engineer only Larnaca", async () => {

@@ -50,7 +50,9 @@ describe("the commitment ledger", () => {
     const list = await projects(USERS.admin);
     const seeded = list.items.filter((p) => p.sourceRowRef !== null);
     const awarded = seeded.filter((p) => p.ledgers.committed !== null);
-    expect(awarded.length).toBeGreaterThanOrEqual(18);
+    // Seventeen since ADR-0024: PRJ-037 was the Ambulance Service's and
+    // took its contract with it.
+    expect(awarded.length).toBeGreaterThanOrEqual(17);
 
     for (const project of awarded.slice(0, 5)) {
       const contracts = await contractsOf(USERS.admin, project.id);

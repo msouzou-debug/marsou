@@ -1,40 +1,49 @@
 import type { AppRole, Directorate, OrgUnit, OrgUnitType } from "@ecapital/shared";
 
-// CAPEX-03 §3 — the eleven org units the Capex Plan sheet counts, and the
-// spellings column D of it uses for them, plus HQ, the twelfth (owner
-// decision, 19/09/2026 — see below). The first eleven are copied from
-// apps/web/src/mocks/org-units.ts so the seeded API answers GET /org-units
-// with exactly what the frontend mock answered (ADR-0005): the frontend
-// swaps by base URL and sees no difference.
+// CAPEX-03 §3 — the org units the Capex Plan sheet counts, and the spellings
+// column D of it uses for them, plus HQ (owner decision, 19/09/2026). They
+// are copied from apps/web/src/mocks/org-units.ts so the seeded API answers
+// GET /org-units with exactly what the frontend mock answered (ADR-0005): the
+// frontend swaps by base URL and sees no difference.
 //
 // Errata (docs/briefs/README.md): Troodos and Kyperounta are one hospital, so
 // ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ is an alias of Troodos, not a separate unit.
 //
-// HQ (owner decision, 19/09/2026): Central Administration is now a unit —
-// type CENTRAL, directorate KENTRIKI_DIOIKISI (migration 0009_hq_unit.sql).
-// It carries no aliases: the Capex Plan sheet has no HQ rows for the Excel
-// importer to match against, unlike the other eleven, so there is no source
+// HQ (owner decision, 19/09/2026): Central Administration is a unit — type
+// CENTRAL, directorate KENTRIKI_DIOIKISI (migration 0009_hq_unit.sql). It
+// carries no aliases: the Capex Plan sheet has no HQ rows for the Excel
+// importer to match against, unlike the others, so there is no source
 // spelling to record. `apps/api/src/cli/run.ts`'s orgUnitIndex builds its
 // alias map from whatever is in `ecapital.org_unit` and `org_unit_alias` at
 // import time, with no assumption about how many rows either table has, so a
-// twelfth unit with zero aliases does not change what the importer does with
-// a workbook that never mentions it.
+// unit with zero aliases does not change what the importer does with a
+// workbook that never mentions it.
+//
+// ELEVEN, not twelve (owner decision, 19/09/2026 — ADR-0024): the Ambulance
+// Service is no longer part of ΟΚΥπΥ. The `ambulance` unit and everything
+// seeded under it are gone — its two projects, the contract on one of them,
+// its budget lines and cost rows — and migration 0012 removes them from a
+// database that already has them. Nothing here re-homes that work: it is not
+// ΟΚΥπΥ's to carry, and the Excel importer now rejects the «ΥΠΗΡΕΣΙΑ
+// ΑΣΘΕΝΟΦΟΡΩΝ» spelling with V15 rather than resolving it to a unit.
 export interface SeedOrgUnit extends OrgUnit {
   aliases: string[];
 }
 
-// ADR-0019 — the eFinance entity code for each unit, which is also the SAP
-// Fund Center. Taken from INTEGRATION-eMAP §2's table of thirteen; twelve of
-// them now have an eCapital unit, HQ included (owner decision, 19/09/2026).
+// ADR-0024 (owner decision, 19/09/2026) — all three systems key a place by
+// eArchive's site abbreviation, so `code` and `entityCode` are the same
+// string for every unit and ADR-0019's split between the two is closed. The
+// eFinance codes that string replaces (PAP, LGH, ARC, CHR, MH, HC, TRD) are
+// kept as a lookup in ADR-0024 «until eFinance aligns»; nothing reads them
+// from here.
 //
-// One eFinance code is still deliberately absent, because eCapital has no
-// unit for it and inventing one would put a fictional service in the capital
-// register: CNS (Κοινοτική Νοσηλευτική Υπηρεσία). ADR-0019 lists it as
-// unmapped, and nothing here invents a unit for it.
+// One eFinance code still has no eCapital unit, and inventing one would put a
+// fictional service in the capital register: CNS (Κοινοτική Νοσηλευτική
+// Υπηρεσία), Central Nursing Services. Capital work for it files under HQ.
 //
-// CONFIRMED, ADR-0019 and INTEGRATION-eFinance-eMAP-eCapital.md §2 (owner,
-// 19/09/2026): ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) is eFinance's HC (Κέντρα
-// Υγείας). This was an assumption until this date; it no longer is.
+// The cost centres below are unchanged and deliberately so: a cost centre is
+// SAP's identifier for a place, owned by the Οικονομική Διεύθυνση, and
+// ADR-0024 moved eCapital's own codes, not finance's.
 const unit = (
   id: string,
   code: string,
@@ -64,24 +73,26 @@ export const seedOrgUnits: SeedOrgUnit[] = [
   unit("larnaca-general", "LAR", "Γενικό Νοσοκομείο Λάρνακας", "Larnaca General Hospital",
     "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-LAR-01", "LAR", ["Γ.Ν. ΛΑΡΝΑΚΑΣ"]),
   unit("paphos-general", "PAF", "Γενικό Νοσοκομείο Πάφου", "Paphos General Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAP", ["Γ.Ν. ΠΑΦΟΥ"]),
-  unit("limassol-general", "LMS", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital",
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAF", ["Γ.Ν. ΠΑΦΟΥ"]),
+  unit("limassol-general", "LGH", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital",
     "HOSPITAL", "LEMESOU_PAFOU", "CC-LMS-01", "LGH", ["Γ.Ν. ΛΕΜΕΣΟΥ"]),
-  unit("troodos", "TRD", "Νοσοκομείο Τροόδους", "Troodos Hospital",
+  // Τροόδους keeps both its names and both its spellings; only the code
+  // moves, to eArchive's KYP (ADR-0024). Kyperounta and Troodos are one
+  // hospital (owner decision, 18/09/2026), which is why eArchive files it
+  // under the Kyperounta abbreviation in the first place.
+  unit("troodos", "KYP", "Νοσοκομείο Τροόδους", "Troodos Hospital",
     "HOSPITAL", "LEMESOU_PAFOU", "CC-TRD-01",
-    "TRD", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
-  unit("namiii", "NAM3", "Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄", "Archbishop Makarios III Hospital",
-    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "ARC", ["ΝΑΜΙΙΙ"]),
-  unit("polis-chrysochous", "PCH", "Νοσοκομείο Πόλεως Χρυσοχούς", "Polis Chrysochous Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "CHR", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
+    "KYP", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
+  unit("namiii", "NAM", "Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄", "Archbishop Makarios III Hospital",
+    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "NAM", ["ΝΑΜΙΙΙ"]),
+  unit("polis-chrysochous", "POL", "Νοσοκομείο Πόλεως Χρυσοχούς", "Polis Chrysochous Hospital",
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "POL", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
   unit("famagusta-general", "FAM", "Γενικό Νοσοκομείο Αμμοχώστου", "Famagusta General Hospital",
     "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-FAM-01", "FAM", ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"]),
-  unit("dypsy", "DYP", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services",
-    "SERVICE", "DYPSY", "CC-DYP-01", "MH", ["ΔΥΨΥ"]),
-  unit("pfy", "PFY", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare",
-    "SERVICE", "PFY", "CC-PFY-01", "HC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
-  unit("ambulance", "AMB", "Υπηρεσία Ασθενοφόρων", "Ambulance Service",
-    "SERVICE", "AMBULANCE", "CC-AMB-01", "AMB", ["ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"]),
+  unit("dypsy", "MHS", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services",
+    "SERVICE", "DYPSY", "CC-DYP-01", "MHS", ["ΔΥΨΥ"]),
+  unit("pfy", "PHC", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare",
+    "SERVICE", "PFY", "CC-PFY-01", "PHC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
   // Owner decision, 19/09/2026. No cost centre — Central Administration has
   // never had one in this register, and nothing assigns it one now — and no
   // aliases, for the reason in the header comment above.
@@ -315,15 +326,22 @@ export const seedRoleMappings: {
 
 
 // ------------------------------------------------------------------- M1 --
-// The 42 fixture projects from the Capex Plan units, copied from
+// The 40 fixture projects from the Capex Plan units, copied from
 // apps/web/src/mocks/projects.ts so the seeded API answers GET /projects with
 // what the frontend mock answered (ADR-0005). Copied and not imported:
 // apps/api does not depend on apps/web, and a shared fixture would make the
-// API's seed hostage to a frontend edit. PRJ-043 below is a 43rd, API-only
+// API's seed hostage to a frontend edit. PRJ-043 below is a 41st, API-only
 // fixture (owner decision, 19/09/2026): HQ has no rows in the Capex Plan
 // sheet and so no equivalent in the frontend mock, but it needs one project
 // of its own so S01's unit table does not show it with an empty row and a
 // flat sparkline.
+//
+// PRJ-007 and PRJ-037 were the Ambulance Service's two, and they are gone
+// with the unit (ADR-0024). The refs of the rows around them do not move:
+// PRJ-nnn is the fixture's own readable name for a row, never a count, and
+// renumbering it would make every screenshot and every note that cites one
+// point at a different project. The gaps are the record that two projects
+// left.
 //
 // Figures are obviously fake and round. `ref` is the fixture's own id, kept
 // only so the two files can be compared by eye; the code each project ends up
@@ -444,21 +462,6 @@ export const seedProjects: SeedProject[] = [
     fundingSource: "STATE_BUDGET",
     plannedStart: "2027-06-30",
     plannedFinish: "2029-04-17",
-    rag: "GREEN",
-    ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: null,
-    tenderReference: null,
-  },
-  {
-    ref: "PRJ-007",
-    orgUnitId: "ambulance",
-    titleEl: "Ανακαίνιση Μονάδας Εντατικής Θεραπείας",
-    category: "RENOVATION",
-    phase: "PREPARATION",
-    approvedBudget: 6385000,
-    fundingSource: "DONATION",
-    plannedStart: "2027-10-04",
-    plannedFinish: "2028-09-29",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
     sapWbs: null,
@@ -731,7 +734,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2027-06-05",
     rag: "RED",
     ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά €134.000",
-    sapWbs: "WBS-TRD-025",
+    sapWbs: "WBS-KYP-025",
     tenderReference: "TND-2026-025",
   },
   {
@@ -746,7 +749,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2027-07-27",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-LMS-026",
+    sapWbs: "WBS-LGH-026",
     tenderReference: "TND-2026-026",
   },
   {
@@ -776,7 +779,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2027-11-23",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-DYP-028",
+    sapWbs: "WBS-MHS-028",
     tenderReference: "TND-2026-028",
   },
   {
@@ -791,7 +794,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2026-10-16",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-NAM3-029",
+    sapWbs: "WBS-NAM-029",
     tenderReference: "TND-2026-029",
   },
   {
@@ -806,13 +809,13 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2027-10-13",
     rag: "RED",
     ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά €1.702.000",
-    sapWbs: "WBS-DYP-030",
+    sapWbs: "WBS-MHS-030",
     tenderReference: "TND-2026-030",
   },
   {
     ref: "PRJ-031",
     orgUnitId: "larnaca-general",
-    titleEl: "Αντικατάσταση οχημάτων ασθενοφόρων",
+    titleEl: "Αντικατάσταση ακτινολογικού εξοπλισμού",
     category: "EQUIPMENT",
     phase: "IN_PROGRESS",
     approvedBudget: 3320000,
@@ -827,7 +830,7 @@ export const seedProjects: SeedProject[] = [
   {
     ref: "PRJ-032",
     orgUnitId: "polis-chrysochous",
-    titleEl: "Ανακαίνιση σταθμού ασθενοφόρων",
+    titleEl: "Ανακαίνιση τμήματος πρώτων βοηθειών",
     category: "RENOVATION",
     phase: "IN_PROGRESS",
     approvedBudget: 3460000,
@@ -836,7 +839,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2027-07-20",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-PCH-032",
+    sapWbs: "WBS-POL-032",
     tenderReference: "TND-2026-032",
   },
   {
@@ -866,7 +869,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2026-10-17",
     rag: "AMBER",
     ragReason: "Οι δαπάνες υστερούν σημαντικά έναντι του χρονοδιαγράμματος του έργου",
-    sapWbs: "WBS-LMS-034",
+    sapWbs: "WBS-LGH-034",
     tenderReference: "TND-2026-034",
   },
   {
@@ -881,7 +884,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2026-09-03",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-DYP-035",
+    sapWbs: "WBS-MHS-035",
     tenderReference: "TND-2026-035",
   },
   {
@@ -900,21 +903,6 @@ export const seedProjects: SeedProject[] = [
     tenderReference: "TND-2026-036",
   },
   {
-    ref: "PRJ-037",
-    orgUnitId: "ambulance",
-    titleEl: "Αντικατάσταση ψυκτικών μονάδων",
-    category: "MAINTENANCE_CAPITAL",
-    phase: "PRACTICAL_COMPLETION",
-    approvedBudget: 1285000,
-    fundingSource: "STATE_BUDGET",
-    plannedStart: "2025-01-21",
-    plannedFinish: "2025-12-19",
-    rag: "RED",
-    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά €171.000",
-    sapWbs: "WBS-AMB-037",
-    tenderReference: "TND-2026-037",
-  },
-  {
     ref: "PRJ-038",
     orgUnitId: "troodos",
     titleEl: "Επέκταση ΤΑΕΠ",
@@ -926,7 +914,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2026-01-09",
     rag: "RED",
     ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά €52.000",
-    sapWbs: "WBS-TRD-038",
+    sapWbs: "WBS-KYP-038",
     tenderReference: "TND-2026-038",
   },
   {
@@ -941,7 +929,7 @@ export const seedProjects: SeedProject[] = [
     plannedFinish: "2025-11-18",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-LMS-039",
+    sapWbs: "WBS-LGH-039",
     tenderReference: "TND-2026-039",
   },
   {
@@ -1019,12 +1007,17 @@ export const seedProjects: SeedProject[] = [
 // Two more projects are already overdue in the fixture itself (PRJ-035 and
 // PRJ-036 are IN_PROGRESS with a planned finish behind us), so all three
 // kinds of exception have something to say.
+//
+// The indices moved when the two ambulance projects left the array
+// (ADR-0024): they still point at PRJ-005, PRJ-017, PRJ-031, PRJ-010 and
+// PRJ-024, which are the projects these exceptions were written for. `ref` is
+// the readable name of the row; the index is how the seed reaches it.
 export const seedSlippedProjects: { index: number; slipDays: number }[] = [
-  { index: 4, slipDays: 45 },
-  { index: 16, slipDays: 120 },
-  { index: 30, slipDays: 200 },
+  { index: 4, slipDays: 45 }, // PRJ-005
+  { index: 15, slipDays: 120 }, // PRJ-017
+  { index: 29, slipDays: 200 }, // PRJ-031
 ];
-export const seedUndatedProjects = [9, 23];
+export const seedUndatedProjects = [8, 22]; // PRJ-010, PRJ-024
 
 /**
  * The gate that closes each phase, in phase order: entry `b` closes the

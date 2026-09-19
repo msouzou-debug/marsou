@@ -6,9 +6,10 @@ import { USERS, bearer, createAppWith, createTestApp, tokenFor } from "./app";
 import { contractBody, makeContract, makeContractor, projectAt } from "./contract-support";
 
 /**
- * ADR-0019 — the two things that let eCapital sit next to eMAP and eFinance:
- * the entity code that says which hospital a row belongs to in all three
- * systems, and the contract reference eFinance can point an invoice at.
+ * ADR-0019 and ADR-0024 — the two things that let eCapital sit next to eMAP,
+ * eFinance and eArchive: the entity code that says which hospital a row
+ * belongs to in all of them, and the contract reference eFinance can point an
+ * invoice at.
  */
 describe("entity codes", () => {
   let app: INestApplication;
@@ -20,40 +21,59 @@ describe("entity codes", () => {
     await app.close();
   });
 
-  it("gives every seeded unit its eFinance code, and no two the same", async () => {
+  it("gives every seeded unit its entity code, and no two the same", async () => {
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     expect(response.status).toBe(200);
 
     const units = response.body as OrgUnit[];
-    expect(units).toHaveLength(12);
+    // Eleven, not twelve: the Ambulance Service left ΟΚΥπΥ (ADR-0024).
+    expect(units).toHaveLength(11);
     const codes = units.map((u) => u.entityCode);
     expect(codes.every((c) => typeof c === "string" && c.length > 0)).toBe(true);
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  it("uses the exact strings eFinance uses, never a name", async () => {
+  it("uses eArchive's site abbreviation for both codes, never a name", async () => {
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
-    const byId = new Map((response.body as OrgUnit[]).map((u) => [u.id, u.entityCode]));
-    // INTEGRATION-eMAP §2. Note that these are not eCapital's own unit codes:
-    // Πάφος is PAF here and PAP there, Λεμεσός LMS and LGH, Μακάριος NAM3 and
-    // ARC. That is exactly why the column exists.
+    const units = response.body as OrgUnit[];
+    const byId = new Map(units.map((u) => [u.id, u.entityCode]));
+    // ADR-0024 (owner, 19/09/2026): all three systems key a place by
+    // eArchive's abbreviation, so eFinance's old strings (PAP, LGH, ARC, CHR,
+    // MH, HC, TRD) are gone from the database and kept only as a lookup in
+    // the ADR until eFinance aligns.
     expect(byId.get("nicosia-general")).toBe("NGH");
     expect(byId.get("larnaca-general")).toBe("LAR");
-    expect(byId.get("paphos-general")).toBe("PAP");
+    expect(byId.get("paphos-general")).toBe("PAF");
     expect(byId.get("limassol-general")).toBe("LGH");
-    expect(byId.get("troodos")).toBe("TRD");
-    expect(byId.get("namiii")).toBe("ARC");
-    expect(byId.get("polis-chrysochous")).toBe("CHR");
+    expect(byId.get("troodos")).toBe("KYP");
+    expect(byId.get("namiii")).toBe("NAM");
+    expect(byId.get("polis-chrysochous")).toBe("POL");
     expect(byId.get("famagusta-general")).toBe("FAM");
-    expect(byId.get("dypsy")).toBe("MH");
-    expect(byId.get("ambulance")).toBe("AMB");
-    // CONFIRMED, ADR-0019 (owner, 19/09/2026): ΠΦΥ = Κέντρα Υγείας = HC.
-    expect(byId.get("pfy")).toBe("HC");
-    // Owner decision, 19/09/2026: HQ is now a unit and carries eFinance's own
-    // code for the same place.
+    expect(byId.get("dypsy")).toBe("MHS");
+    expect(byId.get("pfy")).toBe("PHC");
     expect(byId.get("hq")).toBe("HQ");
+
+    // ADR-0024: `code` and `entityCode` are the same string now, on every
+    // unit. Τροόδους keeps both its names and takes KYP.
+    for (const u of units) expect(u.code).toBe(u.entityCode);
+    expect(units.find((u) => u.id === "troodos")).toMatchObject({
+      code: "KYP",
+      nameEl: "Νοσοκομείο Τροόδους",
+      nameEn: "Troodos Hospital",
+    });
+  });
+
+  it("has no Ambulance Service unit left", async () => {
+    // Owner decision, 19/09/2026 (ADR-0024): the service is out of ΟΚΥπΥ, so
+    // it is out of the register — not hidden, not empty, gone.
+    const token = await tokenFor(app, USERS.admin);
+    const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
+    const units = response.body as OrgUnit[];
+    expect(units.map((u) => u.id)).not.toContain("ambulance");
+    expect(units.map((u) => u.code)).not.toContain("AMB");
+    expect(units.map((u) => u.entityCode)).not.toContain("AMB");
   });
 
   it("gives HQ its own unit, entity code and CENTRAL type", async () => {
