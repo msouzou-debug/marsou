@@ -366,5 +366,32 @@
     "SAME_AREA_OVERLAP": "This shutdown takes the same area as permit {ref} over the same window. Talk to the engineer running the other one.",
     "TWO_THEATRES": "This shutdown closes a theatre over the same window as permit {ref}. Tell the unit's management before two theatres go down together.",
     "REDUNDANT_HALVES": "This shutdown takes the same system as permit {ref} over the same window. Check whether any redundancy is left on the system."
+  },
+  "permitSystem": {
+    "ELECTRICAL": "Electrical",
+    "HVAC": "HVAC",
+    "MEDICAL_GAS": "Medical gases",
+    "WATER": "Water",
+    "FIRE": "Fire",
+    "IT": "IT",
+    "STEAM": "Steam",
+    "DRAINAGE": "Drainage"
+  },
+  "approvalRole": {
+    "INFECTION_CONTROL": "Infection control",
+    "WARD_MANAGER": "Ward manager",
+    "NURSING": "Nursing",
+    "TECHNICAL": "Technical services",
+    "SAFETY": "Safety",
+    "HOSPITAL_DIRECTOR": "Hospital director"
+  },
+  "inbox": {
+    "facts": {
+      "precautionCategory": "Precaution category",
+      "period": "Period",
+      "rooms": "Rooms",
+      "classAndSystems": "Class {class} · {systems}",
+      "roleSuffix": "(as {role})"
+    }
   }
 }

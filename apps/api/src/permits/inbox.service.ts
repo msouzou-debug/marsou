@@ -8,8 +8,10 @@ import {
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
+import { I18nService, type Locale } from "../common/i18n.service";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
+import { classAndSystemsFact, formatAreaList, formatPermitWindow, permitWhatEl } from "./inbox-facts";
 import { approvalSlaState } from "./permit-sla";
 
 /** R11's ladder, and who may take each step. Mirrors PaymentCertsService. */
@@ -49,7 +51,9 @@ const CERT_ROLES: Record<PaymentCertStatus, string[]> = {
  */
 @Injectable()
 export class InboxService {
-  async forCaller(now: Date): Promise<Inbox> {
+  constructor(private readonly i18n: I18nService) {}
+
+  async forCaller(now: Date, locale: Locale): Promise<Inbox> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     const caller = await callerUserId();
@@ -62,7 +66,7 @@ export class InboxService {
     const readIds = new Set(read.map((row) => row.itemId));
 
     const items = [
-      ...(await this.permitItems(caller, now)),
+      ...(await this.permitItems(caller, now, locale)),
       ...(await this.variationItems(caller, roles)),
       ...(await this.certificateItems(caller, roles)),
     ]
@@ -92,7 +96,11 @@ export class InboxService {
 
   // ------------------------------------------------------------ the three --
 
-  private async permitItems(caller: string, now: Date): Promise<Omit<InboxItem, "unread">[]> {
+  private async permitItems(
+    caller: string,
+    now: Date,
+    locale: Locale,
+  ): Promise<Omit<InboxItem, "unread">[]> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
 
@@ -100,6 +108,7 @@ export class InboxService {
       .select({
         id: schema.permitApproval.id,
         permitId: schema.permitApproval.permitId,
+        role: schema.permitApproval.role,
         dueAt: schema.permitApproval.dueAt,
         slaHours: schema.permitApproval.slaHours,
         ref: schema.shutdownPermit.ref,
@@ -149,7 +158,11 @@ export class InboxService {
       return {
         id: row.id,
         type: "SHUTDOWN" as const,
-        whatEl: row.ref ? `${row.ref} — ${row.titleEl}` : row.titleEl,
+        // RULE (review nit, 19/09/2026): the approval role is folded into
+        // `whatEl` so that a permit with several lines waiting on the same
+        // caller (a ward manager for one area, nursing for the unit) reads
+        // as three distinguishable rows, not three copies of one line.
+        whatEl: permitWhatEl(row.ref, row.titleEl, row.role, locale, this.i18n),
         whereEl: `${row.orgUnitNameEl} › ${names[0] ?? "—"}`,
         requestedByName: row.requestedByName ?? "",
         requestedAt: (row.submittedAt ?? row.requestedAt).toISOString(),
@@ -157,17 +170,22 @@ export class InboxService {
         slaState: approvalSlaState(row.dueAt, row.slaHours, null, now),
         // RULE (UI §5 S14, DecisionPanel): exactly three facts. Class and
         // system, the window, the rooms — the three things an approver needs
-        // before they decide, and nothing they would have to scroll for.
+        // before they decide, and nothing they would have to scroll for, said
+        // in the caller's own language from the API's own catalogues rather
+        // than the raw enum values and ISO timestamps the row carries.
         facts: [
           {
-            label: "Κατηγορία προφυλάξεων",
-            value: `${row.icraClass ?? "—"} · ${row.systems.join(", ")}`,
+            label: this.i18n.translate("inbox.facts.precautionCategory", locale),
+            value: classAndSystemsFact(row.icraClass, row.systems, locale, this.i18n),
           },
           {
-            label: "Περίοδος",
-            value: `${row.plannedStart.toISOString()} – ${row.plannedEnd.toISOString()}`,
+            label: this.i18n.translate("inbox.facts.period", locale),
+            value: formatPermitWindow(row.plannedStart, row.plannedEnd),
           },
-          { label: "Χώροι", value: names.join(", ") || "—" },
+          {
+            label: this.i18n.translate("inbox.facts.rooms", locale),
+            value: formatAreaList(names),
+          },
         ],
         href: `/permits/${row.permitId}`,
         decidable: true,
