@@ -4,7 +4,7 @@ import { launchOptions, nativeClick, signIn } from "./support";
 // S03, S07, S08 — R08, R10, R31 (ADR-0015). Runs against both real servers
 // (see playwright.config.ts and e2e/api-server.sh) at desktop-1440 and
 // phone-390, per the build brief. The seed's PRJ-031 («Αντικατάσταση
-// οχημάτων ασθενοφόρων», Larnaca) is deliberately past the R31 10% warning
+// ακτινολογικού εξοπλισμού», Larnaca) is deliberately past the R31 10% warning
 // (ΤΥ/2026 contract, apps/api/src/db/seed-data.ts) and its own project
 // engineer is `engineer.larnaca@ecapital.test`, so this suite raises a real
 // variation on it rather than one this spec invents on a contract that
@@ -18,7 +18,7 @@ test.beforeEach(({}, testInfo) => {
   test.skip(!BREAKPOINTS.includes(testInfo.project.name), "this suite runs at desktop and phone only");
 });
 
-const PROJECT_TITLE = "Αντικατάσταση οχημάτων ασθενοφόρων";
+const PROJECT_TITLE = "Αντικατάσταση ακτινολογικού εξοπλισμού";
 
 /**
  * «Τρέχουσα αξία» — the CostBar's committed-value legend item — as a plain

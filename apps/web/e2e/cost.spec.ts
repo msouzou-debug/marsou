@@ -31,7 +31,7 @@ test.beforeEach(({}, testInfo) => {
   test.skip(!BREAKPOINTS.includes(testInfo.project.name), "this suite runs at desktop only");
 });
 
-const PROJECT_TITLE = "Αντικατάσταση οχημάτων ασθενοφόρων"; // PRJ-031, reused from contracts.spec.ts
+const PROJECT_TITLE = "Αντικατάσταση ακτινολογικού εξοπλισμού"; // PRJ-031, reused from contracts.spec.ts
 
 test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε από …' note, without touching the table below it", async ({ page }) => {
   await signIn(page, "engineer.larnaca@ecapital.test");

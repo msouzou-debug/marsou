@@ -3,7 +3,9 @@ import { z } from "zod";
 
 // ~40 fixture projects spread across the eleven org units roughly in
 // proportion to the CAPEX-03 §3 row counts (113 real rows -> ~0.37
-// scale here). Figures are obviously fake, round numbers. Ledgers follow
+// scale here). PRJ-007 and PRJ-037 were the Ambulance Service's and left
+// with the unit (ADR-0024); the ids around them do not move, because
+// PRJ-nnn names a row and never counts them. Figures are obviously fake, round numbers. Ledgers follow
 // the phase a project is in: no commitment before AWARDED, spend trailing
 // commitment, forecast usually close to committed. RAG is computed once
 // at authoring time by computeRag() below, using the documented rule:
@@ -59,7 +61,7 @@ export function computeRag(
 const rawProjects: z.input<typeof ProjectSummary>[] = [
   {
     id: "PRJ-001",
-    code: "PCH-001",
+    code: "POL-001",
     orgUnitId: "polis-chrysochous",
     titleEl: "Ανακαίνιση χειρουργείων",
     category: "RENOVATION",
@@ -81,7 +83,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-002",
-    code: "TRD-002",
+    code: "KYP-002",
     orgUnitId: "troodos",
     titleEl: "Αντικατάσταση ψυκτικών μονάδων",
     category: "MAINTENANCE_CAPITAL",
@@ -125,7 +127,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-004",
-    code: "NAM3-004",
+    code: "NAM-004",
     orgUnitId: "namiii",
     titleEl: "Νέος μαγνητικός τομογράφος",
     category: "EQUIPMENT",
@@ -169,7 +171,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-006",
-    code: "PFY-006",
+    code: "PHC-006",
     orgUnitId: "pfy",
     titleEl: "Αντικατάσταση ανελκυστήρων",
     category: "MAINTENANCE_CAPITAL",
@@ -190,30 +192,8 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     },
   },
   {
-    id: "PRJ-007",
-    code: "AMB-007",
-    orgUnitId: "ambulance",
-    titleEl: "Ανακαίνιση Μονάδας Εντατικής Θεραπείας",
-    category: "RENOVATION",
-    phase: "PREPARATION",
-    approvedBudget: 6385000,
-    fundingSource: "DONATION",
-    plannedStart: "2027-10-04",
-    plannedFinish: "2028-09-29",
-    rag: "GREEN",
-    ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: null,
-    tenderReference: null,
-    ledgers: {
-      approved: 6385000,
-      committed: 0,
-      spent: 0,
-      forecast: 6385000,
-    },
-  },
-  {
     id: "PRJ-008",
-    code: "DYP-008",
+    code: "MHS-008",
     orgUnitId: "dypsy",
     titleEl: "Αναβάθμιση ηλεκτρομηχανολογικών εγκαταστάσεων",
     category: "MAINTENANCE_CAPITAL",
@@ -279,7 +259,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-011",
-    code: "PCH-011",
+    code: "POL-011",
     orgUnitId: "polis-chrysochous",
     titleEl: "Νέο ακτινολογικό μηχάνημα",
     category: "EQUIPMENT",
@@ -301,7 +281,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-012",
-    code: "LMS-012",
+    code: "LGH-012",
     orgUnitId: "limassol-general",
     titleEl: "Αναβάθμιση δικτύου ιατρικών αερίων",
     category: "MAINTENANCE_CAPITAL",
@@ -323,7 +303,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-013",
-    code: "PFY-013",
+    code: "PHC-013",
     orgUnitId: "pfy",
     titleEl: "Επέκταση χώρων στάθμευσης",
     category: "NEW_BUILD",
@@ -411,7 +391,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-017",
-    code: "TRD-017",
+    code: "KYP-017",
     orgUnitId: "troodos",
     titleEl: "Κατασκευή νέας πτέρυγας νοσηλείας",
     category: "NEW_BUILD",
@@ -543,7 +523,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-023",
-    code: "NAM3-023",
+    code: "NAM-023",
     orgUnitId: "namiii",
     titleEl: "Αναβάθμιση συστήματος ελέγχου πρόσβασης",
     category: "MAINTENANCE_CAPITAL",
@@ -565,7 +545,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-024",
-    code: "LMS-024",
+    code: "LGH-024",
     orgUnitId: "limassol-general",
     titleEl: "Κατασκευή νέου ακτινοθεραπευτικού τμήματος",
     category: "NEW_BUILD",
@@ -587,7 +567,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-025",
-    code: "TRD-025",
+    code: "KYP-025",
     orgUnitId: "troodos",
     titleEl: "Αντικατάσταση δικτύου ύδρευσης",
     category: "MAINTENANCE_CAPITAL",
@@ -598,7 +578,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-06-05",
     rag: "RED",
     ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 134.000 €",
-    sapWbs: "WBS-TRD-025",
+    sapWbs: "WBS-KYP-025",
     tenderReference: "TND-2026-025",
     ledgers: {
       approved: 1595000,
@@ -609,7 +589,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-026",
-    code: "LMS-026",
+    code: "LGH-026",
     orgUnitId: "limassol-general",
     titleEl: "Ανακαίνιση μαιευτηρίου",
     category: "RENOVATION",
@@ -620,7 +600,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-07-27",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-LMS-026",
+    sapWbs: "WBS-LGH-026",
     tenderReference: "TND-2026-026",
     ledgers: {
       approved: 5560000,
@@ -653,7 +633,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-028",
-    code: "DYP-028",
+    code: "MHS-028",
     orgUnitId: "dypsy",
     titleEl: "Επέκταση αποθηκευτικών χώρων",
     category: "NEW_BUILD",
@@ -664,7 +644,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-11-23",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-DYP-028",
+    sapWbs: "WBS-MHS-028",
     tenderReference: "TND-2026-028",
     ledgers: {
       approved: 1470000,
@@ -675,7 +655,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-029",
-    code: "NAM3-029",
+    code: "NAM-029",
     orgUnitId: "namiii",
     titleEl: "Νέο σύστημα αδιάλειπτης παροχής ενέργειας",
     category: "EQUIPMENT",
@@ -686,7 +666,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-10-16",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-NAM3-029",
+    sapWbs: "WBS-NAM-029",
     tenderReference: "TND-2026-029",
     ledgers: {
       approved: 11675000,
@@ -697,7 +677,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-030",
-    code: "DYP-030",
+    code: "MHS-030",
     orgUnitId: "dypsy",
     titleEl: "Αναβάθμιση κέντρου υγείας",
     category: "RENOVATION",
@@ -708,7 +688,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-10-13",
     rag: "RED",
     ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 1.702.000 €",
-    sapWbs: "WBS-DYP-030",
+    sapWbs: "WBS-MHS-030",
     tenderReference: "TND-2026-030",
     ledgers: {
       approved: 10690000,
@@ -721,7 +701,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     id: "PRJ-031",
     code: "LAR-031",
     orgUnitId: "larnaca-general",
-    titleEl: "Αντικατάσταση οχημάτων ασθενοφόρων",
+    titleEl: "Αντικατάσταση ακτινολογικού εξοπλισμού",
     category: "EQUIPMENT",
     phase: "IN_PROGRESS",
     approvedBudget: 3320000,
@@ -741,9 +721,9 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-032",
-    code: "PCH-032",
+    code: "POL-032",
     orgUnitId: "polis-chrysochous",
-    titleEl: "Ανακαίνιση σταθμού ασθενοφόρων",
+    titleEl: "Ανακαίνιση τμήματος πρώτων βοηθειών",
     category: "RENOVATION",
     phase: "IN_PROGRESS",
     approvedBudget: 3460000,
@@ -752,7 +732,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-07-20",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-PCH-032",
+    sapWbs: "WBS-POL-032",
     tenderReference: "TND-2026-032",
     ledgers: {
       approved: 3460000,
@@ -785,7 +765,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-034",
-    code: "LMS-034",
+    code: "LGH-034",
     orgUnitId: "limassol-general",
     titleEl: "Κατασκευή νέου κέντρου ψυχικής υγείας",
     category: "NEW_BUILD",
@@ -796,7 +776,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-10-17",
     rag: "AMBER",
     ragReason: "Οι δαπάνες υστερούν σημαντικά έναντι του χρονοδιαγράμματος του έργου",
-    sapWbs: "WBS-LMS-034",
+    sapWbs: "WBS-LGH-034",
     tenderReference: "TND-2026-034",
     ledgers: {
       approved: 6000000,
@@ -807,7 +787,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-035",
-    code: "DYP-035",
+    code: "MHS-035",
     orgUnitId: "dypsy",
     titleEl: "Αναβάθμιση μονάδας ημερήσιας νοσηλείας",
     category: "SMALL_WORKS",
@@ -818,7 +798,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-09-03",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-DYP-035",
+    sapWbs: "WBS-MHS-035",
     tenderReference: "TND-2026-035",
     ledgers: {
       approved: 7340000,
@@ -850,30 +830,8 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     },
   },
   {
-    id: "PRJ-037",
-    code: "AMB-037",
-    orgUnitId: "ambulance",
-    titleEl: "Αντικατάσταση ψυκτικών μονάδων",
-    category: "MAINTENANCE_CAPITAL",
-    phase: "PRACTICAL_COMPLETION",
-    approvedBudget: 1285000,
-    fundingSource: "STATE_BUDGET",
-    plannedStart: "2025-01-21",
-    plannedFinish: "2025-12-19",
-    rag: "RED",
-    ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 171.000 €",
-    sapWbs: "WBS-AMB-037",
-    tenderReference: "TND-2026-037",
-    ledgers: {
-      approved: 1285000,
-      committed: 1456000,
-      spent: 692000,
-      forecast: 1516000,
-    },
-  },
-  {
     id: "PRJ-038",
-    code: "TRD-038",
+    code: "KYP-038",
     orgUnitId: "troodos",
     titleEl: "Επέκταση ΤΑΕΠ",
     category: "NEW_BUILD",
@@ -884,7 +842,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-01-09",
     rag: "RED",
     ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 52.000 €",
-    sapWbs: "WBS-TRD-038",
+    sapWbs: "WBS-KYP-038",
     tenderReference: "TND-2026-038",
     ledgers: {
       approved: 1350000,
@@ -895,7 +853,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-039",
-    code: "LMS-039",
+    code: "LGH-039",
     orgUnitId: "limassol-general",
     titleEl: "Νέος μαγνητικός τομογράφος",
     category: "EQUIPMENT",
@@ -906,7 +864,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2025-11-18",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-LMS-039",
+    sapWbs: "WBS-LGH-039",
     tenderReference: "TND-2026-039",
     ledgers: {
       approved: 4970000,

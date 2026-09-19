@@ -55,7 +55,7 @@ const units: PortfolioResponse["units"] = [
     rag: { green: 2, amber: 2, red: 0 },
   },
   {
-    orgUnit: unit("unit-d", "D", "Μονάδα Δ", "AMBULANCE"),
+    orgUnit: unit("unit-d", "D", "Μονάδα Δ", "PFY"),
     projectCount: 2,
     approved: 300_000,
     spent: 100_000,
@@ -156,7 +156,7 @@ describe("Portfolio unit table", () => {
     // One subheader per directorate present among the four fixture units.
     expect(screen.getByText("Λευκωσίας")).toBeInTheDocument();
     expect(screen.getByText("Λάρνακας–Αμμοχώστου")).toBeInTheDocument();
-    expect(screen.getByText("Υπηρεσία Ασθενοφόρων")).toBeInTheDocument();
+    expect(screen.getByText("Πρωτοβάθμια Φροντίδα Υγείας")).toBeInTheDocument();
 
     // Λευκωσίας subtotal: unit A (500.000 / 300.000, 3 projects) + unit C
     // (800.000 / 750.000, 4 projects) = 7 projects, 1.300.000 €, 1.050.000 €.

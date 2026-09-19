@@ -4,7 +4,7 @@ import { launchOptions, nativeClick, signIn } from "./support";
 // S05, S06 — R06, R07. Runs against both real servers (see
 // playwright.config.ts and e2e/api-server.sh) at desktop-1440 and
 // phone-390, per the build brief. Reuses the seed's own Larnaca project
-// («Αντικατάσταση οχημάτων ασθενοφόρων», the same one `contracts.spec.ts`
+// («Αντικατάσταση ακτινολογικού εξοπλισμού», the same one `contracts.spec.ts`
 // opens) so this suite exercises real seeded milestones and risks rather
 // than data it would otherwise have to invent through the API first.
 
@@ -16,7 +16,7 @@ test.beforeEach(({}, testInfo) => {
   test.skip(!BREAKPOINTS.includes(testInfo.project.name), "this suite runs at desktop and phone only");
 });
 
-const PROJECT_TITLE = "Αντικατάσταση οχημάτων ασθενοφόρων";
+const PROJECT_TITLE = "Αντικατάσταση ακτινολογικού εξοπλισμού";
 
 function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);

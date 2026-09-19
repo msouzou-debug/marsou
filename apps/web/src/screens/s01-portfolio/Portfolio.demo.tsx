@@ -16,7 +16,7 @@ function unit(id: string, code: string, nameEl: string, nameEn: string, director
     code,
     nameEl,
     nameEn,
-    type: id === "dypsy" || id === "ambulance" ? "SERVICE" : "HOSPITAL",
+    type: id === "dypsy" || id === "pfy" ? "SERVICE" : "HOSPITAL",
     directorate,
     costCentre: `CC-${code}-01`,
     entityCode: null,
@@ -46,7 +46,7 @@ const units: PortfolioResponse["units"] = [
     rag: { green: 5, amber: 2, red: 1 },
   },
   {
-    orgUnit: unit("limassol-general", "LMS", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital", "LEMESOU_PAFOU"),
+    orgUnit: unit("limassol-general", "LGH", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital", "LEMESOU_PAFOU"),
     projectCount: 6,
     approved: 900_000,
     spent: 700_000,
@@ -54,7 +54,7 @@ const units: PortfolioResponse["units"] = [
     rag: { green: 4, amber: 1, red: 1 },
   },
   {
-    orgUnit: unit("dypsy", "DYP", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services", "DYPSY"),
+    orgUnit: unit("dypsy", "MHS", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services", "DYPSY"),
     projectCount: 3,
     approved: 500_000,
     spent: 480_000,
@@ -62,7 +62,7 @@ const units: PortfolioResponse["units"] = [
     rag: { green: 2, amber: 1, red: 0 },
   },
   {
-    orgUnit: unit("ambulance", "AMB", "Υπηρεσία Ασθενοφόρων", "Ambulance Service", "AMBULANCE"),
+    orgUnit: unit("pfy", "PHC", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare", "PFY"),
     projectCount: 2,
     approved: 350_000,
     spent: 90_000,

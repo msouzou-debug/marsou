@@ -5,20 +5,28 @@ import type { OrgUnit } from "@ecapital/shared";
 // import can match the next revision even if it renames a unit).
 //
 // RECONCILIATION FINDING (kept as history — it is what the eleven below were
-// decided from, before HQ made it twelve): CAPEX-01 §4 says the register
-// covers "nine hospitals plus three services and 20 of them belong to units
-// that are not hospitals" (i.e. twelve org units, by that count). CAPEX-03
-// §3 lists eleven distinct values in column D: eight hospitals (Λευκωσίας,
-// Λάρνακας, Πάφου, Λεμεσού, Τροόδους, ΝΑΜΙΙΙ, Πόλεως Χρυσοχούς, Αμμοχώστου)
-// and three services (ΔΥΨΥ, ΠΦΥ, Υπηρεσία Ασθενοφόρων) — not nine hospitals.
-// This file used to list exactly those eleven units, with no twelfth unit
-// invented to square the two documents against each other.
+// decided from, before HQ made it twelve and the Ambulance Service brought it
+// back to eleven): CAPEX-01 §4 says the register covers "nine hospitals plus
+// three services and 20 of them belong to units that are not hospitals" (i.e.
+// twelve org units, by that count). CAPEX-03 §3 lists eleven distinct values
+// in column D: eight hospitals (Λευκωσίας, Λάρνακας, Πάφου, Λεμεσού,
+// Τροόδους, ΝΑΜΙΙΙ, Πόλεως Χρυσοχούς, Αμμοχώστου) and three services (ΔΥΨΥ,
+// ΠΦΥ, Υπηρεσία Ασθενοφόρων) — not nine hospitals. This file used to list
+// exactly those eleven units, with no twelfth unit invented to square the two
+// documents against each other.
 //
 // HQ (owner decision, 19/09/2026) is the actual twelfth unit, and it is not
 // that reconciliation's missing hospital: it is Central Administration
 // itself, type CENTRAL, added because it can own capital projects too (IT,
 // HQ works) and CAPEX-01 §4's "nine hospitals plus three services" never
 // claimed to cover it — the Capex Plan sheet simply has no HQ rows to count.
+//
+// THE AMBULANCE SERVICE IS OUT (owner decision, 19/09/2026 — ADR-0024).
+// Υπηρεσία Ασθενοφόρων is no longer part of ΟΚΥπΥ, so it is not a unit of
+// this register and its four Capex Plan rows are not ΟΚΥπΥ's capital works.
+// Eight hospitals, two services and HQ: eleven. Migration 0012 removes the
+// unit from a database that already has it, and the Excel importer rejects
+// the «ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ» spelling (V15) instead of resolving it.
 //
 // Directorate assignment is not printed next to each unit in CAPEX-03 §3,
 // so it is derived here from the row-count arithmetic in that section:
@@ -28,12 +36,13 @@ import type { OrgUnit } from "@ecapital/shared";
 // eleven Capex Plan units, which is the one used below. HQ's directorate,
 // KENTRIKI_DIOIKISI, has no such arithmetic behind it — it is the one
 // directorate with no row in the sheet at all.
-// ADR-0019: `entityCode` is the eFinance entity code for the same unit
-// (INTEGRATION-eMAP §2), which is also the SAP Fund Center. It is not the
-// `code` above — Πάφος is PAF here and PAP there, Λεμεσός LMS and LGH,
-// Μακάριος NAM3 and ARC — which is exactly why both exist. HQ is the one
-// unit where the two agree: eFinance's own code for Κεντρικά Γραφεία is
-// also `HQ`.
+//
+// ADR-0024: `code` and `entityCode` are now the same string for every unit —
+// eArchive's site abbreviation, which eFinance and eCapital both adopt. The
+// eFinance codes it replaces (PAP, LGH, ARC, CHR, MH, HC, TRD) survive as a
+// lookup in ADR-0024 «until eFinance aligns» and are not carried here. The
+// cost centres below do not move with the codes: a cost centre is SAP's
+// identifier for a place, the Οικονομική Διεύθυνση's to change.
 export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
   {
     id: "nicosia-general",
@@ -67,13 +76,13 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-PAF-01",
-    entityCode: "PAP",
+    entityCode: "PAF",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΠΑΦΟΥ"],
   },
   {
     id: "limassol-general",
-    code: "LMS",
+    code: "LGH",
     nameEl: "Γενικό Νοσοκομείο Λεμεσού",
     nameEn: "Limassol General Hospital",
     type: "HOSPITAL",
@@ -85,39 +94,41 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
   },
   {
     id: "troodos",
-    code: "TRD",
+    code: "KYP",
     nameEl: "Νοσοκομείο Τροόδους",
     nameEn: "Troodos Hospital",
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-TRD-01",
-    entityCode: "TRD",
+    entityCode: "KYP",
     timezone: "Europe/Nicosia",
     // Troodos and Kyperounta are one hospital (owner decision, 18/09/2026):
     // both spellings resolve here so a future sheet revision cannot split them.
+    // eArchive files the place under the Kyperounta abbreviation, which is
+    // why the code is KYP while both names stay Τροόδους (ADR-0024).
     aliases: ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"],
   },
   {
     id: "namiii",
-    code: "NAM3",
+    code: "NAM",
     nameEl: "Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄",
     nameEn: "Archbishop Makarios III Hospital",
     type: "HOSPITAL",
     directorate: "LEFKOSIAS",
     costCentre: "CC-NAM3-01",
-    entityCode: "ARC",
+    entityCode: "NAM",
     timezone: "Europe/Nicosia",
     aliases: ["ΝΑΜΙΙΙ"],
   },
   {
     id: "polis-chrysochous",
-    code: "PCH",
+    code: "POL",
     nameEl: "Νοσοκομείο Πόλεως Χρυσοχούς",
     nameEn: "Polis Chrysochous Hospital",
     type: "HOSPITAL",
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-PCH-01",
-    entityCode: "CHR",
+    entityCode: "POL",
     timezone: "Europe/Nicosia",
     aliases: ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"],
   },
@@ -135,39 +146,27 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
   },
   {
     id: "dypsy",
-    code: "DYP",
+    code: "MHS",
     nameEl: "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας",
     nameEn: "Mental Health Services",
     type: "SERVICE",
     directorate: "DYPSY",
     costCentre: "CC-DYP-01",
-    entityCode: "MH",
+    entityCode: "MHS",
     timezone: "Europe/Nicosia",
     aliases: ["ΔΥΨΥ"],
   },
   {
     id: "pfy",
-    code: "PFY",
+    code: "PHC",
     nameEl: "Πρωτοβάθμια Φροντίδα Υγείας",
     nameEn: "Primary Healthcare",
     type: "SERVICE",
     directorate: "PFY",
     costCentre: "CC-PFY-01",
-    entityCode: "HC",
+    entityCode: "PHC",
     timezone: "Europe/Nicosia",
     aliases: ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"],
-  },
-  {
-    id: "ambulance",
-    code: "AMB",
-    nameEl: "Υπηρεσία Ασθενοφόρων",
-    nameEn: "Ambulance Service",
-    type: "SERVICE",
-    directorate: "AMBULANCE",
-    costCentre: "CC-AMB-01",
-    entityCode: "AMB",
-    timezone: "Europe/Nicosia",
-    aliases: ["ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"],
   },
   {
     // Owner decision, 19/09/2026. No cost centre, and no aliases — the Capex
