@@ -260,6 +260,8 @@ export const projectCategory = ecapital.enum("project_category", [
   "EQUIPMENT",
   "MAINTENANCE_CAPITAL",
   "IT",
+  // CAPEX-03 §2 col A, added by 0005_m1_import.
+  "CAPITAL_WORKS",
 ]);
 
 // The order is the rule (R04): a phase may move exactly one step along this
@@ -281,6 +283,9 @@ export const fundingSource = ecapital.enum("funding_source", [
   "EU",
   "DONATION",
   "OWN",
+  // CAPEX-03 §2 col L: «ΣΑΑ», the Σχέδιο Ανάκαμψης και Ανθεκτικότητας.
+  // Added by 0005_m1_import.
+  "RRF",
 ]);
 export const rag = ecapital.enum("rag", ["GREEN", "AMBER", "RED"]);
 export const riskStatus = ecapital.enum("risk_status", ["OPEN", "MITIGATED", "CLOSED"]);
@@ -327,6 +332,14 @@ export const project = ecapital.table(
     projectManagerId: uuid("project_manager_id").references(() => appUser.id, {
       onDelete: "set null",
     }),
+    // Provenance, added by 0005_m1_import (CAPEX-01 §9). Null on a project
+    // somebody opened in the system rather than imported.
+    importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
+      onDelete: "set null",
+    }),
+    sourceFileSha256: text("source_file_sha256"),
+    sourceRowNo: integer("source_row_no"),
+    categorySource: text("category_source"),
     createdAt,
     updatedAt,
     // Generated in the database from code and title_el; never written from here.
@@ -724,4 +737,150 @@ export const defect = ecapital.table(
     index("defect_target_project_idx").on(t.targetProjectId),
     index("defect_status_idx").on(t.status),
   ],
+);
+
+// ------------------------------------------------------------------- M1 --
+// The Excel migration (R41). The SQL in ./migrations/0005_m1_import.sql is
+// the source of truth; policies and audit triggers live only there.
+
+export const budgetLineType = ecapital.enum("budget_line_type", ["FORECAST", "BUDGET"]);
+export const costTxnType = ecapital.enum("cost_txn_type", ["COMMITMENT", "ACTUAL", "ACCRUAL"]);
+export const costSource = ecapital.enum("cost_source", [
+  "SAP_EXTRACT",
+  "SAP_MCP",
+  "MANUAL",
+  "EXCEL_MIGRATION",
+]);
+export const importSeverity = ecapital.enum("import_severity", ["ERROR", "WARN", "INFO"]);
+export const projectNoteKind = ecapital.enum("project_note_kind", ["TECHNICAL"]);
+
+export const importBatch = ecapital.table(
+  "import_batch",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    source: text("source").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSha256: text("file_sha256").notNull(),
+    profileId: text("profile_id").notNull(),
+    period: text("period"),
+    rowsIn: integer("rows_in").notNull().default(0),
+    rowsProject: integer("rows_project").notNull().default(0),
+    rowsFooter: integer("rows_footer").notNull().default(0),
+    rowsSkipped: integer("rows_skipped").notNull().default(0),
+    rowsCreated: integer("rows_created").notNull().default(0),
+    rowsUpdated: integer("rows_updated").notNull().default(0),
+    rowsRejected: integer("rows_rejected").notNull().default(0),
+    importedBy: text("imported_by"),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+    report: jsonb("report"),
+    committed: boolean("committed").notNull().default(false),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("import_batch_file_idx").on(t.fileSha256),
+    index("import_batch_profile_idx").on(t.profileId, t.importedAt),
+  ],
+);
+
+export const importException = ecapital.table(
+  "import_exception",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => importBatch.id, { onDelete: "cascade" }),
+    rule: text("rule").notNull(),
+    severity: importSeverity("severity").notNull(),
+    rowNo: integer("row_no"),
+    projectTitle: text("project_title"),
+    value: text("value"),
+    messageEl: text("message_el").notNull(),
+    messageEn: text("message_en").notNull(),
+    createdAt,
+  },
+  (t) => [index("import_exception_batch_idx").on(t.batchId, t.rule, t.rowNo)],
+);
+
+export const budgetLine = ecapital.table(
+  "budget_line",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    projectId: uuid("project_id").references(() => project.id, { onDelete: "cascade" }),
+    vintageId: text("vintage_id").notNull(),
+    lineType: budgetLineType("line_type").notNull(),
+    // 9999 is the sentinel for "beyond the horizon" (CAPEX-03 §2 cols X, AI).
+    budgetYear: integer("budget_year").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    category: projectCategory("category"),
+    sapGl: text("sap_gl"),
+    approvedAmount: numeric("approved_amount", { precision: 14, scale: 2 }),
+    revisedAmount: numeric("revised_amount", { precision: 14, scale: 2 }),
+    importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
+      onDelete: "set null",
+    }),
+    sourceRowNo: integer("source_row_no"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("budget_line_unit_year_idx").on(t.orgUnitId, t.budgetYear),
+    index("budget_line_batch_idx").on(t.importBatchId),
+  ],
+);
+
+export const costTxn = ecapital.table(
+  "cost_txn",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    projectId: uuid("project_id").references(() => project.id, { onDelete: "cascade" }),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
+    budgetLineId: uuid("budget_line_id").references(() => budgetLine.id, { onDelete: "set null" }),
+    txnType: costTxnType("txn_type").notNull(),
+    source: costSource("source").notNull(),
+    sourceRef: text("source_ref"),
+    docDate: date("doc_date"),
+    postingDate: date("posting_date"),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    description: text("description"),
+    importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
+      onDelete: "set null",
+    }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("cost_txn_project_idx").on(t.projectId),
+    index("cost_txn_unit_date_idx").on(t.orgUnitId, t.docDate),
+    index("cost_txn_batch_idx").on(t.importBatchId),
+  ],
+);
+
+export const projectNote = ecapital.table(
+  "project_note",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    kind: projectNoteKind("kind").notNull().default("TECHNICAL"),
+    textEl: text("text_el").notNull(),
+    importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
+      onDelete: "set null",
+    }),
+    sourceRowNo: integer("source_row_no"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("project_note_project_idx").on(t.projectId)],
 );

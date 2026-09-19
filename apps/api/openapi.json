@@ -1111,7 +1111,8 @@
                               "SMALL_WORKS",
                               "EQUIPMENT",
                               "MAINTENANCE_CAPITAL",
-                              "IT"
+                              "IT",
+                              "CAPITAL_WORKS"
                             ]
                           },
                           "phase": {
@@ -1138,7 +1139,8 @@
                               "STATE_BUDGET",
                               "EU",
                               "DONATION",
-                              "OWN"
+                              "OWN",
+                              "RRF"
                             ]
                           },
                           "plannedStart": {
@@ -1520,7 +1522,8 @@
                       "SMALL_WORKS",
                       "EQUIPMENT",
                       "MAINTENANCE_CAPITAL",
-                      "IT"
+                      "IT",
+                      "CAPITAL_WORKS"
                     ]
                   },
                   "approvedBudget": {
@@ -1533,7 +1536,8 @@
                       "STATE_BUDGET",
                       "EU",
                       "DONATION",
-                      "OWN"
+                      "OWN",
+                      "RRF"
                     ]
                   },
                   "plannedStart": {
@@ -1665,7 +1669,8 @@
                         "SMALL_WORKS",
                         "EQUIPMENT",
                         "MAINTENANCE_CAPITAL",
-                        "IT"
+                        "IT",
+                        "CAPITAL_WORKS"
                       ]
                     },
                     "phase": {
@@ -1692,7 +1697,8 @@
                         "STATE_BUDGET",
                         "EU",
                         "DONATION",
-                        "OWN"
+                        "OWN",
+                        "RRF"
                       ]
                     },
                     "plannedStart": {
@@ -2314,7 +2320,8 @@
                         "SMALL_WORKS",
                         "EQUIPMENT",
                         "MAINTENANCE_CAPITAL",
-                        "IT"
+                        "IT",
+                        "CAPITAL_WORKS"
                       ]
                     },
                     "phase": {
@@ -2341,7 +2348,8 @@
                         "STATE_BUDGET",
                         "EU",
                         "DONATION",
-                        "OWN"
+                        "OWN",
+                        "RRF"
                       ]
                     },
                     "plannedStart": {
@@ -2944,7 +2952,8 @@
                       "SMALL_WORKS",
                       "EQUIPMENT",
                       "MAINTENANCE_CAPITAL",
-                      "IT"
+                      "IT",
+                      "CAPITAL_WORKS"
                     ]
                   },
                   "approvedBudget": {
@@ -2957,7 +2966,8 @@
                       "STATE_BUDGET",
                       "EU",
                       "DONATION",
-                      "OWN"
+                      "OWN",
+                      "RRF"
                     ]
                   },
                   "plannedStart": {
@@ -3072,7 +3082,8 @@
                         "SMALL_WORKS",
                         "EQUIPMENT",
                         "MAINTENANCE_CAPITAL",
-                        "IT"
+                        "IT",
+                        "CAPITAL_WORKS"
                       ]
                     },
                     "phase": {
@@ -3099,7 +3110,8 @@
                         "STATE_BUDGET",
                         "EU",
                         "DONATION",
-                        "OWN"
+                        "OWN",
+                        "RRF"
                       ]
                     },
                     "plannedStart": {
@@ -3788,7 +3800,8 @@
                         "SMALL_WORKS",
                         "EQUIPMENT",
                         "MAINTENANCE_CAPITAL",
-                        "IT"
+                        "IT",
+                        "CAPITAL_WORKS"
                       ]
                     },
                     "phase": {
@@ -3815,7 +3828,8 @@
                         "STATE_BUDGET",
                         "EU",
                         "DONATION",
-                        "OWN"
+                        "OWN",
+                        "RRF"
                       ]
                     },
                     "plannedStart": {

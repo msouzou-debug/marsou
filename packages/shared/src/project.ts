@@ -11,6 +11,15 @@ export const ProjectCategory = z.enum([
   "EQUIPMENT",
   "MAINTENANCE_CAPITAL",
   "IT",
+  // CAPEX-03 §2 col A: «Αναπτυξιακά Έργα» is the only category the capex
+  // plan holds, and it is the programme itself rather than one of the six
+  // kinds of works above — a row in it can be a new building, a renovation
+  // or a piece of equipment. Mapping all 113 imported rows onto one of the
+  // six would label them with something the sheet never said, so the value
+  // the mapping names (CAPEX-03 §2, "→ CAPITAL_WORKS") is carried here.
+  // Added for the M1 Excel migration (R41); 0005_m1_import adds it to the
+  // database enum. Projects opened in the system still choose from the six.
+  "CAPITAL_WORKS",
 ]);
 export type ProjectCategory = z.infer<typeof ProjectCategory>;
 
@@ -36,7 +45,13 @@ export const ProjectPhase = z.enum([
 ]);
 export type ProjectPhase = z.infer<typeof ProjectPhase>;
 
-export const FundingSource = z.enum(["STATE_BUDGET", "EU", "DONATION", "OWN"]);
+// CAPEX-03 §2 col L: «ΣΑΑ» on 16 rows of the capex plan is the Σχέδιο
+// Ανάκαμψης και Ανθεκτικότητας — the Cyprus Recovery and Resilience Plan,
+// the RRF. It is not the EU structural funding already in the list and it is
+// not the state budget, so the register cannot carry those rows without it.
+// Added for the M1 Excel migration (R41); the migration that adds it to the
+// database enum is 0005_m1_import.
+export const FundingSource = z.enum(["STATE_BUDGET", "EU", "DONATION", "OWN", "RRF"]);
 export type FundingSource = z.infer<typeof FundingSource>;
 
 // CAPEX-01 §7: red/amber/green health of a project, set from the four

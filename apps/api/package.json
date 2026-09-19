@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "migrate": "node -r @swc-node/register src/db/migrate.ts",
     "seed": "node -r @swc-node/register src/db/seed.ts",
+    "import:capex": "node -r @swc-node/register src/cli/import-capex.ts",
     "openapi": "node -r @swc-node/register scripts/generate-openapi.ts"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@nestjs/platform-express": "^11",
     "@nestjs/swagger": "^11",
     "drizzle-orm": "^0.45",
+    "exceljs": "^4.4.0",
     "jose": "^6",
     "nestjs-pino": "^5",
     "pg": "^8",
@@ -29,6 +31,7 @@
     "pino-http": "^11",
     "reflect-metadata": "^0.2",
     "rxjs": "^7",
+    "yaml": "^2.9.1",
     "zod": "^4"
   },
   "devDependencies": {

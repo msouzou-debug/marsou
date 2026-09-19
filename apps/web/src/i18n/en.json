@@ -619,13 +619,15 @@
     "SMALL_WORKS": "Small works",
     "EQUIPMENT": "Equipment",
     "MAINTENANCE_CAPITAL": "Maintenance capital",
-    "IT": "IT"
+    "IT": "IT",
+    "CAPITAL_WORKS": "Capital works"
   },
   "fundingSources": {
     "STATE_BUDGET": "State budget",
     "EU": "European Union",
     "DONATION": "Donation",
-    "OWN": "Own resources"
+    "OWN": "Own resources",
+    "RRF": "Recovery and Resilience Facility"
   },
   "contractTypes": {
     "LUMP_SUM": "Lump sum",

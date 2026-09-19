@@ -10,6 +10,8 @@ M1 then adds the site log on top of the contracts: RFIs with an SLA clock, site 
 
 M1 then adds the contract register: contractors, contracts, bills of quantities and variations (R08, R10), the commitment ledger they produce (R13) and the three warnings they raise (R31). A contract starts at award — the tender stage stays in e-Procurement (CAPEX-01 §1) — and a variation is approved by somebody other than the person who raised it, which is enforced in the service, on the route and in the table (ADR-0015).
 
+M1 also brings the register in from where it lives today. `import:capex` reads the ΟΚΥπΥ capital budget workbook, checks it against fourteen validation rules and loads 113 projects with their budget lines, their opening actual spend and the Technical Services notes, under one transaction and one reconciliation report (R41). See «Importing the Capex Plan» below.
+
 Two of the four ledgers are now real. `approved` is known from the day a project is opened and `committed` is the sum of the current value of its contracts, null before the first one is awarded. `spent` and `forecast` arrive with the SAP ingestion in M2 (R14, R16); until then they come back null and the screens show «—» (CAPEX-01 §7). Cost, permits, assets and maintenance are M2 and later.
 
 ## Run it locally, in five commands
@@ -41,6 +43,7 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/rfis/`, `src/site-instructions/`, `src/defects/` | The site log. `rfi-rows.ts` holds the SLA band, `defect-rows.ts` the defects-liability arithmetic and the backlog banding, all as pure functions. |
 | `src/auth/` | The OIDC guard, the development stub, `GET /me` (ADR-0009). |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
+| `src/cli/` | The capex plan import (R41). `profiles/*.yaml` is the mapping as data; `parse.ts` and `validate.ts` are the column transforms and the fourteen rules as pure functions (ADR-0016). |
 | `src/i18n/{el,en}.json` | Every error sentence, keyed, Greek and English. |
 | `openapi.json` | Checked in, generated from the controllers, and a test fails when it is stale. |
 
@@ -105,8 +108,50 @@ Two narrower rules sit on top of the policies, and both are decisions rather tha
 | `pnpm --filter @ecapital/api test` | The full suite against a throwaway PostgreSQL 16 cluster (ADR-0012). |
 | `pnpm --filter @ecapital/api migrate` | Apply pending migrations. Safe to run twice. |
 | `pnpm --filter @ecapital/api seed` | Load or refresh the seed data. Safe to run twice. |
+| `pnpm --filter @ecapital/api import:capex -- …` | Import the capex plan workbook. Dry run unless `--commit`. See below. |
 | `pnpm --filter @ecapital/api openapi` | Rewrite `openapi.json` from the controllers. |
 | `./scripts/test-db.sh start` / `stop` | The throwaway cluster, by hand, if you want to poke at it. |
+
+## Importing the Capex Plan
+
+The project register starts as a spreadsheet. `import:capex` turns the ΟΚΥπΥ capital budget workbook into projects, budget lines, opening actual balances and the Technical Services notes, and produces a reconciliation report in Greek before anything is written (R41, CAPEX-03, ADR-0016).
+
+The mapping is a YAML profile — `src/cli/profiles/capex_plan_2026_02.yaml` — not code. A column that moved, a header that was reworded or a footer line that was renamed is an edit to that file, and the next revision of the spreadsheet is a new profile next to it.
+
+Four commands, in this order, on the day the file arrives:
+
+```bash
+# 1. What is in the file, and does the profile still fit it?
+pnpm --filter @ecapital/api import:capex -- inspect \
+  --file ~/MASTER_FILE.xlsx --profile capex_plan_2026_02
+
+# 2. A dry run: the whole import inside one transaction, rolled back at the end.
+pnpm --filter @ecapital/api import:capex -- \
+  --file ~/MASTER_FILE.xlsx --profile capex_plan_2026_02 \
+  --as admin@ecapital.test --report capex-import.md
+
+# 3. Read capex-import.md. Section 3 ties every column to the file, to the cent;
+#    section 4 lists the exceptions by rule with row, project and value;
+#    section 7 says whether it can be committed.
+
+# 4. Commit. Same command, plus --commit.
+pnpm --filter @ecapital/api import:capex -- \
+  --file ~/MASTER_FILE.xlsx --profile capex_plan_2026_02 \
+  --as admin@ecapital.test --commit --report capex-import.md
+```
+
+`--as-of 2026-03-31` sets the date the opening actual balance is posted at; the profile's own date is the default. `--file` takes an absolute path or one relative to `apps/api`, which is where pnpm runs the script from. Exit codes: 0 done, 1 the run could not start, 2 the row counts did not match the profile and nothing was written, 3 a blocking rule failed so the run stayed a dry run.
+
+Four things about it that are decisions rather than implementation:
+
+- **A dry run is the default.** `--commit` is the exception you ask for, and even then §9's blocking rules — V04, V06, V07, V10, V11, V12, V13 — turn it back into a dry run. The February file fails V06 on the cells holding text where a number belongs, so it cannot be committed until the spreadsheet is fixed. That is the intended answer.
+- **The counts stop it.** If the file does not classify into the profile's expected 113 project rows and 3 footer rows, the run reports and exits before the first insert. The first read of this file counted the footer block as three projects.
+- **One transaction, under the importing user.** `--as <email>` is required and is refused without it; the run sets `app.user_id`, `app.roles` and `app.org_unit_ids` like any request (ADR-0010), so the policies decide who may run it — `import_batch` is admin-only — and the audit trigger records every row under the person who ran it (ADR-0011).
+- **Re-running the same file changes nothing.** A project is found again by unit plus normalised title, and a field that did not move is not written. A second run of an unchanged file is 0 created, 0 updated, 113 unchanged, and leaves no audit rows; an amount that moved by more than €1,000 appears in the report's diff against the previous batch.
+
+The fixture the CLI is proved against is synthetic and committed: `test/fixtures/capex-plan-synthetic.xlsx`, built by `test/fixtures/build-capex-fixture.ts`, which reproduces CAPEX-03 §0's figures to the euro. Rebuild it with `node -r @swc-node/register test/fixtures/build-capex-fixture.ts`.
+
+Reading it needs `exceljs`, chosen over SheetJS because it keeps the cell's type — which is what lets V06 reject «περίπου 1,2 εκ.» in an amount column instead of quietly reading it as zero (ADR-0016).
 
 ## Three rules that are not negotiable
 
