@@ -33,7 +33,7 @@ test.beforeEach(({}, testInfo) => {
 
 const PROJECT_TITLE = "Αντικατάσταση οχημάτων ασθενοφόρων"; // PRJ-031, reused from contracts.spec.ts
 
-test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε από …' note, without touching the table below it", async ({ page }) => {
+test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε από …' note, without touching the table below it", async ({ page }, testInfo) => {
   await signIn(page, "engineer.larnaca@ecapital.test");
   await page.goto("/projects");
   await page.locator("a:visible", { hasText: PROJECT_TITLE }).click();
@@ -43,6 +43,7 @@ test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε απ�
   // The cost bar and the category table always render once the page loads.
   await expect(page.getByRole("img", { name: /Εγκεκριμένος προϋπολογισμός/ })).toBeVisible();
   await expect(page.getByRole("table", { name: "Κόστος έργου ανά κατηγορία" })).toBeVisible();
+  await page.screenshot({ path: `e2e/screenshots/s04-cost-${testInfo.project.name}.png`, fullPage: true });
 
   // ASSUMPTION: PRJ-031 carries at least one live cost warning by the time
   // M2's seed lands, the same way its ΤΥ/2026 contract already carries the
@@ -63,7 +64,7 @@ test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε απ�
   await expect(page.getByRole("button", { name: "Απόρριψη" })).toHaveCount(0, { timeout: 1000 }).catch(() => undefined);
 });
 
-test("S10: Enter accepts the top suggestion, moves focus to the next row and the counter decrements", async ({ page }) => {
+test("S10: Enter accepts the top suggestion, moves focus to the next row and the counter decrements", async ({ page }, testInfo) => {
   await signIn(page, "finance@ecapital.test");
   await page.goto("/cost/imports");
   await expect(page.getByRole("heading", { name: "Εισαγωγή SAP" })).toBeVisible();
@@ -77,6 +78,7 @@ test("S10: Enter accepts the top suggestion, moves focus to the next row and the
 
   const counter = page.locator("p.font-k-mono.text-fs-20");
   await expect(counter).toBeVisible();
+  await page.screenshot({ path: `e2e/screenshots/s10-queue-${testInfo.project.name}.png`, fullPage: true });
   const before = Number((((await counter.textContent()) ?? "").match(/\d+/) ?? ["0"])[0]);
   test.skip(before === 0, "the seeded batch has no unmatched transactions left");
 
@@ -94,7 +96,7 @@ test("S10: Enter accepts the top suggestion, moves focus to the next row and the
   await expect(page.locator('tbody tr[tabindex="0"]')).toHaveCount(1);
 });
 
-test("S09: an engineer creates a payment certificate; a different user approves it; the creator sees the approval disabled on their own", async ({ page }) => {
+test("S09: an engineer creates a payment certificate; a different user approves it; the creator sees the approval disabled on their own", async ({ page }, testInfo) => {
   const period = { from: "2026-06-01", to: "2026-06-30" };
 
   await signIn(page, "engineer.larnaca@ecapital.test");
@@ -120,6 +122,7 @@ test("S09: an engineer creates a payment certificate; a different user approves 
   // RULE (retention its own line): never folded into net payable.
   await expect(page.getByText("Παρακράτηση")).toBeVisible();
   await expect(page.getByText("Καθαρό πληρωτέο")).toBeVisible();
+  await page.screenshot({ path: `e2e/screenshots/s09-certificate-${testInfo.project.name}.png`, fullPage: true });
 
   const certUrl = page.url();
 
@@ -140,10 +143,11 @@ test("S09: an engineer creates a payment certificate; a different user approves 
   void contractUrl; // kept for readability of the flow above, not asserted further here
 });
 
-test("S09a: exporting accruals downloads a file", async ({ page }) => {
+test("S09a: exporting accruals downloads a file", async ({ page }, testInfo) => {
   await signIn(page, "finance@ecapital.test");
   await page.goto("/cost/accruals");
   await expect(page.getByRole("heading", { name: "Δεδουλευμένα" })).toBeVisible();
+  await page.screenshot({ path: `e2e/screenshots/s09a-accruals-${testInfo.project.name}.png`, fullPage: true });
 
   const downloadPromise = page.waitForEvent("download");
   await nativeClick(page.getByRole("button", { name: "Εξαγωγή σε Excel" }));
