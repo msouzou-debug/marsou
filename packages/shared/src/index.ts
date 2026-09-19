@@ -6,5 +6,6 @@ export * from "./area";
 export * from "./auth";
 export * from "./project";
 export * from "./contract";
+export * from "./site";
 export * from "./portfolio";
 export * from "./directorate-labels";
