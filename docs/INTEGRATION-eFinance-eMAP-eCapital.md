@@ -63,7 +63,7 @@ and no third column: the `dms_site_code` §6 used to plan is not built.
 | `MHS` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | MHS | `MH` |
 | `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | PHC | `HC` |
 | `HQ` | Κεντρικά Γραφεία | HQ | `HQ` |
-| `CNS` | Κοινοτική Νοσηλευτική Υπηρεσία — Central Nursing Services | — | `CNS` |
+| `CNS` | Central Nursing Services (Greek name to be confirmed) | — | `CNS` |
 
 Eleven units. `CNS` is the one code with no eCapital org unit, deliberately:
 inventing one would put a fictional service in the capital register. **Capital
@@ -368,7 +368,7 @@ Service left ΟΚΥπΥ on 19/09/2026, and with it the open question this table
 used to carry about whether eArchive should add a site for it or file its
 papers under HQ. There is nothing left to file.
 
-**`CNS` is Central Nursing Services** (Κοινοτική Νοσηλευτική Υπηρεσία). It is
+**`CNS` is Central Nursing Services** (Greek name to be confirmed by the owner). It is
 an eFinance entity code with no eCapital org unit and no eArchive site of its
 own; capital work raised for it files under **`HQ`** (assumption, owner to
 confirm). §2 says why no unit is invented for it.
@@ -458,7 +458,7 @@ eCapital org unit (§2, ADR-0019 §5) — done, not open. What remains:
    since the volume argument (few transfers vs. many POs/contracts) applies
    to both.
 
-`CNS` (Κοινοτική Νοσηλευτική Υπηρεσία) is not on this list: it stays
+`CNS` (Greek name to be confirmed by the owner) is not on this list: it stays
 unmapped, on the same reasoning as ever — no capital-projects register to
 attach it to today — and that is a standing decision, not a question waiting
 on the owner.
