@@ -1,25 +1,36 @@
 import {
   AccrualRow,
   AdminUserList,
+  AffectedArea,
+  ApproverScopes,
   AreaTree,
   BudgetCodeList,
   BudgetLine,
+  CalendarEntry,
   CashflowRow,
   ConfigLinks,
   Contractor,
   ContractDetail,
   ContractList,
   Defect,
+  DisruptionHoursRow,
   ImportBatch,
+  Inbox,
+  IcraMatrixVersion,
   PaymentCert,
+  PermitListRow,
   PortfolioResponse,
   ProjectCost,
   ProjectDetail,
   ProjectList,
   Rfi,
   RoleCatalogue,
+  ShutdownPermit,
   SiteInstruction,
+  SystemFeed,
   UnmatchedQueue,
+  type AreaType,
+  type PermitSystem,
   type ProjectListQuery,
 } from "@ecapital/shared";
 import { useQuery } from "@tanstack/react-query";
@@ -356,5 +367,161 @@ export function useRoleCatalogue() {
     queryFn: () => proxyFetch("/admin/roles", RoleCatalogue),
     retry: false,
     staleTime: Infinity,
+  });
+}
+
+// ------------------------------------------------------------ M3 (R19–R25)
+// S11–S15, S24's approver scopes, S03's «Ανοικτές άδειες» card. Same shape as
+// every hook above — `proxyFetch`, keyed on the arguments that change the
+// result, `retry: false` — plus the mutation paths the Screens call through
+// `apiMutate` directly (not hooks: every screen in this module already
+// re-`refetch()`s after a write, the same pattern `RfisScreen` sets).
+
+// S11 step 1's «Έργο/Σύμβαση» is optional and reads `useProjectsForUnit` /
+// `useContracts`, already above; nothing new needed there.
+
+// S11 step 2: what a system feeds beyond the areas the engineer picked.
+export function useSystemFeeds(orgUnitId: string) {
+  return useQuery({
+    queryKey: ["system-feeds", orgUnitId],
+    queryFn: () => proxyFetch(`/system-feeds?orgUnitId=${encodeURIComponent(orgUnitId)}`, z.array(SystemFeed)),
+    retry: false,
+    enabled: orgUnitId.length > 0,
+  });
+}
+
+/** Builds `GET /areas/impact`'s query string from the picked systems and areas. */
+export function areasImpactPath(orgUnitId: string, systems: PermitSystem[], areaIds: string[]): string {
+  const params = new URLSearchParams({ orgUnitId, systems: systems.join(","), areaIds: areaIds.join(",") });
+  return `/areas/impact?${params.toString()}`;
+}
+
+// S11 step 2: direct + indirect affected areas for the picked systems/areas.
+export function useAreaImpact(orgUnitId: string, systems: PermitSystem[], areaIds: string[]) {
+  return useQuery({
+    queryKey: ["area-impact", orgUnitId, systems, areaIds],
+    queryFn: () => proxyFetch(areasImpactPath(orgUnitId, systems, areaIds), z.array(AffectedArea)),
+    retry: false,
+    enabled: orgUnitId.length > 0 && systems.length > 0 && areaIds.length > 0,
+  });
+}
+
+// S12: the active ICRA matrix version, for the version id under the badge
+// and (until `/icra/evaluate` is called) the four activity-type cards.
+export function useIcraMatrix() {
+  return useQuery({
+    queryKey: ["icra-matrix"],
+    queryFn: () => proxyFetch("/icra/matrix", IcraMatrixVersion),
+    retry: false,
+    staleTime: Infinity,
+  });
+}
+
+// S11 list, S11a's own record once created, S03's «Ανοικτές άδειες» card.
+export interface PermitsListQuery {
+  orgUnitId?: string;
+  status?: string[];
+  system?: string;
+  areaType?: string;
+  q?: string;
+  page: number;
+  pageSize: number;
+}
+
+export function permitsApiPath(query: PermitsListQuery): string {
+  const params = new URLSearchParams();
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  for (const s of query.status ?? []) params.append("status", s);
+  if (query.system) params.set("system", query.system);
+  if (query.areaType) params.set("areaType", query.areaType);
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  params.set("page", String(query.page));
+  params.set("pageSize", String(query.pageSize));
+  return `/permits?${params.toString()}`;
+}
+
+export function usePermits(query: PermitsListQuery) {
+  return useQuery({
+    queryKey: ["permits", query],
+    queryFn: () => proxyFetch(permitsApiPath(query), z.object({ items: z.array(PermitListRow), total: z.number().int() })),
+    retry: false,
+  });
+}
+
+// S03's «Ανοικτές άδειες» card: this project's own permits, any non-closed status.
+export function useProjectPermits(projectId: string) {
+  return useQuery({
+    queryKey: ["project-permits", projectId],
+    queryFn: () =>
+      proxyFetch(
+        permitsApiPath({ status: ["DRAFT", "SUBMITTED", "CLINICAL_REVIEW", "APPROVED", "ACTIVE", "BREACH"], page: 1, pageSize: 50 }),
+        z.object({ items: z.array(PermitListRow), total: z.number().int() }),
+      ).then((page) => page.items.filter((row) => row.projectId === projectId)),
+    retry: false,
+    enabled: projectId.length > 0,
+  });
+}
+
+// S11/S12 detail, S13 print, the permit detail screen.
+export function usePermit(id: string) {
+  return useQuery({
+    queryKey: ["permit", id],
+    queryFn: () => proxyFetch(`/permits/${encodeURIComponent(id)}`, ShutdownPermit),
+    retry: false,
+    enabled: id.length > 0,
+  });
+}
+
+// S15 disruption calendar.
+export interface CalendarQueryArgs {
+  from: string;
+  to: string;
+  orgUnitId?: string;
+  areaType?: AreaType;
+  system?: PermitSystem;
+}
+
+export function calendarApiPath(query: CalendarQueryArgs): string {
+  const params = new URLSearchParams({ from: query.from, to: query.to });
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  if (query.areaType) params.set("areaType", query.areaType);
+  if (query.system) params.set("system", query.system);
+  return `/calendar?${params.toString()}`;
+}
+
+export function useCalendar(query: CalendarQueryArgs) {
+  return useQuery({
+    queryKey: ["calendar", query],
+    queryFn: () => proxyFetch(calendarApiPath(query), z.array(CalendarEntry)),
+    retry: false,
+  });
+}
+
+// S15's «Ώρες κλινικής διατάραξης» table.
+export function useDisruptionHours(year: number) {
+  return useQuery({
+    queryKey: ["disruption-hours", year],
+    queryFn: () => proxyFetch(`/calendar/disruption-hours?year=${year}`, z.array(DisruptionHoursRow)),
+    retry: false,
+  });
+}
+
+// S14 approvals inbox.
+export function useInbox() {
+  return useQuery({
+    queryKey: ["inbox"],
+    queryFn: () => proxyFetch("/inbox", Inbox),
+    retry: false,
+  });
+}
+
+// S24 «Χώροι και ρόλοι έγκρισης» — item 8. ASSUMPTION on the endpoint name,
+// see `packages/shared/src/permit.ts`'s own note on `ApproverScopes`.
+export function useApproverScopes(userId: string) {
+  return useQuery({
+    queryKey: ["approver-scopes", userId],
+    queryFn: () => proxyFetch(`/admin/users/${encodeURIComponent(userId)}/approver-scopes`, ApproverScopes),
+    retry: false,
+    enabled: userId.length > 0,
   });
 }

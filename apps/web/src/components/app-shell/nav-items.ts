@@ -51,7 +51,9 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "portfolio", href: "/", labelKey: "nav.portfolio", icon: LayoutDashboard },
   { id: "projects", href: "/projects", labelKey: "nav.projects", icon: FolderKanban },
   { id: "contracts", href: "/contracts", labelKey: "nav.contracts", icon: FileSignature },
-  { id: "shutdowns", href: "/shutdowns", labelKey: "nav.shutdowns", icon: Construction },
+  // M3 (R19–R25): «Διακοπές και άδειες» — S11 permits list, with S15's
+  // calendar as a second tab under it (`PermitTabs`).
+  { id: "shutdowns", href: "/permits", labelKey: "nav.shutdowns", icon: Construction },
   { id: "assets", href: "/assets", labelKey: "nav.assets", icon: Building2 },
   { id: "maintenance", href: "/maintenance", labelKey: "nav.maintenance", icon: Wrench },
   // M2 (R14, R18): groups S10 Εισαγωγή SAP and S09a Δεδουλευμένα

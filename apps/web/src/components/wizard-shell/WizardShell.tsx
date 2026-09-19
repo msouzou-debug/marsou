@@ -22,6 +22,10 @@ export interface WizardStep {
  * | canContinue  | boolean             | Disables the forward button when false                       |
  * | onStepChange | (index) => void     | Optional. Fired with the target index just before onBack/     |
  * |              |                     | onNext, so the caller can autosave the step being left        |
+ * | submitLabel  | string              | Optional. Overrides the last step's button text — a screen    |
+ * |              |                     | whose final step leads somewhere other than a plain submit     |
+ * |              |                     | (S11's "Συνέχεια στην ICRA") passes its own `screens.*` label; |
+ * |              |                     | every other caller keeps the fixed `buttons.submit` verb.       |
  *
  * Autosave itself is the caller's job (UI instructions §4): WizardShell only
  * tells the caller a step boundary was crossed, via onStepChange.
@@ -44,6 +48,7 @@ export interface WizardShellProps {
   onNext: () => void;
   canContinue: boolean;
   onStepChange?: (index: number) => void;
+  submitLabel?: string;
 }
 
 export function WizardShell({
@@ -54,6 +59,7 @@ export function WizardShell({
   onNext,
   canContinue,
   onStepChange,
+  submitLabel,
 }: WizardShellProps) {
   const t = useTranslations();
   const isLast = current === steps.length - 1;
@@ -134,7 +140,7 @@ export function WizardShell({
             disabled={!canContinue}
             className="rounded-k bg-k-blue px-s-5 py-s-3 text-fs-14 font-bold text-k-white shadow-k disabled:bg-k-grey disabled:text-k-text-muted"
           >
-            {isLast ? t("buttons.submit") : t("buttons.continue")}
+            {isLast ? (submitLabel ?? t("buttons.submit")) : t("buttons.continue")}
           </button>
         </div>
       </div>

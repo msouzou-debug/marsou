@@ -159,3 +159,36 @@ export function canViewAccruals(roles: AppRole[]): boolean {
 export function canViewCostNav(roles: AppRole[]): boolean {
   return canImportSap(roles) || canViewAccruals(roles);
 }
+
+// ------------------------------------------------------------ M3 (R19–R25)
+//
+// FLAGGED (not settled by an ADR): CAPEX-01 §6 names who runs the flow in
+// prose ("Engineer picks systems…") but the API contract carries no role
+// list of its own for these routes. This build takes the same narrowest
+// reading the M1/M2 helpers above take: the three roles that run a project's
+// works may raise, edit and start/close a shutdown request;
+// `estates_head`/`admin` may reject one (CAPEX-01 §10's segregation for a
+// variation is the closest precedent — the person who decides is not the
+// person who asked); a `clinical_approver` only ever decides their own
+// routed approval line, never these lifecycle actions. Worth a line in the
+// hand-back summary, same as the contract-write set above.
+
+/** S11/S11a: raise or edit a shutdown request. */
+export function canWritePermits(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** Permit detail's «Έναρξη εργασιών» and «Κλείσιμο». */
+export function canOperatePermit(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** Permit detail's «Απόρριψη» — RULE (CAPEX-01 §10 precedent): estates_head or admin only. */
+export function canRejectPermit(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "estates_head" || role === "admin");
+}
+
+/** S24's «Χώροι και ρόλοι έγκρισης» editor — admin only, the rest of S24 already is. */
+export function canManageApproverScopes(roles: AppRole[]): boolean {
+  return isAdmin(roles);
+}

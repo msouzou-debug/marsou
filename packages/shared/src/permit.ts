@@ -343,10 +343,15 @@ export const PermitListQuery = z.object({
 });
 export type PermitListQuery = z.infer<typeof PermitListQuery>;
 
+// ASSUMPTION (item 9, S03 "Ανοικτές άδειες" card): `projectId` added to the
+// row so that card can filter without fetching every permit's full detail.
+// The original list of picked fields did not carry it; flagged for the PM to
+// confirm with the API agent at merge.
 export const PermitListRow = ShutdownPermit.pick({
   id: true,
   ref: true,
   orgUnitId: true,
+  projectId: true,
   titleEl: true,
   systems: true,
   plannedStart: true,
@@ -429,3 +434,37 @@ export const Inbox = z.object({
   counts: z.record(InboxItemType, z.number().int()),
 });
 export type Inbox = z.infer<typeof Inbox>;
+
+// ------------------------------------------------ approver scopes, item 8
+// CAPEX-01 §6.4: routing derives from the affected areas. Admin assigns each
+// `clinical_approver` the area roles (WARD_MANAGER, NURSING, INFECTION_CONTROL
+// — the three `ApprovalRole` values that are per-area, §6.4) and the unit
+// roles (TECHNICAL, SAFETY, HOSPITAL_DIRECTOR, INFECTION_CONTROL, NURSING —
+// the roles §6.4 resolves at the unit rather than the area) that person may
+// decide for. ASSUMPTION (flagged for the PM to reconcile at merge, per the
+// task's own instruction): `GET/PUT /admin/users/:id/approver-scopes`, body
+// `{ areas: [{areaId, role}], units: [{orgUnitId, role}] }` — not yet in
+// CAPEX-01's endpoint list.
+export const AreaApprovalRole = z.enum(["WARD_MANAGER", "NURSING", "INFECTION_CONTROL"]);
+export type AreaApprovalRole = z.infer<typeof AreaApprovalRole>;
+
+export const UnitApprovalRole = z.enum([
+  "TECHNICAL",
+  "SAFETY",
+  "HOSPITAL_DIRECTOR",
+  "INFECTION_CONTROL",
+  "NURSING",
+]);
+export type UnitApprovalRole = z.infer<typeof UnitApprovalRole>;
+
+export const ApproverAreaScope = z.object({ areaId: z.string(), role: AreaApprovalRole });
+export type ApproverAreaScope = z.infer<typeof ApproverAreaScope>;
+
+export const ApproverUnitScope = z.object({ orgUnitId: z.string(), role: UnitApprovalRole });
+export type ApproverUnitScope = z.infer<typeof ApproverUnitScope>;
+
+export const ApproverScopes = z.object({
+  areas: z.array(ApproverAreaScope),
+  units: z.array(ApproverUnitScope),
+});
+export type ApproverScopes = z.infer<typeof ApproverScopes>;
