@@ -79,7 +79,7 @@ describe("the eArchive callback", () => {
     return rows[0];
   }
 
-  function post(body: unknown) {
+  function post(body: Record<string, unknown>) {
     return request(app.getHttpServer())
       .post("/api/v1/dms/events")
       .set("Authorization", `Bearer ${TOKEN}`)

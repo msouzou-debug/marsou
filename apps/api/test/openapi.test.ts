@@ -17,13 +17,16 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0, M1 and M2 route", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1, M2 and M8 route", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
+      "/admin/dms/outbox",
+      "/admin/dms/outbox/{id}/retry",
       "/admin/roles",
       "/admin/users",
       "/admin/users/{id}",
+      "/api/v1/dms/events",
       "/audit-log",
       "/auth/dev-token",
       "/auth/login",
@@ -34,6 +37,7 @@ describe("openapi.json", () => {
       "/contracts/lookup",
       "/contracts/{id}",
       "/contracts/{id}/boq",
+      "/contracts/{id}/documents",
       "/contracts/{id}/payment-certs",
       "/contracts/{id}/rfis",
       "/contracts/{id}/rfis/{rid}/answer",
@@ -72,6 +76,7 @@ describe("openapi.json", () => {
       "/projects/{id}/cost/export",
       "/projects/{id}/cost/forecast-inputs",
       "/projects/{id}/cost/warnings/{wid}/dismiss",
+      "/projects/{id}/documents",
       "/projects/{id}/issues",
       "/projects/{id}/issues/{iid}",
       "/projects/{id}/milestones",
@@ -79,6 +84,7 @@ describe("openapi.json", () => {
       "/projects/{id}/phase",
       "/projects/{id}/risks",
       "/projects/{id}/risks/{rid}",
+      "/variations/{id}/documents",
     ]);
   });
 });

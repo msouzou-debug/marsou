@@ -30,7 +30,9 @@ describe("the samples handed to eArchive", () => {
     // is what the rest of the object has to satisfy.
     expect(typeof raw.outbox_id).toBe("string");
     expect(String(raw.sent_at)).toMatch(/[+-]\d{2}:\d{2}$/);
-    const { outbox_id: _id, sent_at: _at, ...body } = raw;
+    const body = { ...raw };
+    delete body.outbox_id;
+    delete body.sent_at;
     const parsed = DmsMetaBody.safeParse(body);
     expect(parsed.success ? null : parsed.error.issues).toBeNull();
   });
