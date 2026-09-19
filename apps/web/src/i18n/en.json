@@ -1155,6 +1155,19 @@
         "caption": "Clinical disruption hours by unit and month",
         "empty": "No disruption hours are recorded."
       }
+    },
+    "s26": {
+      "title": "User guide",
+      "intro": "This page gives you the sixteen printable user guides, one per role and language. Download the one that matches your role, to print or to train new staff with.",
+      "tableCaption": "The sixteen PDF user guides, by role and language, with file size and the date of the last update.",
+      "columns": {
+        "persona": "Role",
+        "language": "Language",
+        "size": "Size",
+        "updated": "Updated",
+        "download": "Download"
+      },
+      "empty": "The PDF guides have not been generated yet for this installation. They are generated with every eCapital release."
     }
   },
   "states": {

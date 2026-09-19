@@ -85,3 +85,20 @@ export function formatInt(value: number): string {
   const neg = value < 0;
   return `${neg ? "-" : ""}${groupThousands(Math.round(Math.abs(value)).toString())}`;
 }
+
+/** File size for the S26 guides table (R50): 1,2 MB / 340 KB / 512 B. One
+ *  decimal above 1 KB, comma, thin space before the unit — same convention
+ *  as `formatPct`. */
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes < 1024) return `${Math.round(bytes)}${THIN}B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const fixed = value.toFixed(value < 10 ? 1 : 0).replace(".", ",");
+  return `${fixed}${THIN}${units[unitIndex]}`;
+}

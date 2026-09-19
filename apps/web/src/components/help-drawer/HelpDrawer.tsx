@@ -99,7 +99,14 @@ export function HelpDrawer({ open, onClose, onSearch, children, role, pdfHref, h
         </div>
 
         <footer className="border-t border-k-grey p-s-4">
-          <Link href={pdfHref} className="text-fs-14 text-k-blue underline-offset-2 hover:underline">
+          {/* Opens in a new tab (R50): the drawer, and the page under it,
+              stay exactly as the reader left them. */}
+          <Link
+            href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-fs-14 text-k-blue underline-offset-2 hover:underline"
+          >
             {t("help.pdfGuide", { role })}
           </Link>
         </footer>

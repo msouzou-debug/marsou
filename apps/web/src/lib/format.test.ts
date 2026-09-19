@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatEUR, formatEURorDash, formatInt, formatPct } from "./format";
+import { formatDate, formatDateTime, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct } from "./format";
 
 const T = " "; // narrow no-break space
 
@@ -53,5 +53,23 @@ describe("formatInt", () => {
   it("groups thousands", () => {
     expect(formatInt(113)).toBe("113");
     expect(formatInt(276481892)).toBe("276.481.892");
+  });
+});
+
+describe("formatFileSize", () => {
+  it("uses bytes below 1 KB, no decimal", () => {
+    expect(formatFileSize(512)).toBe(`512${T}B`);
+  });
+  it("uses KB/MB with one decimal below 10 of the unit", () => {
+    expect(formatFileSize(1536)).toBe(`1,5${T}KB`);
+    expect(formatFileSize(3_250_000)).toBe(`3,1${T}MB`);
+  });
+  it("drops the decimal at 10 or more of a unit", () => {
+    expect(formatFileSize(337_100)).toBe(`329${T}KB`);
+    expect(formatFileSize(15 * 1024 * 1024)).toBe(`15${T}MB`);
+  });
+  it("returns a dash for negative or non-finite input", () => {
+    expect(formatFileSize(-1)).toBe("—");
+    expect(formatFileSize(NaN)).toBe("—");
   });
 });

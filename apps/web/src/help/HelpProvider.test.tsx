@@ -74,4 +74,53 @@ describe("HelpProvider", () => {
     await user.click(screen.getByRole("button", { name: "open help" }));
     expect(screen.getByText("Η βοήθεια για αυτή την οθόνη δεν έχει γραφτεί ακόμη.")).toBeInTheDocument();
   });
+
+  // R50: the footer PDF link is the signed-in user's own persona guide, for
+  // the current locale — not a guide for whatever screen's section happens
+  // to be registered (the two can be different personas, e.g. an estates
+  // head reading a technician's screen).
+  describe("footer PDF guide link (R50)", () => {
+    it("points at /guides/<role>.<locale>.pdf for the signed-in user's role, in Greek", async () => {
+      const user = userEvent.setup();
+      renderWithIntl(
+        <HelpProvider userRole="project_engineer">
+          <RegisterHelpSection personas={["finance"]}>
+            <h2>Κόστος</h2>
+          </RegisterHelpSection>
+          <OpenHelpButton />
+        </HelpProvider>,
+        { locale: "el" },
+      );
+
+      await user.click(screen.getByRole("button", { name: "open help" }));
+      const link = screen.getByRole("link", { name: /Οδηγός PDF/ });
+      expect(link).toHaveAttribute("href", "/guides/project_engineer.el.pdf");
+      expect(link).toHaveAttribute("target", "_blank");
+    });
+
+    it("uses the current locale, in English", async () => {
+      const user = userEvent.setup();
+      renderWithIntl(
+        <HelpProvider userRole="finance">
+          <OpenHelpButton />
+        </HelpProvider>,
+        { locale: "en" },
+      );
+
+      await user.click(screen.getByRole("button", { name: "open help" }));
+      expect(screen.getByRole("link", { name: /PDF guide/ })).toHaveAttribute("href", "/guides/finance.en.pdf");
+    });
+
+    it("falls back to the help centre when there is no signed-in role", async () => {
+      const user = userEvent.setup();
+      renderWithIntl(
+        <HelpProvider>
+          <OpenHelpButton />
+        </HelpProvider>,
+      );
+
+      await user.click(screen.getByRole("button", { name: "open help" }));
+      expect(screen.getByRole("link", { name: /Οδηγός PDF/ })).toHaveAttribute("href", "/help");
+    });
+  });
 });

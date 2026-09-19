@@ -52,6 +52,11 @@ cd "${REPO_ROOT}"
 pnpm install --frozen-lockfile
 pnpm -r build
 
+# R50: refresh the per-persona PDF guides from the current manual source
+# before every release (build brief §14) — never ship stale ones. Aborts the
+# release if help/map.json now names a manual section that does not exist.
+pnpm guides:build
+
 LOCAL_API_MD5="$(md5sum apps/api/src/main.ts | cut -d' ' -f1)"
 if [[ -f apps/web/.next/BUILD_ID ]]; then
   LOCAL_WEB_MD5="$(md5sum apps/web/.next/BUILD_ID | cut -d' ' -f1)"

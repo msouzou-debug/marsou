@@ -32,5 +32,6 @@
   "S12": { "route": "/permits/[id]/icra", "section": "S12-icra", "persona": ["admin", "estates_head", "project_engineer"] },
   "S13": { "route": "/permits/[id]/print", "section": "S13-permit-print", "persona": ["admin", "estates_head", "project_engineer", "technician", "clinical_approver"] },
   "S14": { "route": "/approvals", "section": "S14-approvals", "persona": ["admin", "estates_head", "clinical_approver"] },
-  "S15": { "route": "/calendar", "section": "S15-calendar", "persona": ["admin", "estates_head", "project_engineer", "clinical_approver", "executive_readonly", "auditor_readonly"] }
+  "S15": { "route": "/calendar", "section": "S15-calendar", "persona": ["admin", "estates_head", "project_engineer", "clinical_approver", "executive_readonly", "auditor_readonly"] },
+  "S26": { "route": "/help", "section": "S26-help-centre", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "clinical_approver", "executive_readonly", "auditor_readonly"] }
 }

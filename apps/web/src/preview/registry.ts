@@ -49,6 +49,7 @@ import s10Imports from "@/screens/s10-sap-import/Imports.preview";
 import s10UnmatchedQueue from "@/screens/s10-sap-import/UnmatchedQueue.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 import s24Users from "@/screens/s24-users/Users.preview";
+import s26HelpCentre from "@/screens/s26-help-centre/GuideIndexTable.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
@@ -103,6 +104,7 @@ const entries: PreviewEntry[] = [
   s10UnmatchedQueue,
   s24Contractors,
   s24Users,
+  s26HelpCentre,
 ];
 
 export function getPreviewEntries(): PreviewEntry[] {
