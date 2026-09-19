@@ -231,7 +231,7 @@ describe("payment certificates (R11, R18, R31)", () => {
       (row: { key: string }) => row.key === "retentionBeforeDlpEnd",
     );
     expect(warning).toBeDefined();
-    expect(warning.sentenceEl).toContain("αρακράτηση");
+    expect(warning.sentenceEl).toContain("κρατήσεις");
   });
 
   it("proposes the accrual for what is certified and not invoiced", async () => {

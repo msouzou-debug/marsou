@@ -106,7 +106,7 @@ test("S09: an engineer creates a payment certificate; a different user approves 
   await contractLink.click();
   const contractUrl = page.url();
 
-  await nativeClick(page.getByRole("tab", { name: "Πιστοποιητικά", exact: true }));
+  await nativeClick(page.getByRole("tab", { name: "Πιστοποιήσεις", exact: true }));
   await page.waitForURL(/\/certificates$/);
   // The header «Προσθήκη» is a link (the empty state has a button of the same name).
   await nativeClick(page.getByRole("link", { name: "Προσθήκη", exact: true }));
@@ -120,7 +120,7 @@ test("S09: an engineer creates a payment certificate; a different user approves 
   await page.waitForURL(/\/certificates\/[^/]+$/);
 
   // RULE (retention its own line): never folded into net payable.
-  await expect(page.getByText("Παρακράτηση")).toBeVisible();
+  await expect(page.getByText("Κρατήσεις")).toBeVisible();
   await expect(page.getByText("Καθαρό πληρωτέο")).toBeVisible();
   await page.screenshot({ path: `e2e/screenshots/s09-certificate-${testInfo.project.name}.png`, fullPage: true });
 
@@ -129,7 +129,7 @@ test("S09: an engineer creates a payment certificate; a different user approves 
   // The creator sees «Έγκριση μηχανικού» disabled with the segregation sentence.
   const ownApproveButton = page.getByRole("button", { name: "Έγκριση μηχανικού" });
   await expect(ownApproveButton).toBeDisabled();
-  await expect(page.getByText("Δεν εγκρίνετε πιστοποιητικό που καταχωρίσατε εσείς")).toBeVisible();
+  await expect(page.getByText("Δεν εγκρίνετε πιστοποίηση που καταχωρίσατε εσείς")).toBeVisible();
 
   // A different user (admin) approves it.
   await page.context().clearCookies();

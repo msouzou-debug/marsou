@@ -28,7 +28,7 @@ describe("CertificateDetail (S09)", () => {
     );
     const button = Array.from(document.querySelectorAll("button")).find((b) => b.textContent?.includes("Έγκριση μηχανικού"));
     expect(button?.hasAttribute("disabled")).toBe(true);
-    expect(document.body.textContent).toContain("Δεν εγκρίνετε πιστοποιητικό που καταχωρίσατε εσείς");
+    expect(document.body.textContent).toContain("Δεν εγκρίνετε πιστοποίηση που καταχωρίσατε εσείς");
   });
 
   it("enables «Έγκριση μηχανικού» for a different engineer", () => {

@@ -5,7 +5,7 @@
 /**
  * ContractTabs — the tab strip a contract's own screens share, the same
  * pattern `ProjectTabs` (S03) sets: Επισκόπηση (S07), Τροποποιήσεις (S08),
- * Πιστοποιητικά (S09), Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου
+ * Πιστοποιήσεις (S09), Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου
  * (S07c) and Ελλείψεις (S07d), in that fixed order.
  *
  * | Prop              | Type           | Notes                                                       |
