@@ -5,6 +5,8 @@ import {
   type ContractCreate,
   type ContractDetail,
   type ContractList,
+  type ContractListQuery,
+  type ContractLookup,
   type ContractUpdate,
   type Defect,
   type ProjectPhase,
@@ -12,7 +14,7 @@ import {
   type VariationCreate,
   type VariationDecision,
 } from "@ecapital/shared";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import {
@@ -81,6 +83,77 @@ export class ContractsService {
   }
 
   /**
+   * ADR-0019 — the register across every project the caller may see, for
+   * `/contracts` on the web and for anybody arriving from eFinance without a
+   * reference. No permission check here either: the row policy is what
+   * decides which contracts come back, so a caller sees their own units and
+   * nothing else whatever `unit` says (ADR-0010).
+   */
+  async listAll(query: ContractListQuery): Promise<ContractList> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const where = [];
+    if (query.unit) where.push(eq(schema.contract.orgUnitId, query.unit));
+    if (query.q?.trim()) {
+      where.push(matchesListable(query.q.trim()));
+    }
+
+    const rows = await tx.db
+      .select(CONTRACT_COLUMNS)
+      .from(schema.contract)
+      .innerJoin(schema.contractor, eq(schema.contractor.id, schema.contract.contractorId))
+      .where(where.length ? and(...where) : undefined)
+      .orderBy(desc(schema.contract.awardDate), asc(schema.contract.ref));
+
+    const items = rows.map((row) => toContract(row as ContractRow));
+    return { items, total: items.length };
+  }
+
+  /**
+   * ADR-0019 — what eFinance's link lands on.
+   *
+   * eFinance stores a `contract_ref` on an invoice and routes it by prefix:
+   * `CON-` opens eMAP, `CAP-` opens eCapital. Both systems answer the same
+   * shape of request — `/contracts?q=<ref>` — so the finance clerk's link
+   * works without either system knowing anything about the other's ids.
+   *
+   * It resolves `ref` first and exactly, because that is the reference
+   * eFinance was given and it is not ambiguous. Only then does it try
+   * `contractNo`, which a person may have typed from the tender papers with
+   * different capitals or accents — «ΑΝΑΚΑΙΝΙΣΗ 12/2026» has to find
+   * «Ανακαίνιση 12/2026».
+   *
+   * RULE (ADR-0010): a contract in a unit the caller may not see is not
+   * "forbidden", it does not exist — the row policy filters it out and the
+   * answer is the same 404 an unknown reference gets.
+   */
+  async lookup(q: string): Promise<ContractLookup> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const needle = q.trim();
+    if (!needle) throw AppError.badRequest("errors.contractRefNeeded");
+
+    const exact = await tx.db
+      .select({ id: schema.contract.id })
+      .from(schema.contract)
+      .where(or(eq(schema.contract.ref, needle), eq(schema.contract.contractNo, needle)))
+      .orderBy(asc(schema.contract.ref))
+      .limit(1);
+    if (exact.length) return { id: exact[0].id };
+
+    const folded = await tx.db
+      .select({ id: schema.contract.id })
+      .from(schema.contract)
+      .where(matchesReference(needle))
+      .orderBy(asc(schema.contract.ref))
+      .limit(1);
+    if (folded.length) return { id: folded[0].id };
+
+    throw AppError.notFound("errors.contractNotFound");
+  }
+
+  /**
    * RULE (R08): a blacklisted contractor takes no new contract —
    * errors.contractorBlacklisted, 422. The contracts it already holds run to
    * their end; this refuses the new one only.
@@ -103,6 +176,14 @@ export class ContractsService {
       throw AppError.unprocessable("errors.contractorBlacklisted", { contractor: contractor.name });
     }
 
+    // ADR-0019. Allocated inside this request's transaction, by the database,
+    // behind an advisory lock on the year — the same pattern ADR-0014 uses
+    // for the project code and for the same reason: two people pressing
+    // «Αποθήκευση» in the same second must queue, not collide. The year is
+    // the award year, so a contract awarded in December 2026 and recorded in
+    // January reads CAP-2026-…, which is what the papers say.
+    const year = Number(input.awardDate.slice(0, 4));
+
     try {
       const [row] = await tx.db
         .insert(schema.contract)
@@ -112,6 +193,7 @@ export class ContractsService {
           // the column is NOT NULL.
           orgUnitId: "",
           contractorId: input.contractorId,
+          ref: sql`ecapital.allocate_contract_ref(${year})`,
           contractNo: input.contractNo,
           type: input.type,
           awardDate: input.awardDate,
@@ -128,6 +210,7 @@ export class ContractsService {
             input.liquidatedDamagesPerDay === null ? null : String(input.liquidatedDamagesPerDay),
           defectsLiabilityMonths: input.defectsLiabilityMonths,
           sapPoNumber: input.sapPoNumber,
+          emapRef: input.emapRef,
         })
         .returning({ id: schema.contract.id });
       return await this.detail(row.id);
@@ -235,6 +318,10 @@ export class ContractsService {
             : String(input.liquidatedDamagesPerDay),
       defectsLiabilityMonths: input.defectsLiabilityMonths,
       sapPoNumber: input.sapPoNumber,
+      // RULE (ADR-0019): `emapRef` is editable — somebody types it in after
+      // the fact when the eMAP contract is found. `ref` is not, and is not
+      // in `ContractUpdate` at all; a trigger refuses it whatever asks.
+      emapRef: input.emapRef,
     });
     if (Object.keys(values).length === 0) return this.detail(id);
 
@@ -653,12 +740,35 @@ export class ContractsService {
   }
 }
 
+/**
+ * One needle against both references and the contractor's name, folded by
+ * ecapital.normalise (0002): accents off, capitals down, final sigma
+ * regularised. The same function backs the expression index the migration
+ * adds on contract_no, so this stays an index scan rather than a table scan
+ * once the register is more than a few hundred rows.
+ */
+function matchesReference(needle: string) {
+  const pattern = sql`'%' || ecapital.normalise(${needle}) || '%'`;
+  return sql`(
+    ecapital.normalise(${schema.contract.ref}) like ${pattern}
+    or ecapital.normalise(${schema.contract.contractNo}) like ${pattern}
+    or ecapital.normalise(coalesce(${schema.contract.emapRef}, '')) like ${pattern}
+  )`;
+}
+
+/** The list's own search: the references above, plus who is building it. */
+function matchesListable(needle: string) {
+  const pattern = sql`'%' || ecapital.normalise(${needle}) || '%'`;
+  return sql`(${matchesReference(needle)} or ecapital.normalise(${schema.contractor.name}) like ${pattern})`;
+}
+
 const CONTRACT_COLUMNS = {
   id: schema.contract.id,
   projectId: schema.contract.projectId,
   orgUnitId: schema.contract.orgUnitId,
   contractorId: schema.contract.contractorId,
   contractorName: schema.contractor.name,
+  ref: schema.contract.ref,
   contractNo: schema.contract.contractNo,
   type: schema.contract.type,
   awardDate: schema.contract.awardDate,
@@ -675,6 +785,7 @@ const CONTRACT_COLUMNS = {
   liquidatedDamagesPerDay: schema.contract.liquidatedDamagesPerDay,
   defectsLiabilityMonths: schema.contract.defectsLiabilityMonths,
   sapPoNumber: schema.contract.sapPoNumber,
+  emapRef: schema.contract.emapRef,
   createdAt: schema.contract.createdAt,
   updatedAt: schema.contract.updatedAt,
 };

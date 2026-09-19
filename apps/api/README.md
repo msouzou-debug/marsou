@@ -41,7 +41,8 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/projects/`, `src/portfolio/` | The M1 modules. `project-rows.ts` holds the phase order and the audit-line rules as pure functions. |
 | `src/contractors/`, `src/contracts/` | The contract register. `contract-rows.ts` holds the commitment arithmetic and the four warn-and-flag rules as pure functions. |
 | `src/rfis/`, `src/site-instructions/`, `src/defects/` | The site log. `rfi-rows.ts` holds the SLA band, `defect-rows.ts` the defects-liability arithmetic and the backlog banding, all as pure functions. |
-| `src/auth/` | The OIDC guard, the development stub, `GET /me` (ADR-0009). |
+| `src/auth/` | The guard, the three ways in and `GET /me` (ADR-0009, ADR-0018). `directory.ts` is the port between "who is this person" and "which directory says so"; `ldap.directory.ts` is the one implementation, against the ΟΚΥπΥ Active Directory. |
+| `src/links/` | `GET /config/links` — where eMAP and eFinance are, for the S07 link-outs (ADR-0019). |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
 | `src/cli/` | The capex plan import (R41). `profiles/*.yaml` is the mapping as data; `parse.ts` and `validate.ts` are the column transforms and the fourteen rules as pure functions (ADR-0016). |
 | `src/i18n/{el,en}.json` | Every error sentence, keyed, Greek and English. |
@@ -54,9 +55,11 @@ Every route below is behind the bearer token and inside the row-level-security t
 | Method and path | What it does | Milestone |
 |---|---|---|
 | `GET /health` | Liveness, database reachability, last applied migration. No token. | M0 |
-| `POST /auth/dev-token` | A signed development token for a seeded user. Dead unless `DEV_AUTH` is on. | M0 |
+| `POST /auth/dev-token` | A signed development token for a seeded user. Answers 404 unless `AUTH_MODE=dev`. | M0 |
+| `POST /auth/login` | Username and password, checked by a simple bind against the ΟΚΥπΥ Active Directory; the same token and claims the stub issues. Answers 404 unless `AUTH_MODE=ldap` (ADR-0018). | M1 |
 | `GET /me` | The caller's own claims, camelCase. | M0 |
-| `GET /org-units` | The units the caller may see. | M0 |
+| `GET /config/links` | Base URLs of eMAP and eFinance, or null where this deployment was told of neither. Signed in, no role (ADR-0019). | M1 |
+| `GET /org-units` | The units the caller may see, each with its eFinance `entityCode` (ADR-0019). | M0 |
 | `GET /org-units/:id/areas` | That unit's building → floor → area tree. | M0 |
 | `POST /org-units/:id/areas` | Add an area to a floor of the unit. | M0 |
 | `GET /audit-log` | The organisation's audit trail. `admin` and `auditor_readonly` only. | M0 |
@@ -72,10 +75,12 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `GET /contractors` | The supplier register, shared across the units, readable by everyone signed in. | M1 |
 | `POST /contractors` | Add a company. `admin` and `estates_head` only (ADR-0015). | M1 |
 | `PATCH /contractors/:id` | Change one. `blacklisted` is an administrator's field; anyone else gets 403 `errors.blacklistAdminOnly`. | M1 |
+| `GET /contracts` | Every contract the caller may see, newest award first, filtered by `unit` and searched by `q` over the two references and the contractor's name (ADR-0019). | M1 |
+| `GET /contracts/lookup?q=` | Resolve `CAP-YYYY-NNNN`, or a contract number, to an id. `{id}` or 404. This is what eFinance's invoice link lands on (ADR-0019). | M1 |
 | `GET /projects/:id/contracts` | The contracts of one project. | M1 |
-| `POST /projects/:id/contracts` | Record the awarded contract. 422 if the contractor is blacklisted, or if the project has not reached AWARDED (CAPEX-01 §1). | M1 |
+| `POST /projects/:id/contracts` | Record the awarded contract. The API allocates `ref` (`CAP-YYYY-NNNN`, ADR-0019); a body that carries one is ignored. 422 if the contractor is blacklisted, or if the project has not reached AWARDED (CAPEX-01 §1). | M1 |
 | `GET /contracts/:id` | One contract with its project, its contractor, its bill, its variations newest first, the approved and pending totals, the variation percentage and the warnings. | M1 |
-| `PATCH /contracts/:id` | Change the terms. The value is not one of them — it follows the variations. | M1 |
+| `PATCH /contracts/:id` | Change the terms. Neither the value nor `ref` is one of them — the value follows the variations, and the reference never changes (ADR-0019). | M1 |
 | `PUT /contracts/:id/boq` | Replace the whole bill of quantities. Each amount is qty × rate, worked out here. | M1 |
 | `POST /contracts/:id/variations` | Raise a variation. DRAFT, raised by the caller, numbered by the database. | M1 |
 | `PATCH /contracts/:id/variations/:vid` | Change one while it is DRAFT or RETURNED, and only as its raiser or an administrator. | M1 |

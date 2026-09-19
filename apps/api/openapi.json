@@ -252,6 +252,216 @@
         ]
       }
     },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A token valid for eight hours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "claims": {
+                      "type": "object",
+                      "properties": {
+                        "sub": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "estates_head",
+                              "project_engineer",
+                              "technician",
+                              "finance",
+                              "clinical_approver",
+                              "executive_readonly",
+                              "auditor_readonly"
+                            ]
+                          }
+                        },
+                        "orgUnitIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "sub",
+                        "userId",
+                        "name",
+                        "email",
+                        "roles",
+                        "orgUnitIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "claims"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body carries no username or no password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The directory refused the credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "AUTH_MODE is not ldap, so this route does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Sign in with a ΟΚΥπΥ Active Directory account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/org-units": {
       "get": {
         "operationId": "OrgUnitsController_list",
@@ -313,6 +523,13 @@
                           "null"
                         ]
                       },
+                      "entityCode": {
+                        "default": null,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "timezone": {
                         "type": "string",
                         "const": "Europe/Nicosia"
@@ -326,6 +543,7 @@
                       "type",
                       "directorate",
                       "costCentre",
+                      "entityCode",
                       "timezone"
                     ],
                     "additionalProperties": false
@@ -6595,6 +6813,10 @@
                           "contractorName": {
                             "type": "string"
                           },
+                          "ref": {
+                            "type": "string",
+                            "pattern": "^CAP-\\d{4}-\\d{4}$"
+                          },
                           "contractNo": {
                             "type": "string"
                           },
@@ -6691,6 +6913,18 @@
                               "null"
                             ]
                           },
+                          "emapRef": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^CON-\\d{4}-\\d{4}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "default": null,
                             "type": [
@@ -6712,6 +6946,7 @@
                           "orgUnitId",
                           "contractorId",
                           "contractorName",
+                          "ref",
                           "contractNo",
                           "type",
                           "awardDate",
@@ -6728,6 +6963,7 @@
                           "liquidatedDamagesPerDay",
                           "defectsLiabilityMonths",
                           "sapPoNumber",
+                          "emapRef",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -6936,6 +7172,18 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "emapRef": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^CON-\\d{4}-\\d{4}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -6952,7 +7200,8 @@
                   "bondExpiry",
                   "liquidatedDamagesPerDay",
                   "defectsLiabilityMonths",
-                  "sapPoNumber"
+                  "sapPoNumber",
+                  "emapRef"
                 ],
                 "additionalProperties": false
               }
@@ -6981,6 +7230,10 @@
                     },
                     "contractorName": {
                       "type": "string"
+                    },
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^CAP-\\d{4}-\\d{4}$"
                     },
                     "contractNo": {
                       "type": "string"
@@ -7076,6 +7329,18 @@
                       "type": [
                         "string",
                         "null"
+                      ]
+                    },
+                    "emapRef": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^CON-\\d{4}-\\d{4}$"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "createdAt": {
@@ -7522,6 +7787,7 @@
                     "orgUnitId",
                     "contractorId",
                     "contractorName",
+                    "ref",
                     "contractNo",
                     "type",
                     "awardDate",
@@ -7538,6 +7804,7 @@
                     "liquidatedDamagesPerDay",
                     "defectsLiabilityMonths",
                     "sapPoNumber",
+                    "emapRef",
                     "createdAt",
                     "updatedAt",
                     "project",
@@ -7694,6 +7961,464 @@
         ]
       }
     },
+    "/contracts": {
+      "get": {
+        "operationId": "ContractsController_listAll",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's contracts, newest award first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "contractorId": {
+                            "type": "string"
+                          },
+                          "contractorName": {
+                            "type": "string"
+                          },
+                          "ref": {
+                            "type": "string",
+                            "pattern": "^CAP-\\d{4}-\\d{4}$"
+                          },
+                          "contractNo": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "LUMP_SUM",
+                              "BOQ",
+                              "FRAMEWORK",
+                              "MEASURE_TERM",
+                              "SUPPLY",
+                              "SERVICE"
+                            ]
+                          },
+                          "awardDate": {
+                            "type": "string"
+                          },
+                          "awardDecisionDocId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "originalValue": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "currentValue": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "currency": {
+                            "type": "string",
+                            "const": "EUR"
+                          },
+                          "startDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completionDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "extensionDays": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "retentionPct": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "performanceBondValue": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "bondExpiry": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "liquidatedDamagesPerDay": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "defectsLiabilityMonths": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "sapPoNumber": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "emapRef": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^CON-\\d{4}-\\d{4}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdAt": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "orgUnitId",
+                          "contractorId",
+                          "contractorName",
+                          "ref",
+                          "contractNo",
+                          "type",
+                          "awardDate",
+                          "awardDecisionDocId",
+                          "originalValue",
+                          "currentValue",
+                          "currency",
+                          "startDate",
+                          "completionDate",
+                          "extensionDays",
+                          "retentionPct",
+                          "performanceBondValue",
+                          "bondExpiry",
+                          "liquidatedDamagesPerDay",
+                          "defectsLiabilityMonths",
+                          "sapPoNumber",
+                          "emapRef",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The query is not valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Every contract the caller may see, newest award first",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
+    "/contracts/lookup": {
+      "get": {
+        "operationId": "ContractsController_lookup",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The id of the one contract that reference names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No reference was given",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No contract carries that reference, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resolve CAP-YYYY-NNNN, or a contract number, to an id",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
     "/contracts/{id}": {
       "get": {
         "operationId": "ContractsController_detail",
@@ -7740,6 +8465,10 @@
                     },
                     "contractorName": {
                       "type": "string"
+                    },
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^CAP-\\d{4}-\\d{4}$"
                     },
                     "contractNo": {
                       "type": "string"
@@ -7835,6 +8564,18 @@
                       "type": [
                         "string",
                         "null"
+                      ]
+                    },
+                    "emapRef": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^CON-\\d{4}-\\d{4}$"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "createdAt": {
@@ -8281,6 +9022,7 @@
                     "orgUnitId",
                     "contractorId",
                     "contractorName",
+                    "ref",
                     "contractNo",
                     "type",
                     "awardDate",
@@ -8297,6 +9039,7 @@
                     "liquidatedDamagesPerDay",
                     "defectsLiabilityMonths",
                     "sapPoNumber",
+                    "emapRef",
                     "createdAt",
                     "updatedAt",
                     "project",
@@ -8491,6 +9234,18 @@
                       "null"
                     ]
                   },
+                  "emapRef": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^CON-\\d{4}-\\d{4}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "extensionDays": {
                     "type": "integer",
                     "minimum": 0,
@@ -8524,6 +9279,10 @@
                     },
                     "contractorName": {
                       "type": "string"
+                    },
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^CAP-\\d{4}-\\d{4}$"
                     },
                     "contractNo": {
                       "type": "string"
@@ -8619,6 +9378,18 @@
                       "type": [
                         "string",
                         "null"
+                      ]
+                    },
+                    "emapRef": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^CON-\\d{4}-\\d{4}$"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "createdAt": {
@@ -9065,6 +9836,7 @@
                     "orgUnitId",
                     "contractorId",
                     "contractorName",
+                    "ref",
                     "contractNo",
                     "type",
                     "awardDate",
@@ -9081,6 +9853,7 @@
                     "liquidatedDamagesPerDay",
                     "defectsLiabilityMonths",
                     "sapPoNumber",
+                    "emapRef",
                     "createdAt",
                     "updatedAt",
                     "project",
@@ -13814,6 +14587,13 @@
                                   "null"
                                 ]
                               },
+                              "entityCode": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
                               "timezone": {
                                 "type": "string",
                                 "const": "Europe/Nicosia"
@@ -13827,6 +14607,7 @@
                               "type",
                               "directorate",
                               "costCentre",
+                              "entityCode",
                               "timezone"
                             ],
                             "additionalProperties": false
@@ -14118,6 +14899,95 @@
         "summary": "Is the database reachable and which migration is applied",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/config/links": {
+      "get": {
+        "operationId": "LinksController_links",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Both may be null; null means do not offer the link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "emapUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "efinanceUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "emapUrl",
+                    "efinanceUrl"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Base URLs of the sibling systems, or null where there is none",
+        "tags": [
+          "config"
         ]
       }
     },

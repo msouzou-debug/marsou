@@ -56,6 +56,7 @@ describe("GET /org-units", () => {
       "code",
       "costCentre",
       "directorate",
+      "entityCode",
       "id",
       "nameEl",
       "nameEn",
@@ -70,6 +71,8 @@ describe("GET /org-units", () => {
       type: "HOSPITAL",
       directorate: "LEFKOSIAS",
       costCentre: "CC-NGH-01",
+      // ADR-0019: the eFinance entity code, sent as a code and never a name.
+      entityCode: "NGH",
       timezone: "Europe/Nicosia",
     });
   });

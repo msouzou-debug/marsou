@@ -33,12 +33,28 @@ export type Contractor = z.infer<typeof Contractor>;
 export const ContractType = z.enum(["LUMP_SUM", "BOQ", "FRAMEWORK", "MEASURE_TERM", "SUPPLY", "SERVICE"]);
 export type ContractType = z.infer<typeof ContractType>;
 
+// ADR-0019. eCapital's own reference for a contract: CAP-<YEAR>-<NNNN>,
+// allocated by the API, unique across the organisation and never changed.
+// eFinance routes a `contract_ref` by prefix — CON- to eMAP, CAP- to here —
+// so the shape is part of the integration contract, not decoration.
+export const CONTRACT_REF = /^CAP-\d{4}-\d{4}$/;
+
+// eMAP's own contract reference, CON-<YEAR>-<NNNN> (INTEGRATION-eMAP §4).
+// Typed by a person on the contract form, so it is validated rather than
+// trusted: a mistyped reference makes a link that lands nowhere.
+export const EMAP_CONTRACT_REF = /^CON-\d{4}-\d{4}$/;
+
 export const Contract = z.object({
   id: z.string(),
   projectId: z.string(),
   orgUnitId: z.string(),
   contractorId: z.string(),
   contractorName: z.string(),
+  // RULE (ADR-0019): allocated by the API inside the create transaction,
+  // unique, immutable. `contractNo` below is the legal number off the tender
+  // papers and stays whatever the user typed — the two are not the same
+  // thing and neither replaces the other.
+  ref: z.string().regex(CONTRACT_REF),
   contractNo: z.string(),
   type: ContractType,
   awardDate: z.string(), // ISO date
@@ -57,6 +73,10 @@ export const Contract = z.object({
   liquidatedDamagesPerDay: z.number().nonnegative().nullable(),
   defectsLiabilityMonths: z.number().int().nonnegative(),
   sapPoNumber: z.string().nullable(),
+  // ADR-0019: the eMAP contract this one was procured under, when there is
+  // one. Null until somebody types it; the link-out to eMAP appears either
+  // from here or from a `contractNo` that is already a CON- reference.
+  emapRef: z.string().regex(EMAP_CONTRACT_REF).nullable().default(null),
   createdAt: z.string().nullable().default(null),
   updatedAt: z.string().nullable().default(null),
 });
@@ -165,6 +185,7 @@ export const ContractCreate = Contract.pick({
   liquidatedDamagesPerDay: true,
   defectsLiabilityMonths: true,
   sapPoNumber: true,
+  emapRef: true,
 });
 export type ContractCreate = z.infer<typeof ContractCreate>;
 
@@ -172,6 +193,20 @@ export const ContractUpdate = ContractCreate.omit({ projectId: true, contractorI
   .extend({ extensionDays: z.number().int().nonnegative().optional() })
   .partial();
 export type ContractUpdate = z.infer<typeof ContractUpdate>;
+
+// GET /contracts — the register across every project the caller may see.
+// `unit` narrows to one org unit, `q` searches the two references and the
+// contractor's name without regard to case or accents.
+export const ContractListQuery = z.object({
+  unit: z.string().optional(),
+  q: z.string().optional(),
+});
+export type ContractListQuery = z.infer<typeof ContractListQuery>;
+
+// GET /contracts/lookup?q= — what eFinance's link lands on. One id or a 404;
+// nothing else, because the caller is a redirect and not a screen.
+export const ContractLookup = z.object({ id: z.string() });
+export type ContractLookup = z.infer<typeof ContractLookup>;
 
 export const BoqItemWrite = BoqItem.omit({ id: true, contractId: true, amount: true });
 export type BoqItemWrite = z.infer<typeof BoqItemWrite>;

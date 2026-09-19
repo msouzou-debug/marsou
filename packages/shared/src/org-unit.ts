@@ -26,6 +26,11 @@ export const OrgUnit = z.object({
   type: OrgUnitType,
   directorate: Directorate,
   costCentre: z.string().nullable(),
+  // ADR-0019: the eFinance entity code for the same unit — NGH, LAR, ARC …
+  // Nullable because the two registers are not the same list: eFinance has
+  // HQ and CNS, which have no eCapital unit yet, and a unit opened here
+  // before finance gives it a code has none. Send the code, never the name.
+  entityCode: z.string().nullable().default(null),
   timezone: z.literal("Europe/Nicosia"),
 });
 export type OrgUnit = z.infer<typeof OrgUnit>;

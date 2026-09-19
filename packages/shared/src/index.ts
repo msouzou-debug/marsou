@@ -4,6 +4,7 @@
 export * from "./org-unit";
 export * from "./area";
 export * from "./auth";
+export * from "./config-links";
 export * from "./project";
 export * from "./contract";
 export * from "./site";

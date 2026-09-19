@@ -246,6 +246,11 @@ export async function seedContractRegister(db: Db): Promise<ContractSeedSummary>
           ...values,
           projectId: found[0].id,
           orgUnitId: project.orgUnitId,
+          // ADR-0019: allocated by the database, exactly as the API allocates
+          // it on POST — the unique constraint on ref is what keeps the seed
+          // and the API honest with each other, the same way the unique index
+          // on (contract_id, number) does for variation numbers.
+          ref: sql`ecapital.allocate_contract_ref(${Number(fixture.awardDate.slice(0, 4))})`,
           contractNo: fixture.contractNo,
           // Derived by the trigger from the approved variations; whatever
           // goes in here is overwritten before the row lands.

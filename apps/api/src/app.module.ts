@@ -15,6 +15,7 @@ import { ContractsModule } from "./contracts/contracts.module";
 import { CoreModule } from "./core.module";
 import { DefectsModule } from "./defects/defects.module";
 import { HealthModule } from "./health/health.module";
+import { LinksModule } from "./links/links.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
 import { ProjectsModule } from "./projects/projects.module";
@@ -62,6 +63,7 @@ import { SiteInstructionsModule } from "./site-instructions/site-instructions.mo
     DefectsModule,
     PortfolioModule,
     HealthModule,
+    LinksModule,
     AuditModule,
   ],
   providers: [
