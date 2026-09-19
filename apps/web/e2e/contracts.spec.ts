@@ -20,9 +20,14 @@ test.beforeEach(({}, testInfo) => {
 
 const PROJECT_TITLE = "Αντικατάσταση οχημάτων ασθενοφόρων";
 
-/** «Δεσμεύσεις» — the CostBar's committed-value legend item — as a plain number. */
+/**
+ * «Τρέχουσα αξία» — the CostBar's committed-value legend item — as a plain
+ * number. S07 overrides CostBar's own "Δεσμεύσεις" label with the contract's
+ * own words for the same figure (nit 1: `labels={{approved, committed}}`,
+ * `ContractOverview.tsx`), so this reads the label S07 actually shows.
+ */
 async function committedValue(page: import("@playwright/test").Page): Promise<number> {
-  const text = await page.locator("li", { hasText: "Δεσμεύσεις" }).locator(".font-k-mono").textContent();
+  const text = await page.locator("li", { hasText: "Τρέχουσα αξία" }).locator(".font-k-mono").textContent();
   return Number((text ?? "").replace(/[^\d]/g, ""));
 }
 
@@ -38,6 +43,30 @@ async function openRow(page: import("@playwright/test").Page, rowText: string): 
   const row = page.locator("tr", { hasText: rowText });
   await row.evaluate((element) => (element as HTMLElement).focus());
   await page.keyboard.press("Enter");
+}
+
+/**
+ * Same job as `openRow`, but aware of S08's own phone/desktop split (nit 2,
+ * `Variations.tsx`'s `tablet:hidden`/`hidden tablet:block`): the `<tr>`
+ * `openRow` focuses is not even attached to the accessibility tree at phone
+ * width, since the whole desktop `Table` sits behind `hidden`, so at
+ * phone-390 this clicks the visible `VariationCards` button instead.
+ */
+async function openVariationRow(
+  page: import("@playwright/test").Page,
+  testInfo: import("@playwright/test").TestInfo,
+  rowText: string,
+): Promise<void> {
+  if (testInfo.project.name === "phone-390") {
+    await page.locator("li", { hasText: rowText }).locator("button").click();
+  } else {
+    await openRow(page, rowText);
+  }
+}
+
+/** The row's own visible representation at this breakpoint — a `<td>` from tablet upward, a card `<p>` at phone-390. */
+function variationRowLocator(page: import("@playwright/test").Page, testInfo: import("@playwright/test").TestInfo, rowText: string) {
+  return testInfo.project.name === "phone-390" ? page.locator("li", { hasText: rowText }) : page.locator("tr", { hasText: rowText });
 }
 
 test("engineer raises and submits a variation; a different unit is refused; admin approves it and current value rises; the raiser sees the decision disabled on it", async ({
@@ -72,7 +101,11 @@ test("engineer raises and submits a variation; a different unit is refused; admi
   await nativeClick(page.getByRole("link", { name: "Τροποποιήσεις σύμβασης" }));
   await page.waitForURL(/\/variations$/);
 
-  await nativeClick(page.getByRole("button", { name: "Προσθήκη" }));
+  // RULE: `exact: true` — variation #2 on this very contract («Προσθήκη
+  // πυράντοχων θυρών…») shares its first word with this button, and
+  // S08's own phone cards (nit 2) now put that word inside a `<button>`
+  // too, so a substring match resolves to two elements.
+  await nativeClick(page.getByRole("button", { name: "Προσθήκη", exact: true }));
   // Scoped to the sheet: `Table`'s own column chooser (still in the DOM
   // behind it) has a same-named checkbox for the «Περιγραφή» column.
   const newSheet = page.getByRole("dialog");
@@ -82,8 +115,8 @@ test("engineer raises and submits a variation; a different unit is refused; admi
   await nativeClick(newSheet.getByRole("button", { name: "Αποθήκευση" }));
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await expect(page.getByText(description, { exact: true })).toBeVisible();
-  await openRow(page, description);
+  await expect(variationRowLocator(page, testInfo, description)).toBeVisible();
+  await openVariationRow(page, testInfo, description);
   await nativeClick(page.getByRole("dialog").getByRole("button", { name: "Υποβολή" }));
   const confirmDialog = page.locator("dialog", { hasText: "Υποβάλλετε την τροποποίηση για έγκριση;" });
   await expect(confirmDialog).toBeVisible();
@@ -106,7 +139,7 @@ test("engineer raises and submits a variation; a different unit is refused; admi
 
   await nativeClick(page.getByRole("link", { name: "Τροποποιήσεις σύμβασης" }));
   await page.waitForURL(/\/variations$/);
-  await openRow(page, description);
+  await openVariationRow(page, testInfo, description);
 
   // RULE (UI instructions §4): the decision panel shows exactly three facts.
   const decisionDialog = page.getByRole("dialog");
@@ -131,7 +164,7 @@ test("engineer raises and submits a variation; a different unit is refused; admi
   await page.context().clearCookies();
   await signIn(page, "engineer.larnaca@ecapital.test");
   await page.goto(`${contractUrl}/variations`);
-  await openRow(page, "Αναβάθμιση δαπέδων");
+  await openVariationRow(page, testInfo, "Αναβάθμιση δαπέδων");
 
   const ownDialog = page.getByRole("dialog");
   await expect(ownDialog.getByRole("button", { name: "Έγκριση" })).toBeDisabled();

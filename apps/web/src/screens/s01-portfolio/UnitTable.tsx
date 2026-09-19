@@ -71,10 +71,16 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         id: "unit",
         headerKey: "common.unit",
         accessor: (row) => unitName(row.orgUnit, locale),
+        // Nit 3: a min-width band on the name itself (Table has no per-column
+        // width prop, so this is the only hook the shared component leaves —
+        // GroupedUnitTable below works around the same gap by hand) — wide
+        // enough that the longest seeded name, «Νοσοκομείο Αρχιεπίσκοπος
+        // Μακάριος Γ΄», wraps to at most two lines at 1440 rather than
+        // stretching the column to one very long line.
         cell: (row) => (
           <Link
             href={unitHref(row.orgUnit.id)}
-            className="text-k-blue underline-offset-2 hover:underline"
+            className="inline-block min-w-[15rem] max-w-[22rem] text-k-blue underline-offset-2 hover:underline"
           >
             {unitName(row.orgUnit, locale)}
           </Link>
@@ -84,7 +90,9 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         id: "projects",
         headerKey: "screens.s01.unitTable.columns.projects",
         accessor: (row) => row.projectCount,
-        cell: (row) => formatInt(row.projectCount),
+        // Nit 3: narrowed — a project count is at most three digits, and the
+        // width it gave up goes to «Μονάδα» above.
+        cell: (row) => <span className="inline-block w-10">{formatInt(row.projectCount)}</span>,
         numeric: true,
       },
       {
@@ -241,10 +249,10 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
           <caption className="sr-only">{t("screens.s01.unitTable.caption")}</caption>
           <thead className="sticky top-0 z-10 bg-k-white">
             <tr style={{ height: 48 }}>
-              <th scope="col" className="border-b border-k-grey px-s-3 text-left font-bold text-k-blue-deep">
+              <th scope="col" className="min-w-[15rem] border-b border-k-grey px-s-3 text-left font-bold text-k-blue-deep">
                 {t("common.unit")}
               </th>
-              <th scope="col" className="num border-b border-k-grey px-s-3 font-bold text-k-blue-deep">
+              <th scope="col" className="num w-16 border-b border-k-grey px-s-3 font-bold text-k-blue-deep">
                 {t("screens.s01.unitTable.columns.projects")}
               </th>
               <th scope="col" className="num border-b border-k-grey px-s-3 font-bold text-k-blue-deep">
@@ -301,7 +309,7 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
                         <Link
                           href={unitHref(row.orgUnit.id)}
                           onClick={(event) => event.stopPropagation()}
-                          className="text-k-blue underline-offset-2 hover:underline"
+                          className="inline-block max-w-[22rem] text-k-blue underline-offset-2 hover:underline"
                         >
                           {unitName(row.orgUnit, locale)}
                         </Link>

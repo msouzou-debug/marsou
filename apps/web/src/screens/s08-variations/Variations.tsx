@@ -22,7 +22,9 @@ import { canDecideVariations, canRaiseVariations } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDate, formatEUR } from "@/lib/format";
+import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
 import type { VariationFormValues } from "./schema";
+import { VariationCards } from "./VariationCards";
 import { VariationSheet } from "./VariationSheet";
 
 export type VariationsScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
@@ -112,6 +114,7 @@ export function Variations({
   ];
 
   const tableState = state === "loading" ? "loading" : state === "error" ? "error" : state === "empty" ? "empty" : state === "offline" ? "offline" : "default";
+  const showCards = (state === "default" || state === "offline") && !!data;
 
   const selectedVariation =
     selectedId && selectedId !== "new" ? data?.variations.find((v) => v.id === selectedId) : undefined;
@@ -122,6 +125,16 @@ export function Variations({
       <PageTitle
         eyebrow={data?.contractNo ?? ""}
         title={t("screens.s08.title")}
+        tabs={
+          data ? (
+            <ContractTabs
+              contractId={data.id}
+              active="variations"
+              rfisOpenCount={data.rfisOpen}
+              defectsOpenCount={data.defects?.filter((d) => d.status !== "CLOSED").length}
+            />
+          ) : undefined
+        }
         action={
           canRaise && state !== "offline" ? (
             <button
@@ -137,22 +150,32 @@ export function Variations({
 
       {state === "offline" && <p className="mb-s-4 text-fs-14 text-k-text">{t("states.offline.readOnly")}</p>}
 
-      <Table<VariationRow>
-        tableId="s08-variations"
-        columns={columns}
-        rows={data?.variations ?? []}
-        getRowId={(row) => row.id}
-        captionKey="screens.s08.caption"
-        state={tableState}
-        onExport={() => undefined}
-        onRowOpen={(row) => onSelect(row.id)}
-        onRetry={onRetry}
-        emptyState={{
-          messageKey: "screens.s08.empty",
-          actionLabelKey: "buttons.add",
-          onAction: canRaise ? () => onSelect("new") : undefined,
-        }}
-      />
+      {/* Nit 2: phone (< 1024px) gets compact cards, the same `tablet:hidden`/
+          `hidden tablet:block` split S02's ProjectCards uses — Table itself
+          stays the only renderer for loading/error/empty/noPermission. */}
+      {showCards && (
+        <div className="tablet:hidden">
+          <VariationCards variations={data!.variations} onOpen={(row) => onSelect(row.id)} />
+        </div>
+      )}
+      <div className={showCards ? "hidden tablet:block" : undefined}>
+        <Table<VariationRow>
+          tableId="s08-variations"
+          columns={columns}
+          rows={data?.variations ?? []}
+          getRowId={(row) => row.id}
+          captionKey="screens.s08.caption"
+          state={tableState}
+          onExport={() => undefined}
+          onRowOpen={(row) => onSelect(row.id)}
+          onRetry={onRetry}
+          emptyState={{
+            messageKey: "screens.s08.empty",
+            actionLabelKey: "buttons.add",
+            onAction: canRaise ? () => onSelect("new") : undefined,
+          }}
+        />
+      </div>
 
       {sheetOpen && data && (
         <VariationSheet

@@ -17,6 +17,7 @@
  * | `forecast`  | `number \| null`  | —           | Πρόβλεψη τελικού κόστους, EUR. Drawn as a hollow marker. `null` before the SAP import. |
  * | `state`     | `CostBarState`    | `"default"` | `default` \| `loading` \| `empty` \| `error` (UI §6). |
  * | `onRetry`   | `() => void`      | —           | Retry button in the `error` state; hidden without it. |
+ * | `labels`    | `Partial<Record<"approved"\|"committed"\|"spent"\|"forecast", string>>` | — | Overrides the legend text for the given ledgers only — a caller such as S07, whose "approved"/"committed" mean «Αρχική αξία»/«Τρέχουσα αξία» rather than the glossary's own words, passes just those two and keeps the shared defaults for the rest. |
  *
  * RULE (S03): when `committed`, `spent` and `forecast` are all `null` — a
  * project with no SAP data yet — the bar draws only the approved track (no
@@ -35,6 +36,13 @@ import { formatEUR } from "@/lib/format";
 
 export type CostBarState = "default" | "loading" | "empty" | "error";
 
+export interface CostBarLabels {
+  approved?: string;
+  committed?: string;
+  spent?: string;
+  forecast?: string;
+}
+
 export interface CostBarProps {
   approved: number;
   committed: number | null;
@@ -42,6 +50,7 @@ export interface CostBarProps {
   forecast: number | null;
   state?: CostBarState;
   onRetry?: () => void;
+  labels?: CostBarLabels;
 }
 
 // Bar geometry from UI instructions §4. Not part of the spacing scale, so it
@@ -71,6 +80,7 @@ export function CostBar({
   forecast,
   state = "default",
   onRetry,
+  labels,
 }: CostBarProps) {
   const t = useTranslations("components.costBar");
   const tRoot = useTranslations();
@@ -147,15 +157,15 @@ export function CostBar({
   const legend: Array<{ key: string; label: string; value: number | null; swatch: CSSProperties }> = [
     {
       key: "approved",
-      label: t("approved"),
+      label: labels?.approved ?? t("approved"),
       value: approved,
       swatch: { background: APPROVED_FILL, border: "1px solid var(--k-text-muted)" },
     },
-    { key: "committed", label: t("committed"), value: committed, swatch: { background: COMMITTED_FILL } },
-    { key: "spent", label: t("spent"), value: spent, swatch: { background: SPENT_FILL } },
+    { key: "committed", label: labels?.committed ?? t("committed"), value: committed, swatch: { background: COMMITTED_FILL } },
+    { key: "spent", label: labels?.spent ?? t("spent"), value: spent, swatch: { background: SPENT_FILL } },
     {
       key: "forecast",
-      label: t("forecast"),
+      label: labels?.forecast ?? t("forecast"),
       value: forecast,
       swatch: { border: "2px solid var(--k-ink)", borderRadius: "50%" },
     },

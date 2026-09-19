@@ -415,6 +415,13 @@
       }
     },
     "s07": {
+      "tabs": {
+        "overview": "Overview",
+        "variations": "Variations",
+        "rfis": "RFIs",
+        "instructions": "Site instructions",
+        "defects": "Defects"
+      },
       "factsCaption": "Contract facts",
       "facts": {
         "type": "Contract type",
@@ -448,7 +455,8 @@
         "editTitle": "Edit the bill of quantities"
       },
       "cost": {
-        "legend": "Original value · Approved variations · Current value",
+        "originalValueLabel": "Original value",
+        "currentValueLabel": "Current value",
         "approvedVariations": "Approved variations",
         "pendingVariations": "Pending variations",
         "retention": "Retention"
@@ -517,6 +525,77 @@
       "sameUserApprovalHint": "You cannot approve a variation you raised yourself. Pass the decision to someone else who may approve.",
       "awaitingDecision": "Waiting for a decision from an approver.",
       "returnedNote": "Returned for changes. Edit it and submit it again."
+    },
+    "s07b": {
+      "title": "RFIs",
+      "empty": "This contract has no RFIs.",
+      "caption": "The contract's RFIs",
+      "summary": "{open} open · {breached} overdue",
+      "columns": {
+        "number": "No.",
+        "question": "Question",
+        "raisedBy": "Raised by",
+        "raisedAt": "Date",
+        "due": "Due",
+        "status": "Status"
+      },
+      "fields": {
+        "question": "Question",
+        "slaDays": "Due in (days)",
+        "answer": "Answer"
+      },
+      "sheetTitle": "RFI {number}",
+      "answeredOn": "Answered",
+      "noAnswerYet": "No answer has been recorded yet.",
+      "closeConfirmTitle": "Close this RFI?",
+      "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it."
+    },
+    "s07c": {
+      "title": "Site instructions",
+      "empty": "This contract has no site instructions.",
+      "caption": "The contract's site instructions",
+      "columns": {
+        "number": "No.",
+        "instruction": "Instruction",
+        "issuedBy": "Issued by",
+        "issuedAt": "Date",
+        "costImpact": "Cost impact",
+        "variation": "Variation"
+      },
+      "fields": {
+        "text": "Instruction",
+        "costImpact": "Has a cost impact"
+      },
+      "createVariation": "Create variation",
+      "variationLink": "Variation {number}"
+    },
+    "s07d": {
+      "title": "Defects",
+      "empty": "This contract has no defects.",
+      "caption": "The contract's defects",
+      "columns": {
+        "description": "Description",
+        "area": "Area",
+        "riskBand": "Risk band",
+        "estimatedCost": "Estimated cost",
+        "funded": "Funded",
+        "dueDate": "Due",
+        "status": "Status"
+      },
+      "fields": {
+        "description": "Description",
+        "area": "Area",
+        "estimatedCost": "Estimated cost",
+        "riskBand": "Risk band",
+        "funded": "Funded",
+        "targetProject": "Funding project",
+        "status": "Status",
+        "noArea": "No area selected",
+        "noProject": "Pick a project"
+      },
+      "areaUnknownNote": "This area id did not match a name.",
+      "fundedNeedsProject": "To mark a defect as funded, name the project paying for it. Funded with no project puts the cost on nobody's budget.",
+      "footerTotal": "Total"
     },
     "s24": {
       "title": "Contractors",
@@ -659,6 +738,28 @@
   "issueStatus": {
     "OPEN": "Open",
     "RESOLVED": "Resolved"
+  },
+  "rfiStatus": {
+    "OPEN": "Open",
+    "ANSWERED": "Answered",
+    "CLOSED": "Closed"
+  },
+  "defectStatus": {
+    "OPEN": "Open",
+    "IN_PROGRESS": "In progress",
+    "CLOSED": "Closed"
+  },
+  "riskBands": {
+    "HIGH": "High",
+    "SIGNIFICANT": "Significant",
+    "MODERATE": "Moderate",
+    "LOW": "Low"
+  },
+  "defectSources": {
+    "HANDOVER": "Handover",
+    "INSPECTION": "Inspection",
+    "WORK_ORDER": "Work order",
+    "CONDITION_SURVEY": "Condition survey"
   },
   "contractorCategories": {
     "BUILDING": "Building",

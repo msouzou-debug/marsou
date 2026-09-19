@@ -36,6 +36,7 @@ import type { Locale } from "@/i18n/config";
 import { formatEUR, formatPct } from "@/lib/format";
 import { BoqSection, type BoqDraftRow } from "./BoqSection";
 import { ContractFacts } from "./ContractFacts";
+import { ContractTabs } from "./ContractTabs";
 import { VariationsList } from "./VariationsList";
 
 export type ContractOverviewScreenState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -121,6 +122,14 @@ export function ContractOverview({
       <PageTitle
         eyebrow={`${data.contractNo} · ${data.project.code}`}
         title={data.contractorName}
+        tabs={
+          <ContractTabs
+            contractId={data.id}
+            active="overview"
+            rfisOpenCount={data.rfisOpen}
+            defectsOpenCount={data.defects?.filter((d) => d.status !== "CLOSED").length}
+          />
+        }
         action={
           canEdit ? (
             offline ? (
@@ -166,10 +175,17 @@ export function ContractOverview({
         </div>
 
         <div className="grid gap-s-6 desktop:col-span-5">
-          <div>
-            <CostBar approved={data.originalValue} committed={data.currentValue} spent={null} forecast={null} />
-            <p className="num mt-s-2 text-fs-14 text-k-text">{t("screens.s07.cost.legend")}</p>
-          </div>
+          {/* Nit 1: S07's "approved"/"committed" ledgers are the original and
+              current contract value, not the glossary's own words, so the
+              legend labels are overridden rather than adding a second, mono
+              line underneath repeating the same three figures. */}
+          <CostBar
+            approved={data.originalValue}
+            committed={data.currentValue}
+            spent={null}
+            forecast={null}
+            labels={{ approved: t("screens.s07.cost.originalValueLabel"), committed: t("screens.s07.cost.currentValueLabel") }}
+          />
 
           <dl className="grid gap-s-2 text-fs-14">
             <div className="flex items-baseline justify-between gap-s-3">

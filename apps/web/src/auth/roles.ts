@@ -6,7 +6,7 @@
 // never succeed is never shown a control that only ever comes back 403 —
 // UI instructions §6 "Offline" applies the same idea to write actions: hide
 // with a reason, or don't offer, rather than let someone try and fail).
-import type { AppRole } from "@ecapital/shared";
+import type { AppRole, DefectSource } from "@ecapital/shared";
 
 // RULE (ADR-0010, decided 18/09/2026): `auditor_readonly` and
 // `executive_readonly` are read-only at the row-policy level — every write
@@ -73,4 +73,26 @@ export function canDecideVariations(roles: AppRole[]): boolean {
  */
 export function canManageContractors(roles: AppRole[]): boolean {
   return roles.some((role) => role === "admin" || role === "estates_head");
+}
+
+// S07b, S07c — R09 (ADR-0017). "A read-only account, or a role that does not
+// run projects" is the API's own sentence for these two routes, i.e. the
+// same set as `canWriteContracts`: an RFI or a site instruction has no life
+// apart from a contract, so whoever runs the contract runs its log.
+export const canWriteRfis = canWriteContracts;
+export const canWriteSiteInstructions = canWriteContracts;
+
+/**
+ * S07d — R12, R35 (ADR-0017 "the first policy that reads a second column").
+ * Mirrors `ecapital.can_manage_defect`: the contract/project team may write
+ * any defect, and a technician may additionally raise and work one they
+ * found themselves — INSPECTION or WORK_ORDER only, never HANDOVER (a
+ * contractual position on someone else's work) or CONDITION_SURVEY (an
+ * estates exercise). S07d itself only ever offers HANDOVER, so in practice
+ * this screen's own «Προσθήκη» is `canWriteContracts` alone; this helper is
+ * the general rule for a defect sheet that might show a non-HANDOVER row.
+ */
+export function canManageDefect(roles: AppRole[], source: DefectSource): boolean {
+  if (canWriteContracts(roles)) return true;
+  return roles.includes("technician") && (source === "INSPECTION" || source === "WORK_ORDER");
 }

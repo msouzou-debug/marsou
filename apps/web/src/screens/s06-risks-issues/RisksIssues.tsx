@@ -167,13 +167,17 @@ export function RisksIssues({
   const selectedRisk = selectedRiskId && selectedRiskId !== "new" ? data.risks.find((r) => r.id === selectedRiskId) : undefined;
   const selectedIssue = selectedIssueId && selectedIssueId !== "new" ? data.issues.find((i) => i.id === selectedIssueId) : undefined;
 
+  // Nit 4 (one filled-blue primary per view): the two section «Προσθήκη»
+  // buttons are secondary/outline — the same style S07's «Επεξεργασία» link
+  // uses — so they never compete with a table's own empty-state action,
+  // which stays the page's one primary button when it is the only one showing.
   function addButton(onClick: () => void) {
     return offline ? (
       <span title={t("states.offline.readOnly")} aria-disabled="true" className="rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 font-bold text-k-text opacity-50">
         {t("buttons.add")}
       </span>
     ) : (
-      <button type="button" onClick={onClick} className="rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white shadow-k">
+      <button type="button" onClick={onClick} className="rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 font-bold text-k-blue-deep">
         {t("buttons.add")}
       </button>
     );

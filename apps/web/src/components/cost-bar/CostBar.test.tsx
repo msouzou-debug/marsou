@@ -55,6 +55,22 @@ describe("CostBar", () => {
     expect(screen.getByText(eur(1_274_000))).toBeInTheDocument();
   });
 
+  // Nit 1: a caller such as S07 whose "approved"/"committed" ledgers carry
+  // different words (Αρχική αξία / Τρέχουσα αξία) overrides just those two.
+  it("overrides only the given legend labels, keeping the shared defaults for the rest", () => {
+    renderWithIntl(
+      <CostBar {...withinBudget} labels={{ approved: "Αρχική αξία", committed: "Τρέχουσα αξία" }} />,
+    );
+
+    expect(screen.getByText("Αρχική αξία")).toBeInTheDocument();
+    expect(screen.getByText("Τρέχουσα αξία")).toBeInTheDocument();
+    expect(screen.queryByText("Εγκεκριμένος προϋπολογισμός")).not.toBeInTheDocument();
+    expect(screen.queryByText("Δεσμεύσεις")).not.toBeInTheDocument();
+    // The other two ledgers keep the glossary's own words.
+    expect(screen.getByText("Δαπάνες")).toBeInTheDocument();
+    expect(screen.getByText("Πρόβλεψη τελικού κόστους")).toBeInTheDocument();
+  });
+
   it("renders a skeleton bar while loading and one sentence when there is no budget", () => {
     const { unmount } = renderWithIntl(<CostBar {...withinBudget} state="loading" />);
     expect(screen.getByLabelText("Φόρτωση στοιχείων κόστους")).toBeInTheDocument();

@@ -1,10 +1,14 @@
 import {
+  AreaTree,
   Contractor,
   ContractDetail,
   ContractList,
+  Defect,
   PortfolioResponse,
   ProjectDetail,
   ProjectList,
+  Rfi,
+  SiteInstruction,
   type ProjectListQuery,
 } from "@ecapital/shared";
 import { useQuery } from "@tanstack/react-query";
@@ -84,5 +88,76 @@ export function useContractors() {
     queryKey: ["contractors"],
     queryFn: () => proxyFetch("/contractors", z.array(Contractor)),
     retry: false,
+  });
+}
+
+// ------------------------------------------------------------ M1 (R09, R12)
+// S07b, S07c, S07d — the site log. Each contract sub-screen reads its own
+// list; `ContractDetail` (`useContract`, above) only carries the two counts
+// (`rfisOpen`, `rfisBreached`) and the defects array for the contract tabs
+// and the R31 warnings strip, not the full RFI/instruction rows.
+
+// S07b.
+export function useRfis(contractId: string) {
+  return useQuery({
+    queryKey: ["rfis", contractId],
+    queryFn: () => proxyFetch(`/contracts/${encodeURIComponent(contractId)}/rfis`, z.array(Rfi)),
+    retry: false,
+  });
+}
+
+// S07c.
+export function useSiteInstructions(contractId: string) {
+  return useQuery({
+    queryKey: ["site-instructions", contractId],
+    queryFn: () =>
+      proxyFetch(`/contracts/${encodeURIComponent(contractId)}/site-instructions`, z.array(SiteInstruction)),
+    retry: false,
+  });
+}
+
+// S07d. Filtered to this contract's own handover defects (ADR-0017: a
+// defect raised against a contract also carries the project, but the
+// contract filter is the one this screen needs).
+export function useContractDefects(contractId: string) {
+  return useQuery({
+    queryKey: ["defects", "contract", contractId],
+    queryFn: () => proxyFetch(`/defects?contract=${encodeURIComponent(contractId)}`, z.array(Defect)),
+    retry: false,
+  });
+}
+
+// S07d's «Χώρος» column and area select: the unit's building/floor/area tree.
+export function useAreaTree(orgUnitId: string) {
+  return useQuery({
+    queryKey: ["area-tree", orgUnitId],
+    queryFn: () => proxyFetch(`/org-units/${encodeURIComponent(orgUnitId)}/areas`, AreaTree),
+    retry: false,
+    enabled: orgUnitId.length > 0,
+  });
+}
+
+// S07d's «target project» select (funded defects) and link: the caller's
+// visible projects in one unit, unpaged (a unit's own project list is short).
+export function useProjectsForUnit(orgUnitId: string) {
+  return useQuery({
+    queryKey: ["projects-for-unit", orgUnitId],
+    queryFn: () =>
+      proxyFetch(
+        projectsApiPath({
+          unit: [orgUnitId],
+          phase: [],
+          category: [],
+          rag: [],
+          q: "",
+          sort: "approvedBudget",
+          dir: "desc",
+          page: 1,
+          pageSize: 200,
+        }),
+        ProjectList,
+      ),
+    retry: false,
+    enabled: orgUnitId.length > 0,
   });
 }

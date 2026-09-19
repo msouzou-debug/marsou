@@ -4,6 +4,17 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // One worker: several specs (contracts.spec.ts, and now site-logs.spec.ts)
+  // exercise the same seeded contract's aggregate figures (a contract's
+  // currentValue, an RFI count) from more than one breakpoint project at
+  // once. Two workers each mutating that same row concurrently is a genuine
+  // race at the database level, not a locator issue — confirmed by running
+  // contracts.spec.ts's own pre-existing test with `--workers=2` (fails,
+  // `afterValue - beforeValue` picks up the other worker's own addition)
+  // versus `--workers=1` (passes every time). One worker costs wall-clock
+  // time, not correctness, and this suite is a handful of specs, not a
+  // large one.
+  workers: 1,
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",

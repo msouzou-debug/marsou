@@ -108,6 +108,24 @@ describe("Issue register table", () => {
   });
 });
 
+// Nit 4: one filled-blue primary per view.
+describe("RisksIssues primary button", () => {
+  it("shows exactly one filled-blue primary button when one register is empty and the other is not", () => {
+    renderWithIntl(<RisksIssues data={detailWith([{ likelihood: 2, impact: 2 }], [])} state="default" noPermission={noPermission} today={today} />);
+    // The risks section already has a row, so its own «Προσθήκη» is
+    // secondary; the issues table is empty, so its own emptyState action is
+    // the page's one primary button.
+    const primaryButtons = screen.getAllByRole("button").filter((button) => button.className.split(/\s+/).includes("bg-k-blue"));
+    expect(primaryButtons).toHaveLength(1);
+  });
+
+  it("shows no filled-blue primary button when neither register is empty", () => {
+    renderWithIntl(<RisksIssues data={detailWith([{ likelihood: 2, impact: 2 }], [{ descriptionEl: "x" }])} state="default" noPermission={noPermission} today={today} />);
+    const primaryButtons = screen.getAllByRole("button").filter((button) => button.className.split(/\s+/).includes("bg-k-blue"));
+    expect(primaryButtons).toHaveLength(0);
+  });
+});
+
 describe("RisksIssues no permission", () => {
   it("renders the shell's NoPermission for the 404-as-RLS state", () => {
     renderWithIntl(<RisksIssues data={undefined} state="noPermission" noPermission={noPermission} />);

@@ -12,5 +12,8 @@
   "S07a-new": { "route": "/projects/[id]/contracts/new", "section": "S07a-contract-form", "persona": ["admin", "estates_head", "project_engineer"] },
   "S07a-edit": { "route": "/contracts/[id]/edit", "section": "S07a-contract-form", "persona": ["admin", "estates_head", "project_engineer"] },
   "S08": { "route": "/contracts/[id]/variations", "section": "S08-variations", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S07b": { "route": "/contracts/[id]/rfis", "section": "S07b-rfis", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S07c": { "route": "/contracts/[id]/instructions", "section": "S07c-instructions", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S07d": { "route": "/contracts/[id]/defects", "section": "S07d-defects", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
   "S24": { "route": "/admin/contractors", "section": "S24-contractors", "persona": ["admin", "estates_head"] }
 }
