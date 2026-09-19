@@ -118,7 +118,7 @@ echo "Route checks (curl --noproxy '*' — the corporate Squid gives fake 503s o
 ssh "${SSH_TARGET}" \
   "curl -s --noproxy '*' -o /dev/null -w 'api /health -> %{http_code}\n' http://127.0.0.1:5015/health"
 ssh "${SSH_TARGET}" \
-  "curl -s --noproxy '*' -o /dev/null -w 'web /sign-in -> %{http_code}\n' http://127.0.0.1:5005/sign-in"
+  "curl -s --noproxy '*' -o /dev/null -w 'web /sign-in -> %{http_code}\n' http://127.0.0.1:5013/sign-in"
 
 # --------------------------------------------------------------------- md5 --
 

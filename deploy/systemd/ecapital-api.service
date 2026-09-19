@@ -3,6 +3,9 @@
 # Install once with `deploy/install.sh`; `deploy/release.sh` only restarts it.
 # Binds 127.0.0.1:5015 only — the API is never reached by a browser, only by
 # the web app running server-side on the same host (see docs/deploy/RUNBOOK-10.227.56.22.md).
+# NO_PROXY below matters because systemd units do not read /etc/environment's
+# http_proxy: without it, any loopback call the API makes (e.g. to eFinance's
+# own loopback port) goes through the host's Squid proxy and gets a fake 503.
 
 [Unit]
 Description=eCapital API (NestJS)
@@ -16,6 +19,7 @@ User=ecapital
 Group=ecapital
 WorkingDirectory=/opt/ecapital/apps/api
 EnvironmentFile=/etc/ecapital/api.env
+Environment=NO_PROXY=127.0.0.1,localhost
 # pnpm resolves the workspace filter from the repo root; WorkingDirectory only
 # has to be inside it. The released tree keeps pnpm-workspace.yaml at /opt/ecapital.
 ExecStart=/usr/bin/pnpm --filter @ecapital/api start

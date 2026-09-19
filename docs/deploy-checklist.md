@@ -59,6 +59,14 @@ Release stamp (from deploy/release.sh): <YYYYMMDD-HHMMSS>
       screen string exists in both `el` and `en`.
       Result: <pass / fail, and what failed>
 
+- [ ] **BLOCKING, owned by IT: LDAP reachable.** As of 19/09/2026,
+      `ihcis.local` does not resolve from `10.227.56.22` and neither 389 nor
+      636 answer. This release cannot go live against real accounts until
+      IT supplies the domain controllers' IPs or FQDNs, opens 636 (LDAPS)
+      from `10.227.56.22`, and gives a read-only bind account. Do not tick
+      this box until all three are confirmed working.
+      Result: <not ready / confirmed working, DC address used>
+
 - [ ] **e2e passed.** `pnpm --filter @ecapital/web e2e` (or the current
       equivalent) — and `pnpm lint`, `pnpm typecheck`, `pnpm test`,
       `pnpm check:help` as the ordinary CI gate, not skipped because the
@@ -70,7 +78,7 @@ Release stamp (from deploy/release.sh): <YYYYMMDD-HHMMSS>
 - [ ] `deploy/release.sh` completed without a reported failure.
 - [ ] md5 sums matched on both sides (script output).
 - [ ] `GET /health` (127.0.0.1:5015) returned healthy.
-- [ ] `/sign-in` (127.0.0.1:5005) returned 200.
+- [ ] `/sign-in` (127.0.0.1:5013) returned 200.
 - [ ] Smoke tests from the runbook §7 passed: sign-in, unit switcher, S01,
       create a project, `/contracts?q=CAP-…`.
 

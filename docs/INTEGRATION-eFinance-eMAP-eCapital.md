@@ -158,16 +158,19 @@ exactly how eMAP could not change eFinance's linking logic for its own
   exactly like eFinance's link to eMAP: no shared database, no credentials,
   no dependency on eMAP's internal ids.
 
-### Not yet built
+### Not yet built — draft contract, eFinance to publish its integration record
 
-- **eCapital → eFinance invoices — TODO, pending an eFinance query route.**
-  `EFINANCE_URL` is configured and ready, but there is no route on
-  eFinance's side today for eCapital to query "which invoices are linked to
-  this contract" or "what is this project's spend so far in eFinance" — and
-  eFinance's own invoice `contract_ref` is free text against `CON-`/`CAP-`
-  refs, not a structured API. Until such a route exists, any link from
-  eCapital to an eFinance invoice is, at most, a `q=` search link a human
-  clicks, the same shape as the routing rule in §3, not a data integration.
+**eCapital → eFinance invoices and budget.** As of 19/09/2026 this has moved
+from "no route exists" to a draft contract agreed in principle between the
+two teams, described in full in §5. In short: eFinance will serve read
+routes for master data, budget position and invoice/requisition status, plus
+one write route later for contract commitments, all on
+`http://127.0.0.1:5004` — loopback only, on the same host, eCapital as the
+only caller. This is a **draft**: eFinance has not yet published its own
+integration record for it, and nothing below is final until it does. Until
+this is built, any link from eCapital to an eFinance invoice is, at most, a
+`q=` search link a human clicks, the same shape as the routing rule in §3,
+not a data integration.
 
 ### Requests to the other two systems
 
@@ -175,7 +178,10 @@ exactly how eMAP could not change eFinance's linking logic for its own
    condition.
 2. **To eFinance:** confirm whether `08021`/`08022`/`08023` (§2) are the
    same three commitment items it already carries, or need adding.
-3. **To eMAP:** nothing new. eCapital reads it the same way eFinance does —
+3. **To eFinance:** publish the integration record for the loopback contract
+   in §5 — routes, the error envelope, and the write route's conflict rules
+   — so this draft can be marked agreed rather than pending.
+4. **To eMAP:** nothing new. eCapital reads it the same way eFinance does —
    a link-out, never a shared database.
 
 ---
@@ -230,9 +236,102 @@ ingestion in M2 and read back `null` until then. The first cut is a file
 extract, matching eFinance's own SAP interaction style rather than a live
 API from day one.
 
+### The eFinance ↔ eCapital loopback contract (draft, agreed in principle 19/09/2026)
+
+**Draft contract, eFinance to publish its integration record.** The eFinance
+session on 19/09/2026 agreed the shape below in principle. It is not built
+and not final until eFinance's own integration record confirms it; treat
+every route name here as subject to change until then.
+
+**Transport.** eFinance serves everything on `http://127.0.0.1:5004` —
+loopback only, same host. eCapital is the **only caller**. Every request
+carries one bearer token (`EFINANCE_TOKEN` in `api.env`). A request that
+carries `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP`, `Forwarded` or
+`CF-Ray` is refused with `403` — those headers only make sense on a request
+that crossed the public internet, and a request to a loopback port never
+did; their presence means something is proxying or spoofing the call.
+
+**Shapes.** Errors are one envelope: `{"error":{"code","message"}}`. Money
+is 2-decimal strings, never floats. Timestamps are ISO 8601 UTC. List
+endpoints page with `limit` and `cursor`.
+
+**Reads (eCapital calls eFinance):**
+
+| Route | Returns |
+|---|---|
+| `GET /api/v1/master/entities` | Entity codes (§2) |
+| `GET /api/v1/master/cost-centres` | Cost centres |
+| `GET /api/v1/master/budget-codes?kind=capex` | Budget codes, capital subset |
+| `GET /api/v1/master/vendors` | Vendors |
+| `GET /api/v1/budget/position?year=&entity=&code=` | Live budget position for one entity/code/year |
+| `GET /api/v1/capital/invoices?ref=CAP-…` or `?updated_since=` | Invoices linked to a `CAP-` contract, or changed since a timestamp |
+| `GET /api/v1/capital/requisitions?…` | Requisitions, same filter shape |
+
+An invoice's `ledger` field is one of `in_flight`, `booked` or `rejected`.
+**eCapital's spent ledger counts only `booked` invoices** — `in_flight` and
+`rejected` are visible for context but must never be summed into spend, the
+same discipline `apps/api/README.md`'s `spent`/`forecast` fields already
+assume.
+
+**Write (later, not in the first cut):**
+
+`PUT /api/v1/capital/contracts/{cap_ref}` lets eCapital push its own
+contract record to eFinance for read-back on eFinance's side: `cap_ref,
+project_ref, title, entity_code, budget_code, vendor_code, current_value,
+status (active|closed), updated_at`. eFinance answers `409` if the same
+`cap_ref` already exists under a different `entity_code` or `budget_code` —
+those two are the join keys, and a silent overwrite of either would point
+existing eFinance invoices at the wrong entity or budget line.
+
+**Ownership, restated plainly.** eCapital owns planning, contract
+commitment, retention and certification. eFinance owns execution against
+budget codes. **eCapital never writes to `budget_allocations`** — that
+table is eFinance's, and nothing in this contract gives eCapital a path
+into it, read or write.
+
+See `docs/adr/ADR-0022-efinance-loopback-contract.md` for the security
+rules (loopback, the forwarded-header refusal, `NO_PROXY`) and the
+ownership split recorded as a decision rather than a running description.
+
 ---
 
-## 6. Identity
+## 6. Documents (eArchive)
+
+**eArchive (formerly eMetroon)** is ΟΚΥπΥ's document system — the server
+paths on `10.227.56.22` still say `emetroon` in places, but the product is
+eArchive now, and this document uses that name from here on.
+
+eCapital's M8 (drawings, contracts, certificates, manuals) links documents
+to eArchive rather than storing them itself. The rule is the same as for
+eMAP and eFinance: eCapital owns its own records and links out, it does not
+copy another system's store into its own.
+
+**Ingest.** `POST 127.0.0.1:5011/api/v1/ingest/documents` — loopback, same
+host as eArchive's other services. Multipart body: one `meta` part
+(document metadata as JSON) plus the file or files. Bearer token, same
+shape as the eFinance contract in §5. Every request carries an
+`Idempotency-Key`, so a retried upload after a dropped connection does not
+file the same document twice.
+
+**Response.** `{protocol_id, protocol_number, url}` — eArchive assigns the
+protocol number; eCapital never invents one. **eCapital stores only the
+protocol number and metadata, never its own copy of the archive** — the
+document itself lives in eArchive, and eCapital's record is a pointer to
+it, the same discipline it holds for eMAP tenders and eFinance invoices.
+
+**Callback.** eArchive calls eCapital back on delete or legal hold, so a
+document eCapital has pointed at can be marked accordingly rather than
+eCapital continuing to link to something that no longer exists or that a
+legal hold now restricts.
+
+This is drawn from the eFinance session's check of the live server on
+19/09/2026, alongside the loopback contract in §5. It is not yet built
+against eArchive's actual API; treat route and payload shapes here as
+subject to the same confirmation §5 asks of eFinance.
+
+---
+
+## 7. Identity
 
 All three systems sign in against the same on-prem Active Directory,
 `ihcis.local`. Beyond that, each keeps its own idea of a role:
@@ -255,7 +354,7 @@ credential check happens against the same directory.
 
 ---
 
-## 7. Rules eCapital will not break
+## 8. Rules eCapital will not break
 
 Mirroring eFinance's own §7 for eMAP, because the same failure modes apply
 to any third system joining this pair:
@@ -277,7 +376,7 @@ to any third system joining this pair:
 
 ---
 
-## 8. Open questions for the owner
+## 9. Open questions for the owner
 
 Two questions this section used to carry are closed, both decided by the
 owner on 19/09/2026: `HC ↔ ΠΦΥ` is confirmed (§2), and `HQ` is now an
@@ -303,14 +402,15 @@ on the owner.
 
 ---
 
-## 9. Where the authoritative documentation lives
+## 10. Where the authoritative documentation lives
 
 This file is a summary, written from eCapital's side. The sources of truth:
 
 - **This repo's ADRs** (`docs/adr/`) — in particular ADR-0009 (auth and
   `role_mapping`), ADR-0010 (row-level security), ADR-0014 (project codes),
   ADR-0015 (variations and the commitment ledger), ADR-0016 (the Capex Plan
-  import) and ADR-0017 (the site log).
+  import), ADR-0017 (the site log) and ADR-0022 (the eFinance loopback
+  contract in §5 and its security rules).
 - **eFinance's own `CLAUDE.md`**, on the server at
   `/home/administrator/finance` — §7 for the budget model, §7β for what it
   already knows about eMAP, and its `INTEGRATION-eMAP.md`, which this

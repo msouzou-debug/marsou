@@ -6,10 +6,19 @@ server that already runs eMAP, eQuality, DIAS and eFinance. Read
 says what to do and why; the scripts say exactly what runs.
 
 **Ports on this server.** `5001` eMAP, `5002` eQuality, `5003` DIAS, `5004`
-eFinance (fronted by nginx on `8081`), `5015` eCapital API (loopback only),
-`5005` eCapital web (this is what cloudflared reaches). PostgreSQL `5432` is
-new for this host — none of the four siblings use it, they run on SQLite or
-their own store.
+eFinance, `5011` eArchive (formerly eMetroon) ingest, `5015` eCapital API
+(loopback only), `5013` eCapital web (loopback only). Both eCapital
+processes bind to `127.0.0.1` — nothing public reaches either port
+directly. The host's existing nginx reverse-proxies `capital.shso.online`
+to `127.0.0.1:5013`, and cloudflared (on its own box) points at nginx, not
+at eCapital directly — see §2.2 and `deploy/cloudflared-request.md`.
+
+`5000`-`5006`, `5010`-`5012` and `5055` are already taken by other services
+on this host. **Port `5014` is reserved by the host owner — never use it.**
+
+PostgreSQL **16.14 is already installed** on this host, at
+`127.0.0.1:5432`, shared with BedMan and eArchive. We do not install or
+administer it; §2.1 has what Marios (the host owner) needs to run.
 
 ---
 
@@ -23,14 +32,20 @@ Before touching the server:
   adding `10.227.56.0/24` to the WireGuard client's `AllowedIPs`, not
   touching Windows routes.
 - You can `ssh administrator@10.227.56.22` and that account has sudo.
+- Marios (the host owner) has set up the nginx server block in §2.2 and
+  confirmed `sudo nginx -t` then `sudo systemctl reload nginx` went
+  cleanly. Cloudflared has to point at nginx's port, not at eCapital's own
+  `5013` — see `deploy/cloudflared-request.md`.
 - The cloudflared request in `deploy/cloudflared-request.md` has been sent
   to whoever administers that box, and ideally already actioned — the
   release will work without it, but nobody outside the server can reach
   `capital.shso.online` until it is.
-- You know, or can get, the on-prem Active Directory details eFinance
-  already uses: its `ad_server`, `ad_port`, `ad_use_ssl` and `ad_base_dn`
-  settings (`ihcis.local`). eCapital signs in against the same directory
-  (`AUTH_MODE=ldap`) — see §3.
+- **BLOCKING, owned by IT.** As of 19/09/2026, `ihcis.local` does not
+  resolve from this host and neither 389 nor 636 answer. Before go-live, IT
+  must supply the domain controllers' IPs or FQDNs, open 636 (LDAPS) from
+  `10.227.56.22`, and give a read-only bind account. Everything below about
+  `AUTH_MODE=ldap` assumes this has already happened; do not treat a UAT
+  round with no working LDAP as ready for real accounts.
 
 ---
 
@@ -48,19 +63,18 @@ work — the same reason eFinance's own deploy command uses it.
 
 `install.sh` is idempotent and safe to re-run. It:
 
-- installs Node 22, corepack/pnpm 10, and PostgreSQL 16 from PGDG;
+- installs Node 22 and corepack/pnpm 10 (Node only — it does **not** touch
+  PostgreSQL, see §2.1);
 - creates the `ecapital` system user and `/opt/ecapital`, `/etc/ecapital`,
   `/var/log/ecapital`, `/var/backups/ecapital`, `/opt/ecapital-releases`;
-- creates the `ecapital` (owner) and `ecapital_app` (application) Postgres
-  roles and the `ecapital` database, with **placeholder passwords** it
-  prints — change them (§3) before the first release;
 - writes `/etc/ecapital/api.env` and `/etc/ecapital/web.env` from the
-  templates in `deploy/env/`, **only if they do not already exist** — it
-  never overwrites an env file you have already edited;
+  templates in `deploy/env/`, mode `600` owned by `ecapital`, **only if
+  they do not already exist** — it never overwrites an env file you have
+  already edited;
 - installs and enables the two systemd units (`ecapital-api`,
   `ecapital-web` — enabled but not started, since there is no code at
   `/opt/ecapital/apps` yet) and the backup and restore-drill timers
-  (started immediately, since they only need Postgres);
+  (started immediately, since Postgres is already up);
 - installs a logrotate stanza for the two flat log files the backup and
   restore-drill scripts write;
 - installs a narrow sudoers file for `administrator` — see the comment at
@@ -68,26 +82,104 @@ work — the same reason eFinance's own deploy command uses it.
   and why: every line names one fixed script or one fixed systemd unit,
   nothing open-ended.
 
-It does **not** deploy application code. That is `deploy/release.sh`, §5.
+It does **not** deploy application code. That is `deploy/release.sh`, §6.
+It also does **not** touch PostgreSQL or nginx — §2.1 and §2.2 are done by
+Marios, by hand, and this script cannot check that either has happened.
+
+### 2.1 Database: Marios creates the role and the database
+
+PostgreSQL 16.14 is already installed on this host, shared with BedMan and
+eArchive. We are not its administrator: no superuser access, and no
+cluster-wide extensions without asking first. Ask Marios to run this, as
+the `postgres` superuser, once:
+
+```sql
+CREATE ROLE ecapital LOGIN PASSWORD '<paste from api.env>';
+CREATE DATABASE ecapital OWNER ecapital;
+```
+
+The password is whatever you are about to put in
+`/etc/ecapital/api.env`'s `MIGRATION_DATABASE_URL` (§3) — generate it first,
+then hand Marios the block above with the real value pasted in, rather than
+asking him to invent one.
+
+The application connects as a second role, `ecapital_app`, which the first
+migration creates for itself inside the `ecapital` database (`IF NOT
+EXISTS`) — that one does not need Marios, because by then the migration is
+running as the `ecapital` owner role inside its own database, not against
+the shared cluster.
+
+**Extensions.** Our migrations use `pgcrypto`, and from M2 onward
+`pg_trgm`. Both need `CREATE EXTENSION`, which needs superuser — but only
+once, and only inside the `ecapital` database, never cluster-wide. Ask
+Marios to also run this, once, connected to the `ecapital` database:
+
+```sql
+\c ecapital
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+```
+
+(`pg_trgm` is not used until M2; asking for it now avoids a second favour
+later. If Marios would rather wait, `pgcrypto` alone is enough until then.)
+
+### 2.2 Nginx: reverse proxy for eCapital web
+
+There is no nginx vhost in front of eFinance on this host, but eCapital
+gets one, because both its processes now bind to loopback only. Hand
+Marios this server block — paste-ready, nothing to fill in beyond the
+hostname, which is his call, not ours:
+
+```nginx
+server {
+    listen 80;
+    server_name capital.shso.online;
+
+    client_max_body_size 25m;  # SAP import uploads (Capex Plan, invoices)
+
+    location / {
+        proxy_pass http://127.0.0.1:5013;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+No websocket upgrade headers are needed — eCapital does not use
+websockets. After installing the block, Marios runs:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+`nginx -t` catches a syntax error before it can take nginx down; only
+reload once it passes clean. We do not edit nginx or cloudflared
+ourselves — this block, and the request in
+`deploy/cloudflared-request.md`, are what we hand to Marios and to
+whoever administers the cloudflared box respectively.
 
 ---
 
 ## 3. Filling in the env files
 
 Edit `/etc/ecapital/api.env` and `/etc/ecapital/web.env` on the server
-(`sudo -e` or `sudoedit`, since they are `0640 root:ecapital`). Every
-`CHANGE-ME` needs a real value before the first release starts the units.
-Where each one comes from:
+(`sudo -e` or `sudoedit`, since they are mode `600` owned by `ecapital`).
+Every `CHANGE-ME` needs a real value before the first release starts the
+units. Where each one comes from:
 
 | Variable | Where it comes from |
 |---|---|
-| `DATABASE_URL`, `MIGRATION_DATABASE_URL` passwords | Set with `sudo -u postgres psql -c "ALTER ROLE ecapital PASSWORD '…';"` and the same for `ecapital_app` (install.sh printed this reminder). Pick two different, generated passwords; put the same values in the env file. |
-| `LDAP_URL`, `LDAP_BASE_DN` | eFinance's own AD settings — `/opt/finance/settings.json`'s `ad_server`, `ad_port`, `ad_use_ssl`, `ad_base_dn` (eFinance CLAUDE.md, "Auth"). Same directory, same values; there is no reason eCapital should bind to a different DC or search base. |
+| `DATABASE_URL`, `MIGRATION_DATABASE_URL` passwords | Generate two different passwords yourself. Give Marios the `ecapital` (owner) one to paste into the `CREATE ROLE` statement in §2.1; the `ecapital_app` (application) role sets its own password the first time `deploy/migrate.sh` creates it, so set that same value on the role afterwards with `sudo -u postgres psql -d ecapital -c "ALTER ROLE ecapital_app PASSWORD '…';"` if it does not already match. |
+| `LDAP_URL`, `LDAP_BASE_DN` | **Blocking as of 19/09/2026** — `ihcis.local` does not resolve from this host and 389/636 do not answer. IT must supply the domain controller(s), open 636 (LDAPS), and give a read-only bind account before this can be filled in for real; do not guess a DC name. Once IT responds, prefer `ldaps://<dc>:636`; `ldap://<dc>:389` with `LDAP_START_TLS=1` is the documented fallback only, if 636 turns out not to be reachable. |
 | `LDAP_DOMAIN` | `ihcis.local` — fixed, given. |
 | `SESSION_SECRET` | Generate on the server, do not reuse any other system's secret: `openssl rand -hex 32`. |
-| `EMAP_URL`, `EFINANCE_URL` | The public hostnames already in use: `https://map.shso.online`, `https://finance.shso.online`. |
-| `NEXT_PUBLIC_APP_ORIGIN` | `https://capital.shso.online` — fixed, once the cloudflared request (§1) is live. |
-| Everything else | The template comments in `deploy/env/*.env.example` say what each one is; most are fixed values for this server (ports, `BIND_HOST`, `AUTH_MODE=ldap`, `DEV_AUTH=0`). |
+| `EMAP_URL`, `EFINANCE_URL` | The public hostnames already in use: `https://map.shso.online`, `https://finance.shso.online`. Used for human link-outs only — the API's own calls to eFinance (§4 of `INTEGRATION-eFinance-eMAP-eCapital.md`) go straight to `http://127.0.0.1:5004`, not through this hostname. |
+| `EFINANCE_TOKEN` | The single bearer token eFinance issues eCapital, per the draft loopback contract (`docs/INTEGRATION-eFinance-eMAP-eCapital.md` §4/§5, ADR-0022). Get it from the eFinance team. |
+| `NEXT_PUBLIC_APP_ORIGIN` | `https://capital.shso.online` — fixed, once the cloudflared request (§1) is live and pointed at nginx (§2.2). |
+| Everything else | The template comments in `deploy/env/*.env.example` say what each one is; most are fixed values for this server (ports, `BIND_HOST=127.0.0.1` on both files, `AUTH_MODE=ldap`, `DEV_AUTH=0`). |
 
 Do not put real values in the repo's `deploy/env/*.env.example` — those stay
 templates with `CHANGE-ME`.
@@ -285,8 +377,14 @@ After every release, run through §7 and archive the deploy checklist per
 ## 7. Smoke tests
 
 Run these after every release, from a browser reaching
-`https://capital.shso.online` (or `http://10.227.56.22:5005` directly over
-the tunnel if cloudflared is not wired up yet):
+`https://capital.shso.online`. If cloudflared is not wired up yet but nginx
+is (§2.2), the same nginx port works directly:
+`http://10.227.56.22:<nginx port>`. eCapital's own `5013` is loopback-only
+and unreachable from off the box even over the WireGuard tunnel; to bypass
+both nginx and cloudflared for a quick check, SSH in and curl
+`127.0.0.1:5013` on the server itself, or open an SSH local port forward
+(`ssh -L 5013:127.0.0.1:5013 administrator@10.227.56.22`) and browse
+`http://localhost:5013` on your own machine.
 
 1. **Sign in as a real AD user.** eCapital's Greek sign-in test accounts are
    `ihcis.local` accounts this document does not know — get real
@@ -368,17 +466,33 @@ restart both units.
 `/etc/ecapital/api.env` (it should already be, from the template) and
 restart.
 
-**Port 5005 (or 5015) already in use.** Something else is bound to it —
-check with `sudo ss -ltnp | grep -E ':5005|:5015'`. Nothing else on this
+**Port 5013 (or 5015) already in use.** Something else is bound to it —
+check with `sudo ss -ltnp | grep -E ':5013|:5015'`. Nothing else on this
 server should be using either port (§ports table above); if something is,
-find out what before killing it.
+find out what before killing it. Remember `5014` is reserved by the host
+owner and `5000`-`5006`, `5010`-`5012`, `5055` belong to other services —
+never reassign eCapital onto any of them.
+
+**A 503 that looks like it came from nowhere.** This is almost always the
+host's Squid proxy, not eCapital or nginx. `/etc/environment` sets
+`http_proxy` for interactive shells, but systemd units do not inherit it —
+so any loopback call eCapital's API makes (for example to eFinance on
+`127.0.0.1:5004`) can still get routed through Squid if `NO_PROXY` is
+missing from the unit, and Squid answers with a fake `503` for a
+destination it cannot reach as a proxy. Both systemd units
+(`deploy/systemd/ecapital-api.service`, `ecapital-web.service`) set
+`Environment=NO_PROXY=127.0.0.1,localhost` for exactly this reason — if a
+unit's file has lost that line, that is the fix, not chasing the 503
+anywhere else. The same rule applies to any `curl` run by hand on this
+server: always add `--noproxy '*'`.
 
 **Postgres authentication failures.** Check the password in
 `/etc/ecapital/api.env` matches what the role actually has
 (`ALTER ROLE … PASSWORD …`, §3) — a mismatch here is the most common cause,
-especially right after `install.sh` created roles with placeholder
-passwords that were never changed. `sudo -u postgres psql -c "\du"` lists
-the roles; it does not show passwords.
+especially right after Marios first creates the `ecapital` role (§2.1) or
+right after the first migration creates `ecapital_app`, before either
+password has been set to match the env file. `sudo -u postgres psql -c
+"\du"` lists the roles; it does not show passwords.
 
 **Empty output from a privileged command.** Treat it as "the command
 failed", never as "the answer is empty" or "everything differs" — the same

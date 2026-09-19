@@ -1,10 +1,10 @@
 # eCapital web app (Next.js) — systemd unit for the ΟΚΥπΥ server (10.227.56.22).
 #
 # Install once with `deploy/install.sh`; `deploy/release.sh` only restarts it.
-# Binds 0.0.0.0:5005 — this is the address cloudflared (running on another
-# box) proxies capital.shso.online to. Nothing else on this host should reach
-# 5005 from outside; there is no nginx vhost in front of it (see
-# docs/deploy/RUNBOOK-10.227.56.22.md and deploy/cloudflared-request.md).
+# Binds 127.0.0.1:5013 — loopback only. Public exposure is through the host's
+# existing nginx (Marios's server block, proxy_pass to 127.0.0.1:5013) and
+# cloudflared on its own box, which point at nginx, not at this port directly
+# (see docs/deploy/RUNBOOK-10.227.56.22.md and deploy/cloudflared-request.md).
 
 [Unit]
 Description=eCapital web app (Next.js)
@@ -18,7 +18,10 @@ User=ecapital
 Group=ecapital
 WorkingDirectory=/opt/ecapital/apps/web
 EnvironmentFile=/etc/ecapital/web.env
-ExecStart=/usr/bin/pnpm --filter @ecapital/web start -- -p 5005 -H 0.0.0.0
+# NO_PROXY: systemd units do not read /etc/environment, so without this the
+# host's Squid proxy intercepts loopback calls and answers with a fake 503.
+Environment=NO_PROXY=127.0.0.1,localhost
+ExecStart=/usr/bin/pnpm --filter @ecapital/web start -- -p 5013 -H 127.0.0.1
 Restart=always
 RestartSec=5
 TimeoutStopSec=30

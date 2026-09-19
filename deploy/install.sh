@@ -10,14 +10,17 @@ set -euo pipefail
 #   ssh -t administrator@10.227.56.22 'cd /tmp/ecapital-deploy && sudo bash install.sh'
 #
 # This script does NOT deploy application code — that is deploy/release.sh,
-# run afterwards from the operator's machine. This script only prepares the
-# host: packages, the system user, directories, the database and its roles,
-# the systemd units (enabled, not started for api/web — there is nothing to
-# start until the first release), logrotate, and the backup/restore-drill
-# timers (started immediately, since they only need Postgres).
+# run afterwards from the operator's machine. It also does NOT touch
+# PostgreSQL: 16.14 is already installed on this host at 127.0.0.1:5432,
+# shared with BedMan and eArchive, and Marios (the host owner) creates the
+# `ecapital` role and database by hand — see docs/deploy/RUNBOOK-
+# 10.227.56.22.md §2.1 for the paste-ready SQL to hand him. This script
+# prepares everything else: packages (Node only), the system user,
+# directories, the systemd units (enabled, not started for api/web — there
+# is nothing to start until the first release), logrotate, and the
+# backup/restore-drill timers.
 #
-# Idempotent: safe to re-run. Existing env files, roles and the database are
-# never overwritten or dropped.
+# Idempotent: safe to re-run. Existing env files are never overwritten.
 #
 # Following eFinance's own rule: this script is never a stand-in for a
 # careful release. It sets the host up once; deploy/release.sh is what ships
@@ -46,11 +49,11 @@ step() { echo; echo "=== $* ==="; }
 
 # ---------------------------------------------------------------- packages --
 
-step "[1/9] APT prerequisites"
+step "[1/8] APT prerequisites"
 apt-get update -qq
 apt-get install -y -qq ca-certificates curl gnupg
 
-step "[2/9] Node.js 22 (NodeSource) + corepack/pnpm 10"
+step "[2/8] Node.js 22 (NodeSource) + corepack/pnpm 10"
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -v)" != v22.* ]]; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y -qq nodejs
@@ -61,30 +64,17 @@ corepack enable
 corepack prepare pnpm@10 --activate
 echo "pnpm $(pnpm --version)"
 
-step "[3/9] PostgreSQL 16 (PGDG)"
-if ! command -v psql >/dev/null 2>&1 || ! psql --version | grep -q ' 16\.'; then
-  install -d /usr/share/postgresql-common/pgdg
-  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-  . /etc/os-release
-  echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
-    > /etc/apt/sources.list.d/pgdg.list
-  apt-get update -qq
-  apt-get install -y -qq postgresql-16
-else
-  echo "PostgreSQL 16 already installed, skipping PGDG setup"
-fi
-systemctl enable --now postgresql
-# The server listens on 5432 for eCapital only — no other app on this host
-# uses Postgres. Default `listen_addresses = 'localhost'` is correct as-is;
-# nothing here needs to change postgresql.conf.
+# PostgreSQL is NOT installed here. 16.14 is already on this host at
+# 127.0.0.1:5432, shared with BedMan and eArchive — installing our own
+# would be a second cluster on a host that already has one. See step
+# [6/8] below for what this script expects Marios to have already done.
 
 # ---------------------------------------------------------- system user ----
 
-step "[4/9] System user ${APP_USER}"
+step "[3/8] System user ${APP_USER}"
 id -u "${APP_USER}" &>/dev/null || useradd -r -m -d "${APP_DIR}" -s /usr/sbin/nologin "${APP_USER}"
 
-step "[5/9] Directories"
+step "[4/8] Directories"
 install -d -o "${APP_USER}" -g "${APP_USER}" -m 0755 "${APP_DIR}"
 install -d -o "${APP_USER}" -g "${APP_USER}" -m 0755 "${APP_DIR}/deploy"
 install -d -o "${APP_USER}" -g "${APP_USER}" -m 0755 "${RELEASES_DIR}"
@@ -106,15 +96,15 @@ install -o root -g root -m 0750 "${SCRIPT_DIR}/rollback.sh" "${APP_DIR}/deploy/r
 
 # ------------------------------------------------------------ env files ----
 
-step "[6/9] /etc/ecapital env files"
+step "[5/8] /etc/ecapital env files"
 if [[ ! -f "${ETC_DIR}/api.env" ]]; then
-  install -o root -g "${APP_USER}" -m 0640 "${SCRIPT_DIR}/env/api.env.example" "${ETC_DIR}/api.env"
+  install -o "${APP_USER}" -g "${APP_USER}" -m 0600 "${SCRIPT_DIR}/env/api.env.example" "${ETC_DIR}/api.env"
   echo "Wrote ${ETC_DIR}/api.env from the template — EDIT IT before starting ecapital-api."
 else
   echo "${ETC_DIR}/api.env already exists, leaving it alone"
 fi
 if [[ ! -f "${ETC_DIR}/web.env" ]]; then
-  install -o root -g "${APP_USER}" -m 0640 "${SCRIPT_DIR}/env/web.env.example" "${ETC_DIR}/web.env"
+  install -o "${APP_USER}" -g "${APP_USER}" -m 0600 "${SCRIPT_DIR}/env/web.env.example" "${ETC_DIR}/web.env"
   echo "Wrote ${ETC_DIR}/web.env from the template — EDIT IT before starting ecapital-web."
 else
   echo "${ETC_DIR}/web.env already exists, leaving it alone"
@@ -122,63 +112,38 @@ fi
 
 # ------------------------------------------------------------- database ----
 
-step "[7/9] PostgreSQL roles and database"
-# Idempotent: only create what is missing, never touch an existing role's
-# password or an existing database's contents.
+step "[6/8] PostgreSQL roles and database — NOT done by this script"
+# PostgreSQL 16.14 on this host is shared with BedMan and eArchive. We are
+# not its administrator: no superuser, no cluster-wide extensions without
+# asking. Marios (the host owner) creates the role and database by hand,
+# with the paste-ready SQL in docs/deploy/RUNBOOK-10.227.56.22.md §2.1:
 #
-# Both roles are created HERE, before the first migration ever runs, on
-# purpose: migration 0001 also creates `ecapital_app` (`if not exists`), but
-# only because the throwaway test cluster runs migrations as a superuser
-# (ADR-0012). On this server `ecapital` (the migration role) has CREATEDB but
-# not CREATEROLE, so if `ecapital_app` did not already exist, that `if not
-# exists` block would try to CREATE ROLE and fail on a permission error.
-# Creating it here first means the migration's own check finds it already
-# there and skips straight past.
-sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_OWNER_ROLE}') THEN
-    CREATE ROLE ${DB_OWNER_ROLE} LOGIN PASSWORD 'CHANGE-ME-OWNER' CREATEDB;
-    RAISE NOTICE 'Created role ${DB_OWNER_ROLE} with a placeholder password — set a real one and update /etc/ecapital/*.env.';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_APP_ROLE}') THEN
-    CREATE ROLE ${DB_APP_ROLE} LOGIN PASSWORD 'CHANGE-ME-APP';
-    RAISE NOTICE 'Created role ${DB_APP_ROLE} with a placeholder password — set a real one and update /etc/ecapital/*.env.';
-  END IF;
-END
-\$\$;
-SQL
-
-if ! sudo -u postgres psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1; then
-  sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_OWNER_ROLE};"
-  echo "Created database ${DB_NAME}, owned by ${DB_OWNER_ROLE}"
-else
-  echo "Database ${DB_NAME} already exists, leaving it alone"
-fi
-
-# Note: the `ecapital` role owns the tables so it can run migrations; the
-# schema's row-level-security policies are what actually keep `ecapital_app`
-# — the role the running API connects as — from reading or writing outside
-# what a caller's token allows (ADR-0010). GRANTs beyond CONNECT/USAGE on the
-# schema are handled inside the migrations themselves, not here.
-sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c \
-  "GRANT CONNECT ON DATABASE ${DB_NAME} TO ${DB_APP_ROLE};"
-
+#   CREATE ROLE ecapital LOGIN PASSWORD '<paste from api.env>';
+#   CREATE DATABASE ecapital OWNER ecapital;
+#
+# and, once, inside the ecapital database only:
+#
+#   CREATE EXTENSION IF NOT EXISTS pgcrypto;
+#   CREATE EXTENSION IF NOT EXISTS pg_trgm; -- from M2 onward
+#
+# This script cannot check or wait for that — it has no credential to the
+# shared instance. Confirm it has happened, and that /etc/ecapital/api.env's
+# DATABASE_URL / MIGRATION_DATABASE_URL passwords match, before running
+# deploy/migrate.sh or deploy/release.sh.
 cat <<NOTE
 
-  IMPORTANT — placeholder database passwords:
-  If roles were just created above, set real passwords now and put them in
-  BOTH /etc/ecapital/api.env (DATABASE_URL, MIGRATION_DATABASE_URL) and this
-  database, for example:
-
-    sudo -u postgres psql -c "ALTER ROLE ${DB_OWNER_ROLE} PASSWORD '<new password>';"
-    sudo -u postgres psql -c "ALTER ROLE ${DB_APP_ROLE} PASSWORD '<new password>';"
+  ACTION NEEDED before the first migration:
+  Ask Marios to run the paste-ready SQL in
+  docs/deploy/RUNBOOK-10.227.56.22.md §2.1 (role ${DB_OWNER_ROLE}, database
+  ${DB_NAME}, and the two CREATE EXTENSION statements inside it). Put the
+  same password in ${ETC_DIR}/api.env's DATABASE_URL and
+  MIGRATION_DATABASE_URL. This script does not and cannot do this step.
 
 NOTE
 
 # -------------------------------------------------------------- systemd ----
 
-step "[8/9] systemd units, logrotate, sudoers"
+step "[7/8] systemd units, logrotate, sudoers"
 install -m 0644 "${SCRIPT_DIR}/systemd/ecapital-api.service" /etc/systemd/system/ecapital-api.service
 install -m 0644 "${SCRIPT_DIR}/systemd/ecapital-web.service" /etc/systemd/system/ecapital-web.service
 install -m 0644 "${SCRIPT_DIR}/systemd/ecapital-backup.service" /etc/systemd/system/ecapital-backup.service
@@ -246,19 +211,26 @@ else
   exit 1
 fi
 
-step "[9/9] Done"
+step "[8/8] Done"
 cat <<SUMMARY
 
 eCapital host setup complete.
 
 Next steps (see docs/deploy/RUNBOOK-10.227.56.22.md):
-  1. Edit ${ETC_DIR}/api.env and ${ETC_DIR}/web.env — fill in every CHANGE-ME
-     (database passwords, LDAP details, SESSION_SECRET).
-  2. Set real database passwords (see the NOTE printed above) if the roles
-     were just created.
-  3. Send the cloudflared request in deploy/cloudflared-request.md, if not
-     sent already.
-  4. Run deploy/release.sh from the operator's machine to ship the first
+  1. Ask Marios to run the paste-ready SQL in RUNBOOK §2.1: create the
+     ecapital role and database, and the two CREATE EXTENSION statements
+     inside it (pgcrypto now, pg_trgm from M2). This script did not do
+     this — the Postgres instance is shared with BedMan and eArchive.
+  2. Edit ${ETC_DIR}/api.env and ${ETC_DIR}/web.env — fill in every CHANGE-ME
+     (the database password Marios set, LDAP details, SESSION_SECRET,
+     EFINANCE_TOKEN).
+  3. LDAP is BLOCKING as of 19/09/2026: ihcis.local does not resolve from
+     this host and 389/636 do not answer. Get the DC address, LDAPS access
+     on 636, and a read-only bind account from IT before go-live.
+  4. Ask Marios for the nginx server block in RUNBOOK §2.2, and send the
+     cloudflared request in deploy/cloudflared-request.md (pointed at
+     nginx's port, not at 5013 directly), if not sent already.
+  5. Run deploy/release.sh from the operator's machine to ship the first
      build and start ecapital-api / ecapital-web.
 
 SUMMARY

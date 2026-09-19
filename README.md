@@ -32,6 +32,13 @@ Docker). The deployment kit is `deploy/`:
 
 | App | Port | Bound to |
 |---|---|---|
-| eCapital web (Next.js) | `5005` | `0.0.0.0` — cloudflared's target for `capital.shso.online` |
+| eCapital web (Next.js) | `5013` | `127.0.0.1` — nginx reverse-proxies `capital.shso.online` to this port |
 | eCapital API (NestJS) | `5015` | `127.0.0.1` — reached only by the web app, server-side |
-| PostgreSQL 16 | `5432` | `localhost` |
+| PostgreSQL 16.14 | `5432` | `127.0.0.1` — already installed on this host, shared with BedMan and eArchive |
+
+Port `5014` is reserved by the host owner and must never be used. Ports
+`5000`-`5006`, `5010`-`5012` and `5055` are already taken by other services on
+this host. Both eCapital processes bind to loopback only; nginx and
+cloudflared, already running on this host and its cloudflared box, handle
+public exposure — see `docs/deploy/RUNBOOK-10.227.56.22.md` and
+`deploy/cloudflared-request.md`.
