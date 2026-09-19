@@ -1,6 +1,6 @@
 # Signing in and what you can see
 
-The sign-in page identifies you through your ΟΚΥπΥ account and shows you only the units you belong to. In development, where there is no Entra ID tenant, you sign in as one of seven sample users instead.
+The sign-in page identifies you through your ΟΚΥπΥ account and shows you only the units you belong to. In development, where there is no Entra ID tenant, you sign in as one of eight sample users instead.
 
 ## Steps
 
@@ -13,7 +13,7 @@ The sign-in page identifies you through your ΟΚΥπΥ account and shows you on
 5. Read your unit's area tree:
    `curl -s localhost:3001/org-units/nicosia-general/areas -H "authorization: Bearer <token>"`.
 
-The seven accounts: `admin@ecapital.test` (administrator, all units), `estates.nicosia@ecapital.test` (head of estates, Nicosia), `engineer.larnaca@ecapital.test` (project engineer, Larnaca), `clinical.nicosia@ecapital.test` (clinical approver, Nicosia), `finance@ecapital.test` (finance, all units), `auditor@ecapital.test` (auditor, all units, read-only), `executive@ecapital.test` (management, all units, read-only).
+The eight accounts: `admin@ecapital.test` (administrator, all units), `estates.nicosia@ecapital.test` (head of estates, Nicosia), `engineer.larnaca@ecapital.test` (project engineer, Larnaca), `clinical.nicosia@ecapital.test` (clinical approver, Nicosia), `finance@ecapital.test` (finance, all units), `auditor@ecapital.test` (auditor, all units, read-only), `executive@ecapital.test` (management, all units, read-only), `technician.nicosia@ecapital.test` (technician, Nicosia, field records only).
 
 ## What can go wrong
 
