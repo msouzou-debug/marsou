@@ -26,6 +26,7 @@ import {
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { ContractorsService } from "../contractors/contractors.service";
+import { CostWarningsService } from "../cost/cost-warnings.service";
 import { type DefectRow, toDefect } from "../defects/defect-rows";
 import { phaseIndex } from "../projects/project-rows";
 import {
@@ -53,6 +54,7 @@ export class ContractsService {
   constructor(
     private readonly i18n: I18nService,
     private readonly contractors: ContractorsService,
+    private readonly costWarnings: CostWarningsService,
   ) {}
 
   /**
@@ -523,6 +525,18 @@ export class ContractsService {
       if (error instanceof AppError) throw error;
       this.writeError(error, {});
     }
+
+    // M2, R31: an approved variation is the only thing that moves a contract's
+    // commitment (ADR-0015), so it is also the only decision on this screen
+    // that can take a project past its budget line or its 10% ceiling. The
+    // five rules are re-run here rather than written a second time.
+    const [contract] = await tx.db
+      .select({ projectId: schema.contract.projectId })
+      .from(schema.contract)
+      .where(eq(schema.contract.id, contractId))
+      .limit(1);
+    if (contract) await this.costWarnings.evaluate(contract.projectId);
+
     return this.variation(contractId, variationId);
   }
 

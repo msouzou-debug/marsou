@@ -1,0 +1,48 @@
+# FBL1N — «Γραμμές λογαριασμού προμηθευτή», vendor line items.
+#
+# R14, CAPEX-01 §7: the invoices themselves. CAPEX-01 §7 writes «FBL5N», which
+# is the general-ledger line-item report; the shared contract
+# (packages/shared/src/cost.ts) says FBL1N, which is the vendor one and is
+# what a clerk runs to get invoices by supplier. The contract wins — see the
+# Errata in docs/briefs/README.md and ADR-0021.
+profile: sap_fbl1n_v1
+report: FBL1N
+txn_type: ACTUAL
+sheet: null
+header_row: 1
+first_data_row: 2
+number_format: european
+date_format: dmy_dot
+# RULE: a vendor invoice is a credit on the vendor account, so FBL1N reports
+# it negative. The spend ledger wants it positive, and a credit note — a debit
+# on the vendor — has to come back out of the ledger as a negative. Inverting
+# the whole column does both (CAPEX-01 §12: credits negative).
+sign: invert
+csv_delimiter: ";"
+columns:
+  sourceRef:
+    headers: ["Document Number", "Doc. No.", "Αριθμός εγγράφου", "Παραστατικό"]
+    required: true
+  lineItem:
+    headers: ["Line Item", "Item", "Θέση"]
+  docDate:
+    headers: ["Document Date", "Ημερομηνία εγγράφου"]
+  postingDate:
+    headers: ["Posting Date", "Ημερομηνία καταχώρισης"]
+    required: true
+  amount:
+    headers: ["Amount in local currency", "Amount in LC", "Ποσό", "Αξία"]
+    required: true
+  description:
+    headers: ["Text", "Assignment", "Κείμενο", "Αιτιολογία"]
+  vendorName:
+    headers: ["Name 1", "Vendor Name", "Επωνυμία", "Προμηθευτής"]
+    required: true
+  sapWbs:
+    headers: ["WBS Element", "WBS", "Στοιχείο WBS"]
+  sapPo:
+    headers: ["Purchasing Document", "Purch.Doc.", "Έγγραφο αγοράς"]
+  costCentre:
+    headers: ["Cost Center", "Cost Centre", "Κέντρο κόστους"]
+  glAccount:
+    headers: ["G/L Account", "Account", "Λογαριασμός"]

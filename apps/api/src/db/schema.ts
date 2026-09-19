@@ -339,6 +339,9 @@ export const project = ecapital.table(
     rag: rag("rag").notNull().default("GREEN"),
     ragReason: text("rag_reason").notNull().default(""),
     sapWbs: text("sap_wbs"),
+    // M2 (R14): the third matching step of a SAP import, and the column a
+    // KSB1 posting with no WBS and no PO is matched on.
+    costCentre: text("cost_centre"),
     tenderReference: text("tender_reference"),
     budgetArticle: text("budget_article"),
     commitmentFlag: boolean("commitment_flag").notNull().default(false),
@@ -779,6 +782,41 @@ export const costSource = ecapital.enum("cost_source", [
 export const importSeverity = ecapital.enum("import_severity", ["ERROR", "WARN", "INFO"]);
 export const projectNoteKind = ecapital.enum("project_note_kind", ["TECHNICAL"]);
 
+// ------------------------------------------------------------------- M2 --
+// The cost module: SAP ingestion, the four ledgers, the warn-and-flag rules,
+// payment certificates, cash flow and accruals (R11, R13–R18, R31).
+// Migration 0011_m2_cost.sql is the source of truth; ADR-0021 says why the
+// rules are where they are.
+
+export const sapReport = ecapital.enum("sap_report", ["ME2N", "KSB1", "FBL1N"]);
+export const importBatchStatus = ecapital.enum("import_batch_status", [
+  "DRY_RUN",
+  "PENDING_ALLOCATION",
+  "COMMITTED",
+  "FAILED",
+]);
+export const costMatchedBy = ecapital.enum("cost_matched_by", [
+  "WBS",
+  "PO",
+  "COST_CENTRE",
+  "MANUAL",
+  "RULE",
+  "NONE",
+]);
+export const paymentCertStatus = ecapital.enum("payment_cert_status", [
+  "DRAFT",
+  "ENGINEER_APPROVED",
+  "FINANCE_RECEIVED",
+  "PAID",
+]);
+export const costWarningKey = ecapital.enum("cost_warning_key", [
+  "commitmentOverYearBudget",
+  "forecastOverApproved",
+  "variationsOverTenPct",
+  "certifiedOverContract",
+  "retentionBeforeDlpEnd",
+]);
+
 export const importBatch = ecapital.table(
   "import_batch",
   {
@@ -796,9 +834,24 @@ export const importBatch = ecapital.table(
     rowsUpdated: integer("rows_updated").notNull().default(0),
     rowsRejected: integer("rows_rejected").notNull().default(0),
     importedBy: text("imported_by"),
+    // M2: the app_user behind the subject in `imported_by`, so the batch can
+    // name whoever ran it without a second lookup.
+    importedById: uuid("imported_by_id").references(() => appUser.id),
     importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
-    report: jsonb("report"),
+    // The capex CLI's reconciliation report (R41). 0011 renamed it so that
+    // `report` could carry the SAP report a cost extract came from.
+    reportJson: jsonb("report_json"),
     committed: boolean("committed").notNull().default(false),
+    // M2 (R14): what the extract was, how the run ended, and the four counts
+    // and two totals the shared ImportBatch publishes.
+    report: sapReport("report"),
+    status: importBatchStatus("status").notNull().default("PENDING_ALLOCATION"),
+    rowsMatched: integer("rows_matched").notNull().default(0),
+    rowsUnmatched: integer("rows_unmatched").notNull().default(0),
+    amountIn: numeric("amount_in", { precision: 16, scale: 2 }).notNull().default("0"),
+    amountMatched: numeric("amount_matched", { precision: 16, scale: 2 }).notNull().default("0"),
+    errorEl: text("error_el"),
+    errorEn: text("error_en"),
     createdAt,
     updatedAt,
   },
@@ -822,6 +875,8 @@ export const importException = ecapital.table(
     value: text("value"),
     messageEl: text("message_el").notNull(),
     messageEn: text("message_en").notNull(),
+    // M2 (R14): the skipped row this exception is about, where there is one.
+    costTxnId: uuid("cost_txn_id"),
     createdAt,
   },
   (t) => [index("import_exception_batch_idx").on(t.batchId, t.rule, t.rowNo)],
@@ -840,7 +895,10 @@ export const budgetLine = ecapital.table(
     // 9999 is the sentinel for "beyond the horizon" (CAPEX-03 §2 cols X, AI).
     budgetYear: integer("budget_year").notNull(),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
-    category: projectCategory("category"),
+    // M2: a cost category — works, equipment, fees, contingency, other — and
+    // not one of the six kinds of project. 0011 retyped it; the value is the
+    // i18n key suffix S04 groups the four ledgers by.
+    category: text("category"),
     sapGl: text("sap_gl"),
     approvedAmount: numeric("approved_amount", { precision: 14, scale: 2 }),
     revisedAmount: numeric("revised_amount", { precision: 14, scale: 2 }),
@@ -861,9 +919,11 @@ export const costTxn = ecapital.table(
   "cost_txn",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    orgUnitId: text("org_unit_id")
-      .notNull()
-      .references(() => orgUnit.id),
+    // M2 (R14): null until the row finds its project. A row in the unmatched
+    // queue belongs to no unit, because nobody knows yet which unit it
+    // belongs to — 0011 made the column nullable and wrote the two policies
+    // that say who may see and allocate one.
+    orgUnitId: text("org_unit_id").references(() => orgUnit.id),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "cascade" }),
     contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
     budgetLineId: uuid("budget_line_id").references(() => budgetLine.id, { onDelete: "set null" }),
@@ -878,6 +938,20 @@ export const costTxn = ecapital.table(
     importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
       onDelete: "set null",
     }),
+    // M2 (R14): what the SAP row carried, and how it found its project.
+    vendorName: text("vendor_name"),
+    sapWbs: text("sap_wbs"),
+    sapPo: text("sap_po"),
+    costCentre: text("cost_centre"),
+    glAccount: text("gl_account"),
+    matchedBy: costMatchedBy("matched_by").notNull().default("NONE"),
+    // A row the allocator passed over: still unmatched, still in the batch,
+    // no longer offered by the queue.
+    skipped: boolean("skipped").notNull().default(false),
+    // Generated in the database; what a remembered allocation rule matches on.
+    descriptionNorm: text("description_norm").generatedAlwaysAs(
+      sql`ecapital.normalise(coalesce(description, ''))`,
+    ),
     createdAt,
     updatedAt,
   },
@@ -908,4 +982,152 @@ export const projectNote = ecapital.table(
     updatedAt,
   },
   (t) => [index("project_note_project_idx").on(t.projectId)],
+);
+
+// --------------------------------------------------------------- M2 tables --
+
+/** R16: what the engineer sets on top of the commitments, per project. */
+export const forecastInputs = ecapital.table("forecast_inputs", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => project.id, { onDelete: "cascade" }),
+  orgUnitId: text("org_unit_id")
+    .notNull()
+    .references(() => orgUnit.id),
+  contingency: numeric("contingency", { precision: 14, scale: 2 }).notNull().default("0"),
+  pendingVariationWeight: numeric("pending_variation_weight", { precision: 4, scale: 3 })
+    .notNull()
+    .default("0.5"),
+  contingencyNoteEl: text("contingency_note_el"),
+  createdAt,
+  updatedAt,
+});
+
+/**
+ * R14: the allocation somebody made once, remembered. Vendor plus the
+ * normalised narrative points at a project and, where there is one, a
+ * contract; the next import applies it as matchedBy RULE.
+ */
+export const allocationRule = ecapital.table(
+  "allocation_rule",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
+    vendorName: text("vendor_name").notNull(),
+    vendorNorm: text("vendor_norm").notNull(),
+    textNorm: text("text_norm").notNull().default(""),
+    hits: integer("hits").notNull().default(0),
+    createdBy: uuid("created_by").references(() => appUser.id),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("allocation_rule_key").on(t.vendorNorm, t.textNorm),
+    index("allocation_rule_project_idx").on(t.projectId),
+  ],
+);
+
+/**
+ * R11: the payment certificate. The derived figures — retention held,
+ * previously certified, net payable — are columns because they are what was
+ * certified on the day; the API computes them and never takes them from a
+ * body (ADR-0021).
+ */
+export const paymentCert = ecapital.table(
+  "payment_cert",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    number: integer("number").notNull(),
+    periodFrom: date("period_from").notNull(),
+    periodTo: date("period_to").notNull(),
+    workDoneValue: numeric("work_done_value", { precision: 14, scale: 2 }).notNull(),
+    materialsOnSite: numeric("materials_on_site", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    retentionHeld: numeric("retention_held", { precision: 14, scale: 2 }).notNull().default("0"),
+    previousCertified: numeric("previous_certified", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    netPayable: numeric("net_payable", { precision: 14, scale: 2 }).notNull().default("0"),
+    status: paymentCertStatus("status").notNull().default("DRAFT"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => appUser.id),
+    // R11: the CHECK in 0011 refuses a row where this equals created_by,
+    // whoever is asking and whichever code path asks (ADR-0015's precedent).
+    approvedBy: uuid("approved_by").references(() => appUser.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    sapInvoiceRef: text("sap_invoice_ref"),
+    paidDate: date("paid_date"),
+    retentionReleased: boolean("retention_released").notNull().default(false),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("payment_cert_contract_number_key").on(t.contractId, t.number),
+    index("payment_cert_contract_idx").on(t.contractId),
+    index("payment_cert_unit_status_idx").on(t.orgUnitId, t.status),
+  ],
+);
+
+/** R31: a warn-and-flag rule that fired, and whether anybody dismissed it. */
+export const costWarning = ecapital.table(
+  "cost_warning",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "cascade" }),
+    key: costWarningKey("key").notNull(),
+    sentenceEl: text("sentence_el").notNull(),
+    sentenceEn: text("sentence_en").notNull(),
+    amount: numeric("amount", { precision: 16, scale: 2 }),
+    firedAt: timestamp("fired_at", { withTimezone: true }).notNull().defaultNow(),
+    dismissedBy: uuid("dismissed_by").references(() => appUser.id),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("cost_warning_project_idx").on(t.projectId, t.firedAt)],
+);
+
+/**
+ * CAPEX-01 §7 asks each warning to send an email to the head of estates.
+ * There is no SMTP server yet, so the row is written and a sender picks it up
+ * when there is one (ADR-0021). Written only by ecapital.queue_email.
+ */
+export const emailOutbox = ecapital.table(
+  "email_outbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id").references(() => orgUnit.id),
+    toEmail: text("to_email").notNull(),
+    toName: text("to_name"),
+    subjectEl: text("subject_el").notNull(),
+    subjectEn: text("subject_en").notNull(),
+    bodyEl: text("body_el").notNull(),
+    bodyEn: text("body_en").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    createdAt,
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (t) => [index("email_outbox_unsent_idx").on(t.createdAt)],
 );

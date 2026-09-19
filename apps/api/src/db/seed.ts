@@ -20,6 +20,7 @@ import { loadConfig } from "../config";
 import * as schema from "./schema";
 import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-data";
 import { seedContractRegister } from "./seed-contracts";
+import { seedCostRegister } from "./seed-cost";
 import { seedProjectRegister } from "./seed-projects";
 import { seedSiteLog } from "./seed-site";
 
@@ -42,6 +43,13 @@ export interface SeedSummary {
   rfis: number;
   siteInstructions: number;
   defects: number;
+  budgetLines: number;
+  costTxns: number;
+  importBatches: number;
+  unmatchedRows: number;
+  paymentCerts: number;
+  allocationRules: number;
+  costWarnings: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -215,6 +223,11 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     // one (R09, R12).
     const siteLog = await seedSiteLog(db);
 
+    // M2: the cost register, after the contracts, because a budget line hangs
+    // off a project, a posting off a contract and a payment certificate off
+    // both (R11, R13, R14, R31).
+    const cost = await seedCostRegister(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -226,6 +239,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       ...register,
       ...contracts,
       ...siteLog,
+      ...cost,
     };
   } finally {
     await client.end();
@@ -242,7 +256,10 @@ if (require.main === module) {
           `${s.projects} projects, ${s.milestones} milestones, ${s.risks} risks, ${s.issues} issues, ` +
           `${s.contractors} contractors, ${s.contracts} contracts, ${s.boqItems} bill lines, ` +
           `${s.variations} variations, ${s.rfis} RFIs, ${s.siteInstructions} site instructions, ` +
-          `${s.defects} defects`,
+          `${s.defects} defects, ${s.budgetLines} budget lines, ${s.costTxns} cost transactions, ` +
+          `${s.importBatches} import batches (${s.unmatchedRows} unmatched), ` +
+          `${s.paymentCerts} payment certificates, ${s.allocationRules} allocation rules, ` +
+          `${s.costWarnings} cost warnings`,
       );
     })
     .catch((error: unknown) => {

@@ -11413,6 +11413,5450 @@
         ]
       }
     },
+    "/cost/imports": {
+      "post": {
+        "operationId": "CostController_importExtract",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "report",
+                  "period"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "report": {
+                    "type": "string",
+                    "enum": [
+                      "ME2N",
+                      "KSB1",
+                      "FBL1N"
+                    ]
+                  },
+                  "period": {
+                    "type": "string",
+                    "example": "2026-03"
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The batch summary and the first fifty exceptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "SAP_EXTRACT",
+                        "SAP_MCP",
+                        "MANUAL",
+                        "EXCEL_MIGRATION"
+                      ]
+                    },
+                    "report": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ME2N",
+                            "KSB1",
+                            "FBL1N"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fileName": {
+                      "type": "string"
+                    },
+                    "fileSha256": {
+                      "type": "string"
+                    },
+                    "profileId": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "rowsIn": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsMatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsUnmatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsRejected": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amountIn": {
+                      "type": "number"
+                    },
+                    "amountMatched": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRY_RUN",
+                        "PENDING_ALLOCATION",
+                        "COMMITTED",
+                        "FAILED"
+                      ]
+                    },
+                    "importedById": {
+                      "type": "string"
+                    },
+                    "importedByName": {
+                      "type": "string"
+                    },
+                    "importedAt": {
+                      "type": "string"
+                    },
+                    "errorEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "errorEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exceptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "ERROR",
+                              "WARN",
+                              "INFO"
+                            ]
+                          },
+                          "rowNo": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "messageEl": {
+                            "type": "string"
+                          },
+                          "messageEn": {
+                            "type": "string"
+                          },
+                          "costTxnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "rule",
+                          "severity",
+                          "rowNo",
+                          "value",
+                          "messageEl",
+                          "messageEn",
+                          "costTxnId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "source",
+                    "report",
+                    "fileName",
+                    "fileSha256",
+                    "profileId",
+                    "period",
+                    "rowsIn",
+                    "rowsMatched",
+                    "rowsUnmatched",
+                    "rowsRejected",
+                    "amountIn",
+                    "amountMatched",
+                    "status",
+                    "importedById",
+                    "importedByName",
+                    "importedAt",
+                    "errorEl",
+                    "errorEn",
+                    "exceptions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No file, or a report or period that is not valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That file has already been imported for that report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file cannot be read, or a column the profile needs is missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Import a monthly SAP extract, or say what importing it would do",
+        "tags": [
+          "cost"
+        ]
+      },
+      "get": {
+        "operationId": "CostController_list",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The batches, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "SAP_EXTRACT",
+                              "SAP_MCP",
+                              "MANUAL",
+                              "EXCEL_MIGRATION"
+                            ]
+                          },
+                          "report": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ME2N",
+                                  "KSB1",
+                                  "FBL1N"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "fileName": {
+                            "type": "string"
+                          },
+                          "fileSha256": {
+                            "type": "string"
+                          },
+                          "profileId": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string"
+                          },
+                          "rowsIn": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "rowsMatched": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "rowsUnmatched": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "rowsRejected": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "amountIn": {
+                            "type": "number"
+                          },
+                          "amountMatched": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "DRY_RUN",
+                              "PENDING_ALLOCATION",
+                              "COMMITTED",
+                              "FAILED"
+                            ]
+                          },
+                          "importedById": {
+                            "type": "string"
+                          },
+                          "importedByName": {
+                            "type": "string"
+                          },
+                          "importedAt": {
+                            "type": "string"
+                          },
+                          "errorEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "errorEn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "report",
+                          "fileName",
+                          "fileSha256",
+                          "profileId",
+                          "period",
+                          "rowsIn",
+                          "rowsMatched",
+                          "rowsUnmatched",
+                          "rowsRejected",
+                          "amountIn",
+                          "amountMatched",
+                          "status",
+                          "importedById",
+                          "importedByName",
+                          "importedAt",
+                          "errorEl",
+                          "errorEn"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Every SAP import the caller may see, newest first",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/imports/{id}": {
+      "get": {
+        "operationId": "CostController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The batch and the first fifty exceptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "SAP_EXTRACT",
+                        "SAP_MCP",
+                        "MANUAL",
+                        "EXCEL_MIGRATION"
+                      ]
+                    },
+                    "report": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ME2N",
+                            "KSB1",
+                            "FBL1N"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fileName": {
+                      "type": "string"
+                    },
+                    "fileSha256": {
+                      "type": "string"
+                    },
+                    "profileId": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "rowsIn": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsMatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsUnmatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsRejected": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amountIn": {
+                      "type": "number"
+                    },
+                    "amountMatched": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRY_RUN",
+                        "PENDING_ALLOCATION",
+                        "COMMITTED",
+                        "FAILED"
+                      ]
+                    },
+                    "importedById": {
+                      "type": "string"
+                    },
+                    "importedByName": {
+                      "type": "string"
+                    },
+                    "importedAt": {
+                      "type": "string"
+                    },
+                    "errorEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "errorEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exceptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "ERROR",
+                              "WARN",
+                              "INFO"
+                            ]
+                          },
+                          "rowNo": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "messageEl": {
+                            "type": "string"
+                          },
+                          "messageEn": {
+                            "type": "string"
+                          },
+                          "costTxnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "rule",
+                          "severity",
+                          "rowNo",
+                          "value",
+                          "messageEl",
+                          "messageEn",
+                          "costTxnId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "source",
+                    "report",
+                    "fileName",
+                    "fileSha256",
+                    "profileId",
+                    "period",
+                    "rowsIn",
+                    "rowsMatched",
+                    "rowsUnmatched",
+                    "rowsRejected",
+                    "amountIn",
+                    "amountMatched",
+                    "status",
+                    "importedById",
+                    "importedByName",
+                    "importedAt",
+                    "errorEl",
+                    "errorEn",
+                    "exceptions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "One import with its exceptions",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/imports/{id}/unmatched": {
+      "get": {
+        "operationId": "CostController_unmatched",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The queue, largest amounts first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batchId": {
+                      "type": "string"
+                    },
+                    "remaining": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "txn": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "orgUnitId": {
+                                "type": "string"
+                              },
+                              "projectId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "contractId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "workOrderId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "assetId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "budgetLineId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "txnType": {
+                                "type": "string",
+                                "enum": [
+                                  "COMMITMENT",
+                                  "ACTUAL",
+                                  "ACCRUAL"
+                                ]
+                              },
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "SAP_EXTRACT",
+                                  "SAP_MCP",
+                                  "MANUAL",
+                                  "EXCEL_MIGRATION"
+                                ]
+                              },
+                              "sourceRef": {
+                                "type": "string"
+                              },
+                              "docDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "postingDate": {
+                                "type": "string"
+                              },
+                              "amount": {
+                                "type": "number"
+                              },
+                              "currency": {
+                                "type": "string",
+                                "const": "EUR"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "vendorName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sapWbs": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sapPo": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "costCentre": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "glAccount": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "importBatchId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "matchedBy": {
+                                "type": "string",
+                                "enum": [
+                                  "WBS",
+                                  "PO",
+                                  "COST_CENTRE",
+                                  "MANUAL",
+                                  "RULE",
+                                  "NONE"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "orgUnitId",
+                              "projectId",
+                              "contractId",
+                              "workOrderId",
+                              "assetId",
+                              "budgetLineId",
+                              "txnType",
+                              "source",
+                              "sourceRef",
+                              "docDate",
+                              "postingDate",
+                              "amount",
+                              "currency",
+                              "description",
+                              "vendorName",
+                              "sapWbs",
+                              "sapPo",
+                              "costCentre",
+                              "glAccount",
+                              "importBatchId",
+                              "matchedBy"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "suggestions": {
+                            "maxItems": 9,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "projectId": {
+                                  "type": "string"
+                                },
+                                "projectCode": {
+                                  "type": "string"
+                                },
+                                "projectTitleEl": {
+                                  "type": "string"
+                                },
+                                "contractId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "contractRef": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "confidence": {
+                                  "type": "string",
+                                  "enum": [
+                                    "HIGH",
+                                    "MEDIUM",
+                                    "LOW"
+                                  ]
+                                },
+                                "reason": {
+                                  "type": "string",
+                                  "enum": [
+                                    "SAME_WBS",
+                                    "SAME_PO",
+                                    "SAME_COST_CENTRE",
+                                    "REMEMBERED_VENDOR",
+                                    "SIMILAR_TEXT"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "projectId",
+                                "projectCode",
+                                "projectTitleEl",
+                                "contractId",
+                                "contractRef",
+                                "confidence",
+                                "reason"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "txn",
+                          "suggestions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "batchId",
+                    "remaining",
+                    "total",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The rows that found no project, with what the system suggests",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/imports/{id}/allocate": {
+      "post": {
+        "operationId": "CostController_allocate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "txnIds": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "projectId": {
+                    "type": "string"
+                  },
+                  "contractId": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "remember": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "txnIds",
+                  "projectId",
+                  "contractId",
+                  "remember"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "How many rows are left, and the next one",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "remaining": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "next": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "txn": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "orgUnitId": {
+                                  "type": "string"
+                                },
+                                "projectId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "contractId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "workOrderId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "assetId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "budgetLineId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "txnType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "COMMITMENT",
+                                    "ACTUAL",
+                                    "ACCRUAL"
+                                  ]
+                                },
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "SAP_EXTRACT",
+                                    "SAP_MCP",
+                                    "MANUAL",
+                                    "EXCEL_MIGRATION"
+                                  ]
+                                },
+                                "sourceRef": {
+                                  "type": "string"
+                                },
+                                "docDate": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "postingDate": {
+                                  "type": "string"
+                                },
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "const": "EUR"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "vendorName": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sapWbs": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sapPo": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "costCentre": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "glAccount": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "importBatchId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "matchedBy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "WBS",
+                                    "PO",
+                                    "COST_CENTRE",
+                                    "MANUAL",
+                                    "RULE",
+                                    "NONE"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "orgUnitId",
+                                "projectId",
+                                "contractId",
+                                "workOrderId",
+                                "assetId",
+                                "budgetLineId",
+                                "txnType",
+                                "source",
+                                "sourceRef",
+                                "docDate",
+                                "postingDate",
+                                "amount",
+                                "currency",
+                                "description",
+                                "vendorName",
+                                "sapWbs",
+                                "sapPo",
+                                "costCentre",
+                                "glAccount",
+                                "importBatchId",
+                                "matchedBy"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "suggestions": {
+                              "maxItems": 9,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "projectId": {
+                                    "type": "string"
+                                  },
+                                  "projectCode": {
+                                    "type": "string"
+                                  },
+                                  "projectTitleEl": {
+                                    "type": "string"
+                                  },
+                                  "contractId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "contractRef": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "confidence": {
+                                    "type": "string",
+                                    "enum": [
+                                      "HIGH",
+                                      "MEDIUM",
+                                      "LOW"
+                                    ]
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "SAME_WBS",
+                                      "SAME_PO",
+                                      "SAME_COST_CENTRE",
+                                      "REMEMBERED_VENDOR",
+                                      "SIMILAR_TEXT"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "projectId",
+                                  "projectCode",
+                                  "projectTitleEl",
+                                  "contractId",
+                                  "contractRef",
+                                  "confidence",
+                                  "reason"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "txn",
+                            "suggestions"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "remaining",
+                    "next"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid allocation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a project outside the caller's units",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import, project or row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Allocate unmatched rows to a project, and remember it",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/imports/{id}/skip": {
+      "post": {
+        "operationId": "CostController_skip",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "txnIds": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "txnIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "How many rows are left, and the next one",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "remaining": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "next": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "txn": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "orgUnitId": {
+                                  "type": "string"
+                                },
+                                "projectId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "contractId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "workOrderId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "assetId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "budgetLineId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "txnType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "COMMITMENT",
+                                    "ACTUAL",
+                                    "ACCRUAL"
+                                  ]
+                                },
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "SAP_EXTRACT",
+                                    "SAP_MCP",
+                                    "MANUAL",
+                                    "EXCEL_MIGRATION"
+                                  ]
+                                },
+                                "sourceRef": {
+                                  "type": "string"
+                                },
+                                "docDate": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "postingDate": {
+                                  "type": "string"
+                                },
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "const": "EUR"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "vendorName": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sapWbs": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sapPo": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "costCentre": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "glAccount": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "importBatchId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "matchedBy": {
+                                  "type": "string",
+                                  "enum": [
+                                    "WBS",
+                                    "PO",
+                                    "COST_CENTRE",
+                                    "MANUAL",
+                                    "RULE",
+                                    "NONE"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "orgUnitId",
+                                "projectId",
+                                "contractId",
+                                "workOrderId",
+                                "assetId",
+                                "budgetLineId",
+                                "txnType",
+                                "source",
+                                "sourceRef",
+                                "docDate",
+                                "postingDate",
+                                "amount",
+                                "currency",
+                                "description",
+                                "vendorName",
+                                "sapWbs",
+                                "sapPo",
+                                "costCentre",
+                                "glAccount",
+                                "importBatchId",
+                                "matchedBy"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "suggestions": {
+                              "maxItems": 9,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "projectId": {
+                                    "type": "string"
+                                  },
+                                  "projectCode": {
+                                    "type": "string"
+                                  },
+                                  "projectTitleEl": {
+                                    "type": "string"
+                                  },
+                                  "contractId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "contractRef": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "confidence": {
+                                    "type": "string",
+                                    "enum": [
+                                      "HIGH",
+                                      "MEDIUM",
+                                      "LOW"
+                                    ]
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "SAME_WBS",
+                                      "SAME_PO",
+                                      "SAME_COST_CENTRE",
+                                      "REMEMBERED_VENDOR",
+                                      "SIMILAR_TEXT"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "projectId",
+                                  "projectCode",
+                                  "projectTitleEl",
+                                  "contractId",
+                                  "contractRef",
+                                  "confidence",
+                                  "reason"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "txn",
+                            "suggestions"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "remaining",
+                    "next"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid list of rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import, or no such row in it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pass over rows without deciding; they stay in the batch",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/imports/{id}/commit": {
+      "post": {
+        "operationId": "CostController_commit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The committed batch and its exceptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "SAP_EXTRACT",
+                        "SAP_MCP",
+                        "MANUAL",
+                        "EXCEL_MIGRATION"
+                      ]
+                    },
+                    "report": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ME2N",
+                            "KSB1",
+                            "FBL1N"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fileName": {
+                      "type": "string"
+                    },
+                    "fileSha256": {
+                      "type": "string"
+                    },
+                    "profileId": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "rowsIn": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsMatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsUnmatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsRejected": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amountIn": {
+                      "type": "number"
+                    },
+                    "amountMatched": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRY_RUN",
+                        "PENDING_ALLOCATION",
+                        "COMMITTED",
+                        "FAILED"
+                      ]
+                    },
+                    "importedById": {
+                      "type": "string"
+                    },
+                    "importedByName": {
+                      "type": "string"
+                    },
+                    "importedAt": {
+                      "type": "string"
+                    },
+                    "errorEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "errorEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exceptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "ERROR",
+                              "WARN",
+                              "INFO"
+                            ]
+                          },
+                          "rowNo": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "messageEl": {
+                            "type": "string"
+                          },
+                          "messageEn": {
+                            "type": "string"
+                          },
+                          "costTxnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "rule",
+                          "severity",
+                          "rowNo",
+                          "value",
+                          "messageEl",
+                          "messageEn",
+                          "costTxnId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "source",
+                    "report",
+                    "fileName",
+                    "fileSha256",
+                    "profileId",
+                    "period",
+                    "rowsIn",
+                    "rowsMatched",
+                    "rowsUnmatched",
+                    "rowsRejected",
+                    "amountIn",
+                    "amountMatched",
+                    "status",
+                    "importedById",
+                    "importedByName",
+                    "importedAt",
+                    "errorEl",
+                    "errorEn",
+                    "exceptions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Close the batch; what is still unmatched becomes an exception",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/accruals": {
+      "get": {
+        "operationId": "CostController_accrualList",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "example": 2026
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per certificate awaiting an invoice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "projectId": {
+                        "type": "string"
+                      },
+                      "projectCode": {
+                        "type": "string"
+                      },
+                      "projectTitleEl": {
+                        "type": "string"
+                      },
+                      "contractId": {
+                        "type": "string"
+                      },
+                      "contractRef": {
+                        "type": "string"
+                      },
+                      "contractorName": {
+                        "type": "string"
+                      },
+                      "costCentre": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "certNumber": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "certifiedNet": {
+                        "type": "number"
+                      },
+                      "invoiced": {
+                        "type": "number"
+                      },
+                      "accrual": {
+                        "type": "number"
+                      },
+                      "asOf": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "projectId",
+                      "projectCode",
+                      "projectTitleEl",
+                      "contractId",
+                      "contractRef",
+                      "contractorName",
+                      "costCentre",
+                      "certNumber",
+                      "certifiedNet",
+                      "invoiced",
+                      "accrual",
+                      "asOf"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The year is missing or not a year",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The year-end accrual proposal",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/cost/accruals/export": {
+      "get": {
+        "operationId": "CostController_accrualExport",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "example": 2026
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "The year is missing or not a year",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The accrual proposal as Excel, with live formulas",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/projects/{id}/cost": {
+      "get": {
+        "operationId": "ProjectCostController_cost_",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Everything the project cost screen needs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "ledgers": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "costToComplete": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast",
+                        "costToComplete"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "committedSource": {
+                      "type": "string",
+                      "enum": [
+                        "CONTRACTS",
+                        "SAP_PO",
+                        "NONE"
+                      ]
+                    },
+                    "forecastInputs": {
+                      "type": "object",
+                      "properties": {
+                        "contingency": {
+                          "default": 0,
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "pendingVariationWeight": {
+                          "default": 0.5,
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "contingencyNoteEl": {
+                          "default": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "contingency",
+                        "pendingVariationWeight",
+                        "contingencyNoteEl"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "approved": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "committed": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "spent": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "forecast": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "variance": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "approved",
+                          "committed",
+                          "spent",
+                          "forecast",
+                          "variance"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "commitmentOverYearBudget",
+                              "forecastOverApproved",
+                              "variationsOverTenPct",
+                              "certifiedOverContract",
+                              "retentionBeforeDlpEnd"
+                            ]
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "contractId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sentenceEl": {
+                            "type": "string"
+                          },
+                          "sentenceEn": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "firedAt": {
+                            "type": "string"
+                          },
+                          "dismissedById": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dismissedByName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dismissedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "key",
+                          "projectId",
+                          "contractId",
+                          "sentenceEl",
+                          "sentenceEn",
+                          "amount",
+                          "firedAt",
+                          "dismissedById",
+                          "dismissedByName",
+                          "dismissedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "lastSapImportAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "projectId",
+                    "ledgers",
+                    "committedSource",
+                    "forecastInputs",
+                    "categories",
+                    "warnings",
+                    "lastSapImportAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The four ledgers, the categories and the live warnings",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/projects/{id}/cost/forecast-inputs": {
+      "put": {
+        "operationId": "ProjectCostController_setForecastInputs",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "contingency": {
+                    "default": 0,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "pendingVariationWeight": {
+                    "default": 0.5,
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "contingencyNoteEl": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "contingency",
+                  "pendingVariationWeight",
+                  "contingencyNoteEl"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The ledgers after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "ledgers": {
+                      "type": "object",
+                      "properties": {
+                        "approved": {
+                          "type": "number"
+                        },
+                        "committed": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "spent": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "forecast": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "costToComplete": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "approved",
+                        "committed",
+                        "spent",
+                        "forecast",
+                        "costToComplete"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "committedSource": {
+                      "type": "string",
+                      "enum": [
+                        "CONTRACTS",
+                        "SAP_PO",
+                        "NONE"
+                      ]
+                    },
+                    "forecastInputs": {
+                      "type": "object",
+                      "properties": {
+                        "contingency": {
+                          "default": 0,
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "pendingVariationWeight": {
+                          "default": 0.5,
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "contingencyNoteEl": {
+                          "default": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "contingency",
+                        "pendingVariationWeight",
+                        "contingencyNoteEl"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "approved": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "committed": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "spent": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "forecast": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "variance": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "category",
+                          "approved",
+                          "committed",
+                          "spent",
+                          "forecast",
+                          "variance"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "commitmentOverYearBudget",
+                              "forecastOverApproved",
+                              "variationsOverTenPct",
+                              "certifiedOverContract",
+                              "retentionBeforeDlpEnd"
+                            ]
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "contractId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sentenceEl": {
+                            "type": "string"
+                          },
+                          "sentenceEn": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "firedAt": {
+                            "type": "string"
+                          },
+                          "dismissedById": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dismissedByName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dismissedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "key",
+                          "projectId",
+                          "contractId",
+                          "sentenceEl",
+                          "sentenceEn",
+                          "amount",
+                          "firedAt",
+                          "dismissedById",
+                          "dismissedByName",
+                          "dismissedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "lastSapImportAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "projectId",
+                    "ledgers",
+                    "committedSource",
+                    "forecastInputs",
+                    "categories",
+                    "warnings",
+                    "lastSapImportAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid set of inputs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the contingency and the pending-variation weight",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/projects/{id}/budget-lines": {
+      "get": {
+        "operationId": "ProjectCostController_budgetLines",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The budget lines, oldest vintage first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "vintageId": {
+                            "type": "string"
+                          },
+                          "lineType": {
+                            "type": "string",
+                            "enum": [
+                              "BUDGET",
+                              "FORECAST"
+                            ]
+                          },
+                          "budgetYear": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sapGl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "amount": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "orgUnitId",
+                          "projectId",
+                          "vintageId",
+                          "lineType",
+                          "budgetYear",
+                          "category",
+                          "sapGl",
+                          "amount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "vintageId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total",
+                    "vintageId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The approved budget by year and vintage",
+        "tags": [
+          "cost"
+        ]
+      },
+      "put": {
+        "operationId": "ProjectCostController_replaceBudgetLines",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vintageId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "budgetYear": {
+                          "type": "integer",
+                          "minimum": 2000,
+                          "maximum": 9999
+                        },
+                        "amount": {
+                          "type": "number"
+                        },
+                        "category": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "works",
+                                "equipment",
+                                "fees",
+                                "contingency",
+                                "other"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "sapGl": {
+                          "default": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lineType": {
+                          "default": "BUDGET",
+                          "type": "string",
+                          "enum": [
+                            "BUDGET",
+                            "FORECAST"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "budgetYear",
+                        "amount",
+                        "category",
+                        "sapGl",
+                        "lineType"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "lines"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The budget lines after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "vintageId": {
+                            "type": "string"
+                          },
+                          "lineType": {
+                            "type": "string",
+                            "enum": [
+                              "BUDGET",
+                              "FORECAST"
+                            ]
+                          },
+                          "budgetYear": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "category": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sapGl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "amount": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "orgUnitId",
+                          "projectId",
+                          "vintageId",
+                          "lineType",
+                          "budgetYear",
+                          "category",
+                          "sapGl",
+                          "amount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "vintageId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "total",
+                    "vintageId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid set of lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not finance, or a read-only account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Two lines carry the same year and type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace the approved budget lines of one vintage",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/projects/{id}/cost/warnings/{wid}/dismiss": {
+      "post": {
+        "operationId": "ProjectCostController_dismissWarning",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "wid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The warning, with who dismissed it and when",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string",
+                      "enum": [
+                        "commitmentOverYearBudget",
+                        "forecastOverApproved",
+                        "variationsOverTenPct",
+                        "certifiedOverContract",
+                        "retentionBeforeDlpEnd"
+                      ]
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentenceEl": {
+                      "type": "string"
+                    },
+                    "sentenceEn": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "firedAt": {
+                      "type": "string"
+                    },
+                    "dismissedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dismissedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dismissedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "key",
+                    "projectId",
+                    "contractId",
+                    "sentenceEl",
+                    "sentenceEn",
+                    "amount",
+                    "firedAt",
+                    "dismissedById",
+                    "dismissedByName",
+                    "dismissedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such warning on this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Dismiss a cost warning; it stays on the record",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/projects/{id}/cost/cashflow": {
+      "get": {
+        "operationId": "ProjectCostController_cashflow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "2026-12"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "2026-01"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per month in the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string"
+                      },
+                      "planned": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "actual": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "cumulativePlanned": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "cumulativeActual": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "period",
+                      "planned",
+                      "actual",
+                      "cumulativePlanned",
+                      "cumulativeActual"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The window is not two periods, or ends before it starts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The project's cash-flow profile by month",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/org-units/{id}/cost/cashflow": {
+      "get": {
+        "operationId": "ProjectCostController_unitCashflow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "2026-12"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "2026-01"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per month in the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string"
+                      },
+                      "planned": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "actual": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "cumulativePlanned": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "cumulativeActual": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "period",
+                      "planned",
+                      "actual",
+                      "cumulativePlanned",
+                      "cumulativeActual"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The window is not two periods, or ends before it starts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such unit, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The unit's cash-flow profile by month",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/projects/{id}/cost/export": {
+      "get": {
+        "operationId": "ProjectCostController_exportCost",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The project's cost by category as Excel, with live formulas",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/contracts/{id}/payment-certs": {
+      "get": {
+        "operationId": "PaymentCertsController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The certificates, first to last",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "contractId": {
+                        "type": "string"
+                      },
+                      "orgUnitId": {
+                        "type": "string"
+                      },
+                      "number": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "periodFrom": {
+                        "type": "string"
+                      },
+                      "periodTo": {
+                        "type": "string"
+                      },
+                      "workDoneValue": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "materialsOnSite": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "retentionHeld": {
+                        "type": "number"
+                      },
+                      "previousCertified": {
+                        "type": "number"
+                      },
+                      "netPayable": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "DRAFT",
+                          "ENGINEER_APPROVED",
+                          "FINANCE_RECEIVED",
+                          "PAID"
+                        ]
+                      },
+                      "createdById": {
+                        "type": "string"
+                      },
+                      "createdByName": {
+                        "type": "string"
+                      },
+                      "approvedById": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "approvedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "approvedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sapInvoiceRef": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "paidDate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "retentionReleased": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "contractId",
+                      "orgUnitId",
+                      "number",
+                      "periodFrom",
+                      "periodTo",
+                      "workDoneValue",
+                      "materialsOnSite",
+                      "retentionHeld",
+                      "previousCertified",
+                      "netPayable",
+                      "status",
+                      "createdById",
+                      "createdByName",
+                      "approvedById",
+                      "approvedByName",
+                      "approvedAt",
+                      "sapInvoiceRef",
+                      "paidDate",
+                      "retentionReleased"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The payment certificates of one contract, in number order",
+        "tags": [
+          "cost"
+        ]
+      },
+      "post": {
+        "operationId": "PaymentCertsController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "periodFrom": {
+                    "type": "string"
+                  },
+                  "periodTo": {
+                    "type": "string"
+                  },
+                  "workDoneValue": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "materialsOnSite": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "periodFrom",
+                  "periodTo",
+                  "workDoneValue",
+                  "materialsOnSite"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The certificate in DRAFT, with its derived figures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "periodFrom": {
+                      "type": "string"
+                    },
+                    "periodTo": {
+                      "type": "string"
+                    },
+                    "workDoneValue": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "materialsOnSite": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "retentionHeld": {
+                      "type": "number"
+                    },
+                    "previousCertified": {
+                      "type": "number"
+                    },
+                    "netPayable": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "ENGINEER_APPROVED",
+                        "FINANCE_RECEIVED",
+                        "PAID"
+                      ]
+                    },
+                    "createdById": {
+                      "type": "string"
+                    },
+                    "createdByName": {
+                      "type": "string"
+                    },
+                    "approvedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sapInvoiceRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "paidDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "retentionReleased": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "periodFrom",
+                    "periodTo",
+                    "workDoneValue",
+                    "materialsOnSite",
+                    "retentionHeld",
+                    "previousCertified",
+                    "netPayable",
+                    "status",
+                    "createdById",
+                    "createdByName",
+                    "approvedById",
+                    "approvedByName",
+                    "approvedAt",
+                    "sapInvoiceRef",
+                    "paidDate",
+                    "retentionReleased"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid certificate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not certify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period ends before it starts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Draft a payment certificate on the contract",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/payment-certs/{id}": {
+      "get": {
+        "operationId": "PaymentCertsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The certificate as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "periodFrom": {
+                      "type": "string"
+                    },
+                    "periodTo": {
+                      "type": "string"
+                    },
+                    "workDoneValue": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "materialsOnSite": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "retentionHeld": {
+                      "type": "number"
+                    },
+                    "previousCertified": {
+                      "type": "number"
+                    },
+                    "netPayable": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "ENGINEER_APPROVED",
+                        "FINANCE_RECEIVED",
+                        "PAID"
+                      ]
+                    },
+                    "createdById": {
+                      "type": "string"
+                    },
+                    "createdByName": {
+                      "type": "string"
+                    },
+                    "approvedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sapInvoiceRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "paidDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "retentionReleased": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "periodFrom",
+                    "periodTo",
+                    "workDoneValue",
+                    "materialsOnSite",
+                    "retentionHeld",
+                    "previousCertified",
+                    "netPayable",
+                    "status",
+                    "createdById",
+                    "createdByName",
+                    "approvedById",
+                    "approvedByName",
+                    "approvedAt",
+                    "sapInvoiceRef",
+                    "paidDate",
+                    "retentionReleased"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such certificate, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "One payment certificate",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
+    "/payment-certs/{id}/transition": {
+      "post": {
+        "operationId": "PaymentCertsController_transition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "ENGINEER_APPROVED",
+                      "FINANCE_RECEIVED",
+                      "PAID"
+                    ]
+                  },
+                  "sapInvoiceRef": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "paidDate": {
+                    "default": null,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "retentionReleased": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "to",
+                  "sapInvoiceRef",
+                  "paidDate"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The certificate in its new status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "periodFrom": {
+                      "type": "string"
+                    },
+                    "periodTo": {
+                      "type": "string"
+                    },
+                    "workDoneValue": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "materialsOnSite": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "retentionHeld": {
+                      "type": "number"
+                    },
+                    "previousCertified": {
+                      "type": "number"
+                    },
+                    "netPayable": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "ENGINEER_APPROVED",
+                        "FINANCE_RECEIVED",
+                        "PAID"
+                      ]
+                    },
+                    "createdById": {
+                      "type": "string"
+                    },
+                    "createdByName": {
+                      "type": "string"
+                    },
+                    "approvedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sapInvoiceRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "paidDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "retentionReleased": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "periodFrom",
+                    "periodTo",
+                    "workDoneValue",
+                    "materialsOnSite",
+                    "retentionHeld",
+                    "previousCertified",
+                    "netPayable",
+                    "status",
+                    "createdById",
+                    "createdByName",
+                    "approvedById",
+                    "approvedByName",
+                    "approvedAt",
+                    "sapInvoiceRef",
+                    "paidDate",
+                    "retentionReleased"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The person who created it, or a role that may not take this step",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such certificate, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not the next status, or a field this status needs is missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Move the certificate to the next status",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
     "/contracts/{id}/rfis": {
       "get": {
         "operationId": "RfisController_list",

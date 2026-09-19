@@ -31,6 +31,15 @@ export class AppError extends HttpException {
   }
 
   /**
+   * The same thing twice. R14's import refuses a file whose hash is already
+   * on a batch: the body is fine, the rule is fine, and the state of the
+   * world is what makes it wrong.
+   */
+  static conflict(key: string, params: Record<string, string> = {}): AppError {
+    return new AppError(key, HttpStatus.CONFLICT, params);
+  }
+
+  /**
    * The body is well formed but the rule says no — a phase that is not the
    * next one, a gate still open, a baseline somebody tried to move (R04, R06).
    * 400 would say "you typed it wrong", which is not what happened.

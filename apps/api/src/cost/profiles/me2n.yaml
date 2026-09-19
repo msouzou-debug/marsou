@@ -1,0 +1,47 @@
+# ME2N — «Εντολές αγοράς ανά υλικό», the open purchase-order list.
+#
+# R14, CAPEX-01 §7: ME2N is the commitment ledger. A line is what is still
+# owed on a purchase order, so it lands as a COMMITMENT transaction and the
+# project is found by its WBS element, then by the purchase order itself.
+#
+# ADR-0016's rule applies here too: this file may move a column or add a
+# spelling of a header, and it may not invent a way of reading a cell.
+profile: sap_me2n_v1
+report: ME2N
+txn_type: COMMITMENT
+sheet: null
+header_row: 1
+first_data_row: 2
+# A Greek SAP client exports «1.234,56» and dates documents «31.03.2026».
+number_format: european
+date_format: dmy_dot
+# ME2N posts a commitment as a debit, which is the sign the ledger wants. A
+# credit memo stays negative and is meant to.
+sign: as_posted
+csv_delimiter: ";"
+columns:
+  sourceRef:
+    headers: ["Purchasing Document", "Purch.Doc.", "Έγγραφο αγοράς", "Εντολή αγοράς"]
+    required: true
+  lineItem:
+    headers: ["Item", "Θέση"]
+  docDate:
+    headers: ["Document Date", "Doc. Date", "Ημερομηνία εγγράφου"]
+  postingDate:
+    headers: ["Delivery Date", "Ημερομηνία παράδοσης", "Posting Date", "Ημερομηνία καταχώρισης"]
+    required: true
+  amount:
+    headers: ["Still to be delivered (value)", "Open Value", "Υπόλοιπο αξίας", "Αξία"]
+    required: true
+  description:
+    headers: ["Short Text", "Material Description", "Σύντομο κείμενο", "Περιγραφή"]
+  vendorName:
+    headers: ["Vendor/supplying plant", "Vendor", "Προμηθευτής", "Ανάδοχος"]
+  sapWbs:
+    headers: ["WBS Element", "WBS", "Στοιχείο WBS"]
+  sapPo:
+    headers: ["Purchasing Document", "Purch.Doc.", "Έγγραφο αγοράς", "Εντολή αγοράς"]
+  costCentre:
+    headers: ["Cost Center", "Cost Centre", "Κέντρο κόστους"]
+  glAccount:
+    headers: ["G/L Account", "GL Account", "Λογαριασμός"]

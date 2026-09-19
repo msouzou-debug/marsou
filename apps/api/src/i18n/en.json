@@ -68,11 +68,35 @@
     "defectQueryNotValid": "The defect list settings are not usable. Check the filters and try again.",
     "defectUnitNeeded": "A defect needs a unit. Link it to a contract or a project, or pick the unit it belongs to.",
     "fundedNeedsProject": "To mark a defect as funded, name the project paying for it. Funded with no project puts the cost on nobody's budget.",
-    "budgetFinanceOnly": "From the approval phase onwards, only finance changes the approved budget. Ask them to record the change.",
+    "budgetFinanceOnly": "Finance changes the approved budget lines. Ask finance to make the change.",
     "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening.",
     "credentialsNeeded": "Fill in your username and password, then try again.",
     "contractRefNeeded": "Give the contract reference and try again.",
-    "contractQueryNotValid": "The contract list filters are not right. Check the unit and the search term, then try again."
+    "contractQueryNotValid": "The contract list filters are not right. Check the unit and the search term, then try again.",
+    "costFileNeeded": "The monthly extract file is missing. Choose the file and try again.",
+    "costImportNotValid": "The import is incomplete. Name the report (ME2N, KSB1 or FBL1N) and the period as YYYY-MM.",
+    "costImportDuplicate": "The file {file} has already been imported for the same report. Choose next month's file, or run a dry run to see what is in it.",
+    "costImportNotFound": "The import was not found, or you have no access to it. Choose an import from the list.",
+    "costFileUnreadable": "The file does not read as an Excel workbook. Save it again as .xlsx or .csv and try again.",
+    "costSheetMissing": "The file has no sheet called «{sheet}». Check the SAP export and try again.",
+    "costColumnsMissing": "The import needs columns the file does not have: {columns}. Export the report again with the full column layout.",
+    "costSourceNotConfigured": "The direct SAP connection is not configured. Upload the monthly extract as a file.",
+    "costTxnNotFound": "Those rows are not in this import, or somebody has allocated them already. Refresh the queue and try again.",
+    "allocationNotValid": "The allocation is incomplete. Choose at least one row and a project, then try again.",
+    "costWarningNotFound": "The warning is not on this project. Refresh the page and try again.",
+    "forecastInputsNotValid": "The forecast inputs are not usable. Give a contingency of zero or more and a weight between 0 and 1.",
+    "budgetLinesNotValid": "The budget lines are not usable. Check the year, the amount and the category on each line.",
+    "budgetYearRepeated": "Two lines cover the same year and the same type. Leave one line per year and try again.",
+    "cashflowRangeNotValid": "The window is not usable. Give a start and an end as YYYY-MM, with the end after the start.",
+    "accrualQueryNotValid": "The accruals need a year as YYYY. Fill it in and try again.",
+    "paymentCertNotFound": "The payment certificate was not found, or you have no access to it. Choose one from the contract.",
+    "paymentCertNotValid": "The certificate is incomplete. Fill in the period, the value of work done and the materials on site.",
+    "certPeriodNotValid": "The certificate period ends before it starts. Correct the dates and try again.",
+    "certTransitionNotValid": "That is not a valid change of status. Name the next status and the fields it needs.",
+    "certTransitionNotAllowed": "A certificate moves one status at a time and only forward. Choose the next status.",
+    "certRoleNotAllowed": "Your role does not take this step. The project engineer approves the work; finance receives and pays.",
+    "sapInvoiceRefNeeded": "The SAP invoice reference is needed before finance can receive the certificate. Fill it in and try again.",
+    "paidDateNeeded": "The date of payment is needed. Fill it in and try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -228,6 +252,53 @@
       "notAllowed": "The account {email} may not run an import. An import writes to every unit, so only the system administrator runs it.",
       "fileMissing": "No file at {file}. Check the path and try again.",
       "sheetMissing": "The workbook has no sheet «{sheet}». It has: {sheets}. Fix the sheet name in the profile."
+    },
+    "cost": {
+      "amountUnreadable": "Row {row} holds text where an amount belongs: «{value}». Correct the cell in the extract and import the file again.",
+      "dateUnreadable": "Row {row} holds a date that cannot be read: «{value}». Correct the format in the extract and import the file again.",
+      "referenceMissing": "Row {row} carries no document number, so it cannot be identified. Check the layout of the extract.",
+      "unmatched": "Document {ref} ({amount} euro) found no project. Allocate it from the unmatched queue.",
+      "skipped": "Document {ref} ({amount} euro) was left without a project when the import was closed. Allocate it on the next import."
+    }
+  },
+  "costWarnings": {
+    "commitmentOverYearBudget": "Commitments on «{project}» ({unit}) for {year} reach {committed}, which is {amount} above the year's approved budget of {approved}.",
+    "forecastOverApproved": "The forecast final cost of «{project}» ({unit}) reaches {forecast}, which is {amount} above the approved budget of {approved}.",
+    "variationsOverTenPct": "Approved variations on contract {contract} for «{project}» ({unit}) reach {pct} of the original value, {amount} above the 10% ceiling.",
+    "certifiedOverContract": "Certificates on contract {contract} for «{project}» ({unit}) reach {certified}, which is {amount} above the contract's current value of {value}.",
+    "retentionBeforeDlpEnd": "Retention on contract {contract} for «{project}» ({unit}) was released before the defects-liability period ends on {date}."
+  },
+  "cost": {
+    "categories": {
+      "works": "Works",
+      "equipment": "Equipment",
+      "fees": "Consultant fees",
+      "contingency": "Contingency",
+      "other": "Other",
+      "uncategorised": "No category"
+    },
+    "export": {
+      "accrualsSheet": "Accruals",
+      "projectSheet": "Cost by category",
+      "total": "Total",
+      "columns": {
+        "projectCode": "Project code",
+        "projectTitle": "Project title",
+        "contractor": "Contractor",
+        "contract": "Contract",
+        "certNumber": "Certificate number",
+        "certifiedNet": "Net payable",
+        "invoiced": "Invoiced",
+        "accrual": "Accrual",
+        "costCentre": "Cost centre",
+        "asOf": "As at",
+        "category": "Category",
+        "approved": "Approved budget",
+        "committed": "Commitments",
+        "spent": "Actual spend",
+        "forecast": "Forecast final cost",
+        "variance": "Variance"
+      }
     }
   }
 }

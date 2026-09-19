@@ -41,7 +41,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0008_entity_codes_and_contract_refs");
     expect(result.applied).toContain("0009_hq_unit");
     expect(result.applied).toContain("0010_admin_users");
-    expect(result.lastMigrationId).toBe("0010_admin_users");
+    expect(result.applied).toContain("0011_m2_cost");
+    expect(result.lastMigrationId).toBe("0011_m2_cost");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -50,6 +51,7 @@ describe("migrations", () => {
     );
     await client.end();
     expect(rows.map((r) => r.table_name)).toEqual([
+      "allocation_rule",
       "app_user",
       "app_user_org_unit",
       "app_user_role",
@@ -62,14 +64,18 @@ describe("migrations", () => {
       "contract_ref_seq",
       "contractor",
       "cost_txn",
+      "cost_warning",
       "defect",
+      "email_outbox",
       "floor",
+      "forecast_inputs",
       "import_batch",
       "import_exception",
       "issue",
       "milestone",
       "org_unit",
       "org_unit_alias",
+      "payment_cert",
       "project",
       "project_code_seq",
       "project_note",
@@ -95,6 +101,8 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0007_active_directory_sign_in");
     expect(result.skipped).toContain("0008_entity_codes_and_contract_refs");
     expect(result.skipped).toContain("0009_hq_unit");
+    expect(result.skipped).toContain("0010_admin_users");
+    expect(result.skipped).toContain("0011_m2_cost");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
