@@ -57,7 +57,7 @@ Separately, and on the same day: **the Ambulance Service (Υπηρεσία Ασ�
 
 This is deliberately a document and not a table. A mapping table in the database is a thing that has to be maintained, queried and eventually trusted; this one exists to be read twice and then thrown away when eFinance moves. **eFinance has been asked to align** — the same list of asks INTEGRATION §4 already carries.
 
-`CNS` (Κοινοτική Νοσηλευτική Υπηρεσία, Central Nursing Services) still has no eCapital unit and none is invented for it. Capital work for it files under `HQ`.
+`CNS` (Central Nursing Services; the Greek expansion in ADR-0019 and migration 0008 was a guess and is not confirmed) still has no eCapital unit and none is invented for it. Capital work for it files under `HQ` (owner decision 19/09/2026).
 
 ### 3. Project codes are re-prefixed; the counter is not
 
