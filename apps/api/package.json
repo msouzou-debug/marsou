@@ -25,6 +25,7 @@
     "drizzle-orm": "^0.45",
     "exceljs": "^4.4.0",
     "jose": "^6",
+    "ldapts": "^9.2.0",
     "nestjs-pino": "^5",
     "pg": "^8",
     "pino": "^10",

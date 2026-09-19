@@ -10,6 +10,9 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
     orgUnitId: "larnaca-general",
     contractorId: "contractor-1",
     contractorName: "Κυριάκου Τεχνικές Κατασκευές Λτδ",
+    // ADR-0019: allocated by the API, never typed. The number next to it is
+    // the one off the tender papers.
+    ref: "CAP-2026-0031",
     contractNo: "ΤΥ/2026/031",
     type: "BOQ",
     awardDate: "2026-01-10",
@@ -26,6 +29,7 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
     liquidatedDamagesPerDay: 1200,
     defectsLiabilityMonths: 12,
     sapPoNumber: "45100031",
+    emapRef: null,
     createdAt: null,
     updatedAt: null,
     project: { id: "project-1", code: "LAR-2026-031", titleEl: "Αντικατάσταση οχημάτων ασθενοφόρων" },

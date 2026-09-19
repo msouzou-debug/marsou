@@ -16,9 +16,30 @@ export const AppRole = z.enum([
 ]);
 export type AppRole = z.infer<typeof AppRole>;
 
-// What the bearer token carries, in the token's own spelling. Entra ID in
-// production and the development stub issue the same claims (ADR-0009), so
-// nothing downstream can tell them apart.
+// ADR-0018. How this deployment authenticates people.
+//
+//   dev   the seeded-account stub, development and tests only (ADR-0009)
+//   ldap  a simple bind against the ΟΚΥπΥ Active Directory — what the ΟΚΥπΥ
+//         server estate actually runs, alongside eMAP and eFinance
+//   oidc  Entra ID, as ADR-0009 built it; kept, not used today
+//
+// All three end in the same signed session token and the same claims.
+export const AuthMode = z.enum(["dev", "ldap", "oidc"]);
+export type AuthMode = z.infer<typeof AuthMode>;
+
+// POST /auth/login — what the sign-in screen sends in `ldap` mode. The
+// username is either a bare sAMAccountName or a full UPN; the API works out
+// which. RULE (ADR-0018): the password is never logged, never stored and
+// never echoed back.
+export const LoginRequest = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+export type LoginRequest = z.infer<typeof LoginRequest>;
+
+// What the bearer token carries, in the token's own spelling. Entra ID, the
+// AD bind and the development stub issue the same claims (ADR-0009,
+// ADR-0018), so nothing downstream can tell them apart.
 export const TokenClaims = z.object({
   sub: z.string().min(1),
   name: z.string().min(1),
@@ -41,3 +62,8 @@ export const Me = z.object({
   orgUnitIds: z.array(z.string()),
 });
 export type Me = z.infer<typeof Me>;
+
+// What POST /auth/login and POST /auth/dev-token both answer: the token the
+// web app puts in its httpOnly cookie, and the claims that go with it.
+export const SessionResponse = z.object({ token: z.string().min(1), claims: Me });
+export type SessionResponse = z.infer<typeof SessionResponse>;

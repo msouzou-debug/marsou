@@ -27,6 +27,7 @@ export interface ContractRow {
   orgUnitId: string;
   contractorId: string;
   contractorName: string;
+  ref: string;
   contractNo: string;
   type: Contract["type"];
   awardDate: string;
@@ -43,6 +44,7 @@ export interface ContractRow {
   liquidatedDamagesPerDay: string | number | null;
   defectsLiabilityMonths: number;
   sapPoNumber: string | null;
+  emapRef: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -54,6 +56,7 @@ export function toContract(row: ContractRow): Contract {
     orgUnitId: row.orgUnitId,
     contractorId: row.contractorId,
     contractorName: row.contractorName,
+    ref: row.ref,
     contractNo: row.contractNo,
     type: row.type,
     awardDate: row.awardDate,
@@ -74,6 +77,7 @@ export function toContract(row: ContractRow): Contract {
       row.liquidatedDamagesPerDay === null ? null : money(row.liquidatedDamagesPerDay),
     defectsLiabilityMonths: row.defectsLiabilityMonths,
     sapPoNumber: row.sapPoNumber,
+    emapRef: row.emapRef,
     createdAt: row.createdAt ? row.createdAt.toISOString() : null,
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
   };

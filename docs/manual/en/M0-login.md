@@ -1,6 +1,6 @@
 # Signing in and what you can see
 
-The sign-in page identifies you through your ΟΚΥπΥ account and shows you only the units you belong to. In development, where there is no Entra ID tenant, you sign in as one of eight sample users instead.
+The sign-in page identifies you through your ΟΚΥπΥ account and shows you only the units you belong to. On the ΟΚΥπΥ server that means your Active Directory account — see the second section below. In development, where there is no directory, you sign in as one of eight sample users instead.
 
 ## Steps
 
@@ -23,3 +23,20 @@ The eight accounts: `admin@ecapital.test` (administrator, all units), `estates.n
 - **An entry is refused because the account only reads.** The auditor and management accounts cannot change anything. Use an account with write access.
 - **A change to the approved budget is refused.** Once a project is approved, only the finance account may change that figure. Sign in as `finance@ecapital.test`, or ask finance to record the change.
 - **The API will not start and names an environment variable.** Copy `apps/api/.env.example` to `apps/api/.env` and fill in the variable the message names.
+
+## Signing in with your ΟΚΥπΥ account (Active Directory)
+
+On the ΟΚΥπΥ server you sign in with the same account you use for eMAP and eFinance — your `ihcis.local` network account. The sign-in screen asks for a username and a password, and shows no sample accounts.
+
+1. Type your username the way you type it on your own computer (`apapadopoulos`). The full form, `apapadopoulos@ihcis.local`, works too.
+2. Type your password. It is your network password; eCapital keeps no copy of it and cannot change it.
+3. Press Sign in. The session lasts eight hours.
+
+Your roles and your units come from the Active Directory groups you belong to. Which group grants which role is set by the system administrator inside eCapital, and does not change with a new release.
+
+## What can go wrong signing in with a ΟΚΥπΥ account
+
+- **"That username or password is not right."** You get the same sentence for an account that does not exist and for a password that is wrong, on purpose. Check you are typing your username and not your email address, and that Caps Lock is off. If your network password has expired or the account is locked, sort that out on your own computer first and then come back.
+- **You get in but see nothing.** Your account is not yet in any group that maps to an eCapital role. Nothing is broken: the sign-in worked and the role is missing. Ask the administrator to add your AD group to eCapital's roles.
+- **"Signing in with a ΟΚΥπΥ account is not switched on for this server."** The server has not been configured for Active Directory. Ask the administrator to check `AUTH_MODE`, `LDAP_URL`, `LDAP_BASE_DN` and `LDAP_DOMAIN`.
+- **"The server did not answer."** eCapital could not reach the directory. That is a network or configuration problem, not your password.

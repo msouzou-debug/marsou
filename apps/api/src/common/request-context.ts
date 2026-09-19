@@ -9,11 +9,20 @@ export interface AuthenticatedRequest extends Request {
   claims?: TokenClaims;
 }
 
-/** Best guess at the caller's address, for the audit log's `ip` column. */
+/**
+ * The caller's address, for the audit log's `ip` column.
+ *
+ * `request.ip` is Express's own answer, and Express is the right place to
+ * decide it: with `trust proxy` set (ADR-0018 §5, `TRUST_PROXY=1` on the
+ * ΟΚΥπΥ server, where cloudflared terminates the hostname on another box) it
+ * reads X-Forwarded-For; without it, it reports the socket and ignores the
+ * header. Reading the header here instead — which is what this did before
+ * ADR-0018 — trusted it on every deployment, including the ones where
+ * anybody can reach the port and write whatever address they like into the
+ * audit trail.
+ */
 export function clientIp(request: Request): string | null {
-  const forwarded = request.headers["x-forwarded-for"];
-  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
-  const candidate = (first ?? request.ip ?? "").trim();
+  const candidate = (request.ip ?? request.socket?.remoteAddress ?? "").trim();
   if (!candidate) return null;
   // Express reports IPv4 over IPv6 as ::ffff:10.0.0.1; inet takes either, but
   // the plain form is what an operator expects to read.

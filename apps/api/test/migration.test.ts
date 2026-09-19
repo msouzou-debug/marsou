@@ -37,7 +37,9 @@ describe("migrations", () => {
     expect(result.applied).toContain("0004_audit_skip_noop_updates");
     expect(result.applied).toContain("0006_m1_site_logs");
     expect(result.applied).toContain("0005_m1_import");
-    expect(result.lastMigrationId).toBe("0006_m1_site_logs");
+    expect(result.applied).toContain("0007_active_directory_sign_in");
+    expect(result.applied).toContain("0008_entity_codes_and_contract_refs");
+    expect(result.lastMigrationId).toBe("0008_entity_codes_and_contract_refs");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -55,6 +57,7 @@ describe("migrations", () => {
       "budget_line",
       "building",
       "contract",
+      "contract_ref_seq",
       "contractor",
       "cost_txn",
       "defect",
@@ -87,6 +90,8 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0004_audit_skip_noop_updates");
     expect(result.skipped).toContain("0006_m1_site_logs");
     expect(result.skipped).toContain("0005_m1_import");
+    expect(result.skipped).toContain("0007_active_directory_sign_in");
+    expect(result.skipped).toContain("0008_entity_codes_and_contract_refs");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

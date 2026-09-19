@@ -23,8 +23,12 @@ describe("openapi.json", () => {
     expect(Object.keys(document.paths).sort()).toEqual([
       "/audit-log",
       "/auth/dev-token",
+      "/auth/login",
+      "/config/links",
       "/contractors",
       "/contractors/{id}",
+      "/contracts",
+      "/contracts/lookup",
       "/contracts/{id}",
       "/contracts/{id}/boq",
       "/contracts/{id}/rfis",

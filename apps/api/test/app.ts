@@ -1,8 +1,9 @@
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { AppModule } from "../src/app.module";
-import { CONFIG, type AppConfig } from "../src/config";
-import { DEV_AUDIENCE, DEV_ISSUER, signDevToken } from "../src/auth/tokens";
+import { CONFIG, loadConfig, type AppConfig } from "../src/config";
+import { DIRECTORY, type Directory } from "../src/auth/directory";
+import { DEV_AUDIENCE, DEV_ISSUER, signSessionToken } from "../src/auth/tokens";
 import { TokenClaims } from "@ecapital/shared";
 
 export { DEV_AUDIENCE, DEV_ISSUER };
@@ -27,6 +28,31 @@ export async function createTestApp(): Promise<INestApplication> {
 }
 
 /**
+ * The same app with a different environment — and, where one is given, a fake
+ * Active Directory in place of the real one (ADR-0018).
+ *
+ * The fake goes in at the `Directory` port, not inside `ldapts`, so what the
+ * test exercises is everything the API does with an answer from the
+ * directory: the group→role mapping, the app_user upsert, the claims and the
+ * token. What it does not exercise is the LDAP conversation itself — see
+ * ADR-0018 on why, and on what has to be checked by hand at deployment.
+ */
+export async function createAppWith(
+  env: Record<string, string>,
+  directory?: Directory,
+): Promise<INestApplication> {
+  const config = loadConfig({ ...process.env, ...env });
+  let builder = Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(CONFIG)
+    .useValue(config);
+  if (directory) builder = builder.overrideProvider(DIRECTORY).useValue(directory);
+  const moduleRef = await builder.compile();
+  const app = moduleRef.createNestApplication({ logger: false });
+  await app.init();
+  return app;
+}
+
+/**
  * A token for a seeded user, minted the same way the dev-token route mints
  * one — which is the same claims shape Entra ID sends in production
  * (ADR-0009), so the tests exercise the real guard and not a mock of it.
@@ -37,14 +63,14 @@ export async function tokenFor(app: INestApplication, email: string): Promise<st
   const auth = app.get(AuthService);
   const { token } = await auth.devTokenFor(email);
   // Touching the config keeps the secret in one place and fails loudly if a
-  // test ever runs with DEV_AUTH off.
-  if (!config.DEV_AUTH) throw new Error("DEV_AUTH must be on in tests");
+  // test ever runs with the stub off.
+  if (config.authMode !== "dev") throw new Error("AUTH_MODE must be dev in tests");
   return token;
 }
 
 /** A syntactically valid token signed with the wrong secret. */
 export async function forgedToken(): Promise<string> {
-  return signDevToken(
+  return signSessionToken(
     TokenClaims.parse({
       sub: "not-a-user",
       name: "Someone Else",

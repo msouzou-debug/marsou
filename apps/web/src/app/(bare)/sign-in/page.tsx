@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "@/auth/session";
 import { HelpSection } from "@/help/HelpSection";
+import { signInMode } from "@/screens/s00-sign-in/auth-mode";
 import { SignInForm } from "@/screens/s00-sign-in/SignInForm";
 
 // The one screen outside the shell (see src/app/(bare)/layout.tsx): a centred
@@ -18,6 +19,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   // going instead of showing a form that would immediately bounce them.
   if (await getSession()) redirect(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
 
+  const mode = signInMode();
   const t = await getTranslations("app");
   return (
     <main className="flex flex-1 items-center justify-center p-s-4">
@@ -35,7 +37,13 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         <h1 className="mt-s-4 text-fs-24 font-bold text-k-blue-deep">eCapital</h1>
         <p className="mt-s-1 text-fs-16 text-k-text">{t("tagline")}</p>
 
-        <SignInForm next={next} showDevAccounts={process.env.NEXT_PUBLIC_DEV_AUTH === "1"} />
+        {/* ADR-0018: which form to draw is the deployment's decision, read
+            once here on the server and handed down. */}
+        <SignInForm
+          next={next}
+          mode={mode}
+          showDevAccounts={mode === "dev" && process.env.NEXT_PUBLIC_DEV_AUTH === "1"}
+        />
       </div>
       <HelpSection route="/sign-in" />
     </main>

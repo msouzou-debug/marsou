@@ -23,7 +23,7 @@ import type { AppRole, BoqItem } from "@ecapital/shared";
 import { BoqItem as BoqItemSchema } from "@ecapital/shared";
 import { z } from "zod";
 import { ApiError, apiMutate } from "@/data/client";
-import { useContract } from "@/data/queries";
+import { useConfigLinks, useContract } from "@/data/queries";
 import type { BoqDraftRow } from "./BoqSection";
 import { ContractOverview, type ContractOverviewScreenState } from "./ContractOverview";
 
@@ -50,6 +50,10 @@ function useOnlineStatus(): boolean {
 
 export function ContractOverviewScreen({ contractId, roles, noPermission }: ContractOverviewScreenProps) {
   const { data, error, isLoading, refetch } = useContract(contractId);
+  // ADR-0019 §4. Its own query, cached for the session: whether the link-outs
+  // appear must not hold up the contract itself, and a failure here means no
+  // links rather than no page.
+  const { data: links } = useConfigLinks();
   const online = useOnlineStatus();
 
   const [boqSaving, setBoqSaving] = useState(false);
@@ -101,6 +105,7 @@ export function ContractOverviewScreen({ contractId, roles, noPermission }: Cont
       onSaveBoq={(rows) => void saveBoq(rows)}
       boqSaving={boqSaving}
       boqError={boqError}
+      links={links}
     />
   );
 }

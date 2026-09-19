@@ -25,6 +25,8 @@ export class OrgUnitsService {
         type: schema.orgUnit.type,
         directorate: schema.orgUnit.directorate,
         costCentre: schema.orgUnit.costCentre,
+        // ADR-0019: the eFinance entity code, null where there is none.
+        entityCode: schema.orgUnit.entityCode,
         timezone: schema.orgUnit.timezone,
       })
       .from(schema.orgUnit)

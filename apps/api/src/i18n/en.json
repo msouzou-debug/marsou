@@ -60,7 +60,10 @@
     "defectUnitNeeded": "A defect needs a unit. Link it to a contract or a project, or pick the unit it belongs to.",
     "fundedNeedsProject": "To mark a defect as funded, name the project paying for it. Funded with no project puts the cost on nobody's budget.",
     "budgetFinanceOnly": "From the approval phase onwards, only finance changes the approved budget. Ask them to record the change.",
-    "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening."
+    "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening.",
+    "credentialsNeeded": "Fill in your username and password, then try again.",
+    "contractRefNeeded": "Give the contract reference and try again.",
+    "contractQueryNotValid": "The contract list filters are not right. Check the unit and the search term, then try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",

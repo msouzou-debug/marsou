@@ -12,6 +12,19 @@ export interface SeedOrgUnit extends OrgUnit {
   aliases: string[];
 }
 
+// ADR-0019 — the eFinance entity code for each unit, which is also the SAP
+// Fund Center. Taken from INTEGRATION-eMAP §2's table of thirteen; eleven of
+// them have an eCapital unit.
+//
+// Two eFinance codes are deliberately absent, because eCapital has no unit
+// for them and inventing one would put a fictional hospital in the capital
+// register: HQ (Κεντρικά Γραφεία) and CNS (Κοινοτική Νοσηλευτική Υπηρεσία).
+// ADR-0019 lists them as unmapped.
+//
+// ASSUMPTION, flagged in ADR-0019 and not yet confirmed by the owner: ΠΦΥ
+// (Πρωτοβάθμια Φροντίδα Υγείας) is eFinance's HC (Κέντρα Υγείας). The two
+// names describe the same service from two directions — the directorate and
+// its health centres — but nobody has said so in writing.
 const unit = (
   id: string,
   code: string,
@@ -20,6 +33,7 @@ const unit = (
   type: OrgUnitType,
   directorate: Directorate,
   costCentre: string,
+  entityCode: string | null,
   aliases: string[],
 ): SeedOrgUnit => ({
   id,
@@ -29,34 +43,35 @@ const unit = (
   type,
   directorate,
   costCentre,
+  entityCode,
   timezone: "Europe/Nicosia",
   aliases,
 });
 
 export const seedOrgUnits: SeedOrgUnit[] = [
   unit("nicosia-general", "NGH", "Γενικό Νοσοκομείο Λευκωσίας", "Nicosia General Hospital",
-    "HOSPITAL", "LEFKOSIAS", "CC-NGH-01", ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"]),
+    "HOSPITAL", "LEFKOSIAS", "CC-NGH-01", "NGH", ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"]),
   unit("larnaca-general", "LAR", "Γενικό Νοσοκομείο Λάρνακας", "Larnaca General Hospital",
-    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-LAR-01", ["Γ.Ν. ΛΑΡΝΑΚΑΣ"]),
+    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-LAR-01", "LAR", ["Γ.Ν. ΛΑΡΝΑΚΑΣ"]),
   unit("paphos-general", "PAF", "Γενικό Νοσοκομείο Πάφου", "Paphos General Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", ["Γ.Ν. ΠΑΦΟΥ"]),
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAP", ["Γ.Ν. ΠΑΦΟΥ"]),
   unit("limassol-general", "LMS", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-LMS-01", ["Γ.Ν. ΛΕΜΕΣΟΥ"]),
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-LMS-01", "LGH", ["Γ.Ν. ΛΕΜΕΣΟΥ"]),
   unit("troodos", "TRD", "Νοσοκομείο Τροόδους", "Troodos Hospital",
     "HOSPITAL", "LEMESOU_PAFOU", "CC-TRD-01",
-    ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
+    "TRD", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
   unit("namiii", "NAM3", "Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄", "Archbishop Makarios III Hospital",
-    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", ["ΝΑΜΙΙΙ"]),
+    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "ARC", ["ΝΑΜΙΙΙ"]),
   unit("polis-chrysochous", "PCH", "Νοσοκομείο Πόλεως Χρυσοχούς", "Polis Chrysochous Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "CHR", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
   unit("famagusta-general", "FAM", "Γενικό Νοσοκομείο Αμμοχώστου", "Famagusta General Hospital",
-    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-FAM-01", ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"]),
+    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-FAM-01", "FAM", ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"]),
   unit("dypsy", "DYP", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services",
-    "SERVICE", "DYPSY", "CC-DYP-01", ["ΔΥΨΥ"]),
+    "SERVICE", "DYPSY", "CC-DYP-01", "MH", ["ΔΥΨΥ"]),
   unit("pfy", "PFY", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare",
-    "SERVICE", "PFY", "CC-PFY-01", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
+    "SERVICE", "PFY", "CC-PFY-01", "HC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
   unit("ambulance", "AMB", "Υπηρεσία Ασθενοφόρων", "Ambulance Service",
-    "SERVICE", "AMBULANCE", "CC-AMB-01", ["ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"]),
+    "SERVICE", "AMBULANCE", "CC-AMB-01", "AMB", ["ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ"]),
 ];
 
 // One building at Nicosia General with two floors and six areas, enough for
@@ -219,57 +234,64 @@ export const seedUsers: SeedUser[] = [
 ];
 
 // Groups→roles is a config table, not code (ADR-0009). These are placeholder
-// object ids; the ΟΚΥπΥ tenant's real group ids replace them at deployment.
+// object ids; at deployment an administrator replaces them with the real
+// values — Entra object ids in oidc mode, Active Directory group DNs such as
+// `CN=eCapital Admins,OU=Groups,DC=ihcis,DC=local` in ldap mode (ADR-0018).
+//
+// FLAG (ADR-0018): which ΟΚΥπΥ AD group grants which eCapital role is an
+// administrator's decision at deployment and is not ours to guess. Nothing
+// below is a real group. Until those rows exist, an AD user signs in and
+// sees nothing — ADR-0009's safe direction.
 export const seedRoleMappings: {
-  entraGroupId: string;
+  groupId: string;
   role: AppRole;
   orgUnitId: string | null;
   note: string;
 }[] = [
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000a1",
+    groupId: "00000000-0000-0000-0000-0000000000a1",
     role: "admin",
     orgUnitId: null,
     note: "eCapital Administrators",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000a2",
+    groupId: "00000000-0000-0000-0000-0000000000a2",
     role: "executive_readonly",
     orgUnitId: null,
     note: "eCapital Executive",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000a3",
+    groupId: "00000000-0000-0000-0000-0000000000a3",
     role: "auditor_readonly",
     orgUnitId: null,
     note: "eCapital Auditors",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000a4",
+    groupId: "00000000-0000-0000-0000-0000000000a4",
     role: "finance",
     orgUnitId: null,
     note: "eCapital Finance",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000b1",
+    groupId: "00000000-0000-0000-0000-0000000000b1",
     role: "estates_head",
     orgUnitId: "nicosia-general",
     note: "eCapital Estates — Nicosia General",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000b2",
+    groupId: "00000000-0000-0000-0000-0000000000b2",
     role: "project_engineer",
     orgUnitId: "larnaca-general",
     note: "eCapital Engineers — Larnaca General",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000b3",
+    groupId: "00000000-0000-0000-0000-0000000000b3",
     role: "clinical_approver",
     orgUnitId: "nicosia-general",
     note: "eCapital Clinical Approvers — Nicosia General",
   },
   {
-    entraGroupId: "00000000-0000-0000-0000-0000000000b4",
+    groupId: "00000000-0000-0000-0000-0000000000b4",
     role: "technician",
     orgUnitId: "nicosia-general",
     note: "eCapital Technicians — Nicosia General",

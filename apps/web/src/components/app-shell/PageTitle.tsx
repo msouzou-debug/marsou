@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 // Props:
 // | Prop    | Type       | Notes                                          |
 // |---------|------------|-------------------------------------------------|
-// | eyebrow | string      | small caps label above the title                |
+// | eyebrow | ReactNode   | small caps label above the title; a node so a screen can set part of it in mono (ADR-0019: S07's contract reference) |
 // | title   | string      | the h1 itself, sentence case                    |
 // | action  | ReactNode?  | primary action, top right                       |
 // | tabs    | ReactNode?  | optional row beneath the title (UI §2)          |
@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 // Takes already-translated strings, not keys — callers resolve their own
 // copy with useTranslations / getTranslations first.
 export interface PageTitleProps {
-  eyebrow: string;
+  eyebrow: ReactNode;
   title: string;
   action?: ReactNode;
   tabs?: ReactNode;

@@ -14,10 +14,21 @@ import type { AppConfig } from "../config";
  * the path the tests exercise is the path production uses.
  *
  * The stub refuses to exist in production; config.ts fails the boot.
+ *
+ * ADR-0018 adds a third way in and no third token: `AUTH_MODE=ldap` verifies
+ * the user against the ΟΚΥπΥ Active Directory and then issues exactly the
+ * token below, signed with `SESSION_SECRET`. The issuer string still reads
+ * `ecapital-dev-auth` because it is the name of this signer, not a claim
+ * about the environment, and changing it would invalidate every session held
+ * by everyone the moment the API restarted after an upgrade.
  */
 
 export const DEV_ISSUER = "ecapital-dev-auth";
 export const DEV_AUDIENCE = "ecapital-api";
+
+/** The same two strings under names that do not say "dev" (ADR-0018). */
+export const SESSION_ISSUER = DEV_ISSUER;
+export const SESSION_AUDIENCE = DEV_AUDIENCE;
 
 export interface Verifier {
   verify(token: string): Promise<TokenClaims>;
@@ -36,7 +47,8 @@ function toClaims(payload: JWTPayload): TokenClaims {
   return TokenClaims.parse(candidate);
 }
 
-export function createDevVerifier(secret: string): Verifier {
+/** Verifies the locally signed session token — `dev` and `ldap` modes. */
+export function createSessionVerifier(secret: string): Verifier {
   const key = new TextEncoder().encode(secret);
   return {
     async verify(token: string): Promise<TokenClaims> {
@@ -78,11 +90,11 @@ export function createLocalJwksVerifier(
 }
 
 /**
- * Issue a development token for a seeded user. Never reachable in production:
- * the caller is `pnpm dev`, the tests, or the dev-token route, all of which
- * only exist while DEV_AUTH is on.
+ * Issue a session token. In `dev` mode the caller is the dev-token route or
+ * the tests; in `ldap` mode it is `/auth/login`, after Active Directory has
+ * said the password is right (ADR-0018). Eight hours either way.
  */
-export async function signDevToken(
+export async function signSessionToken(
   claims: TokenClaims,
   secret: string,
   expiresIn = "8h",
@@ -102,3 +114,9 @@ export async function signDevToken(
     .setExpirationTime(expiresIn)
     .sign(key);
 }
+
+/** @deprecated The name from ADR-0009. `signSessionToken` is the same thing. */
+export const signDevToken = signSessionToken;
+
+/** @deprecated The name from ADR-0009. `createSessionVerifier` is the same. */
+export const createDevVerifier = createSessionVerifier;

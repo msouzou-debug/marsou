@@ -65,9 +65,14 @@ export function ContractsCard({ projectId, roles, contracts, loading = false, er
               className="flex items-center justify-between gap-s-3 border-t border-k-grey pt-s-2 first:border-t-0 first:pt-0"
             >
               <div>
+                {/* RULE (ADR-0019): the eCapital reference, mono, above the
+                    number off the tender papers. It is what eFinance stores
+                    against an invoice, so it is what somebody arriving from
+                    an invoice is holding. */}
+                <span className="num text-fs-12 text-k-text">{contract.ref}</span>
                 <Link
                   href={`/contracts/${encodeURIComponent(contract.id)}`}
-                  className="text-fs-14 font-bold text-k-blue-deep underline-offset-2 hover:underline"
+                  className="block text-fs-14 font-bold text-k-blue-deep underline-offset-2 hover:underline"
                 >
                   {contract.contractNo}
                 </Link>

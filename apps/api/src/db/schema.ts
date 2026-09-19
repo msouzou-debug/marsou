@@ -83,6 +83,9 @@ export const orgUnit = ecapital.table("org_unit", {
   type: orgUnitType("type").notNull(),
   directorate: directorate("directorate").notNull(),
   costCentre: text("cost_centre"),
+  // ADR-0019: the eFinance entity code, which is also the SAP Fund Center.
+  // Unique and nullable — eFinance's HQ and CNS have no unit here.
+  entityCode: text("entity_code").unique(),
   timezone: text("timezone").notNull().default("Europe/Nicosia"),
   createdAt,
   updatedAt,
@@ -180,6 +183,8 @@ export const appUser = ecapital.table("app_user", {
   subject: text("subject").notNull().unique(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  // ADR-0018: dev | ldap | oidc — which directory this row came from.
+  authSource: text("auth_source").notNull().default("oidc"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt,
   updatedAt,
@@ -209,11 +214,15 @@ export const appUserRole = ecapital.table(
   (t) => [primaryKey({ columns: [t.appUserId, t.role] })],
 );
 
-// Entra group → role, with an optional unit. Configuration, not code
+// Directory group → role, with an optional unit. Configuration, not code
 // (ADR-0009): adding a hospital's clinical approver group is a row.
+//
+// ADR-0018 renamed the column from `entra_group_id`: it holds an Entra object
+// id in oidc mode and an Active Directory group DN in ldap mode, which is the
+// same fact either way — the group the directory hands back.
 export const roleMapping = ecapital.table("role_mapping", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entraGroupId: text("entra_group_id").notNull(),
+  groupId: text("group_id").notNull(),
   role: appRole("role").notNull(),
   orgUnitId: text("org_unit_id").references(() => orgUnit.id, { onDelete: "cascade" }),
   note: text("note"),
@@ -510,6 +519,9 @@ export const contract = ecapital.table(
     contractorId: uuid("contractor_id")
       .notNull()
       .references(() => contractor.id),
+    // ADR-0019: CAP-<YEAR>-<NNNN>, allocated by the API inside the create
+    // transaction and immutable afterwards (a trigger refuses a change).
+    ref: text("ref").notNull().unique(),
     contractNo: text("contract_no").notNull(),
     type: contractType("type").notNull(),
     awardDate: date("award_date").notNull(),
@@ -528,6 +540,8 @@ export const contract = ecapital.table(
     liquidatedDamagesPerDay: numeric("liquidated_damages_per_day", { precision: 14, scale: 2 }),
     defectsLiabilityMonths: integer("defects_liability_months").notNull().default(0),
     sapPoNumber: text("sap_po_number"),
+    // ADR-0019: the eMAP contract, CON-<YEAR>-<NNNN>, when there is one.
+    emapRef: text("emap_ref"),
     createdAt,
     updatedAt,
   },

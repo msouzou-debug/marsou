@@ -15,6 +15,7 @@ const orgUnits: OrgUnit[] = [
     type: "HOSPITAL",
     directorate: "LEFKOSIAS",
     costCentre: null,
+    entityCode: null,
     timezone: "Europe/Nicosia",
   },
 ];

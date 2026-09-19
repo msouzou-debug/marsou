@@ -22,6 +22,7 @@ function unit(id: string, code: string, nameEl: string, directorate: OrgUnit["di
     type: "HOSPITAL",
     directorate,
     costCentre: null,
+    entityCode: null,
     timezone: "Europe/Nicosia",
   };
 }

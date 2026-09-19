@@ -1,11 +1,13 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from "@nestjs/swagger";
 import {
   BoqItem,
   BoqItemWrite,
   ContractCreate,
   ContractDetail,
   ContractList,
+  ContractListQuery,
+  ContractLookup,
   ContractUpdate,
   Variation,
   VariationCreate,
@@ -67,6 +69,41 @@ export class ContractsController {
     const parsed = ContractCreate.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.contractNotValid");
     return this.contracts.create(id, parsed.data);
+  }
+
+  /**
+   * ADR-0019. The register across every project the caller may see — what
+   * `/contracts` on the web lists when nobody has passed a reference.
+   */
+  @Get("contracts")
+  @ApiOperation({ summary: "Every contract the caller may see, newest award first" })
+  @ApiQuery({ name: "unit", required: false, schema: { type: "string" } })
+  @ApiQuery({ name: "q", required: false, schema: { type: "string" } })
+  @ApiZodResponse(200, ContractList, "The caller's contracts, newest award first")
+  @ApiZodError(400, "The query is not valid")
+  @ApiZodError(401, "No token, or a token that does not verify")
+  listAll(@Query() query: unknown): Promise<ContractList> {
+    const parsed = ContractListQuery.safeParse(query ?? {});
+    if (!parsed.success) throw AppError.badRequest("errors.contractQueryNotValid");
+    return this.contracts.listAll(parsed.data);
+  }
+
+  /**
+   * ADR-0019. Resolve a reference to a contract id, so eFinance can point a
+   * `contract_ref` at eCapital the same way it points one at eMAP. Declared
+   * before `contracts/:id` because Nest matches routes in the order they are
+   * written, and `lookup` would otherwise be read as an id.
+   */
+  @Get("contracts/lookup")
+  @ApiOperation({ summary: "Resolve CAP-YYYY-NNNN, or a contract number, to an id" })
+  @ApiQuery({ name: "q", required: true, schema: { type: "string" } })
+  @ApiZodResponse(200, ContractLookup, "The id of the one contract that reference names")
+  @ApiZodError(400, "No reference was given")
+  @ApiZodError(401, "No token, or a token that does not verify")
+  @ApiZodError(404, "No contract carries that reference, or none the caller may see")
+  lookup(@Query("q") q?: string): Promise<ContractLookup> {
+    if (!q) throw AppError.badRequest("errors.contractRefNeeded");
+    return this.contracts.lookup(q);
   }
 
   @Get("contracts/:id")

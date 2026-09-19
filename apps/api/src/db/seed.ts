@@ -61,6 +61,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
           type: unit.type,
           directorate: unit.directorate,
           costCentre: unit.costCentre,
+          entityCode: unit.entityCode,
           timezone: unit.timezone,
         })
         .onConflictDoUpdate({
@@ -72,6 +73,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
             type: unit.type,
             directorate: unit.directorate,
             costCentre: unit.costCentre,
+            entityCode: unit.entityCode,
             updatedAt: sql`now()`,
           },
         });
@@ -159,10 +161,16 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     for (const user of seedUsers) {
       const [userRow] = await db
         .insert(schema.appUser)
-        .values({ subject: user.subject, name: user.name, email: user.email })
+        .values({ subject: user.subject, name: user.name, email: user.email, authSource: "dev" })
         .onConflictDoUpdate({
           target: schema.appUser.subject,
-          set: { name: user.name, email: user.email, isActive: true, updatedAt: sql`now()` },
+          set: {
+            name: user.name,
+            email: user.email,
+            authSource: "dev",
+            isActive: true,
+            updatedAt: sql`now()`,
+          },
         })
         .returning({ id: schema.appUser.id });
 
@@ -185,7 +193,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       await db
         .insert(schema.roleMapping)
         .values({
-          entraGroupId: mapping.entraGroupId,
+          groupId: mapping.groupId,
           role: mapping.role,
           orgUnitId: mapping.orgUnitId,
           note: mapping.note,
