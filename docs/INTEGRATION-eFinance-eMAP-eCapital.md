@@ -401,6 +401,30 @@ eFinance aligns.
 - **MIME whitelist:** PDF, office documents, images, text, email. No DWG,
   no ZIP.
 
+### Built, 19/09/2026 — see ADR-0023
+
+This is no longer only a plan. `docs/adr/ADR-0023-earchive-outbox.md` records
+what was built and why: the queue row written in the same transaction as the
+document row, the operational copy of the bytes that is the only thing
+eCapital keeps beyond the pointer, the tombstone a deleted protocol leaves,
+the legal-hold marker, the backoff that never drops an item, and the rule
+that holds the whole queue until the token is placed on the server.
+
+`docs/integration/ecapital-dms-samples/` has one `meta.json` per item type —
+award decision, business case, approved variation — a description of the
+multipart layout and a `curl` with placeholders, for eArchive to test the
+ingest route against. It carries no token and no real document, and the API's
+own test suite parses those samples with the same strict schema the upload
+uses, so they cannot drift from what is actually sent.
+
+The routes, on eCapital's side: `POST /contracts/:id/documents`,
+`POST /projects/:id/documents`, `POST /variations/:id/documents` to file
+something; `GET /admin/dms/outbox` and `POST /admin/dms/outbox/:id/retry` for
+an administrator; `POST /api/v1/dms/events` for eArchive's callback. The
+environment is `EARCHIVE_URL`, `ECAPITAL_INGEST_TOKEN` and
+`DOCUMENT_STORE_DIR`, and `docs/deploy/RUNBOOK-10.227.56.22.md` §11 has the
+paste-ready steps.
+
 ---
 
 ## 7. Identity

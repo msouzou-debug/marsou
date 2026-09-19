@@ -17,6 +17,7 @@ import { ContractsModule } from "./contracts/contracts.module";
 import { CoreModule } from "./core.module";
 import { CostModule } from "./cost/cost.module";
 import { DefectsModule } from "./defects/defects.module";
+import { DocumentsModule } from "./documents/documents.module";
 import { HealthModule } from "./health/health.module";
 import { LinksModule } from "./links/links.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
@@ -66,6 +67,7 @@ import { SiteInstructionsModule } from "./site-instructions/site-instructions.mo
     RfisModule,
     SiteInstructionsModule,
     DefectsModule,
+    DocumentsModule,
     PortfolioModule,
     HealthModule,
     LinksModule,

@@ -53,7 +53,19 @@ Release stamp (from deploy/release.sh): <YYYYMMDD-HHMMSS>
       | `NEXT_PUBLIC_DEV_AUTH` | | |
       | `EMAP_URL` | | |
       | `EFINANCE_URL` | | |
+      | `EARCHIVE_URL` | | |
+      | `ECAPITAL_INGEST_TOKEN` set — yes/no | | |
       | Seed: UAT sample data — yes/no | | |
+
+- [ ] **eArchive is ready, or knowingly held.** `/var/lib/ecapital/documents`
+      exists, owned by `ecapital`, mode 0750 (`docs/deploy/RUNBOOK-10.227.56.22.md`
+      §11.1), and `ECAPITAL_INGEST_TOKEN` in `/etc/ecapital/api.env` is a real
+      value Marios generated on the server and placed in eArchive's
+      configuration too — never one that travelled by email or chat, and never
+      one committed anywhere. Left at `CHANGE-ME` the API still boots and
+      documents queue without being sent, which is a legitimate state to ship
+      in; tick the box either way, and say which it is.
+      Result: <token placed / held at CHANGE-ME on purpose>, directory: <ok / created now>
 
 - [ ] **Greek/English parity check passed.** `pnpm check:i18n` — every
       screen string exists in both `el` and `en`.

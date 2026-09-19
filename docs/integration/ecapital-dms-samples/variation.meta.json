@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "outbox_id": "7c2e5a18-4f63-4b90-a1d7-5e8f0c3b2a64",
+  "sent_at": "2026-05-04T16:20:03+03:00",
+  "source_system": "eCapital",
+  "source_module": "variation",
+  "source_ref": "variation:CAP-2026-0007:2",
+  "source_url": "https://capital.shso.online/contracts/22222222-2222-2222-2222-222222222222#variation-2",
+  "doc_type": "Εγκεκριμένη τροποποίηση σύμβασης",
+  "subject": "Εγκεκριμένη τροποποίηση σύμβασης 2 — CAP-2026-0007 — Πρόσθετες εργασίες στεγανοποίησης — 20.000,00 €",
+  "direction": "INTERNAL",
+  "registry_hint": "ΤΥ",
+  "sender_name": "Τεχνικές Υπηρεσίες ΟΚΥπΥ",
+  "sender_ref": "CAP-2026-0007/2",
+  "letter_date": "2026-05-04",
+  "category": "Συμβάσεις",
+  "classification": "BUSINESS",
+  "personal_data": false,
+  "retention_class_hint": "rc-capital",
+  "folder_hints": [
+    { "hospital": "NGH", "title": "Γενικό Νοσοκομείο Λευκωσίας" }
+  ],
+  "counterparties": [
+    {
+      "type": "vendor",
+      "code": "0000512345",
+      "name": "Δοκιμαστική Εργοληπτική Λτδ",
+      "vat": "CY10000001X"
+    }
+  ],
+  "amount": 20000,
+  "currency": "EUR",
+  "related": [
+    {
+      "source_ref": "award:22222222-2222-2222-2222-222222222222",
+      "relation": "RELATED"
+    }
+  ],
+  "approvals": [
+    {
+      "actor_name": "Ανδρέας Παπαδόπουλος",
+      "role": "Προϊστάμενος Τεχνικών Υπηρεσιών",
+      "action": "Υποβολή",
+      "at": "2026-05-01T09:00:00+03:00"
+    },
+    {
+      "actor_name": "Μαρία Γεωργίου",
+      "role": "Διαχειριστής",
+      "action": "Έγκριση",
+      "at": "2026-05-04T11:15:00+03:00",
+      "comment": "Εγκρίνεται εντός του αποθεματικού. Πρόσθετο κόστος 20.000,00 €."
+    }
+  ],
+  "files": [
+    {
+      "kind": "MAIN",
+      "part_name": "file_main",
+      "filename": "tropopoiisi-2.pdf",
+      "mime": "application/pdf",
+      "size": 221980,
+      "sha256": "c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819aa0f19c7b25d38e4f607"
+    }
+  ]
+}

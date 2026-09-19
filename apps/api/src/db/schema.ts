@@ -1156,3 +1156,107 @@ export const emailOutbox = ecapital.table(
   },
   (t) => [index("email_outbox_unsent_idx").on(t.createdAt)],
 );
+
+// ------------------------------------------------------------------- M8 --
+// eArchive — the documents eCapital files with ΟΚΥπΥ's protocol and records
+// system, the queue that files them and the events eArchive sends back.
+// Migration 0014_earchive_outbox.sql is the source of truth; ADR-0023 says
+// why the queue row and the document row share one transaction.
+
+export const documentKind = ecapital.enum("document_kind", [
+  "AWARD_DECISION",
+  "BUSINESS_CASE",
+  "VARIATION",
+  "PERMIT",
+  "PAYMENT_CERT",
+  "OTHER",
+]);
+export const dmsOutboxStatus = ecapital.enum("dms_outbox_status", [
+  "QUEUED",
+  "SENDING",
+  "SENT",
+  "FAILED",
+  "HELD",
+]);
+export const dmsEventKind = ecapital.enum("dms_event_kind", [
+  "protocol.deleted",
+  "legal_hold.set",
+  "legal_hold.cleared",
+]);
+
+/**
+ * CAPEX-01 §4's `document`, with the eArchive contract on the end of it. The
+ * bytes under `object_key` are the operational copy eCapital needs in order
+ * to send the file; eArchive is the archive (INTEGRATION §6, ADR-0023).
+ */
+export const document = ecapital.table(
+  "document",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    kind: documentKind("kind").notNull(),
+    titleEl: text("title_el").notNull(),
+    filename: text("filename").notNull(),
+    mime: text("mime").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    sha256: text("sha256").notNull(),
+    version: integer("version").notNull().default(1),
+    objectKey: text("object_key").notNull().unique(),
+    sourceRef: text("source_ref").unique(),
+    protocolId: text("protocol_id"),
+    protocolNumber: text("protocol_number"),
+    legalHold: boolean("legal_hold").notNull().default(false),
+    legalHoldAt: timestamp("legal_hold_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    uploadedBy: uuid("uploaded_by").references(() => appUser.id, { onDelete: "set null" }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("document_unit_idx").on(t.orgUnitId),
+    index("document_entity_idx").on(t.entityType, t.entityId),
+  ],
+);
+
+/** Written only by ecapital.dms_queue, in the upload's own transaction. */
+export const dmsOutbox = ecapital.table(
+  "dms_outbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceRef: text("source_ref").notNull().unique(),
+    sourceModule: text("source_module").notNull(),
+    documentId: uuid("document_id").references(() => document.id, { onDelete: "set null" }),
+    orgUnitId: text("org_unit_id").references(() => orgUnit.id),
+    meta: jsonb("meta").notNull(),
+    files: jsonb("files").notNull(),
+    status: dmsOutboxStatus("status").notNull().default("QUEUED"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    lastErrorCode: text("last_error_code"),
+    lastErrorMessage: text("last_error_message"),
+    protocolId: text("protocol_id"),
+    protocolNumber: text("protocol_number"),
+    createdAt,
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [index("dms_outbox_status_idx").on(t.status, t.createdAt)],
+);
+
+/** eArchive's callbacks. Unique on (event, protocol_id, at) — the idempotency. */
+export const dmsEvent = ecapital.table(
+  "dms_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    event: dmsEventKind("event").notNull(),
+    protocolId: text("protocol_id").notNull(),
+    protocolNumber: text("protocol_number"),
+    sourceRef: text("source_ref"),
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("dms_event_once").on(t.event, t.protocolId, t.at)],
+);
