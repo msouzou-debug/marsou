@@ -41,16 +41,18 @@ test("S01 KPI tiles show «—» for ledgers the seed has no SAP data for, and t
   await expect(page.getByRole("heading", { name: "Χαρτοφυλάκιο έργων" })).toBeVisible();
   await expect(page.getByText(/Δεδομένα στις/)).toBeVisible();
 
-  // RULE (CAPEX-01 §7): committed, spent and forecast are null until the SAP
-  // ingestion lands (M2) — the seed has none, so every KPI tile but
-  // Εγκεκριμένος προϋπολογισμός shows «—», never «€ 0».
-  for (const label of ["Δεσμεύσεις", "Δαπάνες", "Πρόβλεψη τελικού κόστους"]) {
+  // RULE (CAPEX-01 §7): spent and forecast are null until the SAP ingestion
+  // lands (M2), so those tiles show «—», never «€ 0». Committed is real since
+  // the seed carries contracts (original value + approved variations).
+  for (const label of ["Δαπάνες", "Πρόβλεψη τελικού κόστους"]) {
     const tile = page.locator("p.eyebrow").filter({ hasText: label }).locator("xpath=..");
     await expect(tile.getByText("—", { exact: true })).toBeVisible();
   }
-  await expect(
-    page.locator("p.eyebrow").filter({ hasText: "Εγκεκριμένος προϋπολογισμός" }).locator("xpath=..").getByText("—"),
-  ).not.toBeVisible();
+  for (const label of ["Εγκεκριμένος προϋπολογισμός", "Δεσμεύσεις"]) {
+    const tile = page.locator("p.eyebrow").filter({ hasText: label }).locator("xpath=..");
+    await expect(tile.getByText("—", { exact: true })).not.toBeVisible();
+    await expect(tile.getByText(/€/)).toBeVisible();
+  }
 
   // The seed has slipped gate milestones and undated projects (CAPEX-01
   // §15), so "Χρειάζονται προσοχή" always has something in it here.
