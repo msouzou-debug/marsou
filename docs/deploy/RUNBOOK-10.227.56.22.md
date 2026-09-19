@@ -141,28 +141,27 @@ holds only the contractor register (`admin/contractors`). Role mapping is
 SQL against `ecapital.role_mapping` until that screen exists; flag this as
 a follow-up if it keeps happening by hand more than a few times.
 
-The table (see `apps/api/src/db/migrations/0001_m0_foundations.sql`) keys on
-the AD group identifier — check `apps/api/src/db/schema.ts` at release time
-for its exact current column name (`entra_group_id` as written for M0's
-Entra design, ADR-0009; under `AUTH_MODE=ldap` this deployment's code holds
-the AD group's **distinguished name** in it, for example
-`CN=eCapital-EstatesHead,OU=Groups,DC=ihcis,DC=local`). A null
+The table keys on the AD group identifier in the column `group_id`
+(migration `0007_active_directory_sign_in.sql` renamed it from the M0
+`entra_group_id`; ADR-0018). Under `AUTH_MODE=ldap` it holds the AD group's
+**distinguished name**, for example
+`CN=eCapital-EstatesHead,OU=Groups,DC=ihcis,DC=local`. A null
 `org_unit_id` means the mapping applies to every unit.
 
 ```sql
 -- One group, one role, every unit:
-insert into ecapital.role_mapping (entra_group_id, role, org_unit_id, note)
+insert into ecapital.role_mapping (group_id, role, org_unit_id, note)
 values ('CN=eCapital-Admins,OU=Groups,DC=ihcis,DC=local', 'admin', null,
         'Central IT — added 2026-xx-xx');
 
 -- One group, one role, scoped to a single unit (org_unit.id, not .code):
-insert into ecapital.role_mapping (entra_group_id, role, org_unit_id, note)
+insert into ecapital.role_mapping (group_id, role, org_unit_id, note)
 select 'CN=eCapital-NGH-Estates,OU=Groups,DC=ihcis,DC=local', 'estates_head',
        id, 'ΝΓΗ estates head — added 2026-xx-xx'
 from ecapital.org_unit where code = 'NGH';
 
 -- Check what is mapped so far:
-select rm.role, coalesce(ou.code, '(all units)') as unit, rm.entra_group_id, rm.note
+select rm.role, coalesce(ou.code, '(all units)') as unit, rm.group_id, rm.note
 from ecapital.role_mapping rm
 left join ecapital.org_unit ou on ou.id = rm.org_unit_id
 order by rm.role, unit;
