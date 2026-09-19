@@ -15,3 +15,9 @@ coverage/
 
 # throwaway Postgres cluster used by the API tests
 **/.tmp/
+
+# R50 — per-persona PDF guides, generated from docs/manual by
+# scripts/build-guides.mjs (`pnpm guides:build`) at release, never hand-built
+# or committed. See docs/adr/ADR-0027-persona-guides.md.
+apps/web/public/guides/*.pdf
+apps/web/public/guides/index.json

@@ -33,3 +33,13 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+      # R50: per-persona PDF guides, assembled from docs/manual at release.
+      # scripts/build-guides.mjs itself refuses to run (exit 1) when
+      # help/map.json names a manual section that does not exist in both
+      # languages — the same rule `pnpm check:help` enforces — so this step
+      # is what actually catches a release shipping with a stale mapping.
+      - run: node --test scripts/build-guides.test.mjs
+      - name: Install Playwright Chromium (for guides:build)
+        run: pnpm --filter @ecapital/web exec playwright install --with-deps chromium
+      - run: pnpm guides:build

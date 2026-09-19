@@ -363,7 +363,12 @@ It builds locally, ships the build to the server, backs up the previous
 release, syncs it into place, installs dependencies, migrates, restarts
 both units, checks them, and prints md5 sums and a rollback command. Read
 the header of `deploy/release.sh` for the exact sequence and why it is
-in-place-with-a-backup rather than a symlink swap.
+in-place-with-a-backup rather than a symlink swap. The local build step also
+runs `pnpm guides:build` (R50), so every release ships the sixteen
+per-persona PDF guides freshly rendered from the current `docs/manual`
+source, versioned with that release's git short SHA — the build aborts
+before anything ships if `apps/web/src/help/map.json` names a manual
+section that no longer exists.
 
 If the md5 sums it prints do not match between local and remote, or a
 health check fails, **stop** — do not tell anyone the release is done. An
