@@ -112,7 +112,50 @@
     "dmsAlreadyFiled": "That document already has an eArchive protocol number. It is not sent a second time.",
     "dmsEventNotValid": "The message from eArchive is not valid. Check the event, the protocol id and the date.",
     "dmsTokenNotAccepted": "The bearer token was not accepted. Check the token eArchive was given.",
-    "dmsLoopbackOnly": "This route accepts calls from the same server only. The request was refused."
+    "dmsLoopbackOnly": "This route accepts calls from the same server only. The request was refused.",
+    "icraMatrixNotFound": "There is no active ICRA matrix. Ask your system administrator to activate one.",
+    "icraMatrixNotValid": "The ICRA matrix edition is incomplete. Fill in the id, the effective date and all sixteen cells, then try again.",
+    "icraMatrixIncomplete": "An ICRA matrix edition needs all sixteen cells, one per activity type and risk group. Add the missing ones and try again.",
+    "icraMatrixIdTaken": "An ICRA matrix edition with the id {id} already exists. Use a different id.",
+    "icraMatrixAlreadyActive": "This edition is already the active one. There is nothing to activate.",
+    "icraMatrixRetired": "This edition has been retired and cannot be activated again. Publish a new edition with the same cells.",
+    "icraInputNotValid": "The infection control risk assessment (ICRA) details are incomplete. Pick an activity type and at least one area, then try again.",
+    "systemFeedNotFound": "The system feed was not found, or you have no access to it. Refresh the page and pick one from the list.",
+    "systemFeedNotValid": "The system feed details are incomplete. Fill in the system, the label and the areas it serves, then try again.",
+    "impactQueryNotValid": "The impact query is not valid. Pick a unit and at least one area, then try again.",
+    "permitAreaNotFound": "The area was not found, or you have no access to it. Pick an area from your unit's tree.",
+    "permitNotFound": "The permit was not found, or you have no access to it. Pick a permit from the list for your own units.",
+    "permitNotValid": "The shutdown request is incomplete. Fill in the title, the systems, the areas and the window, then try again.",
+    "permitQueryNotValid": "The list criteria are not valid. Check the filters and the page, then try again.",
+    "permitTransitionNotValid": "That is not a valid transition. Choose submit, start, close or reject, then try again.",
+    "permitDecisionNotValid": "That is not a valid decision. Choose approve, return with comments or reject, then try again.",
+    "permitNotDraft": "The permit has been submitted and cannot be edited. Ask an approver to return it with comments, then correct it.",
+    "permitUnitFixed": "A permit does not move between units. Raise a new shutdown request in the right unit.",
+    "permitAreasAcrossUnits": "Every area on one shutdown belongs to the same unit. Remove the areas from the other units and try again.",
+    "permitWindowBackwards": "The shutdown ends before it starts. Correct the dates and try again.",
+    "permitNoAreas": "The shutdown has no areas on it. Pick at least one area and try again.",
+    "permitIcraRequired": "The infection control risk assessment (ICRA) has not been done. Complete the assessment, then submit the permit.",
+    "classTwoInvalidForWorks": "Class II precautions are not valid for construction or renovation. Change the kind of work or the activity type and run the assessment again.",
+    "permitControlsNotAcknowledged": "{count} controls are still unacknowledged. Read them and tick each one before you submit.",
+    "permitNotApproved": "The permit has not been approved yet. Wait for the approvals, then start the work.",
+    "permitOutsideWindow": "A permit is live only inside the window it was approved for. Start inside that window, or ask for a new permit with new dates.",
+    "permitNotActive": "The permit is not running. You can only close a permit that has started, or one that has run past its end.",
+    "permitCloseoutRequired": "Closing a permit needs the handback checklist. Fill it in and try again.",
+    "permitCloseoutIncomplete": "The handback checklist is not complete. Confirm all five items before you close the permit.",
+    "permitAcceptanceNotYours": "The clinical owner of the area signs the handback. Ask the ward manager, Nursing or Infection Control to close the permit.",
+    "permitNotRejectable": "The permit cannot be rejected from where it is. You can reject a permit that has been submitted, is in clinical review, or has been approved.",
+    "permitCommentRequired": "A decision needs a comment explaining it. Write the reason and try again.",
+    "permitNotInReview": "The permit is not in clinical review. Refresh the page to see where it is now.",
+    "permitApprovalNotFound": "That approval line is not on this permit. Refresh the page and try again.",
+    "permitAlreadyDecided": "That approval line has already been decided. Refresh the page to see who decided it and when.",
+    "permitDecisionNotYours": "That approval line is waiting on somebody else. Your own lines are in Approvals.",
+    "permitSettled": "The permit has been closed or rejected and cannot be changed. Raise a new shutdown request.",
+    "calendarQueryNotValid": "The calendar criteria are not valid. Give a window as YYYY-MM-DD and try again.",
+    "openPermitBlocksMilestone": "Permit {permit} is still open on this project. Close the permit, then record the milestone's actual date.",
+    "permitWindowRequired": "The shutdown has no dates on it. Fill in the start and the end at step three, then submit the request.",
+    "permitUnitNeeded": "The shutdown's unit cannot be worked out. Pick a project or a contract, or start the request from the unit it belongs to.",
+    "approverScopesNotValid": "The approver scopes are not valid. Check the areas, the units and the roles, then try again.",
+    "approverScopesNeedRole": "Approver scopes can only be given to an account that holds the clinical approver role. Grant the role first, then the scopes."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -318,5 +361,10 @@
         "variance": "Variance"
       }
     }
+  },
+  "permitClash": {
+    "SAME_AREA_OVERLAP": "This shutdown takes the same area as permit {ref} over the same window. Talk to the engineer running the other one.",
+    "TWO_THEATRES": "This shutdown closes a theatre over the same window as permit {ref}. Tell the unit's management before two theatres go down together.",
+    "REDUNDANT_HALVES": "This shutdown takes the same system as permit {ref} over the same window. Check whether any redundancy is left on the system."
   }
 }
