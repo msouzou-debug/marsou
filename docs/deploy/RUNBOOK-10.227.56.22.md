@@ -178,6 +178,7 @@ units. Where each one comes from:
 | `SESSION_SECRET` | Generate on the server, do not reuse any other system's secret: `openssl rand -hex 32`. |
 | `EMAP_URL`, `EFINANCE_URL` | The public hostnames already in use: `https://map.shso.online`, `https://finance.shso.online`. Used for human link-outs only — the API's own calls to eFinance (§4 of `INTEGRATION-eFinance-eMAP-eCapital.md`) go straight to `http://127.0.0.1:5004`, not through this hostname. |
 | `EFINANCE_TOKEN` | The single bearer token eFinance issues eCapital, per the draft loopback contract (`docs/INTEGRATION-eFinance-eMAP-eCapital.md` §4/§5, ADR-0022). Get it from the eFinance team. |
+| `EFINANCE_API_URL` | Where the loopback contract answers. Leave the default `http://127.0.0.1:5004` on this server; change it only on a UAT box that runs eFinance elsewhere. |
 | `NEXT_PUBLIC_APP_ORIGIN` | `https://capital.shso.online` — fixed, once the cloudflared request (§1) is live and pointed at nginx (§2.2). |
 | Everything else | The template comments in `deploy/env/*.env.example` say what each one is; most are fixed values for this server (ports, `BIND_HOST=127.0.0.1` on both files, `AUTH_MODE=ldap`, `DEV_AUTH=0`). |
 

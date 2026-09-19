@@ -6,7 +6,8 @@
  * `BudgetCodesService` picks this reader over `SeedBudgetCodeReader` only
  * when both `EFINANCE_URL` and `EFINANCE_TOKEN` are set (ADR-0025's own
  * fallback rule); the call itself always goes to the loopback address ADR-
- * 0022 fixes, `http://127.0.0.1:5004`, never to `EFINANCE_URL` — that
+ * 0022 fixes, `http://127.0.0.1:5004` (`EFINANCE_API_URL` can move it for a
+ * UAT box), never to `EFINANCE_URL` — that
  * setting is the public hostname `LinksController` uses for a human's
  * «Άνοιγμα στο eFinance» link, a different address for a different caller.
  *
@@ -22,7 +23,7 @@ import { AppError } from "../../common/errors";
 import type { BudgetCodeSource } from "@ecapital/shared";
 import type { BudgetCodeSourceReader, RawBudgetCode } from "./budget-code-source";
 
-/** ADR-0022: eFinance's loopback contract, same host, eCapital the only caller. */
+/** ADR-0022: eFinance's loopback contract, same host, eCapital the only caller. `EFINANCE_API_URL` overrides it. */
 export const EFINANCE_LOOPBACK_URL = "http://127.0.0.1:5004";
 const TIMEOUT_MS = 5_000;
 
@@ -41,14 +42,17 @@ interface EFinanceErrorEnvelope {
 export class EFinanceBudgetCodeReader implements BudgetCodeSourceReader {
   readonly source: BudgetCodeSource = "EFINANCE";
 
-  constructor(private readonly token: string) {}
+  constructor(
+    private readonly token: string,
+    private readonly baseUrl: string = EFINANCE_LOOPBACK_URL,
+  ) {}
 
   async read(): Promise<RawBudgetCode[]> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     let response: Response;
     try {
-      response = await fetch(`${EFINANCE_LOOPBACK_URL}/api/v1/master/budget-codes?kind=capex`, {
+      response = await fetch(`${this.baseUrl}/api/v1/master/budget-codes?kind=capex`, {
         method: "GET",
         headers: { Authorization: `Bearer ${this.token}` },
         signal: controller.signal,

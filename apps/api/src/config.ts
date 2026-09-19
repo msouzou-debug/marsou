@@ -63,6 +63,10 @@ const EnvSchema = z
     // being set is what turns that route from the seed fallback to an actual
     // eFinance call (ADR-0025).
     EFINANCE_TOKEN: z.string().optional(),
+    // ADR-0022 §1 — where eFinance answers the loopback contract. Fixed by
+    // that contract to the same host's port 5004 in production; overridable
+    // so a UAT box that runs eFinance elsewhere can still be pointed at it.
+    EFINANCE_API_URL: z.string().url().default("http://127.0.0.1:5004"),
 
     // Production hardening (ADR-0018 §5). Behind cloudflared the API is
     // reached only over the loopback, so it should not listen anywhere else.

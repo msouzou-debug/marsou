@@ -46,8 +46,8 @@ export class BudgetCodesService {
    * the fallback is eCapital's own seed, which is always safe to run.
    */
   private reader(): BudgetCodeSourceReader {
-    const { EFINANCE_URL, EFINANCE_TOKEN } = this.config;
-    if (EFINANCE_URL && EFINANCE_TOKEN) return new EFinanceBudgetCodeReader(EFINANCE_TOKEN);
+    const { EFINANCE_URL, EFINANCE_TOKEN, EFINANCE_API_URL } = this.config;
+    if (EFINANCE_URL && EFINANCE_TOKEN) return new EFinanceBudgetCodeReader(EFINANCE_TOKEN, EFINANCE_API_URL);
     return new SeedBudgetCodeReader();
   }
 
