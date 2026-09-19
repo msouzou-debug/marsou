@@ -24,7 +24,7 @@ const TABS: CostTab[] = [
 
 export function CostNavTabs() {
   const t = useTranslations("components.cost-nav-tabs");
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <nav aria-label={t("label")} className="mb-s-5 border-b border-k-grey">
