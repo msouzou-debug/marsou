@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 export interface DecisionFact {
@@ -35,9 +35,14 @@ export interface DecisionFact {
  * `x` close. Shortcuts are ignored while focus is inside the comment
  * textarea so typing "a case" does not trigger Approve.
  *
- * NOTE (flagged, not guessed): this component does not check whether the
- * approver is the person who raised the item. That is an access-control
- * decision for the screen/API layer, not this panel — see hand-back summary.
+ * RULE (added for S08/R10): a caller that already knows the decision would
+ * be refused — the approver is the person who raised the item,
+ * `errors.sameUserApproval` — can pass `disabled` plus a `disabledReason`
+ * sentence. The approve/return buttons and their `a`/`r` shortcuts are
+ * inert; `x`/close still works, and the reason renders where the comment
+ * box would go. This is still not a check this component performs itself —
+ * a caller that never passes `disabled` gets the original behaviour
+ * unchanged, and the comparison (raiser vs. caller) stays the screen's job.
  *
  * States: default, loading (skeleton facts). Empty/error/offline belong to
  * the approvals list (S14) that opens this panel, not to the panel itself;
@@ -52,6 +57,12 @@ export interface DecisionPanelProps {
   onForward?: () => void;
   onClose: () => void;
   loading?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  /** RULE (added for S08): an optional quiet control below the two main
+   *  buttons — S08's «Απόρριψη» link, which is not in the fixed `buttons.*`
+   *  verb set and is therefore never one of this panel's own buttons. */
+  belowFooter?: ReactNode;
 }
 
 export function DecisionPanel({
@@ -63,6 +74,9 @@ export function DecisionPanel({
   onForward,
   onClose,
   loading = false,
+  disabled = false,
+  disabledReason,
+  belowFooter,
 }: DecisionPanelProps) {
   const t = useTranslations();
   const [showComment, setShowComment] = useState(false);
@@ -82,6 +96,7 @@ export function DecisionPanel({
   }, [showComment]);
 
   function revealOrSubmitReturn() {
+    if (disabled) return;
     if (!showComment) {
       setShowComment(true);
       return;
@@ -94,15 +109,15 @@ export function DecisionPanel({
       const target = e.target as HTMLElement | null;
       const typing = target?.tagName === "TEXTAREA" || target?.tagName === "INPUT";
       if (typing) return;
-      if (e.key === "a") onApprove();
+      if (e.key === "a") { if (!disabled) onApprove(); }
       else if (e.key === "r") revealOrSubmitReturn();
-      else if (e.key === "f") onForward?.();
+      else if (e.key === "f") { if (!disabled) onForward?.(); }
       else if (e.key === "x") onClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onApprove, onForward, onClose, showComment, comment]);
+  }, [onApprove, onForward, onClose, showComment, comment, disabled]);
 
   const canSubmitReturn = comment.trim().length > 0;
 
@@ -146,6 +161,11 @@ export function DecisionPanel({
       </div>
 
       <footer className="border-t border-k-grey p-s-4">
+        {disabled && disabledReason && (
+          <p role="alert" className="mb-s-3 rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
+            {disabledReason}
+          </p>
+        )}
         {showComment && (
           <div className="mb-s-3">
             <textarea
@@ -167,19 +187,21 @@ export function DecisionPanel({
           <button
             type="button"
             onClick={onApprove}
-            className="h-[56px] tablet:h-auto tablet:py-s-3 flex-1 rounded-k bg-k-blue text-fs-14 font-bold text-k-white shadow-k"
+            disabled={disabled}
+            className="h-[56px] tablet:h-auto tablet:py-s-3 flex-1 rounded-k bg-k-blue text-fs-14 font-bold text-k-white shadow-k disabled:bg-k-grey disabled:text-k-text-muted"
           >
             {t("buttons.approve")}
           </button>
           <button
             type="button"
             onClick={revealOrSubmitReturn}
-            disabled={showComment && !canSubmitReturn}
+            disabled={disabled || (showComment && !canSubmitReturn)}
             className="h-[56px] tablet:h-auto tablet:py-s-3 flex-1 rounded-k border border-k-grey text-fs-14 font-bold text-k-text disabled:text-k-text-muted disabled:cursor-not-allowed"
           >
             {t("buttons.returnWithComments")}
           </button>
         </div>
+        {belowFooter && <div className="mt-s-3 text-center">{belowFooter}</div>}
       </footer>
     </div>
   );

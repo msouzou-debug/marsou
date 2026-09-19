@@ -5,5 +5,10 @@
   "S02a-new": { "route": "/projects/new", "section": "S02a-project-form", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "clinical_approver"] },
   "S03": { "route": "/projects/[id]", "section": "S03-project", "persona": ["estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
   "S02a-edit": { "route": "/projects/[id]/edit", "section": "S02a-project-form", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "clinical_approver"] },
-  "S16": { "route": "/units/[id]/areas", "section": "S16-areas", "persona": ["estates_head", "project_engineer", "technician"] }
+  "S16": { "route": "/units/[id]/areas", "section": "S16-areas", "persona": ["estates_head", "project_engineer", "technician"] },
+  "S07": { "route": "/contracts/[id]", "section": "S07-contract", "persona": ["admin", "estates_head", "project_engineer", "finance", "executive_readonly", "auditor_readonly"] },
+  "S07a-new": { "route": "/projects/[id]/contracts/new", "section": "S07a-contract-form", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S07a-edit": { "route": "/contracts/[id]/edit", "section": "S07a-contract-form", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S08": { "route": "/contracts/[id]/variations", "section": "S08-variations", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S24": { "route": "/admin/contractors", "section": "S24-contractors", "persona": ["admin", "estates_head"] }
 }

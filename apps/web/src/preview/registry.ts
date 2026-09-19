@@ -22,6 +22,10 @@ import s02aProjectForm from "@/screens/s02a-project-form/ProjectForm.preview";
 import s02Projects from "@/screens/s02-projects/Projects.preview";
 import s03Project from "@/screens/s03-project/ProjectOverview.preview";
 import s03PhaseDialog from "@/screens/s03-project/PhaseDialog.preview";
+import s07Contract from "@/screens/s07-contract/ContractOverview.preview";
+import s07aContractForm from "@/screens/s07a-contract-form/ContractForm.preview";
+import s08Variations from "@/screens/s08-variations/Variations.preview";
+import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
@@ -49,6 +53,10 @@ const entries: PreviewEntry[] = [
   s02Projects,
   s03Project,
   s03PhaseDialog,
+  s07Contract,
+  s07aContractForm,
+  s08Variations,
+  s24Contractors,
 ];
 
 export function getPreviewEntries(): PreviewEntry[] {

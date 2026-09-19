@@ -22,7 +22,8 @@
     "allUnits": "All units",
     "phase": "Phase",
     "category": "Category",
-    "rag": "RAG"
+    "rag": "RAG",
+    "months": "{count} mo"
   },
   "buttons": {
     "save": "Save",
@@ -44,7 +45,8 @@
   "forms": {
     "required": "Fill in this field.",
     "dateOrder": "The finish date cannot be before the start date.",
-    "nonNegative": "The budget cannot be a negative number."
+    "nonNegative": "The budget cannot be a negative number.",
+    "percentRange": "The percentage must be between 0 and 100."
   },
   "components": {
     "asset-breadcrumb": {
@@ -324,7 +326,139 @@
         "riskUpdated": "updated a risk",
         "issueAdded": "raised an issue",
         "issueUpdated": "updated an issue"
-      }
+      },
+      "contractsTitle": "Contracts",
+      "contractsEmpty": "This project has no contracts."
+    },
+    "s07": {
+      "factsCaption": "Contract facts",
+      "facts": {
+        "type": "Contract type",
+        "awardDate": "Award date",
+        "startDate": "Start",
+        "completionDate": "Contract completion",
+        "extensionDays": "Extension (days)",
+        "retentionPct": "Retention",
+        "bondValue": "Performance bond",
+        "bondExpiry": "Bond expiry",
+        "bondExpired": "Expired",
+        "liquidatedDamages": "Liquidated damages per day",
+        "defectsLiabilityMonths": "Defects liability period",
+        "sapPoNumber": "SAP PO number",
+        "awardDecision": "Award decision"
+      },
+      "boq": {
+        "title": "Bill of quantities",
+        "empty": "No bill of quantities has been recorded.",
+        "caption": "The contract's bill of quantities",
+        "columns": {
+          "itemNo": "No.",
+          "description": "Description",
+          "unit": "Unit",
+          "qty": "Quantity",
+          "rate": "Rate",
+          "amount": "Amount"
+        },
+        "total": "Total",
+        "removeRow": "Remove row",
+        "editTitle": "Edit the bill of quantities"
+      },
+      "cost": {
+        "legend": "Original value · Approved variations · Current value",
+        "approvedVariations": "Approved variations",
+        "pendingVariations": "Pending variations",
+        "retention": "Retention"
+      },
+      "variationsTitle": "Contract variations",
+      "variationsEmpty": "This contract has no variations.",
+      "variationsViewAll": "All variations"
+    },
+    "s07a": {
+      "titleNew": "New contract",
+      "titleEdit": "Edit contract",
+      "saving": "Saving…",
+      "fields": {
+        "contractor": "Contractor",
+        "contractNo": "Contract number",
+        "type": "Contract type",
+        "awardDate": "Award date",
+        "originalValue": "Original value",
+        "startDate": "Start",
+        "completionDate": "Contract completion",
+        "retentionPct": "Retention %",
+        "performanceBondValue": "Performance bond",
+        "bondExpiry": "Bond expiry",
+        "liquidatedDamagesPerDay": "Liquidated damages per day",
+        "defectsLiabilityMonths": "Defects liability period (months)",
+        "sapPoNumber": "SAP PO number"
+      },
+      "contractorBlacklistedTitle": "This contractor is blacklisted and takes no new contract.",
+      "contractorReadOnlyNote": "The contractor cannot change once the contract exists.",
+      "originalValueReadOnlyNote": "The current value follows from the original value plus approved variations. It cannot change here."
+    },
+    "s08": {
+      "title": "Contract variations",
+      "empty": "This contract has no variations.",
+      "caption": "The contract's variations",
+      "columns": {
+        "number": "No.",
+        "description": "Description",
+        "reason": "Reason",
+        "value": "Value",
+        "timeImpact": "Time (d)",
+        "status": "Status",
+        "raisedBy": "Raised by",
+        "decision": "Decision"
+      },
+      "fields": {
+        "description": "Description",
+        "reason": "Reason",
+        "value": "Value",
+        "timeImpactDays": "Time (days)"
+      },
+      "sheetEditTitle": "Variation {number}",
+      "submitConfirmTitle": "Submit the variation for approval?",
+      "submitConfirmConsequence": "Once submitted, the variation goes to the approver and you can no longer change it.",
+      "decisionFacts": {
+        "value": "Value",
+        "reason": "Reason",
+        "newCurrentValue": "New current value"
+      },
+      "decisionComment": "Decision comment",
+      "rejectLink": "Reject",
+      "rejectConfirmTitle": "Reject the variation?",
+      "rejectCommentLabel": "Rejection comment",
+      "rejectCommentRequired": "Write the reason for the rejection.",
+      "rejectedFinal": "A rejection is final. Raise a new variation if the work is still needed.",
+      "sameUserApprovalHint": "You cannot approve a variation you raised yourself. Pass the decision to someone else who may approve.",
+      "awaitingDecision": "Waiting for a decision from an approver.",
+      "returnedNote": "Returned for changes. Edit it and submit it again."
+    },
+    "s24": {
+      "title": "Contractors",
+      "empty": "No contractors are registered yet.",
+      "caption": "The contractor register",
+      "columns": {
+        "name": "Name",
+        "vatNumber": "VAT number",
+        "registrationNo": "Registration no.",
+        "category": "Category",
+        "sapVendorId": "SAP code",
+        "status": "Status"
+      },
+      "blacklistedChip": "Blacklisted",
+      "fields": {
+        "name": "Name",
+        "vatNumber": "VAT number",
+        "registrationNo": "Registration no.",
+        "category": "Category",
+        "sapVendorId": "SAP code"
+      },
+      "titleNew": "New contractor",
+      "titleEdit": "Edit contractor",
+      "blacklistToggle": "Blacklist",
+      "blacklistHint": "A blacklisted contractor takes no new contract. Its existing contracts carry on as they are.",
+      "noPermissionAskRole": "The contractor register is managed by the system administrator and the head of estates."
     }
   },
   "states": {
@@ -408,5 +542,36 @@
     "EU": "European Union",
     "DONATION": "Donation",
     "OWN": "Own resources"
+  },
+  "contractTypes": {
+    "LUMP_SUM": "Lump sum",
+    "BOQ": "Bill of quantities",
+    "FRAMEWORK": "Framework",
+    "MEASURE_TERM": "Measured term",
+    "SUPPLY": "Supply",
+    "SERVICE": "Service"
+  },
+  "variationReasons": {
+    "CLIENT_CHANGE": "Client change",
+    "SITE_CONDITION": "Site condition",
+    "DESIGN_ERROR": "Design error",
+    "STATUTORY": "Statutory requirement",
+    "OTHER": "Other"
+  },
+  "variationStatus": {
+    "DRAFT": "Draft",
+    "SUBMITTED": "Submitted",
+    "APPROVED": "Approved",
+    "RETURNED": "Returned",
+    "REJECTED": "Rejected"
+  },
+  "contractorCategories": {
+    "BUILDING": "Building",
+    "MECHANICAL": "Mechanical",
+    "ELECTRICAL": "Electrical",
+    "BIOMEDICAL": "Biomedical",
+    "IT": "IT",
+    "CONSULTANT": "Consultant",
+    "OTHER": "Other"
   }
 }

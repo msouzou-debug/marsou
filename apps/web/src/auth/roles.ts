@@ -34,3 +34,43 @@ export function canChangeProjectPhase(roles: AppRole[]): boolean {
 export function isAdmin(roles: AppRole[]): boolean {
   return roles.includes("admin");
 }
+
+// S07, S07a, S08 — R08, R10, R31.
+//
+// FLAGGED (not settled by ADR-0015): the ADR names who *decides* a variation
+// (estates_head, admin — CAPEX-01 §10, and the route's own `@Roles` guard)
+// and who keeps the contractor register (admin, estates_head write it —
+// "Decisions taken 19/09/2026"), but it does not name who may create a
+// contract or raise a variation in the first place beyond CAPEX-01 §1's
+// prose ("a project engineer raises and submits"). This build takes the
+// narrowest reading that still lets the seeded personas work end to end:
+// the three roles that actually run a project's works — project_engineer,
+// estates_head, admin — may add/edit a contract and may raise a variation on
+// one. `technician`, `finance`, `clinical_approver` and the two read-only
+// roles cannot. Worth a line in the hand-back summary rather than a guess
+// buried in the database layer, which this file does not touch.
+const CAN_WRITE_CONTRACTS: AppRole[] = ["project_engineer", "estates_head", "admin"];
+
+export function canWriteContracts(roles: AppRole[]): boolean {
+  return roles.some((role) => CAN_WRITE_CONTRACTS.includes(role));
+}
+
+/** Same set: raising and submitting a variation is the engineer/estates/admin job (CAPEX-01 §1). */
+export function canRaiseVariations(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** RULE (ADR-0015, R10): only a head of estates or an administrator decides — the route's own `@Roles` guard, mirrored here. */
+export function canDecideVariations(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "estates_head" || role === "admin");
+}
+
+/**
+ * RULE (ADR-0015, "Who keeps the contractor register", decided 19/09/2026):
+ * `admin` and `estates_head` write the register; engineers pick from it.
+ * S24 (Ανάδοχοι) itself is gated the same way — a role that cannot write the
+ * register also has no reason to be on its page (see hand-back summary).
+ */
+export function canManageContractors(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "admin" || role === "estates_head");
+}

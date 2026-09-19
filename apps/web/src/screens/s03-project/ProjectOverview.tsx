@@ -33,13 +33,14 @@
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import type { AppRole, ProjectDetail, ProjectPhase, Rag } from "@ecapital/shared";
+import type { AppRole, Contract, ProjectDetail, ProjectPhase, Rag } from "@ecapital/shared";
 import { canChangeProjectPhase, canWriteProjects, isAdmin } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
 import { RagChip } from "@/components/rag-chip";
 import { Timeline, type TimelineEntry } from "@/components/timeline";
 import type { Locale } from "@/i18n/config";
+import { ContractsCard } from "./ContractsCard";
 import { FactsList } from "./FactsList";
 import { IssuesCard } from "./IssuesCard";
 import { MilestonesCard } from "./MilestonesCard";
@@ -68,6 +69,12 @@ export interface ProjectOverviewProps {
   onSubmitPhaseChange?: (phase: ProjectPhase, reasonEl: string) => void;
   phaseSubmitting?: boolean;
   phaseApiError?: PhaseDialogApiError;
+  /** «Συμβάσεις» card — `ProjectOverviewScreen`'s own `useProjectContracts`
+   *  query, passed through as plain props (see `ContractsCard`'s header
+   *  comment for why it is not a query hook this component calls itself). */
+  contracts?: Contract[];
+  contractsLoading?: boolean;
+  contractsError?: boolean;
 }
 
 function ragChipValue(rag: Rag): "green" | "amber" | "red" {
@@ -89,6 +96,9 @@ export function ProjectOverview({
   onSubmitPhaseChange = () => undefined,
   phaseSubmitting = false,
   phaseApiError,
+  contracts,
+  contractsLoading = false,
+  contractsError = false,
 }: ProjectOverviewProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -232,6 +242,13 @@ export function ProjectOverview({
           <MilestonesCard milestones={data.milestones} today={today} />
           <RisksCard risks={data.risks} />
           <IssuesCard issues={data.issues} />
+          <ContractsCard
+            projectId={data.id}
+            roles={roles}
+            contracts={contracts}
+            loading={contractsLoading}
+            error={contractsError}
+          />
         </div>
       </div>
 

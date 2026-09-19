@@ -1,5 +1,14 @@
-import { PortfolioResponse, ProjectDetail, ProjectList, type ProjectListQuery } from "@ecapital/shared";
+import {
+  Contractor,
+  ContractDetail,
+  ContractList,
+  PortfolioResponse,
+  ProjectDetail,
+  ProjectList,
+  type ProjectListQuery,
+} from "@ecapital/shared";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { proxyFetch } from "./client";
 import { projectsApiPath } from "@/screens/s02-projects/query";
 
@@ -47,6 +56,33 @@ export function useProjectDetail(id: string) {
   return useQuery({
     queryKey: ["project", id],
     queryFn: () => proxyFetch(`/projects/${encodeURIComponent(id)}`, ProjectDetail),
+    retry: false,
+  });
+}
+
+// S03's «Συμβάσεις» card.
+export function useProjectContracts(projectId: string) {
+  return useQuery({
+    queryKey: ["project-contracts", projectId],
+    queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/contracts`, ContractList),
+    retry: false,
+  });
+}
+
+// S07.
+export function useContract(id: string) {
+  return useQuery({
+    queryKey: ["contract", id],
+    queryFn: () => proxyFetch(`/contracts/${encodeURIComponent(id)}`, ContractDetail),
+    retry: false,
+  });
+}
+
+// S07a's Ανάδοχος select, and S24.
+export function useContractors() {
+  return useQuery({
+    queryKey: ["contractors"],
+    queryFn: () => proxyFetch("/contractors", z.array(Contractor)),
     retry: false,
   });
 }
