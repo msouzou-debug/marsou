@@ -79,6 +79,9 @@ export function useProjectContracts(projectId: string) {
   return useQuery({
     queryKey: ["project-contracts", projectId],
     queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/contracts`, ContractList),
+    // S10's bulk-assign picker asks before a project is chosen; nothing to
+    // fetch until there is one (a bare `/projects//contracts` is a 404).
+    enabled: projectId !== "",
     retry: false,
   });
 }
@@ -268,7 +271,9 @@ export function useBudgetLines(projectId: string) {
 export function useImportBatches() {
   return useQuery({
     queryKey: ["cost-imports"],
-    queryFn: () => proxyFetch("/cost/imports", z.array(ImportBatch)),
+    // The API answers `{ items, total }` (newest first), like the other lists.
+    queryFn: () => proxyFetch("/cost/imports", z.object({ items: z.array(ImportBatch), total: z.number().int() })),
+    select: (page) => page.items,
     retry: false,
   });
 }

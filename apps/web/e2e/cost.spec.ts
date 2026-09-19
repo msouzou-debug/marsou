@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { launchOptions, nativeClick, nativeFill, signIn } from "./support";
+import { launchOptions, nativeClick, nativeFill, nativePress, signIn } from "./support";
 
 // S04, S09, S09a, S10 — R11, R13, R14, R16-R18, R31.
 //
@@ -37,12 +37,12 @@ test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε απ�
   await signIn(page, "engineer.larnaca@ecapital.test");
   await page.goto("/projects");
   await page.locator("a:visible", { hasText: PROJECT_TITLE }).click();
-  await nativeClick(page.getByRole("link", { name: "Κόστος", exact: true }));
+  await nativeClick(page.getByRole("tab", { name: "Κόστος", exact: true }));
   await page.waitForURL(/\/cost$/);
 
   // The cost bar and the category table always render once the page loads.
   await expect(page.getByRole("img", { name: /Εγκεκριμένος προϋπολογισμός/ })).toBeVisible();
-  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.getByRole("table", { name: "Κόστος έργου ανά κατηγορία" })).toBeVisible();
 
   // ASSUMPTION: PRJ-031 carries at least one live cost warning by the time
   // M2's seed lands, the same way its ΤΥ/2026 contract already carries the
@@ -72,8 +72,7 @@ test("S10: Enter accepts the top suggestion, moves focus to the next row and the
   // queue exists once M2's seed lands. Opens the first batch row.
   const firstBatchRow = page.locator("tbody tr").first();
   test.skip(!(await firstBatchRow.isVisible().catch(() => false)), "no seeded SAP import batch yet");
-  await firstBatchRow.focus();
-  await page.keyboard.press("Enter");
+  await nativePress(firstBatchRow, "Enter");
   await page.waitForURL(/\/cost\/imports\/.+/);
 
   const counter = page.locator("p.font-k-mono.text-fs-20");
@@ -83,8 +82,7 @@ test("S10: Enter accepts the top suggestion, moves focus to the next row and the
 
   // Focus the first row of the queue, then accept its top suggestion with Enter.
   const firstQueueRow = page.locator("tbody tr").first();
-  await firstQueueRow.evaluate((el) => (el as HTMLElement).focus());
-  await page.keyboard.press("Enter");
+  await nativePress(firstQueueRow, "Enter");
 
   await expect(async () => {
     const after = Number((((await counter.textContent()) ?? "").match(/\d+/) ?? ["0"])[0]);
@@ -106,9 +104,10 @@ test("S09: an engineer creates a payment certificate; a different user approves 
   await contractLink.click();
   const contractUrl = page.url();
 
-  await nativeClick(page.getByRole("link", { name: "Πιστοποιητικά", exact: true }));
+  await nativeClick(page.getByRole("tab", { name: "Πιστοποιητικά", exact: true }));
   await page.waitForURL(/\/certificates$/);
-  await nativeClick(page.getByRole("button", { name: "Προσθήκη", exact: true }));
+  // The header «Προσθήκη» is a link (the empty state has a button of the same name).
+  await nativeClick(page.getByRole("link", { name: "Προσθήκη", exact: true }));
   await page.waitForURL(/\/certificates\/new$/);
 
   await nativeFill(page.getByLabel("Περίοδος από"), period.from);

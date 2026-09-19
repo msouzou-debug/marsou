@@ -13,6 +13,7 @@
  * folded into net payable, the same rule `CertificateDetail` keeps.
  */
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { AppRole, PaymentCert } from "@ecapital/shared";
 import { canCreatePaymentCert } from "@/auth/roles";
@@ -78,9 +79,14 @@ export function PaymentCerts({
         tabs={<ContractTabs contractId={contractId} active="certificates" rfisOpenCount={rfisOpenCount} defectsOpenCount={defectsOpenCount} />}
         action={
           canAdd && state !== "offline" ? (
-            <button type="button" onClick={onAdd} className="rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white shadow-k">
+            // A link, like S02's «Προσθήκη»: it goes somewhere, so it is
+            // navigation, not an action. `onAdd` stays for the empty state.
+            <Link
+              href={`/contracts/${encodeURIComponent(contractId)}/certificates/new`}
+              className="rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white shadow-k"
+            >
               {t("buttons.add")}
-            </button>
+            </Link>
           ) : undefined
         }
       />

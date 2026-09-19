@@ -36,8 +36,26 @@ export async function signIn(page: Page, email: string, next = "/"): Promise<voi
  * confirmed to hang; an ordinary `.click()` works everywhere else in this
  * suite (including the sign-in button above and the S02 row-open link).
  */
+/**
+ * Waits until React has hydrated the element: its `__reactProps$…` expando
+ * exists only once the client bundle has attached handlers. Server-rendered
+ * markup is visible well before that on a loaded machine, and a native
+ * click or key dispatched into it goes nowhere — the M2 specs failed that
+ * way (S10 Enter, S09 «Προσθήκη», S09a export) while the same steps passed
+ * with a pause in front of them.
+ */
+async function waitForHydration(locator: Locator, state: "visible" | "attached" = "visible"): Promise<void> {
+  await locator.waitFor({ state });
+  await expect
+    .poll(() => locator.evaluate((element) => Object.keys(element).some((key) => key.startsWith("__reactProps"))), {
+      timeout: 30_000,
+      message: "element never hydrated",
+    })
+    .toBe(true);
+}
+
 export async function nativeClick(locator: Locator): Promise<void> {
-  await locator.waitFor({ state: "visible" });
+  await waitForHydration(locator);
   await locator.evaluate((element) => (element as HTMLElement).click());
 }
 
@@ -58,7 +76,7 @@ export async function nativeClick(locator: Locator): Promise<void> {
  * uses an ordinary one and works everywhere in this suite.
  */
 export async function nativeFill(locator: Locator, value: string): Promise<void> {
-  await locator.waitFor({ state: "attached" });
+  await waitForHydration(locator, "attached");
   await locator.evaluate((element, text) => {
     const input = element as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(
@@ -68,4 +86,22 @@ export async function nativeFill(locator: Locator, value: string): Promise<void>
     setter?.call(input, text);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }, value);
+}
+
+/**
+ * A native `keydown`/`keyup` pair dispatched on the element itself, for the
+ * same reason as `nativeClick`: Playwright's CDP-synthesised key presses
+ * sometimes hang this sandbox's Chromium (see the "?" note in s01.spec.ts),
+ * and the S10 queue is driven entirely by keys. React's `onKeyDown` handlers
+ * receive a bubbling native `keydown` exactly as they would a real one.
+ */
+export async function nativePress(locator: Locator, key: string): Promise<void> {
+  await waitForHydration(locator);
+  await locator.evaluate((element, pressed) => {
+    const target = element as HTMLElement;
+    target.focus();
+    for (const type of ["keydown", "keyup"]) {
+      target.dispatchEvent(new KeyboardEvent(type, { key: pressed, bubbles: true, cancelable: true }));
+    }
+  }, key);
 }

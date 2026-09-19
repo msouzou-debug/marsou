@@ -71,18 +71,21 @@ test("S02 sorting a column updates the URL and re-renders the list", async ({ pa
   await expect(page.getByRole("heading", { name: "Έργα" })).toBeVisible();
 });
 
-test("S03 shows «Διαθέσιμο σε επόμενη οθόνη» on the disabled tabs", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop-1440", "one breakpoint is enough for this tooltip check");
+test("S03's Κόστος tab is live and opens S04", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440", "one breakpoint is enough for this navigation check");
   // Seeded ids are database uuids, so this walks in through S02 rather than
-  // guessing a fixture-style path.
+  // guessing a fixture-style path. Until M2 the tab was a disabled button
+  // with «Διαθέσιμο σε επόμενη οθόνη»; it is a real link now.
   await page.goto("/projects");
   const firstProjectLink = page.locator('a[href^="/projects/"]:not([href="/projects/new"]):visible').first();
   await firstProjectLink.waitFor({ state: "visible" });
   await firstProjectLink.click();
   await page.waitForURL(/\/projects\/[^/?]+$/);
 
-  await expect(page.getByRole("tab", { name: "Κόστος" })).toBeDisabled();
-  await expect(page.getByRole("tab", { name: "Κόστος" })).toHaveAttribute("title", "Διαθέσιμο σε επόμενη οθόνη");
+  const costTab = page.getByRole("tab", { name: "Κόστος" });
+  await expect(costTab).toHaveAttribute("href", /\/cost$/);
+  await nativeClick(costTab);
+  await page.waitForURL(/\/cost$/);
 });
 
 test("a project in IDEA phase shows «—» for commitments and spend in S02, and S03 says why", async ({
@@ -98,7 +101,7 @@ test("a project in IDEA phase shows «—» for commitments and spend in S02, an
   const row = page.locator("tbody tr", { hasText: "Ανακαίνιση χειρουργείων" });
   await row.waitFor({ state: "visible" });
   await expect(row.getByText("—")).toHaveCount(2);
-  await expect(row.getByText("0 €")).toHaveCount(0);
+  await expect(row.getByText("0 €", { exact: true })).toHaveCount(0);
 
   await row.getByRole("link").first().click();
   await page.waitForURL(/\/projects\/[^/?]+$/);

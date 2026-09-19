@@ -111,6 +111,9 @@ const SELECT_COLUMN_ID = "__select";
 // screens, comfortable 48px for clinician and executive screens. They are not
 // in the spacing scale, so they live here as named constants rather than as
 // loose numbers in the markup.
+/** One shared empty array, so an empty table never re-renders itself (see the RULE below). */
+const NO_ROWS: never[] = [];
+
 const ROW_HEIGHT_PX: Record<Density, number> = { dense: 36, comfortable: 48 };
 
 // Zebra rows: --k-grey at 40% opacity (UI §4).
@@ -236,8 +239,20 @@ export function Table<T>({
     return defs;
   }, [columns, selectable, tRoot]);
 
+  // RULE: the row array handed to TanStack must be referentially stable.
+  // A fresh `[]` on every render makes its core row model recompute each
+  // time; that recompute queues `resetPageIndex()` through a microtask,
+  // which sets state, which renders again, which is a new `[]`… React never
+  // throws (nothing is synchronous), the tab stays responsive, but every
+  // router transition started from a page with an empty table hangs
+  // forever, because the loop never lets it commit. Found on S09 with no
+  // certificates and on S08 with no variations (Playwright, 19/09/2026).
+  // Callers often write `rows={data ?? []}` or `rows={items.filter(…)}`,
+  // which is a fresh array whenever it is empty; map every empty array to
+  // the one constant so that case can never start the loop.
+  const stableRows = showsRows && rows.length > 0 ? rows : NO_ROWS;
   const table = useReactTable({
-    data: showsRows ? rows : [],
+    data: stableRows,
     columns: tanstackColumns,
     getRowId: (row) => getRowId(row),
     state: { sorting, columnVisibility, rowSelection },
