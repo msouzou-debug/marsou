@@ -13,7 +13,7 @@ export function buildDefects(): Defect[] {
       projectId: "project-1",
       areaId: "area-1",
       assetId: null,
-      descriptionEl: "Διαρροή στη μόνωση οροφής του πλυντηρίου ασθενοφόρων",
+      descriptionEl: "Διαρροή στη μόνωση οροφής του χώρου πρώτων βοηθειών",
       photoIds: [],
       estimatedCost: 18_500,
       riskBand: "HIGH",

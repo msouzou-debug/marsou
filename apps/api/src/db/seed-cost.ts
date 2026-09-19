@@ -1,5 +1,5 @@
 /**
- * The M2 half of the seed: the approved budget by year for all 43 projects,
+ * The M2 half of the seed: the approved budget by year for all 41 projects,
  * a month of SAP postings already matched, a second month still waiting in
  * the unmatched queue, three payment certificates at three different points
  * of the workflow, two remembered allocation rules and two live warnings

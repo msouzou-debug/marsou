@@ -42,36 +42,47 @@ All three systems, and SAP, describe organisational units and money along
 axes that already line up — the work here is confirming the mapping, not
 inventing one.
 
-### Entity codes — eFinance's 13, eCapital's twelve org units
+### Entity codes — one string for all three systems
 
-eFinance's 13 entity codes are the reference (`INTEGRATION-eMAP.md` §2).
-`ecapital.org_unit.entity_code` carries the same strings, so a record in
-either system can be joined on this column without a lookup table.
+**Updated 19/09/2026 (owner decision, ADR-0024).** All three systems key a
+place by **eArchive's site abbreviation**. `ecapital.org_unit.code` and
+`ecapital.org_unit.entity_code` both carry it, so a record in any of the three
+joins to a record in either of the others on one column, with no lookup table
+and no third column: the `dms_site_code` §6 used to plan is not built.
 
-| Code | eFinance name | eCapital org unit | Status |
+| Code | Name | eCapital org unit | Legacy eFinance code, until eFinance aligns |
 |---|---|---|---|
-| `NGH` | Γενικό Νοσοκομείο Λευκωσίας | NGH | mapped |
-| `LAR` | Γενικό Νοσοκομείο Λάρνακας | LAR | mapped |
-| `PAP` | Γενικό Νοσοκομείο Πάφου | PAP | mapped |
-| `LGH` | Γενικό Νοσοκομείο Λεμεσού | LGH | mapped |
-| `TRD` | Νοσοκομείο Τροόδους | TRD | mapped |
-| `ARC` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ | ARC | mapped |
-| `CHR` | Νοσοκομείο Πόλεως Χρυσοχούς | CHR | mapped |
-| `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | FAM | mapped |
-| `AMB` | Διεύθυνση Ασθενοφόρων | Υπηρεσία Ασθενοφόρων | mapped |
-| `MH` | Υπηρεσίες Ψυχικής Υγείας | ΔΥΨΥ | mapped |
-| `HC` | Κέντρα Υγείας | ΠΦΥ (Πρωτοβάθμια Φροντίδα Υγείας) | mapped, confirmed by the owner 19/09/2026 |
-| `HQ` | Κεντρικά Γραφεία | HQ (Κεντρικά Γραφεία) | mapped — added as an eCapital unit, owner decision 19/09/2026 |
-| `CNS` | Κοινοτική Νοσηλευτική Υπηρεσία | — | **unmapped** — no eCapital org unit today |
+| `NGH` | Γενικό Νοσοκομείο Λευκωσίας | NGH | `NGH` |
+| `LAR` | Γενικό Νοσοκομείο Λάρνακας | LAR | `LAR` |
+| `PAF` | Γενικό Νοσοκομείο Πάφου | PAF | `PAP` |
+| `LGH` | Γενικό Νοσοκομείο Λεμεσού | LGH | `LGH` |
+| `KYP` | Νοσοκομείο Τροόδους | KYP | `TRD` |
+| `NAM` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄ | NAM | `ARC` |
+| `POL` | Νοσοκομείο Πόλεως Χρυσοχούς | POL | `CHR` |
+| `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | FAM | `FAM` |
+| `MHS` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | MHS | `MH` |
+| `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | PHC | `HC` |
+| `HQ` | Κεντρικά Γραφεία | HQ | `HQ` |
+| `CNS` | Κοινοτική Νοσηλευτική Υπηρεσία — Central Nursing Services | — | `CNS` |
 
-Twelve of thirteen. `HC ↔ ΠΦΥ` was this document's own assertion; the owner
-has since confirmed it (19/09/2026), and it is no longer a flag. `HQ` used to
-be unmapped for the same reason `CNS` still is — no capital-projects register
-to attach it to — but Central Administration can commission capital works of
-its own, so the owner opened the unit on 19/09/2026 rather than waiting for
-one to be raised against it. `CNS` has no capital-projects register today; if
-it ever starts running capital works, adding the org unit is the fix, not
-renaming an existing one to fit.
+Eleven units. `CNS` is the one code with no eCapital org unit, deliberately:
+inventing one would put a fictional service in the capital register. **Capital
+work raised for Central Nursing Services files under `HQ`** (assumption, owner
+to confirm). If it ever runs a capital programme of its own, opening the unit
+properly is the fix, not renaming an existing one to fit.
+
+**The Ambulance Service is gone from this table.** Υπηρεσία Ασθενοφόρων (`AMB`)
+is no longer part of ΟΚΥπΥ (owner decision, 19/09/2026); eCapital's unit and
+everything under it were removed by migration
+`0012_unit_codes_earchive.sql`, and the Capex Plan importer now rejects the
+spelling with rule V15 instead of resolving it. If eFinance still carries an
+`AMB` entity, nothing in eCapital answers to it.
+
+**eFinance has not aligned yet.** The last column is what a person needs to
+read an eFinance extract taken before today: six of the eleven codes moved on
+this side. Nothing translates it automatically — a silent translation is how
+an identifier stops being trustworthy. This belongs on the same list of asks
+as §4's.
 
 > **Send codes, never names**, exactly as eFinance's own rule says. `NGH`,
 > not `Γενικό Νοσοκομείο Λευκωσίας`.
@@ -329,29 +340,42 @@ This is drawn from the eFinance session's check of the live server on
 against eArchive's actual API; treat route and payload shapes here as
 subject to the same confirmation §5 asks of eFinance.
 
-### Unit codes eArchive needs alongside eFinance's
+### Unit codes — one column, settled 19/09/2026
 
-eCapital's twelve org units already carry `code` (eCapital) and `entityCode`
-(eFinance, §2). eArchive files by its own site code, which is not always the
-same string as either of those. eCapital will carry all three on `org_unit`:
-the eArchive code lands as `org_unit.dms_site_code` in the eArchive
-integration work, **not yet built**.
+**This section used to plan a third column.** It no longer does. The owner
+decided on 19/09/2026 (ADR-0024) that eFinance, eArchive and eCapital all key
+a place by **eArchive's site abbreviation**, so `org_unit.dms_site_code` is
+not built and is not needed: `org_unit.code` and `org_unit.entity_code` are
+that same string already. For an eArchive `source_ref` or a folder path, send
+whatever `GET /org-units` returns as `code`, with no translation in between.
 
-| eCapital unit code | eFinance entity_code | eArchive site code |
-|---|---|---|
-| `NGH` | `NGH` | `NGH` |
-| `LAR` | `LAR` | `LAR` |
-| `PAF` | `PAP` | `PAF` |
-| `LMS` | `LGH` | `LGH` |
-| `TRD` | `TRD` | `KYP` |
-| `NAM3` | `ARC` | `NAM` |
-| `PCH` | `CHR` | `POL` |
-| `FAM` | `FAM` | `FAM` |
-| `DYP` | `MH` | `MHS` |
-| `PFY` | `HC` | `PHC` |
-| `AMB` | `AMB` | (none — open question: eArchive to add a site or file under HQ) |
-| `HQ` | `HQ` | `HQ` |
-| (no unit) | `CNS` = Central Nursing Services | (n/a) |
+| eCapital unit | code = entity_code = eArchive site code |
+|---|---|
+| Γενικό Νοσοκομείο Λευκωσίας | `NGH` |
+| Γενικό Νοσοκομείο Λάρνακας | `LAR` |
+| Γενικό Νοσοκομείο Πάφου | `PAF` |
+| Γενικό Νοσοκομείο Λεμεσού | `LGH` |
+| Νοσοκομείο Τροόδους | `KYP` |
+| Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄ | `NAM` |
+| Νοσοκομείο Πόλεως Χρυσοχούς | `POL` |
+| Γενικό Νοσοκομείο Αμμοχώστου | `FAM` |
+| Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MHS` |
+| Πρωτοβάθμια Φροντίδα Υγείας | `PHC` |
+| Κεντρικά Γραφεία | `HQ` |
+
+Eleven. **Υπηρεσία Ασθενοφόρων is not in the table any more** — the Ambulance
+Service left ΟΚΥπΥ on 19/09/2026, and with it the open question this table
+used to carry about whether eArchive should add a site for it or file its
+papers under HQ. There is nothing left to file.
+
+**`CNS` is Central Nursing Services** (Κοινοτική Νοσηλευτική Υπηρεσία). It is
+an eFinance entity code with no eCapital org unit and no eArchive site of its
+own; capital work raised for it files under **`HQ`** (assumption, owner to
+confirm). §2 says why no unit is invented for it.
+
+The legacy eFinance codes the middle column used to hold — `PAP`, `ARC`,
+`CHR`, `MH`, `HC`, `TRD` — are in §2's last column, as a lookup until
+eFinance aligns.
 
 ### eArchive brief facts (19/09/2026)
 

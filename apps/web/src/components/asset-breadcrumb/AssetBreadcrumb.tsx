@@ -23,8 +23,8 @@ const LEVEL_KEYS = ["unit", "building", "floor", "room", "asset"] as const;
  * |----------|--------------------------|------------------------------------------------------------|
  * | segments | AssetBreadcrumbSegment[] | Up to 5, in hierarchy order, one per fixed level above     |
  *
- * RULE: the first level is the org unit — a hospital or a service (ΔΥΨΥ,
- * ΠΦΥ, Ασθενοφόρα) — so its level label is «Μονάδα», never «Νοσοκομείο». The
+ * RULE: the first level is the org unit — a hospital, a service (ΔΥΨΥ, ΠΦΥ)
+ * or Κεντρικά Γραφεία — so its level label is «Μονάδα», never «Νοσοκομείο». The
  * level label is not shown as visible text (the visible text is the actual
  * value, e.g. the hospital name) but is carried in each link's accessible
  * name, so assistive tech and tests can see it is «Μονάδα», not «Νοσοκομείο».

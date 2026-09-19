@@ -209,9 +209,10 @@ separate production host is stood up, that deployment does **not** run
 changes which host `10.227.56.22` ends up being long-term, only what its
 first deployment does.
 
-`pnpm --filter @ecapital/api seed` loads the twelve org units, one building,
-eight development users **and 43 fixture projects with twelve fixture
-contractors** (`apps/api/src/db/seed-data.ts`, `seed-projects.ts`,
+`pnpm --filter @ecapital/api seed` loads the eleven org units (ADR-0024: the
+Ambulance Service left ΟΚΥπΥ on 19/09/2026, so it is eight hospitals, ΔΥΨΥ,
+ΠΦΥ and Κεντρικά Γραφεία), one building, eight development users **and 41
+fixture projects with twelve fixture contractors** (`apps/api/src/db/seed-data.ts`, `seed-projects.ts`,
 `seed-contracts.ts`, `seed-site.ts` — all idempotent). That fixture data is
 exactly what a UAT environment needs and exactly what production must never
 see: a board member or a real estates head must not find a made-up project
@@ -268,7 +269,7 @@ It prints what it did:
 ```
 account a.papadopoulos: created (subject ad:a.papadopoulos)
 role admin: granted
-units: 12 unit(s)
+units: 11 unit(s)
 ```
 
 The account does not have to exist in eCapital first. The row is

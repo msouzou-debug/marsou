@@ -1,6 +1,6 @@
 # Contractors
 
-This screen holds the register of contractors working with the organisation, shared across all twelve units. The system administrator and the head of estates manage it; engineers pick from it when they record a contract.
+This screen holds the register of contractors working with the organisation, shared across all eleven units. The system administrator and the head of estates manage it; engineers pick from it when they record a contract.
 
 ## Steps
 

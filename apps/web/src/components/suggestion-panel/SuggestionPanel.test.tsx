@@ -7,7 +7,7 @@ function suggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   return {
     projectId: "p-1",
     projectCode: "PRJ-031",
-    projectTitleEl: "Αντικατάσταση οχημάτων ασθενοφόρων",
+    projectTitleEl: "Αντικατάσταση ακτινολογικού εξοπλισμού",
     contractId: "c-1",
     contractRef: "CAP-2026-0012",
     confidence: "HIGH",

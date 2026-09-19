@@ -89,7 +89,7 @@ test("engineer.larnaca: a breached RFI chip, answering a new RFI, a variation fr
   await expect(answeredRow).not.toContainText("Εκπρόθεσμο");
 
   // --- S07c: a fresh cost-impact instruction becomes a DRAFT variation ----
-  await openContract(page, "Αντικατάσταση οχημάτων ασθενοφόρων");
+  await openContract(page, "Αντικατάσταση ακτινολογικού εξοπλισμού");
   await nativeClick(page.getByRole("tab", { name: "Οδηγίες εργοταξίου", exact: false }));
   await page.waitForURL(/\/instructions$/);
 

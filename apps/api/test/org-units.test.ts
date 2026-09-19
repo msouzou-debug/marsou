@@ -21,11 +21,11 @@ describe("GET /org-units", () => {
     await app.close();
   });
 
-  it("gives a central administration user all twelve units", async () => {
+  it("gives a central administration user all eleven units", async () => {
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(12);
+    expect(response.body).toHaveLength(11);
     expect(() => OrgUnit.array().parse(response.body)).not.toThrow();
   });
 
@@ -40,7 +40,7 @@ describe("GET /org-units", () => {
     const token = await tokenFor(app, USERS.auditor);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(12);
+    expect(response.body).toHaveLength(11);
   });
 
   it("refuses a caller with no token", async () => {
@@ -94,7 +94,7 @@ describe("GET /org-units", () => {
     expect(ids).toContain("hq");
   });
 
-  it("re-seeds the same twelve org units on a second run, never a duplicate", async () => {
+  it("re-seeds the same eleven org units on a second run, never a duplicate", async () => {
     const client = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL as string });
     await client.connect();
     try {
@@ -102,7 +102,7 @@ describe("GET /org-units", () => {
       const { rows } = await client.query<{ n: string }>(
         "select count(*) as n from ecapital.org_unit",
       );
-      expect(Number(rows[0].n)).toBe(12);
+      expect(Number(rows[0].n)).toBe(11);
       const { rows: hq } = await client.query<{ n: string }>(
         "select count(*) as n from ecapital.org_unit where id = 'hq'",
       );

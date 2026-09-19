@@ -1,8 +1,9 @@
 /**
- * The M1 half of the seed: 43 projects with their milestones, risks and
+ * The M1 half of the seed: 41 projects with their milestones, risks and
  * issues (R04–R07), so the portfolio, the project list and the project
- * overview all have something in them on first run (CAPEX-01 §15). The 43rd
- * is HQ's (owner decision, 19/09/2026).
+ * overview all have something in them on first run (CAPEX-01 §15). One of
+ * them is HQ's (owner decision, 19/09/2026); the Ambulance Service's two went
+ * with its unit the same day (ADR-0024).
  *
  * Run as the migration role, which owns the tables and is therefore not
  * filtered by row-level security — a seed that could only see its own units

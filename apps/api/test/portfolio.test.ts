@@ -46,12 +46,12 @@ describe("GET /portfolio", () => {
     }
   });
 
-  it("gives the Larnaca engineer one unit and the board all twelve", async () => {
+  it("gives the Larnaca engineer one unit and the board all eleven", async () => {
     const larnaca = await portfolio(USERS.engineerLarnaca);
     expect(larnaca.units.map((u) => u.orgUnit.id)).toEqual(["larnaca-general"]);
 
     const board = await portfolio(USERS.executive);
-    expect(board.units).toHaveLength(12);
+    expect(board.units).toHaveLength(11);
   });
 
   it("leaves the two ledgers it does not know null and spends nothing", async () => {

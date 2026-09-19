@@ -60,8 +60,10 @@ describe("ecapital.allocate_project_code", () => {
     const second = await pending;
     await b.query("commit");
 
-    expect(first).toBe("TRD-2033-001");
-    expect(second).toBe("TRD-2033-002");
+    // Τροόδους is KYP since ADR-0024: the code the function builds is read
+    // off org_unit at the moment it hands out a number, never stored twice.
+    expect(first).toBe("KYP-2033-001");
+    expect(second).toBe("KYP-2033-002");
   });
 
   it("refuses a unit that does not exist rather than inventing a prefix", async () => {
@@ -146,7 +148,9 @@ describe("the seeded milestones", () => {
   });
 
   it("slips the open gate of the three projects chosen for it", () => {
-    const milestones = milestonesFor(seedProjects[16], 16);
+    // Index 15 since ADR-0024 took the two ambulance projects out of the
+    // array — still PRJ-017, the project seedSlippedProjects names.
+    const milestones = milestonesFor(seedProjects[15], 15);
     const open = milestones.filter((m) => m.isGate).at(-1);
     const slip =
       (Date.parse(`${open?.forecastDate}T00:00:00Z`) -

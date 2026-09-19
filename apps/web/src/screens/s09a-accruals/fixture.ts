@@ -5,7 +5,7 @@ export function buildAccrualRow(overrides: Partial<AccrualRow> = {}): AccrualRow
   return {
     projectId: "p-031",
     projectCode: "PRJ-031",
-    projectTitleEl: "Αντικατάσταση οχημάτων ασθενοφόρων",
+    projectTitleEl: "Αντικατάσταση ακτινολογικού εξοπλισμού",
     contractId: "c-1",
     contractRef: "CAP-2026-0012",
     contractorName: "Αφοί Παπαδόπουλοι Α.Ε.",

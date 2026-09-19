@@ -42,7 +42,7 @@ import { CostAccrualsService } from "./cost-accruals.service";
 import { accrualsWorkbook } from "./cost-export";
 import { CostImportsService } from "./cost-imports.service";
 
-/** The upload limit. A month of ME2N for twelve units is a few thousand rows. */
+/** The upload limit. A month of ME2N for eleven units is a few thousand rows. */
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 /**

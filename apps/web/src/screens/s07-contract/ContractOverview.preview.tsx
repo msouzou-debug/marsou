@@ -24,7 +24,7 @@ const entry: PreviewEntry = {
     ),
   },
   notes:
-    "Fixture: contract ΤΥ/2026/031 on «Αντικατάσταση οχημάτων ασθενοφόρων» (Λάρνακα, PRJ-031 in the seed), " +
+    "Fixture: contract ΤΥ/2026/031 on «Αντικατάσταση ακτινολογικού εξοπλισμού» (Λάρνακα, PRJ-031 in the seed), " +
     "deliberately past the 10% variation warning (14,0 %) so the red figure and the warnings strip both " +
     "have something to show. No empty state — a detail page always names one contract or shows " +
     "noPermission/error for it, same reasoning as S03's own ProjectOverview.",

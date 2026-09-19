@@ -5,6 +5,11 @@ import type { Directorate } from "./org-unit";
 // Λεμεσού–Πάφου and nothing in its name says so). KENTRIKI_DIOIKISI is a
 // seventh, added by owner decision on 19/09/2026 alongside the HQ org unit —
 // it has no row in the Capex Plan sheet, so CAPEX-03 §3 never counted it.
+//
+// AMBULANCE has no units under it since 19/09/2026 (ADR-0024) and is kept
+// only so an audit-log before-image that names it still renders a word rather
+// than a blank. S01 groups by the directorates of the units it is showing, so
+// a directorate with no units never appears in the interface.
 export const directorateLabels: Record<Directorate, { el: string; en: string }> = {
   LEMESOU_PAFOU: { el: "Λεμεσού–Πάφου", en: "Limassol–Paphos" },
   LEFKOSIAS: { el: "Λευκωσίας", en: "Nicosia" },

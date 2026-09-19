@@ -27,11 +27,16 @@
  * Four variants:
  *
  *   `main`    the file as §0 describes it, defects and all: text in three
- *             date cells and three amount cells, so V06 fires and the run
+ *             date cells and three amount cells, so V06 fires; and the four
+ *             ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows the sheet still carries, which V15
+ *             now rejects (ADR-0024). Either rule on its own means the run
  *             cannot be committed until somebody fixes the spreadsheet.
- *   `clean`   the same file with those six cells corrected to 0 — what
- *             Monday's file looks like after the defects are fixed, and the
- *             only variant that can be committed.
+ *   `clean`   the same file with those six cells corrected and the four
+ *             out-of-scope rows moved onto Γ.Ν. ΛΑΡΝΑΚΑΣ — what Monday's file
+ *             looks like after Technical Services have been through it, and
+ *             the only variant that can be committed. Only column C and
+ *             column D differ on those four rows, so every total in §0 is
+ *             the same figure in both variants.
  *   `changed` `clean` with one project's estimated cost €48,500 higher, for
  *             the diff against the previous import (§9).
  *   `moved`   a column shifted and a footer line renamed, to prove that
@@ -106,8 +111,21 @@ const HEADERS: [string, string][] = [
   ["AJ", "ΣΥΝΟΛΟ"],
 ];
 
-/** CAPEX-03 §3: the eleven units, their directorate and their row count. */
-const UNITS: { spelling: string; directorate: string; rows: number }[] = [
+/**
+ * CAPEX-03 §3: the eleven spellings column D holds, their directorate and
+ * their row count.
+ *
+ * The last one is not an ΟΚΥπΥ unit any more (owner decision, 19/09/2026,
+ * ADR-0024) and it stays in this list on purpose: the February file has four
+ * ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows in it whatever the owner decided afterwards, and
+ * the importer has to be proved against the file as it is. `outOfScope`
+ * marks them, and only the `clean` and `changed` variants — Monday's file,
+ * after Technical Services have been through it — move those four rows onto
+ * the hospital that now holds the works.
+ */
+const OUT_OF_SCOPE_MOVES_TO = { spelling: "Γ.Ν. ΛΑΡΝΑΚΑΣ", directorate: "ΛΑΡΝΑΚΑΣ-ΑΜΜΟΧΩΣΤΟΥ" };
+
+const UNITS: { spelling: string; directorate: string; rows: number; outOfScope?: true }[] = [
   { spelling: "Γ.Ν. ΛΕΥΚΩΣΙΑΣ", directorate: "ΛΕΥΚΩΣΙΑΣ", rows: 20 },
   { spelling: "Γ.Ν. ΛΑΡΝΑΚΑΣ", directorate: "ΛΑΡΝΑΚΑΣ-ΑΜΜΟΧΩΣΤΟΥ", rows: 14 },
   { spelling: "Γ.Ν. ΠΑΦΟΥ", directorate: "ΛΕΜΕΣΟΥ-ΠΑΦΟΥ", rows: 13 },
@@ -118,8 +136,11 @@ const UNITS: { spelling: string; directorate: string; rows: number }[] = [
   { spelling: "ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ", directorate: "ΛΕΜΕΣΟΥ-ΠΑΦΟΥ", rows: 7 },
   { spelling: "Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ", directorate: "ΛΑΡΝΑΚΑΣ-ΑΜΜΟΧΩΣΤΟΥ", rows: 5 },
   { spelling: "ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ", directorate: "ΠΦΥ", rows: 5 },
-  { spelling: "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ", directorate: "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ", rows: 4 },
+  { spelling: "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ", directorate: "ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ", rows: 4, outOfScope: true },
 ];
+
+/** How many rows of the file name a unit that is not ΟΚΥπΥ's (V15). */
+export const OUT_OF_SCOPE_ROWS = UNITS.filter((u) => u.outOfScope).reduce((n, u) => n + u.rows, 0);
 
 /** Plausible works, not lorem ipsum. Combined with a place to make a title. */
 const WORKS = [
@@ -263,12 +284,20 @@ const TEXT_AG = [50, 71]; // V06
 const TINY_DEVIATION = { two: 64, one: 87 }; // €2 and €1, inside V01's ±€10
 const TOTALS_CHECK_DEFECTS = [14, 16]; // CAPEX-03 §6 defects 1 and 2
 
-function buildRows(): Row[] {
+function buildRows(reassignOutOfScope = false): Row[] {
   const rnd = lcg(20_260_219);
   const rows: Row[] = [];
 
   let index = 0;
-  for (const unit of UNITS) {
+  for (const source of UNITS) {
+    // Only the spelling and the directorate move. Every amount below is a
+    // function of the row's index, so the column totals CAPEX-03 §0 names are
+    // the same in every variant — which is the whole point of reassigning the
+    // four rows rather than deleting them.
+    const unit =
+      reassignOutOfScope && source.outOfScope
+        ? { ...source, ...OUT_OF_SCOPE_MOVES_TO }
+        : source;
     for (let n = 0; n < unit.rows; n += 1) {
       const work = WORKS[(index * 7 + n) % WORKS.length];
       const wing = WINGS[(index + n) % WINGS.length];
@@ -590,10 +619,12 @@ function index(letter: string): number {
 }
 
 export async function buildFixture(variant: Variant, outPath: string): Promise<string> {
-  const rows = buildRows();
+  const rows = buildRows(variant === "clean" || variant === "changed");
 
   if (variant === "clean" || variant === "changed") {
-    // Monday's file, once the six typed-wrong cells are corrected. They were
+    // Monday's file, once the six typed-wrong cells are corrected and the
+    // four ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows have been moved onto the hospital that
+    // holds the works (`buildRows` above, ADR-0024). The six cells were
     // adding up as nothing, so a zero keeps every column total where it was.
     rows[TEXT_DATE.p].p = null;
     rows[TEXT_DATE.q].q = null;

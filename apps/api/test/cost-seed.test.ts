@@ -36,7 +36,7 @@ describe("the cost seed", () => {
               (select count(distinct project_id) from ecapital.budget_line
                 where vintage_id = '2026-02')::int as "withBudget"`,
     );
-    expect(rows[0].withBudget).toBeGreaterThanOrEqual(43);
+    expect(rows[0].withBudget).toBeGreaterThanOrEqual(41);
   });
 
   it("has one month already matched and one still waiting", async () => {
@@ -121,7 +121,7 @@ describe("the cost seed", () => {
       `select (select count(*) from ecapital.project where sap_wbs is not null)::int as wbs,
               (select count(*) from ecapital.project where cost_centre is not null)::int as centres`,
     );
-    expect(rows[0].wbs).toBeGreaterThanOrEqual(43);
+    expect(rows[0].wbs).toBeGreaterThanOrEqual(41);
     expect(rows[0].centres).toBeGreaterThan(0);
   });
 });

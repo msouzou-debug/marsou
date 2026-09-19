@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runMigrations } from "../src/db/migrate";
+import { readMigrations, runMigrations } from "../src/db/migrate";
 
 /**
  * The migration has to survive both things that happen to it in real life:
@@ -42,7 +42,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0009_hq_unit");
     expect(result.applied).toContain("0010_admin_users");
     expect(result.applied).toContain("0011_m2_cost");
-    expect(result.lastMigrationId).toBe("0011_m2_cost");
+    expect(result.applied).toContain("0012_unit_codes_earchive");
+    expect(result.lastMigrationId).toBe("0012_unit_codes_earchive");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -103,6 +104,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0009_hq_unit");
     expect(result.skipped).toContain("0010_admin_users");
     expect(result.skipped).toContain("0011_m2_cost");
+    expect(result.skipped).toContain("0012_unit_codes_earchive");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -134,6 +136,134 @@ describe("migrations", () => {
       "KENTRIKI_DIOIKISI",
     ]);
   });
+
+  /**
+   * ADR-0024, the owner's two decisions of 19/09/2026. This one is not about
+   * the shape of the schema but about rows that already exist, so it runs on
+   * its own database: everything up to 0011, then a register seeded the way a
+   * live one looks today — old codes, old project codes, an ambulance unit
+   * with a project, a contract and a defect hanging off it — and only then
+   * 0012.
+   */
+  it("0012 moves the codes to eArchive's and takes the ambulance unit with its rows", async () => {
+    const legacyDb = "ecapital_migration_0012_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const upTo0011 = files.filter((m) => m.id < "0012");
+      const zeroZeroOneTwo = files.find((m) => m.id === "0012_unit_codes_earchive");
+      expect(zeroZeroOneTwo).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of upTo0011) await client.query(migration.sql);
+
+      // A register with the codes as they were before ADR-0024. Two units
+      // whose code moves, one whose code does not, and the ambulance unit.
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code)
+        values ('troodos', 'TRD', 'Νοσοκομείο Τροόδους', 'Troodos Hospital', 'HOSPITAL', 'LEMESOU_PAFOU', 'TRD'),
+               ('pfy', 'PFY', 'Πρωτοβάθμια Φροντίδα Υγείας', 'Primary Healthcare', 'SERVICE', 'PFY', 'HC'),
+               ('nicosia-general', 'NGH', 'Γενικό Νοσοκομείο Λευκωσίας', 'Nicosia General Hospital', 'HOSPITAL', 'LEFKOSIAS', 'NGH'),
+               ('ambulance', 'AMB', 'Υπηρεσία Ασθενοφόρων', 'Ambulance Service', 'SERVICE', 'AMBULANCE', 'AMB')`);
+      await client.query(
+        `insert into ecapital.org_unit_alias (org_unit_id, alias) values ('ambulance', 'ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ')`,
+      );
+      await client.query(`
+        insert into ecapital.project (code, org_unit_id, title_el, category, phase, approved_budget)
+        values ('TRD-2026-001', 'troodos', 'Αντικατάσταση ψυκτικών μονάδων', 'MAINTENANCE_CAPITAL', 'IN_PROGRESS', 100000),
+               ('PFY-2026-004', 'pfy', 'Αντικατάσταση ανελκυστήρων', 'MAINTENANCE_CAPITAL', 'IDEA', 50000),
+               ('NGH-2026-002', 'nicosia-general', 'Επέκταση ΤΑΕΠ', 'NEW_BUILD', 'IDEA', 90000),
+               ('AMB-2026-001', 'ambulance', 'Αντικατάσταση οχημάτων', 'EQUIPMENT', 'AWARDED', 70000)`);
+      // The counter ADR-0014 keys by unit and year, not by code.
+      await client.query(
+        `insert into ecapital.project_code_seq (org_unit_id, year, next_seq)
+         values ('troodos', 2026, 2), ('ambulance', 2026, 2)`,
+      );
+      await client.query(
+        `insert into ecapital.contractor (name, vat_number, registration_no, category)
+         values ('Δοκιμαστική Εργοληπτική Λτδ', 'CY10000001X', 'HE 100001', 'BUILDING')`,
+      );
+      await client.query(`
+        insert into ecapital.contract
+          (project_id, org_unit_id, contractor_id, contract_no, type, award_date, original_value, ref)
+        select p.id, p.org_unit_id, c.id, 'ΤΥ/2026/900', 'SUPPLY', date '2026-02-01', 70000, 'CAP-2026-0900'
+          from ecapital.project p, ecapital.contractor c
+         where p.code = 'AMB-2026-001'`);
+
+      await client.query(zeroZeroOneTwo!.sql);
+
+      // 1. The codes are eArchive's, on both columns, and the names did not move.
+      const { rows: units } = await client.query<{
+        id: string;
+        code: string;
+        entity_code: string;
+        name_el: string;
+      }>("select id, code, entity_code, name_el from ecapital.org_unit order by id");
+      expect(units.map((u) => u.id)).toEqual(["nicosia-general", "pfy", "troodos"]);
+      const byId = new Map(units.map((u) => [u.id, u]));
+      expect(byId.get("troodos")).toMatchObject({
+        code: "KYP",
+        entity_code: "KYP",
+        name_el: "Νοσοκομείο Τροόδους",
+      });
+      expect(byId.get("pfy")).toMatchObject({ code: "PHC", entity_code: "PHC" });
+      expect(byId.get("nicosia-general")).toMatchObject({ code: "NGH", entity_code: "NGH" });
+
+      // 2. The project codes follow the prefix and keep their year and number.
+      const { rows: projects } = await client.query<{ code: string }>(
+        "select code from ecapital.project order by code",
+      );
+      expect(projects.map((p) => p.code)).toEqual([
+        "KYP-2026-001",
+        "NGH-2026-002",
+        "PHC-2026-004",
+      ]);
+
+      // 3. The ambulance unit is gone, and so is everything under it.
+      for (const [table, where] of [
+        ["org_unit", "id = 'ambulance'"],
+        ["org_unit_alias", "org_unit_id = 'ambulance'"],
+        ["project", "org_unit_id = 'ambulance'"],
+        ["contract", "org_unit_id = 'ambulance'"],
+        ["project_code_seq", "org_unit_id = 'ambulance'"],
+      ] as const) {
+        const { rows } = await client.query<{ n: string }>(
+          `select count(*)::text as n from ecapital.${table} where ${where}`,
+        );
+        expect(Number(rows[0].n), table).toBe(0);
+      }
+
+      // 4. The counter is keyed by unit, so Troodos keeps its place in the run
+      //    and the next code it issues carries the new prefix.
+      const { rows: next } = await client.query<{ code: string }>(
+        "select ecapital.allocate_project_code('troodos', 2026) as code",
+      );
+      expect(next[0].code).toBe("KYP-2026-002");
+
+      // 5. The importer's rule list has room for V15 (CAPEX-03 errata).
+      const { rows: check } = await client.query<{ def: string }>(
+        `select pg_get_constraintdef(c.oid) as def from pg_constraint c
+           join pg_class t on t.oid = c.conrelid
+          where t.relname = 'import_exception' and c.conname = 'import_exception_rule_known'`,
+      );
+      expect(check[0].def).toContain("'V15'");
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
 
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });

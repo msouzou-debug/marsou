@@ -32,7 +32,7 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
     emapRef: null,
     createdAt: null,
     updatedAt: null,
-    project: { id: "project-1", code: "LAR-2026-031", titleEl: "Αντικατάσταση οχημάτων ασθενοφόρων" },
+    project: { id: "project-1", code: "LAR-2026-031", titleEl: "Αντικατάσταση ακτινολογικού εξοπλισμού" },
     contractor: {
       id: "contractor-1",
       name: "Κυριάκου Τεχνικές Κατασκευές Λτδ",

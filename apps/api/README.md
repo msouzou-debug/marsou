@@ -22,7 +22,7 @@ A ledger with no source comes back **null and never zero** — a project nobody 
 pnpm install                                   # 1. from the repo root
 cp apps/api/.env.example apps/api/.env         # 2. the defaults work for local Postgres
 pnpm --filter @ecapital/api migrate            # 3. create the schema, policies and triggers
-pnpm --filter @ecapital/api seed               # 4. twelve org units, one building, eight users
+pnpm --filter @ecapital/api seed               # 4. eleven org units, one building, eight users
 pnpm --filter @ecapital/api dev                # 5. http://localhost:3001, docs at /docs
 ```
 
@@ -36,7 +36,7 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 |---|---|
 | `src/db/migrations/*.sql` | The schema. Tables, enums, row-level-security policies, grants, audit triggers. Hand-written and authoritative (ADR-0008). |
 | `src/db/schema.ts` | The Drizzle view of the same tables, for typed queries. |
-| `src/db/seed-data.ts` | The twelve units (HQ added 19/09/2026) and their source spellings, one seeded building, eight users, the group→role mappings, the 43 fixture projects and the twelve fixture contractors. |
+| `src/db/seed-data.ts` | The eleven units (HQ added 19/09/2026, the Ambulance Service removed the same day — ADR-0024) and their source spellings, one seeded building, eight users, the group→role mappings, the 41 fixture projects and the twelve fixture contractors. |
 | `src/db/seed-projects.ts` | The M1 half of the seed: projects, milestones, risks and issues, idempotent, codes allocated by the same function the API uses. |
 | `src/db/seed-contracts.ts` | The contract half: a contract on every awarded project, a bill of quantities on three of them, and the variations R10 and R31 need something to fire on. Idempotent. |
 | `src/db/seed-site.ts` | The site log half: two or three RFIs on every contract with one breached and one red, an instruction each with three of them left to price, twelve handover defects over three finished contracts across all four risk bands with two past their liability date, and three inspection defects that belong to a unit and nothing else. Idempotent. |
@@ -68,7 +68,7 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `POST /auth/login` | Username and password, checked by a simple bind against the ΟΚΥπΥ Active Directory; the same token and claims the stub issues. Answers 404 unless `AUTH_MODE=ldap` (ADR-0018). | M1 |
 | `GET /me` | The caller's own claims, camelCase. | M0 |
 | `GET /config/links` | Base URLs of eMAP and eFinance, or null where this deployment was told of neither. Signed in, no role (ADR-0019). | M1 |
-| `GET /org-units` | The units the caller may see, each with its eFinance `entityCode` (ADR-0019). | M0 |
+| `GET /org-units` | The units the caller may see, each with its `entityCode` — eArchive's site code, and the same string as `code` since ADR-0024. | M0 |
 | `GET /org-units/:id/areas` | That unit's building → floor → area tree. | M0 |
 | `POST /org-units/:id/areas` | Add an area to a floor of the unit. | M0 |
 | `GET /audit-log` | The organisation's audit trail. `admin` and `auditor_readonly` only. | M0 |
@@ -183,12 +183,13 @@ pnpm --filter @ecapital/api import:capex -- \
 
 Four things about it that are decisions rather than implementation:
 
-- **A dry run is the default.** `--commit` is the exception you ask for, and even then §9's blocking rules — V04, V06, V07, V10, V11, V12, V13 — turn it back into a dry run. The February file fails V06 on the cells holding text where a number belongs, so it cannot be committed until the spreadsheet is fixed. That is the intended answer.
+- **A dry run is the default.** `--commit` is the exception you ask for, and even then §9's blocking rules — V04, V06, V07, V10, V11, V12, V13 and V15 — turn it back into a dry run. The February file fails V06 on the cells holding text where a number belongs, and V15 on its four ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows, so it cannot be committed until the spreadsheet is fixed. That is the intended answer.
+- **A unit that is not ΟΚΥπΥ's is rejected, not resolved.** `units_out_of_scope` in the profile lists the spellings in column D that name another organisation — today, `ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ`, since the Ambulance Service left ΟΚΥπΥ on 19/09/2026 (ADR-0024). A row on one of them fires **V15, «η μονάδα ανήκει στον ΟΚΥπΥ»** — ERROR, blocking — and is not imported. It is a rule of its own and not a case of V04 because the two give opposite instructions: V04 says add the spelling as an alias of the unit it belongs to, which here would put the service back into the register. Adding a spelling to the list is a profile edit; nothing in the code names a unit.
 - **The counts stop it.** If the file does not classify into the profile's expected 113 project rows and 3 footer rows, the run reports and exits before the first insert. The first read of this file counted the footer block as three projects.
 - **One transaction, under the importing user.** `--as <email>` is required and is refused without it; the run sets `app.user_id`, `app.roles` and `app.org_unit_ids` like any request (ADR-0010), so the policies decide who may run it — `import_batch` is admin-only — and the audit trigger records every row under the person who ran it (ADR-0011).
 - **Re-running the same file changes nothing.** A project is found again by unit plus normalised title, and a field that did not move is not written. A second run of an unchanged file is 0 created, 0 updated, 113 unchanged, and leaves no audit rows; an amount that moved by more than €1,000 appears in the report's diff against the previous batch.
 
-The fixture the CLI is proved against is synthetic and committed: `test/fixtures/capex-plan-synthetic.xlsx`, built by `test/fixtures/build-capex-fixture.ts`, which reproduces CAPEX-03 §0's figures to the euro. Rebuild it with `node -r @swc-node/register test/fixtures/build-capex-fixture.ts`.
+The fixture the CLI is proved against is synthetic and committed: `test/fixtures/capex-plan-synthetic.xlsx`, built by `test/fixtures/build-capex-fixture.ts`, which reproduces CAPEX-03 §0's figures to the euro. It keeps the four ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ rows the February file has, so V15 is proved against the file as it really is; the `clean` variant — the only one that can be committed — is the same file with those four rows moved onto the hospital that holds the works, which leaves every column total in §0 exactly where it was. Rebuild them all with `node -r @swc-node/register test/fixtures/build-capex-fixture.ts`.
 
 Reading it needs `exceljs`, chosen over SheetJS because it keeps the cell's type — which is what lets V06 reject «περίπου 1,2 εκ.» in an amount column instead of quietly reading it as zero (ADR-0016).
 

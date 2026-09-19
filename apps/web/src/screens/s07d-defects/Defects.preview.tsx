@@ -10,8 +10,8 @@ const noPermission = <NoPermission />;
 const defects = buildDefects();
 const contract = buildContractDetail();
 const today = new Date("2026-09-19");
-const areaNameById = new Map([["area-1", "Πλυντήριο ασθενοφόρων"]]);
-const projectById = new Map([["project-2", { id: "project-2", code: "LAR-2026-032", titleEl: "Ανακαίνιση σταθμού ασθενοφόρων" }]]);
+const areaNameById = new Map([["area-1", "Χώρος πρώτων βοηθειών"]]);
+const projectById = new Map([["project-2", { id: "project-2", code: "LAR-2026-032", titleEl: "Ανακαίνιση τμήματος πρώτων βοηθειών" }]]);
 const noop = () => undefined;
 
 const entry: PreviewEntry = {
