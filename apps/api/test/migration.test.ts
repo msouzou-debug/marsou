@@ -46,7 +46,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0014_earchive_outbox");
     expect(result.applied).toContain("0015_m3_permits");
     expect(result.applied).toContain("0016_permit_partial_draft");
-    expect(result.lastMigrationId).toBe("0016_permit_partial_draft");
+    expect(result.applied).toContain("0017_m4_assets");
+    expect(result.lastMigrationId).toBe("0017_m4_assets");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -61,6 +62,10 @@ describe("migrations", () => {
       "app_user_role",
       "area",
       "area_clinical_owner",
+      "asset",
+      "asset_document",
+      "asset_reading",
+      "asset_tag_seq",
       "audit_log",
       "boq_item",
       "budget_code",
@@ -125,6 +130,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0014_earchive_outbox");
     expect(result.skipped).toContain("0015_m3_permits");
     expect(result.skipped).toContain("0016_permit_partial_draft");
+    expect(result.skipped).toContain("0017_m4_assets");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

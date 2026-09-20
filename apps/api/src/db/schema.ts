@@ -759,8 +759,9 @@ export const defect = ecapital.table(
     contractId: uuid("contract_id").references(() => contract.id),
     projectId: uuid("project_id").references(() => project.id),
     areaId: uuid("area_id").references(() => area.id),
-    // M6 asset register; text and unreferenced until that table exists.
-    assetId: text("asset_id"),
+    // M4 (migration 0017) typed this uuid and pointed it at the asset
+    // register; 0006 created it as text «until the table exists».
+    assetId: uuid("asset_id"),
     descriptionEl: text("description_el").notNull(),
     // M8 document register; empty until then.
     photoIds: text("photo_ids").array().notNull().default(sql`'{}'`),
@@ -1170,6 +1171,9 @@ export const documentKind = ecapital.enum("document_kind", [
   "PERMIT",
   "PAYMENT_CERT",
   "OTHER",
+  // M4 (0017): an asset's O&M manual, certificate, commissioning pack,
+  // warranty, drawing or photo. R28.
+  "ASSET_DOCUMENT",
 ]);
 export const dmsOutboxStatus = ecapital.enum("dms_outbox_status", [
   "QUEUED",
@@ -1550,4 +1554,139 @@ export const inboxRead = ecapital.table(
     readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.itemId] })],
+);
+
+// ------------------------------------------------------------------- M4 --
+// Πάγια — the asset register (R26–R30, R45). Migration 0017_m4_assets.sql is
+// the source of truth; ADR-0028 records the lean scope the owner steered to
+// on 20/09/2026, the tag scheme and what was deliberately left out.
+//
+// NO PATIENT DATA: an asset is a machine in a room. `servesAreaIds` names
+// rooms, never people, and the two biomedical items in the seed carry nothing
+// about anybody who was ever connected to one.
+
+export const assetClass = ecapital.enum("asset_class", [
+  "BUILDING_FABRIC",
+  "HVAC",
+  "ELECTRICAL",
+  "MEDICAL_GAS",
+  "WATER",
+  "FIRE",
+  "LIFT",
+  "BIOMEDICAL",
+  "IT",
+  "OTHER",
+]);
+export const assetStatus = ecapital.enum("asset_status", [
+  "IN_SERVICE",
+  "OUT_OF_SERVICE",
+  "DISPOSED",
+  "PLANNED",
+]);
+export const assetDocumentKind = ecapital.enum("asset_document_kind", [
+  "OM_MANUAL",
+  "CERT",
+  "COMMISSIONING",
+  "WARRANTY",
+  "DRAWING",
+  "PHOTO",
+]);
+
+export const asset = ecapital.table(
+  "asset",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    areaId: uuid("area_id").references(() => area.id, { onDelete: "set null" }),
+    /** `<UNITCODE>-<CLASS>-<NNNN>`, allocated by the database, immutable. */
+    tag: text("tag").notNull().unique(),
+    nameEl: text("name_el").notNull(),
+    assetClass: assetClass("asset_class").notNull(),
+    manufacturer: text("manufacturer"),
+    model: text("model"),
+    serialNo: text("serial_no"),
+    installedDate: date("installed_date"),
+    commissionedDate: date("commissioned_date"),
+    sourceProjectId: uuid("source_project_id").references(() => project.id, {
+      onDelete: "set null",
+    }),
+    sourceContractId: uuid("source_contract_id").references(() => contract.id, {
+      onDelete: "set null",
+    }),
+    capitalCost: numeric("capital_cost", { precision: 14, scale: 2 }),
+    warrantyEnd: date("warranty_end"),
+    expectedLifeYears: integer("expected_life_years"),
+    replacementYear: integer("replacement_year"),
+    replacementCostEst: numeric("replacement_cost_est", { precision: 14, scale: 2 }),
+    /** 1 = life-critical, 5 = cosmetic (CAPEX-01 §2, Maximo row). */
+    criticality: integer("criticality").notNull(),
+    /** NHS ERIC band A–E, «Φυσική κατάσταση». A CHECK, not an enum. */
+    condition: text("condition"),
+    conditionAssessedAt: timestamp("condition_assessed_at", { withTimezone: true }),
+    parentAssetId: uuid("parent_asset_id"),
+    /** CAPEX-01 §4 spells it `serves_area_ids[]`; text[], every element a uuid. */
+    servesAreaIds: text("serves_area_ids").array().notNull().default(sql`'{}'`),
+    system: permitSystem("system"),
+    costCentre: text("cost_centre"),
+    sapAssetNo: text("sap_asset_no"),
+    status: assetStatus("status").notNull().default("IN_SERVICE"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("asset_unit_idx").on(t.orgUnitId, t.status),
+    index("asset_area_idx").on(t.areaId),
+    index("asset_parent_idx").on(t.parentAssetId),
+    index("asset_class_idx").on(t.orgUnitId, t.assetClass),
+  ],
+);
+
+/** R28: the link to the `document` row eArchive files (ADR-0023). */
+export const assetDocument = ecapital.table(
+  "asset_document",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => asset.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => document.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    kind: assetDocumentKind("kind").notNull(),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("asset_document_asset_id_document_id_key").on(t.assetId, t.documentId),
+    index("asset_document_asset_idx").on(t.assetId),
+  ],
+);
+
+/** A plain reading. M5 builds the meter work on it; there is no analytics here. */
+export const assetReading = ecapital.table(
+  "asset_reading",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => asset.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    takenAt: timestamp("taken_at", { withTimezone: true }).notNull().defaultNow(),
+    readingType: text("reading_type").notNull(),
+    value: numeric("value", { precision: 16, scale: 4 }).notNull(),
+    unit: text("unit"),
+    takenBy: uuid("taken_by")
+      .notNull()
+      .references(() => appUser.id),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("asset_reading_asset_idx").on(t.assetId, t.takenAt)],
 );
