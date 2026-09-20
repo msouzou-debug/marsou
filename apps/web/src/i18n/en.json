@@ -23,7 +23,9 @@
     "phase": "Phase",
     "category": "Category",
     "rag": "RAG",
-    "months": "{count} mo"
+    "months": "{count} mo",
+    "status": "Status",
+    "condition": "Condition"
   },
   "buttons": {
     "save": "Save",
@@ -258,6 +260,34 @@
       "label": "Permit tabs",
       "permits": "Permits",
       "calendar": "Disruption calendar"
+    },
+    "criticality-chip": {
+      "label": "Criticality {value}"
+    },
+    "condition-chip": {
+      "notAssessed": "Not assessed",
+      "letters": {
+        "A": "Condition A — as new",
+        "B": "Condition B — good",
+        "C": "Condition C — fair",
+        "D": "Condition D — poor",
+        "E": "Condition E — end of life"
+      }
+    },
+    "label-sheet": {
+      "loading": "Loading labels",
+      "empty": "No assets are selected for a label printout."
+    },
+    "forecast-chart": {
+      "empty": "There is no forecast data for this range.",
+      "error": "The forecast did not load. Try again.",
+      "summary": "Estimated replacement cost by year: {years}",
+      "maxLabel": "Scale up to {value}"
+    },
+    "asset-tabs": {
+      "label": "Asset tabs",
+      "register": "Asset register",
+      "forecast": "Replacement forecast"
     }
   },
   "nav": {
@@ -338,7 +368,9 @@
         "MEDIUM": "medium",
         "HIGH": "high",
         "HIGHEST": "highest"
-      }
+      },
+      "assetCount": "{count, plural, one {# asset} other {# assets}}",
+      "viewAssets": "View assets"
     },
     "s02": {
       "title": "Projects",
@@ -1169,6 +1201,163 @@
         "download": "Download"
       },
       "empty": "The PDF guides have not been generated yet for this installation. They are generated with every eCapital release."
+    },
+    "s16a": {
+      "title": "Asset register",
+      "caption": "The unit's assets",
+      "empty": "No assets have been recorded yet.",
+      "searchLabel": "Search assets",
+      "searchPlaceholder": "Search by tag, name or serial number",
+      "printLabels": "Print labels",
+      "filters": {
+        "class": "Asset class",
+        "criticality": "Criticality",
+        "condition": "Condition",
+        "all": "All"
+      },
+      "columns": {
+        "tag": "Tag",
+        "name": "Name",
+        "class": "Asset class",
+        "area": "Area",
+        "criticality": "Criticality",
+        "condition": "Condition",
+        "warrantyEnd": "Warranty end",
+        "replacementYear": "Replacement year",
+        "priority": "Priority"
+      }
+    },
+    "s17": {
+      "askRole": "Ask the unit's head of estates for access.",
+      "identityTitle": "Asset details",
+      "facts": {
+        "class": "Asset class",
+        "manufacturer": "Manufacturer",
+        "model": "Model",
+        "serialNo": "Serial number",
+        "installedDate": "Installed",
+        "commissionedDate": "Commissioned",
+        "sourceProject": "Source project",
+        "sourceContract": "Source contract",
+        "warrantyEnd": "Warranty end",
+        "costCentre": "Cost centre",
+        "sapAssetNo": "SAP asset number",
+        "system": "System",
+        "parentAsset": "Part of",
+        "criticality": "Criticality",
+        "replacementYear": "Replacement year"
+      },
+      "wholeLifeTitle": "Whole-life cost",
+      "wholeLife": {
+        "capitalCost": "Acquisition cost",
+        "maintenanceToDate": "Maintenance to date",
+        "replacementCostEst": "Replacement estimate",
+        "noCapitalCost": "No acquisition cost has been recorded for this asset.",
+        "age": "Age: {years} years",
+        "remainingLife": "Remaining useful life: {years} years",
+        "ageUnknown": "The age is not known."
+      },
+      "conditionTitle": "Condition",
+      "condition": {
+        "assessedAt": "Assessed on {date}",
+        "notAssessed": "Not assessed yet.",
+        "recordTitle": "Record a condition",
+        "noteLabel": "Note",
+        "assessedAtLabel": "Assessment date",
+        "conditionLabel": "Condition",
+        "submit": "Record"
+      },
+      "childrenTitle": "Components",
+      "childrenEmpty": "This asset has no recorded components.",
+      "documentsTitle": "Documents",
+      "documentsEmpty": "There are no documents for this asset.",
+      "pendingFiling": "Pending filing",
+      "uploadDocument": "Add document",
+      "documentForm": {
+        "kind": "Document kind",
+        "title": "Title",
+        "file": "File"
+      },
+      "readingsTitle": "Readings",
+      "readingsEmpty": "No readings have been recorded.",
+      "readingForm": {
+        "takenAt": "Reading date",
+        "readingType": "Reading type",
+        "readingTypePlaceholder": "e.g. RUN_HOURS",
+        "value": "Value",
+        "unit": "Unit",
+        "submit": "Add reading"
+      },
+      "historyTitle": "History",
+      "openPermitsTitle": "Open permits",
+      "openPermitsEmpty": "There are no open permits for the asset's area.",
+      "openDefects": "{count, plural, one {# open defect} other {# open defects}}",
+      "qrTitle": "QR label",
+      "printLabel": "Print label"
+    },
+    "s17a": {
+      "titleNew": "New asset",
+      "titleEdit": "Edit asset",
+      "readOnlyNotice": "You can see the asset's details without editing rights. Condition is recorded from the asset's own page.",
+      "saving": "Saving…",
+      "sections": {
+        "identity": "Identity",
+        "sourcing": "Source and cost",
+        "life": "Life cycle"
+      },
+      "fields": {
+        "nameEl": "Name",
+        "assetClass": "Asset class",
+        "area": "Area",
+        "parentAsset": "Part of",
+        "manufacturer": "Manufacturer",
+        "model": "Model",
+        "serialNo": "Serial number",
+        "installedDate": "Installed",
+        "commissionedDate": "Commissioned",
+        "sourceProjectId": "Source project",
+        "sourceContractId": "Source contract",
+        "capitalCost": "Acquisition cost",
+        "warrantyEnd": "Warranty end",
+        "expectedLifeYears": "Expected life (years)",
+        "replacementYear": "Replacement year",
+        "replacementCostEst": "Replacement cost estimate",
+        "criticality": "Criticality",
+        "criticalityHint": "1 means life-critical to operations, 5 means cosmetic or no clinical impact.",
+        "system": "System",
+        "servesAreaIds": "Serves these areas",
+        "costCentre": "Cost centre",
+        "sapAssetNo": "SAP asset number",
+        "status": "Status",
+        "noParent": "None",
+        "noProject": "None",
+        "noContract": "None",
+        "noSystem": "None"
+      },
+      "parentSearchPlaceholder": "Search an asset by tag or name"
+    },
+    "s17b": {
+      "title": "Asset labels"
+    },
+    "scan": {
+      "notFoundTitle": "No asset matches this label.",
+      "notFoundBody": "The tag {tag} does not match any recorded asset. The label may be damaged, or the asset may have been disposed of.",
+      "backToRegister": "Go to the asset register"
+    },
+    "s17c": {
+      "title": "Replacement forecast",
+      "yearFrom": "From year",
+      "yearTo": "To year",
+      "caption": "Replacement forecast by unit and year",
+      "empty": "No assets have a planned replacement in this range.",
+      "columns": {
+        "unit": "Unit",
+        "year": "Year",
+        "assets": "Assets",
+        "estimatedCost": "Estimated cost",
+        "criticalAssets": "Critical assets (1–2)"
+      },
+      "totals": "Total"
     }
   },
   "states": {
@@ -1463,5 +1652,31 @@
     "HOSPITAL_DIRECTOR": "Hospital director",
     "INFECTION_CONTROL": "Infection control",
     "NURSING": "Nursing"
+  },
+  "assetClass": {
+    "BUILDING_FABRIC": "Building fabric",
+    "HVAC": "HVAC",
+    "ELECTRICAL": "Electrical",
+    "MEDICAL_GAS": "Medical gas",
+    "WATER": "Water",
+    "FIRE": "Fire safety",
+    "LIFT": "Lift",
+    "BIOMEDICAL": "Biomedical equipment",
+    "IT": "IT",
+    "OTHER": "Other"
+  },
+  "assetStatus": {
+    "IN_SERVICE": "In service",
+    "OUT_OF_SERVICE": "Out of service",
+    "DISPOSED": "Disposed",
+    "PLANNED": "Planned"
+  },
+  "assetDocumentKind": {
+    "OM_MANUAL": "Operation and maintenance manual",
+    "CERT": "Certificate",
+    "COMMISSIONING": "Commissioning report",
+    "WARRANTY": "Warranty document",
+    "DRAWING": "Drawing",
+    "PHOTO": "Photo"
   }
 }

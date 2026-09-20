@@ -33,5 +33,12 @@
   "S13": { "route": "/permits/[id]/print", "section": "S13-permit-print", "persona": ["admin", "estates_head", "project_engineer", "technician", "clinical_approver"] },
   "S14": { "route": "/approvals", "section": "S14-approvals", "persona": ["admin", "estates_head", "clinical_approver"] },
   "S15": { "route": "/calendar", "section": "S15-calendar", "persona": ["admin", "estates_head", "project_engineer", "clinical_approver", "executive_readonly", "auditor_readonly"] },
-  "S26": { "route": "/help", "section": "S26-help-centre", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "clinical_approver", "executive_readonly", "auditor_readonly"] }
+  "S26": { "route": "/help", "section": "S26-help-centre", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "clinical_approver", "executive_readonly", "auditor_readonly"] },
+  "S16a": { "route": "/assets", "section": "S16a-assets", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "executive_readonly", "auditor_readonly"] },
+  "S17a-new": { "route": "/assets/new", "section": "S17a-asset-form", "persona": ["admin", "estates_head", "project_engineer"] },
+  "S17": { "route": "/assets/[id]", "section": "S17-asset", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "executive_readonly", "auditor_readonly"] },
+  "S17a-edit": { "route": "/assets/[id]/edit", "section": "S17a-asset-form", "persona": ["admin", "estates_head", "project_engineer", "technician"] },
+  "S17c": { "route": "/assets/forecast", "section": "S17c-forecast", "persona": ["estates_head", "finance", "executive_readonly", "admin"] },
+  "S17b": { "route": "/assets/labels", "section": "S17b-labels", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance"] },
+  "Scan": { "route": "/a/[tag]", "section": "S17-asset", "persona": ["admin", "estates_head", "project_engineer", "technician", "finance", "executive_readonly", "auditor_readonly"] }
 }
