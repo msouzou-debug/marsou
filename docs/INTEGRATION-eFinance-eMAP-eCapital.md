@@ -77,7 +77,7 @@ Twelve units, all with an eCapital org unit now. **`CNS` is corrected,
 20/09/2026:** yesterday this table (and the errata) called it "Central
 Nursing Services", with no eCapital unit, filing under HQ. Both were wrong —
 it is Community Nursing, and it has its own unit (`community-nursing`,
-directorate PFY, an ASSUMPTION flagged for the owner to confirm) and its own
+directorate PFY — confirmed by the owner on 20/09/2026) and its own
 eArchive folder, not HQ's. See ADR-0024's addendum and §6 below.
 
 **The Ambulance Service is gone from this table.** Υπηρεσία Ασθενοφόρων (`AMB`)
@@ -443,10 +443,10 @@ site, capital work filing under HQ. That was wrong on both counts: it is
 «Κοινοτική Νοσηλευτική Υπηρεσία» (Community Nursing Service), it has its own
 eCapital unit (`community-nursing`), and it files under **its own eArchive
 folder** now, not HQ's — the same `code` = `entity_code` = `CNS` this table's
-rule already gives it, with no special case. (ASSUMPTION, flagged for the
-owner: eArchive's own site code for it is taken to be `CNS`, matching the
-pattern every other row follows; nobody has confirmed this against eArchive's
-own site list the way the other eleven were confirmed on 19/09/2026.)
+rule already gives it, with no special case. **Confirmed by the owner,
+20/09/2026:** eArchive's site code for Κοινοτική Νοσηλευτική (Φ. ΤΥ.12) is
+`CNS`, the same footing as the other eleven codes confirmed on 19/09/2026.
+(It had been recorded as an assumption earlier the same day.)
 
 The legacy eFinance codes the middle column used to hold — `PAP`, `ARC`,
 `CHR`, `MH`, `HC`, `TRD` — are in §2's last column, permanently now
@@ -557,10 +557,10 @@ eCapital org unit (§2, ADR-0019 §5) — done, not open. What remains:
    since the volume argument (few transfers vs. many POs/contracts) applies
    to both.
 
-`CNS` (Greek name to be confirmed by the owner) is not on this list: it stays
-unmapped, on the same reasoning as ever — no capital-projects register to
-attach it to today — and that is a standing decision, not a question waiting
-on the owner.
+`CNS` is no longer on this list either. It is Κοινοτική Νοσηλευτική, an
+eCapital unit of its own since 20/09/2026 (§2, §6, ADR-0024's addendum), and
+the two things flagged that day — directorate PFY and eArchive site code
+`CNS` — were both confirmed by the owner the same day.
 
 ---
 
