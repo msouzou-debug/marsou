@@ -116,8 +116,14 @@ describe("the seeded asset register", () => {
     );
     expect(after.rows).toEqual(before.rows);
 
+    // Only the seed's own papers: the upload tests in other files add links
+    // to this same database while this file runs, so a table-wide count
+    // depends on file order. Seeded documents carry a `seed-` protocol id.
     const links = await admin.query<{ n: string }>(
-      "select count(*)::text as n from ecapital.asset_document",
+      `select count(*)::text as n
+         from ecapital.asset_document ad
+         join ecapital.document d on d.id = ad.document_id
+        where d.protocol_id like 'seed-%'`,
     );
     expect(Number(links.rows[0].n)).toBe(2);
   }, 180_000);
