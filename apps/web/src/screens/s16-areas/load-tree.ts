@@ -4,7 +4,8 @@
 // access rule below can be tested on its own: an async Server Component
 // cannot be rendered by the test renderer, and this is the part that matters.
 
-import { AreaTree } from "@ecapital/shared";
+import { AreaTree, AssetListRow } from "@ecapital/shared";
+import { z } from "zod";
 import { ApiError } from "@/data/client";
 import { serverApi } from "@/data/server";
 
@@ -27,5 +28,28 @@ export async function loadAreaTree(orgUnitId: string): Promise<AreaTreeResult> {
     // try to tell the two apart either: one state, one wording, both cases.
     if (error instanceof ApiError && error.status === 404) return { kind: "noPermission" };
     return { kind: "error" };
+  }
+}
+
+// M4 build brief item 7: each area row gains a count of assets. A failure
+// here (M4's own API not reachable, or simply no assets yet) never fails the
+// S16 page itself — it is additive to a screen that already works without
+// it — so this returns an empty map rather than an error kind.
+export async function loadAssetCountsByArea(orgUnitId: string): Promise<Record<string, number>> {
+  const api = await serverApi();
+  if (!api) return {};
+  try {
+    const page = await api.get(
+      `/assets?orgUnitId=${encodeURIComponent(orgUnitId)}&pageSize=500`,
+      z.object({ items: z.array(AssetListRow), total: z.number().int() }),
+    );
+    const counts: Record<string, number> = {};
+    for (const asset of page.items) {
+      if (!asset.areaId) continue;
+      counts[asset.areaId] = (counts[asset.areaId] ?? 0) + 1;
+    }
+    return counts;
+  } catch {
+    return {};
   }
 }

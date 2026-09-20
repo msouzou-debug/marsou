@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
 import type { AreaTree } from "@ecapital/shared";
 import { renderWithIntl } from "@/test/render";
 import { AreaTreeView } from "./AreaTreeView";
@@ -113,6 +114,20 @@ describe("AreaTreeView", () => {
     const { container } = renderWithIntl(<AreaTreeView tree={tree} />, { locale: "el" });
     expect(container.querySelector(".eyebrow")?.textContent).toBe("Κτίριο");
     expect(container.textContent).not.toContain("Νοσοκομείο");
+  });
+
+  // M4 build brief item 7: each area row gains a count of assets and a link
+  // to the register filtered by that area.
+  it("shows the asset count per area and links to the filtered register", () => {
+    renderWithIntl(<AreaTreeView tree={tree} assetCounts={{ a1: 3 }} />);
+    expect(screen.getByText("3 πάγια")).toBeInTheDocument();
+    const link = screen.getAllByRole("link", { name: "Προβολή παγίων" })[0];
+    expect(link).toHaveAttribute("href", "/assets?unit=nicosia-general&areaId=a1");
+  });
+
+  it("shows zero assets, never omitting the row, for an area with none counted", () => {
+    renderWithIntl(<AreaTreeView tree={tree} />);
+    expect(screen.getAllByText("0 πάγια").length).toBeGreaterThan(0);
   });
 });
 

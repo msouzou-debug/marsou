@@ -13,7 +13,7 @@ import { getVisibleOrgUnits } from "@/data/server";
 import { HelpSection } from "@/help/HelpSection";
 import { AreaTreeError } from "@/screens/s16-areas/AreaTreeError";
 import { AreaTreeView } from "@/screens/s16-areas/AreaTreeView";
-import { loadAreaTree } from "@/screens/s16-areas/load-tree";
+import { loadAreaTree, loadAssetCountsByArea } from "@/screens/s16-areas/load-tree";
 import { OfflineNote } from "@/screens/s16-areas/OfflineNote";
 import type { Locale } from "@/i18n/config";
 
@@ -64,7 +64,7 @@ export default async function UnitAreasPage({ params }: PageProps<"/units/[id]/a
           // building or an area from the web app yet (UI instructions §6).
           <p className="max-w-[400px] text-fs-16 text-k-text">{t("screens.s16.empty")}</p>
         ) : (
-          <AreaTreeView tree={result.tree} />
+          <AreaTreeView tree={result.tree} assetCounts={await loadAssetCountsByArea(id)} />
         )}
       </div>
       <HelpSection route="/units/[id]/areas" />

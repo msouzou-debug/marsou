@@ -17,17 +17,24 @@
  * and the ICRA class is a matrix of activity type × risk group that this
  * screen does not know; colouring the band alone would read as a verdict the
  * system has not reached yet. IcraBadge takes over in M3.
+ *
+ * `assetCounts` (M4 build brief item 7): a count of assets per area id, and
+ * a «Προβολή παγίων» link to the register filtered to it (`/assets?unit=&areaId=`).
+ * Optional and additive — an S16 page that cannot reach M4's own API (or one
+ * predating it) omits the prop and the tree renders exactly as before.
  */
 
 import { Building2, DoorOpen, Layers } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { AreaTree } from "@ecapital/shared";
 
 export interface AreaTreeViewProps {
   tree: AreaTree;
+  assetCounts?: Record<string, number>;
 }
 
-export function AreaTreeView({ tree }: AreaTreeViewProps) {
+export function AreaTreeView({ tree, assetCounts = {} }: AreaTreeViewProps) {
   const t = useTranslations("screens.s16");
   // The level label is the breadcrumb's, so «Κτίριο» is written once
   // (UI instructions §2: level names are fixed, never re-invented per screen).
@@ -72,6 +79,15 @@ export function AreaTreeView({ tree }: AreaTreeViewProps) {
                           {" · "}
                           {t("riskGroupValue", { group: t(`riskGroup.${area.patientRiskGroup}`) })}
                           {area.beds === null ? null : <> · {t("beds", { count: area.beds })}</>}
+                        </p>
+                        <p className="mt-s-1 flex items-center gap-s-2 text-fs-14 text-k-text">
+                          <span>{t("assetCount", { count: assetCounts[area.id] ?? 0 })}</span>
+                          <Link
+                            href={`/assets?unit=${encodeURIComponent(tree.orgUnitId)}&areaId=${encodeURIComponent(area.id)}`}
+                            className="text-k-blue hover:underline"
+                          >
+                            {t("viewAssets")}
+                          </Link>
                         </p>
                       </div>
                     </li>
