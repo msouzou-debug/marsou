@@ -210,9 +210,10 @@ separate production host is stood up, that deployment does **not** run
 changes which host `10.227.56.22` ends up being long-term, only what its
 first deployment does.
 
-`pnpm --filter @ecapital/api seed` loads the eleven org units (ADR-0024: the
+`pnpm --filter @ecapital/api seed` loads the twelve org units (ADR-0024: the
 Ambulance Service left ΟΚΥπΥ on 19/09/2026, so it is eight hospitals, ΔΥΨΥ,
-ΠΦΥ and Κεντρικά Γραφεία), one building, eight development users **and 41
+ΠΦΥ and Κεντρικά Γραφεία; ADR-0024's addendum, 20/09/2026, adds Κοινοτική
+Νοσηλευτική as a unit of its own), one building, eight development users **and 41
 fixture projects with twelve fixture contractors** (`apps/api/src/db/seed-data.ts`, `seed-projects.ts`,
 `seed-contracts.ts`, `seed-site.ts` — all idempotent). That fixture data is
 exactly what a UAT environment needs and exactly what production must never

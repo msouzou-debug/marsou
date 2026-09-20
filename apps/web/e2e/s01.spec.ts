@@ -9,7 +9,7 @@ import { launchOptions, signIn } from "./support";
 test.use({ launchOptions });
 
 // S01 is behind the gate now (src/proxy.ts), so every case starts signed in.
-// The administrator is the account that sees all eleven units, which is what
+// The administrator is the account that sees all twelve units, which is what
 // the portfolio fixtures are built for.
 test.beforeEach(async ({ page }) => {
   await signIn(page, "admin@ecapital.test");

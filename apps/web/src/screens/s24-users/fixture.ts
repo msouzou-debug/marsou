@@ -23,6 +23,7 @@ export const orgUnits: OrgUnit[] = [
     directorate: "LEFKOSIAS",
     costCentre: "CC-NGH",
     entityCode: "1100",
+    efinanceCode: "1100",
     timezone: "Europe/Nicosia",
   },
   {
@@ -34,6 +35,7 @@ export const orgUnits: OrgUnit[] = [
     directorate: "LARNAKAS_AMMOCHOSTOU",
     costCentre: "CC-LAR",
     entityCode: "1300",
+    efinanceCode: "1300",
     timezone: "Europe/Nicosia",
   },
 ];

@@ -13,6 +13,7 @@ const ORG_UNITS: OrgUnit[] = [
     directorate: "LEFKOSIAS",
     costCentre: null,
     entityCode: "NGH",
+    efinanceCode: "NGH",
     timezone: "Europe/Nicosia",
   },
 ];

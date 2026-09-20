@@ -93,3 +93,28 @@ V15 is a separate rule and not a case of V04 because the two give **opposite ins
 - Every seeded project at six of the units has a new code. Any screenshot, note or email that cites `PCH-2026-001` now points at nothing; the project is `POL-2026-001`. This is a one-off cost of aligning, paid once.
 - The register is eleven units again. Eight hospitals, two services and Κεντρικά Γραφεία.
 - The capital works the Ambulance Service was running are no longer recorded anywhere in eCapital. If ΟΚΥπΥ needs them for a historical return, they are in the audit log's before-images and in the February spreadsheet, and that is where they should be looked for — not in a live register of what ΟΚΥπΥ is building.
+
+## Addendum, 20/09/2026 — CNS gets a unit, and §2's lookup becomes a column
+
+Two owner decisions, the day after this ADR was accepted, both correcting things this ADR (and yesterday's errata) got wrong. The text above is accepted and stays as written; this addendum does not rewrite it.
+
+### A. CNS is «Κοινοτική Νοσηλευτική», and it is a unit
+
+Yesterday's errata (`docs/briefs/README.md`) read: *"eFinance's `CNS` is Central Nursing Services (Greek name to be confirmed by the owner). It has no eCapital unit; capital work for it files under HQ (owner decision 19/09/2026)."* **Both halves were wrong.** `CNS` is «Κοινοτική Νοσηλευτική Υπηρεσία» — Community Nursing Service, not Central Nursing Services — and it gets a unit of its own, filing its papers under its own eArchive folder rather than HQ's.
+
+- **`org_unit` row:** id `community-nursing`, `code` and `entity_code` both `CNS` (§1's rule applies to this unit exactly as it does to the other eleven: the code is eArchive's site abbreviation), type `SERVICE`, directorate `PFY`. No cost centre, no projects yet — the same starting point HQ had (ADR-0019 §5).
+- **Directorate PFY is an ASSUMPTION, not a confirmed fact.** Nothing in any brief says which of the six directorates Community Nursing sits under; Primary Healthcare is the closest fit among them, and this is recorded here precisely so the owner can correct it if it is wrong.
+- **Inserted by migration, not left to the seed script.** Unlike HQ (ADR-0019 §5, whose row has only ever come from `pnpm --filter @ecapital/api seed`), `community-nursing` is inserted directly by migration `0018_cns_unit_and_efinance_codes.sql`, `on conflict do nothing` — a server that never runs seed still has it, the same footing as a reference-table row (migration 0013's `budget_code` seed).
+- **The Capex import alias** «ΚΟΙΝΟΤΙΚΗ ΝΟΣΗΛΕΥΤΙΚΗ» is carried by the seed's aliases list, for a future Capex Plan revision that might carry a row for it — the February 2026 file this deployment is tested against does not.
+- **The register is twelve units again:** eight hospitals, two services, Κεντρικά Γραφεία and Κοινοτική Νοσηλευτική. Every count this ADR and its errata fixed at eleven — `apps/web/e2e/m0.spec.ts`, the web mocks, the seed, the API's own unit-count tests — moves to twelve with it.
+- **`docs/INTEGRATION-eFinance-eMAP-eCapital.md` §2 and §6** are updated in place (not as an addendum there — those sections are living reference tables, not a decision record) to carry CNS as a full row rather than the one code with no eCapital unit.
+
+### B. §2's lookup becomes a permanent column — the two-code model
+
+§2 above kept the six eFinance codes eCapital's own code moved away from (`PAP`, `LGH` unchanged, `TRD`, `ARC`, `CHR`, `MH`, `HC`) as a document, not a database column, "until eFinance aligns". **eFinance has since said it will not align.** Those strings are foreign keys across twelve of eFinance's own tables and in SAP; renaming them is not a change eFinance can make. The lookup becomes a column instead.
+
+- **`org_unit.efinance_code`** (nullable, unique text), added by the same migration as CNS. Mapped from the eArchive code (`= code = entity_code`): `NGH`→`NGH`, `LAR`→`LAR`, `PAF`→`PAP`, `LGH`→`LGH`, `KYP`→`TRD`, `NAM`→`ARC`, `POL`→`CHR`, `FAM`→`FAM`, `MHS`→`MH`, `PHC`→`HC`, `HQ`→`HQ`, `CNS`→`CNS`.
+- **`entity_code` does not move again.** It keeps meaning exactly what §1 made it mean — eArchive's abbreviation, eCapital's own key — and `efinance_code` sits beside it rather than replacing it a second time. This is the **permanent two-code model**: eCapital's own key on one column, eFinance's own key on the other, neither derived from the other except where they happen to agree.
+- **Full detail, including the PUT contract's use of it, is in ADR-0022's own addendum** — this is the entity-code half of one decision; ADR-0022 carries the eFinance-contract half.
+- **`docs/INTEGRATION-eFinance-eMAP-eCapital.md` §2** replaces "until eFinance aligns" with this permanent model and a table of both codes side by side, rather than eArchive's code with a legacy-lookup footnote.
+- **What does not change:** `EFinanceBudgetCodeReader` — a budget code carries no entity, so there is nothing on that reader for this decision to touch. The future SAP actuals / spent-ledger reader (§5 of the integration doc, still unbuilt) is the first thing that will need `efinance_code`, translated through the one new helper this decision adds, `OrgUnitsService.efinanceCodeFor(orgUnitId)` — nowhere else in the codebase should read the column directly.

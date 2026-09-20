@@ -7,7 +7,7 @@ import { launchOptions, nativeClick, signIn } from "./support";
 
 test.use({ launchOptions });
 
-// The administrator sees all eleven units, which is what the 41 seeded
+// The administrator sees all twelve units, which is what the 41 seeded
 // projects are spread across (apps/api/src/db/seed-data.ts).
 test.beforeEach(async ({ page }) => {
   await signIn(page, "admin@ecapital.test");

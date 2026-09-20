@@ -109,3 +109,23 @@ time.
   superseded by a new one recording what was actually built, rather than
   silently edited — ADRs are not edited after acceptance, and a proposed
   one that turns out wrong is superseded the same way.
+
+## Addendum, 20/09/2026 — the two-code model: eFinance keeps its own keys
+
+ADR-0024 §2 kept the six codes eFinance and eCapital now disagree on (`PAP`, `LGH` unchanged, `TRD`, `ARC`, `CHR`, `MH`, `HC`) as a document, "until eFinance aligns". **eFinance has told this deployment it will not**: those strings are foreign keys across twelve of eFinance's own tables and in SAP, and renaming them is not a change eFinance can make without a data-migration project of its own. eCapital carries both codes permanently instead — this is the owner decision that makes that the design, not a stopgap.
+
+### `org_unit.efinance_code`, alongside `entity_code`, not instead of it
+
+Migration `0018_cns_unit_and_efinance_codes.sql` adds `org_unit.efinance_code` (nullable, unique text) and backfills it from `entity_code` through the mapping ADR-0024's addendum records: `NGH`→`NGH`, `LAR`→`LAR`, `PAF`→`PAP`, `LGH`→`LGH`, `KYP`→`TRD`, `NAM`→`ARC`, `POL`→`CHR`, `FAM`→`FAM`, `MHS`→`MH`, `PHC`→`HC`, `HQ`→`HQ`, `CNS`→`CNS`.
+
+`entity_code` keeps meaning what ADR-0024 made it mean and does not move again: it is eCapital's own key, eArchive's site abbreviation, the string a document's `source_ref` and a project's code prefix are both built from. `efinance_code` is the other system's own key, exposed as `efinanceCode` on the shared `OrgUnit` schema and on `GET /org-units`, and nowhere else does the codebase read the raw column — `OrgUnitsService.efinanceCodeFor(orgUnitId)` is the one seam, added for the future SAP actuals / spent-ledger reader this contract's `GET /api/v1/capital/invoices` and `GET /api/v1/capital/requisitions` routes will eventually back (INTEGRATION doc §5), which has to send eFinance's key, not ours, once it is built.
+
+### The write route's body: `entity_code` in eArchive form, eFinance translates
+
+The draft write route above, `PUT /api/v1/capital/contracts/{cap_ref}`, carries `entity_code` in its body. That field is filled from eCapital's own `org_unit.entity_code` — eArchive's abbreviation — **not** `efinance_code`. eFinance is the one that knows both of its own keys are the same place; asking eCapital to send eFinance's code back to eFinance would make eCapital responsible for a translation it has no authority over, the same reasoning ADR-0024 §1 gave for choosing eArchive's abbreviation as the shared axis in the first place. eFinance's `409` conflict rule (same `cap_ref`, different `entity_code` or `budget_code`) reads the body's `entity_code` in that form and translates at its own boundary, exactly as its 203 operational budget codes and its own entity table already do internally.
+
+`EFinanceBudgetCodeReader` is unaffected by any of this — a budget code carries no entity, so there is no code on that route for the two-code model to touch.
+
+### Why this belongs here and not only in ADR-0024
+
+ADR-0024 owns the fact of the two columns (§1's rule, and its own addendum recording the mapping and the CNS unit alongside it). This ADR owns the *contract* the two columns exist to serve — which of the two eFinance actually expects on the wire, and why the write route's body is not the column a naive reading of "the eFinance code" would reach for. Read ADR-0024's addendum for the column; read this one for what goes over the loopback connection.
