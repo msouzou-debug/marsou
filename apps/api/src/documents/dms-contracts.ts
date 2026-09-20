@@ -78,8 +78,17 @@ export type DmsOutboxQuery = z.infer<typeof DmsOutboxQuery>;
  * eArchive's callback body. `at` is eArchive's clock, ISO 8601; the rest is
  * the protocol it is telling us about.
  */
+export const DmsEventKind = z.enum(["protocol.deleted", "legal_hold.set", "legal_hold.cleared"]);
+export type DmsEventKind = z.infer<typeof DmsEventKind>;
+
+/**
+ * RULE (eFinance's warning, 20/09/2026): eArchive holds every later notice
+ * behind one that did not get a 2xx, so an event kind this build does not
+ * know is acknowledged (200, `ignored: true`) and logged, never refused.
+ * Only a body that is not an event at all is a 400.
+ */
 export const DmsEventBody = z.object({
-  event: z.enum(["protocol.deleted", "legal_hold.set", "legal_hold.cleared"]),
+  event: z.string().min(1).max(60),
   protocol_id: z.union([z.string().min(1), z.number()]).transform(String),
   protocol_number: z.string().min(1).max(120).optional(),
   source_ref: z.string().min(1).max(120).optional(),
@@ -90,5 +99,7 @@ export type DmsEventBody = z.infer<typeof DmsEventBody>;
 export const DmsEventAck = z.object({
   /** True when this call is the one that recorded it, false on a replay. */
   recorded: z.boolean(),
+  /** True when the event kind is unknown to this build: acknowledged, not acted on. */
+  ignored: z.boolean().optional(),
 });
 export type DmsEventAck = z.infer<typeof DmsEventAck>;

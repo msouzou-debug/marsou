@@ -22585,11 +22585,8 @@
                 "properties": {
                   "event": {
                     "type": "string",
-                    "enum": [
-                      "protocol.deleted",
-                      "legal_hold.set",
-                      "legal_hold.cleared"
-                    ]
+                    "minLength": 1,
+                    "maxLength": 60
                   },
                   "protocol_id": {},
                   "protocol_number": {
@@ -22628,6 +22625,9 @@
                   "properties": {
                     "recorded": {
                       "type": "boolean"
+                    },
+                    "ignored": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -22639,7 +22639,7 @@
             }
           },
           "400": {
-            "description": "A body that is not one of the three events",
+            "description": "A body that is not an event at all (an unknown kind is acknowledged with 200)",
             "content": {
               "application/json": {
                 "schema": {

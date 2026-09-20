@@ -122,10 +122,17 @@ describe("the eArchive callback", () => {
     }
   });
 
-  it("refuses a body that is not one of the three events", async () => {
+  it("acknowledges an event kind it does not know, without recording it", async () => {
+    // eArchive holds later notices behind any non-2xx (eFinance's warning,
+    // 20/09/2026), so an unknown kind is a 200 with `ignored`, not a 400.
+    const ack = await post({ event: "protocol.archived", protocol_id: "p-x", at: "2026-09-19T10:00:00Z" });
+    expect(ack.status).toBe(200);
+    expect(ack.body).toEqual({ recorded: false, ignored: true });
+  });
+
+  it("refuses a body that is not an event at all", async () => {
     for (const body of [
       {},
-      { event: "protocol.archived", protocol_id: "p-x", at: "2026-09-19T10:00:00Z" },
       { event: "legal_hold.set", at: "2026-09-19T10:00:00Z" },
       { event: "legal_hold.set", protocol_id: "p-x", at: "not a date" },
     ]) {

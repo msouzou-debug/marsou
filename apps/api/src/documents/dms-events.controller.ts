@@ -27,7 +27,7 @@
  * is SECURITY DEFINER, and the audit trigger records the change with no
  * actor — which is the truth about who made it.
  */
-import { Controller, Headers, HttpCode, Inject, Post, Req, Body } from "@nestjs/common";
+import { Controller, Headers, HttpCode, Inject, Logger, Post, Req, Body } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { timingSafeEqual } from "node:crypto";
 import type { Request } from "express";
@@ -35,13 +35,14 @@ import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { Public } from "../auth/public.decorator";
 import { CONFIG, type AppConfig } from "../config";
-import { DmsEventAck, DmsEventBody } from "./dms-contracts";
+import { DmsEventAck, DmsEventBody, DmsEventKind } from "./dms-contracts";
 import { DmsEventsService } from "./dms-events.service";
 import { FORWARDED_HEADERS } from "./earchive-contract";
 
 @ApiTags("documents")
 @Controller("api/v1/dms")
 export class DmsEventsController {
+  private readonly logger = new Logger(DmsEventsController.name);
   constructor(
     private readonly events: DmsEventsService,
     @Inject(CONFIG) private readonly config: AppConfig,
@@ -53,7 +54,7 @@ export class DmsEventsController {
   @ApiOperation({ summary: "eArchive tells eCapital a protocol was deleted or put on hold" })
   @ApiBody({ schema: jsonSchema(DmsEventBody) as never })
   @ApiZodResponse(200, DmsEventAck, "Recorded, or already recorded — 200 either way")
-  @ApiZodError(400, "A body that is not one of the three events")
+  @ApiZodError(400, "A body that is not an event at all (an unknown kind is acknowledged with 200)")
   @ApiZodError(401, "No token, or not the token eArchive was given")
   @ApiZodError(403, "A request carrying a public-edge header; this route is loopback only")
   async receive(
@@ -69,7 +70,13 @@ export class DmsEventsController {
     const at = new Date(parsed.data.at);
     if (Number.isNaN(at.getTime())) throw AppError.badRequest("errors.dmsEventNotValid");
 
-    const recorded = await this.events.record({ ...parsed.data, at });
+    const kind = DmsEventKind.safeParse(parsed.data.event);
+    if (!kind.success) {
+      // Acknowledged so eArchive's queue moves on; nothing local changes.
+      this.logger.warn(`dms event kind not known to this build, acknowledged: ${parsed.data.event} (${parsed.data.protocol_id})`);
+      return { recorded: false, ignored: true };
+    }
+    const recorded = await this.events.record({ ...parsed.data, event: kind.data, at });
     return { recorded };
   }
 
