@@ -26,7 +26,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
-import { findMissingManualSections } from "./check-help-mapping.mjs";
+import { findInvalidTiers, findMissingManualSections } from "./check-help-mapping.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WEB_ROOT = resolve(ROOT, "apps/web");
@@ -78,9 +78,12 @@ export function compareScreenIds(a, b) {
  * Every manual section a persona is listed for, in screen order, each
  * section once — several map.json ids (S09, S09-new, S09-detail, …) can name
  * the same section, and the persona reads that manual page once, not three
- * times. Returns `[{ id, section }]`, `id` being the lowest-sorting map.json
- * id that named the section (used only to order sections against each
- * other).
+ * times. Returns `[{ id, section, tier }]`, `id` being the lowest-sorting
+ * map.json id that named the section (used only to order sections against
+ * each other), `tier` that id's own `"day-one" | "optional"` (owner decision
+ * 20/09/2026 — docs/briefs/README.md Errata "Screen tiers"; every id naming
+ * one section carries the same tier, enforced by `findInvalidTiers` running
+ * on the whole map before this ever runs — see `main()`).
  */
 export function collectPersonaChapters(map, persona) {
   const idsBySection = new Map();
@@ -92,10 +95,24 @@ export function collectPersonaChapters(map, persona) {
   }
   const chapters = [...idsBySection.entries()].map(([section, ids]) => {
     ids.sort(compareScreenIds);
-    return { id: ids[0], section };
+    return { id: ids[0], section, tier: map[ids[0]].tier };
   });
   chapters.sort((a, b) => compareScreenIds(a.id, b.id));
   return chapters;
+}
+
+/**
+ * Splits a persona's chapters (already in screen order, from
+ * `collectPersonaChapters`) into day-one and optional, each keeping its
+ * relative screen order — the split the PDF guide's body, table of contents
+ * and cover page all key off (build task, item 3: "day-one first, then a
+ * divider page … then the optional chapters").
+ */
+export function splitChaptersByTier(chapters) {
+  return {
+    dayOne: chapters.filter((c) => c.tier === "day-one"),
+    optional: chapters.filter((c) => c.tier !== "day-one"),
+  };
 }
 
 export function escapeHtml(value) {
@@ -170,9 +187,14 @@ const PRINT_CSS = `
   .cover img.logo { width: 200px; height: auto; margin-bottom: 32px; }
   .cover .title-primary { font-size: 28px; color: var(--brand-blue); font-weight: 700; margin: 0; }
   .cover .title-secondary { font-size: 16px; color: var(--muted); margin: 6px 0 40px; }
-  .cover .role { font-size: 20px; color: var(--ink); font-weight: 700; margin-bottom: 56px; }
+  .cover .role { font-size: 20px; color: var(--ink); font-weight: 700; margin-bottom: 24px; }
   .cover .meta { font-size: 14px; color: var(--muted); margin-top: auto; }
   .cover .meta div { margin: 2px 0; }
+
+  .cover .day-one { width: 100%; max-width: 420px; margin-bottom: 24px; }
+  .cover .day-one-heading { font-size: 13px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px; }
+  .cover .day-one-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 20px; font-size: 12px; line-height: 1.5; color: var(--text); text-align: left; }
+  .cover .day-one-list li { break-inside: avoid; }
 
   .toc { page-break-after: always; }
   .toc h2 { margin-top: 0; }
@@ -187,9 +209,27 @@ const PRINT_CSS = `
   }
   .toc li .toc-id { color: var(--muted); min-width: 4em; }
   .toc li .toc-title { flex: 1; text-align: left; }
+  .toc li.toc-divider {
+    display: block;
+    border-bottom: none;
+    padding: 16px 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand-blue);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
 
   .chapter { page-break-before: always; }
   .chapter .chapter-id { font-size: 14px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+
+  /* Owner decision 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"):
+     the divider page that separates the day-one chapters from the optional
+     ones — its own page, so a reader flipping through immediately sees the
+     guide is done with what training covers and is starting the phase-two
+     material. */
+  .divider { page-break-before: always; page-break-after: always; min-height: 250mm; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .divider h2 { font-size: 22px; margin: 0; }
 
   .what-can-go-wrong-note { font-size: 14px; color: var(--muted); }
 `;
@@ -207,28 +247,70 @@ function coverTitleFor(lang) {
  * the real build passes a `data:` URI so the finished PDF has no external
  * file reference; the test passes a short placeholder to keep the fixture
  * readable.
+ *
+ * `dayOneTitles` (owner decision 20/09/2026 — docs/briefs/README.md Errata
+ * "Screen tiers") lists this persona's day-one screens by title, so training
+ * can see at a glance what the pilot actually covers on day one without
+ * opening the guide. Omitted (or empty) renders no list at all — a persona
+ * with zero day-one screens is not expected today, but the cover degrades
+ * cleanly rather than showing an empty heading.
  */
-export function buildCoverHtml({ lang, personaLabel, version, dateLabel, logoSrc }) {
+export function buildCoverHtml({ lang, personaLabel, version, dateLabel, logoSrc, dayOneTitles = [] }) {
   const title = coverTitleFor(lang);
+  const dayOneHeading = lang === "en" ? "Day one" : "Ημέρα 1";
+  const dayOneList =
+    dayOneTitles.length === 0
+      ? ""
+      : `<div class="day-one">
+      <p class="day-one-heading">${escapeHtml(dayOneHeading)}</p>
+      <ul class="day-one-list">${dayOneTitles.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+    </div>
+    `;
   return `<section class="cover">
     <img class="logo" src="${escapeHtml(logoSrc)}" alt="ΟΚΥπΥ" />
     <p class="title-primary">${escapeHtml(title.primary)}</p>
     <p class="title-secondary">${escapeHtml(title.secondary)}</p>
     <p class="role">${escapeHtml(personaLabel)}</p>
-    <div class="meta">
+    ${dayOneList}<div class="meta">
       <div>${lang === "en" ? "Version" : "Έκδοση"}: ${escapeHtml(version)}</div>
       <div>${lang === "en" ? "Date" : "Ημερομηνία"}: ${escapeHtml(dateLabel)}</div>
     </div>
   </section>`;
 }
 
-export function buildTocHtml({ lang, chapters }) {
+// Owner decision 20/09/2026 (docs/briefs/README.md Errata "Screen tiers");
+// the exact bilingual wording the task fixed for the divider page and the
+// table-of-contents separator row.
+export function dividerLabel(lang) {
+  return lang === "en" ? "Optional screens — phase 2" : "Προαιρετικές οθόνες — φάση 2";
+}
+
+/**
+ * The divider page's HTML: its own page (`.divider`'s CSS forces a page
+ * break before and after it), so a reader paging through the PDF lands on
+ * it exactly between the day-one chapters and the optional ones.
+ */
+export function buildDividerHtml({ lang }) {
+  return `<section class="divider"><h2>${escapeHtml(dividerLabel(lang))}</h2></section>`;
+}
+
+/**
+ * `chapters` is the full, tier-ordered list (day-one chapters, then the
+ * optional ones — see `splitChaptersByTier`). When there is at least one
+ * optional chapter, a non-clickable `.toc-divider` row is printed right
+ * before it, the same `dividerLabel` the divider page itself uses, so the
+ * table of contents reads as one list with the split visible in it.
+ */
+export function buildTocHtml({ lang, chapters, dayOneCount }) {
   const heading = lang === "en" ? "Contents" : "Περιεχόμενα";
   const items = chapters
-    .map(
-      (c) =>
-        `<li><span class="toc-id">${escapeHtml(c.id)}</span><span class="toc-title"><a href="#chapter-${escapeHtml(c.id)}">${escapeHtml(c.title)}</a></span></li>`,
-    )
+    .map((c, i) => {
+      const divider =
+        dayOneCount != null && i === dayOneCount && i < chapters.length
+          ? `<li class="toc-divider">${escapeHtml(dividerLabel(lang))}</li>`
+          : "";
+      return `${divider}<li><span class="toc-id">${escapeHtml(c.id)}</span><span class="toc-title"><a href="#chapter-${escapeHtml(c.id)}">${escapeHtml(c.title)}</a></span></li>`;
+    })
     .join("\n");
   return `<section class="toc"><h2>${heading}</h2><ol>${items}</ol></section>`;
 }
@@ -245,13 +327,27 @@ export function buildChapterHtml({ id, title, bodyHtml }) {
   </section>`;
 }
 
-/** Assembles the full document: cover, table of contents, then one chapter
- *  per section, in the order `chapters` already carries. */
+/**
+ * Assembles the full document: cover (listing the day-one screens), table of
+ * contents, the day-one chapters, a divider page, then the optional
+ * chapters — owner decision 20/09/2026 (docs/briefs/README.md Errata
+ * "Screen tiers"; build task item 3). `chapters` is each `{ id, section,
+ * tier, title, bodyHtml }` in screen order (as `main()` builds them from
+ * `collectPersonaChapters`); the day-one/optional split and the divider's
+ * placement are entirely this function's job so a caller only ever hands it
+ * one ordered list.
+ */
 export function buildDocumentHtml({ lang, personaLabel, version, dateLabel, logoSrc, chapters }) {
   const title = coverTitleFor(lang);
-  const cover = buildCoverHtml({ lang, personaLabel, version, dateLabel, logoSrc });
-  const toc = buildTocHtml({ lang, chapters });
-  const chapterHtml = chapters.map(buildChapterHtml).join("\n");
+  const { dayOne, optional } = splitChaptersByTier(chapters);
+  const ordered = [...dayOne, ...optional];
+
+  const cover = buildCoverHtml({ lang, personaLabel, version, dateLabel, logoSrc, dayOneTitles: dayOne.map((c) => c.title) });
+  const toc = buildTocHtml({ lang, chapters: ordered, dayOneCount: dayOne.length });
+  const dayOneHtml = dayOne.map(buildChapterHtml).join("\n");
+  const divider = optional.length > 0 ? buildDividerHtml({ lang }) : "";
+  const optionalHtml = optional.map(buildChapterHtml).join("\n");
+
   return `<!doctype html>
 <html lang="${lang}">
 <head>
@@ -262,7 +358,9 @@ export function buildDocumentHtml({ lang, personaLabel, version, dateLabel, logo
 <body>
 ${cover}
 ${toc}
-${chapterHtml}
+${dayOneHtml}
+${divider}
+${optionalHtml}
 </body>
 </html>`;
 }
@@ -313,12 +411,14 @@ async function main() {
   const map = JSON.parse(readFileSync(MAP_PATH, "utf8"));
 
   // Fail fast (R50 + this script's own CI job): a persona guide built from
-  // a manual section that does not exist would be silently incomplete.
-  // `findMissingManualSections` is the same rule `pnpm check:help` runs.
-  const missing = findMissingManualSections(ROOT, map);
-  if (missing.length) {
-    console.error(`guides:build aborted — ${missing.length} manual section(s) referenced in help/map.json are missing:`);
-    for (const m of missing) console.error(`  - ${m}`);
+  // a manual section that does not exist would be silently incomplete, and
+  // one built from a screen with no tier decision would silently put it in
+  // the wrong half of the guide. Both `findMissingManualSections` and
+  // `findInvalidTiers` are the same rules `pnpm check:help` runs.
+  const problems = [...findMissingManualSections(ROOT, map), ...findInvalidTiers(map)];
+  if (problems.length) {
+    console.error(`guides:build aborted — ${problems.length} problem(s) in help/map.json:`);
+    for (const p of problems) console.error(`  - ${p}`);
     process.exit(1);
   }
 
@@ -352,9 +452,9 @@ async function main() {
       }
 
       for (const lang of LANGS) {
-        const chapters = chapterRefs.map(({ id, section }) => {
+        const chapters = chapterRefs.map(({ id, section, tier }) => {
           const markdown = readFileSync(resolve(MANUAL_ROOT, lang, `${section}.md`), "utf8");
-          return { id, section, title: extractTitle(markdown), bodyHtml: marked.parse(markdown) };
+          return { id, section, tier, title: extractTitle(markdown), bodyHtml: marked.parse(markdown) };
         });
 
         const personaLabel = roleLabels[lang][persona] ?? persona;

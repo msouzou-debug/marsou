@@ -24,6 +24,7 @@ import ragChip from "@/components/rag-chip/RagChip.preview";
 import slaChip from "@/components/sla-chip/SlaChip.preview";
 import suggestionPanel from "@/components/suggestion-panel/SuggestionPanel.preview";
 import table from "@/components/table/Table.preview";
+import tierChip from "@/components/tier-chip/TierChip.preview";
 import timeline from "@/components/timeline/Timeline.preview";
 import warningStrip from "@/components/warning-strip/WarningStrip.preview";
 import wizardShell from "@/components/wizard-shell/WizardShell.preview";
@@ -50,6 +51,7 @@ import s10UnmatchedQueue from "@/screens/s10-sap-import/UnmatchedQueue.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 import s24Users from "@/screens/s24-users/Users.preview";
 import s26HelpCentre from "@/screens/s26-help-centre/GuideIndexTable.preview";
+import s26ScreenTierList from "@/screens/s26-help-centre/ScreenTierList.preview";
 
 // Every component adds its `<Name>.preview.tsx` default export here.
 // Keep alphabetical. The gallery at /preview reads this list.
@@ -79,6 +81,7 @@ const entries: PreviewEntry[] = [
   slaChip,
   suggestionPanel,
   table,
+  tierChip,
   timeline,
   warningStrip,
   wizardShell,
@@ -105,6 +108,7 @@ const entries: PreviewEntry[] = [
   s24Contractors,
   s24Users,
   s26HelpCentre,
+  s26ScreenTierList,
 ];
 
 export function getPreviewEntries(): PreviewEntry[] {

@@ -12,11 +12,19 @@ import { fileURLToPath } from "node:url";
 
 const LANGS = ["el", "en"];
 
+// Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"):
+// every screen is either trained and used from day one, or held back to
+// phase two as optional. Mirrors apps/web/src/help/tier.ts's `Tier` union —
+// duplicated here (rather than imported) because this script runs as plain
+// Node outside apps/web's TypeScript build, the same boundary
+// scripts/build-guides.mjs already crosses for PERSONA_ORDER.
+const VALID_TIERS = new Set(["day-one", "optional"]);
+
 /**
  * Every `docs/manual/<lang>/<section>.md` that a `help/map.json` entry names
  * but that is missing from disk, as human-readable strings. `map` is the
- * parsed map.json object (id -> { route, section, persona }); `root` is the
- * repo root the "docs/manual" path is resolved against.
+ * parsed map.json object (id -> { route, section, persona, tier }); `root`
+ * is the repo root the "docs/manual" path is resolved against.
  */
 export function findMissingManualSections(root, map) {
   const problems = [];
@@ -24,6 +32,22 @@ export function findMissingManualSections(root, map) {
     for (const lang of LANGS) {
       const file = resolve(root, "docs/manual", lang, `${entry.section}.md`);
       if (!existsSync(file)) problems.push(`${id}: docs/manual/${lang}/${entry.section}.md is missing`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * Every `help/map.json` entry whose `tier` is missing or is not one of
+ * "day-one" / "optional", as human-readable strings — a screen with no tier
+ * decision is not a screen the pilot has actually made a call on.
+ */
+export function findInvalidTiers(map) {
+  const problems = [];
+  for (const [id, entry] of Object.entries(map)) {
+    if (!VALID_TIERS.has(entry.tier)) {
+      const got = entry.tier === undefined ? "missing" : JSON.stringify(entry.tier);
+      problems.push(`${id}: tier is ${got}, expected "day-one" or "optional"`);
     }
   }
   return problems;
@@ -52,7 +76,7 @@ function main() {
   const appDir = resolve(root, "apps/web/src/app");
   const map = JSON.parse(readFileSync(resolve(root, "apps/web/src/help/map.json"), "utf8"));
 
-  const problems = findMissingManualSections(root, map);
+  const problems = [...findMissingManualSections(root, map), ...findInvalidTiers(map)];
 
   const routes = walk(appDir).map((p) => routeOf(appDir, p));
   const byRoute = new Map(Object.entries(map).map(([id, e]) => [e.route, { id, ...e }]));

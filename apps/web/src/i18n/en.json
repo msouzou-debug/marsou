@@ -124,6 +124,10 @@
       "hoursLeft": "{count} h left",
       "breached": "Overdue"
     },
+    "tierChip": {
+      "dayOne": "Day 1",
+      "optional": "Optional"
+    },
     "table": {
       "density": {
         "label": "Row density",
@@ -1168,7 +1172,12 @@
         "updated": "Updated",
         "download": "Download"
       },
-      "empty": "The PDF guides have not been generated yet for this installation. They are generated with every eCapital release."
+      "empty": "The PDF guides have not been generated yet for this installation. They are generated with every eCapital release.",
+      "screenList": {
+        "heading": "Screens by training phase",
+        "dayOneHeading": "Trained and used from day one",
+        "optionalHeading": "Optional screens — available, outside pilot training"
+      }
     }
   },
   "states": {
