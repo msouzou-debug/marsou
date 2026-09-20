@@ -173,6 +173,7 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
     {
       id: "warrantyEnd",
       headerKey: "screens.s16a.columns.warrantyEnd",
+      defaultHidden: true, // keeps the status column on screen at 1440; the column chooser brings it back
       accessor: (row) => row.warrantyEnd ?? "",
       numeric: true,
       cell: (row) => (row.warrantyEnd ? formatDate(row.warrantyEnd) : t("common.notAvailable")),
@@ -182,7 +183,8 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
       headerKey: "screens.s16a.columns.replacementYear",
       accessor: (row) => row.replacementYear ?? "",
       numeric: true,
-      cell: (row) => (row.replacementYear === null ? t("common.notAvailable") : formatInt(row.replacementYear)),
+      // A year is a label, not a quantity: never grouped as «2.033».
+      cell: (row) => (row.replacementYear === null ? t("common.notAvailable") : String(row.replacementYear)),
     },
     {
       id: "status",
