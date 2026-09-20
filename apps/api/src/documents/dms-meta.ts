@@ -39,6 +39,37 @@ export const DOC_TYPE = {
   variation: "Εγκεκριμένη τροποποίηση σύμβασης",
 } as const;
 
+/**
+ * R28, M4: the six kinds of paper an asset carries, in the Greek a clerk
+ * searching eArchive's registry would type. Not i18n keys, for the reason
+ * ADR-0023 §«Strings» gives — a document type that changed language with the
+ * caller's Accept-Language header is a document type nobody can find.
+ *
+ * The category is eArchive's own: a commissioning pack, a certificate and a
+ * warranty come out of a contract and file under «Συμβάσεις»; a manual, a
+ * drawing and a photograph are the estate's own papers and file under
+ * «Διοίκηση».
+ */
+export const ASSET_DOC_TYPE = {
+  OM_MANUAL: "Εγχειρίδιο λειτουργίας και συντήρησης",
+  CERT: "Πιστοποιητικό εξοπλισμού",
+  COMMISSIONING: "Φάκελος παραλαβής και θέσης σε λειτουργία",
+  WARRANTY: "Εγγύηση εξοπλισμού",
+  DRAWING: "Σχέδιο εξοπλισμού",
+  PHOTO: "Φωτογραφία εξοπλισμού",
+} as const;
+
+export type AssetDocumentKindKey = keyof typeof ASSET_DOC_TYPE;
+
+const ASSET_DOC_CATEGORY: Record<AssetDocumentKindKey, "Συμβάσεις" | "Διοίκηση"> = {
+  COMMISSIONING: "Συμβάσεις",
+  CERT: "Συμβάσεις",
+  WARRANTY: "Συμβάσεις",
+  OM_MANUAL: "Διοίκηση",
+  DRAWING: "Διοίκηση",
+  PHOTO: "Διοίκηση",
+};
+
 const ACTION = {
   recorded: "Καταχώριση",
   submitted: "Υποβολή",
@@ -119,6 +150,19 @@ export function businessCaseSourceRef(projectCode: string, version = 1): string 
 }
 export function variationSourceRef(contractRef: string, number: number, version = 1): string {
   return sourceRefFor(`variation:${contractRef}:${number}`, version);
+}
+
+/**
+ * R28: `asset_doc:<asset_id>:<n>`, the nth paper filed against this asset.
+ *
+ * The `:vN` suffix the other three carry is not used here and is not needed:
+ * each paper is a different document — a manual is not a correction of a
+ * certificate — so the running number is what makes the reference unique. A
+ * corrected manual is the next n, with a SUPERSEDES relation at the one it
+ * replaces, which is the same rule stated a different way (ADR-0023 §6).
+ */
+export function assetDocumentSourceRef(assetId: string, n: number): string {
+  return `asset_doc:${assetId}:${n}`;
 }
 
 /** A deep link to the eCapital page a reader of the protocol would want. */
@@ -303,4 +347,48 @@ function supersedes(previousSourceRef: string, version: number) {
 
 function round2(amount: number): number {
   return Math.round(amount * 100) / 100;
+}
+
+export interface AssetDocumentFacts {
+  assetId: string;
+  tag: string;
+  nameEl: string;
+  kind: AssetDocumentKindKey;
+  /** The nth paper on this asset; part of the source_ref. */
+  n: number;
+  letterDate: string;
+  /** R27: what the asset cost, when the register knows. Zero when it does not. */
+  capitalCost: number | null;
+  unit: UnitFacts;
+  approvals: PersonAction[];
+}
+
+/**
+ * R28: an asset's paper, filed with eArchive like every other document
+ * eCapital produces (ADR-0023). The subject leads with the tag, because the
+ * tag is what a technician reads off the label and then types into the
+ * registry's search box.
+ */
+export function buildAssetDocumentMeta(
+  facts: AssetDocumentFacts,
+  files: DmsFile[],
+  origin: string,
+): DmsMetaBody {
+  const docType = ASSET_DOC_TYPE[facts.kind];
+  return checked({
+    ...commonFacts(facts.unit),
+    source_module: "asset_document",
+    source_ref: assetDocumentSourceRef(facts.assetId, facts.n),
+    source_url: deepLink(origin, `/assets/${facts.assetId}`),
+    doc_type: docType,
+    subject: subject([docType, facts.tag, facts.nameEl]),
+    sender_ref: facts.tag.slice(0, 120),
+    letter_date: facts.letterDate,
+    category: ASSET_DOC_CATEGORY[facts.kind],
+    counterparties: [],
+    amount: round2(facts.capitalCost ?? 0),
+    related: [],
+    approvals: approvalsOf(facts.approvals),
+    files,
+  });
 }

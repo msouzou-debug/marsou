@@ -20,6 +20,7 @@ import { Client } from "pg";
 import { loadConfig } from "../config";
 import * as schema from "./schema";
 import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-data";
+import { seedAssetRegister } from "./seed-assets";
 import { seedContractRegister } from "./seed-contracts";
 import { seedCostRegister } from "./seed-cost";
 import { seedPermitRegister } from "./seed-permits";
@@ -58,6 +59,9 @@ export interface SeedSummary {
   permitApprovals: number;
   areaOwners: number;
   unitApprovers: number;
+  assets: number;
+  assetReadings: number;
+  assetDocuments: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -241,6 +245,12 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     // (R19–R25).
     const permits = await seedPermitRegister(db);
 
+    // M4: the asset register, after the permits, because an asset points at
+    // the project and the contract it came out of and at the rooms it serves,
+    // and because `GET /areas/impact` reads it in front of the system feeds
+    // the permit seed wrote (R26–R30, R45, ADR-0028).
+    const assets = await seedAssetRegister(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -254,6 +264,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       ...siteLog,
       ...cost,
       ...permits,
+      ...assets,
     };
   } finally {
     await client.end();
@@ -276,7 +287,8 @@ if (require.main === module) {
           `${s.costWarnings} cost warnings, ${s.icraMatrixCells} ICRA matrix cells, ` +
           `${s.systemFeeds} system feeds, ${s.permits} permits ` +
           `(${s.permitApprovals} approval lines), ${s.areaOwners} area owners, ` +
-          `${s.unitApprovers} unit approvers`,
+          `${s.unitApprovers} unit approvers, ${s.assets} assets ` +
+          `(${s.assetReadings} readings, ${s.assetDocuments} documents)`,
       );
     })
     .catch((error: unknown) => {

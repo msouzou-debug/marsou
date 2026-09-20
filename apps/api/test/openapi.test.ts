@@ -17,7 +17,7 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3 and M8 route", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4 and M8 route", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
@@ -29,6 +29,14 @@ describe("openapi.json", () => {
       "/admin/users/{id}/approver-scopes",
       "/api/v1/dms/events",
       "/areas/impact",
+      "/assets",
+      "/assets/by-tag/{tag}",
+      "/assets/labels",
+      "/assets/replacement-forecast",
+      "/assets/{id}",
+      "/assets/{id}/condition",
+      "/assets/{id}/documents",
+      "/assets/{id}/readings",
       "/audit-log",
       "/auth/dev-token",
       "/auth/login",

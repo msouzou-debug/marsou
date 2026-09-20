@@ -27,10 +27,13 @@ import * as schema from "../db/schema";
 import { UNIQUE_VIOLATION, sqlState } from "../common/sql-error";
 import { type DocumentRecord } from "./dms-contracts";
 import {
+  type AssetDocumentKindKey,
   type ContractorFacts,
   type PersonAction,
   type UnitFacts,
+  assetDocumentSourceRef,
   awardSourceRef,
+  buildAssetDocumentMeta,
   buildAwardMeta,
   buildBusinessCaseMeta,
   buildVariationMeta,
@@ -304,6 +307,80 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * R28, M4: an asset's O&M manual, certificate, commissioning pack,
+   * warranty, drawing or photograph.
+   *
+   * The same transaction rule as everything else here (ADR-0023): the
+   * `document` row and the `dms_outbox` row are written together. The
+   * `asset_document` link row is written by the assets service in the **same**
+   * request transaction, so a paper that is filed is also a paper the asset
+   * shows — the three cannot come apart.
+   *
+   * There is no permission check here and there is not meant to be one: an
+   * asset in a unit the caller may not see does not exist for them, and the
+   * `document_write` policy refuses a write they may not make.
+   */
+  async fileAssetDocument(
+    asset: {
+      id: string;
+      tag: string;
+      nameEl: string;
+      orgUnitId: string;
+      unitCode: string;
+      unitName: string;
+      capitalCost: number | null;
+      commissionedDate: string | null;
+      installedDate: string | null;
+    },
+    kind: AssetDocumentKindKey,
+    upload: UploadInput,
+  ): Promise<DocumentRecord> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    // The nth paper on this asset. Not a version of the one before it — a
+    // manual is not a correction of a certificate — so the running number is
+    // what makes the source_ref unique (ADR-0028).
+    const n = await this.nextVersion("asset", asset.id);
+    const stored = await this.store.put({
+      bytes: upload.bytes,
+      filename: upload.filename,
+      mime: upload.mime,
+      prefix: `asset/${asset.id}`,
+    });
+    const files = [mainFile(stored)];
+    const meta = buildAssetDocumentMeta(
+      {
+        assetId: asset.id,
+        tag: asset.tag,
+        nameEl: asset.nameEl,
+        kind,
+        n,
+        letterDate: asset.commissionedDate ?? asset.installedDate ?? dateOnly(new Date()),
+        capitalCost: asset.capitalCost,
+        unit: unitOf(asset.unitCode, asset.unitName),
+        approvals: await this.recordedBy("asset", asset.id),
+      },
+      files,
+      this.origin(),
+    );
+
+    return this.persist({
+      orgUnitId: asset.orgUnitId,
+      entityType: "asset",
+      entityId: asset.id,
+      kind: "ASSET_DOCUMENT",
+      titleEl: upload.titleEl?.trim() || meta.subject,
+      sourceRef: assetDocumentSourceRef(asset.id, n),
+      sourceModule: "asset_document",
+      version: n,
+      stored,
+      meta,
+      files,
+    });
+  }
+
   /** Everything the three routes already hold, listed for a screen. */
   async listFor(entityType: string, entityId: string): Promise<DocumentRecord[]> {
     const tx = currentTx();
@@ -331,7 +408,7 @@ export class DocumentsService {
     orgUnitId: string;
     entityType: string;
     entityId: string;
-    kind: "AWARD_DECISION" | "BUSINESS_CASE" | "VARIATION";
+    kind: "AWARD_DECISION" | "BUSINESS_CASE" | "VARIATION" | "ASSET_DOCUMENT";
     titleEl: string;
     sourceRef: string;
     sourceModule: string;

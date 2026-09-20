@@ -5,6 +5,7 @@ import { LoggerModule } from "nestjs-pino";
 import { AdminUsersModule } from "./admin-users/admin-users.module";
 import { AuditModule } from "./audit/audit.module";
 import { AreasModule } from "./areas/areas.module";
+import { AssetsModule } from "./assets/assets.module";
 import { AuthGuard } from "./auth/auth.guard";
 import { AuthModule } from "./auth/auth.module";
 import { BudgetCodesModule } from "./budget-codes/budget-codes.module";
@@ -62,6 +63,7 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
     AuthModule,
     OrgUnitsModule,
     AreasModule,
+    AssetsModule,
     ProjectsModule,
     ContractorsModule,
     ContractsModule,
