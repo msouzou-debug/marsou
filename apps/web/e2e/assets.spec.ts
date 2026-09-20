@@ -33,7 +33,7 @@ test("technician.nicosia opens a scanned tag and sees the asset's history", asyn
   // ASSUMPTION: the seeded Nicosia asset's own tag. Skip cleanly if M4 has
   // not merged yet, or the seed uses a different tag, rather than fail the
   // whole run — the same shape `permits.spec.ts` uses for M3.
-  const seededTag = "NGH-HVAC-0001";
+  const seededTag = "NGH-HVA-0001"; // class codes are three letters (ADR-0028)
   await page.goto(`/a/${seededTag}`);
 
   const notFound = page.getByText("Δεν βρέθηκε πάγιο με αυτή την ετικέτα.");
