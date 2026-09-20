@@ -156,7 +156,22 @@
     "permitWindowRequired": "The shutdown has no dates on it. Fill in the start and the end at step three, then submit the request.",
     "permitUnitNeeded": "The shutdown's unit cannot be worked out. Pick a project or a contract, or start the request from the unit it belongs to.",
     "approverScopesNotValid": "The approver scopes are not valid. Check the areas, the units and the roles, then try again.",
-    "approverScopesNeedRole": "Approver scopes can only be given to an account that holds the clinical approver role. Grant the role first, then the scopes."
+    "approverScopesNeedRole": "Approver scopes can only be given to an account that holds the clinical approver role. Grant the role first, then the scopes.",
+    "assetNotFound": "The asset was not found, or you do not have access to it. Pick an asset from the register of your own units.",
+    "assetTagNotFound": "No asset carries the tag {tag}. Check the tag you scanned, or search for the asset in the register.",
+    "assetNotValid": "The asset details are incomplete. Fill in the unit, the name, the class and the criticality, then try again.",
+    "assetQueryNotValid": "The asset list filters are not usable. Check the filters, the sort order and the page, then try again.",
+    "assetConditionNotValid": "Physical condition is a single letter from A to E. Pick a letter and try again.",
+    "assetReadingNotValid": "The reading is incomplete. Give the reading type and its value, then try again.",
+    "assetLabelsNeedIds": "You have not picked any assets to label. Pick at least one asset and try again.",
+    "assetForecastRangeNotValid": "The year range is not usable. Give a first year and a last year, with the second the same as or later than the first.",
+    "assetUnitFixed": "An asset does not move to another unit. Record a disposal here and a new asset in the unit that took it over.",
+    "assetClassFixed": "The asset class does not change, because it is part of the tag. Dispose of the asset and record a new one in the right class.",
+    "assetTagFixed": "The asset tag does not change. The system issues it once and it is printed on the equipment.",
+    "assetAreaNotFound": "That space is not in the asset's unit. Pick a space from the unit's space tree.",
+    "assetParentNotFound": "The parent asset was not found in this unit. Pick an asset of the same unit.",
+    "assetDocumentAlreadyLinked": "That document is already linked to this asset. Open the asset's folder instead of uploading it again.",
+    "assetDocumentKindNotValid": "Say what kind of document this is. Pick one of the kinds the asset folder takes and try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -394,5 +409,50 @@
       "classAndSystems": "Class {class} · {systems}",
       "roleSuffix": "(as {role})"
     }
+  },
+  "asset": {
+    "one": "Asset",
+    "many": "Assets",
+    "tag": "Tag",
+    "criticality": "Criticality",
+    "condition": "Physical condition",
+    "status": "Status",
+    "priorityRank": "Priority rank",
+    "wholeLife": "Whole-life cost",
+    "servesAreas": "Serves the spaces",
+    "replacementForecast": "Replacement forecast"
+  },
+  "assetClass": {
+    "BUILDING_FABRIC": "Building fabric",
+    "HVAC": "Heating, ventilation and cooling",
+    "ELECTRICAL": "Electrical",
+    "MEDICAL_GAS": "Medical gas",
+    "WATER": "Water",
+    "FIRE": "Fire safety",
+    "LIFT": "Lifts",
+    "BIOMEDICAL": "Biomedical equipment",
+    "IT": "IT",
+    "OTHER": "Other"
+  },
+  "assetStatus": {
+    "IN_SERVICE": "In service",
+    "OUT_OF_SERVICE": "Out of service",
+    "DISPOSED": "Disposed of",
+    "PLANNED": "Planned"
+  },
+  "assetCondition": {
+    "A": "A — as new",
+    "B": "B — good",
+    "C": "C — fair",
+    "D": "D — poor",
+    "E": "E — life expired"
+  },
+  "assetDocumentKind": {
+    "OM_MANUAL": "Operation and maintenance manual",
+    "CERT": "Certificate",
+    "COMMISSIONING": "Commissioning pack",
+    "WARRANTY": "Warranty",
+    "DRAWING": "Drawing",
+    "PHOTO": "Photograph"
   }
 }
