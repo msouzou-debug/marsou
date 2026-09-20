@@ -1053,20 +1053,30 @@ interface SnakeAssetRow {
   source_contract_id: string | null;
   capital_cost: string | null;
   warranty_end: string | null;
-  expected_life_years: number | null;
-  replacement_year: number | null;
+  expected_life_years: number | string | null;
+  replacement_year: number | string | null;
   replacement_cost_est: string | null;
-  criticality: number;
+  criticality: number | string;
   condition: string | null;
-  condition_assessed_at: Date | null;
+  condition_assessed_at: Date | string | null;
   parent_asset_id: string | null;
   serves_area_ids: string[];
   system: AssetRow["system"];
   cost_centre: string | null;
   sap_asset_no: string | null;
   status: AssetRow["status"];
-  created_at: Date;
-  updated_at: Date;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+/**
+ * A composite type comes back from `execute` with its timestamps as whatever
+ * the driver made of them, which is not always a `Date`. Coerced once here
+ * rather than trusted.
+ */
+function asDate(value: Date | string | null): Date | null {
+  if (value === null) return null;
+  return value instanceof Date ? value : new Date(value);
 }
 
 function fromSnakeCase(row: SnakeAssetRow): AssetRow {
@@ -1086,19 +1096,19 @@ function fromSnakeCase(row: SnakeAssetRow): AssetRow {
     sourceContractId: row.source_contract_id,
     capitalCost: row.capital_cost,
     warrantyEnd: row.warranty_end,
-    expectedLifeYears: row.expected_life_years,
-    replacementYear: row.replacement_year,
+    expectedLifeYears: row.expected_life_years === null ? null : Number(row.expected_life_years),
+    replacementYear: row.replacement_year === null ? null : Number(row.replacement_year),
     replacementCostEst: row.replacement_cost_est,
-    criticality: row.criticality,
+    criticality: Number(row.criticality),
     condition: row.condition,
-    conditionAssessedAt: row.condition_assessed_at,
+    conditionAssessedAt: asDate(row.condition_assessed_at),
     parentAssetId: row.parent_asset_id,
     servesAreaIds: row.serves_area_ids,
     system: row.system,
     costCentre: row.cost_centre,
     sapAssetNo: row.sap_asset_no,
     status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: asDate(row.created_at) as Date,
+    updatedAt: asDate(row.updated_at) as Date,
   };
 }
