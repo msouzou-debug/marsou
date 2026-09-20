@@ -288,6 +288,10 @@
       "label": "Asset tabs",
       "register": "Asset register",
       "forecast": "Replacement forecast"
+    },
+    "tierChip": {
+      "dayOne": "Day 1",
+      "optional": "Optional"
     }
   },
   "nav": {
@@ -1200,7 +1204,12 @@
         "updated": "Updated",
         "download": "Download"
       },
-      "empty": "The PDF guides have not been generated yet for this installation. They are generated with every eCapital release."
+      "empty": "The PDF guides have not been generated yet for this installation. They are generated with every eCapital release.",
+      "screenList": {
+        "heading": "Screens by training phase",
+        "dayOneHeading": "Trained and used from day one",
+        "optionalHeading": "Optional screens — available, outside pilot training"
+      }
     },
     "s16a": {
       "title": "Asset register",

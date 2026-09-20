@@ -13,6 +13,12 @@ describe("loadHelpSection", () => {
     expect(result.markdown).not.toBeNull();
     expect(result.markdown).toContain("# Χαρτοφυλάκιο έργων");
     expect(result.personas).toEqual(["estates_head", "executive_readonly", "finance"]);
+    expect(result.tier).toBe("day-one");
+  });
+
+  it("returns the screen's tier for an optional screen (S06 risks and issues)", () => {
+    const result = loadHelpSection("/projects/[id]/risks", "el");
+    expect(result.tier).toBe("optional");
   });
 
   it("returns the English Markdown for S01 (\"/\")", () => {

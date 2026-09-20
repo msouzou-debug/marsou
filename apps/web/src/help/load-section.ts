@@ -15,6 +15,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Locale } from "@/i18n/config";
+import type { Tier } from "./tier";
 import helpMap from "./map.json";
 
 const MANUAL_ROOT = resolve(process.cwd(), "../../docs/manual");
@@ -23,6 +24,7 @@ export interface HelpMapEntry {
   route: string;
   section: string;
   persona: string[];
+  tier: Tier;
 }
 
 export interface HelpSectionData {
@@ -32,6 +34,10 @@ export interface HelpSectionData {
   /** Persona ids from the map entry (empty when the route is unmapped),
    *  for the «Οδηγός PDF για [ρόλος]» footer link (R50). */
   personas: string[];
+  /** The screen's tier (owner decision 20/09/2026 — docs/briefs/README.md
+   *  Errata "Screen tiers"), null when the route is unmapped, for the S25
+   *  drawer's tier chip next to the section title. */
+  tier: Tier | null;
 }
 
 const entries = Object.values(helpMap as Record<string, HelpMapEntry>);
@@ -42,14 +48,14 @@ function findEntry(route: string): HelpMapEntry | undefined {
 
 export function loadHelpSection(route: string, locale: Locale): HelpSectionData {
   const entry = findEntry(route);
-  if (!entry) return { markdown: null, personas: [] };
+  if (!entry) return { markdown: null, personas: [], tier: null };
 
   const file = resolve(MANUAL_ROOT, locale, `${entry.section}.md`);
   try {
-    return { markdown: readFileSync(file, "utf8"), personas: entry.persona };
+    return { markdown: readFileSync(file, "utf8"), personas: entry.persona, tier: entry.tier };
   } catch {
     // Missing file (e.g. a section not written yet): the empty state, not a
     // crash — `pnpm check:help` is what enforces the file exists at all.
-    return { markdown: null, personas: entry.persona };
+    return { markdown: null, personas: entry.persona, tier: entry.tier };
   }
 }

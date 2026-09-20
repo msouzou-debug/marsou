@@ -9,6 +9,8 @@
 // never renders raw HTML from the source (no `rehype-raw` is wired in), so
 // this is Markdown-only, as required.
 import type { Components } from "react-markdown";
+import { TierChip } from "@/components/tier-chip";
+import type { Tier } from "./tier";
 
 // react-markdown always passes a `node` prop (the hast node) to component
 // overrides, which must not reach the DOM element itself.
@@ -28,3 +30,24 @@ export const helpMarkdownComponents: Components = {
   strong: (props) => <strong className="font-bold" {...withoutNode(props)} />,
   a: (props) => <a className="text-k-blue underline-offset-2 hover:underline" {...withoutNode(props)} />,
 };
+
+/**
+ * The same components, but with the section's own "# Title" (the manual's
+ * H1, rendered here as the drawer's own h2 heading) carrying a TierChip next
+ * to it — owner decision 20/09/2026 (docs/briefs/README.md Errata "Screen
+ * tiers"). `HelpSection.tsx` calls this instead of the plain
+ * `helpMarkdownComponents` whenever the route's map.json entry has a tier;
+ * every manual section has exactly one H1 (its title), so this attaches the
+ * chip once, in the right place, without hand-parsing the Markdown.
+ */
+export function helpMarkdownComponentsWithTier(tier: Tier): Components {
+  return {
+    ...helpMarkdownComponents,
+    h1: (props) => (
+      <h2 className="mb-s-3 flex flex-wrap items-center gap-s-2 font-bold">
+        <span>{props.children}</span>
+        <TierChip tier={tier} />
+      </h2>
+    ),
+  };
+}

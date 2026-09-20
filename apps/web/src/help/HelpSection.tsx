@@ -13,7 +13,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Locale } from "@/i18n/config";
 import { loadHelpSection } from "./load-section";
-import { helpMarkdownComponents } from "./markdown-components";
+import { helpMarkdownComponents, helpMarkdownComponentsWithTier } from "./markdown-components";
 import { RegisterHelpSection } from "./RegisterHelpSection";
 
 export interface HelpSectionProps {
@@ -23,13 +23,17 @@ export interface HelpSectionProps {
 
 export async function HelpSection({ route }: HelpSectionProps) {
   const locale = (await getLocale()) as Locale;
-  const { markdown, personas } = loadHelpSection(route, locale);
+  const { markdown, personas, tier } = loadHelpSection(route, locale);
 
   if (!markdown) return null;
 
+  // `tier` is only null for an unmapped route, which never has Markdown
+  // either — reaching here with `markdown` set means `tier` is set too.
+  const components = tier ? helpMarkdownComponentsWithTier(tier) : helpMarkdownComponents;
+
   return (
     <RegisterHelpSection personas={personas}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={helpMarkdownComponents}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {markdown}
       </ReactMarkdown>
     </RegisterHelpSection>
