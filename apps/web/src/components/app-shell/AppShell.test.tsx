@@ -54,13 +54,16 @@ describe("UnitSwitcher", () => {
 
   // RULE: Central Administration sees every unit (R01, ADR-0010). Owner
   // decisions of 19/09/2026 made that twelve with HQ and then eleven again
-  // with the Ambulance Service out of ΟΚΥπΥ (ADR-0024).
-  it("lists all eleven units for a Central Administration caller", () => {
+  // with the Ambulance Service out of ΟΚΥπΥ (ADR-0024), and 20/09/2026 made
+  // it twelve again with Community Nursing given its own unit (ADR-0024's
+  // addendum).
+  it("lists all twelve units for a Central Administration caller", () => {
     renderWithIntl(<UnitSwitcher orgUnits={visible} />, { locale: "el" });
     const options = document.querySelectorAll("option");
-    expect(options).toHaveLength(11);
+    expect(options).toHaveLength(12);
     const names = Array.from(options).map((o) => o.textContent);
     expect(names).toContain("Κεντρικά Γραφεία");
+    expect(names).toContain("Κοινοτική Νοσηλευτική Υπηρεσία");
     expect(names).not.toContain("Υπηρεσία Ασθενοφόρων");
   });
 });

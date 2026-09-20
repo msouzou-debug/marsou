@@ -88,9 +88,15 @@ export const orgUnit = ecapital.table("org_unit", {
   type: orgUnitType("type").notNull(),
   directorate: directorate("directorate").notNull(),
   costCentre: text("cost_centre"),
-  // ADR-0019: the eFinance entity code, which is also the SAP Fund Center.
-  // Unique and nullable — eFinance's HQ and CNS have no unit here.
+  // ADR-0019, superseded by ADR-0024: eArchive's site abbreviation, the key
+  // eFinance, eArchive and SAP Funds Management now all join on. Unique and
+  // nullable — a unit opened here before finance gives it a code has none.
   entityCode: text("entity_code").unique(),
+  // ADR-0022's addendum (owner decision, 20/09/2026): eFinance will not
+  // rename its own entity keys, so it translates at the boundary instead —
+  // this is that other code, kept alongside entityCode rather than in place
+  // of it. Migration 0018 backfills it for every pre-existing unit.
+  efinanceCode: text("efinance_code").unique(),
   timezone: text("timezone").notNull().default("Europe/Nicosia"),
   createdAt,
   updatedAt,

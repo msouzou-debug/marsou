@@ -21,11 +21,11 @@ describe("GET /org-units", () => {
     await app.close();
   });
 
-  it("gives a central administration user all eleven units", async () => {
+  it("gives a central administration user all twelve units", async () => {
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(11);
+    expect(response.body).toHaveLength(12);
     expect(() => OrgUnit.array().parse(response.body)).not.toThrow();
   });
 
@@ -40,7 +40,7 @@ describe("GET /org-units", () => {
     const token = await tokenFor(app, USERS.auditor);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(11);
+    expect(response.body).toHaveLength(12);
   });
 
   it("refuses a caller with no token", async () => {
@@ -58,6 +58,7 @@ describe("GET /org-units", () => {
       "code",
       "costCentre",
       "directorate",
+      "efinanceCode",
       "entityCode",
       "id",
       "nameEl",
@@ -75,6 +76,10 @@ describe("GET /org-units", () => {
       costCentre: "CC-NGH-01",
       // ADR-0019: the eFinance entity code, sent as a code and never a name.
       entityCode: "NGH",
+      // ADR-0022's addendum (20/09/2026): eFinance's own key, kept alongside
+      // entityCode rather than translated into it. Equal to it here, and on
+      // five of the other eleven units; six differ (see the next test).
+      efinanceCode: "NGH",
       timezone: "Europe/Nicosia",
     });
   });
@@ -94,7 +99,25 @@ describe("GET /org-units", () => {
     expect(ids).toContain("hq");
   });
 
-  it("re-seeds the same eleven org units on a second run, never a duplicate", async () => {
+  it("carries Community Nursing as its own unit, added by owner decision on 20/09/2026", async () => {
+    // ADR-0024's addendum, correcting the errata's earlier "files under HQ".
+    const token = await tokenFor(app, USERS.admin);
+    const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
+    const units = response.body as OrgUnit[];
+    const cns = units.find((u) => u.id === "community-nursing");
+    expect(cns).toMatchObject({
+      code: "CNS",
+      nameEl: "Κοινοτική Νοσηλευτική Υπηρεσία",
+      nameEn: "Community Nursing Service",
+      type: "SERVICE",
+      directorate: "PFY",
+      costCentre: null,
+      entityCode: "CNS",
+      efinanceCode: "CNS",
+    });
+  });
+
+  it("re-seeds the same twelve org units on a second run, never a duplicate", async () => {
     const client = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL as string });
     await client.connect();
     try {
@@ -102,11 +125,15 @@ describe("GET /org-units", () => {
       const { rows } = await client.query<{ n: string }>(
         "select count(*) as n from ecapital.org_unit",
       );
-      expect(Number(rows[0].n)).toBe(11);
+      expect(Number(rows[0].n)).toBe(12);
       const { rows: hq } = await client.query<{ n: string }>(
         "select count(*) as n from ecapital.org_unit where id = 'hq'",
       );
       expect(Number(hq[0].n)).toBe(1);
+      const { rows: cns } = await client.query<{ n: string }>(
+        "select count(*) as n from ecapital.org_unit where id = 'community-nursing'",
+      );
+      expect(Number(cns[0].n)).toBe(1);
     } finally {
       await client.end();
     }

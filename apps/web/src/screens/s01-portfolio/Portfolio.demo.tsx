@@ -20,6 +20,7 @@ function unit(id: string, code: string, nameEl: string, nameEn: string, director
     directorate,
     costCentre: `CC-${code}-01`,
     entityCode: null,
+    efinanceCode: null,
     timezone: "Europe/Nicosia",
   };
 }

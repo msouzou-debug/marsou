@@ -62,8 +62,11 @@ describe("grant-admin / grant-role on an empty database", () => {
     // hands over an objectGUID.
     expect(result.subject).toBe("ad:it.admin");
     // An all-units role carries every unit, which is what makes `finance`
-    // work and does no harm to `admin`.
-    expect(result.orgUnitIds).toEqual(["nicosia-general"]);
+    // work and does no harm to `admin`. `community-nursing` is here too,
+    // unlike HQ: migration 0018 inserts it directly (like a reference-table
+    // row), so even a database this fresh — migrated and otherwise empty —
+    // already carries it, before the one hospital this test adds by hand.
+    expect(result.orgUnitIds).toEqual(["community-nursing", "nicosia-general"]);
     expect(describeResult(result)).toContain("role admin: granted");
 
     const { rows } = await db.query<{ role: string; is_active: boolean; username: string }>(

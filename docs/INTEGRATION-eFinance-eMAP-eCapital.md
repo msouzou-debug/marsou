@@ -42,34 +42,43 @@ All three systems, and SAP, describe organisational units and money along
 axes that already line up — the work here is confirming the mapping, not
 inventing one.
 
-### Entity codes — one string for all three systems
+### Entity codes — the permanent two-code model
 
-**Updated 19/09/2026 (owner decision, ADR-0024).** All three systems key a
-place by **eArchive's site abbreviation**. `ecapital.org_unit.code` and
-`ecapital.org_unit.entity_code` both carry it, so a record in any of the three
-joins to a record in either of the others on one column, with no lookup table
-and no third column: the `dms_site_code` §6 used to plan is not built.
+**Updated 19/09/2026 (owner decision, ADR-0024) and 20/09/2026 (owner
+decision, ADR-0022's and ADR-0024's addenda).** eCapital and eArchive key a
+place by **eArchive's site abbreviation** — `ecapital.org_unit.code` and
+`ecapital.org_unit.entity_code` both carry it, so an eCapital record joins an
+eArchive one on one column, with no lookup table and no third column: the
+`dms_site_code` §6 used to plan is not built.
 
-| Code | Name | eCapital org unit | Legacy eFinance code, until eFinance aligns |
-|---|---|---|---|
-| `NGH` | Γενικό Νοσοκομείο Λευκωσίας | NGH | `NGH` |
-| `LAR` | Γενικό Νοσοκομείο Λάρνακας | LAR | `LAR` |
-| `PAF` | Γενικό Νοσοκομείο Πάφου | PAF | `PAP` |
-| `LGH` | Γενικό Νοσοκομείο Λεμεσού | LGH | `LGH` |
-| `KYP` | Νοσοκομείο Τροόδους | KYP | `TRD` |
-| `NAM` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄ | NAM | `ARC` |
-| `POL` | Νοσοκομείο Πόλεως Χρυσοχούς | POL | `CHR` |
-| `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | FAM | `FAM` |
-| `MHS` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | MHS | `MH` |
-| `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | PHC | `HC` |
-| `HQ` | Κεντρικά Γραφεία | HQ | `HQ` |
-| `CNS` | Central Nursing Services (Greek name to be confirmed) | — | `CNS` |
+**eFinance keeps its own entity keys, permanently.** Yesterday's text here
+called this "until eFinance aligns" — eFinance has since said it will not:
+those codes are foreign keys across twelve of its own tables and in SAP, and
+renaming them is not a change it can make. So eCapital carries both codes,
+not one with the other kept as a document: `ecapital.org_unit.efinance_code`
+sits beside `entity_code`, backfilled once and kept in step from here on.
 
-Eleven units. `CNS` is the one code with no eCapital org unit, deliberately:
-inventing one would put a fictional service in the capital register. **Capital
-work raised for Central Nursing Services files under `HQ`** (assumption, owner
-to confirm). If it ever runs a capital programme of its own, opening the unit
-properly is the fix, not renaming an existing one to fit.
+| eCapital `code` = `entity_code` (eArchive) | Name | eFinance `efinance_code` |
+|---|---|---|
+| `NGH` | Γενικό Νοσοκομείο Λευκωσίας | `NGH` |
+| `LAR` | Γενικό Νοσοκομείο Λάρνακας | `LAR` |
+| `PAF` | Γενικό Νοσοκομείο Πάφου | `PAP` |
+| `LGH` | Γενικό Νοσοκομείο Λεμεσού | `LGH` |
+| `KYP` | Νοσοκομείο Τροόδους | `TRD` |
+| `NAM` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄ | `ARC` |
+| `POL` | Νοσοκομείο Πόλεως Χρυσοχούς | `CHR` |
+| `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | `FAM` |
+| `MHS` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MH` |
+| `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | `HC` |
+| `HQ` | Κεντρικά Γραφεία | `HQ` |
+| `CNS` | Κοινοτική Νοσηλευτική Υπηρεσία (Community Nursing Service) | `CNS` |
+
+Twelve units, all with an eCapital org unit now. **`CNS` is corrected,
+20/09/2026:** yesterday this table (and the errata) called it "Central
+Nursing Services", with no eCapital unit, filing under HQ. Both were wrong —
+it is Community Nursing, and it has its own unit (`community-nursing`,
+directorate PFY, an ASSUMPTION flagged for the owner to confirm) and its own
+eArchive folder, not HQ's. See ADR-0024's addendum and §6 below.
 
 **The Ambulance Service is gone from this table.** Υπηρεσία Ασθενοφόρων (`AMB`)
 is no longer part of ΟΚΥπΥ (owner decision, 19/09/2026); eCapital's unit and
@@ -78,11 +87,15 @@ everything under it were removed by migration
 spelling with rule V15 instead of resolving it. If eFinance still carries an
 `AMB` entity, nothing in eCapital answers to it.
 
-**eFinance has not aligned yet.** The last column is what a person needs to
-read an eFinance extract taken before today: six of the eleven codes moved on
-this side. Nothing translates it automatically — a silent translation is how
-an identifier stops being trustworthy. This belongs on the same list of asks
-as §4's.
+**Which code goes on the wire.** `entity_code` — eArchive's abbreviation — is
+what eCapital sends to eArchive (folder hints, `source_ref`) and what the
+draft eFinance write route's body carries (§5): eFinance translates its own
+entity code at its own boundary, the same way it already translates its 203
+operational budget codes internally. `efinance_code` is read back only
+through `OrgUnitsService.efinanceCodeFor(orgUnitId)`, for the future SAP
+actuals / spent-ledger reader (§5) that has to address eFinance's own key —
+nowhere else in eCapital should read that column directly. See ADR-0022's
+addendum for the full reasoning.
 
 > **Send codes, never names**, exactly as eFinance's own rule says. `NGH`,
 > not `Γενικό Νοσοκομείο Λευκωσίας`.
@@ -278,11 +291,57 @@ endpoints page with `limit` and `cursor`.
 | `GET /api/v1/capital/invoices?ref=CAP-…` or `?updated_since=` | Invoices linked to a `CAP-` contract, or changed since a timestamp |
 | `GET /api/v1/capital/requisitions?…` | Requisitions, same filter shape |
 
-An invoice's `ledger` field is one of `in_flight`, `booked` or `rejected`.
-**eCapital's spent ledger counts only `booked` invoices** — `in_flight` and
-`rejected` are visible for context but must never be summed into spend, the
-same discipline `apps/api/README.md`'s `spent`/`forecast` fields already
-assume.
+An invoice's `ledger` field is one of `in_flight`, `booked`, `rejected` or
+`reversed`. **eCapital's spent ledger counts only `booked` invoices** —
+`in_flight` and `rejected` are visible for context but must never be summed
+into spend, the same discipline `apps/api/README.md`'s `spent`/`forecast`
+fields already assume; `reversed` (below) is never summed either.
+
+**Invoice coding, owner detail 20/09/2026.** eFinance codes an invoice **per
+line**, not once for the whole document — one contract's invoice can carry
+several cost centres or budget codes on different lines, and the sums this
+integration cares about (spend against a `CAP-` contract, against a budget
+code) are sums over lines, not over invoice headers. Each line carries:
+
+| Field | What it is |
+|---|---|
+| `descr` | The line's own description, as typed on the invoice |
+| `qty` | Quantity |
+| `unit_price` | Price per unit, 2-decimal string |
+| `line_total` | `qty × unit_price`, 2-decimal string — eCapital sums this, never the invoice header total |
+| `vat_rate` | VAT rate applied to this line |
+| `gl_account` | SAP General Ledger account |
+| `cost_centre` | SAP cost centre (§2) |
+| `budget_code` | SAP Commitment Item (§2) |
+| `wbs_code` | SAP WBS element, where the line is charged to a project |
+
+**`sap_batch_date` is the cash-flow month, not the posting date.** It is the
+field a cash-flow report groups by — which month's spend this invoice counts
+against — and it can differ from the calendar date SAP actually posted the
+document, the same distinction a payment certificate's own period already
+makes on eCapital's side (ADR-0021).
+
+**No credit notes.** eFinance does not model a credit note as its own
+document type. A correction is a **reversal** of the original invoice:
+`ledger` moves to `reversed`, and the invoice carries `reversed_at` (when),
+`reversal_sap_doc_no` (the SAP document number the reversal posted as) and
+`reversal_reason`. eCapital reads a `reversed` invoice the same way it reads
+a `rejected` one — visible for context, never summed into spend — and does
+not attempt to net a reversal against the original line by line; SAP has
+already done that arithmetic by the time either document reaches this
+contract.
+
+**`cap_ref` is its own column on eFinance's side, not folded into a generic
+reference field.** eFinance's invoice table carries `cap_ref` alongside its
+own `contract_ref` (the `CON-`/`R-` shaped ones eMAP and eFinance's own
+requisitions use) rather than accepting a `CAP-`-prefixed value in the same
+column: the two reference families are validated, displayed and joined
+differently on eFinance's side, and a shared column would make eFinance's
+own prefix-based routing (§3) ambiguous the moment an invoice needs to carry
+a `CAP-` reference and one of its own at once — a capital contract can have
+eFinance-side requisitions raised against it as well as an eCapital-issued
+`CAP-` reference. `GET /api/v1/capital/invoices?ref=CAP-…` (above) filters on
+this column.
 
 **Write (later, not in the first cut):**
 
@@ -371,20 +430,27 @@ whatever `GET /org-units` returns as `code`, with no translation in between.
 | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MHS` |
 | Πρωτοβάθμια Φροντίδα Υγείας | `PHC` |
 | Κεντρικά Γραφεία | `HQ` |
+| Κοινοτική Νοσηλευτική Υπηρεσία | `CNS` |
 
-Eleven. **Υπηρεσία Ασθενοφόρων is not in the table any more** — the Ambulance
+Twelve. **Υπηρεσία Ασθενοφόρων is not in the table any more** — the Ambulance
 Service left ΟΚΥπΥ on 19/09/2026, and with it the open question this table
 used to carry about whether eArchive should add a site for it or file its
 papers under HQ. There is nothing left to file.
 
-**`CNS` is Central Nursing Services** (Greek name to be confirmed by the owner). It is
-an eFinance entity code with no eCapital org unit and no eArchive site of its
-own; capital work raised for it files under **`HQ`** (assumption, owner to
-confirm). §2 says why no unit is invented for it.
+**`CNS` is corrected, 20/09/2026 (ADR-0024's addendum).** This table used to
+read "Central Nursing Services", with no eCapital org unit and no eArchive
+site, capital work filing under HQ. That was wrong on both counts: it is
+«Κοινοτική Νοσηλευτική Υπηρεσία» (Community Nursing Service), it has its own
+eCapital unit (`community-nursing`), and it files under **its own eArchive
+folder** now, not HQ's — the same `code` = `entity_code` = `CNS` this table's
+rule already gives it, with no special case. (ASSUMPTION, flagged for the
+owner: eArchive's own site code for it is taken to be `CNS`, matching the
+pattern every other row follows; nobody has confirmed this against eArchive's
+own site list the way the other eleven were confirmed on 19/09/2026.)
 
 The legacy eFinance codes the middle column used to hold — `PAP`, `ARC`,
-`CHR`, `MH`, `HC`, `TRD` — are in §2's last column, as a lookup until
-eFinance aligns.
+`CHR`, `MH`, `HC`, `TRD` — are in §2's last column, permanently now
+(`efinance_code`), not as a lookup until eFinance aligns — see §2.
 
 ### eArchive brief facts (19/09/2026)
 

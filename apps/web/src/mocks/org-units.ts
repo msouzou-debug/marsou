@@ -28,6 +28,12 @@ import type { OrgUnit } from "@ecapital/shared";
 // unit from a database that already has it, and the Excel importer rejects
 // the «ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ» spelling (V15) instead of resolving it.
 //
+// TWELVE (owner decision, 20/09/2026 — ADR-0024's addendum). «Κοινοτική
+// Νοσηλευτική Υπηρεσία» (Community Nursing Service) gets its own unit,
+// correcting yesterday's errata, which had it filing under HQ with none —
+// see `community-nursing` below. It carries a cost centre of none and no
+// projects yet, the same starting point HQ had.
+//
 // Directorate assignment is not printed next to each unit in CAPEX-03 §3,
 // so it is derived here from the row-count arithmetic in that section:
 // the directorate totals (Λεμεσού–Πάφου 44, Λευκωσίας 29,
@@ -35,13 +41,19 @@ import type { OrgUnit } from "@ecapital/shared";
 // the exact total project-row count) match only one grouping of the
 // eleven Capex Plan units, which is the one used below. HQ's directorate,
 // KENTRIKI_DIOIKISI, has no such arithmetic behind it — it is the one
-// directorate with no row in the sheet at all.
+// directorate with no row in the sheet at all. Community Nursing's
+// directorate, PFY, has none either, and is an ASSUMPTION (it sits under
+// Primary Healthcare) that the owner has yet to confirm.
 //
 // ADR-0024: `code` and `entityCode` are now the same string for every unit —
-// eArchive's site abbreviation, which eFinance and eCapital both adopt. The
-// eFinance codes it replaces (PAP, LGH, ARC, CHR, MH, HC, TRD) survive as a
-// lookup in ADR-0024 «until eFinance aligns» and are not carried here. The
-// cost centres below do not move with the codes: a cost centre is SAP's
+// eArchive's site abbreviation, which eFinance and eCapital both adopt.
+//
+// ADR-0022's addendum (owner decision, 20/09/2026): eFinance keeps its own
+// entity keys permanently — it will not rename them, they are foreign keys
+// across twelve of its own tables and in SAP — so the codes `entityCode`
+// replaced (PAP, LGH, ARC, CHR, MH, HC, TRD) are carried here too, as
+// `efinanceCode`, a second column rather than a lookup document. The cost
+// centres below do not move with either code: a cost centre is SAP's
 // identifier for a place, the Οικονομική Διεύθυνση's to change.
 export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
   {
@@ -53,6 +65,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEFKOSIAS",
     costCentre: "CC-NGH-01",
     entityCode: "NGH",
+    efinanceCode: "NGH",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"],
   },
@@ -65,6 +78,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LARNAKAS_AMMOCHOSTOU",
     costCentre: "CC-LAR-01",
     entityCode: "LAR",
+    efinanceCode: "LAR",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΛΑΡΝΑΚΑΣ"],
   },
@@ -77,6 +91,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-PAF-01",
     entityCode: "PAF",
+    efinanceCode: "PAP",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΠΑΦΟΥ"],
   },
@@ -89,6 +104,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-LMS-01",
     entityCode: "LGH",
+    efinanceCode: "LGH",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΛΕΜΕΣΟΥ"],
   },
@@ -101,6 +117,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-TRD-01",
     entityCode: "KYP",
+    efinanceCode: "TRD",
     timezone: "Europe/Nicosia",
     // Troodos and Kyperounta are one hospital (owner decision, 18/09/2026):
     // both spellings resolve here so a future sheet revision cannot split them.
@@ -117,6 +134,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEFKOSIAS",
     costCentre: "CC-NAM3-01",
     entityCode: "NAM",
+    efinanceCode: "ARC",
     timezone: "Europe/Nicosia",
     aliases: ["ΝΑΜΙΙΙ"],
   },
@@ -129,6 +147,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LEMESOU_PAFOU",
     costCentre: "CC-PCH-01",
     entityCode: "POL",
+    efinanceCode: "CHR",
     timezone: "Europe/Nicosia",
     aliases: ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"],
   },
@@ -141,6 +160,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "LARNAKAS_AMMOCHOSTOU",
     costCentre: "CC-FAM-01",
     entityCode: "FAM",
+    efinanceCode: "FAM",
     timezone: "Europe/Nicosia",
     aliases: ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"],
   },
@@ -153,6 +173,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "DYPSY",
     costCentre: "CC-DYP-01",
     entityCode: "MHS",
+    efinanceCode: "MH",
     timezone: "Europe/Nicosia",
     aliases: ["ΔΥΨΥ"],
   },
@@ -165,6 +186,7 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "PFY",
     costCentre: "CC-PFY-01",
     entityCode: "PHC",
+    efinanceCode: "HC",
     timezone: "Europe/Nicosia",
     aliases: ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"],
   },
@@ -179,7 +201,26 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     directorate: "KENTRIKI_DIOIKISI",
     costCentre: null,
     entityCode: "HQ",
+    efinanceCode: "HQ",
     timezone: "Europe/Nicosia",
     aliases: [],
+  },
+  {
+    // Owner decision, 20/09/2026 (ADR-0024's addendum), correcting
+    // yesterday's errata: Community Nursing is a unit of its own, not a gap
+    // that files under HQ. No cost centre and no projects yet — the same
+    // starting point HQ had. Directorate PFY is an ASSUMPTION (it sits under
+    // Primary Healthcare), flagged for the owner to confirm.
+    id: "community-nursing",
+    code: "CNS",
+    nameEl: "Κοινοτική Νοσηλευτική Υπηρεσία",
+    nameEn: "Community Nursing Service",
+    type: "SERVICE",
+    directorate: "PFY",
+    costCentre: null,
+    entityCode: "CNS",
+    efinanceCode: "CNS",
+    timezone: "Europe/Nicosia",
+    aliases: ["ΚΟΙΝΟΤΙΚΗ ΝΟΣΗΛΕΥΤΙΚΗ"],
   },
 ];

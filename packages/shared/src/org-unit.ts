@@ -1,14 +1,18 @@
 import { z } from "zod";
 
 // CAPEX-01 §4: the first organisational level is the org unit, never
-// "hospital". Eight hospitals plus two services plus one central unit,
-// eleven units in all (CAPEX-03 §3; CAPEX-01's "nine hospitals" counted
-// Troodos and Kyperounta twice — they are one hospital, confirmed by the
-// owner on 18/09/2026 — and the third service, Υπηρεσία Ασθενοφόρων, left
-// ΟΚΥπΥ on 19/09/2026, ADR-0024). CAPEX-01 §4 lists only HOSPITAL and SERVICE because
-// the Capex Plan sheet has no HQ rows; CENTRAL is Central Administration
-// itself, added by owner decision on 19/09/2026 so it can own its own
-// projects (IT, HQ works) and be filtered on like any other unit.
+// "hospital". Eight hospitals plus two services plus one central unit plus
+// Community Nursing, twelve units in all (CAPEX-03 §3; CAPEX-01's "nine
+// hospitals" counted Troodos and Kyperounta twice — they are one hospital,
+// confirmed by the owner on 18/09/2026 — and the third service, Υπηρεσία
+// Ασθενοφόρων, left ΟΚΥπΥ on 19/09/2026, ADR-0024). CAPEX-01 §4 lists only
+// HOSPITAL and SERVICE because the Capex Plan sheet has no HQ rows; CENTRAL
+// is Central Administration itself, added by owner decision on 19/09/2026 so
+// it can own its own projects (IT, HQ works) and be filtered on like any
+// other unit. «Κοινοτική Νοσηλευτική Υπηρεσία» (Community Nursing Service,
+// `community-nursing`, type SERVICE) was added by owner decision on
+// 20/09/2026 — see ADR-0024's addendum — correcting yesterday's errata,
+// which had it filing under HQ with no unit of its own.
 export const OrgUnitType = z.enum(["HOSPITAL", "SERVICE", "CENTRAL"]);
 export type OrgUnitType = z.infer<typeof OrgUnitType>;
 
@@ -44,13 +48,21 @@ export const OrgUnit = z.object({
   // ADR-0019, as amended by ADR-0024 (owner decision, 19/09/2026): the code
   // eFinance, eArchive and SAP Funds Management all key this place by. It is
   // eArchive's site abbreviation now — NGH, LAR, PAF, LGH, KYP, NAM, POL,
-  // FAM, MHS, PHC, HQ — and therefore the same string as `code` above. The
-  // column is kept, rather than folded into `code`, because it is what a join
-  // across the three systems names, here and in eFinance's own notes.
-  // Nullable because the two registers are not the same list: eFinance's CNS
-  // (Central Nursing Services) has no eCapital unit, and a unit opened here
-  // before finance gives it a code has none. Send the code, never the name.
+  // FAM, MHS, PHC, HQ, CNS — and therefore the same string as `code` above.
+  // The column is kept, rather than folded into `code`, because it is what a
+  // join across the three systems names, here and in eFinance's own notes.
+  // Nullable because a unit opened here before finance gives it a code has
+  // none. Send the code, never the name.
   entityCode: z.string().nullable().default(null),
+  // ADR-0022's addendum (owner decision, 20/09/2026): eFinance keeps its own
+  // entity keys permanently — they are foreign keys across twelve of its own
+  // tables and SAP — rather than aligning with eArchive's abbreviation, so
+  // eCapital carries both. This is eFinance's own code, differing from
+  // `entityCode` on six of the twelve units: PAF/`PAP`, KYP/`TRD`, NAM/`ARC`,
+  // POL/`CHR`, MHS/`MH`, PHC/`HC`; unchanged on the rest (NGH, LAR, LGH, FAM,
+  // HQ, CNS). Nullable for the same reason as `entityCode`. See ADR-0022's
+  // and ADR-0024's addenda and INTEGRATION-eFinance-eMAP-eCapital.md §2.
+  efinanceCode: z.string().nullable().default(null),
   timezone: z.literal("Europe/Nicosia"),
 });
 export type OrgUnit = z.infer<typeof OrgUnit>;

@@ -27,8 +27,9 @@ describe("entity codes", () => {
     expect(response.status).toBe(200);
 
     const units = response.body as OrgUnit[];
-    // Eleven, not twelve: the Ambulance Service left ΟΚΥπΥ (ADR-0024).
-    expect(units).toHaveLength(11);
+    // Twelve: the Ambulance Service left ΟΚΥπΥ (ADR-0024) and Community
+    // Nursing joined the register (ADR-0024's addendum, 20/09/2026).
+    expect(units).toHaveLength(12);
     const codes = units.map((u) => u.entityCode);
     expect(codes.every((c) => typeof c === "string" && c.length > 0)).toBe(true);
     expect(new Set(codes).size).toBe(codes.length);
@@ -40,9 +41,9 @@ describe("entity codes", () => {
     const units = response.body as OrgUnit[];
     const byId = new Map(units.map((u) => [u.id, u.entityCode]));
     // ADR-0024 (owner, 19/09/2026): all three systems key a place by
-    // eArchive's abbreviation, so eFinance's old strings (PAP, LGH, ARC, CHR,
-    // MH, HC, TRD) are gone from the database and kept only as a lookup in
-    // the ADR until eFinance aligns.
+    // eArchive's abbreviation. eFinance's old strings (PAP, LGH, ARC, CHR, MH,
+    // HC, TRD) are gone from this column — they live on in efinanceCode now
+    // (ADR-0022's addendum, see the next test), permanently, not as a lookup.
     expect(byId.get("nicosia-general")).toBe("NGH");
     expect(byId.get("larnaca-general")).toBe("LAR");
     expect(byId.get("paphos-general")).toBe("PAF");
@@ -54,6 +55,7 @@ describe("entity codes", () => {
     expect(byId.get("dypsy")).toBe("MHS");
     expect(byId.get("pfy")).toBe("PHC");
     expect(byId.get("hq")).toBe("HQ");
+    expect(byId.get("community-nursing")).toBe("CNS");
 
     // ADR-0024: `code` and `entityCode` are the same string now, on every
     // unit. Τροόδους keeps both its names and takes KYP.
@@ -63,6 +65,35 @@ describe("entity codes", () => {
       nameEl: "Νοσοκομείο Τροόδους",
       nameEn: "Troodos Hospital",
     });
+  });
+
+  it("carries eFinance's own entity keys alongside entityCode, permanently (ADR-0022 addendum)", async () => {
+    const token = await tokenFor(app, USERS.admin);
+    const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
+    const units = response.body as OrgUnit[];
+    const byId = new Map(units.map((u) => [u.id, u.efinanceCode]));
+
+    // eFinance would not rename its own entity keys — foreign keys across
+    // twelve of its own tables and SAP — so eCapital carries both from now
+    // on, rather than the six-way lookup ADR-0024 §2 kept "until eFinance
+    // aligns".
+    expect(byId.get("nicosia-general")).toBe("NGH");
+    expect(byId.get("larnaca-general")).toBe("LAR");
+    expect(byId.get("paphos-general")).toBe("PAP");
+    expect(byId.get("limassol-general")).toBe("LGH");
+    expect(byId.get("troodos")).toBe("TRD");
+    expect(byId.get("namiii")).toBe("ARC");
+    expect(byId.get("polis-chrysochous")).toBe("CHR");
+    expect(byId.get("famagusta-general")).toBe("FAM");
+    expect(byId.get("dypsy")).toBe("MH");
+    expect(byId.get("pfy")).toBe("HC");
+    expect(byId.get("hq")).toBe("HQ");
+    expect(byId.get("community-nursing")).toBe("CNS");
+
+    // Every value is unique, and non-null for all twelve units.
+    const codes = units.map((u) => u.efinanceCode);
+    expect(codes.every((c) => typeof c === "string" && c.length > 0)).toBe(true);
+    expect(new Set(codes).size).toBe(codes.length);
   });
 
   it("has no Ambulance Service unit left", async () => {
@@ -94,13 +125,24 @@ describe("entity codes", () => {
     });
   });
 
-  it("invents no unit for eFinance's CNS", async () => {
-    // CNS (Κοινοτική Νοσηλευτική Υπηρεσία) stays unmapped: eCapital has no
-    // unit for it and none is invented (ADR-0019).
+  it("gives CNS its own unit now, correcting the 19/09/2026 errata (ADR-0024 addendum, 20/09/2026)", async () => {
+    // CNS (Κοινοτική Νοσηλευτική Υπηρεσία, Community Nursing Service) used to
+    // stay unmapped on the theory that it filed under HQ — ADR-0019, then
+    // ADR-0024 §2. That theory was wrong on both counts: it is a unit of its
+    // own, with its own eArchive folder, not HQ's.
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
-    const codes = (response.body as OrgUnit[]).map((u) => u.entityCode);
-    expect(codes).not.toContain("CNS");
+    const cns = (response.body as OrgUnit[]).find((u) => u.id === "community-nursing");
+    expect(cns).toMatchObject({
+      code: "CNS",
+      nameEl: "Κοινοτική Νοσηλευτική Υπηρεσία",
+      nameEn: "Community Nursing Service",
+      type: "SERVICE",
+      directorate: "PFY",
+      costCentre: null,
+      entityCode: "CNS",
+      efinanceCode: "CNS",
+    });
   });
 });
 

@@ -48,7 +48,7 @@ describe("authentication", () => {
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/me").set(bearer(token));
     expect(response.status).toBe(200);
-    expect(response.body.orgUnitIds).toHaveLength(11);
+    expect(response.body.orgUnitIds).toHaveLength(12);
   });
 
   it("mints a development token for a seeded user and refuses an unknown one", async () => {

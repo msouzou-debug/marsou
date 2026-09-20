@@ -1,6 +1,7 @@
 /**
- * Seed the eleven org units and their aliases (owner decisions of 19/09/2026:
- * HQ added, the Ambulance Service removed — ADR-0024), one building at
+ * Seed the twelve org units and their aliases (owner decisions of 19/09/2026:
+ * HQ added, the Ambulance Service removed — ADR-0024; and of 20/09/2026:
+ * Community Nursing given its own unit — ADR-0024's addendum), one building at
  * Nicosia General with two floors and six areas, ten development users, the
  * group→role mappings, the 41-project M1 register (see ./seed-projects), the
  * contract register on top of it (see ./seed-contracts), the site log on top
@@ -83,6 +84,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
           directorate: unit.directorate,
           costCentre: unit.costCentre,
           entityCode: unit.entityCode,
+          efinanceCode: unit.efinanceCode,
           timezone: unit.timezone,
         })
         .onConflictDoUpdate({
@@ -95,6 +97,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
             directorate: unit.directorate,
             costCentre: unit.costCentre,
             entityCode: unit.entityCode,
+            efinanceCode: unit.efinanceCode,
             updatedAt: sql`now()`,
           },
         });

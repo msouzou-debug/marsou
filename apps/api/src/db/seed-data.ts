@@ -39,20 +39,26 @@ import type {
 // database that already has them. Nothing here re-homes that work: it is not
 // ΟΚΥπΥ's to carry, and the Excel importer now rejects the «ΥΠΗΡΕΣΙΑ
 // ΑΣΘΕΝΟΦΟΡΩΝ» spelling with V15 rather than resolving it to a unit.
+//
+// TWELVE again (owner decision, 20/09/2026 — ADR-0024's addendum): «Κοινοτική
+// Νοσηλευτική Υπηρεσία» (Community Nursing Service) is a unit of its own,
+// correcting yesterday's errata, which had it filing under HQ with none. See
+// `community-nursing` below and migration 0018, which inserts the row
+// directly — unlike HQ, whose row has only ever come from this seed.
 export interface SeedOrgUnit extends OrgUnit {
   aliases: string[];
 }
 
 // ADR-0024 (owner decision, 19/09/2026) — all three systems key a place by
 // eArchive's site abbreviation, so `code` and `entityCode` are the same
-// string for every unit and ADR-0019's split between the two is closed. The
-// eFinance codes that string replaces (PAP, LGH, ARC, CHR, MH, HC, TRD) are
-// kept as a lookup in ADR-0024 «until eFinance aligns»; nothing reads them
-// from here.
+// string for every unit and ADR-0019's split between the two is closed.
 //
-// One eFinance code still has no eCapital unit, and inventing one would put a
-// fictional service in the capital register: CNS (Κοινοτική Νοσηλευτική
-// Υπηρεσία), Central Nursing Services. Capital work for it files under HQ.
+// ADR-0022's addendum (owner decision, 20/09/2026) — eFinance will not rename
+// its own entity keys after all, so the codes that string replaced (PAP, LGH,
+// ARC, CHR, MH, HC, TRD) are back, permanently this time, as `efinanceCode`:
+// a second column alongside `entityCode`, not a lookup document. Migration
+// 0018 backfills it for the eleven pre-existing units and carries it for CNS
+// from the day the unit opens.
 //
 // The cost centres below are unchanged and deliberately so: a cost centre is
 // SAP's identifier for a place, owned by the Οικονομική Διεύθυνση, and
@@ -66,6 +72,7 @@ const unit = (
   directorate: Directorate,
   costCentre: string | null,
   entityCode: string | null,
+  efinanceCode: string | null,
   aliases: string[],
 ): SeedOrgUnit => ({
   id,
@@ -76,41 +83,52 @@ const unit = (
   directorate,
   costCentre,
   entityCode,
+  efinanceCode,
   timezone: "Europe/Nicosia",
   aliases,
 });
 
 export const seedOrgUnits: SeedOrgUnit[] = [
   unit("nicosia-general", "NGH", "Γενικό Νοσοκομείο Λευκωσίας", "Nicosia General Hospital",
-    "HOSPITAL", "LEFKOSIAS", "CC-NGH-01", "NGH", ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"]),
+    "HOSPITAL", "LEFKOSIAS", "CC-NGH-01", "NGH", "NGH", ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"]),
   unit("larnaca-general", "LAR", "Γενικό Νοσοκομείο Λάρνακας", "Larnaca General Hospital",
-    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-LAR-01", "LAR", ["Γ.Ν. ΛΑΡΝΑΚΑΣ"]),
+    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-LAR-01", "LAR", "LAR", ["Γ.Ν. ΛΑΡΝΑΚΑΣ"]),
   unit("paphos-general", "PAF", "Γενικό Νοσοκομείο Πάφου", "Paphos General Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAF", ["Γ.Ν. ΠΑΦΟΥ"]),
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAF", "PAP", ["Γ.Ν. ΠΑΦΟΥ"]),
   unit("limassol-general", "LGH", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-LMS-01", "LGH", ["Γ.Ν. ΛΕΜΕΣΟΥ"]),
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-LMS-01", "LGH", "LGH", ["Γ.Ν. ΛΕΜΕΣΟΥ"]),
   // Τροόδους keeps both its names and both its spellings; only the code
   // moves, to eArchive's KYP (ADR-0024). Kyperounta and Troodos are one
   // hospital (owner decision, 18/09/2026), which is why eArchive files it
-  // under the Kyperounta abbreviation in the first place.
+  // under the Kyperounta abbreviation in the first place. eFinance still
+  // calls the same place TRD (ADR-0022's addendum) — it never renamed it.
   unit("troodos", "KYP", "Νοσοκομείο Τροόδους", "Troodos Hospital",
     "HOSPITAL", "LEMESOU_PAFOU", "CC-TRD-01",
-    "KYP", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
+    "KYP", "TRD", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
   unit("namiii", "NAM", "Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄", "Archbishop Makarios III Hospital",
-    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "NAM", ["ΝΑΜΙΙΙ"]),
+    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "NAM", "ARC", ["ΝΑΜΙΙΙ"]),
   unit("polis-chrysochous", "POL", "Νοσοκομείο Πόλεως Χρυσοχούς", "Polis Chrysochous Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "POL", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "POL", "CHR", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
   unit("famagusta-general", "FAM", "Γενικό Νοσοκομείο Αμμοχώστου", "Famagusta General Hospital",
-    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-FAM-01", "FAM", ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"]),
+    "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-FAM-01", "FAM", "FAM", ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"]),
   unit("dypsy", "MHS", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services",
-    "SERVICE", "DYPSY", "CC-DYP-01", "MHS", ["ΔΥΨΥ"]),
+    "SERVICE", "DYPSY", "CC-DYP-01", "MHS", "MH", ["ΔΥΨΥ"]),
   unit("pfy", "PHC", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare",
-    "SERVICE", "PFY", "CC-PFY-01", "PHC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
+    "SERVICE", "PFY", "CC-PFY-01", "PHC", "HC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
   // Owner decision, 19/09/2026. No cost centre — Central Administration has
   // never had one in this register, and nothing assigns it one now — and no
   // aliases, for the reason in the header comment above.
   unit("hq", "HQ", "Κεντρικά Γραφεία", "Central Offices",
-    "CENTRAL", "KENTRIKI_DIOIKISI", null, "HQ", []),
+    "CENTRAL", "KENTRIKI_DIOIKISI", null, "HQ", "HQ", []),
+  // Owner decision, 20/09/2026 (ADR-0024's addendum), correcting yesterday's
+  // errata: Community Nursing is a unit of its own, not a gap that files
+  // under HQ. Migration 0018 inserts this same row directly, so a server
+  // that never runs this seed still has it; this entry keeps a re-seed in
+  // step with it and gives the Excel importer the alias to match against if
+  // a future Capex Plan revision ever carries a row for it. No cost centre
+  // and no projects yet — the same starting point HQ had.
+  unit("community-nursing", "CNS", "Κοινοτική Νοσηλευτική Υπηρεσία", "Community Nursing Service",
+    "SERVICE", "PFY", null, "CNS", "CNS", ["ΚΟΙΝΟΤΙΚΗ ΝΟΣΗΛΕΥΤΙΚΗ"]),
 ];
 
 // One building at Nicosia General with two floors and six areas, enough for

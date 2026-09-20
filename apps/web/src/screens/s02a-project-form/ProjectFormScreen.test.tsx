@@ -25,6 +25,7 @@ const orgUnits: OrgUnit[] = [
     directorate: "LEFKOSIAS",
     costCentre: null,
     entityCode: null,
+    efinanceCode: null,
     timezone: "Europe/Nicosia",
   },
 ];
