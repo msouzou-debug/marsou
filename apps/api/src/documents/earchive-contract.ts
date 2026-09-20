@@ -113,9 +113,11 @@ export const SOURCE_SYSTEM = "eCapital";
 export const SENDER_TECHNICAL_SERVICES = "Τεχνικές Υπηρεσίες ΟΚΥπΥ";
 
 /**
- * The eleven site codes. Since ADR-0024 these are exactly `org_unit.code`,
+ * The twelve site codes. Since ADR-0024 these are exactly `org_unit.code`,
  * so nothing translates between the two — the list is here only so a bad
- * `folder_hints` entry fails a test rather than an upload.
+ * `folder_hints` entry fails a test rather than an upload. `CNS` was added
+ * 20/09/2026 (ADR-0024's addendum): Community Nursing files under its own
+ * eArchive folder now, not HQ's.
  */
 export const SITE_CODES = [
   "HQ",
@@ -129,6 +131,7 @@ export const SITE_CODES = [
   "POL",
   "MHS",
   "PHC",
+  "CNS",
 ] as const;
 
 const lowercaseHex64 = z.string().regex(/^[0-9a-f]{64}$/, "sha256 must be lowercase hex");

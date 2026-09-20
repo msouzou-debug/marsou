@@ -532,6 +532,13 @@
                           "null"
                         ]
                       },
+                      "efinanceCode": {
+                        "default": null,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "timezone": {
                         "type": "string",
                         "const": "Europe/Nicosia"
@@ -546,6 +553,7 @@
                       "directorate",
                       "costCentre",
                       "entityCode",
+                      "efinanceCode",
                       "timezone"
                     ],
                     "additionalProperties": false
@@ -35884,6 +35892,13 @@
                                   "null"
                                 ]
                               },
+                              "efinanceCode": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
                               "timezone": {
                                 "type": "string",
                                 "const": "Europe/Nicosia"
@@ -35898,6 +35913,7 @@
                               "directorate",
                               "costCentre",
                               "entityCode",
+                              "efinanceCode",
                               "timezone"
                             ],
                             "additionalProperties": false

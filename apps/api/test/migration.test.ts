@@ -47,7 +47,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0015_m3_permits");
     expect(result.applied).toContain("0016_permit_partial_draft");
     expect(result.applied).toContain("0017_m4_assets");
-    expect(result.lastMigrationId).toBe("0017_m4_assets");
+    expect(result.applied).toContain("0018_cns_unit_and_efinance_codes");
+    expect(result.lastMigrationId).toBe("0018_cns_unit_and_efinance_codes");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -131,6 +132,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0015_m3_permits");
     expect(result.skipped).toContain("0016_permit_partial_draft");
     expect(result.skipped).toContain("0017_m4_assets");
+    expect(result.skipped).toContain("0018_cns_unit_and_efinance_codes");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -339,6 +341,98 @@ describe("migrations", () => {
     await client.end();
     expect(fk).toHaveLength(1);
   });
+
+  /**
+   * The owner's two decisions of 20/09/2026: CNS gets its own unit rather
+   * than filing under HQ, and eFinance's own entity keys are carried
+   * permanently alongside eArchive's, not translated into them. Run on its
+   * own database, the same way 0012's test is: everything up to 0017, then a
+   * register seeded the way a live one looks today, and only then 0018.
+   */
+  it("0018 adds the CNS unit and backfills eFinance's own entity codes", async () => {
+    const legacyDb = "ecapital_migration_0018_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const upTo0017 = files.filter((m) => m.id < "0018");
+      const zeroZeroOneEight = files.find((m) => m.id === "0018_cns_unit_and_efinance_codes");
+      expect(zeroZeroOneEight).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of upTo0017) await client.query(migration.sql);
+
+      // A register as ADR-0024 left it: eArchive codes on both columns,
+      // nothing in efinance_code yet.
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code)
+        values ('nicosia-general', 'NGH', 'Γενικό Νοσοκομείο Λευκωσίας', 'Nicosia General Hospital', 'HOSPITAL', 'LEFKOSIAS', 'NGH'),
+               ('paphos-general', 'PAF', 'Γενικό Νοσοκομείο Πάφου', 'Paphos General Hospital', 'HOSPITAL', 'LEMESOU_PAFOU', 'PAF'),
+               ('troodos', 'KYP', 'Νοσοκομείο Τροόδους', 'Troodos Hospital', 'HOSPITAL', 'LEMESOU_PAFOU', 'KYP'),
+               ('hq', 'HQ', 'Κεντρικά Γραφεία', 'Central Offices', 'CENTRAL', 'KENTRIKI_DIOIKISI', 'HQ')`);
+
+      await client.query(zeroZeroOneEight!.sql);
+
+      // 1. eFinance's own codes are backfilled, differing where ADR-0024
+      //    moved eCapital's own code away from them, equal where it did not.
+      const { rows: units } = await client.query<{ id: string; efinance_code: string | null }>(
+        "select id, efinance_code from ecapital.org_unit where id <> 'community-nursing' order by id",
+      );
+      const byId = new Map(units.map((u) => [u.id, u.efinance_code]));
+      expect(byId.get("nicosia-general")).toBe("NGH");
+      expect(byId.get("paphos-general")).toBe("PAP");
+      expect(byId.get("troodos")).toBe("TRD");
+      expect(byId.get("hq")).toBe("HQ");
+
+      // 2. CNS is a real unit now, not a gap that files under HQ.
+      const { rows: cns } = await client.query<{
+        code: string;
+        name_el: string;
+        name_en: string;
+        type: string;
+        directorate: string;
+        cost_centre: string | null;
+        entity_code: string;
+        efinance_code: string;
+      }>(
+        `select code, name_el, name_en, type, directorate, cost_centre, entity_code, efinance_code
+           from ecapital.org_unit where id = 'community-nursing'`,
+      );
+      expect(cns).toHaveLength(1);
+      expect(cns[0]).toMatchObject({
+        code: "CNS",
+        name_el: "Κοινοτική Νοσηλευτική Υπηρεσία",
+        name_en: "Community Nursing Service",
+        type: "SERVICE",
+        directorate: "PFY",
+        cost_centre: null,
+        entity_code: "CNS",
+        efinance_code: "CNS",
+      });
+
+      // 3. Idempotent: running it again inserts no duplicate and changes
+      //    nothing already correct.
+      await client.query(zeroZeroOneEight!.sql);
+      const { rows: count } = await client.query<{ n: string }>(
+        "select count(*)::text as n from ecapital.org_unit where id = 'community-nursing'",
+      );
+      expect(Number(count[0].n)).toBe(1);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
 
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });
