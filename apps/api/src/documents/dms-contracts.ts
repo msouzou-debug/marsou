@@ -18,6 +18,9 @@ export const DocumentRecord = z.object({
     "PERMIT",
     "PAYMENT_CERT",
     "OTHER",
+    // M4 (R28): an asset's manual, certificate, commissioning pack, warranty,
+    // drawing or photograph.
+    "ASSET_DOCUMENT",
   ]),
   titleEl: z.string(),
   filename: z.string(),

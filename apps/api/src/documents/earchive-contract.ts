@@ -99,6 +99,9 @@ export const SOURCE_MODULES = [
   "variation",
   "permit",
   "payment_cert",
+  // M4 (R28): an asset's O&M manual, certificate, commissioning pack,
+  // warranty, drawing or photo. ADR-0028.
+  "asset_document",
 ] as const;
 
 /** «ΤΥ, Αρχείο Τεχνικών Υπηρεσιών», numbering ΤΥ/2026/00001. */
