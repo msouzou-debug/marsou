@@ -595,8 +595,10 @@ export function useAssetsForUnit(orgUnitId: string) {
   return useQuery({
     queryKey: ["assets-for-unit", orgUnitId],
     queryFn: () =>
+      // RULE (contract `AssetListQuery.pageSize`, apps/api ListQuery): the
+      // API caps pageSize at 100 and 400s a larger one.
       proxyFetch(
-        assetsApiPath({ orgUnitId, sort: "tag", dir: "asc", page: 1, pageSize: 500 }),
+        assetsApiPath({ orgUnitId, sort: "tag", dir: "asc", page: 1, pageSize: 100 }),
         z.object({ items: z.array(AssetListRow), total: z.number().int() }),
       ),
     select: (page) => page.items,

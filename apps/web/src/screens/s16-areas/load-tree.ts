@@ -39,8 +39,12 @@ export async function loadAssetCountsByArea(orgUnitId: string): Promise<Record<s
   const api = await serverApi();
   if (!api) return {};
   try {
+    // RULE (contract `AssetListQuery.pageSize`, apps/api ListQuery): the API
+    // caps pageSize at 100 and 400s a larger one, which this function would
+    // otherwise have silently swallowed into an empty count map (the `catch`
+    // below, per this function's own note above).
     const page = await api.get(
-      `/assets?orgUnitId=${encodeURIComponent(orgUnitId)}&pageSize=500`,
+      `/assets?orgUnitId=${encodeURIComponent(orgUnitId)}&pageSize=100`,
       z.object({ items: z.array(AssetListRow), total: z.number().int() }),
     );
     const counts: Record<string, number> = {};

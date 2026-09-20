@@ -25,8 +25,8 @@
  * column sorts by the API's own `priorityRank` (criticality × condition,
  * computed server-side so every list agrees — contract `AssetListRow`). The
  * column is one more sortable `Table` header, not a second query mode: the
- * whole page already fetches in one call (`pageSize: 200`, an org unit's own
- * register is short) and `Table` already sorts whatever page it holds
+ * whole page already fetches in one call (`pageSize: 100`, the API's own
+ * ceiling — an org unit's own register is short) and `Table` already sorts whatever page it holds
  * client-side (`getSortedRowModel`), the same way every other column does.
  *
  * RULE (build brief item 1): «Εκτύπωση ετικετών» opens the label sheet for

@@ -15,6 +15,15 @@ describe("ConditionChip", () => {
     expect(screen.getByText("Δεν έχει αξιολογηθεί")).toBeInTheDocument();
   });
 
+  // RULE: the placeholder is a sentence — body font and `--k-text`, never
+  // the `num` mono/tabular style reserved for numbers and codes.
+  it("renders the placeholder in the body font, not the mono/num style", () => {
+    renderWithIntl(<ConditionChip value={null} />);
+    const el = screen.getByText("Δεν έχει αξιολογηθεί");
+    expect(el.className).not.toContain("num");
+    expect(el.className).toContain("text-k-text");
+  });
+
   it.each([
     ["A" as const, "bg-k-green-bg"],
     ["B" as const, "bg-k-green-bg"],

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { renderWithIntl } from "@/test/render";
 import { AssetDetail, type AssetDetailProps } from "./AssetDetail";
 
@@ -115,6 +115,24 @@ describe("AssetDetail", () => {
     renderWithIntl(<AssetDetail {...BASE_PROPS} canWrite={false} canRecordCondition={true} />);
     expect(screen.getByText("Καταγραφή κατάστασης")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+  });
+
+  // RULE: the «Φυσική κατάσταση» block shows the placeholder once — the
+  // identity facts still name the condition on their own line (one instance
+  // of «Δεν έχει αξιολογηθεί» there), but the condition block itself must
+  // show only its own «...ακόμη.» sentence, never the chip's identical text
+  // right next to it.
+  it("shows no chip in the condition block, only its own sentence, when condition is null", () => {
+    const asset = { ...BASE_ASSET, condition: null, conditionAssessedAt: null };
+    renderWithIntl(<AssetDetail {...BASE_PROPS} asset={asset} />);
+    // One instance from the identity facts' own ConditionChip, not two.
+    expect(screen.queryAllByText("Δεν έχει αξιολογηθεί")).toHaveLength(1);
+    expect(screen.getByText("Δεν έχει αξιολογηθεί ακόμη.")).toBeInTheDocument();
+
+    const conditionHeading = screen.getByText("Φυσική κατάσταση", { selector: "h2" });
+    const conditionCard = conditionHeading.closest("div.rounded-k") as HTMLElement;
+    expect(within(conditionCard).queryByText("Δεν έχει αξιολογηθεί")).not.toBeInTheDocument();
+    expect(within(conditionCard).getByText("Δεν έχει αξιολογηθεί ακόμη.")).toBeInTheDocument();
   });
 
   it("shows the noPermission node instead of the record", () => {

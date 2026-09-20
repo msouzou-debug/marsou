@@ -15,3 +15,4 @@ This record shows one asset's details: its identity, its whole-life cost, its co
 - **You do not see the condition-recording form.** Only a technician and above may record a condition or a reading.
 - **The acquisition cost shows a dash.** No acquisition cost has been recorded for this asset; maintenance and the replacement estimate still show on their own.
 - **Scanning the label does not find the asset.** The label may be damaged, or the asset may have been disposed of; search the asset register instead.
+- **The reading type does not match earlier readings for the same asset.** The type is a free-text key, not a fixed list; type the same wording every time (for example "run hours") so readings stay comparable.

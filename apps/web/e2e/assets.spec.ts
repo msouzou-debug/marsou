@@ -83,6 +83,24 @@ test("engineer.larnaca creates an asset and prints its label sheet", async ({ pa
   if (tag) await expect(labelPage.getByText(tag)).toBeVisible();
 
   await page.screenshot({ path: `e2e/screenshots/s17a-asset-form-${testInfo.project.name}.png`, fullPage: true });
+  await labelPage.screenshot({ path: `e2e/screenshots/s17b-labels-${testInfo.project.name}.png`, fullPage: true });
+});
+
+test("admin sees the asset register with rows", async ({ page }, testInfo) => {
+  await signIn(page, "admin@ecapital.test");
+  await page.goto("/assets");
+
+  // ASSUMPTION: same skip-cleanly shape as the other tests in this suite —
+  // an empty register means no seed rows yet, not a failing run.
+  const emptyMessage = page.getByText("Δεν υπάρχουν καταχωρισμένα πάγια.");
+  await emptyMessage.waitFor({ timeout: 15_000 }).catch(() => undefined);
+  test.skip(await emptyMessage.isVisible().catch(() => false), "no seeded assets yet");
+
+  await expect(page.getByRole("heading", { name: "Μητρώο παγίων" })).toBeVisible();
+  const rows = page.locator("table tbody tr");
+  await expect(rows.first()).toBeVisible();
+
+  await page.screenshot({ path: `e2e/screenshots/s16a-assets-${testInfo.project.name}.png`, fullPage: true });
 });
 
 test("the replacement forecast shows the seeded years", async ({ page }) => {

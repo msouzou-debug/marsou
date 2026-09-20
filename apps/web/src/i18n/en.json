@@ -1292,7 +1292,7 @@
       "readingForm": {
         "takenAt": "Reading date",
         "readingType": "Reading type",
-        "readingTypePlaceholder": "e.g. RUN_HOURS",
+        "readingTypePlaceholder": "e.g. run hours",
         "value": "Value",
         "unit": "Unit",
         "submit": "Add reading"

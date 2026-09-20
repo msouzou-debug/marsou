@@ -31,8 +31,10 @@ const BG: Record<Condition, string> = {
 
 export function ConditionChip({ value }: ConditionChipProps) {
   const t = useTranslations("components.condition-chip");
+  // RULE: the placeholder is a sentence, not a number or code — body font,
+  // `--k-text`, never the `num`/mono style the A–E chip below uses.
   if (value === null) {
-    return <span className="num text-k-text">{t("notAssessed")}</span>;
+    return <span className="text-k-text">{t("notAssessed")}</span>;
   }
   return (
     <span

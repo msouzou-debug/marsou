@@ -52,7 +52,10 @@ export function AssetsScreen({ orgUnits, roles, noPermission, initialFilters }: 
     sort: "tag",
     dir: "asc",
     page: 1,
-    pageSize: 200,
+    // RULE (contract `AssetListQuery.pageSize`, apps/api ListQuery): the API
+    // caps pageSize at 100 and 400s a larger one — 200 always failed the
+    // register with «Τα κριτήρια της λίστας παγίων δεν είναι σωστά.»
+    pageSize: 100,
   });
 
   let state: AssetsScreenState;

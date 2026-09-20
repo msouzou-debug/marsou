@@ -268,8 +268,12 @@ export function AssetDetail(props: AssetDetailProps) {
           </Card>
 
           <Card title={t("screens.s17.conditionTitle")}>
+            {/* RULE: a null condition already reads as a sentence on its own
+                (ConditionChip's own placeholder) — showing the chip too would
+                repeat «Δεν έχει αξιολογηθεί» right next to this block's own
+                «...ακόμη.» sentence, so the chip only appears once assessed. */}
             <div className="flex items-center gap-s-3">
-              <ConditionChip value={asset.condition} />
+              {asset.condition !== null && <ConditionChip value={asset.condition} />}
               <p className="text-fs-14 text-k-text">
                 {asset.conditionAssessedAt
                   ? t("screens.s17.condition.assessedAt", { date: formatDate(asset.conditionAssessedAt) })
