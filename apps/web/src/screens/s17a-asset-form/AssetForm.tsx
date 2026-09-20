@@ -83,8 +83,16 @@ const SYSTEM_OPTIONS: PermitSystem[] = ["ELECTRICAL", "HVAC", "MEDICAL_GAS", "WA
 function blankToNull(value: string): string | null {
   return value === "" ? null : value;
 }
-function blankToNullNumber(value: string): number | null {
-  return value === "" ? null : Number(value);
+/**
+ * RULE: react-hook-form runs `setValueAs` on the default value at
+ * registration too, and `Number(null)` is 0 — which is how an untouched
+ * «Αναμενόμενη ωφέλιμη ζωή» once reached the API as 0 years and was refused.
+ * Blank, null and undefined are all "not given".
+ */
+export function blankToNullNumber(value: string | number | null | undefined): number | null {
+  if (value === "" || value === null || value === undefined) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isNaN(n) ? null : n;
 }
 
 export interface AssetFormProps {
