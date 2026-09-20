@@ -209,7 +209,7 @@ export function buildHistory(parts: HistoryParts): AssetHistoryEntry[] {
         kind: "CONDITION",
         actorName: row.actorName,
         summaryEl: row.beforeCondition
-          ? `Φυσική κατάσταση: ${row.beforeCondition} σε ${row.afterCondition}`
+          ? `Φυσική κατάσταση: από ${row.beforeCondition} σε ${row.afterCondition}`
           : `Φυσική κατάσταση: ${row.afterCondition}`,
         href,
       });

@@ -183,7 +183,7 @@ describe("buildHistory", () => {
     });
     expect(history[0]).toMatchObject({
       kind: "CONDITION",
-      summaryEl: "Φυσική κατάσταση: B σε C",
+      summaryEl: "Φυσική κατάσταση: από B σε C",
     });
     expect(history[1].kind).toBe("UPDATED");
   });

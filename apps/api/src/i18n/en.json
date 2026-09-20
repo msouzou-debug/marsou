@@ -389,7 +389,7 @@
     "MEDICAL_GAS": "Medical gases",
     "WATER": "Water",
     "FIRE": "Fire",
-    "IT": "IT",
+    "IT": "IT equipment",
     "STEAM": "Steam",
     "DRAINAGE": "Drainage"
   },
@@ -431,7 +431,7 @@
     "FIRE": "Fire safety",
     "LIFT": "Lifts",
     "BIOMEDICAL": "Biomedical equipment",
-    "IT": "IT",
+    "IT": "IT equipment",
     "OTHER": "Other"
   },
   "assetStatus": {
