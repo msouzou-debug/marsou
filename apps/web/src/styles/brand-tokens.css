@@ -27,7 +27,13 @@ body { font-family: var(--okypy-font); color: var(--okypy-text); background: var
 
 h1,h2,h3 { font-family: var(--okypy-font); color: var(--okypy-blue-deep); font-weight: 700; }
 
-a, .okypy-link { color: var(--okypy-blue); }
+/* Layered on purpose: an unlayered rule outranks every Tailwind utility, so
+   a link styled as a filled button (`text-k-white` on `bg-k-blue`) lost its
+   label — a blank blue pill on S02 and the asset register, 20/09/2026. In
+   `base`, `text-k-*` utilities win as they should. */
+@layer base {
+  a, .okypy-link { color: var(--okypy-blue); }
+}
 
 /* accent bars */
 .okypy-bar-bottom { height: 10px; background: var(--okypy-blue); width: 100%; }

@@ -101,7 +101,11 @@ test("admin sees the asset register with rows", async ({ page }, testInfo) => {
   await expect(rows.first()).toBeVisible();
 
   // The primary action carries its label (a blank blue pill was seen on 20/09).
-  await expect(page.getByRole("link", { name: "Προσθήκη", exact: true })).toBeVisible();
+  const addLink = page.getByRole("link", { name: "Προσθήκη", exact: true });
+  await expect(addLink).toBeVisible();
+  // …and is legible: white on the blue pill, not the anchor default blue
+  // (brand-tokens.css's unlayered `a` rule once outranked `text-k-white`).
+  await expect(addLink).toHaveCSS("color", "rgb(255, 255, 255)");
   // A year is never grouped as «2.033».
   await expect(page.locator("tbody").getByText(/^2\.0\d\d$/)).toHaveCount(0);
   await page.screenshot({ path: `e2e/screenshots/s16a-assets-${testInfo.project.name}.png`, fullPage: true });
