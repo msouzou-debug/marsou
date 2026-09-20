@@ -64,4 +64,14 @@ describe("AreaPicker", () => {
     // RULE: no checkbox for an indirect area.
     expect(screen.queryByRole("checkbox", { name: /Θάλαμος 2/ })).not.toBeInTheDocument();
   });
+
+  // M4's asset form: one area per asset, so the picker renders radios, not checkboxes.
+  it("renders radios, not checkboxes, in single mode", async () => {
+    const onToggle = vi.fn();
+    renderWithIntl(<AreaPicker areaTree={TREE} selectedAreaIds={[]} onToggle={onToggle} mode="single" />);
+    expect(screen.getByRole("radio", { name: /Χειρουργείο 1/ })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /Χειρουργείο 1/ }));
+    expect(onToggle).toHaveBeenCalledWith("a1");
+  });
 });

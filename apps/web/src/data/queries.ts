@@ -4,6 +4,8 @@ import {
   AffectedArea,
   ApproverScopes,
   AreaTree,
+  AssetDetail,
+  AssetListRow,
   BudgetCodeList,
   BudgetLine,
   CalendarEntry,
@@ -23,6 +25,8 @@ import {
   ProjectCost,
   ProjectDetail,
   ProjectList,
+  QrLabel,
+  ReplacementForecastRow,
   Rfi,
   RoleCatalogue,
   ShutdownPermit,
@@ -30,6 +34,9 @@ import {
   SystemFeed,
   UnmatchedQueue,
   type AreaType,
+  type AssetClass,
+  type Condition,
+  type AssetStatus,
   type PermitSystem,
   type ProjectListQuery,
 } from "@ecapital/shared";
@@ -523,5 +530,119 @@ export function useApproverScopes(userId: string) {
     queryFn: () => proxyFetch(`/admin/users/${encodeURIComponent(userId)}/approver-scopes`, ApproverScopes),
     retry: false,
     enabled: userId.length > 0,
+  });
+}
+
+// ------------------------------------------------------------ M4 (R26–R30, R45)
+// S16a, S17, S17a, S17b, S17c — `packages/shared/src/asset.ts`. Same shape as
+// every hook above: `proxyFetch`, keyed on the arguments that change the
+// result, `retry: false`.
+
+export interface AssetsListQuery {
+  orgUnitId?: string;
+  areaId?: string;
+  assetClass?: AssetClass;
+  criticality?: number;
+  condition?: Condition;
+  status?: AssetStatus;
+  q?: string;
+  sort?: "tag" | "nameEl" | "criticality" | "condition" | "replacementYear" | "updatedAt";
+  dir?: "asc" | "desc";
+  page: number;
+  pageSize: number;
+}
+
+export function assetsApiPath(query: AssetsListQuery): string {
+  const params = new URLSearchParams();
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  if (query.areaId) params.set("areaId", query.areaId);
+  if (query.assetClass) params.set("assetClass", query.assetClass);
+  if (query.criticality) params.set("criticality", String(query.criticality));
+  if (query.condition) params.set("condition", query.condition);
+  if (query.status) params.set("status", query.status);
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  params.set("sort", query.sort ?? "tag");
+  params.set("dir", query.dir ?? "asc");
+  params.set("page", String(query.page));
+  params.set("pageSize", String(query.pageSize));
+  return `/assets?${params.toString()}`;
+}
+
+// S16a register.
+export function useAssets(query: AssetsListQuery) {
+  return useQuery({
+    queryKey: ["assets", query],
+    queryFn: () => proxyFetch(assetsApiPath(query), z.object({ items: z.array(AssetListRow), total: z.number().int() })),
+    retry: false,
+  });
+}
+
+// S17 detail, S17a's own prefill.
+export function useAsset(id: string) {
+  return useQuery({
+    queryKey: ["asset", id],
+    queryFn: () => proxyFetch(`/assets/${encodeURIComponent(id)}`, AssetDetail),
+    retry: false,
+    enabled: id.length > 0,
+  });
+}
+
+// S16's own asset count per area (item 7): the unit's full list, unpaged —
+// an org unit's own register is short enough that one call and a client-side
+// group-by is simpler than a second, area-scoped endpoint this build brief
+// does not name.
+export function useAssetsForUnit(orgUnitId: string) {
+  return useQuery({
+    queryKey: ["assets-for-unit", orgUnitId],
+    queryFn: () =>
+      proxyFetch(
+        assetsApiPath({ orgUnitId, sort: "tag", dir: "asc", page: 1, pageSize: 500 }),
+        z.object({ items: z.array(AssetListRow), total: z.number().int() }),
+      ),
+    select: (page) => page.items,
+    retry: false,
+    enabled: orgUnitId.length > 0,
+  });
+}
+
+// S16a's «Εκτύπωση ετικετών» and S17b `/assets/labels`.
+export function useAssetLabels(ids: string[]) {
+  return useQuery({
+    queryKey: ["asset-labels", ids],
+    queryFn: () => proxyFetch(`/assets/labels?ids=${ids.map(encodeURIComponent).join(",")}`, z.array(QrLabel)),
+    retry: false,
+    enabled: ids.length > 0,
+  });
+}
+
+// S17a's «Σύμβαση» select, filtered to the asset's unit — `ContractListQuery.unit`.
+export function useContractsForUnit(orgUnitId: string) {
+  return useQuery({
+    queryKey: ["contracts-for-unit", orgUnitId],
+    queryFn: () => proxyFetch(`/contracts?unit=${encodeURIComponent(orgUnitId)}`, ContractList),
+    select: (page) => page.items,
+    retry: false,
+    enabled: orgUnitId.length > 0,
+  });
+}
+
+// S17c replacement forecast.
+export interface ReplacementForecastQuery {
+  from: number;
+  to: number;
+  orgUnitId?: string;
+}
+
+export function replacementForecastApiPath(query: ReplacementForecastQuery): string {
+  const params = new URLSearchParams({ from: String(query.from), to: String(query.to) });
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  return `/assets/replacement-forecast?${params.toString()}`;
+}
+
+export function useReplacementForecast(query: ReplacementForecastQuery) {
+  return useQuery({
+    queryKey: ["replacement-forecast", query],
+    queryFn: () => proxyFetch(replacementForecastApiPath(query), z.array(ReplacementForecastRow)),
+    retry: false,
   });
 }

@@ -13,9 +13,10 @@ import type { AffectedArea, AreaTree } from "@ecapital/shared";
  * |-----------------|-----------------|-------------------------------------------------------------------------|
  * | areaTree        | AreaTree        | The unit's own buildings/floors/areas (`GET /org-units/:id/areas`).      |
  * | selectedAreaIds | string[]        | Directly picked areas — this component is fully controlled.             |
- * | onToggle        | (areaId) => void| Fired when a direct area's checkbox changes.                            |
+ * | onToggle        | (areaId) => void| Fired when a direct area's control changes.                             |
  * | indirectAreas   | AffectedArea[]  | From `GET /areas/impact`, already filtered to `impact === "INDIRECT"`.  |
  * | loadingIndirect | boolean         | True while `/areas/impact` is in flight.                                |
+ * | mode            | "multi" \| "single" | Defaults to "multi" (checkboxes, S11 step 2). "single" (radios, M4's asset form — one area per asset) keeps at most one id in `selectedAreaIds`; clicking the already-picked area is a no-op, same as any radio group. |
  *
  * RULE (§6.1, contract `AffectedArea.impact`): indirect areas are shown in
  * their own list, each labelled «Έμμεση επίπτωση μέσω <system>», and carry no
@@ -33,6 +34,7 @@ export interface AreaPickerProps {
   onToggle: (areaId: string) => void;
   indirectAreas?: AffectedArea[];
   loadingIndirect?: boolean;
+  mode?: "multi" | "single";
 }
 
 export function AreaPicker({
@@ -41,6 +43,7 @@ export function AreaPicker({
   onToggle,
   indirectAreas = [],
   loadingIndirect = false,
+  mode = "multi",
 }: AreaPickerProps) {
   const t = useTranslations();
   const selected = new Set(selectedAreaIds);
@@ -71,7 +74,8 @@ export function AreaPicker({
                       <li key={area.id}>
                         <label className="flex min-h-[44px] items-center gap-s-3 text-fs-16 text-k-ink">
                           <input
-                            type="checkbox"
+                            type={mode === "single" ? "radio" : "checkbox"}
+                            name={mode === "single" ? "area-picker-single" : undefined}
                             checked={selected.has(area.id)}
                             onChange={() => onToggle(area.id)}
                           />

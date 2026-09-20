@@ -192,3 +192,37 @@ export function canRejectPermit(roles: AppRole[]): boolean {
 export function canManageApproverScopes(roles: AppRole[]): boolean {
   return isAdmin(roles);
 }
+
+// ------------------------------------------------------------ M4 (R26–R30, R45)
+//
+// FLAGGED (not settled by an ADR): the owner steer (20/09/2026) fixes the
+// M4 scope but not a role list of its own; the build brief's own instruction
+// ("engineer/estates_head/admin write; technician sees the form read-only
+// except condition") is the only role text M4 gives. This build takes that
+// literally and extends it the same narrow way the M1–M3 helpers above do:
+// the three roles that already run a project's works own the register and
+// its form; a technician — the role that actually stands in front of the
+// asset with a scanned QR — may record a condition reading and a meter
+// reading, never edit the record itself; the forecast is read by the same
+// finance-adjacent roles CAPEX-01 §7 already gives every ledger to. Worth a
+// line in the hand-back summary, same as the contract-write set above.
+
+/** S16a «Προσθήκη», S17a's writable form, S17's «Επεξεργασία» link. */
+export function canWriteAssets(roles: AppRole[]): boolean {
+  return canWriteContracts(roles);
+}
+
+/** S17's «Καταγραφή κατάστασης» and «Μετρήσεις» add form — technician and up. */
+export function canRecordAssetCondition(roles: AppRole[]): boolean {
+  return canWriteAssets(roles) || roles.includes("technician");
+}
+
+/** S17's «Έγγραφα» upload sheet — the register-writing roles, not the technician (CAPEX-01 §4: filed papers, not a field record). */
+export function canUploadAssetDocuments(roles: AppRole[]): boolean {
+  return canWriteAssets(roles);
+}
+
+/** S17c replacement forecast — explicit in the build brief item 6. */
+export function canViewReplacementForecast(roles: AppRole[]): boolean {
+  return roles.some((role) => ["estates_head", "finance", "executive_readonly", "admin"].includes(role));
+}
