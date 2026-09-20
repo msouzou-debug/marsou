@@ -294,11 +294,19 @@ export async function seedAssetRegister(db: Db): Promise<AssetSeedSummary> {
         });
       }
 
-      await db
-        .insert(schema.assetDocument)
-        .values({ assetId, documentId, orgUnitId: fixture.orgUnitId, kind: paper.kind })
-        .onConflictDoNothing();
-      summary.assetDocuments += 1;
+      // No unique key covers (asset, document) in 0017, so "on conflict do
+      // nothing" never fired and every re-seed added two links. Look first.
+      const [linked] = await db
+        .select({ id: schema.assetDocument.id })
+        .from(schema.assetDocument)
+        .where(and(eq(schema.assetDocument.assetId, assetId), eq(schema.assetDocument.documentId, documentId)))
+        .limit(1);
+      if (!linked) {
+        await db
+          .insert(schema.assetDocument)
+          .values({ assetId, documentId, orgUnitId: fixture.orgUnitId, kind: paper.kind });
+        summary.assetDocuments += 1;
+      }
     }
   }
 

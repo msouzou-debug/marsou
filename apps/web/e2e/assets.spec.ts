@@ -59,6 +59,11 @@ test("engineer.larnaca creates an asset and prints its label sheet", async ({ pa
   test.skip(!(await nameField.isVisible().catch(() => false)), "M4 API not merged into this checkout yet");
 
   await nativeFill(nameField, "Δοκιμαστικό κλιματιστικό");
+  // The form has no defaults for the two facts the register cannot do
+  // without (class and criticality); `selectOption` works on the DOM, so it
+  // does not go through the CDP input path nativeClick avoids.
+  await page.getByLabel("Κατηγορία παγίου").selectOption("HVAC");
+  await page.getByLabel("Κρισιμότητα").selectOption("3");
   await nativeClick(page.getByRole("button", { name: "Αποθήκευση" }));
   await page.waitForURL(/\/assets\/[^/]+$/);
 
