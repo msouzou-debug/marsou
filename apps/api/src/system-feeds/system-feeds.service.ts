@@ -21,12 +21,16 @@ export interface SystemFeedWrite {
  * «Pulling a riser feeds theatres two floors up — model that with
  * `serves_area_ids` on the asset, and warn on indirect impact.»
  *
- * The asset register is M4 and the permit module is M3, so a `system_feed`
- * row carries the same fact until `asset.serves_area_ids` exists: this
+ * The asset register is M4 and the permit module was M3, so a `system_feed`
+ * row carried the same fact until `asset.serves_area_ids` existed: this
  * system, from this source area (or from nowhere in particular, meaning the
- * whole unit), serves these areas. ADR-0026 records it as a **seam**, not a
- * second model — when M4 lands, the query behind `GET /areas/impact` changes
- * and nothing above it does.
+ * whole unit), serves these areas. ADR-0026 recorded it as a **seam**, not a
+ * second model.
+ *
+ * M4 has landed (ADR-0028) and the seam held: `impact` below now asks the
+ * asset register first and falls back to the feeds, **per system**, and
+ * nothing above `GET /areas/impact` changed. A unit whose assets are not in
+ * the register yet gets the same answer it always did.
  *
  * RULE (§6.1): an indirect area «counts for routing and for the ICRA risk
  * group exactly like a direct one; the UI only labels them». Nothing in this
@@ -149,14 +153,45 @@ export class SystemFeedsService {
     const picked = areaIds.filter((id) => UUID.test(id));
     if (!picked.length) throw AppError.badRequest("errors.permitAreaNotFound");
 
-    const feeds = systems.length
+    // M4 (ADR-0028): the asset register is what §6.1 always pointed at —
+    // «model that with serves_area_ids on the asset». Where a unit has assets
+    // carrying a system and serving rooms, those assets answer for that
+    // system and `system_feed` is not consulted for it. Where it has none
+    // yet, the feed answers, exactly as it did before M4. The choice is made
+    // **per system**, not per unit: a hospital whose medical gas is in the
+    // register and whose HVAC risers are not gets the right answer for both.
+    const assets = systems.length
+      ? await tx.db
+          .select({
+            system: schema.asset.system,
+            areaId: schema.asset.areaId,
+            servesAreaIds: schema.asset.servesAreaIds,
+          })
+          .from(schema.asset)
+          .where(
+            and(
+              eq(schema.asset.orgUnitId, orgUnitId),
+              inArray(schema.asset.system, systems),
+              // A disposed asset serves nothing; it has left the estate.
+              sql`${schema.asset.status} <> 'DISPOSED'`,
+              sql`cardinality(${schema.asset.servesAreaIds}) > 0`,
+            ),
+          )
+      : [];
+
+    const coveredByAssets = new Set(
+      assets.map((asset) => asset.system).filter((s): s is PermitSystem => s !== null),
+    );
+    const fallbackSystems = systems.filter((system) => !coveredByAssets.has(system));
+
+    const feeds = fallbackSystems.length
       ? await tx.db
           .select()
           .from(schema.systemFeed)
           .where(
             and(
               eq(schema.systemFeed.orgUnitId, orgUnitId),
-              inArray(schema.systemFeed.system, systems),
+              inArray(schema.systemFeed.system, fallbackSystems),
             ),
           )
       : [];
@@ -164,6 +199,20 @@ export class SystemFeedsService {
     // `viaSystem` records which system carried the impact, so S11 can say
     // «έμμεσα, μέσω ιατρικών αερίων» rather than just «έμμεσα».
     const indirect = new Map<string, PermitSystem>();
+    // RULE (§6.1, ADR-0028): an asset that carries one of the chosen systems
+    // and records what it serves fires on the system alone, wherever it
+    // happens to stand. A feed needed `source_area_id` as a proxy for «is
+    // this riser in the work zone» because it described a system and not a
+    // thing; the asset **is** the thing, and taking its system down in its
+    // unit interrupts what it serves whichever room the work is in. It warns
+    // more often than the feed did in one case — a plant-room asset — which
+    // is the right way round for medical gas (ADR-0026's own reasoning).
+    for (const asset of assets) {
+      if (!asset.system) continue;
+      for (const served of asset.servesAreaIds) {
+        if (!indirect.has(served)) indirect.set(served, asset.system);
+      }
+    }
     for (const feed of feeds) {
       const fires = feed.sourceAreaId === null || picked.includes(feed.sourceAreaId);
       if (!fires) continue;
