@@ -15,3 +15,4 @@ export * from "./cost";
 export * from "./portfolio";
 export * from "./directorate-labels";
 export * from "./permit";
+export * from "./asset";
