@@ -214,6 +214,9 @@ class SRALine:
     source_report: str = "" # which HIO report supports the line
     date: str = ""          # invoice date dd/mm/yyyy — separates current-month
                             # corrections from prior-month ones
+    doctor: str = ""        # ΟΑΥ's doctor code (D####) when the line names one:
+                            # the per-doctor OS adjustments and the PD quality
+                            # criteria are paid doctor by doctor
     cheque: str = ""        # which cheque paid this line (a month can be
                             # settled by several) — lets a cross-check compare
                             # like with like when a source file covers only one
@@ -386,6 +389,10 @@ class XMLActivity:
     # explanation for a small residual, so it is shown, not guessed at
     date_from: str = ""
     date_to: str = ""
+    # ProfessionalId → ProfessionalName.  ΟΑΥ writes only the doctor's CODE on
+    # the SRA's per-doctor adjustment lines, and only the doctor's NAME on the
+    # claims file that carries the speciality — this is the bridge between them.
+    by_professional: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -400,6 +407,11 @@ class SimpleReport:
     stated_total: Optional[float] = None      # the report's own printed total
     # («Dxxxx Greek name», sum) rows — capitation per-doctor detail
     by_doctor: list[tuple[str, float]] = field(default_factory=list)
+    # «child» / «adult» → sum.  The capitation report lists every Personal
+    # Doctor's age bands, and the bands say which register the doctor keeps:
+    # a hospital's own revenue is the CHILDREN's half — the adults' Personal
+    # Doctors belong to ΔΠΦΥ and are settled between companies.
+    by_cohort: dict[str, float] = field(default_factory=dict)
 
     @property
     def doctor_total(self) -> float:

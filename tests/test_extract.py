@@ -397,3 +397,50 @@ def test_an_otc_reversal_is_a_pharmacy_adjustment_not_an_outpatient_line():
     code, bucket, _ch, _src = classify_sra_line(
         "", "30/06/2026 RVRSL OTC- RVRSL OTC-CORR-VAT-06-2026 3,148.07 EUR")
     assert (code, bucket) == ("PH-ADJ", Bucket.PHARMA)
+
+
+def test_the_doctor_code_is_read_even_when_οαυ_wraps_it_onto_the_next_line():
+    """The per-doctor outpatient adjustments name the doctor only by code, and
+    the description column is too narrow to hold it: ΟΑΥ prints «Met D2012» on
+    the following line.  Without that code the adjustment cannot reach the
+    clinic that earned it."""
+    from recon.extract import parse_sra_text
+    sra = parse_sra_text(
+        "Payment/Cheque No: 273478\n"
+        "31/08/2026 ADJ-New Reimb ADJ-New Reimb Method-OS-Aug26- 34.97 EUR 34.97\n"
+        "Met D2012\n"
+        "31/08/2026 ADJ-New Reimb ADJ-New Reimb Method-OS-Aug26- 12.04 EUR 12.04\n"
+        "Met D2019\n"
+        "31/08/2026 KPIs-08-2026- PD-KPIs-08-2026-CHILD-D1737 206.77 EUR 206.77\n"
+        "ΣΥΝΟΛΟ 253.78\n")
+    adj = [l for l in sra.lines if l.code == "OS-ADJ"]
+    assert [l.doctor for l in adj] == ["D2012", "D2019"]
+    assert [l.amount for l in adj] == [34.97, 12.04]
+    # a line that carries the code inside its own description needs no lookahead
+    kpi = [l for l in sra.lines if l.code == "PD-KPI"]
+    assert kpi and kpi[0].doctor == "D1737"
+    # and the codes never leak onto the line above them
+    assert sra.lines_total == 253.78
+
+
+def test_the_capitation_report_says_which_doctors_keep_the_children():
+    """A children's Personal Doctor is paid for the 0-3 / 4-7 / 8-14 age
+    bands, an adults' one for 18-50 / 51-70 / 71-999.  Only the children's
+    half is a hospital's own revenue, so the split has to come off the report
+    rather than be apportioned."""
+    from recon.extract import _simple_from_text
+    rep = _simple_from_text(
+        "6173500 F1025 ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΠΑΦΟΥ STANDARD 31/08/2026 20,248.86 €\n"
+        "D1233 TANIA ATHANASIOU / TANIA Ηλικίες Συνολικός 6,084.43 €\n"
+        "18 - 50 years - 0.181 292 9152 1,656.08 €\n"
+        "71 - 999 years - 0.317 234 7276 2,304.77 €\n"
+        "D1317 NIKOLAOS TZAGKARAKIS / NIKOLAOS Ηλικίες Συνολικός 14,164.43 €\n"
+        "15 - 17 years - 0.220 2 78 17.16 €\n"
+        "51 - 70 years - 0.256 519 16113 4,121.68 €\n"
+        "6174013 F1025 ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΠΑΦΟΥ STANDARD 31/08/2026 8,657.20 €\n"
+        "D1737 ΑΡΤΕΜΙΣ ΠΟΛΥΚΑΡΠΟΥ / ARTEMIS Ηλικίες Συνολικός 8,657.20 €\n"
+        "0 - 3 years - 0.508 32 980 497.60 €\n"
+        "15 - 17 years - 0.220 28 877 192.94 €\n")
+    assert rep.total == 28_906.06
+    assert rep.by_cohort == {"adult": 20_248.86, "child": 8_657.20}
+    assert round(sum(rep.by_cohort.values()), 2) == rep.total

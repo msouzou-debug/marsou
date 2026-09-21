@@ -805,6 +805,14 @@ function journalLines(section, lookup) {
 /* A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
  * account and which flavour of the clinic's cost centre it posts to. */
 const LINE_KINDS = [
+  /* the adults' Personal Doctors belong to ΔΠΦΥ: their money is not our
+   * revenue, so no revenue account of ours is written — the line is listed on
+   * the check sheet for the intercompany account to be filled in */
+  ['ΔΠΦΥ', 'intercompany', 'general'],
+  /* ΟΑΥ labels the hemodialysis adjustment «ADJ-IS», but the treatment is day
+   * care: it posts to 412005, at the unit's own ΑΙΜΟΚΑΘΑΡΣΗ centre */
+  ['ΑΙΜΟΚΑΘΑΡΣΗ', 'inpatient_daily', 'general'],
+  ['HEMODIALYSIS', 'inpatient_daily', 'general'],
   ['ΠΟΙΟΤΙΚΑ', 'quality', 'general'],
   ['ΣΤΑΘΕΡΕΣ ΧΡΕΩΣΕΙΣ', 'oncall', 'general'],
   ['ΕΜΒΟΛΙΑΣΜ', 'vaccines', 'general'],
@@ -850,6 +858,7 @@ function journalLinesByStream(section, lookup) {
   const out = [];
   const missing = new Map();
   const why = new Map();
+  const noAccount = new Map();
   const code = b.hospitalCode || '';
   const master = b.sap || null;
   const company = master ? companyFor(code) : '';
@@ -879,8 +888,16 @@ function journalLinesByStream(section, lookup) {
           if (centre) { kostl = centre.code; text = centre.name; }
         }
         const [account] = master ? sapAccount(master, partKind) : ['', ''];
+        /* the ΔΠΦΥ half of the Personal Doctors is not our revenue at all: no
+         * account of ours may be written on it, not even the default, or the
+         * money lands in outpatient income */
+        const foreign = partKind === 'intercompany';
         out.push({ kostl, aufnr, text: text || row.label, account,
+                   needsAccount: foreign ? 'ΔΠΦΥ (intercompany)' : '',
                    professional: stream, amount: round2(amount) });
+        if (foreign) {
+          noAccount.set(row.label, round2((noAccount.get(row.label) || 0) + amount));
+        }
         if (!kostl) {
           missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
           why.set(row.label, master
@@ -900,7 +917,7 @@ function journalLinesByStream(section, lookup) {
                text: 'TO CLASSIFY (split vs SRA)',
                professional: '', amount: residual });
   }
-  return { lines: out, missing, why };
+  return { lines: out, missing, why, noAccount };
 }
 
 function journalLinesByProfessional(section, lookup) {
@@ -992,6 +1009,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
   let r = 4;
   const missing = new Map();
   const why = new Map();
+  const noAccount = new Map();
   const docs = [];
   for (const section of sections) {
     const b = section.result.bundle;
@@ -1002,6 +1020,9 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
       missing.set(k, round2((missing.get(k) || 0) + v));
     }
     for (const [k, v] of (built.why || [])) why.set(k, v);
+    for (const [k, v] of (built.noAccount || [])) {
+      noAccount.set(k, round2((noAccount.get(k) || 0) + v));
+    }
     const lines = built.lines;
     const headRow = r;
     const head = [docDate, { formula: `A${headRow}` }, SAP_DEFAULTS.docType, company,
@@ -1025,7 +1046,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
         SAP_DEFAULTS.creditAccount, '', ln.amount, SAP_DEFAULTS.tax,
         ln.kostl, ln.aufnr, '', '', '', company, sgtxt, '', '', '', cheque,
         ln.professional];
-      line[9] = ln.account || SAP_DEFAULTS.creditAccount;
+      line[9] = ln.account || (ln.needsAccount ? '' : SAP_DEFAULTS.creditAccount);
       line.forEach((v, j) => {
         const c = ws.getCell(r, j + 1);
         c.value = v;
@@ -1037,7 +1058,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     }
     docs.push({ cheque, label: section.label, headRow, stated: b.sra.statedTotal });
   }
-  const info = { last: r - 1, docs, missing, why, masterSeen: !!master };
+  const info = { last: r - 1, docs, missing, why, noAccount, masterSeen: !!master };
   if (inlineChecks) sapChecks(ws, info, r + 1, zeroChecks);
   autosize(ws);
   ws.columns.forEach((col) => { col.width = Math.min(col.width || 12, 26); });
@@ -1075,6 +1096,23 @@ function sapChecks(ws, info, row, zeroChecks) {
     r += 1;
   }
   sapMissingNote(ws, info, r + 1);
+}
+
+function sapForeignNote(ws, info, r) {
+  /* Lines that must NOT take one of our revenue accounts: the ΔΠΦΥ half of
+   * the Personal Doctors.  They are left blank on purpose and listed here. */
+  const worth = [...(info.noAccount || new Map()).entries()]
+    .filter(([, v]) => Math.abs(v) > 0.005);
+  if (!worth.length) return r;
+  worth.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const note = ws.getCell(r, 1);
+  note.value = 'Γραμμές χωρίς λογαριασμό εσόδων — δεν είναι δικό μας έσοδο αλλά '
+    + 'intercompany με τη ΔΠΦΥ· συμπληρώστε τον λογαριασμό πριν την ανάρτηση '
+    + '(lines left with no revenue account, ΔΠΦΥ intercompany): '
+    + worth.map(([k, v]) => `${k} — ${formatEur(v)}`).join(' · ');
+  note.font = F_AMBER;
+  note.alignment = { wrapText: true, vertical: 'top' };
+  return r + 2;
 }
 
 function sapMissingNote(ws, info, r) {
@@ -1190,7 +1228,7 @@ function tabSapChecks(wb, info, zeroChecks) {
     zeroChecks.push({ sheet: 'Έλεγχος_SAP', addr: `D${r}` });
     r += 1;
   }
-  sapMissingNote(ws, info, r + 1);
+  sapMissingNote(ws, info, sapForeignNote(ws, info, r + 1));
   autosize(ws);
 }
 

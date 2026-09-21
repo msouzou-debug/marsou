@@ -804,3 +804,54 @@ def test_a_pd_cap_line_of_its_own_is_left_alone():
     rows = {r.label: r.amount for sec in res.split for r in sec.rows}
     assert next(v for k, v in rows.items() if "κατά κεφαλήν" in k) == 13_729.74
     assert not any("εξωνοσοκομειακές" in k for k in rows)   # no PD daily lines
+
+
+def test_the_personal_doctors_are_split_into_the_two_registers():
+    """A hospital's own revenue is the CHILDREN's Personal Doctors; the
+    adults' belong to ΔΠΦΥ and are settled between companies.  Each half comes
+    off a report that states it, and the two must add back to ΟΑΥ's line."""
+    from recon.checks import _pd_rows
+    from recon.models import Bucket
+    from recon.checks import SplitSection
+    sec = SplitSection("Εξωνοσοκομειακή", Bucket.OUTPATIENT)
+    _pd_rows(sec, 28_906.06, {"child": 8_657.20, "adult": 20_248.86},
+             "κατά κεφαλήν (capitation)")
+    labels = [r.label for r in sec.rows]
+    assert "Παιδιών" in labels[0] and sec.rows[0].amount == 8_657.20
+    assert "ΔΠΦΥ" in labels[1] and sec.rows[1].amount == 20_248.86
+    assert round(sum(r.amount for r in sec.rows), 2) == 28_906.06
+
+
+def test_a_personal_doctors_line_that_does_not_add_back_is_left_whole():
+    """Never apportion: halves that do not reconcile to ΟΑΥ's own line mean
+    the reports disagree, and the line stays as ΟΑΥ paid it."""
+    from recon.checks import _pd_rows, SplitSection
+    from recon.models import Bucket
+    sec = SplitSection("Εξωνοσοκομειακή", Bucket.OUTPATIENT)
+    _pd_rows(sec, 28_906.06, {"child": 8_657.20, "adult": 19_000.00}, "κατά κεφαλήν")
+    assert len(sec.rows) == 1
+    assert sec.rows[0].amount == 28_906.06
+    assert "Παιδιών" not in sec.rows[0].label
+
+
+def test_the_outpatient_adjustments_reach_the_clinic_that_earned_them():
+    """ΟΑΥ pays them per doctor and names only the code; the activity export
+    turns the code into a name and the claims file the name into a speciality."""
+    from recon.checks import _os_adjustments_by_specialty
+    from recon.models import ClaimsAll, SRALine, XMLActivity, Bucket, SRA
+    bundle = ReconBundle(hospital_code="F1025", year=2026, month=8)
+    bundle.claims = ClaimsAll(by_doctor=[
+        ("Outpatient Specialists", "ORTHOPAEDICS", "ΕΥΑΝΘΗΣ ΞΕΝΗΣ / EVANTHIS", 100.0),
+        ("Outpatient Specialists", "CARDIOLOGY", "ΜΑΡΙΑ ΠΑΥΛΟΥ / MARIA", 50.0)])
+    bundle.xml_activity = XMLActivity(by_professional={
+        "D2012": "ΕΥΑΝΘΗΣ ΞΕΝΗΣ / EVANTHIS", "D2019": "ΜΑΡΙΑ ΠΑΥΛΟΥ / MARIA"})
+    line = lambda doc, amt: SRALine(                       # noqa: E731
+        code="OS-ADJ", description="ADJ-New Reimb Method-OS", amount=amt,
+        bucket=Bucket.OUTPATIENT, doctor=doc)
+    sra = SRA(cheque_no="1", stated_total=0.0,
+              lines=[line("D2012", 34.97), line("D2019", 12.04),
+                     line("", 5.00), line("D9999", 1.00)])
+    by_spec, left = _os_adjustments_by_specialty(bundle, sra)
+    assert by_spec == {"ORTHOPAEDICS": 34.97, "CARDIOLOGY": 12.04}
+    # a code the reports cannot resolve is NOT spread over the clinics
+    assert left == 6.00

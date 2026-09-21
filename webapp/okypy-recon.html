@@ -1886,6 +1886,27 @@ const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d
 /* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
 const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s*$/;
 
+const SRA_DOCTOR_CODE_RE = /\b([A-Z]\d{3,5})\b/;
+
+function sraDoctorCode(desc, rawLines, n) {
+  /* ΟΑΥ's doctor code for a line, «D2012».
+   *
+   * Some lines carry it inside the description («PD-KPIs-08-2026-ADULT-D1233»);
+   * on the per-doctor OS adjustments the description column is too narrow and
+   * the code wraps onto the next printed line («Met D2012»).  Only a WRAPPED
+   * fragment is read — a line that parses as an invoice row of its own is the
+   * next payment, not this one's tail. */
+  const m = String(desc || '').match(SRA_DOCTOR_CODE_RE);
+  if (m) return m[1];
+  for (const nxt of rawLines.slice(n + 1, n + 3)) {
+    if (!nxt.trim()) break;
+    if (INVOICE_LINE_RE.test(nxt) || SRA_LINE_RE.test(nxt)) break;
+    const c = nxt.match(SRA_DOCTOR_CODE_RE);
+    if (c) return c[1];
+  }
+  return '';
+}
+
 function parseSraText(text) {
   let cheque = '';
   const cm = stripAccents(text).match(CHEQUE_RE);
@@ -1893,7 +1914,9 @@ function parseSraText(text) {
 
   const lines = [];
   let statedTotal = null;
-  for (const raw of String(text).split('\n')) {
+  const rawLines = String(text).split('\n');
+  for (let n = 0; n < rawLines.length; n++) {
+    const raw = rawLines[n];
     const line = raw.replace(/\s+$/, '');
     if (!line.trim()) continue;
     const up = stripAccents(line);
@@ -1904,7 +1927,8 @@ function parseSraText(text) {
       const amount = parseAmount(inv[6]);   // Amount Paid column
       const [canon, bucket, channel, src] = classifySraLine('', desc);
       lines.push({ code: canon, description: `${desc} (${inv[1]} #${inv[2]})`,
-                   amount, bucket, channel, sourceReport: src, date: inv[1] });
+                   amount, bucket, channel, sourceReport: src, date: inv[1],
+                   doctor: sraDoctorCode(desc, rawLines, n) });
       continue;
     }
     const m = line.match(SRA_LINE_RE);
@@ -1924,7 +1948,8 @@ function parseSraText(text) {
     const [canon, bucket, channel, src] = classifySraLine(code, desc || code);
     const dm = `${code} ${desc}`.trim().match(LEAD_DATE_RE);
     lines.push({ code: canon, description: desc || canon, amount, bucket,
-                 channel, sourceReport: src, date: dm ? dm[1] : '' });
+                 channel, sourceReport: src, date: dm ? dm[1] : '',
+                 doctor: sraDoctorCode(desc || code, rawLines, n) });
   }
   if (!lines.length) throw new ExtractionError('SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF');
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
@@ -2163,17 +2188,25 @@ function extractXmlActivity(bytes) {
   const claims = new Set();
   const byPayment = {};
   const byClaim = {};
+  /* ProfessionalId → ProfessionalName: ΟΑΥ writes only the doctor's CODE on
+   * the SRA's per-doctor adjustment lines and only the doctor's NAME on the
+   * claims file that carries the speciality — this is the bridge. */
+  const byProfessional = {};
   // group per <Claim>: each carries ClaimPaymentNumber (the SRA cheque that
   // paid it) — the join key for the payment-number gate
   for (const claim of doc.getElementsByTagName('*')) {
     if (claim.localName.toLowerCase() !== 'claim') continue;
     let pay = '', cid = '', amt = 0, hasAmount = false;
+    let profId = '', profName = '';
     for (const el of claim.getElementsByTagName('*')) {
       const tag = el.localName.toLowerCase();
       if (tag === 'activityreimbursementamount') { amt += parseAmount(el.textContent); hasAmount = true; }
       else if (tag === 'claimid' && el.textContent) { cid = el.textContent.trim(); claims.add(cid); }
       else if (tag === 'claimpaymentnumber' && el.textContent) pay = el.textContent.trim();
+      else if (tag === 'professionalid' && el.textContent) profId = el.textContent.trim();
+      else if (tag === 'professionalname' && el.textContent) profName = el.textContent.trim();
     }
+    if (profId && profName) byProfessional[profId] = profName;
     total += amt;
     if (hasAmount) {
       found = true;
@@ -2198,7 +2231,8 @@ function extractXmlActivity(bytes) {
     if (tag === 'claimsdatefrom' && el.textContent) dateFrom = el.textContent.trim().slice(0, 10);
     else if (tag === 'claimsdateto' && el.textContent) dateTo = el.textContent.trim().slice(0, 10);
   }
-  return { total: round2(total), nClaims: claims.size, byPayment, byClaim, dateFrom, dateTo };
+  return { total: round2(total), nClaims: claims.size, byPayment, byClaim,
+           dateFrom, dateTo, byProfessional };
 }
 
 function extractActivityTable(bytes) {
@@ -2213,8 +2247,10 @@ function extractActivityTable(bytes) {
     const amt = colIndex(cols, 'ACTIVITYREIMBURSEMENTAMOUNT', 'ACTIVITY REIMBURSEMENT AMOUNT');
     const cid = colIndex(cols, 'CLAIMID', 'CLAIM ID');
     const pay = colIndex(cols, 'CLAIMPAYMENTNUMBER', 'CLAIM PAYMENT NUMBER');
+    const pid = colIndex(cols, 'PROFESSIONALID', 'PROFESSIONAL ID');
+    const pname = colIndex(cols, 'PROFESSIONALNAME', 'PROFESSIONAL NAME');
     const out = { total: 0, nClaims: 0, byPayment: {}, byClaim: {},
-                  dateFrom: '', dateTo: '' };
+                  dateFrom: '', dateTo: '', byProfessional: {} };
     const claims = new Set();
     for (const row of body) {
       if (amt == null || !isNumberLike(row[amt])) continue;
@@ -2228,6 +2264,11 @@ function extractActivityTable(bytes) {
       let p = pay != null && row[pay] != null ? cellText(row[pay]).trim().split('.')[0] : '';
       if (p === 'nan') p = '';
       out.byPayment[p] = round2((out.byPayment[p] || 0) + a);
+      if (pid != null && pname != null) {
+        const code = cellText(row[pid]).trim();
+        const name = cellText(row[pname]).trim();
+        if (code && code !== 'nan' && name !== 'nan') out.byProfessional[code] = name;
+      }
     }
     out.nClaims = claims.size;
     for (const [needle, attr] of [['CLAIMSDATEFROM', 'dateFrom'], ['CLAIMSDATETO', 'dateTo']]) {
@@ -2317,6 +2358,47 @@ function doctorRows(text) {
   return [...sums.entries()];
 }
 
+const AGE_BAND_RE = /^\s*(\d{1,3})\s*-\s*(\d{1,3})\s+years/i;
+
+function doctorCohorts(text) {
+  /* How much capitation each cohort earned — «child» and «adult».
+   *
+   * ΟΑΥ prints each Personal Doctor's age bands right under the doctor's own
+   * total: a children's doctor carries the 0-3 / 4-7 / 8-14 bands, an adults'
+   * doctor the 18-50 / 51-70 / 71-999 ones.  The 15-17 band appears on both
+   * registers, so it decides nothing on its own and is ignored here. */
+  const out = {};
+  let code = '';
+  let bands = [];
+  const flush = () => {
+    if (!code || !bands.length) return;
+    const kind = bands.some(([lo]) => lo < 15) ? 'child'
+      : bands.some(([lo]) => lo >= 18) ? 'adult' : '';
+    if (kind) out[code] = kind;
+  };
+  for (const raw of String(text).split('\n')) {
+    const m = raw.match(DOCTOR_LINE_RE);
+    if (m) { flush(); code = m[1]; bands = []; continue; }
+    const b = raw.match(AGE_BAND_RE);
+    if (b) bands.push([Number(b[1]), Number(b[2])]);
+  }
+  flush();
+  return out;
+}
+
+function cohortTotals(rows, text) {
+  /* The per-doctor sums added up per cohort.  A doctor whose age bands do not
+   * say which register they keep is left out — the split is then reported as
+   * incomplete rather than guessed. */
+  const kinds = doctorCohorts(text);
+  const out = {};
+  for (const [key, amount] of rows) {
+    const kind = kinds[String(key || '').split(' ')[0]];
+    if (kind) out[kind] = round2((out[kind] || 0) + amount);
+  }
+  return out;
+}
+
 function simpleFromText(text) {
   // invoice-level rows first (real capitation reports: «5729128 F1049 ...
   // STANDARD 31/03/2026 5,174.80 €» followed by per-doctor / per-age detail
@@ -2329,8 +2411,10 @@ function simpleFromText(text) {
     }
   }
   if (invoiceRows.length) {
+    const rows = doctorRows(text);
     return { total: round2(invoiceRows.reduce((a, [, v]) => a + v, 0)),
-             lines: invoiceRows, byDoctor: doctorRows(text) };
+             lines: invoiceRows, byDoctor: rows,
+             byCohort: cohortTotals(rows, text) };
   }
   const lines = [];
   let total = null;
@@ -2347,7 +2431,9 @@ function simpleFromText(text) {
   const stated = total;
   const computed = round2(lines.reduce((a, [, v]) => a + v, 0));
   total = lines.length ? computed : (total != null ? total : 0);
-  return { total: round2(total), lines, statedTotal: stated, byDoctor: doctorRows(text) };
+  const rows = doctorRows(text);
+  return { total: round2(total), lines, statedTotal: stated, byDoctor: rows,
+           byCohort: cohortTotals(rows, text) };
 }
 
 /* ------------------------------------------------------------ dispatcher */
@@ -2770,7 +2856,7 @@ function monthEnd(year, month) {
  * Written in docs/MANUAL.md and rendered here by tools/embed_manual.py, so the
  * panel in the app and the manual in the repository are one text. */
 
-const MANUAL_HTML = '<h2>Εγχειρίδιο χρήσης — Συμφωνία Πληρωμών ΟΑΥ (User manual)</h2>\n<p>Εργαλείο ΟΚΥπΥ για τη μηνιαία συμφωνία των πληρωμών ΟΑΥ (ΓεΣΥ) ανά νοσοκομείο και για την ετοιμασία των λογιστικών εγγραφών προς το SAP.</p>\n<hr>\n<h3>1. Τι κάνει το εργαλείο (what it does)</h3>\n<p>Διαβάζει τις μηνιαίες αναφορές που εκδίδει ο ΟΑΥ για ένα νοσοκομείο, τις διασταυρώνει μεταξύ τους και με την επιταγή (SRA), και παράγει:</p>\n<ol><li><strong>Βιβλίο συμφωνίας</strong> (<code>..._Reconciliation.xlsx</code>) — η ανάλυση του SRA, οι τέσσερις κάδοι ταμειακού διακανονισμού, οι διασταυρώσεις με τις πηγές και ο επιμερισμός εσόδων ανά κλινική.</li><li><strong>Αρχείο εγγραφών SAP</strong> (<code>..._SAP_JOURNAL_ENTRIES.xlsx</code>) — οι ίδιες εγγραφές στη διάταξη που ανεβάζει το Λογιστήριο στο SAP, κωδικοποιημένες με εταιρεία, λογαριασμό εσόδων και κέντρο κόστους.</li></ol>\n<p>Τίποτα δεν αποθηκεύεται και τίποτα δεν στέλνεται έξω: όλα τρέχουν στον browser σας (ή στον εσωτερικό server, για την έκδοση Streamlit) και σβήνουν μόλις κλείσετε τη σελίδα. Δεν υπάρχει βάση δεδομένων, ούτε σύνδεση χρήστη.</p>\n<h3>2. Βήμα προς βήμα (step by step)</h3>\n<ol><li>Ανοίξτε το <code>okypy-recon.html</code> (διπλό κλικ — δεν χρειάζεται εγκατάσταση).</li><li>Σύρετε στο πλαίσιο <strong>όλα</strong> τα αρχεία ενός νοσοκομείου για <strong>έναν</strong> μήνα.</li><li>Ελέγξτε τον πίνακα αναγνώρισης: κάθε αρχείο πρέπει να δείχνει είδος αναφοράς, νοσοκομείο και μήνα. Αρχείο που δεν αναγνωρίστηκε εμφανίζεται με προειδοποίηση και αγνοείται.</li><li>Πατήστε <strong>Εκτέλεση συμφωνίας</strong>. Το κουμπί ενεργοποιείται μόλις συμπληρωθεί το απαραίτητο σετ (ή όταν τσεκάρετε τη λειτουργία διασταύρωσης).</li><li>Διαβάστε τη σύνοψη στην οθόνη: σύνολο επιταγής, οι τέσσερις κάδοι, τα zero-checks και τυχόν ανοικτές διαφορές.</li><li>Κατεβάστε το βιβλίο συμφωνίας και — όταν υπάρχει SRA — το αρχείο SAP.</li></ol>\n<p><strong>Ένα νοσοκομείο, ένας μήνας ανά εκτέλεση.</strong> Μικτή παρτίδα (δύο νοσοκομεία ή δύο μήνες) απορρίπτεται με σαφές μήνυμα.</p>\n<p>Το SRA φέρει <strong>πάντα</strong> ημερομηνία του επόμενου μήνα — ο ΟΑΥ πληρώνει με καθυστέρηση. Ο μήνας υπηρεσιών προκύπτει αυτόματα (ημερομηνία − 1 μήνας).</p>\n<h3>3. Ποια αρχεία ανεβάζετε (which files)</h3>\n<p><strong>Απαραίτητα</strong></p>\n<table><thead><tr><th>#</th><th>Αναφορά</th><th>Μορφή</th></tr></thead><tbody><tr><td>1</td><td>SRA / Κατάσταση Πληρωμής (Remittance Advice) — η επιταγή</td><td>PDF (πάντα)</td></tr><tr><td>2</td><td>Ενδ. Πληρωμένες Απαιτήσεις (ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ)</td><td>Excel / XML / PDF</td></tr><tr><td>3</td><td>Πληρωμένες Απαιτήσεις «all» (στήλη DR SEGMENT)</td><td>Excel / XML / PDF</td></tr><tr><td>4</td><td>Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ (στήλη TYPE)</td><td>Excel / XML / PDF</td></tr><tr><td>5</td><td>Αμοιβή Φαρμακοποιού (συσκευασίες × 1,60 €)</td><td>PDF</td></tr></tbody></table>\n<p><strong>Υπό προϋπόθεση</strong> — μόνο όταν το SRA έχει αντίστοιχη γραμμή: Capitation Report, Ποιοτικά Κριτήρια (PD-KPIs, MRI/CT), μηνιαία αναφορά Αιμοκάθαρσης.</p>\n<p><strong>Προαιρετικά</strong> — δεν μπλοκάρουν ποτέ την εκτέλεση, αλλά προσθέτουν διασταυρώσεις: XML activity export, OKYPY ALL GL extract, IS Auditor Report, μητρώο προσωπικού, πίνακας κέντρων κόστους.</p>\n<p>Η αναγνώριση γίνεται <strong>από το περιεχόμενο, ποτέ από το όνομα</strong>. Ο ΟΑΥ συχνά ονομάζει το αρχείο «all» ως «..._OS_...» ενώ περιέχει όλα τα segments.</p>\n<p>Αν το PDF του SRA είναι σκαναρισμένο και δεν διαβάζεται, ανοίξτε τη <strong>Χειροκίνητη επιλογή</strong> και επικολλήστε το κείμενο του SRA — το εργαλείο δεν μαντεύει ποτέ ποσό.</p>\n<h3>4. Λειτουργία διασταύρωσης (cross-check mode)</h3>\n<p>Χωρίς SRA, τσεκάρετε «Λειτουργία διασταύρωσης». Παραλείπεται η ταμειακή συμφωνία και ο έλεγχος επιταγής· παράγεται ο πίνακας αναφορά-προς-αναφορά (ροές σε γραμμές, αναφορές σε στήλες, στήλη Range). Σε αυτή τη λειτουργία δεν παράγεται αρχείο SAP.</p>\n<h3>5. Τι παράγει το βιβλίο συμφωνίας (the workbook)</h3>\n<table><thead><tr><th>Φύλλο</th><th>Τι δείχνει</th></tr></thead><tbody><tr><td><code>SRA_&lt;αρ. επιταγής&gt;</code></td><td>Κάθε γραμμή του SRA: κωδικός, περιγραφή, κανάλι, κάδος, αναφορά τεκμηρίωσης, ποσό — και ο έλεγχος «σύνολο γραμμών − δηλωμένη επιταγή = 0»</td></tr><tr><td><code>Reconciliation</code></td><td>Οι 4 κάδοι ως ζωντανά SUMIFS πάνω στο SRA, σύνολο, επιταγή, zero-check</td></tr><tr><td><code>Source_crosscheck</code></td><td>Μία γραμμή ανά έλεγχο: πηγή έναντι SRA, ζωντανή διαφορά, σχόλιο</td></tr><tr><td><code>Απαιτήσεις_vs_SRA</code></td><td>Συμφωνία OKYPY ALL &amp; ΤΑΕΠ προς το SRA</td></tr><tr><td><code>By_Clinic_Split</code></td><td>Ο επιμερισμός για το SAP: ενδονοσοκομειακά ανά κλινική (Fixed Fee / DRG), ΤΑΕΠ, εξωτερικά ανά ειδικότητα, ΝΜ, ΑΡ, ΠΙ, φάρμακα, προσαρμογές</td></tr><tr><td><code>GL_Bridge</code>, <code>Crosscheck_Matrix</code>, <code>Ανάλυση_ελέγχων</code>, <code>Πώς_δένουν</code></td><td>Γέφυρες και τεκμηρίωση, όταν υπάρχουν τα αντίστοιχα αρχεία</td></tr><tr><td><code>Legend</code></td><td>Ο χρωματικός κώδικας και οι σημειώσεις</td></tr></tbody></table>\n<p><strong>Χρωματικός κώδικας:</strong> μπλε γραμματοσειρά = τιμή αντιγραμμένη από αναφορά πηγής· μαύρη = τύπος· πράσινη = σύνδεση με άλλο φύλλο· κίτρινο γέμισμα = κελί ελέγχου που πρέπει να διαβάζει 0.</p>\n<p>Κάθε υποσύνολο, σύνολο, διαφορά και έλεγχος είναι <strong>ζωντανός τύπος</strong>. Αν αλλάξετε ένα μπλε κελί, όλο το βιβλίο ξαναδένει ή δείχνει τη διαφορά.</p>\n<h3>6. Οι πύλες ελέγχου (validation gates)</h3>\n<ol><li>Όλα τα αρχεία διαβάζονται και καθένα αντιστοιχεί σε ένα είδος αναφοράς.</li><li>Ένα νοσοκομείο, ένας μήνας.</li><li>Πλήρες το απαραίτητο σετ (ή τσεκαρισμένη η λειτουργία διασταύρωσης).</li><li>Εσωτερικές ισότητες: Ενδ. Σύνολο = άθροισμα γραμμών· Inpatient των «all» = Ενδ. Σύνολο· γραμμές SRA = δηλωμένη επιταγή.</li><li>Μετά το χτίσιμο, το βιβλίο ξαναδιαβάζεται και κάθε zero-check πρέπει να διαβάζει 0.</li></ol>\n<p><strong>Καμία διαφορά δεν «βουλώνεται».</strong> Ανεξήγητη διαφορά είναι εύρημα: εμφανίζεται με κόκκινο, με τις δύο πλευρές και το χάσμα.</p>\n<p>Γνωστές αποκλίσεις σχολιάζονται αυτόματα (Z-catalogue χαμηλότερο στο GL, μεικτά φάρμακα έναντι GL, αμοιβή φαρμακοποιού GL έναντι συσκευασιών × 1,60) — σχολιάζονται, δεν κρύβονται.</p>\n<h3>7. Λογιστικό σχέδιο και κέντρα κόστους (chart of accounts)</h3>\n<p>Το εργαλείο <strong>φέρει ενσωματωμένο</strong> το εξαγόμενο αρχείο του SAP: εταιρείες, κέντρα κόστους και λογιστικό σχέδιο. Δεν χρειάζεται να το ανεβάζετε κάθε μήνα. Στη σύνοψη κάθε εκτέλεσης αναγράφεται ποια έκδοση χρησιμοποιήθηκε.</p>\n<p>Ενσωματωμένη έκδοση σε αυτό το αντίγραφο: <strong>{{MASTER}}</strong>.</p>\n<p><strong>Ενημέρωση</strong> — όταν το Λογιστήριο εκδώσει νέο <code>Chart_of_accounts.XLSX</code>:</p>\n<ul><li><em>Για μία εκτέλεση:</em> ανεβάστε το μαζί με τα αρχεία του μήνα. Το ανεβασμένο αρχείο υπερισχύει πάντα του ενσωματωμένου.</li><li><em>Μόνιμα:</em> τρέξτε στο αποθετήριο</li></ul>\n<pre><code>  python tools/embed_sap_master.py &lt;διαδρομή&gt;/Chart_of_accounts.XLSX 2027-01\n  python webapp/build_single.py</code></pre>\n<p>και μοιράστε το νέο <code>okypy-recon.html</code>. Το δεύτερο όρισμα είναι η σήμανση έκδοσης που θα εμφανίζεται στην οθόνη.</p>\n<p>Το αρχείο αναμένεται με τα φύλλα «Company Codes», «Cost centers» και «Chart of accounts». Το φύλλο «SAP GL AC - COM ITEM» (λογαριασμός ↔ commitment item) αγνοείται: οι στήλες BSEG-FIPOS / GEBER / FISTL του ημερολογίου μένουν κενές.</p>\n<p><strong>Πώς επιλέγεται το κέντρο κόστους:</strong> η αγγλική ειδικότητα του ΟΑΥ αντιστοιχεί σε ελληνικό «θέμα» ονόματος (π.χ. <code>RENAL DISEASES</code> → <code>ΝΕΦΡΟΛΟΓΙΚ</code>) και στη συνέχεια στη μορφή που ταιριάζει στη ροή: <code>ΘΑΛ</code> για ενδονοσοκομειακά, <code>ΗΦ</code> για ημερήσια φροντίδα, <code>ΕΙ</code> για εξωτερικά ιατρεία, <code>ΓΕΝΙΚΑ</code> για τα υπόλοιπα. Όπου δεν υπάρχει <code>ΗΦ</code>, η ημερήσια φροντίδα πέφτει στο <code>ΕΙ</code>. Γραμμή που δεν αντιστοιχείται μονοσήμαντα <strong>μένει κενή και εμφανίζεται στο φύλλο <code>Έλεγχος_SAP</code> με τον λόγο</strong> — το εργαλείο δεν επινοεί ποτέ κωδικό.</p>\n<h3>8. Ανέβασμα των εγγραφών στο SAP — <code>ZSHSO_FI_POST_UPL_V1</code></h3>\n<p>Το αρχείο <code>..._SAP_JOURNAL_ENTRIES.xlsx</code> έχει τρία φύλλα:</p>\n<ul><li><strong><code>JOURNAL ENTRIES</code></strong> — οι εγγραφές. Γραμμές 1–3 είναι επικεφαλίδες (γραμμή 3 φέρει τα ονόματα πεδίων <code>BKPF-<em></code> / <code>BSEG-</em></code>), τα δεδομένα ξεκινούν στη <strong>γραμμή 4</strong>. Στήλες A–W είναι πεδία SAP· οι στήλες X και Y είναι βοηθητικές του ΟΚΥπΥ (ποια επιταγή, τίνος το ποσό) και <strong>δεν</strong> ανεβαίνουν.</li><li><strong><code>Έλεγχος_SAP</code></strong> — χρέωση = πίστωση = επιταγή, και κάθε γραμμή χωρίς κέντρο κόστους με τον λόγο της.</li><li><strong><code>Οδηγίες_SAP</code></strong> — τα βήματα που ακολουθούν, μέσα στο ίδιο το αρχείο.</li></ul>\n<p><strong>Διαδικασία</strong></p>\n<ol><li><strong>Πριν από οτιδήποτε άλλο</strong>, ανοίξτε το <code>Έλεγχος_SAP</code>. Όλα τα zero-checks πρέπει να διαβάζουν 0 και να μην υπάρχει γραμμή με ποσό αλλά χωρίς κέντρο κόστους. Αν υπάρχει, διορθώστε την αιτία (συνήθως λείπει κέντρο κόστους από το λογιστικό σχέδιο) πριν ανεβάσετε.</li><li>Συνδεθείτε στο SAP και τρέξτε την έκθεση <strong><code>ZSHSO_FI_POST_UPL_V1</code></strong>.</li><li>Στην οθόνη επιλογής δώστε τη διαδρομή του αρχείου, το φύλλο <strong><code>JOURNAL ENTRIES</code></strong> και πρώτη γραμμή δεδομένων τη <strong>4</strong>.</li><li>Τρέξτε <strong>πρώτα σε δοκιμαστική εκτέλεση (test run)</strong>. Διαβάστε το log: κάθε γραμμή πρέπει να περνά. Συνήθη σφάλματα: κλειστή λογιστική περίοδος, μπλοκαρισμένος λογαριασμός ή κέντρο κόστους, κέντρο κόστους που δεν ανήκει στην εταιρεία, ή απαίτηση πεδίων Funds Management.</li><li>Ξανατρέξτε <strong>χωρίς</strong> τη σήμανση δοκιμής για να αναρτηθεί. Κρατήστε τους αριθμούς παραστατικών που επιστρέφει.</li><li>Επαληθεύστε στο <code>FB03</code> (παραστατικό) ή <code>FAGLL03</code> (λογαριασμός) ότι το σύνολο του παραστατικού ισούται με το ποσό της επιταγής του SRA.</li><li>Αρχειοθετήστε μαζί το βιβλίο συμφωνίας, το αρχείο SAP και τους αριθμούς παραστατικών του μήνα.</li></ol>\n<blockquote><strong>Σημείωση.</strong> Το βήμα 3 εξαρτάται από τη ρύθμιση της έκθεσης στο δικό σας σύστημα (αναμενόμενη μορφή αρχείου, ονόματα παραμέτρων). Επιβεβαιώστε το μία φορά με την ομάδα SAP και σημειώστε το εδώ. Αν η έκθεση ζητά επίπεδο αρχείο αντί για Excel, αποθηκεύστε το φύλλο <code>JOURNAL ENTRIES</code> ως «Text (Tab delimited)» αφού διαγράψετε τις στήλες X–Y.</blockquote>\n<h3>9. Απόρρητο και τεχνικά (privacy &amp; technical)</h3>\n<ul><li>Τα αρχεία του ΟΑΥ είναι εμπιστευτικά: <strong>δεν ανεβαίνουν ποτέ στο αποθετήριο</strong> (ο φάκελος <code>fixtures/</code> είναι στο <code>.gitignore</code>).</li><li>Καμία εξερχόμενη κλήση, κανένα προσωρινό αρχείο, καμία αποθήκευση.</li><li>Δύο υλοποιήσεις, ίδια λογική: η εφαρμογή ενός αρχείου (<code>webapp/okypy-recon.html</code>) και η έκδοση Python/Streamlit (<code>streamlit run app.py</code>). Ό,τι αλλάζει στη μία, αλλάζει και στην άλλη.</li><li>Μετά από κάθε αλλαγή στο <code>webapp/</code>, τρέξτε <code>python webapp/build_single.py</code>.</li><li>Το κείμενο αυτό γράφεται μία φορά, στο <code>docs/MANUAL.md</code>. Για να ενημερωθεί και η οθόνη: <code>python tools/embed_manual.py &amp;&amp; python webapp/build_single.py</code>.</li></ul>';
+const MANUAL_HTML = '<h2>Εγχειρίδιο χρήσης — Συμφωνία Πληρωμών ΟΑΥ (User manual)</h2>\n<p>Εργαλείο ΟΚΥπΥ για τη μηνιαία συμφωνία των πληρωμών ΟΑΥ (ΓεΣΥ) ανά νοσοκομείο και για την ετοιμασία των λογιστικών εγγραφών προς το SAP.</p>\n<hr>\n<h3>1. Τι κάνει το εργαλείο (what it does)</h3>\n<p>Διαβάζει τις μηνιαίες αναφορές που εκδίδει ο ΟΑΥ για ένα νοσοκομείο, τις διασταυρώνει μεταξύ τους και με την επιταγή (SRA), και παράγει:</p>\n<ol><li><strong>Βιβλίο συμφωνίας</strong> (<code>..._Reconciliation.xlsx</code>) — η ανάλυση του SRA, οι τέσσερις κάδοι ταμειακού διακανονισμού, οι διασταυρώσεις με τις πηγές και ο επιμερισμός εσόδων ανά κλινική.</li><li><strong>Αρχείο εγγραφών SAP</strong> (<code>..._SAP_JOURNAL_ENTRIES.xlsx</code>) — οι ίδιες εγγραφές στη διάταξη που ανεβάζει το Λογιστήριο στο SAP, κωδικοποιημένες με εταιρεία, λογαριασμό εσόδων και κέντρο κόστους.</li></ol>\n<p>Τίποτα δεν αποθηκεύεται και τίποτα δεν στέλνεται έξω: όλα τρέχουν στον browser σας (ή στον εσωτερικό server, για την έκδοση Streamlit) και σβήνουν μόλις κλείσετε τη σελίδα. Δεν υπάρχει βάση δεδομένων, ούτε σύνδεση χρήστη.</p>\n<h3>2. Βήμα προς βήμα (step by step)</h3>\n<ol><li>Ανοίξτε το <code>okypy-recon.html</code> (διπλό κλικ — δεν χρειάζεται εγκατάσταση).</li><li>Σύρετε στο πλαίσιο <strong>όλα</strong> τα αρχεία ενός νοσοκομείου για <strong>έναν</strong> μήνα.</li><li>Ελέγξτε τον πίνακα αναγνώρισης: κάθε αρχείο πρέπει να δείχνει είδος αναφοράς, νοσοκομείο και μήνα. Αρχείο που δεν αναγνωρίστηκε εμφανίζεται με προειδοποίηση και αγνοείται.</li><li>Πατήστε <strong>Εκτέλεση συμφωνίας</strong>. Το κουμπί ενεργοποιείται μόλις συμπληρωθεί το απαραίτητο σετ (ή όταν τσεκάρετε τη λειτουργία διασταύρωσης).</li><li>Διαβάστε τη σύνοψη στην οθόνη: σύνολο επιταγής, οι τέσσερις κάδοι, τα zero-checks και τυχόν ανοικτές διαφορές.</li><li>Κατεβάστε το βιβλίο συμφωνίας και — όταν υπάρχει SRA — το αρχείο SAP.</li></ol>\n<p><strong>Ένα νοσοκομείο, ένας μήνας ανά εκτέλεση.</strong> Μικτή παρτίδα (δύο νοσοκομεία ή δύο μήνες) απορρίπτεται με σαφές μήνυμα.</p>\n<p>Το SRA φέρει <strong>πάντα</strong> ημερομηνία του επόμενου μήνα — ο ΟΑΥ πληρώνει με καθυστέρηση. Ο μήνας υπηρεσιών προκύπτει αυτόματα (ημερομηνία − 1 μήνας).</p>\n<h3>3. Ποια αρχεία ανεβάζετε (which files)</h3>\n<p><strong>Απαραίτητα</strong></p>\n<table><thead><tr><th>#</th><th>Αναφορά</th><th>Μορφή</th></tr></thead><tbody><tr><td>1</td><td>SRA / Κατάσταση Πληρωμής (Remittance Advice) — η επιταγή</td><td>PDF (πάντα)</td></tr><tr><td>2</td><td>Ενδ. Πληρωμένες Απαιτήσεις (ΣΥΝΟΠΤΙΚΟΣ ΠΙΝΑΚΑΣ)</td><td>Excel / XML / PDF</td></tr><tr><td>3</td><td>Πληρωμένες Απαιτήσεις «all» (στήλη DR SEGMENT)</td><td>Excel / XML / PDF</td></tr><tr><td>4</td><td>Πληρωμένες Απαιτήσεις ΦΑΡΜΑΚΑ (στήλη TYPE)</td><td>Excel / XML / PDF</td></tr><tr><td>5</td><td>Αμοιβή Φαρμακοποιού (συσκευασίες × 1,60 €)</td><td>PDF</td></tr></tbody></table>\n<p><strong>Υπό προϋπόθεση</strong> — μόνο όταν το SRA έχει αντίστοιχη γραμμή: Capitation Report, Ποιοτικά Κριτήρια (PD-KPIs, MRI/CT), μηνιαία αναφορά Αιμοκάθαρσης.</p>\n<p><strong>Προαιρετικά</strong> — δεν μπλοκάρουν ποτέ την εκτέλεση, αλλά προσθέτουν διασταυρώσεις: XML activity export, OKYPY ALL GL extract, IS Auditor Report, μητρώο προσωπικού, πίνακας κέντρων κόστους.</p>\n<p>Η αναγνώριση γίνεται <strong>από το περιεχόμενο, ποτέ από το όνομα</strong>. Ο ΟΑΥ συχνά ονομάζει το αρχείο «all» ως «..._OS_...» ενώ περιέχει όλα τα segments.</p>\n<p>Αν το PDF του SRA είναι σκαναρισμένο και δεν διαβάζεται, ανοίξτε τη <strong>Χειροκίνητη επιλογή</strong> και επικολλήστε το κείμενο του SRA — το εργαλείο δεν μαντεύει ποτέ ποσό.</p>\n<h3>4. Λειτουργία διασταύρωσης (cross-check mode)</h3>\n<p>Χωρίς SRA, τσεκάρετε «Λειτουργία διασταύρωσης». Παραλείπεται η ταμειακή συμφωνία και ο έλεγχος επιταγής· παράγεται ο πίνακας αναφορά-προς-αναφορά (ροές σε γραμμές, αναφορές σε στήλες, στήλη Range). Σε αυτή τη λειτουργία δεν παράγεται αρχείο SAP.</p>\n<h3>5. Τι παράγει το βιβλίο συμφωνίας (the workbook)</h3>\n<table><thead><tr><th>Φύλλο</th><th>Τι δείχνει</th></tr></thead><tbody><tr><td><code>SRA_&lt;αρ. επιταγής&gt;</code></td><td>Κάθε γραμμή του SRA: κωδικός, περιγραφή, κανάλι, κάδος, αναφορά τεκμηρίωσης, ποσό — και ο έλεγχος «σύνολο γραμμών − δηλωμένη επιταγή = 0»</td></tr><tr><td><code>Reconciliation</code></td><td>Οι 4 κάδοι ως ζωντανά SUMIFS πάνω στο SRA, σύνολο, επιταγή, zero-check</td></tr><tr><td><code>Source_crosscheck</code></td><td>Μία γραμμή ανά έλεγχο: πηγή έναντι SRA, ζωντανή διαφορά, σχόλιο</td></tr><tr><td><code>Απαιτήσεις_vs_SRA</code></td><td>Συμφωνία OKYPY ALL &amp; ΤΑΕΠ προς το SRA</td></tr><tr><td><code>By_Clinic_Split</code></td><td>Ο επιμερισμός για το SAP: ενδονοσοκομειακά ανά κλινική (Fixed Fee / DRG), ΤΑΕΠ, εξωτερικά ανά ειδικότητα, ΝΜ, ΑΡ, ΠΙ, φάρμακα, προσαρμογές</td></tr><tr><td><code>GL_Bridge</code>, <code>Crosscheck_Matrix</code>, <code>Ανάλυση_ελέγχων</code>, <code>Πώς_δένουν</code></td><td>Γέφυρες και τεκμηρίωση, όταν υπάρχουν τα αντίστοιχα αρχεία</td></tr><tr><td><code>Legend</code></td><td>Ο χρωματικός κώδικας και οι σημειώσεις</td></tr></tbody></table>\n<p><strong>Χρωματικός κώδικας:</strong> μπλε γραμματοσειρά = τιμή αντιγραμμένη από αναφορά πηγής· μαύρη = τύπος· πράσινη = σύνδεση με άλλο φύλλο· κίτρινο γέμισμα = κελί ελέγχου που πρέπει να διαβάζει 0.</p>\n<p>Κάθε υποσύνολο, σύνολο, διαφορά και έλεγχος είναι <strong>ζωντανός τύπος</strong>. Αν αλλάξετε ένα μπλε κελί, όλο το βιβλίο ξαναδένει ή δείχνει τη διαφορά.</p>\n<h3>6. Οι πύλες ελέγχου (validation gates)</h3>\n<ol><li>Όλα τα αρχεία διαβάζονται και καθένα αντιστοιχεί σε ένα είδος αναφοράς.</li><li>Ένα νοσοκομείο, ένας μήνας.</li><li>Πλήρες το απαραίτητο σετ (ή τσεκαρισμένη η λειτουργία διασταύρωσης).</li><li>Εσωτερικές ισότητες: Ενδ. Σύνολο = άθροισμα γραμμών· Inpatient των «all» = Ενδ. Σύνολο· γραμμές SRA = δηλωμένη επιταγή.</li><li>Μετά το χτίσιμο, το βιβλίο ξαναδιαβάζεται και κάθε zero-check πρέπει να διαβάζει 0.</li></ol>\n<p><strong>Καμία διαφορά δεν «βουλώνεται».</strong> Ανεξήγητη διαφορά είναι εύρημα: εμφανίζεται με κόκκινο, με τις δύο πλευρές και το χάσμα.</p>\n<p>Γνωστές αποκλίσεις σχολιάζονται αυτόματα (Z-catalogue χαμηλότερο στο GL, μεικτά φάρμακα έναντι GL, αμοιβή φαρμακοποιού GL έναντι συσκευασιών × 1,60) — σχολιάζονται, δεν κρύβονται.</p>\n<h3>7. Λογιστικό σχέδιο και κέντρα κόστους (chart of accounts)</h3>\n<p>Το εργαλείο <strong>φέρει ενσωματωμένο</strong> το εξαγόμενο αρχείο του SAP: εταιρείες, κέντρα κόστους και λογιστικό σχέδιο. Δεν χρειάζεται να το ανεβάζετε κάθε μήνα. Στη σύνοψη κάθε εκτέλεσης αναγράφεται ποια έκδοση χρησιμοποιήθηκε.</p>\n<p>Ενσωματωμένη έκδοση σε αυτό το αντίγραφο: <strong>{{MASTER}}</strong>.</p>\n<p><strong>Ενημέρωση</strong> — όταν το Λογιστήριο εκδώσει νέο <code>Chart_of_accounts.XLSX</code>:</p>\n<ul><li><em>Για μία εκτέλεση:</em> ανεβάστε το μαζί με τα αρχεία του μήνα. Το ανεβασμένο αρχείο υπερισχύει πάντα του ενσωματωμένου.</li><li><em>Μόνιμα:</em> τρέξτε στο αποθετήριο</li></ul>\n<pre><code>  python tools/embed_sap_master.py &lt;διαδρομή&gt;/Chart_of_accounts.XLSX 2027-01\n  python webapp/build_single.py</code></pre>\n<p>και μοιράστε το νέο <code>okypy-recon.html</code>. Το δεύτερο όρισμα είναι η σήμανση έκδοσης που θα εμφανίζεται στην οθόνη.</p>\n<p>Το αρχείο αναμένεται με τα φύλλα «Company Codes», «Cost centers» και «Chart of accounts». Το φύλλο «SAP GL AC - COM ITEM» (λογαριασμός ↔ commitment item) αγνοείται: οι στήλες BSEG-FIPOS / GEBER / FISTL του ημερολογίου μένουν κενές.</p>\n<p><strong>Πώς επιλέγεται το κέντρο κόστους:</strong> η αγγλική ειδικότητα του ΟΑΥ αντιστοιχεί σε ελληνικό «θέμα» ονόματος (π.χ. <code>RENAL DISEASES</code> → <code>ΝΕΦΡΟΛΟΓΙΚ</code>) και στη συνέχεια στη μορφή που ταιριάζει στη ροή: <code>ΘΑΛ</code> για ενδονοσοκομειακά, <code>ΗΦ</code> για ημερήσια φροντίδα, <code>ΕΙ</code> για εξωτερικά ιατρεία, <code>ΓΕΝΙΚΑ</code> για τα υπόλοιπα. Όπου δεν υπάρχει <code>ΗΦ</code>, η ημερήσια φροντίδα πέφτει στο <code>ΕΙ</code>. Γραμμή που δεν αντιστοιχείται μονοσήμαντα <strong>μένει κενή και εμφανίζεται στο φύλλο <code>Έλεγχος_SAP</code> με τον λόγο</strong> — το εργαλείο δεν επινοεί ποτέ κωδικό.</p>\n<p><strong>Προσωπικοί Ιατροί — δύο μητρώα.</strong> Ο ΟΑΥ πληρώνει στην ίδια γραμμή τους ΠΙ Ενηλίκων και τους ΠΙ Παιδιών. Στα νοσοκομεία δικό μας έσοδο είναι <strong>μόνο</strong> το σκέλος των παιδιών, που καταχωρείται στο κέντρο κόστους της Παιδιατρικής· οι ΠΙ Ενηλίκων ανήκουν στη ΔΠΦΥ και τακτοποιούνται intercompany, γι&#x27; αυτό οι γραμμές τους <strong>βγαίνουν χωρίς λογαριασμό εσόδων</strong> και απαριθμούνται στο <code>Έλεγχος_SAP</code>. Ο διαχωρισμός διαβάζεται από τις ίδιες τις αναφορές — τις ηλικιακές ομάδες της αναφοράς κατά κεφαλήν, την ειδικότητα «PD - Child / Adult» του αρχείου «all», και τις γραμμές CHILD/ADULT του SRA για τα ποιοτικά κριτήρια. Αν τα δύο σκέλη δεν δίνουν ακριβώς το ποσό του ΟΑΥ, η γραμμή μένει ενιαία: τίποτα δεν επιμερίζεται.</p>\n<p><strong>Προσαρμογές εξωτερικών ιατρείων.</strong> Ο ΟΑΥ τις πληρώνει ανά ιατρό και γράφει μόνο τον κωδικό του («...-OS-Aug26-D2012»). Το εργαλείο τον μεταφράζει σε όνομα μέσω του XML activity export και σε ειδικότητα μέσω του αρχείου «all», ώστε κάθε προσαρμογή να πηγαίνει στην κλινική που την κέρδισε. Χωρίς το XML — είναι προαιρετικό — το σύνολο παραμένει σε μία γραμμή στα ΕΞ.ΙΑΤΡΕΙΑ.</p>\n<h3>8. Ανέβασμα των εγγραφών στο SAP — <code>ZSHSO_FI_POST_UPL_V1</code></h3>\n<p>Το αρχείο <code>..._SAP_JOURNAL_ENTRIES.xlsx</code> έχει τρία φύλλα:</p>\n<ul><li><strong><code>JOURNAL ENTRIES</code></strong> — οι εγγραφές. Γραμμές 1–3 είναι επικεφαλίδες (γραμμή 3 φέρει τα ονόματα πεδίων <code>BKPF-<em></code> / <code>BSEG-</em></code>), τα δεδομένα ξεκινούν στη <strong>γραμμή 4</strong>. Στήλες A–W είναι πεδία SAP· οι στήλες X και Y είναι βοηθητικές του ΟΚΥπΥ (ποια επιταγή, τίνος το ποσό) και <strong>δεν</strong> ανεβαίνουν.</li><li><strong><code>Έλεγχος_SAP</code></strong> — χρέωση = πίστωση = επιταγή, και κάθε γραμμή χωρίς κέντρο κόστους με τον λόγο της.</li><li><strong><code>Οδηγίες_SAP</code></strong> — τα βήματα που ακολουθούν, μέσα στο ίδιο το αρχείο.</li></ul>\n<p><strong>Διαδικασία</strong></p>\n<ol><li><strong>Πριν από οτιδήποτε άλλο</strong>, ανοίξτε το <code>Έλεγχος_SAP</code>. Όλα τα zero-checks πρέπει να διαβάζουν 0 και να μην υπάρχει γραμμή με ποσό αλλά χωρίς κέντρο κόστους. Αν υπάρχει, διορθώστε την αιτία (συνήθως λείπει κέντρο κόστους από το λογιστικό σχέδιο) πριν ανεβάσετε.</li><li>Συνδεθείτε στο SAP και τρέξτε την έκθεση <strong><code>ZSHSO_FI_POST_UPL_V1</code></strong>.</li><li>Στην οθόνη επιλογής δώστε τη διαδρομή του αρχείου, το φύλλο <strong><code>JOURNAL ENTRIES</code></strong> και πρώτη γραμμή δεδομένων τη <strong>4</strong>.</li><li>Τρέξτε <strong>πρώτα σε δοκιμαστική εκτέλεση (test run)</strong>. Διαβάστε το log: κάθε γραμμή πρέπει να περνά. Συνήθη σφάλματα: κλειστή λογιστική περίοδος, μπλοκαρισμένος λογαριασμός ή κέντρο κόστους, κέντρο κόστους που δεν ανήκει στην εταιρεία, ή απαίτηση πεδίων Funds Management.</li><li>Ξανατρέξτε <strong>χωρίς</strong> τη σήμανση δοκιμής για να αναρτηθεί. Κρατήστε τους αριθμούς παραστατικών που επιστρέφει.</li><li>Επαληθεύστε στο <code>FB03</code> (παραστατικό) ή <code>FAGLL03</code> (λογαριασμός) ότι το σύνολο του παραστατικού ισούται με το ποσό της επιταγής του SRA.</li><li>Αρχειοθετήστε μαζί το βιβλίο συμφωνίας, το αρχείο SAP και τους αριθμούς παραστατικών του μήνα.</li></ol>\n<blockquote><strong>Σημείωση.</strong> Το βήμα 3 εξαρτάται από τη ρύθμιση της έκθεσης στο δικό σας σύστημα (αναμενόμενη μορφή αρχείου, ονόματα παραμέτρων). Επιβεβαιώστε το μία φορά με την ομάδα SAP και σημειώστε το εδώ. Αν η έκθεση ζητά επίπεδο αρχείο αντί για Excel, αποθηκεύστε το φύλλο <code>JOURNAL ENTRIES</code> ως «Text (Tab delimited)» αφού διαγράψετε τις στήλες X–Y.</blockquote>\n<h3>9. Απόρρητο και τεχνικά (privacy &amp; technical)</h3>\n<ul><li>Τα αρχεία του ΟΑΥ είναι εμπιστευτικά: <strong>δεν ανεβαίνουν ποτέ στο αποθετήριο</strong> (ο φάκελος <code>fixtures/</code> είναι στο <code>.gitignore</code>).</li><li>Καμία εξερχόμενη κλήση, κανένα προσωρινό αρχείο, καμία αποθήκευση.</li><li>Δύο υλοποιήσεις, ίδια λογική: η εφαρμογή ενός αρχείου (<code>webapp/okypy-recon.html</code>) και η έκδοση Python/Streamlit (<code>streamlit run app.py</code>). Ό,τι αλλάζει στη μία, αλλάζει και στην άλλη.</li><li>Μετά από κάθε αλλαγή στο <code>webapp/</code>, τρέξτε <code>python webapp/build_single.py</code>.</li><li>Το κείμενο αυτό γράφεται μία φορά, στο <code>docs/MANUAL.md</code>. Για να ενημερωθεί και η οθόνη: <code>python tools/embed_manual.py &amp;&amp; python webapp/build_single.py</code>.</li></ul>';
 
 </script>
 <script>/* inlined: js/sap_embedded.js */
@@ -2850,8 +2936,14 @@ const SPECIALTY_GREEK = {
   PEDIATRICS: 'ΠΑΙΔΙΑΤΡΙΚ',
   OPHTHALMOLOGY: 'ΟΦΘΑΛΜΟΛΟΓΙΚ',
   'INTERNAL MEDICINE': 'ΠΑΘΟΛΟΓΙΚ',
-  ORTHOPAEDICS: 'ΟΡΘΟΠΑΙΔΙΚ',
-  ORTHOPEDICS: 'ΟΡΘΟΠΑΙΔΙΚ',
+  /* Paphos abbreviates the orthopaedic centres to «ΟΡΘ.», the rest spell
+   * «ΟΡΘΟΠΑΙΔΙΚΗ» — the short stem matches both */
+  ORTHOPAEDICS: 'ΟΡΘ',
+  ORTHOPEDICS: 'ΟΡΘ',
+  ANAESTHESIOLOGY: 'ΑΝΑΙΣΘΗΣΙΟΛΟΓΙΚ',
+  ANESTHESIOLOGY: 'ΑΝΑΙΣΘΗΣΙΟΛΟΓΙΚ',
+  'MEDICAL ONCOLOGY': 'ΟΓΚΟΛΟΓΙΚ',
+  ONCOLOGY: 'ΟΓΚΟΛΟΓΙΚ',
   UROLOGY: 'ΟΥΡΟΛΟΓΙΚ',
   'RESPIRATORY MEDICINE': 'ΠΝΕΥΜΟΝΟΛΟΓΙΚ',
   RHEUMATOLOGY: 'ΡΕΥΜΑΤΟΛΟΓΙΚ',
@@ -2882,6 +2974,15 @@ const SPECIALTY_GREEK = {
   OUTPATIENT: 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'PERSONAL DOCTORS': 'ΠΙ ΕΝΗΛΙΚΩΝ',
   'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ': 'ΠΙ ΕΝΗΛΙΚΩΝ',
+  /* the children's Personal Doctors keep no centre of their own — their
+   * revenue books to the paediatric clinic (longest key wins, so these are
+   * read before the plain «Προσωπικοί Ιατροί» above) */
+  'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ ΠΑΙΔΙΩΝ': 'ΠΑΙΔΙΑΤΡΙΚ',
+  'PD CHILD PEDIATRICS': 'ΠΑΙΔΙΑΤΡΙΚ',
+  /* ΟΑΥ bills the hyperbaric chamber's day care under the bare speciality
+   * «DOCTOR»; hospitals without such a unit simply have no such centre and the
+   * line stays blank, as any unmatched line does */
+  DOCTOR: 'ΥΠΕΡΒΑΡΙΚΟΣ ΘΑΛΑΜΟΣ',
 };
 
 /* Where a stream looks for its centre, in order.  Day treatments prefer the
@@ -2979,8 +3080,13 @@ function findSapCentre(master, company, specialty, variant = 'general') {
     const picked = hits.filter((c) => hasVariant(sapTail(c.name, stem), marks));
     if (picked.length === 1) return picked[0];
     if (picked.length > 1) {
-      /* a clinic split across «ΘΑΛ Α» and «ΘΑΛ Β» books to Α */
-      const alpha = picked.filter((c) => sapTail(c.name, stem).endsWith('Α'));
+      /* a clinic split across «ΘΑΛ Α» and «ΘΑΛ Β» books to Α — and the master
+       * types that Α in both alphabets (Nicosia's orthopaedics wards are
+       * «ΘΑΛ A»/«ΘΑΛ B», in Latin) */
+      const alpha = picked.filter((c) => {
+        const t = sapTail(c.name, stem);
+        return t.endsWith('Α') || t.endsWith('A');
+      });
       if (alpha.length === 1) return alpha[0];
       return null;                        // still ambiguous — a human decides
     }
@@ -4097,6 +4203,88 @@ function buildMatrix(bundle) {
 
 /* --------------------------------------------------- By_Clinic_Split data */
 
+function osAdjustmentsBySpecialty(bundle, sra) {
+  /* The outpatient reimbursement-method adjustments, split by clinic.
+   *
+   * ΟΑΥ pays them doctor by doctor and names only the doctor's CODE
+   * («...-OS-Aug26-D2012»); the speciality lives in the claims file, keyed by
+   * the doctor's NAME.  The activity export carries both, so it is the bridge:
+   * code → name → speciality → cost centre.  Without it — the export is
+   * optional — nothing is guessed and the whole amount stays in one row.
+   *
+   * Returns [amount per speciality, what could not be traced]. */
+  const lines = sra ? sra.lines.filter((l) => l.code === 'OS-ADJ') : [];
+  if (!lines.length) return [{}, 0];
+  const names = (bundle.xmlActivity && bundle.xmlActivity.byProfessional) || {};
+  const specOf = {};
+  if (bundle.claims) {
+    for (const [, spec, doctor] of bundle.claims.byDoctor) {
+      const name = String(doctor).trim();
+      if (name && spec && spec !== '—' && spec !== 'nan' && !(name in specOf)) {
+        specOf[name] = spec;
+      }
+    }
+  }
+  const bySpec = {};
+  let left = 0;
+  for (const l of lines) {
+    const spec = l.doctor ? specOf[String(names[l.doctor] || '').trim()] : null;
+    if (spec) bySpec[spec] = round2((bySpec[spec] || 0) + l.amount);
+    else left = round2(left + l.amount);
+  }
+  return [bySpec, left];
+}
+
+function pdSplitRows(section, amount, cohorts, what) {
+  /* One Personal-Doctors amount written as the two registers it is.
+   *
+   * Split only when the two halves are stated by a report AND add back to the
+   * ΟΑΥ line to the cent; otherwise the line stays whole and un-split, so
+   * nothing is ever apportioned to make a number appear. */
+  const child = cohorts.child || 0;
+  const adult = cohorts.adult || 0;
+  if (!Object.keys(cohorts).length || round2(child + adult) !== round2(amount)) {
+    section.rows.push({ label: `Προσωπικοί Ιατροί — ${what}`, amount });
+    return;
+  }
+  if (child) section.rows.push({ label: `Προσωπικοί Ιατροί Παιδιών — ${what}`, amount: child });
+  if (adult) {
+    section.rows.push({ label: `Προσωπικοί Ιατροί Ενηλίκων — ${what} — ΔΠΦΥ (intercompany)`,
+                        amount: adult });
+  }
+}
+
+function cohortsOf(report) {
+  return report && report.byCohort ? { ...report.byCohort } : {};
+}
+
+function pdClaimsCohorts(bundle) {
+  /* The Personal-Doctors fees of the claims file, per register: ΟΑΥ names the
+   * speciality «PD - Child Pediatrics» / «PD - Adult General Medicine». */
+  const out = {};
+  if (!bundle.claims) return out;
+  for (const [seg, spec, , amount] of bundle.claims.byDoctor) {
+    if (!normLabel(seg).includes('PERSONAL DOCTOR')) continue;
+    const up = normLabel(spec);
+    const kind = up.includes('CHILD') ? 'child' : up.includes('ADULT') ? 'adult' : '';
+    if (kind) out[kind] = round2((out[kind] || 0) + amount);
+  }
+  return out;
+}
+
+function kpiCohorts(sra) {
+  /* The quality-criteria lines ΟΑΥ pays per Personal Doctor: the register is
+   * written on the line itself («PD-KPIs-08-2026-CHILD-D1737»). */
+  const out = {};
+  for (const l of (sra ? sra.lines : [])) {
+    const up = normLabel(l.description);
+    if (!up.includes('KPI')) continue;
+    const kind = up.includes('CHILD') ? 'child' : up.includes('ADULT') ? 'adult' : '';
+    if (kind) out[kind] = round2((out[kind] || 0) + l.amount);
+  }
+  return out;
+}
+
 function buildSplit(bundle) {
   const sra = bundle.sra;
   const sraAmount = (codes) => (sra ? sraSum(sra, codes) : null);
@@ -4168,11 +4356,22 @@ function buildSplit(bundle) {
   sections.push(ae);
 
   const out = { title: 'Εξωνοσοκομειακή περίθαλψη (Outpatient)', bucket: 'Outpatient', rows: [] };
+  /* the per-doctor OS adjustments belong to the clinic that earned them, not
+   * to one lump on ΕΞ.ΙΑΤΡΕΙΑ — whatever cannot be traced to a doctor stays
+   * visible as its own row further down */
+  const [adjBySpec, adjLeft] = osAdjustmentsBySpecialty(bundle, sra);
+  const adjTotal = round2(Object.values(adjBySpec).reduce((a, v) => a + v, 0));
   if (bundle.claims && Object.keys(bundle.claims.osBySpecialty).length) {
-    for (const [spec, amt] of Object.entries(bundle.claims.osBySpecialty).sort((a, b) => b[1] - a[1])) {
+    const merged = { ...bundle.claims.osBySpecialty };
+    for (const [spec, amt] of Object.entries(adjBySpec)) {
+      merged[spec] = round2((merged[spec] || 0) + amt);
+    }
+    for (const [spec, amt] of Object.entries(merged).sort((a, b) => b[1] - a[1])) {
       out.rows.push({ label: `Ειδικοί Ιατροί — ${spec} (OS)`, amount: amt });
     }
-    tieRows(out, sraAmount(['OS']), 'Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)');
+    let osTarget = sraAmount(['OS']);
+    if (osTarget != null && adjTotal) osTarget = round2(osTarget + adjTotal);
+    tieRows(out, osTarget, 'Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)');
   } else {
     let osAmt = sraAmount(['OS']);
     if (osAmt == null && bundle.claims) osAmt = bundle.claims.bySegment['Outpatient Specialists'] || 0;
@@ -4202,13 +4401,25 @@ function buildSplit(bundle) {
     pdCap = capReport;
     pdRest = round2(pdRest - capReport);
   }
-  if (pdCap) out.rows.push({ label: 'Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)', amount: pdCap });
+  /* ΟΑΥ pays the Personal Doctors of the children and of the adults on the
+   * same lines, but in a hospital only the CHILDREN's half is the hospital's
+   * own revenue: the adults' Personal Doctors belong to ΔΠΦΥ and their money
+   * is settled between companies.  Each half is read from a report that states
+   * it — the capitation report's age bands, the claims file's «PD - Child /
+   * Adult» speciality, the SRA's own CHILD/ADULT KPI lines — never
+   * apportioned. */
+  if (pdCap) pdSplitRows(out, pdCap, cohortsOf(bundle.capitation), 'κατά κεφαλήν (capitation)');
   if (pdFp) out.rows.push({ label: 'Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, εμβολιασμοί)', amount: pdFp });
-  if (pdRest) out.rows.push({ label: 'Προσωπικοί Ιατροί — εξωνοσοκομειακές χρεώσεις (PD outpatient fees)', amount: pdRest });
+  if (pdRest) pdSplitRows(out, pdRest, pdClaimsCohorts(bundle), 'εξωνοσοκομειακές χρεώσεις (outpatient fees)');
   let kpi = sraAmount(['KPI', 'PD-KPI', 'MRI', 'CT', 'MRI/CT']);
   if (kpi == null && bundle.quality) kpi = bundle.quality.total;
-  if (kpi) out.rows.push({ label: 'Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)', amount: kpi });
-  const osAdj = sraAmount(['OS-ADJ']);
+  if (kpi) {
+    const pdKpi = kpiCohorts(sra);
+    const rest = round2(kpi - Object.values(pdKpi).reduce((a, v) => a + v, 0));
+    pdSplitRows(out, round2(kpi - rest), pdKpi, 'ποιοτικά κριτήρια (PD KPIs)');
+    if (rest) out.rows.push({ label: 'Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)', amount: rest });
+  }
+  const osAdj = Object.keys(adjBySpec).length ? adjLeft : sraAmount(['OS-ADJ']);
   if (osAdj) out.rows.push({ label: 'Εξωνοσοκομειακή — προσαρμογές μεθόδου αποζημίωσης (OS reimb-method adjustments)', amount: osAdj });
   const sat = sraAmount(['SAT']);
   if (sat) out.rows.push({ label: 'Επιταγές δορυφορικών παροχέων (satellite suppliers, π.χ. κέντρα υγείας)', amount: sat });
@@ -5092,6 +5303,14 @@ function journalLines(section, lookup) {
 /* A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
  * account and which flavour of the clinic's cost centre it posts to. */
 const LINE_KINDS = [
+  /* the adults' Personal Doctors belong to ΔΠΦΥ: their money is not our
+   * revenue, so no revenue account of ours is written — the line is listed on
+   * the check sheet for the intercompany account to be filled in */
+  ['ΔΠΦΥ', 'intercompany', 'general'],
+  /* ΟΑΥ labels the hemodialysis adjustment «ADJ-IS», but the treatment is day
+   * care: it posts to 412005, at the unit's own ΑΙΜΟΚΑΘΑΡΣΗ centre */
+  ['ΑΙΜΟΚΑΘΑΡΣΗ', 'inpatient_daily', 'general'],
+  ['HEMODIALYSIS', 'inpatient_daily', 'general'],
   ['ΠΟΙΟΤΙΚΑ', 'quality', 'general'],
   ['ΣΤΑΘΕΡΕΣ ΧΡΕΩΣΕΙΣ', 'oncall', 'general'],
   ['ΕΜΒΟΛΙΑΣΜ', 'vaccines', 'general'],
@@ -5137,6 +5356,7 @@ function journalLinesByStream(section, lookup) {
   const out = [];
   const missing = new Map();
   const why = new Map();
+  const noAccount = new Map();
   const code = b.hospitalCode || '';
   const master = b.sap || null;
   const company = master ? companyFor(code) : '';
@@ -5166,8 +5386,16 @@ function journalLinesByStream(section, lookup) {
           if (centre) { kostl = centre.code; text = centre.name; }
         }
         const [account] = master ? sapAccount(master, partKind) : ['', ''];
+        /* the ΔΠΦΥ half of the Personal Doctors is not our revenue at all: no
+         * account of ours may be written on it, not even the default, or the
+         * money lands in outpatient income */
+        const foreign = partKind === 'intercompany';
         out.push({ kostl, aufnr, text: text || row.label, account,
+                   needsAccount: foreign ? 'ΔΠΦΥ (intercompany)' : '',
                    professional: stream, amount: round2(amount) });
+        if (foreign) {
+          noAccount.set(row.label, round2((noAccount.get(row.label) || 0) + amount));
+        }
         if (!kostl) {
           missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
           why.set(row.label, master
@@ -5187,7 +5415,7 @@ function journalLinesByStream(section, lookup) {
                text: 'TO CLASSIFY (split vs SRA)',
                professional: '', amount: residual });
   }
-  return { lines: out, missing, why };
+  return { lines: out, missing, why, noAccount };
 }
 
 function journalLinesByProfessional(section, lookup) {
@@ -5279,6 +5507,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
   let r = 4;
   const missing = new Map();
   const why = new Map();
+  const noAccount = new Map();
   const docs = [];
   for (const section of sections) {
     const b = section.result.bundle;
@@ -5289,6 +5518,9 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
       missing.set(k, round2((missing.get(k) || 0) + v));
     }
     for (const [k, v] of (built.why || [])) why.set(k, v);
+    for (const [k, v] of (built.noAccount || [])) {
+      noAccount.set(k, round2((noAccount.get(k) || 0) + v));
+    }
     const lines = built.lines;
     const headRow = r;
     const head = [docDate, { formula: `A${headRow}` }, SAP_DEFAULTS.docType, company,
@@ -5312,7 +5544,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
         SAP_DEFAULTS.creditAccount, '', ln.amount, SAP_DEFAULTS.tax,
         ln.kostl, ln.aufnr, '', '', '', company, sgtxt, '', '', '', cheque,
         ln.professional];
-      line[9] = ln.account || SAP_DEFAULTS.creditAccount;
+      line[9] = ln.account || (ln.needsAccount ? '' : SAP_DEFAULTS.creditAccount);
       line.forEach((v, j) => {
         const c = ws.getCell(r, j + 1);
         c.value = v;
@@ -5324,7 +5556,7 @@ function tabSapUpload(wb, sections, zeroChecks, inlineChecks = true) {
     }
     docs.push({ cheque, label: section.label, headRow, stated: b.sra.statedTotal });
   }
-  const info = { last: r - 1, docs, missing, why, masterSeen: !!master };
+  const info = { last: r - 1, docs, missing, why, noAccount, masterSeen: !!master };
   if (inlineChecks) sapChecks(ws, info, r + 1, zeroChecks);
   autosize(ws);
   ws.columns.forEach((col) => { col.width = Math.min(col.width || 12, 26); });
@@ -5362,6 +5594,23 @@ function sapChecks(ws, info, row, zeroChecks) {
     r += 1;
   }
   sapMissingNote(ws, info, r + 1);
+}
+
+function sapForeignNote(ws, info, r) {
+  /* Lines that must NOT take one of our revenue accounts: the ΔΠΦΥ half of
+   * the Personal Doctors.  They are left blank on purpose and listed here. */
+  const worth = [...(info.noAccount || new Map()).entries()]
+    .filter(([, v]) => Math.abs(v) > 0.005);
+  if (!worth.length) return r;
+  worth.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const note = ws.getCell(r, 1);
+  note.value = 'Γραμμές χωρίς λογαριασμό εσόδων — δεν είναι δικό μας έσοδο αλλά '
+    + 'intercompany με τη ΔΠΦΥ· συμπληρώστε τον λογαριασμό πριν την ανάρτηση '
+    + '(lines left with no revenue account, ΔΠΦΥ intercompany): '
+    + worth.map(([k, v]) => `${k} — ${formatEur(v)}`).join(' · ');
+  note.font = F_AMBER;
+  note.alignment = { wrapText: true, vertical: 'top' };
+  return r + 2;
 }
 
 function sapMissingNote(ws, info, r) {
@@ -5477,7 +5726,7 @@ function tabSapChecks(wb, info, zeroChecks) {
     zeroChecks.push({ sheet: 'Έλεγχος_SAP', addr: `D${r}` });
     r += 1;
   }
-  sapMissingNote(ws, info, r + 1);
+  sapMissingNote(ws, info, sapForeignNote(ws, info, r + 1));
   autosize(ws);
 }
 

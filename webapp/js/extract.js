@@ -766,6 +766,27 @@ const SRA_LINE_RE = /^\s*([A-Z][A-Z&/\-]{0,7})?\s*(.*?)\s+(-?(?:\d{1,3}(?:[.,]\d
 /* real SRA line: «01/03/2026 5636247 AE - HCP SERVICES 22,101.00 EUR 22,101.00» */
 const INVOICE_LINE_RE = /^\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{4,})\s+(.+?)\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s+([A-Z]{3})\s+(-?(?:\d{1,3}(?:[.,]\d{3})*|\d+)?[.,]\d{2}-?)\s*$/;
 
+const SRA_DOCTOR_CODE_RE = /\b([A-Z]\d{3,5})\b/;
+
+function sraDoctorCode(desc, rawLines, n) {
+  /* ΟΑΥ's doctor code for a line, «D2012».
+   *
+   * Some lines carry it inside the description («PD-KPIs-08-2026-ADULT-D1233»);
+   * on the per-doctor OS adjustments the description column is too narrow and
+   * the code wraps onto the next printed line («Met D2012»).  Only a WRAPPED
+   * fragment is read — a line that parses as an invoice row of its own is the
+   * next payment, not this one's tail. */
+  const m = String(desc || '').match(SRA_DOCTOR_CODE_RE);
+  if (m) return m[1];
+  for (const nxt of rawLines.slice(n + 1, n + 3)) {
+    if (!nxt.trim()) break;
+    if (INVOICE_LINE_RE.test(nxt) || SRA_LINE_RE.test(nxt)) break;
+    const c = nxt.match(SRA_DOCTOR_CODE_RE);
+    if (c) return c[1];
+  }
+  return '';
+}
+
 function parseSraText(text) {
   let cheque = '';
   const cm = stripAccents(text).match(CHEQUE_RE);
@@ -773,7 +794,9 @@ function parseSraText(text) {
 
   const lines = [];
   let statedTotal = null;
-  for (const raw of String(text).split('\n')) {
+  const rawLines = String(text).split('\n');
+  for (let n = 0; n < rawLines.length; n++) {
+    const raw = rawLines[n];
     const line = raw.replace(/\s+$/, '');
     if (!line.trim()) continue;
     const up = stripAccents(line);
@@ -784,7 +807,8 @@ function parseSraText(text) {
       const amount = parseAmount(inv[6]);   // Amount Paid column
       const [canon, bucket, channel, src] = classifySraLine('', desc);
       lines.push({ code: canon, description: `${desc} (${inv[1]} #${inv[2]})`,
-                   amount, bucket, channel, sourceReport: src, date: inv[1] });
+                   amount, bucket, channel, sourceReport: src, date: inv[1],
+                   doctor: sraDoctorCode(desc, rawLines, n) });
       continue;
     }
     const m = line.match(SRA_LINE_RE);
@@ -804,7 +828,8 @@ function parseSraText(text) {
     const [canon, bucket, channel, src] = classifySraLine(code, desc || code);
     const dm = `${code} ${desc}`.trim().match(LEAD_DATE_RE);
     lines.push({ code: canon, description: desc || canon, amount, bucket,
-                 channel, sourceReport: src, date: dm ? dm[1] : '' });
+                 channel, sourceReport: src, date: dm ? dm[1] : '',
+                 doctor: sraDoctorCode(desc || code, rawLines, n) });
   }
   if (!lines.length) throw new ExtractionError('SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF');
   if (statedTotal == null) throw new ExtractionError('SRA: δεν βρέθηκε γραμμή Σύνολο (stated cheque total)');
@@ -1043,17 +1068,25 @@ function extractXmlActivity(bytes) {
   const claims = new Set();
   const byPayment = {};
   const byClaim = {};
+  /* ProfessionalId → ProfessionalName: ΟΑΥ writes only the doctor's CODE on
+   * the SRA's per-doctor adjustment lines and only the doctor's NAME on the
+   * claims file that carries the speciality — this is the bridge. */
+  const byProfessional = {};
   // group per <Claim>: each carries ClaimPaymentNumber (the SRA cheque that
   // paid it) — the join key for the payment-number gate
   for (const claim of doc.getElementsByTagName('*')) {
     if (claim.localName.toLowerCase() !== 'claim') continue;
     let pay = '', cid = '', amt = 0, hasAmount = false;
+    let profId = '', profName = '';
     for (const el of claim.getElementsByTagName('*')) {
       const tag = el.localName.toLowerCase();
       if (tag === 'activityreimbursementamount') { amt += parseAmount(el.textContent); hasAmount = true; }
       else if (tag === 'claimid' && el.textContent) { cid = el.textContent.trim(); claims.add(cid); }
       else if (tag === 'claimpaymentnumber' && el.textContent) pay = el.textContent.trim();
+      else if (tag === 'professionalid' && el.textContent) profId = el.textContent.trim();
+      else if (tag === 'professionalname' && el.textContent) profName = el.textContent.trim();
     }
+    if (profId && profName) byProfessional[profId] = profName;
     total += amt;
     if (hasAmount) {
       found = true;
@@ -1078,7 +1111,8 @@ function extractXmlActivity(bytes) {
     if (tag === 'claimsdatefrom' && el.textContent) dateFrom = el.textContent.trim().slice(0, 10);
     else if (tag === 'claimsdateto' && el.textContent) dateTo = el.textContent.trim().slice(0, 10);
   }
-  return { total: round2(total), nClaims: claims.size, byPayment, byClaim, dateFrom, dateTo };
+  return { total: round2(total), nClaims: claims.size, byPayment, byClaim,
+           dateFrom, dateTo, byProfessional };
 }
 
 function extractActivityTable(bytes) {
@@ -1093,8 +1127,10 @@ function extractActivityTable(bytes) {
     const amt = colIndex(cols, 'ACTIVITYREIMBURSEMENTAMOUNT', 'ACTIVITY REIMBURSEMENT AMOUNT');
     const cid = colIndex(cols, 'CLAIMID', 'CLAIM ID');
     const pay = colIndex(cols, 'CLAIMPAYMENTNUMBER', 'CLAIM PAYMENT NUMBER');
+    const pid = colIndex(cols, 'PROFESSIONALID', 'PROFESSIONAL ID');
+    const pname = colIndex(cols, 'PROFESSIONALNAME', 'PROFESSIONAL NAME');
     const out = { total: 0, nClaims: 0, byPayment: {}, byClaim: {},
-                  dateFrom: '', dateTo: '' };
+                  dateFrom: '', dateTo: '', byProfessional: {} };
     const claims = new Set();
     for (const row of body) {
       if (amt == null || !isNumberLike(row[amt])) continue;
@@ -1108,6 +1144,11 @@ function extractActivityTable(bytes) {
       let p = pay != null && row[pay] != null ? cellText(row[pay]).trim().split('.')[0] : '';
       if (p === 'nan') p = '';
       out.byPayment[p] = round2((out.byPayment[p] || 0) + a);
+      if (pid != null && pname != null) {
+        const code = cellText(row[pid]).trim();
+        const name = cellText(row[pname]).trim();
+        if (code && code !== 'nan' && name !== 'nan') out.byProfessional[code] = name;
+      }
     }
     out.nClaims = claims.size;
     for (const [needle, attr] of [['CLAIMSDATEFROM', 'dateFrom'], ['CLAIMSDATETO', 'dateTo']]) {
@@ -1197,6 +1238,47 @@ function doctorRows(text) {
   return [...sums.entries()];
 }
 
+const AGE_BAND_RE = /^\s*(\d{1,3})\s*-\s*(\d{1,3})\s+years/i;
+
+function doctorCohorts(text) {
+  /* How much capitation each cohort earned — «child» and «adult».
+   *
+   * ΟΑΥ prints each Personal Doctor's age bands right under the doctor's own
+   * total: a children's doctor carries the 0-3 / 4-7 / 8-14 bands, an adults'
+   * doctor the 18-50 / 51-70 / 71-999 ones.  The 15-17 band appears on both
+   * registers, so it decides nothing on its own and is ignored here. */
+  const out = {};
+  let code = '';
+  let bands = [];
+  const flush = () => {
+    if (!code || !bands.length) return;
+    const kind = bands.some(([lo]) => lo < 15) ? 'child'
+      : bands.some(([lo]) => lo >= 18) ? 'adult' : '';
+    if (kind) out[code] = kind;
+  };
+  for (const raw of String(text).split('\n')) {
+    const m = raw.match(DOCTOR_LINE_RE);
+    if (m) { flush(); code = m[1]; bands = []; continue; }
+    const b = raw.match(AGE_BAND_RE);
+    if (b) bands.push([Number(b[1]), Number(b[2])]);
+  }
+  flush();
+  return out;
+}
+
+function cohortTotals(rows, text) {
+  /* The per-doctor sums added up per cohort.  A doctor whose age bands do not
+   * say which register they keep is left out — the split is then reported as
+   * incomplete rather than guessed. */
+  const kinds = doctorCohorts(text);
+  const out = {};
+  for (const [key, amount] of rows) {
+    const kind = kinds[String(key || '').split(' ')[0]];
+    if (kind) out[kind] = round2((out[kind] || 0) + amount);
+  }
+  return out;
+}
+
 function simpleFromText(text) {
   // invoice-level rows first (real capitation reports: «5729128 F1049 ...
   // STANDARD 31/03/2026 5,174.80 €» followed by per-doctor / per-age detail
@@ -1209,8 +1291,10 @@ function simpleFromText(text) {
     }
   }
   if (invoiceRows.length) {
+    const rows = doctorRows(text);
     return { total: round2(invoiceRows.reduce((a, [, v]) => a + v, 0)),
-             lines: invoiceRows, byDoctor: doctorRows(text) };
+             lines: invoiceRows, byDoctor: rows,
+             byCohort: cohortTotals(rows, text) };
   }
   const lines = [];
   let total = null;
@@ -1227,7 +1311,9 @@ function simpleFromText(text) {
   const stated = total;
   const computed = round2(lines.reduce((a, [, v]) => a + v, 0));
   total = lines.length ? computed : (total != null ? total : 0);
-  return { total: round2(total), lines, statedTotal: stated, byDoctor: doctorRows(text) };
+  const rows = doctorRows(text);
+  return { total: round2(total), lines, statedTotal: stated, byDoctor: rows,
+           byCohort: cohortTotals(rows, text) };
 }
 
 /* ------------------------------------------------------------ dispatcher */

@@ -996,6 +996,88 @@ function buildMatrix(bundle) {
 
 /* --------------------------------------------------- By_Clinic_Split data */
 
+function osAdjustmentsBySpecialty(bundle, sra) {
+  /* The outpatient reimbursement-method adjustments, split by clinic.
+   *
+   * ΟΑΥ pays them doctor by doctor and names only the doctor's CODE
+   * («...-OS-Aug26-D2012»); the speciality lives in the claims file, keyed by
+   * the doctor's NAME.  The activity export carries both, so it is the bridge:
+   * code → name → speciality → cost centre.  Without it — the export is
+   * optional — nothing is guessed and the whole amount stays in one row.
+   *
+   * Returns [amount per speciality, what could not be traced]. */
+  const lines = sra ? sra.lines.filter((l) => l.code === 'OS-ADJ') : [];
+  if (!lines.length) return [{}, 0];
+  const names = (bundle.xmlActivity && bundle.xmlActivity.byProfessional) || {};
+  const specOf = {};
+  if (bundle.claims) {
+    for (const [, spec, doctor] of bundle.claims.byDoctor) {
+      const name = String(doctor).trim();
+      if (name && spec && spec !== '—' && spec !== 'nan' && !(name in specOf)) {
+        specOf[name] = spec;
+      }
+    }
+  }
+  const bySpec = {};
+  let left = 0;
+  for (const l of lines) {
+    const spec = l.doctor ? specOf[String(names[l.doctor] || '').trim()] : null;
+    if (spec) bySpec[spec] = round2((bySpec[spec] || 0) + l.amount);
+    else left = round2(left + l.amount);
+  }
+  return [bySpec, left];
+}
+
+function pdSplitRows(section, amount, cohorts, what) {
+  /* One Personal-Doctors amount written as the two registers it is.
+   *
+   * Split only when the two halves are stated by a report AND add back to the
+   * ΟΑΥ line to the cent; otherwise the line stays whole and un-split, so
+   * nothing is ever apportioned to make a number appear. */
+  const child = cohorts.child || 0;
+  const adult = cohorts.adult || 0;
+  if (!Object.keys(cohorts).length || round2(child + adult) !== round2(amount)) {
+    section.rows.push({ label: `Προσωπικοί Ιατροί — ${what}`, amount });
+    return;
+  }
+  if (child) section.rows.push({ label: `Προσωπικοί Ιατροί Παιδιών — ${what}`, amount: child });
+  if (adult) {
+    section.rows.push({ label: `Προσωπικοί Ιατροί Ενηλίκων — ${what} — ΔΠΦΥ (intercompany)`,
+                        amount: adult });
+  }
+}
+
+function cohortsOf(report) {
+  return report && report.byCohort ? { ...report.byCohort } : {};
+}
+
+function pdClaimsCohorts(bundle) {
+  /* The Personal-Doctors fees of the claims file, per register: ΟΑΥ names the
+   * speciality «PD - Child Pediatrics» / «PD - Adult General Medicine». */
+  const out = {};
+  if (!bundle.claims) return out;
+  for (const [seg, spec, , amount] of bundle.claims.byDoctor) {
+    if (!normLabel(seg).includes('PERSONAL DOCTOR')) continue;
+    const up = normLabel(spec);
+    const kind = up.includes('CHILD') ? 'child' : up.includes('ADULT') ? 'adult' : '';
+    if (kind) out[kind] = round2((out[kind] || 0) + amount);
+  }
+  return out;
+}
+
+function kpiCohorts(sra) {
+  /* The quality-criteria lines ΟΑΥ pays per Personal Doctor: the register is
+   * written on the line itself («PD-KPIs-08-2026-CHILD-D1737»). */
+  const out = {};
+  for (const l of (sra ? sra.lines : [])) {
+    const up = normLabel(l.description);
+    if (!up.includes('KPI')) continue;
+    const kind = up.includes('CHILD') ? 'child' : up.includes('ADULT') ? 'adult' : '';
+    if (kind) out[kind] = round2((out[kind] || 0) + l.amount);
+  }
+  return out;
+}
+
 function buildSplit(bundle) {
   const sra = bundle.sra;
   const sraAmount = (codes) => (sra ? sraSum(sra, codes) : null);
@@ -1067,11 +1149,22 @@ function buildSplit(bundle) {
   sections.push(ae);
 
   const out = { title: 'Εξωνοσοκομειακή περίθαλψη (Outpatient)', bucket: 'Outpatient', rows: [] };
+  /* the per-doctor OS adjustments belong to the clinic that earned them, not
+   * to one lump on ΕΞ.ΙΑΤΡΕΙΑ — whatever cannot be traced to a doctor stays
+   * visible as its own row further down */
+  const [adjBySpec, adjLeft] = osAdjustmentsBySpecialty(bundle, sra);
+  const adjTotal = round2(Object.values(adjBySpec).reduce((a, v) => a + v, 0));
   if (bundle.claims && Object.keys(bundle.claims.osBySpecialty).length) {
-    for (const [spec, amt] of Object.entries(bundle.claims.osBySpecialty).sort((a, b) => b[1] - a[1])) {
+    const merged = { ...bundle.claims.osBySpecialty };
+    for (const [spec, amt] of Object.entries(adjBySpec)) {
+      merged[spec] = round2((merged[spec] || 0) + amt);
+    }
+    for (const [spec, amt] of Object.entries(merged).sort((a, b) => b[1] - a[1])) {
       out.rows.push({ label: `Ειδικοί Ιατροί — ${spec} (OS)`, amount: amt });
     }
-    tieRows(out, sraAmount(['OS']), 'Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)');
+    let osTarget = sraAmount(['OS']);
+    if (osTarget != null && adjTotal) osTarget = round2(osTarget + adjTotal);
+    tieRows(out, osTarget, 'Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)');
   } else {
     let osAmt = sraAmount(['OS']);
     if (osAmt == null && bundle.claims) osAmt = bundle.claims.bySegment['Outpatient Specialists'] || 0;
@@ -1101,13 +1194,25 @@ function buildSplit(bundle) {
     pdCap = capReport;
     pdRest = round2(pdRest - capReport);
   }
-  if (pdCap) out.rows.push({ label: 'Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)', amount: pdCap });
+  /* ΟΑΥ pays the Personal Doctors of the children and of the adults on the
+   * same lines, but in a hospital only the CHILDREN's half is the hospital's
+   * own revenue: the adults' Personal Doctors belong to ΔΠΦΥ and their money
+   * is settled between companies.  Each half is read from a report that states
+   * it — the capitation report's age bands, the claims file's «PD - Child /
+   * Adult» speciality, the SRA's own CHILD/ADULT KPI lines — never
+   * apportioned. */
+  if (pdCap) pdSplitRows(out, pdCap, cohortsOf(bundle.capitation), 'κατά κεφαλήν (capitation)');
   if (pdFp) out.rows.push({ label: 'Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, εμβολιασμοί)', amount: pdFp });
-  if (pdRest) out.rows.push({ label: 'Προσωπικοί Ιατροί — εξωνοσοκομειακές χρεώσεις (PD outpatient fees)', amount: pdRest });
+  if (pdRest) pdSplitRows(out, pdRest, pdClaimsCohorts(bundle), 'εξωνοσοκομειακές χρεώσεις (outpatient fees)');
   let kpi = sraAmount(['KPI', 'PD-KPI', 'MRI', 'CT', 'MRI/CT']);
   if (kpi == null && bundle.quality) kpi = bundle.quality.total;
-  if (kpi) out.rows.push({ label: 'Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)', amount: kpi });
-  const osAdj = sraAmount(['OS-ADJ']);
+  if (kpi) {
+    const pdKpi = kpiCohorts(sra);
+    const rest = round2(kpi - Object.values(pdKpi).reduce((a, v) => a + v, 0));
+    pdSplitRows(out, round2(kpi - rest), pdKpi, 'ποιοτικά κριτήρια (PD KPIs)');
+    if (rest) out.rows.push({ label: 'Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)', amount: rest });
+  }
+  const osAdj = Object.keys(adjBySpec).length ? adjLeft : sraAmount(['OS-ADJ']);
   if (osAdj) out.rows.push({ label: 'Εξωνοσοκομειακή — προσαρμογές μεθόδου αποζημίωσης (OS reimb-method adjustments)', amount: osAdj });
   const sat = sraAmount(['SAT']);
   if (sat) out.rows.push({ label: 'Επιταγές δορυφορικών παροχέων (satellite suppliers, π.χ. κέντρα υγείας)', amount: sat });

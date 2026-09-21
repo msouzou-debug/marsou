@@ -388,3 +388,62 @@ def test_the_journal_carries_its_own_upload_instructions():
                      for c in row if c.value is not None)
     assert "ZSHSO_FI_POST_UPL_V1" in text
     assert "JOURNAL ENTRIES" in text and "Έλεγχος_SAP" in text
+
+
+def test_the_short_and_long_spellings_of_a_clinic_both_match():
+    """Paphos writes «ΟΡΘ.ΕΙ», everyone else «ΟΡΘΟΠΑΙΔΙΚΗ-ΕΙ» — and Nicosia
+    types the Α of «ΘΑΛ Α» in the Latin alphabet, which used to make its two
+    orthopaedic wards ambiguous and leave the line blank."""
+    m = extract_sap_master(_centres(
+        ("1031", "1053103700", "ΟΡΘ.ΓΕΝΙΚΑ"),
+        ("1031", "1053103701", "ΟΡΘ.ΕΙ"),
+        ("1031", "1053103702", "ΟΡΘ.ΘΑΛΑΜΟΣ Α"),
+        ("1020", "1042003701", "ΟΡΘΟΠΑΙΔΙΚΗ-ΕΙ"),
+        ("1020", "1042003702", "ΟΡΘΟΠΑΙΔΙΚΗ-ΘΑΛ A"),      # Latin A
+        ("1020", "1042003703", "ΟΡΘΟΠΑΙΔΙΚΗ-ΘΑΛ B"),      # Latin B
+        ("1020", "1042003704", "ΟΡΘ-ΠΡΟΣΘΕΤΙΚΑ ΜΕΛΗ")))
+    assert m.find_centre("1031", "ORTHOPAEDICS", "ward").code == "1053103702"
+    assert m.find_centre("1031", "ORTHOPAEDICS", "clinic").code == "1053103701"
+    assert m.find_centre("1020", "ORTHOPAEDICS", "ward").code == "1042003702"
+    assert m.find_centre("1020", "ORTHOPAEDICS", "clinic").code == "1042003701"
+
+
+def test_the_specialities_paphos_added_to_the_dictionary():
+    """Anaesthesiology and oncology used to fall back to ΕΞ.ΙΑΤΡΕΙΑ or stay
+    blank; ΟΑΥ bills the hyperbaric chamber under the bare word «DOCTOR»."""
+    m = extract_sap_master(_centres(
+        ("1031", "1053110001", "ΑΝΑΙΣΘΗΣΙΟΛΟΓΙΚΟ-ΕΙ"),
+        ("1031", "1053103601", "ΟΓΚΟΛΟΓΙΚΗ-ΕΙ"),
+        ("1031", "1053103602", "ΟΓΚΟΛΟΓΙΚΗ-ΗΦ"),
+        ("1031", "1053105300", "ΥΠΕΡΒΑΡΙΚΟΣ ΘΑΛΑΜΟΣ"),
+        ("1031", "1053104101", "ΠΑΙΔΙΑΤΡΙΚΗ-ΓΕΝΙΚΑ"),
+        ("1031", "1053104600", "ΠΙ ΕΝΗΛΙΚΩΝ")))
+    assert m.find_centre("1031", "ANESTHESIOLOGY", "clinic").code == "1053110001"
+    assert m.find_centre("1031", "MEDICAL ONCOLOGY", "daycare").code == "1053103602"
+    assert m.find_centre("1031", "DOCTOR", "daycare").code == "1053105300"
+    # the children's Personal Doctors book to the paediatric clinic, the
+    # adults' keep their own centre
+    assert m.find_centre(
+        "1031", "Προσωπικοί Ιατροί Παιδιών — κατά κεφαλήν").code == "1053104101"
+    assert m.find_centre(
+        "1031", "Προσωπικοί Ιατροί — κατά κεφαλήν").code == "1053104600"
+
+
+def test_the_lines_that_change_account_or_take_none_at_all():
+    """Two rules the journal cannot get from a cost centre: ΟΑΥ's «ADJ-IS»
+    hemodialysis is day care, not a DRG stay; and the adults' Personal Doctors
+    are not our revenue at all, so no account of ours may be written."""
+    from recon.build_xlsx import _line_kind
+    from recon.sapmaster import SapMaster
+    assert _line_kind("Αιμοκάθαρση (Hemodialysis)", "Inpatient") == \
+        ("inpatient_daily", "general")
+    assert _line_kind("Προσωπικοί Ιατροί Ενηλίκων — κατά κεφαλήν — ΔΠΦΥ "
+                      "(intercompany)", "Outpatient")[0] == "intercompany"
+    assert _line_kind("Προσωπικοί Ιατροί Παιδιών — κατά κεφαλήν (capitation)",
+                      "Outpatient")[0] == "capitation"
+    # and «intercompany» is not one of our revenue accounts, so nothing is
+    # written even when the whole chart of accounts is loaded
+    full = SapMaster(accounts={code: "x" for code in
+                               ("412000", "412002", "412005", "412008")})
+    assert full.account("intercompany") == ("", "")
+    assert full.account("inpatient_daily") == ("412005", "x")

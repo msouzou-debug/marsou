@@ -57,8 +57,14 @@ const SPECIALTY_GREEK = {
   PEDIATRICS: 'ΠΑΙΔΙΑΤΡΙΚ',
   OPHTHALMOLOGY: 'ΟΦΘΑΛΜΟΛΟΓΙΚ',
   'INTERNAL MEDICINE': 'ΠΑΘΟΛΟΓΙΚ',
-  ORTHOPAEDICS: 'ΟΡΘΟΠΑΙΔΙΚ',
-  ORTHOPEDICS: 'ΟΡΘΟΠΑΙΔΙΚ',
+  /* Paphos abbreviates the orthopaedic centres to «ΟΡΘ.», the rest spell
+   * «ΟΡΘΟΠΑΙΔΙΚΗ» — the short stem matches both */
+  ORTHOPAEDICS: 'ΟΡΘ',
+  ORTHOPEDICS: 'ΟΡΘ',
+  ANAESTHESIOLOGY: 'ΑΝΑΙΣΘΗΣΙΟΛΟΓΙΚ',
+  ANESTHESIOLOGY: 'ΑΝΑΙΣΘΗΣΙΟΛΟΓΙΚ',
+  'MEDICAL ONCOLOGY': 'ΟΓΚΟΛΟΓΙΚ',
+  ONCOLOGY: 'ΟΓΚΟΛΟΓΙΚ',
   UROLOGY: 'ΟΥΡΟΛΟΓΙΚ',
   'RESPIRATORY MEDICINE': 'ΠΝΕΥΜΟΝΟΛΟΓΙΚ',
   RHEUMATOLOGY: 'ΡΕΥΜΑΤΟΛΟΓΙΚ',
@@ -89,6 +95,15 @@ const SPECIALTY_GREEK = {
   OUTPATIENT: 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'PERSONAL DOCTORS': 'ΠΙ ΕΝΗΛΙΚΩΝ',
   'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ': 'ΠΙ ΕΝΗΛΙΚΩΝ',
+  /* the children's Personal Doctors keep no centre of their own — their
+   * revenue books to the paediatric clinic (longest key wins, so these are
+   * read before the plain «Προσωπικοί Ιατροί» above) */
+  'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ ΠΑΙΔΙΩΝ': 'ΠΑΙΔΙΑΤΡΙΚ',
+  'PD CHILD PEDIATRICS': 'ΠΑΙΔΙΑΤΡΙΚ',
+  /* ΟΑΥ bills the hyperbaric chamber's day care under the bare speciality
+   * «DOCTOR»; hospitals without such a unit simply have no such centre and the
+   * line stays blank, as any unmatched line does */
+  DOCTOR: 'ΥΠΕΡΒΑΡΙΚΟΣ ΘΑΛΑΜΟΣ',
 };
 
 /* Where a stream looks for its centre, in order.  Day treatments prefer the
@@ -186,8 +201,13 @@ function findSapCentre(master, company, specialty, variant = 'general') {
     const picked = hits.filter((c) => hasVariant(sapTail(c.name, stem), marks));
     if (picked.length === 1) return picked[0];
     if (picked.length > 1) {
-      /* a clinic split across «ΘΑΛ Α» and «ΘΑΛ Β» books to Α */
-      const alpha = picked.filter((c) => sapTail(c.name, stem).endsWith('Α'));
+      /* a clinic split across «ΘΑΛ Α» and «ΘΑΛ Β» books to Α — and the master
+       * types that Α in both alphabets (Nicosia's orthopaedics wards are
+       * «ΘΑΛ A»/«ΘΑΛ B», in Latin) */
+      const alpha = picked.filter((c) => {
+        const t = sapTail(c.name, stem);
+        return t.endsWith('Α') || t.endsWith('A');
+      });
       if (alpha.length === 1) return alpha[0];
       return null;                        // still ambiguous — a human decides
     }

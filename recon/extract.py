@@ -931,6 +931,31 @@ _INVOICE_LINE_RE = re.compile(
     rf"(?P<total>{_AMT})\s+(?P<cur>[A-Z]{{3}})\s+(?P<paid>{_AMT})\s*$")
 
 
+_DOCTOR_CODE_RE = re.compile(r"\b([A-Z]\d{3,5})\b")
+
+
+def _doctor_code(desc: str, raw_lines: list, n: int) -> str:
+    """ΟΑΥ's doctor code for a line, «D2012».
+
+    Some lines carry it inside the description («PD-KPIs-08-2026-ADULT-D1233»);
+    on the per-doctor OS adjustments the description column is too narrow and
+    the code wraps onto the next printed line («Met D2012»).  Only a WRAPPED
+    fragment is read — a line that parses as an invoice row of its own is the
+    next payment, not this one's tail."""
+    m = _DOCTOR_CODE_RE.search(desc or "")
+    if m:
+        return m.group(1)
+    for nxt in raw_lines[n + 1:n + 3]:
+        if not nxt.strip():
+            break
+        if _INVOICE_LINE_RE.match(nxt) or _LINE_RE.match(nxt):
+            break                       # a row of its own, not a continuation
+        m = _DOCTOR_CODE_RE.search(nxt)
+        if m:
+            return m.group(1)
+    return ""
+
+
 def parse_sra_text(text: str) -> SRA:
     """Parse every SRA line: code, description, amount; plus cheque number and
     stated total.  Never guesses an amount — lines without a parseable amount
@@ -954,7 +979,8 @@ def parse_sra_text(text: str) -> SRA:
 
     lines: list[SRALine] = []
     stated_total: Optional[float] = None
-    for raw in text.splitlines():
+    raw_lines = text.splitlines()
+    for n, raw in enumerate(raw_lines):
         line = raw.rstrip()
         if not line.strip():
             continue
@@ -968,7 +994,8 @@ def parse_sra_text(text: str) -> SRA:
             lines.append(SRALine(code=canon,
                                  description=f"{desc} ({inv.group('date')} #{inv.group('inv')})",
                                  amount=amount, bucket=bucket, channel=channel,
-                                 source_report=src, date=inv.group("date")))
+                                 source_report=src, date=inv.group("date"),
+                                 doctor=_doctor_code(desc, raw_lines, n)))
             continue
         m = _LINE_RE.match(line)
         if not m:
@@ -990,7 +1017,8 @@ def parse_sra_text(text: str) -> SRA:
         dm = _LEAD_DATE_RE.match((code + " " + desc).strip())
         lines.append(SRALine(code=canon, description=desc or canon, amount=amount,
                              bucket=bucket, channel=channel, source_report=src,
-                             date=dm.group(1) if dm else ""))
+                             date=dm.group(1) if dm else "",
+                             doctor=_doctor_code(desc or code, raw_lines, n)))
     if not lines:
         raise ExtractionError("SRA: δεν αναγνωρίστηκαν γραμμές πληρωμής στο PDF")
     if stated_total is None:
@@ -1176,6 +1204,7 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
     claims = set()
     by_payment: dict[str, float] = {}
     by_claim: dict[str, float] = {}
+    professionals: dict[str, str] = {}
     found = False
 
     def _local(el) -> str:
@@ -1187,6 +1216,7 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
         if _local(claim) != "claim":
             continue
         pay = ""
+        prof_id = prof_name = ""
         amt = 0.0
         has_amount = False
         for el in claim.iter():
@@ -1198,6 +1228,12 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
                 claims.add(el.text.strip())
             elif tag == "claimpaymentnumber" and el.text:
                 pay = el.text.strip()
+            elif tag == "professionalid" and el.text:
+                prof_id = el.text.strip()
+            elif tag == "professionalname" and el.text:
+                prof_name = el.text.strip()
+        if prof_id and prof_name:
+            professionals[prof_id] = prof_name
         total += amt
         if has_amount:
             found = True
@@ -1225,7 +1261,8 @@ def extract_xml_activity(data: bytes) -> XMLActivity:
     return XMLActivity(total=round(total, 2), n_claims=len(claims),
                        by_payment=by_payment, by_claim=by_claim,
                        date_from=window.get("claimsdatefrom", ""),
-                       date_to=window.get("claimsdateto", ""))
+                       date_to=window.get("claimsdateto", ""),
+                       by_professional=professionals)
 
 
 def extract_activity_table(data: bytes) -> XMLActivity:
@@ -1242,6 +1279,8 @@ def extract_activity_table(data: bytes) -> XMLActivity:
         amt = _col(t, "ACTIVITYREIMBURSEMENTAMOUNT", "ACTIVITY REIMBURSEMENT AMOUNT")
         cid = _col(t, "CLAIMID", "CLAIM ID")
         pay = _col(t, "CLAIMPAYMENTNUMBER", "CLAIM PAYMENT NUMBER")
+        pid = _col(t, "PROFESSIONALID", "PROFESSIONAL ID")
+        pname = _col(t, "PROFESSIONALNAME", "PROFESSIONAL NAME")
         out = XMLActivity()
         claims: set[str] = set()
         for _, row in t.iterrows():
@@ -1257,6 +1296,10 @@ def extract_activity_table(data: bytes) -> XMLActivity:
             if p.lower() == "nan":
                 p = ""
             out.by_payment[p] = round(out.by_payment.get(p, 0.0) + a, 2)
+            if pid is not None and pname is not None:
+                code, name = str(row[pid]).strip(), str(row[pname]).strip()
+                if code and code.lower() != "nan" and name.lower() != "nan":
+                    out.by_professional[code] = name
         out.n_claims = len(claims)
         dfrom, dto = _col(t, "CLAIMSDATEFROM"), _col(t, "CLAIMSDATETO")
         for col, attr in ((dfrom, "date_from"), (dto, "date_to")):
@@ -1340,6 +1383,41 @@ def extract_simple_report(data: bytes, raw_text: Optional[str] = None) -> Simple
 _DOCTOR_LINE_RE = re.compile(r"\s*(D\d{3,5})\s+([^/]+?)\s*/")
 
 
+_AGE_BAND_RE = re.compile(r"^\s*(\d{1,3})\s*-\s*(\d{1,3})\s+years", re.I)
+
+
+def _doctor_cohorts(text: str) -> dict:
+    """How much capitation each cohort earned — «child» and «adult».
+
+    ΟΑΥ prints each Personal Doctor's age bands right under the doctor's own
+    total: a children's doctor carries the 0-3 / 4-7 / 8-14 bands, an adults'
+    doctor the 18-50 / 51-70 / 71-999 ones.  The 15-17 band appears on both
+    registers, so it decides nothing on its own and is ignored here."""
+    out: dict = {}
+    code = ""
+    bands: list = []
+
+    def flush() -> None:
+        if not code or not bands:
+            return
+        kind = ("child" if any(lo < 15 for lo, _hi in bands)
+                else "adult" if any(lo >= 18 for lo, _hi in bands) else "")
+        if kind:
+            out[code] = kind
+
+    for raw in text.splitlines():
+        m = _DOCTOR_LINE_RE.match(raw)
+        if m:
+            flush()
+            code, bands = m.group(1), []
+            continue
+        b = _AGE_BAND_RE.match(raw)
+        if b:
+            bands.append((int(b.group(1)), int(b.group(2))))
+    flush()
+    return out
+
+
 def _doctor_rows(text: str) -> list[tuple[str, float]]:
     """«Dxxxx ΟΝΟΜΑ / ...  Συνολικός 11,141.40 €» rows, summed per doctor
     across invoices — capitation per-doctor detail for the By_Doctor tab."""
@@ -1359,6 +1437,19 @@ def _doctor_rows(text: str) -> list[tuple[str, float]]:
     return [(k, sums[k]) for k in order]
 
 
+def _cohort_totals(rows: list, text: str) -> dict:
+    """The per-doctor sums added up per cohort.  A doctor whose age bands do
+    not say which register they keep is left out — the split is then reported
+    as incomplete rather than guessed."""
+    kinds = _doctor_cohorts(text)
+    out: dict = {}
+    for key, amount in rows:
+        kind = kinds.get(key.split()[0] if key else "")
+        if kind:
+            out[kind] = round(out.get(kind, 0.0) + amount, 2)
+    return out
+
+
 def _simple_from_text(text: str) -> SimpleReport:
     # invoice-level rows first (real capitation reports: «5729128 F1049 ...
     # STANDARD 31/03/2026 5,174.80 €» followed by per-doctor and per-age
@@ -1371,8 +1462,10 @@ def _simple_from_text(text: str) -> SimpleReport:
             if amts:
                 invoice_rows.append((raw.strip()[:60], amts[-1]))
     if invoice_rows:
+        rows = _doctor_rows(text)
         return SimpleReport(total=round(sum(v for _, v in invoice_rows), 2),
-                            lines=invoice_rows, by_doctor=_doctor_rows(text))
+                            lines=invoice_rows, by_doctor=rows,
+                            by_cohort=_cohort_totals(rows, text))
     lines: list[tuple[str, float]] = []
     total = None
     for raw in text.splitlines():
@@ -1389,8 +1482,9 @@ def _simple_from_text(text: str) -> SimpleReport:
     stated = total
     computed = round(sum(v for _, v in lines), 2)
     total = computed if lines else (total or 0.0)
+    rows = _doctor_rows(text)
     return SimpleReport(total=round(total, 2), lines=lines, stated_total=stated,
-                        by_doctor=_doctor_rows(text))
+                        by_doctor=rows, by_cohort=_cohort_totals(rows, text))
 
 
 # ------------------------------------------------------------- dispatcher

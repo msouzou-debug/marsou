@@ -6,6 +6,7 @@ two sides and the gap.  Known variances get a note, never a silent absorb.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -13,7 +14,7 @@ from .extract import merge_clinic_rows, sra_sum_in_period
 from .models import (Bucket, BUCKET_ORDER, ClaimsAll, GLExtract, HOSPITALS,
                      IdentifiedFile, InpatientSummary, is_hospital, ISAuditor,
                      ORG_WIDE_TYPES, PharmaClaims, PharmacistFee,
-                     provider_name, REPORT_LABELS, REQUIRED_TYPES,
+                     norm_label, provider_name, REPORT_LABELS, REQUIRED_TYPES,
                      REQUIRED_TYPES_PROVIDER, ReportType, SimpleReport,
                      SRA, XMLActivity)
 from .numbers import format_eur
@@ -1299,10 +1300,20 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     sections.append(ae)
 
     out = SplitSection("Εξωνοσοκομειακή περίθαλψη (Outpatient)", Bucket.OUTPATIENT)
+    # the per-doctor OS adjustments belong to the clinic that earned them, not
+    # to one lump on ΕΞ.ΙΑΤΡΕΙΑ — whatever cannot be traced to a doctor stays
+    # visible as its own row further down
+    adj_by_spec, adj_left = _os_adjustments_by_specialty(bundle, sra)
     if bundle.claims and bundle.claims.os_by_specialty:
-        for spec, amt in sorted(bundle.claims.os_by_specialty.items(), key=lambda kv: -kv[1]):
+        merged = dict(bundle.claims.os_by_specialty)
+        for spec, amt in adj_by_spec.items():
+            merged[spec] = round(merged.get(spec, 0.0) + amt, 2)
+        for spec, amt in sorted(merged.items(), key=lambda kv: -kv[1]):
             out.rows.append(SplitRow(f"Ειδικοί Ιατροί — {spec} (OS)", amt))
-        _tie_rows(out, sra_amount(["OS"]), "Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)")
+        os_target = sra_amount(["OS"])
+        if os_target is not None and adj_by_spec:
+            os_target = round(os_target + sum(adj_by_spec.values()), 2)
+        _tie_rows(out, os_target, "Ειδικοί Ιατροί — διαφορά προς SRA (OS diff)")
     else:
         os_amt = sra_amount(["OS"])
         if os_amt is None and bundle.claims:
@@ -1336,22 +1347,34 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         # place it is stated apart
         pd_cap = cap_report
         pd_rest = round(pd_rest - cap_report, 2)
+    # ΟΑΥ pays the Personal Doctors of the children and of the adults on the
+    # same lines, but in a hospital only the CHILDREN's half is the hospital's
+    # own revenue: the adults' Personal Doctors belong to ΔΠΦΥ and their money
+    # is settled between companies.  Each half is read from a report that
+    # states it — the capitation report's age bands, the claims file's
+    # «PD - Child/Adult» speciality, the SRA's own CHILD/ADULT KPI lines —
+    # never apportioned.
     if pd_cap:
-        out.rows.append(SplitRow("Προσωπικοί Ιατροί — κατά κεφαλήν (PD capitation)", pd_cap))
+        _pd_rows(out, pd_cap, _cohorts_of(bundle.capitation),
+                 "κατά κεφαλήν (capitation)")
     if pd_fp:
         out.rows.append(SplitRow(
             "Προσωπικοί Ιατροί — σταθερές χρεώσεις (PD fixed price: OOH, "
             "εμβολιασμοί)", pd_fp))
     if pd_rest:
-        out.rows.append(SplitRow(
-            "Προσωπικοί Ιατροί — εξωνοσοκομειακές χρεώσεις (PD outpatient fees)",
-            pd_rest))
+        _pd_rows(out, pd_rest, _pd_claims_cohorts(bundle),
+                 "εξωνοσοκομειακές χρεώσεις (outpatient fees)")
     kpi = sra_amount(["KPI", "PD-KPI", "MRI", "CT", "MRI/CT"])
     if kpi is None and bundle.quality:
         kpi = bundle.quality.total
     if kpi:
-        out.rows.append(SplitRow("Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)", kpi))
-    os_adj = sra_amount(["OS-ADJ"])
+        pd_kpi = _kpi_cohorts(sra)
+        rest = round(kpi - sum(pd_kpi.values()), 2)
+        _pd_rows(out, round(kpi - rest, 2), pd_kpi, "ποιοτικά κριτήρια (PD KPIs)")
+        if rest:
+            out.rows.append(SplitRow(
+                "Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)", rest))
+    os_adj = adj_left if adj_by_spec else sra_amount(["OS-ADJ"])
     if os_adj:
         out.rows.append(SplitRow(
             "Εξωνοσοκομειακή — προσαρμογές μεθόδου αποζημίωσης (OS reimb-method "
@@ -1409,6 +1432,95 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
 
 def _tie_section(section: SplitSection, target: Optional[float]) -> None:
     _tie_rows(section, target, "Διαφορά προς SRA (reconciling diff to SRA)")
+
+
+_DOCTOR_CODE_RE = re.compile(r"\b([A-Z]\d{3,5})\b")
+
+
+def _pd_rows(section: SplitSection, amount: float, cohorts: dict,
+             what: str) -> None:
+    """One Personal-Doctors amount written as the two registers it is.
+
+    Split only when the two halves are stated by a report AND add back to the
+    ΟΑΥ line to the cent; otherwise the line stays whole and un-split, so
+    nothing is ever apportioned to make a number appear."""
+    child = cohorts.get("child", 0.0)
+    adult = cohorts.get("adult", 0.0)
+    if not cohorts or round(child + adult, 2) != round(amount, 2):
+        section.rows.append(SplitRow(f"Προσωπικοί Ιατροί — {what}", amount))
+        return
+    if child:
+        section.rows.append(SplitRow(
+            f"Προσωπικοί Ιατροί Παιδιών — {what}", child))
+    if adult:
+        section.rows.append(SplitRow(
+            f"Προσωπικοί Ιατροί Ενηλίκων — {what} — ΔΠΦΥ (intercompany)", adult))
+
+
+def _cohorts_of(report) -> dict:
+    return dict(getattr(report, "by_cohort", None) or {}) if report else {}
+
+
+def _pd_claims_cohorts(bundle) -> dict:
+    """The Personal-Doctors fees of the claims file, per register: ΟΑΥ names
+    the speciality «PD - Child Pediatrics» / «PD - Adult General Medicine»."""
+    out: dict = {}
+    if not bundle.claims:
+        return out
+    for seg, spec, _doctor, amount in bundle.claims.by_doctor:
+        if "PERSONAL DOCTOR" not in norm_label(seg):
+            continue
+        up = norm_label(spec)
+        kind = "child" if "CHILD" in up else "adult" if "ADULT" in up else ""
+        if kind:
+            out[kind] = round(out.get(kind, 0.0) + amount, 2)
+    return out
+
+
+def _kpi_cohorts(sra) -> dict:
+    """The quality-criteria lines ΟΑΥ pays per Personal Doctor: the register
+    is written on the line itself («PD-KPIs-08-2026-CHILD-D1737»)."""
+    out: dict = {}
+    for l in (sra.lines if sra else []):
+        up = norm_label(l.description)
+        if "KPI" not in up:
+            continue
+        kind = "child" if "CHILD" in up else "adult" if "ADULT" in up else ""
+        if kind:
+            out[kind] = round(out.get(kind, 0.0) + l.amount, 2)
+    return out
+
+
+def _os_adjustments_by_specialty(bundle, sra) -> tuple[dict, float]:
+    """The outpatient reimbursement-method adjustments, split by clinic.
+
+    ΟΑΥ pays them doctor by doctor and names only the doctor's CODE
+    («...-OS-Aug26-D2012»); the speciality lives in the claims file, keyed by
+    the doctor's NAME.  The activity export carries both, so it is the bridge:
+    code → name → speciality → cost centre.  Without it — the export is
+    optional — nothing is guessed and the whole amount stays in one row.
+
+    Returns (amount per speciality, what could not be traced)."""
+    lines = [l for l in sra.lines if l.code == "OS-ADJ"] if sra else []
+    if not lines:
+        return {}, 0.0
+    xml = getattr(bundle, "xml_activity", None)
+    names = getattr(xml, "by_professional", None) or {}
+    spec_of: dict[str, str] = {}
+    if bundle.claims:
+        for _seg, spec, doctor, _amt in bundle.claims.by_doctor:
+            name = str(doctor).strip()
+            if name and spec and spec not in ("—", "nan"):
+                spec_of.setdefault(name, spec)
+    by_spec: dict[str, float] = {}
+    left = 0.0
+    for l in lines:
+        spec = spec_of.get(str(names.get(l.doctor, "")).strip()) if l.doctor else None
+        if spec:
+            by_spec[spec] = round(by_spec.get(spec, 0.0) + l.amount, 2)
+        else:
+            left = round(left + l.amount, 2)
+    return by_spec, left
 
 
 def _tie_rows(section: SplitSection, target: Optional[float], label: str) -> None:

@@ -510,7 +510,7 @@ def _sap_header(ws) -> None:
     ws.freeze_panes = "A4"
 
 
-def _journal_lines(section) -> tuple[list[dict], dict]:
+def _journal_lines(section) -> tuple[list[dict], dict, dict, dict]:
     """A month's credit lines for one payee, in the service's own journal
     order.
 
@@ -521,12 +521,20 @@ def _journal_lines(section) -> tuple[list[dict], dict]:
     if is_hospital(b.hospital_code):
         return _journal_lines_by_stream(section)
     lines, missing = _journal_lines_by_professional(section)
-    return lines, missing, {}
+    return lines, missing, {}, {}
 
 
 # A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
 # account and which flavour of the clinic's cost centre it posts to.
 _LINE_KINDS = [
+    # the adults' Personal Doctors belong to ΔΠΦΥ: their money is not our
+    # revenue, so no revenue account of ours is written — the line is listed
+    # on the check sheet for the intercompany account to be filled in
+    ("ΔΠΦΥ", "intercompany", "general"),
+    # ΟΑΥ labels the hemodialysis adjustment «ADJ-IS», but the treatment is day
+    # care: it posts to 412005, at the unit's own ΑΙΜΟΚΑΘΑΡΣΗ centre
+    ("ΑΙΜΟΚΑΘΑΡΣΗ", "inpatient_daily", "general"),
+    ("HEMODIALYSIS", "inpatient_daily", "general"),
     ("ΠΟΙΟΤΙΚΑ", "quality", "general"),
     ("ΣΤΑΘΕΡΕΣ ΧΡΕΩΣΕΙΣ", "oncall", "general"),
     ("ΕΜΒΟΛΙΑΣΜ", "vaccines", "general"),
@@ -587,6 +595,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
     out: list[dict] = []
     missing: dict = {}
     why: dict = {}
+    no_account: dict = {}
     for sec in section.result.split:
         stream = sec.bucket.value if sec.bucket else sec.title
         for row in sec.rows:
@@ -615,9 +624,17 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                     if centre:
                         kostl, text = centre.code, centre.name
                 account, _atext = master.account(part_kind) if master else ("", "")
+                # the ΔΠΦΥ half of the Personal Doctors is not our revenue at
+                # all: no account of ours may be written on it, not even the
+                # default, or the money lands in outpatient income
+                foreign = part_kind == "intercompany"
                 out.append({"kostl": kostl, "aufnr": aufnr,
                             "text": text or row.label, "account": account,
+                            "needs_account": "ΔΠΦΥ (intercompany)" if foreign else "",
                             "professional": stream, "amount": round(amount, 2)})
+                if foreign:
+                    no_account[row.label] = round(
+                        no_account.get(row.label, 0.0) + amount, 2)
                 if not kostl:
                     missing[row.label] = round(
                         missing.get(row.label, 0.0) + amount, 2)
@@ -632,7 +649,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
         out.append({"kostl": "", "aufnr": "", "account": "",
                     "text": "TO CLASSIFY (split vs SRA)",
                     "professional": "", "amount": residual})
-    return out, missing, why
+    return out, missing, why, no_account
 
 
 def _journal_lines_by_professional(section) -> tuple[list[dict], dict]:
@@ -715,15 +732,18 @@ def _tab_sap_upload(wb: Workbook, sections: list,
     r = 4
     missing: dict = {}
     why: dict = {}
+    no_account: dict = {}
     docs: list[tuple] = []          # (cheque, unit label, head row, total)
     for section in sections:
         b = section.result.bundle
         if not b.sra:
             continue
         cheque = b.sra.cheque_no
-        lines, miss, miss_why = _journal_lines(section)
+        lines, miss, miss_why, miss_acct = _journal_lines(section)
         for label, amount in miss.items():
             missing[label] = round(missing.get(label, 0.0) + amount, 2)
+        for label, amount in miss_acct.items():
+            no_account[label] = round(no_account.get(label, 0.0) + amount, 2)
         why.update(miss_why)
         head_row = r
         # header (debit) line — the amount is the live sum of its own credits
@@ -744,7 +764,9 @@ def _tab_sap_upload(wb: Workbook, sections: list,
         for ln in lines:
             sgtxt = f'="HIO OUTP. {short} INV."&X{r}&" {_q(ln["text"])}"'
             line = ["", "", "", "", "", "", "", "", SAP_DEFAULTS["credit_key"],
-                    ln.get("account") or SAP_DEFAULTS["credit_account"],
+                    ln.get("account")
+                    or ("" if ln.get("needs_account")
+                        else SAP_DEFAULTS["credit_account"]),
                     "", ln["amount"],
                     SAP_DEFAULTS["tax"], ln["kostl"], ln["aufnr"], "", "", "",
                     company, sgtxt, "", "", "", cheque, ln["professional"]]
@@ -758,6 +780,7 @@ def _tab_sap_upload(wb: Workbook, sections: list,
             r += 1
         docs.append((cheque, section.label, head_row, b.sra.stated_total))
     info = {"last": r - 1, "docs": docs, "missing": missing, "why": why,
+            "no_account": no_account,
             "master_seen": master is not None}
     if inline_checks:
         _sap_checks(ws, info, r + 1)
@@ -800,6 +823,19 @@ def _sap_checks(ws, info: dict, row: int) -> int:
         _amount(ws, r, 4, f"=B{r}-C{r}", F_FORMULA)
         ws.cell(row=r, column=4).fill = FILL_CHECK
         r += 1
+    foreign = {k: v for k, v in info.get("no_account", {}).items()
+               if abs(v) > 0.005}
+    if foreign:
+        r += 1
+        note = ws.cell(row=r, column=1, value=(
+            "Γραμμές χωρίς λογαριασμό εσόδων — δεν είναι δικό μας έσοδο αλλά "
+            "intercompany με τη ΔΠΦΥ· συμπληρώστε τον λογαριασμό πριν την "
+            "ανάρτηση (lines left with no revenue account, ΔΠΦΥ intercompany): "
+            + " · ".join(f"{k} — {format_eur(v)}"
+                         for k, v in sorted(foreign.items(),
+                                            key=lambda kv: -abs(kv[1])))))
+        note.font = F_AMBER
+        note.alignment = Alignment(wrap_text=True, vertical="top")
     text = _missing_note(info, info.get("master_seen", False))
     if text:
         r += 1
