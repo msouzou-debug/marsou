@@ -417,16 +417,22 @@ def test_the_specialities_paphos_added_to_the_dictionary():
         ("1031", "1053103602", "ΟΓΚΟΛΟΓΙΚΗ-ΗΦ"),
         ("1031", "1053105300", "ΥΠΕΡΒΑΡΙΚΟΣ ΘΑΛΑΜΟΣ"),
         ("1031", "1053104101", "ΠΑΙΔΙΑΤΡΙΚΗ-ΓΕΝΙΚΑ"),
+        ("1031", "1053104102", "ΠΑΙΔΙΑΤΡΙΚΗ-ΕΙ"),
+        ("1031", "1053104104", "ΠΑΙΔΙΑΤΡΙΚΗ-ΘΑΛ Α"),
         ("1031", "1053104600", "ΠΙ ΕΝΗΛΙΚΩΝ")))
     assert m.find_centre("1031", "ANESTHESIOLOGY", "clinic").code == "1053110001"
     assert m.find_centre("1031", "MEDICAL ONCOLOGY", "daycare").code == "1053103602"
     assert m.find_centre("1031", "DOCTOR", "daycare").code == "1053105300"
-    # the children's Personal Doctors book to the paediatric clinic, the
-    # adults' keep their own centre
-    assert m.find_centre(
-        "1031", "Προσωπικοί Ιατροί Παιδιών — κατά κεφαλήν").code == "1053104101"
+    # all three streams of the children's Personal Doctors book to the
+    # paediatric OUTPATIENT clinic, whatever the revenue account; the adults'
+    # keep their own centre
+    for what in ("κατά κεφαλήν", "ποιοτικά κριτήρια", "εξωνοσοκομειακές χρεώσεις"):
+        assert m.find_centre(
+            "1031", f"Προσωπικοί Ιατροί Παιδιών — {what}").code == "1053104102"
     assert m.find_centre(
         "1031", "Προσωπικοί Ιατροί — κατά κεφαλήν").code == "1053104600"
+    # the INPATIENT paediatric row is a ward row and keeps the ward centre
+    assert m.find_centre("1031", "PD - Child Pediatrics", "ward").code == "1053104104"
 
 
 def test_the_lines_that_change_account_or_take_none_at_all():
@@ -447,3 +453,27 @@ def test_the_lines_that_change_account_or_take_none_at_all():
                                ("412000", "412002", "412005", "412008")})
     assert full.account("intercompany") == ("", "")
     assert full.account("inpatient_daily") == ("412005", "x")
+
+
+def test_renal_day_care_is_dialysis_and_books_to_its_own_unit():
+    """The ΗΦ→ΕΙ fallback would send renal day treatments to the nephrology
+    outpatient clinic; they are dialysis and belong to the ΑΙΜΟΚΑΘΑΡΣΗ unit.
+    The ward and the clinic are untouched."""
+    m = extract_sap_master(_centres(
+        ("1031", "1053103400", "ΝΕΦ-ΑΙΜΟΚΑΘΑΡΣΗ"),
+        ("1031", "1053103401", "ΝΕΦΡΟΛΟΓΙΚΗ-ΕΙ"),
+        ("1031", "1053103402", "ΝΕΦΡΟΛΟΓΙΚΗ-ΘΑΛΑΜΟΣ")))
+    assert m.find_centre("1031", "RENAL DISEASES", "daycare").code == "1053103400"
+    assert m.find_centre("1031", "RENAL DISEASES", "clinic").code == "1053103401"
+    assert m.find_centre("1031", "RENAL DISEASES", "ward").code == "1053103402"
+    # a hospital without a dialysis unit still falls back rather than break
+    thin = extract_sap_master(_centres(("1033", "1053303401", "ΝΕΦΡΟΛΟΓΙΚΗ-ΕΙ")))
+    assert thin.find_centre("1033", "RENAL DISEASES", "daycare").code == "1053303401"
+
+
+def test_the_adults_personal_doctors_carry_the_intercompany_account():
+    from recon.sapmaster import SapMaster
+    full = SapMaster(accounts={"412000": "HIO - Capitation Fees",
+                               "122112": "Health Centers"})
+    assert full.account("intercompany") == ("122112", "Health Centers")
+    assert full.account("capitation") == ("412000", "HIO - Capitation Fees")

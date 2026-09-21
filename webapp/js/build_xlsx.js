@@ -841,7 +841,10 @@ function rowParts(row, kind, variant) {
   if (kind !== 'inpatient_drg') return [[row.amount, kind, variant]];
   const three = [[row.drg || 0, 'inpatient_drg', 'ward'],
                  [row.fixedFee || 0, 'inpatient_daily', 'daycare'],
-                 [row.zDrugs || 0, 'inpatient_z', 'daycare']];
+                 /* «z» looks where day care looks, but it is NOT day care:
+                  * the renal ΗΦ swap to the dialysis unit is for the
+                  * treatments only */
+                 [row.zDrugs || 0, 'inpatient_z', 'z']];
   const sum = round2(three.reduce((a, [x]) => a + x, 0));
   if (sum !== round2(row.amount)) return [[row.amount, kind, variant]];
   return three.filter(([a]) => a);
@@ -895,7 +898,7 @@ function journalLinesByStream(section, lookup) {
         out.push({ kostl, aufnr, text: text || row.label, account,
                    needsAccount: foreign ? 'ΔΠΦΥ (intercompany)' : '',
                    professional: stream, amount: round2(amount) });
-        if (foreign) {
+        if (foreign && !account) {
           noAccount.set(row.label, round2((noAccount.get(row.label) || 0) + amount));
         }
         if (!kostl) {

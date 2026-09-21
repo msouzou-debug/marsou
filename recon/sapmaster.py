@@ -46,6 +46,9 @@ REVENUE_ACCOUNTS = {
     "oncall": "412009",             # HIO On-call clinics
     "vaccines": "412010",           # HIO Vaccines
     "pharma": "412006",             # HIO Drugs Phase B
+    # NOT one of our revenue accounts: the adults' Personal Doctors belong to
+    # ΔΠΦΥ, so a hospital books their money against the intercompany account
+    "intercompany": "122112",       # intercompany a/c with ΔΠΦΥ
 }
 
 # ΟΑΥ's English speciality -> the stem SAP uses in the cost-centre name.  Only
@@ -107,16 +110,22 @@ SPECIALTY_GREEK = {
     "OUTPATIENT": "ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ",
     "PERSONAL DOCTORS": "ΠΙ ΕΝΗΛΙΚΩΝ",
     "ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ": "ΠΙ ΕΝΗΛΙΚΩΝ",
-    # the children's Personal Doctors keep no centre of their own — their
-    # revenue books to the paediatric clinic (longest key wins, so these are
-    # read before the plain «Προσωπικοί Ιατροί» above)
-    "ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ ΠΑΙΔΙΩΝ": "ΠΑΙΔΙΑΤΡΙΚ",
-    "PD CHILD PEDIATRICS": "ΠΑΙΔΙΑΤΡΙΚ",
+    # the children's Personal Doctors keep no centre of their own — all three
+    # of their streams book to the paediatric OUTPATIENT clinic, whatever the
+    # revenue account (longest key wins, so this is read before the plain
+    # «Προσωπικοί Ιατροί» above)
+    "ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ ΠΑΙΔΙΩΝ": "ΠΑΙΔΙΑΤΡΙΚΗ-ΕΙ",
     # ΟΑΥ bills the hyperbaric chamber's day care under the bare speciality
     # «DOCTOR»; hospitals without such a unit simply have no such centre and
     # the line stays blank, as any unmatched line does
     "DOCTOR": "ΥΠΕΡΒΑΡΙΚΟΣ ΘΑΛΑΜΟΣ",
 }
+
+# A speciality whose DAY treatments live in a unit of their own: renal day
+# care is dialysis, and it books to the ΑΙΜΟΚΑΘΑΡΣΗ centre rather than to the
+# nephrology outpatient clinic the ΗΦ→ΕΙ fallback would otherwise pick.
+_VARIANT_STEM = {("ΝΕΦΡΟΛΟΓΙΚ", "daycare"): "ΝΕΦ-ΑΙΜΟΚΑΘΑΡΣΗ"}
+
 
 # where a stream looks for its centre, in order.  Day treatments prefer the
 # ημερήσια φροντίδα centre but fall back to the ΕΙ clinic, not to nothing:
@@ -125,6 +134,7 @@ SPECIALTY_GREEK = {
 _VARIANT_CHAIN = {
     "ward": ("ward", "general"),
     "daycare": ("daycare", "clinic", "general"),
+    "z": ("daycare", "clinic", "general"),
     "clinic": ("clinic", "general"),
     "general": ("general",),
 }
@@ -174,6 +184,11 @@ class SapMaster:
         stem = _stem_for(specialty)
         if not stem or not company:
             return None
+        swap = _VARIANT_STEM.get((stem, variant))
+        if swap:
+            special = self.find_centre(company, swap, "general")
+            if special:
+                return special
         # the stem must START the centre's name: «ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ» contains
         # «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery
         hits = [c for c in self.centres_for(company)

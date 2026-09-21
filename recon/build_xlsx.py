@@ -566,7 +566,9 @@ def _row_parts(row, kind: str, variant: str) -> list[tuple[float, str, str]]:
         return [(row.amount, kind, variant)]
     three = [(row.drg or 0.0, "inpatient_drg", "ward"),
              (row.fixed_fee or 0.0, "inpatient_daily", "daycare"),
-             (row.z_drugs or 0.0, "inpatient_z", "daycare")]
+             # «z» looks where day care looks, but it is NOT day care: the
+             # renal ΗΦ swap to the dialysis unit is for the treatments only
+             (row.z_drugs or 0.0, "inpatient_z", "z")]
     if round(sum(a for a, _k, _v in three), 2) != round(row.amount, 2):
         return [(row.amount, kind, variant)]     # no split on this row
     return [(a, k, v) for a, k, v in three if a]
@@ -632,7 +634,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                             "text": text or row.label, "account": account,
                             "needs_account": "ΔΠΦΥ (intercompany)" if foreign else "",
                             "professional": stream, "amount": round(amount, 2)})
-                if foreign:
+                if foreign and not account:
                     no_account[row.label] = round(
                         no_account.get(row.label, 0.0) + amount, 2)
                 if not kostl:

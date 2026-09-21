@@ -33,7 +33,10 @@ const REVENUE_ACCOUNTS = {
   quality: '412008',            // HIO Quality Criteria
   oncall: '412009',             // HIO On-call clinics
   vaccines: '412010',           // HIO Vaccines
-  pharma: '412006',             // HIO Drugs Phase B
+  pharma: '412006',
+  /* NOT one of our revenue accounts: the adults' Personal Doctors belong to
+   * ΔΠΦΥ, so a hospital books their money against the intercompany account */
+  intercompany: '122112',             // HIO Drugs Phase B
 };
 
 /* ΟΑΥ's English speciality -> the stem SAP uses in the cost-centre name.
@@ -95,16 +98,21 @@ const SPECIALTY_GREEK = {
   OUTPATIENT: 'ΕΞ.ΙΑΤΡΕΙΑ-ΓΕΝΙΚΑ',
   'PERSONAL DOCTORS': 'ΠΙ ΕΝΗΛΙΚΩΝ',
   'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ': 'ΠΙ ΕΝΗΛΙΚΩΝ',
-  /* the children's Personal Doctors keep no centre of their own — their
-   * revenue books to the paediatric clinic (longest key wins, so these are
-   * read before the plain «Προσωπικοί Ιατροί» above) */
-  'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ ΠΑΙΔΙΩΝ': 'ΠΑΙΔΙΑΤΡΙΚ',
-  'PD CHILD PEDIATRICS': 'ΠΑΙΔΙΑΤΡΙΚ',
+  /* the children's Personal Doctors keep no centre of their own — all three
+   * of their streams book to the paediatric OUTPATIENT clinic, whatever the
+   * revenue account (longest key wins, so this is read before the plain
+   * «Προσωπικοί Ιατροί» above) */
+  'ΠΡΟΣΩΠΙΚΟΙ ΙΑΤΡΟΙ ΠΑΙΔΙΩΝ': 'ΠΑΙΔΙΑΤΡΙΚΗ-ΕΙ',
   /* ΟΑΥ bills the hyperbaric chamber's day care under the bare speciality
    * «DOCTOR»; hospitals without such a unit simply have no such centre and the
    * line stays blank, as any unmatched line does */
   DOCTOR: 'ΥΠΕΡΒΑΡΙΚΟΣ ΘΑΛΑΜΟΣ',
 };
+
+/* A speciality whose DAY treatments live in a unit of their own: renal day
+ * care is dialysis, and it books to the ΑΙΜΟΚΑΘΑΡΣΗ centre rather than to the
+ * nephrology outpatient clinic the ΗΦ→ΕΙ fallback would otherwise pick. */
+const VARIANT_STEM = { 'ΝΕΦΡΟΛΟΓΙΚ|daycare': 'ΝΕΦ-ΑΙΜΟΚΑΘΑΡΣΗ' };
 
 /* Where a stream looks for its centre, in order.  Day treatments prefer the
  * ημερήσια φροντίδα centre but fall back to the ΕΙ clinic, not to nothing:
@@ -113,6 +121,7 @@ const SPECIALTY_GREEK = {
 const VARIANT_CHAIN = {
   ward: ['ward', 'general'],
   daycare: ['daycare', 'clinic', 'general'],
+  z: ['daycare', 'clinic', 'general'],
   clinic: ['clinic', 'general'],
   general: ['general'],
 };
@@ -187,6 +196,11 @@ function findSapCentre(master, company, specialty, variant = 'general') {
    * flavour is applied, exactly one centre must remain. */
   const stem = sapStemFor(specialty);
   if (!master || !stem || !company) return null;
+  const swap = VARIANT_STEM[`${stem}|${variant}`];
+  if (swap) {
+    const special = findSapCentre(master, company, swap, 'general');
+    if (special) return special;
+  }
   /* the stem must START the centre's name: «ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ» contains
    * «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery */
   const hits = master.costCentres.filter((c) => c.company === company
