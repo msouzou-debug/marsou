@@ -71,7 +71,7 @@ sits beside `entity_code`, backfilled once and kept in step from here on.
 | `MHS` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MH` |
 | `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | `HC` |
 | `HQ` | Κεντρικά Γραφεία | `HQ` |
-| `CNS` | Κοινοτική Νοσηλευτική Υπηρεσία (Community Nursing Service) | `CNS` |
+| `CNS` | Κοινοτική Νοσηλευτική (Community Nursing) | `CNS` |
 
 Twelve units, all with an eCapital org unit now. **`CNS` is corrected,
 20/09/2026:** yesterday this table (and the errata) called it "Central
@@ -430,7 +430,7 @@ whatever `GET /org-units` returns as `code`, with no translation in between.
 | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MHS` |
 | Πρωτοβάθμια Φροντίδα Υγείας | `PHC` |
 | Κεντρικά Γραφεία | `HQ` |
-| Κοινοτική Νοσηλευτική Υπηρεσία | `CNS` |
+| Κοινοτική Νοσηλευτική | `CNS` |
 
 Twelve. **Υπηρεσία Ασθενοφόρων is not in the table any more** — the Ambulance
 Service left ΟΚΥπΥ on 19/09/2026, and with it the open question this table
@@ -440,7 +440,8 @@ papers under HQ. There is nothing left to file.
 **`CNS` is corrected, 20/09/2026 (ADR-0024's addendum).** This table used to
 read "Central Nursing Services", with no eCapital org unit and no eArchive
 site, capital work filing under HQ. That was wrong on both counts: it is
-«Κοινοτική Νοσηλευτική Υπηρεσία» (Community Nursing Service), it has its own
+«Κοινοτική Νοσηλευτική» (Community Nursing; named exactly as eArchive's
+folder Φ. ΤΥ.12 since 21/09/2026, migration 0019), it has its own
 eCapital unit (`community-nursing`), and it files under **its own eArchive
 folder** now, not HQ's — the same `code` = `entity_code` = `CNS` this table's
 rule already gives it, with no special case. **Confirmed by the owner,

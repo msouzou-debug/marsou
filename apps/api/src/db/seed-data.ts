@@ -41,7 +41,7 @@ import type {
 // ΑΣΘΕΝΟΦΟΡΩΝ» spelling with V15 rather than resolving it to a unit.
 //
 // TWELVE again (owner decision, 20/09/2026 — ADR-0024's addendum): «Κοινοτική
-// Νοσηλευτική Υπηρεσία» (Community Nursing Service) is a unit of its own,
+// Νοσηλευτική Υπηρεσία» (Community Nursing) is a unit of its own,
 // correcting yesterday's errata, which had it filing under HQ with none. See
 // `community-nursing` below and migration 0018, which inserts the row
 // directly — unlike HQ, whose row has only ever come from this seed.
@@ -127,7 +127,7 @@ export const seedOrgUnits: SeedOrgUnit[] = [
   // step with it and gives the Excel importer the alias to match against if
   // a future Capex Plan revision ever carries a row for it. No cost centre
   // and no projects yet — the same starting point HQ had.
-  unit("community-nursing", "CNS", "Κοινοτική Νοσηλευτική Υπηρεσία", "Community Nursing Service",
+  unit("community-nursing", "CNS", "Κοινοτική Νοσηλευτική", "Community Nursing",
     "SERVICE", "PFY", null, "CNS", "CNS", ["ΚΟΙΝΟΤΙΚΗ ΝΟΣΗΛΕΥΤΙΚΗ"]),
 ];
 

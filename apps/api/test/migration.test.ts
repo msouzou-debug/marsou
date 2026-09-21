@@ -48,7 +48,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0016_permit_partial_draft");
     expect(result.applied).toContain("0017_m4_assets");
     expect(result.applied).toContain("0018_cns_unit_and_efinance_codes");
-    expect(result.lastMigrationId).toBe("0018_cns_unit_and_efinance_codes");
+    expect(result.applied).toContain("0019_cns_name_matches_earchive");
+    expect(result.lastMigrationId).toBe("0019_cns_name_matches_earchive");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -133,6 +134,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0016_permit_partial_draft");
     expect(result.skipped).toContain("0017_m4_assets");
     expect(result.skipped).toContain("0018_cns_unit_and_efinance_codes");
+    expect(result.skipped).toContain("0019_cns_name_matches_earchive");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -425,6 +427,17 @@ describe("migrations", () => {
         "select count(*)::text as n from ecapital.org_unit where id = 'community-nursing'",
       );
       expect(Number(count[0].n)).toBe(1);
+
+      // 4. 0019 renames the row to eArchive's folder name (owner decision,
+      //    21/09/2026) and is idempotent on its own guard.
+      const zeroZeroOneNine = files.find((m) => m.id === "0019_cns_name_matches_earchive");
+      expect(zeroZeroOneNine).toBeDefined();
+      await client.query(zeroZeroOneNine!.sql);
+      await client.query(zeroZeroOneNine!.sql);
+      const { rows: renamed } = await client.query<{ name_el: string; name_en: string }>(
+        "select name_el, name_en from ecapital.org_unit where id = 'community-nursing'",
+      );
+      expect(renamed).toEqual([{ name_el: "Κοινοτική Νοσηλευτική", name_en: "Community Nursing" }]);
     } finally {
       await client.end();
       const cleanup = new Client({ connectionString: adminUrl });

@@ -107,8 +107,8 @@ describe("GET /org-units", () => {
     const cns = units.find((u) => u.id === "community-nursing");
     expect(cns).toMatchObject({
       code: "CNS",
-      nameEl: "Κοινοτική Νοσηλευτική Υπηρεσία",
-      nameEn: "Community Nursing Service",
+      nameEl: "Κοινοτική Νοσηλευτική",
+      nameEn: "Community Nursing",
       type: "SERVICE",
       directorate: "PFY",
       costCentre: null,

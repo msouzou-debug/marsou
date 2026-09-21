@@ -26,6 +26,10 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S09 | Πιστοποιήσεις πληρωμής | Payment certificates | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S10 | Εισαγωγή SAP | SAP import | admin, finance |
 | S16 | Χώροι μονάδας | Unit areas | estates_head, project_engineer, technician |
+| S16a | Μητρώο παγίων | Asset register | admin, estates_head, project_engineer, technician, finance, executive_readonly, auditor_readonly |
+| S17 | Πάγιο | Asset | admin, estates_head, project_engineer, technician, finance, executive_readonly, auditor_readonly |
+| S17a-edit | Νέο πάγιο / Επεξεργασία παγίου | New asset / Edit asset | admin, estates_head, project_engineer, technician |
+| S17b | Ετικέτες παγίων | Asset labels | admin, estates_head, project_engineer, technician, finance |
 | S24 | Ανάδοχοι | Contractors | admin, estates_head |
 | S24u | Χρήστες | Users | admin |
 | S26 | Οδηγός χρήσης | User guide | admin, estates_head, project_engineer, technician, finance, clinical_approver, executive_readonly, auditor_readonly |
@@ -45,6 +49,7 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S13 | Άδεια εργασίας (εκτύπωση) | Permit to work (print) | admin, estates_head, project_engineer, technician, clinical_approver |
 | S14 | Εγκρίσεις | Approvals | admin, estates_head, clinical_approver |
 | S15 | Ημερολόγιο διαταράξεων | Disruption calendar | admin, estates_head, project_engineer, clinical_approver, executive_readonly, auditor_readonly |
+| S17c | Πρόβλεψη αντικαταστάσεων | Replacement forecast | estates_head, finance, executive_readonly, admin |
 
 ## M4 asset screens — tier decided, not yet in help/map.json
 

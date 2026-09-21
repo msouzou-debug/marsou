@@ -9,10 +9,11 @@ import { z } from "zod";
 // HOSPITAL and SERVICE because the Capex Plan sheet has no HQ rows; CENTRAL
 // is Central Administration itself, added by owner decision on 19/09/2026 so
 // it can own its own projects (IT, HQ works) and be filtered on like any
-// other unit. «Κοινοτική Νοσηλευτική Υπηρεσία» (Community Nursing Service,
-// `community-nursing`, type SERVICE) was added by owner decision on
-// 20/09/2026 — see ADR-0024's addendum — correcting yesterday's errata,
-// which had it filing under HQ with no unit of its own.
+// other unit. «Κοινοτική Νοσηλευτική» (Community Nursing, `community-nursing`,
+// type SERVICE) was added by owner decision on 20/09/2026 — see ADR-0024's
+// addendum — correcting yesterday's errata, which had it filing under HQ with
+// no unit of its own. Named exactly as eArchive's folder Φ. ΤΥ.12 (owner
+// decision, 21/09/2026; migration 0019).
 export const OrgUnitType = z.enum(["HOSPITAL", "SERVICE", "CENTRAL"]);
 export type OrgUnitType = z.infer<typeof OrgUnitType>;
 

@@ -63,7 +63,7 @@ describe("UnitSwitcher", () => {
     expect(options).toHaveLength(12);
     const names = Array.from(options).map((o) => o.textContent);
     expect(names).toContain("Κεντρικά Γραφεία");
-    expect(names).toContain("Κοινοτική Νοσηλευτική Υπηρεσία");
+    expect(names).toContain("Κοινοτική Νοσηλευτική");
     expect(names).not.toContain("Υπηρεσία Ασθενοφόρων");
   });
 });

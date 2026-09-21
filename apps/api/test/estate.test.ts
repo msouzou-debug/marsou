@@ -126,7 +126,7 @@ describe("entity codes", () => {
   });
 
   it("gives CNS its own unit now, correcting the 19/09/2026 errata (ADR-0024 addendum, 20/09/2026)", async () => {
-    // CNS (Κοινοτική Νοσηλευτική Υπηρεσία, Community Nursing Service) used to
+    // CNS (Κοινοτική Νοσηλευτική, Community Nursing) used to
     // stay unmapped on the theory that it filed under HQ — ADR-0019, then
     // ADR-0024 §2. That theory was wrong on both counts: it is a unit of its
     // own, with its own eArchive folder, not HQ's.
@@ -135,8 +135,8 @@ describe("entity codes", () => {
     const cns = (response.body as OrgUnit[]).find((u) => u.id === "community-nursing");
     expect(cns).toMatchObject({
       code: "CNS",
-      nameEl: "Κοινοτική Νοσηλευτική Υπηρεσία",
-      nameEn: "Community Nursing Service",
+      nameEl: "Κοινοτική Νοσηλευτική",
+      nameEn: "Community Nursing",
       type: "SERVICE",
       directorate: "PFY",
       costCentre: null,

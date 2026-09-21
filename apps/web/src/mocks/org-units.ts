@@ -29,7 +29,7 @@ import type { OrgUnit } from "@ecapital/shared";
 // the «ΥΠΗΡΕΣΙΑ ΑΣΘΕΝΟΦΟΡΩΝ» spelling (V15) instead of resolving it.
 //
 // TWELVE (owner decision, 20/09/2026 — ADR-0024's addendum). «Κοινοτική
-// Νοσηλευτική Υπηρεσία» (Community Nursing Service) gets its own unit,
+// Νοσηλευτική Υπηρεσία» (Community Nursing) gets its own unit,
 // correcting yesterday's errata, which had it filing under HQ with none —
 // see `community-nursing` below. It carries a cost centre of none and no
 // projects yet, the same starting point HQ had.
@@ -213,8 +213,8 @@ export const orgUnits: (OrgUnit & { aliases: string[] })[] = [
     // Primary Healthcare), flagged for the owner to confirm.
     id: "community-nursing",
     code: "CNS",
-    nameEl: "Κοινοτική Νοσηλευτική Υπηρεσία",
-    nameEn: "Community Nursing Service",
+    nameEl: "Κοινοτική Νοσηλευτική",
+    nameEn: "Community Nursing",
     type: "SERVICE",
     directorate: "PFY",
     costCentre: null,
