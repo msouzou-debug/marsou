@@ -819,6 +819,13 @@ const LINE_KINDS = [
   ['ΚΑΤΑ ΚΕΦΑΛΗΝ', 'capitation', 'general'],
   ['CAPITATION', 'capitation', 'general'],
 ];
+/* Two kinds of line that do not book to the clinic that earned them: the
+ * Z-catalogue drugs and procedures are the pharmacy's wherever they were
+ * dispensed, and the ΔΠΦΥ half of the Personal Doctors carries a balance-sheet
+ * account, which takes no cost centre at all. */
+const KIND_CENTRE = { inpatient_z: 'ΦΑΡΜΑΚΑ' };   /* → the ΦΑΡΜΑΚΕΙΟ centre */
+const KIND_NO_CENTRE = new Set(['intercompany']);
+
 const BUCKET_KINDS = {
   Inpatient: ['inpatient_drg', 'ward'],
   'A&E': ['ae', 'general'],
@@ -841,10 +848,7 @@ function rowParts(row, kind, variant) {
   if (kind !== 'inpatient_drg') return [[row.amount, kind, variant]];
   const three = [[row.drg || 0, 'inpatient_drg', 'ward'],
                  [row.fixedFee || 0, 'inpatient_daily', 'daycare'],
-                 /* «z» looks where day care looks, but it is NOT day care:
-                  * the renal ΗΦ swap to the dialysis unit is for the
-                  * treatments only */
-                 [row.zDrugs || 0, 'inpatient_z', 'z']];
+                 [row.zDrugs || 0, 'inpatient_z', 'daycare']];
   const sum = round2(three.reduce((a, [x]) => a + x, 0));
   if (sum !== round2(row.amount)) return [[row.amount, kind, variant]];
   return three.filter(([a]) => a);
@@ -871,7 +875,9 @@ function journalLinesByStream(section, lookup) {
       if (!row.amount) continue;
       const [kind, variant] = lineKind(row.label, stream);
       for (const [amount, partKind, partVariant] of rowParts(row, kind, variant)) {
-        let hit = lookup ? findCostCentre(lookup, row.label, stream, code) : null;
+        /* what the line books to, which is not always what earned it */
+        const centreKey = KIND_CENTRE[partKind] || row.label;
+        let hit = lookup ? findCostCentre(lookup, centreKey, stream, code) : null;
         if (lookup && (!hit || !hit.costCentre)) {
           /* a row keyed on the BUCKET codes every line in that bucket — four
            * rows per hospital are enough to post at stream level */
@@ -886,7 +892,7 @@ function journalLinesByStream(section, lookup) {
         if (master && !kostl) {
           /* the line's own speciality first, then the stream it belongs to
            * («Αναλώσιμα» is still pharmacy) */
-          const centre = findSapCentre(master, company, row.label, partVariant)
+          const centre = findSapCentre(master, company, centreKey, partVariant)
             || findSapCentre(master, company, stream, partVariant);
           if (centre) { kostl = centre.code; text = centre.name; }
         }
@@ -895,16 +901,21 @@ function journalLinesByStream(section, lookup) {
          * account of ours may be written on it, not even the default, or the
          * money lands in outpatient income */
         const foreign = partKind === 'intercompany';
+        if (KIND_NO_CENTRE.has(partKind)) {
+          /* a balance-sheet account takes no CO assignment */
+          kostl = '';
+          text = row.label;
+        }
         out.push({ kostl, aufnr, text: text || row.label, account,
                    needsAccount: foreign ? 'ΔΠΦΥ (intercompany)' : '',
                    professional: stream, amount: round2(amount) });
         if (foreign && !account) {
           noAccount.set(row.label, round2((noAccount.get(row.label) || 0) + amount));
         }
-        if (!kostl) {
+        if (!kostl && !KIND_NO_CENTRE.has(partKind)) {
           missing.set(row.label, round2((missing.get(row.label) || 0) + amount));
           why.set(row.label, master
-            ? whyNoSapCentre(master, company, row.label)
+            ? whyNoSapCentre(master, company, centreKey)
             : 'χωρίς βασικά δεδομένα SAP (no SAP master)');
         }
       }

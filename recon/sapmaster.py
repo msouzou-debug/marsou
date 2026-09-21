@@ -134,7 +134,6 @@ _VARIANT_STEM = {("ΝΕΦΡΟΛΟΓΙΚ", "daycare"): "ΝΕΦ-ΑΙΜΟΚΑΘΑΡ
 _VARIANT_CHAIN = {
     "ward": ("ward", "general"),
     "daycare": ("daycare", "clinic", "general"),
-    "z": ("daycare", "clinic", "general"),
     "clinic": ("clinic", "general"),
     "general": ("general",),
 }

@@ -477,3 +477,27 @@ def test_the_adults_personal_doctors_carry_the_intercompany_account():
                                "122112": "Health Centers"})
     assert full.account("intercompany") == ("122112", "Health Centers")
     assert full.account("capitation") == ("412000", "HIO - Capitation Fees")
+
+
+def test_where_a_line_books_when_it_is_not_the_clinic_that_earned_it():
+    """Z-catalogue items are the pharmacy's wherever they were dispensed, and
+    the ΔΠΦΥ half of the Personal Doctors posts to a balance-sheet account,
+    which takes no cost centre — and is therefore NOT reported as a line
+    missing one."""
+    from recon.build_xlsx import _KIND_CENTRE, _KIND_NO_CENTRE, build_sap_workbook
+    assert _KIND_CENTRE["inpatient_z"] == "ΦΑΡΜΑΚΑ"
+    assert "intercompany" in _KIND_NO_CENTRE
+    m = extract_sap_master(master_xlsx())
+    assert m.find_centre("1041", _KIND_CENTRE["inpatient_z"]).name == "ΦΑΡΜΑΚΕΙΟ"
+
+    _data, res = _build(with_optional=True)
+    res.bundle.inpatient = extract_inpatient_summary(
+        synth.inpatient_summary_xlsx(with_procedure_detail=True))
+    res.bundle.sap = m
+    res = run_reconciliation(res.bundle)
+    wb = load_workbook(io.BytesIO(build_sap_workbook([("F1049", "ΓΝ ΑΜΜΟΧΩΣΤΟΥ", res)])))
+    ws = wb["JOURNAL ENTRIES"]
+    z_centres = {ws.cell(row=r, column=14).value
+                 for r in range(4, ws.max_row + 1)
+                 if str(ws.cell(row=r, column=10).value) == "412007"}
+    assert z_centres == {"1064105600"}          # every Z line, one centre

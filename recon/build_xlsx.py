@@ -541,6 +541,13 @@ _LINE_KINDS = [
     ("ΚΑΤΑ ΚΕΦΑΛΗΝ", "capitation", "general"),
     ("CAPITATION", "capitation", "general"),
 ]
+# Two kinds of line that do not book to the clinic that earned them: the
+# Z-catalogue drugs and procedures are the pharmacy's wherever they were
+# dispensed, and the ΔΠΦΥ half of the Personal Doctors carries a balance-sheet
+# account, which takes no cost centre at all.
+_KIND_CENTRE = {"inpatient_z": "ΦΑΡΜΑΚΑ"}      # → the ΦΑΡΜΑΚΕΙΟ centre
+_KIND_NO_CENTRE = {"intercompany"}
+
 _BUCKET_KINDS = {
     "Inpatient": ("inpatient_drg", "ward"),
     "A&E": ("ae", "general"),
@@ -566,9 +573,7 @@ def _row_parts(row, kind: str, variant: str) -> list[tuple[float, str, str]]:
         return [(row.amount, kind, variant)]
     three = [(row.drg or 0.0, "inpatient_drg", "ward"),
              (row.fixed_fee or 0.0, "inpatient_daily", "daycare"),
-             # «z» looks where day care looks, but it is NOT day care: the
-             # renal ΗΦ swap to the dialysis unit is for the treatments only
-             (row.z_drugs or 0.0, "inpatient_z", "z")]
+             (row.z_drugs or 0.0, "inpatient_z", "daycare")]
     if round(sum(a for a, _k, _v in three), 2) != round(row.amount, 2):
         return [(row.amount, kind, variant)]     # no split on this row
     return [(a, k, v) for a, k, v in three if a]
@@ -605,7 +610,9 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                 continue
             kind, variant = _line_kind(row.label, stream)
             for amount, part_kind, part_variant in _row_parts(row, kind, variant):
-                hit = lookup.find(row.label, stream, code) if lookup else None
+                # what the line books to, which is not always what earned it
+                centre_key = _KIND_CENTRE.get(part_kind, row.label)
+                hit = lookup.find(centre_key, stream, code) if lookup else None
                 if lookup and (hit is None or not hit.cost_centre):
                     # a row keyed on the BUCKET codes every line in that
                     # bucket — four rows per hospital post at stream level
@@ -620,7 +627,7 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                 if master and not kostl:
                     # the line's own speciality first, then the stream it
                     # belongs to («Αναλώσιμα» is still pharmacy)
-                    centre = (master.find_centre(company, row.label,
+                    centre = (master.find_centre(company, centre_key,
                                                  part_variant)
                               or master.find_centre(company, stream, part_variant))
                     if centre:
@@ -630,6 +637,9 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                 # all: no account of ours may be written on it, not even the
                 # default, or the money lands in outpatient income
                 foreign = part_kind == "intercompany"
+                if part_kind in _KIND_NO_CENTRE:
+                    # a balance-sheet account takes no CO assignment
+                    kostl, text = "", row.label
                 out.append({"kostl": kostl, "aufnr": aufnr,
                             "text": text or row.label, "account": account,
                             "needs_account": "ΔΠΦΥ (intercompany)" if foreign else "",
@@ -637,11 +647,11 @@ def _journal_lines_by_stream(section) -> tuple[list[dict], dict]:
                 if foreign and not account:
                     no_account[row.label] = round(
                         no_account.get(row.label, 0.0) + amount, 2)
-                if not kostl:
+                if not kostl and part_kind not in _KIND_NO_CENTRE:
                     missing[row.label] = round(
                         missing.get(row.label, 0.0) + amount, 2)
                     why[row.label] = (
-                        master.why_no_centre(company, row.label,
+                        master.why_no_centre(company, centre_key,
                                              part_variant) if master
                         else "χωρίς βασικά δεδομένα SAP (no SAP master)")
     # the split already ties to the cheque with its own zero-check; anything

@@ -121,7 +121,6 @@ const VARIANT_STEM = { 'ΝΕΦΡΟΛΟΓΙΚ|daycare': 'ΝΕΦ-ΑΙΜΟΚΑΘΑ�
 const VARIANT_CHAIN = {
   ward: ['ward', 'general'],
   daycare: ['daycare', 'clinic', 'general'],
-  z: ['daycare', 'clinic', 'general'],
   clinic: ['clinic', 'general'],
   general: ['general'],
 };
