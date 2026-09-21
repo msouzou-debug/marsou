@@ -51,7 +51,9 @@ step() { echo; echo "=== $* ==="; }
 
 step "[1/8] APT prerequisites"
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl gnupg
+# rsync: sync-release.sh, rollback.sh and both release scripts. git and
+# unzip: release-on-server.sh's two ways of getting the source onto this host.
+apt-get install -y -qq ca-certificates curl gnupg rsync git unzip
 
 step "[2/8] Node.js 22 (NodeSource) + corepack/pnpm 10"
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -v)" != v22.* ]]; then
@@ -93,6 +95,10 @@ install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/install-deps.sh
 # root-owned rather than ecapital-owned.
 install -o root -g root -m 0750 "${SCRIPT_DIR}/sync-release.sh" "${APP_DIR}/deploy/sync-release.sh"
 install -o root -g root -m 0750 "${SCRIPT_DIR}/rollback.sh" "${APP_DIR}/deploy/rollback.sh"
+# The server-side release variant runs as administrator (never root) and
+# only ever calls the sudo targets the sudoers file below already grants,
+# so it is world-readable and needs no sudoers line of its own.
+install -o root -g root -m 0755 "${SCRIPT_DIR}/release-on-server.sh" "${APP_DIR}/deploy/release-on-server.sh"
 
 # ------------------------------------------------------------ env files ----
 

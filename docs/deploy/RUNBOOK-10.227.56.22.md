@@ -380,6 +380,41 @@ notes give for `sudo md5sum` with no password).
 After every release, run through §7 and archive the deploy checklist per
 `docs/deploy-checklist.md`.
 
+### 6.1 Server-side variant: no toolchain on the operator's machine
+
+`deploy/release.sh` builds on the operator's laptop, which needs bash,
+rsync, ssh, Node 22 and pnpm there. When the operator has only an SSH
+client, the same release runs on the server instead:
+
+```bash
+ssh administrator@10.227.56.22
+/opt/ecapital/deploy/release-on-server.sh --ref <branch, tag or commit>
+```
+
+`install.sh` puts it in place. It runs as `administrator`, never as root,
+fetches the ref of the public repository into `~/ecapital-src/tree` over
+the host's proxy (git reads `https_proxy` from `/etc/environment`), builds
+there, stages into `~/ecapital-release`, and from that point on calls
+exactly what `release.sh` calls over ssh: `sync-release.sh`,
+`install-deps.sh`, `migrate.sh`, the two restarts, the health checks and
+the md5 table. It needs no sudoers line the file in §2 does not already
+carry, and it never touches `/etc/ecapital` or the database itself.
+
+Two things to know:
+
+- **The PDF guides need Chromium on the server** (R50, `pnpm guides:build`).
+  The first run prints the two one-time commands when it is missing: the
+  browser's shared libraries as root (`playwright install-deps chromium`,
+  Marios types the sudo), then the browser itself as `administrator`
+  (`playwright install chromium`, into `~/.cache/ms-playwright`). Until
+  then `--skip-guides` ships without fresh guides; write that down in the
+  deploy checklist as a deviation, it is not the normal path.
+- **If git cannot reach GitHub through the proxy**, download the branch as
+  a ZIP from GitHub's web page, `scp` it to the server, and pass
+  `--zip <file>` instead of `--ref`. Needs `unzip` on the host.
+
+Everything in §7 and `docs/deploy-checklist.md` applies unchanged.
+
 ---
 
 ## 7. Smoke tests
