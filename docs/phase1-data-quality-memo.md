@@ -1,3 +1,11 @@
+> **SUPERSEDED — 22/09/2026.** Read `monada-rulings.md` instead.
+>
+> This memo was written against a corrupted extract of `services.csv`. Findings 1, 2, 3
+> and most of 4 were artifacts of that file, not defects in the master data: AET092 is
+> not duplicated, AET086 and AET091 are distinct services, and no treatment codes are
+> missing. Finding 8 (the overlap) was real but is settled wholesale — tariff charges
+> apply only to self-paying categories. Kept as the record of what was sent.
+
 # ΤΑΕΠ costing tool — Phase 1 data findings
 
 **To:** Μονάδα Ελέγχου Εσόδων

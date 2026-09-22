@@ -1,0 +1,5 @@
+code,level_code,label_en,label_el
+AEC001,AELEVEL1,Low cost combination of investigation and treatment,Συνδυασμός διάγνωσης και θεραπείας χαμηλού κόστους
+AEC002,AELEVEL2,Standard cost combination of investigation and treatment,Συνδυασμός διάγνωσης και θεραπείας μέσου κόστους
+AEC003,AELEVEL3,High cost combination of investigation and treatment,Συνδυασμός διάγνωσης και θεραπείας υψηλού κόστους
+AEC004,TRIAGE,Triage,Διαλογή

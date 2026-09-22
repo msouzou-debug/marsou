@@ -1,122 +1,126 @@
-code,service_type,category,category_code,description_el
-AET001,TREATMENT,1,AECAT1,Επίδεση/υποστήριξη
-AET002,TREATMENT,1,AECAT1,Αφαίρεση γύψου
-AET003,TREATMENT,1,AECAT1,Φλεβοκαθετήρας
-AET004,TREATMENT,1,AECAT1,"Παρακολούθηση/ηλεκτροκαρδιογράφημα,οξύμετρο /τραύμα κεφαλής/"
-AET005,TREATMENT,1,AECAT1,Καθοδήγηση/συμβουλή μόνο - γραπτή
-AET006,TREATMENT,1,AECAT1,Καθοδήγηση/συμβουλή μόνο - προφορική
-AET007,TREATMENT,1,AECAT1,Τέτανος - ανοσία
-AET008,TREATMENT,1,AECAT1,Καταγραφή ζωτικών σημείων
-AET009,TREATMENT,1,AECAT1,Αξιολόγηση εγκαυμάτων
-AET010,TREATMENT,1,AECAT1,Ανάκληση/ Αξιολόγηση ακτινογραφίας
-AET011,TREATMENT,1,AECAT1,Αξιολόγηση κατάγματος
-AET012,TREATMENT,1,AECAT1,Καθαρισμός πληγής
-AET013,TREATMENT,1,AECAT1,Αλλαγή/αξιολόγηση πληγής
-AET014,TREATMENT,1,AECAT1,"ιμάντας/ κολλάρο ανάρτησης χειρός, ευρύς επίδεσμος ανάρτησης ώμου"
-AET015,TREATMENT,1,AECAT1,Μείωση της θερμοκρασίας- έλεγχος θερμοκρασίας σώματος
-AET016,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο- Οφθαλμικές σταγόνες
-AET017,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο - Ωτικές σταγόνες
-AET018,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο- τοπική κρέμα δέρματος
-AET019,TREATMENT,1,AECAT1,Εργασιοθεραπεία/Παροχή συσκευών για καθημερινές δραστηριότητες ΕΘ
-AET020,TREATMENT,1,AECAT1,Συνταγογραφία/ετοιμασία φαρμάκων για το σπίτι
-AET021,TREATMENT,1,AECAT1,Καμία ( σκέψου καθοδήγηση/συμβουλή)
-AET095,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο - Οφθαλμική αλοιφή
-AET097,TREATMENT,1,AECAT1,Χορήγηση πεθιδίνης
-AET022,TREATMENT,2,AECAT2,Αλλαγή μικρού τραύματος / έγκαυμα/οφθαλμός
-AET023,TREATMENT,2,AECAT2,Συρραφή- Αποστειρωμένες λωρίδες/ταινίες
-AET024,TREATMENT,2,AECAT2,Συρραφή- Κόλλα για τραύματα
-AET025,TREATMENT,2,AECAT2,Συρραφή- Άλλη μέθοδος (π.χ clips)
-AET026,TREATMENT,2,AECAT2,Εφαρμογή γύψου Paris
-AET027,TREATMENT,2,AECAT2,Νάρθηκας
-AET028,TREATMENT,2,AECAT2,"Φυσιοθεραπεία - επίδεση, θεραπεία με υπέρηχο, διαθερμία με μικροκύμματα, ορθοθέτηση"
-AET029,TREATMENT,2,AECAT2,"Φυσιοθεραπεία - επανεκπαίδευση βαδίσματος, πρόληψη πτώσεων"
-AET030,TREATMENT,2,AECAT2,"Θεραπευτικό πλύσιμο οργάνου (πλύση), εμετός, ενεργός άνθρακας, πλύση οφθαλμού"
-AET031,TREATMENT,2,AECAT2,Αναισθησία - τοπικό αναισθητικό
-AET032,TREATMENT,2,AECAT2,Αναισθησία - περιοχική αναισθησία με αποκλεισμό
-AET033,TREATMENT,2,AECAT2,Αναισθησία - entonox
-AET034,TREATMENT,2,AECAT2,Αναισθησία - άλλο
-AET035,TREATMENT,2,AECAT2,Τέτανος - σειρά εμβολιασμού
-AET036,TREATMENT,2,AECAT2,Τέτανος - εμβόλιο επαναληπτικό
-AET037,TREATMENT,2,AECAT2,Τέτανος - ανθρώπινη ανοσοσφαιρίνη
-AET038,TREATMENT,2,AECAT2,Τέτανος - συνδυασμένο σχήμα εμβολιασμού τέτανου/διφθερίτιδας
-AET039,TREATMENT,2,AECAT2,Τέτανος -  επαναληπτικό εμβόλιο τέτανου/διφθερίτιδας
-AET040,TREATMENT,2,AECAT2,Έλεγχος επίσταξης
-AET041,TREATMENT,2,AECAT2,Ρινικός αεραγωγός
-AET042,TREATMENT,2,AECAT2,Στοματικός αεραγωγός
-AET043,TREATMENT,2,AECAT2,Έγχυση υγρών
-AET044,TREATMENT,2,AECAT2,Χορηγήθηκε φάρμακο - από το στόμα
-AET045,TREATMENT,2,AECAT2,Χορηγήθηκε φάρμακο- από το ορθό
-AET046,TREATMENT,2,AECAT2,Χορηγήθηκε φάρμακο- ενδορινικά
-AET089,TREATMENT,2,AECAT2,Αλλαγή τραχειοσωλήνα
-AET090,TREATMENT,2,AECAT2,Αλλαγή σωλήνα γαστροστομίας
-AET092,TREATMENT,2,AECAT2,Τοποθέτηση Ρινογαστρικού Σωλήνα
-AET093,TREATMENT,2,AECAT2,Τοποθέτηση Αυχενικού Κολλάρου/Σανίδας ακινητοποίησης
-AET094,TREATMENT,2,AECAT2,Δακτυλική εξέταση
-AET098,TREATMENT,2,AECAT2,Αφαίρεση Ουροκαθετήρα
-AET047,TREATMENT,3,AECAT3,Αλλαγή πληγής μεγάλου τραύματος/ εγκαύματος
-AET048,TREATMENT,3,AECAT3,Πρωτογενής συρραφή
-AET049,TREATMENT,3,AECAT3,Δευτερογενής/σύνθετη συρραφή
-AET050,TREATMENT,3,AECAT3,Αφαίρεση ξένου σώματος
-AET051,TREATMENT,3,AECAT3,Τομή και παροχέτευση
-AET052,TREATMENT,3,AECAT3,Κεντρική γραμμή
-AET053,TREATMENT,3,AECAT3,Καθετήρας ουροδόχου κύστεως/ υπερηβικός
-AET054,TREATMENT,3,AECAT3,Mικρό Χειρουργείο
-AET055,TREATMENT,3,AECAT3,Αναισθησία - νάρκωση
-AET056,TREATMENT,3,AECAT3,Νεφελοποιητής/ αεροθάλαμος
-AET057,TREATMENT,3,AECAT3,Συμπληρωματικό Οξυγόνο
-AET058,TREATMENT,3,AECAT3,Συνεχής θετική πίεση των αεραγωγών/ρινική διακοπτόμενη θετική πίεση παροχής αέρα/χειροκίνητη μάσκα παροχής θετικής πίεσης αερισμού
-AET059,TREATMENT,3,AECAT3,Αρτηριακή γραμμή
-AET060,TREATMENT,3,AECAT3,Αναρρόφηση από άρθρωση
-AET061,TREATMENT,3,AECAT3,Ενεργή επαναθέρμανση υποθερμικού ασθενούς
-AET062,TREATMENT,3,AECAT3,Χορηγήθηκε φάρμακο - ενδομυϊκά
-AET063,TREATMENT,3,AECAT3,Χορηγήθηκε φάρμακο - υποδόρια
-AET064,TREATMENT,3,AECAT3,Χορηγήθηκε φάρμακο - υπογλώσσια
-AET066,TREATMENT,3,AECAT3,Παρέμβαση Κοινωνικού Λειτουργού
-AET068,TREATMENT,3,AECAT3,Οφθαλμός - αφαίρεση βλεφαρίδων
-AET069,TREATMENT,4,AECAT4,Ορθοθέτηση κατάγματος άνω άκρου
-AET070,TREATMENT,4,AECAT4,Ορθοθέτηση κατάγματος κάτω άκρου
-AET071,TREATMENT,4,AECAT4,Ορθοθέτηση εξάρθρωσης
-AET072,TREATMENT,4,AECAT4,Διασωλήνωση & ενδοτραχειακοί σωλήνες/ λαρυγγική μάσκα αεραγωγών/ταχεία εισαγωγή
-AET073,TREATMENT,4,AECAT4,Πνευμονική Παροχέτευση
-AET074,TREATMENT,4,AECAT4,Απινίδωση
-AET075,TREATMENT,4,AECAT4,Εξωτερική βηματοδότηση
-AET076,TREATMENT,4,AECAT4,Αναισθησία - γενική
-AET077,TREATMENT,4,AECAT4,Παρεντερική θρομβόλυση - με στρεπτοκινάση
-AET078,TREATMENT,4,AECAT4,"Άλλα παρεντερικά φάρμακα - ενδοφλέβιο φάρμακο, π.χ εφάπαξ"
-AET079,TREATMENT,4,AECAT4,Άλλα παρεντερικά φάρμακα - ενδοφλέβια έγχυση
-AET080,TREATMENT,4,AECAT4,Μετάγγιση παραγώγων αίματος
-AET081,TREATMENT,4,AECAT4,Περικαρδιοκέντηση
-AET082,TREATMENT,4,AECAT4,Οσφυονωτιαία παρακέντηση
-AET083,TREATMENT,4,AECAT4,Ελάσσον πλαστική επέμβαση/ διάσπαση δερματικού μοσχεύματος
-AET085,TREATMENT,5,AECAT5,Αναζωογόνηση/  Καρδιοπνευμονική αναζωογόνηση
-AET086,TREATMENT,5,AECAT5,Παρεντερική θρομβόλυση - γενετικά ανασυνδιασμένο -ενεργοποιητή του πλασμινογόνου
-AET088,TREATMENT,5,AECAT5,Χορήγηση Αντιοφικού ορρού
-AET091,TREATMENT,5,AECAT5,Αναζωογόνηση/  Καρδιοπνευμονική αναζωογόνηση
-AET092,TREATMENT,5,AECAT5,Παρεντερική θρομβόλυση - γενετικά ανασυνδιασμένο -ενεργοποιητή του πλασμινογόνου
-AED001,INVESTIGATION,1,AECAT1,Καρδιογράφημα
-AED002,INVESTIGATION,1,AECAT1,Ανάλυση ούρων
-AED003,INVESTIGATION,1,AECAT1,Τεστ εγκυμοσύνης
-AED004,INVESTIGATION,1,AECAT1,Καμία
-AED023,INVESTIGATION,1,AECAT1,Επιβεβαίωση θανάτου με ηλεκτροκαρδιογράφημα
-AED024,INVESTIGATION,1,AECAT1,Mέτρηση σακχάρου με μηχανάκι/  Μέτρηση σακχάρου αίματος με φορητή συσκευή (γλουκόμετρο) με ταχυδιαγνωστικές αντιδραστήριες ταινίες
-AED025,INVESTIGATION,1,AECAT1,Mέτρηση ναρκωτικών ουσιών με ταχυδιαγνωστικές αντιδραστήριες ταινίες
-AED026,INVESTIGATION,1,AECAT1,Mέτρηση ούρων με test με Stick ταχυδιαγνωστικές αντιδραστήριες ταινίες
-AED027,INVESTIGATION,1,AECAT1,Ανίχνευση τροπονίνης στο αίμα με ταχυδιαγνωστικές αντιδραστήριες ταινίες
-AED005,INVESTIGATION,2,AECAT2,Ακτινογραφία
-AED006,INVESTIGATION,2,AECAT2,Αιματολογία
-AED007,INVESTIGATION,2,AECAT2,Διασταύρωση ομάδας αίματος και αποθήκευση ορού για μεταγενέστερη διασταύρωση
-AED008,INVESTIGATION,2,AECAT2,Βιοχημεία
-AED009,INVESTIGATION,2,AECAT2,Μικροβιολογία
-AED010,INVESTIGATION,2,AECAT2,Ιστολογία
-AED011,INVESTIGATION,2,AECAT2,Εξετάσεις πηκτικότητας (εργαστηριακές εξετάσεις ελέγχου πηκτικότητας αίματος )
-AED012,INVESTIGATION,2,AECAT2,Ανοσολογία
-AED013,INVESTIGATION,2,AECAT2,Καρδιακά ένζυμα
-AED014,INVESTIGATION,2,AECAT2,Αέρια αίματος αρτηριακού/τριχοειδικού
-AED015,INVESTIGATION,2,AECAT2,Τοξικολογία
-AED016,INVESTIGATION,2,AECAT2,Αιμοκαλλιέργεια
-AED017,INVESTIGATION,2,AECAT2,Ορολογία
-AED019,INVESTIGATION,3,AECAT3,Υπερηχογράφημα
-AED020,INVESTIGATION,3,AECAT3,Μαγνητική τομογραφία
-AED021,INVESTIGATION,3,AECAT3,Αξονική Τομογραφία (αποκλείει τομογραφία ουροποιογεννητικού συστήματος με σκιαγραφικό
-AED022,INVESTIGATION,3,AECAT3,Τομογραφία Ουροποιογεννητικού συστήματος με σκιαγραφικό
-AED028,INVESTIGATION,3,AECAT3,Λαρυγγοσκόπηση-Ενδοσκόπηση
+code,service_type,category,category_code,description_el,description_en
+AED001,INVESTIGATION,1,AECAT1,Καρδιογράφημα,Electrocardiogram
+AED002,INVESTIGATION,1,AECAT1,Ανάλυση ούρων,Urinalysis
+AED003,INVESTIGATION,1,AECAT1,Τεστ εγκυμοσύνης,Pregnancy test
+AED004,INVESTIGATION,1,AECAT1,Καμία,None
+AED005,INVESTIGATION,2,AECAT2,Ακτινογραφία,X-ray plain film
+AED006,INVESTIGATION,2,AECAT2,Αιματολογία,Haematology
+AED007,INVESTIGATION,2,AECAT2,Διασταύρωση ομάδας αίματος και αποθήκευση ορού για μεταγενέστερη διασταύρωση,Cross match blood/group and save serum for later cross match
+AED008,INVESTIGATION,2,AECAT2,Βιοχημεία,Biochemistry*
+AED009,INVESTIGATION,2,AECAT2,Μικροβιολογία,Microbiology
+AED010,INVESTIGATION,2,AECAT2,Ιστολογία,Histology
+AED011,INVESTIGATION,2,AECAT2,Εξετάσεις πηκτικότητας (εργαστηριακές εξετάσεις ελέγχου πηκτικότητας αίματος ),Clotting studies
+AED012,INVESTIGATION,2,AECAT2,Ανοσολογία,Immunology
+AED013,INVESTIGATION,2,AECAT2,Καρδιακά ένζυμα,Cardiac enzymes
+AED014,INVESTIGATION,2,AECAT2,Αέρια αίματος αρτηριακού/τριχοειδικού,Arterial/capillary blood gas*
+AED015,INVESTIGATION,2,AECAT2,Τοξικολογία,Toxicology
+AED016,INVESTIGATION,2,AECAT2,Αιμοκαλλιέργεια,Blood culture
+AED017,INVESTIGATION,2,AECAT2,Ορολογία,Serology
+AED019,INVESTIGATION,3,AECAT3,Υπερηχογράφημα,Ultrasound
+AED020,INVESTIGATION,3,AECAT3,Μαγνητική τομογραφία,Magnetic Resonance Imaging
+AED021,INVESTIGATION,3,AECAT3,Αξονική Τομογραφία (αποκλείει τομογραφία ουροποιογεννητικού συστήματος με σκιαγραφικό,Computerised Tomography (excludes Genito urinary contrast examination/tomography)
+AED022,INVESTIGATION,3,AECAT3,Τομογραφία Ουροποιογεννητικού συστήματος με σκιαγραφικό,Genito urinary contrast examination/tomography
+AED023,INVESTIGATION,1,AECAT1,Επιβεβαίωση θανάτου με ηλεκτροκαρδιογράφημα,Verification of Death
+AED024,INVESTIGATION,1,AECAT1,Mέτρηση σακχάρου με μηχανάκι/  Μέτρηση σακχάρου αίματος με φορητή συσκευή (γλουκόμετρο) με ταχυδιαγνωστικές αντιδραστήριες ταινίες,Rapid Gluco Test-DX
+AED025,INVESTIGATION,1,AECAT1,Mέτρηση ναρκωτικών ουσιών με ταχυδιαγνωστικές αντιδραστήριες ταινίες,Narco Test
+AED026,INVESTIGATION,1,AECAT1,Mέτρηση ούρων με test με Stick ταχυδιαγνωστικές αντιδραστήριες ταινίες,Urine test
+AED027,INVESTIGATION,1,AECAT1,Ανίχνευση τροπονίνης στο αίμα με ταχυδιαγνωστικές αντιδραστήριες ταινίες,Troponine Test
+AED028,INVESTIGATION,3,AECAT3,Λαρυγγοσκόπηση-Ενδοσκόπηση,Laryngoscopy/Endoscopy
+AET001,TREATMENT,1,AECAT1,Επίδεση/υποστήριξη,Bandage/support
+AET002,TREATMENT,1,AECAT1,Αφαίρεση γύψου,Removal plaster of Paris
+AET003,TREATMENT,1,AECAT1,Φλεβοκαθετήρας,Intravenous cannula
+AET004,TREATMENT,1,AECAT1,"Παρακολούθηση/ηλεκτροκαρδιογράφημα,οξύμετρο /τραύμα κεφαλής/","Observation/electrocardiogram, pulse oximetry/head injury/trends"
+AET005,TREATMENT,1,AECAT1,Καθοδήγηση/συμβουλή μόνο - γραπτή,Guidance/advice only-written
+AET006,TREATMENT,1,AECAT1,Καθοδήγηση/συμβουλή μόνο - προφορική,Guidance/advice only-verbal
+AET007,TREATMENT,1,AECAT1,Τέτανος - ανοσία,Tetanus-immune
+AET008,TREATMENT,1,AECAT1,Καταγραφή ζωτικών σημείων,Recording vital signs
+AET009,TREATMENT,1,AECAT1,Αξιολόγηση εγκαυμάτων,Burns review
+AET010,TREATMENT,1,AECAT1,Ανάκληση/ Αξιολόγηση ακτινογραφίας,Recall/x-ray review
+AET011,TREATMENT,1,AECAT1,Αξιολόγηση κατάγματος,Fracture review
+AET012,TREATMENT,1,AECAT1,Καθαρισμός πληγής,Wound cleaning
+AET013,TREATMENT,1,AECAT1,Αλλαγή/αξιολόγηση πληγής,Dressing/wound review
+AET014,TREATMENT,1,AECAT1,"ιμάντας/ κολλάρο ανάρτησης χειρός, ευρύς επίδεσμος ανάρτησης ώμου",Sing/collar cuff/broad arm sling
+AET015,TREATMENT,1,AECAT1,Μείωση της θερμοκρασίας- έλεγχος θερμοκρασίας σώματος,Cooling - control body temperature
+AET016,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο- Οφθαλμικές σταγόνες,Medication administered - eye drops
+AET017,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο - Ωτικές σταγόνες,Medication administered - ear drops
+AET018,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο- τοπική κρέμα δέρματος,Medication administered - topical skin cream
+AET019,TREATMENT,1,AECAT1,Εργασιοθεραπεία/Παροχή συσκευών για καθημερινές δραστηριότητες ΕΘ,Occupational Therapy - OT activities of daily living equipment provision
+AET020,TREATMENT,1,AECAT1,Συνταγογραφία/ετοιμασία φαρμάκων για το σπίτι,Prescription/medicines prepared to take away
+AET021,TREATMENT,1,AECAT1,Καμία ( σκέψου καθοδήγηση/συμβουλή),None (consider guidance/advice option)
+AET022,TREATMENT,2,AECAT2,Αλλαγή μικρού τραύματος / έγκαυμα/οφθαλμός,Dressing minor/burn/eye
+AET023,TREATMENT,2,AECAT2,Συρραφή- Αποστειρωμένες λωρίδες/ταινίες,Wound closure - steristrips
+AET024,TREATMENT,2,AECAT2,Συρραφή- Κόλλα για τραύματα,Wound closure - wound glue
+AET025,TREATMENT,2,AECAT2,Συρραφή- Άλλη μέθοδος (π.χ clips),Wound closure - other (e.g. clips)
+AET026,TREATMENT,2,AECAT2,Εφαρμογή γύψου Paris,Applicatiion Plaster of Paris
+AET027,TREATMENT,2,AECAT2,Νάρθηκας,Splint
+AET028,TREATMENT,2,AECAT2,"Φυσιοθεραπεία - επίδεση, θεραπεία με υπέρηχο, διαθερμία με μικροκύμματα, ορθοθέτηση","Physiotherapy - strapping, ultra sound treatment, short wave diathermy, manipulation"
+AET029,TREATMENT,2,AECAT2,"Φυσιοθεραπεία - επανεκπαίδευση βαδίσματος, πρόληψη πτώσεων","Physiotherapy - gait re-education, falls prevention"
+AET030,TREATMENT,2,AECAT2,"Θεραπευτικό πλύσιμο οργάνου (πλύση), εμετός, ενεργός άνθρακας, πλύση οφθαλμού",Lavage/emesis/charcoal/eye irrigation
+AET031,TREATMENT,2,AECAT2,Αναισθησία - τοπικό αναισθητικό,Anaesthesia - local anaesthetic
+AET032,TREATMENT,2,AECAT2,Αναισθησία - περιοχική αναισθησία με αποκλεισμό,Anaesthesia - regional block
+AET033,TREATMENT,2,AECAT2,Αναισθησία - entonox,Anaesthesia - entonox
+AET034,TREATMENT,2,AECAT2,Αναισθησία - άλλο,Anaesthesia - other
+AET035,TREATMENT,2,AECAT2,Τέτανος - σειρά εμβολιασμού,Tetanus - tetanus toxoid course
+AET036,TREATMENT,2,AECAT2,Τέτανος - εμβόλιο επαναληπτικό,Tetanus - tetanus toxoid booster
+AET037,TREATMENT,2,AECAT2,Τέτανος - ανθρώπινη ανοσοσφαιρίνη,Tetanus - human immunoglobulin
+AET038,TREATMENT,2,AECAT2,Τέτανος - συνδυασμένο σχήμα εμβολιασμού τέτανου/διφθερίτιδας,Tetanus - combined tetanus/diphtheria course
+AET039,TREATMENT,2,AECAT2,Τέτανος -  επαναληπτικό εμβόλιο τέτανου/διφθερίτιδας,Tetanus - combined tetanus/diphtheria booster
+AET040,TREATMENT,2,AECAT2,Έλεγχος επίσταξης,Epistaxis control
+AET041,TREATMENT,2,AECAT2,Ρινικός αεραγωγός,Nasal airway
+AET042,TREATMENT,2,AECAT2,Στοματικός αεραγωγός,Oral airway
+AET043,TREATMENT,2,AECAT2,Έγχυση υγρών,Infusion fluids
+AET044,TREATMENT,2,AECAT2,Χορηγήθηκε φάρμακο - από το στόμα,Medication administered - oral
+AET045,TREATMENT,2,AECAT2,Χορηγήθηκε φάρμακο- από το ορθό,Medication administered - per rectum
+AET046,TREATMENT,2,AECAT2,Χορηγήθηκε φάρμακο- ενδορινικά,Medication administered - intra-nasal
+AET047,TREATMENT,3,AECAT3,Αλλαγή πληγής μεγάλου τραύματος/ εγκαύματος,Dressing major wound/burn
+AET048,TREATMENT,3,AECAT3,Πρωτογενής συρραφή,Primary sutures
+AET049,TREATMENT,3,AECAT3,Δευτερογενής/σύνθετη συρραφή,Secondary/complex suture
+AET050,TREATMENT,3,AECAT3,Αφαίρεση ξένου σώματος,Removal foreign body
+AET051,TREATMENT,3,AECAT3,Τομή και παροχέτευση,Incision & drainage
+AET052,TREATMENT,3,AECAT3,Κεντρική γραμμή,Central line
+AET053,TREATMENT,3,AECAT3,Καθετήρας ουροδόχου κύστεως/ υπερηβικός,Urinary catheter/suprapubic
+AET054,TREATMENT,3,AECAT3,Mικρό Χειρουργείο,Minor surgery
+AET055,TREATMENT,3,AECAT3,Αναισθησία - νάρκωση,Anaesthesia - sedation
+AET056,TREATMENT,3,AECAT3,Νεφελοποιητής/ αεροθάλαμος,Nebuliser/spacer
+AET057,TREATMENT,3,AECAT3,Συμπληρωματικό Οξυγόνο,Supplemental oxygen
+AET058,TREATMENT,3,AECAT3,Συνεχής θετική πίεση των αεραγωγών/ρινική διακοπτόμενη θετική πίεση παροχής αέρα/χειροκίνητη μάσκα παροχής θετικής πίεσης αερισμού,Continuous positive airways pressure/nasal intermittent positive pressure ventilation/bag valve mask
+AET059,TREATMENT,3,AECAT3,Αρτηριακή γραμμή,Arterial line
+AET060,TREATMENT,3,AECAT3,Αναρρόφηση από άρθρωση,Joint aspiration
+AET061,TREATMENT,3,AECAT3,Ενεργή επαναθέρμανση υποθερμικού ασθενούς,Active rewarming of the hypothermic patient
+AET062,TREATMENT,3,AECAT3,Χορηγήθηκε φάρμακο - ενδομυϊκά,Medication administered - intra-muscular
+AET063,TREATMENT,3,AECAT3,Χορηγήθηκε φάρμακο - υποδόρια,Medication administered - subcutaneous
+AET064,TREATMENT,3,AECAT3,Χορηγήθηκε φάρμακο - υπογλώσσια,Medication administered - sublingual
+AET065,TREATMENT,3,AECAT3,Εργασιοθεραπεία - λειτουργική αξιολόγηση εργασιοθεραπείας,Occupational Therapy - OT functional assessment
+AET066,TREATMENT,3,AECAT3,Παρέμβαση Κοινωνικού Λειτουργού,Social work intervention
+AET067,TREATMENT,3,AECAT3,Οφθαλμός - Οπισθοβολβική ένεση,Eye - retrobulbar injection
+AET068,TREATMENT,3,AECAT3,Οφθαλμός - αφαίρεση βλεφαρίδων,Eye - epilation of lashes
+AET069,TREATMENT,4,AECAT4,Ορθοθέτηση κατάγματος άνω άκρου,Manipulation of upper limb fracture
+AET070,TREATMENT,4,AECAT4,Ορθοθέτηση κατάγματος κάτω άκρου,Manipulation of lower limb fracture
+AET071,TREATMENT,4,AECAT4,Ορθοθέτηση εξάρθρωσης,Manipulation of dislocation
+AET072,TREATMENT,4,AECAT4,Διασωλήνωση & ενδοτραχειακοί σωλήνες/ λαρυγγική μάσκα αεραγωγών/ταχεία εισαγωγή,Intubation & Endotracheal tubes/laryngeal mask airways/rapid sequence induction
+AET073,TREATMENT,4,AECAT4,Πνευμονική Παροχέτευση,Chest drain
+AET074,TREATMENT,4,AECAT4,Απινίδωση,Defibrillation
+AET075,TREATMENT,4,AECAT4,Εξωτερική βηματοδότηση,External pacing
+AET076,TREATMENT,4,AECAT4,Αναισθησία - γενική,Anaesthesia - general anaesthetic
+AET077,TREATMENT,4,AECAT4,Παρεντερική θρομβόλυση - με στρεπτοκινάση,Parenteral thrombolysis - streptokinase parenteral thrombolysis
+AET078,TREATMENT,4,AECAT4,"Άλλα παρεντερικά φάρμακα - ενδοφλέβιο φάρμακο, π.χ εφάπαξ","Other Parenteral drugs - intravenous drug, e.g. stat/bolus"
+AET079,TREATMENT,4,AECAT4,Άλλα παρεντερικά φάρμακα - ενδοφλέβια έγχυση,Other Parenteral drugs - intravenous infusion
+AET080,TREATMENT,4,AECAT4,Μετάγγιση παραγώγων αίματος,Blood product transfusion
+AET081,TREATMENT,4,AECAT4,Περικαρδιοκέντηση,Pericardiocentesis
+AET082,TREATMENT,4,AECAT4,Οσφυονωτιαία παρακέντηση,Lumbar puncture
+AET083,TREATMENT,4,AECAT4,Ελάσσον πλαστική επέμβαση/ διάσπαση δερματικού μοσχεύματος,Minor plastic procedure/split skin graft
+AET084,TREATMENT,4,AECAT4,Οφθαλμός- ένεση κάτω από τον επιπεφυκότα,Eye - subconjunctival injection
+AET085,TREATMENT,5,AECAT5,Αναζωογόνηση/  Καρδιοπνευμονική αναζωογόνηση,Resuscitation/cardiopulmonary resuscitation
+AET086,TREATMENT,5,AECAT5,Παρεντερική θρομβόλυση - γενετικά ανασυνδιασμένο -ενεργοποιητή του πλασμινογόνου,Parenteral thrombolysis - recombinant - plasminogen activator
+AET087,TREATMENT,5,AECAT5,Οφθαλμός - λέϊζερ αμφιβληστροειδή χιτώνα/ίριδας ή οπίσθια κάψα,Eye - laser of retina/iris or posterior capsule
+AET088,TREATMENT,5,AECAT5,Χορήγηση Αντιοφικού ορρού,Antisnake Venom Injection
+AET089,TREATMENT,2,AECAT2,Αλλαγή τραχειοσωλήνα,Change of Tracheostomy tube
+AET090,TREATMENT,2,AECAT2,Αλλαγή σωλήνα γαστροστομίας,Change of Gastrostomy tube
+AET091,TREATMENT,1,AECAT1,Αναρρόφηση εκκρίσεων,Suction of secretions
+AET092,TREATMENT,2,AECAT2,Τοποθέτηση Ρινογαστρικού Σωλήνα,Nasogastric intubation
+AET093,TREATMENT,2,AECAT2,Τοποθέτηση Αυχενικού Κολλάρου/Σανίδας ακινητοποίησης,Cervical Collar/Spinal board Placement
+AET094,TREATMENT,2,AECAT2,Δακτυλική εξέταση,Digital Rectal Examination
+AET095,TREATMENT,1,AECAT1,Χορηγήθηκε φάρμακο - Οφθαλμική αλοιφή,Medication administered - eye ointment
+AET096,TREATMENT,3,AECAT3,Ανάταξη βουβωνοκήλης,Inguinal hernia reduction
+AET097,TREATMENT,1,AECAT1,Χορήγηση πεθιδίνης,Administration of pethidine
+AET098,TREATMENT,2,AECAT2,Αφαίρεση Ουροκαθετήρα,Removal of urinary catheter

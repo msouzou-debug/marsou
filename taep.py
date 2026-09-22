@@ -55,16 +55,40 @@ WEIGHT_MATRIX = {
 
 TRIAGE_WEIGHT = 1
 
-# Band labels as they appear in the supplied master data and on the sample document.
-# The Greek column of weight_matrix is intentionally empty: the source gives English
-# only, and inventing Greek for a line that prints on a patient's bill is not ours
-# to do. Μονάδα Ελέγχου Εσόδων to supply, or confirm English is what prints.
+# Band labels. Both languages come from the "Care Levels" sheet of the A&E catalogue
+# (seed/care_levels.csv) — they are the organisation's own wording, not a translation
+# we made. AELEVEL1/2/3 map to weights 4/8/12; TRIAGE to weight 1.
 BAND_LABELS_EN = {
     1: "Triage",
     4: "Low cost combination of investigation and treatment",
     8: "Standard cost combination of investigation and treatment",
     12: "High cost combination of investigation and treatment",
 }
+
+BAND_LABELS_EL = {
+    1: "Διαλογή",
+    4: "Συνδυασμός διάγνωσης και θεραπείας χαμηλού κόστους",
+    8: "Συνδυασμός διάγνωσης και θεραπείας μέσου κόστους",
+    12: "Συνδυασμός διάγνωσης και θεραπείας υψηλού κόστους",
+}
+
+# Ruling of Μονάδα Ελέγχου Εσόδων, 22/09/2026, item 4:
+#   «δεν έχει τιμή μονάδας, η κοστολόγηση της βαρύτητας (60-120-180) γίνεται
+#    βάση του αλγόριθμου ΤΑΕΠ»
+#
+# There is no per-category unit price. The weight maps straight to an amount, the
+# same amount in every hospital and for every financial category. The €15.00 figure
+# we derived from the sample document was arithmetic (8 × 15 = 120), not a rate —
+# it happens to reproduce this scale, which is why the golden case still holds.
+#
+# Triage is NOT in the ruling. It stays None until the Μονάδα confirms it; a triage
+# costing is blocked rather than priced at a guess.
+WEIGHT_PRICE_SCALE = {
+    4: Decimal("60.00"),
+    8: Decimal("120.00"),
+    12: Decimal("180.00"),
+}
+TRIAGE_PRICE = None
 
 PRICE_TYPES = ("fixed", "fixed_plus_hourly", "fixed_plus_consumables", "tariff_lookup")
 
@@ -117,16 +141,22 @@ class Service:
 
 @dataclass(frozen=True)
 class Rates:
-    """The rates in force for (financial category, hospital, examination date).
+    """The amounts in force on the examination date.
 
-    None means no rate in force — which blocks finalisation rather than falling back
-    to a default. A silent default is how wrong bills get issued (brief §6).
+    weight_amounts maps weight -> amount (the 60/120/180 scale). triage_amount is
+    separate and currently unconfirmed. None anywhere means no rate in force, which
+    blocks rather than falling back to a default: a silent default is how wrong bills
+    get issued (brief §6).
+
+    tariff_applies comes from the financial category, not from a branch in code. The
+    Μονάδα ruled that tariff charges arise only where the patient is self-paying —
+    600 ΕΠΙ ΠΛΗΡΩΜΗ, 602 ΕΥΡΩΚΑΡΤΑ, 640 ΒΡΕΤΑΝΙΚΕΣ ΒΑΣΕΙΣ.
     """
-    unit_price: Decimal = None
-    triage_unit_price: Decimal = None
-    registration_fee: Decimal = None
-    unit_price_rate_id: int = None
-    triage_unit_price_rate_id: int = None
+    weight_amounts: dict = field(default_factory=lambda: dict(WEIGHT_PRICE_SCALE))
+    triage_amount: Decimal = None
+    registration_fee: Decimal = Decimal("0.00")
+    tariff_applies: bool = False
+    weight_rate_id: int = None
     registration_fee_rate_id: int = None
 
 
@@ -144,9 +174,6 @@ class TariffLine:
     consumables_note: str = None
     radiology_cpt: str = None
     radiology_price: Decimal = None
-    # Set by the caller from service_tariff_overlap: the service code this tariff
-    # duplicates, if any. Used to suppress double-charging.
-    overlaps_service: str = None
 
 
 @dataclass(frozen=True)
@@ -168,8 +195,8 @@ class CostingResult:
     band_label_en: str
     band_label_el: str
     is_triage_only: bool
-    unit_price_applied: Decimal
-    unit_price_rate_id: int
+    weight_amount_applied: Decimal
+    weight_rate_id: int
     registration_fee_applied: Decimal
     registration_fee_rate_id: int
     weight_cost: Decimal
@@ -249,19 +276,6 @@ def price_tariff_line(line):
             "BAD_QUANTITY",
             f"Η ποσότητα για τον κωδικό {line.tariff_code} πρέπει να είναι "
             f"τουλάχιστον 1.",
-        )
-
-    if line.overlaps_service:
-        return CostedLine(
-            tariff_code=line.tariff_code,
-            description=line.description,
-            quantity=line.quantity,
-            line_total=money(0),
-            suppressed=True,
-            suppression_reason_el=(
-                f"Η υπηρεσία {line.overlaps_service} χρεώνεται ήδη βάσει βαρύτητας. "
-                f"Η χρέωση βάσει τιμοκαταλόγου δεν εφαρμόζεται."
-            ),
         )
 
     quantity = Decimal(line.quantity)
@@ -372,7 +386,6 @@ def compute_input_hash(service_codes, tariff_lines, financial_category_code, ser
                 line.tariff_code, line.price_type, line.quantity,
                 line.hours or "", line.consumables_amount or "",
                 line.radiology_cpt or "", line.radiology_price or "",
-                line.overlaps_service or "",
             ))
         )
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
@@ -382,20 +395,23 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
               service_date=None):
     """Price one ΤΑΕΠ episode.
 
-        TOTAL = weight_cost + registration_fee + tariff_lines
+        TOTAL = weight_amount + tariff_total
+
+    The weight amount comes from the 60/120/180 scale, not from a per-category unit
+    price — see WEIGHT_PRICE_SCALE. The registration fee is carried but is €0.00 for
+    every category under the Μονάδα's ruling of 22/09/2026; see the note there.
 
     selected_services: iterable of Service. Empty means triage only.
-    rates:             Rates in force on the examination date.
-    tariff_lines:      iterable of TariffLine, may be empty.
+    rates:             the amounts in force on the examination date.
+    tariff_lines:      iterable of TariffLine. Only permitted where the financial
+                       category is self-paying (rates.tariff_applies).
 
     Raises CostingError, with a Greek message, rather than returning a wrong number.
     """
     services = list(selected_services)
     lines_in = list(tariff_lines)
+    blocking = []
     warnings = []
-
-    investigation_categories = [s.category for s in services if s.service_type == INVESTIGATION]
-    treatment_categories = [s.category for s in services if s.service_type == TREATMENT]
 
     unknown = [s.code for s in services
                if s.service_type not in (INVESTIGATION, TREATMENT)]
@@ -405,67 +421,69 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
             f"Άγνωστος τύπος υπηρεσίας για τους κωδικούς: {', '.join(sorted(unknown))}.",
         )
 
+    investigation_categories = [s.category for s in services if s.service_type == INVESTIGATION]
+    treatment_categories = [s.category for s in services if s.service_type == TREATMENT]
+
     max_investigation, max_treatment, weight, is_triage_only = resolve_weight(
         investigation_categories, treatment_categories)
 
-    # Triage carries its own unit price. It is NOT the standard unit price times one.
+    # Triage carries its own amount. It is not the weight-4 amount, and it is not a
+    # unit price multiplied by one. The Μονάδα has not yet confirmed it.
     if is_triage_only:
-        unit_price = rates.triage_unit_price
-        unit_price_rate_id = rates.triage_unit_price_rate_id
-        rate_name = "τιμή μονάδας διαλογής (triage)"
+        weight_amount = rates.triage_amount
+        missing_what = "το ποσό διαλογής (triage)"
     else:
-        unit_price = rates.unit_price
-        unit_price_rate_id = rates.unit_price_rate_id
-        rate_name = "τιμή μονάδας βαρύτητας"
+        weight_amount = (rates.weight_amounts or {}).get(weight)
+        missing_what = f"το ποσό για τη βαρύτητα {weight}"
 
-    if unit_price is None:
+    if weight_amount is None:
         raise CostingError(
             "NO_RATE_IN_FORCE",
-            f"Δεν υπάρχει καταχωρημένη {rate_name} για την οικονομική κατηγορία "
-            f"{financial_category_code} κατά την ημερομηνία εξέτασης. "
-            f"Η κοστολόγηση δεν μπορεί να οριστικοποιηθεί.",
+            f"Δεν έχει καθοριστεί {missing_what} κατά την ημερομηνία εξέτασης "
+            f"(οικονομική κατηγορία {financial_category_code}). Η κοστολόγηση δεν "
+            f"μπορεί να ολοκληρωθεί.",
         )
 
-    weight_cost = money(Decimal(weight) * Decimal(unit_price))
+    weight_amount = money(weight_amount)
 
-    # An unconfirmed registration fee blocks FINALISATION, not calculation (brief §4.2
-    # and §10). 15 of the 23 ΤΑΕΠ-valid categories are unconfirmed today; refusing to
-    # calculate would leave the clerk with no number at all for most of their patients.
-    # So compute what is computable, leave the total open, and say why.
-    blocking = []
+    # Tariff charges arise only for self-paying categories. Where they do not apply,
+    # a supplied line is refused rather than quietly zeroed — the clerk should not
+    # have been offered it, and silently dropping it hides a UI fault.
+    if lines_in and not rates.tariff_applies:
+        raise CostingError(
+            "TARIFF_NOT_ALLOWED",
+            f"Οι πρόσθετες χρεώσεις τιμοκαταλόγου δεν ισχύουν για την οικονομική "
+            f"κατηγορία {financial_category_code}. Εφαρμόζονται μόνο στις κατηγορίες "
+            f"που πληρώνει ο ίδιος ο ασθενής.",
+        )
+
+    costed_lines = tuple(price_tariff_line(line) for line in lines_in)
+    tariff_total = money(sum((l.line_total for l in costed_lines), Decimal("0.00")))
+
     if rates.registration_fee is None:
         registration_fee = None
         blocking.append(
             f"Δεν έχει επιβεβαιωθεί τέλος εγγραφής για την οικονομική κατηγορία "
-            f"{financial_category_code}. Η κοστολόγηση δεν μπορεί να οριστικοποιηθεί "
-            f"μέχρι να καθοριστεί από τη Μονάδα Ελέγχου Εσόδων."
+            f"{financial_category_code}."
         )
     else:
         registration_fee = money(rates.registration_fee)
 
-    costed_lines = tuple(price_tariff_line(line) for line in lines_in)
-    for line in costed_lines:
-        if line.suppressed:
-            warnings.append(line.suppression_reason_el)
-
-    tariff_total = money(sum((l.line_total for l in costed_lines), Decimal("0.00")))
-    # No total while a component is unknown. A partial total on a printed bill is worse
-    # than no total: it looks authoritative and is wrong by up to €100.
     total_cost = (None if registration_fee is None
-                  else money(weight_cost + registration_fee + tariff_total))
+                  else money(weight_amount + registration_fee + tariff_total))
 
     return CostingResult(
         max_investigation_category=max_investigation,
         max_treatment_category=max_treatment,
         weight=weight,
         band_label_en=BAND_LABELS_EN[weight],
-        band_label_el=None,
+        band_label_el=BAND_LABELS_EL[weight],
         is_triage_only=is_triage_only,
-        unit_price_applied=money(unit_price),
-        unit_price_rate_id=unit_price_rate_id,
+        weight_amount_applied=weight_amount,
+        weight_rate_id=rates.weight_rate_id,
         registration_fee_applied=registration_fee,
         registration_fee_rate_id=rates.registration_fee_rate_id,
-        weight_cost=weight_cost,
+        weight_cost=weight_amount,
         tariff_total=tariff_total,
         total_cost=total_cost,
         lines=costed_lines,
@@ -496,6 +514,9 @@ SCHEMA_STATEMENTS = [
         code_old_taep VARCHAR(10),
         note_el TEXT,
         valid_for_ae TINYINT DEFAULT 1,
+        -- Ruling 2: tariff charges arise only where the patient pays for themselves
+        -- (600, 602, 640). A flag on the row, never a branch in code.
+        tariff_applies TINYINT DEFAULT 0,
         requires_payer TINYINT DEFAULT 0,
         payer_el VARCHAR(200),
         fee_status VARCHAR(20) DEFAULT 'UNCONFIRMED',
@@ -530,9 +551,13 @@ SCHEMA_STATEMENTS = [
     # the same transaction as the insert. See ADR-001 consequence (2).
     """CREATE TABLE IF NOT EXISTS taep_rate (
         id INTEGER PRIMARY KEY {AUTO_INCREMENT},
-        financial_category_id INT NOT NULL,
+        -- Ruling 4: the amount is a function of the weight alone. It is national and
+        -- the same for every financial category, so financial_category_id is NULL on
+        -- a WEIGHT_AMOUNT row and reserved for any future category-specific price.
+        financial_category_id INT,
         entity_code VARCHAR(10),
-        rate_type VARCHAR(25) NOT NULL,
+        rate_type VARCHAR(25) NOT NULL,   -- WEIGHT_AMOUNT | TRIAGE_AMOUNT | REGISTRATION_FEE | REGISTRATION_DEPOSIT
+        weight SMALLINT,                  -- 4, 8 or 12 on a WEIGHT_AMOUNT row; NULL otherwise
         amount DECIMAL(15,2) NOT NULL,
         valid_from DATE NOT NULL,
         valid_to DATE,
@@ -541,7 +566,7 @@ SCHEMA_STATEMENTS = [
         created_at DATETIME,
         closed_by INT,
         closed_at DATETIME,
-        UNIQUE (financial_category_id, entity_code, rate_type, valid_from)
+        UNIQUE (financial_category_id, entity_code, rate_type, weight, valid_from)
     ){ENGINE}""",
 
     """CREATE TABLE IF NOT EXISTS taep_tariff (
@@ -573,16 +598,6 @@ SCHEMA_STATEMENTS = [
         valid_to DATE,
         active TINYINT DEFAULT 1,
         UNIQUE (cpt_code, valid_from)
-    ){ENGINE}""",
-
-    """CREATE TABLE IF NOT EXISTS taep_service_tariff_overlap (
-        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
-        service_code VARCHAR(10) NOT NULL,
-        tariff_code VARCHAR(20) NOT NULL,
-        treatment VARCHAR(15) NOT NULL DEFAULT 'weight_only',
-        ruled_by VARCHAR(100),
-        ruled_on DATE,
-        UNIQUE (service_code, tariff_code)
     ){ENGINE}""",
 
     """CREATE TABLE IF NOT EXISTS taep_episode (
@@ -653,8 +668,8 @@ SCHEMA_STATEMENTS = [
         band_label_en VARCHAR(200),
         band_label_el VARCHAR(200),
         is_triage_only TINYINT DEFAULT 0,
-        unit_price_applied DECIMAL(15,2),
-        unit_price_rate_id INT,
+        weight_amount_applied DECIMAL(15,2),
+        weight_rate_id INT,
         registration_fee_applied DECIMAL(15,2),
         registration_fee_rate_id INT,
         weight_cost DECIMAL(15,2),
@@ -703,10 +718,13 @@ def _decimal_or_none(raw):
 def load_services(rows):
     """Validate and normalise services.csv.
 
-    Fails hard on a duplicate code. AET092 appears twice in the supplied master data
-    as two different treatments three weight bands apart (brief §9.1); keeping the
-    last row silently would price a nasogastric tube as thrombolysis. The Μονάδα
-    reassigns one of them — this is not a defect the loader may paper over.
+    Fails hard on a duplicate code.
+
+    The CSV used in Phase 1 was a corrupted extract that split AET092 across two rows
+    three weight bands apart; keeping the last row silently would have priced a
+    nasogastric tube as thrombolysis. seed/services.csv is now generated from the
+    source catalogue by tools/import_catalogue.py and carries no duplicates, but the
+    check stays: a bad extract must stop the boot, not reach a patient's bill.
     """
     seen = {}
     duplicates = []
@@ -817,16 +835,12 @@ def parse_tariff_price(code, price_raw):
 
 
 def build_load_report():
-    """Phase 1 deliverable: what the seed files can and cannot be loaded as.
-
-    Pure apart from reading the CSVs. Returns a dict; the caller prints or stores it.
-    """
+    """What the seed files load as. Pure apart from reading the CSVs."""
     services = load_services(_read_seed("services.csv"))
     verify_weight_matrix(_read_seed("weight_matrix.csv"))
 
     categories = _read_seed("financial_categories.csv")
-    unconfirmed = [c["code_new"] for c in categories
-                   if c["valid_for_ae"] == "TRUE" and c["fee_status"] == "UNCONFIRMED"]
+    levels = _read_seed("care_levels.csv")
 
     unparsed = []
     for row in _read_seed("extra_charges.csv"):
@@ -839,10 +853,12 @@ def build_load_report():
         "services_loaded": len(services),
         "investigations": sum(1 for s in services if s.service_type == INVESTIGATION),
         "treatments": sum(1 for s in services if s.service_type == TREATMENT),
+        "care_levels": len(levels),
         "categories_total": len(categories),
         "categories_valid_for_ae": sum(1 for c in categories if c["valid_for_ae"] == "TRUE"),
-        "registration_fee_unconfirmed": unconfirmed,
-        "tariff_rows_unparsed": unparsed,
+        "categories_with_tariff": [c["code_new"] for c in categories
+                                   if c["tariff_applies"] == "TRUE"],
+        "tariff_rows_needing_coder_choice": unparsed,
         "radiology_rows": len(_read_seed("radiology_tariff.csv")),
     }
 
