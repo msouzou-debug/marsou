@@ -526,3 +526,17 @@ def test_the_nurses_and_allied_professionals_reach_their_own_units():
     # the scan quality criteria are radiology's, not the outpatient clinics'
     assert m.find_centre(
         "1031", "Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)").code == "1053100300"
+
+
+def test_radiology_is_spelled_in_both_alphabets():
+    """Limassol types its radiology centres «AKT» in Latin letters, everyone
+    else «ΑΚΤ» in Greek, and Kyperounta mixes the two inside one hospital."""
+    m = extract_sap_master(_centres(
+        ("1030", "1053000300", "AKT-ΓΕΝΙΚΑ"),            # Latin AKT
+        ("1030", "1053000301", "AKT-ΑΚΤΙΝΟΓΡΑΦΙΕΣ"),
+        ("1032", "1053200300", "ΑΚΤ-ΓΕΝΙΚΑ"),            # Greek ΑΚΤ
+        ("1032", "1053200309", "AKT-ΥΠΕΡΗΧΟΓΡΑΦΗΜΑΤΑ")))
+    for co, want in (("1030", "1053000300"), ("1032", "1053200300")):
+        assert m.find_centre(co, "DIAGNOSTIC RADIOLOGY", "clinic").code == want
+        assert m.find_centre(
+            co, "Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)").code == want

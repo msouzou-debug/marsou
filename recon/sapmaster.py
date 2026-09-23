@@ -86,7 +86,9 @@ SPECIALTY_GREEK = {
     "OTORHINOLARYNGOLOGY": "ΩΡΛ",
     "PLASTIC SURGERY": "ΠΛΑΣΤΙΚΗ",
     "VASCULAR SURGERY": "ΑΓΓΕΙΟΧΕΙΡΟΥΡΓΙΚ",
-    "DIAGNOSTIC RADIOLOGY": "ΑΚΤ",
+    # Limassol types its radiology centres with a LATIN AKT, everyone else
+    # with the Greek ΑΚΤ — and Kyperounta mixes the two
+    "DIAGNOSTIC RADIOLOGY": ("ΑΚΤ", "AKT"),
     "PHYSIOTHERAPY": "ΦΥΣΙΟΘΕΡΑΠΕΥΤΗΡΙΟ",
     # the nurses, midwives and allied professionals ΟΑΥ pays by speciality —
     # each has a unit of its own, so none of them is «outpatient generally».
@@ -98,7 +100,7 @@ SPECIALTY_GREEK = {
     "MIDWIFE": ("ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ", "ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ"),
     # the quality criteria ΟΑΥ pays for scans are the radiology department's,
     # not the outpatient clinics'
-    "MRI CT": "ΑΚΤ",
+    "MRI CT": ("ΑΚΤ", "AKT"),
     # whole-stream lines, which are not a clinical speciality at all
     "A&E": "ΤΑΕΠ",
     "ACCIDENT & EMERGENCY": "ΤΑΕΠ",
