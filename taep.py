@@ -81,14 +81,15 @@ BAND_LABELS_EL = {
 # we derived from the sample document was arithmetic (8 × 15 = 120), not a rate —
 # it happens to reproduce this scale, which is why the golden case still holds.
 #
-# Triage is NOT in the ruling. It stays None until the Μονάδα confirms it; a triage
-# costing is blocked rather than priced at a guess.
 WEIGHT_PRICE_SCALE = {
     4: Decimal("60.00"),
     8: Decimal("120.00"),
     12: Decimal("180.00"),
 }
-TRIAGE_PRICE = None
+
+# Ruling of 23/09/2026, item 1: «10 ευρώ». Triage is its own amount and is not on the
+# 60/120/180 scale — it is not the weight-4 price, nor a unit price times one.
+TRIAGE_PRICE = Decimal("10.00")
 
 PRICE_TYPES = ("fixed", "fixed_plus_hourly", "fixed_plus_consumables", "tariff_lookup")
 
@@ -153,7 +154,7 @@ class Rates:
     600 ΕΠΙ ΠΛΗΡΩΜΗ, 602 ΕΥΡΩΚΑΡΤΑ, 640 ΒΡΕΤΑΝΙΚΕΣ ΒΑΣΕΙΣ.
     """
     weight_amounts: dict = field(default_factory=lambda: dict(WEIGHT_PRICE_SCALE))
-    triage_amount: Decimal = None
+    triage_amount: Decimal = TRIAGE_PRICE
     registration_fee: Decimal = Decimal("0.00")
     tariff_applies: bool = False
     weight_rate_id: int = None
@@ -872,3 +873,33 @@ def assert_finalisable(result):
     if result.blocking_issues_el:
         raise CostingError("NOT_FINALISABLE", " ".join(result.blocking_issues_el))
     return True
+
+
+COSTING_NUMBER_PREFIX = "OKY"
+
+
+def format_costing_number(hospital_number, sequence):
+    """Build a costing number: OKY<hospital><NNNN>.
+
+    Ruling of 23/09/2026, item 4: «κωδικός ανά νοσηλευτήριο και μοναδικός αύξων
+    αριθμός». The sample document reads OKY1054/0035, so 1054 is the hospital's own
+    number and 0035 the sequence.
+
+    The sequence is per hospital, gapless, allocated at finalisation and never reused;
+    a cancelled costing keeps its number. Allocation is the caller's job — this
+    function only formats, so that it stays pure and testable.
+
+    The nine hospitals' numbers are not yet known; only 1054 appears in the sample.
+    """
+    if not str(hospital_number).strip():
+        raise CostingError(
+            "NO_HOSPITAL_NUMBER",
+            "Δεν έχει οριστεί κωδικός νοσηλευτηρίου για τη σύνθεση του αριθμού "
+            "κοστολόγησης.",
+        )
+    if not isinstance(sequence, int) or sequence < 1:
+        raise CostingError(
+            "BAD_SEQUENCE",
+            "Ο αύξων αριθμός κοστολόγησης πρέπει να είναι θετικός ακέραιος.",
+        )
+    return f"{COSTING_NUMBER_PREFIX}{str(hospital_number).strip()}/{sequence:04d}"

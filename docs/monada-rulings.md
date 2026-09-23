@@ -1,4 +1,4 @@
-# Rulings of Μονάδα Ελέγχου Εσόδων — 22/09/2026
+# Rulings of Μονάδα Ελέγχου Εσόδων — 22/09 and 23/09/2026
 
 What was decided, what it changed, and what it opened up. Source: the answered copy of
 `TAEP_ekkremi_themata_Monada_Elegchou_Esodon.docx` plus `20230706_AE_Catalogue_5.xlsx`.
@@ -103,15 +103,53 @@ the note are retained in the CSV so the override is visible rather than silent.
 
 ---
 
+## Second round — 23/09/2026
+
+| Item | Ruling | Applied as |
+|---|---|---|
+| Triage amount | «10 ευρώ» | `TRIAGE_PRICE = 10.00`. Its own amount, not on the 60/120/180 scale. |
+| The €100 deposit | «επιβεβαιώνω και τα δύο» | Confirmed a deposit against the bill, not added to the cost. 603/605/608 confirmed zero. |
+| Costing number | «κωδικός ανά νοσηλευτήριο και μοναδικός αύξων αριθμός» | `format_costing_number()`. Reproduces the sample: `OKY1054/0035`. |
+| SHSO-ER16 tiers | €50 Θεραπευτικό πλύσιμο οργάνου · €120 Πλύση οφθαλμού 3 ώρες · €200 Παρουσία οφθαλμιάτρου | Split into ER16-A/B/C in `seed/tariff.csv`. |
+
+`seed/tariff.csv` now carries all 48 source rows as 52 structured rows, **every one with
+a resolved price**. The nine free-text prices from the Phase 1 memo are closed.
+
+---
+
 ## Still open
 
-1. **Triage amount.** The 60/120/180 ruling says nothing about weight 1. A triage-only
-   costing is blocked until it is set — deliberately, rather than guessing at €15.
-2. **The €100 προκαταβολή** — deposit or additive fee? See above.
-3. **The financial-category table with the αρμόδια αρχή** for each category. Item 6 says
-   «δες πίνακα», but no such table was attached; the workbook we received holds only Care
-   Levels, Investigations and Treatments. `requires_payer` and `payer_el` stay empty.
-4. **Costing number.** The Μονάδα does not recognise OKY1054 and has asked us for more
-   information. We only have the one sample document.
-5. **SHSO-ER16 tiers.** Keeping all codes is settled, but the coder still has to know what
-   €50 / €120 / €200 correspond to before they can choose between them.
+### 1. The registration fee table contradicts the written confirmation
+
+The workbook sent on 23/09 (`seed/source/registration_fees_by_category.xlsx`) gives a
+ΤΑΕΠ registration fee of **€10,00 for 603, 605 and 608** — the same values the original
+seed carried, with the same note. The written answer on the same day confirmed those
+three are zero.
+
+We have applied the **written answer** (€0,00), because it answered that exact question
+directly, and carried the table's figure beside it in `monada_table_taep_fee` with
+`fee_conflict = TRUE`. One line from the Μονάδα settles it either way.
+
+Small money — €10 on three categories — but it is a disagreement between two statements
+made on the same day, and picking one silently is how a wrong number becomes permanent.
+
+The table is useful corroboration elsewhere: its "Δεν εφαρμόζεται" rows at ΤΑΕΠ are
+exactly 610, 611, 612 and 630–637, which matches eleven of the fifteen categories marked
+`valid_for_ae = FALSE`. (643–646 show 0 rather than "not applicable"; the operator's
+original marking stands and this is only a note.)
+
+### 2. The αρμόδια αρχή table still has not arrived
+
+Item 3 of the follow-up asked for the table of financial categories and the responsible
+authority for each. The reply was «το στέλνω τώρα», but the workbook that arrived is the
+registration-fee table: its columns are ΤΑΕΠ, Εξωνοσοκομειακή, Ενδονοσοκομειακή, Φάρμακα,
+Εργαστηριακά and an empty Σχόλια. There is no authority column.
+
+`requires_payer` and `payer_el` stay empty. This does not block v1, which only prints the
+payer; it blocks v2, which bills them.
+
+### 3. The nine hospitals' numbers
+
+The costing number format is settled and reproduces the sample, but 1054 is the only
+hospital number we have seen. The other eight are needed before any hospital but that one
+can issue a number.

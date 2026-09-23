@@ -124,9 +124,9 @@ def test_triage_only_uses_its_own_amount_not_the_weight_four_amount():
     assert result.weight_cost != SCALE[4]
 
 
-def test_triage_is_blocked_while_its_amount_is_unconfirmed():
-    """The Μονάδα's ruling gave 60/120/180 and said nothing about triage."""
-    assert taep.TRIAGE_PRICE is None
+def test_triage_blocks_when_no_amount_is_in_force():
+    """Triage was confirmed at €10.00 on 23/09, but the refusal path must still work:
+    if no amount is in force on the examination date, block rather than guess."""
     with pytest.raises(CostingError) as excinfo:
         calculate([], rates(), financial_category_code="601")
     assert excinfo.value.code == "NO_RATE_IN_FORCE"
@@ -528,3 +528,95 @@ def test_diaeresis_and_accent_combinations_fold():
 def test_fold_handles_empty_and_none():
     assert taep.fold_greek(None) == ""
     assert taep.fold_greek("") == ""
+
+
+# ---------------------------------------------------------------------------
+# Rulings of 23/09/2026
+# ---------------------------------------------------------------------------
+
+def test_triage_is_ten_euro():
+    """Ruling 1: «10 ευρώ». Triage is its own amount, not on the 60/120/180 scale."""
+    assert taep.TRIAGE_PRICE == Decimal("10.00")
+    result = calculate([], Rates(), financial_category_code="624")
+    assert result.is_triage_only is True
+    assert result.weight == 1
+    assert result.band_label_el == "Διαλογή"
+    assert result.weight_cost == Decimal("10.00")
+    assert result.total_cost == Decimal("10.00")
+
+
+def test_triage_is_not_the_weight_four_amount():
+    assert taep.TRIAGE_PRICE != taep.WEIGHT_PRICE_SCALE[4]
+
+
+def test_costing_number_reproduces_the_sample_document():
+    """Ruling 4: «κωδικός ανά νοσηλευτήριο και μοναδικός αύξων αριθμός».
+    The sample reads OKY1054/0035."""
+    assert taep.format_costing_number(1054, 35) == "OKY1054/0035"
+    assert taep.format_costing_number("1054", 1) == "OKY1054/0001"
+    assert taep.format_costing_number(1054, 12345) == "OKY1054/12345"
+
+
+@pytest.mark.parametrize("hospital,sequence,code", [
+    ("", 1, "NO_HOSPITAL_NUMBER"),
+    ("  ", 1, "NO_HOSPITAL_NUMBER"),
+    (1054, 0, "BAD_SEQUENCE"),
+    (1054, -3, "BAD_SEQUENCE"),
+])
+def test_costing_number_rejects_bad_input(hospital, sequence, code):
+    with pytest.raises(CostingError) as excinfo:
+        taep.format_costing_number(hospital, sequence)
+    assert excinfo.value.code == code
+
+
+def test_er16_tiers_carry_the_labels_the_monada_gave():
+    """Ruling 5. Without labels the coder cannot tell which tier they are picking."""
+    import csv
+    rows = {r["code"]: r for r in csv.DictReader(open("seed/tariff.csv", encoding="utf-8"))}
+    assert rows["SHSO-ER16-A"]["tier_label_el"] == "Θεραπευτικό πλύσιμο οργάνου (πλύση)"
+    assert rows["SHSO-ER16-B"]["tier_label_el"] == "Πλύση οφθαλμού, 3 ώρες"
+    assert rows["SHSO-ER16-C"]["tier_label_el"] == "Παρουσία οφθαλμιάτρου"
+    assert [rows[f"SHSO-ER16-{s}"]["base_amount"] for s in "ABC"] == ["50.00", "120.00", "200.00"]
+    assert all(rows[f"SHSO-ER16-{s}"]["price_type"] == "fixed_plus_consumables" for s in "ABC")
+
+
+def test_er2_tiers_split_into_three_fixed_rows():
+    import csv
+    rows = {r["code"]: r for r in csv.DictReader(open("seed/tariff.csv", encoding="utf-8"))}
+    assert [rows[f"SHSO-ER2-{s}"]["base_amount"] for s in "ABC"] == ["15.00", "60.00", "70.00"]
+    assert all(rows[f"SHSO-ER2-{s}"]["price_type"] == "fixed" for s in "ABC")
+
+
+def test_every_tariff_row_now_resolves_to_a_price():
+    """Phase 1 had nine free-text prices. All are structured now."""
+    import csv
+    rows = list(csv.DictReader(open("seed/tariff.csv", encoding="utf-8")))
+    assert len(rows) == 52
+    unresolved = [r["code"] for r in rows if r["load_status"] not in ("OK", "SPLIT")]
+    assert unresolved == []
+    for row in rows:
+        if row["price_type"] != "tariff_lookup":
+            assert row["base_amount"], f"{row['code']} has no amount"
+
+
+def test_the_fee_conflict_is_recorded_not_silently_resolved():
+    """The Μονάδα's own table says 603/605/608 are €10,00 at ΤΑΕΠ; their written
+    confirmation of the same date zeroes them. We apply the written answer and carry
+    the table's value so the disagreement stays visible."""
+    import csv
+    rows = {r["code_new"]: r for r in
+            csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8"))}
+    conflicted = {c for c, r in rows.items() if r["fee_conflict"] == "TRUE"}
+    assert conflicted == {"603", "605", "608"}
+    for code in conflicted:
+        assert rows[code]["registration_fee_eur"] == "0.00"
+        assert rows[code]["monada_table_taep_fee"] == "10"
+
+
+def test_the_original_fee_values_survive_a_rerun():
+    """apply_monada_rulings.py reads the pristine source, not its own output."""
+    import csv
+    rows = {r["code_new"]: r for r in
+            csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8"))}
+    assert rows["600"]["previous_registration_fee_eur"] == "100.00"
+    assert rows["603"]["previous_registration_fee_eur"] == "10.00"
