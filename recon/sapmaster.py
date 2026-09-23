@@ -88,6 +88,17 @@ SPECIALTY_GREEK = {
     "VASCULAR SURGERY": "ΑΓΓΕΙΟΧΕΙΡΟΥΡΓΙΚ",
     "DIAGNOSTIC RADIOLOGY": "ΑΚΤ",
     "PHYSIOTHERAPY": "ΦΥΣΙΟΘΕΡΑΠΕΥΤΗΡΙΟ",
+    # the nurses, midwives and allied professionals ΟΑΥ pays by speciality —
+    # each has a unit of its own, so none of them is «outpatient generally».
+    # A tuple is tried in order: Paphos calls its midwifery «ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ»,
+    # every other hospital «ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ».
+    "PHYSIOTHERAPIST": "ΦΥΣΙΟΘΕΡΑΠΕΥΤΗΡΙΟ",
+    "CLINICAL DIETITIAN": "ΔΙΑΙΤΟΛΟΓΙΚΟ-ΕΙ",
+    "GENERAL NURSE": "ΚΑΤ'ΟΙΚΟΝ ΝΟΣΗΛΕΙΑ",
+    "MIDWIFE": ("ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ", "ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ"),
+    # the quality criteria ΟΑΥ pays for scans are the radiology department's,
+    # not the outpatient clinics'
+    "MRI CT": "ΑΚΤ",
     # whole-stream lines, which are not a clinical speciality at all
     "A&E": "ΤΑΕΠ",
     "ACCIDENT & EMERGENCY": "ΤΑΕΠ",
@@ -180,14 +191,27 @@ class SapMaster:
         """ΟΑΥ's English speciality + the stream's flavour -> one cost centre
         of this company, or None.  Never returns a guess: the stem must match
         and, once the flavour is applied, exactly one centre must remain."""
-        stem = _stem_for(specialty)
-        if not stem or not company:
+        stems = _stems_for(specialty)
+        if not stems or not company:
             return None
+        if len(stems) > 1:
+            # the same speciality is named differently from hospital to
+            # hospital — take the first spelling that resolves
+            for one in stems:
+                hit = self._centre_for_stem(company, one, variant)
+                if hit:
+                    return hit
+            return None
+        stem = stems[0]
         swap = _VARIANT_STEM.get((stem, variant))
         if swap:
             special = self.find_centre(company, swap, "general")
             if special:
                 return special
+        return self._centre_for_stem(company, stem, variant)
+
+    def _centre_for_stem(self, company: str, stem: str,
+                         variant: str) -> Optional[CostCentre]:
         # the stem must START the centre's name: «ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ» contains
         # «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery
         hits = [c for c in self.centres_for(company)
@@ -222,11 +246,11 @@ class SapMaster:
         than a list to stare at."""
         if not company:
             return "χωρίς εταιρεία (no company code)"
-        stem = _stem_for(specialty)
-        if not stem:
+        stems = _stems_for(specialty)
+        if not stems:
             return "άγνωστη ειδικότητα (speciality not in the dictionary)"
         hits = [c for c in self.centres_for(company)
-                if _fold(c.name).startswith(stem)]
+                if any(_fold(c.name).startswith(one) for one in stems)]
         if not hits:
             return "κανένα κέντρο με αυτό το όνομα (no such centre in SAP)"
         names = ", ".join(c.name for c in hits[:4])
@@ -248,18 +272,22 @@ _SPEC_NORM = {norm_label(k): v for k, v in SPECIALTY_GREEK.items()}
 _SPEC_ORDER = sorted(_SPEC_NORM, key=len, reverse=True)
 
 
-def _stem_for(specialty: str) -> str:
+def _stems_for(specialty: str) -> tuple:
     """The whole label is searched, not a slice of it: ΟΑΥ writes clinics both
     bare («DERMATO-VENEREOLOGY») and inside a sentence («Ειδικοί Ιατροί —
     OPHTHALMOLOGY (OS)»), and any attempt to cut the speciality out first
     mangles the hyphenated ones."""
     up = norm_label(specialty)
-    if up in _SPEC_NORM:
-        return _fold(_SPEC_NORM[up])
-    for name in _SPEC_ORDER:
-        if name in up:
-            return _fold(_SPEC_NORM[name])
-    return ""
+    found = _SPEC_NORM.get(up)
+    if found is None:
+        for name in _SPEC_ORDER:
+            if name in up:
+                found = _SPEC_NORM[name]
+                break
+    if found is None:
+        return ()
+    names = found if isinstance(found, tuple) else (found,)
+    return tuple(_fold(n) for n in names)
 
 
 def _tail(name: str, stem: str) -> str:

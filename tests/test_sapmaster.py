@@ -501,3 +501,28 @@ def test_where_a_line_books_when_it_is_not_the_clinic_that_earned_it():
                  for r in range(4, ws.max_row + 1)
                  if str(ws.cell(row=r, column=10).value) == "412007"}
     assert z_centres == {"1064105600"}          # every Z line, one centre
+
+
+def test_the_nurses_and_allied_professionals_reach_their_own_units():
+    """ΟΑΥ pays them as two lump streams; each speciality has a unit of its
+    own, and Paphos spells its midwifery «ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ» where the others
+    write «ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ» — so a speciality may name more than one
+    candidate centre."""
+    m = extract_sap_master(_centres(
+        ("1031", "1053102300", "ΚΑΤ'ΟΙΚΟΝ ΝΟΣΗΛΕΙΑ"),
+        ("1031", "1053102302", "ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ"),
+        ("1031", "1053105900", "ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ"),
+        ("1031", "1053105700", "ΦΥΣΙΟΘΕΡΑΠΕΥΤΗΡΙΟ"),
+        ("1031", "1053101201", "ΔΙΑΙΤΟΛΟΓΙΚΟ-ΕΙ"),
+        ("1031", "1053100300", "ΑΚΤ-ΓΕΝΙΚΑ"),
+        ("1040", "1064002300", "ΚΑΤ'ΟΙΚΟΝ ΝΟΣΗΛΕΙΑ"),
+        ("1040", "1064006000", "ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ")))
+    assert m.find_centre("1031", "GENERAL NURSE (NM)").code == "1053102300"
+    assert m.find_centre("1031", "MIDWIFE (NM)").code == "1053102302"
+    assert m.find_centre("1031", "PHYSIOTHERAPIST (AP)").code == "1053105700"
+    assert m.find_centre("1031", "CLINICAL DIETITIAN (AP)").code == "1053101201"
+    # the other spelling answers where the first one does not exist
+    assert m.find_centre("1040", "MIDWIFE (NM)").code == "1064006000"
+    # the scan quality criteria are radiology's, not the outpatient clinics'
+    assert m.find_centre(
+        "1031", "Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)").code == "1053100300"

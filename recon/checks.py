@@ -1320,16 +1320,14 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
             os_amt = bundle.claims.by_segment.get("Outpatient Specialists", 0.0)
         if os_amt:
             out.rows.append(SplitRow("Ειδικοί Ιατροί (Outpatient Specialists)", os_amt))
-    nm_amt = sra_amount(["NM"])
-    if nm_amt is None and bundle.claims:
-        nm_amt = bundle.claims.by_segment.get("Nurses-Midwives", 0.0)
-    if nm_amt:
-        out.rows.append(SplitRow("Νοσηλευτές/Μαίες (Nurses-Midwives)", nm_amt))
-    ap_amt = sra_amount(["AP"])
-    if ap_amt is None and bundle.claims:
-        ap_amt = bundle.claims.by_segment.get("Allied Health", 0.0)
-    if ap_amt:
-        out.rows.append(SplitRow("Άλλοι Επαγγελματίες Υγείας (Allied Health)", ap_amt))
+    # the nurses, midwives and allied professionals each have a unit of their
+    # own — κατ' οίκον νοσηλεία, κοινοτική μαιευτική, φυσιοθεραπευτήριο,
+    # διαιτολογικό — so the claims file's speciality decides where the money
+    # goes instead of all of it landing on ΕΞ.ΙΑΤΡΕΙΑ
+    _stream_rows(out, bundle, "Nurses-Midwives", sra_amount(["NM"]),
+                 "NM", "Νοσηλευτές/Μαίες (Nurses-Midwives)")
+    _stream_rows(out, bundle, "Allied Health", sra_amount(["AP"]),
+                 "AP", "Άλλοι Επαγγελματίες Υγείας (Allied Health)")
     # «PD - HCP Services» is up to three things in one line.  Peel them off in
     # order: the capitation, which ALWAYS equals the capitation report; then
     # any fixed-fee element (σταθερές χρεώσεις — OOH, εμβολιασμοί); and only
@@ -1455,6 +1453,33 @@ def _pd_rows(section: SplitSection, amount: float, cohorts: dict,
     if adult:
         section.rows.append(SplitRow(
             f"Προσωπικοί Ιατροί Ενηλίκων — {what} — ΔΠΦΥ (intercompany)", adult))
+
+
+def _stream_rows(section: SplitSection, bundle, segment: str,
+                 amount: Optional[float], tag: str, whole_label: str) -> None:
+    """One ΟΑΥ stream written out by speciality, the way the claims file
+    reports it.  The specialities tie to ΟΑΥ's own line: whatever they do not
+    account for stays as a named difference, never spread across them."""
+    if amount is None and bundle.claims:
+        amount = bundle.claims.by_segment.get(segment, 0.0)
+    if not amount:
+        return
+    by_spec: dict[str, float] = {}
+    for seg, spec, _doctor, value in (bundle.claims.by_doctor if bundle.claims
+                                      else []):
+        if seg == segment and spec and spec not in ("—", "nan"):
+            by_spec[spec] = round(by_spec.get(spec, 0.0) + value, 2)
+    if not by_spec:
+        section.rows.append(SplitRow(whole_label, amount))
+        return
+    for spec, value in sorted(by_spec.items(), key=lambda kv: -kv[1]):
+        section.rows.append(SplitRow(f"{spec} ({tag})", value))
+    # tie THESE rows to ΟΑΥ's line — the section already carries other streams,
+    # so the section subtotal is not the comparison
+    gap = round(amount - sum(by_spec.values()), 2)
+    if abs(gap) > 0.005:
+        section.rows.append(SplitRow(
+            f"{whole_label} — διαφορά προς SRA ({tag} diff)", gap))
 
 
 def _cohorts_of(report) -> dict:

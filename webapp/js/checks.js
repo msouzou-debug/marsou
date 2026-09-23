@@ -1047,6 +1047,35 @@ function pdSplitRows(section, amount, cohorts, what) {
   }
 }
 
+function streamRows(section, bundle, segment, amount, tag, wholeLabel) {
+  /* One ΟΑΥ stream written out by speciality, the way the claims file reports
+   * it.  The specialities tie to ΟΑΥ's own line: whatever they do not account
+   * for stays as a named difference, never spread across them. */
+  let total = amount;
+  if (total == null && bundle.claims) total = bundle.claims.bySegment[segment] || 0;
+  if (!total) return;
+  const bySpec = {};
+  for (const [seg, spec, , value] of (bundle.claims ? bundle.claims.byDoctor : [])) {
+    if (seg === segment && spec && spec !== '—' && spec !== 'nan') {
+      bySpec[spec] = round2((bySpec[spec] || 0) + value);
+    }
+  }
+  if (!Object.keys(bySpec).length) {
+    section.rows.push({ label: wholeLabel, amount: total });
+    return;
+  }
+  for (const [spec, value] of Object.entries(bySpec).sort((a, b) => b[1] - a[1])) {
+    section.rows.push({ label: `${spec} (${tag})`, amount: value });
+  }
+  /* tie THESE rows to ΟΑΥ's line — the section already carries other streams,
+   * so the section subtotal is not the comparison */
+  const gap = round2(total - Object.values(bySpec).reduce((a, v) => a + v, 0));
+  if (Math.abs(gap) > 0.005) {
+    section.rows.push({ label: `${wholeLabel} — διαφορά προς SRA (${tag} diff)`,
+                        amount: gap });
+  }
+}
+
 function cohortsOf(report) {
   return report && report.byCohort ? { ...report.byCohort } : {};
 }
@@ -1170,12 +1199,14 @@ function buildSplit(bundle) {
     if (osAmt == null && bundle.claims) osAmt = bundle.claims.bySegment['Outpatient Specialists'] || 0;
     if (osAmt) out.rows.push({ label: 'Ειδικοί Ιατροί (Outpatient Specialists)', amount: osAmt });
   }
-  let nmAmt = sraAmount(['NM']);
-  if (nmAmt == null && bundle.claims) nmAmt = bundle.claims.bySegment['Nurses-Midwives'] || 0;
-  if (nmAmt) out.rows.push({ label: 'Νοσηλευτές/Μαίες (Nurses-Midwives)', amount: nmAmt });
-  let apAmt = sraAmount(['AP']);
-  if (apAmt == null && bundle.claims) apAmt = bundle.claims.bySegment['Allied Health'] || 0;
-  if (apAmt) out.rows.push({ label: 'Άλλοι Επαγγελματίες Υγείας (Allied Health)', amount: apAmt });
+  /* the nurses, midwives and allied professionals each have a unit of their
+   * own — κατ' οίκον νοσηλεία, κοινοτική μαιευτική, φυσιοθεραπευτήριο,
+   * διαιτολογικό — so the claims file's speciality decides where the money
+   * goes instead of all of it landing on ΕΞ.ΙΑΤΡΕΙΑ */
+  streamRows(out, bundle, 'Nurses-Midwives', sraAmount(['NM']), 'NM',
+             'Νοσηλευτές/Μαίες (Nurses-Midwives)');
+  streamRows(out, bundle, 'Allied Health', sraAmount(['AP']), 'AP',
+             'Άλλοι Επαγγελματίες Υγείας (Allied Health)');
   /* «PD - HCP Services» is up to three things in one line.  Peel them off in
    * order: the capitation, which ALWAYS equals the capitation report; then any
    * fixed-fee element (σταθερές χρεώσεις — OOH, εμβολιασμοί); and only what is

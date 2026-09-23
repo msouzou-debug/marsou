@@ -76,6 +76,17 @@ const SPECIALTY_GREEK = {
   'VASCULAR SURGERY': 'ΑΓΓΕΙΟΧΕΙΡΟΥΡΓΙΚ',
   'DIAGNOSTIC RADIOLOGY': 'ΑΚΤ',
   PHYSIOTHERAPY: 'ΦΥΣΙΟΘΕΡΑΠΕΥΤΗΡΙΟ',
+  /* the nurses, midwives and allied professionals ΟΑΥ pays by speciality —
+   * each has a unit of its own, so none of them is «outpatient generally».
+   * A list is tried in order: Paphos calls its midwifery «ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ»,
+   * every other hospital «ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ». */
+  PHYSIOTHERAPIST: 'ΦΥΣΙΟΘΕΡΑΠΕΥΤΗΡΙΟ',
+  'CLINICAL DIETITIAN': 'ΔΙΑΙΤΟΛΟΓΙΚΟ-ΕΙ',
+  'GENERAL NURSE': "ΚΑΤ'ΟΙΚΟΝ ΝΟΣΗΛΕΙΑ",
+  MIDWIFE: ['ΚΟΙΝ ΜΑΙΕΥΤΙΚΗ', 'ΚΟΙΝΟΤΙΚΗ ΜΑΙΕΥΤΙΚΗ'],
+  /* the quality criteria ΟΑΥ pays for scans are the radiology department's,
+   * not the outpatient clinics' */
+  'MRI CT': 'ΑΚΤ',
   /* whole-stream lines, which are not a clinical speciality at all */
   'A&E': 'ΤΑΕΠ',
   'ACCIDENT & EMERGENCY': 'ΤΑΕΠ',
@@ -147,17 +158,21 @@ const SPEC_NORM = Object.fromEntries(
  * «GYNAECOLOGY» and the answer does not depend on dictionary order */
 const SPEC_ORDER = Object.keys(SPEC_NORM).sort((a, b) => b.length - a.length);
 
-function sapStemFor(specialty) {
+function sapStemsFor(specialty) {
   /* The whole label is searched, not a slice of it: ΟΑΥ writes clinics both
    * bare («DERMATO-VENEREOLOGY») and inside a sentence («Ειδικοί Ιατροί —
    * OPHTHALMOLOGY (OS)»), and any attempt to cut the speciality out first
-   * mangles the hyphenated ones. */
+   * mangles the hyphenated ones.  A speciality may name more than one
+   * candidate centre, tried in order. */
   const up = normLabel(specialty);
-  if (SPEC_NORM[up]) return sapFold(SPEC_NORM[up]);
-  for (const name of SPEC_ORDER) {
-    if (up.includes(name)) return sapFold(SPEC_NORM[name]);
+  let found = SPEC_NORM[up];
+  if (found === undefined) {
+    for (const name of SPEC_ORDER) {
+      if (up.includes(name)) { found = SPEC_NORM[name]; break; }
+    }
   }
-  return '';
+  if (found === undefined) return [];
+  return (Array.isArray(found) ? found : [found]).map(sapFold);
 }
 
 function sapTail(name, stem) {
@@ -193,13 +208,27 @@ function findSapCentre(master, company, specialty, variant = 'general') {
   /* ΟΑΥ's English speciality + the stream's flavour -> one cost centre of this
    * company, or null.  Never a guess: the stem must match and, once the
    * flavour is applied, exactly one centre must remain. */
-  const stem = sapStemFor(specialty);
-  if (!master || !stem || !company) return null;
+  const stems = sapStemsFor(specialty);
+  if (!master || !stems.length || !company) return null;
+  if (stems.length > 1) {
+    /* the same speciality is named differently from hospital to hospital —
+     * take the first spelling that resolves */
+    for (const one of stems) {
+      const hit = centreForStem(master, company, one, variant);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  const stem = stems[0];
   const swap = VARIANT_STEM[`${stem}|${variant}`];
   if (swap) {
     const special = findSapCentre(master, company, swap, 'general');
     if (special) return special;
   }
+  return centreForStem(master, company, stem, variant);
+}
+
+function centreForStem(master, company, stem, variant) {
   /* the stem must START the centre's name: «ΝΕΥΡΟΧΕΙΡΟΥΡΓΙΚΗ» contains
    * «ΧΕΙΡΟΥΡΓΙΚΗ» but is not general surgery */
   const hits = master.costCentres.filter((c) => c.company === company
@@ -232,10 +261,10 @@ function whyNoSapCentre(master, company, specialty) {
   /* Why a line could not be coded — so the alert is a diagnosis rather than a
    * list to stare at. */
   if (!company) return 'χωρίς εταιρεία (no company code)';
-  const stem = sapStemFor(specialty);
-  if (!stem) return 'άγνωστη ειδικότητα (speciality not in the dictionary)';
+  const stems = sapStemsFor(specialty);
+  if (!stems.length) return 'άγνωστη ειδικότητα (speciality not in the dictionary)';
   const hits = master.costCentres.filter((c) => c.company === company
-                                                && sapFold(c.name).startsWith(stem));
+    && stems.some((one) => sapFold(c.name).startsWith(one)));
   if (!hits.length) return 'κανένα κέντρο με αυτό το όνομα (no such centre in SAP)';
   return `ασαφές — υποψήφια: ${hits.slice(0, 4).map((c) => c.name).join(', ')} (ambiguous)`;
 }
