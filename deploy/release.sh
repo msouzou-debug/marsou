@@ -22,7 +22,7 @@ set -euo pipefail
 #
 # Not symlink-based: the previous release is preserved as a real backup
 # under /opt/ecapital-releases/<stamp> and restored in place by
-# deploy/rollback.sh, rather than kept as a second live directory a symlink
+# deploy/rollback.sh (installed as /usr/local/sbin/ecapital-rollback), rather than kept as a second live directory a symlink
 # flips between. In-place-with-a-backup is what eFinance's own manual
 # deploy path already does (CLAUDE.md §6: timestamped `cp -a` before
 # touching anything), so this follows the pattern the operator already
@@ -91,9 +91,13 @@ done
 # ---------------------------------------------------------------- apply --
 
 step "[3/6] Apply on the server: backup, sync, install deps, migrate"
-ssh -t "${SSH_TARGET}" "sudo ${APP_DIR}/deploy/sync-release.sh '${STAGING_DIR}' '${STAMP}'"
+ssh -t "${SSH_TARGET}" "sudo /usr/local/sbin/ecapital-sync-release '${STAGING_DIR}' '${STAMP}'"
 ssh -t "${SSH_TARGET}" "sudo -u ecapital ${APP_DIR}/deploy/install-deps.sh"
 ssh -t "${SSH_TARGET}" "sudo -u ecapital ${APP_DIR}/deploy/migrate.sh"
+# The database exists and is migrated from here on, so the backup and
+# restore-drill timers install.sh only enabled can run. Idempotent.
+ssh -t "${SSH_TARGET}" "sudo systemctl start ecapital-backup.timer"
+ssh -t "${SSH_TARGET}" "sudo systemctl start ecapital-restore-drill.timer"
 
 step "[4/6] Restart"
 ssh -t "${SSH_TARGET}" "sudo systemctl restart ecapital-api.service"
@@ -150,7 +154,7 @@ Release ${STAMP} applied. Backup of the previous release, if any:
   ${APP_DIR}-releases/${STAMP}
 
 Rollback, if needed:
-  ssh -t ${SSH_TARGET} "sudo ${APP_DIR}/deploy/rollback.sh ${STAMP}"
+  ssh -t ${SSH_TARGET} "sudo /usr/local/sbin/ecapital-rollback ${STAMP}"
 
 Next: run the smoke tests in docs/deploy/RUNBOOK-10.227.56.22.md, then
 archive this release's checklist at docs/deploy/releases/<tag>.md

@@ -67,8 +67,15 @@ work — the same reason eFinance's own deploy command uses it.
 
 `install.sh` is idempotent and safe to re-run. It:
 
-- installs Node 22 and corepack/pnpm 10 (Node only — it does **not** touch
-  PostgreSQL, see §2.1);
+- installs corepack/pnpm 10, and Node 22 **only on a host with no Node at
+  all**. `/usr/bin/node` on this server is Node 20, shared with eArchive
+  (which has a native module), boardtool and emetroon-review, and it is
+  left exactly as found: upgrading it is those teams' change, not ours
+  (server review, 30/09/2026). eCapital builds and runs on Node 20 —
+  verified on 20.20.2: full build, PDF guides and the whole test suite —
+  and `package.json` says so under `engines`. A Node older than 20 stops
+  the script with a message rather than upgrading anything. It does
+  **not** touch PostgreSQL either, see §2.1;
 - creates the `ecapital` system user and `/opt/ecapital`, `/etc/ecapital`,
   `/var/log/ecapital`, `/var/backups/ecapital`, `/opt/ecapital-releases`;
 - writes `/etc/ecapital/api.env` and `/etc/ecapital/web.env` from the
@@ -78,7 +85,19 @@ work — the same reason eFinance's own deploy command uses it.
 - installs and enables the two systemd units (`ecapital-api`,
   `ecapital-web` — enabled but not started, since there is no code at
   `/opt/ecapital/apps` yet) and the backup and restore-drill timers
-  (started immediately, since Postgres is already up);
+  (enabled but not started either: the `ecapital` database does not exist
+  until §2.1 is done, so the release scripts start both timers right after
+  the first clean migration);
+- puts the two scripts that run as root, `sync-release.sh` and
+  `rollback.sh`, at `/usr/local/sbin/ecapital-sync-release` and
+  `/usr/local/sbin/ecapital-rollback`, and the server-side release script
+  at `/usr/local/bin/ecapital-release-on-server` — root-owned directories,
+  **outside** `/opt/ecapital`. That tree belongs to the `ecapital` user, and
+  the owner of a directory can replace any file in it whatever that file's
+  own owner is; a root-run script living there would have let a compromised
+  API process become root on the next release (server review, 30/09/2026).
+  The scripts that run as `ecapital` (`migrate.sh`, `install-deps.sh`,
+  `backup.sh`, `restore-drill.sh`) stay in `/opt/ecapital/deploy`;
 - installs a logrotate stanza for the two flat log files the backup and
   restore-drill scripts write;
 - installs a narrow sudoers file for `administrator` — see the comment at
@@ -395,16 +414,16 @@ client, the same release runs on the server instead:
 
 ```bash
 ssh administrator@10.227.56.22
-/opt/ecapital/deploy/release-on-server.sh --ref <branch, tag or commit>
+ecapital-release-on-server --ref <branch, tag or commit>
 ```
 
-`install.sh` puts it in place. It runs as `administrator`, never as root,
+`install.sh` puts it at `/usr/local/bin/ecapital-release-on-server`. It runs as `administrator`, never as root,
 fetches the ref of the public repository into `~/ecapital-src/tree` over
 the host's proxy (git reads `https_proxy` from `/etc/environment`), builds
 there, stages into `~/ecapital-release`, and from that point on calls
-exactly what `release.sh` calls over ssh: `sync-release.sh`,
-`install-deps.sh`, `migrate.sh`, the two restarts, the health checks and
-the md5 table. It needs no sudoers line the file in §2 does not already
+exactly what `release.sh` calls over ssh: `ecapital-sync-release`,
+`install-deps.sh`, `migrate.sh`, the start of the two timers, the two
+restarts, the health checks and the md5 table. It needs no sudoers line the file in §2 does not already
 carry, and it never touches `/etc/ecapital` or the database itself.
 
 Two things to know:
@@ -459,7 +478,7 @@ before assuming the release itself is bad.
 ## 8. Rollback
 
 ```bash
-ssh -t administrator@10.227.56.22 "sudo /opt/ecapital/deploy/rollback.sh <stamp>"
+ssh -t administrator@10.227.56.22 "sudo /usr/local/sbin/ecapital-rollback <stamp>"
 ```
 
 `<stamp>` is the one `deploy/release.sh` printed for the release you are

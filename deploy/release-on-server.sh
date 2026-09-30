@@ -12,8 +12,11 @@ set -euo pipefail
 #
 # Usage, as administrator on the server:
 #
-#   /opt/ecapital/deploy/release-on-server.sh --ref <branch|tag|sha> [--skip-guides]
-#   /opt/ecapital/deploy/release-on-server.sh --zip <file.zip>        [--skip-guides]
+#   ecapital-release-on-server --ref <branch|tag|sha> [--skip-guides]
+#   ecapital-release-on-server --zip <file.zip>        [--skip-guides]
+#
+#   (install.sh puts this file at /usr/local/bin/ecapital-release-on-server,
+#   a root-owned path, because it is what issues the sudo calls below.)
 #
 #   --ref   Fetches that ref of the public repository into
 #           ~/ecapital-src/tree over the host's proxy (git honours
@@ -33,7 +36,7 @@ set -euo pipefail
 #      pnpm -r build, pnpm guides:build (unless --skip-guides).
 #   3. rsyncs the built tree into ~/ecapital-release (the staging directory
 #      deploy/release.sh also uses), with the same excludes.
-#   4. sudo sync-release.sh (backup previous release, sync into /opt/ecapital),
+#   4. sudo ecapital-sync-release (backup previous release, sync into /opt/ecapital),
 #      sudo -u ecapital install-deps.sh, sudo -u ecapital migrate.sh.
 #   5. Restarts both units and runs the same health checks as release.sh.
 #   6. Prints md5 sums, staging vs. deployed, and the rollback command.
@@ -78,7 +81,7 @@ step() { echo; echo "=== $* ==="; }
 for tool in pnpm node rsync; do
   command -v "${tool}" >/dev/null || { echo "${tool} not found — has deploy/install.sh been run on this host?" >&2; exit 1; }
 done
-[[ -x "${APP_DIR}/deploy/sync-release.sh" ]] || { echo "${APP_DIR}/deploy/sync-release.sh missing — run deploy/install.sh first." >&2; exit 1; }
+[[ -x /usr/local/sbin/ecapital-sync-release ]] || { echo "/usr/local/sbin/ecapital-sync-release missing — run deploy/install.sh first." >&2; exit 1; }
 
 # --------------------------------------------------------------- source --
 
@@ -172,9 +175,13 @@ shopt -u nullglob
 # ---------------------------------------------------------------- apply --
 
 step "[4/6] Apply: backup, sync into ${APP_DIR}, install deps, migrate"
-sudo "${APP_DIR}/deploy/sync-release.sh" "${STAGING_DIR}" "${STAMP}"
+sudo /usr/local/sbin/ecapital-sync-release "${STAGING_DIR}" "${STAMP}"
 sudo -u ecapital "${APP_DIR}/deploy/install-deps.sh"
 sudo -u ecapital "${APP_DIR}/deploy/migrate.sh"
+# The database exists and is migrated from here on, so the backup and
+# restore-drill timers install.sh only enabled can run. Idempotent.
+sudo systemctl start ecapital-backup.timer
+sudo systemctl start ecapital-restore-drill.timer
 
 step "[5/6] Restart and check"
 sudo systemctl restart ecapital-api.service
@@ -221,8 +228,8 @@ cat <<SUMMARY
 Release ${STAMP} applied from ${VERSION}.
 Backup of the previous release, if any:
   /opt/ecapital-releases/${STAMP}
-Rollback (code only — read the warning rollback.sh prints about migrations):
-  sudo ${APP_DIR}/deploy/rollback.sh ${STAMP}
+Rollback (code only — read the warning it prints about migrations):
+  sudo /usr/local/sbin/ecapital-rollback ${STAMP}
 Next: docs/deploy/RUNBOOK-10.227.56.22.md §7 smoke tests, and finish the
 deploy checklist for this release.
 SUMMARY

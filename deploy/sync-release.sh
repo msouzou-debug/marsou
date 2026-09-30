@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Applies a release payload already staged on the server into /opt/ecapital.
-# Installed by deploy/install.sh to /opt/ecapital/deploy/sync-release.sh,
+# Installed by deploy/install.sh to /usr/local/sbin/ecapital-sync-release
+# (a root-owned directory, so the `ecapital` user cannot replace it),
 # runs as root (via the sudoers rule deploy/release.sh uses), and is the only
 # part of the release that touches /opt/ecapital/apps and
 # /opt/ecapital/packages with --delete. It never touches /etc/ecapital and

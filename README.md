@@ -25,8 +25,8 @@ Docker). The deployment kit is `deploy/`:
 
 - **First-time server setup:** `deploy/install.sh`
 - **Every release:** `deploy/release.sh` from the operator's machine, or
-  `deploy/release-on-server.sh` on the server itself when that machine has
-  no build toolchain (runbook §6.1)
+  `deploy/release-on-server.sh` (installed as `ecapital-release-on-server`)
+  on the server itself when that machine has no build toolchain (runbook §6.1)
 - **Full walkthrough:** `docs/deploy/RUNBOOK-10.227.56.22.md`
 - **Before every release, including the pilot:** `docs/deploy-checklist.md`
 - **How eCapital fits with eFinance and eMAP:**

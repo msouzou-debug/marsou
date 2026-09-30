@@ -51,16 +51,27 @@ step() { echo; echo "=== $* ==="; }
 
 step "[1/8] APT prerequisites"
 apt-get update -qq
-# rsync: sync-release.sh, rollback.sh and both release scripts. git and
+# rsync: ecapital-sync-release, ecapital-rollback and both release scripts. git and
 # unzip: release-on-server.sh's two ways of getting the source onto this host.
 apt-get install -y -qq ca-certificates curl gnupg rsync git unzip
 
-step "[2/8] Node.js 22 (NodeSource) + corepack/pnpm 10"
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -v)" != v22.* ]]; then
+step "[2/8] Node.js (>= 20, never upgraded here) + corepack/pnpm 10"
+# /usr/bin/node on this host is shared with eArchive (emetroon.service, with
+# a native module), boardtool and emetroon-review. Upgrading it is their
+# change to make, not ours (server check, 30/09/2026). eCapital builds and
+# runs on Node 20 (Next.js 16 needs >= 20.9, NestJS 11 needs >= 20; see
+# package.json "engines"), so an existing Node 20 or 22 is left exactly as
+# found. Only a host with no Node at all gets NodeSource 22.
+if ! command -v node >/dev/null 2>&1; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y -qq nodejs
 else
-  echo "node $(node -v) already installed, skipping NodeSource setup"
+  NODE_MAJOR="$(node -v | sed 's/^v//; s/\..*//')"
+  if (( NODE_MAJOR < 20 )); then
+    echo "node $(node -v) is older than 20. It is shared with eArchive and boardtool; upgrading it needs their sign-off. Stopping." >&2
+    exit 1
+  fi
+  echo "node $(node -v) already installed and shared with other apps, leaving it alone"
 fi
 corepack enable
 corepack prepare pnpm@10 --activate
@@ -91,14 +102,24 @@ install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/backup.sh" "${A
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/restore-drill.sh" "${APP_DIR}/deploy/restore-drill.sh"
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/migrate.sh" "${APP_DIR}/deploy/migrate.sh"
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/install-deps.sh" "${APP_DIR}/deploy/install-deps.sh"
-# These two run as root (via sudo, see the sudoers file below), so they are
-# root-owned rather than ecapital-owned.
-install -o root -g root -m 0750 "${SCRIPT_DIR}/sync-release.sh" "${APP_DIR}/deploy/sync-release.sh"
-install -o root -g root -m 0750 "${SCRIPT_DIR}/rollback.sh" "${APP_DIR}/deploy/rollback.sh"
+# The two scripts that run as root (via sudo, see the sudoers file below)
+# live OUTSIDE the ecapital-owned tree, in a root-owned directory. A file
+# being root-owned is not enough when its parent directory belongs to
+# `ecapital`: the owner of a directory can rename or replace anything in
+# it, so a compromised API process running as `ecapital` could swap in its
+# own sync-release.sh and have it run as root on the next release (server
+# review, 30/09/2026). /usr/local/sbin is root's, and sudoers names these
+# exact paths.
+install -o root -g root -m 0755 "${SCRIPT_DIR}/sync-release.sh" /usr/local/sbin/ecapital-sync-release
+install -o root -g root -m 0755 "${SCRIPT_DIR}/rollback.sh" /usr/local/sbin/ecapital-rollback
 # The server-side release variant runs as administrator (never root) and
 # only ever calls the sudo targets the sudoers file below already grants,
-# so it is world-readable and needs no sudoers line of its own.
-install -o root -g root -m 0755 "${SCRIPT_DIR}/release-on-server.sh" "${APP_DIR}/deploy/release-on-server.sh"
+# so it needs no sudoers line of its own — but it is what issues those sudo
+# calls, so it lives in root's /usr/local/bin for the same reason.
+install -o root -g root -m 0755 "${SCRIPT_DIR}/release-on-server.sh" /usr/local/bin/ecapital-release-on-server
+# Anything left behind by an earlier install.sh at the old, ecapital-owned
+# locations is removed so nothing stale can be run from there.
+rm -f "${APP_DIR}/deploy/sync-release.sh" "${APP_DIR}/deploy/rollback.sh" "${APP_DIR}/deploy/release-on-server.sh"
 
 # ------------------------------------------------------------ env files ----
 
@@ -163,10 +184,11 @@ systemctl daemon-reload
 # crash-loop against a missing pnpm-workspace.yaml.
 systemctl enable ecapital-api.service ecapital-web.service
 
-# The backup and restore-drill timers only need Postgres, which is already
-# up, so they are enabled and started now.
-systemctl enable --now ecapital-backup.timer
-systemctl enable --now ecapital-restore-drill.timer
+# The backup and restore-drill timers are enabled but NOT started: the
+# `ecapital` database is created by hand after this script (runbook §2.1),
+# and a timer started now would show a failed unit until then. The release
+# scripts start both timers once the first migration has run clean.
+systemctl enable ecapital-backup.timer ecapital-restore-drill.timer
 
 # logrotate for the two flat log files the ops scripts write (backup.sh,
 # restore-drill.sh). ecapital-api/web log to the journal, not to files here,
@@ -199,12 +221,14 @@ cat > "${SUDOERS_FILE}.tmp" <<EOF
 # Installed by eCapital's deploy/install.sh. Do not broaden: every line below
 # is one fixed script or one fixed systemctl target that deploy/release.sh
 # or deploy/install.sh needs. See docs/deploy/RUNBOOK-10.227.56.22.md.
-${OPERATOR_USER} ALL=(root) NOPASSWD: /opt/ecapital/deploy/sync-release.sh *
-${OPERATOR_USER} ALL=(root) NOPASSWD: /opt/ecapital/deploy/rollback.sh *
+${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/local/sbin/ecapital-sync-release *
+${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/local/sbin/ecapital-rollback *
 ${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl restart ecapital-api.service
 ${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl restart ecapital-web.service
 ${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl is-active ecapital-api.service
 ${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl is-active ecapital-web.service
+${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl start ecapital-backup.timer
+${OPERATOR_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl start ecapital-restore-drill.timer
 ${OPERATOR_USER} ALL=(${APP_USER}) NOPASSWD: /opt/ecapital/deploy/migrate.sh
 ${OPERATOR_USER} ALL=(${APP_USER}) NOPASSWD: /opt/ecapital/deploy/install-deps.sh
 EOF

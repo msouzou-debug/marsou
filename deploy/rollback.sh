@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Restores a previous release backed up by sync-release.sh. Installed by
-# deploy/install.sh to /opt/ecapital/deploy/rollback.sh, runs as root (via
+# deploy/install.sh to /usr/local/sbin/ecapital-rollback (a root-owned
+# directory, so the `ecapital` user cannot replace it), runs as root (via
 # the same sudoers rule release.sh uses). Restores CODE only — see the
 # warning it prints about migrations.
 #
