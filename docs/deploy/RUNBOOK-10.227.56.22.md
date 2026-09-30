@@ -10,8 +10,12 @@ eFinance, `5011` eArchive (formerly eMetroon) ingest, `5015` eCapital API
 (loopback only), `5013` eCapital web (loopback only). Both eCapital
 processes bind to `127.0.0.1` — nothing public reaches either port
 directly. The host's existing nginx reverse-proxies `capital.shso.online`
-to `127.0.0.1:5013`, and cloudflared (on its own box) points at nginx, not
-at eCapital directly — see §2.2 and `deploy/cloudflared-request.md`.
+to `127.0.0.1:5013` on **port `5016`**, and cloudflared (on its own box)
+points at nginx's `5016`, not at eCapital directly — see §2.2 and
+`deploy/cloudflared-request.md`. Port `80` is Apache's on this host (a
+WordPress default vhost and `evendor.shso.org.cy`), and nginx's other
+listeners are `8080`–`8082`, `8443`, `8444`, `9443`, `10080`, `10443`
+(checked on the server, 30/09/2026).
 
 `5000`-`5006`, `5010`-`5012` and `5055` are already taken by other services
 on this host. **Port `5014` is reserved by the host owner — never use it.**
@@ -126,13 +130,16 @@ later. If Marios would rather wait, `pgcrypto` alone is enough until then.)
 ### 2.2 Nginx: reverse proxy for eCapital web
 
 There is no nginx vhost in front of eFinance on this host, but eCapital
-gets one, because both its processes now bind to loopback only. Hand
-Marios this server block — paste-ready, nothing to fill in beyond the
-hostname, which is his call, not ours:
+gets one, because both its processes now bind to loopback only. It listens
+on **`5016`**: port `80` belongs to Apache on this host, and a request with
+`Host: capital.shso.online` on `80` today gets Apache's
+`301 → https://dapsite.shso.online/`, so the block cannot share it
+(checked on the server, 30/09/2026). `5016` is free and is the port the
+cloudflared request names. Hand Marios this server block, paste-ready:
 
 ```nginx
 server {
-    listen 80;
+    listen 5016;
     server_name capital.shso.online;
 
     client_max_body_size 25m;  # SAP import uploads (Capex Plan, invoices)
@@ -422,7 +429,7 @@ Everything in §7 and `docs/deploy-checklist.md` applies unchanged.
 Run these after every release, from a browser reaching
 `https://capital.shso.online`. If cloudflared is not wired up yet but nginx
 is (§2.2), the same nginx port works directly:
-`http://10.227.56.22:<nginx port>`. eCapital's own `5013` is loopback-only
+`http://10.227.56.22:5016`. eCapital's own `5013` is loopback-only
 and unreachable from off the box even over the WireGuard tunnel; to bypass
 both nginx and cloudflared for a quick check, SSH in and curl
 `127.0.0.1:5013` on the server itself, or open an SSH local port forward
