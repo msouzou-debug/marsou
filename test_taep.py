@@ -186,18 +186,42 @@ def test_missing_amount_for_a_weight_blocks_and_does_not_default():
 # Registration fee — €0.00 everywhere by ruling
 # ---------------------------------------------------------------------------
 
-def test_registration_fee_is_zero_for_every_category():
-    """Ruling 3: only 600 pays, and that €100 is a deposit against the bill, not a
-    charge added to it. Adding it would overcharge every self-pay patient by €100."""
+def test_registration_fees_as_finally_settled():
+    """22/09 said all zero; 23/09 confirmed that; 29/09 reversed it for three
+    categories: «Ναι έχεις δίκαιο είναι 10 ευρώ για αυτές τις κατηγορίες»."""
     import csv
-    rows = list(csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8")))
-    assert rows, "financial_categories.csv is empty"
-    assert all(r["registration_fee_eur"] == "0.00" for r in rows)
-    assert all(r["fee_status"] == "SET" for r in rows)
+    rows = {r["code_new"]: r for r in
+            csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8"))}
 
-    deposits = {r["code_new"]: r["registration_deposit_eur"] for r in rows
+    for code in ("603", "605", "608"):
+        assert rows[code]["registration_fee_eur"] == "10.00"
+    # 600 pays a deposit instead of a fee — confirmed 23/09, never reversed.
+    assert rows["600"]["registration_fee_eur"] == "0.00"
+    assert rows["600"]["registration_deposit_eur"] == "100.00"
+    for code in ("601", "602", "624", "640"):
+        assert rows[code]["registration_fee_eur"] == "0.00"
+
+    deposits = {c: r["registration_deposit_eur"] for c, r in rows.items()
                 if r["registration_deposit_eur"]}
     assert deposits == {"600": "100.00"}
+    assert all(r["fee_status"] == "SET" for r in rows.values())
+
+
+def test_nothing_disagrees_with_the_monada_fee_table_any_more():
+    """The 29/09 answer aligned our values with their own table. 600 is excluded
+    because its €100 there is the deposit, not a fee."""
+    import csv
+    rows = list(csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8")))
+    assert [r["code_new"] for r in rows if r["fee_conflict"] == "TRUE"] == []
+
+
+def test_dikaiouchos_a_pays_the_fee_on_top_of_the_weight():
+    """603 gets free treatment but pays the ΤΑΕΠ registration fee."""
+    result = calculate([inv(1), tre(3)], rates(registration="10.00"),
+                       financial_category_code="603")
+    assert result.weight_cost == Decimal("120.00")
+    assert result.registration_fee_applied == Decimal("10.00")
+    assert result.total_cost == Decimal("130.00")
 
 
 def test_zero_registration_fee_leaves_the_total_as_the_weight_amount():
@@ -599,18 +623,25 @@ def test_every_tariff_row_now_resolves_to_a_price():
             assert row["base_amount"], f"{row['code']} has no amount"
 
 
-def test_the_fee_conflict_is_recorded_not_silently_resolved():
-    """The Μονάδα's own table says 603/605/608 are €10,00 at ΤΑΕΠ; their written
-    confirmation of the same date zeroes them. We apply the written answer and carry
-    the table's value so the disagreement stays visible."""
+def test_the_payer_table_is_loaded():
+    """Ruling 29/09: the «Αμρόδια Αρχή» column. requires_payer is FALSE where the
+    patient settles their own bill, never a branch on the category code."""
     import csv
     rows = {r["code_new"]: r for r in
             csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8"))}
-    conflicted = {c for c, r in rows.items() if r["fee_conflict"] == "TRUE"}
-    assert conflicted == {"603", "605", "608"}
-    for code in conflicted:
-        assert rows[code]["registration_fee_eur"] == "0.00"
-        assert rows[code]["monada_table_taep_fee"] == "10"
+
+    assert rows["601"]["payer_el"] == "Υπουργείο Δικαιοσύνης"
+    assert rows["628"]["payer_el"] == "Υπηρεσία Ασύλου"
+    assert rows["629"]["payer_el"] == "Υπουργείο Εξωτερικών"
+    assert rows["640"]["payer_el"].strip() == "Βρετανικές Βάσεις"
+    assert rows["624"]["payer_el"] == "Υπουργείο Υγείας"
+
+    # 600 is self-pay: «Επιπληρωμή» is the patient, not a third party.
+    assert rows["600"]["requires_payer"] == "FALSE"
+    # Dental and similar rows are marked «Δεν εφαρμόζεται».
+    assert rows["633"]["requires_payer"] == "FALSE"
+    assert rows["601"]["requires_payer"] == "TRUE"
+    assert sum(1 for r in rows.values() if r["requires_payer"] == "TRUE") == 29
 
 
 def test_the_original_fee_values_survive_a_rerun():
@@ -620,3 +651,43 @@ def test_the_original_fee_values_survive_a_rerun():
             csv.DictReader(open("seed/financial_categories.csv", encoding="utf-8"))}
     assert rows["600"]["previous_registration_fee_eur"] == "100.00"
     assert rows["603"]["previous_registration_fee_eur"] == "10.00"
+
+
+# ---------------------------------------------------------------------------
+# Hospital numbers — ruling of 29/09/2026
+# ---------------------------------------------------------------------------
+
+def _hospitals():
+    import csv
+    return {r["entity_code"]: r for r in
+            csv.DictReader(open("seed/hospitals.csv", encoding="utf-8"))}
+
+
+def test_seven_hospital_numbers_are_confirmed():
+    rows = _hospitals()
+    confirmed = {c: r["taep_number"] for c, r in rows.items()
+                 if r["number_confirmed"] == "TRUE"}
+    assert confirmed == {"LGH": "1047", "LAR": "1048", "PAP": "1025", "FAM": "1049",
+                         "ARC": "1106", "CHR": "1026", "TRD": "1055"}
+
+
+def test_nicosia_general_is_inferred_not_confirmed():
+    """1054 is the only number left and NGH the only hospital left, so the pairing is
+    near-certain — but it is elimination, not a ruling, and it is marked as such."""
+    nicosia = _hospitals()["NGH"]
+    assert nicosia["taep_number"] == "1054"
+    assert nicosia["number_confirmed"] == "FALSE"
+    assert "inferred" in nicosia["source"]
+
+
+def test_hospital_numbers_are_unique():
+    rows = _hospitals()
+    numbers = [r["taep_number"] for r in rows.values()]
+    assert len(numbers) == len(set(numbers))
+
+
+def test_each_hospital_produces_its_own_costing_number():
+    rows = _hospitals()
+    assert taep.format_costing_number(rows["LGH"]["taep_number"], 1) == "OKY1047/0001"
+    assert taep.format_costing_number(rows["ARC"]["taep_number"], 42) == "OKY1106/0042"
+    assert taep.format_costing_number(rows["NGH"]["taep_number"], 35) == "OKY1054/0035"

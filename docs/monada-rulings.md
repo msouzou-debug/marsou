@@ -1,4 +1,4 @@
-# Rulings of Μονάδα Ελέγχου Εσόδων — 22/09 and 23/09/2026
+# Rulings of Μονάδα Ελέγχου Εσόδων — 22/09, 23/09 and 29/09/2026
 
 What was decided, what it changed, and what it opened up. Source: the answered copy of
 `TAEP_ekkremi_themata_Monada_Elegchou_Esodon.docx` plus `20230706_AE_Catalogue_5.xlsx`.
@@ -117,39 +117,86 @@ a resolved price**. The nine free-text prices from the Phase 1 memo are closed.
 
 ---
 
+## Third round — 29/09/2026
+
+### The registration fee, finally
+
+Three statements, and the last one reverses the middle one:
+
+| Date | Said |
+|---|---|
+| 22/09 | «οι υπόλοιπες κατηγορίες δεν έχουν τέλη εγγραφής» |
+| 23/09 | «επιβεβαιώνω και τα δύο» — including that 603/605/608 are zero |
+| 29/09 | «Ναι έχεις δίκαιο είναι 10 ευρώ για αυτές τις κατηγορίες» |
+
+Final position, applied:
+
+| Category | Fee | Deposit | Added to the cost |
+|---|---|---|---|
+| 600 ΕΠΙ ΠΛΗΡΩΜΗ | €0,00 | €100,00 | no — the deposit is paid against the bill |
+| 603, 605, 608 ΔΙΚΑΙΟΥΧΟΣ Α | €10,00 | — | yes |
+| all others | €0,00 | — | — |
+
+Their own fee table said €10,00 for those three from the start. Carrying the
+disagreement instead of resolving it quietly is what let one line settle it — and the
+two readings now make sense together: Δικαιούχος Α gets free treatment but pays
+registration fees, while a self-paying patient pays the whole bill and leaves a deposit
+instead of a separate fee. `fee_conflict` is now FALSE on every row.
+
+### The αρμόδια αρχή table arrived
+
+The workbook gained the column (spelled «Αμρόδια Αρχή»). 29 of the 38 categories are
+settled by a third party:
+
+| Payer | Categories |
+|---|---|
+| Υπουργείο Υγείας | 602–612, 620–627, 642–646 |
+| Υπουργείο Δικαιοσύνης | 601, 641 |
+| Υπηρεσία Ασύλου | 628 |
+| Υπουργείο Εξωτερικών | 629 |
+| Βρετανικές Βάσεις | 640 |
+
+`requires_payer` is FALSE for 600 («Επιπληρωμή» is the patient) and for the rows marked
+«Δεν εφαρμόζεται». v1 prints the payer; v2 bills them.
+
+Note a small tension, not a contradiction: 602 and 640 are `tariff_applies = TRUE`
+(self-paying, so tariff charges arise) yet also carry a third-party payer. Both hold —
+they are billed to a third party at self-pay rates.
+
+### Hospital numbers — seven of eight
+
+| eFinance | Hospital | ΤΑΕΠ number | |
+|---|---|---|---|
+| LGH | Γενικό Νοσοκομείο Λεμεσού | 1047 | confirmed |
+| LAR | Γενικό Νοσοκομείο Λάρνακας | 1048 | confirmed |
+| PAP | Γενικό Νοσοκομείο Πάφου | 1025 | confirmed |
+| FAM | Γενικό Νοσοκομείο Αμμοχώστου | 1049 | confirmed |
+| ARC | Αρχιεπίσκοπος Μακάριος ΙΙΙ | 1106 | confirmed («ΤΑΕΠ Παίδων Λευκωσίας») |
+| CHR | Νοσοκομείο Πόλεως Χρυσοχούς | 1026 | confirmed |
+| TRD | Νοσοκομείο Τροόδους | 1055 | confirmed («Κυπερούντας») |
+| NGH | Γενικό Νοσοκομείο Λευκωσίας | 1054 | **inferred, not ruled** |
+
+Two of their names differ from eFinance's: «Κυπερούντας» is the hospital at Kyperounta,
+which eFinance calls Νοσοκομείο Τροόδους; «ΤΑΕΠ Παίδων Λευκωσίας» is Αρχιεπίσκοπος
+Μακάριος ΙΙΙ. Same places.
+
+---
+
 ## Still open
 
-### 1. The registration fee table contradicts the written confirmation
+### 1. Is 1054 Γενικό Νοσοκομείο Λευκωσίας?
 
-The workbook sent on 23/09 (`seed/source/registration_fees_by_category.xlsx`) gives a
-ΤΑΕΠ registration fee of **€10,00 for 603, 605 and 608** — the same values the original
-seed carried, with the same note. The written answer on the same day confirmed those
-three are zero.
+Seven numbers were given and they map cleanly onto seven of the eight hospitals eFinance
+seeds. The one hospital left over is Nicosia General; the one number left over is 1054,
+from the sample costing document. The pairing is near-certain but it is elimination, not
+a ruling, so `hospitals.csv` marks it `number_confirmed = FALSE`.
 
-We have applied the **written answer** (€0,00), because it answered that exact question
-directly, and carried the table's figure beside it in `monada_table_taep_fee` with
-`fee_conflict = TRUE`. One line from the Μονάδα settles it either way.
+One line settles it. Until then Nicosia General should not issue costing numbers, since
+a wrong hospital number in a gapless per-hospital sequence is not something you can
+quietly correct later.
 
-Small money — €10 on three categories — but it is a disagreement between two statements
-made on the same day, and picking one silently is how a wrong number becomes permanent.
+### 2. Is there a ninth hospital at ΤΑΕΠ?
 
-The table is useful corroboration elsewhere: its "Δεν εφαρμόζεται" rows at ΤΑΕΠ are
-exactly 610, 611, 612 and 630–637, which matches eleven of the fifteen categories marked
-`valid_for_ae = FALSE`. (643–646 show 0 rather than "not applicable"; the operator's
-original marking stands and this is only a note.)
-
-### 2. The αρμόδια αρχή table still has not arrived
-
-Item 3 of the follow-up asked for the table of financial categories and the responsible
-authority for each. The reply was «το στέλνω τώρα», but the workbook that arrived is the
-registration-fee table: its columns are ΤΑΕΠ, Εξωνοσοκομειακή, Ενδονοσοκομειακή, Φάρμακα,
-Εργαστηριακά and an empty Σχόλια. There is no authority column.
-
-`requires_payer` and `payer_el` stay empty. This does not block v1, which only prints the
-payer; it blocks v2, which bills them.
-
-### 3. The nine hospitals' numbers
-
-The costing number format is settled and reproduces the sample, but 1054 is the only
-hospital number we have seen. The other eight are needed before any hospital but that one
-can issue a number.
+The build brief says nine hospitals throughout. eFinance seeds eight of type `hospital`,
+and the Μονάδα listed seven numbers. Nothing points to a ninth, but nothing rules it out
+either, and the brief's number has been repeated often enough to be worth checking once.
