@@ -49,6 +49,9 @@ REVENUE_ACCOUNTS = {
     # NOT one of our revenue accounts: the adults' Personal Doctors belong to
     # ΔΠΦΥ, so a hospital books their money against the intercompany account
     "intercompany": "122112",       # intercompany a/c with ΔΠΦΥ
+    # also not revenue: the EOAF settlements are ΟΑΥ's own stock moving
+    # through us, and they clear against the drugs liability
+    "drugs_hio": "216102",          # Drugs / HIO
 }
 
 # ΟΑΥ's English speciality -> the stem SAP uses in the cost-centre name.  Only

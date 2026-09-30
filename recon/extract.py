@@ -1134,6 +1134,10 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
                 out.pharmacist_fee += amount
             elif centre.startswith("255"):
                 out.pharma_other += amount
+                # the Β' φάσης share, off ΟΑΥ's revenue accounts only: the
+                # co-payment lines on the same centre are the patients' money
+                if centre == "25511" and account.startswith("51"):
+                    out.pharma_phase_b += amount
             elif centre.startswith("25"):
                 out.outpatient += amount
             else:
@@ -1145,7 +1149,8 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
                 out.other_centres[key] = round(
                     out.other_centres.get(key, 0.0) + amount, 2)
         for attr in ("regular_drg", "specialized", "z_catalogue_only", "per_diem",
-                     "ae", "pharmacist_fee", "pharma_other", "outpatient",
+                     "ae", "pharmacist_fee", "pharma_other", "pharma_phase_b",
+                     "outpatient",
                      "capitation", "unearned_eoaf", "other"):
             setattr(out, attr, round(getattr(out, attr), 2))
         return out

@@ -1389,12 +1389,36 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     sections.append(out)
 
     ph = SplitSection("Φάρμακα (Pharma)", Bucket.PHARMA)
+    # ΟΑΥ routes three kinds of pharmacy money differently, and says which is
+    # which in the line's own description, not in its code
+    eoaf, eoaf_codes = _sra_by_text(sra, ["EOAF"], or_codes=["PH-EOAF"])
+    z_ded, z_codes = _sra_by_text(sra, ["DEDUCTIONS DRUGS Z"], skip=["EOAF"])
+
+    def routed(code: str) -> float:
+        return round(eoaf_codes.get(code, 0.0) + z_codes.get(code, 0.0), 2)
     ph_claims = sra_amount(["PH"])
     if ph_claims:
-        ph.rows.append(SplitRow("Φάρμακα & Αναλώσιμα — PH (pharmacy claims)", ph_claims))
+        ph_claims = round(ph_claims - routed("PH"), 2)
+        # only the Β' φάσης drugs are 412006 revenue.  The GL extract is the
+        # one place that says how much of the month was Β' φάσης — its own
+        # «PHARMA NO DISCOUNT» cost centre — so without it nothing is split.
+        phase_b = getattr(bundle.gl, "pharma_phase_b", 0.0) if bundle.gl else 0.0
+        rest = round(ph_claims - phase_b, 2)
+        if phase_b and 0 < phase_b <= ph_claims:
+            ph.rows.append(SplitRow(
+                "Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)", phase_b))
+            if rest:
+                ph.rows.append(SplitRow(
+                    "Φάρμακα εκτός Β' φάσης — εξωνοσοκομειακά (non-phase-B drugs)",
+                    rest))
+        else:
+            ph.rows.append(SplitRow("Φάρμακα & Αναλώσιμα — PH (pharmacy claims)",
+                                    ph_claims))
     drugs = sra_amount(["PHD"])
     if drugs is None and bundle.pharma:
         drugs = bundle.pharma.by_type.get("Drugs", 0.0)
+    elif drugs:
+        drugs = round(drugs - routed("PHD"), 2)
     if drugs:
         ph.rows.append(SplitRow("Φάρμακα (Drugs)", drugs))
     cons = sra_amount(["PHC"])
@@ -1409,15 +1433,17 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
         label = ("Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)"
                  if ph_claims else "Αμοιβή Φαρμακοποιού (Pharmacist fee)")
         ph.rows.append(SplitRow(label, fee))
-    ph_adj = sra_amount(["PH-ADJ"])
+    ph_adj = round((sra_amount(["PH-ADJ"]) or 0.0) - routed("PH-ADJ"), 2)
     if ph_adj:
         ph.rows.append(SplitRow(
             "Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)", ph_adj))
-    ph_eoaf = sra_amount(["PH-EOAF"])
-    if ph_eoaf:
+    if z_ded:
         ph.rows.append(SplitRow(
-            "Φάρμακα — τακτοποιήσεις EOAF/ISSUANCES (GL 11202192 unearned "
-            "revenue)", ph_eoaf))
+            "Φάρμακα — αποκοπές Ζ-καταλόγου (Deductions-Drugs-Z-Catalogue)",
+            z_ded))
+    if eoaf:
+        ph.rows.append(SplitRow(
+            "Φάρμακα ΟΑΥ — τακτοποιήσεις EOAF (Drugs/HIO)", eoaf))
     ph_prior = sra_amount(["PH-PRIOR"])
     if ph_prior:
         ph.rows.append(SplitRow(
@@ -1453,6 +1479,31 @@ def _pd_rows(section: SplitSection, amount: float, cohorts: dict,
     if adult:
         section.rows.append(SplitRow(
             f"Προσωπικοί Ιατροί Ενηλίκων — {what} — ΔΠΦΥ (intercompany)", adult))
+
+
+def _sra_by_text(sra, needles: list, skip: Optional[list] = None,
+                 or_codes: Optional[list] = None) -> tuple[float, dict]:
+    """What ΟΑΥ paid on the lines whose DESCRIPTION says so.
+
+    Some pharmacy money is told apart only by wording: the EOAF settlements
+    are the service's own stock and never revenue, and the Z-catalogue
+    deductions belong to the Z account rather than to drugs.
+
+    Returns the total AND what each ΟΑΥ code contributed, so the code-based
+    rows can drop exactly what the wording took from them — nothing is
+    counted twice and nothing quietly disappears."""
+    total = 0.0
+    by_code: dict[str, float] = {}
+    for l in (sra.lines if sra else []):
+        up = norm_label(l.description)
+        hit = (any(n in up for n in needles)
+               and not any(x in up for x in (skip or [])))
+        if not hit and or_codes and l.code in or_codes:
+            hit = True
+        if hit:
+            total += l.amount
+            by_code[l.code] = round(by_code.get(l.code, 0.0) + l.amount, 2)
+    return round(total, 2), by_code
 
 
 def _stream_rows(section: SplitSection, bundle, segment: str,

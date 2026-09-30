@@ -1047,6 +1047,31 @@ function pdSplitRows(section, amount, cohorts, what) {
   }
 }
 
+function sraByText(sra, needles, skip, orCodes) {
+  /* What ΟΑΥ paid on the lines whose DESCRIPTION says so.
+   *
+   * Some pharmacy money is told apart only by wording: the EOAF settlements
+   * are the service's own stock and never revenue, and the Z-catalogue
+   * deductions belong to the Z account rather than to drugs.
+   *
+   * Returns the total AND what each ΟΑΥ code contributed, so the code-based
+   * rows can drop exactly what the wording took from them — nothing is counted
+   * twice and nothing quietly disappears. */
+  let total = 0;
+  const byCode = {};
+  for (const l of (sra ? sra.lines : [])) {
+    const up = normLabel(l.description);
+    let hit = needles.some((n) => up.includes(n))
+      && !(skip || []).some((x) => up.includes(x));
+    if (!hit && orCodes && orCodes.includes(l.code)) hit = true;
+    if (hit) {
+      total += l.amount;
+      byCode[l.code] = round2((byCode[l.code] || 0) + l.amount);
+    }
+  }
+  return [round2(total), byCode];
+}
+
 function streamRows(section, bundle, segment, amount, tag, wholeLabel) {
   /* One ΟΑΥ stream written out by speciality, the way the claims file reports
    * it.  The specialities tie to ΟΑΥ's own line: whatever they do not account
@@ -1255,10 +1280,33 @@ function buildSplit(bundle) {
   sections.push(out);
 
   const ph = { title: 'Φάρμακα (Pharma)', bucket: 'Pharma', rows: [] };
-  const phClaims = sraAmount(['PH']);
-  if (phClaims) ph.rows.push({ label: 'Φάρμακα & Αναλώσιμα — PH (pharmacy claims)', amount: phClaims });
+  /* ΟΑΥ routes three kinds of pharmacy money differently, and says which is
+   * which in the line's own description, not in its code */
+  const [eoaf, eoafCodes] = sraByText(sra, ['EOAF'], null, ['PH-EOAF']);
+  const [zDed, zCodes] = sraByText(sra, ['DEDUCTIONS DRUGS Z'], ['EOAF']);
+  const routed = (code) => round2((eoafCodes[code] || 0) + (zCodes[code] || 0));
+  let phClaims = sraAmount(['PH']);
+  if (phClaims) {
+    phClaims = round2(phClaims - routed('PH'));
+    /* only the Β' φάσης drugs are 412006 revenue.  The GL extract is the one
+     * place that says how much of the month was Β' φάσης — its own «PHARMA NO
+     * DISCOUNT» cost centre — so without it nothing is split. */
+    const phaseB = bundle.gl ? (bundle.gl.pharmaPhaseB || 0) : 0;
+    const rest = round2(phClaims - phaseB);
+    if (phaseB && phaseB > 0 && phaseB <= phClaims) {
+      ph.rows.push({ label: "Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)",
+                     amount: phaseB });
+      if (rest) {
+        ph.rows.push({ label: "Φάρμακα εκτός Β' φάσης — εξωνοσοκομειακά (non-phase-B drugs)",
+                       amount: rest });
+      }
+    } else {
+      ph.rows.push({ label: 'Φάρμακα & Αναλώσιμα — PH (pharmacy claims)', amount: phClaims });
+    }
+  }
   let drugs = sraAmount(['PHD']);
   if (drugs == null && bundle.pharma) drugs = bundle.pharma.byType['Drugs'] || 0;
+  else if (drugs) drugs = round2(drugs - routed('PHD'));
   if (drugs) ph.rows.push({ label: 'Φάρμακα (Drugs)', amount: drugs });
   let cons = sraAmount(['PHC']);
   if (cons == null && bundle.pharma) cons = bundle.pharma.byType['Consumables'] || 0;
@@ -1270,12 +1318,14 @@ function buildSplit(bundle) {
       ? 'Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)'
       : 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
   }
-  const phAdj = sraAmount(['PH-ADJ']);
+  const phAdj = round2((sraAmount(['PH-ADJ']) || 0) - routed('PH-ADJ'));
   if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });
-  const phEoaf = sraAmount(['PH-EOAF']);
-  if (phEoaf) {
-    ph.rows.push({ label: 'Φάρμακα — τακτοποιήσεις EOAF/ISSUANCES (GL 11202192 unearned revenue)',
-                   amount: phEoaf });
+  if (zDed) {
+    ph.rows.push({ label: 'Φάρμακα — αποκοπές Ζ-καταλόγου (Deductions-Drugs-Z-Catalogue)',
+                   amount: zDed });
+  }
+  if (eoaf) {
+    ph.rows.push({ label: 'Φάρμακα ΟΑΥ — τακτοποιήσεις EOAF (Drugs/HIO)', amount: eoaf });
   }
   const phPrior = sraAmount(['PH-PRIOR']);
   if (phPrior) {

@@ -348,6 +348,9 @@ class GLExtract:
     ae: float = 0.0                # 25801
     pharmacist_fee: float = 0.0    # 25501
     pharma_other: float = 0.0      # other 255xx
+    # 25511 «PHARMA NO DISCOUNT» on the HIO revenue accounts — the only place
+    # that says how much of a month's drugs were Β' φάσης
+    pharma_phase_b: float = 0.0
     outpatient: float = 0.0        # remaining clinical 25xxx (OS+NM+AP)
     capitation: float = 0.0        # account 51001001
     unearned_eoaf: float = 0.0     # account 11202192 (EOAF settlements)

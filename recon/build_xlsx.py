@@ -527,6 +527,16 @@ def _journal_lines(section) -> tuple[list[dict], dict, dict, dict]:
 # A By_Clinic_Split line -> what it IS, which decides both the HIO revenue
 # account and which flavour of the clinic's cost centre it posts to.
 _LINE_KINDS = [
+    # ΟΑΥ's EOAF settlements are its own stock, not our revenue: they clear
+    # against the drugs liability, which takes no cost centre
+    ("EOAF", "drugs_hio", "general"),
+    # the Z-catalogue deductions are Z items, whatever bucket they arrive in
+    ("Ζ-ΚΑΤΑΛΟΓΟΥ", "inpatient_z", "general"),
+    ("DEDUCTIONS DRUGS Z", "inpatient_z", "general"),
+    # only the Β' φάσης drugs are 412006; the rest of the month's drugs are
+    # outpatient revenue, still at the pharmacy's own centre
+    ("ΕΚΤΟΣ Β' ΦΑΣΗΣ", "outpatient", "general"),
+    ("Β' ΦΑΣΗΣ", "pharma", "general"),
     # the adults' Personal Doctors belong to ΔΠΦΥ: their money is not our
     # revenue, so no revenue account of ours is written — the line is listed
     # on the check sheet for the intercompany account to be filled in
@@ -546,7 +556,7 @@ _LINE_KINDS = [
 # dispensed, and the ΔΠΦΥ half of the Personal Doctors carries a balance-sheet
 # account, which takes no cost centre at all.
 _KIND_CENTRE = {"inpatient_z": "ΦΑΡΜΑΚΑ"}      # → the ΦΑΡΜΑΚΕΙΟ centre
-_KIND_NO_CENTRE = {"intercompany"}
+_KIND_NO_CENTRE = {"intercompany", "drugs_hio"}
 
 _BUCKET_KINDS = {
     "Inpatient": ("inpatient_drg", "ward"),

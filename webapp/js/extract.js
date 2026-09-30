@@ -964,7 +964,8 @@ function extractGl(bytes, hospitalCode) {
     const acc = colIndex(cols, 'ACCOUNT');
     const amt = colIndex(cols, 'EURO_AMOUNT');
     const out = { regularDrg: 0, specialized: 0, zCatalogueOnly: 0, perDiem: 0, ae: 0,
-                  pharmacistFee: 0, pharmaOther: 0, outpatient: 0, capitation: 0,
+                  pharmacistFee: 0, pharmaOther: 0, pharmaPhaseB: 0,
+                  outpatient: 0, capitation: 0,
                   unearnedEoaf: 0, other: 0 };
     // cost centre (or account) -> amount for everything the map doesn't
     // cover: surfaced as its own cross-check row, never silently dropped
@@ -984,7 +985,12 @@ function extractGl(bytes, hospitalCode) {
       else if (centre === '26007') out.perDiem += amount;
       else if (centre === '25801') out.ae += amount;
       else if (centre === '25501') out.pharmacistFee += amount;
-      else if (centre.startsWith('255')) out.pharmaOther += amount;
+      else if (centre.startsWith('255')) {
+        out.pharmaOther += amount;
+        /* the Β' φάσης share, off ΟΑΥ's revenue accounts only: the co-payment
+         * lines on the same centre are the patients' money */
+        if (centre === '25511' && account.startsWith('51')) out.pharmaPhaseB += amount;
+      }
       else if (centre.startsWith('25')) out.outpatient += amount;
       else {
         out.other += amount;

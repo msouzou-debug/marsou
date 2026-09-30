@@ -855,3 +855,46 @@ def test_the_outpatient_adjustments_reach_the_clinic_that_earned_them():
     assert by_spec == {"ORTHOPAEDICS": 34.97, "CARDIOLOGY": 12.04}
     # a code the reports cannot resolve is NOT spread over the clinics
     assert left == 6.00
+
+
+def test_only_the_phase_b_drugs_are_pharmacy_revenue():
+    """ΟΑΥ pays the month's drugs on one line; only the Β' φάσης half is 412006
+    revenue.  The GL extract's «PHARMA NO DISCOUNT» centre is the one place
+    that says how much — without it the line is not split at all."""
+    from recon.checks import build_split
+    from recon.models import Bucket, GLExtract, SRA, SRALine
+    bundle = ReconBundle(hospital_code="F1025", year=2026, month=8)
+    bundle.sra = SRA(cheque_no="273478", stated_total=1_000_000.0, lines=[
+        SRALine(code="PH", description="PH-HCPSERVICES", amount=1_000_000.0,
+                bucket=Bucket.PHARMA)])
+    rows = {r.label: r.amount for s in build_split(bundle) for r in s.rows}
+    assert "Φάρμακα & Αναλώσιμα — PH (pharmacy claims)" in rows
+
+    bundle.gl = GLExtract(pharma_phase_b=900_000.0)
+    rows = {r.label: r.amount for s in build_split(bundle) for r in s.rows}
+    assert rows["Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)"] == 900_000.0
+    assert rows["Φάρμακα εκτός Β' φάσης — εξωνοσοκομειακά (non-phase-B drugs)"] \
+        == 100_000.0
+
+
+def test_the_pharmacy_lines_οαυ_names_in_words_leave_the_drugs_account():
+    """The Z-catalogue deductions are Z items and the EOAF settlements are
+    ΟΑΥ's own stock — both told apart by the wording of the line, and both
+    taken off the aggregate they would otherwise inflate."""
+    from recon.checks import build_split
+    from recon.models import Bucket, SRA, SRALine
+    line = lambda code, desc, amt: SRALine(       # noqa: E731
+        code=code, description=desc, amount=amt, bucket=Bucket.PHARMA)
+    bundle = ReconBundle(hospital_code="F1025", year=2026, month=8)
+    bundle.sra = SRA(cheque_no="1", stated_total=0.0, lines=[
+        line("PH-ADJ", "PH - DEDUCTIONS-Drugs-Phase2-08-2026", -100.0),
+        line("PH-ADJ", "PH - DEDUCTIONS-Drugs-Z-Catalogue-08-2026", -60.0),
+        line("PHD", "EOAF Z Drugs - EOAFZDrugs-sent to hospitals", 20.0),
+        line("PH-EOAF", "Issuances of EOAF & Mixed Drugs", -500.0)])
+    rows = {r.label: r.amount for s in build_split(bundle) for r in s.rows}
+    assert rows["Φάρμακα — αποκοπές Ζ-καταλόγου (Deductions-Drugs-Z-Catalogue)"] == -60.0
+    assert rows["Φάρμακα ΟΑΥ — τακτοποιήσεις EOAF (Drugs/HIO)"] == -480.0
+    # what the wording took is gone from the code-based rows, counted once
+    assert rows["Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)"] == -100.0
+    assert "Φάρμακα (Drugs)" not in rows
+    assert round(sum(rows.values()), 2) == -640.0

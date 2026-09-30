@@ -540,3 +540,25 @@ def test_radiology_is_spelled_in_both_alphabets():
         assert m.find_centre(co, "DIAGNOSTIC RADIOLOGY", "clinic").code == want
         assert m.find_centre(
             co, "Ποιοτικά Κριτήρια / MRI-CT (Quality criteria)").code == want
+
+
+def test_the_pharmacy_lines_that_leave_the_drugs_account():
+    """Β' φάσης is 412006, the rest of the drugs 412002, the Z deductions
+    412007, and the EOAF settlements the 216102 liability — which, like the
+    ΔΠΦΥ account, takes no cost centre."""
+    from recon.build_xlsx import _KIND_NO_CENTRE, _line_kind
+    from recon.sapmaster import SapMaster
+    kinds = {label: _line_kind(label, "Pharma")[0] for label in (
+        "Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)",
+        "Φάρμακα εκτός Β' φάσης — εξωνοσοκομειακά (non-phase-B drugs)",
+        "Φάρμακα — αποκοπές Ζ-καταλόγου (Deductions-Drugs-Z-Catalogue)",
+        "Φάρμακα ΟΑΥ — τακτοποιήσεις EOAF (Drugs/HIO)",
+        "Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)")}
+    assert list(kinds.values()) == ["pharma", "outpatient", "inpatient_z",
+                                    "drugs_hio", "pharma"]
+    assert "drugs_hio" in _KIND_NO_CENTRE
+    chart = SapMaster(accounts={"412002": "HIO Out-Patient Fees",
+                                "412006": "HIO Drugs Phase B",
+                                "412007": "HIO Catalogue Z Items",
+                                "216102": "Drugs  / HIO"})
+    assert chart.account("drugs_hio") == ("216102", "Drugs  / HIO")
