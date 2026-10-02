@@ -22,8 +22,8 @@ set -euo pipefail
 #   5. The release, as `administrator`: ecapital-release-on-server --ref …,
 #      with --skip-guides unless --with-guides is given (Chromium is not on
 #      this host yet).
-#   6. Password of the application role `ecapital_app` (created by the first
-#      migration) set to the app password from the env file; API restarted.
+#   6. Re-check of the application role `ecapital_app` after the migration
+#      (created in step 2; the migration only grants to it); API restarted.
 #   7. Seed (UAT sample data) unless --no-seed. Never on production.
 #   8. grant-admin for --admin-username, so the first sign-in is an
 #      administrator.
@@ -137,6 +137,17 @@ if [[ "$(psql_super -c "select 1 from pg_database where datname='ecapital'")" ==
 else
   psql_super -c "create database ecapital owner ecapital"
   echo "database ecapital: created"
+fi
+# The application role. Migration 0001 creates it only "if not exists", and
+# on this shared cluster the owner role `ecapital` is not allowed to create
+# roles at all (02/10/2026: "permission denied to create role"), so it is
+# created here as postgres, with the app password from the env file.
+if [[ "$(psql_super -c "select 1 from pg_roles where rolname='ecapital_app'")" == "1" ]]; then
+  psql_super -c "alter role ecapital_app with login password '${APP_PW}'"
+  echo "role ecapital_app: exists, password aligned with the env file"
+else
+  psql_super -c "create role ecapital_app login password '${APP_PW}'"
+  echo "role ecapital_app: created"
 fi
 psql_super -d ecapital -c "create extension if not exists pgcrypto"
 psql_super -d ecapital -c "create extension if not exists pg_trgm"

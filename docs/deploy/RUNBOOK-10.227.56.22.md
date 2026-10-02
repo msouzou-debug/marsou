@@ -145,11 +145,18 @@ The password is whatever you are about to put in
 then hand Marios the block above with the real value pasted in, rather than
 asking him to invent one.
 
-The application connects as a second role, `ecapital_app`, which the first
-migration creates for itself inside the `ecapital` database (`IF NOT
-EXISTS`) — that one does not need Marios, because by then the migration is
-running as the `ecapital` owner role inside its own database, not against
-the shared cluster.
+The application connects as a second role, `ecapital_app`. Migration 0001
+creates it only `if not exists`, and **on this cluster the `ecapital` owner
+role may not create roles** (02/10/2026: `permission denied to create
+role`), so Marios creates it too, in the same sitting, with the password
+that goes in `DATABASE_URL`:
+
+```sql
+CREATE ROLE ecapital_app LOGIN PASSWORD '<paste from api.env DATABASE_URL>';
+```
+
+`deploy/first-setup.sh` (§2.0) does exactly this, as postgres. The
+migration then finds the role and only grants to it.
 
 **Extensions.** Our migrations use `pgcrypto`, and from M2 onward
 `pg_trgm`. Both need `CREATE EXTENSION`, which needs superuser — but only
