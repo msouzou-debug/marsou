@@ -50,6 +50,7 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S14 | Εγκρίσεις | Approvals | admin, estates_head, clinical_approver |
 | S15 | Ημερολόγιο διαταράξεων | Disruption calendar | admin, estates_head, project_engineer, clinical_approver, executive_readonly, auditor_readonly |
 | S17c | Πρόβλεψη αντικαταστάσεων | Replacement forecast | estates_head, finance, executive_readonly, admin |
+| S24e | eFinance | eFinance | admin |
 
 ## M4 asset screens — tier decided, not yet in help/map.json
 
