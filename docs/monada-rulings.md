@@ -224,7 +224,7 @@ Eight, incidentally, not the nine the build brief repeats throughout.
 
 ### Does the paediatric unit keep number 1106 after it moves?
 
-The relocation to Μακάριος ΙΊΙ is the only thing left, and the question is narrow: when
+The relocation to Μακάριος ΙΙΙ is the only thing left, and the question is narrow: when
 ΤΑΕΠ Παίδων moves, does it keep 1106 and its running sequence, or start a new series
 under a Μακάριος number?
 
