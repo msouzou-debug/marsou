@@ -174,3 +174,46 @@ test("engineer raises and submits a variation; a different unit is refused; admi
     ),
   ).toBeVisible();
 });
+
+// ADR-0029 — the eFinance block and its two tabs. The e2e API has no
+// EFINANCE_TOKEN, so eFinance is "not configured" here: the contract carries
+// `efinance: null`, the two lists answer `configured: false`, and the screens
+// must say so quietly instead of failing. What matters is that the tabs are
+// there and the empty states explain themselves.
+test("S07: the eFinance block says it is not configured, and the two eFinance tabs open", async ({ page }, testInfo) => {
+  await signIn(page, "engineer.larnaca@ecapital.test");
+  await page.goto("/projects");
+  await page.locator("a:visible", { hasText: PROJECT_TITLE }).click();
+  await page.getByRole("link", { name: /^ΤΥ\/2026\// }).click();
+
+  // The quiet line, not a panel; no push button for a non-administrator.
+  await expect(page.getByText("Δεν έχει ρυθμιστεί η σύνδεση με το eFinance")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Αποστολή στο eFinance" })).toHaveCount(0);
+
+  const invoicesTab = page.getByRole("tab", { name: "Τιμολόγια eFinance" });
+  const requisitionsTab = page.getByRole("tab", { name: "Αιτήματα eFinance" });
+  await expect(invoicesTab).toBeVisible();
+  await expect(requisitionsTab).toBeVisible();
+
+  await nativeClick(invoicesTab);
+  await page.waitForURL(/\/efinance\/invoices$/);
+  await expect(page.getByRole("heading", { name: "Τιμολόγια eFinance", level: 1 })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Τιμολόγια eFinance" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText(/Δεν έχει ρυθμιστεί η σύνδεση με το eFinance. Τα τιμολόγια θα εμφανιστούν/)).toBeVisible();
+  if (testInfo.project.name === "desktop-1440") {
+    await page.screenshot({ path: `e2e/screenshots/s07f-efinance-invoices-${testInfo.project.name}.png`, fullPage: true });
+  }
+
+  await nativeClick(page.getByRole("tab", { name: "Αιτήματα eFinance" }));
+  await page.waitForURL(/\/efinance\/requisitions$/);
+  await expect(page.getByRole("heading", { name: "Αιτήματα eFinance", level: 1 })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Αιτήματα eFinance" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText(/Δεν έχει ρυθμιστεί η σύνδεση με το eFinance. Τα αιτήματα θα εμφανιστούν/)).toBeVisible();
+  if (testInfo.project.name === "desktop-1440") {
+    await page.screenshot({ path: `e2e/screenshots/s07g-efinance-requisitions-${testInfo.project.name}.png`, fullPage: true });
+  }
+
+  // Back on the overview tab, still on the same contract.
+  await nativeClick(page.getByRole("tab", { name: "Επισκόπηση" }));
+  await expect(page.getByText("Δεν έχει ρυθμιστεί η σύνδεση με το eFinance")).toBeVisible();
+});

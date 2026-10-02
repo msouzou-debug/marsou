@@ -14,12 +14,14 @@
  * | apiError     | string?             | e.g. `errors.blacklistAdminOnly` if the toggle were ever reachable by someone it should not be. |
  * | onClose      | () => void          |                                                                    |
  * | onSave       | (values, blacklisted?) => void | `blacklisted` only carries a value when the toggle is shown. |
+ * | vendorSearch | (q: string) => Promise<EFinanceVendor[]>? | ADR-0029: `GET /efinance/vendors?q=` for the «Κωδικός SAP» picker. Omit it and the field is the plain text input it always was. |
  */
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
-import { ContractorCategory, type Contractor } from "@ecapital/shared";
+import { ContractorCategory, type Contractor, type EFinanceVendor } from "@ecapital/shared";
+import { VendorPicker } from "@/components/vendor-picker";
 import { zodResolver } from "@/lib/zod-resolver";
 import { ContractorFormSchema, type ContractorFormValues } from "./schema";
 
@@ -31,19 +33,21 @@ export interface ContractorSheetProps {
   apiError?: string;
   onClose: () => void;
   onSave: (values: ContractorFormValues, blacklisted?: boolean) => void;
+  vendorSearch?: (q: string) => Promise<EFinanceVendor[]>;
 }
 
 function blankToNull(value: string): string | null {
   return value === "" ? null : value;
 }
 
-export function ContractorSheet({ open, contractor, isAdmin, saving = false, apiError, onClose, onSave }: ContractorSheetProps) {
+export function ContractorSheet({ open, contractor, isAdmin, saving = false, apiError, onClose, onSave, vendorSearch }: ContractorSheetProps) {
   const t = useTranslations();
   const tf = useTranslations("screens.s24.fields");
   const [blacklisted, setBlacklisted] = useState(contractor?.blacklisted ?? false);
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<ContractorFormValues>({
@@ -150,12 +154,16 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
             <label htmlFor="cs-sap" className="text-fs-14 text-k-text">
               {tf("sapVendorId")}
             </label>
-            <input
-              id="cs-sap"
-              type="text"
-              {...register("sapVendorId", { setValueAs: blankToNull })}
-              className="num h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+            {/* ADR-0029: a search over eFinance's vendors, with the plain text
+                input underneath as the fallback — what is typed is the value. */}
+            <Controller
+              name="sapVendorId"
+              control={control}
+              render={({ field }) => (
+                <VendorPicker id="cs-sap" value={field.value} onChange={field.onChange} search={vendorSearch} />
+              )}
             />
+            {vendorSearch && <p className="text-fs-14 text-k-text">{t("components.vendor-picker.hint")}</p>}
           </div>
 
           {/* RULE (ADR-0015, decided 19/09/2026): only an administrator sees

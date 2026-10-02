@@ -30,6 +30,7 @@ import suggestionPanel from "@/components/suggestion-panel/SuggestionPanel.previ
 import table from "@/components/table/Table.preview";
 import tierChip from "@/components/tier-chip/TierChip.preview";
 import timeline from "@/components/timeline/Timeline.preview";
+import vendorPicker from "@/components/vendor-picker/VendorPicker.preview";
 import warningStrip from "@/components/warning-strip/WarningStrip.preview";
 import wizardShell from "@/components/wizard-shell/WizardShell.preview";
 import s01Portfolio from "@/screens/s01-portfolio/Portfolio.preview";
@@ -42,6 +43,8 @@ import s04Cost from "@/screens/s04-cost/Cost.preview";
 import s05Schedule from "@/screens/s05-schedule/Schedule.preview";
 import s06RisksIssues from "@/screens/s06-risks-issues/RisksIssues.preview";
 import s07Contract from "@/screens/s07-contract/ContractOverview.preview";
+import s07fEfinanceInvoices from "@/screens/s07f-efinance-invoices/EFinanceInvoices.preview";
+import s07gEfinanceRequisitions from "@/screens/s07g-efinance-requisitions/EFinanceRequisitions.preview";
 import s07aContractForm from "@/screens/s07a-contract-form/ContractForm.preview";
 import s07bRfis from "@/screens/s07b-rfis/Rfis.preview";
 import s07cInstructions from "@/screens/s07c-instructions/Instructions.preview";
@@ -55,6 +58,7 @@ import s10Imports from "@/screens/s10-sap-import/Imports.preview";
 import s10UnmatchedQueue from "@/screens/s10-sap-import/UnmatchedQueue.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 import s24Users from "@/screens/s24-users/Users.preview";
+import s24eEfinance from "@/screens/s24e-efinance/EFinanceAdmin.preview";
 import s26HelpCentre from "@/screens/s26-help-centre/GuideIndexTable.preview";
 import s26ScreenTierList from "@/screens/s26-help-centre/ScreenTierList.preview";
 
@@ -92,6 +96,7 @@ const entries: PreviewEntry[] = [
   table,
   tierChip,
   timeline,
+  vendorPicker,
   warningStrip,
   wizardShell,
   s01Portfolio,
@@ -109,6 +114,8 @@ const entries: PreviewEntry[] = [
   s07cInstructions,
   s07dDefects,
   s07eContracts,
+  s07fEfinanceInvoices,
+  s07gEfinanceRequisitions,
   s08Variations,
   s09PaymentCerts,
   s09CertificateDetail,
@@ -117,6 +124,7 @@ const entries: PreviewEntry[] = [
   s10UnmatchedQueue,
   s24Contractors,
   s24Users,
+  s24eEfinance,
   s26HelpCentre,
   s26ScreenTierList,
 ];

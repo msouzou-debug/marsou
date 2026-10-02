@@ -14,6 +14,10 @@ import {
   Contractor,
   ContractDetail,
   ContractList,
+  EFinanceInvoiceList,
+  EFinanceRequisitionList,
+  EFinanceVendorList,
+  ProjectBudgetPosition,
   Defect,
   DisruptionHoursRow,
   ImportBatch,
@@ -647,4 +651,50 @@ export function useReplacementForecast(query: ReplacementForecastQuery) {
     queryFn: () => proxyFetch(replacementForecastApiPath(query), z.array(ReplacementForecastRow)),
     retry: false,
   });
+}
+
+// ------------------------------------------------------------ eFinance (ADR-0029)
+// None of these fail because eFinance is not configured: the API answers 200
+// with `configured: false` and empty or null figures. A 502 means eFinance was
+// configured and did not answer, and is the screens' own error state.
+
+// S07f — the invoices eFinance has tagged with this contract (reversed ones
+// included, each with its ledger).
+export function useContractEfinanceInvoices(contractId: string) {
+  return useQuery({
+    queryKey: ["contract-efinance-invoices", contractId],
+    queryFn: () =>
+      proxyFetch(`/contracts/${encodeURIComponent(contractId)}/efinance/invoices`, EFinanceInvoiceList),
+    retry: false,
+  });
+}
+
+// S07g — the requisitions eFinance has tagged with this contract.
+export function useContractEfinanceRequisitions(contractId: string) {
+  return useQuery({
+    queryKey: ["contract-efinance-requisitions", contractId],
+    queryFn: () =>
+      proxyFetch(`/contracts/${encodeURIComponent(contractId)}/efinance/requisitions`, EFinanceRequisitionList),
+    retry: false,
+  });
+}
+
+// S04 — one row per (budget code, year) the project's contracts are charged to.
+export function useProjectBudgetPosition(projectId: string) {
+  return useQuery({
+    queryKey: ["project-budget-position", projectId],
+    queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/budget-position`, ProjectBudgetPosition),
+    enabled: projectId !== "",
+    retry: false,
+  });
+}
+
+/**
+ * S24's vendor picker: eFinance's vendors by code or name, twenty at most.
+ * A plain function, not a hook — the picker debounces and cancels on its own
+ * and the contractor sheet is rendered in places that have no query client.
+ */
+export async function searchEfinanceVendors(q: string): Promise<EFinanceVendorList["items"]> {
+  const list = await proxyFetch(`/efinance/vendors?q=${encodeURIComponent(q)}`, EFinanceVendorList);
+  return list.items;
 }

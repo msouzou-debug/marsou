@@ -160,7 +160,8 @@
     "admin-tabs": {
       "users": "Users",
       "contractors": "Contractors",
-      "label": "Administration sections"
+      "label": "Administration sections",
+      "efinance": "eFinance"
     },
     "warning-strip": {
       "label": "Cost warnings",
@@ -292,6 +293,17 @@
     "tierChip": {
       "dayOne": "Day 1",
       "optional": "Optional"
+    },
+    "vendor-picker": {
+      "hint": "Type a code or a name to search eFinance. If the vendor is not listed, type the code directly.",
+      "picked": "Selected: {name}",
+      "listLabel": "eFinance vendors",
+      "searching": "Searching…",
+      "failed": "The eFinance search did not answer. You can type the code directly.",
+      "noResults": "No vendor found in eFinance. You can type the code directly.",
+      "blocked": "Blocked in eFinance: cannot be selected",
+      "inactive": "Inactive in eFinance: cannot be selected",
+      "vat": "VAT {vat}"
     }
   },
   "nav": {
@@ -575,7 +587,9 @@
         "rfis": "RFIs",
         "instructions": "Site instructions",
         "defects": "Defects",
-        "certificates": "Certificates"
+        "certificates": "Certificates",
+        "efinanceInvoices": "eFinance invoices",
+        "efinanceRequisitions": "eFinance requisitions"
       },
       "factsCaption": "Contract facts",
       "facts": {
@@ -625,6 +639,27 @@
         "label": "Links to the other ΟΚΥπΥ systems",
         "emap": "Open in eMAP",
         "efinance": "Invoices in eFinance"
+      },
+      "efinance": {
+        "title": "eFinance link",
+        "notConfigured": "eFinance link not configured",
+        "asOf": "eFinance figures as of {when}",
+        "sent": "Sent to eFinance on {when}",
+        "notSent": "Not sent yet",
+        "lastError": "The last send failed: {detail}",
+        "lastSuccess": "Last successful send: {when}",
+        "conflict": "eFinance holds this contract under another unit or budget code",
+        "conflictHint": "Check the contract's unit and budget code, then send it again.",
+        "figures": {
+          "booked": "Actual spend",
+          "inFlight": "In flight",
+          "requisitions": "eFinance commitments",
+          "remaining": "Remaining",
+          "notCounted": "Not counted"
+        },
+        "push": "Send to eFinance",
+        "pushOk": "The contract was sent to eFinance.",
+        "offlineReason": "Offline. Sending needs a connection."
       }
     },
     "s07a": {
@@ -923,6 +958,22 @@
         },
         "empty": "There are no budget lines for this project.",
         "financeOnlyHint": "Only Finance or an administrator can change the budget lines."
+      },
+      "efinance": {
+        "title": "eFinance budget position",
+        "caption": "eFinance's view by budget code. It is not added to the project's four cost ledgers.",
+        "notConfigured": "eFinance link not configured",
+        "empty": "The project's contracts have no budget code yet, so eFinance has no budget position to show.",
+        "error": "eFinance did not answer. Try again shortly.",
+        "budgetCode": "Budget code",
+        "year": "Year",
+        "allocated": "Budget",
+        "booked": "Actual spend",
+        "requisitions": "eFinance commitments",
+        "inFlight": "In flight",
+        "notCounted": "Not counted",
+        "available": "Available",
+        "asOf": "eFinance figures as of {when}"
       }
     },
     "s09": {
@@ -1367,6 +1418,86 @@
         "criticalAssets": "Critical assets (1–2)"
       },
       "totals": "Total"
+    },
+    "s07f": {
+      "title": "eFinance invoices",
+      "caption": "eFinance invoices for the contract",
+      "countingRule": "Only booked invoices count as spend. Reversed invoices stay here as history.",
+      "empty": "No invoices yet. They appear once eFinance tags an invoice with this contract.",
+      "notConfigured": "The eFinance link is not configured. Invoices appear once it is, and eFinance tags an invoice with this contract.",
+      "columns": {
+        "invoiceNo": "Invoice no.",
+        "invoiceDate": "Date",
+        "vendor": "Vendor",
+        "net": "Net",
+        "vat": "VAT",
+        "gross": "Gross",
+        "ledger": "Status",
+        "sapBatch": "SAP batch",
+        "lines": "Lines"
+      },
+      "ledger": {
+        "booked": "Booked",
+        "inFlight": "In flight",
+        "reversed": "Reversed",
+        "rejected": "Rejected"
+      },
+      "ledgerNote": {
+        "booked": "Counts as spend on the contract.",
+        "inFlight": "Does not count as spend until it is booked.",
+        "reversed": "Reversed, and does not count as spend.",
+        "rejected": "Rejected, and never booked."
+      },
+      "reversal": "Reversed on {when}: {reason}",
+      "reversalNoReason": "No reason given",
+      "viewLines": "Lines ({count})",
+      "sheetTitle": "Invoice {number}",
+      "lines": {
+        "title": "Invoice lines",
+        "empty": "This invoice has no lines.",
+        "qty": "Quantity",
+        "unitPrice": "Unit price",
+        "lineTotal": "Total",
+        "costCentre": "Cost centre",
+        "budgetCode": "Budget code",
+        "wbs": "WBS"
+      }
+    },
+    "s07g": {
+      "title": "eFinance requisitions",
+      "caption": "eFinance requisitions for the contract",
+      "commitmentRule": "Requisitions are eFinance's own commitments. They are not added to eCapital's Commitments.",
+      "empty": "No requisitions yet. They appear once eFinance tags a requisition with this contract.",
+      "notConfigured": "The eFinance link is not configured. Requisitions appear once it is, and eFinance tags a requisition with this contract.",
+      "columns": {
+        "number": "Number",
+        "description": "Description",
+        "amount": "Amount",
+        "status": "Status",
+        "poNumber": "PO number",
+        "createdAt": "Created"
+      }
+    },
+    "s24e": {
+      "title": "eFinance",
+      "intro": "eCapital reads eFinance's invoices and requisitions every fifteen minutes, and the master data (units and vendors) once a day. You can refresh them right now from here.",
+      "syncNow": "Sync now",
+      "syncMaster": "Master data",
+      "offline": "Offline. Syncing needs a connection.",
+      "noRunYet": "You have not run a sync in this session. The system keeps no run history, so this shows only the last run you made from this page.",
+      "notConfigured": "eFinance is not configured in this environment. Nothing was read.",
+      "syncResultTitle": "Invoices and requisitions, {when}",
+      "masterResultTitle": "Master data, {when}",
+      "invoices": "Invoices read",
+      "requisitions": "Requisitions read",
+      "contractsRefreshed": "Contracts with refreshed figures",
+      "unitsMatched": "Units matched",
+      "vendorsUpserted": "Vendors updated",
+      "vendorsDeactivated": "Vendors deactivated",
+      "feedInvoices": "Invoices",
+      "feedRequisitions": "Requisitions",
+      "feedError": "Read error ({feed}): {detail}",
+      "masterError": "eFinance returned an error: {detail}"
     }
   },
   "states": {

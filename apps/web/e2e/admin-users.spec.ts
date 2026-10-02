@@ -98,3 +98,37 @@ test("a head of estates gets NoPermission on Χρήστες", async ({ page }) =
   await nativeClick(page.getByRole("link", { name: "Ανάδοχοι" }));
   await expect(page.getByRole("heading", { name: "Ανάδοχοι", exact: true })).toBeVisible();
 });
+
+// ADR-0029 — the eFinance tab. The e2e API has no EFINANCE_TOKEN, so both
+// syncs answer `configured: false` and do nothing; the card has to say that.
+test("an administrator runs both eFinance syncs and is told nothing was read", async ({ page }) => {
+  await signIn(page, "admin@ecapital.test", "/admin/efinance");
+  await expect(page.getByRole("heading", { name: "eFinance", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "eFinance", exact: true })).toHaveAttribute("aria-current", "page");
+
+  await nativeClick(page.getByRole("button", { name: "Συγχρονισμός τώρα" }));
+  await expect(page.getByTestId("efinance-sync-result")).toContainText("Το eFinance δεν έχει ρυθμιστεί σε αυτό το περιβάλλον");
+
+  await nativeClick(page.getByRole("button", { name: "Βασικά δεδομένα" }));
+  await expect(page.getByTestId("efinance-master-result")).toContainText("Το eFinance δεν έχει ρυθμιστεί σε αυτό το περιβάλλον");
+});
+
+test("a head of estates gets NoPermission on the eFinance tab", async ({ page }) => {
+  await signIn(page, "estates.nicosia@ecapital.test", "/admin/efinance");
+  await expect(page.getByRole("heading", { name: "Δεν έχετε πρόσβαση σε αυτή τη σελίδα." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Συγχρονισμός τώρα" })).toHaveCount(0);
+});
+
+test("the contractor sheet's «Κωδικός SAP» stays a typeable field when eFinance lists no vendors", async ({ page }) => {
+  await signIn(page, "admin@ecapital.test", "/admin/contractors");
+  await nativeClick(page.getByRole("button", { name: "Προσθήκη" }));
+  const sheet = page.getByRole("dialog", { name: "Νέος ανάδοχος" });
+  const field = sheet.getByLabel("Κωδικός SAP");
+  await expect(field).toHaveAttribute("role", "combobox");
+
+  await nativeFill(field, "V-99999");
+  // The API answers an empty vendor list when eFinance is not configured;
+  // the picker says so and leaves what was typed in place.
+  await expect(sheet.getByText(/Δεν βρέθηκε προμηθευτής στο eFinance/)).toBeVisible();
+  await expect(field).toHaveValue("V-99999");
+});
