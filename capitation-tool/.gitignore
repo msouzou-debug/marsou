@@ -1,0 +1,4 @@
+node_modules
+*.xlsx
+dist/
+src/assets/example_*.json

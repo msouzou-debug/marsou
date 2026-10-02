@@ -1,0 +1,340 @@
+<title>Capitation Fees ΠΦΥ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working desk. Inputs on the left in upload order, results on the right, summary before detail. */
+:root{
+  --bg:#ffffff; --surface:#f4f8fb; --line:#d9e2e9; --ink:#3f4346; --muted:#6b7177;
+  --head:#1b75bb; --accent:#069fec; --accent-ink:#ffffff; --brand-green:#8bc53f;
+  --ok-bg:#eef7e2; --ok-ink:#3f6b12; --bad-bg:#fdecea; --bad-ink:#a52a1f; --warn-bg:#fff5df; --warn-ink:#7a5200;
+  --focus:#069fec66;
+  --sans:"Lato","Source Sans Pro","Open Sans",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --logo-light:block; --logo-dark:none;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171e; --surface:#16222c; --line:#27363f; --ink:#d3dae0; --muted:#a6b1ba;
+  --head:#6cc0f2; --accent:#2aaef0; --accent-ink:#06121b; --brand-green:#9fd25a;
+  --ok-bg:#1d2f15; --ok-ink:#b4e07a; --bad-bg:#3a1a17; --bad-ink:#ff9b90; --warn-bg:#33270d; --warn-ink:#f2c870;
+  --focus:#2aaef088; --logo-light:none; --logo-dark:block; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171e; --surface:#16222c; --line:#27363f; --ink:#d3dae0; --muted:#a6b1ba;
+  --head:#6cc0f2; --accent:#2aaef0; --accent-ink:#06121b; --brand-green:#9fd25a;
+  --ok-bg:#1d2f15; --ok-ink:#b4e07a; --bad-bg:#3a1a17; --bad-ink:#ff9b90; --warn-bg:#33270d; --warn-ink:#f2c870;
+  --focus:#2aaef088; --logo-light:none; --logo-dark:block; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);margin:0;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto}
+header{display:flex;align-items:center;gap:20px;padding-block:22px 18px;border-bottom:4px solid var(--accent);flex-wrap:wrap}
+header img{height:56px;width:auto}
+.logo-l{display:var(--logo-light)} .logo-d{display:var(--logo-dark)}
+h1{font-size:26px;font-weight:900;color:var(--head);margin:0;line-height:1.15;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.grid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:28px;margin-top:24px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+.steps{display:flex;flex-direction:column;gap:10px}
+.drop{display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 12px;padding:14px;border:1.5px dashed var(--line);border-radius:8px;background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent)}
+.drop.done{border-style:solid;border-color:var(--brand-green)}
+.drop:focus-within{outline:3px solid var(--focus);outline-offset:2px}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.num{grid-row:span 3;width:30px;height:30px;border-radius:50%;background:var(--bg);border:1.5px solid var(--line);display:grid;place-items:center;font-weight:900;color:var(--head)}
+.drop.done .num{background:var(--brand-green);border-color:var(--brand-green);color:#fff}
+.drop b{font-size:15px}
+.drop .hint{color:var(--muted);font-size:13px}
+.drop .got{font:12px/1.4 var(--mono);color:var(--ink);overflow-wrap:anywhere}
+.opt{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;justify-self:start}
+details{border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+summary{cursor:pointer;font-weight:700}
+.bands{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.band h3{font-size:14px;margin:0 0 6px;color:var(--head)}
+.strip{display:flex;gap:2px;margin-bottom:6px}
+.strip span{flex:1;min-width:0;font:11px/1.2 var(--mono);padding:5px 4px;background:var(--surface);border-top:3px solid var(--accent);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.band table{width:100%;border-collapse:collapse;font-size:13px}
+.band td,.band th{padding:3px 4px;text-align:left}
+.band th{color:var(--muted);font-weight:400}
+.band input,.setrow input{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:13px var(--mono)}
+.setrow{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px;align-items:center;font-size:13px;margin-top:8px}
+.go{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button.primary,button.secondary{font:700 15px var(--sans);border-radius:6px;padding:11px 20px;cursor:pointer;border:1.5px solid var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink)}
+button.secondary{background:transparent;color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,.linkbtn:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.progress{height:6px;background:var(--surface);border-radius:3px;overflow:hidden;margin-top:12px}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.status{font-size:13px;color:var(--muted);margin-top:6px;min-height:1.5em}
+.status.err{color:var(--bad-ink)}
+.res-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.res-head h2{margin:0}
+.tag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--warn-bg);color:var(--warn-ink)}
+.tag.live{background:var(--ok-bg);color:var(--ok-ink)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+@media (max-width:620px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--bg);padding:12px 14px;min-width:0}
+.stat small{display:block;color:var(--muted);font-size:12px}
+.stat strong{display:block;font-size:20px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--head);overflow-wrap:anywhere}
+.stat.main strong{color:var(--ink)}
+section.block{margin-top:22px}
+.checks{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.checks li{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pill{font-size:11px;font-weight:900;letter-spacing:.05em;text-align:center;padding:3px 0;border-radius:4px}
+.pill.ok{background:var(--ok-bg);color:var(--ok-ink)} .pill.bad{background:var(--bad-bg);color:var(--bad-ink)}
+.diff{font:12px var(--mono);color:var(--muted);text-align:right;white-space:nowrap}
+.tbl{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+table.t th{text-align:left;font-size:12px;color:var(--muted);font-weight:700;border-bottom:1.5px solid var(--line);padding:6px 8px}
+table.t td{padding:6px 8px;border-bottom:1px solid var(--line)}
+table.t td.n,table.t th.n{text-align:right}
+table.t tr.tot td{font-weight:900;border-top:1.5px solid var(--ink)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+@media (max-width:620px){.two{grid-template-columns:minmax(0,1fr)}}
+.issues{display:flex;flex-direction:column;gap:8px}
+.issue{padding:10px 12px;border-radius:6px;background:var(--warn-bg);color:var(--warn-ink);font-size:14px}
+.issue ul{margin:4px 0 0;padding-left:18px;font:12px/1.5 var(--mono)}
+.issue.info{background:var(--surface);color:var(--ink)}
+.dl{margin-top:22px;padding:16px;border:1px solid var(--line);border-radius:8px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.dl p{margin:0;font-size:14px;max-width:52ch}
+code{font:13px var(--mono)}
+footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <img class="logo-l" alt="ΟΚΥπΥ" src="{{LOGO}}">
+  <img class="logo-d" alt="ΟΚΥπΥ" src="{{LOGO_WHITE}}">
+  <div>
+    <h1>Αμοιβές κατά κεφαλήν προσωπικών ιατρών</h1>
+    <p>Ανεβάστε τις αναφορές κατά κεφαλήν και τα SRA του ΟΑΥ για τον μήνα. Το εργαλείο φτιάχνει το αρχείο πληρωμής σε Excel, με ζωντανούς τύπους και φύλλο ελέγχων. Τα αρχεία μένουν στον υπολογιστή σας.</p>
+  </div>
+</header>
+
+<div class="grid">
+<div>
+  <h2>Αρχεία μήνα</h2>
+  <div class="steps">
+    <label class="drop" id="z-cap"><span class="num">1</span><b>Αναφορές κατά κεφαλήν</b>
+      <span class="hint">Capitation Reimbursement Report, σε zip ή PDF</span><span class="got" id="g-cap"></span>
+      <input id="f-cap" type="file" accept=".zip,.pdf" multiple></label>
+    <label class="drop" id="z-ra"><span class="num">2</span><b>Καταστάσεις πληρωμής (SRA)</b>
+      <span class="hint">Remittance Advice του ΟΑΥ, σε zip ή PDF</span><span class="got" id="g-ra"></span>
+      <input id="f-ra" type="file" accept=".zip,.pdf" multiple></label>
+    <label class="drop" id="z-roster"><span class="num">3</span><b>Μητρώο ιατρών</b>
+      <span class="hint">ROSTER.xlsx: κατηγορία, ΑΚΑ, ΑΔΤ, κίνητρα, επιδόματα</span><span class="got" id="g-roster"></span>
+      <input id="f-roster" type="file" accept=".xlsx"></label>
+    <label class="drop" id="z-prev"><span class="num">4</span><b>Αρχείο προηγούμενου μήνα<span class="opt">προαιρετικό</span></b>
+      <span class="hint">Για να συνεχιστεί το ιστορικό στο φύλλο ΣΥΝΟΛΙΚΑ</span><span class="got" id="g-prev"></span>
+      <input id="f-prev" type="file" accept=".xlsx"></label>
+    <button class="linkbtn" id="tpl" type="button">Κατεβάστε κενό πρότυπο μητρώου</button>
+    <details id="settings">
+      <summary>Κλίμακες και ποσοστά</summary>
+      <div class="bands" id="bands"></div>
+      <div class="setrow"><label for="s-nam">Παροχείς λίστας ΠΙΠ ΝΑΜ ΙΙΙ</label><input id="s-nam" type="text"></div>
+      <div class="setrow"><label for="s-lag">Πληρωτέο μετά από (μήνες)</label><input id="s-lag" type="number" min="0" max="6"></div>
+      <p class="hint" style="font-size:12px;color:var(--muted)">Οι αλλαγές ισχύουν για τον επόμενο υπολογισμό. Στο Excel τα ίδια ποσοστά είναι στα κίτρινα κελιά κάθε φύλλου και αλλάζουν και από εκεί.</p>
+      <button class="linkbtn" id="reset" type="button">Επαναφορά στις τιμές Ιουλίου 2026</button>
+    </details>
+    <div class="go">
+      <button class="primary" id="run" type="button" disabled>Υπολογισμός</button>
+      <span class="hint" id="need" style="font-size:13px;color:var(--muted)">Χρειάζονται τα αρχεία 1, 2 και 3.</span>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+    <div class="status" id="status" role="status"></div>
+  </div>
+</div>
+
+<div id="results"></div>
+</div>
+
+<footer>Κανόνας υπολογισμού: η αμοιβή ΟΑΥ συν τα KPIs διαιρείται με τον μέσο όρο εγγραφών του μήνα (ημέρες λίστας / ημέρες μήνα). Ο ιατρός παίρνει το ποσοστό κάθε κλίμακας πάνω στις εγγραφές που πέφτουν σε αυτή. Κάθε λίστα (ενηλίκων ή παίδων) υπολογίζεται ξεχωριστά.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+/*{{PARSECAP}}*/
+/*{{PARSERA}}*/
+/*{{CORE}}*/
+</script>
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const EXAMPLE = {{EXAMPLE}};
+const eur = new Intl.NumberFormat('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = x => eur.format(x) + ' €';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const downloadsP = (window.claude && window.claude.use) ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+
+// ---------- settings ----------
+const LABEL = { NAM: 'ΠΙΠ ΝΑΜ ΙΙΙ (παιδίατροι Μακάρειου)', CHILD: 'ΠΙΠ ΑΛΛΟΙ (λίστες παίδων)', ADULT: 'ΠΙ ΕΝΗΛΙΚΩΝ' };
+let cfg = JSON.parse(JSON.stringify(DEFAULT_CFG));
+try { const s = localStorage.getItem('capfees.cfg'); if (s) cfg = Object.assign(cfg, JSON.parse(s)); } catch (e) {}
+function saveCfg() { try { localStorage.setItem('capfees.cfg', JSON.stringify(cfg)); } catch (e) {} }
+function bandLabel(b, i) { const lo = b.lower[i], hi = b.lower[i + 1]; return hi === undefined ? '>' + lo : (lo === 0 ? 0 : lo + 1) + '–' + hi; }
+function renderBands() {
+  $('#bands').innerHTML = Object.keys(LABEL).map(k => {
+    const b = cfg.bands[k];
+    return `<div class="band"><h3>${LABEL[k]}</h3>
+      <div class="strip">${b.lower.map((_, i) => `<span title="${bandLabel(b, i)}">${bandLabel(b, i)} · ${(b.rate[i] * 100).toLocaleString('el-GR')}%</span>`).join('')}</div>
+      <table><tr><th>Από εγγραφές</th>${b.lower.map((x, i) => `<td><input id="lo-${k}-${i}" data-k="${k}" data-i="${i}" data-f="lower" type="number" value="${x}" aria-label="Όριο ${i + 1}"></td>`).join('')}</tr>
+      <tr><th>Ποσοστό %</th>${b.rate.map((x, i) => `<td><input id="rt-${k}-${i}" data-k="${k}" data-i="${i}" data-f="rate" type="number" step="0.1" value="${+(x * 100).toFixed(2)}" aria-label="Ποσοστό ${i + 1}"></td>`).join('')}</tr></table></div>`;
+  }).join('');
+  $('#s-nam').value = cfg.namProviders.join(', ');
+  $('#s-lag').value = cfg.payLag;
+}
+$('#bands').addEventListener('change', e => {
+  const t = e.target; if (!t.dataset.k) return;
+  const val = Number(t.value); if (!isFinite(val)) return;
+  cfg.bands[t.dataset.k][t.dataset.f][+t.dataset.i] = t.dataset.f === 'rate' ? val / 100 : val;
+  saveCfg(); renderBands();
+});
+$('#s-nam').addEventListener('change', e => { cfg.namProviders = e.target.value.split(/[,\s]+/).filter(Boolean).map(s => s.toUpperCase()); saveCfg(); });
+$('#s-lag').addEventListener('change', e => { cfg.payLag = Math.max(0, Number(e.target.value) || 0); saveCfg(); });
+$('#reset').addEventListener('click', () => { cfg = JSON.parse(JSON.stringify(DEFAULT_CFG)); saveCfg(); renderBands(); });
+renderBands();
+
+// ---------- inputs ----------
+const files = { cap: [], ra: [], roster: [], prev: [] };
+function setFiles(key, list) {
+  files[key] = [...list];
+  const z = $('#z-' + key), g = $('#g-' + key);
+  z.classList.toggle('done', files[key].length > 0);
+  g.textContent = files[key].length ? files[key].map(f => f.name).join(', ') : '';
+  const ok = files.cap.length && files.ra.length && files.roster.length;
+  $('#run').disabled = !ok; $('#need').hidden = !!ok;
+}
+for (const key of Object.keys(files)) {
+  const z = $('#z-' + key), inp = $('#f-' + key);
+  inp.addEventListener('change', () => setFiles(key, inp.files));
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('over'));
+  z.addEventListener('drop', e => { e.preventDefault(); z.classList.remove('over'); setFiles(key, e.dataTransfer.files); });
+}
+async function expandPdfs(list) {
+  const out = [];
+  for (const f of list) {
+    if (/\.zip$/i.test(f.name)) {
+      const zip = await JSZip.loadAsync(f);
+      for (const e of Object.values(zip.files)) {
+        if (e.dir || /__MACOSX/.test(e.name) || !/\.pdf$/i.test(e.name)) continue;
+        out.push({ name: e.name.split('/').pop(), data: await e.async('arraybuffer') });
+      }
+    } else if (/\.pdf$/i.test(f.name)) out.push({ name: f.name, data: await f.arrayBuffer() });
+  }
+  return out;
+}
+async function pdfPages(data) {
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(data), verbosity: 0 }).promise, pages = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const tc = await (await doc.getPage(p)).getTextContent();
+    pages.push(tc.items.map(i => ({ x: i.transform[4], y: i.transform[5], s: i.str })));
+  }
+  doc.destroy(); return pages;
+}
+async function readXlsx(file) { const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer()); return wb; }
+function status(msg, err) { $('#status').textContent = msg; $('#status').classList.toggle('err', !!err); }
+function progress(x) { $('#bar').style.width = Math.round(x * 100) + '%'; }
+
+let result = null;
+$('#run').addEventListener('click', async () => {
+  $('#run').disabled = true; result = null;
+  try {
+    if (!window.pdfjsLib || !window.JSZip || !window.ExcelJS) throw new Error('Δεν φόρτωσαν οι βιβλιοθήκες (pdf.js, JSZip, ExcelJS). Ελέγξτε τη σύνδεση στο διαδίκτυο και ανανεώστε τη σελίδα.');
+    status('Άνοιγμα αρχείων…'); progress(0.02);
+    const capPdfs = await expandPdfs(files.cap), raPdfs = await expandPdfs(files.ra);
+    if (!capPdfs.length) throw new Error('Δεν βρέθηκαν PDF στις αναφορές κατά κεφαλήν.');
+    if (!raPdfs.length) throw new Error('Δεν βρέθηκαν PDF στα SRA.');
+    const total = capPdfs.length + raPdfs.length; let done = 0;
+    const capFiles = [], raFiles = [];
+    for (const f of capPdfs) { status(`Ανάγνωση αναφοράς ${++done}/${total}: ${f.name}`); capFiles.push({ file: f.name, ...parseCapItems(await pdfPages(f.data)) }); progress(0.05 + 0.8 * done / total); }
+    for (const f of raPdfs) { status(`Ανάγνωση SRA ${++done}/${total}: ${f.name}`); raFiles.push({ file: f.name, ...parseRaItems(await pdfPages(f.data)) }); progress(0.05 + 0.8 * done / total); }
+    status('Ανάγνωση μητρώου…');
+    const roster = readRoster(await readXlsx(files.roster[0]));
+    if (!roster.length) throw new Error('Το μητρώο δεν έχει γραμμές με κωδικό ιατρού (π.χ. D1088).');
+    let history = [], histNote = '';
+    if (files.prev.length) {
+      try { history = readHistory(await readXlsx(files.prev[0])); } catch (e) { histNote = ' Το ιστορικό δεν διαβάστηκε: ' + e.message; }
+    }
+    status('Υπολογισμός και δημιουργία Excel…'); progress(0.9);
+    const M = prepare({ capFiles, raFiles, roster, history, cfg });
+    const { wb, summary } = await buildWorkbook(ExcelJS, M);
+    const buf = await wb.xlsx.writeBuffer();
+    const pay = new Date(Date.UTC(M.year, M.month - 1 + cfg.payLag, 1));
+    const filename = `CAPITATION_FEES_${pad(M.month)}_${M.year}_PAYABLE_${pad(pay.getUTCMonth() + 1)}_${pay.getUTCFullYear()}.xlsx`;
+    result = { blob: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename };
+    summary.historyRows = history.length; summary.sraFiles = raFiles.length; summary.capFiles = capFiles.length;
+    render(summary, false);
+    progress(1); status(`Έτοιμο: ${capFiles.length} αναφορές, ${raFiles.length} SRA.` + histNote);
+  } catch (e) {
+    console.error(e); progress(0); status(e.message || String(e), true);
+  } finally { $('#run').disabled = !(files.cap.length && files.ra.length && files.roster.length); }
+});
+
+async function offer(blob, filename) {
+  const dl = await downloadsP;
+  if (dl) {
+    try { await dl.save({ filename, data: blob }); status('Το αρχείο αποθηκεύτηκε: ' + filename); }
+    catch (e) { status(e && e.code === 'declined' ? 'Η αποθήκευση ακυρώθηκε.' : 'Η αποθήκευση δεν έγινε: ' + ((e && e.message) || e), e && e.code !== 'declined'); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  status('Το αρχείο κατέβηκε: ' + filename);
+}
+$('#tpl').addEventListener('click', async () => {
+  if (!window.ExcelJS) { status('Δεν φόρτωσε το ExcelJS. Ελέγξτε τη σύνδεση.', true); return; }
+  const buf = await rosterTemplate(ExcelJS, []).xlsx.writeBuffer();
+  offer(new Blob([buf]), 'ROSTER_capitation.xlsx');
+});
+
+// ---------- results ----------
+function render(s, example) {
+  const per = `${pad(s.period.month)}/${s.period.year}`;
+  const bad = s.checks.filter(c => !c.ok).length;
+  const issues = [], pl = (n, one, many) => n === 1 ? one : many;
+  if (s.outOfRoster.length) issues.push(['', `${s.outOfRoster.length} ${pl(s.outOfRoster.length,'ιατρός έχει κατά κεφαλήν αλλά δεν είναι','ιατροί έχουν κατά κεφαλήν αλλά δεν είναι')} στο μητρώο. Δεν θα εμφανιστούν σε ΔΥ/ΟΚΥΠΥ μέχρι να προστεθούν.`, s.outOfRoster.map(d => `${d.code} · ${money(d.total)}`)]);
+  if (s.kpiNoList.length) issues.push(['', `${s.kpiNoList.length} ${pl(s.kpiNoList.length,'γραμμή KPI στα SRA δεν έχει','γραμμές KPI στα SRA δεν έχουν')} λίστα ιατρού αυτό τον μήνα και δεν μπαίνουν στον υπολογισμό.`, s.kpiNoList.map(l => `${l.desc} · ${l.supplier} · ${money(l.paid)}`)]);
+  if (s.rosterNoCap.length) issues.push(['info', `${s.rosterNoCap.length} ${pl(s.rosterNoCap.length,'ιατρός του μητρώου δεν έχει','ιατροί του μητρώου δεν έχουν')} κατά κεφαλήν αυτό τον μήνα (εμφανίζεται με 0).`, s.rosterNoCap.map(d => `${d.code} · ${d.cat}`)]);
+  const dups = typeof s.duplicates === 'number' ? s.duplicates : s.duplicates.length;
+  if (dups) issues.push(['', `${dups} ${pl(dups,'τιμολόγιο υπήρχε','τιμολόγια υπήρχαν')} δύο φορές στα αρχεία και μετρήθηκε μία φορά.`, []]);
+  if (s.empty.length) issues.push(['info', `${s.empty.length} ${pl(s.empty.length,'αναφορά ήταν κενή','αναφορές ήταν κενές')} (κέντρα χωρίς λίστα ιατρού).`, []]);
+  $('#results').innerHTML = `
+  <div class="res-head"><h2>Αποτελέσματα ${per}</h2>
+    ${example ? '<span class="tag">Παράδειγμα: Ιούλιος 2026, όχι δικά σας αρχεία</span>' : `<span class="tag live">${bad ? bad + ' έλεγχοι θέλουν προσοχή' : 'Όλοι οι έλεγχοι OK'}</span>`}</div>
+  <div class="stats">
+    <div class="stat main"><small>Πληρωτέο σε ιατρούς</small><strong>${money(s.total)}</strong></div>
+    <div class="stat"><small>Κατά κεφαλήν ΟΑΥ</small><strong>${money(s.oay)}</strong></div>
+    <div class="stat"><small>KPIs από SRA</small><strong>${money(s.kpi)}</strong></div>
+    <div class="stat"><small>Ιατροί · λίστες</small><strong>${s.doctors} · ${s.lists}</strong></div>
+  </div>
+  <section class="block"><h2>Έλεγχοι</h2><ul class="checks">
+    ${s.checks.map(c => `<li><span class="pill ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : 'ΕΛΕΓΞΤΕ'}</span><span>${esc(c.name)}</span><span class="diff">${c.ok ? '' : 'Δ ' + eur.format(c.actual - c.expected)}</span></li>`).join('')}
+  </ul></section>
+  <section class="block two">
+    <div><h2>Ανά κατηγορία</h2><div class="tbl"><table class="t"><tr><th>Φύλλο</th><th class="n">Ιατροί</th><th class="n">Cap fees</th></tr>
+      ${s.byCat.map(c => `<tr><td>${esc(c.name)}</td><td class="n">${c.n}</td><td class="n">${eur.format(c.total)}</td></tr>`).join('')}
+      <tr class="tot"><td>Σύνολο</td><td class="n">${s.byCat.reduce((a, c) => a + c.n, 0)}</td><td class="n">${eur.format(s.byCat.reduce((a, c) => a + c.total, 0))}</td></tr></table></div></div>
+    <div><h2>Ανά λίστα</h2><div class="tbl"><table class="t"><tr><th>Φύλλο</th><th class="n">Λίστες</th><th class="n">Αμοιβή</th></tr>
+      ${s.bySheet.map(c => `<tr><td>${esc(c.name)}</td><td class="n">${c.lists}</td><td class="n">${eur.format(c.total)}</td></tr>`).join('')}
+      <tr class="tot"><td>Σύνολο</td><td class="n">${s.lists}</td><td class="n">${eur.format(s.total)}</td></tr></table></div></div>
+  </section>
+  <section class="block"><h2>Προς διερεύνηση</h2><div class="issues">
+    ${issues.length ? issues.map(([cls, t, list]) => `<div class="issue ${cls}">${esc(t)}${list.length ? `<ul>${list.slice(0, 12).map(x => `<li>${esc(x)}</li>`).join('')}${list.length > 12 ? `<li>…και άλλοι ${list.length - 12}</li>` : ''}</ul>` : ''}</div>`).join('') : '<div class="issue info">Τίποτα.</div>'}
+  </div></section>
+  <div class="dl">
+    <p>${example ? 'Όταν τρέξετε τον υπολογισμό με τα δικά σας αρχεία, εδώ θα κατεβάσετε το Excel: ALL, τα τρία φύλλα υπολογισμού, ΣΥΝΟΛΙΚΑ, ΟΝΟΜΑΣΤΙΚΑ, ΔΥ, ΟΚΥΠΥ, ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ, ΠΑΡΑΙΤΗΣΕΙΣ, CHECKS, SRA_PD και ROSTER.' : `<code>${esc(result.filename)}</code><br>Ανοίξτε πρώτα το φύλλο CHECKS. Το σύνολο του ΔΥ συγκρίνεται με την κατάσταση του Υπουργείου στο κίτρινο κελί κάτω από τον πίνακα.`}</p>
+    <button class="primary" id="dl" type="button" ${example ? 'disabled' : ''}>Κατέβασμα Excel</button>
+  </div>`;
+  if (!example) $('#dl').addEventListener('click', () => offer(result.blob, result.filename));
+}
+if (EXAMPLE) render(EXAMPLE, true);
+else $('#results').innerHTML = '<div class="issue info">Τα αποτελέσματα θα εμφανιστούν εδώ μετά τον υπολογισμό: σύνολα, έλεγχοι, κατανομή ανά κατηγορία και το κουμπί για το Excel.</div>';
+})();
+</script>
