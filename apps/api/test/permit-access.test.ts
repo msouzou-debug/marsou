@@ -2,7 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import type { PermitListRow, ShutdownPermit } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, bearer, createTestApp, listAll, tokenFor } from "./app";
 import {
   M3_USERS,
   approveEveryLine,
@@ -40,13 +40,11 @@ describe("who sees a permit (§9)", () => {
 
   const title = (what: string) => `${what} ${Date.now()}-${(stamp += 1)}`;
 
+  /** Every page: the tests look for their own permit among everybody's. */
   async function listFor(email: string, query = ""): Promise<PermitListRow[]> {
     const token = await tokenFor(app, email);
-    const response = await request(app.getHttpServer())
-      .get(`/permits?pageSize=100${query}`)
-      .set(bearer(token));
-    expect(response.status).toBe(200);
-    return response.body.items as PermitListRow[];
+    const { items } = await listAll<PermitListRow>(app, token, `/permits?${query.replace(/^&/, "")}`);
+    return items;
   }
 
   async function getAs(email: string, id: string) {

@@ -5,7 +5,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { CONFIG, loadConfig } from "../src/config";
-import { USERS, bearer, tokenFor } from "./app";
+import { USERS, bearer, tokenFor, withoutTimers } from "./app";
 import { makeContract } from "./contract-support";
 
 /**
@@ -31,6 +31,7 @@ describe("the eArchive callback", () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
+    withoutTimers(app);
     admin = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
     await admin.connect();
   });
@@ -274,7 +275,8 @@ describe("the eArchive callback with no token placed", () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({ imports: [AppModule] })
       .compile()
-      .then((m) => m.createNestApplication({ logger: false }).init());
+      .then((m) => m.createNestApplication({ logger: false }).init())
+      .then(withoutTimers);
   });
   afterAll(async () => {
     await app.close();

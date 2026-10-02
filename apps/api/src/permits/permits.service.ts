@@ -126,7 +126,13 @@ export class PermitsService {
       .from(schema.shutdownPermit)
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.shutdownPermit.orgUnitId))
       .where(where)
-      .orderBy(desc(schema.shutdownPermit.plannedStart), desc(schema.shutdownPermit.createdAt))
+      // The id last, so a page boundary is stable when the first two tie (the
+      // seed writes every permit in one transaction, one created_at).
+      .orderBy(
+        desc(schema.shutdownPermit.plannedStart),
+        desc(schema.shutdownPermit.createdAt),
+        desc(schema.shutdownPermit.id),
+      )
       .limit(query.pageSize)
       .offset((query.page - 1) * query.pageSize);
 

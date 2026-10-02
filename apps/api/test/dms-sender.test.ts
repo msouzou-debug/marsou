@@ -12,7 +12,7 @@ import {
   type SendResult,
 } from "../src/documents/dms-client";
 import { DmsSenderService } from "../src/documents/dms-sender.service";
-import { USERS, bearer, tokenFor } from "./app";
+import { USERS, bearer, tokenFor, withoutTimers } from "./app";
 import { makeContract } from "./contract-support";
 
 /**
@@ -65,6 +65,7 @@ describe("the eArchive sender", () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     await app.init();
+    withoutTimers(app);
     sender = app.get(DmsSenderService);
 
     admin = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
@@ -261,7 +262,8 @@ describe("the eArchive sender with no token placed", () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({ imports: [AppModule] })
       .compile()
-      .then((m) => m.createNestApplication({ logger: false }).init());
+      .then((m) => m.createNestApplication({ logger: false }).init())
+      .then(withoutTimers);
     admin = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
     await admin.connect();
   });

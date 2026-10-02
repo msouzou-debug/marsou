@@ -57,7 +57,44 @@ async function contractFor(
     .set(bearer(token))
     .send(contractBody(project.id, contractorId, `ΤΥ/ΕΦ/${stamp}`, overrides));
   if (created.status !== 201) throw new Error(`contract: ${created.status} ${JSON.stringify(created.body)}`);
+  ownContracts.push(created.body.id as string);
   return { contract: ContractDetail.parse(created.body), projectId: project.id, projectCode: project.code, contractorId };
+}
+
+/** Every contract this file made: the only ones it may push, sync onto or reset. */
+const ownContracts: string[] = [];
+
+/**
+ * What this file must leave exactly as it found it, read as the superuser so
+ * no row policy hides anything: the cost ledger, the eFinance state on every
+ * contract that was already there, the eFinance tables and the unit codes.
+ * Each table is reduced to a row count and a hash of its rows in key order.
+ */
+const LEDGER_SNAPSHOT = `
+  select 'cost_txn' as what, count(*)::int as n, md5(coalesce(string_agg(t::text, '|' order by t.id), '')) as hash
+    from ecapital.cost_txn t
+  union all
+  select 'contract.efinance', count(*)::int,
+         md5(coalesce(string_agg(concat_ws(',', c.id, c.efinance_pushed_at, c.efinance_last_error, c.efinance_spend::text), '|' order by c.id), ''))
+    from ecapital.contract c where not (c.id = any($1::uuid[]))
+  union all
+  select 'efinance_invoice', count(*)::int, md5(coalesce(string_agg(i::text, '|' order by i.id), '')) from ecapital.efinance_invoice i
+  union all
+  select 'efinance_invoice_line', count(*)::int, md5(coalesce(string_agg(l::text, '|' order by l.invoice_id, l.line_no), '')) from ecapital.efinance_invoice_line l
+  union all
+  select 'efinance_requisition', count(*)::int, md5(coalesce(string_agg(r::text, '|' order by r.id), '')) from ecapital.efinance_requisition r
+  union all
+  select 'efinance_sync_state', count(*)::int, md5(coalesce(string_agg(s::text, '|' order by s.feed), '')) from ecapital.efinance_sync_state s
+  union all
+  select 'efinance_vendor', count(*)::int, md5(coalesce(string_agg(v::text, '|' order by v.vendor_code), '')) from ecapital.efinance_vendor v
+  union all
+  select 'org_unit.efinance_code', count(*)::int, md5(coalesce(string_agg(concat_ws(',', o.id, o.efinance_code), '|' order by o.id), '')) from ecapital.org_unit o`;
+
+async function ledgerSnapshot(db: Client): Promise<Record<string, string>> {
+  const { rows } = await db.query<{ what: string; n: number; hash: string }>(LEDGER_SNAPSHOT, [
+    `{${ownContracts.join(",")}}`,
+  ]);
+  return Object.fromEntries(rows.map((row) => [row.what, `${row.n} rows, ${row.hash}`]));
 }
 
 // ------------------------------------------------------------------ client --
@@ -177,25 +214,52 @@ describe("eFinance, configured (ADR-0029)", () => {
   let db: Client;
   let admin: string;
 
+  let before: Record<string, string>;
+  let unitCodes: { id: string; efinance_code: string | null }[];
+
   beforeAll(async () => {
+    db = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
+    await db.connect();
+    before = await ledgerSnapshot(db);
+    unitCodes = (await db.query("select id, efinance_code from ecapital.org_unit")).rows;
     await fake.start();
     app = await createAppWith({ EFINANCE_TOKEN: FAKE_TOKEN, EFINANCE_API_URL: fake.url, EFINANCE_PUSH_ENABLED: "1" });
     admin = await tokenFor(app, USERS.admin);
-    db = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
-    await db.connect();
   });
   afterAll(async () => {
-    // The timer's pass pushes every pushable contract in the shared test
-    // database, the seeded ones included. Put them back as the other suites
-    // expect to find them: never pushed, so the SAP extract's actuals on them
-    // still count (ADR-0029 §3), and no eFinance rows in anybody's ledger.
-    await db.query("delete from ecapital.cost_txn where source = 'EFINANCE'");
-    await db.query(
-      "update ecapital.contract set efinance_pushed_at = null, efinance_last_error = null, efinance_spend = null where efinance_pushed_at is not null or efinance_last_error is not null or efinance_spend is not null",
-    );
-    await db.end();
-    await app.close();
-    await fake.stop();
+    // The suites share one database (ADR-0012). This one pushes and syncs
+    // only its own contracts — every retry pass below is narrowed to them —
+    // and here takes back everything it wrote, so the next file finds the
+    // ledgers, the seeded contracts and the eFinance tables as they were
+    // before it ran: a seeded contract left "pushed" would stop counting its
+    // SAP extract actuals as spent (ADR-0029 §3) under another suite's feet.
+    try {
+      await app.close();
+      await fake.stop();
+      const own = `{${ownContracts.join(",")}}`;
+      await db.query("delete from ecapital.cost_txn where source = 'EFINANCE' and contract_id = any($1::uuid[])", [own]);
+      await db.query(
+        "update ecapital.contract set efinance_pushed_at = null, efinance_last_error = null, efinance_spend = null where id = any($1::uuid[])",
+        [own],
+      );
+      // Everything below came from the fake: no eFinance rows exist before
+      // this file runs, and the snapshot check proves it.
+      await db.query("delete from ecapital.efinance_invoice_line where invoice_id in (select id from ecapital.efinance_invoice where contract_id is null or contract_id = any($1::uuid[]))", [own]);
+      await db.query("delete from ecapital.efinance_invoice where contract_id is null or contract_id = any($1::uuid[])", [own]);
+      await db.query("delete from ecapital.efinance_requisition where contract_id is null or contract_id = any($1::uuid[])", [own]);
+      await db.query("delete from ecapital.efinance_sync_state");
+      await db.query("delete from ecapital.efinance_vendor");
+      for (const unit of unitCodes) {
+        await db.query("update ecapital.org_unit set efinance_code = $2 where id = $1 and efinance_code is distinct from $2", [
+          unit.id,
+          unit.efinance_code,
+        ]);
+      }
+      // Fail loudly, here, rather than as a wrong sum in whichever file runs next.
+      expect(await ledgerSnapshot(db)).toEqual(before);
+    } finally {
+      await db.end();
+    }
   });
 
   async function efinanceTxnCount(contractId: string): Promise<number> {
@@ -316,7 +380,9 @@ describe("eFinance, configured (ADR-0029)", () => {
     expect(warning!.sentenceEn).toContain("already exists there");
 
     const before = fake.calls.filter((c) => c.method === "PUT" && c.path.endsWith(contract.ref)).length;
-    await app.get(ContractPushService).retryPending(1000);
+    // Narrowed to this contract: a full pass would push every contract in the
+    // shared database. The narrowing does not touch the CONFLICT rule.
+    expect(await app.get(ContractPushService).retryPending(1000, [contract.id])).toEqual({ tried: 0, pushed: 0 });
     const after = fake.calls.filter((c) => c.method === "PUT" && c.path.endsWith(contract.ref)).length;
     expect(after).toBe(before);
 
@@ -342,15 +408,15 @@ describe("eFinance, configured (ADR-0029)", () => {
     expect(contract.efinance?.lastError).toMatch(/^HTTP_503/);
     expect(contract.efinance?.pushedAt).toBeNull();
 
-    const outcome = await app.get(ContractPushService).retryPending(1000);
-    expect(outcome.pushed).toBeGreaterThanOrEqual(1);
+    const outcome = await app.get(ContractPushService).retryPending(1000, [contract.id]);
+    expect(outcome).toEqual({ tried: 1, pushed: 1 });
     const status = await request(app.getHttpServer()).get(`/contracts/${contract.id}/efinance`).set(bearer(admin));
     expect(status.body.lastError).toBeNull();
     expect(status.body.pushedAt).not.toBeNull();
 
     // Nothing is left pending: a second pass has nothing to do for it.
     const before = fake.puts.filter((p) => p.capRef === contract.ref).length;
-    await app.get(ContractPushService).retryPending(1000);
+    expect(await app.get(ContractPushService).retryPending(1000, [contract.id])).toEqual({ tried: 0, pushed: 0 });
     expect(fake.puts.filter((p) => p.capRef === contract.ref).length).toBe(before);
   });
 

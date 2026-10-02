@@ -275,6 +275,16 @@ describe("an asset's papers, its label and the forecast", () => {
 
   it("leaves a disposed asset out of the forecast, because nobody is replacing it", async () => {
     const token = await tokenFor(app, USERS.admin);
+    // The forecast is a sum over the unit's whole register, which other
+    // suites add to: measure what this test's two assets change, not the sum.
+    const forecast = async () => {
+      const response = await request(app.getHttpServer())
+        .get("/assets/replacement-forecast?from=2042&to=2042&orgUnitId=nicosia-general")
+        .set(bearer(token));
+      expect(response.status).toBe(200);
+      return response.body as { assets: number; estimatedCost: number }[];
+    };
+    const [was = { assets: 0, estimatedCost: 0 }] = await forecast();
     const live = await makeAsset({ replacementYear: 2042, replacementCostEst: 1000 });
     const dead = await makeAsset({
       replacementYear: 2042,
@@ -282,12 +292,10 @@ describe("an asset's papers, its label and the forecast", () => {
       status: "DISPOSED",
     });
     expect(dead.id).toBeDefined();
-    const response = await request(app.getHttpServer())
-      .get("/assets/replacement-forecast?from=2042&to=2042&orgUnitId=nicosia-general")
-      .set(bearer(token));
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0].assets).toBe(1);
-    expect(response.body[0].estimatedCost).toBe(1000);
+    const now = await forecast();
+    expect(now).toHaveLength(1);
+    expect(now[0].assets).toBe(was.assets + 1);
+    expect(now[0].estimatedCost).toBeCloseTo(was.estimatedCost + 1000, 2);
     expect(live.id).toBeDefined();
   });
 

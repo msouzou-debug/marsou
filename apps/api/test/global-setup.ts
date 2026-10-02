@@ -17,7 +17,12 @@ const SCRIPT = join(__dirname, "..", "scripts", "test-db.sh");
 let documentStore: string | undefined;
 
 function run(command: "start" | "stop"): string {
-  return execFileSync(SCRIPT, [command], { encoding: "utf8" });
+  // This process owns the cluster: `start` never hands it to another run, and
+  // a cluster left behind by a run that was killed is thrown away, not reused.
+  return execFileSync(SCRIPT, [command], {
+    encoding: "utf8",
+    env: { ...process.env, ECAPITAL_TEST_DB_OWNER: String(process.pid) },
+  });
 }
 
 export async function setup(): Promise<void> {

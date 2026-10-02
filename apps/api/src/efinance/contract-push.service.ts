@@ -254,8 +254,15 @@ export class ContractPushService implements OnModuleInit {
    * person, and a contract that cannot be built, which waits for its
    * missing field. Each one in its own transaction under the service
    * identity, so one slow answer does not hold the others' locks.
+   *
+   * `only` narrows the pass to those contracts and is for the tests: the
+   * timer never passes it, and a test that ran a full pass would push every
+   * contract in the database it shares with the other suites.
    */
-  async retryPending(limit = RETRY_BATCH): Promise<{ tried: number; pushed: number }> {
+  async retryPending(
+    limit = RETRY_BATCH,
+    only?: readonly string[],
+  ): Promise<{ tried: number; pushed: number }> {
     if (!this.configured || this.retrying) return { tried: 0, pushed: 0 };
     this.retrying = true;
     try {
@@ -271,6 +278,7 @@ export class ContractPushService implements OnModuleInit {
              and (c.efinance_pushed_at is null
                   or c.efinance_last_error is not null
                   or c.efinance_pushed_at < greatest(c.updated_at, p.updated_at, v.updated_at))
+             ${only ? sql`and c.id = any(${`{${only.join(",")}}`}::uuid[])` : sql``}
            order by c.updated_at
            limit ${limit}`);
         return result.rows.map((row) => row.id);
