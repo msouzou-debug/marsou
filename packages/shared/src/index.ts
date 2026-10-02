@@ -9,6 +9,7 @@ export * from "./admin-user";
 export * from "./config-links";
 export * from "./project";
 export * from "./budget-code";
+export * from "./efinance";
 export * from "./contract";
 export * from "./site";
 export * from "./cost";

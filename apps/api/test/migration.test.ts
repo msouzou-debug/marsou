@@ -49,7 +49,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0017_m4_assets");
     expect(result.applied).toContain("0018_cns_unit_and_efinance_codes");
     expect(result.applied).toContain("0019_cns_name_matches_earchive");
-    expect(result.lastMigrationId).toBe("0019_cns_name_matches_earchive");
+    expect(result.applied).toContain("0020_efinance_client");
+    expect(result.lastMigrationId).toBe("0020_efinance_client");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -82,6 +83,11 @@ describe("migrations", () => {
       "dms_event",
       "dms_outbox",
       "document",
+      "efinance_invoice",
+      "efinance_invoice_line",
+      "efinance_requisition",
+      "efinance_sync_state",
+      "efinance_vendor",
       "email_outbox",
       "floor",
       "forecast_inputs",
@@ -135,6 +141,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0017_m4_assets");
     expect(result.skipped).toContain("0018_cns_unit_and_efinance_codes");
     expect(result.skipped).toContain("0019_cns_name_matches_earchive");
+    expect(result.skipped).toContain("0020_efinance_client");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

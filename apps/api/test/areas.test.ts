@@ -30,7 +30,13 @@ describe("GET /org-units/:id/areas", () => {
     const tree = AreaTree.parse(response.body);
     expect(tree.buildings).toHaveLength(1);
     expect(tree.buildings[0].floors).toHaveLength(2);
-    expect(tree.buildings[0].floors.flatMap((f) => f.areas)).toHaveLength(6);
+    // The six seeded areas. Other suites (audit.test.ts) add Nicosia areas to
+    // the shared database, so the count depends on which file ran first;
+    // the seeded six being there does not.
+    const codes = tree.buildings[0].floors.flatMap((f) => f.areas).map((a) => a.code);
+    expect(codes).toEqual(
+      expect.arrayContaining(["OPD-01", "PLT-01", "OFF-01", "THE-01", "ICU-01", "WRD-01"]),
+    );
 
     const theatre = tree.buildings[0].floors
       .flatMap((f) => f.areas)

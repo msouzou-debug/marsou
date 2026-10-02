@@ -56,12 +56,13 @@ const EnvSchema = z
     // neither set, the link-outs simply do not appear.
     EMAP_URL: z.string().optional(),
     EFINANCE_URL: z.string().optional(),
-    // ADR-0022 §5 — the bearer token eFinance issues eCapital as its one
-    // caller on the loopback contract. Only read by
-    // `BudgetCodesService`/`EFinanceBudgetCodeReader` today, for
-    // `POST /budget-codes/sync`; both EMAP_URL/EFINANCE_URL and this token
-    // being set is what turns that route from the seed fallback to an actual
-    // eFinance call (ADR-0025).
+    // ADR-0022 §5, ADR-0029 — the bearer token eFinance issues eCapital as
+    // its one caller on the loopback contract. **Never in the repo**: it is
+    // generated on the server with eFinance's own script and captured into
+    // /etc/ecapital/api.env (RUNBOOK §3). Read only by `EFinanceClient`.
+    // Unset, blank or the template's CHANGE-ME means «not placed yet»: the
+    // client reports `configured: false`, nothing is pushed or read, and
+    // every caller degrades instead of failing — not a boot failure.
     EFINANCE_TOKEN: z.string().optional(),
     // ADR-0022 §1 — where eFinance answers the loopback contract. Fixed by
     // that contract to the same host's port 5004 in production; overridable

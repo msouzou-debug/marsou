@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EFinanceContractSummary } from "./efinance";
 
 // ------------------------------------------------------------ M2 (R11, R13–R18, R31)
 // CAPEX-01 §7: four ledgers, never collapsed. Approved from budget_line;
@@ -9,7 +10,10 @@ import { z } from "zod";
 export const CostTxnType = z.enum(["COMMITMENT", "ACTUAL", "ACCRUAL"]);
 export type CostTxnType = z.infer<typeof CostTxnType>;
 
-export const CostSource = z.enum(["SAP_EXTRACT", "SAP_MCP", "MANUAL", "EXCEL_MIGRATION"]);
+// EFINANCE (ADR-0029): a booked eFinance invoice line, posted beside the SAP
+// extract's actuals. For a contract eFinance has accepted it is the spent
+// source and the extract's rows on that contract are kept for reconciliation.
+export const CostSource = z.enum(["SAP_EXTRACT", "SAP_MCP", "MANUAL", "EXCEL_MIGRATION", "EFINANCE"]);
 export type CostSource = z.infer<typeof CostSource>;
 
 export const CostTxn = z.object({
@@ -186,6 +190,11 @@ export const ProjectCost = z.object({
   categories: z.array(CostCategoryRow),
   warnings: z.array(CostWarning),
   lastSapImportAt: z.string().nullable(),
+  // ADR-0029: eFinance's figures summed over the project's contracts —
+  // booked, in flight (forecast only), requisitions (eFinance's commitment,
+  // never added to `committed` above) and remaining. Null when eFinance is
+  // not configured.
+  efinance: EFinanceContractSummary.nullable().optional(),
 });
 export type ProjectCost = z.infer<typeof ProjectCost>;
 

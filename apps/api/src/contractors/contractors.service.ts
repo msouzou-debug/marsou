@@ -10,6 +10,7 @@ import {
 } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
+import { ContractPushService } from "../efinance/contract-push.service";
 import type { ContractorUpdate } from "./contractor-write";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,6 +28,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 @Injectable()
 export class ContractorsService {
+  constructor(private readonly efinancePush: ContractPushService) {}
+
   async list(): Promise<Contractor[]> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
@@ -97,6 +100,10 @@ export class ContractorsService {
         .where(eq(schema.contractor.id, id))
         .returning();
       if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+      // ADR-0029: the SAP vendor code is the push's `vendor_code`.
+      if (input.sapVendorId !== undefined && input.sapVendorId !== existing.sapVendorId) {
+        await this.efinancePush.pushContractor(id);
+      }
       return toContractor(touched[0]);
     } catch (error) {
       if (error instanceof AppError) throw error;

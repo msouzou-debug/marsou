@@ -213,7 +213,10 @@ not a data integration.
 ## 5. Money flows
 
 Two flows exist as *design*, not as anything wired up today. **Nothing
-writes across these three systems as of this release.** Every arrow in the
+writes across these three systems as of this release.** *(Updated
+02/10/2026: the eFinance ↔ eCapital loopback contract below is now built on
+eCapital's side — the contract push and the reads; see «eCapital side» at
+the end of this section and ADR-0029.)* Every arrow in the
 diagram below marked dashed is a decision that has not been implemented;
 the diagram exists to show the shape the flow is meant to take, once it is.
 
@@ -409,6 +412,44 @@ commitment, retention and certification. eFinance owns execution against
 budget codes. **eCapital never writes to `budget_allocations`** — that
 table is eFinance's, and nothing in this contract gives eCapital a path
 into it, read or write.
+
+### eCapital side — built 02/10/2026 (ADR-0029)
+
+One client, `EFinanceClient` (`apps/api/src/efinance/`), speaks every route
+in eFinance's record (`docs/integration/eFinance-integration-record.md`):
+bearer token from `EFINANCE_TOKEN`, `http://127.0.0.1:5004`, 5 s for a read
+and 10 s for the write, eFinance's error code carried into eCapital's own
+error, money kept as 2-decimal strings until the edge and `null` never read
+as zero. With no token placed it reports *not configured* and every feature
+below holds without failing anything, as the eArchive queue does.
+
+- **Write first.** A contract is pushed with
+  `PUT /api/v1/capital/contracts/{cap_ref}` when it is recorded, when it
+  changes, when a variation is approved, when its project closes or reopens
+  and when its contractor's SAP vendor code changes — one attempt in the
+  request, then every ten minutes until it goes. `entity_code` is eArchive's
+  form, `status` is `closed` for a project in `CLOSED`. A `409 CONFLICT` is
+  not retried: it becomes the contract warning `efinanceConflict` and a
+  person resolves it. A contract with no budget code, or whose contractor has
+  no SAP vendor code, is not sent and says so (`efinanceNotPushable`).
+- **Reads into the ledger.** Every fifteen minutes the invoices and
+  requisitions are polled with `updated_since`. Each **booked** invoice line
+  becomes one ACTUAL in eCapital's cost ledger (source `EFINANCE`,
+  `efinance:invoice:<id>:<line>`, posted on `sap_batch_date`), upserted so a
+  second run adds nothing. `in_flight` is shown per contract as forecast only;
+  `reversed` removes what the invoice booked and stays visible with its
+  reason; `rejected` never posts. Requisitions are shown per contract as
+  eFinance's commitments and are never added to eCapital's committed ledger.
+  For a contract eFinance holds, its booked lines are the spent source and the
+  SAP extract's actuals on that contract are kept for reconciliation only; the
+  extract stays the source for everything eFinance cannot tag.
+- **Budget position.** `GET /contracts/:id/budget-position` and
+  `GET /projects/:id/budget-position` read the five numbers for the
+  contract's unit, budget code and award year with the mapping above, cached
+  for a minute.
+- **Master data.** Once a day: `entities` keeps `org_unit.efinance_code` in
+  step by `archive_code`, and `vendors` fill a local list the contractor form
+  searches (`GET /efinance/vendors?q=`).
 
 See `docs/adr/ADR-0022-efinance-loopback-contract.md` for the security
 rules (loopback, the forwarded-header refusal, `NO_PROXY`) and the

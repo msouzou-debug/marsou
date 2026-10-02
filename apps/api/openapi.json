@@ -12643,6 +12643,1719 @@
         ]
       }
     },
+    "/contracts/{id}/efinance": {
+      "get": {
+        "operationId": "EFinanceController_status",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The push state and the spend figures eFinance answered with",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pushedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "lastError": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "booked": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "inFlight": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "requisitions": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "remaining": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "lastSyncAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "capRef": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "pushedAt",
+                    "lastError",
+                    "booked",
+                    "inFlight",
+                    "requisitions",
+                    "remaining",
+                    "lastSyncAt",
+                    "configured",
+                    "capRef"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "When eFinance last accepted the contract, the last error, and eFinance's figures",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/contracts/{id}/efinance/push": {
+      "post": {
+        "operationId": "EFinanceController_pushNow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The push state after the attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pushedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "lastError": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "booked": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "inFlight": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "requisitions": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "remaining": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "lastSyncAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "capRef": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "pushedAt",
+                    "lastError",
+                    "booked",
+                    "inFlight",
+                    "requisitions",
+                    "remaining",
+                    "lastSyncAt",
+                    "configured",
+                    "capRef"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that is not admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The contract has no budget code, or its contractor has no SAP vendor code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Push the contract to eFinance again, now",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/contracts/{id}/efinance/invoices": {
+      "get": {
+        "operationId": "EFinanceController_invoices",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first, header and lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "invoiceNo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "invoiceDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sapBatchDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "vendorCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "vendorName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "entityCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "net": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "vat": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "gross": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ledger": {
+                            "type": "string",
+                            "enum": [
+                              "booked",
+                              "in_flight",
+                              "reversed",
+                              "rejected"
+                            ]
+                          },
+                          "capRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reversedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reversalSapDocNo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reversalReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "index": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "descr": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "qty": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "unitPrice": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "lineTotal": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "vatRate": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "glAccount": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "costCentre": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "budgetCode": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "wbsCode": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "index",
+                                "descr",
+                                "qty",
+                                "unitPrice",
+                                "lineTotal",
+                                "vatRate",
+                                "glAccount",
+                                "costCentre",
+                                "budgetCode",
+                                "wbsCode"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "invoiceNo",
+                          "invoiceDate",
+                          "sapBatchDate",
+                          "vendorCode",
+                          "vendorName",
+                          "entityCode",
+                          "currency",
+                          "net",
+                          "vat",
+                          "gross",
+                          "status",
+                          "ledger",
+                          "capRef",
+                          "reversedAt",
+                          "reversalSapDocNo",
+                          "reversalReason",
+                          "updatedAt",
+                          "lines"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "items",
+                    "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "eFinance's invoices tagged with this contract, reversed ones included",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/contracts/{id}/efinance/requisitions": {
+      "get": {
+        "operationId": "EFinanceController_requisitions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "justification": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "entityCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "costCentre": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "budgetCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "glAccount": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "amount": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "capRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "poNumber": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "description",
+                          "justification",
+                          "entityCode",
+                          "costCentre",
+                          "budgetCode",
+                          "glAccount",
+                          "amount",
+                          "currency",
+                          "status",
+                          "capRef",
+                          "poNumber",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "items",
+                    "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "eFinance's requisitions tagged with this contract",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/contracts/{id}/budget-position": {
+      "get": {
+        "operationId": "EFinanceController_contractPosition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Defaults to the award year"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Allocated, booked, requisitions, in flight, available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "position": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "budgetCode": {
+                              "type": "string"
+                            },
+                            "entityCode": {
+                              "type": "string"
+                            },
+                            "year": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "allocated": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "booked": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "requisitions": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "inFlight": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "available": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "asOf": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "budgetCode",
+                            "entityCode",
+                            "year",
+                            "allocated",
+                            "booked",
+                            "requisitions",
+                            "inFlight",
+                            "available",
+                            "asOf"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "position"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "year is not a year",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "eFinance did not answer, or answered with an error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "eFinance's budget position for the contract's unit, budget code and award year",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/projects/{id}/budget-position": {
+      "get": {
+        "operationId": "EFinanceController_projectPosition",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Defaults to each contract's award year"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per budget code and year, never summed across codes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "budgetCode": {
+                            "type": "string"
+                          },
+                          "entityCode": {
+                            "type": "string"
+                          },
+                          "year": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "allocated": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "booked": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "requisitions": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "inFlight": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "available": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "asOf": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "budgetCode",
+                          "entityCode",
+                          "year",
+                          "allocated",
+                          "booked",
+                          "requisitions",
+                          "inFlight",
+                          "available",
+                          "asOf"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "year is not a year",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "eFinance did not answer, or answered with an error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "eFinance's budget position for every budget code the project's contracts carry",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/admin/efinance/sync": {
+      "post": {
+        "operationId": "EFinanceController_runSync",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What each feed did",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "invoices": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "cursor",
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "requisitions": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "cursor",
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "contractsRefreshed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "ranAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "invoices",
+                    "requisitions",
+                    "contractsRefreshed",
+                    "ranAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that is not admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read invoices and requisitions from eFinance now",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/admin/efinance/sync-master": {
+      "post": {
+        "operationId": "EFinanceController_runMaster",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Units matched, vendors written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "unitsMatched": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "vendorsUpserted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "vendorsDeactivated": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ranAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "unitsMatched",
+                    "vendorsUpserted",
+                    "vendorsDeactivated",
+                    "error",
+                    "ranAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that is not admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read eFinance's entity codes and vendors now",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
+    "/efinance/vendors": {
+      "get": {
+        "operationId": "EFinanceController_vendors",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact code first, then active vendors by name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "vendorCode": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "vat": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "blocked": {
+                            "type": "boolean"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "vendorCode",
+                          "name",
+                          "vat",
+                          "blocked",
+                          "active"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search eFinance's vendors by name or code, twenty at most",
+        "tags": [
+          "efinance"
+        ]
+      }
+    },
     "/contractors": {
       "get": {
         "operationId": "ContractorsController_list",
@@ -14147,7 +15860,9 @@
                               "variationsOverTenPct",
                               "bondExpired",
                               "completionPast",
-                              "instructionsWithoutVariation"
+                              "instructionsWithoutVariation",
+                              "efinanceConflict",
+                              "efinanceNotPushable"
                             ]
                           },
                           "sentenceEl": {
@@ -14331,6 +16046,70 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "efinance": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "pushedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastError": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "booked": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "inFlight": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "requisitions": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "remaining": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "lastSyncAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "pushedAt",
+                            "lastError",
+                            "booked",
+                            "inFlight",
+                            "requisitions",
+                            "remaining",
+                            "lastSyncAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -15412,7 +17191,9 @@
                               "variationsOverTenPct",
                               "bondExpired",
                               "completionPast",
-                              "instructionsWithoutVariation"
+                              "instructionsWithoutVariation",
+                              "efinanceConflict",
+                              "efinanceNotPushable"
                             ]
                           },
                           "sentenceEl": {
@@ -15596,6 +17377,70 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "efinance": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "pushedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastError": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "booked": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "inFlight": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "requisitions": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "remaining": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "lastSyncAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "pushedAt",
+                            "lastError",
+                            "booked",
+                            "inFlight",
+                            "requisitions",
+                            "remaining",
+                            "lastSyncAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -16255,7 +18100,9 @@
                               "variationsOverTenPct",
                               "bondExpired",
                               "completionPast",
-                              "instructionsWithoutVariation"
+                              "instructionsWithoutVariation",
+                              "efinanceConflict",
+                              "efinanceNotPushable"
                             ]
                           },
                           "sentenceEl": {
@@ -16439,6 +18286,70 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "efinance": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "pushedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastError": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "booked": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "inFlight": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "requisitions": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "remaining": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "lastSyncAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "pushedAt",
+                            "lastError",
+                            "booked",
+                            "inFlight",
+                            "requisitions",
+                            "remaining",
+                            "lastSyncAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -18094,7 +20005,8 @@
                         "SAP_EXTRACT",
                         "SAP_MCP",
                         "MANUAL",
-                        "EXCEL_MIGRATION"
+                        "EXCEL_MIGRATION",
+                        "EFINANCE"
                       ]
                     },
                     "report": {
@@ -18446,7 +20358,8 @@
                               "SAP_EXTRACT",
                               "SAP_MCP",
                               "MANUAL",
-                              "EXCEL_MIGRATION"
+                              "EXCEL_MIGRATION",
+                              "EFINANCE"
                             ]
                           },
                           "report": {
@@ -18657,7 +20570,8 @@
                         "SAP_EXTRACT",
                         "SAP_MCP",
                         "MANUAL",
-                        "EXCEL_MIGRATION"
+                        "EXCEL_MIGRATION",
+                        "EFINANCE"
                       ]
                     },
                     "report": {
@@ -18990,7 +20904,8 @@
                                   "SAP_EXTRACT",
                                   "SAP_MCP",
                                   "MANUAL",
-                                  "EXCEL_MIGRATION"
+                                  "EXCEL_MIGRATION",
+                                  "EFINANCE"
                                 ]
                               },
                               "sourceRef": {
@@ -19346,7 +21261,8 @@
                                     "SAP_EXTRACT",
                                     "SAP_MCP",
                                     "MANUAL",
-                                    "EXCEL_MIGRATION"
+                                    "EXCEL_MIGRATION",
+                                    "EFINANCE"
                                   ]
                                 },
                                 "sourceRef": {
@@ -19751,7 +21667,8 @@
                                     "SAP_EXTRACT",
                                     "SAP_MCP",
                                     "MANUAL",
-                                    "EXCEL_MIGRATION"
+                                    "EXCEL_MIGRATION",
+                                    "EFINANCE"
                                   ]
                                 },
                                 "sourceRef": {
@@ -20079,7 +21996,8 @@
                         "SAP_EXTRACT",
                         "SAP_MCP",
                         "MANUAL",
-                        "EXCEL_MIGRATION"
+                        "EXCEL_MIGRATION",
+                        "EFINANCE"
                       ]
                     },
                     "report": {
@@ -20837,6 +22755,70 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "efinance": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "pushedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastError": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "booked": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "inFlight": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "requisitions": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "remaining": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "lastSyncAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "pushedAt",
+                            "lastError",
+                            "booked",
+                            "inFlight",
+                            "requisitions",
+                            "remaining",
+                            "lastSyncAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -21208,6 +23190,70 @@
                       "type": [
                         "string",
                         "null"
+                      ]
+                    },
+                    "efinance": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "pushedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastError": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "booked": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "inFlight": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "requisitions": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "remaining": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "lastSyncAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "pushedAt",
+                            "lastError",
+                            "booked",
+                            "inFlight",
+                            "requisitions",
+                            "remaining",
+                            "lastSyncAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     }
                   },

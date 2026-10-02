@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EFinanceContractSummary } from "./efinance";
 import { Defect } from "./site";
 
 // ------------------------------------------------------------ M1 (R08–R10)
@@ -138,6 +139,12 @@ export const ContractWarning = z.object({
     "bondExpired",
     "completionPast",
     "instructionsWithoutVariation",
+    // ADR-0029. eFinance refused the push with 409 CONFLICT (the reference
+    // exists there under another hospital or budget code) — a person
+    // resolves it; or the contract cannot be pushed at all because it has
+    // no budget code or its contractor has no SAP vendor code.
+    "efinanceConflict",
+    "efinanceNotPushable",
   ]),
   sentenceEl: z.string(),
   sentenceEn: z.string(),
@@ -166,6 +173,10 @@ export const ContractDetail = Contract.extend({
   defects: z.array(Defect).optional(),
   rfisOpen: z.number().int().nonnegative().optional(),
   rfisBreached: z.number().int().nonnegative().optional(),
+  // ADR-0029: the push state and eFinance's own figures for this contract.
+  // Null when eFinance is not configured. Optional for the same reason as
+  // the three above: fixtures written before it do not carry it.
+  efinance: EFinanceContractSummary.nullable().optional(),
 });
 export type ContractDetail = z.infer<typeof ContractDetail>;
 

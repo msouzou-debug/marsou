@@ -1,10 +1,9 @@
 /**
- * The fallback reader — and, until eFinance publishes
- * `GET /api/v1/master/budget-codes?kind=capex`, the only one anybody's
- * environment actually calls (ADR-0025).
+ * The fallback reader (ADR-0025): what `POST /budget-codes/sync` reads when
+ * eFinance is not configured.
  *
- * `BudgetCodesService` picks this reader whenever `EFINANCE_URL` or
- * `EFINANCE_TOKEN` is not configured. Its twenty rows are the same twenty
+ * `BudgetCodesService` picks this reader whenever `EFINANCE_TOKEN` is not
+ * placed (ADR-0029). Its twenty rows are the same twenty
  * migration `0013_contract_budget_code.sql` seeds, kept in step by hand: the
  * five the owner named by number and description on 19/09/2026, and fifteen
  * placeholders clearly marked in Greek with «(προσωρινή περιγραφή)» because

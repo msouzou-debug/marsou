@@ -50,6 +50,7 @@ import {
   sortCategories,
   toCategoryRow,
 } from "./cost-rows";
+import { EFinanceReadService } from "../efinance/efinance-read.service";
 import { CostWarningsService } from "./cost-warnings.service";
 
 interface Ledgers {
@@ -64,7 +65,10 @@ interface Ledgers {
 
 @Injectable()
 export class ProjectCostService {
-  constructor(private readonly warnings: CostWarningsService) {}
+  constructor(
+    private readonly warnings: CostWarningsService,
+    private readonly efinance: EFinanceReadService,
+  ) {}
 
   /** R13 — everything S04 shows, warnings included. */
   async costOf(projectId: string): Promise<ProjectCost> {
@@ -98,6 +102,10 @@ export class ProjectCostService {
       categories: await this.categoriesOf(projectId, ledgers, inputs),
       warnings: await this.warnings.listFor(projectId),
       lastSapImportAt: ledgers.lastSapImportAt,
+      // ADR-0029: eFinance's own figures, beside the four ledgers and never
+      // folded into them — requisitions are not `committed`, in flight is
+      // not `spent`. Null when eFinance is not configured.
+      efinance: await this.efinance.projectSummary(projectId),
     };
   }
 
@@ -323,6 +331,8 @@ export class ProjectCostService {
           txnWhere,
           eq(schema.costTxn.txnType, "ACTUAL"),
           sql`${schema.costTxn.postingDate} is not null`,
+          // ADR-0029: eFinance's booked lines, not the extract's, for a contract eFinance holds.
+          sql`ecapital.cost_txn_counts_as_spent(${schema.costTxn.source}, ${schema.costTxn.contractId})`,
         ),
       )
       .groupBy(sql`to_char(${schema.costTxn.postingDate}, 'YYYY-MM')`);
@@ -439,9 +449,11 @@ export class ProjectCostService {
              exists (select 1 from ecapital.contract c
                       where c.project_id = ${projectId}::uuid) as has_contracts,
              (select sum(t.amount) from ecapital.cost_txn t
-               where t.project_id = ${projectId}::uuid and t.txn_type = 'ACTUAL')::text as spent,
+               where t.project_id = ${projectId}::uuid and t.txn_type = 'ACTUAL'
+                 and ecapital.cost_txn_counts_as_spent(t.source, t.contract_id))::text as spent,
              exists (select 1 from ecapital.cost_txn t
-                      where t.project_id = ${projectId}::uuid and t.txn_type = 'ACTUAL') as has_actuals,
+                      where t.project_id = ${projectId}::uuid and t.txn_type = 'ACTUAL'
+                        and ecapital.cost_txn_counts_as_spent(t.source, t.contract_id)) as has_actuals,
              (select sum(v.value) from ecapital.variation v
                join ecapital.contract c on c.id = v.contract_id
               where c.project_id = ${projectId}::uuid and v.status = 'SUBMITTED')::text
@@ -522,6 +534,7 @@ export class ProjectCostService {
         from ecapital.cost_txn t
         left join ecapital.budget_line b on b.id = t.budget_line_id
        where t.project_id = ${projectId}::uuid
+         and (t.txn_type <> 'ACTUAL' or ecapital.cost_txn_counts_as_spent(t.source, t.contract_id))
        group by b.category, t.txn_type`);
 
     const approvedBy = new Map<string, number>();

@@ -42,9 +42,9 @@ export class BudgetCodesController {
   }
 
   /**
-   * RULE (ADR-0025): calls eFinance's read endpoint when EFINANCE_URL and
-   * EFINANCE_TOKEN are both configured; falls back to eCapital's own seed
-   * list otherwise (`BudgetCodesService.reader`). Either way the result is
+   * RULE (ADR-0025, ADR-0029): calls eFinance's read endpoint when the
+   * eFinance client is configured (EFINANCE_TOKEN placed); falls back to
+   * eCapital's own seed list otherwise (`BudgetCodesService.reader`). Either way the result is
    * an upsert by code plus deactivating whatever the reader no longer names.
    */
   @Post("sync")

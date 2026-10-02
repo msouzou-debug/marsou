@@ -18,6 +18,7 @@ import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import { BACKLOG_STATUSES } from "../defects/defect-rows";
+import { ContractPushService } from "../efinance/contract-push.service";
 import { OPEN_PERMIT_STATUSES } from "../permits/permit-rows";
 import * as schema from "../db/schema";
 import {
@@ -41,6 +42,8 @@ const AUDIT_LINES = 50;
 
 @Injectable()
 export class ProjectsService {
+  constructor(private readonly efinancePush: ContractPushService) {}
+
   /**
    * There is no permission check anywhere in this file and there is not meant
    * to be one (ADR-0010). A project in a unit the caller may not see does not
@@ -284,6 +287,10 @@ export class ProjectsService {
       .returning({ id: schema.project.id });
     if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
 
+    // ADR-0029: the project's Greek title is the `title` eFinance shows in
+    // its contract picker, so a new one goes out to every contract on it.
+    if (values.titleEl !== undefined) await this.efinancePush.pushProject(id);
+
     return this.detail(id);
   }
 
@@ -342,6 +349,13 @@ export class ProjectsService {
       .where(eq(schema.project.id, id))
       .returning({ id: schema.project.id });
     if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+
+    // ADR-0029: a contract is `closed` in eFinance when its project is
+    // CLOSED and `active` otherwise, so moving into or out of CLOSED changes
+    // what eFinance holds for every contract on the project.
+    if (input.phase === "CLOSED" || project.phase === "CLOSED") {
+      await this.efinancePush.pushProject(id);
+    }
 
     return this.detail(id);
   }

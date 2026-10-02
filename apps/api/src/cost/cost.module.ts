@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { EFinanceModule } from "../efinance/efinance.module";
 import { CostAccrualsService } from "./cost-accruals.service";
 import { CostController } from "./cost.controller";
 import { CostImportsService } from "./cost-imports.service";
@@ -17,6 +18,8 @@ import { ProjectCostService } from "./project-cost.service";
  * implementation of the five rules.
  */
 @Module({
+  // ADR-0029: the project cost screen shows eFinance's figures beside the ledgers.
+  imports: [EFinanceModule],
   controllers: [CostController, ProjectCostController, PaymentCertsController],
   providers: [
     CostImportsService,

@@ -28,12 +28,15 @@ import * as schema from "../db/schema";
 import { ContractorsService } from "../contractors/contractors.service";
 import { CostWarningsService } from "../cost/cost-warnings.service";
 import { type DefectRow, toDefect } from "../defects/defect-rows";
+import { ContractPushService } from "../efinance/contract-push.service";
+import { EFinanceReadService } from "../efinance/efinance-read.service";
 import { phaseIndex } from "../projects/project-rows";
 import {
   type BoqRow,
   type ContractRow,
   money,
   toBoqItem,
+  efinanceWarningFacts,
   toContract,
   warningFacts,
 } from "./contract-rows";
@@ -55,6 +58,8 @@ export class ContractsService {
     private readonly i18n: I18nService,
     private readonly contractors: ContractorsService,
     private readonly costWarnings: CostWarningsService,
+    private readonly efinancePush: ContractPushService,
+    private readonly efinance: EFinanceReadService,
   ) {}
 
   /**
@@ -221,6 +226,9 @@ export class ContractsService {
           budgetCode: input.budgetCode,
         })
         .returning({ id: schema.contract.id });
+      // ADR-0029, write first: eFinance can only tag an invoice with a
+      // contract it has been sent. One attempt now; the timer retries.
+      await this.efinancePush.pushQuietly(row.id);
       return await this.detail(row.id);
     } catch (error) {
       this.writeError(error, { contractNo: input.contractNo });
@@ -247,16 +255,25 @@ export class ContractsService {
       .where(eq(schema.project.id, row.projectId))
       .limit(1);
 
-    const [contractor, boq, variations, defects, rfis, instructionsWithoutVariation, budgetCodeDescriptions] =
-      await Promise.all([
-        this.contractors.load(row.contractorId),
-        this.boqOf(id),
-        this.variationsOf(id),
-        this.defectsOf(id),
-        this.rfiCounts(id),
-        this.instructionsWithoutVariation(id),
-        this.budgetCodeDescriptions(row.budgetCode),
-      ]);
+    const [
+      contractor,
+      boq,
+      variations,
+      defects,
+      rfis,
+      instructionsWithoutVariation,
+      budgetCodeDescriptions,
+      efinance,
+    ] = await Promise.all([
+      this.contractors.load(row.contractorId),
+      this.boqOf(id),
+      this.variationsOf(id),
+      this.defectsOf(id),
+      this.rfiCounts(id),
+      this.instructionsWithoutVariation(id),
+      this.budgetCodeDescriptions(row.budgetCode),
+      this.efinance.contractFacts(id),
+    ]);
 
     const approvedVariationsTotal = sumOf(variations, "APPROVED");
     const pendingVariationsTotal = sumOf(variations, "SUBMITTED");
@@ -277,6 +294,19 @@ export class ContractsService {
       },
       today(),
     );
+    // ADR-0029: the two eFinance warnings, only once there is an eFinance
+    // to push to.
+    if (efinance.configured) {
+      facts.push(
+        ...efinanceWarningFacts({
+          contractNo: contract.contractNo,
+          projectTitleEl: project.titleEl,
+          budgetCode: contract.budgetCode,
+          vendorCode: contractor.sapVendorId,
+          conflict: efinance.conflict,
+        }),
+      );
+    }
 
     return {
       ...contract,
@@ -298,6 +328,7 @@ export class ContractsService {
       defects,
       rfisOpen: rfis.open,
       rfisBreached: rfis.breached,
+      efinance: efinance.summary,
     };
   }
 
@@ -357,6 +388,9 @@ export class ContractsService {
       if (error instanceof AppError) throw error;
       this.writeError(error, { contractNo: input.contractNo ?? "" });
     }
+    // ADR-0029: the budget code is one of the two keys eFinance checks, and
+    // the push is idempotent, so any change goes out the same way.
+    await this.efinancePush.pushQuietly(id);
     return this.detail(id);
   }
 
@@ -555,6 +589,10 @@ export class ContractsService {
       .where(eq(schema.contract.id, contractId))
       .limit(1);
     if (contract) await this.costWarnings.evaluate(contract.projectId);
+
+    // ADR-0029: an approval is the only thing that moves current_value
+    // (ADR-0015), and current_value is in the eFinance push.
+    if (input.decision === "APPROVED") await this.efinancePush.pushQuietly(contractId);
 
     return this.variation(contractId, variationId);
   }

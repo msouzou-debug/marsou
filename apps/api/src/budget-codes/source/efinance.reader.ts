@@ -1,96 +1,59 @@
 /**
- * Phase two of the budget-code seam, live from the day eFinance's read
- * endpoint answers — ADR-0022's loopback contract and
- * INTEGRATION-eFinance-eMAP-eCapital.md §5.
+ * Phase two of the budget-code seam: eFinance's own
+ * `GET /api/v1/master/budget-codes?kind=capex`, live since 21/09/2026
+ * (eFinance's integration record §3; ADR-0022, ADR-0025, ADR-0029).
  *
- * `BudgetCodesService` picks this reader over `SeedBudgetCodeReader` only
- * when both `EFINANCE_URL` and `EFINANCE_TOKEN` are set (ADR-0025's own
- * fallback rule); the call itself always goes to the loopback address ADR-
- * 0022 fixes, `http://127.0.0.1:5004` (`EFINANCE_API_URL` can move it for a
- * UAT box), never to `EFINANCE_URL` — that
- * setting is the public hostname `LinksController` uses for a human's
- * «Άνοιγμα στο eFinance» link, a different address for a different caller.
+ * The call itself is the EFinanceClient's — the one place that knows the
+ * loopback address, the bearer token, the 5-second read timeout and the
+ * error envelope. This reader only turns eFinance's rows into eCapital's:
  *
- * ADR-0022's rules this reader follows: one bearer token, no forwarded-edge
- * header (there is nothing to forward — this request is built from scratch),
- * a 5-second timeout, and the one error envelope `{"error":{"code",
- * "message"}}` every route on the contract answers with. `NO_PROXY` is a
- * host-level setting on the systemd unit (ADR-0022 §"Bypassing Squid"), not
- * something this file has to arrange — a plain `fetch` is exactly what a
- * unit with `NO_PROXY=127.0.0.1,localhost` in its environment needs.
+ *   - the display name is `name` when eFinance sends one, `description`
+ *     otherwise (owner decision, 02/10/2026). eFinance holds one text per
+ *     code, so it fills both languages; the seed's English stays only on the
+ *     rows eFinance does not send.
+ *   - `category` is kept as eFinance spells it («Εξοπλισμός»).
+ *   - a row eFinance marks inactive is left out, so the sync deactivates it
+ *     here too.
+ *
+ * Anything that goes wrong on the way is still `errors.budgetCodeSyncFailed`,
+ * 422, with eFinance's own code in the detail — the behaviour this reader had
+ * before the client existed.
  */
 import { AppError } from "../../common/errors";
 import type { BudgetCodeSource } from "@ecapital/shared";
+import { EFinanceClient, EFinanceError } from "../../efinance/efinance-client";
 import type { BudgetCodeSourceReader, RawBudgetCode } from "./budget-code-source";
 
-/** ADR-0022: eFinance's loopback contract, same host, eCapital the only caller. `EFINANCE_API_URL` overrides it. */
-export const EFINANCE_LOOPBACK_URL = "http://127.0.0.1:5004";
-const TIMEOUT_MS = 5_000;
-
-/** The shape docs/INTEGRATION-eFinance-eMAP-eCapital.md §5 promises for this route. */
-interface EFinanceBudgetCodeRow {
-  code: string;
-  description_el?: string;
-  description_en?: string;
-  category?: string | null;
-}
-
-interface EFinanceErrorEnvelope {
-  error?: { code?: string; message?: string };
-}
+export { EFINANCE_LOOPBACK_URL } from "../../efinance/efinance-client";
 
 export class EFinanceBudgetCodeReader implements BudgetCodeSourceReader {
   readonly source: BudgetCodeSource = "EFINANCE";
 
-  constructor(
-    private readonly token: string,
-    private readonly baseUrl: string = EFINANCE_LOOPBACK_URL,
-  ) {}
+  constructor(private readonly client: EFinanceClient) {}
 
   async read(): Promise<RawBudgetCode[]> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    let response: Response;
+    let rows;
     try {
-      response = await fetch(`${this.baseUrl}/api/v1/master/budget-codes?kind=capex`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${this.token}` },
-        signal: controller.signal,
-      });
+      rows = await this.client.budgetCodes("capex");
     } catch (error) {
-      // Network failure, refused connection, or the 5-second timeout firing
-      // (AbortError lands here too). eFinance being unreachable is not the
-      // caller's fault, but it is also not something to guess an answer for.
-      const detail = error instanceof Error && error.name === "AbortError" ? "timeout" : "network";
-      throw AppError.unprocessable("errors.budgetCodeSyncFailed", { detail });
-    } finally {
-      clearTimeout(timer);
+      if (error instanceof EFinanceError) {
+        throw AppError.unprocessable("errors.budgetCodeSyncFailed", { detail: error.summary });
+      }
+      throw error;
     }
-
-    if (!response.ok) {
-      const envelope = (await response.json().catch(() => null)) as EFinanceErrorEnvelope | null;
-      throw AppError.unprocessable("errors.budgetCodeSyncFailed", {
-        detail: envelope?.error?.message ?? String(response.status),
-      });
-    }
-
-    const body = (await response.json().catch(() => null)) as
-      | EFinanceBudgetCodeRow[]
-      | { items?: EFinanceBudgetCodeRow[] }
-      | null;
-    const rows = Array.isArray(body) ? body : Array.isArray(body?.items) ? body.items : null;
-    if (!rows) throw AppError.unprocessable("errors.budgetCodeSyncFailed", { detail: "shape" });
 
     return rows
-      .filter((row): row is EFinanceBudgetCodeRow => typeof row?.code === "string" && row.code.length > 0)
-      .map((row) => ({
-        code: row.code,
-        descriptionEl: row.description_el ?? "",
-        descriptionEn: row.description_en ?? "",
-        category: row.category ?? null,
-        // §5's route is already scoped `?kind=capex`; every row it returns
-        // is the capital subset by construction.
-        isCapex: true,
-      }));
+      .filter((row) => row.code.length > 0 && row.active)
+      .map((row) => {
+        const display = row.name?.trim() || row.description?.trim() || row.code;
+        return {
+          code: row.code,
+          descriptionEl: display,
+          descriptionEn: display,
+          category: row.category ?? null,
+          // The route is asked `kind=capex`; every row is the capital subset.
+          isCapex: row.kind === "capex",
+        };
+      });
   }
 }
