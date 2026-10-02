@@ -4,11 +4,11 @@ import {
   ContractList,
   PortfolioResponse,
   ProjectDetail,
-  ProjectList,
+  type ProjectSummary,
 } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, allProjects, bearer, createTestApp, tokenFor } from "./app";
 
 /**
  * R13 — the commitment ledger, now that there is something to put in it. The
@@ -28,13 +28,12 @@ describe("the commitment ledger", () => {
     await app.close();
   });
 
-  async function projects(email: string): Promise<ProjectList> {
-    const token = await tokenFor(app, email);
-    const response = await request(app.getHttpServer())
-      .get("/projects?pageSize=200")
-      .set(bearer(token));
-    expect(response.status).toBe(200);
-    return ProjectList.parse(response.body);
+  /**
+   * Every project the caller sees, every page of them: the KPI is over all of
+   * them, and the other suites' projects outnumber one page of 200.
+   */
+  async function projects(email: string): Promise<{ items: ProjectSummary[]; total: number }> {
+    return allProjects(app, email);
   }
 
   async function contractsOf(email: string, projectId: string): Promise<ContractList> {
@@ -121,12 +120,7 @@ describe("the seeded warnings (R31)", () => {
   /** The contract the seed put on the project with this source reference. */
   async function seededContract(email: string, sourceRowRef: string): Promise<ContractDetail> {
     const token = await tokenFor(app, email);
-    const list = await request(app.getHttpServer())
-      .get("/projects?pageSize=200")
-      .set(bearer(token));
-    const project = ProjectList.parse(list.body).items.find(
-      (p) => p.sourceRowRef === sourceRowRef,
-    );
+    const project = (await allProjects(app, email)).items.find((p) => p.sourceRowRef === sourceRowRef);
     if (!project) throw new Error(`no seeded project ${sourceRowRef}`);
     const contracts = await request(app.getHttpServer())
       .get(`/projects/${project.id}/contracts`)

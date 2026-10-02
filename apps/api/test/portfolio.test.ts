@@ -1,8 +1,8 @@
 import type { INestApplication } from "@nestjs/common";
-import { PortfolioResponse, ProjectList } from "@ecapital/shared";
+import { PortfolioResponse, type ProjectSummary } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, allProjects, bearer, createTestApp, tokenFor } from "./app";
 import { linearRamp, yearElapsedPct } from "../src/portfolio/portfolio.service";
 
 /**
@@ -28,12 +28,13 @@ describe("GET /portfolio", () => {
     return PortfolioResponse.parse(response.body);
   }
 
-  async function projects(email: string): Promise<ProjectList> {
-    const token = await tokenFor(app, email);
-    const response = await request(app.getHttpServer())
-      .get("/projects?pageSize=200")
-      .set(bearer(token));
-    return ProjectList.parse(response.body);
+  /**
+   * Every project the caller sees, every page of them. The portfolio sums
+   * all of them; one page of 200 stops covering them once the other suites
+   * have added theirs to the shared database.
+   */
+  async function projects(email: string): Promise<{ items: ProjectSummary[]; total: number }> {
+    return allProjects(app, email);
   }
 
   it("adds up the approved budget of exactly the projects the caller sees", async () => {
@@ -98,13 +99,9 @@ describe("GET /portfolio", () => {
   });
 
   it("finds all three kinds of exception in the seed", async () => {
-    const token = await tokenFor(app, USERS.admin);
     // The cap hides some of them from /portfolio, so look for the underlying
     // facts instead: a slipped gate, an undated project and an overdue one.
-    const list = await request(app.getHttpServer())
-      .get("/projects?pageSize=200")
-      .set(bearer(token));
-    const items = ProjectList.parse(list.body).items.filter((p) => p.sourceRowRef !== null);
+    const items = (await projects(USERS.admin)).items.filter((p) => p.sourceRowRef !== null);
     expect(items.filter((p) => p.plannedStart === null)).toHaveLength(2);
     expect(
       items.filter(

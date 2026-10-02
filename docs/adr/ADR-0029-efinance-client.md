@@ -239,3 +239,12 @@ picker within ten minutes of the token being placed. eFinance's picker is a
 list people code real invoices against; fiction in it is worse than an
 empty picker. Production turns the switch on once, deliberately, after the
 Capex import has replaced the seed.
+
+## Addendum, 02/10/2026 — the retry pass can be narrowed, for the tests
+
+`ContractPushService.retryPending(limit, only?)` takes an optional list of
+contract ids and, given one, considers only those. The timer never passes it,
+so production behaviour is unchanged. The test suite does: a full pass pushed
+every pushable contract in the database the suites share, the seeded ones
+included, and a seeded contract left "pushed" stops counting its SAP-extract
+actuals as spent (§3) under whichever suite reads it next.

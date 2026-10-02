@@ -2,7 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import { ProjectDetail, ProjectList } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, allProjects, bearer, createTestApp, tokenFor } from "./app";
 
 /**
  * The M1 register end to end: who sees which projects, what the list does
@@ -32,16 +32,17 @@ describe("GET /projects", () => {
   }
 
   it("gives the administrator all forty-one seeded projects", async () => {
-    const page = await list(USERS.admin, "?pageSize=200");
+    const page = await allProjects(app, USERS.admin);
     // Other suites add projects to the same cluster, so count the seeded ones
-    // rather than everything: only the seed carries a source row reference.
+    // rather than everything — only the seed carries a source row reference —
+    // and read every page: their projects can push seeded ones off the first.
     // 41: 42 from the Capex Plan units plus HQ's own (owner decision,
     // 19/09/2026), less the Ambulance Service's two (ADR-0024).
     expect(page.items.filter((p) => p.sourceRowRef !== null)).toHaveLength(41);
   });
 
   it("gives the Larnaca engineer only Larnaca", async () => {
-    const page = await list(USERS.engineerLarnaca, "?pageSize=200");
+    const page = await allProjects(app, USERS.engineerLarnaca);
     expect(page.items.length).toBeGreaterThan(0);
     expect(page.items.every((p) => p.orgUnitId === "larnaca-general")).toBe(true);
   });
@@ -75,14 +76,14 @@ describe("GET /projects", () => {
     expect(direct.status).toBe(404);
     expect(direct.body.key).toBe("errors.projectNotFound");
 
-    const listedForNicosia = await list(USERS.estatesNicosia, "?pageSize=200");
+    const listedForNicosia = await allProjects(app, USERS.estatesNicosia);
     expect(listedForNicosia.items.some((p) => p.id === hqProject.id)).toBe(false);
   });
 
   it("matches «ΑΝΑΚΑΙΝΙΣΗ» against «Ανακαίνιση χειρουργείων»", async () => {
     // Case and accents both folded, in the database, by the same function
     // that backs the index.
-    const page = await list(USERS.admin, "?q=ΑΝΑΚΑΙΝΙΣΗ&pageSize=200");
+    const page = await allProjects(app, USERS.admin, "?q=ΑΝΑΚΑΙΝΙΣΗ");
     expect(page.items.length).toBeGreaterThan(0);
     expect(page.items.some((p) => p.titleEl === "Ανακαίνιση χειρουργείων")).toBe(true);
     expect(page.items.every((p) => p.titleEl.toLowerCase().includes("ανακαίν"))).toBe(true);
@@ -96,11 +97,11 @@ describe("GET /projects", () => {
   });
 
   it("filters by phase and by rag, repeating the parameter for several", async () => {
-    const page = await list(USERS.admin, "?phase=IDEA&phase=PREPARATION&pageSize=200");
+    const page = await allProjects(app, USERS.admin, "?phase=IDEA&phase=PREPARATION");
     expect(page.items.length).toBeGreaterThan(0);
     expect(page.items.every((p) => p.phase === "IDEA" || p.phase === "PREPARATION")).toBe(true);
 
-    const red = await list(USERS.admin, "?rag=RED&pageSize=200");
+    const red = await allProjects(app, USERS.admin, "?rag=RED");
     expect(red.items.every((p) => p.rag === "RED")).toBe(true);
   });
 
@@ -130,16 +131,20 @@ describe("GET /projects", () => {
     // CAPEX-01 §7: a ledger the system has not been told is null, never zero.
     // M1 knows two of them — the approved budget from the day the project is
     // opened, and the commitment once a contract exists (R13).
-    const page = await list(USERS.admin, "?pageSize=200");
+    const page = await list(USERS.admin, "?pageSize=1");
     expect(page.items[0].ledgers.approved).toBe(page.items[0].approvedBudget);
-    expect(page.items.every((p) => p.ledgers.spent === null)).toBe(true);
-    expect(page.items.every((p) => p.ledgers.forecast === null)).toBe(true);
+    // The seeded projects, by their source row: another suite may post an
+    // actual on a project of its own, which is its business, not this rule's.
+    const seeded = (await allProjects(app, USERS.admin)).items.filter((p) => p.sourceRowRef !== null);
+    expect(seeded).toHaveLength(41);
+    expect(seeded.every((p) => p.ledgers.spent === null)).toBe(true);
+    expect(seeded.every((p) => p.ledgers.forecast === null)).toBe(true);
 
     // A project before award has no contract and therefore no commitment.
-    const early = page.items.find((p) => p.phase === "IDEA");
+    const early = seeded.find((p) => p.phase === "IDEA");
     expect(early?.ledgers.committed).toBeNull();
     // One that has been awarded has one, and it is a figure, not a zero.
-    const awarded = page.items.find((p) => p.phase === "IN_PROGRESS" && p.sourceRowRef !== null);
+    const awarded = seeded.find((p) => p.phase === "IN_PROGRESS");
     expect(awarded?.ledgers.committed).toBeGreaterThan(0);
   });
 
@@ -161,10 +166,9 @@ describe("GET /projects/:id", () => {
 
   it("carries the unit, the names, the children and the history", async () => {
     const token = await tokenFor(app, USERS.admin);
-    const list = await request(app.getHttpServer())
-      .get("/projects?unit=nicosia-general&pageSize=200")
-      .set(bearer(token));
-    const seeded = ProjectList.parse(list.body).items.filter((p) => p.sourceRowRef !== null);
+    const seeded = (await allProjects(app, USERS.admin, "?unit=nicosia-general")).items.filter(
+      (p) => p.sourceRowRef !== null,
+    );
     const withChildren = seeded.find((p) => p.phase !== "IDEA") ?? seeded[0];
 
     const response = await request(app.getHttpServer())

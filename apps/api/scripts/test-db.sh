@@ -6,10 +6,20 @@
 # directory, listen on a free port over a unix socket, run, then stop and
 # delete everything (ADR-0012).
 #
-#   ./scripts/test-db.sh start   prints DATABASE_URL and MIGRATION_DATABASE_URL
+#   ./scripts/test-db.sh start   starts a fresh cluster, prints DATABASE_URL and MIGRATION_DATABASE_URL
 #   ./scripts/test-db.sh stop    stops the cluster and removes its directory
 #
 # The state directory is .tmp/test-db under apps/api, or $ECAPITAL_TEST_DB_DIR.
+#
+# One cluster per run, never shared. `start` always initdb's a fresh cluster:
+# a cluster still running in the state directory is either left behind by a
+# run that was killed before its teardown (its owner is gone: it is stopped
+# and thrown away) or in use by another run right now (its owner is alive:
+# `start` refuses, and says to set ECAPITAL_TEST_DB_DIR). Reusing it would
+# hand this run a database full of the other run's rows, which is how a full
+# run failed on 02/10/2026 and passed straight after. The owner is the pid in
+# $ECAPITAL_TEST_DB_OWNER (the vitest global setup passes its own), or this
+# script's parent.
 #
 # PostgreSQL refuses to run as root. When this script is root (containers
 # often are) it drops to $ECAPITAL_TEST_DB_USER, or the first unprivileged
@@ -25,6 +35,8 @@ DATA_DIR="$STATE_DIR/data"
 SOCK_DIR="$STATE_DIR/sock"
 PORT_FILE="$STATE_DIR/port"
 LOG_FILE="$STATE_DIR/postgres.log"
+OWNER_FILE="$STATE_DIR/owner"
+OWNER="${ECAPITAL_TEST_DB_OWNER:-$PPID}"
 DB_NAME="ecapital_test"
 APP_ROLE="ecapital_app"
 
@@ -60,13 +72,20 @@ PY
 start() {
   [ -x "$PGBIN/initdb" ] || die "no PostgreSQL 16 binaries at $PGBIN (set PGBIN)"
 
-  if [ -f "$PORT_FILE" ] && pg "$PGBIN/pg_ctl" -D "$DATA_DIR" status >/dev/null 2>&1; then
-    emit "$(cat "$PORT_FILE")"
-    return 0
+  if [ -d "$DATA_DIR" ]; then
+    local holder=""
+    [ -f "$OWNER_FILE" ] && holder="$(cat "$OWNER_FILE")"
+    if [ -n "$holder" ] && [ "$holder" != "$OWNER" ] && kill -0 "$holder" 2>/dev/null \
+      && pg "$PGBIN/pg_ctl" -D "$DATA_DIR" status >/dev/null 2>&1; then
+      die "the cluster in $STATE_DIR belongs to a run that is still going (pid $holder); set ECAPITAL_TEST_DB_DIR to a directory of your own"
+    fi
+    # Left behind by a run that never reached its teardown: never reused.
+    pg "$PGBIN/pg_ctl" -D "$DATA_DIR" -m immediate -w -t 30 stop >/dev/null 2>&1 || true
   fi
 
   rm -rf "$STATE_DIR"
   mkdir -p "$DATA_DIR" "$SOCK_DIR"
+  echo "$OWNER" >"$OWNER_FILE"
   if [ -n "$RUN_AS" ]; then chown -R "$RUN_AS" "$STATE_DIR"; fi
 
   # trust auth on a unix socket in a private directory: the cluster is
@@ -100,6 +119,14 @@ emit() {
 }
 
 stop() {
+  # A run whose start was refused must not take down the run that owns it.
+  if [ -f "$OWNER_FILE" ] && [ -n "${ECAPITAL_TEST_DB_OWNER:-}" ]; then
+    local holder
+    holder="$(cat "$OWNER_FILE")"
+    if [ "$holder" != "$ECAPITAL_TEST_DB_OWNER" ] && kill -0 "$holder" 2>/dev/null; then
+      return 0
+    fi
+  fi
   if [ -d "$DATA_DIR" ]; then
     pg "$PGBIN/pg_ctl" -D "$DATA_DIR" -m immediate -w -t 30 stop >/dev/null 2>&1 || true
   fi

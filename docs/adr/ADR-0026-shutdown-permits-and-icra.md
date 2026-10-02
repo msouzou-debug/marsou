@@ -130,3 +130,10 @@ Each is the stricter reading, each is an owner question, and each is an Errata b
 - The breach job is the only code path that writes a permit without a caller. It is also the only one that needs a `SECURITY DEFINER` function to do it; anything else that wants to must add one and say why.
 - `REDUNDANT_HALVES` will get narrower at M4 and the wording of the warning will not, so the i18n string is about the system rather than about the halves.
 - Closing a permit needs an appointment in `unit_approver` or `area_clinical_owner`. A unit rolled out without one has permits it cannot close — which is a deployment checklist item, not a code change.
+
+## Addendum, 02/10/2026 — the list order has a last key
+
+`GET /permits` orders by planned start, then created, then the permit id. The
+id is new: the seed writes every permit in one transaction, so `created_at`
+ties, and without a unique last key a row could appear on two pages or on
+none. Nothing a person sees changes except that paging is now stable.

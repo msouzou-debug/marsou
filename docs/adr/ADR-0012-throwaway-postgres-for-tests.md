@@ -21,3 +21,30 @@ What M0 has to prove is that row-level security and an audit trigger behave. Nei
 - `pnpm --filter @ecapital/api test` needs the PostgreSQL 16 binaries on the path or at `/usr/lib/postgresql/16/bin`; CI installs `postgresql-16`. It needs no daemon, no network and no privileges beyond a temp directory.
 - The tests prove the policies rather than a model of them: the auditor's `POST` is refused by Postgres, and the test asserts the 403 that produces.
 - A developer who wants a database to keep can point `DATABASE_URL` at their own and run the migrations by hand; the script is for the test run, not for development.
+
+## Addendum, 02/10/2026 — one cluster per run, never reused
+
+A full run failed fourteen tests and passed on the rerun with no code change.
+`test-db.sh start` used to hand back any cluster already running in its state
+directory, so a run that started after one was killed before its teardown —
+or alongside one still going in the same tree — got a database holding the
+other run's rows: two runs' worth of projects and permits, an eFinance sync
+cursor already past the fake's invoices, permits from minutes earlier in the
+same windows. The rerun passed because the failed run's teardown deleted
+that cluster. Now:
+
+- `start` always initdb's a fresh cluster. The global setup passes its pid as
+  the owner (`ECAPITAL_TEST_DB_OWNER`); a cluster whose owner has gone is
+  stopped and thrown away, and one whose owner is alive is refused with a
+  message to set `ECAPITAL_TEST_DB_DIR`. `stop` from a refused run leaves the
+  owner's cluster alone.
+- The suites still share the one database, so a test asserts on rows it
+  created, or on seeded rows picked by a stable key (a source row reference,
+  a title the seed alone uses), never on a global count or on one page of a
+  list other files add to — `listAll` in `test/app.ts` walks every page.
+- The `@Interval` timers return at once under `NODE_ENV=test`, and the test
+  app factories also delete them from the `SchedulerRegistry`; a test that
+  wants a pass calls the service for its own rows.
+- The eFinance suite pushes only its own contracts and checks, in its
+  `afterAll`, that the ledger and the eFinance tables are exactly as it found
+  them.

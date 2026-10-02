@@ -1,9 +1,9 @@
 import type { INestApplication } from "@nestjs/common";
-import { ShutdownPermit } from "@ecapital/shared";
+import { type PermitListRow, ShutdownPermit } from "@ecapital/shared";
 import { Client } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, bearer, createTestApp, listAll, tokenFor } from "./app";
 import {
   M3_USERS,
   approveEveryLine,
@@ -360,9 +360,12 @@ describe("shutdown permits", () => {
     const submitted = await submit(app, second.id);
 
     expect(submitted.status).toBe("CLINICAL_REVIEW");
-    expect(submitted.clashes).toHaveLength(1);
-    expect(submitted.clashes[0].kind).toBe("SAME_AREA_OVERLAP");
-    expect(submitted.clashes[0].otherPermitId).toBe(first.id);
+    // The clash with this test's own first permit. Another suite's permit on
+    // the same ward in the same weeks would be a second clash, and a true one,
+    // so the test looks for its own rather than counting everything.
+    const withFirst = submitted.clashes.filter((clash) => clash.otherPermitId === first.id);
+    expect(withFirst).toHaveLength(1);
+    expect(withFirst[0].kind).toBe("SAME_AREA_OVERLAP");
 
     // §6.7's other half: an email to the head of estates, never a block.
     const { rows } = await client.query(
@@ -370,7 +373,7 @@ describe("shutdown permits", () => {
       [second.id],
     );
     expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0].to_email).toBe("estates.nicosia@ecapital.test");
+    expect(rows.map((row) => row.to_email)).toContain("estates.nicosia@ecapital.test");
   });
 
   // ------------------------------------------------------- the decisions --
@@ -755,18 +758,15 @@ describe("shutdown permits", () => {
 
   it("approves every line of the seeded Class IV permit — the M3 definition of done", async () => {
     const token = await tokenFor(app, USERS.admin);
-    const list = await request(app.getHttpServer())
-      .get("/permits?orgUnitId=nicosia-general&status=CLINICAL_REVIEW&pageSize=100")
-      .set(bearer(token));
-    const seeded = list.body.items.find(
-      (row: { titleEl: string }) =>
-        row.titleEl === "Διακοπή ιατρικών αερίων για αντικατάσταση βαλβίδων",
+    const list = await listAll<PermitListRow>(app, token, "/permits?orgUnitId=nicosia-general&status=CLINICAL_REVIEW");
+    const seeded = list.items.find(
+      (row) => row.titleEl === "Διακοπή ιατρικών αερίων για αντικατάσταση βαλβίδων",
     );
     expect(seeded).toBeDefined();
-    expect(seeded.icraClass).toBe("IV");
+    expect(seeded?.icraClass).toBe("IV");
 
     const detail = (
-      await request(app.getHttpServer()).get(`/permits/${seeded.id}`).set(bearer(token))
+      await request(app.getHttpServer()).get(`/permits/${seeded?.id}`).set(bearer(token))
     ).body as ShutdownPermit;
     const ic = detail.approvals.find((line) => line.role === "INFECTION_CONTROL");
     expect(ic?.approverName).toBe("Γιώργος Σάββα");
@@ -950,8 +950,9 @@ describe("a draft the wizard has not finished", () => {
     });
     await runIcra(app, second.id, "A");
     const submitted = await submit(app, second.id);
-    expect(submitted.clashes[0].messageKey).toBe("permitClash.SAME_AREA_OVERLAP");
-    expect(submitted.clashes[0].otherPermitRef).toMatch(/^PTW-NGH-/);
+    const withFirst = submitted.clashes.find((clash) => clash.otherPermitId === first.id);
+    expect(withFirst?.messageKey).toBe("permitClash.SAME_AREA_OVERLAP");
+    expect(withFirst?.otherPermitRef).toMatch(/^PTW-NGH-/);
   });
 
   it("carries the project id on every list row (S03's open-permits card)", async () => {
@@ -973,13 +974,9 @@ describe("a draft the wizard has not finished", () => {
         projectId: project.id,
       });
 
-    const list = await request(app.getHttpServer())
-      .get("/permits?orgUnitId=larnaca-general&pageSize=100")
-      .set(bearer(engineer));
-    const row = list.body.items.find(
-      (item: { id: string }) => item.id === (created.body as ShutdownPermit).id,
-    );
-    expect(row.projectId).toBe(project.id);
+    const list = await listAll<PermitListRow>(app, engineer, "/permits?orgUnitId=larnaca-general");
+    const row = list.items.find((item) => item.id === (created.body as ShutdownPermit).id);
+    expect(row?.projectId).toBe(project.id);
   });
 
   it("serves the permit's own trail in the project trail's shape (R42)", async () => {

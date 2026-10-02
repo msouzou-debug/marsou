@@ -2,7 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import { Client } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, bearer, createTestApp, listAll, tokenFor } from "./app";
 
 /**
  * M4 — the asset register (R26–R30, R45).
@@ -214,19 +214,16 @@ describe("the asset register", () => {
     const worst = await makeAsset({ criticality: 1, condition: "E" }, USERS.admin);
     const best = await makeAsset({ criticality: 5, condition: "A" }, USERS.admin);
 
-    const response = await request(app.getHttpServer())
-      .get("/assets?orgUnitId=nicosia-general&pageSize=100")
-      .set(bearer(token));
-    expect(response.status).toBe(200);
-    const byId = new Map<string, number | null>(
-      response.body.items.map((row: { id: string; priorityRank: number | null }) => [
-        row.id,
-        row.priorityRank,
-      ]),
+    // Every page: the other suites' Nicosia assets can sort these two off the first.
+    const response = await listAll<{ id: string; priorityRank: number | null }>(
+      app,
+      token,
+      "/assets?orgUnitId=nicosia-general",
     );
+    const byId = new Map<string, number | null>(response.items.map((row) => [row.id, row.priorityRank]));
     expect(byId.get(worst.body.id)).toBe(1);
     expect(byId.get(best.body.id)).toBeGreaterThan(byId.get(worst.body.id) as number);
-    expect(response.body.total).toBeGreaterThan(0);
+    expect(response.total).toBeGreaterThan(0);
   });
 
   it("finds an asset by a fragment of its tag, its name, its serial or its SAP number", async () => {
@@ -236,11 +233,9 @@ describe("the asset register", () => {
       USERS.admin,
     );
     for (const needle of ["559911", "sap-test-4477", created.body.tag.slice(-4)]) {
-      const response = await request(app.getHttpServer())
-        .get(`/assets?q=${encodeURIComponent(needle)}&pageSize=100`)
-        .set(bearer(token));
+      const response = await listAll(app, token, `/assets?q=${encodeURIComponent(needle)}`);
       expect(
-        response.body.items.some((row: { id: string }) => row.id === created.body.id),
+        response.items.some((row) => row.id === created.body.id),
         needle,
       ).toBe(true);
     }

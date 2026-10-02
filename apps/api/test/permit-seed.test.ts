@@ -2,7 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import type { PermitListRow, ShutdownPermit } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { USERS, bearer, createTestApp, listAll, tokenFor } from "./app";
 
 /**
  * CAPEX-01 §15: «Seed data ships … 5 permits at different states so every
@@ -23,13 +23,15 @@ describe("the seeded permit register", () => {
     await app.close();
   });
 
+  /**
+   * The seeded permits, by title, out of every page of the register: the
+   * other suites raise permits of their own, and enough of them push seeded
+   * ones off a single page of 100.
+   */
   async function seededRows(): Promise<PermitListRow[]> {
     const token = await tokenFor(app, USERS.admin);
-    const response = await request(app.getHttpServer())
-      .get("/permits?pageSize=100")
-      .set(bearer(token));
-    expect(response.status).toBe(200);
-    return (response.body.items as PermitListRow[]).filter((row) => SEEDED.has(row.titleEl));
+    const { items } = await listAll<PermitListRow>(app, token, "/permits");
+    return items.filter((row) => SEEDED.has(row.titleEl));
   }
 
   const SEEDED = new Set([
