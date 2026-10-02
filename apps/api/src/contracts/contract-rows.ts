@@ -154,8 +154,14 @@ export interface WarningFact {
     date?: string;
     days?: number;
     count?: number;
+    /** ADR-0029: which of the two fields the eFinance push cannot be built without. */
+    missing?: EFinanceMissingField[];
+    /** ADR-0029: eFinance's own sentence, as it refused the push. */
+    detail?: string;
   };
 }
+
+export type EFinanceMissingField = "budgetCode" | "vendorCode";
 
 export function addDays(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00Z`);
@@ -223,6 +229,40 @@ export function warningFacts(input: WarningInput, today: string): WarningFact[] 
   }
 
   return facts;
+}
+
+/**
+ * RULE (ADR-0029): the two eFinance warnings. Warn and flag, like the rest:
+ * the contract stands and nothing is blocked.
+ *
+ *  - efinanceNotPushable — the push needs a budget code (ADR-0025) and the
+ *    contractor's SAP vendor code; without either it is not sent at all.
+ *  - efinanceConflict — eFinance answered 409: the reference already exists
+ *    there under another hospital or budget code. The timer does not retry
+ *    it; a person puts it right and pushes again.
+ *
+ * Only asked when eFinance is configured: with no token there is nothing to
+ * push to, and a warning about it would be noise on every contract.
+ */
+export function efinanceWarningFacts(input: {
+  contractNo: string;
+  projectTitleEl: string;
+  budgetCode: string | null;
+  vendorCode: string | null;
+  conflict: string | null;
+}): WarningFact[] {
+  const named = { contract: input.contractNo, project: input.projectTitleEl };
+  const missing: EFinanceMissingField[] = [];
+  if (!input.budgetCode) missing.push("budgetCode");
+  if (!input.vendorCode?.trim()) missing.push("vendorCode");
+  if (missing.length) {
+    return [{ key: "efinanceNotPushable", amount: null, facts: { ...named, missing } }];
+  }
+  if (input.conflict) {
+    const detail = input.conflict.replace(/^CONFLICT:?\s*/, "");
+    return [{ key: "efinanceConflict", amount: null, facts: { ...named, detail } }];
+  }
+  return [];
 }
 
 export function daysBetween(from: string, to: string): number {

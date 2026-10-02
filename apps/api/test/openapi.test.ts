@@ -17,12 +17,14 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4 and M8 route", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4 and M8 route, and the eFinance ones", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
       "/admin/dms/outbox",
       "/admin/dms/outbox/{id}/retry",
+      "/admin/efinance/sync",
+      "/admin/efinance/sync-master",
       "/admin/roles",
       "/admin/users",
       "/admin/users/{id}",
@@ -51,7 +53,12 @@ describe("openapi.json", () => {
       "/contracts/lookup",
       "/contracts/{id}",
       "/contracts/{id}/boq",
+      "/contracts/{id}/budget-position",
       "/contracts/{id}/documents",
+      "/contracts/{id}/efinance",
+      "/contracts/{id}/efinance/invoices",
+      "/contracts/{id}/efinance/push",
+      "/contracts/{id}/efinance/requisitions",
       "/contracts/{id}/payment-certs",
       "/contracts/{id}/rfis",
       "/contracts/{id}/rfis/{rid}/answer",
@@ -73,6 +80,7 @@ describe("openapi.json", () => {
       "/defects",
       "/defects/backlog",
       "/defects/{id}",
+      "/efinance/vendors",
       "/health",
       "/icra/evaluate",
       "/icra/matrix",
@@ -96,6 +104,7 @@ describe("openapi.json", () => {
       "/projects",
       "/projects/{id}",
       "/projects/{id}/budget-lines",
+      "/projects/{id}/budget-position",
       "/projects/{id}/contracts",
       "/projects/{id}/cost",
       "/projects/{id}/cost/cashflow",

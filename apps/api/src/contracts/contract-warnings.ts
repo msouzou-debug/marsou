@@ -45,5 +45,10 @@ function sentence(
   if (fact.facts.date !== undefined) params.date = formatDate(fact.facts.date);
   if (fact.facts.days !== undefined) params.days = String(fact.facts.days);
   if (fact.facts.count !== undefined) params.count = String(fact.facts.count);
+  if (fact.facts.missing !== undefined) {
+    const names = fact.facts.missing.map((field) => i18n.translate(`efinance.field.${field}`, locale));
+    params.fields = names.join(i18n.translate("efinance.and", locale));
+  }
+  if (fact.facts.detail !== undefined) params.detail = fact.facts.detail;
   return i18n.translate(`warnings.${fact.key}`, locale, params);
 }

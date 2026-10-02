@@ -229,13 +229,41 @@ units. Where each one comes from:
 | `LDAP_DOMAIN` | `ihcis.local` — fixed, given. |
 | `SESSION_SECRET` | Generate on the server, do not reuse any other system's secret: `openssl rand -hex 32`. |
 | `EMAP_URL`, `EFINANCE_URL` | The public hostnames already in use: `https://map.shso.online`, `https://finance.shso.online`. Used for human link-outs only — the API's own calls to eFinance (§4 of `INTEGRATION-eFinance-eMAP-eCapital.md`) go straight to `http://127.0.0.1:5004`, not through this hostname. |
-| `EFINANCE_TOKEN` | The single bearer token eFinance issues eCapital, per the draft loopback contract (`docs/INTEGRATION-eFinance-eMAP-eCapital.md` §4/§5, ADR-0022). Get it from the eFinance team. |
+| `EFINANCE_TOKEN` | The single bearer token eFinance issues eCapital (eFinance's integration record §2, ADR-0022, ADR-0029). eFinance keeps its copy as `ecapital_token` in its own mode-600 settings file; eCapital's copy is this line. It is made with eFinance's generator and nowhere else — see «Placing the eFinance token» below. |
 | `EFINANCE_API_URL` | Where the loopback contract answers. Leave the default `http://127.0.0.1:5004` on this server; change it only on a UAT box that runs eFinance elsewhere. |
 | `NEXT_PUBLIC_APP_ORIGIN` | `https://capital.shso.online` — fixed, once the cloudflared request (§1) is live and pointed at nginx (§2.2). |
 | Everything else | The template comments in `deploy/env/*.env.example` say what each one is; most are fixed values for this server (ports, `BIND_HOST=127.0.0.1` on both files, `AUTH_MODE=ldap`, `DEV_AUTH=0`). |
 
 Do not put real values in the repo's `deploy/env/*.env.example` — those stay
 templates with `CHANGE-ME`.
+
+### Placing the eFinance token
+
+Placed on 02/10/2026 with eFinance's own generator, on the server:
+
+```bash
+sudo python3 /tmp/ecapital_token.py --force
+```
+
+The generator writes the new token into eFinance's settings file
+(`ecapital_token`) and hands back the same value, which is captured into
+`/etc/ecapital/api.env` as `EFINANCE_TOKEN=…` — file to file, the same way
+the eArchive token is handled (§11.2). Never type it into a chat, an email
+or a ticket, and never into the repo. `--force` replaces whatever token was
+there before, so **both files change together or eCapital is locked out**
+(§10, «UNAUTHENTICATED»). Then restart the API, which reads the token at
+boot:
+
+```bash
+sudo systemctl restart ecapital-api
+journalctl -u ecapital-api --since -2min | grep -i efinance   # no «not configured» line
+```
+
+With the token unset, blank or still `CHANGE-ME`, the API boots anyway and
+holds: contracts are not pushed, nothing is read, the screens show eFinance
+as not configured. Within ten minutes of the restart the retry pushes every
+contract that has a budget code and a contractor with a SAP vendor code
+(ADR-0029 §2); `POST /admin/efinance/sync` then reads what eFinance has.
 
 ---
 
@@ -599,6 +627,19 @@ destination it cannot reach as a proxy. Both systemd units
 unit's file has lost that line, that is the fix, not chasing the 503
 anywhere else. The same rule applies to any `curl` run by hand on this
 server: always add `--noproxy '*'`.
+
+**eFinance answers `UNAUTHENTICATED` (401).** A contract's
+`GET /contracts/:id/efinance` shows `lastError: "UNAUTHENTICATED: …"`, or a
+sync reports it per feed. eFinance's `ecapital_token` and eCapital's
+`EFINANCE_TOKEN` disagree — almost always because the generator was run
+again with `--force` (§3) and only one of the two files took the new value,
+or because `ecapital-api` was not restarted after `api.env` changed. Run the
+generator once more and capture its value into `api.env` (§3, «Placing the
+eFinance token»), restart `ecapital-api`, and press
+`POST /contracts/:id/efinance/push` on one contract to see it answer; the
+ten-minute retry takes the rest. A `403 LOOPBACK_ONLY` instead means the
+call did not come straight from this host to `127.0.0.1:5004` — check
+`EFINANCE_API_URL` and the `NO_PROXY` line above.
 
 **Postgres authentication failures.** Check the password in
 `/etc/ecapital/api.env` matches what the role actually has

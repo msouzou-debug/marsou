@@ -55,6 +55,7 @@ export class CostAccrualsService {
                select sum(t.amount) from ecapital.cost_txn t
                 where t.contract_id = c.id
                   and t.txn_type = 'ACTUAL'
+                  and ecapital.cost_txn_counts_as_spent(t.source, t.contract_id)
                   and t.posting_date between ${`${query.year}-01-01`}::date and ${asOf}::date
              ), 0)::text as invoiced
         from ecapital.payment_cert pc

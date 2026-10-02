@@ -47,6 +47,7 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/admin-users/` | Διαχείριση › Χρήστες — who exists, what they may do and in which units (ADR-0020). The four rules an administrator can break by accident live in the service, each a 422 with a sentence. |
 | `src/cli/grant-role.ts` | The bootstrap CLI: the first administrator on a fresh database, and the only way the auditor is appointed or unappointed. |
 | `src/links/` | `GET /config/links` — where eMAP and eFinance are, for the S07 link-outs (ADR-0019). |
+| `src/efinance/` | The eFinance client (ADR-0029): `efinance-client.ts` speaks every route of eFinance's record, `contract-push.service.ts` the one write and its ten-minute retry, `efinance-sync.service.ts` the invoice, requisition and master-data reads, `efinance-rows.ts` the rules as pure functions. With no `EFINANCE_TOKEN` everything holds. |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |
 | `src/cli/` | The capex plan import (R41). `profiles/*.yaml` is the mapping as data; `parse.ts` and `validate.ts` are the column transforms and the fourteen rules as pure functions (ADR-0016). |
 | `src/cost/` | The M2 cost module. `cost-rows.ts` holds the ledger and certificate arithmetic as pure functions, `cost-warnings.service.ts` the five R31 rules, `cost-export.ts` the two workbooks with their live formulas. |
@@ -125,6 +126,14 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `GET /contracts/:id/payment-certs`, `POST …` | The certificates of a contract, and a new one. The number, the retention, the previously certified total and the net payable are all the API's (R11). | M2 |
 | `GET /payment-certs/:id`, `POST /payment-certs/:id/transition` | DRAFT → ENGINEER_APPROVED → FINANCE_RECEIVED → PAID, forward only, never by the person who created it. | M2 |
 | `GET /cost/accruals`, `GET /cost/accruals/export` | R18: certified and not yet invoiced, per project and cost centre, and the same as a workbook whose accrual column is `=F−G`. | M2 |
+| `GET /contracts/:id/efinance` | When eFinance last accepted the contract, the last error, and eFinance's own figures: booked, in flight, requisitions, remaining (ADR-0029). | eFinance |
+| `POST /contracts/:id/efinance/push` | Push the contract to eFinance now. `admin` only. 422 when it has no budget code or its contractor has no SAP vendor code; a 409 from eFinance comes back in `lastError`. | eFinance |
+| `GET /contracts/:id/efinance/invoices` | eFinance's invoices tagged with the contract, header and lines, reversed ones with their reason. | eFinance |
+| `GET /contracts/:id/efinance/requisitions` | eFinance's requisitions tagged with the contract — its commitments, never added to eCapital's. | eFinance |
+| `GET /contracts/:id/budget-position`, `GET /projects/:id/budget-position` | eFinance's allocated, booked, requisitions, in flight and available for the unit, budget code and award year (`?year=` to change it), cached for 60 s. | eFinance |
+| `POST /admin/efinance/sync` | Poll eFinance's invoices and requisitions now (the timer does it every 15 minutes). Booked lines become `EFINANCE` actuals, upserted. `admin` only. | eFinance |
+| `POST /admin/efinance/sync-master` | Read eFinance's entities (into `org_unit.efinance_code`) and vendors now (the timer does it daily). `admin` only. | eFinance |
+| `GET /efinance/vendors?q=` | Search eFinance's vendors by name or code, twenty at most, from the local copy. Signed in, no role. | eFinance |
 
 Who may write to the register: `admin`, `estates_head` and `project_engineer`, in units they belong to. `finance`, `technician` and `clinical_approver` read it; `executive_readonly` and `auditor_readonly` read everything and write nothing. All of that is in the policies, not in the controllers (ADR-0010).
 

@@ -2,9 +2,10 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { BudgetCode, BudgetCodeList, BudgetCodeSyncResult } from "@ecapital/shared";
 import { and, asc, eq, notInArray } from "drizzle-orm";
 import { AppError } from "../common/errors";
-import { CONFIG, type AppConfig } from "../config";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
+import { EFINANCE_CLIENT } from "../efinance/efinance-context";
+import { EFinanceClient } from "../efinance/efinance-client";
 import { EFinanceBudgetCodeReader } from "./source/efinance.reader";
 import type { BudgetCodeSourceReader } from "./source/budget-code-source";
 import { SeedBudgetCodeReader } from "./source/seed.reader";
@@ -15,15 +16,15 @@ import { SeedBudgetCodeReader } from "./source/seed.reader";
  * `list` is the plain read every signed-in role gets (S07a's select, S07's
  * facts list, S07e's optional column). `sync` is the admin/finance-only
  * write that refreshes the table from a `BudgetCodeSourceReader` — eFinance's
- * own `GET /api/v1/master/budget-codes?kind=capex` when it is configured
- * (`EFINANCE_URL` and `EFINANCE_TOKEN` both set), the twenty seeded rows
+ * own `GET /api/v1/master/budget-codes?kind=capex` when the eFinance client
+ * is configured (`EFINANCE_TOKEN` placed, ADR-0029), the twenty seeded rows
  * otherwise. Nothing here decides who may call `sync` at all; the route does
  * (`@Roles("admin", "finance")`) and the row policy does again underneath it
  * (migration 0013's `budget_code_write`).
  */
 @Injectable()
 export class BudgetCodesService {
-  constructor(@Inject(CONFIG) private readonly config: AppConfig) {}
+  constructor(@Inject(EFINANCE_CLIENT) private readonly efinance: EFinanceClient) {}
 
   /** GET /budget-codes?kind=capex. Active rows only — S07a offers nobody a
    * code eFinance (or this migration's own seed) has retired. */
@@ -39,15 +40,12 @@ export class BudgetCodesService {
   }
 
   /**
-   * Which reader answers `POST /budget-codes/sync`. Both `EFINANCE_URL` and
-   * `EFINANCE_TOKEN` have to be set — the same "is eFinance configured at
-   * all" test `LinksController` uses for the human-facing link, plus the
-   * token this loopback call actually authenticates with. Either missing and
-   * the fallback is eCapital's own seed, which is always safe to run.
+   * Which reader answers `POST /budget-codes/sync`: eFinance when the client
+   * is configured (EFINANCE_TOKEN placed — ADR-0029), eCapital's own seed
+   * otherwise, which is always safe to run.
    */
   private reader(): BudgetCodeSourceReader {
-    const { EFINANCE_URL, EFINANCE_TOKEN, EFINANCE_API_URL } = this.config;
-    if (EFINANCE_URL && EFINANCE_TOKEN) return new EFinanceBudgetCodeReader(EFINANCE_TOKEN, EFINANCE_API_URL);
+    if (this.efinance.configured) return new EFinanceBudgetCodeReader(this.efinance);
     return new SeedBudgetCodeReader();
   }
 

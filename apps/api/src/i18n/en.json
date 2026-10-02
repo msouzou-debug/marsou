@@ -171,7 +171,12 @@
     "assetAreaNotFound": "That space is not in the asset's unit. Pick a space from the unit's space tree.",
     "assetParentNotFound": "The parent asset was not found in this unit. Pick an asset of the same unit.",
     "assetDocumentAlreadyLinked": "That document is already linked to this asset. Open the asset's folder instead of uploading it again.",
-    "assetDocumentKindNotValid": "Say what kind of document this is. Pick one of the kinds the asset folder takes and try again."
+    "assetDocumentKindNotValid": "Say what kind of document this is. Pick one of the kinds the asset folder takes and try again.",
+    "efinanceFailed": "eFinance did not answer as expected ({code}: {detail}). Try again shortly.",
+    "efinanceMissingBudgetCode": "The contract has no budget code, so it cannot be sent to eFinance. Fill it in first.",
+    "efinanceMissingVendorCode": "The contractor has no SAP vendor code, so the contract cannot be sent to eFinance. Fill it in on the contractor first.",
+    "efinanceMissingBoth": "The contract has no budget code and the contractor has no SAP vendor code, so the contract cannot be sent to eFinance. Fill in both first.",
+    "efinanceYearNotValid": "The year must be four digits, for example 2026."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -184,7 +189,9 @@
     "variationsOverTenPct": "Approved variations on contract {contract} for {project} ({unit}) now come to {pct} of the original value, {amount} over the 10% mark.",
     "bondExpired": "The performance bond on contract {contract} for {project} ({unit}) expired on {date}. Ask the contractor to renew it.",
     "completionPast": "Contract {contract} for {project} ({unit}) was due to finish on {date}, {days} days ago. Record an extension, or move the project to practical completion.",
-    "instructionsWithoutVariation": "Contract {contract} for {project} ({unit}) has {count} site instructions that cost money and have no variation behind them. Price them and record the variation."
+    "instructionsWithoutVariation": "Contract {contract} for {project} ({unit}) has {count} site instructions that cost money and have no variation behind them. Price them and record the variation.",
+    "efinanceConflict": "eFinance refused contract {contract} for project «{project}» ({unit}): the reference already exists there under another unit or budget code ({detail}). Check the unit and the code, then send the contract again.",
+    "efinanceNotPushable": "Contract {contract} for project «{project}» ({unit}) has not been sent to eFinance because it has no {fields}. Fill in what is missing so it can be sent."
   },
   "import": {
     "severity": {
@@ -454,5 +461,12 @@
     "WARRANTY": "Warranty",
     "DRAWING": "Drawing",
     "PHOTO": "Photograph"
+  },
+  "efinance": {
+    "field": {
+      "budgetCode": "budget code",
+      "vendorCode": "contractor SAP vendor code"
+    },
+    "and": " and no "
   }
 }

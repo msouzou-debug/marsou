@@ -19,6 +19,7 @@ import { CoreModule } from "./core.module";
 import { CostModule } from "./cost/cost.module";
 import { DefectsModule } from "./defects/defects.module";
 import { DocumentsModule } from "./documents/documents.module";
+import { EFinanceModule } from "./efinance/efinance.module";
 import { HealthModule } from "./health/health.module";
 import { IcraModule } from "./icra/icra.module";
 import { LinksModule } from "./links/links.module";
@@ -68,6 +69,7 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
     ContractorsModule,
     ContractsModule,
     BudgetCodesModule,
+    EFinanceModule,
     CostModule,
     RfisModule,
     SiteInstructionsModule,

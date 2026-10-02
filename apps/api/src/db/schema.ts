@@ -586,6 +586,13 @@ export const contract = ecapital.table(
     // contract is charged to. Null on a contract recorded before this
     // column existed; the service refuses to leave it null on create.
     budgetCode: text("budget_code").references(() => budgetCode.code),
+    // ADR-0029 (migration 0020): the eFinance push. When eFinance last
+    // accepted this contract, what went wrong the last time it did not, and
+    // eFinance's own spend figures. Written only by
+    // ecapital.efinance_record_push / efinance_record_spend.
+    efinancePushedAt: timestamp("efinance_pushed_at", { withTimezone: true }),
+    efinanceLastError: text("efinance_last_error"),
+    efinanceSpend: jsonb("efinance_spend"),
     createdAt,
     updatedAt,
   },
@@ -810,6 +817,8 @@ export const costSource = ecapital.enum("cost_source", [
   "SAP_MCP",
   "MANUAL",
   "EXCEL_MIGRATION",
+  // ADR-0029 (migration 0020): a booked eFinance invoice line.
+  "EFINANCE",
 ]);
 export const importSeverity = ecapital.enum("import_severity", ["ERROR", "WARN", "INFO"]);
 export const projectNoteKind = ecapital.enum("project_note_kind", ["TECHNICAL"]);
@@ -1696,3 +1705,115 @@ export const assetReading = ecapital.table(
   },
   (t) => [index("asset_reading_asset_idx").on(t.assetId, t.takenAt)],
 );
+
+// ------------------------------------------------------------- eFinance --
+// ADR-0029. eCapital's copies of what eFinance answered: the capital
+// invoices and requisitions tagged with a CAP- reference, the vendor list,
+// and where each feed's poll got to. Migration 0020_efinance_client.sql is
+// the source of truth; policies and audit triggers live only there.
+
+export const efinanceInvoice = ecapital.table(
+  "efinance_invoice",
+  {
+    id: text("id").primaryKey(),
+    orgUnitId: text("org_unit_id").references(() => orgUnit.id),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
+    invoiceNo: text("invoice_no"),
+    invoiceDate: date("invoice_date"),
+    sapBatchDate: date("sap_batch_date"),
+    vendorCode: text("vendor_code"),
+    vendorName: text("vendor_name"),
+    entityCode: text("entity_code"),
+    currency: text("currency").notNull(),
+    net: numeric("net", { precision: 14, scale: 2 }),
+    vat: numeric("vat", { precision: 14, scale: 2 }),
+    gross: numeric("gross", { precision: 14, scale: 2 }),
+    status: text("status"),
+    ledger: text("ledger").notNull(),
+    capRef: text("cap_ref"),
+    reversedAt: timestamp("reversed_at", { withTimezone: true }),
+    reversalSapDocNo: text("reversal_sap_doc_no"),
+    reversalReason: text("reversal_reason"),
+    // eFinance's own updated_at, not ours.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    raw: jsonb("raw").notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("efinance_invoice_contract_idx").on(t.contractId),
+    index("efinance_invoice_cap_ref_idx").on(t.capRef),
+    index("efinance_invoice_updated_idx").on(t.updatedAt),
+  ],
+);
+
+export const efinanceInvoiceLine = ecapital.table(
+  "efinance_invoice_line",
+  {
+    invoiceId: text("invoice_id")
+      .notNull()
+      .references(() => efinanceInvoice.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    orgUnitId: text("org_unit_id").references(() => orgUnit.id),
+    descr: text("descr"),
+    qty: numeric("qty", { precision: 14, scale: 3 }),
+    unitPrice: numeric("unit_price", { precision: 14, scale: 2 }),
+    lineTotal: numeric("line_total", { precision: 14, scale: 2 }),
+    vatRate: numeric("vat_rate", { precision: 7, scale: 3 }),
+    glAccount: text("gl_account"),
+    costCentre: text("cost_centre"),
+    budgetCode: text("budget_code"),
+    wbsCode: text("wbs_code"),
+  },
+  (t) => [primaryKey({ columns: [t.invoiceId, t.lineNo] })],
+);
+
+export const efinanceRequisition = ecapital.table(
+  "efinance_requisition",
+  {
+    id: text("id").primaryKey(),
+    orgUnitId: text("org_unit_id").references(() => orgUnit.id),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
+    number: text("number").notNull(),
+    description: text("description"),
+    justification: text("justification"),
+    entityCode: text("entity_code"),
+    costCentre: text("cost_centre"),
+    budgetCode: text("budget_code"),
+    glAccount: text("gl_account"),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    currency: text("currency").notNull(),
+    status: text("status").notNull(),
+    capRef: text("cap_ref"),
+    poNumber: text("po_number"),
+    // eFinance's own timestamps.
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    raw: jsonb("raw").notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("efinance_requisition_contract_idx").on(t.contractId),
+    index("efinance_requisition_cap_ref_idx").on(t.capRef),
+  ],
+);
+
+export const efinanceSyncState = ecapital.table("efinance_sync_state", {
+  feed: text("feed").primaryKey(),
+  cursor: text("cursor"),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  rows: integer("rows").notNull().default(0),
+});
+
+export const efinanceVendor = ecapital.table("efinance_vendor", {
+  vendorCode: text("vendor_code").primaryKey(),
+  name: text("name").notNull(),
+  // Generated in the database; what the vendor search matches on.
+  nameNorm: text("name_norm").generatedAlwaysAs(sql`ecapital.normalise(name)`),
+  vat: text("vat"),
+  blocked: boolean("blocked").notNull().default(false),
+  active: boolean("active").notNull().default(true),
+  sapBatch: text("sap_batch"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+});
