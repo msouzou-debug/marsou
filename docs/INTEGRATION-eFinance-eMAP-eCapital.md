@@ -287,7 +287,7 @@ endpoints page with `limit` and `cursor`.
 | `GET /api/v1/master/cost-centres` | Cost centres |
 | `GET /api/v1/master/budget-codes?kind=capex` | Budget codes, capital subset |
 | `GET /api/v1/master/vendors` | Vendors |
-| `GET /api/v1/budget/position?year=&entity=&code=` | Live budget position for one entity/code/year |
+| `GET /api/v1/budget/position?year=&entity=&code=` | Live budget position for one entity/code/year. Five numbers, not four — see the mapping below |
 | `GET /api/v1/capital/invoices?ref=CAP-…` or `?updated_since=` | Invoices linked to a `CAP-` contract, or changed since a timestamp |
 | `GET /api/v1/capital/requisitions?…` | Requisitions, same filter shape |
 
@@ -296,6 +296,48 @@ An invoice's `ledger` field is one of `in_flight`, `booked`, `rejected` or
 `in_flight` and `rejected` are visible for context but must never be summed
 into spend, the same discipline `apps/api/README.md`'s `spent`/`forecast`
 fields already assume; `reversed` (below) is never summed either.
+
+**All seven read routes are live on `127.0.0.1:5004` since 21/09/2026**
+(eFinance's reply of 02/10/2026). Nothing is left to build on eFinance's
+side for the reads; what follows is the shape as it actually answers.
+
+**Budget position, as eFinance returns it.** eFinance splits what this
+document used to call `committed` into two numbers, and adds one that is
+never counted:
+
+| eFinance field | Meaning | eCapital reads it as |
+|---|---|---|
+| `allocated` | the budget for that code, entity and year | budget |
+| `booked` | approved or parked invoices | spent |
+| `requisitions` | approved requisitions not yet invoiced | committed on eFinance's side |
+| `in_flight` | invoices still in the approval chain | forecast only — **never** committed, never spent; the requisition behind it already reserved the money |
+| `available` | `allocated − booked − requisitions` | available |
+
+The response also carries `archive_code` next to `entity_code` (the eArchive
+form of the same unit, §2) and `as_of`.
+
+**No `sap_doc_no` on an invoice.** eFinance never learns the document number
+SAP assigns: it sends a batch file in and gets nothing back. The field does
+not exist and is not shipped empty. What exists is `sap_batch_date` (below)
+and, on a reversed invoice only, `reversal_sap_doc_no`, typed by a person.
+eFinance has asked ΟΚΥπΥ's SAP team whether document numbers can come back
+after a batch; if they can, the field is added then. eCapital's reader must
+not expect it.
+
+**Field names eFinance added for us, 02/10/2026:** `code` and `vat_no` on
+vendors, `name` on budget codes, `ref` and `title` on requisitions; on
+invoices `due_date`, `contract_ref`, `requisition_id` (plus
+`requisition_ids` when one invoice covers several), `approved_at`,
+`created_at`.
+
+**The reads return nothing until eCapital pushes a contract.** eFinance's
+invoice coding screen and requisition form now carry a contract picker
+fed by `PUT /api/v1/capital/contracts/{cap_ref}` (below): a document is
+tagged with a `CAP-` reference chosen from that list, never typed. Until a
+contract arrives the picker shows only «Καμία», which is correct rather
+than broken. So the write route is **not** "later" any more: it is the
+first thing the eFinance client on eCapital's side does, before any read
+can return a row (ADR-0022 addendum, 02/10/2026).
 
 **Invoice coding, owner detail 20/09/2026.** eFinance codes an invoice **per
 line**, not once for the whole document — one contract's invoice can carry
@@ -343,7 +385,7 @@ eFinance-side requisitions raised against it as well as an eCapital-issued
 `CAP-` reference. `GET /api/v1/capital/invoices?ref=CAP-…` (above) filters on
 this column.
 
-**Write (later, not in the first cut):**
+**Write (first, not later — see above):**
 
 `PUT /api/v1/capital/contracts/{cap_ref}` lets eCapital push its own
 contract record to eFinance for read-back on eFinance's side: `cap_ref,
