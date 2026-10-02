@@ -444,3 +444,53 @@ def test_the_capitation_report_says_which_doctors_keep_the_children():
     assert rep.total == 28_906.06
     assert rep.by_cohort == {"adult": 20_248.86, "child": 8_657.20}
     assert round(sum(rep.by_cohort.values()), 2) == rep.total
+
+
+def test_a_claims_file_that_carries_two_cheques_is_kept_apart():
+    """ΟΑΥ's «all» export sometimes holds an earlier cheque's claims as well.
+    Read whole, it inflates every clinic row and the excess comes back as one
+    enormous reconciling difference — so each cheque is aggregated apart."""
+    import synth
+    from recon.checks import claims_for_sra
+    from recon.extract import extract_claims_all, parse_sra_text
+    from recon.models import SRA
+
+    data = synth.claims_all_xlsx(segments={"Inpatient Healthcare Services": 100.0,
+                                           "Outpatient Specialists": 20.0},
+                                 cheque="273551")
+    older = synth.claims_all_xlsx(segments={"Inpatient Healthcare Services": 70.0,
+                                            "Outpatient Specialists": 5.0},
+                                  cheque="273111")
+    merged = _two_cheques_in_one_file(data, older)
+    claims = extract_claims_all(merged)
+    assert claims.by_segment["Inpatient"] == 170.0
+    assert set(claims.by_cheque) == {"273111", "273551"}
+    assert claims.by_cheque["273551"].by_segment["Inpatient"] == 100.0
+
+    sra = SRA(cheque_no="273551", stated_total=120.0, lines=[])
+    only = claims_for_sra(claims, sra)
+    assert only.by_segment["Inpatient"] == 100.0
+    assert only.by_segment["Outpatient Specialists"] == 20.0
+    # a cheque the file does not carry leaves the file as it is, rather than
+    # quietly reconciling against nothing
+    assert claims_for_sra(claims, SRA(cheque_no="999999", stated_total=0.0,
+                                      lines=[])).by_segment["Inpatient"] == 170.0
+
+
+def _two_cheques_in_one_file(first: bytes, second: bytes) -> bytes:
+    """The two synthetic exports stacked into one sheet, as ΟΑΥ hands it over."""
+    import io
+
+    from openpyxl import Workbook, load_workbook
+    rows = []
+    for n, data in enumerate((first, second)):
+        ws = load_workbook(io.BytesIO(data)).active
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if n == 0 or i > 0:
+                rows.append(row)
+    wb = Workbook()
+    for row in rows:
+        wb.active.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

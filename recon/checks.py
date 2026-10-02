@@ -585,7 +585,27 @@ _sra_sum = sra_sum
 SERVICE_CODES = ["IS", "AE", "A&E", "OS", "NM", "AP", "PD"]
 
 
+def claims_for_sra(claims, sra):
+    """The claims of the cheque(s) this run is reconciling.
+
+    ΟΑΥ's «all» export sometimes carries an earlier cheque's claims as well.
+    Reading the whole file then inflates every clinic and speciality row and
+    the excess comes back as one enormous reconciling difference — so the
+    rows are built from the cheques the remittance advice actually paid."""
+    if not claims or not sra or not claims.by_cheque:
+        return claims
+    wanted = {c for c, _lines, _stated in sra.parts} or {sra.cheque_no}
+    picked = [v for k, v in claims.by_cheque.items() if k in wanted]
+    if not picked or len(picked) == len(claims.by_cheque):
+        return claims                     # nothing to leave out
+    out = picked[0]
+    for extra in picked[1:]:
+        out = out.merge(extra)
+    return out
+
+
 def run_reconciliation(bundle: ReconBundle, crosscheck_mode: bool = False) -> ReconResult:
+    bundle.claims = claims_for_sra(bundle.claims, bundle.sra)
     _resolve_endo_detail(bundle)
     res = ReconResult(bundle=bundle, crosscheck_mode=crosscheck_mode)
     if not crosscheck_mode and bundle.sra:
@@ -1274,8 +1294,8 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
             # «ADJ-IS» label; flip the blue Bucket cell on the SRA tab to
             # Outpatient and every SUMIFS re-ties
             ip.rows.append(SplitRow(
-                "Αιμοκάθαρση (Hemodialysis — Inpatient ή Outpatient ανά ασθενή)",
-                hemo_amt))
+                "Αιμοκάθαρση (Hemodialysis — ημερήσια νοσηλεία)",
+                hemo_amt, fixed_fee=hemo_amt))
     is_adj = sra_amount(["IS-ADJ"])
     if is_adj:
         ip.rows.append(SplitRow(

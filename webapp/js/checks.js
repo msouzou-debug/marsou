@@ -1180,7 +1180,10 @@ function buildSplit(bundle) {
     const hemoAmt = sra ? sraAmount(['HEMO']) : (bundle.hemo ? bundle.hemo.total : 0);
     // bucket depends on the patient — default Inpatient per ΟΑΥ's «ADJ-IS»
     // label; flip the blue Bucket cell on the SRA tab and SUMIFS re-tie
-    if (hemoAmt) ip.rows.push({ label: 'Αιμοκάθαρση (Hemodialysis — Inpatient ή Outpatient ανά ασθενή)', amount: hemoAmt });
+    if (hemoAmt) {
+      ip.rows.push({ label: 'Αιμοκάθαρση (Hemodialysis — ημερήσια νοσηλεία)',
+                     amount: hemoAmt, fixedFee: hemoAmt });
+    }
   }
   const isAdj = sraAmount(['IS-ADJ']);
   if (isAdj) {
@@ -1340,7 +1343,28 @@ function buildSplit(bundle) {
 
 /* -------------------------------------------------------------- run */
 
+function claimsForSra(claims, sra) {
+  /* The claims of the cheque(s) this run is reconciling.
+   *
+   * ΟΑΥ's «all» export sometimes carries an earlier cheque's claims as well.
+   * Reading the whole file then inflates every clinic and speciality row and
+   * the excess comes back as one enormous reconciling difference — so the
+   * rows are built from the cheques the remittance advice actually paid. */
+  if (!claims || !sra || !claims.byCheque || !Object.keys(claims.byCheque).length) {
+    return claims;
+  }
+  const wanted = new Set(sra.parts && sra.parts.length
+    ? sra.parts.map(([c]) => c) : [sra.chequeNo]);
+  const picked = Object.entries(claims.byCheque)
+    .filter(([k]) => wanted.has(k)).map(([, v]) => v);
+  if (!picked.length || picked.length === Object.keys(claims.byCheque).length) {
+    return claims;                      // nothing to leave out
+  }
+  return picked.reduce((a, b) => mergeClaims(a, b));
+}
+
 function runReconciliation(bundle, crosscheckMode) {
+  bundle.claims = claimsForSra(bundle.claims, bundle.sra);
   resolveEndoDetail(bundle);
   const result = { bundle, crosscheckMode: !!crosscheckMode, buckets: {}, crosschecks: [],
                    split: [], matrix: [], matrixColumns: [] };

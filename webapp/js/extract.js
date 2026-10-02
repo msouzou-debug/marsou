@@ -411,10 +411,40 @@ function extractClaimsAll(bytes) {
       throw new ExtractionError('Claims «all»: λείπει στήλη DR SEGMENT ή HIO REIMB');
     }
     const t = body.filter((r) => r[segCol] != null);
-    const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {},
-                  inpatientRows: [], byDoctor: [], outpatientByClaim: {} };
-    const idCol = colIndex(cols, 'CLAIM ID');
-    const dateCol = colIndex(cols, 'INVOICE DATE');
+    const out = aggregateClaims(t, cols, segCol, amtCol);
+    /* ΟΑΥ sometimes hands over the claims of SEVERAL cheques in one file — a
+     * month's own cheque and an earlier one.  Keep each cheque apart so the
+     * reconciliation can read the one it is settling. */
+    const payCol = colIndex(cols, 'PAYMENT NO', 'PAYMENT NUMBER', 'ΑΡ ΠΛΗΡΩΜΗΣ');
+    if (payCol != null) {
+      const keyOf = (r) => chequeText(r[payCol]);
+      const cheques = [...new Set(t.map(keyOf).filter(Boolean))].sort();
+      if (cheques.length > 1) {
+        for (const cheque of cheques) {
+          out.byCheque[cheque] = aggregateClaims(
+            t.filter((r) => keyOf(r) === cheque), cols, segCol, amtCol);
+        }
+      }
+    }
+    return out;
+  }
+  throw new ExtractionError('Claims «all»: δεν βρέθηκε στήλη DR SEGMENT');
+}
+
+function chequeText(v) {
+  const text = cellText(v).trim().split('.')[0];
+  return ['', 'nan', 'none'].includes(text.toLowerCase()) ? '' : text;
+}
+
+function aggregateClaims(t, cols, segCol, amtCol) {
+  /* Every figure the reconciliation reads off the claims file, for whatever
+   * slice of it is passed in. */
+  const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {},
+                inpatientRows: [], byDoctor: [], outpatientByClaim: {},
+                byCheque: {} };
+  const idCol = colIndex(cols, 'CLAIM ID');
+  const dateCol = colIndex(cols, 'INVOICE DATE');
+  {
     for (const r of t) {
       const seg = canonSegment(r[segCol]);
       out.bySegment[seg] = (out.bySegment[seg] || 0) + parseAmount(r[amtCol]);
@@ -434,11 +464,51 @@ function extractClaimsAll(bytes) {
       }
     }
     for (const k of Object.keys(out.bySegment)) out.bySegment[k] = round2(out.bySegment[k]);
-    perClinicDetail(t, cols, segCol, amtCol, out);
-    perDoctorDetail(t, cols, segCol, amtCol, out);
-    return out;
   }
-  throw new ExtractionError('Claims «all»: δεν βρέθηκε στήλη DR SEGMENT');
+  perClinicDetail(t, cols, segCol, amtCol, out);
+  perDoctorDetail(t, cols, segCol, amtCol, out);
+  return out;
+}
+
+function mergeClaims(a, b) {
+  /* Two cheques' worth of claims added together, nothing dropped. */
+  const out = { bySegment: {}, inpatientByClinic: [], osBySpecialty: {},
+                inpatientRows: [], byDoctor: [], outpatientByClaim: {},
+                byCheque: {} };
+  const clinics = new Map();
+  const doctors = new Map();
+  for (const src of [a, b]) {
+    for (const [seg, v] of Object.entries(src.bySegment)) {
+      out.bySegment[seg] = round2((out.bySegment[seg] || 0) + v);
+    }
+    for (const [spec, v] of Object.entries(src.osBySpecialty)) {
+      out.osBySpecialty[spec] = round2((out.osBySpecialty[spec] || 0) + v);
+    }
+    for (const [cid, v] of Object.entries(src.outpatientByClaim)) {
+      out.outpatientByClaim[cid] = round2((out.outpatientByClaim[cid] || 0) + v);
+    }
+    out.inpatientRows = out.inpatientRows.concat(src.inpatientRows);
+    for (const row of src.inpatientByClinic) {
+      const got = clinics.get(row.clinic);
+      if (!got) clinics.set(row.clinic, { ...row });
+      else {
+        got.fixedFee = round2(got.fixedFee + row.fixedFee);
+        got.drg = round2(got.drg + row.drg);
+        got.zDrugs = round2(got.zDrugs + row.zDrugs);
+        got.total = round2(got.total + row.total);
+      }
+    }
+    for (const [seg, spec, doctor, amount] of src.byDoctor) {
+      const key = `${seg}\u0000${spec}\u0000${doctor}`;
+      doctors.set(key, round2((doctors.get(key) || 0) + amount));
+    }
+  }
+  out.inpatientByClinic = [...clinics.values()].sort((x, y) => y.total - x.total);
+  out.byDoctor = [...doctors.entries()]
+    .map(([k, v]) => [...k.split('\u0000'), v])
+    .sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1
+      : x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : y[3] - x[3]));
+  return out;
 }
 
 function perDoctorDetail(t, cols, segCol, amtCol, out) {
@@ -987,9 +1057,9 @@ function extractGl(bytes, hospitalCode) {
       else if (centre === '25501') out.pharmacistFee += amount;
       else if (centre.startsWith('255')) {
         out.pharmaOther += amount;
-        /* the Β' φάσης share, off ΟΑΥ's revenue accounts only: the co-payment
-         * lines on the same centre are the patients' money */
-        if (centre === '25511' && account.startsWith('51')) out.pharmaPhaseB += amount;
+        /* the Β' φάσης share: everything booked to the centre, co-payments
+         * included — that is the figure finance reconciles */
+        if (centre === '25511') out.pharmaPhaseB += amount;
       }
       else if (centre.startsWith('25')) out.outpatient += amount;
       else {

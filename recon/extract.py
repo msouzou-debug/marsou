@@ -478,34 +478,57 @@ def extract_claims_all(data: bytes) -> ClaimsAll:
         if seg_col is None or amt_col is None:
             raise ExtractionError("Claims «all»: λείπει στήλη DR SEGMENT ή HIO REIMB")
         t = t[t[seg_col].notna()]
-        out = ClaimsAll()
-        amounts = t[amt_col].map(parse_amount)
-        segs = t[seg_col].map(_canon_segment)
-        for seg, s in amounts.groupby(segs):
-            out.by_segment[str(seg)] = round(float(s.sum()), 2)
-        # keep inpatient row detail for old-claim candidate explanations
-        id_col = _col(t, "CLAIM ID")
-        date_col = _col(t, "INVOICE DATE")
-        if id_col is not None:
-            ip_mask = segs == "Inpatient"
-            for idx in t.index[ip_mask]:
-                out.inpatient_rows.append((
-                    str(t.at[idx, id_col]),
-                    str(t.at[idx, date_col]) if date_col is not None else "",
-                    round(parse_amount(t.at[idx, amt_col]), 2)))
-        # CLAIM ID → amount for the outpatient streams (the XML universe)
-        if id_col is not None:
-            out_mask = ~segs.isin(["Inpatient", "A&E"])
-            for idx in t.index[out_mask]:
-                cid = str(t.at[idx, id_col]).strip()
-                if cid and cid != "nan":
-                    out.outpatient_by_claim[cid] = round(
-                        out.outpatient_by_claim.get(cid, 0.0)
-                        + parse_amount(t.at[idx, amt_col]), 2)
-        _per_clinic_detail(t, seg_col, amt_col, amounts, out)
-        _per_doctor_detail(t, amt_col, amounts, segs, out)
+        out = _aggregate_claims(t, seg_col, amt_col)
+        # ΟΑΥ sometimes hands over the claims of SEVERAL cheques in one file —
+        # a month's own cheque and an earlier one.  Keep each cheque apart so
+        # the reconciliation can read the one it is settling.
+        pay_col = _col(t, "PAYMENT NO", "PAYMENT NUMBER", "ΑΡ ΠΛΗΡΩΜΗΣ")
+        if pay_col is not None:
+            keys = t[pay_col].map(_cheque_text)
+            cheques = sorted({k for k in keys if k})
+            if len(cheques) > 1:
+                for cheque in cheques:
+                    out.by_cheque[cheque] = _aggregate_claims(
+                        t[keys == cheque], seg_col, amt_col)
         return out
     raise ExtractionError("Claims «all»: δεν βρέθηκε στήλη DR SEGMENT")
+
+
+def _cheque_text(v) -> str:
+    text = str(v).strip().split(".")[0]
+    return "" if text.lower() in ("", "nan", "none") else text
+
+
+def _aggregate_claims(t: pd.DataFrame, seg_col: str, amt_col: str) -> ClaimsAll:
+    """Every figure the reconciliation reads off the claims file, for whatever
+    slice of it is passed in."""
+    out = ClaimsAll()
+    amounts = t[amt_col].map(parse_amount)
+    segs = t[seg_col].map(_canon_segment)
+    for seg, s in amounts.groupby(segs):
+        out.by_segment[str(seg)] = round(float(s.sum()), 2)
+    # keep inpatient row detail for old-claim candidate explanations
+    id_col = _col(t, "CLAIM ID")
+    date_col = _col(t, "INVOICE DATE")
+    if id_col is not None:
+        ip_mask = segs == "Inpatient"
+        for idx in t.index[ip_mask]:
+            out.inpatient_rows.append((
+                str(t.at[idx, id_col]),
+                str(t.at[idx, date_col]) if date_col is not None else "",
+                round(parse_amount(t.at[idx, amt_col]), 2)))
+    # CLAIM ID → amount for the outpatient streams (the XML universe)
+    if id_col is not None:
+        out_mask = ~segs.isin(["Inpatient", "A&E"])
+        for idx in t.index[out_mask]:
+            cid = str(t.at[idx, id_col]).strip()
+            if cid and cid != "nan":
+                out.outpatient_by_claim[cid] = round(
+                    out.outpatient_by_claim.get(cid, 0.0)
+                    + parse_amount(t.at[idx, amt_col]), 2)
+    _per_clinic_detail(t, seg_col, amt_col, amounts, out)
+    _per_doctor_detail(t, amt_col, amounts, segs, out)
+    return out
 
 
 def _per_doctor_detail(t: pd.DataFrame, amt_col: str, amounts: pd.Series,
@@ -1134,9 +1157,9 @@ def extract_gl(data: bytes, hospital_code: str) -> GLExtract:
                 out.pharmacist_fee += amount
             elif centre.startswith("255"):
                 out.pharma_other += amount
-                # the Β' φάσης share, off ΟΑΥ's revenue accounts only: the
-                # co-payment lines on the same centre are the patients' money
-                if centre == "25511" and account.startswith("51"):
+                # the Β' φάσης share: everything booked to the centre,
+                # co-payments included — that is the figure finance reconciles
+                if centre == "25511":
                     out.pharma_phase_b += amount
             elif centre.startswith("25"):
                 out.outpatient += amount

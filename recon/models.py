@@ -312,6 +312,46 @@ class ClaimsAll:
     # CLAIM ID → HIO REIMB. for the OUTPATIENT streams (OS/NM/AP/PD), for
     # the claim-level join with the XML activity export
     outpatient_by_claim: dict[str, float] = field(default_factory=dict)
+    # ΟΑΥ's «all» export is not always one cheque: it can carry the claims of
+    # an earlier payment too.  Same aggregates, one entry per PAYMENT NO., so
+    # a month can be read for the cheque it is actually reconciling.
+    by_cheque: dict = field(default_factory=dict)
+
+    def merge(self, other: "ClaimsAll") -> "ClaimsAll":
+        """Two cheques' worth of claims added together, nothing dropped."""
+        out = ClaimsAll()
+        for src in (self, other):
+            for seg, v in src.by_segment.items():
+                out.by_segment[seg] = round(out.by_segment.get(seg, 0.0) + v, 2)
+            for spec, v in src.os_by_specialty.items():
+                out.os_by_specialty[spec] = round(
+                    out.os_by_specialty.get(spec, 0.0) + v, 2)
+            for cid, v in src.outpatient_by_claim.items():
+                out.outpatient_by_claim[cid] = round(
+                    out.outpatient_by_claim.get(cid, 0.0) + v, 2)
+            out.inpatient_rows += src.inpatient_rows
+        clinics: dict = {}
+        for src in (self, other):
+            for row in src.inpatient_by_clinic:
+                got = clinics.get(row.clinic)
+                if got is None:
+                    clinics[row.clinic] = ClinicRow(
+                        clinic=row.clinic, fixed_fee=row.fixed_fee,
+                        drg=row.drg, z_drugs=row.z_drugs, total=row.total)
+                else:
+                    got.fixed_fee = round(got.fixed_fee + row.fixed_fee, 2)
+                    got.drg = round(got.drg + row.drg, 2)
+                    got.z_drugs = round(got.z_drugs + row.z_drugs, 2)
+                    got.total = round(got.total + row.total, 2)
+        out.inpatient_by_clinic = sorted(clinics.values(), key=lambda r: -r.total)
+        doctors: dict = {}
+        for src in (self, other):
+            for seg, spec, doctor, amount in src.by_doctor:
+                key = (seg, spec, doctor)
+                doctors[key] = round(doctors.get(key, 0.0) + amount, 2)
+        out.by_doctor = sorted(((k[0], k[1], k[2], v) for k, v in doctors.items()),
+                               key=lambda r: (r[0], r[1], -r[3]))
+        return out
 
     @property
     def total(self) -> float:
