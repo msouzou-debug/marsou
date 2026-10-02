@@ -2,6 +2,7 @@
 
 import { NoPermission } from "@/components/app-shell";
 import type { PreviewEntry } from "@/preview/types";
+import { buildProjectBudgetPosition } from "@/mocks/efinance";
 import { Cost } from "./Cost";
 import { buildBudgetLines, buildCashflowRows, buildProjectCost } from "./fixture";
 
@@ -43,6 +44,8 @@ const commonProps = {
   budgetYear: 2026,
   onBudgetYearChange: noop,
   onSaveBudgetLines: noop,
+  budgetPosition: buildProjectBudgetPosition(),
+  budgetPositionState: "default" as const,
 };
 
 const entry: PreviewEntry = {
@@ -60,7 +63,8 @@ const entry: PreviewEntry = {
     "default shows a live forecastOverApproved warning above the table, an editable forecast-inputs form " +
     "(project_engineer), the cash-flow chart/table and, for a finance role, the budget-lines editor. empty " +
     "reuses 'default' state with zero categories through the table's own empty branch. offline keeps the " +
-    "cached figures and shows the read-only banner.",
+    "cached figures and shows the read-only banner. The eFinance budget position panel (ADR-0029) sits under the " +
+    "warnings with two budget codes, the second with null figures (shown «—», never 0).",
 };
 
 export default entry;

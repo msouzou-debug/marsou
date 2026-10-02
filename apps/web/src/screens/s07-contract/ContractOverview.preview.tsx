@@ -3,18 +3,19 @@
 import { NoPermission } from "@/components/app-shell";
 import type { PreviewEntry } from "@/preview/types";
 import { ContractOverview } from "./ContractOverview";
+import { buildEFinanceSummary } from "@/mocks/efinance";
 import { buildContractDetail } from "./fixture";
 
 const noPermission = <NoPermission />;
 const today = new Date("2026-09-19");
-const data = buildContractDetail();
+const data = buildContractDetail({ efinance: buildEFinanceSummary() });
 
 const entry: PreviewEntry = {
   id: "s07-contract",
   title: "S07 Σύμβαση",
   states: {
     default: () => (
-      <ContractOverview data={data} state="default" noPermission={noPermission} roles={["project_engineer"]} today={today} />
+      <ContractOverview data={data} state="default" noPermission={noPermission} roles={["admin"]} today={today} />
     ),
     loading: () => <ContractOverview state="loading" noPermission={noPermission} />,
     error: () => <ContractOverview state="error" noPermission={noPermission} onRetry={() => undefined} />,
@@ -26,7 +27,8 @@ const entry: PreviewEntry = {
   notes:
     "Fixture: contract ΤΥ/2026/031 on «Αντικατάσταση ακτινολογικού εξοπλισμού» (Λάρνακα, PRJ-031 in the seed), " +
     "deliberately past the 10% variation warning (14,0 %) so the red figure and the warnings strip both " +
-    "have something to show. No empty state — a detail page always names one contract or shows " +
+    "have something to show. The default state carries the eFinance panel (ADR-0029) with all four figures and, " +
+    "for the admin role, the «Αποστολή στο eFinance» button; leave `efinance` out and the panel becomes one quiet line. No empty state — a detail page always names one contract or shows " +
     "noPermission/error for it, same reasoning as S03's own ProjectOverview.",
 };
 

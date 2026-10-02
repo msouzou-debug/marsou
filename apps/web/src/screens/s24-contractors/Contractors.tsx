@@ -11,11 +11,12 @@
  * | data     | Contractor[]?           |                                                                   |
  * | state    | ContractorsScreenState  |                                                                   |
  * | isAdmin  | boolean                 | The blacklist toggle's own gate, passed through to `ContractorSheet`. |
+ * | vendorSearch | (q) => Promise<EFinanceVendor[]>? | ADR-0029: passed through to the sheet's vendor picker. |
  */
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
-import type { Contractor } from "@ecapital/shared";
+import type { Contractor, EFinanceVendor } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
 import type { ContractorFormValues } from "./schema";
@@ -34,6 +35,7 @@ export interface ContractorsProps {
   sheetSaving?: boolean;
   sheetApiError?: string;
   onSave: (values: ContractorFormValues, blacklisted?: boolean) => void;
+  vendorSearch?: (q: string) => Promise<EFinanceVendor[]>;
 }
 
 export function Contractors({
@@ -47,6 +49,7 @@ export function Contractors({
   sheetSaving = false,
   sheetApiError,
   onSave,
+  vendorSearch,
 }: ContractorsProps) {
   const t = useTranslations();
 
@@ -130,6 +133,7 @@ export function Contractors({
           apiError={sheetApiError}
           onClose={() => onSelect(null)}
           onSave={onSave}
+          vendorSearch={vendorSearch}
         />
       )}
     </>

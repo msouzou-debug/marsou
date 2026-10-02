@@ -6,7 +6,8 @@
  * ContractTabs — the tab strip a contract's own screens share, the same
  * pattern `ProjectTabs` (S03) sets: Επισκόπηση (S07), Τροποποιήσεις (S08),
  * Πιστοποιήσεις (S09), Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου
- * (S07c) and Ελλείψεις (S07d), in that fixed order.
+ * (S07c), Ελλείψεις (S07d), Τιμολόγια eFinance (S07f) and Αιτήματα eFinance
+ * (S07g), in that fixed order.
  *
  * | Prop              | Type           | Notes                                                       |
  * |-------------------|----------------|-------------------------------------------------------------|
@@ -24,7 +25,15 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-export type ContractTabId = "overview" | "variations" | "certificates" | "rfis" | "instructions" | "defects";
+export type ContractTabId =
+  | "overview"
+  | "variations"
+  | "certificates"
+  | "rfis"
+  | "instructions"
+  | "defects"
+  | "efinanceInvoices"
+  | "efinanceRequisitions";
 
 export interface ContractTabsProps {
   contractId: string;
@@ -48,10 +57,25 @@ function hrefFor(id: ContractTabId, contractId: string): string {
       return `${base}/instructions`;
     case "defects":
       return `${base}/defects`;
+    case "efinanceInvoices":
+      return `${base}/efinance/invoices`;
+    case "efinanceRequisitions":
+      return `${base}/efinance/requisitions`;
   }
 }
 
-const TAB_ORDER: ContractTabId[] = ["overview", "variations", "certificates", "rfis", "instructions", "defects"];
+// ADR-0029: the two eFinance tabs close the strip. They are always there, even
+// where eFinance is not configured — their empty state says why they are empty.
+const TAB_ORDER: ContractTabId[] = [
+  "overview",
+  "variations",
+  "certificates",
+  "rfis",
+  "instructions",
+  "defects",
+  "efinanceInvoices",
+  "efinanceRequisitions",
+];
 
 export function ContractTabs({ contractId, active, rfisOpenCount, defectsOpenCount }: ContractTabsProps) {
   const t = useTranslations();

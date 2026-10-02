@@ -45,6 +45,12 @@ test("S04: a live cost warning dismisses to a 12px 'Απορρίφθηκε απ�
   await expect(page.getByRole("table", { name: "Κόστος έργου ανά κατηγορία" })).toBeVisible();
   await page.screenshot({ path: `e2e/screenshots/s04-cost-${testInfo.project.name}.png`, fullPage: true });
 
+  // ADR-0029: eFinance's budget position sits beside the four-ledger bar, and
+  // with no EFINANCE_TOKEN in the e2e API it says it is not configured.
+  await expect(page.getByRole("heading", { name: "Θέση προϋπολογισμού στο eFinance" })).toBeVisible();
+  await expect(page.getByText("Η εικόνα του eFinance ανά κωδικό προϋπολογισμού.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Δεν έχει ρυθμιστεί η σύνδεση με το eFinance")).toBeVisible();
+
   // ASSUMPTION: PRJ-031 carries at least one live cost warning by the time
   // M2's seed lands, the same way its ΤΥ/2026 contract already carries the
   // R31 variations-over-10% warning contracts.spec.ts exercises. Skip

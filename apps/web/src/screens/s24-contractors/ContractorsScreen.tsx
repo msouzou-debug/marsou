@@ -9,7 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Contractor } from "@ecapital/shared";
 import { Contractor as ContractorSchema } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
-import { useContractors } from "@/data/queries";
+import { searchEfinanceVendors, useContractors } from "@/data/queries";
 import type { ContractorFormValues } from "./schema";
 import { Contractors, type ContractorsScreenState } from "./Contractors";
 
@@ -89,6 +89,7 @@ export function ContractorsScreen({ isAdmin, noPermission }: ContractorsScreenPr
       sheetSaving={saving}
       sheetApiError={apiError}
       onSave={(values, blacklisted) => void handleSave(values, blacklisted)}
+      vendorSearch={searchEfinanceVendors}
     />
   );
 }

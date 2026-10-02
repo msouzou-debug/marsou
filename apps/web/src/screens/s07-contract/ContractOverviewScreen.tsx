@@ -20,12 +20,13 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import type { AppRole, BoqItem } from "@ecapital/shared";
-import { BoqItem as BoqItemSchema } from "@ecapital/shared";
+import { BoqItem as BoqItemSchema, EFinanceContractStatus } from "@ecapital/shared";
 import { z } from "zod";
 import { ApiError, apiMutate } from "@/data/client";
 import { useConfigLinks, useContract } from "@/data/queries";
 import type { BoqDraftRow } from "./BoqSection";
 import { ContractOverview, type ContractOverviewScreenState } from "./ContractOverview";
+import type { EFinancePushResult } from "./EFinancePanel";
 
 export interface ContractOverviewScreenProps {
   contractId: string;
@@ -58,6 +59,9 @@ export function ContractOverviewScreen({ contractId, roles, noPermission }: Cont
 
   const [boqSaving, setBoqSaving] = useState(false);
   const [boqError, setBoqError] = useState<string | undefined>(undefined);
+
+  const [efinancePushing, setEfinancePushing] = useState(false);
+  const [efinancePushResult, setEfinancePushResult] = useState<EFinancePushResult | undefined>(undefined);
 
   let state: ContractOverviewScreenState;
   if (!online && data) {
@@ -95,6 +99,30 @@ export function ContractOverviewScreen({ contractId, roles, noPermission }: Cont
     }
   }
 
+  // ADR-0029: the administrator's "send again". The answer is the state after
+  // the attempt: a refusal from eFinance is in `lastError`, not an error
+  // response, because the attempt itself worked; an unpushable contract is a
+  // 422 whose message is already a sentence in the caller's language.
+  async function pushEfinance(): Promise<void> {
+    setEfinancePushing(true);
+    setEfinancePushResult(undefined);
+    try {
+      const status = await apiMutate<EFinanceContractStatus>(
+        `/contracts/${encodeURIComponent(contractId)}/efinance/push`,
+        "POST",
+        undefined,
+        EFinanceContractStatus,
+      );
+      setEfinancePushResult(status.lastError ? { ok: false, message: status.lastError } : { ok: true });
+      // The warnings strip and the panel both read the contract.
+      await refetch();
+    } catch (pushError) {
+      setEfinancePushResult({ ok: false, message: pushError instanceof ApiError ? pushError.message : String(pushError) });
+    } finally {
+      setEfinancePushing(false);
+    }
+  }
+
   return (
     <ContractOverview
       data={data}
@@ -106,6 +134,9 @@ export function ContractOverviewScreen({ contractId, roles, noPermission }: Cont
       boqSaving={boqSaving}
       boqError={boqError}
       links={links}
+      onPushEfinance={() => void pushEfinance()}
+      efinancePushing={efinancePushing}
+      efinancePushResult={efinancePushResult}
     />
   );
 }

@@ -18,6 +18,7 @@
  * | roles        | AppRole[]                     | The caller's own roles — the «Επεξεργασία» gate (`canWriteContracts`). |
  * | today        | Date?                         | Injectable "now" for the expired-bond rule; tests and the preview pass a fixed date. |
  * | onSaveBoq / boqSaving / boqError | — | `ContractOverviewScreen` owns the `PUT /contracts/:id/boq` call. |
+ * | onPushEfinance / efinancePushing / efinancePushResult | — | ADR-0029: `ContractOverviewScreen` owns `POST /contracts/:id/efinance/push`; the button is the administrator's only. |
  * | links        | ConfigLinks?                  | `GET /config/links` (ADR-0019 §4) — where eMAP and eFinance are, or null. Undefined while it loads; the link-outs simply do not appear. |
  *
  * RULE (build brief §5): the warnings strip is amber, one line per
@@ -30,13 +31,14 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import type { AppRole, ConfigLinks, ContractDetail } from "@ecapital/shared";
 import { TriangleAlert } from "lucide-react";
-import { canWriteContracts } from "@/auth/roles";
+import { canWriteContracts, isAdmin } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
 import type { Locale } from "@/i18n/config";
 import { formatEUR, formatPct } from "@/lib/format";
 import { BoqSection, type BoqDraftRow } from "./BoqSection";
 import { ContractFacts } from "./ContractFacts";
+import { EFinancePanel, type EFinancePushResult } from "./EFinancePanel";
 import { ContractTabs } from "./ContractTabs";
 import { LinkOuts } from "./LinkOuts";
 import { VariationsList } from "./VariationsList";
@@ -54,6 +56,9 @@ export interface ContractOverviewProps {
   boqSaving?: boolean;
   boqError?: string;
   links?: ConfigLinks;
+  onPushEfinance?: () => void;
+  efinancePushing?: boolean;
+  efinancePushResult?: EFinancePushResult;
 }
 
 // RULE (R31): variationPctOfOriginal over 10% is --k-red, per the build
@@ -71,6 +76,9 @@ export function ContractOverview({
   boqSaving = false,
   boqError,
   links,
+  onPushEfinance,
+  efinancePushing = false,
+  efinancePushResult,
 }: ContractOverviewProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -230,6 +238,17 @@ export function ContractOverview({
               <dd className="num text-k-ink">{formatEUR(retentionAmount)}</dd>
             </div>
           </dl>
+
+          {/* ADR-0029: eFinance's own figures for this contract, beside — never
+              inside — the CostBar above. «Σε εξέλιξη» is marked as not counted. */}
+          <EFinancePanel
+            efinance={data.efinance}
+            canPush={isAdmin(roles)}
+            offline={offline}
+            pushing={efinancePushing}
+            pushResult={efinancePushResult}
+            onPush={onPushEfinance}
+          />
 
           <VariationsList contractId={data.id} variations={data.variations} />
         </div>

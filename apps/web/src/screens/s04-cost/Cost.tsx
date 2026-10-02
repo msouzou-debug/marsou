@@ -25,10 +25,11 @@
  * | exporting           | boolean           | Disables the export button while the download is in flight.          |
  * | cashflow…           | —                 | Forwarded to `CashflowSection` — see that component's own props.      |
  * | budgetLines…        | —                 | Forwarded to `BudgetLinesEditor`, mounted only for `canManageBudgetLines`. |
+ * | budgetPosition / budgetPositionState / onRetryBudgetPosition | — | ADR-0029: eFinance's budget position by budget code, next to the CostBar and never inside it. Omit `budgetPositionState` and the panel is not mounted (a fixture that predates it). |
  */
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import type { AppRole, CashflowRow, ProjectCost } from "@ecapital/shared";
+import type { AppRole, CashflowRow, ProjectBudgetPosition, ProjectCost } from "@ecapital/shared";
 import { canManageBudgetLines, canDismissCostWarning, canSetForecastInputs } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
@@ -38,6 +39,7 @@ import { formatEURorDash } from "@/lib/format";
 import { ProjectTabs } from "@/screens/s03-project/ProjectTabs";
 import type { BudgetLine } from "@ecapital/shared";
 import { BudgetLinesEditor, type BudgetLineDraftRow } from "./BudgetLinesEditor";
+import { BudgetPositionPanel, type BudgetPositionState } from "./BudgetPositionPanel";
 import { CashflowSection, type CashflowSectionState } from "./CashflowSection";
 import { ForecastInputsForm } from "./ForecastInputsForm";
 import type { ForecastInputsFormValues } from "./schema";
@@ -75,6 +77,9 @@ export interface CostProps {
   onSaveBudgetLines: (rows: BudgetLineDraftRow[]) => void;
   budgetLinesSaving?: boolean;
   budgetLinesApiError?: string;
+  budgetPosition?: ProjectBudgetPosition;
+  budgetPositionState?: BudgetPositionState;
+  onRetryBudgetPosition?: () => void;
 }
 
 export function Cost({
@@ -104,6 +109,9 @@ export function Cost({
   onSaveBudgetLines,
   budgetLinesSaving = false,
   budgetLinesApiError,
+  budgetPosition,
+  budgetPositionState,
+  onRetryBudgetPosition,
 }: CostProps) {
   const t = useTranslations();
 
@@ -192,6 +200,14 @@ export function Cost({
             dismissingId={dismissingWarningId}
             onDismiss={onDismissWarning}
           />
+        </div>
+      )}
+
+      {/* RULE (ADR-0029): eFinance's view by budget code sits beside the
+          four-ledger CostBar, not in it — see the panel's own caption. */}
+      {state !== "loading" && state !== "error" && budgetPositionState && (
+        <div className="mb-s-5">
+          <BudgetPositionPanel data={budgetPosition} state={budgetPositionState} onRetry={onRetryBudgetPosition} />
         </div>
       )}
 

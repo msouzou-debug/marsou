@@ -24,8 +24,9 @@ import {
 } from "@ecapital/shared";
 import { z } from "zod";
 import { ApiError, apiMutate } from "@/data/client";
-import { useBudgetLines, useCashflow, useProjectCost, useProjectDetail } from "@/data/queries";
+import { useBudgetLines, useCashflow, useProjectBudgetPosition, useProjectCost, useProjectDetail } from "@/data/queries";
 import type { BudgetLineDraftRow } from "./BudgetLinesEditor";
+import type { BudgetPositionState } from "./BudgetPositionPanel";
 import type { CashflowSectionState } from "./CashflowSection";
 import { Cost, type CostScreenState } from "./Cost";
 import type { ForecastInputsFormValues } from "./schema";
@@ -59,6 +60,9 @@ function currentYearRange(): { from: string; to: string } {
 export function CostScreen({ projectId, roles, noPermission }: CostScreenProps) {
   const { data, error, isLoading, refetch } = useProjectCost(projectId);
   const project = useProjectDetail(projectId);
+  // ADR-0029: its own query, like the project title above — a slow or failed
+  // eFinance answer (502) is the panel's error state, never the page's.
+  const budgetPosition = useProjectBudgetPosition(projectId);
   const online = useOnlineStatus();
 
   const [dismissingWarningId, setDismissingWarningId] = useState<string | undefined>(undefined);
@@ -86,6 +90,12 @@ export function CostScreen({ projectId, roles, noPermission }: CostScreenProps) 
   } else {
     state = "default";
   }
+
+  const budgetPositionState: BudgetPositionState = budgetPosition.isLoading
+    ? "loading"
+    : budgetPosition.error
+      ? "error"
+      : "default";
 
   const cashflowState: CashflowSectionState = cashflow.isLoading
     ? "loading"
@@ -223,6 +233,9 @@ export function CostScreen({ projectId, roles, noPermission }: CostScreenProps) 
       onSaveBudgetLines={(rows) => void saveBudgetLines(rows)}
       budgetLinesSaving={budgetLinesSaving}
       budgetLinesApiError={budgetLinesApiError}
+      budgetPosition={budgetPosition.data}
+      budgetPositionState={budgetPositionState}
+      onRetryBudgetPosition={() => void budgetPosition.refetch()}
     />
   );
 }

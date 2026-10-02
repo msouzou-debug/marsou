@@ -7,6 +7,8 @@
  * |------|--------|------------------------------------------|
  * | —    | —      | The current tab comes from `usePathname()`. |
  *
+ * ADR-0029 adds a third, «eFinance» — the administrator's two sync buttons.
+ *
  * RULE (ADR-0020): Διαχείριση has two things in it now — «Χρήστες», which is
  * the new one and the one the nav lands on, and «Ανάδοχοι», which was the
  * whole of the area until today and keeps its own route. Each tab is a real
@@ -22,12 +24,13 @@ import { useTranslations } from "next-intl";
 
 interface AdminTab {
   href: string;
-  labelKey: "users" | "contractors";
+  labelKey: "users" | "contractors" | "efinance";
 }
 
 const TABS: AdminTab[] = [
   { href: "/admin/users", labelKey: "users" },
   { href: "/admin/contractors", labelKey: "contractors" },
+  { href: "/admin/efinance", labelKey: "efinance" },
 ];
 
 export function AdminTabs() {
