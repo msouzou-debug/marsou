@@ -109,6 +109,25 @@ It does **not** deploy application code. That is `deploy/release.sh`, §6.
 It also does **not** touch PostgreSQL or nginx — §2.1 and §2.2 are done by
 Marios, by hand, and this script cannot check that either has happened.
 
+### 2.0 The short way: `deploy/first-setup.sh`, once, with sudo
+
+Everything from §2.1 to §5.1 and §11.1, in one command, after `install.sh`:
+
+```bash
+sudo bash ~/ecapital-bootstrap/deploy/first-setup.sh --admin-username <your AD account name>
+```
+
+It generates the secrets straight into `/etc/ecapital/api.env` without
+printing them, creates the PostgreSQL role, database and the two
+extensions, makes the eArchive directory, writes the nginx block on `5016`
+and reloads only if `nginx -t` passes, runs the release as `administrator`
+(without the PDF guides unless `--with-guides`), aligns the `ecapital_app`
+password, seeds the UAT data (`--no-seed` for production) and grants the
+first administrator. Re-running it keeps every value already set. Added
+02/10/2026 after the hand-typed path lost a password to a pasted
+placeholder. The sections below describe what it does, step by step, for
+anyone who needs to do or check one piece by hand.
+
 ### 2.1 Database: Marios creates the role and the database
 
 PostgreSQL 16.14 is already installed on this host, shared with BedMan and
