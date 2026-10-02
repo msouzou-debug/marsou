@@ -129,7 +129,7 @@ describe("VendorPicker — picking", () => {
     await settle();
     const blocked = screen.getByRole("option", { name: /V-100112/ });
     expect(blocked).toHaveAttribute("aria-disabled", "true");
-    expect(blocked).toHaveTextContent("Μπλοκαρισμένος στο eFinance: δεν μπορεί να επιλεγεί");
+    expect(blocked).toHaveTextContent("Σε φραγή στο eFinance: δεν μπορεί να επιλεγεί");
     onValue.mockClear();
     fireEvent.click(blocked);
     expect(onValue).not.toHaveBeenCalled();
