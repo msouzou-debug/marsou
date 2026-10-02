@@ -1,4 +1,4 @@
-# Rulings of Μονάδα Ελέγχου Εσόδων — 22/09, 23/09 and 29/09/2026
+# Rulings of Μονάδα Ελέγχου Εσόδων — 22/09 to 02/10/2026
 
 What was decided, what it changed, and what it opened up. Source: the answered copy of
 `TAEP_ekkremi_themata_Monada_Elegchou_Esodon.docx` plus `20230706_AE_Catalogue_5.xlsx`.
@@ -163,40 +163,75 @@ Note a small tension, not a contradiction: 602 and 640 are `tariff_applies = TRU
 (self-paying, so tariff charges arise) yet also carry a third-party payer. Both hold —
 they are billed to a third party at self-pay rates.
 
-### Hospital numbers — seven of eight
+### Hospital numbers — all eight, and a correction (29/09 and 02/10)
 
-| eFinance | Hospital | ΤΑΕΠ number | |
-|---|---|---|---|
-| LGH | Γενικό Νοσοκομείο Λεμεσού | 1047 | confirmed |
-| LAR | Γενικό Νοσοκομείο Λάρνακας | 1048 | confirmed |
-| PAP | Γενικό Νοσοκομείο Πάφου | 1025 | confirmed |
-| FAM | Γενικό Νοσοκομείο Αμμοχώστου | 1049 | confirmed |
-| ARC | Αρχιεπίσκοπος Μακάριος ΙΙΙ | 1106 | confirmed («ΤΑΕΠ Παίδων Λευκωσίας») |
-| CHR | Νοσοκομείο Πόλεως Χρυσοχούς | 1026 | confirmed |
-| TRD | Νοσοκομείο Τροόδους | 1055 | confirmed («Κυπερούντας») |
-| NGH | Γενικό Νοσοκομείο Λευκωσίας | 1054 | **inferred, not ruled** |
+The 29/09 list gave seven numbers and we inferred the eighth. 02/10 confirmed that
+inference and corrected one of our mappings.
 
-Two of their names differ from eFinance's: «Κυπερούντας» is the hospital at Kyperounta,
-which eFinance calls Νοσοκομείο Τροόδους; «ΤΑΕΠ Παίδων Λευκωσίας» is Αρχιεπίσκοπος
-Μακάριος ΙΙΙ. Same places.
+**1054 is Γενικό Νοσοκομείο Λευκωσίας**, ΤΑΕΠ ενηλίκων. The Μονάδα also writes it as
+«F1054»; the costing number uses 1054, as the sample document does. (eFinance's
+`entities` table has an `oay_fcode` column that looks like where the F-prefixed form
+belongs, but it is finer-grained than that — see below.)
+
+**1106 is not Μακάριος ΙΙΙ.** We had mapped it there and that was wrong:
+
+> «Το ΤΑΕΠ παίδων δεν είναι το ΝΑΜ ΙΙΙ αφού αυτή την στιγμή είναι στο Γενικό
+> Λευκωσίας. Θα μεταστεγαστεί σύντομα όμως στο ΝΑΜΙΙΙ.»
+
+«Κυπερούντας» is Νοσοκομείο Τροόδους, as we had it.
+
+---
+
+## A ΤΑΕΠ unit is not a hospital
+
+This is the structural consequence, and it is worth stating plainly because it changes
+the data model rather than just the data.
+
+**Eight ΤΑΕΠ units across seven eFinance entities.** Γενικό Νοσοκομείο Λευκωσίας runs
+two of them on one entity:
+
+| Number | Unit | eFinance entity |
+|---|---|---|
+| 1054 | Γενικό Νοσοκομείο Λευκωσίας — ΤΑΕΠ ενηλίκων | NGH |
+| 1106 | ΤΑΕΠ Παίδων Λευκωσίας | NGH |
+| 1047 | Γενικό Νοσοκομείο Λεμεσού | LGH |
+| 1048 | Γενικό Νοσοκομείο Λάρνακας | LAR |
+| 1025 | Γενικό Νοσοκομείο Πάφου | PAP |
+| 1049 | Γενικό Νοσοκομείο Αμμοχώστου | FAM |
+| 1055 | Νοσοκομείο Τροόδους | TRD |
+| 1026 | Νοσοκομείο Πόλης Χρυσοχού | CHR |
+
+Μακάριος ΙΙΙ (ARC) runs no ΤΑΕΠ today.
+
+So the two scopes come apart, and the schema now reflects it:
+
+- **The costing-number sequence is per unit.** `taep_number_sequence` is keyed on
+  `unit_code`. The two Nicosia units keep separate gapless series.
+- **Access control stays per entity.** A Nicosia clerk sees Nicosia episodes whichever
+  unit they work in, using eFinance's existing `entities` / `user_entities` scoping.
+- `taep_episode` carries both `entity_code` and `taep_unit_code`.
+
+The paediatric unit's move to Μακάριος ΙΙΙ is coming during the project, so
+`host_entity_code` is effective-dated: close the row, open a new one, never update in
+place — the same discipline as rates. When it moves, its episodes start being visible
+to ARC users rather than NGH users, and that is a data change.
+
+Eight, incidentally, not the nine the build brief repeats throughout.
 
 ---
 
 ## Still open
 
-### 1. Is 1054 Γενικό Νοσοκομείο Λευκωσίας?
+### Does the paediatric unit keep number 1106 after it moves?
 
-Seven numbers were given and they map cleanly onto seven of the eight hospitals eFinance
-seeds. The one hospital left over is Nicosia General; the one number left over is 1054,
-from the sample costing document. The pairing is near-certain but it is elimination, not
-a ruling, so `hospitals.csv` marks it `number_confirmed = FALSE`.
+The relocation to Μακάριος ΙΊΙ is the only thing left, and the question is narrow: when
+ΤΑΕΠ Παίδων moves, does it keep 1106 and its running sequence, or start a new series
+under a Μακάριος number?
 
-One line settles it. Until then Nicosia General should not issue costing numbers, since
-a wrong hospital number in a gapless per-hospital sequence is not something you can
-quietly correct later.
+It matters because the sequence is gapless and allocated at finalisation. Carrying 1106
+across the move is one effective-dated row. Switching numbers mid-life means one unit
+with two series, which is a different thing to build and not something to retrofit
+after the first episode is numbered under the wrong one.
 
-### 2. Is there a ninth hospital at ΤΑΕΠ?
-
-The build brief says nine hospitals throughout. eFinance seeds eight of type `hospital`,
-and the Μονάδα listed seven numbers. Nothing points to a ninth, but nothing rules it out
-either, and the brief's number has been repeated often enough to be worth checking once.
+Nothing else is outstanding. Every other question from the four rounds is answered and
+applied.

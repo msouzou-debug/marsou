@@ -575,21 +575,21 @@ def test_triage_is_not_the_weight_four_amount():
 
 def test_costing_number_reproduces_the_sample_document():
     """Ruling 4: «κωδικός ανά νοσηλευτήριο και μοναδικός αύξων αριθμός».
-    The sample reads OKY1054/0035."""
+    The sample reads OKY1054/0035. The number belongs to the ΤΑΕΠ unit."""
     assert taep.format_costing_number(1054, 35) == "OKY1054/0035"
     assert taep.format_costing_number("1054", 1) == "OKY1054/0001"
     assert taep.format_costing_number(1054, 12345) == "OKY1054/12345"
 
 
-@pytest.mark.parametrize("hospital,sequence,code", [
-    ("", 1, "NO_HOSPITAL_NUMBER"),
-    ("  ", 1, "NO_HOSPITAL_NUMBER"),
+@pytest.mark.parametrize("unit,sequence,code", [
+    ("", 1, "NO_UNIT_NUMBER"),
+    ("  ", 1, "NO_UNIT_NUMBER"),
     (1054, 0, "BAD_SEQUENCE"),
     (1054, -3, "BAD_SEQUENCE"),
 ])
-def test_costing_number_rejects_bad_input(hospital, sequence, code):
+def test_costing_number_rejects_bad_input(unit, sequence, code):
     with pytest.raises(CostingError) as excinfo:
-        taep.format_costing_number(hospital, sequence)
+        taep.format_costing_number(unit, sequence)
     assert excinfo.value.code == code
 
 
@@ -654,40 +654,75 @@ def test_the_original_fee_values_survive_a_rerun():
 
 
 # ---------------------------------------------------------------------------
-# Hospital numbers — ruling of 29/09/2026
+# ΤΑΕΠ units — rulings of 29/09 and 02/10/2026
 # ---------------------------------------------------------------------------
 
-def _hospitals():
+def _units():
     import csv
-    return {r["entity_code"]: r for r in
-            csv.DictReader(open("seed/hospitals.csv", encoding="utf-8"))}
+    return {r["unit_code"]: r for r in
+            csv.DictReader(open("seed/taep_units.csv", encoding="utf-8"))}
 
 
-def test_seven_hospital_numbers_are_confirmed():
-    rows = _hospitals()
-    confirmed = {c: r["taep_number"] for c, r in rows.items()
-                 if r["number_confirmed"] == "TRUE"}
-    assert confirmed == {"LGH": "1047", "LAR": "1048", "PAP": "1025", "FAM": "1049",
-                         "ARC": "1106", "CHR": "1026", "TRD": "1055"}
+def test_there_are_eight_taep_units_not_nine_hospitals():
+    """The build brief says nine throughout. The Μονάδα listed eight units."""
+    assert len(_units()) == 8
 
 
-def test_nicosia_general_is_inferred_not_confirmed():
-    """1054 is the only number left and NGH the only hospital left, so the pairing is
-    near-certain — but it is elimination, not a ruling, and it is marked as such."""
-    nicosia = _hospitals()["NGH"]
-    assert nicosia["taep_number"] == "1054"
-    assert nicosia["number_confirmed"] == "FALSE"
-    assert "inferred" in nicosia["source"]
+def test_every_unit_number_is_confirmed():
+    units = _units()
+    assert all(u["number_confirmed"] == "TRUE" for u in units.values())
+    assert {u["taep_number"] for u in units.values()} == {
+        "1054", "1106", "1048", "1047", "1025", "1049", "1055", "1026"}
 
 
-def test_hospital_numbers_are_unique():
-    rows = _hospitals()
-    numbers = [r["taep_number"] for r in rows.values()]
+def test_unit_numbers_are_unique():
+    numbers = [u["taep_number"] for u in _units().values()]
     assert len(numbers) == len(set(numbers))
 
 
-def test_each_hospital_produces_its_own_costing_number():
-    rows = _hospitals()
-    assert taep.format_costing_number(rows["LGH"]["taep_number"], 1) == "OKY1047/0001"
-    assert taep.format_costing_number(rows["ARC"]["taep_number"], 42) == "OKY1106/0042"
-    assert taep.format_costing_number(rows["NGH"]["taep_number"], 35) == "OKY1054/0035"
+def test_nicosia_general_hosts_two_units_on_one_entity():
+    """A ΤΑΕΠ unit is finer-grained than a hospital. Adults 1054, paediatrics 1106,
+    both on entity NGH — which is why the sequence is per unit, not per entity."""
+    units = _units()
+    assert units["NIC-ADULT"]["taep_number"] == "1054"
+    assert units["NIC-PAED"]["taep_number"] == "1106"
+    assert units["NIC-ADULT"]["host_entity_code"] == "NGH"
+    assert units["NIC-PAED"]["host_entity_code"] == "NGH"
+
+    on_ngh = [u for u in units.values() if u["host_entity_code"] == "NGH"]
+    assert len(on_ngh) == 2
+
+
+def test_paediatric_unit_is_not_mapped_to_makarios():
+    """We had 1106 on ARC. The Μονάδα corrected it: «Το ΤΑΕΠ παίδων δεν είναι το
+    ΝΑΜ ΙΙΙ αφού αυτή την στιγμή είναι στο Γενικό Λευκωσίας»."""
+    units = _units()
+    assert units["NIC-PAED"]["host_entity_code"] != "ARC"
+    assert "Μακάριος" in units["NIC-PAED"]["note_el"]
+    assert not any(u["host_entity_code"] == "ARC" for u in units.values())
+
+
+def test_the_relocation_is_modelled_as_an_effective_dated_host():
+    """«Θα μεταστεγαστεί σύντομα όμως στο ΝΑΜΙΙΙ» — a data change, not a code change."""
+    import csv
+    header = next(csv.reader(open("seed/taep_units.csv", encoding="utf-8")))
+    assert "host_valid_from" in header
+    assert "host_valid_to" in header
+
+
+def test_troodos_and_kyperounta_are_recorded_as_the_same_place():
+    assert "Κυπερούντας" in _units()["TRD"]["note_el"]
+
+
+def test_each_unit_produces_its_own_costing_number():
+    units = _units()
+    assert taep.format_costing_number(units["NIC-ADULT"]["taep_number"], 35) == "OKY1054/0035"
+    assert taep.format_costing_number(units["NIC-PAED"]["taep_number"], 7) == "OKY1106/0007"
+    assert taep.format_costing_number(units["LIM"]["taep_number"], 1) == "OKY1047/0001"
+
+
+def test_the_two_nicosia_units_do_not_share_a_number_series():
+    units = _units()
+    adult = taep.format_costing_number(units["NIC-ADULT"]["taep_number"], 1)
+    paed = taep.format_costing_number(units["NIC-PAED"]["taep_number"], 1)
+    assert adult != paed

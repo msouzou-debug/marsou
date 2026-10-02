@@ -601,9 +601,37 @@ SCHEMA_STATEMENTS = [
         UNIQUE (cpt_code, valid_from)
     ){ENGINE}""",
 
+    # A ΤΑΕΠ unit is finer-grained than an eFinance entity: Γενικό Νοσοκομείο
+    # Λευκωσίας runs two units, adults (1054) and paediatrics (1106), on one entity.
+    # The costing-number sequence is per UNIT; access control stays per entity.
+    #
+    # host_entity_code is effective-dated because the paediatric unit is due to move
+    # to Μακάριος ΙΙΙ: close the row and open a new one, never UPDATE in place.
+    """CREATE TABLE IF NOT EXISTS taep_unit (
+        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
+        unit_code VARCHAR(20) NOT NULL,
+        name_el VARCHAR(200) NOT NULL,
+        taep_number VARCHAR(10) NOT NULL,
+        host_entity_code VARCHAR(10) NOT NULL,
+        host_valid_from DATE,
+        host_valid_to DATE,
+        note_el VARCHAR(500),
+        active TINYINT DEFAULT 1,
+        UNIQUE (unit_code, host_valid_from)
+    ){ENGINE}""",
+
+    # Gapless per-unit sequence, allocated at finalisation and never reused. A row
+    # per unit, incremented under the row lock that allocation takes.
+    """CREATE TABLE IF NOT EXISTS taep_number_sequence (
+        unit_code VARCHAR(20) PRIMARY KEY,
+        last_allocated INT NOT NULL DEFAULT 0,
+        updated_at DATETIME
+    ){ENGINE}""",
+
     """CREATE TABLE IF NOT EXISTS taep_episode (
         id INTEGER PRIMARY KEY {AUTO_INCREMENT},
-        entity_code VARCHAR(10) NOT NULL,
+        entity_code VARCHAR(10) NOT NULL,   -- for access control
+        taep_unit_code VARCHAR(20) NOT NULL, -- for the costing-number sequence
         costing_number VARCHAR(30) UNIQUE,
         episode_number VARCHAR(50),
         financial_category_id INT,
@@ -878,23 +906,24 @@ def assert_finalisable(result):
 COSTING_NUMBER_PREFIX = "OKY"
 
 
-def format_costing_number(hospital_number, sequence):
-    """Build a costing number: OKY<hospital><NNNN>.
+def format_costing_number(unit_number, sequence):
+    """Build a costing number: OKY<unit><NNNN>.
 
-    Ruling of 23/09/2026, item 4: «κωδικός ανά νοσηλευτήριο και μοναδικός αύξων
-    αριθμός». The sample document reads OKY1054/0035, so 1054 is the hospital's own
-    number and 0035 the sequence.
+    Ruling of 23/09/2026: «κωδικός ανά νοσηλευτήριο και μοναδικός αύξων αριθμός».
+    The sample document reads OKY1054/0035 — 1054 is the unit's number, 0035 the
+    sequence. All eight unit numbers were confirmed on 02/10/2026.
 
-    The sequence is per hospital, gapless, allocated at finalisation and never reused;
-    a cancelled costing keeps its number. Allocation is the caller's job — this
-    function only formats, so that it stays pure and testable.
+    The number belongs to the ΤΑΕΠ UNIT, not the hospital: Γενικό Νοσοκομείο
+    Λευκωσίας runs two units with two numbers, 1054 and 1106.
 
-    The nine hospitals' numbers are not yet known; only 1054 appears in the sample.
+    The sequence is per unit, gapless, allocated at finalisation and never reused; a
+    cancelled costing keeps its number. Allocation is the caller's job — this function
+    only formats, so that it stays pure and testable.
     """
-    if not str(hospital_number).strip():
+    if not str(unit_number).strip():
         raise CostingError(
-            "NO_HOSPITAL_NUMBER",
-            "Δεν έχει οριστεί κωδικός νοσηλευτηρίου για τη σύνθεση του αριθμού "
+            "NO_UNIT_NUMBER",
+            "Δεν έχει οριστεί κωδικός μονάδας ΤΑΕΠ για τη σύνθεση του αριθμού "
             "κοστολόγησης.",
         )
     if not isinstance(sequence, int) or sequence < 1:
@@ -902,4 +931,4 @@ def format_costing_number(hospital_number, sequence):
             "BAD_SEQUENCE",
             "Ο αύξων αριθμός κοστολόγησης πρέπει να είναι θετικός ακέραιος.",
         )
-    return f"{COSTING_NUMBER_PREFIX}{str(hospital_number).strip()}/{sequence:04d}"
+    return f"{COSTING_NUMBER_PREFIX}{str(unit_number).strip()}/{sequence:04d}"
