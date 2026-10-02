@@ -21,7 +21,11 @@ EnvironmentFile=/etc/ecapital/web.env
 # NO_PROXY: systemd units do not read /etc/environment, so without this the
 # host's Squid proxy intercepts loopback calls and answers with a fake 503.
 Environment=NO_PROXY=127.0.0.1,localhost
-ExecStart=/usr/bin/pnpm --filter @ecapital/web start -- -p 5013 -H 127.0.0.1
+# Next.js's own binary, called directly. Through `pnpm … start -- -p 5013`
+# pnpm 10 forwards the `--` itself, Next reads `-p` as a project directory and
+# exits ("Invalid project directory provided … /-p"), and the unit restart-
+# loops — the first UAT release, 02/10/2026, restart counter 114.
+ExecStart=/usr/bin/node /opt/ecapital/apps/web/node_modules/next/dist/bin/next start -p 5013 -H 127.0.0.1
 Restart=always
 RestartSec=5
 TimeoutStopSec=30

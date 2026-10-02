@@ -568,6 +568,12 @@ copy of `migrate.sh` is older than that — re-run `install.sh` — or
 `api.env` is missing, unreadable by `ecapital`, or still carries
 `CHANGE-ME` in `DATABASE_URL` (§3).
 
+**`ecapital-web` restart-loops with `Invalid project directory provided,
+no such directory: /opt/ecapital/apps/web/-p`.** The installed unit file is
+older than 02/10/2026 and still starts Next through `pnpm … start -- -p`,
+which pnpm 10 forwards literally. Re-run `install.sh` (it re-installs the
+unit and reloads systemd), then `sudo systemctl restart ecapital-web`.
+
 **API refuses to boot, journal says something about `DEV_AUTH`.**
 `config.ts` refuses to start with `DEV_AUTH=1` while `NODE_ENV=production`
 (ADR-0009) — that guard is doing its job. Fix: set `DEV_AUTH=0` in
