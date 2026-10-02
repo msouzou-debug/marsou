@@ -441,6 +441,12 @@ Two things to know:
 
 Everything in §7 and `docs/deploy-checklist.md` applies unchanged.
 
+**A change under `deploy/` needs `install.sh` again.** The release syncs
+`apps/` and `packages/` only; the helper scripts in `/opt/ecapital/deploy`
+and the two in `/usr/local/sbin` are copies `install.sh` made. After a
+`git pull` that touches `deploy/`, re-run `sudo bash <checkout>/deploy/install.sh`
+(idempotent, never overwrites an env file) before the next release.
+
 ---
 
 ## 7. Smoke tests
@@ -528,6 +534,13 @@ restart both units.
   (`apps/api/README.md`, `GET /health`). Always use `--noproxy '*'`: the
   corporate Squid proxy answers with a fake `503` otherwise, on this server
   as on eFinance's.
+
+**Migration stops with `DATABASE_URL: Invalid input: expected string,
+received undefined`.** `migrate.sh` loads `/etc/ecapital/api.env` itself
+(since 02/10/2026; the first UAT release hit this). Either the installed
+copy of `migrate.sh` is older than that — re-run `install.sh` — or
+`api.env` is missing, unreadable by `ecapital`, or still carries
+`CHANGE-ME` in `DATABASE_URL` (§3).
 
 **API refuses to boot, journal says something about `DEV_AUTH`.**
 `config.ts` refuses to start with `DEV_AUTH=1` while `NODE_ENV=production`
