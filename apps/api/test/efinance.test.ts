@@ -179,7 +179,7 @@ describe("eFinance, configured (ADR-0029)", () => {
 
   beforeAll(async () => {
     await fake.start();
-    app = await createAppWith({ EFINANCE_TOKEN: FAKE_TOKEN, EFINANCE_API_URL: fake.url });
+    app = await createAppWith({ EFINANCE_TOKEN: FAKE_TOKEN, EFINANCE_API_URL: fake.url, EFINANCE_PUSH_ENABLED: "1" });
     admin = await tokenFor(app, USERS.admin);
     db = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
     await db.connect();
@@ -592,6 +592,39 @@ describe("eFinance, configured (ADR-0029)", () => {
 });
 
 // --------------------------------------------------------- not configured --
+
+describe("eFinance, token placed but EFINANCE_PUSH_ENABLED off (ADR-0029 addendum)", () => {
+  const fake = new FakeEFinance();
+  let app: INestApplication;
+  let admin: string;
+
+  beforeAll(async () => {
+    await fake.start();
+    app = await createAppWith({ EFINANCE_TOKEN: FAKE_TOKEN, EFINANCE_API_URL: fake.url });
+    admin = await tokenFor(app, USERS.admin);
+  });
+  afterAll(async () => {
+    await app.close();
+    await fake.stop();
+  });
+
+  it("reads, but never sends a contract, and says why on a manual push", async () => {
+    const stamp = `off-push-${Date.now()}`;
+    const { contract } = await contractFor(app, stamp, null);
+    const push = app.get(ContractPushService);
+    expect(push.configured).toBe(false);
+    expect(push.pushDisabled).toBe(true);
+    expect(await push.retryPending()).toEqual({ tried: 0, pushed: 0 });
+    expect(fake.puts.length).toBe(0);
+
+    const manual = await request(app.getHttpServer()).post(`/contracts/${contract.id}/efinance/push`).set(bearer(admin));
+    expect(manual.status).toBe(409);
+    expect(manual.body.message ?? manual.body.error ?? JSON.stringify(manual.body)).toMatch(/eFinance/);
+
+    const codes = await request(app.getHttpServer()).get("/budget-codes?kind=capex").set(bearer(admin));
+    expect(codes.status).toBe(200);
+  });
+});
 
 describe("eFinance, not configured", () => {
   let app: INestApplication;

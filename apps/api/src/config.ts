@@ -68,6 +68,16 @@ const EnvSchema = z
     // that contract to the same host's port 5004 in production; overridable
     // so a UAT box that runs eFinance elsewhere can still be pointed at it.
     EFINANCE_API_URL: z.string().url().default("http://127.0.0.1:5004"),
+    // ADR-0029 addendum, 02/10/2026 — the write direction has its own switch.
+    // Off, eCapital still reads invoices, requisitions and the budget
+    // position, but never calls PUT /api/v1/capital/contracts: a UAT server
+    // seeded with sample contracts must not fill eFinance's contract picker
+    // with fiction, and production turns it on deliberately, once, when the
+    // real register is in. "1" or "true" enables it; anything else is off.
+    EFINANCE_PUSH_ENABLED: z
+      .string()
+      .optional()
+      .transform((v) => v === "1" || v?.toLowerCase() === "true"),
 
     // ADR-0023 — eArchive, ΟΚΥπΥ's protocol and records system (formerly
     // eMetroon), on the loopback beside eCapital's own API.

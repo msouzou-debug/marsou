@@ -86,14 +86,24 @@ export class ContractPushService implements OnModuleInit {
     @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
+  /** Token placed AND the push switch on (EFINANCE_PUSH_ENABLED). Reads do not look here. */
   get configured(): boolean {
-    return this.client.configured;
+    return this.client.configured && this.config.EFINANCE_PUSH_ENABLED === true;
+  }
+
+  /** The token is there but the switch is off: the reason a manual push is refused with 409. */
+  get pushDisabled(): boolean {
+    return this.client.configured && this.config.EFINANCE_PUSH_ENABLED !== true;
   }
 
   onModuleInit(): void {
     if (!this.client.configured) {
       this.logger.warn(
         "eFinance is not configured (EFINANCE_TOKEN). Contracts are not pushed and nothing is read; both start when the token is placed and the unit restarted.",
+      );
+    } else if (this.pushDisabled) {
+      this.logger.warn(
+        "eFinance push is OFF (EFINANCE_PUSH_ENABLED is not 1). Invoices, requisitions and the budget position are read; contracts are not sent to eFinance until the switch is turned on and the unit restarted.",
       );
     }
   }
@@ -159,7 +169,7 @@ export class ContractPushService implements OnModuleInit {
    * eFinance answers; the outcome is returned and written on the contract.
    */
   async push(contractId: string): Promise<PushOutcome> {
-    if (!this.client.configured) return { outcome: "not-configured" };
+    if (!this.configured) return { outcome: "not-configured" };
     const tx = currentTx();
     if (!tx) throw new Error("ContractPushService.push outside a transaction");
 
@@ -191,7 +201,7 @@ export class ContractPushService implements OnModuleInit {
    * it. The timer is the safety net.
    */
   async pushQuietly(contractIds: string | string[]): Promise<void> {
-    if (!this.client.configured) return;
+    if (!this.configured) return;
     const tx = currentTx();
     if (!tx) return;
     for (const id of Array.isArray(contractIds) ? contractIds : [contractIds]) {
@@ -210,7 +220,7 @@ export class ContractPushService implements OnModuleInit {
 
   /** Every contract of a project the caller can see: its phase or title moved. */
   async pushProject(projectId: string): Promise<void> {
-    if (!this.client.configured) return;
+    if (!this.configured) return;
     const tx = currentTx();
     if (!tx) return;
     const rows = await tx.db.execute<{ id: string }>(
@@ -221,7 +231,7 @@ export class ContractPushService implements OnModuleInit {
 
   /** Every contract of a contractor the caller can see: its vendor code moved. */
   async pushContractor(contractorId: string): Promise<void> {
-    if (!this.client.configured) return;
+    if (!this.configured) return;
     const tx = currentTx();
     if (!tx) return;
     const rows = await tx.db.execute<{ id: string }>(
@@ -246,7 +256,7 @@ export class ContractPushService implements OnModuleInit {
    * identity, so one slow answer does not hold the others' locks.
    */
   async retryPending(limit = RETRY_BATCH): Promise<{ tried: number; pushed: number }> {
-    if (!this.client.configured || this.retrying) return { tried: 0, pushed: 0 };
+    if (!this.configured || this.retrying) return { tried: 0, pushed: 0 };
     this.retrying = true;
     try {
       const ids = await this.database.withRls(EFINANCE_SYSTEM_CONTEXT, async (db) => {

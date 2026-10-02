@@ -224,3 +224,18 @@ step. Both timers return at once under `NODE_ENV=test`.
   routes on a loopback port — 401 on a wrong token, 409 on a moved contract,
   paging, a reversed invoice. The first push and the first sync on the server
   are things somebody watches.
+
+## Addendum, 02/10/2026 — the push has its own switch
+
+`EFINANCE_PUSH_ENABLED` (off unless `1`/`true`) gates the write direction
+only. With the token placed and the switch off, the client reads invoices,
+requisitions, vendors, entities and the budget position exactly as above,
+and `ContractPushService` reports `configured: false`: no push on create or
+change, no ten-minute retry, and the manual push answers `409
+errors.efinancePushDisabled` so the person sees why. Reason: the first
+deployment is a UAT server seeded with 41 sample contracts, and the retry
+sweep as written would have sent every one of them to eFinance's contract
+picker within ten minutes of the token being placed. eFinance's picker is a
+list people code real invoices against; fiction in it is worse than an
+empty picker. Production turns the switch on once, deliberately, after the
+Capex import has replaced the seed.

@@ -66,8 +66,10 @@ export class EFinanceController {
   @ApiZodResponse(200, EFinanceContractStatus, "The push state after the attempt")
   @ApiZodError(403, "A role that is not admin")
   @ApiZodError(404, "No such contract")
+  @ApiZodError(409, "The token is placed but EFINANCE_PUSH_ENABLED is off on this server")
   @ApiZodError(422, "The contract has no budget code, or its contractor has no SAP vendor code")
   async pushNow(@Param("id") id: string): Promise<EFinanceContractStatus> {
+    if (this.push.pushDisabled) throw AppError.conflict("errors.efinancePushDisabled");
     const outcome = await this.push.push(id);
     if (outcome.outcome === "not-found") throw AppError.notFound("errors.contractNotFound");
     if (outcome.outcome === "not-pushable") {

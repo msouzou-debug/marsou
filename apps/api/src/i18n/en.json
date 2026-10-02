@@ -176,7 +176,8 @@
     "efinanceMissingBudgetCode": "The contract has no budget code, so it cannot be sent to eFinance. Fill it in first.",
     "efinanceMissingVendorCode": "The contractor has no SAP vendor code, so the contract cannot be sent to eFinance. Fill it in on the contractor first.",
     "efinanceMissingBoth": "The contract has no budget code and the contractor has no SAP vendor code, so the contract cannot be sent to eFinance. Fill in both first.",
-    "efinanceYearNotValid": "The year must be four digits, for example 2026."
+    "efinanceYearNotValid": "The year must be four digits, for example 2026.",
+    "efinancePushDisabled": "Sending contracts to eFinance is switched off on this server (EFINANCE_PUSH_ENABLED). Invoices and the budget position are still read."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
