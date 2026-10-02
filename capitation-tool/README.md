@@ -10,7 +10,9 @@ Builds the monthly capitation fees workbook (`CAPITATION_FEES_MM_YYYY_PAYABLE_MM
 Everything runs in the browser. No files leave the PC.
 
 ## Use
-Open `dist/capitation_tool.html` in Chrome or Edge (needs internet for the pinned cdnjs libraries), add the files and click **Υπολογισμός**.
+Open `dist/capitation_tool_offline.html` in Chrome or Edge, add the files and click **Υπολογισμός**. It is one file (about 2.5 MB) with the libraries inside, so it needs no internet and can be shared by email or a shared drive.
+
+`dist/capitation_tool.html` is the light version (about 100 KB) that loads the same libraries from cdnjs.
 
 ## Output tabs
 CHECKS, ALL, ΠΙΠ ΝΑΜ ΙΙΙ, ΠΙΠ ΑΛΛΟΙ, ΠΙ ΕΝΗΛΙΚΩΝ, ΣΥΝΟΛΙΚΑ, ΟΝΟΜΑΣΤΙΚΑ, ΔΥ, ΟΚΥΠΥ, ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ, ΠΑΡΑΙΤΗΣΕΙΣ_ΑΦΥΠΗ, SRA_PD, ROSTER.
@@ -23,5 +25,5 @@ All calculated cells are live formulas. Band limits and rates are the yellow cel
 - Doctor fee = sum over bands of (list size inside the band × average fee × band rate).
 
 ## Develop
-`python3 build.py` builds `dist/`. Tests: `test/run_july.js` (Node) and `test/browser_e2e.js` (Playwright). Validated against July 2026: all 103 doctors match to the cent.
+`python3 build.py` builds `dist/`. The offline file needs `npm i pdfjs-dist@3.11.174 jszip@3.10.1 exceljs@4.4.0` first. Tests: `test/run_july.js` (Node) and `test/browser_e2e.js` (Playwright). Validated against July 2026: all 103 doctors match to the cent.
 The roster holds personal data (ΑΚΑ, ΑΔΤ). Keep it out of the repository.

@@ -22,7 +22,7 @@ const [capZip, raZip, roster, prev, outDir] = process.argv.slice(2);
   });
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(e.message));
-  await page.goto('file://' + path.resolve('dist/capitation_tool.html'));
+  await page.goto('file://' + path.resolve(process.env.PAGE || 'dist/capitation_tool.html'));
   await page.screenshot({ path: path.join(outDir, 'shot_example.png'), fullPage: true });
   await page.setInputFiles('#f-cap', capZip);
   await page.setInputFiles('#f-ra', raZip);
