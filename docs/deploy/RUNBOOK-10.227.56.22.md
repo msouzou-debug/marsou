@@ -652,15 +652,34 @@ interest — eArchive has it.
 
 ### 11.2 The token
 
-**Marios generates it on the server and writes it into both files himself.**
-It is never sent by email, never pasted into a chat, never committed to the
-repository, and never written into a deployment note — including this one.
+**The value lives in eArchive's own configuration and is copied from there
+into ours, file to file, on this server** (agreed with the eArchive session,
+02/10/2026). eArchive generated it on 19/09/2026 and keeps it in
+`/opt/emetroon/.env`, line `ECAPITAL_INGEST_TOKEN=`, a file of the `emetroon`
+user, mode 600. It is never sent by email, never pasted into a chat, never
+committed, and never written into a deployment note — including this one.
+Marios runs, as `administrator`:
 
 ```bash
-openssl rand -hex 32
+T=$(sudo grep -m1 "^ECAPITAL_INGEST_TOKEN=" /opt/emetroon/.env | cut -d= -f2-)
+[ -n "$T" ] && sudo sed -i "s|^ECAPITAL_INGEST_TOKEN=.*|ECAPITAL_INGEST_TOKEN=$T|" /etc/ecapital/api.env \
+  && sudo systemctl restart ecapital-api && echo copied || echo "NOT FOUND in /opt/emetroon/.env — nothing changed"
+unset T
 ```
 
-The same string goes in two places:
+Then prove both sides hold the same value without showing it — two identical
+lines means they match:
+
+```bash
+sudo grep -m1 "^ECAPITAL_INGEST_TOKEN=" /opt/emetroon/.env   | cut -d= -f2- | sha256sum
+sudo grep -m1 "^ECAPITAL_INGEST_TOKEN=" /etc/ecapital/api.env | cut -d= -f2- | sha256sum
+```
+
+(`deploy/first-setup.sh` writes a random value into `api.env` first; this
+copy replaces it. The earlier text here, "Marios generates it and writes it
+into both files", is superseded: eArchive's copy is the one that counts.)
+
+The same string is then in two places:
 
 1. `/etc/ecapital/api.env` → `ECAPITAL_INGEST_TOKEN=…` (replacing
    `CHANGE-ME`). eCapital sends it to eArchive on every ingest call **and**
