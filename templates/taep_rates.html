@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Διαχείριση Τιμών ΤΑΕΠ{% endblock %}
+{% block content %}
+<h1>Διαχείριση Τιμών</h1>
+<p class="hint">Τιμές σε ισχύ στις {{ on_date.strftime('%d/%m/%Y') }}.</p>
+
+{% if problems %}
+  <div class="alert-danger">
+    <strong>Επικαλυπτόμενες περίοδοι τιμών.</strong>
+    Κοστολόγηση στις σειρές αυτές θα απορριφθεί μέχρι να διορθωθούν.
+    <ul>{% for problem in problems %}<li>{{ problem.detail }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+<h2>Κλίμακα βαρύτητας</h2>
+<table id="scale">
+  <thead><tr><th>Βαρύτητα</th><th>Κατηγοριοποίηση</th><th>Ποσό €</th>
+    <th>Σε ισχύ από</th><th>Έγγραφο</th></tr></thead>
+  <tbody>
+  {% for row in scale %}
+    <tr>
+      <td class="number">{{ row.weight }}</td>
+      <td>{{ row.band_label_el }}</td>
+      <td class="number">{{ row.amount | eur }}</td>
+      <td>{{ row.valid_from.strftime('%d/%m/%Y') if row.valid_from else '—' }}</td>
+      <td>{{ row.source_document or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Τέλη εγγραφής ανά οικονομική κατηγορία</h2>
+<p>
+  <a href="{{ url_for('taep_rates', only_unset='1') }}">Μόνο μη ορισμένες</a> ·
+  <a href="{{ url_for('taep_rates') }}">Όλες</a>
+  {% if only_unset %}<strong>(φιλτραρισμένο)</strong>{% endif %}
+</p>
+
+<table id="fees">
+  <thead><tr>
+    <th>Κωδ.</th><th>Κατηγορία</th><th>Τέλος εγγραφής €</th><th>Κατάσταση</th>
+    <th>Προκαταβολή €</th><th>Τιμοκατάλογος</th><th>Αρμόδια αρχή</th>
+    <th>Σε ισχύ από</th><th>Ιστορικό</th>
+  </tr></thead>
+  <tbody>
+  {% for row in overview %}
+    <tr class="fee-{{ row.fee_state | lower }}">
+      <td><code>{{ row.code }}</code></td>
+      <td>{{ row.name_el }}</td>
+      <td class="number">
+        {% if row.fee_state == states.UNCONFIRMED %}—{% else %}{{ row.registration_fee | eur }}{% endif %}
+      </td>
+      <td>
+        {% if row.fee_state == states.SET %}Ορισμένο
+        {% elif row.fee_state == states.EXEMPT %}
+          <span title="{{ row.note_el }}">Εξαιρείται</span>
+        {% else %}Δεν έχει οριστεί{% endif %}
+      </td>
+      <td class="number">{% if row.deposit %}{{ row.deposit | eur }}{% else %}—{% endif %}</td>
+      <td>{{ 'Ναι' if row.tariff_applies else 'Όχι' }}</td>
+      <td>{{ row.payer_el or '—' }}</td>
+      <td>{{ row.valid_from.strftime('%d/%m/%Y') if row.valid_from else '—' }}</td>
+      <td><a href="{{ url_for('taep_rate_history', rate_type='REGISTRATION_FEE',
+                              financial_category_id=row.category_id) }}">Ιστορικό</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Αλλαγή τιμής</h2>
+<p class="hint">Η τρέχουσα τιμή δεν αντικαθίσταται. Κλείνει η τρέχουσα περίοδος και
+  ανοίγει νέα από την ημερομηνία ισχύος, με καταγραφή του εγγράφου απόφασης.</p>
+
+<form method="post" action="{{ url_for('taep_rate_change') }}" id="rate-change">
+  <label for="rate_type">Τύπος τιμής</label>
+  <select id="rate_type" name="rate_type" required>
+    <option value="REGISTRATION_FEE">Τέλος εγγραφής (ανά κατηγορία)</option>
+    <option value="REGISTRATION_DEPOSIT">Προκαταβολή (ανά κατηγορία)</option>
+    <option value="WEIGHT_AMOUNT">Ποσό βαρύτητας (εθνικό)</option>
+    <option value="TRIAGE_AMOUNT">Ποσό διαλογής (εθνικό)</option>
+  </select>
+
+  <label for="financial_category_id">Οικονομική κατηγορία</label>
+  <select id="financial_category_id" name="financial_category_id">
+    <option value="">— δεν αφορά (εθνική τιμή) —</option>
+    {% for row in overview %}
+      <option value="{{ row.category_id }}">{{ row.code }} — {{ row.name_el }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="weight">Συντελεστής βαρύτητας</label>
+  <select id="weight" name="weight">
+    <option value="">— δεν αφορά —</option>
+    {% for row in scale if row.weight != 1 %}
+      <option value="{{ row.weight }}">{{ row.weight }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="amount">Νέο ποσό €</label>
+  <input id="amount" name="amount" required inputmode="decimal">
+
+  <label for="effective_from">Σε ισχύ από</label>
+  <input id="effective_from" name="effective_from" type="date" required>
+
+  <label for="source_document">Έγγραφο απόφασης</label>
+  <input id="source_document" name="source_document" required
+         placeholder="π.χ. Απόφαση ΔΣ 123/2027">
+
+  <button type="submit" class="primary">Καταχώρηση νέας περιόδου</button>
+</form>
+{% endblock %}

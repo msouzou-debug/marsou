@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Ιστορικό τιμών{% endblock %}
+{% block content %}
+<h1>Ιστορικό τιμών — {{ rate_type }}</h1>
+<p class="hint">Κάθε περίοδος, ποιος την άνοιξε και με ποιο έγγραφο. Καμία τιμή δεν
+  αντικαθίσταται επιτόπου.</p>
+
+<table id="history">
+  <thead><tr><th>Από</th><th>Έως</th><th>Ποσό €</th><th>Βαρύτητα</th>
+    <th>Έγγραφο</th><th>Καταχώρηση</th><th>Κλείσιμο</th></tr></thead>
+  <tbody>
+  {% for period in periods %}
+    <tr>
+      <td>{{ period.valid_from }}</td>
+      <td>{{ period.valid_to or 'σε ισχύ' }}</td>
+      <td class="number">{{ period.amount | eur }}</td>
+      <td class="number">{{ period.weight or '—' }}</td>
+      <td>{{ period.source_document or '—' }}</td>
+      <td>{{ period.created_by or '—' }} · {{ period.created_at or '' }}</td>
+      <td>{{ period.closed_by or '—' }} · {{ period.closed_at or '' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7">Καμία περίοδος.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><a href="{{ url_for('taep_rates') }}">Επιστροφή στις τιμές</a></p>
+{% endblock %}

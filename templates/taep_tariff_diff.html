@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Διαφορές τιμοκαταλόγου{% endblock %}
+{% block content %}
+<h1>Διαφορές προς επιβεβαίωση</h1>
+
+{% if errors %}
+  <div class="alert-danger" id="upload-errors">
+    <strong>Το αρχείο έχει {{ errors|length }} σφάλματα. Δεν εφαρμόστηκε τίποτα.</strong>
+    <ul>
+      {% for error in errors %}
+        <li>{% if error.row %}Γραμμή {{ error.row }}: {% endif %}{{ error.message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{{ url_for('taep_tariff') }}">Επιστροφή</a></p>
+{% else %}
+  <h2 id="added-heading">Νέες χρεώσεις ({{ difference.added|length }})</h2>
+  <table id="added"><tbody>
+    {% for row in difference.added %}
+      <tr><td><code>{{ row.code }}</code></td><td>{{ row.description_el }}</td>
+        <td class="number">{{ row.base_amount | eur }}</td></tr>
+    {% else %}<tr><td>Καμία.</td></tr>{% endfor %}
+  </tbody></table>
+
+  <h2 id="changed-heading">Αλλαγές ({{ difference.changed|length }})</h2>
+  <table id="changed">
+    <thead><tr><th>Κωδικός</th><th>Πεδίο</th><th>Από</th><th>Σε</th></tr></thead>
+    <tbody>
+    {% for entry in difference.changed %}
+      {% for field, pair in entry.differences.items() %}
+        <tr><td><code>{{ entry.code }}</code></td><td>{{ field }}</td>
+          <td>{{ pair[0] }}</td><td><strong>{{ pair[1] }}</strong></td></tr>
+      {% endfor %}
+    {% else %}<tr><td colspan="4">Καμία.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+
+  <h2 id="deactivated-heading">Απενεργοποιήσεις ({{ difference.deactivated|length }})</h2>
+  <p class="hint">Οι γραμμές που λείπουν από το αρχείο απενεργοποιούνται. Δεν
+    διαγράφονται, ώστε οι παλιές κοστολογήσεις να παραμένουν αναγνώσιμες.</p>
+  <table id="deactivated"><tbody>
+    {% for row in difference.deactivated %}
+      <tr><td><code>{{ row.code }}</code></td><td>{{ row.description_el }}</td></tr>
+    {% else %}<tr><td>Καμία.</td></tr>{% endfor %}
+  </tbody></table>
+
+  <form method="post" action="{{ url_for('taep_tariff_apply') }}">
+    <button type="submit" class="primary">
+      Εφαρμογή όλων: {{ difference.added|length }} νέες,
+      {{ difference.changed|length }} αλλαγές,
+      {{ difference.deactivated|length }} απενεργοποιήσεις</button>
+    <a href="{{ url_for('taep_tariff') }}">Ακύρωση</a>
+  </form>
+{% endif %}
+{% endblock %}

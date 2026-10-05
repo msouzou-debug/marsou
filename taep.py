@@ -602,6 +602,7 @@ SCHEMA_STATEMENTS = [
         code VARCHAR(20) NOT NULL,
         description_el VARCHAR(500),
         group_el VARCHAR(200),
+        tier_label_el VARCHAR(200),
         price_type VARCHAR(30) NOT NULL,
         base_amount DECIMAL(15,2) DEFAULT 0.00,
         hourly_amount DECIMAL(15,2),
@@ -1016,10 +1017,11 @@ def seed(ctx):
     if empty("SELECT id FROM taep_tariff LIMIT 1"):
         _insert_many(db, "taep_tariff",
                      ["tariff_scope", "code", "description_el", "group_el",
-                      "price_type", "base_amount", "hourly_amount", "price_raw",
-                      "load_status", "active"],
+                      "tier_label_el", "price_type", "base_amount", "hourly_amount",
+                      "price_raw", "load_status", "active"],
                      [("GENERAL", r["code"], r["description_el"], r["group_el"],
-                       r["price_type"], _money_or_none(r["base_amount"]),
+                       r["tier_label_el"] or None, r["price_type"],
+                       _money_or_none(r["base_amount"]),
                        _money_or_none(r["hourly_amount"]), r["price_raw"],
                        r["load_status"], 1)
                       for r in _read_seed("tariff.csv")])
@@ -2163,6 +2165,333 @@ def weight_scale_overview(ctx, on_date=None):
 
 
 # ---------------------------------------------------------------------------
+# Excel: the tariff round trip and the episode export (brief §7)
+# ---------------------------------------------------------------------------
+#
+# openpyxl, already an eFinance dependency. The tariff workbook is downloaded, edited,
+# uploaded, shown as a diff and applied in one go — never partially (brief §7).
+
+TARIFF_SHEET = "Τιμοκατάλογος ΤΑΕΠ"
+TARIFF_COLUMNS = [
+    ("code", "Κωδικός"),
+    ("description_el", "Περιγραφή"),
+    ("group_el", "Ομάδα"),
+    ("tier_label_el", "Κλίμακα"),
+    ("price_type", "Τύπος τιμής"),
+    ("base_amount", "Βασικό ποσό €"),
+    ("hourly_amount", "Ωριαία επιβάρυνση €"),
+    ("active", "Ενεργό"),
+]
+
+
+def _workbook_bytes(workbook):
+    from io import BytesIO
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def export_tariff_workbook(ctx):
+    """The current tariff as a workbook the rates admin edits and uploads back."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    rows = ctx["db_execute"](
+        """SELECT code, description_el, group_el, tier_label_el, price_type,
+                  base_amount, hourly_amount, active
+           FROM taep_tariff ORDER BY code""", fetch=True) or []
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = TARIFF_SHEET
+    sheet.append([label for _, label in TARIFF_COLUMNS])
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F3864")
+
+    for row in rows:
+        sheet.append([
+            row["code"], row["description_el"], row["group_el"],
+            row["tier_label_el"], row["price_type"],
+            None if row["base_amount"] is None else float(money_from_db(row["base_amount"])),
+            None if row["hourly_amount"] is None else float(money_from_db(row["hourly_amount"])),
+            "ΝΑΙ" if _as_int(row["active"]) else "ΟΧΙ",
+        ])
+
+    for column, width in zip("ABCDEFGH", (16, 60, 30, 34, 24, 14, 18, 8)):
+        sheet.column_dimensions[column].width = width
+    sheet.freeze_panes = "A2"
+    for row_index in range(2, sheet.max_row + 1):
+        for column in ("F", "G"):
+            sheet[f"{column}{row_index}"].number_format = "#,##0.00"
+
+    notes = workbook.create_sheet("Οδηγίες")
+    for line in (
+        "Επεξεργαστείτε μόνο αυτό το αρχείο και ανεβάστε το ξανά.",
+        "",
+        "Ο κωδικός ταυτοποιεί τη γραμμή — μην τον αλλάζετε.",
+        "Νέος κωδικός σημαίνει νέα χρέωση. Κωδικός που λείπει σημαίνει απενεργοποίηση.",
+        "Έγκυροι τύποι τιμής: " + ", ".join(PRICE_TYPES) + ".",
+        "Το «Ωριαία επιβάρυνση» αφορά μόνο τον τύπο fixed_plus_hourly.",
+        "Ο τύπος tariff_lookup δεν φέρει ποσό· η τιμή προκύπτει από τον τιμοκατάλογο "
+        "Ακτινοδιαγνωστικής.",
+        "",
+        "Μετά το ανέβασμα εμφανίζονται οι διαφορές προς επιβεβαίωση. Τίποτα δεν "
+        "εφαρμόζεται πριν επιβεβαιώσετε, και εφαρμόζονται όλες μαζί ή καμία.",
+    ):
+        notes.append([line])
+    notes.column_dimensions["A"].width = 100
+
+    return _workbook_bytes(workbook)
+
+
+def read_tariff_workbook(data):
+    """Parse an uploaded tariff workbook. Returns (rows, errors).
+
+    Validation is strict and reported per row with its spreadsheet row number, because
+    "row 34 is wrong" is actionable and "the file is invalid" is not.
+    """
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    try:
+        workbook = load_workbook(BytesIO(data), data_only=True)
+    except Exception:
+        return [], [{"row": None, "message": "Το αρχείο δεν είναι έγκυρο βιβλίο Excel."}]
+
+    if TARIFF_SHEET in workbook.sheetnames:
+        sheet = workbook[TARIFF_SHEET]
+    else:
+        sheet = workbook.worksheets[0]
+
+    header = [str(c.value or "").strip() for c in sheet[1]]
+    expected = [label for _, label in TARIFF_COLUMNS]
+    if header[:len(expected)] != expected:
+        return [], [{"row": 1, "message":
+                     "Οι επικεφαλίδες δεν ταιριάζουν. Κατεβάστε ξανά το αρχείο και "
+                     "επεξεργαστείτε εκείνο."}]
+
+    rows, errors, seen = [], [], {}
+    for index in range(2, sheet.max_row + 1):
+        values = [sheet.cell(index, column).value
+                  for column in range(1, len(TARIFF_COLUMNS) + 1)]
+        if all(v is None or str(v).strip() == "" for v in values):
+            continue
+
+        record = dict(zip([key for key, _ in TARIFF_COLUMNS],
+                          [None if v is None else str(v).strip() for v in values]))
+        code = record["code"]
+
+        if not code:
+            errors.append({"row": index, "message": "Λείπει ο κωδικός."})
+            continue
+        if code in seen:
+            errors.append({"row": index,
+                           "message": f"Ο κωδικός {code} εμφανίζεται ξανά "
+                                      f"(γραμμή {seen[code]})."})
+            continue
+        seen[code] = index
+
+        if record["price_type"] not in PRICE_TYPES:
+            errors.append({"row": index,
+                           "message": f"Μη έγκυρος τύπος τιμής "
+                                      f"«{record['price_type']}» για τον {code}."})
+            continue
+
+        for field, label in (("base_amount", "βασικό ποσό"),
+                             ("hourly_amount", "ωριαία επιβάρυνση")):
+            raw = record[field]
+            if raw in (None, ""):
+                record[field] = None
+                continue
+            try:
+                amount = money(Decimal(str(raw).replace(",", ".")))
+            except Exception:
+                errors.append({"row": index,
+                               "message": f"Μη έγκυρο {label} «{raw}» για τον {code}."})
+                record[field] = None
+                continue
+            if amount < 0:
+                errors.append({"row": index,
+                               "message": f"Το {label} για τον {code} δεν μπορεί να "
+                                          f"είναι αρνητικό."})
+            record[field] = amount
+
+        if record["price_type"] == "fixed_plus_hourly" and record["hourly_amount"] is None:
+            errors.append({"row": index,
+                           "message": f"Ο τύπος fixed_plus_hourly απαιτεί ωριαία "
+                                      f"επιβάρυνση ({code})."})
+        if record["price_type"] != "tariff_lookup" and record["base_amount"] is None:
+            errors.append({"row": index,
+                           "message": f"Λείπει το βασικό ποσό για τον {code}."})
+
+        record["active"] = 0 if str(record["active"] or "").upper() in ("ΟΧΙ", "NO",
+                                                                        "0", "FALSE") else 1
+        record["row"] = index
+        rows.append(record)
+
+    return rows, errors
+
+
+def diff_tariff(ctx, uploaded):
+    """What an uploaded tariff would change. Shown before anything is applied.
+
+    Returns added / changed / deactivated, each with enough detail to review: for a
+    changed row, both the old and the new value of every field that moved.
+    """
+    current = {r["code"]: r for r in ctx["db_execute"](
+        """SELECT code, description_el, group_el, tier_label_el, price_type,
+                  base_amount, hourly_amount, active
+           FROM taep_tariff""", fetch=True) or []}
+
+    comparable = ("description_el", "group_el", "tier_label_el", "price_type")
+    money_fields = ("base_amount", "hourly_amount")
+    added, changed = [], []
+
+    for record in uploaded:
+        existing = current.get(record["code"])
+        if existing is None:
+            added.append(record)
+            continue
+        differences = {}
+        for field in comparable:
+            before = (existing[field] or "")
+            after = (record[field] or "")
+            if before != after:
+                differences[field] = (before, after)
+        for field in money_fields:
+            before = money_from_db(existing[field])
+            after = record[field]
+            if before != after:
+                differences[field] = (before, after)
+        if _as_int(existing["active"]) != record["active"]:
+            differences["active"] = (_as_int(existing["active"]), record["active"])
+        if differences:
+            changed.append({"code": record["code"], "row": record["row"],
+                            "differences": differences, "record": record})
+
+    uploaded_codes = {r["code"] for r in uploaded}
+    deactivated = [r for code, r in sorted(current.items())
+                   if code not in uploaded_codes and _as_int(r["active"])]
+
+    return {"added": added, "changed": changed, "deactivated": deactivated}
+
+
+def apply_tariff(ctx, uploaded, user_id):
+    """Apply an uploaded tariff. All of it or none of it (brief §7).
+
+    db_execute commits per call, so "none of it" cannot rely on a rollback. Instead the
+    whole file is validated and diffed first and only then written, and nothing in the
+    write step can fail on data the diff has already checked. A row that still fails
+    stops the run and is reported with what had been applied, rather than being
+    swallowed.
+    """
+    rows, errors = (uploaded, []) if isinstance(uploaded, list) else uploaded
+    if errors:
+        raise CostingError(
+            "TARIFF_FILE_INVALID",
+            f"Το αρχείο έχει {len(errors)} σφάλματα και δεν εφαρμόστηκε τίποτα.")
+    if not rows:
+        raise CostingError("TARIFF_FILE_EMPTY", "Το αρχείο δεν περιέχει γραμμές.")
+
+    difference = diff_tariff(ctx, rows)
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+    applied = {"added": 0, "changed": 0, "deactivated": 0}
+
+    for record in difference["added"]:
+        db("""INSERT INTO taep_tariff (tariff_scope, code, description_el, group_el,
+              tier_label_el, price_type, base_amount, hourly_amount, load_status,
+              valid_from, source_document, active)
+              VALUES ('GENERAL',%s,%s,%s,%s,%s,%s,%s,'OK',%s,%s,%s)""",
+           (record["code"], record["description_el"], record["group_el"],
+            record["tier_label_el"], record["price_type"],
+            None if record["base_amount"] is None else str(record["base_amount"]),
+            None if record["hourly_amount"] is None else str(record["hourly_amount"]),
+            now.date(), f"Μεταφόρτωση Excel {now:%d/%m/%Y}", record["active"]))
+        applied["added"] += 1
+
+    for entry in difference["changed"]:
+        record = entry["record"]
+        db("""UPDATE taep_tariff SET description_el=%s, group_el=%s, tier_label_el=%s,
+              price_type=%s, base_amount=%s, hourly_amount=%s, active=%s,
+              source_document=%s WHERE code=%s""",
+           (record["description_el"], record["group_el"], record["tier_label_el"],
+            record["price_type"],
+            None if record["base_amount"] is None else str(record["base_amount"]),
+            None if record["hourly_amount"] is None else str(record["hourly_amount"]),
+            record["active"], f"Μεταφόρτωση Excel {now:%d/%m/%Y}", record["code"]))
+        applied["changed"] += 1
+
+    for record in difference["deactivated"]:
+        db("UPDATE taep_tariff SET active=0 WHERE code=%s", (record["code"],))
+        applied["deactivated"] += 1
+
+    ctx["log_activity"]("taep_tariff", 0, "TARIFF_UPLOADED",
+                        f"Προστέθηκαν {applied['added']}, άλλαξαν "
+                        f"{applied['changed']}, απενεργοποιήθηκαν "
+                        f"{applied['deactivated']}")
+    return applied
+
+
+def export_episodes_workbook(ctx, entity_code, filters=None):
+    """The episode list as a workbook, exporting what the filters show (brief §7)."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    episodes = list_episodes(ctx, entity_code, filters, limit=50000)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Καταχωρήσεις ΤΑΕΠ"
+
+    headers = ["Αρ. Κοστολόγησης", "Αρ. Επεισοδίου", "Ημ/νία Εξέτασης", "Επώνυμο",
+               "Όνομα", "Τύπος ταυτοπ.", "Αρ. ταυτοποίησης", "Μονάδα ΤΑΕΠ",
+               "Κωδ. Κατηγορίας", "Οικονομική Κατηγορία", "Βαρύτητα",
+               "Τελικό Κόστος €", "Κατάσταση"]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F3864")
+
+    status_el = {"DRAFT": "Πρόχειρο", "CALCULATED": "Υπολογισμένο",
+                 "FINALISED": "Οριστικοποιημένο", "CANCELLED": "Ακυρωμένο"}
+    for episode in episodes:
+        total = money_from_db(episode["total_cost"])
+        sheet.append([
+            episode["costing_number"], episode["episode_number"],
+            _format_datetime(episode["examination_at"]),
+            episode["last_name"], episode["first_name"], episode["id_type"],
+            episode["id_number"], episode["taep_unit_code"],
+            episode["category_code"], episode["category_name"],
+            _as_int(episode["weight"]),
+            None if total is None else float(total),
+            status_el.get(episode["status"], episode["status"]),
+        ])
+
+    last = sheet.max_row
+    for row_index in range(2, last + 1):
+        sheet[f"L{row_index}"].number_format = "#,##0.00"
+
+    if last > 1:
+        # A live total, so the figure in the workbook is auditable rather than pasted.
+        sheet.cell(row=last + 2, column=11, value="Σύνολο").font = Font(bold=True)
+        total_cell = sheet.cell(row=last + 2, column=12, value=f"=SUM(L2:L{last})")
+        total_cell.font = Font(bold=True)
+        total_cell.number_format = "#,##0.00"
+        sheet.cell(row=last + 3, column=11, value="Καταχωρήσεις").font = Font(bold=True)
+        sheet.cell(row=last + 3, column=12,
+                   value=f"=COUNTA(A2:A{last})").font = Font(bold=True)
+
+    for column, width in zip("ABCDEFGHIJKLM",
+                             (20, 16, 18, 20, 18, 14, 18, 14, 14, 34, 10, 16, 20)):
+        sheet.column_dimensions[column].width = width
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = f"A1:M{last}"
+
+    return _workbook_bytes(workbook)
+
+
+# ---------------------------------------------------------------------------
 # 3. ROUTES — Phase 2, the clerk path
 # ---------------------------------------------------------------------------
 #
@@ -2176,6 +2505,24 @@ PERMISSIONS = {
     "cancel": "taep.cancel",
     "rates": "taep.rates",
     "admin": "taep.admin",
+}
+
+# The brief §8 lists five roles. They are permission keys here, not new roles:
+# eFinance already has roles, a role_permissions table and a user-administration
+# screen, so a second set would be two places to get wrong. Add these to eFinance's
+# PERMISSIONS_CATALOG and grant them to whichever existing roles the Μονάδα decides.
+#
+#   taep.create    κωδικοποιητής — create, edit own draft, calculate, print, list
+#   taep.finalise  allocate a costing number and lock the episode
+#   taep.cancel    hospital_admin — cancel a finalised costing, reason mandatory
+#   taep.rates     rates_admin — rates and tariffs, no clinical data
+#   taep.admin     system_admin
+PERMISSIONS_CATALOG_EL = {
+    "taep.create": "ΤΑΕΠ — καταχώρηση και κοστολόγηση",
+    "taep.finalise": "ΤΑΕΠ — οριστικοποίηση και εκτύπωση",
+    "taep.cancel": "ΤΑΕΠ — ακύρωση κοστολόγησης",
+    "taep.rates": "ΤΑΕΠ — διαχείριση τιμών και τιμοκαταλόγου",
+    "taep.admin": "ΤΑΕΠ — διαχείριση συστήματος",
 }
 
 
@@ -2547,9 +2894,146 @@ def register(app, ctx):
             "id_number": request.args.get("id_number") or None,
             "status": request.args.get("status") or None,
         }
-        return render_template("taep_list.html",
-                               episodes=list_episodes(ctx, entity, filters),
-                               categories=list_ae_categories(ctx), filters=filters)
+        return render_template(
+            "taep_list.html", episodes=list_episodes(ctx, entity, filters),
+            categories=list_ae_categories(ctx), filters=filters,
+            # Only the filters actually set, so the export link carries no "None".
+            export_args={key: value for key, value in filters.items() if value})
+
+    # -- Screen 4: Διαχείριση Τιμών ---------------------------------------
+    @app.route("/taep/rates")
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_rates():
+        on_date = _parse_date(request.args.get("on_date")) or dt.date.today()
+        only_unset = request.args.get("only_unset") == "1"
+        overview = rate_overview(ctx, on_date)
+        if only_unset:
+            overview = [r for r in overview if r["fee_state"] == RATE_STATE_UNCONFIRMED]
+        return render_template(
+            "taep_rates.html", overview=overview, on_date=on_date,
+            scale=weight_scale_overview(ctx, on_date), only_unset=only_unset,
+            problems=verify_rate_periods(ctx),
+            states={"SET": RATE_STATE_SET, "EXEMPT": RATE_STATE_EXEMPT,
+                    "UNCONFIRMED": RATE_STATE_UNCONFIRMED})
+
+    @app.route("/taep/rates/change", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_rate_change():
+        try:
+            category = (request.form.get("financial_category_id") or "").strip()
+            weight = (request.form.get("weight") or "").strip()
+            change_rate(
+                ctx,
+                rate_type=request.form.get("rate_type", ""),
+                amount=request.form.get("amount", ""),
+                effective_from=_parse_date(request.form.get("effective_from")),
+                user_id=user_id(),
+                financial_category_id=int(category) if category.isdigit() else None,
+                weight=int(weight) if weight.isdigit() else None,
+                source_document=request.form.get("source_document", ""))
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_rates"))
+        flash("Η νέα τιμή καταχωρήθηκε. Η προηγούμενη περίοδος έκλεισε.", "success")
+        return redirect(url_for("taep_rates"))
+
+    @app.route("/taep/rates/history")
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_rate_history():
+        category = (request.args.get("financial_category_id") or "").strip()
+        weight = (request.args.get("weight") or "").strip()
+        rate_type = request.args.get("rate_type", "REGISTRATION_FEE")
+        periods = rate_series(
+            ctx, rate_type,
+            financial_category_id=int(category) if category.isdigit() else None,
+            weight=int(weight) if weight.isdigit() else None)
+        return render_template("taep_rate_history.html", periods=periods,
+                               rate_type=rate_type)
+
+    # -- Tariff administration --------------------------------------------
+    @app.route("/taep/tariff")
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_tariff():
+        rows = db("""SELECT code, description_el, group_el, tier_label_el, price_type,
+                            base_amount, hourly_amount, active, load_status
+                     FROM taep_tariff ORDER BY code""", fetch=True) or []
+        return render_template("taep_tariff.html", tariffs=rows)
+
+    @app.route("/taep/tariff/download")
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_tariff_download():
+        return Response(
+            export_tariff_workbook(ctx),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition":
+                     f'attachment; filename="timokatalogos_taep_'
+                     f'{dt.date.today():%Y%m%d}.xlsx"'})
+
+    @app.route("/taep/tariff/upload", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_tariff_upload():
+        """Parse and diff. Nothing is written here — the diff is confirmed separately."""
+        upload = request.files.get("workbook")
+        if upload is None or not upload.filename:
+            flash("Επιλέξτε αρχείο Excel.", "warning")
+            return redirect(url_for("taep_tariff"))
+
+        data = upload.read()
+        rows, errors = read_tariff_workbook(data)
+        if errors:
+            return render_template("taep_tariff_diff.html", errors=errors,
+                                   difference=None, payload=None)
+
+        session["taep_tariff_upload"] = [
+            {k: (str(v) if isinstance(v, Decimal) else v) for k, v in row.items()}
+            for row in rows]
+        return render_template("taep_tariff_diff.html", errors=[],
+                               difference=diff_tariff(ctx, rows), payload=True)
+
+    @app.route("/taep/tariff/apply", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["rates"])
+    def taep_tariff_apply():
+        staged = session.pop("taep_tariff_upload", None)
+        if not staged:
+            flash("Δεν υπάρχει αρχείο προς εφαρμογή. Ανεβάστε το ξανά.", "warning")
+            return redirect(url_for("taep_tariff"))
+        rows = [{**row,
+                 "base_amount": None if row["base_amount"] is None
+                 else money(Decimal(row["base_amount"])),
+                 "hourly_amount": None if row["hourly_amount"] is None
+                 else money(Decimal(row["hourly_amount"]))}
+                for row in staged]
+        try:
+            applied = apply_tariff(ctx, rows, user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_tariff"))
+        flash(f"Εφαρμόστηκε: {applied['added']} νέες, {applied['changed']} αλλαγές, "
+              f"{applied['deactivated']} απενεργοποιήσεις.", "success")
+        return redirect(url_for("taep_tariff"))
+
+    # -- Excel export of the list -----------------------------------------
+    @app.route("/taep/list/export")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_list_export():
+        entity = active_entity()
+        filters = {key: request.args.get(key) or None
+                   for key in ("date_from", "date_to", "category_id", "id_number",
+                               "status")}
+        return Response(
+            export_episodes_workbook(ctx, entity, filters),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition":
+                     f'attachment; filename="katachoriseis_taep_'
+                     f'{dt.date.today():%Y%m%d}.xlsx"'})
 
     # -- Cancellation (admin) ---------------------------------------------
     @app.route("/taep/<int:episode_id>/cancel", methods=["POST"])

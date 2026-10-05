@@ -16,7 +16,8 @@ Turns the services ticked on form ΟΚΥπΥ 1-125 into a priced, numbered, prin
 | Costing engine | built, pure, golden €120 case green |
 | Schema + seed loader | built; loads clean from the source catalogue |
 | Phase 2 clerk path | built — entry, costing, finalisation, printed PDF |
-| Tests | 197 green (`python3 -m pytest -q`) |
+| Phase 3 administration | built — rates, tariff Excel round trip, list export, cancellation |
+| Tests | 277 green (`python3 -m pytest -q`) |
 
 **Pricing model**, per the Μονάδα's ruling of 22/09/2026: weight maps straight to an
 amount — 4→€60, 8→€120, 12→€180, national, no per-category unit price. Tariff charges
@@ -40,12 +41,15 @@ MySQL cannot provide.
 ```
 taep.py            the eFinance module: engine (pure) · schema · seed · queries ·
                    persistence · routes · the printed document
-templates/         Greek templates (taep_new, taep_costing, taep_list)
+templates/         Greek templates — clerk path and administration
 conftest.py        test harness: real SQLite + a real Flask app
 test_taep.py       the pure engine
 test_taep_db.py    seed loader, rates, costing-number allocation
 test_taep_episode.py  the episode lifecycle
 test_taep_routes.py   the clerk path end to end, including the PDF
+test_taep_rates.py    rate administration and its concurrency
+test_taep_excel.py    the tariff Excel round trip and the export
+test_taep_admin_routes.py  the administration screens
 seed/         master data, generated from seed/source/ — do not hand-edit
 seed/source/  the authoritative A&E catalogue workbook
 tools/        import_catalogue.py, apply_monada_rulings.py, make_questions_doc.py
@@ -71,15 +75,22 @@ All three are idempotent and all read from `seed/source/`. Everything directly u
 python3 -m pytest test_taep.py -q
 ```
 
-197 tests, all green. 80 of them run against a real Flask app and a real database
+277 tests, all green. 80 of them run against a real Flask app and a real database
 rather than mocks, which is how the three defects below were found.
 
-Three things testing caught that reading would not have:
+Five things testing caught that reading would not have:
 
 - **Costing numbers were not unique under concurrency.** A counter incremented and read
   back in a second statement races, because eFinance's `db_execute` commits per call and
   a transaction cannot span two of them. Four threads, forty allocations, twenty-four
-  distinct numbers. Allocation is now a single INSERT whose UNIQUE key rejects the loser.
+  distinct numbers. The read and the write are now a single `INSERT … SELECT`, so there
+  is no window between choosing a number and taking it. Third attempt; the two dead ends
+  are recorded in the docstring.
+- **A UNIQUE key over nullable columns constrained nothing.** The guard meant to stop two
+  rate periods starting on the same day covered `(financial_category_id, entity_code,
+  rate_type, weight, valid_from)` — and the national weight-scale rows have NULL category
+  and NULL entity. SQL treats NULLs as distinct, so six concurrent changes all inserted.
+  Rates now carry a NULL-free `series_key`.
 - **The printed document overprinted itself.** The weight band label was drawn beside its
   own caption and the two Greek strings physically overlapped. `pdfplumber` reads by
   position and returned them interleaved; `pypdf`'s line grouping had hidden it.
@@ -109,12 +120,34 @@ seed only. That is Phase 2.
 It carries the Τέλος Εγγραφής row the supplied sample omits, itemises tariff lines above
 the totals, and renders byte-identically on every render.
 
+## Administration
+
+**Rates** are effective-dated and never updated in place. `change_rate()` closes the
+current period and opens the next, refuses to backdate into a closed period, and demands
+a source document. The screen distinguishes the three fee states the UI brief requires —
+set, a documented exemption at €0,00, and unconfirmed — because conflating them is how a
+wrong bill gets issued. Every series has a history page showing who changed what, when,
+and from which document.
+
+MySQL has no exclusion constraint (ADR-001), so `verify_rate_periods()` re-checks after
+every change and is surfaced on the rate screen. An overlap it cannot prevent makes the
+engine refuse to price rather than pick a period arbitrarily.
+
+**The tariff** round-trips through Excel: download, edit, upload, review a diff of added
+/ changed / deactivated rows, confirm once. Validation is per row with its spreadsheet
+row number, and a file with any error applies nothing. A code missing from the upload is
+deactivated, never deleted, so historic costings stay readable.
+
+**Roles** are permission keys, not new roles — `taep.create`, `taep.finalise`,
+`taep.cancel`, `taep.rates`, `taep.admin`. eFinance already has roles, a
+`role_permissions` table and a user-administration screen; a second set would be two
+places to get wrong. Add the keys to eFinance's `PERMISSIONS_CATALOG` and let the Μονάδα
+decide which existing roles get them.
+
 ## Still to build
 
-Phase 3 — rate and tariff administration with the effective-dated change panel and the
-Excel upload diff; user administration; the Excel export of the list. Phase 4 — rollout.
+Phase 4 — rollout to the remaining units, training, handover.
 
-The one thing worth confirming before Phase 3: the costing document has no QR code yet.
-The brief §12 asks for a machine-readable code of the costing number so a cashier can
-pull the record without retyping. It needs a barcode library, which is a new dependency
-for eFinance, so it is deliberately left for a decision rather than added quietly.
+One §12 requirement is deliberately not built: the costing document has no QR code. It
+needs a barcode library, a new eFinance dependency, so it is left for a decision rather
+than added quietly.

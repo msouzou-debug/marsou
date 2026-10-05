@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Τιμοκατάλογος ΤΑΕΠ{% endblock %}
+{% block content %}
+<h1>Τιμοκατάλογος Δραστηριοτήτων</h1>
+
+<p>
+  <a class="primary" href="{{ url_for('taep_tariff_download') }}">Κατέβασμα σε Excel</a>
+</p>
+
+<form method="post" action="{{ url_for('taep_tariff_upload') }}"
+      enctype="multipart/form-data">
+  <label for="workbook">Μεταφόρτωση επεξεργασμένου αρχείου</label>
+  <input id="workbook" name="workbook" type="file" accept=".xlsx" required>
+  <button type="submit">Έλεγχος διαφορών</button>
+  <p class="hint">Θα εμφανιστούν οι διαφορές προς επιβεβαίωση. Τίποτα δεν εφαρμόζεται
+    πριν επιβεβαιώσετε, και εφαρμόζονται όλες μαζί ή καμία.</p>
+</form>
+
+<table id="tariffs">
+  <thead><tr><th>Κωδικός</th><th>Περιγραφή</th><th>Κλίμακα</th><th>Τύπος</th>
+    <th>Βασικό €</th><th>Ωριαία €</th><th>Ενεργό</th></tr></thead>
+  <tbody>
+  {% for row in tariffs %}
+    <tr class="{{ 'inactive' if not row.active }}">
+      <td><code>{{ row.code }}</code></td>
+      <td>{{ row.description_el }}</td>
+      <td>{{ row.tier_label_el or '—' }}</td>
+      <td>{{ row.price_type }}</td>
+      <td class="number">{{ row.base_amount | eur }}</td>
+      <td class="number">{% if row.hourly_amount %}{{ row.hourly_amount | eur }}{% else %}—{% endif %}</td>
+      <td>{{ 'Ναι' if row.active else 'Όχι' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
