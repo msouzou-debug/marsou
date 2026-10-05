@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Νέα Καταχώρηση ΤΑΕΠ{% endblock %}
+{% block content %}
+<h1>Νέα Καταχώρηση</h1>
+
+<form method="post" id="taep-new-form">
+  <section class="card">
+    <h2>Ταυτοποίηση</h2>
+    <p class="hint">Συμπληρώνεται πρώτη: με βάση αυτά τα στοιχεία αναζητούνται
+      προηγούμενες καταχωρήσεις.</p>
+    <label for="id_type">Τύπος ταυτοποίησης</label>
+    <select id="id_type" name="id_type">
+      {% for option in ["Ταυτότητα", "Διαβατήριο", "ΔΕΑ", "Άλλο"] %}
+        <option value="{{ option }}"
+          {% if form.get('id_type') == option %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="id_number">Αριθμός ταυτοποίησης</label>
+    <input id="id_number" name="id_number" autofocus required
+           value="{{ form.get('id_number', '') }}">
+
+    <label for="id_country">Χώρα έκδοσης</label>
+    <input id="id_country" name="id_country" value="{{ form.get('id_country', '') }}">
+
+    <label for="id_expiry">Ημερομηνία λήξης</label>
+    <input id="id_expiry" name="id_expiry" type="date"
+           value="{{ form.get('id_expiry', '') }}">
+
+    <div id="prior-result" aria-live="polite"></div>
+  </section>
+
+  <section class="card">
+    <h2>Προσωπικά Δεδομένα</h2>
+    <label for="last_name">Επώνυμο</label>
+    <input id="last_name" name="last_name" value="{{ form.get('last_name', '') }}">
+    <label for="first_name">Όνομα</label>
+    <input id="first_name" name="first_name" value="{{ form.get('first_name', '') }}">
+    <label for="date_of_birth">Ημερομηνία γέννησης</label>
+    <input id="date_of_birth" name="date_of_birth" type="date"
+           value="{{ form.get('date_of_birth', '') }}">
+    <label for="gender">Φύλο</label>
+    <select id="gender" name="gender">
+      {% for option in ["", "Άνδρας", "Γυναίκα", "Άλλο"] %}
+        <option value="{{ option }}"
+          {% if form.get('gender') == option %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+    <label for="phone">Τηλέφωνο</label>
+    <input id="phone" name="phone" value="{{ form.get('phone', '') }}">
+    <label for="address">Διεύθυνση</label>
+    <input id="address" name="address" value="{{ form.get('address', '') }}">
+    <label for="next_of_kin_type">Συγγενής — σχέση</label>
+    <input id="next_of_kin_type" name="next_of_kin_type"
+           value="{{ form.get('next_of_kin_type', '') }}">
+    <label for="next_of_kin_details">Συγγενής — στοιχεία</label>
+    <input id="next_of_kin_details" name="next_of_kin_details"
+           value="{{ form.get('next_of_kin_details', '') }}">
+  </section>
+
+  <section class="card">
+    <h2>Στοιχεία Περιστατικού</h2>
+    <label for="taep_unit_code">Μονάδα ΤΑΕΠ</label>
+    <select id="taep_unit_code" name="taep_unit_code" required>
+      {% for unit in units %}
+        <option value="{{ unit.unit_code }}"
+          {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
+          {{ unit.name_el }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="episode_number">Αριθμός Επεισοδίου</label>
+    <input id="episode_number" name="episode_number"
+           value="{{ form.get('episode_number', '') }}">
+
+    <label for="admission_at">Εισαγωγή</label>
+    <input id="admission_at" name="admission_at" type="datetime-local"
+           value="{{ form.get('admission_at', '') }}">
+    <label for="examination_at">Εξέταση</label>
+    <input id="examination_at" name="examination_at" type="datetime-local"
+           value="{{ form.get('examination_at', '') }}">
+    <label for="discharge_at">Εξιτήριο</label>
+    <input id="discharge_at" name="discharge_at" type="datetime-local"
+           value="{{ form.get('discharge_at', '') }}">
+
+    <label for="financial_category_id">Οικονομική Κατηγορία</label>
+    <select id="financial_category_id" name="financial_category_id" required>
+      <option value="">— Επιλέξτε —</option>
+      {% for category in categories %}
+        <option value="{{ category.id }}"
+          {% if form.get('financial_category_id') == category.id|string %}selected{% endif %}>
+          {{ category.code_new }} — {{ category.name_el }}</option>
+      {% endfor %}
+    </select>
+    <p class="hint">Προσφέρονται μόνο οι {{ categories|length }} κατηγορίες που
+      ισχύουν στα ΤΑΕΠ.</p>
+
+    <label for="comments">Σχόλια</label>
+    <textarea id="comments" name="comments">{{ form.get('comments', '') }}</textarea>
+  </section>
+
+  <button type="submit" class="primary">Αποθήκευση &amp; Κοστολόγηση</button>
+</form>
+
+<script>
+document.getElementById("id_number").addEventListener("blur", async function () {
+  const number = this.value.trim();
+  const panel = document.getElementById("prior-result");
+  panel.innerHTML = "";
+  if (!number) return;
+  const type = document.getElementById("id_type").value;
+  const response = await fetch(`/taep/api/prior?id_type=${encodeURIComponent(type)}`
+    + `&id_number=${encodeURIComponent(number)}`);
+  const data = await response.json();
+  if (data.unpaid.length) {
+    const rows = data.unpaid.map(u =>
+      `<li>${u.costing_number} · ${u.entity_code} · ${u.examination_at} · €${u.total_cost}</li>`
+    ).join("");
+    panel.insertAdjacentHTML("beforeend",
+      `<div class="alert-danger"><strong>Προηγούμενες κοστολογήσεις «Επί Πληρωμή»
+       χωρίς καταγεγραμμένη εξόφληση:</strong><ul>${rows}</ul></div>`);
+  }
+  if (data.count) {
+    panel.insertAdjacentHTML("beforeend",
+      `<div class="alert-info">Βρέθηκαν ${data.count} προηγούμενες καταχωρήσεις.
+       <button type="button" id="prefill">Συμπλήρωση στοιχείων</button></div>`);
+    document.getElementById("prefill").addEventListener("click", () => {
+      for (const [field, value] of Object.entries(data.prefill || {})) {
+        const input = document.getElementById(field);
+        if (input && value) input.value = value.slice(0, 10).includes("-")
+          && input.type === "date" ? value.slice(0, 10) : value;
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

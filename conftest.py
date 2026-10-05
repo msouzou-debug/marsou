@@ -83,3 +83,67 @@ def seeded(ctx):
     """ctx with the master data loaded."""
     taep.seed(ctx)
     return ctx
+
+
+@pytest.fixture
+def app(seeded, tmp_path):
+    """A real Flask app with the module registered, standing in for eFinance.
+
+    Supplies the ctx decorators eFinance provides and a stub base.html, so the module's
+    own routes and templates are what the tests exercise.
+    """
+    from functools import wraps
+    from flask import Flask, session
+
+    base = tmp_path / "base_templates"
+    base.mkdir()
+    (base / "base.html").write_text(
+        "<!doctype html><html lang='el'><head><meta charset='utf-8'>"
+        "<title>{% block title %}{% endblock %}</title></head><body>"
+        "{% with messages = get_flashed_messages(with_categories=true) %}"
+        "{% for category, message in messages %}"
+        "<div class='flash flash-{{ category }}'>{{ message }}</div>"
+        "{% endfor %}{% endwith %}"
+        "{% block content %}{% endblock %}</body></html>", encoding="utf-8")
+
+    flask_app = Flask(__name__, template_folder="templates")
+    flask_app.secret_key = "test-only"
+    flask_app.jinja_loader.searchpath.append(str(base))
+
+    granted = set()
+
+    def login_required(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if not session.get("user_id"):
+                return "unauthorised", 401
+            return view(*args, **kwargs)
+        return wrapper
+
+    def permission_required(key):
+        def decorator(view):
+            @wraps(view)
+            def wrapper(*args, **kwargs):
+                if granted and key not in granted:
+                    return "forbidden", 403
+                return view(*args, **kwargs)
+            return wrapper
+        return decorator
+
+    seeded["login_required"] = login_required
+    seeded["permission_required"] = permission_required
+    seeded["granted_permissions"] = granted
+
+    taep.register(flask_app, seeded)
+    flask_app.ctx = seeded
+    return flask_app
+
+
+@pytest.fixture
+def client(app):
+    """A logged-in clerk at Nicosia General."""
+    test_client = app.test_client()
+    with test_client.session_transaction() as sess:
+        sess["user_id"] = 1
+        sess["hospital_code"] = "NGH"
+    return test_client

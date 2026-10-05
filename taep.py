@@ -1130,6 +1130,420 @@ def last_allocated_sequence(ctx, unit_code):
     return int(rows[0]["last"])
 
 
+# ---------------------------------------------------------------------------
+# Queries — the read side the routes sit on
+# ---------------------------------------------------------------------------
+
+def list_ae_categories(ctx):
+    """The 23 ΤΑΕΠ-valid categories, for the picker. The other 15 are never offered."""
+    return ctx["db_execute"](
+        """SELECT id, code_new, name_el, tariff_applies, requires_payer, payer_el
+           FROM taep_financial_category
+           WHERE valid_for_ae = 1 AND active = 1
+           ORDER BY code_new""", fetch=True) or []
+
+
+def get_category(ctx, category_id):
+    rows = ctx["db_execute"](
+        "SELECT * FROM taep_financial_category WHERE id=%s", (category_id,), fetch=True)
+    return rows[0] if rows else None
+
+
+def search_services(ctx, term, limit=25):
+    """Accent- and case-insensitive search over code and description.
+
+    MySQL has no unaccent, so the folding happens in Python over the service list. 125
+    rows is small enough that this is cheaper than a stored normalised column and a
+    migration — revisit only if the catalogue grows by an order of magnitude.
+    """
+    rows = ctx["db_execute"](
+        """SELECT code, service_type, category, description_el
+           FROM taep_service WHERE active = 1 ORDER BY code""", fetch=True) or []
+    needle = fold_greek(term)
+    if not needle:
+        return rows[:limit]
+    hits = [r for r in rows
+            if needle in fold_greek(r["code"]) or needle in fold_greek(r["description_el"])]
+    # Code matches first: a clerk typing AET043 wants that row at the top.
+    hits.sort(key=lambda r: (0 if needle in fold_greek(r["code"]) else 1, r["code"]))
+    return hits[:limit]
+
+
+def get_services(ctx, codes):
+    """Service rows for the given codes, as engine Service objects."""
+    if not codes:
+        return []
+    placeholders = ",".join(["%s"] * len(codes))
+    rows = ctx["db_execute"](
+        f"""SELECT code, service_type, category, description_el
+            FROM taep_service WHERE code IN ({placeholders})""",
+        tuple(codes), fetch=True) or []
+    return [Service(r["code"], r["service_type"], int(r["category"]),
+                    r["description_el"]) for r in rows]
+
+
+def rates_in_force(ctx, category_id, on_date, entity_code=None):
+    """Build a Rates from the rate rows in force on `on_date`.
+
+    Uses pick_rate per rate type so the examination date, not today, decides — the
+    whole point of §6. Returns None for anything with no row in force rather than
+    defaulting.
+    """
+    rows = ctx["db_execute"](
+        """SELECT id, rate_type, weight, amount, valid_from, valid_to, entity_code
+           FROM taep_rate
+           WHERE financial_category_id IS NULL OR financial_category_id = %s""",
+        (category_id,), fetch=True) or []
+
+    def of_type(rate_type, weight=None):
+        return [r for r in rows if r["rate_type"] == rate_type
+                and (weight is None or _as_int(r["weight"]) == weight)]
+
+    weight_amounts, weight_rate_id = {}, None
+    for weight in sorted(WEIGHT_PRICE_SCALE):
+        chosen = pick_rate(_dated(of_type("WEIGHT_AMOUNT", weight)), on_date, entity_code)
+        if chosen:
+            weight_amounts[weight] = money_from_db(chosen["amount"])
+            weight_rate_id = chosen["id"]
+
+    triage = pick_rate(_dated(of_type("TRIAGE_AMOUNT")), on_date, entity_code)
+    fee = pick_rate(_dated(of_type("REGISTRATION_FEE")), on_date, entity_code)
+
+    category = get_category(ctx, category_id)
+    return Rates(
+        weight_amounts=weight_amounts,
+        triage_amount=money_from_db(triage["amount"]) if triage else None,
+        registration_fee=money_from_db(fee["amount"]) if fee else None,
+        tariff_applies=bool(category and _as_int(category["tariff_applies"])),
+        weight_rate_id=weight_rate_id,
+        registration_fee_rate_id=fee["id"] if fee else None,
+    )
+
+
+def _as_int(value):
+    return None if value is None else int(value)
+
+
+def _dated(rows):
+    """Normalise valid_from/valid_to to dates for pick_rate."""
+    out = []
+    for row in rows:
+        row = dict(row)
+        row["valid_from"] = _as_date(row.get("valid_from"))
+        row["valid_to"] = _as_date(row.get("valid_to"))
+        out.append(row)
+    return out
+
+
+def _as_date(value):
+    if value is None or isinstance(value, dt.date) and not isinstance(value, dt.datetime):
+        return value
+    if isinstance(value, dt.datetime):
+        return value.date()
+    return dt.date.fromisoformat(str(value)[:10])
+
+
+def unit_for_entity(ctx, entity_code, on_date=None):
+    """The ΤΑΕΠ units hosted by an entity on a date.
+
+    More than one is normal: Γενικό Νοσοκομείο Λευκωσίας hosts the adult and the
+    paediatric unit, so the clerk picks. The host is effective-dated because the
+    paediatric unit moves to Μακάριος ΙΙΙ.
+    """
+    on_date = on_date or dt.date.today()
+    rows = ctx["db_execute"](
+        """SELECT unit_code, name_el, taep_number, host_valid_from, host_valid_to
+           FROM taep_unit WHERE host_entity_code = %s AND active = 1
+           ORDER BY unit_code""", (entity_code,), fetch=True) or []
+    live = []
+    for row in rows:
+        valid_from, valid_to = _as_date(row["host_valid_from"]), _as_date(row["host_valid_to"])
+        if valid_from and on_date < valid_from:
+            continue
+        if valid_to and on_date > valid_to:
+            continue
+        live.append(row)
+    return live
+
+
+def find_prior_episodes(ctx, id_type, id_number, entity_code=None):
+    """Prior episodes for the same identification (screen 1).
+
+    Deliberately NOT scoped to one hospital: a patient who attended Limassol last month
+    and Nicosia today is the same patient, and an unpaid prior episode elsewhere is
+    exactly what the clerk needs to see. Only non-clinical fields are returned.
+    """
+    if not (id_number or "").strip():
+        return []
+    return ctx["db_execute"](
+        """SELECT e.id, e.costing_number, e.entity_code, e.examination_at, e.status,
+                  e.first_name, e.last_name, e.date_of_birth, e.gender, e.phone,
+                  e.address, e.id_type, e.id_number, e.id_country, e.id_expiry,
+                  e.next_of_kin_type, e.next_of_kin_details,
+                  c.code_new AS category_code, c.name_el AS category_name,
+                  r.total_cost
+           FROM taep_episode e
+           LEFT JOIN taep_financial_category c ON e.financial_category_id = c.id
+           LEFT JOIN taep_costing_result r ON r.episode_id = e.id
+           WHERE e.id_type = %s AND e.id_number = %s AND e.status <> 'CANCELLED'
+           ORDER BY e.examination_at DESC""",
+        (id_type, id_number.strip()), fetch=True) or []
+
+
+def unpaid_self_pay_episodes(prior):
+    """Of the prior episodes, the finalised self-pay ones with nothing settled.
+
+    v1 has no settlement data, so "unpaid" means finalised under ΕΠΙ ΠΛΗΡΩΜΗ with no
+    settlement row. That is the honest definition until v2 records payment, and the
+    warning says so rather than implying a confirmed debt.
+    """
+    return [p for p in prior
+            if p.get("category_code") == "600" and p.get("status") == "FINALISED"]
+
+
+# ---------------------------------------------------------------------------
+# Episode persistence
+# ---------------------------------------------------------------------------
+
+EPISODE_FIELDS = (
+    "episode_number", "first_name", "last_name", "date_of_birth", "gender", "phone",
+    "address", "id_type", "id_number", "id_country", "id_expiry", "next_of_kin_type",
+    "next_of_kin_details", "comments", "admission_at", "examination_at", "discharge_at",
+)
+
+EDITABLE_STATUSES = ("DRAFT", "CALCULATED")
+
+
+def validate_episode(data):
+    """Brief §10. Returns (errors, warnings), both lists of Greek strings.
+
+    Errors block the save; warnings do not. Expired identity documents are common in
+    this population, so that one warns.
+    """
+    errors, warnings = [], []
+    now = dt.datetime.now()
+
+    admission = data.get("admission_at")
+    examination = data.get("examination_at")
+    discharge = data.get("discharge_at")
+
+    for label, value in (("εισαγωγής", admission), ("εξέτασης", examination),
+                         ("εξιτηρίου", discharge)):
+        if value and value > now:
+            errors.append(f"Η ημερομηνία και ώρα {label} δεν μπορεί να είναι "
+                          f"στο μέλλον.")
+
+    if admission and examination and examination < admission:
+        errors.append("Η ώρα εξέτασης δεν μπορεί να προηγείται της ώρας εισαγωγής.")
+    if examination and discharge and discharge < examination:
+        errors.append("Η ώρα εξιτηρίου δεν μπορεί να προηγείται της ώρας εξέτασης.")
+
+    date_of_birth = data.get("date_of_birth")
+    if date_of_birth:
+        if date_of_birth >= now.date():
+            errors.append("Η ημερομηνία γέννησης πρέπει να είναι στο παρελθόν.")
+        else:
+            age = (now.date() - date_of_birth).days // 365
+            if age > 110:
+                warnings.append(f"Η ημερομηνία γέννησης δίνει ηλικία {age} ετών. "
+                                f"Επιβεβαιώστε ότι είναι σωστή.")
+
+    if not (data.get("id_number") or "").strip():
+        errors.append("Ο αριθμός ταυτοποίησης είναι υποχρεωτικός.")
+
+    expiry = data.get("id_expiry")
+    if expiry and examination and expiry < examination.date():
+        warnings.append("Το έγγραφο ταυτοποίησης είχε λήξει κατά την ημερομηνία "
+                        "εξέτασης.")
+
+    if not data.get("financial_category_id"):
+        errors.append("Η οικονομική κατηγορία είναι υποχρεωτική.")
+
+    return errors, warnings
+
+
+def save_episode(ctx, data, entity_code, unit_code, user_id, episode_id=None):
+    """Insert or update a DRAFT/CALCULATED episode. Returns the episode id.
+
+    A FINALISED episode is never edited — it is cancelled and re-entered (brief §10).
+    """
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+
+    category = get_category(ctx, data.get("financial_category_id"))
+    if category is None:
+        raise CostingError("UNKNOWN_CATEGORY",
+                           "Η οικονομική κατηγορία δεν βρέθηκε.")
+    # The picker only offers the 23, but a UI filter is not a control (brief §4.4).
+    if not _as_int(category["valid_for_ae"]):
+        raise CostingError(
+            "CATEGORY_NOT_VALID_AT_AE",
+            f"Η οικονομική κατηγορία {category['code_new']} "
+            f"«{category['name_el']}» δεν ισχύει στα ΤΑΕΠ.")
+
+    if episode_id:
+        existing = get_episode(ctx, episode_id)
+        if existing is None:
+            raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+        if existing["status"] not in EDITABLE_STATUSES:
+            raise CostingError(
+                "EPISODE_NOT_EDITABLE",
+                f"Η καταχώρηση είναι «{existing['status']}» και δεν μπορεί να "
+                f"τροποποιηθεί. Ακυρώστε την και καταχωρήστε νέα.")
+        assignments = ", ".join(f"{f}=%s" for f in EPISODE_FIELDS)
+        db(f"""UPDATE taep_episode SET {assignments}, financial_category_id=%s,
+               updated_by=%s, updated_at=%s WHERE id=%s""",
+           tuple(data.get(f) for f in EPISODE_FIELDS)
+           + (data["financial_category_id"], user_id, now, episode_id))
+        ctx["log_activity"]("taep_episode", episode_id, "UPDATED",
+                            f"Ενημέρωση καταχώρησης {episode_id}")
+        return episode_id
+
+    columns = ", ".join(EPISODE_FIELDS)
+    placeholders = ", ".join(["%s"] * len(EPISODE_FIELDS))
+    new_id = db(f"""INSERT INTO taep_episode
+                    (entity_code, taep_unit_code, financial_category_id, status,
+                     created_by, created_at, {columns})
+                    VALUES (%s,%s,%s,'DRAFT',%s,%s,{placeholders})""",
+                (entity_code, unit_code, data["financial_category_id"], user_id, now)
+                + tuple(data.get(f) for f in EPISODE_FIELDS),
+                lastrowid=True)
+    ctx["log_activity"]("taep_episode", new_id, "CREATED",
+                        f"Νέα καταχώρηση ΤΑΕΠ στη μονάδα {unit_code}")
+    return new_id
+
+
+def get_episode(ctx, episode_id):
+    rows = ctx["db_execute"]("SELECT * FROM taep_episode WHERE id=%s",
+                             (episode_id,), fetch=True)
+    return rows[0] if rows else None
+
+
+def set_episode_services(ctx, episode_id, codes, user_id):
+    """Replace the selected services. Any stored calculation becomes invalid.
+
+    Brief §4.1: adding or removing a service after a calculation invalidates the
+    result. Deleting the costing_result row is what enforces that — the UI cannot
+    show a stale number because there is no number to show.
+    """
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+    db("DELETE FROM taep_episode_service WHERE episode_id=%s", (episode_id,))
+    _insert_many(db, "taep_episode_service",
+                 ["episode_id", "service_code", "added_by", "added_at"],
+                 [(episode_id, code, user_id, now) for code in dict.fromkeys(codes)])
+    db("DELETE FROM taep_costing_result WHERE episode_id=%s", (episode_id,))
+    db("UPDATE taep_episode SET status='DRAFT', updated_by=%s, updated_at=%s "
+       "WHERE id=%s AND status='CALCULATED'", (user_id, now, episode_id))
+
+
+def get_episode_service_codes(ctx, episode_id):
+    rows = ctx["db_execute"](
+        "SELECT service_code FROM taep_episode_service WHERE episode_id=%s "
+        "ORDER BY service_code", (episode_id,), fetch=True) or []
+    return [r["service_code"] for r in rows]
+
+
+def store_calculation(ctx, episode_id, result, user_id):
+    """Persist a calculation and mark the episode CALCULATED.
+
+    Stores the amounts applied AND the rate_id rows they came from, so the figure can
+    be reproduced in 2031 from stored inputs (brief §5).
+    """
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+    db("DELETE FROM taep_costing_result WHERE episode_id=%s", (episode_id,))
+    db("""INSERT INTO taep_costing_result
+          (episode_id, calculated_at, calculated_by, max_investigation_category,
+           max_treatment_category, weight, band_label_en, band_label_el,
+           is_triage_only, weight_amount_applied, weight_rate_id,
+           registration_fee_applied, registration_fee_rate_id, weight_cost,
+           tariff_total, total_cost, algorithm_version, input_hash)
+          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+       (episode_id, now, user_id, result.max_investigation_category,
+        result.max_treatment_category, result.weight, result.band_label_en,
+        result.band_label_el, 1 if result.is_triage_only else 0,
+        str(result.weight_amount_applied), result.weight_rate_id,
+        None if result.registration_fee_applied is None
+        else str(result.registration_fee_applied),
+        result.registration_fee_rate_id, str(result.weight_cost),
+        str(result.tariff_total),
+        None if result.total_cost is None else str(result.total_cost),
+        result.algorithm_version, result.input_hash))
+    db("UPDATE taep_episode SET status='CALCULATED', updated_by=%s, updated_at=%s "
+       "WHERE id=%s AND status='DRAFT'", (user_id, now, episode_id))
+    ctx["log_activity"]("taep_episode", episode_id, "CALCULATED",
+                        f"Βαρύτητα {result.weight}, σύνολο {result.total_cost}")
+
+
+def get_calculation(ctx, episode_id):
+    rows = ctx["db_execute"]("SELECT * FROM taep_costing_result WHERE episode_id=%s",
+                             (episode_id,), fetch=True)
+    return rows[0] if rows else None
+
+
+def finalise_episode(ctx, episode_id, result, user_id):
+    """Allocate the costing number and lock the episode. Returns the number.
+
+    Refuses if the calculation on screen is not the calculation stored — the clerk must
+    have pressed Υπολογισμός on exactly what is being finalised, which input_hash
+    proves. Also refuses if anything blocks finalisation (an unset registration fee).
+    """
+    db = ctx["db_execute"]
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    if episode["status"] == "FINALISED":
+        raise CostingError(
+            "ALREADY_FINALISED",
+            f"Η καταχώρηση έχει ήδη οριστικοποιηθεί με αριθμό "
+            f"{episode['costing_number']}.")
+    if episode["status"] == "CANCELLED":
+        raise CostingError("EPISODE_CANCELLED", "Η καταχώρηση έχει ακυρωθεί.")
+
+    stored = get_calculation(ctx, episode_id)
+    if stored is None:
+        raise CostingError(
+            "NOT_CALCULATED",
+            "Απαιτείται υπολογισμός πριν την οριστικοποίηση.")
+    if stored["input_hash"] != result.input_hash:
+        raise CostingError(
+            "STALE_CALCULATION",
+            "Οι υπηρεσίες ή τα στοιχεία άλλαξαν μετά τον υπολογισμό. "
+            "Πατήστε «Υπολογισμός» ξανά.")
+
+    assert_finalisable(result)
+
+    now = dt.datetime.now()
+    costing_number, sequence = allocate_costing_number(
+        ctx, episode["taep_unit_code"], now=now, user_id=user_id, episode_id=episode_id)
+    db("""UPDATE taep_episode SET status='FINALISED', costing_number=%s,
+          updated_by=%s, updated_at=%s WHERE id=%s""",
+       (costing_number, user_id, now, episode_id))
+    ctx["log_activity"]("taep_episode", episode_id, "FINALISED",
+                        f"Αριθμός {costing_number}, σύνολο {result.total_cost}")
+    return costing_number, sequence
+
+
+def cancel_episode(ctx, episode_id, reason, user_id):
+    """Cancel a costing. The number is retained and never reissued (brief §5)."""
+    if not (reason or "").strip():
+        raise CostingError("NO_CANCELLATION_REASON",
+                           "Η αιτιολογία ακύρωσης είναι υποχρεωτική.")
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    if episode["status"] == "CANCELLED":
+        raise CostingError("EPISODE_CANCELLED", "Η καταχώρηση έχει ήδη ακυρωθεί.")
+
+    now = dt.datetime.now()
+    ctx["db_execute"](
+        """UPDATE taep_episode SET status='CANCELLED', cancelled_by=%s,
+           cancelled_at=%s, cancellation_reason=%s WHERE id=%s""",
+        (user_id, now, reason.strip(), episode_id))
+    ctx["log_activity"]("taep_episode", episode_id, "CANCELLED", reason.strip())
+
+
 def assert_finalisable(result):
     """Raise unless the costing may be finalised. Called on the finalise path only.
 
@@ -1170,3 +1584,690 @@ def format_costing_number(unit_number, sequence):
             "Ο αύξων αριθμός κοστολόγησης πρέπει να είναι θετικός ακέραιος.",
         )
     return f"{COSTING_NUMBER_PREFIX}{str(unit_number).strip()}/{sequence:04d}"
+
+# ---------------------------------------------------------------------------
+# The printed document (brief §12)
+# ---------------------------------------------------------------------------
+#
+# reportlab, because that is what eFinance already uses. Rendered deterministically:
+# every value comes from stored data, including the generation timestamp, so the same
+# episode produces the same bytes. Nothing is read from live rates at print time.
+
+PDF_FONT = "Helvetica"
+PDF_FONT_BOLD = "Helvetica-Bold"
+
+
+def _register_greek_font():
+    """Register a font with Greek coverage, falling back to Helvetica.
+
+    reportlab's built-in Type1 fonts are Latin-1 only, so Greek text renders as blanks.
+    DejaVuSans ships with matplotlib and most Linux images and covers Greek.
+    """
+    global PDF_FONT, PDF_FONT_BOLD
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    if PDF_FONT != "Helvetica":
+        return PDF_FONT, PDF_FONT_BOLD
+
+    candidates = [
+        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        ("/usr/share/fonts/TTF/DejaVuSans.ttf",
+         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"),
+    ]
+    for regular, bold in candidates:
+        if os.path.exists(regular) and os.path.exists(bold):
+            pdfmetrics.registerFont(TTFont("TaepSans", regular))
+            pdfmetrics.registerFont(TTFont("TaepSans-Bold", bold))
+            PDF_FONT, PDF_FONT_BOLD = "TaepSans", "TaepSans-Bold"
+            break
+    return PDF_FONT, PDF_FONT_BOLD
+
+
+def format_eur(value):
+    """Greek money format: full stop for thousands, comma for decimals."""
+    if value is None:
+        return "—"
+    text = f"{money_from_db(value):,.2f}"
+    return text.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+
+
+def _format_datetime(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value[:16].replace("T", " ")
+    if isinstance(value, dt.datetime):
+        return value.strftime("%d/%m/%Y %H:%M")
+    return value.strftime("%d/%m/%Y")
+
+
+def costing_document_data(ctx, episode_id):
+    """Everything the printed document needs, read from stored data only."""
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    result = get_calculation(ctx, episode_id)
+    if result is None:
+        raise CostingError("NOT_CALCULATED", "Δεν υπάρχει αποθηκευμένος υπολογισμός.")
+
+    category = get_category(ctx, episode["financial_category_id"])
+    unit = ctx["db_execute"](
+        "SELECT name_el, taep_number FROM taep_unit WHERE unit_code=%s",
+        (episode["taep_unit_code"],), fetch=True)
+    services = ctx["db_execute"](
+        """SELECT s.code, s.service_type, s.category, s.description_el
+           FROM taep_episode_service es
+           JOIN taep_service s ON s.code = es.service_code
+           WHERE es.episode_id = %s ORDER BY s.code""", (episode_id,), fetch=True) or []
+    lines = ctx["db_execute"](
+        """SELECT description_snapshot, quantity, line_total, suppressed
+           FROM taep_episode_tariff_line WHERE episode_id = %s ORDER BY id""",
+        (episode_id,), fetch=True) or []
+
+    return {
+        "episode": episode,
+        "result": result,
+        "category": category,
+        "unit": unit[0] if unit else None,
+        "treatments": [s for s in services if s["service_type"] == TREATMENT],
+        "investigations": [s for s in services if s["service_type"] == INVESTIGATION],
+        "tariff_lines": lines,
+    }
+
+
+def render_costing_pdf(ctx, episode_id):
+    """Render the Κοστολόγηση Περιστατικού as A4 PDF bytes."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas as pdfcanvas
+
+    font, font_bold = _register_greek_font()
+    data = costing_document_data(ctx, episode_id)
+    episode, result = data["episode"], data["result"]
+
+    buffer = BytesIO()
+    # invariant=1 stops reportlab stamping /CreationDate and a random document id, so
+    # the same episode renders byte-identically (brief §12). Without it two renders of
+    # one episode differ, and a stored PDF cannot be checked against a fresh one.
+    pdf = pdfcanvas.Canvas(buffer, pagesize=A4, invariant=1)
+    pdf.setProducer("OKYpY eFinance TAEP")
+    pdf.setTitle(f"Κοστολόγηση Περιστατικού {episode['costing_number'] or ''}")
+    width, height = A4
+    left, right = 18 * mm, width - 18 * mm
+
+    def header(page):
+        pdf.setFont(font_bold, 13)
+        pdf.drawCentredString(width / 2, height - 20 * mm, "ΚΟΣΤΟΛΟΓΗΣΗ ΠΕΡΙΣΤΑΤΙΚΟΥ")
+        pdf.line(left, height - 22 * mm, right, height - 22 * mm)
+        pdf.setFont(font, 8)
+        pdf.drawString(left, height - 26 * mm, "ΟΚΥπΥ — Οργανισμός Κρατικών Υπηρεσιών Υγείας")
+        pdf.drawRightString(right, height - 26 * mm,
+                            f"Αρ. Κοστολόγησης: {episode['costing_number'] or '—'}")
+        return height - 34 * mm
+
+    def footer(page):
+        pdf.setFont(font, 7)
+        pdf.line(left, 16 * mm, right, 16 * mm)
+        pdf.drawString(left, 12 * mm,
+                       f"Αρ. Κοστολόγησης {episode['costing_number'] or '—'} · "
+                       f"Δημιουργήθηκε {_format_datetime(result['calculated_at'])} · "
+                       f"Αλγόριθμος {result['algorithm_version']}")
+        pdf.drawRightString(right, 12 * mm, f"Σελίδα {page}")
+
+    page = 1
+    y = header(page)
+
+    # Block one — personal data. Repeats on every page, as the sample does.
+    def personal_block(y):
+        pdf.setFont(font_bold, 9)
+        pdf.drawString(left, y, "ΠΡΟΣΩΠΙΚΑ ΔΕΔΟΜΕΝΑ")
+        y -= 4 * mm
+        pdf.setFont(font, 8)
+        rows = [
+            ("Επώνυμο", episode["last_name"], "Όνομα", episode["first_name"]),
+            ("Ημ. Γέννησης", _format_datetime(episode["date_of_birth"]),
+             "Φύλο", episode["gender"]),
+            ("Τηλέφωνο", episode["phone"], "Οικονομική Κατηγορία",
+             f"{data['category']['code_new']} {data['category']['name_el']}"
+             if data["category"] else ""),
+            ("Διεύθυνση", episode["address"], "", ""),
+            ("Ταυτοποίηση", f"{episode['id_type'] or ''} {episode['id_number'] or ''}",
+             "Χώρα", episode["id_country"]),
+            ("Λήξη Εγγράφου", _format_datetime(episode["id_expiry"]),
+             "Αρ. Επεισοδίου", episode["episode_number"]),
+            ("Νοσηλευτήριο", data["unit"]["name_el"] if data["unit"] else
+             episode["entity_code"], "", ""),
+            ("Εισαγωγή", _format_datetime(episode["admission_at"]),
+             "Εξέταση", _format_datetime(episode["examination_at"])),
+            ("Εξιτήριο", _format_datetime(episode["discharge_at"]),
+             "Συγγενής", f"{episode['next_of_kin_type'] or ''} "
+                         f"{episode['next_of_kin_details'] or ''}"),
+        ]
+        for label_a, value_a, label_b, value_b in rows:
+            pdf.drawString(left, y, f"{label_a}:")
+            pdf.drawString(left + 28 * mm, y, str(value_a or ""))
+            if label_b:
+                pdf.drawString(left + 95 * mm, y, f"{label_b}:")
+                pdf.drawString(left + 130 * mm, y, str(value_b or ""))
+            y -= 4 * mm
+        if episode["comments"]:
+            pdf.drawString(left, y, "Σχόλια:")
+            pdf.drawString(left + 28 * mm, y, str(episode["comments"])[:110])
+            y -= 4 * mm
+        return y - 2 * mm
+
+    y = personal_block(y)
+    pdf.line(left, y, right, y)
+    y -= 6 * mm
+
+    # Block two — the services, grouped as the sample groups them.
+    pdf.setFont(font_bold, 9)
+    pdf.drawString(left, y, "ΚΟΣΤΟΛΟΓΗΣΗ")
+    y -= 5 * mm
+
+    for title, rows in (("--------Θεραπείες--------", data["treatments"]),
+                        ("--------Διαγνωστικές Παρεμβάσεις--------",
+                         data["investigations"])):
+        pdf.setFont(font_bold, 8)
+        pdf.drawString(left, y, title)
+        y -= 4 * mm
+        pdf.setFont(font, 8)
+        if not rows:
+            pdf.drawString(left + 4 * mm, y, "—")
+            y -= 4 * mm
+        for row in rows:
+            if y < 45 * mm:
+                footer(page)
+                pdf.showPage()
+                page += 1
+                y = personal_block(header(page))
+                pdf.setFont(font, 8)
+            pdf.drawString(left + 4 * mm, y,
+                           f"{row['code']} - {row['description_el']}")
+            y -= 4 * mm
+        y -= 2 * mm
+
+    # Itemised tariff lines, above the totals. A patient asked to pay for a lumbar
+    # puncture is entitled to see the line (brief §12).
+    if data["tariff_lines"]:
+        pdf.setFont(font_bold, 8)
+        pdf.drawString(left, y, "Δραστηριότητες βάσει τιμοκαταλόγου")
+        y -= 4 * mm
+        pdf.setFont(font, 8)
+        for line in data["tariff_lines"]:
+            if y < 45 * mm:
+                footer(page)
+                pdf.showPage()
+                page += 1
+                y = personal_block(header(page))
+                pdf.setFont(font, 8)
+            label = str(line["description_snapshot"])[:78]
+            if _as_int(line["suppressed"]):
+                label += "  (δεν χρεώνεται)"
+            pdf.drawString(left + 4 * mm, y, label)
+            pdf.drawRightString(right - 22 * mm, y, f"x{line['quantity']}")
+            pdf.drawRightString(right, y, format_eur(line["line_total"]))
+            y -= 4 * mm
+        y -= 2 * mm
+
+    # Block three — the totals, in the order the brief fixes.
+    if y < 60 * mm:
+        footer(page)
+        pdf.showPage()
+        page += 1
+        y = personal_block(header(page))
+
+    totals_left = left + 55 * mm
+    pdf.line(totals_left, y, right, y)
+    y -= 5 * mm
+
+    # The band label goes on its own line under its caption. Side by side it collides
+    # with the caption — «Συνδυασμός διάγνωσης και θεραπείας μέσου κόστους» is wider
+    # than the space left over, and the two strings overprint. Caught by reading the
+    # rendered PDF back rather than by looking at it.
+    pdf.setFont(font, 8)
+    pdf.drawString(totals_left, y, "Κατηγοριοποίηση βάσει βαρύτητας")
+    y -= 4.5 * mm
+    pdf.setFont(font_bold, 8)
+    pdf.drawString(totals_left + 3 * mm, y,
+                   str(result["band_label_el"] or result["band_label_en"] or ""))
+    y -= 5.5 * mm
+
+    money_rows = [
+        ("Κοστολόγηση βάσει βαρύτητας €", format_eur(result["weight_cost"])),
+        ("Τέλος Εγγραφής €", format_eur(result["registration_fee_applied"])),
+        ("Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου €",
+         format_eur(result["tariff_total"])),
+    ]
+    pdf.setFont(font, 8)
+    amount_column = right - 22 * mm
+    for label, value in money_rows:
+        # Shrink rather than overprint if a label ever outgrows its column.
+        size = 8
+        while pdf.stringWidth(label, font, size) > (amount_column - totals_left - 2 * mm):
+            size -= 0.5
+            if size <= 6:
+                break
+        pdf.setFont(font, size)
+        pdf.drawString(totals_left, y, label)
+        pdf.setFont(font, 8)
+        pdf.drawRightString(right, y, str(value))
+        y -= 4.5 * mm
+
+    pdf.line(totals_left, y + 1 * mm, right, y + 1 * mm)
+    y -= 5 * mm
+    pdf.setFont(font_bold, 11)
+    pdf.drawString(totals_left, y, "Τελικό Κόστος €")
+    pdf.drawRightString(right, y, format_eur(result["total_cost"]))
+
+    footer(page)
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# 3. ROUTES — Phase 2, the clerk path
+# ---------------------------------------------------------------------------
+#
+# Flask is imported inside register() on purpose. The costing engine above must stay
+# unit-testable with no framework installed (brief §2), and a module-level import would
+# make importing taep at all require Flask.
+
+PERMISSIONS = {
+    "create": "taep.create",
+    "finalise": "taep.finalise",
+    "cancel": "taep.cancel",
+    "rates": "taep.rates",
+    "admin": "taep.admin",
+}
+
+
+def _parse_date(raw):
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return dt.date.fromisoformat(raw)
+    except ValueError:
+        raise CostingError("BAD_DATE", f"Μη έγκυρη ημερομηνία «{raw}».")
+
+
+def _parse_datetime(raw):
+    raw = (raw or "").strip().replace("T", " ")
+    if not raw:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M"):
+        try:
+            return dt.datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    raise CostingError("BAD_DATETIME", f"Μη έγκυρη ημερομηνία και ώρα «{raw}».")
+
+
+def _form_to_episode(form):
+    """Map the posted form onto episode fields, parsing dates and times."""
+    data = {field: (form.get(field) or "").strip() or None
+            for field in EPISODE_FIELDS}
+    data["date_of_birth"] = _parse_date(form.get("date_of_birth"))
+    data["id_expiry"] = _parse_date(form.get("id_expiry"))
+    for field in ("admission_at", "examination_at", "discharge_at"):
+        data[field] = _parse_datetime(form.get(field))
+    category = (form.get("financial_category_id") or "").strip()
+    data["financial_category_id"] = int(category) if category.isdigit() else None
+    return data
+
+
+def _tariff_lines_from_form(ctx, form):
+    """Build TariffLine objects from the posted tariff rows."""
+    db = ctx["db_execute"]
+    lines = []
+    codes = form.getlist("tariff_code")
+    quantities = form.getlist("tariff_quantity")
+    hours = form.getlist("tariff_hours")
+    consumables = form.getlist("tariff_consumables")
+    notes = form.getlist("tariff_note")
+    cpts = form.getlist("tariff_cpt")
+
+    def at(values, i, default=""):
+        return values[i] if i < len(values) else default
+
+    for i, code in enumerate(codes):
+        code = (code or "").strip()
+        if not code:
+            continue
+        rows = db("""SELECT code, description_el, price_type, base_amount, hourly_amount
+                     FROM taep_tariff WHERE code=%s AND active=1""",
+                  (code,), fetch=True)
+        if not rows:
+            raise CostingError("UNKNOWN_TARIFF",
+                               f"Ο κωδικός τιμοκαταλόγου «{code}» δεν βρέθηκε.")
+        tariff = rows[0]
+
+        cpt = (at(cpts, i) or "").strip() or None
+        cpt_price = None
+        if cpt:
+            cpt_rows = db("""SELECT price_eur FROM taep_radiology_tariff
+                             WHERE cpt_code=%s AND active=1""", (cpt,), fetch=True)
+            if not cpt_rows:
+                raise CostingError("UNKNOWN_CPT",
+                                   f"Ο κωδικός CPT «{cpt}» δεν βρέθηκε.")
+            cpt_price = money_from_db(cpt_rows[0]["price_eur"])
+
+        quantity_raw = (at(quantities, i) or "1").strip()
+        hours_raw = (at(hours, i) or "").strip()
+        consumables_raw = (at(consumables, i) or "").strip()
+
+        lines.append(TariffLine(
+            tariff_code=tariff["code"],
+            description=tariff["description_el"],
+            price_type=tariff["price_type"],
+            base_amount=money_from_db(tariff["base_amount"]) or Decimal("0.00"),
+            hourly_amount=money_from_db(tariff["hourly_amount"]),
+            quantity=int(quantity_raw) if quantity_raw.isdigit() else 0,
+            hours=Decimal(hours_raw) if hours_raw else None,
+            consumables_amount=Decimal(consumables_raw) if consumables_raw else None,
+            consumables_note=at(notes, i) or None,
+            radiology_cpt=cpt,
+            radiology_price=cpt_price,
+        ))
+    return lines
+
+
+def store_tariff_lines(ctx, episode_id, lines, costed, user_id):
+    """Persist the tariff lines with a description snapshot and the computed total."""
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+    db("DELETE FROM taep_episode_tariff_line WHERE episode_id=%s", (episode_id,))
+    rows = []
+    for line, priced in zip(lines, costed):
+        tariff = db("SELECT id FROM taep_tariff WHERE code=%s", (line.tariff_code,),
+                    fetch=True)
+        rows.append((episode_id, tariff[0]["id"] if tariff else None,
+                     line.radiology_cpt, line.description, line.quantity,
+                     None if line.hours is None else str(line.hours),
+                     None if line.consumables_amount is None
+                     else str(line.consumables_amount),
+                     line.consumables_note, str(priced.line_total),
+                     1 if priced.suppressed else 0, user_id, now))
+    _insert_many(db, "taep_episode_tariff_line",
+                 ["episode_id", "tariff_id", "radiology_cpt", "description_snapshot",
+                  "quantity", "hours", "consumables_amount", "consumables_note",
+                  "line_total", "suppressed", "added_by", "added_at"], rows)
+
+
+def price_episode(ctx, episode_id, tariff_lines=()):
+    """Calculate an episode from what is stored plus any tariff lines supplied.
+
+    One place builds a CostingResult for an episode, so the costing screen, the
+    finalisation check and the PDF can never disagree about the number.
+    """
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+
+    examination = episode["examination_at"]
+    on_date = _as_date(examination) if examination else dt.date.today()
+    category = get_category(ctx, episode["financial_category_id"])
+    rates = rates_in_force(ctx, episode["financial_category_id"], on_date,
+                           episode["entity_code"])
+    services = get_services(ctx, get_episode_service_codes(ctx, episode_id))
+    return calculate(services, rates, tariff_lines,
+                     financial_category_code=category["code_new"] if category else None,
+                     service_date=on_date)
+
+
+def list_episodes(ctx, entity_code, filters=None, limit=200):
+    """Screen 3, scoped to one hospital. A Limassol user never sees Nicosia episodes."""
+    filters = filters or {}
+    where = ["e.entity_code = %s"]
+    params = [entity_code]
+
+    if filters.get("date_from"):
+        where.append("e.examination_at >= %s")
+        params.append(filters["date_from"])
+    if filters.get("date_to"):
+        where.append("e.examination_at <= %s")
+        params.append(filters["date_to"])
+    if filters.get("category_id"):
+        where.append("e.financial_category_id = %s")
+        params.append(filters["category_id"])
+    if filters.get("id_number"):
+        where.append("e.id_number = %s")
+        params.append(filters["id_number"].strip())
+    if filters.get("status"):
+        where.append("e.status = %s")
+        params.append(filters["status"])
+
+    return ctx["db_execute"](
+        f"""SELECT e.id, e.costing_number, e.episode_number, e.examination_at,
+                   e.first_name, e.last_name, e.id_type, e.id_number, e.status,
+                   e.taep_unit_code, c.code_new AS category_code,
+                   c.name_el AS category_name, r.weight, r.total_cost
+            FROM taep_episode e
+            LEFT JOIN taep_financial_category c ON e.financial_category_id = c.id
+            LEFT JOIN taep_costing_result r ON r.episode_id = e.id
+            WHERE {' AND '.join(where)}
+            ORDER BY e.examination_at DESC, e.id DESC
+            LIMIT {int(limit)}""", tuple(params), fetch=True) or []
+
+
+def register(app, ctx):
+    """Register the ΤΑΕΠ routes. Called by eFinance at boot."""
+    from flask import (abort, flash, jsonify, redirect, render_template, request,
+                       session, url_for, Response)
+
+    db = ctx["db_execute"]
+    login_required = ctx["login_required"]
+    permission_required = ctx["permission_required"]
+
+    # Money is formatted in one place, in the Greek convention, so no template can
+    # invent its own and no total can print differently from the PDF.
+    app.jinja_env.filters.setdefault("eur", format_eur)
+
+    def user_id():
+        return session.get("user_id")
+
+    def active_entity():
+        entity = ctx["user_entity"]()
+        if not entity:
+            abort(403)
+        return entity
+
+    def episode_or_404(episode_id):
+        """Hospital scoping returns 404, not 403 — brief §13. A Limassol clerk must
+        not learn that a Nicosia episode exists."""
+        episode = get_episode(ctx, episode_id)
+        if episode is None or not ctx["can_access_entity"](episode["entity_code"]):
+            abort(404)
+        return episode
+
+    # -- Screen 1: Νέα Καταχώρηση ------------------------------------------
+    @app.route("/taep/nea", methods=["GET", "POST"])
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_new():
+        entity = active_entity()
+        units = unit_for_entity(ctx, entity)
+        categories = list_ae_categories(ctx)
+
+        if request.method == "POST":
+            try:
+                data = _form_to_episode(request.form)
+            except CostingError as exc:
+                flash(exc.message_el, "danger")
+                return render_template("taep_new.html", categories=categories,
+                                       units=units, form=request.form)
+
+            errors, warnings = validate_episode(data)
+            unit_code = (request.form.get("taep_unit_code") or "").strip()
+            if not unit_code:
+                errors.append("Επιλέξτε μονάδα ΤΑΕΠ.")
+            elif unit_code not in {u["unit_code"] for u in units}:
+                errors.append("Η μονάδα ΤΑΕΠ δεν ανήκει στο ενεργό νοσηλευτήριο.")
+
+            if errors:
+                for message in errors:
+                    flash(message, "danger")
+                return render_template("taep_new.html", categories=categories,
+                                       units=units, form=request.form)
+
+            try:
+                episode_id = save_episode(ctx, data, entity, unit_code, user_id())
+            except CostingError as exc:
+                flash(exc.message_el, "danger")
+                return render_template("taep_new.html", categories=categories,
+                                       units=units, form=request.form)
+
+            for message in warnings:
+                flash(message, "warning")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+
+        return render_template("taep_new.html", categories=categories, units=units,
+                               form={})
+
+    # -- Prior-episode lookup (called on blur of the identification number) -
+    @app.route("/taep/api/prior")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_prior():
+        prior = find_prior_episodes(ctx, request.args.get("id_type", ""),
+                                    request.args.get("id_number", ""))
+        unpaid = unpaid_self_pay_episodes(prior)
+        latest = prior[0] if prior else None
+        return jsonify({
+            "count": len(prior),
+            "unpaid": [{"costing_number": u["costing_number"],
+                        "entity_code": u["entity_code"],
+                        "examination_at": str(u["examination_at"] or ""),
+                        "total_cost": str(u["total_cost"] or "")} for u in unpaid],
+            "prefill": None if latest is None else {
+                field: str(latest[field] or "") for field in
+                ("first_name", "last_name", "date_of_birth", "gender", "phone",
+                 "address", "id_country", "id_expiry", "next_of_kin_type",
+                 "next_of_kin_details")},
+        })
+
+    # -- Service search ----------------------------------------------------
+    @app.route("/taep/api/services")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_service_search():
+        hits = search_services(ctx, request.args.get("q", ""))
+        return jsonify([{"code": h["code"], "service_type": h["service_type"],
+                         "category": int(h["category"]),
+                         "description_el": h["description_el"]} for h in hits])
+
+    # -- Screen 2: Κοστολόγηση --------------------------------------------
+    @app.route("/taep/<int:episode_id>")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_costing(episode_id):
+        episode = episode_or_404(episode_id)
+        category = get_category(ctx, episode["financial_category_id"])
+        selected = get_services(ctx, get_episode_service_codes(ctx, episode_id))
+        stored = get_calculation(ctx, episode_id)
+        return render_template(
+            "taep_costing.html", episode=episode, category=category,
+            selected=selected, result=stored,
+            investigations=[s for s in selected if s.service_type == INVESTIGATION],
+            treatments=[s for s in selected if s.service_type == TREATMENT],
+            tariff_allowed=bool(category and _as_int(category["tariff_applies"])))
+
+    @app.route("/taep/<int:episode_id>/services", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_set_services(episode_id):
+        episode = episode_or_404(episode_id)
+        if episode["status"] not in EDITABLE_STATUSES:
+            flash("Η καταχώρηση δεν μπορεί να τροποποιηθεί.", "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        set_episode_services(ctx, episode_id, request.form.getlist("service_code"),
+                             user_id())
+        return redirect(url_for("taep_costing", episode_id=episode_id))
+
+    @app.route("/taep/<int:episode_id>/calculate", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_calculate(episode_id):
+        episode = episode_or_404(episode_id)
+        if episode["status"] not in EDITABLE_STATUSES:
+            flash("Η καταχώρηση δεν μπορεί να τροποποιηθεί.", "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        try:
+            lines = _tariff_lines_from_form(ctx, request.form)
+            result = price_episode(ctx, episode_id, lines)
+            store_calculation(ctx, episode_id, result, user_id())
+            store_tariff_lines(ctx, episode_id, lines, result.lines, user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+
+        for warning in result.warnings_el:
+            flash(warning, "warning")
+        for blocker in result.blocking_issues_el:
+            flash(blocker, "warning")
+        return redirect(url_for("taep_costing", episode_id=episode_id))
+
+    @app.route("/taep/<int:episode_id>/finalise", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["finalise"])
+    def taep_finalise(episode_id):
+        episode_or_404(episode_id)
+        try:
+            lines = _tariff_lines_from_form(ctx, request.form)
+            result = price_episode(ctx, episode_id, lines)
+            number, _ = finalise_episode(ctx, episode_id, result, user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        flash(f"Η κοστολόγηση οριστικοποιήθηκε με αριθμό {number}.", "success")
+        return redirect(url_for("taep_print", episode_id=episode_id))
+
+    # -- Print -------------------------------------------------------------
+    @app.route("/taep/<int:episode_id>/print")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_print(episode_id):
+        episode = episode_or_404(episode_id)
+        if episode["status"] != "FINALISED":
+            flash("Μόνο οριστικοποιημένες κοστολογήσεις εκτυπώνονται.", "warning")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        pdf = render_costing_pdf(ctx, episode_id)
+        filename = f"{episode['costing_number'].replace('/', '-')}.pdf"
+        return Response(pdf, mimetype="application/pdf", headers={
+            "Content-Disposition": f'inline; filename="{filename}"'})
+
+    # -- Screen 3: Λίστα Καταχωρήσεων -------------------------------------
+    @app.route("/taep/list")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_list():
+        entity = active_entity()
+        filters = {
+            "date_from": request.args.get("date_from") or None,
+            "date_to": request.args.get("date_to") or None,
+            "category_id": request.args.get("category_id") or None,
+            "id_number": request.args.get("id_number") or None,
+            "status": request.args.get("status") or None,
+        }
+        return render_template("taep_list.html",
+                               episodes=list_episodes(ctx, entity, filters),
+                               categories=list_ae_categories(ctx), filters=filters)
+
+    # -- Cancellation (admin) ---------------------------------------------
+    @app.route("/taep/<int:episode_id>/cancel", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["cancel"])
+    def taep_cancel(episode_id):
+        episode_or_404(episode_id)
+        try:
+            cancel_episode(ctx, episode_id, request.form.get("reason", ""), user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        flash("Η κοστολόγηση ακυρώθηκε. Ο αριθμός διατηρείται.", "success")
+        return redirect(url_for("taep_list"))

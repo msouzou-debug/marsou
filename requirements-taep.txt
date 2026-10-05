@@ -1,0 +1,9 @@
+# Added by the ΤΑΕΠ module on top of eFinance's requirements.txt.
+# Everything here is already an eFinance dependency except pypdf, which is test-only.
+flask>=3.0
+openpyxl>=3.1          # Excel export and the seed/source workbooks
+python-docx>=1.1       # the Μονάδα question documents in tools/
+reportlab>=4.0         # the printed costing document
+pytest>=8.0            # tests
+pypdf>=4.0             # tests: reads the rendered PDF back
+pdfplumber>=0.11       # tests: reads by position, which catches overprinting

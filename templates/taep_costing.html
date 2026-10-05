@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Κοστολόγηση{% endblock %}
+{% block content %}
+<h1>Κοστολόγηση Περιστατικού</h1>
+
+<p class="chip">{{ category.code_new }} — {{ category.name_el }}</p>
+<p>{{ episode.last_name }} {{ episode.first_name }} ·
+   {{ episode.id_type }} {{ episode.id_number }} ·
+   Κατάσταση: <strong>{{ episode.status }}</strong>
+   {% if episode.costing_number %} · Αρ. {{ episode.costing_number }}{% endif %}</p>
+
+<div class="columns">
+  <section class="card" id="service-selection">
+    <h2>Επιλογή υπηρεσιών</h2>
+    <form method="post" action="{{ url_for('taep_set_services', episode_id=episode.id) }}">
+      <label for="service-search">Αναζήτηση υπηρεσίας (κωδικός ή περιγραφή)</label>
+      <input id="service-search" autocomplete="off">
+      <ul id="service-results"></ul>
+
+      <h3>Θεραπείες</h3>
+      <ul id="selected-treatments">
+        {% for service in treatments %}
+          <li><input type="checkbox" name="service_code" value="{{ service.code }}" checked>
+            <code>{{ service.code }}</code> {{ service.description_el }}
+            <span class="badge">Κ{{ service.category }}</span></li>
+        {% endfor %}
+      </ul>
+
+      <h3>Διαγνωστικές Παρεμβάσεις</h3>
+      <ul id="selected-investigations">
+        {% for service in investigations %}
+          <li><input type="checkbox" name="service_code" value="{{ service.code }}" checked>
+            <code>{{ service.code }}</code> {{ service.description_el }}
+            <span class="badge">Κ{{ service.category }}</span></li>
+        {% endfor %}
+      </ul>
+
+      {% if not selected %}
+        <p class="hint">Καμία υπηρεσία επιλεγμένη — η καταχώρηση χρεώνεται ως
+          Διαλογή (Triage).</p>
+      {% endif %}
+      <button type="submit">Ενημέρωση υπηρεσιών</button>
+    </form>
+  </section>
+
+  <section class="card" id="result">
+    <form method="post" action="{{ url_for('taep_calculate', episode_id=episode.id) }}">
+      <button type="submit" class="primary" id="calculate">Υπολογισμός</button>
+    </form>
+
+    {% if result %}
+      <table class="totals">
+        <tr><th>Κατηγοριοποίηση βάσει βαρύτητας</th>
+            <td>{{ result.band_label_el or result.band_label_en }}</td></tr>
+        <tr><th>Μέγιστη Διαγνωστική Κατηγορία</th>
+            <td>{{ result.max_investigation_category or '—' }}</td></tr>
+        <tr><th>Μέγιστη Θεραπευτική Κατηγορία</th>
+            <td>{{ result.max_treatment_category or '—' }}</td></tr>
+        <tr><th>Βαρύτητα</th><td>{{ result.weight }}</td></tr>
+        <tr><th>Κοστολόγηση βάσει βαρύτητας €</th>
+            <td>{{ result.weight_cost | eur }}</td></tr>
+        <tr><th>Τέλος Εγγραφής €</th>
+            <td>{{ result.registration_fee_applied | eur }}</td></tr>
+        <tr><th>Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου €</th>
+            <td>{{ result.tariff_total | eur }}</td></tr>
+        <tr class="grand"><th>Τελικό Κόστος €</th>
+            <td id="total">{{ result.total_cost | eur }}</td></tr>
+      </table>
+
+      {% if episode.status == 'CALCULATED' %}
+        <form method="post" action="{{ url_for('taep_finalise', episode_id=episode.id) }}">
+          <button type="submit" class="primary">
+            Οριστικοποίηση — {{ result.total_cost | eur }} €</button>
+        </form>
+      {% elif episode.status == 'FINALISED' %}
+        <a class="primary" href="{{ url_for('taep_print', episode_id=episode.id) }}">
+          Εκτύπωση</a>
+      {% endif %}
+    {% else %}
+      <p class="hint" id="no-result">Δεν έχει γίνει υπολογισμός. Πατήστε
+        «Υπολογισμός».</p>
+    {% endif %}
+
+    {% if not tariff_allowed %}
+      <p class="hint">Οι χρεώσεις τιμοκαταλόγου δεν ισχύουν για αυτή την οικονομική
+        κατηγορία.</p>
+    {% endif %}
+  </section>
+</div>
+
+<script>
+const search = document.getElementById("service-search");
+search.addEventListener("input", async function () {
+  const list = document.getElementById("service-results");
+  list.innerHTML = "";
+  if (this.value.trim().length < 2) return;
+  const response = await fetch(`/taep/api/services?q=${encodeURIComponent(this.value)}`);
+  for (const service of await response.json()) {
+    const group = service.service_type === "TREATMENT"
+      ? "selected-treatments" : "selected-investigations";
+    list.insertAdjacentHTML("beforeend",
+      `<li><button type="button" data-code="${service.code}" data-group="${group}"
+        data-category="${service.category}"
+        data-description="${service.description_el}">
+        <code>${service.code}</code> ${service.description_el}
+        <span class="badge">Κ${service.category}</span></button></li>`);
+  }
+  list.querySelectorAll("button").forEach(button => {
+    button.addEventListener("click", () => {
+      const group = document.getElementById(button.dataset.group);
+      if (group.querySelector(`input[value="${button.dataset.code}"]`)) return;
+      group.insertAdjacentHTML("beforeend",
+        `<li><input type="checkbox" name="service_code"
+          value="${button.dataset.code}" checked>
+          <code>${button.dataset.code}</code> ${button.dataset.description}
+          <span class="badge">Κ${button.dataset.category}</span></li>`);
+      search.value = ""; list.innerHTML = ""; search.focus();
+    });
+  });
+});
+</script>
+{% endblock %}

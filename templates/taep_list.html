@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Καταχωρήσεις ΤΑΕΠ{% endblock %}
+{% block content %}
+<h1>Καταχωρήσεις</h1>
+
+<form method="get" class="filters">
+  <label for="date_from">Από</label>
+  <input id="date_from" name="date_from" type="date" value="{{ filters.date_from or '' }}">
+  <label for="date_to">Έως</label>
+  <input id="date_to" name="date_to" type="date" value="{{ filters.date_to or '' }}">
+  <label for="category_id">Οικονομική Κατηγορία</label>
+  <select id="category_id" name="category_id">
+    <option value="">Όλες</option>
+    {% for category in categories %}
+      <option value="{{ category.id }}"
+        {% if filters.category_id == category.id|string %}selected{% endif %}>
+        {{ category.code_new }} — {{ category.name_el }}</option>
+    {% endfor %}
+  </select>
+  <label for="id_number">Αρ. ταυτοποίησης</label>
+  <input id="id_number" name="id_number" value="{{ filters.id_number or '' }}">
+  <label for="status">Κατάσταση</label>
+  <select id="status" name="status">
+    <option value="">Όλες</option>
+    {% for value, label in [("DRAFT","Πρόχειρο"), ("CALCULATED","Υπολογισμένο"),
+                            ("FINALISED","Οριστικοποιημένο"), ("CANCELLED","Ακυρωμένο")] %}
+      <option value="{{ value }}"
+        {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Φιλτράρισμα</button>
+</form>
+
+<table id="episodes">
+  <thead><tr>
+    <th>Αρ. Κοστολόγησης</th><th>Ημ/νία Εξέτασης</th><th>Επώνυμο</th><th>Όνομα</th>
+    <th>Ταυτοποίηση</th><th>Οικονομική Κατηγορία</th><th>Βαρύτητα</th>
+    <th>Τελικό Κόστος</th><th>Κατάσταση</th>
+  </tr></thead>
+  <tbody>
+  {% for episode in episodes %}
+    <tr class="status-{{ episode.status|lower }}">
+      <td><a href="{{ url_for('taep_costing', episode_id=episode.id) }}">
+        {{ episode.costing_number or '—' }}</a></td>
+      <td>{{ episode.examination_at }}</td>
+      <td>{{ episode.last_name }}</td>
+      <td>{{ episode.first_name }}</td>
+      <td>{{ episode.id_type }} {{ episode.id_number }}</td>
+      <td>{{ episode.category_code }} — {{ episode.category_name }}</td>
+      <td class="number">{{ episode.weight or '—' }}</td>
+      <td class="number">{{ episode.total_cost | eur }}</td>
+      <td>{{ episode.status }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9">Καμία καταχώρηση.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
