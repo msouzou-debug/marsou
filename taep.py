@@ -2492,6 +2492,155 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
 
 
 # ---------------------------------------------------------------------------
+# Go-live readiness (Phase 4)
+# ---------------------------------------------------------------------------
+
+EXPECTED_COUNTS = {
+    "taep_financial_category": 38,
+    "taep_service": 125,
+    "taep_weight_matrix": 15,
+    "taep_unit": 8,
+    "taep_tariff": 52,
+    "taep_radiology_tariff": 305,
+}
+
+
+def readiness_report(ctx, on_date=None):
+    """Whether an installation is fit to issue costings. Returns a list of findings.
+
+    Each finding is {level, check, detail}: 'blocker' means do not go live, 'warning'
+    means go live knowing this. An empty list means ready.
+
+    Written for the person doing the rollout, who needs to know whether THIS install is
+    sound — not whether the code is correct, which the tests answer.
+    """
+    db = ctx["db_execute"]
+    on_date = _as_date(on_date or dt.date.today())
+    findings = []
+
+    def add(level, check, detail):
+        findings.append({"level": level, "check": check, "detail": detail})
+
+    # 1. Schema
+    for table in list(EXPECTED_COUNTS) + ["taep_episode", "taep_costing_result",
+                                          "taep_costing_number", "taep_settlement",
+                                          "taep_rate", "taep_episode_service",
+                                          "taep_episode_tariff_line"]:
+        try:
+            db(f"SELECT 1 FROM {table} LIMIT 1", fetch=True)
+        except Exception:
+            add("blocker", "σχήμα", f"ο πίνακας {table} δεν υπάρχει")
+
+    if any(f["check"] == "σχήμα" for f in findings):
+        return findings        # nothing else can be checked without the tables
+
+    # 2. Master data loaded, at the counts the source files hold
+    for table, expected in EXPECTED_COUNTS.items():
+        actual = db(f"SELECT COUNT(*) AS n FROM {table}", fetch=True)[0]["n"]
+        if actual == 0:
+            add("blocker", "δεδομένα", f"ο πίνακας {table} είναι κενός — "
+                                       f"δεν έχει εκτελεστεί το seed")
+        elif actual != expected:
+            add("warning", "δεδομένα",
+                f"ο πίνακας {table} έχει {actual} γραμμές, αναμενόμενες {expected}")
+
+    # 3. The weight matrix in the table must still agree with the algorithm
+    rows = db("SELECT investigation_category i, treatment_category t, weight "
+              "FROM taep_weight_matrix", fetch=True) or []
+    if {(r["i"], r["t"]): r["weight"] for r in rows} != WEIGHT_MATRIX:
+        add("blocker", "αλγόριθμος",
+            "ο πίνακας βαρύτητας στη βάση διαφέρει από τον αλγόριθμο στον κώδικα")
+
+    # 4. Rates in force today
+    scale = weight_scale_overview(ctx, on_date)
+    missing = [str(row["weight"]) for row in scale if row["amount"] is None]
+    if missing:
+        add("blocker", "τιμές",
+            f"δεν υπάρχει ποσό σε ισχύ για τη βαρύτητα {', '.join(missing)}")
+
+    unconfirmed = [row["code"] for row in rate_overview(ctx, on_date)
+                   if row["fee_state"] == RATE_STATE_UNCONFIRMED]
+    if unconfirmed:
+        add("blocker", "τέλη εγγραφής",
+            f"δεν έχει οριστεί τέλος εγγραφής για τις κατηγορίες "
+            f"{', '.join(unconfirmed)} — οι κοστολογήσεις τους θα μπλοκάρουν")
+
+    # 5. No overlapping rate periods — the check MySQL cannot enforce for us
+    for problem in verify_rate_periods(ctx):
+        add("blocker", "επικάλυψη τιμών", problem["detail"])
+
+    # 6. Units: a number each, no duplicates, and a host that resolves today
+    units = db("SELECT unit_code, name_el, taep_number, host_entity_code "
+               "FROM taep_unit WHERE active=1", fetch=True) or []
+    numbers = [u["taep_number"] for u in units]
+    if len(numbers) != len(set(numbers)):
+        add("blocker", "μονάδες ΤΑΕΠ", "δύο μονάδες μοιράζονται τον ίδιο κωδικό")
+    for unit in units:
+        if not (unit["taep_number"] or "").strip():
+            add("blocker", "μονάδες ΤΑΕΠ",
+                f"η μονάδα {unit['unit_code']} δεν έχει κωδικό αριθμού κοστολόγησης")
+    hosted = {u["unit_code"] for entity in {u["host_entity_code"] for u in units}
+              for u in unit_for_entity(ctx, entity, on_date)}
+    for unit in units:
+        if unit["unit_code"] not in hosted:
+            add("warning", "μονάδες ΤΑΕΠ",
+                f"η μονάδα {unit['unit_code']} δεν φιλοξενείται σε κανένα "
+                f"νοσηλευτήριο στις {on_date} — ελέγξτε τις ημερομηνίες ισχύος")
+
+    # 7. Tariff rows that cannot be priced
+    unresolved = db("SELECT code, load_status FROM taep_tariff "
+                    "WHERE active=1 AND load_status NOT IN ('OK','SPLIT')",
+                    fetch=True) or []
+    if unresolved:
+        add("warning", "τιμοκατάλογος",
+            f"{len(unresolved)} ενεργές γραμμές χωρίς δομημένη τιμή: "
+            f"{', '.join(r['code'] for r in unresolved[:6])}")
+
+    # 8. Costing-number sequences must have no gaps
+    for unit in units:
+        issued = db("""SELECT sequence_number FROM taep_costing_number
+                       WHERE unit_code=%s ORDER BY sequence_number""",
+                    (unit["unit_code"],), fetch=True) or []
+        sequences = [int(r["sequence_number"]) for r in issued]
+        if sequences and sequences != list(range(1, len(sequences) + 1)):
+            add("blocker", "αριθμοί κοστολόγησης",
+                f"η σειρά της μονάδας {unit['unit_code']} έχει κενά")
+
+    # 9. Episodes finalised without a number, or numbered without being finalised
+    orphans = db("""SELECT COUNT(*) AS n FROM taep_episode
+                    WHERE status='FINALISED' AND (costing_number IS NULL
+                          OR costing_number='')""", fetch=True)[0]["n"]
+    if orphans:
+        add("blocker", "ακεραιότητα",
+            f"{orphans} οριστικοποιημένες κοστολογήσεις χωρίς αριθμό")
+
+    premature = db("""SELECT COUNT(*) AS n FROM taep_episode
+                      WHERE costing_number IS NOT NULL AND costing_number <> ''
+                            AND status NOT IN ('FINALISED','CANCELLED')""",
+                   fetch=True)[0]["n"]
+    if premature:
+        add("blocker", "ακεραιότητα",
+            f"{premature} μη οριστικοποιημένες κοστολογήσεις με αριθμό")
+
+    return findings
+
+
+def readiness_summary(findings):
+    """One line per level, for a log or a status page."""
+    blockers = [f for f in findings if f["level"] == "blocker"]
+    warnings = [f for f in findings if f["level"] == "warning"]
+    if not findings:
+        return "Έτοιμο για παραγωγική λειτουργία."
+    parts = []
+    if blockers:
+        parts.append(f"{len(blockers)} εμπόδια")
+    if warnings:
+        parts.append(f"{len(warnings)} προειδοποιήσεις")
+    return "Δεν είναι έτοιμο: " + ", ".join(parts) if blockers else \
+           "Έτοιμο με " + ", ".join(parts) + "."
+
+
+# ---------------------------------------------------------------------------
 # 3. ROUTES — Phase 2, the clerk path
 # ---------------------------------------------------------------------------
 #
@@ -3034,6 +3183,17 @@ def register(app, ctx):
             headers={"Content-Disposition":
                      f'attachment; filename="katachoriseis_taep_'
                      f'{dt.date.today():%Y%m%d}.xlsx"'})
+
+    # -- Go-live readiness ------------------------------------------------
+    @app.route("/taep/readiness")
+    @login_required
+    @permission_required(PERMISSIONS["admin"])
+    def taep_readiness():
+        findings = readiness_report(ctx)
+        return render_template("taep_readiness.html", findings=findings,
+                               summary=readiness_summary(findings),
+                               blockers=[f for f in findings if f["level"] == "blocker"],
+                               warnings=[f for f in findings if f["level"] == "warning"])
 
     # -- Cancellation (admin) ---------------------------------------------
     @app.route("/taep/<int:episode_id>/cancel", methods=["POST"])

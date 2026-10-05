@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Έλεγχος ετοιμότητας ΤΑΕΠ{% endblock %}
+{% block content %}
+<h1>Έλεγχος ετοιμότητας</h1>
+<p class="hint">Ελέγχει αυτή την εγκατάσταση, όχι τον κώδικα. Εκτελέστε τον σε κάθε
+  νοσηλευτήριο πριν τεθεί σε λειτουργία.</p>
+
+<p id="summary"><strong>{{ summary }}</strong></p>
+
+{% if blockers %}
+  <h2>Εμπόδια ({{ blockers|length }})</h2>
+  <table id="blockers">
+    <thead><tr><th>Έλεγχος</th><th>Εύρημα</th></tr></thead>
+    <tbody>
+    {% for finding in blockers %}
+      <tr class="alert-danger"><td>{{ finding.check }}</td><td>{{ finding.detail }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+{% if warnings %}
+  <h2>Προειδοποιήσεις ({{ warnings|length }})</h2>
+  <table id="warnings">
+    <thead><tr><th>Έλεγχος</th><th>Εύρημα</th></tr></thead>
+    <tbody>
+    {% for finding in warnings %}
+      <tr><td>{{ finding.check }}</td><td>{{ finding.detail }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+{% if not findings %}
+  <p id="ready">Όλοι οι έλεγχοι πέρασαν.</p>
+{% endif %}
+{% endblock %}

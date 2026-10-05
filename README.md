@@ -17,7 +17,8 @@ Turns the services ticked on form ΟΚΥπΥ 1-125 into a priced, numbered, prin
 | Schema + seed loader | built; loads clean from the source catalogue |
 | Phase 2 clerk path | built — entry, costing, finalisation, printed PDF |
 | Phase 3 administration | built — rates, tariff Excel round trip, list export, cancellation |
-| Tests | 277 green (`python3 -m pytest -q`) |
+| Phase 4 rollout | acceptance scenarios, readiness check, runbook, clerk guide |
+| Tests | 323 green (`python3 -m pytest -q`) |
 
 **Pricing model**, per the Μονάδα's ruling of 22/09/2026: weight maps straight to an
 amount — 4→€60, 8→€120, 12→€180, national, no per-category unit price. Tariff charges
@@ -50,6 +51,10 @@ test_taep_routes.py   the clerk path end to end, including the PDF
 test_taep_rates.py    rate administration and its concurrency
 test_taep_excel.py    the tariff Excel round trip and the export
 test_taep_admin_routes.py  the administration screens
+test_taep_readiness.py     the go-live check, each test breaking one thing
+acceptance.py              the 25 acceptance scenarios, in Greek
+test_acceptance.py         runs them under pytest
+taep_harness.py            the runnable environment both consumers share
 seed/         master data, generated from seed/source/ — do not hand-edit
 seed/source/  the authoritative A&E catalogue workbook
 tools/        import_catalogue.py, apply_monada_rulings.py, make_questions_doc.py
@@ -75,7 +80,7 @@ All three are idempotent and all read from `seed/source/`. Everything directly u
 python3 -m pytest test_taep.py -q
 ```
 
-277 tests, all green. 80 of them run against a real Flask app and a real database
+323 tests, all green. 80 of them run against a real Flask app and a real database
 rather than mocks, which is how the three defects below were found.
 
 Five things testing caught that reading would not have:
@@ -144,10 +149,41 @@ deactivated, never deleted, so historic costings stay readable.
 places to get wrong. Add the keys to eFinance's `PERMISSIONS_CATALOG` and let the Μονάδα
 decide which existing roles get them.
 
-## Still to build
+## Rollout
 
-Phase 4 — rollout to the remaining units, training, handover.
+**Acceptance scenarios** are executable, not a Word document someone typed. The 25
+scenarios live in `acceptance.py`, `test_acceptance.py` runs them under pytest, and
+`tools/make_acceptance_document.py` runs them against a real database and real screens
+and generates `docs/TAEP_senaria_apodochis.docx` from what actually happened. It exits
+non-zero on any failure, so it works as a release gate — and a scenario that fails is
+printed in the document as a failure with its error, which is the only way the document
+is worth signing.
+
+**Readiness check** — `tools/check_readiness.py`, or `/taep/readiness` as a system_admin.
+It checks *this installation*, not the code: tables present, master data at the expected
+counts, the weight matrix in the database still matching the algorithm, every weight
+priced, no registration fee unconfirmed, no overlapping rate periods, unique unit
+numbers, no gap in any costing-number sequence, no episode finalised without a number or
+holding one without being finalised. Exits non-zero on a blocker.
+
+```
+FINANCE_DB=/opt/finance/finance.db python3 tools/check_readiness.py
+```
+
+**`docs/deployment-runbook.md`** — what to copy, how to register the module, the
+permission keys, the per-unit rollout order, how to perform the paediatric relocation as
+a data change, and how to back the module out. It opens with the warning that eFinance's
+own `deploy.sh` would overwrite the live database.
+
+**`docs/TAEP_odigos_kodikopoiiti.docx`** — the clerk's guide in Greek: the six steps, what
+each message means and what to do about it, the two mistakes that cost money, and who to
+call. Its figures are read from the seed data so it cannot drift from the system.
+
+## Still to build
 
 One §12 requirement is deliberately not built: the costing document has no QR code. It
 needs a barcode library, a new eFinance dependency, so it is left for a decision rather
 than added quietly.
+
+The two-week parallel run against manual pricing (brief §15) is operational, not code.
+The tool is not right by default and the runbook says so.
