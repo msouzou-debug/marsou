@@ -15,7 +15,7 @@ export const UNIT_COOKIE = "ecapital_unit";
  * On the ΟΚΥπΥ server the answer is not "is this production": the Next
  * process speaks plain HTTP, because TLS is terminated on a separate
  * cloudflared box in front of it. What decides it is the origin the browser
- * used, which is what `NEXT_PUBLIC_APP_ORIGIN` holds — `https://capital.shso.online`
+ * used, which is what `NEXT_PUBLIC_APP_ORIGIN` holds — `https://ecapital.shso.online`
  * there, `http://localhost:3000` on a developer's machine.
  *
  * Getting it wrong either way is a real failure: `Secure` on a plain-HTTP

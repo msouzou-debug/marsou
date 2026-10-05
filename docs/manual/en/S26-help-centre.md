@@ -1,6 +1,6 @@
 # User guide
 
-This page gives you eCapital's sixteen printable user guides, one for each role and language. Download the one that matches your role, to print or to train new staff with.
+This page gives you eCapital's printable guides: the general guide to how the system works, the UAT test scenarios and one guide for each role, in each language. Download the one that matches your role, to print or to train new staff with.
 
 ## Steps
 

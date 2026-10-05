@@ -9,7 +9,7 @@ says what to do and why; the scripts say exactly what runs.
 eFinance, `5011` eArchive (formerly eMetroon) ingest, `5015` eCapital API
 (loopback only), `5013` eCapital web (loopback only). Both eCapital
 processes bind to `127.0.0.1` — nothing public reaches either port
-directly. The host's existing nginx reverse-proxies `capital.shso.online`
+directly. The host's existing nginx reverse-proxies `ecapital.shso.online`
 to `127.0.0.1:5013` on **port `5016`**, and cloudflared (on its own box)
 points at nginx's `5016`, not at eCapital directly — see §2.2 and
 `deploy/cloudflared-request.md`. Port `80` is Apache's on this host (a
@@ -43,7 +43,7 @@ Before touching the server:
 - The cloudflared request in `deploy/cloudflared-request.md` has been sent
   to whoever administers that box, and ideally already actioned — the
   release will work without it, but nobody outside the server can reach
-  `capital.shso.online` until it is.
+  `ecapital.shso.online` until it is.
 - **BLOCKING, owned by IT.** As of 19/09/2026, `ihcis.local` does not
   resolve from this host and neither 389 nor 636 answer. Before go-live, IT
   must supply the domain controllers' IPs or FQDNs, open 636 (LDAPS) from
@@ -177,7 +177,7 @@ later. If Marios would rather wait, `pgcrypto` alone is enough until then.)
 There is no nginx vhost in front of eFinance on this host, but eCapital
 gets one, because both its processes now bind to loopback only. It listens
 on **`5016`**: port `80` belongs to Apache on this host, and a request with
-`Host: capital.shso.online` on `80` today gets Apache's
+`Host: ecapital.shso.online` on `80` today gets Apache's
 `301 → https://dapsite.shso.online/`, so the block cannot share it
 (checked on the server, 30/09/2026). `5016` is free and is the port the
 cloudflared request names. Hand Marios this server block, paste-ready:
@@ -185,7 +185,7 @@ cloudflared request names. Hand Marios this server block, paste-ready:
 ```nginx
 server {
     listen 5016;
-    server_name capital.shso.online;
+    server_name ecapital.shso.online;
 
     client_max_body_size 25m;  # SAP import uploads (Capex Plan, invoices)
 
@@ -232,7 +232,7 @@ units. Where each one comes from:
 | `EFINANCE_TOKEN` | The single bearer token eFinance issues eCapital (eFinance's integration record §2, ADR-0022, ADR-0029). eFinance keeps its copy as `ecapital_token` in its own mode-600 settings file; eCapital's copy is this line. It is made with eFinance's generator and nowhere else — see «Placing the eFinance token» below. |
 | `EFINANCE_API_URL` | Where the loopback contract answers. Leave the default `http://127.0.0.1:5004` on this server; change it only on a UAT box that runs eFinance elsewhere. |
 | `EFINANCE_PUSH_ENABLED` | **`0` on this UAT server.** Off, eCapital reads invoices, requisitions and the budget position but never sends a contract to eFinance, so the 41 seeded sample contracts cannot reach eFinance's contract picker. Set to `1` only on a deployment whose register is real (the Capex import, not the seed), then `sudo systemctl restart ecapital-api`. Added 02/10/2026, ADR-0029 addendum. |
-| `NEXT_PUBLIC_APP_ORIGIN` | `https://capital.shso.online` — fixed, once the cloudflared request (§1) is live and pointed at nginx (§2.2). |
+| `NEXT_PUBLIC_APP_ORIGIN` | `https://ecapital.shso.online` — fixed, once the cloudflared request (§1) is live and pointed at nginx (§2.2). |
 | `AUTH_MODE` (api.env) and `NEXT_PUBLIC_AUTH_MODE` (web.env) | `ldap` is the destination. `local` is the bridge while IT has not opened the directory (ADR-0030, §5.0): people sign in with a username and a password the administrator sets in Διαχείριση › Χρήστες. The two files must agree. Never `dev` here. |
 | Everything else | The template comments in `deploy/env/*.env.example` say what each one is; most are fixed values for this server (ports, `BIND_HOST=127.0.0.1` on both files, `AUTH_MODE=ldap`, `DEV_AUTH=0`). |
 
@@ -549,7 +549,7 @@ and the two in `/usr/local/sbin` are copies `install.sh` made. After a
 ## 7. Smoke tests
 
 Run these after every release, from a browser reaching
-`https://capital.shso.online`. If cloudflared is not wired up yet but nginx
+`https://ecapital.shso.online`. If cloudflared is not wired up yet but nginx
 is (§2.2), the same nginx port works directly:
 `http://10.227.56.22:5016`. eCapital's own `5013` is loopback-only
 and unreachable from off the box even over the WireGuard tunnel; to bypass

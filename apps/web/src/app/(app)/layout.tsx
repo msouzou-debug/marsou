@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { UNIT_COOKIE } from "@/auth/cookies";
 import { getSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
+import { ALL_UNITS } from "@/components/app-shell/UnitSwitcher";
 import { getVisibleOrgUnits } from "@/data/server";
 import { HelpProvider } from "@/help/HelpProvider";
 
@@ -25,9 +26,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   const orgUnits = await getVisibleOrgUnits();
 
-  // Default: the remembered unit if it is still visible, otherwise the first.
+  // Default: the remembered unit if it is still visible; «all units» for a
+  // caller who sees more than one; otherwise their one unit.
   const remembered = (await cookies()).get(UNIT_COOKIE)?.value;
-  const selectedUnitId = orgUnits.some((u) => u.id === remembered) ? remembered : orgUnits[0]?.id;
+  const selectedUnitId = orgUnits.some((u) => u.id === remembered)
+    ? remembered
+    : orgUnits.length > 1
+      ? ALL_UNITS
+      : orgUnits[0]?.id;
 
   return (
     <HelpProvider userRole={session.me.roles[0]}>

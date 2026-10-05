@@ -22,7 +22,7 @@ import {
  * by accident as a change to a money formula.
  */
 
-const ORIGIN = "https://capital.shso.online";
+const ORIGIN = "https://ecapital.shso.online";
 
 const MAIN: DmsFile = {
   kind: "MAIN",

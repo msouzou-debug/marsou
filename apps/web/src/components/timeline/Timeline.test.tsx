@@ -18,7 +18,7 @@ describe("Timeline", () => {
 
   it("shows the fixed empty message when there are no entries", () => {
     renderWithIntl(<Timeline entries={[]} />);
-    expect(screen.getByText("Δεν υπάρχουν καταχωρήσεις ακόμη.")).toBeInTheDocument();
+    expect(screen.getByText("Δεν υπάρχουν καταχωρίσεις ακόμη.")).toBeInTheDocument();
   });
 
   it("shows skeleton rows while loading and no entry text", () => {

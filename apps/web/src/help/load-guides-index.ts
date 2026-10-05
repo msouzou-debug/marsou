@@ -17,7 +17,10 @@ import type { Locale } from "@/i18n/config";
 const GUIDES_ROOT = resolve(process.cwd(), "public/guides");
 
 export interface GuideEntry {
+  /** A role key for a persona guide, or `overview` / `uat` for a general document. */
   persona: string;
+  /** Absent in index files built before 05/10/2026, which held persona guides only. */
+  kind?: "persona" | "general";
   lang: Locale;
   file: string;
   personaLabel: string;

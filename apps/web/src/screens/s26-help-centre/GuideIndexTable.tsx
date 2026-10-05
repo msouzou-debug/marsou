@@ -1,4 +1,6 @@
-// S26 (R50) — the help centre's list of the sixteen per-persona PDF guides.
+// S26 (R50) — the help centre's list of the PDF guides: the two general
+// documents (how eCapital works, the UAT scenarios) and the sixteen
+// per-persona guides.
 //
 // Pure: it takes the parsed index.json and renders it, so the page owns the
 // "not generated yet" empty state (see load-guides-index.ts).
@@ -57,7 +59,9 @@ export function GuideIndexTable({ guides, generatedAt }: GuideIndexTableProps) {
       <tbody>
         {guides.map((guide) => (
           <tr key={`${guide.persona}.${guide.lang}`} className="border-b border-k-grey">
-            <td className="py-s-2 pr-s-4">{roles(guide.persona)}</td>
+            <td className="py-s-2 pr-s-4">
+              {guide.kind === "general" ? t(`general.${guide.persona}`) : roles(guide.persona)}
+            </td>
             <td className="py-s-2 pr-s-4 uppercase">{guide.lang}</td>
             <td className="num py-s-2 pr-s-4 text-right">{formatFileSize(guide.sizeBytes)}</td>
             <td className="py-s-2 pr-s-4">{updated}</td>

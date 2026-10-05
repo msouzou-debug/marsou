@@ -25,7 +25,7 @@ describe("ConfirmDialog", () => {
       <ConfirmDialog
         open
         title="Θέλετε να διαγράψετε το κόστος PRJ-014;"
-        consequence="Η διαγραφή αφαιρεί οριστικά τις καταχωρήσεις κόστους."
+        consequence="Η διαγραφή αφαιρεί οριστικά τις καταχωρίσεις κόστους."
         destructiveLabel="Διαγραφή"
         requireCode="PRJ-014"
         onCancel={() => {}}
@@ -34,7 +34,7 @@ describe("ConfirmDialog", () => {
     );
 
     const destructiveButton = screen.getByRole("button", { name: "Διαγραφή" });
-    const input = screen.getByPlaceholderText("Κωδικός καταχώρησης");
+    const input = screen.getByPlaceholderText("Κωδικός εγγραφής");
     expect(destructiveButton).toBeDisabled();
 
     await userEvent.type(input, "PRJ-01");

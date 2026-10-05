@@ -12,7 +12,8 @@
 // Playwright's Chromium, the same engine and sandbox override
 // apps/web/e2e/support.ts uses for the e2e suite.
 //
-// Output: apps/web/public/guides/<persona>.<lang>.pdf (16 files today) and
+// Output: apps/web/public/guides/<persona>.<lang>.pdf (16 files today), plus
+// overview.<lang>.pdf and uat.<lang>.pdf (GENERAL_DOCS), and
 // apps/web/public/guides/index.json (size, page count, sha256 per file).
 // Both are gitignored — they are release artefacts, rebuilt by
 // `pnpm guides:build` (this script), wired into CI (.github/workflows/ci.yml)
@@ -49,6 +50,15 @@ export const PERSONA_ORDER = [
 ];
 
 export const LANGS = ["el", "en"];
+
+// Owner ask, 05/10/2026: two documents that are not tied to a persona ride
+// in the same guide list — the general guide to how eCapital works, and
+// the UAT scenario list. Each is one Markdown file per language, rendered
+// as a single-chapter PDF with the same cover and print CSS.
+export const GENERAL_DOCS = [
+  { id: "overview", source: (lang) => `docs/manual/${lang}/OVERVIEW.md` },
+  { id: "uat", source: (lang) => `docs/uat/UAT-scenarios.${lang}.md` },
+];
 
 // The sandbox's preinstalled Chromium (see apps/web/e2e/support.ts for the
 // same override and why). Falls back to Playwright's own managed browser
@@ -232,6 +242,14 @@ const PRINT_CSS = `
   .divider h2 { font-size: 22px; margin: 0; }
 
   .what-can-go-wrong-note { font-size: 14px; color: var(--muted); }
+
+  /* The UAT scenario tables: one row per scenario, kept together on a page. */
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 16px; font-size: 12px; }
+  th, td { border: 1px solid var(--rule); padding: 5px 6px; vertical-align: top; text-align: left; line-height: 1.4; }
+  th { background: #F5F7F9; color: var(--ink); font-weight: 700; }
+  tr { break-inside: avoid; }
+  td:last-child { min-width: 90px; }
+  code { font-family: "Courier New", monospace; font-size: 12px; }
 `;
 
 function coverTitleFor(lang) {
@@ -365,6 +383,33 @@ ${optionalHtml}
 </html>`;
 }
 
+/**
+ * A one-document guide (GENERAL_DOCS): cover with the document's own label
+ * in place of a role, then the Markdown body as a single chapter with no
+ * table of contents and no tier divider — the document's own headings are
+ * its structure.
+ */
+export function buildSimpleDocumentHtml({ lang, label, version, dateLabel, logoSrc, title, bodyHtml }) {
+  const coverTitle = coverTitleFor(lang);
+  const cover = buildCoverHtml({ lang, personaLabel: label, version, dateLabel, logoSrc });
+  const body = bodyHtml.replace(/^<h1[^>]*>.*?<\/h1>\s*/, "");
+  return `<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(coverTitle.primary)} — ${escapeHtml(label)}</title>
+<style>${PRINT_CSS}</style>
+</head>
+<body>
+${cover}
+<section class="chapter">
+  <h1>${escapeHtml(title)}</h1>
+  ${body}
+</section>
+</body>
+</html>`;
+}
+
 // ------------------------------------------------------------- PDF pages --
 
 /**
@@ -422,10 +467,12 @@ async function main() {
     process.exit(1);
   }
 
-  const roleLabels = {
-    el: JSON.parse(readFileSync(resolve(WEB_ROOT, "src/i18n/el.json"), "utf8")).roles,
-    en: JSON.parse(readFileSync(resolve(WEB_ROOT, "src/i18n/en.json"), "utf8")).roles,
+  const i18n = {
+    el: JSON.parse(readFileSync(resolve(WEB_ROOT, "src/i18n/el.json"), "utf8")),
+    en: JSON.parse(readFileSync(resolve(WEB_ROOT, "src/i18n/en.json"), "utf8")),
   };
+  const roleLabels = { el: i18n.el.roles, en: i18n.en.roles };
+  const generalLabels = { el: i18n.el.screens.s26.general, en: i18n.en.screens.s26.general };
 
   const version = gitShortSha(ROOT);
   const dateLabel = formatDate(new Date());
@@ -443,6 +490,39 @@ async function main() {
   let skipped = 0;
 
   try {
+    for (const doc of GENERAL_DOCS) {
+      for (const lang of LANGS) {
+        const markdown = readFileSync(resolve(ROOT, doc.source(lang)), "utf8");
+        const label = generalLabels[lang][doc.id] ?? doc.id;
+        const html = buildSimpleDocumentHtml({
+          lang,
+          label,
+          version,
+          dateLabel,
+          logoSrc,
+          title: extractTitle(markdown),
+          bodyHtml: marked.parse(markdown),
+        });
+        const pdfBuffer = await renderPdf(browser, html);
+        const fileName = `${doc.id}.${lang}.pdf`;
+        writeFileSync(resolve(GUIDES_DIR, fileName), pdfBuffer);
+        const pages = countPdfPages(pdfBuffer);
+        guides.push({
+          persona: doc.id,
+          kind: "general",
+          lang,
+          file: fileName,
+          personaLabel: label,
+          sections: 1,
+          sizeBytes: pdfBuffer.length,
+          pages,
+          sha256: createHash("sha256").update(pdfBuffer).digest("hex"),
+        });
+        built += 1;
+        console.log(`built ${fileName} — ${pages} pages, ${(pdfBuffer.length / 1024).toFixed(0)} KB`);
+      }
+    }
+
     for (const persona of PERSONA_ORDER) {
       const chapterRefs = collectPersonaChapters(map, persona);
       if (chapterRefs.length === 0) {
@@ -468,6 +548,7 @@ async function main() {
         const sha256 = createHash("sha256").update(pdfBuffer).digest("hex");
         guides.push({
           persona,
+          kind: "persona",
           lang,
           file: fileName,
           personaLabel,

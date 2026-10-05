@@ -8,7 +8,7 @@ import { isPublicPath, sessionCookieIsSecure } from "./cookies";
  */
 describe("sessionCookieIsSecure", () => {
   it("is on behind an https origin", () => {
-    expect(sessionCookieIsSecure("https://capital.shso.online")).toBe(true);
+    expect(sessionCookieIsSecure("https://ecapital.shso.online")).toBe(true);
     expect(sessionCookieIsSecure("HTTPS://CAPITAL.SHSO.ONLINE")).toBe(true);
   });
 

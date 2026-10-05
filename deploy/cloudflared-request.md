@@ -13,7 +13,7 @@ not directly at eCapital's own port.
 
 | | |
 |---|---|
-| Public hostname | `capital.shso.online` |
+| Public hostname | `ecapital.shso.online` |
 | Target | `http://10.227.56.22:5016` |
 | Origin protocol | **Plain HTTP** — there is nothing to configure for TLS on the origin side |
 
@@ -23,14 +23,16 @@ Apache's, so it is not usable for this hostname. Do not point this at
 `10.227.56.22:5013` directly; eCapital's own web process binds to
 `127.0.0.1` only and is not reachable from outside the host at all.
 
-One more thing on the Cloudflare side: an older record `ecapital.shso.online`
-exists and answers `502`, pointing nowhere. It is not this application's
-hostname. Once `capital.shso.online` is live, delete it or redirect it to
-`capital.shso.online`, so nobody bookmarks the dead one.
+The record `ecapital.shso.online` already exists on the Cloudflare side and
+answers `502`, pointing nowhere. It is this application's hostname (owner
+decision, 05/10/2026: the site is eCapital, so the address is too): point
+it at the service below instead of creating a new one. No `capital.shso.online`
+record is needed; if one was created from the earlier version of this
+request, remove it.
 
 ```yaml
 # ingress entry, in the shape the existing entries already use
-- hostname: capital.shso.online
+- hostname: ecapital.shso.online
   service: http://10.227.56.22:5016
 ```
 
@@ -49,7 +51,7 @@ hostname. Once `capital.shso.online` is live, delete it or redirect it to
 A quick check from any machine, once DNS/Cloudflare have picked it up:
 
 ```bash
-curl -I https://capital.shso.online/sign-in
+curl -I https://ecapital.shso.online/sign-in
 ```
 
 A `200` (or a redirect to a sign-in route) means the tunnel is wired

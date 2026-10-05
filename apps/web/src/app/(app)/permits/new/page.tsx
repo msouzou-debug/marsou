@@ -10,7 +10,10 @@ import { PermitWizardScreen } from "@/screens/s11a-permit-request/PermitWizardSc
 
 export default async function NewPermitPage() {
   const [session, orgUnits, unitCookie] = await Promise.all([getSession(), getVisibleOrgUnits(), cookies()]);
-  const defaultOrgUnitId = unitCookie.get(UNIT_COOKIE)?.value;
+  const rememberedUnit = unitCookie.get(UNIT_COOKIE)?.value;
+  // «ΟΚΥπΥ — όλες οι μονάδες» in the switcher is a view, not a unit: the
+  // form then starts with no unit pre-selected.
+  const defaultOrgUnitId = rememberedUnit === "all" ? undefined : rememberedUnit;
   return (
     <>
       <PermitWizardScreen

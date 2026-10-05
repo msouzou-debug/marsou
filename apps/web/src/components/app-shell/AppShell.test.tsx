@@ -57,11 +57,13 @@ describe("UnitSwitcher", () => {
   // with the Ambulance Service out of ΟΚΥπΥ (ADR-0024), and 20/09/2026 made
   // it twelve again with Community Nursing given its own unit (ADR-0024's
   // addendum).
-  it("lists all twelve units for a Central Administration caller", () => {
+  it("lists all twelve units for a Central Administration caller, after the whole-ΟΚΥπΥ option", () => {
     renderWithIntl(<UnitSwitcher orgUnits={visible} />, { locale: "el" });
     const options = document.querySelectorAll("option");
-    expect(options).toHaveLength(12);
+    expect(options).toHaveLength(13);
     const names = Array.from(options).map((o) => o.textContent);
+    expect(names[0]).toBe("ΟΚΥπΥ — όλες οι μονάδες");
+    expect(document.querySelector("select")?.value).toBe("all");
     expect(names).toContain("Κεντρικά Γραφεία");
     expect(names).toContain("Κοινοτική Νοσηλευτική");
     expect(names).not.toContain("Υπηρεσία Ασθενοφόρων");

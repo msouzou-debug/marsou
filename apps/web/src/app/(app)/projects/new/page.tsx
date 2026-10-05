@@ -17,7 +17,10 @@ import { ProjectFormScreen } from "@/screens/s02a-project-form/ProjectFormScreen
 // failure (see that component's own header comment).
 export default async function NewProjectPage() {
   const [orgUnits, unitCookie] = await Promise.all([getVisibleOrgUnits(), cookies()]);
-  const defaultOrgUnitId = unitCookie.get(UNIT_COOKIE)?.value;
+  const rememberedUnit = unitCookie.get(UNIT_COOKIE)?.value;
+  // «ΟΚΥπΥ — όλες οι μονάδες» in the switcher is a view, not a unit: the
+  // form then starts with no unit pre-selected.
+  const defaultOrgUnitId = rememberedUnit === "all" ? undefined : rememberedUnit;
   return (
     <>
       <ProjectFormScreen mode="create" orgUnits={orgUnits} defaultOrgUnitId={defaultOrgUnitId} />

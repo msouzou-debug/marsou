@@ -13,6 +13,9 @@ import type { Locale } from "@/i18n/config";
 // | defaultUnitId    | string?                           | pre-selects a unit, from the ecapital_unit cookie|
 // | onSelect         | (id: string) => Promise<void>?     | server action that remembers the choice          |
 // | onChange         | (id: string) => void?              | extra hook for callers that need the raw event   |
+/** The switcher value that means «every unit I can see» (owner ask, 05/10/2026). */
+export const ALL_UNITS = "all";
+
 export interface UnitSwitcherProps {
   orgUnits: OrgUnit[];
   defaultUnitId?: string;
@@ -30,12 +33,19 @@ export interface UnitSwitcherProps {
 // caller. Switching to a unit is not a permission check — the screen it opens
 // asks the API, and the API answers 404 for anything outside their access
 // (ADR-0010).
+//
+// Owner ask, 05/10/2026: the switcher is a filter. A caller who sees more
+// than one unit also gets «ΟΚΥπΥ — όλες οι μονάδες» as the first option,
+// which is the whole-organisation view (the portfolio). Picking a unit opens
+// the project list filtered to it. A caller with one unit sees that unit and
+// nothing else, as before.
 export function UnitSwitcher({ orgUnits, defaultUnitId, onSelect, onChange }: UnitSwitcherProps) {
   const t = useTranslations("common");
   const locale = useLocale() as Locale;
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [value, setValue] = useState(defaultUnitId ?? orgUnits[0]?.id ?? "");
+  const offersAll = orgUnits.length > 1;
+  const [value, setValue] = useState(defaultUnitId ?? (offersAll ? ALL_UNITS : (orgUnits[0]?.id ?? "")));
 
   return (
     <select
@@ -48,13 +58,12 @@ export function UnitSwitcher({ orgUnits, defaultUnitId, onSelect, onChange }: Un
         onChange?.(unitId);
         startTransition(async () => {
           await onSelect?.(unitId);
-          // TODO(S02): the project list is the right destination once it
-          // exists; until then the area tree is what a unit has to show.
-          router.push(`/units/${encodeURIComponent(unitId)}/areas`);
+          router.push(unitId === ALL_UNITS ? "/" : `/projects?unit=${encodeURIComponent(unitId)}`);
         });
       }}
       className="max-w-[124px] rounded-k border border-k-grey bg-k-white px-s-2 py-s-1 text-fs-14 text-k-text tablet:max-w-[320px]"
     >
+      {offersAll ? <option value={ALL_UNITS}>{t("allOkypy")}</option> : null}
       {orgUnits.map((unit) => (
         <option key={unit.id} value={unit.id}>
           {locale === "en" ? unit.nameEn : unit.nameEl}

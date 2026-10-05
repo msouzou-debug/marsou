@@ -38,7 +38,7 @@ set -euo pipefail
 REF="claude/ecstatic-cray-g0zhkx"
 ADMIN_USER=""
 ADMIN_NAME=""
-HOSTNAME_PUBLIC="capital.shso.online"
+HOSTNAME_PUBLIC="ecapital.shso.online"
 NGINX_PORT="5016"
 WITH_GUIDES=0
 DO_SEED=1

@@ -40,7 +40,7 @@ Docker). The deployment kit is `deploy/`:
 
 | App | Port | Bound to |
 |---|---|---|
-| eCapital web (Next.js) | `5013` | `127.0.0.1` — nginx reverse-proxies `capital.shso.online` to this port |
+| eCapital web (Next.js) | `5013` | `127.0.0.1` — nginx reverse-proxies `ecapital.shso.online` to this port |
 | nginx, eCapital server block | `5016` | all interfaces — what cloudflared reaches; port `80` is Apache's on this host |
 | eCapital API (NestJS) | `5015` | `127.0.0.1` — reached only by the web app, server-side |
 | PostgreSQL 16.14 | `5432` | `127.0.0.1` — already installed on this host, shared with BedMan and eArchive |

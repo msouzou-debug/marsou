@@ -1,6 +1,6 @@
 # eCapital — User acceptance test scenarios (UAT)
 
-Version 05/10/2026. For the test installation at `capital.shso.online` with the sample data (41 projects, 17 contracts, 8 permits, 26 assets). Nothing in it is real. The Greek file `UAT-scenarios.el.md` is the one testers use; this is the same list in English, with the Greek screen names kept as they appear on screen.
+Version 05/10/2026. For the test installation at `ecapital.shso.online` with the sample data (41 projects, 17 contracts, 8 permits, 26 assets). Nothing in it is real. The Greek file `UAT-scenarios.el.md` is the one testers use; this is the same list in English, with the Greek screen names kept as they appear on screen.
 
 ## Before you start
 
@@ -33,7 +33,7 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | A3 | As `engineer.larnaca`, open the unit switcher top left. | Larnaca only. As `admin`, all twelve units. | |
 | A4 | Switch language with the EN/ΕΛ button. | The whole screen changes. Amounts stay «1.234,56 €», dates dd/mm/yyyy. | |
 | A5 | Press `?` on any screen. | That screen's help opens, in the language you chose. | |
-| A6 | Press «Οδηγοί» in the menu. | A list of sixteen PDFs, one per role and language. Download yours. | |
+| A6 | Press «Οδηγοί» in the menu. | A list of PDFs: the general guide, the UAT scenarios and one guide per role and language. Download yours. | |
 | A7 | Press «Αποσύνδεση», then the browser's back button. | You are back on the sign-in page, never on data. | |
 | A8 | As `admin`, type a wrong password five times for a test account, then the right one. | The right one is refused too. After fifteen minutes it works. | |
 

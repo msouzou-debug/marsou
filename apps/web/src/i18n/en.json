@@ -25,7 +25,8 @@
     "rag": "RAG",
     "months": "{count} mo",
     "status": "Status",
-    "condition": "Condition"
+    "condition": "Condition",
+    "allOkypy": "ΟΚΥπΥ — all units"
   },
   "buttons": {
     "save": "Save",
@@ -1260,10 +1261,10 @@
     },
     "s26": {
       "title": "User guide",
-      "intro": "This page gives you the sixteen printable user guides, one per role and language. Download the one that matches your role, to print or to train new staff with.",
-      "tableCaption": "The sixteen PDF user guides, by role and language, with file size and the date of the last update.",
+      "intro": "This page gives you the printable guides: the general guide to how eCapital works, the UAT test scenarios and one guide per role, in each language. Download the one that matches your role, to print or to train new staff with.",
+      "tableCaption": "The PDF guides, by document, role and language, with file size and the date of the last update.",
       "columns": {
-        "persona": "Role",
+        "persona": "Document or role",
         "language": "Language",
         "size": "Size",
         "updated": "Updated",
@@ -1274,6 +1275,10 @@
         "heading": "Screens by training phase",
         "dayOneHeading": "Trained and used from day one",
         "optionalHeading": "Optional screens — available, outside pilot training"
+      },
+      "general": {
+        "overview": "General guide: how eCapital works",
+        "uat": "UAT test scenarios"
       }
     },
     "s16a": {
