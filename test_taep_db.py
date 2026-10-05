@@ -258,3 +258,30 @@ def test_money_survives_the_round_trip_in_both_modes():
     # The case that matters: a tenth is not representable in binary floating point.
     assert taep.money_from_db(0.1) == Decimal("0.10")
     assert taep.money_from_db(120.0) + taep.money_from_db(10.0) == Decimal("130.00")
+
+
+def test_allocation_survives_heavier_contention(seeded):
+    """Sixteen threads. The first retry strategy exhausted its budget here, because
+    every loser re-read the same MAX and collided on the same number again."""
+    issued, errors = [], []
+    lock = threading.Lock()
+
+    def allocate():
+        for _ in range(20):
+            try:
+                number, _ = taep.allocate_costing_number(seeded, "TRD")
+                with lock:
+                    issued.append(number)
+            except Exception as exc:
+                with lock:
+                    errors.append(repr(exc))
+
+    threads = [threading.Thread(target=allocate) for _ in range(16)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors, f"errors under contention: {errors[:2]}"
+    assert len(set(issued)) == 320
+    assert sorted(int(n.split("/")[1]) for n in issued) == list(range(1, 321))

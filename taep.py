@@ -585,7 +585,14 @@ SCHEMA_STATEMENTS = [
         created_at DATETIME,
         closed_by INT,
         closed_at DATETIME,
-        UNIQUE (financial_category_id, entity_code, rate_type, weight, valid_from)
+        -- series_key identifies the rate series as a NULL-free string, because the
+        -- obvious UNIQUE key does not work: financial_category_id and entity_code are
+        -- NULL on a national row, and SQL treats NULLs as distinct, so a UNIQUE over
+        -- them lets two concurrent changes both insert. Measured: six threads, six
+        -- rows with the same valid_from. The NULL columns stay for querying; this
+        -- column is the uniqueness guard.
+        series_key VARCHAR(120) NOT NULL DEFAULT '',
+        UNIQUE (series_key, valid_from)
     ){ENGINE}""",
 
     """CREATE TABLE IF NOT EXISTS taep_tariff (
@@ -1030,10 +1037,13 @@ def seed(ctx):
     # rows, opened from the Μονάδα's rulings. No valid_to, so these are in force.
     if empty("SELECT id FROM taep_rate LIMIT 1"):
         source = "Μονάδα Ελέγχου Εσόδων 22/09–05/10/2026"
-        rates = [(None, "WEIGHT_AMOUNT", weight, str(amount), RATES_IN_FORCE_FROM, source)
+        def rate_row(category_id, rate_type, weight, amount):
+            return (category_id, rate_type, weight, amount, RATES_IN_FORCE_FROM, source,
+                    rate_series_key(rate_type, category_id, None, weight))
+
+        rates = [rate_row(None, "WEIGHT_AMOUNT", weight, str(amount))
                  for weight, amount in sorted(WEIGHT_PRICE_SCALE.items())]
-        rates.append((None, "TRIAGE_AMOUNT", None, str(TRIAGE_PRICE),
-                      RATES_IN_FORCE_FROM, source))
+        rates.append(rate_row(None, "TRIAGE_AMOUNT", None, str(TRIAGE_PRICE)))
 
         ids = {r["code_new"]: r["id"] for r in db(
             "SELECT id, code_new FROM taep_financial_category", fetch=True)}
@@ -1041,22 +1051,21 @@ def seed(ctx):
             category_id = ids.get(row["code_new"])
             if category_id is None:
                 continue
-            rates.append((category_id, "REGISTRATION_FEE", None,
-                          row["registration_fee_eur"], RATES_IN_FORCE_FROM, source))
+            rates.append(rate_row(category_id, "REGISTRATION_FEE", None,
+                                  row["registration_fee_eur"]))
             if row["registration_deposit_eur"]:
-                rates.append((category_id, "REGISTRATION_DEPOSIT", None,
-                              row["registration_deposit_eur"], RATES_IN_FORCE_FROM,
-                              source))
+                rates.append(rate_row(category_id, "REGISTRATION_DEPOSIT", None,
+                                      row["registration_deposit_eur"]))
         _insert_many(db, "taep_rate",
                      ["financial_category_id", "rate_type", "weight", "amount",
-                      "valid_from", "source_document"], rates)
+                      "valid_from", "source_document", "series_key"], rates)
 
 
 # ---------------------------------------------------------------------------
 # Costing numbers: gapless, per unit, never reused
 # ---------------------------------------------------------------------------
 
-NUMBER_ALLOCATION_ATTEMPTS = 25
+NUMBER_ALLOCATION_ATTEMPTS = 60
 
 
 def allocate_costing_number(ctx, unit_code, now=None, user_id=None, episode_id=None):
@@ -1069,11 +1078,17 @@ def allocate_costing_number(ctx, unit_code, now=None, user_id=None, episode_id=N
     threads, forty allocations, twenty-four distinct numbers.)
 
     So the claim is made in ONE statement. The INSERT derives the next sequence from
-    the ledger itself, and UNIQUE (unit_code, sequence_number) rejects the loser of any
-    race. The loser retries and takes the next number. No lock is held, nothing is
-    read back to decide a value, and the ledger is the record of what was issued.
+    the ledger, and UNIQUE (unit_code, sequence_number) rejects the loser of any race.
 
-    A cancelled costing keeps its number and its row stays; numbers are never reissued.
+    A loser then walks UP from its candidate rather than re-reading MAX. Re-reading is
+    what made the first version of this give up: every contending thread read the same
+    MAX and collided on the same number again, so under eight-way contention a thread
+    could lose its whole retry budget. Walking up means each thread converges on a free
+    number instead of fighting for one. MAX is re-read only occasionally, in case the
+    candidate has drifted a long way behind.
+
+    Gapless survives: the walk starts at MAX+1 and only steps over numbers already
+    taken. A cancelled costing keeps its number; nothing is ever reissued.
     """
     db = ctx["db_execute"]
     unit = db("SELECT taep_number FROM taep_unit WHERE unit_code=%s AND active=1",
@@ -1083,24 +1098,28 @@ def allocate_costing_number(ctx, unit_code, now=None, user_id=None, episode_id=N
 
     taep_number = unit[0]["taep_number"]
     stamp = now or dt.datetime.now()
+    candidate = None
 
-    for _ in range(NUMBER_ALLOCATION_ATTEMPTS):
-        rows = db("""SELECT COALESCE(MAX(sequence_number), 0) + 1 AS next
-                     FROM taep_costing_number WHERE unit_code = %s""",
-                  (unit_code,), fetch=True)
-        sequence = int(rows[0]["next"])
-        costing_number = format_costing_number(taep_number, sequence)
+    for attempt in range(NUMBER_ALLOCATION_ATTEMPTS):
+        if candidate is None or attempt % 8 == 7:
+            rows = db("""SELECT COALESCE(MAX(sequence_number), 0) + 1 AS next
+                         FROM taep_costing_number WHERE unit_code = %s""",
+                      (unit_code,), fetch=True)
+            candidate = max(int(rows[0]["next"]), candidate or 0)
+
+        costing_number = format_costing_number(taep_number, candidate)
         try:
             db("""INSERT INTO taep_costing_number
                   (unit_code, sequence_number, costing_number, allocated_at,
                    allocated_by, episode_id)
                   VALUES (%s,%s,%s,%s,%s,%s)""",
-               (unit_code, sequence, costing_number, stamp, user_id, episode_id))
+               (unit_code, candidate, costing_number, stamp, user_id, episode_id))
         except Exception as exc:
             if _is_duplicate_key(exc):
-                continue        # another session took this number; try the next
+                candidate += 1          # someone took it; the next one is ours to try
+                continue
             raise
-        return costing_number, sequence
+        return costing_number, candidate
 
     raise CostingError(
         "NUMBER_ALLOCATION_FAILED",
@@ -1867,6 +1886,277 @@ def render_costing_pdf(ctx, episode_id):
     pdf.showPage()
     pdf.save()
     return buffer.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Rate administration (brief §6, §7 screen 4)
+# ---------------------------------------------------------------------------
+#
+# Never UPDATE a rate. Closing one period and opening the next is the only way to
+# change a price: it is permission-gated, it records who and from which document, and
+# it must not create an overlap.
+#
+# PostgreSQL would enforce the no-overlap rule with an exclusion constraint. MySQL and
+# SQLite have none (ADR-001 consequence 2), and eFinance's db_execute commits per call
+# so the close and the insert cannot share a transaction. So:
+#
+#   * the UNIQUE key on (category, entity, type, weight, valid_from) stops two rows
+#     from starting on the same day, which is what a concurrent change would produce;
+#   * the new row is inserted BEFORE the old one is closed, so a failure leaves an
+#     overlap rather than a gap. Both block costing, but an overlap is visible in the
+#     data and repairable, where a gap silently reads as "no rate set";
+#   * verify_rate_periods() re-checks afterwards and is available as a health check.
+
+RATE_TYPES = ("WEIGHT_AMOUNT", "TRIAGE_AMOUNT", "REGISTRATION_FEE",
+              "REGISTRATION_DEPOSIT")
+
+
+def rate_series_key(rate_type, financial_category_id=None, entity_code=None,
+                   weight=None):
+    """A NULL-free identifier for one rate series. See taep_rate.series_key."""
+    return "|".join((
+        rate_type,
+        "*" if financial_category_id is None else str(financial_category_id),
+        "*" if entity_code is None else str(entity_code),
+        "*" if weight is None else str(weight),
+    ))
+
+
+def _rate_key_clause(rate_type, financial_category_id, entity_code, weight):
+    """SQL fragment and params matching one rate series. NULL needs IS NULL, not =."""
+    clauses = ["rate_type = %s"]
+    params = [rate_type]
+    for column, value in (("financial_category_id", financial_category_id),
+                          ("entity_code", entity_code), ("weight", weight)):
+        if value is None:
+            clauses.append(f"{column} IS NULL")
+        else:
+            clauses.append(f"{column} = %s")
+            params.append(value)
+    return " AND ".join(clauses), tuple(params)
+
+
+def rate_series(ctx, rate_type, financial_category_id=None, entity_code=None,
+                weight=None):
+    """Every period for one rate series, oldest first. The history an auditor reads."""
+    clause, params = _rate_key_clause(rate_type, financial_category_id, entity_code,
+                                      weight)
+    return ctx["db_execute"](
+        f"""SELECT id, rate_type, financial_category_id, entity_code, weight, amount,
+                   valid_from, valid_to, source_document, created_by, created_at,
+                   closed_by, closed_at
+            FROM taep_rate WHERE {clause}
+            ORDER BY valid_from, id""", params, fetch=True) or []
+
+
+def verify_rate_periods(ctx):
+    """Every rate series with overlapping or duplicated periods. Empty means healthy.
+
+    The check an exclusion constraint would have done for us. Run it after a change and
+    in a health check; a non-empty result means a costing in that series will refuse to
+    price rather than pick one arbitrarily.
+    """
+    rows = ctx["db_execute"](
+        """SELECT id, rate_type, financial_category_id, entity_code, weight,
+                  valid_from, valid_to
+           FROM taep_rate ORDER BY rate_type, financial_category_id, entity_code,
+                                   weight, valid_from, id""", fetch=True) or []
+    series = {}
+    for row in rows:
+        key = (row["rate_type"], row["financial_category_id"], row["entity_code"],
+               _as_int(row["weight"]))
+        series.setdefault(key, []).append(row)
+
+    problems = []
+    for key, periods in series.items():
+        periods = sorted(periods, key=lambda r: (_as_date(r["valid_from"]), r["id"]))
+        for earlier, later in zip(periods, periods[1:]):
+            earlier_to = _as_date(earlier["valid_to"])
+            later_from = _as_date(later["valid_from"])
+            if earlier_to is None or earlier_to >= later_from:
+                problems.append({
+                    "key": key, "first_id": earlier["id"], "second_id": later["id"],
+                    "detail": (f"η περίοδος {earlier['id']} "
+                               f"({earlier['valid_from']}–{earlier['valid_to'] or '∞'}) "
+                               f"επικαλύπτεται με την {later['id']} "
+                               f"(από {later['valid_from']})"),
+                })
+    return problems
+
+
+def change_rate(ctx, rate_type, amount, effective_from, user_id,
+                financial_category_id=None, entity_code=None, weight=None,
+                source_document=None):
+    """Close the current period and open a new one from `effective_from`.
+
+    Returns (closed_rate_id or None, new_rate_id). Raises CostingError rather than
+    leaving the series in a state a costing would read wrongly.
+    """
+    db = ctx["db_execute"]
+
+    if rate_type not in RATE_TYPES:
+        raise CostingError("UNKNOWN_RATE_TYPE",
+                           f"Άγνωστος τύπος τιμής «{rate_type}».")
+    if rate_type == "WEIGHT_AMOUNT" and weight is None:
+        raise CostingError("WEIGHT_REQUIRED",
+                           "Η τιμή βαρύτητας απαιτεί τον συντελεστή βαρύτητας.")
+    if rate_type != "WEIGHT_AMOUNT" and weight is not None:
+        raise CostingError("WEIGHT_NOT_ALLOWED",
+                           f"Ο τύπος τιμής «{rate_type}» δεν φέρει συντελεστή "
+                           f"βαρύτητας.")
+    if not (source_document or "").strip():
+        raise CostingError(
+            "NO_SOURCE_DOCUMENT",
+            "Απαιτείται αναφορά στο έγγραφο απόφασης για κάθε αλλαγή τιμής.")
+
+    effective_from = _as_date(effective_from)
+    try:
+        amount = money(Decimal(str(amount)))
+    except Exception:
+        raise CostingError("BAD_AMOUNT", f"Μη έγκυρο ποσό «{amount}».") from None
+    if amount < 0:
+        raise CostingError("BAD_AMOUNT", "Το ποσό δεν μπορεί να είναι αρνητικό.")
+
+    periods = rate_series(ctx, rate_type, financial_category_id, entity_code, weight)
+    now = dt.datetime.now()
+
+    # Refuse to open a period that starts inside or before a period already closed:
+    # backdating silently rewrites what a past costing would reproduce.
+    for period in periods:
+        valid_to = _as_date(period["valid_to"])
+        if valid_to is not None and effective_from <= valid_to:
+            raise CostingError(
+                "BACKDATED_INTO_CLOSED_PERIOD",
+                f"Η ημερομηνία ισχύος {effective_from} πέφτει μέσα σε κλεισμένη "
+                f"περίοδο (έως {valid_to}). Οι αναδρομικές διορθώσεις γίνονται με "
+                f"χωριστή απόφαση.")
+
+    open_period = next((p for p in periods if _as_date(p["valid_to"]) is None), None)
+    if open_period is not None:
+        open_from = _as_date(open_period["valid_from"])
+        if effective_from <= open_from:
+            raise CostingError(
+                "EFFECTIVE_DATE_NOT_AFTER_CURRENT",
+                f"Η νέα τιμή πρέπει να ισχύει μετά την {open_from}, που είναι η "
+                f"έναρξη της τρέχουσας περιόδου.")
+
+    # Insert first, so a failure leaves an overlap (visible) rather than a gap (silent).
+    try:
+        new_id = db(
+            """INSERT INTO taep_rate (financial_category_id, entity_code, rate_type,
+               weight, amount, valid_from, source_document, created_by, created_at,
+               series_key)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (financial_category_id, entity_code, rate_type, weight, str(amount),
+             effective_from, source_document.strip(), user_id, now,
+             rate_series_key(rate_type, financial_category_id, entity_code, weight)),
+            lastrowid=True)
+    except Exception as exc:
+        if _is_duplicate_key(exc):
+            raise CostingError(
+                "RATE_ALREADY_STARTS_THEN",
+                f"Υπάρχει ήδη τιμή που ισχύει από {effective_from} για αυτή τη "
+                f"σειρά. Ανανεώστε τη σελίδα και ελέγξτε την τρέχουσα τιμή.") from None
+        raise
+
+    closed_id = None
+    if open_period is not None:
+        closed_id = open_period["id"]
+        db("""UPDATE taep_rate SET valid_to=%s, closed_by=%s, closed_at=%s
+              WHERE id=%s AND valid_to IS NULL""",
+           (effective_from - dt.timedelta(days=1), user_id, now, closed_id))
+
+    problems = verify_rate_periods(ctx)
+    relevant = [p for p in problems
+                if p["first_id"] == closed_id or p["second_id"] == new_id]
+    if relevant:
+        raise CostingError(
+            "OVERLAPPING_RATE_PERIODS",
+            "Η αλλαγή άφησε επικαλυπτόμενες περιόδους τιμών: "
+            + "· ".join(p["detail"] for p in relevant))
+
+    ctx["log_activity"]("taep_rate", new_id, "RATE_CHANGED",
+                        f"{rate_type} "
+                        f"{'βαρύτητα ' + str(weight) if weight else ''} "
+                        f"= {amount} από {effective_from} "
+                        f"(έγγραφο: {source_document.strip()})")
+    return closed_id, new_id
+
+
+RATE_STATE_SET = "SET"
+RATE_STATE_EXEMPT = "EXEMPT"
+RATE_STATE_UNCONFIRMED = "UNCONFIRMED"
+
+
+def rate_overview(ctx, on_date=None):
+    """The rate screen: one row per ΤΑΕΠ-valid category with its current fee state.
+
+    Three states must look different, because conflating them is how a wrong bill gets
+    issued (UI brief §7): a set value, an exempt €0.00 with the note that justifies it,
+    and an unconfirmed value that blocks finalisation.
+    """
+    on_date = _as_date(on_date or dt.date.today())
+    categories = list_ae_categories(ctx)
+    overview = []
+    for category in categories:
+        fee_periods = _dated(rate_series(ctx, "REGISTRATION_FEE", category["id"]))
+        current = pick_rate(fee_periods, on_date)
+        row = ctx["db_execute"](
+            "SELECT note_el, fee_status FROM taep_financial_category WHERE id=%s",
+            (category["id"],), fetch=True)[0]
+
+        if current is None:
+            state = RATE_STATE_UNCONFIRMED
+            amount = None
+        elif money_from_db(current["amount"]) == 0 and (row["note_el"] or "").strip():
+            state = RATE_STATE_EXEMPT
+            amount = Decimal("0.00")
+        else:
+            state = RATE_STATE_SET
+            amount = money_from_db(current["amount"])
+
+        deposit = pick_rate(
+            _dated(rate_series(ctx, "REGISTRATION_DEPOSIT", category["id"])), on_date)
+
+        overview.append({
+            "category_id": category["id"],
+            "code": category["code_new"],
+            "name_el": category["name_el"],
+            "registration_fee": amount,
+            "fee_state": state,
+            "valid_from": None if current is None else _as_date(current["valid_from"]),
+            "source_document": None if current is None else current["source_document"],
+            "note_el": row["note_el"],
+            "deposit": None if deposit is None else money_from_db(deposit["amount"]),
+            "tariff_applies": bool(_as_int(category["tariff_applies"])),
+            "payer_el": category["payer_el"],
+        })
+    return overview
+
+
+def weight_scale_overview(ctx, on_date=None):
+    """The national weight scale and the triage amount in force, with their periods."""
+    on_date = _as_date(on_date or dt.date.today())
+    scale = []
+    for weight in sorted(WEIGHT_PRICE_SCALE):
+        current = pick_rate(_dated(rate_series(ctx, "WEIGHT_AMOUNT", weight=weight)),
+                            on_date)
+        scale.append({
+            "weight": weight,
+            "band_label_el": BAND_LABELS_EL[weight],
+            "amount": None if current is None else money_from_db(current["amount"]),
+            "valid_from": None if current is None else _as_date(current["valid_from"]),
+            "source_document": None if current is None else current["source_document"],
+        })
+    triage = pick_rate(_dated(rate_series(ctx, "TRIAGE_AMOUNT")), on_date)
+    scale.append({
+        "weight": TRIAGE_WEIGHT,
+        "band_label_el": BAND_LABELS_EL[TRIAGE_WEIGHT],
+        "amount": None if triage is None else money_from_db(triage["amount"]),
+        "valid_from": None if triage is None else _as_date(triage["valid_from"]),
+        "source_document": None if triage is None else triage["source_document"],
+    })
+    return scale
 
 
 # ---------------------------------------------------------------------------
