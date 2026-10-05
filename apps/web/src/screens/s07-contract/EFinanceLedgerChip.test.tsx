@@ -5,7 +5,7 @@ import { renderWithIntl } from "@/test/render";
 import { EFinanceLedgerChip, LEDGER_CHIP_CLASS } from "./EFinanceLedgerChip";
 
 const CASES: Array<[EFinanceLedger, string, string, string]> = [
-  ["booked", "Καταχωρημένο", "Booked", "bg-k-green-bg"],
+  ["booked", "Καταχωρισμένο", "Booked", "bg-k-green-bg"],
   ["in_flight", "Σε εξέλιξη", "In flight", "bg-k-amber-bg"],
   ["reversed", "Αντιλογισμένο", "Reversed", "bg-k-grey"],
   ["rejected", "Απορρίφθηκε", "Rejected", "bg-k-red-bg"],

@@ -43,13 +43,13 @@ describe("EFinanceInvoices — table", () => {
     expect(within(row).getByText(eur(19_000))).toBeInTheDocument();
     expect(within(row).getByText(eur(119_000))).toBeInTheDocument();
     expect(within(row).getByText("20/08/2026")).toBeInTheDocument();
-    expect(within(row).getByText("Καταχωρημένο")).toHaveAttribute("data-ledger", "booked");
+    expect(within(row).getByText("Καταχωρισμένο")).toHaveAttribute("data-ledger", "booked");
   });
 
   it("shows all four ledgers as chips with their words", () => {
     renderList();
     const table = screen.getByRole("table");
-    for (const word of ["Καταχωρημένο", "Σε εξέλιξη", "Αντιλογισμένο", "Απορρίφθηκε"]) {
+    for (const word of ["Καταχωρισμένο", "Σε εξέλιξη", "Αντιλογισμένο", "Απορρίφθηκε"]) {
       expect(within(table).getByText(word)).toBeInTheDocument();
     }
   });
@@ -70,7 +70,7 @@ describe("EFinanceInvoices — table", () => {
 
   it("says that only booked invoices count", () => {
     renderList();
-    expect(screen.getByText(/Μόνο τα καταχωρημένα τιμολόγια προσμετρώνται/)).toBeInTheDocument();
+    expect(screen.getByText(/Μόνο τα καταχωρισμένα τιμολόγια προσμετρώνται/)).toBeInTheDocument();
   });
 
   it("opens an invoice's lines through the «Γραμμές» button", () => {

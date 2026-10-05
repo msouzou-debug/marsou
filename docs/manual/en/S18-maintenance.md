@@ -10,4 +10,4 @@ The maintenance area is built in milestone M5 and is not available yet. The page
 
 ## What can go wrong
 
-- **You expected a list of work orders.** There is none yet. Work orders arrive with milestone M5. Until then, a defect is recorded on the contract's «Ελαττώματα» tab and an asset's condition on the asset's own page.
+- **You expected a list of work orders.** There is none yet. Work orders arrive with milestone M5. Until then, a defect is recorded on the contract's «Ελλείψεις» tab and an asset's condition on the asset's own page.

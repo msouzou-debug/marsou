@@ -16,7 +16,7 @@
  * | onSelect     | (id \| null) => void   |                                                               |
  * | onRetry / noPermission | —            |                                                               |
  *
- * RULE (integration record §3, ADR-0029): only «Καταχωρημένο» counts as spend.
+ * RULE (integration record §3, ADR-0029): only «Καταχωρισμένο» counts as spend.
  * Every row keeps its ledger as a chip, and a reversed row its reason, so the
  * history reads whole while the sum does not include it.
  *

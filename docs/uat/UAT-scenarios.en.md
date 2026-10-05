@@ -88,7 +88,7 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | E5 | As `engineer.nicosia`, try to approve your own permit. | No button. You are the requester. | |
 | E6 | Print the permit (S13). | One A4 page with every measure and signature line. | |
 | E7 | Create a second permit in the same area, same window. | A clash warning. It does not block, it tells you. | |
-| E8 | Disruption calendar. | Both show on the right day. | |
+| E8 | Disruption calendar («Ημερολόγιο διαταράξεων»). | Both show on the right day. | |
 | E9 | After the window, close the permit with the checklist. | Without every box ticked it does not close. With all of them, it is closed. | |
 | E10 | On the project with an open permit, try to change phase. | A message that a permit is open. | |
 

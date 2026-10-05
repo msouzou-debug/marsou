@@ -49,7 +49,7 @@
     "dateOrder": "The finish date cannot be before the start date.",
     "nonNegative": "The budget cannot be a negative number.",
     "percentRange": "The percentage must be between 0 and 100.",
-    "invalidDate": "Enter a valid date (YYYY-MM-DD).",
+    "invalidDate": "Enter a valid date.",
     "emapRefFormat": "An eMAP reference is written CON-2026-0042.",
     "weightRange": "The value must be between 0 and 1."
   },
@@ -1527,7 +1527,7 @@
       "today": {
         "assets": "Asset register: condition, readings, warranty, history per asset",
         "forecast": "Asset replacement forecast",
-        "contracts": "Handover and inspection defects, on the «Ελαττώματα» tab of each contract",
+        "contracts": "Handover and inspection defects, on the «Ελλείψεις» tab of each contract",
         "permits": "Shutdowns and permits to work"
       }
     },
@@ -1578,9 +1578,9 @@
     },
     "offline": {
       "readOnly": "Offline. You are seeing saved data.",
-      "queued": "Offline — {count} records waiting",
+      "queued": "Offline — {count, plural, one {# record} other {# records}} waiting",
       "syncing": "Syncing…",
-      "failed": "Sync failed — {count} record",
+      "failed": "Sync failed — {count, plural, one {# record} other {# records}}",
       "retry": "Retry"
     },
     "error": {
