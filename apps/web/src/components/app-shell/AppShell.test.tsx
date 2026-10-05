@@ -71,15 +71,15 @@ describe("UnitSwitcher", () => {
 describe("NavRail", () => {
   // M2 added «Κόστος» as the tenth nav group, gated by role rather than
   // always shown — see the two tests below.
-  it("defines all ten nav groups, one of them role-gated", () => {
-    expect(NAV_ITEMS).toHaveLength(10);
+  it("defines all eleven nav groups, one of them role-gated", () => {
+    expect(NAV_ITEMS).toHaveLength(11);
   });
 
   it("hides the role-gated «Κόστος» item for a caller with no role that reaches it", () => {
     renderWithIntl(<NavRail />, { locale: "el" });
     const nav = document.querySelector("nav");
     expect(nav).toBeTruthy();
-    expect(nav?.querySelectorAll("a")).toHaveLength(9);
+    expect(nav?.querySelectorAll("a")).toHaveLength(10);
     expect(document.body.textContent).not.toContain("Κόστος");
   });
 
@@ -88,7 +88,7 @@ describe("NavRail", () => {
   it("shows «Κόστος» for a finance caller", () => {
     renderWithIntl(<NavRail roles={["finance"]} />, { locale: "el" });
     const nav = document.querySelector("nav");
-    expect(nav?.querySelectorAll("a")).toHaveLength(10);
+    expect(nav?.querySelectorAll("a")).toHaveLength(11);
     expect(document.body.textContent).toContain("Κόστος");
   });
 

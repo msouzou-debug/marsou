@@ -316,7 +316,8 @@
     "approvals": "Approvals",
     "reports": "Reports",
     "admin": "Administration",
-    "cost": "Cost"
+    "cost": "Cost",
+    "help": "Guides"
   },
   "screens": {
     "s00": {
@@ -1511,6 +1512,62 @@
       "feedRequisitions": "Requisitions",
       "feedError": "Read error ({feed}): {detail}",
       "masterError": "eFinance returned an error: {detail}"
+    },
+    "s18": {
+      "title": "Maintenance",
+      "intro": "The maintenance area is built in milestone M5 and is not available yet. The link has been in the menu from the start so its place is known. What concerns maintenance today lives on the screens below.",
+      "comingTitle": "What it will hold",
+      "coming": {
+        "workOrders": "Work orders: corrective, planned and statutory, with an SLA timer and escalation.",
+        "ppm": "Preventive maintenance from the SLAs each hospital uploads, with work orders issued automatically.",
+        "backlog": "Maintenance backlog by hospital and risk band, funded and unfunded.",
+        "mobile": "Work order execution on a phone, with photos and sign-off, offline too."
+      },
+      "todayTitle": "What exists today",
+      "today": {
+        "assets": "Asset register: condition, readings, warranty, history per asset",
+        "forecast": "Asset replacement forecast",
+        "contracts": "Handover and inspection defects, on the «Ελαττώματα» tab of each contract",
+        "permits": "Shutdowns and permits to work"
+      }
+    },
+    "s23": {
+      "title": "Reports",
+      "intro": "The reports and exports screen is built in milestone M6. Until then, the figures the system already produces live on the screens below, each with its own export.",
+      "todayTitle": "What exists today",
+      "today": {
+        "portfolio": {
+          "label": "Portfolio",
+          "what": "Budget, commitments, spend and forecast per unit, with RAG."
+        },
+        "projects": {
+          "label": "Projects",
+          "what": "The project list with filters and an Excel export."
+        },
+        "accruals": {
+          "label": "Accruals",
+          "what": "The year-end accrual proposal, Excel with live formulas."
+        },
+        "forecast": {
+          "label": "Replacement forecast",
+          "what": "Assets by replacement year and estimated cost."
+        },
+        "calendar": {
+          "label": "Disruption calendar",
+          "what": "Planned shutdowns by area and day."
+        },
+        "contracts": {
+          "label": "Contracts",
+          "what": "Value, variations, payment certificates and cash flow per contract."
+        }
+      },
+      "comingTitle": "What will be added",
+      "coming": {
+        "backlog": "Maintenance backlog by hospital and risk band.",
+        "lifecycle": "Asset lifecycle: capital cost, cumulative maintenance cost, remaining life.",
+        "directorate": "Every report by unit and by directorate.",
+        "exports": "Scheduled exports to Excel and PDF."
+      }
     }
   },
   "states": {

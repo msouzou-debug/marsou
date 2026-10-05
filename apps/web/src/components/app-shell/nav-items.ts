@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import {
   BarChart3,
+  BookOpen,
   Building2,
   Construction,
   FileSignature,
@@ -36,7 +37,8 @@ export interface NavItem {
     | "nav.cost"
     | "nav.approvals"
     | "nav.reports"
-    | "nav.admin";
+    | "nav.admin"
+    | "nav.help";
   icon: IconComponent;
   /** true for the one item that carries a count badge (Εγκρίσεις) */
   hasBadge?: boolean;
@@ -44,9 +46,9 @@ export interface NavItem {
   visibleFor?: (roles: AppRole[]) => boolean;
 }
 
-// UI instructions §2: fixed order, one Lucide icon each. Only "/" exists as a
-// real route today — the rest may 404 until their screens ship, per the
-// build brief's milestone order (M1-M6).
+// UI instructions §2: fixed order, one Lucide icon each. «Συντήρηση» (M5)
+// and «Αναφορές» (M6) land on a page that says so and points at what exists
+// today, never on a 404 (owner ask, 05/10/2026).
 export const NAV_ITEMS: NavItem[] = [
   { id: "portfolio", href: "/", labelKey: "nav.portfolio", icon: LayoutDashboard },
   { id: "projects", href: "/projects", labelKey: "nav.projects", icon: FolderKanban },
@@ -69,6 +71,10 @@ export const NAV_ITEMS: NavItem[] = [
   // and the reason most people open the area at all. Ανάδοχοι is the second
   // tab and keeps its own route.
   { id: "admin", href: "/admin/users", labelKey: "nav.admin", icon: Settings },
+  // S26 (R50): the help centre with the sixteen downloadable guides. Owner
+  // ask, 05/10/2026: people could not find the manuals, because the only
+  // way in was the drawer's empty-state link. Last, after Διαχείριση.
+  { id: "help", href: "/help", labelKey: "nav.help", icon: BookOpen },
 ];
 
 // Phone bottom tab bar: 4 slots total. Three come from the rail, in this
