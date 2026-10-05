@@ -653,12 +653,11 @@ SCHEMA_STATEMENTS = [
         id INTEGER PRIMARY KEY {AUTO_INCREMENT},
         unit_code VARCHAR(20) NOT NULL,
         sequence_number INT NOT NULL,
-        costing_number VARCHAR(30) NOT NULL,
+        costing_number VARCHAR(30),
         allocated_at DATETIME,
         allocated_by INT,
         episode_id INT,
-        UNIQUE (unit_code, sequence_number),
-        UNIQUE (costing_number)
+        UNIQUE (unit_code, sequence_number)
     ){ENGINE}""",
 
     """CREATE TABLE IF NOT EXISTS taep_episode (
@@ -1065,30 +1064,34 @@ def seed(ctx):
 # Costing numbers: gapless, per unit, never reused
 # ---------------------------------------------------------------------------
 
-NUMBER_ALLOCATION_ATTEMPTS = 60
+NUMBER_ALLOCATION_ATTEMPTS = 8
 
 
 def allocate_costing_number(ctx, unit_code, now=None, user_id=None, episode_id=None):
     """Allocate the next costing number for a ΤΑΕΠ unit. Gapless, unique, never reused.
 
-    The hard part is concurrency, and it is shaped by eFinance's DB layer: db_execute
-    opens a connection and commits per call, so a transaction cannot span two calls.
-    A counter read back with a second SELECT therefore races — two clerks finalising at
-    once both read the same value and are issued the same number. (Measured: four
-    threads, forty allocations, twenty-four distinct numbers.)
+    The constraint is eFinance's DB layer: db_execute opens a connection and commits per
+    call, so a transaction cannot span two calls. Anything of the form "read the last
+    number, then write the next one" therefore races between the read and the write.
 
-    So the claim is made in ONE statement. The INSERT derives the next sequence from
-    the ledger, and UNIQUE (unit_code, sequence_number) rejects the loser of any race.
+    Two attempts at this failed before the current one, and both are worth recording:
 
-    A loser then walks UP from its candidate rather than re-reading MAX. Re-reading is
-    what made the first version of this give up: every contending thread read the same
-    MAX and collided on the same number again, so under eight-way contention a thread
-    could lose its whole retry budget. Walking up means each thread converges on a free
-    number instead of fighting for one. MAX is re-read only occasionally, in case the
-    candidate has drifted a long way behind.
+      * A counter incremented and read back with a second SELECT issued duplicate
+        numbers — four threads, forty allocations, twenty-four distinct numbers.
+      * Deriving the next number with a SELECT MAX and claiming it with an INSERT
+        guarded by a UNIQUE key was correct but not durable: every loser of a race
+        re-read the same MAX and collided again, and at eight threads a thread could
+        lose its whole retry budget. Making losers walk upward instead helped but still
+        gave up at sixteen threads, and a loser cannot simply jump ahead because
+        skipping a number would leave a gap.
 
-    Gapless survives: the walk starts at MAX+1 and only steps over numbers already
-    taken. A cancelled costing keeps its number; nothing is ever reissued.
+    So the read and the write are now ONE statement. MAX is evaluated inside the INSERT,
+    under the write lock, so there is no window between deciding the number and taking
+    it. The retry loop remains only for the rare engine that lets two such statements
+    collide on the UNIQUE key.
+
+    Returns (costing_number, sequence). A cancelled costing keeps its number; the ledger
+    row stays and nothing is ever reissued.
     """
     db = ctx["db_execute"]
     unit = db("SELECT taep_number FROM taep_unit WHERE unit_code=%s AND active=1",
@@ -1098,28 +1101,28 @@ def allocate_costing_number(ctx, unit_code, now=None, user_id=None, episode_id=N
 
     taep_number = unit[0]["taep_number"]
     stamp = now or dt.datetime.now()
-    candidate = None
 
-    for attempt in range(NUMBER_ALLOCATION_ATTEMPTS):
-        if candidate is None or attempt % 8 == 7:
-            rows = db("""SELECT COALESCE(MAX(sequence_number), 0) + 1 AS next
-                         FROM taep_costing_number WHERE unit_code = %s""",
-                      (unit_code,), fetch=True)
-            candidate = max(int(rows[0]["next"]), candidate or 0)
-
-        costing_number = format_costing_number(taep_number, candidate)
+    for _ in range(NUMBER_ALLOCATION_ATTEMPTS):
         try:
-            db("""INSERT INTO taep_costing_number
-                  (unit_code, sequence_number, costing_number, allocated_at,
-                   allocated_by, episode_id)
-                  VALUES (%s,%s,%s,%s,%s,%s)""",
-               (unit_code, candidate, costing_number, stamp, user_id, episode_id))
+            row_id = db(
+                """INSERT INTO taep_costing_number
+                   (unit_code, sequence_number, allocated_at, allocated_by, episode_id)
+                   SELECT %s, COALESCE(MAX(sequence_number), 0) + 1, %s, %s, %s
+                   FROM taep_costing_number WHERE unit_code = %s""",
+                (unit_code, stamp, user_id, episode_id, unit_code), lastrowid=True)
         except Exception as exc:
             if _is_duplicate_key(exc):
-                candidate += 1          # someone took it; the next one is ours to try
                 continue
             raise
-        return costing_number, candidate
+
+        # Reading back by our own row id is safe: no other session can have it.
+        rows = db("SELECT sequence_number FROM taep_costing_number WHERE id=%s",
+                  (row_id,), fetch=True)
+        sequence = int(rows[0]["sequence_number"])
+        costing_number = format_costing_number(taep_number, sequence)
+        db("UPDATE taep_costing_number SET costing_number=%s WHERE id=%s",
+           (costing_number, row_id))
+        return costing_number, sequence
 
     raise CostingError(
         "NUMBER_ALLOCATION_FAILED",
