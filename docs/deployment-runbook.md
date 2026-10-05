@@ -35,14 +35,19 @@ templates/taep_tariff.html
 templates/taep_tariff_diff.html
 templates/taep_readiness.html
 seed/                       (the whole directory, including seed/source/)
+tools/check_readiness.py    (the go-live check — see §6)
 ```
 
 `seed/` must travel with the module: `seed(ctx)` reads the CSVs at boot. The files under
 `seed/source/` are the authoritative workbooks and the generators in `tools/` read them;
 they are not needed at runtime but belong with the code.
 
-Do **not** copy `conftest.py`, `taep_harness.py`, `test_*.py`, `acceptance.py` or
-`tools/` onto the production server. They are the test and build side.
+`check_readiness.py` is self-contained: it imports `taep.py` and nothing else from the
+repository, so it runs wherever you put it. The other scripts in `tools/` are generators
+for the documents and the seed files — they belong on a workstation, not the server.
+
+Do **not** copy `conftest.py`, `taep_harness.py`, `test_*.py`, `acceptance.py` or the rest
+of `tools/` onto the production server. They are the test and build side.
 
 ## 2. Register the module
 
@@ -92,10 +97,13 @@ for, not a crash.
 
 ```
 cd /opt/finance
-FINANCE_DB=/opt/finance/finance.db python3 tools/check_readiness.py
+python3 check_readiness.py                                  # reads settings.json
+FINANCE_DB=/opt/finance/finance.db python3 check_readiness.py   # or name the SQLite file
 ```
 
-Or open `/taep/readiness` as a system_admin. It exits non-zero on any blocker, so it can
+It resolves the database the same way eFinance does: `settings.json` with a `db_host`
+means MySQL, otherwise the local `finance.db`. Or open `/taep/readiness` as a
+system_admin. It exits non-zero on any blocker, so it can
 gate a deploy script.
 
 It checks this installation, not the code: that the tables exist, the master data loaded
