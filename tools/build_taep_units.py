@@ -19,8 +19,8 @@ Eight units, not the nine the build brief repeats throughout.
 
 The paediatric unit is due to move to Μακάριος ΙΙΙ. That is why host_entity_code
 carries valid_from/valid_to: when it moves, close the row and open a new one, exactly
-as rates work. Whether the unit keeps number 1106 after the move is the one thing
-still to confirm.
+as rates work. Confirmed 05/10/2026 that the unit keeps number 1106 and its running
+sequence across the move, so the relocation touches only the host, never the number.
 
     python3 tools/build_taep_units.py
 """
@@ -37,7 +37,8 @@ UNITS = [
      "χρησιμοποιεί το 1054, όπως στο υπόδειγμα."),
     ("NIC-PAED", "ΤΑΕΠ Παίδων Λευκωσίας", "1106", "NGH",
      "", "Στεγάζεται προσωρινά στο Γενικό Λευκωσίας. Μεταστέγαση στο Νοσοκομείο "
-     "Αρχιεπίσκοπος Μακάριος ΙΙΙ (ARC) αναμένεται."),
+     "Αρχιεπίσκοπος Μακάριος ΙΙΙ (ARC) αναμένεται· διατηρεί τον κωδικό 1106 και τη "
+     "συνεχή αρίθμησή του (απόφαση 05/10/2026)."),
     ("LAR", "Γενικό Νοσοκομείο Λάρνακας", "1048", "LAR", "", ""),
     ("LIM", "Γενικό Νοσοκομείο Λεμεσού", "1047", "LGH", "", ""),
     ("PAF", "Γενικό Νοσοκομείο Πάφου", "1025", "PAP", "", ""),

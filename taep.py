@@ -29,6 +29,9 @@ from decimal import Decimal, ROUND_HALF_UP
 
 ALGORITHM_VERSION = "1.0.0"
 
+# The date the Μονάδα's rulings take effect. Rates before this are not modelled.
+RATES_IN_FORCE_FROM = "2026-01-01"
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SEED_DIR = os.path.join(BASE_DIR, "seed")
 
@@ -129,6 +132,21 @@ def fold_greek(text):
     decomposed = unicodedata.normalize("NFD", (text or "").lower())
     stripped = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
     return stripped.replace("\u03c2", "\u03c3").strip()
+
+
+def money_from_db(value):
+    """Turn whatever the driver hands back for a money column into an exact Decimal.
+
+    MySQL's DECIMAL(15,2) comes back as Decimal. SQLite has no decimal type: a
+    DECIMAL(15,2) column has NUMERIC affinity, so the string "10.00" is stored and
+    returned as the float 10.0. Going through str() keeps two-decimal money exact in
+    both modes; never let a float reach the arithmetic.
+    """
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return money(value)
+    return money(Decimal(str(value)))
 
 
 @dataclass(frozen=True)
@@ -620,12 +638,20 @@ SCHEMA_STATEMENTS = [
         UNIQUE (unit_code, host_valid_from)
     ){ENGINE}""",
 
-    # Gapless per-unit sequence, allocated at finalisation and never reused. A row
-    # per unit, incremented under the row lock that allocation takes.
-    """CREATE TABLE IF NOT EXISTS taep_number_sequence (
-        unit_code VARCHAR(20) PRIMARY KEY,
-        last_allocated INT NOT NULL DEFAULT 0,
-        updated_at DATETIME
+    # Every costing number ever allocated, one row each, never deleted. A ledger
+    # rather than a counter: the UNIQUE key is what makes allocation safe under
+    # concurrency, because eFinance's db_execute commits per call and a transaction
+    # cannot be held across two of them. See allocate_costing_number().
+    """CREATE TABLE IF NOT EXISTS taep_costing_number (
+        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
+        unit_code VARCHAR(20) NOT NULL,
+        sequence_number INT NOT NULL,
+        costing_number VARCHAR(30) NOT NULL,
+        allocated_at DATETIME,
+        allocated_by INT,
+        episode_id INT,
+        UNIQUE (unit_code, sequence_number),
+        UNIQUE (costing_number)
     ){ENGINE}""",
 
     """CREATE TABLE IF NOT EXISTS taep_episode (
@@ -890,6 +916,218 @@ def build_load_report():
         "tariff_rows_needing_coder_choice": unparsed,
         "radiology_rows": len(_read_seed("radiology_tariff.csv")),
     }
+
+
+# ---------------------------------------------------------------------------
+# Schema rendering and the seed loader
+# ---------------------------------------------------------------------------
+
+def render_schema(statement, use_mysql):
+    """Fill the {AUTO_INCREMENT} / {ENGINE} placeholders, as eFinance's core does."""
+    if use_mysql:
+        return statement.replace("{AUTO_INCREMENT}", "AUTO_INCREMENT").replace(
+            "{ENGINE}", " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+    # SQLite: INTEGER PRIMARY KEY already autoincrements, so the keyword is dropped.
+    return statement.replace("{AUTO_INCREMENT}", "").replace("{ENGINE}", "")
+
+
+def _bool(raw):
+    return 1 if str(raw).strip().upper() == "TRUE" else 0
+
+
+def _money_or_none(raw):
+    raw = (raw or "").strip()
+    return None if raw == "" else str(money(Decimal(raw)))
+
+
+def _insert_many(db, table, columns, rows, chunk=200):
+    """Insert rows in batches.
+
+    eFinance's db_execute opens a connection per call, which is right for gunicorn but
+    means a row-at-a-time seed costs one connection per row — 550 of them for this
+    master data, and minutes of wall clock on SQLite where every commit fsyncs. One
+    multi-row INSERT per chunk keeps the same contract and the same SQL dialect on both
+    MySQL and SQLite.
+    """
+    if not rows:
+        return
+    placeholders = "(" + ",".join(["%s"] * len(columns)) + ")"
+    prefix = f"INSERT INTO {table} ({', '.join(columns)}) VALUES "
+    for start in range(0, len(rows), chunk):
+        batch = rows[start:start + chunk]
+        sql = prefix + ",".join([placeholders] * len(batch))
+        params = tuple(value for row in batch for value in row)
+        db(sql, params)
+
+
+def seed(ctx):
+    """Load the master data. Idempotent: each table is filled only if empty.
+
+    Runs at boot under eFinance's init_db lock, per the module contract.
+    """
+    db = ctx["db_execute"]
+    empty = lambda sql: not (db(sql, fetch=True) or [])
+
+    if empty("SELECT id FROM taep_financial_category LIMIT 1"):
+        _insert_many(db, "taep_financial_category",
+                     ["code_new", "name_el", "code_old_ei", "code_old_taep", "note_el",
+                      "valid_for_ae", "tariff_applies", "requires_payer", "payer_el",
+                      "fee_status", "active"],
+                     [(r["code_new"], r["name_el"], r["code_old_ei"] or None,
+                       r["code_old_taep"] or None, r["note_el"] or None,
+                       _bool(r["valid_for_ae"]), _bool(r["tariff_applies"]),
+                       _bool(r["requires_payer"]), r["payer_el"] or None,
+                       r["fee_status"], 1)
+                      for r in _read_seed("financial_categories.csv")])
+
+    if empty("SELECT code FROM taep_service LIMIT 1"):
+        _insert_many(db, "taep_service",
+                     ["code", "service_type", "category", "category_code",
+                      "description_el", "active"],
+                     [(s.code, s.service_type, s.category, f"AECAT{s.category}",
+                       s.description_el, 1)
+                      for s in load_services(_read_seed("services.csv"))])
+
+    if empty("SELECT id FROM taep_weight_matrix LIMIT 1"):
+        verify_weight_matrix(_read_seed("weight_matrix.csv"))
+        _insert_many(db, "taep_weight_matrix",
+                     ["investigation_category", "treatment_category", "weight",
+                      "band_label_en", "band_label_el"],
+                     [(investigation, treatment, weight,
+                       BAND_LABELS_EN[weight], BAND_LABELS_EL[weight])
+                      for (investigation, treatment), weight
+                      in sorted(WEIGHT_MATRIX.items())])
+
+    if empty("SELECT id FROM taep_unit LIMIT 1"):
+        _insert_many(db, "taep_unit",
+                     ["unit_code", "name_el", "taep_number", "host_entity_code",
+                      "host_valid_from", "host_valid_to", "note_el", "active"],
+                     [(r["unit_code"], r["name_el"], r["taep_number"],
+                       r["host_entity_code"], r["host_valid_from"] or None,
+                       r["host_valid_to"] or None, r["note_el"] or None, 1)
+                      for r in _read_seed("taep_units.csv")])
+
+    if empty("SELECT id FROM taep_tariff LIMIT 1"):
+        _insert_many(db, "taep_tariff",
+                     ["tariff_scope", "code", "description_el", "group_el",
+                      "price_type", "base_amount", "hourly_amount", "price_raw",
+                      "load_status", "active"],
+                     [("GENERAL", r["code"], r["description_el"], r["group_el"],
+                       r["price_type"], _money_or_none(r["base_amount"]),
+                       _money_or_none(r["hourly_amount"]), r["price_raw"],
+                       r["load_status"], 1)
+                      for r in _read_seed("tariff.csv")])
+
+    if empty("SELECT id FROM taep_radiology_tariff LIMIT 1"):
+        _insert_many(db, "taep_radiology_tariff",
+                     ["cpt_code", "group_en", "description_en", "description_el",
+                      "price_eur", "active"],
+                     [(r["cpt_code"], r["group_en"] or None, r["description_en"],
+                       r["description_el"], _money_or_none(r["price_eur"]), 1)
+                      for r in _read_seed("radiology_tariff.csv")])
+
+    # The weight scale, triage amount and registration fees as effective-dated rate
+    # rows, opened from the Μονάδα's rulings. No valid_to, so these are in force.
+    if empty("SELECT id FROM taep_rate LIMIT 1"):
+        source = "Μονάδα Ελέγχου Εσόδων 22/09–05/10/2026"
+        rates = [(None, "WEIGHT_AMOUNT", weight, str(amount), RATES_IN_FORCE_FROM, source)
+                 for weight, amount in sorted(WEIGHT_PRICE_SCALE.items())]
+        rates.append((None, "TRIAGE_AMOUNT", None, str(TRIAGE_PRICE),
+                      RATES_IN_FORCE_FROM, source))
+
+        ids = {r["code_new"]: r["id"] for r in db(
+            "SELECT id, code_new FROM taep_financial_category", fetch=True)}
+        for row in _read_seed("financial_categories.csv"):
+            category_id = ids.get(row["code_new"])
+            if category_id is None:
+                continue
+            rates.append((category_id, "REGISTRATION_FEE", None,
+                          row["registration_fee_eur"], RATES_IN_FORCE_FROM, source))
+            if row["registration_deposit_eur"]:
+                rates.append((category_id, "REGISTRATION_DEPOSIT", None,
+                              row["registration_deposit_eur"], RATES_IN_FORCE_FROM,
+                              source))
+        _insert_many(db, "taep_rate",
+                     ["financial_category_id", "rate_type", "weight", "amount",
+                      "valid_from", "source_document"], rates)
+
+
+# ---------------------------------------------------------------------------
+# Costing numbers: gapless, per unit, never reused
+# ---------------------------------------------------------------------------
+
+NUMBER_ALLOCATION_ATTEMPTS = 25
+
+
+def allocate_costing_number(ctx, unit_code, now=None, user_id=None, episode_id=None):
+    """Allocate the next costing number for a ΤΑΕΠ unit. Gapless, unique, never reused.
+
+    The hard part is concurrency, and it is shaped by eFinance's DB layer: db_execute
+    opens a connection and commits per call, so a transaction cannot span two calls.
+    A counter read back with a second SELECT therefore races — two clerks finalising at
+    once both read the same value and are issued the same number. (Measured: four
+    threads, forty allocations, twenty-four distinct numbers.)
+
+    So the claim is made in ONE statement. The INSERT derives the next sequence from
+    the ledger itself, and UNIQUE (unit_code, sequence_number) rejects the loser of any
+    race. The loser retries and takes the next number. No lock is held, nothing is
+    read back to decide a value, and the ledger is the record of what was issued.
+
+    A cancelled costing keeps its number and its row stays; numbers are never reissued.
+    """
+    db = ctx["db_execute"]
+    unit = db("SELECT taep_number FROM taep_unit WHERE unit_code=%s AND active=1",
+              (unit_code,), fetch=True)
+    if not unit:
+        raise CostingError("UNKNOWN_UNIT", f"Άγνωστη μονάδα ΤΑΕΠ «{unit_code}».")
+
+    taep_number = unit[0]["taep_number"]
+    stamp = now or dt.datetime.now()
+
+    for _ in range(NUMBER_ALLOCATION_ATTEMPTS):
+        rows = db("""SELECT COALESCE(MAX(sequence_number), 0) + 1 AS next
+                     FROM taep_costing_number WHERE unit_code = %s""",
+                  (unit_code,), fetch=True)
+        sequence = int(rows[0]["next"])
+        costing_number = format_costing_number(taep_number, sequence)
+        try:
+            db("""INSERT INTO taep_costing_number
+                  (unit_code, sequence_number, costing_number, allocated_at,
+                   allocated_by, episode_id)
+                  VALUES (%s,%s,%s,%s,%s,%s)""",
+               (unit_code, sequence, costing_number, stamp, user_id, episode_id))
+        except Exception as exc:
+            if _is_duplicate_key(exc):
+                continue        # another session took this number; try the next
+            raise
+        return costing_number, sequence
+
+    raise CostingError(
+        "NUMBER_ALLOCATION_FAILED",
+        f"Δεν ήταν δυνατή η απόδοση αριθμού κοστολόγησης για τη μονάδα "
+        f"{unit_code} μετά από {NUMBER_ALLOCATION_ATTEMPTS} προσπάθειες. "
+        f"Δοκιμάστε ξανά.",
+    )
+
+
+def _is_duplicate_key(exc):
+    """True for a unique-constraint violation on MySQL or SQLite.
+
+    Matched on the message because the module must not import either driver — it runs
+    against whichever eFinance is configured for.
+    """
+    text = str(exc).lower()
+    return ("unique constraint failed" in text          # SQLite
+            or "duplicate entry" in text                # MySQL
+            or getattr(exc, "errno", None) == 1062)     # MySQL ER_DUP_ENTRY
+
+
+def last_allocated_sequence(ctx, unit_code):
+    """The highest sequence issued for a unit, or 0. Reporting only, never allocation."""
+    rows = ctx["db_execute"](
+        """SELECT COALESCE(MAX(sequence_number), 0) AS last
+           FROM taep_costing_number WHERE unit_code = %s""", (unit_code,), fetch=True)
+    return int(rows[0]["last"])
 
 
 def assert_finalisable(result):

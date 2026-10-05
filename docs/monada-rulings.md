@@ -220,18 +220,14 @@ Eight, incidentally, not the nine the build brief repeats throughout.
 
 ---
 
-## Still open
+## Nothing open
 
-### Does the paediatric unit keep number 1106 after it moves?
+### The paediatric unit keeps 1106 across the move (05/10/2026)
 
-The relocation to Μακάριος ΙΙΙ is the only thing left, and the question is narrow: when
-ΤΑΕΠ Παίδων moves, does it keep 1106 and its running sequence, or start a new series
-under a Μακάριος number?
+Confirmed. ΤΑΕΠ Παίδων carries number 1106 and its running sequence when it moves to
+Μακάριος ΙΙΙ. The relocation is therefore exactly one effective-dated row on
+`taep_unit`: close `host_entity_code = NGH`, open `host_entity_code = ARC`. The number
+and the sequence are untouched, and no episode already numbered is affected.
 
-It matters because the sequence is gapless and allocated at finalisation. Carrying 1106
-across the move is one effective-dated row. Switching numbers mid-life means one unit
-with two series, which is a different thing to build and not something to retrofit
-after the first episode is numbered under the wrong one.
-
-Nothing else is outstanding. Every other question from the four rounds is answered and
-applied.
+That is the last question from five rounds. Everything the Μονάδα was asked is answered
+and applied.
