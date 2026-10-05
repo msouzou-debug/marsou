@@ -19,17 +19,28 @@
     "api:dev": "pnpm --filter @ecapital/api dev",
     "api:migrate": "pnpm --filter @ecapital/api migrate",
     "api:seed": "pnpm --filter @ecapital/api seed",
-    "api:openapi": "pnpm --filter @ecapital/api openapi"
+    "api:openapi": "pnpm --filter @ecapital/api openapi",
+    "pc:setup": "node scripts/pc.mjs setup",
+    "pc:start": "node scripts/pc.mjs start",
+    "pc:stop": "node scripts/pc.mjs stop"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@swc/core",
       "esbuild",
       "unrs-resolver",
-      "@parcel/watcher"
+      "@parcel/watcher",
+      "@embedded-postgres/linux-x64",
+      "@embedded-postgres/windows-x64",
+      "@embedded-postgres/darwin-arm64",
+      "@embedded-postgres/darwin-x64"
     ]
   },
   "dependencies": {
     "marked": "^18.0.13"
+  },
+  "devDependencies": {
+    "embedded-postgres": "16.14.0-beta.17",
+    "pg": "^8.23.0"
   }
 }

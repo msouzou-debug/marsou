@@ -17,6 +17,12 @@ the way.
 - `docs/` — briefs, ADRs, the user manual
 - `deploy/` — the deployment kit for the ΟΚΥπΥ server
 
+## Trying it on a PC
+
+`pnpm install`, `pnpm pc:setup`, `pnpm pc:start`: a private PostgreSQL 16
+from npm, the sample register and the twelve development accounts, on
+http://localhost:3000. Step by step in `docs/pc-test.md`.
+
 ## Deploying
 
 eCapital deploys to the same on-prem Ubuntu server as eMAP, eQuality, DIAS
