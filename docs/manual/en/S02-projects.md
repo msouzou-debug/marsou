@@ -15,5 +15,5 @@ This screen lists every project you can see, with each one's budget, commitments
 - **"No projects match these filters".** Nothing matches the combination you chose. Press "Clear filters" to start from the full list.
 - **"The data did not load".** The API did not answer. Press "Try again". If it keeps failing, tell estates.
 - **It says you are offline.** You are looking at saved data. The list still reads normally, but it will not update until the connection is back.
-- **The "Add" button does not respond.** That is correct — it is disabled. Creating a new project comes in a later step of the build.
+- **The «Προσθήκη» button is disabled.** Your role does not create projects. Ask the unit's project engineer or head of estates to add the project.
 - **Commitments or spend show "—".** The project has no SAP data yet. That is not a zero amount, it simply has not been recorded.

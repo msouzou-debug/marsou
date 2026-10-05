@@ -35,7 +35,7 @@ test("engineer.larnaca creates a shutdown request and submits it as Class IV", a
 
   // ASSUMPTION: skip cleanly if M3 has not merged yet rather than fail the
   // whole run — the same shape `cost.spec.ts` uses for M2.
-  const systemsFieldset = page.getByText("Ηλεκτρικό", { exact: true }).first();
+  const systemsFieldset = page.getByText("Ηλεκτρολογικά", { exact: true }).first();
   test.skip(!(await systemsFieldset.isVisible().catch(() => false)), "M3 API not merged into this checkout yet");
 
   // Step 1: Σύστημα.

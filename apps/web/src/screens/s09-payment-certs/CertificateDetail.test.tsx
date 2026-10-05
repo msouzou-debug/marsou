@@ -49,7 +49,7 @@ describe("CertificateDetail (S09)", () => {
     expect(document.querySelectorAll("button")).toHaveLength(0);
   });
 
-  it("requires a SAP invoice ref before «Παραλαβή από Οικονομικές» is enabled", () => {
+  it("requires a SAP invoice ref before «Παραλαβή από Οικονομική Διεύθυνση» is enabled", () => {
     const cert = buildPaymentCert({ status: "ENGINEER_APPROVED" });
     renderWithIntl(<CertificateDetail cert={cert} state="default" noPermission={noPermission} roles={["finance"]} onTransition={noop} />);
     const button = document.querySelector("button") as HTMLButtonElement;

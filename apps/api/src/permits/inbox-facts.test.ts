@@ -31,7 +31,7 @@ describe("inbox-facts", () => {
 
     it("joins several systems with «, »", () => {
       expect(classAndSystemsFact("III", ["ELECTRICAL", "IT"], "el", i18n)).toBe(
-        "Κατηγορία III · Ηλεκτρικό, Δίκτυο (IT)",
+        "Κατηγορία III · Ηλεκτρολογικά, Δίκτυο και πληροφορική (IT)",
       );
     });
 

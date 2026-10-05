@@ -143,7 +143,7 @@ export function canApprovePaymentCertEngineer(roles: AppRole[]): boolean {
   return canWriteContracts(roles);
 }
 
-/** S09's «Παραλαβή από Οικονομικές» and «Εξόφληση». */
+/** S09's «Παραλαβή από Οικονομική Διεύθυνση» and «Εξόφληση». */
 export function canProcessPaymentCertFinance(roles: AppRole[]): boolean {
   return roles.some((role) => role === "finance" || role === "admin");
 }

@@ -14,7 +14,7 @@
  *   (R11, same pattern as S08/ADR-0015): disabled with the segregation
  *   sentence when the viewer created the certificate — a different person
  *   must approve their own work.
- * - `ENGINEER_APPROVED` → «Παραλαβή από Οικονομικές» (finance/admin),
+ * - `ENGINEER_APPROVED` → «Παραλαβή από Οικονομική Διεύθυνση» (finance/admin),
  *   requires a SAP invoice ref.
  * - `FINANCE_RECEIVED` → «Εξόφληση» (finance/admin), requires a paid date,
  *   with the retention-release checkbox and its warning sentence when the
