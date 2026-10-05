@@ -13,9 +13,10 @@ Turns the services ticked on form ΟΚΥπΥ 1-125 into a priced, numbered, prin
 | Overlap decision list | `docs/overlap_decision_list.xlsx` (41 pairs, awaiting Μονάδα ruling) |
 | Stack decision | answered — `docs/adr/001-application-stack.md` |
 | Μονάδα rulings | applied (22/09 – 02/10) — `docs/monada-rulings.md` |
-| Costing engine | built, pure, 95 tests green including the golden €120 case |
+| Costing engine | built, pure, golden €120 case green |
 | Schema + seed loader | built; loads clean from the source catalogue |
-| Routes / UI | Phase 2 |
+| Phase 2 clerk path | built — entry, costing, finalisation, printed PDF |
+| Tests | 197 green (`python3 -m pytest -q`) |
 
 **Pricing model**, per the Μονάδα's ruling of 22/09/2026: weight maps straight to an
 amount — 4→€60, 8→€120, 12→€180, national, no per-category unit price. Tariff charges
@@ -37,8 +38,14 @@ MySQL cannot provide.
 ## Layout
 
 ```
-taep.py       the eFinance module — engine (pure) + schema + seed loader
-test_taep.py  acceptance tests; run them before changing anything in taep.py
+taep.py            the eFinance module: engine (pure) · schema · seed · queries ·
+                   persistence · routes · the printed document
+templates/         Greek templates (taep_new, taep_costing, taep_list)
+conftest.py        test harness: real SQLite + a real Flask app
+test_taep.py       the pure engine
+test_taep_db.py    seed loader, rates, costing-number allocation
+test_taep_episode.py  the episode lifecycle
+test_taep_routes.py   the clerk path end to end, including the PDF
 seed/         master data, generated from seed/source/ — do not hand-edit
 seed/source/  the authoritative A&E catalogue workbook
 tools/        import_catalogue.py, apply_monada_rulings.py, make_questions_doc.py
@@ -64,7 +71,20 @@ All three are idempotent and all read from `seed/source/`. Everything directly u
 python3 -m pytest test_taep.py -q
 ```
 
-95 tests, all green.
+197 tests, all green. 80 of them run against a real Flask app and a real database
+rather than mocks, which is how the three defects below were found.
+
+Three things testing caught that reading would not have:
+
+- **Costing numbers were not unique under concurrency.** A counter incremented and read
+  back in a second statement races, because eFinance's `db_execute` commits per call and
+  a transaction cannot span two of them. Four threads, forty allocations, twenty-four
+  distinct numbers. Allocation is now a single INSERT whose UNIQUE key rejects the loser.
+- **The printed document overprinted itself.** The weight band label was drawn beside its
+  own caption and the two Greek strings physically overlapped. `pdfplumber` reads by
+  position and returned them interleaved; `pypdf`'s line grouping had hidden it.
+- **The PDF was not reproducible.** reportlab stamps a creation date, so two renders of
+  one episode differed, against the brief's byte-identical requirement.
 
 A note on where Phase 1 went wrong: the `services.csv` we started from was a corrupted
 extract, and four of the seven "defects" reported to the Μονάδα were artifacts of it. The
@@ -80,3 +100,21 @@ and `taep` is added to the module list in `app.py`. File by file — **never** r
 
 `register(app, ctx)` is not written yet, so the module currently contributes schema and
 seed only. That is Phase 2.
+
+## The printed document
+
+`docs/sample_kostologisi.pdf` is a rendered example: the golden case under category 600
+ΕΠΙ ΠΛΗΡΩΜΗ with two tariff lines, €120,00 weight + €55,00 tariff = €175,00.
+
+It carries the Τέλος Εγγραφής row the supplied sample omits, itemises tariff lines above
+the totals, and renders byte-identically on every render.
+
+## Still to build
+
+Phase 3 — rate and tariff administration with the effective-dated change panel and the
+Excel upload diff; user administration; the Excel export of the list. Phase 4 — rollout.
+
+The one thing worth confirming before Phase 3: the costing document has no QR code yet.
+The brief §12 asks for a machine-readable code of the costing number so a cashier can
+pull the record without retyping. It needs a barcode library, which is a new dependency
+for eFinance, so it is deliberately left for a decision rather than added quietly.
