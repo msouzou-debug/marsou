@@ -207,6 +207,16 @@ export const appUser = ecapital.table("app_user", {
   updatedAt,
 });
 
+// ADR-0030: the scrypt hash of an account's eCapital password, `local` mode
+// only. Its own table so app_user's audit rows never carry it.
+export const appUserPassword = ecapital.table("app_user_password", {
+  appUserId: uuid("app_user_id")
+    .primaryKey()
+    .references(() => appUser.id, { onDelete: "cascade" }),
+  passwordHash: text("password_hash").notNull(),
+  updatedAt,
+});
+
 export const appUserOrgUnit = ecapital.table(
   "app_user_org_unit",
   {

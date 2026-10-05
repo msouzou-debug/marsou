@@ -339,7 +339,8 @@
       "passwordLabel": "Password",
       "ldapHint": "Sign in with your ΟΚΥπΥ account.",
       "oidcHint": "Sign-in goes through your ΟΚΥπΥ account in Microsoft Entra ID.",
-      "oidcButton": "Sign in with your ΟΚΥπΥ account"
+      "oidcButton": "Sign in with your ΟΚΥπΥ account",
+      "localHint": "Sign in with the account name and the password the system administrator gave you."
     },
     "s01": {
       "title": "Project portfolio",
@@ -881,7 +882,8 @@
       "sources": {
         "dev": "Development account",
         "ldap": "ΟΚΥπΥ Active Directory",
-        "oidc": "Entra ID"
+        "oidc": "Entra ID",
+        "local": "eCapital password"
       },
       "auditorLocked": "The server administrator appoints the auditor with the grant-role command.",
       "unitsAllHint": "The roles you picked apply to every unit.",
@@ -896,6 +898,17 @@
         "areasLabel": "Roles by area",
         "unitsLabel": "Roles by unit",
         "pickArea": "Choose an area"
+      },
+      "newHintLocal": "The user signs in with their account name and an eCapital password. After saving, open their row again to set the password.",
+      "password": {
+        "title": "eCapital password",
+        "hint": "While Active Directory sign-in is not available, the user signs in with their account name and this password. At least 8 characters. Hand it over in person or by phone, not by email.",
+        "label": "New password",
+        "set": "Set password",
+        "isSet": "A password is set.",
+        "notSet": "No password is set. The user cannot sign in yet.",
+        "saved": "The password is set.",
+        "tooShort": "The password needs at least 8 characters."
       }
     },
     "s04": {

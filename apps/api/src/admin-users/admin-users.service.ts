@@ -19,6 +19,7 @@ import { CONFIG, type AppConfig } from "../config";
 import { INSUFFICIENT_PRIVILEGE, UNIQUE_VIOLATION, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
+import { hashPassword } from "../auth/password";
 
 /**
  * ADR-0020 — per-user role administration.
@@ -325,6 +326,36 @@ export class AdminUsersService {
     }
   }
 
+  /**
+   * ADR-0030 — give an account the password it signs in with in `local`
+   * mode. Hashed here; the table holds the hash, the audit row holds the
+   * fact. Only in `local` mode: anywhere else the route does not exist,
+   * because a password nobody can sign in with is a password waiting to be
+   * misread as one.
+   */
+  async setPassword(id: string, password: string): Promise<AdminUser> {
+    if (this.config.authMode !== "local") throw AppError.notFound("errors.routeNotFound");
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    // 404 before anything is written, and the caller's RLS view of app_user
+    // decides whether the account exists for them.
+    await this.detail(id);
+    const passwordHash = hashPassword(password);
+    try {
+      await tx.db
+        .insert(schema.appUserPassword)
+        .values({ appUserId: id, passwordHash })
+        .onConflictDoUpdate({
+          target: schema.appUserPassword.appUserId,
+          set: { passwordHash, updatedAt: sql`now()` },
+        });
+    } catch (error) {
+      if (sqlState(error) === INSUFFICIENT_PRIVILEGE) throw AppError.forbidden("errors.readOnlyAccount");
+      throw error;
+    }
+    return this.detail(id);
+  }
+
   // ------------------------------------------------------------------ rows
 
   private async withRolesAndUnits(
@@ -343,6 +374,17 @@ export class AdminUsersService {
       .select({ appUserId: schema.appUserOrgUnit.appUserId, orgUnitId: schema.appUserOrgUnit.orgUnitId })
       .from(schema.appUserOrgUnit)
       .where(inArray(schema.appUserOrgUnit.appUserId, ids));
+    // ADR-0030: whether a password is set, never the hash. Read in local
+    // mode only, where the sheet shows it; elsewhere the policy would hide
+    // the rows from everybody but an administrator anyway.
+    const passwordRows =
+      this.config.authMode === "local"
+        ? await tx.db
+            .select({ appUserId: schema.appUserPassword.appUserId })
+            .from(schema.appUserPassword)
+            .where(inArray(schema.appUserPassword.appUserId, ids))
+        : [];
+    const withPassword = new Set(passwordRows.map((p) => p.appUserId));
 
     return rows.map((row) => ({
       id: row.id,
@@ -352,7 +394,8 @@ export class AdminUsersService {
       username: row.username ?? row.email,
       name: row.name,
       email: row.email,
-      authSource: (["dev", "ldap", "oidc"].includes(row.authSource) ? row.authSource : "oidc") as AdminUser["authSource"],
+      authSource: (["dev", "ldap", "oidc", "local"].includes(row.authSource) ? row.authSource : "oidc") as AdminUser["authSource"],
+      hasPassword: this.config.authMode === "local" ? withPassword.has(row.id) : undefined,
       active: row.isActive,
       roles: roleRows.filter((r) => r.appUserId === row.id).map((r) => r.role).sort(),
       orgUnitIds: unitRows.filter((u) => u.appUserId === row.id).map((u) => u.orgUnitId).sort(),

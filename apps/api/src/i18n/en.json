@@ -74,6 +74,7 @@
     "budgetFinanceOnly": "Finance changes the approved budget lines. Ask finance to make the change.",
     "unexpected": "Something went wrong. Try again shortly, and tell the estates technical team if it keeps happening.",
     "credentialsNeeded": "Fill in your username and password, then try again.",
+    "passwordNotValid": "The password needs at least 8 characters. Type a longer one and try again.",
     "contractRefNeeded": "Give the contract reference and try again.",
     "contractQueryNotValid": "The contract list filters are not right. Check the unit and the search term, then try again.",
     "costFileNeeded": "The monthly extract file is missing. Choose the file and try again.",

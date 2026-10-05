@@ -14,6 +14,7 @@
  * | orgUnits    | OrgUnit[]              | Everything the caller may see, which for an administrator is all of them. |
  * | saving      | boolean                |                                                                       |
  * | apiError    | string?                | The API's own sentence for `errors.selfLockout`, `errors.lastAdmin`, `errors.auditorProtected` and `errors.unitRequired`, shown inline. |
+ * | localAccounts | boolean?             | ADR-0030: the deployment signs people in with eCapital passwords, so an existing account gets the password block. |
  * | onClose     | () => void             |                                                                       |
  * | onSave      | (values) => void       |                                                                       |
  *
@@ -31,6 +32,7 @@ import { LoaderCircle, X } from "lucide-react";
 import type { AdminUser, AppRole, OrgUnit, RoleCatalogueEntry } from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ApproverScopesEditor } from "./ApproverScopesEditor";
+import { PasswordEditor } from "./PasswordEditor";
 import { coversAllUnits, needsAUnit, type UserFormValues } from "./schema";
 
 export interface UserSheetProps {
@@ -40,6 +42,7 @@ export interface UserSheetProps {
   orgUnits: OrgUnit[];
   saving?: boolean;
   apiError?: string;
+  localAccounts?: boolean;
   onClose: () => void;
   onSave: (values: UserFormValues) => void;
 }
@@ -51,6 +54,7 @@ export function UserSheet({
   orgUnits,
   saving = false,
   apiError,
+  localAccounts = false,
   onClose,
   onSave,
 }: UserSheetProps) {
@@ -117,7 +121,7 @@ export function UserSheet({
 
       <div className="flex-1 overflow-auto p-s-5">
         <form onSubmit={submit} className="flex flex-col gap-s-4">
-          {!user && <p className="text-fs-14 text-k-text">{ts("newHint")}</p>}
+          {!user && <p className="text-fs-14 text-k-text">{ts(localAccounts ? "newHintLocal" : "newHint")}</p>}
 
           <div className="flex flex-col gap-s-1">
             <label htmlFor="us-username" className="text-fs-14 text-k-text">
@@ -253,6 +257,10 @@ export function UserSheet({
           {user && roles.includes("clinical_approver") && (
             <ApproverScopesEditor userId={user.id} orgUnits={orgUnits} />
           )}
+
+          {/* ADR-0030: only where the deployment signs people in with an
+              eCapital password, and only for an account that exists. */}
+          {user && localAccounts && <PasswordEditor userId={user.id} hasPassword={user.hasPassword} />}
 
           <div className="mt-s-2 flex items-center gap-s-3">
             <button

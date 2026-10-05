@@ -51,6 +51,8 @@ export interface UsersProps {
   onSelect: (id: string | "new" | null) => void;
   sheetSaving?: boolean;
   sheetApiError?: string;
+  /** ADR-0030: the sheet shows the password block for an existing account. */
+  localAccounts?: boolean;
   onSave: (values: UserFormValues) => void;
 }
 
@@ -67,6 +69,7 @@ export function Users({
   onSelect,
   sheetSaving = false,
   sheetApiError,
+  localAccounts = false,
   onSave,
 }: UsersProps) {
   const t = useTranslations();
@@ -271,6 +274,7 @@ export function Users({
           orgUnits={orgUnits}
           saving={sheetSaving}
           apiError={sheetApiError}
+          localAccounts={localAccounts}
           onClose={() => onSelect(null)}
           onSave={onSave}
         />

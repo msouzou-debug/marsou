@@ -50,6 +50,13 @@ export class AuthService {
     if (config.authMode === "ldap") {
       this.logger.log(`AUTH_MODE=ldap: binding against ${config.LDAP_URL ?? "(unset)"}`);
     }
+    if (config.authMode === "local") {
+      // ADR-0030. Loud on purpose: this mode is a bridge until the directory
+      // is reachable, and the line is how an operator notices it is still on.
+      this.logger.warn(
+        "AUTH_MODE=local: passwords are held by eCapital itself (ADR-0030). Switch to ldap the day the ΟΚΥπΥ directory is reachable.",
+      );
+    }
   }
 
   async claimsFromBearer(header: string | undefined): Promise<TokenClaims> {
@@ -95,7 +102,8 @@ export class AuthService {
    * looks like a broken password.
    */
   async login(username: string, password: string): Promise<SessionGrant> {
-    if (this.config.authMode !== "ldap" || !this.directory) {
+    const mode = this.config.authMode;
+    if ((mode !== "ldap" && mode !== "local") || !this.directory) {
       throw AppError.notFound("errors.routeNotFound");
     }
 
@@ -130,6 +138,8 @@ export class AuthService {
         username: user.uid,
         name,
         email,
+        // ADR-0030: which way in wrote the row, so the screen can say so.
+        authSource: mode,
       });
 
       const mapped = await mappedAccess(client, user.memberOf);
@@ -313,7 +323,7 @@ function union(a: string[], b: string[]): string[] {
  */
 async function upsertUser(
   client: Client,
-  user: { subject: string; username: string; name: string; email: string },
+  user: { subject: string; username: string; name: string; email: string; authSource: "ldap" | "local" },
 ): Promise<string> {
   const existing = await client.query<{ id: string; is_active: boolean }>(
     `select id, is_active
@@ -328,9 +338,9 @@ async function upsertUser(
   if (!existing.rows.length) {
     const inserted = await client.query<{ id: string }>(
       `insert into ecapital.app_user (subject, username, name, email, auth_source, is_active, last_sign_in_at)
-            values ($1, $2, $3, $4, 'ldap', true, now())
+            values ($1, $2, $3, $4, $5, true, now())
          returning id`,
-      [user.subject, user.username, user.name, user.email],
+      [user.subject, user.username, user.name, user.email, user.authSource],
     );
     return inserted.rows[0].id;
   }
@@ -351,11 +361,11 @@ async function upsertUser(
                       when exists (select 1 from ecapital.app_user other
                                     where other.email = $5 and other.id <> app_user.id)
                       then email else $5 end,
-            auth_source = 'ldap',
+            auth_source = $6,
             last_sign_in_at = now(),
             updated_at = now()
       where id = $1`,
-    [row.id, user.subject, user.username, user.name, user.email],
+    [row.id, user.subject, user.username, user.name, user.email, user.authSource],
   );
   return row.id;
 }

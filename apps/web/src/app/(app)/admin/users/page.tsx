@@ -6,6 +6,7 @@ import { isAdmin } from "@/auth/roles";
 import { AdminTabs, NoPermission } from "@/components/app-shell";
 import { getVisibleOrgUnits } from "@/data/server";
 import { HelpSection } from "@/help/HelpSection";
+import { signInMode } from "@/screens/s00-sign-in/auth-mode";
 import { UsersScreen } from "@/screens/s24-users/UsersScreen";
 
 // Server Component. RULE (ADR-0020, owner decision 19/09/2026): roles are
@@ -36,7 +37,9 @@ export default async function AdminUsersPage() {
   return (
     <>
       <AdminTabs />
-      <UsersScreen orgUnits={orgUnits} noPermission={<NoPermission />} />
+      {/* ADR-0030: read here, on the server, so a change of AUTH_MODE in
+          web.env takes effect on restart without a rebuild. */}
+      <UsersScreen orgUnits={orgUnits} noPermission={<NoPermission />} localAccounts={signInMode() === "local"} />
       <HelpSection route="/admin/users" />
     </>
   );

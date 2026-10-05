@@ -82,8 +82,10 @@ export function SignInForm({ next, mode, showDevAccounts }: SignInFormProps) {
     </button>
   );
 
-  // ------------------------------------------------------------ ldap --
-  if (mode === "ldap") {
+  // ------------------------------------------------------ ldap, local --
+  // ADR-0030: the same two fields and the same server action either way;
+  // only the sentence above them says whose password it is.
+  if (mode === "ldap" || mode === "local") {
     return (
       <form
         className="mt-s-6 flex flex-col gap-s-4"
@@ -92,7 +94,7 @@ export function SignInForm({ next, mode, showDevAccounts }: SignInFormProps) {
           run(() => signIn(username, next, password));
         }}
       >
-        <p className="text-fs-14 text-k-text">{t("ldapHint")}</p>
+        <p className="text-fs-14 text-k-text">{t(mode === "local" ? "localHint" : "ldapHint")}</p>
 
         <div className="flex flex-col gap-s-2">
           <label htmlFor="sign-in-username" className="text-fs-14 text-k-text">

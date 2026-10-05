@@ -6,6 +6,7 @@ import {
   AdminUserList,
   AdminUserUpdate,
   ApproverScopes,
+  PasswordSet,
   RoleCatalogue,
 } from "@ecapital/shared";
 import { AppError } from "../common/errors";
@@ -111,6 +112,28 @@ export class AdminUsersController {
     const parsed = AdminUserUpdate.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.adminUserNotValid");
     return this.users.update(id, sentKeysOnly(parsed.data, body));
+  }
+
+  /**
+   * ADR-0030, `AUTH_MODE=local` only. The administrator gives an account the
+   * password it signs in with while the directory is not reachable. The
+   * password is hashed in the service and never stored or returned as typed;
+   * the audit row says a password was set, by whom and when, and no more.
+   * In every other mode the route answers 404, like `/auth/login` outside
+   * ldap and local: it is not the way in for this deployment.
+   */
+  @Put("users/:id/password")
+  @ApiOperation({ summary: "Set the eCapital password of an account (local mode only)" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(PasswordSet) as never })
+  @ApiZodResponse(200, AdminUser, "The account, with hasPassword true")
+  @ApiZodError(400, "The password is shorter than eight characters")
+  @ApiZodError(403, "The caller is not an administrator")
+  @ApiZodError(404, "No such account, or AUTH_MODE is not local")
+  setPassword(@Param("id") id: string, @Body() body: unknown): Promise<AdminUser> {
+    const parsed = PasswordSet.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.passwordNotValid");
+    return this.users.setPassword(id, parsed.data.password);
   }
 
   /**

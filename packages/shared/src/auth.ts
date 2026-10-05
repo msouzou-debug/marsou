@@ -22,12 +22,26 @@ export type AppRole = z.infer<typeof AppRole>;
 //   ldap  a simple bind against the ΟΚΥπΥ Active Directory — what the ΟΚΥπΥ
 //         server estate actually runs, alongside eMAP and eFinance
 //   oidc  Entra ID, as ADR-0009 built it; kept, not used today
+//   local a username and a password that eCapital itself holds (ADR-0030):
+//         the way in while the directory is not reachable from the server,
+//         and nothing else. An account made here is adopted by its Active
+//         Directory account on the first bind, the same way a pre-registered
+//         one is (ADR-0020).
 //
-// All three end in the same signed session token and the same claims.
-export const AuthMode = z.enum(["dev", "ldap", "oidc"]);
+// All four end in the same signed session token and the same claims.
+export const AuthMode = z.enum(["dev", "ldap", "oidc", "local"]);
 export type AuthMode = z.infer<typeof AuthMode>;
 
-// POST /auth/login — what the sign-in screen sends in `ldap` mode. The
+// PUT /admin/users/:id/password — an administrator giving an account its
+// password in `local` mode (ADR-0030). Eight characters is the floor; the
+// API hashes it and never returns it.
+export const PASSWORD_MIN_LENGTH = 8;
+export const PasswordSet = z.object({
+  password: z.string().min(PASSWORD_MIN_LENGTH).max(128),
+});
+export type PasswordSet = z.infer<typeof PasswordSet>;
+
+// POST /auth/login — what the sign-in screen sends in `ldap` and `local` mode. The
 // username is either a bare sAMAccountName or a full UPN; the API works out
 // which. RULE (ADR-0018): the password is never logged, never stored and
 // never echoed back.

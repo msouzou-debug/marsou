@@ -16,6 +16,7 @@
     "import:capex": "node -r @swc-node/register src/cli/import-capex.ts",
     "grant-admin": "node -r @swc-node/register src/cli/grant-admin.ts",
     "grant-role": "node -r @swc-node/register src/cli/grant-role-cli.ts",
+    "set-password": "node -r @swc-node/register src/cli/set-password.ts",
     "openapi": "node -r @swc-node/register scripts/generate-openapi.ts"
   },
   "dependencies": {

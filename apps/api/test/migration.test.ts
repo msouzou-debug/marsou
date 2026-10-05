@@ -50,7 +50,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0018_cns_unit_and_efinance_codes");
     expect(result.applied).toContain("0019_cns_name_matches_earchive");
     expect(result.applied).toContain("0020_efinance_client");
-    expect(result.lastMigrationId).toBe("0020_efinance_client");
+    expect(result.applied).toContain("0021_local_accounts");
+    expect(result.lastMigrationId).toBe("0021_local_accounts");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -62,6 +63,7 @@ describe("migrations", () => {
       "allocation_rule",
       "app_user",
       "app_user_org_unit",
+      "app_user_password",
       "app_user_role",
       "area",
       "area_clinical_owner",
@@ -142,6 +144,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0018_cns_unit_and_efinance_codes");
     expect(result.skipped).toContain("0019_cns_name_matches_earchive");
     expect(result.skipped).toContain("0020_efinance_client");
+    expect(result.skipped).toContain("0021_local_accounts");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

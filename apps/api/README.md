@@ -43,9 +43,10 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/projects/`, `src/portfolio/` | The M1 modules. `project-rows.ts` holds the phase order and the audit-line rules as pure functions. |
 | `src/contractors/`, `src/contracts/` | The contract register. `contract-rows.ts` holds the commitment arithmetic and the four warn-and-flag rules as pure functions. |
 | `src/rfis/`, `src/site-instructions/`, `src/defects/` | The site log. `rfi-rows.ts` holds the SLA band, `defect-rows.ts` the defects-liability arithmetic and the backlog banding, all as pure functions. |
-| `src/auth/` | The guard, the three ways in and `GET /me` (ADR-0009, ADR-0018). `directory.ts` is the port between "who is this person" and "which directory says so"; `ldap.directory.ts` is the one implementation, against the ΟΚΥπΥ Active Directory. |
+| `src/auth/` | The guard, the four ways in and `GET /me` (ADR-0009, ADR-0018, ADR-0030). `directory.ts` is the port between "who is this person" and "which directory says so"; `ldap.directory.ts` speaks to the ΟΚΥπΥ Active Directory and `local.directory.ts` to eCapital's own password table (`password.ts`, scrypt), the bridge while the directory is not reachable. |
 | `src/admin-users/` | Διαχείριση › Χρήστες — who exists, what they may do and in which units (ADR-0020). The four rules an administrator can break by accident live in the service, each a 422 with a sentence. |
 | `src/cli/grant-role.ts` | The bootstrap CLI: the first administrator on a fresh database, and the only way the auditor is appointed or unappointed. |
+| `src/cli/set-password.ts` | `AUTH_MODE=local` only (ADR-0030): sets an account's eCapital password from the server, echo off, audited as `cli:<os user>`; `--create-admin` for the first account. |
 | `src/links/` | `GET /config/links` — where eMAP and eFinance are, for the S07 link-outs (ADR-0019). |
 | `src/efinance/` | The eFinance client (ADR-0029): `efinance-client.ts` speaks every route of eFinance's record, `contract-push.service.ts` the one write and its ten-minute retry, `efinance-sync.service.ts` the invoice, requisition and master-data reads, `efinance-rows.ts` the rules as pure functions. With no `EFINANCE_TOKEN` everything holds. |
 | `src/common/rls.interceptor.ts` | Opens the transaction that carries the caller's identity into Postgres (ADR-0010). |

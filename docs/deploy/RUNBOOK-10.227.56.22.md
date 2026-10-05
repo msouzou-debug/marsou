@@ -233,6 +233,7 @@ units. Where each one comes from:
 | `EFINANCE_API_URL` | Where the loopback contract answers. Leave the default `http://127.0.0.1:5004` on this server; change it only on a UAT box that runs eFinance elsewhere. |
 | `EFINANCE_PUSH_ENABLED` | **`0` on this UAT server.** Off, eCapital reads invoices, requisitions and the budget position but never sends a contract to eFinance, so the 41 seeded sample contracts cannot reach eFinance's contract picker. Set to `1` only on a deployment whose register is real (the Capex import, not the seed), then `sudo systemctl restart ecapital-api`. Added 02/10/2026, ADR-0029 addendum. |
 | `NEXT_PUBLIC_APP_ORIGIN` | `https://capital.shso.online` — fixed, once the cloudflared request (§1) is live and pointed at nginx (§2.2). |
+| `AUTH_MODE` (api.env) and `NEXT_PUBLIC_AUTH_MODE` (web.env) | `ldap` is the destination. `local` is the bridge while IT has not opened the directory (ADR-0030, §5.0): people sign in with a username and a password the administrator sets in Διαχείριση › Χρήστες. The two files must agree. Never `dev` here. |
 | Everything else | The template comments in `deploy/env/*.env.example` say what each one is; most are fixed values for this server (ports, `BIND_HOST=127.0.0.1` on both files, `AUTH_MODE=ldap`, `DEV_AUTH=0`). |
 
 Do not put real values in the repo's `deploy/env/*.env.example` — those stay
@@ -327,6 +328,47 @@ Directory only authenticates; who may do what is assigned to a person, inside
 eCapital, by an administrator — the same way eFinance does it. So a fresh
 database needs exactly one thing done from the server, and everything after
 that happens in the screen.
+
+### 5.0 Before the directory answers: local accounts (ADR-0030)
+
+As of 05/10/2026 the directory is not reachable from this host (§1), so
+`ldap` lets nobody in. Until IT answers, the server runs `local` mode:
+the same sign-in screen, with the password held by eCapital and set by
+the administrator in the screen. Switch it on once, as `administrator`:
+
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /etc/ecapital/api.env
+sudo sed -i 's/^NEXT_PUBLIC_AUTH_MODE=.*/NEXT_PUBLIC_AUTH_MODE=local/' /etc/ecapital/web.env
+sudo systemctl restart ecapital-api ecapital-web
+```
+
+Then the first account, which is also the first administrator. It asks
+for the password twice, echo off, and never prints it:
+
+```bash
+sudo ecapital-set-password admin --create-admin
+```
+
+(`ecapital-set-password` is installed by `install.sh`; re-run
+`sudo bash ~/ecapital-bootstrap/deploy/install.sh` after a `git pull` if
+the command is missing.) From here on everything happens in the screen:
+sign in as that account, open **Διαχείριση › Χρήστες**, add people with
+«Προσθήκη», save, open the row again and set a password under «Κωδικός
+eCapital». The twelve seeded sample accounts are in the same list and
+take a password the same way; they sign in by their address.
+
+Rules while the mode is on: eight characters at least, hand a password
+over by voice and never by email, and five wrong tries lock the name for
+fifteen minutes (`sudo systemctl restart ecapital-api` clears every lock
+at once).
+
+**The day IT opens the directory:** fill `LDAP_URL` and `LDAP_BASE_DN`
+(§3), set both `AUTH_MODE` lines back to `ldap`, restart both units.
+Every account made in local mode carries `subject = ad:<username>`,
+exactly like a pre-registered one, so the first Active Directory sign-in
+adopts it with its roles and units (ADR-0020). The passwords are never
+read again. Accounts whose username is not an AD account name (the
+seeded samples, or `admin`) simply stop being able to sign in.
 
 ### 5.1 Create the first administrator
 

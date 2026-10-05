@@ -10,6 +10,7 @@ This screen lists every eCapital account and lets you set what each person may d
 4. Press «Αποθήκευση». The change applies the next time they sign in.
 5. For somebody who has never signed in, press «Προσθήκη» and enter their ΟΚΥπΥ account name, their full name, their roles and their units.
 6. To stop an account, open it, clear «Ενεργός λογαριασμός» and confirm.
+7. While the server works with eCapital passwords (the transitional setting, before Active Directory), open the account and, under «Κωδικός eCapital», type a password of at least 8 characters and press «Ορισμός κωδικού». Hand it to the person in person or by phone. A change of password is done the same way. The block is not shown when sign-in goes through Active Directory.
 
 The administrator, finance, executive and auditor roles reach every unit, so the unit list is switched off for them. Every other role needs at least one unit.
 

@@ -29,6 +29,7 @@ describe("openapi.json", () => {
       "/admin/users",
       "/admin/users/{id}",
       "/admin/users/{id}/approver-scopes",
+      "/admin/users/{id}/password",
       "/api/v1/dms/events",
       "/areas/impact",
       "/assets",

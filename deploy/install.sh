@@ -112,6 +112,9 @@ install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/install-deps.sh
 # exact paths.
 install -o root -g root -m 0755 "${SCRIPT_DIR}/sync-release.sh" /usr/local/sbin/ecapital-sync-release
 install -o root -g root -m 0755 "${SCRIPT_DIR}/rollback.sh" /usr/local/sbin/ecapital-rollback
+# ADR-0030: sets an account's eCapital password while AUTH_MODE=local. Reads
+# api.env, so it is root's too; run with a plain `sudo`, no sudoers line.
+install -o root -g root -m 0755 "${SCRIPT_DIR}/set-password.sh" /usr/local/sbin/ecapital-set-password
 # The server-side release variant runs as administrator (never root) and
 # only ever calls the sudo targets the sudoers file below already grants,
 # so it needs no sudoers line of its own — but it is what issues those sudo

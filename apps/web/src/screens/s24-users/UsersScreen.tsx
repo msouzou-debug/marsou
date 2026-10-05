@@ -22,6 +22,8 @@ import { Users, type UsersFilters, type UsersScreenState } from "./Users";
 export interface UsersScreenProps {
   orgUnits: OrgUnit[];
   noPermission: ReactNode;
+  /** ADR-0030: `AUTH_MODE=local` on this deployment, read on the server by the page. */
+  localAccounts?: boolean;
 }
 
 function useOnlineStatus(): boolean {
@@ -41,7 +43,7 @@ function useOnlineStatus(): boolean {
 
 const NO_FILTERS: UsersFilters = { q: "", role: "", unit: "", active: "" };
 
-export function UsersScreen({ orgUnits, noPermission }: UsersScreenProps) {
+export function UsersScreen({ orgUnits, noPermission, localAccounts = false }: UsersScreenProps) {
   const [filters, setFilters] = useState<UsersFilters>(NO_FILTERS);
   const { data, error, isLoading, refetch } = useAdminUsers(filters);
   const catalogue = useRoleCatalogue();
@@ -130,6 +132,7 @@ export function UsersScreen({ orgUnits, noPermission }: UsersScreenProps) {
       onSelect={selectRow}
       sheetSaving={saving}
       sheetApiError={apiError}
+      localAccounts={localAccounts}
       onSave={(values) => void handleSave(values)}
     />
   );

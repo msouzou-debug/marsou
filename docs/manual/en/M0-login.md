@@ -40,3 +40,15 @@ Your roles and your units are set by the system administrator inside eCapital, o
 - **You get in but see nothing.** You have not been given a role yet. Nothing is broken: the sign-in worked and the role is missing. Ask the system administrator to give you a role and units on the «Διαχείριση › Χρήστες» screen.
 - **"Signing in with a ΟΚΥπΥ account is not switched on for this server."** The server has not been configured for Active Directory. Ask the administrator to check `AUTH_MODE`, `LDAP_URL`, `LDAP_BASE_DN` and `LDAP_DOMAIN`.
 - **"The server did not answer."** eCapital could not reach the directory. That is a network or configuration problem, not your password.
+
+## Signing in with an eCapital password (transitional)
+
+While the server cannot reach Active Directory, the system administrator can switch on sign-in with an eCapital password. The screen asks for «Όνομα χρήστη» and «Κωδικός», as it does for Active Directory; the difference is that the password is set by the system administrator inside eCapital and handed to you in person or by phone.
+
+1. Type the username the system administrator gave you (for example `a.papadopoulos`). For the sample accounts the address works too, for example `engineer.larnaca@ecapital.test`.
+2. Type your password. It has at least 8 characters.
+3. Press «Σύνδεση». Your session lasts eight hours.
+
+When Active Directory is switched on, you sign in with your network password instead. Your account, roles and units stay the same.
+
+- **«Το όνομα χρήστη ή ο κωδικός δεν είναι σωστά».** The same sentence appears when no password has been set for your account yet. After five wrong attempts the name is locked for fifteen minutes. If you have forgotten the password, the system administrator sets a new one in «Διαχείριση › Χρήστες».

@@ -38784,8 +38784,12 @@
                             "enum": [
                               "dev",
                               "ldap",
-                              "oidc"
+                              "oidc",
+                              "local"
                             ]
+                          },
+                          "hasPassword": {
+                            "type": "boolean"
                           },
                           "active": {
                             "type": "boolean"
@@ -39041,8 +39045,12 @@
                       "enum": [
                         "dev",
                         "ldap",
-                        "oidc"
+                        "oidc",
+                        "local"
                       ]
+                    },
+                    "hasPassword": {
+                      "type": "boolean"
                     },
                     "active": {
                       "type": "boolean"
@@ -39259,8 +39267,12 @@
                       "enum": [
                         "dev",
                         "ldap",
-                        "oidc"
+                        "oidc",
+                        "local"
                       ]
+                    },
+                    "hasPassword": {
+                      "type": "boolean"
                     },
                     "active": {
                       "type": "boolean"
@@ -39486,8 +39498,12 @@
                       "enum": [
                         "dev",
                         "ldap",
-                        "oidc"
+                        "oidc",
+                        "local"
                       ]
+                    },
+                    "hasPassword": {
+                      "type": "boolean"
                     },
                     "active": {
                       "type": "boolean"
@@ -39677,6 +39693,249 @@
           }
         ],
         "summary": "Change an account's roles, units, name or whether it is on",
+        "tags": [
+          "admin-users"
+        ]
+      }
+    },
+    "/admin/users/{id}/password": {
+      "put": {
+        "operationId": "AdminUsersController_setPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account, with hasPassword true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "authSource": {
+                      "type": "string",
+                      "enum": [
+                        "dev",
+                        "ldap",
+                        "oidc",
+                        "local"
+                      ]
+                    },
+                    "hasPassword": {
+                      "type": "boolean"
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      }
+                    },
+                    "orgUnitIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "lastSignInAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "subject",
+                    "username",
+                    "name",
+                    "email",
+                    "authSource",
+                    "active",
+                    "roles",
+                    "orgUnitIds",
+                    "lastSignInAt",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The password is shorter than eight characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such account, or AUTH_MODE is not local",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the eCapital password of an account (local mode only)",
         "tags": [
           "admin-users"
         ]

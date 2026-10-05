@@ -23,6 +23,8 @@ export const AdminUser = z.object({
   name: z.string(),
   email: z.string(),
   authSource: AuthMode,
+  /** ADR-0030: true when the account holds an eCapital password (`local` mode). Never the password itself. */
+  hasPassword: z.boolean().optional(),
   active: z.boolean(),
   roles: z.array(AppRole),
   orgUnitIds: z.array(z.string()),
