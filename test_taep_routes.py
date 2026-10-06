@@ -395,6 +395,48 @@ def test_the_pdf_is_byte_identical_on_a_second_render(client, app):
     assert first == second
 
 
+def pdf_words(data):
+    """Every word with its position, so layout faults are visible to a test."""
+    from io import BytesIO
+
+    import pdfplumber
+    with pdfplumber.open(BytesIO(data)) as doc:
+        return [(page_number, page.width, word)
+                for page_number, page in enumerate(doc.pages, 1)
+                for word in page.extract_words()]
+
+
+def test_a_long_value_stays_inside_the_frame(client, app):
+    """A long value used to be drawn at a fixed x and bleed into the margin.
+
+    The specimen that went out for review had the relative's identification number
+    hanging 42pt past the frame. Positions are checked rather than text because reading
+    the text back cannot see it: the characters extract perfectly while sitting off the
+    page.
+    """
+    episode_id = finalised(
+        client, app,
+        address="Λεωφόρος Αρχιεπισκόπου Μακαρίου Γ΄ 142, 2311 Λακατάμια, Λευκωσία",
+        next_of_kin_type="Σύζυγος",
+        next_of_kin_details="Μαρία Παπαδοπούλου-Κωνσταντινίδου 99654321",
+        comments="Προσήλθε με πόνο στο στήθος. Παραπέμφθηκε στο Καρδιολογικό για "
+                 "περαιτέρω έλεγχο και πιθανή εισαγωγή.")
+    words = pdf_words(taep.render_costing_pdf(app.ctx, episode_id))
+    # 18mm margin = 51pt; allow a point of rounding
+    overflowing = [w["text"] for _, width, w in words if w["x1"] > width - 50]
+    assert not overflowing, overflowing
+
+
+def test_an_identification_number_is_never_truncated(client, app):
+    """Shrinking to fit is acceptable; losing digits off a number is not."""
+    episode_id = finalised(client, app,
+                           next_of_kin_type="Σύζυγος",
+                           next_of_kin_details="Μαρία Παπαδοπούλου 99654321")
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "99654321" in text
+    assert "\u2026" not in text
+
+
 def pdf_text(data):
     """Extract text from PDF bytes.
 

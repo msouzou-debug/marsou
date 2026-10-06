@@ -1701,6 +1701,30 @@ def costing_document_data(ctx, episode_id):
     }
 
 
+def draw_fitted(pdf, x, y, text, limit, font, size=8, floor=6.0):
+    """Draw text at x, shrinking to stay inside `limit` points.
+
+    The printed document has fixed column positions, so a long value — a double-barrelled
+    relative, a long category name, an address — used to run past the frame and into the
+    margin. Shrinking keeps every character: an identification number on a billing
+    document must not lose digits. Below `floor` the text is cut with an ellipsis instead,
+    which is visibly wrong and so gets reported, rather than silently bleeding across the
+    page.
+    """
+    text = str(text or "")
+    if not text:
+        return size
+    while size > floor and pdf.stringWidth(text, font, size) > limit:
+        size -= 0.25
+    if pdf.stringWidth(text, font, size) > limit:
+        while len(text) > 1 and pdf.stringWidth(text + "\u2026", font, size) > limit:
+            text = text[:-1]
+        text += "\u2026"
+    pdf.setFont(font, size)
+    pdf.drawString(x, y, text)
+    return size
+
+
 def render_costing_pdf(ctx, episode_id):
     """Render the Κοστολόγηση Περιστατικού as A4 PDF bytes."""
     from io import BytesIO
@@ -1766,21 +1790,33 @@ def render_costing_pdf(ctx, episode_id):
              episode["entity_code"], "", ""),
             ("Εισαγωγή", _format_datetime(episode["admission_at"]),
              "Εξέταση", _format_datetime(episode["examination_at"])),
-            ("Εξιτήριο", _format_datetime(episode["discharge_at"]),
-             "Συγγενής", f"{episode['next_of_kin_type'] or ''} "
-                         f"{episode['next_of_kin_details'] or ''}"),
+            ("Εξιτήριο", _format_datetime(episode["discharge_at"]), "", ""),
+            # Full width: a relative's name plus a contact number does not fit the
+            # right-hand column, and shrinking it to fit cost digits off the number.
+            ("Συγγενής", f"{episode['next_of_kin_type'] or ''} "
+                         f"{episode['next_of_kin_details'] or ''}", "", ""),
         ]
+        value_a_x, value_b_x = left + 28 * mm, left + 130 * mm
+        gutter = 3 * mm
         for label_a, value_a, label_b, value_b in rows:
+            pdf.setFont(font, 8)
             pdf.drawString(left, y, f"{label_a}:")
-            pdf.drawString(left + 28 * mm, y, str(value_a or ""))
+            # a value in the left column stops short of the right label, or of the frame
+            # when the row has no right-hand pair
+            limit_a = ((left + 95 * mm) if label_b else right) - value_a_x - gutter
+            draw_fitted(pdf, value_a_x, y, value_a, limit_a, font)
             if label_b:
+                pdf.setFont(font, 8)
                 pdf.drawString(left + 95 * mm, y, f"{label_b}:")
-                pdf.drawString(left + 130 * mm, y, str(value_b or ""))
+                draw_fitted(pdf, value_b_x, y, value_b, right - value_b_x, font)
             y -= 4 * mm
         if episode["comments"]:
+            pdf.setFont(font, 8)
             pdf.drawString(left, y, "Σχόλια:")
-            pdf.drawString(left + 28 * mm, y, str(episode["comments"])[:110])
+            draw_fitted(pdf, value_a_x, y, episode["comments"],
+                        right - value_a_x, font)
             y -= 4 * mm
+        pdf.setFont(font, 8)
         return y - 2 * mm
 
     y = personal_block(y)
@@ -1870,13 +1906,8 @@ def render_costing_pdf(ctx, episode_id):
     amount_column = right - 22 * mm
     for label, value in money_rows:
         # Shrink rather than overprint if a label ever outgrows its column.
-        size = 8
-        while pdf.stringWidth(label, font, size) > (amount_column - totals_left - 2 * mm):
-            size -= 0.5
-            if size <= 6:
-                break
-        pdf.setFont(font, size)
-        pdf.drawString(totals_left, y, label)
+        draw_fitted(pdf, totals_left, y, label,
+                    amount_column - totals_left - 2 * mm, font)
         pdf.setFont(font, 8)
         pdf.drawRightString(right, y, str(value))
         y -= 4.5 * mm

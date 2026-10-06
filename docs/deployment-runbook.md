@@ -46,31 +46,67 @@ they are not needed at runtime but belong with the code.
 repository, so it runs wherever you put it. The other scripts in `tools/` are generators
 for the documents and the seed files — they belong on a workstation, not the server.
 
+No new Python packages are needed. Everything the module imports at runtime —
+`flask`, `openpyxl`, `reportlab` — is already in eFinance's `requirements.txt`.
+
 Do **not** copy `conftest.py`, `taep_harness.py`, `test_*.py`, `acceptance.py` or the rest
 of `tools/` onto the production server. They are the test and build side.
 
 ## 2. Register the module
 
-In `/opt/finance/app.py`, add `taep` to the module list beside `bankrec`, `oayrecon` and
-`boardpack`. The contract in eFinance's `DESIGN.md` does the rest: `SCHEMA_STATEMENTS`
-and `ALTER_STATEMENTS` run under the `init_db` lock, then `seed(ctx)`, then
-`register(app, ctx)`.
+In `/opt/finance/app.py`, add `"taep"` to the `_MODULES` loop (at the time of writing,
+`app.py:1363`):
+
+```python
+for _mod_name in ("boardpack", "vendors", "invoices", "requisitions",
+                  "manual", "masterdata", "taep"):
+```
+
+`bankrec` and `oayrecon` were taken out of that list on 31/07/2026 — their tables are
+still there. Do not add them back while adding ours.
+
+The contract in eFinance's `DESIGN.md` does the rest: `SCHEMA_STATEMENTS` and
+`ALTER_STATEMENTS` run under the `init_db` lock (`app.py:1453`), then `seed(ctx)`, then
+`register(app, ctx)` (`app.py:4283`).
 
 ## 3. Add the permission keys
 
-The five keys in `taep.PERMISSIONS_CATALOG_EL` go into eFinance's `PERMISSIONS_CATALOG`.
+eFinance's `PERMISSIONS_CATALOG` (`app.py:718`) is a dict of category → list of
+`(key, label)` tuples, so add a block rather than merging a dict. The labels are the ones
+in `taep.PERMISSIONS_CATALOG_EL`:
+
+```python
+    "Κοστολόγηση ΤΑΕΠ": [
+        ("taep.create", "ΤΑΕΠ — καταχώρηση και κοστολόγηση"),
+        ("taep.finalise", "ΤΑΕΠ — οριστικοποίηση και εκτύπωση"),
+        ("taep.cancel", "ΤΑΕΠ — ακύρωση κοστολόγησης"),
+        ("taep.rates", "ΤΑΕΠ — διαχείριση τιμών και τιμοκαταλόγου"),
+        ("taep.admin", "ΤΑΕΠ — διαχείριση συστήματος"),
+    ],
+```
+
 Until they are there, every ΤΑΕΠ screen returns 403 — which is correct, but looks like
 a broken install.
 
-| Key | Grant to |
-|---|---|
-| `taep.create` | the clerks (κωδικοποιητές) |
-| `taep.finalise` | the clerks |
-| `taep.cancel` | hospital_admin only |
-| `taep.rates` | rates_admin only |
-| `taep.admin` | system_admin only |
+The brief's role names (`hospital_admin`, `rates_admin`, `system_admin`) do not exist in
+eFinance. Its `ROLES` are `admin`, `clerk`, `accountant`, `chief_accountant`, `cfo`,
+`group_cfo`, `ceo`, `board_viewer`, `cc_manager`, `fpa`, `vendor_master`, `viewer`,
+`tester`. A mapping onto those, **for the Μονάδα to confirm — it is their decision, not
+ours**:
 
-Which existing eFinance roles get them is the Μονάδα's decision, not ours.
+| Key | Suggested role |
+|---|---|
+| `taep.create` | `clerk` |
+| `taep.finalise` | `clerk` |
+| `taep.cancel` | `admin` |
+| `taep.rates` | `chief_accountant` |
+| `taep.admin` | `admin` |
+
+One warning on role choice: eFinance's `CENTRAL_ROLES` (`admin`, `chief_accountant`,
+`cfo`, `group_cfo`, `ceo`, `board_viewer`, `fpa`, `tester`) see **every** entity. Granting
+`taep.create` to any of them breaks the brief's rule that a Limassol clerk must never see
+a Nicosia episode. `clerk` is not central, which is why it is the right home for the
+costing permissions.
 
 ## 4. Check the hospital entities
 

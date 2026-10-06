@@ -114,16 +114,29 @@ source before they leave the building.
 and `taep` is added to the module list in `app.py`. File by file — **never** run eFinance's
 `deploy.sh`, which overwrites the live database.
 
-`register(app, ctx)` is not written yet, so the module currently contributes schema and
-seed only. That is Phase 2.
+`docs/TAEP_odigies_egkatastasis_IT.pdf` is the Greek installation document for Τμήμα
+Πληροφορικής, generated from `tools/make_it_install_doc.py`. The English source of record
+is `docs/deployment-runbook.md`.
 
 ## The printed document
 
-`docs/sample_kostologisi.pdf` is a rendered example: the golden case under category 600
-ΕΠΙ ΠΛΗΡΩΜΗ with two tariff lines, €120,00 weight + €55,00 tariff = €175,00.
+Two specimens, both produced by `tools/make_sample_costing.py` driving the real routes
+through the test harness, so they are what a printer puts out rather than a mock-up:
 
-It carries the Τέλος Εγγραφής row the supplied sample omits, itemises tariff lines above
-the totals, and renders byte-identically on every render.
+| File | Case |
+|---|---|
+| `docs/sample_kostologisi.pdf` | Category 600 ΕΠΙ ΠΛΗΡΩΜΗ, weight 12 → €180,00 plus a €12,00 tariff line = €192,00 |
+| `docs/sample_kostologisi_diaologi.pdf` | Triage only, category 603 → €10,00 plus the €10,00 registration fee = €20,00 |
+| `docs/TAEP_deigmata_kostologisis.pdf` | The two merged, for circulation |
+
+The document carries the Τέλος Εγγραφής row the supplied sample omits, itemises tariff
+lines above the totals, and renders byte-identically on every render.
+
+Values are fitted to their columns by `draw_fitted()` rather than drawn at a fixed x. The
+specimen that first went out had the relative's identification number hanging 42pt past
+the right frame — the characters extracted perfectly from the PDF while sitting off the
+page, which is why `test_a_long_value_stays_inside_the_frame` checks positions and not
+text.
 
 ## Administration
 
