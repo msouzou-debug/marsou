@@ -1,6 +1,6 @@
 # eCapital — User acceptance test scenarios (UAT)
 
-Version 05/10/2026. For the test installation at `ecapital.shso.online` with the sample data (41 projects, 17 contracts, 8 permits, 26 assets). Nothing in it is real. The Greek file `UAT-scenarios.el.md` is the one testers use; this is the same list in English, with the Greek screen names kept as they appear on screen.
+Version 06/10/2026. For the test installation at `ecapital.shso.online` with the sample data (41 projects, 17 contracts, 8 permits, 26 assets, the Nicosia maintenance agreement with three months of orders). Nothing in it is real. The Greek file `UAT-scenarios.el.md` is the one testers use; this is the same list in English, with the Greek screen names kept as they appear on screen.
 
 ## Before you start
 
@@ -132,11 +132,32 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | I2 | Approvals on a phone. | Each row with approve and reject buttons a thumb can press. | |
 | I3 | Project list on a phone. | Cards instead of a table. | |
 
+## J. Maintenance (head of estates, engineer, technician, nursing)
+
+| # | Steps | Expected | Result |
+|---|---|---|---|
+| J1 | As `estates.nicosia`, Συντήρηση. | Six tiles at the top and the work order list with the newest calls first. Each corrective order has three timers: response, restore, written report. A preventive order has only its programme date. | |
+| J2 | As `nursing.nicosia` on a phone, Νέα κλήση. Find a lift by its name, write «Σταματά ανάμεσα σε ορόφους». | The unit is already picked and the source is «Νοσηλευτική υπηρεσία». Before submitting, the three deadlines show, counted from the call time. | |
+| J3 | Submit. | The new order opens with a ref like `NGH-WO-2026-…`. As `nursing.nicosia` you see no action buttons: you log calls, you do not move them on. | |
+| J4 | As `technician.nicosia` on a phone, open the same order and press «Εκτέλεση από κινητό». Press «Έναρξη», then «Παύση» and «Συνέχιση». | Large buttons at the bottom, only the valid ones each time. The camera shows wherever you are on the page. No horizontal scroll. | |
+| J5 | Take a photo with the camera button. | The photo shows in the strip and in the order's history under your name. | |
+| J6 | Press «Αποκατάσταση», then «Ολοκλήρωση» without codes. | The restore is recorded and its timer stops. Completion stays disabled until you pick the failure, cause and remedy codes. With all three, the order becomes «Ολοκληρώθηκε». | |
+| J7 | As `estates.nicosia`, Νέα κλήση on a critical system, with the call time two hours earlier. | The response timer shows «Εκπρόθεσμο» and the «Εκπρόθεσμη ανταπόκριση» tile goes up by one. Within the next hour the order is marked «Κλιμάκωση». | |
+| J8 | On an open corrective order, under «Εργασία και κόστος», set a 5-day extension with no reason. Then with a reason. | Without a reason it does not save. With one, the restore deadline moves and the response deadline does not. | |
+| J9 | Cancel an open order with no reason, then with one. | Without a reason it is not cancelled. With one it becomes «Ακυρώθηκε» and the reason shows in the history. | |
+| J10 | As `estates.nicosia`, Πρόγραμμα ΠΣ. | Agreement Α.Ο 42/24 with 24/7 cover, hours 07:30–15:00 and availability 8.600 hours. The catalogue with its 48 systems and the «Ρήτρες προς επιβεβαίωση» mark. | |
+| J11 | Download the Excel template, clear one row's band, upload it. | The result table names the row that was not imported and why. The others are updated and no system is doubled. | |
+| J12 | Press «Έκδοση τώρα» twice. | The first time issues the orders that are close to their date. The second issues none and says how many lines already had an open order. As `technician.nicosia` the button is not there. | |
+| J13 | Εκκρεμότητες. As `engineer.nicosia` open an automatic draft. Then as `estates.nicosia` press «Σε έργο». | Totals by unit and risk band. The engineer does not see «Σε έργο». The head of estates confirms, a project is created at the Idea phase and the item becomes «Χρηματοδοτήθηκε». | |
+| J14 | Αξιολόγηση, agreement Α.Ο 42/24, «Προηγούμενο τρίμηνο». Press «Εξαγωγή σε Excel». | On-time percentages with the «out of» counts, downtime hours and the «ρήτρες ελλιπείς» note. The Excel has formulas for the percentages and penalties. As `finance` the same amounts. | |
+
 ## Not tested in this version
 
 - Active Directory sign-in. Waiting on IT.
 - Sending contracts to eFinance. The switch stays off while the data is sample data.
-- Work orders, preventive maintenance, the reports screen. Milestones M5 and M6. The «Συντήρηση» and «Αναφορές» pages say so and point at what exists.
+- The reports screen. Milestone M6. The «Αναφορές» page says so and points at what exists.
+- Running work orders offline. In this version the phone needs signal for every action.
+- The maintenance agreement's penalty amounts. They are missing from the copy of the contract; the scorecard counts late items and does not price them.
 - Sending documents to eArchive from the samples. Documents are recorded and queued.
 
 ## How to report a finding

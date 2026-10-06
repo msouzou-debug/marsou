@@ -226,3 +226,50 @@ export function canUploadAssetDocuments(roles: AppRole[]): boolean {
 export function canViewReplacementForecast(roles: AppRole[]): boolean {
   return roles.some((role) => ["estates_head", "finance", "executive_readonly", "admin"].includes(role));
 }
+
+// ------------------------------------------------------------ M5 (R32–R37)
+//
+// ADR-0031 §10 settles these, so unlike the M1–M4 blocks above nothing here
+// is a guess. The API's row policies and `@Roles` decide; these only keep a
+// control off the screen for a role that would get a 403.
+
+/**
+ * S20 «Νέα κλήση». The nursing team is who notices a fault on a ward, so
+ * the clinical approver may raise a corrective call too (owner answer,
+ * 06/10/2026). Raising is all they do: they never move an order on.
+ */
+export function canRaiseWorkOrder(roles: AppRole[]): boolean {
+  return roles.some((role) =>
+    ["technician", "project_engineer", "estates_head", "admin", "clinical_approver"].includes(role),
+  );
+}
+
+/** S18a/S19 transitions, codes, costs, extensions, notes and photos. */
+export function canWorkWorkOrder(roles: AppRole[]): boolean {
+  return roles.some((role) => ["technician", "project_engineer", "estates_head", "admin"].includes(role));
+}
+
+/** S18b: the agreement, the SLA catalogue, its import, the programme and «Έκδοση τώρα». */
+export function canManageMaintenanceContract(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "estates_head" || role === "admin");
+}
+
+/** S21 write, and S18a «Στις εκκρεμότητες»: engineer, head of estates, admin. */
+export function canManageBacklog(roles: AppRole[]): boolean {
+  return roles.some((role) => ["project_engineer", "estates_head", "admin"].includes(role));
+}
+
+/** S21 «Σε έργο»: drafts and funds a project, so only the two roles that may. */
+export function canFundBacklog(roles: AppRole[]): boolean {
+  return roles.some((role) => role === "estates_head" || role === "admin");
+}
+
+/**
+ * S22. RULE (ADR-0031 §10): «everyone who reads the unit reads all of it» —
+ * the scorecard is computed from orders the caller already sees, so there
+ * is no role to keep out. The helper exists so the S18 button and the page
+ * ask one place, should that ever change.
+ */
+export function canViewScorecard(roles: AppRole[]): boolean {
+  return roles.length > 0;
+}

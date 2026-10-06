@@ -1,50 +1,30 @@
-// S18 «Συντήρηση» — M5 (R32–R37), not built yet.
+// S18 «Εντολές εργασίας» — R33, R34 (ADR-0031)
 //
-// The nav rail has carried «Συντήρηση» since M0 (UI instructions §2, fixed
-// order), and until M5 the link answered 404, which a tester reads as a
-// fault. This page says what the area will hold, which milestone brings it,
-// and where the maintenance facts that do exist today live: the asset
-// register (condition, readings, replacement forecast), the defects on a
-// contract, and the permits. It is deliberately a page and not a redirect,
-// so the nav item stays honest.
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { PageTitle } from "@/components/app-shell";
+// Replaces the M0–M4 placeholder: the nav item now lands on the work order
+// list. The unit filter starts on the unit the switcher remembers (the
+// `ecapital_unit` cookie), or on a `?unit=` link; «ΟΚΥπΥ — όλες οι
+// μονάδες» is a view, not a unit, so it starts unfiltered.
+import { cookies } from "next/headers";
+import { UNIT_COOKIE } from "@/auth/cookies";
+import { getSession } from "@/auth/session";
+import { NoPermission } from "@/components/app-shell";
+import { getVisibleOrgUnits } from "@/data/server";
 import { HelpSection } from "@/help/HelpSection";
+import { WorkOrdersScreen } from "@/screens/s18-work-orders/WorkOrdersScreen";
 
-const TODAY_LINKS = [
-  { key: "assets", href: "/assets" },
-  { key: "forecast", href: "/assets/forecast" },
-  { key: "contracts", href: "/contracts" },
-  { key: "permits", href: "/permits" },
-] as const;
-
-export default async function MaintenancePage() {
-  const t = await getTranslations("screens.s18");
-  const nav = await getTranslations("nav");
+export default async function MaintenancePage({ searchParams }: PageProps<"/maintenance">) {
+  const [session, orgUnits, params, unitCookie] = await Promise.all([getSession(), getVisibleOrgUnits(), searchParams, cookies()]);
+  const fromLink = typeof params.unit === "string" ? params.unit : undefined;
+  const remembered = unitCookie.get(UNIT_COOKIE)?.value;
+  const unit = [fromLink, remembered].find((id) => id && orgUnits.some((u) => u.id === id));
   return (
     <>
-      <div className="mx-auto max-w-[680px]">
-        <PageTitle eyebrow={nav("maintenance")} title={t("title")} />
-        <p className="text-fs-16 leading-[1.6] text-k-text">{t("intro")}</p>
-        <h2 className="mt-s-6 text-fs-16 font-bold text-k-ink">{t("comingTitle")}</h2>
-        <ul className="mt-s-2 list-disc pl-s-5 text-fs-16 leading-[1.6] text-k-text">
-          <li>{t("coming.workOrders")}</li>
-          <li>{t("coming.ppm")}</li>
-          <li>{t("coming.backlog")}</li>
-          <li>{t("coming.mobile")}</li>
-        </ul>
-        <h2 className="mt-s-6 text-fs-16 font-bold text-k-ink">{t("todayTitle")}</h2>
-        <ul className="mt-s-2 flex flex-col gap-s-2">
-          {TODAY_LINKS.map((link) => (
-            <li key={link.key}>
-              <Link href={link.href} className="text-fs-16 text-k-blue underline-offset-2 hover:underline">
-                {t(`today.${link.key}`)}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <WorkOrdersScreen
+        orgUnits={orgUnits}
+        roles={session?.me.roles ?? []}
+        noPermission={<NoPermission />}
+        initialFilters={unit ? { unit } : undefined}
+      />
       <HelpSection route="/maintenance" />
     </>
   );

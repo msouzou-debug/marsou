@@ -30,6 +30,11 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S17 | Πάγιο | Asset | admin, estates_head, project_engineer, technician, finance, executive_readonly, auditor_readonly |
 | S17a-edit | Νέο πάγιο / Επεξεργασία παγίου | New asset / Edit asset | admin, estates_head, project_engineer, technician |
 | S17b | Ετικέτες παγίων | Asset labels | admin, estates_head, project_engineer, technician, finance |
+| S18 | Εντολές εργασίας | Work orders | estates_head, project_engineer, technician, clinical_approver, admin, executive_readonly, auditor_readonly |
+| S18a | Εντολή εργασίας | Work order | estates_head, project_engineer, technician, clinical_approver, admin, executive_readonly, auditor_readonly |
+| S18b | Προληπτική συντήρηση | Preventive maintenance | estates_head, admin, project_engineer |
+| S19 | Εκτέλεση εντολής | Run a work order | technician, project_engineer, estates_head |
+| S20 | Καταγραφή κλήσης | Log a call | technician, clinical_approver, project_engineer, estates_head, admin |
 | S24 | Ανάδοχοι | Contractors | admin, estates_head |
 | S24u | Χρήστες | Users | admin |
 | S26 | Οδηγός χρήσης | User guide | admin, estates_head, project_engineer, technician, finance, clinical_approver, executive_readonly, auditor_readonly |
@@ -50,7 +55,8 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S14 | Εγκρίσεις | Approvals | admin, estates_head, clinical_approver |
 | S15 | Ημερολόγιο διαταράξεων | Disruption calendar | admin, estates_head, project_engineer, clinical_approver, executive_readonly, auditor_readonly |
 | S17c | Πρόβλεψη αντικαταστάσεων | Replacement forecast | estates_head, finance, executive_readonly, admin |
-| S18 | Συντήρηση | Maintenance | estates_head, technician, admin |
+| S21 | Εκκρεμότητες συντήρησης | Maintenance backlog | estates_head, project_engineer, finance, executive_readonly, admin |
+| S22 | Αξιολόγηση αναδόχων | Contractor scorecard | estates_head, finance, executive_readonly, auditor_readonly, admin |
 | S23 | Αναφορές | Reports | estates_head, finance, executive_readonly, auditor_readonly, admin |
 | S24e | eFinance | eFinance | admin |
 

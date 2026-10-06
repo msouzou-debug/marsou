@@ -46,9 +46,10 @@ export interface NavItem {
   visibleFor?: (roles: AppRole[]) => boolean;
 }
 
-// UI instructions §2: fixed order, one Lucide icon each. «Συντήρηση» (M5)
-// and «Αναφορές» (M6) land on a page that says so and points at what exists
-// today, never on a 404 (owner ask, 05/10/2026).
+// UI instructions §2: fixed order, one Lucide icon each. «Αναφορές» (M6)
+// lands on a page that says so and points at what exists today, never on a
+// 404 (owner ask, 05/10/2026). «Συντήρηση» did the same until M5; it now
+// opens S18, the work order list.
 export const NAV_ITEMS: NavItem[] = [
   { id: "portfolio", href: "/", labelKey: "nav.portfolio", icon: LayoutDashboard },
   { id: "projects", href: "/projects", labelKey: "nav.projects", icon: FolderKanban },

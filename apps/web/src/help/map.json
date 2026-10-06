@@ -530,10 +530,84 @@
   "S18": {
     "route": "/maintenance",
     "section": "S18-maintenance",
+    "tier": "day-one",
+    "persona": [
+      "estates_head",
+      "project_engineer",
+      "technician",
+      "clinical_approver",
+      "admin",
+      "executive_readonly",
+      "auditor_readonly"
+    ]
+  },
+  "S18a": {
+    "route": "/maintenance/[id]",
+    "section": "S18a-work-order",
+    "tier": "day-one",
+    "persona": [
+      "estates_head",
+      "project_engineer",
+      "technician",
+      "clinical_approver",
+      "admin",
+      "executive_readonly",
+      "auditor_readonly"
+    ]
+  },
+  "S19": {
+    "route": "/maintenance/[id]/run",
+    "section": "S19-work-order-run",
+    "tier": "day-one",
+    "persona": [
+      "technician",
+      "project_engineer",
+      "estates_head"
+    ]
+  },
+  "S20": {
+    "route": "/maintenance/new",
+    "section": "S20-call",
+    "tier": "day-one",
+    "persona": [
+      "technician",
+      "clinical_approver",
+      "project_engineer",
+      "estates_head",
+      "admin"
+    ]
+  },
+  "S18b": {
+    "route": "/maintenance/plan",
+    "section": "S18b-pm-plan",
+    "tier": "day-one",
+    "persona": [
+      "estates_head",
+      "admin",
+      "project_engineer"
+    ]
+  },
+  "S21": {
+    "route": "/maintenance/backlog",
+    "section": "S21-backlog",
     "tier": "optional",
     "persona": [
       "estates_head",
-      "technician",
+      "project_engineer",
+      "finance",
+      "executive_readonly",
+      "admin"
+    ]
+  },
+  "S22": {
+    "route": "/maintenance/scorecard",
+    "section": "S22-scorecard",
+    "tier": "optional",
+    "persona": [
+      "estates_head",
+      "finance",
+      "executive_readonly",
+      "auditor_readonly",
       "admin"
     ]
   },

@@ -56,6 +56,13 @@ import s09CertificateDetail from "@/screens/s09-payment-certs/CertificateDetail.
 import s09aAccruals from "@/screens/s09a-accruals/Accruals.preview";
 import s10Imports from "@/screens/s10-sap-import/Imports.preview";
 import s10UnmatchedQueue from "@/screens/s10-sap-import/UnmatchedQueue.preview";
+import s18WorkOrders from "@/screens/s18-work-orders/WorkOrders.preview";
+import s18aWorkOrder from "@/screens/s18a-work-order/WorkOrderDetail.preview";
+import s18bPmPlan from "@/screens/s18b-pm-plan/PmPlan.preview";
+import s19WorkOrderRun from "@/screens/s19-work-order-run/WorkOrderRun.preview";
+import s20Call from "@/screens/s20-call/CallForm.preview";
+import s21Backlog from "@/screens/s21-backlog/Backlog.preview";
+import s22Scorecard from "@/screens/s22-scorecard/Scorecard.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 import s24Users from "@/screens/s24-users/Users.preview";
 import s24eEfinance from "@/screens/s24e-efinance/EFinanceAdmin.preview";
@@ -122,6 +129,13 @@ const entries: PreviewEntry[] = [
   s09aAccruals,
   s10Imports,
   s10UnmatchedQueue,
+  s18WorkOrders,
+  s18aWorkOrder,
+  s18bPmPlan,
+  s19WorkOrderRun,
+  s20Call,
+  s21Backlog,
+  s22Scorecard,
   s24Contractors,
   s24Users,
   s24eEfinance,

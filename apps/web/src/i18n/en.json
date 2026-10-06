@@ -1519,21 +1519,49 @@
       "masterError": "eFinance returned an error: {detail}"
     },
     "s18": {
-      "title": "Maintenance",
-      "intro": "The maintenance area is built in milestone M5 and is not available yet. The link has been in the menu from the start so its place is known. What concerns maintenance today lives on the screens below.",
-      "comingTitle": "What it will hold",
-      "coming": {
-        "workOrders": "Work orders: corrective, planned and statutory, with an SLA timer and escalation.",
-        "ppm": "Preventive maintenance from the SLAs each hospital uploads, with work orders issued automatically.",
-        "backlog": "Maintenance backlog by hospital and risk band, funded and unfunded.",
-        "mobile": "Work order execution on a phone, with photos and sign-off, offline too."
+      "title": "Work orders",
+      "caption": "Work orders",
+      "empty": "No work orders match these filters.",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Ref, title, asset or system",
+      "escalated": "Escalated",
+      "actions": {
+        "newCall": "New call",
+        "plan": "PM programme",
+        "backlog": "Backlog",
+        "scorecard": "Scorecard"
       },
-      "todayTitle": "What exists today",
-      "today": {
-        "assets": "Asset register: condition, readings, warranty, history per asset",
-        "forecast": "Asset replacement forecast",
-        "contracts": "Handover and inspection defects, on the «Ελλείψεις» tab of each contract",
-        "permits": "Shutdowns and permits to work"
+      "kpi": {
+        "open": "Open orders",
+        "overdueResponse": "Response overdue",
+        "overdueRestore": "Restore overdue",
+        "pmDueThisMonth": "Preventive due this month",
+        "pmOverdue": "Preventive overdue",
+        "backlogUnfunded": "Unfunded backlog"
+      },
+      "filters": {
+        "kind": "Kind",
+        "band": "Band",
+        "slaState": "Contract timers",
+        "all": "All"
+      },
+      "columns": {
+        "ref": "Ref",
+        "kind": "Kind",
+        "band": "Band",
+        "system": "System",
+        "asset": "Asset",
+        "title": "Title",
+        "calledAt": "Called",
+        "response": "Response",
+        "restore": "Restore",
+        "report": "Written report",
+        "escalated": "Escalation"
+      },
+      "timer": {
+        "metOnTime": "On time",
+        "metLate": "Late",
+        "pmDue": "By {date}"
       }
     },
     "s23": {
@@ -1572,6 +1600,335 @@
         "lifecycle": "Asset lifecycle: capital cost, cumulative maintenance cost, remaining life.",
         "directorate": "Every report by unit and by directorate.",
         "exports": "Scheduled exports to Excel and PDF."
+      }
+    },
+    "s18detail": {
+      "askRole": "This order belongs to a unit you cannot see. Ask the system administrator for access.",
+      "runLink": "Run on a phone",
+      "escalatedAt": "Escalated on {date}: the response time passed with no response from the contractor.",
+      "repeatThird": "Third failure in twelve months on this asset. Consider whether it should be replaced.",
+      "repeatMany": "{count} failures in twelve months on this asset. Consider whether it should be replaced.",
+      "timers": {
+        "title": "Contract timers",
+        "response": "Response",
+        "restore": "Restore",
+        "report": "Written report",
+        "pmDue": "Programme date",
+        "deadline": "Deadline: {date}",
+        "met": "Done: {date}",
+        "extended": "{days, plural, one {Restore extended by # working day} other {Restore extended by # working days}}"
+      },
+      "actionsTitle": "Actions",
+      "closed": "The order is closed. There is nothing more to do on it.",
+      "noActions": "There is no action at this stage.",
+      "readOnly": "You can see this order but not move it on.",
+      "factsTitle": "Details",
+      "facts": {
+        "system": "Contract system",
+        "asset": "Asset",
+        "noAsset": "No asset",
+        "area": "Area",
+        "contractor": "Contractor",
+        "calledBy": "Called in by",
+        "calledAt": "Call time",
+        "assignedTo": "Contractor's technician",
+        "costs": "Cost: estimate / actual",
+        "description": "Description",
+        "closeout": "Close-out note"
+      },
+      "codes": {
+        "title": "Failure coding",
+        "failure": "Failure code",
+        "cause": "Cause code",
+        "remedy": "Remedy code",
+        "pick": "Choose",
+        "required": "A corrective order completes only with all three codes: failure, cause, remedy."
+      },
+      "photosTitle": "Photos and documents",
+      "uploadLabel": "Photo or document for the order",
+      "photosEmpty": "No photo or document has been uploaded yet.",
+      "notesTitle": "Notes",
+      "noteLabel": "New note",
+      "noPatientData": "Do not write patient details. Write what broke and where.",
+      "notesReadOnly": "Notes appear in the history below.",
+      "saving": "Saving…",
+      "saved": "Changes saved.",
+      "historyTitle": "History",
+      "editTitle": "Work and cost",
+      "fields": {
+        "costEstimate": "Cost estimate (€)",
+        "costActual": "Actual cost (€)",
+        "costInvalid": "Cost must be a positive number, for example 1.250,50.",
+        "partsNote": "Spare parts",
+        "extensionDays": "Restore extension (working days)",
+        "extensionReason": "Reason for the extension",
+        "extensionHint": "The contract allows {spare} working days for a spare part imported from abroad and {chiller} for a chiller compressor, if proven. The extension moves the restore deadline only.",
+        "extensionReasonRequired": "Write why the extension is given.",
+        "daysInvalid": "The extension is a whole number from 0 to 60 days."
+      },
+      "backlog": {
+        "title": "To the backlog",
+        "intro": "For work the maintenance agreement does not cover: a repair with no budget line, a replacement, an upgrade.",
+        "button": "To the backlog",
+        "titleLabel": "Title",
+        "kind": "Kind",
+        "band": "Risk band",
+        "done": "The work was added to the maintenance backlog.",
+        "linked": "This order is already linked to a backlog item.",
+        "open": "Open the maintenance backlog"
+      },
+      "dialog": {
+        "title": "{action} · {ref}",
+        "consequence": {
+          "ACKNOWLEDGE": "Records that the contractor responded. The response timer stops.",
+          "START": "Records that the work started.",
+          "PAUSE": "The work stops for now. The contract timers keep running.",
+          "RESUME": "The work resumes.",
+          "RESTORE": "Records that the system works again. The restore timer stops; the written report is still owed.",
+          "COMPLETE": "The order closes with the contractor's report and cost.",
+          "CANCEL": "The order is cancelled and does not count in the contractor's scorecard."
+        },
+        "note": "Note (optional)",
+        "reason": "Reason for cancelling",
+        "reasonRequired": "Write why the order is cancelled.",
+        "reportReceived": "Report received on",
+        "at": "When it happened",
+        "atHint": "Leave it empty if it happened now."
+      }
+    },
+    "s19": {
+      "back": "Back to the order",
+      "needsNetwork": "Needs a connection. Nothing is saved while offline.",
+      "taskTitle": "What to do",
+      "checklistTitle": "Checklist",
+      "checklistDone": "{done} of {total}",
+      "checklistNote": "The ticks stay on this screen only. Write anything that must be kept in the completion note.",
+      "photosTitle": "Photos",
+      "camera": "Take a photo",
+      "closed": "The order is closed.",
+      "readOnly": "You can see this order but not move it on.",
+      "actionsLabel": "Order actions"
+    },
+    "s20": {
+      "title": "Log a call",
+      "intro": "Log the fault as soon as you are told about it. The contract timers count from the time of the call.",
+      "readOnly": "Your role does not log calls. You see the form without a way to submit it.",
+      "pickUnit": "Choose a unit",
+      "unitRequired": "Choose the unit of the fault.",
+      "kind": "Order kind",
+      "asset": "Asset",
+      "assetSearch": "Search by asset tag or name",
+      "assetNone": "No asset found. Choose «No asset» and describe the spot.",
+      "noAsset": "No asset",
+      "changeAsset": "Change",
+      "noAgreement": "The unit has no active maintenance agreement. The call is logged without contract timers.",
+      "system": "Contract system",
+      "pickSystem": "Choose a system",
+      "systemHours": "Response {response} · restore {restore} · report {report}",
+      "titleLabel": "What is wrong",
+      "titleHint": "One sentence, for example «The air conditioning unit in room 214 does not cool».",
+      "titleRequired": "Write at least three characters.",
+      "description": "Details (optional)",
+      "noPatientData": "Do not write patient details.",
+      "area": "Area (optional)",
+      "areaNeedsUnit": "Choose a unit first.",
+      "source": "Who reported it",
+      "calledAt": "Call time",
+      "calledAtHint": "If the call came earlier by phone, enter the real time.",
+      "assignedTo": "Contractor's technician (optional)",
+      "preview": {
+        "title": "Deadlines",
+        "response": "Response by",
+        "restore": "Restore by",
+        "report": "Written report by",
+        "none": "Choose a system to see the deadlines."
+      },
+      "duration": {
+        "hours": "{count} h",
+        "minutes": "{count} min"
+      }
+    },
+    "s18plan": {
+      "title": "Preventive maintenance",
+      "intro": "The unit's maintenance agreement, its catalogue of systems with their times, and the programme that issues the preventive orders.",
+      "pickUnitFirst": "Choose a unit to see its agreement and programme.",
+      "agreement": {
+        "title": "Maintenance agreement",
+        "none": "The unit has no maintenance agreement recorded.",
+        "contractor": "Contractor",
+        "pickContractor": "Choose a contractor",
+        "ref": "Agreement number",
+        "titleLabel": "Subject",
+        "period": "Term",
+        "open": "no end date",
+        "startDate": "Start",
+        "endDate": "End",
+        "status": "Status",
+        "statusActive": "Active",
+        "statusEnded": "Ended",
+        "cover": "Breakdown cover",
+        "roundTheClock": "Round the clock, 7 days",
+        "normalOnly": "Normal hours only",
+        "normalHours": "Normal hours",
+        "normalFrom": "Normal hours from",
+        "normalTo": "Normal hours to",
+        "value": "Agreement value",
+        "availability": "Availability",
+        "availabilityText": "{hours} hours a year per system. Penalty {critical} an hour for critical systems and {other} for the rest. Penalty cap {cap} of the value.",
+        "availabilityHours": "Availability hours a year",
+        "penaltyCritical": "Penalty per hour, critical (€)",
+        "penaltyOther": "Penalty per hour, other (€)",
+        "cap": "Penalty cap (% of value)",
+        "required": "Fill in contractor, number, subject and start, and positive numbers in the amounts."
+      },
+      "catalogue": {
+        "title": "Systems catalogue",
+        "count": "{count} systems",
+        "ratesHint": "Penalty rates to be confirmed",
+        "editHint": "Double-click an hour or a rate to correct it. Enter saves, Esc cancels.",
+        "empty": "The catalogue is empty. Upload the Excel file with the agreement's systems.",
+        "hoursInvalid": "Hours must be a positive number, for example 0,5 or 24.",
+        "rateInvalid": "A rate is a positive number, or empty when it is not known.",
+        "activeFor": "System {code} active",
+        "columns": {
+          "code": "No.",
+          "name": "System",
+          "frequencies": "Preventive frequency",
+          "ratePm": "PM penalty per day",
+          "rateResponse": "Response penalty per hour",
+          "rateRestore": "Restore penalty per hour",
+          "active": "Active"
+        }
+      },
+      "import": {
+        "title": "Import from Excel",
+        "intro": "Download the template, fill one row per system and upload it. Systems match on their number: existing ones are updated, new ones are added.",
+        "template": "Download template",
+        "file": ".xlsx file",
+        "result": "New: {created} · updated: {updated} · skipped: {skipped}",
+        "errorsCaption": "File rows that were not imported",
+        "row": "Row",
+        "problem": "What is missing or wrong"
+      },
+      "schedules": {
+        "title": "Programme",
+        "intro": "Each line issues a preventive order a few days before its date and moves the date on by its frequency. Each line has one open order at a time.",
+        "generate": "Issue now",
+        "generated": "{generated} orders issued. {skipped} lines already had an open order. Escalations: {escalated}.",
+        "newTitle": "New programme line",
+        "editTitle": "Change programme line",
+        "wholeSystem": "The whole system",
+        "leadDays": "Issue ahead by (days)",
+        "checklist": "Checklist, one line per check",
+        "required": "Fill in system, title, next date and days from 0 to 90.",
+        "empty": "There is no programme yet.",
+        "openOrderLink": "Open order",
+        "columns": {
+          "frequency": "Frequency",
+          "nextDue": "Next date",
+          "openOrder": "Open order"
+        }
+      }
+    },
+    "s21": {
+      "title": "Maintenance backlog",
+      "intro": "Work the maintenance agreement does not cover, with a risk band and a cost estimate. What stays unfunded feeds next year's capital programme.",
+      "caption": "Maintenance backlog items",
+      "empty": "No backlog items match these filters.",
+      "summary": {
+        "title": "Totals by unit and risk band",
+        "empty": "There are no open or funded backlog items.",
+        "items": "{count, plural, one {# item} other {# items}}",
+        "split": "funded {funded} · unfunded {unfunded}",
+        "total": "Total",
+        "note": "Unfunded in total: {amount}. Open and funded items count ({count})."
+      },
+      "filters": {
+        "band": "Risk band",
+        "kind": "Kind",
+        "auto": "Automatic drafts only"
+      },
+      "columns": {
+        "title": "Item",
+        "kind": "Kind",
+        "band": "Risk band",
+        "cost": "Cost estimate",
+        "source": "Source",
+        "project": "Project"
+      },
+      "drawer": {
+        "newTitle": "New backlog item",
+        "raised": "Raised",
+        "autoReason": "Why it was drafted",
+        "history": "Order history",
+        "description": "Description",
+        "required": "Fill in a unit and a title of at least three characters, and a positive amount."
+      },
+      "toProject": {
+        "button": "To a project",
+        "intro": "Creates a project at the Idea phase with the item's title and cost, and marks the item as funded.",
+        "confirmTitle": "Turn this item into a project?",
+        "consequence": "A project is created at the Idea phase with the cost estimate as its budget. The item no longer counts as unfunded.",
+        "done": "Project {code} was created.",
+        "open": "Open the project",
+        "linked": "Funded by project"
+      }
+    },
+    "s22": {
+      "title": "Contractor scorecard",
+      "intro": "How well the contractor keeps the contract times over a period, and what penalties follow. Worked out each time from the orders themselves.",
+      "agreement": "Agreement",
+      "pickAgreement": "Choose an agreement",
+      "period": "Period",
+      "presets": {
+        "current": "This quarter",
+        "previous": "Last quarter"
+      },
+      "from": "From",
+      "to": "To",
+      "noAgreements": "There is no maintenance agreement to score.",
+      "pickFirst": "Choose an agreement to see its scorecard.",
+      "heading": "{contractor} · {ref} · {from} to {to}",
+      "hours": "{count} h",
+      "kpi": {
+        "response": "Response on time",
+        "restore": "Restore on time",
+        "report": "Reports on time",
+        "pm": "Preventive on schedule",
+        "downtime": "Downtime hours",
+        "downtimeSplit": "critical {critical} h · other {other} h · allowance {allowance} h",
+        "penalties": "Penalties",
+        "ratesMissingShort": "rates incomplete",
+        "ratesComplete": "all rates known",
+        "ratio": "{onTime} of {due}"
+      },
+      "ratesMissing": "Penalty rates are incomplete: the systems catalogue is missing amounts. Late items were counted, but their amount is not included. Fill in the amounts under Preventive maintenance.",
+      "penaltiesTitle": "Penalties for the period",
+      "penalties": {
+        "pm": "Preventive",
+        "response": "Response",
+        "restore": "Restore",
+        "availability": "Availability"
+      },
+      "capUsed": "Penalty cap used",
+      "capOf": "{used} of a {cap} cap",
+      "capNoValue": "The agreement has no value recorded.",
+      "countsTitle": "Orders in the period",
+      "counts": {
+        "total": "Total",
+        "corrective": "Corrective",
+        "pm": "Preventive",
+        "statutory": "Statutory",
+        "open": "Open",
+        "repeatFailures": "Assets with three or more failures"
+      },
+      "byBand": {
+        "title": "By priority band",
+        "empty": "No corrective orders in the period.",
+        "corrective": "Corrective",
+        "response": "Response on time",
+        "restore": "Restore on time",
+        "downtime": "Downtime"
       }
     }
   },
@@ -1893,5 +2250,118 @@
     "WARRANTY": "Warranty document",
     "DRAWING": "Drawing",
     "PHOTO": "Photo"
+  },
+  "slaBand": {
+    "CRITICAL": "Critical",
+    "P1": "Priority 1",
+    "P2": "Priority 2"
+  },
+  "slaState": {
+    "GREEN": "On time",
+    "AMBER": "Close to the deadline",
+    "RED": "Overdue",
+    "BREACHED": "Met late"
+  },
+  "pmFrequency": {
+    "DAILY": "Daily",
+    "WEEKLY": "Weekly",
+    "MONTHLY": "Monthly",
+    "QUARTERLY": "Quarterly",
+    "SEMIANNUAL": "Every six months",
+    "ANNUAL": "Annual"
+  },
+  "workOrderKind": {
+    "CORRECTIVE": "Corrective",
+    "PM": "Preventive",
+    "STATUTORY": "Statutory"
+  },
+  "workOrderStatus": {
+    "OPEN": "Open",
+    "ACKNOWLEDGED": "Acknowledged",
+    "IN_PROGRESS": "In progress",
+    "PAUSED": "Paused",
+    "RESTORED": "Restored",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled"
+  },
+  "workOrderSource": {
+    "VENDOR_ONSITE": "Contractor's on-site team",
+    "NURSING": "Nursing",
+    "TECHNICAL_SERVICES": "Technical services",
+    "PM_PROGRAMME": "Preventive maintenance programme",
+    "OTHER": "Other"
+  },
+  "failureCode": {
+    "NO_OUTPUT": "Not working",
+    "DEGRADED": "Reduced output",
+    "LEAK": "Leak",
+    "NOISE_VIBRATION": "Noise or vibration",
+    "ELECTRICAL_FAULT": "Electrical fault",
+    "CONTROL_FAULT": "Controls fault",
+    "ALARM": "Alarm",
+    "DAMAGE": "Damage",
+    "OTHER": "Other"
+  },
+  "causeCode": {
+    "WEAR": "Wear",
+    "LACK_OF_PM": "Preventive maintenance not done",
+    "MISUSE": "Misuse",
+    "POWER_SUPPLY": "Power supply",
+    "ENVIRONMENT": "Room conditions",
+    "DESIGN": "Design",
+    "EXTERNAL": "External cause",
+    "UNKNOWN": "Unknown"
+  },
+  "remedyCode": {
+    "REPAIR": "Repair",
+    "REPLACE_PART": "Part replaced",
+    "REPLACE_UNIT": "Unit replaced",
+    "ADJUST": "Adjustment",
+    "CLEAN": "Cleaning",
+    "RESET": "Reset",
+    "TEMPORARY_FIX": "Temporary fix",
+    "NO_FAULT_FOUND": "No fault found"
+  },
+  "workOrderEvent": {
+    "CREATED": "logged the call",
+    "ACKNOWLEDGED": "recorded the contractor's response",
+    "STARTED": "started the work",
+    "PAUSED": "paused the work",
+    "RESUMED": "resumed the work",
+    "RESTORED": "recorded that the system works again",
+    "COMPLETED": "completed the order",
+    "CANCELLED": "cancelled the order",
+    "NOTE": "added a note",
+    "ESCALATED": "escalation: the response time passed with no response",
+    "EXTENSION": "extended the restore time",
+    "CODED": "coded the failure",
+    "PHOTO": "uploaded a photo or document",
+    "TO_BACKLOG": "added work to the maintenance backlog",
+    "EDITED": "changed the order's details"
+  },
+  "workOrderAction": {
+    "ACKNOWLEDGE": "Acknowledge",
+    "START": "Start",
+    "PAUSE": "Pause",
+    "RESUME": "Resume",
+    "RESTORE": "Restored",
+    "COMPLETE": "Complete",
+    "CANCEL": "Cancel order"
+  },
+  "backlogKind": {
+    "REPAIR": "Repair",
+    "REPLACEMENT": "Replacement",
+    "UPGRADE": "Upgrade",
+    "STATUTORY": "Statutory compliance"
+  },
+  "backlogStatus": {
+    "OPEN": "Open",
+    "FUNDED": "Funded",
+    "DONE": "Done",
+    "DROPPED": "Dropped"
+  },
+  "backlogAutoReason": {
+    "THREE_CORRECTIVE_IN_12_MONTHS": "Drafted automatically: three corrective orders in twelve months",
+    "REPAIR_COST_OVER_THRESHOLD": "Drafted automatically: repair cost passed the threshold"
   }
 }

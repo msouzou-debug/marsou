@@ -14,9 +14,9 @@ A project's cost is read as four figures: approved budget, commitments («Δεσ
 
 - **Head of estates.** Sees the unit's portfolio, approves contract variations, watches defects and assets.
 - **Project engineer.** Records projects, contracts, milestones, risks, variations, requests for information, site instructions, defects. Requests shutdown permits.
-- **Technician.** From a phone: records an asset's condition and readings.
+- **Technician.** From a phone: records an asset's condition and readings, logs fault calls and runs work orders.
 - **Finance.** Imports the SAP files, matches postings to projects, changes the approved budget, receives and pays payment certificates, produces the accruals.
-- **Clinical approver.** Approves the shutdown permits that touch their area: infection control, nursing, unit director.
+- **Clinical approver.** Approves the shutdown permits that touch their area: infection control, nursing, unit director. The nursing side also logs fault calls.
 - **Executive** and **Auditor.** See everything, change nothing. The auditor also sees the full audit trail.
 - **System administrator.** Users, roles, units, contractors, the eFinance link.
 
@@ -29,7 +29,7 @@ Roles are given by the system administrator inside eCapital, on «Διαχείρ
 3. **Συμβάσεις (Contracts).** Each contract with its value, bill of quantities, variations, RFIs, site instructions, defects, payment certificates and eFinance invoices.
 4. **Διακοπές και άδειες (Shutdowns and permits).** A shutdown request, the infection-control risk assessment (ICRA), routing to approvers, an A4 permit print, closeout with a checklist, the disruption calendar.
 5. **Πάγια (Assets).** The asset register per unit: identity, location, criticality, condition, warranty, readings, history, QR labels, replacement forecast.
-6. **Συντήρηση (Maintenance).** Arrives with milestone M5: work orders, preventive maintenance, backlog.
+6. **Συντήρηση (Maintenance).** Work orders with the contract's three timers, logging a call and running an order from a phone, preventive maintenance with the agreement and the systems catalogue, the maintenance backlog by risk band, and the contractor scorecard.
 7. **Κόστος (Cost).** For finance: SAP import, the matching queue, accruals.
 8. **Εγκρίσεις (Approvals).** Everything waiting for your decision: permits, variations, certificates. With keyboard shortcuts.
 9. **Αναφορές (Reports).** The index of what the system already produces; its own screen arrives with milestone M6.
@@ -49,6 +49,7 @@ The «Βοήθεια» button or the `?` key opens the help for the screen you a
 7. The engineer approves the works on a payment certificate; finance receives and pays it.
 8. At handover the defects are recorded with a risk band and a cost. What stays unfunded is the input to the next capital programme.
 9. The equipment handed over enters the asset register with its source project and contract, and its life starts there: condition, readings, replacement year.
+10. Maintenance runs under the unit's maintenance agreement. The programme issues the preventive orders. A fault is logged as a call and the timers count from the time of the call. When an asset fails a third time within twelve months, the system drafts a replacement in the maintenance backlog, and from there the replacement becomes a new project.
 
 ## Rules that apply everywhere
 
@@ -65,4 +66,4 @@ eCapital works with three ΟΚΥπΥ systems. From **eFinance** it reads each co
 
 ## What does not exist yet
 
-Work orders and preventive maintenance (milestone M5), the reports screen (M6), sending contracts to eFinance (switched on once the real projects are loaded), Active Directory sign-in (waiting on the IT department). The «Συντήρηση» and «Αναφορές» pages say what is coming and point at what exists.
+The reports screen (milestone M6), running work orders offline, sending contracts to eFinance (switched on once the real projects are loaded), Active Directory sign-in (waiting on the IT department). The «Αναφορές» page says what is coming and points at what exists. Maintenance is here now: work orders, preventive maintenance, backlog, contractor scorecard.

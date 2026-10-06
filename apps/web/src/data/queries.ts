@@ -37,12 +37,24 @@ import {
   SiteInstruction,
   SystemFeed,
   UnmatchedQueue,
+  BacklogItem,
+  BacklogSummaryRow,
+  MaintenanceContract,
+  MaintenanceSummary,
+  PmSchedule,
+  Scorecard,
+  SlaSystem,
+  WorkOrderDetail,
+  WorkOrderListRow,
   type AreaType,
   type AssetClass,
+  type BacklogListQuery,
   type Condition,
   type AssetStatus,
   type PermitSystem,
   type ProjectListQuery,
+  type ScorecardQuery,
+  type WorkOrderListQuery,
 } from "@ecapital/shared";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -697,4 +709,174 @@ export function useProjectBudgetPosition(projectId: string) {
 export async function searchEfinanceVendors(q: string): Promise<EFinanceVendorList["items"]> {
   const list = await proxyFetch(`/efinance/vendors?q=${encodeURIComponent(q)}`, EFinanceVendorList);
   return list.items;
+}
+
+// ------------------------------------------------------------ M5 (R32–R37, ADR-0031)
+// S18–S22 — `packages/shared/src/maintenance.ts`. Same shape as every hook
+// above: `proxyFetch` through the same-origin proxy (which forwards any
+// path, so the M5 routes need no allow-listing there), keyed on the
+// arguments that change the result, `retry: false`. The writes live in each
+// screen's own wrapper, through `apiMutate`/`apiMutateMultipart`, the way
+// S17's do. The xlsx downloads (catalogue template, backlog export,
+// scorecard) are a plain navigation to `/api/proxy/...`, the S09a pattern.
+
+/** Query-string arrays the API reads as a repeated key (`status=OPEN&status=PAUSED`). */
+function setAll(params: URLSearchParams, key: string, values: readonly string[] | undefined): void {
+  for (const value of values ?? []) params.append(key, value);
+}
+
+// S18 tiles.
+export function useMaintenanceSummary(orgUnitId?: string) {
+  return useQuery({
+    queryKey: ["maintenance-summary", orgUnitId ?? ""],
+    queryFn: () =>
+      proxyFetch(
+        orgUnitId ? `/maintenance/summary?orgUnitId=${encodeURIComponent(orgUnitId)}` : "/maintenance/summary",
+        MaintenanceSummary,
+      ),
+    retry: false,
+  });
+}
+
+// S18b, S20, S22: the agreements the caller may see, optionally one unit's.
+export function useMaintenanceContracts(orgUnitId?: string) {
+  return useQuery({
+    queryKey: ["maintenance-contracts", orgUnitId ?? ""],
+    queryFn: () =>
+      proxyFetch(
+        orgUnitId ? `/maintenance/contracts?orgUnitId=${encodeURIComponent(orgUnitId)}` : "/maintenance/contracts",
+        z.array(MaintenanceContract),
+      ),
+    retry: false,
+  });
+}
+
+// S18b catalogue, S20's system picker.
+export function useSlaSystems(maintenanceContractId: string) {
+  return useQuery({
+    queryKey: ["sla-systems", maintenanceContractId],
+    queryFn: () =>
+      proxyFetch(`/maintenance/contracts/${encodeURIComponent(maintenanceContractId)}/systems`, z.array(SlaSystem)),
+    retry: false,
+    enabled: maintenanceContractId.length > 0,
+  });
+}
+
+export interface PmSchedulesQuery {
+  orgUnitId?: string;
+  maintenanceContractId?: string;
+  active?: boolean;
+}
+
+export function pmSchedulesApiPath(query: PmSchedulesQuery): string {
+  const params = new URLSearchParams();
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  if (query.maintenanceContractId) params.set("maintenanceContractId", query.maintenanceContractId);
+  if (query.active !== undefined) params.set("active", String(query.active));
+  const qs = params.toString();
+  return qs ? `/maintenance/schedules?${qs}` : "/maintenance/schedules";
+}
+
+// S18b programme.
+export function usePmSchedules(query: PmSchedulesQuery) {
+  return useQuery({
+    queryKey: ["pm-schedules", query],
+    queryFn: () => proxyFetch(pmSchedulesApiPath(query), z.array(PmSchedule)),
+    retry: false,
+  });
+}
+
+export function workOrdersApiPath(query: WorkOrderListQuery): string {
+  const params = new URLSearchParams();
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  if (query.kind) params.set("kind", query.kind);
+  setAll(params, "status", query.status);
+  if (query.band) params.set("band", query.band);
+  if (query.slaState) params.set("slaState", query.slaState);
+  if (query.assetId) params.set("assetId", query.assetId);
+  if (query.slaSystemId) params.set("slaSystemId", query.slaSystemId);
+  if (query.maintenanceContractId) params.set("maintenanceContractId", query.maintenanceContractId);
+  if (query.mine) params.set("mine", "true");
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  params.set("sort", query.sort ?? "calledAt");
+  params.set("dir", query.dir ?? "desc");
+  params.set("page", String(query.page ?? 1));
+  // RULE (contract `WorkOrderListQuery.pageSize`): the API caps it at 100.
+  params.set("pageSize", String(Math.min(query.pageSize ?? 100, 100)));
+  return `/work-orders?${params.toString()}`;
+}
+
+const WorkOrderPage = z.object({ items: z.array(WorkOrderListRow), total: z.number().int() });
+
+// S18 list.
+export function useWorkOrders(query: WorkOrderListQuery) {
+  return useQuery({
+    queryKey: ["work-orders", query],
+    queryFn: () => proxyFetch(workOrdersApiPath(query), WorkOrderPage),
+    retry: false,
+  });
+}
+
+// S18a, S19.
+export function useWorkOrder(id: string) {
+  return useQuery({
+    queryKey: ["work-order", id],
+    queryFn: () => proxyFetch(`/work-orders/${encodeURIComponent(id)}`, WorkOrderDetail),
+    retry: false,
+    enabled: id.length > 0,
+  });
+}
+
+export function backlogApiPath(query: BacklogListQuery): string {
+  const params = new URLSearchParams();
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  if (query.riskBand) params.set("riskBand", query.riskBand);
+  setAll(params, "status", query.status);
+  if (query.kind) params.set("kind", query.kind);
+  if (query.assetId) params.set("assetId", query.assetId);
+  if (query.autoDrafted !== undefined) params.set("autoDrafted", String(query.autoDrafted));
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  params.set("sort", query.sort ?? "riskBand");
+  params.set("dir", query.dir ?? "asc");
+  params.set("page", String(query.page ?? 1));
+  params.set("pageSize", String(Math.min(query.pageSize ?? 100, 100)));
+  return `/backlog?${params.toString()}`;
+}
+
+// S21 items.
+export function useBacklog(query: BacklogListQuery) {
+  return useQuery({
+    queryKey: ["backlog", query],
+    queryFn: () => proxyFetch(backlogApiPath(query), z.object({ items: z.array(BacklogItem), total: z.number().int() })),
+    retry: false,
+  });
+}
+
+// S21 totals by unit × band.
+export function useBacklogSummary(orgUnitId?: string) {
+  return useQuery({
+    queryKey: ["backlog-summary", orgUnitId ?? ""],
+    queryFn: () =>
+      proxyFetch(
+        orgUnitId ? `/backlog/summary?orgUnitId=${encodeURIComponent(orgUnitId)}` : "/backlog/summary",
+        z.array(BacklogSummaryRow),
+      ),
+    retry: false,
+  });
+}
+
+export function scorecardQueryString(query: ScorecardQuery): string {
+  return new URLSearchParams({ maintenanceContractId: query.maintenanceContractId, from: query.from, to: query.to }).toString();
+}
+
+// S22. Nothing to ask until an agreement is picked.
+export function useScorecard(query: ScorecardQuery) {
+  return useQuery({
+    queryKey: ["scorecard", query],
+    queryFn: () => proxyFetch(`/maintenance/scorecard?${scorecardQueryString(query)}`, Scorecard),
+    retry: false,
+    enabled: query.maintenanceContractId.length > 0 && query.from.length > 0 && query.to.length > 0,
+  });
 }

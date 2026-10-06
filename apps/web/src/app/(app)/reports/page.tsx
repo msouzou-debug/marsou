@@ -1,6 +1,6 @@
 // S23 «Αναφορές» — M6, not built yet as a screen of its own.
 //
-// Same reasoning as /maintenance: the nav item has been there since M0 and
+// Same reasoning /maintenance had until M5: the nav item has been there since M0 and
 // a 404 behind it reads as a fault. Until S23 exists, this page is the
 // index of the figures and exports the system already produces, each on
 // the screen that owns it, plus what S23 will add.
