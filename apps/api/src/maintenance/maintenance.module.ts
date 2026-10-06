@@ -32,6 +32,13 @@ import { WorkOrdersService } from "./work-orders.service";
     ScorecardService,
     MaintenanceSweepService,
   ],
-  exports: [SchedulesService, WorkOrdersService, BacklogService, MaintenanceSweepService],
+  exports: [
+    SchedulesService,
+    WorkOrdersService,
+    BacklogService,
+    MaintenanceSweepService,
+    MaintenanceContractsService,
+    ScorecardService,
+  ],
 })
 export class MaintenanceModule {}

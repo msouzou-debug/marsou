@@ -28,6 +28,6 @@ import { ProjectCostService } from "./project-cost.service";
     PaymentCertsService,
     CostAccrualsService,
   ],
-  exports: [CostWarningsService],
+  exports: [CostWarningsService, ProjectCostService],
 })
 export class CostModule {}

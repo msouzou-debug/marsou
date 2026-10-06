@@ -17,7 +17,7 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4, M5 and M8 route, and the eFinance ones", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4, M5, M6 and M8 route, and the eFinance ones", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
@@ -137,6 +137,21 @@ describe("openapi.json", () => {
       "/projects/{id}/phase",
       "/projects/{id}/risks",
       "/projects/{id}/risks/{rid}",
+      "/reports",
+      "/reports/asset-lifecycle",
+      "/reports/asset-lifecycle.xlsx",
+      "/reports/backlog-by-band",
+      "/reports/backlog-by-band.xlsx",
+      "/reports/capital-programme",
+      "/reports/capital-programme.xlsx",
+      "/reports/clinical-disruption",
+      "/reports/clinical-disruption.xlsx",
+      "/reports/contractor-scorecard",
+      "/reports/contractor-scorecard.xlsx",
+      "/reports/exceptions",
+      "/reports/exceptions.xlsx",
+      "/reports/statutory-compliance",
+      "/reports/statutory-compliance.xlsx",
       "/system-feeds",
       "/system-feeds/{id}",
       "/variations/{id}/documents",

@@ -48468,6 +48468,3765 @@
         ]
       }
     },
+    "/reports": {
+      "get": {
+        "operationId": "ReportsController_catalogue",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One entry per report, in the order S23 lists them",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "enum": [
+                          "CAPITAL_PROGRAMME",
+                          "EXCEPTIONS",
+                          "CONTRACTOR_SCORECARD",
+                          "BACKLOG_BY_BAND",
+                          "ASSET_LIFECYCLE",
+                          "CLINICAL_DISRUPTION",
+                          "STATUTORY_COMPLIANCE"
+                        ]
+                      },
+                      "takesYear": {
+                        "type": "boolean"
+                      },
+                      "takesPeriod": {
+                        "type": "boolean"
+                      },
+                      "takesUnit": {
+                        "type": "boolean"
+                      },
+                      "takesAgreement": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "takesYear",
+                      "takesPeriod",
+                      "takesUnit",
+                      "takesAgreement"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The report catalogue: the seven reports and the filters each takes",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/capital-programme": {
+      "get": {
+        "operationId": "ReportsController_capitalProgramme",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per visible unit and the share of the year elapsed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "yearElapsedPct": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "orgUnit": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "nameEl": {
+                                "type": "string"
+                              },
+                              "nameEn": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "HOSPITAL",
+                                  "SERVICE",
+                                  "CENTRAL"
+                                ]
+                              },
+                              "directorate": {
+                                "type": "string",
+                                "enum": [
+                                  "LEMESOU_PAFOU",
+                                  "LEFKOSIAS",
+                                  "LARNAKAS_AMMOCHOSTOU",
+                                  "DYPSY",
+                                  "PFY",
+                                  "AMBULANCE",
+                                  "KENTRIKI_DIOIKISI"
+                                ]
+                              },
+                              "costCentre": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entityCode": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "efinanceCode": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "timezone": {
+                                "type": "string",
+                                "const": "Europe/Nicosia"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "code",
+                              "nameEl",
+                              "nameEn",
+                              "type",
+                              "directorate",
+                              "costCentre",
+                              "entityCode",
+                              "efinanceCode",
+                              "timezone"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "projectCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "approved": {
+                            "type": "number"
+                          },
+                          "committed": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "spent": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "forecast": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "slippage": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "spentPct": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "rag": {
+                            "type": "object",
+                            "properties": {
+                              "green": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "amber": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "red": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "green",
+                              "amber",
+                              "red"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "orgUnit",
+                          "projectCount",
+                          "approved",
+                          "committed",
+                          "spent",
+                          "forecast",
+                          "slippage",
+                          "spentPct",
+                          "rag"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "yearElapsedPct",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Capital programme by unit: approved, committed, spent, forecast, slippage",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/capital-programme.xlsx": {
+      "get": {
+        "operationId": "ReportsController_capitalProgrammeXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Capital programme by unit as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/exceptions": {
+      "get": {
+        "operationId": "ReportsController_exceptions",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Red first, then amber, then by slippage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "projectCode": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "orgUnitName": {
+                            "type": "string"
+                          },
+                          "phase": {
+                            "type": "string"
+                          },
+                          "rag": {
+                            "type": "string",
+                            "enum": [
+                              "GREEN",
+                              "AMBER",
+                              "RED"
+                            ]
+                          },
+                          "ragReason": {
+                            "type": "string"
+                          },
+                          "ownerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approved": {
+                            "type": "number"
+                          },
+                          "forecast": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "slippage": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "milestoneLateDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "openRisksHigh": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "projectId",
+                          "projectCode",
+                          "titleEl",
+                          "orgUnitId",
+                          "orgUnitName",
+                          "phase",
+                          "rag",
+                          "ragReason",
+                          "ownerName",
+                          "approved",
+                          "forecast",
+                          "slippage",
+                          "milestoneLateDays",
+                          "openRisksHigh"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Projects at amber or red, with reason, owner, slippage, late milestone, high risks",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/exceptions.xlsx": {
+      "get": {
+        "operationId": "ReportsController_exceptionsXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exceptions as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/contractor-scorecard": {
+      "get": {
+        "operationId": "ReportsController_contractorScorecard",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, inclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, exclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capital rows per contractor and one M5 scorecard per agreement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "capital": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "contractorId": {
+                            "type": "string"
+                          },
+                          "contractorName": {
+                            "type": "string"
+                          },
+                          "contracts": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "contractValue": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "overdueContracts": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "onTimePct": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "variationRatePct": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "defects": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "openDefects": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "defectRate": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rfiBreachPct": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "claimAccuracyPct": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "contractorId",
+                          "contractorName",
+                          "contracts",
+                          "contractValue",
+                          "overdueContracts",
+                          "onTimePct",
+                          "variationRatePct",
+                          "defects",
+                          "openDefects",
+                          "defectRate",
+                          "rfiBreachPct",
+                          "claimAccuracyPct"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "maintenance": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "maintenanceContractId": {
+                            "type": "string"
+                          },
+                          "contractorName": {
+                            "type": "string"
+                          },
+                          "contractRef": {
+                            "type": "string"
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "workOrders": {
+                            "type": "object",
+                            "properties": {
+                              "total": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "corrective": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "pm": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "statutory": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "open": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "total",
+                              "corrective",
+                              "pm",
+                              "statutory",
+                              "open"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "response": {
+                            "type": "object",
+                            "properties": {
+                              "due": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "onTime": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "pct": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "due",
+                              "onTime",
+                              "pct"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "restore": {
+                            "type": "object",
+                            "properties": {
+                              "due": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "onTime": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "pct": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "due",
+                              "onTime",
+                              "pct"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "report": {
+                            "type": "object",
+                            "properties": {
+                              "due": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "onTime": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "pct": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "due",
+                              "onTime",
+                              "pct"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "pm": {
+                            "type": "object",
+                            "properties": {
+                              "due": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "onTime": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "pct": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "due",
+                              "onTime",
+                              "pct"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "availability": {
+                            "type": "object",
+                            "properties": {
+                              "criticalDowntimeHours": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "otherDowntimeHours": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "allowanceHours": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "penaltyEur": {
+                                "type": "number",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "criticalDowntimeHours",
+                              "otherDowntimeHours",
+                              "allowanceHours",
+                              "penaltyEur"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "penalties": {
+                            "type": "object",
+                            "properties": {
+                              "pmEur": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "responseEur": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "restoreEur": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "availabilityEur": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "totalEur": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "capUsedPct": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "ratesMissing": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "pmEur",
+                              "responseEur",
+                              "restoreEur",
+                              "availabilityEur",
+                              "totalEur",
+                              "capUsedPct",
+                              "ratesMissing"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "repeatFailures": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "byBand": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "band": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CRITICAL",
+                                    "P1",
+                                    "P2"
+                                  ]
+                                },
+                                "corrective": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "responseOnTimePct": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "restoreOnTimePct": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "downtimeHours": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "band",
+                                "corrective",
+                                "responseOnTimePct",
+                                "restoreOnTimePct",
+                                "downtimeHours"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "maintenanceContractId",
+                          "contractorName",
+                          "contractRef",
+                          "from",
+                          "to",
+                          "workOrders",
+                          "response",
+                          "restore",
+                          "report",
+                          "pm",
+                          "availability",
+                          "penalties",
+                          "repeatFailures",
+                          "byBand"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "capital",
+                    "maintenance"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Αξιολόγηση αναδόχων: capital contractors and every active maintenance agreement",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/contractor-scorecard.xlsx": {
+      "get": {
+        "operationId": "ReportsController_contractorScorecardXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, inclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, exclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Contractor scorecard as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/backlog-by-band": {
+      "get": {
+        "operationId": "ReportsController_backlogByBand",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per visible unit, all four bands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "orgUnitName": {
+                            "type": "string"
+                          },
+                          "bands": {
+                            "minItems": 4,
+                            "maxItems": 4,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "riskBand": {
+                                  "type": "string",
+                                  "enum": [
+                                    "HIGH",
+                                    "SIGNIFICANT",
+                                    "MODERATE",
+                                    "LOW"
+                                  ]
+                                },
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "costEstimate": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "fundedCost": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "unfundedCost": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "riskBand",
+                                "count",
+                                "costEstimate",
+                                "fundedCost",
+                                "unfundedCost"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "total": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "funded": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "unfunded": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "orgUnitId",
+                          "orgUnitName",
+                          "bands",
+                          "total",
+                          "funded",
+                          "unfunded"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Εκκρεμότητες συντήρησης by unit and risk band, funded and unfunded",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/backlog-by-band.xlsx": {
+      "get": {
+        "operationId": "ReportsController_backlogByBandXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Backlog by risk band as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/asset-lifecycle": {
+      "get": {
+        "operationId": "ReportsController_assetLifecycle",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shortest remaining life first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "assetId": {
+                            "type": "string"
+                          },
+                          "tag": {
+                            "type": "string"
+                          },
+                          "nameEl": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "orgUnitName": {
+                            "type": "string"
+                          },
+                          "assetClass": {
+                            "type": "string"
+                          },
+                          "criticality": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "condition": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "installedYear": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "capitalCost": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "maintenanceCost": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "correctiveOrders": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "downtimeHours": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "expectedLifeYears": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "remainingLifeYears": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "replacementYear": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "replacementCostEst": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "maintenanceToCapitalPct": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "assetId",
+                          "tag",
+                          "nameEl",
+                          "orgUnitId",
+                          "orgUnitName",
+                          "assetClass",
+                          "criticality",
+                          "condition",
+                          "installedYear",
+                          "capitalCost",
+                          "maintenanceCost",
+                          "correctiveOrders",
+                          "downtimeHours",
+                          "expectedLifeYears",
+                          "remainingLifeYears",
+                          "replacementYear",
+                          "replacementCostEst",
+                          "maintenanceToCapitalPct"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Asset lifecycle: capital and maintenance cost, downtime, remaining life",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/asset-lifecycle.xlsx": {
+      "get": {
+        "operationId": "ReportsController_assetLifecycleXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Asset lifecycle as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/clinical-disruption": {
+      "get": {
+        "operationId": "ReportsController_clinicalDisruption",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per visible unit, twelve months",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "orgUnitName": {
+                            "type": "string"
+                          },
+                          "months": {
+                            "minItems": 12,
+                            "maxItems": 12,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "month": {
+                                  "type": "string"
+                                },
+                                "theatreHours": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "icuHours": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "permits": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "month",
+                                "theatreHours",
+                                "icuHours",
+                                "permits"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "theatreHoursTotal": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "icuHoursTotal": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "permitsTotal": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "orgUnitId",
+                          "orgUnitName",
+                          "months",
+                          "theatreHoursTotal",
+                          "icuHoursTotal",
+                          "permitsTotal"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Theatre and ICU hours lost to planned works, by unit and month",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/clinical-disruption.xlsx": {
+      "get": {
+        "operationId": "ReportsController_clinicalDisruptionXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clinical disruption as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/statutory-compliance": {
+      "get": {
+        "operationId": "ReportsController_statutoryCompliance",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Four categories per visible unit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "orgUnitName": {
+                            "type": "string"
+                          },
+                          "cells": {
+                            "minItems": 4,
+                            "maxItems": 4,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "category": {
+                                  "type": "string",
+                                  "enum": [
+                                    "LIFTS",
+                                    "PRESSURE_VESSELS",
+                                    "MEDICAL_GAS",
+                                    "FIRE_SYSTEMS"
+                                  ]
+                                },
+                                "due": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "done": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "overdue": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "donePct": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "category",
+                                "due",
+                                "done",
+                                "overdue",
+                                "donePct"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "orgUnitId",
+                          "orgUnitName",
+                          "cells"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lifts, pressure vessels, medical gas, fire systems: due, done, overdue",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/statutory-compliance.xlsx": {
+      "get": {
+        "operationId": "ReportsController_statutoryComplianceXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "2000–2100; default this year",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: «Στοιχεία» with the inputs and live formulas, and «Σύνοψη»",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Statutory compliance as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_check",
