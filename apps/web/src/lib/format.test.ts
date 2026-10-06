@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct, shortSystemName } from "./format";
+import { formatDate, formatDateTime, formatDecimal, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct, shortSystemName } from "./format";
 
 const T = " "; // narrow no-break space
 
@@ -88,5 +88,15 @@ describe("shortSystemName", () => {
   });
   it("is empty for nothing", () => {
     expect(shortSystemName(null)).toBe("");
+  });
+});
+
+describe("formatDecimal", () => {
+  it("keeps one decimal only when there is one, with Greek separators", () => {
+    expect(formatDecimal(3.5)).toBe("3,5");
+    expect(formatDecimal(12)).toBe("12");
+    expect(formatDecimal(1234.56)).toBe("1.234,6");
+    expect(formatDecimal(0.04)).toBe("0");
+    expect(formatDecimal(-2.25)).toBe("-2,3");
   });
 });

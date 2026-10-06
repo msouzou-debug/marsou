@@ -13,7 +13,7 @@ import {
   Wrench,
 } from "lucide-react";
 import type { AppRole } from "@ecapital/shared";
-import { canViewCostNav } from "@/auth/roles";
+import { canViewCostNav, canViewReports } from "@/auth/roles";
 
 type IconComponent = ComponentType<{
   size?: number | string;
@@ -42,14 +42,13 @@ export interface NavItem {
   icon: IconComponent;
   /** true for the one item that carries a count badge (Εγκρίσεις) */
   hasBadge?: boolean;
-  /** Omitted: visible to everyone. Present: shown only when it returns true for the caller's roles (M2's «Κόστος», the only nav entry a role can be shut out of). */
+  /** Omitted: visible to everyone. Present: shown only when it returns true for the caller's roles (M2's «Κόστος» and M6's «Αναφορές»). */
   visibleFor?: (roles: AppRole[]) => boolean;
 }
 
-// UI instructions §2: fixed order, one Lucide icon each. «Αναφορές» (M6)
-// lands on a page that says so and points at what exists today, never on a
-// 404 (owner ask, 05/10/2026). «Συντήρηση» did the same until M5; it now
-// opens S18, the work order list.
+// UI instructions §2: fixed order, one Lucide icon each. «Αναφορές» opens
+// S23, the index of the seven M6 reports. «Συντήρηση» opens S18, the work
+// order list.
 export const NAV_ITEMS: NavItem[] = [
   { id: "portfolio", href: "/", labelKey: "nav.portfolio", icon: LayoutDashboard },
   { id: "projects", href: "/projects", labelKey: "nav.projects", icon: FolderKanban },
@@ -61,13 +60,16 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "maintenance", href: "/maintenance", labelKey: "nav.maintenance", icon: Wrench },
   // M2 (R14, R18): groups S10 Εισαγωγή SAP and S09a Δεδουλευμένα
   // (`CostNavTabs`). Visible only to a caller who can reach at least one of
-  // the two — `canViewCostNav` (`@/auth/roles`) — the only nav entry this
-  // build gates by role rather than leaving to the page's own NoPermission,
-  // since every other item's screen is either open to everyone who has a
-  // reason to browse it or simply does not exist yet.
+  // the two — `canViewCostNav` (`@/auth/roles`). One of two nav entries this
+  // build gates by role rather than leaving to the page's own NoPermission;
+  // every other item's screen is open to everyone who has a reason to
+  // browse it.
   { id: "cost", href: "/cost/imports", labelKey: "nav.cost", icon: Receipt, visibleFor: canViewCostNav },
   { id: "approvals", href: "/approvals", labelKey: "nav.approvals", icon: Inbox, hasBadge: true },
-  { id: "reports", href: "/reports", labelKey: "nav.reports", icon: BarChart3 },
+  // M6 (R39): the other gated entry. RULE (ADR-0032 §6): the reports are
+  // for the head of estates, finance, executive, auditor and admin; the API
+  // refuses anyone else, so nobody else is shown the item.
+  { id: "reports", href: "/reports", labelKey: "nav.reports", icon: BarChart3, visibleFor: canViewReports },
   // RULE (ADR-0020): «Διαχείριση» lands on Χρήστες, which is the first tab
   // and the reason most people open the area at all. Ανάδοχοι is the second
   // tab and keeps its own route.

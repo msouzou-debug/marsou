@@ -46,6 +46,17 @@ import {
   SlaSystem,
   WorkOrderDetail,
   WorkOrderListRow,
+  AssetLifecycleReport,
+  BacklogByBandReport,
+  CapitalProgrammeReport,
+  ClinicalDisruptionReport,
+  ContractorScorecardReport,
+  ExceptionsReport,
+  ReportCatalogueEntry,
+  StatutoryComplianceReport,
+  REPORT_SLUG,
+  type ReportKey,
+  type ReportQuery,
   type AreaType,
   type AssetClass,
   type BacklogListQuery,
@@ -878,5 +889,65 @@ export function useScorecard(query: ScorecardQuery) {
     queryFn: () => proxyFetch(`/maintenance/scorecard?${scorecardQueryString(query)}`, Scorecard),
     retry: false,
     enabled: query.maintenanceContractId.length > 0 && query.from.length > 0 && query.to.length > 0,
+  });
+}
+
+// ------------------------------------------------------------ M6 (R39, ADR-0032)
+// S23/S23a — `packages/shared/src/reports.ts`. GET /reports is the catalogue,
+// GET /reports/<slug> the report and GET /reports/<slug>.xlsx the workbook,
+// all three through the same-origin proxy. One query string feeds the
+// screen and the download, so a figure on the screen is the figure in the
+// file (ADR-0032 §1).
+
+/** The JSON each report answers, by key. */
+export const REPORT_SCHEMA = {
+  CAPITAL_PROGRAMME: CapitalProgrammeReport,
+  EXCEPTIONS: ExceptionsReport,
+  CONTRACTOR_SCORECARD: ContractorScorecardReport,
+  BACKLOG_BY_BAND: BacklogByBandReport,
+  ASSET_LIFECYCLE: AssetLifecycleReport,
+  CLINICAL_DISRUPTION: ClinicalDisruptionReport,
+  STATUTORY_COMPLIANCE: StatutoryComplianceReport,
+} as const;
+
+export type ReportData = { [K in ReportKey]: z.infer<(typeof REPORT_SCHEMA)[K]> };
+
+/** `orgUnitId`, `year`, `from`, `to`, `maintenanceContractId` in that order, empty ones left out. */
+export function reportQueryString(query: ReportQuery): string {
+  const params = new URLSearchParams();
+  if (query.orgUnitId) params.set("orgUnitId", query.orgUnitId);
+  if (query.year !== undefined) params.set("year", String(query.year));
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.maintenanceContractId) params.set("maintenanceContractId", query.maintenanceContractId);
+  return params.toString();
+}
+
+export function reportApiPath(key: ReportKey, query: ReportQuery): string {
+  const qs = reportQueryString(query);
+  return `/reports/${REPORT_SLUG[key]}${qs ? `?${qs}` : ""}`;
+}
+
+/** The xlsx download: a navigation through the proxy, never a fetch (the S09a pattern; the token stays on the server). */
+export function reportExportHref(key: ReportKey, query: ReportQuery): string {
+  const qs = reportQueryString(query);
+  return `/api/proxy/reports/${REPORT_SLUG[key]}.xlsx${qs ? `?${qs}` : ""}`;
+}
+
+// S23 index.
+export function useReportCatalogue() {
+  return useQuery({
+    queryKey: ["report-catalogue"],
+    queryFn: () => proxyFetch("/reports", z.array(ReportCatalogueEntry)),
+    retry: false,
+  });
+}
+
+// S23a: one report for one filter.
+export function useReport<K extends ReportKey>(key: K, query: ReportQuery) {
+  return useQuery({
+    queryKey: ["report", key, query],
+    queryFn: () => proxyFetch(reportApiPath(key, query), REPORT_SCHEMA[key] as unknown as z.ZodType<ReportData[K]>),
+    retry: false,
   });
 }

@@ -148,6 +148,28 @@ describe("Table", () => {
     expect(header.getAttribute("aria-sort")).toMatch(/^(ascending|descending)$/);
   });
 
+  // M6 reports: the totals row sits under the rows and never sorts in with them.
+  it("keeps the totals row last whatever the sort", async () => {
+    renderTable({ totals: { category: "Σύνολο-δείγμα", forecast: "2.228.000" } });
+    const lastRow = () => {
+      const all = screen.getAllByRole("row");
+      return all[all.length - 1];
+    };
+    expect(lastRow()).toHaveTextContent("Σύνολο-δείγμα2.228.000");
+    await userEvent.click(screen.getByRole("button", { name: /Πρόβλεψη τελικού κόστους/ }));
+    expect(lastRow()).toHaveTextContent("Σύνολο-δείγμα");
+    await userEvent.click(screen.getByRole("button", { name: /Πρόβλεψη τελικού κόστους/ }));
+    expect(lastRow()).toHaveTextContent("Σύνολο-δείγμα");
+  });
+
+  it("draws no totals row while loading or empty", () => {
+    const { unmount } = renderTable({ state: "loading", totals: { category: "Σύνολο-δείγμα" } });
+    expect(screen.queryByText("Σύνολο-δείγμα")).not.toBeInTheDocument();
+    unmount();
+    renderTable({ rows: [], totals: { category: "Σύνολο-δείγμα" } });
+    expect(screen.queryByText("Σύνολο-δείγμα")).not.toBeInTheDocument();
+  });
+
   it("shows one sentence and one action in the empty state", () => {
     const onAction = vi.fn();
     renderTable({

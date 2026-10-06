@@ -58,6 +58,7 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S21 | Εκκρεμότητες συντήρησης | Maintenance backlog | estates_head, project_engineer, finance, executive_readonly, admin |
 | S22 | Αξιολόγηση αναδόχων | Contractor scorecard | estates_head, finance, executive_readonly, auditor_readonly, admin |
 | S23 | Αναφορές | Reports | estates_head, finance, executive_readonly, auditor_readonly, admin |
+| S23a | Αναφορά | Report | estates_head, finance, executive_readonly, auditor_readonly, admin |
 | S24e | eFinance | eFinance | admin |
 
 ## M4 asset screens — tier decided, not yet in help/map.json

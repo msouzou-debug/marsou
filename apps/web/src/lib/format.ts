@@ -105,6 +105,20 @@ export function formatInt(value: number): string {
   return `${neg ? "-" : ""}${groupThousands(Math.round(Math.abs(value)).toString())}`;
 }
 
+/**
+ * Hours and other measured figures: Greek thousands separator, up to one
+ * decimal, comma, no trailing «,0» — `1.234,5`, `12`, `0,5`. M6's clinical
+ * disruption and asset downtime hours, which the API sends unrounded and
+ * the Excel keeps, so the screen must not round 3,5 h to 4.
+ */
+export function formatDecimal(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  const neg = value < 0;
+  const [int, dec] = (Math.round(Math.abs(value) * 10) / 10).toFixed(1).split(".");
+  const body = dec === "0" ? groupThousands(int) : `${groupThousands(int)},${dec}`;
+  return `${neg && body !== "0" ? "-" : ""}${body}`;
+}
+
 /** File size for the S26 guides table (R50): 1,2 MB / 340 KB / 512 B. One
  *  decimal above 1 KB, comma, thin space before the unit — same convention
  *  as `formatPct`. */

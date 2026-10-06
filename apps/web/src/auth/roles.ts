@@ -273,3 +273,16 @@ export function canFundBacklog(roles: AppRole[]): boolean {
 export function canViewScorecard(roles: AppRole[]): boolean {
   return roles.length > 0;
 }
+
+// ------------------------------------------------------------ M6 (R39)
+
+/**
+ * S23 «Αναφορές» and every `/reports/<slug>`. RULE (ADR-0032 §6): the head
+ * of estates, finance, the executive, the auditor and the administrator,
+ * the board and management set of CAPEX-01 §11. The API answers 403 by
+ * `@Roles` to anyone else; the nav item and the pages ask here first, so an
+ * engineer or a technician is never shown a page that can only refuse them.
+ */
+export function canViewReports(roles: AppRole[]): boolean {
+  return roles.some((role) => ["admin", "estates_head", "finance", "executive_readonly", "auditor_readonly"].includes(role));
+}

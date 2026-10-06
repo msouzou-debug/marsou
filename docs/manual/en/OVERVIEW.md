@@ -32,7 +32,7 @@ Roles are given by the system administrator inside eCapital, on «Διαχείρ
 6. **Συντήρηση (Maintenance).** Work orders with the contract's three timers, logging a call and running an order from a phone, preventive maintenance with the agreement and the systems catalogue, the maintenance backlog by risk band, and the contractor scorecard.
 7. **Κόστος (Cost).** For finance: SAP import, the matching queue, accruals.
 8. **Εγκρίσεις (Approvals).** Everything waiting for your decision: permits, variations, certificates. With keyboard shortcuts.
-9. **Αναφορές (Reports).** The index of what the system already produces; its own screen arrives with milestone M6.
+9. **Αναφορές (Reports).** The seven management reports: capital programme by unit, project exceptions, contractor scorecard, maintenance backlog by risk band, asset lifecycle, clinical disruption, statutory compliance. Each one downloads as Excel with live formulas and prints to PDF. For the head of estates, finance, the executive, the auditor and the administrator.
 10. **Διαχείριση (Administration).** Users, contractors, eFinance.
 11. **Οδηγοί (Guides).** The printable guides per role, this guide and the test scenarios.
 
@@ -66,4 +66,4 @@ eCapital works with three ΟΚΥπΥ systems. From **eFinance** it reads each co
 
 ## What does not exist yet
 
-The reports screen (milestone M6), running work orders offline, sending contracts to eFinance (switched on once the real projects are loaded), Active Directory sign-in (waiting on the IT department). The «Αναφορές» page says what is coming and points at what exists. Maintenance is here now: work orders, preventive maintenance, backlog, contractor scorecard.
+Running work orders offline, sending contracts to eFinance (switched on once the real projects are loaded), Active Directory sign-in (waiting on the IT department), reports sent by email on a schedule. The reports are here now: open them, download them as Excel and print them whenever you need them.

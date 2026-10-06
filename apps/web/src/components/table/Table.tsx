@@ -30,6 +30,7 @@
  * | `onRowOpen`         | `(row: T) => void`                                | —             | Fired by `Enter` on a focused row. |
  * | `onSelectionChange` | `(ids: string[]) => void`                         | —             | Fired whenever the checkbox selection changes. |
  * | `onRetry`           | `() => void`                                      | —             | Retry button in the `error` state; the button is hidden without it. |
+ * | `totals`            | `Partial<Record<string, ReactNode>>`              | —             | A totals row under the body, keyed by column id; it never sorts with the rows (M6 reports). |
  *
  * `TableColumn<T>`: `id`, `headerKey` (full i18n path), `accessor`, optional
  * `cell` renderer, `numeric`, `editable`, `sortable` (default `true`),
@@ -103,6 +104,10 @@ export interface TableProps<T> {
   onRowOpen?: (row: T) => void;
   onSelectionChange?: (ids: string[]) => void;
   onRetry?: () => void;
+  /** One cell per column id; a column without one stays blank. Rendered in its own `<tbody>`
+   *  after the rows, so sorting never moves it and print does not repeat it on every page
+   *  the way a `<tfoot>` would. */
+  totals?: Partial<Record<string, ReactNode>>;
 }
 
 const SELECT_COLUMN_ID = "__select";
@@ -161,6 +166,7 @@ export function Table<T>({
   onRowOpen,
   onSelectionChange,
   onRetry,
+  totals,
 }: TableProps<T>) {
   const t = useTranslations("components.table");
   const tRoot = useTranslations();
@@ -312,7 +318,8 @@ export function Table<T>({
 
   return (
     <div className="rounded-k border border-k-grey bg-k-white">
-      <div className="flex flex-wrap items-center justify-between gap-s-3 border-b border-k-grey p-s-3">
+      {/* The toolbar is for the screen: density, columns and export mean nothing on paper (M6 print view). */}
+      <div className="flex flex-wrap items-center justify-between gap-s-3 border-b border-k-grey p-s-3 print:hidden">
         <div className="flex flex-wrap items-center gap-s-4">
           <div className="flex items-center gap-s-2" role="group" aria-label={t("density.label")}>
             <span className="text-fs-12 text-k-text">{t("density.label")}</span>
@@ -406,10 +413,10 @@ export function Table<T>({
           )}
         </div>
       ) : (
-        <div className="overflow-auto">
+        <div className="overflow-auto print:overflow-visible">
           <table className="w-full border-collapse text-fs-14">
             <caption className="sr-only">{tRoot(captionKey)}</caption>
-            <thead className="sticky top-0 z-10 bg-k-white">
+            <thead className="sticky top-0 z-10 bg-k-white print:static">
               {headerGroups.map((headerGroup) => (
                 <tr key={headerGroup.id} style={{ height: rowHeight }}>
                   {headerGroup.headers.map((header) => {
@@ -453,11 +460,11 @@ export function Table<T>({
                           >
                             {label}
                             {sortDirection === "asc" ? (
-                              <ChevronUp size={20} strokeWidth={1.5} aria-hidden="true" />
+                              <ChevronUp size={20} strokeWidth={1.5} aria-hidden="true" className="print:hidden" />
                             ) : sortDirection === "desc" ? (
-                              <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" />
+                              <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" className="print:hidden" />
                             ) : (
-                              <ChevronsUpDown size={20} strokeWidth={1.5} aria-hidden="true" />
+                              <ChevronsUpDown size={20} strokeWidth={1.5} aria-hidden="true" className="print:hidden" />
                             )}
                           </button>
                         ) : (
@@ -569,6 +576,23 @@ export function Table<T>({
                     })}
                   </tr>
                 ))}
+              </tbody>
+            )}
+            {totals && showsRows && visibleRows.length > 0 && (
+              <tbody>
+                <tr style={{ height: rowHeight }} className="font-bold text-k-ink">
+                  {table.getVisibleLeafColumns().map((column) => {
+                    const definition = columnsById.get(column.id);
+                    return (
+                      <td
+                        key={column.id}
+                        className={`border-t-2 border-k-ink px-s-2 ${definition?.numeric ? "num whitespace-nowrap" : ""}`}
+                      >
+                        {totals[column.id] ?? null}
+                      </td>
+                    );
+                  })}
+                </tr>
               </tbody>
             )}
           </table>

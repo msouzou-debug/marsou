@@ -151,11 +151,23 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | J13 | Εκκρεμότητες. As `engineer.nicosia` open an automatic draft. Then as `estates.nicosia` press «Σε έργο». | Totals by unit and risk band. The engineer does not see «Σε έργο». The head of estates confirms, a project is created at the Idea phase and the item becomes «Χρηματοδοτήθηκε». | |
 | J14 | Αξιολόγηση, agreement Α.Ο 42/24, «Προηγούμενο τρίμηνο». Press «Εξαγωγή σε Excel». | On-time percentages with the «out of» counts, downtime hours and the «ρήτρες ελλιπείς» note. The Excel has formulas for the percentages and penalties. As `finance` the same amounts. | |
 
+## K. Reports (head of estates, finance, executive, auditor)
+
+| # | Steps | Expected | Result |
+|---|---|---|---|
+| K1 | As `executive`, Αναφορές. | Seven cards: capital programme by unit, project exceptions, contractor scorecard, maintenance backlog by risk band, asset lifecycle, clinical disruption, statutory compliance. Each card says who it is for and which filters it takes. | |
+| K2 | As `engineer.nicosia`, look at the menu. Then type `/reports/capital-programme` in the address bar. | The menu has no «Αναφορές». The address shows «Δεν έχετε πρόσβαση σε αυτή τη σελίδα». | |
+| K3 | As `finance`, capital programme by unit, «ΟΚΥπΥ — όλες οι μονάδες», year 2026. | One row per unit and a «Σύνολο» row. The approved budget per unit agrees with the portfolio. Where there is no SAP spend the cell shows «—», not 0. The meta line names the unit, the year and the time generated. | |
+| K4 | Press «Λήψη Excel» and open the file. | The same figures as the screen. Totals, percentages and slippage are formulas, not numbers. Where the screen shows «—» the cell is blank. | |
+| K5 | Press «Εκτύπωση / PDF» and choose «Save as PDF». | An A4 landscape page with no menu, filters or buttons. On every page the title, the meta line, the table headers and the page number. No row is split across pages. | |
+| K6 | As `estates.nicosia`, contractor scorecard, «Προηγούμενο τρίμηνο». | A capital contractors table with «—» where the register has no data. A card for agreement Α.Ο 42/24 with the same percentages the maintenance scorecard shows for the same quarter, and the «ρήτρες ελλιπείς» note. | |
+| K7 | As `auditor`, statutory compliance, Nicosia General Hospital. Print. | Four categories with done out of due, overdue and a percentage in green, amber or red. The printout comes out on A4 portrait. | |
+
 ## Not tested in this version
 
 - Active Directory sign-in. Waiting on IT.
 - Sending contracts to eFinance. The switch stays off while the data is sample data.
-- The reports screen. Milestone M6. The «Αναφορές» page says so and points at what exists.
+- Reports sent by email on a schedule. Reports open, download and print from the screen only.
 - Running work orders offline. In this version the phone needs signal for every action.
 - The maintenance agreement's penalty amounts. They are missing from the copy of the contract; the scorecard counts late items and does not price them.
 - Sending documents to eArchive from the samples. Documents are recorded and queued.

@@ -72,26 +72,35 @@ describe("UnitSwitcher", () => {
 
 describe("NavRail", () => {
   // M2 added «Κόστος» as the tenth nav group, gated by role rather than
-  // always shown — see the two tests below.
-  it("defines all eleven nav groups, one of them role-gated", () => {
+  // always shown; M6 gated «Αναφορές» the same way — see the tests below.
+  it("defines all eleven nav groups, two of them role-gated", () => {
     expect(NAV_ITEMS).toHaveLength(11);
+    expect(NAV_ITEMS.filter((item) => item.visibleFor).map((item) => item.id)).toEqual(["cost", "reports"]);
   });
 
-  it("hides the role-gated «Κόστος» item for a caller with no role that reaches it", () => {
+  it("hides the role-gated «Κόστος» and «Αναφορές» items for a caller with no role that reaches them", () => {
     renderWithIntl(<NavRail />, { locale: "el" });
     const nav = document.querySelector("nav");
     expect(nav).toBeTruthy();
-    expect(nav?.querySelectorAll("a")).toHaveLength(10);
+    expect(nav?.querySelectorAll("a")).toHaveLength(9);
     expect(document.body.textContent).not.toContain("Κόστος");
+    expect(document.body.textContent).not.toContain("Αναφορές");
   });
 
   // RULE (`canViewCostNav`, `@/auth/roles`): visible to a caller who can
-  // reach either S10 (Εισαγωγή SAP) or S09a (Δεδουλευμένα).
-  it("shows «Κόστος» for a finance caller", () => {
+  // reach either S10 (Εισαγωγή SAP) or S09a (Δεδουλευμένα). RULE
+  // (`canViewReports`, ADR-0032 §6): finance reads the reports too.
+  it("shows «Κόστος» and «Αναφορές» for a finance caller", () => {
     renderWithIntl(<NavRail roles={["finance"]} />, { locale: "el" });
     const nav = document.querySelector("nav");
     expect(nav?.querySelectorAll("a")).toHaveLength(11);
     expect(document.body.textContent).toContain("Κόστος");
+    expect(document.body.textContent).toContain("Αναφορές");
+  });
+
+  it("hides «Αναφορές» from a project engineer", () => {
+    renderWithIntl(<NavRail roles={["project_engineer"]} />, { locale: "el" });
+    expect(document.body.textContent).not.toContain("Αναφορές");
   });
 
   it("shows the approvals count as a badge", () => {

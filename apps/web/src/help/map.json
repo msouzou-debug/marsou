@@ -622,5 +622,17 @@
       "auditor_readonly",
       "admin"
     ]
+  },
+  "S23a": {
+    "route": "/reports/[slug]",
+    "section": "S23a-report",
+    "tier": "optional",
+    "persona": [
+      "estates_head",
+      "finance",
+      "executive_readonly",
+      "auditor_readonly",
+      "admin"
+    ]
   }
 }

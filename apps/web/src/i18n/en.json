@@ -43,7 +43,9 @@
     "signIn": "Sign in",
     "signOut": "Sign out",
     "edit": "Edit",
-    "changePhase": "Change phase"
+    "changePhase": "Change phase",
+    "downloadExcel": "Download Excel",
+    "printPdf": "Print / PDF"
   },
   "forms": {
     "required": "Fill in this field.",
@@ -1566,40 +1568,182 @@
     },
     "s23": {
       "title": "Reports",
-      "intro": "The reports and exports screen is built in milestone M6. Until then, the figures the system already produces live on the screens below, each with its own export.",
-      "todayTitle": "What exists today",
-      "today": {
-        "portfolio": {
-          "label": "Portfolio",
-          "what": "Budget, commitments, spend and forecast per unit, with RAG."
-        },
-        "projects": {
-          "label": "Projects",
-          "what": "The project list with filters and an Excel export."
-        },
-        "accruals": {
-          "label": "Accruals",
-          "what": "The year-end accrual proposal, Excel with live formulas."
-        },
-        "forecast": {
-          "label": "Replacement forecast",
-          "what": "Assets by replacement year and estimated cost."
-        },
-        "calendar": {
-          "label": "Disruption calendar",
-          "what": "Planned shutdowns by area and day."
-        },
-        "contracts": {
-          "label": "Contracts",
-          "what": "Value, variations, payment certificates and cash flow per contract."
+      "intro": "The management reports on projects, maintenance and assets. Each one reads on the screen, downloads as Excel with live formulas and prints to PDF. It is worked out when you open it, from the same figures the other screens show.",
+      "listLabel": "The reports",
+      "forWhom": "For: {who}",
+      "filtersLabel": "Filters: {list}",
+      "filters": {
+        "unit": "unit",
+        "year": "year",
+        "period": "period",
+        "agreement": "maintenance agreement"
+      },
+      "empty": "There are no reports for your role."
+    },
+    "s23a": {
+      "filters": {
+        "title": "Filters",
+        "year": "Year",
+        "period": "Period",
+        "from": "From",
+        "to": "To",
+        "presets": {
+          "current": "Current quarter",
+          "previous": "Previous quarter"
         }
       },
-      "comingTitle": "What will be added",
-      "coming": {
-        "backlog": "Maintenance backlog by hospital and risk band.",
-        "lifecycle": "Asset lifecycle: capital cost, cumulative maintenance cost, remaining life.",
-        "directorate": "Every report by unit and by directorate.",
-        "exports": "Scheduled exports to Excel and PDF."
+      "meta": {
+        "line": "{unit} · {scope} · Generated {generatedAt}",
+        "year": "Year {year}",
+        "period": "{from} to {to}",
+        "current": "Current position"
+      },
+      "empty": "There is no data for the period.",
+      "total": "Total",
+      "print": {
+        "page": "Page",
+        "of": "of"
+      },
+      "exporting": "The file is being prepared.",
+      "reports": {
+        "CAPITAL_PROGRAMME": {
+          "description": "Approved budget, commitments, spend, forecast and slippage per unit for one year. The share spent reads next to the share of the year elapsed.",
+          "audience": "Executive, finance, head of estates",
+          "caption": "Capital programme by unit",
+          "columns": {
+            "projects": "Projects",
+            "approved": "Approved budget",
+            "committed": "Commitments",
+            "spent": "Spend",
+            "forecast": "Forecast final cost",
+            "slippage": "Slippage",
+            "spentPct": "Share spent",
+            "rag": "RAG"
+          },
+          "yearShare": "year {pct}",
+          "kpi": {
+            "approved": "Approved budget",
+            "committed": "Commitments",
+            "spent": "Spend",
+            "forecast": "Forecast final cost",
+            "slippage": "Slippage",
+            "yearElapsed": "Year elapsed",
+            "spentShare": "{pct} of the budget"
+          },
+          "slippageNote": "A positive slippage means the forecast is over the approved budget."
+        },
+        "EXCEPTIONS": {
+          "description": "Projects whose RAG is red or amber, with the reason and the owner. Red first, then amber, then by slippage.",
+          "audience": "Executive, head of estates",
+          "caption": "Projects at red or amber",
+          "columns": {
+            "code": "Code",
+            "title": "Project",
+            "phase": "Phase",
+            "rag": "RAG",
+            "reason": "Reason",
+            "owner": "Owner",
+            "approved": "Approved budget",
+            "forecast": "Forecast final cost",
+            "slippage": "Slippage",
+            "milestoneLate": "Milestone late",
+            "risksHigh": "High risks"
+          }
+        },
+        "CONTRACTOR_SCORECARD": {
+          "description": "Capital contractors with on-time completion, variations, defects and certificates, and maintenance contractors with the agreement's times and penalties.",
+          "audience": "Head of estates, finance",
+          "capitalTitle": "Capital contractors",
+          "maintenanceTitle": "Maintenance contractors",
+          "maintenanceEmpty": "No maintenance agreement in force in the period.",
+          "columns": {
+            "contractor": "Contractor",
+            "contracts": "Contracts",
+            "contractValue": "Contract value",
+            "overdue": "Overdue contracts",
+            "onTime": "On time",
+            "variationRate": "Variations / original value",
+            "defects": "Defects",
+            "openDefects": "Open defects",
+            "defectRate": "Defects per 100.000 €",
+            "rfiBreach": "RFIs past their deadline",
+            "claimAccuracy": "Claim accuracy"
+          },
+          "cardHeading": "{contractor} · {ref}",
+          "downtime": "Downtime hours",
+          "penalties": "Penalties",
+          "ratesMissing": "Penalty rates are missing from the system catalogue. Late items were counted, but their amount is not included."
+        },
+        "BACKLOG_BY_BAND": {
+          "description": "The maintenance backlog by unit and risk band, with the funded and unfunded amounts. The same totals as the backlog screen.",
+          "audience": "Head of estates, finance",
+          "caption": "Maintenance backlog by unit and risk band",
+          "columns": {
+            "total": "Total",
+            "funded": "Funded",
+            "unfunded": "Unfunded"
+          },
+          "items": "{count, plural, one {# item} other {# items}}",
+          "split": "funded {funded} · unfunded {unfunded}"
+        },
+        "ASSET_LIFECYCLE": {
+          "description": "Capital cost, cumulative maintenance cost, downtime, remaining life and replacement year per asset. The assets with the least life left come first.",
+          "audience": "Head of estates, finance",
+          "caption": "Asset lifecycle",
+          "columns": {
+            "tag": "Tag",
+            "name": "Asset",
+            "assetClass": "Class",
+            "criticality": "Criticality",
+            "condition": "Condition",
+            "installed": "Installed",
+            "capitalCost": "Capital cost",
+            "maintenanceCost": "Maintenance cost",
+            "maintenancePct": "Maintenance / capital",
+            "corrective": "Corrective orders",
+            "downtime": "Downtime hours",
+            "remainingLife": "Remaining life",
+            "replacementYear": "Replacement year",
+            "replacementCost": "Replacement estimate"
+          },
+          "years": "{count, plural, one {# yr} other {# yrs}}"
+        },
+        "CLINICAL_DISRUPTION": {
+          "description": "Theatre and ICU hours lost to planned works, by unit and month. The hours come from the permits on the disruption calendar.",
+          "audience": "Executive, head of estates",
+          "caption": "Theatre and ICU hours by unit and month",
+          "legend": "In each cell, theatre hours on top and ICU hours below.",
+          "theatre": "Theatres",
+          "icu": "ICU",
+          "columns": {
+            "theatreTotal": "Theatre hours, total",
+            "icuTotal": "ICU hours, total",
+            "permits": "Permits"
+          },
+          "months": {
+            "m01": "Jan",
+            "m02": "Feb",
+            "m03": "Mar",
+            "m04": "Apr",
+            "m05": "May",
+            "m06": "Jun",
+            "m07": "Jul",
+            "m08": "Aug",
+            "m09": "Sep",
+            "m10": "Oct",
+            "m11": "Nov",
+            "m12": "Dec"
+          }
+        },
+        "STATUTORY_COMPLIANCE": {
+          "description": "Statutory inspections of lifts, pressure vessels, medical gas and fire systems: how many were due, how many were done, how many are overdue.",
+          "audience": "Head of estates, auditor, executive",
+          "caption": "Statutory inspections by unit and category",
+          "doneOf": "{done} of {due}",
+          "overdue": "{count} overdue",
+          "nothingDue": "Nothing due",
+          "thresholds": "Colour of the share done: green from 95 %, amber from 80 %, red below 80 %."
+        }
       }
     },
     "s18detail": {
@@ -2363,5 +2507,20 @@
   "backlogAutoReason": {
     "THREE_CORRECTIVE_IN_12_MONTHS": "Drafted automatically: three corrective orders in twelve months",
     "REPAIR_COST_OVER_THRESHOLD": "Drafted automatically: repair cost passed the threshold"
+  },
+  "reportKey": {
+    "CAPITAL_PROGRAMME": "Capital programme by unit",
+    "EXCEPTIONS": "Project exceptions",
+    "CONTRACTOR_SCORECARD": "Contractor scorecard",
+    "BACKLOG_BY_BAND": "Maintenance backlog by risk band",
+    "ASSET_LIFECYCLE": "Asset lifecycle",
+    "CLINICAL_DISRUPTION": "Clinical disruption",
+    "STATUTORY_COMPLIANCE": "Statutory compliance"
+  },
+  "statutoryCategory": {
+    "LIFTS": "Lifts",
+    "PRESSURE_VESSELS": "Pressure vessels",
+    "MEDICAL_GAS": "Medical gas",
+    "FIRE_SYSTEMS": "Fire systems"
   }
 }
