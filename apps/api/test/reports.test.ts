@@ -394,12 +394,12 @@ describe("reports (M6)", () => {
     const approved = sheet.getCell(first, col("Εγκεκριμένος προϋπολογισμός (€)"));
     expect(typeof approved.value).toBe("number");
     expect(approved.font?.color?.argb).toBe("FF0000FF");
-    for (const title of ["Απόκλιση πρόβλεψης (€)", "Δαπάνες ως % του εγκεκριμένου", "Δαπάνες μείον ποσοστό έτους (μονάδες)"]) {
+    for (const title of ["Απόκλιση πρόβλεψης (€)", "Δαπάνες ως % του εγκεκριμένου", "Δαπάνες μείον ποσοστό έτους (ποσοστιαίες μονάδες)"]) {
       const cell = sheet.getCell(first, col(title));
       expect((cell.value as ExcelJS.CellFormulaValue).formula, title).toBeTruthy();
       expect(cell.font?.color?.argb, title).toBe("FF000000");
     }
-    expect((sheet.getCell(first, col("Δαπάνες μείον ποσοστό έτους (μονάδες)")).value as ExcelJS.CellFormulaValue).formula).toContain(
+    expect((sheet.getCell(first, col("Δαπάνες μείον ποσοστό έτους (ποσοστιαίες μονάδες)")).value as ExcelJS.CellFormulaValue).formula).toContain(
       "$B$5",
     );
 
@@ -446,9 +446,9 @@ describe("reports (M6)", () => {
     const checks: [ReportKey, string, string, string][] = [
       ["EXCEPTIONS", "Κωδικός έργου", "Εγκεκριμένος προϋπολογισμός (€)", "Απόκλιση πρόβλεψης (€)"],
       ["BACKLOG_BY_BAND", "Μονάδα", "Υψηλή — κόστος (€)", "Υψηλή — χωρίς χρηματοδότηση (€)"],
-      ["ASSET_LIFECYCLE", "Ετικέτα", "Κόστος συντήρησης σωρευτικά (€)", "Υπολειπόμενη ζωή (έτη)"],
-      ["CLINICAL_DISRUPTION", "Μονάδα", "Ώρες χειρουργείων", "Ώρες σύνολο"],
-      ["STATUTORY_COMPLIANCE", "Μονάδα", "Οφειλόμενες", "Ολοκληρωμένες ως % των οφειλόμενων"],
+      ["ASSET_LIFECYCLE", "Κωδικός", "Σωρευτικό κόστος συντήρησης (€)", "Υπολειπόμενη ζωή (έτη)"],
+      ["CLINICAL_DISRUPTION", "Μονάδα", "Ώρες χειρουργείων", "Σύνολο ωρών"],
+      ["STATUTORY_COMPLIANCE", "Μονάδα", "Οφειλόμενοι έλεγχοι", "Ολοκληρωμένοι ως % των οφειλόμενων"],
     ];
     for (const [key, first, input, derived] of checks) {
       // The whole organisation for the exceptions: a unit may have none at all.

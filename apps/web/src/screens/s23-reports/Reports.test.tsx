@@ -97,11 +97,11 @@ describe("S23a report bodies", () => {
     expect(totals).toHaveTextContent("Σύνολο");
   });
 
-  it("says «Κανένας έλεγχος» where nothing statutory was due, and colours the share done", () => {
+  it("says «Κανένας οφειλόμενος έλεγχος» where nothing statutory was due, and colours the share done", () => {
     renderPage("STATUTORY_COMPLIANCE");
     const table = screen.getByRole("table");
     const nicosia = bodyRows(table)[0];
-    expect(within(nicosia).getByText("Κανένας έλεγχος")).toBeInTheDocument();
+    expect(within(nicosia).getByText("Κανένας οφειλόμενος έλεγχος")).toBeInTheDocument();
     expect(within(nicosia).getByText("39 από 40")).toBeInTheDocument();
     expect(within(nicosia).getByText("6 εκπρόθεσμοι")).toBeInTheDocument();
     expect(within(nicosia).getByText("1 εκπρόθεσμος")).toBeInTheDocument();

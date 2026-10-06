@@ -634,7 +634,7 @@
       "CONTRACTOR_SCORECARD": "Contractor scorecard",
       "BACKLOG_BY_BAND": "Maintenance backlog by risk band",
       "ASSET_LIFECYCLE": "Asset lifecycle",
-      "CLINICAL_DISRUPTION": "Clinical disruption by unit and month",
+      "CLINICAL_DISRUPTION": "Clinical disruption",
       "STATUTORY_COMPLIANCE": "Statutory compliance"
     },
     "meta": {
@@ -642,7 +642,7 @@
       "unit": "Unit",
       "allUnits": "Every unit you can see",
       "period": "Period",
-      "periodValue": "{from} to {to} (exclusive)",
+      "periodValue": "{from} to {to}",
       "noPeriod": "As of today",
       "generatedAt": "Generated (UTC)"
     },

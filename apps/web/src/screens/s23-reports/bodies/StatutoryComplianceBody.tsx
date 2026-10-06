@@ -19,7 +19,7 @@
  * «compliant / slipping / failing», said on the screen and in the manual,
  * and one constant to change if the head of estates sets others.
  * RULE (contract `StatutoryCell.donePct`): nothing due is null, shown as
- * «Κανένας έλεγχος», never 0 % or 100 %.
+ * «Κανένας οφειλόμενος έλεγχος», never 0 % or 100 %.
  */
 import { useTranslations } from "next-intl";
 import { StatutoryCategory, type StatutoryComplianceReport, type StatutoryComplianceRow } from "@ecapital/shared";

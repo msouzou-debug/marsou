@@ -32,6 +32,7 @@ import {
   type StatutoryComplianceReport,
 } from "@ecapital/shared";
 import type { I18nService } from "../common/i18n.service";
+import { addDays } from "../maintenance/maintenance-rules";
 import { DEFECT_RATE_BASE } from "./report-rows";
 import type { ContractorScorecardData } from "./reports.service";
 import { STATUTORY_ORDER } from "./statutory";
@@ -245,7 +246,8 @@ function writeMeta(
   const both = (label: Label) => `${label.el} / ${label.en}`;
   const period =
     meta.from && meta.to
-      ? words.el("meta.periodValue", { from: meta.from, to: meta.to })
+      ? // The screen's reading: dd/mm/yyyy, the last day in the period (the query's `to` is exclusive).
+        words.el("meta.periodValue", { from: dayMonthYear(meta.from), to: dayMonthYear(addDays(meta.to, -1)) })
       : meta.year !== null
         ? String(meta.year)
         : words.el("meta.noPeriod");
@@ -283,6 +285,12 @@ function writeMeta(
   sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width ?? 0, 34);
   sheet.getColumn(2).width = Math.max(sheet.getColumn(2).width ?? 0, 30);
   return { next: lines.length + assumptions.length + 2, at };
+}
+
+/** `2026-07-01` → `01/07/2026`, the house date format. */
+function dayMonthYear(isoDate: string): string {
+  const [y, m, d] = isoDate.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
 }
 
 function newBook(): ExcelJS.Workbook {
