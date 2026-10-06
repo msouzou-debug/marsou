@@ -898,3 +898,88 @@ def test_the_pharmacy_lines_οαυ_names_in_words_leave_the_drugs_account():
     assert rows["Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)"] == -100.0
     assert "Φάρμακα (Drugs)" not in rows
     assert round(sum(rows.values()), 2) == -640.0
+
+
+def test_credit_notes_on_drugs_follow_the_non_phase_b_drugs():
+    """«PHARMA NO DISCOUNT» drugs take no deductions: once the month is split,
+    every CRN-Drugs line (PHASE1 and PHASE2 alike), the OTC corrections and
+    the fee's CRN-Packages book with the rest of the drugs — ΟΑΥ's own ledger
+    nets them there, to the cent, in Larnaca and Paphos Aug-2026.  A line that
+    says neither stays in the general row."""
+    from recon.build_xlsx import _line_kind
+    from recon.checks import build_split
+    from recon.models import Bucket, GLExtract, SRA, SRALine
+    line = lambda code, desc, amt: SRALine(       # noqa: E731
+        code=code, description=desc, amount=amt, bucket=Bucket.PHARMA)
+    bundle = ReconBundle(hospital_code="F1048", year=2026, month=8)
+    bundle.sra = SRA(cheque_no="1", stated_total=0.0, lines=[
+        line("PH", "PH-HCPSERVICES", 1_000.0),
+        line("PH-ADJ", "31/08/2026 CRN-Drugs- PH - DEDUCTIONS-DRUGS-PHASE2", -50.0),
+        line("PH-ADJ", "31/08/2026 CRN-Drugs- PH - CRN-DRUGS-PHASE1 COST&VAT", -5.0),
+        line("PH-ADJ", "31/08/2026 OTC-CORR- PH-OTC-CORR-COST-08-2026", -4.0),
+        line("PH-ADJ", "31/08/2026 CRN-Drugs-Z- PH - DEDUCTIONS-DRUGS-Z", -3.0),
+        line("PH-ADJ", "30/06/2026 ADJ- AdjustmentPharmacyLine-Jun26", -100.0),
+        line("PHF", "31/08/2026 CRN-Packages PH - CORRECTION PACKAGES", -2.0)])
+    bundle.gl = GLExtract(pharma_phase_b=900.0)
+    rows = {r.label: r.amount for s in build_split(bundle) for r in s.rows}
+    crn = "Φάρμακα εκτός Β' φάσης — πιστωτικά CRN-Drugs/OTC (non-phase-B credit notes)"
+    fee = ("Φάρμακα εκτός Β' φάσης — Αμοιβή Φαρμακοποιού, διορθώσεις "
+           "CRN-Packages (fee corrections)")
+    assert rows["Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)"] == 900.0
+    assert rows[crn] == -59.0
+    assert rows[fee] == -2.0
+    assert rows["Φάρμακα — αποκοπές Ζ-καταλόγου (Deductions-Drugs-Z-Catalogue)"] == -3.0
+    assert rows["Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)"] == -100.0
+    assert round(sum(rows.values()), 2) == 836.0
+    assert _line_kind(crn, "Pharma")[0] == "outpatient"
+    assert _line_kind(fee, "Pharma")[0] == "outpatient"
+
+
+def test_a_clinic_the_classification_never_names_is_all_drg():
+    """When every clinic's daily and Z euros add up to the Ενδ. summary's own
+    Z-catalogue figure, a clinic missing from that classification had none —
+    its whole total is DRG.  If they do not add up, nothing is assumed."""
+    from recon.checks import _drg_only_clinics
+    from recon.models import ClinicRow, InpatientSummary
+    rows = [ClinicRow(clinic="RENAL DISEASES", fixed_fee=200.0, drg=50.0,
+                      z_drugs=0.0, total=250.0),
+            ClinicRow(clinic="HAEMATOLOGY", fixed_fee=10.0, drg=0.0,
+                      z_drugs=90.0, total=100.0),
+            ClinicRow(clinic="OTORHINOLARYNGOLOGY", fixed_fee=0.0, drg=0.0,
+                      z_drugs=0.0, total=500.0)]
+    ip = InpatientSummary(z_catalogue=300.0)
+    ent = _drg_only_clinics(rows, ip)[2]
+    assert (ent.drg, ent.fixed_fee, ent.z_drugs) == (500.0, 0.0, 0.0)
+    ip.z_catalogue = 301.0
+    assert _drg_only_clinics(rows, ip)[2].drg == 0.0
+
+
+def test_a_personal_doctors_adjustment_follows_the_doctors_register():
+    """ΟΑΥ addresses some adjustments to a Personal Doctor by code only
+    («BMIKPI3 D1705»).  The activity export names the doctor, the claims file
+    says the register («PD - Child Pediatrics»): a child PD's adjustment is the
+    paediatric clinic's, an adult PD's goes to ΔΠΦΥ.  Unknown codes stay a
+    plain adjustment."""
+    from recon.checks import build_split
+    from recon.models import Bucket, ClaimsAll, SRA, SRALine, XMLActivity
+    line = lambda desc, amt, doc: SRALine(        # noqa: E731
+        code="??", description=desc, amount=amt, bucket=Bucket.OUTPATIENT,
+        channel="Unmapped", doctor=doc)
+    bundle = ReconBundle(hospital_code="F1048", year=2026, month=8)
+    bundle.sra = SRA(cheque_no="1", stated_total=0.0, lines=[
+        line("31/08/2026 BMIKPI3 D1705 2,168.66 EUR", 2168.66, "D1705"),
+        line("31/08/2026 BMIKPI3 D1710 10.00 EUR", 10.0, "D1710"),
+        line("31/08/2026 BLOOD PR D9999 5.00 EUR", 5.0, "D9999")])
+    bundle.xml_activity = XMLActivity(by_professional={
+        "D1705": "ΑΔΑΜΟΣ / ADAMOS", "D1710": "ΘΕΟΓΝΩΣΙΑ / THEOGNOSIA"})
+    bundle.claims = ClaimsAll(by_doctor=[
+        ("Personal Doctors", "PD - Child Pediatrics", "ΑΔΑΜΟΣ / ADAMOS", 100.0),
+        ("Inpatient", "PD - Child Pediatrics", "ΑΔΑΜΟΣ / ADAMOS", 900.0),
+        ("Personal Doctors", "PD - Adult General Medicine",
+         "ΘΕΟΓΝΩΣΙΑ / THEOGNOSIA", 50.0)])
+    labels = [r.label for s in build_split(bundle) for r in s.rows]
+    assert ("Προσωπικοί Ιατροί Παιδιών — προσαρμογή (adjustment): "
+            "31/08/2026 BMIKPI3 D1705 2,168.66 EUR") in labels
+    assert any(l.startswith("Προσωπικοί Ιατροί Ενηλίκων — προσαρμογή")
+               and l.endswith("ΔΠΦΥ (intercompany)") for l in labels)
+    assert "Προσαρμογή (adjustment): 31/08/2026 BLOOD PR D9999 5.00 EUR" in labels

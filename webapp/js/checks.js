@@ -747,6 +747,31 @@ function buildCrosschecks(bundle) {
         }
       }
     }
+    /* Β' φάση and the rest exactly as the journal books them (412006 /
+     * 412002), against ΟΑΥ's own ledger: the rest — drugs, consumables and the
+     * pharmacist's fee, net of the month's credit notes — is every pharma
+     * centre except «PHARMA NO DISCOUNT» */
+    const pp = sra ? pharmaParts(bundle, sra) : null;
+    if (pp && pp.splitB) {
+      const feeCrn = sraSum(sra, ['PHF']);
+      add("GL ΟΑΥ φάρμακα εκτός Β' φάσης (255xx + 25501, χωρίς PHARMA NO DISCOUNT) = SRA φάρμακα εκτός Β' φάσης καθαρά (412002)",
+          round2(gl.pharmaOther + gl.pharmacistFee - gl.pharmaPhaseB), []);
+      const c = checks[checks.length - 1];
+      c.sraSide = round2(pp.rest + pp.crn + feeCrn);
+      c.labelA = 'Καθολικό ΟΑΥ (GL)'; c.labelB = 'SRA';
+      c.partsA = [P('Κέντρα κόστους 255xx και 25501', round2(gl.pharmaOther + gl.pharmacistFee)),
+                  P("Μείον PHARMA NO DISCOUNT (Β' φάση)", -gl.pharmaPhaseB)];
+      c.partsB = [P("PH εκτός Β' φάσης", pp.rest), P('Πιστωτικά CRN-Drugs/OTC', pp.crn)];
+      if (Math.abs(feeCrn) > CENT) {
+        c.partsB.push(P('Διορθώσεις CRN-Packages (αμοιβή φαρμακοποιού)', feeCrn));
+      }
+      [c.note, c.flag] = annotate(c.name, c.sourceTotal, c.sraSide);
+      if (Math.abs(c.diff || 0) <= CENT) {
+        c.note = 'OK — ο ΟΑΥ συμψηφίζει όλα τα πιστωτικά φαρμάκων και της αμοιβής στα '
+          + "φάρμακα εκτός Β' φάσης· η Β' φάση (PHARMA NO DISCOUNT) μένει ακέραιη "
+          + '(credit notes net into the non-phase-B drugs).';
+      }
+    }
     // EOAF / ISSUANCES settlements land on the balance-sheet account
     if (sra && sra.lines.some((l) => l.code === 'PH-EOAF')) {
       const eoafNow = sraSumInPeriod(sra, ['PH-EOAF'], sra.year, sra.month, true);
@@ -1047,6 +1072,83 @@ function pdSplitRows(section, amount, cohorts, what) {
   }
 }
 
+function pharmaParts(bundle, sra) {
+  /* How the month's pharmacy money divides, read from ΟΑΥ's wording.
+   *
+   * The EOAF settlements and the Z-catalogue deductions are told apart by their
+   * description.  Once the GL says how much was Β' φάσης («PHARMA NO
+   * DISCOUNT»), ΟΑΥ's credit notes on drugs (CRN-Drugs, PHASE1 and PHASE2
+   * alike) and its OTC corrections belong to the REST: «no discount» drugs
+   * take no deductions, and ΟΑΥ's own ledger nets every one of them into the
+   * other pharma centres — to the cent, Larnaca and Paphos Aug-2026. */
+  const [eoaf, eoafCodes] = sraByText(sra, ['EOAF'], null, ['PH-EOAF']);
+  const [zDed, zCodes] = sraByText(sra, ['DEDUCTIONS DRUGS Z'], ['EOAF']);
+  const phaseB = bundle.gl ? (bundle.gl.pharmaPhaseB || 0) : 0;
+  const ph = sra ? sraSum(sra, ['PH']) : 0;
+  const phNet = round2(ph - (eoafCodes['PH'] || 0) - (zCodes['PH'] || 0));
+  const splitB = !!(ph && phaseB && phaseB > 0 && phaseB <= phNet);
+  const [crn, crnCodes] = splitB
+    ? sraByText(onlyCode(sra, 'PH-ADJ'), ['CRN DRUGS', 'OTC CORR'], ['EOAF', 'DRUGS Z'])
+    : [0, {}];
+  return { eoaf, eoafCodes, zDed, zCodes, splitB, phaseB,
+           rest: splitB ? round2(phNet - phaseB) : 0, crn, crnCodes };
+}
+
+function onlyCode(sra, code) {
+  /* the SRA seen through one ΟΑΥ code — enough for sraByText */
+  return sra ? { lines: sra.lines.filter((l) => l.code === code) } : null;
+}
+
+function drgOnlyClinics(rows, inpatient) {
+  /* A clinic the daily/Z classification never mentions had neither: all of
+   * its money is DRG.  Said only when the classification is known to be
+   * complete — every clinic's daily and Z euros adding up, to the cent, to
+   * the Ενδ. summary's own «Z-catalogue» figure, which ΟΑΥ states with the
+   * daily treatments inside it.  Otherwise the clinic stays unclassified. */
+  if (!rows.length || !inpatient || !rows.some((r) => r.fixedFee || r.zDrugs)) return rows;
+  const classified = round2(rows.reduce((a, r) => a + (r.fixedFee || 0) + (r.zDrugs || 0), 0));
+  if (classified !== round2(inpatient.zCatalogue || 0)) return rows;
+  return rows.map((r) => ((r.fixedFee || r.zDrugs || r.drg) ? r
+    : { clinic: r.clinic, fixedFee: 0, drg: r.total, zDrugs: 0, total: r.total }));
+}
+
+function pdRegisterOf(bundle, sra) {
+  /* Doctor code → «child» / «adult», for the Personal Doctors only.
+   *
+   * The claims file names the register in the doctor's speciality («PD -
+   * Child Pediatrics»), keyed by NAME; the activity export turns the SRA's
+   * doctor CODE into that name.  Without the export, the SRA's own KPI lines
+   * («PD-KPIs-08-2026-CHILD-D1737») say it — but only for a doctor paid on
+   * one register; a doctor seen on both is left out, never guessed. */
+  const out = {};
+  const names = (bundle.xmlActivity && bundle.xmlActivity.byProfessional) || {};
+  const regsByName = {};
+  const kindOf = (up) => (up.includes('CHILD') ? 'child' : up.includes('ADULT') ? 'adult' : '');
+  if (bundle.claims) {
+    for (const [, spec, doctor] of bundle.claims.byDoctor) {
+      const up = normLabel(String(spec));
+      if (!up.startsWith('PD ')) continue;
+      const kind = kindOf(up);
+      if (kind) (regsByName[String(doctor).trim()] ||= new Set()).add(kind);
+    }
+  }
+  for (const [code, name] of Object.entries(names)) {
+    const regs = regsByName[String(name).trim()];
+    if (regs && regs.size === 1) out[code] = [...regs][0];
+  }
+  const seen = {};
+  for (const l of (sra ? sra.lines : [])) {
+    const up = normLabel(l.description);
+    if (!up.includes('KPI') || !l.doctor) continue;
+    const kind = kindOf(up);
+    if (kind) (seen[l.doctor] ||= new Set()).add(kind);
+  }
+  for (const [code, regs] of Object.entries(seen)) {
+    if (!(code in out) && regs.size === 1) out[code] = [...regs][0];
+  }
+  return out;
+}
+
 function sraByText(sra, needles, skip, orCodes) {
   /* What ΟΑΥ paid on the lines whose DESCRIPTION says so.
    *
@@ -1152,7 +1254,7 @@ function buildSplit(bundle) {
    * borrow the classification from the other. */
   const endoRows = (bundle.inpatient && bundle.inpatient.byClinic) || [];
   const claimsRows = (bundle.claims && bundle.claims.inpatientByClinic) || [];
-  const clinicRows = mergeClinicRows(endoRows, claimsRows);
+  const clinicRows = drgOnlyClinics(mergeClinicRows(endoRows, claimsRows), bundle.inpatient);
   if (clinicRows.length) {
     for (const r of clinicRows) {
       ip.rows.push({ label: r.clinic, amount: r.total,
@@ -1276,8 +1378,17 @@ function buildSplit(bundle) {
   const sat = sraAmount(['SAT']);
   if (sat) out.rows.push({ label: 'Επιταγές δορυφορικών παροχέων (satellite suppliers, π.χ. κέντρα υγείας)', amount: sat });
   if (sra) {
+    /* an adjustment ΟΑΥ addresses to a Personal Doctor by code («BMIKPI3
+     * D1705») belongs to that doctor's register, like the doctor's fees */
+    const register = pdRegisterOf(bundle, sra);
     for (const l of sra.lines.filter((x) => x.channel === 'Unmapped')) {
-      out.rows.push({ label: `Προσαρμογή (adjustment): ${l.description}`, amount: l.amount });
+      const reg = l.doctor ? register[l.doctor] : null;
+      const label = reg === 'child'
+        ? `Προσωπικοί Ιατροί Παιδιών — προσαρμογή (adjustment): ${l.description}`
+        : reg === 'adult'
+          ? `Προσωπικοί Ιατροί Ενηλίκων — προσαρμογή (adjustment): ${l.description} — ΔΠΦΥ (intercompany)`
+          : `Προσαρμογή (adjustment): ${l.description}`;
+      out.rows.push({ label, amount: l.amount });
     }
   }
   sections.push(out);
@@ -1285,23 +1396,26 @@ function buildSplit(bundle) {
   const ph = { title: 'Φάρμακα (Pharma)', bucket: 'Pharma', rows: [] };
   /* ΟΑΥ routes three kinds of pharmacy money differently, and says which is
    * which in the line's own description, not in its code */
-  const [eoaf, eoafCodes] = sraByText(sra, ['EOAF'], null, ['PH-EOAF']);
-  const [zDed, zCodes] = sraByText(sra, ['DEDUCTIONS DRUGS Z'], ['EOAF']);
-  const routed = (code) => round2((eoafCodes[code] || 0) + (zCodes[code] || 0));
+  const pp = pharmaParts(bundle, sra);
+  const { eoaf, eoafCodes, zDed, zCodes, splitB, crnCodes } = pp;
+  const routed = (code) => round2((eoafCodes[code] || 0) + (zCodes[code] || 0)
+    + (crnCodes[code] || 0));
   let phClaims = sraAmount(['PH']);
   if (phClaims) {
     phClaims = round2(phClaims - routed('PH'));
     /* only the Β' φάσης drugs are 412006 revenue.  The GL extract is the one
      * place that says how much of the month was Β' φάσης — its own «PHARMA NO
      * DISCOUNT» cost centre — so without it nothing is split. */
-    const phaseB = bundle.gl ? (bundle.gl.pharmaPhaseB || 0) : 0;
-    const rest = round2(phClaims - phaseB);
-    if (phaseB && phaseB > 0 && phaseB <= phClaims) {
+    if (splitB) {
       ph.rows.push({ label: "Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)",
-                     amount: phaseB });
-      if (rest) {
+                     amount: pp.phaseB });
+      if (pp.rest) {
         ph.rows.push({ label: "Φάρμακα εκτός Β' φάσης — εξωνοσοκομειακά (non-phase-B drugs)",
-                       amount: rest });
+                       amount: pp.rest });
+      }
+      if (pp.crn) {
+        ph.rows.push({ label: "Φάρμακα εκτός Β' φάσης — πιστωτικά CRN-Drugs/OTC (non-phase-B credit notes)",
+                       amount: pp.crn });
       }
     } else {
       ph.rows.push({ label: 'Φάρμακα & Αναλώσιμα — PH (pharmacy claims)', amount: phClaims });
@@ -1317,9 +1431,13 @@ function buildSplit(bundle) {
   let fee = sraAmount(['PHF']);
   if (fee == null && bundle.phfee) fee = bundle.phfee.computed;
   if (fee) {
-    ph.rows.push({ label: phClaims
-      ? 'Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)'
-      : 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
+    /* the pharmacist's fee is paid inside the PH lines, with the rest of the
+     * month's drugs — its corrections go where the fee went */
+    ph.rows.push({ label: phClaims && splitB
+      ? "Φάρμακα εκτός Β' φάσης — Αμοιβή Φαρμακοποιού, διορθώσεις CRN-Packages (fee corrections)"
+      : phClaims
+        ? 'Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)'
+        : 'Αμοιβή Φαρμακοποιού (Pharmacist fee)', amount: fee });
   }
   const phAdj = round2((sraAmount(['PH-ADJ']) || 0) - routed('PH-ADJ'));
   if (phAdj) ph.rows.push({ label: 'Φάρμακα — προσαρμογές/πιστωτικά (pharmacy adjustments/CRN)', amount: phAdj });

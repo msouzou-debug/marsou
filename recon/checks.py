@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Optional
 
 from .extract import merge_clinic_rows, sra_sum_in_period
-from .models import (Bucket, BUCKET_ORDER, ClaimsAll, GLExtract, HOSPITALS,
+from .models import (Bucket, BUCKET_ORDER, ClaimsAll, ClinicRow, GLExtract, HOSPITALS,
                      IdentifiedFile, InpatientSummary, is_hospital, ISAuditor,
                      ORG_WIDE_TYPES, PharmaClaims, PharmacistFee,
                      norm_label, provider_name, REPORT_LABELS, REQUIRED_TYPES,
@@ -982,6 +983,33 @@ def _build_crosschecks(bundle: ReconBundle) -> list[CrossCheck]:
                     if abs(ph_adj_prior) > CENT:
                         c.note += (f" Διορθώσεις προηγούμενων μηνών: "
                                    f"{format_eur(ph_adj_prior)} (σε εκείνα τα καθολικά).")
+        # Β' φάση and the rest exactly as the journal books them (412006 /
+        # 412002), against ΟΑΥ's own ledger: the rest — drugs, consumables and
+        # the pharmacist's fee, net of the month's credit notes — is every
+        # pharma centre except «PHARMA NO DISCOUNT»
+        pp = _pharma_parts(bundle, sra) if sra else None
+        if pp and pp["split_b"]:
+            fee_crn = _sra_sum(sra, ["PHF"])
+            add("GL ΟΑΥ φάρμακα εκτός Β' φάσης (255xx + 25501, χωρίς PHARMA NO "
+                "DISCOUNT) = SRA φάρμακα εκτός Β' φάσης καθαρά (412002)",
+                round(gl.pharma_other + gl.pharmacist_fee - gl.pharma_phase_b, 2), [])
+            c = checks[-1]
+            c.sra_side = round(pp["rest"] + pp["crn"] + fee_crn, 2)
+            c.label_a, c.label_b = "Καθολικό ΟΑΥ (GL)", "SRA"
+            c.parts_a = [P("Κέντρα κόστους 255xx και 25501",
+                           round(gl.pharma_other + gl.pharmacist_fee, 2)),
+                         P("Μείον PHARMA NO DISCOUNT (Β' φάση)", -gl.pharma_phase_b)]
+            c.parts_b = [P("PH εκτός Β' φάσης", pp["rest"]),
+                         P("Πιστωτικά CRN-Drugs/OTC", pp["crn"])]
+            if abs(fee_crn) > CENT:
+                c.parts_b.append(P("Διορθώσεις CRN-Packages (αμοιβή φαρμακοποιού)",
+                                   fee_crn))
+            c.note, c.flag = _annotate(c.name, c.source_total, c.sra_side)
+            if abs(c.diff or 0) <= CENT:
+                c.note = ("OK — ο ΟΑΥ συμψηφίζει όλα τα πιστωτικά φαρμάκων και "
+                          "της αμοιβής στα φάρμακα εκτός Β' φάσης· η Β' φάση "
+                          "(PHARMA NO DISCOUNT) μένει ακέραιη (credit notes net "
+                          "into the non-phase-B drugs).")
         # EOAF / ISSUANCES settlements land on the balance-sheet account
         if sra and any(l.code == "PH-EOAF" for l in sra.lines):
             eoaf_now = sra_sum_in_period(sra, ["PH-EOAF"], sra.year, sra.month, True)
@@ -1263,7 +1291,8 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     # borrow the classification from the other.
     endo_rows = bundle.inpatient.by_clinic if bundle.inpatient else []
     claims_rows = bundle.claims.inpatient_by_clinic if bundle.claims else []
-    clinic_rows = merge_clinic_rows(endo_rows, claims_rows)
+    clinic_rows = _drg_only_clinics(merge_clinic_rows(endo_rows, claims_rows),
+                                    bundle.inpatient)
     if clinic_rows:
         for r in clinic_rows:
             ip.rows.append(SplitRow(label=r.clinic, amount=r.total,
@@ -1403,34 +1432,51 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
             "Επιταγές δορυφορικών παροχέων (satellite suppliers, π.χ. κέντρα "
             "υγείας)", sat))
     if sra:
+        # an adjustment ΟΑΥ addresses to a Personal Doctor by code («BMIKPI3
+        # D1705») belongs to that doctor's register, like the doctor's fees
+        register = _pd_register_of(bundle, sra)
         unmapped = [l for l in sra.lines if l.channel == "Unmapped"]
         for l in unmapped:
-            out.rows.append(SplitRow(f"Προσαρμογή (adjustment): {l.description}", l.amount))
+            reg = register.get(l.doctor) if l.doctor else None
+            if reg == "child":
+                label = ("Προσωπικοί Ιατροί Παιδιών — προσαρμογή (adjustment): "
+                         f"{l.description}")
+            elif reg == "adult":
+                label = ("Προσωπικοί Ιατροί Ενηλίκων — προσαρμογή (adjustment): "
+                         f"{l.description} — ΔΠΦΥ (intercompany)")
+            else:
+                label = f"Προσαρμογή (adjustment): {l.description}"
+            out.rows.append(SplitRow(label, l.amount))
     sections.append(out)
 
     ph = SplitSection("Φάρμακα (Pharma)", Bucket.PHARMA)
     # ΟΑΥ routes three kinds of pharmacy money differently, and says which is
     # which in the line's own description, not in its code
-    eoaf, eoaf_codes = _sra_by_text(sra, ["EOAF"], or_codes=["PH-EOAF"])
-    z_ded, z_codes = _sra_by_text(sra, ["DEDUCTIONS DRUGS Z"], skip=["EOAF"])
+    pp = _pharma_parts(bundle, sra)
+    eoaf, eoaf_codes = pp["eoaf"], pp["eoaf_codes"]
+    z_ded, z_codes = pp["z_ded"], pp["z_codes"]
+    split_b, crn_codes = pp["split_b"], pp["crn_codes"]
 
     def routed(code: str) -> float:
-        return round(eoaf_codes.get(code, 0.0) + z_codes.get(code, 0.0), 2)
+        return round(eoaf_codes.get(code, 0.0) + z_codes.get(code, 0.0)
+                     + crn_codes.get(code, 0.0), 2)
     ph_claims = sra_amount(["PH"])
     if ph_claims:
         ph_claims = round(ph_claims - routed("PH"), 2)
         # only the Β' φάσης drugs are 412006 revenue.  The GL extract is the
         # one place that says how much of the month was Β' φάσης — its own
         # «PHARMA NO DISCOUNT» cost centre — so without it nothing is split.
-        phase_b = getattr(bundle.gl, "pharma_phase_b", 0.0) if bundle.gl else 0.0
-        rest = round(ph_claims - phase_b, 2)
-        if phase_b and 0 < phase_b <= ph_claims:
+        if split_b:
             ph.rows.append(SplitRow(
-                "Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)", phase_b))
-            if rest:
+                "Φάρμακα Β' φάσης — PHARMA NO DISCOUNT (phase-B drugs)", pp["phase_b"]))
+            if pp["rest"]:
                 ph.rows.append(SplitRow(
                     "Φάρμακα εκτός Β' φάσης — εξωνοσοκομειακά (non-phase-B drugs)",
-                    rest))
+                    pp["rest"]))
+            if pp["crn"]:
+                ph.rows.append(SplitRow(
+                    "Φάρμακα εκτός Β' φάσης — πιστωτικά CRN-Drugs/OTC "
+                    "(non-phase-B credit notes)", pp["crn"]))
         else:
             ph.rows.append(SplitRow("Φάρμακα & Αναλώσιμα — PH (pharmacy claims)",
                                     ph_claims))
@@ -1450,7 +1496,11 @@ def build_split(bundle: ReconBundle) -> list[SplitSection]:
     if fee is None and bundle.phfee:
         fee = bundle.phfee.computed
     if fee:
-        label = ("Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)"
+        # the pharmacist's fee is paid inside the PH lines, with the rest of
+        # the month's drugs — its corrections go where the fee went
+        label = ("Φάρμακα εκτός Β' φάσης — Αμοιβή Φαρμακοποιού, διορθώσεις "
+                 "CRN-Packages (fee corrections)" if ph_claims and split_b else
+                 "Αμοιβή Φαρμακοποιού — διορθώσεις CRN-Packages (fee corrections)"
                  if ph_claims else "Αμοιβή Φαρμακοποιού (Pharmacist fee)")
         ph.rows.append(SplitRow(label, fee))
     ph_adj = round((sra_amount(["PH-ADJ"]) or 0.0) - routed("PH-ADJ"), 2)
@@ -1499,6 +1549,92 @@ def _pd_rows(section: SplitSection, amount: float, cohorts: dict,
     if adult:
         section.rows.append(SplitRow(
             f"Προσωπικοί Ιατροί Ενηλίκων — {what} — ΔΠΦΥ (intercompany)", adult))
+
+
+def _pharma_parts(bundle, sra) -> dict:
+    """How the month's pharmacy money divides, read from ΟΑΥ's wording.
+
+    The EOAF settlements and the Z-catalogue deductions are told apart by
+    their description.  Once the GL says how much was Β' φάσης («PHARMA NO
+    DISCOUNT»), ΟΑΥ's credit notes on drugs (CRN-Drugs, PHASE1 and PHASE2
+    alike) and its OTC corrections belong to the REST: «no discount» drugs
+    take no deductions, and ΟΑΥ's own ledger nets every one of them into the
+    other pharma centres — to the cent, Larnaca and Paphos Aug-2026."""
+    eoaf, eoaf_codes = _sra_by_text(sra, ["EOAF"], or_codes=["PH-EOAF"])
+    z_ded, z_codes = _sra_by_text(sra, ["DEDUCTIONS DRUGS Z"], skip=["EOAF"])
+    phase_b = getattr(bundle.gl, "pharma_phase_b", 0.0) if bundle.gl else 0.0
+    ph = _sra_sum(sra, ["PH"]) if sra else 0.0
+    ph_net = round(ph - eoaf_codes.get("PH", 0.0) - z_codes.get("PH", 0.0), 2)
+    split_b = bool(ph and phase_b and 0 < phase_b <= ph_net)
+    crn, crn_codes = (_sra_by_text(_only(sra, "PH-ADJ"), ["CRN DRUGS", "OTC CORR"],
+                                   skip=["EOAF", "DRUGS Z"])
+                      if split_b else (0.0, {}))
+    return {"eoaf": eoaf, "eoaf_codes": eoaf_codes, "z_ded": z_ded,
+            "z_codes": z_codes, "split_b": split_b, "phase_b": phase_b,
+            "rest": round(ph_net - phase_b, 2) if split_b else 0.0,
+            "crn": crn, "crn_codes": crn_codes}
+
+
+def _only(sra, code: str):
+    """The SRA seen through one ΟΑΥ code — enough for `_sra_by_text`."""
+    if not sra:
+        return None
+    return SimpleNamespace(lines=[l for l in sra.lines if l.code == code])
+
+
+def _drg_only_clinics(rows: list, inpatient) -> list:
+    """A clinic the daily/Z classification never mentions had neither: all of
+    its money is DRG.  Said only when the classification is known to be
+    complete — every clinic's daily and Z euros adding up, to the cent, to the
+    Ενδ. summary's own «Z-catalogue» figure, which ΟΑΥ states with the daily
+    treatments inside it.  Otherwise the clinic stays unclassified."""
+    if not rows or not inpatient or not any(r.fixed_fee or r.z_drugs for r in rows):
+        return rows
+    classified = round(sum((r.fixed_fee or 0.0) + (r.z_drugs or 0.0) for r in rows), 2)
+    if classified != round(inpatient.z_catalogue or 0.0, 2):
+        return rows
+    return [r if (r.fixed_fee or r.z_drugs or r.drg) else
+            ClinicRow(clinic=r.clinic, fixed_fee=0.0, drg=r.total, z_drugs=0.0,
+                      total=r.total)
+            for r in rows]
+
+
+def _pd_register_of(bundle, sra) -> dict:
+    """Doctor code → «child» / «adult», for the Personal Doctors only.
+
+    The claims file names the register in the doctor's speciality («PD -
+    Child Pediatrics»), keyed by NAME; the activity export turns the SRA's
+    doctor CODE into that name.  Without the export, the SRA's own KPI lines
+    («PD-KPIs-08-2026-CHILD-D1737») say it — but only for a doctor paid on
+    one register; a doctor seen on both is left out, never guessed."""
+    out: dict[str, str] = {}
+    xml = getattr(bundle, "xml_activity", None)
+    names = getattr(xml, "by_professional", None) or {}
+    regs_by_name: dict[str, set] = {}
+    if bundle.claims:
+        for _seg, spec, doctor, _amt in bundle.claims.by_doctor:
+            up = norm_label(str(spec))
+            if not up.startswith("PD "):
+                continue
+            kind = "child" if "CHILD" in up else "adult" if "ADULT" in up else ""
+            if kind:
+                regs_by_name.setdefault(str(doctor).strip(), set()).add(kind)
+    for code, name in names.items():
+        regs = regs_by_name.get(str(name).strip(), set())
+        if len(regs) == 1:
+            out[code] = next(iter(regs))
+    seen: dict[str, set] = {}
+    for l in (sra.lines if sra else []):
+        up = norm_label(l.description)
+        if "KPI" not in up or not l.doctor:
+            continue
+        kind = "child" if "CHILD" in up else "adult" if "ADULT" in up else ""
+        if kind:
+            seen.setdefault(l.doctor, set()).add(kind)
+    for code, regs in seen.items():
+        if code not in out and len(regs) == 1:
+            out[code] = next(iter(regs))
+    return out
 
 
 def _sra_by_text(sra, needles: list, skip: Optional[list] = None,
