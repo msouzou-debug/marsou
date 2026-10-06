@@ -97,6 +97,7 @@ export function Users({
             {row.roles.map((role) => (
               <span
                 key={role}
+                title={t(`roleDescriptions.${role}`)}
                 className="rounded-k-chip bg-k-blue-bg px-s-2 py-s-1 text-fs-14 text-k-blue-deep"
               >
                 {t(`roles.${role}`)}

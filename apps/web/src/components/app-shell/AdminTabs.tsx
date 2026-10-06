@@ -7,7 +7,9 @@
  * |------|--------|------------------------------------------|
  * | —    | —      | The current tab comes from `usePathname()`. |
  *
- * ADR-0029 adds a third, «eFinance» — the administrator's two sync buttons.
+ * ADR-0029 adds «eFinance» — the administrator's two sync buttons. S24r
+ * (owner ask, 06/10/2026) adds «Ρόλοι και δικαιώματα» as the second tab,
+ * after «Χρήστες»: the page that says what each role sees and does.
  *
  * RULE (ADR-0020): Διαχείριση has two things in it now — «Χρήστες», which is
  * the new one and the one the nav lands on, and «Ανάδοχοι», which was the
@@ -24,11 +26,12 @@ import { useTranslations } from "next-intl";
 
 interface AdminTab {
   href: string;
-  labelKey: "users" | "contractors" | "efinance";
+  labelKey: "users" | "roles" | "contractors" | "efinance";
 }
 
 const TABS: AdminTab[] = [
   { href: "/admin/users", labelKey: "users" },
+  { href: "/admin/roles", labelKey: "roles" },
   { href: "/admin/contractors", labelKey: "contractors" },
   { href: "/admin/efinance", labelKey: "efinance" },
 ];

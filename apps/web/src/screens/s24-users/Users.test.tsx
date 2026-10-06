@@ -6,6 +6,7 @@ import { isAdmin } from "@/auth/roles";
 import { Users, type UsersFilters } from "./Users";
 import { coversAllUnits, needsAUnit } from "./schema";
 import { orgUnits, roleCatalogue, users } from "./fixture";
+import el from "@/i18n/el.json";
 
 const filters: UsersFilters = { q: "", role: "", unit: "", active: "" };
 
@@ -141,7 +142,42 @@ describe("S24 Χρήστες — the sheet (ADR-0020)", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("S24r: says under each role what it gets, and links to the full table", () => {
+    renderWithIntl(
+      <Users {...shared} data={users} state="default" selectedId="new" onSelect={vi.fn()} onSave={vi.fn()} />,
+    );
+    const technician = screen.getByRole("checkbox", { name: "Τεχνίτης" });
+    expect(technician).toHaveAccessibleDescription(
+      "Βλέπει τα έργα· καταγράφει φυσική κατάσταση και μετρήσεις παγίων και εκτελεί εντολές εργασίας.",
+    );
+    const sheet = screen.getByRole("dialog");
+    for (const entry of roleCatalogue) {
+      expect(screen.getByRole("checkbox", { name: new RegExp(`^${entryLabel(entry.role)}$`) })).toHaveAttribute(
+        "aria-describedby",
+        `us-role-${entry.role}-description`,
+      );
+    }
+    const link = within(sheet).getByRole("link", { name: "Τι βλέπει κάθε ρόλος" });
+    expect(link).toHaveAttribute("href", "/admin/roles");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("S24r: the descriptions read in English too", () => {
+    renderWithIntl(
+      <Users {...shared} data={users} state="default" selectedId="new" onSelect={vi.fn()} onSave={vi.fn()} />,
+      { locale: "en" },
+    );
+    expect(screen.getByRole("checkbox", { name: "Finance" })).toHaveAccessibleDescription(
+      "SAP import, budget lines, paying payment certificates; every unit.",
+    );
+    expect(screen.getByRole("link", { name: "What each role sees" })).toHaveAttribute("href", "/admin/roles");
+  });
 });
+
+function entryLabel(role: string): string {
+  return el.roles[role as keyof typeof el.roles];
+}
 
 describe("role scope helpers (ADR-0020)", () => {
   it("reads the scope from the catalogue rather than hardcoding the four", () => {

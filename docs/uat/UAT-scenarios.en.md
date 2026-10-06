@@ -115,6 +115,7 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | G6 | Try to tick the auditor role on somebody. | The box is locked. | |
 | G7 | Admin › contractors. Search a vendor in the eFinance field. | A vendor list with codes. One marked blocked in eFinance cannot be picked. | |
 | G8 | Admin › eFinance. Press sync. | A last-run time and zero errors. | |
+| G9 | Admin › roles and permissions. Select the «Τεχνίτης» column. | The column is highlighted. On «Μητρώο έργων» the technician has «Βλέπει» (read); on «Φυσική κατάσταση και μετρήσεις παγίων» they have «Γράφει» (write). | |
 
 ## H. Auditor and executive
 

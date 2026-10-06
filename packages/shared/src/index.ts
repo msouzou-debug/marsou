@@ -5,6 +5,7 @@ export * from "./org-unit";
 export * from "./area";
 export * from "./auth";
 export * from "./roles";
+export * from "./role-matrix";
 export * from "./admin-user";
 export * from "./config-links";
 export * from "./project";

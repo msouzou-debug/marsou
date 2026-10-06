@@ -18,6 +18,10 @@
  * | onClose     | () => void             |                                                                       |
  * | onSave      | (values) => void       |                                                                       |
  *
+ * Under each role checkbox, one line from `roleDescriptions.<role>` says
+ * what the role gets, and «Τι βλέπει κάθε ρόλος» opens S24r's full table
+ * in a new tab.
+ *
  * Three rules are visible in the markup and marked `// RULE` below: the
  * auditor checkbox is switched off with a title saying where the role does
  * come from, the unit list is switched off when every ticked role reaches all
@@ -27,6 +31,7 @@
  * empty belong to the screen around it.
  */
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
 import type { AdminUser, AppRole, OrgUnit, RoleCatalogueEntry } from "@ecapital/shared";
@@ -178,22 +183,39 @@ export function UserSheet({
               // somebody holds it, and it is switched off with a title saying
               // where it does come from — the server, not this screen.
               const locked = entry.role === "auditor_readonly";
+              const descriptionId = `us-role-${entry.role}-description`;
               return (
-                <label
-                  key={entry.role}
-                  className="flex min-h-[44px] items-center gap-s-3 text-fs-16 text-k-ink"
-                  title={locked ? ts("auditorLocked") : undefined}
-                >
-                  <input
-                    type="checkbox"
-                    checked={roles.includes(entry.role)}
-                    disabled={locked}
-                    onChange={(event) => toggleRole(entry.role, event.target.checked)}
-                  />
-                  {t(`roles.${entry.role}`)}
-                </label>
+                <div key={entry.role}>
+                  <label
+                    className="flex min-h-[44px] items-center gap-s-3 text-fs-16 text-k-ink"
+                    title={locked ? ts("auditorLocked") : undefined}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={roles.includes(entry.role)}
+                      disabled={locked}
+                      aria-describedby={descriptionId}
+                      onChange={(event) => toggleRole(entry.role, event.target.checked)}
+                    />
+                    {t(`roles.${entry.role}`)}
+                  </label>
+                  {/* S24r: one line on what the role gets, so the choice is
+                      made knowing it; the full table is one link away. */}
+                  <p id={descriptionId} className="-mt-s-2 pl-s-6 text-fs-14 text-k-text">
+                    {t(`roleDescriptions.${entry.role}`)}
+                  </p>
+                </div>
               );
             })}
+            {/* A new tab, so a half-filled sheet is not lost on the way. */}
+            <Link
+              href="/admin/roles"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-[44px] items-center text-fs-14 text-k-blue underline-offset-2 hover:underline"
+            >
+              {ts("rolesLink")}
+            </Link>
             {roles.includes("auditor_readonly") && (
               <p className="text-fs-14 text-k-text">{ts("auditorLocked")}</p>
             )}

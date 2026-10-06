@@ -22,6 +22,8 @@ A project's cost is read as four figures: approved budget, commitments («Δεσ
 
 Roles are given by the system administrator inside eCapital, on «Διαχείριση › Χρήστες». Active Directory only says who you are.
 
+What each role sees and does in each area is set out in one table on the «Διαχείριση › Ρόλοι και δικαιώματα» tab.
+
 ## The menu, top to bottom
 
 1. **Χαρτοφυλάκιο (Portfolio).** One row per unit with the four cost figures and a RAG colour. Where the executive and the head of estates start.

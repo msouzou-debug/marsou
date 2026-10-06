@@ -6,7 +6,7 @@ This screen lists every eCapital account and lets you set what each person may d
 
 1. Open «Διαχείριση» and stay on the «Χρήστες» tab.
 2. Find the person with the search box, or with the role, unit and status filters.
-3. Open their row. Tick their roles and pick their units.
+3. Open their row. Tick their roles and pick their units. Under each role, one line says what it gives; the «Τι βλέπει κάθε ρόλος» link opens the full «Ρόλοι και δικαιώματα» table in a new tab.
 4. Press «Αποθήκευση». The change applies the next time they sign in.
 5. For somebody who has never signed in, press «Προσθήκη» and enter their ΟΚΥπΥ account name, their full name, their roles and their units.
 6. To stop an account, open it, clear «Ενεργός λογαριασμός» and confirm.

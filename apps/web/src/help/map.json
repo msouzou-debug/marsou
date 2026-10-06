@@ -246,6 +246,15 @@
       "admin"
     ]
   },
+  "S24r": {
+    "route": "/admin/roles",
+    "section": "S24-roles",
+    "tier": "day-one",
+    "persona": [
+      "admin",
+      "estates_head"
+    ]
+  },
   "S24e": {
     "route": "/admin/efinance",
     "section": "S24-efinance",

@@ -66,6 +66,7 @@ import s22Scorecard from "@/screens/s22-scorecard/Scorecard.preview";
 import s23Reports, { reportPagePreviews } from "@/screens/s23-reports/Reports.preview";
 import s24Contractors from "@/screens/s24-contractors/Contractors.preview";
 import s24Users from "@/screens/s24-users/Users.preview";
+import s24rRoles from "@/screens/s24r-roles/RolesMatrix.preview";
 import s24eEfinance from "@/screens/s24e-efinance/EFinanceAdmin.preview";
 import s26HelpCentre from "@/screens/s26-help-centre/GuideIndexTable.preview";
 import s26ScreenTierList from "@/screens/s26-help-centre/ScreenTierList.preview";
@@ -141,6 +142,7 @@ const entries: PreviewEntry[] = [
   ...reportPagePreviews,
   s24Contractors,
   s24Users,
+  s24rRoles,
   s24eEfinance,
   s26HelpCentre,
   s26ScreenTierList,

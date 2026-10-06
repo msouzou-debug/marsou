@@ -36,7 +36,7 @@ test("an administrator pre-registers an account and gives it a role at Λάρν�
 
   await signIn(page, "admin@ecapital.test", "/admin/users");
   await expect(page.getByRole("heading", { name: "Χρήστες", exact: true })).toBeVisible();
-  // The tab strip: Διαχείριση now has two of them and lands on this one.
+  // The tab strip: Διαχείριση has four tabs and lands on this one.
   await expect(page.getByRole("link", { name: "Ανάδοχοι" })).toBeVisible();
 
   // `nativeClick` rather than a real click: this sandbox's Chromium hangs its

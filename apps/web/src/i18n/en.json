@@ -164,7 +164,8 @@
       "users": "Users",
       "contractors": "Contractors",
       "label": "Administration sections",
-      "efinance": "eFinance"
+      "efinance": "eFinance",
+      "roles": "Roles and permissions"
     },
     "warning-strip": {
       "label": "Cost warnings",
@@ -913,6 +914,135 @@
         "notSet": "No password is set. The user cannot sign in yet.",
         "saved": "The password is set.",
         "tooShort": "The password needs at least 8 characters."
+      },
+      "rolesLink": "What each role sees"
+    },
+    "s24roles": {
+      "title": "Roles and permissions",
+      "intro": "What each role sees and does in each part of eCapital. Select a role's name to highlight its column.",
+      "legendTitle": "Key",
+      "caption": "Roles and permissions by area",
+      "columnArea": "Area",
+      "unitsRow": "Units",
+      "units": {
+        "unit": "Own units",
+        "all": "All units"
+      },
+      "highlightHint": "Highlighted column: {role}",
+      "notesTitle": "Notes by role",
+      "generalNotesTitle": "For every role",
+      "noPermissionAskRole": "The system administrator and the head of estates see this page.",
+      "levels": {
+        "MANAGE": {
+          "chip": "Full",
+          "name": "Full control",
+          "sentence": "Does everything in the area, its settings included."
+        },
+        "APPROVE": {
+          "chip": "Approves",
+          "name": "Approve",
+          "sentence": "Decides: approves, rejects, pays or sends to a project."
+        },
+        "WRITE": {
+          "chip": "Writes",
+          "name": "Write",
+          "sentence": "Creates and changes records."
+        },
+        "READ": {
+          "chip": "Sees",
+          "name": "Read",
+          "sentence": "Sees the area without changing anything."
+        },
+        "NONE": {
+          "chip": "—",
+          "name": "No access",
+          "sentence": "The area is not shown to the role."
+        }
+      },
+      "short": {
+        "admin": "Admin",
+        "estates_head": "Estates",
+        "project_engineer": "Engineer",
+        "technician": "Technician",
+        "finance": "Finance",
+        "clinical_approver": "Clinical",
+        "executive_readonly": "Executive",
+        "auditor_readonly": "Auditor"
+      },
+      "groups": {
+        "portfolio": "Portfolio",
+        "projects": "Projects",
+        "contracts": "Contracts",
+        "cost": "Cost",
+        "permits": "Shutdowns and permits",
+        "assets": "Assets",
+        "maintenance": "Maintenance",
+        "reports": "Reports",
+        "admin": "Administration",
+        "audit": "Audit trail"
+      },
+      "areas": {
+        "portfolio": "Portfolio",
+        "projectRecords": "Project register, milestones, risks",
+        "projectPhase": "Phase change",
+        "approvedBudget": "Approved budget, from approval on",
+        "contractRecords": "Contract record",
+        "rfisInstructions": "Requests for information and site instructions",
+        "variationSubmit": "Variations: draft and submit",
+        "variationDecide": "Variations: decision",
+        "defects": "Defects",
+        "paymentCertCreate": "Payment certificate: draft",
+        "paymentCertEngineer": "Payment certificate: engineer approval",
+        "paymentCertFinance": "Payment certificate: receipt and payment",
+        "sapImport": "SAP import and unmatched postings",
+        "budgetLines": "Project budget lines",
+        "accruals": "Accruals",
+        "forecastWarnings": "Forecast inputs and cost warnings",
+        "permitRequest": "Shutdown request: submit and reject",
+        "permitClinical": "Clinical approval",
+        "permitOperate": "Start of works and close",
+        "permitCalendar": "Disruption calendar",
+        "assetRegister": "Asset register",
+        "assetCondition": "Asset condition and readings",
+        "assetDocuments": "Asset documents",
+        "assetForecast": "Replacement forecast",
+        "assetLabels": "QR labels",
+        "workOrderRaise": "New fault call",
+        "workOrderWork": "Work order: steps, codes, cost",
+        "maintenanceAgreement": "Maintenance contract, SLA catalogue, preventive maintenance programme",
+        "backlog": "Maintenance backlog",
+        "backlogToProject": "Backlog item to a project («Σε έργο»)",
+        "scorecard": "Contractor scorecard",
+        "reports": "Reports",
+        "users": "Users, roles and shutdown approvers",
+        "contractors": "Contractor register",
+        "efinance": "eFinance link",
+        "auditTrail": "Audit trail of every change"
+      },
+      "notes": {
+        "noSelfApproval": "Nobody approves what they submitted themselves: a variation, a payment certificate or a shutdown request. The rule holds for the administrator too.",
+        "readOnlyWins": "Roles add up. But an account that also holds Executive or Auditor changes nothing, whatever other roles it holds.",
+        "databaseDecides": "This table describes the rules; it does not change them. The database applies them on every save.",
+        "estatesDecides": "Decides variations, rejects shutdown requests and sends backlog items «Σε έργο», in their own units only.",
+        "estatesMaintenance": "Keeps the maintenance contract, the SLA catalogue, the preventive maintenance programme and the contractor register.",
+        "engineerSubmits": "Drafts and submits variations; the head of estates or the administrator decides them.",
+        "engineerPicksContractor": "Picks a contractor from the register when recording a contract; does not change the register.",
+        "technicianReads": "Sees the projects and contracts of their units without changing them.",
+        "technicianField": "From a phone, records asset condition and readings, raises calls and runs work orders.",
+        "technicianDefects": "Records defects found on an inspection or a work order, never handover defects.",
+        "financeAllUnits": "Sees every unit.",
+        "financeBudget": "Only Finance changes a project's approved budget from approval on.",
+        "financeNoRegister": "Does not record projects or contracts; receives and pays payment certificates.",
+        "clinicalAreas": "Of the shutdowns, sees only those that touch their areas.",
+        "clinicalLine": "Decides the approval line assigned to them and signs the clinical acceptance at close.",
+        "clinicalCalls": "Raises a fault call but does not move the work order on.",
+        "executiveReads": "Sees every unit, the cost and the reports; changes nothing.",
+        "auditorTrail": "Reads the whole audit trail and changes nothing.",
+        "auditorServer": "The server administrator grants the role, not the «Χρήστες» screen.",
+        "adminPhaseBack": "Only the administrator moves a project's phase backwards.",
+        "adminBudget": "Does not change the approved budget from approval on; only Finance does.",
+        "adminApprovers": "Sets who approves shutdowns in each unit and area.",
+        "adminAuditor": "Cannot grant or remove the auditor role."
       }
     },
     "s04": {
@@ -2231,6 +2361,16 @@
     "clinical_approver": "Clinical approver",
     "executive_readonly": "Executive, read-only",
     "auditor_readonly": "Auditor, read-only"
+  },
+  "roleDescriptions": {
+    "admin": "Users, roles, contractors and eFinance; sees every unit.",
+    "estates_head": "Decides variations and backlog items and keeps the maintenance contract in their units.",
+    "project_engineer": "Records projects, contracts, variations and shutdown requests in their units.",
+    "technician": "Sees projects; records asset condition and readings and runs work orders.",
+    "finance": "SAP import, budget lines, paying payment certificates; every unit.",
+    "clinical_approver": "Approves the shutdowns that touch their areas and raises fault calls.",
+    "executive_readonly": "Sees every unit and the reports; changes nothing.",
+    "auditor_readonly": "Sees everything and the audit trail; changes nothing."
   },
   "areaType": {
     "THEATRE": "Theatre",

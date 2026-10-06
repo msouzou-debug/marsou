@@ -286,3 +286,15 @@ export function canViewScorecard(roles: AppRole[]): boolean {
 export function canViewReports(roles: AppRole[]): boolean {
   return roles.some((role) => ["admin", "estates_head", "finance", "executive_readonly", "auditor_readonly"].includes(role));
 }
+
+// ------------------------------------------------------------ S24r
+
+/**
+ * S24r «Ρόλοι και δικαιώματα». Owner ask (06/10/2026): the administrator,
+ * who hands out roles, and the head of estates, who is asked what a role
+ * gets. The page only reads the static matrix in `@ecapital/shared`
+ * (`ROLE_MATRIX`), so no API route is behind it.
+ */
+export function canViewRoleMatrix(roles: AppRole[]): boolean {
+  return isAdmin(roles) || roles.includes("estates_head");
+}
