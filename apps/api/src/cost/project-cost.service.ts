@@ -109,6 +109,26 @@ export class ProjectCostService {
     };
   }
 
+  /**
+   * M6 (ADR-0032): the spent and forecast ledgers of one project for the
+   * reports — the same arithmetic `costOf` does, without evaluating the R31
+   * warnings, because a report is a read and a read-only role runs it.
+   */
+  async reportLedgersOf(projectId: string): Promise<{ spent: number | null; forecast: number | null }> {
+    const [ledgers, inputs] = await Promise.all([
+      this.ledgersOf(projectId),
+      this.forecastInputsOf(projectId),
+    ]);
+    return {
+      spent: ledgers.spent,
+      forecast: forecastOf({
+        committed: ledgers.committed,
+        pendingVariations: ledgers.pendingVariations,
+        inputs,
+      }),
+    };
+  }
+
   /** R16: the two figures the engineer owns, and the note behind them. */
   async forecastInputsOf(projectId: string): Promise<ForecastInputs> {
     const tx = currentTx();

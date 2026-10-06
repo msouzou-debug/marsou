@@ -28,6 +28,7 @@ import { OrgUnitsModule } from "./org-units/org-units.module";
 import { PermitsModule } from "./permits/permits.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { ReportsModule } from "./reports/reports.module";
 import { RfisModule } from "./rfis/rfis.module";
 import { SiteInstructionsModule } from "./site-instructions/site-instructions.module";
 import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
@@ -81,6 +82,7 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
     SystemFeedsModule,
     PermitsModule,
     PortfolioModule,
+    ReportsModule,
     HealthModule,
     LinksModule,
     AuditModule,

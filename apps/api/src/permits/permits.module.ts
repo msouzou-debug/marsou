@@ -20,6 +20,6 @@ import { PermitsService } from "./permits.service";
   imports: [ScheduleModule.forRoot(), IcraModule, SystemFeedsModule],
   controllers: [PermitsController, CalendarController, InboxController],
   providers: [PermitsService, CalendarService, InboxService, BreachService],
-  exports: [PermitsService, BreachService],
+  exports: [PermitsService, BreachService, CalendarService],
 })
 export class PermitsModule {}

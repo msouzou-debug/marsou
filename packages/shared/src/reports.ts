@@ -142,8 +142,11 @@ export const CapitalContractorRow = z.object({
   /** Contracts past their completion date (plus extension) and not practically complete. */
   overdueContracts: z.number().int().nonnegative(),
   onTimePct: z.number().min(0).max(100).nullable(),
-  /** Approved variation value / original value × 100. */
-  variationRatePct: z.number().nonnegative().nullable(),
+  /**
+   * Approved variation value / original value × 100. Negative where the
+   * approved omissions outweigh the additions (a variation's value is signed).
+   */
+  variationRatePct: z.number().nullable(),
   defects: z.number().int().nonnegative(),
   openDefects: z.number().int().nonnegative(),
   /** Defects per 100.000 € of contract value. */
