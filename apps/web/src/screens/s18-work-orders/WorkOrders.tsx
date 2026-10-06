@@ -49,7 +49,7 @@ import { FilterBar, type FilterItem } from "@/components/filter-bar";
 import { KpiTile } from "@/components/kpi-tile";
 import { Table, type TableColumn, type TableState } from "@/components/table";
 import type { Locale } from "@/i18n/config";
-import { formatDateTime, formatEUR, formatInt } from "@/lib/format";
+import { formatDateTime, formatEUR, formatInt, shortSystemName } from "@/lib/format";
 import { BandChip } from "./BandChip";
 import { WorkOrderCards } from "./WorkOrderCards";
 import { EscalatedMark, rowTimers } from "./WorkOrderTimer";
@@ -143,7 +143,7 @@ export function WorkOrders(props: WorkOrdersProps) {
       accessor: (row) => (row.band ? BAND_OPTIONS.indexOf(row.band) : 9),
       cell: (row) => <BandChip band={row.band} />,
     },
-    { id: "system", headerKey: "screens.s18.columns.system", accessor: (row) => row.slaSystemName ?? "", cell: (row) => row.slaSystemName ?? t("common.notAvailable") },
+    { id: "system", headerKey: "screens.s18.columns.system", accessor: (row) => row.slaSystemName ?? "", cell: (row) => (row.slaSystemName ? shortSystemName(row.slaSystemName) : t("common.notAvailable")) },
     {
       id: "asset",
       headerKey: "screens.s18.columns.asset",

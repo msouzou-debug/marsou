@@ -37,7 +37,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FilterBar, type FilterItem } from "@/components/filter-bar";
 import { Table, type TableColumn, type TableState } from "@/components/table";
 import type { Locale } from "@/i18n/config";
-import { formatDate, formatEURorDash } from "@/lib/format";
+import { formatDate, formatEURorDash, shortSystemName } from "@/lib/format";
 import { BacklogSummary, RISK_BANDS, RiskBandChip } from "./BacklogSummary";
 
 export type BacklogScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
@@ -133,7 +133,7 @@ export function Backlog(props: BacklogProps) {
             <span className="font-k-mono">{row.assetTag}</span> {row.assetName}
           </Link>
         ) : (
-          (row.slaSystemName ?? t("common.notAvailable"))
+          (row.slaSystemName ? shortSystemName(row.slaSystemName) : t("common.notAvailable"))
         ),
     },
     {

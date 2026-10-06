@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct } from "./format";
+import { formatDate, formatDateTime, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct, shortSystemName } from "./format";
 
 const T = " "; // narrow no-break space
 
@@ -71,5 +71,22 @@ describe("formatFileSize", () => {
   it("returns a dash for negative or non-finite input", () => {
     expect(formatFileSize(-1)).toBe("—");
     expect(formatFileSize(NaN)).toBe("—");
+  });
+});
+
+describe("shortSystemName", () => {
+  it("keeps the clause before the first comma", () => {
+    expect(
+      shortSystemName("Συστήματα Παροχής Κρύου/Ζεστού νερού και πόσιμου νερού, συμπεριλαμβανομένων και όλων των συστημάτων επεξεργασίας νερού"),
+    ).toBe("Συστήματα Παροχής Κρύου/Ζεστού νερού και πόσιμου νερού");
+  });
+  it("drops a parenthesis only when the name is still long", () => {
+    expect(shortSystemName("Σύστημα Διαχείρισης Ενέργειας και Ελέγχου Κτιρίου (BMS)")).toBe("Σύστημα Διαχείρισης Ενέργειας και Ελέγχου Κτιρίου (BMS)");
+    expect(
+      shortSystemName("Σύστημα Φωτισμού (περιλαμβανομένων λαμπτήρων, φωτιστικών, εξαρτημάτων κλπ) για όλα τα Χειρουργεία"),
+    ).toBe("Σύστημα Φωτισμού (περιλαμβανομένων λαμπτήρων");
+  });
+  it("is empty for nothing", () => {
+    expect(shortSystemName(null)).toBe("");
   });
 });

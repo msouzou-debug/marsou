@@ -311,6 +311,22 @@ sitting in the live register.
   maintained option later — check `seed-data.ts` before assuming it already
   offers that split. The group→role mappings are no longer needed at all:
   roles are assigned per user in Διαχείριση › Χρήστες (§5, ADR-0020).
+- **Re-running the seed after a release that adds sample data (UAT only).**
+  M5 (06/10/2026) added the maintenance sample: two agreements, the Nicosia
+  SLA catalogue, schedules, orders and backlog items. A release runs the
+  migrations and not the seed, so on this UAT server run it once by hand
+  after the release, as `administrator`:
+
+  ```bash
+  sudo bash /opt/ecapital/deploy/install.sh   # only when deploy/ changed since the last install (it did on 06/10/2026: seed.sh is new)
+  sudo -u ecapital /opt/ecapital/deploy/seed.sh
+  ```
+
+  `seed.sh` is `migrate.sh`'s twin: it loads `/etc/ecapital/api.env` and
+  runs `pnpm --filter @ecapital/api seed` from `/opt/ecapital`. The seed is
+  idempotent: what is already there is updated in place, never duplicated,
+  and a tag or reference already issued is kept. The last line it prints
+  is the count of everything it holds.
 - **Production's real seed is the Capex Plan import**, `import:capex`
   (`apps/api/README.md` "Importing the Capex Plan"). That is what puts the
   113 real projects and their budget lines into the live register. Run

@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { WorkOrderListRow } from "@ecapital/shared";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, shortSystemName } from "@/lib/format";
 import { BandChip } from "./BandChip";
 import { EscalatedMark, rowTimers } from "./WorkOrderTimer";
 
@@ -31,7 +31,7 @@ export function WorkOrderCards({ items }: WorkOrderCardsProps) {
               </div>
               <p className="mt-s-1 text-fs-16 text-k-ink">{row.titleEl}</p>
               <p className="mt-s-1 text-fs-14 text-k-text">
-                {[row.assetName ?? row.slaSystemName, row.areaName].filter(Boolean).join(" · ")}
+                {[row.assetName ?? shortSystemName(row.slaSystemName), row.areaName].filter(Boolean).join(" · ")}
               </p>
               <div className="mt-s-2 flex flex-wrap items-center gap-s-2">
                 <BandChip band={row.band} />

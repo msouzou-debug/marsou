@@ -121,3 +121,20 @@ export function formatFileSize(bytes: number): string {
   const fixed = value.toFixed(value < 10 ? 1 : 0).replace(".", ",");
   return `${fixed}${THIN}${units[unitIndex]}`;
 }
+
+/**
+ * A contract's system name as the list columns show it. The Nicosia
+ * catalogue names a system with the whole clause of the contract table —
+ * «Συστήματα Παροχής Κρύου/Ζεστού νερού και πόσιμου νερού, συμπεριλαμβανομένων
+ * και όλων των συστημάτων…» — which is right on the catalogue and ten lines
+ * tall on a work-order row. The list keeps the part before the first comma,
+ * and before the first parenthesis when that is still long; the code next to
+ * it says which line of the table it is. Nothing is cut mid-word and no
+ * ellipsis is shown (UI brief §4.1).
+ */
+export function shortSystemName(name: string | null | undefined): string {
+  if (!name) return "";
+  let short = name.split(",")[0].trim();
+  if (short.length > 60) short = short.split(" (")[0].trim();
+  return short;
+}

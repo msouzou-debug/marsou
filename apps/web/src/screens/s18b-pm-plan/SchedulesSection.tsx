@@ -26,7 +26,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { AssetListRow, PmFrequency, PmGenerationResult, PmSchedule, PmScheduleWrite, SlaSystem } from "@ecapital/shared";
 import { Table, type TableColumn, type TableState } from "@/components/table";
-import { formatDate } from "@/lib/format";
+import { formatDate, shortSystemName } from "@/lib/format";
 
 export interface SchedulesSectionProps {
   schedules?: PmSchedule[];
@@ -136,7 +136,7 @@ export function SchedulesSection({ schedules, state, systems, assets, canManage,
       accessor: (row) => row.slaSystemCode,
       cell: (row) => (
         <span>
-          <span className="font-k-mono">{row.slaSystemCode}</span> {row.slaSystemName}
+          <span className="font-k-mono">{row.slaSystemCode}</span> {shortSystemName(row.slaSystemName)}
         </span>
       ),
     },

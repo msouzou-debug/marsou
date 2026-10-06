@@ -101,6 +101,7 @@ install -d -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${BACKUP_DIR}"
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/backup.sh" "${APP_DIR}/deploy/backup.sh"
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/restore-drill.sh" "${APP_DIR}/deploy/restore-drill.sh"
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/migrate.sh" "${APP_DIR}/deploy/migrate.sh"
+install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/seed.sh" "${APP_DIR}/deploy/seed.sh"
 install -o "${APP_USER}" -g "${APP_USER}" -m 0750 "${SCRIPT_DIR}/install-deps.sh" "${APP_DIR}/deploy/install-deps.sh"
 # The two scripts that run as root (via sudo, see the sudoers file below)
 # live OUTSIDE the ecapital-owned tree, in a root-owned directory. A file

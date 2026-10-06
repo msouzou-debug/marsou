@@ -212,7 +212,7 @@ export function Scorecard(props: ScorecardProps) {
                   ))}
                   <div className="col-span-2">
                     <dt className="text-fs-12 text-k-text">{t("screens.s22.capUsed")}</dt>
-                    <dd className="num text-left text-fs-16 text-k-ink">
+                    <dd className={sc.penalties.capUsedPct === null ? "text-left text-fs-14 text-k-text" : "num text-left text-fs-16 text-k-ink"}>
                       {sc.penalties.capUsedPct === null
                         ? t("screens.s22.capNoValue")
                         : t("screens.s22.capOf", { used: formatPct(sc.penalties.capUsedPct), cap: agreement ? formatPct(agreement.penaltyCapPct, 0) : "—" })}
