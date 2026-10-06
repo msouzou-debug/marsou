@@ -36,6 +36,7 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S19 | Εκτέλεση εντολής | Run a work order | technician, project_engineer, estates_head |
 | S20 | Καταγραφή κλήσης | Log a call | technician, clinical_approver, project_engineer, estates_head, admin |
 | S24 | Ανάδοχοι | Contractors | admin, estates_head |
+| S24r | Ρόλοι και δικαιώματα | Roles and permissions | admin, estates_head |
 | S24u | Χρήστες | Users | admin |
 | S26 | Οδηγός χρήσης | User guide | admin, estates_head, project_engineer, technician, finance, clinical_approver, executive_readonly, auditor_readonly |
 
