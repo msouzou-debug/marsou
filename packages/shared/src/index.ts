@@ -18,3 +18,4 @@ export * from "./directorate-labels";
 export * from "./permit";
 export * from "./asset";
 export * from "./maintenance";
+export * from "./reports";
