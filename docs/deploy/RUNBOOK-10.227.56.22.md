@@ -215,6 +215,26 @@ whoever administers the cloudflared box respectively.
 
 ---
 
+### 2.3 Both hostnames until cloudflared is repointed (06/10/2026)
+
+The Cloudflare record `ecapital.shso.online` is not yet pointed at `5016`
+(request sent, see `deploy/cloudflared-request.md`), while the older
+`capital.shso.online` record still is. Until the admin acts, nginx answers
+to both names and the API allows both origins:
+
+```bash
+sudo sed -i 's/^\(\s*server_name\s\+\)ecapital\.shso\.online;/\1ecapital.shso.online capital.shso.online;/' /etc/nginx/sites-available/ecapital
+sudo nginx -t && sudo systemctl reload nginx
+sudo sed -i 's#^CORS_ORIGINS=.*#CORS_ORIGINS=https://ecapital.shso.online,https://capital.shso.online#' /etc/ecapital/api.env
+sudo systemctl restart ecapital-api
+```
+
+`NEXT_PUBLIC_APP_ORIGIN` stays `https://ecapital.shso.online`: it only
+decides that the session cookie is `Secure` and the origin deep links
+carry. Once `ecapital.shso.online` answers 200 through cloudflared, take
+`capital.shso.online` out of both lines again, same two commands with the
+name removed, and ask the admin to delete the old record.
+
 ## 3. Filling in the env files
 
 Edit `/etc/ecapital/api.env` and `/etc/ecapital/web.env` on the server
