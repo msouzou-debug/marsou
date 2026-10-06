@@ -37,8 +37,10 @@ import {
   buildAwardMeta,
   buildBusinessCaseMeta,
   buildVariationMeta,
+  buildWorkOrderDocumentMeta,
   businessCaseSourceRef,
   variationSourceRef,
+  workOrderDocumentSourceRef,
 } from "./dms-meta";
 import { type DmsFile } from "./earchive-contract";
 import { OBJECT_STORE, type ObjectStore } from "./object-store";
@@ -381,6 +383,89 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * M5, ADR-0031 §11: a photograph or the contractor's report on a work
+   * order. The nth paper on the order — a photograph is not a correction of
+   * the report — so the running number makes the source_ref unique, as it
+   * does for an asset's papers.
+   */
+  async fileWorkOrderDocument(
+    order: {
+      id: string;
+      ref: string;
+      titleEl: string;
+      orgUnitId: string;
+      unitCode: string;
+      unitName: string;
+      assetTag: string | null;
+      maintenanceContractId: string | null;
+      cost: number | null;
+    },
+    upload: UploadInput,
+  ): Promise<DocumentRecord> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    let contractor: ContractorFacts | null = null;
+    if (order.maintenanceContractId) {
+      const [row] = await tx.db
+        .select({
+          id: schema.contractor.id,
+          name: schema.contractor.name,
+          vatNumber: schema.contractor.vatNumber,
+          registrationNo: schema.contractor.registrationNo,
+          sapVendorId: schema.contractor.sapVendorId,
+        })
+        .from(schema.maintenanceContract)
+        .innerJoin(
+          schema.contractor,
+          eq(schema.contractor.id, schema.maintenanceContract.contractorId),
+        )
+        .where(eq(schema.maintenanceContract.id, order.maintenanceContractId))
+        .limit(1);
+      contractor = row ?? null;
+    }
+
+    const n = await this.nextVersion("work_order", order.id);
+    const stored = await this.store.put({
+      bytes: upload.bytes,
+      filename: upload.filename,
+      mime: upload.mime,
+      prefix: `work-order/${order.id}`,
+    });
+    const files = [mainFile(stored)];
+    const meta = buildWorkOrderDocumentMeta(
+      {
+        workOrderId: order.id,
+        ref: order.ref,
+        titleEl: order.titleEl,
+        assetTag: order.assetTag,
+        n,
+        letterDate: dateOnly(new Date()),
+        cost: order.cost,
+        contractor,
+        unit: unitOf(order.unitCode, order.unitName),
+        approvals: await this.recordedBy("work_order", order.id),
+      },
+      files,
+      this.origin(),
+    );
+
+    return this.persist({
+      orgUnitId: order.orgUnitId,
+      entityType: "work_order",
+      entityId: order.id,
+      kind: "WORK_ORDER_DOCUMENT",
+      titleEl: upload.titleEl?.trim() || meta.subject,
+      sourceRef: workOrderDocumentSourceRef(order.id, n),
+      sourceModule: "work_order_document",
+      version: n,
+      stored,
+      meta,
+      files,
+    });
+  }
+
   /** Everything the three routes already hold, listed for a screen. */
   async listFor(entityType: string, entityId: string): Promise<DocumentRecord[]> {
     const tx = currentTx();
@@ -408,7 +493,7 @@ export class DocumentsService {
     orgUnitId: string;
     entityType: string;
     entityId: string;
-    kind: "AWARD_DECISION" | "BUSINESS_CASE" | "VARIATION" | "ASSET_DOCUMENT";
+    kind: "AWARD_DECISION" | "BUSINESS_CASE" | "VARIATION" | "ASSET_DOCUMENT" | "WORK_ORDER_DOCUMENT";
     titleEl: string;
     sourceRef: string;
     sourceModule: string;

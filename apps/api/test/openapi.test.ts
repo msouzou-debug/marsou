@@ -17,7 +17,7 @@ describe("openapi.json", () => {
     ).toBe(generated);
   });
 
-  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4 and M8 route, and the eFinance ones", async () => {
+  it("is OpenAPI 3.1 and covers every M0, M1, M2, M3, M4, M5 and M8 route, and the eFinance ones", async () => {
     const document = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths).sort()).toEqual([
@@ -43,6 +43,11 @@ describe("openapi.json", () => {
       "/audit-log",
       "/auth/dev-token",
       "/auth/login",
+      "/backlog",
+      "/backlog/export.xlsx",
+      "/backlog/summary",
+      "/backlog/{id}",
+      "/backlog/{id}/to-project",
       "/budget-codes",
       "/budget-codes/sync",
       "/calendar",
@@ -89,6 +94,18 @@ describe("openapi.json", () => {
       "/icra/matrix/versions/{id}/activate",
       "/inbox",
       "/inbox/{id}/read",
+      "/maintenance/contracts",
+      "/maintenance/contracts/{id}",
+      "/maintenance/contracts/{id}/systems",
+      "/maintenance/contracts/{id}/systems/import",
+      "/maintenance/contracts/{id}/systems/template.xlsx",
+      "/maintenance/schedules",
+      "/maintenance/schedules/generate",
+      "/maintenance/schedules/{id}",
+      "/maintenance/scorecard",
+      "/maintenance/scorecard.xlsx",
+      "/maintenance/summary",
+      "/maintenance/systems/{id}",
       "/me",
       "/org-units",
       "/org-units/{id}/areas",
@@ -123,6 +140,12 @@ describe("openapi.json", () => {
       "/system-feeds",
       "/system-feeds/{id}",
       "/variations/{id}/documents",
+      "/work-orders",
+      "/work-orders/{id}",
+      "/work-orders/{id}/backlog",
+      "/work-orders/{id}/documents",
+      "/work-orders/{id}/notes",
+      "/work-orders/{id}/transition",
     ]);
   });
 });

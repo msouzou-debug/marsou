@@ -51,7 +51,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0019_cns_name_matches_earchive");
     expect(result.applied).toContain("0020_efinance_client");
     expect(result.applied).toContain("0021_local_accounts");
-    expect(result.lastMigrationId).toBe("0021_local_accounts");
+    expect(result.applied).toContain("0022_m5_maintenance");
+    expect(result.lastMigrationId).toBe("0022_m5_maintenance");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -72,6 +73,7 @@ describe("migrations", () => {
       "asset_reading",
       "asset_tag_seq",
       "audit_log",
+      "backlog_item",
       "boq_item",
       "budget_code",
       "budget_line",
@@ -99,12 +101,14 @@ describe("migrations", () => {
       "import_exception",
       "inbox_read",
       "issue",
+      "maintenance_contract",
       "milestone",
       "org_unit",
       "org_unit_alias",
       "payment_cert",
       "permit_approval",
       "permit_ref_seq",
+      "pm_schedule",
       "project",
       "project_code_seq",
       "project_note",
@@ -115,9 +119,13 @@ describe("migrations", () => {
       "shutdown_permit",
       "shutdown_permit_area",
       "site_instruction",
+      "sla_system",
       "system_feed",
       "unit_approver",
       "variation",
+      "work_order",
+      "work_order_event",
+      "work_order_ref_seq",
     ]);
   });
 
@@ -145,6 +153,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0019_cns_name_matches_earchive");
     expect(result.skipped).toContain("0020_efinance_client");
     expect(result.skipped).toContain("0021_local_accounts");
+    expect(result.skipped).toContain("0022_m5_maintenance");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -601,9 +610,18 @@ describe("migrations", () => {
         `select policyname, qual, with_check from pg_policies
           where schemaname = 'ecapital' and tablename = 'document' order by policyname`,
       );
-      expect(doc.map((d) => d.policyname)).toEqual(["document_read", "document_write"]);
-      expect(doc[0].qual).toContain("can_read_unit");
-      expect(doc[1].with_check).toContain("can_manage_document");
+      // 0022 (ADR-0031 §11) adds one narrow INSERT-only policy: a
+      // work-order document, by whoever may work the order. Nothing else.
+      expect(doc.map((d) => d.policyname)).toEqual([
+        "document_insert_work_order",
+        "document_read",
+        "document_write",
+      ]);
+      expect(doc[0].with_check).toContain("work_order");
+      expect(doc[0].with_check).toContain("can_work_work_order");
+      expect(doc[0].qual).toBeNull();
+      expect(doc[1].qual).toContain("can_read_unit");
+      expect(doc[2].with_check).toContain("can_manage_document");
     } finally {
       await client.end();
     }

@@ -21,6 +21,8 @@ export const DocumentRecord = z.object({
     // M4 (R28): an asset's manual, certificate, commissioning pack, warranty,
     // drawing or photograph.
     "ASSET_DOCUMENT",
+    // M5 (ADR-0031 §11): a photograph or the contractor's report on a work order.
+    "WORK_ORDER_DOCUMENT",
   ]),
   titleEl: z.string(),
   filename: z.string(),
