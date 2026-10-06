@@ -90,7 +90,7 @@ export function CapitalProgrammeBody({ report, state, onExport, onRetry }: BodyP
   return (
     <div className="flex flex-col gap-s-5">
       {(state === "loading" || ready) && (
-        <div className="grid grid-cols-2 gap-s-4 tablet:grid-cols-3 desktop:grid-cols-6 print:grid-cols-6">
+        <div className="grid grid-cols-2 gap-s-4 tablet:grid-cols-3 print:grid-cols-3">
           <KpiTile label={kpi("approved")} value={ready ? formatEUR(totals.approved) : ""} state={tileState} onRetry={onRetry} />
           <KpiTile label={kpi("committed")} value={ready ? eurOrDash(totals.committed) : ""} state={tileState} onRetry={onRetry} />
           <KpiTile
