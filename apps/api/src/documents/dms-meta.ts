@@ -369,6 +369,64 @@ export interface AssetDocumentFacts {
  * tag is what a technician reads off the label and then types into the
  * registry's search box.
  */
+/**
+ * M5, ADR-0031 §11: a work order's photograph or the contractor's written
+ * report, in the Greek a clerk searching the registry types. eArchive has no
+ * «Συντήρηση» category and its list is not ours to extend, so these file
+ * under «Συμβάσεις»: the report is a deliverable of the maintenance
+ * agreement and the photograph is the evidence the scorecard's penalties
+ * rest on.
+ */
+export const WORK_ORDER_DOC_TYPE = "Έγγραφο εντολής εργασίας συντήρησης";
+const WORK_ORDER_DOC_CATEGORY = "Συμβάσεις" as const;
+
+/** `work_order_doc:<work_order_id>:<n>`, the nth paper on this order. Same reasoning as an asset's. */
+export function workOrderDocumentSourceRef(workOrderId: string, n: number): string {
+  return `work_order_doc:${workOrderId}:${n}`;
+}
+
+export interface WorkOrderDocumentFacts {
+  workOrderId: string;
+  ref: string;
+  titleEl: string;
+  assetTag: string | null;
+  n: number;
+  letterDate: string;
+  /** What the repair cost so far, when known. Zero when it is not. */
+  cost: number | null;
+  contractor: ContractorFacts | null;
+  unit: UnitFacts;
+  approvals: PersonAction[];
+}
+
+/**
+ * The subject leads with the order's reference — what the technician reads
+ * out over the phone — then the asset's tag and the title. The contractor is
+ * the counterparty when the order is under an agreement.
+ */
+export function buildWorkOrderDocumentMeta(
+  facts: WorkOrderDocumentFacts,
+  files: DmsFile[],
+  origin: string,
+): DmsMetaBody {
+  return checked({
+    ...commonFacts(facts.unit),
+    source_module: "work_order_document",
+    source_ref: workOrderDocumentSourceRef(facts.workOrderId, facts.n),
+    source_url: deepLink(origin, `/maintenance/work-orders/${facts.workOrderId}`),
+    doc_type: WORK_ORDER_DOC_TYPE,
+    subject: subject([WORK_ORDER_DOC_TYPE, facts.ref, facts.assetTag ?? "", facts.titleEl]),
+    sender_ref: facts.ref.slice(0, 120),
+    letter_date: facts.letterDate,
+    category: WORK_ORDER_DOC_CATEGORY,
+    counterparties: facts.contractor ? [vendorCounterparty(facts.contractor)] : [],
+    amount: round2(facts.cost ?? 0),
+    related: [],
+    approvals: approvalsOf(facts.approvals),
+    files,
+  });
+}
+
 export function buildAssetDocumentMeta(
   facts: AssetDocumentFacts,
   files: DmsFile[],

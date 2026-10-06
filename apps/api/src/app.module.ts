@@ -23,6 +23,7 @@ import { EFinanceModule } from "./efinance/efinance.module";
 import { HealthModule } from "./health/health.module";
 import { IcraModule } from "./icra/icra.module";
 import { LinksModule } from "./links/links.module";
+import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
 import { PermitsModule } from "./permits/permits.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
@@ -65,6 +66,7 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
     OrgUnitsModule,
     AreasModule,
     AssetsModule,
+    MaintenanceModule,
     ProjectsModule,
     ContractorsModule,
     ContractsModule,

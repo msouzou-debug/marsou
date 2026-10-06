@@ -6,7 +6,8 @@
  * group→role mappings, the 41-project M1 register (see ./seed-projects), the
  * contract register on top of it (see ./seed-contracts), the site log on top
  * of that (see ./seed-site), the cost register (see ./seed-cost) and the
- * shutdown permits with their ICRA matrix (see ./seed-permits).
+ * shutdown permits with their ICRA matrix (see ./seed-permits), the asset
+ * register (see ./seed-assets) and maintenance (see ./seed-maintenance).
  *
  *   pnpm --filter @ecapital/api seed
  *
@@ -24,6 +25,7 @@ import { seedBuilding, seedOrgUnits, seedRoleMappings, seedUsers } from "./seed-
 import { seedAssetRegister } from "./seed-assets";
 import { seedContractRegister } from "./seed-contracts";
 import { seedCostRegister } from "./seed-cost";
+import { seedMaintenanceRegister } from "./seed-maintenance";
 import { seedPermitRegister } from "./seed-permits";
 import { seedProjectRegister } from "./seed-projects";
 import { seedSiteLog } from "./seed-site";
@@ -63,6 +65,12 @@ export interface SeedSummary {
   assets: number;
   assetReadings: number;
   assetDocuments: number;
+  maintenanceContracts: number;
+  slaSystems: number;
+  pmSchedules: number;
+  workOrders: number;
+  workOrderEvents: number;
+  backlogItems: number;
 }
 
 export async function seed(databaseUrl: string): Promise<SeedSummary> {
@@ -254,6 +262,11 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
     // the permit seed wrote (R26–R30, R45, ADR-0028).
     const assets = await seedAssetRegister(db);
 
+    // M5: maintenance, last, because a programme line and a work order point
+    // at the assets, a backlog item can be funded by a seeded project, and the
+    // agreement names a seeded contractor (R32–R37, ADR-0031).
+    const maintenance = await seedMaintenanceRegister(db);
+
     return {
       orgUnits: seedOrgUnits.length,
       aliases,
@@ -268,6 +281,7 @@ export async function seed(databaseUrl: string): Promise<SeedSummary> {
       ...cost,
       ...permits,
       ...assets,
+      ...maintenance,
     };
   } finally {
     await client.end();
@@ -291,7 +305,10 @@ if (require.main === module) {
           `${s.systemFeeds} system feeds, ${s.permits} permits ` +
           `(${s.permitApprovals} approval lines), ${s.areaOwners} area owners, ` +
           `${s.unitApprovers} unit approvers, ${s.assets} assets ` +
-          `(${s.assetReadings} readings, ${s.assetDocuments} documents)`,
+          `(${s.assetReadings} readings, ${s.assetDocuments} documents), ` +
+          `${s.maintenanceContracts} maintenance agreements (${s.slaSystems} SLA systems, ` +
+          `${s.pmSchedules} PM schedules), ${s.workOrders} work orders ` +
+          `(${s.workOrderEvents} events), ${s.backlogItems} backlog items`,
       );
     })
     .catch((error: unknown) => {

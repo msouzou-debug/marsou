@@ -367,7 +367,12 @@ export const WorkOrder = z.object({
   closeoutNoteEl: z.string().nullable(),
   /** The contractor's technician, as a name typed on the order. Not a user. */
   assignedToEl: z.string().nullable(),
-  raisedById: z.string(),
+  /**
+   * Null when the hourly programme sweep issued the order and nobody asked
+   * for it (a PM order from «Έκδοση τώρα» carries the caller). The name then
+   * reads «Σύστημα».
+   */
+  raisedById: z.string().nullable(),
   raisedByName: z.string(),
   /** Set once by the sweep when the response time passed with nobody responding. */
   escalatedAt: z.string().nullable(),

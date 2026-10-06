@@ -1199,6 +1199,9 @@ export const documentKind = ecapital.enum("document_kind", [
   // M4 (0017): an asset's O&M manual, certificate, commissioning pack,
   // warranty, drawing or photo. R28.
   "ASSET_DOCUMENT",
+  // M5 (0022): a photograph or the contractor's report on a work order.
+  // ADR-0031 §11.
+  "WORK_ORDER_DOCUMENT",
 ]);
 export const dmsOutboxStatus = ecapital.enum("dms_outbox_status", [
   "QUEUED",
@@ -1827,3 +1830,324 @@ export const efinanceVendor = ecapital.table("efinance_vendor", {
   sapBatch: text("sap_batch"),
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ------------------------------------------------------------------- M5 --
+// Συντήρηση — the maintenance module (R32–R37). Migration
+// 0022_m5_maintenance.sql is the source of truth; ADR-0031 records the
+// decisions and packages/shared/src/maintenance.ts is the contract. Policies,
+// the reference counter and the audit triggers live only in the SQL.
+//
+// NO PATIENT DATA: a work order is a machine, a room, a clock and the name of
+// the member of staff who called it in.
+
+export const slaBand = ecapital.enum("sla_band", ["CRITICAL", "P1", "P2"]);
+export const pmFrequency = ecapital.enum("pm_frequency", [
+  "DAILY",
+  "WEEKLY",
+  "MONTHLY",
+  "QUARTERLY",
+  "SEMIANNUAL",
+  "ANNUAL",
+]);
+export const maintenanceContractStatus = ecapital.enum("maintenance_contract_status", [
+  "ACTIVE",
+  "ENDED",
+]);
+export const workOrderKind = ecapital.enum("work_order_kind", ["CORRECTIVE", "PM", "STATUTORY"]);
+export const workOrderStatus = ecapital.enum("work_order_status", [
+  "OPEN",
+  "ACKNOWLEDGED",
+  "IN_PROGRESS",
+  "PAUSED",
+  "RESTORED",
+  "COMPLETED",
+  "CANCELLED",
+]);
+export const workOrderSource = ecapital.enum("work_order_source", [
+  "VENDOR_ONSITE",
+  "NURSING",
+  "TECHNICAL_SERVICES",
+  "PM_PROGRAMME",
+  "OTHER",
+]);
+export const failureCode = ecapital.enum("failure_code", [
+  "NO_OUTPUT",
+  "DEGRADED",
+  "LEAK",
+  "NOISE_VIBRATION",
+  "ELECTRICAL_FAULT",
+  "CONTROL_FAULT",
+  "ALARM",
+  "DAMAGE",
+  "OTHER",
+]);
+export const causeCode = ecapital.enum("cause_code", [
+  "WEAR",
+  "LACK_OF_PM",
+  "MISUSE",
+  "POWER_SUPPLY",
+  "ENVIRONMENT",
+  "DESIGN",
+  "EXTERNAL",
+  "UNKNOWN",
+]);
+export const remedyCode = ecapital.enum("remedy_code", [
+  "REPAIR",
+  "REPLACE_PART",
+  "REPLACE_UNIT",
+  "ADJUST",
+  "CLEAN",
+  "RESET",
+  "TEMPORARY_FIX",
+  "NO_FAULT_FOUND",
+]);
+export const workOrderEventKind = ecapital.enum("work_order_event_kind", [
+  "CREATED",
+  "ACKNOWLEDGED",
+  "STARTED",
+  "PAUSED",
+  "RESUMED",
+  "RESTORED",
+  "COMPLETED",
+  "CANCELLED",
+  "NOTE",
+  "ESCALATED",
+  "EXTENSION",
+  "CODED",
+  "PHOTO",
+  "TO_BACKLOG",
+  "EDITED",
+]);
+export const backlogKind = ecapital.enum("backlog_kind", [
+  "REPAIR",
+  "REPLACEMENT",
+  "UPGRADE",
+  "STATUTORY",
+]);
+export const backlogStatus = ecapital.enum("backlog_status", ["OPEN", "FUNDED", "DONE", "DROPPED"]);
+export const backlogAutoReason = ecapital.enum("backlog_auto_reason", [
+  "THREE_CORRECTIVE_IN_12_MONTHS",
+  "REPAIR_COST_OVER_THRESHOLD",
+]);
+
+/** ADR-0031 §1: the umbrella agreement. Not a capital `contract`. */
+export const maintenanceContract = ecapital.table(
+  "maintenance_contract",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    contractorId: uuid("contractor_id")
+      .notNull()
+      .references(() => contractor.id),
+    contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
+    ref: text("ref").notNull(),
+    titleEl: text("title_el").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date"),
+    roundTheClock: boolean("round_the_clock").notNull().default(true),
+    normalHoursFrom: text("normal_hours_from").notNull().default("07:30"),
+    normalHoursTo: text("normal_hours_to").notNull().default("15:00"),
+    availabilityHoursYear: integer("availability_hours_year").notNull().default(8600),
+    availabilityPenaltyCriticalPerHour: numeric("availability_penalty_critical_per_hour", {
+      precision: 14,
+      scale: 2,
+    })
+      .notNull()
+      .default("5"),
+    availabilityPenaltyOtherPerHour: numeric("availability_penalty_other_per_hour", {
+      precision: 14,
+      scale: 2,
+    })
+      .notNull()
+      .default("1"),
+    penaltyCapPct: numeric("penalty_cap_pct", { precision: 5, scale: 2 }).notNull().default("10"),
+    contractValue: numeric("contract_value", { precision: 14, scale: 2 }),
+    status: maintenanceContractStatus("status").notNull().default("ACTIVE"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("maintenance_contract_org_unit_id_ref_key").on(t.orgUnitId, t.ref),
+    index("maintenance_contract_unit_idx").on(t.orgUnitId, t.status),
+  ],
+);
+
+/** One line of the response-time table. The three rates are null on purpose (ADR-0031 §2). */
+export const slaSystem = ecapital.table(
+  "sla_system",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    maintenanceContractId: uuid("maintenance_contract_id")
+      .notNull()
+      .references(() => maintenanceContract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    code: text("code").notNull(),
+    nameEl: text("name_el").notNull(),
+    band: slaBand("band").notNull(),
+    responseHours: numeric("response_hours", { precision: 6, scale: 2 }).notNull(),
+    restoreHours: numeric("restore_hours", { precision: 6, scale: 2 }).notNull(),
+    reportHours: numeric("report_hours", { precision: 6, scale: 2 }).notNull(),
+    pmFrequencies: pmFrequency("pm_frequencies").array().notNull().default(sql`'{}'`),
+    penaltyPmPerDay: numeric("penalty_pm_per_day", { precision: 14, scale: 2 }),
+    penaltyResponsePerHour: numeric("penalty_response_per_hour", { precision: 14, scale: 2 }),
+    penaltyRestorePerHour: numeric("penalty_restore_per_hour", { precision: 14, scale: 2 }),
+    assetClass: assetClass("asset_class"),
+    permitSystem: permitSystem("permit_system"),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("sla_system_maintenance_contract_id_code_key").on(t.maintenanceContractId, t.code),
+    index("sla_system_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+/** One line of the preventive programme (R32). */
+export const pmSchedule = ecapital.table(
+  "pm_schedule",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    maintenanceContractId: uuid("maintenance_contract_id")
+      .notNull()
+      .references(() => maintenanceContract.id, { onDelete: "cascade" }),
+    slaSystemId: uuid("sla_system_id")
+      .notNull()
+      .references(() => slaSystem.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => asset.id, { onDelete: "set null" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    titleEl: text("title_el").notNull(),
+    frequency: pmFrequency("frequency").notNull(),
+    checklistEl: text("checklist_el"),
+    nextDue: date("next_due").notNull(),
+    leadDays: integer("lead_days").notNull().default(14),
+    active: boolean("active").notNull().default(true),
+    lastGeneratedAt: timestamp("last_generated_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("pm_schedule_unit_idx").on(t.orgUnitId)],
+);
+
+/** R33/R34: the order, its three deadlines and its coding. */
+export const workOrder = ecapital.table(
+  "work_order",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** `<UNITCODE>-WO-<YYYY>-<NNNN>`, allocated by the database, immutable. */
+    ref: text("ref").notNull().unique(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    kind: workOrderKind("kind").notNull(),
+    status: workOrderStatus("status").notNull().default("OPEN"),
+    source: workOrderSource("source").notNull(),
+    maintenanceContractId: uuid("maintenance_contract_id").references(
+      () => maintenanceContract.id,
+      { onDelete: "set null" },
+    ),
+    slaSystemId: uuid("sla_system_id").references(() => slaSystem.id, { onDelete: "set null" }),
+    band: slaBand("band"),
+    assetId: uuid("asset_id").references(() => asset.id, { onDelete: "set null" }),
+    areaId: uuid("area_id").references(() => area.id, { onDelete: "set null" }),
+    pmScheduleId: uuid("pm_schedule_id").references(() => pmSchedule.id, {
+      onDelete: "set null",
+    }),
+    titleEl: text("title_el").notNull(),
+    descriptionEl: text("description_el"),
+    calledAt: timestamp("called_at", { withTimezone: true }).notNull(),
+    dueResponseAt: timestamp("due_response_at", { withTimezone: true }),
+    /** The restore deadline before any extension; internal, not in the contract. */
+    dueRestoreBaseAt: timestamp("due_restore_base_at", { withTimezone: true }),
+    dueRestoreAt: timestamp("due_restore_at", { withTimezone: true }),
+    dueReportAt: timestamp("due_report_at", { withTimezone: true }),
+    dueDate: date("due_date"),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    restoredAt: timestamp("restored_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    reportReceivedAt: timestamp("report_received_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    extensionDays: integer("extension_days").notNull().default(0),
+    extensionReasonEl: text("extension_reason_el"),
+    failureCode: failureCode("failure_code"),
+    causeCode: causeCode("cause_code"),
+    remedyCode: remedyCode("remedy_code"),
+    costEstimate: numeric("cost_estimate", { precision: 14, scale: 2 }),
+    costActual: numeric("cost_actual", { precision: 14, scale: 2 }),
+    partsNoteEl: text("parts_note_el"),
+    closeoutNoteEl: text("closeout_note_el"),
+    assignedToEl: text("assigned_to_el"),
+    raisedBy: uuid("raised_by").references(() => appUser.id, { onDelete: "set null" }),
+    escalatedAt: timestamp("escalated_at", { withTimezone: true }),
+    backlogItemId: uuid("backlog_item_id"),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("work_order_unit_idx").on(t.orgUnitId, t.status),
+    index("work_order_contract_idx").on(t.maintenanceContractId, t.calledAt),
+  ],
+);
+
+/** The story of an order. Append-only. */
+export const workOrderEvent = ecapital.table(
+  "work_order_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workOrderId: uuid("work_order_id")
+      .notNull()
+      .references(() => workOrder.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    byId: uuid("by_id").references(() => appUser.id, { onDelete: "set null" }),
+    kind: workOrderEventKind("kind").notNull(),
+    noteEl: text("note_el"),
+    documentId: uuid("document_id").references(() => document.id, { onDelete: "set null" }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("work_order_event_order_idx").on(t.workOrderId, t.at)],
+);
+
+/** R35: what the agreement will not absorb, banded like a defect. */
+export const backlogItem = ecapital.table(
+  "backlog_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    kind: backlogKind("kind").notNull(),
+    titleEl: text("title_el").notNull(),
+    descriptionEl: text("description_el"),
+    riskBand: riskBand("risk_band").notNull(),
+    costEstimate: numeric("cost_estimate", { precision: 14, scale: 2 }),
+    assetId: uuid("asset_id").references(() => asset.id, { onDelete: "set null" }),
+    slaSystemId: uuid("sla_system_id").references(() => slaSystem.id, { onDelete: "set null" }),
+    sourceWorkOrderId: uuid("source_work_order_id").references(() => workOrder.id, {
+      onDelete: "set null",
+    }),
+    autoDrafted: boolean("auto_drafted").notNull().default(false),
+    autoReason: backlogAutoReason("auto_reason"),
+    historyEl: text("history_el"),
+    status: backlogStatus("status").notNull().default("OPEN"),
+    targetProjectId: uuid("target_project_id").references(() => project.id, {
+      onDelete: "set null",
+    }),
+    raisedBy: uuid("raised_by").references(() => appUser.id, { onDelete: "set null" }),
+    raisedAt: timestamp("raised_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index("backlog_item_unit_idx").on(t.orgUnitId, t.status, t.riskBand)],
+);
