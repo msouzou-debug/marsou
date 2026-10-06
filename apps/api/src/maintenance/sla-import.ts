@@ -36,9 +36,9 @@ export type SlaColumnKey = (typeof SLA_COLUMNS)[number]["key"];
 
 /** How the template spells a band, and what the importer writes back out. */
 export const BAND_LABEL_EL: Record<SlaBand, string> = {
-  CRITICAL: "Κρίσιμο",
-  P1: "Προτεραιότητα 1",
-  P2: "Προτεραιότητα 2",
+  CRITICAL: "Κρίσιμης λειτουργίας",
+  P1: "Προτεραιότητας 1",
+  P2: "Προτεραιότητας 2",
 };
 
 /** The programme table's own words («Μηνιαία», «Τριμηνιαία»…). */
@@ -253,7 +253,7 @@ export function parseSlaSheet(rows: SheetRowInput[]): ParsedSlaSheet {
     const band = parseBand(cell("band"));
     if (!band) {
       problems.push(
-        `η κατηγορία «${textOf(cell("band"))}» δεν αναγνωρίζεται· γράψτε Κρίσιμο, Προτεραιότητα 1 ή Προτεραιότητα 2`,
+        `η κατηγορία «${textOf(cell("band"))}» δεν αναγνωρίζεται· γράψτε Κρίσιμης λειτουργίας, Προτεραιότητας 1 ή Προτεραιότητας 2`,
       );
     }
 

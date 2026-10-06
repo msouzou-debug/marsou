@@ -381,7 +381,7 @@ const BACKLOG: BacklogSeed[] = [
     code: "1.2.1",
     status: "OPEN",
     descriptionEl:
-      "Το κόστος επισκευών των τελευταίων δώδεκα μηνών ξεπερνά το όριο επί της εκτίμησης αντικατάστασης.",
+      "Το κόστος επισκευών των τελευταίων δώδεκα μηνών ξεπερνά το επιτρεπόμενο ποσοστό της εκτίμησης κόστους αντικατάστασης.",
     auto: {
       reason: "REPAIR_COST_OVER_THRESHOLD",
       orderTitles: ["Βλάβη κινητήρα ανεμιστήρα απαγωγής ΚΚΜ-2"],
@@ -744,7 +744,7 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
     if (respondedAt) events.push({ kind: "ACKNOWLEDGED", at: respondedAt, byId: by });
     if (startedAt) events.push({ kind: "STARTED", at: startedAt, byId: by });
     if (escalatedAt) {
-      events.push({ kind: "ESCALATED", at: escalatedAt, byId: null, noteEl: "Ο χρόνος ανταπόκρισης έληξε χωρίς ανταπόκριση του αναδόχου." });
+      events.push({ kind: "ESCALATED", at: escalatedAt, byId: null, noteEl: "Ο χρόνος ανταπόκρισης πέρασε χωρίς απάντηση από τον ανάδοχο." });
     }
     if (seed.status === "PAUSED") {
       events.push({ kind: "PAUSED", at: new Date(calledAt.getTime() + 2 * HOUR_MS), byId: by, noteEl: seed.noteEl ?? null });

@@ -622,7 +622,7 @@ export class WorkOrdersService {
         descriptionEl:
           reason === "THREE_CORRECTIVE_IN_12_MONTHS"
             ? "Τρεις ή περισσότερες διορθωτικές εντολές στο ίδιο πάγιο μέσα σε δώδεκα μήνες."
-            : "Το κόστος επισκευών των τελευταίων δώδεκα μηνών ξεπερνά το όριο επί της εκτίμησης αντικατάστασης.",
+            : "Το κόστος επισκευών των τελευταίων δώδεκα μηνών ξεπερνά το επιτρεπόμενο ποσοστό της εκτίμησης κόστους αντικατάστασης.",
         riskBand: riskBandForCriticality(asset.criticality),
         costEstimate: asset.replacementCostEst,
         assetId,

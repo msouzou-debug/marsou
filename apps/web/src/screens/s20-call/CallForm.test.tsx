@@ -75,7 +75,7 @@ describe("S20 CallForm", () => {
     expect(screen.getByTestId("deadline-response").textContent).toBe(formatDateTime(addHours(called, 0.5)));
     expect(screen.getByTestId("deadline-restore").textContent).toBe(formatDateTime(addHours(called, 2)));
     expect(screen.getByTestId("deadline-report").textContent).toBe(formatDateTime(addHours(called, 24)));
-    expect(screen.getByText("Ανταπόκριση 30 λεπ · αποκατάσταση 2 ω · αναφορά 24 ω")).toBeInTheDocument();
+    expect(screen.getByText("Ανταπόκριση 30 λεπ · αποκατάσταση 2 ω · έκθεση 24 ω")).toBeInTheDocument();
   });
 
   it("moves the deadlines when the call time is set earlier", () => {

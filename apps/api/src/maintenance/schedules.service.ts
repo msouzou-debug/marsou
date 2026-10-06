@@ -313,7 +313,7 @@ export class SchedulesService {
         at: now,
         byId: raisedBy,
         kind: "ESCALATED",
-        noteEl: "Ο χρόνος ανταπόκρισης έληξε χωρίς ανταπόκριση του αναδόχου.",
+        noteEl: "Ο χρόνος ανταπόκρισης πέρασε χωρίς απάντηση από τον ανάδοχο.",
       });
     }
     result.escalated = late.length;

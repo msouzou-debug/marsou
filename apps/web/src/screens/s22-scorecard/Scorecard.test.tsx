@@ -55,7 +55,7 @@ describe("S22 Scorecard", () => {
   it("shows «—» for a ratio with nothing due, never 0 %", () => {
     const sc = buildScorecard();
     renderCard({ scorecard: { ...sc, report: { due: 0, onTime: 0, pct: null } } });
-    const tile = screen.getByText("Αναφορές εντός χρόνου", { selector: "p" }).parentElement!;
+    const tile = screen.getByText("Εκθέσεις εντός χρόνου", { selector: "p" }).parentElement!;
     expect(within(tile).getByText("—")).toBeInTheDocument();
   });
 

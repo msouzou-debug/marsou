@@ -50,8 +50,8 @@ describe("S18 WorkOrders", () => {
       "Ανοιχτές εντολές",
       "Εκπρόθεσμη ανταπόκριση",
       "Εκπρόθεσμη αποκατάσταση",
-      "Προληπτική αυτόν τον μήνα",
-      "Εκπρόθεσμη προληπτική",
+      "Προληπτικές του μήνα",
+      "Εκπρόθεσμες προληπτικές",
       "Εκκρεμότητες χωρίς χρηματοδότηση",
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe("S18 WorkOrders", () => {
     const row = tableRow("NGH-WO-2026-0043");
     expect(within(cellUnder(row, "Αποκατάσταση")).getByText("Έως 15/10/2026")).toBeInTheDocument();
     expect(cellUnder(row, "Ανταπόκριση").textContent).toBe("—");
-    expect(cellUnder(row, "Γραπτή αναφορά").textContent).toBe("—");
+    expect(cellUnder(row, "Γραπτή έκθεση").textContent).toBe("—");
   });
 
   it("shows a met response timer as «Εντός χρόνου» instead of a countdown", () => {
@@ -90,7 +90,7 @@ describe("S18 WorkOrders", () => {
   it("offers «Νέα κλήση» only to a role that may raise a call", () => {
     renderList({ canRaise: false });
     expect(screen.queryByRole("link", { name: "Νέα κλήση" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Πρόγραμμα ΠΣ" })).toHaveAttribute("href", "/maintenance/plan");
+    expect(screen.getByRole("link", { name: "Πρόγραμμα προληπτικής" })).toHaveAttribute("href", "/maintenance/plan");
     expect(screen.getByRole("link", { name: "Εκκρεμότητες" })).toHaveAttribute("href", "/maintenance/backlog");
   });
 

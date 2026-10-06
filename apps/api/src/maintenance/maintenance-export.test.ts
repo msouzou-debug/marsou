@@ -175,7 +175,7 @@ describe("the backlog workbook", () => {
     expect(summary.getCell("A3").value).toBe("ΓΝ Λάρνακας");
     expect(formula(summary.getCell("B3"))).toContain("COUNTIFS('Εκκρεμότητες'!$A$3:$A$5");
     expect(formula(summary.getCell("G3"))).toContain("SUMIFS('Εκκρεμότητες'!$F$3:$F$5");
-    expect(formula(summary.getCell("L4"))).toContain('"Ανοικτή"');
+    expect(formula(summary.getCell("L4"))).toContain('"Ανοιχτή"');
     // The totals row is sums of the rows above it.
     expect(formula(summary.getCell("K5"))).toBe("SUM(K3:K4)");
   });
@@ -203,7 +203,7 @@ describe("the SLA template", () => {
     SLA_COLUMNS.forEach((column, index) => {
       expect(sheet.getRow(1).getCell(index + 1).value).toBe(column.header);
     });
-    expect(sheet.getCell("C2").value).toBe("Κρίσιμο");
+    expect(sheet.getCell("C2").value).toBe("Κρίσιμης λειτουργίας");
     expect(sheet.getCell("G2").value).toBe("Τριμηνιαία");
   });
 });

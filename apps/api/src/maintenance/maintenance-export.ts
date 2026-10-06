@@ -34,7 +34,7 @@ export const SHEET = {
   backlogSummary: "Σύνοψη",
   orders: "Εντολές",
   scorecard: "Αξιολόγηση",
-  catalogue: "Κατάλογος SLA",
+  catalogue: "Κατάλογος συστημάτων",
 } as const;
 
 type Translate = (key: string, locale: "el" | "en") => string;

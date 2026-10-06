@@ -123,8 +123,8 @@
       "red": "Breach"
     },
     "slaChip": {
-      "daysLeft": "{count} d left",
-      "hoursLeft": "{count} h left",
+      "daysLeft": "{count} d left",
+      "hoursLeft": "{count} h left",
       "breached": "Overdue"
     },
     "table": {
