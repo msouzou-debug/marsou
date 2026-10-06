@@ -109,9 +109,9 @@ describe("ProjectOverview write controls", () => {
     expect(screen.queryByRole("button", { name: "Αλλαγή φάσης" })).not.toBeInTheDocument();
   });
 
-  it("hides Αλλαγή φάσης but not Επεξεργασία for finance", () => {
+  it("hides both Επεξεργασία and Αλλαγή φάσης for finance (finance changes the budget on S04, not the record)", () => {
     renderWithIntl(<ProjectOverview data={detail} state="default" noPermission={noPermission} roles={["finance"]} />);
-    expect(screen.getByRole("link", { name: "Επεξεργασία" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Αλλαγή φάσης" })).not.toBeInTheDocument();
   });
 });

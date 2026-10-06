@@ -8,27 +8,23 @@
 // with a reason, or don't offer, rather than let someone try and fail).
 import type { AppRole, DefectSource } from "@ecapital/shared";
 
-// RULE (ADR-0010, decided 18/09/2026): `auditor_readonly` and
-// `executive_readonly` are read-only at the row-policy level — every write
-// the API has is refused for both. S02's «Προσθήκη» button and S03's
-// «Επεξεργασία» link are hidden (with a tooltip, for «Προσθήκη») for them.
-const CANNOT_WRITE_PROJECTS: AppRole[] = ["auditor_readonly", "executive_readonly"];
+// RULE (ADR-0010, migration 0002 `can_manage_project`): a project is written
+// by the administrator, the head of estates and the project engineer, and by
+// nobody else. Until 06/10/2026 this helper only excluded the two read-only
+// roles, so a technician, finance or a clinical approver saw «Προσθήκη» and
+// the database then refused the save. The roles table (S24r) made the gap
+// visible; the helper now says what the row policy says.
+const CAN_WRITE_PROJECTS: AppRole[] = ["admin", "estates_head", "project_engineer"];
 
 export function canWriteProjects(roles: AppRole[]): boolean {
-  return !roles.some((role) => CANNOT_WRITE_PROJECTS.includes(role));
+  return roles.some((role) => CAN_WRITE_PROJECTS.includes(role));
 }
 
-// RULE (R04) plus a flagged extension: ADR-0014 settles who may change
-// `approvedBudget` after APPROVED (finance only) but says nothing about who
-// may move the phase itself beyond "an administrator may move it
-// backwards". `clinical_approver` and `finance` are excluded here as a
-// segregation-of-duties call this build makes, not one the ADR states —
-// flagged in the hand-back summary rather than guessed into the database
-// layer, which this file does not touch.
-const CANNOT_CHANGE_PHASE: AppRole[] = ["auditor_readonly", "executive_readonly", "clinical_approver", "finance"];
-
+// RULE (R04, ADR-0014): the phase moves forward by whoever may write the
+// project; only an administrator may move it backwards. Same three roles as
+// above, for the same reason.
 export function canChangeProjectPhase(roles: AppRole[]): boolean {
-  return !roles.some((role) => CANNOT_CHANGE_PHASE.includes(role));
+  return canWriteProjects(roles);
 }
 
 export function isAdmin(roles: AppRole[]): boolean {

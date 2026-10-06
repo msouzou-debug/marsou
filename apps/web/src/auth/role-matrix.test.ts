@@ -107,33 +107,20 @@ describe("ROLE_MATRIX agrees with the web helpers, role by role", () => {
 });
 
 /**
- * KNOWN GAP, flagged rather than fixed here: `canWriteProjects` and
- * `canChangeProjectPhase` are wider than the API. The register's row policy
- * (`ecapital.can_manage_project`, migration 0002) gives the project to
- * admin, the head of estates and the engineers only, so a technician, a
- * finance officer or a clinical approver who presses «Προσθήκη» on S02 is
- * refused by the database. The matrix states what the database allows
- * (READ for those three). These tests pin the gap: if the helpers are
- * narrowed, the exceptions list here goes and the plain agreement above
- * takes over.
+ * Έργα: the helpers were narrowed on 06/10/2026 to the row policy
+ * (`ecapital.can_manage_project`, migration 0002), so the plain agreement
+ * holds here too and there is no exceptions list any more.
  */
-describe("Έργα: the matrix follows the row policy where the helper is wider", () => {
-  it("every role the matrix lets write the register is allowed by canWriteProjects", () => {
+describe("Έργα: helpers and matrix agree", () => {
+  it("canWriteProjects is exactly the roles the matrix lets write the register", () => {
     for (const role of ROLES) {
-      if (atLeast(ROLE_MATRIX.projectRecords[role], "WRITE")) expect(canWriteProjects([role])).toBe(true);
+      expect(canWriteProjects([role])).toBe(atLeast(ROLE_MATRIX.projectRecords[role], "WRITE"));
     }
   });
 
-  it("the roles canWriteProjects allows beyond the row policy are exactly technician, finance and clinical approver", () => {
-    const wider = ROLES.filter((role) => canWriteProjects([role]) && !atLeast(ROLE_MATRIX.projectRecords[role], "WRITE"));
-    expect(wider.sort()).toEqual(["clinical_approver", "finance", "technician"]);
-  });
-
-  it("the roles canChangeProjectPhase allows beyond the row policy are exactly the technician", () => {
+  it("canChangeProjectPhase is exactly the roles the matrix lets move the phase", () => {
     for (const role of ROLES) {
-      if (atLeast(ROLE_MATRIX.projectPhase[role], "WRITE")) expect(canChangeProjectPhase([role])).toBe(true);
+      expect(canChangeProjectPhase([role])).toBe(atLeast(ROLE_MATRIX.projectPhase[role], "WRITE"));
     }
-    const wider = ROLES.filter((role) => canChangeProjectPhase([role]) && !atLeast(ROLE_MATRIX.projectPhase[role], "WRITE"));
-    expect(wider).toEqual(["technician"]);
   });
 });
