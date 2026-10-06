@@ -17,3 +17,4 @@ export * from "./portfolio";
 export * from "./directorate-labels";
 export * from "./permit";
 export * from "./asset";
+export * from "./maintenance";
