@@ -73,6 +73,13 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;pa
 .installbar .ibtns{display:flex;gap:6px;flex:none}
 .installbar button{appearance:none;border:none;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
 .installbar #installBtn{background:var(--accent);color:#1a130a;padding:8px 14px;border-radius:10px}
+.verbtn{appearance:none;margin-top:6px;font:600 11px/1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em;
+  color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:6px 10px;cursor:pointer}
+.verbtn:active{transform:scale(.96)}
+.installbar #updBtn{background:var(--accent);color:#1a130a;padding:8px 14px;border-radius:10px}
+.installbar #updX{background:transparent;color:var(--muted);width:32px;height:34px;border:1px solid var(--line);border-radius:10px}
+.verrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
+.verrow .bigbtn{width:auto;flex:none;padding:10px 14px;font-size:13px}
 .installbar #installX{background:transparent;color:var(--muted);width:32px;height:34px;border:1px solid var(--line);border-radius:10px}
 .shareRow{display:flex;gap:14px;align-items:center;margin-top:6px}
 .qr{border-radius:10px;background:#fff;padding:6px;flex:none;width:118px;height:118px}
@@ -247,6 +254,7 @@ footer a{color:var(--accent);text-decoration:none}
     <div class="brand">
       <div class="mark"><span class="dot"></span><h1>Clean Shot</h1></div>
       <p>Wingshooting terminal-lethality calculator</p>
+      <button class="verbtn" id="hardRefresh" type="button" title="Hard refresh — clear the cached app and load the latest version">v… · ⟳ refresh</button>
     </div>
     <div class="head-actions">
       <div class="seg units" id="units">
@@ -258,6 +266,10 @@ footer a{color:var(--accent);text-decoration:none}
     </div>
   </header>
 
+  <div id="updBar" class="installbar" style="display:none">
+    <span id="updMsg"></span>
+    <span class="ibtns"><button id="updBtn" type="button">Update</button><button id="updX" type="button" aria-label="Dismiss">✕</button></span>
+  </div>
   <div id="installBar" class="installbar" style="display:none">
     <span id="installMsg"></span>
     <span class="ibtns"><button id="installBtn" type="button">Install</button><button id="installX" type="button" aria-label="Dismiss">✕</button></span>
@@ -520,6 +532,11 @@ footer a{color:var(--accent);text-decoration:none}
     per-pellet energy minimums; sphere-drag exterior ballistics validated against Lowry.
     Estimates only — pattern your own gun for real decisions, and know your quarry and local law.
     <div class="hint">Tip: Share ▸ <b>Add to Home Screen</b> to use it like a native app.</div>
+    <div class="verrow">
+      <span>Version <b id="verFoot">—</b></span>
+      <button class="bigbtn ghost" id="hardRefresh2" type="button">⟳ Hard refresh</button>
+    </div>
+    <div class="hint" id="verStatus">Hard refresh clears the cached copy and reloads the newest version. Saved cartridges and your pattern scan are kept.</div>
   </footer>
 </div>
 
@@ -1001,7 +1018,9 @@ const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,
    browser alongside the scanned pattern. */
 let CARTS=[];
 function loadCarts(){try{CARTS=JSON.parse(localStorage.getItem("cartridges")||"[]");}catch(e){CARTS=[];}
-  if(!Array.isArray(CARTS))CARTS=[];}
+  if(!Array.isArray(CARTS))CARTS=[];
+  // drop anything malformed rather than let one bad entry stop the app booting
+  CARTS=CARTS.filter(c=>c&&typeof c.name==="string"&&MATERIALS[c.material]&&SHOT[c.shot]&&c.payload>0&&c.velocity>0);}
 function saveCarts(){try{localStorage.setItem("cartridges",JSON.stringify(CARTS));}catch(e){}}
 function cartLabel(c){
   return c.name+" — "+MATERIALS[c.material].name+" #"+c.shot+" "+Math.round(c.payload*28.349523125)+"g @"+Math.round(c.velocity)+"fps";
@@ -1939,8 +1958,65 @@ $("shareApp").addEventListener("click",async()=>{
   catch(e){ $("shareApp").textContent="Copy: "+APP_URL; }
 });
 if("serviceWorker" in navigator && notFramed && location.protocol==="https:"){
-  navigator.serviceWorker.register("sw.js").catch(()=>{});
+  navigator.serviceWorker.register("sw.js").then(r=>{try{r.update();}catch(e){}}).catch(()=>{});
 }
+
+
+</script>
+<script>
+/* ---------------- version + hard refresh ---------------------------------------
+   Deliberately a separate script: if anything in the app above throws, this
+   still runs, so Hard refresh stays available as the way out of a bad build.
+   APP_VERSION / APP_BUILD are stamped by tools/release.py on every release, and
+   the service-worker cache name carries the same version, so a new release also
+   replaces the offline copy. */
+const $v=id=>document.getElementById(id);
+const vFramed=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
+const APP_VERSION="1.48", APP_BUILD="2026-10-07";
+function verLabel(){return "v"+APP_VERSION+(APP_BUILD?" · "+APP_BUILD:"");}
+$v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
+$v("verFoot").textContent=verLabel();
+/* A hard refresh drops everything that can serve a stale build — the service
+   worker and its caches, and the browser's HTTP cache via a cache-busting URL —
+   but leaves localStorage alone, so saved cartridges and the scan survive. */
+async function hardRefresh(){
+  ["hardRefresh","hardRefresh2"].forEach(id=>{const b=$(id);if(b){b.disabled=true;b.textContent="Updating…";}});
+  try{ if("serviceWorker" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));} }catch(e){}
+  try{ if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));} }catch(e){}
+  try{ const u=new URL(location.href); u.searchParams.set("v",Date.now()); location.replace(u.toString()); }
+  catch(e){ location.reload(); }
+}
+$v("hardRefresh").addEventListener("click",hardRefresh);
+$v("hardRefresh2").addEventListener("click",hardRefresh);
+$v("updBtn").addEventListener("click",hardRefresh);
+$v("updX").addEventListener("click",()=>{$v("updBar").style.display="none";});
+// tidy the cache-buster out of the address bar after the reload
+try{const u=new URL(location.href); if(u.searchParams.has("v")){u.searchParams.delete("v");history.replaceState(null,"",u.pathname+u.search+u.hash);}}catch(e){}
+function newerVersion(a,b){
+  const x=String(a).split(".").map(Number), y=String(b).split(".").map(Number);
+  for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0); if(d)return d>0;}
+  return false;
+}
+/* Ask the server, bypassing every cache, which version is live. If it is newer
+   than the one running, say so — this is what was missing whenever a fix had
+   shipped but the phone kept showing yesterday's build. */
+async function checkForUpdate(){
+  if(vFramed||location.protocol!=="https:")return;
+  try{
+    const r=await fetch("index.html?check="+Date.now(),{cache:"no-store"});
+    if(!r.ok)return;
+    // built from parts so tools/release.py never mistakes this line for the declaration
+    const m=(await r.text()).match(new RegExp("const APP_"+"VERSION=\"([^\"]+)\""));
+    if(!m)return;
+    if(newerVersion(m[1],APP_VERSION)){
+      $v("updMsg").innerHTML="<b>Version "+m[1]+"</b> is available — you're on "+APP_VERSION;
+      $v("updBar").style.display="flex";
+      $v("verStatus").innerHTML="<b>v"+m[1]+" is live.</b> Tap Hard refresh to load it.";
+    }else $v("verStatus").textContent="You're on the latest version ("+verLabel()+"). Hard refresh clears the cached copy and reloads; saved cartridges and your pattern scan are kept.";
+  }catch(e){}
+}
+checkForUpdate();
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkForUpdate();});
 </script>
 </body>
 </html>
