@@ -901,7 +901,12 @@ function evaluate(s){
   const leadIn=leadInches(s,tof);                   // lead the shot needs (in)
   const swingIn=swingErrorIn(s,aimHandicap(s));     // fast-swing / timing error (in)
   const sa=totalAimSigma(s,tof);                    // mount + lead + swing (in)
-  const effShare=pelletEfficacy(e,sp.e);            // share of pellets that penetrate
+  // A pellet must BOTH arrive with killing energy and physically reach the
+   // vitals. Depth was shown as a chip but never fed the model, so dust shot
+   // stopping short of the vitals still scored. Both gates now ramp smoothly.
+  const effEnergy=pelletEfficacy(e,sp.e);
+  const effDepth=pelletEfficacy(pen,sp.depth);      // sp.depth = 0 for clays -> 1
+  const effShare=effEnergy*effDepth;                // share that reach the vitals
   const totalEff=total*0.84*effShare;               // Lowry core correction x efficacy
   // decoyed/incoming birds present vitals frontally (Roster's lower count);
   // crossing and going-away birds use the 3-4 torso-hit standard.
@@ -932,14 +937,21 @@ function evaluate(s){
     reasons.push("Presented area "+(sp.body*6.4516).toFixed(0)+" cm² ("+sp.presentNote+"); needs "+req+" strike"+(req>1?"s":"")+" at ≥"+sp.e.toFixed(2)+" ft·lbf to break.");
     if(!eGate)reasons.push("Per-pellet energy is under the "+sp.e.toFixed(2)+" ft·lbf break threshold — only ~"+Math.round(effShare*100)+"% of strikes should carry enough energy to fracture the clay. Chips, not kills.");
     if(p>=0.90){verdict="clean-kill-likely";reasons.push("P(break) ≥ 90% at this range.");}
-    else if(p>=0.70){verdict="marginal";reasons.push("P(break) is "+Math.round(p*100)+"% — workable but not a confident kill. More pattern or a tighter choke.");}
+    else if(p>=0.60){verdict="marginal";reasons.push("P(break) is "+Math.round(p*100)+"% — workable but not a confident kill. More pattern or a tighter choke.");}
     else{verdict="wounding-likely";reasons.push("P(break) is only "+Math.round(p*100)+"% — this combination will chip and miss.");}
   }else{
-  if(!eGate)reasons.push("Retained per-pellet energy is below the "+sp.e.toFixed(2)+" ft·lbf minimum — only ~"+Math.round(effShare*100)+"% of strikes should penetrate to the vitals, so hits alone won't guarantee a kill.");
+  if(!eGate)reasons.push("Retained per-pellet energy is below the "+sp.e.toFixed(2)+" ft·lbf minimum.");
+  if(!depthGate)reasons.push("Penetration is only "+pen.toFixed(2)+"″ against the "+sp.depth.toFixed(2)+"″ needed to reach the vitals — these pellets stop short.");
   if(!patternOk)reasons.push("Only ~"+Math.round(circle)+" pellets in the 30″ circle; Roster's minimum for this bird is "+sp.min+".");
-  if(!eGate||!patternOk){verdict="wounding-likely";}
-  else if(p>=0.90){verdict="clean-kill-likely";reasons.push("Both gates pass and P(clean kill) ≥ 90% at this range.");}
-  else{verdict="marginal";reasons.push("Gates pass, but P(clean kill) is "+Math.round(p*100)+"% — below the 90% target. Close the distance.");}
+  if(!eGate||!depthGate)reasons.push("Only ~"+Math.round(effShare*100)+"% of strikes should reach the vitals, so hits alone will not guarantee a kill.");
+  // tier on the same number the headline shows, then demote a step for any
+  // failed gate — never a red badge beside a high percentage
+  let tier=(p>=0.90)?2:(p>=0.60)?1:0;
+  if(!eGate||!depthGate||!patternOk)tier=Math.max(0,tier-1);
+  verdict=["wounding-likely","marginal","clean-kill-likely"][tier];
+  if(tier===2)reasons.push("Energy, penetration and density all pass, and P(clean kill) ≥ 90%.");
+  else if(tier===1)reasons.push("P(clean kill) is "+Math.round(p*100)+"% — workable, but not a confident clean kill. Close the distance or step up the load.");
+  else reasons.push("P(clean kill) is "+Math.round(p*100)+"% at this range — this combination risks wounding.");
   }
   return {sp,clay,total,dIn,steel,v,e,tof,leadIn,swingIn,eGate,pen,depthGate,choke,pct,circle,sigma,lam,lamHit,lamPen,hitsGood,hitsPoor,effShare,req,p,verdict,reasons,measuredUsed,strikeSrc,patWidthIn,aimWidthIn};
 }
@@ -1308,9 +1320,14 @@ function drawBoard(r){
   const accent=style.getPropertyValue("--accent").trim();
   const line=style.getPropertyValue("--line").trim();
   const panel=style.getPropertyValue("--panel-2").trim();
+  // The bird/clay outline must never share the pellets' colour. The verdict's
+   // amber is the same brass as a pellet, which made the target vanish into the
+   // pattern exactly when it mattered, so the target is drawn in a fixed
+   // high-contrast colour and the verdict only tints its fill.
+  const BIRD_LINE="#ff4d6d";
   const zoneCol=r.verdict==="clean-kill-likely"?style.getPropertyValue("--go").trim()
     :r.verdict==="marginal"?style.getPropertyValue("--warn").trim():style.getPropertyValue("--crit").trim();
-  $("zoneSwatch").style.background=zoneCol;
+  $("zoneSwatch").style.background=BIRD_LINE;
   ctx.clearRect(0,0,S,S);
   ctx.fillStyle=panel; ctx.beginPath(); ctx.arc(cx,cy,15*ppi,0,7); ctx.fill();
   // rings 30" and 20"
@@ -1327,8 +1344,9 @@ function drawBoard(r){
   const scale=state.present==="going"?0.55:state.present==="side"?1.15:1.0;
   const area=r.sp.body*scale; const rv=Math.sqrt(area/Math.PI);
   const ry=rv*1.25*ppi, rx=rv/1.25*ppi;
-  ctx.save();ctx.globalAlpha=0.16;ctx.fillStyle=zoneCol;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();ctx.restore();
-  ctx.strokeStyle=zoneCol;ctx.globalAlpha=0.7;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.stroke();ctx.globalAlpha=1;
+  ctx.save();ctx.globalAlpha=0.22;ctx.fillStyle=zoneCol;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();ctx.restore();
+  ctx.strokeStyle="rgba(0,0,0,.55)";ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.stroke();
+  ctx.strokeStyle=BIRD_LINE;ctx.lineWidth=2.5;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.stroke();
   // pellets — seeded gaussian scatter, sigma from pattern
   const seed=hashSeed([state.species,state.material,state.shot,state.payload,state.velocity,state.choke,state.range,state.present].join("|"));
   const rnd=mulberry32(seed); const gauss=()=>{let u=0,v=0;while(u===0)u=rnd();while(v===0)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
