@@ -738,7 +738,15 @@ function nominalPct(choke,rangeYd,steel){
   const s=chokeSigmaNominal(choke||"cylinder",rangeYd,steel);
   return 100*(1-Math.exp(-(15*15)/(2*s*s)));
 }
-function sigmaFromCircle(total,circle){let f=circle/total;f=Math.min(Math.max(f,1e-6),0.999999);return 15/Math.sqrt(-2*Math.log(1-f));}
+/* A 30-inch-circle count SATURATES: once nearly everything is inside it, the
+   count can no longer tell a 3-inch pattern from a 6-inch one. Letting the
+   fraction run to 1 made sigma collapse toward a pinpoint, so a scan that
+   counted at or above the shell's pellet total produced an unrealistically tight
+   knot that the aim error then missed entirely — a kill probability that DIPPED
+   at the one range you had actually patterned. Cap the inferred fraction at the
+   tightest the measurement can resolve. */
+const SIGMA_RESOLVE_MAX=0.985;              // ~5.2in sigma; tighter is unresolvable
+function sigmaFromCircle(total,circle){let f=circle/total;f=Math.min(Math.max(f,1e-6),SIGMA_RESOLVE_MAX);return 15/Math.sqrt(-2*Math.log(1-f));}
 // --- aim-error-aware terminal hit model ------------------------------------
 // A real shot's pattern centre lands off the aim point by a pointing/lead error.
 // A pattern tighter than that error is often a clean miss; a wider one forgives
@@ -1128,8 +1136,17 @@ function updateBanner(){
       const nom=nominalPct(lk?lk.choke:state.choke||defaultChoke(),p.dist,steel);
       if(nom>0){const ratio=(p.pct*100)/nom; if(!worst||ratio<worst)worst=ratio;}
     }
+    // ratio far from 1 in EITHER direction means the scan, not the gun, is odd
+    let bestR=0;
+    for(const p of pts){
+      const nom=nominalPct(lk?lk.choke:state.choke||defaultChoke(),p.dist,steel);
+      if(nom>0){const ratio=(p.pct*100)/nom; if(ratio>bestR)bestR=ratio;}
+    }
+    const ckName=CHOKE_NAME[lk?lk.choke:state.choke]||"this choke";
     const warn=(worst&&worst<0.6)
-      ? `<br><span style="color:var(--warn)">⚠ This pattern is only ~${Math.round(worst*100)}% of what a ${CHOKE_NAME[lk?lk.choke:state.choke]||"this choke"} normally throws — the scan probably missed holes. Re-scan (zoom in to check the rings) or the app will over-choke to compensate.</span>`
+      ? `<br><span style="color:var(--warn)">⚠ This pattern is only ~${Math.round(worst*100)}% of what a ${ckName} normally throws — the scan probably missed holes. Re-scan (zoom in to check the rings) or the app will over-choke to compensate.</span>`
+      : (bestR>1.45)
+      ? `<br><span style="color:var(--warn)">⚠ This pattern is ~${Math.round(bestR*100)}% of what a ${ckName} can physically throw — the scan has almost certainly counted things that are not pellet holes (paper texture, printing, the circle itself), or the circle was placed too large. Zoom in and check the rings, or raise Min hole size.</span>`
       : "";
     b.innerHTML=`<span><b>${head}</b> · <b>${choke}</b>: ${list} with ${load} — count scales with pellet size, spread projected across ranges.${warn}</span><button type="button" id="clearMeasured">Nominal</button>`;
     $("clearMeasured").onclick=()=>{state.measured=null;persistMeasured();updateBanner();render();};
