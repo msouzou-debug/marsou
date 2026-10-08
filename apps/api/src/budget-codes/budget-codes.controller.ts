@@ -3,7 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger"
 import { BudgetCodeList, BudgetCodeSyncResult } from "@ecapital/shared";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { BudgetCodesService } from "./budget-codes.service";
 
 /**
@@ -49,7 +50,7 @@ export class BudgetCodesController {
    */
   @Post("sync")
   @HttpCode(200)
-  @Roles("admin", "finance")
+  @Needs("budgetLines", "WRITE")
   @ApiOperation({ summary: "Refresh the budget code list from eFinance, or from the seed" })
   @ApiZodResponse(200, BudgetCodeSyncResult, "What the sync did")
   @ApiZodError(401, "No token, or a token that does not verify")

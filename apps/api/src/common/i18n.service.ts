@@ -50,6 +50,13 @@ export class I18nService {
         CATALOGUES[locale],
       );
     if (typeof value !== "string") return key;
-    return value.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match);
+    // A parameter spelled `i18n:<key>` is itself a key, looked up in the same
+    // language — a role matrix row's name in a guardrail refusal (ADR-0033),
+    // which the service that throws cannot translate without the locale.
+    return value.replace(/\{(\w+)\}/g, (match, name: string) => {
+      const param = params[name];
+      if (param === undefined) return match;
+      return param.startsWith("i18n:") ? this.translate(param.slice(5), locale) : param;
+    });
   }
 }

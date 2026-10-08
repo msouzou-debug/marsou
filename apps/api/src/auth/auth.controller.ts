@@ -9,6 +9,7 @@ import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
 import type { AuthenticatedRequest } from "../common/request-context";
 import { AuthService } from "./auth.service";
+import { PermissionsService } from "../permissions/permissions.service";
 import { Public } from "./public.decorator";
 
 const DevTokenRequest = z.object({ email: z.string().email() });
@@ -17,7 +18,10 @@ const DevTokenResponse = z.object({ token: z.string(), claims: Me });
 @ApiTags("auth")
 @Controller()
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   /** R01. What the token says about you, after it has been verified. */
   @Get("me")
@@ -44,6 +48,9 @@ export class AuthController {
     // verifies — the account behind it is not, so this is 401 and the web
     // app's stale-cookie path clears the cookie and sends them to sign-in.
     if (!rows[0].isActive) throw AppError.unauthorized("errors.accountDeactivated");
+    // ADR-0033: the levels come from the stored matrix as it is now, not from
+    // the token, so the administrator's change shows at the next request.
+    await this.permissions.fresh();
     return Me.parse({
       sub: claims.sub,
       userId: rows[0].id,
@@ -51,6 +58,7 @@ export class AuthController {
       email: claims.email,
       roles: claims.roles,
       orgUnitIds: claims.org_unit_ids,
+      permissions: this.permissions.effectiveFor(claims.roles),
     });
   }
 
@@ -69,7 +77,7 @@ export class AuthController {
   async devToken(@Body() body: unknown) {
     const parsed = DevTokenRequest.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.emailNeeded");
-    return session(await this.auth.devTokenFor(parsed.data.email));
+    return this.session(await this.auth.devTokenFor(parsed.data.email));
   }
 
   /**
@@ -103,21 +111,23 @@ export class AuthController {
   async login(@Body() body: unknown) {
     const parsed = LoginRequest.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.credentialsNeeded");
-    return session(await this.auth.login(parsed.data.username, parsed.data.password));
+    return this.session(await this.auth.login(parsed.data.username, parsed.data.password));
   }
-}
 
-/** The one response shape both ways in produce (ADR-0018). */
-function session({ token, claims, userId }: { token: string; claims: TokenClaims; userId: string }) {
-  return {
-    token,
-    claims: Me.parse({
-      sub: claims.sub,
-      userId,
-      name: claims.name,
-      email: claims.email,
-      roles: claims.roles,
-      orgUnitIds: claims.org_unit_ids,
-    }),
-  };
+  /** The one response shape both ways in produce (ADR-0018). */
+  private async session({ token, claims, userId }: { token: string; claims: TokenClaims; userId: string }) {
+    await this.permissions.fresh();
+    return {
+      token,
+      claims: Me.parse({
+        sub: claims.sub,
+        userId,
+        name: claims.name,
+        email: claims.email,
+        roles: claims.roles,
+        orgUnitIds: claims.org_unit_ids,
+        permissions: this.permissions.effectiveFor(claims.roles),
+      }),
+    };
+  }
 }

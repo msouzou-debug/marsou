@@ -4,7 +4,8 @@ import { PaymentCert, PaymentCertCreate } from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs, NeedsAny } from "../permissions/needs.guard";
 import { PaymentCertTransitionBody } from "./cost-contracts";
 import { PaymentCertsService } from "./payment-certs.service";
 
@@ -45,7 +46,7 @@ export class PaymentCertsController {
    */
   @Post("contracts/:id/payment-certs")
   @HttpCode(201)
-  @Roles("project_engineer", "estates_head", "admin")
+  @Needs("paymentCertCreate", "WRITE")
   @ApiOperation({ summary: "Draft a payment certificate on the contract" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(PaymentCertCreate) as never })
@@ -75,7 +76,7 @@ export class PaymentCertsController {
    */
   @Post("payment-certs/:id/transition")
   @HttpCode(200)
-  @Roles("project_engineer", "estates_head", "finance", "admin")
+  @NeedsAny(["paymentCertEngineer", "APPROVE"], ["paymentCertFinance", "APPROVE"])
   @ApiOperation({ summary: "Move the certificate to the next status" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(PaymentCertTransitionBody) as never })

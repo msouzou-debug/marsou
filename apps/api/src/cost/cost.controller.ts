@@ -29,7 +29,8 @@ import { z } from "zod";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs, NeedsAny } from "../permissions/needs.guard";
 import {
   AccrualQuery,
   AllocationResult,
@@ -76,7 +77,7 @@ export class CostController {
    */
   @Post("imports")
   @HttpCode(201)
-  @Roles("finance", "estates_head", "admin")
+  @Needs("sapImport", "WRITE")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_UPLOAD_BYTES } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "Import a monthly SAP extract, or say what importing it would do" })
@@ -150,7 +151,7 @@ export class CostController {
    */
   @Post("imports/:id/allocate")
   @HttpCode(200)
-  @Roles("finance", "estates_head", "project_engineer", "admin")
+  @NeedsAny(["sapImport", "WRITE"], ["forecastWarnings", "WRITE"])
   @ApiOperation({ summary: "Allocate unmatched rows to a project, and remember it" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(Allocation) as never })
@@ -166,7 +167,7 @@ export class CostController {
 
   @Post("imports/:id/skip")
   @HttpCode(200)
-  @Roles("finance", "estates_head", "project_engineer", "admin")
+  @NeedsAny(["sapImport", "WRITE"], ["forecastWarnings", "WRITE"])
   @ApiOperation({ summary: "Pass over rows without deciding; they stay in the batch" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(SkipRequest) as never })
@@ -182,7 +183,7 @@ export class CostController {
 
   @Post("imports/:id/commit")
   @HttpCode(200)
-  @Roles("finance", "estates_head", "admin")
+  @Needs("sapImport", "WRITE")
   @ApiOperation({ summary: "Close the batch; what is still unmatched becomes an exception" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiZodResponse(200, ImportBatchResult, "The committed batch and its exceptions")
@@ -194,6 +195,7 @@ export class CostController {
 
   /** R18. Work certified and not yet invoiced, per project and cost centre. */
   @Get("accruals")
+  @Needs("accruals", "READ")
   @ApiOperation({ summary: "The year-end accrual proposal" })
   @ApiQuery({ name: "year", required: true, schema: { type: "integer", example: 2026 } })
   @ApiQuery({ name: "orgUnitId", required: false, schema: { type: "string" } })
@@ -212,6 +214,7 @@ export class CostController {
    * `cost-export.ts` never writes a calculated value.
    */
   @Get("accruals/export")
+  @Needs("accruals", "READ")
   @Header("Cache-Control", "no-store")
   @ApiOperation({ summary: "The accrual proposal as Excel, with live formulas" })
   @ApiQuery({ name: "year", required: true, schema: { type: "integer", example: 2026 } })

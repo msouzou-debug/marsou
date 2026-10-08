@@ -26,7 +26,8 @@ import {
 } from "@ecapital/shared";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { ContractPushService } from "./contract-push.service";
 import { EFinanceReadService } from "./efinance-read.service";
 import { EFinanceSyncService } from "./efinance-sync.service";
@@ -60,7 +61,7 @@ export class EFinanceController {
    */
   @Post("contracts/:id/efinance/push")
   @HttpCode(200)
-  @Roles("admin")
+  @Needs("efinance", "MANAGE")
   @ApiOperation({ summary: "Push the contract to eFinance again, now" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiZodResponse(200, EFinanceContractStatus, "The push state after the attempt")
@@ -128,7 +129,7 @@ export class EFinanceController {
 
   @Post("admin/efinance/sync")
   @HttpCode(200)
-  @Roles("admin")
+  @Needs("efinance", "MANAGE")
   @ApiOperation({ summary: "Read invoices and requisitions from eFinance now" })
   @ApiZodResponse(200, EFinanceSyncResult, "What each feed did")
   @ApiZodError(403, "A role that is not admin")
@@ -138,7 +139,7 @@ export class EFinanceController {
 
   @Post("admin/efinance/sync-master")
   @HttpCode(200)
-  @Roles("admin")
+  @Needs("efinance", "MANAGE")
   @ApiOperation({ summary: "Read eFinance's entity codes and vendors now" })
   @ApiZodResponse(200, EFinanceMasterSyncResult, "Units matched, vendors written")
   @ApiZodError(403, "A role that is not admin")

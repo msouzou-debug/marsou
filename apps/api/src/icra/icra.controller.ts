@@ -35,6 +35,10 @@ const IcraMatrixVersionCreate = z.object({
  * lets any signed-in caller read it. Writing it is an administrator's or the
  * Infection Control officer's, said twice — the role guard here and
  * `ecapital.can_manage_icra_matrix()` in the policy.
+ *
+ * ADR-0033: these stay `@Roles`, not `@Needs`. The role matrix has no row for
+ * the ICRA edition, and the officer is picked out by an approval capacity
+ * (`INFECTION_CONTROL`), not by a role the administrator could widen.
  */
 @ApiTags("icra")
 @ApiBearerAuth()

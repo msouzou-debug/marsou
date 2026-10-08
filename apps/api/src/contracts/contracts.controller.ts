@@ -17,7 +17,8 @@ import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { ContractsService } from "./contracts.service";
 
 const BoqWrite = z.array(BoqItemWrite);
@@ -150,6 +151,7 @@ export class ContractsController {
 
   /** R10: raised by whoever is signed in, in DRAFT, numbered by the database. */
   @Post("contracts/:id/variations")
+  @Needs("variationSubmit", "WRITE")
   @HttpCode(201)
   @ApiOperation({ summary: "Raise a variation on the contract" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
@@ -165,6 +167,7 @@ export class ContractsController {
   }
 
   @Patch("contracts/:id/variations/:vid")
+  @Needs("variationSubmit", "WRITE")
   @ApiOperation({ summary: "Change a variation while it is still the raiser's" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "vid", schema: { type: "string", format: "uuid" } })
@@ -185,6 +188,7 @@ export class ContractsController {
   }
 
   @Post("contracts/:id/variations/:vid/submit")
+  @Needs("variationSubmit", "WRITE")
   @HttpCode(200)
   @ApiOperation({ summary: "Send the variation for a decision" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
@@ -205,7 +209,7 @@ export class ContractsController {
    */
   @Post("contracts/:id/variations/:vid/decide")
   @HttpCode(200)
-  @Roles("estates_head", "admin")
+  @Needs("variationDecide", "APPROVE")
   @ApiOperation({ summary: "Approve, return or reject a submitted variation" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "vid", schema: { type: "string", format: "uuid" } })

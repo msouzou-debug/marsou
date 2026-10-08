@@ -12,16 +12,12 @@ import { I18nService, type Locale } from "../common/i18n.service";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { classAndSystemsFact, formatAreaList, formatPermitWindow, permitWhatEl } from "./inbox-facts";
+import { PermissionsService } from "../permissions/permissions.service";
+import { CERT_STEP_NEEDS } from "../permissions/steps";
 import { approvalSlaState } from "./permit-sla";
 
-/** R11's ladder, and who may take each step. Mirrors PaymentCertsService. */
+/** R11's ladder. Who may take each step is `CERT_STEP_NEEDS`, as in PaymentCertsService. */
 const CERT_ORDER: PaymentCertStatus[] = ["DRAFT", "ENGINEER_APPROVED", "FINANCE_RECEIVED", "PAID"];
-const CERT_ROLES: Record<PaymentCertStatus, string[]> = {
-  DRAFT: [],
-  ENGINEER_APPROVED: ["project_engineer", "estates_head", "admin"],
-  FINANCE_RECEIVED: ["finance", "admin"],
-  PAID: ["finance", "admin"],
-};
 
 /**
  * S14 — Εγκρίσεις, the approvals inbox.
@@ -51,7 +47,10 @@ const CERT_ROLES: Record<PaymentCertStatus, string[]> = {
  */
 @Injectable()
 export class InboxService {
-  constructor(private readonly i18n: I18nService) {}
+  constructor(
+    private readonly i18n: I18nService,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   async forCaller(now: Date, locale: Locale): Promise<Inbox> {
     const tx = currentTx();
@@ -197,8 +196,9 @@ export class InboxService {
     caller: string,
     roles: string[],
   ): Promise<Omit<InboxItem, "unread">[]> {
-    // Who may decide a variation, per the route in ContractsController.
-    if (!roles.includes("estates_head") && !roles.includes("admin")) return [];
+    // Who may decide a variation, per the route in ContractsController:
+    // APPROVE on the decision row of the role matrix (ADR-0033).
+    if (!this.permissions.allowed({ roles }, "variationDecide", "APPROVE")) return [];
     const tx = currentTx();
     if (!tx) throw AppError.internal();
 
@@ -259,7 +259,8 @@ export class InboxService {
 
     const waiting = CERT_ORDER.filter((_status, index) => {
       const next = CERT_ORDER[index + 1];
-      return next !== undefined && CERT_ROLES[next].some((role) => roles.includes(role));
+      const need = next === undefined ? null : CERT_STEP_NEEDS[next];
+      return need !== null && this.permissions.allowed({ roles }, need[0], need[1]);
     });
     if (!waiting.length) return [];
 

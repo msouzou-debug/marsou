@@ -11,7 +11,18 @@ import {
   ROLE_NOTES,
   RoleNoteKey,
   accessOf,
+  allowedLevels,
+  AreaKey,
   atLeast,
+  columnOf,
+  defaultRoleMatrix,
+  effectiveFor,
+  GUARDRAILS,
+  levelBounds,
+  levelFor,
+  RolePermissionsResponse,
+  RolePermissionsWrite,
+  withinBounds,
 } from "./role-matrix";
 import { ROLE_SCOPE } from "./roles";
 
@@ -101,5 +112,67 @@ describe("the notes", () => {
   it("uses every note key exactly once", () => {
     const used = [...GENERAL_NOTES, ...ROLES.flatMap((role) => ROLE_NOTES[role])];
     expect([...used].sort()).toEqual([...RoleNoteKey.options].sort());
+  });
+});
+
+describe("ADR-0033: the editable matrix", () => {
+  it("the defaults sit inside every guardrail, so the seed and a reset never trip the trigger", () => {
+    for (const area of AREAS) {
+      for (const role of ROLES) {
+        expect({ area, role, ok: withinBounds(role, area, ROLE_MATRIX[area][role]) }).toEqual({ area, role, ok: true });
+      }
+    }
+  });
+
+  it("locks the administrator's MANAGE on users and nothing below READ elsewhere", () => {
+    expect(allowedLevels("admin", "users")).toEqual(["MANAGE"]);
+    expect(allowedLevels("admin", "defects")).toEqual(["READ", "WRITE", "APPROVE", "MANAGE"]);
+    expect(levelBounds("admin", "users").guardrails).toContain("adminUsers");
+  });
+
+  it("keeps the two read-only roles at READ or below and the audit trail at READ or below", () => {
+    expect(allowedLevels("auditor_readonly", "defects")).toEqual(["NONE", "READ"]);
+    expect(allowedLevels("executive_readonly", "reports")).toEqual(["NONE", "READ"]);
+    expect(allowedLevels("finance", "auditTrail")).toEqual(["NONE", "READ"]);
+    expect(allowedLevels("admin", "auditTrail")).toEqual(["READ"]);
+  });
+
+  it("keeps the users row NONE for every role but the administrator", () => {
+    for (const role of ROLES.filter((r) => r !== "admin")) expect(allowedLevels(role, "users")).toEqual(["NONE"]);
+  });
+
+  it("leaves an ordinary cell free", () => {
+    expect(levelBounds("technician", "defects")).toEqual({ min: "NONE", max: "MANAGE", guardrails: [] });
+  });
+
+  it("takes the highest level any of the roles holds, and NONE for no role", () => {
+    const matrix = defaultRoleMatrix();
+    expect(levelFor(matrix, ["technician", "finance"], "budgetLines")).toBe("WRITE");
+    expect(levelFor(matrix, [], "portfolio")).toBe("NONE");
+    matrix.defects.technician = "NONE";
+    expect(levelFor(matrix, ["technician"], "defects")).toBe("NONE");
+    expect(ROLE_MATRIX.defects.technician).toBe("WRITE");
+  });
+
+  it("effectiveFor gives a level for every area", () => {
+    const effective = effectiveFor(ROLE_MATRIX, ["clinical_approver"]);
+    expect(Object.keys(effective).sort()).toEqual([...AREAS].sort());
+    expect(effective.permitClinical).toBe("APPROVE");
+    expect(effective.reports).toBe("NONE");
+  });
+
+  it("the write body is the whole column and nothing else", () => {
+    const column = columnOf(ROLE_MATRIX, "technician");
+    expect(RolePermissionsWrite.safeParse(column).success).toBe(true);
+    const short: Partial<typeof column> = { ...column };
+    delete short.defects;
+    expect(RolePermissionsWrite.safeParse(short).success).toBe(false);
+    expect(RolePermissionsWrite.safeParse({ ...column, defects: "ALL" }).success).toBe(false);
+  });
+
+  it("the response carries the matrix, the guardrail keys and the last change", () => {
+    const parsed = RolePermissionsResponse.parse({ matrix: ROLE_MATRIX, guardrails: [...GUARDRAILS], updatedAt: null });
+    expect(parsed.matrix.users.admin).toBe("MANAGE");
+    expect(AreaKey.options).toEqual(MatrixArea.options);
   });
 });

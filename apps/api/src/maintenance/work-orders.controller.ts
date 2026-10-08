@@ -38,7 +38,8 @@ import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { MAX_FILE_BYTES, MIME_WHITELIST } from "../documents/earchive-contract";
 import { WorkOrdersService } from "./work-orders.service";
 
@@ -162,7 +163,7 @@ export class WorkOrdersController {
   /** S20, the call. The three deadlines are stamped from `calledAt` (ADR-0031 §3). */
   @Post()
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "technician", "clinical_approver")
+  @Needs("workOrderRaise", "WRITE")
   @ApiOperation({ summary: "Raise a call; the timers start from the moment it was sent" })
   @ApiBody({ schema: jsonSchema(WorkOrderCreate) as never })
   @ApiZodResponse(201, WorkOrder, "The order as stored, with its reference and deadlines")
@@ -176,7 +177,7 @@ export class WorkOrdersController {
   }
 
   @Patch(":id")
-  @Roles("admin", "estates_head", "project_engineer", "technician")
+  @Needs("workOrderWork", "WRITE")
   @ApiOperation({ summary: "Change an order: details, codes, costs or the restore extension" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(WorkOrderPatch) as never })
@@ -194,7 +195,7 @@ export class WorkOrdersController {
   /** S19's buttons. The API refuses a step out of order (WORK_ORDER_TRANSITIONS). */
   @Post(":id/transition")
   @HttpCode(200)
-  @Roles("admin", "estates_head", "project_engineer", "technician")
+  @Needs("workOrderWork", "WRITE")
   @ApiOperation({ summary: "Take the next step: acknowledge, start, pause, resume, restore, complete, cancel" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(WorkOrderTransition) as never })
@@ -212,7 +213,7 @@ export class WorkOrdersController {
 
   @Post(":id/notes")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "technician", "clinical_approver")
+  @Needs("workOrderRaise", "WRITE")
   @ApiOperation({ summary: "Add a note to the order's story" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(NoteBody) as never })
@@ -233,7 +234,7 @@ export class WorkOrdersController {
    */
   @Post(":id/documents")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "technician")
+  @Needs("workOrderWork", "WRITE")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File a photograph or the contractor's report on the order" })
@@ -263,7 +264,7 @@ export class WorkOrdersController {
   /** R35 from the order: work the agreement will not absorb. */
   @Post(":id/backlog")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("backlog", "WRITE")
   @ApiOperation({ summary: "Send the work to the maintenance backlog" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(OrderBacklogBody) as never })

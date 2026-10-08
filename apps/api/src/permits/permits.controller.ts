@@ -17,7 +17,8 @@ import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { PermitsService } from "./permits.service";
 
 /** A filter repeated in the query string comes back as an array either way. */
@@ -91,7 +92,7 @@ export class PermitsController {
 
   @Post()
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("permitRequest", "WRITE")
   @ApiOperation({ summary: "Raise a shutdown request; the API works out the indirect impact" })
   @ApiBody({ schema: jsonSchema(ShutdownPermitDraft) as never })
   @ApiZodResponse(201, ShutdownPermit, "The permit as stored, DRAFT, with its affected areas")
@@ -131,7 +132,7 @@ export class PermitsController {
 
   /** RULE: only while DRAFT — which is also where a RETURNED permit lands. */
   @Patch(":id")
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("permitRequest", "WRITE")
   @ApiOperation({ summary: "Change a draft shutdown request" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(PermitPatch) as never })
@@ -151,7 +152,7 @@ export class PermitsController {
 
   @Post(":id/icra")
   @HttpCode(200)
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("permitRequest", "WRITE")
   @ApiOperation({ summary: "Run the ICRA wizard over this permit and store the class" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(IcraSubmission) as never })

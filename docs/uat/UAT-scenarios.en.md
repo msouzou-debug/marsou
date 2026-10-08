@@ -118,6 +118,9 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | G7 | Admin › contractors. Search a vendor in the eFinance field. | A vendor list with codes. One marked blocked in eFinance cannot be picked. | |
 | G8 | Admin › eFinance. Press sync. | A last-run time and zero errors. | |
 | G9 | Admin › roles and permissions. Select the «Τεχνίτης» column. | The column is highlighted. On «Μητρώο έργων» the technician has «Βλέπει» (read); on «Φυσική κατάσταση και μετρήσεις παγίων» they have «Γράφει» (write). | |
+| G10 | In another window, sign in as `technician.nicosia` and open maintenance › «Εκκρεμότητες». | No «Προσθήκη» button: the technician reads the backlog and changes nothing. | |
+| G11 | As the administrator, on roles and permissions, give the technician «Εγγραφή» (write) on the «Εκκρεμότητες συντήρησης» row and press «Αποθήκευση». In the technician's window, reload. | «Οι αλλαγές αποθηκεύτηκαν». The technician now sees «Προσθήκη» and records a backlog item without signing out. The audit trail shows the change under your name. The auditor's cell on the same row offers only «Χωρίς πρόσβαση» and «Ανάγνωση», and the administrator's cell on «Χρήστες» carries a lock. | |
+| G12 | Press «Επαναφορά προεπιλογών» and confirm. Reload the technician's window again. | «Ο πίνακας επανήλθε στις προεπιλογές». «Προσθήκη» is gone from the technician's backlog. | |
 
 ## H. Auditor and executive
 

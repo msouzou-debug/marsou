@@ -11,6 +11,8 @@ import {
   type PermitListRow,
   type PermitStatus,
   type PermitTransition,
+  type AccessLevel,
+  type MatrixArea,
   type ShutdownPermitDraft,
 } from "@ecapital/shared";
 import { and, asc, desc, eq, gte, inArray, lte, ne, sql, type SQL } from "drizzle-orm";
@@ -43,6 +45,7 @@ import {
   type PermitAuditRow,
   type PermitRow,
 } from "./permit-rows";
+import { PermissionsService } from "../permissions/permissions.service";
 import { approvalSlaWindow } from "./permit-sla";
 import { durationHours, routeFor, type RouteLine } from "./routing";
 
@@ -63,12 +66,26 @@ const ACCEPTANCE_ROLES: ApprovalRole[] = ["WARD_MANAGER", "NURSING", "INFECTION_
  * in a state where this transition is allowed, whether this caller is the
  * person this line is waiting on, and whether the boxes are all ticked.
  */
+/**
+ * ADR-0033. The row of the role matrix each lifecycle step needs: raising and
+ * submitting is the request row, rejecting is its APPROVE (CAPEX-01 §10's
+ * segregation: whoever decides is not whoever asked), starting work is the
+ * operate row. CLOSED has none — see `close`.
+ */
+const TRANSITION_NEEDS: Record<PermitTransition["to"], readonly [MatrixArea, AccessLevel] | null> = {
+  SUBMITTED: ["permitRequest", "WRITE"],
+  REJECTED: ["permitRequest", "APPROVE"],
+  ACTIVE: ["permitOperate", "WRITE"],
+  CLOSED: null,
+};
+
 @Injectable()
 export class PermitsService {
   constructor(
     private readonly icra: IcraService,
     private readonly feeds: SystemFeedsService,
     @Inject(CONFIG) private readonly config: AppConfig,
+    private readonly permissions: PermissionsService,
   ) {}
 
   // ------------------------------------------------------------- reading --
@@ -380,6 +397,13 @@ export class PermitsService {
   }
 
   async transition(id: string, input: PermitTransition, now: Date): Promise<ShutdownPermit> {
+    // ADR-0033: which row of the role matrix each step asks. Closing is not
+    // here: it is the clinical owner's signature (§6.6), decided by the
+    // approval capacity in `close`, not by a role.
+    const need = TRANSITION_NEEDS[input.to];
+    if (need && !this.permissions.allowedHere(need[0], need[1])) {
+      throw AppError.forbidden();
+    }
     switch (input.to) {
       case "SUBMITTED":
         return this.submit(id, now);
@@ -667,8 +691,15 @@ export class PermitsService {
     if (existing.requestedById === caller) {
       throw AppError.conflict("errors.permitSelfApproval");
     }
+    // The administrator standing in for a missing approver is an identity
+    // rule (ADR-0026 Errata), not a row of the matrix (ADR-0033). Everyone
+    // else decides only their own line, and only while the matrix gives
+    // their role APPROVE on the clinical approval row.
     const isAdmin = tx.context.roles.includes("admin");
     if (!isAdmin && line.approverId !== caller) {
+      throw AppError.forbidden("errors.permitDecisionNotYours");
+    }
+    if (!isAdmin && !this.permissions.allowedHere("permitClinical", "APPROVE")) {
       throw AppError.forbidden("errors.permitDecisionNotYours");
     }
     if (input.decision !== "APPROVED" && !input.commentEl?.trim()) {

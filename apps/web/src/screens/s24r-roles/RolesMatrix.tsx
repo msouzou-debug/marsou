@@ -1,33 +1,44 @@
 "use client";
 
-// S24r «Ρόλοι και δικαιώματα» — R01, R42 (CAPEX-01 §10, ADR-0010, ADR-0020)
+// S24r «Ρόλοι και δικαιώματα» — R01, R42 (CAPEX-01 §10, ADR-0010, ADR-0020, ADR-0033)
 //
 /**
- * RolesMatrix — what each of the eight roles sees and does, area by area.
+ * RolesMatrix — what each of the eight roles sees and does, area by area,
+ * and, for the administrator, the place to change it (ADR-0033).
  *
- * | Prop         | Type                          | Notes                                                        |
- * |--------------|-------------------------------|--------------------------------------------------------------|
- * | state        | "default" \| "noPermission"   | The page decides who may open it; the data is static.        |
- * | noPermission | ReactNode                     | Drawn in the `noPermission` state.                           |
- * | onPrint      | () => void?                   | Defaults to `window.print()`.                                |
- * | highlighted  | AppRole?                      | Initial highlighted column; the header buttons change it.    |
+ * | Prop         | Type                                              | Notes                                                        |
+ * |--------------|---------------------------------------------------|--------------------------------------------------------------|
+ * | state        | "default" \| "noPermission"                       | The page decides who may open it.                            |
+ * | noPermission | ReactNode                                         | Drawn in the `noPermission` state.                           |
+ * | onPrint      | () => void?                                       | Defaults to `window.print()`.                                |
+ * | highlighted  | AppRole?                                          | Initial highlighted column; the header buttons change it.    |
+ * | matrix       | RoleMatrix?                                       | The stored matrix; `ROLE_MATRIX` (the defaults) if left out. |
+ * | updatedAt    | string \| null?                                   | The last change, shown under the intro when there is one.    |
+ * | editable     | boolean?                                          | The administrator: each free cell becomes a list.            |
+ * | onSave       | (role, column) => Promise<RoleMatrix>?            | `PUT /admin/roles/:role`, once per changed role.             |
+ * | onReset      | () => Promise<RoleMatrix>?                        | `POST /admin/roles/reset`, after the ConfirmDialog.          |
  *
- * The data is `ROLE_MATRIX`, `MATRIX_UNITS` and `ROLE_NOTES` from
- * `@ecapital/shared`, checked against the screens' own role helpers by
- * `src/auth/role-matrix.test.ts`. Nothing is fetched, so loading, empty,
- * error and offline do not arise.
+ * The data is the matrix the page loaded, `MATRIX_UNITS` and `ROLE_NOTES`
+ * from `@ecapital/shared`. States: default and noPermission. The matrix
+ * arrives with the page, so loading, empty, error and offline do not arise
+ * for the table; a refused save shows the API's own sentence above the bar.
  *
  * Desktop and tablet from 1024px: one table, the roles as columns and the
- * areas as grouped rows. Below 1024px: one card per role. Print: the
- * legend and the table on landscape A4 (`printCss`, shared with S23a).
+ * areas as grouped rows; that is where the administrator edits. Below 1024px:
+ * one card per role, read only. Print: the legend and the table on
+ * landscape A4 (`printCss`, shared with S23a), chips and not lists.
  *
  * RULE (UI instructions §4): a level is never colour alone — every chip
  * carries an icon of its own and a word, and a border, so the table reads
  * the same in greyscale and on paper.
+ *
+ * RULE (ADR-0033): a cell offers only the levels its guardrails allow
+ * (`allowedLevels`, the same rule as the database trigger). A cell with one
+ * level left is shown locked, with a lock and the reason as its tooltip.
  */
 import { Fragment, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Cog, Eye, Pencil, Printer } from "lucide-react";
+import { Check, Cog, Eye, Lock, Pencil, Printer, RotateCcw } from "lucide-react";
 import {
   MATRIX_GROUPS,
   MATRIX_ROLES,
@@ -35,11 +46,19 @@ import {
   ROLE_MATRIX,
   ROLE_NOTES,
   GENERAL_NOTES,
+  GUARDRAILS,
+  allowedLevels,
+  columnOf,
+  levelBounds,
   type AccessLevel,
   type AppRole,
   type MatrixArea,
+  type RoleColumn,
+  type RoleMatrix,
 } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { formatDateTime } from "@/lib/format";
 import { printCss } from "@/screens/s23-reports/catalogue";
 
 export type RolesMatrixState = "default" | "noPermission";
@@ -49,6 +68,11 @@ export interface RolesMatrixProps {
   noPermission: ReactNode;
   onPrint?: () => void;
   highlighted?: AppRole;
+  matrix?: RoleMatrix;
+  updatedAt?: string | null;
+  editable?: boolean;
+  onSave?: (role: AppRole, column: RoleColumn) => Promise<RoleMatrix>;
+  onReset?: () => Promise<RoleMatrix>;
 }
 
 const P = "screens.s24roles";
@@ -86,9 +110,34 @@ export function LevelChip({ level }: { level: AccessLevel }) {
   );
 }
 
-export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial }: RolesMatrixProps) {
+/** Role → the cells changed in the draft and not yet saved. */
+type Draft = Partial<Record<AppRole, Partial<RoleColumn>>>;
+
+function draftCount(draft: Draft): number {
+  return Object.values(draft).reduce((sum, cells) => sum + Object.keys(cells ?? {}).length, 0);
+}
+
+export function RolesMatrix({
+  state,
+  noPermission,
+  onPrint,
+  highlighted: initial,
+  matrix: loaded = ROLE_MATRIX,
+  updatedAt = null,
+  editable = false,
+  onSave,
+  onReset,
+}: RolesMatrixProps) {
   const t = useTranslations();
   const [highlighted, setHighlighted] = useState<AppRole | undefined>(initial);
+  // The matrix as last saved: the page's, until a save or a reset answers.
+  const [saved, setSaved] = useState<RoleMatrix>(loaded);
+  const [lastChange, setLastChange] = useState<string | null>(updatedAt);
+  const [draft, setDraft] = useState<Draft>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   if (state === "noPermission") return <>{noPermission}</>;
 
@@ -96,6 +145,122 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
   const roleName = (role: AppRole) => t(`roles.${role}`);
   const areaName = (area: MatrixArea) => t(`${P}.areas.${area}`);
   const cellClass = (role: AppRole) => (highlighted === role ? "bg-k-blue-bg" : "");
+  const levelOf = (area: MatrixArea, role: AppRole): AccessLevel => draft[role]?.[area] ?? saved[area][role];
+  const changes = draftCount(draft);
+  const canEdit = editable && Boolean(onSave);
+
+  function change(role: AppRole, area: MatrixArea, level: AccessLevel) {
+    setNotice(undefined);
+    setError(undefined);
+    setDraft((current) => {
+      const cells = { ...(current[role] ?? {}) };
+      if (level === saved[area][role]) delete cells[area];
+      else cells[area] = level;
+      const next = { ...current, [role]: cells };
+      if (Object.keys(cells).length === 0) delete next[role];
+      return next;
+    });
+  }
+
+  async function save() {
+    if (!onSave) return;
+    setBusy(true);
+    setError(undefined);
+    let current = saved;
+    try {
+      // One PUT per role column that moved; each carries the whole column.
+      for (const role of MATRIX_ROLES) {
+        const cells = draft[role];
+        if (!cells || Object.keys(cells).length === 0) continue;
+        current = await onSave(role, { ...columnOf(current, role), ...cells });
+        setSaved(current);
+        setDraft((d) => {
+          const next = { ...d };
+          delete next[role];
+          return next;
+        });
+      }
+      setLastChange(new Date().toISOString());
+      setNotice(t(`${P}.saved`));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setConfirmReset(false);
+    if (!onReset) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      setSaved(await onReset());
+      setDraft({});
+      setLastChange(new Date().toISOString());
+      setNotice(t(`${P}.resetDone`));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The reason a cell is narrowed, for its tooltip; empty when it is free. */
+  const guardrailText = (role: AppRole, area: MatrixArea) =>
+    levelBounds(role, area)
+      .guardrails.map((key) => t(`${P}.guardrails.${key}`))
+      .join(" ");
+
+  function editableCell(area: MatrixArea, role: AppRole) {
+    const options = allowedLevels(role, area);
+    const level = levelOf(area, role);
+    const reason = guardrailText(role, area);
+    const changed = draft[role]?.[area] !== undefined;
+    if (options.length === 1) {
+      return (
+        <span data-locked="true" title={reason} className="inline-flex items-center gap-s-1">
+          <LevelChip level={level} />
+          <Lock size={16} strokeWidth={1.5} aria-hidden="true" className="text-k-text" />
+          <span className="sr-only">
+            {t(`${P}.lockedLabel`)}: {reason}
+          </span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-s-1">
+        <span className="hidden print:inline-flex">
+          <LevelChip level={level} />
+        </span>
+        {/* RULE (ADR-0033): only the levels the guardrails allow are offered. */}
+        <select
+          aria-label={t(`${P}.cellLabel`, { area: areaName(area), role: roleName(role) })}
+          data-changed={changed ? "true" : undefined}
+          value={level}
+          disabled={busy}
+          onChange={(event) => change(role, area, event.target.value as AccessLevel)}
+          className={`min-h-[44px] rounded-k border px-s-1 text-fs-14 text-k-ink print:hidden ${
+            changed ? "border-2 border-k-blue font-bold" : "border-k-grey"
+          }`}
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {t(`${P}.levels.${option}.name`)}
+            </option>
+          ))}
+        </select>
+        {reason && (
+          <span title={reason} className="inline-flex print:hidden">
+            <Lock size={16} strokeWidth={1.5} aria-hidden="true" className="text-k-text" />
+            <span className="sr-only">
+              {t(`${P}.lockedLabel`)}: {reason}
+            </span>
+          </span>
+        )}
+      </span>
+    );
+  }
 
   return (
     <div className="report-sheet report-dense">
@@ -104,17 +269,46 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
         eyebrow={t("nav.admin")}
         title={t(`${P}.title`)}
         action={
-          <button
-            type="button"
-            onClick={print}
-            className="flex min-h-[44px] items-center gap-s-2 rounded-k border border-k-grey bg-k-white px-s-3 py-s-2 text-fs-14 text-k-blue-deep print:hidden"
-          >
-            <Printer size={24} strokeWidth={1.5} aria-hidden="true" />
-            {t("buttons.printPdf")}
-          </button>
+          <div className="flex flex-wrap items-center gap-s-2 print:hidden">
+            {canEdit && onReset && (
+              <button
+                type="button"
+                onClick={() => setConfirmReset(true)}
+                disabled={busy}
+                className="flex min-h-[44px] items-center gap-s-2 rounded-k border border-k-grey bg-k-white px-s-3 py-s-2 text-fs-14 text-k-blue-deep disabled:text-k-text-muted"
+              >
+                <RotateCcw size={24} strokeWidth={1.5} aria-hidden="true" />
+                {t(`${P}.resetDefaults`)}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={print}
+              className="flex min-h-[44px] items-center gap-s-2 rounded-k border border-k-grey bg-k-white px-s-3 py-s-2 text-fs-14 text-k-blue-deep"
+            >
+              <Printer size={24} strokeWidth={1.5} aria-hidden="true" />
+              {t("buttons.printPdf")}
+            </button>
+          </div>
         }
       />
-      <p className="mb-s-5 max-w-[760px] text-fs-16 text-k-text">{t(`${P}.intro`)}</p>
+      <p className="mb-s-2 max-w-[760px] text-fs-16 text-k-text">{t(`${P}.intro`)}</p>
+      {canEdit && <p className="mb-s-2 max-w-[760px] text-fs-16 text-k-text print:hidden">{t(`${P}.editIntro`)}</p>}
+      {lastChange && (
+        <p className="mb-s-5 text-fs-14 text-k-text">{t(`${P}.lastChange`, { date: formatDateTime(lastChange) })}</p>
+      )}
+      {!lastChange && <div className="mb-s-3" />}
+
+      {notice && (
+        <p
+          role="status"
+          data-testid="s24r-notice"
+          className="mb-s-4 flex items-center gap-s-2 rounded-k border border-k-green bg-k-white px-s-3 py-s-2 text-fs-14 text-k-ink print:hidden"
+        >
+          <Check size={20} strokeWidth={1.5} aria-hidden="true" />
+          {notice}
+        </p>
+      )}
 
       {/* The legend: the five chips, one sentence each. */}
       <section aria-labelledby="s24r-legend" className="mb-s-5">
@@ -198,7 +392,7 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
                     </th>
                     {MATRIX_ROLES.map((role) => (
                       <td key={role} data-role={role} className={`px-s-1 py-s-1 text-center ${cellClass(role)}`}>
-                        <LevelChip level={ROLE_MATRIX[area][role]} />
+                        {canEdit ? editableCell(area, role) : <LevelChip level={levelOf(area, role)} />}
                       </td>
                     ))}
                   </tr>
@@ -209,10 +403,49 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
         </table>
       </div>
 
+      {/* The administrator's changes, one bar for all of them. */}
+      {canEdit && (changes > 0 || error) && (
+        <div
+          data-testid="s24r-savebar"
+          className="sticky bottom-0 z-10 mt-s-3 flex flex-wrap items-center justify-between gap-s-3 rounded-k border border-k-grey bg-k-white p-s-3 shadow-k print:hidden"
+        >
+          <div className="text-fs-14 text-k-ink">
+            {error ? (
+              <p role="alert" className="text-k-red">
+                {error}
+              </p>
+            ) : (
+              <p>{t(`${P}.unsaved`, { count: changes })}</p>
+            )}
+          </div>
+          <div className="flex gap-s-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDraft({});
+                setError(undefined);
+              }}
+              disabled={busy}
+              className="min-h-[44px] rounded-k border border-k-grey px-s-4 text-fs-14 text-k-text"
+            >
+              {t("buttons.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={busy || changes === 0}
+              className="min-h-[44px] rounded-k bg-k-blue px-s-4 text-fs-14 font-bold text-k-white disabled:bg-k-grey disabled:text-k-text-muted"
+            >
+              {t("buttons.save")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Phone: one card per role, its areas and level as text. */}
       <div data-testid="s24r-cards" className="flex flex-col gap-s-4 tablet:hidden print:hidden">
         {MATRIX_ROLES.map((role) => {
-          const none = MATRIX_GROUPS.flatMap(({ areas }) => areas).filter((area) => ROLE_MATRIX[area][role] === "NONE");
+          const none = MATRIX_GROUPS.flatMap(({ areas }) => areas).filter((area) => levelOf(area, role) === "NONE");
           return (
             <article key={role} aria-label={roleName(role)} className="report-card rounded-k border border-k-grey bg-k-white p-s-4">
               <h2 className="text-fs-16 font-bold text-k-ink">{roleName(role)}</h2>
@@ -220,7 +453,7 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
                 {t(`${P}.unitsRow`)}: {t(`${P}.units.${MATRIX_UNITS[role]}`)}
               </p>
               {MATRIX_GROUPS.map(({ group, areas }) => {
-                const shown = areas.filter((area) => ROLE_MATRIX[area][role] !== "NONE");
+                const shown = areas.filter((area) => levelOf(area, role) !== "NONE");
                 if (shown.length === 0) return null;
                 return (
                   <section key={group} className="mb-s-3">
@@ -229,7 +462,7 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
                       {shown.map((area) => (
                         <li key={area} className="flex items-start justify-between gap-s-3 text-fs-14 text-k-ink">
                           <span>{areaName(area)}</span>
-                          <LevelChip level={ROLE_MATRIX[area][role]} />
+                          <LevelChip level={levelOf(area, role)} />
                         </li>
                       ))}
                     </ul>
@@ -245,6 +478,19 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
           );
         })}
       </div>
+
+      {/* ADR-0033: what the administrator cannot change, said where it is changed. */}
+      <section aria-labelledby="s24r-guardrails" data-testid="s24r-guardrails" className="mt-s-6">
+        <h2 id="s24r-guardrails" className="mb-s-3 text-fs-20 text-k-ink">
+          {t(`${P}.guardrailsTitle`)}
+        </h2>
+        <ul className="list-disc pl-s-5 text-fs-14 text-k-ink">
+          {GUARDRAILS.map((key) => (
+            <li key={key}>{t(`${P}.guardrails.${key}`)}</li>
+          ))}
+          <li>{t(`${P}.fixedRules`)}</li>
+        </ul>
+      </section>
 
       {/* The notes the cells cannot carry. */}
       <section aria-labelledby="s24r-notes" className="mt-s-6">
@@ -270,6 +516,17 @@ export function RolesMatrix({ state, noPermission, onPrint, highlighted: initial
           ))}
         </div>
       </section>
+
+      {canEdit && onReset && (
+        <ConfirmDialog
+          open={confirmReset}
+          title={t(`${P}.resetTitle`)}
+          consequence={t(`${P}.resetConsequence`)}
+          destructiveLabel={t(`${P}.resetDefaults`)}
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={() => void reset()}
+        />
+      )}
     </div>
   );
 }

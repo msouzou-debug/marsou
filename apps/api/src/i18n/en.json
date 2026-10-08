@@ -209,7 +209,9 @@
     "backlogFundedNeedsProject": "A funded backlog item needs the project paying for it. Pick a project, or use «To project».",
     "backlogNotOpen": "The backlog item is not open, so it cannot become a project. Open the project already funding it.",
     "scorecardQueryNotValid": "The scorecard needs a maintenance agreement and a period. Pick an agreement and a «from» date before the «to» date, then try again.",
-    "reportQueryNotValid": "The report filters are not usable. Give a year from 2000 to 2100 and dates as YYYY-MM-DD with «from» before «to», then try again."
+    "reportQueryNotValid": "The report filters are not usable. Give a year from 2000 to 2100 and dates as YYYY-MM-DD with «from» before «to», then try again.",
+    "rolePermissionGuardrail": "The {role} role cannot take that level on “{area}”: {rule} Pick one of the levels the table offers.",
+    "rolePermissionNotValid": "The request does not name one of the eight roles, or does not give a level for every area. Reload the page and try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -794,5 +796,60 @@
       "pastLife": "Assets at the end of their life",
       "band": "Risk band"
     }
+  },
+  "roleGuardrails": {
+    "readOnlyRoles": "the Auditor and the Executive never go above Read.",
+    "adminUsers": "the Administrator always keeps full control of users, so nobody is locked out.",
+    "adminReads": "the Administrator always sees every area.",
+    "auditTrailRead": "the audit trail is only ever read.",
+    "usersAdminOnly": "only the Administrator manages users and their roles."
+  },
+  "roleAreas": {
+    "portfolio": "Portfolio",
+    "projectRecords": "Project register, milestones, risks",
+    "projectPhase": "Phase change",
+    "approvedBudget": "Approved budget, from approval on",
+    "contractRecords": "Contract record",
+    "rfisInstructions": "Requests for information and site instructions",
+    "variationSubmit": "Variations: draft and submit",
+    "variationDecide": "Variations: decision",
+    "defects": "Defects",
+    "paymentCertCreate": "Payment certificate: draft",
+    "paymentCertEngineer": "Payment certificate: engineer approval",
+    "paymentCertFinance": "Payment certificate: receipt and payment",
+    "sapImport": "SAP import and unmatched postings",
+    "budgetLines": "Project budget lines",
+    "accruals": "Accruals",
+    "forecastWarnings": "Forecast inputs and cost warnings",
+    "permitRequest": "Shutdown request: submit and reject",
+    "permitClinical": "Clinical approval",
+    "permitOperate": "Start of works and close",
+    "permitCalendar": "Disruption calendar",
+    "assetRegister": "Asset register",
+    "assetCondition": "Asset condition and readings",
+    "assetDocuments": "Asset documents",
+    "assetForecast": "Replacement forecast",
+    "assetLabels": "QR labels",
+    "workOrderRaise": "New fault call",
+    "workOrderWork": "Work order: steps, codes, cost",
+    "maintenanceAgreement": "Maintenance contract, SLA catalogue, preventive maintenance programme",
+    "backlog": "Maintenance backlog",
+    "backlogToProject": "Backlog item to a project («Σε έργο»)",
+    "scorecard": "Contractor scorecard",
+    "reports": "Reports",
+    "users": "Users, roles and shutdown approvers",
+    "contractors": "Contractor register",
+    "efinance": "eFinance link",
+    "auditTrail": "Audit trail of every change"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "estates_head": "Head of estates",
+    "project_engineer": "Project engineer",
+    "technician": "Technician",
+    "finance": "Finance",
+    "clinical_approver": "Clinical approver",
+    "executive_readonly": "Executive, read-only",
+    "auditor_readonly": "Auditor, read-only"
   }
 }

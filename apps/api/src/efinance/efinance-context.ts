@@ -13,6 +13,8 @@ export const EFINANCE_SYSTEM_CONTEXT: RlsContext = Object.freeze({
   roles: ["admin"],
   orgUnitIds: [],
   ip: null,
+  // ADR-0033: code, not a role — the matrix does not apply to it.
+  system: true,
 }) as RlsContext;
 
 /** The injection token for the one EFinanceClient the process holds. */

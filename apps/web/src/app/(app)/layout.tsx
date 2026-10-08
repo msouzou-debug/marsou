@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { UNIT_COOKIE } from "@/auth/cookies";
+import { RoleMatrixSync } from "@/auth/RoleMatrixSync";
 import { getSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { ALL_UNITS } from "@/components/app-shell/UnitSwitcher";
@@ -37,11 +38,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <HelpProvider userRole={session.me.roles[0]}>
-      {/* S25: mounted above every page so it survives client-side navigation
-          while each page.tsx registers its own section underneath it. */}
-      <AppShell me={session.me} orgUnits={orgUnits} defaultOrgUnitId={selectedUnitId}>
-        {children}
-      </AppShell>
+      {/* ADR-0033: the role matrix the helpers read, in the browser too. */}
+      <RoleMatrixSync matrix={session.matrix}>
+        {/* S25: mounted above every page so it survives client-side navigation
+            while each page.tsx registers its own section underneath it. */}
+        <AppShell me={session.me} orgUnits={orgUnits} defaultOrgUnitId={selectedUnitId}>
+          {children}
+        </AppShell>
+      </RoleMatrixSync>
     </HelpProvider>
   );
 }

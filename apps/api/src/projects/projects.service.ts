@@ -21,6 +21,7 @@ import { BACKLOG_STATUSES } from "../defects/defect-rows";
 import { ContractPushService } from "../efinance/contract-push.service";
 import { OPEN_PERMIT_STATUSES } from "../permits/permit-rows";
 import * as schema from "../db/schema";
+import { PermissionsService } from "../permissions/permissions.service";
 import {
   type AuditRow,
   isNextPhase,
@@ -42,7 +43,10 @@ const AUDIT_LINES = 50;
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly efinancePush: ContractPushService) {}
+  constructor(
+    private readonly efinancePush: ContractPushService,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   /**
    * There is no permission check anywhere in this file and there is not meant
@@ -248,7 +252,9 @@ export class ProjectsService {
     const budget = input.approvedBudget;
     const changingBudget = budget !== undefined && budget !== money(project.approvedBudget);
     const needsFinance = changingBudget && phaseIndex(project.phase) >= phaseIndex(BUDGET_LOCKED_FROM);
-    if (needsFinance && !(tx.context.roles ?? []).includes("finance")) {
+    // ADR-0033: «finance» is the role the matrix gives APPROVE on the approved
+    // budget, by default finance alone; `set_approved_budget` asks the same.
+    if (needsFinance && !this.permissions.allowedHere("approvedBudget", "APPROVE")) {
       throw AppError.forbidden("errors.budgetFinanceOnly");
     }
     if (needsFinance) {
@@ -314,11 +320,13 @@ export class ProjectsService {
     if (!tx) throw AppError.internal();
 
     const project = await this.load(id);
-    const isAdmin = (tx.context.roles ?? []).includes("admin");
+    // ADR-0033: moving back is MANAGE on the phase row, the administrator's by
+    // default; moving forward is the route's own `@Needs("projectPhase", "WRITE")`.
+    const mayGoBack = this.permissions.allowedHere("projectPhase", "MANAGE");
     const forward = isNextPhase(project.phase, input.phase);
     const backward = phaseIndex(input.phase) < phaseIndex(project.phase);
 
-    if (!forward && !(isAdmin && backward)) throw AppError.unprocessable("errors.phaseNotNext");
+    if (!forward && !(mayGoBack && backward)) throw AppError.unprocessable("errors.phaseNotNext");
 
     if (forward) {
       const open = await tx.db

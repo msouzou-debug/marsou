@@ -17,6 +17,14 @@ export interface RlsContext {
   roles: string[];
   orgUnitIds: string[];
   ip: string | null;
+  /**
+   * ADR-0033: the server's own timers (the eFinance push and sync, the
+   * maintenance sweep), which run as `admin` with nobody behind them. They
+   * are code, not a role, so `ecapital.allowed` and `PermissionsService` let
+   * them through whatever the administrator has done to the admin column.
+   * Never set from a request.
+   */
+  system?: boolean;
 }
 
 interface TxScope {
@@ -66,6 +74,7 @@ export class DatabaseService implements OnModuleDestroy {
         context.orgUnitIds.join(","),
       ]);
       await client.query("select set_config('app.ip', $1, true)", [context.ip ?? ""]);
+      await client.query("select set_config('app.system', $1, true)", [context.system ? "on" : ""]);
 
       const db = drizzle(client, { schema });
       const result = await scope.run({ db, context }, () => work(db));
