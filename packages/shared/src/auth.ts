@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AccessLevel, MatrixArea } from "./access";
 
 // CAPEX-01 §10 — the eight roles. Row access is by org unit; `admin`,
 // `executive_readonly` and `auditor_readonly` see every unit, and
@@ -74,6 +75,11 @@ export const Me = z.object({
   email: z.string(),
   roles: z.array(AppRole),
   orgUnitIds: z.array(z.string()),
+  // ADR-0033: the caller's effective level on every area of the role matrix,
+  // the highest any of their roles holds, read from the stored matrix when
+  // the request was answered. Not in the token on purpose: a change the
+  // administrator makes applies at the next request, not at the next sign-in.
+  permissions: z.record(MatrixArea, AccessLevel),
 });
 export type Me = z.infer<typeof Me>;
 

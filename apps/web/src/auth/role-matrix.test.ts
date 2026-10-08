@@ -1,12 +1,21 @@
-// S24r — the role matrix agrees with the helpers that decide each screen.
+// S24r — the web helpers follow whatever role matrix is loaded (ADR-0033).
 //
-// `ROLE_MATRIX` in `@ecapital/shared` is what the «Ρόλοι και δικαιώματα»
-// page shows people. The helpers in `./roles` are what the screens actually
-// do. This file checks one against the other for every role, one row at a
-// time, so the page cannot say something the screens do not do. When a row
-// and its helper disagree, the helper is the rule and the matrix changes.
-import { describe, expect, it } from "vitest";
-import { AppRole, ROLE_MATRIX, atLeast, type AccessLevel, type MatrixArea } from "@ecapital/shared";
+// Until 08/10/2026 this file checked the static `ROLE_MATRIX` against
+// helpers that carried their own role lists. Now the helpers read the matrix
+// the session loaded (`./role-matrix-store`), so the check is the other way
+// round: load a matrix — the defaults, then one the administrator could have
+// made — and every helper must answer what that matrix says, role by role.
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  AppRole,
+  MatrixArea,
+  ROLE_MATRIX,
+  AccessLevel,
+  atLeast,
+  defaultRoleMatrix,
+  type MatrixArea as Area,
+  type RoleMatrix,
+} from "@ecapital/shared";
 import {
   canApprovePaymentCertEngineer,
   canChangeProjectPhase,
@@ -42,17 +51,20 @@ import {
   canWriteProjects,
   canWriteRfis,
   canWriteSiteInstructions,
+  getRoleMatrix,
   isAdmin,
+  setRoleMatrix,
 } from "./roles";
 
 const ROLES = AppRole.options;
+const READ_ONLY: AppRole[] = ["auditor_readonly", "executive_readonly"];
 
 type Helper = (roles: AppRole[]) => boolean;
 
 /** helper ⇔ the row is at `min` or above, for each role on its own. */
-const AGREEMENTS: Array<[name: string, helper: Helper, area: MatrixArea, min: AccessLevel]> = [
-  ["isAdmin", isAdmin, "users", "MANAGE"],
-  ["canManageApproverScopes", canManageApproverScopes, "users", "MANAGE"],
+const AGREEMENTS: Array<[name: string, helper: Helper, area: Area, min: AccessLevel]> = [
+  ["canWriteProjects", canWriteProjects, "projectRecords", "WRITE"],
+  ["canChangeProjectPhase", canChangeProjectPhase, "projectPhase", "WRITE"],
   ["canManageContractors", canManageContractors, "contractors", "MANAGE"],
   ["canWriteContracts", canWriteContracts, "contractRecords", "WRITE"],
   ["canWriteRfis", canWriteRfis, "rfisInstructions", "WRITE"],
@@ -60,7 +72,6 @@ const AGREEMENTS: Array<[name: string, helper: Helper, area: MatrixArea, min: Ac
   ["canRaiseVariations", canRaiseVariations, "variationSubmit", "WRITE"],
   ["canDecideVariations", canDecideVariations, "variationDecide", "APPROVE"],
   ["canManageDefect(INSPECTION)", (r) => canManageDefect(r, "INSPECTION"), "defects", "WRITE"],
-  ["canManageDefect(HANDOVER)", (r) => canManageDefect(r, "HANDOVER"), "contractRecords", "WRITE"],
   ["canCreatePaymentCert", canCreatePaymentCert, "paymentCertCreate", "WRITE"],
   ["canApprovePaymentCertEngineer", canApprovePaymentCertEngineer, "paymentCertEngineer", "APPROVE"],
   ["canProcessPaymentCertFinance", canProcessPaymentCertFinance, "paymentCertFinance", "APPROVE"],
@@ -85,42 +96,99 @@ const AGREEMENTS: Array<[name: string, helper: Helper, area: MatrixArea, min: Ac
   ["canViewReports", canViewReports, "reports", "READ"],
 ];
 
-describe("ROLE_MATRIX agrees with the web helpers, role by role", () => {
-  for (const [name, helper, area, min] of AGREEMENTS) {
-    it(`${name} ⇔ ${area} ≥ ${min}`, () => {
-      for (const role of ROLES) {
-        expect({ role, allowed: helper([role]) }).toEqual({ role, allowed: atLeast(ROLE_MATRIX[area][role], min) });
-      }
-    });
-  }
+/** What the matrix says, with `can_write_unit`'s floor: a read-only role writes nothing. */
+function expected(matrix: RoleMatrix, role: AppRole, area: Area, min: AccessLevel): boolean {
+  if (atLeast(min, "WRITE") && READ_ONLY.includes(role)) return false;
+  return atLeast(matrix[area][role], min);
+}
 
-  it("canViewCostNav ⇔ the SAP import or the accruals row is not NONE (the two screens under «Κόστος»)", () => {
+/**
+ * A matrix nobody would ship, on purpose: every cell moved, each role and
+ * row by a different amount, so a helper still holding a role list of its
+ * own cannot agree with it by accident.
+ */
+function scrambled(): RoleMatrix {
+  const levels = AccessLevel.options;
+  const matrix = defaultRoleMatrix();
+  MatrixArea.options.forEach((area, a) => {
+    ROLES.forEach((role, r) => {
+      const now = levels.indexOf(matrix[area][role]);
+      matrix[area][role] = levels[(now + a + r + 1) % levels.length];
+    });
+  });
+  return matrix;
+}
+
+function checkAgainst(matrix: RoleMatrix) {
+  for (const [name, helper, area, min] of AGREEMENTS) {
     for (const role of ROLES) {
-      const shown = ROLE_MATRIX.sapImport[role] !== "NONE" || ROLE_MATRIX.accruals[role] !== "NONE";
-      expect({ role, shown: canViewCostNav([role]) }).toEqual({ role, shown });
+      expect({ name, role, allowed: helper([role]) }).toEqual({ name, role, allowed: expected(matrix, role, area, min) });
     }
+  }
+  for (const role of ROLES) {
+    // ADR-0017: a handover defect needs the contract row as well.
+    const handover = expected(matrix, role, "defects", "WRITE") && expected(matrix, role, "contractRecords", "WRITE");
+    expect({ role, handover: canManageDefect([role], "HANDOVER") }).toEqual({ role, handover });
+    // The «Κόστος» nav: either of the two screens under it is not NONE.
+    const shown = matrix.sapImport[role] !== "NONE" || matrix.accruals[role] !== "NONE";
+    expect({ role, shown: canViewCostNav([role]) }).toEqual({ role, shown });
+  }
+}
+
+afterEach(() => setRoleMatrix(null));
+
+describe("the helpers read the loaded matrix", () => {
+  it("starts on the shipped defaults until a session loads one", () => {
+    expect(getRoleMatrix()).toBe(ROLE_MATRIX);
   });
 
-  it("the «Ρόλοι και δικαιώματα» page is for the administrator and the head of estates", () => {
-    expect(ROLES.filter((role) => canViewRoleMatrix([role])).sort()).toEqual(["admin", "estates_head"]);
+  it("agrees with the defaults, role by role", () => {
+    checkAgainst(ROLE_MATRIX);
+  });
+
+  it("follows a matrix the administrator changed, role by role", () => {
+    const matrix = scrambled();
+    setRoleMatrix(matrix);
+    checkAgainst(matrix);
+  });
+
+  it("gives a technician «Προσθήκη» on the backlog the moment the matrix says WRITE, and takes it back on reset", () => {
+    expect(canManageBacklog(["technician"])).toBe(false);
+    const matrix = defaultRoleMatrix();
+    matrix.backlog.technician = "WRITE";
+    setRoleMatrix(matrix);
+    expect(canManageBacklog(["technician"])).toBe(true);
+    setRoleMatrix(null);
+    expect(canManageBacklog(["technician"])).toBe(false);
+  });
+
+  it("takes the highest of several roles", () => {
+    expect(canImportSap(["technician", "finance"])).toBe(true);
+    const matrix = defaultRoleMatrix();
+    matrix.sapImport.finance = "READ";
+    setRoleMatrix(matrix);
+    expect(canImportSap(["technician", "finance"])).toBe(false);
+    expect(canImportSap(["finance", "admin"])).toBe(true);
+  });
+
+  it("RULE (ADR-0010): an account that also holds a read-only role writes nothing, whatever the matrix says", () => {
+    const matrix = defaultRoleMatrix();
+    setRoleMatrix(matrix);
+    expect(canWriteProjects(["admin"])).toBe(true);
+    expect(canWriteProjects(["admin", "auditor_readonly"])).toBe(false);
+    expect(canViewReports(["finance", "executive_readonly"])).toBe(true);
   });
 });
 
-/**
- * Έργα: the helpers were narrowed on 06/10/2026 to the row policy
- * (`ecapital.can_manage_project`, migration 0002), so the plain agreement
- * holds here too and there is no exceptions list any more.
- */
-describe("Έργα: helpers and matrix agree", () => {
-  it("canWriteProjects is exactly the roles the matrix lets write the register", () => {
-    for (const role of ROLES) {
-      expect(canWriteProjects([role])).toBe(atLeast(ROLE_MATRIX.projectRecords[role], "WRITE"));
-    }
+describe("what stays identity, not a row", () => {
+  it("isAdmin and the approver-scope editor answer to the admin role alone, whatever the matrix", () => {
+    setRoleMatrix(scrambled());
+    expect(ROLES.filter((role) => isAdmin([role]))).toEqual(["admin"]);
+    expect(ROLES.filter((role) => canManageApproverScopes([role]))).toEqual(["admin"]);
   });
 
-  it("canChangeProjectPhase is exactly the roles the matrix lets move the phase", () => {
-    for (const role of ROLES) {
-      expect(canChangeProjectPhase([role])).toBe(atLeast(ROLE_MATRIX.projectPhase[role], "WRITE"));
-    }
+  it("the «Ρόλοι και δικαιώματα» page is for the administrator and the head of estates", () => {
+    setRoleMatrix(scrambled());
+    expect(ROLES.filter((role) => canViewRoleMatrix([role])).sort()).toEqual(["admin", "estates_head"]);
   });
 });

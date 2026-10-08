@@ -57,6 +57,98 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "permissions": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                          "portfolio",
+                          "projectRecords",
+                          "projectPhase",
+                          "approvedBudget",
+                          "contractRecords",
+                          "rfisInstructions",
+                          "variationSubmit",
+                          "variationDecide",
+                          "defects",
+                          "paymentCertCreate",
+                          "paymentCertEngineer",
+                          "paymentCertFinance",
+                          "sapImport",
+                          "budgetLines",
+                          "accruals",
+                          "forecastWarnings",
+                          "permitRequest",
+                          "permitClinical",
+                          "permitOperate",
+                          "permitCalendar",
+                          "assetRegister",
+                          "assetCondition",
+                          "assetDocuments",
+                          "assetForecast",
+                          "assetLabels",
+                          "workOrderRaise",
+                          "workOrderWork",
+                          "maintenanceAgreement",
+                          "backlog",
+                          "backlogToProject",
+                          "scorecard",
+                          "reports",
+                          "users",
+                          "contractors",
+                          "efinance",
+                          "auditTrail"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "string",
+                        "enum": [
+                          "NONE",
+                          "READ",
+                          "WRITE",
+                          "APPROVE",
+                          "MANAGE"
+                        ]
+                      },
+                      "required": [
+                        "portfolio",
+                        "projectRecords",
+                        "projectPhase",
+                        "approvedBudget",
+                        "contractRecords",
+                        "rfisInstructions",
+                        "variationSubmit",
+                        "variationDecide",
+                        "defects",
+                        "paymentCertCreate",
+                        "paymentCertEngineer",
+                        "paymentCertFinance",
+                        "sapImport",
+                        "budgetLines",
+                        "accruals",
+                        "forecastWarnings",
+                        "permitRequest",
+                        "permitClinical",
+                        "permitOperate",
+                        "permitCalendar",
+                        "assetRegister",
+                        "assetCondition",
+                        "assetDocuments",
+                        "assetForecast",
+                        "assetLabels",
+                        "workOrderRaise",
+                        "workOrderWork",
+                        "maintenanceAgreement",
+                        "backlog",
+                        "backlogToProject",
+                        "scorecard",
+                        "reports",
+                        "users",
+                        "contractors",
+                        "efinance",
+                        "auditTrail"
+                      ]
                     }
                   },
                   "required": [
@@ -65,7 +157,8 @@
                     "name",
                     "email",
                     "roles",
-                    "orgUnitIds"
+                    "orgUnitIds",
+                    "permissions"
                   ],
                   "additionalProperties": false
                 }
@@ -191,6 +284,98 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "permissions": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "enum": [
+                              "portfolio",
+                              "projectRecords",
+                              "projectPhase",
+                              "approvedBudget",
+                              "contractRecords",
+                              "rfisInstructions",
+                              "variationSubmit",
+                              "variationDecide",
+                              "defects",
+                              "paymentCertCreate",
+                              "paymentCertEngineer",
+                              "paymentCertFinance",
+                              "sapImport",
+                              "budgetLines",
+                              "accruals",
+                              "forecastWarnings",
+                              "permitRequest",
+                              "permitClinical",
+                              "permitOperate",
+                              "permitCalendar",
+                              "assetRegister",
+                              "assetCondition",
+                              "assetDocuments",
+                              "assetForecast",
+                              "assetLabels",
+                              "workOrderRaise",
+                              "workOrderWork",
+                              "maintenanceAgreement",
+                              "backlog",
+                              "backlogToProject",
+                              "scorecard",
+                              "reports",
+                              "users",
+                              "contractors",
+                              "efinance",
+                              "auditTrail"
+                            ]
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "enum": [
+                              "NONE",
+                              "READ",
+                              "WRITE",
+                              "APPROVE",
+                              "MANAGE"
+                            ]
+                          },
+                          "required": [
+                            "portfolio",
+                            "projectRecords",
+                            "projectPhase",
+                            "approvedBudget",
+                            "contractRecords",
+                            "rfisInstructions",
+                            "variationSubmit",
+                            "variationDecide",
+                            "defects",
+                            "paymentCertCreate",
+                            "paymentCertEngineer",
+                            "paymentCertFinance",
+                            "sapImport",
+                            "budgetLines",
+                            "accruals",
+                            "forecastWarnings",
+                            "permitRequest",
+                            "permitClinical",
+                            "permitOperate",
+                            "permitCalendar",
+                            "assetRegister",
+                            "assetCondition",
+                            "assetDocuments",
+                            "assetForecast",
+                            "assetLabels",
+                            "workOrderRaise",
+                            "workOrderWork",
+                            "maintenanceAgreement",
+                            "backlog",
+                            "backlogToProject",
+                            "scorecard",
+                            "reports",
+                            "users",
+                            "contractors",
+                            "efinance",
+                            "auditTrail"
+                          ]
                         }
                       },
                       "required": [
@@ -199,7 +384,8 @@
                         "name",
                         "email",
                         "roles",
-                        "orgUnitIds"
+                        "orgUnitIds",
+                        "permissions"
                       ],
                       "additionalProperties": false
                     }
@@ -337,6 +523,98 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "permissions": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "enum": [
+                              "portfolio",
+                              "projectRecords",
+                              "projectPhase",
+                              "approvedBudget",
+                              "contractRecords",
+                              "rfisInstructions",
+                              "variationSubmit",
+                              "variationDecide",
+                              "defects",
+                              "paymentCertCreate",
+                              "paymentCertEngineer",
+                              "paymentCertFinance",
+                              "sapImport",
+                              "budgetLines",
+                              "accruals",
+                              "forecastWarnings",
+                              "permitRequest",
+                              "permitClinical",
+                              "permitOperate",
+                              "permitCalendar",
+                              "assetRegister",
+                              "assetCondition",
+                              "assetDocuments",
+                              "assetForecast",
+                              "assetLabels",
+                              "workOrderRaise",
+                              "workOrderWork",
+                              "maintenanceAgreement",
+                              "backlog",
+                              "backlogToProject",
+                              "scorecard",
+                              "reports",
+                              "users",
+                              "contractors",
+                              "efinance",
+                              "auditTrail"
+                            ]
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "enum": [
+                              "NONE",
+                              "READ",
+                              "WRITE",
+                              "APPROVE",
+                              "MANAGE"
+                            ]
+                          },
+                          "required": [
+                            "portfolio",
+                            "projectRecords",
+                            "projectPhase",
+                            "approvedBudget",
+                            "contractRecords",
+                            "rfisInstructions",
+                            "variationSubmit",
+                            "variationDecide",
+                            "defects",
+                            "paymentCertCreate",
+                            "paymentCertEngineer",
+                            "paymentCertFinance",
+                            "sapImport",
+                            "budgetLines",
+                            "accruals",
+                            "forecastWarnings",
+                            "permitRequest",
+                            "permitClinical",
+                            "permitOperate",
+                            "permitCalendar",
+                            "assetRegister",
+                            "assetCondition",
+                            "assetDocuments",
+                            "assetForecast",
+                            "assetLabels",
+                            "workOrderRaise",
+                            "workOrderWork",
+                            "maintenanceAgreement",
+                            "backlog",
+                            "backlogToProject",
+                            "scorecard",
+                            "reports",
+                            "users",
+                            "contractors",
+                            "efinance",
+                            "auditTrail"
+                          ]
                         }
                       },
                       "required": [
@@ -345,7 +623,8 @@
                         "name",
                         "email",
                         "roles",
-                        "orgUnitIds"
+                        "orgUnitIds",
+                        "permissions"
                       ],
                       "additionalProperties": false
                     }
@@ -459,6 +738,832 @@
         "summary": "Sign in with a ΟΚΥπΥ Active Directory account",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/admin/roles/permissions": {
+      "get": {
+        "operationId": "PermissionsController_read",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matrix, the guardrail keys and the last change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matrix": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                          "portfolio",
+                          "projectRecords",
+                          "projectPhase",
+                          "approvedBudget",
+                          "contractRecords",
+                          "rfisInstructions",
+                          "variationSubmit",
+                          "variationDecide",
+                          "defects",
+                          "paymentCertCreate",
+                          "paymentCertEngineer",
+                          "paymentCertFinance",
+                          "sapImport",
+                          "budgetLines",
+                          "accruals",
+                          "forecastWarnings",
+                          "permitRequest",
+                          "permitClinical",
+                          "permitOperate",
+                          "permitCalendar",
+                          "assetRegister",
+                          "assetCondition",
+                          "assetDocuments",
+                          "assetForecast",
+                          "assetLabels",
+                          "workOrderRaise",
+                          "workOrderWork",
+                          "maintenanceAgreement",
+                          "backlog",
+                          "backlogToProject",
+                          "scorecard",
+                          "reports",
+                          "users",
+                          "contractors",
+                          "efinance",
+                          "auditTrail"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "estates_head",
+                            "project_engineer",
+                            "technician",
+                            "finance",
+                            "clinical_approver",
+                            "executive_readonly",
+                            "auditor_readonly"
+                          ]
+                        },
+                        "additionalProperties": {
+                          "type": "string",
+                          "enum": [
+                            "NONE",
+                            "READ",
+                            "WRITE",
+                            "APPROVE",
+                            "MANAGE"
+                          ]
+                        },
+                        "required": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      },
+                      "required": [
+                        "portfolio",
+                        "projectRecords",
+                        "projectPhase",
+                        "approvedBudget",
+                        "contractRecords",
+                        "rfisInstructions",
+                        "variationSubmit",
+                        "variationDecide",
+                        "defects",
+                        "paymentCertCreate",
+                        "paymentCertEngineer",
+                        "paymentCertFinance",
+                        "sapImport",
+                        "budgetLines",
+                        "accruals",
+                        "forecastWarnings",
+                        "permitRequest",
+                        "permitClinical",
+                        "permitOperate",
+                        "permitCalendar",
+                        "assetRegister",
+                        "assetCondition",
+                        "assetDocuments",
+                        "assetForecast",
+                        "assetLabels",
+                        "workOrderRaise",
+                        "workOrderWork",
+                        "maintenanceAgreement",
+                        "backlog",
+                        "backlogToProject",
+                        "scorecard",
+                        "reports",
+                        "users",
+                        "contractors",
+                        "efinance",
+                        "auditTrail"
+                      ]
+                    },
+                    "guardrails": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "readOnlyRoles",
+                          "adminUsers",
+                          "adminReads",
+                          "auditTrailRead",
+                          "usersAdminOnly"
+                        ]
+                      }
+                    },
+                    "updatedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "matrix",
+                    "guardrails",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The role matrix: every area, every role, its level",
+        "tags": [
+          "admin-roles"
+        ]
+      }
+    },
+    "/admin/roles/{role}": {
+      "put": {
+        "operationId": "PermissionsController_write",
+        "parameters": [
+          {
+            "name": "role",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "estates_head",
+                "project_engineer",
+                "technician",
+                "finance",
+                "clinical_approver",
+                "executive_readonly",
+                "auditor_readonly"
+              ]
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "enum": [
+                    "portfolio",
+                    "projectRecords",
+                    "projectPhase",
+                    "approvedBudget",
+                    "contractRecords",
+                    "rfisInstructions",
+                    "variationSubmit",
+                    "variationDecide",
+                    "defects",
+                    "paymentCertCreate",
+                    "paymentCertEngineer",
+                    "paymentCertFinance",
+                    "sapImport",
+                    "budgetLines",
+                    "accruals",
+                    "forecastWarnings",
+                    "permitRequest",
+                    "permitClinical",
+                    "permitOperate",
+                    "permitCalendar",
+                    "assetRegister",
+                    "assetCondition",
+                    "assetDocuments",
+                    "assetForecast",
+                    "assetLabels",
+                    "workOrderRaise",
+                    "workOrderWork",
+                    "maintenanceAgreement",
+                    "backlog",
+                    "backlogToProject",
+                    "scorecard",
+                    "reports",
+                    "users",
+                    "contractors",
+                    "efinance",
+                    "auditTrail"
+                  ]
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "READ",
+                    "WRITE",
+                    "APPROVE",
+                    "MANAGE"
+                  ]
+                },
+                "required": [
+                  "portfolio",
+                  "projectRecords",
+                  "projectPhase",
+                  "approvedBudget",
+                  "contractRecords",
+                  "rfisInstructions",
+                  "variationSubmit",
+                  "variationDecide",
+                  "defects",
+                  "paymentCertCreate",
+                  "paymentCertEngineer",
+                  "paymentCertFinance",
+                  "sapImport",
+                  "budgetLines",
+                  "accruals",
+                  "forecastWarnings",
+                  "permitRequest",
+                  "permitClinical",
+                  "permitOperate",
+                  "permitCalendar",
+                  "assetRegister",
+                  "assetCondition",
+                  "assetDocuments",
+                  "assetForecast",
+                  "assetLabels",
+                  "workOrderRaise",
+                  "workOrderWork",
+                  "maintenanceAgreement",
+                  "backlog",
+                  "backlogToProject",
+                  "scorecard",
+                  "reports",
+                  "users",
+                  "contractors",
+                  "efinance",
+                  "auditTrail"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The matrix after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matrix": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                          "portfolio",
+                          "projectRecords",
+                          "projectPhase",
+                          "approvedBudget",
+                          "contractRecords",
+                          "rfisInstructions",
+                          "variationSubmit",
+                          "variationDecide",
+                          "defects",
+                          "paymentCertCreate",
+                          "paymentCertEngineer",
+                          "paymentCertFinance",
+                          "sapImport",
+                          "budgetLines",
+                          "accruals",
+                          "forecastWarnings",
+                          "permitRequest",
+                          "permitClinical",
+                          "permitOperate",
+                          "permitCalendar",
+                          "assetRegister",
+                          "assetCondition",
+                          "assetDocuments",
+                          "assetForecast",
+                          "assetLabels",
+                          "workOrderRaise",
+                          "workOrderWork",
+                          "maintenanceAgreement",
+                          "backlog",
+                          "backlogToProject",
+                          "scorecard",
+                          "reports",
+                          "users",
+                          "contractors",
+                          "efinance",
+                          "auditTrail"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "estates_head",
+                            "project_engineer",
+                            "technician",
+                            "finance",
+                            "clinical_approver",
+                            "executive_readonly",
+                            "auditor_readonly"
+                          ]
+                        },
+                        "additionalProperties": {
+                          "type": "string",
+                          "enum": [
+                            "NONE",
+                            "READ",
+                            "WRITE",
+                            "APPROVE",
+                            "MANAGE"
+                          ]
+                        },
+                        "required": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      },
+                      "required": [
+                        "portfolio",
+                        "projectRecords",
+                        "projectPhase",
+                        "approvedBudget",
+                        "contractRecords",
+                        "rfisInstructions",
+                        "variationSubmit",
+                        "variationDecide",
+                        "defects",
+                        "paymentCertCreate",
+                        "paymentCertEngineer",
+                        "paymentCertFinance",
+                        "sapImport",
+                        "budgetLines",
+                        "accruals",
+                        "forecastWarnings",
+                        "permitRequest",
+                        "permitClinical",
+                        "permitOperate",
+                        "permitCalendar",
+                        "assetRegister",
+                        "assetCondition",
+                        "assetDocuments",
+                        "assetForecast",
+                        "assetLabels",
+                        "workOrderRaise",
+                        "workOrderWork",
+                        "maintenanceAgreement",
+                        "backlog",
+                        "backlogToProject",
+                        "scorecard",
+                        "reports",
+                        "users",
+                        "contractors",
+                        "efinance",
+                        "auditTrail"
+                      ]
+                    },
+                    "guardrails": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "readOnlyRoles",
+                          "adminUsers",
+                          "adminReads",
+                          "auditTrailRead",
+                          "usersAdminOnly"
+                        ]
+                      }
+                    },
+                    "updatedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "matrix",
+                    "guardrails",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not one of the eight roles, or not a level for every area",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "errors.rolePermissionGuardrail: a level the guardrails do not allow, with the area named",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace one role's levels, area by area",
+        "tags": [
+          "admin-roles"
+        ]
+      }
+    },
+    "/admin/roles/reset": {
+      "post": {
+        "operationId": "PermissionsController_reset",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matrix after the reset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matrix": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                          "portfolio",
+                          "projectRecords",
+                          "projectPhase",
+                          "approvedBudget",
+                          "contractRecords",
+                          "rfisInstructions",
+                          "variationSubmit",
+                          "variationDecide",
+                          "defects",
+                          "paymentCertCreate",
+                          "paymentCertEngineer",
+                          "paymentCertFinance",
+                          "sapImport",
+                          "budgetLines",
+                          "accruals",
+                          "forecastWarnings",
+                          "permitRequest",
+                          "permitClinical",
+                          "permitOperate",
+                          "permitCalendar",
+                          "assetRegister",
+                          "assetCondition",
+                          "assetDocuments",
+                          "assetForecast",
+                          "assetLabels",
+                          "workOrderRaise",
+                          "workOrderWork",
+                          "maintenanceAgreement",
+                          "backlog",
+                          "backlogToProject",
+                          "scorecard",
+                          "reports",
+                          "users",
+                          "contractors",
+                          "efinance",
+                          "auditTrail"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "estates_head",
+                            "project_engineer",
+                            "technician",
+                            "finance",
+                            "clinical_approver",
+                            "executive_readonly",
+                            "auditor_readonly"
+                          ]
+                        },
+                        "additionalProperties": {
+                          "type": "string",
+                          "enum": [
+                            "NONE",
+                            "READ",
+                            "WRITE",
+                            "APPROVE",
+                            "MANAGE"
+                          ]
+                        },
+                        "required": [
+                          "admin",
+                          "estates_head",
+                          "project_engineer",
+                          "technician",
+                          "finance",
+                          "clinical_approver",
+                          "executive_readonly",
+                          "auditor_readonly"
+                        ]
+                      },
+                      "required": [
+                        "portfolio",
+                        "projectRecords",
+                        "projectPhase",
+                        "approvedBudget",
+                        "contractRecords",
+                        "rfisInstructions",
+                        "variationSubmit",
+                        "variationDecide",
+                        "defects",
+                        "paymentCertCreate",
+                        "paymentCertEngineer",
+                        "paymentCertFinance",
+                        "sapImport",
+                        "budgetLines",
+                        "accruals",
+                        "forecastWarnings",
+                        "permitRequest",
+                        "permitClinical",
+                        "permitOperate",
+                        "permitCalendar",
+                        "assetRegister",
+                        "assetCondition",
+                        "assetDocuments",
+                        "assetForecast",
+                        "assetLabels",
+                        "workOrderRaise",
+                        "workOrderWork",
+                        "maintenanceAgreement",
+                        "backlog",
+                        "backlogToProject",
+                        "scorecard",
+                        "reports",
+                        "users",
+                        "contractors",
+                        "efinance",
+                        "auditTrail"
+                      ]
+                    },
+                    "guardrails": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "readOnlyRoles",
+                          "adminUsers",
+                          "adminReads",
+                          "auditTrailRead",
+                          "usersAdminOnly"
+                        ]
+                      }
+                    },
+                    "updatedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "matrix",
+                    "guardrails",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an administrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Put every role back to the default matrix",
+        "tags": [
+          "admin-roles"
         ]
       }
     },

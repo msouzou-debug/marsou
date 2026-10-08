@@ -28,23 +28,17 @@ import * as schema from "../db/schema";
 import type { PaymentCertTransitionBody } from "./cost-contracts";
 import { type PaymentCertRow, derivePaymentCert, money, round2, toPaymentCert } from "./cost-rows";
 import { CostWarningsService } from "./cost-warnings.service";
+import { PermissionsService } from "../permissions/permissions.service";
+import { CERT_STEP_NEEDS } from "../permissions/steps";
 
 const ORDER: PaymentCertStatus[] = ["DRAFT", "ENGINEER_APPROVED", "FINANCE_RECEIVED", "PAID"];
 
-/** Who may take each step. The route lets all five roles in; this narrows it. */
-const ROLES_FOR: Record<PaymentCertStatus, string[]> = {
-  DRAFT: [],
-  // The engineer who is running the works signs off what was built, and the
-  // head of estates can do it too — CAPEX-01 §1's two site-side personas.
-  ENGINEER_APPROVED: ["project_engineer", "estates_head", "admin"],
-  // From here it is money leaving the organisation, and that is finance's.
-  FINANCE_RECEIVED: ["finance", "admin"],
-  PAID: ["finance", "admin"],
-};
-
 @Injectable()
 export class PaymentCertsService {
-  constructor(private readonly warnings: CostWarningsService) {}
+  constructor(
+    private readonly warnings: CostWarningsService,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   async listForContract(contractId: string): Promise<PaymentCert[]> {
     const tx = currentTx();
@@ -152,9 +146,10 @@ export class PaymentCertsService {
     const to = ORDER.indexOf(input.to);
     if (to !== from + 1) throw AppError.unprocessable("errors.certTransitionNotAllowed");
 
-    const allowed = ROLES_FOR[input.to];
-    const held = tx.context.roles ?? [];
-    if (!allowed.some((role) => held.includes(role))) {
+    // Who may take each step: the route lets both certificate rows in, this
+    // narrows it to the one the step needs (ADR-0033, `CERT_STEP_NEEDS`).
+    const need = CERT_STEP_NEEDS[input.to];
+    if (!need || !this.permissions.allowedHere(need[0], need[1])) {
       throw AppError.forbidden("errors.certRoleNotAllowed");
     }
 

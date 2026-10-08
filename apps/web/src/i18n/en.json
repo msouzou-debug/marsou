@@ -1022,7 +1022,7 @@
       "notes": {
         "noSelfApproval": "Nobody approves what they submitted themselves: a variation, a payment certificate or a shutdown request. The rule holds for the administrator too.",
         "readOnlyWins": "Roles add up. But an account that also holds Executive or Auditor changes nothing, whatever other roles it holds.",
-        "databaseDecides": "This table describes the rules; it does not change them. The database applies them on every save.",
+        "databaseDecides": "The table is the rule. The Administrator changes its levels, the database applies them on every save, and every change is recorded in the audit trail. The notes describe the defaults.",
         "estatesDecides": "Decides variations, rejects shutdown requests and sends backlog items «Σε έργο», in their own units only.",
         "estatesMaintenance": "Keeps the maintenance contract, the SLA catalogue, the preventive maintenance programme and the contractor register.",
         "engineerSubmits": "Drafts and submits variations; the head of estates or the administrator decides them.",
@@ -1043,7 +1043,26 @@
         "adminBudget": "Does not change the approved budget from approval on; only Finance does.",
         "adminApprovers": "Sets who approves shutdowns in each unit and area.",
         "adminAuditor": "Cannot grant or remove the auditor role."
-      }
+      },
+      "editIntro": "Change a role's level from the list in the cell and press “Save”. The change applies from each user's next request and is recorded in the audit trail. Cells with a lock have limits that do not change.",
+      "cellLabel": "{area}, {role}",
+      "unsaved": "{count, plural, one {# change not saved.} other {# changes not saved.}}",
+      "saved": "Changes saved. They apply from each user's next request.",
+      "resetDefaults": "Restore defaults",
+      "resetTitle": "Put every role back to the defaults?",
+      "resetConsequence": "Every cell of the table goes back to its original level. The change applies from the next request and is recorded in the audit trail.",
+      "resetDone": "The table is back to the defaults.",
+      "lockedLabel": "Fixed limit",
+      "lastChange": "Last change: {date}",
+      "guardrailsTitle": "What the table cannot change",
+      "guardrails": {
+        "readOnlyRoles": "The Auditor and the Executive never go above Read.",
+        "adminUsers": "The Administrator always keeps full control of users, so nobody is locked out.",
+        "adminReads": "The Administrator always sees every area.",
+        "auditTrailRead": "The audit trail is only ever read.",
+        "usersAdminOnly": "Only the Administrator manages users, roles and this table."
+      },
+      "fixedRules": "Neither access by unit nor the rule that nobody approves what they submitted themselves changes here."
     },
     "s04": {
       "title": "Cost",

@@ -19,7 +19,8 @@ import { z } from "zod";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs, NeedsAny } from "../permissions/needs.guard";
 import { BudgetLineList, BudgetLinesWrite, CashflowQuery } from "./cost-contracts";
 import { projectCostWorkbook } from "./cost-export";
 import { CostWarningsService } from "./cost-warnings.service";
@@ -64,7 +65,7 @@ export class ProjectCostController {
   /** R16: the contingency and the weight pending variations carry. */
   @Put("projects/:id/cost/forecast-inputs")
   @HttpCode(200)
-  @Roles("project_engineer", "estates_head", "admin")
+  @Needs("forecastWarnings", "WRITE")
   @ApiOperation({ summary: "Set the contingency and the pending-variation weight" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ForecastInputs) as never })
@@ -94,7 +95,7 @@ export class ProjectCostController {
    */
   @Put("projects/:id/budget-lines")
   @HttpCode(200)
-  @Roles("finance", "admin")
+  @Needs("budgetLines", "WRITE")
   @ApiOperation({ summary: "Replace the approved budget lines of one vintage" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(BudgetLinesWrite) as never })
@@ -117,7 +118,8 @@ export class ProjectCostController {
    */
   @Post("projects/:id/cost/warnings/:wid/dismiss")
   @HttpCode(200)
-  @Roles("project_engineer", "estates_head", "finance", "admin")
+  // Finance, whose the budget lines are, dismisses a warning on them too.
+  @NeedsAny(["forecastWarnings", "WRITE"], ["budgetLines", "WRITE"])
   @ApiOperation({ summary: "Dismiss a cost warning; it stays on the record" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "wid", schema: { type: "string", format: "uuid" } })

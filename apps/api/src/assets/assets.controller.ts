@@ -38,7 +38,8 @@ import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { MAX_FILE_BYTES, MIME_WHITELIST } from "../documents/earchive-contract";
 import type { AssetDocumentKindKey } from "../documents/dms-meta";
 import { AssetsService } from "./assets.service";
@@ -224,7 +225,7 @@ export class AssetsController {
 
   @Post()
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("assetRegister", "WRITE")
   @ApiOperation({ summary: "Record an asset; the database allocates its tag" })
   @ApiBody({ schema: jsonSchema(AssetWrite) as never })
   @ApiZodResponse(201, Asset, "The asset as stored, with the tag it was given")
@@ -242,7 +243,7 @@ export class AssetsController {
    * tag is on a sticker on the machine (422, not a silent re-tag).
    */
   @Patch(":id")
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("assetRegister", "WRITE")
   @ApiOperation({ summary: "Change an asset; its unit, class and tag do not move" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(AssetWrite.partial()) as never })
@@ -264,7 +265,7 @@ export class AssetsController {
    */
   @Post(":id/condition")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "technician")
+  @Needs("assetCondition", "WRITE")
   @ApiOperation({ summary: "Record the physical condition of an asset, band A to E" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ConditionBody) as never })
@@ -280,7 +281,7 @@ export class AssetsController {
 
   @Post(":id/readings")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "technician")
+  @Needs("assetCondition", "WRITE")
   @ApiOperation({ summary: "Add a reading — run hours, a temperature, a pressure" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ReadingBody) as never })
@@ -302,7 +303,7 @@ export class AssetsController {
    */
   @Post(":id/documents")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "finance")
+  @Needs("assetDocuments", "WRITE")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File an asset's manual, certificate or commissioning pack" })

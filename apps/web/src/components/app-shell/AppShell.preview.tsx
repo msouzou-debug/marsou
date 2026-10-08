@@ -1,4 +1,4 @@
-import type { Me } from "@ecapital/shared";
+import { ROLE_MATRIX, effectiveFor, type Me } from "@ecapital/shared";
 import { orgUnits } from "@/mocks/org-units";
 import type { PreviewEntry } from "@/preview/types";
 import { AppShell } from "./AppShell";
@@ -20,6 +20,7 @@ const me: Me = {
   email: "preview@ecapital.test",
   roles: ["estates_head"],
   orgUnitIds: orgUnits.map((u) => u.id),
+  permissions: effectiveFor(ROLE_MATRIX, ["estates_head"]),
 };
 
 const entry: PreviewEntry = {

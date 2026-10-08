@@ -45,6 +45,7 @@ Then sign in: `docs/manual/en/M0-login.md` walks through the development token, 
 | `src/rfis/`, `src/site-instructions/`, `src/defects/` | The site log. `rfi-rows.ts` holds the SLA band, `defect-rows.ts` the defects-liability arithmetic and the backlog banding, all as pure functions. |
 | `src/auth/` | The guard, the four ways in and `GET /me` (ADR-0009, ADR-0018, ADR-0030). `directory.ts` is the port between "who is this person" and "which directory says so"; `ldap.directory.ts` speaks to the ΟΚΥπΥ Active Directory and `local.directory.ts` to eCapital's own password table (`password.ts`, scrypt), the bridge while the directory is not reachable. |
 | `src/admin-users/` | Διαχείριση › Χρήστες — who exists, what they may do and in which units (ADR-0020). The four rules an administrator can break by accident live in the service, each a 422 with a sentence. |
+| `src/permissions/` | The role matrix as the rule (ADR-0033): `permissions.service.ts` holds the stored matrix in memory (refreshed after every change and every thirty seconds), `needs.guard.ts` is `@Needs(area, level)`, the decorator every role-gated route carries instead of a role list, and `permissions.controller.ts` the three `/admin/roles/*` routes. The row policies ask the same table through `ecapital.allowed`. |
 | `src/cli/grant-role.ts` | The bootstrap CLI: the first administrator on a fresh database, and the only way the auditor is appointed or unappointed. |
 | `src/cli/set-password.ts` | `AUTH_MODE=local` only (ADR-0030): sets an account's eCapital password from the server, echo off, audited as `cli:<os user>`; `--create-admin` for the first account. |
 | `src/links/` | `GET /config/links` — where eMAP and eFinance are, for the S07 link-outs (ADR-0019). |
@@ -68,7 +69,7 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `GET /health` | Liveness, database reachability, last applied migration. No token. | M0 |
 | `POST /auth/dev-token` | A signed development token for a seeded user. Answers 404 unless `AUTH_MODE=dev`. | M0 |
 | `POST /auth/login` | Username and password, checked by a simple bind against the ΟΚΥπΥ Active Directory; the same token and claims the stub issues. Answers 404 unless `AUTH_MODE=ldap` (ADR-0018). | M1 |
-| `GET /me` | The caller's own claims, camelCase. | M0 |
+| `GET /me` | The caller's own claims, camelCase, and `permissions`: their effective level on every area of the role matrix, read from the stored matrix at that request (ADR-0033). | M0 |
 | `GET /config/links` | Base URLs of eMAP and eFinance, or null where this deployment was told of neither. Signed in, no role (ADR-0019). | M1 |
 | `GET /org-units` | The units the caller may see, each with its `entityCode` — eArchive's site code, and the same string as `code` since ADR-0024. | M0 |
 | `GET /org-units/:id/areas` | That unit's building → floor → area tree. | M0 |
@@ -79,6 +80,9 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `POST /admin/users` | Pre-register an Active Directory account before its first sign-in. The subject is `ad:<username>` until the first bind adopts the objectGUID, so the roles set here are in force the moment the person arrives. | M1 |
 | `PATCH /admin/users/:id` | Roles, units, display name, on or off. Four 422s: `errors.selfLockout`, `errors.lastAdmin`, `errors.auditorProtected`, `errors.unitRequired` (ADR-0020). | M1 |
 | `GET /admin/roles` | The eight roles with `scope: all \| unit`, so no client hardcodes which carry units. | M1 |
+| `GET /admin/roles/permissions` | The role matrix as stored: every area, every role, its level, the guardrail keys and the last change. Any signed-in user (ADR-0033). | S24r |
+| `PUT /admin/roles/:role` | One role's whole column. `admin` only; only the cells that move are written and audited. 422 `errors.rolePermissionGuardrail`, naming the row, for a level the guardrails refuse (ADR-0033). | S24r |
+| `POST /admin/roles/reset` | Every role back to the shipped defaults (`ROLE_MATRIX`). `admin` only. | S24r |
 | `GET /projects` | The register, filtered (`unit`, `phase`, `category`, `rag`, repeated for several), searched (`q`, matching the code and the Greek title without regard to case or accents), sorted and paged. | M1 |
 | `GET /projects/:id` | One project with its unit, its sponsor and manager by name, its milestones, risks and issues, and the last fifty lines of its own history. | M1 |
 | `POST /projects` | Open a project. The API allocates the code (ADR-0014); a body that carries one is refused. | M1 |

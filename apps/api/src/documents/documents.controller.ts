@@ -14,7 +14,8 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiTags } 
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { NeedsAny } from "../permissions/needs.guard";
 import { DocumentRecord } from "./dms-contracts";
 import { DocumentsService, type UploadInput } from "./documents.service";
 import { MAX_FILE_BYTES, MIME_WHITELIST } from "./earchive-contract";
@@ -61,7 +62,7 @@ export class DocumentsController {
 
   @Post("contracts/:id/documents")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "finance")
+  @NeedsAny(["contractRecords", "WRITE"], ["paymentCertFinance", "APPROVE"])
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File the award decision on a contract with eArchive" })
@@ -92,7 +93,7 @@ export class DocumentsController {
 
   @Post("projects/:id/documents")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "finance")
+  @NeedsAny(["contractRecords", "WRITE"], ["paymentCertFinance", "APPROVE"])
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File a project's business case with eArchive" })
@@ -127,7 +128,7 @@ export class DocumentsController {
    */
   @Post("variations/:id/documents")
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer", "finance")
+  @NeedsAny(["contractRecords", "WRITE"], ["paymentCertFinance", "APPROVE"])
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File an approved variation with eArchive" })

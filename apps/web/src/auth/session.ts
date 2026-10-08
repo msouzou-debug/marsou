@@ -14,8 +14,9 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { z } from "zod";
-import { Me } from "@ecapital/shared";
+import { Me, ROLE_MATRIX, RolePermissionsResponse, type RoleMatrix } from "@ecapital/shared";
 import { apiFetch, ApiError } from "@/data/client";
+import { setRoleMatrix } from "./role-matrix-store";
 import { SESSION_COOKIE, sessionCookieIsSecure } from "./cookies";
 
 export { SESSION_COOKIE, UNIT_COOKIE } from "./cookies";
@@ -23,6 +24,8 @@ export { SESSION_COOKIE, UNIT_COOKIE } from "./cookies";
 export interface Session {
   me: Me;
   token: string;
+  /** ADR-0033: the role matrix as stored, or the defaults if it did not load. */
+  matrix: RoleMatrix;
 }
 
 /** Eight hours, the life of a development token (apps/api ADR-0009). */
@@ -42,8 +45,18 @@ export const getSession = cache(async (): Promise<Session | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
-    const me = await apiFetch("/me", Me, { token });
-    return { me, token };
+    // ADR-0033: the role matrix comes with the session, so every helper in
+    // `./roles` a Server Component asks after this line reads the matrix as
+    // the administrator last left it. A matrix that does not arrive is not a
+    // reason to sign anybody out: the helpers fall back to the defaults and
+    // the API's own checks still decide.
+    const [me, permissions] = await Promise.all([
+      apiFetch("/me", Me, { token }),
+      apiFetch("/admin/roles/permissions", RolePermissionsResponse, { token }).catch(() => null),
+    ]);
+    const matrix = permissions?.matrix ?? ROLE_MATRIX;
+    setRoleMatrix(matrix);
+    return { me, token, matrix };
   } catch {
     // 401 (expired, or signed with another key), 5xx, or no API at all.
     return null;

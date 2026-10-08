@@ -35,7 +35,8 @@ import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { BacklogService } from "./backlog.service";
 import { backlogWorkbook } from "./maintenance-export";
 import { booleanParam, manyOf } from "./work-orders.controller";
@@ -136,7 +137,7 @@ export class BacklogController {
 
   @Post()
   @HttpCode(201)
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("backlog", "WRITE")
   @ApiOperation({ summary: "Add an item to the backlog" })
   @ApiBody({ schema: jsonSchema(BacklogCreate) as never })
   @ApiZodResponse(201, BacklogItem, "The item as stored")
@@ -150,7 +151,7 @@ export class BacklogController {
   }
 
   @Patch(":id")
-  @Roles("admin", "estates_head", "project_engineer")
+  @Needs("backlog", "WRITE")
   @ApiOperation({ summary: "Change an item: band, cost, status, the project funding it" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(BacklogPatch) as never })
@@ -168,7 +169,7 @@ export class BacklogController {
   /** «Σε έργο»: a project at IDEA and the item FUNDED against it, in one transaction. */
   @Post(":id/to-project")
   @HttpCode(201)
-  @Roles("admin", "estates_head")
+  @Needs("backlogToProject", "APPROVE")
   @ApiOperation({ summary: "Draft a project at the Idea phase from the item and fund the item" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(BacklogToProject) as never })

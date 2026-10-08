@@ -19,6 +19,7 @@ import { UUID } from "../common/actor";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
 import { Roles, RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { DMS_CLIENT, type DmsClient } from "./dms-client";
@@ -32,7 +33,7 @@ export class DmsAdminController {
   constructor(@Inject(DMS_CLIENT) private readonly client: DmsClient) {}
 
   @Get("outbox")
-  @Roles("admin", "auditor_readonly")
+  @Needs("auditTrail", "READ")
   @ApiOperation({ summary: "The eArchive queue, newest first" })
   @ApiQuery({ name: "status", required: false, schema: { type: "string" } })
   @ApiQuery({ name: "limit", required: false, schema: { type: "integer", default: 50 } })
@@ -87,6 +88,9 @@ export class DmsAdminController {
    * is the history, not the state — and the next drain picks it up. An item
    * already SENT is left alone: it has a protocol number and resending it
    * would be asking eArchive to file the same paper twice.
+   *
+   * ADR-0033: `@Roles("admin")`, not `@Needs` — the eArchive queue has no row
+   * in the role matrix, so this stays the administrator's by identity.
    */
   @Post("outbox/:id/retry")
   @HttpCode(200)

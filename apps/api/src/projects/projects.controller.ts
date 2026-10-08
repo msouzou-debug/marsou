@@ -16,6 +16,7 @@ import {
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
+import { Needs } from "../permissions/needs.guard";
 import { parseProjectListQuery } from "./project-query";
 import { ProjectsService } from "./projects.service";
 
@@ -99,6 +100,7 @@ export class ProjectsController {
    * ProjectsService.changePhase.
    */
   @Post(":id/phase")
+  @Needs("projectPhase", "WRITE")
   @HttpCode(200)
   @ApiOperation({ summary: "Move the project to the next phase" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })

@@ -241,6 +241,22 @@ export const appUserRole = ecapital.table(
   (t) => [primaryKey({ columns: [t.appUserId, t.role] })],
 );
 
+// ADR-0033, migration 0023: the role matrix as the rule. One row per role and
+// area; the CHECKs, the guardrail trigger and the generated `id` live in the
+// SQL. Text columns, not enums: the area list grows with the screens, and a
+// CHECK can be replaced in a migration where an enum label cannot be removed.
+export const rolePermission = ecapital.table(
+  "role_permission",
+  {
+    role: text("role").notNull(),
+    areaKey: text("area_key").notNull(),
+    level: text("level").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+    updatedBy: uuid("updated_by"),
+  },
+  (t) => [primaryKey({ columns: [t.role, t.areaKey] })],
+);
+
 // Directory group → role, with an optional unit. Configuration, not code
 // (ADR-0009): adding a hospital's clinical approver group is a row.
 //

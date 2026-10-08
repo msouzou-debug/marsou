@@ -25,6 +25,8 @@ import { IcraModule } from "./icra/icra.module";
 import { LinksModule } from "./links/links.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { OrgUnitsModule } from "./org-units/org-units.module";
+import { NeedsGuard } from "./permissions/needs.guard";
+import { PermissionsModule } from "./permissions/permissions.module";
 import { PermitsModule } from "./permits/permits.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
 import { ProjectsModule } from "./projects/projects.module";
@@ -64,6 +66,7 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
       }),
     }),
     AuthModule,
+    PermissionsModule,
     OrgUnitsModule,
     AreasModule,
     AssetsModule,
@@ -93,6 +96,9 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
     // opens the transaction that carries the caller's identity, and only then
     // does the mutation interceptor get to check that it is inside one.
     { provide: APP_GUARD, useClass: AuthGuard },
+    // ADR-0033: after the token is verified, the route's `@Needs` row of the
+    // role matrix, read from PermissionsService.
+    { provide: APP_GUARD, useClass: NeedsGuard },
     { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },
     { provide: APP_INTERCEPTOR, useClass: MutationInterceptor },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

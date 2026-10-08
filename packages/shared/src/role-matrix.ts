@@ -1,16 +1,23 @@
 import { z } from "zod";
-import type { AppRole } from "./auth";
+import { AccessLevel, ACCESS_RANK, MatrixArea } from "./access";
+import { AppRole } from "./auth";
 import { ROLE_SCOPE, type RoleScope } from "./roles";
+
+export { AccessLevel, ACCESS_RANK, MatrixArea, atLeast } from "./access";
 
 /**
  * S24r «Ρόλοι και δικαιώματα» — what each of the eight roles sees and does.
  *
- * Static data, not an API answer: the rules themselves live in the API's
- * `@Roles` guards and row policies (ADR-0010), and the web helpers in
- * `apps/web/src/auth/roles.ts` mirror them. This table restates them in one
- * place for people to read. `apps/web/src/auth/role-matrix.test.ts` checks
- * every row against the helper that decides it, so the table cannot drift
- * from what the screens actually allow.
+ * ADR-0033: the matrix is the rule, not a description of it. It is stored in
+ * `ecapital.role_permission`, the administrator edits it on the roles tab,
+ * and all three enforcement points read it: the row policies through
+ * `ecapital.allowed(area, level)`, the API's `@Needs(area, level)` guard
+ * through `PermissionsService`, and the web helpers in
+ * `apps/web/src/auth/roles.ts` through the matrix the session loads.
+ * `ROLE_MATRIX` below is the default: what migration 0023 seeds, what
+ * «Επαναφορά προεπιλογών» puts back, and what the web uses until the API has
+ * answered. `apps/web/src/auth/role-matrix.test.ts` checks every helper
+ * against whatever matrix is loaded.
  *
  * The five levels, lowest first:
  *
@@ -20,23 +27,10 @@ import { ROLE_SCOPE, type RoleScope } from "./roles";
  *   APPROVE  decides: approves, rejects, pays, funds
  *   MANAGE   full control, including the settings the area runs on
  *
- * A higher level includes the lower ones for the same row.
+ * A higher level includes the lower ones for the same row. The levels and the
+ * rows themselves (`AccessLevel`, `MatrixArea`) live in `./access.ts`, so that
+ * `Me` in `./auth.ts` can carry them without the two files importing each other.
  */
-export const AccessLevel = z.enum(["NONE", "READ", "WRITE", "APPROVE", "MANAGE"]);
-export type AccessLevel = z.infer<typeof AccessLevel>;
-
-export const ACCESS_RANK: Record<AccessLevel, number> = {
-  NONE: 0,
-  READ: 1,
-  WRITE: 2,
-  APPROVE: 3,
-  MANAGE: 4,
-};
-
-/** True when `level` is `min` or higher. */
-export function atLeast(level: AccessLevel, min: AccessLevel): boolean {
-  return ACCESS_RANK[level] >= ACCESS_RANK[min];
-}
 
 /** The row groups, in the order the screen shows them (the nav's own order). */
 export const MatrixGroup = z.enum([
@@ -52,56 +46,6 @@ export const MatrixGroup = z.enum([
   "audit",
 ]);
 export type MatrixGroup = z.infer<typeof MatrixGroup>;
-
-/** One row of the matrix. Labels are i18n keys under `screens.s24roles.areas`. */
-export const MatrixArea = z.enum([
-  "portfolio",
-  // Έργα
-  "projectRecords",
-  "projectPhase",
-  "approvedBudget",
-  // Συμβάσεις
-  "contractRecords",
-  "rfisInstructions",
-  "variationSubmit",
-  "variationDecide",
-  "defects",
-  "paymentCertCreate",
-  "paymentCertEngineer",
-  "paymentCertFinance",
-  // Κόστος
-  "sapImport",
-  "budgetLines",
-  "accruals",
-  "forecastWarnings",
-  // Διακοπές και άδειες
-  "permitRequest",
-  "permitClinical",
-  "permitOperate",
-  "permitCalendar",
-  // Πάγια
-  "assetRegister",
-  "assetCondition",
-  "assetDocuments",
-  "assetForecast",
-  "assetLabels",
-  // Συντήρηση
-  "workOrderRaise",
-  "workOrderWork",
-  "maintenanceAgreement",
-  "backlog",
-  "backlogToProject",
-  "scorecard",
-  // Αναφορές
-  "reports",
-  // Διαχείριση
-  "users",
-  "contractors",
-  "efinance",
-  // Ίχνος ελέγχου
-  "auditTrail",
-]);
-export type MatrixArea = z.infer<typeof MatrixArea>;
 
 export const MATRIX_GROUPS: ReadonlyArray<{ group: MatrixGroup; areas: readonly MatrixArea[] }> = [
   { group: "portfolio", areas: ["portfolio"] },
@@ -299,7 +243,138 @@ export const ROLE_NOTES: Record<AppRole, readonly RoleNoteKey[]> = {
   admin: ["adminPhaseBack", "adminBudget", "adminApprovers", "adminAuditor"],
 };
 
-/** One role's level on one row. */
+/** One role's level on one row of the default matrix. */
 export function accessOf(area: MatrixArea, role: AppRole): AccessLevel {
   return ROLE_MATRIX[area][role];
 }
+
+// ------------------------------------------------------------ ADR-0033
+
+/** The name the API and ADR-0033 use for a row of the matrix. */
+export const AreaKey = MatrixArea;
+export type AreaKey = MatrixArea;
+
+/** The whole matrix: area, then role, then level. */
+export type RoleMatrix = Record<MatrixArea, Record<AppRole, AccessLevel>>;
+
+/** One role's column: a level for every area. */
+export type RoleColumn = Record<MatrixArea, AccessLevel>;
+
+/**
+ * The things the administrator cannot change (ADR-0033). Each is enforced
+ * by the BEFORE trigger on `ecapital.role_permission`, refused by the API
+ * with 422 `errors.rolePermissionGuardrail`, and shown on the roles tab as a
+ * locked cell. Text under `screens.s24roles.guardrails`.
+ *
+ *   readOnlyRoles   the auditor and the executive never above READ
+ *                   (ADR-0010: they write nothing, and `can_write_unit` says
+ *                   so underneath whatever the matrix holds)
+ *   adminUsers      the administrator keeps MANAGE on users, so nobody can
+ *                   lock the way back in
+ *   adminReads      the administrator keeps at least READ everywhere
+ *   auditTrailRead  the audit trail is read, never written (ADR-0011)
+ *   usersAdminOnly  the user and role screens answer to the administrator's
+ *                   identity, not to the matrix (a role that could hand out
+ *                   roles could hand itself `admin`), so the row stays NONE
+ *                   for every other role rather than promise what it cannot do
+ */
+export const GuardrailKey = z.enum(["readOnlyRoles", "adminUsers", "adminReads", "auditTrailRead", "usersAdminOnly"]);
+export type GuardrailKey = z.infer<typeof GuardrailKey>;
+
+export const GUARDRAILS: readonly GuardrailKey[] = GuardrailKey.options;
+
+export interface LevelBounds {
+  min: AccessLevel;
+  max: AccessLevel;
+  /** The guardrails that narrow this cell, empty when it is free. */
+  guardrails: GuardrailKey[];
+}
+
+const LEVELS_LOW_FIRST: readonly AccessLevel[] = AccessLevel.options;
+
+/**
+ * The range a cell may take. RULE (ADR-0033): this function, the SQL trigger
+ * `ecapital.role_permission_guard` and the API's 422 say the same thing; the
+ * API's permissions test pins the trigger against this function cell by cell.
+ */
+export function levelBounds(role: AppRole, area: MatrixArea): LevelBounds {
+  let min = 0;
+  let max = 4;
+  const guardrails: GuardrailKey[] = [];
+  if (role === "auditor_readonly" || role === "executive_readonly") {
+    max = Math.min(max, 1);
+    guardrails.push("readOnlyRoles");
+  }
+  if (area === "auditTrail") {
+    max = Math.min(max, 1);
+    guardrails.push("auditTrailRead");
+  }
+  if (role === "admin") {
+    min = Math.max(min, 1);
+    guardrails.push("adminReads");
+  }
+  if (role === "admin" && area === "users") {
+    min = 4;
+    guardrails.push("adminUsers");
+  }
+  if (role !== "admin" && area === "users") {
+    max = 0;
+    guardrails.push("usersAdminOnly");
+  }
+  return { min: LEVELS_LOW_FIRST[min], max: LEVELS_LOW_FIRST[max], guardrails };
+}
+
+/** True when the level is inside the cell's bounds. */
+export function withinBounds(role: AppRole, area: MatrixArea, level: AccessLevel): boolean {
+  const { min, max } = levelBounds(role, area);
+  return ACCESS_RANK[level] >= ACCESS_RANK[min] && ACCESS_RANK[level] <= ACCESS_RANK[max];
+}
+
+/** The levels a cell may take, lowest first — what the editor offers. */
+export function allowedLevels(role: AppRole, area: MatrixArea): AccessLevel[] {
+  return LEVELS_LOW_FIRST.filter((level) => withinBounds(role, area, level));
+}
+
+/** The highest level any of `roles` holds on `area`; no role at all is NONE. */
+export function levelFor(matrix: RoleMatrix, roles: readonly AppRole[], area: MatrixArea): AccessLevel {
+  let best: AccessLevel = "NONE";
+  for (const role of roles) {
+    const level = matrix[area]?.[role] ?? "NONE";
+    if (ACCESS_RANK[level] > ACCESS_RANK[best]) best = level;
+  }
+  return best;
+}
+
+/** Every area at the highest level any of `roles` holds — what `/me` carries. */
+export function effectiveFor(matrix: RoleMatrix, roles: readonly AppRole[]): RoleColumn {
+  return Object.fromEntries(MatrixArea.options.map((area) => [area, levelFor(matrix, roles, area)])) as RoleColumn;
+}
+
+/** A deep copy of the defaults, safe to change. */
+export function defaultRoleMatrix(): RoleMatrix {
+  return Object.fromEntries(MatrixArea.options.map((area) => [area, { ...ROLE_MATRIX[area] }])) as RoleMatrix;
+}
+
+/** One role's column out of a matrix. */
+export function columnOf(matrix: RoleMatrix, role: AppRole): RoleColumn {
+  return Object.fromEntries(MatrixArea.options.map((area) => [area, matrix[area][role]])) as RoleColumn;
+}
+
+/** A level for every area; zod's record over an enum demands every key. */
+export const RoleColumnSchema = z.record(MatrixArea, AccessLevel);
+
+/** The whole matrix as the API sends it. */
+export const RoleMatrixSchema = z.record(MatrixArea, z.record(AppRole, AccessLevel));
+
+/** What `GET /admin/roles/permissions` answers. Any signed-in user may read it. */
+export const RolePermissionsResponse = z.object({
+  matrix: RoleMatrixSchema,
+  guardrails: z.array(GuardrailKey),
+  /** The last change, or null while every row is still the seeded default. */
+  updatedAt: z.string().nullable(),
+});
+export type RolePermissionsResponse = z.infer<typeof RolePermissionsResponse>;
+
+/** What `PUT /admin/roles/:role` takes: the whole column for that role. */
+export const RolePermissionsWrite = RoleColumnSchema;
+export type RolePermissionsWrite = z.infer<typeof RolePermissionsWrite>;

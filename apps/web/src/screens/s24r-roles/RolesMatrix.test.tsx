@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MATRIX_ROLES, type AppRole } from "@ecapital/shared";
+import { MATRIX_ROLES, ROLE_MATRIX, columnOf, defaultRoleMatrix, type AppRole } from "@ecapital/shared";
 import { renderWithIntl } from "@/test/render";
 import { canViewRoleMatrix } from "@/auth/roles";
 import { RolesMatrix } from "./RolesMatrix";
@@ -177,5 +177,99 @@ describe("S24r — the legend, the cards and the notes", () => {
     expect(screen.getByRole("heading", { name: "Roles and permissions", level: 1 })).toBeInTheDocument();
     expect(cell("Asset condition and readings", "technician")).toHaveTextContent("Writes");
     expect(cell("Units", "finance")).toHaveTextContent("All units");
+  });
+});
+
+describe("S24r — the administrator edits the matrix (ADR-0033)", () => {
+  const BACKLOG = "Εκκρεμότητες συντήρησης";
+
+  function select(rowName: string, role: AppRole): HTMLSelectElement {
+    return cell(rowName, role).querySelector("select")!;
+  }
+
+  it("shows the stored matrix it is given, read only for anybody who is not the administrator", () => {
+    const matrix = defaultRoleMatrix();
+    matrix.backlog.technician = "WRITE";
+    renderMatrix({ matrix });
+    expect(level(BACKLOG, "technician")).toBe("WRITE");
+    expect(screen.getByTestId("s24r-table").querySelector("select")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Επαναφορά προεπιλογών" })).toBeNull();
+  });
+
+  it("turns every free cell into a list and locks the guardrailed ones with the reason as a tooltip", () => {
+    renderMatrix({ editable: true, onSave: vi.fn(), onReset: vi.fn() });
+    expect(select(BACKLOG, "technician")).toHaveValue("READ");
+    expect(select(BACKLOG, "technician")).toHaveAccessibleName("Εκκρεμότητες συντήρησης, Τεχνίτης");
+
+    // RULE: the administrator keeps MANAGE on users — one level, locked.
+    const adminUsers = cell("Χρήστες, ρόλοι και εγκριτές διακοπών", "admin");
+    expect(adminUsers.querySelector("select")).toBeNull();
+    const locked = adminUsers.querySelector("[data-locked]")!;
+    expect(locked.querySelector("svg")).not.toBeNull();
+    expect(locked).toHaveAttribute("title", expect.stringContaining("πλήρη διαχείριση των χρηστών"));
+
+    // RULE: the auditor is offered Χωρίς πρόσβαση and Ανάγνωση and nothing more.
+    const auditor = [...select("Ελλείψεις", "auditor_readonly").options].map((o) => o.value);
+    expect(auditor).toEqual(["NONE", "READ"]);
+    expect(within(screen.getByTestId("s24r-guardrails")).getAllByRole("listitem")).toHaveLength(6);
+  });
+
+  it("collects the changes in one bar and saves each changed role's whole column", async () => {
+    const user = userEvent.setup();
+    const saved = defaultRoleMatrix();
+    saved.backlog.technician = "WRITE";
+    const onSave = vi.fn(async () => saved);
+    renderMatrix({ editable: true, onSave, onReset: vi.fn() });
+
+    await user.selectOptions(select(BACKLOG, "technician"), "WRITE");
+    expect(select(BACKLOG, "technician")).toHaveAttribute("data-changed", "true");
+    expect(screen.getByTestId("s24r-savebar")).toHaveTextContent("1 αλλαγή δεν έχει αποθηκευτεί.");
+
+    await user.click(within(screen.getByTestId("s24r-savebar")).getByRole("button", { name: "Αποθήκευση" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith("technician", { ...columnOf(ROLE_MATRIX, "technician"), backlog: "WRITE" });
+    expect(await screen.findByTestId("s24r-notice")).toHaveTextContent("Οι αλλαγές αποθηκεύτηκαν.");
+    expect(screen.queryByTestId("s24r-savebar")).toBeNull();
+    expect(select(BACKLOG, "technician")).toHaveValue("WRITE");
+  });
+
+  it("«Ακύρωση» throws the draft away and saves nothing", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    renderMatrix({ editable: true, onSave, onReset: vi.fn() });
+    await user.selectOptions(select(BACKLOG, "technician"), "WRITE");
+    await user.click(within(screen.getByTestId("s24r-savebar")).getByRole("button", { name: "Ακύρωση" }));
+    expect(select(BACKLOG, "technician")).toHaveValue("READ");
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("shows the API's sentence when a save is refused and keeps the draft", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn(async () => {
+      throw new Error("Ο ρόλος Τεχνίτης δεν μπορεί να πάρει αυτό το επίπεδο.");
+    });
+    renderMatrix({ editable: true, onSave, onReset: vi.fn() });
+    await user.selectOptions(select(BACKLOG, "technician"), "WRITE");
+    await user.click(within(screen.getByTestId("s24r-savebar")).getByRole("button", { name: "Αποθήκευση" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("δεν μπορεί να πάρει αυτό το επίπεδο");
+    expect(select(BACKLOG, "technician")).toHaveValue("WRITE");
+  });
+
+  it("«Επαναφορά προεπιλογών» asks first, then puts the defaults back", async () => {
+    const user = userEvent.setup();
+    const changed = defaultRoleMatrix();
+    changed.backlog.technician = "WRITE";
+    const onReset = vi.fn(async () => defaultRoleMatrix());
+    renderMatrix({ editable: true, matrix: changed, onSave: vi.fn(), onReset });
+    expect(select(BACKLOG, "technician")).toHaveValue("WRITE");
+
+    await user.click(screen.getByRole("button", { name: "Επαναφορά προεπιλογών" }));
+    expect(screen.getByText("Να επανέλθουν όλοι οι ρόλοι στις προεπιλογές;")).toBeInTheDocument();
+    expect(onReset).not.toHaveBeenCalled();
+    const dialog = screen.getByText("Να επανέλθουν όλοι οι ρόλοι στις προεπιλογές;").closest("dialog")!;
+    await user.click(within(dialog).getByRole("button", { name: "Επαναφορά προεπιλογών" }));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(await screen.findByTestId("s24r-notice")).toHaveTextContent("Ο πίνακας επανήλθε στις προεπιλογές.");
+    expect(select(BACKLOG, "technician")).toHaveValue("READ");
   });
 });

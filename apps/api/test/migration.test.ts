@@ -52,7 +52,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0020_efinance_client");
     expect(result.applied).toContain("0021_local_accounts");
     expect(result.applied).toContain("0022_m5_maintenance");
-    expect(result.lastMigrationId).toBe("0022_m5_maintenance");
+    expect(result.applied).toContain("0023_role_permissions");
+    expect(result.lastMigrationId).toBe("0023_role_permissions");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -115,6 +116,7 @@ describe("migrations", () => {
       "rfi",
       "risk",
       "role_mapping",
+      "role_permission",
       "schema_migration",
       "shutdown_permit",
       "shutdown_permit_area",
@@ -154,6 +156,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0020_efinance_client");
     expect(result.skipped).toContain("0021_local_accounts");
     expect(result.skipped).toContain("0022_m5_maintenance");
+    expect(result.skipped).toContain("0023_role_permissions");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -520,7 +523,10 @@ describe("migrations", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].qual).toContain("can_manage_defect");
     expect(rows[0].with_check).toContain("can_manage_defect");
-    expect(fn[0].src).toContain("technician");
+    // ADR-0033: the technician is no longer named; the defects row of the
+    // role matrix is, and a handover defect also needs the contract row.
+    expect(fn[0].src).toContain("allowed('defects', 'WRITE')");
+    expect(fn[0].src).toContain("allowed('contractRecords', 'WRITE')");
     expect(fn[0].src).toContain("INSPECTION");
     expect(fn[0].src).toContain("WORK_ORDER");
     expect(fn[0].src).not.toContain("HANDOVER");

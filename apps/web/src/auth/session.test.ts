@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ROLE_MATRIX, defaultRoleMatrix, effectiveFor } from "@ecapital/shared";
+import { getRoleMatrix, setRoleMatrix } from "./role-matrix-store";
 
 // `next/headers` only exists inside a request, so the cookie jar is a stub
 // here. Everything else — the fetch, the schema parse, the error mapping —
@@ -31,6 +33,7 @@ const me = {
   email: "estates.nicosia@ecapital.test",
   roles: ["estates_head"],
   orgUnitIds: ["nicosia-general"],
+  permissions: effectiveFor(ROLE_MATRIX, ["estates_head"]),
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -60,6 +63,31 @@ describe("getSession", () => {
     expect(session?.token).toBe("a-token");
     expect(session?.me.name).toBe("Ανδρέας Παπαδόπουλος");
     expect(session?.me.orgUnitIds).toEqual(["nicosia-general"]);
+  });
+
+  it("ADR-0033: loads the stored role matrix with the session and hands it to the helpers", async () => {
+    jar.values.set(SESSION_COOKIE, "a-token");
+    const custom = defaultRoleMatrix();
+    custom.backlog.technician = "WRITE";
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).endsWith("/admin/roles/permissions")
+        ? jsonResponse({ matrix: custom, guardrails: [], updatedAt: "2026-10-08T09:00:00.000Z" })
+        : jsonResponse(me),
+    );
+    const session = await getSession();
+    expect(session?.matrix.backlog.technician).toBe("WRITE");
+    expect(getRoleMatrix().backlog.technician).toBe("WRITE");
+    setRoleMatrix(null);
+  });
+
+  it("ADR-0033: keeps the session on the defaults when the matrix does not load", async () => {
+    jar.values.set(SESSION_COOKIE, "a-token");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).endsWith("/admin/roles/permissions") ? jsonResponse({ key: "errors.unexpected" }, 500) : jsonResponse(me),
+    );
+    const session = await getSession();
+    expect(session?.me.permissions.reports).toBe("READ");
+    expect(session?.matrix).toBe(ROLE_MATRIX);
   });
 
   it("is null when the cookie is there but /me rejects it", async () => {

@@ -26,7 +26,8 @@ import type { Response } from "express";
 import { z } from "zod";
 import { I18nService } from "../common/i18n.service";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { type ResolvedQuery, parseReportQuery } from "./report-query";
 import {
   assetLifecycleWorkbook,
@@ -94,7 +95,7 @@ function Workbook(summary: string) {
 @ApiTags("reports")
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
-@Roles("admin", "estates_head", "finance", "executive_readonly", "auditor_readonly")
+@Needs("reports", "READ")
 @Controller("reports")
 export class ReportsController {
   constructor(

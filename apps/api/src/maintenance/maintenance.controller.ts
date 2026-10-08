@@ -44,7 +44,8 @@ import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
 import { sentKeysOnly } from "../common/patch";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { MaintenanceContractsService } from "./contracts.service";
 import { ScorecardService } from "./scorecard.service";
 import { SchedulesService } from "./schedules.service";
@@ -128,7 +129,7 @@ export class MaintenanceController {
 
   @Post("contracts")
   @HttpCode(201)
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Record a maintenance agreement" })
   @ApiBody({ schema: jsonSchema(MaintenanceContractWrite) as never })
   @ApiZodResponse(201, MaintenanceContract, "The agreement as stored")
@@ -153,7 +154,7 @@ export class MaintenanceController {
   }
 
   @Patch("contracts/:id")
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Change an agreement; its unit does not move" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(MaintenanceContractWrite.partial()) as never })
@@ -182,7 +183,7 @@ export class MaintenanceController {
 
   @Post("contracts/:id/systems")
   @HttpCode(201)
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Add a line to the catalogue" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(SystemBody) as never })
@@ -204,7 +205,7 @@ export class MaintenanceController {
    */
   @Post("contracts/:id/systems/import")
   @HttpCode(201)
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_IMPORT_BYTES, files: 1 } }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "Import the SLA catalogue from the contract's table (.xlsx)" })
@@ -241,7 +242,7 @@ export class MaintenanceController {
   }
 
   @Patch("systems/:id")
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Change a catalogue line — typing in a rate the copy lost, say" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(SystemBody.partial()) as never })
@@ -273,7 +274,7 @@ export class MaintenanceController {
 
   @Post("schedules")
   @HttpCode(201)
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Add a programme line; the agreement is the catalogue line's" })
   @ApiBody({ schema: jsonSchema(PmScheduleWrite) as never })
   @ApiZodResponse(201, PmSchedule, "The line as stored")
@@ -292,7 +293,7 @@ export class MaintenanceController {
    */
   @Post("schedules/generate")
   @HttpCode(200)
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Run the programme pass now: issue due PM orders, stamp late calls" })
   @ApiZodResponse(200, PmGenerationResult, "What the pass issued, skipped and escalated")
   @ApiZodError(403, "A role that does not keep the programme")
@@ -301,7 +302,7 @@ export class MaintenanceController {
   }
 
   @Patch("schedules/:id")
-  @Roles("admin", "estates_head")
+  @Needs("maintenanceAgreement", "MANAGE")
   @ApiOperation({ summary: "Change a programme line" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(PmScheduleWrite.partial()) as never })

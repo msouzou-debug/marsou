@@ -3,14 +3,15 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger"
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
-import { Roles, RolesGuard } from "../common/roles.guard";
+import { RolesGuard } from "../common/roles.guard";
+import { Needs } from "../permissions/needs.guard";
 import { AuditLogEntry, AuditLogQuery, AuditService } from "./audit.service";
 
 @ApiTags("audit")
 @ApiBearerAuth()
 @Controller("audit-log")
 @UseGuards(RolesGuard)
-@Roles("auditor_readonly", "admin")
+@Needs("auditTrail", "READ")
 export class AuditController {
   constructor(private readonly audit: AuditService) {}
 

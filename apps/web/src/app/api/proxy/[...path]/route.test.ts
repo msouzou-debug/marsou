@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import type { Me } from "@ecapital/shared";
+import { ROLE_MATRIX, type Me } from "@ecapital/shared";
 
 vi.mock("@/auth/session", () => ({ getSession: vi.fn() }));
 
@@ -70,7 +70,7 @@ describe("proxy route — session check", () => {
 
 describe("proxy route — forwarding a same-origin mutation", () => {
   it("forwards the bearer, the locale cookie as Accept-Language, and the body, and passes the upstream status through", async () => {
-    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
     const upstream = new Response(JSON.stringify({ id: "PRJ-1" }), {
       status: 201,
       headers: { "content-type": "application/json" },
@@ -100,7 +100,7 @@ describe("proxy route — forwarding a same-origin mutation", () => {
   });
 
   it("defaults Accept-Language to el when there is no locale cookie", async () => {
-    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -120,7 +120,7 @@ describe("proxy route — forwarding a same-origin mutation", () => {
 // M2 (R14) — S10's `POST /cost/imports` multipart upload.
 describe("proxy route — multipart passthrough (S10 SAP import)", () => {
   it("forwards a multipart body as a stream, untouched, with its original content-type", async () => {
-    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
     const upstream = new Response(JSON.stringify({ id: "batch-1" }), {
       status: 201,
       headers: { "content-type": "application/json" },
@@ -159,7 +159,7 @@ describe("proxy route — multipart passthrough (S10 SAP import)", () => {
 // M2 (R13, R18) — S04's and S09a's xlsx export.
 describe("proxy route — binary response passthrough (xlsx export)", () => {
   it("passes an xlsx body and Content-Disposition through unparsed", async () => {
-    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
     const xlsxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]); // a "PK.." zip header
     const upstream = new Response(xlsxBytes, {
       status: 200,
@@ -184,7 +184,7 @@ describe("proxy route — binary response passthrough (xlsx export)", () => {
   });
 
   it("still returns JSON as text when the upstream sends JSON", async () => {
-    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me });
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
     const upstream = new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
