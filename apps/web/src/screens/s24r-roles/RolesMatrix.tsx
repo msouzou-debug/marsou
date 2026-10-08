@@ -14,7 +14,7 @@
  * | highlighted  | AppRole?                                          | Initial highlighted column; the header buttons change it.    |
  * | matrix       | RoleMatrix?                                       | The stored matrix; `ROLE_MATRIX` (the defaults) if left out. |
  * | updatedAt    | string \| null?                                   | The last change, shown under the intro when there is one.    |
- * | editable     | boolean?                                          | The administrator: each free cell becomes a list.            |
+ * | editable     | boolean?                                          | The administrator: each free cell's chip opens a list.       |
  * | onSave       | (role, column) => Promise<RoleMatrix>?            | `PUT /admin/roles/:role`, once per changed role.             |
  * | onReset      | () => Promise<RoleMatrix>?                        | `POST /admin/roles/reset`, after the ConfirmDialog.          |
  *
@@ -35,8 +35,15 @@
  * RULE (ADR-0033): a cell offers only the levels its guardrails allow
  * (`allowedLevels`, the same rule as the database trigger). A cell with one
  * level left is shown locked, with a lock and the reason as its tooltip.
+ *
+ * Editing keeps the chips: for the administrator a free cell's chip is a
+ * button (`aria-haspopup="listbox"`) that opens a small list of the allowed
+ * levels under it, so the eight columns keep their width and their colours.
+ * Keyboard: Enter, Space or ↓ opens, ↑/↓ move, Enter picks, Esc closes; a
+ * click outside closes. One list is open at a time. A changed cell keeps a
+ * 2px blue ring until it is saved or thrown away.
  */
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Cog, Eye, Lock, Pencil, Printer, RotateCcw } from "lucide-react";
 import {
@@ -110,6 +117,193 @@ export function LevelChip({ level }: { level: AccessLevel }) {
   );
 }
 
+interface LevelPickerProps {
+  /** «{area}, {role}», the button's and the list's name. */
+  label: string;
+  level: AccessLevel;
+  options: AccessLevel[];
+  changed: boolean;
+  open: boolean;
+  disabled: boolean;
+  /** The right-hand columns open the list towards the left. */
+  alignEnd: boolean;
+  /** The bottom rows open the list upwards, inside the table's box. */
+  upward: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onPick: (level: AccessLevel) => void;
+}
+
+/**
+ * One editable cell: the chip as a button, and under it, while open, the
+ * levels the guardrails allow as a listbox (`aria-activedescendant`).
+ */
+function LevelPicker({
+  label,
+  level,
+  options,
+  changed,
+  open,
+  disabled,
+  alignEnd,
+  upward,
+  onOpen,
+  onClose,
+  onPick,
+}: LevelPickerProps) {
+  const t = useTranslations(`${P}.levels`);
+  const id = useId();
+  const listId = `${id}-list`;
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [active, setActive] = useState(0);
+
+  // The list takes the focus when it opens.
+  useEffect(() => {
+    if (open) listRef.current?.focus();
+  }, [open]);
+
+  // A click anywhere outside the cell closes it.
+  useEffect(() => {
+    if (!open) return;
+    function outside(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", outside);
+    return () => document.removeEventListener("mousedown", outside);
+  }, [open, onClose]);
+
+  function openList() {
+    setActive(Math.max(0, options.indexOf(level)));
+    onOpen();
+  }
+
+  function closeList() {
+    onClose();
+    buttonRef.current?.focus();
+  }
+
+  function pick(option: AccessLevel) {
+    onPick(option);
+    closeList();
+  }
+
+  function onListKey(event: KeyboardEvent<HTMLUListElement>) {
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setActive((a) => Math.min(options.length - 1, a + 1));
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setActive((a) => Math.max(0, a - 1));
+        break;
+      case "Home":
+        event.preventDefault();
+        setActive(0);
+        break;
+      case "End":
+        event.preventDefault();
+        setActive(options.length - 1);
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        pick(options[active]);
+        break;
+      case "Escape":
+        event.preventDefault();
+        closeList();
+        break;
+      case "Tab":
+        onClose();
+        break;
+    }
+  }
+
+  return (
+    <span ref={rootRef} className="relative inline-flex">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={label}
+        aria-describedby={`${id}-value`}
+        data-changed={changed ? "true" : undefined}
+        disabled={disabled}
+        onClick={() => (open ? onClose() : openList())}
+        onKeyDown={(event) => {
+          if (!open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+            event.preventDefault();
+            openList();
+          }
+        }}
+        className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-k hover:bg-k-surface disabled:cursor-not-allowed"
+      >
+        <span
+          id={`${id}-value`}
+          className={`inline-flex rounded-k-chip ${changed ? "outline-2 outline-offset-2 outline-k-blue outline-solid" : ""}`}
+        >
+          <LevelChip level={level} />
+        </span>
+      </button>
+      {open && (
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          tabIndex={-1}
+          aria-label={label}
+          aria-activedescendant={`${listId}-${active}`}
+          onKeyDown={onListKey}
+          onBlur={(event) => {
+            if (!rootRef.current?.contains(event.relatedTarget as Node | null)) onClose();
+          }}
+          className={`absolute z-20 w-[260px] rounded-k border border-k-grey bg-k-white py-s-1 text-left shadow-k print:hidden ${
+            alignEnd ? "right-0" : "left-0"
+          } ${upward ? "bottom-full mb-s-1" : "top-full mt-s-1"}`}
+        >
+          {options.map((option, index) => (
+            <li
+              key={option}
+              id={`${listId}-${index}`}
+              role="option"
+              aria-selected={option === level}
+              aria-labelledby={`${listId}-${index}-name`}
+              aria-describedby={`${listId}-${index}-sentence`}
+              // The list keeps the focus: a blur before the click would close it first.
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActive(index)}
+              onClick={() => pick(option)}
+              className={`flex min-h-[44px] cursor-pointer gap-s-2 px-s-3 py-s-2 ${index === active ? "bg-k-surface" : ""}`}
+            >
+              <span className="inline-flex w-[16px] shrink-0 pt-[2px] text-k-blue-deep">
+                {option === level && <Check size={16} strokeWidth={1.5} aria-hidden="true" />}
+              </span>
+              <span className="flex flex-col">
+                <span id={`${listId}-${index}-name`} className="text-fs-14 font-bold text-k-ink">
+                  {option === "NONE" ? t("NONE.name") : t(`${option}.chip`)}
+                </span>
+                <span id={`${listId}-${index}-sentence`} className="text-fs-12 text-k-text">
+                  {t(`${option}.sentence`)}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </span>
+  );
+}
+
+/** The last rows open their list upwards so it stays inside the table's box. */
+const UPWARD_AREAS = new Set<MatrixArea>(MATRIX_GROUPS.flatMap(({ areas }) => areas).slice(-5));
+/** The last columns open their list towards the left. */
+const END_ROLES = new Set<AppRole>(MATRIX_ROLES.slice(-3));
+
 /** Role → the cells changed in the draft and not yet saved. */
 type Draft = Partial<Record<AppRole, Partial<RoleColumn>>>;
 
@@ -138,6 +332,9 @@ export function RolesMatrix({
   const [error, setError] = useState<string | undefined>(undefined);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [confirmReset, setConfirmReset] = useState(false);
+  // The one cell whose list is open, as `${area}:${role}`.
+  const [openCell, setOpenCell] = useState<string | null>(null);
+  const closeCell = useCallback(() => setOpenCell(null), []);
 
   if (state === "noPermission") return <>{noPermission}</>;
 
@@ -228,28 +425,23 @@ export function RolesMatrix({
         </span>
       );
     }
+    const key = `${area}:${role}`;
     return (
       <span className="inline-flex items-center gap-s-1">
-        <span className="hidden print:inline-flex">
-          <LevelChip level={level} />
-        </span>
         {/* RULE (ADR-0033): only the levels the guardrails allow are offered. */}
-        <select
-          aria-label={t(`${P}.cellLabel`, { area: areaName(area), role: roleName(role) })}
-          data-changed={changed ? "true" : undefined}
-          value={level}
+        <LevelPicker
+          label={t(`${P}.cellLabel`, { area: areaName(area), role: roleName(role) })}
+          level={level}
+          options={options}
+          changed={changed}
+          open={openCell === key}
           disabled={busy}
-          onChange={(event) => change(role, area, event.target.value as AccessLevel)}
-          className={`min-h-[44px] rounded-k border px-s-1 text-fs-14 text-k-ink print:hidden ${
-            changed ? "border-2 border-k-blue font-bold" : "border-k-grey"
-          }`}
-        >
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {t(`${P}.levels.${option}.name`)}
-            </option>
-          ))}
-        </select>
+          alignEnd={END_ROLES.has(role)}
+          upward={UPWARD_AREAS.has(area)}
+          onOpen={() => setOpenCell(key)}
+          onClose={closeCell}
+          onPick={(picked) => change(role, area, picked)}
+        />
         {reason && (
           <span title={reason} className="inline-flex print:hidden">
             <Lock size={16} strokeWidth={1.5} aria-hidden="true" className="text-k-text" />
