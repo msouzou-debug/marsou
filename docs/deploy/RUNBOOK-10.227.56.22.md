@@ -338,7 +338,7 @@ sitting in the live register.
   after the release, as `administrator`:
 
   ```bash
-  sudo bash ~/ecapital-release/deploy/install.sh   # only when deploy/ changed since the last install; always from the staged checkout, never from /opt/ecapital/deploy, which is the OLD copy (08/10/2026: seed.sh was missing for exactly this reason)
+  sudo bash ~/ecapital-src/tree/deploy/install.sh   # only when deploy/ changed since the last install; always from the git checkout the release keeps (~/ecapital-src/tree), never from /opt/ecapital/deploy, which is the OLD copy, and not from ~/ecapital-release, which holds apps/ and packages/ only (08/10/2026: seed.sh was missing for exactly this reason)
   sudo -u ecapital /opt/ecapital/deploy/seed.sh
   ```
 
@@ -577,7 +577,7 @@ Everything in §7 and `docs/deploy-checklist.md` applies unchanged.
 **A change under `deploy/` needs `install.sh` again.** The release syncs
 `apps/` and `packages/` only; the helper scripts in `/opt/ecapital/deploy`
 and the two in `/usr/local/sbin` are copies `install.sh` made. After a
-`git pull` that touches `deploy/`, re-run `sudo bash <checkout>/deploy/install.sh`
+`git pull` that touches `deploy/`, re-run `sudo bash ~/ecapital-src/tree/deploy/install.sh`
 (idempotent, never overwrites an env file) before the next release.
 
 ---
