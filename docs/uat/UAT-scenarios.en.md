@@ -1,6 +1,6 @@
 # eCapital — User acceptance test scenarios (UAT)
 
-Version 06/10/2026. For the test installation at `ecapital.shso.online` with the sample data (41 projects, 17 contracts, 8 permits, 26 assets, the Nicosia maintenance agreement with three months of orders). Nothing in it is real. The Greek file `UAT-scenarios.el.md` is the one testers use; this is the same list in English, with the Greek screen names kept as they appear on screen.
+Version 08/10/2026. For the test installation at `ecapital.shso.online` with the sample data (41 projects, 17 contracts, 8 permits, 54 assets and five maintenance agreements with 109 work orders, 34 programme lines and 19 backlog items: Nicosia with six months of orders, and Larnaca, Limassol, Paphos and Famagusta with their own). Nothing in it is real. The Greek file `UAT-scenarios.el.md` is the one testers use; this is the same list in English, with the Greek screen names kept as they appear on screen.
 
 ## Before you start
 
@@ -21,6 +21,8 @@ Version 06/10/2026. For the test installation at `ecapital.shso.online` with the
 | `finance@ecapital.test` | Finance | Cost, every unit |
 | `auditor@ecapital.test` | Auditor | Everything, read only |
 | `executive@ecapital.test` | Executive | Everything, read only |
+
+Limassol, Paphos and Famagusta have no test accounts of their own. Their maintenance data and assets show with the `admin` account, once you pick the unit.
 
 Columns of every table: Steps, Expected, Result (you fill it in).
 

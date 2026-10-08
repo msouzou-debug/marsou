@@ -41,17 +41,30 @@ describe("maintenance backlog", () => {
     return BacklogItem.parse(response.body);
   }
 
-  it("seeds six items: two auto-drafted, one funded by a seeded project", async () => {
+  it("seeds Nicosia's items: three auto-drafted, one funded by a seeded project", async () => {
     const token = await tokenFor(app, USERS.admin);
     const auto = await http().get("/backlog?autoDrafted=true&orgUnitId=nicosia-general").set(bearer(token));
     const titles = (auto.body.items as BacklogItem[]).map((i) => i.titleEl);
     expect(titles).toContain("Αντικατάσταση: Πιεστικό συγκρότημα ύδρευσης");
     expect(titles).toContain("Αντικατάσταση: Ανεμιστήρας απαγωγής ΚΚΜ-2");
+    expect(titles).toContain("Αντικατάσταση: Ικρίωμα δικτύου κτιρίου Α");
     const funded = await http().get("/backlog?status=FUNDED&orgUnitId=nicosia-general").set(bearer(token));
     const item = (funded.body.items as BacklogItem[]).find(
       (i) => i.titleEl === "Αναβάθμιση κεντρικού πίνακα πυρανίχνευσης",
     );
     expect(item?.targetProjectCode).toMatch(/^NGH-/);
+  });
+
+  it("seeds an auto-drafted item and a funded one for Limassol, Paphos and Famagusta", async () => {
+    const token = await tokenFor(app, USERS.admin);
+    for (const unit of ["limassol-general", "paphos-general", "famagusta-general"]) {
+      const list = await http().get(`/backlog?orgUnitId=${unit}&pageSize=100`).set(bearer(token));
+      expect(list.status, unit).toBe(200);
+      const items = list.body.items as BacklogItem[];
+      expect(items.some((i) => i.autoDrafted && i.historyEl), unit).toBe(true);
+      expect(items.some((i) => i.status === "FUNDED" && i.targetProjectCode), unit).toBe(true);
+      expect(items.some((i) => i.status === "DONE"), unit).toBe(true);
+    }
   });
 
   it("records an item, takes the unit from the asset and refuses one with no unit", async () => {

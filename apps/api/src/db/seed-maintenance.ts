@@ -4,10 +4,18 @@
  * Nicosia gets the real agreement — Α.Ο 42/24, the 48 systems of its
  * response-time table with the bands and hours exactly as printed
  * (fixtures/ngh-sla-catalogue.json), the PM frequencies matched from its
- * programme tables, twelve programme lines on seeded assets, about three
- * months of work orders in every state and a backlog with two auto-drafted
- * items. Larnaca gets a smaller agreement and a handful of orders, so the
- * unit filter has something to filter. The penalty rates are null: the
+ * programme tables, twelve programme lines on seeded assets, about six
+ * months of work orders in every state and a backlog with three
+ * auto-drafted items. Larnaca gets a smaller agreement and a handful of
+ * orders, so the unit filter has something to filter. Limassol, Paphos and
+ * Famagusta each get an agreement of their own with a catalogue picked from
+ * the same table (same codes, bands and hours), a programme, about eighteen
+ * orders over the last hundred days and a short backlog — and, because none
+ * of the three had a register, a small estate (one building, a few rooms)
+ * and nine or ten assets for those orders to point at. Paphos's catalogue
+ * leaves out the medical gas lines on purpose: work-orders.test.ts picks a
+ * catalogue line from the asset class in a unit nobody else gives an
+ * agreement, and that unit is Paphos. The penalty rates are null: the
  * Nicosia amounts did not survive the copy we were given and the seed does
  * not invent them (ADR-0031 §2).
  *
@@ -44,6 +52,9 @@ import { seedAssets } from "./seed-data";
 type Db = NodePgDatabase<typeof schema>;
 
 export interface MaintenanceSeedSummary {
+  /** Areas and assets written for the three added units, which had no register. */
+  estateAreas: number;
+  estateAssets: number;
   maintenanceContracts: number;
   slaSystems: number;
   pmSchedules: number;
@@ -187,9 +198,27 @@ const MAPPING: Record<string, [AssetClassValue | null, PermitSystemValue | null]
   "2.3.5": ["ELECTRICAL", "ELECTRICAL"],
 };
 
-/** Larnaca's smaller agreement: eight lines of the same table, same hours. */
-const LARNACA_CODES = ["1.1.1", "1.1.3", "1.2.1", "1.2.4", "2.1.3", "2.2.5", "2.2.6", "2.2.11"];
-
+/**
+ * Which lines of the table each smaller agreement carries, same codes, bands
+ * and hours as Nicosia's. A unit that is not here has the whole table.
+ * Paphos has no 1.1.3 and no 1.2.3: its medical gases are under a separate
+ * contract (see the header for the other reason).
+ */
+const CATALOGUE_CODES: Record<string, string[]> = {
+  "larnaca-general": ["1.1.1", "1.1.3", "1.2.1", "1.2.4", "2.1.3", "2.2.5", "2.2.6", "2.2.11"],
+  "limassol-general": [
+    "1.1.1", "1.1.2", "1.1.3", "1.2.1", "1.2.3", "1.2.4", "1.2.7",
+    "1.3.3", "2.1.3", "2.2.1", "2.2.5", "2.2.6", "2.2.11", "2.2.16",
+  ],
+  "paphos-general": [
+    "1.1.1", "1.1.2", "1.2.1", "1.2.2", "1.2.4", "1.3.3",
+    "2.1.3", "2.2.1", "2.2.5", "2.2.6", "2.2.11", "2.2.16",
+  ],
+  "famagusta-general": [
+    "1.1.1", "1.1.2", "1.1.3", "1.2.1", "1.2.3", "1.2.4",
+    "2.1.3", "2.2.1", "2.2.5", "2.2.6", "2.2.11", "2.2.16",
+  ],
+};
 interface ContractSeed {
   orgUnitId: string;
   ref: string;
@@ -216,6 +245,189 @@ const CONTRACTS: ContractSeed[] = [
     startDate: "2026-03-01",
     endDate: "2029-02-28",
   },
+  {
+    orgUnitId: "limassol-general",
+    ref: "Α.Ο 18/25",
+    titleEl: "Συντήρηση ηλεκτρομηχανολογικών εγκαταστάσεων ΓΝ Λεμεσού",
+    contractorName: "Ιωνάς Ηλεκτρομηχανολογικά Έργα Λτδ",
+    startDate: "2025-07-01",
+    endDate: "2030-06-30",
+  },
+  {
+    orgUnitId: "paphos-general",
+    ref: "Α.Ο 19/25",
+    titleEl: "Συντήρηση ηλεκτρομηχανολογικών εγκαταστάσεων ΓΝ Πάφου",
+    contractorName: "Thermotec Μηχανολογικές Εγκαταστάσεις Λτδ",
+    startDate: "2025-10-01",
+    endDate: "2028-09-30",
+  },
+  {
+    orgUnitId: "famagusta-general",
+    ref: "Α.Ο 22/25",
+    titleEl: "Συντήρηση ηλεκτρομηχανολογικών εγκαταστάσεων ΓΝ Αμμοχώστου",
+    contractorName: "Παπαέλληνας Ηλεκτρολογικά Δίκτυα Λτδ",
+    startDate: "2026-02-01",
+    endDate: "2029-01-31",
+  },
+];
+
+// ------------------------------------------------- the three added estates --
+
+type AreaTypeValue = (typeof schema.areaType.enumValues)[number];
+type RiskGroupValue = (typeof schema.patientRiskGroup.enumValues)[number];
+
+interface EstateSeed {
+  orgUnitId: string;
+  building: { code: string; nameEl: string; grossAreaM2: string; yearBuilt: number; storeys: number };
+  floors: {
+    code: string;
+    nameEl: string;
+    level: number;
+    areas: {
+      code: string;
+      nameEl: string;
+      areaType: AreaTypeValue;
+      patientRiskGroup: RiskGroupValue;
+      costCentre: string;
+      beds: number | null;
+    }[];
+  }[];
+}
+
+/**
+ * One building with two floors for each of the three hospitals that had
+ * none: enough rooms for the orders to name a plant room, a theatre, a ward
+ * and an office, nothing more. The seeds that wrote Nicosia's and Larnaca's
+ * estates run before this one and are not touched.
+ */
+const ESTATES: EstateSeed[] = [
+  {
+    orgUnitId: "limassol-general",
+    building: { code: "LGH-A", nameEl: "Κτίριο Α — Κεντρικό Συγκρότημα", grossAreaM2: "21800.00", yearBuilt: 2004, storeys: 2 },
+    floors: [
+      {
+        code: "00", nameEl: "Ισόγειο", level: 0,
+        areas: [
+          { code: "PLT-01", nameEl: "Μηχανοστάσιο", areaType: "PLANT", patientRiskGroup: "LOW", costCentre: "CC-LMS-TEC", beds: null },
+          { code: "OPD-01", nameEl: "Εξωτερικά Ιατρεία", areaType: "OPD", patientRiskGroup: "MEDIUM", costCentre: "CC-LMS-OPD", beds: null },
+          { code: "OFF-01", nameEl: "Γραφεία Τεχνικών Υπηρεσιών", areaType: "OFFICE", patientRiskGroup: "LOW", costCentre: "CC-LMS-TEC", beds: null },
+        ],
+      },
+      {
+        code: "01", nameEl: "Πρώτος όροφος", level: 1,
+        areas: [
+          { code: "THE-01", nameEl: "Χειρουργείο 1", areaType: "THEATRE", patientRiskGroup: "HIGHEST", costCentre: "CC-LMS-THE", beds: null },
+          { code: "ICU-01", nameEl: "Μονάδα Εντατικής Θεραπείας", areaType: "ICU", patientRiskGroup: "HIGHEST", costCentre: "CC-LMS-ICU", beds: 8 },
+          { code: "WRD-01", nameEl: "Θάλαμος Γ1", areaType: "WARD", patientRiskGroup: "HIGH", costCentre: "CC-LMS-WRD", beds: 22 },
+        ],
+      },
+    ],
+  },
+  {
+    orgUnitId: "paphos-general",
+    building: { code: "PAF-A", nameEl: "Κτίριο Α — Κύριο Κτίριο", grossAreaM2: "14200.00", yearBuilt: 2008, storeys: 2 },
+    floors: [
+      {
+        code: "00", nameEl: "Ισόγειο", level: 0,
+        areas: [
+          { code: "PLT-01", nameEl: "Μηχανοστάσιο", areaType: "PLANT", patientRiskGroup: "LOW", costCentre: "CC-PAF-TEC", beds: null },
+          { code: "OPD-01", nameEl: "Εξωτερικά Ιατρεία", areaType: "OPD", patientRiskGroup: "MEDIUM", costCentre: "CC-PAF-OPD", beds: null },
+          { code: "OFF-01", nameEl: "Γραφεία Τεχνικών Υπηρεσιών", areaType: "OFFICE", patientRiskGroup: "LOW", costCentre: "CC-PAF-TEC", beds: null },
+        ],
+      },
+      {
+        code: "01", nameEl: "Πρώτος όροφος", level: 1,
+        areas: [
+          { code: "THE-01", nameEl: "Χειρουργείο 1", areaType: "THEATRE", patientRiskGroup: "HIGHEST", costCentre: "CC-PAF-THE", beds: null },
+          { code: "WRD-01", nameEl: "Θάλαμος Β1", areaType: "WARD", patientRiskGroup: "HIGH", costCentre: "CC-PAF-WRD", beds: 20 },
+        ],
+      },
+    ],
+  },
+  {
+    orgUnitId: "famagusta-general",
+    building: { code: "FAM-A", nameEl: "Κτίριο Α — Κεντρικό Κτίριο", grossAreaM2: "11800.00", yearBuilt: 2006, storeys: 2 },
+    floors: [
+      {
+        code: "00", nameEl: "Ισόγειο", level: 0,
+        areas: [
+          { code: "PLT-01", nameEl: "Μηχανοστάσιο", areaType: "PLANT", patientRiskGroup: "LOW", costCentre: "CC-FAM-TEC", beds: null },
+          { code: "OFF-01", nameEl: "Γραφεία Τεχνικών Υπηρεσιών", areaType: "OFFICE", patientRiskGroup: "LOW", costCentre: "CC-FAM-TEC", beds: null },
+        ],
+      },
+      {
+        code: "01", nameEl: "Πρώτος όροφος", level: 1,
+        areas: [
+          { code: "THE-01", nameEl: "Χειρουργείο 1", areaType: "THEATRE", patientRiskGroup: "HIGHEST", costCentre: "CC-FAM-THE", beds: null },
+          { code: "WRD-01", nameEl: "Θάλαμος Δ1", areaType: "WARD", patientRiskGroup: "HIGH", costCentre: "CC-FAM-WRD", beds: 16 },
+        ],
+      },
+    ],
+  },
+];
+
+interface EstateAsset {
+  key: string;
+  orgUnitId: string;
+  areaCode: string | null;
+  nameEl: string;
+  assetClass: AssetClassValue;
+  manufacturer: string;
+  model: string;
+  /** Installed and commissioned on the same day; the warranty runs three years. */
+  installed: string;
+  capitalCost: number;
+  lifeYears: number;
+  replacementYear: number;
+  replacementCostEst: number;
+  criticality: number;
+  condition: "A" | "B" | "C" | "D" | "E";
+  system: PermitSystemValue | null;
+}
+
+/** The SAP asset-number prefix and cost centre of each added unit, like «ANG-» and «ALA-». */
+const ESTATE_CODES: Record<string, { sap: string; costCentre: string }> = {
+  "limassol-general": { sap: "ALM", costCentre: "CC-LMS-TEC" },
+  "paphos-general": { sap: "APA", costCentre: "CC-PAF-TEC" },
+  "famagusta-general": { sap: "AFA", costCentre: "CC-FAM-TEC" },
+};
+
+const LGH = "limassol-general";
+const PAF = "paphos-general";
+const FAM = "famagusta-general";
+
+const ESTATE_ASSETS: EstateAsset[] = [
+  // ------------------------------------------------------------ Λεμεσός --
+  { key: "lgh-ahu-1", orgUnitId: LGH, areaCode: "PLT-01", nameEl: "Κλιματιστική μονάδα ΚΚΜ-Λε1", assetClass: "HVAC", manufacturer: "Systemair", model: "DV-80", installed: "2005-06-14", capitalCost: 74000, lifeYears: 20, replacementYear: 2028, replacementCostEst: 118000, criticality: 2, condition: "D", system: "HVAC" },
+  { key: "lgh-chiller-1", orgUnitId: LGH, areaCode: null, nameEl: "Ψύκτης Ψ-Λε1, δώμα κτιρίου Α", assetClass: "HVAC", manufacturer: "Carrier", model: "30XA", installed: "2013-07-22", capitalCost: 190000, lifeYears: 18, replacementYear: 2031, replacementCostEst: 270000, criticality: 1, condition: "C", system: "HVAC" },
+  { key: "lgh-lv-board", orgUnitId: LGH, areaCode: "PLT-01", nameEl: "Κεντρικός πίνακας χαμηλής τάσης κτιρίου Α Λεμεσού", assetClass: "ELECTRICAL", manufacturer: "Schneider Electric", model: "Okken", installed: "2005-03-10", capitalCost: 158000, lifeYears: 30, replacementYear: 2035, replacementCostEst: 320000, criticality: 1, condition: "C", system: "ELECTRICAL" },
+  { key: "lgh-generator", orgUnitId: LGH, areaCode: null, nameEl: "Ηλεκτροπαραγωγό ζεύγος Η/Ζ-Λε1", assetClass: "ELECTRICAL", manufacturer: "Caterpillar", model: "C18", installed: "2015-02-19", capitalCost: 238000, lifeYears: 25, replacementYear: 2036, replacementCostEst: 372000, criticality: 1, condition: "B", system: "ELECTRICAL" },
+  { key: "lgh-ups", orgUnitId: LGH, areaCode: "PLT-01", nameEl: "Σύστημα αδιάλειπτης παροχής UPS-Λε1", assetClass: "ELECTRICAL", manufacturer: "Eaton", model: "93PM", installed: "2019-09-05", capitalCost: 41000, lifeYears: 12, replacementYear: 2031, replacementCostEst: 61000, criticality: 2, condition: "B", system: "ELECTRICAL" },
+  { key: "lgh-fire-panel", orgUnitId: LGH, areaCode: "OFF-01", nameEl: "Κεντρικός πίνακας πυρανίχνευσης κτιρίου Α Λεμεσού", assetClass: "FIRE", manufacturer: "Siemens", model: "FC2060", installed: "2011-11-03", capitalCost: 46000, lifeYears: 15, replacementYear: 2027, replacementCostEst: 72000, criticality: 1, condition: "D", system: "FIRE" },
+  { key: "lgh-mgas-manifold", orgUnitId: LGH, areaCode: "PLT-01", nameEl: "Συστοιχία ιατρικών αερίων Λεμεσού", assetClass: "MEDICAL_GAS", manufacturer: "BeaconMedaes", model: "SP-2x8", installed: "2008-04-17", capitalCost: 69000, lifeYears: 25, replacementYear: 2033, replacementCostEst: 91000, criticality: 1, condition: "C", system: "MEDICAL_GAS" },
+  { key: "lgh-booster", orgUnitId: LGH, areaCode: "PLT-01", nameEl: "Πιεστικό συγκρότημα ύδρευσης Λεμεσού", assetClass: "WATER", manufacturer: "Grundfos", model: "Hydro MPC-E", installed: "2012-05-30", capitalCost: 27000, lifeYears: 15, replacementYear: 2027, replacementCostEst: 38000, criticality: 2, condition: "D", system: "WATER" },
+  { key: "lgh-server-rack", orgUnitId: LGH, areaCode: "OFF-01", nameEl: "Ικρίωμα δικτύου κτιρίου Α Λεμεσού", assetClass: "IT", manufacturer: "Cisco", model: "Catalyst 9300", installed: "2020-01-27", capitalCost: 15500, lifeYears: 8, replacementYear: 2028, replacementCostEst: 23000, criticality: 3, condition: "B", system: "IT" },
+  // -------------------------------------------------------------- Πάφος --
+  { key: "paf-ahu-1", orgUnitId: PAF, areaCode: "PLT-01", nameEl: "Κλιματιστική μονάδα ΚΚΜ-Π1", assetClass: "HVAC", manufacturer: "Systemair", model: "DV-60", installed: "2009-04-08", capitalCost: 61000, lifeYears: 20, replacementYear: 2029, replacementCostEst: 98000, criticality: 2, condition: "D", system: "HVAC" },
+  { key: "paf-chiller-1", orgUnitId: PAF, areaCode: null, nameEl: "Ψύκτης Ψ-Π1, δώμα χειρουργικού τομέα", assetClass: "HVAC", manufacturer: "Daikin", model: "EWAD-TZ", installed: "2016-06-13", capitalCost: 168000, lifeYears: 18, replacementYear: 2034, replacementCostEst: 244000, criticality: 1, condition: "B", system: "HVAC" },
+  { key: "paf-boiler-1", orgUnitId: PAF, areaCode: "PLT-01", nameEl: "Λέβητας θέρμανσης Λ-Π1", assetClass: "HVAC", manufacturer: "Viessmann", model: "Vitoplex 200", installed: "1999-10-21", capitalCost: 52000, lifeYears: 25, replacementYear: 2027, replacementCostEst: 96000, criticality: 2, condition: "E", system: "HVAC" },
+  { key: "paf-lv-board", orgUnitId: PAF, areaCode: "PLT-01", nameEl: "Κεντρικός πίνακας χαμηλής τάσης Πάφου", assetClass: "ELECTRICAL", manufacturer: "ABB", model: "MNS", installed: "2009-02-25", capitalCost: 131000, lifeYears: 30, replacementYear: 2037, replacementCostEst: 268000, criticality: 1, condition: "C", system: "ELECTRICAL" },
+  { key: "paf-generator", orgUnitId: PAF, areaCode: null, nameEl: "Ηλεκτροπαραγωγό ζεύγος Η/Ζ-Π1", assetClass: "ELECTRICAL", manufacturer: "Perkins", model: "2506C", installed: "2014-08-12", capitalCost: 142000, lifeYears: 25, replacementYear: 2037, replacementCostEst: 255000, criticality: 1, condition: "B", system: "ELECTRICAL" },
+  { key: "paf-ups", orgUnitId: PAF, areaCode: "PLT-01", nameEl: "Σύστημα αδιάλειπτης παροχής UPS-Π1", assetClass: "ELECTRICAL", manufacturer: "Socomec", model: "Masterys", installed: "2017-03-17", capitalCost: 34000, lifeYears: 12, replacementYear: 2029, replacementCostEst: 52000, criticality: 2, condition: "C", system: "ELECTRICAL" },
+  { key: "paf-fire-panel", orgUnitId: PAF, areaCode: "OFF-01", nameEl: "Κεντρικός πίνακας πυρανίχνευσης Πάφου", assetClass: "FIRE", manufacturer: "Honeywell", model: "Morley ZX", installed: "2013-01-30", capitalCost: 39000, lifeYears: 15, replacementYear: 2028, replacementCostEst: 64000, criticality: 1, condition: "C", system: "FIRE" },
+  { key: "paf-sprinkler-pump", orgUnitId: PAF, areaCode: "PLT-01", nameEl: "Αντλητικό συγκρότημα πυρόσβεσης Πάφου", assetClass: "FIRE", manufacturer: "Grundfos", model: "NK", installed: "2010-09-09", capitalCost: 33000, lifeYears: 20, replacementYear: 2030, replacementCostEst: 52000, criticality: 2, condition: "C", system: "FIRE" },
+  { key: "paf-booster", orgUnitId: PAF, areaCode: "PLT-01", nameEl: "Πιεστικό συγκρότημα ύδρευσης Πάφου", assetClass: "WATER", manufacturer: "Lowara", model: "e-HM", installed: "2018-12-04", capitalCost: 21000, lifeYears: 15, replacementYear: 2033, replacementCostEst: 33000, criticality: 2, condition: "B", system: "WATER" },
+  { key: "paf-server-rack", orgUnitId: PAF, areaCode: "OFF-01", nameEl: "Ικρίωμα δικτύου Πάφου", assetClass: "IT", manufacturer: "HPE Aruba", model: "6300", installed: "2021-05-18", capitalCost: 14200, lifeYears: 8, replacementYear: 2029, replacementCostEst: 21000, criticality: 3, condition: "A", system: "IT" },
+  // --------------------------------------------------------- Αμμόχωστος --
+  { key: "fam-ahu-1", orgUnitId: FAM, areaCode: "PLT-01", nameEl: "Κλιματιστική μονάδα ΚΚΜ-Α1", assetClass: "HVAC", manufacturer: "Trane", model: "CLCP", installed: "2007-05-22", capitalCost: 66000, lifeYears: 20, replacementYear: 2027, replacementCostEst: 108000, criticality: 2, condition: "E", system: "HVAC" },
+  { key: "fam-chiller-1", orgUnitId: FAM, areaCode: null, nameEl: "Ψύκτης Ψ-Α1, δώμα κτιρίου Α", assetClass: "HVAC", manufacturer: "Carrier", model: "30RB", installed: "2011-07-04", capitalCost: 152000, lifeYears: 18, replacementYear: 2029, replacementCostEst: 232000, criticality: 1, condition: "D", system: "HVAC" },
+  { key: "fam-lv-board", orgUnitId: FAM, areaCode: "PLT-01", nameEl: "Κεντρικός πίνακας χαμηλής τάσης Αμμοχώστου", assetClass: "ELECTRICAL", manufacturer: "Siemens", model: "Sivacon", installed: "2007-10-15", capitalCost: 118000, lifeYears: 30, replacementYear: 2037, replacementCostEst: 250000, criticality: 1, condition: "C", system: "ELECTRICAL" },
+  { key: "fam-generator", orgUnitId: FAM, areaCode: null, nameEl: "Ηλεκτροπαραγωγό ζεύγος Η/Ζ-Α1", assetClass: "ELECTRICAL", manufacturer: "Cummins", model: "C550D5", installed: "2012-03-28", capitalCost: 126000, lifeYears: 25, replacementYear: 2037, replacementCostEst: 235000, criticality: 1, condition: "C", system: "ELECTRICAL" },
+  { key: "fam-ups", orgUnitId: FAM, areaCode: "PLT-01", nameEl: "Σύστημα αδιάλειπτης παροχής UPS-Α1", assetClass: "ELECTRICAL", manufacturer: "APC", model: "Symmetra", installed: "2016-11-09", capitalCost: 28000, lifeYears: 12, replacementYear: 2028, replacementCostEst: 47000, criticality: 2, condition: "C", system: "ELECTRICAL" },
+  { key: "fam-fire-panel", orgUnitId: FAM, areaCode: "OFF-01", nameEl: "Κεντρικός πίνακας πυρανίχνευσης Αμμοχώστου", assetClass: "FIRE", manufacturer: "Notifier", model: "NFS2-3030", installed: "2009-06-02", capitalCost: 36000, lifeYears: 15, replacementYear: 2027, replacementCostEst: 59000, criticality: 1, condition: "D", system: "FIRE" },
+  { key: "fam-mgas-manifold", orgUnitId: FAM, areaCode: "PLT-01", nameEl: "Συστοιχία ιατρικών αερίων Αμμοχώστου", assetClass: "MEDICAL_GAS", manufacturer: "Air Liquide", model: "Alpha", installed: "2010-02-16", capitalCost: 58000, lifeYears: 25, replacementYear: 2034, replacementCostEst: 82000, criticality: 1, condition: "C", system: "MEDICAL_GAS" },
+  { key: "fam-booster", orgUnitId: FAM, areaCode: "PLT-01", nameEl: "Πιεστικό συγκρότημα ύδρευσης Αμμοχώστου", assetClass: "WATER", manufacturer: "Grundfos", model: "Hydro MPC", installed: "2015-04-21", capitalCost: 23000, lifeYears: 15, replacementYear: 2030, replacementCostEst: 34000, criticality: 2, condition: "C", system: "WATER" },
+  { key: "fam-server-rack", orgUnitId: FAM, areaCode: "OFF-01", nameEl: "Ικρίωμα δικτύου Αμμοχώστου", assetClass: "IT", manufacturer: "Cisco", model: "Catalyst 2960X", installed: "2018-02-12", capitalCost: 12800, lifeYears: 8, replacementYear: 2027, replacementCostEst: 19500, criticality: 3, condition: "D", system: "IT" },
 ];
 
 // --------------------------------------------------------- the programme --
@@ -244,6 +456,31 @@ const SCHEDULES: ScheduleSeed[] = [
   { unit: "nicosia-general", code: "1.2.4", assetKey: "ngh-sprinkler-pump", titleEl: "Μηνιαία δοκιμή αντλητικού πυρόσβεσης", frequency: "MONTHLY", dueInDays: 28, checklistEl: "Δοκιμή εκκίνησης αντλιών\nΈλεγχος πιεστικού δοχείου\nΚαταγραφή πίεσης δικτύου" },
   { unit: "nicosia-general", code: "1.1.2", assetKey: "ngh-booster", titleEl: "Μηνιαία συντήρηση πιεστικού ύδρευσης", frequency: "MONTHLY", dueInDays: 3, checklistEl: "Έλεγχος πιεστικού δοχείου\nΈλεγχος στυπιοθλιπτών\nΚαταγραφή πίεσης" },
   { unit: "nicosia-general", code: "2.2.16", assetKey: "ngh-server-rack", titleEl: "Ετήσιος έλεγχος δομημένης καλωδίωσης κτιρίου Α", frequency: "ANNUAL", dueInDays: 32, checklistEl: "Έλεγχος σημάνσεων\nΔοκιμή δειγματοληπτικών απολήξεων" },
+  // Limassol: eight lines, two overdue (the booster, the air handler).
+  { unit: "limassol-general", code: "1.2.1", assetKey: "lgh-ahu-1", titleEl: "Τριμηνιαία συντήρηση ΚΚΜ-Λε1", frequency: "QUARTERLY", dueInDays: -20, checklistEl: "Έλεγχος και αλλαγή φίλτρων\nΈλεγχος ιμάντων και ρουλεμάν\nΚαθαρισμός στοιχείων\nΈλεγχος αποχέτευσης συμπυκνωμάτων" },
+  { unit: "limassol-general", code: "1.1.2", assetKey: "lgh-booster", titleEl: "Μηνιαία συντήρηση πιεστικού ύδρευσης", frequency: "MONTHLY", dueInDays: -4, checklistEl: "Έλεγχος πιεστικού δοχείου\nΈλεγχος στυπιοθλιπτών\nΚαταγραφή πίεσης" },
+  { unit: "limassol-general", code: "1.2.1", assetKey: "lgh-chiller-1", titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Λε1", frequency: "MONTHLY", dueInDays: 4, checklistEl: "Καταγραφή πιέσεων και θερμοκρασιών\nΈλεγχος διαρροών ψυκτικού\nΈλεγχος ελαίου συμπιεστών" },
+  { unit: "limassol-general", code: "2.2.11", assetKey: "lgh-fire-panel", titleEl: "Τριμηνιαίος έλεγχος πίνακα πυρανίχνευσης", frequency: "QUARTERLY", dueInDays: 12, checklistEl: "Δοκιμή ανιχνευτών ανά ζώνη\nΈλεγχος σειρήνων\nΈλεγχος εφεδρικής τροφοδοσίας" },
+  { unit: "limassol-general", code: "2.2.5", assetKey: "lgh-generator", titleEl: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Λε1", frequency: "MONTHLY", dueInDays: 27, checklistEl: "Δοκιμή εκκίνησης υπό φορτίο\nΈλεγχος στάθμης καυσίμου\nΈλεγχος συσσωρευτών" },
+  { unit: "limassol-general", code: "1.2.3", assetKey: "lgh-mgas-manifold", titleEl: "Τριμηνιαία συντήρηση συστοιχίας ιατρικών αερίων", frequency: "QUARTERLY", dueInDays: 38, checklistEl: "Έλεγχος πιέσεων γραμμών\nΈλεγχος συναγερμών\nΈλεγχος βαλβίδων αποκοπής" },
+  { unit: "limassol-general", code: "2.2.6", assetKey: "lgh-ups", titleEl: "Εξαμηνιαία συντήρηση UPS-Λε1", frequency: "SEMIANNUAL", dueInDays: 63, checklistEl: "Δοκιμή αυτονομίας συσσωρευτών\nΈλεγχος ανεμιστήρων\nΚαταγραφή συναγερμών" },
+  { unit: "limassol-general", code: "2.2.16", assetKey: "lgh-server-rack", titleEl: "Ετήσιος έλεγχος δομημένης καλωδίωσης κτιρίου Α", frequency: "ANNUAL", dueInDays: 88, checklistEl: "Έλεγχος σημάνσεων\nΔοκιμή δειγματοληπτικών απολήξεων" },
+  // Paphos: seven lines, the boiler and the fire pump overdue.
+  { unit: "paphos-general", code: "1.2.1", assetKey: "paf-boiler-1", titleEl: "Εξαμηνιαία συντήρηση λέβητα θέρμανσης Λ-Π1", frequency: "SEMIANNUAL", dueInDays: -9, checklistEl: "Καθαρισμός καυστήρα και θαλάμου καύσης\nΈλεγχος ασφαλιστικών βαλβίδων\nΜέτρηση καυσαερίων" },
+  { unit: "paphos-general", code: "1.2.4", assetKey: "paf-sprinkler-pump", titleEl: "Μηνιαία δοκιμή αντλητικού πυρόσβεσης", frequency: "MONTHLY", dueInDays: -2, checklistEl: "Δοκιμή εκκίνησης αντλιών\nΈλεγχος πιεστικού δοχείου\nΚαταγραφή πίεσης δικτύου" },
+  { unit: "paphos-general", code: "1.2.1", assetKey: "paf-chiller-1", titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Π1", frequency: "MONTHLY", dueInDays: 9, checklistEl: "Καταγραφή πιέσεων και θερμοκρασιών\nΈλεγχος διαρροών ψυκτικού\nΈλεγχος ελαίου συμπιεστών" },
+  { unit: "paphos-general", code: "2.2.5", assetKey: "paf-generator", titleEl: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Π1", frequency: "MONTHLY", dueInDays: 14, checklistEl: "Δοκιμή εκκίνησης υπό φορτίο\nΈλεγχος στάθμης καυσίμου\nΈλεγχος συσσωρευτών" },
+  { unit: "paphos-general", code: "1.2.1", assetKey: "paf-ahu-1", titleEl: "Τριμηνιαία συντήρηση ΚΚΜ-Π1", frequency: "QUARTERLY", dueInDays: 21, checklistEl: "Έλεγχος και αλλαγή φίλτρων\nΈλεγχος ιμάντων και ρουλεμάν\nΚαθαρισμός στοιχείων" },
+  { unit: "paphos-general", code: "2.2.11", assetKey: "paf-fire-panel", titleEl: "Τριμηνιαίος έλεγχος πίνακα πυρανίχνευσης", frequency: "QUARTERLY", dueInDays: 45, checklistEl: "Δοκιμή ανιχνευτών ανά ζώνη\nΈλεγχος σειρήνων\nΈλεγχος εφεδρικής τροφοδοσίας" },
+  { unit: "paphos-general", code: "2.2.6", assetKey: "paf-ups", titleEl: "Εξαμηνιαία συντήρηση UPS-Π1", frequency: "SEMIANNUAL", dueInDays: 72, checklistEl: "Δοκιμή αυτονομίας συσσωρευτών\nΈλεγχος ανεμιστήρων\nΚαταγραφή συναγερμών" },
+  // Famagusta: seven lines, the chiller and the fire panel overdue.
+  { unit: "famagusta-general", code: "2.2.11", assetKey: "fam-fire-panel", titleEl: "Τριμηνιαίος έλεγχος πίνακα πυρανίχνευσης", frequency: "QUARTERLY", dueInDays: -17, checklistEl: "Δοκιμή ανιχνευτών ανά ζώνη\nΈλεγχος σειρήνων\nΈλεγχος εφεδρικής τροφοδοσίας" },
+  { unit: "famagusta-general", code: "1.2.1", assetKey: "fam-chiller-1", titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Α1", frequency: "MONTHLY", dueInDays: -6, checklistEl: "Καταγραφή πιέσεων και θερμοκρασιών\nΈλεγχος διαρροών ψυκτικού\nΈλεγχος ελαίου συμπιεστών" },
+  { unit: "famagusta-general", code: "2.2.5", assetKey: "fam-generator", titleEl: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Α1", frequency: "MONTHLY", dueInDays: 8, checklistEl: "Δοκιμή εκκίνησης υπό φορτίο\nΈλεγχος στάθμης καυσίμου\nΈλεγχος συσσωρευτών" },
+  { unit: "famagusta-general", code: "1.2.1", assetKey: "fam-ahu-1", titleEl: "Τριμηνιαία συντήρηση ΚΚΜ-Α1", frequency: "QUARTERLY", dueInDays: 16, checklistEl: "Έλεγχος και αλλαγή φίλτρων\nΈλεγχος ιμάντων και ρουλεμάν\nΚαθαρισμός στοιχείων" },
+  { unit: "famagusta-general", code: "1.2.3", assetKey: "fam-mgas-manifold", titleEl: "Τριμηνιαία συντήρηση συστοιχίας ιατρικών αερίων", frequency: "QUARTERLY", dueInDays: 33, checklistEl: "Έλεγχος πιέσεων γραμμών\nΈλεγχος συναγερμών\nΈλεγχος βαλβίδων αποκοπής" },
+  { unit: "famagusta-general", code: "2.2.1", assetKey: "fam-lv-board", titleEl: "Εξαμηνιαία συντήρηση κεντρικού πίνακα χαμηλής τάσης", frequency: "SEMIANNUAL", dueInDays: 58, checklistEl: "Θερμογράφηση\nΣύσφιξη ακροδεκτών\nΈλεγχος διακοπτών" },
+  { unit: "famagusta-general", code: "2.2.16", assetKey: "fam-server-rack", titleEl: "Ετήσιος έλεγχος δομημένης καλωδίωσης", frequency: "ANNUAL", dueInDays: 84, checklistEl: "Έλεγχος σημάνσεων\nΔοκιμή δειγματοληπτικών απολήξεων" },
 ];
 
 // ---------------------------------------------------------- the orders --
@@ -281,12 +518,25 @@ interface OrderSeed {
   costActual?: number;
   costEstimate?: number;
   escalated?: boolean;
+  /** What was reported when the call was raised; the order's own text. */
+  descriptionEl?: string;
+  /** What was changed or fitted, for the completed ones. */
+  partsNoteEl?: string;
+  /** The reason, on a cancelled or paused order. */
   noteEl?: string;
+  /** Free notes on the order, as [hours after the call, text]. */
+  notes?: [number, string][];
   by: string;
   assignedToEl?: string;
 }
 
 const D = 24;
+
+/** Who grants an extension: the estates head where the unit has one, else the admin. */
+const COORDINATOR: Record<string, string> = {
+  "nicosia-general": "dev-estates-nicosia",
+  "larnaca-general": "dev-estates-larnaca",
+};
 
 const ORDERS: OrderSeed[] = [
   // Three on the booster pump inside twelve months: the repeat count and the
@@ -328,6 +578,110 @@ const ORDERS: OrderSeed[] = [
   { unit: "larnaca-general", titleEl: "Διαρροή νερού από την ΚΚΜ-Λ1", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "lar-ahu-1", calledHoursAgo: 33 * D, respondedH: 0.4, restoredH: 10, completedH: 30, reportH: 30, codes: ["LEAK", "WEAR", "REPAIR"], costActual: 540, by: "dev-engineer-larnaca" },
   { unit: "larnaca-general", titleEl: "Ο ψύκτης Ψ-Λ1 σταματά με σφάλμα υψηλής πίεσης", kind: "CORRECTIVE", status: "OPEN", source: "TECHNICAL_SERVICES", code: "1.2.1", assetKey: "lar-chiller-1", calledHoursAgo: 0.2, by: "dev-engineer-larnaca" },
   { unit: "larnaca-general", titleEl: "Σφάλμα βρόχου στον πίνακα πυρανίχνευσης νέας πτέρυγας", kind: "CORRECTIVE", status: "IN_PROGRESS", source: "VENDOR_ONSITE", code: "2.2.11", assetKey: "lar-fire-panel", calledHoursAgo: 7, respondedH: 0.5, by: "dev-engineer-larnaca" },
+
+  // ----------------------------------------------- Nicosia, the earlier months --
+  // Six months of history, so the scorecard's previous quarters have figures:
+  // April to June is the second quarter, July to September the third. Nothing
+  // reaches back before the middle of April.
+
+  // Three on the network rack inside twelve months: the repeat count and the
+  // third auto-drafted backlog item (R36).
+  { unit: "nicosia-general", titleEl: "Βλάβη μεταγωγέα δικτύου στο ικρίωμα κτιρίου Α", descriptionEl: "Ο μεταγωγέας του ικριώματος δεν τροφοδοτεί τις θύρες του πρώτου ορόφου. Η Τεχνική Υπηρεσία ζήτησε επιτόπια παρέμβαση.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.16", assetKey: "ngh-server-rack", calledHoursAgo: 150 * D, respondedH: 0.4, restoredH: 6, completedH: 30, reportH: 30, codes: ["NO_OUTPUT", "WEAR", "REPLACE_PART"], costActual: 480, partsNoteEl: "Αντικαταστάθηκε ο μεταγωγέας με αποθεματικό του αναδόχου.", by: "dev-technician-nicosia", assignedToEl: "Σ. Πετρίδης" },
+  { unit: "nicosia-general", titleEl: "Υπερθέρμανση στο ικρίωμα δικτύου κτιρίου Α", descriptionEl: "Συναγερμός θερμοκρασίας στο ικρίωμα. Ο κλιματισμός του χώρου λειτουργούσε με μειωμένη απόδοση.", kind: "CORRECTIVE", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "2.2.16", assetKey: "ngh-server-rack", calledHoursAgo: 105 * D, respondedH: 0.5, restoredH: 5, completedH: 28, reportH: 28, codes: ["DEGRADED", "ENVIRONMENT", "ADJUST"], costActual: 150, by: "dev-engineer-nicosia", assignedToEl: "Σ. Πετρίδης" },
+  { unit: "nicosia-general", titleEl: "Διακοπτόμενες συνδέσεις στο ικρίωμα δικτύου κτιρίου Α", descriptionEl: "Επαναλαμβανόμενες διακοπές σύνδεσης στις θύρες του ικριώματος, με υποψία για φθαρμένα καλώδια διασύνδεσης.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "2.2.16", assetKey: "ngh-server-rack", calledHoursAgo: 64 * D, respondedH: 0.9, restoredH: 14, completedH: 52, reportH: 52, codes: ["DEGRADED", "WEAR", "REPLACE_PART"], costActual: 390, noteEl: "Αντικαταστάθηκαν τα καλώδια διασύνδεσης και σημάνθηκαν εκ νέου.", notes: [[20, "Εντοπίστηκαν φθαρμένα καλώδια διασύνδεσης· ζητήθηκαν από την αποθήκη του αναδόχου."]], by: "dev-clinical-nicosia", assignedToEl: "Α. Κυπριανού" },
+
+  { unit: "nicosia-general", titleEl: "Θόρυβος ιμάντα στην ΚΚΜ-2", descriptionEl: "Ηχηρός θόρυβος από τον ιμάντα του ανεμιστήρα προσαγωγής της ΚΚΜ-2.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "ngh-ahu-2", calledHoursAgo: 165 * D, respondedH: 0.3, restoredH: 5, completedH: 26, reportH: 26, codes: ["NOISE_VIBRATION", "WEAR", "REPLACE_PART"], costActual: 210, by: "dev-technician-nicosia", assignedToEl: "Α. Κυπριανού" },
+  { unit: "nicosia-general", titleEl: "Αποτυχία αυτόματης μετάβασης του Η/Ζ-1", descriptionEl: "Κατά τη δοκιμή απώλειας δικτύου το ηλεκτροπαραγωγό ζεύγος δεν ανέλαβε φορτίο μέσα στον προβλεπόμενο χρόνο.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.5", assetKey: "ngh-generator", calledHoursAgo: 148 * D, respondedH: 1, restoredH: 9, completedH: 40, reportH: 40, codes: ["CONTROL_FAULT", "LACK_OF_PM", "ADJUST"], costActual: 540, by: "dev-technician-nicosia", assignedToEl: "Μ. Ευαγγέλου" },
+  { unit: "nicosia-general", titleEl: "Πτώση παροχής αέρα στο χειρουργείο 1", descriptionEl: "Μειωμένη παροχή αέρα στο χειρουργείο 1· βρέθηκε βουλωμένο φίλτρο στην τελική βαθμίδα.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "1.1.1", assetKey: null, areaCode: "THE-01", calledHoursAgo: 138 * D, respondedH: 0.3, restoredH: 3.5, completedH: 30, reportH: 30, codes: ["DEGRADED", "LACK_OF_PM", "CLEAN"], costActual: 120, by: "dev-clinical-nicosia", assignedToEl: "Γ. Χαραλάμπους" },
+  { unit: "nicosia-general", titleEl: "Διαρροή συμπυκνωμάτων στην ΚΚΜ-1", descriptionEl: "Νερό από τη λεκάνη συμπυκνωμάτων της ΚΚΜ-1 στο δάπεδο του μηχανοστασίου.", kind: "CORRECTIVE", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "1.2.1", assetKey: "ngh-ahu-1", calledHoursAgo: 130 * D, respondedH: 0.5, restoredH: 12, completedH: 36, reportH: 36, codes: ["LEAK", "WEAR", "CLEAN"], costActual: 90, by: "dev-engineer-nicosia", assignedToEl: "Σ. Πετρίδης" },
+  { unit: "nicosia-general", titleEl: "Διακοπή ρεύματος στον τοπικό πίνακα της ΜΕΘ", descriptionEl: "Έπεσε η γενική ασφάλεια του τοπικού πίνακα της Μονάδας Εντατικής Θεραπείας· επαναφέρθηκε από την ομάδα του αναδόχου.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "2.1.3", assetKey: null, areaCode: "ICU-01", calledHoursAgo: 125 * D, respondedH: 0.2, restoredH: 1.1, completedH: 20, reportH: 20, codes: ["ELECTRICAL_FAULT", "POWER_SUPPLY", "RESET"], costActual: 0, by: "dev-clinical-nicosia", assignedToEl: "Γ. Χαραλάμπους" },
+  { unit: "nicosia-general", titleEl: "Χαμηλή πίεση στο δίκτυο πυρόσβεσης", descriptionEl: "Η πίεση του δικτύου πυρόσβεσης έπεφτε κάτω από το όριο συναγερμού μετά από κάθε εκκίνηση του αντλητικού.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.4", assetKey: "ngh-sprinkler-pump", calledHoursAgo: 118 * D, respondedH: 0.4, restoredH: 14, completedH: 40, reportH: 40, codes: ["DEGRADED", "WEAR", "REPAIR"], costActual: 360, by: "dev-technician-nicosia", assignedToEl: "Γ. Χαραλάμπους" },
+  { unit: "nicosia-general", titleEl: "Συναγερμός χαμηλής πίεσης στη συστοιχία ιατρικών αερίων", descriptionEl: "Συναγερμός στη συστοιχία μετά από παράδοση φιαλών· η πίεση επανήλθε μετά την αλλαγή της γραμμής.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "1.1.3", assetKey: "ngh-mgas-manifold", calledHoursAgo: 102 * D, respondedH: 0.3, restoredH: 1.6, completedH: 22, reportH: 22, codes: ["ALARM", "EXTERNAL", "RESET"], costActual: 0, by: "dev-clinical-nicosia", assignedToEl: "Μ. Ευαγγέλου" },
+  { unit: "nicosia-general", titleEl: "Σφάλμα αισθητήρα θερμοκρασίας στο BMS", descriptionEl: "Εσφαλμένες ενδείξεις θερμοκρασίας από έναν αισθητήρα στα γραφεία των Τεχνικών Υπηρεσιών.", kind: "CORRECTIVE", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "1.3.3", assetKey: null, areaCode: "OFF-01", calledHoursAgo: 95 * D, respondedH: 0.6, restoredH: 30, completedH: 60, reportH: 60, codes: ["CONTROL_FAULT", "WEAR", "REPLACE_PART"], costActual: 210, by: "dev-engineer-nicosia", assignedToEl: "Α. Κυπριανού" },
+  { unit: "nicosia-general", titleEl: "Ειδοποίηση συσσωρευτών στο UPS-1", descriptionEl: "Το UPS-1 ανέφερε μειωμένη αυτονομία συσσωρευτών κατά την περιοδική δοκιμή.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.6", assetKey: "ngh-ups", calledHoursAgo: 90 * D, respondedH: 0.3, restoredH: 4, completedH: 24, reportH: 24, codes: ["ALARM", "WEAR", "REPLACE_PART"], costActual: 780, partsNoteEl: "Αντικαταστάθηκε η σειρά συσσωρευτών.", by: "dev-technician-nicosia", assignedToEl: "Σ. Πετρίδης" },
+  { unit: "nicosia-general", titleEl: "Ετήσιος θερμογραφικός έλεγχος πινάκων χαμηλής τάσης", descriptionEl: "Θερμογράφηση των πινάκων χαμηλής τάσης του κτιρίου Α, όπως απαιτεί η νομοθεσία.", kind: "STATUTORY", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "2.2.1", assetKey: "ngh-lv-board", calledHoursAgo: 160 * D, respondedH: 0.3, restoredH: 20, completedH: 30, reportH: 30, costActual: 860, by: "dev-engineer-nicosia", assignedToEl: "Γ. Χαραλάμπους" },
+  { unit: "nicosia-general", titleEl: "Ετήσιος έλεγχος αντικεραυνικής προστασίας", descriptionEl: "Μέτρηση αντιστάσεων γείωσης και έλεγχος των καταλήψεων του κτιρίου Α.", kind: "STATUTORY", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "2.3.5", assetKey: null, areaCode: "PLT-01", calledHoursAgo: 88 * D, respondedH: 0.3, restoredH: 24, completedH: 36, reportH: 36, costActual: 640, by: "dev-estates-nicosia", assignedToEl: "Μ. Ευαγγέλου" },
+
+  { unit: "nicosia-general", titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-1 — Ιούλιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "ngh-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-1", pmDueDaysAgo: 82, completedH: -12, by: "dev-estates-nicosia" },
+  { unit: "nicosia-general", titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-1 — Ιούνιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "ngh-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-1", pmDueDaysAgo: 112, completedH: 36, by: "dev-estates-nicosia" },
+  { unit: "nicosia-general", titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-1 — Μάιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "ngh-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-1", pmDueDaysAgo: 142, completedH: -20, by: "dev-estates-nicosia" },
+  { unit: "nicosia-general", titleEl: "Μηνιαία δοκιμή Η/Ζ-1 — Ιούλιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "ngh-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-1", pmDueDaysAgo: 93, completedH: -6, by: "dev-estates-nicosia" },
+  { unit: "nicosia-general", titleEl: "Μηνιαία δοκιμή Η/Ζ-1 — Ιούνιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "ngh-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-1", pmDueDaysAgo: 123, completedH: 2 * D, by: "dev-estates-nicosia" },
+  { unit: "nicosia-general", titleEl: "Μηνιαία δοκιμή Η/Ζ-1 — Μάιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "ngh-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-1", pmDueDaysAgo: 153, completedH: -10, by: "dev-estates-nicosia" },
+  { unit: "nicosia-general", titleEl: "Τριμηνιαίος έλεγχος πυρανίχνευσης — Απρίλιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.11", assetKey: "ngh-fire-panel", scheduleTitle: "Τριμηνιαίος έλεγχος πίνακα πυρανίχνευσης", pmDueDaysAgo: 168, completedH: -40, by: "dev-estates-nicosia" },
+
+  // ------------------------------------------------------------- Limassol --
+  // Agreement Α.Ο 18/25 with Ιωνάς. Three on the booster inside twelve
+  // months, so the unit has its auto-drafted replacement too. Nobody here has
+  // an account yet: the admin raises and works every order.
+  { unit: LGH, titleEl: "Διαρροή από τη βάση του πιεστικού ύδρευσης", descriptionEl: "Εμφανής διαρροή νερού στη βάση του πιεστικού συγκροτήματος του μηχανοστασίου. Το προσωπικό του αναδόχου απομόνωσε τη γραμμή.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.1.2", assetKey: "lgh-booster", calledHoursAgo: 100 * D, respondedH: 0.3, restoredH: 1.4, completedH: 18, reportH: 18, codes: ["LEAK", "WEAR", "REPLACE_PART"], costActual: 1450, partsNoteEl: "Αντικαταστάθηκε ο μηχανικός στυπιοθλίπτης της αντλίας Α.", by: "dev-admin", assignedToEl: "Π. Σάββα" },
+  { unit: LGH, titleEl: "Πτώση πίεσης νερού στον δεύτερο όροφο", descriptionEl: "Χαμηλή πίεση στο δίκτυο ύδρευσης του κτιρίου Α· το πιεστικό δεν ξεκινούσε.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "1.1.2", assetKey: "lgh-booster", calledHoursAgo: 62 * D, respondedH: 0.7, restoredH: 3.5, completedH: 30, reportH: 30, codes: ["NO_OUTPUT", "POWER_SUPPLY", "RESET"], costActual: 320, noteEl: "Επαναφορά του θερμικού προστασίας και έλεγχος της τροφοδοσίας.", by: "dev-admin", assignedToEl: "Κ. Δημητρίου" },
+  { unit: LGH, titleEl: "Θόρυβος από τον κινητήρα του πιεστικού", descriptionEl: "Μεταλλικός θόρυβος και κραδασμοί από τον κινητήρα της αντλίας Β.", kind: "CORRECTIVE", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "1.1.2", assetKey: "lgh-booster", calledHoursAgo: 21 * D, respondedH: 0.3, restoredH: 1.6, completedH: 22, reportH: 22, codes: ["NOISE_VIBRATION", "WEAR", "REPLACE_PART"], costActual: 980, partsNoteEl: "Αντικαταστάθηκαν τα ρουλεμάν του κινητήρα.", by: "dev-admin", assignedToEl: "Π. Σάββα" },
+  { unit: LGH, titleEl: "Βλάβη βαλβίδας εκτόνωσης στον ψύκτη Ψ-Λε1", descriptionEl: "Ο ψύκτης λειτουργούσε με μειωμένη ψυκτική ισχύ λόγω βλάβης στη βαλβίδα εκτόνωσης του κυκλώματος 2.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "lgh-chiller-1", calledHoursAgo: 40 * D, respondedH: 0.25, restoredH: 4 * D, completedH: 6 * D, reportH: 40, extensionDays: 5, extensionReasonEl: "Παραγγελία βαλβίδας εκτόνωσης από τον κατασκευαστή· ο χρόνος παράδοσης ξεπερνά την προθεσμία αποκατάστασης.", codes: ["DEGRADED", "WEAR", "REPLACE_PART"], costActual: 2900, notes: [[5, "Η βαλβίδα παραγγέλθηκε από τον κατασκευαστή· ενημερώθηκε η Τεχνική Υπηρεσία."]], by: "dev-admin", assignedToEl: "Ε. Νικολάου" },
+  { unit: LGH, titleEl: "Αποτυχία εκκίνησης του Η/Ζ-Λε1 κατά τη δοκιμή", descriptionEl: "Το ηλεκτροπαραγωγό ζεύγος δεν εκκινούσε κατά τη μηνιαία δοκιμή· χαμηλή τάση συσσωρευτών εκκίνησης.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.5", assetKey: "lgh-generator", calledHoursAgo: 33 * D, respondedH: 0.4, restoredH: 5, completedH: 52, reportH: 52, codes: ["NO_OUTPUT", "LACK_OF_PM", "REPLACE_PART"], costActual: 780, partsNoteEl: "Αντικαταστάθηκαν οι δύο συσσωρευτές εκκίνησης.", by: "dev-admin", assignedToEl: "Ε. Νικολάου" },
+  { unit: LGH, titleEl: "Διακοπή ρεύματος στον τοπικό πίνακα της ΜΕΘ", descriptionEl: "Έπεσε η γενική ασφάλεια του τοπικού πίνακα της Μονάδας Εντατικής Θεραπείας λόγω διακοπής από το δίκτυο.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "2.1.3", assetKey: null, areaCode: "ICU-01", calledHoursAgo: 14 * D, respondedH: 0.2, restoredH: 1.2, completedH: 20, reportH: 20, codes: ["ELECTRICAL_FAULT", "EXTERNAL", "RESET"], costActual: 0, by: "dev-admin", assignedToEl: "Κ. Δημητρίου" },
+  { unit: LGH, titleEl: "Υψηλή θερμοκρασία στο χειρουργείο 1", descriptionEl: "Η θερμοκρασία του χειρουργείου 1 ανέβηκε πάνω από το όριο· η ΚΚΜ-Λε1 μείωσε την παροχή ψυχρού νερού.", kind: "CORRECTIVE", status: "RESTORED", source: "NURSING", code: "1.1.1", assetKey: "lgh-ahu-1", calledHoursAgo: 7, respondedH: 0.3, restoredH: 1.8, by: "dev-admin", assignedToEl: "Κ. Δημητρίου" },
+  { unit: LGH, titleEl: "Σφάλμα βρόχου 2 στον πίνακα πυρανίχνευσης", descriptionEl: "Ο πίνακας πυρανίχνευσης δείχνει σφάλμα βρόχου 2 στον πρώτο όροφο.", kind: "CORRECTIVE", status: "IN_PROGRESS", source: "TECHNICAL_SERVICES", code: "2.2.11", assetKey: "lgh-fire-panel", calledHoursAgo: 6, respondedH: 0.4, by: "dev-admin", assignedToEl: "Ε. Νικολάου" },
+  { unit: LGH, titleEl: "Διαρροή στη βαλβίδα αποκοπής του δικτύου ιατρικών αερίων", descriptionEl: "Μικρή διαρροή στη βαλβίδα αποκοπής της γραμμής οξυγόνου στο μηχανοστάσιο.", kind: "CORRECTIVE", status: "PAUSED", source: "VENDOR_ONSITE", code: "1.2.3", assetKey: "lgh-mgas-manifold", calledHoursAgo: 30, respondedH: 0.5, noteEl: "Αναμονή ανταλλακτικού βαλβίδας αποκοπής.", by: "dev-admin", assignedToEl: "Π. Σάββα" },
+  { unit: LGH, titleEl: "Συναγερμός χαμηλής αυτονομίας στο UPS-Λε1", descriptionEl: "Το UPS-Λε1 δείχνει συναγερμό χαμηλής αυτονομίας συσσωρευτών.", kind: "CORRECTIVE", status: "ACKNOWLEDGED", source: "NURSING", code: "2.2.6", assetKey: "lgh-ups", calledHoursAgo: 2, respondedH: 0.4, by: "dev-admin", assignedToEl: "Ε. Νικολάου" },
+  { unit: LGH, titleEl: "Ανεπαρκής ψύξη στον θάλαμο Γ1", descriptionEl: "Ο θάλαμος Γ1 δεν δροσίζεται· η κλήση δεν έχει απαντηθεί από τον ανάδοχο.", kind: "CORRECTIVE", status: "OPEN", source: "NURSING", code: "1.2.1", assetKey: null, areaCode: "WRD-01", calledHoursAgo: 9, escalated: true, by: "dev-admin" },
+  { unit: LGH, titleEl: "Μη διαθέσιμο δίκτυο στα γραφεία Τεχνικών Υπηρεσιών", descriptionEl: "Καμία σύνδεση δικτύου στα γραφεία των Τεχνικών Υπηρεσιών.", kind: "CORRECTIVE", status: "OPEN", source: "TECHNICAL_SERVICES", code: "2.2.16", assetKey: "lgh-server-rack", calledHoursAgo: 0.4, by: "dev-admin" },
+  { unit: LGH, titleEl: "Διπλή κλήση για τον πίνακα πυρανίχνευσης", kind: "CORRECTIVE", status: "CANCELLED", source: "NURSING", code: "2.2.11", assetKey: "lgh-fire-panel", calledHoursAgo: 18 * D, cancelledH: 0.3, noteEl: "Διπλή καταχώριση της ίδιας κλήσης.", by: "dev-admin" },
+  { unit: LGH, titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Λε1 — Σεπτέμβριος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "lgh-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-Λε1", pmDueDaysAgo: 26, completedH: -5, by: "dev-admin" },
+  { unit: LGH, titleEl: "Μηνιαία δοκιμή Η/Ζ-Λε1 — Αύγουστος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "lgh-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Λε1", pmDueDaysAgo: 58, completedH: 50, by: "dev-admin" },
+  { unit: LGH, titleEl: "Μηνιαία δοκιμή Η/Ζ-Λε1 — Σεπτέμβριος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "lgh-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Λε1", pmDueDaysAgo: 28, completedH: -8, by: "dev-admin" },
+  { unit: LGH, titleEl: "Τριμηνιαίος έλεγχος πυρανίχνευσης — Ιούλιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.11", assetKey: "lgh-fire-panel", scheduleTitle: "Τριμηνιαίος έλεγχος πίνακα πυρανίχνευσης", pmDueDaysAgo: 80, completedH: -30, by: "dev-admin" },
+  { unit: LGH, titleEl: "Μηνιαία δοκιμή Η/Ζ-Λε1 — Οκτώβριος", kind: "PM", status: "IN_PROGRESS", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "lgh-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Λε1", pmDueDaysAgo: -2, by: "dev-admin" },
+  { unit: LGH, titleEl: "Ετήσιος έλεγχος και πιστοποίηση φορητών πυροσβεστήρων", descriptionEl: "Ετήσια επιθεώρηση και πιστοποίηση των φορητών πυροσβεστήρων όλων των ορόφων.", kind: "STATUTORY", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "1.2.4", assetKey: null, areaCode: "PLT-01", calledHoursAgo: 55 * D, respondedH: 0.3, restoredH: 20, completedH: 30, reportH: 30, costActual: 840, by: "dev-admin", assignedToEl: "Κ. Δημητρίου" },
+  { unit: LGH, titleEl: "Περιοδική δοκιμή δικτύου ιατρικών αερίων", descriptionEl: "Περιοδική δοκιμή στεγανότητας και ποιότητας του δικτύου ιατρικών αερίων.", kind: "STATUTORY", status: "IN_PROGRESS", source: "TECHNICAL_SERVICES", code: "1.2.3", assetKey: "lgh-mgas-manifold", calledHoursAgo: 20, respondedH: 0.3, by: "dev-admin", assignedToEl: "Π. Σάββα" },
+
+  // -------------------------------------------------------------- Paphos --
+  // Agreement Α.Ο 19/25 with Thermotec. Three on the UPS inside twelve
+  // months. The boiler is the oldest machine in the register (condition E)
+  // and has a funded replacement.
+  { unit: PAF, titleEl: "Ένδειξη σφάλματος συσσωρευτών στο UPS-Π1", descriptionEl: "Το UPS-Π1 ανέφερε σφάλμα συσσωρευτών κατά τη δοκιμή αυτονομίας.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.6", assetKey: "paf-ups", calledHoursAgo: 95 * D, respondedH: 0.3, restoredH: 3, completedH: 26, reportH: 26, codes: ["ALARM", "WEAR", "REPLACE_PART"], costActual: 1100, partsNoteEl: "Αντικαταστάθηκε ο κλάδος συσσωρευτών Β.", by: "dev-admin", assignedToEl: "Γ. Κωνσταντίνου" },
+  { unit: PAF, titleEl: "Αυτόματη μετάβαση του UPS-Π1 σε παράκαμψη", descriptionEl: "Το UPS-Π1 πέρασε μόνο του σε παράκαμψη λόγω υψηλής θερμοκρασίας στο μηχανοστάσιο.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.6", assetKey: "paf-ups", calledHoursAgo: 58 * D, respondedH: 0.5, restoredH: 6, completedH: 30, reportH: 30, codes: ["ALARM", "ENVIRONMENT", "ADJUST"], costActual: 260, noteEl: "Ρυθμίστηκε το όριο θερμοκρασίας και καθαρίστηκαν τα φίλτρα εισόδου.", by: "dev-admin", assignedToEl: "Δ. Ηλία" },
+  { unit: PAF, titleEl: "Βλάβη ανεμιστήρα ψύξης του UPS-Π1", descriptionEl: "Θόρυβος και ανεπαρκής εξαγωγή αέρα από τον ανεμιστήρα ψύξης του UPS-Π1.", kind: "CORRECTIVE", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "2.2.6", assetKey: "paf-ups", calledHoursAgo: 19 * D, respondedH: 0.4, restoredH: 4, completedH: 46, reportH: 46, codes: ["NOISE_VIBRATION", "WEAR", "REPLACE_PART"], costActual: 540, by: "dev-admin", assignedToEl: "Γ. Κωνσταντίνου" },
+  { unit: PAF, titleEl: "Διαρροή νερού από τον λέβητα θέρμανσης Λ-Π1", descriptionEl: "Διαρροή από τη φλάντζα του εναλλάκτη του λέβητα στο μηχανοστάσιο.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "paf-boiler-1", calledHoursAgo: 75 * D, respondedH: 0.4, restoredH: 18, completedH: 40, reportH: 40, codes: ["LEAK", "WEAR", "TEMPORARY_FIX"], costActual: 650, noteEl: "Προσωρινή στεγάνωση μέχρι την αντικατάσταση του λέβητα.", by: "dev-admin", assignedToEl: "Χ. Παναγή" },
+  { unit: PAF, titleEl: "Βλάβη ρυθμιστή στροφών του Η/Ζ-Π1", descriptionEl: "Το ηλεκτροπαραγωγό ζεύγος δεν κρατούσε σταθερή συχνότητα υπό φορτίο· χαλασμένος ηλεκτρονικός ρυθμιστής.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.5", assetKey: "paf-generator", calledHoursAgo: 45 * D, respondedH: 0.3, restoredH: 5 * D, completedH: 7 * D, reportH: 44, extensionDays: 5, extensionReasonEl: "Εισαγωγή ηλεκτρονικού ρυθμιστή από τον κατασκευαστή, με παραστατικό παραγγελίας.", codes: ["CONTROL_FAULT", "WEAR", "REPLACE_PART"], costActual: 3400, notes: [[30, "Το ανταλλακτικό δεν υπάρχει στην Κύπρο· εκδόθηκε παραγγελία."]], by: "dev-admin", assignedToEl: "Δ. Ηλία" },
+  { unit: PAF, titleEl: "Υψηλή θερμοκρασία στο χειρουργείο 1", descriptionEl: "Η θερμοκρασία του χειρουργείου 1 ξεπέρασε το όριο· ρυθμίστηκε εκ νέου ο ελεγκτής της ΚΚΜ-Π1.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "1.1.1", assetKey: "paf-ahu-1", calledHoursAgo: 28 * D, respondedH: 0.9, restoredH: 2.6, completedH: 24, reportH: 24, codes: ["CONTROL_FAULT", "LACK_OF_PM", "ADJUST"], costActual: 0, by: "dev-admin", assignedToEl: "Χ. Παναγή" },
+  { unit: PAF, titleEl: "Διαρροή ψυκτικού από τον ψύκτη Ψ-Π1", descriptionEl: "Ένδειξη χαμηλής πίεσης ψυκτικού στο κύκλωμα 1 του ψύκτη.", kind: "CORRECTIVE", status: "RESTORED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "paf-chiller-1", calledHoursAgo: 16, respondedH: 0.3, restoredH: 11, by: "dev-admin", assignedToEl: "Γ. Κωνσταντίνου" },
+  { unit: PAF, titleEl: "Σφάλμα επικοινωνίας στο BMS του χειρουργικού τομέα", descriptionEl: "Ο ελεγκτής του χειρουργείου 1 δεν επικοινωνεί με το κεντρικό σύστημα BMS.", kind: "CORRECTIVE", status: "IN_PROGRESS", source: "TECHNICAL_SERVICES", code: "1.3.3", assetKey: null, areaCode: "THE-01", calledHoursAgo: 12, respondedH: 0.5, by: "dev-admin", assignedToEl: "Δ. Ηλία" },
+  { unit: PAF, titleEl: "Μη εκκίνηση του αντλητικού πυρόσβεσης", descriptionEl: "Το αντλητικό δεν εκκίνησε στη δοκιμή· ο ελεγκτής εκκίνησης δεν δίνει εντολή.", kind: "CORRECTIVE", status: "PAUSED", source: "VENDOR_ONSITE", code: "1.2.4", assetKey: "paf-sprinkler-pump", calledHoursAgo: 50, respondedH: 0.4, noteEl: "Αναμονή ηλεκτρονικού ελεγκτή εκκίνησης από τον προμηθευτή.", by: "dev-admin", assignedToEl: "Χ. Παναγή" },
+  { unit: PAF, titleEl: "Συναγερμός υψηλής θερμοκρασίας στο Η/Ζ-Π1", descriptionEl: "Ένδειξη υψηλής θερμοκρασίας νερού ψύξης στο ηλεκτροπαραγωγό ζεύγος.", kind: "CORRECTIVE", status: "ACKNOWLEDGED", source: "TECHNICAL_SERVICES", code: "2.2.5", assetKey: "paf-generator", calledHoursAgo: 1.5, respondedH: 0.35, by: "dev-admin", assignedToEl: "Δ. Ηλία" },
+  { unit: PAF, titleEl: "Βλάβη στο πιεστικό ύδρευσης", descriptionEl: "Το πιεστικό σταμάτησε και η πίεση νερού στους ορόφους έπεσε· η κλήση δεν έχει απαντηθεί.", kind: "CORRECTIVE", status: "OPEN", source: "NURSING", code: "1.1.2", assetKey: "paf-booster", calledHoursAgo: 5, escalated: true, by: "dev-admin" },
+  { unit: PAF, titleEl: "Σφάλμα ζώνης 2 στον πίνακα πυρανίχνευσης", descriptionEl: "Ο πίνακας πυρανίχνευσης δείχνει σφάλμα ζώνης 2 στο ισόγειο.", kind: "CORRECTIVE", status: "OPEN", source: "TECHNICAL_SERVICES", code: "2.2.11", assetKey: "paf-fire-panel", calledHoursAgo: 0.3, by: "dev-admin" },
+  { unit: PAF, titleEl: "Κλήση για λάθος μονάδα κλιματισμού", kind: "CORRECTIVE", status: "CANCELLED", source: "NURSING", code: "1.2.1", assetKey: "paf-ahu-1", calledHoursAgo: 33 * D, cancelledH: 0.5, noteEl: "Η βλάβη αφορούσε διαφορετική μονάδα· ακυρώθηκε και καταχωρίστηκε εκ νέου.", by: "dev-admin" },
+  { unit: PAF, titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Π1 — Αύγουστος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "paf-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-Π1", pmDueDaysAgo: 50, completedH: 30, by: "dev-admin" },
+  { unit: PAF, titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Π1 — Σεπτέμβριος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "paf-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-Π1", pmDueDaysAgo: 20, completedH: -10, by: "dev-admin" },
+  { unit: PAF, titleEl: "Μηνιαία δοκιμή αντλητικού πυρόσβεσης — Σεπτέμβριος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.4", assetKey: "paf-sprinkler-pump", scheduleTitle: "Μηνιαία δοκιμή αντλητικού πυρόσβεσης", pmDueDaysAgo: 27, completedH: -2, by: "dev-admin" },
+  { unit: PAF, titleEl: "Μηνιαία δοκιμή αντλητικού πυρόσβεσης — Οκτώβριος", kind: "PM", status: "OPEN", source: "PM_PROGRAMME", code: "1.2.4", assetKey: "paf-sprinkler-pump", scheduleTitle: "Μηνιαία δοκιμή αντλητικού πυρόσβεσης", pmDueDaysAgo: 2, by: "dev-admin" },
+  { unit: PAF, titleEl: "Εξαμηνιαία συντήρηση λέβητα θέρμανσης Λ-Π1 — Οκτώβριος", kind: "PM", status: "IN_PROGRESS", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "paf-boiler-1", scheduleTitle: "Εξαμηνιαία συντήρηση λέβητα θέρμανσης Λ-Π1", pmDueDaysAgo: 9, by: "dev-admin" },
+  { unit: PAF, titleEl: "Ετήσιος έλεγχος ασφαλείας του λέβητα θέρμανσης", descriptionEl: "Ετήσιος έλεγχος ασφαλιστικών και καυσαερίων του λέβητα, όπως απαιτεί η νομοθεσία.", kind: "STATUTORY", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "1.2.1", assetKey: "paf-boiler-1", calledHoursAgo: 70 * D, respondedH: 0.3, restoredH: 20, completedH: 30, reportH: 30, costActual: 520, by: "dev-admin", assignedToEl: "Χ. Παναγή" },
+  { unit: PAF, titleEl: "Ετήσια επιθεώρηση πυροσβεστήρων", descriptionEl: "Ετήσια επιθεώρηση και πιστοποίηση των φορητών πυροσβεστήρων του κτιρίου Α.", kind: "STATUTORY", status: "ACKNOWLEDGED", source: "TECHNICAL_SERVICES", code: "1.2.4", assetKey: null, areaCode: "OFF-01", calledHoursAgo: 20, respondedH: 0.4, by: "dev-admin", assignedToEl: "Δ. Ηλία" },
+
+  // ----------------------------------------------------------- Famagusta --
+  // Agreement Α.Ο 22/25 with Παπαέλληνας. Three on the fire panel inside
+  // twelve months; the chiller compressor is the fifteen-day extension.
+  { unit: FAM, titleEl: "Ψευδής συναγερμός πυρανίχνευσης στη ζώνη 3", descriptionEl: "Επαναλαμβανόμενος ψευδής συναγερμός από τους ανιχνευτές της ζώνης 3 του πρώτου ορόφου.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "2.2.11", assetKey: "fam-fire-panel", calledHoursAgo: 90 * D, respondedH: 0.3, restoredH: 4, completedH: 24, reportH: 24, codes: ["ALARM", "ENVIRONMENT", "CLEAN"], costActual: 180, by: "dev-admin", assignedToEl: "Σ. Μιχαηλίδη" },
+  { unit: FAM, titleEl: "Βλάβη τροφοδοτικού του πίνακα πυρανίχνευσης", descriptionEl: "Ο πίνακας πυρανίχνευσης λειτουργούσε μόνο με την εφεδρική τροφοδοσία· χαλασμένο κεντρικό τροφοδοτικό.", kind: "CORRECTIVE", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "2.2.11", assetKey: "fam-fire-panel", calledHoursAgo: 52 * D, respondedH: 0.45, restoredH: 8, completedH: 30, reportH: 30, codes: ["ELECTRICAL_FAULT", "WEAR", "REPLACE_PART"], costActual: 690, partsNoteEl: "Αντικαταστάθηκε το τροφοδοτικό και οι δύο συσσωρευτές εφεδρείας.", by: "dev-admin", assignedToEl: "Λ. Χριστοφόρου" },
+  { unit: FAM, titleEl: "Απώλεια επικοινωνίας βρόχου 1 του πίνακα πυρανίχνευσης", descriptionEl: "Ο πίνακας έχασε την επικοινωνία με τον βρόχο 1· τμήμα του ορόφου χωρίς κάλυψη ανίχνευσης.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "2.2.11", assetKey: "fam-fire-panel", calledHoursAgo: 17 * D, respondedH: 0.6, restoredH: 26, completedH: 50, reportH: 50, codes: ["CONTROL_FAULT", "WEAR", "REPAIR"], costActual: 420, noteEl: "Επισκευή καλωδίωσης βρόχου και έλεγχος όλων των ανιχνευτών του βρόχου.", by: "dev-admin", assignedToEl: "Σ. Μιχαηλίδη" },
+  { unit: FAM, titleEl: "Εκτός λειτουργίας ο συμπιεστής του ψύκτη Ψ-Α1", descriptionEl: "Ο συμπιεστής του κυκλώματος 1 σταμάτησε με σφάλμα υπερέντασης· ο ψύκτης λειτουργούσε με το δεύτερο κύκλωμα.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "fam-chiller-1", calledHoursAgo: 38 * D, respondedH: 0.3, restoredH: 10 * D, completedH: 12 * D, reportH: 46, extensionDays: 15, extensionReasonEl: "Εισαγωγή συμπιεστή από τον κατασκευαστή· ισχύει η παράταση των δεκαπέντε εργάσιμων ημερών για συμπιεστές ψυκτών.", codes: ["ELECTRICAL_FAULT", "WEAR", "REPLACE_PART"], costActual: 6200, notes: [[8, "Εκδόθηκε παραγγελία συμπιεστή· εκτιμώμενη παράδοση σε οκτώ ημέρες."]], by: "dev-admin", assignedToEl: "Ν. Ιωάννου" },
+  { unit: FAM, titleEl: "Υπερβολικός θόρυβος στην ΚΚΜ-Α1", descriptionEl: "Έντονος θόρυβος και κραδασμοί από τον ανεμιστήρα της ΚΚΜ-Α1.", kind: "CORRECTIVE", status: "COMPLETED", source: "VENDOR_ONSITE", code: "1.2.1", assetKey: "fam-ahu-1", calledHoursAgo: 26 * D, respondedH: 0.3, restoredH: 7, completedH: 30, reportH: 30, codes: ["NOISE_VIBRATION", "WEAR", "ADJUST"], costActual: 150, by: "dev-admin", assignedToEl: "Λ. Χριστοφόρου" },
+  { unit: FAM, titleEl: "Συναγερμός χαμηλής πίεσης στη συστοιχία ιατρικών αερίων", descriptionEl: "Συναγερμός χαμηλής πίεσης στη συστοιχία μετά από παράδοση φιαλών· η πίεση επανήλθε μετά την αλλαγή της γραμμής.", kind: "CORRECTIVE", status: "COMPLETED", source: "NURSING", code: "1.1.3", assetKey: "fam-mgas-manifold", calledHoursAgo: 9 * D, respondedH: 0.4, restoredH: 1.7, completedH: 20, reportH: 20, codes: ["ALARM", "EXTERNAL", "RESET"], costActual: 0, by: "dev-admin", assignedToEl: "Ν. Ιωάννου" },
+  { unit: FAM, titleEl: "Διακοπή ρεύματος στον τοπικό πίνακα του χειρουργείου 1", descriptionEl: "Έπεσε ο διακόπτης τροφοδοσίας του τοπικού πίνακα του χειρουργείου 1· επαναφέρθηκε από τον ανάδοχο.", kind: "CORRECTIVE", status: "RESTORED", source: "NURSING", code: "2.1.3", assetKey: null, areaCode: "THE-01", calledHoursAgo: 5, respondedH: 0.3, restoredH: 1.5, by: "dev-admin", assignedToEl: "Σ. Μιχαηλίδη" },
+  { unit: FAM, titleEl: "Αστοχία αυτόματης μετάβασης του Η/Ζ-Α1", descriptionEl: "Στη δοκιμή απώλειας δικτύου ο διακόπτης μετάβασης δεν έδωσε εντολή στο ηλεκτροπαραγωγό ζεύγος.", kind: "CORRECTIVE", status: "IN_PROGRESS", source: "VENDOR_ONSITE", code: "2.2.5", assetKey: "fam-generator", calledHoursAgo: 4, respondedH: 0.4, by: "dev-admin", assignedToEl: "Λ. Χριστοφόρου" },
+  { unit: FAM, titleEl: "Διαρροή στο πιεστικό ύδρευσης", descriptionEl: "Διαρροή από τον στυπιοθλίπτη της αντλίας του πιεστικού συγκροτήματος.", kind: "CORRECTIVE", status: "PAUSED", source: "TECHNICAL_SERVICES", code: "1.1.2", assetKey: "fam-booster", calledHoursAgo: 28, respondedH: 0.5, noteEl: "Αναμονή στυπιοθλίπτη από την αποθήκη του αναδόχου.", by: "dev-admin", assignedToEl: "Ν. Ιωάννου" },
+  { unit: FAM, titleEl: "Ένδειξη σφάλματος στο UPS-Α1", descriptionEl: "Το UPS-Α1 δείχνει σφάλμα μετατροπέα.", kind: "CORRECTIVE", status: "ACKNOWLEDGED", source: "VENDOR_ONSITE", code: "2.2.6", assetKey: "fam-ups", calledHoursAgo: 2.5, respondedH: 0.4, by: "dev-admin", assignedToEl: "Σ. Μιχαηλίδη" },
+  { unit: FAM, titleEl: "Ανεπαρκής ψύξη στον θάλαμο Δ1", descriptionEl: "Ο θάλαμος Δ1 δεν δροσίζεται· η κλήση δεν έχει απαντηθεί από τον ανάδοχο.", kind: "CORRECTIVE", status: "OPEN", source: "NURSING", code: "1.2.1", assetKey: null, areaCode: "WRD-01", calledHoursAgo: 8, escalated: true, by: "dev-admin" },
+  { unit: FAM, titleEl: "Κλήση για διακοπή που οφειλόταν στο δίκτυο της ΑΗΚ", kind: "CORRECTIVE", status: "CANCELLED", source: "TECHNICAL_SERVICES", code: "2.2.1", assetKey: "fam-lv-board", calledHoursAgo: 12 * D, cancelledH: 0.4, noteEl: "Η διακοπή οφειλόταν στο δίκτυο της ΑΗΚ· δεν απαιτείται παρέμβαση του αναδόχου.", by: "dev-admin" },
+  { unit: FAM, titleEl: "Τριμηνιαία συντήρηση ΚΚΜ-Α1 — Ιούλιος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "fam-ahu-1", scheduleTitle: "Τριμηνιαία συντήρηση ΚΚΜ-Α1", pmDueDaysAgo: 75, completedH: -20, by: "dev-admin" },
+  { unit: FAM, titleEl: "Μηνιαία δοκιμή Η/Ζ-Α1 — Αύγουστος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "fam-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Α1", pmDueDaysAgo: 51, completedH: 20, by: "dev-admin" },
+  { unit: FAM, titleEl: "Μηνιαία δοκιμή Η/Ζ-Α1 — Σεπτέμβριος", kind: "PM", status: "COMPLETED", source: "PM_PROGRAMME", code: "2.2.5", assetKey: "fam-generator", scheduleTitle: "Μηνιαία δοκιμή ηλεκτροπαραγωγού ζεύγους Η/Ζ-Α1", pmDueDaysAgo: 21, completedH: -8, by: "dev-admin" },
+  { unit: FAM, titleEl: "Μηνιαία συντήρηση ψύκτη Ψ-Α1 — Οκτώβριος", kind: "PM", status: "OPEN", source: "PM_PROGRAMME", code: "1.2.1", assetKey: "fam-chiller-1", scheduleTitle: "Μηνιαία συντήρηση ψύκτη Ψ-Α1", pmDueDaysAgo: 6, by: "dev-admin" },
+  { unit: FAM, titleEl: "Τριμηνιαίος έλεγχος πυρανίχνευσης — Οκτώβριος", kind: "PM", status: "IN_PROGRESS", source: "PM_PROGRAMME", code: "2.2.11", assetKey: "fam-fire-panel", scheduleTitle: "Τριμηνιαίος έλεγχος πίνακα πυρανίχνευσης", pmDueDaysAgo: 17, by: "dev-admin" },
+  { unit: FAM, titleEl: "Ετήσιος έλεγχος του συστήματος ιατρικών αερίων", descriptionEl: "Ετήσια δοκιμή στεγανότητας και πιστοποίηση του δικτύου ιατρικών αερίων.", kind: "STATUTORY", status: "COMPLETED", source: "TECHNICAL_SERVICES", code: "1.2.3", assetKey: "fam-mgas-manifold", calledHoursAgo: 64 * D, respondedH: 0.3, restoredH: 20, completedH: 36, reportH: 36, costActual: 1250, by: "dev-admin", assignedToEl: "Ν. Ιωάννου" },
+  { unit: FAM, titleEl: "Ετήσια επιθεώρηση πυροσβεστήρων", descriptionEl: "Ετήσια επιθεώρηση και πιστοποίηση των φορητών πυροσβεστήρων του κτιρίου Α.", kind: "STATUTORY", status: "ACKNOWLEDGED", source: "TECHNICAL_SERVICES", code: "1.2.4", assetKey: null, areaCode: "OFF-01", calledHoursAgo: 6, respondedH: 0.5, by: "dev-admin", assignedToEl: "Λ. Χριστοφόρου" },
 ];
 
 // ---------------------------------------------------------- the backlog --
@@ -347,6 +701,8 @@ interface BacklogSeed {
   /** FUNDED against the seeded project with this title. */
   projectTitle?: string;
   closedDaysAgo?: number;
+  /** Typed items only; an auto-drafted one is raised the day after its last order. Default 30. */
+  raisedDaysAgo?: number;
   by: string | null;
 }
 
@@ -438,12 +794,221 @@ const BACKLOG: BacklogSeed[] = [
     descriptionEl: "Η περιοδική πιστοποίηση του δικτύου έληξε και δεν καλύπτεται από τη σύμβαση.",
     by: "dev-engineer-larnaca",
   },
+  // The third auto-drafted item at Nicosia: three orders on the network rack.
+  {
+    unit: "nicosia-general",
+    titleEl: "Αντικατάσταση: Ικρίωμα δικτύου κτιρίου Α",
+    kind: "REPLACEMENT",
+    riskBand: "MODERATE",
+    costEstimate: null,
+    assetKey: "ngh-server-rack",
+    code: "2.2.16",
+    status: "OPEN",
+    descriptionEl: "Τρεις ή περισσότερες διορθωτικές εντολές στο ίδιο πάγιο μέσα σε δώδεκα μήνες.",
+    auto: {
+      reason: "THREE_CORRECTIVE_IN_12_MONTHS",
+      orderTitles: [
+        "Βλάβη μεταγωγέα δικτύου στο ικρίωμα κτιρίου Α",
+        "Υπερθέρμανση στο ικρίωμα δικτύου κτιρίου Α",
+        "Διακοπτόμενες συνδέσεις στο ικρίωμα δικτύου κτιρίου Α",
+      ],
+    },
+    by: null,
+  },
+  // Limassol: the auto-drafted booster, a funded gas upgrade, one done, one open.
+  {
+    unit: "limassol-general",
+    titleEl: "Αντικατάσταση: Πιεστικό συγκρότημα ύδρευσης Λεμεσού",
+    kind: "REPLACEMENT",
+    riskBand: "SIGNIFICANT",
+    costEstimate: null,
+    assetKey: "lgh-booster",
+    code: "1.1.2",
+    status: "OPEN",
+    descriptionEl: "Τρεις ή περισσότερες διορθωτικές εντολές στο ίδιο πάγιο μέσα σε δώδεκα μήνες.",
+    auto: {
+      reason: "THREE_CORRECTIVE_IN_12_MONTHS",
+      orderTitles: [
+        "Διαρροή από τη βάση του πιεστικού ύδρευσης",
+        "Πτώση πίεσης νερού στον δεύτερο όροφο",
+        "Θόρυβος από τον κινητήρα του πιεστικού",
+      ],
+    },
+    by: null,
+  },
+  {
+    unit: "limassol-general",
+    titleEl: "Αντικατάσταση βαλβίδων αποκοπής και αναβάθμιση συστοιχίας ιατρικών αερίων",
+    kind: "UPGRADE",
+    riskBand: "HIGH",
+    costEstimate: 96000,
+    assetKey: "lgh-mgas-manifold",
+    code: "1.2.3",
+    status: "FUNDED",
+    descriptionEl: "Οι βαλβίδες αποκοπής της συστοιχίας διαρρέουν και δεν υπάρχουν πλέον ανταλλακτικά του κατασκευαστή.",
+    projectTitle: "Αναβάθμιση δικτύου ιατρικών αερίων",
+    raisedDaysAgo: 60,
+    by: "dev-admin",
+  },
+  {
+    unit: "limassol-general",
+    titleEl: "Αποκατάσταση θερμομόνωσης σωληνώσεων μηχανοστασίου",
+    kind: "REPAIR",
+    riskBand: "LOW",
+    costEstimate: 9400,
+    assetKey: null,
+    code: "1.2.1",
+    status: "DONE",
+    descriptionEl: "Τοπική αντικατάσταση φθαρμένης θερμομόνωσης στις σωληνώσεις ψυχρού νερού.",
+    closedDaysAgo: 35,
+    raisedDaysAgo: 90,
+    by: "dev-admin",
+  },
+  {
+    unit: "limassol-general",
+    titleEl: "Επισκευή του δικτύου αποχέτευσης στο μηχανοστάσιο",
+    kind: "REPAIR",
+    riskBand: "MODERATE",
+    costEstimate: 15500,
+    assetKey: null,
+    code: "1.2.7",
+    status: "OPEN",
+    descriptionEl: "Υποχώρηση και μερική απόφραξη του οριζόντιου συλλέκτη κάτω από το δάπεδο του μηχανοστασίου.",
+    raisedDaysAgo: 14,
+    by: "dev-admin",
+  },
+  // Paphos: the auto-drafted UPS, the boiler funded by its project, one done, one open.
+  {
+    unit: "paphos-general",
+    titleEl: "Αντικατάσταση: Σύστημα αδιάλειπτης παροχής UPS-Π1",
+    kind: "REPLACEMENT",
+    riskBand: "SIGNIFICANT",
+    costEstimate: null,
+    assetKey: "paf-ups",
+    code: "2.2.6",
+    status: "OPEN",
+    descriptionEl: "Τρεις ή περισσότερες διορθωτικές εντολές στο ίδιο πάγιο μέσα σε δώδεκα μήνες.",
+    auto: {
+      reason: "THREE_CORRECTIVE_IN_12_MONTHS",
+      orderTitles: [
+        "Ένδειξη σφάλματος συσσωρευτών στο UPS-Π1",
+        "Αυτόματη μετάβαση του UPS-Π1 σε παράκαμψη",
+        "Βλάβη ανεμιστήρα ψύξης του UPS-Π1",
+      ],
+    },
+    by: null,
+  },
+  {
+    unit: "paphos-general",
+    titleEl: "Αντικατάσταση λέβητα θέρμανσης Λ-Π1",
+    kind: "REPLACEMENT",
+    riskBand: "HIGH",
+    costEstimate: 96000,
+    assetKey: "paf-boiler-1",
+    code: "1.2.1",
+    status: "FUNDED",
+    descriptionEl: "Ο λέβητας είναι σε κατάσταση Ε, με διαρροές και χωρίς διαθέσιμα ανταλλακτικά.",
+    projectTitle: "Αντικατάσταση λεβητοστασίου",
+    raisedDaysAgo: 70,
+    by: "dev-admin",
+  },
+  {
+    unit: "paphos-general",
+    titleEl: "Επισκευή θερμομόνωσης δικτύου ζεστού νερού",
+    kind: "REPAIR",
+    riskBand: "LOW",
+    costEstimate: 6800,
+    assetKey: null,
+    code: "1.1.2",
+    status: "DONE",
+    descriptionEl: "Αντικατάσταση φθαρμένης μόνωσης στις σωληνώσεις ζεστού νερού του ισογείου.",
+    closedDaysAgo: 28,
+    raisedDaysAgo: 80,
+    by: "dev-admin",
+  },
+  {
+    unit: "paphos-general",
+    titleEl: "Αναβάθμιση πίνακα πυρανίχνευσης σε διευθυνσιοδοτούμενο",
+    kind: "UPGRADE",
+    riskBand: "MODERATE",
+    costEstimate: 31000,
+    assetKey: "paf-fire-panel",
+    code: "2.2.11",
+    status: "OPEN",
+    descriptionEl: "Ο υπάρχων πίνακας δεν δείχνει ποιος ανιχνευτής έδωσε συναγερμό· ζητείται διευθυνσιοδοτούμενο σύστημα.",
+    raisedDaysAgo: 25,
+    by: "dev-admin",
+  },
+  // Famagusta: the auto-drafted fire panel, the air handler funded by its project, one done, one open.
+  {
+    unit: "famagusta-general",
+    titleEl: "Αντικατάσταση: Κεντρικός πίνακας πυρανίχνευσης Αμμοχώστου",
+    kind: "REPLACEMENT",
+    riskBand: "HIGH",
+    costEstimate: null,
+    assetKey: "fam-fire-panel",
+    code: "2.2.11",
+    status: "OPEN",
+    descriptionEl: "Τρεις ή περισσότερες διορθωτικές εντολές στο ίδιο πάγιο μέσα σε δώδεκα μήνες.",
+    auto: {
+      reason: "THREE_CORRECTIVE_IN_12_MONTHS",
+      orderTitles: [
+        "Ψευδής συναγερμός πυρανίχνευσης στη ζώνη 3",
+        "Βλάβη τροφοδοτικού του πίνακα πυρανίχνευσης",
+        "Απώλεια επικοινωνίας βρόχου 1 του πίνακα πυρανίχνευσης",
+      ],
+    },
+    by: null,
+  },
+  {
+    unit: "famagusta-general",
+    titleEl: "Αντικατάσταση κλιματιστικής μονάδας ΚΚΜ-Α1",
+    kind: "REPLACEMENT",
+    riskBand: "SIGNIFICANT",
+    costEstimate: 108000,
+    assetKey: "fam-ahu-1",
+    code: "1.2.1",
+    status: "FUNDED",
+    descriptionEl: "Η μονάδα είναι σε κατάσταση Ε και έχει περάσει τον προβλεπόμενο κύκλο ζωής.",
+    projectTitle: "Αντικατάσταση συστήματος κλιματισμού",
+    raisedDaysAgo: 75,
+    by: "dev-admin",
+  },
+  {
+    unit: "famagusta-general",
+    titleEl: "Αντικατάσταση πιεστικού δοχείου ύδρευσης",
+    kind: "REPAIR",
+    riskBand: "LOW",
+    costEstimate: 4200,
+    assetKey: "fam-booster",
+    code: "1.1.2",
+    status: "DONE",
+    descriptionEl: "Αντικατάσταση του πιεστικού δοχείου με νέο ίδιας χωρητικότητας.",
+    closedDaysAgo: 42,
+    raisedDaysAgo: 100,
+    by: "dev-admin",
+  },
+  {
+    unit: "famagusta-general",
+    titleEl: "Πιστοποίηση δικτύου ιατρικών αερίων",
+    kind: "STATUTORY",
+    riskBand: "HIGH",
+    costEstimate: 5800,
+    assetKey: null,
+    code: "1.1.3",
+    status: "OPEN",
+    descriptionEl: "Η περιοδική πιστοποίηση του δικτύου λήγει φέτος και δεν καλύπτεται από τη σύμβαση συντήρησης.",
+    raisedDaysAgo: 20,
+    by: "dev-admin",
+  },
 ];
 
 // ----------------------------------------------------------------- run --
 
 export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSummary> {
   const summary: MaintenanceSeedSummary = {
+    estateAreas: 0,
+    estateAssets: 0,
     maintenanceContracts: 0,
     slaSystems: 0,
     pmSchedules: 0,
@@ -460,6 +1025,104 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
     .from(schema.appUser);
   const userBySubject = new Map(users.map((u) => [u.subject, u.id]));
 
+  // ------------------------------------------- the three added estates --
+  // Before the lookups below, because an order points at these rooms and
+  // machines. A building, a floor and a room are found by their codes, an
+  // asset by (unit, Greek name) and keeps the tag it was issued.
+  for (const estate of ESTATES) {
+    const [building] = await db
+      .insert(schema.building)
+      .values({ orgUnitId: estate.orgUnitId, ...estate.building })
+      .onConflictDoUpdate({
+        target: [schema.building.orgUnitId, schema.building.code],
+        set: { nameEl: estate.building.nameEl, updatedAt: sql`now()` },
+      })
+      .returning({ id: schema.building.id });
+    for (const floor of estate.floors) {
+      const [floorRow] = await db
+        .insert(schema.floor)
+        .values({
+          buildingId: building.id,
+          orgUnitId: estate.orgUnitId,
+          code: floor.code,
+          nameEl: floor.nameEl,
+          level: floor.level,
+        })
+        .onConflictDoUpdate({
+          target: [schema.floor.buildingId, schema.floor.code],
+          set: { nameEl: floor.nameEl, level: floor.level, updatedAt: sql`now()` },
+        })
+        .returning({ id: schema.floor.id });
+      for (const room of floor.areas) {
+        await db
+          .insert(schema.area)
+          .values({ floorId: floorRow.id, orgUnitId: estate.orgUnitId, ...room })
+          .onConflictDoUpdate({
+            target: [schema.area.floorId, schema.area.code],
+            set: {
+              nameEl: room.nameEl,
+              areaType: room.areaType,
+              patientRiskGroup: room.patientRiskGroup,
+              costCentre: room.costCentre,
+              beds: room.beds,
+              updatedAt: sql`now()`,
+            },
+          });
+        summary.estateAreas += 1;
+      }
+    }
+  }
+
+  const estateAreas = await db
+    .select({ id: schema.area.id, code: schema.area.code, orgUnitId: schema.area.orgUnitId })
+    .from(schema.area);
+  const estateAreaByUnitCode = new Map(estateAreas.map((a) => [`${a.orgUnitId}:${a.code}`, a.id]));
+  for (const [index, fixtureAsset] of ESTATE_ASSETS.entries()) {
+    const codes = ESTATE_CODES[fixtureAsset.orgUnitId];
+    const [year, rest] = [Number(fixtureAsset.installed.slice(0, 4)), fixtureAsset.installed.slice(4)];
+    const values = {
+      orgUnitId: fixtureAsset.orgUnitId,
+      areaId: fixtureAsset.areaCode
+        ? (estateAreaByUnitCode.get(`${fixtureAsset.orgUnitId}:${fixtureAsset.areaCode}`) ?? null)
+        : null,
+      nameEl: fixtureAsset.nameEl,
+      assetClass: fixtureAsset.assetClass,
+      manufacturer: fixtureAsset.manufacturer,
+      model: fixtureAsset.model,
+      serialNo: `${fixtureAsset.key.toUpperCase()}-${year}`,
+      installedDate: fixtureAsset.installed,
+      commissionedDate: fixtureAsset.installed,
+      capitalCost: fixtureAsset.capitalCost.toFixed(2),
+      warrantyEnd: `${year + 3}${rest}`,
+      expectedLifeYears: fixtureAsset.lifeYears,
+      replacementYear: fixtureAsset.replacementYear,
+      replacementCostEst: fixtureAsset.replacementCostEst.toFixed(2),
+      criticality: fixtureAsset.criticality,
+      condition: fixtureAsset.condition,
+      // The CHECK says a band and a date come together or not at all.
+      conditionAssessedAt: new Date(`${fixtureAsset.installed}T09:00:00Z`),
+      system: fixtureAsset.system,
+      costCentre: codes.costCentre,
+      sapAssetNo: `${codes.sap}-${String(300001 + index)}`,
+      status: "IN_SERVICE" as const,
+    };
+    const [existing] = await db
+      .select({ id: schema.asset.id })
+      .from(schema.asset)
+      .where(and(eq(schema.asset.orgUnitId, fixtureAsset.orgUnitId), eq(schema.asset.nameEl, fixtureAsset.nameEl)))
+      .limit(1);
+    if (existing) {
+      // The tag is not in the update. It was issued once and is on a label.
+      await db.update(schema.asset).set({ ...values, updatedAt: sql`now()` }).where(eq(schema.asset.id, existing.id));
+    } else {
+      await db.insert(schema.asset).values({
+        ...values,
+        tag: sql`ecapital.allocate_asset_tag(${fixtureAsset.orgUnitId}::text, ${fixtureAsset.assetClass}::ecapital.asset_class)`,
+      });
+    }
+    summary.estateAssets += 1;
+  }
+
   const assets = await db
     .select({
       id: schema.asset.id,
@@ -471,17 +1134,14 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
     })
     .from(schema.asset);
   const assetByKey = new Map<string, (typeof assets)[number]>();
-  for (const fixtureAsset of seedAssets) {
+  for (const fixtureAsset of [...seedAssets, ...ESTATE_ASSETS]) {
     const row = assets.find(
       (a) => a.orgUnitId === fixtureAsset.orgUnitId && a.nameEl === fixtureAsset.nameEl,
     );
     if (row) assetByKey.set(fixtureAsset.key, row);
   }
 
-  const areas = await db
-    .select({ id: schema.area.id, code: schema.area.code, orgUnitId: schema.area.orgUnitId })
-    .from(schema.area);
-  const areaByUnitCode = new Map(areas.map((a) => [`${a.orgUnitId}:${a.code}`, a.id]));
+  const areaByUnitCode = estateAreaByUnitCode;
 
   // ------------------------------------------------- agreements, catalogue --
   const contractIdByUnit = new Map<string, string>();
@@ -515,10 +1175,10 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
     contractIdByUnit.set(seed.orgUnitId, row.id);
     summary.maintenanceContracts += 1;
 
-    const lines =
-      seed.orgUnitId === "nicosia-general"
-        ? fixture.responseTimes
-        : fixture.responseTimes.filter((line) => LARNACA_CODES.includes(line.code));
+    const wanted = CATALOGUE_CODES[seed.orgUnitId];
+    const lines = wanted
+      ? fixture.responseTimes.filter((line) => wanted.includes(line.code))
+      : fixture.responseTimes;
     for (const line of lines) {
       const frequencies = new Set<PmFrequency>();
       for (const key of PM_MATCH[line.code] ?? []) {
@@ -600,7 +1260,7 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
         .returning({ id: schema.pmSchedule.id });
       id = row.id;
     }
-    scheduleIdByTitle.set(seed.titleEl, id);
+    scheduleIdByTitle.set(`${seed.unit}:${seed.titleEl}`, id);
     summary.pmSchedules += 1;
   }
 
@@ -671,9 +1331,9 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
       band: system?.band ?? null,
       assetId: asset?.id ?? null,
       areaId,
-      pmScheduleId: seed.scheduleTitle ? (scheduleIdByTitle.get(seed.scheduleTitle) ?? null) : null,
+      pmScheduleId: seed.scheduleTitle ? (scheduleIdByTitle.get(`${seed.unit}:${seed.scheduleTitle}`) ?? null) : null,
       titleEl: seed.titleEl,
-      descriptionEl: null,
+      descriptionEl: seed.descriptionEl ?? null,
       calledAt,
       dueResponseAt,
       dueRestoreBaseAt,
@@ -693,6 +1353,7 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
       remedyCode: seed.codes?.[2] ?? null,
       costEstimate: seed.costEstimate === undefined ? null : seed.costEstimate.toFixed(2),
       costActual: seed.costActual === undefined ? null : seed.costActual.toFixed(2),
+      partsNoteEl: seed.partsNoteEl ?? null,
       closeoutNoteEl: seed.status === "COMPLETED" ? "Η εργασία ολοκληρώθηκε και παραδόθηκε έκθεση." : null,
       assignedToEl: seed.assignedToEl ?? null,
       raisedBy: seed.kind === "PM" ? null : by,
@@ -726,7 +1387,7 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
       id = row.id;
       ref = row.ref;
     }
-    orderIdByTitle.set(seed.titleEl, {
+    orderIdByTitle.set(`${seed.unit}:${seed.titleEl}`, {
       id,
       ref,
       calledAt,
@@ -750,11 +1411,22 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
       events.push({ kind: "PAUSED", at: new Date(calledAt.getTime() + 2 * HOUR_MS), byId: by, noteEl: seed.noteEl ?? null });
     }
     if (seed.extensionDays) {
-      events.push({ kind: "EXTENSION", at: new Date(calledAt.getTime() + 6 * HOUR_MS), byId: userBySubject.get("dev-estates-nicosia") ?? by, noteEl: `${seed.extensionDays} εργάσιμες ημέρες: ${seed.extensionReasonEl}` });
+      events.push({ kind: "EXTENSION", at: new Date(calledAt.getTime() + 6 * HOUR_MS), byId: userBySubject.get(COORDINATOR[seed.unit] ?? "dev-admin") ?? by, noteEl: `${seed.extensionDays} εργάσιμες ημέρες: ${seed.extensionReasonEl}` });
+    }
+    // A free remark on an order that is neither paused nor cancelled is said
+    // at the moment the system works again; the ones typed during the work
+    // carry their own hour.
+    if (seed.noteEl && seed.status !== "PAUSED" && seed.status !== "CANCELLED") {
+      const at = restoredAt ?? completedAt ?? calledAt;
+      events.push({ kind: "NOTE", at: new Date(at.getTime() + 60_000), byId: by, noteEl: seed.noteEl });
+    }
+    for (const [hours, text] of seed.notes ?? []) {
+      events.push({ kind: "NOTE", at: new Date(calledAt.getTime() + hours * HOUR_MS), byId: by, noteEl: text });
     }
     if (restoredAt && seed.kind !== "PM") events.push({ kind: "RESTORED", at: restoredAt, byId: by });
     if (completedAt) events.push({ kind: "COMPLETED", at: completedAt, byId: by });
     if (cancelledAt) events.push({ kind: "CANCELLED", at: cancelledAt, byId: by, noteEl: seed.noteEl ?? null });
+    events.sort((a, b) => a.at.getTime() - b.at.getTime());
     for (const event of events) {
       await db.insert(schema.workOrderEvent).values({
         workOrderId: id,
@@ -782,7 +1454,7 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
       targetProjectId = project?.id ?? null;
     }
     const sourceOrders = (seed.auto?.orderTitles ?? [])
-      .map((title) => orderIdByTitle.get(title))
+      .map((title) => orderIdByTitle.get(`${seed.unit}:${title}`))
       .filter((o): o is NonNullable<typeof o> => Boolean(o));
     const source = sourceOrders[sourceOrders.length - 1];
     const status = seed.status === "FUNDED" && !targetProjectId ? "OPEN" : seed.status;
@@ -812,7 +1484,7 @@ export async function seedMaintenanceRegister(db: Db): Promise<MaintenanceSeedSu
       status,
       targetProjectId: status === "FUNDED" ? targetProjectId : null,
       raisedBy: seed.by ? (userBySubject.get(seed.by) ?? null) : null,
-      raisedAt: source ? new Date(source.calledAt.getTime() + 24 * HOUR_MS) : new Date(now - 30 * DAY_MS),
+      raisedAt: source ? new Date(source.calledAt.getTime() + 24 * HOUR_MS) : new Date(now - (seed.raisedDaysAgo ?? 30) * DAY_MS),
       closedAt: seed.closedDaysAgo !== undefined ? new Date(now - seed.closedDaysAgo * DAY_MS) : null,
     };
     const [existing] = await db

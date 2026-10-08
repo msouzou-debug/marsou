@@ -68,6 +68,27 @@ describe("maintenance: agreements, catalogue and programme", () => {
     expect(codes.indexOf("1.2.10")).toBe(codes.indexOf("1.2.9") + 1);
   });
 
+  it("seeds an agreement, a programme and a history for Limassol, Paphos and Famagusta", async () => {
+    const token = await tokenFor(app, USERS.admin);
+    const wanted = [
+      ["limassol-general", "Α.Ο 18/25"],
+      ["paphos-general", "Α.Ο 19/25"],
+      ["famagusta-general", "Α.Ο 22/25"],
+    ];
+    for (const [unit, ref] of wanted) {
+      const list = await http().get(`/maintenance/contracts?orgUnitId=${unit}`).set(bearer(token));
+      const contract = (list.body as MaintenanceContract[]).find((c) => c.ref === ref);
+      expect(contract, unit).toBeDefined();
+      expect(contract?.roundTheClock, unit).toBe(true);
+      expect(contract?.systemsCount, unit).toBeGreaterThanOrEqual(10);
+      const schedules = await http().get(`/maintenance/schedules?maintenanceContractId=${contract?.id}`).set(bearer(token));
+      expect(schedules.status, unit).toBe(200);
+      expect((schedules.body.items ?? schedules.body).length, unit).toBeGreaterThanOrEqual(6);
+      const orders = await http().get(`/work-orders?orgUnitId=${unit}&pageSize=100`).set(bearer(token));
+      expect(orders.body.total, unit).toBeGreaterThanOrEqual(15);
+    }
+  });
+
   it("hides another unit's agreement: Larnaca's engineer sees none of Nicosia's", async () => {
     const token = await tokenFor(app, USERS.engineerLarnaca);
     const list = await http().get("/maintenance/contracts").set(bearer(token));

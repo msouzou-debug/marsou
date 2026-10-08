@@ -7,7 +7,8 @@
  * contract register on top of it (see ./seed-contracts), the site log on top
  * of that (see ./seed-site), the cost register (see ./seed-cost) and the
  * shutdown permits with their ICRA matrix (see ./seed-permits), the asset
- * register (see ./seed-assets) and maintenance (see ./seed-maintenance).
+ * register (see ./seed-assets) and maintenance (see ./seed-maintenance),
+ * which also gives Limassol, Paphos and Famagusta a small estate to work on.
  *
  *   pnpm --filter @ecapital/api seed
  *
@@ -65,6 +66,8 @@ export interface SeedSummary {
   assets: number;
   assetReadings: number;
   assetDocuments: number;
+  estateAreas: number;
+  estateAssets: number;
   maintenanceContracts: number;
   slaSystems: number;
   pmSchedules: number;
@@ -308,7 +311,8 @@ if (require.main === module) {
           `(${s.assetReadings} readings, ${s.assetDocuments} documents), ` +
           `${s.maintenanceContracts} maintenance agreements (${s.slaSystems} SLA systems, ` +
           `${s.pmSchedules} PM schedules), ${s.workOrders} work orders ` +
-          `(${s.workOrderEvents} events), ${s.backlogItems} backlog items`,
+          `(${s.workOrderEvents} events), ${s.backlogItems} backlog items ` +
+          `(${s.estateAssets} assets and ${s.estateAreas} areas of the three added units)`,
       );
     })
     .catch((error: unknown) => {
