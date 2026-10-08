@@ -338,7 +338,7 @@ sitting in the live register.
   after the release, as `administrator`:
 
   ```bash
-  sudo bash /opt/ecapital/deploy/install.sh   # only when deploy/ changed since the last install (it did on 06/10/2026: seed.sh is new)
+  sudo bash ~/ecapital-release/deploy/install.sh   # only when deploy/ changed since the last install; always from the staged checkout, never from /opt/ecapital/deploy, which is the OLD copy (08/10/2026: seed.sh was missing for exactly this reason)
   sudo -u ecapital /opt/ecapital/deploy/seed.sh
   ```
 
