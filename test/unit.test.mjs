@@ -425,3 +425,100 @@ test('οι ονομασίες ειδικοτήτων των πραγματικώ
      half-Greek nonsense */
   assert.equal(clinicKey('SOMETHING UNMAPPED'), 'SOMETHING UNMAPPED');
 });
+
+/* ---------- the 06.2026 template ----------
+   The hospital renamed its sheets and columns between 03.2026 and 06.2026 and
+   the tool stopped recognising the file altogether. These build the new shape
+   by hand — only the parts that changed — so the next rename fails here with a
+   number rather than as «δεν αναγνωρίζεται». */
+const sheet = (wb, rows, name) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+
+function juneShapeWorkbook() {
+  const wb = XLSX.utils.book_new();
+  /* «ΣΤΟΧΟΣ» became «ΣΥΝΟΨΗ», and the year headings became text */
+  sheet(wb, [
+    [],
+    ['ΣΤΑΤΙΣΤΙΚΑ ΔΕΔΟΜΕΝΑ ΓΕΝΙΚΟΥ ΝΟΣΟΚΟΜΕΙΟΥ ΛΕΥΚΩΣΙΑΣ    ΙΑΝΟΥΑΡΙΟΥ - ΙΟΥΝΙΟΥ 2026 / 2025'],
+    [null, 'Στοχος', '2026                 Νο', null, '2025                Νο', 'Μεταβολή vs 2025 %'],
+    [null, 'ΝΟ', null, '%', null, null],
+    ['Εισαγωγές Ασθενών', 26393.035, 11830, -55.17, 12445, -4.94],
+    ['Αριθμός Χειρουργικών Επεμβάσεων', 7442.54, 3354, -54.93, 3380, -0.76],
+    ['Αριθμός Χειρουργικών Επεμβάσεων - Χειρουργία Ημέρας', 1310, 1006, -23.2, 1062, -5.27],
+    ['Αριθμός Διαγνωστικών Εξετάσεων - Ακτινολογίας', 103111, 51498, -50.05, 45541, 13.08],
+    ['Αριθμός Διαγνωστικών Εξετάσεων - Βιοπαθολογίας', null, 1696974, 0, 1638398, 3.57],
+    ['Αριθμός Αιμοκαθάρσεων', 39291, 16337, -58.42, 16916, -3.42],
+  ], 'ΣΥΝΟΨΗ');
+  sheet(wb, [['Νοσηλευθέντες ασθενείς']], '2.Νοσηλευθέντες ασθενείς');
+
+  /* one sheet per revenue stream instead of one combined «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ» */
+  const stream = (name, label, rows, total) => sheet(wb, [
+    [], [`ΣΥΝΟΛΙΚΑ ΕΣΟΔΑ ΟΑΥ ${label}`],
+    ['ΚΛΙΝΙΚΗ/ΤΜΗΜΑ', '2026       Ιανουάριος - Ιούνιος      €', '2025      Ιανουάριος - Ιούνιος     €', 'Μεταβολή vs 2025'],
+    [null, null, null, '%', '€'],
+    ...rows, ['ΣΥΝΟΛΟ', ...total],
+  ], name);
+  stream('ΕΝΔΟΝΟΣ-ΚΛΙΝΙΚΕΣ ', 'ΕΙΣΑΧΘΕΝΤΩΝ', [['Παθολογία', 400000, 380000], ['Καρδιολογία', 300000, 320000]], [700000, 700000]);
+  stream('ΕΞΩΝΟΣ-ΚΛΙΝΙΚΕΣ ', 'ΕΞΩΤΕΡΙΚΩΝ', [['Παθολογία', 40000, 36000], ['Ογκολογία', 10000, 9000]], [50000, 45000]);
+  stream('ΗΜΕΡΗΣΙΕΣ ΦΡ', 'ΗΜΕΡΗΣΙΩΝ', [['Καρδιολογία', 5000, 4000]], [5000, 4000]);
+  /* …and the same three again as a second set of books, which must be ignored */
+  stream('ΕΝΔΟΝΟΣ-ΚΛΙΝΙΚΕΣ (ΛΚ)', 'ΕΙΣΑΧΘΕΝΤΩΝ', [['Παθολογία', 1, 1]], [1, 1]);
+
+  /* the P&L now carries a second copy of itself, for the previous quarter */
+  sheet(wb, [
+    [],
+    ['ΛΟΓΑΡΙΑΣΜΟΣ ΑΠΟΤΕΛΕΣΜΑΤΩΝ ΓΙΑ ΤΗΝ ΠΕΡΙΟΔΟ ΙΑΝΟΥΑΡΙΟΣ - ΙΟΥΝΙΟΣ 2026', null, null, null, null, null,
+      'ΛΟΓΑΡΙΑΣΜΟΣ ΑΠΟΤΕΛΕΣΜΑΤΩΝ ΓΙΑ ΤΗΝ ΠΕΡΙΟΔΟ ΙΑΝΟΥΑΡΙΟΣ - ΜΑΡΤΙΟΣ 2026'],
+    [null, '2026      Ιανουάριος - Ιούνιος     €', '2025      Ιανουάριος - Ιούνιος     €', null, null, null,
+      null, '2026      Ιανουάριος - Μάρτιος     €', '2025      Ιανουάριος - Μάρτιος     €'],
+    ['ΕΣΟΔΑ', null, null, null, null, null, 'ΕΣΟΔΑ'],
+    ['Ενδονοσοκομειακή Φρ. ΟΑΥ', 700000, 700000, null, null, null, 'Ενδονοσοκομειακή Φρ. ΟΑΥ', 350000, 340000],
+    ['ΣΥΝΟΛΟ ΕΣΟΔΩΝ', 755000, 749000, null, null, null, 'ΣΥΝΟΛΟ ΕΣΟΔΩΝ', 380000, 366000],
+  ], 'P & L');
+  return wb;
+}
+
+const JUNE = juneShapeWorkbook();
+
+test('το αρχείο 06.2026 αναγνωρίζεται — το φύλλο δεικτών βρίσκεται από το περιεχόμενο', () => {
+  /* «ΣΤΟΧΟΣ» μετονομάστηκε σε «ΣΥΝΟΨΗ»· με αναζήτηση κατά όνομα το αρχείο
+     απορριπτόταν ως άγνωστο, χωρίς να φταίει τίποτα στα δεδομένα του */
+  assert.equal(classify(JUNE), 'stats');
+  const J = parseStats(JUNE);
+  assert.ok(J, 'το parseStats επέστρεψε null');
+  assert.equal(J.year, 2026);
+  assert.equal(J.mN, 6, 'Ιανουάριος – Ιούνιος');
+  assert.match(J.title, /ΓΕΝΙΚΟΥ ΝΟΣΟΚΟΜΕΙΟΥ ΛΕΥΚΩΣΙΑΣ/);
+});
+
+test('οι στήλες των ετών διαβάζονται από το έτος που ονομάζουν, όχι από τη θέση τους', () => {
+  /* η επικεφαλίδα είναι κείμενο («2026   Νο») και δίπλα της υπάρχει κενή
+     στήλη· με «η πρώτη αριθμητική στήλη» κάθε μέγεθος έβγαινε το ποσοστό */
+  const J = parseStats(JUNE);
+  assert.equal(J.kpi.adm.cur, 11830);
+  assert.equal(J.kpi.adm.prev, 12445);
+  assert.equal(J.kpi.surg.cur, 3354);
+  /* η «Χειρουργία Ημέρας» είναι δική της γραμμή, όχι τα μικρά χειρουργεία */
+  assert.equal(J.kpi.dsurg.cur, 1006);
+  assert.equal(J.kpi.minor, undefined);
+  /* ονομασίες που άλλαξαν πτώση */
+  assert.equal(J.kpi.xray.cur, 51498);
+  assert.equal(J.kpi.lab.cur, 1696974);
+  assert.equal(J.kpi.dial.cur, 16337);
+});
+
+test('τα έσοδα ανά κλινική συντίθενται από τα τρία φύλλα ροών', () => {
+  const fin = parseStats(JUNE).fin;
+  const byName = Object.fromEntries(fin.revenue.rows.map(r => [r.name, r]));
+  assert.deepEqual(Object.keys(byName).sort(), ['Καρδιολογία', 'Ογκολογία', 'Παθολογία']);
+  assert.equal(byName['Παθολογία'].cur.inpatient, 400000);
+  assert.equal(byName['Παθολογία'].cur.outpatient, 40000);
+  assert.equal(byName['Παθολογία'].cur.total, 440000);
+  assert.equal(byName['Καρδιολογία'].cur.total, 305000);
+  /* τα σύνολα των φύλλων, όχι άθροισμα των γραμμών μας */
+  assert.equal(fin.revenue.totals.cur.total, 755000);
+  assert.equal(fin.revenue.totals.cur.inpatient, 700000);
+  /* και συμφωνούν με τον λογαριασμό αποτελεσμάτων της ίδιας περιόδου */
+  const pl = Object.fromEntries(fin.pl.filter(l => !l.heading).map(l => [l.label, l]));
+  assert.equal(pl['Ενδονοσοκομειακή Φρ. ΟΑΥ'].cur, fin.revenue.totals.cur.inpatient);
+  assert.equal(pl['ΣΥΝΟΛΟ ΕΣΟΔΩΝ'].cur, 755000, 'διαβάστηκε ο πίνακας της περιόδου, όχι ο διπλανός');
+});

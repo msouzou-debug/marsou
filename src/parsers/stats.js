@@ -1,6 +1,6 @@
 /* ---------- STATS workbook parser ---------- */
 import { U } from '../util.js';
-import { grid, findSheet, parseBlocks, parseAnnualTable } from '../workbook.js';
+import { grid, findSheet, findKpiSheet, parseBlocks, parseAnnualTable } from '../workbook.js';
 import { KPI_DEFS, HOSP_KEYS } from '../domain.js';
 import { parseFinancials } from './financials.js';
 
@@ -27,7 +27,7 @@ function parseBedTable(g){
 
 export function parseStats(wb){
   const S={kpi:{},dq:[],title:'',hospital:null,hospitalGr:'',year:null,mN:null};
-  const wsT=findSheet(wb,/ΣΤΟΧΟΣ/i); if(!wsT) return null;
+  const wsT=findKpiSheet(wb); if(!wsT) return null;   // «ΣΤΟΧΟΣ» έως 03.2026, «ΣΥΝΟΨΗ» από 06.2026
   const gT=grid(wsT);
   // title + period
   for(const row of gT.slice(0,5)){ for(const v of row||[]){
@@ -61,17 +61,26 @@ export function parseStats(wb){
       S.dq.push('Στη γραμμή «'+lab.trim()+'» η στήλη στόχου περιέχει κείμενο αντί για αριθμό.');
     S.kpi[def.key]={label:def.label,target,cur,prev,raw:lab.trim()};
   }
-  // KPI-specific fixes using header positions (col letters are stable in this template)
-  const hdr=gT.find(r=>r&&r.some(v=>String(v).includes('Στοχος')||String(v).includes('Στόχος')));
+  // KPI-specific fixes using header positions
+  const hdr=gT.find(r=>r&&r.some(v=>/Στ[οό]χος/i.test(String(v))));
   if(hdr){
-    const cT=hdr.findIndex(v=>/Στ[οό]χος/.test(String(v)));
-    const cCur=hdr.findIndex((v,i)=>i>cT&&U.numRaw(v)!=null);
+    const cT=hdr.findIndex(v=>/Στ[οό]χος/i.test(String(v)));
+    /* The year columns are matched on the year they name, not on «the first
+       numeric cell after the target». Two traps in the 06.2026 workbook: the
+       heading is text («2026   Νο») rather than the number 2026, and
+       U.numRaw(null) is 0 (Number(null)===0, a v1.4 quirk kept on purpose) —
+       so an empty column read as a year and every figure came out as the
+       percentage beside it. */
+    const yearOf=(v)=>{const m=String(v??'').match(/(20\d\d)/);return m?+m[1]:null;};
+    const years=hdr.map((v,i)=>({i,y:yearOf(v)})).filter(x=>x.i>cT&&x.y!=null);
+    const cCur=(S.year!=null?years.find(x=>x.y===S.year):years[0])?.i;
+    const cPrev=(S.year!=null?years.find(x=>x.y===S.year-1):years[1])?.i;
     // re-read strictly by columns
-    for(let r=0;r<gT.length;r++){
+    if(cCur!=null) for(let r=0;r<gT.length;r++){
       const row=gT[r]||[]; const lab=row.find(v=>typeof v==='string'&&v.trim().length>5);
       if(!lab) continue; const def=KPI_DEFS.find(d=>d.re.test(lab)); if(!def) continue;
       const k=S.kpi[def.key]; if(!k) continue;
-      const t=U.numRaw(row[cT]); const cu=U.numRaw(row[cCur]); const pv=U.numRaw(row[cCur+2]);
+      const t=U.numRaw(row[cT]); const cu=U.numRaw(row[cCur]); const pv=cPrev==null?null:U.numRaw(row[cPrev]);
       if(cu!=null){k.cur=cu;} if(pv!=null){k.prev=pv;} k.target=t;
     }
   }
@@ -89,7 +98,9 @@ export function parseStats(wb){
   if(sheets.surg) S.annual.surg=parseAnnualTable(grid(sheets.surg));
   /* per-clinic tables that are not monthly blocks */
   const wsMinor=findSheet(wb,/Μικρά Χειρουργ/i);
+  const wsDsurg=findSheet(wb,/Χειρουργεία Ημέρας/i);
   if(wsMinor) S.annual.minor=parseAnnualTable(grid(wsMinor));
+  if(wsDsurg) S.annual.dsurg=parseAnnualTable(grid(wsDsurg));
   const wsBeds=findSheet(wb,/Συν[οό]λο Κλιν[ώω]ν/i);   // not «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ», which is the revenue sheet
   S.beds=wsBeds?parseBedTable(grid(wsBeds)):null;
   /* the same workbook carries the ΟΑΥ revenue per clinic and the hospital P&L */

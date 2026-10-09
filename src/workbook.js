@@ -10,6 +10,27 @@ export function grid(ws){ // 2D array, 1-indexed via [r-1][c-1]
 }
 export function findSheet(wb,re){ const n=wb.SheetNames.find(s=>re.test(s)); return n?wb.Sheets[n]:null; }
 
+/* Reading thirty sheets in full just to find one header costs more than the
+   rest of the parse, so only the top rows are decoded. */
+function headRows(ws,n=8){
+  if(!ws||!ws['!ref']) return [];
+  const r=XLSX.utils.decode_range(ws['!ref']);
+  const range=XLSX.utils.encode_range({s:{r:r.s.r,c:r.s.c},e:{r:Math.min(r.e.r,r.s.r+n-1),c:r.e.c}});
+  return XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,range});
+}
+const hasTargetHeader=(ws)=>headRows(ws).some(row=>(row||[]).some(v=>/Στ[οό]χος/i.test(String(v??''))));
+
+/* The headline KPI table lived on a sheet called «ΣΤΟΧΟΣ» up to 03.2026 and on
+   «ΣΥΝΟΨΗ» from 06.2026 — same table, same columns, new name. It is found by
+   what it holds (a «Στόχος» column heading) and not by what it is called, so
+   the next rename costs nothing. */
+export function findKpiSheet(wb){
+  const named=findSheet(wb,/ΣΤΟΧΟΣ|ΣΥΝΟΨΗ/i);
+  if(hasTargetHeader(named)) return named;
+  for(const name of wb.SheetNames) if(hasTargetHeader(wb.Sheets[name])) return wb.Sheets[name];
+  return null;
+}
+
 /* ---------- generic monthly-block parser ----------
    Blocks look like:      [title row]  Παθολογία ...        Καρδιολογία ...
                           [year row ]  (Μήνας) 2019 … 2026  2019 … 2026

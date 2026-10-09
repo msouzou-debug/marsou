@@ -7,6 +7,11 @@
      ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ   Κλινική | INPATIENT OUTPATIENT DAY CARE TOTAL  (× 2 έτη)
      P&L               ΕΣΟΔΑ / ΕΞΟΔΑ, δύο στήλες ετών
      ΥΓΟΣ&ΤΑΕΠ        Υπηρεσίες Γενικού Οικονομικού Συμφέροντος, 3 έτη
+
+   From 06.2026 the hospital splits the per-clinic revenue across three sheets,
+   one per stream, and «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ» holds a historical monthly matrix
+   instead. Both shapes are read: the combined sheet first, the three streams
+   when it yields nothing.
 */
 import { U } from '../util.js';
 import { grid, findSheet } from '../workbook.js';
@@ -71,14 +76,106 @@ function revenueByClinic(ws) {
   return { rows, totals };
 }
 
+/* ---------- the 06.2026 shape: one sheet per revenue stream ----------
+   ΕΝΔΟΝΟΣ-ΚΛΙΝΙΚΕΣ · ΕΞΩΝΟΣ-ΚΛΙΝΙΚΕΣ · ΗΜΕΡΗΣΙΕΣ ΦΡ, each
+
+     ΚΛΙΝΙΚΗ/ΤΜΗΜΑ | 2026 Ιανουάριος - Ιούνιος € | 2025 Ιανουάριος - Ιούνιος € | …
+     …clinics…
+     ΣΥΝΟΛΟ        | …                           | …
+
+   The historical monthly matrices sit far to the right of the same sheets, so
+   only the first block — the one whose first column is the clinic — is read. */
+function streamByClinic(ws) {
+  if (!ws) return null;
+  const g = grid(ws);
+  for (let r = 0; r < g.length; r++) {
+    const row = g[r] || [];
+    if (!/^(ΚΛΙΝΙΚΗ|CLINIC)/i.test(String(row[0] ?? '').trim())) continue;
+    const years = [];
+    row.forEach((v, c) => {
+      if (c === 0) return;
+      const m = String(v ?? '').match(/(20\d\d)/);
+      if (m) years.push({ c, y: +m[1] });
+    });
+    if (years.length < 2 || years[0].y !== years[1].y + 1) continue;
+    const out = new Map();
+    let totals = null;
+    for (let rr = r + 1; rr < g.length; rr++) {
+      const label = typeof g[rr]?.[0] === 'string' ? g[rr][0].trim() : '';
+      if (!label) continue;
+      const cur = cash(g[rr][years[0].c]), prev = cash(g[rr][years[1].c]);
+      if (cur == null && prev == null) continue;
+      if (isTotalRow(label)) { totals = { cur, prev }; break; }
+      out.set(label, { cur, prev });
+    }
+    if (out.size) return { rows: out, totals };
+  }
+  return null;
+}
+
+const STREAM_SHEETS = [
+  ['inpatient', /^ΕΝΔΟΝΟΣ[\s-]*ΚΛΙΝΙΚΕΣ\s*$/i],
+  ['outpatient', /^ΕΞΩΝΟΣ[\s-]*ΚΛΙΝΙΚΕΣ\s*$/i],
+  ['daycare', /^ΗΜΕΡΗΣΙΕΣ\s*ΦΡ\s*$/i],
+];
+
+/* The «(ΛΚ)» copies of the same three sheets are a second set of books; the
+   anchored patterns above leave them alone. */
+function revenueFromStreams(wb) {
+  const streams = {};
+  for (const [key, re] of STREAM_SHEETS) {
+    const s = streamByClinic(findSheet(wb, re));
+    if (s) streams[key] = s;
+  }
+  const keys = Object.keys(streams);
+  if (!keys.length) return null;
+
+  const names = [];
+  for (const key of keys) for (const name of streams[key].rows.keys()) if (!names.includes(name)) names.push(name);
+  const blank = () => ({ inpatient: null, outpatient: null, daycare: null, total: 0 });
+  const rows = names.map(name => {
+    const cur = blank(), prev = blank();
+    for (const key of keys) {
+      const v = streams[key].rows.get(name);
+      if (!v) continue;
+      cur[key] = v.cur; prev[key] = v.prev;
+      cur.total += v.cur ?? 0; prev.total += v.prev ?? 0;
+    }
+    return { name, cur, prev };
+  /* a clinic that is listed in all three sheets with nothing in any of them is
+     not a clinic of this period */
+  }).filter(r => r.cur.total || r.prev.total);
+
+  const totals = { cur: blank(), prev: blank() };
+  for (const key of keys) {
+    const t = streams[key].totals;
+    if (!t) continue;
+    totals.cur[key] = t.cur; totals.prev[key] = t.prev;
+    totals.cur.total += t.cur ?? 0; totals.prev.total += t.prev ?? 0;
+  }
+  return { rows, totals: totals.cur.total ? totals : null };
+}
+
 /* P&L: label in column A, current year and previous year in the two numeric
    columns. Section headings (ΕΣΟΔΑ / ΕΞΟΔΑ) carry no figures. */
+/* A column heading *starts* with its year («2026   Ιανουάριος - Ιούνιος   €»);
+   a title ends with one («ΛΟΓΑΡΙΑΣΜΟΣ ΑΠΟΤΕΛΕΣΜΑΤΩΝ … ΙΟΥΝΙΟΣ 2026»). The
+   distinction matters from 06.2026, where the sheet carries a second copy of
+   the whole table for the previous quarter beside the first: two titles
+   ending in a year on one row, which a looser test read as the two year
+   columns and pointed the parser at the labels. */
+const yearHeading = (v) => {
+  if (typeof v === 'number') return (v >= 2015 && v <= 2035) ? v : null;
+  const m = String(v ?? '').trim().match(/^(20\d\d)\b/);
+  return m ? +m[1] : null;
+};
+
 function profitAndLoss(ws) {
   const g = grid(ws);
   let cCur = null, cPrev = null;
   for (let r = 0; r < Math.min(g.length, 8) && cCur == null; r++) {
     const years = [];
-    (g[r] || []).forEach((v, c) => { const n = U.numRaw(String(v).replace(/[^\d]/g, '')); if (n >= 2015 && n <= 2035) years.push({ c, n }); });
+    (g[r] || []).forEach((v, c) => { const y = yearHeading(v); if (y != null) years.push({ c, y }); });
     if (years.length >= 2) { cCur = years[0].c; cPrev = years[1].c; }
   }
   if (cCur == null) return null;
@@ -128,7 +225,8 @@ export function parseFinancials(wb) {
   const wsRev = findSheet(wb, /ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ/i);
   const wsPL = findSheet(wb, /^P\s*&\s*L\s*$/i);
   const wsUgos = findSheet(wb, /ΥΓΟΣ/i);
-  const revenue = wsRev ? revenueByClinic(wsRev) : null;
+  /* the combined sheet up to 03.2026, the three per-stream sheets from 06.2026 */
+  const revenue = (wsRev ? revenueByClinic(wsRev) : null) ?? revenueFromStreams(wb);
   const pl = wsPL ? profitAndLoss(wsPL) : null;
   const services = wsUgos ? ugos(wsUgos) : null;
   if (!revenue && !pl && !services) return null;
