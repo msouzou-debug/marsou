@@ -175,7 +175,7 @@ test('η SheetJS είναι καθολική, όπως και στο build', () 
 
 /* ---------- ανάλυση ανά κλινική ---------- */
 const { clinicKey } = await import('../src/domain.js');
-const { buildClinics, clinicYoY, clinicTrend, computeClinicHIO, clinicEfficiency } = await import('../src/model/clinic.js');
+const { buildClinics, clinicYoY, clinicTrend, computeClinicHIO, clinicEfficiency, CLINIC_ANNUAL } = await import('../src/model/clinic.js');
 const { parseReport, reportNotesFor } = await import('../src/parsers/report.js');
 const { zipIndex } = await import('../src/zip.js');
 const { readFileSync } = await import('node:fs');
@@ -449,6 +449,16 @@ function juneShapeWorkbook() {
     ['Αριθμός Αιμοκαθάρσεων', 39291, 16337, -58.42, 16916, -3.42],
   ], 'ΣΥΝΟΨΗ');
   sheet(wb, [['Νοσηλευθέντες ασθενείς']], '2.Νοσηλευθέντες ασθενείς');
+  /* the per-clinic annual table that replaced «Μικρά Χειρουργεία» */
+  sheet(wb, [
+    ['ΣΥΝΟΛΟ ΧΕΙΡΟΥΡΓΕΙΩΝ ΗΜΕΡΑΣ'],
+    /* six year columns, then the «Μεταβολή vs 2025 %» the real sheets carry —
+       read as a year column, it overwrote every clinic's 2025 figure */
+    ['ΚΛΙΝΙΚΗ', '2021  Νο', '2022  Νο', '2023  Νο', '2024  Νο', '2025  Νο', '2026  Νο', 'Μεταβολή vs 2025 %'],
+    [],
+    ['Παθολογία', 21, 25, 28, 30, 36, 44, 22.2],
+    ['Καρδιολογία', 9, 10, 14, 12, 15, 11, -26.7],
+  ], 'Χειρουργεία Ημέρας');
 
   /* one sheet per revenue stream instead of one combined «ΣΥΝΟΛΟ ΚΛΙΝΙΚΩΝ» */
   const stream = (name, label, rows, total) => sheet(wb, [
@@ -504,6 +514,24 @@ test('οι στήλες των ετών διαβάζονται από το έτ�
   assert.equal(J.kpi.xray.cur, 51498);
   assert.equal(J.kpi.lab.cur, 1696974);
   assert.equal(J.kpi.dial.cur, 16337);
+});
+
+test('τα χειρουργεία ημέρας μπαίνουν ως στήλη στον πίνακα των κλινικών', () => {
+  /* το φύλλο ανά κλινική «Μικρά Χειρουργεία» αντικαταστάθηκε από το
+     «Χειρουργεία Ημέρας»· είναι δικός του δείκτης, με δική του στήλη */
+  const prev = state.stats;
+  try {
+    state.stats = parseStats(JUNE);
+    const M = buildClinics();
+    const path = M.clinics.find(c => c.label === 'Παθολογία');
+    assert.equal(path.series.dsurg[2026], 44);
+    assert.equal(path.series.dsurg[2025], 36, 'η στήλη «Μεταβολή vs 2025» δεν είναι το 2025');
+    assert.equal(path.series.dsurg[2021], 21);
+    assert.equal(clinicYoY(path, 'dsurg', 2026), (44 - 36) / 36 * 100);
+    const def = CLINIC_ANNUAL.find(d => d.key === 'dsurg');
+    assert.equal(def.label, 'Χειρουργεία ημέρας');
+    assert.ok(!M.clinics.some(c => c.series.minor), 'δεν υπάρχει φύλλο μικρών χειρουργείων εδώ');
+  } finally { state.stats = prev; }
 });
 
 test('τα έσοδα ανά κλινική συντίθενται από τα τρία φύλλα ροών', () => {

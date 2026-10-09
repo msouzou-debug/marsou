@@ -33,6 +33,9 @@ export const CLINIC_INDICATORS = [
 /* indicators that come from a per-year table rather than monthly blocks */
 export const CLINIC_ANNUAL = [
   { key: 'minor', table: 'minor', label: 'Μικρά χειρουργεία', dec: 0, unit: '' },
+  /* «Χειρουργεία Ημέρας» from 06.2026 — a table of its own, not the minor
+     surgeries under a new name, so it gets its own column */
+  { key: 'dsurg', table: 'dsurg', label: 'Χειρουργεία ημέρας', dec: 0, unit: '' },
 ];
 export const REVENUE_STREAMS = [
   { key: 'inpatient',  label: 'Ενδονοσοκομειακή φροντίδα' },

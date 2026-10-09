@@ -14,7 +14,7 @@
    when it yields nothing.
 */
 import { U } from '../util.js';
-import { grid, findSheet } from '../workbook.js';
+import { grid, findSheet, yearHeading } from '../workbook.js';
 
 const isTotalRow = (label) => /^ΣΥΝΟΛ/.test(U.deacc(label).toUpperCase().trim());
 
@@ -158,17 +158,11 @@ function revenueFromStreams(wb) {
 
 /* P&L: label in column A, current year and previous year in the two numeric
    columns. Section headings (ΕΣΟΔΑ / ΕΞΟΔΑ) carry no figures. */
-/* A column heading *starts* with its year («2026   Ιανουάριος - Ιούνιος   €»);
-   a title ends with one («ΛΟΓΑΡΙΑΣΜΟΣ ΑΠΟΤΕΛΕΣΜΑΤΩΝ … ΙΟΥΝΙΟΣ 2026»). The
-   distinction matters from 06.2026, where the sheet carries a second copy of
-   the whole table for the previous quarter beside the first: two titles
-   ending in a year on one row, which a looser test read as the two year
-   columns and pointed the parser at the labels. */
-const yearHeading = (v) => {
-  if (typeof v === 'number') return (v >= 2015 && v <= 2035) ? v : null;
-  const m = String(v ?? '').trim().match(/^(20\d\d)\b/);
-  return m ? +m[1] : null;
-};
+/* The same rule as the annual tables: a column heading starts with its year
+   («2026   Ιανουάριος - Ιούνιος   €»), a title ends with one («ΛΟΓΑΡΙΑΣΜΟΣ
+   ΑΠΟΤΕΛΕΣΜΑΤΩΝ … ΙΟΥΝΙΟΣ 2026»). From 06.2026 the sheet carries a second copy
+   of the whole table beside the first, so two titles ending in a year sit on
+   one row — read as the year columns, they pointed the parser at the labels. */
 
 function profitAndLoss(ws) {
   const g = grid(ws);

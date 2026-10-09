@@ -31,6 +31,16 @@ export function findKpiSheet(wb){
   return null;
 }
 
+/* A column heading *is* its year, or *starts* with it («2026   Νο»). Anything
+   that merely mentions one is not a year column: the real sheets end with
+   «Μεταβολή vs 2025 %» and «Μεταβολή vs 2019 %», and read as year columns
+   those percentages overwrote the 2025 and 2019 figures of every clinic. */
+export const yearHeading=(v)=>{
+  if(typeof v==='number') return (v>=2015&&v<=2035)?v:null;
+  const m=String(v??'').trim().match(/^(20\d\d)\b/);
+  return m?+m[1]:null;
+};
+
 /* ---------- generic monthly-block parser ----------
    Blocks look like:      [title row]  Παθολογία ...        Καρδιολογία ...
                           [year row ]  (Μήνας) 2019 … 2026  2019 … 2026
@@ -82,7 +92,7 @@ export function parseBlocks(g){
 /* ---------- annual per-clinic table parser (top of sheets 2/6/7) ---------- */
 export function parseAnnualTable(g){
   for(let r=0;r<Math.min(g.length,12);r++){
-    const yrs=[]; (g[r]||[]).forEach((v,c)=>{const n=U.numRaw(String(v).replace(/[^\d]/g,''));if(n>=2015&&n<=2035)yrs.push({c,y:n});});
+    const yrs=[]; (g[r]||[]).forEach((v,c)=>{const y=yearHeading(v);if(y!=null)yrs.push({c,y});});
     if(yrs.length>=5){
       const rows=[]; let total=null;
       for(let rr=r+1;rr<g.length&&rr<r+45;rr++){
