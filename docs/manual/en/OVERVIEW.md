@@ -38,7 +38,7 @@ What each role sees and does in each area is set out in one table on the «Δι�
 10. **Διαχείριση (Administration).** Users, contractors, eFinance.
 11. **Οδηγοί (Guides).** The printable guides per role, this guide and the test scenarios.
 
-The «Βοήθεια» button or the `?` key opens the help for the screen you are on. EN/ΕΛ switches the language of the whole system. The unit picker at the top left filters the projects to one unit or returns to the whole of ΟΚΥπΥ.
+The «Βοήθεια» button or the `?` key opens the help for the screen you are on. EN/ΕΛ switches the language of the whole system. The unit picker at the top left filters the screen you are on to one unit or returns to the whole of ΟΚΥπΥ.
 
 ## A typical flow
 

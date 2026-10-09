@@ -105,11 +105,13 @@ describe("S18 WorkOrders", () => {
     expect(screen.queryByRole("link", { name: "Αξιολόγηση" })).not.toBeInTheDocument();
   });
 
-  it("picks several statuses at once", () => {
+  it("picks one status at a time, and a second press on it clears the filter", () => {
     const onFilters = vi.fn();
     renderList({ onFilters, filters: { ...NO_WORK_ORDER_FILTERS, status: ["OPEN"] } });
     fireEvent.click(screen.getByRole("button", { name: "Σε παύση" }));
-    expect(onFilters).toHaveBeenCalledWith(expect.objectContaining({ status: ["OPEN", "PAUSED"] }));
+    expect(onFilters).toHaveBeenCalledWith(expect.objectContaining({ status: ["PAUSED"] }));
+    fireEvent.click(screen.getByRole("button", { name: "Ανοιχτή" }));
+    expect(onFilters).toHaveBeenCalledWith(expect.objectContaining({ status: [] }));
     expect(screen.getByRole("button", { name: "Ανοιχτή" })).toHaveAttribute("aria-pressed", "true");
   });
 

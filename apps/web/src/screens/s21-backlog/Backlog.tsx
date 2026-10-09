@@ -236,7 +236,8 @@ export function Backlog(props: BacklogProps) {
             {t("screens.s21.filters.auto")}
           </label>
         </div>
-        <fieldset className="flex flex-wrap items-center gap-s-2">
+        {/* One status at a time (owner, 09/10/2026), like S18. */}
+        <fieldset role="radiogroup" className="flex flex-wrap items-center gap-s-2">
           <legend className="mb-s-1 text-fs-14 text-k-text">{t("common.status")}</legend>
           {STATUSES.map((s) => {
             const on = filters.status.includes(s);
@@ -245,7 +246,7 @@ export function Backlog(props: BacklogProps) {
                 key={s}
                 type="button"
                 aria-pressed={on}
-                onClick={() => onFilters({ ...filters, status: on ? filters.status.filter((x) => x !== s) : [...filters.status, s] })}
+                onClick={() => onFilters({ ...filters, status: on ? [] : [s] })}
                 className={`min-h-[44px] rounded-k-chip border px-s-3 text-fs-14 ${on ? "border-k-blue-deep bg-k-blue-bg text-k-ink" : "border-k-grey bg-k-white text-k-text"}`}
               >
                 {t(`backlogStatus.${s}`)}

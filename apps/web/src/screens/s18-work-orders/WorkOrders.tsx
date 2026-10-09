@@ -120,9 +120,12 @@ export function WorkOrders(props: WorkOrdersProps) {
     });
   }
 
+  // RULE (owner, 09/10/2026): one status at a time. The field stays an array
+  // because the API accepts several, but the screen offers a single pick;
+  // pressing the active chip again clears it («all statuses»).
   function toggleStatus(status: WorkOrderStatus) {
     const has = filters.status.includes(status);
-    onFilters({ ...filters, status: has ? filters.status.filter((s) => s !== status) : [...filters.status, status] });
+    onFilters({ ...filters, status: has ? [] : [status] });
   }
 
   const columns: TableColumn<WorkOrderListRow>[] = [
@@ -278,9 +281,9 @@ export function WorkOrders(props: WorkOrdersProps) {
             />
           </label>
         </div>
-        {/* RULE (task S18): status is a multi-pick — a toggle per status, so a
-            manager can ask for «Ανοιχτή + Σε παύση» at once. */}
-        <fieldset className="flex flex-wrap items-center gap-s-2">
+        {/* One status at a time (owner, 09/10/2026); the chips behave like radio
+            buttons and the active one clears on a second press. */}
+        <fieldset role="radiogroup" className="flex flex-wrap items-center gap-s-2">
           <legend className="mb-s-1 text-fs-14 text-k-text">{t("common.status")}</legend>
           {STATUS_OPTIONS.map((s) => {
             const on = filters.status.includes(s);

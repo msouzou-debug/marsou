@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { OrgUnit } from "@ecapital/shared";
 import type { Locale } from "@/i18n/config";
@@ -42,7 +42,7 @@ export interface UnitSwitcherProps {
 export function UnitSwitcher({ orgUnits, defaultUnitId, onSelect, onChange }: UnitSwitcherProps) {
   const t = useTranslations("common");
   const locale = useLocale() as Locale;
-  const router = useRouter();
+  const pathname = usePathname();
   const [, startTransition] = useTransition();
   const offersAll = orgUnits.length > 1;
   const [value, setValue] = useState(defaultUnitId ?? (offersAll ? ALL_UNITS : (orgUnits[0]?.id ?? "")));
@@ -58,7 +58,16 @@ export function UnitSwitcher({ orgUnits, defaultUnitId, onSelect, onChange }: Un
         onChange?.(unitId);
         startTransition(async () => {
           await onSelect?.(unitId);
-          router.push(unitId === ALL_UNITS ? "/" : `/projects?unit=${encodeURIComponent(unitId)}`);
+          // RULE (owner, 09/10/2026): switching the unit keeps you on the screen
+          // you are on. The cookie is already set by onSelect; the URL carries
+          // the unit for the screens that read it (projects, assets,
+          // maintenance), and a full navigation remounts the screen so every
+          // filter starts from the new unit instead of the old state.
+          const target = unitId === ALL_UNITS ? pathname : `${pathname}?unit=${encodeURIComponent(unitId)}`;
+          // A full navigation, not router.push: the list screens keep their
+          // filters in client state seeded once from the URL or the cookie,
+          // and only a fresh load reseeds them.
+          window.location.assign(target);
         });
       }}
       className="max-w-[124px] rounded-k border border-k-grey bg-k-white px-s-2 py-s-1 text-fs-14 text-k-text tablet:max-w-[320px]"
