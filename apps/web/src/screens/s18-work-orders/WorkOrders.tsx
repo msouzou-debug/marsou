@@ -35,6 +35,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type {
   MaintenanceSummary,
   OrgUnit,
@@ -75,6 +76,10 @@ export interface WorkOrdersProps {
   filters: WorkOrdersFilters;
   orgUnits: OrgUnit[];
   onFilters: (next: WorkOrdersFilters) => void;
+  /** Paging (owner, 09/10/2026): the current page, its size and the setter. Absent = everything on one page. */
+  page?: number;
+  pageSize?: number;
+  onPage?: (page: number) => void;
   onRetry?: () => void;
   onExport?: () => void;
   canRaise: boolean;
@@ -89,6 +94,11 @@ const SLA_STATE_OPTIONS: SlaState[] = ["GREEN", "AMBER", "RED", "BREACHED"];
 
 export function WorkOrders(props: WorkOrdersProps) {
   const { summary, summaryState, data, state, filters, orgUnits, onFilters, onRetry, onExport, canRaise, canViewScorecard, noPermission } = props;
+  const page = props.page ?? 1;
+  const pageSize = props.pageSize ?? Math.max(1, data?.items.length ?? 1);
+  const total = data?.total ?? 0;
+  const pageFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const pageTo = Math.min(page * pageSize, total);
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const router = useRouter();
@@ -327,6 +337,29 @@ export function WorkOrders(props: WorkOrdersProps) {
           }}
         />
       </div>
+      {(state === "default" || state === "offline") && data && props.onPage && total > pageSize && (
+        <nav aria-label={t("common.pagination", { from: pageFrom, to: pageTo, total })} className="mt-s-3 flex items-center justify-end gap-s-3">
+          <button
+            type="button"
+            onClick={() => props.onPage?.(page - 1)}
+            disabled={page <= 1}
+            aria-label={t("common.prevPage")}
+            className="min-h-[44px] min-w-[44px] rounded-k border border-k-grey p-s-1 text-k-blue-deep disabled:opacity-30"
+          >
+            <ChevronLeft size={20} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <p className="num text-fs-14 text-k-text">{t("common.pagination", { from: pageFrom, to: pageTo, total })}</p>
+          <button
+            type="button"
+            onClick={() => props.onPage?.(page + 1)}
+            disabled={pageTo >= total}
+            aria-label={t("common.nextPage")}
+            className="min-h-[44px] min-w-[44px] rounded-k border border-k-grey p-s-1 text-k-blue-deep disabled:opacity-30"
+          >
+            <ChevronRight size={20} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </nav>
+      )}
     </>
   );
 }

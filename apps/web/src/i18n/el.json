@@ -26,7 +26,10 @@
     "months": "{count} μήνες",
     "status": "Κατάσταση",
     "condition": "Φυσική κατάσταση",
-    "allOkypy": "ΟΚΥπΥ — όλες οι μονάδες"
+    "allOkypy": "ΟΚΥπΥ — όλες οι μονάδες",
+    "pagination": "{from}–{to} από {total}",
+    "prevPage": "Προηγούμενη σελίδα",
+    "nextPage": "Επόμενη σελίδα"
   },
   "buttons": {
     "save": "Αποθήκευση",

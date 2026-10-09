@@ -26,7 +26,10 @@
     "months": "{count} mo",
     "status": "Status",
     "condition": "Condition",
-    "allOkypy": "ΟΚΥπΥ — all units"
+    "allOkypy": "ΟΚΥπΥ — all units",
+    "pagination": "{from}–{to} of {total}",
+    "prevPage": "Previous page",
+    "nextPage": "Next page"
   },
   "buttons": {
     "save": "Save",

@@ -5,7 +5,7 @@ This screen lists the work orders of your units, corrective, preventive and stat
 ## Steps
 
 1. Read the six tiles at the top: open orders, response overdue, restore overdue, preventive due this month, preventive overdue, and the unfunded backlog amount.
-2. Filter by unit, kind, band, contract timers or text. Under "Status" you pick one at a time. Press it again to see every status.
+2. Filter by unit, kind, band, contract timers or text. Under "Status" you pick one at a time. Press it again to see every status. The list shows 50 orders a page; the arrows under the table turn the page.
 3. Read each order's timers. "Left" counts from the time of the call. "On time" or "Late" means the timer has stopped. A preventive order has only its programme date.
 4. The "Escalated" mark means the response time passed with no response from the contractor.
 5. Press "New call" to log a fault, or open a row to see the order.

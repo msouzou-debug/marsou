@@ -23,8 +23,18 @@ export interface WorkOrdersScreenProps {
   initialFilters?: Partial<WorkOrdersFilters>;
 }
 
+const PAGE_SIZE = 50;
+
 export function WorkOrdersScreen({ orgUnits, roles, noPermission, initialFilters }: WorkOrdersScreenProps) {
   const [filters, setFilters] = useState<WorkOrdersFilters>({ ...NO_WORK_ORDER_FILTERS, ...initialFilters });
+  // RULE (owner, 09/10/2026): the list pages, 50 rows at a time, newest call
+  // first; a filter change goes back to page 1 so a stale page number never
+  // shows an empty page of a shorter result.
+  const [page, setPage] = useState(1);
+  function changeFilters(next: WorkOrdersFilters) {
+    setFilters(next);
+    setPage(1);
+  }
   const online = useOnlineStatus();
   const summary = useMaintenanceSummary(filters.unit || undefined);
   const { data, error, isLoading, refetch } = useWorkOrders({
@@ -37,8 +47,8 @@ export function WorkOrdersScreen({ orgUnits, roles, noPermission, initialFilters
     // RULE (task S18): newest call first.
     sort: "calledAt",
     dir: "desc",
-    page: 1,
-    pageSize: 100,
+    page,
+    pageSize: PAGE_SIZE,
   });
 
   let state: WorkOrdersScreenState;
@@ -58,7 +68,10 @@ export function WorkOrdersScreen({ orgUnits, roles, noPermission, initialFilters
       state={state}
       filters={filters}
       orgUnits={orgUnits}
-      onFilters={setFilters}
+      onFilters={changeFilters}
+      page={page}
+      pageSize={PAGE_SIZE}
+      onPage={setPage}
       onRetry={() => {
         void refetch();
         void summary.refetch();

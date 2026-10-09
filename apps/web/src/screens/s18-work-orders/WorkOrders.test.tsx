@@ -137,4 +137,23 @@ describe("S18 WorkOrders", () => {
     renderList({ state: "empty", data: { items: [], total: 0 } });
     expect(screen.getByText("Δεν υπάρχουν εντολές εργασίας με αυτά τα κριτήρια.")).toBeInTheDocument();
   });
+
+  // Paging (owner, 09/10/2026): 50 rows a page, the counter reads
+  // «from–to από total», the arrows step and stop at the ends.
+  it("pages the list when there is more than one page", () => {
+    const onPage = vi.fn();
+    const list = buildWorkOrderList();
+    renderList({ data: { items: list.items, total: 109 }, page: 2, pageSize: 50, onPage });
+    expect(screen.getByText("51–100 από 109")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Επόμενη σελίδα" }));
+    expect(onPage).toHaveBeenCalledWith(3);
+    fireEvent.click(screen.getByRole("button", { name: "Προηγούμενη σελίδα" }));
+    expect(onPage).toHaveBeenCalledWith(1);
+  });
+
+  it("shows no pager when everything fits on one page", () => {
+    const list = buildWorkOrderList();
+    renderList({ data: { items: list.items, total: list.items.length }, page: 1, pageSize: 50, onPage: vi.fn() });
+    expect(screen.queryByRole("button", { name: "Επόμενη σελίδα" })).not.toBeInTheDocument();
+  });
 });
