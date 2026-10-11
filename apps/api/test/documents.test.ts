@@ -243,9 +243,9 @@ describe("filing documents with eArchive", () => {
     const refused = await request(app.getHttpServer())
       .post(`/contracts/${contract.id}/documents`)
       .set(bearer(token))
-      .attach("file", Buffer.from("PK\u0003\u0004"), {
-        filename: "sxedia.zip",
-        contentType: "application/zip",
+      .attach("file", Buffer.from("AC1027"), {
+        filename: "sxedia.dwg",
+        contentType: "image/vnd.dwg",
       });
     expect(refused.status).toBe(422);
     expect(refused.body.key).toBe("errors.documentMimeRejected");

@@ -548,8 +548,16 @@ The legacy eFinance codes the middle column used to hold — `PAP`, `ARC`,
 - **Callback:** `POST 127.0.0.1:5015/api/v1/dms/events`, events
   `protocol.deleted`, `legal_hold.set`, `legal_hold.cleared`.
 - **Limits:** 50 MB per file, 200 MB per request, 20 files per request.
-- **MIME whitelist:** PDF, office documents, images, text, email. No DWG,
-  no ZIP.
+- **MIME whitelist:** PDF, office documents, images, text, email. No DWG.
+  ZIP accepted since eArchive's build of 11/10/2026: eArchive opens it and
+  files the documents inside (the first becomes the main document, the rest
+  attachments, folder names kept, nested archives three levels deep); the
+  archive itself is not stored. Every file inside must be on the whitelist
+  or the item is refused `415 MIME_REJECTED` naming archive and file;
+  locked `400 ARCHIVE_LOCKED`, empty `400 ARCHIVE_EMPTY`, damaged
+  `400 ARCHIVE_UNREADABLE`, oversized `413 ARCHIVE_TOO_LARGE` (over 50 MB a
+  document, 200 MB in all, 200 documents, or 4 GB). All are defects in the
+  thing sent: eCapital marks the item FAILED and does not resend it.
 
 ### Built, 19/09/2026 — see ADR-0023
 

@@ -6151,6 +6151,7 @@
                     "type": "string",
                     "enum": [
                       "application/pdf",
+                      "application/zip",
                       "text/html",
                       "text/plain",
                       "text/csv",
@@ -6461,6 +6462,7 @@
                     "type": "string",
                     "enum": [
                       "application/pdf",
+                      "application/zip",
                       "text/html",
                       "text/plain",
                       "text/csv",
@@ -7028,6 +7030,7 @@
                     "type": "string",
                     "enum": [
                       "application/pdf",
+                      "application/zip",
                       "text/html",
                       "text/plain",
                       "text/csv",
@@ -7595,6 +7598,7 @@
                     "type": "string",
                     "enum": [
                       "application/pdf",
+                      "application/zip",
                       "text/html",
                       "text/plain",
                       "text/csv",
@@ -16705,6 +16709,7 @@
                     "type": "string",
                     "enum": [
                       "application/pdf",
+                      "application/zip",
                       "text/html",
                       "text/plain",
                       "text/csv",

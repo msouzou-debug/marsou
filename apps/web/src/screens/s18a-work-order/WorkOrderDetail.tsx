@@ -392,7 +392,7 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*,application/pdf,application/zip,.zip"
                   capture="environment"
                   aria-label={t("screens.s18detail.uploadLabel")}
                   className="sr-only"

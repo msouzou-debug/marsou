@@ -81,15 +81,15 @@ describe("the money spelling", () => {
 
 describe("the MIME whitelist", () => {
   it("takes what eArchive takes", () => {
-    for (const mime of ["application/pdf", "image/jpeg", "message/rfc822", "text/csv"]) {
+    // application/zip since eArchive's build of 11/10/2026: it opens the archive.
+    for (const mime of ["application/pdf", "image/jpeg", "message/rfc822", "text/csv", "application/zip"]) {
       expect(isAllowedMime(mime), mime).toBe(true);
     }
   });
 
-  // The brief says it twice: no DWG and no ZIP.
-  it("refuses a drawing and a bundle", () => {
+  // No DWG, and nothing eArchive cannot read.
+  it("refuses a drawing and the formats eArchive does not store", () => {
     for (const mime of [
-      "application/zip",
       "image/vnd.dwg",
       "application/acad",
       "application/octet-stream",

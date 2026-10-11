@@ -26,11 +26,20 @@ export const MAX_FILES = 20;
 
 /**
  * The whitelist, verbatim: PDF, office documents, images, text, email.
- * No DWG and no ZIP — a drawing goes in as a PDF and a bundle goes in as its
- * files, because an archive that cannot read what it holds is a cupboard.
+ * No DWG — a drawing goes in as a PDF.
+ *
+ * ZIP, from eArchive's build of 11/10/2026: eArchive opens an archive and
+ * files the documents inside it; the archive itself is not kept. Every file
+ * inside must be of a type on this list, or the whole item comes back
+ * `415 MIME_REJECTED` naming the archive and the file. A locked, empty,
+ * unreadable or oversized archive is refused with its own code (ARCHIVE_*);
+ * all of them are 4xx, so the outbox marks the item FAILED and never resends
+ * the same bytes (ADR-0023 addendum). The hash and size we declare are
+ * those of the archive as sent.
  */
 export const MIME_WHITELIST = [
   "application/pdf",
+  "application/zip",
   "text/html",
   "text/plain",
   "text/csv",

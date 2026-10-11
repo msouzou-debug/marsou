@@ -253,3 +253,15 @@ eCapital reads first.
   19/09/2026 in the route, the `meta` shape or the error codes, this ADR is
   superseded by one recording what was actually built against, rather than
   quietly edited.
+
+## Addendum, 11/10/2026 — ZIP files
+
+eArchive's build of 11/10/2026 accepts `application/zip` on the ingest
+route: it opens the archive and files the documents inside, and does not
+keep the archive. `MIME_WHITELIST` gains `application/zip`; nothing else
+in this ADR changes. The refusals eArchive added (`415 MIME_REJECTED`
+naming the archive and the file, `400 ARCHIVE_LOCKED`, `ARCHIVE_EMPTY`,
+`ARCHIVE_UNREADABLE`, `413 ARCHIVE_TOO_LARGE`) are all 4xx, so the sender
+already does what eArchive asks: FAILED with eArchive's own code, the
+administrator told, the same bytes never sent again. The hash and size we
+declare are those of the archive as sent, exactly as for any other file.
