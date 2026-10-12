@@ -19,8 +19,9 @@ export interface Photo {
  *
  * | Prop      | Type       | Notes                                             |
  * |-----------|------------|-----------------------------------------------------|
- * | photos    | Photo[]    | Newest-last is fine; capture button is always shown |
- * | onCapture | () => void | Fired when the capture button is pressed            |
+ * | photos    | Photo[]    | Newest-last is fine                                 |
+ * | onCapture | () => void?| Fired when the capture button is pressed; left out,  |
+ * |           |            | no button (a reader who may not add photos, S18a)   |
  * | loading   | boolean    | Shows skeleton thumbnails after the capture button  |
  *
  * Tap on a thumbnail opens a lightbox (native `<dialog>`) with previous/next,
@@ -32,7 +33,7 @@ export interface Photo {
  */
 export interface PhotoStripProps {
   photos: Photo[];
-  onCapture: () => void;
+  onCapture?: () => void;
   loading?: boolean;
 }
 
@@ -71,14 +72,16 @@ export function PhotoStrip({ photos, onCapture, loading = false }: PhotoStripPro
   return (
     <div>
       <div className="flex gap-s-3 overflow-x-auto pb-s-2">
-        <button
-          type="button"
-          onClick={onCapture}
-          aria-label={t("components.photo-strip.capture")}
-          className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-k border border-k-grey bg-k-surface text-k-blue-deep"
-        >
-          <Camera size={24} strokeWidth={1.5} aria-hidden="true" />
-        </button>
+        {onCapture && (
+          <button
+            type="button"
+            onClick={onCapture}
+            aria-label={t("components.photo-strip.capture")}
+            className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-k border border-k-grey bg-k-surface text-k-blue-deep"
+          >
+            <Camera size={24} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        )}
 
         {/* RULE: when there are no photos, only the capture button renders
             visibly (UI instructions §6 empty state) — no message, no

@@ -479,6 +479,8 @@ export const WorkOrderEvent = z.object({
   /** A photo or the contractor's report, filed with eArchive like an asset's papers. */
   documentId: z.string().nullable(),
   documentTitle: z.string().nullable(),
+  /** What the file is, so a screen can show a photo as a photo and open the rest. */
+  documentMime: z.string().nullable(),
 });
 export type WorkOrderEvent = z.infer<typeof WorkOrderEvent>;
 

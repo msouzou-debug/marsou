@@ -48,7 +48,8 @@
     "edit": "Επεξεργασία",
     "changePhase": "Αλλαγή φάσης",
     "downloadExcel": "Λήψη Excel",
-    "printPdf": "Εκτύπωση / PDF"
+    "printPdf": "Εκτύπωση / PDF",
+    "open": "Άνοιγμα"
   },
   "forms": {
     "required": "Συμπληρώστε αυτό το πεδίο.",

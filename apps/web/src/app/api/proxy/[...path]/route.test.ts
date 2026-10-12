@@ -198,3 +198,32 @@ describe("proxy route — binary response passthrough (xlsx export)", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 });
+
+// S17, S18a — a filed document's `GET /documents/:id/content`.
+describe("proxy route — document content passthrough", () => {
+  it("forwards a filed text file as bytes, with the API's nosniff, sandbox and cache headers", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
+    const html = "<script>alert(1)</script>";
+    const upstream = new Response(html, {
+      status: 200,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "content-disposition": "attachment; filename*=UTF-8''%CE%A3%CE%B7%CE%BC%CE%B5%CE%AF%CF%89%CF%83%CE%B7.html",
+        "cache-control": "private, max-age=300",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "sandbox; default-src 'none'",
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstream));
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/documents/d-1/content"));
+    const res = await GET(req, context(["documents", "d-1", "content"]));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename\*=UTF-8''/);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=300");
+    expect(new TextDecoder().decode(await res.arrayBuffer())).toBe(html);
+  });
+});

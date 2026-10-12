@@ -165,6 +165,43 @@ describe("S18a WorkOrderDetail", () => {
     expect(screen.getAllByText("Πίνακας.jpg").length).toBeGreaterThan(0);
   });
 
+  // A filed image is a thumbnail through `GET /documents/:id/content`; a PDF
+  // stays a line, with «Άνοιγμα» to open it in a new tab.
+  it("shows a filed image in the strip and opens a filed PDF in a new tab", () => {
+    renderDetail({
+      order: buildWorkOrderDetail({
+        events: [
+          buildWorkOrderEvent(),
+          buildWorkOrderEvent({ id: "ev-11", kind: "PHOTO", documentId: "doc-img", documentTitle: "Διαρροή στον πίνακα", documentMime: "image/jpeg" }),
+          buildWorkOrderEvent({ id: "ev-12", kind: "PHOTO", documentId: "doc-pdf", documentTitle: "Έκθεση αναδόχου", documentMime: "application/pdf" }),
+        ],
+      }),
+    });
+    const card = screen.getByRole("heading", { name: "Φωτογραφίες και έγγραφα" }).closest("section")!;
+    const img = within(card).getByRole("img", { name: "Διαρροή στον πίνακα" });
+    expect(img.getAttribute("src")).toMatch(/\/documents\/doc-img\/content$/);
+
+    const open = within(card).getByRole("link", { name: /Άνοιγμα/ });
+    expect(open).toHaveAttribute("href", "/api/proxy/documents/doc-pdf/content");
+    expect(open).toHaveAttribute("target", "_blank");
+    expect(open).toHaveAttribute("rel", "noopener");
+    expect(within(card).getByText("Έκθεση αναδόχου", { selector: "span.text-k-ink" })).toBeInTheDocument();
+    // The image is not also a line with a link.
+    expect(within(card).getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("shows filed images to a reader who may not add photos, without the camera", () => {
+    renderDetail({
+      canWork: false,
+      order: buildWorkOrderDetail({
+        events: [buildWorkOrderEvent({ id: "ev-11", kind: "PHOTO", documentId: "doc-img", documentTitle: "Διαρροή στον πίνακα", documentMime: "image/png" })],
+      }),
+    });
+    const card = screen.getByRole("heading", { name: "Φωτογραφίες και έγγραφα" }).closest("section")!;
+    expect(within(card).getByRole("img", { name: "Διαρροή στον πίνακα" })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Λήψη φωτογραφίας" })).not.toBeInTheDocument();
+  });
+
   it("sends a backlog item with the band and cost", async () => {
     const props = renderDetail();
     const card = screen.getByRole("heading", { name: "Στις εκκρεμότητες" }).closest("section")!;

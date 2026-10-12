@@ -124,4 +124,21 @@ describe("S19 WorkOrderRun", () => {
     fireEvent.change(input, { target: { files: [file] } });
     await waitFor(() => expect(props.onUpload).toHaveBeenCalledWith(file, "panel.jpg"));
   });
+
+  // The mock order carries one filed JPEG (doc-1): it is in the strip, and a
+  // photo taken now that was filed as the same document is not shown twice.
+  it("shows the order's filed images after this session's photos, once each", async () => {
+    const props = renderRun({
+      onUpload: vi.fn().mockResolvedValue({ ...buildWorkOrderDetail().events[2]!, id: "ev-new", documentId: "doc-new" }),
+    });
+    const filed = screen.getByRole("img", { name: "Πίνακας ελέγχου ανελκυστήρα" });
+    expect(filed.getAttribute("src")).toBe("/api/proxy/documents/doc-1/content");
+
+    const file = new File(["x"], "leak.jpg", { type: "image/jpeg" });
+    const input = screen.getAllByLabelText("Λήψη φωτογραφίας").find((el) => el.tagName === "INPUT")!;
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => expect(props.onUpload).toHaveBeenCalled());
+    const imgs = await screen.findAllByRole("img");
+    expect(imgs.map((i) => i.getAttribute("alt"))).toEqual(["leak.jpg", "Πίνακας ελέγχου ανελκυστήρα"]);
+  });
 });

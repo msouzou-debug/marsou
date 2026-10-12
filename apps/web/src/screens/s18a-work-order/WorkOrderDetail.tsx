@@ -18,7 +18,7 @@
  * | onTransition     | (body) => Promise<void>       | POST /work-orders/:id/transition                             |
  * | onPatch          | (patch) => Promise<void>      | PATCH /work-orders/:id                                       |
  * | onNote           | (noteEl) => Promise<void>     | POST /work-orders/:id/notes                                  |
- * | onUpload         | (file, title) => Promise<void>| POST /work-orders/:id/documents (multipart)                  |
+ * | onUpload         | (file, title) => Promise<WorkOrderEvent \| void> | POST /work-orders/:id/documents (multipart); the event names the filed document |
  * | onToBacklog      | (body) => Promise<void>       | POST /work-orders/:id/backlog                                |
  *
  * RULE (contract `WORK_ORDER_TRANSITIONS`): the action buttons are exactly
@@ -29,8 +29,10 @@
  * and moves only the restore deadline; the hint says the contract's 5/15.
  *
  * Photos: the API files each photo with eArchive (ADR-0031 §11) and keeps
- * no URL of its own, so the strip shows the photos taken in this session
- * (from the file itself) and the list under it names every filed one.
+ * an operational copy, served by `GET /documents/:id/content`. The strip
+ * shows the photos taken in this session (from the file itself) first, then
+ * every filed image through that route; a filed PDF, zip or office file is
+ * a line in the list under it, with «Άνοιγμα» to open it in a new tab.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -48,16 +50,19 @@ import {
   type RiskBand,
   type WorkOrderAction,
   type WorkOrderDetail as WorkOrderDetailType,
+  type WorkOrderEvent,
   type WorkOrderPatch,
   type WorkOrderTransition,
 } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
-import { PhotoStrip, type Photo } from "@/components/photo-strip";
+import { PhotoStrip } from "@/components/photo-strip";
 import { Timeline } from "@/components/timeline";
+import { documentContentHref } from "@/data/queries";
 import { formatDateTime, formatEURorDash } from "@/lib/format";
 import { BandChip } from "@/screens/s18-work-orders/BandChip";
 import { EscalatedMark, PmDueChip, WorkOrderTimer } from "@/screens/s18-work-orders/WorkOrderTimer";
 import { availableActions, CAUSE_CODES, FAILURE_CODES, isClosed, REMEDY_CODES } from "./actions";
+import { filedPhotos, isImageMime, type LocalPhoto } from "./filedPhotos";
 import { TransitionDialog } from "./TransitionDialog";
 
 export type WorkOrderDetailState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -72,7 +77,7 @@ export interface WorkOrderDetailProps {
   onTransition: (body: WorkOrderTransition) => Promise<void>;
   onPatch: (patch: WorkOrderPatch) => Promise<void>;
   onNote: (noteEl: string) => Promise<void>;
-  onUpload: (file: File, titleEl: string) => Promise<void>;
+  onUpload: (file: File, titleEl: string) => Promise<WorkOrderEvent | void>;
   onToBacklog: (body: BacklogCreate) => Promise<void>;
 }
 
@@ -133,12 +138,12 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
   const [noteError, setNoteError] = useState<string | undefined>();
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
+  const [localPhotos, setLocalPhotos] = useState<LocalPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | undefined>();
 
   // Object URLs for this session's photos are released when the page goes.
-  const photosRef = useRef<Photo[]>([]);
+  const photosRef = useRef<LocalPhoto[]>([]);
   useEffect(() => {
     photosRef.current = localPhotos;
   }, [localPhotos]);
@@ -198,9 +203,14 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
     setUploading(true);
     setUploadError(undefined);
     try {
-      await onUpload(file, file.name);
-      const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
-      setLocalPhotos((prev) => [...prev, { id: `${Date.now()}-${file.name}`, url, caption: file.name, timestamp: new Date() }]);
+      const event = await onUpload(file, file.name);
+      // A PDF or a zip is not a thumbnail: it shows in the list once the
+      // order is read back, with «Άνοιγμα».
+      if (isImageMime(file.type)) {
+        const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
+        const documentId = event ? event.documentId : null;
+        setLocalPhotos((prev) => [...prev, { id: `${Date.now()}-${file.name}`, url, caption: file.name, timestamp: new Date(), documentId }]);
+      }
     } catch (e) {
       setUploadError(errorText(e));
     } finally {
@@ -209,7 +219,8 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
     }
   }
 
-  const filed = order.events.filter((e) => e.kind === "PHOTO" && e.documentTitle);
+  const filed = filedPhotos(order.events, localPhotos);
+  const strip = [...localPhotos, ...filed.images];
 
   return (
     <>
@@ -388,7 +399,7 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
           <Card title={t("screens.s18detail.photosTitle")}>
             {writable ? (
               <>
-                <PhotoStrip photos={localPhotos} onCapture={() => fileRef.current?.click()} loading={uploading} />
+                <PhotoStrip photos={strip} onCapture={() => fileRef.current?.click()} loading={uploading} />
                 <input
                   ref={fileRef}
                   type="file"
@@ -402,26 +413,41 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
                   }}
                 />
               </>
-            ) : null}
+            ) : (
+              strip.length > 0 && <PhotoStrip photos={strip} />
+            )}
             {uploadError && (
               <p role="alert" className="mt-s-2 text-fs-14 text-k-red">
                 {uploadError}
               </p>
             )}
-            {filed.length === 0 ? (
+            {filed.images.length === 0 && filed.others.length === 0 && localPhotos.length === 0 ? (
               <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s18detail.photosEmpty")}</p>
-            ) : (
+            ) : filed.others.length > 0 ? (
               <ul className="mt-s-3 grid gap-s-2">
-                {filed.map((e) => (
+                {filed.others.map((e) => (
                   <li key={e.id} className="flex flex-wrap justify-between gap-s-2 border-b border-k-grey pb-s-2 text-fs-14">
-                    <span className="text-k-ink">{e.documentTitle}</span>
+                    <span className="flex flex-wrap items-baseline gap-s-2">
+                      <span className="text-k-ink">{e.documentTitle}</span>
+                      {e.documentId && (
+                        <a
+                          href={documentContentHref(e.documentId)}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-k-blue-deep underline"
+                        >
+                          {t("buttons.open")}
+                          <span className="sr-only"> {e.documentTitle}</span>
+                        </a>
+                      )}
+                    </span>
                     <span className="num text-k-text">
                       {e.byName} · {formatDateTime(e.at)}
                     </span>
                   </li>
                 ))}
               </ul>
-            )}
+            ) : null}
           </Card>
 
           <Card title={t("screens.s18detail.notesTitle")}>

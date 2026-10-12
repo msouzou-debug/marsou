@@ -48,7 +48,8 @@
     "edit": "Edit",
     "changePhase": "Change phase",
     "downloadExcel": "Download Excel",
-    "printPdf": "Print / PDF"
+    "printPdf": "Print / PDF",
+    "open": "Open"
   },
   "forms": {
     "required": "Fill in this field.",

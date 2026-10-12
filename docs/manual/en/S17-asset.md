@@ -7,7 +7,7 @@ This record shows one asset's details: its identity, its whole-life cost, its co
 1. See the identity facts, the acquisition cost, the maintenance to date and the replacement estimate at the top.
 2. Press "Record a condition" to log a new condition assessment.
 3. Add a reading (for example run hours) from the "Readings" section.
-4. Upload a document (a manual, a certificate, a photo) from "Documents".
+4. Upload a document (a manual, a certificate, a photo) from "Documents". Every document in the list opens in a new tab with "Open"; photos and PDFs show there, other files are saved to the computer.
 5. Press "Print label" to print the asset's QR label again.
 
 ## What can go wrong

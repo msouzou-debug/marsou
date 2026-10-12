@@ -51,8 +51,11 @@ export function useWorkOrderWrites(workOrderId: string, refetch: () => Promise<u
       const form = new FormData();
       form.set("file", file);
       if (titleEl) form.set("titleEl", titleEl);
-      await apiMutateMultipart(`${base}/documents`, form, WorkOrderEvent);
+      const event = await apiMutateMultipart(`${base}/documents`, form, WorkOrderEvent);
       await after();
+      // The event names the filed document, so the page can tell a photo it
+      // already shows from the session's own file apart from its filed twin.
+      return event;
     },
     async toBacklog(body: BacklogCreate) {
       await apiMutate(`${base}/backlog`, "POST", body, BacklogItem);

@@ -15,7 +15,7 @@
  * | unitName    | string?                   | First crumb of the location line.                            |
  * | canWork     | boolean                   | `canWorkWorkOrder` — the bar and the camera.                 |
  * | onTransition| (body) => Promise<void>   | POST /work-orders/:id/transition                             |
- * | onUpload    | (file, title) => Promise<void> | POST /work-orders/:id/documents                         |
+ * | onUpload    | (file, title) => Promise<WorkOrderEvent \| void> | POST /work-orders/:id/documents                |
  *
  * RULE (UI instructions §5 S19, task S19): the bar shows only actions the
  * order can take now, out of Έναρξη · Συνέχιση · Παύση · Αποκατάσταση ·
@@ -30,17 +30,20 @@
  * write control is disabled then, with the reason in its title.
  * The checklist ticks are this screen's own state: the contract has no
  * per-line record, so they are a memory aid, not a record (said on screen).
+ * The strip shows this session's photos first, then the order's filed
+ * images through `GET /documents/:id/content` (`filedPhotos`, as on S18a).
  */
 import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Camera, ChevronLeft } from "lucide-react";
-import type { WorkOrderAction, WorkOrderDetail, WorkOrderTransition } from "@ecapital/shared";
+import type { WorkOrderAction, WorkOrderDetail, WorkOrderEvent, WorkOrderTransition } from "@ecapital/shared";
 import { OfflineChip } from "@/components/offline-chip";
-import { PhotoStrip, type Photo } from "@/components/photo-strip";
+import { PhotoStrip } from "@/components/photo-strip";
 import { BandChip } from "@/screens/s18-work-orders/BandChip";
 import { PmDueChip, WorkOrderTimer } from "@/screens/s18-work-orders/WorkOrderTimer";
 import { availableActions, isClosed } from "@/screens/s18a-work-order/actions";
+import { filedPhotos, type LocalPhoto } from "@/screens/s18a-work-order/filedPhotos";
 import { TransitionDialog } from "@/screens/s18a-work-order/TransitionDialog";
 
 export type WorkOrderRunState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -53,7 +56,7 @@ export interface WorkOrderRunProps {
   onRetry?: () => void;
   noPermission: ReactNode;
   onTransition: (body: WorkOrderTransition) => Promise<void>;
-  onUpload: (file: File, titleEl: string) => Promise<void>;
+  onUpload: (file: File, titleEl: string) => Promise<WorkOrderEvent | void>;
 }
 
 /** The actions S19's bar may show, in the order a technician meets them. */
@@ -72,7 +75,7 @@ export function WorkOrderRun({ order, state, unitName, canWork, onRetry, noPermi
   const [dialog, setDialog] = useState<WorkOrderAction | null>(null);
   const [busy, setBusy] = useState<WorkOrderAction | null>(null);
   const [error, setError] = useState<string | undefined>();
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -118,9 +121,10 @@ export function WorkOrderRun({ order, state, unitName, canWork, onRetry, noPermi
     setUploading(true);
     setError(undefined);
     try {
-      await onUpload(file, file.name);
+      const event = await onUpload(file, file.name);
       const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
-      setPhotos((prev) => [...prev, { id: `${Date.now()}-${file.name}`, url, caption: file.name, timestamp: new Date() }]);
+      const documentId = event ? event.documentId : null;
+      setPhotos((prev) => [...prev, { id: `${Date.now()}-${file.name}`, url, caption: file.name, timestamp: new Date(), documentId }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -207,7 +211,7 @@ export function WorkOrderRun({ order, state, unitName, canWork, onRetry, noPermi
 
       <section className="mt-s-5">
         <h2 className="mb-s-2 text-fs-16 font-bold text-k-blue-deep">{t("screens.s19.photosTitle")}</h2>
-        <PhotoStrip photos={photos} onCapture={canWork && !offline ? camera : () => undefined} loading={uploading} />
+        <PhotoStrip photos={[...photos, ...filedPhotos(order.events, photos).images]} onCapture={canWork && !offline ? camera : () => undefined} loading={uploading} />
         <input
           ref={fileRef}
           type="file"

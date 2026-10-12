@@ -934,6 +934,15 @@ export function reportExportHref(key: ReportKey, query: ReportQuery): string {
   return `/api/proxy/reports/${REPORT_SLUG[key]}.xlsx${qs ? `?${qs}` : ""}`;
 }
 
+/**
+ * A filed document's bytes (`GET /documents/:id/content`), for an `<img>` or
+ * an «Άνοιγμα» link: a navigation through the proxy like the xlsx downloads,
+ * so the token stays on the server and the row policy decides what opens.
+ */
+export function documentContentHref(id: string): string {
+  return `/api/proxy/documents/${encodeURIComponent(id)}/content`;
+}
+
 // S23 index.
 export function useReportCatalogue() {
   return useQuery({

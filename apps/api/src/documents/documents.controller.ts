@@ -4,13 +4,24 @@ import {
   HttpCode,
   Param,
   Post,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
   Body,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
+import type { Response } from "express";
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
@@ -156,6 +167,53 @@ export class DocumentsController {
   variationDocuments(@Param("id") id: string): Promise<DocumentRecord[]> {
     return this.documents.listFor("variation", id);
   }
+
+  /**
+   * The bytes of a filed document, for the preview on S17 and S18a: a photo
+   * in the strip, anything else in a new tab. No `@Needs`: reading a document
+   * follows the row policy like every other document read (ADR-0010), so one
+   * in a unit the caller may not read answers 404.
+   *
+   * `inline` so a photo or a PDF opens in the browser instead of landing in
+   * the downloads folder; the name is the Greek title, RFC 5987-encoded.
+   * `nosniff` holds the browser to the type eArchive's whitelist allowed at
+   * upload. The one type on that whitelist a browser would run is HTML, and
+   * the app's proxy serves this from the app's own origin, so an HTML file
+   * goes out as an attachment and sandboxed: it is saved, never rendered as
+   * part of eCapital.
+   */
+  @Get("documents/:id/content")
+  @ApiOperation({ summary: "The bytes of a filed document, for a preview" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  // The types go on the 200 alone, not through `@ApiProduces`, which would
+  // stamp them on the 401 and the 404 too; those are the JSON error body.
+  @ApiResponse({
+    status: 200,
+    description: "The file, with the type it was filed under",
+    content: Object.fromEntries(
+      MIME_WHITELIST.map((mime) => [mime, { schema: { type: "string", format: "binary" } }]),
+    ),
+  })
+  @ApiZodError(401, "No token, or a token that does not verify")
+  @ApiZodError(404, "No such document, none the caller may see, or none left in the store")
+  async content(
+    @Param("id") id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.documents.content(id);
+    const html = file.mime === "text/html";
+    response.setHeader("Content-Type", contentType(file.mime));
+    response.setHeader(
+      "Content-Disposition",
+      `${html ? "attachment" : "inline"}; filename*=UTF-8''${rfc5987(file.filename)}`,
+    );
+    response.setHeader("Content-Length", String(file.bytes.length));
+    response.setHeader("Cache-Control", "private, max-age=300");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    if (html) response.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
+    return new StreamableFile(file.bytes);
+  }
+
 }
 
 const UploadFields = z.object({
@@ -179,4 +237,21 @@ function upload(file: Express.Multer.File | undefined, body: unknown): UploadInp
     mime: (fields.data.mime ?? file.mimetype ?? "").trim().toLowerCase(),
     titleEl: fields.data.titleEl,
   };
+}
+
+/**
+ * A text file on the whitelist carries no charset of its own, and a Greek
+ * note read as Latin-1 is unreadable. UTF-8 is what eCapital's own exports
+ * and every current office tool write.
+ */
+function contentType(mime: string): string {
+  return mime.startsWith("text/") ? `${mime}; charset=utf-8` : mime;
+}
+
+/** `encodeURIComponent` leaves `'()*` alone; RFC 5987's attr-char does not. */
+function rfc5987(value: string): string {
+  return encodeURIComponent(value).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }

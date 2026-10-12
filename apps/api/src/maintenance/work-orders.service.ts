@@ -199,6 +199,7 @@ export class WorkOrdersService {
         event: schema.workOrderEvent,
         byName: sql<string | null>`ecapital.user_display_name(${schema.workOrderEvent.byId})`,
         documentTitle: schema.document.titleEl,
+        documentMime: schema.document.mime,
       })
       .from(schema.workOrderEvent)
       .leftJoin(schema.document, eq(schema.document.id, schema.workOrderEvent.documentId))
@@ -235,7 +236,7 @@ export class WorkOrdersService {
 
     return {
       ...order,
-      events: events.map((e) => toEvent(e.event, e.byName, e.documentTitle)),
+      events: events.map((e) => toEvent(e.event, e.byName, e.documentTitle, e.documentMime)),
       checklistEl,
       repeatCount,
     };
@@ -860,13 +861,14 @@ export class WorkOrdersService {
         event: schema.workOrderEvent,
         byName: sql<string | null>`ecapital.user_display_name(${schema.workOrderEvent.byId})`,
         documentTitle: schema.document.titleEl,
+        documentMime: schema.document.mime,
       })
       .from(schema.workOrderEvent)
       .leftJoin(schema.document, eq(schema.document.id, schema.workOrderEvent.documentId))
       .where(eq(schema.workOrderEvent.id, id))
       .limit(1);
     if (!row) throw AppError.internal();
-    return toEvent(row.event, row.byName, row.documentTitle);
+    return toEvent(row.event, row.byName, row.documentTitle, row.documentMime);
   }
 
   private async asset(id: string) {
@@ -1012,6 +1014,7 @@ function toEvent(
   row: typeof schema.workOrderEvent.$inferSelect,
   byName: string | null,
   documentTitle: string | null,
+  documentMime: string | null,
 ): WorkOrderEvent {
   return {
     id: row.id,
@@ -1023,6 +1026,7 @@ function toEvent(
     noteEl: row.noteEl,
     documentId: row.documentId,
     documentTitle: row.documentId ? documentTitle : null,
+    documentMime: row.documentId ? documentMime : null,
   };
 }
 

@@ -37,6 +37,7 @@ import { CriticalityChip } from "@/components/criticality-chip";
 import { LabelSheet } from "@/components/label-sheet";
 import { PageTitle } from "@/components/app-shell";
 import { Timeline } from "@/components/timeline";
+import { documentContentHref } from "@/data/queries";
 import { formatDate, formatEURorDash, formatInt } from "@/lib/format";
 
 export type AssetDetailState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -368,8 +369,22 @@ export function AssetDetail(props: AssetDetailProps) {
                     <span className="text-fs-14 text-k-ink">
                       {t(`assetDocumentKind.${doc.kind}`)} — {doc.titleEl}
                     </span>
-                    <span className="num text-fs-12 text-k-text">
-                      {doc.protocolNumber ?? t("screens.s17.pendingFiling")}
+                    <span className="flex items-baseline gap-s-3">
+                      <span className="num text-fs-12 text-k-text">
+                        {doc.protocolNumber ?? t("screens.s17.pendingFiling")}
+                      </span>
+                      {/* The operational copy (`GET /documents/:id/content`),
+                          in a new tab: a photo or a PDF opens there, any
+                          other file is saved by the browser. */}
+                      <a
+                        href={documentContentHref(doc.documentId)}
+                        target="_blank"
+                        rel="noopener"
+                        className="text-fs-14 text-k-blue underline"
+                      >
+                        {t("buttons.open")}
+                        <span className="sr-only"> {doc.titleEl}</span>
+                      </a>
                     </span>
                   </li>
                 ))}

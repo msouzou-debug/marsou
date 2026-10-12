@@ -89,6 +89,7 @@ describe("openapi.json", () => {
       "/defects",
       "/defects/backlog",
       "/defects/{id}",
+      "/documents/{id}/content",
       "/efinance/vendors",
       "/health",
       "/icra/evaluate",

@@ -17,7 +17,7 @@
  * NO PATIENT DATA. The three item types are an award decision, a business
  * case and an approved variation.
  */
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
@@ -73,8 +73,18 @@ const ROLE_EL: Record<string, string> = {
   auditor_readonly: "Ελεγκτής",
 };
 
+/** What `GET /documents/:id/content` answers with: the bytes and what they are. */
+export interface DocumentContent {
+  bytes: Buffer;
+  mime: string;
+  /** The title with an extension a browser and a file system recognise. */
+  filename: string;
+}
+
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @Inject(CONFIG) private readonly config: AppConfig,
@@ -482,6 +492,60 @@ export class DocumentsService {
     return rows.map((r) => toRecord(r.doc, r.status ?? null));
   }
 
+  /**
+   * The operational copy of a document, for a screen to show (the preview on
+   * S17 and S18a). eCapital is not an archive (ADR-0023): the bytes are here
+   * because the outbox needed them, and showing them is reading a row the
+   * caller can already read, not a second document store.
+   *
+   * RULE (ADR-0010): the row is read through the caller's transaction, so
+   * `document_read` decides. A document in a unit the caller may not read
+   * does not exist for them and answers 404, like every other document read.
+   * A tombstone (eArchive deleted the protocol) answers 404 too: the registry
+   * has withdrawn it, and a copy that outlived it is not a document to show.
+   *
+   * A row whose bytes are gone from the store is a store that lost a file.
+   * The caller gets the same 404; the log gets the key, because that is a
+   * fault somebody has to look at.
+   */
+  async content(id: string): Promise<DocumentContent> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    if (!UUID.test(id)) throw AppError.notFound("errors.documentNotFound");
+
+    const [row] = await tx.db
+      .select({
+        id: schema.document.id,
+        titleEl: schema.document.titleEl,
+        filename: schema.document.filename,
+        mime: schema.document.mime,
+        objectKey: schema.document.objectKey,
+        deletedAt: schema.document.deletedAt,
+      })
+      .from(schema.document)
+      .where(eq(schema.document.id, id))
+      .limit(1);
+    if (!row || row.deletedAt) throw AppError.notFound("errors.documentNotFound");
+
+    let bytes: Buffer | undefined;
+    try {
+      bytes = await this.store.get(row.objectKey);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      bytes = undefined;
+    }
+    if (!bytes?.length) {
+      this.logger.warn(`document ${row.id}: no bytes in the store under ${row.objectKey}`);
+      throw AppError.notFound("errors.documentNotFound");
+    }
+
+    return {
+      bytes,
+      mime: row.mime,
+      filename: contentFilename(row.titleEl, row.filename, row.mime),
+    };
+  }
+
   // ------------------------------------------------------------ internals --
 
   /**
@@ -663,6 +727,51 @@ export class DocumentsService {
   private origin(): string {
     return this.config.corsOrigins[0] ?? "http://127.0.0.1:3000";
   }
+}
+
+/** The extension each type on eArchive's whitelist is known by. */
+const EXTENSION: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/zip": "zip",
+  "text/html": "html",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/tiff": "tif",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "message/rfc822": "eml",
+  "application/vnd.ms-outlook": "msg",
+};
+
+/**
+ * The name a browser saves the file under: the Greek title a person gave it,
+ * with an extension. A title that already ends in one keeps it; otherwise the
+ * type's own, and failing that the original file's. Characters a file system
+ * refuses are replaced, not dropped, so «Πίνακας 1/2» stays readable.
+ */
+export function contentFilename(titleEl: string, filename: string, mime: string): string {
+  const base =
+    titleEl
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 150) || "document";
+  const original = /\.([A-Za-z0-9]{1,5})$/.exec(filename)?.[1]?.toLowerCase();
+  const extension = EXTENSION[mime] ?? original;
+  if (!extension) return base;
+  const known = new Set([extension, original].filter(Boolean));
+  const own = /\.([A-Za-z0-9]{1,5})$/.exec(base)?.[1]?.toLowerCase();
+  if (own && (known.has(own) || (extension === "jpg" && own === "jpeg"))) return base;
+  return `${base}.${extension}`;
 }
 
 function roleLabel(role: string | null): string {

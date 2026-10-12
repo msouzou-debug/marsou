@@ -42,6 +42,15 @@ import { defaultLocale, isLocale, LOCALE_COOKIE } from "@/i18n/config";
 //     same headers the real API sent.
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 const JSON_OR_TEXT = /^(application\/json|text\/)/i;
+// What a file response carries through unchanged. `cache-control` is the
+// API's own (`private` on a document, `no-store` on an export), never a
+// shared cache's.
+const FILE_HEADERS = [
+  "content-disposition",
+  "cache-control",
+  "x-content-type-options",
+  "content-security-policy",
+] as const;
 
 type ProxyContext = RouteContext<"/api/proxy/[...path]">;
 
@@ -115,13 +124,21 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
   } as RequestInit);
 
   const upstreamContentType = upstream.headers.get("content-type") ?? "application/json";
-  if (!JSON_OR_TEXT.test(upstreamContentType)) {
-    // A binary response (the xlsx exports): read as bytes, forward
-    // Content-Type and, when present, Content-Disposition unchanged.
+  const disposition = upstream.headers.get("content-disposition");
+  if (disposition || !JSON_OR_TEXT.test(upstreamContentType)) {
+    // A file (the xlsx exports, a document's `GET /documents/:id/content`):
+    // read as bytes, forward Content-Type and the headers that say how the
+    // browser may treat it unchanged. A response that carries a
+    // Content-Disposition is a file even when it is `text/*` — a filed CSV
+    // or note — so it never goes through `text()`, and its `nosniff` and
+    // sandbox reach the browser: this route answers from the app's own
+    // origin, which is exactly where an HTML file must not run.
     const bytes = await upstream.arrayBuffer();
     const responseHeaders: Record<string, string> = { "content-type": upstreamContentType };
-    const disposition = upstream.headers.get("content-disposition");
-    if (disposition) responseHeaders["content-disposition"] = disposition;
+    for (const name of FILE_HEADERS) {
+      const value = upstream.headers.get(name);
+      if (value) responseHeaders[name] = value;
+    }
     return new NextResponse(bytes, { status: upstream.status, headers: responseHeaders });
   }
 

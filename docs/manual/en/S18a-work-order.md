@@ -9,7 +9,7 @@ A work order's record shows the system, the asset, the area, who called it in an
 3. In the window that opens, add a note if needed. If the step happened earlier, enter the time under "When it happened".
 4. To "Complete" a corrective order, pick the failure, cause and remedy codes, and enter the actual cost and the report date.
 5. Under "Work and cost" enter the technician, the spare parts and the cost estimate. If a spare part comes from abroad, grant an extension with a reason: the contract allows 5 working days, 15 for a chiller compressor.
-6. Press the camera button for a photo or document, and "To the backlog" for work the agreement does not cover.
+6. Press the camera button for a photo or document, and "To the backlog" for work the agreement does not cover. Filed photos show as thumbnails in the strip; other files (PDF, zip) open in a new tab with "Open".
 7. On a phone, press "Run on a phone" for the screen with the large buttons.
 
 ## What can go wrong
@@ -17,4 +17,4 @@ A work order's record shows the system, the asset, the area, who called it in an
 - **"Complete" stays disabled.** A corrective order needs all three codes.
 - **"Cancel order" will not go through.** Write the reason for cancelling. An order can only be cancelled before work starts.
 - **You see "Third failure in twelve months".** The asset fails often. The system drafts a replacement in the backlog when the order completes; check it there.
-- **The photo is not shown after a reload.** It is filed with eArchive and listed by its title under the strip.
+- **A thumbnail stays blank, or "Open" says the document was not found.** eCapital's copy of the file is missing from its server. The document is still filed with eArchive; tell the administrator.

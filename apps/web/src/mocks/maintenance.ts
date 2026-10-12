@@ -321,6 +321,7 @@ export function buildWorkOrderEvent(overrides: Partial<WorkOrderEvent> = {}): Wo
     noteEl: null,
     documentId: null,
     documentTitle: null,
+    documentMime: null,
     ...overrides,
   };
 }
@@ -341,6 +342,7 @@ export function buildWorkOrderDetail(overrides: Partial<WorkOrderDetail> = {}): 
         kind: "PHOTO",
         documentId: "doc-1",
         documentTitle: "Πίνακας ελέγχου ανελκυστήρα",
+        documentMime: "image/jpeg",
       }),
     ],
     checklistEl: checklistEl ?? null,

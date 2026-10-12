@@ -411,7 +411,7 @@ describe("work orders", () => {
       });
     expect(response.status, JSON.stringify(response.body)).toBe(201);
     const event = WorkOrderEvent.parse(response.body);
-    expect(event).toMatchObject({ kind: "PHOTO", documentTitle: "Φωτογραφία διαρροής" });
+    expect(event).toMatchObject({ kind: "PHOTO", documentTitle: "Φωτογραφία διαρροής", documentMime: "image/jpeg" });
 
     const { rows } = await admin.query(
       "select source_module, status, meta from ecapital.dms_outbox where document_id = $1",
