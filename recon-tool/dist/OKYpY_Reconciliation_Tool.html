@@ -398,7 +398,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.10</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.11</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -1936,7 +1936,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.10",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.11",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -2003,7 +2003,7 @@ const I18N = {
   revTag:"Αντιλογισμός",
   twinTag:"Ίδιο ποσό, άλλη ημερομηνία",
   adjTag:"Ζεύγος με γραμμή προσαρμογής",
-  batchTag:"Παρτίδα ίδιας ημέρας — ακριβές σύνολο", posTag:"Εκκαθάριση καρτών JCC/POS", posL:"Εκκαθαρίσεις καρτών (JCC/POS) — ημερήσιες ομάδες με προμήθεια έως", posDaysL:"εντός ±", daysU:"ημ.",
+  batchTag:"Παρτίδα ίδιας ημέρας — ακριβές σύνολο", posOneTag:"Μία γραμμή με μικρή διαφορά — προς έλεγχο", posTag:"Εκκαθάριση καρτών JCC/POS", posL:"Εκκαθαρίσεις καρτών (JCC/POS) — ημερήσιες ομάδες με προμήθεια έως", posDaysL:"εντός ±", daysU:"ημ.",
   prevT:"Προηγούμενη περίοδος (προαιρετικά)",
   prevDrop:"Φορτώστε την εξαγωγή Excel της προηγούμενης συμφωνίας",
   prevLoaded:"γραμμές εκκρεμοτήτων από την προηγούμενη περίοδο",
@@ -2030,7 +2030,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.10",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.11",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -2097,7 +2097,7 @@ const I18N = {
   revTag:"Reversal",
   twinTag:"Same amount, different date",
   adjTag:"Pair with adjustment line",
-  batchTag:"Same-day batch — exact total", posTag:"JCC/POS card settlement", posL:"Card settlements (JCC/POS) — daily batches with commission up to", posDaysL:"within ±", daysU:"days",
+  batchTag:"Same-day batch — exact total", posOneTag:"Single line, small difference — check", posTag:"JCC/POS card settlement", posL:"Card settlements (JCC/POS) — daily batches with commission up to", posDaysL:"within ±", daysU:"days",
   prevT:"Previous period (optional)",
   prevDrop:"Load the previous reconciliation's Excel export",
   prevLoaded:"open-item rows from the previous period",
@@ -3100,7 +3100,7 @@ function proposePos(onlyA,onlyB,consumed,startId,pct,days,maxK){
       .filter(x=>!consumed.has(x.rec)&&x.cents!==0&&Math.sign(x.cents)===Math.sign(tC)&&
                  x.rec.date&&Math.abs(x.rec.date-tg.rec.date)/86400000<=days);
     if(!pool.length)continue;
-    let combo=null;
+    let combo=null, single=false;
     // commission only ever leaves the deposits SHORT of the ledger line:
     // a candidate whose total exceeds the target is not a settlement
     const fits=sum=>Math.abs(tC-sum)<=band&&Math.abs(sum)<=Math.abs(tC)+1;
@@ -3133,7 +3133,7 @@ function proposePos(onlyA,onlyB,consumed,startId,pct,days,maxK){
     // 2. a single line inside the band (nearest)
     if(!combo){
       const one=pool.map(x=>({x,d:Math.abs(tC-x.cents)})).filter(o=>fits(o.x.cents)).sort((a,b)=>a.d-b.d)[0];
-      if(one)combo=[one.x];
+      if(one){combo=[one.x];single=true;}
     }
     // 3. a subset of ONE day's family (a deposit that settled a day later)
     //    — never a window-wide composition, which a wide band would always
@@ -3155,7 +3155,9 @@ function proposePos(onlyA,onlyB,consumed,startId,pct,days,maxK){
     consumed.add(tg.rec); combo.forEach(x=>consumed.add(x.rec));
     const members=combo.map(x=>x.rec);
     const mSum=members.reduce((s,r)=>s+amtOf(other,r),0);
-    props.push({id:++id,side:tg.side,target:tg.rec,members,pos:true,
+    // a lone line inside the band is NOT evidence of a card settlement — it is
+    // a small difference to investigate (a miscounted cash deposit, a typo)
+    props.push({id:++id,side:tg.side,target:tg.rec,members,pos:true,one:single,
                 diff:tg.side==='A'?tg.rec.amtA-mSum:mSum-tg.rec.amtB,accepted:false});
   }
   return props;
@@ -3623,7 +3625,7 @@ function gcardHTML(p,committed,idx){
   const tag=twoS&&!p.sel?' <span style="color:var(--okypy-muted)">('+t(grpTagKey(p))+')</span>':'';
   const head=twoS
     ?'<span>'+cnt+tag+'</span>'
-    :'<span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t(p.pos?'posTag':p.batch?'batchTag':'grpMembers')+')</span></span>';
+    :'<span>1 ⇄ '+p.members.length+' <span style="color:var(--okypy-muted)">('+t(p.pos?(p.one?'posOneTag':'posTag'):p.batch?'batchTag':'grpMembers')+')</span></span>';
   return '<div class="gcard'+(committed||p.accepted?' acc':'')+'">'+
     (committed
       ?'<span class="rulepill" style="margin-top:3px;flex:none">'+t('rule4')+'</span>'
@@ -3995,7 +3997,7 @@ function exportExcel(){
       }else{
         const tgt=p.target, other=p.side==='A'?'B':'A';
         gaoa.push([p.id,tgt.key,tgt.desc||'',tgt.date?fmtDate(tgt.date):'',
-                   p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null,t(p.pos?'posTag':p.batch?'batchTag':'rule4')]);
+                   p.side==='A'?tgt.amtA:null,p.side==='B'?tgt.amtB:null,null,t(p.pos?(p.one?'posOneTag':'posTag'):p.batch?'batchTag':'rule4')]);
         p.members.forEach(m=>{
           gaoa.push([null,m.key,m.desc||'',m.date?fmtDate(m.date):'',
                      other==='A'?m.amtA:null,other==='B'?m.amtB:null,null]);
@@ -4156,7 +4158,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.10)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.11)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -4189,7 +4191,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.10)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.11)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -4241,7 +4243,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.10.html':'OKYPY_Reconciliation_Manual_v3.10.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.11.html':'OKYPY_Reconciliation_Manual_v3.11.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.10**.
+   Current version: **v3.11**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -459,6 +459,11 @@ Expected values:
    the Groups sheet; the residual is the commission the user books. Running
    POS first matters: the exact subset-sum pass otherwise consumes JCC
    lines into coincidental combos.
+   A LONE line inside the band (step 2 of proposePos) is flagged `one:true`
+   and labelled 'Μία γραμμή με μικρή διαφορά — προς έλεγχο / Single line,
+   small difference — check' (`posOneTag`, v3.11): one line is no evidence
+   of a card settlement — on 1030 it was a cash deposit keyed 2,237.40 in
+   SAP against 2,237.10 credited (0.30 to investigate), not a commission.
 4. **Number parsing** (`parseAmount`): must handle Greek format `1.234,56`,
    English `1,234.56`, `€`, parentheses negatives `(50,25)`. CSVs are read
    with `raw:true` so strings reach this parser — SheetJS would otherwise
