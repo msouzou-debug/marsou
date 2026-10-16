@@ -317,7 +317,9 @@ fs.writeFileSync(S('batch_A.csv'),
   '19/09/2026,1Bank - Credit Advice JUN26 SBAA-TID 1545099,,818.94\n' +
   '17/09/2026,0034046060 GENIKO NOSOKOMIO LEMESOU Remittance Num 016334 Trace 859010262,,139.30\n' +
   '03/09/2026,0034046060 GENIKO NOSOKOMIO LEMESOU Remittance Num 024400 Trace 831010425,,100.00\n' +
-  '16/09/2026,TIPS INWARD 112979418 by Some Firm>MEDICAL FILE,,78.30\n');
+  '16/09/2026,TIPS INWARD 112979418 by Some Firm>MEDICAL FILE,,78.30\n' +
+  '24/09/2026,TIPS INWARD 112979418 by PANAGIDIS MICHALAKIS CHRISTAKI>MEDICAL FILE,,25.00\n' +
+  '21/09/2026,TIPS INWARD 112894689 by MAKIS ANASTASIOU AND CO. LLC>JAGBIR ARC 0581922458,,25.00\n');
 fs.writeFileSync(S('batch_B.csv'),
   'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
   '1400036104,,ΑΛ› FULL SET. FOR INV. 1800001228,28/09/2026,500.00,\n' +
@@ -331,7 +333,8 @@ fs.writeFileSync(S('batch_B.csv'),
   '1400035203,,JOY ESME,19/09/2026,181.48,\n' +
   '900000640,,ΕΚΚΑΘΑΡΙΣΗ VISA. 19/9/2026,19/09/2026,383.63,\n' +
   '1400035300,DEPOSIT 25/09/2026,"JCC NET AMOUNT, 24/09/2026, 16334",25/09/2026,139.30,\n' +
-  '1400035301,DEPOSIT 01/09/2026,"JCC NET AMOUNT, 31/08/2026, 24387",01/09/2026,178.30,\n');
+  '1400035301,DEPOSIT 01/09/2026,"JCC NET AMOUNT, 31/08/2026, 24387",01/09/2026,178.30,\n' +
+  '1400035302,,JAGBIR JAGBIR,21/09/2026,25.00,\n');
 
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.

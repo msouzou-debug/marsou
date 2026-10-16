@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.14**.
+   Current version: **v3.15**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -453,6 +453,22 @@ Expected values:
    the top of runRecon). Never widen it to subsets smaller than
    'family minus two': arbitrary exact subsets of 30 small lines hit random
    targets by the birthday problem.
+   **Pass 2 in three rounds** (v3.15): `pass2()` first pairs equal amounts
+   that share a reference number (`tokenLinked`), then equal amounts that
+   share a name/word (`wordsShared` > 0, more shared words first), then the
+   rest by nearest date; each round picks the nearest date within its
+   level. A single nearest-date pass in statement order let an orphan
+   steal a linked partner and the error cascaded down every chain of equal
+   amounts (eighteen €70 medical-report fees of one day crossed over, a
+   €25 'JAGBIR' tip paired with another law firm, six 5.98 terminals
+   shifted). `wordSet(rec)` holds words of ≥4 letters, accents stripped,
+   Greek transliterated to one Latin form (`translit`: ΟΥ→OU, Χ→CH, Θ→TH,
+   Y→I …) so 'ΛΑΤΥΣΟΒΙΤΣ' meets 'LATISOVITIS'; `sameWord` accepts equal
+   words or a common stem ≥80 % of the longer word (min 5 letters). Words
+   carried by more than max(4, 1 %) of the run's open lines (CREDIT,
+   DEPOSIT, MEDICAL, REPORT …) are ignored via `WORD_DF`, filled by pass 2
+   and cleared after. On 1030 every €70 name now pairs with itself, JCC
+   terminal agreement is 290 of 294 (the 4 left are SAP terminal typos).
    **Reference numbers** (v3.14, `numTokens(rec)` / `tokenLinked(a,b)`):
    digit runs of ≥4 in desc/key, leading zeros dropped, years ignored — a
    card terminal ('Remittance Num 024390' ↔ 'JCC NET AMOUNT, 31/08/2026,
@@ -519,7 +535,10 @@ Expected values:
    016334' 139.30 vs SAP 25/09 'JCC NET AMOUNT, 24/09/2026, 16334' 139.30
    → one twin; SAP 01/09 '…, 24387' 178.30 vs bank 100.00 (03/09) + TIPS
    78.30 (16/09) → NO split and NO adjusted pair; after commit open A =
-   [100, 78.30, 25], open B = [−383.63, −178.30].
+   [100, 78.30, 25], open B = [−383.63, −178.30]. v3.15 adds bank 21/09
+   'MAKIS ANASTASIOU … >JAGBIR' 25 + bank 24/09 'PANAGIDIS …>MEDICAL FILE'
+   25 vs SAP 21/09 'JAGBIR JAGBIR' 25: the JAGBIR lines pair (matched
+   [−2031.37, −25]), PANAGIDIS stays open (open A = [100, 78.30, 25, 25]).
    A LONE line inside the band (step 2 of proposePos) is flagged `one:true`
    and labelled 'Μία γραμμή με μικρή διαφορά — προς έλεγχο / Single line,
    small difference — check' (`posOneTag`, v3.11): one line is no evidence

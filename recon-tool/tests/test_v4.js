@@ -646,7 +646,8 @@ const newAppPage = async browser => {
   await page.click('#runBtn');
   await page.waitForSelector('#stepRes:not(.hidden)');
   r = await page.evaluate(() => ({
-    matched: RESULT.matched.map(x => [x.amtA, x.rule]),
+    matched: RESULT.matched.map(x => [x.amtA, x.rule]).sort((a, b) => a[0] - b[0]),
+    jagbir: RESULT.matched.filter(x => Math.abs(x.amtA + 25) < 0.005).map(x => (/MAKIS ANASTASIOU/.test(x.descA || '') ? 'MAKIS ANASTASIOU' : (x.descA || '').slice(0, 20))),
     batch: RESULT.props.filter(p => p.batch).map(p => [p.side, p.target.desc.slice(0, 20), p.target.amtA, p.members.map(m => m.amtB).sort((a, b) => a - b), +p.diff.toFixed(2)]),
     others: RESULT.props.filter(p => !p.batch && !p.pos && !p.tw).length,
     twins: RESULT.props.filter(p => p.tw).map(p => [fmtDate(p.itemsA[0].date), p.itemsA[0].amtA, fmtDate(p.itemsB[0].date), p.itemsB[0].desc.slice(-5)]),
@@ -658,9 +659,11 @@ const newAppPage = async browser => {
   console.log('BATCH:', JSON.stringify(r));
   check('the batch (incl. the FULLSET.FORINV. spelling) is proposed whole with zero difference; the 2031.37 keeps its own 1-to-1 match',
     JSON.stringify(r.batch) === JSON.stringify([['A', '1Bank - Credit Advic', -1000, [-500, -300, -175, -25], 0]]) &&
-    JSON.stringify(r.matched) === JSON.stringify([[-2031.37, 2]]) && r.others === 0, r);
+    JSON.stringify(r.matched) === JSON.stringify([[-2031.37, 2], [-25, 2]]) && r.others === 0, r);
+  check('v3.15: the €25 pairs with the same-day transfer that names JAGBIR, not with the other law firm processed first',
+    JSON.stringify(r.jagbir) === JSON.stringify(['MAKIS ANASTASIOU']), r);
   check('the next-day €25 tip does not steal the batch\'s €25 line and stays open; cards carry the batch and day-batch tags',
-    JSON.stringify(r.openA) === JSON.stringify([['0034046060 ', -100], ['TIPS INWARD', -78.3], ['TIPS INWARD', -25]]) && JSON.stringify(r.openB) === JSON.stringify([-383.63, -178.3]) && r.tag, r);
+    JSON.stringify(r.openA) === JSON.stringify([['0034046060 ', -100], ['TIPS INWARD', -78.3], ['TIPS INWARD', -25], ['TIPS INWARD', -25]]) && JSON.stringify(r.openB) === JSON.stringify([-383.63, -178.3]) && r.tag, r);
   check('v3.14: the 139.30 card deposit pairs with the SAP line booked 8 days later under the same terminal (twin); 178.30 is NOT assembled from 100 + 78.30 of unrelated days',
     JSON.stringify(r.twins) === JSON.stringify([['17/09/2026', -139.3, '25/09/2026', '16334']]) && r.others === 0, r);
   check('the SBAA advice is proposed against the day minus its unrelated VISA line (0.10 to check), labelled as a day batch, not a card settlement',

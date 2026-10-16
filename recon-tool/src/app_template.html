@@ -398,7 +398,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.14</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.15</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -422,7 +422,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.14",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.15",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -516,7 +516,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.14",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.15",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -1183,32 +1183,43 @@ function pass2(onlyA,onlyB,tol,days){
     if(!buckets.has(c))buckets.set(c,[]);
     buckets.get(c).push(b);
   });
-  const pairs=[]; const usedB=new Set();
+  const pairs=[]; const usedB=new Set(), usedA=new Set();
+  WORD_DF=new Map(); [...onlyA,...onlyB].forEach(r=>wordSet(r).forEach(w=>WORD_DF.set(w,(WORD_DF.get(w)||0)+1)));
+  WORD_DF_MAX=Math.max(4,Math.round((onlyA.length+onlyB.length)*0.01));
   const As=[...onlyA].sort((x,y)=>Math.abs(y.amtA)-Math.abs(x.amtA));
-  As.forEach(a=>{
-    const ac=Math.round((a.amtA||0)*100);
-    let best=null,bestDd=Infinity,bestLk=false;
-    // among equal amounts inside the window a shared reference number (card
-    // terminal, UN/EP, invoice) outranks the nearer date — same-amount lines
-    // from one terminal recur across the month and would otherwise cross over
-    const consider=b=>{
-      if(usedB.has(b))return;
-      if(a.date&&b.date){
-        const dd=Math.abs(a.date-b.date)/86400000;
-        if(dd>days)return;
-        const lk=tokenLinked(a,b);
-        if((lk&&!bestLk)||(lk===bestLk&&dd<bestDd)){bestDd=dd;best=b;bestLk=lk;}
-      }else if(!a.date&&!b.date){
-        if(bestDd===Infinity&&!best)best=b;
+  // three rounds: lines sharing a reference number (card terminal, UN/EP,
+  // invoice) pair first, then lines sharing a name/word, then the rest by
+  // nearest date. Equal amounts recur (one terminal's net takings, the €70
+  // medical-report fee, €25 copy fees); a single nearest-date pass taken in
+  // statement order lets an orphan steal a linked partner and the error
+  // cascades down the whole chain of equal amounts.
+  const level=(a,b)=>tokenLinked(a,b)?2:wordsShared(a,b)?1:0;
+  [2,1,0].forEach(minLevel=>{
+    As.forEach(a=>{
+      if(usedA.has(a))return;
+      const ac=Math.round((a.amtA||0)*100);
+      let best=null,bestDd=Infinity,bestLv=-1,bestW=0;
+      const consider=b=>{
+        if(usedB.has(b))return;
+        if(a.date&&b.date){
+          const dd=Math.abs(a.date-b.date)/86400000;
+          if(dd>days)return;
+          const lv=level(a,b); if(lv<minLevel)return;
+          const w=lv===1?wordsShared(a,b):0;
+          if(lv>bestLv||(lv===bestLv&&(w>bestW||(w===bestW&&dd<bestDd)))){bestDd=dd;best=b;bestLv=lv;bestW=w;}
+        }else if(!a.date&&!b.date){
+          if(minLevel===0&&bestDd===Infinity&&!best)best=b;
+        }
+      };
+      if(tolC<=100){
+        for(let c=ac-tolC;c<=ac+tolC;c++){const l=buckets.get(c); if(l)l.forEach(consider);}
+      }else{
+        buckets.forEach((l,c)=>{if(Math.abs(c-ac)<=tolC)l.forEach(consider);});
       }
-    };
-    if(tolC<=100){
-      for(let c=ac-tolC;c<=ac+tolC;c++){const l=buckets.get(c); if(l)l.forEach(consider);}
-    }else{
-      buckets.forEach((l,c)=>{if(Math.abs(c-ac)<=tolC)l.forEach(consider);});
-    }
-    if(best){usedB.add(best);pairs.push([a,best]);}
+      if(best){usedB.add(best);usedA.add(a);pairs.push([a,best]);}
+    });
   });
+  WORD_DF=null;
   return pairs;
 }
 /* no-shared-key mode: every row is its own open item (netted amount) */
@@ -1296,6 +1307,38 @@ function tokenLinked(a,b){
   if(!x.size||!y.size)return false;
   for(const v of x)if(y.has(v))return true;
   return false;
+}
+/* a shared name/word (4+ letters, accents stripped, any script) between two
+   descriptions — 'Naresh Kumar ARC' ↔ 'KUMAR NARESH', 'Αλέκος Αλεξάνδρου' ↔
+   'ΑΛΕΚΟΣ ΑΛΕΞΑΝΔΡΟΥ'. Count of shared words. */
+const GR_LAT={'Α':'A','Β':'V','Γ':'G','Δ':'D','Ε':'E','Ζ':'Z','Η':'I','Θ':'TH','Ι':'I','Κ':'K','Λ':'L','Μ':'M','Ν':'N','Ξ':'X','Ο':'O','Π':'P','Ρ':'R','Σ':'S','Τ':'T','Υ':'I','Φ':'F','Χ':'CH','Ψ':'PS','Ω':'O'};
+// Greek names meet their Latin spellings across the two files
+// ('ΛΑΤΥΣΟΒΙΤΣ' ↔ 'LATISOVITIS', 'ΝΕΟΚΛΕΟΥΣ' ↔ 'Neokleous'): one Latin form,
+// Y folded into I, so equal words or a long common stem agree
+function translit(w){return w.replace(/ΟΥ/g,'OU').replace(/ΑΥ/g,'AV').replace(/ΕΥ/g,'EV').replace(/[Α-Ω]/g,c=>GR_LAT[c]||c).replace(/Y/g,'I');}
+function wordSet(r){
+  if(r._wrd)return r._wrd;
+  const t=new Set();
+  String((r.descA||'')+' '+(r.descB||'')+' '+(r.desc||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[A-ZΑ-Ω]{4,}/g,m=>{t.add(translit(m));return m;});
+  r._wrd=t; return t;
+}
+// words carried by many lines of the run (CREDIT, DEPOSIT, MEDICAL, REPORT)
+// say nothing about a pair: pass 2 fills WORD_DF from the two open lists
+let WORD_DF=null, WORD_DF_MAX=Infinity;
+function sameWord(x,y){
+  if(x===y)return true;
+  const L=Math.max(x.length,y.length); if(L<5)return false;
+  let i=0; while(i<x.length&&i<y.length&&x[i]===y[i])i++;
+  return i>=Math.ceil(L*0.8);
+}
+function wordsShared(a,b){
+  const x=wordSet(a), y=wordSet(b); let n=0;
+  if(!x.size||!y.size)return 0;
+  for(const v of x){
+    if(WORD_DF&&(WORD_DF.get(v)||0)>WORD_DF_MAX)continue;
+    for(const w of y)if(sameWord(v,w)){n++;break;}
+  }
+  return n;
 }
 function textLinked(a,b){
   const x=normTxt((a.desc||'')+' '+a.key), y=normTxt((b.desc||'')+' '+b.key);
@@ -2729,7 +2772,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.14)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.15)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -2762,7 +2805,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.14)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.15)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -2814,7 +2857,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.14.html':'OKYPY_Reconciliation_Manual_v3.14.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.15.html':'OKYPY_Reconciliation_Manual_v3.15.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
