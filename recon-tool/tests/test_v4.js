@@ -578,6 +578,55 @@ const newAppPage = async browser => {
   check('the undo replays automatically on the next run', !r.m.includes('R-101') && r.openA === true, r);
   await page.close();
 
+  /* ============ 14. v3.9: card settlements (JCC/POS) + statement header detection ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('pos_A.xlsx'));
+  await page.setInputFiles('#fileB', S('pos_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  r = await page.evaluate(() => ({ hdrA: document.getElementById('hdrA').value, colsA: SIDES.A.cols.slice(0, 3),
+    amtA: document.getElementById('amtA').value, crA: document.getElementById('crA').value, descB: document.getElementById('descB').value }));
+  console.log('POS-SETUP:', JSON.stringify(r));
+  check('statement header found on row 8 despite the preamble rows', r.hdrA === '8' && r.colsA[0] === 'Date' && r.amtA === 'Debit' && r.crA === 'Credit', r);
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = true;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 3;
+    document.getElementById('poson').checked = true;
+    document.getElementById('pospct').value = 1;
+    document.getElementById('posdays').value = 4;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    matched: RESULT.matched.length,
+    pos: RESULT.props.filter(p => p.pos).map(p => [p.side, p.target.desc, p.side === 'A' ? p.target.amtA : p.target.amtB, p.members.length, fmtDate(p.members[0].date), +p.diff.toFixed(2)]).sort((a, b) => a[2] - b[2]),
+    others: RESULT.props.filter(p => !p.pos).length,
+    cardTag: /JCC\/POS/.test(document.querySelector('#pane-groups') ? document.querySelector('#pane-groups').textContent : ''),
+  }));
+  console.log('POS:', JSON.stringify(r));
+  check('cash line matched exactly, both VISA days proposed against next-day deposits net of commission',
+    r.matched === 1 && r.pos.length === 2 &&
+    JSON.stringify(r.pos[0]) === JSON.stringify(['B', 'VISA 03.08.2026', -1496.41, 7, '04/08/2026', 6.12]) &&
+    JSON.stringify(r.pos[1]) === JSON.stringify(['B', 'ΕΚΚΑΘΑΡΙΣΗ VISA. 4/8/2026', -981.4, 8, '05/08/2026', 5.61]), r);
+  check('the unrelated same-day transfer is left out (family grouping) and no junk subsets appear', r.others === 0, r.others);
+  r = await page.evaluate(() => {
+    RESULT.activeTab = 'groups'; renderResults();
+    const tagged = document.querySelectorAll('#pane-groups .gcard').length && /JCC\/POS/.test(document.getElementById('pane-groups').textContent);
+    RESULT.props.forEach(p => p.accepted = true); commitGroups();
+    return { tagged, open: [RESULT.onlyA.filter(x => !inAccepted(x)).length, RESULT.onlyB.filter(x => !inAccepted(x)).length],
+             groupDiff: +RESULT.committed.reduce((s, p) => s + p.diff, 0).toFixed(2) };
+  });
+  check('cards carry the JCC/POS tag; committing leaves only the transfer open with the commission as group difference',
+    r.tagged && JSON.stringify(r.open) === JSON.stringify([1, 0]) && r.groupDiff === 11.73, r);
+  const [dlPos] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
+  const posPath = path.join(__dirname, 'export_pos.xlsx');
+  await dlPos.saveAs(posPath);
+  const wbPos = XLSX.read(fs.readFileSync(posPath), { type: 'buffer', cellFormula: true });
+  const wsGp = wbPos.Sheets['Ομάδες'];
+  check('Groups sheet labels the settlement groups', wsGp && wsGp.H2 && /JCC\/POS/.test(wsGp.H2.v), wsGp && wsGp.H2);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);

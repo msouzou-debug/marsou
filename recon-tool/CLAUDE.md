@@ -7,10 +7,10 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.8**.
+   Current version: **v3.9**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.4**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -148,6 +148,17 @@ Expected values:
     FX +0.13 vs bank −8818.27 → exactly one `{adj:true}` proposal
     [2×A, 1×B, diff 0]; committing clears both sides and the Matched key
     carries the 'Ζεύγος με γραμμή προσαρμογής' tag.
+  - v3.9 — pos_A.xlsx/pos_B.csv (JCC/POS card settlements): pos_A is a
+    BOC-style statement with 7 preamble rows (header row 8 'Date,
+    Description, Transaction type, Reference number, Debit, Credit') —
+    `hdrA` must auto-detect '8', amount Debit / credit Credit; pos_B is SAP
+    (Text picked as description). Run no-key ±3d, flip B, POS pass on at 1 %
+    ±4d → matched 1 (the 500.00 cash settlement), exactly two `{pos:true}`
+    proposals: VISA 03.08 −1496.41 vs 7 JCC deposits of 04/08 (diff 6.12)
+    and VISA 4/8 −981.40 vs 8 JCC deposits of 05/08 (diff 5.61); no other
+    proposals (the exact-split pass must NOT steal JCC lines). Cards show
+    the 'Εκκαθάριση καρτών JCC/POS' tag; committing leaves open [1,0] and
+    groupDiff 11.73; the Groups sheet label (H2) is the POS tag.
 - `test_ic.js` (IC Matrix Tool; mx_*.csv fixtures; asserts, exits 1 on
   failure): five files load with auto-guessed columns, balances
   [350, −320, 400, −400, 75]; HO⇄LIM pairs by suggested key `Ref` (2 matched,
@@ -179,6 +190,15 @@ Expected values:
   6,216,168.10 payroll = 2 lines; ~260 line pairs matched. With pass 4 at
   2%: −5,500,000 = 5 x 1M + 500k (retry-with-skip) and 4 near-diffs incl.
   HNS PHARMA −48,663.40 vs −48,557.40 → diff −106.00 (FX/fees).
+- Real-world benchmark 3 (files not in repo): hospital 1021 BOC income
+  account statement 08.2026 (side A, preamble rows, header auto-detected
+  at row 8) vs INCOME_SAP (side B), no-key ±7d, flip B, POS pass 1 % ±4d:
+  20 POS proposals pairing every settleable 'VISA dd.mm' SAP line with the
+  next-business-day JCC deposits at 0.38–0.89 % commission; VISA 31/08
+  correctly stays open (settles in September); only ~6 residual exact-split
+  proposals. Hospital 1030 (1030_INCOME_125300_09.2026 SAP vs bank
+  statement): 359 matched, 22 POS proposals (exact TRF/CASH batches at 0 %
+  plus one 1Bank credit advice vs 31 'JCC NET' lines at 0.99 %).
 
 ## Domain logic (do not break)
 
@@ -383,6 +403,28 @@ Expected values:
    split passes can NEVER find because they filter candidates to the
    target's sign (real miss: SAP −8,818.40 + FX +0.13 vs bank −8,818.27).
    Tightest pairs claim their adjustment lines first; cap 400.
+   **Card settlements JCC/POS** (v3.9, `proposePos()`, opt-in `#poson`,
+   default commission 1 % / ±4 days, runs FIRST among the group passes and
+   shares one `consumed` Set with `proposeSplits(onlyA,onlyB,tol,cfg,
+   consumed0,startId)`): the acquirer (JCC) credits the bank with daily
+   batches net of commission while SAP books the gross POS takings per day
+   ('VISA dd.mm'), or the bank shows many small 'JCC NET' deposits against
+   one bulk GL posting. For every dated open item (both sides, largest
+   first) the pool is the other side's same-sign unconsumed lines within
+   ±days; a candidate group `fits` when |target − sum| ≤ band
+   (band = max(1 cent, |target|×pct)) AND |sum| ≤ |target| + 1 cent — the
+   commission can only leave the deposits SHORT, never over. Candidates:
+   whole-day groups ('D|day') and day+description-family groups
+   ('F|day|first 3 words'), evaluated together (smallest residual wins,
+   nearer date breaks ties); else a single nearest fitting line; else a
+   subset of ONE day-family via findCombo (cap 8000) then
+   findGreedyCompose (60). Never compose across the whole window — that
+   produced 31-line garbage groups. Proposals are `{pos:true, target,
+   members, diff}` (target shape → `twoSided()` false) labelled
+   'Εκκαθάριση καρτών JCC/POS / JCC/POS card settlement' in cards and in
+   the Groups sheet; the residual is the commission the user books. Running
+   POS first matters: the exact subset-sum pass otherwise consumes JCC
+   lines into coincidental combos.
 4. **Number parsing** (`parseAmount`): must handle Greek format `1.234,56`,
    English `1,234.56`, `€`, parentheses negatives `(50,25)`. CSVs are read
    with `raw:true` so strings reach this parser — SheetJS would otherwise
@@ -483,7 +525,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.4)
+## IC Matrix Tool (src/ic_template.html, v1.5)
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,
@@ -600,5 +642,7 @@ not imported; keep fixes in sync when touching shared logic.
 - The downloadable user manual (MANUAL dict, `downloadManual()`) generates
   in the ACTIVE language; its Greek follows native public-sector register and
   its English plain human prose — keep that tone when editing it.
-- Header auto-detect scans the first 25 rows for a row with ≥2 text cells;
-  merged-cell double-row headers need the manual header-row override.
+- Header auto-detect (both tools, v3.9/v1.5) scans the first 25 rows and
+  prefers the FIRST row with ≥4 text cells, falling back to ≥2 — bank
+  statement preambles ('Period:', 'Other Period') used to win with 2 cells;
+  merged-cell double-row headers still need the manual header-row override.

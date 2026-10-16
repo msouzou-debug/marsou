@@ -276,6 +276,33 @@ fs.writeFileSync(S('multi_B.csv'),
   ',02/03/2026,march rent,200.00\n' +
   ',01/04/2026,april salary,300.00\n');
 
+/* ---- card-settlement (JCC/POS) fixture, the hospital-1021 shape: the
+   ledger books one gross VISA line per day; the bank shows that day's
+   takings next business day as per-terminal deposits NET of commission;
+   the statement opens with preamble rows (header on row 8) ---- */
+{
+  const pre = [['From:', '', '01/08/2026'], ['To:', '', '31/08/2026'], ['Period:', '', 'Other Period'],
+    ['Account number:', '', '357032395037'], ['Account name:', '', 'SHSO Income'], ['Account type:', '', 'Sight Account'],
+    ['Account currency:', '', 'EUR']];
+  const hdr = ['Date', 'Description', 'Transaction type', 'Reference number', 'Debit', 'Credit'];
+  const jcc = (d, amt) => [d, '0034046052 NOSOKOMIO ARCH. MAKARIOS Remittance Num 0240 Trace 8210', 'JCC Deposit', '', null, amt];
+  const rows = [
+    ['03/08/2026', 'Cash deposit branch', 'Deposit - Cash/Cheque', '', null, 500.00],
+    ...[32.47, 79.68, 386.41, 500.00, 250.00, 200.00, 41.73].map(a => jcc('04/08/2026', a)),   // = 1490.29
+    ['04/08/2026', '1Bank - Credit Advice Some Supplier', 'BOC Transfer', '288', null, 250.00],
+    ...[100, 200, 300, 150, 100, 75.79, 25, 25].map(a => jcc('05/08/2026', a)),                // = 975.79
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([...pre, hdr, ...rows]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Activity_report_SIMPLE');
+  writeWb(wb, S('pos_A.xlsx'));
+  fs.writeFileSync(S('pos_B.csv'),
+    'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
+    '900000606,VISA 03.08.2026,,03/08/2026,1496.41,\n' +
+    '900000606,VISA 03.08.2026,,03/08/2026,0,\n' +
+    '900000613,VISA. 4/8/2026,ΕΚΚΑΘΑΡΙΣΗ VISA. 4/8/2026,04/08/2026,981.40,\n' +
+    '1400024076,,ΕΚΚΑΘΑΡΙΣΗ ΜΕΤΡΗΤΩΝ 3/8/2026,03/08/2026,500.00,\n');
+}
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */
