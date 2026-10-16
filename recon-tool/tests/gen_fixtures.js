@@ -314,7 +314,10 @@ fs.writeFileSync(S('batch_A.csv'),
   '28/09/2026,1Bank - Credit Advice BRITISH FORCES-TID1571484,,1000.00\n' +
   '28/09/2026,1Bank - Credit Advice HOSPITALIZATION INVOICE 1800001183,,2031.37\n' +
   '29/09/2026,TIPS INWARD 113171810 by Some Person>Revolut,,25.00\n' +
-  '19/09/2026,1Bank - Credit Advice JUN26 SBAA-TID 1545099,,818.94\n');
+  '19/09/2026,1Bank - Credit Advice JUN26 SBAA-TID 1545099,,818.94\n' +
+  '17/09/2026,0034046060 GENIKO NOSOKOMIO LEMESOU Remittance Num 016334 Trace 859010262,,139.30\n' +
+  '03/09/2026,0034046060 GENIKO NOSOKOMIO LEMESOU Remittance Num 024400 Trace 831010425,,100.00\n' +
+  '16/09/2026,TIPS INWARD 112979418 by Some Firm>MEDICAL FILE,,78.30\n');
 fs.writeFileSync(S('batch_B.csv'),
   'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
   '1400036104,,ΑΛ› FULL SET. FOR INV. 1800001228,28/09/2026,500.00,\n' +
@@ -326,7 +329,9 @@ fs.writeFileSync(S('batch_B.csv'),
   '1400035201,,SMITH SHAUNA,19/09/2026,60.50,\n' +
   '1400035202,,WALMSLEY SEBASTIAN,19/09/2026,33.00,\n' +
   '1400035203,,JOY ESME,19/09/2026,181.48,\n' +
-  '900000640,,ΕΚΚΑΘΑΡΙΣΗ VISA. 19/9/2026,19/09/2026,383.63,\n');
+  '900000640,,ΕΚΚΑΘΑΡΙΣΗ VISA. 19/9/2026,19/09/2026,383.63,\n' +
+  '1400035300,DEPOSIT 25/09/2026,"JCC NET AMOUNT, 24/09/2026, 16334",25/09/2026,139.30,\n' +
+  '1400035301,DEPOSIT 01/09/2026,"JCC NET AMOUNT, 31/08/2026, 24387",01/09/2026,178.30,\n');
 
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.

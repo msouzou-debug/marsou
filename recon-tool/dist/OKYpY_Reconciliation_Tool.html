@@ -398,7 +398,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.13</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.14</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -1936,7 +1936,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.13",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.14",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -2030,7 +2030,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.13",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.14",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -2701,13 +2701,17 @@ function pass2(onlyA,onlyB,tol,days){
   const As=[...onlyA].sort((x,y)=>Math.abs(y.amtA)-Math.abs(x.amtA));
   As.forEach(a=>{
     const ac=Math.round((a.amtA||0)*100);
-    let best=null,bestDd=Infinity;
+    let best=null,bestDd=Infinity,bestLk=false;
+    // among equal amounts inside the window a shared reference number (card
+    // terminal, UN/EP, invoice) outranks the nearer date — same-amount lines
+    // from one terminal recur across the month and would otherwise cross over
     const consider=b=>{
       if(usedB.has(b))return;
       if(a.date&&b.date){
         const dd=Math.abs(a.date-b.date)/86400000;
         if(dd>days)return;
-        if(dd<bestDd){bestDd=dd;best=b;}
+        const lk=tokenLinked(a,b);
+        if((lk&&!bestLk)||(lk===bestLk&&dd<bestDd)){bestDd=dd;best=b;bestLk=lk;}
       }else if(!a.date&&!b.date){
         if(bestDd===Infinity&&!best)best=b;
       }
@@ -2792,6 +2796,21 @@ function pass3(onlyA,onlyB,tol){
 /* pass 4: same payee / linked text + amounts within a small RELATIVE band.
    Pairs whose residual exceeds the tolerance land in Differences (FX, fees). */
 function normTxt(s){return String(s||'').toUpperCase().replace(/[^A-ZΑ-ΩΆ-Ώ0-9 ]+/g,' ').replace(/\s+/g,' ').trim();}
+/* reference numbers shared by two descriptions: a card terminal ('Remittance
+   Num 024390' vs 'JCC NET AMOUNT, 31/08/2026, 24390'), a UN/EP number, an
+   invoice. Digits runs of 4+ with leading zeros dropped; years are ignored. */
+function numTokens(r){
+  if(r._tok)return r._tok;
+  const t=new Set();
+  String((r.descA||'')+' '+(r.descB||'')+' '+(r.desc||'')+' '+(r.key||'')).replace(/\d{4,}/g,m=>{const v=m.replace(/^0+/,'');if(v.length>=4&&!/^(19|20)\d\d$/.test(v))t.add(v);return m;});
+  r._tok=t; return t;
+}
+function tokenLinked(a,b){
+  const x=numTokens(a), y=numTokens(b);
+  if(!x.size||!y.size)return false;
+  for(const v of x)if(y.has(v))return true;
+  return false;
+}
 function textLinked(a,b){
   const x=normTxt((a.desc||'')+' '+a.key), y=normTxt((b.desc||'')+' '+b.key);
   if(!x||!y)return false;
@@ -2922,13 +2941,26 @@ function proposeSplits(onlyA,onlyB,tol,cfg,consumed0,startId){
     if(pool.length<2)continue;
     // small exact combos first, then the full residual (a fees GL entry vs
     // every little bank charge), then instalment/denomination batches
-    let combo=findCombo(tC,pool,tolC,cfg.maxK,cfg.budget).combo;
+    let combo=findCombo(tC,pool,tolC,cfg.maxK,cfg.budget).combo, takeAll=false;
     if(!combo&&pool.length<=400){
       const total=pool.reduce((s,x)=>s+x.cents,0);
-      if(Math.abs(total-tC)<=tolC)combo=pool.slice();
+      if(Math.abs(total-tC)<=tolC){combo=pool.slice();takeAll=true;}
     }
     if(!combo)combo=findGreedyCompose(tC,pool,tolC,120);
     if(!combo)combo=findInstalments(tC,pool,120);
+    // a small target assembled from unrelated lines of different days is a
+    // coincidence, not a split (178.30 = 139.30 + 25 + 8.03 + 5.97 picked from
+    // four dates of card deposits and tips): real splits share a day, a
+    // wording family or a reference with the target
+    // (everything still open on the other side summing to the target is
+    // strong evidence by itself, so the take-all shortcut is exempt)
+    if(combo&&!takeAll&&Math.abs(tC)<100000){
+      const days=new Set(combo.map(x=>x.rec.date?fmtDate(x.rec.date):''));
+      const famN=new Map(); combo.forEach(x=>{const k=famKey(x.rec);famN.set(k,(famN.get(k)||0)+1);});
+      const dominant=Math.max(...famN.values())>=combo.length*0.8;
+      const related=days.size<=1||dominant||combo.some(x=>textLinked(tg.rec,x.rec)||tokenLinked(tg.rec,x.rec));
+      if(!related)combo=null;
+    }
     if(combo){
       consumed.add(tg.rec); combo.forEach(x=>consumed.add(x.rec));
       const members=combo.map(x=>x.rec);
@@ -2989,6 +3021,22 @@ function proposeEasy(onlyA,onlyB,consumed,startId){
     if(!a||!b)return;
     consumed.add(a); consumed.add(b);
     props.push({id:++id,tw:true,side:'AB',itemsA:[a],itemsB:[b],diff:a.amtA-b.amtB,accepted:false});
+  });
+  // ambiguous amounts (the same net card amount recurs) still pair when
+  // exactly one line on each side shares a reference number with the other
+  const listAll=(arr,amt)=>{const m=new Map();arr.forEach(r=>{if(consumed.has(r))return;const c=cents(amt(r));if(!c)return;if(!m.has(c))m.set(c,[]);m.get(c).push(r);});return m;};
+  const lA=listAll(onlyA,r=>r.amtA), lB=listAll(onlyB,r=>r.amtB);
+  lA.forEach((as,c)=>{
+    const bs=lB.get(c); if(!bs||props.length>=CAP)return;
+    as.forEach(a=>{
+      if(consumed.has(a))return;
+      const lb=bs.filter(b=>!consumed.has(b)&&tokenLinked(a,b));
+      if(lb.length!==1)return;
+      const b=lb[0];
+      if(as.filter(x=>!consumed.has(x)&&tokenLinked(x,b)).length!==1)return;
+      consumed.add(a); consumed.add(b);
+      props.push({id:++id,tw:true,side:'AB',itemsA:[a],itemsB:[b],diff:a.amtA-b.amtB,accepted:false});
+    });
   });
   [['A',onlyA,r=>r.amtA],['B',onlyB,r=>r.amtB]].forEach(([side,arr,amt])=>{
     const pos=new Map(), neg=new Map();
@@ -3194,8 +3242,11 @@ function proposePos(onlyA,onlyB,consumed,startId,pct,days,maxK){
   }
   return props;
 }
-function proposeAdjusted(onlyA,onlyB,consumed,startId){
+function proposeAdjusted(onlyA,onlyB,consumed,startId,days){
   const props=[]; let id=startId; const CAP=400;
+  // an FX/rounding line is posted beside its main entry: everything inside
+  // the day window, or the pass assembles coincidences across the month
+  const near=(x,y)=>!x.date||!y.date||Math.abs(x.date-y.date)/86400000<=days;
   const BAND=10000; // adjustment lines up to €100
   const cents=v=>Math.round((v||0)*100);
   const liveA=onlyA.filter(r=>!consumed.has(r)), liveB=onlyB.filter(r=>!consumed.has(r));
@@ -3213,13 +3264,14 @@ function proposeAdjusted(onlyA,onlyB,consumed,startId){
       const d=ca-cb;
       // the adjustment must be small AND smaller than either main amount
       if(d===0||Math.abs(d)>BAND||Math.abs(d)>=Math.min(Math.abs(ca),Math.abs(cb)))return;
+      if(!near(a,b))return;
       pairs.push({a,b,d,abs:Math.abs(d)});
     });
   });
   pairs.sort((x,y)=>x.abs-y.abs); // tightest pairs claim their lines first
   const pick=(m,need,except)=>{
     const list=m.get(need); if(!list)return null;
-    return list.find(r=>!consumed.has(r)&&r!==except)||null;
+    return list.find(r=>!consumed.has(r)&&r!==except&&near(r,except))||null;
   };
   for(const {a,b,d} of pairs){
     if(props.length>=CAP)break;
@@ -3422,7 +3474,7 @@ function runRecon(){
     props.push(...r.props); splitTruncated=r.truncated;
     if(nokey)props.push(...proposeSameDay(onlyA,onlyB,tol,r.consumed,props.length));
     props.push(...proposeEasy(onlyA,onlyB,r.consumed,props.length));
-    props.push(...proposeAdjusted(onlyA,onlyB,r.consumed,props.length));
+    props.push(...proposeAdjusted(onlyA,onlyB,r.consumed,props.length,parseInt(document.getElementById('nokeydays').value)||7));
   }
   // match-rate and no-key duplicate warnings are computed LIVE in
   // liveWarns() so they clear as the user reconciles — only setup-level
@@ -4191,7 +4243,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.13)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.14)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -4224,7 +4276,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.13)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.14)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -4276,7 +4328,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.13.html':'OKYPY_Reconciliation_Manual_v3.13.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.14.html':'OKYPY_Reconciliation_Manual_v3.14.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
