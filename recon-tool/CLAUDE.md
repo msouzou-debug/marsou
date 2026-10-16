@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.13**.
+   Current version: **v3.14**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -221,6 +221,15 @@ Expected values:
   proposal with a 148.00 'commission': pass 2 had paired its 25.00 line
   with an unrelated 25.00 Revolut tip of the next day and the 123.00 line
   ('FULLSET.FORINV.' spelling) fell outside the description family.
+  Open after accepting everything (v3.14): SAP — exactly the 11 'JCC NET
+  AMOUNT, 31/08/2026' lines (1,429.55) whose deposits the bank credited in
+  August (brought forward); bank — the four JCC deposits of 30/09 (388.51)
+  SAP posts in October, two €25 tips, one 5.98 deposit, and the four HIO
+  GESY transfers of 14–15/09 (7,339,795.78) the income account does not
+  carry. An independent terminal+amount matching of the 302 bank / 308 SAP
+  JCC lines (scratch script, not in repo) gives the same leftovers; four
+  SAP lines carry a terminal number off by one (SAP typo) and are rightly
+  matched by amount+date.
 
 ## Domain logic (do not break)
 
@@ -444,6 +453,24 @@ Expected values:
    the top of runRecon). Never widen it to subsets smaller than
    'family minus two': arbitrary exact subsets of 30 small lines hit random
    targets by the birthday problem.
+   **Reference numbers** (v3.14, `numTokens(rec)` / `tokenLinked(a,b)`):
+   digit runs of ≥4 in desc/key, leading zeros dropped, years ignored — a
+   card terminal ('Remittance Num 024390' ↔ 'JCC NET AMOUNT, 31/08/2026,
+   24390'), a UN/EP number, an invoice. Used in three places: (1) pass 2
+   tie-break — among equal amounts inside the window a token-linked
+   candidate outranks the nearer date (same net amounts from one terminal
+   recur across the month; on 1030 terminal agreement of the JCC pairs went
+   265→285 of 294); (2) `proposeEasy` twins — an AMBIGUOUS amount still
+   pairs when exactly one line per side shares a token (SAP books terminal
+   16334's 139.30 under 24/09, the bank credited it 17/09); (3) the split
+   guard below. **Split guard** (v3.14, in `proposeSplits`): a target under
+   €1,000 assembled from members of several days that are neither one
+   dominant wording family (≥80 %) nor text/token-linked to the target is
+   dropped as a coincidence (real miss: 178.30 = 139.30 + 25 + 8.03 + 5.97
+   from four dates of deposits and tips); the take-all shortcut is exempt
+   (fee sweep fixture). **Adjusted pairs** now take a `days` window
+   (nokeydays, default 7): main pair and adjustment line must be within it —
+   the same coincidence shape otherwise re-appears there (100 + 78.30).
    **Card settlements JCC/POS** (v3.9, `proposePos()`, opt-in `#poson`,
    default commission 1 % / ±4 days, runs right after the batch hold and
    shares one `consumed` Set with `proposeSplits(onlyA,onlyB,tol,cfg,
@@ -488,7 +515,11 @@ Expected values:
    παρτίδες'. Fixture batch_A/batch_B carry the SBAA shape (818.94 vs
    543.86+60.50+33.00+181.48 plus an unrelated VISA 383.63 on 19/09):
    expect one `{pos:true}` day proposal diff −0.10 tagged dayTag, VISA
-   left open.
+   left open. v3.14 adds to the same fixture: bank 17/09 'Remittance Num
+   016334' 139.30 vs SAP 25/09 'JCC NET AMOUNT, 24/09/2026, 16334' 139.30
+   → one twin; SAP 01/09 '…, 24387' 178.30 vs bank 100.00 (03/09) + TIPS
+   78.30 (16/09) → NO split and NO adjusted pair; after commit open A =
+   [100, 78.30, 25], open B = [−383.63, −178.30].
    A LONE line inside the band (step 2 of proposePos) is flagged `one:true`
    and labelled 'Μία γραμμή με μικρή διαφορά — προς έλεγχο / Single line,
    small difference — check' (`posOneTag`, v3.11): one line is no evidence
