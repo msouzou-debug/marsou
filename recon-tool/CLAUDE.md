@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.9**.
+   Current version: **v3.10**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -159,6 +159,15 @@ Expected values:
     proposals (the exact-split pass must NOT steal JCC lines). Cards show
     the 'Εκκαθάριση καρτών JCC/POS' tag; committing leaves open [1,0] and
     groupDiff 11.73; the Groups sheet label (H2) is the POS tag.
+  - v3.10 — batch_A/batch_B (the real 1030 British Forces shape): bank
+    credit advice 1000.00 on 28/09 vs SAP 'FULL SET. FOR INV.' lines
+    500+300+175+25 of 28/09 (the 175 spelled 'FULLSET.FORINV.') plus a
+    2031.37 line that has its OWN credit advice, and a coincidental 25.00
+    tip on 29/09. Expect: matched [[-2031.37, rule 2]], exactly one
+    `{batch:true}` proposal [A, 1000, members −500/−300/−175/−25, diff 0],
+    no other proposals, card text 'Παρτίδα ίδιας ημέρας'; after commit the
+    only open item is the 29/09 tip (−25) — the batch's own 25 was NOT
+    stolen by pass 2.
 - `test_ic.js` (IC Matrix Tool; mx_*.csv fixtures; asserts, exits 1 on
   failure): five files load with auto-guessed columns, balances
   [350, −320, 400, −400, 75]; HO⇄LIM pairs by suggested key `Ref` (2 matched,
@@ -197,8 +206,14 @@ Expected values:
   next-business-day JCC deposits at 0.38–0.89 % commission; VISA 31/08
   correctly stays open (settles in September); only ~6 residual exact-split
   proposals. Hospital 1030 (1030_INCOME_125300_09.2026 SAP vs bank
-  statement): 359 matched, 22 POS proposals (exact TRF/CASH batches at 0 %
-  plus one 1Bank credit advice vs 31 'JCC NET' lines at 0.99 %).
+  statement, v3.10): 358 matched, 9 batch proposals (diff 0: the 1Bank
+  'BRITISH FORCES' credit advice 14,896.82 = 33 'FULL SET. FOR INV.' lines
+  of 28/09, the TRF 3,000,000/1,500,000 and the exact CASH DEPOSIT days)
+  + 13 POS proposals (remaining exact TRF/CASH batches at 0 %). Before
+  v3.10 the British Forces advice came out as a WRONG 31-member POS
+  proposal with a 148.00 'commission': pass 2 had paired its 25.00 line
+  with an unrelated 25.00 Revolut tip of the next day and the 123.00 line
+  ('FULLSET.FORINV.' spelling) fell outside the description family.
 
 ## Domain logic (do not break)
 
@@ -403,8 +418,27 @@ Expected values:
    split passes can NEVER find because they filter candidates to the
    target's sign (real miss: SAP −8,818.40 + FX +0.13 vs bank −8,818.27).
    Tightest pairs claim their adjustment lines first; cap 400.
+   **Exact same-day batches** (v3.10, `holdBatches()` + `famKey()`): BEFORE
+   pass 2/3/4 run, every dated open item is tested against the other side's
+   same-day, same-sign description families (`famKey` = letters only, first
+   12, so 'FULL SET. FOR INV.' and 'FULLSET.FORINV.' agree and dates /
+   references inside the wording never split a family). A family of ≥3
+   lines taken whole, or minus at most two lines (one of them usually has
+   its own 1-to-1 partner), that equals the target to the cent is HELD:
+   target + members leave onlyA/onlyB (`heldA/heldB`), the 1-to-1 passes
+   run on the rest, the held items come back before sorting and are pushed
+   as `{batch:true, target, members, diff}` proposals first (ids 1..n, the
+   POS pass continues the numbering) labelled 'Παρτίδα ίδιας ημέρας —
+   ακριβές σύνολο / Same-day batch — exact total' (`batchTag`) in cards and
+   the Groups sheet. Rationale: pass 2 picks small common amounts (a €25
+   fee) off a batch whenever an equal amount sits nearby on the other side,
+   which leaves the batch short and every later group proposal wrong. The
+   hold only runs when split proposals are enabled (`scfg.on`, now read at
+   the top of runRecon). Never widen it to subsets smaller than
+   'family minus two': arbitrary exact subsets of 30 small lines hit random
+   targets by the birthday problem.
    **Card settlements JCC/POS** (v3.9, `proposePos()`, opt-in `#poson`,
-   default commission 1 % / ±4 days, runs FIRST among the group passes and
+   default commission 1 % / ±4 days, runs right after the batch hold and
    shares one `consumed` Set with `proposeSplits(onlyA,onlyB,tol,cfg,
    consumed0,startId)`): the acquirer (JCC) credits the bank with daily
    batches net of commission while SAP books the gross POS takings per day
@@ -415,7 +449,7 @@ Expected values:
    (band = max(1 cent, |target|×pct)) AND |sum| ≤ |target| + 1 cent — the
    commission can only leave the deposits SHORT, never over. Candidates:
    whole-day groups ('D|day') and day+description-family groups
-   ('F|day|first 3 words'), evaluated together (smallest residual wins,
+   ('F|day|famKey'), evaluated together (smallest residual wins,
    nearer date breaks ties); else a single nearest fitting line; else a
    subset of ONE day-family via findCombo (cap 8000) then
    findGreedyCompose (60). Never compose across the whole window — that

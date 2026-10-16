@@ -303,6 +303,24 @@ fs.writeFileSync(S('multi_B.csv'),
     '1400024076,,ΕΚΚΑΘΑΡΙΣΗ ΜΕΤΡΗΤΩΝ 3/8/2026,03/08/2026,500.00,\n');
 }
 
+/* ---- exact same-day batch fixture, the hospital-1030 British Forces shape:
+   one credit advice settles a whole day of 'FULL SET. FOR INV.' lines to the
+   cent (one spelled without spaces), minus one invoice that has its own
+   1-to-1 credit advice; a coincidental €25 tip the next day must NOT steal
+   the batch's €25 line ---- */
+fs.writeFileSync(S('batch_A.csv'),
+  'Date,Description,Debit,Credit\n' +
+  '28/09/2026,1Bank - Credit Advice BRITISH FORCES-TID1571484,,1000.00\n' +
+  '28/09/2026,1Bank - Credit Advice HOSPITALIZATION INVOICE 1800001183,,2031.37\n' +
+  '29/09/2026,TIPS INWARD 113171810 by Some Person>Revolut,,25.00\n');
+fs.writeFileSync(S('batch_B.csv'),
+  'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
+  '1400036104,,ΑΛ› FULL SET. FOR INV. 1800001228,28/09/2026,500.00,\n' +
+  '1400036100,,ΑΛ› FULL SET. FOR INV. 1800001668-1810,28/09/2026,300.00,\n' +
+  '1400036102,,ΑΛ› FULLSET.FORINV.1800001762/60/59,28/09/2026,175.00,\n' +
+  '1400036108,,ΑΛ› FULL SET. FOR INV. 1800001749/1756,28/09/2026,25.00,\n' +
+  '1400036045,,ΑΛ› FULL SET. FOR INV. 1800001183 A/A.375109,28/09/2026,2031.37,\n');
+
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
 */

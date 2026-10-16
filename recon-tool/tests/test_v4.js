@@ -627,6 +627,38 @@ const newAppPage = async browser => {
   check('Groups sheet labels the settlement groups', wsGp && wsGp.H2 && /JCC\/POS/.test(wsGp.H2.v), wsGp && wsGp.H2);
   await page.close();
 
+  /* ============ 15. v3.10: exact same-day batch held back from the 1-to-1 passes ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('batch_A.csv'));
+  await page.setInputFiles('#fileB', S('batch_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = true;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 7;
+    document.getElementById('poson').checked = true;
+    document.getElementById('pospct').value = 1;
+    document.getElementById('posdays').value = 4;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    matched: RESULT.matched.map(x => [x.amtA, x.rule]),
+    batch: RESULT.props.filter(p => p.batch).map(p => [p.side, p.target.desc.slice(0, 20), p.target.amtA, p.members.map(m => m.amtB).sort((a, b) => a - b), +p.diff.toFixed(2)]),
+    others: RESULT.props.filter(p => !p.batch).length,
+    tag: (RESULT.activeTab = 'groups', renderResults(), /Παρτίδα ίδιας ημέρας/.test(document.getElementById('pane-groups').textContent)),
+    openA: (RESULT.props.forEach(p => p.accepted = true), commitGroups(), RESULT.onlyA.filter(x => !inAccepted(x)).map(x => [x.desc.slice(0, 11), x.amtA])),
+    openB: RESULT.onlyB.filter(x => !inAccepted(x)).map(x => x.amtB),
+  }));
+  console.log('BATCH:', JSON.stringify(r));
+  check('the batch (incl. the FULLSET.FORINV. spelling) is proposed whole with zero difference; the 2031.37 keeps its own 1-to-1 match',
+    JSON.stringify(r.batch) === JSON.stringify([['A', '1Bank - Credit Advic', -1000, [-500, -300, -175, -25], 0]]) &&
+    JSON.stringify(r.matched) === JSON.stringify([[-2031.37, 2]]) && r.others === 0, r);
+  check('the next-day €25 tip does not steal the batch\'s €25 line and stays open; card carries the batch tag',
+    JSON.stringify(r.openA) === JSON.stringify([['TIPS INWARD', -25]]) && r.openB.length === 0 && r.tag, r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'V4 TESTS FAILED: ' + failures : 'V4 TESTS PASSED');
   process.exit(failures ? 1 : 0);
