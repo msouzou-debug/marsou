@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.15**.
+   Current version: **v3.16**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -565,7 +565,15 @@ Expected values:
    residual check row. Documentation sheet records files, sheets, mapping
    (incl. credit/date columns), tolerance, no-key mode, passes, split
    settings, group counts, truncation flag, preparer, reviewer sign-off
-   line, skipped-row counts.
+   line, skipped-row counts. In a no-key run the 'Pass 2' row reports
+   'Ναι (κύριο πέρασμα — χωρίς κλειδί)' with the no-key window (v3.16) —
+   it used to echo the unused keyed-mode tier switch ('Όχι').
+   Export audit on the 1021 benchmark (scratch verify script, not in
+   repo): 8 sheets, 96 formulas, every cached value equals an independent
+   recomputation; Summary self-check 0, adjusted-balance residual 0;
+   Σύνολο A/B equal the app KPIs; the SAP grand-total footer (628,041.11)
+   is excluded and reported; two-sided card groups export as one block
+   (deposits on E, gross + fee on F, `SUM(E)-SUM(F)` = 0).
    **Styled cells** (v3.0, xlsx-js-style `ST` map): header rows filled brand
    blue `069FEC` with white bold text; open-item rows tinted by category
    (`catT` D6EBFA / `catA` E9F4DA / `catI` F8DEDA), rule-5 near rows `EAEAEA`;
