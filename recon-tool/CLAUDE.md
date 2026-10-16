@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.12**.
+   Current version: **v3.13**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -206,7 +206,13 @@ Expected values:
   own 'VISA. d/8' commission line (0.38–0.89 %) with the next-business-day
   JCC deposits, all diff 0.00 (v3.12); VISA 31/08 (−1,050.81 + fee 6.18)
   correctly stays open (settles in September); the 03/08 deposits (1,590.00)
-  are July's takings and stay open too; ~5 residual exact-split proposals. Hospital 1030 (1030_INCOME_125300_09.2026 SAP vs bank
+  are July's takings and stay open too; 5 exact split proposals (cash +
+  cheque deposit of one slip = SAP cash settlement) and, from v3.13, the
+  SBAA day batch (0.10 to check). Remaining open after accepting all: bank
+  only — AP SOLUTIONS inward 1,608.57, credit advice 200.00, July deposit
+  fees 36.00 + 7.50, pay-in 50.00 (slip 24.6), HIO GESY payments 14/08
+  (11 transfers, 2,411,759.14) and EUROPEAN UNIVERSITY 75,479.00 — none of
+  which the SAP income account carries; SAP only — VISA 31/08 + its fee. Hospital 1030 (1030_INCOME_125300_09.2026 SAP vs bank
   statement, v3.10): 358 matched, 9 batch proposals (diff 0: the 1Bank
   'BRITISH FORCES' credit advice 14,896.82 = 33 'FULL SET. FOR INV.' lines
   of 28/09, the TRF 3,000,000/1,500,000 and the exact CASH DEPOSIT days)
@@ -469,6 +475,20 @@ Expected values:
    the fee lines stayed open and the commission would be booked twice. On
    1021 all 20 VISA days now close at 0.00 (fixture pos_B carries the 6.12
    fee line for VISA 03.08; VISA 4/8 has none and stays one-sided, 5.61).
+   Day minus one or two lines (v3.13): only when NO whole day/family group
+   fits, step 1 retries every group of ≥4 lines minus one line and every
+   group of ≥5 minus two (never arbitrary subsets) — the real miss was a
+   SBAA (British bases) credit advice 818.94 vs nine SAP lines of 19/08
+   (invoice + eight patient names, 818.84) polluted by that day's VISA
+   gross line. Tags are resolved in `posTagKey(p)`: `one` → posOneTag;
+   `card` (JCC/VISA/MASTER/CARD/POS/ΚΑΡΤ in target or member wording) →
+   posTag; diff 0 → batchTag; else dayTag 'Παρτίδα ημέρας με μικρή
+   διαφορά — προς έλεγχο / Day batch, small difference — check'. The
+   settings label now reads 'Εκκαθαρίσεις καρτών (JCC/POS) και ημερήσιες
+   παρτίδες'. Fixture batch_A/batch_B carry the SBAA shape (818.94 vs
+   543.86+60.50+33.00+181.48 plus an unrelated VISA 383.63 on 19/09):
+   expect one `{pos:true}` day proposal diff −0.10 tagged dayTag, VISA
+   left open.
    A LONE line inside the band (step 2 of proposePos) is flagged `one:true`
    and labelled 'Μία γραμμή με μικρή διαφορά — προς έλεγχο / Single line,
    small difference — check' (`posOneTag`, v3.11): one line is no evidence

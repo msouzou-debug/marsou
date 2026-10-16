@@ -313,14 +313,20 @@ fs.writeFileSync(S('batch_A.csv'),
   'Date,Description,Debit,Credit\n' +
   '28/09/2026,1Bank - Credit Advice BRITISH FORCES-TID1571484,,1000.00\n' +
   '28/09/2026,1Bank - Credit Advice HOSPITALIZATION INVOICE 1800001183,,2031.37\n' +
-  '29/09/2026,TIPS INWARD 113171810 by Some Person>Revolut,,25.00\n');
+  '29/09/2026,TIPS INWARD 113171810 by Some Person>Revolut,,25.00\n' +
+  '19/09/2026,1Bank - Credit Advice JUN26 SBAA-TID 1545099,,818.94\n');
 fs.writeFileSync(S('batch_B.csv'),
   'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
   '1400036104,,ΑΛ› FULL SET. FOR INV. 1800001228,28/09/2026,500.00,\n' +
   '1400036100,,ΑΛ› FULL SET. FOR INV. 1800001668-1810,28/09/2026,300.00,\n' +
   '1400036102,,ΑΛ› FULLSET.FORINV.1800001762/60/59,28/09/2026,175.00,\n' +
   '1400036108,,ΑΛ› FULL SET. FOR INV. 1800001749/1756,28/09/2026,25.00,\n' +
-  '1400036045,,ΑΛ› FULL SET. FOR INV. 1800001183 A/A.375109,28/09/2026,2031.37,\n');
+  '1400036045,,ΑΛ› FULL SET. FOR INV. 1800001183 A/A.375109,28/09/2026,2031.37,\n' +
+  '1400035200,,ΑΛ› ΕΞΟΦΛΗΣΗ ΤΙΜ 1800000396 UN309485,19/09/2026,543.86,\n' +
+  '1400035201,,SMITH SHAUNA,19/09/2026,60.50,\n' +
+  '1400035202,,WALMSLEY SEBASTIAN,19/09/2026,33.00,\n' +
+  '1400035203,,JOY ESME,19/09/2026,181.48,\n' +
+  '900000640,,ΕΚΚΑΘΑΡΙΣΗ VISA. 19/9/2026,19/09/2026,383.63,\n');
 
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.

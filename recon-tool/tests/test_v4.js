@@ -648,8 +648,9 @@ const newAppPage = async browser => {
   r = await page.evaluate(() => ({
     matched: RESULT.matched.map(x => [x.amtA, x.rule]),
     batch: RESULT.props.filter(p => p.batch).map(p => [p.side, p.target.desc.slice(0, 20), p.target.amtA, p.members.map(m => m.amtB).sort((a, b) => a - b), +p.diff.toFixed(2)]),
-    others: RESULT.props.filter(p => !p.batch).length,
-    tag: (RESULT.activeTab = 'groups', renderResults(), /Παρτίδα ίδιας ημέρας/.test(document.getElementById('pane-groups').textContent)),
+    others: RESULT.props.filter(p => !p.batch && !p.pos).length,
+    day: RESULT.props.filter(p => p.pos).map(p => [p.side, p.target.desc.slice(0, 26), p.members.map(m => m.amtB).sort((a, b) => a - b), +p.diff.toFixed(2), posTagKey(p)]),
+    tag: (RESULT.activeTab = 'groups', renderResults(), /Παρτίδα ίδιας ημέρας/.test(document.getElementById('pane-groups').textContent) && /Παρτίδα ημέρας με μικρή διαφορά/.test(document.getElementById('pane-groups').textContent)),
     openA: (RESULT.props.forEach(p => p.accepted = true), commitGroups(), RESULT.onlyA.filter(x => !inAccepted(x)).map(x => [x.desc.slice(0, 11), x.amtA])),
     openB: RESULT.onlyB.filter(x => !inAccepted(x)).map(x => x.amtB),
   }));
@@ -657,8 +658,10 @@ const newAppPage = async browser => {
   check('the batch (incl. the FULLSET.FORINV. spelling) is proposed whole with zero difference; the 2031.37 keeps its own 1-to-1 match',
     JSON.stringify(r.batch) === JSON.stringify([['A', '1Bank - Credit Advic', -1000, [-500, -300, -175, -25], 0]]) &&
     JSON.stringify(r.matched) === JSON.stringify([[-2031.37, 2]]) && r.others === 0, r);
-  check('the next-day €25 tip does not steal the batch\'s €25 line and stays open; card carries the batch tag',
-    JSON.stringify(r.openA) === JSON.stringify([['TIPS INWARD', -25]]) && r.openB.length === 0 && r.tag, r);
+  check('the next-day €25 tip does not steal the batch\'s €25 line and stays open; cards carry the batch and day-batch tags',
+    JSON.stringify(r.openA) === JSON.stringify([['TIPS INWARD', -25]]) && JSON.stringify(r.openB) === JSON.stringify([-383.63]) && r.tag, r);
+  check('the SBAA advice is proposed against the day minus its unrelated VISA line (0.10 to check), labelled as a day batch, not a card settlement',
+    JSON.stringify(r.day) === JSON.stringify([['A', '1Bank - Credit Advice JUN2', [-543.86, -181.48, -60.5, -33], -0.1, 'dayTag']]), r);
   await page.close();
 
   await browser.close();
