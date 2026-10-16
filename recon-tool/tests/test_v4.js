@@ -600,14 +600,16 @@ const newAppPage = async browser => {
   await page.waitForSelector('#stepRes:not(.hidden)');
   r = await page.evaluate(() => ({
     matched: RESULT.matched.length,
-    pos: RESULT.props.filter(p => p.pos).map(p => [p.side, p.target.desc, p.side === 'A' ? p.target.amtA : p.target.amtB, p.members.length, fmtDate(p.members[0].date), +p.diff.toFixed(2)]).sort((a, b) => a[2] - b[2]),
+    pos: RESULT.props.filter(p => p.pos).map(p => twoSided(p)
+      ? [p.side, p.itemsB.map(m => m.desc).join(' + '), p.itemsB.map(m => m.amtB), p.itemsA.length, fmtDate(p.itemsA[0].date), +p.diff.toFixed(2)]
+      : [p.side, p.target.desc, p.side === 'A' ? p.target.amtA : p.target.amtB, p.members.length, fmtDate(p.members[0].date), +p.diff.toFixed(2)]).sort((a, b) => (a[2][0] || a[2]) - (b[2][0] || b[2])),
     others: RESULT.props.filter(p => !p.pos).length,
     cardTag: /JCC\/POS/.test(document.querySelector('#pane-groups') ? document.querySelector('#pane-groups').textContent : ''),
   }));
   console.log('POS:', JSON.stringify(r));
-  check('cash line matched exactly, both VISA days proposed against next-day deposits net of commission',
+  check('cash line matched exactly; VISA 03.08 + its own 6.12 fee line vs 7 deposits = 0; VISA 4/8 vs 8 deposits short by the commission',
     r.matched === 1 && r.pos.length === 2 &&
-    JSON.stringify(r.pos[0]) === JSON.stringify(['B', 'VISA 03.08.2026', -1496.41, 7, '04/08/2026', 6.12]) &&
+    JSON.stringify(r.pos[0]) === JSON.stringify(['B', 'VISA 03.08.2026 + VISA. 3/8/2026', [-1496.41, 6.12], 7, '04/08/2026', 0]) &&
     JSON.stringify(r.pos[1]) === JSON.stringify(['B', 'ΕΚΚΑΘΑΡΙΣΗ VISA. 4/8/2026', -981.4, 8, '05/08/2026', 5.61]), r);
   check('the unrelated same-day transfer is left out (family grouping) and no junk subsets appear', r.others === 0, r.others);
   r = await page.evaluate(() => {
@@ -618,7 +620,7 @@ const newAppPage = async browser => {
              groupDiff: +RESULT.committed.reduce((s, p) => s + p.diff, 0).toFixed(2) };
   });
   check('cards carry the JCC/POS tag; committing leaves only the transfer open with the commission as group difference',
-    r.tagged && JSON.stringify(r.open) === JSON.stringify([1, 0]) && r.groupDiff === 11.73, r);
+    r.tagged && JSON.stringify(r.open) === JSON.stringify([1, 0]) && r.groupDiff === 5.61, r);
   const [dlPos] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportExcel())]);
   const posPath = path.join(__dirname, 'export_pos.xlsx');
   await dlPos.saveAs(posPath);

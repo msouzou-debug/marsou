@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.11**.
+   Current version: **v3.12**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -202,10 +202,11 @@ Expected values:
 - Real-world benchmark 3 (files not in repo): hospital 1021 BOC income
   account statement 08.2026 (side A, preamble rows, header auto-detected
   at row 8) vs INCOME_SAP (side B), no-key ±7d, flip B, POS pass 1 % ±4d:
-  20 POS proposals pairing every settleable 'VISA dd.mm' SAP line with the
-  next-business-day JCC deposits at 0.38–0.89 % commission; VISA 31/08
-  correctly stays open (settles in September); only ~6 residual exact-split
-  proposals. Hospital 1030 (1030_INCOME_125300_09.2026 SAP vs bank
+  20 POS proposals pairing every settleable 'VISA dd.mm' SAP line PLUS its
+  own 'VISA. d/8' commission line (0.38–0.89 %) with the next-business-day
+  JCC deposits, all diff 0.00 (v3.12); VISA 31/08 (−1,050.81 + fee 6.18)
+  correctly stays open (settles in September); the 03/08 deposits (1,590.00)
+  are July's takings and stay open too; ~5 residual exact-split proposals. Hospital 1030 (1030_INCOME_125300_09.2026 SAP vs bank
   statement, v3.10): 358 matched, 9 batch proposals (diff 0: the 1Bank
   'BRITISH FORCES' credit advice 14,896.82 = 33 'FULL SET. FOR INV.' lines
   of 28/09, the TRF 3,000,000/1,500,000 and the exact CASH DEPOSIT days)
@@ -459,6 +460,15 @@ Expected values:
    the Groups sheet; the residual is the commission the user books. Running
    POS first matters: the exact subset-sum pass otherwise consumes JCC
    lines into coincidental combos.
+   The ledger's OWN commission line (v3.12): when an open line on the
+   TARGET side, within ±days, equals the residual to the cent (SAP books
+   'VISA. 12/8/2026' +28.13 beside 'ΕΚΚΑΘΑΡΙΣΗ VISA. 12/8/2026' −6,174.98),
+   it joins the group and the proposal becomes TWO-SIDED
+   `{pos:true, itemsA, itemsB, diff:0}` (`twoSided()` recognises
+   `p.pos&&p.itemsA`, `grpTagKey` returns 'posTag' for pos). Without this
+   the fee lines stayed open and the commission would be booked twice. On
+   1021 all 20 VISA days now close at 0.00 (fixture pos_B carries the 6.12
+   fee line for VISA 03.08; VISA 4/8 has none and stays one-sided, 5.61).
    A LONE line inside the band (step 2 of proposePos) is flagged `one:true`
    and labelled 'Μία γραμμή με μικρή διαφορά — προς έλεγχο / Single line,
    small difference — check' (`posOneTag`, v3.11): one line is no evidence

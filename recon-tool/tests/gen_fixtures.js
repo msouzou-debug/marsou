@@ -299,6 +299,7 @@ fs.writeFileSync(S('multi_B.csv'),
     'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
     '900000606,VISA 03.08.2026,,03/08/2026,1496.41,\n' +
     '900000606,VISA 03.08.2026,,03/08/2026,0,\n' +
+    '900000606,VISA 03.08.2026,VISA. 3/8/2026,03/08/2026,,6.12\n' +
     '900000613,VISA. 4/8/2026,ΕΚΚΑΘΑΡΙΣΗ VISA. 4/8/2026,04/08/2026,981.40,\n' +
     '1400024076,,ΕΚΚΑΘΑΡΙΣΗ ΜΕΤΡΗΤΩΝ 3/8/2026,03/08/2026,500.00,\n');
 }
