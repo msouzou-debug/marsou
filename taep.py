@@ -1609,6 +1609,65 @@ def format_costing_number(unit_number, sequence):
         )
     return f"{COSTING_NUMBER_PREFIX}{str(unit_number).strip()}/{sequence:04d}"
 
+COSTING_NUMBER_SEQUENCE_DIGITS = 4
+
+
+def normalise_costing_number(raw, unit_numbers=None):
+    """Canonicalise what someone types or a scanner sends. None if unreadable.
+
+    A scanner sends the number exactly as printed. A person reading it off paper does
+    not: they drop the OKY, use a dash, lose a leading zero, or type it in lower case.
+    All of those mean the same costing, so all of them resolve.
+
+    Splitting unit from sequence needs care when the separator is missing. Every ΟΑΥ unit
+    number in use is four digits, so `unit_numbers` is consulted when given and a
+    four-digit unit assumed otherwise. A sequence past 9999 keeps its own digits — the
+    split is on the unit, not on a fixed total length.
+    """
+    if raw is None:
+        return None
+    text = "".join(ch for ch in str(raw) if ch.isalnum()).upper()
+    if text.startswith(COSTING_NUMBER_PREFIX):
+        text = text[len(COSTING_NUMBER_PREFIX):]
+    if not text.isdigit() or not text:
+        return None
+
+    candidates = sorted({str(n).strip() for n in (unit_numbers or ()) if str(n).strip()},
+                        key=len, reverse=True)
+    for unit in candidates:
+        if text.startswith(unit) and len(text) > len(unit):
+            sequence = text[len(unit):]
+            break
+    else:
+        # No unit list, or none matched: fall back to the four-digit convention.
+        if len(text) <= COSTING_NUMBER_SEQUENCE_DIGITS:
+            return None
+        unit, sequence = text[:4], text[4:]
+
+    if not sequence.isdigit() or int(sequence) < 1:
+        return None
+    return "%s%s/%0*d" % (COSTING_NUMBER_PREFIX, unit,
+                          COSTING_NUMBER_SEQUENCE_DIGITS, int(sequence))
+
+
+def find_episode_by_costing_number(ctx, raw):
+    """The episode carrying this costing number, or None. Does no access checking.
+
+    Brief §12 wants the printed number to lead back to the record without retyping
+    anything. The caller applies the hospital scope — see taep_find, which answers a
+    number belonging to another hospital exactly as it answers one that does not exist.
+    """
+    units = ctx["db_execute"]("SELECT DISTINCT taep_number FROM taep_unit",
+                              fetch=True) or []
+    number = normalise_costing_number(
+        raw, [u["taep_number"] for u in units])
+    if number is None:
+        return None
+    rows = ctx["db_execute"]("SELECT * FROM taep_episode WHERE costing_number=%s",
+                             (number,), fetch=True)
+    return rows[0] if rows else None
+
+
 # ---------------------------------------------------------------------------
 # The printed document (brief §12)
 # ---------------------------------------------------------------------------
@@ -1701,6 +1760,33 @@ def costing_document_data(ctx, episode_id):
     }
 
 
+def draw_costing_qr(pdf, x, y, size, value):
+    """Draw the costing number as a QR square with its bottom-left corner at (x, y).
+
+    The payload is the bare number — «OKY1054/0035» — and deliberately not a URL. A
+    handheld scanner is a keyboard: it types what it reads into whatever field has
+    focus, which is the lookup box on the list screen. A URL would hardcode a hostname
+    the module has no business knowing, and would be useless typed into a text input.
+
+    Error level M, so the square survives a smudge or a staple without growing much.
+    Measured off the rendered page at 14mm: 22 modules, 0.466mm each. Handheld imaging
+    scanners resolve to roughly 0.17mm, so that is a comfortable margin — it is the page
+    layout that caps the size, not readability.
+
+    Nothing here is random, so the page stays byte-identical on a second render.
+    """
+    from reportlab.graphics import renderPDF
+    from reportlab.graphics.barcode import qr
+    from reportlab.graphics.shapes import Drawing
+
+    widget = qr.QrCodeWidget(value, barLevel="M")
+    left, bottom, right, top = widget.getBounds()
+    drawing = Drawing(size, size, transform=[size / (right - left), 0, 0,
+                                             size / (top - bottom), 0, 0])
+    drawing.add(widget)
+    renderPDF.draw(drawing, pdf, x, y)
+
+
 def draw_fitted(pdf, x, y, text, limit, font, size=8, floor=6.0):
     """Draw text at x, shrinking to stay inside `limit` points.
 
@@ -1746,9 +1832,19 @@ def render_costing_pdf(ctx, episode_id):
     width, height = A4
     left, right = 18 * mm, width - 18 * mm
 
+    qr_size = 14 * mm
+
     def header(page):
         pdf.setFont(font_bold, 13)
         pdf.drawCentredString(width / 2, height - 20 * mm, "ΚΟΣΤΟΛΟΓΗΣΗ ΠΕΡΙΣΤΑΤΙΚΟΥ")
+        # Top right, sitting on the rule and clear of the centred title. The
+        # human-readable number prints directly underneath it, so the desk can read
+        # what the scanner reads.
+        if episode["costing_number"]:
+            # 1mm clear of the rule below. Drawn flush, the rule crossed the square's
+            # quiet zone, which still decoded here but leaves a scanner no margin.
+            draw_costing_qr(pdf, right - qr_size, height - 21 * mm, qr_size,
+                            episode["costing_number"])
         pdf.line(left, height - 22 * mm, right, height - 22 * mm)
         pdf.setFont(font, 8)
         pdf.drawString(left, height - 26 * mm, "ΟΚΥπΥ — Οργανισμός Κρατικών Υπηρεσιών Υγείας")
@@ -3079,6 +3175,31 @@ def register(app, ctx):
             categories=list_ae_categories(ctx), filters=filters,
             # Only the filters actually set, so the export link carries no "None".
             export_args={key: value for key, value in filters.items() if value})
+
+    # -- Lookup by costing number -----------------------------------------
+    @app.route("/taep/find")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_find():
+        """Scan or type the printed number, land on the costing.
+
+        Gated on the same permission as the list, so it grants nobody anything new.
+        If the cashier at the till is not the clerk who entered the episode, they need
+        a view-only key of their own — that is a permission the Μονάδα would have to
+        approve, not one to invent here.
+        """
+        raw = (request.args.get("number") or "").strip()
+        if not raw:
+            flash("Δώστε αριθμό κοστολόγησης.", "warning")
+            return redirect(url_for("taep_list"))
+
+        episode = find_episode_by_costing_number(ctx, raw)
+        # One answer for "no such number" and for "another hospital's number". A clerk
+        # in Λεμεσός must not learn that a Λευκωσία costing exists — brief §13.
+        if episode is None or not ctx["can_access_entity"](episode["entity_code"]):
+            flash(f"Δεν βρέθηκε κοστολόγηση με αριθμό «{raw}».", "warning")
+            return redirect(url_for("taep_list"))
+        return redirect(url_for("taep_costing", episode_id=episode["id"]))
 
     # -- Screen 4: Διαχείριση Τιμών ---------------------------------------
     @app.route("/taep/rates")

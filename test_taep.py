@@ -726,3 +726,51 @@ def test_the_two_nicosia_units_do_not_share_a_number_series():
     adult = taep.format_costing_number(units["NGH-ADULT"]["taep_number"], 1)
     paed = taep.format_costing_number(units["NGH-PAED"]["taep_number"], 1)
     assert adult != paed
+
+
+# ---------------------------------------------------------------------------
+# Reading a printed number back (brief §12)
+# ---------------------------------------------------------------------------
+
+UNITS = ["1054", "1106", "1047"]
+
+
+@pytest.mark.parametrize("raw", [
+    "OKY1054/0035",     # exactly as printed, which is what a scanner sends
+    "oky1054/0035",     # typed in lower case
+    " OKY1054-0035 ",   # dash and stray spaces
+    "OKY1054 0035",
+    "1054/0035",        # prefix dropped
+    "1054/35",          # leading zeros dropped
+    "OKY10540035",      # no separator at all
+])
+def test_every_way_of_writing_one_number_resolves_to_it(raw):
+    assert taep.normalise_costing_number(raw, UNITS) == "OKY1054/0035"
+
+
+@pytest.mark.parametrize("raw", [
+    None, "", "   ", "garbage", "OKY", "1054",       # a unit with no sequence
+    "OKY1054/0000",                                   # sequences start at 1
+    "OKY1054/abc",
+])
+def test_unreadable_input_resolves_to_nothing(raw):
+    assert taep.normalise_costing_number(raw, UNITS) is None
+
+
+def test_the_unit_is_split_off_by_its_own_length_not_a_fixed_total():
+    """A sequence past 9999 keeps its digits rather than stealing one from the unit."""
+    assert taep.normalise_costing_number("OKY105412345", UNITS) == "OKY1054/12345"
+    assert taep.normalise_costing_number("OKY1054/12345", UNITS) == "OKY1054/12345"
+
+
+def test_a_longer_unit_number_wins_over_a_shorter_prefix():
+    """If ΟΑΥ ever issues a five-digit number, the longest match decides the split."""
+    assert taep.normalise_costing_number(
+        "OKY105410001", ["1054", "10541"]) == "OKY10541/0001"
+
+
+def test_normalising_round_trips_what_the_formatter_produces():
+    for unit in UNITS:
+        for sequence in (1, 35, 9999, 10000):
+            printed = taep.format_costing_number(unit, sequence)
+            assert taep.normalise_costing_number(printed, UNITS) == printed

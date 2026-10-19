@@ -3,6 +3,18 @@
 {% block content %}
 <h1>Καταχωρήσεις</h1>
 
+<!-- Separate from the filters below: this jumps straight to one costing. A handheld
+     scanner types the number into the box and submits, so autofocus is deliberate. -->
+<form method="get" action="{{ url_for('taep_find') }}" class="lookup">
+  <label for="number">Αριθμός κοστολόγησης</label>
+  <input id="number" name="number" type="text" autofocus autocomplete="off"
+         inputmode="text" placeholder="OKY1054/0035"
+         aria-describedby="number-help">
+  <button type="submit">Άνοιγμα</button>
+  <small id="number-help">Σαρώστε τον κωδικό από το έντυπο ή γράψτε τον αριθμό.
+    Δεκτά και «1054/35» ή «OKY1054-0035».</small>
+</form>
+
 <form method="get" class="filters">
   <label for="date_from">Από</label>
   <input id="date_from" name="date_from" type="date" value="{{ filters.date_from or '' }}">

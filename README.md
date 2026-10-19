@@ -132,6 +132,22 @@ through the test harness, so they are what a printer puts out rather than a mock
 The document carries the Τέλος Εγγραφής row the supplied sample omits, itemises tariff
 lines above the totals, and renders byte-identically on every render.
 
+Top right is the costing number as a QR square, with the same number in readable text
+directly beneath it. The payload is the bare number — `OKY1054/0035` — and deliberately
+not a URL: a handheld scanner is a keyboard, so what it reads has to be something that
+makes sense typed into a text box. `/taep/find` is that box, on the list screen.
+
+`normalise_costing_number()` accepts what a person reads off paper as well as what a
+scanner sends: `1054/35`, `oky1054-0001` and `OKY10540035` all resolve to the same
+costing. The unit is split off by its own length rather than a fixed total, so a sequence
+past 9999 keeps its digits. A number belonging to another hospital answers exactly as a
+number that does not exist — brief §13.
+
+`test_the_document_carries_the_number_as_a_scannable_code` renders the page at 150 dpi and
+decodes it with `cv2.QRCodeDetector`, because drawing a square is not the same as it
+scanning. That needs `opencv-python-headless`, which is test-only and must not go on the
+server; without it the test skips and the code is unverified.
+
 Values are fitted to their columns by `draw_fitted()` rather than drawn at a fixed x. The
 specimen that first went out had the relative's identification number hanging 42pt past
 the right frame — the characters extracted perfectly from the PDF while sitting off the

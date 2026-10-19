@@ -7,3 +7,9 @@ reportlab>=4.0         # the printed costing document
 pytest>=8.0            # tests
 pypdf>=4.0             # tests: reads the rendered PDF back
 pdfplumber>=0.11       # tests: reads by position, which catches overprinting
+# tests only, and NOT needed on the server: decodes the QR back off a rendered page.
+# Without it test_the_document_carries_the_number_as_a_scannable_code skips, and the
+# code on the printed document goes unverified — drawing a square is not the same as
+# it scanning.
+opencv-python-headless>=4.9   # cv2.QRCodeDetector
+pypdfium2>=4.0                # renders the page to a bitmap (already a pdfplumber dep)

@@ -666,3 +666,49 @@ def unpaid_prior_episodes_flagged(harness):
         expect(data["prefill"]["last_name"] == "Παπαδόπουλος",
                "προσφέρεται συμπλήρωση στοιχείων"),
     ]
+
+
+@scenario("ΣΑ-26", "Ο αριθμός από το έντυπο ανοίγει την κοστολόγηση",
+          "Οριστικοποιημένη κοστολόγηση με τυπωμένο αριθμό OKY1054/0001.",
+          "Σαρώνεται ο κωδικός από το έντυπο, ή γράφεται ο αριθμός στο πλαίσιο "
+          "αναζήτησης — και στις χαλαρές μορφές «1054/1» και «oky1054-0001».",
+          "Ανοίγει η ίδια κοστολόγηση, χωρίς να ξαναγραφτεί κανένα στοιχείο.",
+          "§12")
+def printed_number_opens_the_costing(harness):
+    episode_id = drive_to_finalised(harness)
+    number = taep.get_episode(harness.ctx, episode_id)["costing_number"]
+    checks = [expect(number == "OKY1054/0001", f"ο αριθμός είναι {number}")]
+    for written in (number, "1054/1", "oky1054-0001", number.replace("OKY", "")):
+        response = harness.client.get("/taep/find",
+                                      query_string={"number": written})
+        checks.append(expect(
+            response.status_code == 302
+            and response.headers["Location"].endswith(f"/taep/{episode_id}"),
+            f"«{written}» ανοίγει την κοστολόγηση"))
+    return checks
+
+
+@scenario("ΣΑ-27", "Αριθμός άλλου νοσηλευτηρίου δεν αποκαλύπτεται",
+          "Κοστολόγηση που ανήκει στο Γενικό Νοσοκομείο Λεμεσού.",
+          "Κωδικοποιητής της Λευκωσίας δίνει τον αριθμό της στο πλαίσιο αναζήτησης.",
+          "Λαμβάνει το ίδιο μήνυμα όπως για αριθμό που δεν υπάρχει καθόλου· δεν "
+          "μαθαίνει ότι η κοστολόγηση υπάρχει.",
+          "§13")
+def another_hospitals_number_is_not_revealed(harness):
+    episode_id = drive_to_finalised(harness)
+    number = taep.get_episode(harness.ctx, episode_id)["costing_number"]
+    harness.ctx["db_execute"](
+        "UPDATE taep_episode SET entity_code='LGH' WHERE id=%s", (episode_id,))
+
+    other = harness.client.get("/taep/find", query_string={"number": number},
+                               follow_redirects=True).get_data(as_text=True)
+    missing = harness.client.get("/taep/find",
+                                 query_string={"number": "OKY1054/9999"},
+                                 follow_redirects=True).get_data(as_text=True)
+    return [
+        expect("Δεν βρέθηκε κοστολόγηση" in other, "απαντά «δεν βρέθηκε»"),
+        expect("Δεν βρέθηκε κοστολόγηση" in missing,
+               "ίδια απάντηση για ανύπαρκτο αριθμό"),
+        expect(f"/taep/{episode_id}" not in other,
+               "δεν δίνεται σύνδεσμος προς την κοστολόγηση"),
+    ]

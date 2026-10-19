@@ -529,3 +529,84 @@ def test_cancelling_keeps_the_number_and_needs_a_reason(client, app):
     episode = taep.get_episode(app.ctx, episode_id)
     assert episode["status"] == "CANCELLED"
     assert episode["costing_number"] == "OKY1054/0001"
+
+
+# ---------------------------------------------------------------------------
+# Lookup by costing number, and the code on the document
+# ---------------------------------------------------------------------------
+
+def test_the_printed_number_opens_its_own_costing(client, app):
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+    response = client.get("/taep/find", query_string={"number": number})
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/taep/%d" % episode_id)
+
+
+def test_a_number_typed_loosely_still_opens_it(client, app):
+    """What a person reads off paper, not what a scanner sends."""
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+    loose = number.replace("OKY", "").replace("/0", "/").lower()
+    response = client.get("/taep/find", query_string={"number": loose})
+    assert response.headers["Location"].endswith("/taep/%d" % episode_id)
+
+
+def test_an_unknown_number_says_so_without_a_server_error(client, app):
+    response = client.get("/taep/find", query_string={"number": "OKY1054/9999"},
+                          follow_redirects=True)
+    assert response.status_code == 200
+    assert "Δεν βρέθηκε κοστολόγηση" in response.get_data(as_text=True)
+
+
+def test_an_empty_box_asks_for_a_number(client, app):
+    response = client.get("/taep/find", query_string={"number": "  "},
+                          follow_redirects=True)
+    assert "Δώστε αριθμό κοστολόγησης" in response.get_data(as_text=True)
+
+
+def test_another_hospitals_number_reads_as_not_found(client, app):
+    """Brief §13. The answer must not reveal that the costing exists."""
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+    # the harness ctx grants NGH only; move the episode to Λεμεσός
+    app.ctx["db_execute"]("UPDATE taep_episode SET entity_code='LGH' WHERE id=%s",
+                          (episode_id,))
+
+    response = client.get("/taep/find", query_string={"number": number},
+                          follow_redirects=True)
+    page = response.get_data(as_text=True)
+    assert "Δεν βρέθηκε κοστολόγηση" in page
+    # identical wording to a number that does not exist at all, and no redirect to it
+    assert "/taep/%d" % episode_id not in page
+
+
+def test_the_document_carries_the_number_as_a_scannable_code(client, app):
+    """Decoded from a rendered page, because drawing it is not the same as it scanning."""
+    cv2 = pytest.importorskip("cv2")
+    pdfium = pytest.importorskip("pypdfium2")
+    import numpy as np
+    from io import BytesIO
+
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+    pdf = taep.render_costing_pdf(app.ctx, episode_id)
+
+    document = pdfium.PdfDocument(BytesIO(pdf))
+    # 150 dpi is a poor scan; if it reads there it reads on the desk
+    image = np.array(document[0].render(scale=150 / 72).to_pil().convert("L"))
+    decoded, *_ = cv2.QRCodeDetector().detectAndDecode(image)
+    assert decoded == number
+
+
+def test_the_code_does_not_sit_on_top_of_any_text(client, app):
+    """It is drawn, so the word-position checks cannot see it. Check the square is clear."""
+    mm = 72 / 25.4
+    episode_id = finalised(client, app)
+    words = pdf_words(taep.render_costing_pdf(app.ctx, episode_id))
+    for _, width, word in words:
+        # the 14mm square sits against the 18mm right margin, 7mm to 21mm from the top
+        x0, x1 = width - 32 * mm, width - 18 * mm
+        inside_x = word["x1"] > x0 and word["x0"] < x1
+        inside_y = word["bottom"] > 7 * mm and word["top"] < 21 * mm
+        assert not (inside_x and inside_y), word["text"]
