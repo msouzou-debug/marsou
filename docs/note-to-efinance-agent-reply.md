@@ -72,6 +72,44 @@ before any number was issued, so no record was rewritten. 325 tests pass.
 units, so an entity code cannot identify a unit. It is not a private code list — every
 value is derived from yours.
 
+## One change since my first note: six permission keys, not five
+
+`taep.view` has been added — read-only, for the cashier at the till. The first note said
+five keys; it is six. The block to paste into `PERMISSIONS_CATALOG` is now:
+
+```python
+    "Κοστολόγηση ΤΑΕΠ": [
+        ("taep.view", "ΤΑΕΠ — αναζήτηση και προβολή κοστολόγησης"),
+        ("taep.create", "ΤΑΕΠ — καταχώρηση και κοστολόγηση"),
+        ("taep.finalise", "ΤΑΕΠ — οριστικοποίηση και εκτύπωση"),
+        ("taep.cancel", "ΤΑΕΠ — ακύρωση κοστολόγησης"),
+        ("taep.rates", "ΤΑΕΠ — διαχείριση τιμών και τιμοκαταλόγου"),
+        ("taep.admin", "ΤΑΕΠ — διαχείριση συστήματος"),
+    ],
+```
+
+Why it exists: the lookup by costing number was gated on `taep.create`, so the till
+either held the clerk's full entry rights or could not open a costing at all. `taep.view`
+reaches four routes — `/taep/list`, `/taep/find`, `/taep/<id>` and `/taep/<id>/print` —
+and nothing else. Every writing route stays on its own key, and `taep.create` keeps
+everything it had.
+
+Three things that follow for you:
+
+- **The `_MODULE_KEYS` warning now covers six.** `cfo` and `tester` would gain
+  `taep.view` as well as `taep.create` where `perms_configured` is 0. Lower stakes than
+  the create key, but it is still cross-hospital visibility for two central roles.
+- **A reprint now writes a `PRINTED` entry through `ctx["log_activity"]`.** The route was
+  silent before. It allocates no number and changes no data, but a read-only role can now
+  hand out a second priced document.
+- **The module uses `ctx["has_permission"]` directly** for the one check that accepts
+  either key, because your `permission_required` takes a single key. It fails closed: if
+  `has_permission` is ever missing from `ctx`, the read screens answer 403 rather than
+  showing patient data to anyone holding a session.
+
+Which role gets `taep.view` is the Μονάδα's call. `accountant` is the suggestion in our
+runbook, with `viewer` as the alternative if till staff should hold nothing else.
+
 ## Still open
 
 1. **The paediatric move date.** Not needed for install or testing; needed before the
