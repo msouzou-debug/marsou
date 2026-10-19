@@ -38,9 +38,13 @@ seed/                       (the whole directory, including seed/source/)
 tools/check_readiness.py    (the go-live check — see §6)
 ```
 
-`seed/` must travel with the module: `seed(ctx)` reads the CSVs at boot. The files under
-`seed/source/` are the authoritative workbooks and the generators in `tools/` read them;
-they are not needed at runtime but belong with the code.
+`seed/` must travel with the module: `seed(ctx)` reads these eight CSVs at boot and
+nothing else — `care_levels`, `extra_charges`, `financial_categories`,
+`radiology_tariff`, `services`, `taep_units`, `tariff`, `weight_matrix`.
+
+**Do not copy `seed/source/` to the server.** Those are the authoritative workbooks the
+generators in `tools/` read on a workstation. Nothing opens them at runtime, and they do
+not belong on a production box.
 
 `check_readiness.py` is self-contained: it imports `taep.py` and nothing else from the
 repository, so it runs wherever you put it. The other scripts in `tools/` are generators
@@ -51,6 +55,50 @@ No new Python packages are needed. Everything the module imports at runtime —
 
 Do **not** copy `conftest.py`, `taep_harness.py`, `test_*.py`, `acceptance.py` or the rest
 of `tools/` onto the production server. They are the test and build side.
+
+### How the files actually get there on this installation
+
+eFinance deploys **file by file** through a script that lives on the server at
+`/tmp/deploy.sh` — not the `deploy.sh` in its repository, which is a first-install script
+that would overwrite the live database. From a workstation with the `administrator`
+password:
+
+```
+ssh -t administrator@10.227.56.22 "sudo bash /tmp/deploy.sh"
+```
+
+**That command alone will not install this module.** eFinance's `CLAUDE.md` §6 and its
+TODO 1η.5 record the rule: a root-level `*.py` is copied **only if it already exists in
+production**, so that one-off development scripts cannot leak onto the server. `taep.py`
+is new, so it is skipped silently — which is exactly the failure that rule was added to
+report after `error_digest.py` was nearly lost. A new module is passed as an argument:
+
+```
+ssh -t administrator@10.227.56.22 "sudo bash /tmp/deploy.sh taep.py"
+```
+
+Templates are copied when they changed **or are missing**, so the eight `taep_*.html`
+files should travel on their own.
+
+`seed/` and `check_readiness.py` are a different matter: the script's documented rules
+cover root `*.py`, templates and `en.json`. A new directory is not mentioned. **Read
+`/tmp/deploy.sh` before relying on it** — this runbook is written from eFinance's
+documentation, not from the script itself. If it does not handle `seed/`, copy it by
+hand:
+
+```
+scp -r seed administrator@10.227.56.22:/home/administrator/taep-seed
+scp tools/check_readiness.py administrator@10.227.56.22:/home/administrator/
+ssh -t administrator@10.227.56.22
+  sudo cp -a /opt/finance /home/administrator/prod-backup-$(date +%Y%m%d-%H%M%S)
+  sudo mkdir -p /opt/finance/seed
+  sudo cp /home/administrator/taep-seed/*.csv /opt/finance/seed/
+  sudo cp /home/administrator/check_readiness.py /opt/finance/
+  sudo chown -R finance:finance /opt/finance/seed /opt/finance/check_readiness.py
+```
+
+The backup first is not optional. `administrator` is not in the `finance` group, so every
+write to `/opt/finance` needs `sudo`.
 
 ## 2. Register the module
 
