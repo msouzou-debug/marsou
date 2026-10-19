@@ -610,3 +610,102 @@ def test_the_code_does_not_sit_on_top_of_any_text(client, app):
         inside_x = word["x1"] > x0 and word["x0"] < x1
         inside_y = word["bottom"] > 7 * mm and word["top"] < 21 * mm
         assert not (inside_x and inside_y), word["text"]
+
+
+# ---------------------------------------------------------------------------
+# The cashier: taep.view reads, and only reads
+# ---------------------------------------------------------------------------
+
+def as_cashier(app):
+    """Restrict the session to taep.view alone."""
+    granted = app.ctx["granted_permissions"]
+    granted.clear()
+    granted.add(taep.PERMISSIONS["view"])
+
+
+def test_a_cashier_opens_a_costing_from_the_printed_number(client, app):
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+    as_cashier(app)
+
+    response = client.get("/taep/find", query_string={"number": number})
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/taep/%d" % episode_id)
+    assert client.get("/taep/%d" % episode_id).status_code == 200
+    assert client.get("/taep/list").status_code == 200
+
+
+def test_a_cashier_can_reprint_and_the_reprint_is_logged(client, app):
+    episode_id = finalised(client, app)
+    as_cashier(app)
+    before = len(app.ctx["activity_log"])
+
+    response = client.get("/taep/%d/print" % episode_id)
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+
+    entries = app.ctx["activity_log"][before:]
+    assert [e[2] for e in entries] == ["PRINTED"]
+    assert entries[0][3] == taep.get_episode(app.ctx, episode_id)["costing_number"]
+
+
+@pytest.mark.parametrize("method,path,data", [
+    ("get", "/taep/nea", None),
+    ("post", "/taep/nea", {}),
+    ("post", "/taep/%d/services", {"service_code": ["AED008"]}),
+    ("post", "/taep/%d/calculate", {}),
+    ("post", "/taep/%d/finalise", {}),
+    ("post", "/taep/%d/cancel", {"reason": "δοκιμή"}),
+    ("get", "/taep/rates", None),
+    ("get", "/taep/readiness", None),
+    ("get", "/taep/list/export", None),
+])
+def test_a_cashier_cannot_write_anything(client, app, method, path, data):
+    episode_id = finalised(client, app)
+    as_cashier(app)
+
+    url = path % episode_id if "%d" in path else path
+    response = getattr(client, method)(url, data=data)
+    assert response.status_code == 403, (url, response.status_code)
+
+
+def test_the_cashier_key_does_not_widen_the_hospital_scope(client, app):
+    """Read-only is still read-only within one hospital — brief §13."""
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+    app.ctx["db_execute"]("UPDATE taep_episode SET entity_code='LGH' WHERE id=%s",
+                          (episode_id,))
+    as_cashier(app)
+
+    page = client.get("/taep/find", query_string={"number": number},
+                      follow_redirects=True).get_data(as_text=True)
+    assert "Δεν βρέθηκε κοστολόγηση" in page
+    assert client.get("/taep/%d" % episode_id).status_code == 404
+
+
+def test_a_clerk_still_reaches_the_read_only_screens(client, app):
+    """taep.create keeps everything it had; taep.view only adds a second way in."""
+    episode_id = finalised(client, app)
+    granted = app.ctx["granted_permissions"]
+    granted.clear()
+    granted.update({taep.PERMISSIONS["create"], taep.PERMISSIONS["finalise"]})
+
+    assert client.get("/taep/list").status_code == 200
+    assert client.get("/taep/%d" % episode_id).status_code == 200
+    assert client.get("/taep/%d/print" % episode_id).status_code == 200
+
+
+def test_a_host_without_has_permission_is_refused_not_waved_through(app):
+    """Fail closed: a missing ctx key must not expose patient data."""
+    from flask import Flask
+    ctx = dict(app.ctx)
+    ctx.pop("has_permission", None)
+    bare = Flask("no_has_permission",
+                 template_folder=app.jinja_loader.searchpath[0])
+    bare.secret_key = "test"
+    taep.register(bare, ctx)
+    client = bare.test_client()
+    with client.session_transaction() as sess:
+        sess["user_id"] = 1
+        sess["hospital_code"] = "NGH"
+    assert client.get("/taep/list").status_code == 403

@@ -77,6 +77,7 @@ in `taep.PERMISSIONS_CATALOG_EL`:
 
 ```python
     "Κοστολόγηση ΤΑΕΠ": [
+        ("taep.view", "ΤΑΕΠ — αναζήτηση και προβολή κοστολόγησης"),
         ("taep.create", "ΤΑΕΠ — καταχώρηση και κοστολόγηση"),
         ("taep.finalise", "ΤΑΕΠ — οριστικοποίηση και εκτύπωση"),
         ("taep.cancel", "ΤΑΕΠ — ακύρωση κοστολόγησης"),
@@ -92,7 +93,8 @@ install rather than a permission the Μονάδα has not granted yet.
 **Adding the keys to the catalogue is not a neutral act.** `_MODULE_KEYS` (`app.py:770`)
 is computed from `PERMISSIONS_CATALOG`, and `DEFAULT_ROLE_PERMISSIONS` (`app.py:772`)
 hands that whole list to `cfo` and `tester`. Both are `CENTRAL_ROLES`, so both would hold
-`taep.create` across every hospital the moment the keys exist. The defaults apply only
+all six keys — `taep.create` and `taep.view` included — across every hospital the moment
+the keys exist. The defaults apply only
 where `perms_configured = 0` for that role (`app.py:856`), so check that column on this
 installation before adding the keys.
 
@@ -108,13 +110,19 @@ eFinance. Its `ROLES` are `admin`, `clerk`, `accountant`, `chief_accountant`, `c
 `tester`. A mapping onto those, **for the Μονάδα to confirm — it is their decision, not
 ours**:
 
-| Key | Suggested role |
-|---|---|
-| `taep.create` | `clerk` |
-| `taep.finalise` | `clerk` |
-| `taep.cancel` | `admin` |
-| `taep.rates` | `chief_accountant` |
-| `taep.admin` | `admin` |
+| Key | Suggested role | What it allows |
+|---|---|---|
+| `taep.view` | `accountant` | Read only: the list, lookup by costing number, open a costing, reprint it. Writes nothing. For the cashier at the till. `viewer` is the alternative if the till staff should hold nothing else. |
+| `taep.create` | `clerk` | Entry, service selection, calculation |
+| `taep.finalise` | `clerk` | Issues the costing number |
+| `taep.cancel` | `admin` | |
+| `taep.rates` | `chief_accountant` | |
+| `taep.admin` | `admin` | |
+
+`taep.view` adds a second way into the read-only screens; it takes nothing away from
+`taep.create`, which still reaches them. A reprint writes a `PRINTED` entry to the
+activity log, so handing out a second priced document is accounted for even though it
+changes no data and allocates no number.
 
 One warning on role choice: eFinance's `CENTRAL_ROLES` (`admin`, `chief_accountant`,
 `cfo`, `group_cfo`, `ceo`, `board_viewer`, `fpa`, `tester`) see **every** entity. Granting

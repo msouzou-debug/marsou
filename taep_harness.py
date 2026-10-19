@@ -117,8 +117,13 @@ def make_app(ctx, directory):
             return wrapper
         return decorator
 
+    def has_permission(key):
+        """Mirrors eFinance: the real check the module's own decorators consult."""
+        return not granted or key in granted
+
     ctx["login_required"] = login_required
     ctx["permission_required"] = permission_required
+    ctx["has_permission"] = has_permission
     ctx["granted_permissions"] = granted
 
     taep.register(app, ctx)

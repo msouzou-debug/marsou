@@ -2776,6 +2776,9 @@ def readiness_summary(findings):
 # make importing taep at all require Flask.
 
 PERMISSIONS = {
+    # Read-only, for the cashier at the till: scan the printed number, see what is owed,
+    # take payment. Never creates, prices, finalises or cancels anything.
+    "view": "taep.view",
     "create": "taep.create",
     "finalise": "taep.finalise",
     "cancel": "taep.cancel",
@@ -2794,6 +2797,7 @@ PERMISSIONS = {
 #   taep.rates     rates_admin — rates and tariffs, no clinical data
 #   taep.admin     system_admin
 PERMISSIONS_CATALOG_EL = {
+    "taep.view": "ΤΑΕΠ — αναζήτηση και προβολή κοστολόγησης",
     "taep.create": "ΤΑΕΠ — καταχώρηση και κοστολόγηση",
     "taep.finalise": "ΤΑΕΠ — οριστικοποίηση και εκτύπωση",
     "taep.cancel": "ΤΑΕΠ — ακύρωση κοστολόγησης",
@@ -2993,6 +2997,34 @@ def register(app, ctx):
             abort(403)
         return entity
 
+    def permission_any(*keys):
+        """Accept any one of several permissions.
+
+        eFinance's permission_required takes a single key and bounces a failure to the
+        dashboard. There is no equivalent landing page inside this module — someone
+        without taep.view may not see the list either — so this answers 403 rather than
+        redirecting them into a loop.
+        """
+        from functools import wraps
+
+        has_permission = ctx.get("has_permission")
+
+        def decorator(view):
+            @wraps(view)
+            def wrapper(*args, **kwargs):
+                # Fail closed. has_permission is part of the ctx contract, but if a host
+                # ever omits it the right answer is a visible 403 on the read screens,
+                # not patient data shown to anyone with a session.
+                if has_permission is not None and any(has_permission(k) for k in keys):
+                    return view(*args, **kwargs)
+                abort(403)
+            return wrapper
+        return decorator
+
+    # Read-only screens: the clerk who enters costings and the cashier who reads them
+    # both reach these. Everything that writes stays on its own key.
+    READ = (PERMISSIONS["view"], PERMISSIONS["create"])
+
     def episode_or_404(episode_id):
         """Hospital scoping returns 404, not 403 — brief §13. A Limassol clerk must
         not learn that a Nicosia episode exists."""
@@ -3080,7 +3112,7 @@ def register(app, ctx):
     # -- Screen 2: Κοστολόγηση --------------------------------------------
     @app.route("/taep/<int:episode_id>")
     @login_required
-    @permission_required(PERMISSIONS["create"])
+    @permission_any(*READ)
     def taep_costing(episode_id):
         episode = episode_or_404(episode_id)
         category = get_category(ctx, episode["financial_category_id"])
@@ -3146,13 +3178,18 @@ def register(app, ctx):
     # -- Print -------------------------------------------------------------
     @app.route("/taep/<int:episode_id>/print")
     @login_required
-    @permission_required(PERMISSIONS["create"])
+    @permission_any(*READ)
     def taep_print(episode_id):
         episode = episode_or_404(episode_id)
         if episode["status"] != "FINALISED":
             flash("Μόνο οριστικοποιημένες κοστολογήσεις εκτυπώνονται.", "warning")
             return redirect(url_for("taep_costing", episode_id=episode_id))
         pdf = render_costing_pdf(ctx, episode_id)
+        # Logged because taep.view can reach this: a reprint changes nothing and
+        # allocates no number, but handing out a second priced document is worth being
+        # able to account for.
+        ctx["log_activity"]("taep_episode", episode_id, "PRINTED",
+                            episode["costing_number"] or "")
         filename = f"{episode['costing_number'].replace('/', '-')}.pdf"
         return Response(pdf, mimetype="application/pdf", headers={
             "Content-Disposition": f'inline; filename="{filename}"'})
@@ -3160,7 +3197,7 @@ def register(app, ctx):
     # -- Screen 3: Λίστα Καταχωρήσεων -------------------------------------
     @app.route("/taep/list")
     @login_required
-    @permission_required(PERMISSIONS["create"])
+    @permission_any(*READ)
     def taep_list():
         entity = active_entity()
         filters = {
@@ -3179,7 +3216,7 @@ def register(app, ctx):
     # -- Lookup by costing number -----------------------------------------
     @app.route("/taep/find")
     @login_required
-    @permission_required(PERMISSIONS["create"])
+    @permission_any(*READ)
     def taep_find():
         """Scan or type the printed number, land on the costing.
 

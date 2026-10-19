@@ -712,3 +712,40 @@ def another_hospitals_number_is_not_revealed(harness):
         expect(f"/taep/{episode_id}" not in other,
                "δεν δίνεται σύνδεσμος προς την κοστολόγηση"),
     ]
+
+
+@scenario("ΣΑ-28", "Το ταμείο διαβάζει, δεν γράφει",
+          "Χρήστης ταμείου με μόνο το δικαίωμα taep.view.",
+          "Σαρώνει τον αριθμό από το έντυπο, ανοίγει την κοστολόγηση και την "
+          "επανεκτυπώνει· στη συνέχεια επιχειρεί νέα καταχώρηση και ακύρωση.",
+          "Βλέπει και εκτυπώνει· η καταχώρηση και η ακύρωση απορρίπτονται. Η "
+          "επανεκτύπωση καταγράφεται στο αρχείο ελέγχου.",
+          "§8")
+def the_till_reads_but_does_not_write(harness):
+    episode_id = drive_to_finalised(harness)
+    number = taep.get_episode(harness.ctx, episode_id)["costing_number"]
+
+    granted = harness.ctx["granted_permissions"]
+    granted.clear()
+    granted.add(taep.PERMISSIONS["view"])
+    before = len(harness.ctx["activity_log"])
+
+    found = harness.client.get("/taep/find", query_string={"number": number})
+    printed = harness.client.get(f"/taep/{episode_id}/print")
+    entries = [e[2] for e in harness.ctx["activity_log"][before:]]
+
+    return [
+        expect(found.status_code == 302
+               and found.headers["Location"].endswith(f"/taep/{episode_id}"),
+               "ο αριθμός ανοίγει την κοστολόγηση"),
+        expect(harness.client.get(f"/taep/{episode_id}").status_code == 200,
+               "η κοστολόγηση προβάλλεται"),
+        expect(printed.status_code == 200
+               and printed.mimetype == "application/pdf", "επανεκτυπώνεται"),
+        expect(entries == ["PRINTED"], "η επανεκτύπωση καταγράφεται"),
+        expect(harness.client.get("/taep/nea").status_code == 403,
+               "η νέα καταχώρηση απορρίπτεται"),
+        expect(harness.client.post(f"/taep/{episode_id}/cancel",
+                                   data={"reason": "δοκιμή"}).status_code == 403,
+               "η ακύρωση απορρίπτεται"),
+    ]

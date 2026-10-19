@@ -137,6 +137,19 @@ directly beneath it. The payload is the bare number — `OKY1054/0035` — and d
 not a URL: a handheld scanner is a keyboard, so what it reads has to be something that
 makes sense typed into a text box. `/taep/find` is that box, on the list screen.
 
+Six permission keys, not the brief's five. `taep.view` is read-only — the list, lookup by
+number, opening a costing, reprinting it — and exists because the cashier at the till is
+not the clerk who entered the episode. It writes nothing, and it does not widen the
+hospital scope: another hospital's number answers as not found, and its costing 404s.
+`taep.create` keeps everything it had.
+
+A reprint writes a `PRINTED` entry to the activity log. It changes no data and allocates
+no number, but a read-only role can now hand out a second priced document, and that is
+worth being able to account for.
+
+`permission_any()` fails closed: if a host ever omits `has_permission` from `ctx`, the
+read screens answer 403 rather than showing patient data to anyone holding a session.
+
 `normalise_costing_number()` accepts what a person reads off paper as well as what a
 scanner sends: `1054/35`, `oky1054-0001` and `OKY10540035` all resolve to the same
 costing. The unit is split off by its own length rather than a fixed total, so a sequence
