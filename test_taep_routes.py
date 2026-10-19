@@ -25,7 +25,7 @@ def form_fields(ctx, code="624", **overrides):
         "date_of_birth": "1985-04-12", "gender": "Άνδρας", "phone": "99123456",
         "address": "Λεωφ. Μακαρίου 10", "next_of_kin_type": "Σύζυγος",
         "next_of_kin_details": "Μαρία 99654321",
-        "taep_unit_code": "NIC-ADULT", "episode_number": "E-1001",
+        "taep_unit_code": "NGH-ADULT", "episode_number": "E-1001",
         "admission_at": YESTERDAY.strftime("%Y-%m-%dT%H:%M"),
         "examination_at": (YESTERDAY + dt.timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M"),
         "discharge_at": (YESTERDAY + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M"),
@@ -68,7 +68,7 @@ def test_an_episode_at_another_hospital_is_404_not_403(client, app):
                   "financial_category_id": app.ctx["db_execute"](
                       "SELECT id FROM taep_financial_category WHERE code_new='624'",
                       fetch=True)[0]["id"]},
-        entity_code="LGH", unit_code="LIM", user_id=1)
+        entity_code="LGH", unit_code="LGH", user_id=1)
     assert client.get(f"/taep/{elsewhere}").status_code == 404
 
 
@@ -87,7 +87,7 @@ def test_the_entry_screen_offers_only_the_twenty_three_categories(client):
 
 def test_the_entry_screen_offers_both_nicosia_units(client):
     page = client.get("/taep/nea").get_data(as_text=True)
-    assert "NIC-ADULT" in page and "NIC-PAED" in page
+    assert "NGH-ADULT" in page and "NGH-PAED" in page
 
 
 def test_saving_redirects_to_the_costing_screen(client, app):
@@ -110,7 +110,7 @@ def test_a_bad_time_order_is_rejected_in_greek(client, app):
 
 def test_a_unit_from_another_hospital_is_rejected(client, app):
     response = client.post("/taep/nea", data=form_fields(app.ctx,
-                                                         taep_unit_code="LIM"))
+                                                         taep_unit_code="LGH"))
     assert response.status_code == 200
     assert "δεν ανήκει στο ενεργό νοσηλευτήριο" in response.get_data(as_text=True)
 
@@ -490,7 +490,7 @@ def test_the_list_is_scoped_to_the_active_hospital(client, app):
                                 "financial_category_id": app.ctx["db_execute"](
                                     "SELECT id FROM taep_financial_category "
                                     "WHERE code_new='624'", fetch=True)[0]["id"]},
-                      entity_code="LGH", unit_code="LIM", user_id=1)
+                      entity_code="LGH", unit_code="LGH", user_id=1)
     page = client.get("/taep/list").get_data(as_text=True)
     assert "Παπαδόπουλος" in page
     assert "Λεμεσιανός" not in page

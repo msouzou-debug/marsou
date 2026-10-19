@@ -272,11 +272,11 @@ def main():
          "ανοίγετε νέα:")
     code([
         "UPDATE taep_unit SET host_valid_to = '<η προηγούμενη της μεταφοράς>'",
-        " WHERE unit_code = 'NIC-PAED' AND host_valid_to IS NULL;",
+        " WHERE unit_code = 'NGH-PAED' AND host_valid_to IS NULL;",
         "",
         "INSERT INTO taep_unit (unit_code, name_el, taep_number, host_entity_code,",
         "                       host_valid_from, active)",
-        "VALUES ('NIC-PAED', 'ΤΑΕΠ Παίδων Λευκωσίας', '1106', 'ARC',",
+        "VALUES ('NGH-PAED', 'ΤΑΕΠ Παίδων Λευκωσίας', '1106', 'ARC',",
         "        '<η ημερομηνία μεταφοράς>', 1);",
     ])
     body("Ο αριθμός 1106 και η σειρά του παραμένουν ως έχουν — επιβεβαιώθηκε από τη "

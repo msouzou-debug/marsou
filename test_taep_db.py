@@ -124,22 +124,22 @@ def test_the_payer_is_seeded(seeded):
 # ---------------------------------------------------------------------------
 
 def test_the_first_number_for_a_unit_is_sequence_one(seeded):
-    number, sequence = taep.allocate_costing_number(seeded, "LIM")
+    number, sequence = taep.allocate_costing_number(seeded, "LGH")
     assert (number, sequence) == ("OKY1047/0001", 1)
 
 
 def test_numbers_increment_without_gaps(seeded):
-    issued = [taep.allocate_costing_number(seeded, "LIM")[0] for _ in range(5)]
+    issued = [taep.allocate_costing_number(seeded, "LGH")[0] for _ in range(5)]
     assert issued == ["OKY1047/0001", "OKY1047/0002", "OKY1047/0003",
                       "OKY1047/0004", "OKY1047/0005"]
 
 
 def test_each_unit_keeps_its_own_sequence(seeded):
     """The two Nicosia units share an entity but never share a series."""
-    assert taep.allocate_costing_number(seeded, "NIC-ADULT")[0] == "OKY1054/0001"
-    assert taep.allocate_costing_number(seeded, "NIC-PAED")[0] == "OKY1106/0001"
-    assert taep.allocate_costing_number(seeded, "NIC-ADULT")[0] == "OKY1054/0002"
-    assert taep.allocate_costing_number(seeded, "NIC-PAED")[0] == "OKY1106/0002"
+    assert taep.allocate_costing_number(seeded, "NGH-ADULT")[0] == "OKY1054/0001"
+    assert taep.allocate_costing_number(seeded, "NGH-PAED")[0] == "OKY1106/0001"
+    assert taep.allocate_costing_number(seeded, "NGH-ADULT")[0] == "OKY1054/0002"
+    assert taep.allocate_costing_number(seeded, "NGH-PAED")[0] == "OKY1106/0002"
 
 
 def test_an_unknown_unit_is_refused(seeded):
@@ -186,7 +186,7 @@ def test_concurrent_allocation_never_issues_the_same_number(seeded):
 
 
 def test_two_units_allocate_concurrently_without_interfering(seeded):
-    issued = {"NIC-ADULT": [], "NIC-PAED": []}
+    issued = {"NGH-ADULT": [], "NGH-PAED": []}
     lock = threading.Lock()
 
     def allocate(unit):
@@ -202,7 +202,7 @@ def test_two_units_allocate_concurrently_without_interfering(seeded):
     for thread in threads:
         thread.join()
 
-    for unit, prefix in (("NIC-ADULT", "OKY1054/"), ("NIC-PAED", "OKY1106/")):
+    for unit, prefix in (("NGH-ADULT", "OKY1054/"), ("NGH-PAED", "OKY1106/")):
         numbers = issued[unit]
         assert len(numbers) == len(set(numbers)) == 40
         assert all(n.startswith(prefix) for n in numbers)
@@ -211,9 +211,9 @@ def test_two_units_allocate_concurrently_without_interfering(seeded):
 
 def test_the_ledger_records_every_number(seeded):
     for _ in range(3):
-        taep.allocate_costing_number(seeded, "PAF", user_id=7)
+        taep.allocate_costing_number(seeded, "PAP", user_id=7)
     rows = seeded["db_execute"](
-        "SELECT * FROM taep_costing_number WHERE unit_code='PAF' "
+        "SELECT * FROM taep_costing_number WHERE unit_code='PAP' "
         "ORDER BY sequence_number", fetch=True)
     assert [r["costing_number"] for r in rows] == [
         "OKY1025/0001", "OKY1025/0002", "OKY1025/0003"]

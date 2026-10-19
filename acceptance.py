@@ -63,7 +63,7 @@ def entry_form(ctx, code="624", **overrides):
         "date_of_birth": "1985-04-12", "gender": "Άνδρας", "phone": "99123456",
         "address": "Λεωφ. Μακαρίου 10, Λευκωσία",
         "next_of_kin_type": "Σύζυγος", "next_of_kin_details": "Μαρία 99654321",
-        "taep_unit_code": "NIC-ADULT", "episode_number": "2026/44871",
+        "taep_unit_code": "NGH-ADULT", "episode_number": "2026/44871",
         "admission_at": YESTERDAY.strftime("%Y-%m-%dT%H:%M"),
         "examination_at": (YESTERDAY + dt.timedelta(minutes=25)).strftime("%Y-%m-%dT%H:%M"),
         "discharge_at": (YESTERDAY + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M"),
@@ -345,7 +345,7 @@ def numbers_are_gapless_under_concurrency(harness):
           "§5")
 def each_unit_has_its_own_series(harness):
     adult = drive_to_finalised(harness, episode_number="E-1")
-    paediatric = create_episode(harness, taep_unit_code="NIC-PAED",
+    paediatric = create_episode(harness, taep_unit_code="NGH-PAED",
                                 episode_number="E-2")
     harness.client.post(f"/taep/{paediatric}/services",
                         data={"service_code": GOLDEN_SERVICES})
@@ -425,7 +425,7 @@ def finalised_is_immutable(harness):
     try:
         taep.save_episode(harness.ctx, {"financial_category_id":
                                         category_id(harness.ctx, "624")},
-                          "NGH", "NIC-ADULT", 1, episode_id=episode_id)
+                          "NGH", "NGH-ADULT", 1, episode_id=episode_id)
         edit_refused = False
     except taep.CostingError as exc:
         edit_refused = exc.code == "EPISODE_NOT_EDITABLE"
@@ -474,7 +474,7 @@ def hospital_scoping(harness):
         {**{f: None for f in taep.EPISODE_FIELDS}, "id_number": "9999",
          "last_name": "Λεμεσιανός", "examination_at": YESTERDAY,
          "financial_category_id": category_id(harness.ctx, "624")},
-        entity_code="LGH", unit_code="LIM", user_id=1)
+        entity_code="LGH", unit_code="LGH", user_id=1)
     status = harness.client.get(f"/taep/{elsewhere}").status_code
     listing = harness.client.get("/taep/list").get_data(as_text=True)
     return [

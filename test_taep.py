@@ -378,9 +378,9 @@ def test_hospital_specific_rate_overrides_the_national_one():
     structure supports it, and an unused path still has to be correct."""
     history = RATE_HISTORY + [
         {"id": 3, "amount": Decimal("140.00"), "valid_from": dt.date(2026, 1, 1),
-         "valid_to": None, "entity_code": "LIM"},
+         "valid_to": None, "entity_code": "LGH"},
     ]
-    assert pick_rate(history, dt.date(2026, 6, 1), "LIM")["amount"] == Decimal("140.00")
+    assert pick_rate(history, dt.date(2026, 6, 1), "LGH")["amount"] == Decimal("140.00")
     assert pick_rate(history, dt.date(2026, 6, 1), "NIC")["amount"] == Decimal("120.00")
 
 
@@ -684,10 +684,10 @@ def test_nicosia_general_hosts_two_units_on_one_entity():
     """A ΤΑΕΠ unit is finer-grained than a hospital. Adults 1054, paediatrics 1106,
     both on entity NGH — which is why the sequence is per unit, not per entity."""
     units = _units()
-    assert units["NIC-ADULT"]["taep_number"] == "1054"
-    assert units["NIC-PAED"]["taep_number"] == "1106"
-    assert units["NIC-ADULT"]["host_entity_code"] == "NGH"
-    assert units["NIC-PAED"]["host_entity_code"] == "NGH"
+    assert units["NGH-ADULT"]["taep_number"] == "1054"
+    assert units["NGH-PAED"]["taep_number"] == "1106"
+    assert units["NGH-ADULT"]["host_entity_code"] == "NGH"
+    assert units["NGH-PAED"]["host_entity_code"] == "NGH"
 
     on_ngh = [u for u in units.values() if u["host_entity_code"] == "NGH"]
     assert len(on_ngh) == 2
@@ -697,8 +697,8 @@ def test_paediatric_unit_is_not_mapped_to_makarios():
     """We had 1106 on ARC. The Μονάδα corrected it: «Το ΤΑΕΠ παίδων δεν είναι το
     ΝΑΜ ΙΙΙ αφού αυτή την στιγμή είναι στο Γενικό Λευκωσίας»."""
     units = _units()
-    assert units["NIC-PAED"]["host_entity_code"] != "ARC"
-    assert "Μακάριος" in units["NIC-PAED"]["note_el"]
+    assert units["NGH-PAED"]["host_entity_code"] != "ARC"
+    assert "Μακάριος" in units["NGH-PAED"]["note_el"]
     assert not any(u["host_entity_code"] == "ARC" for u in units.values())
 
 
@@ -716,13 +716,13 @@ def test_troodos_and_kyperounta_are_recorded_as_the_same_place():
 
 def test_each_unit_produces_its_own_costing_number():
     units = _units()
-    assert taep.format_costing_number(units["NIC-ADULT"]["taep_number"], 35) == "OKY1054/0035"
-    assert taep.format_costing_number(units["NIC-PAED"]["taep_number"], 7) == "OKY1106/0007"
-    assert taep.format_costing_number(units["LIM"]["taep_number"], 1) == "OKY1047/0001"
+    assert taep.format_costing_number(units["NGH-ADULT"]["taep_number"], 35) == "OKY1054/0035"
+    assert taep.format_costing_number(units["NGH-PAED"]["taep_number"], 7) == "OKY1106/0007"
+    assert taep.format_costing_number(units["LGH"]["taep_number"], 1) == "OKY1047/0001"
 
 
 def test_the_two_nicosia_units_do_not_share_a_number_series():
     units = _units()
-    adult = taep.format_costing_number(units["NIC-ADULT"]["taep_number"], 1)
-    paed = taep.format_costing_number(units["NIC-PAED"]["taep_number"], 1)
+    adult = taep.format_costing_number(units["NGH-ADULT"]["taep_number"], 1)
+    paed = taep.format_costing_number(units["NGH-PAED"]["taep_number"], 1)
     assert adult != paed

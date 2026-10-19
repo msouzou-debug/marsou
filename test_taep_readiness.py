@@ -82,25 +82,25 @@ def test_overlapping_rate_periods_are_a_blocker(seeded):
 
 def test_two_units_sharing_a_number_is_a_blocker(seeded):
     seeded["db_execute"]("UPDATE taep_unit SET taep_number='1054' "
-                         "WHERE unit_code='NIC-PAED'")
+                         "WHERE unit_code='NGH-PAED'")
     findings = taep.readiness_report(seeded, dt.date(2026, 6, 1))
     assert any(f["check"] == "μονάδες ΤΑΕΠ" and "ίδιο κωδικό" in f["detail"]
                for f in levels(findings, "blocker"))
 
 
 def test_a_unit_with_no_number_is_a_blocker(seeded):
-    seeded["db_execute"]("UPDATE taep_unit SET taep_number='' WHERE unit_code='LIM'")
+    seeded["db_execute"]("UPDATE taep_unit SET taep_number='' WHERE unit_code='LGH'")
     findings = taep.readiness_report(seeded, dt.date(2026, 6, 1))
-    assert any("LIM" in f["detail"] for f in levels(findings, "blocker"))
+    assert any("LGH" in f["detail"] for f in levels(findings, "blocker"))
 
 
 def test_a_unit_not_hosted_on_the_date_warns(seeded):
     """After the paediatric relocation, checking an early date must flag it rather
     than silently returning nothing."""
     seeded["db_execute"]("UPDATE taep_unit SET host_valid_from='2027-01-01' "
-                         "WHERE unit_code='NIC-PAED'")
+                         "WHERE unit_code='NGH-PAED'")
     findings = taep.readiness_report(seeded, dt.date(2026, 6, 1))
-    assert any("NIC-PAED" in f["detail"] for f in levels(findings, "warning"))
+    assert any("NGH-PAED" in f["detail"] for f in levels(findings, "warning"))
 
 
 def test_an_unresolved_tariff_row_warns(seeded):
@@ -113,11 +113,11 @@ def test_an_unresolved_tariff_row_warns(seeded):
 
 def test_a_gap_in_a_number_sequence_is_a_blocker(seeded):
     for _ in range(3):
-        taep.allocate_costing_number(seeded, "LIM")
-    seeded["db_execute"]("DELETE FROM taep_costing_number WHERE unit_code='LIM' "
+        taep.allocate_costing_number(seeded, "LGH")
+    seeded["db_execute"]("DELETE FROM taep_costing_number WHERE unit_code='LGH' "
                          "AND sequence_number=2")
     findings = taep.readiness_report(seeded, dt.date(2026, 6, 1))
-    assert any(f["check"] == "αριθμοί κοστολόγησης" and "LIM" in f["detail"]
+    assert any(f["check"] == "αριθμοί κοστολόγησης" and "LGH" in f["detail"]
                for f in levels(findings, "blocker"))
 
 

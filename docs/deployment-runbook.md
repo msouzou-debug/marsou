@@ -207,11 +207,11 @@ right by default. Only widen once a fortnight has produced no unexplained differ
 
 ```sql
 UPDATE taep_unit SET host_valid_to = '<the day before the move>'
- WHERE unit_code = 'NIC-PAED' AND host_valid_to IS NULL;
+ WHERE unit_code = 'NGH-PAED' AND host_valid_to IS NULL;
 
 INSERT INTO taep_unit (unit_code, name_el, taep_number, host_entity_code,
                        host_valid_from, active)
-VALUES ('NIC-PAED', 'ΤΑΕΠ Παίδων Λευκωσίας', '1106', 'ARC', '<the move date>', 1);
+VALUES ('NGH-PAED', 'ΤΑΕΠ Παίδων Λευκωσίας', '1106', 'ARC', '<the move date>', 1);
 ```
 
 The number and the sequence are untouched — confirmed by the Μονάδα on 05/10/2026. Run

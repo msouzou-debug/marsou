@@ -38,7 +38,7 @@ def episode_data(ctx, code="624", **overrides):
     return data
 
 
-def make_episode(ctx, code="624", unit="NIC-ADULT", **overrides):
+def make_episode(ctx, code="624", unit="NGH-ADULT", **overrides):
     return taep.save_episode(ctx, episode_data(ctx, code, **overrides),
                              entity_code="NGH", unit_code=unit, user_id=1)
 
@@ -125,7 +125,7 @@ def test_saving_creates_a_draft(seeded):
     assert episode["status"] == "DRAFT"
     assert episode["costing_number"] is None
     assert episode["entity_code"] == "NGH"
-    assert episode["taep_unit_code"] == "NIC-ADULT"
+    assert episode["taep_unit_code"] == "NGH-ADULT"
     assert episode["last_name"] == "Παπαδόπουλος"
 
 
@@ -140,7 +140,7 @@ def test_the_server_rejects_a_category_that_is_not_valid_at_ae(seeded):
 def test_saving_again_updates_rather_than_duplicating(seeded):
     episode_id = make_episode(seeded)
     data = episode_data(seeded, first_name="Γιώργος")
-    assert taep.save_episode(seeded, data, "NGH", "NIC-ADULT", 1,
+    assert taep.save_episode(seeded, data, "NGH", "NGH-ADULT", 1,
                              episode_id=episode_id) == episode_id
     assert taep.get_episode(seeded, episode_id)["first_name"] == "Γιώργος"
     assert seeded["db_execute"]("SELECT COUNT(*) n FROM taep_episode",
@@ -154,7 +154,7 @@ def test_a_finalised_episode_cannot_be_edited(seeded):
     taep.finalise_episode(seeded, episode_id, result, user_id=1)
 
     with pytest.raises(CostingError) as excinfo:
-        taep.save_episode(seeded, episode_data(seeded), "NGH", "NIC-ADULT", 1,
+        taep.save_episode(seeded, episode_data(seeded), "NGH", "NGH-ADULT", 1,
                           episode_id=episode_id)
     assert excinfo.value.code == "EPISODE_NOT_EDITABLE"
 
@@ -299,8 +299,8 @@ def test_finalising_twice_is_refused(seeded):
 
 
 def test_two_units_at_one_hospital_get_numbers_from_their_own_series(seeded):
-    adult = make_episode(seeded, unit="NIC-ADULT", episode_number="E-1")
-    paediatric = make_episode(seeded, unit="NIC-PAED", episode_number="E-2")
+    adult = make_episode(seeded, unit="NGH-ADULT", episode_number="E-1")
+    paediatric = make_episode(seeded, unit="NGH-PAED", episode_number="E-2")
     adult_number, _ = taep.finalise_episode(seeded, adult, price(seeded, adult), 1)
     paed_number, _ = taep.finalise_episode(seeded, paediatric,
                                            price(seeded, paediatric), 1)
@@ -361,7 +361,7 @@ def test_prior_episodes_cross_hospitals(seeded):
     nicosia = make_episode(seeded, episode_number="E-1")
     taep.finalise_episode(seeded, nicosia, price(seeded, nicosia), 1)
     limassol = taep.save_episode(seeded, episode_data(seeded, episode_number="E-2"),
-                                 entity_code="LGH", unit_code="LIM", user_id=1)
+                                 entity_code="LGH", unit_code="LGH", user_id=1)
     taep.finalise_episode(seeded, limassol, price(seeded, limassol), 1)
 
     prior = taep.find_prior_episodes(seeded, "Ταυτότητα", "1234567")
@@ -383,7 +383,7 @@ def test_unpaid_self_pay_episodes_are_singled_out(seeded):
     self_pay = make_episode(seeded, code="600", episode_number="E-1")
     taep.finalise_episode(seeded, self_pay, price(seeded, self_pay), 1)
     asylum = taep.save_episode(seeded, episode_data(seeded, "624", episode_number="E-2"),
-                               "NGH", "NIC-ADULT", 1)
+                               "NGH", "NGH-ADULT", 1)
     taep.finalise_episode(seeded, asylum, price(seeded, asylum), 1)
 
     prior = taep.find_prior_episodes(seeded, "Ταυτότητα", "1234567")
@@ -405,7 +405,7 @@ def test_a_draft_is_not_reported_as_unpaid(seeded):
 
 def test_nicosia_general_offers_both_units(seeded):
     units = taep.unit_for_entity(seeded, "NGH", dt.date(2026, 6, 1))
-    assert {u["unit_code"] for u in units} == {"NIC-ADULT", "NIC-PAED"}
+    assert {u["unit_code"] for u in units} == {"NGH-ADULT", "NGH-PAED"}
 
 
 def test_makarios_offers_no_unit_today(seeded):
@@ -415,15 +415,15 @@ def test_makarios_offers_no_unit_today(seeded):
 def test_moving_the_paediatric_unit_is_a_data_change(seeded):
     """Close the NGH row, open an ARC one. No code changes, and 1106 is kept."""
     db = seeded["db_execute"]
-    db("UPDATE taep_unit SET host_valid_to='2026-12-31' WHERE unit_code='NIC-PAED'")
+    db("UPDATE taep_unit SET host_valid_to='2026-12-31' WHERE unit_code='NGH-PAED'")
     db("""INSERT INTO taep_unit (unit_code, name_el, taep_number, host_entity_code,
           host_valid_from, active) VALUES
-          ('NIC-PAED','ΤΑΕΠ Παίδων Λευκωσίας','1106','ARC','2027-01-01',1)""")
+          ('NGH-PAED','ΤΑΕΠ Παίδων Λευκωσίας','1106','ARC','2027-01-01',1)""")
 
     before = taep.unit_for_entity(seeded, "NGH", dt.date(2026, 6, 1))
     after_ngh = taep.unit_for_entity(seeded, "NGH", dt.date(2027, 6, 1))
     after_arc = taep.unit_for_entity(seeded, "ARC", dt.date(2027, 6, 1))
 
-    assert "NIC-PAED" in {u["unit_code"] for u in before}
-    assert "NIC-PAED" not in {u["unit_code"] for u in after_ngh}
+    assert "NGH-PAED" in {u["unit_code"] for u in before}
+    assert "NGH-PAED" not in {u["unit_code"] for u in after_ngh}
     assert [u["taep_number"] for u in after_arc] == ["1106"]

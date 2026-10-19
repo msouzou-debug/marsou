@@ -79,7 +79,7 @@ def build(harness, category_code, patient, services, tariff):
     category = next(c for c in taep.list_ae_categories(ctx)
                     if c["code_new"] == category_code)
     form = dict(patient)
-    form["taep_unit_code"] = "NIC-ADULT"
+    form["taep_unit_code"] = "NGH-ADULT"
     form["financial_category_id"] = str(category["id"])
 
     response = harness.client.post("/taep/nea", data=form, follow_redirects=False)

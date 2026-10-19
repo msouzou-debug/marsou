@@ -231,3 +231,60 @@ and the sequence are untouched, and no episode already numbered is affected.
 
 That is the last question from five rounds. Everything the Μονάδα was asked is answered
 and applied.
+
+---
+
+## eFinance reply, 19/10/2026 — ARC and the abbreviations
+
+**ARC exists and is in scope.** From the live `entities` table: code `ARC`, name
+«Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ», `type=hospital`, `active=1`, SAP company
+code 1021.
+
+**No row was added to `seed/taep_units.csv`, and that is deliberate.** The instruction
+read "add ARC, that makes your list eight rows", which assumes one row per hospital. The
+list already has eight rows, because a ΤΑΕΠ unit is not a hospital: Γενικό Νοσοκομείο
+Λευκωσίας hosts two units, adults (1054) and paediatrics (1106). ARC's place in the model
+is already there — it is where unit 1106 moves to, and `host_entity_code` is
+effective-dated for exactly that.
+
+Writing `ARC` as a host today would key new paediatric episodes to Μακάριος ΙΙΙ while the
+unit is still physically at the General. The move is a dated change and the only missing
+input is the date.
+
+A second, separate unit at ARC would need its own ΟΑΥ ΤΑΕΠ number. The Μονάδα gave eight
+numbers on 02/10/2026 — 1054, 1106, 1047, 1048, 1025, 1049, 1055, 1026 — and there is no
+ninth. ΤΑΕΠ numbers are ΟΑΥ identifiers; the brief forbids extending them here. So that
+would be a request to ΟΑΥ, not a CSV edit.
+
+**On the coverage challenge.** The reply noted that eight entities is the whole set of
+active hospitals, and that a subset turning out to be everything is worth questioning. The
+set is not defined by which entities are hospitals: it is the eight numbered ΤΑΕΠ units
+ΟΑΥ recognises. Today those sit on seven entities, ARC excluded. After the paediatric move
+they sit on eight — still eight ΟΑΥ numbers, not nine. Χρυσοχούς (1026) and Τροόδους
+(1055) are in because ΟΑΥ issued them numbers, which is the authority on the question.
+
+**`AMB` and `CNS` cannot appear.** Nothing in `taep.py` reads the `entities` table. Units
+come from `taep_unit`, seeded from the CSV, and an episode's `entity_code` is whatever
+eFinance's `user_entity()` returns for the logged-in clerk. An inactive entity with no
+unit therefore offers no unit to pick and no costing can be created against it.
+
+**Abbreviations.** eFinance's codes are canonical. `host_entity_code` already used them.
+Two `unit_code` values did not — `LIM` and `PAF` were competing abbreviations for Λεμεσός
+and Πάφος, which is the divergence being eliminated. Renamed, and the two Nicosia units
+now carry the entity code as their prefix:
+
+| was | now |
+|---|---|
+| `NIC-ADULT` | `NGH-ADULT` |
+| `NIC-PAED` | `NGH-PAED` |
+| `LIM` | `LGH` |
+| `PAF` | `PAP` |
+
+`LAR`, `FAM`, `TRD` and `CHR` already matched. Every `unit_code` is now either an eFinance
+entity code or that code with a suffix, used only where one entity hosts two units. Done
+before any number was issued, so nothing was rewritten.
+
+**Still outstanding.** The paediatric move date, and a `clerk` on `NGH`. Both existing
+clerks sit on `HQ`, a central office, which hosts no ΤΑΕΠ unit — `unit_for_entity('HQ')`
+returns nothing, so such an account cannot create a costing at all. That is the access rule
+working, not a fault.
