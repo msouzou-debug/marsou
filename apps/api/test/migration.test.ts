@@ -52,8 +52,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0020_efinance_client");
     expect(result.applied).toContain("0021_local_accounts");
     expect(result.applied).toContain("0022_m5_maintenance");
-    expect(result.applied).toContain("0023_role_permissions");
-    expect(result.lastMigrationId).toBe("0023_role_permissions");
+    expect(result.applied).toContain("0024_unit_codes_follow_efinance");
+    expect(result.lastMigrationId).toBe("0024_unit_codes_follow_efinance");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -156,7 +156,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0020_efinance_client");
     expect(result.skipped).toContain("0021_local_accounts");
     expect(result.skipped).toContain("0022_m5_maintenance");
-    expect(result.skipped).toContain("0023_role_permissions");
+    expect(result.skipped).toContain("0024_unit_codes_follow_efinance");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -460,6 +460,90 @@ describe("migrations", () => {
         "select name_el, name_en from ecapital.org_unit where id = 'community-nursing'",
       );
       expect(renamed).toEqual([{ name_el: "Κοινοτική Νοσηλευτική", name_en: "Community Nursing" }]);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
+
+  it("0024 moves six codes and two names to eFinance's and leaves every reference as issued", async () => {
+    const legacyDb = "ecapital_migration_0024_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const upTo0023 = files.filter((m) => m.id < "0024");
+      const zeroZeroTwoFour = files.find((m) => m.id === "0024_unit_codes_follow_efinance");
+      expect(zeroZeroTwoFour).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of upTo0023) await client.query(migration.sql);
+
+      // A register as ADR-0024 and 0018 left it: eArchive's codes on `code`
+      // and `entity_code`, eFinance's on `efinance_code`, and one project
+      // and one work order already issued under the old prefix.
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code, efinance_code)
+        values ('nicosia-general', 'NGH', 'Γενικό Νοσοκομείο Λευκωσίας', 'Nicosia General Hospital', 'HOSPITAL', 'LEFKOSIAS', 'NGH', 'NGH'),
+               ('troodos', 'KYP', 'Νοσοκομείο Τροόδους', 'Troodos Hospital', 'HOSPITAL', 'LEMESOU_PAFOU', 'KYP', 'TRD'),
+               ('namiii', 'NAM', 'Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄', 'Archbishop Makarios III Hospital', 'HOSPITAL', 'LEFKOSIAS', 'NAM', 'ARC'),
+               ('pfy', 'PHC', 'Πρωτοβάθμια Φροντίδα Υγείας', 'Primary Healthcare', 'SERVICE', 'PFY', 'PHC', null)`);
+      await client.query(`
+        insert into ecapital.project (id, org_unit_id, code, title_el, category, phase, approved_budget)
+        values ('00000000-0000-4000-8000-000000000024', 'troodos',
+                ecapital.allocate_project_code('troodos', 2026), 'Παλιό έργο', 'SMALL_WORKS', 'IDEA', 1000)`);
+      const { rows: issued } = await client.query<{ code: string }>(
+        "select code from ecapital.project where id = '00000000-0000-4000-8000-000000000024'",
+      );
+      expect(issued[0].code).toBe("KYP-2026-001");
+
+      await client.query(zeroZeroTwoFour!.sql);
+
+      // 1. Six codes and two names, eFinance's; untouched units untouched.
+      const { rows: units } = await client.query<{
+        id: string; code: string; entity_code: string; efinance_code: string; name_el: string; name_en: string;
+      }>("select id, code, entity_code, efinance_code, name_el, name_en from ecapital.org_unit order by id");
+      const byId = new Map(units.map((u) => [u.id, u]));
+      expect(byId.get("nicosia-general")).toMatchObject({ code: "NGH", entity_code: "NGH", efinance_code: "NGH" });
+      expect(byId.get("troodos")).toMatchObject({ code: "TRD", entity_code: "TRD", efinance_code: "TRD", name_el: "Νοσοκομείο Τροόδους" });
+      expect(byId.get("namiii")).toMatchObject({ code: "ARC", entity_code: "ARC", efinance_code: "ARC", name_el: "Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ" });
+      expect(byId.get("pfy")).toMatchObject({ code: "HC", entity_code: "HC", efinance_code: "HC", name_el: "Κέντρα Υγείας", name_en: "Health Centres" });
+      for (const unit of units) {
+        expect(unit.entity_code).toBe(unit.code);
+        expect(unit.efinance_code).toBe(unit.code);
+      }
+
+      // 2. The project issued under KYP keeps its code; the next one the
+      //    unit opens takes TRD and continues the same run of numbers.
+      const { rows: kept } = await client.query<{ code: string }>(
+        "select code from ecapital.project where id = '00000000-0000-4000-8000-000000000024'",
+      );
+      expect(kept[0].code).toBe("KYP-2026-001");
+      const { rows: next } = await client.query<{ code: string }>(
+        "select ecapital.allocate_project_code('troodos', 2026) as code",
+      );
+      expect(next[0].code).toBe("TRD-2026-002");
+
+      // 3. Idempotent: a second run changes no row and writes no audit row.
+      const { rows: auditBefore } = await client.query<{ n: string }>(
+        "select count(*)::text as n from ecapital.audit_log where entity_type = 'org_unit'",
+      );
+      await client.query(zeroZeroTwoFour!.sql);
+      const { rows: auditAfter } = await client.query<{ n: string }>(
+        "select count(*)::text as n from ecapital.audit_log where entity_type = 'org_unit'",
+      );
+      expect(auditAfter[0].n).toBe(auditBefore[0].n);
     } finally {
       await client.end();
       const cleanup = new Client({ connectionString: adminUrl });

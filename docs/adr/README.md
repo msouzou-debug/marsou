@@ -37,3 +37,4 @@ One file per decision, numbered, never edited after acceptance; superseding deci
 - [ADR-0031 — Maintenance is built from the contract: timers from the call, PM from the programme, penalties the scorecard can prove](ADR-0031-maintenance.md)
 - [ADR-0032 — Reports are computed on read, exported with formulas, printed from the browser](ADR-0032-reports.md)
 - [ADR-0033 — The role matrix is the rule, and the administrator edits it](ADR-0033-editable-permissions.md)
+- [ADR-0034 — One code and one name per hospital in every tool, eFinance's; references keep the prefix they were issued under](ADR-0034-unit-codes-follow-efinance.md)

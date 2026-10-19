@@ -31,7 +31,7 @@ import type {
   EFinanceRawRequisition,
   EFinanceSyncResult,
 } from "@ecapital/shared";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, lt, or, sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { CONFIG, type AppConfig } from "../config";
 import { DatabaseService, currentTx, type Db } from "../db/client";
@@ -412,16 +412,22 @@ export class EFinanceSyncService {
     let vendorsDeactivated = 0;
 
     try {
-      // Record §2: `entities` returns both forms. eCapital's unit code is
-      // eArchive's (ADR-0024), so `archive_code` finds the unit and `code` is
-      // what goes in org_unit.efinance_code (ADR-0022's addendum).
+      // Record §2: `entities` returns both forms. Since ADR-0034 eCapital's
+      // unit code is eFinance's own, so `code` finds the unit first; the
+      // `archive_code` match stays for a unit that still carries eArchive's
+      // older abbreviation, and `code` is what goes in org_unit.efinance_code
+      // (ADR-0022's addendum) either way.
       const entities = await this.client.entities();
       for (const entity of entities) {
-        if (!entity.archive_code) continue;
         const matched = await db
           .select({ id: schema.orgUnit.id, efinanceCode: schema.orgUnit.efinanceCode })
           .from(schema.orgUnit)
-          .where(eq(schema.orgUnit.code, entity.archive_code))
+          .where(
+            entity.archive_code
+              ? or(eq(schema.orgUnit.code, entity.code), eq(schema.orgUnit.code, entity.archive_code))
+              : eq(schema.orgUnit.code, entity.code),
+          )
+          .orderBy(sql`case when ${schema.orgUnit.code} = ${entity.code} then 0 else 1 end`)
           .limit(1);
         if (!matched.length) continue;
         unitsMatched += 1;

@@ -72,10 +72,11 @@ Rules eCapital holds itself to, so eArchive should never see them broken:
 - `amount` is a JSON **number**, not a string. Money written inside free text
   — the subject line, an approval comment — is written `1.234,56 €`;
 - `sent_at` is ISO 8601 **with an offset**, and so is every `approvals[].at`;
-- `folder_hints[].hospital` is the site code, which since 19/09/2026 is
-  exactly eCapital's `org_unit.code` with no translation in between
-  (ADR-0024): `HQ`, `NGH`, `NAM`, `LGH`, `LAR`, `PAF`, `FAM`, `KYP`, `POL`,
-  `MHS`, `PHC`.
+- `folder_hints[].hospital` is the site code, which is exactly eCapital's
+  `org_unit.code` with no translation in between (ADR-0024) and, since
+  19/10/2026, eFinance's code (ADR-0034): `HQ`, `NGH`, `ARC`, `LGH`, `LAR`,
+  `PAP`, `FAM`, `TRD`, `CHR`, `MH`, `HC`, `CNS`. eArchive migrates its own
+  codes to these before the token is placed here.
 
 `Idempotency-Key` is always `ecapital:<outbox_id>`, and `outbox_id` is the
 same value in the header and in `meta`. A retry after a dropped connection

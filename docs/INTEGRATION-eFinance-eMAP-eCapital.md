@@ -42,34 +42,29 @@ All three systems, and SAP, describe organisational units and money along
 axes that already line up — the work here is confirming the mapping, not
 inventing one.
 
-### Entity codes — the permanent two-code model
+### Entity codes — one code, eFinance's
 
-**Updated 19/09/2026 (owner decision, ADR-0024) and 20/09/2026 (owner
-decision, ADR-0022's and ADR-0024's addenda).** eCapital and eArchive key a
-place by **eArchive's site abbreviation** — `ecapital.org_unit.code` and
-`ecapital.org_unit.entity_code` both carry it, so an eCapital record joins an
-eArchive one on one column, with no lookup table and no third column: the
-`dms_site_code` §6 used to plan is not built.
+**Updated 19/10/2026 (owner decision, ADR-0034), superseding the two-code
+model of 19–20/09/2026.** Every tool keys a place by **eFinance's entity
+code**, which is also SAP's Fund Center. `ecapital.org_unit.code`,
+`entity_code` and `efinance_code` all carry it (migration 0024), so an
+eCapital record joins an eFinance or an eArchive one on one column with no
+lookup. eArchive migrates its six diverging site abbreviations to the same
+strings. The `efinance_code` column is kept because it is what the eFinance
+client sends; today it equals `code` on every unit.
 
-**eFinance keeps its own entity keys, permanently.** Yesterday's text here
-called this "until eFinance aligns" — eFinance has since said it will not:
-those codes are foreign keys across twelve of its own tables and in SAP, and
-renaming them is not a change it can make. So eCapital carries both codes,
-not one with the other kept as a document: `ecapital.org_unit.efinance_code`
-sits beside `entity_code`, backfilled once and kept in step from here on.
-
-| eCapital `code` = `entity_code` (eArchive) | Name | eFinance `efinance_code` |
+| eCapital `code` = `entity_code` = `efinance_code` | Name | eArchive site code until its migration |
 |---|---|---|
 | `NGH` | Γενικό Νοσοκομείο Λευκωσίας | `NGH` |
 | `LAR` | Γενικό Νοσοκομείο Λάρνακας | `LAR` |
-| `PAF` | Γενικό Νοσοκομείο Πάφου | `PAP` |
+| `PAP` | Γενικό Νοσοκομείο Πάφου | `PAF` |
 | `LGH` | Γενικό Νοσοκομείο Λεμεσού | `LGH` |
-| `KYP` | Νοσοκομείο Τροόδους | `TRD` |
-| `NAM` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄ | `ARC` |
-| `POL` | Νοσοκομείο Πόλεως Χρυσοχούς | `CHR` |
+| `TRD` | Νοσοκομείο Τροόδους | `KYP` |
+| `ARC` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ | `NAM` |
+| `CHR` | Νοσοκομείο Πόλεως Χρυσοχούς | `POL` |
 | `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | `FAM` |
-| `MHS` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MH` |
-| `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | `HC` |
+| `MH` | Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MHS` |
+| `HC` | Κέντρα Υγείας | `PHC` |
 | `HQ` | Κεντρικά Γραφεία | `HQ` |
 | `CNS` | Κοινοτική Νοσηλευτική (Community Nursing) | `CNS` |
 
@@ -87,15 +82,13 @@ everything under it were removed by migration
 spelling with rule V15 instead of resolving it. If eFinance still carries an
 `AMB` entity, nothing in eCapital answers to it.
 
-**Which code goes on the wire.** `entity_code` — eArchive's abbreviation — is
-what eCapital sends to eArchive (folder hints, `source_ref`) and what the
-draft eFinance write route's body carries (§5): eFinance translates its own
-entity code at its own boundary, the same way it already translates its 203
-operational budget codes internally. `efinance_code` is read back only
-through `OrgUnitsService.efinanceCodeFor(orgUnitId)`, for the future SAP
-actuals / spent-ledger reader (§5) that has to address eFinance's own key —
-nowhere else in eCapital should read that column directly. See ADR-0022's
-addendum for the full reasoning.
+**Which code goes on the wire (ADR-0034).** To eFinance, `efinance_code`:
+the contract push body, the `entity` filter of the budget-position read, and
+the future SAP actuals reader. To eArchive, `code` (folder hints,
+`source_ref`), which is the same string once eArchive has migrated. eFinance
+no longer needs to translate anything eCapital sends; its inbound alias table
+for the old abbreviations, if it builds one, is a safety net eCapital does
+not rely on.
 
 > **Send codes, never names**, exactly as eFinance's own rule says. `NGH`,
 > not `Γενικό Νοσοκομείο Λευκωσίας`.
@@ -491,27 +484,27 @@ This is drawn from the eFinance session's check of the live server on
 against eArchive's actual API; treat route and payload shapes here as
 subject to the same confirmation §5 asks of eFinance.
 
-### Unit codes — one column, settled 19/09/2026
+### Unit codes — one column, eFinance's since 19/10/2026
 
-**This section used to plan a third column.** It no longer does. The owner
-decided on 19/09/2026 (ADR-0024) that eFinance, eArchive and eCapital all key
-a place by **eArchive's site abbreviation**, so `org_unit.dms_site_code` is
-not built and is not needed: `org_unit.code` and `org_unit.entity_code` are
-that same string already. For an eArchive `source_ref` or a folder path, send
-whatever `GET /org-units` returns as `code`, with no translation in between.
+Settled on 19/09/2026 (ADR-0024) as eArchive's abbreviations and moved on
+19/10/2026 (ADR-0034) to eFinance's: `org_unit.code` and `org_unit.entity_code`
+are one string, and eArchive migrates its site codes to it. For an eArchive
+`source_ref` or a folder path, send whatever `GET /org-units` returns as
+`code`, with no translation in between. **The eArchive token is not placed
+on the ΟΚΥπΥ server until eArchive carries these codes** (runbook §11.2).
 
 | eCapital unit | code = entity_code = eArchive site code |
 |---|---|
 | Γενικό Νοσοκομείο Λευκωσίας | `NGH` |
 | Γενικό Νοσοκομείο Λάρνακας | `LAR` |
-| Γενικό Νοσοκομείο Πάφου | `PAF` |
+| Γενικό Νοσοκομείο Πάφου | `PAP` |
 | Γενικό Νοσοκομείο Λεμεσού | `LGH` |
-| Νοσοκομείο Τροόδους | `KYP` |
-| Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄ | `NAM` |
-| Νοσοκομείο Πόλεως Χρυσοχούς | `POL` |
+| Νοσοκομείο Τροόδους | `TRD` |
+| Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ | `ARC` |
+| Νοσοκομείο Πόλεως Χρυσοχούς | `CHR` |
 | Γενικό Νοσοκομείο Αμμοχώστου | `FAM` |
-| Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MHS` |
-| Πρωτοβάθμια Φροντίδα Υγείας | `PHC` |
+| Διεύθυνση Υπηρεσιών Ψυχικής Υγείας | `MH` |
+| Κέντρα Υγείας | `HC` |
 | Κεντρικά Γραφεία | `HQ` |
 | Κοινοτική Νοσηλευτική | `CNS` |
 
@@ -532,9 +525,9 @@ rule already gives it, with no special case. **Confirmed by the owner,
 `CNS`, the same footing as the other eleven codes confirmed on 19/09/2026.
 (It had been recorded as an assumption earlier the same day.)
 
-The legacy eFinance codes the middle column used to hold — `PAP`, `ARC`,
-`CHR`, `MH`, `HC`, `TRD` — are in §2's last column, permanently now
-(`efinance_code`), not as a lookup until eFinance aligns — see §2.
+eArchive's older abbreviations — `PAF`, `KYP`, `NAM`, `POL`, `MHS`, `PHC` —
+are in §2's last column only as the codes eArchive files under until its own
+migration; eCapital stores none of them.
 
 ### eArchive brief facts (19/09/2026)
 

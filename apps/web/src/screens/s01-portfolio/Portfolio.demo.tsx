@@ -55,7 +55,7 @@ const units: PortfolioResponse["units"] = [
     rag: { green: 4, amber: 1, red: 1 },
   },
   {
-    orgUnit: unit("dypsy", "MHS", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services", "DYPSY"),
+    orgUnit: unit("dypsy", "MH", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services", "DYPSY"),
     projectCount: 3,
     approved: 500_000,
     spent: 480_000,
@@ -63,7 +63,7 @@ const units: PortfolioResponse["units"] = [
     rag: { green: 2, amber: 1, red: 0 },
   },
   {
-    orgUnit: unit("pfy", "PHC", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare", "PFY"),
+    orgUnit: unit("pfy", "HC", "Κέντρα Υγείας", "Health Centres", "PFY"),
     projectCount: 2,
     approved: 350_000,
     spent: 90_000,

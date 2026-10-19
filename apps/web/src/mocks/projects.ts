@@ -61,7 +61,7 @@ export function computeRag(
 const rawProjects: z.input<typeof ProjectSummary>[] = [
   {
     id: "PRJ-001",
-    code: "POL-001",
+    code: "CHR-001",
     orgUnitId: "polis-chrysochous",
     titleEl: "Ανακαίνιση χειρουργείων",
     category: "RENOVATION",
@@ -83,7 +83,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-002",
-    code: "KYP-002",
+    code: "TRD-002",
     orgUnitId: "troodos",
     titleEl: "Αντικατάσταση ψυκτικών μονάδων",
     category: "MAINTENANCE_CAPITAL",
@@ -127,7 +127,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-004",
-    code: "NAM-004",
+    code: "ARC-004",
     orgUnitId: "namiii",
     titleEl: "Νέος μαγνητικός τομογράφος",
     category: "EQUIPMENT",
@@ -171,7 +171,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-006",
-    code: "PHC-006",
+    code: "HC-006",
     orgUnitId: "pfy",
     titleEl: "Αντικατάσταση ανελκυστήρων",
     category: "MAINTENANCE_CAPITAL",
@@ -193,7 +193,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-008",
-    code: "MHS-008",
+    code: "MH-008",
     orgUnitId: "dypsy",
     titleEl: "Αναβάθμιση ηλεκτρομηχανολογικών εγκαταστάσεων",
     category: "MAINTENANCE_CAPITAL",
@@ -259,7 +259,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-011",
-    code: "POL-011",
+    code: "CHR-011",
     orgUnitId: "polis-chrysochous",
     titleEl: "Νέο ακτινολογικό μηχάνημα",
     category: "EQUIPMENT",
@@ -303,7 +303,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-013",
-    code: "PHC-013",
+    code: "HC-013",
     orgUnitId: "pfy",
     titleEl: "Επέκταση χώρων στάθμευσης",
     category: "NEW_BUILD",
@@ -325,7 +325,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-014",
-    code: "PAF-014",
+    code: "PAP-014",
     orgUnitId: "paphos-general",
     titleEl: "Ανακαίνιση εξωτερικών ιατρείων",
     category: "RENOVATION",
@@ -391,7 +391,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-017",
-    code: "KYP-017",
+    code: "TRD-017",
     orgUnitId: "troodos",
     titleEl: "Κατασκευή νέας πτέρυγας νοσηλείας",
     category: "NEW_BUILD",
@@ -413,7 +413,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-018",
-    code: "PAF-018",
+    code: "PAP-018",
     orgUnitId: "paphos-general",
     titleEl: "Αντικατάσταση ιατρικού εξοπλισμού εργαστηρίων",
     category: "EQUIPMENT",
@@ -479,7 +479,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-021",
-    code: "PAF-021",
+    code: "PAP-021",
     orgUnitId: "paphos-general",
     titleEl: "Αντικατάσταση λεβητοστασίου",
     category: "MAINTENANCE_CAPITAL",
@@ -523,7 +523,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-023",
-    code: "NAM-023",
+    code: "ARC-023",
     orgUnitId: "namiii",
     titleEl: "Αναβάθμιση συστήματος ελέγχου πρόσβασης",
     category: "MAINTENANCE_CAPITAL",
@@ -567,7 +567,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-025",
-    code: "KYP-025",
+    code: "TRD-025",
     orgUnitId: "troodos",
     titleEl: "Αντικατάσταση δικτύου ύδρευσης",
     category: "MAINTENANCE_CAPITAL",
@@ -578,7 +578,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-06-05",
     rag: "RED",
     ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 134.000 €",
-    sapWbs: "WBS-KYP-025",
+    sapWbs: "WBS-TRD-025",
     tenderReference: "TND-2026-025",
     ledgers: {
       approved: 1595000,
@@ -611,7 +611,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-027",
-    code: "PAF-027",
+    code: "PAP-027",
     orgUnitId: "paphos-general",
     titleEl: "Αναβάθμιση φαρμακείου νοσοκομείου",
     category: "SMALL_WORKS",
@@ -622,7 +622,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-05-29",
     rag: "AMBER",
     ragReason: "Οι δαπάνες υστερούν σημαντικά έναντι του χρονοδιαγράμματος του έργου",
-    sapWbs: "WBS-PAF-027",
+    sapWbs: "WBS-PAP-027",
     tenderReference: "TND-2026-027",
     ledgers: {
       approved: 1520000,
@@ -633,7 +633,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-028",
-    code: "MHS-028",
+    code: "MH-028",
     orgUnitId: "dypsy",
     titleEl: "Επέκταση αποθηκευτικών χώρων",
     category: "NEW_BUILD",
@@ -644,7 +644,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-11-23",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-MHS-028",
+    sapWbs: "WBS-MH-028",
     tenderReference: "TND-2026-028",
     ledgers: {
       approved: 1470000,
@@ -655,7 +655,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-029",
-    code: "NAM-029",
+    code: "ARC-029",
     orgUnitId: "namiii",
     titleEl: "Νέο σύστημα αδιάλειπτης παροχής ενέργειας",
     category: "EQUIPMENT",
@@ -666,7 +666,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-10-16",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-NAM-029",
+    sapWbs: "WBS-ARC-029",
     tenderReference: "TND-2026-029",
     ledgers: {
       approved: 11675000,
@@ -677,7 +677,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-030",
-    code: "MHS-030",
+    code: "MH-030",
     orgUnitId: "dypsy",
     titleEl: "Αναβάθμιση κέντρου υγείας",
     category: "RENOVATION",
@@ -688,7 +688,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-10-13",
     rag: "RED",
     ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 1.702.000 €",
-    sapWbs: "WBS-MHS-030",
+    sapWbs: "WBS-MH-030",
     tenderReference: "TND-2026-030",
     ledgers: {
       approved: 10690000,
@@ -721,7 +721,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-032",
-    code: "POL-032",
+    code: "CHR-032",
     orgUnitId: "polis-chrysochous",
     titleEl: "Ανακαίνιση τμήματος πρώτων βοηθειών",
     category: "RENOVATION",
@@ -732,7 +732,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2027-07-20",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-POL-032",
+    sapWbs: "WBS-CHR-032",
     tenderReference: "TND-2026-032",
     ledgers: {
       approved: 3460000,
@@ -743,7 +743,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-033",
-    code: "PAF-033",
+    code: "PAP-033",
     orgUnitId: "paphos-general",
     titleEl: "Αναβάθμιση τηλεπικοινωνιακού εξοπλισμού",
     category: "IT",
@@ -754,7 +754,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-12-07",
     rag: "RED",
     ragReason: "Η πρόβλεψη τελικού κόστους υπερβαίνει τον εγκεκριμένο προϋπολογισμό κατά 30.000 €",
-    sapWbs: "WBS-PAF-033",
+    sapWbs: "WBS-PAP-033",
     tenderReference: "TND-2026-033",
     ledgers: {
       approved: 430000,
@@ -787,7 +787,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-035",
-    code: "MHS-035",
+    code: "MH-035",
     orgUnitId: "dypsy",
     titleEl: "Αναβάθμιση μονάδας ημερήσιας νοσηλείας",
     category: "SMALL_WORKS",
@@ -798,7 +798,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-09-03",
     rag: "GREEN",
     ragReason: "Το έργο βρίσκεται εντός εγκεκριμένου προϋπολογισμού και χρονοδιαγράμματος",
-    sapWbs: "WBS-MHS-035",
+    sapWbs: "WBS-MH-035",
     tenderReference: "TND-2026-035",
     ledgers: {
       approved: 7340000,
@@ -831,7 +831,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
   {
     id: "PRJ-038",
-    code: "KYP-038",
+    code: "TRD-038",
     orgUnitId: "troodos",
     titleEl: "Επέκταση ΤΑΕΠ",
     category: "NEW_BUILD",
@@ -842,7 +842,7 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
     plannedFinish: "2026-01-09",
     rag: "RED",
     ragReason: "Οι δεσμεύσεις υπερβαίνουν τον εγκεκριμένο προϋπολογισμό κατά 52.000 €",
-    sapWbs: "WBS-KYP-038",
+    sapWbs: "WBS-TRD-038",
     tenderReference: "TND-2026-038",
     ledgers: {
       approved: 1350000,

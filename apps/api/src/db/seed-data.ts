@@ -93,28 +93,30 @@ export const seedOrgUnits: SeedOrgUnit[] = [
     "HOSPITAL", "LEFKOSIAS", "CC-NGH-01", "NGH", "NGH", ["Γ.Ν. ΛΕΥΚΩΣΙΑΣ"]),
   unit("larnaca-general", "LAR", "Γενικό Νοσοκομείο Λάρνακας", "Larnaca General Hospital",
     "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-LAR-01", "LAR", "LAR", ["Γ.Ν. ΛΑΡΝΑΚΑΣ"]),
-  unit("paphos-general", "PAF", "Γενικό Νοσοκομείο Πάφου", "Paphos General Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAF", "PAP", ["Γ.Ν. ΠΑΦΟΥ"]),
+  unit("paphos-general", "PAP", "Γενικό Νοσοκομείο Πάφου", "Paphos General Hospital",
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PAF-01", "PAP", "PAP", ["Γ.Ν. ΠΑΦΟΥ"]),
   unit("limassol-general", "LGH", "Γενικό Νοσοκομείο Λεμεσού", "Limassol General Hospital",
     "HOSPITAL", "LEMESOU_PAFOU", "CC-LMS-01", "LGH", "LGH", ["Γ.Ν. ΛΕΜΕΣΟΥ"]),
-  // Τροόδους keeps both its names and both its spellings; only the code
-  // moves, to eArchive's KYP (ADR-0024). Kyperounta and Troodos are one
-  // hospital (owner decision, 18/09/2026), which is why eArchive files it
-  // under the Kyperounta abbreviation in the first place. eFinance still
-  // calls the same place TRD (ADR-0022's addendum) — it never renamed it.
-  unit("troodos", "KYP", "Νοσοκομείο Τροόδους", "Troodos Hospital",
+  // Τροόδους keeps both its names and both its spellings. Kyperounta and
+  // Troodos are one hospital (owner decision, 18/09/2026). The code was
+  // eArchive's KYP under ADR-0024 and is eFinance's TRD since ADR-0034
+  // (19/10/2026); eArchive migrates to the same string.
+  unit("troodos", "TRD", "Νοσοκομείο Τροόδους", "Troodos Hospital",
     "HOSPITAL", "LEMESOU_PAFOU", "CC-TRD-01",
-    "KYP", "TRD", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
-  unit("namiii", "NAM", "Νοσοκομείο Αρχιεπίσκοπος Μακάριος Γ΄", "Archbishop Makarios III Hospital",
-    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "NAM", "ARC", ["ΝΑΜΙΙΙ"]),
-  unit("polis-chrysochous", "POL", "Νοσοκομείο Πόλεως Χρυσοχούς", "Polis Chrysochous Hospital",
-    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "POL", "CHR", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
+    "TRD", "TRD", ["ΝΟΣΟΚΟΜΕΙΟ ΤΡΟΟΔΟΥΣ", "ΝΟΣΟΚΟΜΕΙΟ ΚΥΠΕΡΟΥΝΤΑΣ", "Ν. ΚΥΠΕΡΟΥΝΤΑΣ"]),
+  // ADR-0034 (owner decision, 19/10/2026): the name is spelled eFinance's way.
+  unit("namiii", "ARC", "Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ", "Archbishop Makarios III Hospital",
+    "HOSPITAL", "LEFKOSIAS", "CC-NAM3-01", "ARC", "ARC", ["ΝΑΜΙΙΙ", "ΝΟΣΟΚΟΜΕΙΟ ΑΡΧΙΕΠΙΣΚΟΠΟΣ ΜΑΚΑΡΙΟΣ Γ΄"]),
+  unit("polis-chrysochous", "CHR", "Νοσοκομείο Πόλεως Χρυσοχούς", "Polis Chrysochous Hospital",
+    "HOSPITAL", "LEMESOU_PAFOU", "CC-PCH-01", "CHR", "CHR", ["ΝΟΣΟΚΟΜΕΙΟ ΠΟΛΕΩΣ ΧΡΥΣΟΧΟΥΣ"]),
   unit("famagusta-general", "FAM", "Γενικό Νοσοκομείο Αμμοχώστου", "Famagusta General Hospital",
     "HOSPITAL", "LARNAKAS_AMMOCHOSTOU", "CC-FAM-01", "FAM", "FAM", ["Γ.Ν. ΑΜΜΟΧΩΣΤΟΥ"]),
-  unit("dypsy", "MHS", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services",
-    "SERVICE", "DYPSY", "CC-DYP-01", "MHS", "MH", ["ΔΥΨΥ"]),
-  unit("pfy", "PHC", "Πρωτοβάθμια Φροντίδα Υγείας", "Primary Healthcare",
-    "SERVICE", "PFY", "CC-PFY-01", "PHC", "HC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ"]),
+  unit("dypsy", "MH", "Διεύθυνση Υπηρεσιών Ψυχικής Υγείας", "Mental Health Services",
+    "SERVICE", "DYPSY", "CC-DYP-01", "MH", "MH", ["ΔΥΨΥ"]),
+  // ADR-0034: the unit is «Κέντρα Υγείας», eFinance's name; the directorate
+  // it sits under is still Πρωτοβάθμια Φροντίδα Υγείας (PFY).
+  unit("pfy", "HC", "Κέντρα Υγείας", "Health Centres",
+    "SERVICE", "PFY", "CC-PFY-01", "HC", "HC", ["ΠΡΩΤΟΒΑΘΜΙΑ ΦΡΟΝΤΙΔΑ ΥΓΕΙΑΣ", "ΚΕΝΤΡΑ ΥΓΕΙΑΣ"]),
   // Owner decision, 19/09/2026. No cost centre — Central Administration has
   // never had one in this register, and nothing assigns it one now — and no
   // aliases, for the reason in the header comment above.

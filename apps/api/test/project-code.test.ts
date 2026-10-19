@@ -44,7 +44,7 @@ describe("ecapital.allocate_project_code", () => {
     expect(first).toBe("FAM-2031-001");
     expect(second).toBe("FAM-2031-002");
     expect(otherYear).toBe("FAM-2032-001");
-    expect(otherUnit).toBe("PAF-2031-001");
+    expect(otherUnit).toBe("PAP-2031-001");
   });
 
   it("gives two transactions racing for the same unit two different codes", async () => {
@@ -60,10 +60,10 @@ describe("ecapital.allocate_project_code", () => {
     const second = await pending;
     await b.query("commit");
 
-    // Τροόδους is KYP since ADR-0024: the code the function builds is read
+    // Τροόδους is TRD since ADR-0034: the code the function builds is read
     // off org_unit at the moment it hands out a number, never stored twice.
-    expect(first).toBe("KYP-2033-001");
-    expect(second).toBe("KYP-2033-002");
+    expect(first).toBe("TRD-2033-001");
+    expect(second).toBe("TRD-2033-002");
   });
 
   it("refuses a unit that does not exist rather than inventing a prefix", async () => {

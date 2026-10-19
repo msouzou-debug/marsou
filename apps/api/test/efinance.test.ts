@@ -307,6 +307,28 @@ describe("eFinance, configured (ADR-0029)", () => {
     expect(contract.warnings.map((w) => w.key)).not.toContain("efinanceNotPushable");
   });
 
+  it("sends eFinance's own entity code, not the unit code, when the two differ (ADR-0034)", async () => {
+    // Since 0024 the two are one string on every unit, so the test pulls
+    // them apart for one push and puts them back: what reaches eFinance is
+    // efinance_code, whatever `code` says.
+    await db.query("update ecapital.org_unit set efinance_code = 'NGX' where id = 'nicosia-general'");
+    try {
+      const stamp = `code-${Date.now()}`;
+      const { contract } = await contractFor(app, stamp, "100123");
+      const put = fake.puts.find((p) => p.capRef === contract.ref);
+      expect(put!.body.entity_code).toBe("NGX");
+
+      app.get(EFinanceReadService).clearCache();
+      const before = fake.callsTo("/api/v1/budget/position");
+      await request(app.getHttpServer()).get(`/contracts/${contract.id}/budget-position?year=2030`).set(bearer(admin));
+      expect(fake.callsTo("/api/v1/budget/position")).toBe(before + 1);
+      const call = fake.calls.filter((c) => c.path === "/api/v1/budget/position").at(-1)!;
+      expect(call.query).toMatchObject({ entity: "NGX", year: "2030" });
+    } finally {
+      await db.query("update ecapital.org_unit set efinance_code = 'NGH' where id = 'nicosia-general'");
+    }
+  });
+
   it("pushes the new value when a variation is approved, and closed when the project closes", async () => {
     const stamp = `var-${Date.now()}`;
     const { contract, projectId } = await contractFor(app, stamp, "100124");
@@ -625,7 +647,7 @@ describe("eFinance, configured (ADR-0029)", () => {
   });
 
   it("fills the unit codes and the vendor list, and searches vendors locally", async () => {
-    await db.query("update ecapital.org_unit set efinance_code = null where code = 'PAF'");
+    await db.query("update ecapital.org_unit set efinance_code = null where code = 'PAP'");
     fake.pageSize = 2;
     let result: EFinanceMasterSyncResult;
     try {
@@ -638,7 +660,7 @@ describe("eFinance, configured (ADR-0029)", () => {
     expect(result.error).toBeNull();
     expect(result.unitsMatched).toBe(2);
     expect(result.vendorsUpserted).toBe(5);
-    const { rows } = await db.query("select efinance_code from ecapital.org_unit where code = 'PAF'");
+    const { rows } = await db.query("select efinance_code from ecapital.org_unit where code = 'PAP'");
     expect(rows[0].efinance_code).toBe("PAP");
 
     const engineer = await tokenFor(app, USERS.engineerLarnaca);

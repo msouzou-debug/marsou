@@ -117,7 +117,9 @@ export class ContractPushService implements OnModuleInit {
    *   cap_ref       contract.ref, CAP-YYYY-NNNN, never edited
    *   project_ref   project.code
    *   title         project.title_el (a contract carries no title of its own)
-   *   entity_code   org_unit.code — eArchive's form; eFinance translates
+   *   entity_code   org_unit.efinance_code — eFinance's own key (ADR-0034);
+   *                 the unit code when that is null, which since 0024 is
+   *                 the same string
    *   budget_code   contract.budget_code (ADR-0025)
    *   vendor_code   contractor.sap_vendor_id
    *   current_value contract.current_value as a 2-decimal string
@@ -131,7 +133,7 @@ export class ContractPushService implements OnModuleInit {
     const result = await tx.db.execute<FactsRow>(sql`
       select c.id, c.ref, c.current_value::text as current_value, c.budget_code,
              p.code as project_code, p.title_el as project_title, p.phase::text as project_phase,
-             o.code as unit_code,
+             coalesce(o.efinance_code, o.code) as unit_code,
              nullif(trim(v.sap_vendor_id), '') as vendor_code,
              greatest(c.updated_at, p.updated_at, v.updated_at) as changed_at
         from ecapital.contract c

@@ -181,7 +181,7 @@ export class EFinanceReadService {
   /**
    * GET /contracts/:id/budget-position. ASSUMPTION (ADR-0029 §4): the year
    * is the contract's award year unless the caller asks for another, the
-   * unit is sent in eArchive's form (record §2: eFinance translates), and
+   * unit is sent as eFinance's own entity code (ADR-0034), and
    * the code is the contract's budget code. No code, no position.
    */
   async contractPosition(contractId: string, year?: number): Promise<ContractBudgetPosition> {
@@ -200,7 +200,7 @@ export class EFinanceReadService {
   async projectPosition(projectId: string, year?: number): Promise<ProjectBudgetPosition> {
     if (!UUID.test(projectId)) throw AppError.notFound("errors.projectNotFound");
     const [project] = await this.db()
-      .select({ id: schema.project.id, unitCode: schema.orgUnit.code })
+      .select({ id: schema.project.id, unitCode: sql<string>`coalesce(${schema.orgUnit.efinanceCode}, ${schema.orgUnit.code})` })
       .from(schema.project)
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.project.orgUnitId))
       .where(eq(schema.project.id, projectId))
@@ -310,7 +310,7 @@ export class EFinanceReadService {
       .select({
         budgetCode: schema.contract.budgetCode,
         awardDate: schema.contract.awardDate,
-        unitCode: schema.orgUnit.code,
+        unitCode: sql<string>`coalesce(${schema.orgUnit.efinanceCode}, ${schema.orgUnit.code})`,
       })
       .from(schema.contract)
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.contract.orgUnitId))

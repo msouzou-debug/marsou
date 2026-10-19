@@ -772,6 +772,13 @@ interest — eArchive has it.
 
 ### 11.2 The token
 
+**Before the token is copied (19/10/2026, ADR-0034):** eArchive must already
+file under eFinance's hospital codes (`PAP`, `TRD`, `ARC`, `CHR`, `MH`,
+`HC`). eCapital's site codes moved to them with migration 0024, and an
+outbox item sent to an eArchive that still expects `PAF` would be refused.
+Ask the eArchive session to confirm its migration has run; until then leave
+the token out and the queue holds, as it has since 19/09/2026.
+
 **The value lives in eArchive's own configuration and is copied from there
 into ours, file to file, on this server** (agreed with the eArchive session,
 02/10/2026). eArchive generated it on 19/09/2026 and keeps it in

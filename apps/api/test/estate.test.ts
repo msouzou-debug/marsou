@@ -40,31 +40,38 @@ describe("entity codes", () => {
     const response = await request(app.getHttpServer()).get("/org-units").set(bearer(token));
     const units = response.body as OrgUnit[];
     const byId = new Map(units.map((u) => [u.id, u.entityCode]));
-    // ADR-0024 (owner, 19/09/2026): all three systems key a place by
-    // eArchive's abbreviation. eFinance's old strings (PAP, LGH, ARC, CHR, MH,
-    // HC, TRD) are gone from this column — they live on in efinanceCode now
-    // (ADR-0022's addendum, see the next test), permanently, not as a lookup.
+    // ADR-0034 (owner, 19/10/2026): one code per place in every tool,
+    // eFinance's. eArchive's abbreviations (PAF, KYP, NAM, POL, MHS, PHC)
+    // are gone from this column; eArchive migrates to these same strings.
     expect(byId.get("nicosia-general")).toBe("NGH");
     expect(byId.get("larnaca-general")).toBe("LAR");
-    expect(byId.get("paphos-general")).toBe("PAF");
+    expect(byId.get("paphos-general")).toBe("PAP");
     expect(byId.get("limassol-general")).toBe("LGH");
-    expect(byId.get("troodos")).toBe("KYP");
-    expect(byId.get("namiii")).toBe("NAM");
-    expect(byId.get("polis-chrysochous")).toBe("POL");
+    expect(byId.get("troodos")).toBe("TRD");
+    expect(byId.get("namiii")).toBe("ARC");
+    expect(byId.get("polis-chrysochous")).toBe("CHR");
     expect(byId.get("famagusta-general")).toBe("FAM");
-    expect(byId.get("dypsy")).toBe("MHS");
-    expect(byId.get("pfy")).toBe("PHC");
+    expect(byId.get("dypsy")).toBe("MH");
+    expect(byId.get("pfy")).toBe("HC");
     expect(byId.get("hq")).toBe("HQ");
     expect(byId.get("community-nursing")).toBe("CNS");
 
-    // ADR-0024: `code` and `entityCode` are the same string now, on every
-    // unit. Τροόδους keeps both its names and takes KYP.
-    for (const u of units) expect(u.code).toBe(u.entityCode);
+    // ADR-0034: `code`, `entityCode` and `efinanceCode` are one string on
+    // every unit. Τροόδους keeps both its names and takes TRD; two names are
+    // spelled eFinance's way now.
+    for (const u of units) {
+      expect(u.code).toBe(u.entityCode);
+      expect(u.code).toBe(u.efinanceCode);
+    }
     expect(units.find((u) => u.id === "troodos")).toMatchObject({
-      code: "KYP",
+      code: "TRD",
       nameEl: "Νοσοκομείο Τροόδους",
       nameEn: "Troodos Hospital",
     });
+    expect(units.find((u) => u.id === "namiii")).toMatchObject({
+      nameEl: "Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ",
+    });
+    expect(units.find((u) => u.id === "pfy")).toMatchObject({ nameEl: "Κέντρα Υγείας", nameEn: "Health Centres" });
   });
 
   it("carries eFinance's own entity keys alongside entityCode, permanently (ADR-0022 addendum)", async () => {

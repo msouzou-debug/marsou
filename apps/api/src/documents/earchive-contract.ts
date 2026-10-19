@@ -124,24 +124,29 @@ export const SOURCE_SYSTEM = "eCapital";
 export const SENDER_TECHNICAL_SERVICES = "Τεχνικές Υπηρεσίες ΟΚΥπΥ";
 
 /**
- * The twelve site codes. Since ADR-0024 these are exactly `org_unit.code`,
- * so nothing translates between the two — the list is here only so a bad
+ * The twelve site codes. Since ADR-0034 these are eFinance's entity codes,
+ * which eArchive migrates its own site codes to (PAF→PAP, NAM→ARC, POL→CHR,
+ * KYP→TRD, MHS→MH, PHC→HC) and which are exactly `org_unit.code`, so nothing
+ * translates between the two — the list is here only so a bad
  * `folder_hints` entry fails a test rather than an upload. `CNS` was added
  * 20/09/2026 (ADR-0024's addendum): Community Nursing files under its own
  * eArchive folder now, not HQ's.
+ *
+ * ORDER OF RELEASE: eArchive must carry the new codes before the eArchive
+ * token is installed here (runbook §11.2); until then the outbox holds.
  */
 export const SITE_CODES = [
   "HQ",
   "NGH",
-  "NAM",
+  "ARC",
   "LGH",
   "LAR",
-  "PAF",
+  "PAP",
   "FAM",
-  "KYP",
-  "POL",
-  "MHS",
-  "PHC",
+  "TRD",
+  "CHR",
+  "MH",
+  "HC",
   "CNS",
 ] as const;
 
