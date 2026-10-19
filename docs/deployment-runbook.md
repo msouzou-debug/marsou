@@ -85,8 +85,22 @@ in `taep.PERMISSIONS_CATALOG_EL`:
     ],
 ```
 
-Until they are there, every ΤΑΕΠ screen returns 403 — which is correct, but looks like
-a broken install.
+Until they are there, a user without the key is flashed «Δεν έχετε δικαίωμα πρόσβασης.»
+and redirected to the dashboard (`app.py:897`) — not a 403, and it looks like a broken
+install rather than a permission the Μονάδα has not granted yet.
+
+**Adding the keys to the catalogue is not a neutral act.** `_MODULE_KEYS` (`app.py:770`)
+is computed from `PERMISSIONS_CATALOG`, and `DEFAULT_ROLE_PERMISSIONS` (`app.py:772`)
+hands that whole list to `cfo` and `tester`. Both are `CENTRAL_ROLES`, so both would hold
+`taep.create` across every hospital the moment the keys exist. The defaults apply only
+where `perms_configured = 0` for that role (`app.py:856`), so check that column on this
+installation before adding the keys.
+
+**`admin` bypasses the check entirely** — `has_permission` returns `True` for the role
+without consulting anything (`app.py:882`). An admin can therefore reach every screen and
+issue a real costing number before the Μονάδα has granted anybody access. Numbers are
+gapless and never reissued, so treat that as a reason to finish the readiness check
+before anyone logs in, not as a convenience.
 
 The brief's role names (`hospital_admin`, `rates_admin`, `system_admin`) do not exist in
 eFinance. Its `ROLES` are `admin`, `clerk`, `accountant`, `chief_accountant`, `cfo`,
@@ -107,6 +121,20 @@ One warning on role choice: eFinance's `CENTRAL_ROLES` (`admin`, `chief_accounta
 `taep.create` to any of them breaks the brief's rule that a Limassol clerk must never see
 a Nicosia episode. `clerk` is not central, which is why it is the right home for the
 costing permissions.
+
+## 3a. The sidebar entry
+
+Registering routes adds nothing to the menu. Every nav entry is a literal block in
+`templates/base.html` gated by `has_permission(...)`, so a clerk has no way to reach
+`/taep/nea` except by typing it.
+
+For testing, leave `base.html` alone and type the URL. For rollout it needs a block gated
+on `taep.create`, placed by whoever owns eFinance's templates.
+
+`current_area()` (`app.py:2420`) returns `""` for a `/taep/` path because the prefix is
+not in `AREAS`, so the sidebar renders with no area highlighted. Cosmetic; nothing breaks.
+Our templates use only the `title` and `content` blocks, both of which eFinance's
+`base.html` defines.
 
 ## 4. Check the hospital entities
 
