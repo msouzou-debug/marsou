@@ -285,3 +285,25 @@ def test_allocation_survives_heavier_contention(seeded):
     assert not errors, f"errors under contention: {errors[:2]}"
     assert len(set(issued)) == 320
     assert sorted(int(n.split("/")[1]) for n in issued) == list(range(1, 321))
+
+
+def test_the_schema_matches_what_efinance_renders():
+    """eFinance substitutes AUTOINCREMENT on SQLite (app.py:519), not an empty string.
+
+    This installation runs SQLite, so that branch is the one production uses. The tests
+    used to render a schema nobody would ever run.
+    """
+    statement = "id INTEGER PRIMARY KEY {AUTO_INCREMENT},{ENGINE}"
+    assert taep.render_schema(statement, use_mysql=False) == \
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    assert taep.render_schema(statement, use_mysql=True) == \
+        "id INTEGER PRIMARY KEY AUTO_INCREMENT, ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+
+
+def test_only_placeholders_efinance_substitutes_appear_in_the_schema():
+    """A placeholder eFinance does not know would reach SQLite verbatim and fail."""
+    import re
+    known = {"{AUTO_INCREMENT}", "{ENGINE}"}
+    for name in ("SCHEMA_STATEMENTS", "ALTER_STATEMENTS"):
+        for statement in getattr(taep, name):
+            assert set(re.findall(r"\{[A-Z_]+\}", statement)) <= known, statement

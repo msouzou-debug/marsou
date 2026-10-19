@@ -930,12 +930,18 @@ def build_load_report():
 # ---------------------------------------------------------------------------
 
 def render_schema(statement, use_mysql):
-    """Fill the {AUTO_INCREMENT} / {ENGINE} placeholders, as eFinance's core does."""
+    """Fill the {AUTO_INCREMENT} / {ENGINE} placeholders exactly as eFinance's core does.
+
+    The SQLite substitution is "AUTOINCREMENT", not an empty string (app.py:519). Both
+    produce valid DDL, but dropping the keyword let the tests run a different schema from
+    the one production gets — and this installation is SQLite, so production is the
+    branch that was going untested. With the keyword, SQLite never reuses the rowid of a
+    deleted row.
+    """
     if use_mysql:
         return statement.replace("{AUTO_INCREMENT}", "AUTO_INCREMENT").replace(
             "{ENGINE}", " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
-    # SQLite: INTEGER PRIMARY KEY already autoincrements, so the keyword is dropped.
-    return statement.replace("{AUTO_INCREMENT}", "").replace("{ENGINE}", "")
+    return statement.replace("{AUTO_INCREMENT}", "AUTOINCREMENT").replace("{ENGINE}", "")
 
 
 def _bool(raw):
