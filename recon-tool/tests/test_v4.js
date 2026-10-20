@@ -334,15 +334,18 @@ const newAppPage = async browser => {
   await page.click('#runBtn');
   await page.waitForSelector('#stepRes:not(.hidden)');
   r = await page.evaluate(() => {
+    // v3.17 pre-ticks the exact 10 = 5 + 5 group; untick it to see the fees open
+    const pre = RESULT.props.filter(p => p.accepted).length;
+    RESULT.props.forEach(p => p.accepted = false); renderResults();
     const w = document.getElementById('resWarn');
-    const before = { shown: !w.classList.contains('hidden'), text: w.textContent };
+    const before = { shown: !w.classList.contains('hidden'), text: w.textContent, pre };
     RESULT.props.forEach(p => p.accepted = true); commitGroups();
     const after = { shown: !document.getElementById('resWarn').classList.contains('hidden') };
     return { before, after };
   });
   console.log('LIVEWARN:', JSON.stringify(r));
-  check('duplicate warning shows while the identical fees are open',
-    r.before.shown === true && /διπλοεγγραφ|duplicate/i.test(r.before.text), r.before);
+  check('duplicate warning shows while the identical fees are open (and the exact group came pre-ticked)',
+    r.before.shown === true && /διπλοεγγραφ|duplicate/i.test(r.before.text) && r.before.pre === 1, r.before);
   check('duplicate warning clears after the group is committed', r.after.shown === false, r.after);
   await page.close();
 

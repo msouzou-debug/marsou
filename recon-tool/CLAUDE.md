@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.16**.
+   Current version: **v3.17**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -230,6 +230,14 @@ Expected values:
   JCC lines (scratch script, not in repo) gives the same leftovers; four
   SAP lines carry a terminal number off by one (SAP typo) and are rightly
   matched by amount+date.
+
+- Untouched-defaults benchmark (v3.17, the user's own "test run" on the
+  1030 files with yellow/green highlights): loading the two files and
+  pressing Run with NOTHING changed must give 358 matched + 28 proposals
+  with the British Forces batch (#1, 1⇄33) and the 7.9.26 cash slip
+  (#4, 1⇄4) pre-ticked. Before v3.17 the defaults auto-picked 'Κωδικός
+  Καταστήματος' / 'Company Code' as keys (hint words, near-constant
+  values) and the keyed run produced 0 matches.
 
 ## Domain logic (do not break)
 
@@ -469,6 +477,20 @@ Expected values:
    DEPOSIT, MEDICAL, REPORT …) are ignored via `WORD_DF`, filled by pass 2
    and cleared after. On 1030 every €70 name now pairs with itself, JCC
    terminal agreement is 290 of 294 (the 4 left are SAP terminal typos).
+   **Setup defaults** (v3.17): `guess()` ticks a key column only if it
+   identifies rows (`identifies`: ≥2 distinct values and ≥30 % of the
+   non-empty cells distinct) — 'Company Code', a branch code or a document
+   number shared by a day's lines are skipped. `crossKeySuggest()` then
+   switches 'no shared key' ON with the `nokeyAuto` hint when a side has no
+   key at all, or when the ticked keys have different headers, ≥3 distinct
+   values each and <5 % overlap (identically named key columns are taken as
+   deliberate — tiny fixtures with 'Key' on both sides stay keyed). The
+   JCC/POS + day-batch pass is ON by default. Exact batches (`batch`) and
+   exact multi-line card groups (`pos`, not `one`, diff 0) are
+   PRE-TICKED (`accepted:true` at the end of runRecon) — they leave the
+   open lists at once and can be unticked in the Suggested groups tab.
+   A single line plus its own fee/FX line found by the card pass is
+   emitted as `{adj:true}` (not pos), so the v3.3 label and test hold.
    **Reference numbers** (v3.14, `numTokens(rec)` / `tokenLinked(a,b)`):
    digit runs of ≥4 in desc/key, leading zeros dropped, years ignored — a
    card terminal ('Remittance Num 024390' ↔ 'JCC NET AMOUNT, 31/08/2026,
