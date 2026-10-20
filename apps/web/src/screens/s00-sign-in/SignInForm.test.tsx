@@ -33,6 +33,8 @@ describe("SignInForm — ADR-0018, one screen and three ways in", () => {
     const password = screen.getByLabelText("Κωδικός");
     expect(password).toHaveAttribute("type", "password");
     expect(password).toHaveAttribute("autoComplete", "current-password");
+    // Owner request, 20/10/2026: an eye shows what was typed.
+    expect(screen.getByRole("button", { name: "Εμφάνιση κωδικού" })).toBeInTheDocument();
   });
 
   it("sends the username and the password to the server action, and nothing else", async () => {

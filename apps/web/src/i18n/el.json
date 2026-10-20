@@ -61,6 +61,10 @@
     "weightRange": "Η τιμή πρέπει να είναι από 0 έως 1."
   },
   "components": {
+    "passwordField": {
+      "show": "Εμφάνιση κωδικού",
+      "hide": "Απόκρυψη κωδικού"
+    },
     "asset-breadcrumb": {
       "levels": {
         "building": "Κτίριο",

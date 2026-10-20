@@ -30,6 +30,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
+import { PasswordField } from "@/components/password-field";
 import type { AuthMode } from "@ecapital/shared";
 import { signIn } from "@/auth/actions";
 import type { SignInError } from "@/auth/session";
@@ -118,13 +119,12 @@ export function SignInForm({ next, mode, showDevAccounts }: SignInFormProps) {
           <label htmlFor="sign-in-password" className="text-fs-14 text-k-text">
             {t("passwordLabel")}
           </label>
-          <input
+          <PasswordField
             id="sign-in-password"
             name="password"
-            type="password"
             autoComplete="current-password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={setPassword}
             className={FIELD}
           />
         </div>

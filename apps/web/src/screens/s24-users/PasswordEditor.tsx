@@ -23,6 +23,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
+import { PasswordField } from "@/components/password-field";
 import { AdminUser as AdminUserSchema, PASSWORD_MIN_LENGTH } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
 
@@ -74,12 +75,11 @@ export function PasswordEditor({ userId, hasPassword }: PasswordEditorProps) {
         <label htmlFor="us-password" className="text-fs-14 text-k-text">
           {t("label")}
         </label>
-        <input
+        <PasswordField
           id="us-password"
-          type="password"
           autoComplete="new-password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={setPassword}
           className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
         />
         {message && (
