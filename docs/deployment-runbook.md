@@ -38,9 +38,12 @@ seed/                       (the whole directory, including seed/source/)
 tools/check_readiness.py    (the go-live check — see §6)
 ```
 
-`seed/` must travel with the module: `seed(ctx)` reads these eight CSVs at boot and
-nothing else — `care_levels`, `extra_charges`, `financial_categories`,
+`seed/` must travel with the module: `seed(ctx)` reads these nine CSVs at boot and
+nothing else — `care_levels`, `countries`, `extra_charges`, `financial_categories`,
 `radiology_tariff`, `services`, `taep_units`, `tariff`, `weight_matrix`.
+
+Copy `seed/*.csv` rather than naming them, so a file added later is not left behind —
+`countries.csv` was added after the first install and had to be copied separately.
 
 **Do not copy `seed/source/` to the server.** Those are the authoritative workbooks the
 generators in `tools/` read on a workstation. Nothing opens them at runtime, and they do
