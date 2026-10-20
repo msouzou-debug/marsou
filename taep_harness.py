@@ -95,6 +95,11 @@ def make_app(ctx, directory):
     app = Flask("taep_harness",
                 template_folder=str(Path(__file__).resolve().parent / "templates"))
     app.secret_key = "harness-only"
+    # eFinance's templates call t() for every visible string, keyed on the Greek
+    # source. Identity here: the harness has no translation table, and the module's
+    # templates must render under the same contract they will meet in production.
+    app.jinja_env.globals["t"] = lambda s: s
+    app.jinja_env.globals["has_permission"] = lambda key: True
     app.jinja_loader.searchpath.append(str(base))
 
     granted = set()

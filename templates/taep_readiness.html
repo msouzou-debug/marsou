@@ -1,37 +1,72 @@
 {% extends "base.html" %}
-{% block title %}Έλεγχος ετοιμότητας ΤΑΕΠ{% endblock %}
+{% block title %}{{ t('Έλεγχος ετοιμότητας ΤΑΕΠ') }}{% endblock %}
 {% block content %}
-<h1>Έλεγχος ετοιμότητας</h1>
-<p class="hint">Ελέγχει αυτή την εγκατάσταση, όχι τον κώδικα. Εκτελέστε τον σε κάθε
-  νοσηλευτήριο πριν τεθεί σε λειτουργία.</p>
 
-<p id="summary"><strong>{{ summary }}</strong></p>
+<div class="page-header">
+  <h4 class="mb-1"><i class="bi bi-shield-check"></i>
+    {{ t('Έλεγχος ετοιμότητας') }}</h4>
+  <div class="text-muted" style="font-size:0.86rem">
+    {{ t('Ελέγχει αυτή την εγκατάσταση, όχι τον κώδικα. Εκτελέστε τον σε κάθε νοσηλευτήριο πριν τεθεί σε λειτουργία.') }}
+  </div>
+</div>
+
+<div class="alert {{ 'alert-danger' if blockers else ('alert-warning' if warnings else 'alert-success') }} d-flex align-items-center gap-2">
+  <i class="bi {{ 'bi-x-octagon' if blockers else ('bi-exclamation-triangle' if warnings else 'bi-check-circle') }} fs-5"></i>
+  <strong id="summary">{{ summary }}</strong>
+</div>
 
 {% if blockers %}
-  <h2>Εμπόδια ({{ blockers|length }})</h2>
-  <table id="blockers">
-    <thead><tr><th>Έλεγχος</th><th>Εύρημα</th></tr></thead>
-    <tbody>
-    {% for finding in blockers %}
-      <tr class="alert-danger"><td>{{ finding.check }}</td><td>{{ finding.detail }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="card mb-3 border-danger-subtle">
+  <div class="card-header text-danger d-flex align-items-center gap-2">
+    <i class="bi bi-x-octagon"></i>
+    <span>{{ t('Εμπόδια') }}</span>
+    <span class="badge bg-danger ms-auto">{{ blockers|length }}</span>
+  </div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table id="blockers" class="table table-sm mb-0" style="font-size:0.86rem">
+      <thead><tr><th style="width:22%">{{ t('Έλεγχος') }}</th>
+        <th>{{ t('Εύρημα') }}</th></tr></thead>
+      <tbody>
+      {% for finding in blockers %}
+        <tr class="alert-danger"><td class="fw-semibold">{{ finding.check }}</td>
+          <td>{{ finding.detail }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
 {% endif %}
 
 {% if warnings %}
-  <h2>Προειδοποιήσεις ({{ warnings|length }})</h2>
-  <table id="warnings">
-    <thead><tr><th>Έλεγχος</th><th>Εύρημα</th></tr></thead>
-    <tbody>
-    {% for finding in warnings %}
-      <tr><td>{{ finding.check }}</td><td>{{ finding.detail }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-exclamation-triangle text-warning"></i>
+    <span>{{ t('Προειδοποιήσεις') }}</span>
+    <span class="badge bg-warning text-dark ms-auto">{{ warnings|length }}</span>
+  </div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table id="warnings" class="table table-sm mb-0" style="font-size:0.86rem">
+      <thead><tr><th style="width:22%">{{ t('Έλεγχος') }}</th>
+        <th>{{ t('Εύρημα') }}</th></tr></thead>
+      <tbody>
+      {% for finding in warnings %}
+        <tr><td class="fw-semibold">{{ finding.check }}</td>
+          <td>{{ finding.detail }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
 {% endif %}
 
 {% if not findings %}
-  <p id="ready">Όλοι οι έλεγχοι πέρασαν.</p>
+<div class="card">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-check-circle text-success" style="font-size:2.5rem"></i>
+    <div class="fw-semibold mt-2" id="ready">{{ t('Όλοι οι έλεγχοι πέρασαν.') }}</div>
+    <div class="text-muted" style="font-size:0.86rem">
+      {{ t('Έτοιμο για παραγωγική λειτουργία.') }}</div>
+  </div>
+</div>
 {% endif %}
 {% endblock %}

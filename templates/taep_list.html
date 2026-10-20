@@ -1,74 +1,142 @@
 {% extends "base.html" %}
-{% block title %}Καταχωρήσεις ΤΑΕΠ{% endblock %}
+{% block title %}{{ t('Καταχωρήσεις ΤΑΕΠ') }}{% endblock %}
 {% block content %}
-<h1>Καταχωρήσεις</h1>
 
-<!-- Separate from the filters below: this jumps straight to one costing. A handheld
-     scanner types the number into the box and submits, so autofocus is deliberate. -->
-<form method="get" action="{{ url_for('taep_find') }}" class="lookup">
-  <label for="number">Αριθμός κοστολόγησης</label>
-  <input id="number" name="number" type="text" autofocus autocomplete="off"
-         inputmode="text" placeholder="OKY1054/0035"
-         aria-describedby="number-help">
-  <button type="submit">Άνοιγμα</button>
-  <small id="number-help">Σαρώστε τον κωδικό από το έντυπο ή γράψτε τον αριθμό.
-    Δεκτά και «1054/35» ή «OKY1054-0035».</small>
-</form>
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1"><i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</h4>
+    <div class="text-muted" style="font-size:0.86rem">
+      {{ t('Οι κοστολογήσεις του νοσηλευτηρίου σας.') }}
+    </div>
+  </div>
+  {% if has_permission('taep.create') %}
+  <a href="/taep/nea" class="btn btn-brand btn-action">
+    <i class="bi bi-plus-lg"></i> {{ t('Νέα Καταχώρηση') }}</a>
+  {% endif %}
+</div>
 
-<form method="get" class="filters">
-  <label for="date_from">Από</label>
-  <input id="date_from" name="date_from" type="date" value="{{ filters.date_from or '' }}">
-  <label for="date_to">Έως</label>
-  <input id="date_to" name="date_to" type="date" value="{{ filters.date_to or '' }}">
-  <label for="category_id">Οικονομική Κατηγορία</label>
-  <select id="category_id" name="category_id">
-    <option value="">Όλες</option>
-    {% for category in categories %}
-      <option value="{{ category.id }}"
-        {% if filters.category_id == category.id|string %}selected{% endif %}>
-        {{ category.code_new }} — {{ category.name_el }}</option>
-    {% endfor %}
-  </select>
-  <label for="id_number">Αρ. ταυτοποίησης</label>
-  <input id="id_number" name="id_number" value="{{ filters.id_number or '' }}">
-  <label for="status">Κατάσταση</label>
-  <select id="status" name="status">
-    <option value="">Όλες</option>
-    {% for value, label in [("DRAFT","Πρόχειρο"), ("CALCULATED","Υπολογισμένο"),
-                            ("FINALISED","Οριστικοποιημένο"), ("CANCELLED","Ακυρωμένο")] %}
-      <option value="{{ value }}"
-        {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
-  <button type="submit">Φιλτράρισμα</button>
-</form>
+{# Separate from the filters below: this jumps straight to one costing. A handheld
+   scanner types the number into the box and submits, so autofocus is deliberate. #}
+<div class="card mb-3 border-primary-subtle">
+  <div class="card-body py-3">
+    <form method="get" action="{{ url_for('taep_find') }}" class="lookup row g-2 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label" for="number">
+          <i class="bi bi-upc-scan"></i> {{ t('Αριθμός κοστολόγησης') }}</label>
+        <input id="number" name="number" type="text" class="form-control"
+               autofocus autocomplete="off" inputmode="text"
+               placeholder="OKY1054/0035" aria-describedby="number-help">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-brand w-100">
+          <i class="bi bi-box-arrow-in-right"></i> {{ t('Άνοιγμα') }}</button>
+      </div>
+      <div class="col-md-5">
+        <small id="number-help" class="text-muted">
+          {{ t('Σαρώστε τον κωδικό από το έντυπο ή γράψτε τον αριθμό. Δεκτά και «1054/35» ή «OKY1054-0035».') }}
+        </small>
+      </div>
+    </form>
+  </div>
+</div>
 
-<p><a href="{{ url_for('taep_list_export', **export_args) }}" id="export">Εξαγωγή σε Excel</a>
-  <span class="hint">Εξάγεται ό,τι δείχνουν τα φίλτρα.</span></p>
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="get" class="filters row g-2 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label" for="date_from">{{ t('Από') }}</label>
+        <input id="date_from" name="date_from" type="date" class="form-control"
+               value="{{ filters.date_from or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="date_to">{{ t('Έως') }}</label>
+        <input id="date_to" name="date_to" type="date" class="form-control"
+               value="{{ filters.date_to or '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="category_id">{{ t('Οικονομική Κατηγορία') }}</label>
+        <select id="category_id" name="category_id" class="form-select">
+          <option value="">{{ t('Όλες') }}</option>
+          {% for category in categories %}
+            <option value="{{ category.id }}"
+              {% if filters.category_id == category.id|string %}selected{% endif %}>
+              {{ category.code_new }} — {{ category.name_el }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="id_number">{{ t('Αρ. ταυτοποίησης') }}</label>
+        <input id="id_number" name="id_number" class="form-control"
+               value="{{ filters.id_number or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="status">{{ t('Κατάσταση') }}</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">{{ t('Όλες') }}</option>
+          {% for value, label in [("DRAFT","Πρόχειρο"), ("CALCULATED","Υπολογισμένο"),
+                                  ("FINALISED","Οριστικοποιημένο"), ("CANCELLED","Ακυρωμένο")] %}
+            <option value="{{ value }}"
+              {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-1">
+        <button type="submit" class="btn btn-outline-primary w-100">
+          <i class="bi bi-funnel"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
 
-<table id="episodes">
-  <thead><tr>
-    <th>Αρ. Κοστολόγησης</th><th>Ημ/νία Εξέτασης</th><th>Επώνυμο</th><th>Όνομα</th>
-    <th>Ταυτοποίηση</th><th>Οικονομική Κατηγορία</th><th>Βαρύτητα</th>
-    <th>Τελικό Κόστος</th><th>Κατάσταση</th>
-  </tr></thead>
-  <tbody>
-  {% for episode in episodes %}
-    <tr class="status-{{ episode.status|lower }}">
-      <td><a href="{{ url_for('taep_costing', episode_id=episode.id) }}">
-        {{ episode.costing_number or '—' }}</a></td>
-      <td>{{ episode.examination_at }}</td>
-      <td>{{ episode.last_name }}</td>
-      <td>{{ episode.first_name }}</td>
-      <td>{{ episode.id_type }} {{ episode.id_number }}</td>
-      <td>{{ episode.category_code }} — {{ episode.category_name }}</td>
-      <td class="number">{{ episode.weight or '—' }}</td>
-      <td class="number">{{ episode.total_cost | eur }}</td>
-      <td>{{ episode.status }}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="9">Καμία καταχώρηση.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="card">
+  <div class="card-header d-flex align-items-center">
+    <span>{{ t('Αποτελέσματα') }}</span>
+    <span class="badge bg-light text-muted ms-2">{{ episodes|length }}</span>
+    <a href="{{ url_for('taep_list_export', **export_args) }}" id="export"
+       class="btn btn-outline-secondary btn-action ms-auto"
+       title="{{ t('Εξάγεται ό,τι δείχνουν τα φίλτρα.') }}">
+      <i class="bi bi-file-earmark-spreadsheet"></i> {{ t('Εξαγωγή σε Excel') }}</a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="episodes" class="table table-sm table-hover mb-0"
+             style="font-size:0.86rem">
+        <thead><tr>
+          <th>{{ t('Αρ. Κοστολόγησης') }}</th>
+          <th>{{ t('Ημ/νία Εξέτασης') }}</th>
+          <th>{{ t('Επώνυμο') }}</th>
+          <th>{{ t('Όνομα') }}</th>
+          <th>{{ t('Ταυτοποίηση') }}</th>
+          <th>{{ t('Οικονομική Κατηγορία') }}</th>
+          <th class="text-end">{{ t('Βαρύτητα') }}</th>
+          <th class="text-end">{{ t('Τελικό Κόστος') }}</th>
+          <th>{{ t('Κατάσταση') }}</th>
+        </tr></thead>
+        <tbody>
+        {% set tone = {'DRAFT': 'secondary', 'CALCULATED': 'info',
+                       'FINALISED': 'success', 'CANCELLED': 'danger'} %}
+        {% for episode in episodes %}
+          <tr class="status-{{ episode.status|lower }}">
+            <td><a href="{{ url_for('taep_costing', episode_id=episode.id) }}"
+                   class="font-monospace">
+              {{ episode.costing_number or '—' }}</a></td>
+            <td>{{ episode.examination_at }}</td>
+            <td>{{ episode.last_name }}</td>
+            <td>{{ episode.first_name }}</td>
+            <td>{{ episode.id_type }} {{ episode.id_number }}</td>
+            <td>{{ episode.category_code }} — {{ episode.category_name }}</td>
+            <td class="number text-end">{{ episode.weight or '—' }}</td>
+            <td class="number text-end fw-semibold">{{ episode.total_cost | eur }}</td>
+            <td><span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
+              {{ episode.status }}</span></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="text-center text-muted py-4">
+            {{ t('Καμία καταχώρηση.') }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 {% endblock %}

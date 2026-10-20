@@ -1,111 +1,183 @@
 {% extends "base.html" %}
-{% block title %}Διαχείριση Τιμών ΤΑΕΠ{% endblock %}
+{% block title %}{{ t('Διαχείριση Τιμών ΤΑΕΠ') }}{% endblock %}
 {% block content %}
-<h1>Διαχείριση Τιμών</h1>
-<p class="hint">Τιμές σε ισχύ στις {{ on_date.strftime('%d/%m/%Y') }}.</p>
+
+<div class="page-header">
+  <h4 class="mb-1"><i class="bi bi-currency-euro"></i>
+    {{ t('Διαχείριση Τιμών') }}</h4>
+  <div class="text-muted" style="font-size:0.86rem">
+    {{ t('Τιμές σε ισχύ στις') }} {{ on_date.strftime('%d/%m/%Y') }}.
+  </div>
+</div>
 
 {% if problems %}
-  <div class="alert-danger">
-    <strong>Επικαλυπτόμενες περίοδοι τιμών.</strong>
-    Κοστολόγηση στις σειρές αυτές θα απορριφθεί μέχρι να διορθωθούν.
-    <ul>{% for problem in problems %}<li>{{ problem.detail }}</li>{% endfor %}</ul>
+  <div class="alert alert-danger" id="rate-problems">
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <i class="bi bi-exclamation-octagon"></i>
+      <strong>{{ t('Επικαλυπτόμενες περίοδοι τιμών.') }}</strong>
+    </div>
+    <div style="font-size:0.88rem">
+      {{ t('Κοστολόγηση στις σειρές αυτές θα απορριφθεί μέχρι να διορθωθούν.') }}
+    </div>
+    <ul class="mb-0 mt-2" style="font-size:0.88rem">
+      {% for problem in problems %}<li>{{ problem.detail }}</li>{% endfor %}</ul>
   </div>
 {% endif %}
 
-<h2>Κλίμακα βαρύτητας</h2>
-<table id="scale">
-  <thead><tr><th>Βαρύτητα</th><th>Κατηγοριοποίηση</th><th>Ποσό €</th>
-    <th>Σε ισχύ από</th><th>Έγγραφο</th></tr></thead>
-  <tbody>
-  {% for row in scale %}
-    <tr>
-      <td class="number">{{ row.weight }}</td>
-      <td>{{ row.band_label_el }}</td>
-      <td class="number">{{ row.amount | eur }}</td>
-      <td>{{ row.valid_from.strftime('%d/%m/%Y') if row.valid_from else '—' }}</td>
-      <td>{{ row.source_document or '—' }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-sliders text-primary"></i>
+    <span>{{ t('Κλίμακα βαρύτητας') }}</span>
+  </div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table id="scale" class="table table-sm mb-0" style="font-size:0.86rem">
+      <thead><tr>
+        <th class="text-end">{{ t('Βαρύτητα') }}</th>
+        <th>{{ t('Κατηγοριοποίηση') }}</th>
+        <th class="text-end">{{ t('Ποσό') }} €</th>
+        <th>{{ t('Σε ισχύ από') }}</th><th>{{ t('Έγγραφο') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for row in scale %}
+        <tr>
+          <td class="number text-end fw-semibold">{{ row.weight }}</td>
+          <td>{{ row.band_label_el }}</td>
+          <td class="number text-end">{{ row.amount | eur }}</td>
+          <td>{{ row.valid_from.strftime('%d/%m/%Y') if row.valid_from else '—' }}</td>
+          <td class="text-muted">{{ row.source_document or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
 
-<h2>Τέλη εγγραφής ανά οικονομική κατηγορία</h2>
-<p>
-  <a href="{{ url_for('taep_rates', only_unset='1') }}">Μόνο μη ορισμένες</a> ·
-  <a href="{{ url_for('taep_rates') }}">Όλες</a>
-  {% if only_unset %}<strong>(φιλτραρισμένο)</strong>{% endif %}
-</p>
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+    <i class="bi bi-receipt-cutoff text-primary"></i>
+    <span>{{ t('Τέλη εγγραφής ανά οικονομική κατηγορία') }}</span>
+    <div class="btn-group btn-group-sm ms-auto">
+      <a href="{{ url_for('taep_rates', only_unset='1') }}"
+         class="btn btn-outline-secondary {{ 'active' if only_unset }}">
+        {{ t('Μόνο μη ορισμένες') }}</a>
+      <a href="{{ url_for('taep_rates') }}"
+         class="btn btn-outline-secondary {{ 'active' if not only_unset }}">
+        {{ t('Όλες') }}</a>
+    </div>
+  </div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table id="fees" class="table table-sm table-hover mb-0" style="font-size:0.86rem">
+      <thead><tr>
+        <th>{{ t('Κωδ.') }}</th><th>{{ t('Κατηγορία') }}</th>
+        <th class="text-end">{{ t('Τέλος εγγραφής') }} €</th>
+        <th>{{ t('Κατάσταση') }}</th>
+        <th class="text-end">{{ t('Προκαταβολή') }} €</th>
+        <th>{{ t('Τιμοκατάλογος') }}</th><th>{{ t('Αρμόδια αρχή') }}</th>
+        <th>{{ t('Σε ισχύ από') }}</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for row in overview %}
+        <tr class="fee-{{ row.fee_state | lower }}">
+          <td><code>{{ row.code }}</code></td>
+          <td>{{ row.name_el }}</td>
+          <td class="number text-end">
+            {% if row.fee_state == states.UNCONFIRMED %}—
+            {% else %}{{ row.registration_fee | eur }}{% endif %}</td>
+          <td>
+            {% if row.fee_state == states.SET %}
+              <span class="badge bg-success">{{ t('Ορισμένο') }}</span>
+            {% elif row.fee_state == states.EXEMPT %}
+              <span class="badge bg-secondary" title="{{ row.note_el }}">
+                {{ t('Εξαιρείται') }}</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">{{ t('Δεν έχει οριστεί') }}</span>
+            {% endif %}</td>
+          <td class="number text-end">
+            {% if row.deposit %}{{ row.deposit | eur }}{% else %}—{% endif %}</td>
+          <td>{% if row.tariff_applies %}
+                <i class="bi bi-check-circle text-success"></i>
+                <span class="visually-hidden">{{ t('Ναι') }}</span>
+              {% else %}
+                <i class="bi bi-dash-circle text-muted"></i>
+                <span class="visually-hidden">{{ t('Όχι') }}</span>
+              {% endif %}</td>
+          <td class="text-muted">{{ row.payer_el or '—' }}</td>
+          <td>{{ row.valid_from.strftime('%d/%m/%Y') if row.valid_from else '—' }}</td>
+          <td class="text-end">
+            <a class="btn btn-link btn-sm p-0"
+               href="{{ url_for('taep_rate_history', rate_type='REGISTRATION_FEE',
+                                financial_category_id=row.category_id) }}"
+               title="{{ t('Ιστορικό') }}">
+              <i class="bi bi-clock-history"></i>
+              <span class="visually-hidden">{{ t('Ιστορικό') }}</span></a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
 
-<table id="fees">
-  <thead><tr>
-    <th>Κωδ.</th><th>Κατηγορία</th><th>Τέλος εγγραφής €</th><th>Κατάσταση</th>
-    <th>Προκαταβολή €</th><th>Τιμοκατάλογος</th><th>Αρμόδια αρχή</th>
-    <th>Σε ισχύ από</th><th>Ιστορικό</th>
-  </tr></thead>
-  <tbody>
-  {% for row in overview %}
-    <tr class="fee-{{ row.fee_state | lower }}">
-      <td><code>{{ row.code }}</code></td>
-      <td>{{ row.name_el }}</td>
-      <td class="number">
-        {% if row.fee_state == states.UNCONFIRMED %}—{% else %}{{ row.registration_fee | eur }}{% endif %}
-      </td>
-      <td>
-        {% if row.fee_state == states.SET %}Ορισμένο
-        {% elif row.fee_state == states.EXEMPT %}
-          <span title="{{ row.note_el }}">Εξαιρείται</span>
-        {% else %}Δεν έχει οριστεί{% endif %}
-      </td>
-      <td class="number">{% if row.deposit %}{{ row.deposit | eur }}{% else %}—{% endif %}</td>
-      <td>{{ 'Ναι' if row.tariff_applies else 'Όχι' }}</td>
-      <td>{{ row.payer_el or '—' }}</td>
-      <td>{{ row.valid_from.strftime('%d/%m/%Y') if row.valid_from else '—' }}</td>
-      <td><a href="{{ url_for('taep_rate_history', rate_type='REGISTRATION_FEE',
-                              financial_category_id=row.category_id) }}">Ιστορικό</a></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-
-<h2>Αλλαγή τιμής</h2>
-<p class="hint">Η τρέχουσα τιμή δεν αντικαθίσταται. Κλείνει η τρέχουσα περίοδος και
-  ανοίγει νέα από την ημερομηνία ισχύος, με καταγραφή του εγγράφου απόφασης.</p>
-
-<form method="post" action="{{ url_for('taep_rate_change') }}" id="rate-change">
-  <label for="rate_type">Τύπος τιμής</label>
-  <select id="rate_type" name="rate_type" required>
-    <option value="REGISTRATION_FEE">Τέλος εγγραφής (ανά κατηγορία)</option>
-    <option value="REGISTRATION_DEPOSIT">Προκαταβολή (ανά κατηγορία)</option>
-    <option value="WEIGHT_AMOUNT">Ποσό βαρύτητας (εθνικό)</option>
-    <option value="TRIAGE_AMOUNT">Ποσό διαλογής (εθνικό)</option>
-  </select>
-
-  <label for="financial_category_id">Οικονομική κατηγορία</label>
-  <select id="financial_category_id" name="financial_category_id">
-    <option value="">— δεν αφορά (εθνική τιμή) —</option>
-    {% for row in overview %}
-      <option value="{{ row.category_id }}">{{ row.code }} — {{ row.name_el }}</option>
-    {% endfor %}
-  </select>
-
-  <label for="weight">Συντελεστής βαρύτητας</label>
-  <select id="weight" name="weight">
-    <option value="">— δεν αφορά —</option>
-    {% for row in scale if row.weight != 1 %}
-      <option value="{{ row.weight }}">{{ row.weight }}</option>
-    {% endfor %}
-  </select>
-
-  <label for="amount">Νέο ποσό €</label>
-  <input id="amount" name="amount" required inputmode="decimal">
-
-  <label for="effective_from">Σε ισχύ από</label>
-  <input id="effective_from" name="effective_from" type="date" required>
-
-  <label for="source_document">Έγγραφο απόφασης</label>
-  <input id="source_document" name="source_document" required
-         placeholder="π.χ. Απόφαση ΔΣ 123/2027">
-
-  <button type="submit" class="primary">Καταχώρηση νέας περιόδου</button>
-</form>
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-pencil-square text-primary"></i>
+    <span>{{ t('Αλλαγή τιμής') }}</span>
+  </div>
+  <div class="card-body">
+    <div class="alert alert-secondary py-2" style="font-size:0.86rem">
+      <i class="bi bi-info-circle"></i>
+      {{ t('Η τρέχουσα τιμή δεν αντικαθίσταται. Κλείνει η τρέχουσα περίοδος και ανοίγει νέα από την ημερομηνία ισχύος, με καταγραφή του εγγράφου απόφασης.') }}
+    </div>
+    <form method="post" action="{{ url_for('taep_rate_change') }}" id="rate-change"
+          class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="rate_type">{{ t('Τύπος τιμής') }} *</label>
+        <select id="rate_type" name="rate_type" class="form-select" required>
+          <option value="REGISTRATION_FEE">{{ t('Τέλος εγγραφής (ανά κατηγορία)') }}</option>
+          <option value="REGISTRATION_DEPOSIT">{{ t('Προκαταβολή (ανά κατηγορία)') }}</option>
+          <option value="WEIGHT_AMOUNT">{{ t('Ποσό βαρύτητας (εθνικό)') }}</option>
+          <option value="TRIAGE_AMOUNT">{{ t('Ποσό διαλογής (εθνικό)') }}</option>
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label" for="financial_category_id">
+          {{ t('Οικονομική κατηγορία') }}</label>
+        <select id="financial_category_id" name="financial_category_id"
+                class="form-select">
+          <option value="">— {{ t('δεν αφορά (εθνική τιμή)') }} —</option>
+          {% for row in overview %}
+            <option value="{{ row.category_id }}">{{ row.code }} — {{ row.name_el }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="weight">{{ t('Συντελεστής βαρύτητας') }}</label>
+        <select id="weight" name="weight" class="form-select">
+          <option value="">— {{ t('δεν αφορά') }} —</option>
+          {% for row in scale if row.weight != 1 %}
+            <option value="{{ row.weight }}">{{ row.weight }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="amount">{{ t('Νέο ποσό') }} € *</label>
+        <input id="amount" name="amount" class="form-control" required
+               inputmode="decimal">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="effective_from">{{ t('Σε ισχύ από') }} *</label>
+        <input id="effective_from" name="effective_from" type="date"
+               class="form-control" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="source_document">{{ t('Έγγραφο απόφασης') }} *</label>
+        <input id="source_document" name="source_document" class="form-control" required
+               placeholder="{{ t('π.χ. Απόφαση ΔΣ 123/2027') }}">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-brand">
+          <i class="bi bi-plus-circle"></i> {{ t('Καταχώρηση νέας περιόδου') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}

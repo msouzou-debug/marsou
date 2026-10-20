@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ΤΑΕΠ module mark, full colour. For page headers, print and anywhere the pill
+     glyph is too small to carry brand colour. Same two ideas as the glyph, with the
+     euro detail restored because at 48px and up there is room for it.
+     ΟΚΥπΥ brand: blue #069FEC to #1B75BB, accent green #8BC53F. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="Κοστολόγηση ΤΑΕΠ">
+  <defs>
+    <linearGradient id="taepTile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#069FEC"/>
+      <stop offset="1" stop-color="#1B75BB"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#taepTile)"/>
+  <path d="M23 12h11v11h11v11H34v11H23V34H12V23h11z" fill="#fff"/>
+  <circle cx="45" cy="45" r="11" fill="#8BC53F" stroke="#fff" stroke-width="3"/>
+  <path d="M49 40.6a5.2 5.2 0 1 0 0 8.8M41 43.6h6M41 46.4h5"
+        fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

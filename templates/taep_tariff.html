@@ -1,36 +1,82 @@
 {% extends "base.html" %}
-{% block title %}Τιμοκατάλογος ΤΑΕΠ{% endblock %}
+{% block title %}{{ t('Τιμοκατάλογος ΤΑΕΠ') }}{% endblock %}
 {% block content %}
-<h1>Τιμοκατάλογος Δραστηριοτήτων</h1>
 
-<p>
-  <a class="primary" href="{{ url_for('taep_tariff_download') }}">Κατέβασμα σε Excel</a>
-</p>
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1"><i class="bi bi-table"></i>
+      {{ t('Τιμοκατάλογος Δραστηριοτήτων') }}</h4>
+    <div class="text-muted" style="font-size:0.86rem">
+      {{ t('Πρόσθετες χρεώσεις πέραν της βαρύτητας, για τις κατηγορίες που τις επιτρέπουν.') }}
+    </div>
+  </div>
+  <a class="btn btn-outline-secondary btn-action"
+     href="{{ url_for('taep_tariff_download') }}">
+    <i class="bi bi-download"></i> {{ t('Κατέβασμα σε Excel') }}</a>
+</div>
 
-<form method="post" action="{{ url_for('taep_tariff_upload') }}"
-      enctype="multipart/form-data">
-  <label for="workbook">Μεταφόρτωση επεξεργασμένου αρχείου</label>
-  <input id="workbook" name="workbook" type="file" accept=".xlsx" required>
-  <button type="submit">Έλεγχος διαφορών</button>
-  <p class="hint">Θα εμφανιστούν οι διαφορές προς επιβεβαίωση. Τίποτα δεν εφαρμόζεται
-    πριν επιβεβαιώσετε, και εφαρμόζονται όλες μαζί ή καμία.</p>
-</form>
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-upload text-primary"></i>
+    <span>{{ t('Μεταφόρτωση επεξεργασμένου αρχείου') }}</span>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('taep_tariff_upload') }}"
+          enctype="multipart/form-data" class="row g-2 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label" for="workbook">{{ t('Αρχείο Excel') }}</label>
+        <input id="workbook" name="workbook" type="file" class="form-control"
+               accept=".xlsx" required>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-brand w-100">
+          <i class="bi bi-search"></i> {{ t('Έλεγχος διαφορών') }}</button>
+      </div>
+      <div class="col-12">
+        <small class="text-muted">
+          {{ t('Θα εμφανιστούν οι διαφορές προς επιβεβαίωση. Τίποτα δεν εφαρμόζεται πριν επιβεβαιώσετε, και εφαρμόζονται όλες μαζί ή καμία.') }}
+        </small>
+      </div>
+    </form>
+  </div>
+</div>
 
-<table id="tariffs">
-  <thead><tr><th>Κωδικός</th><th>Περιγραφή</th><th>Κλίμακα</th><th>Τύπος</th>
-    <th>Βασικό €</th><th>Ωριαία €</th><th>Ενεργό</th></tr></thead>
-  <tbody>
-  {% for row in tariffs %}
-    <tr class="{{ 'inactive' if not row.active }}">
-      <td><code>{{ row.code }}</code></td>
-      <td>{{ row.description_el }}</td>
-      <td>{{ row.tier_label_el or '—' }}</td>
-      <td>{{ row.price_type }}</td>
-      <td class="number">{{ row.base_amount | eur }}</td>
-      <td class="number">{% if row.hourly_amount %}{{ row.hourly_amount | eur }}{% else %}—{% endif %}</td>
-      <td>{{ 'Ναι' if row.active else 'Όχι' }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="card">
+  <div class="card-header d-flex align-items-center">
+    <span>{{ t('Γραμμές τιμοκαταλόγου') }}</span>
+    <span class="badge bg-light text-muted ms-2">{{ tariffs|length }}</span>
+  </div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table id="tariffs" class="table table-sm table-hover mb-0"
+           style="font-size:0.86rem">
+      <thead><tr>
+        <th>{{ t('Κωδικός') }}</th><th>{{ t('Περιγραφή') }}</th>
+        <th>{{ t('Κλίμακα') }}</th><th>{{ t('Τύπος') }}</th>
+        <th class="text-end">{{ t('Βασικό') }} €</th>
+        <th class="text-end">{{ t('Ωριαία') }} €</th>
+        <th>{{ t('Ενεργό') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for row in tariffs %}
+        <tr class="{{ 'inactive text-muted' if not row.active }}">
+          <td><code>{{ row.code }}</code></td>
+          <td>{{ row.description_el }}</td>
+          <td>{{ row.tier_label_el or '—' }}</td>
+          <td><span class="badge bg-light text-muted">{{ row.price_type }}</span></td>
+          <td class="number text-end">{{ row.base_amount | eur }}</td>
+          <td class="number text-end">
+            {% if row.hourly_amount %}{{ row.hourly_amount | eur }}{% else %}—{% endif %}</td>
+          <td>{% if row.active %}
+                <i class="bi bi-check-circle text-success"></i>
+                <span class="visually-hidden">{{ t('Ναι') }}</span>
+              {% else %}
+                <i class="bi bi-dash-circle text-muted"></i>
+                <span class="visually-hidden">{{ t('Όχι') }}</span>
+              {% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
 {% endblock %}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ΤΑΕΠ pill glyph. Drawn in eFinance's area-icon language: 24x24, stroke 1.5,
+     currentColor, round caps and joins (templates/_icons.html).
+     Two shapes only — a Greek cross for emergency care and a coin for what the
+     module does. The coin sits in the cross's lower-right notch, so the two never
+     overlap and both stay readable at 17px. An inner euro stroke was tried and
+     dropped: 1.5 stroke on a 3.8 arc closes up below about 48px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+     fill="none" stroke="currentColor" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="Κοστολόγηση ΤΑΕΠ">
+  <path d="M8 3h5v5h5v5h-5v5H8v-5H3V8h5z"/>
+  <circle cx="18" cy="18" r="4"/>
+</svg>
