@@ -21,7 +21,20 @@
            value="{{ form.get('id_number', '') }}">
 
     <label for="id_country">Χώρα έκδοσης</label>
-    <input id="id_country" name="id_country" value="{{ form.get('id_country', '') }}">
+    <select id="id_country" name="id_country">
+      <option value=""></option>
+      {% for country in countries %}
+        <option value="{{ country.name_el }}"
+          {% if form.get('id_country') == country.name_el %}selected{% endif %}>
+          {{ country.name_el }}</option>
+      {% endfor %}
+      {# A value typed before this field became a list stays selectable rather than
+         being silently blanked when the episode is edited. #}
+      {% set typed = form.get('id_country') %}
+      {% if typed and typed not in countries|map(attribute='name_el')|list %}
+        <option value="{{ typed }}" selected>{{ typed }}</option>
+      {% endif %}
+    </select>
 
     <label for="id_expiry">Ημερομηνία λήξης</label>
     <input id="id_expiry" name="id_expiry" type="date"
@@ -61,13 +74,23 @@
   <section class="card">
     <h2>Στοιχεία Περιστατικού</h2>
     <label for="taep_unit_code">Μονάδα ΤΑΕΠ</label>
-    <select id="taep_unit_code" name="taep_unit_code" required>
-      {% for unit in units %}
-        <option value="{{ unit.unit_code }}"
-          {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
-          {{ unit.name_el }}</option>
-      {% endfor %}
-    </select>
+    {% if units %}
+      <select id="taep_unit_code" name="taep_unit_code" required>
+        {% for unit in units %}
+          <option value="{{ unit.unit_code }}"
+            {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
+            {{ unit.name_el }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      {# An empty list is not a fault: the logged-in user belongs to a unit-less
+         entity, typically the Κεντρικά Γραφεία. Saying so beats a blank box. #}
+      <p class="flash flash-warning" id="no-units">
+        Το νοσηλευτήριο <strong>{{ entity }}</strong> δεν φιλοξενεί μονάδα ΤΑΕΠ, οπότε
+        δεν μπορεί να καταχωρηθεί περιστατικό από αυτό. Οι μονάδες ΤΑΕΠ ανήκουν στα
+        νοσηλευτήρια· ο λογαριασμός σας πρέπει να ανήκει σε ένα από αυτά.
+      </p>
+    {% endif %}
 
     <label for="episode_number">Αριθμός Επεισοδίου</label>
     <input id="episode_number" name="episode_number"

@@ -646,6 +646,19 @@ SCHEMA_STATEMENTS = [
         UNIQUE (unit_code, host_valid_from)
     ){ENGINE}""",
 
+    # Countries for the identification document, from Unicode CLDR so the Greek
+    # spellings match what people read elsewhere. A table rather than a constant: the
+    # list is reference data like the service catalogue, and the readiness check counts
+    # it the same way.
+    """CREATE TABLE IF NOT EXISTS taep_country (
+        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
+        code VARCHAR(2) UNIQUE NOT NULL,
+        name_el VARCHAR(120) NOT NULL,
+        name_en VARCHAR(120) NOT NULL,
+        sort_order INTEGER NOT NULL,
+        active TINYINT DEFAULT 1
+    ){ENGINE}""",
+
     # Every costing number ever allocated, one row each, never deleted. A ledger
     # rather than a counter: the UNIQUE key is what makes allocation safe under
     # concurrency, because eFinance's db_execute commits per call and a transaction
@@ -1020,6 +1033,12 @@ def seed(ctx):
                        r["host_valid_to"] or None, r["note_el"] or None, 1)
                       for r in _read_seed("taep_units.csv")])
 
+    if empty("SELECT id FROM taep_country LIMIT 1"):
+        _insert_many(db, "taep_country",
+                     ["code", "name_el", "name_en", "sort_order", "active"],
+                     [(r["code"], r["name_el"], r["name_en"], int(r["sort_order"]), 1)
+                      for r in _read_seed("countries.csv")])
+
     if empty("SELECT id FROM taep_tariff LIMIT 1"):
         _insert_many(db, "taep_tariff",
                      ["tariff_scope", "code", "description_el", "group_el",
@@ -1271,6 +1290,13 @@ def _as_date(value):
     if isinstance(value, dt.datetime):
         return value.date()
     return dt.date.fromisoformat(str(value)[:10])
+
+
+def list_countries(ctx):
+    """Countries for the identification-document field. Cyprus first, then Greek A-Z."""
+    return ctx["db_execute"](
+        "SELECT code, name_el, name_en FROM taep_country WHERE active = 1 "
+        "ORDER BY sort_order", fetch=True) or []
 
 
 def unit_for_entity(ctx, entity_code, on_date=None):
@@ -2635,6 +2661,7 @@ EXPECTED_COUNTS = {
     "taep_unit": 8,
     "taep_tariff": 52,
     "taep_radiology_tariff": 305,
+    "taep_country": 257,
 }
 
 
@@ -3047,6 +3074,7 @@ def register(app, ctx):
         entity = active_entity()
         units = unit_for_entity(ctx, entity)
         categories = list_ae_categories(ctx)
+        countries = list_countries(ctx)
 
         if request.method == "POST":
             try:
@@ -3054,7 +3082,8 @@ def register(app, ctx):
             except CostingError as exc:
                 flash(exc.message_el, "danger")
                 return render_template("taep_new.html", categories=categories,
-                                       units=units, form=request.form)
+                                       units=units, countries=countries, entity=entity,
+                                       form=request.form)
 
             errors, warnings = validate_episode(data)
             unit_code = (request.form.get("taep_unit_code") or "").strip()
@@ -3067,21 +3096,23 @@ def register(app, ctx):
                 for message in errors:
                     flash(message, "danger")
                 return render_template("taep_new.html", categories=categories,
-                                       units=units, form=request.form)
+                                       units=units, countries=countries, entity=entity,
+                                       form=request.form)
 
             try:
                 episode_id = save_episode(ctx, data, entity, unit_code, user_id())
             except CostingError as exc:
                 flash(exc.message_el, "danger")
                 return render_template("taep_new.html", categories=categories,
-                                       units=units, form=request.form)
+                                       units=units, countries=countries, entity=entity,
+                                       form=request.form)
 
             for message in warnings:
                 flash(message, "warning")
             return redirect(url_for("taep_costing", episode_id=episode_id))
 
         return render_template("taep_new.html", categories=categories, units=units,
-                               form={})
+                               countries=countries, entity=entity, form={})
 
     # -- Prior-episode lookup (called on blur of the identification number) -
     @app.route("/taep/api/prior")

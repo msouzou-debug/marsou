@@ -1,0 +1,258 @@
+code,name_el,name_en,sort_order
+CY,Κύπρος,Cyprus,1
+BL,Άγιος Βαρθολομαίος,St. Barthélemy,2
+VC,Άγιος Βικέντιος και Γρεναδίνες,St. Vincent & Grenadines,3
+SM,Άγιος Μαρίνος,San Marino,4
+MF,Άγιος Μαρτίνος (Γαλλικό τμήμα),St. Martin,5
+SX,Άγιος Μαρτίνος (Ολλανδικό τμήμα),Sint Maarten,6
+EG,Αίγυπτος,Egypt,7
+SH,Αγία Ελένη,St. Helena,8
+LC,Αγία Λουκία,St. Lucia,9
+AO,Αγκόλα,Angola,10
+AZ,Αζερμπαϊτζάν,Azerbaijan,11
+ET,Αιθιοπία,Ethiopia,12
+CI,Ακτή Ελεφαντοστού,Côte d’Ivoire,13
+AL,Αλβανία,Albania,14
+DZ,Αλγερία,Algeria,15
+VI,Αμερικανικές Παρθένες Νήσοι,U.S. Virgin Islands,16
+AS,Αμερικανική Σαμόα,American Samoa,17
+AI,Ανγκουίλα,Anguilla,18
+AD,Ανδόρα,Andorra,19
+AG,Αντίγκουα και Μπαρμπούντα,Antigua & Barbuda,20
+AQ,Ανταρκτική,Antarctica,21
+UM,Απομακρυσμένες Νησίδες ΗΠΑ,U.S. Outlying Islands,22
+AR,Αργεντινή,Argentina,23
+AM,Αρμενία,Armenia,24
+AW,Αρούμπα,Aruba,25
+AT,Αυστρία,Austria,26
+AU,Αυστραλία,Australia,27
+AF,Αφγανιστάν,Afghanistan,28
+HT,Αϊτή,Haiti,29
+BE,Βέλγιο,Belgium,30
+VU,Βανουάτου,Vanuatu,31
+VA,Βατικανό,Vatican City,32
+VE,Βενεζουέλα,Venezuela,33
+BM,Βερμούδες,Bermuda,34
+VN,Βιετνάμ,Vietnam,35
+BO,Βολιβία,Bolivia,36
+BA,Βοσνία - Ερζεγοβίνη,Bosnia & Herzegovina,37
+BG,Βουλγαρία,Bulgaria,38
+BR,Βραζιλία,Brazil,39
+IO,Βρετανικά Εδάφη Ινδικού Ωκεανού,British Indian Ocean Territory,40
+VG,Βρετανικές Παρθένες Νήσοι,British Virgin Islands,41
+KP,Βόρεια Κορέα,North Korea,42
+MK,Βόρεια Μακεδονία,North Macedonia,43
+FR,Γαλλία,France,44
+TF,Γαλλικά Νότια Εδάφη,French Southern Territories,45
+GF,Γαλλική Γουιάνα,French Guiana,46
+PF,Γαλλική Πολυνησία,French Polynesia,47
+DE,Γερμανία,Germany,48
+GE,Γεωργία,Georgia,49
+GI,Γιβραλτάρ,Gibraltar,50
+GM,Γκάμπια,Gambia,51
+GH,Γκάνα,Ghana,52
+GG,Γκέρνζι,Guernsey,53
+GA,Γκαμπόν,Gabon,54
+GU,Γκουάμ,Guam,55
+WF,Γουάλις και Φουτούνα,Wallis & Futuna,56
+GP,Γουαδελούπη,Guadeloupe,57
+GT,Γουατεμάλα,Guatemala,58
+GY,Γουιάνα,Guyana,59
+GN,Γουινέα,Guinea,60
+GW,Γουινέα Μπισάου,Guinea-Bissau,61
+GD,Γρενάδα,Grenada,62
+GL,Γροιλανδία,Greenland,63
+DK,Δανία,Denmark,64
+DO,Δομινικανή Δημοκρατία,Dominican Republic,65
+EH,Δυτική Σαχάρα,Western Sahara,66
+SV,Ελ Σαλβαδόρ,El Salvador,67
+CH,Ελβετία,Switzerland,68
+GR,Ελλάδα,Greece,69
+ER,Ερυθραία,Eritrea,70
+EE,Εσθονία,Estonia,71
+SZ,Εσουατίνι,Eswatini,72
+ZM,Ζάμπια,Zambia,73
+ZW,Ζιμπάμπουε,Zimbabwe,74
+AE,Ηνωμένα Αραβικά Εμιράτα,United Arab Emirates,75
+US,Ηνωμένες Πολιτείες,United States,76
+GB,Ηνωμένο Βασίλειο,United Kingdom,77
+EA,Θέουτα και Μελίγια,Ceuta & Melilla,78
+JP,Ιαπωνία,Japan,79
+IN,Ινδία,India,80
+ID,Ινδονησία,Indonesia,81
+JO,Ιορδανία,Jordan,82
+IQ,Ιράκ,Iraq,83
+IR,Ιράν,Iran,84
+IE,Ιρλανδία,Ireland,85
+GQ,Ισημερινή Γουινέα,Equatorial Guinea,86
+EC,Ισημερινός,Ecuador,87
+IS,Ισλανδία,Iceland,88
+ES,Ισπανία,Spain,89
+IL,Ισραήλ,Israel,90
+IT,Ιταλία,Italy,91
+NL,Κάτω Χώρες,Netherlands,92
+KE,Κένυα,Kenya,93
+CN,Κίνα,China,94
+KZ,Καζακστάν,Kazakhstan,95
+CM,Καμερούν,Cameroon,96
+KH,Καμπότζη,Cambodia,97
+IC,Κανάριοι Νήσοι,Canary Islands,98
+CA,Καναδάς,Canada,99
+QA,Κατάρ,Qatar,100
+CF,Κεντροαφρικανική Δημοκρατία,Central African Republic,101
+KG,Κιργιστάν,Kyrgyzstan,102
+KI,Κιριμπάτι,Kiribati,103
+CO,Κολομβία,Colombia,104
+KM,Κομόρες,Comoros,105
+CD,Κονγκό - Κινσάσα,Congo - Kinshasa,106
+CG,Κονγκό - Μπραζαβίλ,Congo - Brazzaville,107
+XK,Κοσσυφοπέδιο,Kosovo,108
+KW,Κουβέιτ,Kuwait,109
+CW,Κουρασάο,Curaçao,110
+CU,Κούβα,Cuba,111
+HR,Κροατία,Croatia,112
+CR,Κόστα Ρίκα,Costa Rica,113
+LA,Λάος,Laos,114
+LB,Λίβανος,Lebanon,115
+LS,Λεσότο,Lesotho,116
+LV,Λετονία,Latvia,117
+BY,Λευκορωσία,Belarus,118
+LR,Λιβερία,Liberia,119
+LY,Λιβύη,Libya,120
+LT,Λιθουανία,Lithuania,121
+LI,Λιχτενστάιν,Liechtenstein,122
+LU,Λουξεμβούργο,Luxembourg,123
+ML,Μάλι,Mali,124
+MT,Μάλτα,Malta,125
+YT,Μαγιότ,Mayotte,126
+MG,Μαδαγασκάρη,Madagascar,127
+MO,Μακάο ΕΔΠ Κίνας,Macao SAR China,128
+MW,Μαλάουι,Malawi,129
+MY,Μαλαισία,Malaysia,130
+MV,Μαλδίβες,Maldives,131
+MQ,Μαρτινίκα,Martinique,132
+MA,Μαρόκο,Morocco,133
+MU,Μαυρίκιος,Mauritius,134
+MR,Μαυριτανία,Mauritania,135
+ME,Μαυροβούνιο,Montenegro,136
+MX,Μεξικό,Mexico,137
+MM,Μιανμάρ (Βιρμανία),Myanmar (Burma),138
+FM,Μικρονησία,Micronesia,139
+MN,Μογγολία,Mongolia,140
+MZ,Μοζαμβίκη,Mozambique,141
+MD,Μολδαβία,Moldova,142
+MC,Μονακό,Monaco,143
+MS,Μονσεράτ,Montserrat,144
+BD,Μπανγκλαντές,Bangladesh,145
+BB,Μπαρμπέιντος,Barbados,146
+BS,Μπαχάμες,Bahamas,147
+BH,Μπαχρέιν,Bahrain,148
+BZ,Μπελίζ,Belize,149
+BJ,Μπενίν,Benin,150
+BW,Μποτσουάνα,Botswana,151
+BF,Μπουρκίνα Φάσο,Burkina Faso,152
+BI,Μπουρούντι,Burundi,153
+BT,Μπουτάν,Bhutan,154
+BN,Μπρουνέι,Brunei,155
+NZ,Νέα Ζηλανδία,New Zealand,156
+NC,Νέα Καληδονία,New Caledonia,157
+AX,Νήσοι Όλαντ,Åland Islands,158
+MP,Νήσοι Βόρειες Μαριάνες,Northern Mariana Islands,159
+KY,Νήσοι Κέιμαν,Cayman Islands,160
+CK,Νήσοι Κουκ,Cook Islands,161
+CC,Νήσοι Κόκος (Κίλινγκ),Cocos (Keeling) Islands,162
+MH,Νήσοι Μάρσαλ,Marshall Islands,163
+GS,Νήσοι Νότια Γεωργία και Νότιες Σάντουιτς,South Georgia & South Sandwich Islands,164
+PN,Νήσοι Πίτκερν,Pitcairn Islands,165
+SB,Νήσοι Σολομώντος,Solomon Islands,166
+TC,Νήσοι Τερκς και Κάικος,Turks & Caicos Islands,167
+FO,Νήσοι Φερόες,Faroe Islands,168
+FK,Νήσοι Φόκλαντ,Falkland Islands,169
+HM,Νήσοι Χερντ και Μακντόναλντ,Heard & McDonald Islands,170
+AC,Νήσος Ασενσιόν,Ascension Island,171
+CP,Νήσος Κλίπερτον,Clipperton Island,172
+BV,Νήσος Μπουβέ,Bouvet Island,173
+NF,Νήσος Νόρφολκ,Norfolk Island,174
+IM,Νήσος του Μαν,Isle of Man,175
+CX,Νήσος των Χριστουγέννων,Christmas Island,176
+NE,Νίγηρας,Niger,177
+NA,Ναμίμπια,Namibia,178
+NR,Ναουρού,Nauru,179
+NP,Νεπάλ,Nepal,180
+NG,Νιγηρία,Nigeria,181
+NI,Νικαράγουα,Nicaragua,182
+NU,Νιούε,Niue,183
+NO,Νορβηγία,Norway,184
+DG,Ντιέγκο Γκαρσία,Diego Garcia,185
+DM,Ντομίνικα,Dominica,186
+ZA,Νότια Αφρική,South Africa,187
+KR,Νότια Κορέα,South Korea,188
+SS,Νότιο Σουδάν,South Sudan,189
+BQ,Ολλανδία Καραϊβικής,Caribbean Netherlands,190
+OM,Ομάν,Oman,191
+HN,Ονδούρα,Honduras,192
+HU,Ουγγαρία,Hungary,193
+UG,Ουγκάντα,Uganda,194
+UZ,Ουζμπεκιστάν,Uzbekistan,195
+UA,Ουκρανία,Ukraine,196
+UY,Ουρουγουάη,Uruguay,197
+PK,Πακιστάν,Pakistan,198
+PW,Παλάου,Palau,199
+PS,Παλαιστινιακά Εδάφη,Palestinian Territories,200
+PA,Παναμάς,Panama,201
+PG,Παπούα Νέα Γουινέα,Papua New Guinea,202
+PY,Παραγουάη,Paraguay,203
+PE,Περού,Peru,204
+PL,Πολωνία,Poland,205
+PT,Πορτογαλία,Portugal,206
+PR,Πουέρτο Ρίκο,Puerto Rico,207
+CV,Πράσινο Ακρωτήριο,Cape Verde,208
+RE,Ρεϊνιόν,Réunion,209
+RW,Ρουάντα,Rwanda,210
+RO,Ρουμανία,Romania,211
+RU,Ρωσία,Russia,212
+ST,Σάο Τομέ και Πρίνσιπε,São Tomé & Príncipe,213
+WS,Σαμόα,Samoa,214
+SA,Σαουδική Αραβία,Saudi Arabia,215
+CQ,Σαρκ,Sark,216
+SJ,Σβάλμπαρντ και Γιαν Μαγιέν,Svalbard & Jan Mayen,217
+KN,Σεν Κιτς και Νέβις,St. Kitts & Nevis,218
+PM,Σεν Πιερ και Μικελόν,St. Pierre & Miquelon,219
+SN,Σενεγάλη,Senegal,220
+RS,Σερβία,Serbia,221
+SC,Σεϋχέλλες,Seychelles,222
+SL,Σιέρα Λεόνε,Sierra Leone,223
+SG,Σιγκαπούρη,Singapore,224
+SK,Σλοβακία,Slovakia,225
+SI,Σλοβενία,Slovenia,226
+SO,Σομαλία,Somalia,227
+SD,Σουδάν,Sudan,228
+SE,Σουηδία,Sweden,229
+SR,Σουρινάμ,Suriname,230
+LK,Σρι Λάνκα,Sri Lanka,231
+SY,Συρία,Syria,232
+TZ,Τανζανία,Tanzania,233
+TJ,Τατζικιστάν,Tajikistan,234
+TW,Ταϊβάν,Taiwan,235
+TH,Ταϊλάνδη,Thailand,236
+JE,Τζέρζι,Jersey,237
+JM,Τζαμάικα,Jamaica,238
+DJ,Τζιμπουτί,Djibouti,239
+TL,Τιμόρ-Λέστε,Timor-Leste,240
+TK,Τοκελάου,Tokelau,241
+TV,Τουβαλού,Tuvalu,242
+TR,Τουρκία,Türkiye,243
+TM,Τουρκμενιστάν,Turkmenistan,244
+TT,Τρινιντάντ και Τομπάγκο,Trinidad & Tobago,245
+TA,Τριστάν ντα Κούνια,Tristan da Cunha,246
+TD,Τσαντ,Chad,247
+CZ,Τσεχία,Czechia,248
+TN,Τυνησία,Tunisia,249
+TG,Τόγκο,Togo,250
+TO,Τόνγκα,Tonga,251
+YE,Υεμένη,Yemen,252
+FJ,Φίτζι,Fiji,253
+PH,Φιλιππίνες,Philippines,254
+FI,Φινλανδία,Finland,255
+CL,Χιλή,Chile,256
+HK,Χονγκ Κονγκ ΕΔΠ Κίνας,Hong Kong SAR China,257

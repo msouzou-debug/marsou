@@ -709,3 +709,58 @@ def test_a_host_without_has_permission_is_refused_not_waved_through(app):
         sess["user_id"] = 1
         sess["hospital_code"] = "NGH"
     assert client.get("/taep/list").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# The entry form's two dropdowns
+# ---------------------------------------------------------------------------
+
+def test_a_unit_less_entity_explains_itself_instead_of_showing_an_empty_box(app):
+    """Found in testing: an admin on HQ saw an empty ΤΑΕΠ dropdown and no reason why.
+
+    HQ is the central office and hosts no unit, so the list is correctly empty — but
+    silence reads as a broken screen.
+    """
+    client = app.test_client()
+    app.ctx["user_entity"] = lambda: "HQ"
+    with client.session_transaction() as sess:
+        sess["user_id"] = 1
+        sess["hospital_code"] = "HQ"
+
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert "δεν φιλοξενεί μονάδα ΤΑΕΠ" in page
+    assert "HQ" in page
+    assert '<select id="taep_unit_code"' not in page
+
+
+def test_a_hospital_still_gets_its_units(client, app):
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert '<select id="taep_unit_code"' in page
+    assert "NGH-ADULT" in page and "NGH-PAED" in page
+    assert "δεν φιλοξενεί" not in page
+
+
+def test_the_country_field_is_a_list_with_cyprus_first(client, app):
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert '<select id="id_country"' in page
+    assert "Κύπρος" in page and "Συρία" in page and "Ουκρανία" in page
+    countries = taep.list_countries(app.ctx)
+    assert countries[0]["name_el"] == "Κύπρος"
+    assert len(countries) == 257
+
+
+def test_a_country_not_in_the_list_is_not_silently_blanked(client, app):
+    """A value that predates the dropdown must survive a redisplay of the form.
+
+    The form comes back populated when a save fails validation. Posting with no ΤΑΕΠ
+    unit forces that path, which is the one that would otherwise drop the value.
+    """
+    page = client.post("/taep/nea", data={"id_country": "Γιουγκοσλαβία",
+                                          "last_name": "Παπαδόπουλος"}).get_data(
+        as_text=True)
+    assert '<option value="Γιουγκοσλαβία" selected>' in page
+
+
+def test_a_chosen_country_is_stored_as_given(client, app):
+    episode_id = create(client, app, id_country="Συρία")
+    assert taep.get_episode(app.ctx, episode_id)["id_country"] == "Συρία"
