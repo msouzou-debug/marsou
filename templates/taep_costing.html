@@ -19,6 +19,11 @@
                    'FINALISED': 'success', 'CANCELLED': 'danger'} %}
     <span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
       {{ episode.status }}</span>
+    {% if episode.status in ('DRAFT', 'CALCULATED') and has_permission('taep.create') %}
+    <a href="{{ url_for('taep_edit', episode_id=episode.id) }}"
+       class="btn btn-outline-primary btn-action">
+      <i class="bi bi-pencil-square"></i> {{ t('Διόρθωση στοιχείων') }}</a>
+    {% endif %}
     <a href="/taep/list" class="btn btn-outline-secondary btn-action">
       <i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</a>
   </div>
@@ -42,51 +47,52 @@
       <div class="card-body">
         <form method="post"
               action="{{ url_for('taep_set_services', episode_id=episode.id) }}">
-          <label class="form-label" for="service-search">
-            {{ t('Αναζήτηση υπηρεσίας — κωδικός ή περιγραφή') }}</label>
-          <div class="input-group mb-2">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input id="service-search" class="form-control" autocomplete="off"
-                   placeholder="{{ t('π.χ. AET043 ή «έγχυση υγρών»') }}">
-          </div>
-          <ul id="service-results" class="list-group mb-3"></ul>
 
-          <div class="fw-semibold mb-2" style="font-size:0.86rem">
-            <i class="bi bi-bandaid text-success"></i> {{ t('Θεραπείες') }}</div>
-          <ul id="selected-treatments" class="list-group list-group-flush mb-3">
-            {% for service in treatments %}
-              <li class="list-group-item px-0 py-1 border-0">
-                <div class="form-check d-flex align-items-center gap-2">
-                  <input class="form-check-input mt-0" type="checkbox"
-                         name="service_code" value="{{ service.code }}" checked
-                         id="svc-{{ service.code }}">
-                  <label class="form-check-label flex-grow-1" for="svc-{{ service.code }}"
-                         style="font-size:0.86rem">
-                    <code>{{ service.code }}</code> {{ service.description_el }}</label>
-                  <span class="badge bg-light text-muted">Κ{{ service.category }}</span>
-                </div>
-              </li>
+          {# UAT 21/10: the desk is secretarial. Search alone meant you had to know the
+             term before you could look for it, so the whole catalogue is here, grouped
+             by ΟΑΥ category. Select2 gives type-ahead over both languages. #}
+          <label class="form-label" for="pick-treatments">
+            <i class="bi bi-bandaid text-success"></i> {{ t('Θεραπείες') }}</label>
+          <select id="pick-treatments" name="service_code" multiple
+                  class="form-select select2-services" data-placeholder="{{ t('Αναζητήστε ή επιλέξτε θεραπεία…') }}">
+            {% for category in [1, 2, 3, 4, 5] %}
+              {% set group = catalogue[TREATMENT] | selectattr('category', 'equalto', category) | list %}
+              {% if group %}
+              <optgroup label="{{ t('Κατηγορία') }} {{ category }}">
+                {% for service in group %}
+                  <option value="{{ service.code }}"
+                    {% if service.code in selected_codes %}selected{% endif %}
+                    data-en="{{ service.description_en }}">
+                    {{ service.code }} — {{ service.description_el }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
             {% endfor %}
-          </ul>
+          </select>
+          <div class="form-text mb-3">
+            {{ t('Η αναζήτηση δέχεται κωδικό, ελληνική ή αγγλική περιγραφή.') }}</div>
 
-          <div class="fw-semibold mb-2" style="font-size:0.86rem">
+          <label class="form-label" for="pick-investigations">
             <i class="bi bi-clipboard-pulse text-primary"></i>
-            {{ t('Διαγνωστικές Παρεμβάσεις') }}</div>
-          <ul id="selected-investigations" class="list-group list-group-flush mb-3">
-            {% for service in investigations %}
-              <li class="list-group-item px-0 py-1 border-0">
-                <div class="form-check d-flex align-items-center gap-2">
-                  <input class="form-check-input mt-0" type="checkbox"
-                         name="service_code" value="{{ service.code }}" checked
-                         id="svc-{{ service.code }}">
-                  <label class="form-check-label flex-grow-1" for="svc-{{ service.code }}"
-                         style="font-size:0.86rem">
-                    <code>{{ service.code }}</code> {{ service.description_el }}</label>
-                  <span class="badge bg-light text-muted">Κ{{ service.category }}</span>
-                </div>
-              </li>
+            {{ t('Διαγνωστικές Παρεμβάσεις') }}</label>
+          <select id="pick-investigations" name="service_code" multiple
+                  class="form-select select2-services" data-placeholder="{{ t('Αναζητήστε ή επιλέξτε εξέταση…') }}">
+            {% for category in [1, 2, 3] %}
+              {% set group = catalogue[INVESTIGATION] | selectattr('category', 'equalto', category) | list %}
+              {% if group %}
+              <optgroup label="{{ t('Κατηγορία') }} {{ category }}">
+                {% for service in group %}
+                  <option value="{{ service.code }}"
+                    {% if service.code in selected_codes %}selected{% endif %}
+                    data-en="{{ service.description_en }}">
+                    {{ service.code }} — {{ service.description_el }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
             {% endfor %}
-          </ul>
+          </select>
+          <div class="form-text mb-3">
+            {{ t('Η βαρύτητα προκύπτει από την υψηλότερη κατηγορία που επιλέγεται σε κάθε ομάδα.') }}</div>
 
           {% if not selected %}
             <div class="alert alert-secondary py-2" style="font-size:0.86rem">
@@ -200,41 +206,30 @@
 </div>
 
 <script>
-const search = document.getElementById("service-search");
-search.addEventListener("input", async function () {
-  const list = document.getElementById("service-results");
-  list.innerHTML = "";
-  if (this.value.trim().length < 2) return;
-  const response = await fetch(`/taep/api/services?q=${encodeURIComponent(this.value)}`);
-  for (const service of await response.json()) {
-    const group = service.service_type === "TREATMENT"
-      ? "selected-treatments" : "selected-investigations";
-    list.insertAdjacentHTML("beforeend",
-      `<li class="list-group-item p-0 border-0">
-        <button type="button" class="btn btn-link text-start w-100 py-1 text-decoration-none"
-         style="font-size:0.86rem"
-         data-code="${service.code}" data-group="${group}"
-         data-category="${service.category}"
-         data-description="${service.description_el}">
-        <code>${service.code}</code> ${service.description_el}
-        <span class="badge bg-light text-muted">Κ${service.category}</span></button></li>`);
-  }
-  list.querySelectorAll("button").forEach(button => {
-    button.addEventListener("click", () => {
-      const group = document.getElementById(button.dataset.group);
-      if (group.querySelector(`input[value="${button.dataset.code}"]`)) return;
-      group.insertAdjacentHTML("beforeend",
-        `<li class="list-group-item px-0 py-1 border-0">
-          <div class="form-check d-flex align-items-center gap-2">
-          <input class="form-check-input mt-0" type="checkbox" name="service_code"
-           value="${button.dataset.code}" checked>
-          <span class="flex-grow-1" style="font-size:0.86rem">
-          <code>${button.dataset.code}</code> ${button.dataset.description}</span>
-          <span class="badge bg-light text-muted">Κ${button.dataset.category}</span>
-          </div></li>`);
-      search.value = ""; list.innerHTML = ""; search.focus();
+// Select2 searches the option text, which holds the code and the Greek. The English
+// sits in data-en, so matcher() is extended rather than replaced: a clerk who knows
+// "fluid infusion" finds «Έγχυση υγρών» without a second search box (UAT 21/10).
+(function () {
+  if (!window.jQuery || !jQuery.fn.select2) return;
+  jQuery(".select2-services").each(function () {
+    jQuery(this).select2({
+      theme: "bootstrap-5",
+      width: "100%",
+      closeOnSelect: false,
+      placeholder: jQuery(this).data("placeholder"),
+      matcher: function (params, data) {
+        if (jQuery.trim(params.term) === "") return data;
+        if (typeof data.text === "undefined") return null;
+        var needle = params.term.toLocaleUpperCase("el");
+        var english = (jQuery(data.element).data("en") || "").toString();
+        if (data.text.toLocaleUpperCase("el").indexOf(needle) > -1) return data;
+        if (english.toLocaleUpperCase("en").indexOf(params.term.toUpperCase()) > -1) {
+          return data;
+        }
+        return null;
+      }
     });
   });
-});
+})();
 </script>
 {% endblock %}

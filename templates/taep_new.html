@@ -1,18 +1,37 @@
 {% extends "base.html" %}
-{% block title %}{{ t('Νέα Καταχώρηση ΤΑΕΠ') }}{% endblock %}
+{# One template, two jobs. `episode` is set when correcting an existing entry and
+   absent when creating one — the fields, the validation and the layout are identical,
+   so keeping two copies would mean fixing every future change twice. #}
+{% set editing = episode is defined and episode %}
+{% block title %}{{ t('Διόρθωση Καταχώρησης') if editing else t('Νέα Καταχώρηση ΤΑΕΠ') }}{% endblock %}
 {% block content %}
 
 <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
   <div>
-    <h4 class="mb-1"><i class="bi bi-plus-square"></i>
-      {{ t('Νέα Καταχώρηση') }}</h4>
+    <h4 class="mb-1">
+      <i class="bi {{ 'bi-pencil-square' if editing else 'bi-plus-square' }}"></i>
+      {{ t('Διόρθωση Καταχώρησης') if editing else t('Νέα Καταχώρηση') }}</h4>
     <div class="text-muted" style="font-size:0.86rem">
-      {{ t('Κοστολόγηση περιστατικού ΤΑΕΠ για μη δικαιούχο ΓεΣΥ. Η ταυτοποίηση μπαίνει πρώτη.') }}
+      {% if editing %}
+        {{ episode.last_name }} {{ episode.first_name }}
+        · {{ t('Κατάσταση') }}: {{ episode.status }}
+      {% else %}
+        {{ t('Κοστολόγηση περιστατικού ΤΑΕΠ για μη δικαιούχο ΓεΣΥ. Η ταυτοποίηση μπαίνει πρώτη.') }}
+      {% endif %}
     </div>
   </div>
-  <a href="/taep/list" class="btn btn-outline-secondary btn-action">
-    <i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</a>
+  <a href="{{ '/taep/' ~ episode.id if editing else '/taep/list' }}"
+     class="btn btn-outline-secondary btn-action">
+    <i class="bi bi-arrow-left"></i>
+    {{ t('Επιστροφή στην κοστολόγηση') if editing else t('Καταχωρήσεις') }}</a>
 </div>
+
+{% if editing and episode.status == 'CALCULATED' %}
+<div class="alert alert-warning py-2" style="font-size:0.86rem">
+  <i class="bi bi-exclamation-triangle"></i>
+  {{ t('Υπάρχει ήδη υπολογισμός. Η αποθήκευση τον ακυρώνει και πρέπει να γίνει ξανά — η οικονομική κατηγορία καθορίζει την τιμή.') }}
+</div>
+{% endif %}
 
 <form method="post" id="taep-new-form">
 
@@ -215,8 +234,10 @@
 
   <div class="d-flex gap-2 mb-4">
     <button type="submit" class="btn btn-brand"{% if not units %} disabled{% endif %}>
-      <i class="bi bi-check2"></i> {{ t('Αποθήκευση και συνέχεια') }}</button>
-    <a href="/taep/list" class="btn btn-outline-secondary">{{ t('Άκυρο') }}</a>
+      <i class="bi bi-check2"></i>
+      {{ t('Αποθήκευση αλλαγών') if editing else t('Αποθήκευση και συνέχεια') }}</button>
+    <a href="{{ '/taep/' ~ episode.id if editing else '/taep/list' }}"
+       class="btn btn-outline-secondary">{{ t('Άκυρο') }}</a>
   </div>
 
 </form>

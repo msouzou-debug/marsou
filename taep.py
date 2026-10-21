@@ -156,6 +156,10 @@ class Service:
     service_type: str
     category: int
     description_el: str = ""
+    # The catalogue arrived from ΟΑΥ in English and every row still has it. Carried so
+    # the picker can search both: the codes are English, and a clerk who knows the
+    # English term should not be unable to find the row (UAT 21/10/2026).
+    description_en: str = ""
 
 
 @dataclass(frozen=True)
@@ -557,6 +561,7 @@ SCHEMA_STATEMENTS = [
         category SMALLINT NOT NULL,
         category_code VARCHAR(10),
         description_el VARCHAR(500) NOT NULL,
+        description_en VARCHAR(500),
         active TINYINT DEFAULT 1,
         valid_from DATE,
         valid_to DATE
@@ -779,6 +784,7 @@ ALTER_STATEMENTS = [
     # Added after the first installation booted. eFinance runs these in a try/except,
     # so re-running on a database that already has the column is a no-op.
     "ALTER TABLE taep_costing_result ADD COLUMN registration_deposit DECIMAL(15,2)",
+    "ALTER TABLE taep_service ADD COLUMN description_en VARCHAR(500)",
 ]
 
 
@@ -838,8 +844,10 @@ def load_services(rows):
             raise SeedError(
                 f"{code}: category {category} out of range for {service_type} (1..{limit})")
 
-        services.append(Service(code=code, service_type=service_type, category=category,
-                                description_el=(row["description_el"] or "").strip()))
+        services.append(Service(
+            code=code, service_type=service_type, category=category,
+            description_el=(row["description_el"] or "").strip(),
+            description_en=(row.get("description_en") or "").strip()))
 
     if duplicates:
         detail = "; ".join(
@@ -1023,9 +1031,9 @@ def seed(ctx):
     if empty("SELECT code FROM taep_service LIMIT 1"):
         _insert_many(db, "taep_service",
                      ["code", "service_type", "category", "category_code",
-                      "description_el", "active"],
+                      "description_el", "description_en", "active"],
                      [(s.code, s.service_type, s.category, f"AECAT{s.category}",
-                       s.description_el, 1)
+                       s.description_el, s.description_en, 1)
                       for s in load_services(_read_seed("services.csv"))])
 
     if empty("SELECT id FROM taep_weight_matrix LIMIT 1"):
@@ -1220,16 +1228,40 @@ def search_services(ctx, term, limit=25):
     migration — revisit only if the catalogue grows by an order of magnitude.
     """
     rows = ctx["db_execute"](
-        """SELECT code, service_type, category, description_el
+        """SELECT code, service_type, category, description_el, description_en
            FROM taep_service WHERE active = 1 ORDER BY code""", fetch=True) or []
     needle = fold_greek(term)
     if not needle:
         return rows[:limit]
-    hits = [r for r in rows
-            if needle in fold_greek(r["code"]) or needle in fold_greek(r["description_el"])]
+
+    def matches(row):
+        return (needle in fold_greek(row["code"])
+                or needle in fold_greek(row["description_el"])
+                # The catalogue arrived from ΟΑΥ in English and every row still carries
+                # it. UAT 21/10: codes are English, descriptions were Greek only, so a
+                # clerk who knew the English term could not find the row.
+                or needle in fold_greek(row["description_en"] or ""))
+
+    hits = [r for r in rows if matches(r)]
     # Code matches first: a clerk typing AET043 wants that row at the top.
     hits.sort(key=lambda r: (0 if needle in fold_greek(r["code"]) else 1, r["code"]))
     return hits[:limit]
+
+
+def list_services(ctx):
+    """The whole catalogue, for the pickers. Treatments and investigations separately.
+
+    UAT 21/10 asked for browsable lists rather than search alone: the desk staff are
+    secretarial and should not need to know a term before they can look for it.
+    """
+    rows = ctx["db_execute"](
+        """SELECT code, service_type, category, description_el, description_en
+           FROM taep_service WHERE active = 1
+           ORDER BY category, description_el""", fetch=True) or []
+    return {
+        TREATMENT: [r for r in rows if r["service_type"] == TREATMENT],
+        INVESTIGATION: [r for r in rows if r["service_type"] == INVESTIGATION],
+    }
 
 
 def get_services(ctx, codes):
@@ -1467,6 +1499,14 @@ def save_episode(ctx, data, entity_code, unit_code, user_id, episode_id=None):
                updated_by=%s, updated_at=%s WHERE id=%s""",
            tuple(data.get(f) for f in EPISODE_FIELDS)
            + (data["financial_category_id"], user_id, now, episode_id))
+        # Same staleness rule as set_episode_services: the financial category decides
+        # the price, so an edit after a calculation invalidates it. Deleting the row is
+        # what enforces it — the screen cannot show a stale number if there is no number
+        # to show. Without this, correcting a category on a CALCULATED episode would
+        # leave the old amount sitting there looking authoritative.
+        db("DELETE FROM taep_costing_result WHERE episode_id=%s", (episode_id,))
+        db("UPDATE taep_episode SET status='DRAFT' WHERE id=%s AND status='CALCULATED'",
+           (episode_id,))
         ctx["log_activity"]("taep_episode", episode_id, "UPDATED",
                             f"Ενημέρωση καταχώρησης {episode_id}")
         return episode_id
@@ -2877,6 +2917,25 @@ PERMISSIONS_CATALOG_EL = {
 }
 
 
+def _form_date(value):
+    """A stored date as an <input type=date> wants it: YYYY-MM-DD, or empty."""
+    value = _as_date(value)
+    return value.strftime("%Y-%m-%d") if value else ""
+
+
+def _form_datetime(value):
+    """A stored timestamp as <input type=datetime-local> wants it.
+
+    The seconds must go: Chrome silently ignores a value it cannot parse, which would
+    blank the field and look like the edit screen had lost the time.
+    """
+    if value is None or value == "":
+        return ""
+    if isinstance(value, str):
+        value = _parse_datetime(value)
+    return value.strftime("%Y-%m-%dT%H:%M") if value else ""
+
+
 def _parse_date(raw):
     raw = (raw or "").strip()
     if not raw:
@@ -3182,7 +3241,8 @@ def register(app, ctx):
         hits = search_services(ctx, request.args.get("q", ""))
         return jsonify([{"code": h["code"], "service_type": h["service_type"],
                          "category": int(h["category"]),
-                         "description_el": h["description_el"]} for h in hits])
+                         "description_el": h["description_el"],
+                         "description_en": h["description_en"] or ""} for h in hits])
 
     # -- Screen 2: Κοστολόγηση --------------------------------------------
     @app.route("/taep/<int:episode_id>")
@@ -3198,6 +3258,9 @@ def register(app, ctx):
             selected=selected, result=stored,
             investigations=[s for s in selected if s.service_type == INVESTIGATION],
             treatments=[s for s in selected if s.service_type == TREATMENT],
+            catalogue=list_services(ctx),
+            selected_codes={s.code for s in selected},
+            TREATMENT=TREATMENT, INVESTIGATION=INVESTIGATION,
             tariff_allowed=bool(category and _as_int(category["tariff_applies"])))
 
     @app.route("/taep/<int:episode_id>/services", methods=["POST"])
@@ -3287,6 +3350,79 @@ def register(app, ctx):
             categories=list_ae_categories(ctx), filters=filters,
             # Only the filters actually set, so the export link carries no "None".
             export_args={key: value for key, value in filters.items() if value})
+
+    # -- Edit an episode that has not been finalised ----------------------
+    @app.route("/taep/<int:episode_id>/edit", methods=["GET", "POST"])
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_edit(episode_id):
+        """Correct the patient's details before the number is issued.
+
+        The engine always supported this — save_episode takes an episode_id and refuses
+        a FINALISED one. What was missing was a screen, so a mistyped phone number or
+        the wrong financial category meant cancelling and starting again (UAT 21/10).
+        """
+        episode = episode_or_404(episode_id)
+        entity = active_entity()
+        units = unit_for_entity(ctx, entity)
+        categories = list_ae_categories(ctx)
+        countries = list_countries(ctx)
+
+        if episode["status"] not in EDITABLE_STATUSES:
+            flash(f"Η καταχώρηση είναι «{episode['status']}» και δεν τροποποιείται. "
+                  f"Ακυρώστε την και καταχωρήστε νέα.", "warning")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+
+        if request.method == "POST":
+            try:
+                data = _form_to_episode(request.form)
+            except CostingError as exc:
+                flash(exc.message_el, "danger")
+                return render_template("taep_new.html", categories=categories,
+                                       units=units, countries=countries, entity=entity,
+                                       form=request.form, episode=episode)
+
+            errors, warnings = validate_episode(data)
+            unit_code = (request.form.get("taep_unit_code") or "").strip()
+            if not unit_code:
+                errors.append("Επιλέξτε μονάδα ΤΑΕΠ.")
+            elif unit_code not in {u["unit_code"] for u in units}:
+                errors.append("Η μονάδα ΤΑΕΠ δεν ανήκει στο ενεργό νοσηλευτήριο.")
+
+            if errors:
+                for message in errors:
+                    flash(message, "danger")
+                return render_template("taep_new.html", categories=categories,
+                                       units=units, countries=countries, entity=entity,
+                                       form=request.form, episode=episode)
+
+            try:
+                save_episode(ctx, data, entity, unit_code, user_id(),
+                             episode_id=episode_id)
+            except CostingError as exc:
+                flash(exc.message_el, "danger")
+                return render_template("taep_new.html", categories=categories,
+                                       units=units, countries=countries, entity=entity,
+                                       form=request.form, episode=episode)
+
+            for message in warnings:
+                flash(message, "warning")
+            flash("Τα στοιχεία ενημερώθηκαν. Ο υπολογισμός πρέπει να γίνει ξανά.",
+                  "success")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+
+        # The stored episode fills the same form the entry screen uses.
+        form = {field: (episode[field] if episode[field] is not None else "")
+                for field in EPISODE_FIELDS}
+        form["taep_unit_code"] = episode["taep_unit_code"]
+        form["financial_category_id"] = episode["financial_category_id"]
+        for field in ("date_of_birth", "id_expiry"):
+            form[field] = _form_date(episode[field])
+        for field in ("admission_at", "examination_at", "discharge_at"):
+            form[field] = _form_datetime(episode[field])
+        return render_template("taep_new.html", categories=categories, units=units,
+                               countries=countries, entity=entity, form=form,
+                               episode=episode)
 
     # -- Lookup by costing number -----------------------------------------
     @app.route("/taep/find")

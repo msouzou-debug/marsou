@@ -764,3 +764,134 @@ def test_a_country_not_in_the_list_is_not_silently_blanked(client, app):
 def test_a_chosen_country_is_stored_as_given(client, app):
     episode_id = create(client, app, id_country="Συρία")
     assert taep.get_episode(app.ctx, episode_id)["id_country"] == "Συρία"
+
+
+# ---------------------------------------------------------------------------
+# Correcting an episode before the number is issued (UAT 21/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_the_edit_screen_arrives_prefilled(client, app):
+    episode_id = create(client, app, phone="99000000",
+                        address="Λάθος διεύθυνση 1")
+    page = client.get("/taep/%d/edit" % episode_id).get_data(as_text=True)
+    assert "Διόρθωση Καταχώρησης" in page
+    assert "99000000" in page and "Λάθος διεύθυνση 1" in page
+
+
+def test_dates_and_times_come_back_in_a_form_the_browser_accepts(client, app):
+    """Chrome silently blanks a datetime-local it cannot parse, so the seconds must go."""
+    episode_id = create(client, app, date_of_birth="1968-03-11",
+                        admission_at="2026-09-14T21:40",
+                        examination_at="2026-09-14T22:05",
+                        discharge_at="2026-09-15T00:50")
+    page = client.get("/taep/%d/edit" % episode_id).get_data(as_text=True)
+    assert 'value="1968-03-11"' in page
+    assert 'value="2026-09-14T22:05"' in page
+
+
+def test_a_correction_is_saved_and_logged(client, app):
+    episode_id = create(client, app, phone="99000000")
+    before = len(app.ctx["activity_log"])
+
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), phone="99111111", address="Σωστή διεύθυνση 5"),
+        follow_redirects=True)
+    assert response.status_code == 200
+
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["phone"] == "99111111"
+    assert episode["address"] == "Σωστή διεύθυνση 5"
+    assert "UPDATED" in [e[2] for e in app.ctx["activity_log"][before:]]
+
+
+def test_correcting_a_calculated_episode_throws_the_price_away(client, app):
+    """The financial category decides the amount, so a stale result must not survive.
+
+    Without this the desk would correct the category and keep looking at the old total,
+    which is the worst possible failure: a number that looks authoritative and is wrong.
+    """
+    episode_id = create(client, app)
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id)
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "CALCULATED"
+
+    client.post("/taep/%d/edit" % episode_id, data=form_fields(app.ctx))
+
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "DRAFT"
+    assert app.ctx["db_execute"](
+        "SELECT episode_id FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True) == []
+
+
+def test_a_finalised_episode_cannot_be_edited(client, app):
+    """Brief §10: it is cancelled and re-entered, never quietly changed."""
+    episode_id = finalised(client, app)
+    page = client.get("/taep/%d/edit" % episode_id,
+                      follow_redirects=True).get_data(as_text=True)
+    assert "δεν τροποποιείται" in page
+
+    client.post("/taep/%d/edit" % episode_id, data=dict(form_fields(app.ctx),
+                                                        phone="99999999"))
+    assert taep.get_episode(app.ctx, episode_id)["phone"] != "99999999"
+
+
+def test_another_hospitals_episode_cannot_be_edited(client, app):
+    episode_id = create(client, app)
+    app.ctx["db_execute"]("UPDATE taep_episode SET entity_code='LGH' WHERE id=%s",
+                          (episode_id,))
+    assert client.get("/taep/%d/edit" % episode_id).status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# The service pickers (UAT 21/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_the_whole_catalogue_is_on_the_screen_not_just_search(client, app):
+    """The desk is secretarial: search alone meant knowing the term before looking."""
+    episode_id = create(client, app)
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+
+    catalogue = taep.list_services(app.ctx)
+    assert len(catalogue[taep.TREATMENT]) == 98
+    assert len(catalogue[taep.INVESTIGATION]) == 27
+    for service in catalogue[taep.TREATMENT] + catalogue[taep.INVESTIGATION]:
+        assert 'value="%s"' % service["code"] in page, service["code"]
+
+
+def test_the_pickers_are_grouped_by_oay_category(client, app):
+    episode_id = create(client, app)
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert page.count("<optgroup") == 8      # treatments 1-5, investigations 1-3
+
+
+def test_an_already_chosen_service_comes_back_selected(client, app):
+    episode_id = create(client, app)
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    for code in ("AED008", "AET057"):
+        # the attributes wrap across lines in the template, so match the whole tag
+        assert re.search(r'<option value="%s"[^>]*\bselected\b' % code, page), code
+    # and one that was not chosen must not carry it
+    assert not re.search(r'<option value="AET003"[^>]*\bselected\b', page)
+
+
+def test_the_search_finds_a_service_by_its_english_description(app):
+    """The codes are English and the catalogue came from ΟΑΥ in English.
+
+    Before this, a clerk who knew the English term had no way to reach the row.
+    """
+    hits = taep.search_services(app.ctx, "supplemental oxygen")
+    assert "AET057" in [h["code"] for h in hits]
+
+    greek = taep.search_services(app.ctx, "οξυγονο")
+    assert "AET057" in [h["code"] for h in greek]
+
+
+def test_english_descriptions_actually_reached_the_database(app):
+    """The column existed in the CSV and in nothing else until 21/10."""
+    rows = app.ctx["db_execute"](
+        "SELECT COUNT(*) AS n FROM taep_service WHERE description_en IS NOT NULL "
+        "AND description_en <> ''", fetch=True)
+    assert rows[0]["n"] == 125
