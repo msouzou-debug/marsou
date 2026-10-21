@@ -36,6 +36,7 @@ templates/taep_tariff_diff.html
 templates/taep_readiness.html
 seed/                       (the whole directory, including seed/source/)
 tools/check_readiness.py    (the go-live check — see §6)
+tools/backfill_service_english.py   (only for installations seeded before 21/10 — §6a)
 ```
 
 `seed/` must travel with the module: `seed(ctx)` reads these nine CSVs at boot and
@@ -238,6 +239,25 @@ episode is finalised without a number or holding one without being finalised.
 **Do not let a clerk near it until this is clean.** An unconfirmed registration fee is a
 blocker because the costings for that category will refuse to finalise, and a clerk
 discovering that with a patient at the desk is the worst place to discover it.
+
+## 6a. Backfilling English service descriptions
+
+Only needed on an installation seeded before 21/10/2026. `seed()` loads a table only when
+it is empty, so those databases hold 125 services with no English description. The
+`ALTER` adds the column at boot; nothing fills it, and until it is filled a clerk
+searching by the English term finds nothing — and the service codes are English.
+
+Copy `tools/backfill_service_english.py` beside `check_readiness.py`, restart first so
+the `ALTER` has run, then:
+
+```
+cd /opt/finance
+python3 backfill_service_english.py              # says what it would do
+python3 backfill_service_english.py --apply      # does it
+```
+
+It only writes rows that are empty, never touches the Greek, and is safe to run twice.
+It stops with exit 2 and says to restart if the column is not there yet.
 
 ## 7. Per-unit rollout
 

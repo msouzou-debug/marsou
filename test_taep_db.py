@@ -307,3 +307,42 @@ def test_only_placeholders_efinance_substitutes_appear_in_the_schema():
     for name in ("SCHEMA_STATEMENTS", "ALTER_STATEMENTS"):
         for statement in getattr(taep, name):
             assert set(re.findall(r"\{[A-Z_]+\}", statement)) <= known, statement
+
+
+# ---------------------------------------------------------------------------
+# Backfilling English descriptions onto an already-seeded database
+# ---------------------------------------------------------------------------
+
+def test_the_backfill_fills_an_empty_column_and_is_safe_to_repeat(tmp_path, seeded):
+    """seed() only loads an empty table, so an installation seeded before 21/10 has
+    125 services and no English at all. The ALTER adds the column; nothing fills it."""
+    import importlib, sys
+    sys.path.insert(0, "tools")
+    backfill = importlib.import_module("backfill_service_english")
+
+    db = seeded["db_execute"]
+    db("UPDATE taep_service SET description_en = NULL")
+    assert db("SELECT COUNT(*) AS n FROM taep_service WHERE description_en IS NOT NULL "
+              "AND description_en <> ''", fetch=True)[0]["n"] == 0
+
+    english = backfill.seed_rows()
+    assert len(english) == 125
+
+    for code, value in english.items():
+        if value:
+            db("""UPDATE taep_service SET description_en = %s
+                  WHERE code = %s AND (description_en IS NULL OR description_en = '')""",
+               (value, code))
+
+    filled = db("SELECT COUNT(*) AS n FROM taep_service WHERE description_en IS NOT NULL "
+                "AND description_en <> ''", fetch=True)[0]["n"]
+    assert filled == 125
+
+    # the point of the exercise: the English term now finds the row
+    assert "AET057" in [h["code"] for h in
+                        taep.search_services(seeded, "supplemental oxygen")]
+
+    # and the Greek is untouched
+    greek = db("SELECT description_el FROM taep_service WHERE code='AET057'",
+               fetch=True)[0]["description_el"]
+    assert "Οξυγόνο" in greek
