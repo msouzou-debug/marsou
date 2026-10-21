@@ -131,7 +131,7 @@
           class="row g-3">
       <div class="col-md-4">
         <label class="form-label" for="rate_type">{{ t('Τύπος τιμής') }} *</label>
-        <select id="rate_type" name="rate_type" class="form-select" required>
+        <select id="rate_type" name="rate_type" class="form-select select2" required>
           <option value="REGISTRATION_FEE">{{ t('Τέλος εγγραφής (ανά κατηγορία)') }}</option>
           <option value="REGISTRATION_DEPOSIT">{{ t('Προκαταβολή (ανά κατηγορία)') }}</option>
           <option value="WEIGHT_AMOUNT">{{ t('Ποσό βαρύτητας (εθνικό)') }}</option>
@@ -142,7 +142,7 @@
         <label class="form-label" for="financial_category_id">
           {{ t('Οικονομική κατηγορία') }}</label>
         <select id="financial_category_id" name="financial_category_id"
-                class="form-select">
+                class="form-select select2">
           <option value="">— {{ t('δεν αφορά (εθνική τιμή)') }} —</option>
           {% for row in overview %}
             <option value="{{ row.category_id }}">{{ row.code }} — {{ row.name_el }}</option>
@@ -151,7 +151,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label" for="weight">{{ t('Συντελεστής βαρύτητας') }}</label>
-        <select id="weight" name="weight" class="form-select">
+        <select id="weight" name="weight" class="form-select select2">
           <option value="">— {{ t('δεν αφορά') }} —</option>
           {% for row in scale if row.weight != 1 %}
             <option value="{{ row.weight }}">{{ row.weight }}</option>

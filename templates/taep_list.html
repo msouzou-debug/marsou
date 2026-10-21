@@ -55,7 +55,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label" for="category_id">{{ t('Οικονομική Κατηγορία') }}</label>
-        <select id="category_id" name="category_id" class="form-select">
+        <select id="category_id" name="category_id" class="form-select select2">
           <option value="">{{ t('Όλες') }}</option>
           {% for category in categories %}
             <option value="{{ category.id }}"
@@ -71,7 +71,7 @@
       </div>
       <div class="col-md-2">
         <label class="form-label" for="status">{{ t('Κατάσταση') }}</label>
-        <select id="status" name="status" class="form-select">
+        <select id="status" name="status" class="form-select select2">
           <option value="">{{ t('Όλες') }}</option>
           {% for value, label in [("DRAFT","Πρόχειρο"), ("CALCULATED","Υπολογισμένο"),
                                   ("FINALISED","Οριστικοποιημένο"), ("CANCELLED","Ακυρωμένο")] %}

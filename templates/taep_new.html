@@ -29,7 +29,7 @@
       <div class="row g-3">
         <div class="col-md-3">
           <label class="form-label" for="id_type">{{ t('Τύπος ταυτοποίησης') }}</label>
-          <select id="id_type" name="id_type" class="form-select">
+          <select id="id_type" name="id_type" class="form-select select2">
             {% for option in ["Ταυτότητα", "Διαβατήριο", "ΔΕΑ", "Άλλο"] %}
               <option value="{{ option }}"
                 {% if form.get('id_type') == option %}selected{% endif %}>{{ option }}</option>
@@ -43,7 +43,7 @@
         </div>
         <div class="col-md-3">
           <label class="form-label" for="id_country">{{ t('Χώρα έκδοσης') }}</label>
-          <select id="id_country" name="id_country" class="form-select">
+          <select id="id_country" name="id_country" class="form-select select2">
             <option value=""></option>
             {% for country in countries %}
               <option value="{{ country.name_el }}"
@@ -93,7 +93,7 @@
         </div>
         <div class="col-md-2">
           <label class="form-label" for="gender">{{ t('Φύλο') }}</label>
-          <select id="gender" name="gender" class="form-select">
+          <select id="gender" name="gender" class="form-select select2">
             <option value=""></option>
             {% for option in ["Άρρεν", "Θήλυ", "Άλλο"] %}
               <option value="{{ option }}"
@@ -136,7 +136,7 @@
         <div class="col-md-6">
           <label class="form-label" for="taep_unit_code">{{ t('Μονάδα ΤΑΕΠ') }} *</label>
           {% if units %}
-            <select id="taep_unit_code" name="taep_unit_code" class="form-select" required>
+            <select id="taep_unit_code" name="taep_unit_code" class="form-select select2" required>
               {% for unit in units %}
                 <option value="{{ unit.unit_code }}"
                   {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
@@ -200,7 +200,7 @@
         <div class="col-md-8">
           <label class="form-label" for="financial_category_id">{{ t('Κατηγορία') }} *</label>
           <select id="financial_category_id" name="financial_category_id"
-                  class="form-select" required>
+                  class="form-select select2" required>
             <option value=""></option>
             {% for category in categories %}
               <option value="{{ category.id }}"

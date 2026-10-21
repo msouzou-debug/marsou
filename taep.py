@@ -177,6 +177,11 @@ class Rates:
     tariff_applies: bool = False
     weight_rate_id: int = None
     registration_fee_rate_id: int = None
+    # Information only, never added to a total. The Μονάδα ruled on 29/09/2026 that the
+    # €100 on 600 ΕΠΙ ΠΛΗΡΩΜΗ is a προκαταβολή taken at registration, so it is money the
+    # patient has already put down — showing it lets the desk net it off, and hiding it
+    # was reported from UAT as the desk having no idea it existed.
+    registration_deposit: Decimal = None
 
 
 @dataclass(frozen=True)
@@ -221,6 +226,9 @@ class CostingResult:
     weight_cost: Decimal
     tariff_total: Decimal
     total_cost: Decimal
+    # Shown, never summed. total_cost must not move because a deposit exists — it is
+    # money already taken at registration, not a charge arising here.
+    registration_deposit: Decimal = None
     lines: tuple = ()
     algorithm_version: str = ALGORITHM_VERSION
     input_hash: str = ""
@@ -502,6 +510,7 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
         weight_rate_id=rates.weight_rate_id,
         registration_fee_applied=registration_fee,
         registration_fee_rate_id=rates.registration_fee_rate_id,
+        registration_deposit=rates.registration_deposit,
         weight_cost=weight_amount,
         tariff_total=tariff_total,
         total_cost=total_cost,
@@ -746,6 +755,7 @@ SCHEMA_STATEMENTS = [
         weight_amount_applied DECIMAL(15,2),
         weight_rate_id INT,
         registration_fee_applied DECIMAL(15,2),
+        registration_deposit DECIMAL(15,2),
         registration_fee_rate_id INT,
         weight_cost DECIMAL(15,2),
         tariff_total DECIMAL(15,2),
@@ -765,7 +775,11 @@ SCHEMA_STATEMENTS = [
     ){ENGINE}""",
 ]
 
-ALTER_STATEMENTS = []
+ALTER_STATEMENTS = [
+    # Added after the first installation booted. eFinance runs these in a try/except,
+    # so re-running on a database that already has the column is a no-op.
+    "ALTER TABLE taep_costing_result ADD COLUMN registration_deposit DECIMAL(15,2)",
+]
 
 
 class SeedError(Exception):
@@ -1257,6 +1271,7 @@ def rates_in_force(ctx, category_id, on_date, entity_code=None):
 
     triage = pick_rate(_dated(of_type("TRIAGE_AMOUNT")), on_date, entity_code)
     fee = pick_rate(_dated(of_type("REGISTRATION_FEE")), on_date, entity_code)
+    deposit = pick_rate(_dated(of_type("REGISTRATION_DEPOSIT")), on_date, entity_code)
 
     category = get_category(ctx, category_id)
     return Rates(
@@ -1266,6 +1281,7 @@ def rates_in_force(ctx, category_id, on_date, entity_code=None):
         tariff_applies=bool(category and _as_int(category["tariff_applies"])),
         weight_rate_id=weight_rate_id,
         registration_fee_rate_id=fee["id"] if fee else None,
+        registration_deposit=money_from_db(deposit["amount"]) if deposit else None,
     )
 
 
@@ -1513,16 +1529,19 @@ def store_calculation(ctx, episode_id, result, user_id):
           (episode_id, calculated_at, calculated_by, max_investigation_category,
            max_treatment_category, weight, band_label_en, band_label_el,
            is_triage_only, weight_amount_applied, weight_rate_id,
-           registration_fee_applied, registration_fee_rate_id, weight_cost,
-           tariff_total, total_cost, algorithm_version, input_hash)
-          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+           registration_fee_applied, registration_fee_rate_id, registration_deposit,
+           weight_cost, tariff_total, total_cost, algorithm_version, input_hash)
+          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
        (episode_id, now, user_id, result.max_investigation_category,
         result.max_treatment_category, result.weight, result.band_label_en,
         result.band_label_el, 1 if result.is_triage_only else 0,
         str(result.weight_amount_applied), result.weight_rate_id,
         None if result.registration_fee_applied is None
         else str(result.registration_fee_applied),
-        result.registration_fee_rate_id, str(result.weight_cost),
+        result.registration_fee_rate_id,
+        None if result.registration_deposit is None
+        else str(result.registration_deposit),
+        str(result.weight_cost),
         str(result.tariff_total),
         None if result.total_cost is None else str(result.total_cost),
         result.algorithm_version, result.input_hash))
@@ -2030,6 +2049,10 @@ def render_costing_pdf(ctx, episode_id):
         ("Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου €",
          format_eur(result["tariff_total"])),
     ]
+    # The deposit is printed below the total, not inside it: it is money already taken
+    # at registration. Adding it to the sum would charge the patient twice.
+    deposit = money_from_db(result["registration_deposit"]) \
+        if result.get("registration_deposit") is not None else None
     pdf.setFont(font, 8)
     amount_column = right - 22 * mm
     for label, value in money_rows:
@@ -2045,6 +2068,21 @@ def render_costing_pdf(ctx, episode_id):
     pdf.setFont(font_bold, 11)
     pdf.drawString(totals_left, y, "Τελικό Κόστος €")
     pdf.drawRightString(right, y, format_eur(result["total_cost"]))
+
+    if deposit:
+        y -= 5 * mm
+        pdf.setFont(font, 8)
+        draw_fitted(pdf, totals_left, y, "Προκαταβολή που έχει ήδη καταβληθεί €",
+                    amount_column - totals_left - 2 * mm, font)
+        pdf.setFont(font, 8)
+        pdf.drawRightString(right, y, format_eur(deposit))
+        y -= 4.5 * mm
+        pdf.setFont(font_bold, 9)
+        draw_fitted(pdf, totals_left, y, "Υπόλοιπο προς είσπραξη €",
+                    amount_column - totals_left - 2 * mm, font_bold, size=9)
+        pdf.setFont(font_bold, 9)
+        pdf.drawRightString(right, y,
+                            format_eur(money(result["total_cost"]) - deposit))
 
     footer(page)
     pdf.showPage()

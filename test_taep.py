@@ -774,3 +774,27 @@ def test_normalising_round_trips_what_the_formatter_produces():
         for sequence in (1, 35, 9999, 10000):
             printed = taep.format_costing_number(unit, sequence)
             assert taep.normalise_costing_number(printed, UNITS) == printed
+
+
+# ---------------------------------------------------------------------------
+# The deposit is shown, never summed (UAT 21/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_a_deposit_does_not_move_the_total():
+    """Μονάδα 29/09/2026: the €100 on 600 is a προκαταβολή taken at registration.
+
+    UAT reported the desk had no sight of it. It is now carried on the result so it
+    can be displayed — but the total must not shift by a cent because it exists.
+    """
+    rates = taep.Rates(registration_fee=Decimal("0.00"))
+    with_deposit = taep.Rates(registration_fee=Decimal("0.00"),
+                              registration_deposit=Decimal("100.00"))
+    services = [taep.Service("AED001", taep.INVESTIGATION, 1),
+                taep.Service("AET003", taep.TREATMENT, 1)]
+
+    plain = taep.calculate(services, rates, financial_category_code="600")
+    shown = taep.calculate(services, with_deposit, financial_category_code="600")
+
+    assert shown.total_cost == plain.total_cost
+    assert shown.registration_deposit == Decimal("100.00")
+    assert plain.registration_deposit is None

@@ -141,10 +141,25 @@
                 <tr><th class="fw-normal">
                   {{ t('Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου') }} €</th>
                   <td class="text-end">{{ result.tariff_total | eur }}</td></tr>
+                {% if result.registration_deposit %}
+                {# Never part of the sum: money already taken at registration. Shown so
+                   the desk can net it off rather than discovering it from the patient. #}
+                <tr class="table-light"><th class="fw-normal text-success">
+                  <i class="bi bi-arrow-down-circle"></i>
+                  {{ t('Προκαταβολή που έχει ήδη καταβληθεί') }} €</th>
+                  <td class="text-end text-success" id="deposit">
+                    {{ result.registration_deposit | eur }}</td></tr>
+                {% endif %}
                 <tr class="grand border-top border-2">
                   <th class="fw-bold">{{ t('Τελικό Κόστος') }} €</th>
                   <td class="text-end fw-bold" id="total"
                       style="font-size:1.1rem">{{ result.total_cost | eur }}</td></tr>
+                {% if result.registration_deposit %}
+                <tr><th class="fw-normal text-muted">
+                  {{ t('Υπόλοιπο προς είσπραξη μετά την προκαταβολή') }} €</th>
+                  <td class="text-end fw-semibold" id="balance">
+                    {{ (result.total_cost - result.registration_deposit) | eur }}</td></tr>
+                {% endif %}
               </tbody>
             </table>
           </div>
