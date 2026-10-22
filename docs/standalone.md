@@ -68,6 +68,7 @@ sudo install -o taep -g taep -m 644 templates/taep_*.html   /opt/taep/templates/
 sudo install -o taep -g taep -m 644 seed/*.csv              /opt/taep/seed/
 sudo install -o taep -g taep -m 644 tools/check_readiness.py /opt/taep/
 sudo install -o taep -g taep -m 644 tools/detach_from_efinance.py /opt/taep/
+sudo install -o taep -g taep -m 644 tools/sqlite_backup.py      /opt/taep/
 ```
 
 Ρυθμίσεις:
@@ -150,7 +151,8 @@ sudo -u taep python3 /opt/taep/manage.py disable-user maria
 # 1. Σταματήστε το eFinance, ώστε να μην γράφεται κοστολόγηση την ώρα του αντιγράφου
 ssh administrator@10.227.56.22
 sudo systemctl stop finance.service
-sudo -u finance sqlite3 /opt/finance/finance.db ".backup '/tmp/finance-snapshot.db'"
+sudo -u finance python3 /home/administrator/marsou/tools/sqlite_backup.py \
+     /opt/finance/finance.db /tmp/finance-snapshot.db
 sudo systemctl start finance.service
 
 # 2. Φέρτε το αντίγραφο στον νέο διακομιστή
@@ -193,11 +195,14 @@ sudo crontab -e
 ```
 
 ```cron
-15 2 * * * sqlite3 /opt/taep/taep.db ".backup '/var/backups/taep/taep-$(date +\%F).db'" && find /var/backups/taep -name 'taep-*.db' -mtime +30 -delete
+15 2 * * * /usr/bin/python3 /opt/taep/sqlite_backup.py /opt/taep/taep.db /var/backups/taep/taep-$(date +\%F).db && find /var/backups/taep -name 'taep-*.db' -mtime +30 -delete
 ```
 
-`.backup` και όχι `cp`: η βάση είναι σε WAL και ένα `cp` μπορεί να πιάσει μισή
-εγγραφή.
+Το `sqlite_backup.py` και όχι `cp`: η βάση είναι σε WAL και ένα `cp` μπορεί να πιάσει
+μισή εγγραφή. Χρησιμοποιεί το online backup API της Python, άρα **δεν χρειάζεται το
+εργαλείο γραμμής `sqlite3`** — στον διακομιστή του eFinance δεν είναι εγκατεστημένο
+(επιβεβαιώθηκε 22/10/2026). Αρνείται να γράψει πάνω σε υπάρχον αρχείο και ελέγχει ότι
+το αντίγραφο ανοίγει πριν πει ότι πέτυχε.
 
 ## 7. Το ένα εξωτερικό εξάρτημα
 

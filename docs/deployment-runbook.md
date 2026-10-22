@@ -182,9 +182,9 @@ sudo systemctl restart finance.service
 sleep 20
 sudo journalctl -u finance.service --since "-2 min" --no-pager | tail -40
 
-# 4. The table is there
-sudo -u finance sqlite3 /opt/finance/finance.db \
-     ".schema taep_parallel_check" | head -5
+# 4. The table is there. python3, not sqlite3 — the CLI is NOT installed on this
+#    server (confirmed 22/10/2026), and python3 is, because eFinance runs on it.
+sudo -u finance python3 -c "import sqlite3;c=sqlite3.connect('/opt/finance/finance.db');print(sorted(r[0] for r in c.execute('select name from sqlite_master') if r[0].startswith('taep')))"
 
 # 5. Nothing else broke
 sudo -u finance env FINANCE_DB=/opt/finance/finance.db \
