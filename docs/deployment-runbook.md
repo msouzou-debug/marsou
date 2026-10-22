@@ -118,6 +118,22 @@ Every command below runs as the administrator, and every one of them starts with
 The server keeps a clone of this repository at `/home/administrator/marsou` and the live
 copy is installed out of it. Nothing is ever edited in place under `/opt/finance`.
 
+The clone was created on 22/10/2026 — the first deploy predated it, and the earlier
+version of this section assumed it existed. The server reaches github.com (HTTP 200),
+and the repository was public at that point, so no credentials were involved.
+
+**When the repository goes private, that clone stops being able to fetch.** Installing
+from the copy already on disk still works; `git fetch` will not. It then needs a
+fine-grained token (repository access limited to `marsou`, Contents: Read-only), written
+without putting it in the shell history or the process list:
+
+```bash
+sudo bash -c 'read -rsp "Token: " t; echo; printf "https://msouzou-debug:%s@github.com\n" "$t" > /root/.git-credentials; chmod 600 /root/.git-credentials; git config --global credential.helper store; echo written'
+```
+
+A deploy key is cleaner — read-only and scoped to the one repository — but needs outbound
+SSH on port 22, which has not been tested from this server. HTTPS has.
+
 ```bash
 ssh administrator@10.227.56.22
 
@@ -146,6 +162,10 @@ scp -r C:\path\to\marsou administrator@10.227.56.22:/home/administrator/marsou
 ```
 
 Then install, which is the only step that touches `/opt/finance`:
+
+Name the template files rather than globbing them when the command is issued from a
+Windows workstation: `taep_*.html` can expand on the PowerShell side before ssh sees it.
+From the server's own prompt the glob is fine.
 
 ```bash
 cd /home/administrator/marsou
