@@ -20,12 +20,25 @@ same word everywhere in eFinance.
 | `Κωδικός` | Code | **Password** |
 | `Κωδ.` | Code | abbreviation of the same |
 | `Εισαγωγή` | Admission | **Import** |
-| `Γραμμή` | Row | **invoice line** |
+| `Γραμμή` | Row | Row — **no conflict; corrected 22/10/2026** |
 | `Σε` | To | too short to be safe in either direction |
 
 `Κωδικός` is the one that matters: if my value is in the dictionary, every eFinance login
 screen now says "Code" where it said "Password". Please check that field and restore your
 own value.
+
+**Corrections, 22/10/2026, from the eFinance agent.** Their merge rule — where eFinance
+already has a key, eFinance's wording wins — meant none of the four contested words was
+ever changed; `Κωδικός` is still `Password` on the live file, verified. So §1 describes a
+risk that did not land, and is kept as the record of why the longer keys exist.
+
+`Γραμμή` was never a conflict: their dictionary already renders it "Row", used in
+`bp_view.html`, a board-pack screen, not invoices. My table above said invoice line. That
+was wrong.
+
+`Σε` stays in the dictionary for now. No eFinance template uses it, but the ΤΑΕΠ template
+running on their server today does, so removing it would turn an English label Greek. It
+goes when the new templates land.
 
 None of the five appears in my templates any more. They now read «Κωδικός υπηρεσίας»,
 «Κωδικός κατηγορίας», «Εισαγωγή ασθενούς» and «Γραμμή αρχείου» — longer, unambiguous, and
@@ -78,7 +91,9 @@ The rest are the replacements for §1 and three labels on the tariff-difference 
 ```
 
 Nothing changed value. Twenty-nine added, five removed, zero edited — so a merge of the
-whole file plus the five deletions gets you there exactly.
+whole file plus the five deletions gets you there exactly. They report 27 merged and
+deployed; I have not chased the two, since a merge of the current file settles it either
+way.
 
 ## 3. Two house rules the file keeps
 
@@ -103,6 +118,42 @@ taep.py
 
 `taep.py` adds `taep_parallel_check` to `SCHEMA_STATEMENTS`, so your `init_db` creates it
 on the next restart. No `app.py` change — `taep` is already in `_MODULES`.
+
+## 4a. The eighth key, which is not a key
+
+You found that a host supplying only `ctx` serves `/taep/list` as 500 with
+`'has_permission' is undefined`, and concluded the template requirement is two Jinja
+globals on top of the seven. The diagnosis is exactly right and the conclusion is one
+step too far: **the module now installs both globals itself**, in `register()`, with
+`setdefault` so your own `t` and `has_permission` still win:
+
+```python
+app.jinja_env.filters.setdefault("eur", format_eur)
+app.jinja_env.globals.setdefault("t", lambda text: text)
+if ctx.get("has_permission") is not None:
+    app.jinja_env.globals.setdefault("has_permission", ctx["has_permission"])
+```
+
+That went in with the standalone host. Your server is on the 21 October build, which
+predates it — which is why you saw the 500. So the count stays at seven, and a future
+host does not have to rediscover this.
+
+Your point about how it was found is the part worth keeping, and it is now a test here.
+`test_taep_detachable.py` fetches all seven GET screens against a host that is barer than
+the standalone one: seven ctx keys, an empty `base.html`, no globals, no filters. I
+removed the `has_permission` line and ran it: `/taep/list` alone failed, with your exact
+error. Removing the `t` line failed all seven. Static analysis said seven; the running
+application said eight; the running application is now in the suite.
+
+Also pinned here, so the boot proof your harness used to carry is not lost: the module
+registers 25 routes against a bare Flask app, a costing runs to a printed PDF on it,
+`taep.py` imports nothing outside the standard library plus flask/openpyxl/reportlab, it
+reads no `ctx` key it has not declared and declares none it does not read, every table in
+its SQL starts with `taep_`, and it extends exactly one template. 15 tests, and 437 in
+the suite.
+
+Your `test_taep_detachable.py` and mine overlap on purpose. Yours fails when eFinance
+changes under us, mine when the module does.
 
 ## 5. One thing you do not need to do
 
