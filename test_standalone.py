@@ -264,3 +264,47 @@ def test_the_host_supplies_every_key_the_module_asks_for(server):
 
 def test_the_admin_role_carries_every_permission(server):
     assert set(host.ROLE_PERMISSIONS["admin"]) == set(taep.PERMISSIONS.values())
+
+
+def test_the_standalone_base_defines_every_class_bootstrap_does_not():
+    """eFinance's app.css supplies these inside eFinance; nothing supplies them here
+    except base.html, and the standalone server has no second stylesheet to fall back
+    on. Reported by the eFinance agent, 22/10/2026, about `.num` — which the redesign
+    had already removed, but four of its neighbours were real.
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    used = set()
+    for template in (root / "templates").glob("taep_*.html"):
+        for attribute in re.findall(r'class="([^"]*)"',
+                                    template.read_text(encoding="utf-8")):
+            # Drop the Jinja expressions; only literal class names are styled.
+            attribute = re.sub(r"{{.*?}}|{%.*?%}", " ", attribute)
+            used.update(attribute.split())
+
+    base = (root / "standalone" / "templates" / "base.html").read_text(encoding="utf-8")
+    bootstrap = re.compile(
+        r"^(bi|bi-|container|row|col|d-|flex-|align-|justify-|gap-|g-|gx-|gy-|"
+        r"m[tbserxy]?-|p[tbserxy]?-|w-|h-|text-|fw-|fs-|lh-|fst-|small|lead|"
+        r"table|thead|tbody|btn|form-|input-|select|card|alert|badge|bg-|border|"
+        r"rounded|shadow|nav|navbar|dropdown|modal|list-|progress|position-|"
+        r"visually-|float-|opacity-|sticky-|accordion|collapse|font-monospace|"
+        r"active|disabled|is-|invalid|valid|ratio|vstack|hstack|clearfix|"
+        r"user-select-|overflow-)")
+    custom = {name for name in used
+              if not bootstrap.match(name) and re.fullmatch(r"[a-z][a-z0-9-]*", name)}
+
+    # Two class names are built from a Jinja expression, so stripping it leaves a stem:
+    # `status-{{ episode.status|lower }}` on a row in the list, and
+    # `fee-{{ row.fee_state|lower }}` on a row in the rates overview. Nothing in either
+    # host styles them — the list already shows status as a coloured badge — so they are
+    # row hooks with no rules, kept rather than removed because eFinance's own app.css
+    # is not visible from here and may tint those rows. Listed explicitly so a third one
+    # is a failure rather than a silent exemption.
+    dynamic = {name for name in custom if name.endswith("-")}
+    assert dynamic == {"status-", "fee-"}, sorted(dynamic)
+
+    missing = sorted(name for name in custom - dynamic if ".%s" % name not in base)
+    assert missing == [], missing
+    # The guard is worthless if it is matching nothing.
+    assert {"number", "totals", "stat-card"} <= custom

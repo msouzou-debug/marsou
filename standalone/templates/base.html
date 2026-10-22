@@ -28,6 +28,18 @@
     .stat-card .stat-label { font-size:.78rem; color:#64748b; margin-top:.3rem; }
     .table th { font-size:.8rem; text-transform:uppercase; letter-spacing:.02em;
                 color:#475569; }
+
+    /* The five class names the ΤΑΕΠ templates use that Bootstrap does not define.
+       Inside eFinance they come from its own app.css; here they come from this file,
+       because the base template is the host's to supply and the standalone server
+       should need nothing from eFinance's stylesheet. Each is only polish — every
+       element also carries the Bootstrap utilities that matter, so a missing rule
+       here cannot misalign a figure or hide a total. */
+    .number { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .totals { max-width: 32rem; }
+    .totals .grand td { font-size:1.05rem; font-weight:700; padding-top:.5rem; }
+    .filters, .lookup { background:#fff; border:1px solid #dbe3ea; border-radius:.5rem;
+                        padding:.85rem 1rem; margin-bottom:1.25rem; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
