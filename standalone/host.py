@@ -226,6 +226,19 @@ def log_activity(entity_type, entity_id, action, details=""):
                 session.get("user_id"), dt.datetime.now()))
 
 
+def user_label(user_id):
+    """A user id as a name, for the Μονάδα's per-user reports.
+
+    An optional ctx key: the module falls back to "#7" without it. Supplied here because
+    this host has the user table in the same database; eFinance will answer from its own.
+    """
+    rows = db_execute("SELECT full_name, username FROM host_user WHERE id=%s",
+                      (user_id,), fetch=True)
+    if not rows:
+        return None
+    return rows[0]["full_name"] or rows[0]["username"]
+
+
 ctx = {
     "db_execute": db_execute,
     "login_required": login_required,
@@ -234,6 +247,7 @@ ctx = {
     "user_entity": user_entity,
     "can_access_entity": can_access_entity,
     "log_activity": log_activity,
+    "user_label": user_label,
     "ROLES": ROLES,
     "CENTRAL_ROLES": CENTRAL_ROLES,
     "ENTITY_TYPES": {"hospital": "Νοσηλευτήριο", "central": "Κεντρικά Γραφεία"},

@@ -291,36 +291,54 @@
                 <tr><th class="fw-normal">
                   {{ t('Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου') }} €</th>
                   <td class="text-end">{{ result.tariff_total | eur }}</td></tr>
-                {% if result.registration_deposit %}
+                {% if deposit.confirmed %}
                 {# Never part of the sum: money already taken at registration. Shown so
-                   the desk can net it off rather than discovering it from the patient. #}
+                   the desk can net it off rather than discovering it from the patient.
+                   Only once somebody confirmed it was taken — see deposit_state(). #}
                 <tr class="table-light"><th class="fw-normal text-success">
                   <i class="bi bi-arrow-down-circle"></i>
-                  {{ t('Προκαταβολή που έχει ήδη καταβληθεί') }} €</th>
+                  {{ t('Προκαταβολή που έχει ήδη καταβληθεί') }} €
+                  {% if deposit.receipt %}
+                    <span class="text-muted small">{{ deposit.receipt }}</span>
+                  {% endif %}</th>
                   <td class="text-end text-success" id="deposit">
-                    {{ result.registration_deposit | eur }}</td></tr>
+                    {{ deposit.amount | eur }}</td></tr>
                 {% endif %}
                 <tr class="grand border-top border-2">
                   <th class="fw-bold">{{ t('Τελικό Κόστος') }} €</th>
                   <td class="text-end fw-bold" id="total"
                       style="font-size:1.1rem">{{ result.total_cost | eur }}</td></tr>
-                {% if result.registration_deposit %}
+                {% if deposit.confirmed %}
                 {# Below the deposit the difference goes back to the patient (Μονάδα
                    22/10/2026). The desk should read a refund as a refund, not as a
                    negative amount to collect. #}
-                {% set balance = result.total_cost - result.registration_deposit %}
                 <tr><th class="fw-normal text-muted">
-                  {% if balance >= 0 %}
-                    {{ t('Υπόλοιπο προς είσπραξη μετά την προκαταβολή') }} €
-                  {% else %}
+                  {% if deposit.refund %}
                     {{ t('Επιστροφή στον ασθενή μετά την προκαταβολή') }} €
+                  {% else %}
+                    {{ t('Υπόλοιπο προς είσπραξη μετά την προκαταβολή') }} €
                   {% endif %}</th>
                   <td class="text-end fw-semibold" id="balance">
-                    {{ (balance if balance >= 0 else -balance) | eur }}</td></tr>
+                    {{ deposit.balance | eur }}</td></tr>
                 {% endif %}
               </tbody>
             </table>
           </div>
+
+          {% if deposit.amount and not deposit.confirmed %}
+          {# Γιώτα 22/10/2026: the tool used to treat every 600 patient as having paid.
+             The category says what is due; only the tick says what was taken. #}
+          <div class="alert alert-warning py-2" id="deposit-unconfirmed"
+               style="font-size:0.82rem">
+            <i class="bi bi-exclamation-triangle"></i>
+            {{ t('Η προκαταβολή δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.') }}
+            {{ deposit.amount | eur }} €
+            {% if has_permission('taep.create') and episode.status != 'CANCELLED' %}
+              <a href="{{ url_for('taep_edit', episode_id=episode.id) }}"
+                 class="alert-link">{{ t('Επιβεβαίωση στη διόρθωση') }}</a>
+            {% endif %}
+          </div>
+          {% endif %}
 
           {% if episode.status == 'CALCULATED' %}
             <form method="post"

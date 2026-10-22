@@ -229,6 +229,33 @@
           </select>
         </div>
       </div>
+
+      {# Γιώτα 22/10/2026: the προκαταβολή has to be confirmed. The category says what
+         is due; until this is ticked nothing comes off the patient's bill.
+
+         The box is always on the screen rather than appearing only for the category
+         that carries a deposit: the clerk may pick the category after filling this in,
+         and a field that vanishes takes its value with it. #}
+      <div class="row g-3 mt-1">
+        <div class="col-md-5">
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" value="1"
+                   id="deposit_confirmed" name="deposit_confirmed"
+                   {% if form.get('deposit_confirmed') %}checked{% endif %}>
+            <label class="form-check-label" for="deposit_confirmed">
+              {{ t('Η προκαταβολή εισπράχθηκε') }}</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="deposit_receipt">
+            {{ t('Αρ. απόδειξης προκαταβολής') }}</label>
+          <input id="deposit_receipt" name="deposit_receipt" class="form-control"
+                 value="{{ form.get('deposit_receipt', '') }}">
+        </div>
+      </div>
+      <div class="form-text">
+        {{ t('Αφορά μόνο τις κατηγορίες με προκαταβολή. Χωρίς επιβεβαίωση, η προκαταβολή δεν αφαιρείται από το πληρωτέο.') }}
+      </div>
     </div>
   </div>
 

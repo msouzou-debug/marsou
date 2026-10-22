@@ -130,6 +130,15 @@ EN = {
     "Προκαταβολή που έχει ήδη καταβληθεί": "Deposit already paid",
     "Υπόλοιπο προς είσπραξη μετά την προκαταβολή": "Balance due after the deposit",
     "Επιστροφή στον ασθενή μετά την προκαταβολή": "Refund to the patient after the deposit",
+    "Η προκαταβολή εισπράχθηκε": "The deposit was collected",
+    "Αρ. απόδειξης προκαταβολής": "Deposit receipt no.",
+    "Αφορά μόνο τις κατηγορίες με προκαταβολή. Χωρίς επιβεβαίωση, η προκαταβολή δεν "
+    "αφαιρείται από το πληρωτέο.":
+        "Applies only to the categories that carry a deposit. Without confirmation the "
+        "deposit is not taken off the amount due.",
+    "Η προκαταβολή δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.":
+        "The deposit has not been confirmed and was not taken off.",
+    "Επιβεβαίωση στη διόρθωση": "Confirm it on the correction screen",
 
     # — the extra-charges screen (Γιώτα 22/10/2026) —
     "Επιπλέον Χρεώσεις ΤΑΕΠ": "A&E extra charges",

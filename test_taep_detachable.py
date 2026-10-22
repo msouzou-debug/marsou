@@ -194,9 +194,15 @@ def test_the_module_reads_no_ctx_key_it_has_not_declared():
     """
     source = open("taep.py", encoding="utf-8").read()
     used = set(re.findall(r'ctx(?:\.get)?[\[\(]"([a-z_]+)"', source))
-    assert used == set(taep.REQUIRED_CTX_KEYS), {
-        "read but not declared": sorted(used - set(taep.REQUIRED_CTX_KEYS)),
-        "declared but never read": sorted(set(taep.REQUIRED_CTX_KEYS) - used)}
+    declared = set(taep.REQUIRED_CTX_KEYS) | set(taep.OPTIONAL_CTX_KEYS)
+    assert used == declared, {
+        "read but not declared": sorted(used - declared),
+        "declared but never read": sorted(declared - used)}
+    # An optional key must never be read with ctx["..."], or it is not optional: a host
+    # that does not supply it would get a KeyError at the first request.
+    required_style = set(re.findall(r'ctx\["([a-z_]+)"\]', source))
+    assert required_style & set(taep.OPTIONAL_CTX_KEYS) == set(), \
+        sorted(required_style & set(taep.OPTIONAL_CTX_KEYS))
 
 
 def test_the_module_extends_exactly_one_template():

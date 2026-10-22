@@ -369,3 +369,32 @@ def test_an_empty_export_still_produces_a_usable_workbook(seeded):
     sheet = read(taep.export_episodes_workbook(seeded, "FAM"))
     assert sheet.max_row == 1
     assert sheet.cell(1, 1).value == "Αρ. Κοστολόγησης"
+
+
+def test_the_export_names_the_clerk_when_the_host_can_say(seeded):
+    """Γιώτα 22/10/2026: the administrator downloads reports per user.
+
+    The module stores ids and must not read a host's user table. `user_label` is an
+    optional ctx key: a host that can resolve a name supplies it, and one that cannot
+    gets "#1" rather than an error or a blank.
+    """
+    import test_taep_episode as episodes
+    episode_id = episodes.make_episode(seeded)
+    result = episodes.price(seeded, episode_id, ["AED008", "AET057"])
+    taep.finalise_episode(seeded, episode_id, result, user_id=1)
+
+    without = read(taep.export_episodes_workbook(seeded, "NGH"))
+    assert cell(without, 2, "Καταχωρήθηκε από") == "#1"
+    assert cell(without, 2, "Οριστικοποιήθηκε από") == "#1"
+
+    with_names = dict(seeded)
+    with_names["user_label"] = lambda uid: "Μαρία Γεωργίου" if uid == 1 else None
+    named = read(taep.export_episodes_workbook(with_names, "NGH"))
+    assert cell(named, 2, "Καταχωρήθηκε από") == "Μαρία Γεωργίου"
+
+    # A host whose lookup throws must not fail the export — the report matters more
+    # than the names in it.
+    broken = dict(seeded)
+    broken["user_label"] = lambda uid: 1 / 0
+    assert cell(read(taep.export_episodes_workbook(broken, "NGH")),
+                2, "Καταχωρήθηκε από") == "#1"

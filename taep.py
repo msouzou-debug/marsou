@@ -711,6 +711,12 @@ SCHEMA_STATEMENTS = [
         allocated_at DATETIME,
         allocated_by INT,
         episode_id INT,
+        -- An administrator may delete a costing (Γιώτα 22/10/2026 — a duplicated
+        -- episode number is the case she names). The ledger row stays and is marked
+        -- here instead: the series is gapless and a number is never reissued, so the
+        -- row has to outlive the episode that held it.
+        voided_at DATETIME,
+        voided_by INT,
         UNIQUE (unit_code, sequence_number)
     ){ENGINE}""",
 
@@ -738,6 +744,16 @@ SCHEMA_STATEMENTS = [
         examination_at DATETIME,
         discharge_at DATETIME,
         status VARCHAR(12) DEFAULT 'DRAFT',
+        -- Γιώτα, 22/10/2026: the tool treated every 600 patient as having paid the €100
+        -- προκαταβολή. Nothing had been confirmed; the rate on the category only says
+        -- what is due. Until somebody ticks this, the deposit is not netted off.
+        deposit_confirmed TINYINT DEFAULT 0,
+        deposit_receipt VARCHAR(60),
+        -- A finalised costing may be corrected (Μονάδα 22/10/2026) and keeps its
+        -- number. The revision counter is what tells the patient's copy apart from the
+        -- one that replaced it; the superseded figures live in taep_costing_revision.
+        revision INT DEFAULT 1,
+        revised_at DATETIME,
         created_by INT,
         created_at DATETIME,
         updated_by INT,
@@ -746,6 +762,29 @@ SCHEMA_STATEMENTS = [
         cancelled_at DATETIME,
         cancellation_reason VARCHAR(500),
         UNIQUE (entity_code, episode_number)
+    ){ENGINE}""",
+
+    # What a costing said before it was corrected. The patient has the old document, so
+    # "what did we tell them, and when did it change" has to be answerable from the
+    # record rather than from the clerk's memory.
+    """CREATE TABLE IF NOT EXISTS taep_costing_revision (
+        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
+        episode_id INT NOT NULL,
+        revision INT NOT NULL,
+        financial_category_id INT,
+        weight INT,
+        band_label_el VARCHAR(100),
+        weight_cost DECIMAL(15,2),
+        tariff_total DECIMAL(15,2),
+        registration_fee_applied DECIMAL(15,2),
+        registration_deposit DECIMAL(15,2),
+        total_cost DECIMAL(15,2),
+        algorithm_version VARCHAR(20),
+        input_hash VARCHAR(64),
+        reason_el VARCHAR(500),
+        superseded_by INT,
+        superseded_at DATETIME,
+        UNIQUE (episode_id, revision)
     ){ENGINE}""",
 
     """CREATE TABLE IF NOT EXISTS taep_episode_service (
@@ -811,6 +850,13 @@ ALTER_STATEMENTS = [
     # so re-running on a database that already has the column is a no-op.
     "ALTER TABLE taep_costing_result ADD COLUMN registration_deposit DECIMAL(15,2)",
     "ALTER TABLE taep_service ADD COLUMN description_en VARCHAR(500)",
+    # Μονάδα Ελέγχου Εσόδων and Γιώτα, 22/10/2026.
+    "ALTER TABLE taep_episode ADD COLUMN deposit_confirmed TINYINT DEFAULT 0",
+    "ALTER TABLE taep_episode ADD COLUMN deposit_receipt VARCHAR(60)",
+    "ALTER TABLE taep_episode ADD COLUMN revision INT DEFAULT 1",
+    "ALTER TABLE taep_episode ADD COLUMN revised_at DATETIME",
+    "ALTER TABLE taep_costing_number ADD COLUMN voided_at DATETIME",
+    "ALTER TABLE taep_costing_number ADD COLUMN voided_by INT",
 ]
 
 
@@ -1439,6 +1485,10 @@ EPISODE_FIELDS = (
     "episode_number", "first_name", "last_name", "date_of_birth", "gender", "phone",
     "address", "id_type", "id_number", "id_country", "id_expiry", "next_of_kin_type",
     "next_of_kin_details", "comments", "admission_at", "examination_at", "discharge_at",
+    # Whether the €100 προκαταβολή was actually taken, and the receipt it was taken on.
+    # Per-episode, not per-category: the category says what is due, this says what
+    # happened (Γιώτα 22/10/2026).
+    "deposit_confirmed", "deposit_receipt",
 )
 
 EDITABLE_STATUSES = ("DRAFT", "CALCULATED")
@@ -1488,6 +1538,14 @@ def validate_episode(data):
 
     if not data.get("financial_category_id"):
         errors.append("Η οικονομική κατηγορία είναι υποχρεωτική.")
+
+    # A receipt number without the tick is almost certainly a tick somebody forgot, and
+    # a tick is what decides whether €100 comes off the bill.
+    if (data.get("deposit_receipt") or "").strip() \
+            and not _as_int(data.get("deposit_confirmed")):
+        errors.append("Καταχωρήθηκε αριθμός απόδειξης προκαταβολής χωρίς να "
+                      "επιβεβαιωθεί η είσπραξη. Επιβεβαιώστε την ή αφαιρέστε τον "
+                      "αριθμό.")
 
     return errors, warnings
 
@@ -1843,6 +1901,40 @@ def _format_datetime(value):
     return value.strftime("%d/%m/%Y")
 
 
+def deposit_state(episode, result):
+    """What the deposit does to this bill. One rule, read by the screen and the PDF.
+
+    Γιώτα, 22/10/2026: "Η προκαταβολή πρέπει με κάποιο τρόπο να επιβεβαιώνεται. Έτσι
+    όπως είναι τώρα θεωρεί σίγουρο ότι όλοι ασθενείς (επί πληρωμή) έχουν δώσει 100 ευρώ
+    προκαταβολή." The rate on the category says what is *due*; only the tick on the
+    episode says what was *taken*.
+
+    Returns a dict:
+      amount      the deposit, whether or not it was confirmed, or None
+      confirmed   True once somebody ticked it
+      receipt     the receipt number, if one was recorded
+      balance     cost minus a confirmed deposit; None when nothing is netted off
+      refund      True when the balance goes back to the patient instead
+    """
+    amount = (money_from_db(result["registration_deposit"])
+              if result is not None and result.get("registration_deposit") is not None
+              else None)
+    confirmed = bool(amount is not None and _as_int(episode["deposit_confirmed"]))
+    total = (money_from_db(result["total_cost"])
+             if result is not None and result.get("total_cost") is not None else None)
+
+    balance = None
+    if confirmed and total is not None:
+        balance = money(total - amount)
+    return {
+        "amount": amount,
+        "confirmed": confirmed,
+        "receipt": episode["deposit_receipt"],
+        "balance": None if balance is None else (balance if balance >= 0 else -balance),
+        "refund": bool(balance is not None and balance < 0),
+    }
+
+
 def costing_document_data(ctx, episode_id):
     """Everything the printed document needs, read from stored data only."""
     episode = get_episode(ctx, episode_id)
@@ -1874,6 +1966,7 @@ def costing_document_data(ctx, episode_id):
         "treatments": [s for s in services if s["service_type"] == TREATMENT],
         "investigations": [s for s in services if s["service_type"] == INVESTIGATION],
         "tariff_lines": lines,
+        "deposit": deposit_state(episode, result),
     }
 
 
@@ -2118,9 +2211,10 @@ def render_costing_pdf(ctx, episode_id):
          format_eur(result["tariff_total"])),
     ]
     # The deposit is printed below the total, not inside it: it is money already taken
-    # at registration. Adding it to the sum would charge the patient twice.
-    deposit = money_from_db(result["registration_deposit"]) \
-        if result.get("registration_deposit") is not None else None
+    # at registration. Adding it to the sum would charge the patient twice. One rule,
+    # in deposit_state(), so the document and the screen cannot disagree about whether
+    # €100 comes off.
+    deposit = data["deposit"]
     pdf.setFont(font, 8)
     amount_column = right - 22 * mm
     for label, value in money_rows:
@@ -2137,26 +2231,37 @@ def render_costing_pdf(ctx, episode_id):
     pdf.drawString(totals_left, y, "Τελικό Κόστος €")
     pdf.drawRightString(right, y, format_eur(result["total_cost"]))
 
-    if deposit:
+    if deposit["confirmed"]:
         y -= 5 * mm
         pdf.setFont(font, 8)
-        draw_fitted(pdf, totals_left, y, "Προκαταβολή που έχει ήδη καταβληθεί €",
+        receipt = (" (απόδ. %s)" % deposit["receipt"]) if deposit["receipt"] else ""
+        draw_fitted(pdf, totals_left, y,
+                    "Προκαταβολή που έχει ήδη καταβληθεί%s €" % receipt,
                     amount_column - totals_left - 2 * mm, font)
         pdf.setFont(font, 8)
-        pdf.drawRightString(right, y, format_eur(deposit))
+        pdf.drawRightString(right, y, format_eur(deposit["amount"]))
         y -= 4.5 * mm
         # Below the deposit, the difference goes back to the patient. Μονάδα, 22/10/2026:
         # "εάν το συνολικό κόστος είναι χαμηλότερο από €100, επιστρέφεται στον ασθενή η
         # διαφορά". Printing a negative amount to collect, which is what this did, leaves
         # the desk to work out the sign of a refund at the till.
-        balance = money(result["total_cost"]) - deposit
-        label = ("Υπόλοιπο προς είσπραξη €" if balance >= 0
-                 else "Επιστροφή στον ασθενή €")
+        label = ("Επιστροφή στον ασθενή €" if deposit["refund"]
+                 else "Υπόλοιπο προς είσπραξη €")
         pdf.setFont(font_bold, 9)
         draw_fitted(pdf, totals_left, y, label,
                     amount_column - totals_left - 2 * mm, font_bold, size=9)
         pdf.setFont(font_bold, 9)
-        pdf.drawRightString(right, y, format_eur(abs(balance)))
+        pdf.drawRightString(right, y, format_eur(deposit["balance"]))
+    elif deposit["amount"]:
+        # Due but not confirmed. The patient owes the full amount on this document, and
+        # the desk is told why rather than left to wonder where the €100 went.
+        y -= 5 * mm
+        pdf.setFont(font, 7.5)
+        draw_fitted(pdf, totals_left, y,
+                    "Προκαταβολή %s € προβλέπεται για την κατηγορία και δεν έχει "
+                    "επιβεβαιωθεί· δεν αφαιρέθηκε."
+                    % format_eur(deposit["amount"]),
+                    right - totals_left, font, size=7.5)
 
     footer(page)
     pdf.showPage()
@@ -2793,6 +2898,25 @@ def export_parallel_workbook(ctx, entity_code, date_from=None, date_to=None):
     return _workbook_bytes(workbook)
 
 
+def user_label(ctx, user_id):
+    """A user id as something a person can read, if the host can tell us.
+
+    Falls back to "#7". Not a required ctx key: the module must not reach into a host's
+    user table, and a report with ids in it is still a report — it is just a worse one.
+    """
+    if user_id in (None, ""):
+        return ""
+    resolve = ctx.get("user_label")
+    if resolve is not None:
+        try:
+            label = resolve(user_id)
+        except Exception:
+            label = None                      # a host's lookup must not fail an export
+        if label:
+            return str(label)
+    return "#%s" % user_id
+
+
 def export_episodes_workbook(ctx, entity_code, filters=None):
     """The episode list as a workbook, exporting what the filters show (brief §7)."""
     from openpyxl import Workbook
@@ -2806,6 +2930,7 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
     headers = ["Αρ. Κοστολόγησης", "Αρ. Επεισοδίου", "Ημ/νία Εξέτασης", "Επώνυμο",
                "Όνομα", "Τύπος ταυτοπ.", "Αρ. ταυτοποίησης", "Μονάδα ΤΑΕΠ",
                "Κωδ. Κατηγορίας", "Οικονομική Κατηγορία",
+               "Καταχωρήθηκε από", "Οριστικοποιήθηκε από",
                # The three inputs to the weight, and the weight. Off the clerk's screen
                # and off the patient's document since 22/10/2026 (Γιώτα), but the Μονάδα
                # asked in the same note to be sure the weight follows the ΟΑΥ algorithm,
@@ -2827,6 +2952,8 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
             episode["last_name"], episode["first_name"], episode["id_type"],
             episode["id_number"], episode["taep_unit_code"],
             episode["category_code"], episode["category_name"],
+            user_label(ctx, episode["created_by"]),
+            user_label(ctx, episode["finalised_by"]),
             _as_int(episode["max_investigation_category"]),
             _as_int(episode["max_treatment_category"]),
             _as_int(episode["weight"]),
@@ -2837,24 +2964,24 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
 
     last = sheet.max_row
     for row_index in range(2, last + 1):
-        sheet[f"O{row_index}"].number_format = "#,##0.00"
+        sheet[f"Q{row_index}"].number_format = "#,##0.00"
 
     if last > 1:
         # A live total, so the figure in the workbook is auditable rather than pasted.
-        sheet.cell(row=last + 2, column=14, value="Σύνολο").font = Font(bold=True)
-        total_cell = sheet.cell(row=last + 2, column=15, value=f"=SUM(O2:O{last})")
+        sheet.cell(row=last + 2, column=16, value="Σύνολο").font = Font(bold=True)
+        total_cell = sheet.cell(row=last + 2, column=17, value=f"=SUM(Q2:Q{last})")
         total_cell.font = Font(bold=True)
         total_cell.number_format = "#,##0.00"
-        sheet.cell(row=last + 3, column=14, value="Καταχωρήσεις").font = Font(bold=True)
-        sheet.cell(row=last + 3, column=15,
+        sheet.cell(row=last + 3, column=16, value="Καταχωρήσεις").font = Font(bold=True)
+        sheet.cell(row=last + 3, column=17,
                    value=f"=COUNTA(A2:A{last})").font = Font(bold=True)
 
-    for column, width in zip("ABCDEFGHIJKLMNOP",
+    for column, width in zip("ABCDEFGHIJKLMNOPQR",
                              (20, 16, 18, 20, 18, 14, 18, 14, 14, 34,
-                              14, 14, 10, 18, 16, 20)):
+                              20, 20, 14, 14, 10, 18, 16, 20)):
         sheet.column_dimensions[column].width = width
     sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:P{last}"
+    sheet.auto_filter.ref = f"A1:R{last}"
 
     return _workbook_bytes(workbook)
 
@@ -3041,6 +3168,15 @@ REQUIRED_CTX_KEYS = (
     "log_activity",          # (entity_type, entity_id, action, details)
 )
 
+# Supplied if the host has it, never required. The module stores user ids and must not
+# query a host's user table — every table it touches starts with taep_, and a test holds
+# that line. But the Μονάδα's reports are read by people, and "#7 entered this costing"
+# is not a report (Γιώτα 22/10/2026, admin reports per user). A host that can turn an id
+# into a name says so here; one that cannot gets "#7" and nothing breaks.
+OPTIONAL_CTX_KEYS = (
+    "user_label",            # user_id -> display name
+)
+
 # The brief §8 lists five roles. They are permission keys here, not new roles:
 # eFinance already has roles, a role_permissions table and a user-administration
 # screen, so a second set would be two places to get wrong. Add these to eFinance's
@@ -3112,6 +3248,9 @@ def _form_to_episode(form):
         data[field] = _parse_datetime(form.get(field))
     category = (form.get("financial_category_id") or "").strip()
     data["financial_category_id"] = int(category) if category.isdigit() else None
+    # An unticked checkbox is absent from the post, which is not the same as a field the
+    # clerk left blank: absent means "no".
+    data["deposit_confirmed"] = 1 if form.get("deposit_confirmed") else 0
     return data
 
 
@@ -3420,10 +3559,15 @@ def list_episodes(ctx, entity_code, filters=None, limit=200):
                    e.taep_unit_code, c.code_new AS category_code,
                    c.name_el AS category_name, r.weight, r.total_cost,
                    r.max_investigation_category, r.max_treatment_category,
-                   r.band_label_el
+                   r.band_label_el, e.created_by, e.revision,
+                   -- Who finalised it. There is no finalised_by column and there does
+                   -- not need to be: the number ledger records who the number was
+                   -- allocated to, which is the same act.
+                   n.allocated_by AS finalised_by
             FROM taep_episode e
             LEFT JOIN taep_financial_category c ON e.financial_category_id = c.id
             LEFT JOIN taep_costing_result r ON r.episode_id = e.id
+            LEFT JOIN taep_costing_number n ON n.episode_id = e.id
             WHERE {' AND '.join(where)}
             ORDER BY e.examination_at DESC, e.id DESC
             LIMIT {int(limit)}""", tuple(params), fetch=True) or []
@@ -3598,7 +3742,8 @@ def register(app, ctx):
             tariff_allowed=bool(category and _as_int(category["tariff_applies"])),
             tariff_catalogue=list_tariff_catalogue(ctx),
             radiology=list_radiology_tariff(ctx),
-            tariff_lines=get_episode_tariff_lines(ctx, episode_id))
+            tariff_lines=get_episode_tariff_lines(ctx, episode_id),
+            deposit=deposit_state(episode, stored))
 
     @app.route("/taep/<int:episode_id>/services", methods=["POST"])
     @login_required

@@ -908,6 +908,16 @@ def deposit_category(app):
         fetch=True)[0]["id"]
 
 
+def paid_deposit(app, **overrides):
+    """Form fields for a 600 episode whose €100 deposit was confirmed as taken.
+
+    Confirming is a deliberate act since 22/10/2026, so every test that wants the
+    deposit netted off has to say so — which is the point Γιώτα made.
+    """
+    return dict(financial_category_id=str(deposit_category(app)),
+                deposit_confirmed="1", deposit_receipt="A-4471", **overrides)
+
+
 def test_under_the_deposit_the_document_says_refund_not_a_negative_balance(client, app):
     """Triage only on 600: €10 costed against a €100 prepayment.
 
@@ -915,8 +925,7 @@ def test_under_the_deposit_the_document_says_refund_not_a_negative_balance(clien
     στον ασθενή η διαφορά". Until today the document printed «Υπόλοιπο προς είσπραξη
     -90,00» and left the desk to work out the sign of a refund at the till.
     """
-    episode_id = create(client, app,
-                        financial_category_id=str(deposit_category(app)))
+    episode_id = create(client, app, **paid_deposit(app))
     client.post(f"/taep/{episode_id}/calculate")       # no services: triage only
     client.post(f"/taep/{episode_id}/finalise")
 
@@ -931,8 +940,7 @@ def test_under_the_deposit_the_document_says_refund_not_a_negative_balance(clien
 
 
 def test_over_the_deposit_it_is_still_a_balance_to_collect(client, app):
-    episode_id = create(client, app,
-                        financial_category_id=str(deposit_category(app)))
+    episode_id = create(client, app, **paid_deposit(app))
     client.post(f"/taep/{episode_id}/services",
                 data={"service_code": ["AED008", "AET057"]})
     client.post(f"/taep/{episode_id}/calculate")
@@ -1084,3 +1092,58 @@ def test_two_rows_keep_their_own_fields(client, app):
         "SELECT tariff_total FROM taep_costing_result WHERE episode_id=%s",
         (episode_id,), fetch=True)[0]
     assert taep.money_from_db(result["tariff_total"]) == Decimal("47.00")
+
+
+def test_an_unconfirmed_deposit_is_not_netted_off(client, app):
+    """Γιώτα, 22/10/2026: "Έτσι όπως είναι τώρα θεωρεί σίγουρο ότι όλοι ασθενείς (επί
+    πληρωμή) έχουν δώσει 100 ευρώ προκαταβολή."
+
+    The category still carries the €100 — that is what is due. Nothing comes off the
+    bill until somebody says it was taken, and the document says why rather than
+    leaving the desk to wonder where €100 went.
+    """
+    episode_id = create(client, app,
+                        financial_category_id=str(deposit_category(app)))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+    client.post(f"/taep/{episode_id}/finalise")
+
+    # The rate is still recorded against the result.
+    stored = app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    assert taep.money_from_db(stored["registration_deposit"]) == Decimal("100.00")
+
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "Υπόλοιπο προς είσπραξη" not in text
+    assert "Επιστροφή στον ασθενή" not in text
+    assert "δεν έχει επιβεβαιωθεί" in text.replace("\n", " ")
+
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert 'id="deposit-unconfirmed"' in page
+    assert 'id="balance"' not in page
+
+
+def test_confirming_the_deposit_puts_the_receipt_on_the_document(client, app):
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post(f"/taep/{episode_id}/calculate")
+    client.post(f"/taep/{episode_id}/finalise")
+
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "A-4471" in text
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert "A-4471" in page
+    assert 'id="deposit-unconfirmed"' not in page
+
+
+def test_a_receipt_number_without_the_tick_is_refused(client, app):
+    """Almost certainly a tick somebody forgot, and the tick decides whether €100 comes
+    off the bill."""
+    response = client.post("/taep/nea", data=form_fields(
+        app.ctx, financial_category_id=str(deposit_category(app)),
+        deposit_receipt="A-9999"))
+    assert response.status_code == 200          # the form comes back, not a redirect
+    assert "χωρίς να επιβεβαιωθεί η είσπραξη" in response.get_data(as_text=True)
+    assert app.ctx["db_execute"](
+        "SELECT id FROM taep_episode", fetch=True) == []
