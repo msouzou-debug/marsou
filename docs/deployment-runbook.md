@@ -62,6 +62,12 @@ of `tools/` onto the production server. They are the test and build side.
 
 ### How the files actually get there on this installation
 
+> **21/10/2026 — `/tmp/deploy.sh` is no longer the deploy script.** The file at that path
+> on `10.227.56.22` is now a DMS/eMetroon configuration script that rewrites
+> `settings.json`. Running it would not deploy anything and would change the live
+> database configuration. Everything in this subsection below is kept as the record of
+> how the module was first installed; **use §1a instead.**
+
 eFinance deploys **file by file** through a script that lives on the server at
 `/tmp/deploy.sh` — not the `deploy.sh` in its repository, which is a first-install script
 that would overwrite the live database. From a workstation with the `administrator`
@@ -103,6 +109,102 @@ ssh -t administrator@10.227.56.22
 
 The backup first is not optional. `administrator` is not in the `finance` group, so every
 write to `/opt/finance` needs `sudo`.
+
+## 1a. Copying an update onto the server (current method)
+
+Every command below runs as the administrator, and every one of them starts with `ssh`
+— they are server commands, not PowerShell commands. Paste them one at a time.
+
+The server keeps a clone of this repository at `/home/administrator/marsou` and the live
+copy is installed out of it. Nothing is ever edited in place under `/opt/finance`.
+
+```bash
+ssh administrator@10.227.56.22
+
+# Backup first. Not optional — this writes over the running application.
+sudo cp -a /opt/finance /home/administrator/prod-backup-$(date +%Y%m%d-%H%M%S)
+
+# Bring the clone up to date. If the server cannot reach GitHub, skip to the fallback.
+sudo git -C /home/administrator/marsou fetch origin claude/new-session-1tcoay
+sudo git -C /home/administrator/marsou checkout claude/new-session-1tcoay
+sudo git -C /home/administrator/marsou reset --hard origin/claude/new-session-1tcoay
+sudo git -C /home/administrator/marsou log --oneline -1
+```
+
+If the clone does not exist yet:
+
+```bash
+sudo git clone --branch claude/new-session-1tcoay \
+     https://github.com/msouzou-debug/marsou.git /home/administrator/marsou
+```
+
+If the server cannot reach GitHub, copy from a workstation that can — from the
+workstation, **not** over the ssh session:
+
+```powershell
+scp -r C:\path\to\marsou administrator@10.227.56.22:/home/administrator/marsou
+```
+
+Then install, which is the only step that touches `/opt/finance`:
+
+```bash
+cd /home/administrator/marsou
+sudo install -o finance -g finance -m 644 taep.py              /opt/finance/taep.py
+sudo install -o finance -g finance -m 644 templates/taep_*.html /opt/finance/templates/
+sudo install -o finance -g finance -m 644 seed/*.csv            /opt/finance/seed/
+sudo diff -q taep.py /opt/finance/taep.py && echo "taep.py ίδιο"
+```
+
+`seed/*.csv` is harmless to re-copy: the seed only loads a table that is empty.
+
+## 1b. Deploying the parallel run (22/10/2026)
+
+The parallel-run report is `/taep/parallel`. It adds one table, one template, six
+changed templates and a sidebar link. No change to `app.py` — the module is already in
+`_MODULES`.
+
+```bash
+ssh administrator@10.227.56.22
+sudo cp -a /opt/finance /home/administrator/prod-backup-$(date +%Y%m%d-%H%M%S)
+
+# 1. Files, per §1a
+cd /home/administrator/marsou
+sudo git fetch origin claude/new-session-1tcoay
+sudo git reset --hard origin/claude/new-session-1tcoay
+sudo install -o finance -g finance -m 644 taep.py               /opt/finance/taep.py
+sudo install -o finance -g finance -m 644 templates/taep_*.html /opt/finance/templates/
+
+# 2. The sidebar link. Idempotent, parses the result as Jinja, keeps a backup.
+sudo python3 tools/add_parallel_nav.py
+
+# 3. Restart. taep_parallel_check is created on startup by SCHEMA_STATEMENTS.
+sudo systemctl restart finance.service
+sleep 20
+sudo journalctl -u finance.service --since "-2 min" --no-pager | tail -40
+
+# 4. The table is there
+sudo -u finance sqlite3 /opt/finance/finance.db \
+     ".schema taep_parallel_check" | head -5
+
+# 5. Nothing else broke
+sudo -u finance env FINANCE_DB=/opt/finance/finance.db \
+     python3 /opt/finance/check_readiness.py
+```
+
+Then sign in as a user holding `taep.admin` and open `/taep/parallel`. On an empty
+database it should say the run is blocked on all three counts — fourteen days, every
+episode priced by hand, every difference explained — not show a pass.
+
+**Rollback:** the restore is the backup directory from step 1 plus a restart. The new
+table can stay; an unused table costs nothing and dropping it would lose any figures a
+clerk had already typed.
+
+**Translations.** `/taep/parallel` adds 23 Greek strings and the tariff screens changed
+three more. They are in `docs/taep-translations-en.json` and belong in eFinance's
+`translations/en.json`, which is theirs, not ours. Hand the file to the eFinance agent
+rather than editing the dictionary — three of our words collide with theirs
+(«Κωδικός» = Password, «Εισαγωγή» = Import, «Γραμμή» = invoice line) and that file is
+keyed on the Greek.
 
 ## 2. Register the module
 
