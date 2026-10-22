@@ -215,13 +215,23 @@ def test_nothing_disagrees_with_the_monada_fee_table_any_more():
     assert [r["code_new"] for r in rows if r["fee_conflict"] == "TRUE"] == []
 
 
-def test_dikaiouchos_a_pays_the_fee_on_top_of_the_weight():
-    """603 gets free treatment but pays the ΤΑΕΠ registration fee."""
+def test_the_registration_fee_is_recorded_but_not_charged():
+    """603 carries the €10 ΤΑΕΠ registration fee, and the costing does not collect it.
+
+    Μονάδα Ελέγχου Εσόδων, 22/10/2026, reversing their own ruling of 29/09/2026: the fee
+    is a Ministry of Health charge taken at registration through the hospital's own
+    system and receipted there. It is not offset against the costing, not re-charged by
+    it and not refunded through it — two distinct financial transactions.
+
+    Until 22/10 this test asserted €130.00. The figure is kept on the result because the
+    rate still has to be confirmed before a costing can be finalised; it is the total
+    that changed.
+    """
     result = calculate([inv(1), tre(3)], rates(registration="10.00"),
                        financial_category_code="603")
     assert result.weight_cost == Decimal("120.00")
     assert result.registration_fee_applied == Decimal("10.00")
-    assert result.total_cost == Decimal("130.00")
+    assert result.total_cost == Decimal("120.00")
 
 
 def test_zero_registration_fee_leaves_the_total_as_the_weight_amount():
@@ -412,8 +422,9 @@ def test_each_component_is_rounded_once_and_the_total_is_consistent():
                        [line], financial_category_code="600")
     assert result.registration_fee_applied == Decimal("1.01")
     assert result.tariff_total == Decimal("30.02")     # 3 × 10.005 = 30.015 → 30.02
-    assert result.total_cost == (result.weight_cost + result.registration_fee_applied
-                                 + result.tariff_total)
+    # The fee is rounded on its own and recorded, but the total is the two components
+    # the costing actually charges.
+    assert result.total_cost == result.weight_cost + result.tariff_total
 
 
 def test_selection_order_does_not_change_the_input_hash():
@@ -798,3 +809,18 @@ def test_a_deposit_does_not_move_the_total():
     assert shown.total_cost == plain.total_cost
     assert shown.registration_deposit == Decimal("100.00")
     assert plain.registration_deposit is None
+
+
+def test_the_fee_is_out_of_every_total_it_used_to_be_in():
+    """Μονάδα 22/10/2026. Checked across the three categories that carry a fee, and a
+    tariff case, because the old arithmetic appeared in one place and this is money."""
+    for code in ("603", "605", "608"):
+        result = calculate([inv(1), tre(3)], rates(registration="10.00"),
+                           financial_category_code=code)
+        assert result.registration_fee_applied == Decimal("10.00")
+        assert result.total_cost == result.weight_cost == Decimal("120.00")
+
+    line = TariffLine("SHSO-ER11", "x", "fixed", base_amount=Decimal("40.00"))
+    with_tariff = calculate([inv(1), tre(1)], rates(registration="10.00", tariff=True),
+                            [line], financial_category_code="600")
+    assert with_tariff.total_cost == with_tariff.weight_cost + with_tariff.tariff_total

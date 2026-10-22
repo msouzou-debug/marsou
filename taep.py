@@ -500,8 +500,18 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
     else:
         registration_fee = money(rates.registration_fee)
 
+    # The registration fee is NOT in the total. Μονάδα Ελέγχου Εσόδων, 22/10/2026: it is
+    # a Ministry of Health charge, taken at registration through the hospital's own
+    # system and receipted there, and "δεν συμψηφίζεται με την κοστολόγηση του
+    # περιστατικού, δεν επαναχρεώνεται ... και δεν επιστρέφεται στον ασθενή μέσω αυτής"
+    # — two distinct financial transactions.
+    #
+    # This reverses their instruction of 29/09/2026, under which the fee was added. It is
+    # still carried on the result: the rate must be confirmed for the category before a
+    # costing can be finalised, and the record should say what the category carries even
+    # though the costing does not collect it.
     total_cost = (None if registration_fee is None
-                  else money(weight_amount + registration_fee + tariff_total))
+                  else money(weight_amount + tariff_total))
 
     return CostingResult(
         max_investigation_category=max_investigation,
@@ -2099,9 +2109,11 @@ def render_costing_pdf(ctx, episode_id):
                    str(result["band_label_el"] or result["band_label_en"] or ""))
     y -= 5.5 * mm
 
+    # The registration fee is not a row here. It is not in the total (see calculate()),
+    # and a row that does not add up to the total printed under it is worse than no row
+    # at all — somebody would collect it twice.
     money_rows = [
         ("Κοστολόγηση βάσει βαρύτητας €", format_eur(result["weight_cost"])),
-        ("Τέλος Εγγραφής €", format_eur(result["registration_fee_applied"])),
         ("Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου €",
          format_eur(result["tariff_total"])),
     ]
@@ -2133,12 +2145,18 @@ def render_costing_pdf(ctx, episode_id):
         pdf.setFont(font, 8)
         pdf.drawRightString(right, y, format_eur(deposit))
         y -= 4.5 * mm
+        # Below the deposit, the difference goes back to the patient. Μονάδα, 22/10/2026:
+        # "εάν το συνολικό κόστος είναι χαμηλότερο από €100, επιστρέφεται στον ασθενή η
+        # διαφορά". Printing a negative amount to collect, which is what this did, leaves
+        # the desk to work out the sign of a refund at the till.
+        balance = money(result["total_cost"]) - deposit
+        label = ("Υπόλοιπο προς είσπραξη €" if balance >= 0
+                 else "Επιστροφή στον ασθενή €")
         pdf.setFont(font_bold, 9)
-        draw_fitted(pdf, totals_left, y, "Υπόλοιπο προς είσπραξη €",
+        draw_fitted(pdf, totals_left, y, label,
                     amount_column - totals_left - 2 * mm, font_bold, size=9)
         pdf.setFont(font_bold, 9)
-        pdf.drawRightString(right, y,
-                            format_eur(money(result["total_cost"]) - deposit))
+        pdf.drawRightString(right, y, format_eur(abs(balance)))
 
     footer(page)
     pdf.showPage()

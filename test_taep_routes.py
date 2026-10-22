@@ -358,11 +358,12 @@ def test_the_pdf_carries_the_required_blocks_and_totals(client, app):
     assert "Παπαδόπουλος" in text
     assert "Θεραπείες" in text and "Διαγνωστικές Παρεμβάσεις" in text
     assert "AED008" in text and "AET057" in text
-    # The totals block, in the order the brief fixes — including Τέλος Εγγραφής,
-    # which the supplied sample omits.
+    # The totals block, in the order the brief fixes. Τέλος Εγγραφής is deliberately
+    # absent: it is not in the total (Μονάδα 22/10/2026), and a row that does not add up
+    # to the total printed under it would be collected twice.
     assert "Κατηγοριοποίηση βάσει βαρύτητας" in text
     assert "Κοστολόγηση βάσει βαρύτητας" in text
-    assert "Τέλος Εγγραφής" in text
+    assert "Τέλος Εγγραφής" not in text
     assert "Τελικό Κόστος" in text
     assert "OKY1054/0001" in text
 
@@ -895,3 +896,53 @@ def test_english_descriptions_actually_reached_the_database(app):
         "SELECT COUNT(*) AS n FROM taep_service WHERE description_en IS NOT NULL "
         "AND description_en <> ''", fetch=True)
     assert rows[0]["n"] == 125
+
+
+# ---------------------------------------------------------------------------
+# The deposit on 600: a refund reads as a refund (Μονάδα 22/10/2026)
+# ---------------------------------------------------------------------------
+
+def deposit_category(app):
+    return app.ctx["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='600'",
+        fetch=True)[0]["id"]
+
+
+def test_under_the_deposit_the_document_says_refund_not_a_negative_balance(client, app):
+    """Triage only on 600: €10 costed against a €100 prepayment.
+
+    Μονάδα 22/10/2026: "εάν το συνολικό κόστος είναι χαμηλότερο από €100, επιστρέφεται
+    στον ασθενή η διαφορά". Until today the document printed «Υπόλοιπο προς είσπραξη
+    -90,00» and left the desk to work out the sign of a refund at the till.
+    """
+    episode_id = create(client, app,
+                        financial_category_id=str(deposit_category(app)))
+    client.post(f"/taep/{episode_id}/calculate")       # no services: triage only
+    client.post(f"/taep/{episode_id}/finalise")
+
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "Επιστροφή στον ασθενή" in text
+    assert "Υπόλοιπο προς είσπραξη" not in text
+    assert "90,00" in text
+    assert "-90,00" not in text
+
+    screen = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert "Επιστροφή στον ασθενή" in screen
+
+
+def test_over_the_deposit_it_is_still_a_balance_to_collect(client, app):
+    episode_id = create(client, app,
+                        financial_category_id=str(deposit_category(app)))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+    client.post(f"/taep/{episode_id}/finalise")
+
+    result = app.ctx["db_execute"](
+        "SELECT total_cost FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    assert taep.money_from_db(result["total_cost"]) > Decimal("100.00")
+
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "Υπόλοιπο προς είσπραξη" in text
+    assert "Επιστροφή στον ασθενή" not in text

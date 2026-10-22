@@ -142,8 +142,10 @@
                   <td class="text-end fw-semibold">{{ result.weight }}</td></tr>
                 <tr><th class="fw-normal">{{ t('Κοστολόγηση βάσει βαρύτητας') }} €</th>
                   <td class="text-end">{{ result.weight_cost | eur }}</td></tr>
-                <tr><th class="fw-normal">{{ t('Τέλος Εγγραφής') }} €</th>
-                  <td class="text-end">{{ result.registration_fee_applied | eur }}</td></tr>
+                {# Τέλος Εγγραφής is not a row here. It is not in the total (Μονάδα
+                   Ελέγχου Εσόδων 22/10/2026 — a separate Ministry of Health charge,
+                   taken and receipted at registration), and a row that does not add up
+                   to the total under it would be collected twice. #}
                 <tr><th class="fw-normal">
                   {{ t('Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου') }} €</th>
                   <td class="text-end">{{ result.tariff_total | eur }}</td></tr>
@@ -161,10 +163,18 @@
                   <td class="text-end fw-bold" id="total"
                       style="font-size:1.1rem">{{ result.total_cost | eur }}</td></tr>
                 {% if result.registration_deposit %}
+                {# Below the deposit the difference goes back to the patient (Μονάδα
+                   22/10/2026). The desk should read a refund as a refund, not as a
+                   negative amount to collect. #}
+                {% set balance = result.total_cost - result.registration_deposit %}
                 <tr><th class="fw-normal text-muted">
-                  {{ t('Υπόλοιπο προς είσπραξη μετά την προκαταβολή') }} €</th>
+                  {% if balance >= 0 %}
+                    {{ t('Υπόλοιπο προς είσπραξη μετά την προκαταβολή') }} €
+                  {% else %}
+                    {{ t('Επιστροφή στον ασθενή μετά την προκαταβολή') }} €
+                  {% endif %}</th>
                   <td class="text-end fw-semibold" id="balance">
-                    {{ (result.total_cost - result.registration_deposit) | eur }}</td></tr>
+                    {{ (balance if balance >= 0 else -balance) | eur }}</td></tr>
                 {% endif %}
               </tbody>
             </table>
