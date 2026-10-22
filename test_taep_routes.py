@@ -946,3 +946,48 @@ def test_over_the_deposit_it_is_still_a_balance_to_collect(client, app):
     text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
     assert "Υπόλοιπο προς είσπραξη" in text
     assert "Επιστροφή στον ασθενή" not in text
+
+
+# ---------------------------------------------------------------------------
+# What the clerk and the patient see (Γιώτα 22/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_the_screen_no_longer_shows_the_weight_internals(client, app):
+    """Only the band classification. The maximum categories and the raw weight tell
+    neither the clerk nor the patient anything they can act on, and the weight is a
+    matrix output — a column reading "8" or "12" invites a question nobody can answer
+    at the desk.
+    """
+    episode_id = create(client, app)
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert "Μέγιστη Διαγνωστική Κατηγορία" not in page
+    assert "Μέγιστη Θεραπευτική Κατηγορία" not in page
+    assert "Κατηγοριοποίηση βάσει βαρύτητας" in page
+    assert "Κοστολόγηση βάσει βαρύτητας" in page
+    # Still stored, so the Μονάδα's export can show the arithmetic.
+    stored = app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    assert stored["max_investigation_category"] == 2
+    assert stored["max_treatment_category"] == 3
+
+
+def test_every_service_option_carries_its_english(client, app):
+    """The precondition for showing English beside Greek in the picker.
+
+    The rendering is Select2's templateResult, which these tests cannot execute, so what
+    is pinned here is the data it reads: every option must carry a non-empty data-en, or
+    the bilingual column is blank for that row.
+    """
+    import re
+    episode_id = create(client, app)
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    options = re.findall(r'<option value="([A-Z]+\d+)"[^>]*?data-en="([^"]*)"',
+                         page, re.S)
+    assert len(options) >= 125, len(options)
+    blank = sorted(code for code, english in options if not english.strip())
+    assert blank == [], blank

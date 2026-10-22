@@ -2805,8 +2805,13 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
 
     headers = ["Αρ. Κοστολόγησης", "Αρ. Επεισοδίου", "Ημ/νία Εξέτασης", "Επώνυμο",
                "Όνομα", "Τύπος ταυτοπ.", "Αρ. ταυτοποίησης", "Μονάδα ΤΑΕΠ",
-               "Κωδ. Κατηγορίας", "Οικονομική Κατηγορία", "Βαρύτητα",
-               "Τελικό Κόστος €", "Κατάσταση"]
+               "Κωδ. Κατηγορίας", "Οικονομική Κατηγορία",
+               # The three inputs to the weight, and the weight. Off the clerk's screen
+               # and off the patient's document since 22/10/2026 (Γιώτα), but the Μονάδα
+               # asked in the same note to be sure the weight follows the ΟΑΥ algorithm,
+               # and that cannot be checked from the weight alone.
+               "Μέγ. Διαγν. Κατηγορία", "Μέγ. Θεραπ. Κατηγορία", "Βαρύτητα",
+               "Κατηγοριοποίηση", "Τελικό Κόστος €", "Κατάσταση"]
     sheet.append(headers)
     for cell in sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
@@ -2822,30 +2827,34 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
             episode["last_name"], episode["first_name"], episode["id_type"],
             episode["id_number"], episode["taep_unit_code"],
             episode["category_code"], episode["category_name"],
+            _as_int(episode["max_investigation_category"]),
+            _as_int(episode["max_treatment_category"]),
             _as_int(episode["weight"]),
+            episode["band_label_el"],
             None if total is None else float(total),
             status_el.get(episode["status"], episode["status"]),
         ])
 
     last = sheet.max_row
     for row_index in range(2, last + 1):
-        sheet[f"L{row_index}"].number_format = "#,##0.00"
+        sheet[f"O{row_index}"].number_format = "#,##0.00"
 
     if last > 1:
         # A live total, so the figure in the workbook is auditable rather than pasted.
-        sheet.cell(row=last + 2, column=11, value="Σύνολο").font = Font(bold=True)
-        total_cell = sheet.cell(row=last + 2, column=12, value=f"=SUM(L2:L{last})")
+        sheet.cell(row=last + 2, column=14, value="Σύνολο").font = Font(bold=True)
+        total_cell = sheet.cell(row=last + 2, column=15, value=f"=SUM(O2:O{last})")
         total_cell.font = Font(bold=True)
         total_cell.number_format = "#,##0.00"
-        sheet.cell(row=last + 3, column=11, value="Καταχωρήσεις").font = Font(bold=True)
-        sheet.cell(row=last + 3, column=12,
+        sheet.cell(row=last + 3, column=14, value="Καταχωρήσεις").font = Font(bold=True)
+        sheet.cell(row=last + 3, column=15,
                    value=f"=COUNTA(A2:A{last})").font = Font(bold=True)
 
-    for column, width in zip("ABCDEFGHIJKLM",
-                             (20, 16, 18, 20, 18, 14, 18, 14, 14, 34, 10, 16, 20)):
+    for column, width in zip("ABCDEFGHIJKLMNOP",
+                             (20, 16, 18, 20, 18, 14, 18, 14, 14, 34,
+                              14, 14, 10, 18, 16, 20)):
         sheet.column_dimensions[column].width = width
     sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:M{last}"
+    sheet.auto_filter.ref = f"A1:P{last}"
 
     return _workbook_bytes(workbook)
 
@@ -3366,7 +3375,9 @@ def list_episodes(ctx, entity_code, filters=None, limit=200):
         f"""SELECT e.id, e.costing_number, e.episode_number, e.examination_at,
                    e.first_name, e.last_name, e.id_type, e.id_number, e.status,
                    e.taep_unit_code, c.code_new AS category_code,
-                   c.name_el AS category_name, r.weight, r.total_cost
+                   c.name_el AS category_name, r.weight, r.total_cost,
+                   r.max_investigation_category, r.max_treatment_category,
+                   r.band_label_el
             FROM taep_episode e
             LEFT JOIN taep_financial_category c ON e.financial_category_id = c.id
             LEFT JOIN taep_costing_result r ON r.episode_id = e.id

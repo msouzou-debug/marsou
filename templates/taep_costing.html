@@ -132,14 +132,11 @@
           <div class="table-responsive">
             <table class="table table-sm totals mb-3" style="font-size:0.86rem">
               <tbody>
-                <tr><th class="fw-normal text-muted">
-                  {{ t('Μέγιστη Διαγνωστική Κατηγορία') }}</th>
-                  <td class="text-end">{{ result.max_investigation_category or '—' }}</td></tr>
-                <tr><th class="fw-normal text-muted">
-                  {{ t('Μέγιστη Θεραπευτική Κατηγορία') }}</th>
-                  <td class="text-end">{{ result.max_treatment_category or '—' }}</td></tr>
-                <tr><th class="fw-normal text-muted">{{ t('Βαρύτητα') }}</th>
-                  <td class="text-end fw-semibold">{{ result.weight }}</td></tr>
+                {# Γιώτα, 22/10/2026: the maximum diagnostic and treatment categories and
+                   the raw weight tell neither the clerk nor the patient anything they
+                   can act on. The band classification above carries the information.
+                   They are still stored on the result and still appear in the Μονάδα's
+                   workbook export, where the arithmetic has to be auditable. #}
                 <tr><th class="fw-normal">{{ t('Κοστολόγηση βάσει βαρύτητας') }} €</th>
                   <td class="text-end">{{ result.weight_cost | eur }}</td></tr>
                 {# Τέλος Εγγραφής is not a row here. It is not in the total (Μονάδα
@@ -257,6 +254,29 @@
           return data;
         }
         return null;
+      },
+      // Μονάδα 22/10/2026: the English description beside the Greek, not only inside
+      // the search. The whole catalogue is already in the list and scrolls, so a clerk
+      // who does not know the Greek term can read down it.
+      //
+      // escapeMarkup is left at its default, so this builds DOM rather than returning
+      // a string: a service description is master data somebody edits, and an
+      // apostrophe or an angle bracket in it must not become markup.
+      templateResult: function (data) {
+        if (!data.element) return data.text;          // the search placeholder row
+        var english = (jQuery(data.element).data("en") || "").toString();
+        var row = jQuery("<div>").addClass("d-flex justify-content-between gap-3");
+        row.append(jQuery("<span>").text(data.text));
+        if (english) {
+          row.append(jQuery("<span>").addClass("text-muted small text-end")
+                                     .text(english));
+        }
+        return row;
+      },
+      // The selected chip stays Greek and short: it is what the clerk reads back
+      // before pressing Υπολογισμός.
+      templateSelection: function (data) {
+        return data.text;
       }
     });
   });

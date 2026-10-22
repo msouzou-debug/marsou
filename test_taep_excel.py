@@ -17,6 +17,24 @@ def read(data, sheet=None):
     return workbook[sheet] if sheet else workbook.active
 
 
+def column_letter(sheet, header):
+    """Find a column by its header text rather than by position.
+
+    These tests used to index columns by number, so adding one to the middle of an
+    export broke three assertions that had nothing to do with the change. The header is
+    what the Μονάδα reads; the position is an implementation detail.
+    """
+    for cell_ in sheet[1]:
+        if cell_.value == header:
+            return cell_.column_letter
+    raise AssertionError("no column headed %r in %s"
+                         % (header, [c.value for c in sheet[1]]))
+
+
+def cell(sheet, row, header):
+    return sheet[f"{column_letter(sheet, header)}{row}"].value
+
+
 def edit_download(ctx, changes=None, drop=(), add=()):
     """Download the tariff, apply edits as a human would, return the bytes."""
     data = taep.export_tariff_workbook(ctx)
@@ -279,9 +297,11 @@ def test_the_episode_export_has_live_formulas_not_pasted_totals(seeded):
     sheet = read(taep.export_episodes_workbook(seeded, "NGH"))
     assert sheet.max_row >= 4
 
+    money = column_letter(sheet, "Τελικό Κόστος €")
     formulas = [c.value for row in sheet.iter_rows() for c in row
                 if isinstance(c.value, str) and c.value.startswith("=")]
-    assert any(f.startswith("=SUM(L2:L") for f in formulas), "no live total"
+    assert any(f.startswith(f"=SUM({money}2:{money}") for f in formulas), \
+        "the live total does not sum the money column"
     assert any(f.startswith("=COUNTA(A2:A") for f in formulas), "no live count"
 
 
@@ -292,13 +312,37 @@ def test_the_episode_export_carries_the_greek_status_and_money_format(seeded):
     taep.finalise_episode(seeded, episode_id, result, user_id=1)
 
     sheet = read(taep.export_episodes_workbook(seeded, "NGH"))
-    values = [sheet.cell(2, column).value for column in range(1, 14)]
-    assert values[0] == "OKY1054/0001"
-    assert values[3] == "Παπαδόπουλος"
-    assert values[9] == "ΑΙΤΗΤΕΣ ΑΣΥΛΟΥ/ΔΟΜΕΣ"
-    assert values[11] == 120.0
-    assert values[12] == "Οριστικοποιημένο"
-    assert sheet.cell(2, 12).number_format == "#,##0.00"
+    assert cell(sheet, 2, "Αρ. Κοστολόγησης") == "OKY1054/0001"
+    assert cell(sheet, 2, "Επώνυμο") == "Παπαδόπουλος"
+    assert cell(sheet, 2, "Οικονομική Κατηγορία") == "ΑΙΤΗΤΕΣ ΑΣΥΛΟΥ/ΔΟΜΕΣ"
+    assert cell(sheet, 2, "Τελικό Κόστος €") == 120.0
+    assert cell(sheet, 2, "Κατάσταση") == "Οριστικοποιημένο"
+    money = sheet[f"{column_letter(sheet, 'Τελικό Κόστος €')}2"]
+    assert money.number_format == "#,##0.00"
+
+
+def test_the_episode_export_shows_the_two_inputs_to_the_weight(seeded):
+    """Γιώτα, 22/10/2026: off the clerk's screen and the patient's document, because
+    neither can act on them — but she asked in the same note to be sure the weight
+    follows the ΟΑΥ algorithm, and the weight alone does not show that.
+
+    AED008 is diagnostic category 2, AET057 therapeutic category 3, and the ΟΑΥ matrix
+    turns that pair into weight 8, which prices at €120. The weight is a matrix output,
+    not a 1-to-3 severity: that is exactly why Γιώτα objected to a column reading "12"
+    on the clerk's screen. Here the two inputs sit beside it, so a reviewer can check
+    the pair against the ΟΑΥ matrix row by row.
+    """
+    import test_taep_episode as episodes
+    episode_id = episodes.make_episode(seeded)
+    result = episodes.price(seeded, episode_id, ["AED008", "AET057"])
+    taep.finalise_episode(seeded, episode_id, result, user_id=1)
+
+    sheet = read(taep.export_episodes_workbook(seeded, "NGH"))
+    assert cell(sheet, 2, "Μέγ. Διαγν. Κατηγορία") == 2
+    assert cell(sheet, 2, "Μέγ. Θεραπ. Κατηγορία") == 3
+    assert cell(sheet, 2, "Βαρύτητα") == 8
+    assert cell(sheet, 2, "Κατηγοριοποίηση")
+    assert cell(sheet, 2, "Τελικό Κόστος €") == 120.0
 
 
 def test_the_episode_export_respects_the_filters(seeded):
