@@ -281,6 +281,21 @@ its clerks pick the unit on the entry screen.
 manual pricing on every episode, with every difference investigated. The tool is not
 right by default. Only widen once a fortnight has produced no unexplained difference.
 
+`/taep/parallel` keeps that score rather than leaving it to a spreadsheet somebody
+maintains by hand. The clerk types the hand-priced figure into a box on the costing
+screen once the costing is finalised; the report shows both figures side by side and
+names what is still outstanding. It refuses to call the run complete until three things
+are true at once: fourteen distinct days covered, every finalised episode carrying a
+hand-priced figure, and every difference carrying a written explanation. Fourteen clean
+days with one unexplained difference is not a pass, and the screen says so.
+
+Differences are exact. A cent apart is a difference, because the point of pricing twice
+is to find out where the two methods disagree.
+
+`/taep/parallel/export` gives the Μονάδα a workbook where the difference column, the
+counts and the totals are all live formulas — somebody auditing this is auditing our
+arithmetic as much as the tool's, and a column of constants proves nothing.
+
 **The paediatric relocation** is a data change, not a release. When ΤΑΕΠ Παίδων moves to
 Μακάριος ΙΙΙ, close the current row and open a new one:
 

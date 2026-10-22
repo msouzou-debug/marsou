@@ -184,6 +184,26 @@
             <a class="btn btn-brand w-100"
                href="{{ url_for('taep_print', episode_id=episode.id) }}">
               <i class="bi bi-printer"></i> {{ t('Εκτύπωση') }}</a>
+
+            {# Brief §15: during the parallel run every episode is also priced by hand.
+               The box sits here because this is where the clerk already is. #}
+            {% if has_permission('taep.finalise') %}
+            <hr class="my-3">
+            <form method="post"
+                  action="{{ url_for('taep_parallel_record', episode_id=episode.id) }}">
+              <label class="form-label" for="manual_amount" style="font-size:0.82rem">
+                {{ t('Χειρόγραφο ποσό (παράλληλη λειτουργία)') }} €</label>
+              <div class="input-group input-group-sm">
+                <input id="manual_amount" name="manual_amount" class="form-control"
+                       inputmode="decimal" required
+                       placeholder="{{ t('π.χ. 120,00') }}">
+                <button class="btn btn-outline-secondary" type="submit">
+                  {{ t('Καταγραφή') }}</button>
+              </div>
+              <input name="note" class="form-control form-control-sm mt-1"
+                     placeholder="{{ t('Σημείωση, αν διαφέρει') }}">
+            </form>
+            {% endif %}
           {% endif %}
         {% else %}
           <div class="alert alert-secondary py-2 mb-0" id="no-result"

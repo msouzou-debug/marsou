@@ -660,6 +660,22 @@ SCHEMA_STATEMENTS = [
         UNIQUE (unit_code, host_valid_from)
     ){ENGINE}""",
 
+    # The two-week parallel run (brief §15). Every episode is priced by hand as well as
+    # by the tool, and the two figures are compared. A separate table rather than columns
+    # on the episode: this is a temporary assurance exercise, and when it ends the rows
+    # are evidence of how the tool was accepted, not part of a costing.
+    """CREATE TABLE IF NOT EXISTS taep_parallel_check (
+        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
+        episode_id INT NOT NULL UNIQUE,
+        manual_amount DECIMAL(15,2) NOT NULL,
+        recorded_by INT,
+        recorded_at DATETIME,
+        note_el VARCHAR(500),
+        resolution_el VARCHAR(1000),
+        resolved_by INT,
+        resolved_at DATETIME
+    ){ENGINE}""",
+
     # Countries for the identification document, from Unicode CLDR so the Greek
     # spellings match what people read elsewhere. A table rather than a constant: the
     # list is reference data like the service catalogue, and the readiness check counts
@@ -2671,6 +2687,94 @@ def apply_tariff(ctx, uploaded, user_id):
     return applied
 
 
+def export_parallel_workbook(ctx, entity_code, date_from=None, date_to=None):
+    """The parallel run as a workbook the Μονάδα can audit.
+
+    Every derived figure is a formula, not a pasted number: the difference, the counts,
+    the largest gap. Somebody checking this is checking our arithmetic as much as the
+    tool's, and a column of constants proves nothing.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    rows = parallel_run_rows(ctx, entity_code, date_from, date_to)
+    summary = parallel_run_summary(rows)
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Παράλληλη λειτουργία"
+
+    headers = ["Αρ. Κοστολόγησης", "Ημ/νία Εξέτασης", "Μονάδα", "Επώνυμο", "Όνομα",
+               "Κατηγορία", "Βαρύτητα", "Ποσό εργαλείου €", "Χειρόγραφο ποσό €",
+               "Διαφορά €", "Σημείωση καταχώρησης", "Αιτιολογία διαφοράς"]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F3864")
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+
+    for row in rows:
+        sheet.append([
+            row["costing_number"], _format_datetime(row["examination_at"]),
+            row["taep_unit_code"], row["last_name"], row["first_name"],
+            row["category_code"], _as_int(row["weight"]),
+            None if row["tool_amount"] is None else float(row["tool_amount"]),
+            None if row["manual"] is None else float(row["manual"]),
+            None,                      # filled with a formula below
+            row["note_el"], row["resolution_el"],
+        ])
+
+    last = sheet.max_row
+    red = Font(color="A31E1E", bold=True)
+    for index in range(2, last + 1):
+        # The difference is computed by the workbook, so a reviewer can see the
+        # arithmetic rather than trust ours.
+        sheet[f"J{index}"] = f'=IF(COUNT(H{index}:I{index})=2,I{index}-H{index},"")'
+        for column in ("H", "I", "J"):
+            sheet[f"{column}{index}"].number_format = "#,##0.00"
+        if rows[index - 2]["differs"]:
+            sheet[f"J{index}"].font = red
+
+    if last > 1:
+        head = last + 2
+        sheet.cell(row=head, column=1, value="Σύνοψη").font = Font(bold=True, size=12)
+        lines = [
+            ("Κοστολογήσεις", f"=COUNTA(A2:A{last})"),
+            ("Με χειρόγραφο ποσό", f"=COUNT(I2:I{last})"),
+            ("Χωρίς χειρόγραφο ποσό", f"=COUNTA(A2:A{last})-COUNT(I2:I{last})"),
+            ("Διαφορές", f'=COUNTIF(J2:J{last},"<>0")-COUNTBLANK(J2:J{last})'),
+            ("Μεγαλύτερη διαφορά €", f"=IF(COUNT(J2:J{last})=0,0,"
+                                     f"MAX(ABS(J2:J{last})))"),
+            ("Σύνολο εργαλείου €", f"=SUM(H2:H{last})"),
+            ("Σύνολο χειρόγραφο €", f"=SUM(I2:I{last})"),
+            ("Συνολική απόκλιση €", f"=SUM(I2:I{last})-SUM(H2:H{last})"),
+        ]
+        for offset, (label, formula) in enumerate(lines, start=1):
+            sheet.cell(row=head + offset, column=1, value=label).font = Font(bold=True)
+            cell = sheet.cell(row=head + offset, column=2, value=formula)
+            cell.number_format = "#,##0.00"
+        # MAX(ABS(range)) needs array entry in older Excel; say so rather than let a
+        # reviewer wonder why one cell shows a different number.
+        sheet.cell(row=head + len(lines) + 1, column=1,
+                   value="Η «Μεγαλύτερη διαφορά» είναι τύπος πίνακα — σε παλαιότερο "
+                         "Excel πατήστε Ctrl+Shift+Enter στο κελί.").font = Font(
+            italic=True, size=9)
+
+        verdict = sheet.cell(
+            row=head + len(lines) + 3, column=1,
+            value=("Η παράλληλη λειτουργία ολοκληρώθηκε."
+                   if summary["ready"] else
+                   "ΔΕΝ έχει ολοκληρωθεί: " + " ".join(summary["blockers"])))
+        verdict.font = Font(bold=True, color="1F7A1F" if summary["ready"] else "A31E1E")
+
+    for column, width in zip("ABCDEFGHIJKL",
+                             (20, 18, 12, 18, 16, 12, 10, 16, 18, 14, 34, 44)):
+        sheet.column_dimensions[column].width = width
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = f"A1:L{last}"
+    return _workbook_bytes(workbook)
+
+
 def export_episodes_workbook(ctx, entity_code, filters=None):
     """The episode list as a workbook, exporting what the filters show (brief §7)."""
     from openpyxl import Workbook
@@ -3070,6 +3174,141 @@ def price_episode(ctx, episode_id, tariff_lines=()):
                      service_date=on_date)
 
 
+def record_parallel_check(ctx, episode_id, manual_amount, user_id, note=None):
+    """Record what the episode would have cost priced by hand.
+
+    One figure per episode; recording again replaces it, because a clerk correcting
+    their own arithmetic is the normal case and a second row would make the count of
+    differences wrong.
+    """
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    if episode["status"] != "FINALISED":
+        raise CostingError(
+            "NOT_FINALISED",
+            "Η παράλληλη καταγραφή γίνεται μόνο σε οριστικοποιημένη κοστολόγηση.")
+
+    try:
+        amount = money(Decimal(str(manual_amount).replace(",", ".").strip()))
+    except Exception:
+        raise CostingError("BAD_MANUAL_AMOUNT",
+                           "Το χειρόγραφο ποσό δεν είναι έγκυρος αριθμός.")
+    if amount < 0:
+        raise CostingError("BAD_MANUAL_AMOUNT",
+                           "Το χειρόγραφο ποσό δεν μπορεί να είναι αρνητικό.")
+
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+    db("DELETE FROM taep_parallel_check WHERE episode_id=%s", (episode_id,))
+    db("""INSERT INTO taep_parallel_check
+          (episode_id, manual_amount, recorded_by, recorded_at, note_el)
+          VALUES (%s,%s,%s,%s,%s)""",
+       (episode_id, str(amount), user_id, now, (note or "").strip() or None))
+    ctx["log_activity"]("taep_episode", episode_id, "PARALLEL_RECORDED",
+                        f"Χειρόγραφο ποσό {amount}")
+    return amount
+
+
+def resolve_parallel_check(ctx, episode_id, resolution, user_id):
+    """Record why a difference arose. The brief requires every one investigated."""
+    text = (resolution or "").strip()
+    if not text:
+        raise CostingError("NO_RESOLUTION",
+                           "Χρειάζεται αιτιολογία για τη διαφορά.")
+    db = ctx["db_execute"]
+    rows = db("SELECT id FROM taep_parallel_check WHERE episode_id=%s",
+              (episode_id,), fetch=True)
+    if not rows:
+        raise CostingError("NO_PARALLEL_CHECK",
+                           "Δεν υπάρχει χειρόγραφο ποσό για αυτή την καταχώρηση.")
+    db("""UPDATE taep_parallel_check SET resolution_el=%s, resolved_by=%s,
+          resolved_at=%s WHERE episode_id=%s""",
+       (text, user_id, dt.datetime.now(), episode_id))
+    ctx["log_activity"]("taep_episode", episode_id, "PARALLEL_RESOLVED", text[:200])
+
+
+def parallel_run_rows(ctx, entity_code, date_from=None, date_to=None):
+    """Finalised episodes with their hand-priced figure beside the tool's."""
+    where = ["e.entity_code = %s", "e.status = 'FINALISED'"]
+    params = [entity_code]
+    if date_from:
+        where.append("e.examination_at >= %s")
+        params.append(date_from)
+    if date_to:
+        where.append("e.examination_at <= %s")
+        params.append(date_to)
+
+    rows = ctx["db_execute"](
+        f"""SELECT e.id, e.costing_number, e.examination_at, e.taep_unit_code,
+                   e.last_name, e.first_name,
+                   c.code_new AS category_code, r.weight, r.total_cost,
+                   p.manual_amount, p.note_el, p.resolution_el,
+                   p.recorded_at, p.resolved_at
+            FROM taep_episode e
+            LEFT JOIN taep_financial_category c ON e.financial_category_id = c.id
+            LEFT JOIN taep_costing_result r ON r.episode_id = e.id
+            LEFT JOIN taep_parallel_check p ON p.episode_id = e.id
+            WHERE {' AND '.join(where)}
+            ORDER BY e.examination_at, e.id""", tuple(params), fetch=True) or []
+
+    out = []
+    for row in rows:
+        tool = money_from_db(row["total_cost"])
+        manual = money_from_db(row["manual_amount"])
+        difference = None if (tool is None or manual is None) else money(manual - tool)
+        out.append(dict(
+            row, tool_amount=tool, manual=manual, difference=difference,
+            # Exact, not a tolerance. A cent apart is a difference worth a sentence.
+            differs=bool(difference is not None and difference != Decimal("0.00")),
+            recorded=manual is not None,
+            resolved=bool((row["resolution_el"] or "").strip()),
+        ))
+    return out
+
+
+def parallel_run_summary(rows, required_days=14, on_date=None):
+    """Whether the parallel run has done its job yet (brief §15).
+
+    The gate is not "two weeks have passed". It is that every episode in the window was
+    priced both ways and every difference was explained. A fortnight with three
+    unexplained differences has not proved anything.
+    """
+    dates = sorted({_as_date(r["examination_at"]) for r in rows
+                    if r["examination_at"]} - {None})
+    days = len(dates)
+    recorded = [r for r in rows if r["recorded"]]
+    differences = [r for r in recorded if r["differs"]]
+    unexplained = [r for r in differences if not r["resolved"]]
+    missing = [r for r in rows if not r["recorded"]]
+
+    blockers = []
+    if days < required_days:
+        blockers.append(
+            f"Η παράλληλη λειτουργία καλύπτει {days} ημέρες από τις "
+            f"{required_days} που απαιτούνται.")
+    if missing:
+        blockers.append(
+            f"{len(missing)} κοστολογήσεις δεν έχουν χειρόγραφο ποσό.")
+    if unexplained:
+        blockers.append(
+            f"{len(unexplained)} διαφορές δεν έχουν διερευνηθεί.")
+
+    return {
+        "episodes": len(rows),
+        "recorded": len(recorded),
+        "missing": len(missing),
+        "differences": len(differences),
+        "unexplained": len(unexplained),
+        "days": days,
+        "required_days": required_days,
+        "blockers": blockers,
+        "ready": not blockers,
+        "largest": max((abs(r["difference"]) for r in differences),
+                       default=Decimal("0.00")),
+    }
+
+
 def list_episodes(ctx, entity_code, filters=None, limit=200):
     """Screen 3, scoped to one hospital. A Limassol user never sees Nicosia episodes."""
     filters = filters or {}
@@ -3448,6 +3687,65 @@ def register(app, ctx):
             flash(f"Δεν βρέθηκε κοστολόγηση με αριθμό «{raw}».", "warning")
             return redirect(url_for("taep_list"))
         return redirect(url_for("taep_costing", episode_id=episode["id"]))
+
+    # -- The two-week parallel run (brief §15) -----------------------------
+    @app.route("/taep/<int:episode_id>/parallel", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["finalise"])
+    def taep_parallel_record(episode_id):
+        """What the clerk would have charged by hand, recorded beside what we charged."""
+        episode_or_404(episode_id)
+        try:
+            record_parallel_check(ctx, episode_id,
+                                  request.form.get("manual_amount"), user_id(),
+                                  request.form.get("note"))
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        flash("Το χειρόγραφο ποσό καταγράφηκε.", "success")
+        return redirect(url_for("taep_costing", episode_id=episode_id))
+
+    @app.route("/taep/parallel")
+    @login_required
+    @permission_required(PERMISSIONS["admin"])
+    def taep_parallel():
+        entity = active_entity()
+        date_from = request.args.get("date_from") or None
+        date_to = request.args.get("date_to") or None
+        rows = parallel_run_rows(ctx, entity, date_from, date_to)
+        return render_template(
+            "taep_parallel.html", rows=rows,
+            summary=parallel_run_summary(rows), entity=entity,
+            filters={"date_from": date_from, "date_to": date_to},
+            export_args={k: v for k, v in
+                         (("date_from", date_from), ("date_to", date_to)) if v})
+
+    @app.route("/taep/parallel/<int:episode_id>/resolve", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["admin"])
+    def taep_parallel_resolve(episode_id):
+        episode_or_404(episode_id)
+        try:
+            resolve_parallel_check(ctx, episode_id,
+                                   request.form.get("resolution"), user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_parallel"))
+        flash("Η διαφορά καταγράφηκε ως διερευνημένη.", "success")
+        return redirect(url_for("taep_parallel"))
+
+    @app.route("/taep/parallel/export")
+    @login_required
+    @permission_required(PERMISSIONS["admin"])
+    def taep_parallel_export():
+        entity = active_entity()
+        data = export_parallel_workbook(ctx, entity,
+                                        request.args.get("date_from") or None,
+                                        request.args.get("date_to") or None)
+        stamp = dt.date.today().strftime("%Y%m%d")
+        return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={
+            "Content-Disposition":
+                f'attachment; filename="taep-parallel-{entity}-{stamp}.xlsx"'})
 
     # -- Screen 4: Διαχείριση Τιμών ---------------------------------------
     @app.route("/taep/rates")

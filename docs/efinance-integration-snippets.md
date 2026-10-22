@@ -81,6 +81,7 @@ app, and `url_for` in `base.html` would quietly undo that.
     <a href="/taep/tariff" class="nav-link nav-sub {% if request.path.startswith('/taep/tariff') %}active{% endif %}">{{ t('Τιμοκατάλογος') }}</a>
     {% endif %}
     {% if has_permission('taep.admin') %}
+    <a href="/taep/parallel" class="nav-link nav-sub {% if request.path.startswith('/taep/parallel') %}active{% endif %}">{{ t('Παράλληλη λειτουργία') }}</a>
     <a href="/taep/readiness" class="nav-link nav-sub {% if request.path.startswith('/taep/readiness') %}active{% endif %}">{{ t('Έλεγχος Ετοιμότητας') }}</a>
     {% endif %}
 </div>
@@ -92,3 +93,27 @@ app, and `url_for` in `base.html` would quietly undo that.
 Still **not applied**, pending the Μονάδα. See `docs/deployment-runbook.md` §3 and the
 `_MODULE_KEYS` warning: adding the six keys grants them all to `cfo` and `tester`
 wherever `perms_configured` is 0, and both roles see every hospital.
+
+
+---
+
+## 6. Known limitation — a non-central user with two hospitals
+
+Recorded on the eFinance agent's advice, 22/10/2026, deliberately **not** built.
+
+`active_entity()` takes one code from `ctx["user_entity"]()`, while
+`can_access_entity()` tests the whole assigned set. So a user entitled to two hospitals
+would see only the primary one in `/taep/list`, could open the second's episode by
+number, and would create new episodes against the primary whichever one they are
+standing in.
+
+Today this affects nobody. The live `user_entities` table has three multi-entity users
+and **all three are `tester`**, whose assignments never get read — `session_entity_codes()`
+returns every entity for a `CENTRAL_ROLE` before it consults the table. The only
+non-central assignment holds a single hospital.
+
+The day somebody assigns a **clerk** to two hospitals, this becomes real: the list
+under-reports and a costing is keyed to the wrong hospital. Three people have already
+tried that pattern with testers, so it is plausible rather than theoretical. The fix is
+a hospital picker on the entry screen and a widened list query — about half a day, and
+not worth building against zero users.

@@ -75,7 +75,6 @@ EN = {
         "Costing an A&E episode for a patient outside GESY. Identification comes first.",
     "Μονάδα ΤΑΕΠ": "A&E unit",
     "Αριθμός Επεισοδίου": "Episode number",
-    "Εισαγωγή": "Admission",
     "Εξέταση": "Examination",
     "Εξιτήριο": "Discharge",
     "Σχόλια": "Comments",
@@ -172,7 +171,16 @@ EN = {
     "π.χ. Απόφαση ΔΣ 123/2027": "e.g. Board Decision 123/2027",
     "Τέλη εγγραφής ανά οικονομική κατηγορία":
         "Registration fees by financial category",
-    "Κωδ.": "Code", "Κωδικός": "Code",
+    # eFinance's en.json is one global dictionary keyed by the Greek string, and it
+    # already maps «Κωδικός» to Password and «Εισαγωγή» to Import. Any module whose
+    # vocabulary overlaps hits this; a short common noun is the risky case. The fix is
+    # a distinct Greek string here, not a change to the shared dictionary — "Code" for
+    # «Κωδικός» would relabel every eFinance login screen.
+    "Κωδικός υπηρεσίας": "Service code",
+    "Κωδικός κατηγορίας": "Category code",
+    "Εισαγωγή ασθενούς": "Admission",
+    "Προηγούμενη τιμή πεδίου": "Previous value",
+    "Νέα τιμή πεδίου": "New value",
     "Ορισμένο": "Set",
     "Εξαιρείται": "Exempt",
     "Δεν έχει οριστεί": "Not set",
@@ -237,12 +245,11 @@ EN = {
     "Τίποτα δεν έχει εφαρμοστεί ακόμη.": "Nothing has been applied yet.",
     "Το αρχείο έχει %d σφάλματα. Δεν εφαρμόστηκε τίποτα.":
         "The file has %d errors. Nothing was applied.",
-    "Γραμμή": "Row",
+    "Γραμμή αρχείου": "File row",
     "Νέες χρεώσεις": "New charges",
     "Αλλαγές": "Changes",
     "Απενεργοποιήσεις": "Deactivations",
     "Πεδίο": "Field",
-    "Σε": "To",
     "Καμία.": "None.",
     "Οι γραμμές που λείπουν από το αρχείο απενεργοποιούνται. Δεν διαγράφονται, ώστε "
     "οι παλιές κοστολογήσεις να παραμένουν αναγνώσιμες.":
@@ -250,6 +257,36 @@ EN = {
         "costings stay readable.",
     "Εφαρμογή όλων": "Apply all",
     "νέες": "new", "αλλαγές": "changes", "απενεργοποιήσεις": "deactivations",
+
+    # — the parallel run (brief §15) —
+    "Παράλληλη λειτουργία": "Parallel run",
+    "Παράλληλη λειτουργία ΤΑΕΠ": "A&E parallel run",
+    "Κάθε κοστολόγηση τιμολογείται και χειρόγραφα. Η επέκταση σε άλλη μονάδα γίνεται "
+    "μόνο όταν κάθε διαφορά έχει εξηγηθεί.":
+        "Every costing is also priced by hand. No other unit follows until every "
+        "difference has been explained.",
+    "Η παράλληλη λειτουργία ολοκληρώθηκε. Η μονάδα μπορεί να προχωρήσει.":
+        "The parallel run is complete. The unit may proceed.",
+    "Δεν έχει ολοκληρωθεί ακόμη.": "Not complete yet.",
+    "Ημέρες": "Days",
+    "Κοστολογήσεις": "Costings",
+    "Χωρίς χειρόγραφο ποσό": "No hand-priced figure",
+    "Διαφορές": "Differences",
+    "Διαφορά": "Difference",
+    "Αδιερεύνητες": "Not investigated",
+    "Ποσό εργαλείου": "Tool figure",
+    "Χειρόγραφο ποσό": "Hand-priced figure",
+    "Χειρόγραφο ποσό (παράλληλη λειτουργία)": "Hand-priced figure (parallel run)",
+    "Σημείωση, αν διαφέρει": "Note, if it differs",
+    "π.χ. 120,00": "e.g. 120.00",
+    "Αιτιολογία διαφοράς": "Explanation of the difference",
+    "Γιατί προέκυψε η διαφορά;": "Why did the difference arise?",
+    "Καταγραφή": "Record",
+    "Λείπει": "Missing",
+    "Αναλυτικά": "Detail",
+    "Φιλτράρισμα": "Filter",
+    "Καμία οριστικοποιημένη κοστολόγηση στο διάστημα.":
+        "No finalised costing in the period.",
 
     # — readiness —
     "Έλεγχος ετοιμότητας": "Readiness check",
@@ -266,6 +303,26 @@ EN = {
     "Όλοι οι έλεγχοι πέρασαν.": "All checks passed.",
     "Έτοιμο για παραγωγική λειτουργία.": "Ready for production use.",
     "Τιμές": "Rates",
+}
+
+# Single words already checked against en.json and either absent there or meaning the
+# same thing. Reviewed 22/10/2026 with the eFinance agent.
+ALLOWED = {
+    "Βαρύτητα", "Ταυτοποίηση", "Εξιτήριο", "Εξέταση", "Κατηγορία", "Κατάσταση",
+    "Αποτέλεσμα", "Αποτελέσματα", "Θεραπείες", "Υπολογισμός", "Οριστικοποίηση",
+    "Εκτύπωση", "Ιστορικό", "Τιμοκατάλογος", "Προκαταβολή", "Εμπόδια",
+    "Προειδοποιήσεις", "Εύρημα", "Ορισμένο", "Εξαιρείται", "Αλλαγές", "Πεδίο",
+    "Περιγραφή", "Κλίμακα", "Τύπος", "Βασικό", "Ωριαία", "Ενεργό", "Ποσό",
+    "Έγγραφο", "Επώνυμο", "Φύλο", "Διεύθυνση", "Σχόλια", "Άνοιγμα", "Άκυρο",
+    "Ακύρωση", "Επιστροφή", "Έλεγχος", "Καμία.", "Ναι", "Όχι", "Από", "Έως",
+    "Όλες", "Τιμές", "Κωδ.", "Σε", "νέες", "αλλαγές", "απενεργοποιήσεις",
+    "Απενεργοποιήσεις", "Καταχωρήσεις", "Καταχώρηση", "Κλείσιμο", "Όνομα",
+    "Τηλέφωνο", "Βήμα 1", "Βήμα 2", "Βήμα 3", "Βήμα 4",
+    # Added 22/10 with the parallel-run screen. None of these is a short noun eFinance
+    # uses for something else; «Καταγραφή» is the one to re-check if en.json ever
+    # gains an audit-logging vocabulary.
+    "Ημέρες", "Κοστολογήσεις", "Διαφορές", "Διαφορά", "Αδιερεύνητες",
+    "Καταγραφή", "Λείπει", "Αναλυτικά", "Φιλτράρισμα",
 }
 
 BAD_ENTITY = re.compile(r"&[a-zA-Z]+;|&#\d+;")
@@ -312,6 +369,17 @@ def main():
             print("   %s" % key)
     for problem in problems:
         print("PROBLEM:", problem)
+
+    # A short common Greek noun is where the collisions live: en.json is one global
+    # dictionary, so «Κωδικός» already belonged to Password and «Εισαγωγή» to Import
+    # before this module existed. We cannot diff against en.json from here, so the next
+    # best thing is to keep the candidates in sight on every regeneration.
+    risky = sorted(k for k in keys
+                   if len(k) <= 12 and " " not in k.rstrip(".") and k not in ALLOWED)
+    if risky:
+        print("\n%d single-word keys — check each against en.json before merging, a "
+              "collision renders as the wrong English:" % len(risky))
+        print("   " + ", ".join("«%s»" % k for k in risky))
 
     out = ROOT / "docs" / "taep-translations-en.json"
     out.write_text(json.dumps(EN, ensure_ascii=False, indent=2,

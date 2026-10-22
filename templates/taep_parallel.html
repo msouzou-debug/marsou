@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Παράλληλη λειτουργία ΤΑΕΠ') }}{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1"><i class="bi bi-columns-gap"></i>
+      {{ t('Παράλληλη λειτουργία') }}</h4>
+    <div class="text-muted" style="font-size:0.86rem">
+      {{ t('Κάθε κοστολόγηση τιμολογείται και χειρόγραφα. Η επέκταση σε άλλη μονάδα γίνεται μόνο όταν κάθε διαφορά έχει εξηγηθεί.') }}
+    </div>
+  </div>
+  <a href="{{ url_for('taep_parallel_export', **export_args) }}"
+     class="btn btn-outline-secondary btn-action">
+    <i class="bi bi-file-earmark-spreadsheet"></i> {{ t('Εξαγωγή σε Excel') }}</a>
+</div>
+
+<div class="alert {{ 'alert-success' if summary.ready else 'alert-warning' }}">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi {{ 'bi-check-circle' if summary.ready else 'bi-hourglass-split' }} fs-5"></i>
+    <strong id="verdict">
+      {% if summary.ready %}
+        {{ t('Η παράλληλη λειτουργία ολοκληρώθηκε. Η μονάδα μπορεί να προχωρήσει.') }}
+      {% else %}
+        {{ t('Δεν έχει ολοκληρωθεί ακόμη.') }}
+      {% endif %}
+    </strong>
+  </div>
+  {% if summary.blockers %}
+    <ul class="mb-0 mt-2" style="font-size:0.88rem">
+      {% for blocker in summary.blockers %}<li>{{ blocker }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+  {% for label, value, tone in [
+       (t('Ημέρες'), summary.days ~ ' / ' ~ summary.required_days, ''),
+       (t('Κοστολογήσεις'), summary.episodes, ''),
+       (t('Χωρίς χειρόγραφο ποσό'), summary.missing, 'danger' if summary.missing else ''),
+       (t('Διαφορές'), summary.differences, ''),
+       (t('Αδιερεύνητες'), summary.unexplained, 'danger' if summary.unexplained else '')] %}
+  <div class="col-6 col-md">
+    <div class="card stat-card h-100{% if tone %} border-{{ tone }}{% endif %}">
+      <div class="card-body py-3">
+        <div class="stat-value{% if tone %} text-{{ tone }}{% endif %}">{{ value }}</div>
+        <div class="stat-label">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="date_from">{{ t('Από') }}</label>
+        <input id="date_from" name="date_from" type="date" class="form-control"
+               value="{{ filters.date_from or '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="date_to">{{ t('Έως') }}</label>
+        <input id="date_to" name="date_to" type="date" class="form-control"
+               value="{{ filters.date_to or '' }}">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-outline-primary w-100">
+          <i class="bi bi-funnel"></i> {{ t('Φιλτράρισμα') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">{{ t('Αναλυτικά') }}</div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table id="parallel" class="table table-sm mb-0" style="font-size:0.86rem">
+      <thead><tr>
+        <th>{{ t('Αρ. Κοστολόγησης') }}</th><th>{{ t('Ημ/νία Εξέτασης') }}</th>
+        <th>{{ t('Επώνυμο') }}</th>
+        <th class="text-end">{{ t('Ποσό εργαλείου') }} €</th>
+        <th class="text-end">{{ t('Χειρόγραφο ποσό') }} €</th>
+        <th class="text-end">{{ t('Διαφορά') }} €</th>
+        <th>{{ t('Αιτιολογία διαφοράς') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr class="{{ 'table-warning' if row.differs and not row.resolved }}">
+          <td class="font-monospace">
+            <a href="{{ url_for('taep_costing', episode_id=row.id) }}">
+              {{ row.costing_number }}</a></td>
+          <td>{{ row.examination_at }}</td>
+          <td>{{ row.last_name }}</td>
+          <td class="text-end">{{ row.tool_amount | eur }}</td>
+          <td class="text-end">
+            {% if row.recorded %}{{ row.manual | eur }}
+            {% else %}<span class="badge bg-danger">{{ t('Λείπει') }}</span>{% endif %}
+          </td>
+          <td class="text-end {{ 'text-danger fw-bold' if row.differs }}">
+            {% if row.difference is not none %}{{ row.difference | eur }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if not row.differs %}
+              <span class="text-muted">—</span>
+            {% elif row.resolved %}
+              {{ row.resolution_el }}
+            {% else %}
+              <form method="post"
+                    action="{{ url_for('taep_parallel_resolve', episode_id=row.id) }}"
+                    class="d-flex gap-1">
+                <input name="resolution" class="form-control form-control-sm" required
+                       placeholder="{{ t('Γιατί προέκυψε η διαφορά;') }}">
+                <button class="btn btn-sm btn-outline-primary" type="submit">
+                  {{ t('Καταγραφή') }}</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">
+          {{ t('Καμία οριστικοποιημένη κοστολόγηση στο διάστημα.') }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
+{% endblock %}

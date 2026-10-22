@@ -18,7 +18,7 @@
     </div>
     <ul class="mb-0 mt-2" style="font-size:0.88rem">
       {% for error in errors %}
-        <li>{% if error.row %}{{ t('Γραμμή') }} {{ error.row }}: {% endif %}{{ error.message }}</li>
+        <li>{% if error.row %}{{ t('Γραμμή αρχείου') }} {{ error.row }}: {% endif %}{{ error.message }}</li>
       {% endfor %}
     </ul>
   </div>
@@ -74,8 +74,8 @@
       {{ t('Αλλαγές') }} ({{ difference.changed|length }})</div>
     <div class="card-body p-0"><div class="table-responsive">
       <table id="changed" class="table table-sm mb-0" style="font-size:0.86rem">
-        <thead><tr><th>{{ t('Κωδικός') }}</th><th>{{ t('Πεδίο') }}</th>
-          <th>{{ t('Από') }}</th><th>{{ t('Σε') }}</th></tr></thead>
+        <thead><tr><th>{{ t('Κωδικός υπηρεσίας') }}</th><th>{{ t('Πεδίο') }}</th>
+          <th>{{ t('Προηγούμενη τιμή πεδίου') }}</th><th>{{ t('Νέα τιμή πεδίου') }}</th></tr></thead>
         <tbody>
         {% for entry in difference.changed %}
           {% for field, pair in entry.differences.items() %}
