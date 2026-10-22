@@ -3193,6 +3193,49 @@ def store_tariff_lines(ctx, episode_id, lines, costed, user_id):
                   "line_total", "suppressed", "added_by", "added_at"], rows)
 
 
+def list_tariff_catalogue(ctx):
+    """The ΤΑΕΠ extra-charges catalogue, grouped the way the Μονάδα's sheet groups it.
+
+    Four of these codes price by anatomical site rather than by themselves
+    (`tariff_lookup`): Ακτινογραφία, Υπερηχογράφημα, Αξονική and Μαγνητική τομογραφία.
+    They are worth nothing until an examination is chosen from the radiology price list,
+    which is why selecting MRI among the diagnostic interventions added no money
+    (Γιώτα, 22/10/2026) — the interventions decide the weight, not the charge.
+    """
+    rows = ctx["db_execute"](
+        """SELECT code, description_el, group_el, tier_label_el, price_type,
+                  base_amount, hourly_amount, price_raw, load_status
+           FROM taep_tariff WHERE active=1
+           ORDER BY group_el, code""", fetch=True) or []
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["group_el"] or "—", []).append(row)
+    return grouped
+
+
+def list_radiology_tariff(ctx):
+    return ctx["db_execute"](
+        """SELECT cpt_code, description_el, description_en, group_en, price_eur
+           FROM taep_radiology_tariff WHERE active=1
+           ORDER BY group_en, cpt_code""", fetch=True) or []
+
+
+def get_episode_tariff_lines(ctx, episode_id):
+    """The stored lines, as the form posted them, so a recalculation does not lose them.
+
+    The table keeps tariff_id; the form speaks in codes. Joining here rather than in the
+    template means one place knows that.
+    """
+    return ctx["db_execute"](
+        """SELECT l.id, t.code AS tariff_code, t.description_el, t.price_type,
+                  l.radiology_cpt, l.quantity, l.hours, l.consumables_amount,
+                  l.consumables_note, l.line_total, l.suppressed
+           FROM taep_episode_tariff_line l
+           LEFT JOIN taep_tariff t ON t.id = l.tariff_id
+           WHERE l.episode_id = %s
+           ORDER BY l.id""", (episode_id,), fetch=True) or []
+
+
 def price_episode(ctx, episode_id, tariff_lines=()):
     """Calculate an episode from what is stored plus any tariff lines supplied.
 
@@ -3552,7 +3595,10 @@ def register(app, ctx):
             catalogue=list_services(ctx),
             selected_codes={s.code for s in selected},
             TREATMENT=TREATMENT, INVESTIGATION=INVESTIGATION,
-            tariff_allowed=bool(category and _as_int(category["tariff_applies"])))
+            tariff_allowed=bool(category and _as_int(category["tariff_applies"])),
+            tariff_catalogue=list_tariff_catalogue(ctx),
+            radiology=list_radiology_tariff(ctx),
+            tariff_lines=get_episode_tariff_lines(ctx, episode_id))
 
     @app.route("/taep/<int:episode_id>/services", methods=["POST"])
     @login_required

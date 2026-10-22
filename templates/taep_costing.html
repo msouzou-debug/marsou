@@ -1,5 +1,82 @@
 {% extends "base.html" %}
 {% block title %}{{ t('Κοστολόγηση Περιστατικού') }}{% endblock %}
+
+{#
+  One tariff row, used both for a stored line and for the blank row the Προσθήκη button
+  clones, so the two cannot drift.
+
+  All six inputs are present in every row, always, and the ones that do not apply are
+  hidden with a class rather than disabled or removed. The server reads the six fields
+  with form.getlist() and lines them up by position — a row that posts five values
+  shifts every row after it onto the wrong charge. Hiding keeps them in the post;
+  `disabled` would not.
+#}
+{% macro tariff_row(line) %}
+<tr class="tariff-row">
+  <td>
+    <select name="tariff_code" class="form-select form-select-sm tariff-code">
+      <option value=""></option>
+      {% for group, items in tariff_catalogue.items() %}
+      <optgroup label="{{ group }}">
+        {% for item in items %}
+        <option value="{{ item.code }}"
+                data-price-type="{{ item.price_type }}"
+                {% if line and line.tariff_code == item.code %}selected{% endif %}>
+          {{ item.code }} — {{ item.description_el }}{% if item.tier_label_el %} · {{ item.tier_label_el }}{% endif %}{% if item.price_raw %} — {{ item.price_raw }}{% endif %}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+
+    <select name="tariff_cpt"
+            class="form-select form-select-sm mt-1 tariff-cpt select2-cpt
+                   {% if not (line and line.price_type == 'tariff_lookup') %}d-none{% endif %}"
+            data-placeholder="{{ t('Επιλέξτε εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής…') }}">
+      <option value=""></option>
+      {% for exam in radiology %}
+      <option value="{{ exam.cpt_code }}"
+              data-en="{{ exam.description_en }}"
+              {% if line and line.radiology_cpt == exam.cpt_code %}selected{% endif %}>
+        {{ exam.cpt_code }} — {{ exam.description_el or exam.description_en }} — {{ exam.price_eur }} €</option>
+      {% endfor %}
+    </select>
+  </td>
+
+  <td>
+    <input name="tariff_quantity" type="number" min="1" step="1"
+           class="form-control form-control-sm"
+           value="{{ (line.quantity if line else 1) or 1 }}">
+  </td>
+
+  <td>
+    <input name="tariff_hours" inputmode="decimal"
+           class="form-control form-control-sm tariff-hours
+                  {% if not (line and line.price_type == 'fixed_plus_hourly') %}d-none{% endif %}"
+           placeholder="{{ t('Ώρες') }}"
+           value="{{ line.hours if line and line.hours is not none else '' }}">
+    <input name="tariff_consumables" inputmode="decimal"
+           class="form-control form-control-sm tariff-consumables
+                  {% if not (line and line.price_type == 'fixed_plus_consumables') %}d-none{% endif %}"
+           placeholder="{{ t('Αναλώσιμα €') }}"
+           value="{{ line.consumables_amount if line and line.consumables_amount is not none else '' }}">
+    <input name="tariff_note"
+           class="form-control form-control-sm mt-1 tariff-note
+                  {% if not (line and line.price_type == 'fixed_plus_consumables') %}d-none{% endif %}"
+           placeholder="{{ t('Αιτιολογία αναλωσίμων') }}"
+           value="{{ line.consumables_note or '' if line else '' }}">
+  </td>
+
+  <td class="text-end">
+    {% if line and line.line_total is not none %}
+      <div class="number text-end small {% if line.suppressed %}text-muted{% endif %}">
+        {{ line.line_total | eur }} €</div>
+    {% endif %}
+    <button type="button" class="btn btn-link btn-sm text-danger p-0 remove-tariff-row"
+            title="{{ t('Αφαίρεση γραμμής') }}"><i class="bi bi-dash-circle"></i></button>
+  </td>
+</tr>
+{% endmacro %}
+
 {% block content %}
 
 <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
@@ -105,6 +182,65 @@
         </form>
       </div>
     </div>
+
+    {% if tariff_allowed %}
+    {# Γιώτα, 22/10/2026: for 600, 602 and 640 the extra-charge fields have to open.
+       Choosing Μαγνητική τομογραφία among the diagnostic interventions adds no money —
+       the interventions decide the weight, and the charge comes from here. Four codes
+       (Ακτινογραφία, Υπερηχογράφημα, Αξονική, Μαγνητική) are worth nothing on their own
+       and need an examination picked from the radiology price list.
+
+       This whole block is inside the form that posts to Υπολογισμός, because that is
+       the route that reads the rows. #}
+    <div class="card mt-3" id="tariff">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-cash-coin text-success"></i>
+        <span>{{ t('Επιπλέον Χρεώσεις ΤΑΕΠ') }}</span>
+        <span class="badge bg-light text-muted ms-auto">
+          {{ category.code_new }} {{ category.name_el }}</span>
+      </div>
+      <div class="card-body">
+        <form method="post" id="calc-form"
+              action="{{ url_for('taep_calculate', episode_id=episode.id) }}">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-2" id="tariff-table">
+              <thead>
+                <tr>
+                  {# Not «Χρέωση» on its own: in eFinance's one shared dictionary a bare
+                     accounting word is where a collision hides — «Κωδικός» already
+                     means Password there. #}
+                  <th style="min-width:16rem">{{ t('Επιπλέον χρέωση') }}</th>
+                  <th style="width:6rem">{{ t('Ποσότητα') }}</th>
+                  <th style="width:12rem">{{ t('Ώρες / Αναλώσιμα') }}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tariff-rows">
+                {% for line in tariff_lines %}
+                  {{ tariff_row(line) }}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  id="add-tariff-row">
+            <i class="bi bi-plus-square"></i> {{ t('Προσθήκη χρέωσης') }}</button>
+
+          <div class="form-text mt-2">
+            {{ t('Οι τέσσερις απεικονιστικές χρεώσεις τιμολογούνται από τον τιμοκατάλογο Ακτινοδιαγνωστικής: επιλέξτε και την εξέταση.') }}
+          </div>
+
+          <button type="submit" class="btn btn-brand mt-3">
+            <i class="bi bi-calculator"></i> {{ t('Υπολογισμός') }}</button>
+        </form>
+      </div>
+    </div>
+
+    {# The blank row the Προσθήκη button clones. Outside the form on purpose, so its
+       empty inputs are never posted. #}
+    <template id="tariff-row-template">{{ tariff_row(None) }}</template>
+    {% endif %}
   </div>
 
   <div class="col-lg-5">
@@ -114,12 +250,21 @@
         <span>{{ t('Αποτέλεσμα') }}</span>
       </div>
       <div class="card-body">
-        <form method="post"
-              action="{{ url_for('taep_calculate', episode_id=episode.id) }}"
-              class="mb-3">
-          <button type="submit" class="btn btn-brand w-100" id="calculate">
+        {% if tariff_allowed %}
+          {# One form owns the tariff rows, over in the left column. This button submits
+             it rather than a second, empty form — two forms posting to the same route
+             would mean the rows are lost whenever the clerk presses the wrong one. #}
+          <button type="submit" form="calc-form" class="btn btn-brand w-100 mb-3"
+                  id="calculate">
             <i class="bi bi-calculator"></i> {{ t('Υπολογισμός') }}</button>
-        </form>
+        {% else %}
+          <form method="post"
+                action="{{ url_for('taep_calculate', episode_id=episode.id) }}"
+                class="mb-3">
+            <button type="submit" class="btn btn-brand w-100" id="calculate">
+              <i class="bi bi-calculator"></i> {{ t('Υπολογισμός') }}</button>
+          </form>
+        {% endif %}
 
         {% if result %}
           <div class="alert alert-light border mb-3 py-2">
@@ -280,6 +425,85 @@
       }
     });
   });
+})();
+
+// The extra-charges rows.
+//
+// Which inputs a charge needs depends on its price_type, carried on each option as
+// data-price-type. The inputs are only ever shown or hidden: the server reads the six
+// fields with getlist() and aligns them by position, so a row that posts five values
+// would shift every row after it onto the wrong charge.
+(function () {
+  var rows = document.getElementById("tariff-rows");
+  if (!rows) return;
+  var template = document.getElementById("tariff-row-template");
+
+  function show(element, visible) {
+    if (element) element.classList.toggle("d-none", !visible);
+  }
+
+  function applyPriceType(row) {
+    var select = row.querySelector(".tariff-code");
+    var option = select.options[select.selectedIndex];
+    var type = (option && option.getAttribute("data-price-type")) || "";
+    show(row.querySelector(".tariff-cpt"), type === "tariff_lookup");
+    show(row.querySelector(".tariff-hours"), type === "fixed_plus_hourly");
+    show(row.querySelector(".tariff-consumables"),
+         type === "fixed_plus_consumables");
+    show(row.querySelector(".tariff-note"), type === "fixed_plus_consumables");
+  }
+
+  function initCpt(row) {
+    if (!window.jQuery || !jQuery.fn.select2) return;
+    var cpt = row.querySelector(".select2-cpt");
+    if (!cpt || jQuery(cpt).hasClass("select2-hidden-accessible")) return;
+    // 305 priced examinations: searchable, and matching the English too, because the
+    // radiology list is CPT and its Greek is a translation of the English.
+    jQuery(cpt).select2({
+      theme: "bootstrap-5",
+      width: "100%",
+      placeholder: jQuery(cpt).data("placeholder"),
+      matcher: function (params, data) {
+        if (jQuery.trim(params.term) === "") return data;
+        if (typeof data.text === "undefined") return null;
+        if (data.text.toLocaleUpperCase("el")
+                .indexOf(params.term.toLocaleUpperCase("el")) > -1) return data;
+        var english = (jQuery(data.element).data("en") || "").toString();
+        return english.toUpperCase().indexOf(params.term.toUpperCase()) > -1
+          ? data : null;
+      }
+    });
+  }
+
+  rows.addEventListener("change", function (event) {
+    if (event.target.classList.contains("tariff-code")) {
+      applyPriceType(event.target.closest(".tariff-row"));
+    }
+  });
+
+  rows.addEventListener("click", function (event) {
+    var button = event.target.closest(".remove-tariff-row");
+    if (!button) return;
+    var row = button.closest(".tariff-row");
+    var cpt = row.querySelector(".select2-cpt");
+    if (cpt && window.jQuery && jQuery(cpt).hasClass("select2-hidden-accessible")) {
+      jQuery(cpt).select2("destroy");
+    }
+    row.remove();
+  });
+
+  var add = document.getElementById("add-tariff-row");
+  if (add && template) {
+    add.addEventListener("click", function () {
+      var row = template.content.firstElementChild.cloneNode(true);
+      rows.appendChild(row);
+      applyPriceType(row);
+      initCpt(row);
+    });
+  }
+
+  Array.prototype.forEach.call(rows.querySelectorAll(".tariff-row"),
+                               function (row) { initCpt(row); });
 })();
 </script>
 {% endblock %}

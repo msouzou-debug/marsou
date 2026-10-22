@@ -991,3 +991,96 @@ def test_every_service_option_carries_its_english(client, app):
     assert len(options) >= 125, len(options)
     blank = sorted(code for code, english in options if not english.strip())
     assert blank == [], blank
+
+
+# ---------------------------------------------------------------------------
+# The extra-charges screen (Γιώτα 22/10/2026)
+# ---------------------------------------------------------------------------
+
+def self_pay(app):
+    return str(app.ctx["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='600'",
+        fetch=True)[0]["id"])
+
+
+def test_the_extra_charges_screen_appears_only_where_charges_apply(client, app):
+    allowed = create(client, app, financial_category_id=self_pay(app))
+    page = client.get(f"/taep/{allowed}").get_data(as_text=True)
+    assert 'id="tariff"' in page
+    assert "Επιπλέον Χρεώσεις ΤΑΕΠ" in page
+    # All four imaging codes and the radiology price list are on the page, since the
+    # clerk picks from them without a round trip.
+    for code in ("SHSO-ER3", "SHSO-ER4", "SHSO-ER5", "SHSO-ER6"):
+        assert code in page, code
+    assert "70544" in page                       # a priced MRA examination
+
+    elsewhere = create(client, app, episode_number="E-1002")   # 624, no tariff
+    other = client.get(f"/taep/{elsewhere}").get_data(as_text=True)
+    assert 'id="tariff"' not in other
+    assert "δεν ισχύουν για αυτή την οικονομική κατηγορία" in other
+
+
+def test_magnetic_resonance_now_adds_its_price(client, app):
+    """Γιώτα's case. Choosing Μαγνητική τομογραφία among the diagnostic interventions
+    moves the weight and adds no money; the charge comes from the extra-charges list,
+    and SHSO-ER6 is worth nothing until an examination is picked from the radiology
+    price list. €164 for CPT 70544.
+    """
+    episode_id = create(client, app, financial_category_id=self_pay(app))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    response = client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER6"], "tariff_cpt": ["70544"],
+        "tariff_quantity": ["1"], "tariff_hours": [""],
+        "tariff_consumables": [""], "tariff_note": [""]})
+    assert response.status_code == 302
+
+    result = app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    assert taep.money_from_db(result["tariff_total"]) == Decimal("164.00")
+    assert taep.money_from_db(result["total_cost"]) == Decimal("284.00")
+
+    # And the line comes back on the screen, so a recalculation does not lose it.
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert 'value="SHSO-ER6"' in page and "selected" in page
+    lines = taep.get_episode_tariff_lines(app.ctx, episode_id)
+    assert [(l["tariff_code"], l["radiology_cpt"]) for l in lines] \
+        == [("SHSO-ER6", "70544")]
+
+
+def test_an_imaging_charge_without_an_examination_is_refused(client, app):
+    """SHSO-ER6 is price_type tariff_lookup: it has no price of its own."""
+    episode_id = create(client, app, financial_category_id=self_pay(app))
+    client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER6"], "tariff_cpt": [""],
+        "tariff_quantity": ["1"], "tariff_hours": [""],
+        "tariff_consumables": [""], "tariff_note": [""]})
+
+    assert app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True) == []
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert "τιμοκατάλογο Ακτινοδιαγνωστικής" in page
+
+
+def test_two_rows_keep_their_own_fields(client, app):
+    """The six form fields are positional. A row whose hours box is hidden still posts
+    an empty value, or every row after it lands on the wrong charge — which is why the
+    screen hides inputs instead of disabling or removing them.
+
+    SHSO-ER39 is €20 + €5/hour; three hours is €35. SHSO-ER1 is a flat €12.
+    """
+    episode_id = create(client, app, financial_category_id=self_pay(app))
+    client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER1", "SHSO-ER39"],
+        "tariff_cpt": ["", ""],
+        "tariff_quantity": ["1", "1"],
+        "tariff_hours": ["", "3"],
+        "tariff_consumables": ["", ""],
+        "tariff_note": ["", ""]})
+
+    result = app.ctx["db_execute"](
+        "SELECT tariff_total FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    assert taep.money_from_db(result["tariff_total"]) == Decimal("47.00")

@@ -129,6 +129,26 @@ EN = {
     "Τελικό Κόστος": "Final Cost",
     "Προκαταβολή που έχει ήδη καταβληθεί": "Deposit already paid",
     "Υπόλοιπο προς είσπραξη μετά την προκαταβολή": "Balance due after the deposit",
+    "Επιστροφή στον ασθενή μετά την προκαταβολή": "Refund to the patient after the deposit",
+
+    # — the extra-charges screen (Γιώτα 22/10/2026) —
+    "Επιπλέον Χρεώσεις ΤΑΕΠ": "A&E extra charges",
+    # Not «Χρέωση» alone: eFinance's dictionary is shared and a bare accounting word is
+    # where a collision hides. Same reason the service-code column is «Κωδικός υπηρεσίας».
+    "Επιπλέον χρέωση": "Extra charge",
+    "Προσθήκη χρέωσης": "Add a charge",
+    "Αφαίρεση γραμμής": "Remove row",
+    "Ποσότητα": "Quantity",
+    "Ώρες": "Hours",
+    "Ώρες / Αναλώσιμα": "Hours / consumables",
+    "Αναλώσιμα €": "Consumables €",
+    "Αιτιολογία αναλωσίμων": "Reason for the consumables",
+    "Επιλέξτε εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής…":
+        "Choose an examination from the radiology price list…",
+    "Οι τέσσερις απεικονιστικές χρεώσεις τιμολογούνται από τον τιμοκατάλογο "
+    "Ακτινοδιαγνωστικής: επιλέξτε και την εξέταση.":
+        "The four imaging charges are priced from the radiology price list: choose the "
+        "examination as well.",
     "Οι χρεώσεις τιμοκαταλόγου δεν ισχύουν για αυτή την οικονομική κατηγορία.":
         "Tariff charges do not apply to this financial category.",
 

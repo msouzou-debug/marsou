@@ -274,13 +274,19 @@ def test_the_standalone_base_defines_every_class_bootstrap_does_not():
     """
     import re
     root = Path(__file__).resolve().parent
-    used = set()
+    used, scripted = set(), set()
     for template in (root / "templates").glob("taep_*.html"):
-        for attribute in re.findall(r'class="([^"]*)"',
-                                    template.read_text(encoding="utf-8")):
+        source = template.read_text(encoding="utf-8")
+        for attribute in re.findall(r'class="([^"]*)"', source):
             # Drop the Jinja expressions; only literal class names are styled.
             attribute = re.sub(r"{{.*?}}|{%.*?%}", " ", attribute)
             used.update(attribute.split())
+        # A class the page's own JavaScript looks up is a behaviour hook, not a style:
+        # `.tariff-code` exists so a change handler can find the select, and no
+        # stylesheet should have an opinion about it. Only classes nobody scripts have
+        # to be defined in base.html.
+        for script in re.findall(r"<script\b.*?</script>", source, re.S):
+            scripted.update(re.findall(r'[.#"\']([a-z][a-z0-9-]*)', script))
 
     base = (root / "standalone" / "templates" / "base.html").read_text(encoding="utf-8")
     bootstrap = re.compile(
@@ -304,7 +310,27 @@ def test_the_standalone_base_defines_every_class_bootstrap_does_not():
     dynamic = {name for name in custom if name.endswith("-")}
     assert dynamic == {"status-", "fee-"}, sorted(dynamic)
 
-    missing = sorted(name for name in custom - dynamic if ".%s" % name not in base)
+    styled = custom - dynamic - scripted
+    missing = sorted(name for name in styled if ".%s" % name not in base)
     assert missing == [], missing
-    # The guard is worthless if it is matching nothing.
-    assert {"number", "totals", "stat-card"} <= custom
+    # The guard is worthless if it is matching nothing, and worthless again if the
+    # script exemption has swallowed the classes it exists to check.
+    assert {"number", "totals", "stat-card"} <= styled
+    assert "tariff-code" in scripted
+
+
+def test_every_template_string_has_english():
+    """Run the translations build and require a clean exit.
+
+    This exists because I piped its output to `tail` twice and missed the MISSING block
+    both times, and «Επιστροφή στον ασθενή μετά την προκαταβολή» shipped untranslated as
+    a result. A tool whose warnings depend on somebody reading them is a tool whose
+    warnings get missed; the suite reads them now.
+    """
+    import subprocess
+    import sys
+    root = Path(__file__).resolve().parent
+    finished = subprocess.run(
+        [sys.executable, str(root / "tools" / "build_translations.py")],
+        capture_output=True, text=True, cwd=str(root))
+    assert finished.returncode == 0, finished.stdout + finished.stderr
