@@ -3001,6 +3001,19 @@ PERMISSIONS = {
     "admin": "taep.admin",
 }
 
+# Everything the module asks of its host. Written down because the module now runs under
+# two hosts — eFinance and standalone/host.py — and a key quietly added here would break
+# the other one at the first request rather than at import.
+REQUIRED_CTX_KEYS = (
+    "db_execute",            # %s placeholders, dict rows, commits per call
+    "login_required",        # decorator
+    "permission_required",   # decorator factory, takes a permission key
+    "has_permission",        # key -> bool
+    "user_entity",           # the signed-in user's hospital code, or None for central
+    "can_access_entity",     # code -> bool
+    "log_activity",          # (entity_type, entity_id, action, details)
+)
+
 # The brief §8 lists five roles. They are permission keys here, not new roles:
 # eFinance already has roles, a role_permissions table and a user-administration
 # screen, so a second set would be two places to get wrong. Add these to eFinance's
@@ -3353,9 +3366,19 @@ def register(app, ctx):
     login_required = ctx["login_required"]
     permission_required = ctx["permission_required"]
 
+    # Everything the templates need from a host, defaulted so the module can be hosted
+    # by anything that supplies ctx. setdefault throughout: eFinance already provides
+    # t() and has_permission(), and its versions must win — a module must not quietly
+    # replace its host's translation function.
+    #
     # Money is formatted in one place, in the Greek convention, so no template can
     # invent its own and no total can print differently from the PDF.
     app.jinja_env.filters.setdefault("eur", format_eur)
+    # No translation table outside eFinance: the Greek is the key, so returning it
+    # unchanged is the correct identity rather than a stub.
+    app.jinja_env.globals.setdefault("t", lambda text: text)
+    if ctx.get("has_permission") is not None:
+        app.jinja_env.globals.setdefault("has_permission", ctx["has_permission"])
 
     def user_id():
         return session.get("user_id")

@@ -1,0 +1,10 @@
+code,name_el,type,sort_order
+NGH,Γενικό Νοσοκομείο Λευκωσίας,hospital,1
+LGH,Γενικό Νοσοκομείο Λεμεσού,hospital,2
+LAR,Γενικό Νοσοκομείο Λάρνακας,hospital,3
+PAP,Γενικό Νοσοκομείο Πάφου,hospital,4
+FAM,Γενικό Νοσοκομείο Αμμοχώστου,hospital,5
+ARC,Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ,hospital,6
+CHR,Νοσοκομείο Πόλεως Χρυσοχούς,hospital,7
+TRD,Νοσοκομείο Τροόδους,hospital,8
+HQ,Κεντρικά Γραφεία,central,9

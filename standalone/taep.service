@@ -1,0 +1,33 @@
+# /etc/systemd/system/taep.service
+#
+# One worker, not four. SQLite takes one writer at a time, and the costing-number
+# allocator reads the last number inside the statement that writes the next one; a
+# second worker would be a second writer queueing on the same file. Raise the count
+# only together with moving to a server database.
+[Unit]
+Description=Κοστολόγηση ΤΑΕΠ (standalone)
+After=network.target
+
+[Service]
+Type=simple
+User=taep
+Group=taep
+WorkingDirectory=/opt/taep
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/gunicorn --workers 1 --threads 4 --timeout 120 \
+          --bind 127.0.0.1:5055 \
+          --access-logfile /var/log/taep/access.log \
+          --error-logfile /var/log/taep/error.log \
+          "host:create_app()"
+Restart=on-failure
+RestartSec=5
+
+# The service needs its own directory and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/taep /var/log/taep
+
+[Install]
+WantedBy=multi-user.target

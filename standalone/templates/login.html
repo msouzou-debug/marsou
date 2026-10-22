@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Σύνδεση{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-4">
+    <div class="card mt-5">
+      <div class="card-body p-4">
+        <h5 class="mb-3">Σύνδεση</h5>
+        <form method="post">
+          <label class="form-label" for="username">Όνομα χρήστη</label>
+          <input id="username" name="username" class="form-control mb-3" required autofocus>
+          <label class="form-label" for="password">Κωδικός πρόσβασης</label>
+          <input id="password" name="password" type="password" class="form-control mb-3" required>
+          <button class="btn btn-brand w-100" type="submit">Σύνδεση</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
