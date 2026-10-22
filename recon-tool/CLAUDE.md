@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.17**.
+   Current version: **v3.18**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -485,6 +485,10 @@ Expected values:
    key at all, or when the ticked keys have different headers, ≥3 distinct
    values each and <5 % overlap (identically named key columns are taken as
    deliberate — tiny fixtures with 'Key' on both sides stay keyed). The
+   switch also UNTICKS the guessed keys on both sides (v3.18): a key kept
+   in no-key mode folds lines per value, and 'Document Number' netted the
+   31/08 VISA gross with its fee on 1021 — harmless there, but a document
+   shared by a day's JCC lines would hide them from the line pass. The
    JCC/POS + day-batch pass is ON by default. Exact batches (`batch`) and
    exact multi-line card groups (`pos`, not `one`, diff 0) are
    PRE-TICKED (`accepted:true` at the end of runRecon) — they leave the
