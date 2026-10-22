@@ -89,7 +89,7 @@ def bare(seeded, tmp_path):
 
 def test_the_module_registers_against_a_bare_flask_app(bare):
     paths = {str(rule) for rule in bare.url_map.iter_rules()}
-    assert len([p for p in paths if p.startswith("/taep")]) == 25
+    assert len([p for p in paths if p.startswith("/taep")]) == 26
 
 
 @pytest.mark.parametrize("path", GET_SCREENS)

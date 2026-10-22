@@ -99,7 +99,6 @@ def make_app(ctx, directory):
     # source. Identity here: the harness has no translation table, and the module's
     # templates must render under the same contract they will meet in production.
     app.jinja_env.globals["t"] = lambda s: s
-    app.jinja_env.globals["has_permission"] = lambda key: True
     app.jinja_loader.searchpath.append(str(base))
 
     granted = set()
@@ -130,6 +129,13 @@ def make_app(ctx, directory):
     ctx["permission_required"] = permission_required
     ctx["has_permission"] = has_permission
     ctx["granted_permissions"] = granted
+
+    # The same check the templates get. It used to be `lambda key: True`, which made
+    # every permission-gated block in a template permanently visible and therefore
+    # untestable — the cancel and delete boxes passed a test that could not have
+    # failed. eFinance's base.html calls the real one, so the harness does too. With
+    # `granted` empty it still answers True for everything, so nothing else moves.
+    app.jinja_env.globals["has_permission"] = has_permission
 
     taep.register(app, ctx)
     app.ctx = ctx

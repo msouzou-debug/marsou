@@ -96,15 +96,56 @@
                    'FINALISED': 'success', 'CANCELLED': 'danger'} %}
     <span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
       {{ episode.status }}</span>
-    {% if episode.status in ('DRAFT', 'CALCULATED') and has_permission('taep.create') %}
+    {% if episode.revision and episode.revision > 1 %}
+      <span class="badge bg-warning text-dark">
+        {{ t('Αναθεώρηση') }} {{ episode.revision }}</span>
+    {% endif %}
+    {# Every status but CANCELLED is editable now (Μονάδα 22/10/2026), and only by the
+       clerk who entered it or an administrator (Γιώτα, same day). A finalised costing
+       keeps its number and is recomputed. #}
+    {% if episode.status != 'CANCELLED' and has_permission('taep.create') and may_edit %}
     <a href="{{ url_for('taep_edit', episode_id=episode.id) }}"
        class="btn btn-outline-primary btn-action">
-      <i class="bi bi-pencil-square"></i> {{ t('Διόρθωση στοιχείων') }}</a>
+      <i class="bi bi-pencil-square"></i>
+      {{ t('Αναθεώρηση κοστολόγησης') if episode.status == 'FINALISED'
+         else t('Διόρθωση στοιχείων') }}</a>
     {% endif %}
     <a href="/taep/list" class="btn btn-outline-secondary btn-action">
       <i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</a>
   </div>
 </div>
+
+{% if revisions %}
+{# What this costing said before. The patient may be holding one of these. #}
+<div class="card mb-3" id="revisions">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-clock-history text-warning"></i>
+    <span>{{ t('Προηγούμενες εκδόσεις') }}</span>
+  </div>
+  <div class="card-body py-2">
+    <table class="table table-sm mb-0" style="font-size:0.82rem">
+      <thead><tr>
+        <th>{{ t('Αρ. έκδοσης') }}</th>
+        <th>{{ t('Κατηγοριοποίηση') }}</th>
+        <th class="text-end">{{ t('Τελικό Κόστος') }} €</th>
+        <th>{{ t('Αντικαταστάθηκε') }}</th>
+        <th>{{ t('Αιτιολογία αλλαγής') }}</th>
+      </tr></thead>
+      <tbody>
+        {% for row in revisions %}
+        <tr>
+          <td>{{ row.revision }}</td>
+          <td>{{ row.band_label_el or '—' }}</td>
+          <td class="number text-end">{{ row.total_cost | eur }}</td>
+          <td class="text-muted">{{ row.superseded_at }}</td>
+          <td class="text-muted">{{ row.reason_el or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 <div class="card mb-3">
   <div class="card-body py-2" style="font-size:0.88rem">
@@ -333,7 +374,8 @@
             <i class="bi bi-exclamation-triangle"></i>
             {{ t('Η προκαταβολή δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.') }}
             {{ deposit.amount | eur }} €
-            {% if has_permission('taep.create') and episode.status != 'CANCELLED' %}
+            {% if has_permission('taep.create') and may_edit
+                  and episode.status != 'CANCELLED' %}
               <a href="{{ url_for('taep_edit', episode_id=episode.id) }}"
                  class="alert-link">{{ t('Επιβεβαίωση στη διόρθωση') }}</a>
             {% endif %}
@@ -391,6 +433,52 @@
         {% endif %}
       </div>
     </div>
+
+    {# Cancellation and deletion. Both routes existed with no screen behind them, so
+       neither could be reached. Each needs a written reason, which is the only record
+       of why a priced costing stopped counting. #}
+    {% if (episode.status != 'CANCELLED' and has_permission('taep.cancel'))
+          or has_permission('taep.admin') %}
+    <div class="card mt-3" id="withdraw">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-octagon text-danger"></i>
+        <span>{{ t('Ακύρωση ή διαγραφή') }}</span>
+      </div>
+      <div class="card-body">
+        {% if episode.status != 'CANCELLED' and has_permission('taep.cancel') %}
+        <form method="post"
+              action="{{ url_for('taep_cancel', episode_id=episode.id) }}"
+              class="mb-3">
+          <label class="form-label" for="cancel_reason" style="font-size:0.82rem">
+            {{ t('Αιτιολογία ακύρωσης') }}</label>
+          <div class="input-group input-group-sm">
+            <input id="cancel_reason" name="reason" class="form-control" required>
+            <button class="btn btn-outline-danger" type="submit">
+              {{ t('Ακύρωση') }}</button>
+          </div>
+          <div class="form-text">
+            {{ t('Ο αριθμός κοστολόγησης διατηρείται και δεν επανεκδίδεται.') }}</div>
+        </form>
+        {% endif %}
+
+        {% if has_permission('taep.admin') %}
+        <form method="post"
+              action="{{ url_for('taep_delete', episode_id=episode.id) }}"
+              onsubmit="return confirm('{{ t('Η διαγραφή είναι οριστική. Συνέχεια;') }}');">
+          <label class="form-label" for="delete_reason" style="font-size:0.82rem">
+            {{ t('Αιτιολογία διαγραφής') }}</label>
+          <div class="input-group input-group-sm">
+            <input id="delete_reason" name="reason" class="form-control" required>
+            <button class="btn btn-danger" type="submit">
+              {{ t('Διαγραφή') }}</button>
+          </div>
+          <div class="form-text">
+            {{ t('Μόνο για εξαιρετικές περιπτώσεις, όπως διπλός αριθμός επεισοδίου. Ο αριθμός κοστολόγησης παραμένει στο μητρώο ως άκυρος.') }}</div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
 </div>

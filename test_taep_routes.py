@@ -825,16 +825,46 @@ def test_correcting_a_calculated_episode_throws_the_price_away(client, app):
         (episode_id,), fetch=True) == []
 
 
-def test_a_finalised_episode_cannot_be_edited(client, app):
-    """Brief §10: it is cancelled and re-entered, never quietly changed."""
-    episode_id = finalised(client, app)
-    page = client.get("/taep/%d/edit" % episode_id,
-                      follow_redirects=True).get_data(as_text=True)
-    assert "δεν τροποποιείται" in page
+def test_a_finalised_episode_is_revised_in_place_keeping_its_number(client, app):
+    """The brief said cancel and re-enter. The Μονάδα reversed that on 22/10/2026:
+    "επεξεργασίας όλων των δεδομένων του ασθενούς, ανεξαρτήτως της κατάστασης".
 
-    client.post("/taep/%d/edit" % episode_id, data=dict(form_fields(app.ctx),
-                                                        phone="99999999"))
-    assert taep.get_episode(app.ctx, episode_id)["phone"] != "99999999"
+    So a correction keeps the number, recomputes, stays FINALISED, and records what it
+    used to say. The patient is holding the old document; the revision counter on the
+    reprint is what tells the two apart.
+    """
+    episode_id = finalised(client, app)
+    before = taep.get_episode(app.ctx, episode_id)
+    assert before["status"] == "FINALISED"
+    number = before["costing_number"]
+    old_total = taep.money_from_db(
+        taep.get_calculation(app.ctx, episode_id)["total_cost"])
+
+    free_category = app.ctx["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='609'",
+        fetch=True)[0]["id"]
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), phone="99999999",
+        financial_category_id=str(free_category),
+        revision_reason="Λάθος οικονομική κατηγορία στην καταχώρηση"))
+    assert response.status_code == 302
+
+    after = taep.get_episode(app.ctx, episode_id)
+    assert after["phone"] == "99999999"
+    assert after["status"] == "FINALISED"
+    assert after["costing_number"] == number        # never reissued, never moved
+    assert taep._as_int(after["revision"]) == 2
+
+    # The superseded figures are the only record of what the patient was told.
+    revisions = taep.episode_revisions(app.ctx, episode_id)
+    assert len(revisions) == 1
+    assert taep.money_from_db(revisions[0]["total_cost"]) == old_total
+    assert revisions[0]["reason_el"].startswith("Λάθος οικονομική")
+
+    # And the reprint says which document it is.
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "Αναθεώρηση 2" in text
+    assert number in text
 
 
 def test_another_hospitals_episode_cannot_be_edited(client, app):
@@ -1147,3 +1177,155 @@ def test_a_receipt_number_without_the_tick_is_refused(client, app):
     assert "χωρίς να επιβεβαιωθεί η είσπραξη" in response.get_data(as_text=True)
     assert app.ctx["db_execute"](
         "SELECT id FROM taep_episode", fetch=True) == []
+
+
+# ---------------------------------------------------------------------------
+# Whose costing is it (Γιώτα 22/10/2026)
+# ---------------------------------------------------------------------------
+
+CLERK_KEYS = {"taep.view", "taep.create", "taep.finalise", "taep.cancel"}
+
+
+def someone_elses_episode(app, **overrides):
+    """An episode created by user 2. The test client is user 1."""
+    category = app.ctx["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='624'",
+        fetch=True)[0]["id"]
+    fields = {field: None for field in taep.EPISODE_FIELDS}
+    fields.update({"id_number": "5550000", "last_name": "Αλλουνού",
+                   "episode_number": "E-OTHER",
+                   "examination_at": YESTERDAY,
+                   "financial_category_id": category})
+    fields.update(overrides)
+    return taep.save_episode(app.ctx, fields, entity_code="NGH",
+                             unit_code="NGH-ADULT", user_id=2)
+
+
+def test_a_clerk_cannot_edit_a_colleagues_costing(client, app):
+    """Γιώτα: "Μόνο για κοστολογήσεις που έχουν γίνει από τον ίδιο.\""""
+    app.ctx["granted_permissions"].update(CLERK_KEYS)
+    episode_id = someone_elses_episode(app)
+
+    page = client.get("/taep/%d/edit" % episode_id,
+                      follow_redirects=True).get_data(as_text=True)
+    assert "καταχωρήθηκε από άλλον χρήστη" in page
+
+    client.post("/taep/%d/edit" % episode_id,
+                data=dict(form_fields(app.ctx), phone="99999999"))
+    assert taep.get_episode(app.ctx, episode_id)["phone"] != "99999999"
+
+
+def test_a_clerk_can_still_read_a_colleagues_costing(client, app):
+    """Editing is personal; reading is the hospital's. A colleague has to be able to
+    answer a patient standing at the desk."""
+    app.ctx["granted_permissions"].update(CLERK_KEYS)
+    episode_id = someone_elses_episode(app)
+    # The list shows the patient and the costing number, not the episode number.
+    assert "Αλλουνού" in client.get("/taep/list").get_data(as_text=True)
+    assert client.get("/taep/%d" % episode_id).status_code == 200
+
+
+def test_an_administrator_may_edit_anyones(client, app):
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    episode_id = someone_elses_episode(app)
+    response = client.post("/taep/%d/edit" % episode_id,
+                           data=dict(form_fields(app.ctx), phone="99999999"))
+    assert response.status_code == 302
+    assert taep.get_episode(app.ctx, episode_id)["phone"] == "99999999"
+
+
+# ---------------------------------------------------------------------------
+# Deletion, and the number that outlives it
+# ---------------------------------------------------------------------------
+
+def test_only_an_administrator_deletes(client, app):
+    app.ctx["granted_permissions"].update(CLERK_KEYS)
+    episode_id = create(client, app)
+    assert client.post("/taep/%d/delete" % episode_id,
+                       data={"reason": "x"}).status_code == 403
+    assert taep.get_episode(app.ctx, episode_id) is not None
+
+
+def test_deleting_needs_a_reason(client, app):
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    episode_id = create(client, app)
+    client.post("/taep/%d/delete" % episode_id, data={"reason": "  "})
+    assert taep.get_episode(app.ctx, episode_id) is not None
+
+
+def test_a_deleted_costing_leaves_its_number_behind_and_the_series_moves_on(client, app):
+    """The case Γιώτα names is a duplicated episode number, which cancellation cannot
+    free — the UNIQUE key does not care about status.
+
+    The ledger row stays, marked void. The next costing gets 0002, not 0001: a number
+    is never reissued, so the gap is the point rather than a defect.
+    """
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    first = finalised(client, app)
+    number = taep.get_episode(app.ctx, first)["costing_number"]
+    assert number == "OKY1054/0001"
+
+    response = client.post("/taep/%d/delete" % first,
+                           data={"reason": "Διπλή καταχώρηση επεισοδίου E-1001"})
+    assert response.status_code == 302
+    assert taep.get_episode(app.ctx, first) is None
+
+    ledger = app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_number WHERE costing_number=%s",
+        (number,), fetch=True)
+    assert len(ledger) == 1
+    assert ledger[0]["voided_at"] is not None
+    assert ledger[0]["episode_id"] is None
+
+    # The episode number is free again, which is what the deletion was for.
+    second = finalised(client, app, episode_number="E-1001")
+    assert taep.get_episode(app.ctx, second)["costing_number"] == "OKY1054/0002"
+
+
+def test_deleting_takes_the_children_with_it(client, app):
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id)
+    client.post("/taep/%d/finalise" % episode_id)
+
+    client.post("/taep/%d/delete" % episode_id, data={"reason": "λάθος καταχώρηση"})
+    for table in ("taep_episode_service", "taep_costing_result",
+                  "taep_episode_tariff_line", "taep_parallel_check"):
+        assert app.ctx["db_execute"](
+            "SELECT * FROM %s WHERE episode_id=%%s" % table,
+            (episode_id,), fetch=True) == [], table
+
+
+def test_the_cancel_and_delete_boxes_follow_the_permission(client, app):
+    """Both routes existed with no screen behind them, so neither could be reached."""
+    app.ctx["granted_permissions"].update({"taep.view", "taep.create"})
+    episode_id = create(client, app)
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert 'id="withdraw"' not in page
+
+    app.ctx["granted_permissions"].add("taep.cancel")
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert 'id="withdraw"' in page
+    assert "Αιτιολογία ακύρωσης" in page
+    assert "Αιτιολογία διαγραφής" not in page
+
+    app.ctx["granted_permissions"].add("taep.admin")
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert "Αιτιολογία διαγραφής" in page
+
+
+def test_the_previous_versions_appear_only_after_a_revision(client, app):
+    episode_id = finalised(client, app)
+    assert 'id="revisions"' not in client.get(
+        "/taep/%d" % episode_id).get_data(as_text=True)
+
+    client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), phone="99888777",
+        revision_reason="Λάθος τηλέφωνο"))
+
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert 'id="revisions"' in page
+    assert "Λάθος τηλέφωνο" in page
+    assert "Αναθεώρηση" in page

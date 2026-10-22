@@ -12,10 +12,19 @@ The sqlite3 command line tool is not installed on 10.227.56.22; python3 is, beca
 eFinance runs on it.
 """
 import os
+import re
 import sqlite3
 import sys
+from pathlib import Path
 
-EXPECTED = 15     # SCHEMA_STATEMENTS as of 22/10/2026, parallel run included
+# Read off the schema rather than typed, so adding a table does not leave this script
+# warning about a count that is correct.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import taep                                                            # noqa: E402
+
+EXPECTED = len(re.findall(r"CREATE TABLE IF NOT EXISTS taep_\w+",
+                          " ".join(taep.SCHEMA_STATEMENTS)))
 
 
 def main(argv):

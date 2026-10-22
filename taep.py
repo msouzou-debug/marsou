@@ -1615,6 +1615,94 @@ def get_episode(ctx, episode_id):
     return rows[0] if rows else None
 
 
+REVISION_FIELDS = ("financial_category_id", "weight", "band_label_el", "weight_cost",
+                   "tariff_total", "registration_fee_applied", "registration_deposit",
+                   "total_cost", "algorithm_version", "input_hash")
+
+
+def revise_finalised_episode(ctx, episode_id, data, user_id, reason_el=""):
+    """Correct a FINALISED costing in place, keeping its number. Returns the new result.
+
+    Μονάδα Ελέγχου Εσόδων, 22/10/2026: "Ο χρήστης θα πρέπει να έχει τη δυνατότητα
+    επεξεργασίας όλων των δεδομένων του ασθενούς, ανεξαρτήτως της κατάστασης στην οποία
+    βρίσκεται το περιστατικό." The brief said a finalised costing is cancelled and
+    re-entered; this supersedes that.
+
+    I put the obvious objection to them first: the financial category decides the price,
+    the number is already issued and the patient is holding a document that says the old
+    figure. Their answer was to allow the edit anyway, so the question becomes what
+    happens to the price, and they chose: recompute, keep the number, and keep what it
+    used to say.
+
+    So:
+      * the superseded figures are copied into taep_costing_revision before anything
+        changes, which is the only record of what the patient was told;
+      * the costing number does not move — it is never reissued, and a corrected costing
+        is the same costing;
+      * the revision counter goes up, so the reprint is visibly not the document the
+        patient already has;
+      * the status stays FINALISED. A correction is not an un-finalisation.
+
+    A recalculation that fails leaves the stored result alone: the new one is computed
+    before the old one is touched.
+    """
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    if episode["status"] != "FINALISED":
+        raise CostingError("NOT_FINALISED",
+                           "Η αναθεώρηση αφορά μόνο οριστικοποιημένες κοστολογήσεις.")
+
+    category = get_category(ctx, data.get("financial_category_id"))
+    if category is None or not _as_int(category["valid_for_ae"]):
+        raise CostingError("CATEGORY_NOT_VALID_AT_AE",
+                           "Η οικονομική κατηγορία δεν ισχύει στα ΤΑΕΠ.")
+
+    previous = get_calculation(ctx, episode_id)
+    revision = _as_int(episode["revision"]) or 1
+
+    # Write the episode first, then price it: price_episode reads the stored episode, so
+    # the new figures have to be computed from the corrected record, not the old one.
+    # If pricing then fails, the raise leaves the old result row in place and the caller
+    # sees the error — the record is inconsistent for the length of one request, which is
+    # the price of a db layer that commits per call.
+    assignments = ", ".join(f"{field}=%s" for field in EPISODE_FIELDS)
+    db(f"""UPDATE taep_episode SET {assignments}, financial_category_id=%s,
+           revision=%s, revised_at=%s, updated_by=%s, updated_at=%s
+           WHERE id=%s""",
+       tuple(data.get(field) for field in EPISODE_FIELDS)
+       + (data["financial_category_id"], revision + 1, now, user_id, now, episode_id))
+
+    result = price_episode(ctx, episode_id, tariff_lines_for_episode(ctx, episode_id))
+
+    if previous is not None:
+        columns = ["episode_id", "revision"] + list(REVISION_FIELDS) + \
+            ["reason_el", "superseded_by", "superseded_at"]
+        values = [episode_id, revision] + \
+            [previous.get(field) for field in REVISION_FIELDS] + \
+            [(reason_el or "").strip() or None, user_id, now]
+        db("INSERT INTO taep_costing_revision (%s) VALUES (%s)"
+           % (", ".join(columns), ", ".join(["%s"] * len(columns))), tuple(values))
+        db("DELETE FROM taep_costing_result WHERE episode_id=%s", (episode_id,))
+
+    store_calculation(ctx, episode_id, result, user_id)
+    ctx["log_activity"](
+        "taep_episode", episode_id, "REVISED",
+        "Αναθεώρηση %d → %d, αριθμός %s, σύνολο %s → %s"
+        % (revision, revision + 1, episode["costing_number"],
+           previous["total_cost"] if previous else "—", result.total_cost))
+    return result
+
+
+def episode_revisions(ctx, episode_id):
+    return ctx["db_execute"](
+        "SELECT * FROM taep_costing_revision WHERE episode_id=%s ORDER BY revision",
+        (episode_id,), fetch=True) or []
+
+
 def set_episode_services(ctx, episode_id, codes, user_id):
     """Replace the selected services. Any stored calculation becomes invalid.
 
@@ -1741,6 +1829,51 @@ def cancel_episode(ctx, episode_id, reason, user_id):
            cancelled_at=%s, cancellation_reason=%s WHERE id=%s""",
         (user_id, now, reason.strip(), episode_id))
     ctx["log_activity"]("taep_episode", episode_id, "CANCELLED", reason.strip())
+
+
+def delete_episode(ctx, episode_id, reason, user_id):
+    """Delete a costing outright. Administrator only, and the number ledger survives it.
+
+    Γιώτα, 22/10/2026: "Διαγράφει κοστολογήσεις (σε εξαιρετικά σπάνια περιπτώσεις που
+    αυτό είναι απαραίτητο — όπως ίδιος αριθμός επεισοδίου ο οποίος είναι μοναδικός αλλά
+    μπορεί ένας άλλος χρήστης να έκανε λάθος κατά την καταχώρηση του)." A duplicate
+    episode number is the case, and cancellation does not free it, because the UNIQUE
+    key is on (entity_code, episode_number) regardless of status.
+
+    The row in taep_costing_number stays and is marked voided. That is not squeamishness
+    about deleting: the sequence is gapless and a number is never reissued, so the ledger
+    has to outlive the episode or the next allocation would hand out a number a patient
+    is already holding a document for.
+
+    Cancellation remains the normal route. This is for a record that should not exist.
+    """
+    if not (reason or "").strip():
+        raise CostingError("NO_DELETION_REASON",
+                           "Η αιτιολογία διαγραφής είναι υποχρεωτική.")
+    db = ctx["db_execute"]
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+
+    now = dt.datetime.now()
+    number = episode["costing_number"]
+    # Logged before the row is gone, so the audit trail still names what was deleted.
+    ctx["log_activity"](
+        "taep_episode", episode_id, "DELETED",
+        "Διαγραφή καταχώρησης %s (επεισόδιο %s, αριθμός %s, κατάσταση %s): %s"
+        % (episode_id, episode["episode_number"], number or "—", episode["status"],
+           reason.strip()))
+
+    if number:
+        db("""UPDATE taep_costing_number SET voided_at=%s, voided_by=%s, episode_id=NULL
+              WHERE episode_id=%s""", (now, user_id, episode_id))
+
+    for table in ("taep_parallel_check", "taep_settlement", "taep_costing_result",
+                  "taep_episode_tariff_line", "taep_episode_service",
+                  "taep_costing_revision"):
+        db(f"DELETE FROM {table} WHERE episode_id=%s", (episode_id,))
+    db("DELETE FROM taep_episode WHERE id=%s", (episode_id,))
+    return number
 
 
 def assert_finalisable(result):
@@ -2065,8 +2198,14 @@ def render_costing_pdf(ctx, episode_id):
     def footer(page):
         pdf.setFont(font, 7)
         pdf.line(left, 16 * mm, right, 16 * mm)
+        # The revision is in the footer on every page, because a corrected costing keeps
+        # its number: without it, two documents saying different totals carry the same
+        # identifier and nobody can tell which one is current.
+        revision = _as_int(episode["revision"]) or 1
+        stamp = ("Αναθεώρηση %d · " % revision) if revision > 1 else ""
         pdf.drawString(left, 12 * mm,
                        f"Αρ. Κοστολόγησης {episode['costing_number'] or '—'} · "
+                       f"{stamp}"
                        f"Δημιουργήθηκε {_format_datetime(result['calculated_at'])} · "
                        f"Αλγόριθμος {result['algorithm_version']}")
         pdf.drawRightString(right, 12 * mm, f"Σελίδα {page}")
@@ -3254,6 +3393,61 @@ def _form_to_episode(form):
     return data
 
 
+def _tariff_line(ctx, code, cpt=None, quantity="1", hours="", consumables="",
+                 note=None):
+    """One TariffLine, priced from the master rows rather than from what was posted.
+
+    Shared by the form and by the rebuild of stored lines, so a revision of a finalised
+    costing is priced by exactly the code that priced it the first time. The amounts
+    always come from taep_tariff and taep_radiology_tariff — never from the request.
+    """
+    db = ctx["db_execute"]
+    code = (code or "").strip()
+    rows = db("""SELECT code, description_el, price_type, base_amount, hourly_amount
+                 FROM taep_tariff WHERE code=%s AND active=1""", (code,), fetch=True)
+    if not rows:
+        raise CostingError("UNKNOWN_TARIFF",
+                           f"Ο κωδικός τιμοκαταλόγου «{code}» δεν βρέθηκε.")
+    tariff = rows[0]
+
+    cpt = (cpt or "").strip() or None
+    cpt_price = None
+    if cpt:
+        cpt_rows = db("""SELECT price_eur FROM taep_radiology_tariff
+                         WHERE cpt_code=%s AND active=1""", (cpt,), fetch=True)
+        if not cpt_rows:
+            raise CostingError("UNKNOWN_CPT",
+                               f"Ο κωδικός CPT «{cpt}» δεν βρέθηκε.")
+        cpt_price = money_from_db(cpt_rows[0]["price_eur"])
+
+    quantity_raw = str(quantity or "1").strip()
+    hours_raw = str(hours or "").strip()
+    consumables_raw = str(consumables or "").strip()
+
+    return TariffLine(
+        tariff_code=tariff["code"],
+        description=tariff["description_el"],
+        price_type=tariff["price_type"],
+        base_amount=money_from_db(tariff["base_amount"]) or Decimal("0.00"),
+        hourly_amount=money_from_db(tariff["hourly_amount"]),
+        quantity=int(quantity_raw) if quantity_raw.isdigit() else 0,
+        hours=Decimal(hours_raw) if hours_raw else None,
+        consumables_amount=Decimal(consumables_raw) if consumables_raw else None,
+        consumables_note=(note or None) or None,
+        radiology_cpt=cpt,
+        radiology_price=cpt_price,
+    )
+
+
+def tariff_lines_for_episode(ctx, episode_id):
+    """Rebuild the stored tariff lines, for a recalculation that has no form behind it."""
+    return [_tariff_line(ctx, row["tariff_code"], row["radiology_cpt"],
+                         row["quantity"], row["hours"], row["consumables_amount"],
+                         row["consumables_note"])
+            for row in get_episode_tariff_lines(ctx, episode_id)
+            if row["tariff_code"]]
+
+
 def _tariff_lines_from_form(ctx, form):
     """Build TariffLine objects from the posted tariff rows."""
     db = ctx["db_execute"]
@@ -3269,44 +3463,10 @@ def _tariff_lines_from_form(ctx, form):
         return values[i] if i < len(values) else default
 
     for i, code in enumerate(codes):
-        code = (code or "").strip()
-        if not code:
+        if not (code or "").strip():
             continue
-        rows = db("""SELECT code, description_el, price_type, base_amount, hourly_amount
-                     FROM taep_tariff WHERE code=%s AND active=1""",
-                  (code,), fetch=True)
-        if not rows:
-            raise CostingError("UNKNOWN_TARIFF",
-                               f"Ο κωδικός τιμοκαταλόγου «{code}» δεν βρέθηκε.")
-        tariff = rows[0]
-
-        cpt = (at(cpts, i) or "").strip() or None
-        cpt_price = None
-        if cpt:
-            cpt_rows = db("""SELECT price_eur FROM taep_radiology_tariff
-                             WHERE cpt_code=%s AND active=1""", (cpt,), fetch=True)
-            if not cpt_rows:
-                raise CostingError("UNKNOWN_CPT",
-                                   f"Ο κωδικός CPT «{cpt}» δεν βρέθηκε.")
-            cpt_price = money_from_db(cpt_rows[0]["price_eur"])
-
-        quantity_raw = (at(quantities, i) or "1").strip()
-        hours_raw = (at(hours, i) or "").strip()
-        consumables_raw = (at(consumables, i) or "").strip()
-
-        lines.append(TariffLine(
-            tariff_code=tariff["code"],
-            description=tariff["description_el"],
-            price_type=tariff["price_type"],
-            base_amount=money_from_db(tariff["base_amount"]) or Decimal("0.00"),
-            hourly_amount=money_from_db(tariff["hourly_amount"]),
-            quantity=int(quantity_raw) if quantity_raw.isdigit() else 0,
-            hours=Decimal(hours_raw) if hours_raw else None,
-            consumables_amount=Decimal(consumables_raw) if consumables_raw else None,
-            consumables_note=at(notes, i) or None,
-            radiology_cpt=cpt,
-            radiology_price=cpt_price,
-        ))
+        lines.append(_tariff_line(ctx, code, at(cpts, i), at(quantities, i, "1"),
+                                  at(hours, i), at(consumables, i), at(notes, i)))
     return lines
 
 
@@ -3581,6 +3741,7 @@ def register(app, ctx):
     db = ctx["db_execute"]
     login_required = ctx["login_required"]
     permission_required = ctx["permission_required"]
+    has_permission = ctx.get("has_permission")
 
     # Everything the templates need from a host, defaulted so the module can be hosted
     # by anything that supplies ctx. setdefault throughout: eFinance already provides
@@ -3605,6 +3766,17 @@ def register(app, ctx):
             abort(403)
         return entity
 
+    def may_edit(episode):
+        """Γιώτα, 22/10/2026: a ΤΑΕΠ user may edit every field, "μόνο για κοστολογήσεις
+        που έχουν γίνει από τον ίδιο". An administrator may edit any of them.
+
+        Viewing is not narrowed by this: the list stays the hospital's, so a colleague
+        can answer a patient at the desk. Only changing a figure is personal.
+        """
+        if has_permission is not None and has_permission(PERMISSIONS["admin"]):
+            return True
+        return episode["created_by"] == user_id()
+
     def permission_any(*keys):
         """Accept any one of several permissions.
 
@@ -3614,8 +3786,6 @@ def register(app, ctx):
         redirecting them into a loop.
         """
         from functools import wraps
-
-        has_permission = ctx.get("has_permission")
 
         def decorator(view):
             @wraps(view)
@@ -3743,7 +3913,9 @@ def register(app, ctx):
             tariff_catalogue=list_tariff_catalogue(ctx),
             radiology=list_radiology_tariff(ctx),
             tariff_lines=get_episode_tariff_lines(ctx, episode_id),
-            deposit=deposit_state(episode, stored))
+            deposit=deposit_state(episode, stored),
+            revisions=episode_revisions(ctx, episode_id),
+            may_edit=may_edit(episode))
 
     @app.route("/taep/<int:episode_id>/services", methods=["POST"])
     @login_required
@@ -3850,9 +4022,14 @@ def register(app, ctx):
         categories = list_ae_categories(ctx)
         countries = list_countries(ctx)
 
-        if episode["status"] not in EDITABLE_STATUSES:
-            flash(f"Η καταχώρηση είναι «{episode['status']}» και δεν τροποποιείται. "
-                  f"Ακυρώστε την και καταχωρήστε νέα.", "warning")
+        if not may_edit(episode):
+            # Γιώτα 22/10/2026: own costings only, unless administrator.
+            flash("Η κοστολόγηση καταχωρήθηκε από άλλον χρήστη. Η διόρθωση γίνεται "
+                  "από εκείνον ή από διαχειριστή.", "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+
+        if episode["status"] == "CANCELLED":
+            flash("Η καταχώρηση είναι ακυρωμένη και δεν τροποποιείται.", "warning")
             return redirect(url_for("taep_costing", episode_id=episode_id))
 
         if request.method == "POST":
@@ -3878,9 +4055,16 @@ def register(app, ctx):
                                        units=units, countries=countries, entity=entity,
                                        form=request.form, episode=episode)
 
+            finalised = episode["status"] == "FINALISED"
             try:
-                save_episode(ctx, data, entity, unit_code, user_id(),
-                             episode_id=episode_id)
+                if finalised:
+                    # Keeps the number, supersedes the figures, stays FINALISED.
+                    result = revise_finalised_episode(
+                        ctx, episode_id, data, user_id(),
+                        reason_el=request.form.get("revision_reason") or "")
+                else:
+                    save_episode(ctx, data, entity, unit_code, user_id(),
+                                 episode_id=episode_id)
             except CostingError as exc:
                 flash(exc.message_el, "danger")
                 return render_template("taep_new.html", categories=categories,
@@ -3889,8 +4073,15 @@ def register(app, ctx):
 
             for message in warnings:
                 flash(message, "warning")
-            flash("Τα στοιχεία ενημερώθηκαν. Ο υπολογισμός πρέπει να γίνει ξανά.",
-                  "success")
+            if finalised:
+                flash("Η κοστολόγηση αναθεωρήθηκε. Ο αριθμός %s παραμένει· το νέο "
+                      "σύνολο είναι %s €. Εκτυπώστε ξανά και δώστε το νέο έντυπο "
+                      "στον ασθενή."
+                      % (episode["costing_number"], format_eur(result.total_cost)),
+                      "warning")
+            else:
+                flash("Τα στοιχεία ενημερώθηκαν. Ο υπολογισμός πρέπει να γίνει ξανά.",
+                      "success")
             return redirect(url_for("taep_costing", episode_id=episode_id))
 
         # The stored episode fills the same form the entry screen uses.
@@ -4148,4 +4339,27 @@ def register(app, ctx):
             flash(exc.message_el, "danger")
             return redirect(url_for("taep_costing", episode_id=episode_id))
         flash("Η κοστολόγηση ακυρώθηκε. Ο αριθμός διατηρείται.", "success")
+        return redirect(url_for("taep_list"))
+
+    @app.route("/taep/<int:episode_id>/delete", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["admin"])
+    def taep_delete(episode_id):
+        """Administrator only (Γιώτα 22/10/2026). Cancellation is the normal route.
+
+        The case she names is a duplicated episode number, which cancellation cannot
+        free because the UNIQUE key does not care about status.
+        """
+        episode_or_404(episode_id)
+        try:
+            number = delete_episode(ctx, episode_id, request.form.get("reason", ""),
+                                    user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        if number:
+            flash("Η καταχώρηση διαγράφηκε. Ο αριθμός %s παραμένει στο μητρώο ως "
+                  "άκυρος και δεν επανεκδίδεται." % number, "warning")
+        else:
+            flash("Η καταχώρηση διαγράφηκε.", "success")
         return redirect(url_for("taep_list"))

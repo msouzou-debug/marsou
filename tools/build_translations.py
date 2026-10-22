@@ -140,6 +140,29 @@ EN = {
         "The deposit has not been confirmed and was not taken off.",
     "Επιβεβαίωση στη διόρθωση": "Confirm it on the correction screen",
 
+    # — revisions, cancellation and deletion (Μονάδα and Γιώτα 22/10/2026) —
+    "Αναθεώρηση": "Revision",
+    "Αναθεώρηση κοστολόγησης": "Revise the costing",
+    "Προηγούμενες εκδόσεις": "Previous versions",
+    # Not «Έκδοση» alone: in a finance system that reads as issuance, not version.
+    "Αρ. έκδοσης": "Version no.",
+    "Αντικαταστάθηκε": "Superseded",
+    # Nor «Αιτιολογία» alone: in accounting that is the narrative on a posting.
+    "Αιτιολογία αλλαγής": "Reason for the change",
+    "Ακύρωση ή διαγραφή": "Cancel or delete",
+    "Αιτιολογία ακύρωσης": "Reason for cancelling",
+    "Αιτιολογία διαγραφής": "Reason for deleting",
+    # Not «Διαγραφή» alone if it can be helped, but the button has room for one word and
+    # eFinance's dictionary should already agree with this one.
+    "Διαγραφή": "Delete",
+    "Η διαγραφή είναι οριστική. Συνέχεια;": "Deletion is permanent. Continue?",
+    "Ο αριθμός κοστολόγησης διατηρείται και δεν επανεκδίδεται.":
+        "The costing number is kept and never reissued.",
+    "Μόνο για εξαιρετικές περιπτώσεις, όπως διπλός αριθμός επεισοδίου. Ο αριθμός "
+    "κοστολόγησης παραμένει στο μητρώο ως άκυρος.":
+        "For exceptional cases only, such as a duplicated episode number. The costing "
+        "number stays in the ledger, marked void.",
+
     # — the extra-charges screen (Γιώτα 22/10/2026) —
     "Επιπλέον Χρεώσεις ΤΑΕΠ": "A&E extra charges",
     # Not «Χρέωση» alone: eFinance's dictionary is shared and a bare accounting word is
