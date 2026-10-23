@@ -151,7 +151,9 @@ sudo -u taep python3 /opt/taep/manage.py disable-user maria
 # 1. Σταματήστε το eFinance, ώστε να μην γράφεται κοστολόγηση την ώρα του αντιγράφου
 ssh administrator@10.227.56.22
 sudo systemctl stop finance.service
-sudo -u finance python3 /home/administrator/marsou/tools/sqlite_backup.py \
+# sudo, not sudo -u finance: ο χρήστης finance δεν έχει πρόσβαση στο
+# /home/administrator (δικαιώματα 700). Το αντίγραφο γράφεται στο /tmp.
+sudo python3 /home/administrator/marsou/tools/sqlite_backup.py \
      /opt/finance/finance.db /tmp/finance-snapshot.db
 sudo systemctl start finance.service
 

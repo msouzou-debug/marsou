@@ -202,14 +202,24 @@ sudo systemctl restart finance.service
 sleep 20
 sudo journalctl -u finance.service --since "-2 min" --no-pager | tail -40
 
-# 4. The table is there. python3, not sqlite3 — the CLI is NOT installed on this
-#    server (confirmed 22/10/2026), and python3 is, because eFinance runs on it.
-sudo -u finance python3 -c "import sqlite3;c=sqlite3.connect('/opt/finance/finance.db');print(sorted(r[0] for r in c.execute('select name from sqlite_master') if r[0].startswith('taep')))"
+# 4. The tables. Note `sudo`, not `sudo -u finance`: the script lives under
+#    /home/administrator, which is mode 700, so the finance user cannot read it —
+#    "[Errno 13] Permission denied" on the script, not on the database. Both this and
+#    pre_deploy_check.py open the database read-only, which is what makes running them
+#    as root harmless: a read-write open as root would leave root-owned -wal and -shm
+#    files beside finance.db and the service would then fail to write.
+sudo python3 tools/show_taep_tables.py /opt/finance/finance.db
 
-# 5. Nothing else broke
+# 5. Nothing else broke. This one IS `-u finance`, because check_readiness.py lives in
+#    /opt/finance and the finance user can read it.
 sudo -u finance env FINANCE_DB=/opt/finance/finance.db \
      python3 /opt/finance/check_readiness.py
 ```
+
+**Which user runs what.** Anything under `/home/administrator/marsou` runs as `sudo`
+(root), because `finance` has no access to that directory. Anything already installed
+under `/opt/finance` runs as `sudo -u finance`. Writing into `/opt/finance` is always
+`install -o finance -g finance`, never a root-owned copy.
 
 Then sign in as a user holding `taep.admin` and open `/taep/parallel`. On an empty
 database it should say the run is blocked on all three counts — fourteen days, every
