@@ -155,13 +155,35 @@
         <div class="col-md-6">
           <label class="form-label" for="taep_unit_code">{{ t('Μονάδα ΤΑΕΠ') }} *</label>
           {% if units %}
+            {# The hospital is not a second field. It follows from the unit, and two
+               fields could disagree while one cannot — which is the whole point, since
+               a user assigned to several hospitals used to have every episode keyed to
+               their primary one whichever desk they were at (23/10/2026). #}
+            {% set hospitals = units | map(attribute='host_entity_code') | unique | list %}
             <select id="taep_unit_code" name="taep_unit_code" class="form-select select2" required>
-              {% for unit in units %}
-                <option value="{{ unit.unit_code }}"
-                  {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
-                  {{ unit.name_el }}</option>
-              {% endfor %}
+              {% if hospitals | length > 1 %}
+                {% for hospital in hospitals %}
+                <optgroup label="{{ hospital }}">
+                  {% for unit in units if unit.host_entity_code == hospital %}
+                    <option value="{{ unit.unit_code }}"
+                      {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
+                      {{ unit.name_el }}</option>
+                  {% endfor %}
+                </optgroup>
+                {% endfor %}
+              {% else %}
+                {% for unit in units %}
+                  <option value="{{ unit.unit_code }}"
+                    {% if form.get('taep_unit_code') == unit.unit_code %}selected{% endif %}>
+                    {{ unit.name_el }}</option>
+                {% endfor %}
+              {% endif %}
             </select>
+            {% if hospitals | length > 1 %}
+            <div class="form-text">
+              {{ t('Το νοσηλευτήριο της κοστολόγησης προκύπτει από τη μονάδα που επιλέγετε.') }}
+            </div>
+            {% endif %}
           {% else %}
             {# An empty list is not a fault: the logged-in user belongs to a unit-less
                entity, typically the Κεντρικά Γραφεία. Saying so beats a blank box. #}

@@ -103,6 +103,9 @@
              style="font-size:0.86rem">
         <thead><tr>
           <th>{{ t('Αρ. Κοστολόγησης') }}</th>
+          {# Only when the list actually mixes hospitals — a clerk with one would be
+             reading the same code on every row. #}
+          {% if show_hospital %}<th>{{ t('Νοσηλευτήριο') }}</th>{% endif %}
           <th>{{ t('Ημ/νία Εξέτασης') }}</th>
           <th>{{ t('Επώνυμο') }}</th>
           <th>{{ t('Όνομα') }}</th>
@@ -120,6 +123,7 @@
             <td><a href="{{ url_for('taep_costing', episode_id=episode.id) }}"
                    class="font-monospace">
               {{ episode.costing_number or '—' }}</a></td>
+            {% if show_hospital %}<td>{{ episode.entity_code }}</td>{% endif %}
             <td>{{ episode.examination_at }}</td>
             <td>{{ episode.last_name }}</td>
             <td>{{ episode.first_name }}</td>
@@ -131,7 +135,8 @@
               {{ episode.status }}</span></td>
           </tr>
         {% else %}
-          <tr><td colspan="9" class="text-center text-muted py-4">
+          <tr><td colspan="{{ 10 if show_hospital else 9 }}"
+                  class="text-center text-muted py-4">
             {{ t('Καμία καταχώρηση.') }}</td></tr>
         {% endfor %}
         </tbody>

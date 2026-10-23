@@ -1455,6 +1455,60 @@ def unit_for_entity(ctx, entity_code, on_date=None):
     return live
 
 
+def accessible_units(ctx, on_date=None):
+    """Every live ΤΑΕΠ unit the signed-in user may record against, with its hospital.
+
+    Until 23/10/2026 the entry screen offered the units of ONE hospital — the single
+    code in `ctx["user_entity"]()` — and keyed the new episode to it. That was right
+    while every non-central user had exactly one hospital.
+
+    `yiota` moved from `tester` to `cc_manager` on 23/10. `tester` is a central role, so
+    her ten entity assignments had been dead configuration; `cc_manager` is not, so they
+    now apply. Her list showed Λευκωσία, she could open any of the ten by number, and a
+    new episode was keyed to Λευκωσία whichever hospital she was sitting in. The costing
+    number is gapless and never reissued, so an episode recorded against the wrong
+    hospital is not something anyone can quietly correct afterwards.
+
+    The set comes from the units themselves rather than a new ctx key, filtered by the
+    host's own `can_access_entity`:
+
+      * only hospitals that actually run a ΤΑΕΠ unit can host an episode, so the unit
+        table is the right universe — there is no sense in offering Κεντρικά Γραφεία;
+      * it needs nothing new from eFinance, so it works today rather than after they
+        ship something;
+      * a clerk with one hospital sees exactly what they saw before.
+
+    The hospital is not a second field on the screen. The clerk picks the unit, and the
+    entity follows from it — two fields could disagree, one cannot.
+    """
+    on_date = on_date or dt.date.today()
+    rows = ctx["db_execute"](
+        """SELECT u.unit_code, u.name_el, u.taep_number, u.host_entity_code,
+                  u.host_valid_from, u.host_valid_to
+           FROM taep_unit u WHERE u.active = 1
+           ORDER BY u.host_entity_code, u.unit_code""", fetch=True) or []
+
+    can_access = ctx["can_access_entity"]
+    live = []
+    for row in rows:
+        valid_from = _as_date(row["host_valid_from"])
+        valid_to = _as_date(row["host_valid_to"])
+        if valid_from and on_date < valid_from:
+            continue
+        if valid_to and on_date > valid_to:
+            continue
+        if not can_access(row["host_entity_code"]):
+            continue
+        live.append(row)
+    return live
+
+
+def accessible_entities(ctx, on_date=None):
+    """The hospital codes behind accessible_units(), in order, without repeats."""
+    return list(dict.fromkeys(unit["host_entity_code"]
+                              for unit in accessible_units(ctx, on_date)))
+
+
 def find_prior_episodes(ctx, id_type, id_number, entity_code=None):
     """Prior episodes for the same identification (screen 1).
 
@@ -1591,11 +1645,31 @@ def save_episode(ctx, data, entity_code, unit_code, user_id, episode_id=None):
                 "EPISODE_NOT_EDITABLE",
                 f"Η καταχώρηση είναι «{existing['status']}» και δεν μπορεί να "
                 f"τροποποιηθεί. Ακυρώστε την και καταχωρήστε νέα.")
+        # The unit, and with it the hospital, may still be corrected while no costing
+        # number has been issued. Until 23/10/2026 the UPDATE simply left both out, so
+        # changing the unit on the edit screen did nothing and said nothing — harmless
+        # while every clerk had one hospital, misleading the moment they have ten.
+        #
+        # Once a number exists the unit is fixed: the number is derived from the unit's
+        # ΟΑΥ code and is never reissued, so moving the episode would leave a Λεμεσός
+        # costing carrying a Λευκωσία number.
+        moving = unit_code and unit_code != existing["taep_unit_code"]
+        if moving and existing["costing_number"]:
+            raise CostingError(
+                "UNIT_LOCKED",
+                f"Η καταχώρηση φέρει ήδη αριθμό κοστολόγησης "
+                f"{existing['costing_number']}, που προκύπτει από τη μονάδα "
+                f"«{existing['taep_unit_code']}». Η μονάδα δεν αλλάζει πλέον.")
+
         assignments = ", ".join(f"{f}=%s" for f in EPISODE_FIELDS)
         db(f"""UPDATE taep_episode SET {assignments}, financial_category_id=%s,
+               taep_unit_code=%s, entity_code=%s,
                updated_by=%s, updated_at=%s WHERE id=%s""",
            tuple(data.get(f) for f in EPISODE_FIELDS)
-           + (data["financial_category_id"], user_id, now, episode_id))
+           + (data["financial_category_id"],
+              unit_code or existing["taep_unit_code"],
+              entity_code if moving else existing["entity_code"],
+              user_id, now, episode_id))
         # Same staleness rule as set_episode_services: the financial category decides
         # the price, so an edit after a calculation invalidates it. Deleting the row is
         # what enforces it — the screen cannot show a stale number if there is no number
@@ -3774,10 +3848,20 @@ def parallel_run_summary(rows, required_days=14, on_date=None):
 
 
 def list_episodes(ctx, entity_code, filters=None, limit=200):
-    """Screen 3, scoped to one hospital. A Limassol user never sees Nicosia episodes."""
+    """Screen 3, scoped to the hospitals the user may see.
+
+    A Λεμεσός clerk never sees a Λευκωσία episode. `entity_code` may be one code or a
+    list of them: a user assigned to several hospitals is entitled to all of them, and
+    showing only the first under-reported their own work — they could already open any
+    of the others by costing number, so the narrow list was inconsistent rather than
+    safe (reported by the eFinance session, 22–23/10/2026).
+    """
     filters = filters or {}
-    where = ["e.entity_code = %s"]
-    params = [entity_code]
+    codes = [entity_code] if isinstance(entity_code, str) else list(entity_code)
+    if not codes:
+        return []
+    where = ["e.entity_code IN (%s)" % ", ".join(["%s"] * len(codes))]
+    params = list(codes)
 
     if filters.get("date_from"):
         where.append("e.examination_at >= %s")
@@ -3798,7 +3882,7 @@ def list_episodes(ctx, entity_code, filters=None, limit=200):
     return ctx["db_execute"](
         f"""SELECT e.id, e.costing_number, e.episode_number, e.examination_at,
                    e.first_name, e.last_name, e.id_type, e.id_number, e.status,
-                   e.taep_unit_code, c.code_new AS category_code,
+                   e.taep_unit_code, e.entity_code, c.code_new AS category_code,
                    c.name_el AS category_name, r.weight, r.total_cost,
                    r.max_investigation_category, r.max_treatment_category,
                    r.band_label_el, e.created_by, e.revision,
@@ -3899,47 +3983,53 @@ def register(app, ctx):
     @permission_required(PERMISSIONS["create"])
     def taep_new():
         entity = active_entity()
-        units = unit_for_entity(ctx, entity)
+        # Every unit the user may record against, not only their primary hospital's.
+        units = accessible_units(ctx)
+        by_code = {unit["unit_code"]: unit for unit in units}
         categories = list_ae_categories(ctx)
         countries = list_countries(ctx)
+
+        def back(form):
+            return render_template("taep_new.html", categories=categories,
+                                   units=units, countries=countries, entity=entity,
+                                   form=form)
 
         if request.method == "POST":
             try:
                 data = _form_to_episode(request.form)
             except CostingError as exc:
                 flash(exc.message_el, "danger")
-                return render_template("taep_new.html", categories=categories,
-                                       units=units, countries=countries, entity=entity,
-                                       form=request.form)
+                return back(request.form)
 
             errors, warnings = validate_episode(data)
             unit_code = (request.form.get("taep_unit_code") or "").strip()
             if not unit_code:
                 errors.append("Επιλέξτε μονάδα ΤΑΕΠ.")
-            elif unit_code not in {u["unit_code"] for u in units}:
-                errors.append("Η μονάδα ΤΑΕΠ δεν ανήκει στο ενεργό νοσηλευτήριο.")
+            elif unit_code not in by_code:
+                # Covers both "no such unit" and "not yours", deliberately with one
+                # message: which of the two it is, is not the clerk's business.
+                errors.append("Η μονάδα ΤΑΕΠ δεν είναι διαθέσιμη σε εσάς.")
 
             if errors:
                 for message in errors:
                     flash(message, "danger")
-                return render_template("taep_new.html", categories=categories,
-                                       units=units, countries=countries, entity=entity,
-                                       form=request.form)
+                return back(request.form)
 
+            # The hospital comes from the unit, never from the session. A clerk with two
+            # hospitals used to key every episode to their primary one whichever desk
+            # they were sitting at, and a costing number is never reissued.
+            unit_entity = by_code[unit_code]["host_entity_code"]
             try:
-                episode_id = save_episode(ctx, data, entity, unit_code, user_id())
+                episode_id = save_episode(ctx, data, unit_entity, unit_code, user_id())
             except CostingError as exc:
                 flash(exc.message_el, "danger")
-                return render_template("taep_new.html", categories=categories,
-                                       units=units, countries=countries, entity=entity,
-                                       form=request.form)
+                return back(request.form)
 
             for message in warnings:
                 flash(message, "warning")
             return redirect(url_for("taep_costing", episode_id=episode_id))
 
-        return render_template("taep_new.html", categories=categories, units=units,
-                               countries=countries, entity=entity, form={})
+        return back({})
 
     # -- Prior-episode lookup (called on blur of the identification number) -
     @app.route("/taep/api/prior")
@@ -4076,7 +4166,11 @@ def register(app, ctx):
     @login_required
     @permission_any(*READ)
     def taep_list():
-        entity = active_entity()
+        active_entity()                  # a user with no hospital reaches nothing
+        # Every hospital the user may see, not only their primary one. They could
+        # already open any of these by costing number; the list was the inconsistent
+        # half (eFinance session, 23/10/2026).
+        entity = accessible_entities(ctx)
         filters = {
             "date_from": request.args.get("date_from") or None,
             "date_to": request.args.get("date_to") or None,
@@ -4087,6 +4181,8 @@ def register(app, ctx):
         return render_template(
             "taep_list.html", episodes=list_episodes(ctx, entity, filters),
             categories=list_ae_categories(ctx), filters=filters,
+            # Only worth a column when there is more than one hospital in the list.
+            show_hospital=len(entity) > 1,
             # Only the filters actually set, so the export link carries no "None".
             export_args={key: value for key, value in filters.items() if value})
 
@@ -4103,7 +4199,12 @@ def register(app, ctx):
         """
         episode = episode_or_404(episode_id)
         entity = active_entity()
-        units = unit_for_entity(ctx, entity)
+        # The episode's own hospital is always offered, even if the unit has since
+        # closed or moved: correcting a patient's telephone number must not quietly
+        # require moving the costing to another hospital.
+        units = accessible_units(ctx)
+        if episode["taep_unit_code"] not in {u["unit_code"] for u in units}:
+            units = units + (unit_for_entity(ctx, episode["entity_code"]) or [])
         categories = list_ae_categories(ctx)
         countries = list_countries(ctx)
 
@@ -4131,7 +4232,17 @@ def register(app, ctx):
             if not unit_code:
                 errors.append("Επιλέξτε μονάδα ΤΑΕΠ.")
             elif unit_code not in {u["unit_code"] for u in units}:
-                errors.append("Η μονάδα ΤΑΕΠ δεν ανήκει στο ενεργό νοσηλευτήριο.")
+                errors.append("Η μονάδα ΤΑΕΠ δεν είναι διαθέσιμη σε εσάς.")
+            elif (unit_code != episode["taep_unit_code"]
+                    and episode["costing_number"]):
+                # save_episode refuses this too, but a finalised episode is revised
+                # rather than saved and never reaches it. The number is derived from
+                # the unit's ΟΑΥ code and never reissued, so moving the episode would
+                # leave a Λεμεσός costing carrying a Λευκωσία number.
+                errors.append(
+                    "Η καταχώρηση φέρει ήδη αριθμό κοστολόγησης %s, που προκύπτει "
+                    "από τη μονάδα «%s». Η μονάδα δεν αλλάζει πλέον."
+                    % (episode["costing_number"], episode["taep_unit_code"]))
 
             if errors:
                 for message in errors:
@@ -4148,7 +4259,9 @@ def register(app, ctx):
                         ctx, episode_id, data, user_id(),
                         reason_el=request.form.get("revision_reason") or "")
                 else:
-                    save_episode(ctx, data, entity, unit_code, user_id(),
+                    moved_to = next((u["host_entity_code"] for u in units
+                                     if u["unit_code"] == unit_code), entity)
+                    save_episode(ctx, data, moved_to, unit_code, user_id(),
                                  episode_id=episode_id)
             except CostingError as exc:
                 flash(exc.message_el, "danger")
@@ -4390,7 +4503,8 @@ def register(app, ctx):
     @login_required
     @permission_required(PERMISSIONS["create"])
     def taep_list_export():
-        entity = active_entity()
+        active_entity()
+        entity = accessible_entities(ctx)
         filters = {key: request.args.get(key) or None
                    for key in ("date_from", "date_to", "category_id", "id_number",
                                "status")}

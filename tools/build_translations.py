@@ -132,6 +132,9 @@ EN = {
     "Επιστροφή στον ασθενή μετά την προκαταβολή": "Refund to the patient after the deposit",
     # One box now covers both the €100 deposit on 600 and the €10 registration fee on
     # 603, 605 and 608, so the wording names neither (Παναγιώτα Έλληνα 23/10/2026).
+    "Νοσηλευτήριο": "Hospital",
+    "Το νοσηλευτήριο της κοστολόγησης προκύπτει από τη μονάδα που επιλέγετε.":
+        "The hospital on the costing follows from the unit you choose.",
     "Εισπράχθηκε κατά την εγγραφή": "Collected at registration",
     "Αρ. απόδειξης": "Receipt no.",
     "Χωρίς επιβεβαίωση, το ποσό δεν αφαιρείται από το πληρωτέο.":

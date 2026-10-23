@@ -108,11 +108,17 @@ def test_a_bad_time_order_is_rejected_in_greek(client, app):
                                  fetch=True)[0]["n"] == 0
 
 
-def test_a_unit_from_another_hospital_is_rejected(client, app):
+def test_a_unit_the_user_cannot_reach_is_rejected(client, app):
+    """The harness user reaches NGH only, so Λεμεσός is not theirs to record against.
+
+    The message does not distinguish "no such unit" from "not yours": which of the two
+    it is, is not the clerk's business.
+    """
     response = client.post("/taep/nea", data=form_fields(app.ctx,
                                                          taep_unit_code="LGH"))
     assert response.status_code == 200
-    assert "δεν ανήκει στο ενεργό νοσηλευτήριο" in response.get_data(as_text=True)
+    assert "δεν είναι διαθέσιμη σε εσάς" in response.get_data(as_text=True)
+    assert app.ctx["db_execute"]("SELECT id FROM taep_episode", fetch=True) == []
 
 
 def test_the_prior_lookup_returns_nothing_for_a_new_patient(client):
@@ -751,6 +757,9 @@ def test_a_unit_less_entity_explains_itself_instead_of_showing_an_empty_box(app)
     """
     client = app.test_client()
     app.ctx["user_entity"] = lambda: "HQ"
+    # Both, now that the unit list comes from can_access_entity rather than from the
+    # one code in user_entity: a user who reaches only HQ reaches no unit.
+    app.ctx["can_access_entity"] = lambda code: code == "HQ"
     with client.session_transaction() as sess:
         sess["user_id"] = 1
         sess["hospital_code"] = "HQ"
@@ -1438,3 +1447,98 @@ def test_the_confirmation_box_appears_only_where_something_is_taken(client, app)
         assert amounts[by_code[code]].startswith("10"), code
     for code in ("624", "609", "620"):
         assert amounts[by_code[code]] == "", code
+
+
+# ---------------------------------------------------------------------------
+# A user with more than one hospital (eFinance session, 23/10/2026)
+# ---------------------------------------------------------------------------
+
+def multi_hospital(app, codes=("NGH", "LGH", "LAR")):
+    """Γιώτα's situation: several hospitals, one of them the primary.
+
+    She moved from `tester` to `cc_manager`, so her ten entity assignments stopped being
+    dead configuration. `user_entity()` still returns one code — that is eFinance's
+    shape and not ours to change — so the module reads the set through
+    `can_access_entity`, which is the key that already knew.
+    """
+    app.ctx["can_access_entity"] = lambda code: code in codes
+    return codes
+
+
+def test_the_unit_list_covers_every_hospital_the_user_reaches(client, app):
+    multi_hospital(app)
+    page = client.get("/taep/nea").get_data(as_text=True)
+    for unit in ("NGH-ADULT", "NGH-PAED", "LGH", "LAR"):
+        assert unit in page, unit
+    assert "PAP" not in page
+    # Grouped by hospital, and the screen says where the entity comes from.
+    assert '<optgroup label="LGH">' in page
+    assert "προκύπτει από τη μονάδα" in page
+
+
+def test_an_episode_is_keyed_to_the_unit_not_to_the_primary_hospital(client, app):
+    """The one that can produce a wrong record.
+
+    Before today the episode took `user_entity()` — Λευκωσία — whichever hospital the
+    clerk was actually sitting in. The costing number is gapless and never reissued, so
+    that is not something anyone can quietly correct afterwards.
+    """
+    multi_hospital(app)
+    assert app.ctx["user_entity"]() == "NGH"
+
+    episode_id = create(client, app, taep_unit_code="LAR", episode_number="E-LAR-1")
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["entity_code"] == "LAR"
+    assert episode["taep_unit_code"] == "LAR"
+
+    client.post(f"/taep/{episode_id}/calculate")
+    client.post(f"/taep/{episode_id}/finalise")
+    # Λάρνακα's own ΟΑΥ number, 1048, not Λευκωσία's 1054.
+    assert "1048" in taep.get_episode(app.ctx, episode_id)["costing_number"]
+
+
+def test_the_list_shows_every_hospital_the_user_reaches(client, app):
+    multi_hospital(app)
+    create(client, app, taep_unit_code="NGH-ADULT", episode_number="E-N",
+           last_name="Λευκωσιάτης")
+    create(client, app, taep_unit_code="LGH", episode_number="E-L",
+           last_name="Λεμεσιανός", id_number="7654321")
+
+    page = client.get("/taep/list").get_data(as_text=True)
+    assert "Λευκωσιάτης" in page and "Λεμεσιανός" in page
+
+
+def test_a_single_hospital_clerk_sees_exactly_what_they_saw_before(client, app):
+    """The common case must not move. can_access_entity stays NGH-only here."""
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert "NGH-ADULT" in page and "NGH-PAED" in page
+    assert "LGH" not in page and "LAR" not in page
+    assert "<optgroup" not in page
+    assert "προκύπτει από τη μονάδα" not in page
+
+
+def test_the_unit_can_be_corrected_until_a_number_is_issued(client, app):
+    multi_hospital(app)
+    episode_id = create(client, app, taep_unit_code="NGH-ADULT")
+
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), taep_unit_code="LGH"))
+    assert response.status_code == 302
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["taep_unit_code"] == "LGH"
+    assert episode["entity_code"] == "LGH"
+
+
+def test_the_unit_is_fixed_once_the_number_exists(client, app):
+    """The number is derived from the unit's ΟΑΥ code and never reissued, so moving the
+    episode would leave a Λεμεσός costing carrying a Λευκωσία number."""
+    multi_hospital(app)
+    episode_id = finalised(client, app)
+    number = taep.get_episode(app.ctx, episode_id)["costing_number"]
+
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), taep_unit_code="LGH"), follow_redirects=True)
+    assert "δεν αλλάζει πλέον" in response.get_data(as_text=True)
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["taep_unit_code"] == "NGH-ADULT"
+    assert episode["costing_number"] == number
