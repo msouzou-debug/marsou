@@ -4,7 +4,37 @@ For Τμήμα Πληροφορικής. Installs `taep.py` into eFinance, hospi
 
 Everything here assumes the ADR-001 stack: Flask, Gunicorn, MySQL in production,
 `/opt/finance`, `finance.service`. Check `docs/adr/001-application-stack.md` first if
-any of that has changed.
+any of that has changed. Note that `10.227.56.22` runs **SQLite**, not MySQL: there is
+no `db_host` in its `settings.json`, which is also why gunicorn runs one worker.
+
+## What is live on 10.227.56.22
+
+Checked after each install, so the next person does not have to work it out. The
+checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
+
+| Date | Commit | `taep.py` | What went in |
+|---|---|---|---|
+| 21/10/2026 | `45923d9` | `bac761fb` | First install: module, area, sidebar, glyph, 125 English descriptions |
+| 22/10/2026 | `a8f0581` | `01812fed` | Parallel run `/taep/parallel` |
+| 23/10/2026 | `21b1164` | `2e137d2c` | The 22/10 rulings — see below |
+
+The 23/10 install carried six commits: the registration fee out of the total, a refund
+reading as a refund, the bilingual service catalogue, the weight internals off the
+screen and into the export, the extra-charges and radiology screen, the deposit
+confirmation, own-costings-only editing, revision of a finalised costing, and
+administrator deletion.
+
+Verified at install: 16 ΤΑΕΠ tables including `taep_costing_revision`, readiness check
+clean, checksum matched. Six `ALTER` statements applied on restart and the two from
+September skipped as already present — rehearsed beforehand against a copy of the live
+schema, not discovered on the night.
+
+**Outstanding from that install**, reported by `tools/pre_deploy_check.py` and left for
+the Μονάδα rather than migrated: one finalised costing whose stored total still includes
+€10 of registration fee, and two on category 600 whose €100 deposit is no longer netted
+off because nothing has confirmed it. All four finalised costings on the server are UAT
+entries from 21/10. A stored total is what the patient was handed, so nothing recomputes
+on its own: revising one is a per-case decision, now possible on the screen.
 
 ---
 
