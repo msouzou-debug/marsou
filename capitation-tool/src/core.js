@@ -14,6 +14,7 @@ const DEFAULT_CFG = {
   },
   namProviders: ['F1050'],
   payLag: 2,
+  flagPct: 0.15,
 };
 const BAND_COLS = ['N', 'O', 'P', 'Q', 'R'];
 const ROSTER_HEAD = ['Κωδικός ιατρού', 'Ονοματεπώνυμο', 'Κατηγορία', 'ΑΚΑ', 'ΑΔΤ', 'ΠΕ/ΠΠ', 'Κέντρο Υγείας',
@@ -48,7 +49,7 @@ function bandSplit(L, M, band) {
   return out;
 }
 
-function prepare({ capFiles, raFiles, roster, history, cfg }) {
+function prepare({ capFiles, raFiles, roster, history, previous, cfg }) {
   cfg = cfg || DEFAULT_CFG;
   const log = [];
   const periods = [...new Set(capFiles.filter(f => f.month).map(f => f.year + '-' + f.month))];
@@ -78,11 +79,15 @@ function prepare({ capFiles, raFiles, roster, history, cfg }) {
   const kpi = new Map();
   for (const l of ra) if (l.cat === 'KPI') { const k = l.doctor + '|' + l.list; kpi.set(k, (kpi.get(k) || 0) + l.paid); }
 
-  // Doctor list blocks
+  // Doctor list blocks. The list type (ADULT/CHILD) comes from the ages and is what the SRA KPIs use.
+  // The sheet follows the doctor: a ΠΕ's lists always go to ΠΙ ΕΝΗΛΙΚΩΝ; a ΠΠ's (or an unknown
+  // doctor's) under-18 lists go to the paediatric sheets.
+  const rosterBy = new Map(roster.map(r => [r.code, r]));
   const blocks = [], kpiUsed = new Set();
   for (const inv of invoices) for (const d of inv.doctors) {
     const list = isAdultList(d.rows) ? 'ADULT' : 'CHILD';
-    const key = list === 'CHILD' && cfg.namProviders.includes(inv.providerCode) ? 'NAM' : list;
+    const isPE = String((rosterBy.get(d.code) || {}).pepp || '').trim().toUpperCase() === 'ΠΕ';
+    const key = list === 'ADULT' || isPE ? 'ADULT' : cfg.namProviders.includes(inv.providerCode) ? 'NAM' : 'CHILD';
     const k = d.code + '|' + list;
     const first = !kpiUsed.has(k); kpiUsed.add(k);
     const H = d.amount, J = first ? (kpi.get(k) || 0) : 0, K = H + J;
@@ -93,7 +98,6 @@ function prepare({ capFiles, raFiles, roster, history, cfg }) {
   }
 
   // Doctors (unique codes)
-  const rosterBy = new Map(roster.map(r => [r.code, r]));
   const docs = new Map();
   for (const b of blocks) {
     const x = docs.get(b.d.code) || { code: b.d.code, name: b.d.name, total: 0 };
@@ -104,9 +108,25 @@ function prepare({ capFiles, raFiles, roster, history, cfg }) {
   const kpiNoList = ra.filter(l => l.cat === 'KPI' && !blocks.some(b => b.d.code === l.doctor && b.list === l.list));
   const rosterNoCap = roster.filter(r => !docs.has(r.code));
   const outOfRoster = [...docs.values()].filter(x => x.cat === OUT_OF_ROSTER);
+  // Month-on-month comparison against last month's output
+  let compare = null;
+  if (previous && previous.docs.size) {
+    const cur = new Map();
+    for (const b of blocks) { const x = cur.get(b.d.code) || { L: 0, J: 0 }; x.L += b.L; x.J += b.J; cur.set(b.d.code, x); }
+    const codes = [...new Set([...docs.keys(), ...previous.docs.keys()])].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+    const rows = codes.map(code => {
+      const p = previous.docs.get(code) || { fee: 0, L: 0, J: 0 }, c = docs.get(code), cc = cur.get(code) || { L: 0, J: 0 };
+      const fee = c ? c.total : 0, delta = fee - p.fee;
+      const status = !p.fee && fee ? 'ΝΕΟΣ' : p.fee && !fee ? 'ΧΩΡΙΣ ΑΜΟΙΒΗ' : p.fee && Math.abs(delta / p.fee) > (cfg.flagPct ?? 0.15) ? 'ΜΕΓΑΛΗ ΜΕΤΑΒΟΛΗ' : 'OK';
+      return { code, name: c ? c.name : (p.name || code), prevFee: p.fee, fee, delta, prevL: p.L, L: cc.L, prevJ: p.J, J: cc.J, status };
+    });
+    const gap = (year * 12 + month) - (previous.year * 12 + previous.month);
+    compare = { rows, prevMonth: previous.month, prevYear: previous.year, gap };
+  }
+  const idSameAsAka = roster.filter(r => r.aka != null && r.aka !== '' && String(r.aka).trim() === String(r.adt == null ? '' : r.adt).trim());
   log.push(`${capFiles.length} αναφορές, ${invoices.length} τιμολόγια, ${blocks.length} λίστες ιατρών, ${docs.size} ιατροί.`);
   return { cfg, year, month, days, invoices, blocks, ra, docs, roster, rosterBy, history: history || [],
-    duplicates, empty, kpiNoList, rosterNoCap, outOfRoster, log };
+    duplicates, empty, kpiNoList, rosterNoCap, outOfRoster, compare, idSameAsAka, log };
 }
 
 // ---------- workbook styling helpers ----------
@@ -281,6 +301,14 @@ function writeOnomastika(ws, M, docRows) {
   return { totalRow: T, total: tot };
 }
 
+// "D5759 EVANTHIA BELIA / EVANTHIA BELIA": the HIO name when the doctor was billed this month,
+// otherwise the code plus the roster name.
+function displayName(M, code, rosterName) {
+  const d = M.docs.get(code);
+  if (d && d.name) return d.name;
+  const n = String(rosterName || '').trim();
+  return codeOf(n) === code ? n : (code + ' ' + n).trim();
+}
 function rosterVal(M, code, field) { const r = M.rosterBy.get(code); return r ? Number(r[field]) || 0 : 0; }
 
 function writeCategory(ws, M, cat) {
@@ -292,7 +320,7 @@ function writeCategory(ws, M, cat) {
     ['Παροχέας Υγείας', 'TOTAL', 'Κωδ. ιατρού'].forEach((t, i) => v(ws, 'ABC'[i] + 1, t)); head(ws, 1, ['A', 'B', 'C']);
     let r = 2;
     for (const x of rows) {
-      v(ws, 'A' + r, x.name); f(ws, 'B' + r, `SUMIF('ΟΝΟΜΑΣΤΙΚΑ'!$D:$D,$C${r},'ΟΝΟΜΑΣΤΙΚΑ'!$B:$B)`, capOf(x.code)); v(ws, 'C' + r, x.code); r++;
+      v(ws, 'A' + r, displayName(M, x.code, x.name)); f(ws, 'B' + r, `SUMIF('ΟΝΟΜΑΣΤΙΚΑ'!$D:$D,$C${r},'ΟΝΟΜΑΣΤΙΚΑ'!$B:$B)`, capOf(x.code)); v(ws, 'C' + r, x.code); r++;
     }
     const T = r + 1, tot = rows.reduce((a, x) => a + capOf(x.code), 0);
     v(ws, 'A' + T, 'ΣΥΝΟΛΟ'); f(ws, 'B' + T, `SUM(B2:B${Math.max(2, r - 1)})`, tot); totalStyle(ws, T, ['A', 'B']);
@@ -306,7 +334,7 @@ function writeCategory(ws, M, cat) {
   Object.entries(hdr).forEach(([c, t]) => v(ws, c + 1, t)); head(ws, 1, Object.keys(hdr));
   let r = 2; const sums = { F: 0, G: 0, H: 0, I: 0, J: 0 };
   for (const x of rows) {
-    v(ws, 'A' + r, x.aka); v(ws, 'B' + r, x.adt); v(ws, 'C' + r, x.pepp); v(ws, 'D' + r, x.name); v(ws, 'E' + r, x.centre);
+    v(ws, 'A' + r, x.aka); v(ws, 'B' + r, x.adt); v(ws, 'C' + r, x.pepp); v(ws, 'D' + r, displayName(M, x.code, x.name)); v(ws, 'E' + r, x.centre);
     const F = capOf(x.code), G = rosterVal(M, x.code, 'remote'), H = rosterVal(M, x.code, 'head'), I = rosterVal(M, x.code, 'quality');
     f(ws, 'F' + r, `SUMIF('ΟΝΟΜΑΣΤΙΚΑ'!$D:$D,$K${r},'ΟΝΟΜΑΣΤΙΚΑ'!$B:$B)`, F);
     f(ws, 'G' + r, look('H', r), G); f(ws, 'H' + r, look('I', r), H); f(ws, 'I' + r, look('J', r), I);
@@ -326,6 +354,53 @@ function writeCategory(ws, M, cat) {
   widths(ws, { A: 10, B: 12, C: 10, D: 52, E: 46, F: 13, G: 14, H: 16, I: 14, J: 13, K: 9, L: 14 });
   ws.views = [{ state: 'frozen', ySplit: 1 }];
   return { totalRow: T, capCol: 'F', cap: sums.F };
+}
+
+function writeCompare(ws, M) {
+  const C = M.compare, per = (m, y) => `${String(m).padStart(2, '0')}/${y}`;
+  if (!C) {
+    v(ws, 'A1', 'Σύγκριση ανά ιατρό').font = { ...FONT, bold: true, size: 13, color: { argb: DEEP } };
+    v(ws, 'A3', 'Δεν ανέβηκε αρχείο προηγούμενου μήνα. Ανεβάστε το στο βήμα 4 για να γεμίσει αυτό το φύλλο.');
+    ws.getColumn('A').width = 90;
+    return;
+  }
+  v(ws, 'A1', `Σύγκριση ανά ιατρό: ${per(M.month, M.year)} έναντι ${per(C.prevMonth, C.prevYear)}`).font = { ...FONT, bold: true, size: 13, color: { argb: DEEP } };
+  v(ws, 'A2', 'Επισήμανση όταν η μεταβολή ξεπερνά');
+  const th = v(ws, 'C2', M.cfg.flagPct ?? 0.15, '0%'); th.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: INPUT } };
+  if (C.gap !== 1) v(ws, 'E2', C.gap < 1 ? 'Προσοχή: το αρχείο σύγκρισης δεν είναι προηγούμενου μήνα.' : `Προσοχή: το αρχείο σύγκρισης είναι ${C.gap} μήνες πίσω, όχι του αμέσως προηγούμενου μήνα.`).font = { ...FONT, bold: true, color: { argb: 'FFA52A1F' } };
+  const p = per(C.prevMonth, C.prevYear), c = per(M.month, M.year);
+  const hdr = { A: 'Ιατρός', B: 'Κατηγορία', C: `Cap fees ${p}`, D: `Cap fees ${c}`, E: 'Μεταβολή €', F: 'Μεταβολή %',
+    G: `Μέσος όρος εγγραφών ${p}`, H: `Μέσος όρος εγγραφών ${c}`, I: 'Μεταβολή εγγραφών', J: `KPIs ${p}`, K: `KPIs ${c}`, L: 'Κατάσταση', M: 'Κωδ. ιατρού' };
+  Object.entries(hdr).forEach(([k, t]) => v(ws, k + 4, t)); head(ws, 4, Object.keys(hdr));
+  const sumSheets = (col, R) => SHEET_ORDER.map(k => `SUMIF(${q(SHEETS[k])}!$T:$T,$M${R},${q(SHEETS[k])}!$${col}:$${col})`).join('+');
+  let r = 5;
+  for (const x of C.rows) {
+    const cat = M.rosterBy.has(x.code) ? M.rosterBy.get(x.code).cat : OUT_OF_ROSTER;
+    v(ws, 'A' + r, x.name); f(ws, 'B' + r, `IFERROR(INDEX('ROSTER'!$C:$C,MATCH($M${r},'ROSTER'!$A:$A,0)),"${OUT_OF_ROSTER}")`, cat, null);
+    v(ws, 'C' + r, x.prevFee, NUM);
+    f(ws, 'D' + r, `SUMIF('ΟΝΟΜΑΣΤΙΚΑ'!$D:$D,$M${r},'ΟΝΟΜΑΣΤΙΚΑ'!$B:$B)`, x.fee);
+    f(ws, 'E' + r, `D${r}-C${r}`, x.delta);
+    f(ws, 'F' + r, `IF(C${r}=0,"",E${r}/C${r})`, x.prevFee ? x.delta / x.prevFee : '', '0.0%');
+    v(ws, 'G' + r, x.prevL, '#,##0.0'); f(ws, 'H' + r, sumSheets('L', r), x.L, '#,##0.0'); f(ws, 'I' + r, `H${r}-G${r}`, x.L - x.prevL, '#,##0.0');
+    v(ws, 'J' + r, x.prevJ, NUM); f(ws, 'K' + r, sumSheets('J', r), x.J);
+    f(ws, 'L' + r, `IF(AND(C${r}=0,D${r}<>0),"ΝΕΟΣ",IF(AND(C${r}<>0,D${r}=0),"ΧΩΡΙΣ ΑΜΟΙΒΗ",IF(AND(C${r}<>0,ABS(E${r})>ABS(C${r})*$C$2),"ΜΕΓΑΛΗ ΜΕΤΑΒΟΛΗ","OK")))`, x.status, null);
+    v(ws, 'M' + r, x.code); r++;
+  }
+  const last = Math.max(5, r - 1), T = r + 1, sum = k => C.rows.reduce((a, x) => a + x[k], 0);
+  v(ws, 'A' + T, 'ΣΥΝΟΛΟ');
+  for (const [col, k, fmt] of [['C', 'prevFee', NUM], ['D', 'fee', NUM], ['E', 'delta', NUM], ['G', 'prevL', '#,##0.0'], ['H', 'L', '#,##0.0'], ['I', null, '#,##0.0'], ['J', 'prevJ', NUM], ['K', 'J', NUM]])
+    f(ws, col + T, `SUM(${col}5:${col}${last})`, k ? sum(k) : sum('L') - sum('prevL'), fmt);
+  f(ws, 'F' + T, `IF(C${T}=0,"",E${T}/C${T})`, sum('prevFee') ? sum('delta') / sum('prevFee') : '', '0.0%');
+  totalStyle(ws, T, [...'ACDEFGHIJK']);
+  ['ΜΕΓΑΛΗ ΜΕΤΑΒΟΛΗ', 'ΝΕΟΣ', 'ΧΩΡΙΣ ΑΜΟΙΒΗ'].forEach((st, i) => {
+    v(ws, 'K' + (T + 2 + i), st); f(ws, 'L' + (T + 2 + i), `COUNTIF(L5:L${last},K${T + 2 + i})`, C.rows.filter(x => x.status === st).length, '0');
+  });
+  const tint = (txt, argb) => ({ type: 'containsText', operator: 'containsText', text: txt,
+    style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb } }, font: { bold: true } } });
+  ws.addConditionalFormatting({ ref: `L5:L${last}`, rules: [tint('ΜΕΓΑΛΗ', 'FFFDECEA'), tint('ΝΕΟΣ', 'FFFFF5DF'), tint('ΧΩΡΙΣ', 'FFFFF5DF')] });
+  ws.autoFilter = `A4:M${last}`;
+  widths(ws, { A: 56, B: 18, C: 13, D: 13, E: 12, F: 10, G: 13, H: 13, I: 11, J: 11, K: 11, L: 19, M: 9 });
+  ws.views = [{ state: 'frozen', ySplit: 4 }];
 }
 
 function writeSra(ws, M) {
@@ -369,7 +444,7 @@ function writeChecks(ws, M, ctx) {
   const kpiSra = M.ra.filter(l => l.cat === 'KPI').reduce((a, l) => a + l.paid, 0);
   const catRef = CATS.map(c => `${q(c)}!${ctx.cats[c].capCol}${ctx.cats[c].totalRow}`).join('+');
   const catVal = CATS.reduce((a, c) => a + ctx.cats[c].cap, 0);
-  const invStart = 17;
+  const invStart = 18;
   const invRows = M.invoices.map(inv => ({ inv, sra: M.ra.filter(l => l.cat === 'HCP' && l.invKey === inv.id).reduce((a, l) => a + l.paid, 0) }));
   const invBad = invRows.filter(x => Math.abs(x.inv.amount - x.sra) > TOL).length;
   const invEnd = invStart + Math.max(invRows.length, 1) - 1;
@@ -385,6 +460,8 @@ function writeChecks(ws, M, ctx) {
     ['ΟΝΟΜΑΣΤΙΚΑ = σύνολο 3 φύλλων', calcRef('S'), calcVal('S'), `'ΟΝΟΜΑΣΤΙΚΑ'!B${ctx.ono.totalRow}`, ctx.ono.total],
     ['Ιατροί εκτός μητρώου (πλήθος)', '0', 0, `COUNTIF('ΟΝΟΜΑΣΤΙΚΑ'!$C:$C,"${OUT_OF_ROSTER}")`, outRoster],
     ['ΟΝΟΜΑΣΤΙΚΑ = ΔΥ + ΟΚΥΠΥ + ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ + ΠΑΡΑΙΤΗΣΕΙΣ', `'ΟΝΟΜΑΣΤΙΚΑ'!B${ctx.ono.totalRow}`, ctx.ono.total, catRef, catVal],
+    ['Μητρώο: ιατροί με ΑΔΤ ίδιο με ΑΚΑ (πλήθος)', '0', 0,
+      `SUMPRODUCT(('ROSTER'!$D$2:$D$${M.roster.length + 1}<>"")*('ROSTER'!$D$2:$D$${M.roster.length + 1}='ROSTER'!$E$2:$E$${M.roster.length + 1}))`, M.idSameAsAka.length],
   ];
   const results = [];
   checks.forEach(([name, fc, vc, fd, vd], i) => {
@@ -419,6 +496,9 @@ function writeChecks(ws, M, ctx) {
   const other = {};
   M.ra.filter(l => !['HCP', 'KPI'].includes(l.cat)).forEach(l => { other[l.cat] = (other[l.cat] || 0) + l.paid; });
   section('Άλλες γραμμές PD στα SRA που ΔΕΝ μπαίνουν στον υπολογισμό (για ενημέρωση)', Object.entries(other).map(([k, x]) => [k, x]));
+  section('Μητρώο: ΑΔΤ ίδιο με ΑΚΑ (διορθώστε το ROSTER)', M.idSameAsAka.map(x => [displayName(M, x.code, x.name), String(x.aka)]));
+  if (M.compare) section(`Μεγάλες μεταβολές ανά ιατρό (πάνω από ${Math.round((M.cfg.flagPct ?? 0.15) * 100)}%, δείτε ΣΥΓΚΡΙΣΗ)`,
+    M.compare.rows.filter(x => x.status !== 'OK').map(x => [x.name, x.status, x.delta]));
   section('Αναφορές κατά κεφαλήν χωρίς ιατρούς', M.empty.map(x => [x]));
   section('Διπλά τιμολόγια που αγνοήθηκαν', M.duplicates.map(d => [String(d.id), d.file, 'πρώτη φορά: ' + d.first]));
   widths(ws, { A: 12, B: 58, C: 18, D: 18, E: 14, F: 12 });
@@ -431,7 +511,7 @@ async function buildWorkbook(ExcelJS, M) {
   const add = n => { const ws = wb.addWorksheet(n); ws.properties.defaultRowHeight = 14; return ws; };
   const wsChecks = add('CHECKS'), wsAll = add('ALL');
   const calcWs = {}; SHEET_ORDER.forEach(k => { calcWs[k] = add(SHEETS[k]); });
-  const wsSyn = add('ΣΥΝΟΛΙΚΑ'), wsOno = add('ΟΝΟΜΑΣΤΙΚΑ');
+  const wsSyn = add('ΣΥΝΟΛΙΚΑ'), wsOno = add('ΟΝΟΜΑΣΤΙΚΑ'), wsCmp = add('ΣΥΓΚΡΙΣΗ');
   const catWs = {}; CATS.forEach(c => { catWs[c] = add(c); });
   const wsSra = add('SRA_PD'), wsRoster = add('ROSTER');
 
@@ -441,17 +521,21 @@ async function buildWorkbook(ExcelJS, M) {
   writeSynolika(wsSyn, M);
   ctx.ono = writeOnomastika(wsOno, M, new Map());
   CATS.forEach(c => { ctx.cats[c] = writeCategory(catWs[c], M, c); });
+  writeCompare(wsCmp, M);
   writeSra(wsSra, M);
   writeRoster(wsRoster, M);
   const checks = writeChecks(wsChecks, M, ctx);
   wb.eachSheet(ws => ws.eachRow(row => row.eachCell(c => { if (!c.font || !c.font.name) c.font = { ...FONT, ...(c.font || {}) }; })));
-  [wsChecks, wsRoster].forEach(ws => { ws.properties.tabColor = { argb: 'FF8BC53F' }; });
+  [wsChecks, wsCmp, wsRoster].forEach(ws => { ws.properties.tabColor = { argb: 'FF8BC53F' }; });
   const summary = {
     period: { month: M.month, year: M.year },
     invoices: M.invoices.length, lists: M.blocks.length, doctors: M.docs.size,
     oay: M.blocks.reduce((a, b) => a + b.H, 0), kpi: M.blocks.reduce((a, b) => a + b.J, 0), total: ctx.ono.total,
     bySheet: SHEET_ORDER.map(k => ({ name: SHEETS[k], lists: M.blocks.filter(b => b.key === k).length, total: ctx.calc[k].sums.S })),
     byCat: CATS.map(c => ({ name: c, total: ctx.cats[c].cap, n: M.roster.filter(x => x.cat === c).length })),
+    compare: M.compare && { prev: { month: M.compare.prevMonth, year: M.compare.prevYear }, gap: M.compare.gap, flagPct: M.cfg.flagPct ?? 0.15,
+      flagged: M.compare.rows.filter(x => x.status !== 'OK').map(x => ({ code: x.code, name: x.name, status: x.status, prevFee: x.prevFee, fee: x.fee, delta: x.delta })) },
+    idSameAsAka: M.idSameAsAka.map(x => x.code),
     checks, outOfRoster: M.outOfRoster, rosterNoCap: M.rosterNoCap, kpiNoList: M.kpiNoList, empty: M.empty, duplicates: M.duplicates,
   };
   return { wb, summary };
@@ -500,6 +584,39 @@ function readHistory(wb) {
   const seen = new Set();
   return out.filter(x => { const k = +x.date; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => b.date - a.date);
 }
+// Per-doctor figures from last month's workbook (this tool's output or the older hand-built file).
+function readPrevious(wb) {
+  const ono = wb.getWorksheet('ΟΝΟΜΑΣΤΙΚΑ');
+  if (!ono) throw new Error('Το προηγούμενο αρχείο δεν έχει φύλλο ΟΝΟΜΑΣΤΙΚΑ.');
+  const per = (ws) => {
+    if (!ws) return null;
+    const a1 = String(cellVal(ws.getCell('A1')) || ''), a2 = String(cellVal(ws.getCell('A2')) || '');
+    const m = Number((a1.match(/Μήνας:\s*(\d+)/) || [])[1]) || Number(cellVal(ws.getCell('B1')));
+    const y = Number((a2.match(/Έτος:\s*(\d{4})/) || [])[1]) || Number(cellVal(ws.getCell('B2')));
+    return m >= 1 && m <= 12 && y > 2000 ? { month: m, year: y } : null;
+  };
+  const p = per(wb.getWorksheet('ALL')) || per(wb.getWorksheet(SHEETS.ADULT));
+  if (!p) throw new Error('Δεν βρέθηκε ο μήνας του προηγούμενου αρχείου (φύλλο ALL).');
+  const docs = new Map();
+  ono.eachRow((row, r) => {
+    if (r === 1) return;
+    const a = String(cellVal(row.getCell(1)) || '').trim(), dcol = codeOf(cellVal(row.getCell(4)));
+    const code = /^D\d+$/.test(dcol) ? dcol : codeOf(a);
+    const fee = Number(cellVal(row.getCell(2)));
+    if (!/^D\d+$/.test(code) || !isFinite(fee)) return;
+    docs.set(code, { name: /^D\d/.test(a) ? a : (code + ' ' + a), fee, L: 0, J: 0 });
+  });
+  for (const k of SHEET_ORDER) {
+    const ws = wb.getWorksheet(SHEETS[k]); if (!ws) continue;
+    ws.eachRow(row => {
+      if (String(cellVal(row.getCell(3)) || '') !== 'Ηλικίες') return;
+      const code = codeOf(cellVal(row.getCell(2))); const d = docs.get(code); if (!d) return;
+      d.L += Number(cellVal(row.getCell(12))) || 0; d.J += Number(cellVal(row.getCell(10))) || 0;
+    });
+  }
+  return { ...p, docs };
+}
+
 function rosterTemplate(ExcelJS, roster) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('ROSTER');
@@ -512,4 +629,4 @@ function rosterTemplate(ExcelJS, roster) {
   return wb;
 }
 
-if (typeof module !== 'undefined') module.exports = { cellVal, prepare, buildWorkbook, readRoster, readHistory, rosterTemplate, bandSplit, DEFAULT_CFG, SHEETS, CATS };
+if (typeof module !== 'undefined') module.exports = { cellVal, readPrevious, prepare, buildWorkbook, readRoster, readHistory, rosterTemplate, bandSplit, DEFAULT_CFG, SHEETS, CATS };

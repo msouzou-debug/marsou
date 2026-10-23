@@ -5,7 +5,7 @@ Builds the monthly capitation fees workbook (`CAPITATION_FEES_MM_YYYY_PAYABLE_MM
 1. HIO Capitation Reimbursement Reports (zip or PDFs)
 2. HIO Remittance Advices / SRA (zip or PDFs)
 3. The doctor roster (`ROSTER_capitation.xlsx`: category, ΑΚΑ, ΑΔΤ, allowances)
-4. Optional: last month's output, to carry the ΣΥΝΟΛΙΚΑ history forward
+4. Optional: last month's output, for the per-doctor comparison (ΣΥΓΚΡΙΣΗ) and the ΣΥΝΟΛΙΚΑ history
 
 Everything runs in the browser. No files leave the PC.
 
@@ -15,11 +15,13 @@ Open `dist/capitation_tool_offline.html` in Chrome or Edge, add the files and cl
 `dist/capitation_tool.html` is the light version (about 100 KB) that loads the same libraries from cdnjs.
 
 ## Output tabs
-CHECKS, ALL, ΠΙΠ ΝΑΜ ΙΙΙ, ΠΙΠ ΑΛΛΟΙ, ΠΙ ΕΝΗΛΙΚΩΝ, ΣΥΝΟΛΙΚΑ, ΟΝΟΜΑΣΤΙΚΑ, ΔΥ, ΟΚΥΠΥ, ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ, ΠΑΡΑΙΤΗΣΕΙΣ_ΑΦΥΠΗ, SRA_PD, ROSTER.
+CHECKS, ALL, ΠΙΠ ΝΑΜ ΙΙΙ, ΠΙΠ ΑΛΛΟΙ, ΠΙ ΕΝΗΛΙΚΩΝ, ΣΥΝΟΛΙΚΑ, ΟΝΟΜΑΣΤΙΚΑ, ΣΥΓΚΡΙΣΗ, ΔΥ, ΟΚΥΠΥ, ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ, ΠΑΡΑΙΤΗΣΕΙΣ_ΑΦΥΠΗ, SRA_PD, ROSTER.
 All calculated cells are live formulas. Band limits and rates are the yellow cells at the top of each calculation tab.
 
 ## Rules (taken from the July 2026 workbook)
-- A list with any 18+ age band is an adult list, otherwise a child list. Child lists billed by F1050 go to ΠΙΠ ΝΑΜ ΙΙΙ.
+- A list with any 18+ age band is an adult list, otherwise a child list (this is what the SRA KPIs use).
+- Sheet: a ΠΕ's lists (roster column ΠΕ/ΠΠ) always go to ΠΙ ΕΝΗΛΙΚΩΝ. Other child lists go to ΠΙΠ ΑΛΛΟΙ, or ΠΙΠ ΝΑΜ ΙΙΙ when billed by F1050.
+- ΣΥΓΚΡΙΣΗ flags a doctor whose cap fees moved more than the yellow threshold (default 15%), plus new doctors and doctors with no fee this month.
 - KPI = SRA line `PD-KPIs-…-ADULT|CHILD-Dxxxx`, matched on doctor code and list type.
 - Average list = total list days / days in month. Average fee = (HIO fee + KPI) / average list.
 - Doctor fee = sum over bands of (list size inside the band × average fee × band rate).

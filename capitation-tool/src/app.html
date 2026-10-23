@@ -126,7 +126,7 @@ footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid va
       <span class="hint">ROSTER.xlsx: κατηγορία, ΑΚΑ, ΑΔΤ, κίνητρα, επιδόματα</span><span class="got" id="g-roster"></span>
       <input id="f-roster" type="file" accept=".xlsx"></label>
     <label class="drop" id="z-prev"><span class="num">4</span><b>Αρχείο προηγούμενου μήνα<span class="opt">προαιρετικό</span></b>
-      <span class="hint">Για να συνεχιστεί το ιστορικό στο φύλλο ΣΥΝΟΛΙΚΑ</span><span class="got" id="g-prev"></span>
+      <span class="hint">Για τη σύγκριση ανά ιατρό (ΣΥΓΚΡΙΣΗ) και το ιστορικό στο ΣΥΝΟΛΙΚΑ</span><span class="got" id="g-prev"></span>
       <input id="f-prev" type="file" accept=".xlsx"></label>
     <button class="linkbtn" id="tpl" type="button">Κατεβάστε κενό πρότυπο μητρώου</button>
     <details id="settings">
@@ -134,6 +134,7 @@ footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid va
       <div class="bands" id="bands"></div>
       <div class="setrow"><label for="s-nam">Παροχείς λίστας ΠΙΠ ΝΑΜ ΙΙΙ</label><input id="s-nam" type="text"></div>
       <div class="setrow"><label for="s-lag">Πληρωτέο μετά από (μήνες)</label><input id="s-lag" type="number" min="0" max="6"></div>
+      <div class="setrow"><label for="s-flag">Επισήμανση μεταβολής ανά ιατρό πάνω από (%)</label><input id="s-flag" type="number" min="1" max="100" step="1"></div>
       <p class="hint" style="font-size:12px;color:var(--muted)">Οι αλλαγές ισχύουν για τον επόμενο υπολογισμό. Στο Excel τα ίδια ποσοστά είναι στα κίτρινα κελιά κάθε φύλλου και αλλάζουν και από εκεί.</p>
       <button class="linkbtn" id="reset" type="button">Επαναφορά στις τιμές Ιουλίου 2026</button>
     </details>
@@ -188,6 +189,7 @@ function renderBands() {
   }).join('');
   $('#s-nam').value = cfg.namProviders.join(', ');
   $('#s-lag').value = cfg.payLag;
+  $('#s-flag').value = Math.round((cfg.flagPct ?? 0.15) * 100);
 }
 $('#bands').addEventListener('change', e => {
   const t = e.target; if (!t.dataset.k) return;
@@ -197,6 +199,7 @@ $('#bands').addEventListener('change', e => {
 });
 $('#s-nam').addEventListener('change', e => { cfg.namProviders = e.target.value.split(/[,\s]+/).filter(Boolean).map(s => s.toUpperCase()); saveCfg(); });
 $('#s-lag').addEventListener('change', e => { cfg.payLag = Math.max(0, Number(e.target.value) || 0); saveCfg(); });
+$('#s-flag').addEventListener('change', e => { const x = Number(e.target.value); if (x > 0) { cfg.flagPct = x / 100; saveCfg(); } });
 $('#reset').addEventListener('click', () => { cfg = JSON.parse(JSON.stringify(DEFAULT_CFG)); saveCfg(); renderBands(); });
 renderBands();
 
@@ -258,12 +261,14 @@ $('#run').addEventListener('click', async () => {
     status('Ανάγνωση μητρώου…');
     const roster = readRoster(await readXlsx(files.roster[0]));
     if (!roster.length) throw new Error('Το μητρώο δεν έχει γραμμές με κωδικό ιατρού (π.χ. D1088).');
-    let history = [], histNote = '';
+    let history = [], histNote = '', previous = null;
     if (files.prev.length) {
-      try { history = readHistory(await readXlsx(files.prev[0])); } catch (e) { histNote = ' Το ιστορικό δεν διαβάστηκε: ' + e.message; }
+      const pwb = await readXlsx(files.prev[0]);
+      try { history = readHistory(pwb); } catch (e) { histNote += ' Το ιστορικό δεν διαβάστηκε: ' + e.message; }
+      try { previous = readPrevious(pwb); } catch (e) { histNote += ' Η σύγκριση δεν έγινε: ' + e.message; }
     }
     status('Υπολογισμός και δημιουργία Excel…'); progress(0.9);
-    const M = prepare({ capFiles, raFiles, roster, history, cfg });
+    const M = prepare({ capFiles, raFiles, roster, history, previous, cfg });
     const { wb, summary } = await buildWorkbook(ExcelJS, M);
     const buf = await wb.xlsx.writeBuffer();
     const pay = new Date(Date.UTC(M.year, M.month - 1 + cfg.payLag, 1));
@@ -301,6 +306,12 @@ function render(s, example) {
   const issues = [], pl = (n, one, many) => n === 1 ? one : many;
   if (s.outOfRoster.length) issues.push(['', `${s.outOfRoster.length} ${pl(s.outOfRoster.length,'ιατρός έχει κατά κεφαλήν αλλά δεν είναι','ιατροί έχουν κατά κεφαλήν αλλά δεν είναι')} στο μητρώο. Δεν θα εμφανιστούν σε ΔΥ/ΟΚΥΠΥ μέχρι να προστεθούν.`, s.outOfRoster.map(d => `${d.code} · ${money(d.total)}`)]);
   if (s.kpiNoList.length) issues.push(['', `${s.kpiNoList.length} ${pl(s.kpiNoList.length,'γραμμή KPI στα SRA δεν έχει','γραμμές KPI στα SRA δεν έχουν')} λίστα ιατρού αυτό τον μήνα και δεν μπαίνουν στον υπολογισμό.`, s.kpiNoList.map(l => `${l.desc} · ${l.supplier} · ${money(l.paid)}`)]);
+  if (s.compare && s.compare.flagged.length) {
+    const cp = s.compare, pp = `${pad(cp.prev.month)}/${cp.prev.year}`;
+    issues.push(['', `${cp.flagged.length} ${pl(cp.flagged.length, 'ιατρός άλλαξε', 'ιατροί άλλαξαν')} πάνω από ${Math.round(cp.flagPct * 100)}% σε σχέση με ${pp}, ή είναι νέοι ή χωρίς αμοιβή. Δείτε το φύλλο ΣΥΓΚΡΙΣΗ.` + (cp.gap !== 1 ? ` Προσοχή: το ${pp} δεν είναι ο αμέσως προηγούμενος μήνας.` : ''),
+      cp.flagged.slice().sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map(x => `${x.code} · ${x.status} · ${money(x.prevFee)} → ${money(x.fee)}`)]);
+  }
+  if (s.idSameAsAka && s.idSameAsAka.length) issues.push(['', `${s.idSameAsAka.length} ${pl(s.idSameAsAka.length, 'ιατρός έχει', 'ιατροί έχουν')} στο μητρώο ΑΔΤ ίδιο με τον ΑΚΑ. Διορθώστε τη στήλη ΑΔΤ πριν τη μισθοδοσία.`, s.idSameAsAka]);
   if (s.rosterNoCap.length) issues.push(['info', `${s.rosterNoCap.length} ${pl(s.rosterNoCap.length,'ιατρός του μητρώου δεν έχει','ιατροί του μητρώου δεν έχουν')} κατά κεφαλήν αυτό τον μήνα (εμφανίζεται με 0).`, s.rosterNoCap.map(d => `${d.code} · ${d.cat}`)]);
   const dups = typeof s.duplicates === 'number' ? s.duplicates : s.duplicates.length;
   if (dups) issues.push(['', `${dups} ${pl(dups,'τιμολόγιο υπήρχε','τιμολόγια υπήρχαν')} δύο φορές στα αρχεία και μετρήθηκε μία φορά.`, []]);
@@ -329,7 +340,7 @@ function render(s, example) {
     ${issues.length ? issues.map(([cls, t, list]) => `<div class="issue ${cls}">${esc(t)}${list.length ? `<ul>${list.slice(0, 12).map(x => `<li>${esc(x)}</li>`).join('')}${list.length > 12 ? `<li>…και άλλοι ${list.length - 12}</li>` : ''}</ul>` : ''}</div>`).join('') : '<div class="issue info">Τίποτα.</div>'}
   </div></section>
   <div class="dl">
-    <p>${example ? 'Όταν τρέξετε τον υπολογισμό με τα δικά σας αρχεία, εδώ θα κατεβάσετε το Excel: ALL, τα τρία φύλλα υπολογισμού, ΣΥΝΟΛΙΚΑ, ΟΝΟΜΑΣΤΙΚΑ, ΔΥ, ΟΚΥΠΥ, ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ, ΠΑΡΑΙΤΗΣΕΙΣ, CHECKS, SRA_PD και ROSTER.' : `<code>${esc(result.filename)}</code><br>Ανοίξτε πρώτα το φύλλο CHECKS. Το σύνολο του ΔΥ συγκρίνεται με την κατάσταση του Υπουργείου στο κίτρινο κελί κάτω από τον πίνακα.`}</p>
+    <p>${example ? 'Όταν τρέξετε τον υπολογισμό με τα δικά σας αρχεία, εδώ θα κατεβάσετε το Excel: ALL, τα τρία φύλλα υπολογισμού, ΣΥΝΟΛΙΚΑ, ΟΝΟΜΑΣΤΙΚΑ, ΣΥΓΚΡΙΣΗ, ΔΥ, ΟΚΥΠΥ, ΑΓΟΡΑ ΥΠΗΡΕΣΙΩΝ, ΠΑΡΑΙΤΗΣΕΙΣ, CHECKS, SRA_PD και ROSTER.' : `<code>${esc(result.filename)}</code><br>Ανοίξτε πρώτα το φύλλο CHECKS. Το σύνολο του ΔΥ συγκρίνεται με την κατάσταση του Υπουργείου στο κίτρινο κελί κάτω από τον πίνακα.`}</p>
     <button class="primary" id="dl" type="button" ${example ? 'disabled' : ''}>Κατέβασμα Excel</button>
   </div>`;
   if (!example) $('#dl').addEventListener('click', () => offer(result.blob, result.filename));
