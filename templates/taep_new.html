@@ -223,6 +223,7 @@
             <option value=""></option>
             {% for category in categories %}
               <option value="{{ category.id }}"
+                data-prepayment="{{ category.prepayment or '' }}"
                 {% if form.get('financial_category_id')|string == category.id|string %}selected{% endif %}>
                 {{ category.code_new }} — {{ category.name_el }}</option>
             {% endfor %}
@@ -230,31 +231,34 @@
         </div>
       </div>
 
-      {# Γιώτα 22/10/2026: the προκαταβολή has to be confirmed. The category says what
-         is due; until this is ticked nothing comes off the patient's bill.
+      {# Γιώτα 22/10/2026: what is taken at registration has to be confirmed. The
+         category says what is due; until this is ticked nothing comes off the bill.
 
-         The box is always on the screen rather than appearing only for the category
-         that carries a deposit: the clerk may pick the category after filling this in,
-         and a field that vanishes takes its value with it. #}
-      <div class="row g-3 mt-1">
+         Shown only for the categories that take something — the €100 deposit on 600,
+         the €10 registration fee on 603, 605 and 608 (Παναγιώτα Έλληνα, 23/10/2026).
+         The block is in the page either way and the script below shows or hides it, so
+         switching category back and forth does not lose what was typed. #}
+      <div class="row g-3 mt-1 d-none" id="prepayment-block">
         <div class="col-md-5">
           <div class="form-check mt-2">
             <input class="form-check-input" type="checkbox" value="1"
                    id="deposit_confirmed" name="deposit_confirmed"
                    {% if form.get('deposit_confirmed') %}checked{% endif %}>
             <label class="form-check-label" for="deposit_confirmed">
-              {{ t('Η προκαταβολή εισπράχθηκε') }}</label>
+              <span id="prepayment-label">{{ t('Εισπράχθηκε κατά την εγγραφή') }}</span>
+              <span class="text-muted" id="prepayment-amount"></span>
+            </label>
           </div>
         </div>
         <div class="col-md-4">
           <label class="form-label" for="deposit_receipt">
-            {{ t('Αρ. απόδειξης προκαταβολής') }}</label>
+            {{ t('Αρ. απόδειξης') }}</label>
           <input id="deposit_receipt" name="deposit_receipt" class="form-control"
                  value="{{ form.get('deposit_receipt', '') }}">
         </div>
-      </div>
-      <div class="form-text">
-        {{ t('Αφορά μόνο τις κατηγορίες με προκαταβολή. Χωρίς επιβεβαίωση, η προκαταβολή δεν αφαιρείται από το πληρωτέο.') }}
+        <div class="form-text">
+          {{ t('Χωρίς επιβεβαίωση, το ποσό δεν αφαιρείται από το πληρωτέο.') }}
+        </div>
       </div>
     </div>
   </div>
@@ -268,4 +272,42 @@
   </div>
 
 </form>
+
+<script>
+// Show the registration-payment confirmation only for the categories that take
+// something at registration (Παναγιώτα Έλληνα, 23/10/2026). The amount comes from the
+// rate table through data-prepayment, not from a list of codes here: 600 carries €100
+// and 603, 605 and 608 carry €10, and when the Μονάδα changes that it changes in the
+// rates, which is the one place a price is allowed to live.
+(function () {
+  var select = document.getElementById("financial_category_id");
+  var block = document.getElementById("prepayment-block");
+  if (!select || !block) return;
+  var amount = document.getElementById("prepayment-amount");
+  var tick = document.getElementById("deposit_confirmed");
+  var receipt = document.getElementById("deposit_receipt");
+
+  function apply() {
+    var option = select.options[select.selectedIndex];
+    var value = option ? (option.getAttribute("data-prepayment") || "") : "";
+    var due = parseFloat(value);
+    var applies = !isNaN(due) && due > 0;
+    block.classList.toggle("d-none", !applies);
+    if (amount) {
+      amount.textContent = applies
+        ? "— " + due.toFixed(2).replace(".", ",") + " €" : "";
+    }
+    // Clear rather than carry: a tick left over from another category would confirm
+    // money nobody took. The inputs stay in the form, so the post is unambiguous.
+    if (!applies) {
+      if (tick) tick.checked = false;
+      if (receipt) receipt.value = "";
+    }
+  }
+
+  select.addEventListener("change", apply);
+  if (window.jQuery) jQuery(select).on("select2:select", apply);
+  apply();
+})();
+</script>
 {% endblock %}

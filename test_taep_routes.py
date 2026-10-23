@@ -214,13 +214,40 @@ def test_changing_services_after_calculating_clears_the_result(client, app):
     assert taep.get_episode(app.ctx, episode_id)["status"] == "DRAFT"
 
 
-def test_one_sided_selection_is_refused_in_greek(client, app):
+def test_one_sided_selection_is_refused_when_it_is_made(client, app):
+    """Παναγιώτα Έλληνα, 23/10/2026: it must not let the clerk save a treatment with no
+    diagnostic intervention, because the weight comes from the two together.
+
+    The algorithm always refused to price one, but only on Υπολογισμός — by then the
+    clerk had saved a selection the tool would not cost. It is refused on save now,
+    where the mistake is made, and the previous selection is left alone.
+    """
     episode_id = create(client, app)
-    client.post(f"/taep/{episode_id}/services", data={"service_code": ["AED008"]})
-    response = client.post(f"/taep/{episode_id}/calculate", follow_redirects=True)
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+
+    response = client.post(f"/taep/{episode_id}/services",
+                           data={"service_code": ["AET074"]}, follow_redirects=True)
     page = response.get_data(as_text=True)
-    assert "θεραπεία" in page
-    assert taep.get_calculation(app.ctx, episode_id) is None
+    assert "διαγνωστική παρέμβαση" in page
+    assert taep.get_episode_service_codes(app.ctx, episode_id) == ["AED008", "AET057"]
+
+    response = client.post(f"/taep/{episode_id}/services",
+                           data={"service_code": ["AED008"]}, follow_redirects=True)
+    assert "θεραπεία" in response.get_data(as_text=True)
+    assert taep.get_episode_service_codes(app.ctx, episode_id) == ["AED008", "AET057"]
+
+
+def test_selecting_nothing_is_still_triage(client, app):
+    """Her other half: "ή δεν επιλέγεις τίποτα και οδηγεί σε κόστος διαλογής μόνο"."""
+    episode_id = create(client, app)
+    assert client.post(f"/taep/{episode_id}/services",
+                       data={"service_code": []}).status_code == 302
+    client.post(f"/taep/{episode_id}/calculate")
+    result = app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    assert taep._as_int(result["is_triage_only"]) == 1
 
 
 def test_finalising_without_calculating_is_refused(client, app):
@@ -1305,14 +1332,21 @@ def test_the_cancel_and_delete_boxes_follow_the_permission(client, app):
     page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
     assert 'id="withdraw"' not in page
 
+    # Παναγιώτα Έλληνα, 23/10/2026: "το παράθυρο της ακύρωσης ... θα ήταν σωστό να το
+    # βλέπουν μόνο οι admin". Holding taep.cancel is no longer enough — and the route
+    # was tightened with the template, since a hidden button that still answers a post
+    # is not a restriction.
     app.ctx["granted_permissions"].add("taep.cancel")
     page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
-    assert 'id="withdraw"' in page
-    assert "Αιτιολογία ακύρωσης" in page
-    assert "Αιτιολογία διαγραφής" not in page
+    assert 'id="withdraw"' not in page
+    assert client.post("/taep/%d/cancel" % episode_id,
+                       data={"reason": "x"}).status_code == 403
+    assert taep.get_episode(app.ctx, episode_id)["status"] != "CANCELLED"
 
     app.ctx["granted_permissions"].add("taep.admin")
     page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert 'id="withdraw"' in page
+    assert "Αιτιολογία ακύρωσης" in page
     assert "Αιτιολογία διαγραφής" in page
 
 
@@ -1329,3 +1363,78 @@ def test_the_previous_versions_appear_only_after_a_revision(client, app):
     assert 'id="revisions"' in page
     assert "Λάθος τηλέφωνο" in page
     assert "Αναθεώρηση" in page
+
+
+# ---------------------------------------------------------------------------
+# The registration fee, third instruction (Παναγιώτα Έλληνα 23/10/2026)
+# ---------------------------------------------------------------------------
+
+def fee_category(app, code="603"):
+    return str(app.ctx["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new=%s",
+        (code,), fetch=True)[0]["id"])
+
+
+def test_a_confirmed_registration_fee_comes_off_what_is_payable(client, app):
+    """"Πρέπει να μπει κάπου το τέλος εγγραφής και να αφαιρείται από το σύνολο της
+    κοστολόγησης."
+
+    Read against the Μονάδα's own ruling of 22/10 — the fee "δεν συμψηφίζεται με την
+    κοστολόγηση" — the only treatment that satisfies both is the one the deposit has:
+    total_cost stays what the ΟΑΥ algorithm priced, and the fee is shown beneath it and
+    subtracted to give what the patient hands over. Flagged back to them in writing.
+
+    AED008 with AET057 is weight 8, €120. Minus the €10 fee, €110 to collect.
+    """
+    episode_id = create(client, app, financial_category_id=fee_category(app),
+                        deposit_confirmed="1", deposit_receipt="R-77")
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+    client.post(f"/taep/{episode_id}/finalise")
+
+    stored = app.ctx["db_execute"](
+        "SELECT * FROM taep_costing_result WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]
+    # The costing itself is untouched: still only what the algorithm priced.
+    assert taep.money_from_db(stored["total_cost"]) == Decimal("120.00")
+    assert taep.money_from_db(stored["registration_fee_applied"]) == Decimal("10.00")
+
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "Τέλος εγγραφής που έχει ήδη καταβληθεί" in text
+    assert "R-77" in text
+    assert "Υπόλοιπο προς είσπραξη" in text
+    assert "110,00" in text
+
+
+def test_an_unconfirmed_registration_fee_comes_off_nothing(client, app):
+    episode_id = create(client, app, financial_category_id=fee_category(app))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+    client.post(f"/taep/{episode_id}/finalise")
+
+    text = pdf_text(taep.render_costing_pdf(app.ctx, episode_id))
+    assert "Υπόλοιπο προς είσπραξη" not in text
+    assert "Τέλος εγγραφής" in text and "δεν έχει επιβεβαιωθεί" in text.replace("\n", " ")
+
+
+def test_the_confirmation_box_appears_only_where_something_is_taken(client, app):
+    """Παναγιώτα: "Το πεδίο της προκαταβολής φαίνεται και σε άλλες κατηγορίες εκτός από
+    τον επί πληρωμή — δεν το θέλουμε."
+
+    The script decides from data-prepayment, which comes off the rate table rather than
+    a list of codes, so when the Μονάδα changes an amount it changes in one place.
+    """
+    import re
+    page = client.get("/taep/nea").get_data(as_text=True)
+    amounts = dict(re.findall(
+        r'<option value="(\d+)"\s+data-prepayment="([^"]*)"', page))
+    by_code = {row["code_new"]: str(row["id"])
+               for row in taep.list_ae_categories(app.ctx)}
+
+    assert amounts[by_code["600"]].startswith("100")
+    for code in ("603", "605", "608"):
+        assert amounts[by_code[code]].startswith("10"), code
+    for code in ("624", "609", "620"):
+        assert amounts[by_code[code]] == "", code

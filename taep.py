@@ -1278,12 +1278,25 @@ def last_allocated_sequence(ctx, unit_code):
 # ---------------------------------------------------------------------------
 
 def list_ae_categories(ctx):
-    """The 23 ΤΑΕΠ-valid categories, for the picker. The other 15 are never offered."""
-    return ctx["db_execute"](
-        """SELECT id, code_new, name_el, tariff_applies, requires_payer, payer_el
-           FROM taep_financial_category
-           WHERE valid_for_ae = 1 AND active = 1
-           ORDER BY code_new""", fetch=True) or []
+    """The 23 ΤΑΕΠ-valid categories, for the picker. The other 15 are never offered.
+
+    `prepayment` is the amount taken at registration for this category — the €100
+    deposit on 600, or the €10 registration fee on 603, 605 and 608. The entry screen
+    uses it to show the confirmation box only where there is something to confirm
+    (Παναγιώτα Έλληνα, 23/10/2026: "Το πεδίο της προκαταβολής φαίνεται και σε άλλες
+    κατηγορίες εκτός από τον επί πληρωμή — δεν το θέλουμε.")
+    """
+    rows = ctx["db_execute"](
+        """SELECT c.id, c.code_new, c.name_el, c.tariff_applies, c.requires_payer,
+                  c.payer_el,
+                  (SELECT SUM(r.amount) FROM taep_rate r
+                    WHERE r.financial_category_id = c.id
+                      AND r.rate_type IN ('REGISTRATION_DEPOSIT', 'REGISTRATION_FEE')
+                      AND r.valid_to IS NULL AND r.amount > 0) AS prepayment
+           FROM taep_financial_category c
+           WHERE c.valid_for_ae = 1 AND c.active = 1
+           ORDER BY c.code_new""", fetch=True) or []
+    return rows
 
 
 def get_category(ctx, category_id):
@@ -1712,10 +1725,36 @@ def set_episode_services(ctx, episode_id, codes, user_id):
     """
     db = ctx["db_execute"]
     now = dt.datetime.now()
+
+    # Both kinds or neither. Παναγιώτα Έλληνα, 23/10/2026: "Ή επιλέγεις κάτι από κάθε
+    # κατηγορία ή δεν επιλέγεις τίποτα και οδηγεί σε κόστος διαλογής μόνο."
+    #
+    # The rule was already in the algorithm, which refused to weight a one-sided
+    # selection — but it only bit on Υπολογισμός, by which point the clerk had saved
+    # something the tool would not price. It bites on save now, where the mistake is
+    # made. The algorithm keeps its own check: this is a second gate, not a move.
+    codes = list(dict.fromkeys(codes))
+    if codes:
+        kinds = {row["service_type"] for row in db(
+            "SELECT service_type FROM taep_service WHERE code IN (%s)"
+            % ", ".join(["%s"] * len(codes)), tuple(codes), fetch=True) or []}
+        if INVESTIGATION not in kinds:
+            raise CostingError(
+                "MISSING_INVESTIGATION",
+                "Επιλέχθηκε θεραπεία χωρίς διαγνωστική παρέμβαση. Η βαρύτητα "
+                "προκύπτει από τις δύο μαζί: επιλέξτε τουλάχιστον μία διαγνωστική "
+                "παρέμβαση, ή καμία υπηρεσία καθόλου για χρέωση διαλογής.")
+        if TREATMENT not in kinds:
+            raise CostingError(
+                "MISSING_TREATMENT",
+                "Επιλέχθηκε διαγνωστική παρέμβαση χωρίς θεραπεία. Η βαρύτητα "
+                "προκύπτει από τις δύο μαζί: επιλέξτε τουλάχιστον μία θεραπεία, ή "
+                "καμία υπηρεσία καθόλου για χρέωση διαλογής.")
+
     db("DELETE FROM taep_episode_service WHERE episode_id=%s", (episode_id,))
     _insert_many(db, "taep_episode_service",
                  ["episode_id", "service_code", "added_by", "added_at"],
-                 [(episode_id, code, user_id, now) for code in dict.fromkeys(codes)])
+                 [(episode_id, code, user_id, now) for code in codes])
     db("DELETE FROM taep_costing_result WHERE episode_id=%s", (episode_id,))
     db("UPDATE taep_episode SET status='DRAFT', updated_by=%s, updated_at=%s "
        "WHERE id=%s AND status='CALCULATED'", (user_id, now, episode_id))
@@ -2035,23 +2074,62 @@ def _format_datetime(value):
 
 
 def deposit_state(episode, result):
-    """What the deposit does to this bill. One rule, read by the screen and the PDF.
+    """What was taken at registration, and what it does to this bill. One rule, read by
+    the screen and by the PDF.
 
-    Γιώτα, 22/10/2026: "Η προκαταβολή πρέπει με κάποιο τρόπο να επιβεβαιώνεται. Έτσι
-    όπως είναι τώρα θεωρεί σίγουρο ότι όλοι ασθενείς (επί πληρωμή) έχουν δώσει 100 ευρώ
-    προκαταβολή." The rate on the category says what is *due*; only the tick on the
-    episode says what was *taken*.
+    Two amounts arrive here, and both behave the same way:
+
+      * the €100 προκαταβολή on 600;
+      * the €10 τέλος εγγραφής on 603, 605 and 608.
+
+    The fee reaching this function is the third instruction about it, so the reasoning
+    is written down rather than left to be reconstructed:
+
+      29/09  the Μονάδα said the fee applies and it was ADDED to the total.
+      22/10  the Μονάδα said it is a Ministry of Health charge taken at registration,
+             "δεν συμψηφίζεται με την κοστολόγηση ... δεν επαναχρεώνεται", so it came
+             out of the total entirely.
+      23/10  Παναγιώτα Έλληνα: "πρέπει να μπει κάπου το τέλος εγγραφής και να
+             αφαιρείται από το σύνολο της κοστολόγησης."
+
+    The third reads as a reversal of the second, and it is not mine to pick between
+    them. But there is one treatment that satisfies both, and it is the one the deposit
+    already has: the fee is NOT in total_cost — the costing still prices only what the
+    ΟΑΥ algorithm priced, per 22/10 — and it is shown beneath the total and subtracted
+    to give what the patient actually hands over, per 23/10. Nothing is charged twice
+    and nothing is charged that was not.
+
+    That reading is stated in the note back to the Μονάδα. If they meant the fee should
+    come out of total_cost itself, it is a two-line change — but it would make the
+    stored total disagree with the algorithm, which is why it is not the default guess.
+
+    Γιώτα, 22/10, applies to both amounts: the rate says what is DUE, only the tick on
+    the episode says what was TAKEN.
 
     Returns a dict:
-      amount      the deposit, whether or not it was confirmed, or None
+      amount      what registration should have taken, confirmed or not, or None
+      kind        'DEPOSIT' or 'FEE' — they are labelled differently to the patient
       confirmed   True once somebody ticked it
       receipt     the receipt number, if one was recorded
-      balance     cost minus a confirmed deposit; None when nothing is netted off
+      balance     total minus a confirmed amount; None when nothing is netted off
       refund      True when the balance goes back to the patient instead
     """
-    amount = (money_from_db(result["registration_deposit"])
-              if result is not None and result.get("registration_deposit") is not None
-              else None)
+    deposit = (money_from_db(result["registration_deposit"])
+               if result is not None and result.get("registration_deposit") is not None
+               else None)
+    fee = (money_from_db(result["registration_fee_applied"])
+           if result is not None
+           and result.get("registration_fee_applied") is not None else None)
+
+    # A category carries one or the other, never both. If that ever changes, the deposit
+    # wins and the fee is reported separately rather than silently summed.
+    if deposit and deposit > 0:
+        amount, kind = deposit, "DEPOSIT"
+    elif fee and fee > 0:
+        amount, kind = fee, "FEE"
+    else:
+        amount, kind = None, None
+
     confirmed = bool(amount is not None and _as_int(episode["deposit_confirmed"]))
     total = (money_from_db(result["total_cost"])
              if result is not None and result.get("total_cost") is not None else None)
@@ -2061,6 +2139,7 @@ def deposit_state(episode, result):
         balance = money(total - amount)
     return {
         "amount": amount,
+        "kind": kind,
         "confirmed": confirmed,
         "receipt": episode["deposit_receipt"],
         "balance": None if balance is None else (balance if balance >= 0 else -balance),
@@ -2374,8 +2453,10 @@ def render_costing_pdf(ctx, episode_id):
         y -= 5 * mm
         pdf.setFont(font, 8)
         receipt = (" (απόδ. %s)" % deposit["receipt"]) if deposit["receipt"] else ""
-        draw_fitted(pdf, totals_left, y,
-                    "Προκαταβολή που έχει ήδη καταβληθεί%s €" % receipt,
+        paid = ("Τέλος εγγραφής που έχει ήδη καταβληθεί"
+                if deposit["kind"] == "FEE"
+                else "Προκαταβολή που έχει ήδη καταβληθεί")
+        draw_fitted(pdf, totals_left, y, "%s%s €" % (paid, receipt),
                     amount_column - totals_left - 2 * mm, font)
         pdf.setFont(font, 8)
         pdf.drawRightString(right, y, format_eur(deposit["amount"]))
@@ -2393,11 +2474,12 @@ def render_costing_pdf(ctx, episode_id):
         pdf.drawRightString(right, y, format_eur(deposit["balance"]))
     elif deposit["amount"]:
         # Due but not confirmed. The patient owes the full amount on this document, and
-        # the desk is told why rather than left to wonder where the €100 went.
+        # the desk is told why rather than left to wonder where the money went.
         y -= 5 * mm
         pdf.setFont(font, 7.5)
         draw_fitted(pdf, totals_left, y,
-                    "Προκαταβολή %s € προβλέπεται για την κατηγορία και δεν έχει "
+                    ("Τέλος εγγραφής" if deposit["kind"] == "FEE" else "Προκαταβολή")
+                    + " %s € προβλέπεται για την κατηγορία και δεν έχει "
                     "επιβεβαιωθεί· δεν αφαιρέθηκε."
                     % format_eur(deposit["amount"]),
                     right - totals_left, font, size=7.5)
@@ -3925,8 +4007,11 @@ def register(app, ctx):
         if episode["status"] not in EDITABLE_STATUSES:
             flash("Η καταχώρηση δεν μπορεί να τροποποιηθεί.", "danger")
             return redirect(url_for("taep_costing", episode_id=episode_id))
-        set_episode_services(ctx, episode_id, request.form.getlist("service_code"),
-                             user_id())
+        try:
+            set_episode_services(ctx, episode_id,
+                                 request.form.getlist("service_code"), user_id())
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
         return redirect(url_for("taep_costing", episode_id=episode_id))
 
     @app.route("/taep/<int:episode_id>/calculate", methods=["POST"])
@@ -4327,10 +4412,20 @@ def register(app, ctx):
                                blockers=[f for f in findings if f["level"] == "blocker"],
                                warnings=[f for f in findings if f["level"] == "warning"])
 
-    # -- Cancellation (admin) ---------------------------------------------
+    # -- Cancellation and deletion: administrators only --------------------
+    #
+    # Παναγιώτα Έλληνα, 23/10/2026, on seeing the cancellation box on her screen: "Θα
+    # ήταν σωστό να το βλέπουν μόνο οι admin." Hiding the box would not have been an
+    # answer — the route would still have accepted a post from anyone holding
+    # taep.cancel — so the key changes here as well as in the template.
+    #
+    # taep.cancel is therefore no longer read by any route. It stays in PERMISSIONS
+    # because eFinance's PERMISSIONS_CATALOG already lists it and a key that vanishes
+    # from a catalogue is worse than one that does nothing; the note to eFinance asks
+    # them to retire it.
     @app.route("/taep/<int:episode_id>/cancel", methods=["POST"])
     @login_required
-    @permission_required(PERMISSIONS["cancel"])
+    @permission_required(PERMISSIONS["admin"])
     def taep_cancel(episode_id):
         episode_or_404(episode_id)
         try:

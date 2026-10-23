@@ -188,21 +188,26 @@ def triage_only(harness):
     ]
 
 
-@scenario("ΣΑ-05", "Μονομερής επιλογή υπηρεσιών απορρίπτεται",
-          "Περιστατικό όπου επιλέχθηκε μόνο διαγνωστική παρέμβαση.",
-          "Ο κωδικοποιητής πατά «Υπολογισμός».",
-          "Η κοστολόγηση απορρίπτεται με μήνυμα στα ελληνικά και δεν "
-          "αποθηκεύεται αποτέλεσμα.",
+@scenario("ΣΑ-05", "Μονομερής επιλογή υπηρεσιών απορρίπτεται κατά την αποθήκευση",
+          "Περιστατικό με επιλεγμένη διαγνωστική παρέμβαση και θεραπεία.",
+          "Ο κωδικοποιητής αλλάζει την επιλογή αφήνοντας μόνο διαγνωστική παρέμβαση.",
+          "Η επιλογή απορρίπτεται με μήνυμα στα ελληνικά και η προηγούμενη επιλογή "
+          "παραμένει. Η βαρύτητα προκύπτει από τις δύο κατηγορίες μαζί "
+          "(Μονάδα Ελέγχου Εσόδων 23/10/2026).",
           "§4.1, §10")
 def one_sided_selection(harness):
     episode_id = create_episode(harness)
     harness.client.post(f"/taep/{episode_id}/services",
-                        data={"service_code": ["AED008"]})
-    response = harness.client.post(f"/taep/{episode_id}/calculate",
+                        data={"service_code": ["AED008", "AET057"]})
+    response = harness.client.post(f"/taep/{episode_id}/services",
+                                   data={"service_code": ["AED008"]},
                                    follow_redirects=True)
     page = response.get_data(as_text=True)
     return [
         expect("θεραπεία" in page, "το μήνυμα αναφέρει ότι λείπει θεραπεία"),
+        expect(taep.get_episode_service_codes(harness.ctx, episode_id)
+               == ["AED008", "AET057"],
+               "η προηγούμενη επιλογή δεν χάθηκε"),
         expect(taep.get_calculation(harness.ctx, episode_id) is None,
                "δεν αποθηκεύτηκε αποτέλεσμα"),
     ]

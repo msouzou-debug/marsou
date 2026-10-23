@@ -269,7 +269,7 @@
             <i class="bi bi-plus-square"></i> {{ t('Προσθήκη χρέωσης') }}</button>
 
           <div class="form-text mt-2">
-            {{ t('Οι τέσσερις απεικονιστικές χρεώσεις τιμολογούνται από τον τιμοκατάλογο Ακτινοδιαγνωστικής: επιλέξτε και την εξέταση.') }}
+            {{ t('Ακτινογραφία, υπερηχογράφημα, αξονική και μαγνητική δεν έχουν δική τους τιμή: επιλέξτε και την εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής.') }}
           </div>
 
           <button type="submit" class="btn btn-brand mt-3">
@@ -437,15 +437,14 @@
     {# Cancellation and deletion. Both routes existed with no screen behind them, so
        neither could be reached. Each needs a written reason, which is the only record
        of why a priced costing stopped counting. #}
-    {% if (episode.status != 'CANCELLED' and has_permission('taep.cancel'))
-          or has_permission('taep.admin') %}
+    {% if has_permission('taep.admin') %}
     <div class="card mt-3" id="withdraw">
       <div class="card-header d-flex align-items-center gap-2">
         <i class="bi bi-exclamation-octagon text-danger"></i>
         <span>{{ t('Ακύρωση ή διαγραφή') }}</span>
       </div>
       <div class="card-body">
-        {% if episode.status != 'CANCELLED' and has_permission('taep.cancel') %}
+        {% if episode.status != 'CANCELLED' %}
         <form method="post"
               action="{{ url_for('taep_cancel', episode_id=episode.id) }}"
               class="mb-3">
@@ -461,7 +460,6 @@
         </form>
         {% endif %}
 
-        {% if has_permission('taep.admin') %}
         <form method="post"
               action="{{ url_for('taep_delete', episode_id=episode.id) }}"
               onsubmit="return confirm('{{ t('Η διαγραφή είναι οριστική. Συνέχεια;') }}');">
@@ -475,7 +473,6 @@
           <div class="form-text">
             {{ t('Μόνο για εξαιρετικές περιπτώσεις, όπως διπλός αριθμός επεισοδίου. Ο αριθμός κοστολόγησης παραμένει στο μητρώο ως άκυρος.') }}</div>
         </form>
-        {% endif %}
       </div>
     </div>
     {% endif %}

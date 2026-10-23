@@ -130,12 +130,12 @@ EN = {
     "Προκαταβολή που έχει ήδη καταβληθεί": "Deposit already paid",
     "Υπόλοιπο προς είσπραξη μετά την προκαταβολή": "Balance due after the deposit",
     "Επιστροφή στον ασθενή μετά την προκαταβολή": "Refund to the patient after the deposit",
-    "Η προκαταβολή εισπράχθηκε": "The deposit was collected",
-    "Αρ. απόδειξης προκαταβολής": "Deposit receipt no.",
-    "Αφορά μόνο τις κατηγορίες με προκαταβολή. Χωρίς επιβεβαίωση, η προκαταβολή δεν "
-    "αφαιρείται από το πληρωτέο.":
-        "Applies only to the categories that carry a deposit. Without confirmation the "
-        "deposit is not taken off the amount due.",
+    # One box now covers both the €100 deposit on 600 and the €10 registration fee on
+    # 603, 605 and 608, so the wording names neither (Παναγιώτα Έλληνα 23/10/2026).
+    "Εισπράχθηκε κατά την εγγραφή": "Collected at registration",
+    "Αρ. απόδειξης": "Receipt no.",
+    "Χωρίς επιβεβαίωση, το ποσό δεν αφαιρείται από το πληρωτέο.":
+        "Without confirmation the amount is not taken off what is due.",
     "Η προκαταβολή δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.":
         "The deposit has not been confirmed and was not taken off.",
     "Επιβεβαίωση στη διόρθωση": "Confirm it on the correction screen",
@@ -177,10 +177,12 @@ EN = {
     "Αιτιολογία αναλωσίμων": "Reason for the consumables",
     "Επιλέξτε εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής…":
         "Choose an examination from the radiology price list…",
-    "Οι τέσσερις απεικονιστικές χρεώσεις τιμολογούνται από τον τιμοκατάλογο "
-    "Ακτινοδιαγνωστικής: επιλέξτε και την εξέταση.":
-        "The four imaging charges are priced from the radiology price list: choose the "
-        "examination as well.",
+    # "Οι τέσσερις" read as "the four you selected" to the Μονάδα (23/10/2026), so the
+    # four are named instead of counted.
+    "Ακτινογραφία, υπερηχογράφημα, αξονική και μαγνητική δεν έχουν δική τους τιμή: "
+    "επιλέξτε και την εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής.":
+        "X-ray, ultrasound, CT and MRI carry no price of their own: choose the "
+        "examination from the radiology price list as well.",
     "Οι χρεώσεις τιμοκαταλόγου δεν ισχύουν για αυτή την οικονομική κατηγορία.":
         "Tariff charges do not apply to this financial category.",
 
