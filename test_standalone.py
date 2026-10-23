@@ -334,3 +334,29 @@ def test_every_template_string_has_english():
         [sys.executable, str(root / "tools" / "build_translations.py")],
         capture_output=True, text=True, cwd=str(root))
     assert finished.returncode == 0, finished.stdout + finished.stderr
+
+
+def test_every_table_scrolls_inside_its_own_box():
+    """An unwrapped <table> does not scroll itself — it drags the whole page sideways,
+    and on a phone nothing on that screen is readable.
+
+    eFinance's own suite catches this and caught my «Προηγούμενες εκδόσεις» table on
+    23/10/2026, after the other two tables in the same file already had the wrapper.
+    Their test should not be the one that finds mine.
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    unwrapped = []
+    for template in sorted((root / "templates").glob("taep_*.html")):
+        lines = template.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if "<table" not in line:
+                continue
+            preceding = "\n".join(lines[max(0, index - 6):index])
+            if "table-responsive" not in preceding:
+                unwrapped.append("%s:%d" % (template.name, index + 1))
+    assert unwrapped == [], unwrapped
+    # Worthless if it is finding no tables at all.
+    assert sum("<table" in line
+               for template in (root / "templates").glob("taep_*.html")
+               for line in template.read_text(encoding="utf-8").splitlines()) >= 10

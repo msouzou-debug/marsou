@@ -123,6 +123,10 @@
     <span>{{ t('Προηγούμενες εκδόσεις') }}</span>
   </div>
   <div class="card-body py-2">
+    {# A table without this does not scroll itself — it drags the whole page sideways,
+       and on a phone nothing on the screen is readable. Caught by eFinance's
+       test_mobile, 23/10/2026; the other two tables in this file already had it. #}
+    <div class="table-responsive">
     <table class="table table-sm mb-0" style="font-size:0.82rem">
       <thead><tr>
         <th>{{ t('Αρ. έκδοσης') }}</th>
@@ -143,6 +147,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endif %}

@@ -151,7 +151,10 @@ EN = {
     "Αιτιολογία αλλαγής": "Reason for the change",
     "Ακύρωση ή διαγραφή": "Cancel or delete",
     "Αιτιολογία ακύρωσης": "Reason for cancelling",
-    "Αιτιολογία διαγραφής": "Reason for deleting",
+    # eFinance's en.json already has this one as "Deletion reason". Theirs wins — the
+    # dictionary is one file and the rule is that where they already have a key, their
+    # wording stands. Matching here keeps the next diff clean.
+    "Αιτιολογία διαγραφής": "Deletion reason",
     # Not «Διαγραφή» alone if it can be helped, but the button has room for one word and
     # eFinance's dictionary should already agree with this one.
     "Διαγραφή": "Delete",
