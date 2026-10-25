@@ -1972,7 +1972,7 @@ if("serviceWorker" in navigator && notFramed && location.protocol==="https:"){
    replaces the offline copy. */
 const $v=id=>document.getElementById(id);
 const vFramed=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
-const APP_VERSION="1.48", APP_BUILD="2026-10-07";
+const APP_VERSION="1.49", APP_BUILD="2026-10-25";
 function verLabel(){return "v"+APP_VERSION+(APP_BUILD?" · "+APP_BUILD:"");}
 $v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
 $v("verFoot").textContent=verLabel();
@@ -1980,7 +1980,19 @@ $v("verFoot").textContent=verLabel();
    worker and its caches, and the browser's HTTP cache via a cache-busting URL —
    but leaves localStorage alone, so saved cartridges and the scan survive. */
 async function hardRefresh(){
-  ["hardRefresh","hardRefresh2"].forEach(id=>{const b=$(id);if(b){b.disabled=true;b.textContent="Updating…";}});
+  const btns=["hardRefresh","hardRefresh2"].map($v).filter(Boolean);
+  btns.forEach(b=>{b.disabled=true;b.textContent="Updating…";});
+  // Never throw away the offline copy unless the live site can replace it —
+  // if the site is down (404, no signal) the cached app is all there is.
+  let live=false;
+  try{ const r=await fetch("index.html?check="+Date.now(),{cache:"no-store"}); live=r.ok&&/APP_VERSION/.test(await r.text()); }catch(e){}
+  if(!live){
+    btns.forEach(b=>{b.disabled=false;});
+    $v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
+    $v("hardRefresh2").textContent="⟳ Hard refresh";
+    $v("verStatus").innerHTML="<b>Can't reach the app's website right now</b> — keeping the copy saved on this phone ("+verLabel()+"). Try again when you have signal or the site is back.";
+    return;
+  }
   try{ if("serviceWorker" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));} }catch(e){}
   try{ if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));} }catch(e){}
   try{ const u=new URL(location.href); u.searchParams.set("v",Date.now()); location.replace(u.toString()); }
