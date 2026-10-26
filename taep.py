@@ -565,6 +565,25 @@ SCHEMA_STATEMENTS = [
         active TINYINT DEFAULT 1
     ){ENGINE}""",
 
+    # The ΟΚΥπΥ ICD-10 catalogue, supplied by the Μονάδα Ελέγχου Εσόδων on 26/10/2026.
+    # 10.560 codes, each with a Greek and an English description.
+    #
+    # The diagnosis does not affect the price: the ΟΑΥ algorithm takes the weight from
+    # the services chosen, never from the diagnosis. It is recorded because the Μονάδα
+    # requires it (22/10/2026), and that is why it blocks finalisation rather than data
+    # entry — a clerk admitting a patient may not have one yet.
+    """CREATE TABLE IF NOT EXISTS taep_diagnosis (
+        code VARCHAR(10) PRIMARY KEY,
+        description_el VARCHAR(500) NOT NULL,
+        description_en VARCHAR(500),
+        -- Code and both descriptions, accent-folded and upper-cased once at seed time.
+        -- The 125 services are folded per request, which is fine at that size; folding
+        -- 10.560 diagnoses per keystroke measured 250 ms, which is not a type-ahead.
+        -- Doing it here turns the search into one LIKE over short strings.
+        search_text VARCHAR(1100),
+        active TINYINT DEFAULT 1
+    ){ENGINE}""",
+
     """CREATE TABLE IF NOT EXISTS taep_service (
         code VARCHAR(10) PRIMARY KEY,
         service_type VARCHAR(15) NOT NULL,
@@ -740,6 +759,11 @@ SCHEMA_STATEMENTS = [
         next_of_kin_type VARCHAR(50),
         next_of_kin_details VARCHAR(300),
         comments TEXT,
+        -- The ICD-10 code, and the description as it read when it was chosen. The
+        -- snapshot is there for the same reason the tariff lines keep one: a catalogue
+        -- entry may be reworded later, and the record should say what the clerk saw.
+        diagnosis_code VARCHAR(10),
+        diagnosis_text VARCHAR(500),
         admission_at DATETIME,
         examination_at DATETIME,
         discharge_at DATETIME,
@@ -857,6 +881,9 @@ ALTER_STATEMENTS = [
     "ALTER TABLE taep_episode ADD COLUMN revised_at DATETIME",
     "ALTER TABLE taep_costing_number ADD COLUMN voided_at DATETIME",
     "ALTER TABLE taep_costing_number ADD COLUMN voided_by INT",
+    # ICD-10, 26/10/2026.
+    "ALTER TABLE taep_episode ADD COLUMN diagnosis_code VARCHAR(10)",
+    "ALTER TABLE taep_episode ADD COLUMN diagnosis_text VARCHAR(500)",
 ]
 
 
@@ -1108,6 +1135,24 @@ def seed(ctx):
                        s.description_el, s.description_en, 1)
                       for s in load_services(_read_seed("services.csv"))])
 
+    # The ICD-10 catalogue is the one seed file NOT kept in this repository. It is the
+    # Μονάδα's Greek translation of 10.560 diagnoses, and the repository is public, so
+    # the file is delivered to the server by hand — docs/deployment-runbook.md §1c.
+    #
+    # Absent, the table stays empty and the readiness check reports it as a blocker,
+    # which is correct and loud: a diagnosis is required to finalise, so an empty
+    # catalogue means no costing can be completed. Everything else still loads, so one
+    # missing file does not stop eFinance from booting.
+    if os.path.exists(os.path.join(SEED_DIR, "icd10.csv")) \
+            and empty("SELECT code FROM taep_diagnosis LIMIT 1"):
+        _insert_many(db, "taep_diagnosis",
+                     ["code", "description_el", "description_en", "search_text",
+                      "active"],
+                     [(row["code"], row["description_el"], row["description_en"],
+                       fold_greek(" ".join((row["code"], row["description_el"],
+                                            row["description_en"] or ""))), 1)
+                      for row in _read_seed("icd10.csv")])
+
     if empty("SELECT id FROM taep_weight_matrix LIMIT 1"):
         verify_weight_matrix(_read_seed("weight_matrix.csv"))
         _insert_many(db, "taep_weight_matrix",
@@ -1302,6 +1347,48 @@ def list_ae_categories(ctx):
 def get_category(ctx, category_id):
     rows = ctx["db_execute"](
         "SELECT * FROM taep_financial_category WHERE id=%s", (category_id,), fetch=True)
+    return rows[0] if rows else None
+
+
+def search_diagnoses(ctx, term, limit=30):
+    """ICD-10 by code or by text, in Greek or English, accents optional.
+
+    The whole catalogue is 10.560 rows, far too many to render into a page, so this
+    answers a request per keystroke. It matches against the folded column built at seed
+    time; folding all 10.560 rows here instead measured 250 ms, which a clerk would feel.
+
+    Ranked, because sorting 51 matches for "pneumonia" by code puts A40.3 first and
+    buries J18.9 — the one a clerk typing that word almost always wants — past the
+    thirty the box shows. In order: the exact code, then codes beginning with the term,
+    then descriptions beginning with it in either language, then the rest.
+    """
+    needle = fold_greek(term)
+    if not needle:
+        return []
+    rows = ctx["db_execute"](
+        """SELECT code, description_el, description_en
+           FROM taep_diagnosis
+           WHERE active = 1 AND search_text LIKE %s
+           ORDER BY code""", ("%" + needle + "%",), fetch=True) or []
+
+    def rank(row):
+        folded = fold_greek(row["code"])
+        if folded == needle:
+            return 0
+        if folded.startswith(needle):
+            return 1
+        if (fold_greek(row["description_el"]).startswith(needle)
+                or fold_greek(row["description_en"] or "").startswith(needle)):
+            return 2
+        return 3
+
+    return sorted(rows, key=lambda row: (rank(row), row["code"]))[:limit]
+
+
+def get_diagnosis(ctx, code):
+    rows = ctx["db_execute"](
+        "SELECT code, description_el, description_en FROM taep_diagnosis "
+        "WHERE code = %s AND active = 1", ((code or "").strip(),), fetch=True)
     return rows[0] if rows else None
 
 
@@ -1556,6 +1643,7 @@ EPISODE_FIELDS = (
     # Per-episode, not per-category: the category says what is due, this says what
     # happened (Γιώτα 22/10/2026).
     "deposit_confirmed", "deposit_receipt",
+    "diagnosis_code", "diagnosis_text",
 )
 
 EDITABLE_STATUSES = ("DRAFT", "CALCULATED")
@@ -1898,6 +1986,18 @@ def finalise_episode(ctx, episode_id, result, user_id):
             "ALREADY_FINALISED",
             f"Η καταχώρηση έχει ήδη οριστικοποιηθεί με αριθμό "
             f"{episode['costing_number']}.")
+    # Μονάδα Ελέγχου Εσόδων, 22/10/2026: "Δεν θα επιτρέπεται η ολοκλήρωση της
+    # διαδικασίας χωρίς την καταχώριση διάγνωσης." Here rather than on save: a clerk
+    # admitting a patient often has no diagnosis yet, and refusing the entry would push
+    # them into inventing one. Completing the costing is what requires it.
+    #
+    # The diagnosis does not touch the price — the ΟΑΥ algorithm takes the weight from
+    # the services chosen — so this is a record-keeping rule, not an arithmetic one.
+    if not (episode["diagnosis_code"] or "").strip():
+        raise CostingError(
+            "MISSING_DIAGNOSIS",
+            "Η διάγνωση (ICD-10) είναι υποχρεωτική για την οριστικοποίηση. "
+            "Καταχωρήστε τη στη διόρθωση στοιχείων.")
     if episode["status"] == "CANCELLED":
         raise CostingError("EPISODE_CANCELLED", "Η καταχώρηση έχει ακυρωθεί.")
 
@@ -3225,6 +3325,7 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
     headers = ["Αρ. Κοστολόγησης", "Αρ. Επεισοδίου", "Ημ/νία Εξέτασης", "Επώνυμο",
                "Όνομα", "Τύπος ταυτοπ.", "Αρ. ταυτοποίησης", "Μονάδα ΤΑΕΠ",
                "Κωδ. Κατηγορίας", "Οικονομική Κατηγορία",
+               "ICD-10", "Διάγνωση",
                "Καταχωρήθηκε από", "Οριστικοποιήθηκε από",
                # The three inputs to the weight, and the weight. Off the clerk's screen
                # and off the patient's document since 22/10/2026 (Γιώτα), but the Μονάδα
@@ -3247,6 +3348,7 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
             episode["last_name"], episode["first_name"], episode["id_type"],
             episode["id_number"], episode["taep_unit_code"],
             episode["category_code"], episode["category_name"],
+            episode["diagnosis_code"], episode["diagnosis_text"],
             user_label(ctx, episode["created_by"]),
             user_label(ctx, episode["finalised_by"]),
             _as_int(episode["max_investigation_category"]),
@@ -3259,24 +3361,24 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
 
     last = sheet.max_row
     for row_index in range(2, last + 1):
-        sheet[f"Q{row_index}"].number_format = "#,##0.00"
+        sheet[f"S{row_index}"].number_format = "#,##0.00"
 
     if last > 1:
         # A live total, so the figure in the workbook is auditable rather than pasted.
-        sheet.cell(row=last + 2, column=16, value="Σύνολο").font = Font(bold=True)
-        total_cell = sheet.cell(row=last + 2, column=17, value=f"=SUM(Q2:Q{last})")
+        sheet.cell(row=last + 2, column=18, value="Σύνολο").font = Font(bold=True)
+        total_cell = sheet.cell(row=last + 2, column=19, value=f"=SUM(S2:S{last})")
         total_cell.font = Font(bold=True)
         total_cell.number_format = "#,##0.00"
-        sheet.cell(row=last + 3, column=16, value="Καταχωρήσεις").font = Font(bold=True)
-        sheet.cell(row=last + 3, column=17,
+        sheet.cell(row=last + 3, column=18, value="Καταχωρήσεις").font = Font(bold=True)
+        sheet.cell(row=last + 3, column=19,
                    value=f"=COUNTA(A2:A{last})").font = Font(bold=True)
 
-    for column, width in zip("ABCDEFGHIJKLMNOPQR",
+    for column, width in zip("ABCDEFGHIJKLMNOPQRST",
                              (20, 16, 18, 20, 18, 14, 18, 14, 14, 34,
-                              20, 20, 14, 14, 10, 18, 16, 20)):
+                              10, 40, 20, 20, 14, 14, 10, 18, 16, 20)):
         sheet.column_dimensions[column].width = width
     sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:R{last}"
+    sheet.auto_filter.ref = f"A1:T{last}"
 
     return _workbook_bytes(workbook)
 
@@ -3293,6 +3395,7 @@ EXPECTED_COUNTS = {
     "taep_tariff": 52,
     "taep_radiology_tariff": 305,
     "taep_country": 257,
+    "taep_diagnosis": 10560,
 }
 
 
@@ -3328,7 +3431,16 @@ def readiness_report(ctx, on_date=None):
     # 2. Master data loaded, at the counts the source files hold
     for table, expected in EXPECTED_COUNTS.items():
         actual = db(f"SELECT COUNT(*) AS n FROM {table}", fetch=True)[0]["n"]
-        if actual == 0:
+        if actual == 0 and table == "taep_diagnosis":
+            # Not "the seed has not run": everything else is loaded, so it has. The
+            # catalogue is the one seed file delivered by hand, because it is the
+            # Μονάδα's translation and this repository is public.
+            add("blocker", "δεδομένα",
+                "ο κατάλογος διαγνώσεων ICD-10 δεν έχει φορτωθεί. Αντιγράψτε το "
+                "icd10.csv στο seed/ και επανεκκινήστε — δείτε "
+                "docs/deployment-runbook.md §1c. Χωρίς αυτόν δεν μπορεί να "
+                "οριστικοποιηθεί καμία κοστολόγηση.")
+        elif actual == 0:
             add("blocker", "δεδομένα", f"ο πίνακας {table} είναι κενός — "
                                        f"δεν έχει εκτελεστεί το seed")
         elif actual != expected:
@@ -3546,6 +3658,9 @@ def _form_to_episode(form):
     # An unticked checkbox is absent from the post, which is not the same as a field the
     # clerk left blank: absent means "no".
     data["deposit_confirmed"] = 1 if form.get("deposit_confirmed") else 0
+    # diagnosis_text is filled from the catalogue by the caller, never from the post: a
+    # description that arrived with the form could say anything.
+    data["diagnosis_text"] = None
     return data
 
 
@@ -3882,7 +3997,8 @@ def list_episodes(ctx, entity_code, filters=None, limit=200):
     return ctx["db_execute"](
         f"""SELECT e.id, e.costing_number, e.episode_number, e.examination_at,
                    e.first_name, e.last_name, e.id_type, e.id_number, e.status,
-                   e.taep_unit_code, e.entity_code, c.code_new AS category_code,
+                   e.taep_unit_code, e.entity_code, e.diagnosis_code, e.diagnosis_text,
+                   c.code_new AS category_code,
                    c.name_el AS category_name, r.weight, r.total_cost,
                    r.max_investigation_category, r.max_treatment_category,
                    r.band_label_el, e.created_by, e.revision,
@@ -3931,6 +4047,25 @@ def register(app, ctx):
         if not entity:
             abort(403)
         return entity
+
+    def resolve_diagnosis(data, errors):
+        """Turn the posted code into a code plus the catalogue's own description.
+
+        A code the catalogue does not know is refused rather than stored: a diagnosis
+        nobody can look up is worse than none, and the Μονάδα made it mandatory so that
+        the record means something.
+        """
+        code = (data.get("diagnosis_code") or "").strip()
+        if not code:
+            data["diagnosis_code"] = None
+            data["diagnosis_text"] = None
+            return
+        found = get_diagnosis(ctx, code)
+        if found is None:
+            errors.append("Η διάγνωση «%s» δεν βρέθηκε στον κατάλογο ICD-10." % code)
+            return
+        data["diagnosis_code"] = found["code"]
+        data["diagnosis_text"] = found["description_el"]
 
     def may_edit(episode):
         """Γιώτα, 22/10/2026: a ΤΑΕΠ user may edit every field, "μόνο για κοστολογήσεις
@@ -4002,6 +4137,7 @@ def register(app, ctx):
                 return back(request.form)
 
             errors, warnings = validate_episode(data)
+            resolve_diagnosis(data, errors)
             unit_code = (request.form.get("taep_unit_code") or "").strip()
             if not unit_code:
                 errors.append("Επιλέξτε μονάδα ΤΑΕΠ.")
@@ -4063,6 +4199,22 @@ def register(app, ctx):
                          "category": int(h["category"]),
                          "description_el": h["description_el"],
                          "description_en": h["description_en"] or ""} for h in hits])
+
+    # -- Diagnosis search (ICD-10) ----------------------------------------
+    @app.route("/taep/api/diagnoses")
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_diagnosis_search():
+        hits = search_diagnoses(ctx, request.args.get("q", ""))
+        return jsonify({"results": [
+            {"id": hit["code"],
+             "code": hit["code"],
+             "description_el": hit["description_el"],
+             "description_en": hit["description_en"] or "",
+             # Select2 reads `text`; it is what lands in the box once chosen, and what
+             # is stored as the snapshot, so the two cannot drift.
+             "text": "%s — %s" % (hit["code"], hit["description_el"])}
+            for hit in hits]})
 
     # -- Screen 2: Κοστολόγηση --------------------------------------------
     @app.route("/taep/<int:episode_id>")
@@ -4228,6 +4380,7 @@ def register(app, ctx):
                                        form=request.form, episode=episode)
 
             errors, warnings = validate_episode(data)
+            resolve_diagnosis(data, errors)
             unit_code = (request.form.get("taep_unit_code") or "").strip()
             if not unit_code:
                 errors.append("Επιλέξτε μονάδα ΤΑΕΠ.")

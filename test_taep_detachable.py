@@ -89,7 +89,7 @@ def bare(seeded, tmp_path):
 
 def test_the_module_registers_against_a_bare_flask_app(bare):
     paths = {str(rule) for rule in bare.url_map.iter_rules()}
-    assert len([p for p in paths if p.startswith("/taep")]) == 26
+    assert len([p for p in paths if p.startswith("/taep")]) == 27
 
 
 @pytest.mark.parametrize("path", GET_SCREENS)
@@ -116,7 +116,9 @@ def test_a_costing_screen_renders_and_prints(bare):
     episode_id = taep.save_episode(
         bare.ctx, {**{field: None for field in taep.EPISODE_FIELDS},
                    "id_number": "1234567", "last_name": "Παπαδόπουλος",
-                   "examination_at": yesterday, "financial_category_id": category},
+                   "examination_at": yesterday, "financial_category_id": category,
+                   # Mandatory to finalise since 26/10/2026.
+                   "diagnosis_code": "J18.9", "diagnosis_text": "Πνευμονία"},
         entity_code="NGH", unit_code="NGH-ADULT", user_id=1)
     client = bare.test_client()
     assert client.get("/taep/%d" % episode_id).status_code == 200

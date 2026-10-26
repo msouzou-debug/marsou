@@ -133,6 +133,18 @@ EN = {
     # One box now covers both the €100 deposit on 600 and the €10 registration fee on
     # 603, 605 and 608, so the wording names neither (Παναγιώτα Έλληνα 23/10/2026).
     "Νοσηλευτήριο": "Hospital",
+
+    # — ICD-10 (Μονάδα Ελέγχου Εσόδων, catalogue supplied 26/10/2026) —
+    "Διάγνωση": "Diagnosis",
+    "Αναζητήστε με κωδικό ή περιγραφή, ελληνικά ή αγγλικά…":
+        "Search by code or description, in Greek or English…",
+    "Υποχρεωτική για την οριστικοποίηση. Δεν επηρεάζει το κόστος: η βαρύτητα "
+    "προκύπτει από τις υπηρεσίες.":
+        "Required before the costing can be finalised. It does not affect the cost: "
+        "the weight comes from the services.",
+    "δεν έχει καταχωρηθεί — απαιτείται για την οριστικοποίηση":
+        "not recorded — required before finalising",
+    "Καταχώρηση": "Record it",
     "Το νοσηλευτήριο της κοστολόγησης προκύπτει από τη μονάδα που επιλέγετε.":
         "The hospital on the costing follows from the unit you choose.",
     "Εισπράχθηκε κατά την εγγραφή": "Collected at registration",

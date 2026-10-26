@@ -13,8 +13,24 @@ def levels(findings, level):
     return [f for f in findings if f["level"] == level]
 
 
+def without_catalogue_size(findings):
+    """Drop the row-count warning about the diagnosis catalogue.
+
+    The Μονάδα's 10.560 ICD-10 codes are not in this repository, so a test run has three
+    stand-in rows instead and readiness rightly says the count is not the expected one.
+    That warning is about the clone, not about what these tests are checking — but a
+    *blocker* saying the catalogue is missing entirely is kept, because that is the
+    thing an installer must see.
+    """
+    return [f for f in findings
+            if not (f["level"] == "warning"
+                    and "taep_diagnosis" in f["detail"]
+                    and "γραμμές" in f["detail"])]
+
+
 def test_a_complete_install_is_ready(seeded):
-    findings = taep.readiness_report(seeded, dt.date(2026, 6, 1))
+    findings = without_catalogue_size(
+        taep.readiness_report(seeded, dt.date(2026, 6, 1)))
     assert findings == [], findings
     assert "Έτοιμο" in taep.readiness_summary(findings)
 
@@ -167,6 +183,19 @@ def test_the_readiness_screen_reports_a_clean_install(app):
     client = app.test_client()
     with client.session_transaction() as sess:
         sess["user_id"] = 1
+    # A clone without the Μονάδα's catalogue has three stand-in diagnoses rather than
+    # 10.560, and the screen rightly reports the count. Top the table up to the
+    # expected number so this test checks the screen rather than the clone — and do
+    # nothing when the real catalogue is present.
+    short = taep.EXPECTED_COUNTS["taep_diagnosis"] - app.ctx["db_execute"](
+        "SELECT COUNT(*) AS n FROM taep_diagnosis", fetch=True)[0]["n"]
+    if short > 0:
+        taep._insert_many(
+            app.ctx["db_execute"], "taep_diagnosis",
+            ["code", "description_el", "description_en", "search_text", "active"],
+            [("T%05d" % n, "Γέμισμα %d" % n, "Filler %d" % n, "t%05d" % n, 1)
+             for n in range(short)])
+
     page = client.get("/taep/readiness").get_data(as_text=True)
     assert "Έτοιμο για παραγωγική λειτουργία" in page
     assert "Όλοι οι έλεγχοι πέρασαν" in page

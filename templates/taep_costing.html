@@ -156,6 +156,23 @@
   <div class="card-body py-2" style="font-size:0.88rem">
     <span class="text-muted">{{ t('Οικονομική Κατηγορία') }}:</span>
     <strong>{{ category.code_new }} — {{ category.name_el }}</strong>
+    <span class="text-muted ms-3">{{ t('Διάγνωση') }}:</span>
+    {% if episode.diagnosis_code %}
+      <strong>{{ episode.diagnosis_code }}</strong>
+      <span class="text-muted">{{ episode.diagnosis_text }}</span>
+    {% else %}
+      {# Μονάδα 22/10/2026: mandatory to finalise. Said here, where the clerk is about
+         to press Οριστικοποίηση, rather than only when the button refuses. #}
+      <span class="text-danger" id="no-diagnosis">
+        <i class="bi bi-exclamation-triangle"></i>
+        {{ t('δεν έχει καταχωρηθεί — απαιτείται για την οριστικοποίηση') }}
+        {% if has_permission('taep.create') and may_edit
+              and episode.status != 'CANCELLED' %}
+          <a href="{{ url_for('taep_edit', episode_id=episode.id) }}">
+            {{ t('Καταχώρηση') }}</a>
+        {% endif %}
+      </span>
+    {% endif %}
   </div>
 </div>
 

@@ -18,6 +18,7 @@ from io import BytesIO
 from typing import Callable
 
 import taep
+import taep_harness
 
 YESTERDAY = dt.datetime.now() - dt.timedelta(days=1)
 
@@ -68,6 +69,10 @@ def entry_form(ctx, code="624", **overrides):
         "examination_at": (YESTERDAY + dt.timedelta(minutes=25)).strftime("%Y-%m-%dT%H:%M"),
         "discharge_at": (YESTERDAY + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M"),
         "financial_category_id": str(category_id(ctx, code)), "comments": "",
+        # Mandatory to finalise since 26/10/2026 (Μονάδα Ελέγχου Εσόδων). Asked of
+        # the harness rather than named here, so the suite also runs on a clone
+        # without the catalogue — see taep_harness.STAND_IN_DIAGNOSES.
+        "diagnosis_code": taep_harness.sample_diagnosis(ctx),
     }
     fields.update(overrides)
     return fields

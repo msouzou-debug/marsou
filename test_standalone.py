@@ -19,6 +19,7 @@ from werkzeug.security import generate_password_hash
 sys.path.insert(0, str(Path(__file__).resolve().parent / "standalone"))
 
 import taep                                     # noqa: E402
+import taep_harness                             # noqa: E402
 
 host = importlib.import_module("host")          # noqa: E402
 
@@ -32,6 +33,13 @@ def server(tmp_path):
     host.use_database(tmp_path / "taep.db")
     app = host.create_app()
     app.config["TESTING"] = True
+    if not host.db_execute("SELECT code FROM taep_diagnosis LIMIT 1", fetch=True):
+        taep._insert_many(
+            host.db_execute, "taep_diagnosis",
+            ["code", "description_el", "description_en", "search_text", "active"],
+            [(code, greek, english,
+              taep.fold_greek(" ".join((code, greek, english))), 1)
+             for code, greek, english in taep_harness.STAND_IN_DIAGNOSES])
     for username, role, hospital in (
             ("maria", "clerk", "NGH"),
             ("andreas", "clerk", "LGH"),
@@ -72,6 +80,11 @@ def form_fields(**overrides):
         "discharge_at": (YESTERDAY + dt.timedelta(hours=2)
                          ).strftime("%Y-%m-%dT%H:%M"),
         "financial_category_id": str(category), "comments": "",
+        # Mandatory to finalise since 26/10/2026 (Μονάδα Ελέγχου Εσόδων). Asked of
+        # the harness rather than named here, so the suite also runs on a clone
+        # without the catalogue — see taep_harness.STAND_IN_DIAGNOSES.
+        "diagnosis_code": taep_harness.sample_diagnosis(
+            {"db_execute": host.db_execute}),
     }
     fields.update(overrides)
     return fields
@@ -85,7 +98,7 @@ def test_the_host_registers_every_screen(server):
     paths = {str(rule) for rule in server.url_map.iter_rules()}
     assert "/taep/nea" in paths and "/taep/list" in paths
     assert "/login" in paths and "/logout" in paths
-    assert len([p for p in paths if p.startswith("/taep")]) == 26
+    assert len([p for p in paths if p.startswith("/taep")]) == 27
 
 
 def test_the_master_data_is_seeded(server):

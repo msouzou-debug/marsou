@@ -5,6 +5,7 @@ Used by the pytest fixtures in conftest.py and by tools/make_acceptance_document
 which runs the acceptance scenarios outside pytest to generate the signed-off document.
 One harness so the two cannot drift.
 """
+import shutil
 import sqlite3
 import tempfile
 from functools import wraps
@@ -48,9 +49,69 @@ def make_db(path):
     return db_execute
 
 
+_SEEDED_TEMPLATE = None
+
+
+def _seeded_template():
+    """A seeded database built once per process, for the tests to copy.
+
+    The master data is 10.560 ICD-10 codes, 305 radiology prices, 257 countries, 125
+    services and the rest — half a second to load, which was nothing when it was 550
+    rows and is a two-minute suite once it is eleven thousand. Seeding once and copying
+    the file keeps every test against the real seed rather than a convenient subset.
+
+    Production is unaffected: this is the harness, and taep.seed() still runs exactly as
+    it does on the server to build the template in the first place.
+    """
+    global _SEEDED_TEMPLATE
+    if _SEEDED_TEMPLATE is None:
+        directory = Path(tempfile.mkdtemp(prefix="taep-seed-"))
+        path = directory / "template.db"
+        ctx = _make_ctx_at(path, seed=True)
+        if not ctx["db_execute"]("SELECT code FROM taep_diagnosis LIMIT 1", fetch=True):
+            taep._insert_many(
+                ctx["db_execute"], "taep_diagnosis",
+                ["code", "description_el", "description_en", "search_text", "active"],
+                [(code, greek, english,
+                  taep.fold_greek(" ".join((code, greek, english))), 1)
+                 for code, greek, english in STAND_IN_DIAGNOSES])
+        # Fold the WAL back in, so one file is the whole database to copy.
+        ctx["db_execute"]("PRAGMA wal_checkpoint(TRUNCATE)")
+        _SEEDED_TEMPLATE = path
+    return _SEEDED_TEMPLATE
+
+
+# A diagnosis is required to finalise (Μονάδα 22/10/2026), so almost every test needs
+# one — but the real catalogue is the Μονάδα's translation and is deliberately not in
+# this repository, which is public. When it is absent the harness supplies three
+# obviously-fake rows instead, so the suite runs on a bare clone. Tests that need the
+# real thing skip themselves; see test_taep_diagnosis.py.
+STAND_IN_DIAGNOSES = [
+    ("ZZZ.1", "Δοκιμαστική διάγνωση — δεν είναι πραγματικός κωδικός ICD-10",
+     "Test diagnosis, not a real ICD-10 code"),
+    ("ZZZ.2", "Δεύτερη δοκιμαστική διάγνωση", "Second test diagnosis"),
+    ("ZZZ.3", "Τρίτη δοκιμαστική διάγνωση", "Third test diagnosis"),
+]
+
+
+def sample_diagnosis(ctx):
+    """A diagnosis code that exists in this ctx, real catalogue or not."""
+    rows = ctx["db_execute"](
+        "SELECT code FROM taep_diagnosis WHERE code='J18.9'", fetch=True)
+    return "J18.9" if rows else STAND_IN_DIAGNOSES[0][0]
+
+
 def make_ctx(directory, seed=True):
     """A module ctx with the keys eFinance's DESIGN.md specifies."""
-    db_execute = make_db(str(Path(directory) / "taep.db"))
+    path = Path(directory) / "taep.db"
+    if seed:
+        shutil.copyfile(_seeded_template(), path)
+        return _make_ctx_at(path, seed=False)
+    return _make_ctx_at(path, seed=False)
+
+
+def _make_ctx_at(path, seed):
+    db_execute = make_db(str(path))
     for statement in taep.SCHEMA_STATEMENTS:
         db_execute(taep.render_schema(statement, use_mysql=False))
     for statement in taep.ALTER_STATEMENTS:

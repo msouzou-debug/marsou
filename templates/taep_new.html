@@ -216,6 +216,27 @@
                  class="form-control" value="{{ form.get('discharge_at', '') }}">
         </div>
         <div class="col-12">
+          <label class="form-label" for="diagnosis_code">
+            {{ t('Διάγνωση') }} (ICD-10)</label>
+          {# 10.560 codes: far too many to put in the page, so this asks the server per
+             keystroke. The box starts empty on a new entry and carries the stored
+             diagnosis on a correction — Select2 needs the option to exist before it can
+             show it as selected. #}
+          <select id="diagnosis_code" name="diagnosis_code"
+                  class="form-select select2-diagnosis"
+                  data-url="{{ url_for('taep_diagnosis_search') }}"
+                  data-placeholder="{{ t('Αναζητήστε με κωδικό ή περιγραφή, ελληνικά ή αγγλικά…') }}">
+            <option value=""></option>
+            {% if form.get('diagnosis_code') %}
+              <option value="{{ form.get('diagnosis_code') }}" selected>
+                {{ form.get('diagnosis_code') }}{% if form.get('diagnosis_text') %} — {{ form.get('diagnosis_text') }}{% endif %}</option>
+            {% endif %}
+          </select>
+          <div class="form-text">
+            {{ t('Υποχρεωτική για την οριστικοποίηση. Δεν επηρεάζει το κόστος: η βαρύτητα προκύπτει από τις υπηρεσίες.') }}
+          </div>
+        </div>
+        <div class="col-12">
           <label class="form-label" for="comments">{{ t('Σχόλια') }}</label>
           <input id="comments" name="comments" class="form-control"
                  value="{{ form.get('comments', '') }}">
@@ -296,6 +317,40 @@
 </form>
 
 <script>
+// ICD-10. The catalogue is 10.560 codes, so the search runs on the server and the box
+// holds only what the clerk has chosen.
+(function () {
+  var field = document.getElementById("diagnosis_code");
+  if (!field || !window.jQuery || !jQuery.fn.select2) return;
+  jQuery(field).select2({
+    theme: "bootstrap-5",
+    width: "100%",
+    allowClear: true,
+    placeholder: jQuery(field).data("placeholder"),
+    minimumInputLength: 2,          // one letter matches a quarter of the catalogue
+    ajax: {
+      url: jQuery(field).data("url"),
+      dataType: "json",
+      delay: 200,
+      data: function (params) { return { q: params.term }; },
+      cache: true
+    },
+    // The English under the Greek, as on the service picker: a clerk who knows the
+    // English term should not have to guess the Greek one. Built as DOM, not markup —
+    // a description is data and must not be able to become HTML.
+    templateResult: function (item) {
+      if (!item.code) return item.text;
+      var row = jQuery("<div>");
+      row.append(jQuery("<div>").text(item.code + " — " + item.description_el));
+      if (item.description_en) {
+        row.append(jQuery("<div>").addClass("text-muted small")
+                                  .text(item.description_en));
+      }
+      return row;
+    }
+  });
+})();
+
 // Show the registration-payment confirmation only for the categories that take
 // something at registration (Παναγιώτα Έλληνα, 23/10/2026). The amount comes from the
 // rate table through data-prepayment, not from a list of codes here: 600 carries €100

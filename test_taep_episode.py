@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 
 import taep
+import taep_harness
 from taep import CostingError
 
 
@@ -33,6 +34,10 @@ def episode_data(ctx, code="624", **overrides):
         "admission_at": YESTERDAY, "examination_at": YESTERDAY + dt.timedelta(minutes=30),
         "discharge_at": YESTERDAY + dt.timedelta(hours=2),
         "financial_category_id": category_id(ctx, code),
+        # Mandatory to finalise since 26/10/2026 (Μονάδα Ελέγχου Εσόδων). Asked of
+        # the harness rather than named here, so the suite also runs on a clone
+        # without the catalogue — see taep_harness.STAND_IN_DIAGNOSES.
+        "diagnosis_code": taep_harness.sample_diagnosis(ctx),
     }
     data.update(overrides)
     return data

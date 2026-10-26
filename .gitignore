@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 .DS_Store
 ~$*
+
+# The ΟΚΥπΥ ICD-10 catalogue: the Μονάδα's Greek translation of 10.560 diagnoses.
+# This repository is public, so the file is delivered to the server by hand instead —
+# see docs/deployment-runbook.md §1c. tools/build_icd10.py rebuilds it from their
+# workbook; the workbook does not belong here either.
+seed/icd10.csv
+*.xlsx

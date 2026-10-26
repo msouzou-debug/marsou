@@ -207,6 +207,70 @@ sudo diff -q taep.py /opt/finance/taep.py && echo "taep.py ίδιο"
 
 `seed/*.csv` is harmless to re-copy: the seed only loads a table that is empty.
 
+## 1c. The ICD-10 catalogue, which is NOT in this repository
+
+Every other seed file is in `seed/`. `seed/icd10.csv` is not, and it is in `.gitignore`
+so it cannot be added by accident.
+
+It holds the Μονάδα Ελέγχου Εσόδων's Greek translation of 10.560 ICD-10 diagnoses,
+supplied 26/10/2026. **This repository is public.** The code can be read by anyone and
+that is accepted; their translation work is theirs to publish or not, and nobody has
+said it should be. So it travels to the server by hand, once.
+
+If the file is absent the module still loads and eFinance still boots. The diagnosis
+table stays empty, and `check_readiness.py` reports it as a **blocker** — correctly,
+because a diagnosis is required to finalise, so an empty catalogue means no costing can
+be completed.
+
+### Putting it on the server
+
+From a workstation that has the file:
+
+```powershell
+scp icd10.csv administrator@10.227.56.22:/home/administrator/
+```
+
+Then on the server:
+
+```bash
+sudo install -o finance -g finance -m 644 /home/administrator/icd10.csv \
+     /opt/finance/seed/icd10.csv
+sudo systemctl restart finance.service
+```
+
+The ordinary seed path loads it on the next start — nothing special, the same code that
+loads the other seed files. Confirm:
+
+```bash
+sudo -u finance env FINANCE_DB=/opt/finance/finance.db \
+     python3 /opt/finance/check_readiness.py
+```
+
+It is loaded once and then left alone: the seed fills a table only when it is empty, so
+restarts and deploys do not touch it.
+
+### If the Μονάδα sends a new version
+
+They send a workbook, not a CSV. Convert it where the workbook already is — do not put
+the workbook on the server:
+
+```bash
+python3 tools/build_icd10.py ICD10_version_2016_1.xlsx
+```
+
+That writes `seed/icd10.csv` and reports anything odd rather than repairing it. To
+replace a catalogue already loaded, empty the table first — and only when nothing has
+been recorded against the codes you are removing:
+
+```bash
+sudo -u finance python3 -c "import sqlite3;sqlite3.connect('/opt/finance/finance.db').execute('DELETE FROM taep_diagnosis').connection.commit()"
+```
+
+### Running the tests without it
+
+`test_taep_diagnosis.py` skips itself when the file is absent, and says why. A clone
+without the catalogue runs everything else.
+
 ## 1b. Deploying the parallel run (22/10/2026)
 
 The parallel-run report is `/taep/parallel`. It adds one table, one template, six
