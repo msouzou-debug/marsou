@@ -43,10 +43,20 @@ grep -q '"taep"' "$TARGET/app.py" || {
     exit 1
 }
 
+# eFinance runs out of a virtualenv (/opt/finance/venv), which is where openpyxl and
+# reportlab live — not system-wide. Found on 27/10/2026, when build_icd10.py failed on
+# the system python with ModuleNotFoundError. The checks here had been using `python3`
+# and getting away with it: taep.py defers every openpyxl and reportlab import into the
+# function that needs it, so importing the module works without them. Use the
+# interpreter the application actually runs under, so a check means what it says.
+PY="python3"
+[ -x "$TARGET/venv/bin/python3" ] && PY="$TARGET/venv/bin/python3"
+
 say "Έκδοση που εγκαθίσταται"
 git -C "$REPO" log --oneline -1
 EXPECTED="$(sha256sum "$REPO/taep.py" | cut -d' ' -f1)"
 echo "   taep.py sha256: ${EXPECTED:0:16}"
+echo "   python: $PY"
 
 say "Αντίγραφο ασφαλείας"
 BACKUP="${TAEP_BACKUP_DIR:-/home/administrator}/prod-backup-$(date +%Y%m%d-%H%M%S)"
@@ -95,7 +105,7 @@ if [ "$DRY_RUN" = 0 ]; then
 
     # 2. The tables. Fatal: a missing table means the restart did not take.
     echo
-    python3 "$REPO/tools/show_taep_tables.py" "$TARGET/finance.db"
+    "$PY" "$REPO/tools/show_taep_tables.py" "$TARGET/finance.db"
 
     # 3. The data. NOT fatal, and the `|| READY=$?` is why: a missing ICD-10 catalogue
     #    is a real blocker to going live and a perfectly normal state right after a
@@ -104,7 +114,7 @@ if [ "$DRY_RUN" = 0 ]; then
     #    had worked — which happened on 27/10/2026.
     echo
     sudo -u finance env FINANCE_DB="$TARGET/finance.db" \
-        python3 "$TARGET/check_readiness.py" || READY=$?
+        "$PY" "$TARGET/check_readiness.py" || READY=$?
 else
     echo "   (dry-run: δεν έγιναν έλεγχοι)"
 fi

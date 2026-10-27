@@ -258,6 +258,23 @@ the workbook on the server:
 python3 tools/build_icd10.py ICD10_version_2016_1.xlsx
 ```
 
+On the server itself, use the venv's python — the system one has no openpyxl, and
+rename the workbook first, because the name the Μονάδα sends has spaces and brackets in
+it and those do not survive PowerShell, ssh and bash in sequence:
+
+```bash
+sudo mv '/home/administrator/ICD10 version 2016 (1).xlsx' /home/administrator/icd10.xlsx
+sudo /opt/finance/venv/bin/python3 \
+     /home/administrator/marsou/tools/build_icd10.py /home/administrator/icd10.xlsx
+sudo install -o finance -g finance -m 644 \
+     /home/administrator/marsou/seed/icd10.csv /opt/finance/seed/icd10.csv
+sudo systemctl restart finance.service
+```
+
+Converting it inside the clone has a useful side effect: `seed/icd10.csv` is
+`.gitignore`d, so `git reset --hard` leaves it alone and every later deploy copies it
+across on its own.
+
 That writes `seed/icd10.csv` and reports anything odd rather than repairing it. To
 replace a catalogue already loaded, empty the table first — and only when nothing has
 been recorded against the codes you are removing:
@@ -314,6 +331,22 @@ sudo -u finance env FINANCE_DB=/opt/finance/finance.db \
 (root), because `finance` has no access to that directory. Anything already installed
 under `/opt/finance` runs as `sudo -u finance`. Writing into `/opt/finance` is always
 `install -o finance -g finance`, never a root-owned copy.
+
+**Which python runs what.** eFinance runs from a virtualenv:
+`/opt/finance/venv/bin/gunicorn`. **openpyxl and reportlab are installed in that venv,
+not system-wide** — `python3` on that server has neither. Confirmed 27/10/2026, when
+`build_icd10.py` failed on the system python.
+
+So anything that touches the Excel or PDF code runs as:
+
+```bash
+sudo /opt/finance/venv/bin/python3 ...
+```
+
+`check_readiness.py` happens to work on either, because `taep.py` defers every openpyxl
+and reportlab import into the function that needs it — importing the module needs only
+the standard library. That is luck, not design, and `deploy_to_efinance.sh` now uses the
+venv's interpreter whenever it finds one.
 
 Then sign in as a user holding `taep.admin` and open `/taep/parallel`. On an empty
 database it should say the run is blocked on all three counts — fourteen days, every
