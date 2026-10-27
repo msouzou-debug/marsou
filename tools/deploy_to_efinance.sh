@@ -80,21 +80,31 @@ if [ "$DRY_RUN" = 0 ]; then
 fi
 echo "   ενεργή"
 
+READY=0
 say "Έλεγχοι"
 if [ "$DRY_RUN" = 0 ]; then
-    # Read-only, both of them, which is why root may run them beside finance.db.
-    python3 "$REPO/tools/show_taep_tables.py" "$TARGET/finance.db"
-    sudo -u finance env FINANCE_DB="$TARGET/finance.db" \
-        python3 "$TARGET/check_readiness.py"
-
+    # 1. Did the install itself work? Answered first, and fatal: everything below is
+    #    about the data, and there is no point reading it against the wrong code.
     INSTALLED="$(sha256sum "$TARGET/taep.py" | cut -d' ' -f1)"
     if [ "$INSTALLED" != "$EXPECTED" ]; then
         echo "ΣΦΑΛΜΑ: το εγκατεστημένο taep.py δεν ταιριάζει με το αποθετήριο."
         exit 1
     fi
+    echo "   taep.py εγκαταστάθηκε και επαληθεύτηκε: ${INSTALLED:0:16}"
+    echo "   Αντίγραφο ασφαλείας: $BACKUP"
+
+    # 2. The tables. Fatal: a missing table means the restart did not take.
     echo
-    echo "Εγκαταστάθηκε και επαληθεύτηκε: ${INSTALLED:0:16}"
-    echo "Αντίγραφο ασφαλείας: $BACKUP"
+    python3 "$REPO/tools/show_taep_tables.py" "$TARGET/finance.db"
+
+    # 3. The data. NOT fatal, and the `|| READY=$?` is why: a missing ICD-10 catalogue
+    #    is a real blocker to going live and a perfectly normal state right after a
+    #    deploy, since the catalogue is copied separately (§1c). Letting it abort the
+    #    script meant the operator saw the blocker and never saw whether the install
+    #    had worked — which happened on 27/10/2026.
+    echo
+    sudo -u finance env FINANCE_DB="$TARGET/finance.db" \
+        python3 "$TARGET/check_readiness.py" || READY=$?
 else
     echo "   (dry-run: δεν έγιναν έλεγχοι)"
 fi
@@ -102,3 +112,7 @@ fi
 say "Μετά την εγκατάσταση"
 echo "   Συνδεθείτε και ανοίξτε μια κοστολόγηση για να δείτε τις αλλαγές."
 echo "   Σε πρόβλημα: sudo rm -rf $TARGET && sudo cp -a $BACKUP $TARGET && sudo systemctl restart $SERVICE"
+
+# The deploy succeeded; the readiness verdict is passed on as the exit code so a script
+# calling this one can tell "installed, not yet ready" from "installed and ready".
+exit "$READY"
