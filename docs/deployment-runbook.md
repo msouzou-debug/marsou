@@ -17,6 +17,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 21/10/2026 | `45923d9` | `bac761fb` | First install: module, area, sidebar, glyph, 125 English descriptions |
 | 22/10/2026 | `a8f0581` | `01812fed` | Parallel run `/taep/parallel` |
 | 23/10/2026 | `21b1164` | `2e137d2c` | The 22/10 rulings — see below |
+| 27/10/2026 | `0fef500` | `24193062` | ICD-10, the multi-hospital picker, Παναγιώτα's five |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
@@ -28,6 +29,16 @@ Verified at install: 16 ΤΑΕΠ tables including `taep_costing_revision`, readi
 clean, checksum matched. Six `ALTER` statements applied on restart and the two from
 September skipped as already present — rehearsed beforehand against a copy of the live
 schema, not discovered on the night.
+
+The 27/10 install carried Παναγιώτα Έλληνα's five comments of 23/10 (a one-sided
+service selection refused where it is made, the imaging note reworded, cancellation
+restricted to administrators, the registration-payment box shown only where something
+is taken, and the registration fee shown and deducted from what is payable), the
+multi-hospital picker, the missing scroll wrapper, and ICD-10.
+
+Its one extra step was the catalogue, which is not in the repository — §1c. Readiness
+reported it as a blocker until the file was in place, which is the intended behaviour
+and not a failed deploy.
 
 **Outstanding from that install**, reported by `tools/pre_deploy_check.py` and left for
 the Μονάδα rather than migrated: one finalised costing whose stored total still includes
