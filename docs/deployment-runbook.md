@@ -21,6 +21,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 30/10/2026 | `8aa9f7d` | `8ebc0836` | Finalising a costing that has an extra charge, and four more from the manual |
 | 30/10/2026 | `a1a4415` | `a6f3b228` | The half-changed revision, view-only users, codes on the screen |
 | 30/10/2026 | `12ed781` | `c54b100c` | The rates screen: a fee needs its category, and rates on a past date |
+| 30/10/2026 | `e64248b` | `c54b100c` | The ICD-10 box, and the script load order behind it — see below |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
@@ -605,6 +606,47 @@ Leave the tables. They hold issued costing numbers, and a number must never be r
 even after a withdrawal and reinstall.
 
 ---
+
+## Scripts in the templates: jQuery is not there yet
+
+`base.html` on this installation loads jQuery at line 383 and Select2 at 384, both at
+the foot of `<body>`. Everything in `templates/taep_*.html` is inline in the content
+block, which renders **above** that. So a script there runs while `window.jQuery` is
+still undefined.
+
+A guard does not save it. Every one of our scripts had
+
+    if (!window.jQuery || !jQuery.fn.select2) return;
+
+which gave up silently, in production only, every time. It took nine days to notice,
+because losing Select2 on a populated dropdown only loses the search box — the plain
+browser list still works, so a clerk has nothing to report. The ICD-10 box is what
+surfaced it (30/10/2026): 10.560 codes do not fit in a page, so that one has no options
+at all and dies outright.
+
+**The rule: anything in a ΤΑΕΠ template that touches jQuery runs from `taepReady()`,
+never from an immediately-invoked function.** `test_standalone.py` enforces it by reading
+the script blocks, because the templates render identically either way and no test that
+checks HTML can see the difference.
+
+By the time `DOMContentLoaded` fires, `base.html`'s own line 390 initialiser has claimed
+`.select2`. Ours claim `.select2-services`, `.select2-cpt` and `#diagnosis_code`, so the
+two do not collide — keep it that way when adding a picker.
+
+Worth knowing separately: Bootstrap, jQuery and Select2 all come from
+`cdn.jsdelivr.net`, an address outside the network. It resolves today. If it ever stops,
+every search box in eFinance goes quiet in exactly this silent way. The ICD-10 field has
+a plain code input behind it for that case; nothing else does.
+
+## When a clerk says the ICD-10 box does nothing
+
+    sudo -u finance python3 /opt/finance/check_diagnosis_search.py /opt/finance/finance.db
+
+Installed by the deploy, beside `check_readiness.py`. Read-only. It separates the three
+server-side causes — catalogue never loaded, loaded without the folded `search_text`
+column, search returning nothing — from a browser fault, and says which. If it reports
+the server clean, open `/taep/api/diagnoses?q=πνευμον` while logged in: JSON back means
+the request path is fine and the fault is in the page.
 
 ## What to watch in the first weeks
 
