@@ -476,6 +476,17 @@ def test_an_identification_number_is_never_truncated(client, app):
     assert "\u2026" not in text
 
 
+def visible(html):
+    """The page without its <script> blocks.
+
+    Asking "is this word on the screen" against the raw source answers the wrong
+    question: the first version of the view-only test failed on a JavaScript comment
+    that happens to mention Υπολογισμός.
+    """
+    import re
+    return re.sub(r"<script\b.*?</script>", " ", html, flags=re.S)
+
+
 def pdf_text(data):
     """Extract text from PDF bytes.
 
@@ -1735,3 +1746,144 @@ def test_the_until_filter_includes_the_whole_of_its_last_day(client, app):
     # A caller who gave a time meant that time.
     assert taep.list_episodes(
         app.ctx, ["NGH"], {"date_to": same + " 12:00:00"}) == []
+
+
+def test_a_revision_that_cannot_be_priced_changes_nothing(client, app):
+    """Moving a finalised costing to a category that allows no extra charges, while
+    charges are stored, used to leave the record half-changed: the new category, the
+    revision counter advanced, the OLD category's price still stored, and no revision
+    row recorded. Reported by the eFinance session, 29/10/2026.
+
+    Nothing puts a partial write back — eFinance's db_execute commits per call — so the
+    order has to do the work. Everything that can refuse now refuses before the first
+    write.
+    """
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER1"], "tariff_cpt": [""], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+    client.post(f"/taep/{episode_id}/finalise")
+
+    before = taep.get_episode(app.ctx, episode_id)
+    priced_before = taep.get_calculation(app.ctx, episode_id)
+    free = app.ctx["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='609'",
+        fetch=True)[0]["id"]
+
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), financial_category_id=str(free),
+        revision_reason="Λάθος κατηγορία"), follow_redirects=True)
+    assert "δεν ισχύουν για την οικονομική κατηγορία" in response.get_data(as_text=True)
+
+    after = taep.get_episode(app.ctx, episode_id)
+    assert after["financial_category_id"] == before["financial_category_id"]
+    assert after["revision"] == before["revision"]
+    assert after["costing_number"] == before["costing_number"]
+    assert taep.get_calculation(app.ctx, episode_id)["input_hash"] == \
+        priced_before["input_hash"]
+    assert taep.episode_revisions(app.ctx, episode_id) == []
+
+
+def test_a_revision_that_can_be_priced_still_goes_through(client, app):
+    """The guard must not refuse the ordinary case."""
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER1"], "tariff_cpt": [""], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+    client.post(f"/taep/{episode_id}/finalise")
+
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), **dict(paid_deposit(app), phone="99123000"),
+        revision_reason="Λάθος τηλέφωνο"))
+    assert response.status_code == 302
+    assert taep.get_episode(app.ctx, episode_id)["phone"] == "99123000"
+    assert len(taep.episode_revisions(app.ctx, episode_id)) == 1
+    # The charge survives the revision.
+    assert taep.money_from_db(
+        taep.get_calculation(app.ctx, episode_id)["tariff_total"]) == Decimal("12.00")
+
+
+def test_a_view_only_account_is_shown_nothing_it_cannot_use(client, app):
+    """A cashier was shown the pickers, Υπολογισμός, Οριστικοποίηση and the Excel
+    export, pressed them, and was bounced to the home page (eFinance session,
+    29/10/2026). Every one of those routes needs a key they do not hold.
+
+    What they still see is the selection, read-only: a cashier answering a patient at
+    the till needs to know what was charged for.
+    """
+    episode_id = create(client, app)
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+
+    app.ctx["granted_permissions"].add("taep.view")        # and nothing else
+    page = visible(client.get(f"/taep/{episode_id}").get_data(as_text=True))
+
+    assert "Υπολογισμός" not in page
+    assert "Οριστικοποίηση" not in page
+    assert "Ενημέρωση υπηρεσιών" not in page
+    assert 'id="tariff"' not in page
+    assert "select2-services" not in page
+    # But the services are still legible.
+    assert "AED008" in page and "AET057" in page
+
+    listing = client.get("/taep/list").get_data(as_text=True)
+    assert "Εξαγωγή σε Excel" not in listing
+    assert "Νέα Καταχώρηση" not in listing
+
+
+def test_a_clerk_who_cannot_finalise_still_calculates(client, app):
+    """The two are separate keys and the screen must respect that."""
+    episode_id = create(client, app)
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+
+    app.ctx["granted_permissions"].update({"taep.view", "taep.create"})
+    page = visible(client.get(f"/taep/{episode_id}").get_data(as_text=True))
+    assert "Υπολογισμός" in page
+    assert "Οριστικοποίηση" not in page
+
+
+def test_the_screens_say_the_status_in_greek(client, app):
+    """A clerk was reading DRAFT, CALCULATED and FINALISED off screens meant for them
+    (eFinance session, 29/10/2026). The codes stay in the database and the exports,
+    where they are the stable thing to join on."""
+    episode_id = create(client, app)
+    for page in (client.get(f"/taep/{episode_id}").get_data(as_text=True),
+                 client.get("/taep/list").get_data(as_text=True),
+                 client.get(f"/taep/{episode_id}/edit").get_data(as_text=True)):
+        assert "Πρόχειρο" in page
+        assert ">DRAFT<" not in page
+
+    client.post(f"/taep/{episode_id}/calculate")
+    assert "Υπολογισμένο" in client.get(
+        f"/taep/{episode_id}").get_data(as_text=True)
+    client.post(f"/taep/{episode_id}/finalise")
+    assert "Οριστικοποιημένο" in client.get("/taep/list").get_data(as_text=True)
+
+    # The export keeps the Greek it already had, and the stored value is untouched.
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"
+
+
+def test_an_unknown_status_falls_back_to_itself(client, app):
+    """A filter, not a lookup in the template: a code nobody has translated should show
+    as the code rather than as a blank."""
+    assert taep.STATUS_EL.get("DRAFT") == "Πρόχειρο"
+    episode_id = create(client, app)
+    app.ctx["db_execute"]("UPDATE taep_episode SET status='SOMETHING' WHERE id=%s",
+                          (episode_id,))
+    assert "SOMETHING" in client.get("/taep/list").get_data(as_text=True)
+
+
+def test_the_readiness_screen_names_tables_in_greek_and_in_code(client, app):
+    """IT needs the table name; the Μονάδα needs to know what it is."""
+    app.ctx["db_execute"]("DELETE FROM taep_service")
+    findings = taep.readiness_report(app.ctx)
+    detail = " ".join(f["detail"] for f in findings)
+    assert "κατάλογος υπηρεσιών" in detail
+    assert "taep_service" in detail

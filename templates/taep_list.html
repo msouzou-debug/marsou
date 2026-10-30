@@ -92,10 +92,14 @@
   <div class="card-header d-flex align-items-center">
     <span>{{ t('Αποτελέσματα') }}</span>
     <span class="badge bg-light text-muted ms-2">{{ episodes|length }}</span>
+    {% if has_permission('taep.create') %}
+    {# The export route requires taep.create, so a view-only account pressing this was
+       bounced to the home page (eFinance session, 29/10/2026). #}
     <a href="{{ url_for('taep_list_export', **export_args) }}" id="export"
        class="btn btn-outline-secondary btn-action ms-auto"
        title="{{ t('Εξάγεται ό,τι δείχνουν τα φίλτρα.') }}">
       <i class="bi bi-file-earmark-spreadsheet"></i> {{ t('Εξαγωγή σε Excel') }}</a>
+    {% endif %}
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -132,7 +136,7 @@
             <td class="number text-end">{{ episode.weight or '—' }}</td>
             <td class="number text-end fw-semibold">{{ episode.total_cost | eur }}</td>
             <td><span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
-              {{ episode.status }}</span></td>
+              {{ episode.status | status_el }}</span></td>
           </tr>
         {% else %}
           <tr><td colspan="{{ 10 if show_hospital else 9 }}"

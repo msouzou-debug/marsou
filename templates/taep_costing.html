@@ -95,7 +95,7 @@
     {% set tone = {'DRAFT': 'secondary', 'CALCULATED': 'info',
                    'FINALISED': 'success', 'CANCELLED': 'danger'} %}
     <span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
-      {{ episode.status }}</span>
+      {{ episode.status | status_el }}</span>
     {% if episode.revision and episode.revision > 1 %}
       <span class="badge bg-warning text-dark">
         {{ t('Αναθεώρηση') }} {{ episode.revision }}</span>
@@ -185,6 +185,25 @@
         <span>{{ t('Επιλογή υπηρεσιών') }}</span>
       </div>
       <div class="card-body">
+        {% if not has_permission('taep.create') %}
+          {# A view-only account used to be shown the pickers and the buttons, press
+             them, and be bounced to the home page (eFinance session, 29/10/2026). The
+             selection is still worth seeing — a cashier answering a patient needs to
+             know what was charged for — so it is shown, read-only. #}
+          {% if selected %}
+          <ul class="list-unstyled mb-0" style="font-size:0.88rem">
+            {% for service in selected %}
+            <li><i class="bi bi-dot"></i>
+              <span class="font-monospace">{{ service.code }}</span>
+              {{ service.description_el }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-muted" style="font-size:0.88rem">
+            {{ t('Καμία υπηρεσία επιλεγμένη — η καταχώρηση χρεώνεται ως Διαλογή (Triage).') }}
+          </div>
+          {% endif %}
+        {% else %}
         <form method="post"
               action="{{ url_for('taep_set_services', episode_id=episode.id) }}">
 
@@ -243,10 +262,11 @@
           <button type="submit" class="btn btn-outline-primary btn-action">
             <i class="bi bi-arrow-repeat"></i> {{ t('Ενημέρωση υπηρεσιών') }}</button>
         </form>
+        {% endif %}
       </div>
     </div>
 
-    {% if tariff_allowed %}
+    {% if tariff_allowed and has_permission('taep.create') %}
     {# Γιώτα, 22/10/2026: for 600, 602 and 640 the extra-charge fields have to open.
        Choosing Μαγνητική τομογραφία among the diagnostic interventions adds no money —
        the interventions decide the weight, and the charge comes from here. Four codes
@@ -313,7 +333,10 @@
         <span>{{ t('Αποτέλεσμα') }}</span>
       </div>
       <div class="card-body">
-        {% if tariff_allowed %}
+        {% if not has_permission('taep.create') %}
+          {# Nothing: a view-only account cannot calculate, and a button that bounces
+             them to the home page is worse than no button. #}
+        {% elif tariff_allowed %}
           {# One form owns the tariff rows, over in the left column. This button submits
              it rather than a second, empty form — two forms posting to the same route
              would mean the rows are lost whenever the clerk presses the wrong one. #}
@@ -416,7 +439,7 @@
           </div>
           {% endif %}
 
-          {% if episode.status == 'CALCULATED' %}
+          {% if episode.status == 'CALCULATED' and has_permission('taep.finalise') %}
             <form method="post"
                   action="{{ url_for('taep_finalise', episode_id=episode.id) }}">
               <button type="submit" class="btn btn-success w-100">
@@ -455,7 +478,11 @@
           <div class="alert alert-secondary py-2 mb-0" id="no-result"
                style="font-size:0.86rem">
             <i class="bi bi-info-circle"></i>
-            {{ t('Δεν έχει γίνει υπολογισμός. Πατήστε «Υπολογισμός».') }}
+            {% if has_permission('taep.create') %}
+              {{ t('Δεν έχει γίνει υπολογισμός. Πατήστε «Υπολογισμός».') }}
+            {% else %}
+              {{ t('Δεν έχει γίνει υπολογισμός.') }}
+            {% endif %}
           </div>
         {% endif %}
 

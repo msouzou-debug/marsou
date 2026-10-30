@@ -1862,19 +1862,33 @@ def revise_finalised_episode(ctx, episode_id, data, user_id, reason_el=""):
     previous = get_calculation(ctx, episode_id)
     revision = _as_int(episode["revision"]) or 1
 
-    # Write the episode first, then price it: price_episode reads the stored episode, so
-    # the new figures have to be computed from the corrected record, not the old one.
-    # If pricing then fails, the raise leaves the old result row in place and the caller
-    # sees the error — the record is inconsistent for the length of one request, which is
-    # the price of a db layer that commits per call.
+    # Price the PROPOSED record before writing anything.
+    #
+    # It used to write first and price after, on the reasoning that price_episode reads
+    # the stored episode — and the comment here admitted the record would be
+    # inconsistent "for the length of one request". That was wrong: nothing put it back.
+    # Moving a finalised costing to a category that does not allow extra charges, while
+    # charges were stored, left the episode on the new category with the revision
+    # counter advanced, the old category's price still stored, and no revision row at
+    # all. Reported by the eFinance session, 29/10/2026, and reproduced before changing
+    # anything.
+    #
+    # There is no transaction to lean on: eFinance's db_execute commits per call. So the
+    # order has to do the work — everything that can refuse, refuses first, and the
+    # writes that follow cannot fail on their own.
+    proposed = dict(episode)
+    proposed.update({field: data.get(field) for field in EPISODE_FIELDS})
+    proposed["financial_category_id"] = data["financial_category_id"]
+    result = price_episode(ctx, episode_id,
+                           tariff_lines_for_episode(ctx, episode_id),
+                           episode=proposed)
+
     assignments = ", ".join(f"{field}=%s" for field in EPISODE_FIELDS)
     db(f"""UPDATE taep_episode SET {assignments}, financial_category_id=%s,
            revision=%s, revised_at=%s, updated_by=%s, updated_at=%s
            WHERE id=%s""",
        tuple(data.get(field) for field in EPISODE_FIELDS)
        + (data["financial_category_id"], revision + 1, now, user_id, now, episode_id))
-
-    result = price_episode(ctx, episode_id, tariff_lines_for_episode(ctx, episode_id))
 
     if previous is not None:
         columns = ["episode_id", "revision"] + list(REVISION_FIELDS) + \
@@ -2709,6 +2723,55 @@ def render_costing_pdf(ctx, episode_id):
 RATE_TYPES = ("WEIGHT_AMOUNT", "TRIAGE_AMOUNT", "REGISTRATION_FEE",
               "REGISTRATION_DEPOSIT")
 
+# Greek for the codes the screens used to print raw. Reported by the eFinance session,
+# 29/10/2026, from the user manual: a clerk was reading DRAFT, WEIGHT_AMOUNT,
+# base_amount and taep_service off screens meant for them. The codes stay in the
+# database and in the exports, where they are the stable thing to join on.
+STATUS_EL = {
+    "DRAFT": "Πρόχειρο",
+    "CALCULATED": "Υπολογισμένο",
+    "FINALISED": "Οριστικοποιημένο",
+    "CANCELLED": "Ακυρωμένο",
+}
+
+RATE_TYPE_EL = {
+    "WEIGHT_AMOUNT": "Κοστολόγηση βάσει βαρύτητας",
+    "TRIAGE_AMOUNT": "Χρέωση διαλογής",
+    "REGISTRATION_FEE": "Τέλος εγγραφής",
+    "REGISTRATION_DEPOSIT": "Προκαταβολή",
+}
+
+TARIFF_FIELD_EL = {
+    "description_el": "Περιγραφή",
+    "group_el": "Ομάδα",
+    "tier_label_el": "Κλιμάκιο",
+    "price_type": "Τύπος τιμολόγησης",
+    "base_amount": "Βασικό ποσό",
+    "hourly_amount": "Ωριαία επιβάρυνση",
+    "price_raw": "Τιμή όπως δόθηκε",
+    "active": "Ενεργό",
+}
+
+TABLE_EL = {
+    "taep_financial_category": "οικονομικές κατηγορίες",
+    "taep_service": "κατάλογος υπηρεσιών",
+    "taep_weight_matrix": "πίνακας βαρύτητας ΟΑΥ",
+    "taep_unit": "μονάδες ΤΑΕΠ",
+    "taep_tariff": "επιπλέον χρεώσεις",
+    "taep_radiology_tariff": "τιμοκατάλογος ακτινοδιαγνωστικής",
+    "taep_country": "χώρες",
+    "taep_diagnosis": "κατάλογος διαγνώσεων ICD-10",
+    "taep_episode": "καταχωρήσεις",
+    "taep_costing_result": "αποτελέσματα κοστολόγησης",
+    "taep_costing_number": "μητρώο αριθμών κοστολόγησης",
+}
+
+
+def table_el(name):
+    """A table name as something a clerk can read, with the name kept for IT."""
+    label = TABLE_EL.get(name)
+    return "%s (%s)" % (label, name) if label else name
+
 
 def rate_series_key(rate_type, financial_category_id=None, entity_code=None,
                    weight=None):
@@ -3361,8 +3424,7 @@ def export_episodes_workbook(ctx, entity_code, filters=None):
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="1F3864")
 
-    status_el = {"DRAFT": "Πρόχειρο", "CALCULATED": "Υπολογισμένο",
-                 "FINALISED": "Οριστικοποιημένο", "CANCELLED": "Ακυρωμένο"}
+    status_el = STATUS_EL
     for episode in episodes:
         total = money_from_db(episode["total_cost"])
         sheet.append([
@@ -3446,7 +3508,7 @@ def readiness_report(ctx, on_date=None):
         try:
             db(f"SELECT 1 FROM {table} LIMIT 1", fetch=True)
         except Exception:
-            add("blocker", "σχήμα", f"ο πίνακας {table} δεν υπάρχει")
+            add("blocker", "σχήμα", f"λείπει ο πίνακας {table_el(table)}")
 
     if any(f["check"] == "σχήμα" for f in findings):
         return findings        # nothing else can be checked without the tables
@@ -3464,11 +3526,12 @@ def readiness_report(ctx, on_date=None):
                 "docs/deployment-runbook.md §1c. Χωρίς αυτόν δεν μπορεί να "
                 "οριστικοποιηθεί καμία κοστολόγηση.")
         elif actual == 0:
-            add("blocker", "δεδομένα", f"ο πίνακας {table} είναι κενός — "
-                                       f"δεν έχει εκτελεστεί το seed")
+            add("blocker", "δεδομένα",
+                f"δεν έχουν φορτωθεί τα δεδομένα: {table_el(table)} — "
+                f"δεν έχει εκτελεστεί το seed")
         elif actual != expected:
             add("warning", "δεδομένα",
-                f"ο πίνακας {table} έχει {actual} γραμμές, αναμενόμενες {expected}")
+                f"{table_el(table)}: {actual} γραμμές, αναμενόμενες {expected}")
 
     # 3. The weight matrix in the table must still agree with the algorithm
     rows = db("SELECT investigation_category i, treatment_category t, weight "
@@ -3840,13 +3903,18 @@ def get_episode_tariff_lines(ctx, episode_id):
            ORDER BY l.id""", (episode_id,), fetch=True) or []
 
 
-def price_episode(ctx, episode_id, tariff_lines=()):
+def price_episode(ctx, episode_id, tariff_lines=(), episode=None):
     """Calculate an episode from what is stored plus any tariff lines supplied.
 
     One place builds a CostingResult for an episode, so the costing screen, the
     finalisation check and the PDF can never disagree about the number.
+
+    `episode` prices a proposed version instead of the stored one, without writing it.
+    revise_finalised_episode uses it to find out whether a correction can be priced
+    *before* committing to it — see the note there.
     """
-    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        episode = get_episode(ctx, episode_id)
     if episode is None:
         raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
 
@@ -4087,6 +4155,18 @@ def register(app, ctx):
     # No translation table outside eFinance: the Greek is the key, so returning it
     # unchanged is the correct identity rather than a stub.
     app.jinja_env.globals.setdefault("t", lambda text: text)
+    # Greek for the codes the screens used to print raw (29/10/2026). Filters rather
+    # than lookups in the template, so one place decides and an unknown code falls back
+    # to itself instead of rendering blank.
+    app.jinja_env.filters.setdefault(
+        "status_el", lambda code: STATUS_EL.get(code, code))
+    app.jinja_env.filters.setdefault(
+        "rate_type_el", lambda code: RATE_TYPE_EL.get(code, code))
+    app.jinja_env.filters.setdefault(
+        "tariff_field_el", lambda name: TARIFF_FIELD_EL.get(name, name))
+    app.jinja_env.filters.setdefault("table_el", table_el)
+    app.jinja_env.filters.setdefault(
+        "user_el", lambda user_id: user_label(ctx, user_id))
     if ctx.get("has_permission") is not None:
         app.jinja_env.globals.setdefault("has_permission", ctx["has_permission"])
 

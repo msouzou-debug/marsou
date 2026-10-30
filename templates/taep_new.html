@@ -14,7 +14,7 @@
     <div class="text-muted" style="font-size:0.86rem">
       {% if editing %}
         {{ episode.last_name }} {{ episode.first_name }}
-        · {{ t('Κατάσταση') }}: {{ episode.status }}
+        · {{ t('Κατάσταση') }}: {{ episode.status | status_el }}
       {% else %}
         {{ t('Κοστολόγηση περιστατικού ΤΑΕΠ για μη δικαιούχο ΓεΣΥ. Η ταυτοποίηση μπαίνει πρώτη.') }}
       {% endif %}
