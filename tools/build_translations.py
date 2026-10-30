@@ -179,6 +179,12 @@ EN = {
     "Τιμή όπως δόθηκε": "Price as supplied",
     "Ενεργό": "Active",
 
+    # The ICD-10 fallback, when the search box does not load (30/10/2026).
+    "π.χ. J18.9": "e.g. J18.9",
+    "Η αναζήτηση διαγνώσεων δεν φόρτωσε σε αυτόν τον browser. Γράψτε τον κωδικό ICD-10 και ενημερώστε το ΙΤ.":
+        "The diagnosis search did not load in this browser. Type the ICD-10 code and "
+        "tell IT.",
+
     # The rates screen's "in force on" control.
     "Εμφάνιση": "Show",
     "Σήμερα": "Today",

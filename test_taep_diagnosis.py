@@ -185,3 +185,45 @@ def test_the_export_carries_the_diagnosis(client, app):
         taep.export_episodes_workbook(app.ctx, "NGH"))).active
     assert cell(sheet, 2, "ICD-10") == "J18.9"
     assert "Πνευμονία" in cell(sheet, 2, "Διάγνωση")
+
+
+# ---------------------------------------------------------------------------
+# When the search box does not load (reported 30/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_the_screen_carries_a_plain_code_field_behind_the_search_box(client):
+    """The clerk reported the ICD-10 box doing nothing. The server was answering
+    correctly, so the box had failed in the browser.
+
+    Every other dropdown on that screen degrades to a plain list. This one cannot:
+    10.560 codes do not fit in the page, so with no search there is nothing to pick
+    from — and a diagnosis is mandatory to finalise, so a dead box stops every costing
+    at the hospital. A plain code field stands behind it, disabled so it is not posted
+    while the search works, and the script hands it the name when the search does not.
+    """
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert 'id="diagnosis_code_typed"' in page
+    # Disabled, so the normal path posts one diagnosis_code and not two.
+    assert page.count('name="diagnosis_code"') == 1
+    assert "data-no-search=" in page
+
+
+def test_a_typed_code_saves_exactly_as_a_chosen_one_does(client, app):
+    """The fallback needs no server change, and this is the assertion that says so.
+
+    resolve_diagnosis() already looked the posted code up in the catalogue and wrote
+    the catalogue's own description, because the field has always been a posted string
+    — whether a clerk picked it from the search box or typed it makes no difference to
+    the request. Pinned here so a future change to that path cannot quietly break the
+    one route a clerk has when the search is unavailable.
+    """
+    episode_id = create(client, app, diagnosis_code="J18.9")
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["diagnosis_code"] == "J18.9"
+    assert "Πνευμονία" in episode["diagnosis_text"]
+
+    # And a typed code the catalogue does not know is still refused, which is what
+    # makes the fallback safe to offer rather than a hole in the record.
+    response = client.post("/taep/nea", data=form_fields(app.ctx, diagnosis_code="J99.99"))
+    assert response.status_code == 200
+    assert "δεν βρέθηκε στον κατάλογο" in response.get_data(as_text=True)
