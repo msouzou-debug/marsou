@@ -373,3 +373,37 @@ def test_every_table_scrolls_inside_its_own_box():
     assert sum("<table" in line
                for template in (root / "templates").glob("taep_*.html")
                for line in template.read_text(encoding="utf-8").splitlines()) >= 10
+
+
+def test_an_english_screen_turns_the_status_and_the_dropdowns(client, app):
+    """The status and the identification and sex labels used to stay Greek in English.
+
+    Reported by the eFinance session, 29/10/2026: seven words on ΤΑΕΠ screens had no
+    English. The cause was not a missing entry in en.json but the way they are printed.
+    Everything else goes through t('literal'); these go through a Jinja filter
+    (episode.status | status_el) or a loop variable, which t() never saw, so
+    build_translations.py could not find them either and nobody noticed.
+
+    The templates now call t() on the result. This test renders two screens with the
+    real dictionary in place of the harness identity t, and also checks the option
+    *value* is untouched — the column holds the Greek word and must keep holding it.
+    """
+    import json
+    import re as _re
+
+    root = Path(__file__).resolve().parent
+    english = json.loads((root / "docs" / "taep-translations-en.json")
+                         .read_text(encoding="utf-8"))
+    app.jinja_env.globals["t"] = lambda s: english.get(s, s)
+
+    entry = client.get("/taep/nea").get_data(as_text=True)
+    assert "Passport" in entry and "Alien Registration Certificate" in entry
+    assert "Male" in entry and "Female" in entry
+    # The stored value, not the label.
+    assert 'value="Διαβατήριο"' in entry and 'value="Άρρεν"' in entry
+
+    import test_taep_routes as routes
+    episode_id = routes.create(client, app)
+    costing = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert "Draft" in costing
+    assert not _re.search(r">\s*Πρόχειρο\s*<", costing)

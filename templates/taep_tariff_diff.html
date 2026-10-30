@@ -79,7 +79,7 @@
         <tbody>
         {% for entry in difference.changed %}
           {% for field, pair in entry.differences.items() %}
-            <tr><td><code>{{ entry.code }}</code></td><td>{{ field | tariff_field_el }}</td>
+            <tr><td><code>{{ entry.code }}</code></td><td>{{ t(field | tariff_field_el) }}</td>
               <td class="text-muted">{{ pair[0] }}</td>
               <td><strong>{{ pair[1] }}</strong></td></tr>
           {% endfor %}

@@ -30,6 +30,20 @@ REVIEW = {
     "Τέλος Εγγραφής", "Τέλος εγγραφής", "Προκαταβολή",
     "Κοστολόγηση βάσει βαρύτητας",
     "Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου",
+    # Nobody has told us what ΔΕΑ stands for; it is not expanded anywhere in the
+    # manual or on the forms. Translated so the dropdown is usable in English,
+    # flagged so the Μονάδα confirms it rather than finding it on a screen.
+    "ΔΕΑ",
+}
+
+# Rendered through a Jinja filter or a loop variable — t(episode.status | status_el),
+# t(option) — so the t('literal') scan below cannot see them. They are used.
+RUNTIME = {
+    "Πρόχειρο", "Υπολογισμένο", "Οριστικοποιημένο", "Ακυρωμένο",
+    "Ταυτότητα", "Διαβατήριο", "ΔΕΑ", "Άλλο", "Άρρεν", "Θήλυ",
+    "Κοστολόγηση βάσει βαρύτητας", "Χρέωση διαλογής",
+    "Περιγραφή", "Ομάδα", "Κλιμάκιο", "Τύπος τιμολόγησης", "Βασικό ποσό",
+    "Ωριαία επιβάρυνση", "Τιμή όπως δόθηκε", "Ενεργό",
 }
 
 EN = {
@@ -139,6 +153,32 @@ EN = {
     # One box now covers both the €100 deposit on 600 and the €10 registration fee on
     # 603, 605 and 608, so the wording names neither (Παναγιώτα Έλληνα 23/10/2026).
     "Νοσηλευτήριο": "Hospital",
+    # — printed through a filter or a loop, not a t('literal') (see RUNTIME) —
+    # STATUS_EL, so a clerk on an English screen does not read Πρόχειρο.
+    "Πρόχειρο": "Draft",
+    "Υπολογισμένο": "Calculated",
+    "Οριστικοποιημένο": "Finalised",
+    "Ακυρωμένο": "Cancelled",
+    # The identification and sex dropdowns. The option values stay Greek in the
+    # database; only the label turns.
+    "Ταυτότητα": "ID card",
+    "Διαβατήριο": "Passport",
+    "ΔΕΑ": "Alien Registration Certificate",
+    "Άλλο": "Other",
+    "Άρρεν": "Male",
+    "Θήλυ": "Female",
+    # RATE_TYPE_EL on the rate-history heading. The other two are above already.
+    "Χρέωση διαλογής": "Triage charge",
+    # TARIFF_FIELD_EL on the extra-charges diff.
+    "Περιγραφή": "Description",
+    "Ομάδα": "Group",
+    "Κλιμάκιο": "Tier",
+    "Τύπος τιμολόγησης": "Pricing type",
+    "Βασικό ποσό": "Base amount",
+    "Ωριαία επιβάρυνση": "Hourly charge",
+    "Τιμή όπως δόθηκε": "Price as supplied",
+    "Ενεργό": "Active",
+
     # The rates screen's "in force on" control.
     "Εμφάνιση": "Show",
     "Σήμερα": "Today",
@@ -453,7 +493,7 @@ def main():
     # unused from this side. They are not.
     SIDEBAR = {"Έλεγχος Ετοιμότητας", "Τιμές", "Νέα Καταχώρηση", "Καταχωρήσεις",
                "Τιμοκατάλογος", "Κοστολόγηση ΤΑΕΠ"}
-    extra = [k for k in extra if k not in SIDEBAR]
+    extra = [k for k in extra if k not in SIDEBAR and k not in RUNTIME]
     if extra:
         print("\n%d entries no template uses (harmless, but stale):" % len(extra))
         for key in extra[:10]:
@@ -465,7 +505,9 @@ def main():
     # dictionary, so «Κωδικός» already belonged to Password and «Εισαγωγή» to Import
     # before this module existed. We cannot diff against en.json from here, so the next
     # best thing is to keep the candidates in sight on every regeneration.
-    risky = sorted(k for k in keys
+    # RUNTIME too: a status or a dropdown label is exactly the short common noun
+    # that collides, and the t('literal') scan cannot see it.
+    risky = sorted(k for k in set(keys) | RUNTIME
                    if len(k) <= 12 and " " not in k.rstrip(".") and k not in ALLOWED)
     if risky:
         print("\n%d single-word keys — check each against en.json before merging, a "

@@ -95,7 +95,7 @@
     {% set tone = {'DRAFT': 'secondary', 'CALCULATED': 'info',
                    'FINALISED': 'success', 'CANCELLED': 'danger'} %}
     <span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
-      {{ episode.status | status_el }}</span>
+      {{ t(episode.status | status_el) }}</span>
     {% if episode.revision and episode.revision > 1 %}
       <span class="badge bg-warning text-dark">
         {{ t('Αναθεώρηση') }} {{ episode.revision }}</span>

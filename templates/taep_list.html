@@ -136,7 +136,7 @@
             <td class="number text-end">{{ episode.weight or '—' }}</td>
             <td class="number text-end fw-semibold">{{ episode.total_cost | eur }}</td>
             <td><span class="badge bg-{{ tone.get(episode.status, 'secondary') }}">
-              {{ episode.status | status_el }}</span></td>
+              {{ t(episode.status | status_el) }}</span></td>
           </tr>
         {% else %}
           <tr><td colspan="{{ 10 if show_hospital else 9 }}"

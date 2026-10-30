@@ -14,7 +14,7 @@
     <div class="text-muted" style="font-size:0.86rem">
       {% if editing %}
         {{ episode.last_name }} {{ episode.first_name }}
-        · {{ t('Κατάσταση') }}: {{ episode.status | status_el }}
+        · {{ t('Κατάσταση') }}: {{ t(episode.status | status_el) }}
       {% else %}
         {{ t('Κοστολόγηση περιστατικού ΤΑΕΠ για μη δικαιούχο ΓεΣΥ. Η ταυτοποίηση μπαίνει πρώτη.') }}
       {% endif %}
@@ -75,8 +75,9 @@
           <label class="form-label" for="id_type">{{ t('Τύπος ταυτοποίησης') }}</label>
           <select id="id_type" name="id_type" class="form-select select2">
             {% for option in ["Ταυτότητα", "Διαβατήριο", "ΔΕΑ", "Άλλο"] %}
+              {# The value stays Greek: it is what the column holds. Only the label turns. #}
               <option value="{{ option }}"
-                {% if form.get('id_type') == option %}selected{% endif %}>{{ option }}</option>
+                {% if form.get('id_type') == option %}selected{% endif %}>{{ t(option) }}</option>
             {% endfor %}
           </select>
         </div>
@@ -141,7 +142,7 @@
             <option value=""></option>
             {% for option in ["Άρρεν", "Θήλυ", "Άλλο"] %}
               <option value="{{ option }}"
-                {% if form.get('gender') == option %}selected{% endif %}>{{ option }}</option>
+                {% if form.get('gender') == option %}selected{% endif %}>{{ t(option) }}</option>
             {% endfor %}
           </select>
         </div>
