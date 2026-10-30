@@ -23,6 +23,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 30/10/2026 | `12ed781` | `c54b100c` | The rates screen: a fee needs its category, and rates on a past date |
 | 30/10/2026 | `e64248b` | `c54b100c` | The script load order — necessary, not sufficient |
 | 30/10/2026 | `1a4ec53` | `c54b100c` | ICD-10 box working, confirmed by the clerk. Two scripts over one element — see below |
+| 30/10/2026 | `5e1ff6c` | `c54b100c` | Previous-visit lookup wired; ΔΕΑ confirmed; the 19 en.json words checked clear |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
