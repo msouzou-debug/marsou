@@ -139,6 +139,10 @@ EN = {
     # One box now covers both the €100 deposit on 600 and the €10 registration fee on
     # 603, 605 and 608, so the wording names neither (Παναγιώτα Έλληνα 23/10/2026).
     "Νοσηλευτήριο": "Hospital",
+    # The rates screen's "in force on" control.
+    "Εμφάνιση": "Show",
+    "Σήμερα": "Today",
+    "όχι οι σημερινές": "not today's",
     "Δεν έχει γίνει υπολογισμός.": "No calculation has been made.",
 
     # — ICD-10 (Μονάδα Ελέγχου Εσόδων, catalogue supplied 26/10/2026) —

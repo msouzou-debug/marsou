@@ -2,12 +2,38 @@
 {% block title %}{{ t('Διαχείριση Τιμών ΤΑΕΠ') }}{% endblock %}
 {% block content %}
 
-<div class="page-header">
-  <h4 class="mb-1"><i class="bi bi-currency-euro"></i>
-    {{ t('Διαχείριση Τιμών') }}</h4>
-  <div class="text-muted" style="font-size:0.86rem">
-    {{ t('Τιμές σε ισχύ στις') }} {{ on_date.strftime('%d/%m/%Y') }}.
+<div class="page-header d-flex justify-content-between align-items-end flex-wrap gap-3">
+  <div>
+    <h4 class="mb-1"><i class="bi bi-currency-euro"></i>
+      {{ t('Διαχείριση Τιμών') }}</h4>
+    <div class="text-muted" style="font-size:0.86rem">
+      {{ t('Τιμές σε ισχύ στις') }} {{ on_date.strftime('%d/%m/%Y') }}.
+      {% if on_date != today %}
+        <span class="badge bg-warning text-dark ms-1">
+          {{ t('όχι οι σημερινές') }}</span>
+      {% endif %}
+    </div>
   </div>
+
+  {# The route has read ?on_date= since the start and nothing on the screen set it, so
+     a rate in force last March could only be seen by editing the address bar
+     (eFinance session, 29/10/2026). A costing is priced on the examination date, so
+     "what did this cost in March" is the question this screen exists to answer. #}
+  <form method="get" class="d-flex align-items-end gap-2">
+    {% if only_unset %}<input type="hidden" name="only_unset" value="1">{% endif %}
+    <div>
+      <label class="form-label mb-1" for="on_date" style="font-size:0.8rem">
+        {{ t('Τιμές σε ισχύ στις') }}</label>
+      <input id="on_date" name="on_date" type="date" class="form-control form-control-sm"
+             value="{{ on_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <button type="submit" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-search"></i> {{ t('Εμφάνιση') }}</button>
+    {% if on_date != today %}
+      <a href="{{ url_for('taep_rates') }}" class="btn btn-outline-secondary btn-sm">
+        {{ t('Σήμερα') }}</a>
+    {% endif %}
+  </form>
 </div>
 
 {% if problems %}
@@ -57,10 +83,10 @@
     <i class="bi bi-receipt-cutoff text-primary"></i>
     <span>{{ t('Τέλη εγγραφής ανά οικονομική κατηγορία') }}</span>
     <div class="btn-group btn-group-sm ms-auto">
-      <a href="{{ url_for('taep_rates', only_unset='1') }}"
+      <a href="{{ url_for('taep_rates', only_unset='1', on_date=on_date.strftime('%Y-%m-%d')) }}"
          class="btn btn-outline-secondary {{ 'active' if only_unset }}">
         {{ t('Μόνο μη ορισμένες') }}</a>
-      <a href="{{ url_for('taep_rates') }}"
+      <a href="{{ url_for('taep_rates', on_date=on_date.strftime('%Y-%m-%d')) }}"
          class="btn btn-outline-secondary {{ 'active' if not only_unset }}">
         {{ t('Όλες') }}</a>
     </div>

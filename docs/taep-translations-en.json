@@ -83,6 +83,7 @@
   "Εκτύπωση": "Print",
   "Ελέγχει αυτή την εγκατάσταση, όχι τον κώδικα. Εκτελέστε τον σε κάθε νοσηλευτήριο πριν τεθεί σε λειτουργία.": "It checks this installation, not the code. Run it at every hospital before going live.",
   "Εμπόδια": "Blockers",
+  "Εμφάνιση": "Show",
   "Ενεργό": "Active",
   "Ενημέρωση υπηρεσιών": "Update services",
   "Εξάγεται ό,τι δείχνουν τα φίλτρα.": "Exports whatever the filters show.",
@@ -190,6 +191,7 @@
   "Προσθήκη χρέωσης": "Add a charge",
   "Προσωπικά Στοιχεία": "Personal Details",
   "Πρόσθετες χρεώσεις πέραν της βαρύτητας, για τις κατηγορίες που τις επιτρέπουν.": "Charges beyond the weight, for the categories that allow them.",
+  "Σήμερα": "Today",
   "Σαρώστε τον κωδικό από το έντυπο ή γράψτε τον αριθμό. Δεκτά και «1054/35» ή «OKY1054-0035».": "Scan the code on the document or type the number. «1054/35» and «OKY1054-0035» are accepted too.",
   "Σε ισχύ από": "In force from",
   "Σημείωση, αν διαφέρει": "Note, if it differs",
@@ -243,5 +245,6 @@
   "π.χ. Απόφαση ΔΣ 123/2027": "e.g. Board Decision 123/2027",
   "π.χ. λάθος οικονομική κατηγορία στην καταχώρηση": "e.g. wrong financial category on the entry",
   "παραμένει. Το ποσό υπολογίζεται ξανά και ο ασθενής κρατά το παλιό έντυπο — εκτυπώστε ξανά και δώστε του το νέο.": "stays. The amount is recalculated and the patient is holding the old document — print it again and give them the new one.",
-  "σε ισχύ": "in force"
+  "σε ισχύ": "in force",
+  "όχι οι σημερινές": "not today's"
 }

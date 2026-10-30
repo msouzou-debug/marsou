@@ -262,3 +262,69 @@ def test_the_export_respects_a_status_filter(client, app):
     finalised = load_workbook(BytesIO(
         client.get("/taep/list/export?status=FINALISED").data)).active
     assert everything.max_row > finalised.max_row
+
+
+# ---------------------------------------------------------------------------
+# The rates screen (eFinance session, 29/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_a_registration_fee_needs_a_category(seeded):
+    """rates_in_force reads `WHERE financial_category_id IS NULL OR = %s`, so a row with
+    no category applies to EVERY category. Saving a fee with the box empty put it on all
+    38, including 609 ΔΙΚΑΙΟΥΧΟΣ Α-ΟΛΑ ΔΩΡΕΑΝ — free care.
+    """
+    with pytest.raises(taep.CostingError) as excinfo:
+        taep.change_rate(seeded, rate_type="REGISTRATION_FEE", amount="25.00",
+                         effective_from=dt.date.today(), user_id=1,
+                         financial_category_id=None, source_document="Απόφαση")
+    assert excinfo.value.code == "CATEGORY_REQUIRED"
+    assert "σε όλες" in excinfo.value.message_el
+
+    free = seeded["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='609'",
+        fetch=True)[0]["id"]
+    assert taep.rates_in_force(seeded, free, dt.date.today()).registration_fee \
+        == Decimal("0.00")
+
+
+def test_the_oay_scale_must_not_be_given_a_category(seeded):
+    """The reverse is as wrong: a weight amount saved against one category would sit
+    beside the universal one, and only one of them can be picked."""
+    category = seeded["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='600'",
+        fetch=True)[0]["id"]
+    with pytest.raises(taep.CostingError) as excinfo:
+        taep.change_rate(seeded, rate_type="WEIGHT_AMOUNT", amount="200.00",
+                         effective_from=dt.date.today(), user_id=1, weight=8,
+                         financial_category_id=category, source_document="Απόφαση")
+    assert excinfo.value.code == "CATEGORY_NOT_ALLOWED"
+
+
+def test_a_fee_with_its_category_still_saves(seeded):
+    """The guard must not refuse the ordinary change."""
+    category = seeded["db_execute"](
+        "SELECT id FROM taep_financial_category WHERE code_new='603'",
+        fetch=True)[0]["id"]
+    taep.change_rate(seeded, rate_type="REGISTRATION_FEE", amount="15.00",
+                     effective_from=dt.date.today() + dt.timedelta(days=1), user_id=1,
+                     financial_category_id=category, source_document="Απόφαση ΔΣ 12/26")
+    tomorrow = dt.date.today() + dt.timedelta(days=1)
+    assert taep.rates_in_force(seeded, category, tomorrow).registration_fee \
+        == Decimal("15.00")
+
+
+def test_the_rates_screen_can_be_asked_about_another_date(client, app):
+    """The route has read ?on_date= from the start and nothing on the screen set it, so
+    a rate in force last March could only be reached by editing the address bar. A
+    costing is priced on its examination date, which is what makes this the question the
+    screen exists to answer."""
+    page = client.get("/taep/rates").get_data(as_text=True)
+    assert 'id="on_date"' in page
+    assert "όχι οι σημερινές" not in page
+
+    past = (dt.date.today() - dt.timedelta(days=400)).strftime("%Y-%m-%d")
+    page = client.get("/taep/rates?on_date=" + past).get_data(as_text=True)
+    assert 'value="%s"' % past in page
+    assert "όχι οι σημερινές" in page
+    # The filter buttons keep the date rather than silently jumping back to today.
+    assert "on_date=" + past in page

@@ -2866,6 +2866,30 @@ def change_rate(ctx, rate_type, amount, effective_from, user_id,
         raise CostingError("WEIGHT_NOT_ALLOWED",
                            f"Ο τύπος τιμής «{rate_type}» δεν φέρει συντελεστή "
                            f"βαρύτητας.")
+
+    # The same rule for the category, which was missing until 30/10/2026.
+    #
+    # rates_in_force reads `WHERE financial_category_id IS NULL OR = %s`, so a row with
+    # no category applies to EVERY category. That is right for the weight and triage
+    # amounts, which are the ΟΑΥ scale and the same for everyone. It is wrong for a
+    # registration fee or a deposit: saving one with the category box left empty put a
+    # €25 fee on all 38 categories, including 609 ΔΙΚΑΙΟΥΧΟΣ Α-ΟΛΑ ΔΩΡΕΑΝ. Reported by
+    # the eFinance session on 29/10; reproduced before being fixed.
+    #
+    # The reverse is just as wrong: a weight amount saved against one category would sit
+    # beside the universal one and only one of them can be picked.
+    if rate_type in ("REGISTRATION_FEE", "REGISTRATION_DEPOSIT") \
+            and financial_category_id is None:
+        raise CostingError(
+            "CATEGORY_REQUIRED",
+            f"Ο τύπος τιμής «{RATE_TYPE_EL.get(rate_type, rate_type)}» αφορά "
+            f"συγκεκριμένη οικονομική κατηγορία. Χωρίς κατηγορία θα ίσχυε σε όλες.")
+    if rate_type in ("WEIGHT_AMOUNT", "TRIAGE_AMOUNT") \
+            and financial_category_id is not None:
+        raise CostingError(
+            "CATEGORY_NOT_ALLOWED",
+            f"Ο τύπος τιμής «{RATE_TYPE_EL.get(rate_type, rate_type)}» είναι η κλίμακα "
+            f"του ΟΑΥ και ισχύει για όλες τις κατηγορίες. Μην επιλέγετε κατηγορία.")
     if not (source_document or "").strip():
         raise CostingError(
             "NO_SOURCE_DOCUMENT",
@@ -4689,6 +4713,7 @@ def register(app, ctx):
             overview = [r for r in overview if r["fee_state"] == RATE_STATE_UNCONFIRMED]
         return render_template(
             "taep_rates.html", overview=overview, on_date=on_date,
+            today=dt.date.today(),
             scale=weight_scale_overview(ctx, on_date), only_unset=only_unset,
             problems=verify_rate_periods(ctx),
             states={"SET": RATE_STATE_SET, "EXEMPT": RATE_STATE_EXEMPT,
