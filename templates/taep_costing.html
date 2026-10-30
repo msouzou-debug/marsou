@@ -557,6 +557,51 @@ function taepReady(fn) {
   }
 }
 
+// Select2 marks the wrapper it builds with the legacy class `select2`, and base.html
+// runs $('.select2').select2() of its own on ready. If that pass finds our wrapper it
+// treats it as a <select> to replace: it hides the real box with
+// select2-hidden-accessible — 1px, clipped — and puts an empty container built from a
+// <span> where it was. Clicking that does nothing, which is exactly how the ICD-10 box
+// was reported on 30/10/2026. No stylesheet uses the bare class, in Select2's own CSS
+// or in the Bootstrap 5 theme, so taking it off our wrappers costs nothing and makes
+// the order of the two initialisers stop mattering.
+function taepDetach(element) {
+  jQuery(element).next(".select2-container").removeClass("select2");
+}
+
+// Greek on the option text, English from data-en, so a clerk who knows "fluid infusion"
+// finds «Έγχυση υγρών» without a second search box (UAT 21/10/2026).
+//
+// The recursion is the point. The service lists are grouped by ΟΑΥ category, and Select2
+// hands a custom matcher the optgroup, not its options. The matcher here used to read
+// data.text only, which for a group is its label — so every search for a service name
+// returned nothing, and searching «Κατηγορία» returned all 103. Found 30/10/2026, once
+// the script started running at all; it had never been reachable in the browser before.
+function taepMatch(params, data) {
+  var term = jQuery.trim(params.term || "");
+  if (term === "") return data;
+
+  if (data.children) {
+    // The group's own label counts: a clerk typing «Κατηγορία 2» means that group.
+    if (data.text && data.text.toLocaleUpperCase("el")
+            .indexOf(term.toLocaleUpperCase("el")) > -1) return data;
+    var kept = [];
+    for (var i = 0; i < data.children.length; i++) {
+      if (taepMatch(params, data.children[i])) kept.push(data.children[i]);
+    }
+    if (!kept.length) return null;
+    var group = jQuery.extend({}, data);
+    group.children = kept;
+    return group;
+  }
+
+  if (typeof data.text === "undefined") return null;
+  if (data.text.toLocaleUpperCase("el")
+          .indexOf(term.toLocaleUpperCase("el")) > -1) return data;
+  var english = (jQuery(data.element).data("en") || "").toString();
+  return english.toUpperCase().indexOf(term.toUpperCase()) > -1 ? data : null;
+}
+
 // Select2 searches the option text, which holds the code and the Greek. The English
 // sits in data-en, so matcher() is extended rather than replaced: a clerk who knows
 // "fluid infusion" finds «Έγχυση υγρών» without a second search box (UAT 21/10).
@@ -568,17 +613,7 @@ taepReady(function () {
       width: "100%",
       closeOnSelect: false,
       placeholder: jQuery(this).data("placeholder"),
-      matcher: function (params, data) {
-        if (jQuery.trim(params.term) === "") return data;
-        if (typeof data.text === "undefined") return null;
-        var needle = params.term.toLocaleUpperCase("el");
-        var english = (jQuery(data.element).data("en") || "").toString();
-        if (data.text.toLocaleUpperCase("el").indexOf(needle) > -1) return data;
-        if (english.toLocaleUpperCase("en").indexOf(params.term.toUpperCase()) > -1) {
-          return data;
-        }
-        return null;
-      },
+      matcher: taepMatch,
       // Μονάδα 22/10/2026: the English description beside the Greek, not only inside
       // the search. The whole catalogue is already in the list and scrolls, so a clerk
       // who does not know the Greek term can read down it.
@@ -603,6 +638,7 @@ taepReady(function () {
         return data.text;
       }
     });
+    taepDetach(this);
   });
 });
 
@@ -642,16 +678,9 @@ taepReady(function () {
       theme: "bootstrap-5",
       width: "100%",
       placeholder: jQuery(cpt).data("placeholder"),
-      matcher: function (params, data) {
-        if (jQuery.trim(params.term) === "") return data;
-        if (typeof data.text === "undefined") return null;
-        if (data.text.toLocaleUpperCase("el")
-                .indexOf(params.term.toLocaleUpperCase("el")) > -1) return data;
-        var english = (jQuery(data.element).data("en") || "").toString();
-        return english.toUpperCase().indexOf(params.term.toUpperCase()) > -1
-          ? data : null;
-      }
+      matcher: taepMatch
     });
+    taepDetach(cpt);
   }
 
   rows.addEventListener("change", function (event) {

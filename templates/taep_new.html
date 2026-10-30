@@ -365,6 +365,18 @@ function taepReady(fn) {
   }
 }
 
+// Select2 marks the wrapper it builds with the legacy class `select2`, and base.html
+// runs $('.select2').select2() of its own on ready. If that pass finds our wrapper it
+// treats it as a <select> to replace: it hides the real box with
+// select2-hidden-accessible — 1px, clipped — and puts an empty container built from a
+// <span> where it was. Clicking that does nothing, which is exactly how the ICD-10 box
+// was reported on 30/10/2026. No stylesheet uses the bare class, in Select2's own CSS
+// or in the Bootstrap 5 theme, so taking it off our wrappers costs nothing and makes
+// the order of the two initialisers stop mattering.
+function taepDetach(element) {
+  jQuery(element).next(".select2-container").removeClass("select2");
+}
+
 // ICD-10. The catalogue is 10.560 codes, so the search runs on the server and the box
 // holds only what the clerk has chosen.
 //
@@ -426,6 +438,7 @@ taepReady(function () {
         return row;
       }
     });
+    taepDetach(field);
   }
 
   var field = document.getElementById("diagnosis_code");

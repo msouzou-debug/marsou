@@ -440,3 +440,55 @@ def test_no_inline_script_reaches_for_jquery_while_the_page_is_parsing():
                 offenders.append("%s: immediately-invoked block touches jQuery"
                                  % path.name)
     assert not offenders, "\n".join(offenders)
+
+
+def test_every_select2_we_build_is_detached_from_efinance_s_own_initialiser():
+    """base.html runs `$('.select2').select2()` of its own on ready.
+
+    Select2 marks the wrapper it builds with the legacy class `select2`. If eFinance's
+    pass finds one of ours it treats the wrapper as a <select> to replace: it hides the
+    real box with select2-hidden-accessible — 1px, clipped — and puts an empty container
+    built from a <span> where it was. Clicking that does nothing.
+
+    That is what was still wrong with the ICD-10 box after the load-order fix on
+    30/10/2026, and it was only visible in a browser: the wrapper is created by Select2
+    at runtime, so nothing in the rendered HTML shows it. Reproduced in Chromium against
+    a copy of the live base.html — the recipe is in docs/deployment-runbook.md — and the
+    rule is pinned here: every select2() call of ours is followed by taepDetach().
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    for path in sorted((root / "templates").glob("taep_*.html")):
+        text = path.read_text(encoding="utf-8")
+        initialisations = len(re.findall(r"\.select2\(\{", text))
+        detaches = text.count("taepDetach(")
+        if not initialisations:
+            continue
+        # One definition plus one call per initialisation.
+        assert detaches == initialisations + 1, (
+            "%s: %d select2() calls but %d taepDetach references"
+            % (path.name, initialisations, detaches))
+
+
+def test_the_service_matcher_looks_inside_the_groups():
+    """The service lists are grouped by ΟΑΥ category, and Select2 hands a custom matcher
+    the optgroup rather than its options.
+
+    The matcher used to read data.text only, which for a group is its label. So every
+    search for a service name returned nothing and «Κατηγορία» returned all 103 —
+    the exact opposite of useful. Nobody had reported it because the script had never
+    run in the browser at all (see the load-order test above), so this surfaced only
+    once that was fixed.
+
+    Checked as structure rather than behaviour: a custom matcher in these templates has
+    to handle data.children, and the only honest test of the rest is a browser.
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    for path in sorted((root / "templates").glob("taep_*.html")):
+        text = path.read_text(encoding="utf-8")
+        if "matcher:" not in text:
+            continue
+        assert "data.children" in text, (
+            "%s: a custom Select2 matcher that ignores data.children drops every "
+            "grouped option" % path.name)

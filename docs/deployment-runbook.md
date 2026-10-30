@@ -638,6 +638,44 @@ Worth knowing separately: Bootstrap, jQuery and Select2 all come from
 every search box in eFinance goes quiet in exactly this silent way. The ICD-10 field has
 a plain code input behind it for that case; nothing else does.
 
+## Two scripts over one element
+
+`base.html` runs `$('.select2').select2()` of its own on ready. Select2 marks every
+wrapper it builds with the legacy class `select2` — so a box **we** initialise produces a
+wrapper that eFinance's pass then matches. It treats that wrapper as a `<select>` to
+replace: hides the real box with `select2-hidden-accessible` (1px, clipped) and puts an
+empty container built from a `<span>` where it was. Clicking it does nothing.
+
+That is the second half of the 30/10/2026 ICD-10 fault, and nothing in the page source
+shows it: the wrapper does not exist until Select2 runs. **Every `select2()` call of ours
+is followed by `taepDetach()`**, which takes that class off. No stylesheet uses it, in
+Select2's own CSS or in the Bootstrap 5 theme, so it costs nothing. `test_standalone.py`
+counts the calls.
+
+While fixing that, a third fault came out from behind it: the service lists are grouped
+by ΟΑΥ category, and Select2 hands a custom `matcher` the **optgroup**, not its options.
+Ours read `data.text` only, which for a group is its label, so searching a service name
+found nothing and searching «Κατηγορία» returned all 103. `taepMatch()` recurses into
+`data.children`. A custom matcher in these templates must.
+
+### Reproducing a browser fault without the hospital
+
+None of the three could be seen from Python; the templates render identically either
+way. What found them was Chromium against a copy of the live `base.html`:
+
+1. Serve the harness app, then overwrite its `base.html` with the real file's structure —
+   Select2's CSS plus the Bootstrap 5 theme in `<head>`, jQuery and Select2 at the foot
+   of `<body>`, then `$('.select2').select2({theme:'bootstrap-5'})`. The order is what
+   matters; take it from `/opt/finance/templates/base.html`.
+2. Serve the four library files locally at the versions `base.html` pins (Bootstrap
+   5.3.3, jQuery 3.7.1, Select2 4.1.0-rc.0, select2-bootstrap-5-theme 1.3.0). `npm pack`
+   gets them without the CDN.
+3. Drive it: click the box, type, read `.select2-results__option`, and check the
+   wrapper's height. 1px means something has hidden the real field; 38 is healthy.
+
+Not in the suite: it needs a browser and four vendored files, and the server has
+neither. Worth half an hour the next time a screen "does nothing".
+
 ## When a clerk says the ICD-10 box does nothing
 
     sudo -u finance python3 /opt/finance/check_diagnosis_search.py /opt/finance/finance.db
