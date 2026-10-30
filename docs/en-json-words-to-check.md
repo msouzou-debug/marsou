@@ -42,12 +42,18 @@ than overwrite yours.
 very likely already uses. If «Ομάδα» is a user group there rather than a tariff group,
 our column header reads wrong.
 
-## Two that are decisions, not collisions
+## Answered, 30/10/2026
 
-- **ΔΕΑ** is a guess. It is not expanded in the manual or on the forms. The Μονάδα
-  should confirm before it reaches a screen.
-- **Ταυτότητα** as "ID card" is a choice. If eFinance already renders it "Identity card"
-  or "ID", match that, not ours.
+**All 19 checked against the live `en.json` — no collisions.** Nothing here needs
+changing on our side; the keys can be merged as they stand.
+
+**ΔΕΑ = Δελτίο Εγγραφής Αλλοδαπού**, confirmed. "Alien Registration Certificate" is the
+Civil Registry and Migration Department's own English, so the value stands. It is no
+longer flagged for Μονάδα review.
+
+One left open, and it is a preference rather than a fault: **Ταυτότητα** is "ID card"
+here. If eFinance renders it "Identity card" or "ID" elsewhere, match that instead, so
+the same document is not called two things in one application.
 
 ## Why ten of them appeared only now
 

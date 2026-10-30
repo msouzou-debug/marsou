@@ -1887,3 +1887,38 @@ def test_the_readiness_screen_names_tables_in_greek_and_in_code(client, app):
     detail = " ".join(f["detail"] for f in findings)
     assert "κατάλογος υπηρεσιών" in detail
     assert "taep_service" in detail
+
+
+def test_the_entry_screen_now_asks_for_previous_visits(client, app):
+    """The identification block has promised this since 05/10/2026 — «Με βάση αυτά τα
+    στοιχεία αναζητούνται προηγούμενες καταχωρήσεις» — and /taep/api/prior has answered
+    since then. Nothing called it, so the line was a promise the screen did not keep.
+
+    Wired 30/10/2026. Checked in a browser too (Chromium, the recipe is in the runbook):
+    the panel stays hidden until the number is entered, then shows the count, the unpaid
+    prior costing with its number and amount, and a button that fills only the fields
+    the clerk has left empty. What Python can check is that the screen carries the
+    lookup at all, with its wording and its URL.
+    """
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert 'id="prior-visit"' in page
+    assert '/taep/api/prior' in page
+    # The wording goes through t() like the rest of the screen, not hard-coded in JS.
+    for attribute in ("data-found", "data-fill", "data-filled",
+                      "data-unpaid", "data-unpaid-note"):
+        assert attribute in page, attribute
+
+
+def test_the_lookup_is_not_offered_while_correcting_an_episode(client, app):
+    """find_prior_episodes() matches on identification and does not exclude the episode
+    being edited, so on a correction the screen would offer the clerk their own entry as
+    a previous visit — and a «fill from the last entry» button that fills it from itself.
+    """
+    episode_id = create(client, app)
+    response = client.get("/taep/%d/edit" % episode_id)
+    # Asserted, because my first version of this test pointed at a URL that does not
+    # exist and passed against the 404 — which lacks the panel too.
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert "Διόρθωση" in page
+    assert 'id="prior-visit"' not in page

@@ -30,10 +30,6 @@ REVIEW = {
     "Τέλος Εγγραφής", "Τέλος εγγραφής", "Προκαταβολή",
     "Κοστολόγηση βάσει βαρύτητας",
     "Κοστολόγηση δραστηριοτήτων βάσει τιμοκαταλόγου",
-    # Nobody has told us what ΔΕΑ stands for; it is not expanded anywhere in the
-    # manual or on the forms. Translated so the dropdown is usable in English,
-    # flagged so the Μονάδα confirms it rather than finding it on a screen.
-    "ΔΕΑ",
 }
 
 # Rendered through a Jinja filter or a loop variable — t(episode.status | status_el),
@@ -163,6 +159,9 @@ EN = {
     # database; only the label turns.
     "Ταυτότητα": "ID card",
     "Διαβατήριο": "Passport",
+    # ΔΕΑ = Δελτίο Εγγραφής Αλλοδαπού, confirmed 30/10/2026. Written down because
+    # the abbreviation is not expanded anywhere in the manual or on the forms, so
+    # the next person would otherwise have to ask again.
     "ΔΕΑ": "Alien Registration Certificate",
     "Άλλο": "Other",
     "Άρρεν": "Male",
@@ -178,6 +177,18 @@ EN = {
     "Ωριαία επιβάρυνση": "Hourly charge",
     "Τιμή όπως δόθηκε": "Price as supplied",
     "Ενεργό": "Active",
+
+    # Previous visits on the entry screen (wired 30/10/2026).
+    "Βρέθηκαν προηγούμενες καταχωρήσεις για αυτόν τον ασθενή:":
+        "Previous entries found for this patient:",
+    "Συμπλήρωση από την τελευταία καταχώρηση": "Fill from the last entry",
+    "Συμπληρώθηκαν τα κενά πεδία. Ελέγξτε τα πριν την αποθήκευση.":
+        "The empty fields have been filled. Check them before saving.",
+    "Προηγούμενη κοστολόγηση ΕΠΙ ΠΛΗΡΩΜΗ χωρίς καταγεγραμμένη εξόφληση:":
+        "An earlier self-pay costing with no settlement recorded:",
+    "Το σύστημα δεν καταγράφει ακόμη εξοφλήσεις, άρα αυτό δεν αποδεικνύει οφειλή — επιβεβαιώστε το στο λογιστήριο.":
+        "The system does not record settlements yet, so this does not prove a debt — "
+        "confirm it with accounts.",
 
     # The ICD-10 fallback, when the search box does not load (30/10/2026).
     "π.χ. J18.9": "e.g. J18.9",
@@ -507,6 +518,15 @@ def main():
     for problem in problems:
         print("PROBLEM:", problem)
 
+    # Checked against the live en.json on 30/10/2026 and clear. Listed so the report
+    # below shows only what has appeared since, instead of reprinting nineteen settled
+    # words every time and burying the next real one.
+    CHECKED = {
+        "Άλλο", "Άρρεν", "Ώρες", "Ακυρωμένο", "Αναθεώρηση", "ΔΕΑ", "Διάγνωση",
+        "Διαβατήριο", "Διαγραφή", "Εμφάνιση", "Θήλυ", "Κλιμάκιο", "Νοσηλευτήριο",
+        "Ομάδα", "Ποσότητα", "Πρόχειρο", "Σήμερα", "Ταυτότητα", "Υπολογισμένο",
+    }
+
     # A short common Greek noun is where the collisions live: en.json is one global
     # dictionary, so «Κωδικός» already belonged to Password and «Εισαγωγή» to Import
     # before this module existed. We cannot diff against en.json from here, so the next
@@ -514,11 +534,16 @@ def main():
     # RUNTIME too: a status or a dropdown label is exactly the short common noun
     # that collides, and the t('literal') scan cannot see it.
     risky = sorted(k for k in set(keys) | RUNTIME
-                   if len(k) <= 12 and " " not in k.rstrip(".") and k not in ALLOWED)
+                   if len(k) <= 12 and " " not in k.rstrip(".")
+                   and k not in ALLOWED and k not in CHECKED)
     if risky:
-        print("\n%d single-word keys — check each against en.json before merging, a "
+        print("\n%d NEW single-word keys — check each against en.json before merging, a "
               "collision renders as the wrong English:" % len(risky))
         print("   " + ", ".join("«%s»" % k for k in risky))
+        print("   Add them to CHECKED in this file once they are confirmed clear.")
+    else:
+        print("\n%d single-word keys, all checked against en.json and clear."
+              % len(CHECKED))
 
     out = ROOT / "docs" / "taep-translations-en.json"
     out.write_text(json.dumps(EN, ensure_ascii=False, indent=2,

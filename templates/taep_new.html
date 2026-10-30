@@ -70,6 +70,18 @@
       <div class="text-muted mb-3" style="font-size:0.84rem">
         {{ t('Με βάση αυτά τα στοιχεία αναζητούνται προηγούμενες καταχωρήσεις του ίδιου ασθενούς.') }}
       </div>
+      {# The lookup the line above has promised since 05/10/2026. Only on a new entry:
+         editing an episode would find that episode itself. The wording lives here, in
+         data attributes, so it goes through t() like everything else on the screen. #}
+      {% if not editing %}
+        <div id="prior-visit" class="d-none mb-3"
+             data-url="{{ url_for('taep_prior') }}"
+             data-found="{{ t('Βρέθηκαν προηγούμενες καταχωρήσεις για αυτόν τον ασθενή:') }}"
+             data-fill="{{ t('Συμπλήρωση από την τελευταία καταχώρηση') }}"
+             data-filled="{{ t('Συμπληρώθηκαν τα κενά πεδία. Ελέγξτε τα πριν την αποθήκευση.') }}"
+             data-unpaid="{{ t('Προηγούμενη κοστολόγηση ΕΠΙ ΠΛΗΡΩΜΗ χωρίς καταγεγραμμένη εξόφληση:') }}"
+             data-unpaid-note="{{ t('Το σύστημα δεν καταγράφει ακόμη εξοφλήσεις, άρα αυτό δεν αποδεικνύει οφειλή — επιβεβαιώστε το στο λογιστήριο.') }}"></div>
+      {% endif %}
       <div class="row g-3">
         <div class="col-md-3">
           <label class="form-label" for="id_type">{{ t('Τύπος ταυτοποίησης') }}</label>
@@ -482,6 +494,126 @@ taepReady(function () {
   select.addEventListener("change", apply);
   if (window.jQuery) jQuery(select).on("select2:select", apply);
   apply();
+});
+
+// Previous visits. The identification block has said since 05/10/2026 that prior
+// entries are looked up from these details; /taep/api/prior has answered since then and
+// nothing called it.
+//
+// Two things the clerk needs, and they are different: the patient's non-clinical
+// details, so they are not retyped, and a prior ΕΠΙ ΠΛΗΡΩΜΗ costing with no settlement
+// recorded. The lookup crosses hospitals on purpose — find_prior_episodes() is not
+// scoped to one — because a patient seen in Limassol last month is the same patient.
+//
+// Nothing is filled without the clerk pressing the button, and then only fields they
+// have left empty: silently replacing a name somebody has just typed is worse than
+// retyping it.
+taepReady(function () {
+  var panel = document.getElementById("prior-visit");
+  var number = document.getElementById("id_number");
+  var type = document.getElementById("id_type");
+  if (!panel || !number || !type || !window.fetch) return;
+
+  var PREFILL = ["first_name", "last_name", "date_of_birth", "gender", "phone",
+                 "address", "id_country", "id_expiry", "next_of_kin_type",
+                 "next_of_kin_details"];
+  var last = "";
+
+  function money(value) {
+    var n = parseFloat(value);
+    return isNaN(n) ? "" : n.toFixed(2).replace(".", ",") + " €";
+  }
+
+  // textContent throughout: a name and an address are data somebody typed, and must
+  // not be able to become markup.
+  function line(tag, text, cls) {
+    var el = document.createElement(tag);
+    el.textContent = text;
+    if (cls) el.className = cls;
+    return el;
+  }
+
+  function fill(prefill) {
+    var touched = 0;
+    PREFILL.forEach(function (name) {
+      var value = prefill[name];
+      var field = document.querySelector('[name="' + name + '"]');
+      if (!value || !field || field.value) return;      // never overwrite
+      if (field.tagName === "SELECT"
+          && !Array.prototype.some.call(field.options,
+                                        function (o) { return o.value === value; })) {
+        return;        // an older record may hold a value this list no longer offers
+      }
+      field.value = value;
+      // Select2 redraws on the native change event, so a prefilled dropdown shows
+      // what it now holds instead of staying blank.
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      touched += 1;
+    });
+    return touched;
+  }
+
+  function render(data) {
+    panel.textContent = "";
+    if (!data.count) { panel.classList.add("d-none"); return; }
+
+    var box = document.createElement("div");
+    box.className = "alert alert-info py-2 mb-0";
+    var head = document.createElement("div");
+    head.className = "d-flex align-items-center gap-2 flex-wrap";
+    head.appendChild(line("span", panel.dataset.found));
+    head.appendChild(line("span", String(data.count), "badge text-bg-secondary"));
+    if (data.prefill) {
+      var button = line("button", panel.dataset.fill,
+                        "btn btn-sm btn-outline-primary ms-auto");
+      button.type = "button";          // inside a form: must not submit it
+      button.addEventListener("click", function () {
+        fill(data.prefill);
+        button.remove();
+        box.appendChild(line("div", panel.dataset.filled, "small mt-2"));
+      });
+      head.appendChild(button);
+    }
+    box.appendChild(head);
+
+    if (data.unpaid && data.unpaid.length) {
+      var warn = document.createElement("div");
+      warn.className = "alert alert-warning py-2 mt-2 mb-0";
+      warn.appendChild(line("div", panel.dataset.unpaid, "fw-semibold"));
+      var list = document.createElement("ul");
+      list.className = "mb-1 ps-3";
+      data.unpaid.forEach(function (u) {
+        list.appendChild(line("li", [u.costing_number, u.entity_code,
+                                     (u.examination_at || "").slice(0, 10),
+                                     money(u.total_cost)]
+                                    .filter(Boolean).join(" · ")));
+      });
+      warn.appendChild(list);
+      warn.appendChild(line("div", panel.dataset.unpaidNote, "small"));
+      box.appendChild(warn);
+    }
+
+    panel.appendChild(box);
+    panel.classList.remove("d-none");
+  }
+
+  function look() {
+    var value = (number.value || "").trim();
+    var key = type.value + "|" + value;
+    if (!value || key === last) return;
+    last = key;
+    fetch(panel.dataset.url + "?id_type=" + encodeURIComponent(type.value)
+          + "&id_number=" + encodeURIComponent(value),
+          { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { if (data) render(data); })
+      // A lookup that cannot answer must not stop the clerk recording the patient.
+      .catch(function () {});
+  }
+
+  number.addEventListener("blur", look);
+  type.addEventListener("change", look);
+  if (number.value) look();        // a rejected post comes back with the number filled
 });
 </script>
 {% endblock %}
