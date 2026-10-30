@@ -35,6 +35,31 @@
 
 <form method="post" id="taep-new-form">
 
+  {% if editing and episode.status == 'FINALISED' %}
+  {# The route has read `revision_reason` since 23/10 and nothing ever posted it, so
+     «Αιτιολογία αλλαγής» on the revisions table was always «—» (eFinance session,
+     29/10/2026). Required, because this changes a document the patient is holding and
+     the reason is the only record of why. #}
+  <div class="card mb-3 border-warning">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="bi bi-clock-history text-warning"></i>
+      <span>{{ t('Αναθεώρηση οριστικοποιημένης κοστολόγησης') }}</span>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-warning py-2 mb-3" style="font-size:0.86rem">
+        <i class="bi bi-exclamation-triangle"></i>
+        {{ t('Ο αριθμός') }} <strong>{{ episode.costing_number }}</strong>
+        {{ t('παραμένει. Το ποσό υπολογίζεται ξανά και ο ασθενής κρατά το παλιό έντυπο — εκτυπώστε ξανά και δώστε του το νέο.') }}
+      </div>
+      <label class="form-label" for="revision_reason">
+        {{ t('Αιτιολογία αλλαγής') }} *</label>
+      <input id="revision_reason" name="revision_reason" class="form-control" required
+             placeholder="{{ t('π.χ. λάθος οικονομική κατηγορία στην καταχώρηση') }}"
+             value="{{ form.get('revision_reason', '') }}">
+    </div>
+  </div>
+  {% endif %}
+
   <div class="card mb-3">
     <div class="card-header d-flex align-items-center gap-2">
       <i class="bi bi-person-vcard text-primary"></i>

@@ -1724,6 +1724,23 @@ def save_episode(ctx, data, entity_code, unit_code, user_id, episode_id=None):
             f"Η οικονομική κατηγορία {category['code_new']} "
             f"«{category['name_el']}» δεν ισχύει στα ΤΑΕΠ.")
 
+    # The episode number is unique within a hospital, and until 30/10/2026 the only
+    # thing enforcing it was the UNIQUE key — so a clerk retyping a number that already
+    # existed got a 500 and lost the form (eFinance session, 29/10). It is also the one
+    # mistake Γιώτα named as needing an administrator's delete to undo, which makes
+    # catching it before the insert worth more than most.
+    number = (data.get("episode_number") or "").strip()
+    if number:
+        clash = db("""SELECT id FROM taep_episode
+                      WHERE entity_code = %s AND episode_number = %s""",
+                   (entity_code, number), fetch=True) or []
+        clash = [row for row in clash if row["id"] != episode_id]
+        if clash:
+            raise CostingError(
+                "DUPLICATE_EPISODE_NUMBER",
+                f"Ο αριθμός επεισοδίου «{number}» χρησιμοποιείται ήδη σε άλλη "
+                f"καταχώρηση αυτού του νοσηλευτηρίου. Ελέγξτε τον αριθμό.")
+
     if episode_id:
         existing = get_episode(ctx, episode_id)
         if existing is None:
@@ -1830,6 +1847,12 @@ def revise_finalised_episode(ctx, episode_id, data, user_id, reason_el=""):
     if episode["status"] != "FINALISED":
         raise CostingError("NOT_FINALISED",
                            "Η αναθεώρηση αφορά μόνο οριστικοποιημένες κοστολογήσεις.")
+    if not (reason_el or "").strip():
+        raise CostingError(
+            "NO_REVISION_REASON",
+            "Η αιτιολογία της αναθεώρησης είναι υποχρεωτική. Ο ασθενής κρατά το "
+            "προηγούμενο έντυπο και η αιτιολογία είναι η μόνη καταγραφή του γιατί "
+            "άλλαξε.")
 
     category = get_category(ctx, data.get("financial_category_id"))
     if category is None or not _as_int(category["valid_for_ae"]):
@@ -3559,6 +3582,12 @@ PERMISSIONS = {
     "finalise": "taep.finalise",
     "cancel": "taep.cancel",
     "rates": "taep.rates",
+    # Deleting a costing has its own key rather than riding on taep.admin, which is the
+    # broadest one in the module. Deletion is the most consequential action behind it —
+    # the only one that removes a record — and the eFinance session's point (23/10/2026)
+    # stands: it should be possible to grant delete to one person without handing over
+    # module administration as well. Cancellation is the normal route and is unaffected.
+    "delete": "taep.delete",
     "admin": "taep.admin",
 }
 
@@ -3598,8 +3627,13 @@ PERMISSIONS_CATALOG_EL = {
     "taep.view": "ΤΑΕΠ — αναζήτηση και προβολή κοστολόγησης",
     "taep.create": "ΤΑΕΠ — καταχώρηση και κοστολόγηση",
     "taep.finalise": "ΤΑΕΠ — οριστικοποίηση και εκτύπωση",
-    "taep.cancel": "ΤΑΕΠ — ακύρωση κοστολόγησης",
+    # Retired 23/10/2026: cancellation became an administrator action and no route
+    # reads this key any more. Kept in the catalogue so a role that still carries it
+    # does not point at a key eFinance has never heard of; remove it from
+    # PERMISSIONS_CATALOG when the roles have been cleaned up.
+    "taep.cancel": "ΤΑΕΠ — ακύρωση κοστολόγησης (δεν χρησιμοποιείται πλέον)",
     "taep.rates": "ΤΑΕΠ — διαχείριση τιμών και τιμοκαταλόγου",
+    "taep.delete": "ΤΑΕΠ — διαγραφή κοστολόγησης",
     "taep.admin": "ΤΑΕΠ — διαχείριση συστήματος",
 }
 
@@ -3881,6 +3915,23 @@ def resolve_parallel_check(ctx, episode_id, resolution, user_id):
     ctx["log_activity"]("taep_episode", episode_id, "PARALLEL_RESOLVED", text[:200])
 
 
+def _inclusive_end(value):
+    """A date filter's upper bound, covering the whole of that day.
+
+    «Έως 28/10» means everything that happened on the 28th, but examination_at is a
+    date AND time, so comparing it with the bare date compares it with midnight and
+    drops the entire day — a filter for one day found nothing at all. Reported by the
+    eFinance session, 29/10/2026, and reproduced before changing anything.
+
+    A value that already carries a time is left alone: somebody who asked for
+    "up to 14:00" meant it.
+    """
+    text = str(value or "").strip()
+    if len(text) == 10 and text.count("-") == 2:
+        return text + " 23:59:59"
+    return text or None
+
+
 def parallel_run_rows(ctx, entity_code, date_from=None, date_to=None):
     """Finalised episodes with their hand-priced figure beside the tool's."""
     where = ["e.entity_code = %s", "e.status = 'FINALISED'"]
@@ -3890,7 +3941,7 @@ def parallel_run_rows(ctx, entity_code, date_from=None, date_to=None):
         params.append(date_from)
     if date_to:
         where.append("e.examination_at <= %s")
-        params.append(date_to)
+        params.append(_inclusive_end(date_to))
 
     rows = ctx["db_execute"](
         f"""SELECT e.id, e.costing_number, e.examination_at, e.taep_unit_code,
@@ -3983,7 +4034,7 @@ def list_episodes(ctx, entity_code, filters=None, limit=200):
         params.append(filters["date_from"])
     if filters.get("date_to"):
         where.append("e.examination_at <= %s")
-        params.append(filters["date_to"])
+        params.append(_inclusive_end(filters["date_to"]))
     if filters.get("category_id"):
         where.append("e.financial_category_id = %s")
         params.append(filters["category_id"])
@@ -4285,7 +4336,21 @@ def register(app, ctx):
     def taep_finalise(episode_id):
         episode_or_404(episode_id)
         try:
-            lines = _tariff_lines_from_form(ctx, request.form)
+            # The Οριστικοποίηση form posts the button and nothing else, so the tariff
+            # rows that Υπολογισμός posted are not here. Rebuilding from an empty form
+            # gave a different input_hash from the stored calculation and
+            # finalise_episode refused as stale — for ever, since pressing Υπολογισμός
+            # again stored the same correct hash. No episode with an extra charge could
+            # be finalised at all, which is every self-pay patient who had one.
+            # Reported by the eFinance session on 29/10/2026 while writing the manual.
+            #
+            # store_tariff_lines() wrote those lines in the same request that stored the
+            # calculation, so reading them back reproduces exactly what was priced. The
+            # staleness check keeps its meaning — the services still come from the
+            # episode, so a selection changed after the calculation is still caught, and
+            # a test holds that.
+            lines = _tariff_lines_from_form(ctx, request.form) \
+                or tariff_lines_for_episode(ctx, episode_id)
             result = price_episode(ctx, episode_id, lines)
             number, _ = finalise_episode(ctx, episode_id, result, user_id())
         except CostingError as exc:
@@ -4705,9 +4770,9 @@ def register(app, ctx):
 
     @app.route("/taep/<int:episode_id>/delete", methods=["POST"])
     @login_required
-    @permission_required(PERMISSIONS["admin"])
+    @permission_required(PERMISSIONS["delete"])
     def taep_delete(episode_id):
-        """Administrator only (Γιώτα 22/10/2026). Cancellation is the normal route.
+        """Its own key, taep.delete (30/10/2026). Cancellation is the normal route.
 
         The case she names is a duplicated episode number, which cancellation cannot
         free because the UNIQUE key does not care about status.

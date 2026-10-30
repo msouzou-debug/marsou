@@ -1267,6 +1267,8 @@ def test_a_clerk_can_still_read_a_colleagues_costing(client, app):
 
 
 def test_an_administrator_may_edit_anyones(client, app):
+    # Editing anyone's costing is taep.admin, not taep.delete: the two were split on
+    # 30/10/2026 so delete could be granted on its own, not so admin lost anything.
     app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
     episode_id = someone_elses_episode(app)
     response = client.post("/taep/%d/edit" % episode_id,
@@ -1288,7 +1290,7 @@ def test_only_an_administrator_deletes(client, app):
 
 
 def test_deleting_needs_a_reason(client, app):
-    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.delete"})
     episode_id = create(client, app)
     client.post("/taep/%d/delete" % episode_id, data={"reason": "  "})
     assert taep.get_episode(app.ctx, episode_id) is not None
@@ -1301,7 +1303,7 @@ def test_a_deleted_costing_leaves_its_number_behind_and_the_series_moves_on(clie
     The ledger row stays, marked void. The next costing gets 0002, not 0001: a number
     is never reissued, so the gap is the point rather than a defect.
     """
-    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.delete"})
     first = finalised(client, app)
     number = taep.get_episode(app.ctx, first)["costing_number"]
     assert number == "OKY1054/0001"
@@ -1324,7 +1326,7 @@ def test_a_deleted_costing_leaves_its_number_behind_and_the_series_moves_on(clie
 
 
 def test_deleting_takes_the_children_with_it(client, app):
-    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.admin"})
+    app.ctx["granted_permissions"].update(CLERK_KEYS | {"taep.delete"})
     episode_id = create(client, app, **paid_deposit(app))
     client.post("/taep/%d/services" % episode_id,
                 data={"service_code": ["AED008", "AET057"]})
@@ -1357,9 +1359,16 @@ def test_the_cancel_and_delete_boxes_follow_the_permission(client, app):
                        data={"reason": "x"}).status_code == 403
     assert taep.get_episode(app.ctx, episode_id)["status"] != "CANCELLED"
 
-    app.ctx["granted_permissions"].add("taep.admin")
+    # Deleting has its own key since 30/10/2026: it should be grantable to one person
+    # without handing over module administration as well.
+    app.ctx["granted_permissions"].add("taep.delete")
     page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
     assert 'id="withdraw"' in page
+    assert "Αιτιολογία διαγραφής" in page
+    assert "Αιτιολογία ακύρωσης" not in page
+
+    app.ctx["granted_permissions"].add("taep.admin")
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
     assert "Αιτιολογία ακύρωσης" in page
     assert "Αιτιολογία διαγραφής" in page
 
@@ -1547,3 +1556,182 @@ def test_the_unit_is_fixed_once_the_number_exists(client, app):
     episode = taep.get_episode(app.ctx, episode_id)
     assert episode["taep_unit_code"] == "NGH-ADULT"
     assert episode["costing_number"] == number
+
+
+def test_a_costing_with_extra_charges_can_be_finalised(client, app):
+    """Reported by the eFinance session, 29/10/2026, found while writing the manual.
+
+    Υπολογισμός posts the tariff rows and stores an input_hash that includes them.
+    Οριστικοποίηση posts only the button, so the finalise path rebuilt the lines from an
+    empty form, got a different hash, and refused with STALE_CALCULATION — for ever.
+    No episode with an extra charge could be finalised, which is every self-pay patient
+    who had one. Pressing Υπολογισμός again changed nothing, because the stored hash was
+    the correct one.
+
+    My own tests missed it because none of them finalised an episode with a tariff line:
+    they checked the arithmetic and stopped.
+    """
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER1"], "tariff_cpt": [""], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+
+    before = taep.get_calculation(app.ctx, episode_id)
+    assert taep.money_from_db(before["tariff_total"]) == Decimal("12.00")
+
+    # Not follow_redirects: success redirects to the printed PDF, which is not text.
+    response = client.post(f"/taep/{episode_id}/finalise")
+    assert response.status_code == 302
+    assert "/print" in response.headers["Location"], "it refused instead of finalising"
+
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["status"] == "FINALISED"
+    assert episode["costing_number"]
+    # And the charge is still on it: the rebuild must reproduce the calculation, not
+    # quietly finalise a cheaper one.
+    after = taep.get_calculation(app.ctx, episode_id)
+    assert taep.money_from_db(after["tariff_total"]) == Decimal("12.00")
+    assert taep.money_from_db(after["total_cost"]) == \
+        taep.money_from_db(before["total_cost"])
+
+
+def test_the_stale_check_still_catches_a_changed_selection(client, app):
+    """The rebuild must not blunt the check it works around: services changed after the
+    calculation must still refuse."""
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate", data={
+        "tariff_code": ["SHSO-ER1"], "tariff_cpt": [""], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+
+    # Change the services behind the stored calculation, as a second tab would.
+    app.ctx["db_execute"](
+        "INSERT INTO taep_episode_service (episode_id, service_code, added_by, added_at)"
+        " VALUES (%s, 'AET005', 1, %s)", (episode_id, YESTERDAY))
+
+    response = client.post(f"/taep/{episode_id}/finalise", follow_redirects=True)
+    assert "άλλαξαν μετά τον υπολογισμό" in response.get_data(as_text=True)
+    assert taep.get_episode(app.ctx, episode_id)["costing_number"] is None
+
+
+def test_the_registration_fee_reads_as_a_fee_on_the_screen_too(client, app):
+    """The printed document said «Τέλος εγγραφής»; the screen still said
+    «Προκαταβολή». Reported by the eFinance session, 29/10/2026 — one box covers both
+    amounts, and they are not the same thing to a patient."""
+    episode_id = create(client, app, financial_category_id=fee_category(app),
+                        deposit_confirmed="1", deposit_receipt="R-88")
+    client.post(f"/taep/{episode_id}/services",
+                data={"service_code": ["AED008", "AET057"]})
+    client.post(f"/taep/{episode_id}/calculate")
+
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert "Τέλος εγγραφής που έχει ήδη καταβληθεί" in page
+    assert "Προκαταβολή που έχει ήδη καταβληθεί" not in page
+
+    # And unconfirmed, the warning names the fee rather than a deposit.
+    other = create(client, app, financial_category_id=fee_category(app),
+                   episode_number="E-FEE-2", id_number="8880001")
+    client.post(f"/taep/{other}/calculate")
+    page = client.get(f"/taep/{other}").get_data(as_text=True)
+    assert "Το τέλος εγγραφής δεν έχει επιβεβαιωθεί" in page
+
+
+def test_the_deposit_still_reads_as_a_deposit(client, app):
+    episode_id = create(client, app, **paid_deposit(app))
+    client.post(f"/taep/{episode_id}/calculate")
+    page = client.get(f"/taep/{episode_id}").get_data(as_text=True)
+    assert "Προκαταβολή που έχει ήδη καταβληθεί" in page
+    assert "Τέλος εγγραφής" not in page
+
+
+def test_a_revision_must_say_why(client, app):
+    """The route read `revision_reason` from 23/10 and no template ever posted it, so
+    «Αιτιολογία αλλαγής» was always «—» (eFinance session, 29/10/2026). The field is on
+    the screen now, and the engine refuses without it: the patient is holding the
+    previous document and the reason is the only record of why it changed.
+    """
+    episode_id = finalised(client, app)
+
+    page = client.get("/taep/%d/edit" % episode_id).get_data(as_text=True)
+    assert 'id="revision_reason"' in page
+    assert taep.get_episode(app.ctx, episode_id)["costing_number"] in page
+
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), phone="99777666", revision_reason="   "),
+        follow_redirects=True)
+    assert "αιτιολογία της αναθεώρησης είναι υποχρεωτική" in response.get_data(
+        as_text=True)
+    assert taep.get_episode(app.ctx, episode_id)["phone"] != "99777666"
+    assert taep.episode_revisions(app.ctx, episode_id) == []
+
+    client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), phone="99777666",
+        revision_reason="Λάθος τηλέφωνο στην καταχώρηση"))
+    revisions = taep.episode_revisions(app.ctx, episode_id)
+    assert len(revisions) == 1
+    assert revisions[0]["reason_el"] == "Λάθος τηλέφωνο στην καταχώρηση"
+
+
+def test_the_reason_field_is_not_on_an_ordinary_correction(client, app):
+    episode_id = create(client, app)
+    page = client.get("/taep/%d/edit" % episode_id).get_data(as_text=True)
+    assert 'id="revision_reason"' not in page
+
+
+def test_a_duplicate_episode_number_is_refused_not_a_500(client, app):
+    """Reported by the eFinance session, 29/10/2026: the UNIQUE key was the only thing
+    enforcing this, so a clerk retyping an existing number got an error page and lost
+    the form. It is also the mistake Γιώτα named as needing an administrator's delete
+    to undo, which makes catching it beforehand worth more than most.
+    """
+    create(client, app, episode_number="E-DUP")
+
+    response = client.post("/taep/nea", data=form_fields(
+        app.ctx, episode_number="E-DUP", id_number="7777777"))
+    assert response.status_code == 200
+    assert "χρησιμοποιείται ήδη" in response.get_data(as_text=True)
+    assert len(app.ctx["db_execute"](
+        "SELECT id FROM taep_episode", fetch=True)) == 1
+
+
+def test_the_same_number_at_another_hospital_is_fine(client, app):
+    """The number is unique within a hospital, not across them."""
+    multi_hospital(app)
+    create(client, app, episode_number="E-SAME", taep_unit_code="NGH-ADULT")
+    second = create(client, app, episode_number="E-SAME", taep_unit_code="LGH",
+                    id_number="6666666")
+    assert taep.get_episode(app.ctx, second)["entity_code"] == "LGH"
+
+
+def test_saving_an_episode_without_changing_its_number_is_not_a_clash(client, app):
+    """The check must not see the episode's own number as a duplicate of itself."""
+    episode_id = create(client, app, episode_number="E-SELF")
+    response = client.post("/taep/%d/edit" % episode_id, data=dict(
+        form_fields(app.ctx), episode_number="E-SELF", phone="99000111"))
+    assert response.status_code == 302
+    assert taep.get_episode(app.ctx, episode_id)["phone"] == "99000111"
+
+
+def test_the_until_filter_includes_the_whole_of_its_last_day(client, app):
+    """«Έως 28/10» means everything on the 28th. examination_at carries a time, so
+    comparing it with the bare date compared it with midnight and dropped the entire
+    day — a filter for a single day found nothing (eFinance session, 29/10/2026).
+    """
+    day = (dt.datetime.now() - dt.timedelta(days=2)).replace(hour=23, minute=59)
+    create(client, app, episode_number="E-LATE",
+           admission_at=day.strftime("%Y-%m-%dT%H:%M"),
+           examination_at=day.strftime("%Y-%m-%dT%H:%M"),
+           discharge_at=day.strftime("%Y-%m-%dT%H:%M"))
+    same = day.strftime("%Y-%m-%d")
+
+    assert len(taep.list_episodes(app.ctx, ["NGH"],
+                                  {"date_from": same, "date_to": same})) == 1
+    # And the bound is still a bound: the day before excludes it.
+    before = (day - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+    assert taep.list_episodes(app.ctx, ["NGH"], {"date_to": before}) == []
+    # A caller who gave a time meant that time.
+    assert taep.list_episodes(
+        app.ctx, ["NGH"], {"date_to": same + " 12:00:00"}) == []

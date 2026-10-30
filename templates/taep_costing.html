@@ -360,7 +360,15 @@
                    Only once somebody confirmed it was taken — see deposit_state(). #}
                 <tr class="table-light"><th class="fw-normal text-success">
                   <i class="bi bi-arrow-down-circle"></i>
-                  {{ t('Προκαταβολή που έχει ήδη καταβληθεί') }} €
+                  {# One box covers both the €100 deposit on 600 and the €10
+                     registration fee on 603, 605 and 608, and they are not the same
+                     thing to a patient. The printed document already said which; the
+                     screen did not (eFinance session, 29/10/2026). #}
+                  {% if deposit.kind == 'FEE' %}
+                    {{ t('Τέλος εγγραφής που έχει ήδη καταβληθεί') }} €
+                  {% else %}
+                    {{ t('Προκαταβολή που έχει ήδη καταβληθεί') }} €
+                  {% endif %}
                   {% if deposit.receipt %}
                     <span class="text-muted small">{{ deposit.receipt }}</span>
                   {% endif %}</th>
@@ -377,9 +385,9 @@
                    negative amount to collect. #}
                 <tr><th class="fw-normal text-muted">
                   {% if deposit.refund %}
-                    {{ t('Επιστροφή στον ασθενή μετά την προκαταβολή') }} €
+                    {{ t('Επιστροφή στον ασθενή') }} €
                   {% else %}
-                    {{ t('Υπόλοιπο προς είσπραξη μετά την προκαταβολή') }} €
+                    {{ t('Υπόλοιπο προς είσπραξη') }} €
                   {% endif %}</th>
                   <td class="text-end fw-semibold" id="balance">
                     {{ deposit.balance | eur }}</td></tr>
@@ -394,7 +402,11 @@
           <div class="alert alert-warning py-2" id="deposit-unconfirmed"
                style="font-size:0.82rem">
             <i class="bi bi-exclamation-triangle"></i>
-            {{ t('Η προκαταβολή δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.') }}
+            {% if deposit.kind == 'FEE' %}
+              {{ t('Το τέλος εγγραφής δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.') }}
+            {% else %}
+              {{ t('Η προκαταβολή δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.') }}
+            {% endif %}
             {{ deposit.amount | eur }} €
             {% if has_permission('taep.create') and may_edit
                   and episode.status != 'CANCELLED' %}
@@ -459,14 +471,14 @@
     {# Cancellation and deletion. Both routes existed with no screen behind them, so
        neither could be reached. Each needs a written reason, which is the only record
        of why a priced costing stopped counting. #}
-    {% if has_permission('taep.admin') %}
+    {% if has_permission('taep.admin') or has_permission('taep.delete') %}
     <div class="card mt-3" id="withdraw">
       <div class="card-header d-flex align-items-center gap-2">
         <i class="bi bi-exclamation-octagon text-danger"></i>
         <span>{{ t('Ακύρωση ή διαγραφή') }}</span>
       </div>
       <div class="card-body">
-        {% if episode.status != 'CANCELLED' %}
+        {% if episode.status != 'CANCELLED' and has_permission('taep.admin') %}
         <form method="post"
               action="{{ url_for('taep_cancel', episode_id=episode.id) }}"
               class="mb-3">
@@ -482,6 +494,7 @@
         </form>
         {% endif %}
 
+        {% if has_permission('taep.delete') %}
         <form method="post"
               action="{{ url_for('taep_delete', episode_id=episode.id) }}"
               onsubmit="return confirm('{{ t('Η διαγραφή είναι οριστική. Συνέχεια;') }}');">
@@ -495,6 +508,7 @@
           <div class="form-text">
             {{ t('Μόνο για εξαιρετικές περιπτώσεις, όπως διπλός αριθμός επεισοδίου. Ο αριθμός κοστολόγησης παραμένει στο μητρώο ως άκυρος.') }}</div>
         </form>
+        {% endif %}
       </div>
     </div>
     {% endif %}

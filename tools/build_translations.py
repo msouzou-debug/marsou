@@ -130,6 +130,12 @@ EN = {
     "Προκαταβολή που έχει ήδη καταβληθεί": "Deposit already paid",
     "Υπόλοιπο προς είσπραξη μετά την προκαταβολή": "Balance due after the deposit",
     "Επιστροφή στον ασθενή μετά την προκαταβολή": "Refund to the patient after the deposit",
+    "Τέλος εγγραφής που έχει ήδη καταβληθεί": "Registration fee already paid",
+    # Without "μετά την προκαταβολή", now that the line covers a fee as well.
+    "Υπόλοιπο προς είσπραξη": "Balance to collect",
+    "Επιστροφή στον ασθενή": "Refund to the patient",
+    "Το τέλος εγγραφής δεν έχει επιβεβαιωθεί και δεν αφαιρέθηκε.":
+        "The registration fee has not been confirmed and was not taken off.",
     # One box now covers both the €100 deposit on 600 and the €10 registration fee on
     # 603, 605 and 608, so the wording names neither (Παναγιώτα Έλληνα 23/10/2026).
     "Νοσηλευτήριο": "Hospital",
@@ -158,6 +164,14 @@ EN = {
     # — revisions, cancellation and deletion (Μονάδα and Γιώτα 22/10/2026) —
     "Αναθεώρηση": "Revision",
     "Αναθεώρηση κοστολόγησης": "Revise the costing",
+    "Αναθεώρηση οριστικοποιημένης κοστολόγησης": "Revising a finalised costing",
+    "Ο αριθμός": "Number",
+    "παραμένει. Το ποσό υπολογίζεται ξανά και ο ασθενής κρατά το παλιό έντυπο — "
+    "εκτυπώστε ξανά και δώστε του το νέο.":
+        "stays. The amount is recalculated and the patient is holding the old "
+        "document — print it again and give them the new one.",
+    "π.χ. λάθος οικονομική κατηγορία στην καταχώρηση":
+        "e.g. wrong financial category on the entry",
     "Προηγούμενες εκδόσεις": "Previous versions",
     # Not «Έκδοση» alone: in a finance system that reads as issuance, not version.
     "Αρ. έκδοσης": "Version no.",
