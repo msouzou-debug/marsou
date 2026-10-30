@@ -354,6 +354,17 @@
 </form>
 
 <script>
+// jQuery and Select2 are loaded at the foot of eFinance's <body>, below this block, so
+// nothing here may touch them while the page is still parsing. That is what killed the
+// ICD-10 box, and it is why this wrapper exists rather than a guard that gives up.
+function taepReady(fn) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fn);
+  } else {
+    fn();
+  }
+}
+
 // ICD-10. The catalogue is 10.560 codes, so the search runs on the server and the box
 // holds only what the clerk has chosen.
 //
@@ -365,7 +376,7 @@
 // list, and 10.560 codes do not fit in a page — and a diagnosis is mandatory to
 // finalise, so a dead box stops every costing. Hence a plain code field behind it and
 // one route into it from each failure.
-(function () {
+taepReady(function () {
   // Hand the name to the plain code field so the form posts what the clerk types, take
   // it off the select so the two cannot both post, and say on screen what happened: a
   // dead box with no explanation is how this reached us.
@@ -417,30 +428,19 @@
     });
   }
 
-  function start() {
-    var field = document.getElementById("diagnosis_code");
-    if (!field) return;
-    var note = document.getElementById("diagnosis-note");
-    if (!window.jQuery || !jQuery.fn.select2) { fallback(field, note); return; }
-    try { enhance(field, note); } catch (e) { fallback(field, note); }
-  }
-
-  // This script is inline in the content block, which eFinance renders above the
-  // bottom of its <body>. Whether jQuery has arrived by then is not this template's
-  // business to assume.
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start);
-  } else {
-    start();
-  }
-})();
+  var field = document.getElementById("diagnosis_code");
+  if (!field) return;
+  var note = document.getElementById("diagnosis-note");
+  if (!window.jQuery || !jQuery.fn.select2) { fallback(field, note); return; }
+  try { enhance(field, note); } catch (e) { fallback(field, note); }
+});
 
 // Show the registration-payment confirmation only for the categories that take
 // something at registration (Παναγιώτα Έλληνα, 23/10/2026). The amount comes from the
 // rate table through data-prepayment, not from a list of codes here: 600 carries €100
 // and 603, 605 and 608 carry €10, and when the Μονάδα changes that it changes in the
 // rates, which is the one place a price is allowed to live.
-(function () {
+taepReady(function () {
   var select = document.getElementById("financial_category_id");
   var block = document.getElementById("prepayment-block");
   if (!select || !block) return;
@@ -469,6 +469,6 @@
   select.addEventListener("change", apply);
   if (window.jQuery) jQuery(select).on("select2:select", apply);
   apply();
-})();
+});
 </script>
 {% endblock %}

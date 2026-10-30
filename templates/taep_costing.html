@@ -544,10 +544,23 @@
 </div>
 
 <script>
+// jQuery and Select2 are loaded at the foot of eFinance's <body>, below this block, so
+// nothing here may touch them while the page is still parsing. Reported 30/10/2026: the
+// ICD-10 box on the entry screen did nothing at all for exactly this reason, and these
+// pickers had quietly been plain dropdowns with no search box since 21/10 — usable,
+// because every option is in the page, which is why nobody reported them.
+function taepReady(fn) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fn);
+  } else {
+    fn();
+  }
+}
+
 // Select2 searches the option text, which holds the code and the Greek. The English
 // sits in data-en, so matcher() is extended rather than replaced: a clerk who knows
 // "fluid infusion" finds «Έγχυση υγρών» without a second search box (UAT 21/10).
-(function () {
+taepReady(function () {
   if (!window.jQuery || !jQuery.fn.select2) return;
   jQuery(".select2-services").each(function () {
     jQuery(this).select2({
@@ -591,7 +604,7 @@
       }
     });
   });
-})();
+});
 
 // The extra-charges rows.
 //
@@ -599,7 +612,7 @@
 // data-price-type. The inputs are only ever shown or hidden: the server reads the six
 // fields with getlist() and aligns them by position, so a row that posts five values
 // would shift every row after it onto the wrong charge.
-(function () {
+taepReady(function () {
   var rows = document.getElementById("tariff-rows");
   if (!rows) return;
   var template = document.getElementById("tariff-row-template");
@@ -670,6 +683,6 @@
 
   Array.prototype.forEach.call(rows.querySelectorAll(".tariff-row"),
                                function (row) { initCpt(row); });
-})();
+});
 </script>
 {% endblock %}

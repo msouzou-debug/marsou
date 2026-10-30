@@ -407,3 +407,36 @@ def test_an_english_screen_turns_the_status_and_the_dropdowns(client, app):
     costing = client.get("/taep/%d" % episode_id).get_data(as_text=True)
     assert "Draft" in costing
     assert not _re.search(r">\s*Πρόχειρο\s*<", costing)
+
+
+def test_no_inline_script_reaches_for_jquery_while_the_page_is_parsing():
+    """eFinance loads jQuery and Select2 at the foot of its <body>.
+
+    Our scripts are inline in the content block, which renders above that. An
+    immediately-invoked function there runs while jQuery is still undefined, so a
+    `if (!window.jQuery) return;` guard does not protect anything — it just gives up
+    silently, every time, in production only.
+
+    That is what killed the ICD-10 box (reported 30/10/2026), and the same pattern had
+    been quietly costing the costing screen its service search since 21/10: those
+    pickers degrade to plain dropdowns, which work well enough that nobody reported
+    them. Checked here because neither failure can be seen from Python — the templates
+    render identically either way, and no test that renders HTML would have caught it.
+
+    The rule: a script block that touches jQuery runs from taepReady(), never from an
+    IIFE.
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    offenders = []
+    for path in sorted((root / "templates").glob("taep_*.html")):
+        for block in re.findall(r"<script>(.*?)</script>",
+                                path.read_text(encoding="utf-8"), re.S):
+            if "jQuery" not in block:
+                continue
+            if "taepReady(" not in block:
+                offenders.append("%s: touches jQuery without taepReady()" % path.name)
+            if "})();" in block or "}());" in block:
+                offenders.append("%s: immediately-invoked block touches jQuery"
+                                 % path.name)
+    assert not offenders, "\n".join(offenders)
