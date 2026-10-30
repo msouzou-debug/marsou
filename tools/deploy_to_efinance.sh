@@ -75,6 +75,10 @@ if [ -d "$TARGET/seed" ]; then
 fi
 run install $OWNER -m 644 "$REPO/tools/check_readiness.py" \
     "$TARGET/check_readiness.py"
+# Goes beside it so it can be run when a clerk reports the ICD-10 box dead, without
+# anyone needing the clone or a shell in it.
+run install $OWNER -m 644 "$REPO/tools/check_diagnosis_search.py" \
+    "$TARGET/check_diagnosis_search.py"
 
 say "Επανεκκίνηση"
 run systemctl restart "$SERVICE"
