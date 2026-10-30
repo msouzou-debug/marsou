@@ -18,6 +18,9 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 22/10/2026 | `a8f0581` | `01812fed` | Parallel run `/taep/parallel` |
 | 23/10/2026 | `21b1164` | `2e137d2c` | The 22/10 rulings — see below |
 | 27/10/2026 | `0fef500` | `24193062` | ICD-10, the multi-hospital picker, Παναγιώτα's five |
+| 30/10/2026 | `8aa9f7d` | `8ebc0836` | Finalising a costing that has an extra charge, and four more from the manual |
+| 30/10/2026 | `a1a4415` | `a6f3b228` | The half-changed revision, view-only users, codes on the screen |
+| 30/10/2026 | `12ed781` | `c54b100c` | The rates screen: a fee needs its category, and rates on a past date |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
