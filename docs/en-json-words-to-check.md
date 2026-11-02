@@ -42,6 +42,24 @@ than overwrite yours.
 very likely already uses. If «Ομάδα» is a user group there rather than a tariff group,
 our column header reads wrong.
 
+## Two more, added 02/11/2026
+
+The ICD-10 field was rebuilt as a search box plus a dropdown, which brought two new
+short keys. **Not yet checked against en.json:**
+
+| Greek | Our English | Where it shows |
+|---|---|---|
+| Καθαρισμός | Clear | the button that empties the diagnosis search |
+| αποτελέσματα | results | the count under that search box |
+
+«Καθαρισμός» is the one to look at. eFinance may well use it for clearing a filter or a
+form elsewhere, which would be the same meaning and fine — but if it means something
+narrower there, say so and we lengthen ours.
+
+`tools/build_translations.py` now lists only keys added since the last check, so this
+section is what its report prints. Add them to the `CHECKED` set in that file once they
+are confirmed.
+
 ## Answered, 30/10/2026
 
 **All 19 checked against the live `en.json` — no collisions.** Nothing here needs
