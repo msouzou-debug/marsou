@@ -212,3 +212,63 @@ def test_the_readiness_screen_lists_blockers(app):
     assert "Δεν είναι έτοιμο" in page
     assert "Εμπόδια" in page
     assert "διαφέρει από τον αλγόριθμο" in page
+
+
+# ---------------------------------------------------------------------------
+# Category flags against the rulings (30/10/2026)
+# ---------------------------------------------------------------------------
+
+def test_a_clean_install_has_no_category_drift(seeded):
+    assert taep.category_flag_drift(seeded) == []
+
+
+def test_a_category_flag_that_drifts_from_the_csv_is_a_blocker(seeded):
+    """Παναγιώτα Έλληνα, 30/10/2026: the «Επιπλέον Χρεώσεις ΤΑΕΠ» card does not open
+    for 602 ΕΥΡΩΚΑΡΤΑ.
+
+    seed() fills a table only when it is empty — correctly, so it cannot overwrite a
+    deliberate correction. The cost is that a CSV fixed after the first install never
+    reaches the server. tariff_applies has been TRUE for 600, 602 and 640 in the CSV
+    since the ruling of 22/09, the screen has one gate on that column, and nothing ever
+    compared the two. Readiness now does, because the behaviour lives in a column and a
+    column that has drifted is a silent change of rule.
+    """
+    seeded["db_execute"]("UPDATE taep_financial_category SET tariff_applies = 0 "
+                         "WHERE code_new = '602'")
+    assert taep.category_flag_drift(seeded) == [("602", "tariff_applies", 0, 1)]
+
+    findings = [f for f in taep.readiness_report(seeded) if f["check"] == "κατηγορίες"]
+    assert len(findings) == 1
+    assert findings[0]["level"] == "blocker"
+    assert "602" in findings[0]["detail"]
+
+
+def test_a_flag_that_only_prints_is_a_warning_not_a_blocker(seeded):
+    """requires_payer and fee_status are shown to the clerk but decide nothing yet —
+    v2 bills the payer. Worth reporting, not worth stopping a hospital over.
+    """
+    seeded["db_execute"]("UPDATE taep_financial_category SET requires_payer = 1 "
+                         "WHERE code_new = '600'")
+    findings = [f for f in taep.readiness_report(seeded) if f["check"] == "κατηγορίες"]
+    assert [f["level"] for f in findings] == ["warning"]
+
+
+def test_the_extra_charges_card_opens_for_all_three_self_pay_categories(client, app):
+    """Παναγιώτα Έλληνα, 30/10/2026: «θα έπρεπε να ανοίγει στους επί πληρωμή,
+    ευρωκάρτα και βρετανικές βάσεις».
+
+    That is the 22/09 ruling and it is one flag on the row, so this test is really
+    asserting that the flag and the screen's gate agree — which is what nobody had
+    checked.
+    """
+    from test_taep_routes import create
+    for code in ("600", "602", "640"):
+        episode_id = create(client, app, code=code, episode_number="E-%s" % code)
+        page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+        assert "Επιπλέον Χρεώσεις ΤΑΕΠ" in page, code
+        assert "Τιμοκατάλογος" in page or "ακτινοδιαγνωστ" in page.lower(), code
+
+    # And not where the ruling says no tariff line arises.
+    episode_id = create(client, app, code="609", episode_number="E-609")
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert "Επιπλέον Χρεώσεις ΤΑΕΠ" not in page

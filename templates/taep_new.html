@@ -424,12 +424,24 @@ taepReady(function () {
       width: "100%",
       allowClear: true,
       placeholder: jQuery(field).data("placeholder"),
-      minimumInputLength: 2,        // one letter matches a quarter of the catalogue
+      // No minimum: clicking the box opens the catalogue in Greek alphabetical order
+      // and typing searches it (Παναγιώτα Έλληνα, 02/11/2026). A clerk who does not
+      // know the term has a list to scroll; one who does, types.
+      minimumInputLength: 0,
       ajax: {
         url: jQuery(field).data("url"),
         dataType: "json",
         delay: 200,
-        data: function (params) { return { q: params.term }; },
+        data: function (params) {
+          return { q: params.term, page: params.page || 1 };
+        },
+        // Select2 asks for the next page as the list is scrolled; the server says
+        // whether there is one.
+        processResults: function (data, params) {
+          params.page = params.page || 1;
+          return { results: data.results,
+                   pagination: { more: !!(data.pagination && data.pagination.more) } };
+        },
         cache: true,
         // The box is built but the server will not answer it. Select2 says only "the
         // results could not be loaded", which leaves the clerk with no diagnosis and

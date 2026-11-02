@@ -288,3 +288,83 @@ before any number was issued, so nothing was rewritten.
 clerks sit on `HQ`, a central office, which hosts no ΤΑΕΠ unit — `unit_for_entity('HQ')`
 returns nothing, so such an account cannot create a costing at all. That is the access rule
 working, not a fault.
+
+
+---
+
+## The answers of 02/11/2026 (Παναγιώτα Έλληνα)
+
+### The «επιπληρωμή» was never a surcharge
+
+Five rounds of asking what percentage applied to Ευρωκάρτα and Βρετανικές Βάσεις, and
+the answer is that there is no percentage. Every patient is priced on the weight of the
+episode — 60, 120 or 180 — and for the three self-paying categories the tariff fields
+open on top of it: the radiology price list and the ΤΑΕΠ extra charges. That is the
+whole of it, and it is the 22/09 ruling restated.
+
+So nothing is owed on the pricing side. What she reported instead is that the
+extra-charges card does not open for 602 ΕΥΡΩΚΑΡΤΑ, and it should open for 600, 602 and
+640 alike.
+
+That was real, and it was not the screen. `tariff_applies` has been TRUE for all three
+in `seed/financial_categories.csv` since 22/09, the screen has a single gate on that
+column, and the live row disagreed. `seed()` fills a table only when it is empty —
+correctly, so it cannot overwrite a deliberate correction — so a CSV corrected after the
+first install never reached the server and nothing compared the two.
+
+Fixed, and the class of fault closed: `taep.category_flag_drift()` compares the live
+flags with the CSV, readiness reports a difference (blocker for `valid_for_ae` and
+`tariff_applies`, warning for the two that only print), and
+`tools/check_category_flags.py --apply` reconciles them.
+
+### Registration fee: confirmed, and already built
+
+«Θέλω και πεδίο επιβεβαίωσης ότι δόθηκαν τα 10 ευρώ (έτσι ώστε να αφαιρείται μετά από το
+σύνολο). Αν δεν δόθηκαν δεν θα αφαιρούνται.»
+
+That is exactly what was built on 23/10 and has been live since. The tick and the
+receipt field are on the entry screen for 600, 603, 605 and 608 — the four categories
+that take something at registration — and `deposit_state()` computes the balance only
+when the tick is set. Measured on a 120,00 € costing in 603:
+
+| tick | Τελικό Κόστος | Τέλος εγγραφής | Υπόλοιπο |
+|---|---|---|---|
+| not set | 120,00 € | 10,00 € (due) | — nothing netted off |
+| set | 120,00 € | 10,00 € (taken) | 110,00 € |
+
+Nothing to change. Worth showing her the two lines so she can see her rule in the
+system rather than take our word for it.
+
+### ΤΑΕΠ Παίδων — the move date is not known
+
+So nothing is scheduled. The unit stays on NGH until somebody supplies a date, and the
+change remains one effective-dated row. Nothing in the system needs the date in advance;
+it only cannot be entered early.
+
+### Access across hospitals — no change
+
+«Όχι, να μείνει όπως έχει δημιουργηθεί — καμία αλλαγή.» Users with rights to every
+hospital see and record against every hospital's units. Confirmed as built, and no
+longer an open assumption.
+
+### A list as well as a search on the ICD-10 box
+
+New request: the box should offer an alphabetical list to scroll, not only a search. A
+clerk who does not know the term has nothing to type.
+
+Done. Clicking the box opens the catalogue in Greek alphabetical order, 50 at a time,
+fetching the next page as it is scrolled; typing searches as before.
+
+Two notes on their file, raised rather than fixed — a description is theirs and we do not
+rewrite one:
+
+- **30 Greek descriptions begin with a Latin capital** that looks identical to the Greek
+  one: «Tριχομονάδωση», «Eρπητική», «Iλαρά», «Nεγκλερίωση», «Mη καθορισμένος». Our sort
+  key folds Latin look-alikes onto Greek, so the list reads correctly meanwhile.
+- **Two begin with stray punctuation**: B33.4 «(Καρδιο-)πνευμονικό σύνδρομο» and I51.0
+  «\`Ελλείμματα του καρδιακού διαφράγματος» — the second has a backtick where nothing
+  belongs. Leading punctuation is dropped from the sort key.
+
+Also for information: 18 descriptions are in the Latin alphabet with no Greek
+equivalent — COVID-19, Delirium, Streptococcus, Rh, Shock — and they form a short block
+at the top of the list, which is where a Greek reader looks for them.

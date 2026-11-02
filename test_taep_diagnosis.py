@@ -227,3 +227,89 @@ def test_a_typed_code_saves_exactly_as_a_chosen_one_does(client, app):
     response = client.post("/taep/nea", data=form_fields(app.ctx, diagnosis_code="J99.99"))
     assert response.status_code == 200
     assert "δεν βρέθηκε στον κατάλογο" in response.get_data(as_text=True)
+
+
+# ---------------------------------------------------------------------------
+# A list as well as a search (Παναγιώτα Έλληνα, 02/11/2026)
+# ---------------------------------------------------------------------------
+
+def test_the_catalogue_can_be_browsed_in_greek_alphabetical_order(seeded):
+    """«Both a search and a drop down list alphabetically.»
+
+    A clerk who does not know the term has nothing to type, so the box has to offer a
+    list. 10.560 codes cannot go in the page, hence a page at a time.
+    """
+    first, more = taep.list_diagnoses(seeded, page=1)
+    assert len(first) == taep.DIAGNOSIS_PAGE
+    assert more is True
+
+    second, _ = taep.list_diagnoses(seeded, page=2)
+    assert {r["code"] for r in first}.isdisjoint({r["code"] for r in second})
+
+    # In order, by the folded description.
+    keys = [taep.fold_for_sort(r["description_el"]) for r in first + second]
+    assert keys == sorted(keys)
+
+    last_page = (10560 // taep.DIAGNOSIS_PAGE) + 1
+    tail, more = taep.list_diagnoses(seeded, page=last_page)
+    assert more is False and tail
+
+
+def test_the_sort_key_files_an_accented_capital_where_a_greek_reader_looks(seeded):
+    """1.627 of the 10.560 descriptions begin with an accented capital. Ά is U+0386 and
+    Α is U+0391, so ordering on description_el puts «Άσθμα» before «Αβαρία» — 15% of
+    the catalogue in the wrong place, which is not an alphabetical list.
+    """
+    assert taep.fold_for_sort("Άσθμα") > taep.fold_for_sort("Αβαρία")
+    assert taep.fold_for_sort("Άσθμα") < taep.fold_for_sort("Βρογχίτιδα")
+
+
+def test_the_sort_key_ignores_leading_punctuation_and_latin_lookalikes(seeded):
+    """Two descriptions begin with a bracket or a stray backtick, and 30 Greek words
+    were typed with a Latin first letter — «Tριχομονάδωση», «Eρπητική», «Iλαρά».
+
+    Their file, their typos: the description is stored exactly as supplied and is not
+    rewritten. Only the sort key folds them, so the list reads correctly meanwhile.
+    """
+    assert taep.fold_for_sort("(Καρδιο-)πνευμονικό").startswith("καρδιο")
+    assert taep.fold_for_sort("`Ελλείμματα").startswith("ελλειμματα")
+    # Latin T and Greek Τ file together.
+    assert taep.fold_for_sort("Tριχομονάδωση") == taep.fold_for_sort("Τριχομονάδωση")
+    # And a description that is pure Greek is untouched by the Latin map.
+    assert taep.fold_for_sort("Πνευμονία") == "πνευμονια"
+
+
+def test_an_unfilled_sort_column_is_a_readiness_blocker(seeded):
+    """The ALTER adds the column empty on an installation that already holds the
+    catalogue. An unsorted list of 10.560 diagnoses looks to a clerk like a broken box,
+    not like a migration nobody ran.
+    """
+    seeded["db_execute"]("UPDATE taep_diagnosis SET sort_text = NULL")
+    blockers = [f for f in taep.readiness_report(seeded)
+                if f["level"] == "blocker" and "sort_text" in f["detail"]]
+    assert len(blockers) == 1
+    assert "backfill_diagnosis_sort" in blockers[0]["detail"]
+
+
+def test_the_box_asks_for_a_list_when_nothing_is_typed(client):
+    """Empty q is the browse, not an empty result — which is what it used to be."""
+    body = client.get("/taep/api/diagnoses").get_json()
+    assert len(body["results"]) == taep.DIAGNOSIS_PAGE
+    assert body["pagination"]["more"] is True
+    page_two = client.get("/taep/api/diagnoses?page=2").get_json()
+    assert page_two["results"][0]["code"] != body["results"][0]["code"]
+
+
+def test_the_search_still_ranks_and_now_pages(client):
+    """Ranking happens over every match and the page is cut afterwards, so a clerk does
+    not get J18.9 on page four because the first page was chosen before ranking.
+    """
+    first = client.get("/taep/api/diagnoses?q=J18.9").get_json()
+    assert first["results"][0]["code"] == "J18.9"
+
+    page_one = client.get("/taep/api/diagnoses?q=πνευμον&page=1").get_json()
+    page_two = client.get("/taep/api/diagnoses?q=πνευμον&page=2").get_json()
+    assert len(page_one["results"]) == taep.DIAGNOSIS_PAGE
+    assert page_one["pagination"]["more"] is True
+    assert {r["code"] for r in page_one["results"]}.isdisjoint(
+        {r["code"] for r in page_two["results"]})

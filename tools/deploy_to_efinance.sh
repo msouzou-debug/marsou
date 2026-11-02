@@ -79,6 +79,12 @@ run install $OWNER -m 644 "$REPO/tools/check_readiness.py" \
 # anyone needing the clone or a shell in it.
 run install $OWNER -m 644 "$REPO/tools/check_diagnosis_search.py" \
     "$TARGET/check_diagnosis_search.py"
+# Both read or repair master data on the live database, so they belong where the
+# operator already is rather than in the clone.
+run install $OWNER -m 644 "$REPO/tools/check_category_flags.py" \
+    "$TARGET/check_category_flags.py"
+run install $OWNER -m 644 "$REPO/tools/backfill_diagnosis_sort.py" \
+    "$TARGET/backfill_diagnosis_sort.py"
 
 say "Επανεκκίνηση"
 run systemctl restart "$SERVICE"

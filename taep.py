@@ -134,6 +134,30 @@ def fold_greek(text):
     return stripped.replace("\u03c2", "\u03c3").strip()
 
 
+# Latin capitals that are drawn the same as a Greek letter. The Μονάδα's catalogue has
+# 30 Greek descriptions whose first letter was typed in Latin — «Tριχομονάδωση»,
+# «Eρπητική», «Iλαρά», «Nεγκλερίωση» — plus two that begin with a bracket or a stray
+# backtick. Their file, their typos: we do not rewrite a description. But an alphabetical
+# list that files «Eρπητική» under E and «Ερπητική» under Ε is not alphabetical, so the
+# SORT KEY folds them together. Genuinely Latin names («Mycoplasma pneumoniae») then file
+# under Μ, which is where a Greek clerk looks for them anyway.
+LATIN_TO_GREEK = str.maketrans({
+    "a": "α", "b": "β", "e": "ε", "z": "ζ", "h": "η", "i": "ι", "k": "κ",
+    "m": "μ", "n": "ν", "o": "ο", "p": "ρ", "t": "τ", "x": "χ", "y": "υ",
+})
+
+
+def fold_for_sort(text):
+    """Sort key for a Greek description: accent-folded, Latin look-alikes mapped, and
+    leading punctuation dropped so «(Καρδιο-)πνευμονικό» files under Κ.
+
+    Two descriptions that are both pure Greek keep their exact relative order — the map
+    touches Latin characters only.
+    """
+    folded = fold_greek(text).translate(LATIN_TO_GREEK)
+    return folded.lstrip("`'\"(){}[]<>-–—.,:;*/\\ ").strip()
+
+
 def money_from_db(value):
     """Turn whatever the driver hands back for a money column into an exact Decimal.
 
@@ -581,6 +605,12 @@ SCHEMA_STATEMENTS = [
         -- 10.560 diagnoses per keystroke measured 250 ms, which is not a type-ahead.
         -- Doing it here turns the search into one LIKE over short strings.
         search_text VARCHAR(1100),
+        -- The Greek description alone, accent-folded, for the browsable list
+        -- (Παναγιώτα Έλληνα, 02/11/2026: a search AND an alphabetical list).
+        -- description_el cannot be ordered on directly: 1.627 of the 10.560 begin with
+        -- an accented capital, so «Άσθμα» would sort before «Αβαρία» — Ά is U+0386 and
+        -- Α is U+0391. Folding puts them where a Greek reader looks for them.
+        sort_text VARCHAR(500),
         active TINYINT DEFAULT 1
     ){ENGINE}""",
 
@@ -884,6 +914,9 @@ ALTER_STATEMENTS = [
     # ICD-10, 26/10/2026.
     "ALTER TABLE taep_episode ADD COLUMN diagnosis_code VARCHAR(10)",
     "ALTER TABLE taep_episode ADD COLUMN diagnosis_text VARCHAR(500)",
+    # 02/11/2026. Adds the column; the 10.560 existing rows are filled by
+    # tools/backfill_diagnosis_sort.py, and readiness reports it until they are.
+    "ALTER TABLE taep_diagnosis ADD COLUMN sort_text VARCHAR(500)",
 ]
 
 
@@ -1147,10 +1180,11 @@ def seed(ctx):
             and empty("SELECT code FROM taep_diagnosis LIMIT 1"):
         _insert_many(db, "taep_diagnosis",
                      ["code", "description_el", "description_en", "search_text",
-                      "active"],
+                      "sort_text", "active"],
                      [(row["code"], row["description_el"], row["description_en"],
                        fold_greek(" ".join((row["code"], row["description_el"],
-                                            row["description_en"] or ""))), 1)
+                                            row["description_en"] or ""))),
+                       fold_for_sort(row["description_el"]), 1)
                       for row in _read_seed("icd10.csv")])
 
     if empty("SELECT id FROM taep_weight_matrix LIMIT 1"):
@@ -1350,6 +1384,35 @@ def get_category(ctx, category_id):
     return rows[0] if rows else None
 
 
+DIAGNOSIS_PAGE = 50
+
+
+def list_diagnoses(ctx, page=1, per_page=DIAGNOSIS_PAGE):
+    """The catalogue in Greek alphabetical order, one page at a time.
+
+    Παναγιώτα Έλληνα, 02/11/2026: the box should offer a list to scroll as well as a
+    search, because a clerk who does not know the term has nothing to type. 10.560 codes
+    cannot go in the page, so the list is paged and the box fetches the next page as it
+    is scrolled.
+
+    Ordered on the folded description, not on description_el: 1.627 descriptions begin
+    with an accented capital, and «Άσθμα» before «Αβαρία» is not an alphabetical list.
+    The code is the tie-break, so A00.0 precedes A00.1 under the same wording.
+
+    Returns (rows, more). One row past the page is fetched to answer `more` without a
+    second COUNT over the whole table.
+    """
+    page = max(1, _as_int(page) or 1)
+    rows = ctx["db_execute"](
+        """SELECT code, description_el, description_en
+           FROM taep_diagnosis
+           WHERE active = 1
+           ORDER BY sort_text, code
+           LIMIT %s OFFSET %s""",
+        (per_page + 1, (page - 1) * per_page), fetch=True) or []
+    return rows[:per_page], len(rows) > per_page
+
+
 def search_diagnoses(ctx, term, limit=30):
     """ICD-10 by code or by text, in Greek or English, accents optional.
 
@@ -1382,7 +1445,21 @@ def search_diagnoses(ctx, term, limit=30):
             return 2
         return 3
 
-    return sorted(rows, key=lambda row: (rank(row), row["code"]))[:limit]
+    ordered = sorted(rows, key=lambda row: (rank(row), row["code"]))
+    return ordered if limit is None else ordered[:limit]
+
+
+def search_diagnoses_page(ctx, term, page=1, per_page=DIAGNOSIS_PAGE):
+    """A page of the ranked search, so the box can be scrolled past the first page.
+
+    Ranking is over every match, then the page is cut from the result — the clerk must
+    not get J18.9 on page four because the first page was chosen before ranking. The
+    cost is the same per request as the unpaged search it replaces.
+    """
+    page = max(1, _as_int(page) or 1)
+    ranked = search_diagnoses(ctx, term, limit=None)
+    start = (page - 1) * per_page
+    return ranked[start:start + per_page], len(ranked) > start + per_page
 
 
 def get_diagnosis(ctx, code):
@@ -3508,6 +3585,60 @@ EXPECTED_COUNTS = {
 }
 
 
+# The flags the Μονάδα's rulings set, and which of them decide what a clerk can do.
+# valid_for_ae and tariff_applies are read by the screens on every request; the other
+# two are printed but do not yet change behaviour, so a drift there is worth saying and
+# not worth blocking on.
+CATEGORY_FLAGS = {
+    "valid_for_ae": "blocker",
+    "tariff_applies": "blocker",
+    "requires_payer": "warning",
+    "fee_status": "warning",
+}
+
+
+def category_flag_drift(ctx):
+    """Where the live category rows disagree with seed/financial_categories.csv.
+
+    seed() fills a table only when it is empty, which is right: it must never overwrite
+    a correction somebody made on purpose. The cost is that a CSV corrected after the
+    first install never reaches the server and nothing says so.
+
+    That is how 30/10/2026 happened. Παναγιώτα Έλληνα reported that the extra-charges
+    card does not open for 602 ΕΥΡΩΚΑΡΤΑ. The CSV has carried tariff_applies TRUE for
+    600, 602 and 640 since the ruling of 22/09, and the screen has a single gate on that
+    column, so the live row had to disagree. Nothing had looked.
+
+    Returns (code, column, live_value, csv_value) tuples, empty when they agree. Names
+    and codes are deliberately not compared: a difference there is a question for the
+    Μονάδα, not drift to be reconciled.
+    """
+    path = os.path.join(SEED_DIR, "financial_categories.csv")
+    if not os.path.exists(path):
+        return []
+    expected = {row["code_new"]: row for row in _read_seed("financial_categories.csv")}
+    columns = sorted(CATEGORY_FLAGS)
+    live = ctx["db_execute"](
+        "SELECT code_new, %s FROM taep_financial_category" % ", ".join(columns),
+        fetch=True) or []
+
+    drift = []
+    for row in live:
+        want_row = expected.get(row["code_new"])
+        if want_row is None:
+            continue
+        for column in columns:
+            if column == "fee_status":
+                want = (want_row[column] or "").strip() or None
+                have = row[column]
+            else:
+                want = _bool(want_row[column])
+                have = 1 if row[column] else 0
+            if want != have:
+                drift.append((row["code_new"], column, have, want))
+    return drift
+
+
 def readiness_report(ctx, on_date=None):
     """Whether an installation is fit to issue costings. Returns a list of findings.
 
@@ -3556,6 +3687,27 @@ def readiness_report(ctx, on_date=None):
         elif actual != expected:
             add("warning", "δεδομένα",
                 f"{table_el(table)}: {actual} γραμμές, αναμενόμενες {expected}")
+
+    # 2b. The category flags in the table must still agree with the CSV the rulings
+    # produced. Same shape as the weight-matrix check below, and for the same reason:
+    # the behaviour lives in a column, so a column that has drifted is a silent change
+    # of rule.
+    for code, column, have, want in category_flag_drift(ctx):
+        add(CATEGORY_FLAGS[column], "κατηγορίες",
+            f"{code}: {column} = {have} στη βάση, {want} στο CSV των αποφάσεων — "
+            f"τρέξτε tools/check_category_flags.py")
+
+    # 2c. The alphabetical list needs the folded column. The ALTER adds it empty on an
+    # installation that already held the catalogue, and an unsorted list of 10.560
+    # diagnoses looks like a broken box, not like a missing migration.
+    unsorted_rows = db("SELECT COUNT(*) AS n FROM taep_diagnosis "
+                       "WHERE active = 1 AND (sort_text IS NULL OR sort_text = '')",
+                       fetch=True)[0]["n"]
+    if unsorted_rows:
+        add("blocker", "δεδομένα",
+            f"{unsorted_rows} διαγνώσεις χωρίς sort_text — ο αλφαβητικός κατάλογος "
+            f"του ICD-10 δεν θα είναι σε σειρά. Τρέξτε "
+            f"tools/backfill_diagnosis_sort.py")
 
     # 3. The weight matrix in the table must still agree with the algorithm
     rows = db("SELECT investigation_category i, treatment_category t, weight "
@@ -4360,16 +4512,26 @@ def register(app, ctx):
     @login_required
     @permission_required(PERMISSIONS["create"])
     def taep_diagnosis_search():
-        hits = search_diagnoses(ctx, request.args.get("q", ""))
-        return jsonify({"results": [
-            {"id": hit["code"],
-             "code": hit["code"],
-             "description_el": hit["description_el"],
-             "description_en": hit["description_en"] or "",
-             # Select2 reads `text`; it is what lands in the box once chosen, and what
-             # is stored as the snapshot, so the two cannot drift.
-             "text": "%s — %s" % (hit["code"], hit["description_el"])}
-            for hit in hits]})
+        # No term: the alphabetical list to scroll. A term: the ranked search. Both
+        # paged, because the box asks for the next page as the clerk scrolls
+        # (Παναγιώτα Έλληνα, 02/11/2026 — a search and a list, not one or the other).
+        term = request.args.get("q", "")
+        page = request.args.get("page", 1)
+        if (term or "").strip():
+            hits, more = search_diagnoses_page(ctx, term, page)
+        else:
+            hits, more = list_diagnoses(ctx, page)
+        return jsonify({
+            "results": [
+                {"id": hit["code"],
+                 "code": hit["code"],
+                 "description_el": hit["description_el"],
+                 "description_en": hit["description_en"] or "",
+                 # Select2 reads `text`; it is what lands in the box once chosen, and
+                 # what is stored as the snapshot, so the two cannot drift.
+                 "text": "%s — %s" % (hit["code"], hit["description_el"])}
+                for hit in hits],
+            "pagination": {"more": more}})
 
     # -- Screen 2: Κοστολόγηση --------------------------------------------
     @app.route("/taep/<int:episode_id>")
