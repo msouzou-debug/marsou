@@ -701,7 +701,7 @@ writes only with `--apply`:
 `seed/icd10.csv`.** The deploy itself never writes `finance.db` and is not going to start.
 
 `seed/icd10.csv` is gitignored (§1c), so a correction to it cannot travel by git. Run
-`tools/fix_icd10_letters.py --apply` in the clone **before** the deploy, so the deploy
+`tools/fix_icd10_text.py --apply` in the clone **before** the deploy, so the deploy
 copies the corrected file to `/opt/finance/seed/`; then `sync_diagnoses.py --apply`
 carries it into the live table and rebuilds `search_text` with it. The tool is
 deterministic, so the server's copy ends up identical to this repository's.

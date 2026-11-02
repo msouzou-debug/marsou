@@ -307,30 +307,69 @@ def test_the_search_still_ranks_and_now_pages(client):
 # Greek and Latin letters in the catalogue (02/11/2026)
 # ---------------------------------------------------------------------------
 
-def test_no_description_mixes_the_two_alphabets_inside_one_word(seeded):
-    """34 descriptions had a letter typed on the wrong keyboard, in both directions:
-    «Tριχομονάδωση» opening with a Latin T, «Οισοφάγος του Βarrett» with a Greek Β,
-    «Κρίση Αddison», «Εμβόλιο ΒCG».
+def test_the_seeded_catalogue_has_no_character_defects_left(seeded):
+    """289 corrections over five classes, all invisible on screen and all breaking the
+    search:
 
-    They are invisible — the letters are drawn identically — and they break the search
-    outright, because fold_greek() does not map between alphabets. A clerk typing «Τριχ»
-    in Greek could not find A59.8 at all.
+      * 34 letters typed on the wrong keyboard, in both directions — «Tριχομονάδωση»
+        opening with a Latin T, «Οισοφάγος του Βarrett» with a Greek Β, «Κρίση Αddison»,
+        «Εμβόλιο ΒCG». fold_greek() does not map between alphabets, so «Τριχ» typed in
+        Greek could not find A59.8 at all.
+      * 13 karyotypes written with Greek Χ and Υ. Q96.1 «Καρυότυπος 46,Χ iso (Xq)»
+        settles that it is an error: Greek after the comma, Latin in the brackets.
+      * 274 runs of two or more spaces. search_text keeps the spacing, so «Εντερίτιδα
+        από» typed with one space did not match «Εντερίτιδα  από» stored with two.
+      * A23.3 «Βρουκέλωση απόBrucella canis», two words run together.
+      * I51.0 «`Ελλείμματα…», a backtick where nothing belongs.
 
-    Corrected in the file by tools/fix_icd10_letters.py. This test is the guard: it
-    re-runs the decision over the seeded catalogue and requires nothing left to do, so a
-    future delivery from the Μονάδα cannot quietly reintroduce one.
+    This test is the guard rather than the fix: it re-runs the whole decision over the
+    seeded catalogue and requires nothing left to do, so a future delivery from the
+    Μονάδα cannot quietly reintroduce any of them.
     """
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
-    from fix_icd10_letters import correct
+    from fix_icd10_text import correct, tidy
 
     rows = seeded["db_execute"](
-        "SELECT code, description_el FROM taep_diagnosis", fetch=True)
+        "SELECT code, description_el, description_en FROM taep_diagnosis", fetch=True)
     offenders = [(r["code"], r["description_el"])
                  for r in rows
-                 if correct(r["description_el"])[0] != r["description_el"]]
+                 if correct(r["description_el"])[0] != r["description_el"]
+                 or tidy(r["description_en"]) != (r["description_en"] or "")]
     assert not offenders, offenders[:5]
+
+
+def test_the_corrections_left_the_legitimate_punctuation_alone(seeded):
+    """The three apostrophes in the catalogue are correct Greek or correct English, and
+    a blanket strip would have ruined them. B33.4's brackets are ICD style, not a stray
+    pair: the English reads "(cardio-)pulmonary" too.
+    """
+    def text(code):
+        return seeded["db_execute"](
+            "SELECT description_el FROM taep_diagnosis WHERE code = %s",
+            (code,), fetch=True)[0]["description_el"]
+
+    assert text("A92.1") == "Πυρετός O'nyong-nyong"
+    assert "καθ' έξιν" in text("O26.2")
+    assert "απ' αυ" in text("Z89.5")
+    assert text("B33.4").startswith("(Καρδιο-)πνευμονικό")
+
+
+def test_a_karyotype_is_now_findable_in_latin_letters(seeded):
+    """«47,ΧΧΧ» with Greek letters could not be found by anybody typing 47,XXX — and
+    nobody types a karyotype in Greek.
+    """
+    assert "Q97.0" in [h["code"] for h in taep.search_diagnoses(seeded, "47,XXX")]
+    assert "Q98.0" in [h["code"] for h in taep.search_diagnoses(seeded, "47,XXY")]
+
+
+def test_a_double_space_no_longer_hides_a_diagnosis(seeded):
+    """search_text keeps the spacing of the description, so a run of two spaces made a
+    phrase unfindable by anyone typing it normally. 274 rows had one.
+    """
+    hits = [h["code"] for h in taep.search_diagnoses(seeded, "Εντερίτιδα από")]
+    assert "A04.0" in hits
 
 
 def test_a_greek_word_that_was_typed_with_a_latin_letter_is_now_found_in_greek(seeded):

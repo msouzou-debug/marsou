@@ -394,18 +394,41 @@ Latin names worse.
 
 Each one was decided per word, by its **exclusive** letters — the ones with no look-alike
 in the other alphabet, such as Greek π or Latin F. A word those did not settle would have
-been left alone and reported; none had to be. `tools/fix_icd10_letters.py` holds the
+been left alone and reported; none had to be. `tools/fix_icd10_text.py` holds the
 rule, a test re-runs it over the seeded catalogue so a future delivery cannot reintroduce
 one, and `tools/sync_diagnoses.py` carries a correction to a server that already holds
 the catalogue, rebuilding `search_text` with it.
 
-Still in their file, and ours to raise rather than change:
+### The rest of the character defects, corrected on instruction (02/11)
 
-- **B33.4** «(Καρδιο-)πνευμονικό σύνδρομο» — the brackets may be deliberate ICD style.
-- **I51.0** «\`Ελλείμματα του καρδιακού διαφράγματος» — a backtick where nothing belongs.
-- **A23.3** «Βρουκέλωση απόBrucella canis» — a missing space.
-- **Q04.4**, **E71.1** and others carry double spaces.
-- **Q99.0** writes the chromosomes as «46,ΧΧ/46,ΧΥ» in Greek letters where the notation
-  is conventionally Latin XX/XY.
+I had listed five remaining items. Two of the five were not what I said, which is worth
+recording:
 
-Say the word on any of them and they are a one-line change each.
+- **B33.4 «(Καρδιο-)πνευμονικό σύνδρομο» is not a defect.** The English reads
+  "(cardio-)pulmonary", so the optional prefix is ICD style. Left exactly as supplied.
+- **The double spaces are 274 rows, not a handful** — 268 Greek and 6 English. And they
+  are not cosmetic. `search_text` keeps the spacing of the description, so «Εντερίτιδα
+  από» typed normally did not match «Εντερίτιδα  από» as stored. 268 diagnoses were
+  unfindable by anyone typing the phrase the way it reads.
+
+Corrected, 289 changes in all:
+
+| class | rows | |
+|---|---|---|
+| runs of two or more spaces | 274 | A04.0 «Εντερίτιδα  από» → «Εντερίτιδα από» |
+| karyotypes in Greek Χ/Υ | 13 | Q97.0 «47,ΧΧΧ» → «47,XXX» |
+| two words run together | 1 | A23.3 «απόBrucella» → «από Brucella» |
+| a leading backtick | 1 | I51.0 «\`Ελλείμματα» → «Ελλείμματα» |
+
+On the karyotypes, Q96.1 settles that it was an error and not a convention:
+«Καρυότυπος 46,Χ iso (Xq)» had a Greek Χ after the comma and a Latin X inside the
+brackets, on one line. Nobody types a karyotype in Greek, so all 13 were unfindable.
+
+The backtick is stripped only from the **start** of a description. The catalogue's other
+three apostrophes are correct and are left alone: «Πυρετός O'nyong-nyong», «καθ' έξιν»
+in O26.2, «απ' αυτό» in Z89.5. A blanket strip would have ruined all three, and there is
+a test holding that line.
+
+`tools/fix_icd10_text.py` holds every rule — renamed from `fix_icd10_letters.py`, since
+it is no longer only letters — and a test re-runs the whole decision over the seeded
+catalogue so a future delivery cannot reintroduce any of it.
