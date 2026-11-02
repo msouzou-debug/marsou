@@ -21,6 +21,7 @@ Phase 1 scope: halves 1 and 2 minus routes. register() arrives with Phase 2.
 import csv
 import datetime as dt
 import hashlib
+import json
 import os
 import re
 import unicodedata
@@ -132,30 +133,6 @@ def fold_greek(text):
     decomposed = unicodedata.normalize("NFD", (text or "").lower())
     stripped = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
     return stripped.replace("\u03c2", "\u03c3").strip()
-
-
-# Latin capitals that are drawn the same as a Greek letter. The Μονάδα's catalogue has
-# 30 Greek descriptions whose first letter was typed in Latin — «Tριχομονάδωση»,
-# «Eρπητική», «Iλαρά», «Nεγκλερίωση» — plus two that begin with a bracket or a stray
-# backtick. Their file, their typos: we do not rewrite a description. But an alphabetical
-# list that files «Eρπητική» under E and «Ερπητική» under Ε is not alphabetical, so the
-# SORT KEY folds them together. Genuinely Latin names («Mycoplasma pneumoniae») then file
-# under Μ, which is where a Greek clerk looks for them anyway.
-LATIN_TO_GREEK = str.maketrans({
-    "a": "α", "b": "β", "e": "ε", "z": "ζ", "h": "η", "i": "ι", "k": "κ",
-    "m": "μ", "n": "ν", "o": "ο", "p": "ρ", "t": "τ", "x": "χ", "y": "υ",
-})
-
-
-def fold_for_sort(text):
-    """Sort key for a Greek description: accent-folded, Latin look-alikes mapped, and
-    leading punctuation dropped so «(Καρδιο-)πνευμονικό» files under Κ.
-
-    Two descriptions that are both pure Greek keep their exact relative order — the map
-    touches Latin characters only.
-    """
-    folded = fold_greek(text).translate(LATIN_TO_GREEK)
-    return folded.lstrip("`'\"(){}[]<>-–—.,:;*/\\ ").strip()
 
 
 def money_from_db(value):
@@ -605,12 +582,6 @@ SCHEMA_STATEMENTS = [
         -- 10.560 diagnoses per keystroke measured 250 ms, which is not a type-ahead.
         -- Doing it here turns the search into one LIKE over short strings.
         search_text VARCHAR(1100),
-        -- The Greek description alone, accent-folded, for the browsable list
-        -- (Παναγιώτα Έλληνα, 02/11/2026: a search AND an alphabetical list).
-        -- description_el cannot be ordered on directly: 1.627 of the 10.560 begin with
-        -- an accented capital, so «Άσθμα» would sort before «Αβαρία» — Ά is U+0386 and
-        -- Α is U+0391. Folding puts them where a Greek reader looks for them.
-        sort_text VARCHAR(500),
         active TINYINT DEFAULT 1
     ){ENGINE}""",
 
@@ -914,9 +885,6 @@ ALTER_STATEMENTS = [
     # ICD-10, 26/10/2026.
     "ALTER TABLE taep_episode ADD COLUMN diagnosis_code VARCHAR(10)",
     "ALTER TABLE taep_episode ADD COLUMN diagnosis_text VARCHAR(500)",
-    # 02/11/2026. Adds the column; the 10.560 existing rows are filled by
-    # tools/backfill_diagnosis_sort.py, and readiness reports it until they are.
-    "ALTER TABLE taep_diagnosis ADD COLUMN sort_text VARCHAR(500)",
 ]
 
 
@@ -1180,11 +1148,10 @@ def seed(ctx):
             and empty("SELECT code FROM taep_diagnosis LIMIT 1"):
         _insert_many(db, "taep_diagnosis",
                      ["code", "description_el", "description_en", "search_text",
-                      "sort_text", "active"],
+                      "active"],
                      [(row["code"], row["description_el"], row["description_en"],
                        fold_greek(" ".join((row["code"], row["description_el"],
-                                            row["description_en"] or ""))),
-                       fold_for_sort(row["description_el"]), 1)
+                                            row["description_en"] or ""))), 1)
                       for row in _read_seed("icd10.csv")])
 
     if empty("SELECT id FROM taep_weight_matrix LIMIT 1"):
@@ -1387,6 +1354,20 @@ def get_category(ctx, category_id):
 DIAGNOSIS_PAGE = 50
 
 
+def all_diagnoses(ctx):
+    """The whole catalogue, by code, for the dropdown list.
+
+    Παναγιώτα Έλληνα, 02/11/2026: the search belongs in its own field and the list in
+    its own dropdown, not combined in one widget. A plain <select> cannot fetch more as
+    it is scrolled, so it is filled once — 10.560 codes as [code, Greek, English]
+    triples is about 600 KB, which is nothing on the hospital network and is fetched
+    when the clerk first opens the list rather than on every page load.
+    """
+    return ctx["db_execute"](
+        """SELECT code, description_el, description_en
+           FROM taep_diagnosis WHERE active = 1 ORDER BY code""", fetch=True) or []
+
+
 def list_diagnoses(ctx, page=1, per_page=DIAGNOSIS_PAGE):
     """The catalogue in Greek alphabetical order, one page at a time.
 
@@ -1395,9 +1376,9 @@ def list_diagnoses(ctx, page=1, per_page=DIAGNOSIS_PAGE):
     cannot go in the page, so the list is paged and the box fetches the next page as it
     is scrolled.
 
-    Ordered on the folded description, not on description_el: 1.627 descriptions begin
-    with an accented capital, and «Άσθμα» before «Αβαρία» is not an alphabetical list.
-    The code is the tie-break, so A00.0 precedes A00.1 under the same wording.
+    Ordered by code: A00, A01, … B00, … Z99, which is how ICD-10 is published and how
+    the Μονάδα asked for it (02/11/2026 — "alphabetically, A B C"). Related diagnoses
+    sit together, which ordering on the Greek description would scatter.
 
     Returns (rows, more). One row past the page is fetched to answer `more` without a
     second COUNT over the whole table.
@@ -1407,7 +1388,7 @@ def list_diagnoses(ctx, page=1, per_page=DIAGNOSIS_PAGE):
         """SELECT code, description_el, description_en
            FROM taep_diagnosis
            WHERE active = 1
-           ORDER BY sort_text, code
+           ORDER BY code
            LIMIT %s OFFSET %s""",
         (per_page + 1, (page - 1) * per_page), fetch=True) or []
     return rows[:per_page], len(rows) > per_page
@@ -3639,6 +3620,40 @@ def category_flag_drift(ctx):
     return drift
 
 
+def diagnosis_text_drift(ctx, limit=None):
+    """Diagnoses whose stored text no longer matches seed/icd10.csv.
+
+    Same cause as category_flag_drift(): seed() fills a table only when it is empty, so
+    a corrected catalogue never reaches a server that already holds one.
+
+    It bit on 02/11/2026. The Μονάδα's file had 34 descriptions with a letter typed on
+    the wrong keyboard — «Tριχομονάδωση» opening with a Latin T, «Οισοφάγος του Βarrett»
+    with a Greek Β. Invisible on screen, because the letters are drawn identically, and
+    fatal to the search: fold_greek() does not map between alphabets, so a clerk typing
+    «Τριχ» in Greek never found that code at all.
+
+    Returns (code, stored, csv) tuples. search_text is derived, so a row that differs
+    needs it rebuilt as well — which is what tools/sync_diagnoses.py does.
+    """
+    if not os.path.exists(os.path.join(SEED_DIR, "icd10.csv")):
+        return []
+    expected = {row["code"]: row for row in _read_seed("icd10.csv")}
+    live = ctx["db_execute"](
+        "SELECT code, description_el, description_en FROM taep_diagnosis",
+        fetch=True) or []
+    drift = []
+    for row in live:
+        want = expected.get(row["code"])
+        if want is None:
+            continue
+        if (row["description_el"] != want["description_el"]
+                or (row["description_en"] or "") != (want["description_en"] or "")):
+            drift.append((row["code"], row["description_el"], want["description_el"]))
+            if limit and len(drift) >= limit:
+                break
+    return drift
+
+
 def readiness_report(ctx, on_date=None):
     """Whether an installation is fit to issue costings. Returns a list of findings.
 
@@ -3697,17 +3712,16 @@ def readiness_report(ctx, on_date=None):
             f"{code}: {column} = {have} στη βάση, {want} στο CSV των αποφάσεων — "
             f"τρέξτε tools/check_category_flags.py")
 
-    # 2c. The alphabetical list needs the folded column. The ALTER adds it empty on an
-    # installation that already held the catalogue, and an unsorted list of 10.560
-    # diagnoses looks like a broken box, not like a missing migration.
-    unsorted_rows = db("SELECT COUNT(*) AS n FROM taep_diagnosis "
-                       "WHERE active = 1 AND (sort_text IS NULL OR sort_text = '')",
-                       fetch=True)[0]["n"]
-    if unsorted_rows:
+    # 2c. The catalogue text must still match the file it was seeded from. A corrected
+    # description that never reached the server is invisible — the letters are drawn
+    # identically — and it breaks the search for that code, silently.
+    stale = diagnosis_text_drift(ctx, limit=6)
+    if stale:
+        codes = ", ".join(code for code, _stored, _want in stale[:5])
         add("blocker", "δεδομένα",
-            f"{unsorted_rows} διαγνώσεις χωρίς sort_text — ο αλφαβητικός κατάλογος "
-            f"του ICD-10 δεν θα είναι σε σειρά. Τρέξτε "
-            f"tools/backfill_diagnosis_sort.py")
+            f"διαγνώσεις με παλιό κείμενο σε σχέση με το icd10.csv ({codes}"
+            f"{'…' if len(stale) > 5 else ''}) — η αναζήτηση δεν τις βρίσκει. "
+            f"Τρέξτε tools/sync_diagnoses.py")
 
     # 3. The weight matrix in the table must still agree with the algorithm
     rows = db("SELECT investigation_category i, treatment_category t, weight "
@@ -4517,6 +4531,18 @@ def register(app, ctx):
         # (Παναγιώτα Έλληνα, 02/11/2026 — a search and a list, not one or the other).
         term = request.args.get("q", "")
         page = request.args.get("page", 1)
+        if request.args.get("all"):
+            # Pairs, not objects, and the Greek description only: the list shows that,
+            # and the English is only ever needed by the search, which runs here. Dumped
+            # directly rather than through jsonify because jsonify escapes every Greek
+            # letter to \uXXXX — six bytes instead of two, which turned 1,2 MB into
+            # 3,5 MB. ensure_ascii is a property of the host's app config, so it is set
+            # for this response rather than changed globally.
+            payload = json.dumps(
+                {"all": [[row["code"], row["description_el"]]
+                         for row in all_diagnoses(ctx)]},
+                ensure_ascii=False, separators=(",", ":"))
+            return Response(payload, mimetype="application/json")
         if (term or "").strip():
             hits, more = search_diagnoses_page(ctx, term, page)
         else:

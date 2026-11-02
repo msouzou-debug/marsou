@@ -253,35 +253,50 @@
           <input id="discharge_at" name="discharge_at" type="datetime-local"
                  class="form-control" value="{{ form.get('discharge_at', '') }}">
         </div>
-        <div class="col-12">
+        {# ICD-10, in two controls rather than one (Παναγιώτα Έλληνα, 02/11/2026:
+           «better if the search functionality is on a separate box vs the drop down
+           list»). The search field asks the server; the dropdown is the catalogue by
+           code, A00 to Z99, as ICD-10 is published.
+
+           A plain <select>, not Select2. It needs no library, so it cannot be broken by
+           a load order or by eFinance's own initialiser claiming it — both of which it
+           was on 30/10. The whole catalogue is fetched once, when the clerk first opens
+           the list. #}
+        <div class="col-md-6">
+          <label class="form-label" for="diagnosis_search">
+            {{ t('Αναζήτηση διάγνωσης') }}</label>
+          <div class="input-group">
+            <input id="diagnosis_search" class="form-control" autocomplete="off"
+                   placeholder="{{ t('Κωδικός ή περιγραφή, ελληνικά ή αγγλικά') }}">
+            <button class="btn btn-outline-secondary" type="button"
+                    id="diagnosis_clear" title="{{ t('Καθαρισμός') }}">
+              <i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="form-text" id="diagnosis-search-note"
+               data-found="{{ t('αποτελέσματα') }}"
+               data-none="{{ t('Κανένα αποτέλεσμα. Καθαρίστε την αναζήτηση για να δείτε όλον τον κατάλογο.') }}"
+               data-all="{{ t('Ο κατάλογος εμφανίζεται ολόκληρος, κατά κωδικό.') }}"></div>
+        </div>
+        <div class="col-md-6">
           <label class="form-label" for="diagnosis_code">
             {{ t('Διάγνωση') }} (ICD-10)</label>
-          {# 10.560 codes: far too many to put in the page, so this asks the server per
-             keystroke. The box starts empty on a new entry and carries the stored
-             diagnosis on a correction — Select2 needs the option to exist before it can
-             show it as selected. #}
-          <select id="diagnosis_code" name="diagnosis_code"
-                  class="form-select select2-diagnosis"
+          <select id="diagnosis_code" name="diagnosis_code" class="form-select"
                   data-url="{{ url_for('taep_diagnosis_search') }}"
-                  data-placeholder="{{ t('Αναζητήστε με κωδικό ή περιγραφή, ελληνικά ή αγγλικά…') }}">
+                  data-loading="{{ t('Φόρτωση καταλόγου…') }}"
+                  data-empty="{{ t('— επιλέξτε διάγνωση —') }}">
             <option value=""></option>
             {% if form.get('diagnosis_code') %}
               <option value="{{ form.get('diagnosis_code') }}" selected>
                 {{ form.get('diagnosis_code') }}{% if form.get('diagnosis_text') %} — {{ form.get('diagnosis_text') }}{% endif %}</option>
             {% endif %}
           </select>
-          {# If the search does not load, this box is the only one on the screen that
-             cannot fall back to a plain list — 10.560 codes do not fit in the page, so
-             there is nothing to choose from and the clerk cannot finalise anything. So
-             a plain code field stands behind it. Disabled, therefore not posted, until
-             the script hands it the name. The server takes a typed code either way:
-             resolve_diagnosis() looks it up and refuses one the catalogue does not
-             know. #}
-          <input id="diagnosis_code_typed" class="form-control d-none" disabled
+          {# If the catalogue cannot be fetched the list stays empty, and a clerk who
+             knows the code must still be able to record it. #}
+          <input id="diagnosis_code_typed" class="form-control d-none mt-2" disabled
                  value="{{ form.get('diagnosis_code', '') }}"
                  placeholder="{{ t('π.χ. J18.9') }}">
           <div class="form-text" id="diagnosis-note"
-               data-no-search="{{ t('Η αναζήτηση διαγνώσεων δεν φόρτωσε σε αυτόν τον browser. Γράψτε τον κωδικό ICD-10 και ενημερώστε το ΙΤ.') }}">
+               data-no-search="{{ t('Ο κατάλογος διαγνώσεων δεν φόρτωσε. Γράψτε τον κωδικό ICD-10 και ενημερώστε το ΙΤ.') }}">
             {{ t('Υποχρεωτική για την οριστικοποίηση. Δεν επηρεάζει το κόστος: η βαρύτητα προκύπτει από τις υπηρεσίες.') }}
           </div>
         </div>
@@ -389,87 +404,132 @@ function taepDetach(element) {
   jQuery(element).next(".select2-container").removeClass("select2");
 }
 
-// ICD-10. The catalogue is 10.560 codes, so the search runs on the server and the box
-// holds only what the clerk has chosen.
+// ICD-10, in two controls: a search field that asks the server, and a plain dropdown
+// holding the catalogue by code.
 //
-// Reported dead on 30/10/2026. The server half was fine, so whatever stopped the box
-// did so in the browser, and there is more than one way for that to happen: the search
-// library arrives from a CDN and this network may not reach it, it may arrive after
-// this script runs, or the request per keystroke may be refused. This box is the only
-// one on the screen that cannot survive any of those — the others fall back to a plain
-// list, and 10.560 codes do not fit in a page — and a diagnosis is mandatory to
-// finalise, so a dead box stops every costing. Hence a plain code field behind it and
-// one route into it from each failure.
+// No library. This field was dead twice on 30/10/2026 — once because jQuery had not
+// loaded when the script ran, once because eFinance's own $('.select2') pass claimed the
+// wrapper Select2 had built and replaced the live box with an empty one. A <select> the
+// browser renders itself cannot be broken either way.
 taepReady(function () {
-  // Hand the name to the plain code field so the form posts what the clerk types, take
-  // it off the select so the two cannot both post, and say on screen what happened: a
-  // dead box with no explanation is how this reached us.
-  function fallback(field, note) {
-    var typed = document.getElementById("diagnosis_code_typed");
-    if (!typed || !typed.disabled) return;      // already swapped
-    field.removeAttribute("name");
-    field.classList.add("d-none");
-    typed.disabled = false;
-    typed.name = "diagnosis_code";
-    typed.classList.remove("d-none");
-    if (note) {
-      note.className = "form-text text-danger";
-      note.textContent = note.getAttribute("data-no-search") || "";
+  var box = document.getElementById("diagnosis_code");
+  var search = document.getElementById("diagnosis_search");
+  var clear = document.getElementById("diagnosis_clear");
+  var note = document.getElementById("diagnosis-search-note");
+  var warn = document.getElementById("diagnosis-note");
+  if (!box || !search || !window.fetch) return;
+
+  var catalogue = null;          // [[code, greek], …] once fetched
+  var loading = false;
+  var timer = null;
+
+  function label(code, greek) { return code + " — " + greek; }
+
+  // textContent, never innerHTML: a diagnosis is data from a file somebody edits.
+  function fill(pairs, keep) {
+    var selected = keep || box.value;
+    box.textContent = "";
+    var blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = box.dataset.empty;
+    box.appendChild(blank);
+    var found = false;
+    pairs.forEach(function (pair) {
+      var option = document.createElement("option");
+      option.value = pair[0];
+      option.textContent = label(pair[0], pair[1]);
+      if (pair[0] === selected) { option.selected = true; found = true; }
+      box.appendChild(option);
+    });
+    // A code chosen before a search that no longer matches it must not be silently
+    // dropped from the form.
+    if (selected && !found) {
+      var held = document.createElement("option");
+      held.value = selected;
+      held.textContent = selected;
+      held.selected = true;
+      box.appendChild(held);
     }
   }
 
-  function enhance(field, note) {
-    jQuery(field).select2({
-      theme: "bootstrap-5",
-      width: "100%",
-      allowClear: true,
-      placeholder: jQuery(field).data("placeholder"),
-      // No minimum: clicking the box opens the catalogue in Greek alphabetical order
-      // and typing searches it (Παναγιώτα Έλληνα, 02/11/2026). A clerk who does not
-      // know the term has a list to scroll; one who does, types.
-      minimumInputLength: 0,
-      ajax: {
-        url: jQuery(field).data("url"),
-        dataType: "json",
-        delay: 200,
-        data: function (params) {
-          return { q: params.term, page: params.page || 1 };
-        },
-        // Select2 asks for the next page as the list is scrolled; the server says
-        // whether there is one.
-        processResults: function (data, params) {
-          params.page = params.page || 1;
-          return { results: data.results,
-                   pagination: { more: !!(data.pagination && data.pagination.more) } };
-        },
-        cache: true,
-        // The box is built but the server will not answer it. Select2 says only "the
-        // results could not be loaded", which leaves the clerk with no diagnosis and
-        // nothing to do about it.
-        error: function () { fallback(field, note); }
-      },
-      // The English under the Greek, as on the service picker: a clerk who knows the
-      // English term should not have to guess the Greek one. Built as DOM, not markup —
-      // a description is data and must not be able to become HTML.
-      templateResult: function (item) {
-        if (!item.code) return item.text;
-        var row = jQuery("<div>");
-        row.append(jQuery("<div>").text(item.code + " — " + item.description_el));
-        if (item.description_en) {
-          row.append(jQuery("<div>").addClass("text-muted small")
-                                    .text(item.description_en));
-        }
-        return row;
-      }
-    });
-    taepDetach(field);
+  function fallback() {
+    var typed = document.getElementById("diagnosis_code_typed");
+    if (!typed || !typed.disabled) return;
+    box.removeAttribute("name");
+    box.classList.add("d-none");
+    typed.disabled = false;
+    typed.name = "diagnosis_code";
+    typed.classList.remove("d-none");
+    if (warn) {
+      warn.className = "form-text text-danger";
+      warn.textContent = warn.getAttribute("data-no-search") || "";
+    }
   }
 
-  var field = document.getElementById("diagnosis_code");
-  if (!field) return;
-  var note = document.getElementById("diagnosis-note");
-  if (!window.jQuery || !jQuery.fn.select2) { fallback(field, note); return; }
-  try { enhance(field, note); } catch (e) { fallback(field, note); }
+  function loadCatalogue() {
+    if (catalogue || loading) return Promise.resolve(catalogue);
+    loading = true;
+    var holding = document.createElement("option");
+    holding.textContent = box.dataset.loading;
+    box.appendChild(holding);
+    return fetch(box.dataset.url + "?all=1", { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) {
+        catalogue = data.all || [];
+        loading = false;
+        fill(catalogue);
+        if (note) note.textContent = note.dataset.all;
+        return catalogue;
+      })
+      .catch(function () { loading = false; fallback(); });
+  }
+
+  function runSearch(term) {
+    if (!term) {
+      if (catalogue) { fill(catalogue); if (note) note.textContent = note.dataset.all; }
+      return;
+    }
+    fetch(box.dataset.url + "?q=" + encodeURIComponent(term),
+          { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) {
+        var pairs = (data.results || []).map(function (hit) {
+          return [hit.code, hit.description_el];
+        });
+        fill(pairs);
+        if (note) {
+          note.textContent = pairs.length
+            ? pairs.length + " " + note.dataset.found
+            : note.dataset.none;
+        }
+        // One hit: choose it, so a clerk who typed the code does not also have to pick
+        // it out of a list of one.
+        if (pairs.length === 1) box.value = pairs[0][0];
+      })
+      .catch(function () {});
+  }
+
+  search.addEventListener("input", function () {
+    if (timer) window.clearTimeout(timer);
+    var term = search.value.trim();
+    timer = window.setTimeout(function () { runSearch(term); }, 250);
+  });
+  search.addEventListener("keydown", function (event) {
+    // Enter in a search field must not submit the entry form.
+    if (event.key === "Enter") { event.preventDefault(); runSearch(search.value.trim()); }
+  });
+  if (clear) {
+    clear.addEventListener("click", function () {
+      search.value = "";
+      runSearch("");
+      search.focus();
+    });
+  }
+
+  // Fetched when the clerk first reaches for the list, not on every page load: it is
+  // 1,1 MB and most entries are typed, not browsed.
+  box.addEventListener("mousedown", loadCatalogue);
+  box.addEventListener("focus", loadCatalogue);
 });
 
 // Show the registration-payment confirmation only for the categories that take

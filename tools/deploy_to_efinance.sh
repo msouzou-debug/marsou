@@ -83,8 +83,8 @@ run install $OWNER -m 644 "$REPO/tools/check_diagnosis_search.py" \
 # operator already is rather than in the clone.
 run install $OWNER -m 644 "$REPO/tools/check_category_flags.py" \
     "$TARGET/check_category_flags.py"
-run install $OWNER -m 644 "$REPO/tools/backfill_diagnosis_sort.py" \
-    "$TARGET/backfill_diagnosis_sort.py"
+run install $OWNER -m 644 "$REPO/tools/sync_diagnoses.py" \
+    "$TARGET/sync_diagnoses.py"
 
 say "Επανεκκίνηση"
 run systemctl restart "$SERVICE"

@@ -347,24 +347,65 @@ it only cannot be entered early.
 hospital see and record against every hospital's units. Confirmed as built, and no
 longer an open assumption.
 
-### A list as well as a search on the ICD-10 box
+### A list as well as a search on the ICD-10 box — in two controls, by code
 
-New request: the box should offer an alphabetical list to scroll, not only a search. A
-clerk who does not know the term has nothing to type.
+Asked for in three steps, and worth recording in order because the first two answers
+were mine and both were wrong.
 
-Done. Clicking the box opens the catalogue in Greek alphabetical order, 50 at a time,
-fetching the next page as it is scrolled; typing searches as before.
+1. «Both a search and a drop down list alphabetically.» I read "alphabetically" as the
+   Greek description and built a folded sort column for it, because ordering on
+   `description_el` puts «Άσθμα» before «Αβαρία» — 1.627 of the 10.560 descriptions open
+   with an accented capital. That was a careful answer to a question I should have asked.
+2. «Not alphabetically to start with A B C.» She means the **code**: A00, A01, … Z99,
+   which is how ICD-10 is published. No sort column, no migration — `ORDER BY code`. The
+   column was removed before it ever reached the server.
+3. «Better if the search is on a separate box vs the drop down list.» Two controls, not
+   one combined widget.
 
-Two notes on their file, raised rather than fixed — a description is theirs and we do not
-rewrite one:
+As built: a search field that asks the server, and beside it a plain `<select>` holding
+the catalogue by code. The whole catalogue is fetched once, when the clerk first opens
+the list — 1,1 MB, and only then, because most entries are typed rather than browsed.
+Searching replaces the dropdown's contents and says how many were found; clearing it
+restores the full list and keeps whatever was already chosen.
 
-- **30 Greek descriptions begin with a Latin capital** that looks identical to the Greek
-  one: «Tριχομονάδωση», «Eρπητική», «Iλαρά», «Nεγκλερίωση», «Mη καθορισμένος». Our sort
-  key folds Latin look-alikes onto Greek, so the list reads correctly meanwhile.
-- **Two begin with stray punctuation**: B33.4 «(Καρδιο-)πνευμονικό σύνδρομο» and I51.0
-  «\`Ελλείμματα του καρδιακού διαφράγματος» — the second has a backtick where nothing
-  belongs. Leading punctuation is dropped from the sort key.
+It is a plain `<select>`, with no Select2 and no jQuery. That field was dead twice on
+30/10 — once because jQuery had not loaded when the script ran, once because eFinance's
+own `$('.select2')` pass claimed the wrapper Select2 had built and put an empty box in
+its place. A control the browser renders itself cannot fail either way.
 
-Also for information: 18 descriptions are in the Latin alphabet with no Greek
-equivalent — COVID-19, Delirium, Streptococcus, Rh, Shock — and they form a short block
-at the top of the list, which is where a Greek reader looks for them.
+### The 34 letters typed on the wrong keyboard
+
+Found while building the list, corrected on instruction (02/11). The catalogue had 34
+descriptions mixing the alphabets **in both directions**:
+
+| | |
+|---|---|
+| A59.8 | «Tριχομονάδωση» — a Greek word opening with a Latin T |
+| K22.7 | «Οισοφάγος του Βarrett» — a Latin name with a Greek Β |
+| E27.2 | «Κρίση Αddison» — the same, mid-line |
+| D56.4 | «[ΗΡFH]» — a Latin abbreviation with two Greek letters |
+| Y58.0 | «Εμβόλιο ΒCG» |
+
+They cannot be seen: the letters are drawn identically. And they broke the search
+outright, because `fold_greek()` does not map between alphabets — a clerk typing «Τριχ»
+in Greek never found A59.8 at all. That is why correcting the data was worth more than
+handling it in the sort, which is what I had done first and which would have made the
+Latin names worse.
+
+Each one was decided per word, by its **exclusive** letters — the ones with no look-alike
+in the other alphabet, such as Greek π or Latin F. A word those did not settle would have
+been left alone and reported; none had to be. `tools/fix_icd10_letters.py` holds the
+rule, a test re-runs it over the seeded catalogue so a future delivery cannot reintroduce
+one, and `tools/sync_diagnoses.py` carries a correction to a server that already holds
+the catalogue, rebuilding `search_text` with it.
+
+Still in their file, and ours to raise rather than change:
+
+- **B33.4** «(Καρδιο-)πνευμονικό σύνδρομο» — the brackets may be deliberate ICD style.
+- **I51.0** «\`Ελλείμματα του καρδιακού διαφράγματος» — a backtick where nothing belongs.
+- **A23.3** «Βρουκέλωση απόBrucella canis» — a missing space.
+- **Q04.4**, **E71.1** and others carry double spaces.
+- **Q99.0** writes the chromosomes as «46,ΧΧ/46,ΧΥ» in Greek letters where the notation
+  is conventionally Latin XX/XY.
+
+Say the word on any of them and they are a one-line change each.

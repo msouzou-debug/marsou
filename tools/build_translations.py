@@ -190,11 +190,21 @@ EN = {
         "The system does not record settlements yet, so this does not prove a debt — "
         "confirm it with accounts.",
 
-    # The ICD-10 fallback, when the search box does not load (30/10/2026).
+    # ICD-10 in two controls — a search field and the dropdown (02/11/2026).
+    "Αναζήτηση διάγνωσης": "Search for a diagnosis",
+    "Κωδικός ή περιγραφή, ελληνικά ή αγγλικά":
+        "Code or description, Greek or English",
+    "Καθαρισμός": "Clear",
+    "αποτελέσματα": "results",
+    "Κανένα αποτέλεσμα. Καθαρίστε την αναζήτηση για να δείτε όλον τον κατάλογο.":
+        "No results. Clear the search to see the whole catalogue.",
+    "Ο κατάλογος εμφανίζεται ολόκληρος, κατά κωδικό.":
+        "The whole catalogue is shown, by code.",
+    "Φόρτωση καταλόγου…": "Loading the catalogue…",
+    "— επιλέξτε διάγνωση —": "— choose a diagnosis —",
     "π.χ. J18.9": "e.g. J18.9",
-    "Η αναζήτηση διαγνώσεων δεν φόρτωσε σε αυτόν τον browser. Γράψτε τον κωδικό ICD-10 και ενημερώστε το ΙΤ.":
-        "The diagnosis search did not load in this browser. Type the ICD-10 code and "
-        "tell IT.",
+    "Ο κατάλογος διαγνώσεων δεν φόρτωσε. Γράψτε τον κωδικό ICD-10 και ενημερώστε το ΙΤ.":
+        "The diagnosis catalogue did not load. Type the ICD-10 code and tell IT.",
 
     # The rates screen's "in force on" control.
     "Εμφάνιση": "Show",
@@ -204,8 +214,6 @@ EN = {
 
     # — ICD-10 (Μονάδα Ελέγχου Εσόδων, catalogue supplied 26/10/2026) —
     "Διάγνωση": "Diagnosis",
-    "Αναζητήστε με κωδικό ή περιγραφή, ελληνικά ή αγγλικά…":
-        "Search by code or description, in Greek or English…",
     "Υποχρεωτική για την οριστικοποίηση. Δεν επηρεάζει το κόστος: η βαρύτητα "
     "προκύπτει από τις υπηρεσίες.":
         "Required before the costing can be finalised. It does not affect the cost: "

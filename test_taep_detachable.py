@@ -25,7 +25,7 @@ import taep_harness
 ALLOWED_IMPORTS = {
     # standard library
     "csv", "dataclasses", "datetime", "decimal", "functools", "hashlib", "io",
-    "os", "re", "unicodedata",
+    "json", "os", "re", "unicodedata",
     # third party, all of which eFinance already installs
     "flask", "openpyxl", "reportlab",
 }

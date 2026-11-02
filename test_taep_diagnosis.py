@@ -233,62 +233,50 @@ def test_a_typed_code_saves_exactly_as_a_chosen_one_does(client, app):
 # A list as well as a search (Παναγιώτα Έλληνα, 02/11/2026)
 # ---------------------------------------------------------------------------
 
-def test_the_catalogue_can_be_browsed_in_greek_alphabetical_order(seeded):
-    """«Both a search and a drop down list alphabetically.»
+def test_the_catalogue_can_be_browsed_by_code(seeded):
+    """«Both a search and a drop down list alphabetically» — and, asked again on
+    02/11/2026, alphabetical means the code: A00, A01, … B00, … Z99.
 
-    A clerk who does not know the term has nothing to type, so the box has to offer a
-    list. 10.560 codes cannot go in the page, hence a page at a time.
+    I had first read it as the Greek description and built a folded sort column for it,
+    which was the wrong answer to a question I should have asked. Ordering by code is
+    how ICD-10 is published, needs no column, and keeps related diagnoses together.
     """
     first, more = taep.list_diagnoses(seeded, page=1)
     assert len(first) == taep.DIAGNOSIS_PAGE
     assert more is True
+    assert first[0]["code"].startswith("A")
 
     second, _ = taep.list_diagnoses(seeded, page=2)
-    assert {r["code"] for r in first}.isdisjoint({r["code"] for r in second})
-
-    # In order, by the folded description.
-    keys = [taep.fold_for_sort(r["description_el"]) for r in first + second]
-    assert keys == sorted(keys)
+    codes = [r["code"] for r in first + second]
+    assert codes == sorted(codes)
+    assert len(set(codes)) == len(codes)
 
     last_page = (10560 // taep.DIAGNOSIS_PAGE) + 1
     tail, more = taep.list_diagnoses(seeded, page=last_page)
     assert more is False and tail
+    assert tail[-1]["code"].startswith("Z")
 
 
-def test_the_sort_key_files_an_accented_capital_where_a_greek_reader_looks(seeded):
-    """1.627 of the 10.560 descriptions begin with an accented capital. Ά is U+0386 and
-    Α is U+0391, so ordering on description_el puts «Άσθμα» before «Αβαρία» — 15% of
-    the catalogue in the wrong place, which is not an alphabetical list.
+def test_the_whole_catalogue_is_served_in_one_request_for_the_dropdown(client):
+    r"""A plain <select> cannot fetch more as it is scrolled, so it is filled once.
+
+    Pairs rather than objects, and the Greek description only: the list shows that, and
+    the English only ever matters to the search, which runs on the server. Through
+    jsonify this was 3,5 MB, because it escapes every Greek letter to \uXXXX — six
+    bytes where two would do.
     """
-    assert taep.fold_for_sort("Άσθμα") > taep.fold_for_sort("Αβαρία")
-    assert taep.fold_for_sort("Άσθμα") < taep.fold_for_sort("Βρογχίτιδα")
-
-
-def test_the_sort_key_ignores_leading_punctuation_and_latin_lookalikes(seeded):
-    """Two descriptions begin with a bracket or a stray backtick, and 30 Greek words
-    were typed with a Latin first letter — «Tριχομονάδωση», «Eρπητική», «Iλαρά».
-
-    Their file, their typos: the description is stored exactly as supplied and is not
-    rewritten. Only the sort key folds them, so the list reads correctly meanwhile.
-    """
-    assert taep.fold_for_sort("(Καρδιο-)πνευμονικό").startswith("καρδιο")
-    assert taep.fold_for_sort("`Ελλείμματα").startswith("ελλειμματα")
-    # Latin T and Greek Τ file together.
-    assert taep.fold_for_sort("Tριχομονάδωση") == taep.fold_for_sort("Τριχομονάδωση")
-    # And a description that is pure Greek is untouched by the Latin map.
-    assert taep.fold_for_sort("Πνευμονία") == "πνευμονια"
-
-
-def test_an_unfilled_sort_column_is_a_readiness_blocker(seeded):
-    """The ALTER adds the column empty on an installation that already holds the
-    catalogue. An unsorted list of 10.560 diagnoses looks to a clerk like a broken box,
-    not like a migration nobody ran.
-    """
-    seeded["db_execute"]("UPDATE taep_diagnosis SET sort_text = NULL")
-    blockers = [f for f in taep.readiness_report(seeded)
-                if f["level"] == "blocker" and "sort_text" in f["detail"]]
-    assert len(blockers) == 1
-    assert "backfill_diagnosis_sort" in blockers[0]["detail"]
+    import json as _json
+    response = client.get("/taep/api/diagnoses?all=1")
+    assert response.status_code == 200
+    body = response.get_data()
+    rows = _json.loads(body)["all"]
+    assert len(rows) == 10560
+    assert rows[0][0] == "A00.0" and len(rows[0]) == 2
+    assert [r[0] for r in rows] == sorted(r[0] for r in rows)
+    # Unescaped: the Greek arrives as Greek.
+    assert "Χολέρα".encode("utf-8") in body
+    assert b"\\u03" not in body
+    assert len(body) < 1_600_000, len(body)
 
 
 def test_the_box_asks_for_a_list_when_nothing_is_typed(client):
@@ -313,3 +301,65 @@ def test_the_search_still_ranks_and_now_pages(client):
     assert page_one["pagination"]["more"] is True
     assert {r["code"] for r in page_one["results"]}.isdisjoint(
         {r["code"] for r in page_two["results"]})
+
+
+# ---------------------------------------------------------------------------
+# Greek and Latin letters in the catalogue (02/11/2026)
+# ---------------------------------------------------------------------------
+
+def test_no_description_mixes_the_two_alphabets_inside_one_word(seeded):
+    """34 descriptions had a letter typed on the wrong keyboard, in both directions:
+    «Tριχομονάδωση» opening with a Latin T, «Οισοφάγος του Βarrett» with a Greek Β,
+    «Κρίση Αddison», «Εμβόλιο ΒCG».
+
+    They are invisible — the letters are drawn identically — and they break the search
+    outright, because fold_greek() does not map between alphabets. A clerk typing «Τριχ»
+    in Greek could not find A59.8 at all.
+
+    Corrected in the file by tools/fix_icd10_letters.py. This test is the guard: it
+    re-runs the decision over the seeded catalogue and requires nothing left to do, so a
+    future delivery from the Μονάδα cannot quietly reintroduce one.
+    """
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    from fix_icd10_letters import correct
+
+    rows = seeded["db_execute"](
+        "SELECT code, description_el FROM taep_diagnosis", fetch=True)
+    offenders = [(r["code"], r["description_el"])
+                 for r in rows
+                 if correct(r["description_el"])[0] != r["description_el"]]
+    assert not offenders, offenders[:5]
+
+
+def test_a_greek_word_that_was_typed_with_a_latin_letter_is_now_found_in_greek(seeded):
+    """A59.8 «Τριχομονάδωση άλλων εντοπίσεων» — the T used to be Latin, so this search
+    returned nothing. That is the whole cost of the typo, and the reason it was worth
+    correcting the data rather than working around it in the sort.
+    """
+    hits = [h["code"] for h in taep.search_diagnoses(seeded, "Τριχομονάδωση")]
+    assert "A59.8" in hits
+    # And the Latin names stayed Latin, which the same pass could have broken.
+    assert "K22.7" in [h["code"] for h in taep.search_diagnoses(seeded, "Barrett")]
+    assert "Y58.0" in [h["code"] for h in taep.search_diagnoses(seeded, "BCG")]
+
+
+def test_stale_catalogue_text_on_a_server_is_a_readiness_blocker(seeded):
+    """seed() fills a table only when it is empty, so a corrected catalogue never
+    reaches an installation that already holds one — and the difference cannot be seen,
+    because the letters look the same.
+
+    Readiness reports it, and tools/sync_diagnoses.py carries the correction over,
+    rebuilding search_text with it. Without that the search index would still hold the
+    old spelling.
+    """
+    seeded["db_execute"]("UPDATE taep_diagnosis SET description_el = %s "
+                         "WHERE code = %s", ("Tριχομονάδωση άλλων εντοπίσεων", "A59.8"))
+    drift = taep.diagnosis_text_drift(seeded)
+    assert [d[0] for d in drift] == ["A59.8"]
+
+    blockers = [f for f in taep.readiness_report(seeded)
+                if f["level"] == "blocker" and "icd10.csv" in f["detail"]]
+    assert len(blockers) == 1
+    assert "A59.8" in blockers[0]["detail"]
