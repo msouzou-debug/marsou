@@ -24,6 +24,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 30/10/2026 | `e64248b` | `c54b100c` | The script load order — necessary, not sufficient |
 | 30/10/2026 | `1a4ec53` | `c54b100c` | ICD-10 box working, confirmed by the clerk. Two scripts over one element — see below |
 | 30/10/2026 | `5e1ff6c` | `c54b100c` | Previous-visit lookup wired; ΔΕΑ confirmed; the 19 en.json words checked clear |
+| 02/11/2026 | `976e5c3` | `a33b41e1` | ICD-10 in two controls by code; 34 catalogue letters corrected; the Ευρωκάρτα flag — needs the two follow-up commands below |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
@@ -677,6 +678,33 @@ way. What found them was Chromium against a copy of the live `base.html`:
 
 Not in the suite: it needs a browser and four vendored files, and the server has
 neither. Worth half an hour the next time a screen "does nothing".
+
+## Master data the deploy cannot carry
+
+Two tables are filled by `seed()` only when they are **empty** — correctly, so a
+deliberate correction is never overwritten. The cost is that a source file corrected
+after the first install never reaches a running server, and until 02/11/2026 nothing
+said so. Both faults found that day were this, not a bug in a screen:
+
+- **602 ΕΥΡΩΚΑΡΤΑ did not open the extra-charges card.** `tariff_applies` had been TRUE
+  in the CSV since the ruling of 22/09; the live row said otherwise.
+- **34 ICD-10 descriptions had a letter typed on the wrong keyboard.** Corrected in the
+  file; the server kept the old spelling, and the search could not find those codes.
+
+Readiness now reports both, and two scripts reconcile them. Each reports by default and
+writes only with `--apply`:
+
+    sudo -u finance python3 /opt/finance/check_category_flags.py /opt/finance/finance.db
+    sudo -u finance python3 /opt/finance/sync_diagnoses.py     /opt/finance/finance.db
+
+**Run both after any deploy that changes `seed/financial_categories.csv` or
+`seed/icd10.csv`.** The deploy itself never writes `finance.db` and is not going to start.
+
+`seed/icd10.csv` is gitignored (§1c), so a correction to it cannot travel by git. Run
+`tools/fix_icd10_letters.py --apply` in the clone **before** the deploy, so the deploy
+copies the corrected file to `/opt/finance/seed/`; then `sync_diagnoses.py --apply`
+carries it into the live table and rebuilds `search_text` with it. The tool is
+deterministic, so the server's copy ends up identical to this repository's.
 
 ## When a clerk says the ICD-10 box does nothing
 
