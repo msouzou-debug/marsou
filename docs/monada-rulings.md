@@ -432,3 +432,67 @@ a test holding that line.
 `tools/fix_icd10_text.py` holds every rule — renamed from `fix_icd10_letters.py`, since
 it is no longer only letters — and a test re-runs the whole decision over the seeded
 catalogue so a future delivery cannot reintroduce any of it.
+
+
+---
+
+## The answers and reports of 03/11/2026 (Παναγιώτα Έλληνα)
+
+### A refused calculation was throwing away the clerk's work
+
+«Επιλέγω μια υπηρεσία από τον τιμοκατάλογο αλλά δεν προστίθεται στο σύνολο και με το που
+πατώ υπολογισμό αφαιρείται από τη λίστα μου.»
+
+Reproduced. Adding «Ακτινογραφία» (SHSO-ER3) without choosing an examination is refused,
+and rightly — the four `tariff_lookup` codes carry no amount of their own, the price IS
+the examination's. But the route redirected, so the posted row was gone and the charge
+had to be entered again from nothing just to read the same message twice.
+
+The refusal stays. The row now comes back with it, quantity included, and the previous
+calculation is left standing.
+
+### The examination is mandatory on a radiology charge
+
+Checked before anything is sent, with the message beside the field. Not the `required`
+attribute: Select2 hides the real `<select>`, and a browser will not report a validation
+error on a field nobody can focus.
+
+Which uncovered a third fault nobody had reported. `show()` toggled `d-none` on the
+original select, but Select2 renders a sibling wrapper in its place — so the examination
+dropdown was **31px tall on every extra-charge row**, including fixed-price charges where
+it means nothing. Measured in Chromium: 31px before, 0 after. That is most of why nothing
+signalled which charges need an examination and which do not.
+
+### AED005 without its charge blocks finalisation — AED005 only
+
+Asked for on AED005, confirmed compulsory, then narrowed to that code alone when the rule
+was put to her for all four.
+
+AED005 sets the weight and adds no money: the X-ray's price lives in the radiology list
+and arrives through an extra charge. Record the service and not the charge and the
+episode is priced without the X-ray — revenue nobody notices is missing.
+
+A blocker, not a refusal to calculate: the costing can be priced and read, but not
+finalised. Same treatment as the diagnosis. Silent in a category that cannot carry extra
+charges, where there is nothing the clerk could do.
+
+`RADIOLOGY_SERVICE_CHARGES` records all four pairings because they are true;
+`RADIOLOGY_CHARGE_COMPULSORY` is `{"AED005"}` and is the whole change if the others are
+ever wanted. AED022 «Τομογραφία Ουροποιογεννητικού» is in neither — the tariff has no
+matching code for it, **which may be a gap in their price list worth asking about.**
+
+**One thing to put back to her.** The Μονάδα's own specimen service list, behind
+OKY1054/0035, includes AED005 with no radiology charge. The specimen is unaffected
+(category 624 carries no tariff charges), but if that same case were priced as self-pay
+it would now be blocked. So: on a self-pay case with an X-ray, does the charge always
+exist? If there are cases where an X-ray is taken and no charge applies, this blocker
+stops them, and we should hear it from her rather than from a clerk.
+
+### The service pickers trapped the clerk
+
+«Επιλέγω μία ή και περισσότερες διεργασίες αλλά το παράθυρο μένει ανοικτό και δεν μπορώ
+να προχωρήσω στο επόμενο πεδίο.»
+
+`closeOnSelect` was false on purpose, to save reopening a list of 125 between picks. The
+wrong trade: it saves a click and costs the clerk their way out of the field. It closes
+after each pick now, and multi-select still works.
