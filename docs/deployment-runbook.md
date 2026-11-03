@@ -26,6 +26,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 30/10/2026 | `5e1ff6c` | `c54b100c` | Previous-visit lookup wired; ΔΕΑ confirmed; the 19 en.json words checked clear |
 | 02/11/2026 | `976e5c3` | `a33b41e1` | ICD-10 in two controls by code; 34 catalogue letters corrected; the Ευρωκάρτα flag |
 | 02/11/2026 | `3ba2825` | `a33b41e1` | 289 more catalogue character defects — 274 of them double spaces that hid a diagnosis from the search |
+| 03/11/2026 | `53ad5a6` | `18134fbe` | A refused calculation keeps the clerk's rows; the radiology examination made mandatory; the service pickers close after a pick |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
