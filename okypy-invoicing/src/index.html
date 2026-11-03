@@ -19,8 +19,9 @@
   <button class="tab active" data-tab="FA">1. Φάρμακα (ΦΑ)</button>
   <button class="tab" data-tab="TPA">2. Αναλώσιμα (ΤΠΑ)</button>
   <button class="tab" data-tab="SRV">3. Υπηρεσίες (ΤΑ / INV)</button>
-  <button class="tab" data-tab="REG">4. Μητρώο και SAP <span id="regCount" class="badge">0</span></button>
-  <button class="tab" data-tab="SET">5. Ρυθμίσεις</button>
+  <button class="tab" data-tab="OAY">4. ΟΑΥ (ΤΑΕΠ / ΥΓΟΣ / ΥΑ)</button>
+  <button class="tab" data-tab="REG">5. Μητρώο και SAP <span id="regCount" class="badge">0</span></button>
+  <button class="tab" data-tab="SET">6. Ρυθμίσεις</button>
   <button class="tab" data-tab="HELP">Οδηγίες</button>
 </nav>
 
@@ -73,6 +74,34 @@
   </div>
 </section>
 
+<!-- ===== ΟΑΥ ===== -->
+<section class="panel" id="tab-OAY">
+  <div class="card">
+    <h2>Τιμολόγια προς ΟΑΥ</h2>
+    <p class="hint">Επιλέξτε τον μήνα χρέωσης. Ο αριθμός και η ημερομηνία (τέλος μήνα) συμπληρώνονται αυτόματα και αλλάζουν αν χρειαστεί.</p>
+    <div class="filters"><label>Μήνας χρέωσης <input type="month" id="OAY-month"></label></div>
+  </div>
+  <div class="card">
+    <h3>ΤΑΕΠ: μηνιαία εμβάσματα και κατανομή στα νοσηλευτήρια</h3>
+    <p class="hint">Ανεβάστε το αρχείο του ΟΑΥ «OKYPY ALL and A&amp;E». Το ποσό τιμολογίου είναι το «True-up to be INVOICED by OKYPY» (G6). Η κατανομή γίνεται με βάση τις απαιτήσεις (Claims) κάθε νοσηλευτηρίου.</p>
+    <label class="drop" data-target="OAY"><input type="file" accept=".xlsx,.xls,.xlsm" hidden><span>Σύρετε εδώ το αρχείο του ΟΑΥ ή κάντε κλικ για επιλογή</span></label>
+    <div id="OAY-status" class="status"></div>
+    <div id="OAY-alloc"></div>
+  </div>
+  <div class="card">
+    <h3>ΥΓΟΣ και Υπηρεσία Ασθενοφόρων (ΥΑ)</h3>
+    <p class="hint">Ίδια τιμολόγια κάθε μήνα. Οι γραμμές του ΥΓΟΣ και το ετήσιο ποσό του ΥΑ αλλάζουν στις Ρυθμίσεις.</p>
+    <div class="row-actions">
+      <button class="btn primary" id="OAY-ygos">+ Τιμολόγιο ΥΓΟΣ για τον μήνα</button>
+      <button class="btn primary" id="OAY-ya">+ Τιμολόγιο ΥΑ για τον μήνα</button>
+    </div>
+  </div>
+  <div class="card" id="OAY-list-card" hidden>
+    <h3>Τιμολόγια προς έκδοση</h3>
+    <div id="OAY-list"></div>
+  </div>
+</section>
+
 <!-- ===== Μητρώο ===== -->
 <section class="panel" id="tab-REG">
   <div class="card">
@@ -80,7 +109,7 @@
     <p class="hint">Εδώ μπαίνει κάθε τιμολόγιο που πατήσατε «Έκδοση». Επιλέξτε ποια θα περάσουν στο SAP και κατεβάστε το Excel. Το μητρώο αποθηκεύεται μόνο σε αυτόν τον browser, γι' αυτό κρατάτε αντίγραφο με «Αντίγραφο ασφαλείας».</p>
     <div class="filters">
       <label>Μήνας καταχώρησης <input type="month" id="REG-month"></label>
-      <label>Τύπος <select id="REG-type"><option value="">Όλοι</option><option>ΦΑ</option><option>ΤΠΑ</option><option>ΤΑ</option><option>INV</option></select></label>
+      <label>Τύπος <select id="REG-type"><option value="">Όλοι</option><option>ΦΑ</option><option>ΤΠΑ</option><option>ΤΑ</option><option>INV</option><option>ΤΑΕΠ</option><option>ΥΓΟΣ</option><option>YA</option></select></label>
       <label class="chk"><input type="checkbox" id="REG-unexported"> Μόνο όσα δεν πέρασαν στο SAP</label>
     </div>
     <div id="REG-table"></div>
@@ -116,6 +145,11 @@
     </div>
     <div id="SET-status" class="status"></div>
   </div>
+  <div class="card">
+    <h2>ΟΑΥ: ΥΓΟΣ και κατανομή ΤΑΕΠ</h2>
+    <div id="SET-oay"></div>
+    <p class="hint">Πατήστε «Αποθήκευση ρυθμίσεων» πιο πάνω για να κρατηθούν οι αλλαγές.</p>
+  </div>
 </section>
 
 <!-- ===== Οδηγίες ===== -->
@@ -126,6 +160,7 @@
       <li><b>Φάρμακα (ΦΑ):</b> ανεβάζετε το «ΕΚΔΟΣΕΙΣ ΟΚΥΠΥ». Για κάθε καρτέλα και μήνα βγαίνει ένα τιμολόγιο. Ελέγχετε τον πελάτη, γράφετε τον αριθμό (π.χ. ΦΑ 25-2026) και πατάτε «Έκδοση».</li>
       <li><b>Αναλώσιμα (ΤΠΑ):</b> ανεβάζετε το αρχείο που σας στέλνουν. Αν δεν αναγνωριστούν οι στήλες, τις επιλέγετε μία φορά. Οι γραμμές διορθώνονται μέσα στον πίνακα.</li>
       <li><b>Υπηρεσίες:</b> ανεβάζετε το PDF της One Point. Τράπεζα Αίματος → «ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ (για Τράπεζα Αίματος)» με αρχικά ΤΑ. Κέντρο Αίματος → «ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ (για Κέντρο Αίματος)» με αρχικά INV.</li>
+      <li><b>ΟΑΥ:</b> ΤΑΕΠ από το αρχείο «OKYPY ALL and A&amp;E» (ποσό = G6, κατανομή στα νοσηλευτήρια με βάση τις απαιτήσεις, τα λεπτά στρογγυλοποίησης πάνε στο μεγαλύτερο). ΥΓΟΣ και ΥΑ με ένα κλικ για τον μήνα. Αριθμός και ημερομηνία (τέλος μήνα) συμπληρώνονται αυτόματα.</li>
       <li><b>Μητρώο και SAP:</b> επιλέγετε τα τιμολόγια του μήνα και κατεβάζετε το Excel για ανέβασμα στο SAP. Το Excel έχει καρτέλα «Έλεγχος» με ζωντανούς τύπους που συμφωνούν το SAP με τα τιμολόγια.</li>
     </ol>
     <h3>Κανόνες που εφαρμόζει το εργαλείο</h3>

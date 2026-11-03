@@ -90,7 +90,36 @@ const DEFAULT_SETTINGS = {
     signName: 'Μάριος Σούζου',
     signTitle: 'Προϊστάμενος Μονάδας Οικονομικής Διαχείρισης',
     signUnit: 'Κεντρική Διοίκηση',
-    signOrg: 'Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ)'
+    signOrg: 'Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ)',
+    bankAmb1: '‘’ΟΚΥπΥ – Υπηρεσία Ασθενοφόρων‘’',
+    bankAmb2: "STATE HEALTH SERVICES ORGANIZATION 'INCOME - AMBULATORY'",
+    ibanAmb: 'CY30 0020 0195 0000 3570 3270 8868'
+  },
+  oay: {
+    oayAccount: '901786',
+    yaAnnual: 17500677.65,
+    hospitals: [{ vendor: 'F1025', short: 'PAF', account: '122107' }, { vendor: 'F1026', short: 'POL', account: '122108' }, { vendor: 'F1047', short: 'LIM', account: '122105' }, { vendor: 'F1048', short: 'LAR', account: '122104' }, { vendor: 'F1049', short: 'PAR', account: '122103' }, { vendor: 'F1054', short: 'NGH', account: '122102' }, { vendor: 'F1055', short: 'KYP', account: '122106' }, { vendor: 'F1106', short: 'NGH', account: '122102' }],
+    ygosLines: [
+      { desc: 'Κέντρο Παιδιατρικής Ογκολογίας και Αιματολογίας', amount: 127669.83 },
+      { desc: 'Κέντρο Θαλασσαιμίας σε κάθε πόλη', amount: 105352.51 },
+      { desc: 'Μεταμοσχευτική Κλινική', amount: 95749.43 },
+      { desc: 'Κέντρο Τραύματος', amount: 90428.05 },
+      { desc: 'Μονάδα Εντατικής Νοσηλείας Παίδων - ΝΑΜΙΙΙ', amount: 63144.15 },
+      { desc: 'Μονάδα παρεντερικής διατροφής', amount: 44053.64 },
+      { desc: 'Κέντρο για Παιδιά και Εφήβους με Νευροαναπτυξιακή Διαταραχή', amount: 39160.93 },
+      { desc: 'Παιδιατρικό ήπαρ, γαστρεντερικό και διατροφικό κέντρο στο NAM III', amount: 37867.03 },
+      { desc: 'Μηχανική υποστήριξη κατοίκον ασθενών', amount: 159480.52 },
+      { desc: 'Εργαστήριο Ιστοσυμβατότητας για να διατηρηθεί ενημερωμένη η λίστα παραληπτών οργάνων', amount: 17305.66 },
+      { desc: 'Κλινική AIDS', amount: 167787.59 },
+      { desc: 'ΤΑΕΠ Παίδων', amount: 293598.76 },
+      { desc: 'Κέντρο Ανάκτησης Νευρολογικών Βλαβών (Παραπληγικό Κέντρο)', amount: 129085.39 },
+      { desc: 'Κλινική Εγκαυμάτων', amount: 2408.51 },
+      { desc: 'Παιδονευρολογικη Κλινικη - ΝΑΜΙΙΙ', amount: 23935.89 },
+      { desc: 'Υπηρεσίες Ψυχικής Υγείας', amount: 508905.84 },
+      { desc: 'Αγροτικό Νοσοκομείο Κυπερούντας', amount: 646095.83 },
+      { desc: 'Υπηρεσίες που παρέχονται από το Νοσοκομείο Πολεως Χρυσοχούς', amount: 279623.38 },
+      { desc: 'Κέντρα Πρωτοβάθμιας φροντίδας', amount: 401459.28 }
+    ]
   },
   sap: { companyCode: '1000', docType: 'DR', currency: 'EUR', pkDebit: '01', pkCredit: '50', taxCode: '', glAdmin: '', glVat: '', taxCodeAdmin: '' },
   fees: { adminRate: 20, vatRate: 19 },
@@ -98,7 +127,10 @@ const DEFAULT_SETTINGS = {
     FA: { prefix: 'ΦΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΑΧΩΡΗΣΗΣ ΦΑΡΜΑΚΩΝ', gl: '', label: 'Παραχώρηση φαρμάκων' },
     TPA: { prefix: 'ΤΠΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΑΧΩΡΗΣΗΣ ΑΝΑΛΩΣΙΜΩΝ', gl: '', label: 'Παραχώρηση αναλωσίμων' },
     TA: { prefix: 'ΤΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ', gl: '', label: 'Υπηρεσίες Τράπεζας Αίματος' },
-    INV: { prefix: 'INV', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ', gl: '', label: 'Υπηρεσίες Κέντρου Αίματος' }
+    INV: { prefix: 'INV', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ', gl: '', label: 'Υπηρεσίες Κέντρου Αίματος' },
+    TAEP: { prefix: 'ΤΑΕΠ', title: 'ΤΙΜΟΛΟΓΙΟ ΜΗΝΙΑΙΩΝ ΕΜΒΑΣΜΑΤΩΝ ΓΙΑ ΤΙΣ ΥΠΗΡΕΣΙΕΣ ΤΑΕΠ ΤΟΥ ΟΚΥΠΥ', gl: '', label: 'Εμβάσματα ΤΑΕΠ', numFmt: '{P} {MM}/{YYYY}' },
+    YGOS: { prefix: 'ΥΓΟΣ', title: 'ΤΙΜΟΛΟΓΙΟ ΥΠΗΡΕΣΙΩΝ ΥΓΟΣ', gl: '', label: 'Υπηρεσίες ΥΓΟΣ', numFmt: '{P} {MM}-{YYYY}' },
+    YA: { prefix: 'YA', title: 'ΤΙΜΟΛΟΓΙΟ ΜΗΝΙΑΙΩΝ ΕΜΒΑΣΜΑΤΩΝ ΓΙΑ ΤΙΣ ΥΠΗΡΕΣΙΕΣ ΑΣΘΕΝΟΦΟΡΩΝ ΤΟΥ ΟΚΥΠΥ', gl: '', label: 'Εμβάσματα Υπηρεσίας Ασθενοφόρων', numFmt: '{P} {MM}/{YYYY}', bank: 'amb' }
   },
   customers: [
     { id: 'c01', admin: true, name: 'ΙΝΣΤΙΤΟΥΤΟ ΝΕΥΡΟΛΟΓΙΑΣ ΚΑΙ ΓΕΝΕΤΙΚΗΣ', sub: '', types: ['FA'], sapCode: '', profit: '', kw: 'ΙΝΣΤΙΤΟΥΤ, ΓΕΝΕΤΙΚ, NEUROLOGY' },
@@ -112,7 +144,8 @@ const DEFAULT_SETTINGS = {
     { id: 'c09', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΚΕΝΤΡΟ ΑΙΜΑΤΟΣ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ' },
     { id: 'c10', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '', types: ['TPA'], sapCode: '', profit: '', kw: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ, ΥΠ.ΥΓΕΙΑΣ, ΥΠ. ΥΓΕΙΑΣ' },
     { id: 'c11', admin: false, name: 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ', sub: '(για Τράπεζα Αίματος)', types: ['TA'], sapCode: '', profit: '', kw: 'ΤΡΑΠΕΖΑ ΑΙΜΑΤ, BLOOD BANK' },
-    { id: 'c12', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(για Κέντρο Αίματος)', types: ['INV'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ, BLOOD CENTRE, BLOOD CENTER' }
+    { id: 'c12', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(για Κέντρο Αίματος)', types: ['INV'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ, BLOOD CENTRE, BLOOD CENTER' },
+    { id: 'c13', admin: false, name: 'ΟΡΓΑΝΙΣΜΟ ΑΣΦΑΛΙΣΗΣ ΥΓΕΙΑΣ', sub: '', types: ['TAEP', 'YGOS', 'YA'], sapCode: '901786', profit: '', kw: 'ΟΡΓΑΝΙΣΜΟΣ ΑΣΦΑΛΙΣΗΣ ΥΓΕΙΑΣ, ΟΑΥ, HIO' }
   ]
 };
 const K_SET = 'okypy-inv-settings-v1', K_REG = 'okypy-inv-register-v1';
@@ -126,13 +159,15 @@ function loadSettings() {
     sap: Object.assign(d.sap, s.sap || {}),
     types: Object.fromEntries(Object.keys(d.types).map(k => [k, Object.assign(d.types[k], (s.types || {})[k] || {})])),
     fees: Object.assign(d.fees, s.fees || {}),
+    oay: Object.assign(d.oay, s.oay || {}),
     customers: (Array.isArray(s.customers) && s.customers.length ? s.customers : d.customers)
       .map(c => ('admin' in c) ? c : Object.assign(c, { admin: defaultAdmin(c) }))
+      .concat((Array.isArray(s.customers) && s.customers.length && !s.customers.some(c => (c.types || []).includes('TAEP'))) ? d.customers.filter(c => c.id === 'c13') : [])
   };
 }
 /* Διοικητικά έξοδα: σε όλους εκτός από το Υπουργείο Υγείας (και όχι στις υπηρεσίες ΤΑ/INV) */
 function defaultAdmin(c) {
-  return !norm(c.name).startsWith('ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ') && !(c.types || []).some(t => t === 'TA' || t === 'INV') && norm(c.name) !== 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ';
+  return !norm(c.name).startsWith('ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ') && !(c.types || []).some(t => ['TA', 'INV', 'TAEP', 'YGOS', 'YA'].includes(t)) && norm(c.name) !== 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ';
 }
 let SETTINGS = loadSettings();
 let REGISTER = LS.get(K_REG, []);
@@ -156,8 +191,8 @@ function matchCustomer(text, type) {
 }
 
 /* ---------------- πρόχειρα τιμολόγια ---------------- */
-const DRAFTS = { FA: [], TPA: [], SRV: [] };
-const groupOf = type => (type === 'TA' || type === 'INV') ? 'SRV' : type;
+const DRAFTS = { FA: [], TPA: [], SRV: [], OAY: [] };
+const groupOf = type => (type === 'TA' || type === 'INV') ? 'SRV' : ['TAEP', 'YGOS', 'YA'].includes(type) ? 'OAY' : type;
 const isIssued = d => REGISTER.some(r => r.id === d.id);
 
 function lineAmount(l, type) {
@@ -201,13 +236,14 @@ function validate(d) {
   const tot = draftTotal(d);
   if (d.lines.length && tot <= 0) errors.push('Το ολικό ποσό είναι μηδέν ή αρνητικό.');
   if (d.lines.some(l => !String(l.desc || '').trim())) warns.push('Υπάρχουν γραμμές χωρίς περιγραφή.');
-  if (d.lines.some(l => lineAmount(l, d.type) === 0)) warns.push('Υπάρχουν γραμμές με μηδενικό ποσό.');
+  if (d.lines.some(l => lineAmount(l, d.type) === 0) && !isOay(d.type)) warns.push('Υπάρχουν γραμμές με μηδενικό ποσό.');
   if (d.sourceKey) {
     const prev = REGISTER.find(r => r.id !== d.id && r.sourceKey === d.sourceKey);
     if (prev) warns.push(`Η ίδια πηγή (${d.sourceLabel}) έχει ήδη τιμολογηθεί με το ${prev.number}. Ελέγξτε για διπλοχρέωση.`);
   }
   if (c && !c.sapCode) warns.push('Ο πελάτης δεν έχει κωδικό SAP (Ρυθμίσεις). Το αρχείο SAP θα βγει με κενό λογαριασμό.');
   if (!T.gl) warns.push(`Δεν έχει οριστεί λογαριασμός εσόδων για «${T.prefix}» (Ρυθμίσεις).`);
+  if (d.type === 'TAEP' && !(d.alloc || []).length) warns.push('Δεν υπάρχει κατανομή στα νοσηλευτήρια (ανεβάστε το αρχείο του ΟΑΥ).');
   if (d.type === 'TPA' && !String(d.slipNo || '').trim()) warns.push('Δεν συμπληρώθηκε αριθμός Issue Slip για τις παρατηρήσεις.');
   return { errors, warns, total: tot };
 }
@@ -636,6 +672,153 @@ async function handleSRV(file) {
   }
 }
 
+/* ---------------- 4. ΟΑΥ (ΤΑΕΠ / ΥΓΟΣ / ΥΑ) ---------------- */
+const OAY_TYPES = ['TAEP', 'YGOS', 'YA'];
+const isOay = t => OAY_TYPES.includes(t);
+const oayCust = () => SETTINGS.customers.find(c => (c.types || []).includes('TAEP')) || null;
+function oayNumber(type, ym) {
+  const T = typeOf(type), [y, m] = ym.split('-');
+  return String(T.numFmt || '{P} {MM}/{YYYY}').replace('{P}', T.prefix).replace('{MM}', m).replace('{YYYY}', y);
+}
+const periodText = ym => `${fmtDate(ym + '-01')} - ${fmtDate(lastDayOfMonth(ym))}`;
+const oayMonth = () => $('#OAY-month').value || (() => { const d = new Date(); d.setDate(0); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; })();
+
+function makeOayDraft(type, ym, lines, extra = {}) {
+  const c = oayCust();
+  return Object.assign({
+    id: uid(), type, customerId: c ? c.id : '', number: oayNumber(type, ym), date: lastDayOfMonth(ym), month: ym,
+    remarks: '', lines, sourceKey: `${type}|${ym}`, sourceLabel: monthLabel(ym)
+  }, extra);
+}
+
+/* Αρχείο ΟΑΥ: φύλλο A&E με G4 (Net claims), G5 (Copayments), G6 (True-up) και γραμμές νοσηλευτηρίων */
+function parseOayFile(sheets) {
+  const cand = sheets.filter(s => s.rows.slice(0, 12).some(r => r && /TRUE-UP/.test(norm(r[3]))));
+  const sh = cand.find(s => !/\s1$/.test(s.name.trim())) || cand[0];
+  if (!sh) return null;
+  const val = re => { const r = sh.rows.find(r => r && re.test(norm(r[3]))); return r ? parseNumX(r[6]) : null; };
+  const netClaims = val(/^NET CLAIMS/), copay = val(/^COPAYMENTS/), trueUp = val(/^TRUE-UP/);
+  const hr = sh.rows.findIndex(r => r && norm(r[3]) === 'CLAIMS');
+  const hosp = [];
+  for (let i = hr + 1; i < sh.rows.length; i++) {
+    const r = sh.rows[i] || [];
+    if (!/^F\d+$/.test(String(r[0] || '').trim())) { if (hosp.length) break; continue; }
+    hosp.push({ vendor: String(r[0]).trim(), name: String(r[1] || '').trim(), claims: parseNumX(r[3]) || 0, copay: parseNumX(r[4]) || 0, net: parseNumX(r[6]) || 0 });
+  }
+  const mm = (sh.name.match(/(\d{2})\.(\d{4})/) || []);
+  return { sheet: sh.name, netClaims, copay, trueUp, hosp, month: mm.length ? `${mm[2]}-${mm[1]}` : '' };
+}
+
+/* Κατανομή: ποσοστό = απαιτήσεις / σύνολο απαιτήσεων · ποσό = ROUND(τιμολόγιο × ποσοστό, 2) · τα λεπτά στρογγυλοποίησης στο μεγαλύτερο νοσηλευτήριο */
+function allocate(total, hosp) {
+  const map = SETTINGS.oay.hospitals || [];
+  const sum = hosp.reduce((a, h) => a + h.claims, 0);
+  const rows = hosp.map(h => {
+    const m = map.find(x => x.vendor === h.vendor) || {};
+    const short = m.short || ((h.name.match(/-\s?([A-Z]{3,4})-F\d+$/) || [])[1] || '');
+    const share = sum ? h.claims / sum : 0;
+    return Object.assign({}, h, { short, account: m.account || '', share, amount: round2(total * share), plug: 0 });
+  });
+  const diff = round2(total - rows.reduce((a, r) => a + r.amount, 0));
+  if (rows.length && diff) {
+    const big = rows.reduce((b, r) => (r.claims > b.claims ? r : b), rows[0]);
+    big.plug = diff; big.amount = round2(big.amount + diff);
+  }
+  return { rows, sumClaims: sum, diff };
+}
+
+let OAY_FILE = null;
+async function handleOay(file) {
+  const st = $('#OAY-status'); st.innerHTML = 'Ανάγνωση αρχείου…'; $('#OAY-alloc').innerHTML = '';
+  try {
+    const p = parseOayFile(await readWorkbook(file));
+    if (!p || p.trueUp == null || !p.hosp.length) {
+      st.innerHTML = '<span class="err">Δεν βρέθηκε φύλλο A&amp;E με «True-up to be INVOICED by OKYPY» και γραμμές νοσηλευτηρίων.</span>'; return;
+    }
+    if (p.month) $('#OAY-month').value = p.month;
+    const ym = oayMonth();
+    const gross = round2(p.netClaims + p.copay + p.trueUp), prepay = round2(p.netClaims + p.copay), total = round2(gross - prepay);
+    const al = allocate(total, p.hosp);
+    OAY_FILE = { file: file.name, p, ym, gross, prepay, total, al };
+    const claimsOk = Math.abs(al.sumClaims - prepay) < 0.01;
+    st.innerHTML = `<span class="ok">Φύλλο «${esc(p.sheet)}» · ${monthLabel(ym)}.</span>
+      Χρέωση περιόδου: <b>${fmtEUR(gross)} €</b> · Μείον προπληρωμές ΟΑΥ: <b>${fmtEUR(prepay)} €</b> · Ποσό τιμολογίου: <b>${fmtEUR(total)} €</b>
+      ${claimsOk ? '' : `<br><span class="warn">Το σύνολο των απαιτήσεων νοσηλευτηρίων (${fmtEUR(al.sumClaims)} €) διαφέρει από τις προπληρωμές (${fmtEUR(prepay)} €). Ελέγξτε το αρχείο.</span>`}`;
+    const miss = al.rows.filter(r => !r.account).map(r => r.vendor);
+    $('#OAY-alloc').innerHTML = `<div class="scroll"><table class="t">
+      <thead><tr><th>Κωδ.</th><th>Νοσηλευτήριο</th><th>Λογαριασμός</th><th class="num">Απαιτήσεις (Claims)</th><th class="num">Ποσοστό</th><th class="num">Ποσό κατανομής €</th></tr></thead>
+      <tbody>${al.rows.map(r => `<tr><td>${esc(r.vendor)}</td><td>${esc(r.short)}</td><td>${esc(r.account) || '<span class="err">—</span>'}</td><td class="num">${fmtEUR(r.claims)}</td><td class="num">${(r.share * 100).toLocaleString('el-GR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}%</td><td class="num">${fmtEUR(r.amount)}${r.plug ? ` <span class="tag" title="Λεπτά στρογγυλοποίησης">${r.plug > 0 ? '+' : ''}${fmtEUR(r.plug)}</span>` : ''}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3"><b>Σύνολο</b></td><td class="num"><b>${fmtEUR(al.sumClaims)}</b></td><td class="num"><b>100%</b></td><td class="num"><b>${fmtEUR(al.rows.reduce((a, r) => a + r.amount, 0))}</b></td></tr></tfoot>
+    </table></div>
+    ${miss.length ? `<div class="status warn">Χωρίς λογαριασμό στις Ρυθμίσεις: ${esc(miss.join(', '))}</div>` : ''}
+    <div class="row-actions">
+      <button class="btn primary" id="OAY-taep">+ Τιμολόγιο ΤΑΕΠ ${esc(oayNumber('TAEP', ym))}</button>
+      <button class="btn" id="OAY-allocx">Λήψη Excel κατανομής και εγγραφής</button>
+    </div>`;
+    $('#OAY-taep').onclick = () => {
+      const d = makeOayDraft('TAEP', ym, [
+        { desc: periodText(ym), amount: gross },
+        { desc: 'ΜΕΙΟΝ ΠΡΟΠΛΗΡΩΜΕΣ ΑΠΟ ΟΑΥ (ΕΝΑΝΤΙ)', amount: -prepay }
+      ], { alloc: al.rows.map(r => ({ vendor: r.vendor, short: r.short, account: r.account, claims: r.claims, amount: r.amount })), fileName: file.name, sourceLabel: `${file.name} · ${p.sheet}` });
+      DRAFTS.OAY.push(d); renderList('OAY');
+    };
+    $('#OAY-allocx').onclick = () => exportAllocation(OAY_FILE);
+  } catch (e) {
+    console.error(e); st.innerHTML = `<span class="err">Σφάλμα ανάγνωσης: ${esc(e.message)}</span>`;
+  }
+}
+
+/* Excel κατανομής και εγγραφής intercompany (ζωντανοί τύποι) */
+function exportAllocation(F) {
+  if (!F) return;
+  const S = v => ({ t: 's', v: v == null ? '' : String(v) });
+  const N = (v, f, z) => Object.assign({ t: 'n', v }, f ? { f } : {}, z ? { z } : {});
+  const money = (v, f) => N(round2(v), f, '#,##0.00');
+  const num = oayNumber('TAEP', F.ym), n = F.al.rows.length, r0 = 9, r1 = r0 + n - 1;
+  const A = [
+    [S(`Κατανομή ΤΑΕΠ ${monthLabel(F.ym)} · ${num}`)],
+    [S(`Πηγή: ${F.file} · φύλλο ${F.p.sheet}`)],
+    [S('Καθαρές απαιτήσεις που πλήρωσε ο ΟΑΥ (G4)'), money(F.p.netClaims)],
+    [S('Συμμετοχές δικαιούχων (G5)'), money(F.p.copay)],
+    [S('Ποσό τιμολογίου ΤΑΕΠ (G6, στρογγ.)'), money(F.total, `ROUND(${F.p.trueUp},2)`)],
+    [S('Χρέωση περιόδου (G4+G5+G6)'), money(F.gross, 'B3+B4+B5')],
+    [],
+    ['Κωδ. προμηθευτή', 'Νοσηλευτήριο', 'Συντομογραφία', 'Λογαριασμός', 'Απαιτήσεις (Claims)', 'Ποσοστό', 'Ποσό (στρογγ.)', 'Λεπτά στρογγυλοποίησης', 'Ποσό εγγραφής'].map(S)
+  ];
+  F.al.rows.forEach((r, i) => {
+    const row = r0 + i;
+    A.push([S(r.vendor), S(r.name), S(r.short), S(r.account), money(r.claims),
+      N(r.share, `E${row}/SUM($E$${r0}:$E$${r1})`, '0.0000%'),
+      money(r.amount - r.plug, `ROUND($B$5*F${row},2)`),
+      money(r.plug, `IF(ROW()-${r0 - 1}=MATCH(MAX($E$${r0}:$E$${r1}),$E$${r0}:$E$${r1},0),$B$5-SUM($G$${r0}:$G$${r1}),0)`),
+      money(r.amount, `G${row}+H${row}`)]);
+  });
+  const tr = r1 + 1;
+  A.push([S('Σύνολο'), S(''), S(''), S(''), money(F.al.sumClaims, `SUM(E${r0}:E${r1})`), N(1, `SUM(F${r0}:F${r1})`, '0.00%'),
+    money(F.total - F.al.diff, `SUM(G${r0}:G${r1})`), money(F.al.diff, `SUM(H${r0}:H${r1})`), money(F.total, `SUM(I${r0}:I${r1})`)]);
+  A.push([S('Διαφορά από το τιμολόγιο'), S(''), S(''), S(''), S(''), S(''), S(''), S(''), money(0, `I${tr}-B5`)]);
+  const wsA = XLSX.utils.aoa_to_sheet(A);
+  wsA['!cols'] = [{ wch: 16 }, { wch: 52 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 11 }, { wch: 15 }, { wch: 13 }, { wch: 15 }];
+
+  // Εγγραφή intercompany
+  const date = lastDayOfMonth(F.ym);
+  const E = [['Αρ. τιμολογίου', 'Ημερομηνία', 'Λογαριασμός', 'Χ/Π', 'Περιγραφή', 'Χρέωση €', 'Πίστωση €'].map(S)];
+  E.push([S(num), N(isoToSerial(date), null, 'dd/mm/yyyy'), S(SETTINGS.oay.oayAccount || ''), S('Dr'), S(`ΟΑΥ ${num}`), money(F.total, `'Κατανομή'!B5`), money(0)]);
+  F.al.rows.forEach((r, i) => {
+    E.push([S(num), N(isoToSerial(date), null, 'dd/mm/yyyy'), S(r.account), S('Cr'), S(`${r.short} ${num}`), money(0), money(r.amount, `'Κατανομή'!I${r0 + i}`)]);
+  });
+  const er = E.length;
+  E.push([S('Σύνολο'), S(''), S(''), S(''), S(''), money(F.total, `SUM(F2:F${er})`), money(F.total, `SUM(G2:G${er})`)]);
+  E.push([S('Έλεγχος'), S(''), S(''), S(''), S(''), { t: 's', v: 'ΟΚ', f: `IF(ABS(F${er + 1}-G${er + 1})<0.005,"ΟΚ","ΕΛΕΓΞΤΕ")` }, money(0, `F${er + 1}-G${er + 1}`)]);
+  const wsE = XLSX.utils.aoa_to_sheet(E);
+  wsE['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 5 }, { wch: 22 }, { wch: 15 }, { wch: 15 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsA, 'Κατανομή');
+  XLSX.utils.book_append_sheet(wb, wsE, 'Εγγραφή');
+  XLSX.writeFile(wb, `Κατανομή ΤΑΕΠ ${F.ym}.xlsx`, { compression: true });
+}
+
 /* ---------------- λίστες πρόχειρων ---------------- */
 function custOptions(type, sel) {
   const list = SETTINGS.customers;
@@ -690,7 +873,7 @@ function renderList(group) {
     });
   });
 }
-function renderAllLists() { ['FA', 'TPA', 'SRV'].forEach(g => DRAFTS[g].length && renderList(g)); renderRegister(); }
+function renderAllLists() { ['FA', 'TPA', 'SRV', 'OAY'].forEach(g => DRAFTS[g].length && renderList(g)); renderRegister(); }
 
 /* ---------------- επεξεργασία ---------------- */
 let ED = null;
@@ -735,7 +918,10 @@ const LINE_COLS = {
   FA: [['desc', 'Περιγραφή', 'text'], ['doc', 'Έγγραφο', 'text'], ['code', 'Κωδικός', 'text'], ['date', 'Ημ. καταχώρησης', 'date'], ['qty', 'Ποσότητα', 'num'], ['amount', 'Σύνολο €', 'num']],
   TPA: [['desc', 'Περιγραφή', 'text'], ['date', 'Ημ. παράδοσης', 'date'], ['qty', 'Ποσότητα', 'num'], ['price', 'Τιμή μονάδας', 'num'], ['_amt', 'Σύνολο €', 'calc']],
   TA: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']],
-  INV: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']]
+  INV: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']],
+  TAEP: [['desc', 'Περίοδος / περιγραφή', 'text'], ['amount', 'Ποσό €', 'num']],
+  YGOS: [['desc', 'Υπηρεσία', 'text'], ['amount', 'Ποσό €', 'num']],
+  YA: [['desc', 'Περίοδος', 'text'], ['amount', 'Ποσό €', 'num']]
 };
 function renderLines() {
   const d = ED, cols = LINE_COLS[d.type], dis = isIssued(d) ? 'disabled' : '';
@@ -821,8 +1007,8 @@ function buildPdf(d) {
   y = Math.max(ly, 79);
   doc.setDrawColor(...blue); doc.setLineWidth(0.6); doc.line(M, y, W - M, y);
 
-  // κείμενο πληρωμής
-  y += 9; doc.setFontSize(9.5);
+  const drawPay = y0 => {
+    let y = y0; doc.setFontSize(9.5); doc.setFont('LS', 'normal');
   doc.text('Αναφορικά με την κατάσταση λογαριασμού σας στον Οργανισμό Κρατικών Υπηρεσιών Υγείας', M, y);
   y += 5;
   const p1 = 'παρακαλώ όπως καταβληθεί το ποσό των ';
@@ -834,10 +1020,66 @@ function buildPdf(d) {
   doc.text('στον πιο κάτω τραπεζικό λογαριασμό:', x, y);
 
   y += 9; doc.setFont('LS', 'bold');
-  doc.text(O.bank1, M, y); y += 4.6;
-  doc.text(O.bank2, M, y); y += 4.6;
-  doc.text(`IBAN: ${O.iban} , SWIFT CODE: ${O.swift}`, M, y);
-  y += 6;
+  const amb = T.bank === 'amb';
+  doc.text(amb ? O.bankAmb1 : O.bank1, M, y); y += 4.6;
+  doc.text(amb ? O.bankAmb2 : O.bank2, M, y); y += 4.6;
+  doc.text(`IBAN: ${amb ? O.ibanAmb : O.iban} , SWIFT CODE: ${O.swift}`, M, y);
+  return y + 6;
+  };
+  const sign = y0 => {
+    let y = y0;
+    const remarks = remarkText(src);
+    const remLines = remarks ? remarks.split('\n').flatMap(t => doc.splitTextToSize(t, 85)) : [];
+    const need = Math.max(42, 10 + remLines.length * 4.4);
+    if (y + need > H - 24) { doc.addPage(); y = 25; }
+    doc.setFontSize(9.5);
+    if (remarks) {
+      doc.setFont('LS', 'bold'); doc.text('ΠΑΡΑΤΗΡΗΣΕΙΣ', M, y + 4);
+      doc.setLineWidth(0.3); doc.setDrawColor(...ink); doc.line(M, y + 5.2, M + 85, y + 5.2);
+      doc.setFont('LS', 'normal'); doc.text(remLines, M, y + 10);
+    }
+    const sx = 150;
+    doc.setFont('LS', 'normal'); doc.setTextColor(...ink);
+    doc.text('………………………………………………..', sx, y + 14, { align: 'center' });
+    doc.text(O.signName, sx, y + 19, { align: 'center' });
+    doc.text(O.signTitle, sx, y + 24, { align: 'center' });
+    doc.text(O.signUnit, sx, y + 29, { align: 'center' });
+    if (O.signOrg) doc.text(O.signOrg, sx, y + 34, { align: 'center' });
+  };
+  const tblStyle = {
+    theme: 'grid', margin: { left: M, right: M, top: 18, bottom: 22 },
+    styles: { font: 'LS', fontSize: 8.5, cellPadding: 1.5, textColor: ink, lineColor: [175, 175, 175], lineWidth: 0.2, valign: 'middle' },
+    headStyles: { font: 'LS', fontStyle: 'bold', fillColor: deep, textColor: 255, halign: 'center', fontSize: 8.5 },
+    footStyles: { font: 'LS', fontStyle: 'bold', fillColor: [234, 234, 234], textColor: ink, fontSize: 10 }
+  };
+
+  if (isOay(d.type)) {
+    // ΟΑΥ: χρέωση περιόδου πρώτα, μετά το κείμενο πληρωμής (όπως στα πρότυπα)
+    y += 8; doc.setFont('LS', 'bold'); doc.setFontSize(9);
+    doc.text('Χρέωση σύμφωνα με τις Συμβάσεις και Αποφάσεις μεταξύ Οργανισμού Ασφάλισης Υγείας', M, y);
+    doc.text(`και Οργανισμού Κρατικών Υπηρεσιών Υγείας${d.type === 'YGOS' ? '' : ' περίοδος χρέωσης :'}`, M, y + 4.6);
+    y += 9;
+    const ym = src.month || src.date.slice(0, 7);
+    if (d.type === 'YGOS') {
+      doc.autoTable(Object.assign({}, tblStyle, {
+        startY: y, head: [[{ content: `ΠΕΡΙΟΔΟΣ ΧΡΕΩΣΗΣ ${periodText(ym)}`, colSpan: 2 }]],
+        body: src.lines.map(l => [l.desc, fmtEUR(lineAmount(l, d.type))]),
+        foot: [[{ content: 'ΟΛΙΚΟ ΠΟΣΟ €', styles: { halign: 'right' } }, { content: fmtEUR(total), styles: { halign: 'right' } }]],
+        showFoot: 'lastPage', columnStyles: { 0: { cellWidth: 145 }, 1: { halign: 'right' } }
+      }));
+    } else {
+      const body = src.lines.map((l, i) => [i === 0 ? periodText(ym) : l.desc, fmtEUR(Math.abs(lineAmount(l, d.type)))]);
+      doc.autoTable(Object.assign({}, tblStyle, {
+        startY: y, head: [['ΠΕΡΙΟΔΟΣ ΧΡΕΩΣΗΣ', 'ΠΟΣΟ']], body,
+        foot: [[{ content: 'ΟΛΙΚΟ ΠΟΣΟ', styles: { halign: 'center' } }, { content: fmtEUR(total), styles: { halign: 'right' } }]],
+        showFoot: 'lastPage', margin: { left: 115, right: M, top: 18, bottom: 22 },
+        columnStyles: { 0: { cellWidth: 45, halign: 'center', fontStyle: 'bold' }, 1: { halign: 'right' } }
+      }));
+    }
+    y = drawPay(doc.lastAutoTable.finalY + 12);
+    sign(y + 4);
+  } else {
+  y = drawPay(y + 9);
 
   // πίνακας
   let head, body, colStyles;
@@ -878,25 +1120,8 @@ function buildPdf(d) {
     columnStyles: colStyles
   });
 
-  // παρατηρήσεις και υπογραφή
-  y = doc.lastAutoTable.finalY + 10;
-  const remarks = remarkText(src);
-  const remLines = remarks ? remarks.split('\n').flatMap(t => doc.splitTextToSize(t, 85)) : [];
-  const need = Math.max(42, 10 + remLines.length * 4.4);
-  if (y + need > H - 24) { doc.addPage(); y = 25; }
-  doc.setFontSize(9.5);
-  if (remarks) {
-    doc.setFont('LS', 'bold'); doc.text('ΠΑΡΑΤΗΡΗΣΕΙΣ', M, y + 4);
-    doc.setLineWidth(0.3); doc.line(M, y + 5.2, M + 85, y + 5.2);
-    doc.setFont('LS', 'normal'); doc.text(remLines, M, y + 10);
+  sign(doc.lastAutoTable.finalY + 10);
   }
-  const sx = 150;
-  doc.setFont('LS', 'normal'); doc.setTextColor(...ink);
-  doc.text('………………………………………………..', sx, y + 14, { align: 'center' });
-  doc.text(O.signName, sx, y + 19, { align: 'center' });
-  doc.text(O.signTitle, sx, y + 24, { align: 'center' });
-  doc.text(O.signUnit, sx, y + 29, { align: 'center' });
-  if (O.signOrg) doc.text(O.signOrg, sx, y + 34, { align: 'center' });
 
   // υποσέλιδο
   const pages = doc.getNumberOfPages();
@@ -1005,8 +1230,11 @@ function exportSap() {
     const ir = i + 2, T = typeOf(r.type), c = r.customer || {}, t = totals(r);
     const hdr = `${T.prefix} ${r.date.slice(5, 7)}/${r.date.slice(0, 4)}`.slice(0, 25);
     const item = `${T.label} ${c.name || ''} ${c.sub || ''}`.replace(/\s+/g, ' ').trim().slice(0, 50);
-    const legs = [[S.pkDebit, c.sapCode || '', `'Τιμολόγια'!L${ir}`, t.total, S.taxCode, item],
-      [S.pkCredit, T.gl || '', `'Τιμολόγια'!G${ir}`, t.net, S.taxCode, item]];
+    const legs = [[S.pkDebit, c.sapCode || '', `'Τιμολόγια'!L${ir}`, t.total, S.taxCode, item]];
+    if (r.type === 'TAEP' && (r.alloc || []).length) {
+      // intercompany: πίστωση κάθε νοσηλευτηρίου με το ποσό κατανομής
+      r.alloc.forEach(a => legs.push([S.pkCredit, a.account || '', null, a.amount, S.taxCode, `ΤΑΕΠ ${a.short} ${r.number}`]));
+    } else legs.push([S.pkCredit, T.gl || '', `'Τιμολόγια'!G${ir}`, t.net, S.taxCode, item]);
     if (t.on) {
       legs.push([S.pkCredit, S.glAdmin || '', `'Τιμολόγια'!I${ir}`, t.admin, S.taxCodeAdmin, `Διοικητικά έξοδα ${t.adminRate}% ${r.number}`]);
       legs.push([S.pkCredit, S.glVat || '', `'Τιμολόγια'!K${ir}`, t.vat, S.taxCodeAdmin, `ΦΠΑ ${t.vatRate}% στα διοικητικά ${r.number}`]);
@@ -1077,6 +1305,8 @@ const ORG_FIELDS = [
   ['org', 'signUnit', 'Υπηρεσία'], ['org', 'signOrg', 'Οργανισμός (κάτω από την υπογραφή)'],
   ['sap', 'companyCode', 'SAP Company Code'], ['sap', 'docType', 'SAP Document Type'], ['sap', 'currency', 'Νόμισμα'],
   ['sap', 'pkDebit', 'Posting key χρέωσης πελάτη'], ['sap', 'pkCredit', 'Posting key πίστωσης εσόδων'], ['sap', 'taxCode', 'Κωδικός ΦΠΑ (αν χρειάζεται)'],
+  ['org', 'bankAmb1', 'ΥΑ: δικαιούχος λογαριασμού'], ['org', 'bankAmb2', 'ΥΑ: όνομα λογαριασμού (αγγλικά)'], ['org', 'ibanAmb', 'ΥΑ: IBAN'],
+  ['oay', 'oayAccount', 'ΟΑΥ: λογαριασμός χρέωσης (Dr)'], ['oay', 'yaAnnual', 'ΥΑ: ετήσιο ποσό € (μηνιαίο = /12)'],
   ['fees', 'adminRate', 'Διοικητικά έξοδα (%)'], ['fees', 'vatRate', 'ΦΠΑ στα διοικητικά έξοδα (%)'],
   ['sap', 'glAdmin', 'Λογ. εσόδων διοικητικών (G/L)'], ['sap', 'glVat', 'Λογ. ΦΠΑ εκροών (G/L)'], ['sap', 'taxCodeAdmin', 'Κωδικός ΦΠΑ διοικητικών']
 ];
@@ -1108,7 +1338,33 @@ function renderSettings() {
   $('#SET-org').innerHTML = ORG_FIELDS.map(([g, k, lbl, t]) => t === 'area'
     ? `<label style="grid-row:span 2">${lbl}<textarea data-g="${g}" data-k="${k}" rows="6">${esc(SETTINGS[g][k])}</textarea></label>`
     : `<label>${lbl}<input data-g="${g}" data-k="${k}" value="${esc(SETTINGS[g][k])}"></label>`).join('');
-  $$('#SET-org [data-k]').forEach(inp => inp.oninput = () => SETTINGS[inp.dataset.g][inp.dataset.k] = inp.value);
+  $$('#SET-org [data-k]').forEach(inp => inp.oninput = () => {
+    SETTINGS[inp.dataset.g][inp.dataset.k] = inp.dataset.k === 'yaAnnual' ? (parseNum(inp.value) ?? 0) : inp.value;
+  });
+  renderOaySettings();
+}
+function renderOaySettings() {
+  const O = SETTINGS.oay;
+  const ytot = O.ygosLines.reduce((a, l) => a + round2(Number(l.amount) || 0), 0);
+  $('#SET-oay').innerHTML = `
+    <h3>ΥΓΟΣ: γραμμές τιμολογίου (σύνολο ${fmtEUR(ytot)} €)</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>Υπηρεσία</th><th class="num">Ποσό €</th><th></th></tr></thead><tbody>
+    ${O.ygosLines.map((l, i) => `<tr data-i="${i}"><td><input data-k="desc" value="${esc(l.desc)}"></td><td style="width:160px"><input class="num" data-k="amount" value="${esc(fmtEUR(l.amount))}"></td><td><button class="btn small ghost danger" data-del="${i}">✕</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row-actions"><button class="btn small ghost" id="SET-ygos-add">+ Γραμμή ΥΓΟΣ</button></div>
+    <h3 style="margin-top:14px">ΤΑΕΠ: νοσηλευτήρια και λογαριασμοί κατανομής</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>Κωδ. προμηθευτή ΟΑΥ</th><th>Συντομογραφία</th><th>Λογαριασμός (Cr)</th><th></th></tr></thead><tbody>
+    ${O.hospitals.map((h, i) => `<tr data-h="${i}"><td><input data-k="vendor" value="${esc(h.vendor)}"></td><td><input data-k="short" value="${esc(h.short)}"></td><td><input data-k="account" value="${esc(h.account)}"></td><td><button class="btn small ghost danger" data-hdel="${i}">✕</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row-actions"><button class="btn small ghost" id="SET-hosp-add">+ Νοσηλευτήριο</button></div>`;
+  $$('#SET-oay tr[data-i]').forEach(tr => $$('[data-k]', tr).forEach(inp => inp.onchange = () => {
+    const l = O.ygosLines[+tr.dataset.i]; l[inp.dataset.k] = inp.dataset.k === 'amount' ? (parseNum(inp.value) ?? 0) : inp.value; renderOaySettings();
+  }));
+  $$('#SET-oay [data-del]').forEach(b => b.onclick = () => { O.ygosLines.splice(+b.dataset.del, 1); renderOaySettings(); });
+  $$('#SET-oay tr[data-h]').forEach(tr => $$('[data-k]', tr).forEach(inp => inp.oninput = () => { O.hospitals[+tr.dataset.h][inp.dataset.k] = inp.value.trim(); }));
+  $$('#SET-oay [data-hdel]').forEach(b => b.onclick = () => { O.hospitals.splice(+b.dataset.hdel, 1); renderOaySettings(); });
+  $('#SET-ygos-add').onclick = () => { O.ygosLines.push({ desc: '', amount: 0 }); renderOaySettings(); };
+  $('#SET-hosp-add').onclick = () => { O.hospitals.push({ vendor: '', short: '', account: '' }); renderOaySettings(); };
 }
 function saveSettings(msg = 'Οι ρυθμίσεις αποθηκεύτηκαν.') {
   const ok = LS.set(K_SET, SETTINGS);
@@ -1139,6 +1395,18 @@ function init() {
   bindDrop($('.drop[data-target="FA"]'), handleFA);
   bindDrop($('.drop[data-target="TPA"]'), handleTPA);
   bindDrop($('.drop[data-target="SRV"]'), handleSRV);
+  bindDrop($('.drop[data-target="OAY"]'), handleOay);
+  $('#OAY-month').value = oayMonth();
+  $('#OAY-ygos').onclick = () => {
+    const ym = oayMonth();
+    DRAFTS.OAY.push(makeOayDraft('YGOS', ym, SETTINGS.oay.ygosLines.map(l => ({ desc: l.desc, amount: round2(Number(l.amount) || 0) }))));
+    renderList('OAY');
+  };
+  $('#OAY-ya').onclick = () => {
+    const ym = oayMonth();
+    DRAFTS.OAY.push(makeOayDraft('YA', ym, [{ desc: periodText(ym), amount: round2((Number(SETTINGS.oay.yaAnnual) || 0) / 12) }]));
+    renderList('OAY');
+  };
   $('#TPA-blank').onclick = () => {
     DRAFTS.TPA.push({ id: uid(), type: 'TPA', customerId: '', number: '', date: todayISO(), remarks: '', lines: [{ desc: '', date: todayISO(), qty: 1, price: 0 }], sourceKey: '', sourceLabel: 'Χειροκίνητο' });
     renderList('TPA'); openEditor(DRAFTS.TPA[DRAFTS.TPA.length - 1]);
