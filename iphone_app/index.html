@@ -297,6 +297,13 @@ footer a{color:var(--accent);text-decoration:none}
 .fsbig.go{color:var(--go)} .fsbig.crit{color:var(--crit)}
 .fssub{font-size:13px;color:var(--text);line-height:1.45}
 .fsnote{font-size:12px;color:var(--muted);line-height:1.45}
+.fsfail{border-left:3px solid var(--crit);background:var(--crit-soft);border-radius:0 10px 10px 0;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.fshead{font-size:14px;font-weight:700;color:var(--crit)}
+.fsfix{font-size:12.5px;line-height:1.45;color:var(--text)}
+.fsfix b{color:var(--accent)}
+.lbrow .need{opacity:.75}
+.lbrow.low{color:var(--crit);font-weight:600}
+.lbwhy{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:3px;padding:2px 6px;border-radius:6px;display:inline-block;color:var(--crit);background:var(--crit-soft)}
 .clegend{display:flex;flex-direction:column;gap:5px;margin:12px 0 8px;font-size:12.5px}
 .lgi{display:flex;align-items:center;gap:4px;min-width:0}
 .lgi b{margin-right:3px}
@@ -1074,7 +1081,7 @@ function evaluate(s){
    // stopping short of the vitals still scored. Both gates now ramp smoothly.
   const effEnergy=pelletEfficacy(e,sp.e);
   const effDepth=pelletEfficacy(pen,sp.depth);      // sp.depth = 0 for clays -> 1
-  const effShare=effEnergy*effDepth;                // share that reach the vitals
+  const effShare=s._fullEnergy?1:effEnergy*effDepth; // share that reach the vitals (_fullEnergy: diagnostic only)
   const totalEff=total*0.84*effShare;               // Lowry core correction x efficacy
   // decoyed/incoming birds present vitals frontally (Roster's lower count);
   // crossing and going-away birds use the 3-4 torso-hit standard.
@@ -1909,6 +1916,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;",
 
 /* the test as the calculator's measured-pattern record */
 function testMeasured(t){
+  if(t._base)t=t._base;          // a what-if load still reads the sheets shot with the real one
   if(!t.points.length)return null;
   const tot=testTotal(t);
   return {load:{mat:t.mat,shot:t.shot,payOz:t.payOz,choke:t.choke},
@@ -1948,6 +1956,59 @@ function analyseRangeRaw(t,choke){
   const nxt=rows.find(x=>x.r===res.last+1); if(nxt)res.far=nxt.ev;
   const prv=rows.find(x=>x.r===res.first-1); if(prv)res.near=prv.ev;
   return res;
+}
+/* WHY a shot fails, in the two terms a shooter can act on:
+   HITS   — too few pellets strike the bird (thin pattern, or aim scatter
+            through a tight one): more pellets, a heavier load or more choke;
+   ENERGY — pellets strike but carry too little energy or don't reach the
+            vitals: only a BIGGER pellet fixes that.
+   Hits are judged as if every strike had full energy, so the two never mix. */
+function failKind(ev,t,yd,choke){
+  const energy=!ev.eGate||!ev.depthGate||ev.effShare<0.9;
+  const full=evaluate({...labState(t,yd,choke,true),_fullEnergy:true});
+  const hits=full.p<0.90;
+  return {kind:energy&&hits?"both":energy?"energy":"hits",full};
+}
+const eTxt=e=>isMetric()?(e*FTLB_J).toFixed(e*FTLB_J<3?2:1)+" J":e.toFixed(2)+" ft·lbf";
+function hitsDetail(ev){
+  const short=Math.round((1-ev.p)*100), noun=ev.clay?"clay":"bird";
+  if(!ev.clay&&ev.circle<ev.sp.min)
+    return `the pattern has thinned to ${Math.round(ev.circle)} pellets in the ${circleLabel()} circle (${ev.sp.min} needed), so a typical shot puts only ${Math.round(ev.hitsPoor)}–${Math.round(ev.hitsGood)} on the ${noun} against the ${ev.req} needed — ${short}% of shots fall short`;
+  return `typical shots put ${Math.round(ev.hitsPoor)}–${Math.round(ev.hitsGood)} pellets on the ${noun}, but ${short}% of shots get fewer than the ${ev.req} needed. `
+    +`The pattern is still dense (${Math.round(ev.circle)} in the circle${ev.clay?"":`, ${ev.sp.min} needed`}): the misses come from aim scatter, which more choke barely helps`;
+}
+function energyDetail(ev){
+  const what=!ev.depthGate&&ev.eGate?`each #${ev.dIn?shotOf(ev):""} pellet reaches only ${(isMetric()?Math.round(ev.pen*IN_MM)+" mm":ev.pen.toFixed(2)+"″")} deep — short of the vitals`
+    :`each pellet carries ${eTxt(ev.e)} against a ${eTxt(ev.sp.e)} minimum${ev.e>=ev.sp.e?` — only just over it; a reliable ${ev.clay?"break":"kill"} wants about ${eTxt(ev.sp.e*1.3)}`:""}, so only ~${Math.round(ev.effShare*100)}% of strikes ${ev.clay?"carry enough to break it":"reach the vitals with killing energy"}`;
+  return `${what}. Plenty of pellets strike (${Math.round(ev.hitsPoor)}–${Math.round(ev.hitsGood)} on the ${ev.clay?"clay":"bird"}) — they just don't ${ev.clay?"break it":"kill"}`;
+}
+function shotOf(ev){for(const k of SHOT_ORDER)if(SHOT[k]===ev.dIn)return k;return "";}
+/* try the changes that address the shortage and keep the ones that help */
+function fixOptions(t,kind,lastYd){
+  const out=[], si=SHOT_ORDER.indexOf(t.shot), ci=CHOKE_ORDER.indexOf(t.choke), g=Math.round(t.payOz*OZ_G);
+  const tryV=(v,label)=>{const a=analyseRange({...t,...v,_base:t._base||t});if(a.last!=null&&a.last>=lastYd+1)out.push({label,last:a.last,first:a.first});};
+  if(kind!=="hits")for(let k=si+1;k<=Math.min(SHOT_ORDER.length-1,si+3);k++){
+    const s=SHOT_ORDER[k]; tryV({shot:s},`#${s} pellets (same ${g} g load, ${pelletCount(t.mat,SHOT[s],t.payOz)} pellets)`);}
+  if(kind!=="energy"){
+    for(let k=ci+1;k<=Math.min(CHOKE_ORDER.length-1,ci+2);k++)tryV({choke:CHOKE_ORDER[k]},`${CHOKE_NAME[CHOKE_ORDER[k]]} choke`);
+    for(const ng of [g+4,g+8])if(ng<=36&&ng>g)tryV({payOz:ng/OZ_G},`a ${ng} g load (${pelletCount(t.mat,SHOT[t.shot],ng/OZ_G)} pellets)`);
+    if(kind==="hits"&&si>0)tryV({shot:SHOT_ORDER[si-1]},`#${SHOT_ORDER[si-1]} pellets (more of them: ${pelletCount(t.mat,SHOT[SHOT_ORDER[si-1]],t.payOz)})`);
+  }
+  return out.sort((a,b)=>b.last-a.last).slice(0,2);
+}
+/* the "fails beyond" block for the strip */
+function failBlock(t,yd,ev){
+  const f=failKind(ev,t,yd,null), u=dispUnit();
+  const head={hits:"not enough pellet hits",energy:"pellet energy too low — you need a bigger pellet",
+    both:"short of hits AND pellet energy — you need a bigger pellet and more of them"}[f.kind];
+  let h=`<div class="fsfail ${f.kind}"><div class="fshead">✕ Beyond ${dispDist(yd-1)}: ${head}</div>`;
+  const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+  if(f.kind!=="hits")h+=`<div class="fssub">${cap(energyDetail(ev))}.</div>`;
+  if(f.kind!=="energy")h+=`<div class="fssub">${f.kind==="both"?"Even with enough energy, "+hitsDetail(f.full):cap(hitsDetail(ev))}.${f.kind==="hits"?` Energy is fine: ${eTxt(ev.e)} per pellet (${eTxt(ev.sp.e)} needed).`:""}</div>`;
+  const fx=fixOptions(t,f.kind,yd-1);
+  h+=fx.length?`<div class="fsfix"><b>Fix:</b> ${fx.map(o=>`${o.label} → ${o.first!=null&&o.first>8?"clean from ":"clean "}${rangeText(o)}`).join(" · ")}</div>`
+    :`<div class="fsfix"><b>No pellet, load or choke change</b> gets this past ${dispDist(yd-1)} — keep shots inside it.</div>`;
+  return h+`</div>`;
 }
 function failReason(ev,far){
   const clay=ev.clay, sp=ev.sp, m=isMetric();
@@ -2002,11 +2063,15 @@ function drawLabBoard(cv,ev,photo,seedKey){
 const VICON={"clean-kill-likely":"✓","marginal":"◐","wounding-likely":"✕"};
 function vWord(ev){return ev.clay?{"clean-kill-likely":"solid break","marginal":"chippy","wounding-likely":"poor break"}[ev.verdict]
   :{"clean-kill-likely":"clean","marginal":"marginal","wounding-likely":"wounding"}[ev.verdict];}
-function tileCaption(ev,yd,isPhoto){
-  return `<div class="lbcap"><b>${dispDist(yd)}</b><span class="lbsrc ${isPhoto?"m":""}">${isPhoto?"photo":"drawn"}</span></div>`
+function tileCaption(ev,yd,sh,why){
+  const src=sh&&sh.thumb?"photo":sh?"measured":"drawn";
+  const eLow=!ev.eGate||!ev.depthGate;
+  return `<div class="lbcap"><b>${dispDist(yd)}</b><span class="lbsrc ${sh?"m":""}">${src}</span></div>`
     +`<div class="lbrow">${Math.round(ev.circle)} in circle</div>`
-    +`<div class="lbrow">${Math.round(ev.hitsPoor)}–${Math.round(ev.hitsGood)} on ${ev.clay?"clay":"bird"}</div>`
-    +`<div class="lbv ${VCLS[ev.verdict]}">${VICON[ev.verdict]} ${Math.round(ev.p*100)}% ${vWord(ev)}</div>`;
+    +`<div class="lbrow">${Math.round(ev.hitsPoor)}–${Math.round(ev.hitsGood)} on ${ev.clay?"clay":"bird"} <span class="need">/ ${ev.req} needed</span></div>`
+    +`<div class="lbrow${eLow?" low":""}">${eLow?"✕ ":""}${eTxt(ev.e)} a pellet</div>`
+    +`<div class="lbv ${VCLS[ev.verdict]}">${VICON[ev.verdict]} ${Math.floor(ev.p*100)}% ${vWord(ev)}</div>`
+    +(why?`<div class="lbwhy ${why}">${{hits:"short of hits",energy:"low energy → bigger pellet",both:"hits + energy"}[why]}</div>`:"");
 }
 
 /* ---- the series being compared (each keeps its colour slot) ---- */
@@ -2160,11 +2225,11 @@ function renderStrip(t){
   let html;
   if(a.first==null){
     const b=a.best;
-    html=`<div class="fsbig crit">✕ No ${clay?"reliable break":"clean-kill"} range</div><div class="fssub">Best is ${Math.round(b.ev.p*100)}% at ${dispDist(b.r)}: ${failReason(b.ev,true)}.</div>`;
+    html=`<div class="fsbig crit">✕ No ${clay?"reliable break":"clean-kill"} range</div><div class="fssub">Best is ${Math.floor(b.ev.p*100)}% at ${dispDist(b.r)}.</div>`+failBlock(t,b.r+1,b.ev).replace(/Beyond [^:]+:/,"At "+dispDist(b.r)+":");
   }else{
     html=`<div class="fsbig go">✓ ${noun} ${a.first<=8?"":"from "}${rangeText(a)}</div>`;
-    if(a.far)html+=`<div class="fssub"><b>Fails beyond ${dispDist(a.last)}:</b> ${failReason(a.far,true)}.</div>`;
-    if(a.near)html+=`<div class="fssub"><b>Closer than ${dispDist(a.first)}:</b> ${failReason(a.near,false)}.</div>`;
+    if(a.far)html+=failBlock(t,a.last+1,a.far);
+    if(a.near)html+=`<div class="fsfail hits"><div class="fshead">✕ Closer than ${dispDist(a.first)}: pattern too tight</div><div class="fssub">${failReason(a.near,false)} — open the choke for close birds.</div></div>`;
   }
   const far=t.points.length?Math.max(...t.points.map(p=>p.dist)):0;
   if(!t.points.length)html+=`<div class="fsnote">No sheets yet — this is the nominal ${CHOKE_NAME[t.choke]} pattern, not your gun.</div>`;
@@ -2178,7 +2243,8 @@ function renderStrip(t){
     drawLabBoard(tile.querySelector("canvas"),ev,sh?thumbImg(sh):null,t.id+"|"+Math.round(yd*10));
     const clean=ev.verdict==="clean-kill-likely"; if(clean)seenClean=true;
     if(!clean&&seenClean&&!failMarked){tile.classList.add("fail");failMarked=true;}
-    tile.querySelector(".lbinfo").innerHTML=(tile.classList.contains("fail")?`<div class="lbfail">✕ fails here</div>`:"")+tileCaption(ev,yd,!!sh);
+    const why=clean?null:(seenClean||yd>=(a.last||0))?failKind(ev,t,yd,null).kind:"hits";
+    tile.querySelector(".lbinfo").innerHTML=(tile.classList.contains("fail")?`<div class="lbfail">✕ fails here</div>`:"")+tileCaption(ev,yd,sh,why);
   });
 }
 function renderCompare(){
@@ -2200,7 +2266,7 @@ function renderCompare(){
   $("cmpBoards").querySelectorAll("canvas").forEach(cv=>{
     const s=series[+cv.dataset.i], sh=s.projected?null:sheetAt(s.t,dyd), ev=labEval(s.t,dyd,s.choke,false);
     drawLabBoard(cv,ev,sh?thumbImg(sh):null,s.key+"|"+Math.round(dyd*10));
-    cv.parentElement.querySelector(".lbinfo").innerHTML=tileCaption(ev,dyd,!!sh);
+    cv.parentElement.querySelector(".lbinfo").innerHTML=tileCaption(ev,dyd,sh);
   });
   // table
   const ds=[]; for(let x=15;x<=(m?50:55);x+=5)ds.push(x);
@@ -2511,7 +2577,7 @@ if("serviceWorker" in navigator && notFramed && location.protocol==="https:"){
    replaces the offline copy. */
 const $v=id=>document.getElementById(id);
 const vFramed=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
-const APP_VERSION="1.93", APP_BUILD="2026-11-03";
+const APP_VERSION="1.94", APP_BUILD="2026-11-03";
 function verLabel(){return "v"+APP_VERSION+(APP_BUILD?" · "+APP_BUILD:"");}
 $v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
 $v("verFoot").textContent=verLabel();

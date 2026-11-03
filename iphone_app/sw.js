@@ -2,7 +2,7 @@
    Network-first for pages (so updates show online), cache-first for assets.
    CACHE is stamped with the app version by tools/release.py, so every release
    is a changed sw.js: the browser installs it and the old cache is dropped. */
-const CACHE = "clean-shot-1.93";
+const CACHE = "clean-shot-1.94";
 const ASSETS = ["./", "index.html", "install.html", "manifest.webmanifest",
   "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 
