@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ΟΚΥπΥ Τιμολόγηση Υπουργείων</title>
+<style>/*@@CSS@@*/</style>
+</head>
+<body>
+<header class="top">
+  <img id="logo" alt="ΟΚΥπΥ" src="/*@@LOGO@@*/">
+  <div class="top-text">
+    <h1>Τιμολόγηση παραχωρήσεων και υπηρεσιών</h1>
+    <p>Έκδοση τιμολογίων ΟΚΥπΥ προς Υπουργεία και φορείς · αρχείο PDF και αρχείο SAP για καταχώρηση εσόδων</p>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="FA">1. Φάρμακα (ΦΑ)</button>
+  <button class="tab" data-tab="TPA">2. Αναλώσιμα (ΤΠΑ)</button>
+  <button class="tab" data-tab="SRV">3. Υπηρεσίες (ΤΑ / INV)</button>
+  <button class="tab" data-tab="REG">4. Μητρώο και SAP <span id="regCount" class="badge">0</span></button>
+  <button class="tab" data-tab="SET">5. Ρυθμίσεις</button>
+  <button class="tab" data-tab="HELP">Οδηγίες</button>
+</nav>
+
+<main>
+<!-- ===== ΦΑ ===== -->
+<section class="panel active" id="tab-FA">
+  <div class="card">
+    <h2>Τιμολόγια Παραχώρησης Φαρμάκων</h2>
+    <p class="hint">Ανεβάστε το Excel «ΕΚΔΟΣΕΙΣ ΟΚΥΠΥ» από το SAP. Κάθε καρτέλα γίνεται ένα τιμολόγιο ανά μήνα του Posting Date. Οι αντιλογισμοί (262 / 955) συμψηφίζονται με τις αντίστοιχες εκδόσεις.</p>
+    <label class="drop" data-target="FA"><input type="file" accept=".xlsx,.xls,.xlsm" hidden><span>Σύρετε εδώ το Excel ή κάντε κλικ για επιλογή</span></label>
+    <div id="FA-status" class="status"></div>
+  </div>
+  <div class="card" id="FA-list-card" hidden>
+    <h3>Τιμολόγια προς έκδοση</h3>
+    <div id="FA-list"></div>
+  </div>
+</section>
+
+<!-- ===== ΤΠΑ ===== -->
+<section class="panel" id="tab-TPA">
+  <div class="card">
+    <h2>Τιμολόγια Παραχώρησης Αναλωσίμων</h2>
+    <p class="hint">Ανεβάστε το Excel ή PDF που σας στέλνουν (π.χ. «24.1022 ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ»). Αν το αρχείο είναι εξαγωγή SAP, οι γραμμές διαβάζονται αυτόματα. Αλλιώς επιλέξτε ποια στήλη είναι η περιγραφή, η ποσότητα και η τιμή. Μπορείτε επίσης να ξεκινήσετε κενό τιμολόγιο.</p>
+    <label class="drop" data-target="TPA"><input type="file" accept=".xlsx,.xls,.xlsm,.pdf" hidden><span>Σύρετε εδώ Excel ή PDF ή κάντε κλικ για επιλογή</span></label>
+    <div class="row-actions"><button class="btn ghost" id="TPA-blank">+ Κενό τιμολόγιο</button></div>
+    <div id="TPA-status" class="status"></div>
+    <div id="TPA-map"></div>
+  </div>
+  <div class="card" id="TPA-list-card" hidden>
+    <h3>Τιμολόγια προς έκδοση</h3>
+    <div id="TPA-list"></div>
+  </div>
+</section>
+
+<!-- ===== Υπηρεσίες ===== -->
+<section class="panel" id="tab-SRV">
+  <div class="card">
+    <h2>Τιμολόγια Παροχής Υπηρεσιών</h2>
+    <p class="hint">Ανεβάστε το PDF τιμολογίου της One Point. Το εργαλείο προτείνει ποσό, αριθμό και αν αφορά Τράπεζα Αίματος (αρχικά <b>ΤΑ</b>) ή Κέντρο Αίματος (αρχικά <b>INV</b>). Ελέγξτε το ποσό πριν την έκδοση.</p>
+    <label class="drop" data-target="SRV"><input type="file" accept=".pdf,.xlsx,.xls" hidden><span>Σύρετε εδώ το PDF της One Point ή κάντε κλικ για επιλογή</span></label>
+    <div class="row-actions">
+      <button class="btn ghost" id="SRV-blank-TA">+ Κενό ΤΑ (Τράπεζα Αίματος)</button>
+      <button class="btn ghost" id="SRV-blank-INV">+ Κενό INV (Κέντρο Αίματος)</button>
+    </div>
+    <div id="SRV-status" class="status"></div>
+  </div>
+  <div class="card" id="SRV-list-card" hidden>
+    <h3>Τιμολόγια προς έκδοση</h3>
+    <div id="SRV-list"></div>
+  </div>
+</section>
+
+<!-- ===== Μητρώο ===== -->
+<section class="panel" id="tab-REG">
+  <div class="card">
+    <h2>Μητρώο εκδοθέντων τιμολογίων</h2>
+    <p class="hint">Εδώ μπαίνει κάθε τιμολόγιο που πατήσατε «Έκδοση». Επιλέξτε ποια θα περάσουν στο SAP και κατεβάστε το Excel. Το μητρώο αποθηκεύεται μόνο σε αυτόν τον browser, γι' αυτό κρατάτε αντίγραφο με «Αντίγραφο ασφαλείας».</p>
+    <div class="filters">
+      <label>Μήνας καταχώρησης <input type="month" id="REG-month"></label>
+      <label>Τύπος <select id="REG-type"><option value="">Όλοι</option><option>ΦΑ</option><option>ΤΠΑ</option><option>ΤΑ</option><option>INV</option></select></label>
+      <label class="chk"><input type="checkbox" id="REG-unexported"> Μόνο όσα δεν πέρασαν στο SAP</label>
+    </div>
+    <div id="REG-table"></div>
+    <div class="row-actions">
+      <button class="btn primary" id="REG-sap">Λήψη Excel για SAP (επιλεγμένα)</button>
+      <button class="btn" id="REG-pdfs">Λήψη PDF (επιλεγμένα)</button>
+      <button class="btn ghost" id="REG-backup">Αντίγραφο ασφαλείας (JSON)</button>
+      <label class="btn ghost">Επαναφορά από αντίγραφο<input type="file" id="REG-restore" accept=".json" hidden></label>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Ρυθμίσεις ===== -->
+<section class="panel" id="tab-SET">
+  <div class="card">
+    <h2>Πελάτες και κωδικοί SAP</h2>
+    <p class="hint">Οι κωδικοί SAP είναι κενοί μέχρι να τους συμπληρώσετε. Οι «λέξεις αναγνώρισης» χρησιμοποιούνται για να ταιριάξει αυτόματα το όνομα καρτέλας ή το κείμενο του αρχείου με τον πελάτη.</p>
+    <div id="SET-customers"></div>
+    <div class="row-actions"><button class="btn ghost" id="SET-addcust">+ Νέος πελάτης</button></div>
+  </div>
+  <div class="card">
+    <h2>Τύποι τιμολογίων και λογαριασμοί εσόδων</h2>
+    <div id="SET-types"></div>
+  </div>
+  <div class="card">
+    <h2>Στοιχεία ΟΚΥπΥ, υπογραφή και SAP</h2>
+    <div id="SET-org" class="grid2"></div>
+    <div class="row-actions">
+      <button class="btn primary" id="SET-save">Αποθήκευση ρυθμίσεων</button>
+      <button class="btn ghost" id="SET-export">Εξαγωγή ρυθμίσεων (JSON)</button>
+      <label class="btn ghost">Εισαγωγή ρυθμίσεων<input type="file" id="SET-import" accept=".json" hidden></label>
+      <button class="btn danger ghost" id="SET-reset">Επαναφορά αρχικών</button>
+    </div>
+    <div id="SET-status" class="status"></div>
+  </div>
+</section>
+
+<!-- ===== Οδηγίες ===== -->
+<section class="panel" id="tab-HELP">
+  <div class="card prose">
+    <h2>Πώς δουλεύει</h2>
+    <ol>
+      <li><b>Φάρμακα (ΦΑ):</b> ανεβάζετε το «ΕΚΔΟΣΕΙΣ ΟΚΥΠΥ». Για κάθε καρτέλα και μήνα βγαίνει ένα τιμολόγιο. Ελέγχετε τον πελάτη, γράφετε τον αριθμό (π.χ. ΦΑ 25-2026) και πατάτε «Έκδοση».</li>
+      <li><b>Αναλώσιμα (ΤΠΑ):</b> ανεβάζετε το αρχείο που σας στέλνουν. Αν δεν αναγνωριστούν οι στήλες, τις επιλέγετε μία φορά. Οι γραμμές διορθώνονται μέσα στον πίνακα.</li>
+      <li><b>Υπηρεσίες:</b> ανεβάζετε το PDF της One Point. Τράπεζα Αίματος → «ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ (για Τράπεζα Αίματος)» με αρχικά ΤΑ. Κέντρο Αίματος → «ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ (για Κέντρο Αίματος)» με αρχικά INV.</li>
+      <li><b>Μητρώο και SAP:</b> επιλέγετε τα τιμολόγια του μήνα και κατεβάζετε το Excel για ανέβασμα στο SAP. Το Excel έχει καρτέλα «Έλεγχος» με ζωντανούς τύπους που συμφωνούν το SAP με τα τιμολόγια.</li>
+    </ol>
+    <h3>Κανόνες που εφαρμόζει το εργαλείο</h3>
+    <ul>
+      <li>Ποσό τιμολογίου = −«Amt.in loc.cur.» του SAP. Έτσι οι εκδόσεις (261 / 956) βγαίνουν θετικές και οι αντιλογισμοί (262 / 955) αρνητικοί.</li>
+      <li>Αντιλογισμός συμψηφίζεται με έκδοση του ίδιου μήνα με ίδιο υλικό και παρτίδα. Αν δεν βρεθεί αντίστοιχη έκδοση, εμφανίζεται ως αρνητική γραμμή.</li>
+      <li>ΤΠΑ: καθαρό ποσό γραμμής = ποσότητα × τιμή μονάδας, στρογγυλεμένο σε 2 δεκαδικά. Σύνολο = άθροισμα στρογγυλεμένων γραμμών.</li>
+      <li>Ο αριθμός τιμολογίου δίνεται πάντα από εσάς. Το εργαλείο σταματά την έκδοση αν ο αριθμός υπάρχει ήδη στο μητρώο.</li>
+      <li>Τα αρχεία δεν φεύγουν από τον υπολογιστή σας. Όλη η επεξεργασία γίνεται μέσα στον browser.</li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<!-- Επεξεργασία τιμολογίου -->
+<dialog id="editor">
+  <form method="dialog" class="ed-head">
+    <h2 id="ed-title">Τιμολόγιο</h2>
+    <button class="btn ghost" value="close" aria-label="Κλείσιμο">✕</button>
+  </form>
+  <div class="ed-body">
+    <div class="ed-left">
+      <div class="grid2" id="ed-fields"></div>
+      <div id="ed-lines"></div>
+      <div class="ed-total">Ολικό ποσό: <b id="ed-total">0,00 €</b></div>
+      <label class="full">Παρατηρήσεις<textarea id="ed-remarks" rows="2"></textarea></label>
+      <div id="ed-warn" class="status"></div>
+      <div class="row-actions">
+        <button class="btn" id="ed-preview">Προεπισκόπηση PDF</button>
+        <button class="btn" id="ed-pdf">Λήψη PDF</button>
+        <button class="btn primary" id="ed-issue">Έκδοση (καταχώρηση στο μητρώο)</button>
+      </div>
+    </div>
+    <div class="ed-right"><iframe id="ed-frame" title="Προεπισκόπηση"></iframe></div>
+  </div>
+</dialog>
+
+<script type="text/plain" id="pdfworker">/*@@PDFWORKER@@*/</script>
+<script>/*@@XLSX@@*/</script>
+<script>/*@@JSPDF@@*/</script>
+<script>/*@@AUTOTABLE@@*/</script>
+<script>/*@@PDFJS@@*/</script>
+<script>
+window.__FONT_REG="/*@@FONTREG@@*/";
+window.__FONT_BOLD="/*@@FONTBOLD@@*/";
+</script>
+<script>/*@@APP@@*/</script>
+</body>
+</html>

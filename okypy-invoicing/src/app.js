@@ -1,0 +1,1068 @@
+/* ΟΚΥπΥ – Τιμολόγηση παραχωρήσεων και υπηρεσιών προς Υπουργεία.
+   Όλη η επεξεργασία γίνεται τοπικά στον browser. */
+(function () {
+'use strict';
+
+/* ---------------- βοηθητικά ---------------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+const round2 = n => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clone = o => JSON.parse(JSON.stringify(o));
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+const MONTHS = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'];
+
+const fmtEUR = n => (Number(n) || 0).toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtQty = n => (Number(n) || 0).toLocaleString('el-GR', { maximumFractionDigits: 3 });
+const fmtPrice = n => (Number(n) || 0).toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+const fmtDate = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const monthLabel = ym => { const [y, m] = ym.split('-'); return `${MONTHS[+m - 1]} ${y}`; };
+const lastDayOfMonth = ym => { const [y, m] = ym.split('-').map(Number); return `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`; };
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const isoToSerial = iso => { const [y, m, d] = iso.split('-').map(Number); return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000; };
+
+/* Αριθμοί: δέχεται 1.234,56 · 1,234.56 · 0,0365 · 2.000 */
+function parseNum(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  let s = String(v).replace(/[€\s ]/g, '').replace(/^\((.*)\)$/, '-$1');
+  if (!/\d/.test(s)) return null;
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if (lc > -1 && ld > -1) {
+    s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (lc > -1) {
+    s = /^-?\d{1,3}(,\d{3})+$/.test(s) && s.split(',').length > 2 ? s.replace(/,/g, '') : s.replace(',', '.');
+  } else if (ld > -1 && /^-?\d{1,3}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, ''); // 2.000 = δύο χιλιάδες (ελληνική μορφή)
+  }
+  const n = Number(s);
+  return isFinite(n) ? n : null;
+}
+
+/* Ημερομηνίες από Excel (σειριακός αριθμός) ή κείμενο */
+function toISO(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number' && v > 20000 && v < 80000) {
+    const d = XLSX.SSF.parse_date_code(v);
+    return `${d.y}-${pad(d.m)}-${pad(d.d)}`;
+  }
+  if (v instanceof Date) return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (m) { let y = +m[3]; if (y < 100) y += 2000; return `${y}-${pad(m[2])}-${pad(m[1])}`; }
+  return '';
+}
+
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+};
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const safeName = s => String(s).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+
+/* ---------------- ρυθμίσεις ---------------- */
+const DEFAULT_SETTINGS = {
+  org: {
+    address: 'Αγίου Αντωνίου 2\n2100 Αγλαντζιά, Λευκωσία\nΚύπρος\nΤηλ.: 22212800 , Φαξ: 22665100\nΑρ. Εγγρ. Φ.Π.Α : 18007761X\nΑρ. Φορολ. Ταυτ: 18007761X',
+    bank1: '‘’ΟΚΥπΥ – Κεντρική Διοίκηση‘’',
+    bank2: "STATE HEALTH SERVICES ORGANIZATION 'INCOME - HEAD OFFICE'",
+    iban: 'CY04 0020 0195 0000 3570 3049 6766',
+    swift: 'BCYPCY2N',
+    signName: 'Μάριος Σούζου',
+    signTitle: 'Προϊστάμενος Μονάδας Οικονομικής Διαχείρισης',
+    signUnit: 'Κεντρική Διοίκηση',
+    signOrg: 'Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ)'
+  },
+  sap: { companyCode: '1000', docType: 'DR', currency: 'EUR', pkDebit: '01', pkCredit: '50', taxCode: '' },
+  types: {
+    FA: { prefix: 'ΦΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΑΧΩΡΗΣΗΣ ΦΑΡΜΑΚΩΝ', gl: '', label: 'Παραχώρηση φαρμάκων' },
+    TPA: { prefix: 'ΤΠΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΑΧΩΡΗΣΗΣ ΑΝΑΛΩΣΙΜΩΝ', gl: '', label: 'Παραχώρηση αναλωσίμων' },
+    TA: { prefix: 'ΤΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ', gl: '', label: 'Υπηρεσίες Τράπεζας Αίματος' },
+    INV: { prefix: 'INV', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ', gl: '', label: 'Υπηρεσίες Κέντρου Αίματος' }
+  },
+  customers: [
+    { id: 'c01', name: 'ΙΝΣΤΙΤΟΥΤΟ ΝΕΥΡΟΛΟΓΙΑΣ ΚΑΙ ΓΕΝΕΤΙΚΗΣ', sub: '', types: ['FA'], sapCode: '', profit: '', kw: 'ΙΝΣΤΙΤΟΥΤ, ΓΕΝΕΤΙΚ, NEUROLOGY' },
+    { id: 'c02', name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(ΕΘΝΙΚΗ ΦΡΟΥΡΑ)', types: ['FA'], sapCode: '', profit: '', kw: 'ΣΤΡΑΤΟΣ, ΕΘΝΙΚΗ ΦΡΟΥΡΑ' },
+    { id: 'c03', name: 'ΥΠΟΥΡΓΕΙΟ ΔΙΚΑΙΟΣΥΝΗΣ ΚΑΙ ΔΗΜΟΣΙΑΣ ΤΑΞΕΩΣ', sub: '(ΦΥΛΑΚΕΣ)', types: ['FA'], sapCode: '', profit: '', kw: 'ΦΥΛΑΚ, FYLAK, PRISON' },
+    { id: 'c04', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΟΔΟΝΤΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ)', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΟΔΟΝΤ, ODONT' },
+    { id: 'c05', name: 'ΟΓΚΟΛΟΓΙΚΟ ΚΕΝΤΡΟ ΤΡΑΠΕΖΑΣ ΚΥΠΡΟΥ', sub: '', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΟΓΚΟΛΟΓ, ONCOL' },
+    { id: 'c06', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΑΡΟΔΑΦΝΟΥΣΑ-ΚΕΝΤΡΟ ΑΝΑΚΟΥΦΙΣΤΙΚΗΣ ΦΡΟΝΤΙΔΑΣ)', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΑΡΟΔΑΦΝ, ARODAFN' },
+    { id: 'c07', name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(106 ΣΝΕ)', types: ['TPA'], sapCode: '', profit: '', kw: '106 ΣΝΕ, 106ΣΝΕ' },
+    { id: 'c08', name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(ΑΠΟΘΗΚΗ ΒΑΣΕΩΝ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΑΠΟΘΗΚΗ ΒΑΣΕ, ΒΑΣΕΩΝ' },
+    { id: 'c09', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΚΕΝΤΡΟ ΑΙΜΑΤΟΣ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ' },
+    { id: 'c10', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '', types: ['TPA'], sapCode: '', profit: '', kw: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ, ΥΠ.ΥΓΕΙΑΣ, ΥΠ. ΥΓΕΙΑΣ' },
+    { id: 'c11', name: 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ', sub: '(για Τράπεζα Αίματος)', types: ['TA'], sapCode: '', profit: '', kw: 'ΤΡΑΠΕΖΑ ΑΙΜΑΤ, BLOOD BANK' },
+    { id: 'c12', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(για Κέντρο Αίματος)', types: ['INV'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ, BLOOD CENTRE, BLOOD CENTER' }
+  ]
+};
+const K_SET = 'okypy-inv-settings-v1', K_REG = 'okypy-inv-register-v1';
+
+function loadSettings() {
+  const s = LS.get(K_SET, null);
+  if (!s) return clone(DEFAULT_SETTINGS);
+  const d = clone(DEFAULT_SETTINGS);
+  return {
+    org: Object.assign(d.org, s.org || {}),
+    sap: Object.assign(d.sap, s.sap || {}),
+    types: Object.fromEntries(Object.keys(d.types).map(k => [k, Object.assign(d.types[k], (s.types || {})[k] || {})])),
+    customers: Array.isArray(s.customers) && s.customers.length ? s.customers : d.customers
+  };
+}
+let SETTINGS = loadSettings();
+let REGISTER = LS.get(K_REG, []);
+const saveRegister = () => { if (!LS.set(K_REG, REGISTER)) alert('Δεν ήταν δυνατή η αποθήκευση του μητρώου στον browser. Κατεβάστε αντίγραφο ασφαλείας.'); updateRegCount(); };
+
+const getCust = id => SETTINGS.customers.find(c => c.id === id);
+const custLabel = c => c ? (c.name + (c.sub ? ' ' + c.sub : '')) : '';
+const custFileLabel = c => c ? (c.name + (c.sub ? '-' + c.sub.replace(/^\(|\)$/g, '').replace(/^για\s+/i, '') : '')) : '';
+const typeOf = t => SETTINGS.types[t];
+
+function matchCustomer(text, type) {
+  const T = norm(text);
+  let best = null, bestLen = 0;
+  for (const c of SETTINGS.customers) {
+    if (type && !(c.types || []).includes(type)) continue;
+    for (const k of String(c.kw || '').split(',').map(norm).filter(Boolean)) {
+      if (k.length > bestLen && T.includes(k)) { best = c; bestLen = k.length; }
+    }
+  }
+  return best ? best.id : '';
+}
+
+/* ---------------- πρόχειρα τιμολόγια ---------------- */
+const DRAFTS = { FA: [], TPA: [], SRV: [] };
+const groupOf = type => (type === 'TA' || type === 'INV') ? 'SRV' : type;
+const isIssued = d => REGISTER.some(r => r.id === d.id);
+
+function lineAmount(l, type) {
+  if (type === 'TPA') {
+    const q = Number(l.qty) || 0, p = Number(l.price) || 0;
+    return round2(q * p);
+  }
+  return round2(Number(l.amount) || 0);
+}
+const draftTotal = d => round2(d.lines.reduce((s, l) => s + lineAmount(l, d.type), 0));
+
+function validate(d) {
+  const errors = [], warns = [];
+  const T = typeOf(d.type), c = getCust(d.customerId);
+  const num = String(d.number || '').trim();
+  if (!c) errors.push('Δεν έχει επιλεγεί πελάτης.');
+  if (!num) errors.push('Λείπει ο αριθμός τιμολογίου.');
+  else {
+    if (REGISTER.some(r => r.id !== d.id && norm(r.number) === norm(num))) errors.push(`Ο αριθμός «${num}» υπάρχει ήδη στο μητρώο.`);
+    if (!norm(num).startsWith(norm(T.prefix))) warns.push(`Ο αριθμός δεν ξεκινά με «${T.prefix}».`);
+  }
+  if (!d.date) errors.push('Λείπει η ημερομηνία τιμολογίου.');
+  if (!d.lines.length) errors.push('Το τιμολόγιο δεν έχει γραμμές.');
+  const tot = draftTotal(d);
+  if (d.lines.length && tot <= 0) errors.push('Το ολικό ποσό είναι μηδέν ή αρνητικό.');
+  if (d.lines.some(l => !String(l.desc || '').trim())) warns.push('Υπάρχουν γραμμές χωρίς περιγραφή.');
+  if (d.lines.some(l => lineAmount(l, d.type) === 0)) warns.push('Υπάρχουν γραμμές με μηδενικό ποσό.');
+  if (d.sourceKey) {
+    const prev = REGISTER.find(r => r.id !== d.id && r.sourceKey === d.sourceKey);
+    if (prev) warns.push(`Η ίδια πηγή (${d.sourceLabel}) έχει ήδη τιμολογηθεί με το ${prev.number}. Ελέγξτε για διπλοχρέωση.`);
+  }
+  if (c && !c.sapCode) warns.push('Ο πελάτης δεν έχει κωδικό SAP (Ρυθμίσεις). Το αρχείο SAP θα βγει με κενό λογαριασμό.');
+  if (!T.gl) warns.push(`Δεν έχει οριστεί λογαριασμός εσόδων για «${T.prefix}» (Ρυθμίσεις).`);
+  return { errors, warns, total: tot };
+}
+
+function issueDraft(d) {
+  const v = validate(d);
+  if (v.errors.length) { alert('Δεν μπορεί να εκδοθεί:\n\n• ' + v.errors.join('\n• ')); return false; }
+  if (v.warns.some(w => w.includes('διπλοχρέωση')) && !confirm(v.warns.find(w => w.includes('διπλοχρέωση')) + '\n\nΣυνέχεια;')) return false;
+  const rec = clone(d);
+  rec.number = String(d.number).trim();
+  rec.total = v.total;
+  rec.customer = clone(getCust(d.customerId));
+  rec.issuedAt = new Date().toISOString();
+  rec.exported = false;
+  REGISTER.push(rec);
+  saveRegister();
+  renderAllLists();
+  return true;
+}
+
+/* ---------------- ανάγνωση αρχείων ---------------- */
+function fixRange(ws) {
+  let maxR = 0, maxC = 0, any = false;
+  for (const k in ws) {
+    if (k[0] === '!') continue;
+    const c = XLSX.utils.decode_cell(k); any = true;
+    if (c.r > maxR) maxR = c.r; if (c.c > maxC) maxC = c.c;
+  }
+  ws['!ref'] = any ? XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } }) : 'A1:A1';
+}
+async function readWorkbook(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+  const sheets = wb.SheetNames.map(name => {
+    const ws = wb.Sheets[name]; fixRange(ws);
+    return { name, rows: XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: false }) };
+  });
+  return sheets;
+}
+
+/* Εξαγωγή SAP κινήσεων υλικού (MB51) */
+function detectSap(rows) {
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const h = (rows[i] || []).map(x => norm(x));
+    const idx = name => h.findIndex(x => x === name);
+    const find = re => h.findIndex(x => re.test(x));
+    const c = {
+      material: idx('MATERIAL'),
+      desc: idx('MATERIAL DESCRIPTION'),
+      mvt: idx('MOVEMENT TYPE'),
+      doc: idx('MATERIAL DOCUMENT'),
+      item: find(/^MATERIAL DOC\.?\s?ITEM$/),
+      date: idx('POSTING DATE'),
+      qty: find(/^(QTY|QUANTITY)/),
+      unit: find(/^UNIT OF ENTRY$/),
+      batch: idx('BATCH'),
+      amount: find(/^(AMT|AMOUNT)/),
+      header: idx('DOCUMENT HEADER TEXT'),
+      text: idx('TEXT')
+    };
+    if (c.desc > -1 && c.date > -1 && c.amount > -1) return { headerRow: i, cols: c };
+  }
+  return null;
+}
+function parseSapLines(rows, det) {
+  const c = det.cols, out = [];
+  for (let i = det.headerRow + 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const desc = r[c.desc];
+    const date = toISO(r[c.date]);
+    const amt = parseNum(r[c.amount]);
+    if (desc == null || String(desc).trim() === '' || !date || amt == null) continue;
+    const qty = c.qty > -1 ? parseNum(r[c.qty]) : null;
+    out.push({
+      material: c.material > -1 ? String(r[c.material] ?? '') : '',
+      desc: String(desc).trim(),
+      mvt: c.mvt > -1 ? String(r[c.mvt] ?? '') : '',
+      doc: c.doc > -1 ? String(r[c.doc] ?? '') : '',
+      item: c.item > -1 ? Number(r[c.item]) || 0 : 0,
+      date,
+      qty: qty == null ? 0 : -qty,           // οι εκδόσεις στο SAP είναι αρνητικές
+      unit: c.unit > -1 ? String(r[c.unit] ?? '') : '',
+      batch: c.batch > -1 ? String(r[c.batch] ?? '') : '',
+      amount: round2(-amt),
+      header: c.header > -1 ? String(r[c.header] ?? '') : '',
+      text: c.text > -1 ? String(r[c.text] ?? '') : ''
+    });
+  }
+  return out;
+}
+/* Συμψηφισμός αντιλογισμών με εκδόσεις του ίδιου υλικού/παρτίδας */
+function netReversals(lines) {
+  const issues = lines.filter(l => l.amount > 0).map(l => Object.assign({}, l));
+  const revs = lines.filter(l => l.amount < 0);
+  const zero = lines.filter(l => l.amount === 0);
+  let netted = 0; const shown = [];
+  for (const r of revs) {
+    const rq = Math.abs(r.qty);
+    const cand = issues.filter(i => i.material === r.material && i.batch === r.batch && i.qty >= rq && i.amount > 0);
+    const m = cand.find(i => i.qty === rq) || cand[0];
+    if (m) {
+      m.qty = round2(m.qty - rq); m.amount = round2(m.amount + r.amount); netted++;
+    } else shown.push(Object.assign({}, r));
+  }
+  const kept = issues.filter(i => !(Math.abs(i.qty) < 1e-9 && Math.abs(i.amount) < 0.005));
+  const all = kept.concat(shown).concat(zero);
+  all.sort((a, b) => a.date.localeCompare(b.date) || a.doc.localeCompare(b.doc) || a.item - b.item);
+  return { lines: all, netted, unmatched: shown.length };
+}
+
+/* PDF → γραμμές κειμένου */
+let pdfReady = null;
+function pdfLib() {
+  if (pdfReady) return pdfReady;
+  const lib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+  const src = $('#pdfworker').textContent;
+  lib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+  pdfReady = lib; return lib;
+}
+async function readPdfLines(file) {
+  const lib = pdfLib();
+  const pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const lines = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    const rows = [];
+    for (const it of tc.items) {
+      if (!it.str || !it.str.trim()) continue;
+      const y = it.transform[5], x = it.transform[4];
+      let row = rows.find(r => Math.abs(r.y - y) < 3);
+      if (!row) { row = { y, items: [] }; rows.push(row); }
+      row.items.push({ x, s: it.str, w: it.width || 0 });
+    }
+    rows.sort((a, b) => b.y - a.y);
+    for (const r of rows) {
+      r.items.sort((a, b) => a.x - b.x);
+      let s = '', end = null;
+      for (const it of r.items) { s += (end != null && it.x - end > 1.5 ? '  ' : '') + it.s; end = it.x + it.w; }
+      lines.push(s.replace(/\s{3,}/g, '  ').trim());
+    }
+  }
+  return lines;
+}
+
+/* ---------------- 1. ΦΑ ---------------- */
+async function handleFA(file) {
+  const st = $('#FA-status');
+  st.innerHTML = 'Ανάγνωση αρχείου…';
+  try {
+    const sheets = await readWorkbook(file);
+    const drafts = []; let fileTotal = 0, skipped = [];
+    for (const sh of sheets) {
+      const det = detectSap(sh.rows);
+      if (!det) { skipped.push(sh.name); continue; }
+      const lines = parseSapLines(sh.rows, det);
+      fileTotal += lines.reduce((s, l) => s + l.amount, 0);
+      const byMonth = {};
+      for (const l of lines) (byMonth[l.date.slice(0, 7)] ||= []).push(l);
+      for (const ym of Object.keys(byMonth).sort()) {
+        const net = netReversals(byMonth[ym]);
+        const ctx = sh.name + ' ' + byMonth[ym].slice(0, 30).map(l => l.header + ' ' + l.text).join(' ');
+        drafts.push({
+          id: uid(), type: 'FA', customerId: matchCustomer(sh.name, 'FA') || matchCustomer(ctx, 'FA'),
+          number: '', date: lastDayOfMonth(ym), remarks: '',
+          lines: net.lines.map(l => ({ desc: l.desc, doc: l.doc, date: l.date, qty: l.qty, amount: l.amount })),
+          sourceKey: `FA|${norm(sh.name)}|${ym}`, sourceLabel: `${sh.name} · ${monthLabel(ym)}`,
+          sheet: sh.name, month: ym, netted: net.netted, unmatched: net.unmatched, fileName: file.name
+        });
+      }
+    }
+    DRAFTS.FA = drafts;
+    const dTot = drafts.reduce((s, d) => s + draftTotal(d), 0);
+    const ok = Math.abs(round2(fileTotal) - round2(dTot)) < 0.01;
+    st.innerHTML = drafts.length
+      ? `<span class="ok">Διαβάστηκαν ${drafts.length} τιμολόγια από «${esc(file.name)}».</span><br>
+         Σύνολο αρχείου: <b>${fmtEUR(fileTotal)} €</b> · Σύνολο τιμολογίων: <b>${fmtEUR(dTot)} €</b>
+         ${ok ? '<span class="ok">✓ συμφωνούν</span>' : '<span class="err">✗ διαφορά ' + fmtEUR(fileTotal - dTot) + ' €</span>'}
+         ${skipped.length ? `<br><span class="warn">Καρτέλες χωρίς στήλες SAP (παραλείφθηκαν): ${esc(skipped.join(', '))}</span>` : ''}`
+      : `<span class="err">Δεν βρέθηκαν στήλες SAP (Material Description, Posting Date, Amt.in loc.cur.) σε καμία καρτέλα.</span>`;
+    renderList('FA');
+  } catch (e) {
+    console.error(e); st.innerHTML = `<span class="err">Σφάλμα ανάγνωσης: ${esc(e.message)}</span>`;
+  }
+}
+
+/* ---------------- 2. ΤΠΑ ---------------- */
+let TPA_PENDING = null;
+const FIELD_RE = {
+  desc: /(ΠΕΡΙΓΡΑΦ|DESCRIPTION|ΠΡΟΪΟΝ|ΠΡΟΙΟΝ|ΕΙΔΟΣ|ΥΛΙΚΟ|ITEM NAME|ΟΝΟΜΑΣΙΑ)/,
+  qty: /(ΠΟΣΟΤ|QTY|QUANT|ΤΕΜΑΧ)/,
+  price: /(ΤΙΜΗ|PRICE|UNIT COST|ΚΟΣΤΟΣ ΜΟΝ)/,
+  amount: /(ΚΑΘΑΡΟ|ΠΟΣΟ|ΣΥΝΟΛΟ|AMOUNT|VALUE|TOTAL|ΑΞΙΑ)/,
+  date: /(ΗΜΕΡ|DATE)/,
+  doc: /(ISSUE|SLIP|ΕΓΓΡΑΦ|DOCUMENT|ΔΕΛΤΙΟ|ΑΡ\. ?ΠΑΡ)/
+};
+const FIELD_LABEL = { desc: 'Περιγραφή *', qty: 'Ποσότητα', price: 'Τιμή μονάδας', amount: 'Ποσό', date: 'Ημερομηνία παράδοσης', doc: 'Αρ. εγγράφου / Issue slip' };
+
+function guessHeader(rows) {
+  let best = { row: 0, score: 0, map: {} };
+  for (let i = 0; i < Math.min(rows.length, 40); i++) {
+    const h = (rows[i] || []).map(x => typeof x === 'string' ? norm(x) : '');
+    const map = {}; let score = 0; const used = new Set();
+    for (const f of ['desc', 'qty', 'price', 'date', 'doc', 'amount']) {
+      const j = h.findIndex((x, k) => x && !used.has(k) && FIELD_RE[f].test(x));
+      if (j > -1) { map[f] = j; used.add(j); score++; }
+    }
+    if (score > best.score) best = { row: i, score, map };
+  }
+  return best;
+}
+
+async function handleTPA(file) {
+  const st = $('#TPA-status'); $('#TPA-map').innerHTML = '';
+  st.innerHTML = 'Ανάγνωση αρχείου…';
+  try {
+    if (/\.pdf$/i.test(file.name)) return handleTPAPdf(file);
+    const sheets = await readWorkbook(file);
+    let made = 0;
+    for (const sh of sheets) {
+      const det = detectSap(sh.rows);
+      if (!det) continue;
+      const lines = parseSapLines(sh.rows, det);
+      if (!lines.length) continue;
+      const net = netReversals(lines);
+      DRAFTS.TPA.push(makeTPADraft(file.name, sh.name, net.lines.map(l => ({
+        desc: l.desc, date: l.date, qty: l.qty, price: l.qty ? l.amount / l.qty : l.amount, doc: l.doc
+      })), sh.name + ' ' + lines.slice(0, 20).map(l => l.header + ' ' + l.text).join(' ')));
+      made++;
+    }
+    if (made) {
+      st.innerHTML = `<span class="ok">Αναγνωρίστηκε εξαγωγή SAP. Δημιουργήθηκαν ${made} τιμολόγια.</span>`;
+      renderList('TPA'); return;
+    }
+    // Γενικό Excel: επιλογή στηλών
+    TPA_PENDING = { file, sheets };
+    st.innerHTML = '<span class="warn">Το αρχείο δεν είναι εξαγωγή SAP. Επιλέξτε τις στήλες και πατήστε «Δημιουργία τιμολογίου».</span>';
+    renderTPAMap(0);
+  } catch (e) {
+    console.error(e); st.innerHTML = `<span class="err">Σφάλμα ανάγνωσης: ${esc(e.message)}</span>`;
+  }
+}
+
+function renderTPAMap(sheetIdx) {
+  const P = TPA_PENDING; const sh = P.sheets[sheetIdx];
+  const g = guessHeader(sh.rows);
+  const hdr = sh.rows[g.row] || [];
+  const ncol = Math.max(...sh.rows.slice(0, 60).map(r => (r || []).length), hdr.length);
+  const colOpts = sel => '<option value="-1">—</option>' + Array.from({ length: ncol }, (_, j) =>
+    `<option value="${j}" ${sel === j ? 'selected' : ''}>${XLSX.utils.encode_col(j)}: ${esc(String(hdr[j] ?? '').slice(0, 30))}</option>`).join('');
+  $('#TPA-map').innerHTML = `
+    <div class="mapgrid">
+      <label>Καρτέλα<select id="map-sheet">${P.sheets.map((s, i) => `<option value="${i}" ${i === sheetIdx ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
+      <label>Γραμμή επικεφαλίδων<input id="map-row" type="number" min="1" value="${g.row + 1}" style="width:90px"></label>
+      ${Object.keys(FIELD_LABEL).map(f => `<label>${FIELD_LABEL[f]}<select data-f="${f}">${colOpts(g.map[f] ?? -1)}</select></label>`).join('')}
+    </div>
+    <div class="row-actions"><button class="btn primary" id="map-go">Δημιουργία τιμολογίου</button></div>
+    <details><summary>Πρώτες γραμμές αρχείου</summary><pre>${esc(sh.rows.slice(0, 25).map((r, i) => (i + 1) + ': ' + (r || []).map(x => x ?? '').join(' | ')).join('\n'))}</pre></details>`;
+  $('#map-sheet').onchange = e => renderTPAMap(+e.target.value);
+  $('#map-go').onclick = () => {
+    const map = {}; $$('#TPA-map select[data-f]').forEach(s => map[s.dataset.f] = +s.value);
+    if (map.desc < 0) { alert('Επιλέξτε τη στήλη περιγραφής.'); return; }
+    const hr = Math.max(0, (+$('#map-row').value || 1) - 1);
+    const lines = [];
+    for (let i = hr + 1; i < sh.rows.length; i++) {
+      const r = sh.rows[i] || [];
+      const desc = String(r[map.desc] ?? '').trim();
+      if (!desc || /^(ΣΥΝΟΛΟ|ΟΛΙΚΟ|TOTAL|ΓΕΝΙΚΟ)/.test(norm(desc))) continue;
+      let qty = map.qty > -1 ? parseNum(r[map.qty]) : null;
+      let price = map.price > -1 ? parseNum(r[map.price]) : null;
+      const amount = map.amount > -1 ? parseNum(r[map.amount]) : null;
+      if (qty == null && price == null && amount == null) continue;
+      if (qty == null) qty = 1;
+      if (price == null && amount != null) price = qty ? amount / qty : amount;
+      lines.push({ desc, qty, price: price || 0, date: map.date > -1 ? toISO(r[map.date]) : '', doc: map.doc > -1 ? String(r[map.doc] ?? '') : '' });
+    }
+    if (!lines.length) { alert('Δεν βρέθηκαν γραμμές με αυτές τις στήλες.'); return; }
+    const ctx = P.file.name + ' ' + sh.name + ' ' + sh.rows.slice(0, 15).map(r => (r || []).join(' ')).join(' ');
+    DRAFTS.TPA.push(makeTPADraft(P.file.name, sh.name, lines, ctx));
+    $('#TPA-status').innerHTML = `<span class="ok">Δημιουργήθηκε τιμολόγιο με ${lines.length} γραμμές. Ελέγξτε το στο «Άνοιγμα».</span>`;
+    $('#TPA-map').innerHTML = ''; TPA_PENDING = null;
+    renderList('TPA');
+  };
+}
+
+function makeTPADraft(fileName, sheetName, lines, ctx) {
+  const dates = lines.map(l => l.date).filter(Boolean).sort();
+  const docs = [...new Set(lines.map(l => l.doc).filter(Boolean))];
+  const lastDate = dates[dates.length - 1] || '';
+  return {
+    id: uid(), type: 'TPA', customerId: matchCustomer(ctx, 'TPA'),
+    number: '', date: lastDate || todayISO(),
+    remarks: docs.length ? `Issue Slip ${docs.join(', ')}${lastDate ? ' ημ. ' + fmtDate(lastDate) : ''}` : '',
+    lines: lines.map(l => ({ desc: l.desc, date: l.date || lastDate, qty: l.qty, price: l.price, doc: l.doc || '' })),
+    sourceKey: `TPA|${norm(fileName)}|${norm(sheetName)}`, sourceLabel: `${fileName} · ${sheetName}`, fileName
+  };
+}
+
+async function handleTPAPdf(file) {
+  const st = $('#TPA-status');
+  const lines = await readPdfLines(file);
+  if (!lines.length) {
+    st.innerHTML = '<span class="err">Το PDF δεν έχει αναγνώσιμο κείμενο (πιθανόν σαρωμένο). Ξεκινήστε κενό τιμολόγιο και περάστε τις γραμμές χειροκίνητα.</span>';
+    return;
+  }
+  const re = /^(.*?[A-Za-zΑ-Ωα-ωά-ώ].*?)\s+(?:(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\s+)?(-?[\d.,]+)\s+(-?[\d.,]+)\s+(-?[\d.,]+)$/;
+  const out = [];
+  for (const ln of lines) {
+    const m = ln.match(re);
+    if (!m || /^(ΣΥΝΟΛΟ|ΟΛΙΚΟ|TOTAL)/.test(norm(m[1]))) continue;
+    const qty = parseNum(m[3]), price = parseNum(m[4]), amt = parseNum(m[5]);
+    if (qty == null || price == null) continue;
+    out.push({ desc: m[1].trim(), date: toISO(m[2]), qty, price: (amt != null && qty) ? amt / qty : price });
+  }
+  const text = lines.join('\n');
+  DRAFTS.TPA.push(makeTPADraft(file.name, 'PDF', out, file.name + ' ' + text.slice(0, 1500)));
+  st.innerHTML = `<span class="${out.length ? 'ok' : 'warn'}">Από το PDF βρέθηκαν ${out.length} γραμμές (περιγραφή, ποσότητα, τιμή, ποσό). Η ανάγνωση PDF είναι προσεγγιστική: ελέγξτε κάθε γραμμή.</span>
+    <details><summary>Κείμενο PDF</summary><pre>${esc(text)}</pre></details>`;
+  renderList('TPA');
+}
+
+/* ---------------- 3. Υπηρεσίες ---------------- */
+function makeSRVDraft(type, opts = {}) {
+  const ref = opts.ref ? ` αρ. ${opts.ref}` : '';
+  const desc = type === 'TA'
+    ? `Ιατρικές υπηρεσίες για την Τράπεζα Αίματος, βάσει τιμολογίου One Point${ref}`
+    : `Υπηρεσίες για το Κέντρο Αίματος, βάσει τιμολογίου One Point${ref}`;
+  return {
+    id: uid(), type, customerId: SETTINGS.customers.find(c => (c.types || []).includes(type))?.id || '',
+    number: '', date: todayISO(),
+    remarks: opts.ref ? `Τιμολόγιο One Point αρ. ${opts.ref}${opts.refDate ? ' ημ. ' + fmtDate(opts.refDate) : ''}` : '',
+    lines: [{ desc, amount: opts.amount || 0 }],
+    sourceKey: opts.ref ? `SRV|ONEPOINT|${norm(opts.ref)}` : '', sourceLabel: opts.ref ? `One Point ${opts.ref}` : 'Χειροκίνητο',
+    fileName: opts.fileName || '', pdfUrl: opts.pdfUrl || ''
+  };
+}
+
+async function handleSRV(file) {
+  const st = $('#SRV-status');
+  st.innerHTML = 'Ανάγνωση αρχείου…';
+  try {
+    let lines = [];
+    let pdfUrl = '';
+    if (/\.pdf$/i.test(file.name)) {
+      pdfUrl = URL.createObjectURL(file);
+      lines = await readPdfLines(file);
+    } else {
+      const sheets = await readWorkbook(file);
+      lines = sheets.flatMap(s => s.rows.map(r => (r || []).filter(x => x != null).join('  ')));
+    }
+    const text = lines.join('\n'); const T = norm(text + ' ' + file.name);
+    let type = /ΚΕΝΤΡ\w* ΑΙΜΑΤ|BLOOD (CENTRE|CENTER|ESTABLISHMENT)/.test(T) ? 'INV'
+      : /ΤΡΑΠΕΖ\w* ΑΙΜΑΤ|BLOOD BANK/.test(T) ? 'TA' : (/^INV\b/.test(norm(file.name)) ? 'INV' : 'TA');
+    const typeSure = /ΚΕΝΤΡ\w* ΑΙΜΑΤ|BLOOD (CENTRE|CENTER|ESTABLISHMENT)|ΤΡΑΠΕΖ\w* ΑΙΜΑΤ|BLOOD BANK/.test(T);
+    // αριθμός τιμολογίου One Point
+    let ref = '';
+    const mRef = (text.match(/(?:INVOICE|ΤΙΜΟΛΟΓΙΟ)\s*(?:NO|NUMBER|#|ΑΡ\.?|ΑΡΙΘΜΟΣ)?\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]{1,})/i)) || file.name.match(/INVOICE\s*NO\.?\s*([A-Z0-9\-\/]+)/i);
+    if (mRef) ref = mRef[1];
+    const mDate = text.match(/\b(\d{1,2}[./-]\d{1,2}[./-]\d{4})\b/);
+    const refDate = mDate ? toISO(mDate[1]) : '';
+    // υποψήφια ποσά
+    const money = s => (s.match(/-?\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\b|-?\d+[.,]\d{2}\b/g) || []).map(parseNum).filter(n => n != null && n > 0);
+    const totalLines = lines.filter(l => /(TOTAL|ΣΥΝΟΛΟ|ΟΛΙΚΟ|ΠΛΗΡΩΤΕΟ|AMOUNT DUE|BALANCE DUE|GRAND)/i.test(norm(l)));
+    const totals = [...new Set(totalLines.flatMap(money))];
+    const all = [...new Set(money(text))].sort((a, b) => b - a).slice(0, 10);
+    const amount = totals.length ? Math.max(...totals) : (all[0] || 0);
+    const d = makeSRVDraft(type, { ref, refDate, amount, fileName: file.name, pdfUrl });
+    DRAFTS.SRV.push(d);
+    const chips = arr => arr.map(n => `<button class="chip" data-amt="${n}" data-id="${d.id}">${fmtEUR(n)} €</button>`).join('');
+    st.innerHTML = `
+      ${lines.length ? '' : '<span class="err">Το PDF δεν έχει αναγνώσιμο κείμενο (πιθανόν σαρωμένο). Ανοίξτε το πρωτότυπο και περάστε το ποσό χειροκίνητα.</span><br>'}
+      <span class="${typeSure ? 'ok' : 'warn'}">Τύπος: <b>${type === 'TA' ? 'ΤΑ – Τράπεζα Αίματος' : 'INV – Κέντρο Αίματος'}</b>${typeSure ? '' : ' (δεν βρέθηκε στο κείμενο, ελέγξτε)'}.</span>
+      ${ref ? ` Αρ. One Point: <b>${esc(ref)}</b>.` : ''}
+      Προτεινόμενο ποσό: <b>${fmtEUR(amount)} €</b>. Ελέγξτε αν το ποσό που χρεώνετε είναι πριν ή μετά τον ΦΠΑ.
+      ${totals.length ? `<div>Ποσά σε γραμμές «σύνολο»:</div><div class="chips">${chips(totals)}</div>` : ''}
+      ${all.length ? `<div>Άλλα ποσά στο έγγραφο:</div><div class="chips">${chips(all)}</div>` : ''}
+      ${pdfUrl ? `<a class="btn ghost small" href="${pdfUrl}" target="_blank" rel="noopener">Άνοιγμα πρωτότυπου PDF</a>` : ''}
+      ${lines.length ? `<details><summary>Κείμενο αρχείου</summary><pre>${esc(text)}</pre></details>` : ''}`;
+    $$('#SRV-status .chip').forEach(b => b.onclick = () => {
+      const dd = DRAFTS.SRV.find(x => x.id === b.dataset.id); if (!dd || isIssued(dd)) return;
+      dd.lines[0].amount = +b.dataset.amt; renderList('SRV');
+    });
+    renderList('SRV');
+  } catch (e) {
+    console.error(e); st.innerHTML = `<span class="err">Σφάλμα ανάγνωσης: ${esc(e.message)}</span>`;
+  }
+}
+
+/* ---------------- λίστες πρόχειρων ---------------- */
+function custOptions(type, sel) {
+  const list = SETTINGS.customers;
+  const pri = list.filter(c => (c.types || []).includes(type)), oth = list.filter(c => !(c.types || []).includes(type));
+  const o = c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(custLabel(c))}</option>`;
+  return `<option value="">— επιλέξτε —</option>${pri.map(o).join('')}${oth.length ? `<optgroup label="Άλλοι πελάτες">${oth.map(o).join('')}</optgroup>` : ''}`;
+}
+
+function renderList(group) {
+  const list = DRAFTS[group];
+  $(`#${group}-list-card`).hidden = !list.length;
+  const isFA = group === 'FA';
+  let tot = 0;
+  const rows = list.map((d, i) => {
+    const issued = isIssued(d), t = draftTotal(d); tot += t;
+    const T = typeOf(d.type);
+    return `<tr data-i="${i}">
+      <td>${esc(isFA ? d.sheet : (d.type === 'TPA' ? d.sourceLabel : T.prefix + ' · ' + d.sourceLabel))}</td>
+      ${isFA ? `<td>${monthLabel(d.month)}</td>` : ''}
+      <td><select data-k="customerId" ${issued ? 'disabled' : ''}>${custOptions(d.type, d.customerId)}</select></td>
+      <td class="num">${d.lines.length}</td>
+      ${isFA ? `<td class="num">${d.netted ? d.netted : ''}${d.unmatched ? ` <span class="tag neg" title="Αντιλογισμοί χωρίς αντίστοιχη έκδοση">${d.unmatched} αρν.</span>` : ''}</td>` : ''}
+      <td class="num"><b>${fmtEUR(t)}</b></td>
+      <td><input data-k="number" value="${esc(d.number)}" placeholder="${esc(T.prefix)} __-${(d.date || todayISO()).slice(0, 4)}" ${issued ? 'disabled' : ''}></td>
+      <td><input type="date" data-k="date" value="${esc(d.date)}" ${issued ? 'disabled' : ''}></td>
+      <td>${issued ? '<span class="tag issued">Εκδόθηκε</span>' : '<span class="tag">Πρόχειρο</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn small" data-a="open">Άνοιγμα</button>
+        <button class="btn small" data-a="pdf">PDF</button>
+        ${issued ? '' : '<button class="btn small primary" data-a="issue">Έκδοση</button> <button class="btn small ghost danger" data-a="del" title="Αφαίρεση">✕</button>'}
+      </td></tr>`;
+  }).join('');
+  $(`#${group}-list`).innerHTML = `<div class="scroll"><table class="t">
+    <thead><tr><th>${isFA ? 'Καρτέλα' : 'Πηγή'}</th>${isFA ? '<th>Μήνας</th>' : ''}<th>Πελάτης</th><th class="num">Γραμμές</th>${isFA ? '<th class="num">Συμψηφισμοί</th>' : ''}<th class="num">Ποσό €</th><th>Αρ. τιμολογίου</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="${isFA ? 5 : 3}"><b>Σύνολο</b></td><td class="num"><b>${fmtEUR(tot)}</b></td><td colspan="4"></td></tr></tfoot>
+    </table></div>`;
+  $$(`#${group}-list tbody tr`).forEach(tr => {
+    const d = list[+tr.dataset.i];
+    $$('[data-k]', tr).forEach(inp => inp.onchange = () => { d[inp.dataset.k] = inp.value; });
+    $$('[data-a]', tr).forEach(b => b.onclick = () => {
+      const a = b.dataset.a;
+      if (a === 'open') openEditor(d);
+      if (a === 'pdf') savePdf(d);
+      if (a === 'issue' && issueDraft(d)) savePdf(d);
+      if (a === 'del' && confirm('Αφαίρεση του πρόχειρου;')) { list.splice(+tr.dataset.i, 1); renderList(group); }
+    });
+  });
+}
+function renderAllLists() { ['FA', 'TPA', 'SRV'].forEach(g => DRAFTS[g].length && renderList(g)); renderRegister(); }
+
+/* ---------------- επεξεργασία ---------------- */
+let ED = null;
+function openEditor(d) {
+  ED = d;
+  const issued = isIssued(d), dis = issued ? 'disabled' : '';
+  const T = typeOf(d.type);
+  $('#ed-title').textContent = `${T.title}${d.number ? ' · ' + d.number : ''}${issued ? ' (εκδόθηκε, μόνο ανάγνωση)' : ''}`;
+  const srv = d.type === 'TA' || d.type === 'INV';
+  $('#ed-fields').innerHTML = `
+    ${srv ? `<label>Αφορά<select id="ed-type" ${dis}><option value="TA" ${d.type === 'TA' ? 'selected' : ''}>Τράπεζα Αίματος (ΤΑ)</option><option value="INV" ${d.type === 'INV' ? 'selected' : ''}>Κέντρο Αίματος (INV)</option></select></label>` : ''}
+    <label>Πελάτης<select id="ed-cust" ${dis}>${custOptions(d.type, d.customerId)}</select></label>
+    <label>Αρ. τιμολογίου<input id="ed-num" value="${esc(d.number)}" placeholder="${esc(T.prefix)} __-${d.date.slice(0, 4)}" ${dis}></label>
+    <label>Ημερομηνία<input id="ed-date" type="date" value="${esc(d.date)}" ${dis}></label>
+    <label>Πηγή<input value="${esc(d.sourceLabel || '')}" disabled></label>`;
+  $('#ed-remarks').value = d.remarks || ''; $('#ed-remarks').disabled = issued;
+  if (srv) $('#ed-type').onchange = e => {
+    d.type = e.target.value;
+    d.customerId = SETTINGS.customers.find(c => (c.types || []).includes(d.type))?.id || d.customerId;
+    openEditor(d);
+  };
+  $('#ed-cust').onchange = e => { d.customerId = e.target.value; };
+  $('#ed-num').oninput = e => { d.number = e.target.value; };
+  $('#ed-date').onchange = e => { d.date = e.target.value; };
+  $('#ed-remarks').oninput = e => { d.remarks = e.target.value; };
+  renderLines();
+  $('#ed-issue').disabled = issued;
+  const dlg = $('#editor'); if (!dlg.open) dlg.showModal();
+  preview();
+}
+
+const LINE_COLS = {
+  FA: [['desc', 'Περιγραφή', 'text'], ['doc', 'Έγγραφο', 'text'], ['date', 'Ημ. καταχώρησης', 'date'], ['qty', 'Ποσότητα', 'num'], ['amount', 'Σύνολο €', 'num']],
+  TPA: [['desc', 'Περιγραφή', 'text'], ['date', 'Ημ. παράδοσης', 'date'], ['qty', 'Ποσότητα', 'num'], ['price', 'Τιμή μονάδας', 'num'], ['_amt', 'Καθαρό ποσό €', 'calc']],
+  TA: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']],
+  INV: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']]
+};
+function renderLines() {
+  const d = ED, cols = LINE_COLS[d.type], dis = isIssued(d) ? 'disabled' : '';
+  const cell = (l, i, [k, , t]) => {
+    if (t === 'calc') return `<td class="num" data-calc="${i}">${fmtEUR(lineAmount(l, d.type))}</td>`;
+    const v = l[k] ?? '';
+    if (t === 'date') return `<td><input type="date" data-i="${i}" data-k="${k}" value="${esc(v)}" ${dis}></td>`;
+    if (t === 'num') {
+      const shown = v === '' ? '' : k === 'amount' ? fmtEUR(v) : (+v).toLocaleString('el-GR', { maximumFractionDigits: 6 });
+      return `<td><input class="num" data-i="${i}" data-k="${k}" data-num="1" value="${esc(shown)}" ${dis}></td>`;
+    }
+    return `<td${k === 'desc' ? ' style="min-width:260px"' : ''}><input data-i="${i}" data-k="${k}" value="${esc(v)}" title="${esc(v)}" ${dis}></td>`;
+  };
+  $('#ed-lines').innerHTML = `<div class="scroll" style="max-height:48vh"><table class="t">
+    <thead><tr><th>#</th>${cols.map(c => `<th class="${c[2] === 'num' || c[2] === 'calc' ? 'num' : ''}">${c[1]}</th>`).join('')}<th></th></tr></thead>
+    <tbody>${d.lines.map((l, i) => `<tr><td>${i + 1}</td>${cols.map(c => cell(l, i, c)).join('')}<td>${dis ? '' : `<button class="btn small ghost danger" data-del="${i}">✕</button>`}</td></tr>`).join('')}</tbody>
+  </table></div>${dis ? '' : '<div class="row-actions"><button class="btn small ghost" id="ed-add">+ Γραμμή</button></div>'}`;
+  $$('#ed-lines input').forEach(inp => inp.oninput = () => {
+    const l = d.lines[+inp.dataset.i];
+    l[inp.dataset.k] = inp.dataset.num ? (parseNum(inp.value) ?? 0) : inp.value;
+    const c = $(`#ed-lines [data-calc="${inp.dataset.i}"]`); if (c) c.textContent = fmtEUR(lineAmount(l, d.type));
+    updateEdTotal();
+  });
+  $$('#ed-lines [data-del]').forEach(b => b.onclick = () => { d.lines.splice(+b.dataset.del, 1); renderLines(); });
+  const add = $('#ed-add'); if (add) add.onclick = () => {
+    d.lines.push(d.type === 'TPA' ? { desc: '', date: d.date, qty: 1, price: 0 } : d.type === 'FA' ? { desc: '', doc: '', date: d.date, qty: 0, amount: 0 } : { desc: '', amount: 0 });
+    renderLines();
+  };
+  updateEdTotal();
+}
+function updateEdTotal() {
+  const v = validate(ED);
+  $('#ed-total').textContent = fmtEUR(v.total) + ' €';
+  $('#ed-warn').innerHTML = v.errors.map(e => `<div class="err">✗ ${esc(e)}</div>`).join('') + v.warns.map(w => `<div class="warn">! ${esc(w)}</div>`).join('');
+}
+function preview() {
+  try {
+    const doc = buildPdf(ED);
+    const old = $('#ed-frame').dataset.url; if (old) URL.revokeObjectURL(old);
+    const url = URL.createObjectURL(doc.output('blob'));
+    $('#ed-frame').dataset.url = url; $('#ed-frame').src = url;
+  } catch (e) { console.error(e); $('#ed-warn').innerHTML += `<div class="err">Σφάλμα PDF: ${esc(e.message)}</div>`; }
+}
+
+/* ---------------- PDF τιμολογίου ---------------- */
+function buildPdf(d) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  doc.addFileToVFS('LS-R.ttf', window.__FONT_REG); doc.addFont('LS-R.ttf', 'LS', 'normal');
+  doc.addFileToVFS('LS-B.ttf', window.__FONT_BOLD); doc.addFont('LS-B.ttf', 'LS', 'bold');
+  const O = SETTINGS.org, T = typeOf(d.type);
+  const c = isIssued(d) ? (REGISTER.find(r => r.id === d.id).customer || getCust(d.customerId)) : getCust(d.customerId);
+  const M = 15, W = 210, H = 297, total = draftTotal(d);
+  const ink = [40, 40, 40], blue = [6, 159, 236], deep = [27, 117, 187], grey = [88, 89, 91];
+  doc.setTextColor(...ink);
+
+  // λογότυπο και διεύθυνση
+  const logo = $('#logo').src;
+  doc.addImage(logo, 'PNG', M, 9, 42, 42 * 399 / 640);
+  doc.setFont('LS', 'bold'); doc.setFontSize(9.5);
+  let y = 20;
+  for (const ln of O.address.split('\n')) { doc.text(ln, 125, y); y += 4.6; }
+
+  // τίτλος
+  doc.setFontSize(11); doc.text(T.title, M, 50);
+  doc.setFont('LS', 'normal'); doc.setFontSize(10); doc.text('ΠΡΟΣ:', M, 58);
+
+  // πελάτης
+  doc.setFont('LS', 'bold');
+  let ly = 68;
+  const nameLines = doc.splitTextToSize(c ? c.name : '—', 100);
+  doc.text(nameLines, M, ly); ly += nameLines.length * 5;
+  if (c && c.sub) { const sl = doc.splitTextToSize(c.sub, 100); doc.text(sl, M, ly); ly += sl.length * 5; }
+
+  // ημερομηνία και αριθμός
+  doc.text('Ημερομηνία:', 132, 68); doc.text('Αρ. Τιμολογίου:', 132, 75);
+  doc.setFont('LS', 'normal');
+  doc.text(fmtDate(d.date), 166, 68); doc.text(String(d.number || '—'), 166, 75);
+
+  y = Math.max(ly, 79);
+  doc.setDrawColor(...blue); doc.setLineWidth(0.6); doc.line(M, y, W - M, y);
+
+  // κείμενο πληρωμής
+  y += 9; doc.setFontSize(9.5);
+  doc.text('Αναφορικά με την κατάσταση λογαριασμού σας στον Οργανισμό Κρατικών Υπηρεσιών Υγείας', M, y);
+  y += 5;
+  const p1 = 'παρακαλώ όπως καταβληθεί το ποσό των ';
+  doc.text(p1, M, y);
+  let x = M + doc.getTextWidth(p1) + 2;
+  doc.setFont('LS', 'bold'); const amtTxt = `€ ${fmtEUR(total)}`; doc.text(amtTxt, x, y);
+  doc.setLineWidth(0.2); doc.setDrawColor(...ink); doc.line(x, y + 0.9, x + doc.getTextWidth(amtTxt), y + 0.9);
+  x += doc.getTextWidth(amtTxt) + 3; doc.setFont('LS', 'normal');
+  doc.text('στον πιο κάτω τραπεζικό λογαριασμό:', x, y);
+
+  y += 9; doc.setFont('LS', 'bold');
+  doc.text(O.bank1, M, y); y += 4.6;
+  doc.text(O.bank2, M, y); y += 4.6;
+  doc.text(`IBAN: ${O.iban} , SWIFT CODE: ${O.swift}`, M, y);
+  y += 6;
+
+  // πίνακας
+  let head, body, colStyles;
+  const R = { halign: 'right' }, C = { halign: 'center' };
+  if (d.type === 'FA') {
+    head = ['ΠΡΟΪΟΝΤΑ', 'ΕΓΓΡΑΦΟ ΠΡΟΪΟΝΤΩΝ', 'ΗΜΕΡΟΜΗΝΙΑ ΚΑΤΑΧΩΡΗΣΗΣ', 'ΠΟΣΟΤΗΤΑ', 'ΣΥΝΟΛΟ €'];
+    body = d.lines.map(l => [l.desc, l.doc, fmtDate(l.date), fmtQty(l.qty), fmtEUR(lineAmount(l, d.type))]);
+    colStyles = { 0: { cellWidth: 70 }, 1: Object.assign({ cellWidth: 28 }, C), 2: Object.assign({ cellWidth: 30 }, C), 3: Object.assign({ cellWidth: 22 }, C), 4: R };
+  } else if (d.type === 'TPA') {
+    head = ['ΠΡΟΪΟΝΤΑ', 'ΗΜΕΡΟΜΗΝΙΑ ΠΑΡΑΔΟΣΗΣ', 'ΠΟΣΟΤΗΤΑ', 'ΤΙΜΗ ΜΟΝΑΔΑΣ ΚΑΘΑΡΗ', 'ΚΑΘΑΡΟ ΠΟΣΟ €'];
+    body = d.lines.map(l => [l.desc, fmtDate(l.date), fmtQty(l.qty), fmtPrice(l.price), fmtEUR(lineAmount(l, d.type))]);
+    colStyles = { 0: { cellWidth: 72 }, 1: Object.assign({ cellWidth: 28 }, C), 2: Object.assign({ cellWidth: 22 }, C), 3: Object.assign({ cellWidth: 28 }, R), 4: R };
+  } else {
+    head = ['ΠΕΡΙΓΡΑΦΗ ΥΠΗΡΕΣΙΩΝ', 'ΠΟΣΟ €'];
+    body = d.lines.map(l => [l.desc, fmtEUR(lineAmount(l, d.type))]);
+    colStyles = { 0: { cellWidth: 140 }, 1: R };
+  }
+  const n = head.length;
+  const foot = [[
+    ...(n > 3 ? [{ content: '', colSpan: n - 3, styles: { fillColor: [255, 255, 255], lineWidth: 0 } }] : []),
+    { content: 'ΟΛΙΚΟ ΠΟΣΟ €', colSpan: n > 2 ? 2 : 1, styles: { halign: 'right' } },
+    { content: fmtEUR(total), styles: { halign: 'right' } }
+  ]];
+  doc.autoTable({
+    startY: y, head: [head], body, foot, showFoot: 'lastPage', theme: 'grid',
+    margin: { left: M, right: M, top: 18, bottom: 22 },
+    styles: { font: 'LS', fontSize: 8.5, cellPadding: 1.5, textColor: ink, lineColor: [175, 175, 175], lineWidth: 0.2, valign: 'middle' },
+    headStyles: { font: 'LS', fontStyle: 'bold', fillColor: deep, textColor: 255, halign: 'center', fontSize: 8.5 },
+    footStyles: { font: 'LS', fontStyle: 'bold', fillColor: [234, 234, 234], textColor: ink, fontSize: 10 },
+    columnStyles: colStyles
+  });
+
+  // παρατηρήσεις και υπογραφή
+  y = doc.lastAutoTable.finalY + 10;
+  const remarks = String(d.remarks || '').trim();
+  const remLines = remarks ? doc.splitTextToSize(remarks, 85) : [];
+  const need = Math.max(42, 10 + remLines.length * 4.4);
+  if (y + need > H - 24) { doc.addPage(); y = 25; }
+  doc.setFontSize(9.5);
+  if (remarks) {
+    doc.setFont('LS', 'bold'); doc.text('ΠΑΡΑΤΗΡΗΣΕΙΣ', M, y + 4);
+    doc.setLineWidth(0.3); doc.line(M, y + 5.2, M + 85, y + 5.2);
+    doc.setFont('LS', 'normal'); doc.text(remLines, M, y + 10);
+  }
+  const sx = 150;
+  doc.setFont('LS', 'normal'); doc.setTextColor(...ink);
+  doc.text('………………………………………………..', sx, y + 14, { align: 'center' });
+  doc.text(O.signName, sx, y + 19, { align: 'center' });
+  doc.text(O.signTitle, sx, y + 24, { align: 'center' });
+  doc.text(O.signUnit, sx, y + 29, { align: 'center' });
+  if (O.signOrg) doc.text(O.signOrg, sx, y + 34, { align: 'center' });
+
+  // υποσέλιδο
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFillColor(...blue); doc.rect(0, H - 6, W, 6, 'F');
+    doc.setFont('LS', 'normal'); doc.setFontSize(8); doc.setTextColor(...grey);
+    doc.text(`${d.number || ''}`, M, H - 9);
+    doc.text(`Σελίδα ${p} από ${pages}`, W - M, H - 9, { align: 'right' });
+  }
+  doc.setProperties({ title: `${d.number || T.prefix} ${custLabel(c)}`, author: 'ΟΚΥπΥ', subject: T.title });
+  return doc;
+}
+function pdfName(d) {
+  const c = d.customer || getCust(d.customerId);
+  return safeName(`${d.number || typeOf(d.type).prefix + ' ΠΡΟΧΕΙΡΟ'} ${custFileLabel(c)}`) + '.pdf';
+}
+function savePdf(d) { download(buildPdf(d).output('blob'), pdfName(d)); }
+
+/* ---------------- μητρώο ---------------- */
+const TYPE_BY_PREFIX = () => Object.fromEntries(Object.entries(SETTINGS.types).map(([k, v]) => [v.prefix, k]));
+function regFiltered() {
+  const m = $('#REG-month').value, tp = $('#REG-type').value, un = $('#REG-unexported').checked;
+  const tk = tp ? TYPE_BY_PREFIX()[tp] : '';
+  return REGISTER.filter(r => (!m || r.date.slice(0, 7) === m) && (!tk || r.type === tk) && (!un || !r.exported));
+}
+function updateRegCount() { $('#regCount').textContent = REGISTER.length; }
+function renderRegister() {
+  updateRegCount();
+  const rows = regFiltered().sort((a, b) => a.date.localeCompare(b.date) || a.number.localeCompare(b.number));
+  const tot = rows.reduce((s, r) => s + r.total, 0);
+  $('#REG-table').innerHTML = rows.length ? `<div class="scroll"><table class="t">
+    <thead><tr><th><input type="checkbox" id="reg-all" checked></th><th>Αρ. τιμολογίου</th><th>Τύπος</th><th>Ημερομηνία</th><th>Πελάτης</th><th>Πηγή</th><th class="num">Ποσό €</th><th>SAP</th><th></th></tr></thead>
+    <tbody>${rows.map(r => `<tr data-id="${r.id}">
+      <td><input type="checkbox" class="reg-sel" checked></td>
+      <td><b>${esc(r.number)}</b></td><td>${esc(typeOf(r.type).prefix)}</td><td>${fmtDate(r.date)}</td>
+      <td>${esc(custLabel(r.customer))}</td><td>${esc(r.sourceLabel || '')}</td>
+      <td class="num">${fmtEUR(r.total)}</td>
+      <td>${r.exported ? `<span class="tag issued" title="${esc(r.exportedAt || '')}">Ναι</span>` : '<span class="tag">Όχι</span>'}</td>
+      <td style="white-space:nowrap"><button class="btn small" data-a="pdf">PDF</button> <button class="btn small ghost" data-a="sap">${r.exported ? 'Σήμανση: όχι SAP' : 'Σήμανση: SAP'}</button> <button class="btn small ghost danger" data-a="del">Ακύρωση</button></td>
+    </tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="6"><b>Σύνολο (${rows.length})</b></td><td class="num"><b>${fmtEUR(tot)}</b></td><td colspan="2"></td></tr></tfoot>
+  </table></div>` : '<p class="hint">Δεν υπάρχουν εκδοθέντα τιμολόγια για αυτά τα φίλτρα.</p>';
+  const all = $('#reg-all'); if (all) all.onchange = () => $$('.reg-sel').forEach(c => c.checked = all.checked);
+  $$('#REG-table tbody tr').forEach(tr => {
+    const r = REGISTER.find(x => x.id === tr.dataset.id);
+    $$('[data-a]', tr).forEach(b => b.onclick = () => {
+      if (b.dataset.a === 'pdf') download(buildPdf(r).output('blob'), pdfName(r));
+      if (b.dataset.a === 'sap') { r.exported = !r.exported; r.exportedAt = r.exported ? new Date().toISOString() : ''; saveRegister(); renderRegister(); }
+      if (b.dataset.a === 'del' && confirm(`Ακύρωση του ${r.number} και αφαίρεση από το μητρώο;\n\nΑν έχει ήδη σταλεί ή περαστεί στο SAP, χρειάζεται πιστωτικό σημείωμα, όχι διαγραφή.`)) {
+        REGISTER = REGISTER.filter(x => x.id !== r.id); saveRegister(); renderAllLists();
+      }
+    });
+  });
+}
+const regSelected = () => $$('#REG-table tbody tr').filter(tr => $('.reg-sel', tr).checked).map(tr => REGISTER.find(x => x.id === tr.dataset.id));
+
+/* ---------------- Excel για SAP ---------------- */
+function exportSap() {
+  const sel = regSelected();
+  if (!sel.length) { alert('Δεν επιλέχθηκε κανένα τιμολόγιο.'); return; }
+  const S = SETTINGS.sap;
+  const wb = XLSX.utils.book_new();
+  const dateCell = iso => ({ t: 'n', v: isoToSerial(iso), z: 'dd/mm/yyyy' });
+  const money = (v, f) => (f ? { t: 'n', v: round2(v), f, z: '#,##0.00' } : { t: 'n', v: round2(v), z: '#,##0.00' });
+  const s = v => ({ t: 's', v: v == null ? '' : String(v) });
+
+  // Γραμμές
+  const L = [['Αρ. τιμολογίου', 'Περιγραφή', 'Έγγραφο', 'Ημερομηνία', 'Ποσότητα', 'Τιμή μονάδας', 'Πηγή ποσού', 'Ποσό €'].map(s)];
+  for (const r of sel) for (const l of r.lines) {
+    const row = L.length + 1;
+    const tpa = r.type === 'TPA';
+    L.push([s(r.number), s(l.desc), s(l.doc || ''), l.date ? dateCell(l.date) : s(''),
+      tpa || l.qty != null ? { t: 'n', v: Number(l.qty) || 0 } : s(''),
+      tpa ? { t: 'n', v: Number(l.price) || 0, z: '#,##0.0000' } : s(''),
+      s(tpa ? 'Ποσότητα × τιμή, στρογγ. 2 δεκ.' : r.type === 'FA' ? 'Αρχείο SAP (Amt.in loc.cur.)' : 'Τιμολόγιο One Point'),
+      tpa ? money(lineAmount(l, r.type), `ROUND(E${row}*F${row},2)`) : money(lineAmount(l, r.type))]);
+  }
+  const nL = L.length;
+  const wsL = XLSX.utils.aoa_to_sheet(L);
+  wsL['!cols'] = [{ wch: 16 }, { wch: 48 }, { wch: 14 }, { wch: 12 }, { wch: 11 }, { wch: 13 }, { wch: 30 }, { wch: 14 }];
+
+  // Τιμολόγια
+  const I = [['Αρ. τιμολογίου', 'Τύπος', 'Ημερομηνία', 'Πελάτης', 'Κωδ. πελάτη SAP', 'Λογ. εσόδων (G/L)', 'Σύνολο €', 'Αρ. γραμμών', 'Πηγή', 'Κέντρο κέρδους'].map(s)];
+  sel.forEach((r, i) => {
+    const row = i + 2;
+    I.push([s(r.number), s(typeOf(r.type).prefix), dateCell(r.date), s(custLabel(r.customer)), s(r.customer?.sapCode || ''), s(typeOf(r.type).gl || ''),
+      money(r.total, `SUMIFS('Γραμμές'!$H$2:$H$${nL},'Γραμμές'!$A$2:$A$${nL},A${row})`),
+      { t: 'n', v: r.lines.length, f: `COUNTIF('Γραμμές'!$A$2:$A$${nL},A${row})` },
+      s(r.sourceLabel || ''), s(r.customer?.profit || '')]);
+  });
+  const wsI = XLSX.utils.aoa_to_sheet(I);
+  wsI['!cols'] = [{ wch: 16 }, { wch: 7 }, { wch: 12 }, { wch: 60 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 11 }, { wch: 36 }, { wch: 14 }];
+
+  // SAP_Upload: δύο γραμμές ανά τιμολόγιο (χρέωση πελάτη, πίστωση εσόδων)
+  const U = [['Seq', 'Company Code', 'Document Type', 'Document Date', 'Posting Date', 'Fiscal Year', 'Period', 'Reference', 'Header Text', 'Posting Key', 'Account', 'Amount', 'Currency', 'Tax Code', 'Profit Center', 'Item Text', 'Assignment'].map(s)];
+  sel.forEach((r, i) => {
+    const ir = i + 2, T = typeOf(r.type), c = r.customer || {};
+    const hdr = `${T.prefix} ${r.date.slice(5, 7)}/${r.date.slice(0, 4)}`.slice(0, 25);
+    const item = `${T.label} ${c.name || ''} ${c.sub || ''}`.replace(/\s+/g, ' ').trim().slice(0, 50);
+    for (const [pk, acct] of [[S.pkDebit, c.sapCode || ''], [S.pkCredit, T.gl || '']]) {
+      const row = U.length + 1;
+      U.push([{ t: 'n', v: i + 1 }, s(S.companyCode), s(S.docType), dateCell(r.date), dateCell(r.date),
+        { t: 'n', v: +r.date.slice(0, 4), f: `YEAR(E${row})` }, { t: 'n', v: +r.date.slice(5, 7), f: `MONTH(E${row})` },
+        s(r.number), s(hdr), s(pk), s(acct), money(r.total, `'Τιμολόγια'!G${ir}`), s(S.currency), s(S.taxCode),
+        s(c.profit || ''), s(item), s(r.number)]);
+    }
+  });
+  const nU = U.length;
+  const wsU = XLSX.utils.aoa_to_sheet(U);
+  wsU['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 7 }, { wch: 16 }, { wch: 22 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 48 }, { wch: 16 }];
+
+  // Έλεγχος
+  const sumInv = sel.reduce((a, r) => a + r.total, 0);
+  const missing = U.slice(1).filter(r => !r[10].v).length;
+  const E = [
+    [s('Έλεγχος αρχείου SAP'), s('')],
+    [s('Σύνολο τιμολογίων'), money(sumInv, `SUM('Τιμολόγια'!G2:G${sel.length + 1})`)],
+    [s('Σύνολο γραμμών τιμολογίων'), money(sumInv, `SUM('Γραμμές'!H2:H${nL})`)],
+    [s(`Χρεώσεις SAP (posting key ${S.pkDebit})`), money(sumInv, `SUMPRODUCT(('SAP_Upload'!J2:J${nU}="${S.pkDebit}")*'SAP_Upload'!L2:L${nU})`)],
+    [s(`Πιστώσεις SAP (posting key ${S.pkCredit})`), money(sumInv, `SUMPRODUCT(('SAP_Upload'!J2:J${nU}="${S.pkCredit}")*'SAP_Upload'!L2:L${nU})`)],
+    [s('Διαφορά χρεώσεων και πιστώσεων'), money(0, 'B4-B5')],
+    [s('Διαφορά SAP και τιμολογίων'), money(0, 'B4-B2')],
+    [s('Διαφορά τιμολογίων και γραμμών'), money(0, 'B2-B3')],
+    [s('Γραμμές SAP χωρίς λογαριασμό'), { t: 'n', v: missing, f: `COUNTBLANK('SAP_Upload'!K2:K${nU})` }],
+    [s('Αποτέλεσμα'), { t: 's', v: missing ? 'ΕΛΕΓΞΤΕ' : 'ΟΚ', f: 'IF(AND(ABS(B6)<0.005,ABS(B7)<0.005,ABS(B8)<0.005,B9=0),"ΟΚ","ΕΛΕΓΞΤΕ")' }]
+  ];
+  const wsE = XLSX.utils.aoa_to_sheet(E);
+  wsE['!cols'] = [{ wch: 42 }, { wch: 16 }];
+
+  // Σημειώσεις
+  const N = [
+    ['Σημειώσεις και παραδοχές'],
+    ['1. Η διάταξη του SAP_Upload είναι γενική (χρέωση πελάτη / πίστωση εσόδων ανά τιμολόγιο). Προσαρμόστε τη στο πρότυπο LSMW/FB70 του SAP σας πριν την πρώτη χρήση.'],
+    [`2. Posting keys: ${S.pkDebit} = χρέωση πελάτη, ${S.pkCredit} = πίστωση λογαριασμού εσόδων. Ημερομηνία παραστατικού = ημερομηνία καταχώρησης = ημερομηνία τιμολογίου.`],
+    ['3. Κωδικοί πελατών, λογαριασμοί εσόδων και κέντρα κέρδους προέρχονται από τις Ρυθμίσεις του εργαλείου. Κενό κελί σημαίνει ότι δεν έχει οριστεί.'],
+    ['4. Τα ποσά στο SAP_Upload είναι τύποι που δείχνουν στην καρτέλα Τιμολόγια, η οποία αθροίζει την καρτέλα Γραμμές. Για ΤΠΑ το ποσό γραμμής είναι ROUND(ποσότητα × τιμή, 2).'],
+    ['5. Αν το εργαλείο ανεβάσματος του SAP διαβάζει μόνο τιμές, αποθηκεύστε το αρχείο από το Excel πριν το ανεβάσετε ώστε να ενημερωθούν οι υπολογισμένες τιμές.'],
+    ['6. Δεν υπολογίζεται ΦΠΑ. Τα πρότυπα τιμολόγια ΟΚΥπΥ που δόθηκαν δεν έχουν ΦΠΑ.'],
+    [`Δημιουργήθηκε: ${new Date().toLocaleString('el-GR')}`]
+  ];
+  const wsN = XLSX.utils.aoa_to_sheet(N); wsN['!cols'] = [{ wch: 140 }];
+
+  XLSX.utils.book_append_sheet(wb, wsU, 'SAP_Upload');
+  XLSX.utils.book_append_sheet(wb, wsI, 'Τιμολόγια');
+  XLSX.utils.book_append_sheet(wb, wsL, 'Γραμμές');
+  XLSX.utils.book_append_sheet(wb, wsE, 'Έλεγχος');
+  XLSX.utils.book_append_sheet(wb, wsN, 'Σημειώσεις');
+  const months = [...new Set(sel.map(r => r.date.slice(0, 7)))].sort();
+  const fname = `SAP Έσοδα Τιμολόγια Υπουργείων ${months.length === 1 ? months[0] : months[0] + ' έως ' + months[months.length - 1]}.xlsx`;
+  XLSX.writeFile(wb, fname, { compression: true });
+  if (confirm(`Κατέβηκε το «${fname}».\n\nΝα σημειωθούν τα ${sel.length} τιμολόγια ως «πέρασαν στο SAP»;`)) {
+    const now = new Date().toISOString();
+    sel.forEach(r => { r.exported = true; r.exportedAt = now; });
+    saveRegister(); renderRegister();
+  }
+}
+
+/* ---------------- ρυθμίσεις UI ---------------- */
+const ORG_FIELDS = [
+  ['org', 'address', 'Διεύθυνση (μία γραμμή ανά σειρά)', 'area'], ['org', 'bank1', 'Δικαιούχος λογαριασμού'], ['org', 'bank2', 'Όνομα λογαριασμού (αγγλικά)'],
+  ['org', 'iban', 'IBAN'], ['org', 'swift', 'SWIFT'], ['org', 'signName', 'Υπογράφων'], ['org', 'signTitle', 'Θέση υπογράφοντος'],
+  ['org', 'signUnit', 'Υπηρεσία'], ['org', 'signOrg', 'Οργανισμός (κάτω από την υπογραφή)'],
+  ['sap', 'companyCode', 'SAP Company Code'], ['sap', 'docType', 'SAP Document Type'], ['sap', 'currency', 'Νόμισμα'],
+  ['sap', 'pkDebit', 'Posting key χρέωσης πελάτη'], ['sap', 'pkCredit', 'Posting key πίστωσης εσόδων'], ['sap', 'taxCode', 'Κωδικός ΦΠΑ (αν χρειάζεται)']
+];
+function renderSettings() {
+  const tps = Object.keys(SETTINGS.types);
+  $('#SET-customers').innerHTML = `<div class="scroll"><table class="t"><thead><tr><th>Επωνυμία</th><th>Δεύτερη γραμμή</th><th>Τύποι</th><th>Κωδ. πελάτη SAP</th><th>Κέντρο κέρδους</th><th>Λέξεις αναγνώρισης</th><th></th></tr></thead><tbody>
+    ${SETTINGS.customers.map((c, i) => `<tr data-i="${i}">
+      <td><input data-k="name" value="${esc(c.name)}"></td><td><input data-k="sub" value="${esc(c.sub)}"></td>
+      <td style="white-space:nowrap">${tps.map(t => `<label class="chk" style="display:inline-flex;margin-right:6px"><input type="checkbox" data-t="${t}" ${(c.types || []).includes(t) ? 'checked' : ''}>${esc(SETTINGS.types[t].prefix)}</label>`).join('')}</td>
+      <td><input data-k="sapCode" value="${esc(c.sapCode)}"></td><td><input data-k="profit" value="${esc(c.profit)}"></td>
+      <td><input data-k="kw" value="${esc(c.kw)}"></td>
+      <td><button class="btn small ghost danger" data-del="${i}">✕</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+  $$('#SET-customers tbody tr').forEach(tr => {
+    const c = SETTINGS.customers[+tr.dataset.i];
+    $$('[data-k]', tr).forEach(inp => inp.oninput = () => c[inp.dataset.k] = inp.value);
+    $$('[data-t]', tr).forEach(cb => cb.onchange = () => { c.types = $$('[data-t]', tr).filter(x => x.checked).map(x => x.dataset.t); });
+    $('[data-del]', tr).onclick = () => {
+      if (!confirm(`Διαγραφή πελάτη «${custLabel(c)}»;`)) return;
+      SETTINGS.customers.splice(+tr.dataset.i, 1); renderSettings();
+    };
+  });
+  $('#SET-types').innerHTML = `<table class="t"><thead><tr><th>Τύπος</th><th>Αρχικά</th><th>Τίτλος στο PDF</th><th>Περιγραφή (κείμενο SAP)</th><th>Λογ. εσόδων G/L</th></tr></thead><tbody>
+    ${tps.map(t => { const T = SETTINGS.types[t]; return `<tr data-t="${t}"><td>${t}</td><td><input data-k="prefix" value="${esc(T.prefix)}"></td><td><input data-k="title" value="${esc(T.title)}"></td><td><input data-k="label" value="${esc(T.label)}"></td><td><input data-k="gl" value="${esc(T.gl)}"></td></tr>`; }).join('')}
+  </tbody></table>`;
+  $$('#SET-types tbody tr').forEach(tr => $$('[data-k]', tr).forEach(inp => inp.oninput = () => SETTINGS.types[tr.dataset.t][inp.dataset.k] = inp.value));
+  $('#SET-org').innerHTML = ORG_FIELDS.map(([g, k, lbl, t]) => t === 'area'
+    ? `<label style="grid-row:span 2">${lbl}<textarea data-g="${g}" data-k="${k}" rows="6">${esc(SETTINGS[g][k])}</textarea></label>`
+    : `<label>${lbl}<input data-g="${g}" data-k="${k}" value="${esc(SETTINGS[g][k])}"></label>`).join('');
+  $$('#SET-org [data-k]').forEach(inp => inp.oninput = () => SETTINGS[inp.dataset.g][inp.dataset.k] = inp.value);
+}
+function saveSettings(msg = 'Οι ρυθμίσεις αποθηκεύτηκαν.') {
+  const ok = LS.set(K_SET, SETTINGS);
+  $('#SET-status').innerHTML = ok ? `<span class="ok">${msg}</span>` : '<span class="err">Ο browser δεν επιτρέπει αποθήκευση. Κάντε «Εξαγωγή ρυθμίσεων» για να τις κρατήσετε.</span>';
+  renderAllLists();
+}
+
+/* ---------------- σύνδεση UI ---------------- */
+function bindDrop(label, handler) {
+  const inp = $('input', label);
+  inp.onchange = () => { [...inp.files].forEach(handler); inp.value = ''; };
+  label.addEventListener('dragover', e => { e.preventDefault(); label.classList.add('over'); });
+  label.addEventListener('dragleave', () => label.classList.remove('over'));
+  label.addEventListener('drop', e => { e.preventDefault(); label.classList.remove('over'); [...e.dataTransfer.files].forEach(handler); });
+}
+function readJsonFile(file, cb) {
+  file.text().then(t => { try { cb(JSON.parse(t)); } catch (e) { alert('Μη έγκυρο αρχείο JSON.'); } });
+}
+
+function init() {
+  $$('.tab').forEach(b => b.onclick = () => {
+    $$('.tab').forEach(x => x.classList.toggle('active', x === b));
+    $$('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + b.dataset.tab));
+    if (b.dataset.tab === 'REG') renderRegister();
+    if (b.dataset.tab === 'SET') renderSettings();
+    try { localStorage.setItem('okypy-inv-tab', b.dataset.tab); } catch (e) { }
+  });
+  bindDrop($('.drop[data-target="FA"]'), handleFA);
+  bindDrop($('.drop[data-target="TPA"]'), handleTPA);
+  bindDrop($('.drop[data-target="SRV"]'), handleSRV);
+  $('#TPA-blank').onclick = () => {
+    DRAFTS.TPA.push({ id: uid(), type: 'TPA', customerId: '', number: '', date: todayISO(), remarks: '', lines: [{ desc: '', date: todayISO(), qty: 1, price: 0 }], sourceKey: '', sourceLabel: 'Χειροκίνητο' });
+    renderList('TPA'); openEditor(DRAFTS.TPA[DRAFTS.TPA.length - 1]);
+  };
+  $('#SRV-blank-TA').onclick = () => { DRAFTS.SRV.push(makeSRVDraft('TA')); renderList('SRV'); openEditor(DRAFTS.SRV[DRAFTS.SRV.length - 1]); };
+  $('#SRV-blank-INV').onclick = () => { DRAFTS.SRV.push(makeSRVDraft('INV')); renderList('SRV'); openEditor(DRAFTS.SRV[DRAFTS.SRV.length - 1]); };
+
+  $('#ed-preview').onclick = preview;
+  $('#ed-pdf').onclick = () => savePdf(ED);
+  $('#ed-issue').onclick = () => { if (issueDraft(ED)) { savePdf(ED); openEditor(ED); } };
+  $('#editor').addEventListener('close', () => renderList(groupOf(ED.type)));
+
+  ['#REG-month', '#REG-type', '#REG-unexported'].forEach(s => $(s).onchange = renderRegister);
+  $('#REG-sap').onclick = exportSap;
+  $('#REG-pdfs').onclick = () => {
+    const sel = regSelected(); if (!sel.length) return;
+    if (sel.length > 5 && !confirm(`Θα κατέβουν ${sel.length} αρχεία PDF. Ο browser μπορεί να ζητήσει άδεια για πολλαπλές λήψεις. Συνέχεια;`)) return;
+    sel.forEach((r, i) => setTimeout(() => download(buildPdf(r).output('blob'), pdfName(r)), i * 400));
+  };
+  $('#REG-backup').onclick = () => download(new Blob([JSON.stringify({ register: REGISTER, settings: SETTINGS, savedAt: new Date().toISOString() }, null, 1)], { type: 'application/json' }), `Μητρώο τιμολογίων ΟΚΥπΥ ${todayISO()}.json`);
+  $('#REG-restore').onchange = e => { const f = e.target.files[0]; if (!f) return; readJsonFile(f, j => {
+    if (!Array.isArray(j.register)) { alert('Το αρχείο δεν περιέχει μητρώο.'); return; }
+    const ids = new Set(REGISTER.map(r => r.id)); const add = j.register.filter(r => !ids.has(r.id));
+    if (!confirm(`Θα προστεθούν ${add.length} τιμολόγια στο μητρώο${j.settings ? ' και θα φορτωθούν οι ρυθμίσεις του αντιγράφου' : ''}. Συνέχεια;`)) return;
+    REGISTER = REGISTER.concat(add); saveRegister();
+    if (j.settings) { SETTINGS = Object.assign(clone(DEFAULT_SETTINGS), j.settings); LS.set(K_SET, SETTINGS); }
+    renderAllLists();
+  }); e.target.value = ''; };
+
+  $('#SET-addcust').onclick = () => { SETTINGS.customers.push({ id: 'c' + uid(), name: '', sub: '', types: [], sapCode: '', profit: '', kw: '' }); renderSettings(); };
+  $('#SET-save').onclick = () => saveSettings();
+  $('#SET-export').onclick = () => download(new Blob([JSON.stringify(SETTINGS, null, 1)], { type: 'application/json' }), `Ρυθμίσεις τιμολόγησης ΟΚΥπΥ ${todayISO()}.json`);
+  $('#SET-import').onchange = e => { const f = e.target.files[0]; if (!f) return; readJsonFile(f, j => {
+    if (!j.customers || !j.types) { alert('Το αρχείο δεν είναι αρχείο ρυθμίσεων.'); return; }
+    SETTINGS = Object.assign(clone(DEFAULT_SETTINGS), j); renderSettings(); saveSettings('Οι ρυθμίσεις εισήχθησαν και αποθηκεύτηκαν.');
+  }); e.target.value = ''; };
+  $('#SET-reset').onclick = () => { if (confirm('Επαναφορά όλων των ρυθμίσεων στις αρχικές; Οι κωδικοί SAP που περάσατε θα χαθούν.')) { SETTINGS = clone(DEFAULT_SETTINGS); renderSettings(); saveSettings('Έγινε επαναφορά στις αρχικές ρυθμίσεις.'); } };
+
+  let last = null; try { last = localStorage.getItem('okypy-inv-tab'); } catch (e) { }
+  const btn = last && $(`.tab[data-tab="${last}"]`); if (btn) btn.click();
+  updateRegCount();
+}
+
+window.__OKYPY = { parseNum, toISO, netReversals, detectSap, parseSapLines, buildPdf, validate, draftTotal, DRAFTS, get REGISTER() { return REGISTER; } };
+document.addEventListener('DOMContentLoaded', init);
+})();
