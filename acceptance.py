@@ -667,7 +667,15 @@ def accent_insensitive_search(harness):
           "εξόφληση, χωρίς να εμποδίζεται η νέα καταχώρηση.",
           "§7")
 def unpaid_prior_episodes_flagged(harness):
-    drive_to_finalised(harness, code="600", episode_number="E-1")
+    # The golden service list includes AED005, and since 03/11/2026 a self-pay episode
+    # carrying AED005 cannot be finalised without its radiology charge. This scenario is
+    # about flagging an unpaid PRIOR episode and needs a finalised one in 600; the X-ray
+    # is incidental to it, so it is left out rather than the rule being bent.
+    #
+    # The specimen costing itself is unaffected: OKY1054/0035 is category 624, which
+    # carries no tariff charges, so the rule does not reach it.
+    services = [code for code in GOLDEN_SERVICES if code != "AED005"]
+    drive_to_finalised(harness, services=services, code="600", episode_number="E-1")
     data = harness.client.get(
         "/taep/api/prior?id_type=Ταυτότητα&id_number=1045872").get_json()
     return [

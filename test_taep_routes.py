@@ -1982,41 +1982,72 @@ def test_the_same_charge_prices_once_an_examination_is_chosen(client, app):
     assert taep.money_from_db(result["total_cost"]) == Decimal("120.00") + expected
 
 
-def test_a_radiology_service_without_its_charge_is_warned_about(client, app):
+def test_a_radiology_service_without_its_charge_blocks_finalisation(client, app):
     """«Όταν βάζω ακτινογραφία (AED005) στις διαγνωστικές παρεμβάσεις πρέπει το πεδίο με
-    τις επιπλέον χρεώσεις να είναι υποχρεωτικό για τον κατάλογο της ακτινολογίας.»
+    τις επιπλέον χρεώσεις να είναι υποχρεωτικό για τον κατάλογο της ακτινολογίας» —
+    confirmed compulsory, 03/11/2026.
 
-    AED005 sets the weight and adds no money — the X-ray's price lives in the radiology
+    AED005 sets the weight and adds no money: the X-ray's price lives in the radiology
     list and arrives through an extra charge. Record the service and not the charge and
     the episode is priced without the X-ray, which is revenue nobody notices is missing.
 
-    A warning, not a blocker: whether it should stop finalisation is the Μονάδα's call,
-    not ours, and it has been put to them.
+    A blocker, not a refusal to calculate. The costing can still be priced and read —
+    a clerk may not have the examination in front of them when they first price it —
+    but it cannot be finalised. Same treatment as the diagnosis, for the same reason.
     """
     episode_id = create(client, app, code="600")
     client.post("/taep/%d/services" % episode_id,
                 data={"service_code": ["AED005", "AET057"]})
     result = taep.price_episode(app.ctx, episode_id)
-    warnings = [w for w in result.warnings_el if "AED005" in w]
-    assert len(warnings) == 1
-    assert "SHSO-ER3" in warnings[0]
+    blockers = [b for b in result.blocking_issues_el if "AED005" in b]
+    assert len(blockers) == 1
+    assert "SHSO-ER3" in blockers[0]
+    assert result.can_finalise is False
+    # The number is still there to read; it is finalising that is blocked.
+    assert taep.money_from_db(result.total_cost) == Decimal("120.00")
 
-    # Gone once the charge is there.
+    client.post("/taep/%d/calculate" % episode_id, data={})
+    response = client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
+    assert "AED005" in response.get_data(as_text=True)
+    assert taep.get_episode(app.ctx, episode_id)["status"] != "FINALISED"
+
+
+def test_the_same_episode_finalises_once_the_charge_is_added(client, app):
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
     exam = taep.list_radiology_tariff(app.ctx)[0]
-    lines = [taep._tariff_line(app.ctx, "SHSO-ER3", exam["cpt_code"], "1")]
-    assert not [w for w in taep.price_episode(app.ctx, episode_id, lines).warnings_el
-                if "AED005" in w]
+    client.post("/taep/%d/calculate" % episode_id, data={
+        "tariff_code": ["SHSO-ER3"], "tariff_price_type": ["tariff_lookup"],
+        "tariff_cpt": [exam["cpt_code"]], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+    client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"
 
 
-def test_the_warning_is_silent_where_no_charge_could_be_added(client, app):
+def test_the_other_three_radiology_services_are_not_compulsory(client, app):
+    """«Only for that code AED005» — 03/11/2026, when the rule was put to her for all
+    four. The other three pairings are recorded and not enforced, so a clerk recording
+    an ultrasound is not stopped.
+    """
+    episode_id = create(client, app, code="600", episode_number="E-US")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED019", "AET057"]})
+    result = taep.price_episode(app.ctx, episode_id)
+    assert result.blocking_issues_el == ()
+    assert result.can_finalise is True
+
+
+def test_the_block_does_not_apply_where_no_charge_could_be_added(client, app):
     """In a category that cannot carry extra charges the card is not on the screen, so
-    a warning telling the clerk to add one would be an instruction they cannot follow.
+    blocking would strand the episode over something nobody can do anything about.
     """
     episode_id = create(client, app, code="609", episode_number="E-609-RAD")
     client.post("/taep/%d/services" % episode_id,
                 data={"service_code": ["AED005", "AET057"]})
     result = taep.price_episode(app.ctx, episode_id)
-    assert not [w for w in result.warnings_el if "AED005" in w]
+    assert not [b for b in result.blocking_issues_el if "AED005" in b]
+    assert result.can_finalise is True
 
 
 def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
@@ -2040,3 +2071,8 @@ def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
                for items in taep.list_tariff_catalogue(seeded).values()
                for item in items if item["price_type"] == "tariff_lookup"}
     assert lookups == set(taep.RADIOLOGY_SERVICE_CHARGES.values())
+
+    # Compulsory is a subset of the pairing, and is AED005 alone until the Μονάδα
+    # widens it (03/11/2026: «only for that code AED005»).
+    assert taep.RADIOLOGY_CHARGE_COMPULSORY == {"AED005"}
+    assert taep.RADIOLOGY_CHARGE_COMPULSORY <= set(taep.RADIOLOGY_SERVICE_CHARGES)

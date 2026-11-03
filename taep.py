@@ -440,7 +440,14 @@ RADIOLOGY_SERVICE_NAMES = {
     "AED020": "Μαγνητική τομογραφία",
 }
 # AED022 «Τομογραφία Ουροποιογεννητικού συστήματος με σκιαγραφικό» is deliberately not
-# here: the tariff has no matching code for it, so there is nothing to require.
+# here: the tariff has no matching code for it, so there is nothing to pair it with.
+#
+# Of the four, only AED005 is COMPULSORY — Παναγιώτα Έλληνα, 03/11/2026, asked for it
+# on AED005 and then narrowed it to that code when the rule was put to her for all four.
+# The other three pairings stay above because they are true and worth having written
+# down; they are simply not enforced. Widening this set is the whole change if she ever
+# asks for them.
+RADIOLOGY_CHARGE_COMPULSORY = {"AED005"}
 
 
 def calculate(selected_services, rates, tariff_lines=(), financial_category_code=None,
@@ -517,20 +524,26 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
     # clerk who records the service and not the charge has priced the episode without
     # the X-ray, which is revenue nobody will notice is missing.
     #
-    # Παναγιώτα Έλληνα, 03/11/2026, on AED005. A warning rather than a blocker, and
-    # only where extra charges are permitted at all: in a category that cannot carry
-    # them there is nothing the clerk could do about it, and blocking finalisation over
-    # it would strand the episode. Whether it should block is hers to say.
+    # Παναγιώτα Έλληνα, 03/11/2026, on AED005, and confirmed compulsory the same day.
+    # A blocker, so the costing can still be calculated and read but cannot be
+    # finalised — the same treatment the diagnosis has, and for the same reason: the
+    # clerk may not have the examination in front of them when they first price it.
+    #
+    # Only where extra charges are permitted at all. In a category that cannot carry
+    # them there is no charge to add, so blocking would strand the episode over
+    # something nobody can do anything about.
     if rates.tariff_applies:
         charged = {line.tariff_code for line in lines_in}
         chosen = {s.code for s in services}
-        for service_code, charge_code in RADIOLOGY_SERVICE_CHARGES.items():
+        for service_code in sorted(RADIOLOGY_CHARGE_COMPULSORY):
+            charge_code = RADIOLOGY_SERVICE_CHARGES[service_code]
             if service_code in chosen and charge_code not in charged:
-                warnings.append(
+                blocking.append(
                     f"Η υπηρεσία {service_code} "
                     f"({RADIOLOGY_SERVICE_NAMES[service_code]}) έχει επιλεγεί αλλά δεν "
                     f"έχει προστεθεί χρέωση {charge_code} από τον τιμοκατάλογο "
-                    f"Ακτινοδιαγνωστικής. Η εξέταση δεν χρεώνεται.")
+                    f"Ακτινοδιαγνωστικής. Η εξέταση δεν χρεώνεται και η κοστολόγηση "
+                    f"δεν μπορεί να οριστικοποιηθεί.")
 
     if rates.registration_fee is None:
         registration_fee = None
