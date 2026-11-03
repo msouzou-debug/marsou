@@ -14,6 +14,11 @@
 {% macro tariff_row(line) %}
 <tr class="tariff-row">
   <td>
+    {# Posted so a refused calculation can be rendered back with the right inputs
+       shown on each row — the server cannot tell a fixed charge from an hourly one
+       without it, and the row would come back with the wrong fields visible. #}
+    <input type="hidden" name="tariff_price_type" class="tariff-price-type"
+           value="{{ line.price_type if line else '' }}">
     <select name="tariff_code" class="form-select form-select-sm tariff-code">
       <option value=""></option>
       {% for group, items in tariff_catalogue.items() %}
@@ -40,6 +45,9 @@
         {{ exam.cpt_code }} — {{ exam.description_el or exam.description_en }} — {{ exam.price_eur }} €</option>
       {% endfor %}
     </select>
+    <div class="small text-danger mt-1 d-none tariff-cpt-missing">
+      {{ t('Επιλέξτε εξέταση — η χρέωση αυτή δεν έχει δική της τιμή.') }}
+    </div>
   </td>
 
   <td>
@@ -611,7 +619,13 @@ taepReady(function () {
     jQuery(this).select2({
       theme: "bootstrap-5",
       width: "100%",
-      closeOnSelect: false,
+      // Παναγιώτα Έλληνα, 03/11/2026: «επιλέγω μία ή και περισσότερες διεργασίες αλλά
+      // το παράθυρο μένει ανοικτό και δεν μπορώ να προχωρήσω στο επόμενο πεδίο».
+      // It was held open on purpose, to save reopening it between picks on a list of
+      // 125. That was the wrong trade: it saves a click and costs the clerk their way
+      // out of the field. Closing after each pick is the behaviour everything else on
+      // the screen has.
+      closeOnSelect: true,
       placeholder: jQuery(this).data("placeholder"),
       matcher: taepMatch,
       // Μονάδα 22/10/2026: the English description beside the Greek, not only inside
@@ -653,19 +667,49 @@ taepReady(function () {
   if (!rows) return;
   var template = document.getElementById("tariff-row-template");
 
+  // Select2 hides the original <select> and renders a sibling wrapper in its place, so
+  // d-none on the select does nothing a clerk can see. Reported 03/11/2026 as part of
+  // the examination field: it was 31px tall on every row, including fixed charges where
+  // it means nothing, which is why nothing signalled that radiology needs one.
+  function visibleBox(element) {
+    if (!element) return null;
+    var next = element.nextElementSibling;
+    return (next && next.classList.contains("select2-container")) ? next : element;
+  }
+
   function show(element, visible) {
-    if (element) element.classList.toggle("d-none", !visible);
+    if (!element) return;
+    element.classList.toggle("d-none", !visible);
+    var box = visibleBox(element);
+    if (box !== element) box.classList.toggle("d-none", !visible);
   }
 
   function applyPriceType(row) {
     var select = row.querySelector(".tariff-code");
     var option = select.options[select.selectedIndex];
     var type = (option && option.getAttribute("data-price-type")) || "";
-    show(row.querySelector(".tariff-cpt"), type === "tariff_lookup");
+    var lookup = type === "tariff_lookup";
+    show(row.querySelector(".tariff-cpt"), lookup);
     show(row.querySelector(".tariff-hours"), type === "fixed_plus_hourly");
     show(row.querySelector(".tariff-consumables"),
          type === "fixed_plus_consumables");
     show(row.querySelector(".tariff-note"), type === "fixed_plus_consumables");
+
+    // Carried to the server so a refused calculation comes back with the right inputs
+    // showing on this row.
+    var carried = row.querySelector(".tariff-price-type");
+    if (carried) carried.value = type;
+
+    // Παναγιώτα Έλληνα, 03/11/2026: the examination must be mandatory for a radiology
+    // charge. The four tariff_lookup codes carry no amount of their own — the price is
+    // the examination's — so one without an examination is worth nothing, and the
+    // server refuses the whole calculation. Required here stops it being submitted at
+    // all, which is a message beside the field instead of a rejected page.
+    //
+    // Only while it is visible. A hidden required field blocks the form with a browser
+    // message pointing at something nobody can see.
+    var cpt = row.querySelector(".tariff-cpt");
+    if (cpt && !lookup) cpt.value = "";
   }
 
   function initCpt(row) {
@@ -687,7 +731,51 @@ taepReady(function () {
     if (event.target.classList.contains("tariff-code")) {
       applyPriceType(event.target.closest(".tariff-row"));
     }
+    if (event.target.classList.contains("tariff-cpt")) {
+      mark(event.target.closest(".tariff-row"), false);
+    }
   });
+
+  // Παναγιώτα Έλληνα, 03/11/2026: the examination must be mandatory for a radiology
+  // charge. The four tariff_lookup codes carry no amount of their own — the price IS
+  // the examination's — so the server refuses the whole calculation without one. It was
+  // right to refuse and wrong to make her read the refusal on a reloaded page, so the
+  // row is checked here, before anything is sent.
+  //
+  // Not the `required` attribute: Select2 hides the real <select>, and a browser will
+  // not report a validation error on a field nobody can focus.
+  function mark(row, bad) {
+    var box = visibleBox(row.querySelector(".tariff-cpt"));
+    if (box) box.classList.toggle("border", bad);
+    if (box) box.classList.toggle("border-danger", bad);
+    var note = row.querySelector(".tariff-cpt-missing");
+    if (note) note.classList.toggle("d-none", !bad);
+  }
+
+  var form = document.getElementById("calc-form");
+  if (form) {
+    form.addEventListener("submit", function (event) {
+      var bad = null;
+      Array.prototype.forEach.call(rows.querySelectorAll(".tariff-row"),
+                                   function (row) {
+        var code = row.querySelector(".tariff-code");
+        var option = code.options[code.selectedIndex];
+        var lookup = option
+          && option.getAttribute("data-price-type") === "tariff_lookup";
+        var cpt = row.querySelector(".tariff-cpt");
+        var missing = !!(lookup && !(cpt && cpt.value));
+        mark(row, missing);
+        if (missing && !bad) bad = row;
+      });
+      if (bad) {
+        event.preventDefault();
+        var box = visibleBox(bad.querySelector(".tariff-cpt"));
+        if (box && box.scrollIntoView) {
+          box.scrollIntoView({ block: "center" });
+        }
+      }
+    });
+  }
 
   rows.addEventListener("click", function (event) {
     var button = event.target.closest(".remove-tariff-row");

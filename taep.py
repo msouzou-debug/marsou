@@ -423,6 +423,26 @@ def compute_input_hash(service_codes, tariff_lines, financial_category_code, ser
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 
+# The four diagnostic interventions whose price lives in the radiology list, each with
+# the extra charge that carries it. Selecting the service sets the weight; it adds no
+# money. Pairing recorded here rather than inferred from the descriptions, which are
+# worded differently on the two sides.
+RADIOLOGY_SERVICE_CHARGES = {
+    "AED005": "SHSO-ER3",       # Ακτινογραφία
+    "AED019": "SHSO-ER4",       # Υπερηχογράφημα
+    "AED021": "SHSO-ER5",       # Αξονική Τομογραφία
+    "AED020": "SHSO-ER6",       # Μαγνητική τομογραφία
+}
+RADIOLOGY_SERVICE_NAMES = {
+    "AED005": "Ακτινογραφία",
+    "AED019": "Υπερηχογράφημα",
+    "AED021": "Αξονική Τομογραφία",
+    "AED020": "Μαγνητική τομογραφία",
+}
+# AED022 «Τομογραφία Ουροποιογεννητικού συστήματος με σκιαγραφικό» is deliberately not
+# here: the tariff has no matching code for it, so there is nothing to require.
+
+
 def calculate(selected_services, rates, tariff_lines=(), financial_category_code=None,
               service_date=None):
     """Price one ΤΑΕΠ episode.
@@ -491,6 +511,26 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
 
     costed_lines = tuple(price_tariff_line(line) for line in lines_in)
     tariff_total = money(sum((l.line_total for l in costed_lines), Decimal("0.00")))
+
+    # Four services carry no money of their own: they set the weight, and the money for
+    # the examination comes from the radiology price list through an extra charge. A
+    # clerk who records the service and not the charge has priced the episode without
+    # the X-ray, which is revenue nobody will notice is missing.
+    #
+    # Παναγιώτα Έλληνα, 03/11/2026, on AED005. A warning rather than a blocker, and
+    # only where extra charges are permitted at all: in a category that cannot carry
+    # them there is nothing the clerk could do about it, and blocking finalisation over
+    # it would strand the episode. Whether it should block is hers to say.
+    if rates.tariff_applies:
+        charged = {line.tariff_code for line in lines_in}
+        chosen = {s.code for s in services}
+        for service_code, charge_code in RADIOLOGY_SERVICE_CHARGES.items():
+            if service_code in chosen and charge_code not in charged:
+                warnings.append(
+                    f"Η υπηρεσία {service_code} "
+                    f"({RADIOLOGY_SERVICE_NAMES[service_code]}) έχει επιλεγεί αλλά δεν "
+                    f"έχει προστεθεί χρέωση {charge_code} από τον τιμοκατάλογο "
+                    f"Ακτινοδιαγνωστικής. Η εξέταση δεν χρεώνεται.")
 
     if rates.registration_fee is None:
         registration_fee = None
@@ -4028,6 +4068,44 @@ def _tariff_lines_from_form(ctx, form):
     return lines
 
 
+def _tariff_rows_from_form(form):
+    """The posted tariff rows as the screen's template reads them.
+
+    Not TariffLine objects: this exists to put a REFUSED calculation back on the screen
+    with the clerk's own rows still in it, so the shape has to match what the stored
+    rows look like to the template. price_type comes from the row's own option in the
+    posted form — the hidden/shown inputs depend on it — and the money columns are
+    empty, because nothing was priced.
+    """
+    codes = form.getlist("tariff_code")
+    cpts = form.getlist("tariff_cpt")
+    quantities = form.getlist("tariff_quantity")
+    hours = form.getlist("tariff_hours")
+    consumables = form.getlist("tariff_consumables")
+    notes = form.getlist("tariff_note")
+    types = form.getlist("tariff_price_type")
+
+    def at(values, i, default=""):
+        return values[i] if i < len(values) else default
+
+    rows = []
+    for i, code in enumerate(codes):
+        if not (code or "").strip():
+            continue
+        rows.append({
+            "tariff_code": code.strip(),
+            "price_type": at(types, i) or None,
+            "radiology_cpt": at(cpts, i) or None,
+            "quantity": at(quantities, i, "1") or "1",
+            "hours": at(hours, i) or None,
+            "consumables_amount": at(consumables, i) or None,
+            "consumables_note": at(notes, i) or None,
+            "line_total": None,
+            "suppressed": 0,
+        })
+    return rows
+
+
 def store_tariff_lines(ctx, episode_id, lines, costed, user_id):
     """Persist the tariff lines with a description snapshot and the computed total."""
     db = ctx["db_execute"]
@@ -4560,14 +4638,18 @@ def register(app, ctx):
             "pagination": {"more": more}})
 
     # -- Screen 2: Κοστολόγηση --------------------------------------------
-    @app.route("/taep/<int:episode_id>")
-    @login_required
-    @permission_any(*READ)
-    def taep_costing(episode_id):
-        episode = episode_or_404(episode_id)
+    def render_costing(episode, tariff_lines=None):
+        """The costing screen.
+
+        `tariff_lines` overrides what is stored, so a refused calculation can be shown
+        back with the rows the clerk had typed still in place. Reported by Παναγιώτα
+        Έλληνα, 03/11/2026: adding «Ακτινογραφία» without choosing an examination was
+        refused — correctly — but the redirect threw the row away, so the charge had to
+        be entered again from nothing. The refusal is right; losing the work is not.
+        """
         category = get_category(ctx, episode["financial_category_id"])
-        selected = get_services(ctx, get_episode_service_codes(ctx, episode_id))
-        stored = get_calculation(ctx, episode_id)
+        selected = get_services(ctx, get_episode_service_codes(ctx, episode["id"]))
+        stored = get_calculation(ctx, episode["id"])
         return render_template(
             "taep_costing.html", episode=episode, category=category,
             selected=selected, result=stored,
@@ -4579,10 +4661,17 @@ def register(app, ctx):
             tariff_allowed=bool(category and _as_int(category["tariff_applies"])),
             tariff_catalogue=list_tariff_catalogue(ctx),
             radiology=list_radiology_tariff(ctx),
-            tariff_lines=get_episode_tariff_lines(ctx, episode_id),
+            tariff_lines=(get_episode_tariff_lines(ctx, episode["id"])
+                          if tariff_lines is None else tariff_lines),
             deposit=deposit_state(episode, stored),
-            revisions=episode_revisions(ctx, episode_id),
+            revisions=episode_revisions(ctx, episode["id"]),
             may_edit=may_edit(episode))
+
+    @app.route("/taep/<int:episode_id>")
+    @login_required
+    @permission_any(*READ)
+    def taep_costing(episode_id):
+        return render_costing(episode_or_404(episode_id))
 
     @app.route("/taep/<int:episode_id>/services", methods=["POST"])
     @login_required
@@ -4607,14 +4696,17 @@ def register(app, ctx):
         if episode["status"] not in EDITABLE_STATUSES:
             flash("Η καταχώρηση δεν μπορεί να τροποποιηθεί.", "danger")
             return redirect(url_for("taep_costing", episode_id=episode_id))
+        posted = _tariff_rows_from_form(request.form)
         try:
             lines = _tariff_lines_from_form(ctx, request.form)
             result = price_episode(ctx, episode_id, lines)
             store_calculation(ctx, episode_id, result, user_id())
             store_tariff_lines(ctx, episode_id, lines, result.lines, user_id())
         except CostingError as exc:
+            # Rendered, not redirected: a redirect would lose the rows the clerk typed,
+            # and they would have to enter the charge again to read the same message.
             flash(exc.message_el, "danger")
-            return redirect(url_for("taep_costing", episode_id=episode_id))
+            return render_costing(episode, tariff_lines=posted)
 
         for warning in result.warnings_el:
             flash(warning, "warning")

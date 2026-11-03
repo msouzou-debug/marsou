@@ -190,6 +190,10 @@ EN = {
         "The system does not record settlements yet, so this does not prove a debt — "
         "confirm it with accounts.",
 
+    # The examination is mandatory on a radiology charge (03/11/2026).
+    "Επιλέξτε εξέταση — η χρέωση αυτή δεν έχει δική της τιμή.":
+        "Choose an examination — this charge has no price of its own.",
+
     # ICD-10 in two controls — a search field and the dropdown (02/11/2026).
     "Αναζήτηση διάγνωσης": "Search for a diagnosis",
     "Κωδικός ή περιγραφή, ελληνικά ή αγγλικά":

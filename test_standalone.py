@@ -492,3 +492,24 @@ def test_the_service_matcher_looks_inside_the_groups():
         assert "data.children" in text, (
             "%s: a custom Select2 matcher that ignores data.children drops every "
             "grouped option" % path.name)
+
+
+def test_a_hidden_select2_field_hides_its_wrapper_too():
+    """Select2 hides the original <select> and renders a sibling wrapper in its place,
+    so toggling d-none on the select leaves the visible widget on screen.
+
+    That is why the radiology examination box was 31px tall on every extra-charge row,
+    including fixed-price charges where it means nothing — measured in Chromium on
+    03/11/2026. show() now toggles the wrapper as well, and the rule is pinned here
+    because nothing in the rendered HTML shows it: the wrapper does not exist until
+    Select2 runs.
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    text = (root / "templates" / "taep_costing.html").read_text(encoding="utf-8")
+    for block in re.findall(r"<script>(.*?)</script>", text, re.S):
+        if "classList.toggle(\"d-none\"" not in block:
+            continue
+        assert "select2-container" in block, (
+            "a d-none toggle in taep_costing.html that does not account for Select2's "
+            "wrapper will hide nothing a clerk can see")

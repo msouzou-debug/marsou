@@ -1922,3 +1922,121 @@ def test_the_lookup_is_not_offered_while_correcting_an_episode(client, app):
     page = response.get_data(as_text=True)
     assert "Διόρθωση" in page
     assert 'id="prior-visit"' not in page
+
+
+# ---------------------------------------------------------------------------
+# Extra charges: Παναγιώτα Έλληνα's three reports of 03/11/2026
+# ---------------------------------------------------------------------------
+
+def test_a_refused_calculation_keeps_the_rows_the_clerk_typed(client, app):
+    """«Επιλέγω μια υπηρεσία από τον τιμοκατάλογο αλλά δεν προστίθεται στο σύνολο και με
+    το που πατώ υπολογισμό αφαιρείται από τη λίστα μου.»
+
+    Reproduced: adding «Ακτινογραφία» (SHSO-ER3) without choosing an examination is
+    refused, correctly — the code carries no amount of its own, the price is the
+    examination's. But the route redirected, so the posted row was gone and the charge
+    had to be entered again from nothing to read the same message twice.
+
+    The refusal stays. The row now comes back with it.
+    """
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data={})
+    assert taep.money_from_db(
+        taep.get_calculation(app.ctx, episode_id)["total_cost"]) == Decimal("120.00")
+
+    response = client.post("/taep/%d/calculate" % episode_id, data={
+        "tariff_code": ["SHSO-ER3"], "tariff_price_type": ["tariff_lookup"],
+        "tariff_cpt": [""], "tariff_quantity": ["2"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+
+    # Rendered, not redirected — a redirect is what lost the row.
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert "Επιλέξτε εξέταση" in page
+    assert 'value="SHSO-ER3"' in page
+    assert 'value="2"' in page                     # the quantity survived too
+    # And nothing was stored: the previous calculation stands.
+    assert taep.money_from_db(
+        taep.get_calculation(app.ctx, episode_id)["total_cost"]) == Decimal("120.00")
+    assert taep.get_episode_tariff_lines(app.ctx, episode_id) == []
+
+
+def test_the_same_charge_prices_once_an_examination_is_chosen(client, app):
+    """The other half: with an examination the charge is the examination's price times
+    the quantity, on top of the weight amount.
+    """
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
+    exam = taep.list_radiology_tariff(app.ctx)[0]
+    client.post("/taep/%d/calculate" % episode_id, data={
+        "tariff_code": ["SHSO-ER3"], "tariff_price_type": ["tariff_lookup"],
+        "tariff_cpt": [exam["cpt_code"]], "tariff_quantity": ["2"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+
+    result = taep.get_calculation(app.ctx, episode_id)
+    expected = taep.money_from_db(exam["price_eur"]) * 2
+    assert taep.money_from_db(result["tariff_total"]) == expected
+    assert taep.money_from_db(result["total_cost"]) == Decimal("120.00") + expected
+
+
+def test_a_radiology_service_without_its_charge_is_warned_about(client, app):
+    """«Όταν βάζω ακτινογραφία (AED005) στις διαγνωστικές παρεμβάσεις πρέπει το πεδίο με
+    τις επιπλέον χρεώσεις να είναι υποχρεωτικό για τον κατάλογο της ακτινολογίας.»
+
+    AED005 sets the weight and adds no money — the X-ray's price lives in the radiology
+    list and arrives through an extra charge. Record the service and not the charge and
+    the episode is priced without the X-ray, which is revenue nobody notices is missing.
+
+    A warning, not a blocker: whether it should stop finalisation is the Μονάδα's call,
+    not ours, and it has been put to them.
+    """
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
+    result = taep.price_episode(app.ctx, episode_id)
+    warnings = [w for w in result.warnings_el if "AED005" in w]
+    assert len(warnings) == 1
+    assert "SHSO-ER3" in warnings[0]
+
+    # Gone once the charge is there.
+    exam = taep.list_radiology_tariff(app.ctx)[0]
+    lines = [taep._tariff_line(app.ctx, "SHSO-ER3", exam["cpt_code"], "1")]
+    assert not [w for w in taep.price_episode(app.ctx, episode_id, lines).warnings_el
+                if "AED005" in w]
+
+
+def test_the_warning_is_silent_where_no_charge_could_be_added(client, app):
+    """In a category that cannot carry extra charges the card is not on the screen, so
+    a warning telling the clerk to add one would be an instruction they cannot follow.
+    """
+    episode_id = create(client, app, code="609", episode_number="E-609-RAD")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
+    result = taep.price_episode(app.ctx, episode_id)
+    assert not [w for w in result.warnings_el if "AED005" in w]
+
+
+def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
+    """The pairing is written down rather than inferred, because the two sides word the
+    descriptions differently. So it has to be checked against both catalogues.
+    """
+    services = {item["code"]
+                for items in taep.list_services(seeded).values()
+                for item in items}
+    charges = {item["code"]
+               for items in taep.list_tariff_catalogue(seeded).values()
+               for item in items}
+    for service_code, charge_code in taep.RADIOLOGY_SERVICE_CHARGES.items():
+        assert service_code in services, service_code
+        assert charge_code in charges, charge_code
+        assert service_code in taep.RADIOLOGY_SERVICE_NAMES
+
+    # Every tariff_lookup charge is paired with a service: one without would be a
+    # charge no service can prompt, which is how AED005 went unnoticed.
+    lookups = {item["code"]
+               for items in taep.list_tariff_catalogue(seeded).values()
+               for item in items if item["price_type"] == "tariff_lookup"}
+    assert lookups == set(taep.RADIOLOGY_SERVICE_CHARGES.values())
