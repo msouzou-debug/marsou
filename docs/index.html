@@ -246,6 +246,68 @@ footer a{color:var(--accent);text-decoration:none}
   text-transform:uppercase;color:var(--muted);background:var(--panel-2);margin-left:6px}
 .smk{font-size:8.5px;font-weight:800;vertical-align:super;margin-left:2px}
 .smk-m{color:var(--go)} .smk-e{color:var(--muted)}
+
+/* ---- two sections ---- */
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--s1:#3987e5;--s2:#d95926;--s3:#199e70}}
+:root[data-theme="dark"]{--s1:#3987e5;--s2:#d95926;--s3:#199e70}
+:root[data-theme="light"]{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a}
+.tabs{margin-bottom:14px;position:sticky;top:env(safe-area-inset-top);z-index:20;box-shadow:var(--shadow)}
+.tabs button{font-size:14px;padding:11px 6px}
+.labfor{font-size:12.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin:10px 0 12px;line-height:1.45}
+.labfor b{color:var(--text)}
+.linkbtn{appearance:none;border:none;background:none;color:var(--accent);font:inherit;font-weight:700;padding:0 0 0 4px;cursor:pointer}
+.tlist{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.tempty{font-size:12.5px;color:var(--muted);line-height:1.45;padding:4px 2px}
+.trow{display:flex;align-items:stretch;gap:0;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);overflow:hidden}
+.trow.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.tcheck{display:flex;align-items:center;gap:7px;padding:0 10px 0 12px;border-right:1px solid var(--line);cursor:pointer;flex:none}
+.tcheck input{width:20px;height:20px;accent-color:var(--accent);margin:0}
+.tmain{appearance:none;border:none;background:transparent;color:var(--text);font:inherit;text-align:left;padding:10px 12px;flex:1;min-width:0;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.tmain b{font-size:14px;font-weight:650;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.tmain small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;flex:none}
+.sw.s1{background:var(--s1)} .sw.s2{background:var(--s2)} .sw.s3{background:var(--s3)}
+.sw.none{background:transparent;border:1.5px dashed var(--line)}
+.sw.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px)!important;height:4px;border-radius:2px;vertical-align:3px}
+.sw.s1.dash{color:var(--s1)} .sw.s2.dash{color:var(--s2)} .sw.s3.dash{color:var(--s3)}
+.sheetgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sheet canvas,.lb canvas{width:100%;height:auto;display:block;border-radius:10px;border:1px solid var(--line)}
+.sheet .mrm{width:24px;height:24px;font-size:13px}
+.strip{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 8px;scroll-snap-type:x proximity;margin-top:12px}
+.strip .lb{flex:0 0 132px;scroll-snap-align:start}
+.lb{position:relative;min-width:0}
+.lb.fail canvas{border:2px solid var(--crit)}
+.lbinfo{margin-top:5px}
+.lbcap{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:13px;margin-top:5px}
+.lbinfo .lbcap{margin-top:0}
+.lbsrc{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:999px;color:var(--muted);background:var(--panel-2)}
+.lbsrc.m{color:var(--accent);background:var(--accent-soft)}
+.lbrow{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.4}
+.lbv{font-size:12px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.lbv.go{color:var(--go)} .lbv.warn{color:var(--warn)} .lbv.crit{color:var(--crit)}
+.lbfail{font-size:11px;font-weight:800;color:var(--crit);text-transform:uppercase;letter-spacing:.05em}
+.lbtag{position:absolute;top:6px;left:6px;z-index:1;font-size:12px;font-weight:800;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:2px 6px;display:flex;align-items:center}
+.failsum{display:flex;flex-direction:column;gap:5px}
+.fsbig{font-size:18px;font-weight:700}
+.fsbig.go{color:var(--go)} .fsbig.crit{color:var(--crit)}
+.fssub{font-size:13px;color:var(--text);line-height:1.45}
+.fsnote{font-size:12px;color:var(--muted);line-height:1.45}
+.clegend{display:flex;flex-direction:column;gap:5px;margin:12px 0 8px;font-size:12.5px}
+.lgi{display:flex;align-items:center;gap:4px;min-width:0}
+.lgi b{margin-right:3px}
+.lgx{appearance:none;margin-left:auto;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);width:24px;height:24px;border-radius:7px;font-size:13px;line-height:1;cursor:pointer;flex:none}
+.chartwrap{position:relative}
+#cmpChart{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line);touch-action:pan-y}
+.ctip{position:absolute;max-width:78%;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:10px;padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--text);pointer-events:none;font-variant-numeric:tabular-nums}
+.ctip .sw{width:9px;height:9px}
+.cmpboards{display:grid;gap:10px;margin-top:4px}
+.cmpt td.go{color:var(--go)} .cmpt td.warn{color:var(--warn)} .cmpt td.crit{color:var(--crit)}
+.cmpt td:first-child{color:var(--muted);text-align:left}
+.cmpt{table-layout:fixed}
+.cmpt th,.cmpt td{white-space:normal;padding:5px 4px}
+.cmpt th:first-child,.cmpt td:first-child{width:62px}
+.cmpt td small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
 </style>
 </head>
 <body>
@@ -275,6 +337,12 @@ footer a{color:var(--accent);text-decoration:none}
     <span class="ibtns"><button id="installBtn" type="button">Install</button><button id="installX" type="button" aria-label="Dismiss">✕</button></span>
   </div>
 
+  <div class="seg tabs" id="tabs" role="tablist">
+    <button data-tab="calc" class="on" role="tab">① Ballistics</button>
+    <button data-tab="lab" role="tab">② My patterns</button>
+  </div>
+
+<div id="secCalc">
   <div class="verdict card" id="verdict">
     <div class="verdict-top">
       <span class="badge" id="badge"><span class="glyph"></span><span id="badgeText">—</span></span>
@@ -385,6 +453,7 @@ footer a{color:var(--accent);text-decoration:none}
       <button class="bigbtn ghost" id="cartDel" type="button">Delete</button>
     </div>
     <div class="loadcount" id="loadCount"></div>
+    <div id="measuredBanner" class="mbanner"></div>
   </div>
 
   <div class="card pad">
@@ -427,24 +496,55 @@ footer a{color:var(--accent);text-decoration:none}
     <div class="reco" id="reco"></div>
   </div>
 
-  <div class="card pad" id="photoCard">
-    <div class="section-label">Pattern from a photo · optional</div>
-    <p class="taghint">Photograph your target sheet square-on, filling most of the frame on a
-      contrasting background. Enter the cartridge you patterned and your sheet's real width — the
-      app finds the sheet, centres the <span class="uCircle">30″</span> circle, and counts the holes.
-      <b>Use this pattern</b> loads it all into the calculator above.</p>
+</div><!-- /secCalc -->
+
+<div id="secLab" style="display:none">
+  <div class="card pad">
+    <div class="section-label">My patterns</div>
+    <p class="taghint">Pattern one cartridge through one choke at two or more distances. The app fits
+      <b>your gun's</b> real spread from the sheets, extrapolates it across the range, and shows where
+      the pattern stops killing cleanly. Save a test per cartridge, choke or choke brand, then compare them.</p>
+    <div class="labfor" id="labFor"></div>
+    <div id="testList" class="tlist"></div>
+    <button class="bigbtn" id="testNew" type="button">＋ New pattern test</button>
+  </div>
+
+  <div class="card pad" id="testCard" style="display:none">
+    <div class="section-label">Test · <span id="testTitle"></span></div>
+    <div class="field"><label for="tname">Test name <span class="taghint" style="font-weight:400">optional</span></label>
+      <input type="text" id="tname" placeholder="e.g. Fiocchi 32g #7.5 · Briley IM" maxlength="48"></div>
     <div class="row2">
-      <div class="field"><label for="pmat">Material</label><select id="pmat"></select></div>
-      <div class="field"><label for="pshot">Pellet size</label><select id="pshot"></select></div>
+      <div class="field"><label for="tbrand">Cartridge brand</label><input type="text" id="tbrand" placeholder="e.g. Fiocchi" maxlength="32"></div>
+      <div class="field"><label for="tcart">From saved</label><select id="tcart"></select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="tmat">Material</label><select id="tmat"></select></div>
+      <div class="field"><label for="tshot">Pellet size</label><select id="tshot"></select></div>
     </div>
     <div class="row2">
       <div class="field">
-        <label for="ppay">Load weight <span class="val mono"><span id="ppayVal">1.13</span> <span class="uPay2">oz</span></span></label>
-        <input type="range" id="ppay" min="0.5" max="2.25" step="0.125" value="1.125">
+        <label for="tpay">Load <span class="val mono"><span id="tpayVal">32</span> <span class="uPay2">g</span></span></label>
+        <input type="range" id="tpay" min="16" max="64" step="1" value="32">
       </div>
-      <div class="field"><label for="pchoke">Choke</label><select id="pchoke"></select></div>
+      <div class="field">
+        <label for="tvel">Muzzle <span class="val mono"><span id="tvelVal">400</span> <span class="uVel2">m/s</span></span></label>
+        <input type="range" id="tvel" min="335" max="518" step="5" value="400">
+      </div>
     </div>
+    <div class="row2">
+      <div class="field"><label for="tchoke">Choke</label><select id="tchoke"></select></div>
+      <div class="field"><label for="tchokeBrand">Choke brand</label><input type="text" id="tchokeBrand" placeholder="e.g. Briley, factory" maxlength="32"></div>
+    </div>
+    <div class="field"><label for="tgun">Gun</label><input type="text" id="tgun" placeholder="e.g. Beretta 686, 28″ barrels" maxlength="40"></div>
     <div class="loadcount" id="pLoadCount"></div>
+    <p class="taghint" id="tloadNote" style="margin-top:6px"></p>
+
+    <div class="mtitle" style="margin-top:14px">Pattern sheets in this test</div>
+    <div id="sheetGrid" class="sheetgrid"></div>
+
+    <div class="mtitle" style="margin-top:14px">Add a sheet</div>
+    <p class="taghint">Shoot at your aim mark from a measured distance, draw a <span class="uCircle">75 cm</span> circle
+      round the densest part, and photograph the sheet square-on. Then set the distance here.</p>
     <div class="row2">
       <div class="field">
         <label for="pdist">Patterned at <span class="val mono"><span id="pdistVal">40</span> <span class="uRange">yd</span></span></label>
@@ -456,7 +556,7 @@ footer a{color:var(--accent);text-decoration:none}
       </div>
     </div>
     <input type="file" id="photoFile" accept="image/*" style="display:none">
-    <button class="bigbtn" id="photoPick">Choose or take a photo</button>
+    <button class="bigbtn" id="photoPick" type="button">Choose or take a photo</button>
     <div id="photoStage" style="display:none">
       <div id="photoView"><canvas id="photoCanvas"></canvas></div>
       <div class="zoombar">
@@ -488,16 +588,46 @@ footer a{color:var(--accent);text-decoration:none}
           <button class="bigbtn ghost" id="photoFit" type="button">Fit to load</button>
           <button class="bigbtn ghost" id="photoManual" type="button">By hand</button>
         </div>
-        <div id="mlist" class="mlist"></div>
-        <div class="btnrow">
-          <button class="bigbtn ghost" id="photoAdd" type="button">＋ Add this distance</button>
-          <button class="bigbtn" id="photoApply" type="button">Use pattern(s)</button>
-        </div>
-        <p class="taghint">One photo works; add a <b>second distance</b> with the same cartridge for a 2-point fit of your gun's real spread.</p>
+        <button class="bigbtn" id="sheetSave" type="button">＋ Save this sheet to the test</button>
       </div>
     </div>
-    <div id="measuredBanner" class="mbanner"></div>
+    <div class="btnrow" style="margin-top:14px">
+      <button class="bigbtn ghost" id="testUse" type="button">Use in Ballistics</button>
+      <button class="bigbtn ghost" id="testDel" type="button">Delete test</button>
+    </div>
   </div>
+
+  <div class="card pad" id="rangeCard" style="display:none">
+    <div class="section-label">Through the range · <span id="rangeTitle"></span></div>
+    <div id="failSummary" class="failsum"></div>
+    <div class="strip" id="strip"></div>
+    <p class="taghint" style="margin-top:8px"><b>Photo</b> = your sheet at that distance · <b>drawn</b> = extrapolated from your sheets.
+      Each board is <span class="uView">100 cm</span> across with the <span class="uCircle">75 cm</span> circle and the bird to scale; the
+      verdict underneath includes your aim error.</p>
+  </div>
+
+  <div class="card pad" id="cmpCard" style="display:none">
+    <div class="section-label">Compare</div>
+    <p class="taghint" id="cmpHint">Tick up to three tests in the list above to compare them, or project this test onto another choke.</p>
+    <div class="row2" style="align-items:end">
+      <div class="field" style="margin-bottom:0"><label for="whatChoke">What-if: this test on</label><select id="whatChoke"></select></div>
+      <button class="bigbtn ghost" id="whatAdd" type="button" style="margin-bottom:0">＋ Add projection</button>
+    </div>
+    <div class="seg" id="cmpMetric" style="margin-top:14px">
+      <button data-k="circle" class="on">In circle</button>
+      <button data-k="bird">On bird</button>
+      <button data-k="kill">Clean kill %</button>
+    </div>
+    <div id="cmpLegend" class="clegend"></div>
+    <div class="chartwrap"><canvas id="cmpChart" width="720" height="420" aria-label="Comparison chart"></canvas><div id="cmpTip" class="ctip" style="display:none"></div></div>
+    <div class="field" style="margin-top:12px">
+      <label for="cmpDist">Side by side at <span class="val mono"><span id="cmpDistVal">30</span> <span class="uRange">m</span></span></label>
+      <input type="range" id="cmpDist" min="9" max="64" step="1" value="30">
+    </div>
+    <div id="cmpBoards" class="cmpboards"></div>
+    <div id="cmpTable" style="overflow-x:auto;margin-top:12px"></div>
+  </div>
+</div><!-- /secLab -->
 
   <div class="card pad">
     <div class="section-label">Share the app</div>
@@ -864,42 +994,49 @@ function poissonAtLeast(k,lam){if(k<=0)return 1;if(lam<=0)return 0;let cdf=Math.
 // and the kill-probability calc all read from it, so they can never disagree.
 function sameLoad(s,l){return !!l && s.shot===l.shot && s.material===l.mat && Math.abs(s.payload-l.payOz)<1e-6;}
 // this gun's measured spread (sigma, in) at a range, fitted from the scan points:
-//   1 point  -> sigma grows linearly from the muzzle;  2+ -> least-squares line.
-function fitSigma(points,rangeYd){
-  const R=15, pts=points.map(pt=>{const p=Math.min(0.985,Math.max(1e-4,pt.pct));return {d:pt.dist,sig:R/Math.sqrt(-2*Math.log(1-p))};});
+//   1 point  -> the choke's own spread curve, scaled through the measured point
+//               (a plain choke: linear from the muzzle; a spreader: its wide
+//               close-range cone);  2+ -> least-squares line through the points.
+function fitSigma(points,rangeYd,choke,steel){
+  const R=15, ck=choke||"cylinder", pts=points.map(pt=>{const p=Math.min(0.985,Math.max(1e-4,pt.pct));return {d:pt.dist,sig:R/Math.sqrt(-2*Math.log(1-p))};});
+  const viaShape=q=>q.sig*chokeSigmaNominal(ck,rangeYd,steel)/chokeSigmaNominal(ck,Math.max(1,q.d),steel);
   let sig;
-  if(pts.length===1){ sig=pts[0].sig*(rangeYd/Math.max(1,pts[0].d)); }
+  if(pts.length===1){ sig=viaShape(pts[0]); }
   else{
     const n=pts.length; let sx=0,sy=0,sxx=0,sxy=0;
     for(const q of pts){sx+=q.d;sy+=q.sig;sxx+=q.d*q.d;sxy+=q.d*q.sig;}
     const den=(n*sxx-sx*sx)||1, mm=(n*sxy-sx*sy)/den, cc=(sy-mm*sx)/n;
     sig=mm*rangeYd+cc;
-    if(sig<=0.5)sig=pts[pts.length-1].sig*(rangeYd/Math.max(1,pts[pts.length-1].d));
+    if(sig<=0.5)sig=viaShape(pts[pts.length-1]);
   }
   return Math.max(0.5,sig);
 }
 // pattern sigma for ANY choke: with a scan present we use the gun's measured
 // spread on the choke it was patterned, and carry that gun-vs-nominal tightness
 // across to the other chokes (so the optimiser still derives from the scan).
-function patternSigma(s){
-  const ms=s.measured, chk=s.choke||SPECIES[s.species].choke, steel=s.material==="steel";
+function patternSigma(s,choke){
+  const ms=s.measured, chk=choke||s.choke||SPECIES[s.species].choke, steel=s.material==="steel";
   const nomSig=chokeSigmaNominal(chk,s.range,steel);
   if(ms&&ms.points&&ms.points.length&&ms.load){
-    const fit=fitSigma(ms.points,s.range);
+    const mSteel=ms.load.mat==="steel";
+    const fit=fitSigma(ms.points,s.range,ms.load.choke,mSteel);
     if(chk===ms.load.choke) return fit;                        // the patterned choke
-    const nomScan=chokeSigmaNominal(ms.load.choke,s.range,ms.load.mat==="steel");
+    const nomScan=chokeSigmaNominal(ms.load.choke,s.range,mSteel);
     const tightness=nomScan>0?fit/nomScan:1;                   // this gun vs nominal
     return Math.max(0.5,nomSig*tightness);
   }
   return nomSig;
 }
-function getStrikes(s,total){
+// The exact scanned count is used only for the load AND choke that was
+// patterned, at a patterned distance — switching choke must change the count.
+// _fitOnly asks for the smooth fitted curve even there (the lab's range chart
+// draws the curve and the measured sheets as separate marks).
+function getStrikes(s,total,choke){
   const ms=s.measured;
-  if(ms&&ms.points&&ms.points.length&&sameLoad(s,ms.load)){
-    // exact scanned count for the patterned load at a patterned distance
+  if(!s._fitOnly&&ms&&ms.points&&ms.points.length&&sameLoad(s,ms.load)&&(!choke||choke===ms.load.choke)){
     for(const pt of ms.points) if(Math.abs(pt.dist-s.range)<0.5) return {n:Math.min(total,pt.count),src:"measured"};
   }
-  const sig=patternSigma(s);
+  const sig=patternSigma(s,choke);
   return {n:Math.min(total,total*(1-Math.exp(-(15*15)/(2*sig*sig)))),src:"estimated"};
 }
 
@@ -916,7 +1053,7 @@ function evaluate(s){
   const depthGate=pen>=sp.depth;
   const choke=s.choke||sp.choke;
   // Single strike source: measured scan when present, modelled estimate otherwise.
-  const gs=getStrikes(s,total);
+  const gs=getStrikes(s,total,choke);
   const circle=gs.n, strikeSrc=gs.src, measuredUsed=(gs.src==="measured");
   const pct=100*circle/Math.max(1,total);
   // presented body area by shot angle: crossing shows the full flank (largest),
@@ -1013,7 +1150,7 @@ const presentLabel=()=>isClay()?clayProfile(state).presentName:state.present;
 /* the recommended choke depends on bird or discipline, so resolve it in one place */
 function defaultChoke(){return isClay()?(DISCIPLINES[state.discipline]||DISCIPLINES.sporting).choke:SPECIES[state.species].choke;}
 /* photo-tool state (the cartridge you patterned) */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1,drawn:false};
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,zoom:1,drawn:false};
 /* Cartridge library: name a load once and pick it again later. Stored per
    browser alongside the scanned pattern. */
 let CARTS=[];
@@ -1089,10 +1226,6 @@ function applyMode(){
   fillChoke();
 }
 fillChoke();
-fillSelect($("pchoke"),CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]]),SPECIES[state.species].choke);
-fillSelect($("pmat"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),PH.mat);
-function buildPShot(){fillSelect($("pshot"),SHOT_ORDER.map(k=>[k,shotLabel(k)]),PH.shot);}
-buildPShot();
 
 const badgeClass={"clean-kill-likely":"go","marginal":"warn","wounding-likely":"crit"};
 const badgeText={"clean-kill-likely":"Clean kill likely","marginal":"Marginal","wounding-likely":"Wounding likely"};
@@ -1129,11 +1262,7 @@ function setControlsFromState(){
   $("uVel").textContent=m?"m/s":"fps";
   // sync top selects + the photo cartridge controls
   $("material").value=state.material; fillChoke();
-  $("pmat").value=PH.mat; buildPShot();
-  const pp=$("ppay");
-  if(m){pp.min=16;pp.max=64;pp.step=2;pp.value=Math.round((PH.payOz||1.125)*OZ_G);}
-  else{pp.min=0.5;pp.max=2.25;pp.step=0.125;pp.value=(PH.payOz||1.125).toFixed(3);}
-  $("ppayVal").textContent=m?pp.value:(PH.payOz||1.125).toFixed(2);
+  document.querySelectorAll(".uView").forEach(e=>e.textContent=m?"≈1 m":"40″");
   document.querySelectorAll(".uPay2").forEach(e=>e.textContent=m?"g":"oz");
   buildShot(); updatePLoad();
 }
@@ -1171,21 +1300,6 @@ function updateBanner(){
     $("clearMeasured").onclick=()=>{state.measured=null;persistMeasured();updateBanner();render();};
   }else b.style.display="none";
 }
-function renderMlist(){
-  const el=$("mlist"); if(!el)return;
-  if(!PH.measurements.length){el.innerHTML="";return;}
-  const m=isMetric();
-  const rows=PH.measurements.map((x,i)=>
-    `<tr><td class="tick">✓</td><td>Pattern ${i+1}</td><td><b>${x.count}</b> holes</td>`
-    +`<td>${m?Math.round(x.dist*YD_M)+" m":Math.round(x.dist)+" yd"}</td><td>${CHOKE_NAME[x.choke]}</td>`
-    +`<td class="rm"><button type="button" class="mrm" data-i="${i}" aria-label="Remove">×</button></td></tr>`).join("");
-  el.innerHTML=`<div class="mtitle">Uploaded patterns (${PH.measurements.length})</div><table class="mtable">${rows}</table>`
-    +(PH.measurements.length>=2
-        ? `<div class="mok">✓ Two distances captured — ready for a 2-point fit.</div>`
-        : `<div class="mhint2">Add a second distance (same cartridge &amp; choke) for a 2-point fit.</div>`);
-  el.querySelectorAll(".mrm").forEach(btn=>btn.onclick=()=>{PH.measurements.splice(+btn.dataset.i,1);renderMlist();});
-}
-
 function render(){
   const r=evaluate(state), m=isMetric(), j=r.e*FTLB_J;
   const cls=badgeClass[r.verdict];
@@ -1219,6 +1333,7 @@ function render(){
   $("loadCount").innerHTML="This shell holds ≈ <b>"+r.total+"</b> pellets ("+MATERIALS[state.material].name+" #"+state.shot+").";
   $("exportNote").textContent="Velocity, energy, pattern, pellets in circle and clean-kill % every 10 "+(isMetric()?"m":"yd")+" — for this setup, plus a clean-kill matrix across every pellet size.";
   drawBoard(r);
+  if(LAB.tab==="lab")scheduleLab();
 }
 function updatePLoad(){
   const el=$("pLoadCount"); if(!el)return;
@@ -1733,10 +1848,6 @@ $("minsize").addEventListener("input",e=>{$("minsizeVal").textContent=e.target.v
   if(!PH.img)return; if(PH.manual&&PH.r)recountManual(); else analyzeAuto();});
 $("sheetW").addEventListener("input",e=>{const v=+e.target.value;PH.sheetIn=isMetric()?v/2.54:v;
   $("sheetWVal").textContent=v; if(PH.img&&!PH.manual)analyzeAuto();});
-$("pmat").addEventListener("change",e=>{PH.mat=e.target.value;updatePLoad(); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
-$("pshot").addEventListener("change",e=>{PH.shot=e.target.value;updatePLoad(); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
-$("ppay").addEventListener("input",e=>{const v=+e.target.value;PH.payOz=isMetric()?v/OZ_G:v;
-  $("ppayVal").textContent=isMetric()?Math.round(PH.payOz*OZ_G):PH.payOz.toFixed(2);updatePLoad(); if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
 $("photoFit").addEventListener("click",()=>{
   if(!PH.img)return;
   setPhotoMode("photoFit");
@@ -1748,45 +1859,460 @@ $("holeManual").addEventListener("input",()=>{const mx=parseInt($("holeManual").
 $("holeMinus").addEventListener("click",()=>{$("holeManual").value=Math.max(0,(parseInt($("holeManual").value)||0)-1);$("holeManual").dispatchEvent(new Event("input"));});
 $("holePlus").addEventListener("click",()=>{const mx=parseInt($("holeManual").max)||999999;$("holeManual").value=Math.min(mx,(parseInt($("holeManual").value)||0)+1);$("holeManual").dispatchEvent(new Event("input"));});
 $("pdist").addEventListener("input",e=>{const v=+e.target.value;PH.distYd=isMetric()?v/YD_M:v;$("pdistVal").textContent=v;});
-function currentMeasurement(){
-  const cap=pelletCount(PH.mat,SHOT[PH.shot],PH.payOz);
-  const count=Math.min(parseInt($("holeManual").value)||0, cap);
-  return {dist:PH.distYd||40,distDisp:+$("pdist").value||Math.round(PH.distYd||40),count,total0:cap,pct:count/Math.max(1,cap),mat:PH.mat,shot:PH.shot,payOz:PH.payOz,choke:$("pchoke").value};
+/* ---------------- ② My patterns (pattern lab) -----------------------------------
+   A TEST is one cartridge through one choke (and gun) plus the sheets shot with
+   it at several distances. A test is turned into exactly the `measured` record
+   the Ballistics tab uses, so every figure here comes out of evaluate() and can
+   never disagree with section ①. Up to three tests (or what-if projections of a
+   test onto another choke) are overlaid for comparison. */
+const SLOTS=3, SHAPES=["circle","square","triangle"], THUMB=280;
+const LAB={tests:[],active:null,cmp:[],metric:"circle",cmpDistYd:30/YD_M,tab:"calc"};
+const AIM_NAME={6:"Fine",12:"Average",20:"Rough"};
+const labId=()=>"t"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);
+function labSave(){try{localStorage.setItem("patternTests",JSON.stringify({v:1,tests:LAB.tests,active:LAB.active,cmp:LAB.cmp,metric:LAB.metric}));return true;}catch(e){return false;}}
+function validTest(t){return t&&typeof t.id==="string"&&MATERIALS[t.mat]&&SHOT[t.shot]&&t.payOz>0&&t.vel>0&&CHOKE[t.choke]&&Array.isArray(t.points);}
+function labLoad(){
+  try{const d=JSON.parse(localStorage.getItem("patternTests")||"null");
+    if(d&&Array.isArray(d.tests)){
+      LAB.tests=d.tests.filter(validTest);
+      LAB.tests.forEach(t=>{t.points=t.points.filter(p=>p&&p.dist>0&&p.count>=0);});
+      LAB.active=LAB.tests.some(t=>t.id===d.active)?d.active:(LAB.tests[0]?LAB.tests[0].id:null);
+      LAB.cmp=(Array.isArray(d.cmp)?d.cmp:[]).filter(c=>c&&LAB.tests.some(t=>t.id===c.id)&&c.slot>=0&&c.slot<SLOTS&&(c.type==="test"||(c.type==="what"&&CHOKE[c.choke])));
+      if(d.metric)LAB.metric=d.metric;
+    }
+  }catch(e){}
+  // carry an existing scan from the old single-pattern tool over as a first test
+  if(!LAB.tests.length&&state.measured&&state.measured.load&&state.measured.points&&state.measured.points.length){
+    const l=state.measured.load, tot=pelletCount(l.mat,SHOT[l.shot],l.payOz);
+    const t={id:labId(),name:"My pattern",brand:"",mat:l.mat,shot:l.shot,payOz:l.payOz,vel:state.velocity,choke:l.choke||defaultChoke(),
+      chokeBrand:"",gun:state.gun||"",created:Date.now(),
+      points:state.measured.points.map(p=>({id:labId(),dist:p.dist,count:Math.round(p.count!=null?p.count:p.pct*tot),thumb:null,at:Date.now()}))};
+    if(validTest(t)){LAB.tests.push(t);LAB.active=t.id;labSave();}
+  }
+  try{const tb=localStorage.getItem("tab");if(tb==="lab"||tb==="calc")LAB.tab=tb;}catch(e){}
 }
-$("photoAdd").addEventListener("click",()=>{
-  const c=currentMeasurement();
-  if(c.count<=0){$("photoStep").innerHTML="<b>Count first</b> (Auto-detect or By hand), then add this distance.";return;}
-  if(PH.measurements.length){
-    const a=PH.measurements[0];
-    if(a.mat!==c.mat||a.shot!==c.shot||Math.abs(a.payOz-c.payOz)>1e-6||a.choke!==c.choke){
-      $("photoStep").innerHTML="<b>Same cartridge &amp; choke only.</b> 2-point calibration needs the identical load and choke — match material, size, weight and choke to the first measurement.";return;}
-    if(PH.measurements.some(x=>Math.abs(x.dist-c.dist)<0.5)){
-      $("photoStep").innerHTML="You already added that distance — change <b>Patterned at</b> and shoot/upload the second sheet.";return;}
+const activeTest=()=>LAB.tests.find(t=>t.id===LAB.active)||null;
+const testById=id=>LAB.tests.find(t=>t.id===id)||null;
+const testTotal=t=>pelletCount(t.mat,SHOT[t.shot],t.payOz);
+function loadText(t){return MATERIALS[t.mat].name+" #"+t.shot+" "+Math.round(t.payOz*OZ_G)+"g";}
+function chokeText(t,choke){const c=choke||t.choke;return (t.chokeBrand&&!choke?t.chokeBrand+" ":"")+CHOKE_NAME[c].replace(" (widest)","");}
+function testLabel(t){return t.name||((t.brand?t.brand+" ":"")+loadText(t)+" · "+chokeText(t));}
+const dispDist=yd=>isMetric()?Math.round(yd*YD_M)+" m":Math.round(yd)+" yd";
+const dispUnit=()=>isMetric()?"m":"yd";
+const toYd=v=>isMetric()?v/YD_M:v;
+const fromYd=yd=>isMetric()?yd*YD_M:yd;
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* the test as the calculator's measured-pattern record */
+function testMeasured(t){
+  if(!t.points.length)return null;
+  const tot=testTotal(t);
+  return {load:{mat:t.mat,shot:t.shot,payOz:t.payOz,choke:t.choke},
+    points:t.points.map(p=>{const n=Math.min(tot,p.count);return {dist:p.dist,count:n,pct:n/Math.max(1,tot)};})};
+}
+/* the full evaluate() state for this test at a range; `choke` projects it onto
+   another choke (what-if), fitOnly asks for the smooth fitted curve */
+function labState(t,rangeYd,choke,fitOnly){
+  return {...state,barrels:1,material:t.mat,shot:t.shot,payload:t.payOz,velocity:t.vel,choke:choke||t.choke,
+    range:rangeYd,measured:testMeasured(t),_fitOnly:!!fitOnly,_rush:false,reqMin:0};
+}
+const labEval=(t,yd,choke,fit)=>evaluate(labState(t,yd,choke,fit));
+const sheetAt=(t,yd)=>t.points.find(p=>Math.abs(p.dist-yd)<0.6)||null;
+
+/* Where does the pattern work, and what stops it at each end? Cached per
+   render: the list, the strip and the table all ask for the same answer. */
+const ANALYSIS=new Map();
+function analyseRange(t,choke){
+  const key=JSON.stringify([t.id,t.mat,t.shot,t.payOz,t.vel,t.choke,t.points.map(p=>[p.dist,p.count]),choke||"",
+    state.mode,state.species,state.discipline,state.clayTarget,state.clayPresent,state.present,state.aim]);
+  if(!ANALYSIS.has(key))ANALYSIS.set(key,analyseRangeRaw(t,choke));
+  return ANALYSIS.get(key);
+}
+/* "to 41 m" when it is clean from point-blank, "18–41 m" when too tight up close */
+function rangeText(a){
+  if(a.first==null)return "none";
+  return (a.first<=8?"to ":Math.round(fromYd(a.first))+"–")+Math.round(fromYd(a.last))+" "+dispUnit();
+}
+function analyseRangeRaw(t,choke){
+  const R0=8,R1=80, rows=[];
+  for(let r=R0;r<=R1;r++)rows.push({r,ev:labEval(t,r,choke,true)});
+  const ok=rows.filter(x=>x.ev.verdict==="clean-kill-likely");
+  const res={first:null,last:null,far:null,near:null,best:null};
+  res.best=rows.reduce((a,b)=>b.ev.p>a.ev.p?b:a,rows[0]);
+  if(!ok.length)return res;
+  res.first=ok[0].r; res.last=ok[ok.length-1].r;
+  const nxt=rows.find(x=>x.r===res.last+1); if(nxt)res.far=nxt.ev;
+  const prv=rows.find(x=>x.r===res.first-1); if(prv)res.near=prv.ev;
+  return res;
+}
+function failReason(ev,far){
+  const clay=ev.clay, sp=ev.sp, m=isMetric();
+  if(!clay&&ev.circle<sp.min)return "the pattern thins out — under "+sp.min+" pellets in the "+circleLabel()+" circle";
+  if(!ev.eGate)return "each pellet drops below "+(m?(sp.e*FTLB_J).toFixed(1)+" J":sp.e.toFixed(2)+" ft·lbf")+(clay?" — too little to break the clay":" — too little to kill");
+  if(!ev.depthGate)return "pellets no longer penetrate to the vitals";
+  const pc=Math.floor(ev.p*100);   // floor: a 89.6% fail must not read "90%"
+  if(!far)return "the pattern is a tight knot your aim error often misses ("+pc+"% "+(clay?"break":"clean kill")+")";
+  return "too few strikes land on the "+(clay?"clay":"bird")+" ("+pc+"% "+(clay?"break":"clean kill")+", under the 90% needed)";
+}
+
+/* ---- boards ---- */
+const THUMBS=new Map();
+let labQueued=false;
+function scheduleLab(){if(labQueued)return;labQueued=true;requestAnimationFrame(()=>{labQueued=false;if(LAB.tab==="lab")renderLab();});}
+function thumbImg(p){
+  if(!p||!p.thumb)return null;
+  let im=THUMBS.get(p.id);
+  if(!im||im._src!==p.thumb){im=new Image();im._src=p.thumb;im.onload=scheduleLab;im.src=p.thumb;THUMBS.set(p.id,im);}
+  return im;
+}
+const cssv=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const VCLS={"clean-kill-likely":"go","marginal":"warn","wounding-likely":"crit"};
+function bodyRadiiIn(ev){
+  const sc=ev.clay?1:(state.present==="going"?0.55:state.present==="side"?1.15:1.0);
+  const rv=Math.sqrt(ev.sp.body*sc/Math.PI); return {rx:rv/1.25,ry:rv*1.25};
+}
+/* one 40-inch (≈1 m) board: your photo, or the extrapolated pattern drawn as
+   a pattern sheet — paper and holes, like the photos beside it, so the eye
+   compares like with like down the strip */
+function drawLabBoard(cv,ev,photo,seedKey){
+  const ctx=cv.getContext("2d"),S=cv.width,cx=S/2,cy=S/2,ppi=S/40;
+  const ringIn=circleRadiusUnits(), BIRD_LINE="#ff4d6d";
+  ctx.clearRect(0,0,S,S); ctx.fillStyle="#f1ede4"; ctx.fillRect(0,0,S,S);
+  const usePhoto=photo&&photo.complete&&photo.naturalWidth>0;
+  if(usePhoto){ctx.drawImage(photo,0,0,S,S);}
+  else{
+    ctx.strokeStyle="#4a4a4a";ctx.lineWidth=S/130;ctx.beginPath();ctx.arc(cx,cy,ringIn*ppi,0,7);ctx.stroke();
+    const rnd=mulberry32(hashSeed(seedKey)); const g=()=>{let u=0,v=0;while(u===0)u=rnd();while(v===0)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+    const n=Math.min(ev.total,900), pr=Math.max(1.3,S/230);
+    ctx.fillStyle="#1d1d1d";
+    for(let i=0;i<n;i++){const x=cx+g()*ev.sigma*ppi,y=cy+g()*ev.sigma*ppi;
+      if(x<-2||x>S+2||y<-2||y>S+2)continue; ctx.beginPath();ctx.arc(x,y,pr,0,7);ctx.fill();}
   }
-  PH.measurements.push(c); renderMlist();
-  $("photoStep").innerHTML="Added <b>"+c.count+"</b> @ "+(isMetric()?Math.round(c.dist*YD_M)+"m":Math.round(c.dist)+"yd")+". Load the next distance, or Use pattern(s).";
-});
-$("photoApply").addEventListener("click",()=>{
-  let pts=PH.measurements.slice();
-  if(!pts.length){
-    const c=currentMeasurement();
-    if(c.count<=0){$("photoStep").innerHTML="<b>No count yet.</b> Auto-detect or place the circle by hand first.";return;}
-    pts=[c];
+  if(usePhoto){ctx.strokeStyle="rgba(255,255,255,.75)";ctx.lineWidth=S/90;ctx.beginPath();ctx.arc(cx,cy,ringIn*ppi,0,7);ctx.stroke();
+    ctx.strokeStyle="rgba(0,0,0,.6)";ctx.lineWidth=S/200;ctx.beginPath();ctx.arc(cx,cy,ringIn*ppi,0,7);ctx.stroke();}
+  const b=bodyRadiiIn(ev), rx=b.rx*ppi, ry=b.ry*ppi;
+  ctx.save();ctx.globalAlpha=0.30;ctx.fillStyle=cssv("--"+VCLS[ev.verdict]);ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();ctx.restore();
+  ctx.strokeStyle="rgba(0,0,0,.55)";ctx.lineWidth=S/80;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.stroke();
+  ctx.strokeStyle=BIRD_LINE;ctx.lineWidth=S/150;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.stroke();
+}
+const VICON={"clean-kill-likely":"✓","marginal":"◐","wounding-likely":"✕"};
+function vWord(ev){return ev.clay?{"clean-kill-likely":"solid break","marginal":"chippy","wounding-likely":"poor break"}[ev.verdict]
+  :{"clean-kill-likely":"clean","marginal":"marginal","wounding-likely":"wounding"}[ev.verdict];}
+function tileCaption(ev,yd,isPhoto){
+  return `<div class="lbcap"><b>${dispDist(yd)}</b><span class="lbsrc ${isPhoto?"m":""}">${isPhoto?"photo":"drawn"}</span></div>`
+    +`<div class="lbrow">${Math.round(ev.circle)} in circle</div>`
+    +`<div class="lbrow">${Math.round(ev.hitsPoor)}–${Math.round(ev.hitsGood)} on ${ev.clay?"clay":"bird"}</div>`
+    +`<div class="lbv ${VCLS[ev.verdict]}">${VICON[ev.verdict]} ${Math.round(ev.p*100)}% ${vWord(ev)}</div>`;
+}
+
+/* ---- the series being compared (each keeps its colour slot) ---- */
+function seriesList(){
+  let out=LAB.cmp.map(c=>{const t=testById(c.id);if(!t)return null;
+    return {key:c.type+":"+c.id+":"+(c.choke||""),t,choke:c.type==="what"?c.choke:null,slot:c.slot,
+      label:c.type==="what"?testLabel(t)+" → "+CHOKE_NAME[c.choke].replace(" (widest)",""):testLabel(t),projected:c.type==="what",cmp:c};}).filter(Boolean);
+  if(!out.length){const t=activeTest();if(t)out=[{key:"test:"+t.id+":",t,choke:null,slot:0,label:testLabel(t),projected:false,cmp:null}];}
+  return out.sort((a,b)=>a.slot-b.slot);
+}
+function freeSlot(){for(let s=0;s<SLOTS;s++)if(!LAB.cmp.some(c=>c.slot===s))return s;return -1;}
+
+/* ---- chart ---- */
+function chartData(series){
+  const m=isMetric(), x0=10, x1=m?60:65, sp=series.length?labEval(series[0].t,30,null,true):null;
+  const S=series.map(se=>{
+    const pts=[]; for(let x=x0;x<=x1;x++){const ev=labEval(se.t,toYd(x),se.choke,true);pts.push({x,ev});}
+    const marks=se.projected?[]:se.t.points.map(p=>({x:fromYd(p.dist),ev:labEval(se.t,p.dist,null,false)})).filter(q=>q.x>=x0-0.5&&q.x<=x1+0.5);
+    return {...se,pts,marks};
+  });
+  return {x0,x1,S,sp:sp&&sp.sp,clay:sp&&sp.clay};
+}
+const metricVal=(ev,k)=>k==="circle"?ev.circle:k==="bird"?ev.lamHit:ev.p*100;
+let CHART=null;
+const CH_L=82, CH_R=36;   // plot margins: room for "100%" and the A/B/C end labels
+function drawShape(ctx,shape,x,y,r){
+  ctx.beginPath();
+  if(shape==="square")ctx.rect(x-r*0.88,y-r*0.88,r*1.76,r*1.76);
+  else if(shape==="triangle"){ctx.moveTo(x,y-r*1.1);ctx.lineTo(x+r,y+r*0.75);ctx.lineTo(x-r,y+r*0.75);ctx.closePath();}
+  else ctx.arc(x,y,r,0,7);
+}
+function drawChart(hoverX){
+  const cv=$("cmpChart"); if(!cv||!CHART)return;
+  const ctx=cv.getContext("2d"),W=cv.width,H=cv.height,k=LAB.metric,D=CHART;
+  const L=CH_L,Rp=CH_R,T=20,B=52,pw=W-L-Rp,ph=H-T-B, fs=Math.round(W/34);
+  let ymax=k==="kill"?100:1;
+  if(k!=="kill"){for(const s of D.S){for(const q of s.pts)ymax=Math.max(ymax,metricVal(q.ev,k));for(const q of s.marks)ymax=Math.max(ymax,metricVal(q.ev,k));}
+    ymax=niceMax(ymax*1.06);}
+  const X=x=>L+(x-D.x0)/(D.x1-D.x0)*pw, Y=v=>T+ph-(v/ymax)*ph;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle=cssv("--panel"); ctx.fillRect(0,0,W,H);
+  ctx.font=`${fs}px -apple-system,system-ui,sans-serif`; ctx.fillStyle=cssv("--muted"); ctx.strokeStyle=cssv("--line"); ctx.lineWidth=1.5;
+  // recessive grid + axes
+  const yt=5; ctx.textAlign="right"; ctx.textBaseline="middle";
+  for(let i=0;i<=yt;i++){const v=ymax*i/yt,y=Y(v);ctx.globalAlpha=i?0.6:1;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.globalAlpha=1;
+    ctx.fillText(k==="kill"?Math.round(v)+"%":Math.round(v),L-8,y);}
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  for(let x=D.x0;x<=D.x1;x+=10)ctx.fillText(x,X(x),T+ph+8);
+  ctx.fillText("distance ("+dispUnit()+")",L+pw/2,T+ph+8+fs*1.25);
+  // threshold
+  let th=null,thl="";
+  if(k==="kill"){th=90;thl="clean ≥ 90%";}
+  else if(k==="circle"&&D.sp&&!D.clay&&D.sp.min){th=D.sp.min;thl="minimum "+D.sp.min;}
+  else if(k==="bird"&&D.S.length){const ev=D.S[0].pts[0].ev;th=ev.req;thl="needed "+ev.req;}
+  if(th!=null&&th<=ymax){const y=Y(th);ctx.save();ctx.setLineDash([7,6]);ctx.strokeStyle=cssv("--muted");ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(L+pw,y);ctx.stroke();ctx.restore();
+    // kill % falls away to the right, pellet counts sit high on the left: put the label where the lines are not
+    const right=k==="kill";ctx.textAlign=right?"right":"left";ctx.textBaseline="bottom";ctx.fillStyle=cssv("--muted");ctx.fillText(thl,right?L+pw-6:L+6,y-4);}
+  // series lines
+  const labels=[];
+  for(const s of D.S){
+    const col=cssv("--s"+(s.slot+1));
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=3.6;ctx.lineJoin="round";if(s.projected)ctx.setLineDash([10,8]);
+    ctx.beginPath();s.pts.forEach((q,i)=>{const x=X(q.x),y=Y(metricVal(q.ev,k));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();ctx.restore();
+    for(const q of s.marks){const x=X(q.x),y=Y(metricVal(q.ev,k));
+      ctx.fillStyle=cssv("--panel");drawShape(ctx,SHAPES[s.slot],x,y,12);ctx.fill();
+      ctx.fillStyle=col;drawShape(ctx,SHAPES[s.slot],x,y,8.5);ctx.fill();}
+    const lq=s.pts[s.pts.length-1]; labels.push({y:Y(metricVal(lq.ev,k)),t:String.fromCharCode(65+s.slot),col});
   }
-  const c0=pts[0];
-  state.material=c0.mat; state.shot=c0.shot; state.payload=c0.payOz; state.choke=c0.choke; state.range=c0.dist;
-  // measuredStrikes: authoritative holes-in-circle keyed by distance (the display
-  // value the shooter typed, e.g. {10:739, 20:286}). Kept as the single truth.
-  const strikes={}; pts.forEach(p=>{strikes[p.distDisp!=null?p.distDisp:Math.round(p.dist)]=p.count;});
-  state.measured={
-    load:{mat:c0.mat,shot:c0.shot,payOz:c0.payOz,choke:c0.choke},
-    points: pts.map(p=>({dist:p.dist,pct:p.pct,count:p.count})),
-    measuredStrikes: strikes
-  };
-  persistMeasured();
-  setControlsFromState(); updateBanner(); render();
-  $("verdict").scrollIntoView({behavior:"smooth",block:"start"});
+  // end labels: keep them a line apart, and inside the plot when lines meet at an edge
+  const gap=fs*1.15, lo=T+fs*0.5, hi=T+ph-fs*0.2;
+  labels.sort((a,b)=>a.y-b.y);
+  for(let i=0;i<labels.length;i++)labels[i].y=Math.max(labels[i].y,i?labels[i-1].y+gap:lo);
+  for(let i=labels.length-1;i>=0;i--)labels[i].y=Math.min(labels[i].y,i<labels.length-1?labels[i+1].y-gap:hi);
+  ctx.textAlign="left";ctx.textBaseline="middle";ctx.font=`700 ${fs}px -apple-system,system-ui,sans-serif`;
+  for(const l of labels){ctx.fillStyle=cssv("--text");ctx.fillText(l.t,L+pw+10,l.y);}
+  // hover crosshair
+  const tip=$("cmpTip");
+  if(hoverX!=null&&hoverX>=D.x0&&hoverX<=D.x1){
+    const x=X(hoverX); ctx.strokeStyle=cssv("--muted");ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T+ph);ctx.stroke();
+    let html=`<b>${hoverX} ${dispUnit()}</b>`;
+    for(const s of D.S){const q=s.pts[hoverX-D.x0];if(!q)continue;const v=metricVal(q.ev,k);
+      ctx.fillStyle=cssv("--panel");drawShape(ctx,"circle",x,Y(v),9);ctx.fill();ctx.fillStyle=cssv("--s"+(s.slot+1));drawShape(ctx,"circle",x,Y(v),6.5);ctx.fill();
+      html+=`<div><i class="sw s${s.slot+1}"></i>${String.fromCharCode(65+s.slot)}: ${Math.round(q.ev.circle)} in circle · ${q.ev.lamHit.toFixed(1)} on ${q.ev.clay?"clay":"bird"} · <b>${Math.round(q.ev.p*100)}%</b> ${VICON[q.ev.verdict]}</div>`;}
+    tip.innerHTML=html; tip.style.display="block";
+    const r=cv.getBoundingClientRect(), px=x/W*r.width; tip.style.left=(px>r.width/2?Math.max(0,px-tip.offsetWidth-10):px+10)+"px"; tip.style.top="6px";
+  }else if(tip)tip.style.display="none";
+}
+function niceMax(v){const p=Math.pow(10,Math.floor(Math.log10(v)));for(const m of [1,1.2,1.5,2,2.5,3,4,5,6,8,10])if(m*p>=v)return m*p;return 10*p;}
+function chartHover(ev){
+  if(!CHART)return; const cv=$("cmpChart"),r=cv.getBoundingClientRect();
+  const W=cv.width,L=CH_L,Rp=CH_R,px=(ev.clientX-r.left)/r.width*W;
+  const x=Math.round(CHART.x0+(px-L)/(W-L-Rp)*(CHART.x1-CHART.x0));
+  drawChart(Math.max(CHART.x0,Math.min(CHART.x1,x)));
+}
+
+/* ---- render ---- */
+function renderTestList(){
+  const el=$("testList"), u=dispUnit();
+  if(!LAB.tests.length){el.innerHTML=`<div class="tempty">No tests yet. Tap <b>New pattern test</b>, then photograph your sheets.</div>`;return;}
+  el.innerHTML=LAB.tests.map(t=>{
+    const c=LAB.cmp.find(x=>x.type==="test"&&x.id===t.id), a=analyseRange(t);
+    const dists=t.points.map(p=>Math.round(fromYd(p.dist))).join(", ");
+    const sub=(t.points.length?`${t.points.length} sheet${t.points.length>1?"s":""} at ${dists} ${u}`:"no sheets yet — nominal")
+      +` · ${isClay()?"breaks":"clean"} ${rangeText(a)}`;
+    return `<div class="trow${t.id===LAB.active?" on":""}">
+      <label class="tcheck" title="Compare"><input type="checkbox" data-cmp="${t.id}"${c?" checked":""}><span class="sw ${c?"s"+(c.slot+1):"none"}"></span></label>
+      <button type="button" class="tmain" data-open="${t.id}"><b>${esc(testLabel(t))}</b><small>${sub}</small></button></div>`;}).join("");
+  el.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{LAB.active=b.dataset.open;labSave();clearPhoto();renderLab();$("testCard").scrollIntoView({behavior:"smooth",block:"start"});});
+  el.querySelectorAll("[data-cmp]").forEach(cb=>cb.onchange=()=>{
+    const id=cb.dataset.cmp;
+    if(cb.checked){const s=freeSlot();if(s<0){cb.checked=false;$("cmpHint").innerHTML="<b>Three at a time.</b> Untick one (or remove a projection) first.";$("cmpCard").scrollIntoView({behavior:"smooth",block:"start"});return;}
+      LAB.cmp.push({type:"test",id,slot:s});}
+    else LAB.cmp=LAB.cmp.filter(c=>!(c.type==="test"&&c.id===id));
+    labSave();renderLab();});
+}
+function fillTestEditor(t){
+  const m=isMetric();
+  $("testTitle").textContent=testLabel(t);
+  $("tname").value=t.name||""; $("tbrand").value=t.brand||""; $("tchokeBrand").value=t.chokeBrand||""; $("tgun").value=t.gun||"";
+  fillSelect($("tmat"),Object.entries(MATERIALS).map(([k,v])=>[k,v.name]),t.mat);
+  fillSelect($("tshot"),SHOT_ORDER.map(k=>[k,shotLabel(k)]),t.shot);
+  fillSelect($("tchoke"),CHOKE_ORDER.map(c=>[c,CHOKE_NAME[c]]),t.choke);
+  fillSelect($("tcart"),[["","— pick —"],...CARTS.map((c,i)=>[String(i),cartLabel(c)])],"");
+  const tp=$("tpay"); if(m){tp.min=16;tp.max=64;tp.step=1;tp.value=Math.round(t.payOz*OZ_G);}else{tp.min=0.5;tp.max=2.25;tp.step=0.0625;tp.value=t.payOz.toFixed(4);}
+  $("tpayVal").textContent=m?Math.round(t.payOz*OZ_G):t.payOz.toFixed(2);
+  const tv=$("tvel"); if(m){tv.min=335;tv.max=518;tv.step=5;tv.value=Math.round(t.vel*FPS_MS);}else{tv.min=1100;tv.max=1700;tv.step=25;tv.value=Math.round(t.vel);}
+  $("tvelVal").textContent=m?Math.round(t.vel*FPS_MS):Math.round(t.vel);
+  document.querySelectorAll(".uVel2").forEach(e=>e.textContent=m?"m/s":"fps");
+  $("tloadNote").textContent=t.points.length?"A test is one cartridge through one choke. Changing the load or choke re-reads these sheets as if shot with the new one — start a new test instead.":"Set the cartridge and choke first, then add your sheets.";
+}
+function renderSheets(t){
+  const el=$("sheetGrid");
+  if(!t.points.length){el.innerHTML=`<div class="tempty">No sheets yet. Add one below — two or more distances let the app fit how fast <i>your</i> pattern opens up.</div>`;return;}
+  el.innerHTML=t.points.map((p,i)=>`<div class="sheet"><canvas width="${THUMB}" height="${THUMB}" data-sheet="${i}"></canvas>
+    <div class="lbcap"><b>${dispDist(p.dist)}</b><button type="button" class="mrm" data-rm="${i}" aria-label="Remove sheet">×</button></div>
+    <div class="lbrow">${Math.min(p.count,testTotal(t))} holes · ${Math.round(100*Math.min(p.count,testTotal(t))/testTotal(t))}%</div></div>`).join("");
+  el.querySelectorAll("canvas[data-sheet]").forEach(cv=>{const p=t.points[+cv.dataset.sheet];drawLabBoard(cv,labEval(t,p.dist,null,false),thumbImg(p),t.id+p.id);});
+  el.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{if(!confirm("Remove the "+dispDist(t.points[+b.dataset.rm].dist)+" sheet from this test?"))return;
+    t.points.splice(+b.dataset.rm,1);labSave();renderLab();});
+}
+function stripDistances(t){
+  const m=isMetric(), grid=[]; for(let x=15;x<=(m?50:55);x+=5)grid.push(toYd(x));
+  const all=grid.filter(g=>!t.points.some(p=>Math.abs(fromYd(p.dist)-fromYd(g))<2.5)).concat(t.points.map(p=>p.dist));
+  return all.sort((a,b)=>a-b);
+}
+function renderStrip(t){
+  const a=analyseRange(t), u=dispUnit(), clay=isClay(), noun=clay?"Breaks reliably":"Clean kills";
+  let html;
+  if(a.first==null){
+    const b=a.best;
+    html=`<div class="fsbig crit">✕ No ${clay?"reliable break":"clean-kill"} range</div><div class="fssub">Best is ${Math.round(b.ev.p*100)}% at ${dispDist(b.r)}: ${failReason(b.ev,true)}.</div>`;
+  }else{
+    html=`<div class="fsbig go">✓ ${noun} ${a.first<=8?"":"from "}${rangeText(a)}</div>`;
+    if(a.far)html+=`<div class="fssub"><b>Fails beyond ${dispDist(a.last)}:</b> ${failReason(a.far,true)}.</div>`;
+    if(a.near)html+=`<div class="fssub"><b>Closer than ${dispDist(a.first)}:</b> ${failReason(a.near,false)}.</div>`;
+  }
+  const far=t.points.length?Math.max(...t.points.map(p=>p.dist)):0;
+  if(!t.points.length)html+=`<div class="fsnote">No sheets yet — this is the nominal ${CHOKE_NAME[t.choke]} pattern, not your gun.</div>`;
+  else if(t.points.length===1)html+=`<div class="fsnote">One sheet: the spread is scaled through it along this choke's usual shape. Add a second distance to fit how fast <i>your</i> gun opens up.</div>`;
+  if(far&&a.last!=null&&a.last>far*1.35)html+=`<div class="fsnote">Beyond ${dispDist(far)} is extrapolated past your furthest sheet.</div>`;
+  $("failSummary").innerHTML=html;
+  const ds=stripDistances(t); let failMarked=false, seenClean=false;
+  $("strip").innerHTML=ds.map((yd,i)=>`<div class="lb" data-i="${i}"><canvas width="${THUMB}" height="${THUMB}"></canvas><div class="lbinfo"></div></div>`).join("");
+  $("strip").querySelectorAll(".lb").forEach(tile=>{
+    const yd=ds[+tile.dataset.i], sh=sheetAt(t,yd), ev=labEval(t,yd,null,false);
+    drawLabBoard(tile.querySelector("canvas"),ev,sh?thumbImg(sh):null,t.id+"|"+Math.round(yd*10));
+    const clean=ev.verdict==="clean-kill-likely"; if(clean)seenClean=true;
+    if(!clean&&seenClean&&!failMarked){tile.classList.add("fail");failMarked=true;}
+    tile.querySelector(".lbinfo").innerHTML=(tile.classList.contains("fail")?`<div class="lbfail">✕ fails here</div>`:"")+tileCaption(ev,yd,!!sh);
+  });
+}
+function renderCompare(){
+  const series=seriesList(), u=dispUnit();
+  $("cmpHint").innerHTML=LAB.cmp.length?"Each line is a test (solid) or a what-if projection (dashed); markers are your measured sheets."
+    :"Showing the open test. Tick up to three tests in the list to compare them, or project this test onto another choke.";
+  const t=activeTest();
+  fillSelect($("whatChoke"),CHOKE_ORDER.filter(c=>!t||c!==t.choke).map(c=>[c,CHOKE_NAME[c]]),$("whatChoke").value||(t&&t.choke==="modified"?"full":"modified"));
+  $("cmpLegend").innerHTML=series.map(s=>`<span class="lgi"><i class="sw s${s.slot+1}${s.projected?" dash":""}"></i><b>${String.fromCharCode(65+s.slot)}</b> ${esc(s.label)}${s.cmp?`<button type="button" class="lgx" data-rmk="${s.key}" aria-label="Remove">×</button>`:""}</span>`).join("");
+  $("cmpLegend").querySelectorAll("[data-rmk]").forEach(b=>b.onclick=()=>{
+    LAB.cmp=LAB.cmp.filter(c=>c.type+":"+c.id+":"+(c.choke||"")!==b.dataset.rmk);labSave();renderLab();});
+  document.querySelectorAll("#cmpMetric button").forEach(b=>b.classList.toggle("on",b.dataset.k===LAB.metric));
+  CHART=chartData(series); drawChart(null);
+  // side-by-side boards at one distance
+  const dyd=LAB.cmpDistYd, cd=$("cmpDist");
+  const m=isMetric(); cd.min=m?9:10; cd.max=m?64:70; cd.value=Math.round(fromYd(dyd)); $("cmpDistVal").textContent=cd.value;
+  $("cmpBoards").style.gridTemplateColumns=`repeat(${Math.max(1,series.length)},1fr)`;
+  $("cmpBoards").innerHTML=series.map((s,i)=>`<div class="lb"><div class="lbtag"><i class="sw s${s.slot+1}${s.projected?" dash":""}"></i>${String.fromCharCode(65+s.slot)}</div><canvas width="${THUMB}" height="${THUMB}" data-i="${i}"></canvas><div class="lbinfo"></div></div>`).join("");
+  $("cmpBoards").querySelectorAll("canvas").forEach(cv=>{
+    const s=series[+cv.dataset.i], sh=s.projected?null:sheetAt(s.t,dyd), ev=labEval(s.t,dyd,s.choke,false);
+    drawLabBoard(cv,ev,sh?thumbImg(sh):null,s.key+"|"+Math.round(dyd*10));
+    cv.parentElement.querySelector(".lbinfo").innerHTML=tileCaption(ev,dyd,!!sh);
+  });
+  // table
+  const ds=[]; for(let x=15;x<=(m?50:55);x+=5)ds.push(x);
+  const an=series.map(s=>analyseRange(s.t,s.choke));
+  let h=`<table class="xt cmpt"><tr><th>${u}</th>${series.map(s=>`<th><i class="sw s${s.slot+1}${s.projected?" dash":""}"></i> ${String.fromCharCode(65+s.slot)}</th>`).join("")}</tr>`;
+  h+=`<tr><td>${isClay()?"Breaks":"Clean"}</td>${an.map(a=>`<td><b>${a.first==null?"—":rangeText(a)}</b></td>`).join("")}</tr>`;
+  h+=`<tr><td>Pellets</td>${series.map(s=>`<td>${testTotal(s.t)}</td>`).join("")}</tr>`;
+  for(const x of ds){
+    const evs=series.map(s=>labEval(s.t,toYd(x),s.choke,false)), best=Math.max(...evs.map(e=>e.p));
+    h+=`<tr><td>${x}</td>${evs.map(e=>{const bb=e.p===best&&series.length>1;
+      return `<td class="${VCLS[e.verdict]}">${bb?"<b>":""}${VICON[e.verdict]} ${Math.round(e.p*100)}%${bb?"</b>":""}<small>${Math.round(e.circle)}</small></td>`;}).join("")}</tr>`;
+  }
+  h+=`</table><p class="taghint" style="margin-top:6px">${isClay()?"Break":"Clean-kill"} % with pellets in the ${circleLabel()} circle underneath · bold = best at that distance.</p>`;
+  $("cmpTable").innerHTML=h;
+}
+function renderLab(){
+  if(LAB.tab!=="lab")return;
+  if(ANALYSIS.size>200)ANALYSIS.clear();
+  const pr=isClay()?clayProfile(state).presentName:{decoy:"incoming",side:"crossing",going:"going-away"}[state.present];
+  $("labFor").innerHTML=`Judged for <b>${esc(targetName())}</b> · ${esc(pr)} · ${AIM_NAME[state.aim]||"Average"} aim <button type="button" id="labChange" class="linkbtn">change</button>`;
+  $("labChange").onclick=()=>{showTab("calc");$("quarryLabel").scrollIntoView({behavior:"smooth",block:"start"});};
+  renderTestList();
+  const t=activeTest();
+  $("testCard").style.display=t?"":"none"; $("rangeCard").style.display=t?"":"none"; $("cmpCard").style.display=t?"":"none";
+  if(!t)return;
+  syncPH(t); fillTestEditor(t); renderSheets(t);
+  $("rangeTitle").textContent=testLabel(t);
+  renderStrip(t); renderCompare();
+}
+function showTab(tab){
+  LAB.tab=tab; try{localStorage.setItem("tab",tab);}catch(e){}
+  $("secCalc").style.display=tab==="calc"?"":"none"; $("secLab").style.display=tab==="lab"?"":"none";
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  if(tab==="lab")renderLab(); else render();
+  window.scrollTo({top:0});
+}
+/* the scanner counts against the open test's cartridge */
+function syncPH(t){PH.mat=t.mat;PH.shot=t.shot;PH.payOz=t.payOz;updatePLoad();}
+/* forget the last photo AND its count, so the next sheet can never be saved
+   with the previous one's number while its own detection is still running */
+function clearPhoto(){PH.img=null;PH.cx=PH.cy=PH.r=null;PH.holes=[];PH.count=0;PH.raw=0;
+  $("photoStage").style.display="none";const pf=$("photoFile");if(pf)pf.value="";
+  $("holeManual").value=0;$("holeCount").textContent="—";$("holeRaw").innerHTML="";$("photoStep").textContent="Auto-detecting…";}
+function newTest(){
+  const t={id:labId(),name:"",brand:"",mat:state.material,shot:state.shot,payOz:state.payload,vel:state.velocity,
+    choke:state.choke||defaultChoke(),chokeBrand:"",gun:state.gun||"",created:Date.now(),points:[]};
+  LAB.tests.push(t); LAB.active=t.id; labSave(); clearPhoto(); return t;
+}
+/* square crop of the sheet around the circle, the same 40-inch view as a board.
+   The source rectangle is clipped to the image by hand: some Safari versions
+   draw nothing at all when it runs off the edge. */
+function makeThumb(){
+  if(!PH.img||PH.cx==null||!PH.r)return null;
+  const k=PH.img.naturalWidth/CW, half=PH.r*(20/circleRadiusUnits())*k, sx=PH.cx*k-half, sy=PH.cy*k-half, side=2*half, sc=THUMB/side;
+  const c=document.createElement("canvas"); c.width=c.height=THUMB; const x=c.getContext("2d");
+  x.fillStyle="#7d7d7d"; x.fillRect(0,0,THUMB,THUMB);
+  const cx0=Math.max(0,sx), cy0=Math.max(0,sy), cx1=Math.min(PH.img.naturalWidth,sx+side), cy1=Math.min(PH.img.naturalHeight,sy+side);
+  if(cx1>cx0&&cy1>cy0)x.drawImage(PH.img,cx0,cy0,cx1-cx0,cy1-cy0,(cx0-sx)*sc,(cy0-sy)*sc,(cx1-cx0)*sc,(cy1-cy0)*sc);
+  try{return c.toDataURL("image/jpeg",0.72);}catch(e){return null;}
+}
+
+/* ---- wiring ---- */
+document.querySelectorAll("#tabs button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+$("testNew").addEventListener("click",()=>{newTest();renderLab();$("testCard").scrollIntoView({behavior:"smooth",block:"start"});});
+function editTest(fn,full){const t=activeTest();if(!t)return;fn(t);labSave();
+  if(full)renderLab();else{$("testTitle").textContent=testLabel(t);$("rangeTitle").textContent=testLabel(t);scheduleLabLite();}}
+let liteTimer=null;
+function scheduleLabLite(){clearTimeout(liteTimer);liteTimer=setTimeout(()=>{renderTestList();const t=activeTest();if(t){renderStrip(t);renderCompare();}},250);}
+$("tname").addEventListener("input",e=>editTest(t=>t.name=e.target.value.trim()));
+$("tbrand").addEventListener("input",e=>editTest(t=>t.brand=e.target.value.trim()));
+$("tchokeBrand").addEventListener("input",e=>editTest(t=>t.chokeBrand=e.target.value.trim()));
+$("tgun").addEventListener("input",e=>editTest(t=>t.gun=e.target.value.trim()));
+$("tmat").addEventListener("change",e=>editTest(t=>t.mat=e.target.value,true));
+$("tshot").addEventListener("change",e=>editTest(t=>t.shot=e.target.value,true));
+$("tchoke").addEventListener("change",e=>editTest(t=>{t.choke=e.target.value;LAB.cmp=LAB.cmp.filter(c=>!(c.type==="what"&&c.id===t.id&&c.choke===t.choke));},true));
+$("tpay").addEventListener("input",e=>{const v=+e.target.value;$("tpayVal").textContent=isMetric()?v:v.toFixed(2);
+  editTest(t=>{t.payOz=isMetric()?v/OZ_G:v;syncPH(t);});});
+$("tvel").addEventListener("input",e=>{const v=+e.target.value;$("tvelVal").textContent=v;editTest(t=>t.vel=isMetric()?v/FPS_MS:v);});
+$("tcart").addEventListener("change",e=>{const c=CARTS[+e.target.value];if(e.target.value===""||!c)return;
+  editTest(t=>{t.brand=c.name;t.mat=c.material;t.shot=c.shot;t.payOz=c.payload;t.vel=c.velocity;},true);});
+$("sheetSave").addEventListener("click",()=>{
+  const t=activeTest(); if(!t)return;
+  const tot=testTotal(t), count=Math.min(parseInt($("holeManual").value)||0,tot);
+  if(count<=0){$("photoStep").innerHTML="<b>Count first</b> (Auto-detect or By hand), then save the sheet.";return;}
+  const dist=PH.distYd||40, old=t.points.findIndex(p=>Math.abs(p.dist-dist)<0.5);
+  const pt={id:labId(),dist,count,raw:PH.raw||count,thumb:makeThumb(),at:Date.now()};
+  if(old>=0)t.points.splice(old,1,pt); else t.points.push(pt);
+  t.points.sort((a,b)=>a.dist-b.dist);
+  let note="";
+  if(!labSave()){pt.thumb=null;note=labSave()?" (phone storage is full, so the photo itself wasn't kept — the count was)":" — but storage is full and it could not be saved";}
+  const next=t.points.length===1?" Now shoot a second distance with the same cartridge and choke.":"";
+  clearPhoto(); renderLab();
+  $("tloadNote").innerHTML=`<span style="color:var(--go)">✓ ${old>=0?"Replaced":"Saved"} the ${dispDist(dist)} sheet: <b>${count}</b> holes${note}.</span>${next}`;
 });
+$("testUse").addEventListener("click",()=>{
+  const t=activeTest(); if(!t)return;
+  state.material=t.mat; state.shot=t.shot; state.payload=t.payOz; state.velocity=t.vel; state.choke=t.choke;
+  if(t.gun)state.gun=t.gun;
+  state.measured=testMeasured(t);
+  if(t.points.length)state.range=t.points[0].dist;
+  persistMeasured(); setControlsFromState(); updateBanner(); showTab("calc");
+});
+$("testDel").addEventListener("click",()=>{
+  const t=activeTest(); if(!t||!confirm("Delete the test “"+testLabel(t)+"” and its sheets?"))return;
+  LAB.tests=LAB.tests.filter(x=>x.id!==t.id); LAB.cmp=LAB.cmp.filter(c=>c.id!==t.id);
+  LAB.active=LAB.tests[0]?LAB.tests[0].id:null; labSave(); clearPhoto(); renderLab();
+});
+$("whatAdd").addEventListener("click",()=>{
+  const t=activeTest(), ck=$("whatChoke").value; if(!t||!ck)return;
+  if(LAB.cmp.some(c=>c.type==="what"&&c.id===t.id&&c.choke===ck))return;
+  const s=freeSlot(); if(s<0){$("cmpHint").innerHTML="<b>Three at a time.</b> Remove one from the legend first.";return;}
+  LAB.cmp.push({type:"what",id:t.id,choke:ck,slot:s}); labSave(); renderLab();
+});
+document.querySelectorAll("#cmpMetric button").forEach(b=>b.addEventListener("click",()=>{LAB.metric=b.dataset.k;labSave();
+  document.querySelectorAll("#cmpMetric button").forEach(x=>x.classList.toggle("on",x===b));drawChart(null);}));
+$("cmpDist").addEventListener("input",e=>{LAB.cmpDistYd=toYd(+e.target.value);$("cmpDistVal").textContent=e.target.value;
+  clearTimeout(liteTimer);liteTimer=setTimeout(renderCompare,60);});
+$("cmpChart").addEventListener("pointermove",chartHover);
+$("cmpChart").addEventListener("pointerdown",chartHover);
+$("cmpChart").addEventListener("pointerleave",()=>drawChart(null));
 
 /* ---------------- wiring ------------------------------------------------------ */
 document.querySelectorAll("#barrels button").forEach(b=>b.addEventListener("click",()=>{
@@ -1819,7 +2345,7 @@ $("discipline").addEventListener("change",e=>{
 });
 $("clayTarget").addEventListener("change",e=>{state.clayTarget=e.target.value;render();});
 $("clayPresent").addEventListener("change",e=>{state.clayPresent=e.target.value;applyStandRange();setControlsFromState();render();});
-$("species").addEventListener("change",e=>{state.species=e.target.value;state.choke="";fillChoke();$("pchoke").value=SPECIES[state.species].choke;render();});
+$("species").addEventListener("change",e=>{state.species=e.target.value;state.choke="";fillChoke();render();});
 $("material").addEventListener("change",e=>{state.material=e.target.value;render();});
 $("shot").addEventListener("change",e=>{state.shot=e.target.value;render();});
 $("choke").addEventListener("change",e=>{state.choke=e.target.value;render();});
@@ -1853,7 +2379,7 @@ $("theme").addEventListener("click",()=>{
 function resetAll(){
   // shooter + gun are intentionally kept (identity persists across a reset)
   Object.assign(state,{mode:"game",barrels:1,discipline:"sporting",clayTarget:"standard",clayPresent:"crossing",species:"partridge",material:"lead",shot:"6",payload:1.125,velocity:1350,choke:"",range:30,present:"decoy",units:"metric",measured:null,aim:12});
-  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,measurements:[],zoom:1});
+  Object.assign(PH,{img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,raw:0,distYd:30,sheetIn:40,manual:false,zoom:1});
   persistMeasured();
   placeStage=0;
   $("species").value="partridge";
@@ -1864,10 +2390,9 @@ function resetAll(){
   document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode==="decoy"));
   document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===12));
   document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u==="metric"));
-  $("pchoke").value=SPECIES.partridge.choke;
   document.querySelectorAll("#barrels button").forEach(x=>x.classList.toggle("on",x.dataset.b==="1"));
   $("discipline").value="sporting";$("clayTarget").value="standard";$("clayPresent").value="crossing";
-  renderMlist(); applyMode(); fillChoke(); setControlsFromState(); updateBanner(); render();
+  applyMode(); fillChoke(); setControlsFromState(); updateBanner(); render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 $("reset").addEventListener("click",resetAll);
@@ -1928,11 +2453,13 @@ $("exportShare").addEventListener("click",async()=>{
 
 restoreMeasured();
 loadCarts(); buildCartLib();
+labLoad();
 applyMode();
 document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x.dataset.u===state.units));
 document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",x.dataset.mode===state.present));
 document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim));
 setControlsFromState(); updateBanner(); render();
+showTab(LAB.tab);
 
 /* ---------------- install / share helpers -------------------------------------- */
 const APP_URL="https://msouzou-debug.github.io/marsou/";
@@ -1972,7 +2499,7 @@ if("serviceWorker" in navigator && notFramed && location.protocol==="https:"){
    replaces the offline copy. */
 const $v=id=>document.getElementById(id);
 const vFramed=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
-const APP_VERSION="1.49", APP_BUILD="2026-10-25";
+const APP_VERSION="1.92", APP_BUILD="2026-11-03";
 function verLabel(){return "v"+APP_VERSION+(APP_BUILD?" · "+APP_BUILD:"");}
 $v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
 $v("verFoot").textContent=verLabel();
