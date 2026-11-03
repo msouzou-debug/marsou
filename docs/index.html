@@ -266,6 +266,10 @@ footer a{color:var(--accent);text-decoration:none}
 .tmain{appearance:none;border:none;background:transparent;color:var(--text);font:inherit;text-align:left;padding:10px 12px;flex:1;min-width:0;cursor:pointer;display:flex;flex-direction:column;gap:3px}
 .tmain b{font-size:14px;font-weight:650;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
 .tmain small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.tdel{appearance:none;border:none;border-left:1px solid var(--line);background:transparent;color:var(--crit);font-size:17px;width:48px;flex:none;cursor:pointer}
+.tdel:active{background:var(--crit-soft)}
+.sheetdel{appearance:none;width:100%;margin-top:6px;border:1px solid color-mix(in srgb,var(--crit) 45%,var(--line));background:var(--crit-soft);color:var(--crit);
+  font:600 12px/1 -apple-system,system-ui,sans-serif;padding:8px 4px;border-radius:9px;cursor:pointer}
 .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;flex:none}
 .sw.s1{background:var(--s1)} .sw.s2{background:var(--s2)} .sw.s3{background:var(--s3)}
 .sw.none{background:transparent;border:1.5px dashed var(--line)}
@@ -593,7 +597,7 @@ footer a{color:var(--accent);text-decoration:none}
     </div>
     <div class="btnrow" style="margin-top:14px">
       <button class="bigbtn ghost" id="testUse" type="button">Use in Ballistics</button>
-      <button class="bigbtn ghost" id="testDel" type="button">Delete test</button>
+      <button class="bigbtn ghost" id="testDel" type="button" style="color:var(--crit)">🗑 Delete this test</button>
     </div>
   </div>
 
@@ -2108,8 +2112,10 @@ function renderTestList(){
       +` · ${isClay()?"breaks":"clean"} ${rangeText(a)}`;
     return `<div class="trow${t.id===LAB.active?" on":""}">
       <label class="tcheck" title="Compare"><input type="checkbox" data-cmp="${t.id}"${c?" checked":""}><span class="sw ${c?"s"+(c.slot+1):"none"}"></span></label>
-      <button type="button" class="tmain" data-open="${t.id}"><b>${esc(testLabel(t))}</b><small>${sub}</small></button></div>`;}).join("");
+      <button type="button" class="tmain" data-open="${t.id}"><b>${esc(testLabel(t))}</b><small>${sub}</small></button>
+      <button type="button" class="tdel" data-del="${t.id}" aria-label="Delete this test" title="Delete this test">🗑</button></div>`;}).join("");
   el.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{LAB.active=b.dataset.open;labSave();clearPhoto();renderLab();$("testCard").scrollIntoView({behavior:"smooth",block:"start"});});
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>deleteTest(b.dataset.del));
   el.querySelectorAll("[data-cmp]").forEach(cb=>cb.onchange=()=>{
     const id=cb.dataset.cmp;
     if(cb.checked){const s=freeSlot();if(s<0){cb.checked=false;$("cmpHint").innerHTML="<b>Three at a time.</b> Untick one (or remove a projection) first.";$("cmpCard").scrollIntoView({behavior:"smooth",block:"start"});return;}
@@ -2136,11 +2142,13 @@ function renderSheets(t){
   const el=$("sheetGrid");
   if(!t.points.length){el.innerHTML=`<div class="tempty">No sheets yet. Add one below — two or more distances let the app fit how fast <i>your</i> pattern opens up.</div>`;return;}
   el.innerHTML=t.points.map((p,i)=>`<div class="sheet"><canvas width="${THUMB}" height="${THUMB}" data-sheet="${i}"></canvas>
-    <div class="lbcap"><b>${dispDist(p.dist)}</b><button type="button" class="mrm" data-rm="${i}" aria-label="Remove sheet">×</button></div>
+    <div class="lbcap"><b>${dispDist(p.dist)}</b></div><button type="button" class="sheetdel" data-rm="${i}" aria-label="Delete the ${dispDist(p.dist)} sheet">🗑 Delete</button>
     <div class="lbrow">${Math.min(p.count,testTotal(t))} holes · ${Math.round(100*Math.min(p.count,testTotal(t))/testTotal(t))}%</div></div>`).join("");
+  el.querySelectorAll(".sheet").forEach(s=>{const d=s.querySelector(".sheetdel");if(d)s.appendChild(d);});
   el.querySelectorAll("canvas[data-sheet]").forEach(cv=>{const p=t.points[+cv.dataset.sheet];drawLabBoard(cv,labEval(t,p.dist,null,false),thumbImg(p),t.id+p.id);});
   el.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{if(!confirm("Remove the "+dispDist(t.points[+b.dataset.rm].dist)+" sheet from this test?"))return;
-    t.points.splice(+b.dataset.rm,1);labSave();renderLab();});
+    t.points.splice(+b.dataset.rm,1);labSave();renderLab();
+    $("tloadNote").innerHTML=`<span style="color:var(--go)">✓ Sheet deleted.</span>`;});
 }
 function stripDistances(t){
   const m=isMetric(), grid=[]; for(let x=15;x<=(m?50:55);x+=5)grid.push(toYd(x));
@@ -2295,11 +2303,15 @@ $("testUse").addEventListener("click",()=>{
   if(t.points.length)state.range=t.points[0].dist;
   persistMeasured(); setControlsFromState(); updateBanner(); showTab("calc");
 });
-$("testDel").addEventListener("click",()=>{
-  const t=activeTest(); if(!t||!confirm("Delete the test “"+testLabel(t)+"” and its sheets?"))return;
-  LAB.tests=LAB.tests.filter(x=>x.id!==t.id); LAB.cmp=LAB.cmp.filter(c=>c.id!==t.id);
-  LAB.active=LAB.tests[0]?LAB.tests[0].id:null; labSave(); clearPhoto(); renderLab();
-});
+function deleteTest(id){
+  const t=testById(id); if(!t)return;
+  const n=t.points.length;
+  if(!confirm("Delete the test “"+testLabel(t)+"”"+(n?" and its "+n+" sheet"+(n>1?"s":""):"")+"? This can't be undone."))return;
+  LAB.tests=LAB.tests.filter(x=>x.id!==id); LAB.cmp=LAB.cmp.filter(c=>c.id!==id);
+  if(LAB.active===id){LAB.active=LAB.tests[0]?LAB.tests[0].id:null;clearPhoto();}
+  labSave(); renderLab();
+}
+$("testDel").addEventListener("click",()=>{const t=activeTest();if(t)deleteTest(t.id);});
 $("whatAdd").addEventListener("click",()=>{
   const t=activeTest(), ck=$("whatChoke").value; if(!t||!ck)return;
   if(LAB.cmp.some(c=>c.type==="what"&&c.id===t.id&&c.choke===ck))return;
@@ -2499,7 +2511,7 @@ if("serviceWorker" in navigator && notFramed && location.protocol==="https:"){
    replaces the offline copy. */
 const $v=id=>document.getElementById(id);
 const vFramed=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
-const APP_VERSION="1.92", APP_BUILD="2026-11-03";
+const APP_VERSION="1.93", APP_BUILD="2026-11-03";
 function verLabel(){return "v"+APP_VERSION+(APP_BUILD?" · "+APP_BUILD:"");}
 $v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
 $v("verFoot").textContent=verLabel();
