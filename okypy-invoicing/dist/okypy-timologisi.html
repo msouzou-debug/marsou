@@ -193,7 +193,9 @@ details pre{white-space:pre-wrap;font-size:12px;max-height:260px;overflow:auto;b
     <ul>
       <li>Ποσό τιμολογίου = −«Amt.in loc.cur.» του SAP. Έτσι οι εκδόσεις (261 / 956) βγαίνουν θετικές και οι αντιλογισμοί (262 / 955) αρνητικοί.</li>
       <li>Αντιλογισμός συμψηφίζεται με έκδοση του ίδιου μήνα με ίδιο υλικό και παρτίδα. Αν δεν βρεθεί αντίστοιχη έκδοση, εμφανίζεται ως αρνητική γραμμή.</li>
-      <li>ΤΠΑ: καθαρό ποσό γραμμής = ποσότητα × τιμή μονάδας, στρογγυλεμένο σε 2 δεκαδικά. Σύνολο = άθροισμα στρογγυλεμένων γραμμών.</li>
+      <li>ΤΠΑ: ποσό γραμμής = ποσότητα × τιμή μονάδας, στρογγυλεμένο σε 2 δεκαδικά. Σύνολο = άθροισμα στρογγυλεμένων γραμμών.</li>
+      <li>ΤΠΑ από αίτημα αναλωσίμων (π.χ. 24.1029): τιμή μονάδας = «ΤΕΛΙΚΗ ΤΙΜΗ ΜΕ Φ.Π.Α.» / ποσότητα, δηλαδή τιμή χωρίς ΦΠΑ × 1,19. Ο αριθμός Issue Slip και η ημερομηνία έκδοσης συμπληρώνονται από εσάς και μπαίνουν αυτόματα στις παρατηρήσεις.</li>
+      <li>Διοικητικά έξοδα 20% στην καθαρή αξία και ΦΠΑ 19% στα διοικητικά, σε όλους τους πελάτες εκτός από το Υπουργείο Υγείας. Η ρύθμιση γίνεται ανά πελάτη (Ρυθμίσεις) και αλλάζει ανά τιμολόγιο αν χρειαστεί.</li>
       <li>Ο αριθμός τιμολογίου δίνεται πάντα από εσάς. Το εργαλείο σταματά την έκδοση αν ο αριθμός υπάρχει ήδη στο μητρώο.</li>
       <li>Τα αρχεία δεν φεύγουν από τον υπολογιστή σας. Όλη η επεξεργασία γίνεται μέσα στον browser.</li>
     </ul>
@@ -211,8 +213,8 @@ details pre{white-space:pre-wrap;font-size:12px;max-height:260px;overflow:auto;b
     <div class="ed-left">
       <div class="grid2" id="ed-fields"></div>
       <div id="ed-lines"></div>
-      <div class="ed-total">Ολικό ποσό: <b id="ed-total">0,00 €</b></div>
-      <label class="full">Παρατηρήσεις<textarea id="ed-remarks" rows="2"></textarea></label>
+      <div class="ed-total" id="ed-total"></div>
+      <label class="full">Άλλες παρατηρήσεις (για ΤΠΑ η γραμμή Issue Slip μπαίνει αυτόματα)<textarea id="ed-remarks" rows="2"></textarea></label>
       <div id="ed-warn" class="status"></div>
       <div class="row-actions">
         <button class="btn" id="ed-preview">Προεπισκόπηση PDF</button>
@@ -740,11 +742,20 @@ function parseNum(v) {
     s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   } else if (lc > -1) {
     s = /^-?\d{1,3}(,\d{3})+$/.test(s) && s.split(',').length > 2 ? s.replace(/,/g, '') : s.replace(',', '.');
-  } else if (ld > -1 && /^-?\d{1,3}(\.\d{3})+$/.test(s)) {
+  } else if (ld > -1 && /^-?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) {
     s = s.replace(/\./g, ''); // 2.000 = δύο χιλιάδες (ελληνική μορφή)
   }
   const n = Number(s);
   return isFinite(n) ? n : null;
+}
+
+/* Κελί Excel σε μορφή κειμένου: η τελεία είναι δεκαδική (π.χ. '0.347', '5.70') */
+function parseNumX(v) {
+  if (typeof v === 'string' && !v.includes(',')) {
+    const t = v.replace(/[€\s\u00a0]/g, '');
+    if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+  }
+  return parseNum(v);
 }
 
 /* Ημερομηνίες από Excel (σειριακός αριθμός) ή κείμενο */
@@ -789,7 +800,8 @@ const DEFAULT_SETTINGS = {
     signUnit: 'Κεντρική Διοίκηση',
     signOrg: 'Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ)'
   },
-  sap: { companyCode: '1000', docType: 'DR', currency: 'EUR', pkDebit: '01', pkCredit: '50', taxCode: '' },
+  sap: { companyCode: '1000', docType: 'DR', currency: 'EUR', pkDebit: '01', pkCredit: '50', taxCode: '', glAdmin: '', glVat: '', taxCodeAdmin: '' },
+  fees: { adminRate: 20, vatRate: 19 },
   types: {
     FA: { prefix: 'ΦΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΑΧΩΡΗΣΗΣ ΦΑΡΜΑΚΩΝ', gl: '', label: 'Παραχώρηση φαρμάκων' },
     TPA: { prefix: 'ΤΠΑ', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΑΧΩΡΗΣΗΣ ΑΝΑΛΩΣΙΜΩΝ', gl: '', label: 'Παραχώρηση αναλωσίμων' },
@@ -797,18 +809,18 @@ const DEFAULT_SETTINGS = {
     INV: { prefix: 'INV', title: 'ΤΙΜΟΛΟΓΙΟ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ', gl: '', label: 'Υπηρεσίες Κέντρου Αίματος' }
   },
   customers: [
-    { id: 'c01', name: 'ΙΝΣΤΙΤΟΥΤΟ ΝΕΥΡΟΛΟΓΙΑΣ ΚΑΙ ΓΕΝΕΤΙΚΗΣ', sub: '', types: ['FA'], sapCode: '', profit: '', kw: 'ΙΝΣΤΙΤΟΥΤ, ΓΕΝΕΤΙΚ, NEUROLOGY' },
-    { id: 'c02', name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(ΕΘΝΙΚΗ ΦΡΟΥΡΑ)', types: ['FA'], sapCode: '', profit: '', kw: 'ΣΤΡΑΤΟΣ, ΕΘΝΙΚΗ ΦΡΟΥΡΑ' },
-    { id: 'c03', name: 'ΥΠΟΥΡΓΕΙΟ ΔΙΚΑΙΟΣΥΝΗΣ ΚΑΙ ΔΗΜΟΣΙΑΣ ΤΑΞΕΩΣ', sub: '(ΦΥΛΑΚΕΣ)', types: ['FA'], sapCode: '', profit: '', kw: 'ΦΥΛΑΚ, FYLAK, PRISON' },
-    { id: 'c04', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΟΔΟΝΤΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ)', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΟΔΟΝΤ, ODONT' },
-    { id: 'c05', name: 'ΟΓΚΟΛΟΓΙΚΟ ΚΕΝΤΡΟ ΤΡΑΠΕΖΑΣ ΚΥΠΡΟΥ', sub: '', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΟΓΚΟΛΟΓ, ONCOL' },
-    { id: 'c06', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΑΡΟΔΑΦΝΟΥΣΑ-ΚΕΝΤΡΟ ΑΝΑΚΟΥΦΙΣΤΙΚΗΣ ΦΡΟΝΤΙΔΑΣ)', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΑΡΟΔΑΦΝ, ARODAFN' },
-    { id: 'c07', name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(106 ΣΝΕ)', types: ['TPA'], sapCode: '', profit: '', kw: '106 ΣΝΕ, 106ΣΝΕ' },
-    { id: 'c08', name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(ΑΠΟΘΗΚΗ ΒΑΣΕΩΝ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΑΠΟΘΗΚΗ ΒΑΣΕ, ΒΑΣΕΩΝ' },
-    { id: 'c09', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΚΕΝΤΡΟ ΑΙΜΑΤΟΣ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ' },
-    { id: 'c10', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '', types: ['TPA'], sapCode: '', profit: '', kw: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ, ΥΠ.ΥΓΕΙΑΣ, ΥΠ. ΥΓΕΙΑΣ' },
-    { id: 'c11', name: 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ', sub: '(για Τράπεζα Αίματος)', types: ['TA'], sapCode: '', profit: '', kw: 'ΤΡΑΠΕΖΑ ΑΙΜΑΤ, BLOOD BANK' },
-    { id: 'c12', name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(για Κέντρο Αίματος)', types: ['INV'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ, BLOOD CENTRE, BLOOD CENTER' }
+    { id: 'c01', admin: true, name: 'ΙΝΣΤΙΤΟΥΤΟ ΝΕΥΡΟΛΟΓΙΑΣ ΚΑΙ ΓΕΝΕΤΙΚΗΣ', sub: '', types: ['FA'], sapCode: '', profit: '', kw: 'ΙΝΣΤΙΤΟΥΤ, ΓΕΝΕΤΙΚ, NEUROLOGY' },
+    { id: 'c02', admin: true, name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(ΕΘΝΙΚΗ ΦΡΟΥΡΑ)', types: ['FA'], sapCode: '', profit: '', kw: 'ΣΤΡΑΤΟΣ, ΕΘΝΙΚΗ ΦΡΟΥΡΑ' },
+    { id: 'c03', admin: true, name: 'ΥΠΟΥΡΓΕΙΟ ΔΙΚΑΙΟΣΥΝΗΣ ΚΑΙ ΔΗΜΟΣΙΑΣ ΤΑΞΕΩΣ', sub: '(ΦΥΛΑΚΕΣ)', types: ['FA'], sapCode: '', profit: '', kw: 'ΦΥΛΑΚ, FYLAK, PRISON' },
+    { id: 'c04', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΟΔΟΝΤΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ)', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΟΔΟΝΤ, ODONT' },
+    { id: 'c05', admin: true, name: 'ΟΓΚΟΛΟΓΙΚΟ ΚΕΝΤΡΟ ΤΡΑΠΕΖΑΣ ΚΥΠΡΟΥ', sub: '', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΟΓΚΟΛΟΓ, ONCOL' },
+    { id: 'c06', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΑΡΟΔΑΦΝΟΥΣΑ-ΚΕΝΤΡΟ ΑΝΑΚΟΥΦΙΣΤΙΚΗΣ ΦΡΟΝΤΙΔΑΣ)', types: ['FA', 'TPA'], sapCode: '', profit: '', kw: 'ΑΡΟΔΑΦΝ, ARODAFN' },
+    { id: 'c07', admin: true, name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(106 ΣΝΕ)', types: ['TPA'], sapCode: '', profit: '', kw: '106 ΣΝΕ, 106ΣΝΕ' },
+    { id: 'c08', admin: true, name: 'ΥΠΟΥΡΓΕΙΟ ΑΜΥΝΑΣ', sub: '(ΑΠΟΘΗΚΗ ΒΑΣΕΩΝ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΑΠΟΘΗΚΗ ΒΑΣΕ, ΒΑΣΕΩΝ' },
+    { id: 'c09', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(ΚΕΝΤΡΟ ΑΙΜΑΤΟΣ)', types: ['TPA'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ' },
+    { id: 'c10', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '', types: ['TPA'], sapCode: '', profit: '', kw: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ, ΥΠ.ΥΓΕΙΑΣ, ΥΠ. ΥΓΕΙΑΣ' },
+    { id: 'c11', admin: false, name: 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ', sub: '(για Τράπεζα Αίματος)', types: ['TA'], sapCode: '', profit: '', kw: 'ΤΡΑΠΕΖΑ ΑΙΜΑΤ, BLOOD BANK' },
+    { id: 'c12', admin: false, name: 'ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ', sub: '(για Κέντρο Αίματος)', types: ['INV'], sapCode: '', profit: '', kw: 'ΚΕΝΤΡΟ ΑΙΜΑΤ, BLOOD CENTRE, BLOOD CENTER' }
   ]
 };
 const K_SET = 'okypy-inv-settings-v1', K_REG = 'okypy-inv-register-v1';
@@ -821,8 +833,14 @@ function loadSettings() {
     org: Object.assign(d.org, s.org || {}),
     sap: Object.assign(d.sap, s.sap || {}),
     types: Object.fromEntries(Object.keys(d.types).map(k => [k, Object.assign(d.types[k], (s.types || {})[k] || {})])),
-    customers: Array.isArray(s.customers) && s.customers.length ? s.customers : d.customers
+    fees: Object.assign(d.fees, s.fees || {}),
+    customers: (Array.isArray(s.customers) && s.customers.length ? s.customers : d.customers)
+      .map(c => ('admin' in c) ? c : Object.assign(c, { admin: defaultAdmin(c) }))
   };
+}
+/* Διοικητικά έξοδα: σε όλους εκτός από το Υπουργείο Υγείας (και όχι στις υπηρεσίες ΤΑ/INV) */
+function defaultAdmin(c) {
+  return !norm(c.name).startsWith('ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ') && !(c.types || []).some(t => t === 'TA' || t === 'INV') && norm(c.name) !== 'ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ';
 }
 let SETTINGS = loadSettings();
 let REGISTER = LS.get(K_REG, []);
@@ -857,7 +875,24 @@ function lineAmount(l, type) {
   }
   return round2(Number(l.amount) || 0);
 }
-const draftTotal = d => round2(d.lines.reduce((s, l) => s + lineAmount(l, d.type), 0));
+const custOf = d => d.customer || getCust(d.customerId);
+const adminApplies = d => (d.adminOverride != null ? !!d.adminOverride : !!(custOf(d) || {}).admin);
+function totals(d) {
+  const net = round2(d.lines.reduce((s, l) => s + lineAmount(l, d.type), 0));
+  const r = d.rates || SETTINGS.fees, on = adminApplies(d);
+  const adminRate = Number(r.adminRate) || 0, vatRate = Number(r.vatRate) || 0;
+  const admin = on ? round2(net * adminRate / 100) : 0;
+  const vat = on ? round2(admin * vatRate / 100) : 0;
+  return { net, admin, vat, total: round2(net + admin + vat), on, adminRate, vatRate };
+}
+const draftTotal = d => totals(d).total;
+function applySlipDate(d, iso) {
+  d.slipDate = iso;
+  if (!iso) return;
+  d.lines.forEach(l => { l.date = iso; });
+  d.date = iso;
+}
+const remarkText = d => [d.type === 'TPA' && String(d.slipNo || '').trim() ? `Issue Slip ${String(d.slipNo).trim()} ημ. ${fmtDate(d.slipDate || d.date)}` : '', String(d.remarks || '').trim()].filter(Boolean).join('\n');
 
 function validate(d) {
   const errors = [], warns = [];
@@ -881,6 +916,7 @@ function validate(d) {
   }
   if (c && !c.sapCode) warns.push('Ο πελάτης δεν έχει κωδικό SAP (Ρυθμίσεις). Το αρχείο SAP θα βγει με κενό λογαριασμό.');
   if (!T.gl) warns.push(`Δεν έχει οριστεί λογαριασμός εσόδων για «${T.prefix}» (Ρυθμίσεις).`);
+  if (d.type === 'TPA' && !String(d.slipNo || '').trim()) warns.push('Δεν συμπληρώθηκε αριθμός Issue Slip για τις παρατηρήσεις.');
   return { errors, warns, total: tot };
 }
 
@@ -890,8 +926,10 @@ function issueDraft(d) {
   if (v.warns.some(w => w.includes('διπλοχρέωση')) && !confirm(v.warns.find(w => w.includes('διπλοχρέωση')) + '\n\nΣυνέχεια;')) return false;
   const rec = clone(d);
   rec.number = String(d.number).trim();
-  rec.total = v.total;
   rec.customer = clone(getCust(d.customerId));
+  rec.rates = { adminRate: Number(SETTINGS.fees.adminRate) || 0, vatRate: Number(SETTINGS.fees.vatRate) || 0 };
+  rec.adminOverride = adminApplies(d);
+  rec.total = totals(rec).total;
   rec.issuedAt = new Date().toISOString();
   rec.exported = false;
   REGISTER.push(rec);
@@ -950,9 +988,9 @@ function parseSapLines(rows, det) {
     const r = rows[i] || [];
     const desc = r[c.desc];
     const date = toISO(r[c.date]);
-    const amt = parseNum(r[c.amount]);
+    const amt = parseNumX(r[c.amount]);
     if (desc == null || String(desc).trim() === '' || !date || amt == null) continue;
-    const qty = c.qty > -1 ? parseNum(r[c.qty]) : null;
+    const qty = c.qty > -1 ? parseNumX(r[c.qty]) : null;
     out.push({
       material: c.material > -1 ? String(r[c.material] ?? '') : '',
       desc: String(desc).trim(),
@@ -1044,18 +1082,18 @@ async function handleFA(file) {
         drafts.push({
           id: uid(), type: 'FA', customerId: matchCustomer(sh.name, 'FA') || matchCustomer(ctx, 'FA'),
           number: '', date: lastDayOfMonth(ym), remarks: '',
-          lines: net.lines.map(l => ({ desc: l.desc, doc: l.doc, date: l.date, qty: l.qty, amount: l.amount })),
+          lines: net.lines.map(l => ({ desc: l.desc, doc: l.doc, code: l.material, date: l.date, qty: l.qty, amount: l.amount })),
           sourceKey: `FA|${norm(sh.name)}|${ym}`, sourceLabel: `${sh.name} · ${monthLabel(ym)}`,
           sheet: sh.name, month: ym, netted: net.netted, unmatched: net.unmatched, fileName: file.name
         });
       }
     }
     DRAFTS.FA = drafts;
-    const dTot = drafts.reduce((s, d) => s + draftTotal(d), 0);
+    const dTot = drafts.reduce((s, d) => s + totals(d).net, 0);
     const ok = Math.abs(round2(fileTotal) - round2(dTot)) < 0.01;
     st.innerHTML = drafts.length
       ? `<span class="ok">Διαβάστηκαν ${drafts.length} τιμολόγια από «${esc(file.name)}».</span><br>
-         Σύνολο αρχείου: <b>${fmtEUR(fileTotal)} €</b> · Σύνολο τιμολογίων: <b>${fmtEUR(dTot)} €</b>
+         Σύνολο αρχείου: <b>${fmtEUR(fileTotal)} €</b> · Καθαρή αξία τιμολογίων: <b>${fmtEUR(dTot)} €</b>
          ${ok ? '<span class="ok">✓ συμφωνούν</span>' : '<span class="err">✗ διαφορά ' + fmtEUR(fileTotal - dTot) + ' €</span>'}
          ${skipped.length ? `<br><span class="warn">Καρτέλες χωρίς στήλες SAP (παραλείφθηκαν): ${esc(skipped.join(', '))}</span>` : ''}`
       : `<span class="err">Δεν βρέθηκαν στήλες SAP (Material Description, Posting Date, Amt.in loc.cur.) σε καμία καρτέλα.</span>`;
@@ -1071,7 +1109,7 @@ const FIELD_RE = {
   desc: /(ΠΕΡΙΓΡΑΦ|DESCRIPTION|ΠΡΟΪΟΝ|ΠΡΟΙΟΝ|ΕΙΔΟΣ|ΥΛΙΚΟ|ITEM NAME|ΟΝΟΜΑΣΙΑ)/,
   qty: /(ΠΟΣΟΤ|QTY|QUANT|ΤΕΜΑΧ)/,
   price: /(ΤΙΜΗ|PRICE|UNIT COST|ΚΟΣΤΟΣ ΜΟΝ)/,
-  amount: /(ΚΑΘΑΡΟ|ΠΟΣΟ|ΣΥΝΟΛΟ|AMOUNT|VALUE|TOTAL|ΑΞΙΑ)/,
+  amount: /(ΚΑΘΑΡΟ|ΠΟΣΟ|ΣΥΝΟΛΟ|AMOUNT|VALUE|TOTAL|ΑΞΙΑ|ΤΕΛΙΚΗ|[ΜM][ΕE] Φ\.?Π\.?Α)/,
   date: /(ΗΜΕΡ|DATE)/,
   doc: /(ISSUE|SLIP|ΕΓΓΡΑΦ|DOCUMENT|ΔΕΛΤΙΟ|ΑΡ\. ?ΠΑΡ)/
 };
@@ -1089,6 +1127,40 @@ function guessHeader(rows) {
     if (score > best.score) best = { row: i, score, map };
   }
   return best;
+}
+
+/* Γραμμές από Excel με γνωστές στήλες. Αν υπάρχει στήλη συνόλου, αυτή κρατά το ποσό (τιμή = σύνολο / ποσότητα). */
+function buildGenericLines(sh, hr, map) {
+  const lines = []; let fileTotal = null;
+  const top = sh.rows.slice(0, hr + 1).flat().filter(x => typeof x === 'string').join(' ');
+  const mTop = top.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
+  const sheetDate = mTop ? toISO(mTop[1]) : '';
+  for (let i = hr + 1; i < sh.rows.length; i++) {
+    const r = sh.rows[i] || [];
+    const rowTxt = norm(r.filter(x => typeof x === 'string').join(' '));
+    const desc = String(r[map.desc] ?? '').trim();
+    if (/^(ΣΥΝΟΛΟ|ΟΛΙΚΟ|TOTAL|ΓΕΝΙΚΟ)/.test(rowTxt) || /^(ΣΥΝΟΛΟ|ΟΛΙΚΟ|TOTAL|ΓΕΝΙΚΟ)/.test(norm(desc))) {
+      if (map.amount > -1 && fileTotal == null) fileTotal = parseNumX(r[map.amount]);
+      continue;
+    }
+    if (!desc) continue;
+    let qty = map.qty > -1 ? parseNumX(r[map.qty]) : null;
+    let price = map.price > -1 ? parseNumX(r[map.price]) : null;
+    const amount = map.amount > -1 ? parseNumX(r[map.amount]) : null;
+    if (qty == null && price == null && amount == null) continue;
+    if (qty == null) qty = 1;
+    if (amount != null && qty) price = amount / qty;
+    else if (price == null) price = amount || 0;
+    lines.push({ desc, qty, price: price || 0, date: (map.date > -1 ? toISO(r[map.date]) : '') || sheetDate, doc: map.doc > -1 ? String(r[map.doc] ?? '') : '', amountSrc: amount });
+  }
+  const sumSrc = lines.reduce((a, l) => a + (l.amountSrc != null ? l.amountSrc : l.qty * l.price), 0);
+  return { lines, fileTotal, sumSrc, sheetDate };
+}
+function totalCheckMsg(name, res) {
+  if (res.fileTotal == null) return '';
+  return Math.abs(round2(res.fileTotal) - round2(res.sumSrc)) >= 0.01
+    ? `<br><span class="err">«${esc(name)}»: το σύνολο του αρχείου (${fmtEUR(res.fileTotal)} €) δεν συμφωνεί με το άθροισμα των γραμμών (${fmtEUR(res.sumSrc)} €). Πιθανόν ο τύπος SUM στο αρχείο δεν πιάνει όλες τις γραμμές. Το τιμολόγιο περιλαμβάνει όλες τις γραμμές.</span>`
+    : `<br><span class="ok">«${esc(name)}»: το σύνολο του αρχείου συμφωνεί με τις γραμμές (${fmtEUR(res.sumSrc)} €).</span>`;
 }
 
 async function handleTPA(file) {
@@ -1111,6 +1183,23 @@ async function handleTPA(file) {
     }
     if (made) {
       st.innerHTML = `<span class="ok">Αναγνωρίστηκε εξαγωγή SAP. Δημιουργήθηκαν ${made} τιμολόγια.</span>`;
+      renderList('TPA'); return;
+    }
+    // Μορφή αιτήματος αναλωσίμων (π.χ. 24.1029): τιμή χωρίς ΦΠΑ και τελική τιμή με ΦΠΑ
+    let msgs = '';
+    for (const sh of sheets) {
+      const g = guessHeader(sh.rows), h = (sh.rows[g.row] || []).map(norm);
+      if (g.map.desc == null || g.map.qty == null || g.map.amount == null) continue;
+      if (!/ΧΩΡΙΣ/.test(h[g.map.price] || '') || !/[ΜM][ΕE] Φ/.test(h[g.map.amount] || '')) continue;
+      const res = buildGenericLines(sh, g.row, Object.assign({ price: -1, date: -1, doc: -1 }, g.map));
+      if (!res.lines.length) continue;
+      const ctx = file.name + ' ' + sh.name + ' ' + sh.rows.slice(0, g.row).map(r => (r || []).join(' ')).join(' ');
+      DRAFTS.TPA.push(makeTPADraft(file.name, sh.name, res.lines, ctx));
+      made++; msgs += totalCheckMsg(sh.name, res);
+    }
+    if (made) {
+      st.innerHTML = `<span class="ok">Αναγνωρίστηκε αίτημα αναλωσίμων. Δημιουργήθηκαν ${made} τιμολόγια (ένα ανά καρτέλα). Τιμή μονάδας = τελική τιμή με ΦΠΑ / ποσότητα.</span>${msgs}
+        <br>Συμπληρώστε σε κάθε τιμολόγιο τον αριθμό Issue Slip και την ημερομηνία έκδοσης.`;
       renderList('TPA'); return;
     }
     // Γενικό Excel: επιλογή στηλών
@@ -1142,23 +1231,11 @@ function renderTPAMap(sheetIdx) {
     const map = {}; $$('#TPA-map select[data-f]').forEach(s => map[s.dataset.f] = +s.value);
     if (map.desc < 0) { alert('Επιλέξτε τη στήλη περιγραφής.'); return; }
     const hr = Math.max(0, (+$('#map-row').value || 1) - 1);
-    const lines = [];
-    for (let i = hr + 1; i < sh.rows.length; i++) {
-      const r = sh.rows[i] || [];
-      const desc = String(r[map.desc] ?? '').trim();
-      if (!desc || /^(ΣΥΝΟΛΟ|ΟΛΙΚΟ|TOTAL|ΓΕΝΙΚΟ)/.test(norm(desc))) continue;
-      let qty = map.qty > -1 ? parseNum(r[map.qty]) : null;
-      let price = map.price > -1 ? parseNum(r[map.price]) : null;
-      const amount = map.amount > -1 ? parseNum(r[map.amount]) : null;
-      if (qty == null && price == null && amount == null) continue;
-      if (qty == null) qty = 1;
-      if (price == null && amount != null) price = qty ? amount / qty : amount;
-      lines.push({ desc, qty, price: price || 0, date: map.date > -1 ? toISO(r[map.date]) : '', doc: map.doc > -1 ? String(r[map.doc] ?? '') : '' });
-    }
+    const res = buildGenericLines(sh, hr, map), lines = res.lines;
     if (!lines.length) { alert('Δεν βρέθηκαν γραμμές με αυτές τις στήλες.'); return; }
     const ctx = P.file.name + ' ' + sh.name + ' ' + sh.rows.slice(0, 15).map(r => (r || []).join(' ')).join(' ');
     DRAFTS.TPA.push(makeTPADraft(P.file.name, sh.name, lines, ctx));
-    $('#TPA-status').innerHTML = `<span class="ok">Δημιουργήθηκε τιμολόγιο με ${lines.length} γραμμές. Ελέγξτε το στο «Άνοιγμα».</span>`;
+    $('#TPA-status').innerHTML = `<span class="ok">Δημιουργήθηκε τιμολόγιο με ${lines.length} γραμμές. Ελέγξτε το στο «Άνοιγμα».</span>${totalCheckMsg(sh.name, res)}`;
     $('#TPA-map').innerHTML = ''; TPA_PENDING = null;
     renderList('TPA');
   };
@@ -1171,7 +1248,7 @@ function makeTPADraft(fileName, sheetName, lines, ctx) {
   return {
     id: uid(), type: 'TPA', customerId: matchCustomer(ctx, 'TPA'),
     number: '', date: lastDate || todayISO(),
-    remarks: docs.length ? `Issue Slip ${docs.join(', ')}${lastDate ? ' ημ. ' + fmtDate(lastDate) : ''}` : '',
+    remarks: '', slipNo: docs.join(', '), slipDate: lastDate,
     lines: lines.map(l => ({ desc: l.desc, date: l.date || lastDate, qty: l.qty, price: l.price, doc: l.doc || '' })),
     sourceKey: `TPA|${norm(fileName)}|${norm(sheetName)}`, sourceLabel: `${fileName} · ${sheetName}`, fileName
   };
@@ -1278,7 +1355,7 @@ function custOptions(type, sel) {
 function renderList(group) {
   const list = DRAFTS[group];
   $(`#${group}-list-card`).hidden = !list.length;
-  const isFA = group === 'FA';
+  const isFA = group === 'FA', isTPA = group === 'TPA';
   let tot = 0;
   const rows = list.map((d, i) => {
     const issued = isIssued(d), t = draftTotal(d); tot += t;
@@ -1289,7 +1366,8 @@ function renderList(group) {
       <td><select data-k="customerId" ${issued ? 'disabled' : ''}>${custOptions(d.type, d.customerId)}</select></td>
       <td class="num">${d.lines.length}</td>
       ${isFA ? `<td class="num">${d.netted ? d.netted : ''}${d.unmatched ? ` <span class="tag neg" title="Αντιλογισμοί χωρίς αντίστοιχη έκδοση">${d.unmatched} αρν.</span>` : ''}</td>` : ''}
-      <td class="num"><b>${fmtEUR(t)}</b></td>
+      <td class="num"><b>${fmtEUR(t)}</b>${totals(d).on ? '<br><span class="tag" title="Περιλαμβάνει διοικητικά έξοδα και ΦΠΑ">+ διοικητικά</span>' : ''}</td>
+      ${isTPA ? `<td><input data-k="slipNo" value="${esc(d.slipNo || '')}" placeholder="αρ. Issue Slip" ${issued ? 'disabled' : ''}></td><td><input type="date" data-k="slipDate" value="${esc(d.slipDate || '')}" ${issued ? 'disabled' : ''}></td>` : ''}
       <td><input data-k="number" value="${esc(d.number)}" placeholder="${esc(T.prefix)} __-${(d.date || todayISO()).slice(0, 4)}" ${issued ? 'disabled' : ''}></td>
       <td><input type="date" data-k="date" value="${esc(d.date)}" ${issued ? 'disabled' : ''}></td>
       <td>${issued ? '<span class="tag issued">Εκδόθηκε</span>' : '<span class="tag">Πρόχειρο</span>'}</td>
@@ -1300,13 +1378,17 @@ function renderList(group) {
       </td></tr>`;
   }).join('');
   $(`#${group}-list`).innerHTML = `<div class="scroll"><table class="t">
-    <thead><tr><th>${isFA ? 'Καρτέλα' : 'Πηγή'}</th>${isFA ? '<th>Μήνας</th>' : ''}<th>Πελάτης</th><th class="num">Γραμμές</th>${isFA ? '<th class="num">Συμψηφισμοί</th>' : ''}<th class="num">Ποσό €</th><th>Αρ. τιμολογίου</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
+    <thead><tr><th>${isFA ? 'Καρτέλα' : 'Πηγή'}</th>${isFA ? '<th>Μήνας</th>' : ''}<th>Πελάτης</th><th class="num">Γραμμές</th>${isFA ? '<th class="num">Συμψηφισμοί</th>' : ''}<th class="num">Ποσό €</th>${isTPA ? '<th>Issue Slip</th><th>Ημ. έκδοσης</th>' : ''}<th>Αρ. τιμολογίου</th><th>Ημερομηνία</th><th>Κατάσταση</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="${isFA ? 5 : 3}"><b>Σύνολο</b></td><td class="num"><b>${fmtEUR(tot)}</b></td><td colspan="4"></td></tr></tfoot>
+    <tfoot><tr><td colspan="${isFA ? 5 : 3}"><b>Σύνολο</b></td><td class="num"><b>${fmtEUR(tot)}</b></td><td colspan="${isTPA ? 6 : 4}"></td></tr></tfoot>
     </table></div>`;
   $$(`#${group}-list tbody tr`).forEach(tr => {
     const d = list[+tr.dataset.i];
-    $$('[data-k]', tr).forEach(inp => inp.onchange = () => { d[inp.dataset.k] = inp.value; });
+    $$('[data-k]', tr).forEach(inp => inp.onchange = () => {
+      if (inp.dataset.k === 'slipDate') { applySlipDate(d, inp.value); renderList(group); return; }
+      d[inp.dataset.k] = inp.value;
+      if (inp.dataset.k === 'customerId') { delete d.adminOverride; renderList(group); }
+    });
     $$('[data-a]', tr).forEach(b => b.onclick = () => {
       const a = b.dataset.a;
       if (a === 'open') openEditor(d);
@@ -1331,14 +1413,23 @@ function openEditor(d) {
     <label>Πελάτης<select id="ed-cust" ${dis}>${custOptions(d.type, d.customerId)}</select></label>
     <label>Αρ. τιμολογίου<input id="ed-num" value="${esc(d.number)}" placeholder="${esc(T.prefix)} __-${d.date.slice(0, 4)}" ${dis}></label>
     <label>Ημερομηνία<input id="ed-date" type="date" value="${esc(d.date)}" ${dis}></label>
-    <label>Πηγή<input value="${esc(d.sourceLabel || '')}" disabled></label>`;
+    <label>Πηγή<input value="${esc(d.sourceLabel || '')}" disabled></label>
+    ${d.type === 'TPA' ? `<label>Αρ. Issue Slip<input id="ed-slip" value="${esc(d.slipNo || '')}" ${dis}></label>
+    <label>Ημ. έκδοσης Issue Slip<input id="ed-slipdate" type="date" value="${esc(d.slipDate || d.date)}" ${dis}></label>` : ''}
+    <label class="chk" style="align-self:end"><input type="checkbox" id="ed-admin" ${adminApplies(d) ? 'checked' : ''} ${dis}>
+      Διοικητικά έξοδα ${esc((d.rates || SETTINGS.fees).adminRate)}% + ΦΠΑ ${esc((d.rates || SETTINGS.fees).vatRate)}%</label>`;
   $('#ed-remarks').value = d.remarks || ''; $('#ed-remarks').disabled = issued;
   if (srv) $('#ed-type').onchange = e => {
     d.type = e.target.value;
     d.customerId = SETTINGS.customers.find(c => (c.types || []).includes(d.type))?.id || d.customerId;
     openEditor(d);
   };
-  $('#ed-cust').onchange = e => { d.customerId = e.target.value; };
+  $('#ed-cust').onchange = e => { d.customerId = e.target.value; delete d.adminOverride; $('#ed-admin').checked = adminApplies(d); updateEdTotal(); };
+  $('#ed-admin').onchange = e => { d.adminOverride = e.target.checked; updateEdTotal(); };
+  if ($('#ed-slip')) {
+    $('#ed-slip').oninput = e => { d.slipNo = e.target.value; updateEdTotal(); };
+    $('#ed-slipdate').onchange = e => { applySlipDate(d, e.target.value); $('#ed-date').value = d.date; renderLines(); };
+  }
   $('#ed-num').oninput = e => { d.number = e.target.value; };
   $('#ed-date').onchange = e => { d.date = e.target.value; };
   $('#ed-remarks').oninput = e => { d.remarks = e.target.value; };
@@ -1349,8 +1440,8 @@ function openEditor(d) {
 }
 
 const LINE_COLS = {
-  FA: [['desc', 'Περιγραφή', 'text'], ['doc', 'Έγγραφο', 'text'], ['date', 'Ημ. καταχώρησης', 'date'], ['qty', 'Ποσότητα', 'num'], ['amount', 'Σύνολο €', 'num']],
-  TPA: [['desc', 'Περιγραφή', 'text'], ['date', 'Ημ. παράδοσης', 'date'], ['qty', 'Ποσότητα', 'num'], ['price', 'Τιμή μονάδας', 'num'], ['_amt', 'Καθαρό ποσό €', 'calc']],
+  FA: [['desc', 'Περιγραφή', 'text'], ['doc', 'Έγγραφο', 'text'], ['code', 'Κωδικός', 'text'], ['date', 'Ημ. καταχώρησης', 'date'], ['qty', 'Ποσότητα', 'num'], ['amount', 'Σύνολο €', 'num']],
+  TPA: [['desc', 'Περιγραφή', 'text'], ['date', 'Ημ. παράδοσης', 'date'], ['qty', 'Ποσότητα', 'num'], ['price', 'Τιμή μονάδας', 'num'], ['_amt', 'Σύνολο €', 'calc']],
   TA: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']],
   INV: [['desc', 'Περιγραφή υπηρεσιών', 'text'], ['amount', 'Ποσό €', 'num']]
 };
@@ -1378,14 +1469,16 @@ function renderLines() {
   });
   $$('#ed-lines [data-del]').forEach(b => b.onclick = () => { d.lines.splice(+b.dataset.del, 1); renderLines(); });
   const add = $('#ed-add'); if (add) add.onclick = () => {
-    d.lines.push(d.type === 'TPA' ? { desc: '', date: d.date, qty: 1, price: 0 } : d.type === 'FA' ? { desc: '', doc: '', date: d.date, qty: 0, amount: 0 } : { desc: '', amount: 0 });
+    d.lines.push(d.type === 'TPA' ? { desc: '', date: d.date, qty: 1, price: 0 } : d.type === 'FA' ? { desc: '', doc: '', code: '', date: d.date, qty: 0, amount: 0 } : { desc: '', amount: 0 });
     renderLines();
   };
   updateEdTotal();
 }
 function updateEdTotal() {
-  const v = validate(ED);
-  $('#ed-total').textContent = fmtEUR(v.total) + ' €';
+  const v = validate(ED), t = totals(ED);
+  $('#ed-total').innerHTML = t.on
+    ? `Καθαρή αξία ${fmtEUR(t.net)} € · Διοικητικά (${t.adminRate}%) ${fmtEUR(t.admin)} € · ΦΠΑ (${t.vatRate}%) ${fmtEUR(t.vat)} € · Ολικό ποσό: <b>${fmtEUR(t.total)} €</b>`
+    : `Ολικό ποσό: <b>${fmtEUR(t.total)} €</b>`;
   $('#ed-warn').innerHTML = v.errors.map(e => `<div class="err">✗ ${esc(e)}</div>`).join('') + v.warns.map(w => `<div class="warn">! ${esc(w)}</div>`).join('');
 }
 function preview() {
@@ -1404,8 +1497,9 @@ function buildPdf(d) {
   doc.addFileToVFS('LS-R.ttf', window.__FONT_REG); doc.addFont('LS-R.ttf', 'LS', 'normal');
   doc.addFileToVFS('LS-B.ttf', window.__FONT_BOLD); doc.addFont('LS-B.ttf', 'LS', 'bold');
   const O = SETTINGS.org, T = typeOf(d.type);
-  const c = isIssued(d) ? (REGISTER.find(r => r.id === d.id).customer || getCust(d.customerId)) : getCust(d.customerId);
-  const M = 15, W = 210, H = 297, total = draftTotal(d);
+  const reg = REGISTER.find(r => r.id === d.id), src = reg || d;
+  const c = custOf(src), TT = totals(src);
+  const M = 15, W = 210, H = 297, total = TT.total;
   const ink = [40, 40, 40], blue = [6, 159, 236], deep = [27, 117, 187], grey = [88, 89, 91];
   doc.setTextColor(...ink);
 
@@ -1457,11 +1551,11 @@ function buildPdf(d) {
   let head, body, colStyles;
   const R = { halign: 'right' }, C = { halign: 'center' };
   if (d.type === 'FA') {
-    head = ['ΠΡΟΪΟΝΤΑ', 'ΕΓΓΡΑΦΟ ΠΡΟΪΟΝΤΩΝ', 'ΗΜΕΡΟΜΗΝΙΑ ΚΑΤΑΧΩΡΗΣΗΣ', 'ΠΟΣΟΤΗΤΑ', 'ΣΥΝΟΛΟ €'];
-    body = d.lines.map(l => [l.desc, l.doc, fmtDate(l.date), fmtQty(l.qty), fmtEUR(lineAmount(l, d.type))]);
-    colStyles = { 0: { cellWidth: 70 }, 1: Object.assign({ cellWidth: 28 }, C), 2: Object.assign({ cellWidth: 30 }, C), 3: Object.assign({ cellWidth: 22 }, C), 4: R };
+    head = ['ΠΡΟΪΟΝΤΑ', 'ΕΓΓΡΑΦΟ ΠΡΟΪΟΝΤΩΝ', 'ΚΩΔΙΚΟΣ ΠΡΟΪΟΝΤΟΣ', 'ΗΜΕΡΟΜΗΝΙΑ ΚΑΤΑΧΩΡΗΣΗΣ', 'ΠΟΣΟΤΗΤΑ', 'ΣΥΝΟΛΟ €'];
+    body = d.lines.map(l => [l.desc, l.doc, l.code || '', fmtDate(l.date), fmtQty(l.qty), fmtEUR(lineAmount(l, d.type))]);
+    colStyles = { 0: { cellWidth: 55 }, 1: Object.assign({ cellWidth: 23 }, C), 2: Object.assign({ cellWidth: 21 }, C), 3: Object.assign({ cellWidth: 28 }, C), 4: Object.assign({ cellWidth: 21 }, C), 5: R };
   } else if (d.type === 'TPA') {
-    head = ['ΠΡΟΪΟΝΤΑ', 'ΗΜΕΡΟΜΗΝΙΑ ΠΑΡΑΔΟΣΗΣ', 'ΠΟΣΟΤΗΤΑ', 'ΤΙΜΗ ΜΟΝΑΔΑΣ ΚΑΘΑΡΗ', 'ΚΑΘΑΡΟ ΠΟΣΟ €'];
+    head = ['ΠΡΟΪΟΝΤΑ', 'ΗΜΕΡΟΜΗΝΙΑ ΠΑΡΑΔΟΣΗΣ', 'ΠΟΣΟΤΗΤΑ', 'ΤΙΜΗ ΜΟΝΑΔΑΣ', 'ΣΥΝΟΛΟ €'];
     body = d.lines.map(l => [l.desc, fmtDate(l.date), fmtQty(l.qty), fmtPrice(l.price), fmtEUR(lineAmount(l, d.type))]);
     colStyles = { 0: { cellWidth: 72 }, 1: Object.assign({ cellWidth: 28 }, C), 2: Object.assign({ cellWidth: 22 }, C), 3: Object.assign({ cellWidth: 28 }, R), 4: R };
   } else {
@@ -1470,24 +1564,32 @@ function buildPdf(d) {
     colStyles = { 0: { cellWidth: 140 }, 1: R };
   }
   const n = head.length;
-  const foot = [[
+  // κενές γραμμές στο τέλος των προϊόντων (όπως στα πρότυπα), ώστε να μη χωρά προσθήκη
+  for (let k = 0; k < 3; k++) body.push(head.map(() => ' '));
+  const footRow = (label, val, last) => [
     ...(n > 3 ? [{ content: '', colSpan: n - 3, styles: { fillColor: [255, 255, 255], lineWidth: 0 } }] : []),
-    { content: 'ΟΛΙΚΟ ΠΟΣΟ €', colSpan: n > 2 ? 2 : 1, styles: { halign: 'right' } },
-    { content: fmtEUR(total), styles: { halign: 'right' } }
-  ]];
+    { content: label, colSpan: n > 2 ? 2 : 1, styles: { halign: 'right', fontSize: last ? 10 : 8.5, fillColor: last ? [234, 234, 234] : [255, 255, 255] } },
+    { content: fmtEUR(val), styles: { halign: 'right', fontSize: last ? 10 : 8.5, fillColor: last ? [234, 234, 234] : [255, 255, 255] } }
+  ];
+  const foot = TT.on ? [
+    footRow('ΚΑΘΑΡΗ ΑΞΙΑ', TT.net),
+    footRow(`ΔΙΟΙΚΗΤΙΚΑ ΕΞΟΔΑ (${TT.adminRate}%)`, TT.admin),
+    footRow(`ΦΠΑ (${TT.vatRate}%) ΣΤΑ ΔΙΟΙΚΗΤΙΚΑ ΕΞΟΔΑ`, TT.vat),
+    footRow('ΟΛΙΚΟ ΠΟΣΟ €', TT.total, true)
+  ] : [footRow('ΟΛΙΚΟ ΠΟΣΟ €', TT.total, true)];
   doc.autoTable({
     startY: y, head: [head], body, foot, showFoot: 'lastPage', theme: 'grid',
     margin: { left: M, right: M, top: 18, bottom: 22 },
-    styles: { font: 'LS', fontSize: 8.5, cellPadding: 1.5, textColor: ink, lineColor: [175, 175, 175], lineWidth: 0.2, valign: 'middle' },
-    headStyles: { font: 'LS', fontStyle: 'bold', fillColor: deep, textColor: 255, halign: 'center', fontSize: 8.5 },
+    styles: { font: 'LS', fontSize: 8, cellPadding: 1.4, textColor: ink, lineColor: [175, 175, 175], lineWidth: 0.2, valign: 'middle' },
+    headStyles: { font: 'LS', fontStyle: 'bold', fillColor: deep, textColor: 255, halign: 'center', fontSize: 8 },
     footStyles: { font: 'LS', fontStyle: 'bold', fillColor: [234, 234, 234], textColor: ink, fontSize: 10 },
     columnStyles: colStyles
   });
 
   // παρατηρήσεις και υπογραφή
   y = doc.lastAutoTable.finalY + 10;
-  const remarks = String(d.remarks || '').trim();
-  const remLines = remarks ? doc.splitTextToSize(remarks, 85) : [];
+  const remarks = remarkText(src);
+  const remLines = remarks ? remarks.split('\n').flatMap(t => doc.splitTextToSize(t, 85)) : [];
   const need = Math.max(42, 10 + remLines.length * 4.4);
   if (y + need > H - 24) { doc.addPage(); y = 25; }
   doc.setFontSize(9.5);
@@ -1568,47 +1670,61 @@ function exportSap() {
   const wb = XLSX.utils.book_new();
   const dateCell = iso => ({ t: 'n', v: isoToSerial(iso), z: 'dd/mm/yyyy' });
   const money = (v, f) => (f ? { t: 'n', v: round2(v), f, z: '#,##0.00' } : { t: 'n', v: round2(v), z: '#,##0.00' });
+  const pct = v => ({ t: 'n', v: v / 100, z: '0%' });
   const s = v => ({ t: 's', v: v == null ? '' : String(v) });
 
   // Γραμμές
-  const L = [['Αρ. τιμολογίου', 'Περιγραφή', 'Έγγραφο', 'Ημερομηνία', 'Ποσότητα', 'Τιμή μονάδας', 'Πηγή ποσού', 'Ποσό €'].map(s)];
+  const L = [['Αρ. τιμολογίου', 'Περιγραφή', 'Κωδικός προϊόντος', 'Έγγραφο', 'Ημερομηνία', 'Ποσότητα', 'Τιμή μονάδας', 'Πηγή ποσού', 'Ποσό €'].map(s)];
   for (const r of sel) for (const l of r.lines) {
     const row = L.length + 1;
     const tpa = r.type === 'TPA';
-    L.push([s(r.number), s(l.desc), s(l.doc || ''), l.date ? dateCell(l.date) : s(''),
+    L.push([s(r.number), s(l.desc), s(l.code || ''), s(l.doc || ''), l.date ? dateCell(l.date) : s(''),
       tpa || l.qty != null ? { t: 'n', v: Number(l.qty) || 0 } : s(''),
       tpa ? { t: 'n', v: Number(l.price) || 0, z: '#,##0.0000' } : s(''),
       s(tpa ? 'Ποσότητα × τιμή, στρογγ. 2 δεκ.' : r.type === 'FA' ? 'Αρχείο SAP (Amt.in loc.cur.)' : 'Τιμολόγιο One Point'),
-      tpa ? money(lineAmount(l, r.type), `ROUND(E${row}*F${row},2)`) : money(lineAmount(l, r.type))]);
+      tpa ? money(lineAmount(l, r.type), `ROUND(F${row}*G${row},2)`) : money(lineAmount(l, r.type))]);
   }
   const nL = L.length;
   const wsL = XLSX.utils.aoa_to_sheet(L);
-  wsL['!cols'] = [{ wch: 16 }, { wch: 48 }, { wch: 14 }, { wch: 12 }, { wch: 11 }, { wch: 13 }, { wch: 30 }, { wch: 14 }];
+  wsL['!cols'] = [{ wch: 16 }, { wch: 46 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 11 }, { wch: 13 }, { wch: 30 }, { wch: 14 }];
 
-  // Τιμολόγια
-  const I = [['Αρ. τιμολογίου', 'Τύπος', 'Ημερομηνία', 'Πελάτης', 'Κωδ. πελάτη SAP', 'Λογ. εσόδων (G/L)', 'Σύνολο €', 'Αρ. γραμμών', 'Πηγή', 'Κέντρο κέρδους'].map(s)];
+  // Τιμολόγια: καθαρή αξία από τις γραμμές, διοικητικά και ΦΠΑ με τύπους
+  const I = [['Αρ. τιμολογίου', 'Τύπος', 'Ημερομηνία', 'Πελάτης', 'Κωδ. πελάτη SAP', 'Λογ. εσόδων (G/L)', 'Καθαρή αξία €',
+    'Ποσοστό διοικητικών', 'Διοικητικά έξοδα €', 'Ποσοστό ΦΠΑ', 'ΦΠΑ στα διοικητικά €', 'Ολικό ποσό €', 'Αρ. γραμμών', 'Πηγή', 'Κέντρο κέρδους'].map(s)];
   sel.forEach((r, i) => {
-    const row = i + 2;
+    const row = i + 2, t = totals(r);
     I.push([s(r.number), s(typeOf(r.type).prefix), dateCell(r.date), s(custLabel(r.customer)), s(r.customer?.sapCode || ''), s(typeOf(r.type).gl || ''),
-      money(r.total, `SUMIFS('Γραμμές'!$H$2:$H$${nL},'Γραμμές'!$A$2:$A$${nL},A${row})`),
+      money(t.net, `SUMIFS('Γραμμές'!$I$2:$I$${nL},'Γραμμές'!$A$2:$A$${nL},A${row})`),
+      pct(t.on ? t.adminRate : 0),
+      money(t.admin, `ROUND(G${row}*H${row},2)`),
+      pct(t.on ? t.vatRate : 0),
+      money(t.vat, `ROUND(I${row}*J${row},2)`),
+      money(t.total, `G${row}+I${row}+K${row}`),
       { t: 'n', v: r.lines.length, f: `COUNTIF('Γραμμές'!$A$2:$A$${nL},A${row})` },
       s(r.sourceLabel || ''), s(r.customer?.profit || '')]);
   });
+  const nI = I.length;
   const wsI = XLSX.utils.aoa_to_sheet(I);
-  wsI['!cols'] = [{ wch: 16 }, { wch: 7 }, { wch: 12 }, { wch: 60 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 11 }, { wch: 36 }, { wch: 14 }];
+  wsI['!cols'] = [{ wch: 16 }, { wch: 7 }, { wch: 12 }, { wch: 56 }, { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 11 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 36 }, { wch: 14 }];
 
-  // SAP_Upload: δύο γραμμές ανά τιμολόγιο (χρέωση πελάτη, πίστωση εσόδων)
+  // SAP_Upload: χρέωση πελάτη (ολικό) · πίστωση εσόδων (καθαρή αξία) · πίστωση διοικητικών · πίστωση ΦΠΑ
   const U = [['Seq', 'Company Code', 'Document Type', 'Document Date', 'Posting Date', 'Fiscal Year', 'Period', 'Reference', 'Header Text', 'Posting Key', 'Account', 'Amount', 'Currency', 'Tax Code', 'Profit Center', 'Item Text', 'Assignment'].map(s)];
   sel.forEach((r, i) => {
-    const ir = i + 2, T = typeOf(r.type), c = r.customer || {};
+    const ir = i + 2, T = typeOf(r.type), c = r.customer || {}, t = totals(r);
     const hdr = `${T.prefix} ${r.date.slice(5, 7)}/${r.date.slice(0, 4)}`.slice(0, 25);
     const item = `${T.label} ${c.name || ''} ${c.sub || ''}`.replace(/\s+/g, ' ').trim().slice(0, 50);
-    for (const [pk, acct] of [[S.pkDebit, c.sapCode || ''], [S.pkCredit, T.gl || '']]) {
+    const legs = [[S.pkDebit, c.sapCode || '', `'Τιμολόγια'!L${ir}`, t.total, S.taxCode, item],
+      [S.pkCredit, T.gl || '', `'Τιμολόγια'!G${ir}`, t.net, S.taxCode, item]];
+    if (t.on) {
+      legs.push([S.pkCredit, S.glAdmin || '', `'Τιμολόγια'!I${ir}`, t.admin, S.taxCodeAdmin, `Διοικητικά έξοδα ${t.adminRate}% ${r.number}`]);
+      legs.push([S.pkCredit, S.glVat || '', `'Τιμολόγια'!K${ir}`, t.vat, S.taxCodeAdmin, `ΦΠΑ ${t.vatRate}% στα διοικητικά ${r.number}`]);
+    }
+    for (const [pk, acct, f, v, tax, txt] of legs) {
       const row = U.length + 1;
       U.push([{ t: 'n', v: i + 1 }, s(S.companyCode), s(S.docType), dateCell(r.date), dateCell(r.date),
         { t: 'n', v: +r.date.slice(0, 4), f: `YEAR(E${row})` }, { t: 'n', v: +r.date.slice(5, 7), f: `MONTH(E${row})` },
-        s(r.number), s(hdr), s(pk), s(acct), money(r.total, `'Τιμολόγια'!G${ir}`), s(S.currency), s(S.taxCode),
-        s(c.profit || ''), s(item), s(r.number)]);
+        s(r.number), s(hdr), s(pk), s(acct), money(v, f), s(S.currency), s(tax || ''),
+        s(c.profit || ''), s(txt.slice(0, 50)), s(r.number)]);
     }
   });
   const nU = U.length;
@@ -1616,19 +1732,20 @@ function exportSap() {
   wsU['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 7 }, { wch: 16 }, { wch: 22 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 48 }, { wch: 16 }];
 
   // Έλεγχος
-  const sumInv = sel.reduce((a, r) => a + r.total, 0);
+  const sumTot = sel.reduce((a, r) => a + totals(r).total, 0), sumNet = sel.reduce((a, r) => a + totals(r).net, 0);
   const missing = U.slice(1).filter(r => !r[10].v).length;
   const E = [
     [s('Έλεγχος αρχείου SAP'), s('')],
-    [s('Σύνολο τιμολογίων'), money(sumInv, `SUM('Τιμολόγια'!G2:G${sel.length + 1})`)],
-    [s('Σύνολο γραμμών τιμολογίων'), money(sumInv, `SUM('Γραμμές'!H2:H${nL})`)],
-    [s(`Χρεώσεις SAP (posting key ${S.pkDebit})`), money(sumInv, `SUMPRODUCT(('SAP_Upload'!J2:J${nU}="${S.pkDebit}")*'SAP_Upload'!L2:L${nU})`)],
-    [s(`Πιστώσεις SAP (posting key ${S.pkCredit})`), money(sumInv, `SUMPRODUCT(('SAP_Upload'!J2:J${nU}="${S.pkCredit}")*'SAP_Upload'!L2:L${nU})`)],
-    [s('Διαφορά χρεώσεων και πιστώσεων'), money(0, 'B4-B5')],
-    [s('Διαφορά SAP και τιμολογίων'), money(0, 'B4-B2')],
-    [s('Διαφορά τιμολογίων και γραμμών'), money(0, 'B2-B3')],
+    [s('Ολικό ποσό τιμολογίων'), money(sumTot, `SUM('Τιμολόγια'!L2:L${nI})`)],
+    [s('Καθαρή αξία τιμολογίων'), money(sumNet, `SUM('Τιμολόγια'!G2:G${nI})`)],
+    [s('Σύνολο γραμμών τιμολογίων'), money(sumNet, `SUM('Γραμμές'!I2:I${nL})`)],
+    [s(`Χρεώσεις SAP (posting key ${S.pkDebit})`), money(sumTot, `SUMPRODUCT(('SAP_Upload'!J2:J${nU}="${S.pkDebit}")*'SAP_Upload'!L2:L${nU})`)],
+    [s(`Πιστώσεις SAP (posting key ${S.pkCredit})`), money(sumTot, `SUMPRODUCT(('SAP_Upload'!J2:J${nU}="${S.pkCredit}")*'SAP_Upload'!L2:L${nU})`)],
+    [s('Διαφορά χρεώσεων και πιστώσεων'), money(0, 'B5-B6')],
+    [s('Διαφορά χρεώσεων SAP και τιμολογίων'), money(0, 'B5-B2')],
+    [s('Διαφορά καθαρής αξίας και γραμμών'), money(0, 'B3-B4')],
     [s('Γραμμές SAP χωρίς λογαριασμό'), { t: 'n', v: missing, f: `COUNTBLANK('SAP_Upload'!K2:K${nU})` }],
-    [s('Αποτέλεσμα'), { t: 's', v: missing ? 'ΕΛΕΓΞΤΕ' : 'ΟΚ', f: 'IF(AND(ABS(B6)<0.005,ABS(B7)<0.005,ABS(B8)<0.005,B9=0),"ΟΚ","ΕΛΕΓΞΤΕ")' }]
+    [s('Αποτέλεσμα'), { t: 's', v: missing ? 'ΕΛΕΓΞΤΕ' : 'ΟΚ', f: 'IF(AND(ABS(B7)<0.005,ABS(B8)<0.005,ABS(B9)<0.005,B10=0),"ΟΚ","ΕΛΕΓΞΤΕ")' }]
   ];
   const wsE = XLSX.utils.aoa_to_sheet(E);
   wsE['!cols'] = [{ wch: 42 }, { wch: 16 }];
@@ -1636,15 +1753,15 @@ function exportSap() {
   // Σημειώσεις
   const N = [
     ['Σημειώσεις και παραδοχές'],
-    ['1. Η διάταξη του SAP_Upload είναι γενική (χρέωση πελάτη / πίστωση εσόδων ανά τιμολόγιο). Προσαρμόστε τη στο πρότυπο LSMW/FB70 του SAP σας πριν την πρώτη χρήση.'],
-    [`2. Posting keys: ${S.pkDebit} = χρέωση πελάτη, ${S.pkCredit} = πίστωση λογαριασμού εσόδων. Ημερομηνία παραστατικού = ημερομηνία καταχώρησης = ημερομηνία τιμολογίου.`],
-    ['3. Κωδικοί πελατών, λογαριασμοί εσόδων και κέντρα κέρδους προέρχονται από τις Ρυθμίσεις του εργαλείου. Κενό κελί σημαίνει ότι δεν έχει οριστεί.'],
-    ['4. Τα ποσά στο SAP_Upload είναι τύποι που δείχνουν στην καρτέλα Τιμολόγια, η οποία αθροίζει την καρτέλα Γραμμές. Για ΤΠΑ το ποσό γραμμής είναι ROUND(ποσότητα × τιμή, 2).'],
-    ['5. Αν το εργαλείο ανεβάσματος του SAP διαβάζει μόνο τιμές, αποθηκεύστε το αρχείο από το Excel πριν το ανεβάσετε ώστε να ενημερωθούν οι υπολογισμένες τιμές.'],
-    ['6. Δεν υπολογίζεται ΦΠΑ. Τα πρότυπα τιμολόγια ΟΚΥπΥ που δόθηκαν δεν έχουν ΦΠΑ.'],
+    ['1. Η διάταξη του SAP_Upload είναι γενική. Προσαρμόστε τη στο πρότυπο ανεβάσματος του SAP σας πριν την πρώτη χρήση.'],
+    [`2. Ανά τιμολόγιο: χρέωση πελάτη με το ολικό ποσό (posting key ${S.pkDebit}) και πιστώσεις (posting key ${S.pkCredit}) για καθαρή αξία, διοικητικά έξοδα και ΦΠΑ στα διοικητικά.`],
+    ['3. Διοικητικά έξοδα χρεώνονται σε όλους τους πελάτες εκτός από το Υπουργείο Υγείας: ROUND(καθαρή αξία × ποσοστό, 2). ΦΠΑ = ROUND(διοικητικά × ποσοστό ΦΠΑ, 2).'],
+    ['4. Κωδικοί πελατών, λογαριασμοί και κέντρα κέρδους προέρχονται από τις Ρυθμίσεις του εργαλείου. Κενό κελί σημαίνει ότι δεν έχει οριστεί.'],
+    ['5. Για ΤΠΑ το ποσό γραμμής είναι ROUND(ποσότητα × τιμή μονάδας, 2). Όταν το αρχείο έχει τελική τιμή με ΦΠΑ, τιμή μονάδας = τελική τιμή / ποσότητα.'],
+    ['6. Αν το εργαλείο ανεβάσματος του SAP διαβάζει μόνο τιμές, ανοίξτε και αποθηκεύστε το αρχείο στο Excel πριν το ανεβάσετε.'],
     [`Δημιουργήθηκε: ${new Date().toLocaleString('el-GR')}`]
   ];
-  const wsN = XLSX.utils.aoa_to_sheet(N); wsN['!cols'] = [{ wch: 140 }];
+  const wsN = XLSX.utils.aoa_to_sheet(N); wsN['!cols'] = [{ wch: 150 }];
 
   XLSX.utils.book_append_sheet(wb, wsU, 'SAP_Upload');
   XLSX.utils.book_append_sheet(wb, wsI, 'Τιμολόγια');
@@ -1667,14 +1784,17 @@ const ORG_FIELDS = [
   ['org', 'iban', 'IBAN'], ['org', 'swift', 'SWIFT'], ['org', 'signName', 'Υπογράφων'], ['org', 'signTitle', 'Θέση υπογράφοντος'],
   ['org', 'signUnit', 'Υπηρεσία'], ['org', 'signOrg', 'Οργανισμός (κάτω από την υπογραφή)'],
   ['sap', 'companyCode', 'SAP Company Code'], ['sap', 'docType', 'SAP Document Type'], ['sap', 'currency', 'Νόμισμα'],
-  ['sap', 'pkDebit', 'Posting key χρέωσης πελάτη'], ['sap', 'pkCredit', 'Posting key πίστωσης εσόδων'], ['sap', 'taxCode', 'Κωδικός ΦΠΑ (αν χρειάζεται)']
+  ['sap', 'pkDebit', 'Posting key χρέωσης πελάτη'], ['sap', 'pkCredit', 'Posting key πίστωσης εσόδων'], ['sap', 'taxCode', 'Κωδικός ΦΠΑ (αν χρειάζεται)'],
+  ['fees', 'adminRate', 'Διοικητικά έξοδα (%)'], ['fees', 'vatRate', 'ΦΠΑ στα διοικητικά έξοδα (%)'],
+  ['sap', 'glAdmin', 'Λογ. εσόδων διοικητικών (G/L)'], ['sap', 'glVat', 'Λογ. ΦΠΑ εκροών (G/L)'], ['sap', 'taxCodeAdmin', 'Κωδικός ΦΠΑ διοικητικών']
 ];
 function renderSettings() {
   const tps = Object.keys(SETTINGS.types);
-  $('#SET-customers').innerHTML = `<div class="scroll"><table class="t"><thead><tr><th>Επωνυμία</th><th>Δεύτερη γραμμή</th><th>Τύποι</th><th>Κωδ. πελάτη SAP</th><th>Κέντρο κέρδους</th><th>Λέξεις αναγνώρισης</th><th></th></tr></thead><tbody>
+  $('#SET-customers').innerHTML = `<div class="scroll"><table class="t"><thead><tr><th>Επωνυμία</th><th>Δεύτερη γραμμή</th><th>Τύποι</th><th title="Χρέωση διοικητικών εξόδων και ΦΠΑ">Διοικητικά</th><th>Κωδ. πελάτη SAP</th><th>Κέντρο κέρδους</th><th>Λέξεις αναγνώρισης</th><th></th></tr></thead><tbody>
     ${SETTINGS.customers.map((c, i) => `<tr data-i="${i}">
       <td><input data-k="name" value="${esc(c.name)}"></td><td><input data-k="sub" value="${esc(c.sub)}"></td>
       <td style="white-space:nowrap">${tps.map(t => `<label class="chk" style="display:inline-flex;margin-right:6px"><input type="checkbox" data-t="${t}" ${(c.types || []).includes(t) ? 'checked' : ''}>${esc(SETTINGS.types[t].prefix)}</label>`).join('')}</td>
+      <td style="text-align:center"><input type="checkbox" data-adm="1" ${c.admin ? 'checked' : ''}></td>
       <td><input data-k="sapCode" value="${esc(c.sapCode)}"></td><td><input data-k="profit" value="${esc(c.profit)}"></td>
       <td><input data-k="kw" value="${esc(c.kw)}"></td>
       <td><button class="btn small ghost danger" data-del="${i}">✕</button></td></tr>`).join('')}
@@ -1682,6 +1802,7 @@ function renderSettings() {
   $$('#SET-customers tbody tr').forEach(tr => {
     const c = SETTINGS.customers[+tr.dataset.i];
     $$('[data-k]', tr).forEach(inp => inp.oninput = () => c[inp.dataset.k] = inp.value);
+    $('[data-adm]', tr).onchange = e => { c.admin = e.target.checked; };
     $$('[data-t]', tr).forEach(cb => cb.onchange = () => { c.types = $$('[data-t]', tr).filter(x => x.checked).map(x => x.dataset.t); });
     $('[data-del]', tr).onclick = () => {
       if (!confirm(`Διαγραφή πελάτη «${custLabel(c)}»;`)) return;
@@ -1755,7 +1876,7 @@ function init() {
     renderAllLists();
   }); e.target.value = ''; };
 
-  $('#SET-addcust').onclick = () => { SETTINGS.customers.push({ id: 'c' + uid(), name: '', sub: '', types: [], sapCode: '', profit: '', kw: '' }); renderSettings(); };
+  $('#SET-addcust').onclick = () => { SETTINGS.customers.push({ id: 'c' + uid(), admin: true, name: '', sub: '', types: [], sapCode: '', profit: '', kw: '' }); renderSettings(); };
   $('#SET-save').onclick = () => saveSettings();
   $('#SET-export').onclick = () => download(new Blob([JSON.stringify(SETTINGS, null, 1)], { type: 'application/json' }), `Ρυθμίσεις τιμολόγησης ΟΚΥπΥ ${todayISO()}.json`);
   $('#SET-import').onchange = e => { const f = e.target.files[0]; if (!f) return; readJsonFile(f, j => {
