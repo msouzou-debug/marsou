@@ -489,15 +489,19 @@ right and nothing about it needs softening.
 Her answer has a consequence for what is already in the database. Anything finalised
 before 03/11 can carry AED005 without SHSO-ER3, and those costings were priced without
 the X-ray. Nothing on them shows it — the total is a valid number, just a smaller one
-than it should be. `tools/find_uncharged_xrays.py` reads them out of the live database,
+than it should be. `tools/find_uncharged_imaging.py` reads them out of the live database,
 read-only:
 
-    sudo -u finance python3 /opt/finance/find_uncharged_xrays.py /opt/finance/finance.db
+    sudo -u finance python3 /opt/finance/find_uncharged_imaging.py /opt/finance/finance.db
 
 It lists only episodes in categories that accept charges, so a 609 case with an X-ray is
 not reported as an error — there is no charge to add there. Each one it finds is the
 Μονάδα's to decide on, through the revision screen, one at a time and with a reason: a
 number a patient has already been given does not change silently.
+
+Widened on 05/11 to all five imaging services, since all five became compulsory the same
+day. It reports a section per service, and the totals at the end count **costings**, not
+rows: an episode missing two charges appears under both services and is counted once.
 
 The specimen costing itself is unaffected. OKY1054/0035 is category 624, which carries
 no tariff charges, so the rule does not reach it — but its service list does include

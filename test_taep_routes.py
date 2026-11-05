@@ -2091,20 +2091,43 @@ def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
     assert len(taep.RADIOLOGY_CHARGE_COMPULSORY) == 5
 
 
-def test_the_finder_lists_an_xray_with_no_charge_and_not_one_with(client, app):
+def test_the_finder_covers_every_compulsory_imaging_service(client, app):
+    """Widened on 05/11/2026 from AED005 to all five, so one pass gives the whole
+    picture rather than four.
+    """
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    from find_uncharged_imaging import QUERY
+
+    for index, service_code in enumerate(sorted(taep.RADIOLOGY_CHARGE_COMPULSORY)):
+        episode_id = create(client, app, code="600",
+                            episode_number="E-FIND-%d" % index)
+        client.post("/taep/%d/services" % episode_id,
+                    data={"service_code": [service_code, "AET057"]})
+        client.post("/taep/%d/calculate" % episode_id, data={})
+
+    app.ctx["db_execute"]("PRAGMA wal_checkpoint(TRUNCATE)")
+    for service_code, charge_code in sorted(taep.RADIOLOGY_SERVICE_CHARGES.items()):
+        found = app.ctx["db_execute"](QUERY, (service_code, charge_code), fetch=True)
+        assert len(found) == 1, (service_code, found)
+        assert found[0]["episode_number"].startswith("E-FIND-")
+
+
+def test_the_finder_lists_an_image_with_no_charge_and_not_one_with(client, app):
     """Παναγιώτα Έλληνα, 05/11/2026: there is no case where an X-ray is taken and no
     charge applies.
 
     So the blocker added on 03/11 is unconditionally right — and anything finalised
     BEFORE it could carry AED005 without SHSO-ER3. Those were priced without the X-ray,
     and nothing shows it: the total is a valid number, just a smaller one than it should
-    be. tools/find_uncharged_xrays.py reads them out of the live database so the Μονάδα
+    be. tools/find_uncharged_imaging.py reads them out of the live database so the Μονάδα
     can decide on each; it writes nothing.
     """
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
-    from find_uncharged_xrays import QUERY
+    from find_uncharged_imaging import QUERY
 
     # Finalised before the rule existed: the service, no charge.
     missing = create(client, app, code="600", episode_number="E-NO-CHARGE")

@@ -85,8 +85,8 @@ run install $OWNER -m 644 "$REPO/tools/check_category_flags.py" \
     "$TARGET/check_category_flags.py"
 run install $OWNER -m 644 "$REPO/tools/sync_diagnoses.py" \
     "$TARGET/sync_diagnoses.py"
-run install $OWNER -m 644 "$REPO/tools/find_uncharged_xrays.py" \
-    "$TARGET/find_uncharged_xrays.py"
+run install $OWNER -m 644 "$REPO/tools/find_uncharged_imaging.py" \
+    "$TARGET/find_uncharged_imaging.py"
 
 say "Επανεκκίνηση"
 run systemctl restart "$SERVICE"
