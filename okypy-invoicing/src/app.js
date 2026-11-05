@@ -683,6 +683,15 @@ function oayNumber(type, ym) {
 const periodText = ym => `${fmtDate(ym + '-01')} - ${fmtDate(lastDayOfMonth(ym))}`;
 const oayMonth = () => $('#OAY-month').value || (() => { const d = new Date(); d.setDate(0); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; })();
 
+function syncOayDate(d, iso) {
+  const oldYm = d.month, ym = (iso || '').slice(0, 7);
+  d.date = iso;
+  if (!isOay(d.type) || !ym || ym === oldYm) return;
+  if (!d.number || d.number === oayNumber(d.type, oldYm)) d.number = oayNumber(d.type, ym);
+  if ((d.type === 'YA' || d.type === 'TAEP') && d.lines[0]) d.lines[0].desc = periodText(ym);
+  d.month = ym; d.sourceKey = `${d.type}|${ym}`;
+  if (d.type !== 'TAEP') d.sourceLabel = monthLabel(ym);
+}
 function makeOayDraft(type, ym, lines, extra = {}) {
   const c = oayCust();
   return Object.assign({
@@ -861,6 +870,7 @@ function renderList(group) {
     const d = list[+tr.dataset.i];
     $$('[data-k]', tr).forEach(inp => inp.onchange = () => {
       if (inp.dataset.k === 'slipDate') { applySlipDate(d, inp.value); renderList(group); return; }
+      if (inp.dataset.k === 'date' && isOay(d.type)) { syncOayDate(d, inp.value); renderList(group); return; }
       d[inp.dataset.k] = inp.value;
       if (inp.dataset.k === 'customerId') { delete d.adminOverride; renderList(group); }
     });
@@ -906,7 +916,10 @@ function openEditor(d) {
     $('#ed-slipdate').onchange = e => { applySlipDate(d, e.target.value); $('#ed-date').value = d.date; renderLines(); };
   }
   $('#ed-num').oninput = e => { d.number = e.target.value; };
-  $('#ed-date').onchange = e => { d.date = e.target.value; };
+  $('#ed-date').onchange = e => {
+    if (isOay(d.type)) { syncOayDate(d, e.target.value); openEditor(d); return; }
+    d.date = e.target.value;
+  };
   $('#ed-remarks').oninput = e => { d.remarks = e.target.value; };
   renderLines();
   $('#ed-issue').disabled = issued;
@@ -1026,11 +1039,12 @@ function buildPdf(d) {
   doc.text(`IBAN: ${amb ? O.ibanAmb : O.iban} , SWIFT CODE: ${O.swift}`, M, y);
   return y + 6;
   };
-  const sign = y0 => {
+  const sign = (y0, compact) => {
     let y = y0;
+    const o = compact ? -6 : 0;
     const remarks = remarkText(src);
     const remLines = remarks ? remarks.split('\n').flatMap(t => doc.splitTextToSize(t, 85)) : [];
-    const need = Math.max(42, 10 + remLines.length * 4.4);
+    const need = Math.max(compact ? 30 : 42, 10 + remLines.length * 4.4);
     if (y + need > H - 24) { doc.addPage(); y = 25; }
     doc.setFontSize(9.5);
     if (remarks) {
@@ -1040,11 +1054,11 @@ function buildPdf(d) {
     }
     const sx = 150;
     doc.setFont('LS', 'normal'); doc.setTextColor(...ink);
-    doc.text('………………………………………………..', sx, y + 14, { align: 'center' });
-    doc.text(O.signName, sx, y + 19, { align: 'center' });
-    doc.text(O.signTitle, sx, y + 24, { align: 'center' });
-    doc.text(O.signUnit, sx, y + 29, { align: 'center' });
-    if (O.signOrg) doc.text(O.signOrg, sx, y + 34, { align: 'center' });
+    doc.text('………………………………………………..', sx, y + 14 + o, { align: 'center' });
+    doc.text(O.signName, sx, y + 19 + o, { align: 'center' });
+    doc.text(O.signTitle, sx, y + 24 + o, { align: 'center' });
+    doc.text(O.signUnit, sx, y + 29 + o, { align: 'center' });
+    if (O.signOrg) doc.text(O.signOrg, sx, y + 34 + o, { align: 'center' });
   };
   const tblStyle = {
     theme: 'grid', margin: { left: M, right: M, top: 18, bottom: 22 },
@@ -1059,13 +1073,14 @@ function buildPdf(d) {
     doc.text('Χρέωση σύμφωνα με τις Συμβάσεις και Αποφάσεις μεταξύ Οργανισμού Ασφάλισης Υγείας', M, y);
     doc.text(`και Οργανισμού Κρατικών Υπηρεσιών Υγείας${d.type === 'YGOS' ? '' : ' περίοδος χρέωσης :'}`, M, y + 4.6);
     y += 9;
-    const ym = src.month || src.date.slice(0, 7);
+    const ym = (src.date || '').slice(0, 7) || src.month;
     if (d.type === 'YGOS') {
       doc.autoTable(Object.assign({}, tblStyle, {
         startY: y, head: [[{ content: `ΠΕΡΙΟΔΟΣ ΧΡΕΩΣΗΣ ${periodText(ym)}`, colSpan: 2 }]],
         body: src.lines.map(l => [l.desc, fmtEUR(lineAmount(l, d.type))]),
         foot: [[{ content: 'ΟΛΙΚΟ ΠΟΣΟ €', styles: { halign: 'right' } }, { content: fmtEUR(total), styles: { halign: 'right' } }]],
-        showFoot: 'lastPage', columnStyles: { 0: { cellWidth: 145 }, 1: { halign: 'right' } }
+        showFoot: 'lastPage', columnStyles: { 0: { cellWidth: 145 }, 1: { halign: 'right' } },
+        styles: Object.assign({}, tblStyle.styles, { fontSize: 8, cellPadding: { top: 0.8, bottom: 0.8, left: 1.5, right: 1.5 } })
       }));
     } else {
       const body = src.lines.map((l, i) => [i === 0 ? periodText(ym) : l.desc, fmtEUR(Math.abs(lineAmount(l, d.type)))]);
@@ -1076,8 +1091,8 @@ function buildPdf(d) {
         columnStyles: { 0: { cellWidth: 45, halign: 'center', fontStyle: 'bold' }, 1: { halign: 'right' } }
       }));
     }
-    y = drawPay(doc.lastAutoTable.finalY + 12);
-    sign(y + 4);
+    y = drawPay(doc.lastAutoTable.finalY + (d.type === 'YGOS' ? 8 : 12));
+    sign(y + (d.type === 'YGOS' ? 0 : 4), d.type === 'YGOS');
   } else {
   y = drawPay(y + 9);
 
@@ -1100,17 +1115,17 @@ function buildPdf(d) {
   const n = head.length;
   // κενές γραμμές στο τέλος των προϊόντων (όπως στα πρότυπα), ώστε να μη χωρά προσθήκη
   for (let k = 0; k < 3; k++) body.push(head.map(() => ' '));
-  const footRow = (label, val, last) => [
-    ...(n > 3 ? [{ content: '', colSpan: n - 3, styles: { fillColor: [255, 255, 255], lineWidth: 0 } }] : []),
+  const footRow = (label, val, last, first) => [
+    ...(n > 3 ? [{ content: '', colSpan: n - 3, styles: { fillColor: [255, 255, 255], lineColor: [0, 0, 0], lineWidth: first ? { top: 0.3, right: 0, bottom: 0, left: 0 } : 0 } }] : []),
     { content: label, colSpan: n > 2 ? 2 : 1, styles: { halign: 'right', fontSize: last ? 10 : 8.5, fillColor: last ? [234, 234, 234] : [255, 255, 255] } },
     { content: fmtEUR(val), styles: { halign: 'right', fontSize: last ? 10 : 8.5, fillColor: last ? [234, 234, 234] : [255, 255, 255] } }
   ];
   const foot = TT.on ? [
-    footRow('ΚΑΘΑΡΗ ΑΞΙΑ', TT.net),
+    footRow('ΚΑΘΑΡΗ ΑΞΙΑ', TT.net, false, true),
     footRow(`ΔΙΟΙΚΗΤΙΚΑ ΕΞΟΔΑ (${TT.adminRate}%)`, TT.admin),
     footRow(`ΦΠΑ (${TT.vatRate}%) ΣΤΑ ΔΙΟΙΚΗΤΙΚΑ ΕΞΟΔΑ`, TT.vat),
     footRow('ΟΛΙΚΟ ΠΟΣΟ €', TT.total, true)
-  ] : [footRow('ΟΛΙΚΟ ΠΟΣΟ €', TT.total, true)];
+  ] : [footRow('ΟΛΙΚΟ ΠΟΣΟ €', TT.total, true, true)];
   doc.autoTable({
     startY: y, head: [head], body, foot, showFoot: 'lastPage', theme: 'grid',
     margin: { left: M, right: M, top: 18, bottom: 22 },
