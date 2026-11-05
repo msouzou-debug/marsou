@@ -513,3 +513,33 @@ def test_a_hidden_select2_field_hides_its_wrapper_too():
         assert "select2-container" in block, (
             "a d-none toggle in taep_costing.html that does not account for Select2's "
             "wrapper will hide nothing a clerk can see")
+
+
+def test_no_standalone_page_can_be_framed_by_another_site(server):
+    """Clickjacking. A penetration test of 05/11/2026 found two SHSO sites could be
+    loaded in a frame on an attacker's page, with decoy content laid over them, so the
+    victim's clicks reach the hidden application in their own session. Both URLs it
+    named were login pages.
+
+    eFinance fixed its side, which covers ΤΑΕΠ while it lives there. This is the same
+    fix for the standalone host, so moving ΤΑΕΠ to its own server does not bring the gap
+    back. Checked on the login page — anonymous, the URL the report named — on an
+    authenticated ΤΑΕΠ screen, and on a redirect, because a header set only on 200s
+    leaves the rest framable.
+    """
+    anonymous = server.test_client()
+    client, _ = sign_in(server, "maria")
+    responses = {
+        "login page": anonymous.get("/login"),
+        "ΤΑΕΠ screen": client.get("/taep/list"),
+        "redirect": anonymous.get("/taep/list"),
+    }
+    assert responses["redirect"].status_code in (301, 302, 401)
+
+    for label, response in responses.items():
+        csp = response.headers.getlist("Content-Security-Policy")
+        xfo = response.headers.getlist("X-Frame-Options")
+        assert csp == ["frame-ancestors 'self'"], (label, csp)
+        # Exactly one: some browsers treat a duplicated X-Frame-Options as invalid and
+        # ignore both, which looks fixed and is not.
+        assert xfo == ["SAMEORIGIN"], (label, xfo)

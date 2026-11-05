@@ -310,6 +310,30 @@ def create_app():
         session.clear()
         return redirect(url_for("login"))
 
+    # Clickjacking. A penetration test of 05/11/2026 found two SHSO sites could be loaded
+    # inside a frame on an attacker's page, with decoy content over them, so the
+    # victim's clicks land on the hidden application in their own authenticated session
+    # — which is also how it gets past anti-CSRF tokens. eFinance fixed its side; this
+    # is the same fix for the day ΤΑΕΠ runs on its own server, so the gap does not come
+    # back with the move.
+    #
+    # Set here, on every response, rather than in nginx: it then holds whether or not
+    # nginx is in front, and the login page — the URL the report named — is covered
+    # like any other. nginx-taep.conf says not to add them again, because nginx's
+    # add_header does not replace an upstream header, and two X-Frame-Options lines are
+    # treated by some browsers as invalid, which is worse than one.
+    #
+    # 'self' / SAMEORIGIN rather than 'none' / DENY: nothing in ΤΑΕΠ frames itself today,
+    # but a same-origin preview of the costing PDF would be a reasonable thing to add,
+    # and the report recommends 'self'. frame-ancestors is the only directive set: a
+    # fuller policy would have to allow the CDN the pages load jQuery and Select2 from,
+    # and that is a separate decision.
+    @app.after_request
+    def refuse_foreign_frames(response):
+        response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        return response
+
     taep.register(app, ctx)
     return app
 
