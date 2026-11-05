@@ -2025,17 +2025,26 @@ def test_the_same_episode_finalises_once_the_charge_is_added(client, app):
     assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"
 
 
-def test_the_other_three_radiology_services_are_not_compulsory(client, app):
-    """«Only for that code AED005» — 03/11/2026, when the rule was put to her for all
-    four. The other three pairings are recorded and not enforced, so a clerk recording
-    an ultrasound is not stopped.
+def test_all_five_radiology_services_need_their_charge(client, app):
+    """Widened on 05/11/2026 from AED005 alone to AED019, AED020, AED021 and AED022.
+
+    AED022 «Τομογραφία Ουροποιογεννητικού με σκιαγραφικό» pairs with SHSO-ER7, a flat
+    €65 rather than a tariff_lookup — which is why it is easy to miss when reading the
+    four codes that need an examination, and why I had wrongly reported that the tariff
+    had no code for it. AED021's own description says it excludes urogenital tomography
+    with contrast, so the two are a deliberate pair.
     """
-    episode_id = create(client, app, code="600", episode_number="E-US")
-    client.post("/taep/%d/services" % episode_id,
-                data={"service_code": ["AED019", "AET057"]})
-    result = taep.price_episode(app.ctx, episode_id)
-    assert result.blocking_issues_el == ()
-    assert result.can_finalise is True
+    for index, (service_code, charge_code) in enumerate(
+            sorted(taep.RADIOLOGY_SERVICE_CHARGES.items())):
+        episode_id = create(client, app, code="600",
+                            episode_number="E-RAD-%d" % index)
+        client.post("/taep/%d/services" % episode_id,
+                    data={"service_code": [service_code, "AET057"]})
+        result = taep.price_episode(app.ctx, episode_id)
+        blockers = [b for b in result.blocking_issues_el if service_code in b]
+        assert len(blockers) == 1, service_code
+        assert charge_code in blockers[0]
+        assert result.can_finalise is False
 
 
 def test_the_block_does_not_apply_where_no_charge_could_be_added(client, app):
@@ -2065,17 +2074,21 @@ def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
         assert charge_code in charges, charge_code
         assert service_code in taep.RADIOLOGY_SERVICE_NAMES
 
-    # Every tariff_lookup charge is paired with a service: one without would be a
-    # charge no service can prompt, which is how AED005 went unnoticed.
+    # Every tariff_lookup charge is paired with a service that prompts it. One without
+    # would be a charge nothing asks for, which is how AED005 went unnoticed.
     lookups = {item["code"]
                for items in taep.list_tariff_catalogue(seeded).values()
                for item in items if item["price_type"] == "tariff_lookup"}
-    assert lookups == set(taep.RADIOLOGY_SERVICE_CHARGES.values())
+    assert lookups <= set(taep.RADIOLOGY_SERVICE_CHARGES.values())
 
-    # Compulsory is a subset of the pairing, and is AED005 alone until the Μονάδα
-    # widens it (03/11/2026: «only for that code AED005»).
-    assert taep.RADIOLOGY_CHARGE_COMPULSORY == {"AED005"}
-    assert taep.RADIOLOGY_CHARGE_COMPULSORY <= set(taep.RADIOLOGY_SERVICE_CHARGES)
+    # Not equality: SHSO-ER7 is paired too and is a flat €65 rather than a lookup, so
+    # AED022 needs no examination. That asymmetry is in the Μονάδα's price list, not a
+    # mistake here, and asserting equality would hide the next charge they add.
+    assert "SHSO-ER7" in set(taep.RADIOLOGY_SERVICE_CHARGES.values()) - lookups
+
+    # All five compulsory since 05/11/2026.
+    assert taep.RADIOLOGY_CHARGE_COMPULSORY == set(taep.RADIOLOGY_SERVICE_CHARGES)
+    assert len(taep.RADIOLOGY_CHARGE_COMPULSORY) == 5
 
 
 def test_the_finder_lists_an_xray_with_no_charge_and_not_one_with(client, app):
@@ -2123,3 +2136,91 @@ def test_the_finder_lists_an_xray_with_no_charge_and_not_one_with(client, app):
     # tool runs rather than a copy of it.
     found = app.ctx["db_execute"](QUERY, ("AED005", "SHSO-ER3"), fetch=True)
     assert [r["episode_number"] for r in found] == ["E-NO-CHARGE"]
+
+
+def test_a_service_can_be_removed_from_a_finalised_costing(client, app):
+    """«Όταν κάνω επεξεργασία μέσω των καταχωρήσεων δεν μου επιτρέπει να αφαιρέσω την
+    ακτινογραφία … αν γίνει λάθος και θα θέλει ο χρήστης να το διορθώσει έτσι ώστε να
+    αλλάξει το συνολικό ποσό αυτό πρέπει να μπορεί να γίνεται.» (05/11/2026)
+
+    A finalised costing could have its patient details and its category revised but not
+    its services, so an X-ray recorded by mistake was permanent and the total with it.
+
+    It changes a figure the patient is holding, so it goes through the same machinery as
+    any other revision: the old figures are kept, the number does not move, the revision
+    counter goes up, the status stays FINALISED, and a reason is required.
+    """
+    episode_id = create(client, app, code="600", episode_number="E-REV-SVC")
+    exam = taep.list_radiology_tariff(app.ctx)[0]
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data={
+        "services_posted": "1", "service_code": ["AED005", "AET057"],
+        "tariff_code": ["SHSO-ER3"], "tariff_price_type": ["tariff_lookup"],
+        "tariff_cpt": [exam["cpt_code"]], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+    client.post("/taep/%d/finalise" % episode_id)
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["status"] == "FINALISED"
+    number = episode["costing_number"]
+    before = taep.money_from_db(taep.get_calculation(app.ctx, episode_id)["total_cost"])
+
+    # The X-ray goes, and with it the charge that depended on it.
+    response = client.post("/taep/%d/revise-services" % episode_id, data={
+        "service_code": ["AED008", "AET057"],
+        "revision_reason": "Η ακτινογραφία καταχωρήθηκε εκ παραδρομής."},
+        follow_redirects=True)
+    assert response.status_code == 200
+
+    after = taep.get_episode(app.ctx, episode_id)
+    assert after["status"] == "FINALISED"          # a correction is not an un-finalisation
+    assert after["costing_number"] == number      # the same costing, not a new one
+    assert taep._as_int(after["revision"]) == 2
+    assert set(taep.get_episode_service_codes(app.ctx, episode_id)) == {"AED008",
+                                                                        "AET057"}
+    # The old figure is kept, because the patient has a document with it on.
+    revisions = taep.episode_revisions(app.ctx, episode_id)
+    assert len(revisions) == 1
+    assert taep.money_from_db(revisions[0]["total_cost"]) == before
+    assert "εκ παραδρομής" in revisions[0]["reason_el"]
+
+
+def test_revising_the_services_needs_a_reason(client, app):
+    episode_id = create(client, app, code="600", episode_number="E-REV-NOREASON")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data={})
+    client.post("/taep/%d/finalise" % episode_id)
+
+    with pytest.raises(taep.CostingError) as raised:
+        taep.revise_finalised_services(app.ctx, episode_id, ["AED009", "AET057"], 1,
+                                       reason_el="   ")
+    assert raised.value.code == "NO_REVISION_REASON"
+    # Nothing moved.
+    assert taep._as_int(taep.get_episode(app.ctx, episode_id)["revision"]) == 1
+    assert set(taep.get_episode_service_codes(app.ctx, episode_id)) == {"AED008",
+                                                                        "AET057"}
+
+
+def test_a_service_revision_that_cannot_be_priced_changes_nothing(client, app):
+    """The compulsory radiology charge applies to a revision too. Adding AED005 without
+    its charge must refuse, and refuse BEFORE anything is written — db_execute commits
+    per call, so a half-done revision would stay half-done.
+    """
+    episode_id = create(client, app, code="600", episode_number="E-REV-BLOCKED")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data={})
+    client.post("/taep/%d/finalise" % episode_id)
+    before = taep.money_from_db(taep.get_calculation(app.ctx, episode_id)["total_cost"])
+
+    # A one-sided selection: refused by the service-mix rule before any write.
+    with pytest.raises(taep.CostingError):
+        taep.revise_finalised_services(app.ctx, episode_id, ["AED008"], 1,
+                                       reason_el="δοκιμή")
+    assert taep._as_int(taep.get_episode(app.ctx, episode_id)["revision"]) == 1
+    assert set(taep.get_episode_service_codes(app.ctx, episode_id)) == {"AED008",
+                                                                        "AET057"}
+    assert taep.money_from_db(
+        taep.get_calculation(app.ctx, episode_id)["total_cost"]) == before
+    assert taep.episode_revisions(app.ctx, episode_id) == []

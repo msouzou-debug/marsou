@@ -511,3 +511,66 @@ AED005, which is why acceptance scenario ΣΑ-25 had to stop reusing that list u
 `closeOnSelect` was false on purpose, to save reopening a list of 125 between picks. The
 wrong trade: it saves a click and costs the clerk their way out of the field. It closes
 after each pick now, and multi-select still works.
+
+
+---
+
+## The reports of 05/11/2026 (Παναγιώτα Έλληνα)
+
+### All five radiology services are compulsory, and AED022 does have a charge
+
+Widened from AED005 alone to AED019, AED020, AED021 and AED022.
+
+**A correction to what we told her on 03/11.** We reported that the tariff had no code
+for AED022 «Τομογραφία Ουροποιογεννητικού με σκιαγραφικό». It has: **SHSO-ER7**, a flat
+**€65**. It was missed because the scan that found the others looked only at the four
+`tariff_lookup` codes, and SHSO-ER7 is a fixed price. So AED022 needs no examination
+picking — only the charge.
+
+AED021 and AED022 are a deliberate pair, which the price list says itself: AED021 reads
+«Αξονική Τομογραφία (αποκλείει τομογραφία ουροποιογεννητικού συστήματος με σκιαγραφικό»,
+and AED022 is exactly what it excludes.
+
+| Service | Charge | |
+|---|---|---|
+| AED005 Ακτινογραφία | SHSO-ER3 | examination from the radiology list |
+| AED019 Υπερηχογράφημα | SHSO-ER4 | examination from the radiology list |
+| AED020 Μαγνητική τομογραφία | SHSO-ER6 | examination from the radiology list |
+| AED021 Αξονική Τομογραφία | SHSO-ER5 | examination from the radiology list |
+| AED022 Τομογραφία Ουροποιογεννητικού | SHSO-ER7 | flat €65 |
+
+### «Ενημέρωση υπηρεσιών» is gone
+
+«Το κουμπί ενημέρωση υπηρεσιών τι χρειάζεται? Επειδή αν ο χρήστης δεν το πατήσει δεν
+καταχωρείται καμία υπηρεσία και η κοστολόγηση οδηγεί μόνο σε διαλογή.»
+
+She was right, and it was worse than an extra click. Miss the button and Υπολογισμός
+priced the episode as **triage only** — a valid number, quietly wrong, with nothing on
+the screen to say the selection had never been saved.
+
+There is no separate step now. The two pickers belong to the calculation form through
+`form="calc-form"`, which HTML allows for a control outside it, so no card had to move.
+`services_posted` is a hidden marker in that form: an empty multiple-select sends
+nothing at all, so without it a post that is not about services would read as "the clerk
+cleared them".
+
+### Services can be corrected on a finalised costing
+
+«Όταν κάνω επεξεργασία μέσω των καταχωρήσεων δεν μου επιτρέπει να αφαιρέσω την
+ακτινογραφία … αν γίνει λάθος και θα θέλει ο χρήστης να το διορθώσει έτσι ώστε να αλλάξει
+το συνολικό ποσό αυτό πρέπει να μπορεί να γίνεται.»
+
+A finalised costing could have its patient details and its financial category revised but
+not its services, so an X-ray recorded by mistake was permanent and the total with it.
+
+It changes a figure the patient is holding, so it goes through the same machinery as any
+other revision rather than quietly replacing rows: the superseded figures are copied to
+`taep_costing_revision` first, the costing number does not move, the revision counter
+goes up, the status stays FINALISED, and **a reason is required** — it is the only record
+of why the amount changed.
+
+On a finalised costing the pickers therefore belong to a revision form rather than the
+calculation form, with the reason box beside them. Everything that can refuse — the
+«both kinds or neither» rule, the pricing, the compulsory radiology charge — refuses
+before the first write, because `db_execute` commits per call and a half-done revision
+would stay half-done.

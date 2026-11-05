@@ -432,22 +432,24 @@ RADIOLOGY_SERVICE_CHARGES = {
     "AED019": "SHSO-ER4",       # Υπερηχογράφημα
     "AED021": "SHSO-ER5",       # Αξονική Τομογραφία
     "AED020": "SHSO-ER6",       # Μαγνητική τομογραφία
+    # SHSO-ER7 is a flat €65, not a tariff_lookup, which is why it is easy to miss when
+    # reading the four codes that need an examination. AED021 and AED022 are a deliberate
+    # pair: AED021's own description says it EXCLUDES urogenital tomography with
+    # contrast, which is exactly what AED022 is.
+    "AED022": "SHSO-ER7",       # Τομογραφία Ουροποιογεννητικού με σκιαγραφικό
 }
 RADIOLOGY_SERVICE_NAMES = {
     "AED005": "Ακτινογραφία",
     "AED019": "Υπερηχογράφημα",
     "AED021": "Αξονική Τομογραφία",
     "AED020": "Μαγνητική τομογραφία",
+    "AED022": "Τομογραφία Ουροποιογεννητικού με σκιαγραφικό",
 }
-# AED022 «Τομογραφία Ουροποιογεννητικού συστήματος με σκιαγραφικό» is deliberately not
-# here: the tariff has no matching code for it, so there is nothing to pair it with.
-#
-# Of the four, only AED005 is COMPULSORY — Παναγιώτα Έλληνα, 03/11/2026, asked for it
-# on AED005 and then narrowed it to that code when the rule was put to her for all four.
-# The other three pairings stay above because they are true and worth having written
-# down; they are simply not enforced. Widening this set is the whole change if she ever
-# asks for them.
-RADIOLOGY_CHARGE_COMPULSORY = {"AED005"}
+# All five are COMPULSORY — Παναγιώτα Έλληνα: AED005 on 03/11/2026, narrowed to that code
+# the same day, then widened to AED019, AED020, AED021 and AED022 on 05/11. Every one of
+# these services sets the weight and adds no money of its own, so recording one without
+# its charge prices the episode without the examination.
+RADIOLOGY_CHARGE_COMPULSORY = set(RADIOLOGY_SERVICE_CHARGES)
 
 
 def calculate(selected_services, rates, tariff_lines=(), financial_category_code=None,
@@ -2020,10 +2022,116 @@ def revise_finalised_episode(ctx, episode_id, data, user_id, reason_el=""):
     return result
 
 
+def revise_finalised_services(ctx, episode_id, codes, user_id, reason_el=""):
+    """Change the services on a FINALISED costing, keeping its number. Returns the result.
+
+    Παναγιώτα Έλληνα, 05/11/2026: «όταν κάνω επεξεργασία μέσω των καταχωρήσεων δεν μου
+    επιτρέπει να αφαιρέσω την ακτινογραφία … αν γίνει λάθος και θα θέλει ο χρήστης να το
+    διορθώσει έτσι ώστε να αλλάξει το συνολικό ποσό αυτό πρέπει να μπορεί να γίνεται.»
+
+    Until now a finalised costing could have its patient details and its financial
+    category revised but not its services — so an X-ray recorded by mistake was
+    permanent, and the total with it. Revising the patient's name does not change the
+    price; this does, which is exactly why it goes through the same machinery as the
+    rest of a revision rather than quietly replacing the rows:
+
+      * the superseded figures are copied into taep_costing_revision first, because the
+        patient is holding a document with the old number on it;
+      * the costing number does not move — a corrected costing is the same costing;
+      * the revision counter goes up, so a reprint is visibly not what they already have;
+      * the status stays FINALISED. A correction is not an un-finalisation;
+      * a reason is required, and is the only record of why the figure changed.
+
+    Same ordering discipline as revise_finalised_episode, and for the same reason:
+    db_execute commits per call, so there is no transaction to lean on. Everything that
+    can refuse — the service mix, the pricing, the compulsory radiology charge — refuses
+    before the first write.
+    """
+    db = ctx["db_execute"]
+    now = dt.datetime.now()
+
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    if episode["status"] != "FINALISED":
+        raise CostingError("NOT_FINALISED",
+                           "Η αναθεώρηση αφορά μόνο οριστικοποιημένες κοστολογήσεις.")
+    if not (reason_el or "").strip():
+        raise CostingError(
+            "NO_REVISION_REASON",
+            "Η αιτιολογία της αναθεώρησης είναι υποχρεωτική. Ο ασθενής κρατά το "
+            "προηγούμενο έντυπο και η αιτιολογία είναι η μόνη καταγραφή του γιατί "
+            "άλλαξε.")
+
+    codes = check_service_mix(ctx, codes)
+    proposed = get_services(ctx, codes)
+    result = price_episode(ctx, episode_id,
+                           tariff_lines_for_episode(ctx, episode_id),
+                           services=proposed)
+
+    previous = get_calculation(ctx, episode_id)
+    revision = _as_int(episode["revision"]) or 1
+
+    if previous is not None:
+        columns = ["episode_id", "revision"] + list(REVISION_FIELDS) + \
+            ["reason_el", "superseded_by", "superseded_at"]
+        values = [episode_id, revision] + \
+            [previous.get(field) for field in REVISION_FIELDS] + \
+            [(reason_el or "").strip() or None, user_id, now]
+        db("INSERT INTO taep_costing_revision (%s) VALUES (%s)"
+           % (", ".join(columns), ", ".join(["%s"] * len(columns))), tuple(values))
+        db("DELETE FROM taep_costing_result WHERE episode_id=%s", (episode_id,))
+
+    db("DELETE FROM taep_episode_service WHERE episode_id=%s", (episode_id,))
+    _insert_many(db, "taep_episode_service",
+                 ["episode_id", "service_code", "added_by", "added_at"],
+                 [(episode_id, code, user_id, now) for code in codes])
+    db("""UPDATE taep_episode SET revision=%s, revised_at=%s, updated_by=%s,
+          updated_at=%s WHERE id=%s""",
+       (revision + 1, now, user_id, now, episode_id))
+
+    store_calculation(ctx, episode_id, result, user_id)
+    ctx["log_activity"](
+        "taep_episode", episode_id, "REVISED",
+        "Αναθεώρηση υπηρεσιών %d → %d, αριθμός %s, σύνολο %s → %s"
+        % (revision, revision + 1, episode["costing_number"],
+           previous["total_cost"] if previous else "—", result.total_cost))
+    return result
+
+
 def episode_revisions(ctx, episode_id):
     return ctx["db_execute"](
         "SELECT * FROM taep_costing_revision WHERE episode_id=%s ORDER BY revision",
         (episode_id,), fetch=True) or []
+
+
+def check_service_mix(ctx, codes):
+    """The «both kinds or neither» rule, on its own so it can refuse before any write.
+
+    Factored out on 05/11/2026 for the service revision, which has to know the
+    selection is acceptable and can be priced before it replaces a finalised one.
+    Returns the codes de-duplicated, in the order given.
+    """
+    db = ctx["db_execute"]
+    codes = list(dict.fromkeys(codes))
+    if not codes:
+        return codes
+    kinds = {row["service_type"] for row in db(
+        "SELECT service_type FROM taep_service WHERE code IN (%s)"
+        % ", ".join(["%s"] * len(codes)), tuple(codes), fetch=True) or []}
+    if INVESTIGATION not in kinds:
+        raise CostingError(
+            "MISSING_INVESTIGATION",
+            "Επιλέχθηκε θεραπεία χωρίς διαγνωστική παρέμβαση. Η βαρύτητα "
+            "προκύπτει από τις δύο μαζί: επιλέξτε τουλάχιστον μία διαγνωστική "
+            "παρέμβαση, ή καμία υπηρεσία καθόλου για χρέωση διαλογής.")
+    if TREATMENT not in kinds:
+        raise CostingError(
+            "MISSING_TREATMENT",
+            "Επιλέχθηκε διαγνωστική παρέμβαση χωρίς θεραπεία. Η βαρύτητα "
+            "προκύπτει από τις δύο μαζί: επιλέξτε τουλάχιστον μία θεραπεία, ή "
+            "καμία υπηρεσία καθόλου για χρέωση διαλογής.")
+    return codes
 
 
 def set_episode_services(ctx, episode_id, codes, user_id):
@@ -2043,23 +2151,7 @@ def set_episode_services(ctx, episode_id, codes, user_id):
     # selection — but it only bit on Υπολογισμός, by which point the clerk had saved
     # something the tool would not price. It bites on save now, where the mistake is
     # made. The algorithm keeps its own check: this is a second gate, not a move.
-    codes = list(dict.fromkeys(codes))
-    if codes:
-        kinds = {row["service_type"] for row in db(
-            "SELECT service_type FROM taep_service WHERE code IN (%s)"
-            % ", ".join(["%s"] * len(codes)), tuple(codes), fetch=True) or []}
-        if INVESTIGATION not in kinds:
-            raise CostingError(
-                "MISSING_INVESTIGATION",
-                "Επιλέχθηκε θεραπεία χωρίς διαγνωστική παρέμβαση. Η βαρύτητα "
-                "προκύπτει από τις δύο μαζί: επιλέξτε τουλάχιστον μία διαγνωστική "
-                "παρέμβαση, ή καμία υπηρεσία καθόλου για χρέωση διαλογής.")
-        if TREATMENT not in kinds:
-            raise CostingError(
-                "MISSING_TREATMENT",
-                "Επιλέχθηκε διαγνωστική παρέμβαση χωρίς θεραπεία. Η βαρύτητα "
-                "προκύπτει από τις δύο μαζί: επιλέξτε τουλάχιστον μία θεραπεία, ή "
-                "καμία υπηρεσία καθόλου για χρέωση διαλογής.")
+    codes = check_service_mix(ctx, codes)
 
     db("DELETE FROM taep_episode_service WHERE episode_id=%s", (episode_id,))
     _insert_many(db, "taep_episode_service",
@@ -4184,7 +4276,7 @@ def get_episode_tariff_lines(ctx, episode_id):
            ORDER BY l.id""", (episode_id,), fetch=True) or []
 
 
-def price_episode(ctx, episode_id, tariff_lines=(), episode=None):
+def price_episode(ctx, episode_id, tariff_lines=(), episode=None, services=None):
     """Calculate an episode from what is stored plus any tariff lines supplied.
 
     One place builds a CostingResult for an episode, so the costing screen, the
@@ -4193,6 +4285,9 @@ def price_episode(ctx, episode_id, tariff_lines=(), episode=None):
     `episode` prices a proposed version instead of the stored one, without writing it.
     revise_finalised_episode uses it to find out whether a correction can be priced
     *before* committing to it — see the note there.
+
+    `services` does the same for the service list, which is what a revision of the
+    services needs: the new total has to be known before the old one is replaced.
     """
     if episode is None:
         episode = get_episode(ctx, episode_id)
@@ -4204,7 +4299,8 @@ def price_episode(ctx, episode_id, tariff_lines=(), episode=None):
     category = get_category(ctx, episode["financial_category_id"])
     rates = rates_in_force(ctx, episode["financial_category_id"], on_date,
                            episode["entity_code"])
-    services = get_services(ctx, get_episode_service_codes(ctx, episode_id))
+    if services is None:
+        services = get_services(ctx, get_episode_service_codes(ctx, episode_id))
     return calculate(services, rates, tariff_lines,
                      financial_category_code=category["code_new"] if category else None,
                      service_date=on_date)
@@ -4701,6 +4797,26 @@ def register(app, ctx):
             flash(exc.message_el, "danger")
         return redirect(url_for("taep_costing", episode_id=episode_id))
 
+    @app.route("/taep/<int:episode_id>/revise-services", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["create"])
+    def taep_revise_services(episode_id):
+        """Change the services on a finalised costing. Needs a reason; keeps the number."""
+        episode = episode_or_404(episode_id)
+        if not may_edit(episode):
+            flash("Μπορείτε να τροποποιήσετε μόνο τις δικές σας κοστολογήσεις.",
+                  "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        try:
+            revise_finalised_services(
+                ctx, episode_id, request.form.getlist("service_code"), user_id(),
+                reason_el=request.form.get("revision_reason", ""))
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+            return redirect(url_for("taep_costing", episode_id=episode_id))
+        flash("Οι υπηρεσίες αναθεωρήθηκαν και το σύνολο υπολογίστηκε ξανά.", "success")
+        return redirect(url_for("taep_costing", episode_id=episode_id))
+
     @app.route("/taep/<int:episode_id>/calculate", methods=["POST"])
     @login_required
     @permission_required(PERMISSIONS["create"])
@@ -4711,6 +4827,17 @@ def register(app, ctx):
             return redirect(url_for("taep_costing", episode_id=episode_id))
         posted = _tariff_rows_from_form(request.form)
         try:
+            # The service selection arrives with this post, not from a separate button.
+            # Παναγιώτα Έλληνα, 05/11/2026: the old «Ενημέρωση υπηρεσιών» step was easy
+            # to miss, and missing it priced the episode as triage only — a valid number
+            # with nothing on screen to say the selection had never been saved.
+            #
+            # Guarded by services_posted, because an empty multiple-select sends
+            # nothing: without it, a post that is not about services at all would read
+            # as "the clerk cleared them".
+            if request.form.get("services_posted"):
+                set_episode_services(ctx, episode_id,
+                                     request.form.getlist("service_code"), user_id())
             lines = _tariff_lines_from_form(ctx, request.form)
             result = price_episode(ctx, episode_id, lines)
             store_calculation(ctx, episode_id, result, user_id())

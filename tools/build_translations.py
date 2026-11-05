@@ -190,6 +190,18 @@ EN = {
         "The system does not record settlements yet, so this does not prove a debt — "
         "confirm it with accounts.",
 
+    # Revising the services on a finalised costing (05/11/2026).
+    "Αναθεώρηση υπηρεσιών": "Revise services",
+    "π.χ. η ακτινογραφία καταχωρήθηκε εκ παραδρομής":
+        "e.g. the X-ray was recorded in error",
+    "Η κοστολόγηση είναι οριστικοποιημένη. Η αλλαγή κρατά τον ίδιο αριθμό, ανεβάζει την έκδοση και καταγράφει το προηγούμενο ποσό.":
+        "The costing is finalised. The change keeps the same number, raises the "
+        "revision and records the previous amount.",
+
+    # No separate «Ενημέρωση υπηρεσιών» step any more (05/11/2026).
+    "Η επιλογή αποθηκεύεται με το «Υπολογισμός». Δεν χρειάζεται ξεχωριστό βήμα.":
+        "The selection is saved with «Calculate». No separate step is needed.",
+
     # The examination is mandatory on a radiology charge (03/11/2026).
     "Επιλέξτε εξέταση — η χρέωση αυτή δεν έχει δική της τιμή.":
         "Choose an examination — this charge has no price of its own.",

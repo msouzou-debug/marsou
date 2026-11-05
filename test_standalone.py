@@ -98,7 +98,7 @@ def test_the_host_registers_every_screen(server):
     paths = {str(rule) for rule in server.url_map.iter_rules()}
     assert "/taep/nea" in paths and "/taep/list" in paths
     assert "/login" in paths and "/logout" in paths
-    assert len([p for p in paths if p.startswith("/taep")]) == 27
+    assert len([p for p in paths if p.startswith("/taep")]) == 28
 
 
 def test_the_master_data_is_seeded(server):

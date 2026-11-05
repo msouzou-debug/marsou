@@ -212,15 +212,32 @@
           </div>
           {% endif %}
         {% else %}
-        <form method="post"
-              action="{{ url_for('taep_set_services', episode_id=episode.id) }}">
+        {# Παναγιώτα Έλληνα, 05/11/2026: «το κουμπί ενημέρωση υπηρεσιών τι χρειάζεται?
+           Επειδή αν ο χρήστης δεν το πατήσει δεν καταχωρείται καμία υπηρεσία και η
+           κοστολόγηση οδηγεί μόνο σε διαλογή.»
+
+           She is right, and it was worse than an extra click: miss the button and
+           Υπολογισμός prices the episode as triage only — a valid number, quietly
+           wrong, with nothing on the screen to say the selection was never saved.
+
+           There is no separate step now. The two pickers belong to the calculation form
+           through form="calc-form", which HTML allows for a control that sits outside
+           it, so the selection and the charges are saved by the one button the clerk
+           was already pressing. No card had to be moved to do it. #}
+        {# On a finalised costing the selection is a revision, not a calculation: it
+           changes a figure the patient already holds, so it needs a reason and goes
+           through the revision machinery. The pickers therefore belong to a different
+           form depending on the status — a control can only belong to one. #}
+        {% set revising = episode.status == 'FINALISED' %}
+        {% set picker_form = 'revise-services-form' if revising else 'calc-form' %}
+        <div>
 
           {# UAT 21/10: the desk is secretarial. Search alone meant you had to know the
              term before you could look for it, so the whole catalogue is here, grouped
              by ΟΑΥ category. Select2 gives type-ahead over both languages. #}
           <label class="form-label" for="pick-treatments">
             <i class="bi bi-bandaid text-success"></i> {{ t('Θεραπείες') }}</label>
-          <select id="pick-treatments" name="service_code" multiple
+          <select id="pick-treatments" name="service_code" multiple form="{{ picker_form }}"
                   class="form-select select2-services" data-placeholder="{{ t('Αναζητήστε ή επιλέξτε θεραπεία…') }}">
             {% for category in [1, 2, 3, 4, 5] %}
               {% set group = catalogue[TREATMENT] | selectattr('category', 'equalto', category) | list %}
@@ -242,7 +259,7 @@
           <label class="form-label" for="pick-investigations">
             <i class="bi bi-clipboard-pulse text-primary"></i>
             {{ t('Διαγνωστικές Παρεμβάσεις') }}</label>
-          <select id="pick-investigations" name="service_code" multiple
+          <select id="pick-investigations" name="service_code" multiple form="{{ picker_form }}"
                   class="form-select select2-services" data-placeholder="{{ t('Αναζητήστε ή επιλέξτε εξέταση…') }}">
             {% for category in [1, 2, 3] %}
               {% set group = catalogue[INVESTIGATION] | selectattr('category', 'equalto', category) | list %}
@@ -267,9 +284,27 @@
               {{ t('Καμία υπηρεσία επιλεγμένη — η καταχώρηση χρεώνεται ως Διαλογή (Triage).') }}
             </div>
           {% endif %}
-          <button type="submit" class="btn btn-outline-primary btn-action">
-            <i class="bi bi-arrow-repeat"></i> {{ t('Ενημέρωση υπηρεσιών') }}</button>
-        </form>
+          {% if revising %}
+            <form method="post" id="revise-services-form"
+                  action="{{ url_for('taep_revise_services', episode_id=episode.id) }}">
+              <label class="form-label" for="revision_reason">
+                {{ t('Αιτιολογία αλλαγής') }} *</label>
+              <input id="revision_reason" name="revision_reason" class="form-control"
+                     required
+                     placeholder="{{ t('π.χ. η ακτινογραφία καταχωρήθηκε εκ παραδρομής') }}">
+              <div class="form-text mb-2">
+                {{ t('Η κοστολόγηση είναι οριστικοποιημένη. Η αλλαγή κρατά τον ίδιο αριθμό, ανεβάζει την έκδοση και καταγράφει το προηγούμενο ποσό.') }}
+              </div>
+              <button type="submit" class="btn btn-warning btn-action">
+                <i class="bi bi-arrow-repeat"></i>
+                {{ t('Αναθεώρηση υπηρεσιών') }}</button>
+            </form>
+          {% else %}
+            <div class="form-text">
+              {{ t('Η επιλογή αποθηκεύεται με το «Υπολογισμός». Δεν χρειάζεται ξεχωριστό βήμα.') }}
+            </div>
+          {% endif %}
+        </div>
         {% endif %}
       </div>
     </div>
@@ -291,8 +326,12 @@
           {{ category.code_new }} {{ category.name_el }}</span>
       </div>
       <div class="card-body">
+        {# Posted whenever the pickers are on the screen, so the route can tell «the
+           clerk cleared the selection» from «this post was not about services». An
+           empty multiple-select sends nothing at all. #}
         <form method="post" id="calc-form"
               action="{{ url_for('taep_calculate', episode_id=episode.id) }}">
+          <input type="hidden" name="services_posted" value="1">
           <div class="table-responsive">
             <table class="table table-sm align-middle mb-2" id="tariff-table">
               <thead>
