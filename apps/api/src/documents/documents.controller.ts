@@ -210,7 +210,9 @@ export class DocumentsController {
     response.setHeader("Content-Length", String(file.bytes.length));
     response.setHeader("Cache-Control", "private, max-age=300");
     response.setHeader("X-Content-Type-Options", "nosniff");
-    if (html) response.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
+    // The sandbox replaces the global policy (security-headers.middleware.ts),
+    // so it carries the framing rule itself.
+    if (html) response.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; frame-ancestors 'none'");
     return new StreamableFile(file.bytes);
   }
 

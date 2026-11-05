@@ -211,7 +211,7 @@ describe("proxy route — document content passthrough", () => {
         "content-disposition": "attachment; filename*=UTF-8''%CE%A3%CE%B7%CE%BC%CE%B5%CE%AF%CF%89%CF%83%CE%B7.html",
         "cache-control": "private, max-age=300",
         "x-content-type-options": "nosniff",
-        "content-security-policy": "sandbox; default-src 'none'",
+        "content-security-policy": "sandbox; default-src 'none'; frame-ancestors 'none'",
       },
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstream));
@@ -222,7 +222,7 @@ describe("proxy route — document content passthrough", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename\*=UTF-8''/);
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(res.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'");
+    expect(res.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'; frame-ancestors 'none'");
     expect(res.headers.get("cache-control")).toBe("private, max-age=300");
     expect(new TextDecoder().decode(await res.arrayBuffer())).toBe(html);
   });

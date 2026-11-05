@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Module } from "@nestjs/common";
+import { Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { LoggerModule } from "nestjs-pino";
 import { AdminUsersModule } from "./admin-users/admin-users.module";
@@ -12,6 +12,7 @@ import { BudgetCodesModule } from "./budget-codes/budget-codes.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { MutationInterceptor } from "./common/mutation.interceptor";
 import { RlsInterceptor } from "./common/rls.interceptor";
+import { SecurityHeadersMiddleware } from "./common/security-headers.middleware";
 import { CONFIG, type AppConfig } from "./config";
 import { ContractorsModule } from "./contractors/contractors.module";
 import { ContractsModule } from "./contracts/contracts.module";
@@ -104,4 +105,9 @@ import { SystemFeedsModule } from "./system-feeds/system-feeds.module";
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Every route, every answer, before any handler (security-headers.middleware.ts).
+    consumer.apply(SecurityHeadersMiddleware).forRoutes("*path");
+  }
+}

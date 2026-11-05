@@ -28,6 +28,19 @@ describe("GET /health", () => {
     expect(response.body.at).toMatch(/Z$/);
   });
 
+  it("carries the framing and sniffing headers, like every answer", async () => {
+    // Clickjacking finding of 05/11/2026 against the estate: an eCapital
+    // page must not load inside somebody else's frame.
+    const response = await request(app.getHttpServer()).get("/health");
+    expect(response.headers["x-frame-options"]).toBe("DENY");
+    expect(response.headers["content-security-policy"]).toBe("frame-ancestors 'none'");
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["referrer-policy"]).toBe("no-referrer");
+    const missing = await request(app.getHttpServer()).get("/no-such-route");
+    expect(missing.status).toBe(404);
+    expect(missing.headers["x-frame-options"]).toBe("DENY");
+  });
+
   it("says nothing about the data", async () => {
     const response = await request(app.getHttpServer()).get("/health");
     expect(Object.keys(response.body).sort()).toEqual(["at", "db", "lastMigrationId", "status"]);

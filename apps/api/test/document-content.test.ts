@@ -70,6 +70,8 @@ describe("a document's content", () => {
     );
     expect(response.headers["cache-control"]).toBe("private, max-age=300");
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("DENY");
+    expect(response.headers["content-security-policy"]).toBe("frame-ancestors 'none'");
 
     // The story says what the file is, so the screen can draw it.
     const detail = WorkOrderDetail.parse(
