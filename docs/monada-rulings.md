@@ -481,12 +481,27 @@ charges, where there is nothing the clerk could do.
 ever wanted. AED022 «Τομογραφία Ουροποιογεννητικού» is in neither — the tariff has no
 matching code for it, **which may be a gap in their price list worth asking about.**
 
-**One thing to put back to her.** The Μονάδα's own specimen service list, behind
-OKY1054/0035, includes AED005 with no radiology charge. The specimen is unaffected
-(category 624 carries no tariff charges), but if that same case were priced as self-pay
-it would now be blocked. So: on a self-pay case with an X-ray, does the charge always
-exist? If there are cases where an X-ray is taken and no charge applies, this blocker
-stops them, and we should hear it from her rather than from a clerk.
+**Asked and answered, 05/11/2026.** The question was whether a self-pay X-ray always
+carries a charge, since the blocker stops the episode when it does not. «No, there is no
+case where an X-ray is taken and no charge applies.» So the blocker is unconditionally
+right and nothing about it needs softening.
+
+Her answer has a consequence for what is already in the database. Anything finalised
+before 03/11 can carry AED005 without SHSO-ER3, and those costings were priced without
+the X-ray. Nothing on them shows it — the total is a valid number, just a smaller one
+than it should be. `tools/find_uncharged_xrays.py` reads them out of the live database,
+read-only:
+
+    sudo -u finance python3 /opt/finance/find_uncharged_xrays.py /opt/finance/finance.db
+
+It lists only episodes in categories that accept charges, so a 609 case with an X-ray is
+not reported as an error — there is no charge to add there. Each one it finds is the
+Μονάδα's to decide on, through the revision screen, one at a time and with a reason: a
+number a patient has already been given does not change silently.
+
+The specimen costing itself is unaffected. OKY1054/0035 is category 624, which carries
+no tariff charges, so the rule does not reach it — but its service list does include
+AED005, which is why acceptance scenario ΣΑ-25 had to stop reusing that list under 600.
 
 ### The service pickers trapped the clerk
 

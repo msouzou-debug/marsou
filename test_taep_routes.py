@@ -2076,3 +2076,50 @@ def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
     # widens it (03/11/2026: «only for that code AED005»).
     assert taep.RADIOLOGY_CHARGE_COMPULSORY == {"AED005"}
     assert taep.RADIOLOGY_CHARGE_COMPULSORY <= set(taep.RADIOLOGY_SERVICE_CHARGES)
+
+
+def test_the_finder_lists_an_xray_with_no_charge_and_not_one_with(client, app):
+    """Παναγιώτα Έλληνα, 05/11/2026: there is no case where an X-ray is taken and no
+    charge applies.
+
+    So the blocker added on 03/11 is unconditionally right — and anything finalised
+    BEFORE it could carry AED005 without SHSO-ER3. Those were priced without the X-ray,
+    and nothing shows it: the total is a valid number, just a smaller one than it should
+    be. tools/find_uncharged_xrays.py reads them out of the live database so the Μονάδα
+    can decide on each; it writes nothing.
+    """
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    from find_uncharged_xrays import QUERY
+
+    # Finalised before the rule existed: the service, no charge.
+    missing = create(client, app, code="600", episode_number="E-NO-CHARGE")
+    client.post("/taep/%d/services" % missing,
+                data={"service_code": ["AED005", "AET057"]})
+    client.post("/taep/%d/calculate" % missing, data={})
+    app.ctx["db_execute"]("UPDATE taep_episode SET status = 'FINALISED' WHERE id = %s",
+                          (missing,))
+
+    # And one done properly, which must not be listed.
+    charged = create(client, app, code="600", episode_number="E-CHARGED")
+    client.post("/taep/%d/services" % charged,
+                data={"service_code": ["AED005", "AET057"]})
+    exam = taep.list_radiology_tariff(app.ctx)[0]
+    client.post("/taep/%d/calculate" % charged, data={
+        "tariff_code": ["SHSO-ER3"], "tariff_price_type": ["tariff_lookup"],
+        "tariff_cpt": [exam["cpt_code"]], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+    client.post("/taep/%d/finalise" % charged)
+
+    # A third in a category that carries no charges at all: there is nothing to add, so
+    # it is not a billing error and must not be listed either.
+    exempt = create(client, app, code="609", episode_number="E-EXEMPT")
+    client.post("/taep/%d/services" % exempt,
+                data={"service_code": ["AED005", "AET057"]})
+    client.post("/taep/%d/calculate" % exempt, data={})
+
+    # Run through the module's own db_execute, so the test exercises the same query the
+    # tool runs rather than a copy of it.
+    found = app.ctx["db_execute"](QUERY, ("AED005", "SHSO-ER3"), fetch=True)
+    assert [r["episode_number"] for r in found] == ["E-NO-CHARGE"]
