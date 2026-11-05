@@ -18,6 +18,14 @@ def create_app(settings):
     app = Flask(__name__)
     app.secret_key = settings["server"]["secret_key"]
 
+    @app.after_request
+    def frame_protection(resp):
+        # Clickjacking (pentest 11/2026): only this origin may put a page of ours in a frame.
+        # X-Frame-Options is for older browsers; current ones follow frame-ancestors.
+        resp.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        return resp
+
     def conn():
         if "db" not in g:
             g.db = db.connect(settings)
