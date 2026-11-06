@@ -137,7 +137,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
 <header>
   <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="ΟΚΥπΥ / SHSO">
   <div class="titles">
-    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.7</span>
+    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.8</span>
     <div class="sub" data-i18n="subtitle">Όλα τα νοσοκομεία και τα Κεντρικά Γραφεία σε μία εικόνα — τα δεδομένα δεν φεύγουν από τον υπολογιστή σας</div>
   </div>
   <div class="langswitch" role="group" aria-label="Language">
@@ -198,13 +198,13 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.7</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.8</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>__XLSX_LIB__</script>
 <script>
 /* ================= i18n ================= */
-const APP_VERSION='1.7'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
+const APP_VERSION='1.8'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
 document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('verBadge');if(b)b.textContent='v'+APP_VERSION;});
 const I18N={
  el:{
@@ -339,7 +339,7 @@ function normKey(s){
 }
 /* ================= entity registry ================= */
 let ENTITIES=[
- 'Κεντρικά Γραφεία / Head Office',
+ 'Κεντρικά Γραφεία / Head Office (1000)',
  'ΓΝ Λευκωσίας / Nicosia GH',
  'ΓΝ Λεμεσού / Limassol GH (1030)',
  'ΓΝ Λάρνακας / Larnaca GH',
