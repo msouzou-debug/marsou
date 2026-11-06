@@ -35,6 +35,7 @@ export file name (`…_v3.20.xlsx`) and into progress/profile files
 
 | Version | Date | Change |
 |---|---|---|
+| v1.9 | 2026-11-06 | Registry: company codes for all hospitals and Head Office — 1000 HO, 1010 Nicosia, 1021 Makarios III, 1030 Limassol, 1032 Troodos, 1040 Larnaca, 1050 Pafos, 1060 Ammochostos (codes supplied by the user). |
 | v1.8 | 2026-11-06 | Registry: Head Office carries company code 1000 (from the GL 122105 benchmark); codes known so far: 1000 HO, 1021 Makarios III, 1030 Limassol, 1032 Troodos — the rest to be entered once in the register. |
 | v1.7 | 2026-11-06 | Default-settings check: a file whose SAP «Company Code» column carries one value gets its «Books» entity pre-filled from the registry (names may end in the company codes, e.g. «ΓΝ Λεμεσού / Limassol GH (1030)»); card shows the code. |
 | v1.6 | 2026-11-06 | Version stamping (badge, documentation row, export file name, progress file). |
