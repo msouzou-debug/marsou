@@ -244,6 +244,18 @@ const ASSIGN = `
     JSON.stringify(r.matched[2]) === JSON.stringify(['D3', 'HDR GAMMA', 'HDR GAMMA B']), r.matched);
   await page.close();
 
+  /* ============ v1.7: Books pre-filled from the SAP Company Code column ============ */
+  page = await browser.newPage();
+  await page.goto(APP);
+  await page.setInputFiles('#fileAdd', [S('mx_cc_lim.csv')]);
+  await page.waitForFunction(() => FILES.length === 1 && FILES[0].rows);
+  r = await page.evaluate(() => ({ ccode: FILES[0].ccode, entity: FILES[0].entity, label: entLabel(FILES[0].entity), amt: FILES[0].map.amt, cr: FILES[0].map.cr,
+    balance: FILES[0].balance, meta: document.querySelector('#cards .meta').textContent, codes: ENTITIES.filter(n => entCodes(n).length).map(n => [entLabel(n), entCodes(n)]) }));
+  console.log('CCODE:', JSON.stringify(r));
+  check('a single-valued Company Code column assigns the entity whose registry name carries that code; the label hides the code',
+    r.ccode === '1030' && /Λεμεσού/.test(r.entity) && r.label === 'ΓΝ Λεμεσού' && /1030 ✓/.test(r.meta) && r.balance === -300 && r.cr === 'Credit Amount in local currency', r);
+  await page.close();
+
   await browser.close();
   console.log(failures ? 'IC TESTS FAILED: ' + failures : 'IC TESTS PASSED');
   process.exit(failures ? 1 : 0);

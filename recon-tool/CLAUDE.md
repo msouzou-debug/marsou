@@ -10,7 +10,7 @@ All data stays on the local machine. TWO tools share this repo:
    Current version: **v3.20**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.6**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.7**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -714,7 +714,20 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.6)
+## IC Matrix Tool (src/ic_template.html, v1.7)
+
+- Untouched-defaults check (v1.7): loading files and pressing Run with
+  nothing filled in stops with `needEnt` BY DESIGN — nothing in a ledger
+  says whose books it is except SAP's 'Company Code' column. v1.7: registry
+  names may end in '(codes)' (`entCodes`, `entByCode`; `entLabel` strips
+  them); `guessF` finds a single-valued 'Company Code' / BUKRS / 'κωδ.
+  εταιρείας' column, stores `f.ccode`, pre-fills `f.entity` from the
+  registry and the card meta shows 'Κωδ. εταιρείας 1030 ✓'. Codes known
+  from real files: 1030 Limassol, 1032 Troodos, 1021 Makarios III (added
+  to the registry); the others are for the user to add (saved in the
+  progress file). 'Versus' still has to be chosen (or 'Multiple
+  counterparties' with the account column). Column guessing, balances
+  and the matrix itself are right with defaults (test_ic).
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,

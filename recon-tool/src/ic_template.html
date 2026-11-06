@@ -137,7 +137,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
 <header>
   <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="ΟΚΥπΥ / SHSO">
   <div class="titles">
-    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.6</span>
+    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.7</span>
     <div class="sub" data-i18n="subtitle">Όλα τα νοσοκομεία και τα Κεντρικά Γραφεία σε μία εικόνα — τα δεδομένα δεν φεύγουν από τον υπολογιστή σας</div>
   </div>
   <div class="langswitch" role="group" aria-label="Language">
@@ -169,7 +169,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
     <details class="reg">
       <summary data-i18n="regT">Μητρωο οντοτητων</summary>
       <div class="reg-in">
-        <p class="hint" data-i18n="regHint">Ονόματα με τη μορφή «Ελληνικά / English». Προσθέστε ή διορθώστε — αποθηκεύονται στο αρχείο προόδου.</p>
+        <p class="hint" data-i18n="regHint">Ονόματα με τη μορφή «Ελληνικά / English (κωδικοί εταιρείας SAP)». Ένα αρχείο με στήλη Company Code παίρνει αυτόματα τα «Βιβλία» της οντότητας που φέρει τον κωδικό. Προσθέστε ή διορθώστε — αποθηκεύονται στο αρχείο προόδου.</p>
         <div id="regList"></div>
         <button class="ghostbtn" onclick="ENTITIES.push('');renderRegistry()" data-i18n="regAdd">+ Προσθήκη οντότητας</button>
       </div>
@@ -198,13 +198,13 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.6</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.7</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>__XLSX_LIB__</script>
 <script>
 /* ================= i18n ================= */
-const APP_VERSION='1.6'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
+const APP_VERSION='1.7'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
 document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('verBadge');if(b)b.textContent='v'+APP_VERSION;});
 const I18N={
  el:{
@@ -213,14 +213,14 @@ const I18N={
   s1e:"Βημα 1", s1t:"Αρχεία ενδοομιλικών καθολικών",
   s1hint:"Φορτώστε ένα αρχείο για κάθε σχέση: το καθολικό που τηρεί η οντότητα X για την οντότητα Y (π.χ. τον λογαριασμό 122113 των Κεντρικών Γραφείων για τη Λεμεσό) και το αντίστροφο. Σε κάθε κάρτα δηλώστε τίνος είναι τα βιβλία και ποιον αντισυμβαλλόμενο αφορούν.",
   dzT:"Προσθήκη αρχείων — πατήστε ή σύρετέ τα εδώ", dzS:".xlsx, .xls ή .csv · όσα αρχεία θέλετε μαζί",
-  regT:"Μητρωο οντοτητων", regHint:"Ονόματα με τη μορφή «Ελληνικά / English». Προσθέστε ή διορθώστε — αποθηκεύονται στο αρχείο προόδου.", regAdd:"+ Προσθήκη οντότητας",
+  regT:"Μητρωο οντοτητων", regHint:"Ονόματα με τη μορφή «Ελληνικά / English (κωδικοί εταιρείας SAP)». Ένα αρχείο με στήλη Company Code παίρνει αυτόματα τα «Βιβλία» της οντότητας που φέρει τον κωδικό. Προσθέστε ή διορθώστε — αποθηκεύονται στο αρχείο προόδου.", regAdd:"+ Προσθήκη οντότητας",
   tolL:"Όριο ανοχής (€)", daysL:"Παράθυρο ± ημερών (γραμμές χωρίς κλειδί)", mirrorL:"Κατοπτρικά πρόσημα (η απαίτηση της μίας πλευράς είναι υποχρέωση της άλλης)",
   prepL:"Συντάκτης", run:"Κατάρτιση πίνακα",
   s2e:"Βημα 2", s2t:"Ο πίνακας του Οργανισμού",
   mxHint:"Η διαφορά κάθε ζεύγους αναλύεται αυτόματα σε εκκρεμείς εγγραφές. Πράσινο ✓: όλες οι εκκρεμότητες έχουν χαρακτηριστεί — η συμφωνία είναι πλήρης. Κόκκινο: απομένουν αχαρακτήριστες εκκρεμότητες — πατήστε το κελί για να τις χαρακτηρίσετε. Γκρίζο: λείπει το αρχείο της άλλης πλευράς.",
   exportX:"Εξαγωγή Excel", ftnote:"ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v"+APP_VERSION,
   entL:"Βιβλία", cpL:"Έναντι", amtL:"Στήλη ποσού", crL:"Στήλη πίστωσης (−)", dateL:"Ημερομηνία", descL:"Περιγραφή",
-  sheetL:"Φύλλο", hdrL:"Γραμμή τίτλων", rows:"γραμμές", none:"—", balL:"Καθαρό υπόλοιπο",
+  ccodeL:"Κωδ. εταιρείας", sheetL:"Φύλλο", hdrL:"Γραμμή τίτλων", rows:"γραμμές", none:"—", balL:"Καθαρό υπόλοιπο",
   cpMulti:"Πολλοί αντισυμβαλλόμενοι…", cpColL:"Στήλη αντισυμβαλλομένου", mapT:"Αντιστοίχιση τιμών σε οντότητες",
   mappedN:"{n} αντιστοιχισμένοι αντισυμβαλλόμενοι", manyVals:"{n} διαφορετικές τιμές — εμφανίζονται οι 40 συχνότερες.",
   unmappedN:"«{f}»: {n} γραμμές χωρίς αντιστοιχισμένο αντισυμβαλλόμενο δεν συμπεριλήφθηκαν.",
@@ -252,14 +252,14 @@ const I18N={
   s1e:"Step 1", s1t:"Intercompany ledger files",
   s1hint:"Load one file per relationship: entity X's ledger about entity Y (e.g. Head Office's 122113 about Limassol) and the reverse. On each card, state whose books they are and whom they concern.",
   dzT:"Add files — click or drag here", dzS:".xlsx, .xls or .csv · as many at once as you like",
-  regT:"Entity register", regHint:"Names in the form “Greek / English”. Add or correct — they are kept in the progress file.", regAdd:"+ Add entity",
+  regT:"Entity register", regHint:"Names in the form “Greek / English (SAP company codes)”. A file with a Company Code column gets the matching entity as its “Books” automatically. Add or correct — they are kept in the progress file.", regAdd:"+ Add entity",
   tolL:"Tolerance (€)", daysL:"± day window (keyless lines)", mirrorL:"Mirrored signs (X's receivable is Y's payable)",
   prepL:"Preparer", run:"Build the matrix",
   s2e:"Step 2", s2t:"The organisation's matrix",
   mxHint:"Each pair's difference is automatically broken down into open items. Green ✓: every open item has been categorised — the reconciliation is complete. Red: uncategorised items remain — click the cell to categorise them. Grey: the counterparty file is missing.",
   exportX:"Export Excel", ftnote:"OKYπY / SHSO — Intercompany Matrix · v"+APP_VERSION,
   entL:"Books", cpL:"Versus", amtL:"Amount column", crL:"Credit column (−)", dateL:"Date", descL:"Description",
-  sheetL:"Sheet", hdrL:"Header row", rows:"rows", none:"—", balL:"Net balance",
+  ccodeL:"Company code", sheetL:"Sheet", hdrL:"Header row", rows:"rows", none:"—", balL:"Net balance",
   cpMulti:"Multiple counterparties…", cpColL:"Counterparty column", mapT:"Map values to entities",
   mappedN:"{n} counterparties mapped", manyVals:"{n} distinct values — showing the 40 most frequent.",
   unmappedN:"“{f}”: {n} rows with no mapped counterparty were left out.",
@@ -341,17 +341,23 @@ function normKey(s){
 let ENTITIES=[
  'Κεντρικά Γραφεία / Head Office',
  'ΓΝ Λευκωσίας / Nicosia GH',
- 'ΓΝ Λεμεσού / Limassol GH',
+ 'ΓΝ Λεμεσού / Limassol GH (1030)',
  'ΓΝ Λάρνακας / Larnaca GH',
  'ΓΝ Πάφου / Pafos GH',
  'ΓΝ Αμμοχώστου / Ammochostos GH',
- 'Νοσοκομείο Τροόδους / Troodos Hospital',
+ 'Νοσοκομείο Τροόδους / Troodos Hospital (1032)',
+ 'Μακάρειο Νοσοκομείο / Makarios III Hospital (1021)',
  'Κέντρα Υγείας / Health Centres'
 ];
+/* registry names may end in the SAP company codes they answer to:
+   'ΓΝ Λεμεσού / Limassol GH (1030)' — the label hides the codes, a file whose
+   'Company Code' column carries one is assigned its books automatically */
+function entCodes(name){const m=String(name).match(/\(([^()]*)\)\s*$/);return m?m[1].split(/[,\s]+/).filter(Boolean):[];}
 function entLabel(name){
-  const p=String(name).split(' / ');
+  const p=String(name).replace(/\s*\([^()]*\)\s*$/,'').split(' / ');
   return (LANG==='el'?p[0]:(p[1]||p[0]))||name;
 }
+function entByCode(code){return ENTITIES.filter(Boolean).find(n=>entCodes(n).includes(String(code).trim()))||'';}
 function renderRegistry(){
   const el=document.getElementById('regList');
   el.innerHTML=ENTITIES.map((n,i)=>
@@ -444,6 +450,14 @@ function guessF(f){
   let dsi=lower.findIndex((c,i)=>!used.has(i)&&DESC_HINTS.includes(c));
   if(dsi<0)dsi=lower.findIndex((c,i)=>!used.has(i)&&DESC_HINTS.some(h=>c.includes(h)));
   if(dsi>=0)f.map.desc=f.cols[dsi];
+  // SAP exports carry the entity's own company code on every line: a
+  // single-valued 'Company Code' column names whose books these are
+  const cci=lower.findIndex(c=>/company code|bukrs|κωδ(ικός)? εταιρ/.test(c));
+  f.ccode='';
+  if(cci>=0){
+    const vals=new Set(f.rows.map(r=>r[f.cols[cci]]).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim()));
+    if(vals.size===1){f.ccode=[...vals][0]; if(!f.entity){const e=entByCode(f.ccode); if(e)f.entity=e;}}
+  }
 }
 function netA(r,m){
   const d=parseAmount(r[m.amt]), c=m.cr?parseAmount(r[m.cr]):null;
@@ -534,7 +548,7 @@ function renderCards(){
     return '<div class="fcard'+(ready?' ready':'')+'" id="card'+f.id+'">'+
     '<button class="rm" onclick="removeFile(\''+f.id+'\')" title="✕">✕</button>'+
     '<div class="fname">'+esc(f.name)+'</div>'+
-    (f.rows?'<div class="meta">'+f.rows.length+' '+t('rows')+(f.footer.n?' · '+t('xFooter')+': '+f.footer.n:'')+(multi&&mappedN?' · '+t('mappedN').replace('{n}',mappedN):'')+'</div>':'<div class="meta">…</div>')+
+    (f.rows?'<div class="meta">'+f.rows.length+' '+t('rows')+(f.ccode?' · '+t('ccodeL')+' '+esc(f.ccode)+(f.entity&&entCodes(f.entity).includes(f.ccode)?' ✓':''):'')+(f.footer.n?' · '+t('xFooter')+': '+f.footer.n:'')+(multi&&mappedN?' · '+t('mappedN').replace('{n}',mappedN):'')+'</div>':'<div class="meta">…</div>')+
     '<div class="entrow">'+
       '<div><label>'+t('entL')+'</label><select id="ent'+f.id+'" onchange="FILES.find(x=>x.id===\''+f.id+'\').entity=this.value;renderCards()">'+entOptions(f.entity)+'</select></div>'+
       '<div><label>'+t('cpL')+'</label><select id="cp'+f.id+'" onchange="setCp(\''+f.id+'\',this.value)">'+

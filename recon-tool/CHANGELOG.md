@@ -35,6 +35,7 @@ export file name (`…_v3.20.xlsx`) and into progress/profile files
 
 | Version | Date | Change |
 |---|---|---|
+| v1.7 | 2026-11-06 | Default-settings check: a file whose SAP «Company Code» column carries one value gets its «Books» entity pre-filled from the registry (names may end in the company codes, e.g. «ΓΝ Λεμεσού / Limassol GH (1030)»); card shows the code. |
 | v1.6 | 2026-11-06 | Version stamping (badge, documentation row, export file name, progress file). |
 | v1.5 | 2026-10-16 | Header auto-detect prefers the first row with four or more text cells. |
 | v1.4 | 2026-10 | Description fallback chain in exports. |
