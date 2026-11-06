@@ -19,7 +19,7 @@
   <button class="tab active" data-tab="FA">1. Φάρμακα (ΦΑ)</button>
   <button class="tab" data-tab="TPA">2. Αναλώσιμα (ΤΠΑ)</button>
   <button class="tab" data-tab="SRV">3. Υπηρεσίες (ΤΑ / INV)</button>
-  <button class="tab" data-tab="OAY">4. ΟΑΥ (ΤΑΕΠ / ΥΓΟΣ / ΥΑ)</button>
+  <button class="tab" data-tab="OAY">4. Μηνιαία (ΟΑΥ / ΥΔΕΙΑ)</button>
   <button class="tab" data-tab="REG">5. Μητρώο και SAP <span id="regCount" class="badge">0</span></button>
   <button class="tab" data-tab="SET">6. Ρυθμίσεις</button>
   <button class="tab" data-tab="HELP">Οδηγίες</button>
@@ -65,6 +65,7 @@
     <div class="row-actions">
       <button class="btn ghost" id="SRV-blank-TA">+ Κενό ΤΑ (Τράπεζα Αίματος)</button>
       <button class="btn ghost" id="SRV-blank-INV">+ Κενό INV (Κέντρο Αίματος)</button>
+      <button class="btn" id="SRV-free">+ Ελεύθερο τιμολόγιο</button>
     </div>
     <div id="SRV-status" class="status"></div>
   </div>
@@ -77,7 +78,7 @@
 <!-- ===== ΟΑΥ ===== -->
 <section class="panel" id="tab-OAY">
   <div class="card">
-    <h2>Τιμολόγια προς ΟΑΥ</h2>
+    <h2>Μηνιαία τιμολόγια</h2>
     <p class="hint">Επιλέξτε τον μήνα χρέωσης. Ο αριθμός και η ημερομηνία (τέλος μήνα) συμπληρώνονται αυτόματα και αλλάζουν αν χρειαστεί.</p>
     <div class="filters"><label>Μήνας χρέωσης <input type="month" id="OAY-month"></label></div>
   </div>
@@ -96,6 +97,15 @@
       <button class="btn primary" id="OAY-ya">+ Τιμολόγιο ΥΑ για τον μήνα</button>
     </div>
   </div>
+  <div class="card">
+    <h3>ΥΔΕΙΑ: διαχείριση επικίνδυνων ιατρικών αποβλήτων (Υπουργείο Υγείας)</h3>
+    <p class="hint">Ποσότητα και ποσό από την επιστολή για τον μήνα. Η τιμή μονάδας (συμπ. ΦΠΑ) βγαίνει ποσό / ποσότητα.</p>
+    <div class="filters">
+      <label>Ποσότητα (Lt)<input id="YD-qty" inputmode="decimal" placeholder="π.χ. 3.172"></label>
+      <label>Ποσό € (συμπ. ΦΠΑ)<input id="YD-amt" inputmode="decimal" placeholder="π.χ. 4.639,37"></label>
+      <button class="btn primary" id="YD-add">+ Τιμολόγιο ΥΔΕΙΑ για τον μήνα</button>
+    </div>
+  </div>
   <div class="card" id="OAY-list-card" hidden>
     <h3>Τιμολόγια προς έκδοση</h3>
     <div id="OAY-list"></div>
@@ -109,7 +119,7 @@
     <p class="hint">Εδώ μπαίνει κάθε τιμολόγιο που πατήσατε «Έκδοση». Επιλέξτε ποια θα περάσουν στο SAP και κατεβάστε το Excel. Το μητρώο αποθηκεύεται μόνο σε αυτόν τον browser, γι' αυτό κρατάτε αντίγραφο με «Αντίγραφο ασφαλείας».</p>
     <div class="filters">
       <label>Μήνας καταχώρησης <input type="month" id="REG-month"></label>
-      <label>Τύπος <select id="REG-type"><option value="">Όλοι</option><option>ΦΑ</option><option>ΤΠΑ</option><option>ΤΑ</option><option>INV</option><option>ΤΑΕΠ</option><option>ΥΓΟΣ</option><option>YA</option></select></label>
+      <label>Τύπος <select id="REG-type"><option value="">Όλοι</option><option>ΦΑ</option><option>ΤΠΑ</option><option>ΤΑ</option><option>INV</option><option>ΤΑΕΠ</option><option>ΥΓΟΣ</option><option>YA</option><option>ΥΔΕΙΑ</option></select></label>
       <label class="chk"><input type="checkbox" id="REG-unexported"> Μόνο όσα δεν πέρασαν στο SAP</label>
     </div>
     <div id="REG-table"></div>
@@ -161,6 +171,8 @@
       <li><b>Αναλώσιμα (ΤΠΑ):</b> ανεβάζετε το αρχείο που σας στέλνουν. Αν δεν αναγνωριστούν οι στήλες, τις επιλέγετε μία φορά. Οι γραμμές διορθώνονται μέσα στον πίνακα.</li>
       <li><b>Υπηρεσίες:</b> ανεβάζετε το PDF της One Point. Τράπεζα Αίματος → «ΙΑΤΡΙΚΕΣ ΥΠΗΡΕΣΙΕΣ (για Τράπεζα Αίματος)» με αρχικά ΤΑ. Κέντρο Αίματος → «ΥΠΟΥΡΓΕΙΟ ΥΓΕΙΑΣ (για Κέντρο Αίματος)» με αρχικά INV.</li>
       <li><b>ΟΑΥ:</b> ΤΑΕΠ από το αρχείο «OKYPY ALL and A&amp;E» (ποσό = G6, κατανομή στα νοσηλευτήρια με βάση τις απαιτήσεις, τα λεπτά στρογγυλοποίησης πάνε στο μεγαλύτερο). ΥΓΟΣ και ΥΑ με ένα κλικ για τον μήνα. Αριθμός και ημερομηνία (τέλος μήνα) συμπληρώνονται αυτόματα.</li>
+      <li><b>ΥΔΕΙΑ:</b> στην καρτέλα «Μηνιαία» γράφετε ποσότητα και ποσό από την επιστολή. Η τιμή μονάδας βγαίνει ποσό / ποσότητα. Αριθμός ΥΔΕΙΑ mm-yyyy και περίοδος από τον μήνα.</li>
+      <li><b>Ελεύθερο τιμολόγιο:</b> στην καρτέλα «Υπηρεσίες». Διαλέγετε αρχικά (π.χ. INV), τίτλο, πελάτη από τη λίστα ή γράφετε επωνυμία, και περιγραφή, ποσότητα και τιμή ανά γραμμή.</li>
       <li><b>Μητρώο και SAP:</b> επιλέγετε τα τιμολόγια του μήνα και κατεβάζετε το Excel για ανέβασμα στο SAP. Το Excel έχει καρτέλα «Έλεγχος» με ζωντανούς τύπους που συμφωνούν το SAP με τα τιμολόγια.</li>
     </ol>
     <h3>Κανόνες που εφαρμόζει το εργαλείο</h3>
