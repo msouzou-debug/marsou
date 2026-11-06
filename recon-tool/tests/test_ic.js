@@ -250,10 +250,30 @@ const ASSIGN = `
   await page.setInputFiles('#fileAdd', [S('mx_cc_lim.csv')]);
   await page.waitForFunction(() => FILES.length === 1 && FILES[0].rows);
   r = await page.evaluate(() => ({ ccode: FILES[0].ccode, entity: FILES[0].entity, label: entLabel(FILES[0].entity), amt: FILES[0].map.amt, cr: FILES[0].map.cr,
-    balance: FILES[0].balance, meta: document.querySelector('#cards .meta').textContent, codes: ENTITIES.filter(n => entCodes(n).length).map(n => [entLabel(n), entCodes(n)]) }));
+    balance: FILES[0].balance, meta: document.querySelector('#cards .meta').textContent, codes: ENTITIES.filter(n => entCodes(n).length).map(n => [entLabel(n), entCodes(n)]),
+    cp: FILES[0].cp, cpMode: FILES[0].cpMode }));
   console.log('CCODE:', JSON.stringify(r));
   check('a single-valued Company Code column assigns the entity whose registry name carries that code; the label hides the code',
     r.ccode === '1030' && /Λεμεσού/.test(r.entity) && r.label === 'ΓΝ Λεμεσού' && /1030 ✓/.test(r.meta) && r.balance === -300 && r.cr === 'Credit Amount in local currency', r);
+  check('v1.10: every registry entity carries its SAP company code (12 codes from the chart of accounts)', r.codes.length === 12 && r.codes.every(c => c[1].length === 1), r.codes);
+  check('v1.10: account 122113 in Limassol\'s books fills in Head Office as the counterparty', r.cpMode === 'one' && /Head Office/.test(r.cp), r);
+  await page.close();
+
+  /* ============ v1.10: HO books with several 1221xx accounts → multiple counterparties, mapped ============ */
+  page = await browser.newPage();
+  await page.goto(APP);
+  await page.setInputFiles('#fileAdd', [S('mx_cc_ho.csv'), S('mx_cc_lim.csv')]);
+  await page.waitForFunction(() => FILES.length === 2 && FILES.every(f => f.rows));
+  r = await page.evaluate(() => { const ho = FILES.find(f => /cc_ho/.test(f.name)); return { entity: entLabel(ho.entity), cpMode: ho.cpMode, cpCol: ho.cpCol, cpMap: Object.fromEntries(Object.entries(ho.cpMap || {}).map(([k, v]) => [k, entLabel(v)])) }; });
+  console.log('CCMULTI:', JSON.stringify(r));
+  check('HO file: Books = Head Office, Versus = multiple counterparties split by Account, 122105→Limassol and 122104→Larnaca mapped, 122109 (MOH) left out',
+    r.entity === 'Κεντρικά Γραφεία' && r.cpMode === 'multi' && r.cpCol === 'Account' && JSON.stringify(r.cpMap) === JSON.stringify({ '122105': 'ΓΝ Λεμεσού', '122104': 'ΓΝ Λάρνακας' }), r);
+  await page.evaluate(() => runMatrix());
+  await page.waitForSelector('#stepMx:not(.hidden)');
+  r = await page.evaluate(() => ({ pairs: MATRIX.pairs.map(p => [entLabel(p.entX), entLabel(p.entY), +p.raw.toFixed(2), p.matchedN]), singles: MATRIX.singles.map(f => f.name), note: document.getElementById('runInfo').textContent }));
+  console.log('CCRUN:', JSON.stringify(r));
+  check('with nothing touched the two files reconcile: HO⇄Limassol pair matched (300 vs −300), HO⇄Larnaca single-sided, one unmapped MOH row reported',
+    r.pairs.some(p => p[0] === 'Κεντρικά Γραφεία' && p[1] === 'ΓΝ Λεμεσού' && p[2] === 0 && p[3] === 2) && r.singles.length === 1 && /1/.test(r.note), r);
   await page.close();
 
   await browser.close();

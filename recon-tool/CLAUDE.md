@@ -10,7 +10,7 @@ All data stays on the local machine. TWO tools share this repo:
    Current version: **v3.20**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.9**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.10**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -714,7 +714,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.9)
+## IC Matrix Tool (src/ic_template.html, v1.10)
 
 - Untouched-defaults check (v1.7): loading files and pressing Run with
   nothing filled in stops with `needEnt` BY DESIGN — nothing in a ledger
@@ -723,13 +723,23 @@ Expected values:
   them); `guessF` finds a single-valued 'Company Code' / BUKRS / 'κωδ.
   εταιρείας' column, stores `f.ccode`, pre-fills `f.entity` from the
   registry and the card meta shows 'Κωδ. εταιρείας 1030 ✓'. Codes known
-  from real files: 1000 Head Office (GL 122105 benchmark), 1030 Limassol,
-  1032 Troodos, 1021 Makarios III (added to the registry); supplied by
-  the user (v1.9): 1010 Nicosia GH, 1040 Larnaca, 1050 Pafos, 1060
-  Ammochostos. Full registry: 1000 HO, 1010 Nicosia, 1021 Makarios III,
-  1030 Limassol, 1032 Troodos, 1040 Larnaca, 1050 Pafos, 1060 Ammochostos;
-  Health Centres have no code yet. Never invent a code; the register is
-  editable and saved in the progress file. 'Versus' still has to be chosen (or 'Multiple
+  the SAP Chart of Accounts the user supplied (v1.10, sheet 'Company
+  Codes' — AUTHORITATIVE; the user had quoted 1010/1050/1060 from memory
+  for Nicosia/Pafos/Ammochostos, the chart says 1020/1031/1041):
+  1000 Κεντρική Διοίκηση, 1001 ΥΠΑΣ (ambulance), 1002 ΔΠΦΥ (primary
+  care = Health Centres), 1003 ΔΥΨΥ (mental health), 1020 ΓΝ Λευκωσίας,
+  1021 ΝΑΜ ΙΙΙ (Makarios III), 1030 ΓΝ Λεμεσού, 1031 ΓΝ Πάφου, 1032 Ν
+  Τροόδους, 1033 Ν Πόλης Χρυσοχούς, 1040 ΓΝ Λάρνακας, 1041 ΓΝ Αμμοχώστου.
+  ENTITIES order is load-bearing for test_ic ([0] HO, [2] Limassol, [3]
+  Larnaca, [4] Pafos) — append, never reorder. `IC_ACCOUNT_CP` maps the
+  1221xx intercompany GL accounts to counterparty codes (same in every
+  entity's books: 122113 = HO, 122105 = Limassol …; 122109 MOH pharma is
+  outside the group). `guessF` uses an 'Account' / 'G/L Account' /
+  'Λογαριασμός' / HKONT column: one mapped value → `cp`, several →
+  `cpMode='multi'`, `cpCol`, `cpMap`; `guessEnt` resolves account numbers
+  first. Fixtures mx_cc_lim (1030, account 122113) and mx_cc_ho (1000,
+  accounts 122105/122104/122109) cover it: the two load and reconcile
+  with nothing touched. 'Versus' still has to be chosen (or 'Multiple
   counterparties' with the account column). Column guessing, balances
   and the matrix itself are right with defaults (test_ic).
 

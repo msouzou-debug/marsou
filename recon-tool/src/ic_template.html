@@ -137,7 +137,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
 <header>
   <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="ΟΚΥπΥ / SHSO">
   <div class="titles">
-    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.9</span>
+    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.10</span>
     <div class="sub" data-i18n="subtitle">Όλα τα νοσοκομεία και τα Κεντρικά Γραφεία σε μία εικόνα — τα δεδομένα δεν φεύγουν από τον υπολογιστή σας</div>
   </div>
   <div class="langswitch" role="group" aria-label="Language">
@@ -198,13 +198,13 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.9</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.10</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>__XLSX_LIB__</script>
 <script>
 /* ================= i18n ================= */
-const APP_VERSION='1.9'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
+const APP_VERSION='1.10'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
 document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('verBadge');if(b)b.textContent='v'+APP_VERSION;});
 const I18N={
  el:{
@@ -340,15 +340,25 @@ function normKey(s){
 /* ================= entity registry ================= */
 let ENTITIES=[
  'Κεντρικά Γραφεία / Head Office (1000)',
- 'ΓΝ Λευκωσίας / Nicosia GH (1010)',
+ 'ΓΝ Λευκωσίας / Nicosia GH (1020)',
  'ΓΝ Λεμεσού / Limassol GH (1030)',
  'ΓΝ Λάρνακας / Larnaca GH (1040)',
- 'ΓΝ Πάφου / Pafos GH (1050)',
- 'ΓΝ Αμμοχώστου / Ammochostos GH (1060)',
+ 'ΓΝ Πάφου / Pafos GH (1031)',
+ 'ΓΝ Αμμοχώστου / Ammochostos GH (1041)',
  'Νοσοκομείο Τροόδους / Troodos Hospital (1032)',
- 'Μακάρειο Νοσοκομείο / Makarios III Hospital (1021)',
- 'Κέντρα Υγείας / Health Centres'
+ 'Μακάρειο Νοσοκομείο ΝΑΜ ΙΙΙ / Makarios III Hospital (1021)',
+ 'ΔΠΦΥ – Κέντρα Υγείας / Primary Care – Health Centres (1002)',
+ 'ΥΠΑΣ – Υπηρεσία Ασθενοφόρων / Ambulance Service (1001)',
+ 'ΔΥΨΥ – Υπηρεσίες Ψυχικής Υγείας / Mental Health Services (1003)',
+ 'Νοσοκομείο Πόλης Χρυσοχούς / Polis Chrysochous Hospital (1033)'
 ];
+/* SAP chart of accounts: the 1221xx intercompany accounts name the
+   counterparty, the same in every entity's books (in Limassol's books
+   122113 is Head Office; in Head Office's books 122105 is Limassol).
+   122109 (MOH Pharmaceutical Services) is outside the group and stays
+   unmapped. */
+const IC_ACCOUNT_CP={'122101':'1021','122102':'1020','122103':'1041','122104':'1040','122105':'1030','122106':'1032',
+  '122107':'1031','122108':'1033','122110':'1003','122111':'1001','122112':'1002','122113':'1000'};
 /* registry names may end in the SAP company codes they answer to:
    'ΓΝ Λεμεσού / Limassol GH (1030)' — the label hides the codes, a file whose
    'Company Code' column carries one is assigned its books automatically */
@@ -458,6 +468,18 @@ function guessF(f){
     const vals=new Set(f.rows.map(r=>r[f.cols[cci]]).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim()));
     if(vals.size===1){f.ccode=[...vals][0]; if(!f.entity){const e=entByCode(f.ccode); if(e)f.entity=e;}}
   }
+  // the intercompany account (1221xx) names the counterparty: one value →
+  // 'Versus' filled in; several → 'Multiple counterparties' split by that column
+  if(!f.cp&&f.cpMode!=='multi'){
+    const aci=lower.findIndex(c=>/^(g\/l )?account$|^account number$|^λογαριασμ|^hkont$/.test(c));
+    if(aci>=0){
+      const col=f.cols[aci];
+      const acc=new Set(f.rows.map(r=>String(r[col]??'').trim()).filter(v=>IC_ACCOUNT_CP[v]));
+      const ents=[...acc].map(v=>[v,entByCode(IC_ACCOUNT_CP[v])]).filter(([v,e])=>e&&e!==f.entity);
+      if(ents.length===1){f.cpMode='one';f.cp=ents[0][1];}
+      else if(ents.length>1){f.cpMode='multi';f.cp='';f.cpCol=col;f.cpMap={};ents.forEach(([v,e])=>f.cpMap[v]=e);}
+    }
+  }
 }
 function netA(r,m){
   const d=parseAmount(r[m.amt]), c=m.cr?parseAmount(r[m.cr]):null;
@@ -511,6 +533,7 @@ function distinctVals(f){
   return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(([v])=>v);
 }
 function guessEnt(val){
+  const byAcc=IC_ACCOUNT_CP[String(val).trim()]; if(byAcc){const e=entByCode(byAcc); if(e)return e;}
   const s=String(val).toUpperCase();
   return ENTITIES.filter(Boolean).find(n=>{
     return n.split(' / ').some(part=>{

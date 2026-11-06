@@ -221,9 +221,16 @@ fs.writeFileSync(S('mx_ho_paf.csv'),
   'P1,15/03/2026,IC invoice P1,75.00\n');
 /* a SAP-style export whose Company Code column names the entity (1030 = Limassol) */
 fs.writeFileSync(S('mx_cc_lim.csv'),
-  'Company Code,Document Number,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
-  '1030,1400000001,IC payable R1,05/03/2026,,100.00\n' +
-  '1030,1400000002,IC payable R2,05/03/2026,,200.00\n');
+  'Company Code,Document Number,Account,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
+  '1030,1400000001,122113,IC payable R1,05/03/2026,,100.00\n' +
+  '1030,1400000002,122113,IC payable R2,05/03/2026,,200.00\n');
+/* Head Office books (1000) covering two counterparties through the 1221xx accounts */
+fs.writeFileSync(S('mx_cc_ho.csv'),
+  'Company Code,Document Number,Account,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
+  '1000,1400000101,122105,IC invoice R1,05/03/2026,100.00,\n' +
+  '1000,1400000102,122105,IC invoice R2,05/03/2026,200.00,\n' +
+  '1000,1400000103,122104,IC invoice L1,10/03/2026,500.00,\n' +
+  '1000,1400000104,122109,MOH pharma — outside the group,10/03/2026,9.99,\n');
 
 /* one HO file covering BOTH counterparties, split by the Account column */
 fs.writeFileSync(S('mx_ho_all.csv'),
