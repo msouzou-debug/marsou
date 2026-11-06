@@ -7,10 +7,10 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.19**.
+   Current version: **v3.20**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.6**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -248,6 +248,27 @@ Expected values:
   fourteen −2.00 'Debit TROODOS' fees); every JCC pair terminal-consistent.
   The user's own run on an older build showed 82 matched, 0 resolved and
   three coincidental same-day batches.
+
+## Versioning rule (user request, 2026-11-06 — every iteration gets a version)
+
+- EVERY change that is delivered to the user, however small, bumps
+  `const APP_VERSION='x.y'` in the template (pairwise tool: 3.x; IC tool:
+  1.x). That constant is the single source: header badge (`#verBadge`),
+  footer (`ftnote`), manual title and download name, the export's
+  documentation sheet row «Έκδοση εργαλείου / Tool version», the export
+  file name (`Συμφωνία_<preset>_<stamp>_v3.20.xlsx`,
+  `Ενδοομιλικά_Πίνακας_<date>_v1.6.xlsx`) and the `tool` field of
+  progress/profile JSON. The static badge/footer text in the HTML must
+  carry the same number — `build.py` refuses to build if any
+  `v<n>.<n></span>` in the template disagrees with APP_VERSION.
+- Add a line to `CHANGELOG.md` (version, date, one-sentence change) in the
+  same commit; the commit message starts `recon-tool v3.20: …`.
+- Deliver the built file under a versioned name
+  (`OKYpY_Reconciliation_Tool_v3.20.html`, `OKYpY_IC_Matrix_Tool_v1.6.html`):
+  copy `dist/<name>.html` to the scratchpad with the version suffix before
+  SendUserFile. The repo keeps the unversioned `dist/` names.
+- `test_v4` (section 14) and `test_ic` assert the documentation row, badge
+  and footer agree with APP_VERSION.
 
 ## Domain logic (do not break)
 
@@ -693,7 +714,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.5)
+## IC Matrix Tool (src/ic_template.html, v1.6)
 
 Sibling app: every entity's intercompany ledgers in ONE matrix. Shares the
 brand, i18n pattern, parsing helpers (parseAmount, parseDateVal, normKey,

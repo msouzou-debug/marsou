@@ -105,6 +105,9 @@ const ASSIGN = `
   console.log('SHEETS:', JSON.stringify(wb.SheetNames));
   check('matrix sheet first, one detail sheet per pair, documentation last',
     wb.SheetNames[0] === 'Πίνακας' && wb.SheetNames.length === 4 && wb.SheetNames[3] === 'Τεκμηρίωση', wb.SheetNames);
+  const icDoc = XLSX.utils.sheet_to_json(wb.Sheets['Τεκμηρίωση'], { header: 1, defval: '' });
+  const icVer = icDoc.find(r => r[0] === 'Έκδοση εργαλείου');
+  check('v1.6: tool version stamped in the documentation sheet', icVer && /^v\d+\.\d+$/.test(icVer[1]), icVer);
   const wsM = wb.Sheets['Πίνακας'];
   check('gross difference is a live formula', wsM.D4 && wsM.D4.f === 'B4-C4' && Math.abs(wsM.D4.v - 30) < 0.005, wsM.D4);
   check('open sums pull live from the pair sheet (bounded to the open block)',

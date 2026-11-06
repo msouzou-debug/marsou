@@ -630,6 +630,12 @@ const newAppPage = async browser => {
   const wbPos = XLSX.read(fs.readFileSync(posPath), { type: 'buffer', cellFormula: true });
   const wsGp = wbPos.Sheets['Ομάδες'];
   check('Groups sheet labels the settlement groups', wsGp && wsGp.H2 && /JCC\/POS/.test(wsGp.H2.v), wsGp && wsGp.H2);
+  const docRows = XLSX.utils.sheet_to_json(wbPos.Sheets['Τεκμηρίωση'], { header: 1, defval: '' });
+  const verRow = docRows.find(r => r[2] === 'Έκδοση εργαλείου');
+  const verBadge = await page.evaluate(() => [document.getElementById('verBadge').textContent, 'v' + APP_VERSION, document.querySelector('[data-i18n="ftnote"]').textContent.trim().slice(-5)]);
+  console.log('VERSION:', JSON.stringify({ verRow, verBadge, file: dlPos.suggestedFilename() }));
+  check('v3.20: the tool version is stamped in the documentation sheet, the header badge and the footer, and they agree',
+    verRow && /^v\d+\.\d+$/.test(verRow[3]) && verRow[3] === verBadge[0] && verBadge[0] === verBadge[1] && verBadge[2] === verBadge[0], { verRow, verBadge });
   await page.close();
 
   /* ============ 15. v3.10: exact same-day batch held back from the 1-to-1 passes ============ */

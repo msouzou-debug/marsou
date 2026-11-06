@@ -110,6 +110,7 @@ table.grid.fixedw td{overflow:hidden;text-overflow:ellipsis}
 
 /* ============ mapping ============ */
 .keylist{display:flex;flex-wrap:wrap;gap:7px;padding:2px 0}
+.verbadge{display:inline-block;margin-left:10px;font-size:12px;font-weight:700;color:var(--okypy-blue-deep);background:var(--wash-blue-2);border-radius:10px;padding:2px 8px;vertical-align:middle;letter-spacing:0}
 .keychip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--okypy-grey-light);border-radius:16px;padding:4px 12px;font-size:12.5px;font-weight:400;cursor:pointer;margin:0;text-transform:none;letter-spacing:0;background:#fff;transition:all .12s}
 .keychip:hover{border-color:var(--okypy-blue-logo)}
 .keychip input{accent-color:var(--okypy-blue);margin:0}
@@ -194,7 +195,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 <header>
   <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="OKYπY / SHSO">
   <div class="titles">
-    <h1 data-i18n="title">Εργαλείο Συμφωνιών Λογαριασμών</h1>
+    <h1 data-i18n="title">Εργαλείο Συμφωνιών Λογαριασμών</h1><span class="verbadge" id="verBadge">v3.20</span>
     <div class="sub" data-i18n="subtitle">Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) — State Health Services Organisation (SHSO)</div>
   </div>
   <div class="langswitch" role="group" aria-label="Language">
@@ -398,13 +399,15 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.19</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.20</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
 <script>__XLSX_LIB__</script>
 <script>
 /* ================= i18n ================= */
+const APP_VERSION='3.20'; // bump on EVERY iteration — shown in the header, the footer, the manual, the export's documentation sheet and the progress/profile files
+document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('verBadge');if(b)b.textContent='v'+APP_VERSION;});
 const I18N = {
  el:{
   title:"Εργαλείο Συμφωνιών Λογαριασμών",
@@ -422,7 +425,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.19",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v"+APP_VERSION,
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -516,7 +519,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.19",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v"+APP_VERSION,
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -2445,7 +2448,7 @@ function saveProfile(){
     hdr:document.getElementById('hdr'+s).value,
     keys:mapping(s).keys,amt:document.getElementById('amt'+s).value,cr:document.getElementById('cr'+s).value,
     date:document.getElementById('date'+s).value,desc:document.getElementById('desc'+s).value});
-  const data={app:'okypy-recon',type:'profile',version:3,savedAt:new Date().toISOString(),
+  const data={app:'okypy-recon',type:'profile',version:3,tool:'v'+APP_VERSION,savedAt:new Date().toISOString(),
     preset,settings:collectSettings(),sides:{A:side('A'),B:side('B')}};
   const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
   const a=document.createElement('a');
@@ -2494,7 +2497,7 @@ function saveProgress(){
   const groups={};
   R.props.forEach(p=>{groups[grpSignature(p)]=p.accepted?1:0;});
   R.committed.forEach(p=>{groups[grpSignature(p)]=2;});
-  const data={app:'okypy-recon',version:2,savedAt:new Date().toISOString(),
+  const data={app:'okypy-recon',version:2,tool:'v'+APP_VERSION,savedAt:new Date().toISOString(),
     preset,lang:LANG,
     settings:collectSettings(),
     files:{A:{name:SIDES.A.name},B:{name:SIDES.B.name}},
@@ -2770,7 +2773,7 @@ function exportExcel(){
     [''],
     [el?'Οργανισμός':'Organisation','ΟΚΥπΥ / SHSO'],
     [el?'Τύπος συμφωνίας':'Reconciliation type',p[LANG].t],
-    [el?'Ημερομηνία εκτέλεσης':'Run date',fmtDate(R.ranAt)+' '+R.ranAt.toTimeString().slice(0,5)],
+    [el?'Ημερομηνία εκτέλεσης':'Run date',fmtDate(R.ranAt)+' '+R.ranAt.toTimeString().slice(0,5),el?'Έκδοση εργαλείου':'Tool version','v'+APP_VERSION],
     [el?'Συντάκτης':'Preparer',document.getElementById('preparer').value||''],
     [el?'Ελεγκτής (υπογραφή)':'Reviewer (sign-off)',''],
     [''],
@@ -2821,13 +2824,13 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb,wsM,SN.match);
   const d=R.ranAt;
   const stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
-  XLSX.writeFile(wb,(el?'Συμφωνία_':'Reconciliation_')+preset+'_'+stamp+'.xlsx');
+  XLSX.writeFile(wb,(el?'Συμφωνία_':'Reconciliation_')+preset+'_'+stamp+'_v'+APP_VERSION+'.xlsx');
 }
 
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.19)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση "+APP_VERSION+")",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -2860,7 +2863,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.19)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version "+APP_VERSION+")",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -2912,7 +2915,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.19.html':'OKYPY_Reconciliation_Manual_v3.19.html';
+  a.download=(LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v':'OKYPY_Reconciliation_Manual_v')+APP_VERSION+'.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

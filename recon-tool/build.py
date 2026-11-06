@@ -7,7 +7,7 @@ to any template in src/:
 
     python3 build.py
 """
-import base64, os, sys
+import base64, os, re, sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,6 +26,14 @@ def main():
         tpl_path = os.path.join(ROOT, 'src', tpl_name)
         out_path = os.path.join(ROOT, 'dist', out_name)
         tpl = open(tpl_path, encoding='utf-8').read()
+        m = re.search(r"const APP_VERSION='(\d+\.\d+)'", tpl)
+        if not m:
+            sys.exit(f'ERROR: APP_VERSION missing from {tpl_name}')
+        ver = m.group(1)
+        # every visible copy of the number must agree with the constant
+        stray = {x for x in re.findall(r'v(\d+\.\d+)(?=</span>)', tpl)} - {ver}
+        if stray:
+            sys.exit(f'ERROR: {tpl_name} still shows version(s) {sorted(stray)} but APP_VERSION is {ver}')
         for marker in ('__XLSX_LIB__', '__LOGO_FULL__'):
             if marker not in tpl:
                 sys.exit(f'ERROR: marker {marker} missing from {tpl_name}')
@@ -34,7 +42,7 @@ def main():
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         with open(out_path, 'w', encoding='utf-8') as f:
             f.write(out)
-        print(f'Built {out_path} ({os.path.getsize(out_path)//1024} KB)')
+        print(f'Built {out_path} v{ver} ({os.path.getsize(out_path)//1024} KB)')
 
 if __name__ == '__main__':
     main()
