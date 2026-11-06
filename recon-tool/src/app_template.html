@@ -95,7 +95,7 @@ label{font-size:11.5px;font-weight:700;display:block;margin:10px 0 3px;letter-sp
 
 /* ============ tables ============ */
 table.grid{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
-table.grid th{background:#fff;color:var(--okypy-blue-deep);padding:7px 10px;text-align:left;position:sticky;top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid var(--okypy-blue);z-index:2}
+table.grid th{background:#fff;color:var(--okypy-blue-deep);padding:7px 10px;text-align:left;position:sticky;top:0;font-size:11.5px;font-weight:700;border-bottom:2px solid var(--okypy-blue);z-index:2}
 table.grid th.num{text-align:right}
 table.grid td{padding:6px 10px;border-bottom:1px solid var(--okypy-grey-light)}
 table.grid tbody tr:hover{background:var(--wash-blue)}
@@ -195,7 +195,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 <header>
   <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="OKYπY / SHSO">
   <div class="titles">
-    <h1 data-i18n="title">Εργαλείο Συμφωνιών Λογαριασμών</h1><span class="verbadge" id="verBadge">v3.20</span>
+    <h1 data-i18n="title">Εργαλείο Συμφωνιών Λογαριασμών</h1><span class="verbadge" id="verBadge">v3.21</span>
     <div class="sub" data-i18n="subtitle">Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) — State Health Services Organisation (SHSO)</div>
   </div>
   <div class="langswitch" role="group" aria-label="Language">
@@ -399,14 +399,14 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.20</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.21</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
 <script>__XLSX_LIB__</script>
 <script>
 /* ================= i18n ================= */
-const APP_VERSION='3.20'; // bump on EVERY iteration — shown in the header, the footer, the manual, the export's documentation sheet and the progress/profile files
+const APP_VERSION='3.21'; // bump on EVERY iteration — shown in the header, the footer, the manual, the export's documentation sheet and the progress/profile files
 document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('verBadge');if(b)b.textContent='v'+APP_VERSION;});
 const I18N = {
  el:{

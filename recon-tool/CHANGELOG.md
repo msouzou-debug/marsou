@@ -10,6 +10,7 @@ export file name (`…_v3.20.xlsx`) and into progress/profile files
 
 | Version | Date | Change |
 |---|---|---|
+| v3.21 | 2026-11-06 | Table headers are no longer forced to capitals: Greek column names keep their accents and case (CSS uppercasing left the tonos on capitals — ΠΕΡΙΓΡΑΦΉ). |
 | v3.20 | 2026-11-06 | Version stamping: single `APP_VERSION`, header badge, version in export file name and documentation sheet, this changelog. |
 | v3.19 | 2026-11-06 | Carry-forward no longer takes last month's row number as an identity (a September deposit vanished behind October's row 9); exact same-day batches stand aside when a 1-to-1 partner exists and "family minus 1–2 lines" only for targets ≥ €500. |
 | v3.18 | 2026-10-22 | When the tool switches itself to line-by-line mode it also clears the guessed key columns. |
@@ -35,6 +36,7 @@ export file name (`…_v3.20.xlsx`) and into progress/profile files
 
 | Version | Date | Change |
 |---|---|---|
+| v1.11 | 2026-11-06 | Matrix and table headers show entity names as written («ΓΝ Λευκωσίας»), no CSS capitals (which produced ΓΝ ΛΕΥΚΩΣΊΑΣ with a tonos on the capital). |
 | v1.10 | 2026-11-06 | Registry rebuilt from the SAP Chart of Accounts («Company Codes» sheet): 1000 HO, 1001 ΥΠΑΣ, 1002 ΔΠΦΥ (Health Centres), 1003 ΔΥΨΥ, 1020 Nicosia GH, 1021 Makarios III, 1030 Limassol, 1031 Pafos, 1032 Troodos, 1033 Polis Chrysochous, 1040 Larnaca, 1041 Ammochostos. The 1221xx intercompany accounts fill in «Έναντι» (one account → one counterparty; several → split by the Account column, mapped). |
 | v1.9 | 2026-11-06 | Registry: company codes for all hospitals and Head Office — 1000 HO, 1010 Nicosia, 1021 Makarios III, 1030 Limassol, 1032 Troodos, 1040 Larnaca, 1050 Pafos, 1060 Ammochostos (codes supplied by the user). |
 | v1.8 | 2026-11-06 | Registry: Head Office carries company code 1000 (from the GL 122105 benchmark); codes known so far: 1000 HO, 1021 Makarios III, 1030 Limassol, 1032 Troodos — the rest to be entered once in the register. |

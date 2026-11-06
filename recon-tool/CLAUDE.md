@@ -7,10 +7,10 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.20**.
+   Current version: **v3.21**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
-   intercompany matrix. Current version: **v1.10**. See "IC Matrix Tool" below.
+   intercompany matrix. Current version: **v1.11**. See "IC Matrix Tool" below.
 
 ## Architecture
 
@@ -269,6 +269,13 @@ Expected values:
   SendUserFile. The repo keeps the unversioned `dist/` names.
 - `test_v4` (section 14) and `test_ic` assert the documentation row, badge
   and footer agree with APP_VERSION.
+
+- Greek typography rule (user, 2026-11-06): never CSS-uppercase text that
+  carries Greek names or user column headers — browsers keep the tonos on
+  capitals (ΓΝ ΛΕΥΚΩΣΊΑΣ, ΠΕΡΙΓΡΑΦΉ), which is wrong Greek. `table.mx th`
+  and `table.grid th` in both tools are bold, normal case (v3.21 / v1.11).
+  Fixed labels written in capitals by hand (ΤΕΚΜΗΡΙΩΣΗ, ΣΥΝΟΨΗ) drop the
+  accents, as Greek capitals should.
 
 ## Domain logic (do not break)
 
@@ -714,7 +721,7 @@ Expected values:
     `renderSelBar()`, `COLW`, `gripDown()`, `.colgrip`, `td.clip`,
     `table.grid[data-tab]`.
 
-## IC Matrix Tool (src/ic_template.html, v1.10)
+## IC Matrix Tool (src/ic_template.html, v1.11)
 
 - Untouched-defaults check (v1.7): loading files and pressing Run with
   nothing filled in stops with `needEnt` BY DESIGN — nothing in a ledger

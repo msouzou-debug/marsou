@@ -84,7 +84,7 @@ select:hover,input[type=text]:hover,input[type=number]:hover{border-color:var(--
 .reg .entline input{flex:1}
 /* tables */
 table.grid{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
-table.grid th{background:#fff;color:var(--okypy-blue-deep);padding:7px 10px;text-align:left;position:sticky;top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid var(--okypy-blue);z-index:2}
+table.grid th{background:#fff;color:var(--okypy-blue-deep);padding:7px 10px;text-align:left;position:sticky;top:0;font-size:11.5px;font-weight:700;border-bottom:2px solid var(--okypy-blue);z-index:2}
 table.grid th.num{text-align:right}
 table.grid td{padding:6px 10px;border-bottom:1px solid var(--okypy-grey-light)}
 table.grid tbody tr:hover{background:var(--wash-blue)}
@@ -103,7 +103,7 @@ table.grid td.clip{max-width:300px;overflow:hidden;text-overflow:ellipsis}
 /* matrix */
 .mxwrap{overflow:auto;border:1px solid var(--okypy-grey-light);border-radius:10px}
 table.mx{border-collapse:collapse;font-size:12px;min-width:100%}
-table.mx th{background:#fff;color:var(--okypy-blue-deep);padding:8px 10px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid var(--okypy-blue);text-align:center}
+table.mx th{background:#fff;color:var(--okypy-blue-deep);padding:8px 10px;font-size:11.5px;font-weight:700;border-bottom:2px solid var(--okypy-blue);text-align:center}
 table.mx th.rowh{text-align:left;border-right:2px solid var(--okypy-blue);position:sticky;left:0;background:#fff;z-index:2}
 table.mx td{border:1px solid var(--okypy-grey-light);padding:0;text-align:center;min-width:96px}
 table.mx td .cellbtn{display:block;width:100%;border:none;background:none;cursor:pointer;padding:10px 8px;font-family:inherit;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -137,7 +137,7 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
 <header>
   <img id="logo" src="data:image/png;base64,__LOGO_FULL__" alt="ΟΚΥπΥ / SHSO">
   <div class="titles">
-    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.10</span>
+    <h1 data-i18n="title">Πίνακας Ενδοομιλικών Συμφωνιών</h1><span class="verbadge" id="verBadge">v1.11</span>
     <div class="sub" data-i18n="subtitle">Όλα τα νοσοκομεία και τα Κεντρικά Γραφεία σε μία εικόνα — τα δεδομένα δεν φεύγουν από τον υπολογιστή σας</div>
   </div>
   <div class="langswitch" role="group" aria-label="Language">
@@ -198,13 +198,13 @@ footer .inner{background:#fff;border-top:1px solid var(--okypy-grey-light);displ
   </section>
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.10</span><span>ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Πίνακας Ενδοομιλικών · v1.11</span><span>ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 <script>__XLSX_LIB__</script>
 <script>
 /* ================= i18n ================= */
-const APP_VERSION='1.10'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
+const APP_VERSION='1.11'; // bump on EVERY iteration — header, footer, manual, export documentation sheet, progress file
 document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('verBadge');if(b)b.textContent='v'+APP_VERSION;});
 const I18N={
  el:{
