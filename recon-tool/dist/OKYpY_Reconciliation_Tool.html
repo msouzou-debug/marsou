@@ -398,7 +398,7 @@ footer .bar{height:10px;background:var(--okypy-blue)}
 
 </main>
 <footer>
-  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.18</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
+  <div class="inner"><span id="ftDate"></span><span data-i18n="ftnote">ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.19</span><span id="ftPage">ΟΚΥπΥ · SHSO</span></div>
   <div class="bar"></div>
 </footer>
 
@@ -1936,7 +1936,7 @@ const I18N = {
   agghint:"Οι γραμμές αθροίζονται ανά κλειδί σε κάθε πλευρά πριν τη σύγκριση. Το πλήθος γραμμών ανά κλειδί εμφανίζεται στα αποτελέσματα.",
   export:"Εξαγωγή Excel (με τύπους)",
   exphint:"Το Excel περιέχει ζωντανούς, ελέγξιμους τύπους (διαφορές, ομάδες και σύνοψη) και φύλλο τεκμηρίωσης.",
-  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.18",
+  ftnote:"ΟΚΥπΥ / SHSO — Εσωτερικό εργαλείο συμφωνιών · v3.19",
   none:"—", matched:"Συμφωνούν", diffs:"Διαφορές", onlyA:"Μόνο στο A", onlyB:"Μόνο στο B",
   netdiff:"Καθαρή διαφορά", totA:"Σύνολο A", totB:"Σύνολο B",
   key:"Κλειδί", amtA:"Ποσό A", amtB:"Ποσό B", diff:"Διαφορά", rowsA:"Γραμμές A", rowsB:"Γραμμές B",
@@ -2030,7 +2030,7 @@ const I18N = {
   agghint:"Rows are aggregated per key on each side before comparison. Row counts per key are shown in the results.",
   export:"Export Excel (with live formulas)",
   exphint:"The Excel export contains live, auditable formulas (differences, groups and summary) plus a documentation sheet.",
-  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.18",
+  ftnote:"OKYπY / SHSO — Internal reconciliation tool · v3.19",
   none:"—", matched:"Matched", diffs:"Differences", onlyA:"Only in A", onlyB:"Only in B",
   netdiff:"Net difference", totA:"Total A", totB:"Total B",
   key:"Key", amtA:"Amount A", amtB:"Amount B", diff:"Difference", rowsA:"Rows A", rowsB:"Rows B",
@@ -2215,8 +2215,13 @@ function bindPrev(){
    then by amount+date, because '#N' keys are row numbers that shift every
    month. Runs against a list of prior entries, consuming each once. */
 function markPrior(arr,list,amtOf){
+  // a '#N' key is the row's position in LAST month's file — it identifies
+  // nothing in this month's file (row 9 of October's statement was a
+  // different 19.92 deposit than row 9 of September's), so only real keys
+  // take part in the key pass; row-numbered items go by amount + date
+  const realKey=k=>!/^(B\/F )*#\d+$/.test(String(k||''));
   arr.forEach(r=>{
-    if(r.bf)return;
+    if(r.bf||!realKey(r.key))return;
     const c=Math.round((amtOf(r)||0)*100);
     const e=list.find(x=>!x.used&&x.cents===c&&x.key===r.key);
     if(e){e.used=true;r.bf=true;if(!r.cat&&e.cat)r.cat=e.cat;}
@@ -3181,6 +3186,7 @@ function holdBatches(onlyA,onlyB,tol,days){
     const live=list.filter(x=>!held.has(x.rec)); if(live.length<3)return null;
     const total=live.reduce((s,x)=>s+x.cents,0);
     if(Math.abs(total-T)<=tolC)return live;
+    if(Math.abs(T)<50000)return null; // family minus a line or two: only for sizeable targets
     for(let i=0;i<live.length;i++){
       if(live.length-1>=3&&Math.abs(total-live[i].cents-T)<=tolC)return live.filter((_,j)=>j!==i);
     }
@@ -3189,10 +3195,14 @@ function holdBatches(onlyA,onlyB,tol,days){
     }
     return null;
   };
-  const scan=(targets,side,fams)=>{
+  const scan=(targets,side,fams,other,otherSide)=>{
     [...targets].sort((x,y)=>Math.abs(amtOf(side,y))-Math.abs(amtOf(side,x))).forEach(tg=>{
       if(held.has(tg)||!tg.date)return;
       const T=cents(amtOf(side,tg)); if(!T)return;
+      // a line with an equal single partner inside the window is a 1-to-1
+      // match, not a batch: card takings are multiples of one net fee, so a
+      // day's small lines sum to a neighbour's amount by chance all the time
+      if(other.some(o=>!held.has(o)&&o.date&&Math.abs(cents(amtOf(otherSide,o))-T)<=tolC&&Math.abs(o.date-tg.date)/86400000<=days))return;
       for(const list of fams){
         if(Math.sign(list[0].cents)!==Math.sign(T))continue;
         if(Math.abs(list[0].rec.date-tg.date)/86400000>days)continue;
@@ -3204,7 +3214,7 @@ function holdBatches(onlyA,onlyB,tol,days){
       }
     });
   };
-  scan(onlyA,'A',famB); scan(onlyB,'B',famA);
+  scan(onlyA,'A',famB,onlyB,'B'); scan(onlyB,'B',famA,onlyA,'A');
   return {held,groups};
 }
 function proposePos(onlyA,onlyB,consumed,startId,pct,days,maxK){
@@ -4331,7 +4341,7 @@ function exportExcel(){
 /* ================= user manual (downloadable, per active language) ================= */
 const MANUAL={
  el:{
-  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.18)",
+  title:"ΟΚΥπΥ / SHSO — Εργαλείο Συμφωνιών Λογαριασμών · Οδηγίες χρήσης (έκδοση 3.19)",
   sections:[
    ["Τι κάνει το εργαλείο",
     "<p>Συγκρίνει δύο αρχεία — Excel ή CSV — και σας δείχνει τι συμφωνεί, πού υπάρχουν διαφορές και ποιες εγγραφές εμφανίζονται μόνο στη μία πλευρά. Δουλεύει εξ ολοκλήρου μέσα στο πρόγραμμα περιήγησης: δεν εγκαθιστάτε τίποτα, δεν χρειάζεται σύνδεση στο διαδίκτυο και τα δεδομένα σας δεν φεύγουν ποτέ από τον υπολογιστή σας.</p><p>Η γλώσσα αλλάζει από τα κουμπιά ΕΛ / EN πάνω δεξιά. Οι οδηγίες κατεβαίνουν στη γλώσσα στην οποία δουλεύετε εκείνη τη στιγμή.</p><p>Το εργαλείο είναι γενικής χρήσης: ενδοομιλικοί λογαριασμοί, καθολικά έναντι αναλυτικών, ακόμη και αντιπαραβολή κίνησης τράπεζας με καθολικό SAP, μέσω της λειτουργίας «Χωρίς κοινό κλειδί». Για την κλασική τραπεζική συμφωνία με το υπόλοιπο του extrait παραμένει διαθέσιμο το ξεχωριστό εργαλείο του Οργανισμού.</p>"],
@@ -4364,7 +4374,7 @@ const MANUAL={
   ]
  },
  en:{
-  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.18)",
+  title:"OKYπY / SHSO — Account Reconciliation Tool · User manual (version 3.19)",
   sections:[
    ["What the tool does",
     "<p>It compares two files — Excel or CSV — and tells you what agrees, where the amounts differ, and which entries exist on one side only. Everything runs inside your browser. There is nothing to install, no internet connection is needed, and your data never leaves your computer.</p><p>The ΕΛ / EN buttons at the top right switch the language. This manual downloads in whichever language you are working in when you click the button.</p><p>The tool is general-purpose: intercompany accounts, ledgers against subledgers, even a bank statement against a SAP ledger through the “No shared key” mode. For the classic bank reconciliation against the statement balance, the organisation's separate bank tool remains available.</p>"],
@@ -4416,7 +4426,7 @@ function downloadManual(){
   const blob=new Blob([html],{type:'text/html'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.18.html':'OKYPY_Reconciliation_Manual_v3.18.html';
+  a.download=LANG==='el'?'ΟΚΥπΥ_Οδηγίες_Συμφωνιών_v3.19.html':'OKYPY_Reconciliation_Manual_v3.19.html';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }

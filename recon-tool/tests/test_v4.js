@@ -650,6 +650,7 @@ const newAppPage = async browser => {
   await page.waitForSelector('#stepRes:not(.hidden)');
   r = await page.evaluate(() => ({
     matched: RESULT.matched.map(x => [x.amtA, x.rule]).sort((a, b) => a[0] - b[0]),
+    terminals: RESULT.matched.filter(x => /Remittance Num/.test(x.descA || '')).every(x => String(parseInt((x.descA.match(/Num (\d+)/) || [])[1])) === (x.descB.match(/, (\d+)$/) || [])[1]),
     jagbir: RESULT.matched.filter(x => Math.abs(x.amtA + 25) < 0.005).map(x => (/MAKIS ANASTASIOU/.test(x.descA || '') ? 'MAKIS ANASTASIOU' : (x.descA || '').slice(0, 20))),
     batch: RESULT.props.filter(p => p.batch).map(p => [p.side, p.target.desc.slice(0, 20), p.target.amtA, p.members.map(m => m.amtB).sort((a, b) => a - b), +p.diff.toFixed(2)]),
     others: RESULT.props.filter(p => !p.batch && !p.pos && !p.tw).length,
@@ -662,7 +663,9 @@ const newAppPage = async browser => {
   console.log('BATCH:', JSON.stringify(r));
   check('the batch (incl. the FULLSET.FORINV. spelling) is proposed whole with zero difference; the 2031.37 keeps its own 1-to-1 match',
     JSON.stringify(r.batch) === JSON.stringify([['A', '1Bank - Credit Advic', -1000, [-500, -300, -175, -25], 0]]) &&
-    JSON.stringify(r.matched) === JSON.stringify([[-2031.37, 2], [-25, 2]]) && r.others === 0, r);
+    JSON.stringify(r.matched) === JSON.stringify([[-2031.37, 2], [-69.72, 2], [-25, 2], [-19.92, 2], [-19.92, 2], [-9.96, 2], [-9.96, 2], [-9.96, 2]]) && r.others === 0, r);
+  check('v3.19: the 69.72 deposit is NOT held as a batch of the five small same-day card lines (it has its own 1-to-1 partner); all six pair by terminal',
+    r.terminals && r.batch.length === 1, r);
   check('v3.15: the €25 pairs with the same-day transfer that names JAGBIR, not with the other law firm processed first',
     JSON.stringify(r.jagbir) === JSON.stringify(['MAKIS ANASTASIOU']), r);
   check('the next-day €25 tip does not steal the batch\'s €25 line and stays open; cards carry the batch and day-batch tags',
@@ -671,6 +674,33 @@ const newAppPage = async browser => {
     JSON.stringify(r.twins) === JSON.stringify([['17/09/2026', -139.3, '25/09/2026', '16334']]) && r.others === 0, r);
   check('the SBAA advice is proposed against the day minus its unrelated VISA line (0.10 to check), labelled as a day batch, not a card settlement',
     JSON.stringify(r.day) === JSON.stringify([['A', '1Bank - Credit Advice JUN2', [-543.86, -181.48, -60.5, -33], -0.1, 'dayTag']]), r);
+  await page.close();
+
+  /* ============ 16. v3.19: carry-forward must not take last month's '#2' for this month's row 2 ============ */
+  page = await newAppPage(browser);
+  await page.setInputFiles('#fileA', S('bfk2_A.csv'));
+  await page.setInputFiles('#fileB', S('bfk2_B.csv'));
+  await page.waitForSelector('#stepMap:not(.hidden)');
+  await page.setInputFiles('#filePrev', path.join(__dirname, 'export_bfm.xlsx'));
+  await page.waitForFunction(() => PRIOR !== null);
+  await page.evaluate(() => {
+    ['A', 'B'].forEach(s => document.querySelectorAll('#keys' + s + ' input').forEach(x => { x.checked = false; x.closest('.keychip').classList.toggle('on', false); }));
+    document.getElementById('flipB').checked = false;
+    document.getElementById('nokeyon').checked = true;
+    document.getElementById('nokeydays').value = 60;
+  });
+  await page.click('#runBtn');
+  await page.waitForSelector('#stepRes:not(.hidden)');
+  r = await page.evaluate(() => ({
+    bf: RESULT.bf, inj: RESULT.bfInj.aN,
+    matched: RESULT.matched.map(x => [x.key, (x.descA || '').slice(0, 24), (x.descB || '').slice(0, 24), x.amtA]).sort(),
+    openA: RESULT.onlyA.map(x => x.key), openB: RESULT.onlyB.map(x => x.key),
+  }));
+  console.log('BFK:', JSON.stringify(r));
+  check('prior "#2" (the March cheque) is injected and clears against the April presentation; this month\'s own row 2 pairs with its own counterpart',
+    r.inj === 1 && r.bf.n === 0 && r.bf.resolved === 1 &&
+    r.matched.some(m => m[0] === 'B/F #2 ⇄ #4' && /presented/.test(m[2]) && m[3] === 555.55) &&
+    r.matched.some(m => m[0] === '#2 ⇄ #3' && /other payee/.test(m[2])) && r.openA.length === 0 && r.openB.length === 0, r);
   await page.close();
 
   await browser.close();

@@ -7,7 +7,7 @@ All data stays on the local machine. TWO tools share this repo:
 
 1. **Reconciliation Tool** (`src/app_template.html` →
    `dist/OKYpY_Reconciliation_Tool.html`) — pairwise account reconciliation.
-   Current version: **v3.18**.
+   Current version: **v3.19**.
 2. **IC Matrix Tool** (`src/ic_template.html` →
    `dist/OKYpY_IC_Matrix_Tool.html`) — every hospital vs Head Office in one
    intercompany matrix. Current version: **v1.5**. See "IC Matrix Tool" below.
@@ -239,6 +239,16 @@ Expected values:
   Καταστήματος' / 'Company Code' as keys (hint words, near-constant
   values) and the keyed run produced 0 matches.
 
+- Month-roll benchmark (v3.19, hospital 1032 Troodos, files not in repo):
+  October SAP (A) + bank statement (B) with the September export as prior
+  period, untouched defaults. Expect 9 prior open items injected, 2 of
+  them CLEARING by terminal against SAP's 05/10 'JCC NET AMOUNT,
+  30/09/2026, 7051 / 6198' lines (matched 'B/F #9', 'B/F #19'), bf
+  {n:7, resolved:2}; 97 matched; exactly one proposal (BANK CHARGES −28 =
+  fourteen −2.00 'Debit TROODOS' fees); every JCC pair terminal-consistent.
+  The user's own run on an older build showed 82 matched, 0 resolved and
+  three coincidental same-day batches.
+
 ## Domain logic (do not break)
 
 0. **Many files per side** (v3.7): `SIDES[side].files[]` holds slots
@@ -458,7 +468,12 @@ Expected values:
    fee) off a batch whenever an equal amount sits nearby on the other side,
    which leaves the batch short and every later group proposal wrong. The
    hold only runs when split proposals are enabled (`scfg.on`, now read at
-   the top of runRecon). Never widen it to subsets smaller than
+   the top of runRecon). v3.19 guards: a target with an equal single
+   partner inside the day window on the other side is a 1-to-1 match and
+   is never held (card takings are multiples of one net fee — 69.72 =
+   9.96+19.92+9.96+19.92+9.96 of one day happened by chance on 1032 and
+   stole two SAP lines from their brought-forward deposits); 'family minus
+   one or two lines' is tried only for targets ≥ €500. Never widen it to subsets smaller than
    'family minus two': arbitrary exact subsets of 30 small lines hit random
    targets by the birthday problem.
    **Pass 2 in three rounds** (v3.15): `pass2()` first pairs equal amounts
@@ -789,8 +804,13 @@ not imported; keep fixes in sync when touching shared logic.
 - Progress JSON matches items by key: if the mapping or files change, stale
   entries are ignored silently. Progress files saved before v2.8 used
   sheet-row `#` labels and their keyless entries no longer apply.
-- Carry-forward matches prior open items by `key|cents` exactly — an item
-  whose amount changed since last period is treated as new.
+- Carry-forward (`markPrior`) matches prior open items by `key|cents` only
+  for REAL keys; a '#N' / 'B/F #N' key is last month's row position and is
+  skipped in the key pass (v3.19) — October's row 9 was a different 19.92
+  deposit than September's row 9, the prior item was taken as 'still
+  there' and never injected (real miss, hospital 1032). Row-numbered items
+  go by amount + date, else they are injected. An item whose amount
+  changed since last period is treated as new.
 - The reconciliation pack is in-memory only; reloading the page clears it.
 - The downloadable user manual (MANUAL dict, `downloadManual()`) generates
   in the ACTIVE language; its Greek follows native public-sector register and

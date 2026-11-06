@@ -261,6 +261,20 @@ fs.writeFileSync(S('bfm2_B.csv'),
   ',02/04/2026,april fees,80.00\n' +
   ',20/04/2026,cheque presented,555.55\n');
 
+/* ---- carry-forward key collision: last month's open '#2' (the cheque) must
+   NOT be taken for this month's row 2, which is a different 555.55 ---- */
+fs.writeFileSync(S('bfk2_A.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/04/2026,april transfer,70.00\n' +
+  ',01/04/2026,april cheque other payee,555.55\n' +
+  ',02/04/2026,april fees,80.00\n');
+fs.writeFileSync(S('bfk2_B.csv'),
+  'Key,Date,Description,Amount\n' +
+  ',01/04/2026,april transfer,70.00\n' +
+  ',02/04/2026,april fees,80.00\n' +
+  ',01/04/2026,april cheque other payee,555.55\n' +
+  ',20/04/2026,cheque presented,555.55\n');
+
 /* ---- many-files-per-side: two statements vs one ledger ---- */
 fs.writeFileSync(S('multi_A1.csv'),
   'Key,Date,Description,Amount\n' +
@@ -319,7 +333,13 @@ fs.writeFileSync(S('batch_A.csv'),
   '03/09/2026,0034046060 GENIKO NOSOKOMIO LEMESOU Remittance Num 024400 Trace 831010425,,100.00\n' +
   '16/09/2026,TIPS INWARD 112979418 by Some Firm>MEDICAL FILE,,78.30\n' +
   '24/09/2026,TIPS INWARD 112979418 by PANAGIDIS MICHALAKIS CHRISTAKI>MEDICAL FILE,,25.00\n' +
-  '21/09/2026,TIPS INWARD 112894689 by MAKIS ANASTASIOU AND CO. LLC>JAGBIR ARC 0581922458,,25.00\n');
+  '21/09/2026,TIPS INWARD 112894689 by MAKIS ANASTASIOU AND CO. LLC>JAGBIR ARC 0581922458,,25.00\n' +
+  '15/10/2026,0034046086 TROODOS HOSPITAL Remittance Num 006229 Trace 1,,69.72\n' +
+  '15/10/2026,0034046086 TROODOS HOSPITAL Remittance Num 006205 Trace 2,,9.96\n' +
+  '15/10/2026,0034046086 TROODOS HOSPITAL Remittance Num 006198 Trace 3,,19.92\n' +
+  '15/10/2026,0034046086 TROODOS HOSPITAL Remittance Num 006206 Trace 4,,9.96\n' +
+  '15/10/2026,0034046086 TROODOS HOSPITAL Remittance Num 007051 Trace 5,,19.92\n' +
+  '15/10/2026,0034046086 TROODOS HOSPITAL Remittance Num 006204 Trace 6,,9.96\n');
 fs.writeFileSync(S('batch_B.csv'),
   'Document Number,Document Header Text,Text,Document Date,Debit Amount in local currency,Credit Amount in local currency\n' +
   '1400036104,,ΑΛ› FULL SET. FOR INV. 1800001228,28/09/2026,500.00,\n' +
@@ -334,7 +354,13 @@ fs.writeFileSync(S('batch_B.csv'),
   '900000640,,ΕΚΚΑΘΑΡΙΣΗ VISA. 19/9/2026,19/09/2026,383.63,\n' +
   '1400035300,DEPOSIT 25/09/2026,"JCC NET AMOUNT, 24/09/2026, 16334",25/09/2026,139.30,\n' +
   '1400035301,DEPOSIT 01/09/2026,"JCC NET AMOUNT, 31/08/2026, 24387",01/09/2026,178.30,\n' +
-  '1400035302,,JAGBIR JAGBIR,21/09/2026,25.00,\n');
+  '1400035302,,JAGBIR JAGBIR,21/09/2026,25.00,\n' +
+  '900000401,DEPOSIT 15/10/2026,"JCC NET AMOUNT, 14/10/2026, 6229",15/10/2026,69.72,\n' +
+  '900000401,DEPOSIT 15/10/2026,"JCC NET AMOUNT, 14/10/2026, 6205",15/10/2026,9.96,\n' +
+  '900000401,DEPOSIT 15/10/2026,"JCC NET AMOUNT, 14/10/2026, 6198",15/10/2026,19.92,\n' +
+  '900000401,DEPOSIT 15/10/2026,"JCC NET AMOUNT, 14/10/2026, 6206",15/10/2026,9.96,\n' +
+  '900000401,DEPOSIT 15/10/2026,"JCC NET AMOUNT, 14/10/2026, 7051",15/10/2026,19.92,\n' +
+  '900000401,DEPOSIT 15/10/2026,"JCC NET AMOUNT, 14/10/2026, 6204",15/10/2026,9.96,\n');
 
 /* ---- performance fixture: >= 2000 open items, no shared keys ----
    Deterministic LCG so the fixture is reproducible.
