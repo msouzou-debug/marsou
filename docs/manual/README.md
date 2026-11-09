@@ -22,6 +22,8 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S07 | Σύμβαση | Contract | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S07a-edit | Νέα σύμβαση / Επεξεργασία σύμβασης | New contract / Edit contract | admin, estates_head, project_engineer |
 | S07e | Συμβάσεις | Contracts | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
+| S07h | Προθεσμίες και ρήτρες | Deadlines and penalties | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
+| S07i | Αξιώσεις | Claims | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S08 | Τροποποιήσεις σύμβασης | Contract variations | admin, estates_head, project_engineer |
 | S09 | Πιστοποιήσεις πληρωμής | Payment certificates | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S10 | Εισαγωγή SAP | SAP import | admin, finance |
