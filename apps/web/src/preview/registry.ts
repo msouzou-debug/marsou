@@ -51,6 +51,8 @@ import s07cInstructions from "@/screens/s07c-instructions/Instructions.preview";
 import s07dDefects from "@/screens/s07d-defects/Defects.preview";
 import s07eContracts from "@/screens/s07e-contracts/Contracts.preview";
 import s08Variations from "@/screens/s08-variations/Variations.preview";
+import s07hDelay from "@/screens/s07h-delay/Delay.preview";
+import s07iClaims from "@/screens/s07i-claims/Claims.preview";
 import s09PaymentCerts from "@/screens/s09-payment-certs/PaymentCerts.preview";
 import s09CertificateDetail from "@/screens/s09-payment-certs/CertificateDetail.preview";
 import s09aAccruals from "@/screens/s09a-accruals/Accruals.preview";
@@ -126,6 +128,8 @@ const entries: PreviewEntry[] = [
   s07fEfinanceInvoices,
   s07gEfinanceRequisitions,
   s08Variations,
+  s07hDelay,
+  s07iClaims,
   s09PaymentCerts,
   s09CertificateDetail,
   s09aAccruals,

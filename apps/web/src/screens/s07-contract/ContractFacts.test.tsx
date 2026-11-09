@@ -42,3 +42,13 @@ describe("ContractFacts — budget code (ADR-0025)", () => {
     expect(screen.getByText("7402 — 7402")).toBeInTheDocument();
   });
 });
+
+describe("ContractFacts — extensions of time (ADR-0035)", () => {
+  it("shows the derived sum with a link to the delay tab, and no input", () => {
+    renderWithIntl(<ContractFacts contract={buildContractDetail({ extensionDays: 24, id: "c-9" })} />);
+    expect(screen.getByText("Παρατάσεις")).toBeInTheDocument();
+    expect(screen.getByText("24 ημ")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Προβολή παρατάσεων" })).toHaveAttribute("href", "/contracts/c-9/delay");
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+  });
+});

@@ -8,6 +8,7 @@
 // fact, not only the CostBar's).
 
 import { Fragment, type ReactNode } from "react";
+import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ContractDetail } from "@ecapital/shared";
@@ -55,9 +56,21 @@ export function ContractFacts({ contract, today = new Date() }: ContractFactsPro
       value: contract.completionDate ? formatDate(contract.completionDate) : dash,
       numeric: true,
     },
+    // ADR-0035: the sum of the recorded extensions of time, never typed. The
+    // link goes to the tab where they are recorded.
     {
       label: t("screens.s07.facts.extensionDays"),
-      value: t("common.days", { count: contract.extensionDays }),
+      value: (
+        <span className="inline-flex flex-wrap items-baseline justify-end gap-s-2">
+          <span>{t("common.days", { count: contract.extensionDays })}</span>
+          <Link
+            href={`/contracts/${encodeURIComponent(contract.id)}/delay`}
+            className="font-k-sans text-fs-12 text-k-blue underline-offset-2 hover:underline"
+          >
+            {t("screens.s07.facts.extensionsLink")}
+          </Link>
+        </span>
+      ),
       numeric: true,
     },
     // RULE (build brief §5): retention is its own fact — never netted into

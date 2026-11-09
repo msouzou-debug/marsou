@@ -8,7 +8,8 @@ This screen lists every project you can see, with each one's budget, commitments
 2. Type in the search box to narrow the list by project code or title.
 3. Click a column header to sort by it; click again to reverse the order.
 4. Click or press Enter on a row to open that project's overview.
-5. Save a filter combination you use often from "Saved views", or press "Clear all" to reset it.
+5. The "Updated" column shows when anything on the project, or under it, last changed. At 30 days or more the date is red and its title says for how many days there has been no update.
+6. Save a filter combination you use often from "Saved views", or press "Clear all" to reset it.
 
 ## What can go wrong
 

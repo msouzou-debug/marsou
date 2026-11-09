@@ -145,6 +145,31 @@ describe("S23a report bodies", () => {
     expect(screen.getByText("21 ημ")).toBeInTheDocument();
   });
 
+  it("adds staleness, the penalty accruing and open claims to the exceptions (ADR-0035)", () => {
+    renderPage("EXCEPTIONS");
+    const table = screen.getByRole("table");
+    for (const header of ["Χωρίς ενημέρωση (ημέρες)", "Ρήτρα σε εξέλιξη", "Αξιώσεις"]) {
+      expect(within(table).getByRole("columnheader", { name: header })).toBeInTheDocument();
+    }
+    const [stale, fresh] = bodyRows(table);
+    expect(within(stale).getByText("41")).toHaveClass("text-k-red");
+    expect(within(stale).getByText("Χωρίς ενημέρωση")).toBeInTheDocument();
+    expect(stale).toHaveTextContent(n(formatEUR(42_300)));
+    expect(stale).toHaveTextContent("29 ημ");
+    expect(fresh).not.toHaveTextContent("Χωρίς ενημέρωση");
+    expect(within(fresh).getByText("6")).not.toHaveClass("text-k-red");
+  });
+
+  it("adds the penalties accruing and the culpable extension days to the capital scorecard (ADR-0035)", () => {
+    renderPage("CONTRACTOR_SCORECARD");
+    const table = screen.getAllByRole("table")[0];
+    expect(within(table).getByRole("columnheader", { name: "Ρήτρες σε εξέλιξη" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Παρατάσεις με υπαιτιότητα (ημέρες)" })).toBeInTheDocument();
+    const [first] = bodyRows(table);
+    expect(first).toHaveTextContent(n(formatEUR(42_300)));
+    expect(within(first).getByText("14")).toBeInTheDocument();
+  });
+
   it("shows a maintenance card per agreement with the rates-missing note", () => {
     renderPage("CONTRACTOR_SCORECARD");
     expect(screen.getByRole("heading", { name: "Ανάδοχοι έργων" })).toBeInTheDocument();

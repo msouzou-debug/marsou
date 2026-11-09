@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { renderWithIntl } from "@/test/render";
 import { ProjectListQuery, ProjectSummary, type OrgUnit, type ProjectList } from "@ecapital/shared";
 import { z } from "zod";
@@ -216,5 +216,43 @@ describe("Projects no permission", () => {
     );
     expect(screen.getByTestId("no-permission-stub")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+describe("Projects «Ενημέρωση» column (ADR-0035)", () => {
+  const today = new Date("2026-11-09T12:00:00Z");
+  const withActivity = list([
+    { ...rows[0], lastActivityAt: "2026-11-05T09:00:00.000Z" },
+    { ...rows[1], lastActivityAt: "2026-09-20T09:00:00.000Z" },
+  ]);
+
+  it("shows the last activity as dd/mm/yyyy, red with the days in the title once stale", () => {
+    renderWithIntl(
+      <Projects data={withActivity} state="default" query={query} orgUnits={orgUnits} eyebrow="Όλες οι μονάδες" noPermission={noPermission} today={today} />,
+    );
+    const headers = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent);
+    expect(headers).toContain("Ενημέρωση");
+    const table = screen.getByRole("table");
+    const fresh = within(table).getByText("05/11/2026");
+    expect(fresh).not.toHaveClass("text-k-red");
+    expect(fresh).not.toHaveAttribute("title");
+    const stale = within(table).getByText("20/09/2026");
+    expect(stale).toHaveClass("text-k-red");
+    expect(stale).toHaveAttribute("title", "Χωρίς ενημέρωση για 50 ημέρες");
+  });
+
+  it("also shows it on the phone card", () => {
+    renderWithIntl(
+      <Projects data={withActivity} state="default" query={query} orgUnits={orgUnits} eyebrow="Όλες οι μονάδες" noPermission={noPermission} today={today} />,
+    );
+    const cards = document.querySelector(".tablet\\:hidden") as HTMLElement;
+    expect(within(cards).getByText("20/09/2026")).toHaveClass("text-k-red");
+  });
+
+  it("shows a dash when there is no date", () => {
+    renderWithIntl(
+      <Projects data={list([{ ...rows[0], lastActivityAt: null }])} state="default" query={query} orgUnits={orgUnits} eyebrow="Όλες οι μονάδες" noPermission={noPermission} today={today} />,
+    );
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });

@@ -13,13 +13,15 @@
 import Link from "next/link";
 import type { ProjectSummary } from "@ecapital/shared";
 import { RagChip } from "@/components/rag-chip";
+import { LastActivity } from "./LastActivity";
 
 export interface ProjectCardsProps {
   items: ProjectSummary[];
   unitNameById: Map<string, string>;
+  today?: Date;
 }
 
-export function ProjectCards({ items, unitNameById }: ProjectCardsProps) {
+export function ProjectCards({ items, unitNameById, today }: ProjectCardsProps) {
   return (
     <ul className="grid gap-s-3">
       {items.map((project) => (
@@ -34,6 +36,9 @@ export function ProjectCards({ items, unitNameById }: ProjectCardsProps) {
               <span className="text-fs-14 text-k-text">{unitNameById.get(project.orgUnitId) ?? project.orgUnitId}</span>
               <RagChip value={project.rag.toLowerCase() as "green" | "amber" | "red"} />
             </div>
+            <p className="mt-s-1 text-fs-12 text-k-text">
+              <LastActivity iso={project.lastActivityAt} today={today} />
+            </p>
           </Link>
         </li>
       ))}

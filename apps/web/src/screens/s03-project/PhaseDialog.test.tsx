@@ -65,6 +65,24 @@ describe("PhaseDialog", () => {
     expect(link).toHaveAttribute("href", "#milestone-m-1");
   });
 
+  // ADR-0035 §6: leaving «Ιδέα» without a business case document is refused
+  // with errors.businessCaseMissing; the API's sentence is shown as it is.
+  it("shows the businessCaseMissing sentence the API sends, with no milestone link", () => {
+    renderWithIntl(
+      <PhaseDialog
+        open
+        currentPhase="IDEA"
+        isAdmin={false}
+        submitting={false}
+        apiError={{ message: "Καταχωρίστε την οικονομοτεχνική μελέτη του έργου πριν το προχωρήσετε από τη φάση «Ιδέα»." }}
+        onCancel={() => {}}
+        onSubmit={() => {}}
+      />,
+    );
+    expect(screen.getByText(/οικονομοτεχνική μελέτη/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Δείτε το ορόσημο" })).not.toBeInTheDocument();
+  });
+
   it("returns nothing for a project already at the last phase", () => {
     const { container } = renderWithIntl(
       <PhaseDialog open currentPhase="CLOSED" isAdmin={false} submitting={false} onCancel={() => {}} onSubmit={() => {}} />,
