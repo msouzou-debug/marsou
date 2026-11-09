@@ -578,3 +578,32 @@ calculation form, with the reason box beside them. Everything that can refuse �
 «both kinds or neither» rule, the pricing, the compulsory radiology charge — refuses
 before the first write, because `db_execute` commits per call and a half-done revision
 would stay half-done.
+
+
+---
+
+## The answers of 09/11/2026 (Παναγιώτα Έλληνα)
+
+### The compulsory charge is for the three self-paying categories only — confirmed
+
+«Όντως έκανα αυτή τη δοκιμή για να είμαι σίγουρη ότι το υποχρεωτικό πεδίο αφορά μόνο τις
+κατηγορίες επί πληρωμή ασθενής, κάτοχος ευρωπαϊκής κάρτας ασφάλισης υγείας και για τις
+βρετανικές βάσεις. Στις υπόλοιπες κατηγορίες θα επιλέγουν ακτινογραφία χωρίς να ανοίγει το
+πεδίο για χρέωση από τον τιμοκατάλογο.»
+
+That is what is built. The rule is gated on `tariff_applies`, which is TRUE for exactly
+600 ΕΠΙ ΠΛΗΡΩΜΗ, 602 ΕΥΡΩΚΑΡΤΑ and 640 ΒΡΕΤΑΝΙΚΕΣ ΒΑΣΕΙΣ and for nothing else. In every
+other category the extra-charges card is not on the screen, the imaging service is
+selected on its own, and nothing blocks finalisation. No change.
+
+The readiness check added on 02/11 keeps that true on the server: if a category's
+`tariff_applies` ever drifts from the CSV, readiness blocks on it.
+
+### AED022 stays a flat price — confirmed
+
+«Ναι, μην αντιστοιχίσεις τιμή, είναι οκ.» Read as: SHSO-ER7 for AED022 stays a flat €65
+with no examination picked from the radiology price list, unlike the other four. That is
+what is built. No change.
+
+If the second answer was about something else, it is the only open reading in this
+round — say so and it will be revisited.

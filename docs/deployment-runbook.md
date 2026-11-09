@@ -641,10 +641,20 @@ By the time `DOMContentLoaded` fires, `base.html`'s own line 390 initialiser has
 `.select2`. Ours claim `.select2-services`, `.select2-cpt` and `#diagnosis_code`, so the
 two do not collide — keep it that way when adding a picker.
 
-Worth knowing separately: Bootstrap, jQuery and Select2 all come from
-`cdn.jsdelivr.net`, an address outside the network. It resolves today. If it ever stops,
-every search box in eFinance goes quiet in exactly this silent way. The ICD-10 field has
-a plain code input behind it for that case; nothing else does.
+Worth knowing separately: Bootstrap, jQuery and Select2 came from `cdn.jsdelivr.net`,
+an address outside the network. If it ever stops resolving, every search box goes quiet
+in exactly this silent way.
+
+**Since 09/11/2026 they are served locally.** `static/vendor/` holds the five packages at
+the pinned versions, with their licences and a `MANIFEST.txt` of checksums; jQuery's and
+Bootstrap's published integrity hashes were checked against them and match. The
+standalone host serves them now — proven in Chromium with every outside request blocked:
+jQuery, Select2, Bootstrap and the icon font all load, and nothing leaves the server.
+
+**eFinance's `base.html` is theirs and still points at the CDN** until they change it.
+`docs/note-to-efinance-agent-local-assets.md` is the procedure. The order matters: copy
+the files, prove `/static/vendor/...` returns 200, and only then edit `base.html` —
+otherwise every eFinance page loses its CSS and JS at once.
 
 ## Two scripts over one element
 

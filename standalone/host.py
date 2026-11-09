@@ -255,7 +255,10 @@ ctx = {
 
 
 def create_app():
-    app = Flask(__name__, template_folder=str(HERE / "templates"))
+    # static/ is the repository's, beside the module's templates: it holds the vendored
+    # Bootstrap, jQuery and Select2 (static/vendor, 09/11/2026) as well as the ΤΑΕΠ mark.
+    app = Flask(__name__, template_folder=str(HERE / "templates"),
+                static_folder=str(HERE.parent / "static"), static_url_path="/static")
     app.secret_key = CONFIG.get("secret_key") or os.environ.get("TAEP_SECRET")
     if not app.secret_key:
         # A fresh key per process means every restart signs everyone out, and the

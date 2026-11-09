@@ -543,3 +543,80 @@ def test_no_standalone_page_can_be_framed_by_another_site(server):
         # Exactly one: some browsers treat a duplicated X-Frame-Options as invalid and
         # ignore both, which looks fixed and is not.
         assert xfo == ["SAMEORIGIN"], (label, xfo)
+
+
+# ---------------------------------------------------------------------------
+# Third-party files served locally (09/11/2026)
+# ---------------------------------------------------------------------------
+
+VENDOR = Path(__file__).resolve().parent / "static" / "vendor"
+
+
+def manifest():
+    rows = []
+    for line in (VENDOR / "MANIFEST.txt").read_text(encoding="utf-8").splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        digest, local, _arrow, url = line.split(None, 3)
+        rows.append((digest, local, url))
+    return rows
+
+
+def test_no_layout_or_screen_loads_anything_from_another_host():
+    """Every search box depends on jQuery and Select2, and a page whose library fails to
+    load degrades silently: the dropdowns become plain lists and nobody reports it. That
+    is how the ICD-10 and service searches went dead in October.
+
+    So nothing the browser fetches to draw a screen may come from another host. Checked
+    on src= and href= in every template rather than by grepping for one CDN's name, so
+    that switching to a different CDN is caught too.
+    """
+    import re
+    root = Path(__file__).resolve().parent
+    offenders = []
+    for path in sorted(list((root / "templates").glob("*.html"))
+                       + list((root / "standalone" / "templates").glob("*.html"))):
+        text = path.read_text(encoding="utf-8")
+        for attribute, url in re.findall(r'\b(src|href)\s*=\s*"(https?://[^"]+)"', text):
+            if attribute == "src" or url.endswith((".css", ".js", ".woff", ".woff2")):
+                offenders.append("%s: %s" % (path.name, url))
+    assert not offenders, "\n".join(offenders)
+
+
+def test_the_vendored_files_are_the_ones_the_manifest_names():
+    """The manifest is how anyone can tell the files are the CDN's own bytes and have not
+    been edited since. jQuery's and Bootstrap's published integrity hashes were checked
+    against these files when they were added; this keeps them honest from here on.
+    """
+    import hashlib
+    rows = manifest()
+    assert len(rows) == 9
+    for digest, local, url in rows:
+        path = VENDOR / local
+        assert path.exists(), local
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, local
+        assert url.startswith("https://cdn.jsdelivr.net/npm/"), url
+
+    # Every package keeps its licence beside it: all five are MIT, which requires it.
+    for directory in {Path(local).parts[0] for _d, local, _u in rows}:
+        assert list((VENDOR / directory).glob("LICENSE*")), directory
+
+
+def test_the_standalone_host_serves_every_file_its_layout_asks_for(server):
+    """Including the two fonts, which no template names: the icon stylesheet asks for
+    them by a relative path, so they 404 unless they sit beside it.
+    """
+    import re
+    client, _ = sign_in(server, "maria")
+    page = client.get("/taep/list").get_data(as_text=True)
+    assets = re.findall(r'(?:src|href)="(/static/vendor/[^"]+)"', page)
+    assert len(assets) == 7, assets
+    for asset in assets:
+        assert client.get(asset).status_code == 200, asset
+
+    stylesheet = client.get(
+        "/static/vendor/bootstrap-icons-1.11.3/bootstrap-icons.min.css").get_data(
+        as_text=True)
+    for font in re.findall(r'url\("(fonts/[^"?]+)', stylesheet):
+        response = client.get("/static/vendor/bootstrap-icons-1.11.3/" + font)
+        assert response.status_code == 200, font
