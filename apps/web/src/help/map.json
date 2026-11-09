@@ -164,6 +164,32 @@
       "project_engineer"
     ]
   },
+  "S07h": {
+    "route": "/contracts/[id]/delay",
+    "section": "S07h-delay",
+    "tier": "day-one",
+    "persona": [
+      "admin",
+      "estates_head",
+      "project_engineer",
+      "finance",
+      "executive_readonly",
+      "auditor_readonly"
+    ]
+  },
+  "S07i": {
+    "route": "/contracts/[id]/claims",
+    "section": "S07i-claims",
+    "tier": "day-one",
+    "persona": [
+      "admin",
+      "estates_head",
+      "project_engineer",
+      "finance",
+      "executive_readonly",
+      "auditor_readonly"
+    ]
+  },
   "S07b": {
     "route": "/contracts/[id]/rfis",
     "section": "S07b-rfis",

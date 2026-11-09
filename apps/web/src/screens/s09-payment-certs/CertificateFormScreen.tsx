@@ -49,6 +49,7 @@ export function CertificateFormScreen({ contractId }: CertificateFormScreenProps
     <CertificateForm
       contractId={contractId}
       contractNo={contract.data?.contractNo}
+      delay={contract.data?.delay}
       saving={saving}
       apiError={apiError}
       onSave={(values) => void save(values)}

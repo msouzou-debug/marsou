@@ -5,7 +5,7 @@
 /**
  * ContractTabs — the tab strip a contract's own screens share, the same
  * pattern `ProjectTabs` (S03) sets: Επισκόπηση (S07), Τροποποιήσεις (S08),
- * Πιστοποιήσεις (S09), Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου
+ * Προθεσμίες και ρήτρες (S07h), Αξιώσεις (S07i, ADR-0035), Πιστοποιήσεις (S09), Αιτήματα διευκρίνισης (S07b), Οδηγίες εργοταξίου
  * (S07c), Ελλείψεις (S07d), Τιμολόγια eFinance (S07f) and Αιτήματα eFinance
  * (S07g), in that fixed order.
  *
@@ -28,6 +28,8 @@ import { useTranslations } from "next-intl";
 export type ContractTabId =
   | "overview"
   | "variations"
+  | "delay"
+  | "claims"
   | "certificates"
   | "rfis"
   | "instructions"
@@ -49,6 +51,10 @@ function hrefFor(id: ContractTabId, contractId: string): string {
       return base;
     case "variations":
       return `${base}/variations`;
+    case "delay":
+      return `${base}/delay`;
+    case "claims":
+      return `${base}/claims`;
     case "certificates":
       return `${base}/certificates`;
     case "rfis":
@@ -69,6 +75,8 @@ function hrefFor(id: ContractTabId, contractId: string): string {
 const TAB_ORDER: ContractTabId[] = [
   "overview",
   "variations",
+  "delay",
+  "claims",
   "certificates",
   "rfis",
   "instructions",

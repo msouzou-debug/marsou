@@ -58,7 +58,9 @@
     "percentRange": "The percentage must be between 0 and 100.",
     "invalidDate": "Enter a valid date.",
     "emapRefFormat": "An eMAP reference is written CON-2026-0042.",
-    "weightRange": "The value must be between 0 and 1."
+    "weightRange": "The value must be between 0 and 1.",
+    "codeLength": "The code can have up to 8 characters.",
+    "positiveDays": "Days must be a whole number greater than zero."
   },
   "components": {
     "passwordField": {
@@ -423,7 +425,9 @@
       "pagination": "{from}–{to} of {total}",
       "prevPage": "Previous page",
       "nextPage": "Next page",
-      "caption": "The table lists the projects matching the active filters, with each one's budget, commitments, spend and RAG status."
+      "caption": "The table lists the projects matching the active filters, with each one's budget, commitments, spend and RAG status.",
+      "lastActivity": "Updated",
+      "staleTitle": "No update for {days, plural, one {# day} other {# days}}"
     },
     "s02a": {
       "titleNew": "New project",
@@ -603,7 +607,9 @@
         "defects": "Defects",
         "certificates": "Certificates",
         "efinanceInvoices": "eFinance invoices",
-        "efinanceRequisitions": "eFinance requisitions"
+        "efinanceRequisitions": "eFinance requisitions",
+        "delay": "Deadlines and penalties",
+        "claims": "Claims"
       },
       "factsCaption": "Contract facts",
       "facts": {
@@ -613,7 +619,7 @@
         "awardDate": "Award date",
         "startDate": "Start",
         "completionDate": "Contract completion",
-        "extensionDays": "Extension (days)",
+        "extensionDays": "Extensions of time",
         "retentionPct": "Retention",
         "bondValue": "Performance bond",
         "bondExpiry": "Bond expiry",
@@ -621,7 +627,8 @@
         "liquidatedDamages": "Liquidated damages per day",
         "defectsLiabilityMonths": "Defects liability period",
         "sapPoNumber": "SAP PO number",
-        "awardDecision": "Award decision"
+        "awardDecision": "Award decision",
+        "extensionsLink": "View extensions"
       },
       "boq": {
         "title": "Bill of quantities",
@@ -1197,7 +1204,8 @@
         "sapInvoiceRefLabel": "SAP invoice ref",
         "paidDateLabel": "Paid date",
         "sameUserApprovalHint": "You cannot approve a certificate you created yourself. Assign the approval to someone else with approval rights."
-      }
+      },
+      "delayNotice": "Delay penalty accruing: {amount} ({days, plural, one {# day} other {# days}}). Finance withholds it on the payment certificate."
     },
     "s09a": {
       "title": "Accruals",
@@ -1804,8 +1812,12 @@
             "forecast": "Forecast final cost",
             "slippage": "Slippage",
             "milestoneLate": "Milestone late",
-            "risksHigh": "High risks"
-          }
+            "risksHigh": "High risks",
+            "daysSinceActivity": "No update (days)",
+            "delayPenalty": "Penalty accruing",
+            "openClaims": "Claims"
+          },
+          "stale": "No update"
         },
         "CONTRACTOR_SCORECARD": {
           "description": "Capital contractors with on-time completion, variations, defects and certificates, and maintenance contractors with the agreement's times and penalties.",
@@ -1824,7 +1836,9 @@
             "openDefects": "Open defects",
             "defectRate": "Defects per 100.000 €",
             "rfiBreach": "RFIs past their deadline",
-            "claimAccuracy": "Claim accuracy"
+            "claimAccuracy": "Claim accuracy",
+            "delayPenalty": "Penalties accruing",
+            "culpableExtensionDays": "Extensions with contractor at fault (days)"
           },
           "cardHeading": "{contractor} · {ref}",
           "downtime": "Downtime hours",
@@ -2231,6 +2245,128 @@
         "restore": "Restore on time",
         "downtime": "Downtime"
       }
+    },
+    "s07h": {
+      "title": "Deadlines and penalties",
+      "clocksTitle": "Deadlines",
+      "clocksCaption": "The contract's completion deadlines, with the extensions of time and the delay penalty accruing",
+      "clocksEmpty": "There is no completion deadline. Record the contract's contractual completion date or add a section.",
+      "contractClock": "Contract",
+      "asOf": "Days late were counted to {date}.",
+      "reminder": "The penalty is shown for information. Finance withholds it on the payment certificate.",
+      "totals": "Total",
+      "notActivated": "Not activated",
+      "activatedOn": "From {date}",
+      "activate": "Activate penalty",
+      "columns": {
+        "section": "Section",
+        "completion": "Contractual completion",
+        "extensionDays": "Extensions (days)",
+        "due": "Due date",
+        "handover": "Handover",
+        "daysLate": "Days late",
+        "rate": "Penalty per day",
+        "amount": "Penalty accruing",
+        "activation": "Activation"
+      },
+      "activation": {
+        "title": "Activate penalty",
+        "intro": "Record the date the penalty applies from and the reason. The penalty is counted in any case; the activation records the decision.",
+        "clock": "Deadline",
+        "date": "Activation date",
+        "note": "Note"
+      },
+      "sections": {
+        "title": "Sections",
+        "caption": "The sections of the contract's works, each with its own deadline",
+        "empty": "The contract has no sections. Its deadline is its contractual completion date.",
+        "add": "Add section",
+        "editTitle": "Edit section",
+        "contractRate": "The contract's penalty applies",
+        "notHandedOver": "Not handed over",
+        "columns": {
+          "code": "Code",
+          "title": "Title",
+          "completion": "Contractual completion",
+          "handover": "Handover",
+          "rate": "Penalty per day",
+          "actions": "Actions"
+        },
+        "fields": {
+          "code": "Code",
+          "title": "Title",
+          "completion": "Contractual completion",
+          "handover": "Handover date",
+          "rate": "Penalty per day (optional)"
+        },
+        "deleteTitle": "Delete section {code}?",
+        "deleteConsequence": "The section is deleted for good and its deadline is no longer counted."
+      },
+      "extensions": {
+        "title": "Extensions of time",
+        "caption": "The contract's approved extensions of time, newest first",
+        "empty": "No extensions of time have been recorded.",
+        "add": "Add extension",
+        "addTitle": "New extension of time",
+        "wholeContract": "Whole contract",
+        "culpableLabel": "Contractor at fault: {value}",
+        "columns": {
+          "date": "Date",
+          "days": "Days",
+          "approver": "Approved by",
+          "name": "Name",
+          "reason": "Reason",
+          "culpable": "Contractor at fault",
+          "section": "Section",
+          "actions": "Actions"
+        },
+        "fields": {
+          "section": "Section",
+          "days": "Days granted",
+          "approvedAt": "Date approved",
+          "approver": "Approved by",
+          "approverName": "Approver's name",
+          "reason": "Reason",
+          "culpable": "Contractor at fault"
+        },
+        "deleteTitle": "Delete this extension of time?",
+        "deleteConsequence": "The {days} days are taken off the deadline and the penalty is counted again."
+      },
+      "delete": "Delete"
+    },
+    "s07i": {
+      "title": "Claims",
+      "caption": "The contractor's and the Organisation's claims on the contract",
+      "empty": "No claims have been recorded on this contract.",
+      "openTitle": "Open claims",
+      "openByContractor": "Contractor claims",
+      "openByOrganisation": "Organisation claims",
+      "openNote": "A claim is open from the stage \"Notified\" to \"Court\". Settled and withdrawn claims are not counted.",
+      "contingent": "Contingent liability",
+      "columns": {
+        "direction": "Type",
+        "title": "Title",
+        "amount": "Amount",
+        "stage": "Stage",
+        "notifiedAt": "Notified",
+        "legalAdvisor": "Legal advisor",
+        "contingent": "Contingent liability",
+        "notes": "Notes",
+        "actions": "Actions"
+      },
+      "fields": {
+        "direction": "Claim type",
+        "title": "Title",
+        "amount": "Amount",
+        "stage": "Stage",
+        "notifiedAt": "Date notified",
+        "legalAdvisor": "Legal advisor",
+        "contingent": "Contingent liability",
+        "contingentHint": "Finance reads this for the notes to the financial statements.",
+        "notes": "Notes"
+      },
+      "addTitle": "New claim",
+      "editTitle": "Edit claim"
     }
   },
   "states": {
@@ -2689,5 +2825,24 @@
     "PRESSURE_VESSELS": "Pressure vessels",
     "MEDICAL_GAS": "Medical gas",
     "FIRE_SYSTEMS": "Fire systems"
+  },
+  "extensionApprover": {
+    "TEAA": "ΤΕΑΑ",
+    "KEAA": "ΚΕΑΑ",
+    "ENGINEER": "Project engineer",
+    "OTHER": "Other"
+  },
+  "claimDirection": {
+    "BY_CONTRACTOR": "Contractor claim",
+    "BY_ORGANISATION": "Organisation claim"
+  },
+  "claimStage": {
+    "NOTIFIED": "Notified",
+    "UNDER_REVIEW": "Under review",
+    "NEGOTIATION": "Negotiation",
+    "ARBITRATION": "Arbitration",
+    "COURT": "Court",
+    "SETTLED": "Settled",
+    "WITHDRAWN": "Withdrawn"
   }
 }

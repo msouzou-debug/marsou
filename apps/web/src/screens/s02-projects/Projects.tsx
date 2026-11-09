@@ -53,6 +53,7 @@ import type { Locale } from "@/i18n/config";
 import { formatDate, formatEUR } from "@/lib/format";
 import { FacetFilter } from "./FacetFilter";
 import { filterItemsToQuery, loadSavedViews, queryToFilterItems, ragChipKey, saveSavedViews } from "./filters";
+import { LastActivity } from "./LastActivity";
 import { ProjectCards } from "./ProjectCards";
 import { projectsQueryToSearchParams } from "./query";
 
@@ -70,6 +71,8 @@ export interface ProjectsProps {
    *  reason to care about «Προσθήκη» (most of this screen's own tests)
    *  does not have to pass one. */
   roles?: AppRole[];
+  /** Injectable "now" for the staleness rule (ADR-0035); defaults to the real clock. */
+  today?: Date;
 }
 
 // Table headers wired to a sortable ProjectSort field, by column id.
@@ -85,7 +88,7 @@ const SORT_BY_COLUMN_ID: Partial<Record<string, ProjectSort>> = {
   rag: "rag",
 };
 
-export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPermission, roles = [] }: ProjectsProps) {
+export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPermission, roles = [], today }: ProjectsProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const router = useRouter();
@@ -251,8 +254,18 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
         cell: (row) => (row.plannedFinish ? formatDate(row.plannedFinish) : t("common.notAvailable")),
         numeric: true,
       },
+      {
+        // ADR-0035: the newest change on the project or anything under it.
+        // Red, with the number of days in the title, once it is stale.
+        id: "lastActivity",
+        headerKey: "screens.s02.lastActivity",
+        accessor: (row) => row.lastActivityAt ?? "",
+        cell: (row) => <LastActivity iso={row.lastActivityAt} today={today} />,
+        numeric: true,
+        sortable: false,
+      },
     ],
-    [t, unitNameById],
+    [t, unitNameById, today],
   );
 
   // RULE: `Table` sorts only the rows it already has, client-side, and has
@@ -352,7 +365,7 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
 
       {showCards && (
         <div className="tablet:hidden">
-          <ProjectCards items={data.items} unitNameById={unitNameById} />
+          <ProjectCards items={data.items} unitNameById={unitNameById} today={today} />
         </div>
       )}
       <div className={showCards ? "hidden tablet:block" : undefined} onClick={handleHeaderClick}>

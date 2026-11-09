@@ -941,4 +941,14 @@ const rawProjects: z.input<typeof ProjectSummary>[] = [
   },
 ];
 
-export const projects: ProjectSummary[] = z.array(ProjectSummary).parse(rawProjects);
+// ADR-0035: the newest change on each project. Authored deterministically so
+// the demo and the tests see both fresh and stale rows: every fifth project
+// has been quiet since August (stale against the 9 November 2026 "today" the
+// fixtures use), the rest were touched in the first days of November.
+export const projects: ProjectSummary[] = z
+  .array(ProjectSummary)
+  .parse(rawProjects)
+  .map((project, index) => ({
+    ...project,
+    lastActivityAt: index % 5 === 0 ? "2026-08-20T09:00:00.000Z" : `2026-11-0${(index % 8) + 1}T09:00:00.000Z`,
+  }));

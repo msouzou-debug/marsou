@@ -12,6 +12,7 @@
  * | Prop      | Type                          | Notes                                    |
  * |-----------|-------------------------------|----------------------------------------------|
  * | contractNo| string?                        | Header eyebrow.                              |
+ * | delay     | ContractDelay?                 | ADR-0035: when `totalAmount > 0`, an info notice above the form — never an input; finance withholds the penalty. |
  * | saving    | boolean                        |                                               |
  * | apiError  | string?                        |                                               |
  * | onSave    | (values) => void               |                                               |
@@ -20,20 +21,24 @@
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
+import type { ContractDelay } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
+import { formatEUR } from "@/lib/format";
 import { zodResolver } from "@/lib/zod-resolver";
 import { CertificateFormSchema, type CertificateFormValues } from "./schema";
 
 export interface CertificateFormProps {
   contractId: string;
   contractNo?: string;
+  /** ADR-0035: the contract's delay figures; a notice shows when a penalty is accruing. */
+  delay?: ContractDelay;
   saving?: boolean;
   apiError?: string;
   onSave: (values: CertificateFormValues) => void;
   onCancel: () => void;
 }
 
-export function CertificateForm({ contractNo, saving = false, apiError, onSave, onCancel }: CertificateFormProps) {
+export function CertificateForm({ contractNo, delay, saving = false, apiError, onSave, onCancel }: CertificateFormProps) {
   const t = useTranslations();
   const {
     register,
@@ -52,6 +57,11 @@ export function CertificateForm({ contractNo, saving = false, apiError, onSave, 
   return (
     <>
       <PageTitle eyebrow={contractNo ?? ""} title={t("screens.s09.newTitle")} />
+      {delay && delay.totalAmount !== null && delay.totalAmount > 0 && (
+        <p role="note" className="mb-s-4 flex max-w-[560px] items-start gap-s-2 rounded-k border border-k-amber bg-k-amber-bg px-s-3 py-s-2 text-fs-14 text-k-ink">
+          {t("screens.s09.delayNotice", { amount: formatEUR(delay.totalAmount), days: delay.totalDaysLate })}
+        </p>
+      )}
       <form onSubmit={handleSubmit((values) => onSave(values))} className="flex max-w-[560px] flex-col gap-s-4">
         <div className="grid gap-s-4 tablet:grid-cols-2">
           <div className="flex flex-col gap-s-1">

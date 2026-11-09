@@ -22,7 +22,7 @@ import type { ExceptionRow, ExceptionsReport } from "@ecapital/shared";
 import { RagChip, type RagValue } from "@/components/rag-chip";
 import { Table, type TableColumn } from "@/components/table";
 import { formatEUR, formatInt } from "@/lib/format";
-import { DASH, Slippage, eurOrDash } from "../cells";
+import { DASH, Slippage, Stacked, eurOrDash } from "../cells";
 import { EMPTY, tableState, type BodyProps } from "./types";
 
 const P = "screens.s23a.reports.EXCEPTIONS";
@@ -60,6 +60,35 @@ export function ExceptionsBody({ report, state, onExport, onRetry }: BodyProps<E
       cell: (r) => (r.milestoneLateDays === null ? DASH : t("common.days", { count: formatInt(r.milestoneLateDays) })),
     },
     { id: "risksHigh", headerKey: `${P}.columns.risksHigh`, accessor: (r) => r.openRisksHigh, numeric: true, cell: (r) => formatInt(r.openRisksHigh) },
+    // ADR-0035: freshness, the delay penalty accruing, and open claims.
+    {
+      id: "daysSinceActivity",
+      headerKey: `${P}.columns.daysSinceActivity`,
+      accessor: (r) => r.daysSinceActivity ?? -1,
+      numeric: true,
+      cell: (r) =>
+        r.daysSinceActivity === null ? (
+          DASH
+        ) : (
+          <span className="inline-flex flex-wrap items-center justify-end gap-s-2">
+            <span className={r.stale ? "text-k-red" : undefined}>{formatInt(r.daysSinceActivity)}</span>
+            {r.stale && <span className="rounded-k-chip bg-k-red-bg px-s-2 py-s-1 text-fs-12 text-k-ink">{t(`${P}.stale`)}</span>}
+          </span>
+        ),
+    },
+    {
+      id: "delayPenalty",
+      headerKey: `${P}.columns.delayPenalty`,
+      accessor: (r) => r.delayPenaltyAmount ?? -1,
+      numeric: true,
+      cell: (r) =>
+        r.delayPenaltyAmount === null ? (
+          DASH
+        ) : (
+          <Stacked top={formatEUR(r.delayPenaltyAmount)} bottom={t("common.days", { count: formatInt(r.delayDaysLate) })} />
+        ),
+    },
+    { id: "openClaims", headerKey: `${P}.columns.openClaims`, accessor: (r) => r.openClaims, numeric: true, cell: (r) => formatInt(r.openClaims) },
   ];
 
   return (

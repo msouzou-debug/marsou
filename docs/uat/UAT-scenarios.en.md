@@ -68,6 +68,26 @@ Columns of every table: Steps, Expected, Result (you fill it in).
 | C8 | As `finance`, payment certificates tab. Create a certificate with 10% retention (Κρατήσεις). | The net amount is right. Draft to approved to paid, with a date. | |
 | C9 | As `engineer.larnaca`, try to change a project's approved budget. | Refused: only finance changes it. | |
 
+## Ca. Deadlines, penalties and claims (engineer, head of estates, finance)
+
+Use a Nicosia General Hospital contract with no sections, with a contractual completion date and a penalty per day.
+
+| # | Steps | Expected | Result |
+|---|---|---|---|
+| Ca1 | As `engineer.nicosia`, open the "Deadlines and penalties" tab. Add two sections: "Α" with a contractual completion date in the past and "Β" with a later one. | The deadlines show per section, with a "Total" row at the end. The contract no longer has a deadline of its own. | |
+| Ca2 | On section "Α", add a 10-day extension of time approved by ΤΕΑΑ, with a name, a reason and "Contractor at fault: No". | The extension is first in the list. Section "Α"'s due date moves by 10 days and its days late drop accordingly. On the overview, "Extensions of time" shows 10 d and there is no field to type it into. | |
+| Ca3 | Try to save an extension without answering "Contractor at fault". | The form asks for the field to be filled in. There is no default answer. | |
+| Ca4 | As `engineer.nicosia`, look at section "Α"'s row. | "Penalty accruing" shows days × the rate per day. Under the table the page says the penalty is shown for information and that finance withholds it on the payment certificate. There is no "Activate penalty" button. | |
+| Ca5 | As `estates.nicosia`, on the same row press "Activate penalty", give a date and a note, and save. | The "Activation" column shows "From" and the date. The button is gone from that row. | |
+| Ca6 | As `finance`, open payment certificates and start a new certificate on the contract. | Above the form: "Delay penalty accruing" with the amount and the days, and that finance withholds it. The amount is not a field to fill in. | |
+| Ca7 | As `engineer.nicosia`, on the "Claims" tab add a contractor claim of 85.000,00 € at stage "Under review", with a legal advisor and "Contingent liability" ticked. Add an "Organisation claim" of 37.500,00 €. | Both join the list with their stage. Under the title, the open contractor and Organisation claims show 85.000,00 € and 37.500,00 €. The overview shows the open-claims warning. | |
+| Ca8 | Change the first claim's stage to "Settled". | The open contractor claims total drops to 0,00 €. | |
+| Ca9 | As `auditor`, open the "Deadlines and penalties" and "Claims" tabs. | Everything is visible. There is no add, edit, delete or activate button. | |
+| Ca10 | As `estates.nicosia`, Projects. Look at the "Updated" column. | Each project shows the date of its latest change. Projects with no change for 30 days or more are in red and, on hover, say "No update for N days". | |
+| Ca11 | As `executive`, Reports, Project exceptions. | The "No update (days)", "Penalty accruing" and "Claims" columns have values. Projects with no update carry a "No update" chip. The project of the contract in Ca1 to Ca7 shows the penalty and the open claims. | |
+| Ca12 | As `executive`, Contractor scorecard. | The capital contractor table has "Penalties accruing" and "Extensions with contractor at fault (days)". The extension of Ca2, judged not the contractor's fault, is not counted in the second. | |
+| Ca13 | As `estates.nicosia`, try to move a project out of "Idea" with no business case filed. | The phase change is refused with a sentence asking for the business case. | |
+
 ## D. Cost (finance)
 
 | # | Steps | Expected | Result |

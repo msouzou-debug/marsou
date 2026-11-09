@@ -25,7 +25,7 @@ import { useTranslations } from "next-intl";
 import type { CapitalContractorRow, ContractorScorecardReport, Scorecard } from "@ecapital/shared";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDecimal, formatEUR, formatInt } from "@/lib/format";
-import { DASH, pctOrDash } from "../cells";
+import { DASH, eurOrDash, pctOrDash } from "../cells";
 import { EMPTY, tableState, type BodyProps } from "./types";
 
 const P = "screens.s23a.reports.CONTRACTOR_SCORECARD";
@@ -106,6 +106,22 @@ export function ContractorScorecardBody({ report, state, onExport, onRetry }: Bo
     },
     pctCol("rfiBreach", "rfiBreach", (r) => r.rfiBreachPct),
     pctCol("claimAccuracy", "claimAccuracy", (r) => r.claimAccuracyPct),
+    // ADR-0035: the penalty accruing across the contractor's contracts (null
+    // without a rate) and the extension days judged the contractor's fault.
+    {
+      id: "delayPenalty",
+      headerKey: `${P}.columns.delayPenalty`,
+      accessor: (r) => r.delayPenaltyAccrued ?? -1,
+      numeric: true,
+      cell: (r) => eurOrDash(r.delayPenaltyAccrued),
+    },
+    {
+      id: "culpableExtensionDays",
+      headerKey: `${P}.columns.culpableExtensionDays`,
+      accessor: (r) => r.culpableExtensionDays,
+      numeric: true,
+      cell: (r) => formatInt(r.culpableExtensionDays),
+    },
   ];
 
   if (nothing) {

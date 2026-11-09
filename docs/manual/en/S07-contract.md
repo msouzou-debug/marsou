@@ -9,12 +9,13 @@ This screen shows one contract: its facts, its bill of quantities, its cost posi
 3. In the left column, check the contract's facts — including its budget code — and its bill of quantities, if one has been recorded.
 4. In the right column, check the cost bar, the approved and pending variations, the retention and the variations list.
 5. Press "Add" on the bill of quantities to enter it line by line, if it is empty.
-6. Press the "Contract variations" title to see the full list on S08.
-7. Where they appear, use the "Open in eMAP" and "Invoices in eFinance" links under the title. Both open in a new tab.
-8. In the right column, under the retention, check the "eFinance link" panel: when the contract was sent, and the four figures eFinance holds for it.
-9. Open the "eFinance invoices" tab to see the invoices eFinance has tagged with this contract. Press "Lines" on an invoice to see each line's description, quantity, price, cost centre, budget code and WBS.
-10. Open the "eFinance requisitions" tab to see the purchase requisitions eFinance has tagged with this contract, with their amount, status and order number.
-11. If you are a system administrator and you have fixed the cause of an error, press "Send to eFinance" to send the contract again. The result appears under the button.
+6. Check "Extensions of time" in the facts: it is the sum of the approved extensions and is not typed. The "Deadlines and penalties" and "Claims" tabs show the contract's extensions, delay penalty and claims.
+7. Press the "Contract variations" title to see the full list on S08.
+8. Where they appear, use the "Open in eMAP" and "Invoices in eFinance" links under the title. Both open in a new tab.
+9. In the right column, under the retention, check the "eFinance link" panel: when the contract was sent, and the four figures eFinance holds for it.
+10. Open the "eFinance invoices" tab to see the invoices eFinance has tagged with this contract. Press "Lines" on an invoice to see each line's description, quantity, price, cost centre, budget code and WBS.
+11. Open the "eFinance requisitions" tab to see the purchase requisitions eFinance has tagged with this contract, with their amount, status and order number.
+12. If you are a system administrator and you have fixed the cause of an error, press "Send to eFinance" to send the contract again. The result appears under the button.
 
 The line above the title gives the contract reference (`CAP-2026-0031`) first and the contract number second. The reference is given by the system, never changes, and is the one eFinance records against an invoice.
 

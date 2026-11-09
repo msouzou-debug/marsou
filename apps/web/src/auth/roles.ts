@@ -52,6 +52,15 @@ export function canWriteContracts(roles: AppRole[]): boolean {
   return levelAtLeast(roles, "contractRecords", "WRITE");
 }
 
+/**
+ * S07h (ADR-0035): activating the delay penalty on a clock is APPROVE on the
+ * contract record row, by default the administrator and the head of estates.
+ * Sections, extensions and claims are plain WRITE (`canWriteContracts`).
+ */
+export function canActivateDelay(roles: AppRole[]): boolean {
+  return levelAtLeast(roles, "contractRecords", "APPROVE");
+}
+
 /** Raising and submitting a variation (CAPEX-01 §1). */
 export function canRaiseVariations(roles: AppRole[]): boolean {
   return levelAtLeast(roles, "variationSubmit", "WRITE");

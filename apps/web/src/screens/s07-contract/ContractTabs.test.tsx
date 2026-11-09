@@ -10,6 +10,8 @@ describe("ContractTabs — the eFinance tabs (ADR-0029)", () => {
     expect(tabs.map((tab) => tab.textContent)).toEqual([
       "Επισκόπηση",
       "Τροποποιήσεις",
+      "Προθεσμίες και ρήτρες",
+      "Αξιώσεις",
       "Πιστοποιήσεις",
       "Αιτήματα διευκρίνισης",
       "Οδηγίες εργοταξίου",
@@ -19,6 +21,13 @@ describe("ContractTabs — the eFinance tabs (ADR-0029)", () => {
     ]);
     expect(screen.getByRole("tab", { name: "Τιμολόγια eFinance" })).toHaveAttribute("href", "/contracts/c-1/efinance/invoices");
     expect(screen.getByRole("tab", { name: "Αιτήματα eFinance" })).toHaveAttribute("href", "/contracts/c-1/efinance/requisitions");
+  });
+
+  it("has the delay and claims tabs after the variations, on their own routes (ADR-0035)", () => {
+    renderWithIntl(<ContractTabs contractId="c-1" active="delay" />);
+    expect(screen.getByRole("tab", { name: "Προθεσμίες και ρήτρες" })).toHaveAttribute("href", "/contracts/c-1/delay");
+    expect(screen.getByRole("tab", { name: "Προθεσμίες και ρήτρες" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Αξιώσεις" })).toHaveAttribute("href", "/contracts/c-1/claims");
   });
 
   it("marks the active eFinance tab selected", () => {
