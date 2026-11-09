@@ -232,7 +232,8 @@ export async function seedContractRegister(db: Db): Promise<ContractSeedSummary>
       originalValue: String(fixture.originalValue),
       startDate: fixture.startDate,
       completionDate: fixture.completionDate,
-      extensionDays: 0,
+      // ADR-0035: `extension_days` is the sum of the extension rows, kept by
+      // the database; the seed never writes it.
       retentionPct: String(fixture.retentionPct),
       performanceBondValue: String(fixture.performanceBondValue),
       bondExpiry: fixture.bondExpiry,
@@ -373,7 +374,180 @@ export async function seedContractRegister(db: Db): Promise<ContractSeedSummary>
     summary.variations += 1;
   }
 
+  // ------------------------------------------------- ADR-0035 delay example --
+  await seedDelayExample(db, contractIds, userBySubject);
+
   return summary;
+}
+
+/**
+ * ADR-0035: the Larnaca shape the ΜΕΕ reported, on the seeded Larnaca
+ * operating-theatre contract, so the UAT sees real figures: two sections at
+ * €1.000 a day, Section Α handed over 282 days late and activated seven months
+ * after its deadline, Section Β still open with one extension of 40 days from
+ * the ΚΕΑΑ judged not the contractor's fault, and the claim in court. The
+ * Organisation's counterclaim sits on the NAM III contract (the terminated
+ * NICU contract of the report), or on the same contract when there is none.
+ *
+ * Idempotent: a section is found by contract and code, the extension by
+ * section and approval date, a claim by contract and title.
+ */
+export const seedDelay = {
+  projectRef: "PRJ-036",
+  counterclaimProjectRef: "PRJ-029",
+  ratePerDay: 1000,
+  sections: [
+    {
+      code: "Α",
+      titleEl: "Τμήμα Α — Χειρουργεία ισογείου",
+      completionDate: "2024-12-03",
+      handoverDate: "2025-09-11",
+      ldActivatedAt: "2025-07-21",
+      ldActivationNoteEl: "Ενεργοποίηση της ρήτρας καθυστέρησης μετά από απόφαση της Διεύθυνσης Τεχνικών Υπηρεσιών.",
+      sortOrder: 1,
+    },
+    {
+      code: "Β",
+      titleEl: "Τμήμα Β — Χειρουργεία πρώτου ορόφου",
+      completionDate: "2026-06-18",
+      handoverDate: null,
+      ldActivatedAt: null,
+      ldActivationNoteEl: null,
+      sortOrder: 2,
+    },
+  ],
+  extension: {
+    sectionCode: "Β",
+    days: 40,
+    approvedAt: "2026-05-28",
+    approver: "KEAA" as const,
+    approverNameEl: "Κεντρική Επιτροπή Αλλαγών και Απαιτήσεων",
+    reasonEl: "Καθυστέρηση στην παράδοση εξοπλισμού ιατρικών αερίων από τρίτο προμηθευτή.",
+    contractorCulpable: false,
+  },
+  claims: [
+    {
+      onCounterclaimContract: false,
+      direction: "BY_CONTRACTOR" as const,
+      titleEl: "Αξίωση αναδόχου για παράταση και πρόσθετο κόστος",
+      amount: 2532848.76,
+      stage: "COURT" as const,
+      notifiedAt: "2025-10-15",
+      legalAdvisorEl: "Νομική Υπηρεσία",
+      contingentLiability: true,
+      notesEl: "Ενδεχόμενη υποχρέωση για τις σημειώσεις των οικονομικών καταστάσεων.",
+    },
+    {
+      onCounterclaimContract: true,
+      direction: "BY_ORGANISATION" as const,
+      titleEl: "Αξίωση Οργανισμού μετά τον τερματισμό της σύμβασης",
+      amount: 2508506.69,
+      stage: "COURT" as const,
+      notifiedAt: "2025-11-20",
+      legalAdvisorEl: "Νομική Υπηρεσία",
+      contingentLiability: false,
+      notesEl: "",
+    },
+  ],
+} as const;
+
+async function seedDelayExample(
+  db: Db,
+  contractIds: Map<string, string>,
+  userBySubject: Map<string, string>,
+): Promise<void> {
+  const contractId = contractIds.get(seedDelay.projectRef);
+  if (!contractId) return;
+  const counterclaimContractId = contractIds.get(seedDelay.counterclaimProjectRef) ?? contractId;
+
+  // The rate is the contract's; the sections carry none of their own.
+  await db
+    .update(schema.contract)
+    .set({ liquidatedDamagesPerDay: String(seedDelay.ratePerDay) })
+    .where(eq(schema.contract.id, contractId));
+
+  const sectionIds = new Map<string, string>();
+  for (const section of seedDelay.sections) {
+    const values = {
+      titleEl: section.titleEl,
+      completionDate: section.completionDate,
+      handoverDate: section.handoverDate,
+      liquidatedDamagesPerDay: null,
+      ldActivatedAt: section.ldActivatedAt,
+      ldActivationNoteEl: section.ldActivationNoteEl,
+      sortOrder: section.sortOrder,
+    };
+    const [found] = await db
+      .select({ id: schema.contractSection.id })
+      .from(schema.contractSection)
+      .where(
+        and(eq(schema.contractSection.contractId, contractId), eq(schema.contractSection.code, section.code)),
+      )
+      .limit(1);
+    if (found) {
+      await db.update(schema.contractSection).set(values).where(eq(schema.contractSection.id, found.id));
+      sectionIds.set(section.code, found.id);
+    } else {
+      const [inserted] = await db
+        .insert(schema.contractSection)
+        .values({ ...values, contractId, orgUnitId: "", code: section.code })
+        .returning({ id: schema.contractSection.id });
+      sectionIds.set(section.code, inserted.id);
+    }
+  }
+
+  const extension = seedDelay.extension;
+  const sectionId = sectionIds.get(extension.sectionCode) ?? null;
+  const [existing] = await db
+    .select({ id: schema.contractExtension.id })
+    .from(schema.contractExtension)
+    .where(
+      and(
+        eq(schema.contractExtension.contractId, contractId),
+        eq(schema.contractExtension.approvedAt, extension.approvedAt),
+        eq(schema.contractExtension.days, extension.days),
+      ),
+    )
+    .limit(1);
+  if (!existing) {
+    await db.insert(schema.contractExtension).values({
+      contractId,
+      orgUnitId: "",
+      sectionId,
+      days: extension.days,
+      approvedAt: extension.approvedAt,
+      approver: extension.approver,
+      approverNameEl: extension.approverNameEl,
+      reasonEl: extension.reasonEl,
+      contractorCulpable: extension.contractorCulpable,
+      createdBy: userBySubject.get("dev-engineer-larnaca") ?? null,
+    });
+  }
+
+  for (const claim of seedDelay.claims) {
+    const target = claim.onCounterclaimContract ? counterclaimContractId : contractId;
+    const values = {
+      direction: claim.direction,
+      amount: String(claim.amount),
+      stage: claim.stage,
+      notifiedAt: claim.notifiedAt,
+      legalAdvisorEl: claim.legalAdvisorEl,
+      contingentLiability: claim.contingentLiability,
+      notesEl: claim.notesEl,
+    };
+    const [found] = await db
+      .select({ id: schema.contractClaim.id })
+      .from(schema.contractClaim)
+      .where(and(eq(schema.contractClaim.contractId, target), eq(schema.contractClaim.titleEl, claim.titleEl)))
+      .limit(1);
+    if (found) {
+      await db.update(schema.contractClaim).set(values).where(eq(schema.contractClaim.id, found.id));
+    } else {
+      await db
+        .insert(schema.contractClaim)
+        .values({ ...values, contractId: target, orgUnitId: "", titleEl: claim.titleEl });
+    }
+  }
 }
 
 /**

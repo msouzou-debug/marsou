@@ -2,12 +2,17 @@ import { Injectable } from "@nestjs/common";
 import {
   type BoqItem,
   type BoqItemWrite,
+  type ContractClaimWrite,
   type ContractCreate,
+  type ContractDelay,
   type ContractDetail,
+  type ContractExtensionWrite,
   type ContractList,
   type ContractListQuery,
   type ContractLookup,
+  type ContractSectionWrite,
   type ContractUpdate,
+  type DelayActivation,
   type Defect,
   type ProjectPhase,
   type Variation,
@@ -34,6 +39,7 @@ import { phaseIndex } from "../projects/project-rows";
 import {
   type BoqRow,
   type ContractRow,
+  delayWarningFacts,
   money,
   toBoqItem,
   efinanceWarningFacts,
@@ -41,6 +47,8 @@ import {
   warningFacts,
 } from "./contract-rows";
 import { toWarning } from "./contract-warnings";
+import { type ContractDelayRecords, loadContractDelays } from "./delay-load";
+import { nicosiaToday } from "./delay";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -264,6 +272,7 @@ export class ContractsService {
       instructionsWithoutVariation,
       budgetCodeDescriptions,
       efinance,
+      records,
     ] = await Promise.all([
       this.contractors.load(row.contractorId),
       this.boqOf(id),
@@ -273,6 +282,7 @@ export class ContractsService {
       this.instructionsWithoutVariation(id),
       this.budgetCodeDescriptions(row.budgetCode),
       this.efinance.contractFacts(id),
+      this.delayRecordsOf(id),
     ]);
 
     const approvedVariationsTotal = sumOf(variations, "APPROVED");
@@ -293,6 +303,14 @@ export class ContractsService {
         instructionsWithoutVariation,
       },
       today(),
+    );
+    // ADR-0035: the delay penalty accruing and the open claims.
+    facts.push(
+      ...delayWarningFacts({
+        contractNo: contract.contractNo,
+        projectTitleEl: project.titleEl,
+        delay: records.delay,
+      }),
     );
     // ADR-0029: the two eFinance warnings, only once there is an eFinance
     // to push to.
@@ -329,6 +347,11 @@ export class ContractsService {
       rfisOpen: rfis.open,
       rfisBreached: rfis.breached,
       efinance: efinance.summary,
+      // ADR-0035: the clocks, the extensions as records and the claims.
+      sections: records.sections,
+      extensions: records.extensions,
+      claims: records.claims,
+      delay: records.delay,
     };
   }
 
@@ -350,7 +373,8 @@ export class ContractsService {
       awardDate: input.awardDate,
       startDate: input.startDate,
       completionDate: input.completionDate,
-      extensionDays: input.extensionDays,
+      // ADR-0035: `extensionDays` is not here. It is the sum of the extension
+      // rows, kept by the database; `ContractUpdate` no longer carries it.
       retentionPct: input.retentionPct === undefined ? undefined : String(input.retentionPct),
       performanceBondValue:
         input.performanceBondValue === undefined
@@ -427,6 +451,313 @@ export class ContractsService {
       this.writeError(error, {});
     }
     return this.boqOf(id);
+  }
+
+  // ------------------------------------------------------- ADR-0035 delay --
+
+  /** The delay figures alone, for the payment certificate screen. */
+  async delay(id: string): Promise<ContractDelay> {
+    await this.load(id);
+    return (await this.delayRecordsOf(id)).delay;
+  }
+
+  /**
+   * RULE (ADR-0035 §3): a section is a clock of its own. The code is unique on
+   * the contract — errors.sectionCodeTaken, 422.
+   */
+  async addSection(contractId: string, input: ContractSectionWrite): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    try {
+      await tx.db.insert(schema.contractSection).values({
+        contractId,
+        // The trigger overwrites this from the contract.
+        orgUnitId: "",
+        code: input.code.trim(),
+        titleEl: input.titleEl.trim(),
+        completionDate: input.completionDate,
+        handoverDate: input.handoverDate,
+        liquidatedDamagesPerDay:
+          input.liquidatedDamagesPerDay === null ? null : String(input.liquidatedDamagesPerDay),
+        sortOrder: input.sortOrder,
+      });
+    } catch (error) {
+      this.childWriteError(error, "errors.sectionCodeTaken", { code: input.code });
+    }
+    return this.detail(contractId);
+  }
+
+  async updateSection(
+    contractId: string,
+    sectionId: string,
+    input: Partial<ContractSectionWrite>,
+  ): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    await this.sectionOf(contractId, sectionId, "errors.sectionNotFound");
+
+    const values = pruned({
+      code: input.code?.trim(),
+      titleEl: input.titleEl?.trim(),
+      completionDate: input.completionDate,
+      handoverDate: input.handoverDate,
+      liquidatedDamagesPerDay:
+        input.liquidatedDamagesPerDay === undefined
+          ? undefined
+          : input.liquidatedDamagesPerDay === null
+            ? null
+            : String(input.liquidatedDamagesPerDay),
+      sortOrder: input.sortOrder,
+    });
+    if (Object.keys(values).length) {
+      try {
+        const touched = await tx.db
+          .update(schema.contractSection)
+          .set({ ...values, updatedAt: sql`now()` })
+          .where(eq(schema.contractSection.id, sectionId))
+          .returning({ id: schema.contractSection.id });
+        if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+      } catch (error) {
+        this.childWriteError(error, "errors.sectionCodeTaken", { code: input.code ?? "" });
+      }
+    }
+    return this.detail(contractId);
+  }
+
+  /**
+   * A section that goes takes nothing with it: its extensions fall back to
+   * the contract's own clock (`on delete set null`), because an approved
+   * extension is a decision on the record whatever happens to the section.
+   */
+  async deleteSection(contractId: string, sectionId: string): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    await this.sectionOf(contractId, sectionId, "errors.sectionNotFound");
+    try {
+      const gone = await tx.db
+        .delete(schema.contractSection)
+        .where(eq(schema.contractSection.id, sectionId))
+        .returning({ id: schema.contractSection.id });
+      if (!gone.length) throw AppError.forbidden("errors.readOnlyAccount");
+    } catch (error) {
+      this.childWriteError(error, null, {});
+    }
+    return this.detail(contractId);
+  }
+
+  /**
+   * RULE (ADR-0035 §2): an extension of time is a record — who approved it,
+   * when, why, and whether the delay is the contractor's fault. The section
+   * it names has to be one of this contract's — errors.sectionNotOnContract,
+   * 422. The database keeps `contract.extension_days` as the sum.
+   */
+  async addExtension(contractId: string, input: ContractExtensionWrite): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    if (input.sectionId !== null) {
+      await this.sectionOf(contractId, input.sectionId, "errors.sectionNotOnContract", 422);
+    }
+    const caller = await this.callerId();
+    try {
+      await tx.db.insert(schema.contractExtension).values({
+        contractId,
+        orgUnitId: "",
+        sectionId: input.sectionId,
+        days: input.days,
+        approvedAt: input.approvedAt,
+        approver: input.approver,
+        approverNameEl: input.approverNameEl.trim(),
+        reasonEl: input.reasonEl.trim(),
+        contractorCulpable: input.contractorCulpable,
+        createdBy: caller,
+      });
+    } catch (error) {
+      this.childWriteError(error, null, {});
+    }
+    return this.detail(contractId);
+  }
+
+  async deleteExtension(contractId: string, extensionId: string): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    if (!UUID.test(extensionId)) throw AppError.notFound("errors.extensionNotFound");
+    const [found] = await tx.db
+      .select({ id: schema.contractExtension.id })
+      .from(schema.contractExtension)
+      .where(
+        and(
+          eq(schema.contractExtension.id, extensionId),
+          eq(schema.contractExtension.contractId, contractId),
+        ),
+      )
+      .limit(1);
+    if (!found) throw AppError.notFound("errors.extensionNotFound");
+    try {
+      const gone = await tx.db
+        .delete(schema.contractExtension)
+        .where(eq(schema.contractExtension.id, extensionId))
+        .returning({ id: schema.contractExtension.id });
+      if (!gone.length) throw AppError.forbidden("errors.readOnlyAccount");
+    } catch (error) {
+      this.childWriteError(error, null, {});
+    }
+    return this.detail(contractId);
+  }
+
+  /** RULE (ADR-0035 §4): a claim is a row, by the contractor or by the Organisation. */
+  async addClaim(contractId: string, input: ContractClaimWrite): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    try {
+      await tx.db.insert(schema.contractClaim).values({
+        contractId,
+        orgUnitId: "",
+        direction: input.direction,
+        titleEl: input.titleEl.trim(),
+        amount: String(input.amount),
+        stage: input.stage,
+        notifiedAt: input.notifiedAt,
+        legalAdvisorEl: input.legalAdvisorEl,
+        contingentLiability: input.contingentLiability,
+        notesEl: input.notesEl,
+      });
+    } catch (error) {
+      this.childWriteError(error, null, {});
+    }
+    return this.detail(contractId);
+  }
+
+  async updateClaim(
+    contractId: string,
+    claimId: string,
+    input: Partial<ContractClaimWrite>,
+  ): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    if (!UUID.test(claimId)) throw AppError.notFound("errors.claimNotFound");
+    const [found] = await tx.db
+      .select({ id: schema.contractClaim.id })
+      .from(schema.contractClaim)
+      .where(and(eq(schema.contractClaim.id, claimId), eq(schema.contractClaim.contractId, contractId)))
+      .limit(1);
+    if (!found) throw AppError.notFound("errors.claimNotFound");
+
+    const values = pruned({
+      direction: input.direction,
+      titleEl: input.titleEl?.trim(),
+      amount: input.amount === undefined ? undefined : String(input.amount),
+      stage: input.stage,
+      notifiedAt: input.notifiedAt,
+      legalAdvisorEl: input.legalAdvisorEl,
+      contingentLiability: input.contingentLiability,
+      notesEl: input.notesEl,
+    });
+    if (Object.keys(values).length) {
+      try {
+        const touched = await tx.db
+          .update(schema.contractClaim)
+          .set({ ...values, updatedAt: sql`now()` })
+          .where(eq(schema.contractClaim.id, claimId))
+          .returning({ id: schema.contractClaim.id });
+        if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+      } catch (error) {
+        this.childWriteError(error, null, {});
+      }
+    }
+    return this.detail(contractId);
+  }
+
+  /**
+   * RULE (ADR-0035 §1): the head of estates records the activation of the
+   * penalty on one clock — the section named, or the contract's own clock
+   * when `sectionId` is null. A contract with sections has no clock of its
+   * own, so activating «the contract» there is refused with
+   * errors.contractHasSections, 422. The accrual does not depend on it.
+   */
+  async activateDelay(contractId: string, input: DelayActivation): Promise<ContractDetail> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.load(contractId);
+    const values = {
+      ldActivatedAt: input.activatedAt,
+      ldActivationNoteEl: input.noteEl.trim(),
+      updatedAt: sql`now()`,
+    };
+    try {
+      if (input.sectionId !== null) {
+        await this.sectionOf(contractId, input.sectionId, "errors.sectionNotOnContract", 422);
+        const touched = await tx.db
+          .update(schema.contractSection)
+          .set(values)
+          .where(eq(schema.contractSection.id, input.sectionId))
+          .returning({ id: schema.contractSection.id });
+        if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+      } else {
+        const [{ count }] = await tx.db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(schema.contractSection)
+          .where(eq(schema.contractSection.contractId, contractId));
+        if (count > 0) throw AppError.unprocessable("errors.contractHasSections");
+        const touched = await tx.db
+          .update(schema.contract)
+          .set(values)
+          .where(eq(schema.contract.id, contractId))
+          .returning({ id: schema.contract.id });
+        if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+      }
+    } catch (error) {
+      this.childWriteError(error, null, {});
+    }
+    return this.detail(contractId);
+  }
+
+  private async delayRecordsOf(contractId: string): Promise<ContractDelayRecords> {
+    const records = (await loadContractDelays([contractId], nicosiaToday())).get(contractId);
+    // `load` has already found the contract in this transaction.
+    if (!records) throw AppError.notFound("errors.contractNotFound");
+    return records;
+  }
+
+  /** The section, on this contract; anything else is `key`. */
+  private async sectionOf(
+    contractId: string,
+    sectionId: string,
+    key: string,
+    status: 404 | 422 = 404,
+  ): Promise<void> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const refuse = () =>
+      status === 404 ? AppError.notFound(key) : AppError.unprocessable(key);
+    if (!UUID.test(sectionId)) throw refuse();
+    const [found] = await tx.db
+      .select({ id: schema.contractSection.id })
+      .from(schema.contractSection)
+      .where(
+        and(eq(schema.contractSection.id, sectionId), eq(schema.contractSection.contractId, contractId)),
+      )
+      .limit(1);
+    if (!found) throw refuse();
+  }
+
+  /** What the database refused on a section, an extension or a claim. */
+  private childWriteError(
+    error: unknown,
+    uniqueKey: string | null,
+    params: Record<string, string>,
+  ): never {
+    if (error instanceof AppError) throw error;
+    const state = sqlState(error);
+    if (state === INSUFFICIENT_PRIVILEGE) throw AppError.forbidden("errors.readOnlyAccount");
+    if (state === UNIQUE_VIOLATION && uniqueKey) throw AppError.unprocessable(uniqueKey, params);
+    throw error;
   }
 
   // ------------------------------------------------------------ variations --
@@ -894,6 +1225,8 @@ const CONTRACT_COLUMNS = {
   sapPoNumber: schema.contract.sapPoNumber,
   emapRef: schema.contract.emapRef,
   budgetCode: schema.contract.budgetCode,
+  ldActivatedAt: schema.contract.ldActivatedAt,
+  ldActivationNoteEl: schema.contract.ldActivationNoteEl,
   createdAt: schema.contract.createdAt,
   updatedAt: schema.contract.updatedAt,
 };

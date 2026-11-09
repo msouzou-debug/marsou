@@ -200,11 +200,12 @@ describe("PATCH /contracts/:id", () => {
       .patch(`/contracts/${contract.id}`)
       .set(bearer(token))
       // originalValue and currentValue are not fields of ContractUpdate; a
-      // body that carries them changes nothing.
+      // body that carries them changes nothing. Nor, since ADR-0035, does
+      // extensionDays: an extension of time is a record of its own.
       .send({ extensionDays: 30, retentionPct: 3, currentValue: 9_999_999 });
     expect(response.status).toBe(200);
     const detail = ContractDetail.parse(response.body);
-    expect(detail.extensionDays).toBe(30);
+    expect(detail.extensionDays).toBe(0);
     expect(detail.retentionPct).toBe(3);
     expect(detail.currentValue).toBe(500_000);
     expect(detail.contractNo).toBe(contract.contractNo);
@@ -217,7 +218,7 @@ describe("PATCH /contracts/:id", () => {
     const response = await request(app.getHttpServer())
       .patch(`/contracts/${contract.id}`)
       .set(bearer(token))
-      .send({ extensionDays: 5 });
+      .send({ retentionPct: 4 });
     expect(response.status).toBe(403);
   });
 });

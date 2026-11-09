@@ -160,7 +160,7 @@ describe("a contract's budget code (ADR-0025)", () => {
     const untouched = await request(app.getHttpServer())
       .patch(`/contracts/${contract.id}`)
       .set(bearer(token))
-      .send({ extensionDays: 1 });
+      .send({ sapPoNumber: "4500900077" });
     expect(untouched.status).toBe(200);
     expect(untouched.body.budgetCode).toBeNull();
   });

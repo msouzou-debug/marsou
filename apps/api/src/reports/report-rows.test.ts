@@ -8,6 +8,7 @@ import {
   milestoneLateDays,
   monthsOf,
   sortExceptions,
+  daysSince,
   sortLifecycle,
   sumComplete,
   sumKnown,
@@ -102,17 +103,28 @@ describe("exceptions", () => {
     expect(milestoneLateDays([], today)).toBeNull();
   });
 
-  it("sorts red first, then amber, then by slippage with none last", () => {
-    const row = (code: string, rag: "RED" | "AMBER", slippage: number | null) =>
-      ({ projectCode: code, rag, slippage }) as ExceptionRow;
+  it("sorts red first, then amber, then the stale ones, then by slippage with none last", () => {
+    const row = (code: string, rag: "RED" | "AMBER" | "GREEN", slippage: number | null, stale = false) =>
+      ({ projectCode: code, rag, slippage, stale }) as ExceptionRow;
     const sorted = sortExceptions([
       row("A", "AMBER", 500),
       row("B", "RED", null),
       row("C", "RED", 10),
       row("D", "AMBER", null),
       row("E", "AMBER", 900),
+      row("F", "GREEN", 50, true),
+      row("G", "AMBER", 10, true),
+      row("H", "GREEN", 900, true),
     ]);
-    expect(sorted.map((r) => r.projectCode)).toEqual(["C", "B", "E", "A", "D"]);
+    // ADR-0035: within a RAG, a stale project comes before a fresh one.
+    expect(sorted.map((r) => r.projectCode)).toEqual(["C", "B", "G", "E", "A", "D", "H", "F"]);
+  });
+
+  it("counts whole days since the last activity, null when nothing is known", () => {
+    const now = new Date("2026-11-09T10:00:00Z");
+    expect(daysSince("2026-10-10T10:00:00.000Z", now)).toBe(30);
+    expect(daysSince("2026-10-10T10:00:01.000Z", now)).toBe(29);
+    expect(daysSince(null, now)).toBeNull();
   });
 });
 
@@ -133,6 +145,8 @@ describe("capital contractor row (ADR-0032 §5)", () => {
     certificates: 3,
     certifiedClaimed: 90_000,
     certifiedApproved: 60_000,
+    delayPenaltyAccrued: null,
+    culpableExtensionDays: 0,
   };
 
   it("works every rate out of the counts", () => {

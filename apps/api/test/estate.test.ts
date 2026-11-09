@@ -199,10 +199,10 @@ describe("contract references", () => {
     const patched = await request(app.getHttpServer())
       .patch(`/contracts/${contract.id}`)
       .set(bearer(token))
-      .send({ ref: "CAP-2026-9999", extensionDays: 3 });
+      .send({ ref: "CAP-2026-9999", retentionPct: 4 });
     expect(patched.status).toBe(200);
     expect(patched.body.ref).toBe(contract.ref);
-    expect(patched.body.extensionDays).toBe(3);
+    expect(patched.body.retentionPct).toBe(4);
   });
 
   it("takes an eMAP reference and refuses one that is not eMAP's format", async () => {

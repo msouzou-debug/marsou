@@ -91,11 +91,26 @@ export function milestoneLateDays(
 
 const RAG_WEIGHT: Record<Rag, number> = { RED: 2, AMBER: 1, GREEN: 0 };
 
-/** §11: red first, then amber, then the biggest slippage; no slippage last. */
+/**
+ * ADR-0035: whole days since `lastActivityAt` (an ISO instant) at `now`;
+ * null when nothing is known.
+ */
+export function daysSince(lastActivityAt: string | null, now: Date): number | null {
+  if (!lastActivityAt) return null;
+  const at = Date.parse(lastActivityAt);
+  if (Number.isNaN(at)) return null;
+  return Math.max(0, Math.floor((now.getTime() - at) / 86_400_000));
+}
+
+/**
+ * §11: red first, then amber, then (ADR-0035) the stale ones, then the
+ * biggest slippage; no slippage last.
+ */
 export function sortExceptions(rows: ExceptionRow[]): ExceptionRow[] {
   return [...rows].sort((a, b) => {
     const rag = RAG_WEIGHT[b.rag] - RAG_WEIGHT[a.rag];
     if (rag) return rag;
+    if (a.stale !== b.stale) return a.stale ? -1 : 1;
     if (a.slippage !== b.slippage) {
       if (a.slippage === null) return 1;
       if (b.slippage === null) return -1;
@@ -132,6 +147,10 @@ export interface CapitalContractorFacts {
   certifiedClaimed: number;
   /** Σ net payable of those certificates as certified. */
   certifiedApproved: number;
+  /** ADR-0035: Σ accrued delay penalty over the contracts that have a rate; null when none has. */
+  delayPenaltyAccrued: number | null;
+  /** ADR-0035: Σ approved extension days judged the contractor's fault. */
+  culpableExtensionDays: number;
 }
 
 /**
@@ -160,6 +179,8 @@ export function capitalContractorRow(f: CapitalContractorFacts): CapitalContract
     defectRate: f.contractValue > 0 ? round2((f.defects / f.contractValue) * DEFECT_RATE_BASE) : null,
     rfiBreachPct: pctOf(f.rfisLate, f.rfis),
     claimAccuracyPct: claims,
+    delayPenaltyAccrued: f.delayPenaltyAccrued === null ? null : round2(f.delayPenaltyAccrued),
+    culpableExtensionDays: f.culpableExtensionDays,
   };
 }
 

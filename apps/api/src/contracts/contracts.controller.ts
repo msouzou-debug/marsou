@@ -1,14 +1,31 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from "@nestjs/swagger";
 import {
   BoqItem,
   BoqItemWrite,
+  ContractClaimWrite,
   ContractCreate,
+  ContractDelay,
   ContractDetail,
+  ContractExtensionWrite,
   ContractList,
   ContractListQuery,
   ContractLookup,
+  ContractSectionWrite,
   ContractUpdate,
+  DelayActivation,
   Variation,
   VariationCreate,
   VariationDecision,
@@ -23,6 +40,8 @@ import { ContractsService } from "./contracts.service";
 
 const BoqWrite = z.array(BoqItemWrite);
 const VariationChange = VariationCreate.partial();
+const SectionChange = ContractSectionWrite.partial();
+const ClaimChange = ContractClaimWrite.partial();
 
 /**
  * M1 — contracts, bills of quantities and variations (R08, R10, R13, R31).
@@ -147,6 +166,161 @@ export class ContractsController {
     const parsed = BoqWrite.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.boqNotValid");
     return this.contracts.replaceBoq(id, parsed.data);
+  }
+
+  // ------------------------------------------------------------ ADR-0035 --
+  // Sections, extensions of time, claims and the delay penalty. Writing them
+  // is `contractRecords` WRITE (admin, head of estates, project engineer);
+  // activating the penalty is APPROVE (admin and head of estates by default).
+  // Every write answers with the whole contract, because each one moves the
+  // delay figures and the warnings on it.
+
+  @Get("contracts/:id/delay")
+  @ApiOperation({ summary: "The delay clocks and the accrued penalty, shown and never deducted" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiZodResponse(200, ContractDelay, "The clocks, the totals and the open claims, as at today in Nicosia")
+  @ApiZodError(401, "No token, or a token that does not verify")
+  @ApiZodError(404, "No such contract, or none the caller may see")
+  delay(@Param("id") id: string): Promise<ContractDelay> {
+    return this.contracts.delay(id);
+  }
+
+  @Post("contracts/:id/sections")
+  @Needs("contractRecords", "WRITE")
+  @HttpCode(201)
+  @ApiOperation({ summary: "Add a section (Τμήμα) with its own completion date and clock" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(ContractSectionWrite) as never })
+  @ApiZodResponse(201, ContractDetail, "The contract with the section on it")
+  @ApiZodError(400, "The body is not a valid section")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract, or none the caller may see")
+  @ApiZodError(422, "Another section of the contract already carries that code")
+  addSection(@Param("id") id: string, @Body() body: unknown): Promise<ContractDetail> {
+    const parsed = ContractSectionWrite.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.sectionNotValid");
+    return this.contracts.addSection(id, parsed.data);
+  }
+
+  @Patch("contracts/:id/sections/:sid")
+  @Needs("contractRecords", "WRITE")
+  @ApiOperation({ summary: "Change a section; a handover date stops its clock" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "sid", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(SectionChange) as never })
+  @ApiZodResponse(200, ContractDetail, "The contract after the change")
+  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract or section")
+  @ApiZodError(422, "Another section of the contract already carries that code")
+  updateSection(
+    @Param("id") id: string,
+    @Param("sid") sid: string,
+    @Body() body: unknown,
+  ): Promise<ContractDetail> {
+    const parsed = SectionChange.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.sectionNotValid");
+    return this.contracts.updateSection(id, sid, sentKeysOnly(parsed.data, body));
+  }
+
+  @Delete("contracts/:id/sections/:sid")
+  @Needs("contractRecords", "WRITE")
+  @ApiOperation({ summary: "Remove a section; its extensions return to the contract's own clock" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "sid", schema: { type: "string", format: "uuid" } })
+  @ApiZodResponse(200, ContractDetail, "The contract without the section")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract or section")
+  deleteSection(@Param("id") id: string, @Param("sid") sid: string): Promise<ContractDetail> {
+    return this.contracts.deleteSection(id, sid);
+  }
+
+  @Post("contracts/:id/extensions")
+  @Needs("contractRecords", "WRITE")
+  @HttpCode(201)
+  @ApiOperation({ summary: "Record an approved extension of time (παράταση)" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(ContractExtensionWrite) as never })
+  @ApiZodResponse(201, ContractDetail, "The contract with the extension and the moved due date")
+  @ApiZodError(400, "The body is not a valid extension")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract, or none the caller may see")
+  @ApiZodError(422, "The section named is not one of this contract's")
+  addExtension(@Param("id") id: string, @Body() body: unknown): Promise<ContractDetail> {
+    const parsed = ContractExtensionWrite.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.extensionNotValid");
+    return this.contracts.addExtension(id, parsed.data);
+  }
+
+  @Delete("contracts/:id/extensions/:eid")
+  @Needs("contractRecords", "WRITE")
+  @ApiOperation({ summary: "Remove an extension recorded in error" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "eid", schema: { type: "string", format: "uuid" } })
+  @ApiZodResponse(200, ContractDetail, "The contract without the extension")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract or extension")
+  deleteExtension(@Param("id") id: string, @Param("eid") eid: string): Promise<ContractDetail> {
+    return this.contracts.deleteExtension(id, eid);
+  }
+
+  @Post("contracts/:id/claims")
+  @Needs("contractRecords", "WRITE")
+  @HttpCode(201)
+  @ApiOperation({ summary: "Record a claim (αξίωση) by the contractor or by the Organisation" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(ContractClaimWrite) as never })
+  @ApiZodResponse(201, ContractDetail, "The contract with the claim on it")
+  @ApiZodError(400, "The body is not a valid claim")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract, or none the caller may see")
+  addClaim(@Param("id") id: string, @Body() body: unknown): Promise<ContractDetail> {
+    const parsed = ContractClaimWrite.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.claimNotValid");
+    return this.contracts.addClaim(id, parsed.data);
+  }
+
+  @Patch("contracts/:id/claims/:cid")
+  @Needs("contractRecords", "WRITE")
+  @ApiOperation({ summary: "Change a claim: its stage, amount, advisor or notes" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "cid", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(ClaimChange) as never })
+  @ApiZodResponse(200, ContractDetail, "The contract after the change")
+  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(403, "A role that does not write contracts, or a read-only account")
+  @ApiZodError(404, "No such contract or claim")
+  updateClaim(
+    @Param("id") id: string,
+    @Param("cid") cid: string,
+    @Body() body: unknown,
+  ): Promise<ContractDetail> {
+    const parsed = ClaimChange.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.claimNotValid");
+    return this.contracts.updateClaim(id, cid, sentKeysOnly(parsed.data, body));
+  }
+
+  /**
+   * RULE (ADR-0035 §1, §7): the head of estates records the activation of the
+   * penalty on one clock. APPROVE on the contract row, not WRITE: the engineer
+   * who runs the works records the facts, and somebody above them decides
+   * that the clause is being applied.
+   */
+  @Post("contracts/:id/delay/activate")
+  @Needs("contractRecords", "APPROVE")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Record that the delay penalty is applied on a section or on the contract" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(DelayActivation) as never })
+  @ApiZodResponse(200, ContractDetail, "The contract with the activation on the clock")
+  @ApiZodError(400, "The body is not a valid activation")
+  @ApiZodError(403, "A role that does not approve on contracts, or a read-only account")
+  @ApiZodError(404, "No such contract, or none the caller may see")
+  @ApiZodError(422, "The section is not this contract's, or the contract has sections and no clock of its own")
+  activateDelay(@Param("id") id: string, @Body() body: unknown): Promise<ContractDetail> {
+    const parsed = DelayActivation.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.delayActivationNotValid");
+    return this.contracts.activateDelay(id, parsed.data);
   }
 
   /** R10: raised by whoever is signed in, in DRAFT, numbered by the database. */

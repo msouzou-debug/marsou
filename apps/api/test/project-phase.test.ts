@@ -3,6 +3,7 @@ import { ProjectDetail } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, tokenFor } from "./app";
+import { fileBusinessCase } from "./contract-support";
 
 /**
  * R04 — the phase rule, which is the one business rule in M1 that refuses
@@ -20,7 +21,14 @@ describe("POST /projects/:id/phase", () => {
     await app.close();
   });
 
-  async function newProject(email = USERS.estatesNicosia): Promise<ProjectDetail> {
+  /**
+   * A fresh project in «Ιδέα». ADR-0035 §6: it carries a filed business case
+   * unless the test is about the one that is missing.
+   */
+  async function newProject(
+    email = USERS.estatesNicosia,
+    withBusinessCase = true,
+  ): Promise<ProjectDetail> {
     const token = await tokenFor(app, email);
     const response = await request(app.getHttpServer())
       .post("/projects")
@@ -42,7 +50,9 @@ describe("POST /projects/:id/phase", () => {
         projectManagerId: null,
       });
     expect(response.status).toBe(201);
-    return ProjectDetail.parse(response.body);
+    const project = ProjectDetail.parse(response.body);
+    if (withBusinessCase) await fileBusinessCase(app, project.id, email);
+    return project;
   }
 
   async function move(email: string, id: string, phase: string, reasonEl: string) {
@@ -69,6 +79,31 @@ describe("POST /projects/:id/phase", () => {
       "IDEA → PREPARATION: Εγκρίθηκε η προκαταρκτική μελέτη",
     );
     expect(detail.audit[0].actorName).toBe("Ανδρέας Παπαδόπουλος");
+  });
+
+  /**
+   * ADR-0035 §6, the ΜΕΕ's recommendation: a feasibility study before the
+   * project goes any further. The business case is what lets it out of
+   * «Ιδέα»; without one the move is refused and nothing changes.
+   */
+  it("refuses to leave «Ιδέα» without a filed business case, and allows it with one", async () => {
+    const project = await newProject(USERS.estatesNicosia, false);
+    const refused = await move(USERS.estatesNicosia, project.id, "PREPARATION", "Προχωρά");
+    expect(refused.status).toBe(422);
+    expect(refused.body.key).toBe("errors.businessCaseMissing");
+    expect(refused.body.message).toContain("οικονομοτεχνική μελέτη");
+
+    await fileBusinessCase(app, project.id, USERS.estatesNicosia);
+    const moved = await move(USERS.estatesNicosia, project.id, "PREPARATION", "Προχωρά");
+    expect(moved.status).toBe(200);
+    expect(ProjectDetail.parse(moved.body).phase).toBe("PREPARATION");
+  });
+
+  it("does not ask for a business case to move a project back into «Ιδέα»", async () => {
+    const project = await newProject();
+    expect((await move(USERS.estatesNicosia, project.id, "PREPARATION", "Προχωρά")).status).toBe(200);
+    const back = await move(USERS.admin, project.id, "IDEA", "Επιστροφή για αναθεώρηση");
+    expect(back.status).toBe(200);
   });
 
   it("refuses a jump over a phase", async () => {

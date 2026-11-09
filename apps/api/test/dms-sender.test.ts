@@ -88,8 +88,10 @@ describe("the eArchive sender", () => {
   }
 
   async function queueAward(stamp: string): Promise<{ sourceRef: string; documentId: string }> {
-    await park();
     const { contract } = await makeContract(app, stamp);
+    // After the contract: its project files a business case on the way out
+    // of «Ιδέα» (ADR-0035), and that one is not this suite's to send.
+    await park();
     const token = await tokenFor(app, USERS.admin);
     const filed = await request(app.getHttpServer())
       .post(`/contracts/${contract.id}/documents`)

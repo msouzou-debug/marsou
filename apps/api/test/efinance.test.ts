@@ -392,7 +392,7 @@ describe("eFinance, configured (ADR-0029)", () => {
     const changed = await request(app.getHttpServer())
       .patch(`/contracts/${contract.id}`)
       .set(bearer(admin))
-      .send({ extensionDays: 10 });
+      .send({ retentionPct: 4 });
     expect(changed.status).toBe(200);
     const detail = ContractDetail.parse(changed.body);
     expect(detail.efinance?.lastError).toMatch(/^CONFLICT: /);

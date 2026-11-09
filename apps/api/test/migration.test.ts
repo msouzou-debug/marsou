@@ -53,7 +53,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0021_local_accounts");
     expect(result.applied).toContain("0022_m5_maintenance");
     expect(result.applied).toContain("0024_unit_codes_follow_efinance");
-    expect(result.lastMigrationId).toBe("0024_unit_codes_follow_efinance");
+    expect(result.applied).toContain("0025_delay_extensions_claims");
+    expect(result.lastMigrationId).toBe("0025_delay_extensions_claims");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -80,7 +81,10 @@ describe("migrations", () => {
       "budget_line",
       "building",
       "contract",
+      "contract_claim",
+      "contract_extension",
       "contract_ref_seq",
+      "contract_section",
       "contractor",
       "cost_txn",
       "cost_warning",
@@ -157,6 +161,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0021_local_accounts");
     expect(result.skipped).toContain("0022_m5_maintenance");
     expect(result.skipped).toContain("0024_unit_codes_follow_efinance");
+    expect(result.skipped).toContain("0025_delay_extensions_claims");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -544,6 +549,139 @@ describe("migrations", () => {
         "select count(*)::text as n from ecapital.audit_log where entity_type = 'org_unit'",
       );
       expect(auditAfter[0].n).toBe(auditBefore[0].n);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
+
+  /**
+   * ADR-0035. Like 0024 this is about rows that already exist, so it runs on
+   * its own database: everything up to 0024, a contract with a number typed
+   * into «Παρατάσεις (ημέρες)», a role matrix with one cell the administrator
+   * has set, and only then 0025 — twice.
+   */
+  it("0025 carries a typed extension over as one row, keeps the sum by trigger and is idempotent", async () => {
+    const legacyDb = "ecapital_migration_0025_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const upTo0024 = files.filter((m) => m.id < "0025");
+      const zeroZeroTwoFive = files.find((m) => m.id === "0025_delay_extensions_claims");
+      expect(zeroZeroTwoFive).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of upTo0024) await client.query(migration.sql);
+
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code, efinance_code)
+        values ('larnaca-general', 'LGH', 'Γενικό Νοσοκομείο Λάρνακας', 'Larnaca General Hospital',
+                'HOSPITAL', 'LARNAKAS_AMMOCHOSTOU', 'LGH', 'LGH')`);
+      await client.query(`
+        insert into ecapital.project (id, org_unit_id, code, title_el, category, phase, approved_budget)
+        values ('00000000-0000-4000-8000-000000000025', 'larnaca-general',
+                ecapital.allocate_project_code('larnaca-general', 2024), 'Ανακαίνιση χειρουργείων',
+                'RENOVATION', 'IN_PROGRESS', 1000000)`);
+      await client.query(`insert into ecapital.contractor (id, name) values
+        ('00000000-0000-4000-8000-0000000000c1', 'Ανάδοχος μεταφοράς')`);
+      await client.query(`
+        insert into ecapital.contract (id, project_id, org_unit_id, contractor_id, ref, contract_no, type,
+                                       award_date, original_value, current_value, completion_date,
+                                       extension_days, updated_at)
+        values ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000025', '',
+                '00000000-0000-4000-8000-0000000000c1', ecapital.allocate_contract_ref(2024), 'ΤΥ/2024/001',
+                'BOQ', '2024-01-10', 900000, 900000, '2024-12-03', 30, '2025-03-14T10:00:00Z'),
+               ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-000000000025', '',
+                '00000000-0000-4000-8000-0000000000c1', ecapital.allocate_contract_ref(2024), 'ΤΥ/2024/002',
+                'BOQ', '2024-01-10', 100000, 100000, '2024-12-03', 0, now())`);
+      // The administrator chose WRITE for the head of estates on purpose.
+      await client.query(`
+        update ecapital.role_permission set level = 'WRITE', updated_at = now()
+         where role = 'estates_head' and area_key = 'contractRecords'`);
+
+      await client.query(zeroZeroTwoFive!.sql);
+
+      // 1. One carried-over row for the contract that had a number, none for the other.
+      const { rows: carried } = await client.query<{
+        contract_id: string; days: number; approved_at: string; approver: string;
+        approver_name_el: string; contractor_culpable: boolean; org_unit_id: string;
+      }>(`select contract_id, days, approved_at::text, approver, approver_name_el, contractor_culpable, org_unit_id
+            from ecapital.contract_extension order by contract_id`);
+      expect(carried).toEqual([
+        {
+          contract_id: "00000000-0000-4000-8000-0000000000a1",
+          days: 30,
+          approved_at: "2025-03-14",
+          approver: "OTHER",
+          approver_name_el: "Μεταφορά",
+          contractor_culpable: false,
+          org_unit_id: "larnaca-general",
+        },
+      ]);
+
+      // 2. The sum is the database's: typing it changes nothing, a row moves it.
+      const days = async (id: string) =>
+        (await client.query<{ extension_days: number }>(
+          "select extension_days from ecapital.contract where id = $1", [id])).rows[0].extension_days;
+      await client.query(
+        "update ecapital.contract set extension_days = 99 where id = '00000000-0000-4000-8000-0000000000a1'");
+      expect(await days("00000000-0000-4000-8000-0000000000a1")).toBe(30);
+      await client.query(`
+        insert into ecapital.contract_extension (contract_id, org_unit_id, days, approved_at, approver,
+                                                 approver_name_el, reason_el)
+        values ('00000000-0000-4000-8000-0000000000a2', '', 12, '2025-01-05', 'TEAA', 'ΤΕΑΑ', 'Καιρικές συνθήκες')`);
+      expect(await days("00000000-0000-4000-8000-0000000000a2")).toBe(12);
+      await client.query(
+        "delete from ecapital.contract_extension where contract_id = '00000000-0000-4000-8000-0000000000a2'");
+      expect(await days("00000000-0000-4000-8000-0000000000a2")).toBe(0);
+      await expect(
+        client.query(`
+          insert into ecapital.contract_extension (contract_id, org_unit_id, days, approved_at, approver,
+                                                   approver_name_el, reason_el)
+          values ('00000000-0000-4000-8000-0000000000a2', '', 0, '2025-01-05', 'TEAA', 'ΤΕΑΑ', 'Μηδέν')`),
+      ).rejects.toThrow();
+
+      // 3. The matrix: the admin's default cell moves to APPROVE, the
+      //    administrator's own choice for the head of estates stays.
+      const level = async (role: string) =>
+        (await client.query<{ level: string }>(
+          "select level from ecapital.role_permission where role = $1 and area_key = 'contractRecords'",
+          [role])).rows[0].level;
+      expect(await level("admin")).toBe("APPROVE");
+      expect(await level("estates_head")).toBe("WRITE");
+      expect(await level("project_engineer")).toBe("WRITE");
+
+      // 4. Idempotent: a second run adds no row and writes no audit row.
+      const count = async (sql: string) => (await client.query<{ n: string }>(sql)).rows[0].n;
+      const extensionsBefore = await count("select count(*)::text as n from ecapital.contract_extension");
+      const auditBefore = await count("select count(*)::text as n from ecapital.audit_log");
+      await client.query(zeroZeroTwoFive!.sql);
+      expect(await count("select count(*)::text as n from ecapital.contract_extension")).toBe(extensionsBefore);
+      expect(await count("select count(*)::text as n from ecapital.audit_log")).toBe(auditBefore);
+
+      // 5. Row-level security on the three new tables.
+      const { rows: rls } = await client.query<{ relname: string; relrowsecurity: boolean }>(`
+        select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'ecapital'
+           and c.relname in ('contract_section', 'contract_extension', 'contract_claim')
+         order by c.relname`);
+      expect(rls).toEqual([
+        { relname: "contract_claim", relrowsecurity: true },
+        { relname: "contract_extension", relrowsecurity: true },
+        { relname: "contract_section", relrowsecurity: true },
+      ]);
     } finally {
       await client.end();
       const cleanup = new Client({ connectionString: adminUrl });

@@ -102,6 +102,11 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `GET /contracts/:id` | One contract with its project, its contractor, its bill, its variations newest first, the approved and pending totals, the variation percentage and the warnings. | M1 |
 | `PATCH /contracts/:id` | Change the terms. Neither the value nor `ref` is one of them — the value follows the variations, and the reference never changes (ADR-0019). | M1 |
 | `PUT /contracts/:id/boq` | Replace the whole bill of quantities. Each amount is qty × rate, worked out here. | M1 |
+| `GET /contracts/:id/delay` | The delay clocks (one per section, or the contract's own), days late, the accrued penalty and the open claims, as at today in Nicosia. Shown, never deducted (ADR-0035). | ADR-0035 |
+| `POST /contracts/:id/sections`, `PATCH …/:sid`, `DELETE …/:sid` | A section («Τμήμα») with its own completion, handover and optional rate. `contractRecords` WRITE; the code is unique on the contract. | ADR-0035 |
+| `POST /contracts/:id/extensions`, `DELETE …/:eid` | An approved extension of time as a record: days, date, approver, reason, contractor culpable. `extension_days` is their sum, kept by the database. | ADR-0035 |
+| `POST /contracts/:id/claims`, `PATCH …/:cid` | A claim («Αξίωση») by the contractor or the Organisation, its stage and the contingent-liability flag. | ADR-0035 |
+| `POST /contracts/:id/delay/activate` | Record the activation of the penalty on a section, or on the contract when it has none. `contractRecords` APPROVE (admin, head of estates). | ADR-0035 |
 | `POST /contracts/:id/variations` | Raise a variation. DRAFT, raised by the caller, numbered by the database. | M1 |
 | `PATCH /contracts/:id/variations/:vid` | Change one while it is DRAFT or RETURNED, and only as its raiser or an administrator. | M1 |
 | `POST /contracts/:id/variations/:vid/submit` | Send it for a decision. The raiser only. | M1 |

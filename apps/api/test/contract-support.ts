@@ -43,10 +43,31 @@ export function projectBody(titleEl: string, orgUnitId = "nicosia-general") {
   };
 }
 
+/** A one-page PDF, enough for the document store to accept. */
+export const TEST_PDF = Buffer.from("%PDF-1.7\nΟικονομοτεχνική μελέτη δοκιμής\n%%EOF\n", "utf8");
+
+/**
+ * ADR-0035 §6: file a business case on the project, which is what lets it
+ * leave «Ιδέα».
+ */
+export async function fileBusinessCase(
+  app: INestApplication,
+  projectId: string,
+  email: string = USERS.admin,
+): Promise<void> {
+  const token = await tokenFor(app, email);
+  const filed = await request(app.getHttpServer())
+    .post(`/projects/${projectId}/documents`)
+    .set(bearer(token))
+    .attach("file", TEST_PDF, { filename: "meleti.pdf", contentType: "application/pdf" });
+  if (filed.status !== 201) throw new Error(`could not file the business case: ${filed.status}`);
+}
+
 /**
  * A project at the phase asked for. The phases move one step at a time with a
  * reason, the way R04 says they do; a fresh project has no gate milestone, so
- * nothing is in the way.
+ * nothing is in the way. A business case is filed first whenever the project
+ * has to leave «Ιδέα» (ADR-0035 §6).
  */
 export async function projectAt(
   app: INestApplication,
@@ -63,6 +84,7 @@ export async function projectAt(
   if (created.status !== 201) throw new Error(`could not open the project: ${created.status}`);
   const id = created.body.id as string;
 
+  if (phase !== "IDEA") await fileBusinessCase(app, id, email);
   for (const step of PHASES.slice(1, PHASES.indexOf(phase) + 1)) {
     const moved = await request(app.getHttpServer())
       .post(`/projects/${id}/phase`)

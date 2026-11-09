@@ -21,6 +21,7 @@ import { Client } from "pg";
 import request from "supertest";
 import type { ZodType } from "zod";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { STALE_AFTER_DAYS } from "@ecapital/shared";
 import { USERS, allProjects, bearer, createTestApp, tokenFor } from "./app";
 import { binary } from "./maintenance-support";
 
@@ -211,15 +212,22 @@ describe("reports (M6)", () => {
 
   // -------------------------------------------------------- 2. exceptions --
 
-  it("lists exactly the amber and red projects the caller sees, red first", async () => {
+  it("lists exactly the amber, red and stale projects the caller sees, red first", async () => {
+    // ADR-0035: a project nobody has touched for STALE_AFTER_DAYS is listed
+    // too, whatever its RAG; a closed one never is.
+    const staleBefore = Date.now() - STALE_AFTER_DAYS * 86_400_000;
     for (const email of [USERS.admin, ESTATES_LARNACA]) {
       const body = await report<ExceptionsReport>("EXCEPTIONS", email);
       const { items } = await allProjects(app, email);
-      const flagged = items.filter((p) => p.rag !== "GREEN").map((p) => p.id);
+      const stale = (p: (typeof items)[number]) =>
+        p.phase !== "CLOSED" && p.lastActivityAt !== null && Date.parse(p.lastActivityAt) <= staleBefore;
+      const flagged = items.filter((p) => p.rag !== "GREEN" || stale(p)).map((p) => p.id);
       expect(body.rows.map((r) => r.projectId).sort()).toEqual(flagged.sort());
-      expect(body.rows.every((r) => r.rag === "AMBER" || r.rag === "RED")).toBe(true);
+      expect(body.rows.every((r) => r.rag === "AMBER" || r.rag === "RED" || r.stale)).toBe(true);
       const firstAmber = body.rows.findIndex((r) => r.rag === "AMBER");
-      if (firstAmber >= 0) expect(body.rows.slice(firstAmber).every((r) => r.rag === "AMBER")).toBe(true);
+      if (firstAmber >= 0) expect(body.rows.slice(firstAmber).every((r) => r.rag !== "RED")).toBe(true);
+      const firstGreen = body.rows.findIndex((r) => r.rag === "GREEN");
+      if (firstGreen >= 0) expect(body.rows.slice(firstGreen).every((r) => r.rag === "GREEN" && r.stale)).toBe(true);
     }
     const seeded = await report<ExceptionsReport>("EXCEPTIONS", USERS.admin);
     expect(seeded.rows.some((r) => r.rag === "RED")).toBe(true);
@@ -440,6 +448,43 @@ describe("reports (M6)", () => {
     const mHeader = findRow(maintenance, "Ανάδοχος");
     const pct = maintenance.getCell(mHeader + 2, findColumn(maintenance, mHeader, "Ανταπόκριση (%)"));
     expect((pct.value as ExcelJS.CellFormulaValue).formula).toMatch(/^IF\(/);
+  });
+
+  /**
+   * ADR-0035: the freshness, the accrued delay penalty and the open claims go
+   * into the workbooks as values (blue), and their totals are formulas.
+   */
+  it("carries the delay penalty, the open claims and the staleness as values with formula totals", async () => {
+    const json = await report<ExceptionsReport>("EXCEPTIONS", USERS.admin);
+    const { book } = await workbook("EXCEPTIONS", USERS.admin);
+    const sheet = book.getWorksheet("Στοιχεία") as ExcelJS.Worksheet;
+    const header = findRow(sheet, "Κωδικός έργου");
+    const col = (title: string) => findColumn(sheet, header, title);
+    const first = header + 2;
+    json.rows.forEach((row, i) => {
+      const penalty = sheet.getCell(first + i, col("Ρήτρα καθυστέρησης (€)"));
+      if (row.delayPenaltyAmount === null) expect(penalty.value).toBeNull();
+      else {
+        expect(penalty.value).toBeCloseTo(row.delayPenaltyAmount, 2);
+        expect(penalty.font?.color?.argb).toBe("FF0000FF");
+      }
+      expect(sheet.getCell(first + i, col("Ανοιχτές αξιώσεις")).value).toBe(row.openClaims);
+      expect(sheet.getCell(first + i, col("Χωρίς ενημέρωση 30 ημερών")).value).toBe(row.stale ? "Ναι" : "Όχι");
+    });
+    const totals = first + json.rows.length;
+    expect((sheet.getCell(totals, col("Ανοιχτές αξιώσεις")).value as ExcelJS.CellFormulaValue).formula).toMatch(/^SUM\(/);
+    expect((sheet.getCell(totals, col("Ημέρες καθυστέρησης")).value as ExcelJS.CellFormulaValue).formula).toMatch(/^SUM\(/);
+
+    const { book: scorecard } = await workbook("CONTRACTOR_SCORECARD", USERS.admin, "from=2026-07-01&to=2026-10-01");
+    const data = scorecard.getWorksheet("Στοιχεία") as ExcelJS.Worksheet;
+    const cHeader = findRow(data, "Ανάδοχος");
+    const culpable = findColumn(data, cHeader, "Ημέρες παράτασης με υπαιτιότητα αναδόχου");
+    const accrued = findColumn(data, cHeader, "Ρήτρα καθυστέρησης (€)");
+    expect(culpable).toBeGreaterThan(0);
+    expect(accrued).toBeGreaterThan(0);
+    const scored = await report<ContractorScorecardReport>("CONTRACTOR_SCORECARD", USERS.admin, "from=2026-07-01&to=2026-10-01");
+    const cTotals = cHeader + 2 + scored.capital.length;
+    expect((data.getCell(cTotals, culpable).value as ExcelJS.CellFormulaValue).formula).toMatch(/^SUM\(/);
   });
 
   it("writes every other workbook with blue inputs and black formulas", async () => {

@@ -101,11 +101,21 @@ describe("defects", () => {
     expect(Defect.parse(created.body).dueDate).toBe("2028-12-30");
 
     // An extension moves completion, and the liability period with it.
+    // ADR-0035: recorded as an extension row; the database keeps the sum.
     const token = await tokenFor(app, USERS.estatesNicosia);
-    await request(app.getHttpServer())
-      .patch(`/contracts/${contract.id}`)
+    const extended = await request(app.getHttpServer())
+      .post(`/contracts/${contract.id}/extensions`)
       .set(bearer(token))
-      .send({ extensionDays: 60 });
+      .send({
+        sectionId: null,
+        days: 60,
+        approvedAt: "2026-10-01",
+        approver: "TEAA",
+        approverNameEl: "Τμηματική Επιτροπή Αλλαγών και Απαιτήσεων",
+        reasonEl: "Πρόσθετες εργασίες στο δίκτυο ιατρικών αερίων.",
+        contractorCulpable: false,
+      });
+    expect(extended.status).toBe(201);
     const later = await post(USERS.estatesNicosia, {
       ...inspection,
       source: "HANDOVER",

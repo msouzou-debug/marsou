@@ -13,7 +13,7 @@ import {
   type Risk,
   type RiskWrite,
 } from "@ecapital/shared";
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
@@ -327,6 +327,25 @@ export class ProjectsService {
     const backward = phaseIndex(input.phase) < phaseIndex(project.phase);
 
     if (!forward && !(mayGoBack && backward)) throw AppError.unprocessable("errors.phaseNotNext");
+
+    // RULE (ADR-0035 §6, the ΜΕΕ's recommendation): a project leaves «Ιδέα»
+    // only with a business case filed on it — errors.businessCaseMissing, 422.
+    // Forward only: an administrator moving a project back is unaffected.
+    if (forward && project.phase === "IDEA") {
+      const [filed] = await tx.db
+        .select({ id: schema.document.id })
+        .from(schema.document)
+        .where(
+          and(
+            eq(schema.document.entityType, "project"),
+            eq(schema.document.entityId, id),
+            eq(schema.document.kind, "BUSINESS_CASE"),
+            isNull(schema.document.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!filed) throw AppError.unprocessable("errors.businessCaseMissing");
+    }
 
     if (forward) {
       const open = await tx.db
@@ -795,6 +814,30 @@ const PROJECT_COLUMNS = {
     string | null
   >`(select sum(c.current_value) from ecapital.contract c
       where c.project_id = ecapital.project.id)`,
+  /**
+   * ADR-0035: freshness. The newest `updated_at` of the project and of
+   * everything under it — milestones, risks, issues, notes, contracts, their
+   * variations and their payment certificates. `greatest` skips the nulls a
+   * project with no children gives. Each subquery is one index probe on the
+   * child's project or contract index, so the paged list stays cheap.
+   *
+   * Formatted in the database as an ISO instant in UTC, because a raw
+   * expression is not mapped back to a Date the way a column is.
+   */
+  lastActivityAt: sql<string | null>`to_char(greatest(
+      ecapital.project.updated_at,
+      (select max(m.updated_at) from ecapital.milestone m where m.project_id = ecapital.project.id),
+      (select max(r.updated_at) from ecapital.risk r where r.project_id = ecapital.project.id),
+      (select max(i.updated_at) from ecapital.issue i where i.project_id = ecapital.project.id),
+      (select max(n.updated_at) from ecapital.project_note n where n.project_id = ecapital.project.id),
+      (select max(c.updated_at) from ecapital.contract c where c.project_id = ecapital.project.id),
+      (select max(v.updated_at) from ecapital.variation v
+         join ecapital.contract c on c.id = v.contract_id
+        where c.project_id = ecapital.project.id),
+      (select max(pc.updated_at) from ecapital.payment_cert pc
+         join ecapital.contract c on c.id = pc.contract_id
+        where c.project_id = ecapital.project.id)
+    ) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
 };
 
 /** ProjectSort → the column it orders by. `orgUnit` is handled separately. */

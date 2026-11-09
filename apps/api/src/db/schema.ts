@@ -619,6 +619,10 @@ export const contract = ecapital.table(
     efinancePushedAt: timestamp("efinance_pushed_at", { withTimezone: true }),
     efinanceLastError: text("efinance_last_error"),
     efinanceSpend: jsonb("efinance_spend"),
+    // ADR-0035 (migration 0025): the activation of the delay penalty on the
+    // contract's own clock, for a contract without sections.
+    ldActivatedAt: date("ld_activated_at"),
+    ldActivationNoteEl: text("ld_activation_note_el"),
     createdAt,
     updatedAt,
   },
@@ -694,6 +698,100 @@ export const variation = ecapital.table(
     index("variation_contract_idx").on(t.contractId),
     index("variation_unit_idx").on(t.orgUnitId),
     index("variation_status_idx").on(t.status),
+  ],
+);
+
+// ------------------------------------------------------------- ADR-0035 --
+// Sections, extensions of time and claims under a contract (migration 0025).
+// The delay penalty is computed on read (src/contracts/delay.ts), never
+// stored. `contract.extension_days` is the sum of the extension rows, kept by
+// two triggers in the migration.
+
+export const contractSection = ecapital.table(
+  "contract_section",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    code: text("code").notNull(),
+    titleEl: text("title_el").notNull(),
+    completionDate: date("completion_date").notNull(),
+    handoverDate: date("handover_date"),
+    liquidatedDamagesPerDay: numeric("liquidated_damages_per_day", { precision: 14, scale: 2 }),
+    ldActivatedAt: date("ld_activated_at"),
+    ldActivationNoteEl: text("ld_activation_note_el"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("contract_section_code_key").on(t.contractId, t.code),
+    index("contract_section_contract_idx").on(t.contractId),
+    index("contract_section_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+export const contractExtension = ecapital.table(
+  "contract_extension",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    sectionId: uuid("section_id").references(() => contractSection.id, { onDelete: "set null" }),
+    days: integer("days").notNull(),
+    approvedAt: date("approved_at").notNull(),
+    approver: text("approver").$type<"TEAA" | "KEAA" | "ENGINEER" | "OTHER">().notNull(),
+    approverNameEl: text("approver_name_el").notNull(),
+    reasonEl: text("reason_el").notNull(),
+    contractorCulpable: boolean("contractor_culpable").notNull().default(false),
+    documentId: uuid("document_id").references(() => document.id),
+    createdBy: uuid("created_by").references(() => appUser.id, { onDelete: "set null" }),
+    createdAt,
+  },
+  (t) => [
+    index("contract_extension_contract_idx").on(t.contractId),
+    index("contract_extension_section_idx").on(t.sectionId),
+    index("contract_extension_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+export const contractClaim = ecapital.table(
+  "contract_claim",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    direction: text("direction").$type<"BY_CONTRACTOR" | "BY_ORGANISATION">().notNull(),
+    titleEl: text("title_el").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    stage: text("stage")
+      .$type<
+        "NOTIFIED" | "UNDER_REVIEW" | "NEGOTIATION" | "ARBITRATION" | "COURT" | "SETTLED" | "WITHDRAWN"
+      >()
+      .notNull(),
+    notifiedAt: date("notified_at"),
+    legalAdvisorEl: text("legal_advisor_el"),
+    contingentLiability: boolean("contingent_liability").notNull().default(false),
+    notesEl: text("notes_el").notNull().default(""),
+    documentId: uuid("document_id").references(() => document.id),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index("contract_claim_contract_idx").on(t.contractId),
+    index("contract_claim_unit_idx").on(t.orgUnitId),
   ],
 );
 

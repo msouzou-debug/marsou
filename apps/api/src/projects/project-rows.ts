@@ -71,6 +71,12 @@ export interface ProjectRow {
    * over no rows is not zero (CAPEX-01 §7).
    */
   committed?: string | number | null;
+  /**
+   * ADR-0035: the newest change on the project or anything under it, as an
+   * ISO timestamp the database formats. Optional for the selects that do not
+   * ask for it.
+   */
+  lastActivityAt?: string | null;
 }
 
 /**
@@ -121,6 +127,8 @@ export function toSummary(row: ProjectRow): ProjectSummary {
     projectManagerId: row.projectManagerId,
     createdAt: row.createdAt ? row.createdAt.toISOString() : null,
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
+    lastActivityAt:
+      row.lastActivityAt ?? (row.updatedAt ? row.updatedAt.toISOString() : null),
     ledgers: {
       approved: money(row.approvedBudget),
       committed:

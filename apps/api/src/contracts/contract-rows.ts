@@ -10,6 +10,7 @@
 import {
   type BoqItem,
   type Contract,
+  type ContractDelay,
   type ContractWarning,
   type ProjectPhase,
 } from "@ecapital/shared";
@@ -46,6 +47,9 @@ export interface ContractRow {
   sapPoNumber: string | null;
   emapRef: string | null;
   budgetCode: string | null;
+  /** ADR-0035: optional so the lists that do not select them still type. */
+  ldActivatedAt?: string | null;
+  ldActivationNoteEl?: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -69,7 +73,10 @@ export function toContract(row: ContractRow): Contract {
     currency: "EUR",
     startDate: row.startDate,
     completionDate: row.completionDate,
+    // ADR-0035: the sum of the extension rows, kept by the database.
     extensionDays: row.extensionDays,
+    ldActivatedAt: row.ldActivatedAt ?? null,
+    ldActivationNoteEl: row.ldActivationNoteEl ?? null,
     retentionPct: money(row.retentionPct),
     performanceBondValue:
       row.performanceBondValue === null ? null : money(row.performanceBondValue),
@@ -263,6 +270,40 @@ export function efinanceWarningFacts(input: {
     return [{ key: "efinanceConflict", amount: null, facts: { ...named, detail } }];
   }
   return [];
+}
+
+/**
+ * RULE (ADR-0035): the two delay warnings. Warn and flag, like the rest:
+ *
+ *  - delayPenaltyAccruing — a clock is past its due date and has a rate, so
+ *    the penalty is accruing. The amount is the total, which is the figure
+ *    finance withholds on the certificate; the engine never deducts it.
+ *  - claimsOpen — a claim is open, by the contractor or by the Organisation.
+ *    The amount is what the contractor claims in the open stages.
+ */
+export function delayWarningFacts(input: {
+  contractNo: string;
+  projectTitleEl: string;
+  delay: ContractDelay;
+}): WarningFact[] {
+  const named = { contract: input.contractNo, project: input.projectTitleEl };
+  const facts: WarningFact[] = [];
+  const { delay } = input;
+  if (delay.totalAmount !== null && delay.totalAmount > 0) {
+    facts.push({
+      key: "delayPenaltyAccruing",
+      amount: delay.totalAmount,
+      facts: { ...named, days: delay.totalDaysLate },
+    });
+  }
+  if (delay.openClaims > 0) {
+    facts.push({
+      key: "claimsOpen",
+      amount: delay.claimedByContractor,
+      facts: { ...named, count: delay.openClaims },
+    });
+  }
+  return facts;
 }
 
 export function daysBetween(from: string, to: string): number {

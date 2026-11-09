@@ -448,6 +448,13 @@ export async function exceptionsWorkbook(report: ExceptionsReport, i18n: I18nSer
     },
     { key: "milestoneLateDays", width: 14, fmt: INT, input: (r) => r.milestoneLateDays },
     { key: "openRisksHigh", width: 14, fmt: INT, input: (r) => r.openRisksHigh, total: "sum" },
+    // ADR-0035 (ΜΕΕ, November 2026): freshness, the accrued delay penalty and
+    // the open claims, as values; the totals below them are formulas.
+    { key: "daysSinceActivity", width: 14, fmt: INT, input: (r) => r.daysSinceActivity },
+    { key: "stale", width: 12, input: (r) => words.el(r.stale ? "yes" : "no") },
+    { key: "delayDaysLate", width: 14, fmt: INT, input: (r) => r.delayDaysLate, total: "sum" },
+    { key: "delayPenaltyAmount", width: 18, fmt: MONEY, input: (r) => r.delayPenaltyAmount, total: "known" },
+    { key: "openClaims", width: 12, fmt: INT, input: (r) => r.openClaims, total: "sum" },
   ];
   const table = writeTable(sheet, next, cols, report.rows, words, { totals: true });
   const total = (key: string) => data(`${table.letter(key)}${table.totals}`);
@@ -473,6 +480,9 @@ export async function exceptionsWorkbook(report: ExceptionsReport, i18n: I18nSer
       fmt: INT,
     },
     { label: words.column("openRisksHigh"), formula: total("openRisksHigh"), link: true, fmt: INT },
+    { label: words.of("summary.staleProjects"), formula: countIf("stale", words.el("yes")), link: true, fmt: INT },
+    { label: words.column("delayPenaltyAmount"), formula: total("delayPenaltyAmount"), link: true, fmt: MONEY },
+    { label: words.column("openClaims"), formula: total("openClaims"), link: true, fmt: INT },
   ]);
   return done(workbook);
 }
@@ -535,6 +545,22 @@ export async function contractorScorecardWorkbook(
       formula: (c) =>
         `IF(OR(${c("certificates")}=0,${c("certifiedClaimed")}<=0),"",MIN(100,MAX(0,${c("certifiedApproved")}/${c("certifiedClaimed")}*100)))`,
       total: "same",
+    },
+    // ADR-0035: the accrued delay penalty (shown, never deducted) and the
+    // extension days judged the contractor's fault.
+    {
+      key: "delayPenaltyAccrued",
+      width: 18,
+      fmt: MONEY,
+      input: (l) => l.facts.delayPenaltyAccrued,
+      total: "known",
+    },
+    {
+      key: "culpableExtensionDays",
+      width: 14,
+      fmt: INT,
+      input: (l) => l.facts.culpableExtensionDays,
+      total: "sum",
     },
   ];
   const capital = writeTable(sheet, next, cols, input.capital, words, { totals: true });
@@ -619,6 +645,18 @@ export async function contractorScorecardWorkbook(
     { label: words.column("defectRate"), formula: capitalTotal("defectRate"), link: true, fmt: "0.00" },
     { label: words.column("rfiBreachPct"), formula: capitalTotal("rfiBreachPct"), link: true, fmt: PCT },
     { label: words.column("claimAccuracyPct"), formula: capitalTotal("claimAccuracyPct"), link: true, fmt: PCT },
+    {
+      label: words.column("delayPenaltyAccrued"),
+      formula: capitalTotal("delayPenaltyAccrued"),
+      link: true,
+      fmt: MONEY,
+    },
+    {
+      label: words.column("culpableExtensionDays"),
+      formula: capitalTotal("culpableExtensionDays"),
+      link: true,
+      fmt: INT,
+    },
     {
       label: words.of("summary.maintenance"),
       formula: agreements.range("agreement")

@@ -24,6 +24,7 @@ import {
   type ExceptionsReport,
   OrgUnit,
   ProjectListQuery,
+  STALE_AFTER_DAYS,
   type ProjectSummary,
   RISK_BAND_ORDER,
   type ReportKey,
@@ -34,6 +35,8 @@ import {
 import { and, asc, eq, gte, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { addDays as addContractDays, warningFacts } from "../contracts/contract-rows";
+import { nicosiaToday } from "../contracts/delay";
+import { type ContractDelayRecords, loadContractDelays } from "../contracts/delay-load";
 import { ProjectCostService } from "../cost/project-cost.service";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
@@ -51,6 +54,7 @@ import {
   type LifecycleAsset,
   assetLifecycleRow,
   capitalContractorRow,
+  daysSince,
   isHighRisk,
   milestoneLateDays,
   monthsOf,
@@ -146,6 +150,11 @@ export class ReportsService {
    * its reason, its owner (the project manager, else the sponsor), the
    * forecast against approved, the worst late milestone and the open risks
    * scored high.
+   *
+   * ADR-0035 (ΜΕΕ, November 2026): a project nobody has touched for
+   * STALE_AFTER_DAYS is an exception too, whatever its RAG, and every row
+   * carries the accrued delay penalty and the open claims of its contracts.
+   * A closed project is history and is never stale.
    */
   async exceptions(query: ResolvedQuery, now: Date): Promise<ExceptionsReport> {
     const tx = currentTx();
@@ -153,8 +162,15 @@ export class ReportsService {
     const unit = await this.unitFilter(query.orgUnitId);
     const today = now.toISOString().slice(0, 10);
 
-    const flagged = await this.allProjects({ unit: unit ? [unit.id] : [], rag: ["AMBER", "RED"] });
+    const isStale = (p: ProjectSummary) => {
+      const days = daysSince(p.lastActivityAt, now);
+      return p.phase !== "CLOSED" && days !== null && days >= STALE_AFTER_DAYS;
+    };
+    const flagged = (await this.allProjects({ unit: unit ? [unit.id] : [] })).filter(
+      (p) => p.rag === "AMBER" || p.rag === "RED" || isStale(p),
+    );
     const ids = flagged.map((p) => p.id);
+    const delays = await this.delaysByProject(ids, now);
     const units = new Map((await this.visibleUnits()).map((u) => [u.id, u.nameEl]));
 
     const milestones = ids.length
@@ -214,6 +230,9 @@ export class ReportsService {
         ),
         openRisksHigh: risks.filter((r) => r.projectId === project.id && isHighRisk(r.likelihood, r.impact))
           .length,
+        daysSinceActivity: daysSince(project.lastActivityAt, now),
+        stale: isStale(project),
+        ...penaltyOf(delays.get(project.id) ?? []),
       });
     }
 
@@ -286,6 +305,10 @@ export class ReportsService {
       .innerJoin(schema.contractor, eq(schema.contractor.id, c.contractorId))
       .innerJoin(schema.project, eq(schema.project.id, c.projectId))
       .where(unit ? eq(c.orgUnitId, unit.id) : undefined);
+    const delays = await loadContractDelays(
+      contracts.map((row) => row.id),
+      nicosiaToday(now),
+    );
 
     const byContractor = new Map<string, CapitalContractorFacts>();
     for (const row of contracts) {
@@ -307,6 +330,8 @@ export class ReportsService {
           certificates: 0,
           certifiedClaimed: 0,
           certifiedApproved: 0,
+          delayPenaltyAccrued: null,
+          culpableExtensionDays: 0,
         } satisfies CapitalContractorFacts);
       const overdue = warningFacts(
         {
@@ -335,6 +360,16 @@ export class ReportsService {
       facts.certificates += row.certificates;
       facts.certifiedClaimed = round2(facts.certifiedClaimed + money(row.certifiedClaimed));
       facts.certifiedApproved = round2(facts.certifiedApproved + money(row.certifiedApproved));
+      // ADR-0035: the accrued penalty (null until a contract with a rate is
+      // late) and the extension days the contractor was judged to blame for.
+      const records = delays.get(row.id);
+      if (records) {
+        const accrued = records.delay.totalAmount;
+        if (accrued !== null) facts.delayPenaltyAccrued = round2((facts.delayPenaltyAccrued ?? 0) + accrued);
+        facts.culpableExtensionDays += records.extensions
+          .filter((e) => e.contractorCulpable)
+          .reduce((sum, e) => sum + e.days, 0);
+      }
       byContractor.set(row.contractorId, facts);
     }
     const capital = [...byContractor.values()]
@@ -622,6 +657,31 @@ export class ReportsService {
     return rows[0];
   }
 
+  /** ADR-0035: the delay records of every contract on the projects named, by project. */
+  private async delaysByProject(
+    projectIds: string[],
+    now: Date,
+  ): Promise<Map<string, ContractDelayRecords[]>> {
+    const out = new Map<string, ContractDelayRecords[]>();
+    if (!projectIds.length) return out;
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const contracts = await tx.db
+      .select({ id: schema.contract.id, projectId: schema.contract.projectId })
+      .from(schema.contract)
+      .where(inArray(schema.contract.projectId, projectIds));
+    const records = await loadContractDelays(
+      contracts.map((c) => c.id),
+      nicosiaToday(now),
+    );
+    for (const contract of contracts) {
+      const found = records.get(contract.id);
+      if (!found) continue;
+      out.set(contract.projectId, [...(out.get(contract.projectId) ?? []), found]);
+    }
+    return out;
+  }
+
   /** The units the row policy lets the caller see, by Greek name. */
   private async visibleUnits(): Promise<UnitName[]> {
     const tx = currentTx();
@@ -674,4 +734,20 @@ export class ReportsService {
       to: entry?.takesPeriod ? query.to : null,
     };
   }
+}
+
+/**
+ * ADR-0035: a project's penalty is the sum over its contracts that have a
+ * rate, null when none has; days late and open claims add up regardless.
+ */
+function penaltyOf(records: ContractDelayRecords[]): {
+  delayPenaltyAmount: number | null;
+  delayDaysLate: number;
+  openClaims: number;
+} {
+  return {
+    delayPenaltyAmount: sumKnown(records.map((r) => r.delay.totalAmount)),
+    delayDaysLate: records.reduce((sum, r) => sum + r.delay.totalDaysLate, 0),
+    openClaims: records.reduce((sum, r) => sum + r.delay.openClaims, 0),
+  };
 }

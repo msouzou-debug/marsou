@@ -123,7 +123,9 @@ export const ROLE_MATRIX: Record<MatrixArea, Cells> = {
   projectPhase: row("READ", { ...RUNS_WORKS, admin: "MANAGE" }),
   approvedBudget: row("READ", { finance: "APPROVE" }),
 
-  contractRecords: row("READ", RUNS_WORKS),
+  // ADR-0035 §7: sections, extensions and claims are WRITE; activating a
+  // delay penalty is APPROVE, the head of estates' and the administrator's.
+  contractRecords: row("READ", { ...RUNS_WORKS, admin: "APPROVE", estates_head: "APPROVE" }),
   rfisInstructions: row("READ", RUNS_WORKS),
   variationSubmit: row("READ", RUNS_WORKS),
   // RULE (ADR-0015, R10): the head of estates or the administrator decides.

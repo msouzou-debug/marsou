@@ -211,7 +211,18 @@
     "scorecardQueryNotValid": "The scorecard needs a maintenance agreement and a period. Pick an agreement and a «from» date before the «to» date, then try again.",
     "reportQueryNotValid": "The report filters are not usable. Give a year from 2000 to 2100 and dates as YYYY-MM-DD with «from» before «to», then try again.",
     "rolePermissionGuardrail": "The {role} role cannot take that level on “{area}”: {rule} Pick one of the levels the table offers.",
-    "rolePermissionNotValid": "The request does not name one of the eight roles, or does not give a level for every area. Reload the page and try again."
+    "rolePermissionNotValid": "The request does not name one of the eight roles, or does not give a level for every area. Reload the page and try again.",
+    "sectionNotValid": "The section is not valid. Give a code of up to eight characters, a title and the contractual completion date.",
+    "sectionCodeTaken": "The contract already has a section with code {code}. Use another code.",
+    "sectionNotFound": "That section is not on this contract. Refresh the page and try again.",
+    "sectionNotOnContract": "The section you picked does not belong to this contract. Pick one of its sections, or leave the field empty for the contract itself.",
+    "extensionNotValid": "The extension of time is not valid. Give the days, the date approved, who approved it and the reason.",
+    "extensionNotFound": "That extension of time is not on this contract. Refresh the page and try again.",
+    "claimNotValid": "The claim is not valid. Give the direction, a title, the amount and the stage.",
+    "claimNotFound": "That claim is not on this contract. Refresh the page and try again.",
+    "delayActivationNotValid": "The activation is not valid. Give the date and a note.",
+    "contractHasSections": "This contract has sections, and the delay penalty runs on each section separately. Pick the section the penalty is applied on.",
+    "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -226,7 +237,9 @@
     "completionPast": "Contract {contract} for {project} ({unit}) was due to finish on {date}, {days} days ago. Record an extension, or move the project to practical completion.",
     "instructionsWithoutVariation": "Contract {contract} for {project} ({unit}) has {count} site instructions that cost money and have no variation behind them. Price them and record the variation.",
     "efinanceConflict": "eFinance refused contract {contract} for project «{project}» ({unit}): the reference already exists there under another unit or budget code ({detail}). Check the unit and the code, then send the contract again.",
-    "efinanceNotPushable": "Contract {contract} for project «{project}» ({unit}) has not been sent to eFinance because it has no {fields}. Fill in what is missing so it can be sent."
+    "efinanceNotPushable": "Contract {contract} for project «{project}» ({unit}) has not been sent to eFinance because it has no {fields}. Fill in what is missing so it can be sent.",
+    "delayPenaltyAccruing": "Contract {contract} for {project} ({unit}) is {days} days late and the delay penalty comes to {amount}. The figure is shown for information; finance withholds it on the payment certificate.",
+    "claimsOpen": "Contract {contract} for {project} ({unit}) has {count} open claims. The contractor claims {amount}."
   },
   "import": {
     "severity": {
@@ -780,7 +793,14 @@
       "due": "Due",
       "done": "Done on time",
       "overdue": "Overdue",
-      "donePct": "Done as % of due"
+      "donePct": "Done as % of due",
+      "daysSinceActivity": "Days without an update",
+      "stale": "No update for 30 days",
+      "delayDaysLate": "Days late",
+      "delayPenaltyAmount": "Delay penalty (€)",
+      "openClaims": "Open claims",
+      "delayPenaltyAccrued": "Delay penalty (€)",
+      "culpableExtensionDays": "Extension days at the contractor's fault"
     },
     "summary": {
       "item": "Measure",
@@ -794,7 +814,8 @@
       "maintenance": "Maintenance contractors",
       "assets": "Assets",
       "pastLife": "Assets at the end of their life",
-      "band": "Risk band"
+      "band": "Risk band",
+      "staleProjects": "Projects without an update for 30 days"
     }
   },
   "roleGuardrails": {
