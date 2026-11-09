@@ -105,6 +105,10 @@ export const Project = z.object({
   projectManagerId: z.string().nullable().default(null),
   createdAt: z.string().nullable().default(null), // ISO timestamp, UTC
   updatedAt: z.string().nullable().default(null),
+  // ADR-0035: the newest change on the project or anything under it
+  // (milestones, risks, issues, notes, contracts, variations, certificates).
+  // Null only on fixtures written before it existed; the API always sends it.
+  lastActivityAt: z.string().nullable().default(null),
 });
 export type Project = z.infer<typeof Project>;
 
@@ -291,3 +295,6 @@ export const IssueWrite = Issue.omit({ id: true, projectId: true, raisedById: tr
   status: true,
 });
 export type IssueWrite = z.infer<typeof IssueWrite>;
+
+/** ADR-0035: a project nobody has touched for this many days is «stale» in the exceptions report and the list. */
+export const STALE_AFTER_DAYS = 30;

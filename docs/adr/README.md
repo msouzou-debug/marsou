@@ -38,3 +38,4 @@ One file per decision, numbered, never edited after acceptance; superseding deci
 - [ADR-0032 — Reports are computed on read, exported with formulas, printed from the browser](ADR-0032-reports.md)
 - [ADR-0033 — The role matrix is the rule, and the administrator edits it](ADR-0033-editable-permissions.md)
 - [ADR-0034 — One code and one name per hospital in every tool, eFinance's; references keep the prefix they were issued under](ADR-0034-unit-codes-follow-efinance.md)
+- [ADR-0035 — Delay penalties shown and never deducted, extensions of time as records, sections with their own clock, claims, freshness, and a business case before a project leaves «Ιδέα»](ADR-0035-delay-penalties-extensions-claims.md)

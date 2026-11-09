@@ -115,6 +115,14 @@ export const ExceptionRow = z.object({
   /** Days the next milestone is late, null when none is. */
   milestoneLateDays: z.number().int().nullable(),
   openRisksHigh: z.number().int().nonnegative(),
+  // ADR-0035 (ΜΕΕ, November 2026).
+  /** Days since anything on the project changed; `stale` when ≥ STALE_AFTER_DAYS. */
+  daysSinceActivity: z.number().int().nonnegative().nullable(),
+  stale: z.boolean(),
+  /** Accrued delay penalty over the project's contracts, null when no late clock has a rate. */
+  delayPenaltyAmount: z.number().nonnegative().nullable(),
+  delayDaysLate: z.number().int().nonnegative(),
+  openClaims: z.number().int().nonnegative(),
 });
 export type ExceptionRow = z.infer<typeof ExceptionRow>;
 
@@ -154,6 +162,10 @@ export const CapitalContractorRow = z.object({
   /** RFIs answered after their SLA / RFIs with an SLA × 100. */
   rfiBreachPct: z.number().min(0).max(100).nullable(),
   claimAccuracyPct: z.number().min(0).max(100).nullable(),
+  // ADR-0035: accrued delay penalty across the contractor's contracts (null
+  // without rates) and the approved extension days judged the contractor's fault.
+  delayPenaltyAccrued: z.number().nonnegative().nullable(),
+  culpableExtensionDays: z.number().int().nonnegative(),
 });
 export type CapitalContractorRow = z.infer<typeof CapitalContractorRow>;
 
