@@ -88,6 +88,22 @@ def main(argv):
                                       calculated_at
                                  FROM taep_costing_result WHERE episode_id = ?""",
                       (e["id"],))
+        # eFinance's own audit table, which the module writes through ctx['log_activity'].
+        # Read defensively: its columns are eFinance's, not ours, and the standalone host
+        # keeps its own. Every column is printed rather than guessed at.
+        try:
+            log = rows(conn, """SELECT * FROM activity_log
+                                 WHERE entity_type = 'taep_episode' AND entity_id = ?
+                                 ORDER BY rowid DESC LIMIT 12""", (e["id"],))
+        except sqlite3.Error:
+            log = None
+        if log is not None:
+            print("\n  Τελευταίες εγγραφές ιστορικού (%d, νεότερη πρώτη):" % len(log))
+            for entry in log:
+                print("    " + " · ".join(
+                    "%s" % value for key, value in entry.items()
+                    if key not in ("entity_type", "entity_id") and value not in (None, "")))
+
         print("\n  Αποθηκευμένος υπολογισμός:")
         if result:
             r = result[0]

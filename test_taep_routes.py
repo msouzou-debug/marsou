@@ -2276,3 +2276,37 @@ def test_show_episode_reports_what_the_server_holds(client, app, capsys, tmp_pat
     out = capsys.readouterr().out
     assert "SHSO-ER3" in out and exam["cpt_code"] in out
     assert "AED005" in out
+
+
+def test_each_calculate_press_records_what_it_delivered(client, app):
+    """Added 10/11/2026. A 602 costing lost its two radiology charges on Υπολογισμός in
+    production, and nothing in the request was visible: the server held the services
+    from that press and no charges, the same steps worked here, and every script
+    eFinance adds to the page had been read and ruled out.
+
+    So each press writes down what arrived — before pricing, so a refused press is
+    recorded too — and show_episode.py prints it. Counts and codes, no patient data.
+    """
+    episode_id = create(client, app, code="602", episode_number="E-LOG")
+    exam = taep.list_radiology_tariff(app.ctx)[0]
+    client.post("/taep/%d/calculate" % episode_id, data={
+        "services_posted": "1",
+        "service_code": ["AED005", "AED019", "AET057"],
+        "tariff_code": ["SHSO-ER3", "SHSO-ER4", ""],
+        "tariff_price_type": ["tariff_lookup", "tariff_lookup", ""],
+        "tariff_cpt": [exam["cpt_code"], "", ""],
+        "tariff_quantity": ["1", "1", "1"],
+        "tariff_hours": ["", "", ""], "tariff_consumables": ["", "", ""],
+        "tariff_note": ["", "", ""]})
+
+    posted = [entry for entry in app.ctx["activity_log"]
+              if entry[1] == episode_id and entry[2] == "CALCULATE_POSTED"]
+    assert len(posted) == 1
+    details = posted[0][3]
+    assert "υπηρεσίες 3" in details
+    # Every row the browser sent, empty ones included — an empty code is exactly what
+    # a lost charge would look like from the server's side.
+    assert "γραμμές χρέωσης 3" in details
+    assert "SHSO-ER3/%s" % exam["cpt_code"] in details
+    assert "SHSO-ER4/—" in details           # no examination: refused, but recorded
+    assert "∅/—" in details

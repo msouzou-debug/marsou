@@ -4826,6 +4826,24 @@ def register(app, ctx):
             flash("Η καταχώρηση δεν μπορεί να τροποποιηθεί.", "danger")
             return redirect(url_for("taep_costing", episode_id=episode_id))
         posted = _tariff_rows_from_form(request.form)
+        # What this press actually delivered, recorded before anything can refuse it.
+        # Added 10/11/2026: a 602 costing came back with its two radiology charges gone
+        # and 0,00 against the price list. The same steps work here, every script
+        # eFinance adds to the page has been read and ruled out, and the server
+        # provably received the services from that press and no charge rows. The one
+        # thing left unseen is the request itself, so it is written down — counts and
+        # codes only, nothing about the patient.
+        codes = request.form.getlist("tariff_code")
+        cpts = request.form.getlist("tariff_cpt")
+        rows_seen = ", ".join(
+            "%s/%s" % (code or "∅", (cpts[i] if i < len(cpts) else "") or "—")
+            for i, code in enumerate(codes)) or "καμία"
+        ctx["log_activity"](
+            "taep_episode", episode_id, "CALCULATE_POSTED",
+            "υπηρεσίες %d%s · γραμμές χρέωσης %d (%s)"
+            % (len(request.form.getlist("service_code")),
+               "" if request.form.get("services_posted") else " (χωρίς επιλογή)",
+               len(codes), rows_seen))
         try:
             # The service selection arrives with this post, not from a separate button.
             # Παναγιώτα Έλληνα, 05/11/2026: the old «Ενημέρωση υπηρεσιών» step was easy

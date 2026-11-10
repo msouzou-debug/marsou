@@ -55,9 +55,14 @@ as `Flask(__name__)` in `/opt/finance/app.py` does by default. Step 2 checks it.
 ### 2. Prove they are served — before touching base.html
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5004/static/vendor/jquery-3.7.1/jquery.min.js
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5004/static/vendor/bootstrap-icons-1.11.3/fonts/bootstrap-icons.woff2
+curl -s --noproxy '*' -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5004/static/vendor/jquery-3.7.1/jquery.min.js
+curl -s --noproxy '*' -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5004/static/vendor/bootstrap-icons-1.11.3/fonts/bootstrap-icons.woff2
 ```
+
+`--noproxy '*'` is not optional on this server: its shell has a proxy configured, and
+without the flag even a request to `127.0.0.1` goes through Squid, which refuses it and
+returns its own error page — a false failure that says nothing about eFinance. Found
+10/11/2026 fetching `/sw.js`.
 
 Both must print `200`. If they print `404`, eFinance's static folder is elsewhere — stop
 here and find where it is before going on. The second one matters: the icon stylesheet
