@@ -351,7 +351,10 @@
                   <th style="width:4.5rem"></th>
                 </tr>
               </thead>
-              <tbody id="tariff-rows">
+              {# Which charge each imaging service needs, for the script that adds the row
+                 by itself. tojson escapes quotes and angle brackets, so it is safe in a
+                 single-quoted attribute. #}
+              <tbody id="tariff-rows" data-radiology-charges='{{ radiology_charges | tojson }}'>
                 {% for line in tariff_lines %}
                   {{ tariff_row(line) }}
                 {% endfor %}
@@ -832,29 +835,89 @@ taepAfterHost(function () {
     });
   }
 
-  rows.addEventListener("click", function (event) {
-    var button = event.target.closest(".remove-tariff-row");
-    if (!button) return;
-    var row = button.closest(".tariff-row");
+  function removeRow(row) {
     var cpt = row.querySelector(".select2-cpt");
     if (cpt && window.jQuery && jQuery(cpt).hasClass("select2-hidden-accessible")) {
       jQuery(cpt).select2("destroy");
     }
     row.remove();
+  }
+
+  function addRow(code) {
+    var row = template.content.firstElementChild.cloneNode(true);
+    if (code) row.querySelector(".tariff-code").value = code;
+    rows.appendChild(row);
+    applyPriceType(row);
+    initCpt(row);
+    return row;
+  }
+
+  rows.addEventListener("click", function (event) {
+    var button = event.target.closest(".remove-tariff-row");
+    if (!button) return;
+    removeRow(button.closest(".tariff-row"));
   });
 
   var add = document.getElementById("add-tariff-row");
   if (add && template) {
-    add.addEventListener("click", function () {
-      var row = template.content.firstElementChild.cloneNode(true);
-      rows.appendChild(row);
-      applyPriceType(row);
-      initCpt(row);
-    });
+    add.addEventListener("click", function () { addRow(""); });
   }
 
   Array.prototype.forEach.call(rows.querySelectorAll(".tariff-row"),
                                function (row) { initCpt(row); });
+
+  // The imaging charge row adds itself. Παναγιώτα Έλληνα, 10/11/2026: «Θα μπορούσε απλά
+  // να επιλέγει από τον τιμοκατάλογο;» The SHSO-ER code only says which kind of
+  // examination it is, and the service already says that: AED005 is always SHSO-ER3,
+  // and so on (RADIOLOGY_SERVICE_CHARGES, agreed with the Μονάδα 05/11). So selecting
+  // the service adds a row with its code filled in and the clerk picks only the
+  // examination. AED022's SHSO-ER7 is a flat €65 and needs nothing picked at all.
+  //
+  // A row added this way is marked data-auto. If the service is taken off again before
+  // an examination is chosen, the row goes with it; once the clerk has picked one, the
+  // row is theirs and stays. A second X-ray is still a second row added by hand.
+  var charges = {};
+  try {
+    charges = JSON.parse(rows.getAttribute("data-radiology-charges") || "{}");
+  } catch (e) { charges = {}; }
+  var picker = document.getElementById("pick-investigations");
+
+  function codeOf(row) {
+    var select = row.querySelector(".tariff-code");
+    return select ? select.value : "";
+  }
+
+  function syncImaging() {
+    if (!picker || !template) return;
+    var wanted = {};
+    Array.prototype.forEach.call(picker.options, function (option) {
+      if (option.selected && charges[option.value]) wanted[charges[option.value]] = true;
+    });
+    Object.keys(wanted).forEach(function (code) {
+      var have = Array.prototype.some.call(rows.querySelectorAll(".tariff-row"),
+                                           function (row) { return codeOf(row) === code; });
+      var known = template.content.querySelector(
+        '.tariff-code option[value="' + code + '"]');
+      if (!have && known) addRow(code).setAttribute("data-auto", code);
+    });
+    Array.prototype.forEach.call(rows.querySelectorAll(".tariff-row[data-auto]"),
+                                 function (row) {
+      var code = row.getAttribute("data-auto");
+      var cpt = row.querySelector(".tariff-cpt");
+      if (!wanted[code] && codeOf(row) === code && !(cpt && cpt.value)) removeRow(row);
+    });
+  }
+
+  if (picker) {
+    // Select2 reports a pick through jQuery's trigger("change"), which a plain
+    // addEventListener does not hear. jQuery's own .on() hears both.
+    if (window.jQuery) {
+      jQuery(picker).on("change", syncImaging);
+    } else {
+      picker.addEventListener("change", syncImaging);
+    }
+    syncImaging();
+  }
 });
 </script>
 {% endblock %}

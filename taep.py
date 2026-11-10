@@ -4770,6 +4770,7 @@ def register(app, ctx):
             tariff_allowed=bool(category and _as_int(category["tariff_applies"])),
             tariff_catalogue=list_tariff_catalogue(ctx),
             radiology=list_radiology_tariff(ctx),
+            radiology_charges=RADIOLOGY_SERVICE_CHARGES,
             tariff_lines=(get_episode_tariff_lines(ctx, episode["id"])
                           if tariff_lines is None else tariff_lines),
             deposit=deposit_state(episode, stored),

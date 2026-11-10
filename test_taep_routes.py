@@ -2059,6 +2059,26 @@ def test_the_block_does_not_apply_where_no_charge_could_be_added(client, app):
     assert result.can_finalise is True
 
 
+def test_the_costing_screen_carries_the_service_to_charge_pairing(client, app):
+    """Παναγιώτα Έλληνα, 10/11/2026: «Θα μπορούσε απλά να επιλέγει από τον τιμοκατάλογο;»
+
+    Selecting AED005 now adds the SHSO-ER3 row by itself, so the clerk picks only the
+    examination. The script reads the pairing from the page, and it must be the same
+    pairing the blocker uses: a row filled with the wrong code would satisfy nothing and
+    still be refused at finalisation. The behaviour itself is a browser's to check.
+    """
+    import html
+    import json
+    import re
+    episode_id = create(client, app, code="602", episode_number="E-AUTO-ROW")
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    found = re.search(r"data-radiology-charges='([^']*)'", page)
+    assert found, "the tariff rows carry no pairing"
+    assert json.loads(html.unescape(found.group(1))) == taep.RADIOLOGY_SERVICE_CHARGES
+    assert 'id="pick-investigations"' in page
+    assert "syncImaging" in page
+
+
 def test_every_radiology_service_is_paired_with_a_charge_that_exists(seeded):
     """The pairing is written down rather than inferred, because the two sides word the
     descriptions differently. So it has to be checked against both catalogues.
