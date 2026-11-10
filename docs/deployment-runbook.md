@@ -31,6 +31,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 05/11/2026 | `b0ef892` | `355692ee` | No separate «Ενημέρωση υπηρεσιών» step; services correctable after finalising; all five radiology codes compulsory |
 | 05/11/2026 | `8d14c5d` | `355692ee` | The uncharged-imaging finder widened to all five services and renamed |
 | 10/11/2026 | `b6cc0b9` | `7d75f85a` | Libraries served locally; `show_episode.py`; each Υπολογισμός press recorded as `CALCULATE_POSTED` |
+| 10/11/2026 | `6feb9a9` | `7d75f85a` | Examination and service lists close again (no more `taepDetach`); × on the examination box; remove button kept on the card |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
