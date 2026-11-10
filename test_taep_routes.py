@@ -2247,3 +2247,32 @@ def test_a_service_revision_that_cannot_be_priced_changes_nothing(client, app):
     assert taep.money_from_db(
         taep.get_calculation(app.ctx, episode_id)["total_cost"]) == before
     assert taep.episode_revisions(app.ctx, episode_id) == []
+
+
+def test_show_episode_reports_what_the_server_holds(client, app, capsys, tmp_path):
+    """Support tool, added 10/11/2026 when a charge entered on the screen was reported as
+    not counted in production while the same steps counted it here. The screen is drawn
+    from these rows, so the tool separates «never stored» from «stored, not shown».
+    """
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    import show_episode
+
+    episode_id = create(client, app, code="602", episode_number="E-SHOW",
+                        id_number="999999999")
+    exam = taep.list_radiology_tariff(app.ctx)[0]
+    client.post("/taep/%d/calculate" % episode_id, data={
+        "services_posted": "1", "service_code": ["AED005", "AET057"],
+        "tariff_code": ["SHSO-ER3"], "tariff_price_type": ["tariff_lookup"],
+        "tariff_cpt": [exam["cpt_code"]], "tariff_quantity": ["1"],
+        "tariff_hours": [""], "tariff_consumables": [""], "tariff_note": [""]})
+    app.ctx["db_execute"]("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    # The harness writes the database to the test's own tmp_path, which pytest shares
+    # with every fixture in the test, so this is the same file the app is using.
+    db_path = str(tmp_path / "taep.db")
+    assert show_episode.main([db_path, "999999999"]) == 0
+    out = capsys.readouterr().out
+    assert "SHSO-ER3" in out and exam["cpt_code"] in out
+    assert "AED005" in out

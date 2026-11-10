@@ -87,6 +87,8 @@ run install $OWNER -m 644 "$REPO/tools/sync_diagnoses.py" \
     "$TARGET/sync_diagnoses.py"
 run install $OWNER -m 644 "$REPO/tools/find_uncharged_imaging.py" \
     "$TARGET/find_uncharged_imaging.py"
+run install $OWNER -m 644 "$REPO/tools/show_episode.py" \
+    "$TARGET/show_episode.py"
 
 say "Επανεκκίνηση"
 run systemctl restart "$SERVICE"
