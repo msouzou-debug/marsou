@@ -30,6 +30,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 03/11/2026 | `3736b3d` | `3225b6f3` | The radiology charge on AED005 blocks finalisation — AED005 only |
 | 05/11/2026 | `b0ef892` | `355692ee` | No separate «Ενημέρωση υπηρεσιών» step; services correctable after finalising; all five radiology codes compulsory |
 | 05/11/2026 | `8d14c5d` | `355692ee` | The uncharged-imaging finder widened to all five services and renamed |
+| 10/11/2026 | `b6cc0b9` | `7d75f85a` | Libraries served locally; `show_episode.py`; each Υπολογισμός press recorded as `CALCULATE_POSTED` |
 
 The 23/10 install carried six commits: the registration fee out of the total, a refund
 reading as a refund, the bilingual service catalogue, the weight internals off the
@@ -673,10 +674,21 @@ replace: hides the real box with `select2-hidden-accessible` (1px, clipped) and 
 empty container built from a `<span>` where it was. Clicking it does nothing.
 
 That is the second half of the 30/10/2026 ICD-10 fault, and nothing in the page source
-shows it: the wrapper does not exist until Select2 runs. **Every `select2()` call of ours
-is followed by `taepDetach()`**, which takes that class off. No stylesheet uses it, in
-Select2's own CSS or in the Bootstrap 5 theme, so it costs nothing. `test_standalone.py`
-counts the calls.
+shows it: the wrapper does not exist until Select2 runs.
+
+The first fix (`taepDetach()`, 30/10) took the class off our wrappers. That stopped
+eFinance's pass, but **Select2 needs the class itself**: it closes an open list, on an
+outside click or when another box opens, by looking for `.select2` containers. With the
+class gone no list ever closed, a second opened over the first, and a pick could land in
+the wrong row. Παναγιώτα Έλληνα reported it on 03/11 and 10/11 («το παράθυρο δεν κλείνει»,
+and a radiology charge flagged as missing its examination although she had picked one).
+Reproduced 10/11 with eFinance's script order: four open panels for two rows.
+
+**The rule now: never touch the class; order instead.** Every `select2()` of ours is
+built inside `taepAfterHost()`, which queues it with `jQuery(fn)`. jQuery runs ready
+handlers in the order they were queued, and `base.html` queues its own while the page is
+still parsing, so ours always run after it, when there is nothing left for it to grab.
+`test_standalone.py` checks the structure; only a browser checks the behaviour (below).
 
 While fixing that, a third fault came out from behind it: the service lists are grouped
 by ΟΑΥ category, and Select2 hands a custom `matcher` the **optgroup**, not its options.
@@ -686,7 +698,7 @@ found nothing and searching «Κατηγορία» returned all 103. `taepMatch(
 
 ### Reproducing a browser fault without the hospital
 
-None of the three could be seen from Python; the templates render identically either
+None of these could be seen from Python; the templates render identically either
 way. What found them was Chromium against a copy of the live `base.html`:
 
 1. Serve the harness app, then overwrite its `base.html` with the real file's structure —

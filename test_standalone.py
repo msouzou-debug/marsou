@@ -442,32 +442,62 @@ def test_no_inline_script_reaches_for_jquery_while_the_page_is_parsing():
     assert not offenders, "\n".join(offenders)
 
 
-def test_every_select2_we_build_is_detached_from_efinance_s_own_initialiser():
+def test_our_select2_boxes_are_built_after_efinance_s_own_initialiser():
     """base.html runs `$('.select2').select2()` of its own on ready.
 
-    Select2 marks the wrapper it builds with the legacy class `select2`. If eFinance's
-    pass finds one of ours it treats the wrapper as a <select> to replace: it hides the
-    real box with select2-hidden-accessible — 1px, clipped — and puts an empty container
-    built from a <span> where it was. Clicking that does nothing.
+    Select2 marks each wrapper it builds with the class `select2`. If eFinance's pass
+    runs after ours it treats our wrapper as a <select> to replace and puts an empty box
+    over the real one. That was the dead ICD-10 box of 30/10/2026.
 
-    That is what was still wrong with the ICD-10 box after the load-order fix on
-    30/10/2026, and it was only visible in a browser: the wrapper is created by Select2
-    at runtime, so nothing in the rendered HTML shows it. Reproduced in Chromium against
-    a copy of the live base.html — the recipe is in docs/deployment-runbook.md — and the
-    rule is pinned here: every select2() call of ours is followed by taepDetach().
+    The first fix took the class off our wrappers. Select2 needs it: it closes an open
+    list by looking for `.select2` containers, so with the class gone no list closed, a
+    second opened on top of the first, and picks landed in the wrong row. Reported
+    03/11 and 10/11/2026, reproduced in Chromium with eFinance's script order.
+
+    The rule now: every select2() of ours is built inside taepAfterHost(), which queues
+    it behind eFinance's ready handler, and nothing strips the class. Both are runtime
+    behaviour, so this pins the structure; the browser recipe is in the runbook.
     """
     import re
     root = Path(__file__).resolve().parent
     for path in sorted((root / "templates").glob("taep_*.html")):
         text = path.read_text(encoding="utf-8")
-        initialisations = len(re.findall(r"\.select2\(\{", text))
-        detaches = text.count("taepDetach(")
-        if not initialisations:
+        assert 'removeClass("select2")' not in text, path.name
+        assert "removeClass('select2')" not in text, path.name
+        calls = [m.start() for m in re.finditer(r"\.select2\(\{", text)]
+        if not calls:
             continue
-        # One definition plus one call per initialisation.
-        assert detaches == initialisations + 1, (
-            "%s: %d select2() calls but %d taepDetach references"
-            % (path.name, initialisations, detaches))
+        assert "function taepAfterHost(" in text, path.name
+        blocks = [m.start() for m in re.finditer(r"taepAfterHost\(function", text)]
+        assert blocks, path.name
+        for call in calls:
+            assert any(b < call for b in blocks), (
+                "%s: a select2() call sits before any taepAfterHost block" % path.name)
+        # The services and the examination boxes are the two that went wrong.
+        before = text[:calls[0]]
+        assert "taepReady(function () {\n  if (!window.jQuery || !jQuery.fn.select2)" \
+            not in before[-200:], path.name
+
+
+def test_the_examination_box_can_be_emptied():
+    """10/11/2026: «δεν μπορώ να διαγράψω». Once an examination was picked the only way
+    to change it was to pick another one."""
+    text = (Path(__file__).resolve().parent / "templates" / "taep_costing.html") \
+        .read_text(encoding="utf-8")
+    init = text[text.index("function initCpt(row)"):]
+    init = init[:init.index("\n  }\n")]
+    assert "allowClear: true" in init
+
+
+def test_the_charge_rows_fit_the_card():
+    """A native <select> is as wide as its longest option, and the charge list has options
+    of 150+ characters. The table ran past the card and the remove button only showed at
+    75% zoom (10/11/2026). Fixed layout keeps the columns to the widths in the header."""
+    text = (Path(__file__).resolve().parent / "templates" / "taep_costing.html") \
+        .read_text(encoding="utf-8")
+    table = text[text.index('id="tariff-table"'):]
+    table = table[:table.index(">")]
+    assert "table-layout:fixed" in table
 
 
 def test_the_service_matcher_looks_inside_the_groups():

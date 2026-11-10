@@ -80,7 +80,8 @@
         {{ line.line_total | eur }} €</div>
     {% endif %}
     <button type="button" class="btn btn-link btn-sm text-danger p-0 remove-tariff-row"
-            title="{{ t('Αφαίρεση γραμμής') }}"><i class="bi bi-dash-circle"></i></button>
+            title="{{ t('Αφαίρεση γραμμής') }}"
+            aria-label="{{ t('Αφαίρεση γραμμής') }}"><i class="bi bi-x-circle fs-5"></i></button>
   </td>
 </tr>
 {% endmacro %}
@@ -333,16 +334,21 @@
               action="{{ url_for('taep_calculate', episode_id=episode.id) }}">
           <input type="hidden" name="services_posted" value="1">
           <div class="table-responsive">
-            <table class="table table-sm align-middle mb-2" id="tariff-table">
+            {# table-layout:fixed so the columns keep the widths below. Without it a native
+               <select> is as wide as its longest option, the charge list has options of
+               150+ characters, and the row ran past the card: the remove button sat off
+               screen and only showed at 75% zoom (Παναγιώτα Έλληνα, 10/11/2026). #}
+            <table class="table table-sm align-middle mb-2" id="tariff-table"
+                   style="table-layout:fixed;width:100%">
               <thead>
                 <tr>
                   {# Not «Χρέωση» on its own: in eFinance's one shared dictionary a bare
                      accounting word is where a collision hides — «Κωδικός» already
                      means Password there. #}
-                  <th style="min-width:16rem">{{ t('Επιπλέον χρέωση') }}</th>
-                  <th style="width:6rem">{{ t('Ποσότητα') }}</th>
-                  <th style="width:12rem">{{ t('Ώρες / Αναλώσιμα') }}</th>
-                  <th></th>
+                  <th>{{ t('Επιπλέον χρέωση') }}</th>
+                  <th style="width:5.5rem">{{ t('Ποσότητα') }}</th>
+                  <th style="width:9rem">{{ t('Ώρες / Αναλώσιμα') }}</th>
+                  <th style="width:4.5rem"></th>
                 </tr>
               </thead>
               <tbody id="tariff-rows">
@@ -604,16 +610,25 @@ function taepReady(fn) {
   }
 }
 
-// Select2 marks the wrapper it builds with the legacy class `select2`, and base.html
-// runs $('.select2').select2() of its own on ready. If that pass finds our wrapper it
-// treats it as a <select> to replace: it hides the real box with
-// select2-hidden-accessible — 1px, clipped — and puts an empty container built from a
-// <span> where it was. Clicking that does nothing, which is exactly how the ICD-10 box
-// was reported on 30/10/2026. No stylesheet uses the bare class, in Select2's own CSS
-// or in the Bootstrap 5 theme, so taking it off our wrappers costs nothing and makes
-// the order of the two initialisers stop mattering.
-function taepDetach(element) {
-  jQuery(element).next(".select2-container").removeClass("select2");
+// Our Select2 boxes are built AFTER base.html's own $('.select2').select2() pass.
+//
+// Select2 marks each wrapper it builds with the class `select2`. If eFinance's pass runs
+// after ours, it finds those wrappers and builds a second, empty box on top of each one:
+// that is how the ICD-10 box went dead on 30/10/2026. The first fix took the class off
+// our wrappers. It worked for that, but Select2 needs the class itself: it closes an open
+// list (outside click, or another box opening) by looking for `.select2` containers. With
+// the class gone no list ever closed, a second one opened on top of the first, and picks
+// landed in the wrong box. Reported by Παναγιώτα Έλληνα 03/11 and 10/11/2026 («το
+// παράθυρο δεν κλείνει», «ενώ έχω επιλέξει … μου βγάζει μήνυμα»), reproduced 10/11 with
+// eFinance's script order: four open panels for two rows, none closing.
+//
+// Ordering fixes it without touching the class. jQuery runs ready handlers in the order
+// they were queued, and base.html queues its own while the page is parsing, so anything
+// queued from here runs after it, when there is nothing left for it to grab.
+function taepAfterHost(fn) {
+  taepReady(function () {
+    if (window.jQuery) { jQuery(fn); } else { fn(); }
+  });
 }
 
 // Greek on the option text, English from data-en, so a clerk who knows "fluid infusion"
@@ -652,7 +667,7 @@ function taepMatch(params, data) {
 // Select2 searches the option text, which holds the code and the Greek. The English
 // sits in data-en, so matcher() is extended rather than replaced: a clerk who knows
 // "fluid infusion" finds «Έγχυση υγρών» without a second search box (UAT 21/10).
-taepReady(function () {
+taepAfterHost(function () {
   if (!window.jQuery || !jQuery.fn.select2) return;
   jQuery(".select2-services").each(function () {
     jQuery(this).select2({
@@ -691,7 +706,6 @@ taepReady(function () {
         return data.text;
       }
     });
-    taepDetach(this);
   });
 });
 
@@ -701,7 +715,7 @@ taepReady(function () {
 // data-price-type. The inputs are only ever shown or hidden: the server reads the six
 // fields with getlist() and aligns them by position, so a row that posts five values
 // would shift every row after it onto the wrong charge.
-taepReady(function () {
+taepAfterHost(function () {
   var rows = document.getElementById("tariff-rows");
   if (!rows) return;
   var template = document.getElementById("tariff-row-template");
@@ -761,9 +775,11 @@ taepReady(function () {
       theme: "bootstrap-5",
       width: "100%",
       placeholder: jQuery(cpt).data("placeholder"),
+      // An × to empty the box. 10/11/2026: «δεν μπορώ να διαγράψω» — once an examination
+      // was picked the only way to change it was to pick another.
+      allowClear: true,
       matcher: taepMatch
     });
-    taepDetach(cpt);
   }
 
   rows.addEventListener("change", function (event) {
