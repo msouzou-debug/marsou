@@ -1,3 +1,8 @@
+> **Done, 10/11/2026.** The eFinance session applied this to `base.html` and found three
+> CDN uses it did not list — Chart.js, the eVendor module and the map page — which are
+> local now too. This note covered only what `base.html` loads for ΤΑΕΠ's screens,
+> because that is the part of eFinance visible from the ΤΑΕΠ repository.
+
 # Serving Bootstrap, jQuery and Select2 locally — 09/11/2026
 
 `base.html` loads Bootstrap 5.3.3, Bootstrap Icons 1.11.3, jQuery 3.7.1, Select2

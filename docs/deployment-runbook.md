@@ -651,10 +651,18 @@ Bootstrap's published integrity hashes were checked against them and match. The
 standalone host serves them now — proven in Chromium with every outside request blocked:
 jQuery, Select2, Bootstrap and the icon font all load, and nothing leaves the server.
 
-**eFinance's `base.html` is theirs and still points at the CDN** until they change it.
-`docs/note-to-efinance-agent-local-assets.md` is the procedure. The order matters: copy
-the files, prove `/static/vendor/...` returns 200, and only then edit `base.html` —
-otherwise every eFinance page loses its CSS and JS at once.
+**eFinance's side is done too (10/11/2026).** They followed
+`docs/note-to-efinance-agent-local-assets.md` for `base.html` — copy, prove
+`/static/vendor/...` returns 200, then edit — and found three CDN uses that note did not
+list: **Chart.js, the eVendor module and the map page.** Those are local as well.
+
+The note missed them because it was written from the only part of eFinance this
+repository can see: the libraries `base.html` loads for ΤΑΕΠ's screens. A library one
+eFinance page loads for itself was out of sight from here. Worth remembering the next
+time a note to them claims to be the whole list — say what it was written from.
+
+ΤΑΕΠ itself loads nothing from outside, in either host: no Chart.js, no map library, and
+the guard test in `test_standalone.py` fails on any template that reaches another host.
 
 ## Two scripts over one element
 
