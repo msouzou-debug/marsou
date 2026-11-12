@@ -55,8 +55,20 @@ QUERY = """
        AND NOT EXISTS (SELECT 1 FROM taep_episode_tariff_line l
                          JOIN taep_tariff t ON t.id = l.tariff_id
                         WHERE l.episode_id = e.id AND t.code = %s)
+       -- Since 12/11/2026 any examination from the radiology list on the costing
+       -- satisfies the four tariff_lookup services, as it does on the screen. The third
+       -- parameter is 1 for those four and 0 for AED022.
+       AND NOT (%s = 1 AND EXISTS (SELECT 1 FROM taep_episode_tariff_line x
+                                    WHERE x.episode_id = e.id
+                                      AND COALESCE(x.radiology_cpt, '') <> ''))
      ORDER BY e.examination_at
 """
+
+
+def params(service):
+    """The query's parameters for one compulsory service."""
+    return (service, taep.RADIOLOGY_SERVICE_CHARGES[service],
+            1 if service in taep.RADIOLOGY_EXAM_SATISFIES else 0)
 
 
 def main(argv):
@@ -77,7 +89,8 @@ def main(argv):
     by_service = {}
     for service in sorted(taep.RADIOLOGY_CHARGE_COMPULSORY):
         charge = taep.RADIOLOGY_SERVICE_CHARGES[service]
-        rows = conn.execute(QUERY.replace("%s", "?"), (service, charge)).fetchall()
+        rows = conn.execute(QUERY.replace("%s", "?"),
+                            params(service)).fetchall()
         if rows:
             by_service[service] = (charge, rows)
     conn.close()

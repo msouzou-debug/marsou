@@ -34,8 +34,7 @@
     </select>
 
     <select name="tariff_cpt"
-            class="form-select form-select-sm mt-1 tariff-cpt select2-cpt
-                   {% if not (line and line.price_type == 'tariff_lookup') %}d-none{% endif %}"
+            class="form-select form-select-sm mt-1 tariff-cpt select2-cpt"
             data-placeholder="{{ t('Επιλέξτε εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής…') }}">
       <option value=""></option>
       {% for exam in radiology %}
@@ -367,6 +366,7 @@
             <i class="bi bi-plus-square"></i> {{ t('Προσθήκη χρέωσης') }}</button>
 
           <div class="form-text mt-2">
+            {{ t('Σε κάθε γραμμή συμπληρώνετε την επιπλέον χρέωση, την εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής ή και τα δύο.') }}
             {{ t('Ακτινογραφία, υπερηχογράφημα, αξονική και μαγνητική δεν έχουν δική τους τιμή: επιλέξτε και την εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής.') }}
           </div>
 
@@ -744,8 +744,11 @@ taepAfterHost(function () {
     var select = row.querySelector(".tariff-code");
     var option = select.options[select.selectedIndex];
     var type = (option && option.getAttribute("data-price-type")) || "";
-    var lookup = type === "tariff_lookup";
-    show(row.querySelector(".tariff-cpt"), lookup);
+    // The examination box is on every row, not only under the four radiology charges.
+    // 12/11/2026, at Παναγιώτα Έλληνα's request: the charge and the examination are
+    // independent, and a row may carry either or both. With a charge that has its own
+    // price the two prices are added; the four radiology charges have none, so for them
+    // the examination is the price and stays compulsory (checked on submit).
     show(row.querySelector(".tariff-hours"), type === "fixed_plus_hourly");
     show(row.querySelector(".tariff-consumables"),
          type === "fixed_plus_consumables");
@@ -756,16 +759,6 @@ taepAfterHost(function () {
     var carried = row.querySelector(".tariff-price-type");
     if (carried) carried.value = type;
 
-    // Παναγιώτα Έλληνα, 03/11/2026: the examination must be mandatory for a radiology
-    // charge. The four tariff_lookup codes carry no amount of their own — the price is
-    // the examination's — so one without an examination is worth nothing, and the
-    // server refuses the whole calculation. Required here stops it being submitted at
-    // all, which is a message beside the field instead of a rejected page.
-    //
-    // Only while it is visible. A hidden required field blocks the form with a browser
-    // message pointing at something nobody can see.
-    var cpt = row.querySelector(".tariff-cpt");
-    if (cpt && !lookup) cpt.value = "";
   }
 
   function initCpt(row) {

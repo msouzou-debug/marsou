@@ -295,6 +295,10 @@ EN = {
     "Αιτιολογία αναλωσίμων": "Reason for the consumables",
     "Επιλέξτε εξέταση από τον τιμοκατάλογο Ακτινοδιαγνωστικής…":
         "Choose an examination from the radiology price list…",
+    "Σε κάθε γραμμή συμπληρώνετε την επιπλέον χρέωση, την εξέταση από τον τιμοκατάλογο "
+    "Ακτινοδιαγνωστικής ή και τα δύο.":
+        "On each row, fill in the extra charge, the examination from the radiology "
+        "price list, or both.",
     # "Οι τέσσερις" read as "the four you selected" to the Μονάδα (23/10/2026), so the
     # four are named instead of counted.
     "Ακτινογραφία, υπερηχογράφημα, αξονική και μαγνητική δεν έχουν δική τους τιμή: "

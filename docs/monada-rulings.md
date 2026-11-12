@@ -607,3 +607,23 @@ what is built. No change.
 
 If the second answer was about something else, it is the only open reading in this
 round — say so and it will be revisited.
+
+## 12/11/2026: the extra charge and the examination are independent
+
+Asked by Παναγιώτα Έλληνα after testing the auto-filled row («Θα μπορούσε απλά να
+επιλέγει από τον τιμοκατάλογο;»). Decided by the project owner, not yet by the Μονάδα:
+
+- On each row the clerk fills the extra charge, the examination from the radiology
+  price list, or both.
+- **Examination alone:** costs the examination's price × quantity.
+- **Charge with its own price + examination:** the two are added. SHSO-ER3/4/5/6 have
+  no price of their own, so with those the row is the examination's price, as before.
+  The examination is compulsory on those four, as before.
+- **Compulsory imaging rule:** for AED005, AED019, AED020 and AED021, *any* examination
+  on the costing satisfies it. Taken knowingly: an ultrasound examination also
+  satisfies an X-ray service. Matching by modality needs the Μονάδα to place MAMMO,
+  FLUOROSCOPY, DEXA, MRA, CTA and «Activities» first. AED022 still needs SHSO-ER7.
+- The printed costing names the examination on its own line under the charge.
+
+**For the Μονάδα to confirm:** the "any examination counts" reading, and whether a
+charge with its own price should ever carry an examination at all.

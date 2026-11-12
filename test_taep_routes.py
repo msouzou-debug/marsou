@@ -2059,6 +2059,124 @@ def test_the_block_does_not_apply_where_no_charge_could_be_added(client, app):
     assert result.can_finalise is True
 
 
+# ---------------------------------------------------------------------------
+# The charge and the examination are independent (12/11/2026)
+# ---------------------------------------------------------------------------
+
+def _row(code="", cpt="", quantity="1"):
+    return {"tariff_code": [code], "tariff_cpt": [cpt], "tariff_quantity": [quantity],
+            "tariff_price_type": [""], "tariff_hours": [""],
+            "tariff_consumables": [""], "tariff_note": [""]}
+
+
+def _a_fixed_charge(app):
+    rows = app.ctx["db_execute"](
+        """SELECT code, base_amount FROM taep_tariff
+            WHERE active=1 AND price_type='fixed' AND base_amount > 0
+            ORDER BY code LIMIT 1""", fetch=True)
+    return rows[0]["code"], taep.money_from_db(rows[0]["base_amount"])
+
+
+def test_an_examination_alone_is_charged_at_its_price(client, app):
+    """Παναγιώτα Έλληνα asked for the two lists on a row to be independent: the clerk
+    fills the extra charge, the examination, or both. An examination alone costs its
+    price from the radiology list, and stays on the costing through a recalculation."""
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data=_row(cpt="10006", quantity="2"))
+    stored = taep.get_calculation(app.ctx, episode_id)
+    assert taep.money_from_db(stored["tariff_total"]) == Decimal("59.00")
+
+    lines = taep.get_episode_tariff_lines(app.ctx, episode_id)
+    assert len(lines) == 1
+    assert lines[0]["tariff_code"] is None and lines[0]["radiology_cpt"] == "10006"
+    rebuilt = taep.tariff_lines_for_episode(app.ctx, episode_id)
+    assert [l.radiology_cpt for l in rebuilt] == ["10006"]
+    assert taep.money_from_db(
+        taep.price_episode(app.ctx, episode_id, rebuilt).tariff_total) == Decimal("59.00")
+
+
+def test_a_charge_with_its_own_price_and_an_examination_adds_both(client, app):
+    code, amount = _a_fixed_charge(app)
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data=_row(code=code, cpt="10006"))
+    stored = taep.get_calculation(app.ctx, episode_id)
+    assert taep.money_from_db(stored["tariff_total"]) == amount + Decimal("29.50")
+
+    # The printed costing names the examination, not only the charge: the row costs
+    # both, and a sum the reader cannot trace is no use to anyone.
+    snapshot = app.ctx["db_execute"](
+        "SELECT description_snapshot FROM taep_episode_tariff_line WHERE episode_id=%s",
+        (episode_id,), fetch=True)[0]["description_snapshot"]
+    assert "\n10006 — " in snapshot
+    client.post("/taep/%d/finalise" % episode_id)
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"
+    assert taep.render_costing_pdf(app.ctx, episode_id)[:4] == b"%PDF"
+
+
+def test_a_charge_alone_still_costs_its_own_price(client, app):
+    code, amount = _a_fixed_charge(app)
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data=_row(code=code))
+    stored = taep.get_calculation(app.ctx, episode_id)
+    assert taep.money_from_db(stored["tariff_total"]) == amount
+
+
+def test_a_radiology_charge_still_needs_its_examination(client, app):
+    """SHSO-ER3 has no price of its own, so on its own it is still refused."""
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    response = client.post("/taep/%d/calculate" % episode_id,
+                           data=_row(code="SHSO-ER3"), follow_redirects=True)
+    assert "Επιλέξτε εξέταση" in response.get_data(as_text=True)
+    assert not taep.get_episode_tariff_lines(app.ctx, episode_id)
+
+
+def test_an_empty_row_is_ignored(client, app):
+    episode_id = create(client, app, code="600")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data=_row())
+    assert not taep.get_episode_tariff_lines(app.ctx, episode_id)
+    assert taep.get_calculation(app.ctx, episode_id) is not None
+
+
+def test_any_examination_satisfies_the_four_lookup_services(client, app):
+    """The user's decision, 12/11/2026: for AED005/019/020/021 any examination on the
+    costing satisfies the compulsory rule, even one of another modality. AED022's
+    SHSO-ER7 is a flat charge with no examination, so it still needs its code."""
+    assert taep.RADIOLOGY_EXAM_SATISFIES == {"AED005", "AED019", "AED020", "AED021"}
+    episode_id = create(client, app, code="600", episode_number="E-EXAM-ONLY")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AED019", "AED022", "AET057"]})
+    result = taep.price_episode(app.ctx, episode_id,
+                                [taep._tariff_line(app.ctx, "", "10006")])
+    blocked = " ".join(result.blocking_issues_el)
+    assert "AED005" not in blocked and "AED019" not in blocked
+    assert "AED022" in blocked and "SHSO-ER7" in blocked
+
+
+def test_the_finder_agrees_that_an_examination_alone_is_a_charge(client, app):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+    from find_uncharged_imaging import QUERY, params
+
+    episode_id = create(client, app, code="600", episode_number="E-FIND-EXAM")
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED005", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data=_row(cpt="10006"))
+    app.ctx["db_execute"]("PRAGMA wal_checkpoint(TRUNCATE)")
+    found = app.ctx["db_execute"](QUERY, params("AED005"), fetch=True)
+    assert not [r for r in found if r["episode_number"] == "E-FIND-EXAM"]
+
+
 def test_the_costing_screen_carries_the_service_to_charge_pairing(client, app):
     """Παναγιώτα Έλληνα, 10/11/2026: «Θα μπορούσε απλά να επιλέγει από τον τιμοκατάλογο;»
 
@@ -2118,7 +2236,7 @@ def test_the_finder_covers_every_compulsory_imaging_service(client, app):
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
-    from find_uncharged_imaging import QUERY
+    from find_uncharged_imaging import QUERY, params
 
     for index, service_code in enumerate(sorted(taep.RADIOLOGY_CHARGE_COMPULSORY)):
         episode_id = create(client, app, code="600",
@@ -2129,7 +2247,7 @@ def test_the_finder_covers_every_compulsory_imaging_service(client, app):
 
     app.ctx["db_execute"]("PRAGMA wal_checkpoint(TRUNCATE)")
     for service_code, charge_code in sorted(taep.RADIOLOGY_SERVICE_CHARGES.items()):
-        found = app.ctx["db_execute"](QUERY, (service_code, charge_code), fetch=True)
+        found = app.ctx["db_execute"](QUERY, params(service_code), fetch=True)
         assert len(found) == 1, (service_code, found)
         assert found[0]["episode_number"].startswith("E-FIND-")
 
@@ -2147,7 +2265,7 @@ def test_the_finder_lists_an_image_with_no_charge_and_not_one_with(client, app):
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
-    from find_uncharged_imaging import QUERY
+    from find_uncharged_imaging import QUERY, params
 
     # Finalised before the rule existed: the service, no charge.
     missing = create(client, app, code="600", episode_number="E-NO-CHARGE")
@@ -2177,7 +2295,7 @@ def test_the_finder_lists_an_image_with_no_charge_and_not_one_with(client, app):
 
     # Run through the module's own db_execute, so the test exercises the same query the
     # tool runs rather than a copy of it.
-    found = app.ctx["db_execute"](QUERY, ("AED005", "SHSO-ER3"), fetch=True)
+    found = app.ctx["db_execute"](QUERY, params("AED005"), fetch=True)
     assert [r["episode_number"] for r in found] == ["E-NO-CHARGE"]
 
 

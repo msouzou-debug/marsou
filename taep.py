@@ -97,6 +97,12 @@ TRIAGE_PRICE = Decimal("10.00")
 
 PRICE_TYPES = ("fixed", "fixed_plus_hourly", "fixed_plus_consumables", "tariff_lookup")
 
+# A row with an examination from the radiology list and no ΤΑΕΠ charge code. Not a type a
+# taep_tariff row can carry, which is why it is not in PRICE_TYPES: it exists only on a
+# costing line. Decided 12/11/2026 at the request of Παναγιώτα Έλληνα: the two lists on a
+# row are independent, and the clerk fills either or both.
+RADIOLOGY_ONLY = "radiology_only"
+
 CENT = Decimal("0.01")
 
 
@@ -297,7 +303,7 @@ def price_tariff_line(line):
     line, not per unit — a three-hour infusion is one line with hours=3, not three
     lines. Confirm with the Μονάδα if any tariff is ever billed otherwise.
     """
-    if line.price_type not in PRICE_TYPES:
+    if line.price_type not in PRICE_TYPES + (RADIOLOGY_ONLY,):
         raise CostingError(
             "UNKNOWN_PRICE_TYPE",
             f"Άγνωστος τύπος τιμολόγησης «{line.price_type}» για τον κωδικό "
@@ -306,13 +312,29 @@ def price_tariff_line(line):
     if line.quantity is None or line.quantity < 1:
         raise CostingError(
             "BAD_QUANTITY",
-            f"Η ποσότητα για τον κωδικό {line.tariff_code} πρέπει να είναι "
+            f"Η ποσότητα για τον κωδικό {line.tariff_code or line.radiology_cpt} "
+            f"πρέπει να είναι "
             f"τουλάχιστον 1.",
         )
 
     quantity = Decimal(line.quantity)
 
-    if line.price_type == "tariff_lookup":
+    # The examination's price, where one was picked. With a charge that has a price of
+    # its own the two are added (decided 12/11/2026). The four tariff_lookup charges
+    # have no price of their own, so for them it is the examination's price alone, as
+    # before.
+    exam = (Decimal(line.radiology_price) * quantity
+            if line.radiology_price is not None else Decimal("0.00"))
+
+    if line.price_type == RADIOLOGY_ONLY:
+        if line.radiology_price is None:
+            raise CostingError(
+                "MISSING_CPT",
+                "Επιλέξτε επιπλέον χρέωση ή εξέταση από τον τιμοκατάλογο "
+                "Ακτινοδιαγνωστικής.")
+        total = exam
+
+    elif line.price_type == "tariff_lookup":
         if line.radiology_price is None:
             raise CostingError(
                 "MISSING_CPT",
@@ -329,7 +351,8 @@ def price_tariff_line(line):
                 f"Καταχωρήστε αριθμό ωρών μεγαλύτερο του μηδενός.",
             )
         hourly = Decimal(line.hourly_amount or 0)
-        total = Decimal(line.base_amount) * quantity + hourly * Decimal(line.hours)
+        total = (Decimal(line.base_amount) * quantity + hourly * Decimal(line.hours)
+                 + exam)
 
     elif line.price_type == "fixed_plus_consumables":
         consumables = Decimal(line.consumables_amount or 0)
@@ -339,10 +362,10 @@ def price_tariff_line(line):
                 f"Καταχωρήθηκε ποσό αναλωσίμων για τον κωδικό {line.tariff_code} "
                 f"χωρίς αιτιολογία. Η σημείωση αναλωσίμων είναι υποχρεωτική.",
             )
-        total = Decimal(line.base_amount) * quantity + consumables
+        total = Decimal(line.base_amount) * quantity + consumables + exam
 
     else:  # fixed
-        total = Decimal(line.base_amount) * quantity
+        total = Decimal(line.base_amount) * quantity + exam
 
     return CostedLine(
         tariff_code=line.tariff_code,
@@ -451,6 +474,17 @@ RADIOLOGY_SERVICE_NAMES = {
 # its charge prices the episode without the examination.
 RADIOLOGY_CHARGE_COMPULSORY = set(RADIOLOGY_SERVICE_CHARGES)
 
+# Since 12/11/2026 an examination from the radiology list may be entered on its own,
+# without its SHSO-ER code. For the four services whose charge is a tariff_lookup, ANY
+# examination on the costing then satisfies the compulsory rule — the user's decision,
+# taken knowingly: an ultrasound examination also satisfies an X-ray service. Matching
+# by modality would need the Μονάδα to place MAMMO, FLUOROSCOPY, DEXA, MRA, CTA and
+# «Activities» first. AED022's SHSO-ER7 is a flat €65 with no examination, so it still
+# needs its own code.
+RADIOLOGY_EXAM_SATISFIES = {
+    service for service, charge in RADIOLOGY_SERVICE_CHARGES.items()
+    if charge != "SHSO-ER7"}
+
 
 def calculate(selected_services, rates, tariff_lines=(), financial_category_code=None,
               service_date=None):
@@ -536,9 +570,12 @@ def calculate(selected_services, rates, tariff_lines=(), financial_category_code
     # something nobody can do anything about.
     if rates.tariff_applies:
         charged = {line.tariff_code for line in lines_in}
+        examined = any(line.radiology_cpt for line in lines_in)
         chosen = {s.code for s in services}
         for service_code in sorted(RADIOLOGY_CHARGE_COMPULSORY):
             charge_code = RADIOLOGY_SERVICE_CHARGES[service_code]
+            if service_code in RADIOLOGY_EXAM_SATISFIES and examined:
+                continue
             if service_code in chosen and charge_code not in charged:
                 blocking.append(
                     f"Η υπηρεσία {service_code} "
@@ -2802,13 +2839,18 @@ def render_costing_pdf(ctx, episode_id):
                 page += 1
                 y = personal_block(header(page))
                 pdf.setFont(font, 8)
-            label = str(line["description_snapshot"])[:78]
+            charge, _, exam = str(line["description_snapshot"] or "").partition("\n")
+            label = charge[:78]
             if _as_int(line["suppressed"]):
                 label += "  (δεν χρεώνεται)"
             pdf.drawString(left + 4 * mm, y, label)
             pdf.drawRightString(right - 22 * mm, y, f"x{line['quantity']}")
             pdf.drawRightString(right, y, format_eur(line["line_total"]))
             y -= 4 * mm
+            if exam:
+                # The examination picked on the row (12/11/2026), under its charge.
+                pdf.drawString(left + 8 * mm, y, "Εξέταση: " + exam[:72])
+                y -= 4 * mm
         y -= 2 * mm
 
     # Block three — the totals, in the order the brief fixes.
@@ -4106,6 +4148,8 @@ def _tariff_line(ctx, code, cpt=None, quantity="1", hours="", consumables="",
     """
     db = ctx["db_execute"]
     code = (code or "").strip()
+    if not code:
+        return _radiology_only_line(ctx, cpt, quantity)
     rows = db("""SELECT code, description_el, price_type, base_amount, hourly_amount
                  FROM taep_tariff WHERE code=%s AND active=1""", (code,), fetch=True)
     if not rows:
@@ -4116,7 +4160,8 @@ def _tariff_line(ctx, code, cpt=None, quantity="1", hours="", consumables="",
     cpt = (cpt or "").strip() or None
     cpt_price = None
     if cpt:
-        cpt_rows = db("""SELECT price_eur FROM taep_radiology_tariff
+        cpt_rows = db("""SELECT price_eur, description_el, description_en
+                           FROM taep_radiology_tariff
                          WHERE cpt_code=%s AND active=1""", (cpt,), fetch=True)
         if not cpt_rows:
             raise CostingError("UNKNOWN_CPT",
@@ -4127,9 +4172,20 @@ def _tariff_line(ctx, code, cpt=None, quantity="1", hours="", consumables="",
     hours_raw = str(hours or "").strip()
     consumables_raw = str(consumables or "").strip()
 
+    # The examination is named in the line's description, which is what the printed
+    # costing shows. Since 12/11/2026 a charge with its own price can carry an
+    # examination too and the row costs both, so a description naming only the charge
+    # would print a sum nobody could trace. A newline separates the two, so the PDF can
+    # print the examination on its own line instead of losing it to the 78-character cut.
+    description = tariff["description_el"]
+    if cpt:
+        description = "%s\n%s — %s" % (
+            description, cpt,
+            cpt_rows[0]["description_el"] or cpt_rows[0]["description_en"])
+
     return TariffLine(
         tariff_code=tariff["code"],
-        description=tariff["description_el"],
+        description=description,
         price_type=tariff["price_type"],
         base_amount=money_from_db(tariff["base_amount"]) or Decimal("0.00"),
         hourly_amount=money_from_db(tariff["hourly_amount"]),
@@ -4142,13 +4198,35 @@ def _tariff_line(ctx, code, cpt=None, quantity="1", hours="", consumables="",
     )
 
 
+def _radiology_only_line(ctx, cpt, quantity="1"):
+    """A costing line carrying an examination and no ΤΑΕΠ charge code."""
+    cpt = (cpt or "").strip()
+    rows = ctx["db_execute"](
+        """SELECT cpt_code, description_el, description_en, price_eur
+             FROM taep_radiology_tariff WHERE cpt_code=%s AND active=1""",
+        (cpt,), fetch=True) if cpt else None
+    if not rows:
+        raise CostingError("UNKNOWN_CPT", f"Ο κωδικός CPT «{cpt}» δεν βρέθηκε.")
+    exam = rows[0]
+    quantity_raw = str(quantity or "1").strip()
+    return TariffLine(
+        tariff_code="",
+        description="%s — %s" % (exam["cpt_code"],
+                                 exam["description_el"] or exam["description_en"]),
+        price_type=RADIOLOGY_ONLY,
+        quantity=int(quantity_raw) if quantity_raw.isdigit() else 0,
+        radiology_cpt=exam["cpt_code"],
+        radiology_price=money_from_db(exam["price_eur"]),
+    )
+
+
 def tariff_lines_for_episode(ctx, episode_id):
     """Rebuild the stored tariff lines, for a recalculation that has no form behind it."""
     return [_tariff_line(ctx, row["tariff_code"], row["radiology_cpt"],
                          row["quantity"], row["hours"], row["consumables_amount"],
                          row["consumables_note"])
             for row in get_episode_tariff_lines(ctx, episode_id)
-            if row["tariff_code"]]
+            if row["tariff_code"] or row["radiology_cpt"]]
 
 
 def _tariff_lines_from_form(ctx, form):
@@ -4166,7 +4244,7 @@ def _tariff_lines_from_form(ctx, form):
         return values[i] if i < len(values) else default
 
     for i, code in enumerate(codes):
-        if not (code or "").strip():
+        if not ((code or "").strip() or (at(cpts, i) or "").strip()):
             continue
         lines.append(_tariff_line(ctx, code, at(cpts, i), at(quantities, i, "1"),
                                   at(hours, i), at(consumables, i), at(notes, i)))
@@ -4195,7 +4273,7 @@ def _tariff_rows_from_form(form):
 
     rows = []
     for i, code in enumerate(codes):
-        if not (code or "").strip():
+        if not ((code or "").strip() or (at(cpts, i) or "").strip()):
             continue
         rows.append({
             "tariff_code": code.strip(),
@@ -4221,7 +4299,7 @@ def store_tariff_lines(ctx, episode_id, lines, costed, user_id):
         tariff = db("SELECT id FROM taep_tariff WHERE code=%s", (line.tariff_code,),
                     fetch=True)
         rows.append((episode_id, tariff[0]["id"] if tariff else None,
-                     line.radiology_cpt, line.description, line.quantity,
+                     line.radiology_cpt, (line.description or "")[:500], line.quantity,
                      None if line.hours is None else str(line.hours),
                      None if line.consumables_amount is None
                      else str(line.consumables_amount),
