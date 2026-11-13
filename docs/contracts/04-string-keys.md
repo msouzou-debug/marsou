@@ -167,3 +167,10 @@ English role names and "SHSO" for ΟΚΥπΥ are my translations. Confirm them w
 | `status.draft`, `tracker.state.done`, `tracker.state.current`, `tracker.state.pending`, `tracker.state.waiting`, `tracker.state.negative`, `form.date_hint`, `form.refresh_route` | Draft · Done · Current step · Pending · Waiting · Negative answer · dd/mm/yyyy · Update the route |
 | `error.invalid_payload`, `system.auto_withdraw` | An answer is not valid. Check your choices. · The request was withdrawn automatically because it was not resubmitted in time. |
 | `form.month_hint`, `validation.month`, `done.keep_answer` | mm/yyyy · Enter the month as mm/yyyy. · Your answer was kept. |
+| `docs.add`, `docs.choose`, `docs.upload`, `docs.remove`, `docs.download`, `docs.empty` | Add documents · Choose files · Add the chosen files · Remove · Download · No documents. |
+| `docs.allowed` | PDF, Word, Excel or images, up to {n} MB each. |
+| `docs.count.one`, `docs.count.many`, `docs.added.one`, `docs.added.many`, `docs.removed` | 1 document · {n} documents · 1 document was added. · {n} documents were added. · The document was removed. |
+| `docs.error.too_large`, `docs.error.type`, `docs.error.empty`, `docs.error.locked` | The file "{name}" is larger than {n} MB. Choose a smaller file. · The file "{name}" is not a PDF, Word, Excel or image file. · The file "{name}" is empty. · Documents can't be removed after the request is submitted. |
+| `docs.draft_first` | Save the request as a draft first, then add documents. |
+| `viewer.title`, `viewer.back`, `viewer.page`, `viewer.prev`, `viewer.next`, `viewer.zoom_in`, `viewer.zoom_out` | Document · Back to the request · Page {n} of {total} · Previous page · Next page · Zoom in · Zoom out |
+| `viewer.loading`, `viewer.no_preview`, `viewer.converted` | Loading the document… · This file can't be shown here. Download it to open it. · Shown as PDF. Download gives you the original file. |
