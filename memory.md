@@ -39,6 +39,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - Shared-server rules: own system user, service and port; Marios runs every sudo step; full test suite passes before any install; never restart another app's service.
 - Design: Claude Design works from the UI brief. Hand-over points are in `docs/design/coordination-with-claude-design.md`.
 
+- 13/11/2026, owner: yes to O1 to O5 in contract 02 (restart at step 2 on a material change; a return pauses the returner's task; answers can be replaced only after a resubmission in the returned step; comment required on negative answers; escalation informs the line manager and leaves the task where it is).
+
 ## Status
 
-- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Waiting on the server pack from Marios and on the owner's answers to O1 to O5 in `docs/contracts/02-state-machine.md`, section 10.
+- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Phase 1 started. Still waiting on the server pack from Marios.

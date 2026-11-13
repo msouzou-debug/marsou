@@ -147,7 +147,7 @@ Each stop: step, state, and for each role its person state, the acting person, `
 
 ## 10. Where this contract goes beyond the brief
 
-These were needed to make the rules complete. Each needs the owner's yes.
+These were needed to make the rules complete. The owner approved all five on 13/11/2026.
 
 | Id | Decision taken here | Brief says |
 |---|---|---|
