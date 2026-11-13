@@ -107,7 +107,7 @@ Design each at 1280 px and at 390 px. Greek for all, English for screens 1, 2, 3
 
 ## 9. Words on the screen
 
-Use these terms. Greek comes from the approved glossary and the prototype. Terms marked * are new in version 2 and need checking against `okypy-greek-terms` before they are final.
+Use these terms. Greek comes from the approved glossary and the prototype. Terms marked * are new in version 2 and were added to `okypy-greek-terms` on 13/11/2026.
 
 | Greek | English |
 |---|---|
@@ -166,7 +166,7 @@ All names, numbers and amounts on the canvas are invented. Use the cases from th
 3. Number format shown on screens and in email subjects.
 4. Whether the requester sees each approver's comments, or only the outcome of each step.
 5. Sign-in: AD only, or local accounts as well. This decides what the sign-in screen in screen 7 shows.
-6. The new Greek terms marked * in section 9.
+6. ~~The new Greek terms marked * in section 9.~~ Approved and added to the glossary, 13/11/2026.
 
 ## 14. Changes from version 1
 
