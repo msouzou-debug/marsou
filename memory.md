@@ -23,5 +23,23 @@ English and Greek text: always use these skills
 ## Projects in this repo
 
 - `fgh-dashboard/FGH-Outpatient-Dashboard.html`: outpatient clinics dashboard for Famagusta General Hospital.
-  Single HTML file, loads Medico (.xls) and Ewave (.xlsx) extracts in the browser. No patient data is stored in the repo.
-  Based on the Larnaca dashboard (`SHSO-Outpatient-Clinic-Analysis.html`, not in this repo).
+  Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
+- `larnaca-dashboard/SHSO-Outpatient-Clinic-Analysis.html`: the Larnaca dashboard. Loads the Plan B workbook
+  (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
+- Both are single HTML files with the libraries embedded (SheetJS 0.18.5; html2canvas in the Famagusta file).
+  They run offline. No patient data is stored in the repo.
+
+## Rules confirmed by the hospital (Famagusta, Nov 2026)
+
+- Episode time is the registration time, not the examination time.
+- Afternoon = 15:00 onwards.
+- Ewave payment: "In person" = Μη δικαιούχοι; "Insured" = everything else (ΓεΣΥ, Ευρωκάρτα, Αρμόδιες Αρχές κ.λπ.).
+- Health certificates are booked under IT staff accounts, so those names appear in the doctor column.
+  They are not clinicians and must not be counted as ΙΛ. The list sits in `CFG.itAccounts` in the Famagusta file.
+- Φαρμακείο belongs with labs and support departments.
+
+## Pitfalls to remember
+
+- Dates: never use SheetJS `cellDates:true` or `toISOString()` for day keys. On a PC set to Cyprus time both
+  shift dates to the previous day. Read serial numbers and build local dates.
+- SheetJS cannot write formulas to .xls. Use .xlsx for live formulas.
