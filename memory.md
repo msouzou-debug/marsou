@@ -26,7 +26,8 @@ English and Greek text: always use these skills
   Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
 - `larnaca-dashboard/SHSO-Outpatient-Clinic-Analysis.html`: the Larnaca dashboard. Loads the Plan B workbook
   (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
-- Both are single HTML files with the libraries embedded (SheetJS 0.18.5; html2canvas in the Famagusta file).
+- Both are single HTML files with the libraries embedded (SheetJS 0.20.3; html2canvas in the Famagusta file)
+  and a Content-Security-Policy that blocks all network connections.
   They run offline. No patient data is stored in the repo.
 
 ## Rules confirmed by the hospital (Famagusta, Nov 2026)
