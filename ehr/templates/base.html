@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ehr-tokens.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ehr.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/documents.css') }}">
 </head>
 <body>
   <div class="ehr-accent-bar"></div>
@@ -45,6 +46,7 @@
   </main>
   <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/requests.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/documents.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

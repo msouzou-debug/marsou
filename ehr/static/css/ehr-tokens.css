@@ -37,3 +37,12 @@
 }
 :focus-visible { outline: 2px solid var(--ehr-blue); outline-offset: 2px; }
 .ehr-num { font-variant-numeric: tabular-nums; }
+.btn-outline-primary {
+  --bs-btn-color: var(--ehr-blue-deep); --bs-btn-border-color: var(--ehr-blue-deep);
+  --bs-btn-hover-bg: var(--ehr-blue-deep); --bs-btn-hover-border-color: var(--ehr-blue-deep);
+  --bs-btn-active-bg: #124f80; --bs-btn-active-border-color: #124f80;
+}
+.btn-outline-danger, .btn-danger { --bs-btn-color: var(--ehr-red); --bs-btn-border-color: var(--ehr-red); }
+.btn-danger { --bs-btn-color: #fff; --bs-btn-bg: var(--ehr-red); }
+.btn-outline-danger { --bs-btn-hover-bg: var(--ehr-red); --bs-btn-hover-border-color: var(--ehr-red); }
+.form-check-input:checked { background-color: var(--ehr-blue-deep); border-color: var(--ehr-blue-deep); }

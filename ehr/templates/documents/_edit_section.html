@@ -1,0 +1,22 @@
+{# Documents on the request form. Sits inside the main form, so its own controls belong to the two small forms in
+   _forms.html through the `form` attribute: forms can't be nested. #}
+{% from "documents/_list.html" import doc_list with context %}
+<section class="mb-4" aria-labelledby="sec-documents">
+  <h2 class="h5 mb-3" id="sec-documents">{{ t('docs.title') }}</h2>
+  {% if req is none %}
+  <p class="mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ t('docs.draft_first') }}</p>
+  {% else %}
+  {% set data = documents_of(req) %}
+  {{ doc_list(data, req, true) }}
+  <div class="ehr-docs-add mt-3" id="ehr-docs-add" data-limit-mb="{{ max_file_mb() }}"
+       data-too-large="{{ t('docs.error.too_large', name='{name}', n='{n}') }}">
+    <h3 class="h6 mb-2">{{ t('docs.add') }}</h3>
+    <label class="form-label" for="ehr-docs-input">{{ t('docs.choose') }}</label>
+    <input class="form-control ehr-docs-input" type="file" id="ehr-docs-input" name="documents" multiple form="ehr-docs-upload"
+           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf" aria-describedby="ehr-docs-hint">
+    <div class="form-text" id="ehr-docs-hint">{{ t('docs.allowed', n=max_file_mb()) }}</div>
+    <ul class="list-unstyled small mt-2 mb-2" id="ehr-docs-chosen" aria-live="polite"></ul>
+    <button class="btn btn-primary" type="submit" form="ehr-docs-upload" id="ehr-docs-send"><i class="bi bi-upload" aria-hidden="true"></i> {{ t('docs.upload') }}</button>
+  </div>
+  {% endif %}
+</section>

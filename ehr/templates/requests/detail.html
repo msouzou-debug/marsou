@@ -8,11 +8,14 @@
 {% macro longrow(label_key, value) %}
 {% if value %}<div class="col-12"><dt class="small text-secondary fw-normal">{{ t(label_key) }}</dt><dd class="mb-2 ehr-wrap ehr-prewrap">{{ value }}</dd></div>{% endif %}
 {% endmacro %}
+{% from "documents/_list.html" import doc_list with context %}
 {% block content %}
+{% set docs = documents_of(req) %}
 <header class="mb-3">
   <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
     <h1 class="h4 mb-0 ehr-num">{{ req.number or t('status.draft') }}</h1>
     {{ status_chip(req.status) }}
+    {% if docs.count %}<a class="small ms-1" href="#sec-documents"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ t('docs.count.one') if docs.count == 1 else t('docs.count.many', n=docs.count) }}</a>{% endif %}
   </div>
   <p class="mb-0 ehr-wrap">
     {{ req.position.name(lang) if req.position else '' }}{% if req.positions_count %} <span class="text-secondary">· {{ t('list.posts.one') if req.positions_count == 1 else t('list.posts.many', n=req.positions_count) }}</span>{% endif %}
@@ -100,7 +103,8 @@
 
 
 <section class="mb-4" aria-labelledby="sec-documents">
-  <h2 class="h5 mb-3" id="sec-documents">{{ t('docs.title') }}</h2>
+  <h2 class="h5 mb-0" id="sec-documents">{{ t('docs.title') }}</h2>
+  {{ doc_list(docs, req) }}
 </section>
 
 {% if checks %}

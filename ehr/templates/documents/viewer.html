@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.file_name }} · {{ t('viewer.title') }} · {{ t('app.name') }}{% endblock %}
+{% set back_url = url_for('requests.detail', request_id=req.id, do='review') %}
+{% set file_url = url_for('documents.file', request_id=req.id, doc_id=doc.id, via='viewer') %}
+{% set download_url = url_for('documents.file', request_id=req.id, doc_id=doc.id, download=1) %}
+{% block content %}
+<div class="ehr-viewer" id="ehr-viewer" data-kind="{{ kind }}" data-src="{{ file_url }}"
+     data-pdfjs="{{ url_for('static', filename='vendor/pdfjs/pdf.min.mjs') }}"
+     data-worker="{{ url_for('static', filename='vendor/pdfjs/pdf.worker.min.mjs') }}"
+     data-page-text="{{ t('viewer.page', n='{n}', total='{total}') }}">
+  <header class="ehr-viewer__bar">
+    <div class="ehr-viewer__row">
+      <a class="btn btn-outline-primary" href="{{ back_url }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> <span>{{ t('viewer.back') }}</span></a>
+      <a class="btn btn-outline-secondary ms-auto" href="{{ download_url }}"><i class="bi bi-download" aria-hidden="true"></i> <span>{{ t('docs.download') }}</span></a>
+    </div>
+    <h1 class="h6 ehr-viewer__name ehr-wrap mb-0">{{ doc.file_name }} <span class="fw-normal small text-secondary ehr-num">{{ size }}</span></h1>
+    {% if kind in ('pdf', 'image') %}
+    <div class="ehr-viewer__tools" id="ehr-viewer-tools" hidden>
+      {% if kind == 'pdf' %}
+      <button class="btn btn-outline-secondary" type="button" id="ehr-v-prev" aria-label="{{ t('viewer.prev') }}" title="{{ t('viewer.prev') }}"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+      <span class="ehr-viewer__page ehr-num" id="ehr-v-page" aria-live="polite"></span>
+      <button class="btn btn-outline-secondary" type="button" id="ehr-v-next" aria-label="{{ t('viewer.next') }}" title="{{ t('viewer.next') }}"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      {% endif %}
+      <span class="ehr-viewer__spacer"></span>
+      <button class="btn btn-outline-secondary" type="button" id="ehr-v-out" aria-label="{{ t('viewer.zoom_out') }}" title="{{ t('viewer.zoom_out') }}"><i class="bi bi-zoom-out" aria-hidden="true"></i></button>
+      <span class="ehr-viewer__zoom ehr-num" id="ehr-v-zoom" aria-hidden="true">100%</span>
+      <button class="btn btn-outline-secondary" type="button" id="ehr-v-in" aria-label="{{ t('viewer.zoom_in') }}" title="{{ t('viewer.zoom_in') }}"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>
+    </div>
+    {% endif %}
+  </header>
+
+  {% if converted %}<p class="small text-secondary mt-2 mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ t('viewer.converted') }}</p>{% endif %}
+
+  {% if kind == 'pdf' %}
+  <p class="ehr-viewer__status mt-3" id="ehr-v-loading" hidden role="status">{{ t('viewer.loading') }}</p>
+  <div class="ehr-viewer__stage" id="ehr-v-stage" hidden tabindex="0"><canvas id="ehr-v-canvas"></canvas></div>
+  {% elif kind == 'image' %}
+  <div class="ehr-viewer__stage ehr-viewer__stage--image" id="ehr-v-stage" tabindex="0"><img id="ehr-v-img" src="{{ file_url }}" alt="{{ doc.file_name }}"></div>
+  {% endif %}
+
+  <div class="ehr-viewer__fallback mt-3" id="ehr-v-fallback"{% if kind == 'image' %} hidden{% endif %}>
+    <p class="mb-2"><i class="bi bi-file-earmark-x" aria-hidden="true"></i> {{ t('viewer.no_preview') }}</p>
+    <a class="btn btn-primary" href="{{ download_url }}"><i class="bi bi-download" aria-hidden="true"></i> {{ t('docs.download') }}</a>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/viewer.js') }}"></script>{% endblock %}

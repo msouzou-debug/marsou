@@ -1,0 +1,40 @@
+/* Documents: list on the request page, picker on the form, viewer page. Bootstrap first. */
+.ehr-docs-input { min-height: 44px; padding: .5rem .75rem; }
+.ehr-docs-input::file-selector-button { min-height: 32px; }
+.ehr-doc { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+.ehr-doc__main { display: flex; align-items: flex-start; gap: .625rem; flex: 1 1 16rem; min-width: 0; }
+.ehr-doc__icon { font-size: 1.5rem; line-height: 1.2; color: var(--ehr-blue-deep); }
+.ehr-doc__text { min-width: 0; }
+.ehr-doc__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+#ehr-docs-chosen li { padding: .125rem 0; overflow-wrap: anywhere; }
+#ehr-docs-chosen li.ehr-too-large { color: var(--ehr-red); font-weight: 700; }
+@media (max-width: 575.98px) {
+  .ehr-doc__actions { width: 100%; }
+  .ehr-doc__actions .btn { flex: 1 1 auto; }
+}
+
+/* Viewer */
+.ehr-viewer__bar {
+  position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid var(--ehr-line);
+  padding: .5rem 0; display: flex; flex-direction: column; gap: .5rem;
+}
+.ehr-viewer__row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.ehr-viewer__tools { display: flex; align-items: center; gap: .25rem; }
+.ehr-viewer__tools[hidden] { display: none; }
+.ehr-viewer__tools .btn { min-width: 44px; padding-left: .5rem; padding-right: .5rem; }
+.ehr-viewer__spacer { flex: 1 1 auto; }
+.ehr-viewer__page, .ehr-viewer__zoom { text-align: center; font-size: .8125rem; white-space: nowrap; padding: 0 .125rem; }
+.ehr-viewer__zoom { min-width: 2.5rem; }
+.ehr-viewer__stage {
+  margin-top: .75rem; overflow: auto; max-width: 100%; background: #e9ecef; border: 1px solid var(--ehr-line);
+  text-align: center; -webkit-overflow-scrolling: touch;
+}
+.ehr-viewer__stage[hidden], .ehr-viewer__status[hidden], .ehr-viewer__fallback[hidden] { display: none; }
+.ehr-viewer__stage canvas { display: block; margin: 0 auto; background: #fff; }
+.ehr-viewer__stage img { display: block; margin: 0 auto; max-width: none; height: auto; width: 100%; background: #fff; }
+.ehr-viewer__fallback { padding: 1rem; border: 1px solid var(--ehr-line); border-radius: 4px; background: #fff; }
+@media (max-width: 767.98px) {
+  body:has(.ehr-viewer) .navbar, body:has(.ehr-viewer) .ehr-accent-bar { display: none; }
+  body:has(.ehr-viewer) main.container { padding: 0 .5rem .5rem; }
+  .ehr-viewer__stage { margin-top: .5rem; }
+}

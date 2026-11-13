@@ -54,6 +54,10 @@ def create_app(config=Config):
         app.register_blueprint(requests_bp)
         app.config["REQUESTS_READY"] = True
 
+    from .documents import bp as documents_bp
+
+    app.register_blueprint(documents_bp)
+
     @app.errorhandler(404)
     @app.errorhandler(403)
     def _not_found(_e):

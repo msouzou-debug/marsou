@@ -1,0 +1,29 @@
+{# Documents grouped by round. `data` comes from documents_of(req). `editing` adds a remove button where allowed. #}
+{% macro doc_list(data, req, editing=false) %}
+{% if not data.groups %}
+<p class="text-secondary mb-0">{{ t('docs.empty') }}</p>
+{% endif %}
+{% for grp in data.groups %}
+<h3 class="h6 mt-3 mb-2">{{ t('page.round', n=grp.round) }}</h3>
+<ul class="list-group ehr-docs mb-2">
+  {% for d in grp.docs %}
+  <li class="list-group-item ehr-doc">
+    <div class="ehr-doc__main">
+      <i class="bi {{ 'bi-file-earmark-pdf' if d.kind == 'pdf' else ('bi-file-earmark-image' if d.kind == 'image' else 'bi-file-earmark-text') }} ehr-doc__icon" aria-hidden="true"></i>
+      <div class="ehr-doc__text">
+        <div class="ehr-doc__name ehr-wrap fw-bold">{{ d.name }}</div>
+        <div class="small text-secondary ehr-wrap"><span class="ehr-num">{{ d.size }}</span>{% if d.who %} · {{ d.who }}{% endif %} · <span class="ehr-num">{{ d.when | ehr_datetime }}</span></div>
+      </div>
+    </div>
+    <div class="ehr-doc__actions">
+      <a class="btn btn-outline-primary" href="{{ url_for('documents.viewer', request_id=req.id, doc_id=d.id) }}" aria-label="{{ t('docs.view') }}: {{ d.name }}"><i class="bi bi-eye" aria-hidden="true"></i> <span>{{ t('docs.view') }}</span></a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('documents.file', request_id=req.id, doc_id=d.id, download=1) }}" aria-label="{{ t('docs.download') }}: {{ d.name }}"><i class="bi bi-download" aria-hidden="true"></i> <span>{{ t('docs.download') }}</span></a>
+      {% if editing and d.removable %}
+      <button class="btn btn-outline-danger" type="submit" form="ehr-docs-remove" formaction="{{ url_for('documents.remove', request_id=req.id, doc_id=d.id) }}" aria-label="{{ t('docs.remove') }}: {{ d.name }}"><i class="bi bi-trash" aria-hidden="true"></i> <span>{{ t('docs.remove') }}</span></button>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endfor %}
+{% endmacro %}

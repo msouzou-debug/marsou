@@ -1,0 +1,9 @@
+{# The two small forms the documents section points to. Placed after the main form, never inside it. #}
+{% if req is not none %}
+<form id="ehr-docs-upload" method="post" enctype="multipart/form-data" action="{{ url_for('documents.upload', request_id=req.id) }}" hidden>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="ehr-docs-remove" method="post" action="{{ url_for('documents.upload', request_id=req.id) }}" hidden>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endif %}

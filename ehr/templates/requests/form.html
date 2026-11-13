@@ -32,6 +32,7 @@
 
   <div class="row g-4">
     <div class="col-12 col-lg-8">
+      {% if editing %}{% include "documents/_edit_section.html" %}{% endif %}
       <section class="mb-4" aria-labelledby="sec-post">
         <h2 class="h5 mb-3" id="sec-post">{{ t('form.section.post') }}</h2>
         {% if resubmitting %}
@@ -115,6 +116,7 @@
           {% endif %}
         </div>
       </section>
+      {% if not editing %}{% include "documents/_edit_section.html" %}{% endif %}
       {% if resubmitting %}
       <section class="mb-4" aria-labelledby="sec-note">
         <h2 class="h5 mb-3" id="sec-note">{{ t('form.resubmit_note') }}</h2>
@@ -144,4 +146,5 @@
     <button class="btn btn-outline-secondary" type="submit" name="intent" value="refresh" data-ehr-nojs>{{ t('form.refresh_route') }}</button>
   </div>
 </form>
+{% include "documents/_forms.html" %}
 {% endblock %}

@@ -23,9 +23,10 @@ Server-rendered pages. Forms post back with a CSRF token. After a successful pos
 | POST `/requests/<id>/action` | assignee of an open task | Any approver action, including return | 2 |
 | POST `/requests/<id>/withdraw` | requester | Withdraw | 2 |
 | POST `/requests/<id>/documents` | requester, status `draft` or `returned` | Upload | 3 |
-| POST `/requests/<id>/documents/<doc_id>/remove` | requester, document from the current unsubmitted round | Remove before submitting | 3 |
-| GET `/requests/<id>/documents/<doc_id>` | may see this request | Viewer page | 3 |
-| GET `/requests/<id>/documents/<doc_id>/file?download=1` | may see this request | The file, or its PDF conversion. Writes an audit row | 3 |
+| POST `/requests/<id>/documents/<doc_id>/remove` | requester, document from the current unsubmitted round | Remove before submitting. Any other document: message `docs.error.locked`, nothing deleted | 3 |
+| GET `/requests/<id>/documents/<doc_id>` | may see this request | Viewer page. Writes `document_view` | 3 |
+| GET `/requests/<id>/documents/<doc_id>/file` | may see this request | Inline bytes: the PDF, the image, or the PDF conversion of an Office file (404 if none). `?via=viewer` (sent by the viewer page) skips the audit row, otherwise `document_view` | 3 |
+| GET `/requests/<id>/documents/<doc_id>/file?download=1` | may see this request | The original file as attachment. Writes `document_download` | 3 |
 | POST `/me/out-of-office` | holds an approver role | Switch on or off, optional dates | 4 |
 | GET `/requests/export.xlsx` | `request.view_all` or `request.view_directorate` | The list as Excel | 6 |
 | GET `/audit` | `audit.view` | Read-only log with filters | 6 |
@@ -105,3 +106,13 @@ The route maps each error code of contract 02, section 6, to the string key `err
 ## 7. Email
 
 One layout. Subject: `[<number>] <position> · <facility>`. One button: «Προβολή αιτήματος» → absolute URL of `/requests/<id>?do=review`. No other link changes state. Templates per event of contract 02, section 7.
+
+## 8. Documents (as built, Phase 3)
+
+- Storage: `EHR_STORAGE_DIR` (default `<instance>/storage`). File at `<request_id>/<document_id>-<random>.bin`, converted copy `<document_id>-<random>.pdf` beside it. `request_document.storage_ref` holds the relative path. The client's name is stored as text only (path parts, control characters and quotes removed; Greek kept) and sent with RFC 5987 `filename*`.
+- Accepted: pdf, doc, docx, xls, xlsx, png, jpg, jpeg. The extension and a magic-byte check must agree (PDF header, PNG, JPEG, OLE2 with a WordDocument or Workbook/Book stream, ZIP with `[Content_Types].xml` and `word/` or `xl/`). The server sets the mime; never text/html.
+- Limits: `max_file_mb` setting (default 20), checked while the file is read in 64 KB blocks. Empty files refused. `MAX_CONTENT_LENGTH` 120 MB for a whole post. Upload goes to a temp name and is renamed; a refused file leaves nothing. Each file in one post is accepted or refused on its own.
+- Rounds: a document is tagged `request.round`, or `request.round + 1` while the request is returned (the engine raises the round on resubmission, so the tag is already right). Removable: any document of a draft; on a returned request only those with `round > request.round`. Removal deletes row and file and writes `document_removed`. Submitted rounds are never deleted.
+- Response headers on files: `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; sandbox`, `Cache-Control: private, no-store`.
+- Conversion: `Converter.to_pdf(src, dst) -> bool`. `LibreOfficeConverter` runs `soffice --headless --convert-to pdf` without a shell, with a timeout (`EHR_CONVERT_TIMEOUT`, 60 s) and a private profile folder; binary from `EHR_SOFFICE_BIN` or PATH. `NullConverter` when none is found. Done on first view, cached, reused. Failure: the viewer shows `viewer.no_preview` and the download button.
+- Viewer: PDF.js 4.10.38 in `static/vendor/pdfjs/`, one page on a canvas at a time.
