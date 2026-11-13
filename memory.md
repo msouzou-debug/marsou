@@ -51,6 +51,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 13/11/2026, owner: yes to O1 to O5 in contract 02 (restart at step 2 on a material change; a return pauses the returner's task; answers can be replaced only after a resubmission in the returned step; comment required on negative answers; escalation informs the line manager and leaves the task where it is).
 
+- 13/11/2026, owner: the Greek budget and tracker terms chosen in Phase 1 are approved (listed above). Only requesters and Directorate roles create requests (orchestrator's assumption, not yet confirmed).
+
 ## Status
 
-- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Phase 1 built (engine, models, sign-in, numbering, list settings, request form with live route, drafts, list, first request page; 201 tests). Waiting on the owner's Phase 1 review, the Greek budget terms and the server pack from Marios. Carry into Phase 2: add `request.returned_at` and a step-3 phase on `task` and `request_action`; let flash messages take parameters; number search can't match Θ from a Latin keyboard (depends on the prefix decision).
+- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Phases 1 and 2 built (engine, models, sign-in, numbering, list settings, request form with live route, drafts, list, action cards for every role, return and resubmit, withdraw, timers, seven demo cases; 253 tests). Next: Phase 3, documents and viewer. Still open: server pack from Marios (database engine, port, AD), number prefix (Θ can't be typed on a Latin keyboard), Claude Design hand-over.

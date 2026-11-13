@@ -8,7 +8,7 @@
   </p>
   {% endfor %}
 {% elif line.kind == 'returned' %}
-  <p class="ehr-statusline mb-1">{{ t('statusline.returned') }}</p>
+  <p class="ehr-statusline mb-1">{{ t('statusline.returned') }}{% if line.days_left is not none %} <span class="text-secondary">· {{ t('form.days_left.one') if line.days_left == 1 else t('form.days_left.many', n=line.days_left) }}</span>{% endif %}</p>
 {% elif line.kind == 'rejected' and line.step %}
   <p class="ehr-statusline mb-1">{{ t('closed.rejected_at', n=line.step, step=t('step.' ~ line.step), who=t('role.' ~ line.role)) }}</p>
 {% elif line.kind == 'withdrawn' %}

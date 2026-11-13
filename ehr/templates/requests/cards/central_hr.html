@@ -1,0 +1,9 @@
+{# central_hr_officer: annual employer cost per leaver (departure reasons) and for the new hires #}
+{% from "components/card_fields.html" import field, comment with context %}
+<input type="hidden" name="action" value="check">
+{% for leaver, typed in leaver_rows(c.typed) %}
+  {{ field(c, 'leaver_cost.%d' % leaver.id, 'card.leaver_cost', params={'name': leaver.name}) }}
+{% endfor %}
+{{ field(c, 'new_hire_cost', 'card.new_hire_cost') }}
+{{ comment(c) }}
+<div class="ehr-card__main"><button class="btn btn-primary" type="submit">{{ t('card.send') }}</button></div>

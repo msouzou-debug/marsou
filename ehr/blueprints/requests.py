@@ -11,15 +11,17 @@ from sqlalchemy.orm import selectinload
 from .. import i18n
 from ..auth import can_see_request, current_user, login_required, permission_required, visible_requests_query
 from ..extensions import db
-from ..models import CATEGORIES, REASONS, Request, Task, audit
+from ..models import CATEGORIES, REASONS, OaySpecialty, Request, RequestFinancials, Task, audit
+from ..services import request_flow as flow
 from ..services import request_form as form_rules
-from ..services.notify import notify
-from ..services.numbering import next_number
+from ..services.request_amounts import format_amount, format_month
+from ..services.request_cards import NEGATIVE, cards_for, financial_view, leaver_cost_rows, typed_ratio
 from ..services.request_dates import format_date, format_datetime
-from ..services.request_engine import build_directory, build_state, holidays, route_for, store_result
-from ..services.request_view import status_line, stops_for, user_names
-from ..workflow import engine
-from ..workflow.model import NewAction
+from ..services.activity import get_provider
+from ..services.request_engine import current_leavers, holidays, route_for, route_of
+from ..services.request_flash import flash_key
+from ..services.request_view import (answer_facts, checks_view, closed_banner, days_left, history_view, returned_info, status_line,
+                                     stops_for, timeout_days, user_names)
 from ..workflow.numbering import normalise_number
 from ..workflow.tracker import preview
 
@@ -120,9 +122,14 @@ def options():
 
 # ------------------------------------------------------------------ form
 
-def _render_form(req, raw, errors=None, form_errors=(), lookups=None):
+def _render_form(req, raw, errors=None, form_errors=(), lookups=None, note=""):
     lookups = lookups or form_rules.Lookups(current_user(), g.lang)
     errors = errors or {}
+    resubmitting = req is not None and req.status == "returned"
+    returned = None
+    if resubmitting:
+        raw["directorate_id"] = str(req.directorate_id)  # locked after the first submission
+        returned = returned_info(req, user_names([], [a.actor_user_id for a in req.actions if a.actor_user_id]))
     d_id = form_rules._int(raw["directorate_id"])
     stops = []
     if d_id in lookups.directorate_ids and raw["category"] in CATEGORIES:
@@ -135,7 +142,9 @@ def _render_form(req, raw, errors=None, form_errors=(), lookups=None):
         specialty_options=[(s.id, s.name, None) for s in lookups.specialties],
         category_options=[(c, "category." + c, None) for c in CATEGORIES],
         reason_options=[(r, "reason." + r, None) for r in REASONS],
-        employments=form_rules.EMPLOYMENTS,
+        employments=form_rules.EMPLOYMENTS, resubmitting=resubmitting, returned=returned, note=note,
+        days_left=days_left(req, holidays(db.session), _now()) if resubmitting else None,
+        locked_directorate=req.directorate.name(g.lang) if resubmitting and req.directorate else "",
         facilities=lookups.facility_options(d_id if d_id in lookups.directorate_ids else None),
         positions=lookups.position_options(raw["category"] if raw["category"] in CATEGORIES else None),
         max_leavers=form_rules.MAX_LEAVER_ROWS)
@@ -150,7 +159,7 @@ _LABELS = {
     "absence_flag": "field.absence_flag", "absence_text": "form.absence_detail",
     "external_funding_flag": "field.external_funding_flag", "external_funding_text": "form.external_funding_detail",
     "leavers": "field.leaver_name", "leave_date": "field.leave_date", "employment": "field.employment",
-    "name": "field.leaver_name",
+    "name": "field.leaver_name", "resubmit_note": "form.resubmit_note",
 }
 _LEAVER_ERROR = re.compile(r"^leavers\[(\d+)\]\.(\w+)$")
 
@@ -188,11 +197,11 @@ def new():
     return _render_form(None, raw, lookups=lookups)
 
 
-def _own_draft(request_id):
+def _own_editable(request_id):
+    """The requester's own request while it is a draft or has been returned. Anything else answers 404."""
     req = db.session.get(Request, request_id)
     user = current_user()
-    # Returned requests come in Phase 2: they answer 404 here until then.
-    if req is None or req.created_by != user.id or req.status != "draft":
+    if req is None or req.created_by != user.id or req.status not in ("draft", "returned"):
         abort(404)
     return req
 
@@ -200,9 +209,11 @@ def _own_draft(request_id):
 @bp.route("/<int:request_id>/edit", methods=["GET", "POST"])
 @permission_required("request.create")
 def edit(request_id):
-    req = _own_draft(request_id)
+    req = _own_editable(request_id)
     if request.method == "GET":
         return _render_form(req, _prepare_rows(form_rules.raw_from_request(req)))
+    if req.status == "returned":
+        return _handle_resubmit(req)
     return _handle_post(req)
 
 
@@ -250,23 +261,63 @@ def _handle_post(req):
             flash("form.draft_saved", "success")
             return redirect(url_for("requests.edit", request_id=req.id))
 
-        directory = build_directory(db.session, req.directorate_id)
-        result = engine.apply(build_state(req), NewAction(user.id, "submit", "requester"), directory, now)
+        result = flow.submit(req, user.id, now)
         if not result.ok:
-            db.session.rollback()
             return _render_form(_reload(req), _prepare_rows(raw),
                                 form_errors=["error." + c for c in result.errors], lookups=lookups)
-        req.number = next_number(db.session, now.year)
-        store_result(db.session, req, result, now)
-        audit("request_submitted", user_id=user.id, request_id=req.id, object_type="request",
-              object_id=req.id, detail={"number": req.number, "step": result.current_step})
-        db.session.commit()
     except Exception:
         db.session.rollback()
         raise
-    notify(result.events)
-    # base.html shows a flash through t(); the message needs {number}, so it is translated here.
-    flash(_translate("form.submitted", number=req.number), "success")
+    flash_key("form.submitted", "success", number=req.number)
+    return redirect(url_for("requests.detail", request_id=req.id))
+
+
+# Errors that mean "the request is no longer in the state this page assumed": show the request, not an error page.
+STALE = ("not_your_task", "request_closed", "request_returned", "wrong_step", "own_request", "not_requester")
+
+
+def _handle_resubmit(req):
+    """The requester corrects a returned request (T9a or T9b). The engine decides which; this gathers and stores."""
+    user = current_user()
+    lookups = form_rules.Lookups(user, g.lang)
+    raw = form_rules.read_form(request.form)
+    raw["directorate_id"] = str(req.directorate_id)
+    note = (request.form.get("resubmit_note") or "").strip()
+    intent = request.form.get("intent") or "resubmit"
+
+    if intent in ("refresh", "add_leaver") or intent.startswith("remove_leaver:"):
+        if "leavers" in form_rules.applicable(raw):
+            if intent == "add_leaver" and len(raw["leavers"]) < form_rules.MAX_LEAVER_ROWS:
+                raw["leavers"].append(_blank_leaver())
+            elif intent.startswith("remove_leaver:"):
+                try:
+                    del raw["leavers"][int(intent.split(":", 1)[1])]
+                except (ValueError, IndexError):
+                    pass
+        return _render_form(req, _prepare_rows(raw), lookups=lookups, note=note)
+
+    form_rules.drop_blank_leavers(raw)
+    errors = form_rules.validate(raw, lookups, True)
+    errors.pop("directorate_id", None)
+    if not note:
+        errors["resubmit_note"] = "validation.required"
+    if errors:
+        return _render_form(req, _prepare_rows(raw), errors=errors, lookups=lookups, note=note)
+
+    clean = form_rules.clear_inapplicable(raw)
+    stored = form_rules.raw_from_request(req)
+    changed = {n: clean[n] for n in form_rules.ALL_FIELDS if clean[n] != stored[n]}
+    if clean["leavers"] != stored["leavers"]:
+        changed["leavers"] = clean["leavers"]
+    result = flow.resubmit(req, user.id, _now(), note, changed,
+                           lambda round_: form_rules.store(req, clean, round_=round_, keep_history=True))
+    if not result.ok:
+        if result.errors[0] in STALE:
+            flash_key("error." + result.errors[0], "danger")
+            return redirect(url_for("requests.detail", request_id=req.id))
+        return _render_form(_reload(req), _prepare_rows(raw), form_errors=["error." + c for c in result.errors],
+                            lookups=lookups, note=note)
+    flash_key("done.resubmit", "success")
     return redirect(url_for("requests.detail", request_id=req.id))
 
 
@@ -276,17 +327,57 @@ def _reload(req):
 
 # ------------------------------------------------------------------ request page
 
+def empty_card_state():
+    return {"role": None, "action": None, "errors": {}, "codes": [], "typed": {}, "withdraw_open": False}
+
+
+def _render_detail(req, card_state=None, status=200):
+    """The request page (contract 03, section 5). `card_state` carries a failed post: the card to open, the
+    typed values and the error messages."""
+    user = current_user()
+    now = _now()
+    days_off = holidays(db.session)
+    stops = stops_for(req)
+    ids = [t.assignee_user_id for t in req.tasks if t.assignee_user_id]
+    ids += [i for a in req.actions for i in (a.actor_user_id, a.on_behalf_of_user_id) if i]
+    ids.append(req.created_by)
+    names = user_names(stops, ids)
+    is_requester = req.created_by == user.id
+    state = card_state or empty_card_state()
+    cards = [] if is_requester else cards_for(req, user)
+    for card in cards:
+        task = card["task"]
+        mine = state["role"] == card["role"]  # a failed post re-opens its own card with what was typed
+        card.update(
+            typed=state["typed"] if mine else {}, errors=state["errors"] if mine else {},
+            codes=state["codes"] if mine else [], open_return=mine and state["action"] == "return",
+            redirect_note=({"reason": task.redirect_reason, "holder": names.get(task.on_behalf_of_user_id)}
+                           if task.redirect_reason else None),
+            facts=answer_facts(req, card["earlier"]) if card["earlier"] is not None else [],
+            focus=mine and bool(state["errors"] or state["codes"]))
+    specialties = []
+    if any(c["role"] == "dir_accountant" for c in cards):
+        specialties = OaySpecialty.query.filter_by(is_active=True).order_by(OaySpecialty.name).all()
+    leavers = current_leavers(req)
+    return render_template(
+        "requests/detail.html", req=req, stops=stops, names=names, is_requester=is_requester,
+        line=status_line(req, days_off, now, names), cards=cards, card_state=state, specialties=specialties,
+        banner=closed_banner(req, names), returned=returned_info(req, names) if req.status == "returned" else None,
+        checks=checks_view(req, user, names, stops), history=history_view(req, user, names), leavers=leavers,
+        can_withdraw=is_requester and req.status in ("in_progress", "returned"), timeout_days=timeout_days(),
+        negative=NEGATIVE, provider=get_provider(), route=route_of(req) or {}, withdraw=state,
+        leaver_rows=lambda typed: leaver_cost_rows(req, typed), typed_ratio=typed_ratio,
+        format_amount=format_amount), status
+
+
 @bp.get("/<int:request_id>")
 @login_required
 def detail(request_id):
-    user = current_user()
     req = db.session.get(Request, request_id)
-    if not can_see_request(user, req):
+    if not can_see_request(current_user(), req):
         abort(404)
-    stops = stops_for(req)
-    task_ids = [t.assignee_user_id for t in req.tasks if t.assignee_user_id]
-    action_ids = [i for a in req.actions for i in (a.actor_user_id, a.on_behalf_of_user_id) if i]
-    names = user_names(stops, task_ids + action_ids)
-    line = status_line(req, holidays(db.session), _now(), names)
-    return render_template("requests/detail.html", req=req, stops=stops, names=names, line=line,
-                           show=form_rules.applicable(form_rules.raw_from_request(req)))
+    return _render_detail(req)
+
+
+from . import requests_actions  # noqa: E402,F401  registers POST /action and /withdraw
+from . import requests_cli  # noqa: E402,F401  registers `flask run-timers`

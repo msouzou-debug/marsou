@@ -1,0 +1,40 @@
+{# dir_accountant: post and funds, and the financial table when the route asks for it (R2). #}
+{% from "components/card_fields.html" import choice, field, comment with context %}
+<input type="hidden" name="action" value="check">
+{{ choice(c, 'position', 'card.position_available', [('yes', 'answer.yes'), ('no', 'answer.no'), ('arranged_centrally', 'answer.arranged_centrally')], 'no') }}
+{{ choice(c, 'funds', 'card.funds_available', [('yes', 'answer.yes'), ('no', 'answer.no')], 'no') }}
+
+{% if route.financials_required %}
+<section class="ehr-fin mb-3" aria-labelledby="c{{ c.task.id }}-fin-title">
+  <h3 class="h6" id="c{{ c.task.id }}-fin-title">{{ t('card.fin.title') }}</h3>
+  <div class="row g-3 mb-2">
+    <div class="col-12 col-md-6">
+      <label class="form-label" for="c{{ c.task.id }}-oay_specialty_id">{{ t('field.oay_specialty') }}<span class="text-danger" aria-hidden="true"> *</span></label>
+      <select class="form-select{{ ' is-invalid' if c.errors.get('oay_specialty_id') }}" id="c{{ c.task.id }}-oay_specialty_id" name="oay_specialty_id"{% if c.errors.get('oay_specialty_id') %} aria-invalid="true"{% endif %}>
+        <option value="">{{ t('form.select.placeholder') }}</option>
+        {% for s in specialties %}<option value="{{ s.id }}"{{ ' selected' if c.typed.get('oay_specialty_id', '') == s.id|string }}>{{ s.name }}</option>{% endfor %}
+      </select>
+      {% if c.errors.get('oay_specialty_id') %}<div class="invalid-feedback d-block">{{ t(c.errors['oay_specialty_id']) }}</div>{% endif %}
+    </div>
+    <div class="col-6 col-md-3">{{ field(c, 'oay_data_month', 'card.fin.data_to', params={'month': t('form.month_hint')}, inputmode='numeric', required=false) }}</div>
+    <div class="col-6 col-md-3">{{ field(c, 'payroll_to_month', 'card.fin.payroll_period', params={'month': t('form.month_hint')}, inputmode='numeric') }}</div>
+  </div>
+  <div class="row g-3">
+    {% for period in ('prev_year', 'ytd') %}
+    <div class="col-12 col-md-6">
+      <fieldset class="ehr-fin__period border rounded p-3 h-100">
+        <legend class="h6 float-none w-auto px-1 mb-2">{{ t('card.fin.' ~ period) }}</legend>
+        {% for line in ('visits', 'procedures', 'revenue', 'payroll_cost', 'headcount') %}
+          {{ field(c, 'fin.%s.%s' % (period, line), 'card.fin.' ~ ('payroll' if line == 'payroll_cost' else line), readonly=provider.is_read_only(line), data=period ~ '.' ~ line, inputmode='decimal' if line in ('revenue', 'payroll_cost', 'headcount') else 'numeric') }}
+        {% endfor %}
+        <p class="mb-0 ehr-fin__ratio"><span class="text-secondary">{{ t('card.fin.ratio') }}</span>
+          <output class="fw-bold ehr-num" data-ehr-ratio="{{ period }}" aria-live="polite">{{ typed_ratio(c.typed, period) }}</output></p>
+      </fieldset>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="small text-secondary mt-2 mb-0">{{ t('card.fin.revision_note') }}</p>
+</section>
+{% endif %}
+{{ comment(c) }}
+<div class="ehr-card__main"><button class="btn btn-primary" type="submit">{{ t('card.send') }}</button></div>

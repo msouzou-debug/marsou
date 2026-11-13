@@ -4,10 +4,11 @@
 
 /* Touch targets: 44 px */
 .ehr-form .form-control, .ehr-form .form-select, .ehr-search .form-control,
+.ehr-card__form .form-control, .ehr-card__form .form-select,
 .btn, .ehr-tabs .nav-link { min-height: 44px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; }
 .ehr-tabs .nav-link { display: inline-flex; align-items: center; }
-.ehr-form textarea.form-control { min-height: 6rem; }
+.ehr-form textarea.form-control, .ehr-card__form textarea.form-control { min-height: 6rem; }
 .ehr-check { min-height: 44px; display: flex; align-items: center; gap: .5rem; padding-left: 0; }
 .ehr-check .form-check-input { margin: 0; width: 1.5rem; height: 1.5rem; flex: none; }
 .ehr-check .form-check-label { padding: .5rem 0; }
@@ -48,3 +49,42 @@
 
 /* Request page */
 .ehr-history__item { padding: .5rem 0 .5rem .75rem; border-left: 3px solid var(--ehr-line); margin-bottom: .5rem; }
+
+/* Action card */
+.ehr-card { border-color: var(--ehr-blue-deep); border-width: 2px; scroll-margin-top: 1rem; }
+.ehr-card:focus, .ehr-hold:focus { outline: 2px solid var(--ehr-blue); outline-offset: 2px; }
+.ehr-card__main .btn { min-width: 8rem; }
+@media (max-width: 575.98px) {
+  .ehr-card__main .btn { width: 100%; }
+}
+.ehr-hold { scroll-margin-top: 1rem; }
+.ehr-facts > div { padding: .125rem 0; }
+
+/* Return and withdraw: a lesser control. Outline weight, apart from the main buttons, behind a confirm step. */
+.ehr-card__lesser { margin-top: 2rem; }
+.ehr-lesser > summary { list-style: none; cursor: pointer; }
+.ehr-lesser > summary::-webkit-details-marker { display: none; }
+.ehr-lesser__summary { font-size: .9375rem; }
+.ehr-lesser[open] > .ehr-lesser__summary { background: var(--bs-secondary-bg); }
+
+/* Financial table: one column per period on a phone, side by side from 768 px. Never scrolls sideways. */
+.ehr-fin__period { min-width: 0; }
+.ehr-fin__period .form-control { max-width: 100%; text-align: right; }
+.ehr-fin__period .mb-3 { margin-bottom: .75rem !important; }
+.ehr-fin__ratio { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; padding-top: .5rem; border-top: 1px dashed var(--ehr-line); }
+.ehr-fin-view__period dl > div { padding: .125rem 0; border-bottom: 1px solid var(--ehr-line-row); }
+.ehr-fin-view__period dl > div:last-child { border-bottom: 0; }
+
+/* Banners on the request page. Icon and words; colour only supports them. */
+.ehr-banner { padding: .75rem 1rem; border: 1px solid var(--ehr-line); border-left-width: 4px; border-radius: 4px; background: #fff; }
+.ehr-banner--rejected { border-left-color: var(--ehr-red); }
+.ehr-banner--withdrawn { border-left-color: var(--ehr-text-secondary); }
+.ehr-banner--approved { border-left-color: var(--ehr-green-text); background: var(--ehr-green-tint); }
+
+/* Checks and history */
+.ehr-checks__item { padding: .5rem 0 .5rem .75rem; border-left: 3px solid var(--ehr-line); margin-bottom: .75rem; }
+.ehr-checks__outcome { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; }
+.ehr-checks__fact { overflow-wrap: anywhere; }
+.ehr-history__item--superseded { opacity: .8; }
+
+.ehr-route-details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }

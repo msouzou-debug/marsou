@@ -179,10 +179,13 @@ def test_only_the_creator_edits_a_draft(seeded, client):
     assert client.post("/requests/%d/edit" % rid, data={"intent": "draft"}).status_code == 404
 
 
-def test_returned_request_edit_is_404_for_now(seeded, client):
+def test_returned_request_edit_is_only_for_its_requester(seeded, client):
     req = submit(client)
     req.status = "returned"
     db.session.commit()
+    assert client.get("/requests/%d/edit" % req.id).status_code == 200
+    client.post("/logout")
+    login(client, "nic.accountant")
     assert client.get("/requests/%d/edit" % req.id).status_code == 404
 
 

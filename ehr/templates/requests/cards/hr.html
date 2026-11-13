@@ -1,0 +1,6 @@
+{# dir_hr_officer: documentation complete or incomplete #}
+{% from "components/card_fields.html" import choice, comment with context %}
+<input type="hidden" name="action" value="check">
+{{ choice(c, 'documentation', 'card.documentation', [('complete', 'documentation.complete'), ('incomplete', 'documentation.incomplete')], 'incomplete') }}
+{{ comment(c) }}
+<div class="ehr-card__main"><button class="btn btn-primary" type="submit">{{ t('card.send') }}</button></div>

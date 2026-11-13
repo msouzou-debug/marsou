@@ -54,6 +54,7 @@
   "documentation.incomplete": "Ελλιπής",
   "done.approve": "Το αίτημα εγκρίθηκε.",
   "done.check": "Ο έλεγχός σας καταχωρίστηκε.",
+  "done.keep_answer": "Η απάντησή σας διατηρήθηκε.",
   "done.opinion": "Η γνωμοδότησή σας καταχωρίστηκε.",
   "done.reject": "Το αίτημα απορρίφθηκε.",
   "done.resubmit": "Το αίτημα επανυποβλήθηκε.",
@@ -99,6 +100,7 @@
   "form.days_left.one": "Απομένει 1 εργάσιμη ημέρα πριν αποσυρθεί το αίτημα",
   "form.draft_saved": "Το πρόχειρο αποθηκεύτηκε.",
   "form.external_funding_detail": "Ποια πηγή",
+  "form.month_hint": "μμ/εεεε",
   "form.refresh_route": "Ενημέρωση διαδρομής",
   "form.remove_leaver": "Αφαίρεση",
   "form.resubmit_note": "Τι αλλάξατε ή προσθέσατε",
@@ -236,6 +238,7 @@
   "validation.date": "Γράψτε την ημερομηνία ως ηη/μμ/εεεε.",
   "validation.leavers_max": "Δεν μπορείτε να προσθέσετε περισσότερα άτομα από τις θέσεις.",
   "validation.min_one": "Γράψτε 1 ή περισσότερα.",
+  "validation.month": "Γράψτε τον μήνα ως μμ/εεεε.",
   "validation.required": "Συμπληρώστε αυτό το πεδίο.",
   "validation.summary": "Ορισμένα πεδία χρειάζονται την προσοχή σας."
 }

@@ -54,6 +54,7 @@
   "documentation.incomplete": "Incomplete",
   "done.approve": "The request was approved.",
   "done.check": "Your check was recorded.",
+  "done.keep_answer": "Your answer was kept.",
   "done.opinion": "Your opinion was recorded.",
   "done.reject": "The request was rejected.",
   "done.resubmit": "The request was resubmitted.",
@@ -99,6 +100,7 @@
   "form.days_left.one": "1 working day left before the request is withdrawn",
   "form.draft_saved": "Draft saved.",
   "form.external_funding_detail": "Which source",
+  "form.month_hint": "mm/yyyy",
   "form.refresh_route": "Update the route",
   "form.remove_leaver": "Remove",
   "form.resubmit_note": "What you changed or added",
@@ -236,6 +238,7 @@
   "validation.date": "Enter the date as dd/mm/yyyy.",
   "validation.leavers_max": "You can't add more people than posts.",
   "validation.min_one": "Enter 1 or more.",
+  "validation.month": "Enter the month as mm/yyyy.",
   "validation.required": "Fill in this field.",
   "validation.summary": "Some fields need your attention."
 }

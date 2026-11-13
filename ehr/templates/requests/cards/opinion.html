@@ -1,0 +1,6 @@
+{# sci_director, medical_director, nursing_director: opinion #}
+{% from "components/card_fields.html" import choice, comment with context %}
+<input type="hidden" name="action" value="opinion">
+{{ choice(c, 'opinion', 'card.opinion', [('positive', 'opinion.positive'), ('negative', 'opinion.negative')], 'negative') }}
+{{ comment(c) }}
+<div class="ehr-card__main"><button class="btn btn-primary" type="submit">{{ t('card.send') }}</button></div>

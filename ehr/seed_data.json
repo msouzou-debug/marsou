@@ -464,31 +464,26 @@
    "request.act"
   ],
   "fin_mgmt_head": [
-   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "central_hr_officer": [
-   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "medical_director": [
-   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "nursing_director": [
-   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "ceo": [
-   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
@@ -654,6 +649,36 @@
    "full_name": "Βάσος (δείγμα) Διαχειριστής",
    "email": "demo.admin@example.invalid",
    "language": "en"
+  },
+  {
+   "username": "lar.deputy",
+   "full_name": "Ευάγγελος (δείγμα) Αναπληρωτής",
+   "email": "lar.deputy@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lar.accountant",
+   "full_name": "Ζαφειρώ (δείγμα) Λογιστής",
+   "email": "lar.accountant@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lar.sci",
+   "full_name": "Ηλίας (δείγμα) Επιστημονικός Διευθυντής και Αιτητής",
+   "email": "lar.sci@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lar.hr",
+   "full_name": "Θάλεια (δείγμα) Λειτουργός ΑΔ",
+   "email": "lar.hr@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lar.exec",
+   "full_name": "Ιωάννα (δείγμα) Εκτελεστικός Διευθυντής",
+   "email": "lar.exec@example.invalid",
+   "language": "el"
   }
  ],
  "role_assignments": [
@@ -782,6 +807,36 @@
    "role": "admin",
    "directorate": null,
    "substitute": null
+  },
+  {
+   "user": "lar.accountant",
+   "role": "dir_accountant",
+   "directorate": "LAR",
+   "substitute": "lar.deputy"
+  },
+  {
+   "user": "lar.sci",
+   "role": "sci_director",
+   "directorate": "LAR",
+   "substitute": "lar.deputy"
+  },
+  {
+   "user": "lar.sci",
+   "role": "requester",
+   "directorate": "LAR",
+   "substitute": null
+  },
+  {
+   "user": "lar.hr",
+   "role": "dir_hr_officer",
+   "directorate": "LAR",
+   "substitute": "lar.deputy"
+  },
+  {
+   "user": "lar.exec",
+   "role": "dir_exec",
+   "directorate": "LAR",
+   "substitute": "lar.deputy"
   }
  ],
  "user_directorates": [
@@ -852,6 +907,26 @@
   [
    "phc.deputy",
    "PHC"
+  ],
+  [
+   "lar.deputy",
+   "LAR"
+  ],
+  [
+   "lar.accountant",
+   "LAR"
+  ],
+  [
+   "lar.sci",
+   "LAR"
+  ],
+  [
+   "lar.hr",
+   "LAR"
+  ],
+  [
+   "lar.exec",
+   "LAR"
   ]
  ],
  "line_managers": {
@@ -876,7 +951,12 @@
   "central.deputy": "central.ceo",
   "nic.exec": "central.ceo",
   "lim.exec": "central.ceo",
-  "phc.exec": "central.ceo"
+  "phc.exec": "central.ceo",
+  "lar.deputy": "lar.exec",
+  "lar.accountant": "lar.exec",
+  "lar.sci": "lar.exec",
+  "lar.hr": "lar.exec",
+  "lar.exec": "central.ceo"
  },
  "demo_password": "demo-1234"
 }

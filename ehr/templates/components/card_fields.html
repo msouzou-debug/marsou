@@ -1,0 +1,33 @@
+{# Fields for the action cards. `c` is one card (see requests.py _render_detail): c.task, c.typed, c.errors.
+   Ids are c<task id>-<name>. Typed values come back after a failed post. #}
+{% macro choice(c, name, legend_key, options, negative=none) %}
+{% set cur = c.typed.get(name, '') %}
+<fieldset class="mb-3" id="c{{ c.task.id }}-{{ name }}"{% if c.errors.get(name) %} aria-describedby="c{{ c.task.id }}-{{ name }}-error"{% endif %}>
+  <legend class="form-label fs-6">{{ t(legend_key) }}<span class="text-danger" aria-hidden="true"> *</span></legend>
+  <div class="d-flex flex-column flex-sm-row flex-wrap column-gap-4">
+    {% for value, label in options %}
+    <div class="form-check ehr-check">
+      <input class="form-check-input" type="radio" name="{{ name }}" id="c{{ c.task.id }}-{{ name }}-{{ value }}" value="{{ value }}"{{ ' checked' if cur == value }}{% if negative == value %} data-ehr-negative{% endif %}>
+      <label class="form-check-label" for="c{{ c.task.id }}-{{ name }}-{{ value }}">{{ t(label) }}</label>
+    </div>
+    {% endfor %}
+  </div>
+  {% if c.errors.get(name) %}<div class="invalid-feedback d-block" id="c{{ c.task.id }}-{{ name }}-error">{{ t(c.errors[name]) }}</div>{% endif %}
+</fieldset>
+{% endmacro %}
+
+{% macro field(c, name, label_key, hint_key=none, readonly=false, data=none, params=none, inputmode='decimal', required=true) %}
+<div class="mb-3">
+  <label class="form-label" for="c{{ c.task.id }}-{{ name }}">{{ t(label_key, **(params or {})) }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif %}</label>
+  <input class="form-control ehr-num{{ ' is-invalid' if c.errors.get(name) }}" type="text" id="c{{ c.task.id }}-{{ name }}" name="{{ name }}" value="{{ c.typed.get(name, '') }}" inputmode="{{ inputmode }}" autocomplete="off"{% if readonly %} readonly{% endif %}{% if data %} data-ehr-fin="{{ data }}"{% endif %}{% if c.errors.get(name) %} aria-invalid="true" aria-describedby="c{{ c.task.id }}-{{ name }}-error"{% endif %}>
+  {% if c.errors.get(name) %}<div class="invalid-feedback d-block" id="c{{ c.task.id }}-{{ name }}-error">{{ t(c.errors[name]) }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro comment(c, label_key='card.comment') %}
+<div class="mb-3">
+  <label class="form-label" for="c{{ c.task.id }}-comment">{{ t(label_key) }}</label>
+  <textarea class="form-control{{ ' is-invalid' if c.codes and 'error.comment_required' in c.codes }}" id="c{{ c.task.id }}-comment" name="comment" rows="3" data-ehr-comment>{{ c.typed.get('comment', '') if c.action != 'return' else '' }}</textarea>
+  <div class="invalid-feedback{{ ' d-block' if c.codes and 'error.comment_required' in c.codes }}" data-ehr-comment-error{% if not (c.codes and 'error.comment_required' in c.codes) %} hidden{% endif %}>{{ t('error.comment_required') }}</div>
+</div>
+{% endmacro %}

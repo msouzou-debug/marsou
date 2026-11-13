@@ -12,6 +12,9 @@ Import models from `ehr.models` (access, master, request, audit). Tables follow 
   `Setting` (`get_setting(key, default)`). Each list row has `name(lang)`, except OaySpecialty (`name`).
 - `Request` (all contract columns plus `number_search`, filled automatically on insert/update from `number`),
   `RequestLeaver`, `RequestAction`, `RequestFinancials`, `RequestDocument`, `Task`, `NumberSequence`.
+  Phase 2 columns: `Request.returned_at` (set while returned), `Request.withdrawal_warned`; `Task.phase` and
+  `RequestAction.phase` (`inputs` | `decision`, step 3 only; None elsewhere). Rows are stored from the engine result, never derived.
+  Leavers and financials carry a `round`; the current ones are those with `round == Request.round`.
   Relationships on Request: directorate, facility, cost_centre, position, oay_specialty, creator, leavers, actions, tasks.
 - `AuditLog`: append-only (update or delete raises). Constants: `ROLES`, `CENTRAL_ROLES`, `DIRECTORATE_ROLES`, `PERMISSIONS`,
   `CATEGORIES`, `REASONS`, `DEPARTURE_REASONS`, `REQUEST_STATUSES`.
@@ -26,7 +29,8 @@ Import models from `ehr.models` (access, master, request, audit). Tables follow 
 - `from ehr.services.numbering import next_number`: `next_number(db.session, year)`; call inside the submit transaction.
 - Templates: `t(key, **p)`, `lang`, `lang_url(code)`, `csrf_token()`, `current_user()`, `can(permission_key)`.
   Every POST form needs `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">` (or header `X-CSRF-Token`).
-- Flash: `flash("string.key", "success"|"danger")`; base.html shows flashes through `t()`. Do not render them again.
+- Flash: `flash("string.key", "success"|"danger")`, or with parameters `flash_key("string.key", "success", n=3)` from
+  `ehr.services.request_flash` (stores key + params; base.html translates at render time in the viewer's language).
 - `GET /` redirects to `/requests` when `ehr/blueprints/requests.py` exists and exports `bp`; otherwise shows home.html.
 - CLI: `flask init-db`, `flask seed-demo` (idempotent). Data: `ehr/seed_data.json`.
 
@@ -41,4 +45,7 @@ Directorates: `nic` Nicosia, `lim` Limassol-Paphos, `phc` Primary Health Care. U
 Central: `central.finmgmt`, `central.hr`, `central.medical`, `central.nursing`, `central.ceo`, `central.deputy`
 (substitute of all central holders). Also `demo.viewer` and `demo.admin` (admin, English).
 Line managers: Directorate users report to `<d>.exec`; `<d>.exec` and central users report to `central.ceo`.
-Directorates `lar`, `mh`, `amb` exist with facilities but have no users.
+`lar` (Larnaca – Famagusta) has `lar.accountant`, `lar.hr`, `lar.exec`, `lar.deputy` and `lar.sci`, who holds both `requester` and
+`sci_director` (substitute `lar.deputy`, line manager `lar.exec`) to show the conflict-of-interest redirect.
+Directorates `mh`, `amb` exist with facilities but have no users. Only requesters and Directorate roles hold `request.create`.
+`flask seed-cases` adds invented sample requests by driving the engine (idempotent). `flask run-timers` runs reminders and withdrawals.

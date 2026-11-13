@@ -33,12 +33,12 @@ Inactive list rows stay selectable on old requests and are hidden on new ones.
 
 | Table | Columns |
 |---|---|
-| `request` | id, number (unique, null while draft), status, current_step, step3_phase, returned_from_step, round, directorate_id, facility_id, cost_centre_id, category, position_id, positions_count, reason, oay_specialty_id (nullable), need_text, alternatives_text, absence_flag, absence_text, new_need_origin, new_need_cover_so_far, new_need_plan, external_funding_flag, external_funding_text, route_snapshot_json, created_by → user, created_at, submitted_at, closed_at |
+| `request` | id, number (unique, null while draft), status, current_step, step3_phase, returned_from_step, round, directorate_id, facility_id, cost_centre_id, category, position_id, positions_count, reason, oay_specialty_id (nullable), need_text, alternatives_text, absence_flag, absence_text, new_need_origin, new_need_cover_so_far, new_need_plan, external_funding_flag, external_funding_text, route_snapshot_json, created_by → user, created_at, submitted_at, closed_at, returned_at (set while `returned`, else null), withdrawal_warned (default false; reset on each return) |
 | `request_leaver` | id, request_id, round, name, leave_date, employment [`okypy_contract`, `civil_servant`], annual_employer_cost (filled at step 4) |
-| `request_action` | id, request_id, round, step, role, actor_user_id, on_behalf_of_user_id, redirect_reason, action, payload_json, comment, supersedes_action_id → request_action, is_superseded, created_at |
+| `request_action` | id, request_id, round, step, phase (`inputs` \| `decision`, step 3 only, else null), role, actor_user_id, on_behalf_of_user_id, redirect_reason, action, payload_json, comment, supersedes_action_id → request_action, is_superseded, created_at |
 | `request_financials` | id, request_id, round, period [`prev_year`, `ytd`], visits, procedures, revenue, payroll_cost, headcount, oay_specialty_id, oay_data_month, payroll_to_month, source [`manual`, `provider`], source_snapshot_json. Unique on (request_id, round, period) |
 | `request_document` | id, request_id, round, file_name, mime, size, storage_ref, sha256, uploaded_by, uploaded_at |
-| `task` | id, request_id, round, step, role, assignee_user_id (nullable = unassigned), on_behalf_of_user_id, redirect_reason, status, may_replace, opened_at, clock_started_at, reminded_at, escalated_at, closed_at |
+| `task` | id, request_id, round, step, phase (`inputs` \| `decision`, step 3 only, else null), role, assignee_user_id (nullable = unassigned), on_behalf_of_user_id, redirect_reason, status, may_replace, opened_at, clock_started_at, reminded_at, escalated_at, closed_at |
 | `number_sequence` | year (primary key), last_value. Updated under a row lock in the same transaction as the submit |
 
 `reason` values: `retirement`, `resignation`, `secondment_end`, `contract_end`, `new_need`, `other`. The first four are departures.

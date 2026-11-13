@@ -10,7 +10,7 @@
   min-width: 0;
   padding: .25rem 0 .25rem .75rem;
   border-left: 4px solid var(--ehr-tr-color);
-  overflow-wrap: break-word; word-break: normal; hyphens: auto;
+  overflow-wrap: break-word; word-break: normal; hyphens: manual;
 }
 .ehr-tracker__head { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
 .ehr-tracker__marker { color: var(--ehr-tr-color); font-size: 1.25rem; line-height: 1; flex: none; }

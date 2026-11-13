@@ -8,6 +8,7 @@ from ehr.models import (CATEGORIES, CostCentre, Directorate, Facility, OaySpecia
                         RequestLeaver, RoleAssignment, UserDirectorate)
 from ehr.workflow.route import DEPARTURE_REASONS
 from .request_dates import format_date, parse_date
+from .request_engine import current_leavers
 
 SPECIALTY_CATEGORIES = ("medical", "allied")
 EMPLOYMENTS = ("okypy_contract", "civil_servant")
@@ -76,7 +77,7 @@ def raw_from_request(req):
         value = getattr(req, name)
         raw[name] = "" if value is None else ("yes" if value else "no")
     raw["leavers"] = [{"name": l.name, "leave_date": format_date(l.leave_date),
-                       "employment": l.employment or ""} for l in req.leavers]
+                       "employment": l.employment or ""} for l in current_leavers(req)]
     return raw
 
 
@@ -215,8 +216,25 @@ def validate(raw, lookups, submit):
     return errors
 
 
-def store(req, raw):
-    """Copy applicable fields onto the request and replace its leavers. Inapplicable fields are cleared."""
+def clear_inapplicable(raw):
+    """A copy of the typed values with everything that does not apply emptied, ids and counts as plain numbers."""
+    names = applicable(raw)
+    out = dict(raw)
+    for name in ALL_FIELDS:
+        value = raw.get(name) if name in names else ""
+        if value and (name in ID_FIELDS or name == "positions_count"):
+            number = _int(value)
+            value = str(number) if number is not None else value
+        out[name] = value or ""
+    out["leavers"] = [dict(r) for r in raw["leavers"]] if "leavers" in names else []
+    return out
+
+
+def store(req, raw, round_=None, keep_history=False):
+    """Copy applicable fields onto the request and write its leavers. Inapplicable fields are cleared.
+
+    Drafts replace their leavers. After a return (`keep_history`) earlier rounds stay in the table and the
+    current leavers are written with `round_`."""
     names = applicable(raw)
     for name in ID_FIELDS + ("category", "reason", "positions_count"):
         value = raw.get(name) if name in names else ""
@@ -227,9 +245,10 @@ def store(req, raw):
         setattr(req, name, raw[name] if name in names and raw[name] else None)
     for name in FLAG_FIELDS:
         setattr(req, name, None if name not in names or not raw[name] else raw[name] == "yes")
-    for leaver in list(req.leavers):
-        db.session.delete(leaver)
-    req.leavers = []
+    if not keep_history:
+        for leaver in list(req.leavers):
+            db.session.delete(leaver)
+        req.leavers = []
     if "leavers" in names:
         for row in raw["leavers"]:
             when = None
@@ -239,7 +258,7 @@ def store(req, raw):
                 except ValueError:
                     when = None
             req.leavers.append(RequestLeaver(name=row["name"], leave_date=when,
-                                             employment=row["employment"] or None, round=req.round or 1))
+                                             employment=row["employment"] or None, round=round_ or req.round or 1))
 
 
 def drop_blank_leavers(raw):

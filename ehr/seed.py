@@ -96,3 +96,13 @@ def register_cli(app):
         db.create_all()
         seed_demo()
         click.echo("Demo data loaded. Demo password for every user: %s" % load_data()["demo_password"])
+
+    @app.cli.command("seed-cases")
+    def seed_cases_cmd():
+        """Create invented sample requests through the engine (idempotent). Run seed-demo first."""
+        from datetime import datetime, timezone
+
+        from .services.request_seed_cases import seed_cases
+
+        created = seed_cases(datetime.now(timezone.utc))
+        click.echo("Sample requests created: %s" % (", ".join(created) if created else "none (already there)"))

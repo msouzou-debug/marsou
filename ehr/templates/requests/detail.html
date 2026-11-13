@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "components/tracker.html" import tracker with context %}
+{% from "components/tracker.html" import tracker, tracker_mini with context %}
 {% from "components/status_chip.html" import status_chip with context %}
 {% block title %}{{ req.number or t('status.draft') }} · {{ t('app.name') }}{% endblock %}
 {% macro row(label_key, value) %}
@@ -20,14 +20,50 @@
   {% if req.facility %}<p class="mb-0 text-secondary ehr-wrap">{{ req.facility.name(lang) }}</p>{% endif %}
 </header>
 
-<section class="mb-4" aria-labelledby="sec-tracker">
+{% if cards %}
+{# Phone with a task waiting: key lines and the mini route first, so the action card is near the top. #}
+<div class="d-md-none mb-3">
+  {{ tracker_mini(stops) }}
+  {% if not banner %}<div class="mt-2">{% include "requests/_status_line.html" %}</div>{% endif %}
+</div>
+{% endif %}
+<section class="mb-4{% if cards %} d-none d-md-block{% endif %}" aria-labelledby="sec-tracker">
   <h2 class="h5 mb-3" id="sec-tracker">{{ t('tracker.title') }}</h2>
   {{ tracker(stops, names) }}
-  <div class="mt-3">{% include "requests/_status_line.html" %}</div>
+  {% if not banner %}<div class="mt-3">{% include "requests/_status_line.html" %}</div>{% endif %}
   {% if req.status == 'draft' and req.created_by == current_user().id %}
   <a class="btn btn-outline-primary mt-2" href="{{ url_for('requests.edit', request_id=req.id) }}">{{ t('form.title.edit') }}</a>
   {% endif %}
 </section>
+
+{% if returned %}
+<section class="alert alert-warning mb-4" aria-labelledby="ehr-returned-title">
+  <h2 class="h6 mb-1" id="ehr-returned-title"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> {{ t('statusline.returned') }}</h2>
+  <p class="mb-1">{{ t('form.returned_by', who=(returned.who ~ ' (' ~ t('role.' ~ returned.role) ~ ')') if returned.who else t('role.' ~ returned.role), date=returned.when | ehr_datetime) }}</p>
+  {% if returned.comment %}<p class="mb-2 ehr-wrap ehr-prewrap">{{ returned.comment }}</p>{% endif %}
+  {% if is_requester %}<a class="btn btn-primary" href="{{ url_for('requests.edit', request_id=req.id) }}">{{ t('form.title.resubmit') }}</a>{% endif %}
+</section>
+{% elif banner %}
+<section class="ehr-banner ehr-banner--{{ banner.kind }} mb-4" role="status">
+  {% if banner.kind == 'rejected' %}
+  <p class="fw-bold mb-1"><i class="bi bi-x-circle-fill" aria-hidden="true"></i> {{ t('closed.rejected_at', n=banner.step, step=t('step.' ~ banner.step), who=(t('role.' ~ banner.role) ~ (' (' ~ banner.who ~ ')' if banner.who else ''))) }}</p>
+  {% if banner.comment %}<p class="mb-0 ehr-wrap ehr-prewrap">{{ banner.comment }}</p>{% endif %}
+  {% elif banner.kind == 'withdrawn' %}
+  <p class="fw-bold mb-1"><i class="bi bi-slash-circle" aria-hidden="true"></i> {{ t('closed.withdrawn_by_system') if banner.system else t('closed.withdrawn_by_requester') }}</p>
+  {% if banner.comment %}<p class="mb-0 ehr-wrap ehr-prewrap">{{ banner.comment }}</p>{% endif %}
+  {% else %}
+  <p class="fw-bold mb-0"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> {{ t('done.approve') }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% for card in cards %}{% include "components/action_card.html" %}{% endfor %}
+{% if cards %}
+<details class="d-md-none mb-4 ehr-route-details">
+  <summary class="py-2 fw-bold">{{ t('tracker.title') }}</summary>
+  {{ tracker(stops, names) }}
+</details>
+{% endif %}
 
 <section class="mb-4" aria-labelledby="sec-details">
   <h2 class="h5 mb-3" id="sec-details">{{ t('page.details') }}</h2>
@@ -62,18 +98,93 @@
   {% endif %}
 </section>
 
-{% if req.actions %}
+
+<section class="mb-4" aria-labelledby="sec-documents">
+  <h2 class="h5 mb-3" id="sec-documents">{{ t('docs.title') }}</h2>
+</section>
+
+{% if checks %}
+<section class="mb-4" aria-labelledby="sec-checks">
+  <h2 class="h5 mb-3" id="sec-checks">{{ t('page.checks') }}</h2>
+  <ul class="list-unstyled ehr-checks mb-0">
+    {% for c in checks %}
+    <li class="ehr-checks__item">
+      <div class="d-flex flex-wrap align-items-baseline gap-2">
+        <span class="fw-bold">{{ t('role.' ~ c.role) }}</span>
+        <span class="small text-secondary">{{ t('step.' ~ c.step) }}</span>
+      </div>
+      <div class="ehr-checks__outcome">
+        <i class="bi {{ 'bi-x-lg' if c.state == 'negative' else 'bi-check-lg' }}" aria-hidden="true"></i>
+        {% if is_requester %}
+          <span>{{ t('tracker.state.negative') if c.state == 'negative' else t('tracker.state.done') }}</span>
+        {% elif c.facts %}
+          {% for f in c.facts %}<span class="ehr-checks__fact">{% set _l = t(f.label, **f.params) %}{{ _l }}{{ '' if _l[-1:] in (';', '?') else ':' }} <strong class="ehr-wrap">{{ t(f.value) if f.is_key else f.value }}</strong></span>{% endfor %}
+        {% else %}
+          <span>{{ t('history.' ~ c.action) }}</span>
+        {% endif %}
+        {% if c.replaced %}<span class="badge text-bg-light border">{{ t('tracker.replaced') }}</span>{% endif %}
+      </div>
+      <div class="small text-secondary">{% if c.actor %}{{ c.actor }}{% if c.behalf %} ({{ t('tracker.acting_for', who=c.actor, holder=c.behalf) }}){% endif %} · {% endif %}<span class="ehr-num">{{ c.when | ehr_datetime }}</span></div>
+      {% if c.comment %}<div class="ehr-wrap ehr-prewrap">{{ c.comment }}</div>{% endif %}
+      {% if c.financials %}{% set fin = c.financials %}
+      <div class="ehr-fin-view mt-2">
+        <h3 class="h6 mb-1">{{ t('card.fin.title') }}</h3>
+        <div class="row g-2">
+          {% for period in ('prev_year', 'ytd') if fin.periods.get(period) %}
+          {% set v = fin.periods[period] %}
+          <div class="col-12 col-md-6">
+            <div class="border rounded p-2 ehr-fin-view__period">
+            <h4 class="h6 mb-1">{{ t('card.fin.' ~ period) }}</h4>
+            <dl class="mb-0">
+              {% for line, label in (('visits', 'card.fin.visits'), ('procedures', 'card.fin.procedures'), ('revenue', 'card.fin.revenue'), ('payroll_cost', 'card.fin.payroll'), ('headcount', 'card.fin.headcount'), ('ratio', 'card.fin.ratio')) %}
+              <div class="d-flex justify-content-between gap-2"><dt class="fw-normal text-secondary">{{ t(label) }}</dt><dd class="mb-0 ehr-num text-end">{{ v[line] or '–' }}</dd></div>
+              {% endfor %}
+            </dl>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="small text-secondary mt-1 mb-0">{% if fin.oay_data_month %}{{ t('card.fin.data_to', month=fin.oay_data_month) }}{% endif %}{% if fin.oay_data_month and fin.payroll_to_month %} · {% endif %}{% if fin.payroll_to_month %}{{ t('card.fin.payroll_period', month=fin.payroll_to_month) }}{% endif %}</p>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if history %}
 <section class="mb-4" aria-labelledby="sec-history">
   <h2 class="h5 mb-3" id="sec-history">{{ t('page.history') }}</h2>
   <ol class="list-unstyled ehr-history mb-0">
-    {% for a in req.actions %}
-    <li class="ehr-history__item">
-      <div class="fw-bold">{{ t('history.' ~ a.action) }}{% if a.is_superseded %} <span class="fw-normal text-secondary">· {{ t('history.superseded') }}</span>{% endif %}</div>
-      <div class="small text-secondary">{{ t('role.' ~ a.role) if a.role else '' }}{% if names.get(a.actor_user_id) %} · {{ names[a.actor_user_id] }}{% endif %} · <span class="ehr-num">{{ a.created_at | ehr_datetime }}</span></div>
+    {% for a in history %}
+    <li class="ehr-history__item{{ ' ehr-history__item--superseded' if a.superseded }}">
+      <div class="fw-bold">{% if a.action == 'withdraw' and a.system %}{{ t('history.withdraw_system', n=timeout_days) }}{% else %}{{ t('history.' ~ a.action) }}{% endif %}{% if a.superseded %} <span class="fw-normal text-secondary">· {{ t('history.superseded') }}</span>{% endif %}</div>
+      <div class="small text-secondary">{{ t('role.' ~ a.role) if a.role and not a.system else '' }}{% if a.actor %}{{ ' · ' if a.role and not a.system }}{{ a.actor }}{% if a.behalf %} ({{ t('tracker.acting_for', who=a.actor, holder=a.behalf) }}){% endif %}{% endif %} · <span class="ehr-num">{{ a.when | ehr_datetime }}</span>{% if req.round > 1 %} · {{ t('page.round', n=a.round) }}{% endif %}</div>
       {% if a.comment %}<div class="ehr-wrap ehr-prewrap">{{ a.comment }}</div>{% endif %}
     </li>
     {% endfor %}
   </ol>
 </section>
 {% endif %}
+
+{% if can_withdraw %}
+<section class="ehr-card__lesser mb-4 pt-3 border-top" aria-label="{{ t('action.withdraw') }}">
+  <details class="ehr-lesser"{% if withdraw.withdraw_open %} open{% endif %}>
+    <summary class="btn btn-outline-secondary ehr-lesser__summary"><i class="bi bi-slash-circle" aria-hidden="true"></i> {{ t('action.withdraw') }}</summary>
+    <form method="post" action="{{ url_for('requests.withdraw', request_id=req.id) }}" class="mt-3 ehr-card__form" novalidate data-ehr-card-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if withdraw.withdraw_open and withdraw.codes %}<div class="alert alert-danger" role="alert">{% for code in withdraw.codes %}{{ t(code) }}{% endfor %}</div>{% endif %}
+      <p class="fw-bold">{{ t('card.withdraw.confirm') }}</p>
+      <div class="mb-3">
+        <label class="form-label" for="withdraw-comment">{{ t('card.comment_required') }}</label>
+        <textarea class="form-control" id="withdraw-comment" name="comment" rows="3" data-ehr-comment>{{ withdraw.typed.get('comment', '') if withdraw.withdraw_open else '' }}</textarea>
+        <div class="invalid-feedback" data-ehr-comment-error hidden>{{ t('error.comment_required') }}</div>
+      </div>
+      <button class="btn btn-outline-secondary" type="submit" data-ehr-needs-comment>{{ t('action.withdraw') }}</button>
+    </form>
+  </details>
+</section>
+{% endif %}
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/cards.js') }}" defer></script>{% endblock %}
