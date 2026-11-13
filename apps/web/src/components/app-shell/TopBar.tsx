@@ -1,11 +1,11 @@
 import { LogOut, Search, User } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { Me, OrgUnit } from "@ecapital/shared";
 import { selectUnit, signOut } from "@/auth/actions";
 import { HelpButton } from "./HelpButton";
 import { LanguageToggle } from "./LanguageToggle";
+import { EcapitalMark } from "./EcapitalMark";
 import { UnitSwitcher } from "./UnitSwitcher";
 
 export interface TopBarProps {
@@ -29,7 +29,7 @@ export async function TopBar({ orgUnits, defaultOrgUnitId, me, onHelp }: TopBarP
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-s-2 border-b border-k-grey bg-k-white px-s-4 tablet:gap-s-4 tablet:px-s-6">
       <Link href="/" className="flex shrink-0 items-center gap-s-2" aria-label={t("shell.logoHome")}>
-        <Image src="/brand/okypy_icon.png" alt="" width={28} height={28} className="h-7 w-7" priority />
+        <EcapitalMark size={28} />
         <span className="hidden text-fs-16 font-bold text-k-blue-deep tablet:inline">eCapital</span>
       </Link>
 

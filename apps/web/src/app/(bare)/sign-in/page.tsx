@@ -1,6 +1,6 @@
 // S00 — R01, R43
 
-import Image from "next/image";
+import { EcapitalMark } from "@/components/app-shell/EcapitalMark";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "@/auth/session";
@@ -24,14 +24,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   return (
     <main className="flex flex-1 items-center justify-center p-s-4">
       <div className="w-full max-w-[400px] rounded-k bg-k-white p-s-8 shadow-k">
-        <Image
-          src="/brand/okypy_icon.png"
-          alt=""
-          width={56}
-          height={59}
-          priority
-          className="h-14 w-auto"
-        />
+        <EcapitalMark size={56} />
         {/* RULE (UI instructions §3): the product name is Latin in both
             languages — «eCapital», never transliterated. */}
         <h1 className="mt-s-4 text-fs-24 font-bold text-k-blue-deep">eCapital</h1>

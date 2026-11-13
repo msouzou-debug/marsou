@@ -45,5 +45,5 @@ export const config = {
   // Everything but the build output, the brand assets and the favicon. A
   // matcher that caught those would send the sign-in page's own stylesheet
   // through the gate and leave it unstyled.
-  matcher: ["/((?!_next/static|_next/image|brand|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|brand|favicon.ico|icon.svg).*)"],
 };
