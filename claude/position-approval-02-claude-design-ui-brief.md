@@ -87,7 +87,7 @@ Beside the tracker, one status line: who it waits on, for how many days, and whe
 Design each at 1280 px and at 390 px. Greek for all, English for screens 1, 2, 3 and 7.
 
 1. **Αιτήματα θέσεων (list).** Tabs: «Περιμένουν εμένα», «Τα αιτήματά μου», «Όλα». Row: number, position and count, facility and cost centre, mini tracker, status line, status chip. Search by number. Approvers also see the «Είμαι εκτός γραφείου» control with their substitute's name. Empty states for each tab.
-2. **Νέο αίτημα.** One screen, fields in the order of the build brief, section 9. Fields that do not apply are absent, not disabled. Leavers are a repeatable group: «Προσθήκη αποχωρήσαντος» up to the number of posts. Route preview at the side on desktop, under the form on a phone. Documents: add several, see the list, remove before submitting. «Αποθήκευση πρόχειρου» and «Υποβολή». Validation states. Confirmation with the new number.
+2. **Νέο αίτημα.** One screen, fields in the order of the build brief, section 9. Fields that do not apply are absent, not disabled. Leavers are a repeatable group: «Προσθήκη ατόμου που αποχώρησε» up to the number of posts. Route preview at the side on desktop, under the form on a phone. Documents: add several, see the list, remove before submitting. «Αποθήκευση ως πρόχειρο» and «Υποβολή». Validation states. Confirmation with the new number.
 3. **Αίτημα (request page).** Number and status first. Tracker and status line. Then, for a person with a task, the action card before anything else. Then request details, supporting documents grouped by round, checks and opinions so far, history. The requester also sees «Απόσυρση αιτήματος» here, as a lesser action.
 4. **Action cards.** One per role, all sharing one frame:
    - Λογιστής Διεύθυνσης: two questions, and for medical and allied health posts the financial table. Three lines arrive filled from ΟΑΥ data and are read-only, with the specialty selector and the month the data runs to. Two lines are typed; the current-year payroll field states the months it must cover («Ιανουάριος έως Σεπτέμβριος»). One calculated ratio, with a one-line note that recent ΟΑΥ months may still change.
@@ -130,8 +130,8 @@ Use these terms. Greek comes from the approved glossary and the prototype. Terms
 | Κέντρο κόστους · Ειδικότητα ΟΑΥ | Cost centre · HIO specialty |
 | Επανυποβολή | Resubmit |
 | Απόσυρση αιτήματος* | Withdraw request |
-| Αποθήκευση πρόχειρου* | Save draft |
-| Προσθήκη αποχωρήσαντος* | Add leaver |
+| Αποθήκευση ως πρόχειρο* | Save draft |
+| Προσθήκη ατόμου που αποχώρησε* | Add leaver |
 | Διατήρηση της απάντησής μου* | Keep my answer |
 | Σε αναμονή (όσο το αίτημα είναι στον αιτητή)* | On hold (while the request is with the requester) |
 
