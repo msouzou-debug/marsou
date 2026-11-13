@@ -163,3 +163,4 @@ English role names and "SHSO" for ΟΚΥπΥ are my translations. Confirm them w
 | `settings.col.code`, `settings.col.name_el`, `settings.col.name_en`, `settings.col.state`, `settings.active`, `settings.inactive` | Code · Name (Greek) · Name (English) · State · Active · Inactive |
 | `settings.add`, `settings.save`, `settings.deactivate`, `settings.activate`, `settings.saved` | Add · Save · Deactivate · Activate · Saved. |
 | `settings.has_sci_director` | Has a Scientific Director |
+| `settings.duplicate_code` | This code is already used. |

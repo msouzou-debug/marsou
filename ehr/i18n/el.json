@@ -183,6 +183,7 @@
   "settings.col.name_en": "Όνομα (αγγλικά)",
   "settings.col.state": "Κατάσταση",
   "settings.deactivate": "Απενεργοποίηση",
+  "settings.duplicate_code": "Αυτός ο κωδικός χρησιμοποιείται ήδη.",
   "settings.has_sci_director": "Έχει Επιστημονικό Διευθυντή",
   "settings.inactive": "Ανενεργό",
   "settings.list.cost_centre": "Κέντρα κόστους",

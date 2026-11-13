@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.list.' ~ kind) }} · {{ t('app.name') }}{% endblock %}
+{% macro field(f, row, creating) %}
+  {% set name, widget, editable, required = f %}
+  {% set locked = (not creating) and (not editable) %}
+  <div class="{{ 'col-12 col-md' if widget != 'check' else 'col-12 col-md-auto' }}">
+    <label class="form-label small mb-1">{{ t(labels[name]) }}</label>
+    {% if widget == 'check' %}
+      <div class="form-check form-switch" style="min-height:44px">
+        <input class="form-check-input" type="checkbox" name="{{ name }}" value="1" {{ 'checked' if row and row[name] }}>
+      </div>
+    {% elif locked %}
+      <div class="form-control-plaintext" style="min-height:44px">
+        {% if widget == 'directorate' %}{{ directorates | selectattr('id', 'equalto', row[name]) | map(attribute='name_' ~ lang) | first }}
+        {% elif widget == 'category' %}{{ t('category.' ~ row[name]) }}
+        {% else %}{{ row[name] }}{% endif %}
+      </div>
+    {% elif widget == 'directorate' %}
+      <select class="form-select" name="{{ name }}" required style="min-height:44px">
+        {% for d in directorates %}<option value="{{ d.id }}">{{ d['name_' ~ lang] }}</option>{% endfor %}
+      </select>
+    {% elif widget == 'category' %}
+      <select class="form-select" name="{{ name }}" required style="min-height:44px">
+        {% for c in categories %}<option value="{{ c }}">{{ t('category.' ~ c) }}</option>{% endfor %}
+      </select>
+    {% else %}
+      <input class="form-control" style="min-height:44px" name="{{ name }}" value="{{ row[name] if row else '' }}" {{ 'required' if required }}>
+    {% endif %}
+  </div>
+{% endmacro %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.list.' ~ kind) }}</h1>
+<p><a href="{{ url_for('settings.index') }}">{{ t('settings.title') }}</a></p>
+
+<form method="post" action="{{ url_for('settings.add', kind=kind) }}" class="border rounded p-3 mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-2 align-items-end">
+    {% for f in fields %}{{ field(f, none, true) }}{% endfor %}
+    <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
+  </div>
+</form>
+
+{% for row in rows %}
+<form method="post" action="{{ url_for('settings.edit', kind=kind, row_id=row.id) }}" class="border-bottom py-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-2 align-items-end">
+    {% for f in fields %}{{ field(f, row, false) }}{% endfor %}
+    <div class="col-12 col-md-auto d-flex flex-wrap gap-2 align-items-center">
+      <span class="badge {{ 'text-bg-success' if row.is_active else 'text-bg-secondary' }}">{{ t('settings.active') if row.is_active else t('settings.inactive') }}</span>
+      <button class="btn btn-outline-primary" style="min-height:44px" type="submit">{{ t('settings.save') }}</button>
+      <button class="btn btn-outline-secondary" style="min-height:44px" type="submit" formaction="{{ url_for('settings.toggle', kind=kind, row_id=row.id) }}">{{ t('settings.deactivate') if row.is_active else t('settings.activate') }}</button>
+    </div>
+  </div>
+</form>
+{% endfor %}
+{% endblock %}

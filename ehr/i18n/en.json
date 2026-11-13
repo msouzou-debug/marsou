@@ -183,6 +183,7 @@
   "settings.col.name_en": "Name (English)",
   "settings.col.state": "State",
   "settings.deactivate": "Deactivate",
+  "settings.duplicate_code": "This code is already used.",
   "settings.has_sci_director": "Has a Scientific Director",
   "settings.inactive": "Inactive",
   "settings.list.cost_centre": "Cost centres",

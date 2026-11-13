@@ -10,10 +10,10 @@ def test_health(client):
 
 
 def test_home_is_greek_by_default_and_switches_to_english(client):
-    assert "Έγκριση Θέσεων" in client.get("/").get_data(as_text=True)
-    assert "Position Approval" in client.get("/?lang=en").get_data(as_text=True)
+    assert "Έγκριση Θέσεων" in client.get("/login").get_data(as_text=True)
+    assert "Position Approval" in client.get("/login?lang=en").get_data(as_text=True)
     # the choice is remembered
-    assert "Position Approval" in client.get("/").get_data(as_text=True)
+    assert "Position Approval" in client.get("/login").get_data(as_text=True)
 
 
 def test_el_and_en_have_the_same_keys():

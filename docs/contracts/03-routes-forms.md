@@ -42,7 +42,7 @@ Language: `?lang=el|en` on any page sets it, stores it on the user and returns t
 | Holder or substitute of a central role, `viewer`, `admin` | All |
 | Anyone with a task on it (including by redirection) | That request |
 
-Anything else answers 404, not 403, so numbers can't be probed. Open point for the owner: whether the requester sees each approver's comment or only each step's outcome. Until decided, the requester sees outcomes and the comment on a return, rejection or withdrawal.
+Anything else answers 404, not 403, so numbers can't be probed. A missing permission on any page answers 404 as well. Open point for the owner: whether the requester sees each approver's comment or only each step's outcome. Until decided, the requester sees outcomes and the comment on a return, rejection or withdrawal.
 
 ## 3. Request form fields
 

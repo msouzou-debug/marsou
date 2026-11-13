@@ -11,8 +11,11 @@ class Config:
     SESSION_COOKIE_NAME = "ehr_session"  # must differ from eFinance on the same host
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_ENABLED = True  # honoured as False only when TESTING is also true
+    PASSWORD_MIN_LENGTH = 8
 
 
 class TestConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    CSRF_ENABLED = False

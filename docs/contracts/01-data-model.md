@@ -10,7 +10,7 @@ Conventions: integer primary key `id` unless noted; timestamps in UTC as `DateTi
 |---|---|
 | `user` | id, username (unique), full_name, email, password_hash (nullable when AD only), auth_source [`local`, `ad`], must_change_password, language [`el`, `en`], line_manager_user_id → user (nullable), is_active, out_of_office, out_of_office_from, out_of_office_to, created_at |
 | `role_permission` | role, permission_key. Primary key on both |
-| `role_assignment` | id, user_id → user, role, directorate_id → directorate (null for central roles, `viewer` and `admin`), substitute_user_id → user (nullable), active_from, active_to. Unique on (role, directorate_id) among active rows |
+| `role_assignment` | id, user_id → user, role, directorate_id → directorate (null for central roles, `viewer` and `admin`), substitute_user_id → user (nullable), active_from, active_to. One active holder per (role, directorate_id), except `requester`, which many people hold |
 | `user_directorate` | user_id, directorate_id. Which Directorates' requests a user may see (the eFinance "ticked entities" pattern) |
 
 Permission keys for this module: `request.create`, `request.view_own`, `request.view_directorate`, `request.view_all`, `request.act`, `audit.view`, `settings.manage`.
@@ -51,7 +51,7 @@ Revenue per €1 of payroll is not stored. It is `revenue / payroll_cost`, calcu
 |---|---|
 | `audit_log` | id, at, user_id (null = system), event, request_id (nullable), object_type, object_id, detail_json, ip |
 
-Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `login`, `login_failed`, `out_of_office_changed`.
+Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `out_of_office_changed`.
 
 ## ΟΑΥ data, only if eHR loads it (`models/oay.py`, Phase 5)
 

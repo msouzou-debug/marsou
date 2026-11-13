@@ -1,0 +1,882 @@
+{
+ "settings": {
+  "reminder_days": "2",
+  "escalation_days": "5",
+  "returned_timeout_days": "30",
+  "max_file_mb": "20",
+  "number_prefix": "ΑΕΘ",
+  "mail_backend": "none"
+ },
+ "directorates": [
+  {
+   "code": "NIC",
+   "name_el": "Λευκωσίας",
+   "name_en": "Nicosia",
+   "has_sci_director": true
+  },
+  {
+   "code": "LIM",
+   "name_el": "Λεμεσού – Πάφου",
+   "name_en": "Limassol – Paphos",
+   "has_sci_director": true
+  },
+  {
+   "code": "LAR",
+   "name_el": "Λάρνακας – Αμμοχώστου",
+   "name_en": "Larnaca – Famagusta",
+   "has_sci_director": true
+  },
+  {
+   "code": "PHC",
+   "name_el": "Πρωτοβάθμιας Φροντίδας Υγείας",
+   "name_en": "Primary Health Care",
+   "has_sci_director": false
+  },
+  {
+   "code": "MH",
+   "name_el": "Ψυχικής Υγείας",
+   "name_en": "Mental Health",
+   "has_sci_director": false
+  },
+  {
+   "code": "AMB",
+   "name_el": "Υπηρεσίας Ασθενοφόρων",
+   "name_en": "Ambulance Service",
+   "has_sci_director": false
+  }
+ ],
+ "facilities": [
+  {
+   "directorate": "NIC",
+   "code": "NIC-H1",
+   "name_el": "Νοσοκομείο Δείγμα Λευκωσίας",
+   "name_en": "Sample Hospital Nicosia"
+  },
+  {
+   "directorate": "NIC",
+   "code": "NIC-H2",
+   "name_el": "Κέντρο Υγείας Δείγμα Στροβόλου",
+   "name_en": "Sample Health Centre Strovolos"
+  },
+  {
+   "directorate": "NIC",
+   "code": "NIC-C1",
+   "name_el": "Κέντρο Αποκατάστασης Δείγμα",
+   "name_en": "Sample Rehabilitation Centre"
+  },
+  {
+   "directorate": "LIM",
+   "code": "LIM-H1",
+   "name_el": "Νοσοκομείο Δείγμα Λεμεσού",
+   "name_en": "Sample Hospital Limassol"
+  },
+  {
+   "directorate": "LIM",
+   "code": "PAF-H1",
+   "name_el": "Νοσοκομείο Δείγμα Πάφου",
+   "name_en": "Sample Hospital Paphos"
+  },
+  {
+   "directorate": "LIM",
+   "code": "LIM-C1",
+   "name_el": "Κέντρο Υγείας Δείγμα Λεμεσού",
+   "name_en": "Sample Health Centre Limassol"
+  },
+  {
+   "directorate": "LAR",
+   "code": "LAR-H1",
+   "name_el": "Νοσοκομείο Δείγμα Λάρνακας",
+   "name_en": "Sample Hospital Larnaca"
+  },
+  {
+   "directorate": "LAR",
+   "code": "FAM-H1",
+   "name_el": "Νοσοκομείο Δείγμα Αμμοχώστου",
+   "name_en": "Sample Hospital Famagusta"
+  },
+  {
+   "directorate": "PHC",
+   "code": "PHC-C1",
+   "name_el": "Κέντρο Υγείας Δείγμα Α",
+   "name_en": "Sample Health Centre A"
+  },
+  {
+   "directorate": "PHC",
+   "code": "PHC-C2",
+   "name_el": "Κέντρο Υγείας Δείγμα Β",
+   "name_en": "Sample Health Centre B"
+  },
+  {
+   "directorate": "MH",
+   "code": "MH-H1",
+   "name_el": "Κλινική Ψυχικής Υγείας Δείγμα",
+   "name_en": "Sample Mental Health Clinic"
+  },
+  {
+   "directorate": "MH",
+   "code": "MH-C1",
+   "name_el": "Κέντρο Ψυχικής Υγείας Δείγμα",
+   "name_en": "Sample Mental Health Centre"
+  },
+  {
+   "directorate": "AMB",
+   "code": "AMB-S1",
+   "name_el": "Σταθμός Ασθενοφόρων Δείγμα Α",
+   "name_en": "Sample Ambulance Station A"
+  },
+  {
+   "directorate": "AMB",
+   "code": "AMB-S2",
+   "name_el": "Σταθμός Ασθενοφόρων Δείγμα Β",
+   "name_en": "Sample Ambulance Station B"
+  }
+ ],
+ "positions": [
+  {
+   "category": "medical",
+   "title_el": "Ιατρός Παθολόγος",
+   "title_en": "Consultant Physician"
+  },
+  {
+   "category": "medical",
+   "title_el": "Ιατρός Χειρουργός",
+   "title_en": "Consultant Surgeon"
+  },
+  {
+   "category": "medical",
+   "title_el": "Ιατρός Αναισθησιολόγος",
+   "title_en": "Consultant Anaesthetist"
+  },
+  {
+   "category": "nursing",
+   "title_el": "Νοσηλευτής/τρια",
+   "title_en": "Staff Nurse"
+  },
+  {
+   "category": "nursing",
+   "title_el": "Ανώτερος/η Νοσηλευτής/τρια",
+   "title_en": "Senior Nurse"
+  },
+  {
+   "category": "nursing",
+   "title_el": "Μαία",
+   "title_en": "Midwife"
+  },
+  {
+   "category": "allied",
+   "title_el": "Φυσικοθεραπευτής/τρια",
+   "title_en": "Physiotherapist"
+  },
+  {
+   "category": "allied",
+   "title_el": "Ακτινοδιαγνώστης",
+   "title_en": "Radiographer"
+  },
+  {
+   "category": "allied",
+   "title_el": "Εργαστηριακός Λειτουργός",
+   "title_en": "Laboratory Scientist"
+  },
+  {
+   "category": "admin",
+   "title_el": "Γραμματέας",
+   "title_en": "Secretary"
+  },
+  {
+   "category": "admin",
+   "title_el": "Λειτουργός Διοίκησης",
+   "title_en": "Administrative Officer"
+  },
+  {
+   "category": "admin",
+   "title_el": "Λογιστικός Λειτουργός",
+   "title_en": "Accounting Officer"
+  },
+  {
+   "category": "other",
+   "title_el": "Βοηθός Νοσηλευτικής",
+   "title_en": "Nursing Assistant"
+  },
+  {
+   "category": "other",
+   "title_el": "Τεχνικός Συντήρησης",
+   "title_en": "Maintenance Technician"
+  },
+  {
+   "category": "other",
+   "title_el": "Οδηγός Ασθενοφόρου",
+   "title_en": "Ambulance Driver"
+  }
+ ],
+ "cost_centres": [
+  {
+   "code": "1001",
+   "name_el": "Παθολογική κλινική",
+   "name_en": "Medical ward"
+  },
+  {
+   "code": "1002",
+   "name_el": "Χειρουργική κλινική",
+   "name_en": "Surgical ward"
+  },
+  {
+   "code": "1003",
+   "name_el": "Τμήμα Επειγόντων Περιστατικών",
+   "name_en": "Accident and Emergency"
+  },
+  {
+   "code": "1004",
+   "name_el": "Μαιευτική κλινική",
+   "name_en": "Maternity ward"
+  },
+  {
+   "code": "1005",
+   "name_el": "Εξωτερικά ιατρεία",
+   "name_en": "Outpatient clinics"
+  },
+  {
+   "code": "1006",
+   "name_el": "Εργαστήρια",
+   "name_en": "Laboratories"
+  },
+  {
+   "code": "1007",
+   "name_el": "Ακτινολογικό τμήμα",
+   "name_en": "Radiology"
+  },
+  {
+   "code": "1008",
+   "name_el": "Φυσικοθεραπεία",
+   "name_en": "Physiotherapy"
+  },
+  {
+   "code": "1009",
+   "name_el": "Διοίκηση",
+   "name_en": "Administration"
+  },
+  {
+   "code": "1010",
+   "name_el": "Υπηρεσίες υποστήριξης",
+   "name_en": "Support services"
+  }
+ ],
+ "oay_specialties": [
+  "Internal Medicine",
+  "General Surgery",
+  "Anaesthesiology",
+  "Paediatrics",
+  "Obstetrics and Gynaecology",
+  "Cardiology",
+  "Orthopaedics",
+  "Psychiatry",
+  "Radiology",
+  "Physiotherapy"
+ ],
+ "public_holidays": [
+  {
+   "date": "2026-01-01",
+   "name_el": "Πρωτοχρονιά",
+   "name_en": "New Year's Day"
+  },
+  {
+   "date": "2026-01-06",
+   "name_el": "Θεοφάνεια",
+   "name_en": "Epiphany"
+  },
+  {
+   "date": "2026-02-23",
+   "name_el": "Καθαρά Δευτέρα",
+   "name_en": "Green Monday"
+  },
+  {
+   "date": "2026-03-25",
+   "name_el": "Εθνική Επέτειος 25ης Μαρτίου",
+   "name_en": "Greek Independence Day"
+  },
+  {
+   "date": "2026-04-01",
+   "name_el": "Εθνική Επέτειος 1ης Απριλίου",
+   "name_en": "Cyprus National Day"
+  },
+  {
+   "date": "2026-04-10",
+   "name_el": "Μεγάλη Παρασκευή",
+   "name_en": "Good Friday"
+  },
+  {
+   "date": "2026-04-12",
+   "name_el": "Κυριακή του Πάσχα",
+   "name_en": "Easter Sunday"
+  },
+  {
+   "date": "2026-04-13",
+   "name_el": "Δευτέρα του Πάσχα",
+   "name_en": "Easter Monday"
+  },
+  {
+   "date": "2026-04-14",
+   "name_el": "Τρίτη του Πάσχα",
+   "name_en": "Easter Tuesday"
+  },
+  {
+   "date": "2026-05-01",
+   "name_el": "Εργατική Πρωτομαγιά",
+   "name_en": "Labour Day"
+  },
+  {
+   "date": "2026-06-01",
+   "name_el": "Αγίου Πνεύματος",
+   "name_en": "Whit Monday"
+  },
+  {
+   "date": "2026-08-15",
+   "name_el": "Κοίμηση της Θεοτόκου",
+   "name_en": "Assumption Day"
+  },
+  {
+   "date": "2026-10-01",
+   "name_el": "Ημέρα Ανεξαρτησίας",
+   "name_en": "Independence Day"
+  },
+  {
+   "date": "2026-10-28",
+   "name_el": "Ημέρα του ΟΧΙ",
+   "name_en": "Ochi Day"
+  },
+  {
+   "date": "2026-12-25",
+   "name_el": "Χριστούγεννα",
+   "name_en": "Christmas Day"
+  },
+  {
+   "date": "2026-12-26",
+   "name_el": "Δεύτερη μέρα Χριστουγέννων",
+   "name_en": "Boxing Day"
+  },
+  {
+   "date": "2027-01-01",
+   "name_el": "Πρωτοχρονιά",
+   "name_en": "New Year's Day"
+  },
+  {
+   "date": "2027-01-06",
+   "name_el": "Θεοφάνεια",
+   "name_en": "Epiphany"
+  },
+  {
+   "date": "2027-03-15",
+   "name_el": "Καθαρά Δευτέρα",
+   "name_en": "Green Monday"
+  },
+  {
+   "date": "2027-03-25",
+   "name_el": "Εθνική Επέτειος 25ης Μαρτίου",
+   "name_en": "Greek Independence Day"
+  },
+  {
+   "date": "2027-04-01",
+   "name_el": "Εθνική Επέτειος 1ης Απριλίου",
+   "name_en": "Cyprus National Day"
+  },
+  {
+   "date": "2027-04-30",
+   "name_el": "Μεγάλη Παρασκευή",
+   "name_en": "Good Friday"
+  },
+  {
+   "date": "2027-05-01",
+   "name_el": "Εργατική Πρωτομαγιά",
+   "name_en": "Labour Day"
+  },
+  {
+   "date": "2027-05-02",
+   "name_el": "Κυριακή του Πάσχα",
+   "name_en": "Easter Sunday"
+  },
+  {
+   "date": "2027-05-03",
+   "name_el": "Δευτέρα του Πάσχα",
+   "name_en": "Easter Monday"
+  },
+  {
+   "date": "2027-05-04",
+   "name_el": "Τρίτη του Πάσχα",
+   "name_en": "Easter Tuesday"
+  },
+  {
+   "date": "2027-06-21",
+   "name_el": "Αγίου Πνεύματος",
+   "name_en": "Whit Monday"
+  },
+  {
+   "date": "2027-08-15",
+   "name_el": "Κοίμηση της Θεοτόκου",
+   "name_en": "Assumption Day"
+  },
+  {
+   "date": "2027-10-01",
+   "name_el": "Ημέρα Ανεξαρτησίας",
+   "name_en": "Independence Day"
+  },
+  {
+   "date": "2027-10-28",
+   "name_el": "Ημέρα του ΟΧΙ",
+   "name_en": "Ochi Day"
+  },
+  {
+   "date": "2027-12-25",
+   "name_el": "Χριστούγεννα",
+   "name_en": "Christmas Day"
+  },
+  {
+   "date": "2027-12-26",
+   "name_el": "Δεύτερη μέρα Χριστουγέννων",
+   "name_en": "Boxing Day"
+  }
+ ],
+ "role_permissions": {
+  "requester": [
+   "request.create",
+   "request.view_own"
+  ],
+  "dir_accountant": [
+   "request.create",
+   "request.view_own",
+   "request.view_directorate",
+   "request.act"
+  ],
+  "sci_director": [
+   "request.create",
+   "request.view_own",
+   "request.view_directorate",
+   "request.act"
+  ],
+  "dir_hr_officer": [
+   "request.create",
+   "request.view_own",
+   "request.view_directorate",
+   "request.act"
+  ],
+  "dir_exec": [
+   "request.create",
+   "request.view_own",
+   "request.view_directorate",
+   "request.act"
+  ],
+  "fin_mgmt_head": [
+   "request.create",
+   "request.view_own",
+   "request.view_all",
+   "request.act"
+  ],
+  "central_hr_officer": [
+   "request.create",
+   "request.view_own",
+   "request.view_all",
+   "request.act"
+  ],
+  "medical_director": [
+   "request.create",
+   "request.view_own",
+   "request.view_all",
+   "request.act"
+  ],
+  "nursing_director": [
+   "request.create",
+   "request.view_own",
+   "request.view_all",
+   "request.act"
+  ],
+  "ceo": [
+   "request.create",
+   "request.view_own",
+   "request.view_all",
+   "request.act"
+  ],
+  "viewer": [
+   "request.view_own",
+   "request.view_all"
+  ],
+  "admin": [
+   "request.view_own",
+   "request.view_all",
+   "audit.view",
+   "settings.manage"
+  ]
+ },
+ "users": [
+  {
+   "username": "nic.deputy",
+   "full_name": "Άρης (δείγμα) Αναπληρωτής",
+   "email": "nic.deputy@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "nic.requester",
+   "full_name": "Βασιλική (δείγμα) Αιτητής",
+   "email": "nic.requester@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "nic.accountant",
+   "full_name": "Γιάννης (δείγμα) Λογιστής",
+   "email": "nic.accountant@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "nic.sci",
+   "full_name": "Δήμητρα (δείγμα) Επιστημονικός Διευθυντής",
+   "email": "nic.sci@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "nic.hr",
+   "full_name": "Ευθύμιος (δείγμα) Λειτουργός ΑΔ",
+   "email": "nic.hr@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "nic.exec",
+   "full_name": "Ζωή (δείγμα) Εκτελεστικός Διευθυντής",
+   "email": "nic.exec@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lim.deputy",
+   "full_name": "Θεοδώρα (δείγμα) Αναπληρωτής",
+   "email": "lim.deputy@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lim.requester",
+   "full_name": "Ιάκωβος (δείγμα) Αιτητής",
+   "email": "lim.requester@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lim.accountant",
+   "full_name": "Κωνσταντίνα (δείγμα) Λογιστής",
+   "email": "lim.accountant@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lim.sci",
+   "full_name": "Λάμπρος (δείγμα) Επιστημονικός Διευθυντής",
+   "email": "lim.sci@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lim.hr",
+   "full_name": "Μαριλένα (δείγμα) Λειτουργός ΑΔ",
+   "email": "lim.hr@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "lim.exec",
+   "full_name": "Νικόλας (δείγμα) Εκτελεστικός Διευθυντής",
+   "email": "lim.exec@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "phc.deputy",
+   "full_name": "Ξένια (δείγμα) Αναπληρωτής",
+   "email": "phc.deputy@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "phc.requester",
+   "full_name": "Ορέστης (δείγμα) Αιτητής",
+   "email": "phc.requester@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "phc.accountant",
+   "full_name": "Πολυξένη (δείγμα) Λογιστής",
+   "email": "phc.accountant@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "phc.hr",
+   "full_name": "Ρένος (δείγμα) Λειτουργός ΑΔ",
+   "email": "phc.hr@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "phc.exec",
+   "full_name": "Στέλλα (δείγμα) Εκτελεστικός Διευθυντής",
+   "email": "phc.exec@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "central.deputy",
+   "full_name": "Τάσος (δείγμα) Αναπληρωτής",
+   "email": "central.deputy@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "central.finmgmt",
+   "full_name": "Υβόννη (δείγμα) Προϊστάμενος ΜΟΔ",
+   "email": "central.finmgmt@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "central.hr",
+   "full_name": "Φώτης (δείγμα) Λειτουργός ΑΔ Κεντρικής",
+   "email": "central.hr@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "central.medical",
+   "full_name": "Χρύσω (δείγμα) Ιατρικός Διευθυντής",
+   "email": "central.medical@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "central.nursing",
+   "full_name": "Ψυχή (δείγμα) Νοσηλευτικός Διευθυντής",
+   "email": "central.nursing@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "central.ceo",
+   "full_name": "Ωρίων (δείγμα) ΓΕΔ",
+   "email": "central.ceo@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "demo.viewer",
+   "full_name": "Αλκμήνη (δείγμα) Παρατηρητής",
+   "email": "demo.viewer@example.invalid",
+   "language": "el"
+  },
+  {
+   "username": "demo.admin",
+   "full_name": "Βάσος (δείγμα) Διαχειριστής",
+   "email": "demo.admin@example.invalid",
+   "language": "en"
+  }
+ ],
+ "role_assignments": [
+  {
+   "user": "nic.requester",
+   "role": "requester",
+   "directorate": "NIC",
+   "substitute": null
+  },
+  {
+   "user": "nic.accountant",
+   "role": "dir_accountant",
+   "directorate": "NIC",
+   "substitute": "nic.deputy"
+  },
+  {
+   "user": "nic.sci",
+   "role": "sci_director",
+   "directorate": "NIC",
+   "substitute": "nic.deputy"
+  },
+  {
+   "user": "nic.hr",
+   "role": "dir_hr_officer",
+   "directorate": "NIC",
+   "substitute": "nic.deputy"
+  },
+  {
+   "user": "nic.exec",
+   "role": "dir_exec",
+   "directorate": "NIC",
+   "substitute": "nic.deputy"
+  },
+  {
+   "user": "lim.requester",
+   "role": "requester",
+   "directorate": "LIM",
+   "substitute": null
+  },
+  {
+   "user": "lim.accountant",
+   "role": "dir_accountant",
+   "directorate": "LIM",
+   "substitute": "lim.deputy"
+  },
+  {
+   "user": "lim.sci",
+   "role": "sci_director",
+   "directorate": "LIM",
+   "substitute": "lim.deputy"
+  },
+  {
+   "user": "lim.hr",
+   "role": "dir_hr_officer",
+   "directorate": "LIM",
+   "substitute": "lim.deputy"
+  },
+  {
+   "user": "lim.exec",
+   "role": "dir_exec",
+   "directorate": "LIM",
+   "substitute": "lim.deputy"
+  },
+  {
+   "user": "phc.requester",
+   "role": "requester",
+   "directorate": "PHC",
+   "substitute": null
+  },
+  {
+   "user": "phc.accountant",
+   "role": "dir_accountant",
+   "directorate": "PHC",
+   "substitute": "phc.deputy"
+  },
+  {
+   "user": "phc.hr",
+   "role": "dir_hr_officer",
+   "directorate": "PHC",
+   "substitute": "phc.deputy"
+  },
+  {
+   "user": "phc.exec",
+   "role": "dir_exec",
+   "directorate": "PHC",
+   "substitute": "phc.deputy"
+  },
+  {
+   "user": "central.finmgmt",
+   "role": "fin_mgmt_head",
+   "directorate": null,
+   "substitute": "central.deputy"
+  },
+  {
+   "user": "central.hr",
+   "role": "central_hr_officer",
+   "directorate": null,
+   "substitute": "central.deputy"
+  },
+  {
+   "user": "central.medical",
+   "role": "medical_director",
+   "directorate": null,
+   "substitute": "central.deputy"
+  },
+  {
+   "user": "central.nursing",
+   "role": "nursing_director",
+   "directorate": null,
+   "substitute": "central.deputy"
+  },
+  {
+   "user": "central.ceo",
+   "role": "ceo",
+   "directorate": null,
+   "substitute": "central.deputy"
+  },
+  {
+   "user": "demo.viewer",
+   "role": "viewer",
+   "directorate": null,
+   "substitute": null
+  },
+  {
+   "user": "demo.admin",
+   "role": "admin",
+   "directorate": null,
+   "substitute": null
+  }
+ ],
+ "user_directorates": [
+  [
+   "nic.requester",
+   "NIC"
+  ],
+  [
+   "nic.accountant",
+   "NIC"
+  ],
+  [
+   "nic.sci",
+   "NIC"
+  ],
+  [
+   "nic.hr",
+   "NIC"
+  ],
+  [
+   "nic.exec",
+   "NIC"
+  ],
+  [
+   "nic.deputy",
+   "NIC"
+  ],
+  [
+   "lim.requester",
+   "LIM"
+  ],
+  [
+   "lim.accountant",
+   "LIM"
+  ],
+  [
+   "lim.sci",
+   "LIM"
+  ],
+  [
+   "lim.hr",
+   "LIM"
+  ],
+  [
+   "lim.exec",
+   "LIM"
+  ],
+  [
+   "lim.deputy",
+   "LIM"
+  ],
+  [
+   "phc.requester",
+   "PHC"
+  ],
+  [
+   "phc.accountant",
+   "PHC"
+  ],
+  [
+   "phc.hr",
+   "PHC"
+  ],
+  [
+   "phc.exec",
+   "PHC"
+  ],
+  [
+   "phc.deputy",
+   "PHC"
+  ]
+ ],
+ "line_managers": {
+  "nic.deputy": "nic.exec",
+  "nic.requester": "nic.exec",
+  "nic.accountant": "nic.exec",
+  "nic.sci": "nic.exec",
+  "nic.hr": "nic.exec",
+  "lim.deputy": "lim.exec",
+  "lim.requester": "lim.exec",
+  "lim.accountant": "lim.exec",
+  "lim.sci": "lim.exec",
+  "lim.hr": "lim.exec",
+  "phc.deputy": "phc.exec",
+  "phc.requester": "phc.exec",
+  "phc.accountant": "phc.exec",
+  "phc.hr": "phc.exec",
+  "central.finmgmt": "central.ceo",
+  "central.hr": "central.ceo",
+  "central.medical": "central.ceo",
+  "central.nursing": "central.ceo",
+  "central.deputy": "central.ceo",
+  "nic.exec": "central.ceo",
+  "lim.exec": "central.ceo",
+  "phc.exec": "central.ceo"
+ },
+ "demo_password": "demo-1234"
+}

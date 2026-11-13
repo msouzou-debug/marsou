@@ -156,3 +156,15 @@ These were needed to make the rules complete. The owner approved all five on 13/
 | O3 | Inputs can be replaced only after a resubmission and only in the step that was returned (T10) | "May replace their input before the step closes" |
 | O4 | Comment is required on a negative opinion, on «Ελλιπής» and on «Όχι» | Required only for reject and return |
 | O5 | Escalation tells the line manager but does not move the task (W4) | "Escalation to the line manager" |
+
+## 11. Clarifications added after the engine was built (13/11/2026)
+
+The exact API is in `ehr/workflow/README.md`; where it and section 3 differ in detail, the README is right.
+
+- `apply` also takes optional `holidays` and `settings`, needed to check the T12 timeout.
+- Extra task ops: `reassign` (C6), `allow_replace` and `clear_replace` (T9a, T10). `resume` restarts the task's clock and clears its reminder and escalation marks.
+- Extra error code: `invalid_payload`, for a value outside the allowed choices.
+- Automatic withdrawal sends `request_withdrawn` with a system comment; there is no separate event.
+- A role with no holder: candidates start at the substitute; with nobody left, C5 applies.
+- Person state `replaced` marks answers discarded by T9b. An answer replaced through T10 shows its new value with `replaced: true`.
+- `new_hire_cost` is always required at the central HR check; leaver costs only for departure reasons.

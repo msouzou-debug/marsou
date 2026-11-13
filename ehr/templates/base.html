@@ -11,15 +11,36 @@
 <body>
   <div class="ehr-accent-bar"></div>
   <nav class="navbar border-bottom">
-    <div class="container-fluid">
-      <span class="navbar-brand fw-bold text-primary">{{ t('app.name') }} · {{ t('module.position_approval') }}</span>
-      <span aria-label="{{ t('nav.language') }}">
-        <a class="btn btn-sm btn-link" href="?lang=el" lang="el">Ελληνικά</a>
-        <a class="btn btn-sm btn-link" href="?lang=en" lang="en">English</a>
-      </span>
+    <div class="container-fluid flex-wrap gap-2">
+      <a class="navbar-brand fw-bold text-primary me-0" href="{{ url_for('main.home') }}">{{ t('app.name') }} · {{ t('module.position_approval') }}</a>
+      <div class="d-flex flex-wrap align-items-center gap-1">
+        {% if current_user() %}
+        <span class="small text-secondary px-1">{{ current_user().full_name }}</span>
+        {% if can('settings.manage') %}
+        <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.index') }}">{{ t('nav.settings') }}</a>
+        {% endif %}
+        {% endif %}
+        <span aria-label="{{ t('nav.language') }}">
+          <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ lang_url('el') }}" lang="el">Ελληνικά</a>
+          <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ lang_url('en') }}" lang="en">English</a>
+        </span>
+        {% if current_user() %}
+        <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-secondary" style="min-height:44px" type="submit">{{ t('nav.logout') }}</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
   </nav>
-  <main class="container py-4">{% block content %}{% endblock %}</main>
+  <main class="container py-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category in ('success', 'danger', 'warning', 'info') else 'info' }}" role="status">{{ t(message) }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
   <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>
