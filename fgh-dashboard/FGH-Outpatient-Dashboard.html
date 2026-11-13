@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ανάλυση Εξωτερικών Ιατρείων — Γ.Ν. Αμμοχώστου</title>
+<style>
+:root{
+  --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
+  --blue-deep:#1B75BB; --blue:#069FEC; --green:#6FAE2A; --amber:#D98A16; --neg:#C0392B;
+  --grey:#E3E8ED; --white:#fff; --bg:#EEF2F6; --tint:#F5F9FC; --pos:#6FAE2A;
+  --font:"Lato","Source Sans Pro","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);font-size:14px;line-height:1.55}
+header{background:var(--blue-deep);color:#fff;padding:16px 22px 0;display:block}
+.hbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;max-width:1680px;margin:0 auto}
+header .logo{font-weight:900;font-size:22px;letter-spacing:.4px}
+header .logo span{color:#8BC53F}
+header .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;opacity:.7;font-weight:800}
+header .title{font-weight:900;font-size:17px;letter-spacing:-.01em}
+header .spacer{flex:1}
+button{font-family:var(--font);font-size:13px;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;
+ background:var(--blue-deep);color:#fff;font-weight:700}
+button:hover{filter:brightness(1.08)}
+button:focus-visible{outline:2px solid #8BC53F;outline-offset:2px}
+button.ghost{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.45);font-weight:600}
+button.sec{background:#fff;color:var(--blue-deep);border:1px solid rgba(255,255,255,.6)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.wrap{padding:18px 22px 60px;max-width:1680px;margin:0 auto}
+#drop{border:2px dashed var(--blue);border-radius:12px;background:#fff;padding:48px 20px;text-align:center;margin:24px 0}
+#drop.over{background:#E8F6FE;border-color:var(--green)}
+#drop h2{margin:0 0 8px;color:var(--blue-deep);font-size:20px;font-weight:900}
+#drop p{margin:4px 0;font-size:13px}
+.hint{color:var(--ink-3);font-size:12px}
+#progress{height:5px;background:var(--grey);border-radius:3px;overflow:hidden;margin-top:16px;display:none;max-width:420px;margin-inline:auto}
+#progress div{height:100%;width:0;background:var(--green);transition:width .2s}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border-radius:10px;padding:11px 13px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--blue)}
+.kpi.g::before{background:var(--green)}.kpi.a::before{background:var(--amber)}.kpi.r::before{background:var(--neg)}
+.kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3);font-weight:800}
+.kpi .v{font-size:26px;font-weight:900;color:var(--blue-deep);line-height:1.2;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:11px;color:var(--ink-3)}
+.filters{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;gap:14px;
+ flex-wrap:wrap;align-items:flex-end;box-shadow:0 1px 3px rgba(29,42,53,.07)}
+.f{display:flex;flex-direction:column;gap:4px}
+.f label{font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-3);font-weight:800}
+select,input[type=date],input[type=number],input[type=text]{font-family:var(--font);font-size:13px;padding:7px 9px;
+ border:1px solid var(--grey);border-radius:6px;background:#fff;color:var(--ink)}
+select:focus,input:focus{outline:2px solid var(--blue);outline-offset:0}
+select[multiple]{min-width:200px;height:82px}
+.tabs{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:0;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;background:transparent;color:rgba(255,255,255,.72);border-radius:0;
+ border-bottom:3px solid transparent;padding:11px 14px;font-size:13px;font-weight:700;white-space:nowrap}
+.tabs button:hover{color:#fff;filter:none}
+.tabs button.on{color:#fff;border-bottom-color:#8BC53F}
+.panel{background:#fff;border-radius:0 0 10px 10px;padding:18px;min-height:340px;box-shadow:0 1px 3px rgba(29,42,53,.07)}
+h3{margin:0 0 4px;color:var(--ink);font-size:16px;font-weight:900;letter-spacing:-.01em}
+.note{font-size:12px;color:var(--ink-3);margin:0 0 14px;line-height:1.55;max-width:96ch}
+.warn{background:#FFF8EA;border-left:3px solid var(--amber);padding:11px 14px;border-radius:0 8px 8px 0;
+ font-size:12.5px;line-height:1.55;margin:0 0 14px}
+.bad{background:#FDEDEC;border-left-color:var(--neg)}
+.ok{background:#F1F9E8;border-left-color:var(--green)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+thead th{background:var(--tint);color:var(--ink-2);padding:8px 10px;text-align:left;position:sticky;top:0;z-index:2;
+ cursor:pointer;white-space:nowrap;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;border-bottom:1px solid var(--grey)}
+thead th:hover{color:var(--blue)}
+thead th.num{text-align:right}
+tbody td{padding:6px 10px;border-bottom:1px solid var(--grey);white-space:nowrap}
+tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover td{background:var(--tint)}
+.scroll{max-height:600px;overflow:auto;border:1px solid var(--grey);border-radius:8px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+.p-hi{background:#E9F5DC;color:#4A7A17}.p-mid{background:#FCF0DC;color:#8A5A0C}.p-lo{background:#FAE3E0;color:#96271B}
+.p-src{background:var(--grey);color:var(--ink-3);font-weight:600}
+.spark{vertical-align:middle}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:1200px){.grid3{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){.grid3{grid-template-columns:1fr}}
+.card{border:1px solid var(--grey);border-radius:10px;padding:14px}
+.card h4{margin:0 0 8px;font-size:13px;color:var(--ink);font-weight:900}
+svg text{font-family:var(--font);fill:var(--ink-2)}
+.concl{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;align-items:start;margin-bottom:14px}
+.cbox{border:1px solid var(--grey);border-radius:10px;padding:15px 17px}
+.cbox h4{margin:0 0 9px;font-size:13.5px;font-weight:900;color:var(--blue-deep);padding-bottom:7px;border-bottom:2px solid var(--tint)}
+.cbox ul,.cbox ol{margin:0;padding-left:19px}
+.cbox li{margin-bottom:7px;font-size:13px}
+.cbox li::marker{color:var(--blue);font-weight:900}
+.badge{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle}
+.badge-m{background:#E0E7EE;color:#5A6673}
+.badge-e{background:#E8F6FE;color:#1B75BB}
+@media(max-width:700px){
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+  .kpi .v{font-size:22px}
+  .panel{padding:14px}
+}
+.chip{display:inline-block;min-width:24px;text-align:center;padding:1px 5px;border-radius:4px;font-size:10.5px;font-weight:800;
+ background:var(--grey);color:var(--ink-3);margin-right:2px}
+.chip.on{background:#E8F6FE;color:var(--blue-deep)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.toolbar button{padding:6px 11px;font-size:12px}
+.toolbar .sep{flex:1}
+button.lite{background:#fff;color:var(--blue-deep);border:1px solid var(--blue-deep)}
+.gtag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:6px}
+.g-other{background:#FCF0DC;color:#8A5A0C}.g-support{background:#E0E7EE;color:#5A6673}
+h4.sub{margin:22px 0 8px;font-size:14px;font-weight:900}
+@media print{
+  body{background:#fff;font-size:11px}
+  header .tabs,#filterBox,.toolbar,#drop{display:none!important}
+  header{padding-bottom:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wrap{padding:8px 0}
+  .scroll{max-height:none;overflow:visible;border:none}
+  .panel{box-shadow:none;padding:0}
+  thead th{position:static}
+  tbody td{white-space:normal}
+  .card,.cbox,.kpi{break-inside:avoid}
+  .kpi{border:1px solid var(--grey)}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <div><div class="eyebrow">Οργανισμός Κρατικών Υπηρεσιών Υγείας</div>
+         <div class="logo">ΟΚΥπ<span>Υ</span></div></div>
+    <div class="spacer"></div>
+    <div style="text-align:right"><div class="eyebrow">Εξωτερικά Ιατρεία</div>
+         <div class="title">Γενικό Νοσοκομείο Αμμοχώστου</div></div>
+  </div>
+  <div class="hbar"><div class="tabs" id="tabs" style="flex:1"></div></div>
+</header>
+
+<div class="wrap">
+  <div id="drop">
+    <h2>Φόρτωση Δεδομένων</h2>
+    <p>Σύρετε εδώ τα αρχεία Medico (.xls) και Ewave (.xlsx)<br>ή πατήστε για επιλογή αρχείων</p>
+    <p class="hint">Medico: αρχείο εξωτερικών ασθενών · Ewave: Patient encounter list<br>
+      Προαιρετικά: αρχείο προγράμματος ΕΙ και αρχείο εγκρίσεων απογευματινών (μπορούν να φορτωθούν και αργότερα)</p>
+    <div style="margin-top:12px">
+      <button id="btnPick">Επιλογή αρχείων</button>
+    </div>
+    <div id="progress"><div></div></div>
+  </div>
+  <input type="file" id="file" multiple accept=".xls,.xlsx,.csv" style="display:none">
+  <div id="problems" style="text-align:left;max-width:640px;margin:14px auto;display:none"></div>
+
+  <div id="capture">
+  <div id="kpis" class="kpis" style="display:none"></div>
+
+  <div id="filterBox" class="filters" style="display:none">
+    <div class="f"><label>Από</label><input type="date" id="fFrom"></div>
+    <div class="f"><label>Έως</label><input type="date" id="fTo"></div>
+    <div class="f"><label>Ομάδα</label>
+      <select id="fGroup">
+        <option value="ei">ΕΙ Γ.Ν. Αμμοχώστου</option>
+        <option value="other">Άλλες Διευθύνσεις / ΥΥ</option>
+        <option value="support">Εργαστήρια &amp; υποστηρικτικά</option>
+        <option value="">Όλες</option></select></div>
+    <div class="f"><label>Τμήμα/Ειδικότητα</label>
+      <select id="fDept"><option value="">Όλα</option></select></div>
+    <div class="f"><label>Ιατρικός Λειτουργός (ΙΛ)</label>
+      <input type="text" id="fDoc" list="docList" placeholder="Αναζήτηση ονόματος…" style="min-width:210px">
+      <datalist id="docList"></datalist></div>
+    <div class="f"><label>Συνεδρία</label>
+      <select id="fSess"><option value="">Όλες</option><option value="AM">Πρωινές</option><option value="PM">Απογευματινές</option></select></div>
+    <div class="f"><label>Απόγευμα από</label><input type="time" id="fCut" value="15:00" step="900"></div>
+    <div class="f"><label>Πηγή</label>
+      <select id="fSrc"><option value="">Όλες</option><option value="medico">Medico</option><option value="ewave">Ewave</option></select></div>
+    <button id="btnReset">Επαναφορά</button>
+  </div>
+
+  <div class="panel" id="panel" style="display:none"></div>
+  </div>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const nf=(n,d)=>{ if(n==null||isNaN(n)) return "—"; d=d||0; return Number(n).toLocaleString("el-GR",{minimumFractionDigits:d,maximumFractionDigits:d}); };
+const pc=(v,d)=>{ d=d||0; return v==null||isNaN(v)?"—":(v*100).toFixed(d).replace(".",",")+"%"; };
+const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+const dmy=d=>d?[String(d.getDate()).padStart(2,"0"),String(d.getMonth()+1).padStart(2,"0"),d.getFullYear()].join("/"):"—";
+const GR_MON=["Ιαν","Φεβ","Μάρ","Απρ","Μάι","Ιούν","Ιούλ","Αύγ","Σεπ","Οκτ","Νοέ","Δεκ"];
+const GR_DAY=["Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή"];
+const DAY_SHORT=["Δε","Τρ","Τε","Πε","Πα","Σα","Κυ"];
+
+/* ---- Παράμετροι που μπορεί να χρειαστεί να αλλάξουν ---- */
+const CFG={
+  schedMinShare:0.30,   // ημέρα εβδομάδας θεωρείται προγραμματισμένη αν εμφανίζεται σε ≥30% των εβδομάδων
+  schedMinDays:3,       // και σε τουλάχιστον 3 ημερομηνίες
+  activeWindow:30,      // «ενεργός» = επίσκεψη τις τελευταίες 30 ημέρες της περιόδου
+  smallPm:4,            // απογευματινή συνεδρία με λιγότερες από 4 επισκέψεις
+  lowAvgRatio:0.5       // Μ.Ο. κάτω από το 50% του Μ.Ο. της ειδικότητας
+};
+const NO_DOC="(χωρίς ΙΛ)";
+const GROUP_LABEL={ei:"ΕΙ Γ.Ν. Αμμοχώστου",other:"Άλλες Διευθύνσεις / ΥΥ",support:"Εργαστήρια & υποστηρικτικά"};
+
+let RAW=[], VIEW=null, TAB="overview", PROBLEMS=[], SORT={}, TABLES={};
+let SCHED=null, APPR=null;   // προαιρετικά αρχεία: πρόγραμμα ΕΙ, εγκρίσεις απογευματινών
+let FILTER={from:null,to:null,group:"ei",dept:"",doc:"",sess:"",src:"",cut:900};
+
+/* ===================== DATA PARSING ===================== */
+function stripAccents(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,""); }
+const U=s=>stripAccents(s).toUpperCase().trim();
+
+function normDept(s){
+  if(!s) return "ΑΛΛΟ";
+  s = String(s).trim().toUpperCase().replace(/\s+/g," ")
+    .replace(/\s*ΕΙ$/,"").replace(/\s*Ε\.Ι\.?$/,"")
+    .replace(/\s*\(INT\.\s*MEDICINE\)/,"")
+    .replace(/-\s*ΜΑΙΕΥΤΙΚΟ$/,"")
+    .replace(/\s*\(Ε\.Ι\)$/,"")
+    .replace(/\s*ΤΜΗΜΑ$/,"")
+    .trim();
+  const MAP = {
+    "ΓΥΝΑΙΚΟΛΟΓΙΚΟ-ΜΑΙΕΥΤΙΚΟ":"ΓΥΝΑΙΚΟΛΟΓΙΚΟ",
+    "ΕΙΔΙΚΗΣ ΠΑΘΟΛΟΓΙΑΣ":"ΠΑΘΟΛΟΓΙΚΟ",
+    "ΜΙΚΡΟΒΙΟΛΟΓΙΚΟ ΕΡΓΑΣΤΗΡΙΟ":"ΜΙΚΡΟΒΙΟΛΟΓΙΚΟ",
+    "ΔΙΑΙΤΟΛΟΓΙΑ - ΔΙΑΤΡΟΦΙΚΑ ΣΚΕΥΑΣΜΑΤΑ":"ΔΙΑΙΤΟΛΟΓΙΑ",
+    "ΚΑΡΔΙΟΛΟΓΙΑ /ΙΑΤΡΕΙΑ ΥΠΕΡΗΧΟΓΡΑΦΗΜΑ":"ΚΑΡΔΙΟΛΟΓΙΚΟ",
+    "ΟΔΟΝΤΙΑΤΡΙΚΗ ΚΛΙΝΙΚΗ":"ΟΔΟΝΤΙΑΤΡΙΚΟ",
+    "ΜΙΚΡΗ ΧΕΙΡΟΥΡΓΙΚΗ ΑΙΘΟΥΣΑ":"ΜΙΚΡΟ ΧΕΙΡΟΥΡΓΕΙΟ",
+    "ΡΕΥΜΑΤΟΛΟΓΟΣ":"ΡΕΥΜΑΤΟΛΟΓΙΚΟ",
+    "ΠΛΑΣΤΙΚΗΣ ΧΕΙΡΟΥΡΓΙΚΗΣ":"ΠΛΑΣΤΙΚΗ ΧΕΙΡΟΥΡΓΙΚΗ",
+    "ΝΟΣΗΛΕΥΤΗ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ":"ΝΟΣΗΛΕΥΤΗΣ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ",
+    "ΠΑΙΔΙΩΝ ΚΑΙ ΕΦΗΒΩΝ ΝΟΣ. ΨΥΧ. Υ":"ΠΑΙΔΙΩΝ ΚΑΙ ΕΦΗΒΩΝ ΝΟΣ. ΨΥΧ. ΥΓΕΙΑΣ"
+  };
+  return MAP[s] || s;
+}
+/* Ομάδα: ei = ΕΙ του νοσοκομείου, other = άλλη Διεύθυνση ΟΚΥπΥ ή Υπουργείο Υγείας, support = εργαστήρια κ.ά. */
+function deptGroup(dept){
+  const u=U(dept);
+  if(/^ΓΕΝΙΚΗ ΙΑΤΡΙΚΗ$|ΕΡΓΟΘΕΡΑΠΕΙΑ|ΚΕΝΤΡΟ ΥΓΕΙΑΣ|ΨΥΧ|ΟΔΟΝΤΙΑΤΡ|ΥΠΟΥΡΓΕΙΟΥ ΥΓΕΙΑΣ/.test(u)) return "other";
+  if(/ΕΡΓΑΣΤΗΡΙΟ|ΑΚΤΙΝΟΛΟΓ|ΜΙΚΡΟΒΙΟΛΟΓ|ΑΙΜΟΛΗΨ|ΝΟΣΗΛΕΥΤΙΚΗ ΦΡΟΝΤΙΔΑ|ΦΑΡΜΑΚΕΙΟ/.test(u)) return "support";
+  return "ei";
+}
+/* Το Medico γράφει «ΕΠΩΝΥΜΟ,ΟΝΟΜΑ», το Ewave «ΟΝΟΜΑ ΕΠΩΝΥΜΟ». Το κλειδί αγνοεί τη σειρά. */
+function docKeyOf(s){
+  const LAT="ABEZHIKMNOPTYX", GRK="ΑΒΕΖΗΙΚΜΝΟΡΤΥΧ";   // λατινικοί χαρακτήρες που μοιάζουν με ελληνικούς
+  const t=U(s).replace(/\(\d+\)/g,"").replace(/[A-Z]/g,c=>{const i=LAT.indexOf(c);return i<0?c:GRK[i];})
+    .replace(/Χ["'΄`]\s*/g,"ΧΑΤΖΗ").split(/[\s,]+/).filter(Boolean).sort();
+  return t.join(" ");
+}
+function cleanDoc(s){ return String(s||"").replace(/\(\d+\)/g,"").replace(/\s*,\s*/g," ").replace(/\s+/g," ").trim(); }
+function normGender(g){
+  if(!g) return null;
+  g=String(g).trim();
+  if(/^(Άρρεν|Male|Α|M)$/i.test(g)) return "Α";
+  if(/^(Θήλυ|Female|Θ|F)$/i.test(g)) return "Θ";
+  return null;
+}
+/* Επιστρέφει {d, mins}. mins = λεπτά από τα μεσάνυχτα ή null αν δεν υπάρχει ώρα. */
+function parseDT(v){
+  if(v instanceof Date && !isNaN(v)) return {d:v,mins:v.getHours()*60+v.getMinutes()};
+  if(typeof v==="number" && v>20000 && v<80000){
+    const u=new Date(Math.round((v-25569)*864e5));   // σειριακός αριθμός Excel, διαβάζεται ως «τοπική» ώρα
+    const d=new Date(u.getUTCFullYear(),u.getUTCMonth(),u.getUTCDate(),u.getUTCHours(),u.getUTCMinutes());
+    return {d,mins:(v%1)>1e-6?d.getHours()*60+d.getMinutes():null};
+  }
+  if(typeof v==="string"){
+    let m;
+    if((m=v.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/))){
+      const d=new Date(+m[3],+m[2]-1,+m[1],+(m[4]||0),+(m[5]||0));
+      return {d,mins:m[4]!=null?(+m[4])*60+(+m[5]):null}; }
+    if((m=v.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/))){
+      const d=new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0));
+      return {d,mins:m[4]!=null?(+m[4])*60+(+m[5]):null}; }
+  }
+  return null;
+}
+const isTestName=n=>/\bTEST\b|ΔΟΚΙΜ/.test(U(n));
+
+function parseMedico(aoa){
+  const rows=[];
+  if(!aoa.length) return rows;
+  let hi={};
+  const h0=(aoa[0]||[]).map(c=>U(c));
+  h0.forEach((h,i)=>{
+    if(/ΗΜ.*ΕΠΙΣΚΕΨ/.test(h)) hi.date=i;
+    else if(/ΕΠΕΙΣΟΔ|EPISODE/.test(h)) hi.episode=i;
+    else if(/ΟΝΟΜΑΤ/.test(h)) hi.name=i;
+    else if(/ΚΩΔ.*ΟΙΚ/.test(h)) hi.catCode=i;
+    else if(/ΟΙΚΟ?ΝΟ?ΜΙΚΗ|ΟΙΚ.*ΚΑΤ|CATEG/.test(h)) hi.cat=i;
+    else if(/ΕΙΔΙΚΟΤΗΤΑ|SPECIAL/.test(h)) hi.dept=i;
+    else if(/ΙΑΤΡΟΣ|DOCTOR/.test(h)) hi.doc=i;
+  });
+  if(hi.date==null || hi.dept==null) return rows;
+  for(let r=1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row) continue;
+    const dt=parseDT(row[hi.date]);
+    if(!dt) continue;
+    const cat=String(row[hi.cat!=null?hi.cat:4]||"").trim();
+    const name=String(row[hi.name!=null?hi.name:2]||"").trim();
+    rows.push(mkRow({dt, dept:row[hi.dept], doc:row[hi.doc!=null?hi.doc:6], name,
+      episode:String(row[hi.episode!=null?hi.episode:1]||"").trim(),
+      cat, gender:null, age:null, status:"ok",
+      payment:U(cat).includes("ΓΕΣΥ")?"ΓεΣΥ":"Άλλο", source:"medico"}));
+  }
+  return rows;
+}
+
+function parseEwave(aoa){
+  const rows=[];
+  let headerRow=-1;
+  for(let r=0;r<Math.min(30,aoa.length);r++){
+    const row=aoa[r];
+    if(!row) continue;
+    const joined=row.map(c=>String(c||"")).join(" ");
+    if(joined.includes("Α.Μ. ασθενούς") || joined.includes("Enc.No") || joined.includes("Ημ/νία-ώρα")){ headerRow=r; break; }
+  }
+  if(headerRow<0) return rows;
+  const hi={};
+  aoa[headerRow].forEach((h,i)=>{
+    const u=U(h);
+    if(/ΟΝΟΜΑ\s*ΑΣΘΕΝ|PATIENT.*NAME/.test(u)) hi.name=i;
+    else if(/ΤΑΥΤΟΤΗΤΑ\s*ΦΥΛΟΥ|GENDER/.test(u)) hi.gender=i;
+    else if(/^ΗΛΙΚΙΑ|^AGE/.test(u)) hi.age=i;
+    else if(/ENC\.?\s*NO|ΑΡΙΘΜΟΣ\s*ΕΠΕΙΣ/.test(u)) hi.encNo=i;
+    else if(/ΚΑΤΑΣΤΑΣΗ\s*ΘΕΡΑΠ|TREATMENT.*STATUS/.test(u)) hi.treatStatus=i;
+    else if(/ΚΑΤΑΣΤΑΣΗ\s*ΕΠΕΙΣ|ENC.*STATUS/.test(u)) hi.encStatus=i;
+    else if(/ΗΜ.*ΩΡΑ\s*ΕΠΕΙΣ|ENC.*DATE.*TIME/.test(u)) hi.dateTime=i;
+    else if(/ΤΡΟΠΟΣ\s*ΠΛΗΡΩΜ|PAYMENT/.test(u)) hi.payment=i;
+    else if(/^ΤΜΗΜΑ$|DEPARTMENT/.test(u)) hi.dept=i;
+    else if(/ΙΑΤΡΟΣ|DOCTOR|ΕΠΑΓΓΕΛΜΑΤΙΑΣ/.test(u)) hi.doc=i;
+    else if(/ΑΙΤΙΑ\s*ΑΚΥΡ|CANCEL.*REASON/.test(u)) hi.cancelReason=i;
+  });
+  const col=(row,k,def)=>row[hi[k]!=null?hi[k]:def];
+  for(let r=headerRow+1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row) continue;
+    if(typeof row[0]!=="number") continue;
+    const encNo=String(col(row,"encNo",15)||"").trim();
+    if(!encNo) continue;
+    const dt=parseDT(col(row,"dateTime",20));
+    if(!dt) continue;
+    const treat=String(col(row,"treatStatus",17)||"").trim();
+    const enc=String(col(row,"encStatus",18)||"").trim();
+    const payRaw=String(col(row,"payment",24)||"").trim();
+    const age=col(row,"age",14);
+    const status = /ακυρ/i.test(treat)||/cancel/i.test(enc) ? "cancel" : /ολοκληρωμ/i.test(treat) ? "ok" : "open";
+    rows.push(mkRow({dt, dept:col(row,"dept",25), doc:col(row,"doc",27),
+      name:String(col(row,"name",9)||"").trim(), episode:encNo,
+      gender:normGender(col(row,"gender",11)), age:age?+age:null, cat:payRaw, status,
+      payment: /insured|ασφαλ|γεσυ/i.test(payRaw)?"ΓεΣΥ": /person|αυτοπρ/i.test(payRaw)?"Αυτοπρόσωπη":"Άλλο",
+      source:"ewave"}));
+  }
+  return rows;
+}
+function mkRow(o){
+  const dept=normDept(o.dept);
+  const docRaw=cleanDoc(o.doc);
+  return {date:o.dt.d, day:iso(o.dt.d), mins:o.dt.mins, dept, group:deptGroup(dept),
+    doc:docRaw||NO_DOC, docKey:docRaw?docKeyOf(docRaw):"", name:o.name, episode:o.episode,
+    cat:o.cat, gender:o.gender, age:o.age, status:o.status, payment:o.payment, source:o.source,
+    isTest:isTestName(o.name)};
+}
+
+/* ---- Προαιρετικά αρχεία ---- */
+function parseDays(v){
+  const out=new Set();
+  const M=[["ΔΕΥ","MON"],["ΤΡΙ","TUE"],["ΤΕΤ","WED"],["ΠΕΜ","THU"],["ΠΑΡ","FRI"],["ΣΑΒ","SAT"],["ΚΥΡ","SUN"]];
+  U(v).split(/[\s,;\/&+-]+/).forEach(t=>{
+    M.forEach((p,i)=>{ if(t.startsWith(p[0])||t.startsWith(p[1])) out.add(i); });
+  });
+  return out;
+}
+/* Πρόγραμμα ΕΙ: στήλες Ιατρός | Ειδικότητα (προαιρετική) | Ημέρα. Μία ή περισσότερες ημέρες ανά γραμμή. */
+function parseSchedule(aoa){
+  const h=(aoa[0]||[]).map(U); const iDoc=h.findIndex(x=>/ΙΑΤΡΟΣ|^ΙΛ$|ΛΕΙΤΟΥΡΓΟΣ|DOCTOR/.test(x));
+  const iDay=h.findIndex(x=>/ΗΜΕΡ|DAY/.test(x)); const iDept=h.findIndex(x=>/ΕΙΔΙΚΟΤΗΤΑ|ΤΜΗΜΑ|SPECIAL/.test(x));
+  if(iDoc<0||iDay<0) return null;
+  const map=new Map();
+  for(let r=1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row||!row[iDoc]) continue;
+    const days=parseDays(row[iDay]); if(!days.size) continue;
+    const k=docKeyOf(cleanDoc(row[iDoc]))+"|"+(iDept>=0&&row[iDept]?normDept(row[iDept]):"*");
+    if(!map.has(k)) map.set(k,new Set());
+    days.forEach(d=>map.get(k).add(d));
+  }
+  return map.size?map:null;
+}
+/* Εγκρίσεις: στήλες Ειδικότητα | Ιατρός (προαιρετική) | Εγκεκριμένες συνεδρίες */
+function parseApprovals(aoa){
+  const h=(aoa[0]||[]).map(U); const iN=h.findIndex(x=>/ΕΓΚΕΚΡ|ΕΓΚΡΙΣ|APPROV/.test(x));
+  const iDept=h.findIndex(x=>/ΕΙΔΙΚΟΤΗΤΑ|ΤΜΗΜΑ|ΚΛΙΝΙΚΗ|SPECIAL/.test(x)); const iDoc=h.findIndex(x=>/ΙΑΤΡΟΣ|^ΙΛ$|ΛΕΙΤΟΥΡΓΟΣ|DOCTOR/.test(x));
+  if(iN<0||iDept<0) return null;
+  const list=[];
+  for(let r=1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row||!row[iDept]) continue;
+    const n=+row[iN]; if(isNaN(n)) continue;
+    const doc=iDoc>=0?cleanDoc(row[iDoc]):"";
+    list.push({dept:normDept(row[iDept]),doc,docKey:doc?docKeyOf(doc):"",n});
+  }
+  return list.length?list:null;
+}
+function detectKind(aoa){
+  const h=(aoa[0]||[]).map(U).join("|");
+  if(/ΕΓΚΕΚΡ|ΕΓΚΡΙΣ|APPROV/.test(h)) return "appr";
+  if(/ΗΜΕΡ|DAY/.test(h) && /ΙΑΤΡΟΣ|ΙΛ|ΛΕΙΤΟΥΡΓΟΣ|DOCTOR/.test(h) && !/ΕΠΙΣΚΕΨ|ΕΠΕΙΣΟΔ/.test(h)) return "sched";
+  return "data";
+}
+
+/* ===================== FILE LOADING ===================== */
+async function loadFiles(files){
+  const prog=$("#progress"); prog.style.display="block";
+  const bar=prog.firstElementChild;
+  PROBLEMS=PROBLEMS.filter(p=>p.keep);
+  let allRows=[], n=0;
+  for(const f of files){
+    const buf=await f.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array",cellDates:false});
+    let used=0;
+    for(const sn of wb.SheetNames){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+      if(!aoa.length) continue;
+      const kind=detectKind(aoa);
+      if(kind==="sched"){ const s=parseSchedule(aoa);
+        if(s){ SCHED=s; used++; PROBLEMS.push({t:"info",keep:1,m:`Πρόγραμμα ΕΙ «${f.name}»: ${nf(s.size)} ΙΛ`}); continue; } }
+      if(kind==="appr"){ const a=parseApprovals(aoa);
+        if(a){ APPR=a; used++; PROBLEMS.push({t:"info",keep:1,m:`Εγκρίσεις «${f.name}»: ${nf(a.length)} γραμμές`}); continue; } }
+      let rows=parseMedico(aoa), src="Medico";
+      if(!rows.length){ rows=parseEwave(aoa); src="Ewave"; }
+      if(!rows.length) continue;
+      PROBLEMS.push({t:"info",keep:1,m:`${src} «${f.name}»: ${nf(rows.length)} εγγραφές`});
+      allRows=allRows.concat(rows); used+=rows.length;
+    }
+    if(!used) PROBLEMS.push({t:"warn",keep:1,m:`Από το «${f.name}» δεν διαβάστηκε καμία γραμμή.`});
+    n++; bar.style.width=Math.round(100*n/files.length)+"%";
+    await new Promise(r=>setTimeout(r,0));
+  }
+  if(allRows.length){
+    const seen=new Set(RAW.map(r=>r.source+"|"+r.episode)); let dup=0, test=0;
+    for(const r of allRows){
+      if(r.isTest){ test++; continue; }
+      const k=r.source+"|"+r.episode;
+      if(r.episode && seen.has(k)){ dup++; continue; }
+      seen.add(k); RAW.push(r);
+    }
+    if(test) PROBLEMS.push({t:"warn",keep:1,m:`${nf(test)} δοκιμαστικές εγγραφές (όνομα ασθενούς με «TEST» ή «ΔΟΚΙΜ…») εξαιρέθηκαν.`});
+    if(dup) PROBLEMS.push({t:"warn",keep:1,m:`${nf(dup)} γραμμές επαναλάμβαναν αριθμό επεισοδίου που υπήρχε ήδη και αγνοήθηκαν (ένα επεισόδιο μετρά ως μία επίσκεψη).`});
+    RAW.sort((a,b)=>a.date-b.date);
+  }
+  prog.style.display="none";
+}
+
+/* ===================== ANALYSIS ===================== */
+const dowOf=d=>(d.getDay()+6)%7;
+const sessOf=r=>r.mins!=null && r.mins>=FILTER.cut ? "PM" : "AM";   // χωρίς ώρα → πρωινή
+const cutLabel=()=>String(Math.floor(FILTER.cut/60)).padStart(2,"0")+":"+String(FILTER.cut%60).padStart(2,"0");
+
+function analyse(){
+  const docQ=U(FILTER.doc);
+  const base=RAW.filter(r=>{
+    if(FILTER.from && r.date<FILTER.from) return false;
+    if(FILTER.to && r.date>FILTER.to) return false;
+    if(FILTER.src && r.source!==FILTER.src) return false;
+    return true;
+  });
+  base.forEach(r=>r.sess=sessOf(r));
+  // σύνολα ανά ομάδα, πριν εφαρμοστεί το φίλτρο ομάδας
+  const groups={ei:0,other:0,support:0}, otherDepts=new Map();
+  for(const r of base){ if(r.status!=="ok") continue; groups[r.group]++;
+    if(r.group==="other") otherDepts.set(r.dept,(otherDepts.get(r.dept)||0)+1); }
+
+  const rows=base.filter(r=>{
+    if(FILTER.group && r.group!==FILTER.group) return false;
+    if(FILTER.dept && r.dept!==FILTER.dept) return false;
+    if(FILTER.sess && r.sess!==FILTER.sess) return false;
+    if(docQ && !U(r.doc).includes(docQ)) return false;
+    return true;
+  });
+  if(!rows.length) return null;
+
+  const okRows=rows.filter(r=>r.status==="ok");
+  const months=[...new Set(rows.map(r=>r.day.slice(0,7)))].sort();
+  const dateSet=new Set(okRows.map(r=>r.day));
+  const lastDate=rows[rows.length-1].date;
+  const activeFrom=new Date(lastDate.getTime()-CFG.activeWindow*864e5);
+
+  // όνομα εμφάνισης ανά ΙΛ: η συχνότερη γραφή
+  const nameCnt=new Map();
+  for(const r of okRows){ if(!r.docKey) continue;
+    if(!nameCnt.has(r.docKey)) nameCnt.set(r.docKey,new Map());
+    const m=nameCnt.get(r.docKey); m.set(r.doc,(m.get(r.doc)||0)+1); }
+  const disp=k=>{ if(!k) return NO_DOC; const m=nameCnt.get(k); return [...m.entries()].sort((a,b)=>b[1]-a[1])[0][0]; };
+
+  const newAgg=()=>({visits:0,am:0,pm:0,patients:new Set(),months:{},amM:{},pmM:{},byHour:new Array(24).fill(0),byDay:new Array(7).fill(0),
+    genderM:0,genderF:0,ageSum:0,ageCount:0,medicoCount:0,ewaveCount:0,gesy:0,person:0,other:0,first:null,last:null});
+  const add=(d,r)=>{
+    d.visits++; d[r.sess==="PM"?"pm":"am"]++;
+    d.patients.add(U(r.name));
+    const m=r.day.slice(0,7); d.months[m]=(d.months[m]||0)+1;
+    const sm=r.sess==="PM"?d.pmM:d.amM; sm[m]=(sm[m]||0)+1;
+    if(r.mins!=null) d.byHour[Math.floor(r.mins/60)]++;
+    d.byDay[dowOf(r.date)]++;
+    if(r.gender==="Α") d.genderM++; else if(r.gender==="Θ") d.genderF++;
+    if(r.age!=null && r.age>0 && r.age<120){ d.ageSum+=r.age; d.ageCount++; }
+    if(r.source==="medico") d.medicoCount++; else d.ewaveCount++;
+    if(r.payment==="ΓεΣΥ") d.gesy++; else if(r.payment==="Αυτοπρόσωπη") d.person++; else d.other++;
+    if(!d.first||r.date<d.first) d.first=r.date;
+    if(!d.last||r.date>d.last) d.last=r.date;
+  };
+
+  const deptMap=new Map(), docMap=new Map(), sessMap=new Map(), total=newAgg();
+  for(const r of okRows){
+    add(total,r);
+    if(!deptMap.has(r.dept)) deptMap.set(r.dept,Object.assign(newAgg(),{dept:r.dept,group:r.group,docs:new Set()}));
+    const d=deptMap.get(r.dept); add(d,r); if(r.docKey) d.docs.add(r.docKey);
+    const k=(r.docKey||NO_DOC)+"|"+r.dept;
+    if(!docMap.has(k)) docMap.set(k,Object.assign(newAgg(),{key:k,docKey:r.docKey,dept:r.dept,group:r.group,dayV:new Map()}));
+    const dc=docMap.get(k); add(dc,r); dc.dayV.set(r.day,(dc.dayV.get(r.day)||0)+1);
+    // συνεδρία = ΙΛ + ημερομηνία + πρωί/απόγευμα
+    const sk=k+"|"+r.day+"|"+r.sess;
+    if(!sessMap.has(sk)) sessMap.set(sk,{key:k,docKey:r.docKey,dept:r.dept,day:r.day,date:r.date,sess:r.sess,n:0});
+    sessMap.get(sk).n++;
+  }
+  const sessions=[...sessMap.values()];
+
+  const docs=[...docMap.values()];
+  for(const d of docs){
+    d.doc=disp(d.docKey);
+    d.patientsCount=d.patients.size;
+    d.amS=0; d.pmS=0; d.smallPm=0;
+  }
+  for(const s of sessions){ const d=docMap.get(s.key);
+    if(s.sess==="AM") d.amS++; else { d.pmS++; if(s.n<CFG.smallPm) d.smallPm++; } }
+
+  // πρόγραμμα ανά ΙΛ: από το αρχείο προγράμματος αν υπάρχει, αλλιώς εκτίμηση από τα δεδομένα
+  const offList=[];
+  for(const d of docs){
+    d.daysCount=d.dayV.size;
+    d.amAvg=d.amS?d.am/d.amS:null; d.pmAvg=d.pmS?d.pm/d.pmS:null;
+    d.active=d.last>=activeFrom;
+    const dates=[...d.dayV.keys()].map(s=>new Date(s+"T00:00:00"));
+    const byDow=new Array(7).fill(0); dates.forEach(x=>byDow[dowOf(x)]++);
+    const weeks=Math.floor((d.last-d.first)/6048e5)+1;
+    let sched=null; d.schedSrc="";
+    if(d.docKey && SCHED){ sched=SCHED.get(d.docKey+"|"+d.dept)||SCHED.get(d.docKey+"|*")||null; if(sched) d.schedSrc="Αρχείο"; }
+    if(!sched && d.docKey){
+      const est=new Set(); byDow.forEach((c,i)=>{ if(c>=CFG.schedMinDays && c/weeks>=CFG.schedMinShare) est.add(i); });
+      if(est.size){ sched=est; d.schedSrc="Εκτίμηση"; }
+    }
+    d.sched=sched; d.inD=0; d.inV=0; d.offD=0; d.offV=0;
+    if(sched) for(const [day,n] of d.dayV){
+      const dt=new Date(day+"T00:00:00");
+      if(sched.has(dowOf(dt))){ d.inD++; d.inV+=n; }
+      else { d.offD++; d.offV+=n; offList.push({date:dt,doc:d.doc,dept:d.dept,n}); }
+    }
+    d.schedAvg=d.inD?d.inV/d.inD:null;
+  }
+  docs.sort((a,b)=>b.visits-a.visits);
+
+  const realDocs=docs.filter(d=>d.docKey);
+  const docKeys=new Set(realDocs.map(d=>d.docKey)), activeKeys=new Set(realDocs.filter(d=>d.active).map(d=>d.docKey));
+  const depts=[...deptMap.values()];
+  for(const d of depts){
+    d.docsCount=d.docs.size; d.patientsCount=d.patients.size;
+    d.amS=0; d.pmS=0; d.inD=0; d.inV=0; d.offD=0; d.offV=0; d.activeDocs=0;
+    d.active=d.last>=activeFrom;
+  }
+  for(const d of docs){ const p=deptMap.get(d.dept);
+    p.amS+=d.amS; p.pmS+=d.pmS; p.inD+=d.inD; p.inV+=d.inV; p.offD+=d.offD; p.offV+=d.offV;
+    if(d.docKey && d.active) p.activeDocs++; d.activeAny=activeKeys.has(d.docKey); }
+  for(const d of depts){ d.amAvg=d.amS?d.am/d.amS:null; d.pmAvg=d.pmS?d.pm/d.pmS:null; d.schedAvg=d.inD?d.inV/d.inD:null; }
+  depts.sort((a,b)=>b.visits-a.visits);
+
+  const monthly=months.map(m=>({m,ok:0,am:0,pm:0,medico:0,ewave:0,cancel:0,open:0}));
+  const mi=new Map(months.map((m,i)=>[m,i]));
+  for(const r of rows){ const x=monthly[mi.get(r.day.slice(0,7))];
+    if(r.status==="ok"){ x.ok++; x[r.sess==="PM"?"pm":"am"]++; x[r.source]++; }
+    else x[r.status]++; }
+
+  const ageGroups=[{l:"0-17",a:0,b:17,n:0},{l:"18-34",a:18,b:34,n:0},{l:"35-49",a:35,b:49,n:0},
+    {l:"50-64",a:50,b:64,n:0},{l:"65-79",a:65,b:79,n:0},{l:"80+",a:80,b:200,n:0}];
+  const catMap=new Map();
+  for(const r of okRows){
+    catMap.set(r.cat||"Άγνωστο",(catMap.get(r.cat||"Άγνωστο")||0)+1);
+    if(r.age==null || r.age<=0 || r.age>=120) continue;
+    for(const g of ageGroups) if(r.age>=g.a && r.age<=g.b){ g.n++; break; }
+  }
+  const amS=sessions.filter(s=>s.sess==="AM").length, pmS=sessions.length-amS;
+  const sum=(a,f)=>a.reduce((x,y)=>x+f(y),0);
+
+  return {rows, okRows, months, monthly, depts, docs, sessions, total, groups,
+    otherDepts:[...otherDepts.entries()].sort((a,b)=>b[1]-a[1]),
+    totalVisits:okRows.length, cancelCount:rows.filter(r=>r.status==="cancel").length,
+    openCount:rows.filter(r=>r.status==="open").length,
+    patients:total.patients.size, uniqueDepts:depts.length, activeDepts:depts.filter(d=>d.active).length,
+    uniqueDocs:docKeys.size, activeDocs:activeKeys.size, activeFrom, lastDate,
+    dateRange:[rows[0].date,lastDate], activeDays:dateSet.size,
+    amS, pmS, amAvg:amS?total.am/amS:null, pmAvg:pmS?total.pm/pmS:null,
+    inD:sum(docs,d=>d.inD), inV:sum(docs,d=>d.inV), offD:sum(docs,d=>d.offD), offV:sum(docs,d=>d.offV),
+    offList:offList.sort((a,b)=>b.date-a.date),
+    noDoc:okRows.filter(r=>!r.docKey).length, noTime:okRows.filter(r=>r.mins==null).length,
+    weekend:okRows.filter(r=>dowOf(r.date)>=5).length,
+    ageGroups, topCats:[...catMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15).map(([l,v])=>({l,v}))};
+}
+
+/* ===================== RENDERING ===================== */
+const TABS=[
+  ["overview","Επισκόπηση"],["dept","Ανά Τμήμα"],["doctor","Ανά Ιατρό"],["sched","Πρόγραμμα ΕΙ"],
+  ["time","Χρονική Ανάλυση"],["demog","Δημογραφικά"],["payment","Πληρωμές"],
+  ["appr","Εγκρίσεις vs Πραγματικά"],["concl","Συμπεράσματα"],["review","Προς διερεύνηση"],["dq","Ποιότητα Δεδομένων"]
+];
+function renderTabs(){
+  if(!RAW.length){ $("#tabs").innerHTML=""; return; }
+  // τα κουμπιά φτιάχνονται μία φορά· μετά αλλάζει μόνο η επισήμανση, ώστε να μη χάνεται κλικ όταν ξαναϋπολογίζονται τα φίλτρα
+  if(!$("#tabs button")) $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-tab="${k}">${l}</button>`).join("");
+  $$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));
+}
+$("#tabs").onclick=e=>{ const b=e.target.closest("button[data-tab]"); if(!b) return; TAB=b.dataset.tab; renderTabs(); renderPanel(); };
+function kpiCard(label,val,detail,cls){
+  return `<div class="kpi ${cls||''}"><div class="l">${label}</div><div class="v">${val}</div><div class="d">${detail||"&nbsp;"}</div></div>`;
+}
+function renderKpis(){
+  const k=$("#kpis");
+  if(!VIEW){ k.style.display="none"; return; }
+  const V=VIEW, T=V.total;
+  k.style.display="";
+  k.innerHTML=[
+    kpiCard("Επισκέψεις",nf(V.totalVisits),nf(V.patients)+" ασθενείς"),
+    kpiCard("Πρωινές",nf(T.am),pc(V.totalVisits?T.am/V.totalVisits:0,1)+" του συνόλου"),
+    kpiCard("Απογευματινές",nf(T.pm),"από "+cutLabel()+" · "+pc(V.totalVisits?T.pm/V.totalVisits:0,1),"a"),
+    kpiCard("Μ.Ο. / πρωινό ΕΙ",nf(V.amAvg,1),nf(V.amS)+" συνεδρίες"),
+    kpiCard("Μ.Ο. / απογευμ. ΕΙ",nf(V.pmAvg,1),nf(V.pmS)+" συνεδρίες","a"),
+    kpiCard("Μ.Ο. / προγρ. ημέρα",nf(V.inD?V.inV/V.inD:null,1),nf(V.inD)+" ημέρες ΙΛ","g"),
+    kpiCard("Ημέρες εκτός προγρ.",nf(V.offD),nf(V.offV)+" επισκέψεις","r"),
+    kpiCard("Ενεργοί ΙΛ",nf(V.activeDocs),"από "+nf(V.uniqueDocs)+" στην περίοδο","g"),
+    kpiCard("Ενεργές ειδικότητες",nf(V.activeDepts),"από "+nf(V.uniqueDepts),"g"),
+    kpiCard("Άλλες Διευθύνσεις / ΥΥ",nf(V.groups.other),"εργαστήρια κ.ά.: "+nf(V.groups.support),"a")
+  ].join("");
+}
+
+function sparkline(vals,w,h){
+  w=w||64;h=h||18;
+  if(!vals.length) return "";
+  const max=Math.max(...vals,1);
+  const pts=vals.map((v,i)=>[w*i/(vals.length-1||1),h-h*v/max]);
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="#069FEC" stroke-width="1.5"/>
+    <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="2" fill="#069FEC"/></svg>`;
+}
+function svgBars(data,opts){
+  opts=opts||{};
+  if(!data.length) return `<div class="hint">Δεν υπάρχουν στοιχεία.</div>`;
+  const W=opts.w||520, rowH=22, pad=opts.labelW||200, H=data.length*rowH+30;
+  const max=Math.max(...data.map(d=>d.v),1);
+  let s=`<svg width="100%" viewBox="0 0 ${W} ${H}" role="img">`;
+  data.forEach((d,i)=>{
+    const y=i*rowH+14, w=Math.max(1,(W-pad-60)*d.v/max);
+    const lbl=d.l.length>32?d.l.slice(0,31)+"…":d.l;
+    s+=`<text x="0" y="${y+4}" font-size="11">${esc(lbl)}</text>`;
+    s+=`<rect x="${pad}" y="${y-8}" width="${w}" height="14" rx="2" fill="${d.c||'#069FEC'}"/>`;
+    s+=`<text x="${pad+w+5}" y="${y+3}" font-size="11" font-weight="700">${nf(d.v,d.dec||0)}</text>`;
+  });
+  return s+"</svg>";
+}
+function svgLine(labels,series){
+  const W=540,H=220,mL=50,mB=38,mT=14,mR=12;
+  const pw=W-mL-mR,ph=H-mT-mB;
+  const max=Math.max(1,...series.flatMap(s=>s.v));
+  const x=i=>mL+(labels.length>1?pw*i/(labels.length-1):pw/2);
+  const y=v=>mT+ph-ph*v/max;
+  let s=`<svg width="100%" viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=4;i++){
+    const v=max*i/4;
+    s+=`<line x1="${mL}" y1="${y(v)}" x2="${mL+pw}" y2="${y(v)}" stroke="#EEE"/>`;
+    s+=`<text x="${mL-6}" y="${y(v)+3}" font-size="9" text-anchor="end">${nf(Math.round(v))}</text>`;
+  }
+  labels.forEach((l,i)=>{ s+=`<text x="${x(i)}" y="${H-8}" font-size="9" text-anchor="middle">${l}</text>`; });
+  series.forEach(sr=>{
+    s+=`<polyline points="${sr.v.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="${sr.c}" stroke-width="2"/>`;
+    sr.v.forEach((v,i)=>{ s+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${sr.c}"><title>${sr.l}: ${nf(v,sr.dec||0)}</title></circle>`; });
+  });
+  const leg=series.map(sr=>`<span style="color:${sr.c};font-weight:800">■</span> ${esc(sr.l)}`).join("&nbsp;&nbsp;");
+  return s+"</svg>"+`<div style="font-size:11px;color:var(--ink-3);text-align:center;margin-top:4px">${leg}</div>`;
+}
+function svgPie(slices,size){
+  size=size||180;
+  const cx=size/2,cy=size/2,r=size/2-8;
+  const total=slices.reduce((a,s)=>a+s.v,0);
+  if(!total) return "";
+  if(slices.filter(s=>s.v>0).length===1){ const o=slices.find(s=>s.v>0);
+    return `<svg width="${size}" height="${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${o.c}"/></svg>`; }
+  let angle=0, s=`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`;
+  slices.forEach(sl=>{
+    const pct=sl.v/total; if(pct<=0) return;
+    const a1=angle, a2=angle+pct*2*Math.PI, la=pct>0.5?1:0;
+    s+=`<path d="M${cx},${cy} L${cx+r*Math.sin(a1)},${cy-r*Math.cos(a1)} A${r},${r} 0 ${la},1 ${cx+r*Math.sin(a2)},${cy-r*Math.cos(a2)} Z" fill="${sl.c}">
+      <title>${esc(sl.l)}: ${nf(sl.v)} (${pc(pct,1)})</title></path>`;
+    angle=a2;
+  });
+  return s+"</svg>";
+}
+const legend=sl=>`<div style="margin-top:8px;font-size:12px">${sl.map(s=>`<span style="color:${s.c};font-weight:800">■</span> ${esc(s.l)}: ${nf(s.v)}`).join("&nbsp;&nbsp;")}</div>`;
+
+/* Πίνακας με ταξινόμηση. Κάθε στήλη: h τίτλος, v τιμή ταξινόμησης, f εμφάνιση, x τιμή εξαγωγής (προαιρετική). */
+function table(id,cols,rows,opts){
+  opts=opts||{};
+  const s=SORT[id]||{i:opts.sort!=null?opts.sort:0,dir:-1};
+  SORT[id]=s;
+  const val=v=>v==null?-Infinity:v;
+  const sorted=[...rows].sort((a,b)=>{
+    const va=val(cols[s.i].v(a)),vb=val(cols[s.i].v(b));
+    return (va<vb?-1:va>vb?1:0)*s.dir;
+  });
+  TABLES[id]={cols,rows:sorted,title:opts.title||id};
+  let html=`<div class="scroll"><table id="${id}"><thead><tr>`;
+  cols.forEach((c,ci)=>{ html+=`<th class="${c.num?"num":""}" data-ci="${ci}">${c.h}${ci===s.i?(s.dir>0?" ▲":" ▼"):""}</th>`; });
+  html+=`</tr></thead><tbody>`;
+  sorted.forEach(r=>{ html+=`<tr>`+cols.map(c=>`<td class="${c.num?'num':''}">${c.f(r)}</td>`).join("")+`</tr>`; });
+  html+=`</tbody></table></div>`;
+  if(!sorted.length) html+=`<div class="hint" style="margin-top:6px">Καμία εγγραφή.</div>`;
+  setTimeout(()=>{
+    const t=document.getElementById(id); if(!t) return;
+    t.querySelectorAll("thead th").forEach(th=>{ th.onclick=()=>{
+      const ci=+th.dataset.ci;
+      if(s.i===ci) s.dir*=-1; else { s.i=ci; s.dir=-1; }
+      renderPanel();
+    }; });
+  },0);
+  return html;
+}
+const gtag=g=>g==="other"?`<span class="gtag g-other">άλλη Διεύθυνση</span>`:g==="support"?`<span class="gtag g-support">υποστηρικτικό</span>`:"";
+const chips=set=>DAY_SHORT.map((l,i)=>`<span class="chip ${set&&set.has(i)?"on":""}">${l}</span>`).join("");
+const statusPill=a=>a?`<span class="pill p-hi">Ενεργός</span>`:`<span class="pill p-lo">Ανενεργός</span>`;
+const monLabel=m=>GR_MON[+m.split("-")[1]-1];
+const trendCol=V=>({h:"Τάση",v:r=>{const a=V.months.map(m=>r.months[m]||0);return a[a.length-1]-(a[0]||0);},
+  f:r=>sparkline(V.months.map(m=>r.months[m]||0),72,18), x:null});
+
+function toolbar(){
+  return `<div class="toolbar">
+    <button class="lite" id="btnAdd">+ Αρχεία (δεδομένα, πρόγραμμα, εγκρίσεις)</button>
+    <span class="sep"></span>
+    <span class="hint">Εξαγωγή:</span>
+    <button class="lite" data-exp="pdf">PDF</button>
+    <button class="lite" data-exp="xlsx">Excel .xlsx</button>
+    <button class="lite" data-exp="xls">Excel .xls</button>
+    <button class="lite" data-exp="doc">Word .doc</button>
+    <button class="lite" data-exp="png">Εικόνα .png</button>
+  </div>`;
+}
+
+function renderPanel(){
+  const p=$("#panel");
+  p.style.display="";
+  TABLES={};
+  if(!VIEW){ p.innerHTML=toolbar()+`<div class="warn">Κανένα αποτέλεσμα με τα τρέχοντα φίλτρα. Αλλάξτε τα φίλτρα ή πατήστε «Επαναφορά».</div>`; wireToolbar(); return; }
+  const V=VIEW, T=V.total;
+  let h="";
+
+  if(TAB==="overview"){
+    const labels=V.months.map(monLabel);
+    const gs=[{l:GROUP_LABEL.ei,v:V.groups.ei,c:"#1B75BB"},{l:GROUP_LABEL.other,v:V.groups.other,c:"#E8A33D"},{l:GROUP_LABEL.support,v:V.groups.support,c:"#8A94A0"}];
+    h=`<h3>Επισκόπηση Εξωτερικών Ιατρείων</h3>
+      <p class="note">Περίοδος ${dmy(V.dateRange[0])} – ${dmy(V.dateRange[1])}. Μετρούν μόνο τα ολοκληρωμένα επεισόδια
+        (${nf(V.cancelCount)} ακυρωμένα και ${nf(V.openCount)} ανοικτά μένουν εκτός). Απογευματινή θεωρείται η επίσκεψη από τις ${cutLabel()} και μετά.</p>
+      <div class="grid2" style="margin-bottom:18px">
+        <div class="card"><h4>Πρωινές και απογευματινές επισκέψεις ανά μήνα</h4>
+          ${svgLine(labels,[{l:"Σύνολο",c:"#1B75BB",v:V.monthly.map(m=>m.ok)},{l:"Πρωινές",c:"#069FEC",v:V.monthly.map(m=>m.am)},{l:"Απογευματινές",c:"#E8A33D",v:V.monthly.map(m=>m.pm)}])}</div>
+        <div class="card"><h4>Κορυφαίες ειδικότητες σε επισκέψεις</h4>${svgBars(V.depts.slice(0,12).map(d=>({l:d.dept,v:d.visits})),{labelW:220})}</div>
+      </div>
+      <div class="grid2" style="margin-bottom:18px">
+        <div class="card"><h4>Κορυφαίοι ΙΛ σε επισκέψεις</h4>${svgBars(V.docs.filter(d=>d.docKey).slice(0,12).map(d=>({l:d.doc,v:d.visits})),{labelW:220})}</div>
+        <div class="card"><h4>Κατανομή ανά ημέρα εβδομάδας</h4>${svgBars(T.byDay.map((v,i)=>({l:GR_DAY[i],v,c:i<5?"#069FEC":"#C0392B"})),{labelW:120})}</div>
+      </div>
+      <div class="grid2">
+        <div class="card" style="text-align:center"><h4>Σε ποια Διεύθυνση υπάγονται οι επισκέψεις</h4>
+          ${svgPie(gs,170)}${legend(gs)}
+          <p class="hint" style="margin-top:8px">Το γράφημα δείχνει όλη την περίοδο, ανεξάρτητα από το φίλτρο «Ομάδα».</p></div>
+        <div class="card"><h4>Ειδικότητες άλλων Διευθύνσεων ΟΚΥπΥ ή Υπουργείου Υγείας</h4>
+          ${svgBars(V.otherDepts.map(([l,v])=>({l,v,c:"#E8A33D"})),{labelW:240})}</div>
+      </div>`;
+  }
+
+  else if(TAB==="dept"){
+    const cols=[
+      {h:"Τμήμα/Ειδικότητα",v:r=>r.dept,f:r=>esc(r.dept)+gtag(r.group),x:r=>r.dept},
+      trendCol(V),
+      {h:"Επισκέψεις",num:1,v:r=>r.visits,f:r=>nf(r.visits)},
+      {h:"Πρωινές",num:1,v:r=>r.am,f:r=>nf(r.am)},
+      {h:"Απογευμ.",num:1,v:r=>r.pm,f:r=>nf(r.pm)},
+      {h:"Μ.Ο./πρωινό ΕΙ",num:1,v:r=>r.amAvg,f:r=>nf(r.amAvg,1)},
+      {h:"Μ.Ο./απογευμ. ΕΙ",num:1,v:r=>r.pmAvg,f:r=>nf(r.pmAvg,1)},
+      {h:"Μ.Ο./προγρ. ημέρα",num:1,v:r=>r.schedAvg,f:r=>nf(r.schedAvg,1)},
+      {h:"Ημέρες εκτός προγρ.",num:1,v:r=>r.offD,f:r=>nf(r.offD)},
+      {h:"ΙΛ",num:1,v:r=>r.docsCount,f:r=>nf(r.docsCount)},
+      {h:"Ενεργοί ΙΛ",num:1,v:r=>r.activeDocs,f:r=>nf(r.activeDocs)},
+      {h:"Ασθενείς",num:1,v:r=>r.patientsCount,f:r=>nf(r.patientsCount)},
+      {h:"Τελευταία επίσκεψη",v:r=>+r.last,f:r=>dmy(r.last),x:r=>dmy(r.last)},
+      {h:"Κατάσταση",v:r=>r.active?1:0,f:r=>statusPill(r.active).replace("Ενεργός","Ενεργή").replace("Ανενεργός","Ανενεργή"),x:r=>r.active?"Ενεργή":"Ανενεργή"},
+      {h:"ΓεΣΥ %",num:1,v:r=>r.gesy/r.visits,f:r=>pc(r.gesy/r.visits,1)},
+      {h:"% Συνόλου",num:1,v:r=>r.visits/V.totalVisits,f:r=>pc(r.visits/V.totalVisits,1)}
+    ];
+    h=`<h3>Ανάλυση ανά τμήμα / ειδικότητα</h3>
+      <p class="note">Συνεδρία ΕΙ είναι ένας ΙΛ, μία ημερομηνία, πρωί ή απόγευμα. Ο Μ.Ο. βγαίνει από τις επισκέψεις διά τις συνεδρίες.
+        Ενεργή είναι η ειδικότητα με τουλάχιστον μία επίσκεψη από τις ${dmy(V.activeFrom)} και μετά (τελευταίες ${CFG.activeWindow} ημέρες της περιόδου).</p>
+      ${table("tDept",cols,V.depts,{sort:2,title:"Ανά ειδικότητα"})}`;
+  }
+
+  else if(TAB==="doctor"){
+    const cols=[
+      {h:"Ιατρικός Λειτουργός",v:r=>r.doc,f:r=>esc(r.doc)},
+      {h:"Ειδικότητα",v:r=>r.dept,f:r=>esc(r.dept)+gtag(r.group),x:r=>r.dept},
+      trendCol(V),
+      {h:"Επισκέψεις",num:1,v:r=>r.visits,f:r=>nf(r.visits)},
+      {h:"Πρωινές",num:1,v:r=>r.am,f:r=>nf(r.am)},
+      {h:"Απογευμ.",num:1,v:r=>r.pm,f:r=>nf(r.pm)},
+      {h:"Πρωινά ΕΙ",num:1,v:r=>r.amS,f:r=>nf(r.amS)},
+      {h:"Απογευμ. ΕΙ",num:1,v:r=>r.pmS,f:r=>nf(r.pmS)},
+      {h:"Μ.Ο./πρωινό ΕΙ",num:1,v:r=>r.amAvg,f:r=>nf(r.amAvg,1)},
+      {h:"Μ.Ο./απογευμ. ΕΙ",num:1,v:r=>r.pmAvg,f:r=>nf(r.pmAvg,1)},
+      {h:"Μ.Ο./προγρ. ημέρα",num:1,v:r=>r.schedAvg,f:r=>nf(r.schedAvg,1)},
+      {h:"Ημέρες εκτός προγρ.",num:1,v:r=>r.offD,f:r=>r.sched?nf(r.offD):"—"},
+      {h:"Ασθενείς",num:1,v:r=>r.patientsCount,f:r=>nf(r.patientsCount)},
+      {h:"Πρώτη επίσκεψη",v:r=>+r.first,f:r=>dmy(r.first),x:r=>dmy(r.first)},
+      {h:"Τελευταία επίσκεψη",v:r=>+r.last,f:r=>dmy(r.last),x:r=>dmy(r.last)},
+      {h:"Κατάσταση",v:r=>r.activeAny?1:0,f:r=>r.docKey?statusPill(r.activeAny):"—",x:r=>r.docKey?(r.activeAny?"Ενεργός":"Ανενεργός"):""}
+    ];
+    h=`<h3>Ανάλυση ανά Ιατρικό Λειτουργό</h3>
+      <p class="note">Ο ίδιος ΙΛ εμφανίζεται μία φορά ανά ειδικότητα. Ενεργός είναι όποιος έχει επίσκεψη από τις ${dmy(V.activeFrom)} και μετά.
+        Οι προγραμματισμένες ημέρες φαίνονται αναλυτικά στην καρτέλα «Πρόγραμμα ΕΙ».</p>
+      ${table("tDoc",cols,V.docs,{sort:3,title:"Ανά ΙΛ"})}`;
+  }
+
+  else if(TAB==="sched"){
+    const list=V.docs.filter(d=>d.docKey);
+    const cols=[
+      {h:"Ιατρικός Λειτουργός",v:r=>r.doc,f:r=>esc(r.doc)},
+      {h:"Ειδικότητα",v:r=>r.dept,f:r=>esc(r.dept)},
+      {h:"Προγραμματισμένες ημέρες",v:r=>r.sched?r.sched.size:0,f:r=>r.sched?chips(r.sched):`<span class="hint">δεν προκύπτει σταθερό πρόγραμμα</span>`,
+        x:r=>r.sched?[...r.sched].sort().map(i=>GR_DAY[i]).join(", "):""},
+      {h:"Πηγή",v:r=>r.schedSrc,f:r=>r.schedSrc?`<span class="badge ${r.schedSrc==="Αρχείο"?"badge-e":"badge-m"}">${r.schedSrc}</span>`:"—",x:r=>r.schedSrc},
+      {h:"Προγρ. ημέρες με ΕΙ",num:1,v:r=>r.inD,f:r=>nf(r.inD)},
+      {h:"Επισκέψεις σε προγρ. ημέρες",num:1,v:r=>r.inV,f:r=>nf(r.inV)},
+      {h:"Μ.Ο./προγρ. ημέρα",num:1,v:r=>r.schedAvg,f:r=>nf(r.schedAvg,1)},
+      {h:"Ημέρες εκτός προγρ.",num:1,v:r=>r.offD,f:r=>nf(r.offD)},
+      {h:"Επισκέψεις εκτός προγρ.",num:1,v:r=>r.offV,f:r=>nf(r.offV)},
+      {h:"% ημερών εκτός",num:1,v:r=>r.daysCount?r.offD/r.daysCount:0,f:r=>r.sched?pc(r.offD/r.daysCount):"—"}
+    ];
+    const cols2=[
+      {h:"Ημερομηνία",v:r=>+r.date,f:r=>dmy(r.date),x:r=>dmy(r.date)},
+      {h:"Ημέρα",v:r=>dowOf(r.date),f:r=>GR_DAY[dowOf(r.date)]},
+      {h:"Ιατρικός Λειτουργός",v:r=>r.doc,f:r=>esc(r.doc)},
+      {h:"Ειδικότητα",v:r=>r.dept,f:r=>esc(r.dept)},
+      {h:"Επισκέψεις",num:1,v:r=>r.n,f:r=>nf(r.n)}
+    ];
+    h=`<h3>Πρόγραμμα ΕΙ: προγραμματισμένες ημέρες και ημέρες εκτός προγράμματος</h3>
+      <div class="warn ${SCHED?"ok":""}">${SCHED
+        ?`Φορτώθηκε αρχείο προγράμματος. Όπου ένας ΙΛ δεν υπάρχει στο αρχείο, το πρόγραμμά του εκτιμάται από τα δεδομένα.`
+        :`Δεν έχει φορτωθεί αρχείο προγράμματος, άρα οι προγραμματισμένες ημέρες είναι <b>εκτίμηση</b>: ημέρα της εβδομάδας όπου ο ΙΛ είχε επισκέψεις
+          σε τουλάχιστον ${CFG.schedMinDays} ημερομηνίες και στο ${pc(CFG.schedMinShare)} των εβδομάδων που δούλεψε. Για ακριβή εικόνα φορτώστε το πρόγραμμα του νοσοκομείου.`}
+        <div style="margin-top:8px"><button class="lite" id="btnTplSched">Λήψη υποδείγματος προγράμματος (.xlsx)</button></div></div>
+      ${table("tSched",cols,list,{sort:7,title:"Πρόγραμμα ΕΙ"})}
+      <h4 class="sub">Ημέρες εκτός προγράμματος (${nf(V.offList.length)})</h4>
+      ${table("tOff",cols2,V.offList,{sort:0,title:"Ημέρες εκτός προγράμματος"})}`;
+  }
+
+  else if(TAB==="time"){
+    const ch=Math.floor(FILTER.cut/60);
+    const hourData=T.byHour.map((v,i)=>({l:String(i).padStart(2,"0")+":00",v,c:i<ch?"#069FEC":"#E8A33D"})).filter(d=>d.v>0);
+    const labels=V.months.map(monLabel);
+    h=`<h3>Χρονική Ανάλυση</h3>
+      <p class="note">Με πορτοκαλί οι ώρες από τις ${cutLabel()} και μετά. ${V.noTime?nf(V.noTime)+" επισκέψεις χωρίς ώρα μετρούν ως πρωινές.":""}</p>
+      <div class="grid2" style="margin-bottom:18px">
+        <div class="card"><h4>Επισκέψεις ανά ώρα</h4>${svgBars(hourData,{labelW:60,w:480})}</div>
+        <div class="card"><h4>Επισκέψεις ανά ημέρα εβδομάδας</h4>${svgBars(T.byDay.map((v,i)=>({l:GR_DAY[i],v,c:i<5?"#069FEC":"#C0392B"})),{labelW:120})}</div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h4>Μηνιαία εξέλιξη ανά σύστημα</h4>
+          ${svgLine(labels,[{l:"Σύνολο",c:"#1B75BB",v:V.monthly.map(m=>m.ok)},{l:"Medico",c:"#D98A16",v:V.monthly.map(m=>m.medico)},{l:"Ewave",c:"#069FEC",v:V.monthly.map(m=>m.ewave)}])}</div>
+        <div class="card"><h4>Πρωινές και απογευματινές</h4>
+          ${svgBars([{l:"Πρωινές (πριν τις "+cutLabel()+")",v:T.am,c:"#069FEC"},{l:"Απογευματινές (από "+cutLabel()+")",v:T.pm,c:"#E8A33D"}],{labelW:220})}</div>
+      </div>`;
+  }
+
+  else if(TAB==="demog"){
+    const gU=V.totalVisits-T.genderM-T.genderF;
+    if(!(T.genderM+T.genderF) && !V.ageGroups.some(g=>g.n>0)){
+      h=`<h3>Δημογραφικά</h3><div class="warn">Φύλο και ηλικία υπάρχουν μόνο στο Ewave. Στην τρέχουσα επιλογή δεν βρέθηκαν τέτοια στοιχεία.</div>`;
+    } else {
+      const gs=[{l:"Άρρεν",v:T.genderM,c:"#069FEC"},{l:"Θήλυ",v:T.genderF,c:"#E8A33D"},...(gU?[{l:"Άγνωστο",v:gU,c:"#8A94A0"}]:[])];
+      h=`<h3>Δημογραφικά Στοιχεία</h3>
+        <p class="note">Φύλο και ηλικία υπάρχουν μόνο για τις εγγραφές Ewave (${nf(T.ewaveCount)}).</p>
+        <div class="grid3">
+          <div class="card" style="text-align:center"><h4>Φύλο</h4>${svgPie(gs,160)}${legend(gs)}</div>
+          <div class="card"><h4>Κατανομή ηλικιών</h4>${svgBars(V.ageGroups.filter(g=>g.n>0).map(g=>({l:g.l,v:g.n})),{labelW:60,w:300})}</div>
+          <div class="card"><h4>Μέση ηλικία ανά ειδικότητα (10 μεγαλύτερες)</h4>
+            ${svgBars(V.depts.filter(d=>d.ageCount>5).slice(0,10).map(d=>({l:d.dept,v:+(d.ageSum/d.ageCount).toFixed(1),dec:1})),{labelW:180,w:400})}</div>
+        </div>`;
+    }
+  }
+
+  else if(TAB==="payment"){
+    const ps=[{l:"ΓεΣΥ",v:T.gesy,c:"#069FEC"},{l:"Αυτοπρόσωπη",v:T.person,c:"#E8A33D"},{l:"Άλλο",v:T.other,c:"#8A94A0"}].filter(s=>s.v>0);
+    h=`<h3>Ανάλυση Πληρωμών</h3>
+      <p class="note">Το Medico δίνει οικονομική κατηγορία, το Ewave «Τρόπο πληρωμής» (Insured / In person). Οι δύο κωδικοποιήσεις δεν ταυτίζονται.</p>
+      <div class="grid2">
+        <div class="card" style="text-align:center"><h4>Τρόπος πληρωμής</h4>${svgPie(ps,180)}${legend(ps)}</div>
+        <div class="card"><h4>Αναλυτικές κατηγορίες (15 συχνότερες)</h4>${svgBars(V.topCats,{labelW:260,w:580})}</div>
+      </div>
+      <div class="card" style="margin-top:16px"><h4>Ποσοστό ΓεΣΥ ανά ειδικότητα (15 μεγαλύτερες)</h4>
+        ${svgBars(V.depts.filter(d=>d.visits>=10).slice(0,15).map(d=>({l:d.dept,v:+(d.gesy/d.visits*100).toFixed(1),dec:1,
+          c:d.gesy/d.visits>0.7?"#6FAE2A":d.gesy/d.visits>0.3?"#E8A33D":"#C0392B"})),{labelW:220,w:700})}</div>`;
+  }
+
+  else if(TAB==="appr"){
+    const rows=V.depts.filter(d=>d.pmS>0).map(d=>{
+      const dl=V.docs.filter(x=>x.dept===d.dept && x.pmS>0 && x.docKey).sort((a,b)=>b.pmS-a.pmS);
+      const ap=APPR?APPR.filter(a=>a.dept===d.dept).reduce((s,a)=>s+a.n,0):null;
+      return {dept:d.dept,pmS:d.pmS,pm:d.pm,pmAvg:d.pmAvg,amAvg:d.amAvg,dl,ap,small:dl.reduce((s,x)=>s+x.smallPm,0)};
+    });
+    if(APPR) for(const dep of new Set(APPR.map(a=>a.dept))) if(!rows.some(r=>r.dept===dep))
+      rows.push({dept:dep,pmS:0,pm:0,pmAvg:null,amAvg:null,dl:[],small:0,ap:APPR.filter(a=>a.dept===dep).reduce((s,a)=>s+a.n,0)});
+    const cols=[
+      {h:"Ειδικότητα",v:r=>r.dept,f:r=>esc(r.dept)},
+      ...(APPR?[{h:"Εγκεκριμένες συνεδρίες",num:1,v:r=>r.ap,f:r=>nf(r.ap)}]:[]),
+      {h:"Απογευμ. συνεδρίες (πραγματικές)",num:1,v:r=>r.pmS,f:r=>nf(r.pmS)},
+      ...(APPR?[{h:"Διαφορά",num:1,v:r=>r.pmS-(r.ap||0),f:r=>{const d=r.pmS-(r.ap||0);return `<span class="pill ${d>0?"p-lo":d<0?"p-mid":"p-hi"}">${d>0?"+":""}${nf(d)}</span>`;},x:r=>r.pmS-(r.ap||0)},
+                {h:"% υλοποίησης",num:1,v:r=>r.ap?r.pmS/r.ap:null,f:r=>r.ap?pc(r.pmS/r.ap):"—",x:r=>r.ap?r.pmS/r.ap:""}]:[]),
+      {h:"Απογευμ. επισκέψεις",num:1,v:r=>r.pm,f:r=>nf(r.pm)},
+      {h:"Μ.Ο./απογευμ. ΕΙ",num:1,v:r=>r.pmAvg,f:r=>nf(r.pmAvg,1)},
+      {h:"Μ.Ο./πρωινό ΕΙ",num:1,v:r=>r.amAvg,f:r=>nf(r.amAvg,1)},
+      {h:"Συνεδρίες με κάτω από "+CFG.smallPm+" επισκέψεις",num:1,v:r=>r.small,f:r=>nf(r.small)},
+      {h:"ΙΛ με απογευματινά",v:r=>r.dl.length,f:r=>r.dl.slice(0,6).map(d=>`${esc(d.doc)} (${nf(d.pmS)})`).join(" · ")+(r.dl.length>6?" …":""),
+        x:r=>r.dl.map(d=>`${d.doc} (${d.pmS})`).join("; ")}
+    ];
+    h=`<h3>Απογευματινά ΕΙ: εγκρίσεις και πραγματική δραστηριότητα</h3>
+      <div class="warn ${APPR?"ok":""}">${APPR
+        ?`Φορτώθηκε αρχείο εγκρίσεων (${nf(APPR.length)} γραμμές). Η σύγκριση γίνεται ανά ειδικότητα για την περίοδο των φίλτρων, άρα το αρχείο πρέπει να καλύπτει την ίδια περίοδο.`
+        :`Δεν έχει φορτωθεί αρχείο εγκρίσεων. Μέχρι τότε ο πίνακας δείχνει μόνο την πραγματική απογευματινή δραστηριότητα.
+          Το αρχείο χρειάζεται στήλες «Ειδικότητα», «Εγκεκριμένες συνεδρίες» και, προαιρετικά, «Ιατρός».`}
+        <div style="margin-top:8px"><button class="lite" id="btnTplAppr">Λήψη υποδείγματος εγκρίσεων (.xlsx)</button></div></div>
+      <p class="note">Απογευματινή συνεδρία είναι κάθε ημέρα όπου ένας ΙΛ είχε έστω μία επίσκεψη από τις ${cutLabel()} και μετά.
+        Συνεδρίες με πολύ λίγες επισκέψεις συνήθως είναι πρωινό ιατρείο που τράβηξε, όχι εγκεκριμένο απογευματινό.</p>
+      ${table("tAppr",cols,rows,{sort:APPR?2:1,title:"Εγκρίσεις vs Πραγματικά"})}`;
+  }
+
+  else if(TAB==="concl"){
+    const C=buildConclusions(V);
+    h=`<h3>Συμπεράσματα</h3>
+      <p class="note">Παράγονται αυτόματα από τα δεδομένα και τα φίλτρα που ισχύουν τώρα. Περίοδος ${dmy(V.dateRange[0])} – ${dmy(V.dateRange[1])}.</p>
+      <div class="concl">${C.map(b=>`<div class="cbox"><h4>${esc(b.t)}</h4><ul>${b.items.map(i=>`<li>${i}</li>`).join("")}</ul></div>`).join("")}</div>
+      <div class="warn">Τα αρχεία δεν περιέχουν άδειες, εφημερίες ή εγκεκριμένο πρόγραμμα. Χαμηλοί αριθμοί δεν σημαίνουν από μόνοι τους χαμηλή απόδοση· δείτε και την καρτέλα «Προς διερεύνηση».</div>`;
+  }
+
+  else if(TAB==="review"){
+    const R=buildReview(V);
+    h=`<h3>Προς διερεύνηση</h3>
+      <p class="note">Περιπτώσεις που αξίζει να ελεγχθούν με τη Διεύθυνση του νοσοκομείου πριν βγει συμπέρασμα. Τα δεδομένα δεν περιλαμβάνουν άδειες, εφημερίες ή αλλαγές προγράμματος.</p>
+      ${R.map((s,i)=>`<h4 class="sub">${i+1}. ${esc(s.t)} (${nf(s.rows.length)})</h4><p class="note">${s.note}</p>${table("tRev"+i,s.cols,s.rows,{sort:s.sort,title:s.t})}`).join("")}`;
+  }
+
+  else if(TAB==="dq"){
+    const issues=[];
+    const warns=PROBLEMS.filter(p=>p.t==="warn"), infos=PROBLEMS.filter(p=>p.t==="info");
+    if(warns.length) issues.push({t:"Παρατηρήσεις κατά τη φόρτωση",sev:"warn",items:warns.map(p=>p.m)});
+    if(infos.length) issues.push({t:"Αρχεία που φορτώθηκαν",sev:"ok",items:infos.map(p=>p.m)});
+    if(V.noDoc) issues.push({t:"Επισκέψεις χωρίς ΙΛ",sev:"warn",items:[`${nf(V.noDoc)} επισκέψεις (${pc(V.noDoc/V.totalVisits,1)}) δεν έχουν καταχωρισμένο ΙΛ. Μετρούν στην ειδικότητα αλλά όχι σε ΙΛ.`]});
+    if(V.noTime) issues.push({t:"Επισκέψεις χωρίς ώρα",sev:"warn",items:[`${nf(V.noTime)} επισκέψεις δεν έχουν ώρα και μετρούν ως πρωινές.`]});
+    if(V.cancelCount||V.openCount) issues.push({t:"Επεισόδια εκτός υπολογισμών",sev:"warn",items:[`${nf(V.cancelCount)} ακυρωμένα και ${nf(V.openCount)} ανοικτά (Νέο / Σε εξέλιξη) δεν μετρούν ως επισκέψεις.`]});
+    if(V.weekend) issues.push({t:"Σαββατοκύριακα",sev:"warn",items:[`Επισκέψεις με ημερομηνία Σαββάτου ή Κυριακής: ${nf(V.weekend)}.`]});
+    const mM=V.okRows.filter(r=>r.source==="medico"), mE=V.okRows.filter(r=>r.source==="ewave");
+    if(mM.length&&mE.length){
+      const lastM=mM[mM.length-1].date, firstE=mE[0].date;
+      if(firstE<=lastM) issues.push({t:"Επικάλυψη Medico και Ewave",sev:"warn",items:[`Τα δύο συστήματα έχουν εγγραφές τις ίδιες ημέρες (${dmy(firstE)} – ${dmy(lastM)}). Οι αριθμοί επεισοδίου διαφέρουν, άρα διπλή καταχώριση της ίδιας επίσκεψης δεν μπορεί να εντοπιστεί αυτόματα.`]});
+    }
+    issues.push({t:"Παραδοχές",sev:"ok",items:[
+      `Απογευματινή επίσκεψη: ώρα επεισοδίου από ${cutLabel()} και μετά (αλλάζει από το φίλτρο «Απόγευμα από»).`,
+      `Η ώρα είναι η ώρα καταχώρισης του επεισοδίου στο σύστημα, όχι απαραίτητα η ώρα της εξέτασης.`,
+      `Ο ίδιος ΙΛ αναγνωρίζεται και στα δύο συστήματα ανεξάρτητα από τη σειρά ονόματος και επωνύμου.`,
+      `Μοναδικοί ασθενείς: με βάση το ονοματεπώνυμο, επειδή το Medico δεν δίνει αριθμό μητρώου. Συνωνυμίες μετρούν ως ένας ασθενής.`,
+      `Στα «Εργαστήρια & υποστηρικτικά» μπήκαν: Κλινικό Εργαστήριο, Ακτινολογικό, Μικροβιολογικό, Αιμοληψία, Νοσηλευτική Φροντίδα, Φαρμακείο.`]});
+    h=`<h3>Ποιότητα Δεδομένων</h3>
+      <p class="note">Τι φορτώθηκε, τι έμεινε εκτός και με ποιες παραδοχές βγαίνουν οι αριθμοί.</p>
+      ${issues.map(iss=>`<div class="warn ${iss.sev==="warn"?"":"ok"}"><strong>${esc(iss.t)}</strong>
+        <ul style="margin:6px 0 0;padding-left:18px">${iss.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}`;
+  }
+
+  p.innerHTML=toolbar()+h;
+  wireToolbar();
+}
+
+/* ---- Συμπεράσματα ---- */
+function buildConclusions(V){
+  const T=V.total, tot=V.totalVisits, out=[];
+  const all=V.groups.ei+V.groups.other+V.groups.support;
+  const top=V.depts.slice(0,3);
+  const a=[`Καταγράφηκαν <b>${nf(tot)}</b> ολοκληρωμένες επισκέψεις από <b>${nf(V.patients)}</b> ασθενείς σε ${nf(V.activeDays)} ημέρες λειτουργίας.`];
+  if(top.length) a.push(`Οι ${top.length} μεγαλύτερες ειδικότητες (${top.map(d=>esc(d.dept)).join(", ")}) συγκεντρώνουν το ${pc(top.reduce((s,d)=>s+d.visits,0)/tot)} των επισκέψεων.`);
+  if(V.monthly.length>2){
+    const full=V.monthly;
+    const mx=full.reduce((x,y)=>y.ok>x.ok?y:x), mn=full.reduce((x,y)=>y.ok<x.ok?y:x);
+    a.push(`Ο μήνας με τις περισσότερες επισκέψεις ήταν ο ${monLabel(mx.m)} (${nf(mx.ok)}) και με τις λιγότερες ο ${monLabel(mn.m)} (${nf(mn.ok)}).`);
+  }
+  out.push({t:"Όγκος δραστηριότητας",items:a});
+
+  const b=[`Πρωινές: <b>${nf(T.am)}</b> επισκέψεις σε ${nf(V.amS)} συνεδρίες, Μ.Ο. <b>${nf(V.amAvg,1)}</b> ανά πρωινό ΕΙ.`];
+  if(V.pmS){
+    b.push(`Απογευματινές (από ${cutLabel()}): <b>${nf(T.pm)}</b> επισκέψεις (${pc(T.pm/tot,1)}) σε ${nf(V.pmS)} συνεδρίες, Μ.Ο. <b>${nf(V.pmAvg,1)}</b> ανά απογευματινό ΕΙ.`);
+    const small=V.sessions.filter(s=>s.sess==="PM"&&s.n<CFG.smallPm).length;
+    if(small) b.push(`${nf(small)} από τις ${nf(V.pmS)} απογευματινές συνεδρίες (${pc(small/V.pmS)}) είχαν κάτω από ${CFG.smallPm} επισκέψεις. Μάλλον πρόκειται για πρωινά που τράβηξαν, όχι για κανονικά απογευματινά.`);
+    const pd=V.depts.filter(d=>d.pm>0).sort((x,y)=>y.pm-x.pm).slice(0,3);
+    b.push(`Τα περισσότερα απογευματινά τα έχουν: ${pd.map(d=>`${esc(d.dept)} (${nf(d.pm)})`).join(", ")}.`);
+  } else b.push(`Δεν βρέθηκαν επισκέψεις από τις ${cutLabel()} και μετά.`);
+  out.push({t:"Πρωινά και απογευματινά ΕΙ",items:b});
+
+  const c=[];
+  if(V.inD){
+    c.push(`Μ.Ο. <b>${nf(V.inV/V.inD,1)}</b> επισκέψεις ανά προγραμματισμένη ημέρα ΙΛ (${nf(V.inD)} ημέρες).`);
+    c.push(`<b>${nf(V.offD)}</b> ημέρες ΙΛ εκτός προγράμματος (${pc(V.offD/(V.inD+V.offD),1)} των ημερών) με ${nf(V.offV)} επισκέψεις, δηλαδή Μ.Ο. ${nf(V.offD?V.offV/V.offD:null,1)} ανά τέτοια ημέρα.`);
+    c.push(SCHED?`Το πρόγραμμα προέρχεται από το αρχείο του νοσοκομείου.`:`Το πρόγραμμα είναι εκτίμηση από τα δεδομένα· με το αρχείο προγράμματος του νοσοκομείου οι αριθμοί θα αλλάξουν.`);
+  } else c.push(`Δεν προέκυψε σταθερό πρόγραμμα για κανέναν ΙΛ στην τρέχουσα επιλογή.`);
+  out.push({t:"Πρόγραμμα ΕΙ",items:c});
+
+  const inactive=V.uniqueDocs-V.activeDocs;
+  const d=[`<b>${nf(V.activeDocs)}</b> από τους ${nf(V.uniqueDocs)} ΙΛ της περιόδου έχουν επίσκεψη τις τελευταίες ${CFG.activeWindow} ημέρες. ${inactive?nf(inactive)+" δεν έχουν.":""}`,
+    `<b>${nf(V.activeDepts)}</b> από τις ${nf(V.uniqueDepts)} ειδικότητες είναι ενεργές.`];
+  if(V.noDoc) d.push(`${nf(V.noDoc)} επισκέψεις (${pc(V.noDoc/tot,1)}) δεν έχουν καταχωρισμένο ΙΛ.`);
+  out.push({t:"Ενεργοί ΙΛ και ειδικότητες",items:d});
+
+  const e=[`Από τις ${nf(all)} επισκέψεις όλης της περιόδου, οι <b>${nf(V.groups.ei)}</b> (${pc(V.groups.ei/all)}) ανήκουν στα ΕΙ του νοσοκομείου.`,
+    `<b>${nf(V.groups.other)}</b> (${pc(V.groups.other/all)}) υπάγονται σε άλλη Διεύθυνση του ΟΚΥπΥ ή στο Υπουργείο Υγείας.`,
+    `<b>${nf(V.groups.support)}</b> (${pc(V.groups.support/all)}) είναι εργαστήρια και υποστηρικτικά τμήματα.`];
+  if(V.otherDepts.length) e.push(`Μεγαλύτερη από τις «άλλες»: ${esc(V.otherDepts[0][0])} με ${nf(V.otherDepts[0][1])} επισκέψεις.`);
+  out.push({t:"Κατανομή ανά Διεύθυνση",items:e});
+  return out;
+}
+
+/* ---- Προς διερεύνηση ---- */
+function buildReview(V){
+  const real=V.docs.filter(d=>d.docKey), dm=new Map(V.depts.map(d=>[d.dept,d]));
+  const cD={h:"Ιατρικός Λειτουργός",v:r=>r.doc,f:r=>esc(r.doc)}, cS={h:"Ειδικότητα",v:r=>r.dept,f:r=>esc(r.dept)};
+  const out=[];
+  out.push({t:"ΙΛ με χαμηλό Μ.Ο. ανά προγραμματισμένη ημέρα",sort:4,
+    note:`Μ.Ο. κάτω από το ${pc(CFG.lowAvgRatio)} του Μ.Ο. της ειδικότητάς τους, με τουλάχιστον 5 προγραμματισμένες ημέρες.`,
+    rows:real.filter(d=>d.inD>=5 && dm.get(d.dept).schedAvg && d.schedAvg<CFG.lowAvgRatio*dm.get(d.dept).schedAvg),
+    cols:[cD,cS,{h:"Προγρ. ημέρες",num:1,v:r=>r.inD,f:r=>nf(r.inD)},{h:"Μ.Ο. ΙΛ",num:1,v:r=>r.schedAvg,f:r=>nf(r.schedAvg,1)},
+      {h:"Μ.Ο. ειδικότητας",num:1,v:r=>dm.get(r.dept).schedAvg,f:r=>nf(dm.get(r.dept).schedAvg,1)}]});
+  out.push({t:"ΙΛ με πολλές ημέρες εκτός προγράμματος",sort:2,
+    note:`Τουλάχιστον 5 ημέρες εκτός προγράμματος και πάνω από το 25% των ημερών τους.`,
+    rows:real.filter(d=>d.offD>=5 && d.offD/d.daysCount>0.25),
+    cols:[cD,cS,{h:"Ημέρες εκτός",num:1,v:r=>r.offD,f:r=>nf(r.offD)},{h:"% ημερών",num:1,v:r=>r.offD/r.daysCount,f:r=>pc(r.offD/r.daysCount)},
+      {h:"Επισκέψεις εκτός",num:1,v:r=>r.offV,f:r=>nf(r.offV)},{h:"Προγραμματισμένες ημέρες",v:r=>r.sched.size,f:r=>chips(r.sched),x:r=>[...r.sched].sort().map(i=>GR_DAY[i]).join(", ")}]});
+  out.push({t:"Απογευματινές συνεδρίες με πολύ λίγες επισκέψεις",sort:2,
+    note:`ΙΛ με απογευματινές συνεδρίες κάτω από ${CFG.smallPm} επισκέψεις. Αν είναι εγκεκριμένα απογευματινά, η προσέλευση είναι χαμηλή· αν όχι, είναι πρωινό που τράβηξε μετά τις ${cutLabel()}.`,
+    rows:real.filter(d=>d.smallPm>0),
+    cols:[cD,cS,{h:"Συνεδρίες με λίγες επισκέψεις",num:1,v:r=>r.smallPm,f:r=>nf(r.smallPm)},{h:"Σύνολο απογευμ. συνεδριών",num:1,v:r=>r.pmS,f:r=>nf(r.pmS)},
+      {h:"Μ.Ο./απογευμ. ΕΙ",num:1,v:r=>r.pmAvg,f:r=>nf(r.pmAvg,1)}]});
+  out.push({t:"ΙΛ χωρίς επισκέψεις τις τελευταίες "+CFG.activeWindow+" ημέρες",sort:3,
+    note:`Μόνο ΙΛ με τουλάχιστον 10 επισκέψεις στην ειδικότητα. Πιθανή αποχώρηση, μετακίνηση, μακρά άδεια ή διαφορετική γραφή του ονόματος ανάμεσα σε Medico και Ewave.`,
+    rows:real.filter(d=>!d.activeAny && d.visits>=10),
+    cols:[cD,cS,{h:"Επισκέψεις",num:1,v:r=>r.visits,f:r=>nf(r.visits)},{h:"Τελευταία επίσκεψη",v:r=>+r.last,f:r=>dmy(r.last),x:r=>dmy(r.last)},
+      {h:"Πρώτη επίσκεψη",v:r=>+r.first,f:r=>dmy(r.first),x:r=>dmy(r.first)}]});
+  const nd=V.docs.filter(d=>!d.docKey);
+  out.push({t:"Ειδικότητες με επισκέψεις χωρίς ΙΛ",sort:1,
+    note:`Χωρίς ΙΛ η επίσκεψη δεν μπαίνει σε συνεδρία γιατρού, άρα οι Μ.Ο. της ειδικότητας επηρεάζονται.`,
+    rows:nd, cols:[cS,{h:"Επισκέψεις χωρίς ΙΛ",num:1,v:r=>r.visits,f:r=>nf(r.visits)},
+      {h:"% της ειδικότητας",num:1,v:r=>r.visits/dm.get(r.dept).visits,f:r=>pc(r.visits/dm.get(r.dept).visits)}]});
+  return out;
+}
+
+/* ===================== EXPORT ===================== */
+function download(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+const stamp=()=>"FGH-EI-"+TAB+"-"+iso(new Date());
+const plain=s=>String(s==null?"":s).replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&nbsp;/g," ").replace(/&quot;/g,'"').trim();
+
+/* Excel: τα φύλλα «Ανά Ειδικότητα» και «Ανά ΙΛ» υπολογίζονται με τύπους πάνω στο φύλλο «Δεδομένα». */
+function exportExcel(type){
+  const V=VIEW; if(!V) return;
+  if(type==="xls" && V.rows.length>65000){ alert("Το .xls χωράει μέχρι 65.536 γραμμές. Χρησιμοποιήστε .xlsx ή στενέψτε την περίοδο."); return; }
+  const wb=XLSX.utils.book_new();
+  const OK="Ολοκληρωμένο", ST={ok:OK,cancel:"Ακυρωμένο",open:"Ανοικτό"};
+  const seen=new Set(), dn=new Map(V.docs.map(d=>[d.key,d.doc]));
+  const data=[["Ημερομηνία","Ώρα","Συνεδρία","Ειδικότητα","Ομάδα","Ιατρικός Λειτουργός","Πηγή","Κατάσταση","Τρόπος πληρωμής","Νέα συνεδρία (1/0)"]];
+  for(const r of V.rows){
+    const k=(r.docKey||NO_DOC)+"|"+r.dept+"|"+r.day+"|"+r.sess; let first=0;
+    if(r.status==="ok" && !seen.has(k)){ seen.add(k); first=1; }
+    const docName=r.docKey?(dn.get(r.docKey+"|"+r.dept)||r.doc):NO_DOC;
+    data.push([{t:"n",v:Math.round((Date.UTC(r.date.getFullYear(),r.date.getMonth(),r.date.getDate())/864e5)+25569),z:"dd/mm/yyyy"},
+      r.mins==null?"":String(Math.floor(r.mins/60)).padStart(2,"0")+":"+String(r.mins%60).padStart(2,"0"),
+      r.sess==="PM"?"Απόγευμα":"Πρωί", r.dept, GROUP_LABEL[r.group], docName, r.source==="medico"?"Medico":"Ewave", ST[r.status], r.payment, first]);
+  }
+  const N=data.length, R=c=>`Δεδομένα!$${c}$2:$${c}$${N}`;
+  const F=f=>({t:"n",f});
+  const wsD=XLSX.utils.aoa_to_sheet(data); wsD["!cols"]=[12,7,11,34,26,32,9,14,14,10].map(w=>({wch:w}));
+
+  const prm=[["Παράμετρος","Τιμή"],["Νοσοκομείο","Γ.Ν. Αμμοχώστου"],["Περίοδος",dmy(V.dateRange[0])+" – "+dmy(V.dateRange[1])],
+    ["Ομάδα",FILTER.group?GROUP_LABEL[FILTER.group]:"Όλες"],["Ειδικότητα",FILTER.dept||"Όλες"],["ΙΛ (αναζήτηση)",FILTER.doc||"—"],
+    ["Συνεδρία",FILTER.sess==="AM"?"Πρωινές":FILTER.sess==="PM"?"Απογευματινές":"Όλες"],["Απόγευμα από",cutLabel()],
+    ["Ημερομηνία εξαγωγής",dmy(new Date())],[],
+    ["Σημείωση","Τα φύλλα «Ανά Ειδικότητα» και «Ανά ΙΛ» υπολογίζονται με τύπους COUNTIFS/SUMIFS πάνω στο φύλλο «Δεδομένα»."],
+    ["","Η στήλη «Νέα συνεδρία» έχει 1 στην πρώτη ολοκληρωμένη επίσκεψη κάθε συνεδρίας (ΙΛ + ημερομηνία + πρωί/απόγευμα). Το άθροισμά της δίνει τον αριθμό συνεδριών."],
+    ["","Το φύλλο «Δεδομένα» δεν περιέχει ονόματα ασθενών."],
+    ["Έλεγχος: ολοκληρωμένες επισκέψεις",F(`COUNTIFS(${R("H")},"${OK}")`)],
+    ["Έλεγχος: άθροισμα φύλλου «Ανά Ειδικότητα»",F(`SUM('Ανά Ειδικότητα'!B2:B${V.depts.length+1})`)]];
+  const wsP=XLSX.utils.aoa_to_sheet(prm); wsP["!cols"]=[{wch:42},{wch:90}];
+
+  const sd=[["Ειδικότητα","Επισκέψεις","Πρωινές","Απογευματινές","Πρωινές συνεδρίες","Απογευματινές συνεδρίες","Μ.Ο./πρωινό ΕΙ","Μ.Ο./απογευμ. ΕΙ"]];
+  V.depts.forEach((d,i)=>{ const n=i+2, c=`${R("D")},$A${n},${R("H")},"${OK}"`;
+    sd.push([d.dept,F(`COUNTIFS(${c})`),F(`COUNTIFS(${c},${R("C")},"Πρωί")`),F(`COUNTIFS(${c},${R("C")},"Απόγευμα")`),
+      F(`SUMIFS(${R("J")},${R("D")},$A${n},${R("C")},"Πρωί")`),F(`SUMIFS(${R("J")},${R("D")},$A${n},${R("C")},"Απόγευμα")`),
+      {t:"n",f:`IF(E${n}=0,0,C${n}/E${n})`,z:"0.0"},{t:"n",f:`IF(F${n}=0,0,D${n}/F${n})`,z:"0.0"}]); });
+  const n1=V.depts.length+2;
+  sd.push(["ΣΥΝΟΛΟ",...["B","C","D","E","F"].map(c=>F(`SUM(${c}2:${c}${n1-1})`)),{t:"n",f:`IF(E${n1}=0,0,C${n1}/E${n1})`,z:"0.0"},{t:"n",f:`IF(F${n1}=0,0,D${n1}/F${n1})`,z:"0.0"}]);
+  const wsS=XLSX.utils.aoa_to_sheet(sd); wsS["!cols"]=[36,12,12,14,16,20,14,16].map(w=>({wch:w}));
+
+  const dd=[["Ιατρικός Λειτουργός","Ειδικότητα","Επισκέψεις","Πρωινές","Απογευματινές","Πρωινές συνεδρίες","Απογευματινές συνεδρίες","Μ.Ο./πρωινό ΕΙ","Μ.Ο./απογευμ. ΕΙ"]];
+  V.docs.forEach((d,i)=>{ const n=i+2, c=`${R("F")},$A${n},${R("D")},$B${n},${R("H")},"${OK}"`, s=`${R("F")},$A${n},${R("D")},$B${n}`;
+    dd.push([d.doc,d.dept,F(`COUNTIFS(${c})`),F(`COUNTIFS(${c},${R("C")},"Πρωί")`),F(`COUNTIFS(${c},${R("C")},"Απόγευμα")`),
+      F(`SUMIFS(${R("J")},${s},${R("C")},"Πρωί")`),F(`SUMIFS(${R("J")},${s},${R("C")},"Απόγευμα")`),
+      {t:"n",f:`IF(F${n}=0,0,D${n}/F${n})`,z:"0.0"},{t:"n",f:`IF(G${n}=0,0,E${n}/G${n})`,z:"0.0"}]); });
+  const wsI=XLSX.utils.aoa_to_sheet(dd); wsI["!cols"]=[34,34,12,12,14,16,20,14,16].map(w=>({wch:w}));
+
+  XLSX.utils.book_append_sheet(wb,wsP,"Παράμετροι");
+  XLSX.utils.book_append_sheet(wb,wsS,"Ανά Ειδικότητα");
+  XLSX.utils.book_append_sheet(wb,wsI,"Ανά ΙΛ");
+  // οι πίνακες της τρέχουσας καρτέλας, όπως φαίνονται στην οθόνη (τιμές)
+  Object.values(TABLES).forEach((t,i)=>{
+    const cols=t.cols.filter(c=>c.x!==null);
+    const aoa=[cols.map(c=>plain(c.h))].concat(t.rows.map(r=>cols.map(c=>{ const v=c.x?c.x(r):c.num?c.v(r):plain(c.f(r)); return v==null||(typeof v==="number"&&!isFinite(v))?"":v; })));
+    const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!cols"]=cols.map((c,j)=>({wch:j<2?32:16}));
+    XLSX.utils.book_append_sheet(wb,ws,("Οθόνη "+(i+1)+" "+t.title).replace(/[\\\/\?\*\[\]:]/g," ").slice(0,31));
+  });
+  XLSX.utils.book_append_sheet(wb,wsD,"Δεδομένα");
+  XLSX.writeFile(wb,stamp()+"."+type,{bookType:type==="xls"?"biff8":"xlsx"});
+}
+function exportDoc(){
+  const clone=$("#capture").cloneNode(true);
+  clone.querySelectorAll(".toolbar,#filterBox,button,svg").forEach(e=>e.remove());
+  clone.querySelectorAll(".kpi").forEach(k=>{ k.outerHTML=`<p><b>${k.querySelector(".l").textContent}:</b> ${k.querySelector(".v").textContent} <i>(${k.querySelector(".d").textContent.trim()})</i></p>`; });
+  const tabName=TABS.find(t=>t[0]===TAB)[1];
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">
+    <style>body{font-family:Calibri,Arial;font-size:10.5pt}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:3px 6px;font-size:9pt}th{background:#E8F0F7}h1{font-size:15pt;color:#1B75BB}</style></head>
+    <body><h1>Εξωτερικά Ιατρεία Γ.Ν. Αμμοχώστου: ${esc(tabName)}</h1>
+    <p>Περίοδος ${dmy(VIEW.dateRange[0])} – ${dmy(VIEW.dateRange[1])} · Ομάδα: ${FILTER.group?GROUP_LABEL[FILTER.group]:"Όλες"} · Απόγευμα από ${cutLabel()}</p>${clone.innerHTML}</body></html>`;
+  download(new Blob(["﻿",html],{type:"application/msword"}),stamp()+".doc");
+}
+function loadScript(src){ return new Promise((ok,no)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=no; document.head.appendChild(s); }); }
+async function exportPng(){
+  try{
+    if(!window.html2canvas) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+    const sc=[...$$("#panel .scroll")]; sc.forEach(e=>{e.style.maxHeight="none";e.style.overflow="visible";});
+    const canvas=await html2canvas($("#capture"),{scale:2,backgroundColor:"#EEF2F6",ignoreElements:e=>e.classList&&e.classList.contains("toolbar")});
+    sc.forEach(e=>{e.style.maxHeight="";e.style.overflow="";});
+    canvas.toBlob(b=>download(b,stamp()+".png"));
+  }catch(e){ alert("Η εξαγωγή εικόνας χρειάζεται σύνδεση στο διαδίκτυο για να φορτώσει τη βιβλιοθήκη html2canvas. Εναλλακτικά χρησιμοποιήστε την εξαγωγή PDF."); }
+}
+function template(kind){
+  const wb=XLSX.utils.book_new();
+  const aoa=kind==="sched"
+    ?[["Ιατρός","Ειδικότητα","Ημέρα"],["ΕΠΩΝΥΜΟ ΟΝΟΜΑ","ΚΑΡΔΙΟΛΟΓΙΚΟ","Δευτέρα, Τετάρτη"],["ΕΠΩΝΥΜΟ ΟΝΟΜΑ","ΟΡΘΟΠΕΔΙΚΟ","Τρίτη"]]
+    :[["Ειδικότητα","Ιατρός","Εγκεκριμένες συνεδρίες"],["ΝΕΦΡΟΛΟΓΙΚΟ","",40],["ΩΡΛ","ΕΠΩΝΥΜΟ ΟΝΟΜΑ",12]];
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!cols"]=[{wch:30},{wch:30},{wch:26}];
+  XLSX.utils.book_append_sheet(wb,ws,kind==="sched"?"Πρόγραμμα":"Εγκρίσεις");
+  XLSX.writeFile(wb,kind==="sched"?"Υπόδειγμα-Πρόγραμμα-ΕΙ.xlsx":"Υπόδειγμα-Εγκρίσεις-Απογευματινών.xlsx");
+}
+function wireToolbar(){
+  const b=$("#btnAdd"); if(b) b.onclick=()=>$("#file").click();
+  $$("#panel [data-exp]").forEach(x=>x.onclick=()=>{
+    const k=x.dataset.exp;
+    if(k==="pdf") window.print();
+    else if(k==="xlsx"||k==="xls") exportExcel(k);
+    else if(k==="doc") exportDoc();
+    else if(k==="png") exportPng();
+  });
+  const s=$("#btnTplSched"); if(s) s.onclick=()=>template("sched");
+  const a=$("#btnTplAppr"); if(a) a.onclick=()=>template("appr");
+}
+
+/* ===================== FILTERS ===================== */
+function populateFilters(keepDates){
+  const g=$("#fGroup").value;
+  const pool=RAW.filter(r=>!g||r.group===g);
+  const sel=$("#fDept"), cur=sel.value;
+  const depts=[...new Set(pool.map(r=>r.dept))].sort((a,b)=>a.localeCompare(b,"el"));
+  sel.innerHTML=`<option value="">Όλα</option>`+depts.map(d=>`<option>${esc(d)}</option>`).join("");
+  if(depts.includes(cur)) sel.value=cur;
+  const dv=sel.value;
+  const names=[...new Set(pool.filter(r=>r.docKey&&(!dv||r.dept===dv)).map(r=>r.doc))].sort((a,b)=>a.localeCompare(b,"el"));
+  $("#docList").innerHTML=names.map(n=>`<option value="${esc(n)}">`).join("");
+  if(RAW.length && !keepDates){ $("#fFrom").value=iso(RAW[0].date); $("#fTo").value=iso(RAW[RAW.length-1].date); }
+}
+function readFilters(){
+  const f=$("#fFrom").value, t=$("#fTo").value, c=$("#fCut").value||"15:00";
+  FILTER.from=f?new Date(f+"T00:00:00"):null;
+  FILTER.to=t?new Date(t+"T23:59:59"):null;
+  FILTER.group=$("#fGroup").value; FILTER.dept=$("#fDept").value;
+  FILTER.doc=$("#fDoc").value.trim(); FILTER.sess=$("#fSess").value; FILTER.src=$("#fSrc").value;
+  FILTER.cut=(+c.slice(0,2))*60+(+c.slice(3,5));
+}
+let LAST_F="";
+function applyFilters(force){
+  readFilters();
+  const sig=JSON.stringify(FILTER);
+  if(force!==true && sig===LAST_F) return;   // καμία αλλαγή, δεν ξαναζωγραφίζουμε
+  LAST_F=sig;
+  VIEW=analyse();
+  renderKpis(); renderTabs(); renderPanel();
+}
+["fFrom","fTo","fDept","fDoc","fSess","fSrc","fCut"].forEach(id=>{ $("#"+id).onchange=()=>{ if(id==="fDept") populateFilters(true); applyFilters(); }; });
+$("#fGroup").onchange=()=>{ populateFilters(true); applyFilters(); };
+let docTimer=0;
+$("#fDoc").oninput=()=>{ clearTimeout(docTimer); docTimer=setTimeout(applyFilters,300); };
+$("#btnReset").onclick=()=>{
+  $("#fGroup").value="ei"; $("#fDept").value=""; $("#fDoc").value=""; $("#fSess").value=""; $("#fSrc").value=""; $("#fCut").value="15:00";
+  populateFilters(false); applyFilters(true);
+};
+
+/* ===================== FILE UPLOAD ===================== */
+async function load(files){
+  if(!files||!files.length) return;
+  const first=!RAW.length;
+  await loadFiles([...files]);
+  $("#file").value="";
+  const probDiv=$("#problems");
+  if(!RAW.length){
+    probDiv.style.display="";
+    probDiv.innerHTML=PROBLEMS.map(p=>`<div class="${p.t==='warn'?'warn':'warn ok'}" style="margin:4px 0">${esc(p.m)}</div>`).join("")+
+      `<div class="warn bad">Δεν βρέθηκαν δεδομένα επισκέψεων. Φορτώστε πρώτα αρχείο Medico ή Ewave.</div>`;
+    return;
+  }
+  probDiv.style.display="none";
+  $("#drop").style.display="none";
+  $("#filterBox").style.display="";
+  populateFilters(!first);
+  applyFilters(true);
+}
+$("#btnPick").onclick=()=>$("#file").click();
+$("#file").onchange=e=>load(e.target.files);
+const drop=$("#drop");
+document.body.ondragover=e=>{e.preventDefault();drop.classList.add("over");};
+document.body.ondragleave=()=>drop.classList.remove("over");
+document.body.ondrop=e=>{e.preventDefault();drop.classList.remove("over");load(e.dataTransfer.files);};
+</script>
+</body>
+</html>
