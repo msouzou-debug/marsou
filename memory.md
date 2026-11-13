@@ -24,6 +24,16 @@ Standing rules and decisions for this project. Read at the start of every sessio
 | Keep my answer (button) | Διατήρηση της απάντησής μου |
 | On hold, while the request is with the requester | Σε αναμονή |
 | View request (email button, as in eFinance) | Προβολή αιτήματος |
+| Is there credit? (step 4 question) | Υπάρχει πίστωση; |
+| Commitment article (budget) | Άρθρο δέσμευσης |
+| Are funds available? (step 2 question) | Υπάρχει διαθέσιμο κονδύλι; |
+| Procedures (ΟΑΥ activity) | Ιατρικές πράξεις |
+| Headcount | Αριθμός προσωπικού |
+| Annual employer cost | Ετήσιο εργοδοτικό κόστος |
+| Round (one resubmission cycle) | Κύκλος {n} |
+| Substitute acting for the holder | {who}, αντί για {holder} |
+| Tracker states: done, current step, pending, waiting, negative answer | Ολοκληρώθηκε · Τρέχον βήμα · Εκκρεμεί · Περιμένει · Αρνητική απάντηση |
+| Draft (status) | Πρόχειρο |
 
 The full glossary lives in the skill. When the owner fixes or approves a term: update the skill, send the owner the updated skill file, and add the row here.
 
