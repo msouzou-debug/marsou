@@ -164,3 +164,4 @@ English role names and "SHSO" for ΟΚΥπΥ are my translations. Confirm them w
 | `settings.add`, `settings.save`, `settings.deactivate`, `settings.activate`, `settings.saved` | Add · Save · Deactivate · Activate · Saved. |
 | `settings.has_sci_director` | Has a Scientific Director |
 | `settings.duplicate_code` | This code is already used. |
+| `status.draft`, `tracker.state.done`, `tracker.state.current`, `tracker.state.pending`, `tracker.state.waiting`, `tracker.state.negative`, `form.date_hint`, `form.refresh_route` | Draft · Done · Current step · Pending · Waiting · Negative answer · dd/mm/yyyy · Update the route |

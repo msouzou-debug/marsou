@@ -1,0 +1,73 @@
+/* Route tracker. Functional draft; design restyles later. Stable class names: ehr-tracker*.
+   One markup: vertical below 768 px, horizontal from 768 px. Mini: six segments for list rows. */
+.ehr-tracker {
+  --ehr-tr-color: var(--ehr-line);
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: .75rem;
+}
+.ehr-tracker__stop {
+  --ehr-tr-color: var(--ehr-line);
+  min-width: 0;
+  padding: .25rem 0 .25rem .75rem;
+  border-left: 4px solid var(--ehr-tr-color);
+  overflow-wrap: break-word; word-break: normal; hyphens: auto;
+}
+.ehr-tracker__head { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
+.ehr-tracker__marker { color: var(--ehr-tr-color); font-size: 1.25rem; line-height: 1; flex: none; }
+.ehr-tracker__num { color: var(--ehr-text-secondary); font-weight: 400; flex: none; }
+.ehr-tracker__title { min-width: 0; }
+.ehr-tracker__state { font-size: .875rem; color: var(--ehr-text-secondary); margin: .125rem 0 .25rem 1.75rem; }
+.ehr-tracker__people { list-style: none; margin: 0 0 0 1.75rem; padding: 0; font-size: .875rem; }
+.ehr-tracker__person { display: flex; gap: .375rem; align-items: flex-start; padding: .125rem 0; }
+.ehr-tracker__person-icon { flex: none; margin-top: .15rem; color: var(--ehr-text-secondary); }
+.ehr-tracker__person-text { min-width: 0; display: flex; flex-direction: column; }
+.ehr-tracker__role { color: var(--ehr-text); }
+.ehr-tracker__person-state, .ehr-tracker__actor { color: var(--ehr-text-secondary); font-size: .8125rem; }
+.ehr-tracker__person--done .ehr-tracker__person-icon { color: var(--ehr-green-text); }
+.ehr-tracker__person--negative .ehr-tracker__person-icon { color: var(--ehr-red); }
+.ehr-tracker__person--paused .ehr-tracker__person-icon { color: var(--ehr-amber-text); }
+.ehr-tracker__then { margin: .125rem 0 .125rem 1.75rem; color: var(--ehr-text-secondary); font-size: .875rem; line-height: 1; }
+
+.ehr-tracker__stop--done { --ehr-tr-color: var(--ehr-green-text); }
+.ehr-tracker__stop--current { --ehr-tr-color: var(--ehr-blue-deep); background: rgba(6, 159, 236, .06); }
+.ehr-tracker__stop--pending { --ehr-tr-color: var(--ehr-line); }
+.ehr-tracker__stop--not_applicable { --ehr-tr-color: var(--ehr-line); border-left-style: dashed; color: var(--ehr-text-secondary); }
+.ehr-tracker__stop--stopped { --ehr-tr-color: var(--ehr-red); }
+.ehr-tracker__stop--paused { --ehr-tr-color: var(--ehr-amber-text); }
+.ehr-tracker__stop--withdrawn { --ehr-tr-color: var(--ehr-text-secondary); }
+.ehr-tracker__stop--pending .ehr-tracker__marker,
+.ehr-tracker__stop--not_applicable .ehr-tracker__marker { color: var(--ehr-text-secondary); }
+
+/* .ehr-tracker--stacked stays vertical at any width (narrow side panels). */
+@media (min-width: 768px) {
+  .ehr-tracker:not(.ehr-tracker--stacked) { flex-direction: row; gap: .5rem; align-items: stretch; }
+  .ehr-tracker:not(.ehr-tracker--stacked) .ehr-tracker__stop {
+    flex: 1 1 0; border-left: 0; border-top: 4px solid var(--ehr-tr-color);
+    padding: .5rem .25rem 0 0;
+  }
+  .ehr-tracker:not(.ehr-tracker--stacked) .ehr-tracker__stop--not_applicable { border-top-style: dashed; }
+  .ehr-tracker:not(.ehr-tracker--stacked) .ehr-tracker__head { font-size: .9375rem; align-items: flex-start; }
+  .ehr-tracker:not(.ehr-tracker--stacked) .ehr-tracker:not(.ehr-tracker--stacked) :is(.ehr-tracker__state, .ehr-tracker__people, .ehr-tracker__then) { margin-left: 0; }
+  .ehr-tracker:not(.ehr-tracker--stacked) .ehr-tracker__stop--current { padding-left: .25rem; }
+}
+
+/* A quiet marker on the current step; nothing moves for people who ask for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .ehr-tracker__stop--current .ehr-tracker__marker { animation: ehr-tracker-breathe 3s ease-in-out infinite; }
+}
+@keyframes ehr-tracker-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* Miniature: six segments, each with an icon so colour is never the only signal. */
+.ehr-tracker-mini { list-style: none; margin: 0; padding: 0; display: inline-flex; gap: 3px; }
+.ehr-tracker-mini__seg {
+  --ehr-tr-color: var(--ehr-text-secondary);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.75rem; height: 1.5rem; border-radius: 3px; font-size: .8125rem; line-height: 1;
+  color: var(--ehr-tr-color); border: 1px solid var(--ehr-line); background: #fff;
+}
+.ehr-tracker-mini__seg--done { --ehr-tr-color: var(--ehr-green-text); background: var(--ehr-green-tint); border-color: var(--ehr-green-text); }
+.ehr-tracker-mini__seg--current { --ehr-tr-color: var(--ehr-blue-deep); border-color: var(--ehr-blue-deep); border-width: 2px; }
+.ehr-tracker-mini__seg--stopped { --ehr-tr-color: var(--ehr-red); border-color: var(--ehr-red); }
+.ehr-tracker-mini__seg--paused { --ehr-tr-color: var(--ehr-amber-text); border-color: var(--ehr-amber-text); }
+.ehr-tracker-mini__seg--not_applicable { border-style: dashed; }
+.ehr-tracker-mini__seg--withdrawn { border-color: var(--ehr-text-secondary); }

@@ -1,0 +1,50 @@
+/* eHR screens: request list, form, request page. Bootstrap first; this file holds only what it can't do. */
+.ehr-wrap { overflow-wrap: anywhere; }
+.ehr-prewrap { white-space: pre-wrap; }
+
+/* Touch targets: 44 px */
+.ehr-form .form-control, .ehr-form .form-select, .ehr-search .form-control,
+.btn, .ehr-tabs .nav-link { min-height: 44px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; }
+.ehr-tabs .nav-link { display: inline-flex; align-items: center; }
+.ehr-form textarea.form-control { min-height: 6rem; }
+.ehr-check { min-height: 44px; display: flex; align-items: center; gap: .5rem; padding-left: 0; }
+.ehr-check .form-check-input { margin: 0; width: 1.5rem; height: 1.5rem; flex: none; }
+.ehr-check .form-check-label { padding: .5rem 0; }
+.ehr-tabs { flex-wrap: nowrap; overflow-x: auto; }
+.ehr-tabs .nav-link { white-space: nowrap; }
+
+/* List rows */
+.ehr-rows__head { padding: .5rem .75rem; border-bottom: 1px solid var(--ehr-line); }
+.ehr-row { margin: 0; padding: .75rem; border-bottom: 1px solid var(--ehr-line-row); }
+.ehr-row:hover { background: rgba(6, 159, 236, .05); }
+.ehr-row__number { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+.ehr-statusline { font-size: .875rem; }
+
+/* Chips: icon and word */
+.ehr-chip {
+  display: inline-flex; align-items: center; gap: .375rem; padding: .25rem .625rem; border-radius: 1rem;
+  font-size: .8125rem; font-weight: 700; border: 1px solid var(--ehr-line); background: #fff; color: var(--ehr-text);
+  white-space: nowrap;
+}
+.ehr-chip--draft { color: var(--ehr-text-secondary); border-style: dashed; }
+.ehr-chip--in_progress { color: var(--ehr-blue-deep); border-color: var(--ehr-blue-deep); }
+.ehr-chip--returned { color: var(--ehr-amber-text); border-color: var(--ehr-amber-text); }
+.ehr-chip--approved { color: var(--ehr-green-text); background: var(--ehr-green-tint); border-color: var(--ehr-green-text); }
+.ehr-chip--rejected { color: var(--ehr-red); border-color: var(--ehr-red); }
+.ehr-chip--withdrawn { color: var(--ehr-text-secondary); }
+
+/* Form */
+.ehr-leaver { background: #fafbfc; }
+.ehr-route-preview { background: #fff; }
+.ehr-route-preview:not(:has(*)) { display: none; }
+.ehr-form__actions { padding: 1rem 0 2rem; }
+@media (max-width: 575.98px) {
+  .ehr-form__actions .btn { flex: 1 1 100%; }
+}
+@media (min-width: 992px) {
+  .ehr-route-preview { position: sticky; top: 1rem; }
+}
+
+/* Request page */
+.ehr-history__item { padding: .5rem 0 .5rem .75rem; border-left: 3px solid var(--ehr-line); margin-bottom: .5rem; }

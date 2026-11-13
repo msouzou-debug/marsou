@@ -1,0 +1,56 @@
+{# Form field macros. All need context (t, errors). Ids are f-<name>; errors sit in e-<name>. #}
+{% macro label(name, key, required=true) %}
+<label class="form-label" for="f-{{ name }}">{{ t(key) }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif %}</label>
+{% endmacro %}
+
+{% macro error(name) %}
+{% if errors.get(name) %}<div class="invalid-feedback d-block" id="e-{{ name }}">{{ t(errors[name]) }}</div>{% endif %}
+{% endmacro %}
+
+{% macro select(name, key, options, value, required=true, keyed=false) %}
+{# options: [(id, label, group)]. keyed: label is a string key. #}
+<div class="mb-3">
+  {{ label(name, key, required) }}
+  <select class="form-select{{ ' is-invalid' if errors.get(name) }}" id="f-{{ name }}" name="{{ name }}"{% if errors.get(name) %} aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}>
+    <option value="">{{ t('form.select.placeholder') }}</option>
+    {% set ns = namespace(group=none) %}
+    {% for oid, olabel, group in options %}
+      {% if group != ns.group %}{% if ns.group %}</optgroup>{% endif %}{% if group %}<optgroup label="{{ group }}">{% endif %}{% set ns.group = group %}{% endif %}
+      <option value="{{ oid }}"{{ ' selected' if value == oid|string }}>{{ t(olabel) if keyed else olabel }}</option>
+    {% endfor %}
+    {% if ns.group %}</optgroup>{% endif %}
+  </select>
+  {{ error(name) }}
+</div>
+{% endmacro %}
+
+{% macro text(name, key, value, required=true, inputmode=none, type='text') %}
+<div class="mb-3">
+  {{ label(name, key, required) }}
+  <input class="form-control{{ ' is-invalid' if errors.get(name) }}" type="{{ type }}" id="f-{{ name }}" name="{{ name }}" value="{{ value }}"{% if inputmode %} inputmode="{{ inputmode }}"{% endif %}{% if errors.get(name) %} aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}>
+  {{ error(name) }}
+</div>
+{% endmacro %}
+
+{% macro textarea(name, key, value, required=true, rows=3) %}
+<div class="mb-3">
+  {{ label(name, key, required) }}
+  <textarea class="form-control{{ ' is-invalid' if errors.get(name) }}" id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if errors.get(name) %} aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}>{{ value }}</textarea>
+  {{ error(name) }}
+</div>
+{% endmacro %}
+
+{% macro yesno(name, key, value, required=true) %}
+<fieldset class="mb-3" id="f-{{ name }}"{% if errors.get(name) %} aria-describedby="e-{{ name }}"{% endif %}>
+  <legend class="form-label fs-6">{{ t(key) }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif %}</legend>
+  <div class="d-flex flex-wrap gap-4">
+    {% for v in ('no', 'yes') %}
+    <div class="form-check ehr-check">
+      <input class="form-check-input{{ ' is-invalid' if errors.get(name) }}" type="radio" name="{{ name }}" id="f-{{ name }}-{{ v }}" value="{{ v }}"{{ ' checked' if value == v }}>
+      <label class="form-check-label" for="f-{{ name }}-{{ v }}">{{ t('answer.' ~ v) }}</label>
+    </div>
+    {% endfor %}
+  </div>
+  {{ error(name) }}
+</fieldset>
+{% endmacro %}

@@ -1,0 +1,6 @@
+{# Request status chip: icon and word, never colour alone. Classes: ehr-chip ehr-chip--<status>. #}
+{% set ehr_status_icons = {'draft': 'bi-pencil', 'in_progress': 'bi-hourglass-split', 'returned': 'bi-arrow-return-left',
+  'approved': 'bi-check-circle-fill', 'rejected': 'bi-x-circle-fill', 'withdrawn': 'bi-slash-circle'} %}
+{% macro status_chip(status) %}
+<span class="ehr-chip ehr-chip--{{ status }}"><i class="bi {{ ehr_status_icons.get(status, 'bi-circle') }}" aria-hidden="true"></i><span>{{ t('status.' ~ status) }}</span></span>
+{% endmacro %}

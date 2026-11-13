@@ -43,4 +43,4 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 ## Status
 
-- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Phase 1 started. Still waiting on the server pack from Marios.
+- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Phase 1 built (engine, models, sign-in, numbering, list settings, request form with live route, drafts, list, first request page; 201 tests). Waiting on the owner's Phase 1 review, the Greek budget terms and the server pack from Marios. Carry into Phase 2: add `request.returned_at` and a step-3 phase on `task` and `request_action`; let flash messages take parameters; number search can't match Θ from a Latin keyboard (depends on the prefix decision).

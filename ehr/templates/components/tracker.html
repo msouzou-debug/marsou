@@ -1,0 +1,71 @@
+{# Route tracker. One list of stops, three renderings from the same data:
+   tracker(stops)       full: vertical below 768 px, horizontal from 768 px (CSS decides)
+   tracker_mini(stops)  six segments for list rows
+   Stop: {step, state, phase, people[{role, state, actor_user_id, on_behalf_of_user_id, redirect_reason, replaced, phase}]}
+   Stop states: done current pending not_applicable stopped paused withdrawn. Person states: done waiting paused negative replaced.
+   Every state has an icon and a word. Class names are stable: ehr-tracker*. #}
+{% set ehr_stop_icons = {'done': 'bi-check-circle-fill', 'current': 'bi-record-circle-fill', 'pending': 'bi-circle',
+  'not_applicable': 'bi-dash-circle', 'stopped': 'bi-x-octagon-fill', 'paused': 'bi-pause-circle-fill', 'withdrawn': 'bi-slash-circle'} %}
+{% set ehr_stop_words = {'done': 'tracker.state.done', 'current': 'tracker.state.current', 'pending': 'tracker.state.pending',
+  'not_applicable': 'tracker.not_applicable', 'stopped': 'tracker.stopped_here', 'paused': 'tracker.on_hold', 'withdrawn': 'status.withdrawn'} %}
+{% set ehr_person_icons = {'done': 'bi-check-lg', 'waiting': 'bi-hourglass-split', 'paused': 'bi-pause-fill',
+  'negative': 'bi-x-lg', 'replaced': 'bi-arrow-repeat'} %}
+{% set ehr_person_words = {'done': 'tracker.state.done', 'waiting': 'tracker.state.waiting', 'paused': 'tracker.on_hold',
+  'negative': 'tracker.state.negative', 'replaced': 'tracker.replaced'} %}
+
+{% macro person(p, names, show_state) %}
+<li class="ehr-tracker__person ehr-tracker__person--{{ p.state }}">
+  <i class="bi {{ ehr_person_icons.get(p.state, 'bi-circle') }} ehr-tracker__person-icon" aria-hidden="true"></i>
+  <span class="ehr-tracker__person-text">
+    <span class="ehr-tracker__role">{{ t('role.' ~ p.role) }}</span>
+    {% if show_state %}<span class="ehr-tracker__person-state">{{ t(ehr_person_words.get(p.state, 'tracker.state.pending')) }}</span>{% endif %}
+    {% if names and p.actor_user_id and names.get(p.actor_user_id) %}
+      <span class="ehr-tracker__actor">
+        {% if p.on_behalf_of_user_id and names.get(p.on_behalf_of_user_id) %}{{ t('tracker.acting_for', who=names[p.actor_user_id], holder=names[p.on_behalf_of_user_id]) }}{% else %}{{ names[p.actor_user_id] }}{% endif %}
+        {% if p.redirect_reason %}({{ t('tracker.redirect.' ~ p.redirect_reason) }}){% endif %}
+      </span>
+    {% endif %}
+  </span>
+</li>
+{% endmacro %}
+
+{% macro tracker(stops, names=none, show_people_state=true, title_key='tracker.title', stacked=false) %}
+{% if stops %}
+<ol class="ehr-tracker{{ ' ehr-tracker--stacked' if stacked }}" aria-label="{{ t(title_key) }}">
+  {% for stop in stops %}
+  <li class="ehr-tracker__stop ehr-tracker__stop--{{ stop.state }}"{% if stop.state == 'current' %} aria-current="step"{% endif %}>
+    <div class="ehr-tracker__head">
+      <i class="bi {{ ehr_stop_icons.get(stop.state, 'bi-circle') }} ehr-tracker__marker" aria-hidden="true"></i>
+      <span class="ehr-tracker__num">{{ stop.step }}</span>
+      <span class="ehr-tracker__title">{{ t('step.' ~ stop.step) }}</span>
+    </div>
+    <div class="ehr-tracker__state">{{ t(ehr_stop_words.get(stop.state, 'tracker.state.pending')) }}</div>
+    {% if stop.people %}
+      {% set inputs = stop.people | selectattr('phase', 'equalto', 'inputs') | list %}
+      {% set decision = stop.people | selectattr('phase', 'equalto', 'decision') | list %}
+      {% if inputs or decision %}
+        <ul class="ehr-tracker__people ehr-tracker__people--inputs">{% for p in inputs %}{{ person(p, names, show_people_state) }}{% endfor %}</ul>
+        {% if decision %}
+        <div class="ehr-tracker__then" aria-hidden="true"><i class="bi bi-arrow-down"></i></div>
+        <ul class="ehr-tracker__people ehr-tracker__people--decision">{% for p in decision %}{{ person(p, names, show_people_state) }}{% endfor %}</ul>
+        {% endif %}
+      {% else %}
+        <ul class="ehr-tracker__people">{% for p in stop.people %}{{ person(p, names, show_people_state) }}{% endfor %}</ul>
+      {% endif %}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% endmacro %}
+
+{% macro tracker_mini(stops) %}
+<ol class="ehr-tracker-mini" aria-label="{{ t('tracker.title') }}">
+  {% for stop in stops %}
+  <li class="ehr-tracker-mini__seg ehr-tracker-mini__seg--{{ stop.state }}" title="{{ t('step.' ~ stop.step) }}: {{ t(ehr_stop_words.get(stop.state, 'tracker.state.pending')) }}">
+    <i class="bi {{ ehr_stop_icons.get(stop.state, 'bi-circle') }}" aria-hidden="true"></i>
+    <span class="visually-hidden">{{ t('step.' ~ stop.step) }}: {{ t(ehr_stop_words.get(stop.state, 'tracker.state.pending')) }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}

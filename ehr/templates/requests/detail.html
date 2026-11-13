@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "components/tracker.html" import tracker with context %}
+{% from "components/status_chip.html" import status_chip with context %}
+{% block title %}{{ req.number or t('status.draft') }} · {{ t('app.name') }}{% endblock %}
+{% macro row(label_key, value) %}
+{% if value %}<div class="col-12 col-md-6"><dt class="small text-secondary fw-normal">{{ t(label_key) }}</dt><dd class="mb-2 ehr-wrap">{{ value }}</dd></div>{% endif %}
+{% endmacro %}
+{% macro longrow(label_key, value) %}
+{% if value %}<div class="col-12"><dt class="small text-secondary fw-normal">{{ t(label_key) }}</dt><dd class="mb-2 ehr-wrap ehr-prewrap">{{ value }}</dd></div>{% endif %}
+{% endmacro %}
+{% block content %}
+<header class="mb-3">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+    <h1 class="h4 mb-0 ehr-num">{{ req.number or t('status.draft') }}</h1>
+    {{ status_chip(req.status) }}
+  </div>
+  <p class="mb-0 ehr-wrap">
+    {{ req.position.name(lang) if req.position else '' }}{% if req.positions_count %} <span class="text-secondary">· {{ t('list.posts.one') if req.positions_count == 1 else t('list.posts.many', n=req.positions_count) }}</span>{% endif %}
+  </p>
+  {% if req.facility %}<p class="mb-0 text-secondary ehr-wrap">{{ req.facility.name(lang) }}</p>{% endif %}
+</header>
+
+<section class="mb-4" aria-labelledby="sec-tracker">
+  <h2 class="h5 mb-3" id="sec-tracker">{{ t('tracker.title') }}</h2>
+  {{ tracker(stops, names) }}
+  <div class="mt-3">{% include "requests/_status_line.html" %}</div>
+  {% if req.status == 'draft' and req.created_by == current_user().id %}
+  <a class="btn btn-outline-primary mt-2" href="{{ url_for('requests.edit', request_id=req.id) }}">{{ t('form.title.edit') }}</a>
+  {% endif %}
+</section>
+
+<section class="mb-4" aria-labelledby="sec-details">
+  <h2 class="h5 mb-3" id="sec-details">{{ t('page.details') }}</h2>
+  <dl class="row mb-0">
+    {{ row('field.directorate', req.directorate.name(lang) if req.directorate else '') }}
+    {{ row('field.facility', req.facility.name(lang) if req.facility else '') }}
+    {{ row('field.cost_centre', (req.cost_centre.code ~ ' ' ~ req.cost_centre.name(lang)) if req.cost_centre else '') }}
+    {{ row('field.category', t('category.' ~ req.category) if req.category else '') }}
+    {{ row('field.position', req.position.name(lang) if req.position else '') }}
+    {{ row('field.positions_count', req.positions_count) }}
+    {{ row('field.oay_specialty', req.oay_specialty.name if req.oay_specialty else '') }}
+    {{ row('field.reason', t('reason.' ~ req.reason) if req.reason else '') }}
+    {{ longrow('field.need_text', req.need_text) }}
+    {{ longrow('field.alternatives_text', req.alternatives_text) }}
+    {{ longrow('field.new_need_origin', req.new_need_origin) }}
+    {{ longrow('field.new_need_cover_so_far', req.new_need_cover_so_far) }}
+    {{ longrow('field.new_need_plan', req.new_need_plan) }}
+    {% if req.absence_flag is not none %}{{ row('field.absence_flag', t('answer.yes' if req.absence_flag else 'answer.no') ~ ((': ' ~ req.absence_text) if req.absence_text else '')) }}{% endif %}
+    {% if req.external_funding_flag is not none %}{{ row('field.external_funding_flag', t('answer.yes' if req.external_funding_flag else 'answer.no') ~ ((': ' ~ req.external_funding_text) if req.external_funding_text else '')) }}{% endif %}
+  </dl>
+  {% if req.leavers %}
+  <div class="table-responsive mt-2">
+    <table class="table table-sm ehr-leavers-table">
+      <thead><tr><th scope="col">{{ t('field.leaver_name') }}</th><th scope="col">{{ t('field.leave_date') }}</th><th scope="col">{{ t('field.employment') }}</th></tr></thead>
+      <tbody>
+        {% for l in req.leavers %}
+        <tr><td class="ehr-wrap">{{ l.name }}</td><td class="ehr-num">{{ l.leave_date | ehr_date }}</td><td>{{ t('employment.' ~ l.employment) if l.employment else '' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+{% if req.actions %}
+<section class="mb-4" aria-labelledby="sec-history">
+  <h2 class="h5 mb-3" id="sec-history">{{ t('page.history') }}</h2>
+  <ol class="list-unstyled ehr-history mb-0">
+    {% for a in req.actions %}
+    <li class="ehr-history__item">
+      <div class="fw-bold">{{ t('history.' ~ a.action) }}{% if a.is_superseded %} <span class="fw-normal text-secondary">· {{ t('history.superseded') }}</span>{% endif %}</div>
+      <div class="small text-secondary">{{ t('role.' ~ a.role) if a.role else '' }}{% if names.get(a.actor_user_id) %} · {{ names[a.actor_user_id] }}{% endif %} · <span class="ehr-num">{{ a.created_at | ehr_datetime }}</span></div>
+      {% if a.comment %}<div class="ehr-wrap ehr-prewrap">{{ a.comment }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

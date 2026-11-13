@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "components/tracker.html" import tracker_mini with context %}
+{% from "components/status_chip.html" import status_chip with context %}
+{% block title %}{{ t('list.title') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <h1 class="h4 mb-0">{{ t('list.title') }}</h1>
+  {% if can('request.create') %}
+  <a class="btn btn-primary d-inline-flex align-items-center gap-2" href="{{ url_for('requests.new') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ t('list.new') }}</a>
+  {% endif %}
+</div>
+
+<ul class="nav nav-tabs ehr-tabs mb-3">
+  {% for name in tabs %}
+  <li class="nav-item">
+    <a class="nav-link{{ ' active' if name == tab }}" {% if name == tab %}aria-current="page"{% endif %} href="{{ url_for('requests.index', tab=name, q=q or none) }}">{{ t('list.tab.' ~ name) }}</a>
+  </li>
+  {% endfor %}
+</ul>
+
+<form method="get" action="{{ url_for('requests.index') }}" class="mb-3" role="search">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <label class="visually-hidden" for="q">{{ t('list.search') }}</label>
+  <div class="input-group ehr-search">
+    <input class="form-control" type="search" id="q" name="q" value="{{ q }}" placeholder="{{ t('list.search') }}" autocomplete="off">
+    <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search" aria-hidden="true"></i><span class="visually-hidden">{{ t('list.search') }}</span></button>
+  </div>
+</form>
+
+{% if not rows %}
+<p class="ehr-empty text-secondary py-4">{{ t('list.empty.' ~ tab) }}</p>
+{% else %}
+<div class="ehr-rows">
+  <div class="row g-2 ehr-rows__head d-none d-md-flex small text-secondary">
+    <div class="col-md-2">{{ t('list.col.number') }}</div>
+    <div class="col-md-3">{{ t('list.col.position') }}</div>
+    <div class="col-md-3">{{ t('list.col.facility') }}</div>
+    <div class="col-md-4">{{ t('list.col.status') }}</div>
+  </div>
+  {% for row in rows %}
+  {% set r = row.req %}
+  <div class="row g-2 ehr-row position-relative">
+    <div class="col-12 col-md-2">
+      <a class="ehr-row__number stretched-link fw-bold ehr-num" href="{{ url_for('requests.detail', request_id=r.id) if r.status != 'draft' else url_for('requests.edit', request_id=r.id) }}">{{ r.number or t('status.draft') }}</a>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="ehr-row__position">{{ r.position.name(lang) if r.position else '' }}{% if r.positions_count %} <span class="text-secondary">· {{ t('list.posts.one') if r.positions_count == 1 else t('list.posts.many', n=r.positions_count) }}</span>{% endif %}</div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div>{{ r.facility.name(lang) if r.facility else '' }}</div>
+      {% if r.cost_centre %}<div class="small text-secondary">{{ r.cost_centre.code }} · {{ r.cost_centre.name(lang) }}</div>{% endif %}
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        {{ status_chip(r.status) }}
+        {{ tracker_mini(row.stops) }}
+      </div>
+      {% with line = row.line %}{% include "requests/_status_line.html" %}{% endwith %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

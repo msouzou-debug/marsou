@@ -1,0 +1,5 @@
+{% from "components/tracker.html" import tracker with context %}
+{% if stops %}
+<h2 class="h6 mb-2">{{ t('tracker.preview_title') }}</h2>
+{{ tracker(stops, none, false, 'tracker.preview_title', true) }}
+{% endif %}

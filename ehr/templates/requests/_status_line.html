@@ -1,0 +1,18 @@
+{# Line under the tracker. `line` comes from services.request_view.status_line. #}
+{% if line.kind == 'in_progress' and line.waiting %}
+  {% for w in line.waiting %}
+  <p class="ehr-statusline mb-1">
+    {% set who = t('role.' ~ w.role) ~ (' (' ~ w.who ~ ')' if w.who else '') %}
+    {{ t('statusline.waiting_on', who=who) }}
+    <span class="text-secondary">· {{ t('statusline.days.one') if w.days == 1 else t('statusline.days.many', n=w.days) }}{% if w.reminded %}, {{ t('statusline.reminded') }}{% endif %}{% if w.escalated %}, {{ t('statusline.escalated') }}{% endif %}</span>
+  </p>
+  {% endfor %}
+{% elif line.kind == 'returned' %}
+  <p class="ehr-statusline mb-1">{{ t('statusline.returned') }}</p>
+{% elif line.kind == 'rejected' and line.step %}
+  <p class="ehr-statusline mb-1">{{ t('closed.rejected_at', n=line.step, step=t('step.' ~ line.step), who=t('role.' ~ line.role)) }}</p>
+{% elif line.kind == 'withdrawn' %}
+  <p class="ehr-statusline mb-1">{{ t('closed.withdrawn_by_system') if line.system else t('closed.withdrawn_by_requester') }}</p>
+{% elif line.kind in ('approved',) %}
+  <p class="ehr-statusline mb-1">{{ t('status.approved') }}</p>
+{% endif %}
