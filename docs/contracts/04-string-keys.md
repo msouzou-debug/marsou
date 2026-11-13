@@ -1,0 +1,161 @@
+# Contract 04: string keys
+
+Owner: orchestrator. Built by: `strings`. Files: `ehr/i18n/el.json`, `ehr/i18n/en.json`.
+
+Rules:
+
+- Dotted lower-case keys: `<area>.<thing>[.<variant>]`. Both files hold exactly the same keys; a test checks it.
+- Templates and code use `t('key')`. No Greek literal outside the JSON files.
+- Where Greek is given below it is fixed: it comes from the UI brief, section 9, and the `okypy-greek-terms` glossary. Where only English is given, `strings` writes the Greek with the Greek skills loaded and reports anything not covered by the glossary.
+- Placeholders use `{name}`. Counts that change the Greek ending get two keys: `.one` and `.many`.
+- This list covers Phases 1 and 2. The orchestrator adds the keys for a phase before that phase starts.
+
+## Fixed terms
+
+| Key | Greek | English |
+|---|---|---|
+| `app.name` | eHR | eHR |
+| `module.position_approval` | Έγκριση Θέσεων | Position Approval |
+| `list.title` | Αιτήματα θέσεων | Position requests |
+| `list.new` | Νέο αίτημα | New request |
+| `list.tab.waiting` | Περιμένουν εμένα | Waiting for me |
+| `list.tab.mine` | Τα αιτήματά μου | My requests |
+| `list.tab.all` | Όλα | All |
+| `status.in_progress` | Σε εξέλιξη | In progress |
+| `status.returned` | Επιστράφηκε | Returned |
+| `status.approved` | Εγκρίθηκε | Approved |
+| `status.rejected` | Απορρίφθηκε | Rejected |
+| `status.withdrawn` | Αποσύρθηκε | Withdrawn |
+| `statusline.waiting_on` | Περιμένει: {who} | Waiting on: {who} |
+| `statusline.days.one` | 1 ημέρα | 1 day |
+| `statusline.days.many` | {n} ημέρες | {n} days |
+| `statusline.reminded` | στάλθηκε υπενθύμιση | reminder sent |
+| `statusline.escalated` | κλιμακώθηκε στον προϊστάμενο | escalated to the line manager |
+| `statusline.returned` | Επιστράφηκε στον αιτητή | Returned to requester |
+| `action.title` | Η ενέργειά σας | Your action |
+| `action.view_request` | Προβολή αιτήματος | View request |
+| `action.approve` | Έγκριση | Approve |
+| `action.reject` | Απόρριψη | Reject |
+| `action.return` | Επιστροφή στον αιτητή | Return to requester |
+| `action.resubmit` | Επανυποβολή | Resubmit |
+| `action.withdraw` | Απόσυρση αιτήματος | Withdraw request |
+| `action.save_draft` | Αποθήκευση ως πρόχειρο | Save draft |
+| `action.add_leaver` | Προσθήκη ατόμου που αποχώρησε | Add leaver |
+| `action.keep_answer` | Διατήρηση της απάντησής μου | Keep my answer |
+| `opinion.positive` | Θετική | Positive |
+| `opinion.negative` | Αρνητική | Negative |
+| `documentation.complete` | Πλήρης | Complete |
+| `documentation.incomplete` | Ελλιπής | Incomplete |
+| `docs.title` | Υποστηρικτικά έγγραφα | Supporting documents |
+| `docs.view` | Προβολή | View |
+| `page.checks` | Έλεγχοι και γνωμοδοτήσεις | Checks and opinions |
+| `page.history` | Ιστορικό | History |
+| `tracker.title` | Η διαδρομή αυτού του αιτήματος | The route of this request |
+| `tracker.not_applicable` | Δεν εφαρμόζεται | Not applicable |
+| `tracker.on_hold` | Σε αναμονή | On hold |
+| `ooo.label` | Είμαι εκτός γραφείου | I am out of office |
+| `ooo.substitute` | Αναπληρωτής | Substitute |
+| `field.cost_centre` | Κέντρο κόστους | Cost centre |
+| `field.oay_specialty` | Ειδικότητα ΟΑΥ | HIO specialty |
+| `step.1` | Υποβολή | Submission |
+| `step.2` | Θέσεις και κονδύλι | Posts and funds |
+| `step.3` | Απόφαση Διεύθυνσης | Directorate decision |
+| `step.4` | Κεντρικός έλεγχος | Central check |
+| `step.5` | Γνωμοδότηση ειδικότητας | Specialty opinion |
+| `step.6` | Απόφαση ΓΕΔ | CEO decision |
+| `role.requester` | Αιτητής | Requester |
+| `role.dir_accountant` | Λογιστής Διεύθυνσης | Directorate Accountant |
+| `role.sci_director` | Επιστημονικός Διευθυντής | Scientific Director |
+| `role.dir_hr_officer` | Λειτουργός Ανθρώπινου Δυναμικού Διεύθυνσης | Directorate HR Officer |
+| `role.dir_exec` | Εκτελεστικός Διευθυντής Διεύθυνσης | Directorate Executive Director |
+| `role.fin_mgmt_head` | Προϊστάμενος Μονάδας Οικονομικής Διαχείρισης | Head of Financial Management Unit |
+| `role.central_hr_officer` | Λειτουργός Ανθρώπινου Δυναμικού, Κεντρική Διοίκηση | HR Officer, Central Administration |
+| `role.medical_director` | Ιατρικός Διευθυντής ΟΚΥπΥ | SHSO Medical Director |
+| `role.nursing_director` | Νοσηλευτικός Διευθυντής ΟΚΥπΥ | SHSO Nursing Director |
+| `role.ceo` | Γενικός Εκτελεστικός Διευθυντής | Chief Executive Officer |
+| `category.medical` | Ιατρικό | Medical |
+| `category.nursing` | Νοσηλευτικό | Nursing |
+| `category.allied` | Παραϊατρικό | Allied health |
+| `category.admin` | Διοικητικό / Γραμματειακό | Administrative / Secretarial |
+| `category.other` | Άλλο | Other |
+| `reason.retirement` | Αφυπηρέτηση | Retirement |
+| `reason.resignation` | Παραίτηση | Resignation |
+| `reason.secondment_end` | Τερματισμός απόσπασης | End of secondment |
+| `reason.contract_end` | Διακοπή συμβολαίου | End of contract |
+| `reason.new_need` | Νέα ανάγκη | New need |
+| `reason.other` | Άλλος λόγος | Other reason |
+| `field.directorate` | Διεύθυνση | Directorate |
+| `field.facility` | Νοσοκομείο ή Δομή | Hospital or facility |
+| `field.category` | Κατηγορία προσωπικού | Staff category |
+| `field.position` | Τίτλος θέσης | Position title |
+| `field.positions_count` | Αριθμός θέσεων | Number of posts |
+| `field.reason` | Λόγος | Reason |
+| `field.leaver_name` | Ποιος αποχώρησε | Who left |
+| `field.leave_date` | Ημερομηνία αποχώρησης | Leaving date |
+| `field.employment` | Καθεστώς | Employment status |
+| `employment.okypy_contract` | Συμβόλαιο ΟΚΥπΥ | SHSO contract |
+| `employment.civil_servant` | Δημόσιος υπάλληλος | Civil servant |
+| `field.need_text` | Γιατί χρειάζεται η θέση | Why the post is needed |
+| `field.alternatives_text` | Γιατί δεν καλύπτεται διαφορετικά | Why it can't be covered another way |
+| `field.new_need_origin` | Πώς προέκυψε η ανάγκη | How the need arose |
+| `field.new_need_cover_so_far` | Πώς καλυπτόταν μέχρι τώρα | How it was covered until now |
+| `field.new_need_plan` | Πλάνο εσόδων και εξόδων | Revenue and cost plan |
+| `field.absence_flag` | Υπάρχει προσωπικό σε μακρά απουσία; | Is any staff member on long absence? |
+| `field.external_funding_flag` | Καλύπτεται το κόστος από πηγή εκτός ΟΚΥπΥ; | Is the cost covered from outside SHSO? |
+| `answer.yes` | Ναι | Yes |
+| `answer.no` | Όχι | No |
+| `answer.arranged_centrally` | Διευθετήθηκε από την Κεντρική Διοίκηση | Arranged by Central Administration |
+
+English role names and "SHSO" for ΟΚΥπΥ are my translations. Confirm them with the owner or replace them with the organisation's official English titles.
+
+## Keys for `strings` to write (English given, Greek to write)
+
+| Key | English |
+|---|---|
+| `nav.language`, `nav.logout`, `nav.settings` | Language · Sign out · Settings |
+| `login.title`, `login.username`, `login.password`, `login.submit`, `login.failed` | Sign in · Username · Password · Sign in · The username or password is wrong. Try again. |
+| `password.title`, `password.new`, `password.repeat`, `password.submit`, `password.mismatch`, `password.too_short` | Choose a new password · New password · Repeat it · Save password · The two passwords don't match. · Use at least {n} characters. |
+| `list.search` | Search by number |
+| `list.col.number`, `list.col.position`, `list.col.facility`, `list.col.status` | Number · Position · Hospital or facility · Status |
+| `list.empty.waiting`, `list.empty.mine`, `list.empty.all` | Nothing is waiting for you. · You haven't made a request yet. · No requests found. |
+| `list.posts.one`, `list.posts.many` | 1 post · {n} posts |
+| `form.title.new`, `form.title.edit`, `form.title.resubmit` | New request · Edit draft · Correct and resubmit |
+| `form.submit` | Submit request |
+| `form.section.post`, `form.section.reason`, `form.section.need`, `form.section.documents` | The post · Reason · The need · Supporting documents |
+| `form.select.placeholder` | Choose… |
+| `form.absence_detail`, `form.external_funding_detail` | Who and since when · Which source |
+| `form.remove_leaver` | Remove |
+| `form.resubmit_note` | What you changed or added |
+| `form.returned_by`, `form.days_left.one`, `form.days_left.many` | Returned by {who} on {date} · 1 working day left before the request is withdrawn · {n} working days left before the request is withdrawn |
+| `form.submitted` | Your request was submitted. Its number is {number}. |
+| `form.draft_saved` | Draft saved. |
+| `validation.required` | Fill in this field. |
+| `validation.choose` | Choose one. |
+| `validation.min_one` | Enter 1 or more. |
+| `validation.date` | Enter the date as dd/mm/yyyy. |
+| `validation.amount` | Enter an amount, for example 1.234,56. |
+| `validation.leavers_max` | You can't add more people than posts. |
+| `validation.summary` | Some fields need your attention. |
+| `tracker.preview_title` | The route your request will follow |
+| `tracker.acting_for` | {who}, for {holder} |
+| `tracker.redirect.out_of_office`, `tracker.redirect.conflict_of_interest` | out of office · the holder made this request |
+| `tracker.replaced` | An earlier answer is in the history |
+| `tracker.stopped_here` | Stopped here |
+| `page.details`, `page.round` | Request details · Round {n} |
+| `card.comment`, `card.comment_required`, `card.send` | Comment · Comment (required) · Send |
+| `card.position_available`, `card.funds_available` | Is a post available? · Are funds available? |
+| `card.fin.title`, `card.fin.prev_year`, `card.fin.ytd`, `card.fin.visits`, `card.fin.procedures`, `card.fin.revenue`, `card.fin.payroll`, `card.fin.headcount`, `card.fin.ratio` | Financial data · Previous year · This year to date · Visits · Procedures · Revenue · Payroll cost · Headcount · Revenue per €1 of payroll |
+| `card.fin.data_to`, `card.fin.payroll_period`, `card.fin.revision_note` | ΟΑΥ data to {month} · January to {month} · The latest ΟΑΥ months may still change. |
+| `card.documentation` | Is the documentation complete? |
+| `card.opinion` | Your opinion |
+| `card.credit`, `card.commitment_article` | Is there credit? · Commitment article |
+| `card.leaver_cost`, `card.new_hire_cost` | Annual employer cost of {name} · Annual employer cost of the new hires |
+| `card.return.intro` | Send the request back to the requester for corrections or more documents. |
+| `card.return.confirm` | Return the request to {who}? |
+| `card.withdraw.confirm` | Withdraw this request? This can't be undone. |
+| `card.replace.intro` | New material was added after your answer. Keep your answer or give a new one. |
+| `done.check`, `done.opinion`, `done.approve`, `done.reject`, `done.return`, `done.resubmit`, `done.withdraw` | Your check was recorded. · Your opinion was recorded. · The request was approved. · The request was rejected. · The request was returned to the requester. · The request was resubmitted. · The request was withdrawn. |
+| `history.submit`, `history.resubmit`, `history.check`, `history.opinion`, `history.approve`, `history.reject`, `history.return`, `history.withdraw`, `history.withdraw_system`, `history.superseded` | Submitted · Resubmitted · Check · Opinion · Approved · Rejected · Returned to requester · Withdrawn · Withdrawn automatically after {n} working days · Replaced by a later answer |
+| `closed.rejected_at`, `closed.withdrawn_by_requester`, `closed.withdrawn_by_system` | Rejected at step {n}, {step}, by {who} · Withdrawn by the requester · Withdrawn automatically: it was not resubmitted in time |
+| `error.not_your_task`, `error.request_closed`, `error.request_returned`, `error.wrong_step`, `error.comment_required`, `error.financials_required`, `error.commitment_article_required`, `error.leaver_costs_required`, `error.directorate_locked`, `error.not_requester`, `error.own_request` | This task isn't yours, or someone has already done it. · This request is closed. · The request is with the requester. You can act when it comes back. · The request has moved on. Reload the page. · Write a comment to explain. · Fill in the financial data. · Enter the commitment article. · Enter a cost for each person and for the new hires. · The Directorate can't be changed. Make a new request instead. · Only the requester can do this. · You can't act on your own request. |
+| `error.404`, `error.500` | We couldn't find this page. · Something went wrong. Try again; if it keeps happening, tell the administrator. |
