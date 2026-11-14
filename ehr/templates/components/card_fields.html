@@ -16,10 +16,10 @@
 </fieldset>
 {% endmacro %}
 
-{% macro field(c, name, label_key, hint_key=none, readonly=false, data=none, params=none, inputmode='decimal', required=true) %}
+{% macro field(c, name, label_key, hint_key=none, readonly=false, data=none, params=none, inputmode='decimal', required=true, line=none) %}
 <div class="mb-3">
   <label class="form-label" for="c{{ c.task.id }}-{{ name }}">{{ t(label_key, **(params or {})) }}{% if required %}<span class="text-danger" aria-hidden="true"> *</span>{% endif %}</label>
-  <input class="form-control ehr-num{{ ' is-invalid' if c.errors.get(name) }}" type="text" id="c{{ c.task.id }}-{{ name }}" name="{{ name }}" value="{{ c.typed.get(name, '') }}" inputmode="{{ inputmode }}" autocomplete="off"{% if readonly %} readonly{% endif %}{% if data %} data-ehr-fin="{{ data }}"{% endif %}{% if c.errors.get(name) %} aria-invalid="true" aria-describedby="c{{ c.task.id }}-{{ name }}-error"{% endif %}>
+  <input class="form-control ehr-num{{ ' is-invalid' if c.errors.get(name) }}" type="text" id="c{{ c.task.id }}-{{ name }}" name="{{ name }}" value="{{ c.typed.get(name, '') }}" inputmode="{{ inputmode }}" autocomplete="off"{% if readonly %} readonly{% endif %}{% if data %} data-ehr-fin="{{ data }}"{% endif %}{% if line %} data-ehr-fin-line="{{ line }}"{% endif %}{% if c.errors.get(name) %} aria-invalid="true" aria-describedby="c{{ c.task.id }}-{{ name }}-error"{% endif %}>
   {% if c.errors.get(name) %}<div class="invalid-feedback d-block" id="c{{ c.task.id }}-{{ name }}-error">{{ t(c.errors[name]) }}</div>{% endif %}
 </div>
 {% endmacro %}

@@ -5,6 +5,7 @@ from .audit import AuditLog, audit
 from .mail import MAIL_STATES, MAX_ATTEMPTS, MailOutbox
 from .master import (CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty, Position, PublicHoliday,
                      Setting, get_setting)
+from .security import LoginAttempt
 from .request import (DEPARTURE_REASONS, REASONS, REQUEST_STATUSES, NumberSequence, Request, RequestAction,
                       RequestDocument, RequestFinancials, RequestLeaver, Task, search_key)
 

@@ -19,6 +19,9 @@
       <div class="d-flex flex-wrap align-items-center gap-1">
         {% if current_user() %}
         <span class="small text-secondary px-1">{{ current_user().full_name }}</span>
+        {% if can('audit.view') %}
+        <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('audit.index') }}">{{ t('nav.audit') }}</a>
+        {% endif %}
         {% if can('settings.manage') %}
         <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.index') }}">{{ t('nav.settings') }}</a>
         {% endif %}

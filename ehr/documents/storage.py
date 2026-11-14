@@ -12,7 +12,7 @@ from flask import current_app
 
 from ..extensions import db
 from ..models import RequestDocument, User, get_setting
-from . import sniff
+from . import ooxml, sniff
 from .convert import get_converter
 
 CHUNK = 1 << 16
@@ -74,6 +74,16 @@ def is_removable(req, doc):
     return req.status == "returned" and doc.round > req.round
 
 
+def unzipped_limit():
+    """Most bytes an Office file may expand to (config EHR_MAX_UNZIPPED_MB)."""
+    return max(1, int(current_app.config.get("EHR_MAX_UNZIPPED_MB", 200))) * 1024 * 1024
+
+
+def ooxml_ok(path, ext):
+    """docx and xlsx are zips and get the safety check; the old doc and xls formats are not zips."""
+    return ext not in ("docx", "xlsx") or ooxml.is_safe(path, unzipped_limit())
+
+
 def store_upload(req, file, user):
     """Save one uploaded file. Returns the RequestDocument (flushed, not committed) or raises UploadError."""
     name = display_name(file.filename)
@@ -102,6 +112,8 @@ def store_upload(req, file, user):
             raise UploadError("docs.error.empty", name=name)
         if not sniff.matches(tmp, ext):
             raise UploadError("docs.error.type", name=name)
+        if not ooxml_ok(tmp, ext):  # after the type check: a damaged zip is a type error, a bomb is "unsafe"
+            raise UploadError("docs.error.unsafe", name=name)
         doc = RequestDocument(
             request_id=req.id, round=doc_round(req), file_name=name, mime=sniff.MIME[ext], size=size,
             sha256=digest.hexdigest(), uploaded_by=user.id, uploaded_at=datetime.now(timezone.utc))
@@ -142,6 +154,9 @@ def ensure_pdf(doc):
     if not os.path.isfile(src) or not converter.available():
         return None
     ext = sniff.extension(doc.file_name)
+    if not ooxml_ok(src, ext):  # also covers files stored before this check existed
+        current_app.logger.warning("document %s refused for conversion: unsafe zip", doc.id)
+        return None
     with tempfile.TemporaryDirectory(prefix="ehr-conv-", dir=os.path.dirname(src)) as work:
         work_src = os.path.join(work, "document." + ext)
         shutil.copyfile(src, work_src)

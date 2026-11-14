@@ -83,23 +83,40 @@ def seed_demo(data=None):
     db.session.commit()
 
 
+def _refuse_in_production(app):
+    """Demo data has a known password and invented people. It must never reach a production database."""
+    if app.config.get("EHR_ENV") == "production":
+        raise click.ClickException("Demo data is not loaded in production (EHR_ENV=production).")
+
+
 def register_cli(app):
     @app.cli.command("init-db")
     def init_db():
-        """Create all tables."""
+        """Create all tables and mark the schema as current (see ehr/migrations/README.md)."""
+        from sqlalchemy import inspect
+
+        from .migrations import stamp_latest
+
+        existed = inspect(db.engine).has_table("user")
         db.create_all()
+        if existed:
+            click.echo("Tables checked. This database already existed: run `flask upgrade-db` to bring it up to date.")
+            return
+        stamp_latest(db.engine)
         click.echo("Tables created.")
 
     @app.cli.command("seed-demo")
     def seed_demo_cmd():
-        """Load invented demo data (idempotent)."""
+        """Load invented demo data (idempotent). Refused in production."""
+        _refuse_in_production(app)
         db.create_all()
         seed_demo()
         click.echo("Demo data loaded. Demo password for every user: %s" % load_data()["demo_password"])
 
     @app.cli.command("seed-cases")
     def seed_cases_cmd():
-        """Create invented sample requests through the engine (idempotent). Run seed-demo first."""
+        """Create invented sample requests through the engine (idempotent). Run seed-demo first. Refused in production."""
+        _refuse_in_production(app)
         from datetime import datetime, timezone
 
         from .services.request_seed_cases import seed_cases

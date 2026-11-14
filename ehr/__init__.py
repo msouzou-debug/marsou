@@ -11,15 +11,26 @@ from .extensions import db
 def create_app(config=Config):
     app = Flask(__name__)
     app.config.from_object(config)
+
+    from .security import check_production_config, init_csrf, init_security_headers
+
+    check_production_config(app)  # raises with a clear message before anything else starts
+    if app.config.get("EHR_PROXY_HOPS", 0) > 0:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        hops = app.config["EHR_PROXY_HOPS"]
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
     db.init_app(app)
 
     from . import models  # noqa: F401  registers the tables
     from .auth import init_auth, current_user
-    from .security import init_csrf
+    from .schema_guard import init_schema_guard
     from .services import out_of_office
 
-    init_auth(app)  # first: it sets g.lang
+    init_schema_guard(app)  # before anything touches the database
+    init_auth(app)  # it sets g.lang
     init_csrf(app)
+    init_security_headers(app)
 
     def translate(key, **params):
         return i18n.translate(key, g.get("lang", app.config["DEFAULT_LANGUAGE"]), **params)
@@ -70,6 +81,10 @@ def create_app(config=Config):
 
     app.register_blueprint(documents_bp)
 
+    from .audit import bp as audit_bp
+
+    app.register_blueprint(audit_bp)
+
     @app.errorhandler(404)
     @app.errorhandler(403)
     def _not_found(_e):
@@ -82,4 +97,8 @@ def create_app(config=Config):
     from .seed import register_cli
 
     register_cli(app)
+
+    from .cli import register as register_operator_cli
+
+    register_operator_cli(app)
     return app

@@ -336,3 +336,4 @@ One key per row. `strings` writes the Greek.
 | `export.notes.days` | Working days waiting are counted on the export date and do not update. |
 | `login.locked` | Too many failed attempts. Try again in {n} minutes. |
 | `docs.error.unsafe` | The file "{name}" can't be accepted. Save it again from Word or Excel and try once more. |
+| `error.503` | The service is being upgraded. Try again in a few minutes. |

@@ -105,6 +105,7 @@
   "employment.okypy_contract": "SHSO contract",
   "error.404": "We couldn't find this page.",
   "error.500": "Something went wrong. Try again; if it keeps happening, tell the administrator.",
+  "error.503": "The service is being upgraded. Try again in a few minutes.",
   "error.comment_required": "Write a comment to explain.",
   "error.commitment_article_required": "Enter the commitment article.",
   "error.directorate_locked": "The Directorate can't be changed. Make a new request instead.",

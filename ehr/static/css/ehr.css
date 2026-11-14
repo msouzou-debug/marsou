@@ -88,3 +88,6 @@
 .ehr-history__item--superseded { opacity: .8; }
 
 .ehr-route-details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+
+/* Figures that come from eFinance are read-only: grey so they don't look typed. */
+.ehr-fin .form-control[readonly] { background-color: var(--bs-secondary-bg); color: var(--bs-body-color); cursor: default; }

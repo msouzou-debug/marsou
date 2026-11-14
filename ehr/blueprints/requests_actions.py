@@ -48,6 +48,11 @@ def action(request_id):
     kind = (request.form.get("action") or "").strip()
     role = (request.form.get("role") or "").strip()
 
+    if request.form.get("refresh"):  # the specialty changed: load the OAY figures again (works without JS)
+        state = empty_card_state()
+        state.update(role=role, action="refresh", typed=request.form, refresh=True)
+        return _render_detail(req, state)
+
     if kind == "keep":  # T10 without a new answer
         code = flow.keep_answer(req, user.id, _int(request.form.get("task_id")), _now())
         if code:

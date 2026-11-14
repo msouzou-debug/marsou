@@ -4,6 +4,7 @@
   "escalation_days": "5",
   "returned_timeout_days": "30",
   "max_file_mb": "20",
+  "activity_provider": "manual",
   "number_prefix": "ΑΕΘ",
   "mail_backend": "outbox_only"
  },

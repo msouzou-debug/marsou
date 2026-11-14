@@ -5,10 +5,13 @@ typed text into values (amounts, months, choices).
 """
 from decimal import Decimal
 
+from flask import g
+
 from ehr.models import OaySpecialty
 from ehr.workflow.route import DEPARTURE_REASONS
 
-from .activity import LINES, PERIODS, get_provider
+from . import activity
+from .activity import LINES, PERIODS, PROVIDED
 from .request_amounts import (format_amount, format_month, format_whole, parse_amount, parse_month, parse_whole,
                               ratio)
 from .request_engine import current_leavers, route_of
@@ -73,6 +76,7 @@ def read_action(req, role, action, form):
     comment = _text(form, "comment")
     errors = {}
     payload = {}
+    g.activity_outcome = None
     if action == "return":
         return payload, comment, errors
     if role == "dir_accountant":
@@ -103,12 +107,12 @@ def _amount(form, name, errors, whole=False):
 
 
 def _read_financials(req, form, errors):
-    provider = get_provider()
+    provider = activity.get_provider()
     out = {}
     specialty = _text(form, "oay_specialty_id")
     out["oay_specialty_id"] = ""
+    row = None
     if specialty:
-        row = None
         if specialty.isdigit():
             row = OaySpecialty.query.filter_by(id=int(specialty), is_active=True).first()
         if row is None:
@@ -123,13 +127,18 @@ def _read_financials(req, form, errors):
                 out[name] = parse_month(text).isoformat()
             except ValueError:
                 errors[name] = "validation.month"
+    # With a data provider the server holds the figures; posted values for those lines are ignored.
+    outcome = activity.lookup(req, row, provider) if provider.name != "manual" and row is not None else None
+    g.activity_outcome = outcome
+    if outcome is not None and outcome.ok:
+        out["oay_data_month"] = outcome.data_month.isoformat()
     for period in PERIODS:
         values = {}
-        snapshot = provider.snapshot(req.facility_id, out.get("oay_specialty_id") or None, period) or {}
         for line in LINES:
             field = "fin.%s.%s" % (period, line)
-            if provider.is_read_only(line) and line in snapshot:
-                values[line] = snapshot[line]
+            if outcome is not None and outcome.ok and line in PROVIDED:
+                value = outcome.figures[period][line]
+                values[line] = str(value) if line == "revenue" else int(value)
             else:
                 values[line] = _amount(form, field, errors, whole=line in ("visits", "procedures"))
         out[period] = values
@@ -173,7 +182,8 @@ def financial_view(rows):
             "headcount": format_amount(r.headcount),
             "ratio": format_amount(value) if value is not None else ""}
     return {"periods": periods, "specialty": first.oay_specialty_id, "payroll_to_month": format_month(first.payroll_to_month),
-            "oay_data_month": format_month(first.oay_data_month)}
+            "oay_data_month": format_month(first.oay_data_month),
+            "source": first.source}
 
 
 def typed_ratio(form, period):

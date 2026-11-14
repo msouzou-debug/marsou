@@ -2,21 +2,24 @@
 
 Routes gather input, ask ehr.workflow for every decision and store the result in one transaction.
 """
+import io
 import re
 from datetime import datetime, timezone
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 from sqlalchemy.orm import selectinload
 
 from .. import i18n
 from ..auth import can_see_request, current_user, login_required, permission_required, visible_requests_query
 from ..extensions import db
 from ..models import CATEGORIES, REASONS, OaySpecialty, Request, RequestFinancials, Task, audit
+from ..services import request_export
 from ..services import request_flow as flow
 from ..services import request_form as form_rules
 from ..services.request_amounts import format_amount, format_month
 from ..services.request_cards import NEGATIVE, cards_for, financial_view, leaver_cost_rows, typed_ratio
 from ..services.request_dates import format_date, format_datetime
+from ..services import activity
 from ..services.activity import get_provider
 from ..services.request_engine import current_leavers, holidays, route_for, route_of
 from ..services.request_flash import flash_key
@@ -58,13 +61,15 @@ def _int_arg(name):
 
 # ------------------------------------------------------------------ list
 
-@bp.get("")
-@login_required
-def index():
-    user = current_user()
+def _tab_for(user):
     tab = request.args.get("tab")
     if tab not in TABS:
         tab = "waiting" if user.has_permission("request.act") else "mine"
+    return tab
+
+
+def _list_query(user, tab, q):
+    """The requests this user may see on this tab, narrowed by the search. The list and the export share it."""
     query = visible_requests_query(user)
     if tab == "mine":
         query = query.filter(Request.created_by == user.id)
@@ -72,12 +77,21 @@ def index():
         open_tasks = db.session.query(Task.request_id).filter(Task.assignee_user_id == user.id,
                                                               Task.status == "open")
         query = query.filter(Request.id.in_(open_tasks), Request.status == "in_progress")
-    q = (request.args.get("q") or "").strip()
     if q:
         key = normalise_number(q)
         if key:
             escaped = key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             query = query.filter(Request.number_search.like("%" + escaped + "%", escape="\\"))
+    return query
+
+
+@bp.get("")
+@login_required
+def index():
+    user = current_user()
+    tab = _tab_for(user)
+    q = (request.args.get("q") or "").strip()
+    query = _list_query(user, tab, q)
     reqs = (query.options(selectinload(Request.actions), selectinload(Request.tasks),
                           selectinload(Request.position), selectinload(Request.facility),
                           selectinload(Request.cost_centre))
@@ -88,7 +102,38 @@ def index():
         stops = stops_for(r)
         names = user_names(stops, [t.assignee_user_id for t in r.tasks if t.assignee_user_id])
         rows.append({"req": r, "stops": stops, "line": status_line(r, days_off, now, names)})
-    return render_template("requests/list.html", rows=rows, tab=tab, tabs=TABS, q=q)
+    return render_template("requests/list.html", rows=rows, tab=tab, tabs=TABS, q=q,
+                           can_export=_may_export(user))
+
+
+# ------------------------------------------------------------------ export
+
+def _may_export(user):
+    return user.has_permission("request.view_all") or user.has_permission("request.view_directorate")
+
+
+@bp.get("/export.xlsx")
+@login_required
+def export():
+    user = current_user()
+    if not _may_export(user):
+        abort(404)
+    tab = _tab_for(user)
+    q = (request.args.get("q") or "").strip()
+    reqs = (_list_query(user, tab, q)
+            .options(selectinload(Request.actions), selectinload(Request.tasks), selectinload(Request.position),
+                     selectinload(Request.facility), selectinload(Request.cost_centre),
+                     selectinload(Request.directorate), selectinload(Request.creator))
+            .order_by(Request.id.desc()).all())
+    now = _now()
+    data = request_export.build(reqs, g.lang, user, now, holidays(db.session))
+    audit("list_exported", user_id=user.id, object_type="request_list",
+          detail={"rows": len(reqs), "tab": tab, "q": q})
+    db.session.commit()
+    response = send_file(io.BytesIO(data), mimetype=request_export.MIMETYPE, as_attachment=True,
+                         download_name="eHR-requests-%s.xlsx" % now.strftime("%Y%m%d"), max_age=0)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 # ------------------------------------------------------------------ dependent lists (form helpers)
@@ -354,7 +399,9 @@ def _render_detail(req, card_state=None, status=200):
             redirect_note=({"reason": task.redirect_reason, "holder": names.get(task.on_behalf_of_user_id)}
                            if task.redirect_reason else None),
             facts=answer_facts(req, card["earlier"]) if card["earlier"] is not None else [],
-            focus=mine and bool(state["errors"] or state["codes"]))
+            focus=mine and bool(state["errors"] or state["codes"] or state.get("refresh")), fin=None)
+        if card["role"] == "dir_accountant" and card["kind"] != "hold" and (route_of(req) or {}).get("financials_required"):
+            card["typed"], card["fin"] = activity.card_view(req, card["typed"], force=bool(mine and state.get("refresh")))
     specialties = []
     if any(c["role"] == "dir_accountant" for c in cards):
         specialties = OaySpecialty.query.filter_by(is_active=True).order_by(OaySpecialty.name).all()

@@ -12,6 +12,17 @@
     {% if errors.get(key) %}<div class="invalid-feedback" id="t-{{ key }}-err">{{ t(errors[key]) }}</div>{% endif %}
   </div>
   {% endfor %}
+  <fieldset class="mb-3"{% if errors.get('activity_provider') %} aria-describedby="t-provider-err"{% endif %}>
+    <legend class="form-label fs-6">{{ t('settings.activity_provider') }}</legend>
+    {% for value in ('manual', 'efinance') %}
+    <div class="form-check ehr-check">
+      <input class="form-check-input" type="radio" name="activity_provider" id="t-provider-{{ value }}" value="{{ value }}"{{ ' checked' if provider == value }}{% if value == 'efinance' and not link_configured %} disabled aria-describedby="t-provider-hint"{% endif %}>
+      <label class="form-check-label" for="t-provider-{{ value }}">{{ t('settings.activity_provider.' ~ value) }}</label>
+    </div>
+    {% endfor %}
+    {% if not link_configured %}<div class="form-text" id="t-provider-hint">{{ t('settings.activity_provider.not_configured') }}</div>{% endif %}
+    {% if errors.get('activity_provider') %}<div class="invalid-feedback d-block" id="t-provider-err">{{ t(errors['activity_provider']) }}</div>{% endif %}
+  </fieldset>
   <button class="btn btn-primary" style="min-height:44px" type="submit">{{ t('settings.save') }}</button>
 </form>
 {% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ t('audit.title') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('audit.title') }}</h1>
+<form method="get" action="{{ url_for('audit.index') }}" class="border rounded p-3 mb-4">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-sm-6 col-lg-2"><label class="form-label small mb-1" for="a-request">{{ t('audit.filter.request') }}</label><input class="form-control" style="min-height:44px" id="a-request" name="request" value="{{ f.request }}"></div>
+    <div class="col-12 col-sm-6 col-lg-2"><label class="form-label small mb-1" for="a-user">{{ t('audit.filter.user') }}</label><input class="form-control" style="min-height:44px" id="a-user" name="user" value="{{ f.user }}"></div>
+    <div class="col-12 col-sm-6 col-lg-3"><label class="form-label small mb-1" for="a-event">{{ t('audit.filter.event') }}</label>
+      <select class="form-select" style="min-height:44px" id="a-event" name="event">
+        <option value="">{{ t('audit.filter.all') }}</option>
+        {% for e in events %}<option value="{{ e }}" {{ 'selected' if e == f.event }}>{{ e }}</option>{% endfor %}
+      </select></div>
+    <div class="col-6 col-lg-2"><label class="form-label small mb-1" for="a-from">{{ t('audit.filter.from') }}</label><input class="form-control{{ ' is-invalid' if 'from' in errors }}" style="min-height:44px" id="a-from" name="from" value="{{ f['from'] }}" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
+    <div class="col-6 col-lg-2"><label class="form-label small mb-1" for="a-to">{{ t('audit.filter.to') }}</label><input class="form-control{{ ' is-invalid' if 'to' in errors }}" style="min-height:44px" id="a-to" name="to" value="{{ f['to'] }}" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
+    <div class="col-12 col-lg-1"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('audit.filter.apply') }}</button></div>
+  </div>
+</form>
+{% if not entries %}
+<p class="text-secondary">{{ t('audit.empty') }}</p>
+{% else %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr>
+      <th scope="col" class="text-nowrap">{{ t('audit.col.when') }}</th>
+      <th scope="col">{{ t('audit.col.user') }}</th>
+      <th scope="col">{{ t('audit.col.event') }}</th>
+      <th scope="col">{{ t('audit.col.request') }}</th>
+      <th scope="col">{{ t('audit.col.detail') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for e in entries %}
+    <tr>
+      <td class="text-nowrap">{{ e.when }}</td>
+      <td>{{ e.user if e.user else t('audit.system') }}</td>
+      <td style="overflow-wrap:anywhere">{{ e.event }}</td>
+      <td class="text-nowrap">{% if e.request_id %}{% if e.can_open %}<a href="{{ url_for('requests.detail', request_id=e.request_id) }}">{{ e.number }}</a>{% else %}{{ e.number }}{% endif %}{% endif %}</td>
+      <td style="overflow-wrap:anywhere;min-width:14rem">{% for key, shown, full in e.pairs %}<span class="d-block small"><span class="text-secondary">{{ key }}:</span> <span{% if shown != full %} title="{{ full }}"{% endif %}>{{ shown }}</span></span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<nav class="d-flex flex-wrap align-items-center gap-2" aria-label="{{ t('audit.title') }}">
+  {% if prev_url %}<a class="btn btn-outline-secondary d-inline-flex align-items-center" style="min-height:44px" href="{{ prev_url }}">{{ t('audit.prev') }}</a>{% endif %}
+  <span class="small text-secondary">{{ t('audit.page', n=page, total=pages) }}</span>
+  {% if next_url %}<a class="btn btn-outline-secondary d-inline-flex align-items-center" style="min-height:44px" href="{{ next_url }}">{{ t('audit.next') }}</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

@@ -4,6 +4,10 @@
 {{ choice(c, 'position', 'card.position_available', [('yes', 'answer.yes'), ('no', 'answer.no'), ('arranged_centrally', 'answer.arranged_centrally')], 'no') }}
 {{ choice(c, 'funds', 'card.funds_available', [('yes', 'answer.yes'), ('no', 'answer.no')], 'no') }}
 
+{% set fin = c.fin or {'enabled': false, 'readonly': false, 'notice': none, 'month': ''} %}
+{% if fin.enabled and route.financials_required %}{# Enter in a field sends the card, not the refresh button #}
+<button class="visually-hidden" type="submit" tabindex="-1" aria-hidden="true"></button>
+{% endif %}
 {% if route.financials_required %}
 <section class="ehr-fin mb-3" aria-labelledby="c{{ c.task.id }}-fin-title">
   <h3 class="h6" id="c{{ c.task.id }}-fin-title">{{ t('card.fin.title') }}</h3>
@@ -16,8 +20,18 @@
       </select>
       {% if c.errors.get('oay_specialty_id') %}<div class="invalid-feedback d-block">{{ t(c.errors['oay_specialty_id']) }}</div>{% endif %}
     </div>
-    <div class="col-6 col-md-3">{{ field(c, 'oay_data_month', 'card.fin.data_to', params={'month': t('form.month_hint')}, inputmode='numeric', required=false) }}</div>
-    <div class="col-6 col-md-3">{{ field(c, 'payroll_to_month', 'card.fin.payroll_period', params={'month': t('form.month_hint')}, inputmode='numeric') }}</div>
+    {% if fin.enabled %}
+    <div class="col-12 col-md-6 d-flex align-items-end">
+      <button class="btn btn-outline-primary ehr-fin__refresh" style="min-height:44px" type="submit" name="refresh" value="1" formnovalidate data-ehr-refresh><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ t('card.fin.refresh') }}</button>
+    </div>
+    {% endif %}
+    <div class="col-12" data-ehr-fin-status aria-live="polite">
+      {% if fin.notice %}<div class="alert alert-warning mb-0" role="status">{{ t(fin.notice) }}</div>
+      {% elif fin.enabled and fin.month %}<p class="small text-secondary mb-0">{{ t('card.fin.source.efinance', month=fin.month) }}</p>
+      {% elif not fin.enabled %}<p class="small text-secondary mb-0">{{ t('card.fin.source.manual') }}</p>{% endif %}
+    </div>
+    <div class="col-6 col-md-3">{{ field(c, 'oay_data_month', 'card.fin.data_to', params={'month': t('form.month_hint')}, inputmode='numeric', required=false, readonly=fin.readonly and fin.month|length > 0, line='oay_data_month') }}</div>
+    <div class="col-6 col-md-3">{{ field(c, 'payroll_to_month', 'card.fin.payroll_period', params={'month': t('form.month_hint')}, inputmode='numeric', line='payroll_to_month') }}</div>
   </div>
   <div class="row g-3">
     {% for period in ('prev_year', 'ytd') %}
@@ -25,7 +39,7 @@
       <fieldset class="ehr-fin__period border rounded p-3 h-100">
         <legend class="h6 float-none w-auto px-1 mb-2">{{ t('card.fin.' ~ period) }}</legend>
         {% for line in ('visits', 'procedures', 'revenue', 'payroll_cost', 'headcount') %}
-          {{ field(c, 'fin.%s.%s' % (period, line), 'card.fin.' ~ ('payroll' if line == 'payroll_cost' else line), readonly=provider.is_read_only(line), data=period ~ '.' ~ line, inputmode='decimal' if line in ('revenue', 'payroll_cost', 'headcount') else 'numeric') }}
+          {{ field(c, 'fin.%s.%s' % (period, line), 'card.fin.' ~ ('payroll' if line == 'payroll_cost' else line), readonly=fin.readonly and line in ('visits', 'procedures', 'revenue'), line=period ~ '.' ~ line, data=period ~ '.' ~ line, inputmode='decimal' if line in ('revenue', 'payroll_cost', 'headcount') else 'numeric') }}
         {% endfor %}
         <p class="mb-0 ehr-fin__ratio"><span class="text-secondary">{{ t('card.fin.ratio') }}</span>
           <output class="fw-bold ehr-num" data-ehr-ratio="{{ period }}" aria-live="polite">{{ typed_ratio(c.typed, period) }}</output></p>

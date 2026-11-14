@@ -8,6 +8,7 @@ import json
 from datetime import date
 from decimal import Decimal
 
+from flask import g
 from sqlalchemy import select
 
 from ehr.extensions import db
@@ -15,7 +16,7 @@ from ehr.models import (Request, RequestFinancials, RequestLeaver, Task, audit, 
 from ehr.workflow import engine
 from ehr.workflow.model import NewAction
 
-from .activity import LINES, PERIODS, get_provider
+from .activity import LINES, PERIODS
 from .notify import notify
 from .numbering import next_number
 from .request_engine import (build_directory, build_state, current_leavers, holidays, store_result)
@@ -118,7 +119,7 @@ def _store_financials(req, payload, status):
     """Step 2 figures, one row per period, for the round just checked. Nothing is stored for a rejection."""
     if status != "in_progress" or not isinstance(payload.get("prev_year"), dict):
         return
-    provider = get_provider()
+    source, snapshot = _source_of(req, payload)
     for period in PERIODS:
         values = payload[period]
         row = RequestFinancials.query.filter_by(request_id=req.id, round=req.round, period=period).first()
@@ -133,8 +134,19 @@ def _store_financials(req, payload, status):
         row.oay_specialty_id = int(payload["oay_specialty_id"])
         row.oay_data_month = _iso_date(payload.get("oay_data_month"))
         row.payroll_to_month = _iso_date(payload["payroll_to_month"])
-        row.source = provider.source
-        row.source_snapshot_json = None
+        row.source = source
+        row.source_snapshot_json = snapshot
+
+
+def _source_of(req, payload):
+    """('provider', snapshot json) when the figures came from a data provider; ('manual', reason json) when a
+    provider was asked and had none; ('manual', None) when nobody was asked. Set by read_action in this request."""
+    outcome = g.get("activity_outcome")
+    if (outcome is None or outcome.request_id != req.id
+            or str(outcome.specialty_id) != str(payload.get("oay_specialty_id"))):
+        return "manual", None
+    snapshot = json.dumps(outcome.snapshot, ensure_ascii=False, sort_keys=True)
+    return ("provider" if outcome.ok else "manual"), snapshot
 
 
 def _iso_date(value):

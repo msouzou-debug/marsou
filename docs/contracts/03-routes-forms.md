@@ -116,3 +116,10 @@ One layout. Subject: `[<number>] <position> · <facility>`. One button: «Προ
 - Response headers on files: `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; sandbox`, `Cache-Control: private, no-store`.
 - Conversion: `Converter.to_pdf(src, dst) -> bool`. `LibreOfficeConverter` runs `soffice --headless --convert-to pdf` without a shell, with a timeout (`EHR_CONVERT_TIMEOUT`, 60 s) and a private profile folder; binary from `EHR_SOFFICE_BIN` or PATH. `NullConverter` when none is found. Done on first view, cached, reused. Failure: the viewer shows `viewer.no_preview` and the download button.
 - Viewer: PDF.js 4.10.38 in `static/vendor/pdfjs/`, one page on a canvas at a time.
+
+## 9. Added in Phases 5 and 6
+
+- `GET /requests/export.xlsx`: built as described in section 1. Three sheets: requests (an Excel table), summary (formulas only) and notes. No leaver names, costs or comments. It shares one query with the list, so tab, search and visibility always match.
+- `GET /audit`: read-only, 50 per page, filters by request number, user, event and dates.
+- Step 2 financial table: the three ΟΑΥ lines come from the source chosen in Settings (`activity_provider`: `manual` or `efinance`). With `efinance` they are read-only and the server ignores posted values for them; with no figures or no connection the card falls back to typing. The eFinance endpoint is proposed in `05-efinance-activity-link.md`.
+- A database behind the latest schema version answers 503 on every page until `flask upgrade-db` runs.

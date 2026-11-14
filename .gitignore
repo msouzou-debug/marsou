@@ -4,3 +4,4 @@ __pycache__/
 instance/
 .pytest_cache/
 *.sqlite3
+dist/

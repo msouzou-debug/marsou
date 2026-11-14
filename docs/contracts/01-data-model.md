@@ -59,7 +59,16 @@ One row per email, written in the same transaction as the action that caused it 
 |---|---|
 | `audit_log` | id, at, user_id (null = system), event, request_id (nullable), object_type, object_id, detail_json, ip |
 
-Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `out_of_office_changed`, `mail_queued` (one per email), `user_changed`, `answer_kept`. `notification_due` is no longer written. `setting_changed` also covers public holidays (object_type `public_holiday`). `role_changed` covers holders, substitutes, requester lists and the reassignment button.
+Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `login_locked` (the failure that starts a lock), `login_unlocked` (CLI `unlock-user`), `out_of_office_changed`, `mail_queued` (one per email), `user_changed`, `answer_kept`. `notification_due` is no longer written. `setting_changed` also covers public holidays (object_type `public_holiday`). `role_changed` covers holders, substitutes, requester lists and the reassignment button.
+
+## Sign-in protection and schema version (`models/security.py`, `migrations/`, Phase 6)
+
+| Table | Columns |
+|---|---|
+| `login_attempt` | id, username (lower case, 80), ip, at. One row per failed sign-in. Success deletes the username's rows; rows older than a day are swept. Indexes `(username, at)`, `(ip, at)` |
+| `schema_version` | version (primary key), name, applied_at. Made by `flask upgrade-db` or `flask init-db`, not by the models. See `ehr/migrations/README.md` |
+
+Lock rule (config `LOGIN_MAX_FAILURES` 5, `LOGIN_IP_MAX_FAILURES` 20, `LOGIN_WINDOW_MINUTES` 15): that many failures inside the window lock the username (or the address) until the window after the latest failure. A failure for a username that matches no user is stored in `audit_log` only as a short hash, because it may be a password typed into the wrong box.
 
 ## ΟΑΥ data, only if eHR loads it (`models/oay.py`, Phase 5)
 

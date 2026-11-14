@@ -5,9 +5,14 @@
 {% block content %}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
   <h1 class="h4 mb-0">{{ t('list.title') }}</h1>
-  {% if can('request.create') %}
-  <a class="btn btn-primary d-inline-flex align-items-center gap-2" href="{{ url_for('requests.new') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ t('list.new') }}</a>
-  {% endif %}
+  <div class="d-flex flex-wrap gap-2">
+    {% if can_export %}
+    <a class="btn btn-outline-primary d-inline-flex align-items-center gap-2" href="{{ url_for('requests.export', tab=tab, q=q or none) }}"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i>{{ t('list.export') }}</a>
+    {% endif %}
+    {% if can('request.create') %}
+    <a class="btn btn-primary d-inline-flex align-items-center gap-2" href="{{ url_for('requests.new') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ t('list.new') }}</a>
+    {% endif %}
+  </div>
 </div>
 
 {% set ooo = ooo_state() %}

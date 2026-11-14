@@ -17,6 +17,7 @@ Import models from `ehr.models` (access, master, request, audit). Tables follow 
   Leavers and financials carry a `round`; the current ones are those with `round == Request.round`.
   Relationships on Request: directorate, facility, cost_centre, position, oay_specialty, creator, leavers, actions, tasks.
 - `MailOutbox` (`ehr/models/mail.py`): one row per email, state `queued|sent|failed`, `attempts`, `last_error`. Written by `ehr.services.notify.notify(events, actor_user_id)` in the caller's transaction; sent by `flask send-mail` (`ehr.mail.outbox.flush`).
+- `LoginAttempt` (`ehr/models/security.py`): one row per failed sign-in, for the lock rule (see contract 01). `schema_version` is made by `ehr/migrations/`, not by a model.
 - `AuditLog`: append-only (update or delete raises). Constants: `ROLES`, `CENTRAL_ROLES`, `DIRECTORATE_ROLES`, `PERMISSIONS`,
   `CATEGORIES`, `REASONS`, `DEPARTURE_REASONS`, `REQUEST_STATUSES`.
 
@@ -33,7 +34,7 @@ Import models from `ehr.models` (access, master, request, audit). Tables follow 
 - Flash: `flash("string.key", "success"|"danger")`, or with parameters `flash_key("string.key", "success", n=3)` from
   `ehr.services.request_flash` (stores key + params; base.html translates at render time in the viewer's language).
 - `GET /` redirects to `/requests` when `ehr/blueprints/requests.py` exists and exports `bp`; otherwise shows home.html.
-- CLI: `flask init-db`, `flask seed-demo` (idempotent). Data: `ehr/seed_data.json`.
+- CLI: `flask init-db` (creates tables and marks the schema current), `flask upgrade-db`, `flask db-status`, `flask create-admin`, `flask unlock-user <username>`, `flask seed-demo` (idempotent; refused when `EHR_ENV=production`). Data: `ehr/seed_data.json`.
 
 ## Test fixtures (tests/conftest.py)
 `app` (in-memory SQLite, tables created, CSRF off), `client`, `seeded` (runs the seed), and

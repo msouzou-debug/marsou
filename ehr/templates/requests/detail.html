@@ -149,6 +149,7 @@
           {% endfor %}
         </div>
         <p class="small text-secondary mt-1 mb-0">{% if fin.oay_data_month %}{{ t('card.fin.data_to', month=fin.oay_data_month) }}{% endif %}{% if fin.oay_data_month and fin.payroll_to_month %} · {% endif %}{% if fin.payroll_to_month %}{{ t('card.fin.payroll_period', month=fin.payroll_to_month) }}{% endif %}</p>
+        <p class="small text-secondary mb-0">{% if fin.source == 'provider' %}{{ t('card.fin.source.efinance', month=fin.oay_data_month) }}{% else %}{{ t('card.fin.source.manual') }}{% endif %}</p>
       </div>
       {% endif %}
     </li>
@@ -191,4 +192,4 @@
 </section>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/cards.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/cards.js') }}" defer></script><script src="{{ url_for('static', filename='js/activity.js') }}" defer></script>{% endblock %}
