@@ -16,6 +16,7 @@ def create_app(config=Config):
     from . import models  # noqa: F401  registers the tables
     from .auth import init_auth, current_user
     from .security import init_csrf
+    from .services import out_of_office
 
     init_auth(app)  # first: it sets g.lang
     init_csrf(app)
@@ -37,6 +38,7 @@ def create_app(config=Config):
             "lang": g.get("lang", app.config["DEFAULT_LANGUAGE"]),
             "lang_url": lang_url,
             "can": (lambda key: bool(user and user.has_permission(key))),
+            "ooo_state": (lambda: out_of_office.control_state(user)),
         }
 
     from .blueprints.main import bp as main_bp
@@ -53,6 +55,16 @@ def create_app(config=Config):
     else:
         app.register_blueprint(requests_bp)
         app.config["REQUESTS_READY"] = True
+
+    from .blueprints.me import bp as me_bp
+
+    app.register_blueprint(me_bp)
+
+    from .mail.outbox import init_mail
+    from .scheduler.cli import register as register_scheduler
+
+    init_mail(app)
+    register_scheduler(app)
 
     from .documents import bp as documents_bp
 

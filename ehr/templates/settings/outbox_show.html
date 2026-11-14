@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ row.subject }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h5 mb-1">{{ row.subject }}</h1>
+<p class="small text-secondary mb-3">{{ t('settings.outbox.to') }}: {{ row.to_email or '' }} · {{ t('settings.outbox.when') }}: {{ row.created_at | ehr_datetime }} · {{ t('settings.outbox.state.' ~ row.state) }}</p>
+<p><a href="{{ url_for('settings.outbox') }}">{{ t('settings.outbox') }}</a></p>
+<iframe title="{{ row.subject }}" sandbox srcdoc="{{ row.html }}" class="border rounded bg-white w-100" style="max-width:640px;height:80vh"></iframe>
+{% endblock %}

@@ -8,6 +8,8 @@ from ..models import CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
 
+PAGES = ("roles", "users", "holidays", "timings", "outbox")  # pages built in Phase 4, shown on the index
+
 # kind -> model, fields. A field is (name, widget, editable_after_creation, required).
 LISTS = {
     "directorate": (Directorate, [("code", "text", False, True), ("name_el", "text", True, True),
@@ -67,7 +69,7 @@ def _back(kind):
 @permission_required("settings.manage")
 def index():
     counts = {k: db.session.query(model).count() for k, (model, _f) in LISTS.items()}
-    return render_template("settings/index.html", kinds=list(LISTS), counts=counts)
+    return render_template("settings/index.html", kinds=list(LISTS), counts=counts, pages=PAGES)
 
 
 @bp.get("/<kind>")
@@ -134,3 +136,6 @@ def toggle(kind, row_id):
     db.session.commit()
     flash("settings.saved", "success")
     return _back(kind)
+
+
+from . import holidays, outbox, roles, timings, users  # noqa: E402,F401  Phase 4 pages register on `bp`

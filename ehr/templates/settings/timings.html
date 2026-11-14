@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.timings') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.timings') }}</h1>
+{% include "settings/_nav.html" %}
+<form method="post" action="{{ url_for('settings.timings') }}" class="border rounded p-3" style="max-width:32rem" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for key in keys %}
+  <div class="mb-3">
+    <label class="form-label" for="t-{{ key }}">{{ t('settings.' ~ key) }}</label>
+    <input class="form-control{{ ' is-invalid' if errors.get(key) }}" style="min-height:44px" id="t-{{ key }}" name="{{ key }}" value="{{ values[key] }}" inputmode="numeric" {% if errors.get(key) %}aria-describedby="t-{{ key }}-err"{% endif %}>
+    {% if errors.get(key) %}<div class="invalid-feedback" id="t-{{ key }}-err">{{ t(errors[key]) }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  <button class="btn btn-primary" style="min-height:44px" type="submit">{{ t('settings.save') }}</button>
+</form>
+{% endblock %}

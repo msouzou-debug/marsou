@@ -265,3 +265,12 @@ One key per row. `strings` writes the Greek.
 | `settings.outbox.empty` | No emails yet. |
 | `settings.outbox.preview` | Show the email |
 | `settings.same_person` | The holder and the substitute can't be the same person. |
+| `settings.reassign` | Move {n} open tasks to the new holder |
+| `settings.escalation_order` | Escalation must come after the reminder. |
+| `settings.self_deactivate` | You can't deactivate your own account. |
+| `settings.user.email_invalid` | Enter a valid email address. |
+| `settings.holiday_duplicate` | This date is already a public holiday. |
+| `ooo.invalid_dates` | The end date can't be before the start date. |
+| `ooo.period` | From {from} to {to} |
+| `ooo.since` | From {date} |
+| `ooo.until` | Until {date} |

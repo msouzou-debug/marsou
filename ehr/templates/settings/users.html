@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.users') }} · {{ t('app.name') }}{% endblock %}
+{% macro lang_select(selected, id) %}
+<select class="form-select" name="language" id="{{ id }}" style="min-height:44px">
+  {% for code in ('el', 'en') %}<option value="{{ code }}" {{ 'selected' if code == selected }}>{{ code | upper }}</option>{% endfor %}
+</select>
+{% endmacro %}
+{% macro manager_select(selected, own_id, id) %}
+<select class="form-select" name="line_manager_user_id" id="{{ id }}" style="min-height:44px">
+  <option value="">{{ t('settings.none') }}</option>
+  {% for m in managers if m.id != own_id %}<option value="{{ m.id }}" {{ 'selected' if m.id == selected }}>{{ m.full_name or m.username }}</option>{% endfor %}
+</select>
+{% endmacro %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.users') }}</h1>
+{% include "settings/_nav.html" %}
+
+<form method="post" action="{{ url_for('settings.users_add') }}" class="border rounded p-3 mb-4" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-username">{{ t('settings.user.username') }}</label><input class="form-control" style="min-height:44px" id="n-username" name="username" required></div>
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-name">{{ t('settings.user.full_name') }}</label><input class="form-control" style="min-height:44px" id="n-name" name="full_name" required></div>
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-email">{{ t('settings.user.email') }}</label><input class="form-control" style="min-height:44px" id="n-email" name="email" type="email"></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="n-lang">{{ t('settings.user.language') }}</label>{{ lang_select('el', 'n-lang') }}</div>
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-boss">{{ t('settings.col.line_manager') }}</label>{{ manager_select(none, none, 'n-boss') }}</div>
+    <div class="col-12 col-md-4">
+      <label class="form-label small mb-1" for="n-pw">{{ t('settings.user.temp_password') }}</label>
+      <input class="form-control" style="min-height:44px" id="n-pw" name="temp_password" type="password" minlength="{{ min_length }}" required autocomplete="new-password" aria-describedby="n-pw-hint">
+      <div class="form-text" id="n-pw-hint">{{ t('settings.user.temp_password_hint') }}</div>
+    </div>
+    <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
+  </div>
+</form>
+
+{% for u in rows %}
+<form method="post" action="{{ url_for('settings.users_edit', user_id=u.id) }}" class="border-bottom py-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-2"><div class="small text-secondary">{{ t('settings.user.username') }}</div><div class="fw-semibold" style="min-height:44px;line-height:44px">{{ u.username }}</div></div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-name">{{ t('settings.user.full_name') }}</label><input class="form-control" style="min-height:44px" id="u{{ u.id }}-name" name="full_name" value="{{ u.full_name }}" required></div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-email">{{ t('settings.user.email') }}</label><input class="form-control" style="min-height:44px" id="u{{ u.id }}-email" name="email" type="email" value="{{ u.email or '' }}"></div>
+    <div class="col-6 col-md-1"><label class="form-label small mb-1" for="u{{ u.id }}-lang">{{ t('settings.user.language') }}</label>{{ lang_select(u.language, 'u' ~ u.id ~ '-lang') }}</div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-boss">{{ t('settings.col.line_manager') }}</label>{{ manager_select(u.line_manager_user_id, u.id, 'u' ~ u.id ~ '-boss') }}</div>
+    <div class="col-12 col-md-auto d-flex flex-wrap gap-2 align-items-center">
+      <span class="badge {{ 'text-bg-success' if u.is_active else 'text-bg-secondary' }}">{{ t('settings.active') if u.is_active else t('settings.inactive') }}</span>
+      <button class="btn btn-outline-primary" style="min-height:44px" type="submit">{{ t('settings.save') }}</button>
+      <button class="btn btn-outline-secondary" style="min-height:44px" type="submit" formaction="{{ url_for('settings.users_toggle', user_id=u.id) }}">{{ t('settings.deactivate') if u.is_active else t('settings.activate') }}</button>
+    </div>
+  </div>
+</form>
+{% endfor %}
+{% endblock %}

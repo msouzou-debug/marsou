@@ -32,10 +32,11 @@ def build_directory(session, directorate_id, on=None):
         or_(RoleAssignment.directorate_id == directorate_id, RoleAssignment.directorate_id.is_(None)),
     ).order_by(RoleAssignment.id)
     for a in rows:
-        if not a.is_active_on(on) or a.user_id not in active:
+        if not a.is_active_on(on):
             continue
         key = (a.role, a.directorate_id)
-        holders.setdefault(key, a.user_id)
+        if a.user_id in active:  # an inactive holder is no holder; their substitute still counts (contract 02, section 11)
+            holders.setdefault(key, a.user_id)
         if a.substitute_user_id in active:
             substitutes.setdefault(key, a.substitute_user_id)
     out = set()

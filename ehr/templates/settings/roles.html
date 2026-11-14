@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.roles') }} · {{ t('app.name') }}{% endblock %}
+{% macro user_select(name, users, selected, label_id) %}
+<select class="form-select" name="{{ name }}" id="{{ label_id }}" style="min-height:44px">
+  <option value="">{{ t('settings.none') }}</option>
+  {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id == selected }}>{{ u.full_name or u.username }}</option>{% endfor %}
+</select>
+{% endmacro %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.roles') }}</h1>
+{% include "settings/_nav.html" %}
+
+{% for g in groups %}
+<section class="mb-4">
+  <h2 class="h6 text-secondary border-bottom pb-1">{{ g.directorate['name_' ~ lang] if g.directorate else t('settings.central') }}</h2>
+  {% for r in g.rows %}
+  {% set rid = 'r-' ~ (r.directorate_id or 0) ~ '-' ~ r.role %}
+  <form method="post" action="{{ url_for('settings.roles_save') }}" class="py-2 border-bottom">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="role" value="{{ r.role }}">
+    <input type="hidden" name="directorate_id" value="{{ r.directorate_id or '' }}">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-3 fw-semibold">{{ t('role.' ~ r.role) }}</div>
+      <div class="col-12 col-md">
+        <label class="form-label small mb-1" for="{{ rid }}-h">{{ t('settings.col.holder') }}</label>
+        {{ user_select('holder_id', users, r.holder, rid ~ '-h') }}
+      </div>
+      <div class="col-12 col-md">
+        <label class="form-label small mb-1" for="{{ rid }}-s">{{ t('settings.col.substitute') }}</label>
+        {{ user_select('substitute_id', users, r.substitute, rid ~ '-s') }}
+      </div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" style="min-height:44px" type="submit">{{ t('settings.save') }}</button></div>
+    </div>
+  </form>
+  {% if r.stale and r.holder %}
+  <form method="post" action="{{ url_for('settings.roles_reassign') }}" class="py-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="role" value="{{ r.role }}">
+    <input type="hidden" name="directorate_id" value="{{ r.directorate_id or '' }}">
+    <button class="btn btn-warning" style="min-height:44px" type="submit">{{ t('settings.reassign', n=r.stale) }}</button>
+  </form>
+  {% endif %}
+  {% endfor %}
+
+  {% if g.directorate %}
+  <div class="py-2">
+    <div class="fw-semibold mb-1">{{ t('role.requester') }}</div>
+    {% for u in g.requesters %}
+    <form method="post" action="{{ url_for('settings.requester_remove') }}" class="d-flex flex-wrap align-items-center gap-2 mb-1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="directorate_id" value="{{ g.directorate.id }}">
+      <input type="hidden" name="user_id" value="{{ u.id }}">
+      <span class="flex-grow-1">{{ u.full_name or u.username }} ({{ u.username }})</span>
+      <button class="btn btn-outline-secondary btn-sm" style="min-height:44px" type="submit">{{ t('settings.remove') }}</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="{{ url_for('settings.requester_add') }}" class="row g-2 mt-1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="directorate_id" value="{{ g.directorate.id }}">
+      <div class="col-12 col-md">
+        <label class="visually-hidden" for="rq-{{ g.directorate.id }}">{{ t('role.requester') }}</label>
+        <select class="form-select" name="user_id" id="rq-{{ g.directorate.id }}" style="min-height:44px">
+          {% for u in users %}<option value="{{ u.id }}">{{ u.full_name or u.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
+    </form>
+  </div>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.outbox') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.outbox') }}</h1>
+{% include "settings/_nav.html" %}
+{% if not rows %}
+<p class="text-secondary py-4">{{ t('settings.outbox.empty') }}</p>
+{% else %}
+<table class="table align-middle ehr-outbox">
+  <thead><tr><th>{{ t('settings.outbox.subject') }}</th><th>{{ t('settings.outbox.state') }}</th><th><span class="visually-hidden">{{ t('settings.outbox.preview') }}</span></th></tr></thead>
+  <tbody>
+  {% for m in rows %}
+  <tr>
+    <td style="overflow-wrap:anywhere">
+      <div class="fw-semibold">{{ m.subject }}</div>
+      <div class="small text-secondary">{{ t('settings.outbox.to') }}: {{ names.get(m.to_user_id, '') }}{% if m.to_email %} &lt;{{ m.to_email }}&gt;{% endif %}</div>
+      <div class="small text-secondary">{{ t('settings.outbox.when') }}: {{ m.created_at | ehr_datetime }} · {{ t('mail.' ~ m.event ~ '.label') }}</div>
+      {% if m.last_error %}<div class="small text-danger">{{ m.last_error }}</div>{% endif %}
+    </td>
+    <td class="text-nowrap">
+      <span class="badge {{ {'sent': 'text-bg-success', 'failed': 'text-bg-danger'}.get(m.state, 'text-bg-secondary') }}">{{ t('settings.outbox.state.' ~ m.state) }}</span>
+      {% if m.attempts %}<div class="small text-secondary">{{ m.attempts }}</div>{% endif %}
+    </td>
+    <td class="text-end"><a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.outbox_show', mail_id=m.id) }}">{{ t('settings.outbox.preview') }}</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

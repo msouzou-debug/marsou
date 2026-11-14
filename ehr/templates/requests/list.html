@@ -10,6 +10,35 @@
   {% endif %}
 </div>
 
+{% set ooo = ooo_state() %}
+{% if ooo %}
+<section class="ehr-ooo border rounded p-3 mb-3" aria-labelledby="ooo-title">
+  <h2 class="h6 mb-2" id="ooo-title">{{ t('ooo.title') }}</h2>
+  {% if ooo.on %}
+    <p class="mb-2">{{ t('ooo.on', who=ooo.substitutes | join(', ')) }}{% if not ooo.has_substitute %} {{ t('ooo.no_substitute') }}{% endif %}</p>
+    {% if ooo.date_from and ooo.date_to %}<p class="mb-2 text-secondary ehr-num">{{ t('ooo.period', **{'from': ooo.date_from | ehr_date, 'to': ooo.date_to | ehr_date}) }}</p>
+    {% elif ooo.date_to %}<p class="mb-2 text-secondary ehr-num">{{ t('ooo.until', date=ooo.date_to | ehr_date) }}</p>
+    {% elif ooo.date_from %}<p class="mb-2 text-secondary ehr-num">{{ t('ooo.since', date=ooo.date_from | ehr_date) }}</p>{% endif %}
+    <form method="post" action="{{ url_for('me.out_of_office') }}" class="m-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="state" value="off">
+      <button class="btn btn-outline-primary" style="min-height:44px" type="submit">{{ t('ooo.switch_off') }}</button>
+    </form>
+  {% elif not ooo.has_substitute %}
+    <p class="mb-0 text-secondary">{{ t('ooo.no_substitute') }}</p>
+  {% else %}
+    <p class="mb-2">{{ t('ooo.off') }} <span class="text-secondary">{{ t('ooo.substitute') }}: {{ ooo.substitutes | join(', ') }}</span></p>
+    <form method="post" action="{{ url_for('me.out_of_office') }}" class="row g-2 align-items-end m-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="state" value="on">
+      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="ooo-from">{{ t('ooo.from') }}</label><input class="form-control" style="min-height:44px" id="ooo-from" name="date_from" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="ooo-to">{{ t('ooo.to') }}</label><input class="form-control" style="min-height:44px" id="ooo-to" name="date_to" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('ooo.switch_on') }}</button></div>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+
 <ul class="nav nav-tabs ehr-tabs mb-3">
   {% for name in tabs %}
   <li class="nav-item">

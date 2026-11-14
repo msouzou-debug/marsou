@@ -16,6 +16,7 @@ Import models from `ehr.models` (access, master, request, audit). Tables follow 
   `RequestAction.phase` (`inputs` | `decision`, step 3 only; None elsewhere). Rows are stored from the engine result, never derived.
   Leavers and financials carry a `round`; the current ones are those with `round == Request.round`.
   Relationships on Request: directorate, facility, cost_centre, position, oay_specialty, creator, leavers, actions, tasks.
+- `MailOutbox` (`ehr/models/mail.py`): one row per email, state `queued|sent|failed`, `attempts`, `last_error`. Written by `ehr.services.notify.notify(events, actor_user_id)` in the caller's transaction; sent by `flask send-mail` (`ehr.mail.outbox.flush`).
 - `AuditLog`: append-only (update or delete raises). Constants: `ROLES`, `CENTRAL_ROLES`, `DIRECTORATE_ROLES`, `PERMISSIONS`,
   `CATEGORIES`, `REASONS`, `DEPARTURE_REASONS`, `REQUEST_STATUSES`.
 
@@ -48,4 +49,4 @@ Line managers: Directorate users report to `<d>.exec`; `<d>.exec` and central us
 `lar` (Larnaca – Famagusta) has `lar.accountant`, `lar.hr`, `lar.exec`, `lar.deputy` and `lar.sci`, who holds both `requester` and
 `sci_director` (substitute `lar.deputy`, line manager `lar.exec`) to show the conflict-of-interest redirect.
 Directorates `mh`, `amb` exist with facilities but have no users. Only requesters and Directorate roles hold `request.create`.
-`flask seed-cases` adds invented sample requests by driving the engine (idempotent). `flask run-timers` runs reminders and withdrawals.
+`flask seed-cases` adds invented sample requests by driving the engine (idempotent). `flask run-timers [--at ISO]` queues reminders, escalations and warnings and applies T12 (`ehr/scheduler/`); `flask send-mail` sends the queue.

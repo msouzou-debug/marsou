@@ -1,0 +1,12 @@
+{{ label }}
+
+{{ intro }}
+
+{% for name, value in facts %}{{ name }}: {{ value }}
+{% endfor %}{% if comment %}
+{{ comment_label }}: {{ comment }}
+{% endif %}
+{{ button }}: {{ url }}
+
+--
+{{ footer }}

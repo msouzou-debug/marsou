@@ -12,7 +12,7 @@
 .ehr-check { min-height: 44px; display: flex; align-items: center; gap: .5rem; padding-left: 0; }
 .ehr-check .form-check-input { margin: 0; width: 1.5rem; height: 1.5rem; flex: none; }
 .ehr-check .form-check-label { padding: .5rem 0; }
-.ehr-tabs { flex-wrap: nowrap; overflow-x: auto; }
+.ehr-tabs { flex-wrap: wrap; }
 .ehr-tabs .nav-link { white-space: nowrap; }
 
 /* List rows */

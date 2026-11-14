@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.holidays') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.holidays') }}</h1>
+{% include "settings/_nav.html" %}
+
+<form method="post" action="{{ url_for('settings.holidays_add') }}" class="border rounded p-3 mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-3"><label class="form-label small mb-1" for="h-date">{{ t('settings.col.date') }}</label><input class="form-control" style="min-height:44px" id="h-date" name="date" placeholder="{{ t('form.date_hint') }}" inputmode="numeric" required></div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="h-el">{{ t('settings.col.name_el') }}</label><input class="form-control" style="min-height:44px" id="h-el" name="name_el" required></div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="h-en">{{ t('settings.col.name_en') }}</label><input class="form-control" style="min-height:44px" id="h-en" name="name_en" required></div>
+    <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
+  </div>
+</form>
+
+<ul class="nav nav-pills mb-3">
+  {% for y in years %}<li class="nav-item"><a class="nav-link{{ ' active' if y == year }}" style="min-height:44px" href="{{ url_for('settings.holidays', year=y) }}">{{ y }}</a></li>{% endfor %}
+</ul>
+
+<table class="table align-middle">
+  <thead><tr><th>{{ t('settings.col.date') }}</th><th>{{ t('settings.col.name_' ~ lang) }}</th><th><span class="visually-hidden">{{ t('settings.remove') }}</span></th></tr></thead>
+  <tbody>
+  {% for h in rows %}
+  <tr>
+    <td class="text-nowrap">{{ h.date | ehr_date }}</td>
+    <td>{{ h['name_' ~ lang] }}</td>
+    <td class="text-end">
+      <form method="post" action="{{ url_for('settings.holidays_remove', day=h.date.isoformat()) }}" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-secondary btn-sm" style="min-height:44px" type="submit">{{ t('settings.remove') }}</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -45,13 +45,21 @@ Inactive list rows stay selectable on old requests and are hidden on new ones.
 
 Revenue per €1 of payroll is not stored. It is `revenue / payroll_cost`, calculated where shown, blank when payroll is zero or missing.
 
+## Email (`models/mail.py`)
+
+| Table | Columns |
+|---|---|
+| `mail_outbox` | id, event, request_id, to_user_id → user, to_email, language, subject, html, text, state [`queued`, `sent`, `failed`], attempts, last_error, created_at, sent_at |
+
+One row per email, written in the same transaction as the action that caused it (a rolled-back action leaves nothing). `flask send-mail` and a best-effort flush after each successful web request send queued rows through the backend named by the `mail_backend` setting (`outbox_only` default, `smtp`, `graph`). Failed rows are retried up to 5 attempts. A recipient with no address is stored as `failed` with a clear `last_error`. With `outbox_only` rows stay `queued`: the Settings email log is how admins read them. The stored `html` is only ever shown inside a sandboxed iframe.
+
 ## Audit (`models/audit.py`)
 
 | Table | Columns |
 |---|---|
 | `audit_log` | id, at, user_id (null = system), event, request_id (nullable), object_type, object_id, detail_json, ip |
 
-Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `out_of_office_changed`.
+Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `out_of_office_changed`, `mail_queued` (one per email), `user_changed`, `answer_kept`. `notification_due` is no longer written. `setting_changed` also covers public holidays (object_type `public_holiday`). `role_changed` covers holders, substitutes, requester lists and the reassignment button.
 
 ## ΟΑΥ data, only if eHR loads it (`models/oay.py`, Phase 5)
 

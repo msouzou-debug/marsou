@@ -5,7 +5,7 @@
   "returned_timeout_days": "30",
   "max_file_mb": "20",
   "number_prefix": "ΑΕΘ",
-  "mail_backend": "none"
+  "mail_backend": "outbox_only"
  },
  "directorates": [
   {

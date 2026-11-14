@@ -2,6 +2,11 @@
 {% block title %}{{ t('settings.title') }} · {{ t('app.name') }}{% endblock %}
 {% block content %}
 <h1 class="h4 mb-3">{{ t('settings.title') }}</h1>
+<div class="list-group mb-4">
+  {% for page in pages %}
+  <a class="list-group-item list-group-item-action d-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}</a>
+  {% endfor %}
+</div>
 <h2 class="h6 text-secondary">{{ t('settings.lists') }}</h2>
 <div class="list-group">
   {% for k in kinds %}

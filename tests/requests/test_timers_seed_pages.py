@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ehr.extensions import db
-from ehr.models import AuditLog, PublicHoliday, Request, RolePermission, Task, User
+from ehr.models import AuditLog, MailOutbox, PublicHoliday, Request, RolePermission, Task, User
 from ehr.workflow import timing
 from tests.requests.flowhelpers import act, actions_of, as_user, create, reload, step2, text
 from tests.requests.test_keys import KNOWN_MISSING
@@ -45,9 +45,8 @@ def test_scenario_15_timers_warn_then_withdraw_a_returned_request(seeded, client
     assert run_timers(seeded, half - timedelta(days=3))["warnings"] == "0"
     assert run_timers(seeded, half)["warnings"] == "1"
     assert reload(rid).withdrawal_warned is True and reload(rid).status == "returned"
-    warn = [a for a in AuditLog.query.filter_by(event="notification_due", request_id=rid)
-            if json.loads(a.detail_json)["kind"] == "withdrawal_warning"]
-    assert len(warn) == 1 and warn[0].object_id == str(r.created_by)
+    warn = MailOutbox.query.filter_by(event="withdrawal_warning", request_id=rid).all()
+    assert len(warn) == 1 and warn[0].to_user_id == r.created_by
     assert run_timers(seeded, half + timedelta(hours=1))["warnings"] == "0"  # once only
 
     limit = timing.add_working_days(returned, 30, days_off())
@@ -75,20 +74,19 @@ def test_timers_remind_and_escalate_once_per_clock_start(seeded, client):
     assert out["reminders"] == "0" and out["escalations"] == "1"
     task = reload(rid).tasks[0]
     assert task.reminded_at is not None and task.escalated_at is not None and task.status == "open"  # stays put
-    kinds = sorted(json.loads(a.detail_json)["kind"] for a in AuditLog.query.filter_by(event="notification_due", request_id=rid)
-                   if json.loads(a.detail_json)["kind"].endswith("_due"))
+    kinds = sorted(m.event for m in MailOutbox.query.filter_by(request_id=rid) if m.event.endswith("_due"))
     assert kinds == ["escalation_due", "reminder_due"]
     boss = User.query.filter_by(username="nic.exec").one()
-    esc = [a for a in AuditLog.query.filter_by(event="notification_due") if json.loads(a.detail_json)["kind"] == "escalation_due"]
-    assert esc[0].object_id == str(boss.id)
+    esc = MailOutbox.query.filter_by(event="escalation_due").all()
+    assert esc[0].to_user_id == boss.id
     as_user(client, "nic.requester")
     html = text(client.get("/requests/%d?lang=en" % rid))
     assert "reminder sent" in html and "escalated to the line manager" in html
 
 
-def test_events_are_recorded_as_notification_due(seeded, client):
+def test_events_are_queued_as_email(seeded, client):
     rid = create(client).id
-    kinds = [json.loads(a.detail_json)["kind"] for a in AuditLog.query.filter_by(event="notification_due", request_id=rid)]
+    kinds = [m.event for m in MailOutbox.query.filter_by(request_id=rid)]
     assert "request_submitted" in kinds and "task_opened" in kinds
 
 

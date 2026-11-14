@@ -380,4 +380,3 @@ def detail(request_id):
 
 
 from . import requests_actions  # noqa: E402,F401  registers POST /action and /withdraw
-from . import requests_cli  # noqa: E402,F401  registers `flask run-timers`

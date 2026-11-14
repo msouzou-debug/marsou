@@ -65,7 +65,7 @@ def run(req, new_action, now, before=None, after=None):
                       "step": a.step if a else None, "phase": a.phase if a else None,
                       "round": req.round, "status": req.status, "number": req.number,
                       "action_id": row.id if row is not None else None})
-        notify(result.events)
+        notify(result.events, actor_user_id=new_action.actor_user_id)
         db.session.commit()
         return result
     except Exception:
