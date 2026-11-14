@@ -1,4 +1,5 @@
 """Requests and their workflow records (contract 01)."""
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -25,17 +26,19 @@ def search_key(number):
     return normalise_number(number)
 
 
-_LOOKALIKES = {  # code point of a Greek capital -> Latin letter
-    0x391: "A", 0x392: "B", 0x395: "E", 0x396: "Z", 0x397: "H", 0x399: "I", 0x39A: "K",
+_LOOKALIKES = {  # code point of a Greek capital -> Latin letter; same map as ehr/workflow/numbering.py
+    0x391: "A", 0x392: "B", 0x395: "E", 0x396: "Z", 0x397: "H", 0x398: "U", 0x399: "I", 0x39A: "K",
     0x39C: "M", 0x39D: "N", 0x39F: "O", 0x3A1: "P", 0x3A4: "T", 0x3A5: "Y", 0x3A7: "X",
 }
-_DASHES_AND_SPACES = {ord(c) for c in " -"} | set(range(0x2010, 0x2016))
+# hyphen-minus, hyphen, non-breaking hyphen, figure dash, en dash, em dash, minus sign
+_DASHES = {0x2D, 0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2212}
 
 
 def _fallback_normalise(text):
+    decomposed = unicodedata.normalize("NFD", text or "")
     out = []
-    for ch in text.upper():
-        if ord(ch) in _DASHES_AND_SPACES:
+    for ch in "".join(c for c in decomposed if not unicodedata.combining(c)).upper():
+        if ch.isspace() or ord(ch) in _DASHES:
             continue
         out.append(_LOOKALIKES.get(ord(ch), ch))
     return "".join(out)

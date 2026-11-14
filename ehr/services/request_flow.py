@@ -11,6 +11,7 @@ from decimal import Decimal
 from flask import g
 from sqlalchemy import select
 
+from ehr import localtime
 from ehr.extensions import db
 from ehr.models import (Request, RequestFinancials, RequestLeaver, Task, audit, get_setting)
 from ehr.workflow import engine
@@ -50,7 +51,7 @@ def run(req, new_action, now, before=None, after=None):
         lock_request(req)
         directory = build_directory(db.session, req.directorate_id)
         result = engine.apply(build_state(req), new_action, directory, now, holidays(db.session),
-                              engine_settings())
+                              engine_settings(), tz=localtime.zone())
         if not result.ok:
             db.session.rollback()
             return result

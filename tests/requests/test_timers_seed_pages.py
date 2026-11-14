@@ -116,9 +116,10 @@ def days_between(req):
     return timing.working_days_between(t.opened_at, datetime.now(timezone.utc), days_off())
 
 
-def test_only_requesters_and_directorate_roles_can_create_requests(seeded):
+def test_requesters_directorate_roles_and_central_roles_can_create_requests(seeded):
     holders = {r.role for r in RolePermission.query.filter_by(permission_key="request.create")}
-    assert holders == {"requester", "dir_accountant", "sci_director", "dir_hr_officer", "dir_exec"}
+    assert holders == {"requester", "dir_accountant", "sci_director", "dir_hr_officer", "dir_exec",
+                       "fin_mgmt_head", "central_hr_officer", "medical_director", "nursing_director", "ceo"}
 
 
 KEY_LIKE = re.compile(r"\b(?:action|card|closed|done|error|field|form|history|list|page|role|status|statusline|step|"

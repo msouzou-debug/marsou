@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 from sqlalchemy.orm import selectinload
 
-from .. import i18n
+from .. import i18n, localtime
 from ..auth import can_see_request, current_user, login_required, permission_required, visible_requests_query
 from ..extensions import db
 from ..models import CATEGORIES, REASONS, OaySpecialty, Request, RequestFinancials, Task, audit
@@ -131,7 +131,7 @@ def export():
           detail={"rows": len(reqs), "tab": tab, "q": q})
     db.session.commit()
     response = send_file(io.BytesIO(data), mimetype=request_export.MIMETYPE, as_attachment=True,
-                         download_name="eHR-requests-%s.xlsx" % now.strftime("%Y%m%d"), max_age=0)
+                         download_name="eHR-requests-%s.xlsx" % localtime.local_date(now).strftime("%Y%m%d"), max_age=0)
     response.headers["Cache-Control"] = "private, no-store"
     return response
 

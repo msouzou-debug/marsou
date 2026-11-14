@@ -49,5 +49,5 @@ Central: `central.finmgmt`, `central.hr`, `central.medical`, `central.nursing`, 
 Line managers: Directorate users report to `<d>.exec`; `<d>.exec` and central users report to `central.ceo`.
 `lar` (Larnaca – Famagusta) has `lar.accountant`, `lar.hr`, `lar.exec`, `lar.deputy` and `lar.sci`, who holds both `requester` and
 `sci_director` (substitute `lar.deputy`, line manager `lar.exec`) to show the conflict-of-interest redirect.
-Directorates `mh`, `amb` exist with facilities but have no users. Only requesters and Directorate roles hold `request.create`.
+Directorates `mh`, `amb` exist with facilities but have no users. Requesters, Directorate roles and the five central roles hold `request.create` (not `viewer` or `admin`).
 `flask seed-cases` adds invented sample requests by driving the engine (idempotent). `flask run-timers [--at ISO]` queues reminders, escalations and warnings and applies T12 (`ehr/scheduler/`); `flask send-mail` sends the queue.

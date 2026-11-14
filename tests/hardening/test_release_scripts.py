@@ -218,6 +218,13 @@ def test_preflight_flags_sqlite_and_non_production(tmp_path):
     assert "FAIL  EHR_DATABASE_URI is SQLite" in r.stdout and "FAIL  EHR_ENV is not production" in r.stdout
 
 
+def test_preflight_checks_the_time_zone(tmp_path):
+    ok = preflight(env_file(tmp_path), "--skip-port")
+    assert "ok    time zone Europe/Nicosia is known" in ok.stdout
+    bad = preflight(env_file(tmp_path, EHR_TIMEZONE="Nowhere/Land"), "--skip-port")
+    assert bad.returncode != 0 and "FAIL  time zone Nowhere/Land cannot be loaded" in bad.stdout
+
+
 def test_preflight_flags_missing_storage_and_missing_env_file(tmp_path):
     f = env_file(tmp_path, EHR_STORAGE_DIR=str(tmp_path / "nowhere"))
     r = preflight(f, "--skip-port")

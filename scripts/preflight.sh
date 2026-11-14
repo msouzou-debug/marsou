@@ -54,6 +54,18 @@ else
   fi
 fi
 
+# --- time zone ----------------------------------------------------------------------------------------------------
+# Times are stored in UTC and shown in EHR_TIMEZONE (default Europe/Nicosia). Without the system time zone database the
+# app refuses to start, so say so here first.
+if [ -n "$PY" ] && [ -x "$PY" ]; then
+  tz="${EHR_TIMEZONE:-Europe/Nicosia}"
+  if tzout="$("$PY" -c 'import sys, zoneinfo; zoneinfo.ZoneInfo(sys.argv[1])' "$tz" 2>&1)"; then
+    ok "time zone $tz is known to this machine"
+  else
+    fail "time zone $tz cannot be loaded (install the tzdata package, or fix EHR_TIMEZONE): $(echo "$tzout" | tail -n 1)"
+  fi
+fi
+
 # --- settings ---------------------------------------------------------------------------------------------------
 secret="${EHR_SECRET_KEY:-}"
 case "$secret" in

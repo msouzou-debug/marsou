@@ -38,9 +38,9 @@ eFinance link (read `docs/contracts/05-efinance-activity-link.md`, one page):
 
 The module itself:
 
-11. Number prefix. «ΑΕΘ» contains Θ, which can't be typed on an English keyboard, so searching needs a Greek one. A Latin prefix avoids this.
-12. May central roles create requests? Today only requesters and Directorate roles can.
-13. Audit times: stored and shown in UTC. Show them in Cyprus time?
+11. Number prefix. Search now accepts Latin U for Θ, so typing `AEU-2026-0007` finds «ΑΕΘ-2026-0007». The prefix itself can stay as it is.
+12. Decided 14/11/2026: the five central roles can create requests. The ΓΕΔ's own request goes to the substitute at step 6.
+13. Decided 14/11/2026: all times shown in Cyprus time; stored in UTC.
 14. Greek labels still to confirm: «Ημερολόγιο ελέγχου», «Συμβάν», «Συμπληρώθηκαν χειροκίνητα», «Περιμένει εσάς», «Κλιμάκωση, για ενημέρωση», «Επέστρεψα», «Κάτοχος», «Καταγραφή email», «Παρακαλούμε μην απαντήσετε.»
 15. Reminder at 2 working days, escalation at 5, automatic withdrawal of a returned request at 30. All three are settings; confirm the starting values.
 16. An escalation for someone with no line manager (the ΓΕΔ) goes to the administrators. Confirm, or name who should get it.
@@ -48,7 +48,7 @@ The module itself:
 For the organisation, through you:
 
 17. Who holds each role in each Directorate, each substitute and each line manager.
-18. The DPO's retention period and lawful basis for the leaver data. Nothing is deleted until that is set.
+18. The DPO's retention period and lawful basis for the leaver data. 10 years is recorded as an assumption. No deletion job exists.
 19. Sign-off of the simplified form as a new revision.
 20. Whether eFinance code may be shared with a Claude build session. No eFinance code was used in this build.
 

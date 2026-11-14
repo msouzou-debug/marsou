@@ -3,11 +3,12 @@
 Nothing here writes. Viewing the log is not itself audited, to keep the log readable. There is no export."""
 import json
 import re
-from datetime import datetime, time, timedelta, timezone
+from datetime import timedelta
 
 from flask import Blueprint, render_template, request, url_for
 from sqlalchemy import or_
 
+from .. import localtime
 from ..auth import current_user, permission_required, visible_requests_query
 from ..extensions import db
 from ..models import AuditLog, Request, User, search_key
@@ -26,7 +27,8 @@ def _like(text):
 
 
 def _day_start(day):
-    return datetime.combine(day, time.min, tzinfo=timezone.utc)
+    """The UTC moment the Cyprus calendar day `day` begins: a typed from/to date means that local day."""
+    return localtime.day_start_utc(day)
 
 
 def detail_pairs(raw):

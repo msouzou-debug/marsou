@@ -43,8 +43,8 @@ def test_a_database_from_before_migrations_only_gets_the_version_row(engine):
     db.metadata.create_all(engine)
     with engine.begin() as c:
         c.execute(text("insert into role_permission (role, permission_key) values ('admin','x')"))
-    assert migrations.upgrade(engine) == [1]
-    with engine.connect() as c:
+    assert migrations.upgrade(engine) == list(range(1, migrations.latest_version() + 1))
+    with engine.connect() as c:  # later migrations add no permission rows to a role that has none
         assert c.execute(text("select count(*) from role_permission")).scalar() == 1
 
 

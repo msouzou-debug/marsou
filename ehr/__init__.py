@@ -14,6 +14,9 @@ def create_app(config=Config):
 
     from .security import check_production_config, init_csrf, init_security_headers
 
+    from . import localtime
+
+    localtime.check(app)  # no time zone database: stop here with a clear message, never show UTC by mistake
     check_production_config(app)  # raises with a clear message before anything else starts
     if app.config.get("EHR_PROXY_HOPS", 0) > 0:
         from werkzeug.middleware.proxy_fix import ProxyFix

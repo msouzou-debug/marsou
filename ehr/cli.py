@@ -15,6 +15,15 @@ def _ensure_role_permissions():
                 db.session.add(RolePermission(role=role, permission_key=key))
 
 
+def _ensure_recorded_settings():
+    """Settings a real install records from the start. Others fall back to the defaults in code. Value from the seed file."""
+    from .models import Setting
+    from .seed import load_data
+
+    if db.session.get(Setting, "retention_years") is None:
+        db.session.add(Setting(key="retention_years", value=load_data()["settings"]["retention_years"]))
+
+
 def register(app):
     from .migrations import status, upgrade
 
@@ -53,6 +62,7 @@ def register(app):
         db.session.flush()
         db.session.add(RoleAssignment(user_id=user.id, role="admin", directorate_id=None))
         _ensure_role_permissions()
+        _ensure_recorded_settings()
         db.session.commit()
         click.echo("Admin %s created." % username)
 

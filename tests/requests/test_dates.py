@@ -24,4 +24,5 @@ def test_parse_rejects_bad_input(text):
 
 def test_format_datetime():
     from datetime import datetime
-    assert format_datetime(datetime(2027, 3, 5, 9, 7)) == "05/03/2027 09:07"
+    # naive values are UTC; shown in Cyprus time (winter: +2 hours)
+    assert format_datetime(datetime(2027, 3, 5, 9, 7)) == "05/03/2027 11:07"

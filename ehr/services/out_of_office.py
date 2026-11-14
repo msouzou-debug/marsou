@@ -4,8 +4,8 @@ New tasks follow `build_directory`, which honours the on/off flag and the from/t
 nothing has to run at midnight for correctness. Switching on also moves the holder's open tasks (C6).
 Switching off moves nothing back.
 """
-from datetime import date
 
+from ehr import localtime
 from ehr.extensions import db
 from ehr.models import Request, RoleAssignment, Task, User, audit
 from ehr.workflow.assign import reassign_for_out_of_office
@@ -47,7 +47,7 @@ def move_open_tasks(user, now, on=None):
 
     Returns the list of (task, new_assignee_id). Writes audit rows and queues task_opened mail; the caller commits.
     """
-    on = on or date.today()
+    on = on or localtime.today()
     tasks = (Task.query.join(Request, Request.id == Task.request_id)
              .filter(Task.assignee_user_id == user.id, Task.status == "open", Request.status == "in_progress")
              .order_by(Task.id).all())
@@ -76,7 +76,7 @@ def move_open_tasks(user, now, on=None):
 
 
 def switch_on(user, date_from, date_to, now):
-    today = now.date()
+    today = localtime.local_date(now)
     user.out_of_office, user.out_of_office_from, user.out_of_office_to = True, date_from, date_to
     db.session.flush()
     moved = move_open_tasks(user, now, today)

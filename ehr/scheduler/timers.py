@@ -5,8 +5,8 @@ public_holiday table, paused time never counted). This module reads the data, st
 once per clock start, and hands the events to the notifier. Mail is only queued here; `flask send-mail` sends it.
 """
 import dataclasses
-from datetime import date
 
+from ehr import localtime
 from ehr.extensions import db
 from ehr.models import Request, Task, User
 from ehr.services.notify import notify
@@ -27,7 +27,7 @@ def run_timers(now):
 
     # Someone whose out-of-office window has started since they switched it on: their open tasks move now.
     for user in User.query.filter(User.out_of_office.is_(True), User.is_active.is_(True)).all():
-        move_open_tasks(user, now=now, on=now.date() if hasattr(now, "date") else date.today())
+        move_open_tasks(user, now=now, on=localtime.local_date(now))
 
     tasks = []
     for req in Request.query.filter(Request.status == "in_progress").all():
@@ -38,7 +38,7 @@ def run_timers(now):
 
     events = []
     counts = {"reminders": 0, "escalations": 0, "warnings": 0, "withdrawn": 0}
-    for event in timing.due_notifications(tasks, returned, now, days_off, settings):
+    for event in timing.due_notifications(tasks, returned, now, days_off, settings, localtime.zone()):
         if event.kind == "reminder_due":
             db.session.get(Task, event.data["task_id"]).reminded_at = now
             counts["reminders"] += 1
@@ -54,7 +54,7 @@ def run_timers(now):
     notify(events)
     db.session.commit()
 
-    for request_id in timing.due_withdrawals(returned, now, days_off, settings):
+    for request_id in timing.due_withdrawals(returned, now, days_off, settings, localtime.zone()):
         req = db.session.get(Request, request_id)
         if system_withdraw(req, now).ok:
             counts["withdrawn"] += 1

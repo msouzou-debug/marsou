@@ -3,10 +3,11 @@
 Changing a holder never reroutes a request in progress (R4). The old holder's open tasks are only listed, with one
 explicit button that offers them to whoever the assignment rules now give (C1 to C5).
 """
-from datetime import date, timedelta
+from datetime import timedelta
 
 from flask import abort, flash, redirect, render_template, request, url_for
 
+from .. import localtime
 from ..auth import current_user, permission_required
 from ..extensions import db
 from ..models import CENTRAL_ROLES, Directorate, Request, RoleAssignment, Task, User, audit
@@ -50,7 +51,7 @@ def _user_arg(name, required=False):
 
 
 def _ended_yesterday():
-    return date.today() - timedelta(days=1)
+    return localtime.today() - timedelta(days=1)
 
 
 def stale_tasks(role, directorate_id):

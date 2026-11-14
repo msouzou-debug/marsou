@@ -14,10 +14,11 @@ from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-from ehr import i18n
+from ehr import i18n, localtime
 from ehr.models import CATEGORIES, REQUEST_STATUSES, RequestDocument
 from ehr.extensions import db
 
+from .request_dates import format_date
 from .request_view import status_line, stops_for, user_names
 
 MIMETYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -52,7 +53,7 @@ def put(ws, row, column, value, number_format=None, formula=False):
 
 
 def _day(value):
-    return value.date() if value is not None else None
+    return localtime.local_date(value)
 
 
 def request_rows(reqs, tr, now, days_off):
@@ -183,7 +184,7 @@ def _sheet_summary(ws, rows, tr):
 
 def _sheet_notes(ws, tr, user_name, now):
     ws.column_dimensions["A"].width = 110
-    lines = [tr("export.notes.generated", date="%02d/%02d/%04d" % (now.day, now.month, now.year), who=user_name),
+    lines = [tr("export.notes.generated", date=format_date(now), who=user_name),
              tr("export.notes.rows"), tr("export.notes.formulas"), tr("export.notes.days")]
     for i, text in enumerate(lines, start=1):
         put(ws, i, 1, text).alignment = Alignment(wrap_text=True, vertical="top")

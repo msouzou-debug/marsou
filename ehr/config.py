@@ -19,6 +19,8 @@ class Config:
     SECRET_KEY = os.environ.get("EHR_SECRET_KEY", "dev-only-change-me")
     # Engine is undecided until Marios confirms what eFinance uses (ADR 0001).
     SQLALCHEMY_DATABASE_URI = os.environ.get("EHR_DATABASE_URI", "sqlite:///ehr.sqlite3")
+    # Times are stored in UTC and shown in this zone (zoneinfo name). Also the day boundary for working-day counts.
+    EHR_TIMEZONE = os.environ.get("EHR_TIMEZONE", "Europe/Nicosia")
     DEFAULT_LANGUAGE = "el"
     LANGUAGES = ("el", "en")
     SESSION_COOKIE_NAME = "ehr_session"  # must differ from eFinance on the same host

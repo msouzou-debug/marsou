@@ -4,6 +4,7 @@ from datetime import date
 from flask import abort, flash, redirect, render_template, request, url_for
 from sqlalchemy import extract
 
+from .. import localtime
 from ..auth import current_user, permission_required
 from ..extensions import db
 from ..models import PublicHoliday, audit
@@ -14,8 +15,8 @@ from . import bp
 @bp.get("/holidays")
 @permission_required("settings.manage")
 def holidays():
-    years = sorted({h.date.year for h in PublicHoliday.query.all()} | {date.today().year}, reverse=True)
-    year = request.args.get("year", type=int) or date.today().year
+    years = sorted({h.date.year for h in PublicHoliday.query.all()} | {localtime.today().year}, reverse=True)
+    year = request.args.get("year", type=int) or localtime.today().year
     rows = (PublicHoliday.query.filter(extract("year", PublicHoliday.date) == year)
             .order_by(PublicHoliday.date).all())
     return render_template("settings/holidays.html", rows=rows, years=years, year=year)

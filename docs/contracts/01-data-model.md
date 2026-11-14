@@ -2,7 +2,7 @@
 
 Owner: orchestrator. Source: build brief v2, section 8. Models live in `ehr/models/`, one file per group below. SQLAlchemy 2 declarative style. Table names are singular, as listed.
 
-Conventions: integer primary key `id` unless noted; timestamps in UTC as `DateTime(timezone=True)`; money as `Numeric(12, 2)`; enums stored as short strings and checked in Python against contract 02; no cascading deletes anywhere. Rows are never deleted by the app except drafts and their files before submission.
+Conventions: integer primary key `id` unless noted; timestamps are stored in UTC as `DateTime(timezone=True)` and shown to people in Cyprus time (`EHR_TIMEZONE`, default `Europe/Nicosia`, summer time included); a date-only column (`leave_date`, holiday dates) is never shifted; money as `Numeric(12, 2)`; enums stored as short strings and checked in Python against contract 02; no cascading deletes anywhere. Rows are never deleted by the app except drafts and their files before submission.
 
 ## People and access (`models/access.py`)
 
@@ -15,6 +15,8 @@ Conventions: integer primary key `id` unless noted; timestamps in UTC as `DateTi
 
 Permission keys for this module: `request.create`, `request.view_own`, `request.view_directorate`, `request.view_all`, `request.act`, `audit.view`, `settings.manage`.
 
+`request.create` is held by `requester`, the four Directorate roles and the five central roles (`fin_mgmt_head`, `central_hr_officer`, `medical_director`, `nursing_director`, `ceo`), decided 14/11/2026. Not by `viewer` or `admin`. A central user has no Directorate, so the form offers every active one. The role-to-permission rows come from one file, `ehr/seed_data.json`, for the demo seed and for `flask create-admin`; migration 0003 adds the missing rows to an existing database.
+
 ## Master lists (`models/master.py`)
 
 | Table | Columns |
@@ -25,7 +27,7 @@ Permission keys for this module: `request.create`, `request.view_own`, `request.
 | `cost_centre` | id, code (unique), name_el, name_en, is_active |
 | `oay_specialty` | id, name (English, as ΟΑΥ writes it), aliases_json, is_active |
 | `public_holiday` | date (primary key), name_el, name_en |
-| `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `number_prefix`, `mail_backend` |
+| `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `retention_years`=10 (assumed, recorded only: nothing deletes data, see operations.md), `number_prefix`, `mail_backend` |
 
 Inactive list rows stay selectable on old requests and are hidden on new ones.
 
@@ -83,8 +85,8 @@ Lock rule (config `LOGIN_MAX_FAILURES` 5, `LOGIN_IP_MAX_FAILURES` 20, `LOGIN_WIN
 
 ## Number search
 
-Store `number` as issued. Store also `number_search`: upper-cased, with Greek letters that look like Latin ones mapped to Latin (Α→A, Β→B, Ε→E, Ζ→Z, Η→H, Ι→I, Κ→K, Μ→M, Ν→N, Ο→O, Ρ→P, Τ→T, Υ→Y, Χ→X) and dashes and spaces removed. Search input goes through the same function.
+Store `number` as issued. Store also `number_search`: upper-cased, with Greek letters that look like Latin ones mapped to Latin (Α→A, Β→B, Ε→E, Ζ→Z, Η→H, Θ→U, Ι→I, Κ→K, Μ→M, Ν→N, Ο→O, Ρ→P, Τ→T, Υ→Y, Χ→X) and dashes and spaces removed. Θ maps to U because that is the key a person presses for it on a Latin keyboard, so «ΑΕΘ-2026-0007» is found by typing `AEU-2026-0007`. Accents are removed first. Search input goes through the same function. The map exists twice, in `ehr/workflow/numbering.py` and in `ehr/models/request.py` (the column filler), and a test keeps them equal. Migration 0002 recomputes the stored column for rows saved before Θ was mapped.
 
 ## Personal data
 
-`request_leaver.name`, `leave_date`, `employment`, `annual_employer_cost` and free-text fields that may name people. Nothing here is copied to eFinance. No retention job runs until the DPO sets a period.
+`request_leaver.name`, `leave_date`, `employment`, `annual_employer_cost` and free-text fields that may name people. Nothing here is copied to eFinance. `retention_years` = 10 is an assumption, recorded in `setting` so a future job can use it once the DPO confirms it. No retention job exists or runs, and nothing is deleted.

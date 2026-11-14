@@ -1,8 +1,8 @@
 """Who may see a request (contract 03, section 2). Anything else is a 404."""
-from datetime import date
 
 from sqlalchemy import and_, or_
 
+from .. import localtime
 from ..extensions import db
 from ..models import SEE_ALL_ROLES, Request, RoleAssignment, Task, UserDirectorate
 
@@ -12,7 +12,7 @@ DIRECTORATE_VIEW_ROLES = ("dir_accountant", "sci_director", "dir_hr_officer", "d
 
 def _scope(user, on=None):
     """Return (sees_all, directorate_ids) for a user from holder and substitute assignments."""
-    on = on or date.today()
+    on = on or localtime.today()
     sees_all, dirs = False, set()
     rows = RoleAssignment.query.filter(
         or_(RoleAssignment.user_id == user.id, RoleAssignment.substitute_user_id == user.id)

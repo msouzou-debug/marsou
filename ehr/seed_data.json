@@ -4,6 +4,7 @@
   "escalation_days": "5",
   "returned_timeout_days": "30",
   "max_file_mb": "20",
+  "retention_years": "10",
   "activity_provider": "manual",
   "number_prefix": "ΑΕΘ",
   "mail_backend": "outbox_only"
@@ -465,26 +466,31 @@
    "request.act"
   ],
   "fin_mgmt_head": [
+   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "central_hr_officer": [
+   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "medical_director": [
+   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "nursing_director": [
+   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"
   ],
   "ceo": [
+   "request.create",
    "request.view_own",
    "request.view_all",
    "request.act"

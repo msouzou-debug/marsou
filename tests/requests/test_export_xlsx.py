@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from openpyxl import load_workbook
 
+from ehr import localtime
 from ehr.extensions import db
 from ehr.models import AuditLog, Request, User
 from tests.conftest import login
@@ -144,7 +145,7 @@ def test_notes_sheet(cases, client):
     assert len(notes) == 4 and all(notes)
     if "export.notes.generated" in EN:
         name = User.query.filter_by(username="central.ceo").one().full_name
-        assert name in notes[0] and datetime.now(timezone.utc).strftime("%d/%m/%Y") in notes[0]
+        assert name in notes[0] and localtime.today().strftime("%d/%m/%Y") in notes[0]
 
 
 def test_no_leaver_names_costs_or_comments(seeded, client):
@@ -176,8 +177,7 @@ def _unzip(data, name):
 def test_audit_row_and_file_name(cases, client):
     resp = _export(client, "central.ceo", "&tab=all&q=1")
     assert resp.status_code == 200
-    assert resp.headers["Content-Disposition"].split("filename=")[1].strip('"') == "eHR-requests-%s.xlsx" % datetime.now(
-        timezone.utc).strftime("%Y%m%d")
+    assert resp.headers["Content-Disposition"].split("filename=")[1].strip('"') == "eHR-requests-%s.xlsx" % localtime.today().strftime("%Y%m%d")
     row = AuditLog.query.filter_by(event="list_exported").one()
     detail = json.loads(row.detail_json) if isinstance(row.detail_json, str) else row.detail_json
     assert detail["tab"] == "all" and detail["q"] == "1" and detail["rows"] == len([r for r in _rows(_wb(resp)) if r[0]])
@@ -211,3 +211,15 @@ def test_libreoffice_recalculates_summary_to_the_row_counts(cases, client, tmp_p
     open_days = [r[12] for r in rows if r[12] is not None]
     if avg:
         assert avg[0] == pytest.approx(sum(open_days) / len(open_days))
+
+
+def test_export_shows_local_cyprus_dates(cases, client):
+    """Stored in UTC; 22:30 UTC on 4 March is 00:30 on 5 March in Cyprus, so the cell holds the 5th."""
+    req = db.session.get(Request, cases["a"])
+    req.submitted_at = datetime(2026, 3, 4, 22, 30, tzinfo=timezone.utc)
+    req.closed_at = datetime(2026, 7, 14, 21, 30, tzinfo=timezone.utc)  # summer: UTC+3, so 00:30 on the 15th
+    db.session.commit()
+    rows = {r[0]: r for r in _rows(_wb(_export(client, "central.ceo", "&tab=all")))}
+    row = rows[req.number]
+    assert row[15] == datetime(2026, 3, 5) and row[16] == datetime(2026, 7, 15)
+    assert req.submitted_at.replace(tzinfo=timezone.utc).date().day == 4  # the stored value did not change

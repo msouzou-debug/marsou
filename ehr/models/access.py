@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from .. import localtime
 from ..extensions import db
 
 ROLES = (
@@ -98,7 +99,7 @@ class RoleAssignment(db.Model):
     directorate = relationship("Directorate")
 
     def is_active_on(self, on=None):
-        on = on or date.today()
+        on = on or localtime.today()
         return (self.active_from is None or self.active_from <= on) and (self.active_to is None or self.active_to >= on)
 
 

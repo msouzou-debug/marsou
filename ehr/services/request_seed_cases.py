@@ -5,6 +5,7 @@ services the screens use (request_form, request_cards, request_flow); no row is 
 """
 from datetime import timedelta
 
+from ehr import localtime
 from ehr.extensions import db
 from ehr.models import AuditLog, CostCentre, Facility, OaySpecialty, Position, Request, User, audit
 from ehr.workflow import timing
@@ -28,7 +29,7 @@ class Clock:
 def working_days_ago(now, n, days_off):
     """Latest moment that is at least n working days before now (so a task opened then has waited n days)."""
     start = now
-    while timing.working_days_between(start, now, days_off) < n:
+    while timing.working_days_between(start, now, days_off, localtime.zone()) < n:
         start = start - timedelta(days=1)
     return start
 

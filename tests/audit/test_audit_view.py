@@ -40,7 +40,7 @@ def test_admin_sees_newest_first(seeded, client):
     add("new_event", at=datetime(2026, 2, 1, 9, 0, tzinfo=timezone.utc))
     html = get(client, "demo.admin").get_data(as_text=True)
     assert html.index("new_event") < html.index("old_event")
-    assert "01/02/2026 09:00" in html
+    assert "01/02/2026 11:00" in html  # 09:00 UTC is 11:00 in Cyprus (winter, UTC+2)
 
 
 def test_pagination_is_server_side_50_per_page(seeded, client):

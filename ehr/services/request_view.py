@@ -1,6 +1,7 @@
 """Data the request screens show: tracker stops, status line, names. No rules: the engine's tracker does the work."""
 import json
 
+from ehr import localtime
 from ehr.extensions import db
 from ehr.models import RequestFinancials, User, get_setting
 from ehr.workflow import timing
@@ -38,7 +39,7 @@ def status_line(req, holidays, now, names):
         waiting = []
         for t in req.tasks:
             if t.status == "open":
-                days = timing.working_days_between(t.clock_started_at or t.opened_at, now, holidays)
+                days = timing.working_days_between(t.clock_started_at or t.opened_at, now, holidays, localtime.zone())
                 waiting.append({"role": t.role, "who": names.get(t.assignee_user_id), "days": days,
                                 "reminded": t.reminded_at is not None, "escalated": t.escalated_at is not None})
         info["waiting"] = waiting
@@ -64,7 +65,7 @@ def days_left(req, holidays, now):
         limit = int(get_setting("returned_timeout_days", 30))
     except (TypeError, ValueError):
         limit = 30
-    return max(0, limit - timing.working_days_between(req.returned_at, now, holidays))
+    return max(0, limit - timing.working_days_between(req.returned_at, now, holidays, localtime.zone()))
 
 
 def timeout_days():

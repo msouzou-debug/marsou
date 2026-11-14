@@ -9,6 +9,7 @@ Paths below are examples. Port 5006 is a proposal; Marios assigns the real one (
 
 - Linux server inside the organisation's network, with a reverse proxy that serves HTTPS and passes requests to gunicorn on `127.0.0.1`.
 - Python 3.10 or newer (the server runs 3.10).
+- The system time zone database (the `tzdata` package on Linux) so that `Europe/Nicosia` loads. Without it the app does not start.
 - A database. The engine is not decided (ADR 0001). SQLite is for development and is refused in production. Before the first run on another engine, read the checklist in `ehr/migrations/README.md`.
 - LibreOffice (`soffice`) for Word and Excel previews. Without it the files still download.
 - A mail server or a Microsoft Graph app registration, when real email is turned on.

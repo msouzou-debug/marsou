@@ -4,10 +4,10 @@ Routes call these helpers; no business rule lives here. The engine decides, thes
 read the data it needs (build_directory, build_state) and write what it returns (store_result).
 """
 import json
-from datetime import date
 
 from sqlalchemy import or_
 
+from ehr import localtime
 from ehr.models import PublicHoliday, RequestAction, RoleAssignment, Task, User
 from ehr.workflow.model import ActionRecord, Directory, RequestState, TaskState
 from ehr.workflow.route import compute_route
@@ -24,7 +24,7 @@ def current_leavers(req):
 
 def build_directory(session, directorate_id, on=None):
     """A Directory for one Directorate: holders and substitutes of its roles and of the central roles."""
-    on = on or date.today()
+    on = on or localtime.today()
     active = {u.id for u in session.query(User.id).filter(User.is_active.is_(True))}
     holders, substitutes = {}, {}
     rows = session.query(RoleAssignment).filter(

@@ -126,7 +126,7 @@ class _Build:
             task_ops=tuple(self.ops), events=tuple(self.events))
 
 
-def apply(state, action, directory, now, holidays=None, settings=None):
+def apply(state, action, directory, now, holidays=None, settings=None, tz=None):
     """Apply one action. Returns Result with errors set, or the full outcome to store.
 
     holidays and settings are optional; when both are given, a system withdrawal (T12) is
@@ -137,7 +137,7 @@ def apply(state, action, directory, now, holidays=None, settings=None):
     if kind not in ACTIONS:
         return _err("wrong_step")
     if action.system:
-        return _system_withdraw(state, action, directory, now, holidays, settings)
+        return _system_withdraw(state, action, directory, now, holidays, settings, tz)
     if kind == "submit":
         return _submit(state, action, directory, now)
     if kind == "resubmit":
@@ -264,11 +264,11 @@ def _close_withdrawn(b):
         b.emit("request_withdrawn", uid, step=b.step)
 
 
-def _system_withdraw(state, action, directory, now, holidays, settings):
+def _system_withdraw(state, action, directory, now, holidays, settings, tz=None):
     if action.action != "withdraw" or state.status != "returned":
         return _err("wrong_step")
     if holidays is not None and settings is not None and state.returned_at is not None:
-        days = working_days_between(state.returned_at, now, holidays)
+        days = working_days_between(state.returned_at, now, holidays, tz)
         if days < _settings(settings).returned_timeout_days:
             return _err("wrong_step")
     b = _Build(state, directory, now)
