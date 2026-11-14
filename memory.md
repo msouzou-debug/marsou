@@ -40,6 +40,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 ## Project decisions
 
+- The owner of this project is Marios. "The owner" and "Marios" in these files and in the contracts are the same person; he also runs the eFinance server.
+
 - 12/11/2026, Marios: eFinance must not hold HR information for now. eHR is a separate app with its own database. Any link to eFinance is narrow, read-only, without personal data, and agreed through Marios.
 - «Έγκριση Θέσεων» (`position-approval`) is the first module of eHR. Briefs: `claude/position-approval-01-…` (build) and `-02-…` (UI), both version 2.
 - Stack follows eFinance: Python 3.10, Flask 3.1.3, Jinja, Bootstrap 5.3.3, everything served locally. See `docs/adr/0001-stack.md`.
@@ -58,4 +60,4 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 ## Status
 
-- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). All six phases built (604 tests): request form, workflow, action cards, documents and viewer, emails through an outbox, reminders, out of office, settings, ΟΑΥ figures from eFinance or typed (source chosen in Settings; the eFinance endpoint is only a proposal, `docs/contracts/05-efinance-activity-link.md`), Excel export with a formula-only summary sheet, read-only audit view, security headers, session timeouts, sign-in lockout, Office-file checks, migrations (`flask upgrade-db`), install pack in `deploy/` and `scripts/`. Not done: install on the server, real database engine, AD sign-in, real mail sending, Claude Design restyle. Waiting on Marios: server pack (engine, port, paths, proxy hops, AD, LibreOffice, mail), answers in contract 05. Waiting on the owner: number prefix, Greek terms from Phases 4 to 6, whether audit times show in Cyprus time. Known small gaps: `login.locked` has no singular form; audit times are UTC.
+- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). All six phases built (604 tests): request form, workflow, action cards, documents and viewer, emails through an outbox, reminders, out of office, settings, ΟΑΥ figures from eFinance or typed (source chosen in Settings; the eFinance endpoint is only a proposal, `docs/contracts/05-efinance-activity-link.md`), Excel export with a formula-only summary sheet, read-only audit view, security headers, session timeouts, sign-in lockout, Office-file checks, migrations (`flask upgrade-db`), install pack in `deploy/` and `scripts/`. Not done: install on the server, real database engine, AD sign-in, real mail sending, Claude Design restyle. Waiting on Marios (one list, `docs/handover-marios.md`): server pack, answers in contract 05, number prefix, Greek terms from Phases 4 to 6, audit time zone. Known small gaps: `login.locked` has no singular form; audit times are UTC.
