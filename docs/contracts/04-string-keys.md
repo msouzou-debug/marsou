@@ -337,3 +337,20 @@ One key per row. `strings` writes the Greek.
 | `login.locked` | Too many failed attempts. Try again in {n} minutes. |
 | `docs.error.unsafe` | The file "{name}" can't be accepted. Save it again from Word or Excel and try once more. |
 | `error.503` | The service is being upgraded. Try again in a few minutes. |
+
+## Added 14/11/2026: eFinance email frame and AD sign-in
+
+| Key | English |
+|---|---|
+| `mail.status.action` | Action needed |
+| `mail.status.problem` | Needs attention |
+| `mail.status.done` | Completed |
+| `mail.status.info` | For information |
+| `mail.area` | Position Approval |
+| `login.ad_pending` | Your account was created. You can sign in once an administrator activates it. |
+| `settings.user.source` | Sign-in method |
+| `settings.user.source.local` | Local account |
+| `settings.user.source.ad` | Active Directory |
+| `settings.user.pending` | Waiting for activation |
+
+`mail.footer` now follows the eFinance footer. The `mail.<event>.label` keys are replaced by the four `mail.status.*` labels, as eFinance uses them.

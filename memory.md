@@ -38,15 +38,12 @@ Standing rules and decisions for this project. Read at the start of every sessio
 | Audit log | Ημερολόγιο ελέγχου |
 | Audit event | Συμβάν |
 | Figures typed by hand | Συμπληρώθηκαν χειροκίνητα |
-| Email label: task waiting for you | Περιμένει εσάς |
-| Email label: escalation | Κλιμάκωση, για ενημέρωση |
 | Out of office: I am back (button) | Επέστρεψα |
 | Role holder | Κάτοχος |
 | Email log | Καταγραφή email |
-| Email footer | Παρακαλούμε μην απαντήσετε. |
+| Email footer (as eFinance) | Αυτόματο μήνυμα από το eHR · Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) |
+| Email status labels (as eFinance) | Χρειάζεται ενέργεια · Χρειάζεται προσοχή · Ολοκληρώθηκε · Για ενημέρωση |
 | Working days | εργάσιμες ημέρες |
-| Email label: no one to act | Χωρίς υπεύθυνο |
-| Email label: withdrawal warning | Θα αποσυρθεί |
 
 The full glossary lives in the skill. When the owner fixes or approves a term: update the skill, send the owner the updated skill file, and add the row here.
 
@@ -84,6 +81,11 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 14/11/2026, eFinance session (full answers, from the code and server): eFinance production runs on SQLite; MySQL 8.0.46 is on the server. Port 5006 is taken; eHR now defaults to 127.0.0.1:5008. LibreOffice 7.3.7 is installed. AD in eFinance is `ldap3` 2.9.1, simple bind as user@domain, local account tried first, first AD sign-in creates an inactive account an admin activates. eFinance does NOT hold ΟΑΥ activity by specialty, so contract 05 cannot be served from it and the figures stay typed until Marios names the source. Details in `docs/adr/0001-stack.md`.
 
+- 14/11/2026, Marios: eHR's database is SQLite, as eFinance runs in production (one gunicorn worker, WAL).
+- 14/11/2026, Marios: ΟΑΥ figures are typed by hand for now. Later eFinance will be populated from SAP reports, management accounts and ΟΑΥ reports held in a folder or database, and can then serve eHR. Keep the provider interface; build no loader in eHR.
+- 14/11/2026, Marios: build AD sign-in (ldap3, LDAPS with the certificate checked, local account first, new AD users inactive until an administrator activates them).
+- 14/11/2026, Marios: emails use the eFinance frame (ΟΚΥπΥ logo, 640 px, status label and 4 px bar, Outlook-safe button, footer) and its four status labels: Χρειάζεται ενέργεια, Χρειάζεται προσοχή, Ολοκληρώθηκε, Για ενημέρωση. These replace the per-event email labels approved earlier (Περιμένει εσάς, Κλιμάκωση για ενημέρωση, Χωρίς υπεύθυνο, Θα αποσυρθεί).
+
 ## Status
 
-- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). All six phases built (646 tests): request form, workflow, action cards, documents and viewer, emails through an outbox, reminders, out of office, settings, ΟΑΥ figures from eFinance or typed (source chosen in Settings; the eFinance endpoint is only a proposal, `docs/contracts/05-efinance-activity-link.md`), Excel export with a formula-only summary sheet, read-only audit view, security headers, session timeouts, sign-in lockout, Office-file checks, migrations (`flask upgrade-db`), install pack in `deploy/` and `scripts/`. Not done: install on the server, AD sign-in (details now known, not built), real mail sending, Claude Design restyle. Open decisions for Marios: database engine (SQLite like eFinance, or MySQL), the source of ΟΑΥ activity figures, whether emails adopt the eFinance frame and status labels. Waiting on Marios (one list, `docs/handover-marios.md`): server pack, answers in contract 05, number prefix, Greek terms from Phases 4 to 6, audit time zone. Known small gaps: `login.locked` has no singular form; number search needs the full digits (`AEU-2026-0007`, not `aeu 2026 7`).
+- 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). All six phases built (646 tests): request form, workflow, action cards, documents and viewer, emails through an outbox, reminders, out of office, settings, ΟΑΥ figures from eFinance or typed (source chosen in Settings; the eFinance endpoint is only a proposal, `docs/contracts/05-efinance-activity-link.md`), Excel export with a formula-only summary sheet, read-only audit view, security headers, session timeouts, sign-in lockout, Office-file checks, migrations (`flask upgrade-db`), install pack in `deploy/` and `scripts/`. Not done: install on the server, AD sign-in (details now known, not built), real mail sending, Claude Design restyle. Waiting on Marios (one list, `docs/handover-marios.md`): server pack, answers in contract 05, number prefix, Greek terms from Phases 4 to 6, audit time zone. Known small gaps: `login.locked` has no singular form; number search needs the full digits (`AEU-2026-0007`, not `aeu 2026 7`).
