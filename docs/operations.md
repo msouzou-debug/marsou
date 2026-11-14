@@ -59,6 +59,6 @@ The retention period is recorded as the setting `retention_years` = 10. This is 
 
 ## Quick health check
 
-- `curl -s http://127.0.0.1:5006/healthz` answers `{"status":"ok"}`. A 503 means the database is behind the code: run `scripts/ehr-cli.sh upgrade-db` (see the upgrade steps first).
+- `curl -s http://127.0.0.1:5008/healthz` answers `{"status":"ok"}`. A 503 means the database is behind the code: run `scripts/ehr-cli.sh upgrade-db` (see the upgrade steps first).
 - `scripts/preflight.sh --skip-port` lists anything wrong with settings, storage, database and LibreOffice.
 - No Word or Excel preview: LibreOffice is missing or `EHR_SOFFICE_BIN` is wrong. The files still download.

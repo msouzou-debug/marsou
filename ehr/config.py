@@ -45,7 +45,7 @@ class Config:
     EHR_CONVERT_TIMEOUT = int(os.environ.get("EHR_CONVERT_TIMEOUT", "60"))
     # Email. The link in every message is built from EHR_BASE_URL. SMTP and Graph settings are read from the
     # environment when a message is sent (see ehr/mail/backends.py); nothing secret is stored here or in the database.
-    EHR_BASE_URL = os.environ.get("EHR_BASE_URL", "http://127.0.0.1:5006")
+    EHR_BASE_URL = os.environ.get("EHR_BASE_URL", "http://127.0.0.1:5008")
     MAIL_AUTO_FLUSH = True  # best-effort send right after a successful web request; `flask send-mail` is the safety net
     MAIL_MAX_AGE_HOURS = 48  # with a real backend, older queued mail is marked failed instead of sent late
     # OAY activity figures from eFinance (docs/contracts/05-efinance-activity-link.md). Empty URL or token means

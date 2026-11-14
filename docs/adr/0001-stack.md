@@ -48,3 +48,23 @@ Facts it read from the code on 9 and 10 November. Items it marked pending need t
 - **Mail:** eFinance has a `graph` or `smtp` setting; IT asked on 28/08 that all mail go through Graph. The eFinance session recommends that eHR gets its own app registration, limited by an access policy to its own sender mailbox. That is IT's decision.
 - **AD:** eFinance has an AD path next to local accounts. Library, bind method, attributes and TLS are pending.
 - **ΟΑΥ link:** whether eFinance holds the ΟΑΥ reports at all is pending. If it does: call `http://127.0.0.1:5004/...` (same machine, never leaves it), eFinance accepts the route only from 127.0.0.1 plus the token, stores only the token's hash, and accepts two tokens during rotation. eHR's client already allows plain HTTP for loopback only, sends a bearer token read from its own settings file, and defaults to typing by hand, so nothing depends on the link yet.
+
+## Update, 14/11/2026 (later): full answers from the eFinance session
+
+Read from the eFinance code and the server on 14/11. These replace the pending items above.
+
+- **Database:** eFinance production runs on SQLite 3.37.2 (WAL, one gunicorn worker). MySQL 8.0.46 runs on the server for other apps, and port 5432 is in use, so a PostgreSQL may be there too. eHR's engine is still Marios's choice: see the open decision below.
+- **Port:** 5006 is taken (board tool). 5008 and 5009 are free. eHR's default is now `127.0.0.1:5008`. Publishing eHR means an nginx block with a name and certificate from IT, when Marios says go.
+- **LibreOffice:** 7.3.7 is installed at `/usr/bin/soffice`. Office previews will work.
+- **Settings:** eFinance keeps secrets in `/opt/finance/settings.json`, mode 0600, never in the database or git. eHR does the same with `/etc/ehr/ehr.env`.
+- **AD:** eFinance uses `ldap3` 2.9.1 with a simple bind as `<username>@<domain>` using the user's own credentials, no service account. It tries the local account first, then AD. A first AD sign-in creates an inactive account that an administrator activates. eFinance does not verify the LDAP server's certificate; eHR should use LDAPS on 636 with the certificate checked against the ΟΚΥπΥ internal CA.
+- **Graph:** app-only client credentials and `sendMail` from a sender mailbox, as eHR already does. eHR gets its own registration and mailbox (Marios, 14/11).
+- **ΟΑΥ activity:** eFinance does **not** hold visits, procedures or revenue by facility and specialty. The endpoint in contract 05 cannot be served from eFinance. The source for those figures is elsewhere; until Marios names it, the figures are typed.
+- **Requisition wording:** statuses Υποβλήθηκε, Σε έγκριση, Εγκρίθηκε, Απορρίφθηκε, Έκλεισε, Ακυρώθηκε. Number `R-ENTITY-BUDGETCODE-DDMMYY-NN`. Email status labels: Χρειάζεται ενέργεια, Χρειάζεται προσοχή, Ολοκληρώθηκε, Για ενημέρωση. Email frame: 640 px, logo and status label on top, a 4 px bar in the status colour, footer line, a 6 px blue bar, Outlook-safe button 40 px high.
+
+### Open decision: eHR's database engine
+
+The app refuses to start in production on SQLite, a rule added in Phase 6 before this answer arrived. Two simple options:
+
+1. **SQLite, as eFinance does.** No database server to run, backup is one file plus the storage folder. Needs the production guard relaxed, WAL and a busy timeout switched on, and one gunicorn worker.
+2. **MySQL 8.0.46, already on the server.** Proper row locks for numbering, room for more workers. Needs a database, a user and a driver, and the suite run against it.

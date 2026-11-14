@@ -23,7 +23,7 @@
 Server and install:
 
 1. Database engine and version (the same one eFinance uses).
-2. Port and service name. I used 5006 and `ehr`.
+2. Port and service name. I used 5008 and `ehr`.
 3. Folder layout. I used `/opt/ehr`, `/etc/ehr`, `/var/lib/ehr/storage`, `/var/log/ehr`.
 4. Sign-in: AD only, or local accounts too. If AD, how eFinance connects to it.
 5. Mail: SMTP or Microsoft Graph, and the sender address.

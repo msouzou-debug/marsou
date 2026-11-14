@@ -3,7 +3,7 @@
 **Rules.** Never restart another app's service. The full test suite passes before any install.
 Nothing here is installed by the app. Marios runs every step that needs sudo. The scripts in `scripts/` never use sudo, never use the network (the port check talks to this machine only) and never touch another service.
 
-Paths below are examples. Port 5006 is a proposal; Marios assigns the real one (eFinance 5004, eVendor 5005).
+Paths below are examples. Port 5008 is a proposal; Marios assigns the real one (eFinance 5004, eVendor 5005).
 
 ## Prerequisites
 
@@ -49,7 +49,7 @@ scripts/verify-release.sh dist/ehr-<version>.tar.gz
 6. Create the first admin: `scripts/ehr-cli.sh create-admin`. It asks for a username, a full name and, twice, a password. The password is never an argument. The admin then loads the lists (Directorates, facilities, positions, cost centres, public holidays) and the other users in Settings. Never run `seed-demo` here: it holds a known password, and it refuses to run in production.
 7. `scripts/preflight.sh`. Fix every FAIL line. It checks the Python version, the settings file, the secret, storage, database and schema version, LibreOffice and the port.
 8. Install `ehr.service` and the two cron lines (below). Start only `ehr`: `systemctl start ehr` (sudo).
-9. Health check: `curl -s http://127.0.0.1:5006/healthz` answers `{"status":"ok"}`. Sign in and open the Audit log.
+9. Health check: `curl -s http://127.0.0.1:5008/healthz` answers `{"status":"ok"}`. Sign in and open the Audit log.
 
 ## Upgrade
 

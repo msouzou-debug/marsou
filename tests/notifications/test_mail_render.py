@@ -58,10 +58,10 @@ def test_every_event_is_covered():
 def test_each_event_renders_cleanly(app, req, kind, lang):
     ctx = Context(lang)
     recipient = User.query.filter_by(username="nic.accountant").one()
-    subject, html, text = render_email(event_for(kind, req), req, recipient, lang, "http://127.0.0.1:5006",
+    subject, html, text = render_email(event_for(kind, req), req, recipient, lang, "http://127.0.0.1:5008",
                                        app.jinja_env, ctx)
-    url = request_url("http://127.0.0.1:5006", req.id)
-    assert url == "http://127.0.0.1:5006/requests/%d?do=review" % req.id
+    url = request_url("http://127.0.0.1:5008", req.id)
+    assert url == "http://127.0.0.1:5008/requests/%d?do=review" % req.id
     # Exactly one link, in both forms, and it is the request URL with no token.
     assert HREF.findall(html) == [url]
     assert URLS.findall(html) == [url] and URLS.findall(text) == [url]

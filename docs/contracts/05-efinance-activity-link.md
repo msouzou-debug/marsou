@@ -1,5 +1,7 @@
 # Contract 05: ΟΑΥ activity link (proposal for Marios)
 
+> **Status, 14/11/2026: not viable against eFinance.** The eFinance session checked the code: eFinance does not hold ΟΑΥ visits, procedures or revenue by facility and specialty, so it cannot serve this endpoint. The proposal is kept as the shape any future source should follow (same machine only, totals only, data month in every answer, hashed token with two-token rotation). eHR's client and the Settings choice stay in place but unused; the figures are typed by hand until Marios names the source.
+
 Status: proposal. The endpoint does not exist in eFinance yet. eHR is built and tested against this text with a fake server.
 Decision of 14/11/2026 (owner): both sources stay available. A setting in eHR chooses between typing the figures and reading them from eFinance.
 

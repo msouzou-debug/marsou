@@ -1,11 +1,11 @@
 """gunicorn settings for eHR. Read by `gunicorn -c deploy/gunicorn.conf.py wsgi:app`.
 
-EHR_BIND overrides the address. Port 5006 is a proposal: Marios assigns the real one (eFinance 5004, eVendor 5005).
+EHR_BIND overrides the address. Port 5008 is a proposal: Marios assigns the real one (eFinance 5004, eVendor 5005).
 """
 import os
 import sys
 
-bind = os.environ.get("EHR_BIND", "127.0.0.1:5006")
+bind = os.environ.get("EHR_BIND", "127.0.0.1:5008")
 workers = 1
 accesslog = "-"
 errorlog = "-"
