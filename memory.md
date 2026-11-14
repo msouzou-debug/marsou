@@ -35,6 +35,18 @@ Standing rules and decisions for this project. Read at the start of every sessio
 | Substitute acting for the holder | {who}, αντί για {holder} |
 | Tracker states: done, current step, pending, waiting, negative answer | Ολοκληρώθηκε · Τρέχον βήμα · Εκκρεμεί · Περιμένει · Αρνητική απάντηση |
 | Draft (status) | Πρόχειρο |
+| Audit log | Ημερολόγιο ελέγχου |
+| Audit event | Συμβάν |
+| Figures typed by hand | Συμπληρώθηκαν χειροκίνητα |
+| Email label: task waiting for you | Περιμένει εσάς |
+| Email label: escalation | Κλιμάκωση, για ενημέρωση |
+| Out of office: I am back (button) | Επέστρεψα |
+| Role holder | Κάτοχος |
+| Email log | Καταγραφή email |
+| Email footer | Παρακαλούμε μην απαντήσετε. |
+| Working days | εργάσιμες ημέρες |
+| Email label: no one to act | Χωρίς υπεύθυνο |
+| Email label: withdrawal warning | Θα αποσυρθεί |
 
 The full glossary lives in the skill. When the owner fixes or approves a term: update the skill, send the owner the updated skill file, and add the row here.
 
@@ -54,9 +66,17 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 13/11/2026, owner: yes to O1 to O5 in contract 02 (restart at step 2 on a material change; a return pauses the returner's task; answers can be replaced only after a resubmission in the returned step; comment required on negative answers; escalation informs the line manager and leaves the task where it is).
 
-- 13/11/2026, owner: the Greek budget and tracker terms chosen in Phase 1 are approved (listed above). Only requesters and Directorate roles create requests (orchestrator's assumption, not yet confirmed).
+- 13/11/2026, owner: the Greek budget and tracker terms chosen in Phase 1 are approved (listed above).
 
 - 14/11/2026, owner: the ΟΑΥ figures in the financial table have both sources available: served by eFinance (through the narrow read-only link, once Marios agrees it) or typed by hand. An administrator picks the source in Settings; typing stays the fallback when eFinance has no figures.
+
+- 14/11/2026, Marios: the Greek labels from Phases 4 to 6 are approved (listed above).
+- 14/11/2026, Marios: sign-in offers both AD and local accounts. Mail goes through Microsoft Graph. The facility code is the same in eHR and eFinance.
+- 14/11/2026, Marios: in number search the Latin letter U stands for Θ, so «ΑΕΘ-2026-0007» is found by typing AEU-2026-0007.
+- 14/11/2026, Marios: central roles can create requests (this replaces the earlier assumption that only requesters and Directorate roles can). The conflict-of-interest rule still applies to them.
+- 14/11/2026, Marios: times are shown in Cyprus time (Europe/Nicosia) and stored in UTC.
+- 14/11/2026, Marios: retention period assumed at 10 years until the DPO confirms. It is recorded as a setting; no deletion job exists or runs.
+- Questions for the eFinance side go as a drafted message that Marios passes on.
 
 ## Status
 
