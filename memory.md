@@ -78,6 +78,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 14/11/2026, Marios: retention period assumed at 10 years until the DPO confirms. It is recorded as a setting; no deletion job exists or runs.
 - Questions for the eFinance side go as a drafted message that Marios passes on.
 
+- 14/11/2026, eFinance session (partial, server unreachable since 12/11): eFinance uses raw SQL and has MySQL settings, production engine not yet confirmed; ports 5004, 5005, 5011, 5012, 5014 and 8080 are taken and 5006 is not confirmed free; it recommends a separate Graph app registration for eHR; whether eFinance holds the ΟΑΥ reports is not confirmed, so keep the ΟΑΥ source on typing. Details in `docs/adr/0001-stack.md`.
+
 ## Status
 
 - 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). All six phases built (604 tests): request form, workflow, action cards, documents and viewer, emails through an outbox, reminders, out of office, settings, ΟΑΥ figures from eFinance or typed (source chosen in Settings; the eFinance endpoint is only a proposal, `docs/contracts/05-efinance-activity-link.md`), Excel export with a formula-only summary sheet, read-only audit view, security headers, session timeouts, sign-in lockout, Office-file checks, migrations (`flask upgrade-db`), install pack in `deploy/` and `scripts/`. Not done: install on the server, real database engine, AD sign-in, real mail sending, Claude Design restyle. Waiting on Marios (one list, `docs/handover-marios.md`): server pack, answers in contract 05, number prefix, Greek terms from Phases 4 to 6, audit time zone. Known small gaps: `login.locked` has no singular form; audit times are UTC.

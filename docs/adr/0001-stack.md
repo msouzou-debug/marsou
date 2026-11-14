@@ -36,3 +36,15 @@ Database engine and version, port and service name, AD only or local accounts as
 ## Consequences
 
 Phase 0 and the pure workflow engine don't depend on any open item. Phase 1 (login, lists) needs the database engine and the sign-in answer before it is installed on the server, though it can be built and demonstrated on SQLite.
+
+## Update, 14/11/2026: second reply from the eFinance session
+
+Facts it read from the code on 9 and 10 November. Items it marked pending need the server, which has been unreachable since 12/11.
+
+- **Database:** eFinance uses raw SQL through its own helper, tests on SQLite, and its settings carry MySQL fields (port 3306). The engine production runs on, its version and the driver are pending. MySQL is the likely answer, not a confirmed one. eHR keeps SQLAlchemy; nothing in eFinance prevents it.
+- **Ports in use on the server:** 5004 eFinance, 5005 eVendor, 5011 and 5012 eArchive, 5014 eHealth, 8080 nginx. Whether 5006 is free is pending. Do not take it until confirmed.
+- **Layout pattern:** code in `/opt/finance` under its own service user, virtualenv inside it, logs in `/var/log/finance/`. eHR's `/opt/ehr` and `/var/log/ehr` follow the same pattern. The settings file location is pending.
+- **Proxy:** eFinance is reached directly on 5004 over HTTP and trusts forwarded headers from cloudflared; eVendor sits behind Apache. The full picture, and whether LibreOffice is installed, are pending.
+- **Mail:** eFinance has a `graph` or `smtp` setting; IT asked on 28/08 that all mail go through Graph. The eFinance session recommends that eHR gets its own app registration, limited by an access policy to its own sender mailbox. That is IT's decision.
+- **AD:** eFinance has an AD path next to local accounts. Library, bind method, attributes and TLS are pending.
+- **ΟΑΥ link:** whether eFinance holds the ΟΑΥ reports at all is pending. If it does: call `http://127.0.0.1:5004/...` (same machine, never leaves it), eFinance accepts the route only from 127.0.0.1 plus the token, stores only the token's hash, and accepts two tokens during rotation. eHR's client already allows plain HTTP for loopback only, sends a bearer token read from its own settings file, and defaults to typing by hand, so nothing depends on the link yet.
