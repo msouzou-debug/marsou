@@ -274,3 +274,65 @@ One key per row. `strings` writes the Greek.
 | `ooo.period` | From {from} to {to} |
 | `ooo.since` | From {date} |
 | `ooo.until` | Until {date} |
+
+## Phase 5 and 6 keys (ΟΑΥ figures, audit view, Excel export, hardening)
+
+One key per row. `strings` writes the Greek.
+
+| Key | English |
+|---|---|
+| `card.fin.source.efinance` | From the ΟΑΥ data held in eFinance, to {month} |
+| `card.fin.source.manual` | Typed by hand |
+| `card.fin.unavailable` | The ΟΑΥ figures could not be loaded from eFinance. Type them. |
+| `card.fin.no_data` | eFinance has no ΟΑΥ figures for this facility and specialty. Type them. |
+| `card.fin.refresh` | Load the figures for this specialty |
+| `settings.activity_provider` | Where the ΟΑΥ figures come from |
+| `settings.activity_provider.manual` | The Directorate Accountant types them |
+| `settings.activity_provider.efinance` | From eFinance. Typed only when eFinance has no figures |
+| `settings.activity_provider.not_configured` | The link to eFinance is not set up on the server yet. |
+| `nav.audit` | Audit log |
+| `audit.title` | Audit log |
+| `audit.filter.request` | Request number |
+| `audit.filter.user` | User |
+| `audit.filter.event` | Event |
+| `audit.filter.from` | From |
+| `audit.filter.to` | To |
+| `audit.filter.apply` | Show |
+| `audit.filter.all` | All |
+| `audit.col.when` | When |
+| `audit.col.user` | User |
+| `audit.col.event` | Event |
+| `audit.col.request` | Request |
+| `audit.col.detail` | Detail |
+| `audit.system` | System |
+| `audit.empty` | No entries found. |
+| `audit.page` | Page {n} of {total} |
+| `audit.prev` | Previous |
+| `audit.next` | Next |
+| `list.export` | Export to Excel |
+| `export.sheet.requests` | Requests |
+| `export.sheet.summary` | Summary |
+| `export.sheet.notes` | Notes |
+| `export.col.number` | Number |
+| `export.col.status` | Status |
+| `export.col.step` | Step |
+| `export.col.waiting_on` | Waiting on |
+| `export.col.days_waiting` | Working days waiting |
+| `export.col.requester` | Requester |
+| `export.col.submitted` | Submitted |
+| `export.col.closed` | Closed |
+| `export.col.round` | Round |
+| `export.col.documents` | Documents |
+| `export.summary.by_status` | Requests by status |
+| `export.summary.by_directorate` | Requests by Directorate |
+| `export.summary.by_category` | Requests by staff category |
+| `export.summary.count` | Requests |
+| `export.summary.posts` | Posts |
+| `export.summary.total` | Total |
+| `export.summary.avg_days` | Average working days waiting, open requests |
+| `export.notes.generated` | Exported on {date} by {who}. |
+| `export.notes.rows` | Rows: the requests you may see, with the tab and search you had on the list. |
+| `export.notes.formulas` | The Summary sheet is calculated by formulas from the Requests sheet. Change a row there and the summary follows. |
+| `export.notes.days` | Working days waiting are counted on the export date and do not update. |
+| `login.locked` | Too many failed attempts. Try again in {n} minutes. |
+| `docs.error.unsafe` | The file "{name}" can't be accepted. Save it again from Word or Excel and try once more. |

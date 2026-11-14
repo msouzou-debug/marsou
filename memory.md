@@ -54,6 +54,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 13/11/2026, owner: the Greek budget and tracker terms chosen in Phase 1 are approved (listed above). Only requesters and Directorate roles create requests (orchestrator's assumption, not yet confirmed).
 
+- 14/11/2026, owner: the ΟΑΥ figures in the financial table have both sources available: served by eFinance (through the narrow read-only link, once Marios agrees it) or typed by hand. An administrator picks the source in Settings; typing stays the fallback when eFinance has no figures.
+
 ## Status
 
 - 13/11/2026: Phase 0 done (ADR, four contracts, subagent definitions, empty app with tests). Phases 1 to 4 built (engine, sign-in, lists, request form with live route, drafts, list, action cards, return and resubmit, withdraw, documents and viewer, emails through an outbox with one «Προβολή αιτήματος» button, reminders and escalation on working days, out of office with substitutes, settings for role holders, users, holidays and timings, email log; 406 tests). Mail backend defaults to `outbox_only`: nothing leaves the app until Marios supplies SMTP or Graph details. Next: Phase 5, ΟΑΥ activity provider (needs Marios's answer on the eFinance link). Still open: server pack from Marios (database engine, port, AD, LibreOffice, mail), number prefix, Claude Design hand-over. For Phase 6 hardening: zip-bomb limit before Office conversion; check emails in Outlook.
