@@ -10,12 +10,13 @@ Standing rules and decisions for this project. Read at the start of every sessio
 - Ask questions before building. Prefer the simple solution.
 - Excel outputs: live formulas, auditable.
 
-## Greek terms approved on 13/11/2026 (also in the `okypy-greek-terms` skill)
+## Greek terms approved on 13 and 14/11/2026 (also in the `okypy-greek-terms` skill)
 
 | Avoid | Use |
 |---|---|
 | Αποθήκευση πρόχειρου | Αποθήκευση ως πρόχειρο |
 | Προσθήκη αποχωρήσαντος | Προσθήκη ατόμου που αποχώρησε |
+| Λήψη (download button) | Κατεβάστε το αρχείο |
 
 | Meaning | Use |
 |---|---|
