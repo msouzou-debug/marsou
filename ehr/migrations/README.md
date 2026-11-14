@@ -22,17 +22,20 @@ Creates every table from the current models if it is missing. A database made by
 them, so only the version row is added. This is why later migrations must check before acting: a brand-new database
 is built from the newest models by 0001 and then meets the later migrations.
 
-## When the database engine is chosen
+## SQLite is the production engine
 
-Tested on SQLite only. Before the first run on PostgreSQL, MySQL or SQL Server, check:
+Marios decided on 14/11/2026 that eHR follows eFinance: SQLite in WAL mode, one writer. Migrations 0001 to 0003 only create tables (`create_all(checkfirst=True)`), add rows, and rewrite one column's values, so they run unchanged on SQLite. The runner opens each migration in its own transaction (the app's engine already starts every transaction with `BEGIN IMMEDIATE`, see `ehr/dbsetup.py`), so a failed migration rolls back, DDL included. Run `flask upgrade-db` with the service stopped and after a `backup-db` (deploy/README.md).
 
-- **Transactional DDL.** PostgreSQL, SQL Server and SQLite roll DDL back with the migration (for SQLite the
-  runner opens the transaction itself). MySQL does not: a failed migration can leave half a change, which is why
-  every migration checks before it acts.
-- **Types and defaults.** `ALTER TABLE ... ADD COLUMN` syntax, `NOT NULL` with a default, boolean and datetime
-  types differ. Write each statement for the engine in use, or use `sqlalchemy.schema` constructs that render it.
-- **Time zones.** The models use `DateTime(timezone=True)`. SQLite and MySQL store no zone; values are UTC.
-- **Case rules.** `user.username` is compared with `lower()` in code. A case-insensitive collation (SQL Server,
-  MySQL default) still works; check the unique index behaves as expected.
-- **Append-only audit log.** Deny UPDATE and DELETE on `audit_log` to the application's database user.
-- **Run the whole test suite against the new engine** (`EHR_DATABASE_URI` in a test config) before installing.
+**Changing a column on SQLite.** `ALTER TABLE ... ADD COLUMN` works (a new column must be nullable or have a constant default). `DROP COLUMN` works only for a plain column that no index, key or view uses. Changing a type, nullability, default or a constraint, and dropping a column that is used, are not possible in place. Use the "create new table, copy, rename" pattern inside one migration:
+
+1. Check first (`helpers.has_column`), so a database that already has the change is left alone.
+2. Create the new table under a temporary name with the final definition, copy the rows (`INSERT INTO new (...) SELECT ... FROM old`), `DROP TABLE old`, `ALTER TABLE new RENAME TO old`, then recreate the indexes. This ran correctly through `upgrade-db` on a scratch file (checked on 14/11/2026) for a table that no other table points at.
+3. End with `PRAGMA foreign_key_check` and raise if it returns rows.
+4. **A table that other tables reference does not work this way.** The connection has foreign keys ON, the `DROP TABLE` then fails ("FOREIGN KEY constraint failed"), and `PRAGMA defer_foreign_keys` did not rescue it either. SQLite's own recipe needs `PRAGMA foreign_keys=OFF`, which cannot be changed inside the runner's transaction. Do not improvise: that case needs the runner changed to switch foreign keys off outside the transaction for one migration, as a separate, tested piece of work.
+5. Add the test from "Writing the next one" and try the migration on a copy of a real backup (`backup-db`) before the real run.
+
+SQLite stores no time zone: the models use `DateTime(timezone=True)`, values are UTC. `user.username` is compared with `lower()` in code. The append-only rule for `audit_log` is enforced by the application (model events), not by database permissions, which SQLite does not have.
+
+## If another engine is ever used
+
+Run the whole test suite against it first. Check transactional DDL (MySQL rolls none back, which is why every migration checks before it acts), types and defaults in `ALTER TABLE`, and case rules for `user.username`. The SQLite-only pieces (`ehr/dbsetup.py`, the production file check, `flask backup-db`) switch themselves off or refuse on other engines.

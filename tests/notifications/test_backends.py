@@ -1,4 +1,7 @@
 """SMTP and Graph backends build the right requests. Both are tested with fakes: nothing here talks to a server."""
+import base64
+import email
+import email.policy
 import io
 import json
 import smtplib
@@ -12,7 +15,7 @@ from ehr.mail.backends import (GraphBackend, InMemoryBackend, MailError, OutboxO
 from ehr.models import Setting
 from ehr.extensions import db
 
-HTML = "<p>Grüße</p>"
+HTML = '<p>Grüße</p><img src="cid:okypylogo" width="104" height="65" alt="x">'
 TEXT = "Grüße http://example.invalid/requests/1?do=review"
 
 
@@ -50,8 +53,26 @@ def test_smtp_builds_a_multipart_message_and_uses_starttls_and_login():
     msg = FakeSmtp.log[-1][1]
     assert msg["To"] == "a@example.invalid" and msg["From"] == "ehr@example.invalid"
     assert msg["Subject"] == "Subject Α" and msg.get_content_type() == "multipart/alternative"
-    parts = {p.get_content_type(): p.get_content() for p in msg.iter_parts()}
-    assert parts["text/plain"].strip() == TEXT and parts["text/html"].strip() == HTML
+    assert_structure(msg)
+
+
+def assert_structure(msg):
+    """alternative [ text/plain, related [ text/html, inline logo <okypylogo> ] ], the logo exactly once."""
+    plain, related = list(msg.iter_parts())
+    assert plain.get_content_type() == "text/plain" and plain.get_content().strip() == TEXT
+    assert related.get_content_type() == "multipart/related"
+    html, logo = list(related.iter_parts())
+    assert html.get_content_type() == "text/html" and html.get_content().strip() == HTML
+    assert logo.get_content_type() == "image/png" and logo["Content-ID"] == "<okypylogo>"
+    assert logo.get_content_disposition() == "inline" and logo.get_content().startswith(b"\x89PNG")
+    assert len(logo.get_content()) < 20000
+    assert sum(1 for p in msg.walk() if p["Content-ID"]) == 1
+
+
+def test_a_message_without_the_logo_reference_carries_no_image():
+    from ehr.mail.mime import build_message
+    msg = build_message("ehr@example.invalid", "a@example.invalid", "s", "<p>x</p>", "x")
+    assert msg.get_content_type() == "multipart/alternative" and not [p for p in msg.walk() if p["Content-ID"]]
 
 
 def test_smtp_options_and_errors():
@@ -109,12 +130,16 @@ def test_graph_gets_a_token_then_posts_send_mail():
                     "scope": ["https://graph.microsoft.com/.default"]}
     assert send_req.get_method() == "POST"
     assert send_req.full_url == "https://graph.microsoft.com/v1.0/users/ehr@example.invalid/sendMail"
-    assert send_req.get_header("Authorization") == "Bearer tok-1" and send_req.get_header("Content-type") == "application/json"
-    body = json.loads(send_req.data.decode())
-    assert body["message"]["subject"] == "Subject"
-    assert body["message"]["body"] == {"contentType": "HTML", "content": HTML}
-    assert body["message"]["toRecipients"] == [{"emailAddress": {"address": "a@example.invalid"}}]
-    assert body["saveToSentItems"] is False
+    assert send_req.get_header("Authorization") == "Bearer tok-1" and send_req.get_header("Content-type") == "text/plain"
+    msg = email.message_from_bytes(base64.b64decode(send_req.data), policy=email.policy.default)
+    assert msg["To"] == "a@example.invalid" and msg["From"] == "ehr@example.invalid" and msg["Subject"] == "Subject"
+    assert msg.get_content_type() == "multipart/alternative"
+    plain, related = list(msg.iter_parts())
+    assert plain.get_content().strip() == TEXT and related.get_content_type() == "multipart/related"
+    html, logo = list(related.iter_parts())
+    assert html.get_content().strip() == HTML and logo["Content-ID"] == "<okypylogo>"
+    assert logo.get_content_disposition() == "inline" and logo.get_content_type() == "image/png"
+    assert b"s3cret" not in send_req.data and b"tok-1" not in base64.b64decode(send_req.data)  # no secret in the body
 
 
 def test_graph_reuses_the_token_until_it_is_about_to_expire():

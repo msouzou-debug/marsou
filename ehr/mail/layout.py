@@ -1,28 +1,43 @@
 """One email layout for every event (contract 03, section 7).
 
 `render_email(event, req, recipient, lang, base_url)` returns (subject, html, text). The email informs and never
-acts: one link, the request page with ?do=review. No token, no images, no external CSS.
+acts: one link, the request page with ?do=review. No token, no remote images, no external CSS.
+The only image is the small logo, attached to the message and referenced as cid:okypylogo.
 """
 import re
+from pathlib import Path
 
 from .. import i18n
 from ..extensions import db
 from ..models import RequestAction, RequestDocument, User
 
-# Status bar per kind. The label word is always printed, so colour never carries the state alone.
-BAR = {
-    "waiting": {"bg": "#ED7D31", "fg": "#1F1F1F", "border": "#ED7D31"},
-    "approved": {"bg": "#F2F8EA", "fg": "#3F6B12", "border": "#3F6B12"},
-    "rejected": {"bg": "#C0392B", "fg": "#FFFFFF", "border": "#C0392B"},
-    "information": {"bg": "#1B75BB", "fg": "#FFFFFF", "border": "#1B75BB"},
+# The eFinance frame: four status kinds. The label word is always printed, so colour never carries the state alone.
+FONT = "Arial,Helvetica,sans-serif"
+BLUE, DEEP, GREEN, TEXT, RULE, RED = "#069FEC", "#1B75BB", "#8BC53F", "#58595B", "#EAEAEA", "#B42318"
+WIDTH = 640
+# label: colour of the label text; bar: colour of the 4 px bar under the header (and the comment box edge).
+STATUS = {
+    "action": {"key": "mail.status.action", "label": DEEP, "bar": BLUE},
+    "problem": {"key": "mail.status.problem", "label": RED, "bar": RED},
+    "done": {"key": "mail.status.done", "label": TEXT, "bar": GREEN},
+    "info": {"key": "mail.status.info", "label": TEXT, "bar": RULE},
 }
+# Event to status kind, one reason each.
 EVENT_KIND = {
-    "task_opened": "waiting", "task_resumed": "waiting", "new_material": "waiting", "reminder_due": "waiting",
-    "request_returned": "waiting", "withdrawal_warning": "waiting", "task_unassigned": "waiting",
-    "request_approved": "approved",
-    "request_rejected": "rejected",
-    "task_redirected": "information", "request_submitted": "information", "request_resubmitted": "information",
-    "request_withdrawn": "information", "escalation_due": "information",
+    "task_opened": "action",         # a task now waits for the recipient
+    "task_resumed": "action",        # the task is back on the recipient's desk after a pause
+    "new_material": "action",        # new material came in; the recipient looks again
+    "request_returned": "action",    # the requester must act: answer the question and resubmit
+    "reminder_due": "action",        # a task is waiting too long
+    "withdrawal_warning": "action",  # the requester must act or the request is withdrawn
+    "request_rejected": "problem",   # a negative answer ended the request
+    "task_unassigned": "problem",    # nobody holds the role, so nobody can act
+    "escalation_due": "problem",     # the task is overdue and needs the line manager's attention
+    "request_approved": "done",      # the request is complete
+    "request_submitted": "info",     # a copy for the requester
+    "request_resubmitted": "info",   # a copy for the people who already answered
+    "task_redirected": "info",       # the task went to a substitute
+    "request_withdrawn": "info",     # the requester withdrew it
 }
 EVENTS = tuple(EVENT_KIND)
 # Events that go to the requester: they also say who the request is waiting on.
@@ -36,6 +51,11 @@ def _short(text, limit=NEED_LIMIT):
         return text
     cut = text[:limit].rsplit(" ", 1)[0].rstrip(" ,.;:") or text[:limit]
     return cut + "…"
+
+
+LOGO_CID = "okypylogo"
+LOGO_FILE = Path(__file__).resolve().parent.parent / "static" / "img" / "okypy_logo_mail.png"
+LOGO_STATIC = "img/okypy_logo_mail.png"
 
 
 def request_url(base_url, request_id):
@@ -145,13 +165,19 @@ def render_email(event, req, recipient, lang, base_url, env, ctx=None):
     subject = ctx.t("mail.subject", number=number, position=req.position.name(ctx.lang) if req.position else "",
                     facility=req.facility.name(ctx.lang) if req.facility else "")
     kind = EVENT_KIND[event.kind]
+    intro = _intro(event, req, ctx)
     page = {
         "lang": ctx.lang,
         "subject": subject,
-        "label": ctx.t("mail.%s.label" % event.kind),
-        "bar": BAR[kind],
+        "label": ctx.t(STATUS[kind]["key"]),
+        "colours": STATUS[kind],
         "kind": kind,
-        "intro": _intro(event, req, ctx),
+        "area": ctx.t("mail.area"),
+        "logo_alt": ctx.t("mail.logo_alt"),
+        "logo_cid": LOGO_CID,
+        "font": FONT, "text_colour": TEXT, "rule": RULE, "blue": BLUE, "deep": DEEP, "width": WIDTH,
+        "intro": intro,
+        "preheader": intro,
         "facts": _facts(req, event, ctx),
         "comment_label": ctx.t("mail.comment"),
         "comment": _comment_for(req, event, ctx),

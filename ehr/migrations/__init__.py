@@ -81,8 +81,10 @@ def upgrade(engine, log=lambda text: None):
     done = []
     for mig in status(engine)[2]:
         with engine.begin() as conn:
-            if engine.dialect.name == "sqlite":
-                conn.exec_driver_sql("BEGIN")  # the Python driver would not open a transaction for DDL on its own
+            if engine.dialect.name == "sqlite" and not conn.connection.dbapi_connection.in_transaction:
+                # The Python driver would not open a transaction for DDL on its own. (The app's engine already did:
+                # ehr/dbsetup.py opens every transaction with BEGIN IMMEDIATE.)
+                conn.exec_driver_sql("BEGIN")
             log("applying %s" % mig.name)
             mig.module.upgrade(conn)
             _record(conn, mig)

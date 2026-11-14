@@ -1,6 +1,9 @@
 """CSRF protection: one token per session, checked on every unsafe request."""
 import hmac
+import os
+import re
 import secrets
+from pathlib import Path
 
 from flask import abort, current_app, request, session
 
@@ -44,6 +47,56 @@ class ConfigError(RuntimeError):
     """The app refuses to start with this configuration."""
 
 
+CODE_ROOT = Path(__file__).resolve().parent.parent
+_AD_ATTRIBUTE = re.compile(r"^[A-Za-z][A-Za-z0-9-]{0,63}$")
+
+
+def _sqlite_problems(cfg):
+    """SQLite in production: the file is an absolute path outside the code folder, in a folder the service user can
+    write, because WAL creates the -wal and -shm files beside it. Other engines are not checked here."""
+    from sqlalchemy.engine import make_url
+
+    uri = str(cfg.get("SQLALCHEMY_DATABASE_URI") or "")
+    if not uri.lower().startswith("sqlite"):
+        return []
+    path = make_url(uri).database or ""
+    if path in ("", ":memory:") or path.startswith("file:"):
+        return ["EHR_DATABASE_URI is an in-memory or file: SQLite database. Production needs a file, "
+                "for example sqlite:////var/lib/ehr/ehr.sqlite3."]
+    if not os.path.isabs(path):
+        return ["EHR_DATABASE_URI is a relative SQLite path (%s). Use an absolute path outside the code folder, "
+                "for example sqlite:////var/lib/ehr/ehr.sqlite3 (four slashes)." % path]
+    real = Path(os.path.realpath(path))
+    if real == CODE_ROOT or CODE_ROOT in real.parents:
+        return ["The SQLite file %s is inside the code folder %s. A release upgrade would replace it. "
+                "Put it in its own folder, for example /var/lib/ehr/." % (path, CODE_ROOT)]
+    folder = real.parent
+    if not folder.is_dir() or not os.access(folder, os.W_OK | os.X_OK):
+        return ["The folder %s for the SQLite file does not exist or is not writable by this user. "
+                "SQLite in WAL mode creates ehr.sqlite3-wal and ehr.sqlite3-shm in the same folder." % folder]
+    if real.exists() and not os.access(real, os.R_OK | os.W_OK):
+        return ["The SQLite file %s exists but this user cannot read and write it." % path]
+    return []
+
+
+def _ad_problems(cfg):
+    """Active Directory in production: LDAPS only, certificate checked against the organisation's CA file."""
+    if not cfg.get("EHR_AD_ENABLED"):
+        return []
+    out = []
+    if not cfg.get("EHR_AD_SERVER") or not cfg.get("EHR_AD_DOMAIN"):
+        out.append("EHR_AD_ENABLED is on but EHR_AD_SERVER or EHR_AD_DOMAIN is empty.")
+    if not cfg.get("EHR_AD_USE_SSL", True):
+        out.append("EHR_AD_USE_SSL is off. Active Directory sign-in in production uses LDAPS only (port 636).")
+    ca = cfg.get("EHR_AD_CA_FILE") or ""
+    if not ca or not os.path.isfile(ca) or not os.access(ca, os.R_OK):
+        out.append("EHR_AD_CA_FILE is empty or not a readable file. Active Directory needs the organisation's CA "
+                   "certificate (PEM) from IT, to check the server certificate.")
+    if not _AD_ATTRIBUTE.match(str(cfg.get("EHR_AD_UID_ATTRIBUTE") or "")):
+        out.append("EHR_AD_UID_ATTRIBUTE must be a plain attribute name such as sAMAccountName.")
+    return out
+
+
 def check_production_config(app):
     """In production (EHR_ENV=production) refuse unsafe settings with a message that says what to change."""
     cfg = app.config
@@ -58,8 +111,8 @@ def check_production_config(app):
         problems.append("CSRF protection is off or TESTING is on. Production must run with CSRF on and TESTING off.")
     if cfg.get("DEBUG") or app.debug:
         problems.append("Debug mode is on. Never run production in debug mode.")
-    if str(cfg.get("SQLALCHEMY_DATABASE_URI") or "").lower().startswith("sqlite"):
-        problems.append("EHR_DATABASE_URI points at SQLite. SQLite is for development and tests only.")
+    problems.extend(_sqlite_problems(cfg))
+    problems.extend(_ad_problems(cfg))
     if problems:
         raise ConfigError("eHR will not start in production mode:\n- " + "\n- ".join(problems))
 

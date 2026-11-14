@@ -11,9 +11,9 @@
 
 ## What has not been tested, because it can't be from a build session
 
-- The real database engine. Everything ran on SQLite, and the app refuses to start in production on SQLite.
+- SQLite as the production engine on the real server: WAL, the backup command and a restore have been tested here on a temporary file, not on the server's disk or filesystem.
 - Python 3.10 itself. The build used 3.11; a checker confirms the code needs nothing newer than 3.7, but the suite has to run on the server's 3.10 once.
-- AD sign-in. It is a stub that always refuses. Local accounts work.
+- AD sign-in against the real directory. It is built (LDAPS, the user's own bind, first sign-in makes an inactive user) and tested against a mock directory and a local TLS test server only. The real bind, the certificate chain and this organisation's attribute names are unverified: run `scripts/ehr-cli.sh ad-test <username>` on the server.
 - Real email. The default mode, `outbox_only`, sends nothing. SMTP and Microsoft Graph senders exist and were tested against stand-ins.
 - The eFinance link for ΟΑΥ figures. The endpoint does not exist in eFinance yet.
 - The emails in Outlook. They were only viewed in a browser.
@@ -22,10 +22,10 @@
 
 Server and install:
 
-1. Database engine and version (the same one eFinance uses).
+1. Database engine: decided 14/11/2026, SQLite like eFinance. Needed from you: the folder for the file (I used `/var/lib/ehr/`) and where the nightly backups are copied to.
 2. Port and service name. I used 5008 and `ehr`.
 3. Folder layout. I used `/opt/ehr`, `/etc/ehr`, `/var/lib/ehr/storage`, `/var/log/ehr`.
-4. Sign-in: AD only, or local accounts too. If AD, how eFinance connects to it.
+4. Sign-in: decided 14/11/2026, both AD and local accounts. Needed from IT through you: the domain controller name, the domain, the search base (DN), the attribute for the account name if not `sAMAccountName`, and the organisation's CA certificate as a PEM file (`EHR_AD_CA_FILE`).
 5. Mail: SMTP or Microsoft Graph, and the sender address.
 6. LibreOffice on the server, yes or no. Without it Office files can't be previewed, only downloaded.
 7. How many reverse proxies sit in front of the app (`EHR_PROXY_HOPS`), so the sign-in lock and the audit log record real addresses.
@@ -54,8 +54,8 @@ For the organisation, through you:
 
 ## What you do, in order
 
-1. Answer 1 to 8. I then set the database driver, fix anything the real engine shows, and build the release.
-2. Run the test suite on a machine with Python 3.10 and the chosen database.
+1. Answer 1 to 8 (1 and 4 are decided; the rest of them are open). I then build the release.
+2. Run the test suite on a machine with Python 3.10 (SQLite is built in).
 3. Follow "First install" in `deploy/README.md`. Every sudo step is yours. The steps never touch another app's service.
 4. Run `scripts/preflight.sh` and fix every FAIL line.
 5. Create the first admin with `scripts/ehr-cli.sh create-admin`. Never run `seed-demo` on the server: it refuses in production because its users share a known password.
@@ -65,7 +65,9 @@ For the organisation, through you:
 
 ## Things to know before go-live
 
-- Back up the database and the document storage folder together. One without the other is not a backup.
+- Back up the database and the document storage folder together. One without the other is not a backup. Use `scripts/ehr-cli.sh backup-db`, never `cp`, for the database: it is in WAL mode.
+- eHR runs one gunicorn worker because SQLite has one writer. Do not raise `EHR_WORKERS`; the app refuses to start if you do.
+- AD users appear as inactive users after their first sign-in. Activate them in Settings, Users and give roles. Nobody is emailed about it, so tell the person.
 - A username can be locked for 15 minutes by five wrong passwords. `scripts/ehr-cli.sh unlock-user <username>` clears it.
 - After an upgrade the app answers "service is being upgraded" until `upgrade-db` has run.
 - The lockout message reads «1 λεπτά» when one minute remains. Small, known, not fixed.

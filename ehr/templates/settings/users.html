@@ -36,7 +36,9 @@
 <form method="post" action="{{ url_for('settings.users_edit', user_id=u.id) }}" class="border-bottom py-3">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="row g-2 align-items-end">
-    <div class="col-12 col-md-2"><div class="small text-secondary">{{ t('settings.user.username') }}</div><div class="fw-semibold" style="min-height:44px;line-height:44px">{{ u.username }}</div></div>
+    <div class="col-12 col-md-2"><div class="small text-secondary">{{ t('settings.user.username') }}</div><div class="fw-semibold">{{ u.username }}</div>
+      <div class="small text-secondary">{{ t('settings.user.source') }}: {{ t('settings.user.source.' ~ u.auth_source) }}</div>
+      {% if u.id in pending %}<span class="badge text-bg-warning">{{ t('settings.user.pending') }}</span>{% endif %}</div>
     <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-name">{{ t('settings.user.full_name') }}</label><input class="form-control" style="min-height:44px" id="u{{ u.id }}-name" name="full_name" value="{{ u.full_name }}" required></div>
     <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-email">{{ t('settings.user.email') }}</label><input class="form-control" style="min-height:44px" id="u{{ u.id }}-email" name="email" type="email" value="{{ u.email or '' }}"></div>
     <div class="col-6 col-md-1"><label class="form-label small mb-1" for="u{{ u.id }}-lang">{{ t('settings.user.language') }}</label>{{ lang_select(u.language, 'u' ~ u.id ~ '-lang') }}</div>

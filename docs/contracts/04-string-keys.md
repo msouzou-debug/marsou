@@ -186,35 +186,21 @@ One key per row. `strings` writes the Greek.
 | `mail.requester` | Requester |
 | `mail.comment` | Comment |
 | `mail.waiting_on` | Waiting on |
-| `mail.task_opened.label` | Waiting for you |
 | `mail.task_opened.intro` | A position request is waiting for your action as {role}. |
-| `mail.task_resumed.label` | Waiting for you again |
 | `mail.task_resumed.intro` | The request was resubmitted and is waiting for your action again. |
-| `mail.task_redirected.label` | For information |
 | `mail.task_redirected.intro.out_of_office` | You are out of office, so {who} is acting on this request in your place. |
 | `mail.task_redirected.intro.conflict_of_interest` | You made this request, so {who} is acting on it in your place. |
-| `mail.task_unassigned.label` | No one to act |
 | `mail.task_unassigned.intro` | Nobody can be given the {role} task on this request. Set a holder or a substitute in Settings. |
-| `mail.request_submitted.label` | Submitted |
 | `mail.request_submitted.intro` | Your request was submitted. Its number is {number}. |
-| `mail.request_returned.label` | Returned to you |
 | `mail.request_returned.intro` | {who} returned your request. Read the comment, correct the request and resubmit it. |
-| `mail.request_resubmitted.label` | Resubmitted |
 | `mail.request_resubmitted.intro` | The requester resubmitted the request you returned. |
-| `mail.new_material.label` | New material |
 | `mail.new_material.intro` | New material was added after your answer. Keep your answer or give a new one. |
-| `mail.request_approved.label` | Approved |
 | `mail.request_approved.intro` | Your request was approved. |
-| `mail.request_rejected.label` | Rejected |
 | `mail.request_rejected.intro` | Your request was rejected at step {n}, {step}. |
-| `mail.request_withdrawn.label` | Withdrawn |
 | `mail.request_withdrawn.intro` | The request was withdrawn. You don't need to do anything. |
-| `mail.reminder_due.label` | Reminder |
 | `mail.reminder_due.intro.one` | This request has been waiting for you for 1 working day. |
 | `mail.reminder_due.intro.many` | This request has been waiting for you for {n} working days. |
-| `mail.escalation_due.label` | Escalated, for information |
 | `mail.escalation_due.intro` | {who} has had this request for {n} working days without acting. You are told for information. The task stays with {who}. |
-| `mail.withdrawal_warning.label` | Will be withdrawn |
 | `mail.withdrawal_warning.intro.one` | Your returned request will be withdrawn automatically in 1 working day if you don't resubmit it. |
 | `mail.withdrawal_warning.intro.many` | Your returned request will be withdrawn automatically in {n} working days if you don't resubmit it. |
 | `ooo.title` | Out of office |
@@ -354,3 +340,6 @@ One key per row. `strings` writes the Greek.
 | `settings.user.pending` | Waiting for activation |
 
 `mail.footer` now follows the eFinance footer. The `mail.<event>.label` keys are replaced by the four `mail.status.*` labels, as eFinance uses them.
+| `mail.logo_alt` | State Health Services Organisation |
+
+The 14 `mail.<event>.label` keys were removed on 14/11/2026.

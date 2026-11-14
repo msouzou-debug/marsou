@@ -14,7 +14,7 @@
     <td style="overflow-wrap:anywhere">
       <div class="fw-semibold">{{ m.subject }}</div>
       <div class="small text-secondary">{{ t('settings.outbox.to') }}: {{ names.get(m.to_user_id, '') }}{% if m.to_email %} &lt;{{ m.to_email }}&gt;{% endif %}</div>
-      <div class="small text-secondary">{{ t('settings.outbox.when') }}: {{ m.created_at | ehr_datetime }} · {{ t('mail.' ~ m.event ~ '.label') }}</div>
+      <div class="small text-secondary">{{ t('settings.outbox.when') }}: {{ m.created_at | ehr_datetime }} · {{ t(mail_status_key(m.event)) }}</div>
       {% if m.last_error %}<div class="small text-danger">{{ m.last_error }}</div>{% endif %}
     </td>
     <td class="text-nowrap">

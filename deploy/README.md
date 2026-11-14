@@ -10,7 +10,8 @@ Paths below are examples. Port 5008 is a proposal; Marios assigns the real one (
 - Linux server inside the organisation's network, with a reverse proxy that serves HTTPS and passes requests to gunicorn on `127.0.0.1`.
 - Python 3.10 or newer (the server runs 3.10).
 - The system time zone database (the `tzdata` package on Linux) so that `Europe/Nicosia` loads. Without it the app does not start.
-- A database. The engine is not decided (ADR 0001). SQLite is for development and is refused in production. Before the first run on another engine, read the checklist in `ehr/migrations/README.md`.
+- SQLite 3.37 or newer (the server has 3.37.2; Python's `sqlite3` module is used, nothing to install). It is the production database, as in eFinance (decision of 14/11/2026, ADR 0001). The folder that holds the file must be writable by the `ehr` user: WAL mode creates `-wal` and `-shm` files beside it.
+- For Active Directory sign-in (optional): the domain controller's name, the domain, a search base, and the organisation's internal CA certificate as a PEM file, all from IT. See Active Directory below.
 - LibreOffice (`soffice`) for Word and Excel previews. Without it the files still download.
 - A mail server or a Microsoft Graph app registration, when real email is turned on.
 
@@ -22,13 +23,18 @@ Paths below are examples. Port 5008 is a proposal; Marios assigns the real one (
 | Releases | `/opt/ehr/releases/ehr-<version>/`, with `/opt/ehr/current` pointing at the live one |
 | Python environment | `/opt/ehr/venv` |
 | Settings | `/etc/ehr/ehr.env`, owner root, group `ehr`, mode 640 (template: `deploy/ehr.env.example`) |
+| Database | `/var/lib/ehr/ehr.sqlite3` (plus `ehr.sqlite3-wal` and `-shm` while running), owner `ehr`, outside the code folder |
 | Documents | `/var/lib/ehr/storage`, owner `ehr` |
+| Backups | `/var/backups/ehr/<timestamp>/`, owner `ehr` (see Backup and restore) |
+| AD CA certificate | `/etc/ehr/ad-ca.pem`, owner root, group `ehr`, mode 640 |
 | Logs | `/var/log/ehr/`, owner `ehr` (service output goes to journald: `journalctl -u ehr`) |
 | Service | `ehr.service` (example: `deploy/ehr.service.example`), port from `EHR_BIND` |
 
 ## Environment file
 
-`deploy/ehr.env.example` lists every variable the app reads, one line of meaning each, with no real values. Copy it, fill it in, and keep it out of the release folders. A test checks that the file and the code agree. Required in production: `EHR_ENV=production`, `EHR_SECRET_KEY` (32 or more random characters), `EHR_DATABASE_URI` (not SQLite), `EHR_BASE_URL`, `EHR_STORAGE_DIR`. The app refuses to start in production with the default secret, with CSRF off, with debug on or with an SQLite URI, and says which.
+`deploy/ehr.env.example` lists every variable the app reads, one line of meaning each, with no real values. Copy it, fill it in, and keep it out of the release folders. A test checks that the file and the code agree. Required in production: `EHR_ENV=production`, `EHR_SECRET_KEY` (32 or more random characters), `EHR_DATABASE_URI` (`sqlite:////var/lib/ehr/ehr.sqlite3`, four slashes), `EHR_BASE_URL`, `EHR_STORAGE_DIR`. The app refuses to start in production with the default secret, with CSRF off, with debug on, with a SQLite file that is not an absolute path outside the code folder in a folder the `ehr` user can write, or with Active Directory switched on without LDAPS and a readable CA file, and says which.
+
+**SQLite and workers.** SQLite allows one writer. gunicorn runs exactly one sync worker (`EHR_WORKERS=1`, no threads), as eFinance does; it refuses to start with more on SQLite. Every connection is set to WAL, a 5000 ms busy timeout (`EHR_SQLITE_BUSY_TIMEOUT_MS`), foreign keys on and `synchronous=NORMAL`, and every write transaction starts with `BEGIN IMMEDIATE`, so request numbers and the one-action-per-task rule hold even while a cron job writes. A request that holds a transaction open for long (a Word preview waiting for LibreOffice, up to `EHR_CONVERT_TIMEOUT`) makes a cron job wait; it retries at its next run.
 
 ## Build and check a release (on the build machine)
 
@@ -44,11 +50,11 @@ scripts/verify-release.sh dist/ehr-<version>.tar.gz
 1. Create the user and folders (sudo): the `ehr` user and group; `/opt/ehr/releases`, `/etc/ehr`, `/var/lib/ehr/storage`, `/var/log/ehr`, owned as in the table above.
 2. Stage the release: put the tarball and its `.sha256` in `/opt/ehr/staging/`, run `scripts/verify-release.sh` on it (copy that small script over from the build machine together with the tarball; read it first), then unpack into `/opt/ehr/releases/` and point `/opt/ehr/current` at it.
 3. As `ehr`: `python3 -m venv /opt/ehr/venv`, then `/opt/ehr/venv/bin/pip install -r /opt/ehr/current/requirements.txt`. With no internet on the server, build a wheel folder elsewhere and use `pip install --no-index --find-links <folder>`.
-4. Write `/etc/ehr/ehr.env` from the example.
+4. Write `/etc/ehr/ehr.env` from the example. Create `/var/lib/ehr` first, owner `ehr`, mode 750.
 5. As `ehr`, in `/opt/ehr/current`: `scripts/ehr-cli.sh init-db` (creates the tables and marks them current).
 6. Create the first admin: `scripts/ehr-cli.sh create-admin`. It asks for a username, a full name and, twice, a password. The password is never an argument. The admin then loads the lists (Directorates, facilities, positions, cost centres, public holidays) and the other users in Settings. Never run `seed-demo` here: it holds a known password, and it refuses to run in production.
-7. `scripts/preflight.sh`. Fix every FAIL line. It checks the Python version, the settings file, the secret, storage, database and schema version, LibreOffice and the port.
-8. Install `ehr.service` and the two cron lines (below). Start only `ehr`: `systemctl start ehr` (sudo).
+7. `scripts/preflight.sh`. Fix every FAIL line. It checks the Python version, the settings file, the secret, the SQLite file (absolute path, outside the code folder, folder writable, WAL on, one worker), Active Directory settings when on, storage, schema version, LibreOffice and the port.
+8. Install `ehr.service` and the cron lines (below), including the nightly backup. Start only `ehr`: `systemctl start ehr` (sudo).
 9. Health check: `curl -s http://127.0.0.1:5008/healthz` answers `{"status":"ok"}`. Sign in and open the Audit log.
 
 ## Upgrade
@@ -69,7 +75,7 @@ Stage and test first, switch last. Each step is one command Marios can read.
 
 ## Scheduled jobs
 
-Two jobs keep the timers and the mail moving. They run as the `ehr` user through `scripts/ehr-cli.sh`, which reads the same environment file as the service. Paths are examples.
+Two jobs keep the timers and the mail moving; a third is the nightly backup (next section). They run as the `ehr` user through `scripts/ehr-cli.sh`, which reads the same environment file as the service. Paths are examples.
 
 ```
 # Reminders, escalations, returned-request warnings and automatic withdrawal. Hourly on working hours.
@@ -99,17 +105,40 @@ Two jobs keep the timers and the mail moving. They run as the `ehr` user through
 
 ## Backup and restore
 
-The database and the storage folder describe the same requests. Back both up at the same moment, and restore both from the same backup. A database restored without its documents shows files that do not exist; documents restored without the database are orphans.
+The database and the storage folder describe the same requests. Back both up as one unit, and restore both from the same backup. A database restored without its documents shows files that do not exist; documents restored without the database are orphans.
 
-Back up with the service stopped, or in a quiet window. Keep the pair under one timestamp, for example `/var/backups/ehr/2026-11-14T0200/`.
+**Never copy `ehr.sqlite3` with `cp` or a file backup while the app runs.** In WAL mode part of the data sits in the `-wal` file, so a plain copy can be torn or miss recent commits. `flask backup-db` uses SQLite's online backup, works while the app is running, writes to a temporary name and renames it, never overwrites an existing file, checks the copy and prints its sha256. The backup is a single file in the normal journal mode.
 
-- SQLite (development only): `sqlite3 <file> ".backup '<dir>/ehr.sqlite3'"`.
-- PostgreSQL: `pg_dump --format=custom --file <dir>/ehr.dump <database>`; restore with `pg_restore --clean --dbname <database> <dir>/ehr.dump`.
-- Other engines: the engine's own dump tool. Record the command here when the engine is chosen.
-- Documents: `tar -C <storage parent> -czf <dir>/storage.tar.gz <storage folder name>`; restore by unpacking into an empty folder with the same owner.
+Nightly, as the `ehr` user, two steps that belong together, database first and documents second (a document uploaded in between is then an orphan file, which is harmless; the other order could leave a row without its file):
 
-After a restore: `scripts/ehr-cli.sh db-status`, `scripts/preflight.sh --skip-port`, start, open a request with a document.
-Test a restore once a quarter on a spare machine. A backup nobody has restored is a guess.
+```
+# 1. database   2. document folder   (one folder per night, kept under one timestamp)
+30 1 * * *  d=/var/backups/ehr/$(date +\%Y-\%m-\%dT\%H\%M) && mkdir -p "$d" && /opt/ehr/current/scripts/ehr-cli.sh backup-db "$d/ehr.sqlite3" && tar -C /var/lib/ehr -czf "$d/storage.tar.gz" storage >> /var/log/ehr/backup.log 2>&1
+```
+
+Then copy the night's folder off this machine (the backup host or share Marios names) and prune old folders (for example keep 30 days). A folder with only one of the two files is not a backup: delete it and look at `backup.log`. Do the same by hand before every upgrade, with the same two commands. Test a restore once a quarter on a spare machine. A backup nobody has restored is a guess.
+
+**Restore.** Stop only `ehr`; touch nothing else.
+
+1. `systemctl stop ehr` (sudo).
+2. Keep what is there: move `/var/lib/ehr/ehr.sqlite3`, `ehr.sqlite3-wal` and `ehr.sqlite3-shm` and the `storage` folder into a dated side folder. Do not delete them yet. A stale `-wal` or `-shm` next to a restored file corrupts it, so all three must go.
+3. Copy the backup's `ehr.sqlite3` to `/var/lib/ehr/ehr.sqlite3`, unpack `storage.tar.gz` into `/var/lib/ehr/` (it recreates `storage`). Owner `ehr`, as before. Check the file against the sha256 that `backup-db` printed.
+4. If the backup is from an older release than the code: `scripts/ehr-cli.sh upgrade-db`. Then `scripts/ehr-cli.sh db-status` (must say `pending=0`) and `scripts/preflight.sh --skip-port`.
+5. `systemctl start ehr` (sudo).
+6. Health check: `curl -s http://127.0.0.1:5008/healthz` answers `{"status":"ok"}`. Sign in, open a request that has a document and view it.
+
+Other engines are not supported by this guide; `backup-db` refuses them.
+
+## Active Directory
+
+Optional. Local accounts always work, also when the directory is down. With `EHR_AD_ENABLED=true`:
+
+- Sign-in tries the local account first. A name that belongs to a local account is never sent to the directory. Any other name is tried against AD: a simple bind as `<username>@<EHR_AD_DOMAIN>` with the person's own password (no service account), over LDAPS (`EHR_AD_PORT`, default 636), with the server certificate checked against `EHR_AD_CA_FILE`. No StartTLS and no plain LDAP.
+- The typed name must be the bare account name (`jsmith`, not `jsmith@domain` or `DOMAIN\jsmith`). An empty password is never sent.
+- A first successful AD sign-in creates the person as an inactive user with no roles and shows "Your account was created. You can sign in once an administrator activates it." Nobody is emailed. An administrator opens Settings, Users (the row says "Waiting for activation"), presses Activate and gives the roles. Later sign-ins refresh the full name and email from `EHR_AD_BASE_DN`.
+- AD users have no password in eHR and no password page. The sign-in lock (5 failures in 15 minutes) applies; a locked name is not sent to AD.
+- Check the link without the web app, as the `ehr` user: `scripts/ehr-cli.sh ad-test <username>`. It asks for the password (not echoed) and prints the name and email it read, or the kind of failure: cannot connect, certificate not trusted, wrong credentials, user not found under the base DN.
+- IT supplies: server name (as in its certificate), domain, search base, the account-name attribute if it is not `sAMAccountName`, and the CA certificate in PEM form for `EHR_AD_CA_FILE`.
 
 ## Email settings
 

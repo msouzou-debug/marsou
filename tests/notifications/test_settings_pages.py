@@ -307,8 +307,11 @@ def test_the_email_preview_is_sandboxed(admin):
     srcdoc = page.split('srcdoc="', 1)[1].split('"', 1)[0]
     assert "<" not in srcdoc and "&lt;script&gt;" in srcdoc  # the stored HTML is escaped into the attribute
     assert "allow-" not in page
+    # cid: does not resolve in a browser: the preview points the logo at the app's own static file.
+    assert "cid:" not in srcdoc and "/static/img/okypy_logo_mail.png" in srcdoc
+    assert admin.get("/static/img/okypy_logo_mail.png").status_code == 200
     csp = resp.headers["Content-Security-Policy"]
-    assert "default-src 'self'" in csp and "img-src 'none'" in csp and "form-action 'none'" in csp
+    assert "default-src 'self'" in csp and "img-src 'self'" in csp and "http" not in csp and "form-action 'none'" in csp
     assert resp.headers["X-Content-Type-Options"] == "nosniff" and resp.headers["Cache-Control"] == "private, no-store"
     assert admin.get("/settings/outbox/99999").status_code == 404
 

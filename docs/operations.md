@@ -10,12 +10,17 @@ For the person who looks after eHR day to day. Install and upgrade steps are in 
 |---|---|
 | App code, current release | `/opt/ehr/current` (a link to `/opt/ehr/releases/<version>`) |
 | Settings | `/etc/ehr/ehr.env` (every variable is explained in `deploy/ehr.env.example`) |
-| Database | the engine named in `EHR_DATABASE_URI` |
+| Database | SQLite file named in `EHR_DATABASE_URI`, for example `/var/lib/ehr/ehr.sqlite3` (with `-wal` and `-shm` beside it while running) |
+| Backups | `/var/backups/ehr/<timestamp>/`: `ehr.sqlite3` and `storage.tar.gz` from the same night |
 | Uploaded documents | `EHR_STORAGE_DIR`, for example `/var/lib/ehr/storage` |
 | Service log | `journalctl -u ehr` |
 | Timer and mail logs | `/var/log/ehr/timers.log` and `/var/log/ehr/mail.log` |
 
 The database and the storage folder belong together. Back them up, and restore them, as a pair.
+
+**Backup.** Never copy the SQLite file while the app runs (WAL mode keeps recent data in a side file). Use `scripts/ehr-cli.sh backup-db <new-file>`: it works while the app runs, refuses to overwrite and prints a sha256. Then archive the storage folder. The nightly cron line and the restore steps are in `deploy/README.md`, section Backup and restore. If `backup.log` shows an error, there is no backup for that night: run both steps by hand.
+
+**One writer.** SQLite lets one process write at a time. The app runs one worker. If the log shows `database is locked`, something held the database longer than 5 seconds (a long Word preview, or a copy of the file taken with `cp` that never finished): find it, do not raise the number of workers.
 
 ## What the two timers do
 
@@ -56,6 +61,10 @@ Times are stored in UTC and shown in Cyprus time. The zone is `EHR_TIMEZONE` (de
 ## Retention of personal data
 
 The retention period is recorded as the setting `retention_years` = 10. This is an assumption. **No deletion job exists and none runs.** Nothing in eHR deletes a request, a leaver name, a document or an audit row because of its age. The value is recorded so that a future job can use it once the DPO confirms the period. Until then, change the value only after the DPO decides, and build the job as a separate piece of work.
+
+## Active Directory sign-in
+
+Off unless `EHR_AD_ENABLED=true`. Setup and the `ad-test` check are in `deploy/README.md`. A person's first AD sign-in creates an inactive account: in Settings, Users, press Activate and give roles. If AD is down, only AD users are affected; local accounts still sign in. A person who cannot sign in gets the same message for a wrong password, an inactive account and a directory that does not answer: run `scripts/ehr-cli.sh ad-test <username>` to see which. Audit events: `ad_user_created`, and `login` with the method (`local` or `ad`).
 
 ## Quick health check
 

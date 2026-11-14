@@ -1,34 +1,47 @@
 <!doctype html>
-<html lang="{{ lang }}">
+<html lang="{{ lang }}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light only">
+<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
 <title>{{ subject }}</title>
 </head>
-<body style="margin:0;padding:0;background:#F3F5F7;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F5F7;">
-<tr><td align="center" style="padding:12px 8px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#FFFFFF;border:1px solid #D9DEE3;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1F2933;">
-<tr><td style="background:{{ bar.bg }};color:{{ bar.fg }};border-left:6px solid {{ bar.border }};padding:14px 16px;font-size:18px;line-height:24px;font-weight:700;">{{ label }}</td></tr>
-<tr><td style="padding:20px 16px 8px 16px;font-size:16px;line-height:24px;">{{ intro }}</td></tr>
+<body bgcolor="#FFFFFF" style="margin:0;padding:0;background:#FFFFFF;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">{{ preheader }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background:#FFFFFF;">
+<tr><td align="center" bgcolor="#FFFFFF" style="padding:0;">
+<!--[if mso]><table role="presentation" width="{{ width }}" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td width="{{ width }}"><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="max-width:{{ width }}px;width:100%;background:#FFFFFF;font-family:{{ font }};color:{{ text_colour }};">
+<tr><td style="padding:12px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" valign="middle" style="width:104px;"><img src="cid:{{ logo_cid }}" width="104" height="65" alt="{{ logo_alt }}" style="display:block;border:0;outline:none;text-decoration:none;width:104px;height:65px;"></td>
+<td align="right" valign="middle" style="padding-left:12px;font-family:{{ font }};"><span style="display:block;font-size:13px;line-height:18px;mso-line-height-rule:exactly;font-weight:700;color:{{ colours.label }};">{{ label }}</span><span style="display:block;font-size:12px;line-height:16px;mso-line-height-rule:exactly;color:{{ text_colour }};">{{ area }}</span></td>
+</tr></table>
+</td></tr>
+<tr><td height="4" bgcolor="{{ colours.bar }}" style="height:4px;font-size:0;line-height:4px;mso-line-height-rule:exactly;background:{{ colours.bar }};">&nbsp;</td></tr>
+<tr><td style="padding:22px 16px 8px 16px;font-family:{{ font }};font-size:16px;line-height:24px;mso-line-height-rule:exactly;color:{{ text_colour }};">{{ intro }}</td></tr>
 <tr><td style="padding:8px 16px 4px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 {% for name, value in facts %}
-<tr><td style="padding:8px 0;border-top:1px solid #E4E8EC;font-size:12px;line-height:16px;color:#5B6670;">{{ name }}<br><span style="display:block;margin-top:2px;font-size:15px;line-height:21px;color:#1F2933;">{{ value }}</span></td></tr>
+<tr><td style="padding:8px 0;border-top:1px solid {{ rule }};font-family:{{ font }};font-size:13px;line-height:18px;mso-line-height-rule:exactly;color:{{ text_colour }};">{{ name }}<br><span style="display:block;margin-top:2px;font-size:15px;line-height:21px;mso-line-height-rule:exactly;color:#33343A;">{{ value }}</span></td></tr>
 {% endfor %}
 </table>
 </td></tr>
 {% if comment %}
 <tr><td style="padding:8px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#F3F5F7;border-left:4px solid {{ bar.border }};padding:10px 12px;font-size:15px;line-height:21px;color:#1F2933;"><span style="display:block;font-size:12px;line-height:16px;color:#5B6670;">{{ comment_label }}</span>{{ comment }}</td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#F6F6F6" style="background:#F6F6F6;border-left:4px solid {{ colours.bar }};padding:10px 12px;font-family:{{ font }};font-size:15px;line-height:21px;mso-line-height-rule:exactly;color:#33343A;"><span style="display:block;font-size:13px;line-height:18px;mso-line-height-rule:exactly;color:{{ text_colour }};">{{ comment_label }}</span>{{ comment }}</td></tr></table>
 </td></tr>
 {% endif %}
-<tr><td style="padding:16px 16px 20px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#1B75BB" style="background:#1B75BB;border-radius:4px;"><a href="{{ url }}" style="display:block;box-sizing:border-box;min-height:44px;padding:12px 24px;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;text-align:center;">{{ button }}</a></td></tr></table>
+<tr><td align="center" style="padding:16px 16px 22px 16px;">
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ url }}" style="height:40px;width:220px;v-text-anchor:middle;" arcsize="8%" stroke="f" fillcolor="{{ deep }}"><w:anchorlock/><center style="color:#FFFFFF;font-family:{{ font }};font-size:14px;font-weight:bold;">{{ button }}</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a href="{{ url }}" style="display:inline-block;box-sizing:border-box;min-width:220px;height:40px;padding:0 28px;background:{{ deep }};border-radius:3px;font-family:{{ font }};font-size:14px;line-height:40px;font-weight:700;color:#FFFFFF;text-decoration:none;text-align:center;">{{ button }}</a><!--<![endif]-->
 </td></tr>
-<tr><td style="padding:12px 16px;border-top:1px solid #E4E8EC;font-size:12px;line-height:17px;color:#5B6670;">{{ footer }}</td></tr>
+<tr><td style="padding:12px 16px;border-top:1px solid {{ rule }};font-family:{{ font }};font-size:11px;line-height:16px;mso-line-height-rule:exactly;color:{{ text_colour }};">{{ footer }}</td></tr>
+<tr><td height="6" bgcolor="{{ blue }}" style="height:6px;font-size:0;line-height:6px;mso-line-height-rule:exactly;background:{{ blue }};">&nbsp;</td></tr>
 </table>
+<!--[if mso]></td></tr></table><![endif]-->
 </td></tr>
 </table>
 </body>

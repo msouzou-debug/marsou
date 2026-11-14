@@ -10,15 +10,28 @@ def _flag(name, default=False):
 
 
 class Config:
-    # "production" turns on the start-up checks in ehr/security.py (real secret, CSRF on, not SQLite, no debug).
+    # "production" turns on the start-up checks in ehr/security.py (real secret, CSRF on, SQLite file placed safely, no debug, AD over verified LDAPS).
     EHR_ENV = os.environ.get("EHR_ENV", "development")
     # True when users reach the app over HTTPS (through the organisation's reverse proxy): Secure cookie and HSTS.
     EHR_HTTPS = _flag("EHR_HTTPS")
     # Number of reverse proxies in front of gunicorn that set X-Forwarded-For/-Proto. 0 trusts none.
     EHR_PROXY_HOPS = int(os.environ.get("EHR_PROXY_HOPS", "0"))
     SECRET_KEY = os.environ.get("EHR_SECRET_KEY", "dev-only-change-me")
-    # Engine is undecided until Marios confirms what eFinance uses (ADR 0001).
+    # SQLite is the production engine (Marios, 14/11/2026; ADR 0001). In production the file must be an absolute path
+    # outside the code folder, in a folder the service user can write (WAL creates -wal and -shm files beside it).
     SQLALCHEMY_DATABASE_URI = os.environ.get("EHR_DATABASE_URI", "sqlite:///ehr.sqlite3")
+    # SQLite only: how long a writer waits for the lock before "database is locked" (milliseconds).
+    EHR_SQLITE_BUSY_TIMEOUT_MS = int(os.environ.get("EHR_SQLITE_BUSY_TIMEOUT_MS", "5000"))
+    # Active Directory sign-in next to local accounts (ehr/auth/ad.py). Off by default. LDAPS only, certificate checked.
+    EHR_AD_ENABLED = _flag("EHR_AD_ENABLED")
+    EHR_AD_SERVER = os.environ.get("EHR_AD_SERVER", "").strip()
+    EHR_AD_PORT = int(os.environ.get("EHR_AD_PORT", "636"))
+    EHR_AD_DOMAIN = os.environ.get("EHR_AD_DOMAIN", "").strip()  # users bind as <username>@<domain>
+    EHR_AD_BASE_DN = os.environ.get("EHR_AD_BASE_DN", "").strip()  # empty: no lookup of name and email
+    EHR_AD_UID_ATTRIBUTE = os.environ.get("EHR_AD_UID_ATTRIBUTE", "sAMAccountName").strip()
+    EHR_AD_CA_FILE = os.environ.get("EHR_AD_CA_FILE", "").strip()  # the organisation's internal CA, from IT
+    EHR_AD_TIMEOUT = float(os.environ.get("EHR_AD_TIMEOUT", "5"))  # seconds, connect and receive
+    EHR_AD_USE_SSL = _flag("EHR_AD_USE_SSL", True)  # leave on. Off is for a throwaway test server, never production
     # Times are stored in UTC and shown in this zone (zoneinfo name). Also the day boundary for working-day counts.
     EHR_TIMEZONE = os.environ.get("EHR_TIMEZONE", "Europe/Nicosia")
     DEFAULT_LANGUAGE = "el"

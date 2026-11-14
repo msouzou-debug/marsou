@@ -1,4 +1,9 @@
-"""Operator commands: upgrade-db, db-status, create-admin, unlock-user. Nothing here takes a password as an argument."""
+"""Operator commands: upgrade-db, db-status, backup-db, create-admin, unlock-user, ad-test.
+Nothing here takes a password as an argument."""
+import hashlib
+import os
+import sqlite3
+
 import click
 
 from .extensions import db
@@ -80,3 +85,74 @@ def register(app):
         audit("login_unlocked", detail={"username": lockout.key(username), "attempts_cleared": removed, "by": "cli"})
         db.session.commit()
         click.echo("Cleared %d failed attempt(s) for %s." % (removed, username))
+
+    @app.cli.command("backup-db")
+    @click.argument("target", type=click.Path(dir_okay=False))
+    def backup_db(target):
+        """Copy the SQLite database to TARGET with SQLite's online backup. Safe while the app runs (never copy the
+        file by hand in WAL mode). Refuses to overwrite. Prints the sha256 of the new file."""
+        from sqlalchemy.engine import make_url
+
+        url = make_url(str(app.config["SQLALCHEMY_DATABASE_URI"]))
+        if url.get_backend_name() != "sqlite" or not url.database or url.database == ":memory:":
+            raise click.ClickException("backup-db works on a SQLite file database only. Use the engine's own tool.")
+        source = os.path.abspath(url.database)
+        if not os.path.isfile(source):
+            raise click.ClickException("The database file %s does not exist." % source)
+        target = os.path.abspath(target)
+        if os.path.exists(target):
+            raise click.ClickException("%s already exists. Choose a new name; nothing was overwritten." % target)
+        folder = os.path.dirname(target)
+        if not os.path.isdir(folder) or not os.access(folder, os.W_OK):
+            raise click.ClickException("The folder %s does not exist or is not writable." % folder)
+        temp = os.path.join(folder, ".%s.tmp-%d" % (os.path.basename(target), os.getpid()))
+        try:
+            src = sqlite3.connect(source, timeout=app.config["EHR_SQLITE_BUSY_TIMEOUT_MS"] / 1000.0)
+            dst = sqlite3.connect(temp)
+            try:
+                src.backup(dst)
+                dst.execute("PRAGMA journal_mode=DELETE")  # one self-contained file, no -wal or -shm to carry along
+                if dst.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    raise click.ClickException("The copy failed its integrity check. Nothing was kept.")
+            finally:
+                dst.close()
+                src.close()
+            os.chmod(temp, 0o600)
+            fd = os.open(temp, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            digest = hashlib.sha256()
+            with open(temp, "rb") as fh:
+                for block in iter(lambda: fh.read(1 << 20), b""):
+                    digest.update(block)
+            os.link(temp, target)  # fails if the name appeared meanwhile: never replaces a file
+        except FileExistsError:
+            raise click.ClickException("%s appeared while the backup ran. Nothing was overwritten." % target)
+        except sqlite3.Error as err:
+            raise click.ClickException("The backup failed: %s" % err)
+        finally:
+            if os.path.exists(temp):
+                os.unlink(temp)
+        click.echo("backup written: %s" % target)
+        click.echo("sha256 %s" % digest.hexdigest())
+
+    @app.cli.command("ad-test")
+    @click.argument("username")
+    def ad_test(username):
+        """Try an Active Directory sign-in without the web app. Asks for the password (not echoed, not logged)
+        and prints the name and email it read, or the kind of failure."""
+        from .auth import ad
+
+        password = click.prompt("Password", hide_input=True, default="", show_default=False)
+        result = ad.authenticate(username, password)
+        if not result.ok:
+            click.echo("FAILED: %s (%s)" % (result.failure, ad.FAILURE_TEXT.get(result.failure, "")))
+            raise SystemExit(1)
+        if not result.looked_up:
+            click.echo("ok: the directory accepted the credentials. EHR_AD_BASE_DN is empty, so no name or email was read.")
+            return
+        click.echo("ok: sign-in accepted")
+        click.echo("name:  %s" % (result.full_name or "(none)"))
+        click.echo("email: %s" % (result.email or "(none)"))

@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..auth import current_user, hash_password, permission_required
 from ..extensions import db
-from ..models import User, audit
+from ..models import AuditLog, User, audit
 from ..services.request_flash import flash_key
 from . import bp
 
@@ -46,12 +46,24 @@ def _snapshot(user):
             "line_manager_user_id": user.line_manager_user_id, "is_active": user.is_active}
 
 
+def _pending_ids(rows):
+    """Directory users created by their first sign-in that no administrator has handled yet: inactive, never
+    signed in, never activated or deactivated."""
+    ids = [u.id for u in rows if u.auth_source == "ad" and not u.is_active]
+    if not ids:
+        return set()
+    handled = {r[0] for r in db.session.query(AuditLog.user_id).filter(AuditLog.event == "login", AuditLog.user_id.in_(ids))}
+    handled |= {int(r[0]) for r in db.session.query(AuditLog.object_id).filter(
+        AuditLog.event == "user_changed", AuditLog.object_type == "user", AuditLog.object_id.in_([str(i) for i in ids]))}
+    return set(ids) - handled
+
+
 @bp.get("/users")
 @permission_required("settings.manage")
 def users():
     rows = User.query.order_by(User.is_active.desc(), User.full_name, User.username).all()
     return render_template("settings/users.html", rows=rows, managers=[u for u in rows if u.is_active],
-                           min_length=current_app.config["PASSWORD_MIN_LENGTH"])
+                           pending=_pending_ids(rows), min_length=current_app.config["PASSWORD_MIN_LENGTH"])
 
 
 @bp.post("/users/add")

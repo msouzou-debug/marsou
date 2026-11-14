@@ -3,6 +3,7 @@
 `outbox_only` (default) sends nothing: mail stays in the outbox for admins to read. `smtp` and `graph` read their
 configuration from the environment when a message is sent, so no secret is stored in the database or the repo.
 """
+import base64
 import json
 import os
 import smtplib
@@ -13,6 +14,7 @@ import urllib.request
 from email.message import EmailMessage
 
 from ..models import get_setting
+from .mime import build_message
 
 BACKEND_NAMES = ("outbox_only", "smtp", "graph")
 
@@ -70,13 +72,7 @@ class SmtpBackend(MailBackend):
         self.timeout = timeout
 
     def build_message(self, to, subject, html, text):
-        msg = EmailMessage()
-        msg["From"] = self.sender
-        msg["To"] = to
-        msg["Subject"] = subject
-        msg.set_content(text)
-        msg.add_alternative(html, subtype="html")
-        return msg
+        return build_message(self.sender, to, subject, html, text)
 
     def send(self, to, subject, html, text):
         if not self.host or not self.sender:
@@ -97,7 +93,8 @@ class GraphBackend(MailBackend):
     """Microsoft Graph, client-credentials flow, `sendMail` for one sender mailbox.
 
     EHR_GRAPH_TENANT, EHR_GRAPH_CLIENT_ID, EHR_GRAPH_CLIENT_SECRET, EHR_GRAPH_SENDER (the mailbox address).
-    Graph takes one body, so the HTML is sent and the plain-text alternative is not.
+    The whole MIME message is posted base64-encoded with Content-Type text/plain (the form eFinance uses), which
+    keeps the plain-text alternative and the inline logo.
     Not tested against a real tenant: tests use a fake opener.
     """
 
@@ -151,20 +148,18 @@ class GraphBackend(MailBackend):
         self._expires = self.clock() + int(data.get("expires_in") or 3600)
         return token
 
-    def send_request(self, to, subject, html, token):
-        payload = {"message": {"subject": subject, "body": {"contentType": "HTML", "content": html},
-                               "toRecipients": [{"emailAddress": {"address": to}}]},
-                   "saveToSentItems": False}
+    def send_request(self, to, subject, html, text, token):
+        mime = build_message(self.sender, to, subject, html, text)
         return urllib.request.Request(
             self.SEND % urllib.parse.quote(self.sender, safe="@"),
-            data=json.dumps(payload).encode("utf-8"), method="POST",
-            headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+            data=base64.b64encode(mime.as_bytes()), method="POST",
+            headers={"Authorization": "Bearer " + token, "Content-Type": "text/plain"})
 
     def send(self, to, subject, html, text):
         if not (self.tenant and self.client_id and self.client_secret and self.sender):
             raise MailError("Graph is not configured (EHR_GRAPH_TENANT, CLIENT_ID, CLIENT_SECRET, SENDER)")
         token = self.access_token()
-        with self._call(self.send_request(to, subject, html, token)) as resp:
+        with self._call(self.send_request(to, subject, html, text, token)) as resp:
             status = getattr(resp, "status", 202)
             if status not in (200, 202):
                 raise MailError("Graph answered HTTP %s" % status)

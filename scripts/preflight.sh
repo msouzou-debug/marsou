@@ -47,7 +47,7 @@ if [ -z "$PY" ] || [ ! -x "$PY" ]; then
 else
   ver="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
   if "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then ok "Python $ver ($PY)"; else fail "Python $ver is too old: 3.10 or newer needed"; fi
-  if "$PY" -c 'import flask, flask_sqlalchemy, sqlalchemy, gunicorn, openpyxl' 2>/dev/null; then
+  if "$PY" -c 'import flask, flask_sqlalchemy, sqlalchemy, gunicorn, openpyxl, ldap3' 2>/dev/null; then
     ok "required packages import"
   else
     fail "a required package is missing: pip install -r requirements.txt"
@@ -76,10 +76,72 @@ esac
 if [ "${EHR_ENV:-}" = "production" ]; then ok "EHR_ENV=production"; else fail "EHR_ENV is not production (it is '${EHR_ENV:-unset}')"; fi
 
 db="${EHR_DATABASE_URI:-}"
+sqlite_file=""
 case "$(echo "$db" | tr 'A-Z' 'a-z')" in
   '') fail "EHR_DATABASE_URI is not set" ;;
-  sqlite*) fail "EHR_DATABASE_URI is SQLite, which production refuses" ;;
+  sqlite*)
+    ok "EHR_DATABASE_URI is SQLite (the production engine)"
+    if [ -n "$PY" ] && [ -x "$PY" ]; then
+      sqlite_file="$("$PY" -c 'import sys; from sqlalchemy.engine import make_url; print(make_url(sys.argv[1]).database or "")' "$db" 2>/dev/null || true)"
+    fi
+    case "$sqlite_file" in
+      '') fail "EHR_DATABASE_URI names no SQLite file (in-memory or unreadable URL): use sqlite:////var/lib/ehr/ehr.sqlite3" ;;
+      /*) ok "SQLite file path is absolute ($sqlite_file)" ;;
+      *) fail "SQLite file path is not absolute ($sqlite_file): use four slashes, sqlite:////var/lib/ehr/ehr.sqlite3"; sqlite_file="" ;;
+    esac
+    ;;
   *) ok "EHR_DATABASE_URI is set" ;;
+esac
+
+if [ -n "$sqlite_file" ]; then
+  real_db="$(readlink -f -- "$sqlite_file" 2>/dev/null || echo "$sqlite_file")"
+  real_app="$(readlink -f -- "$APP_DIR")"
+  case "$real_db" in
+    "$real_app"/*) fail "SQLite file $sqlite_file is inside the code folder $real_app: a release upgrade would replace it" ;;
+    *) ok "SQLite file is outside the code folder" ;;
+  esac
+  db_dir="$(dirname -- "$real_db")"
+  if [ ! -d "$db_dir" ]; then
+    fail "SQLite folder $db_dir does not exist"
+  else
+    probe="$(mktemp -p "$db_dir" .preflight.XXXXXX 2>/dev/null || true)"
+    if [ -n "$probe" ]; then
+      rm -f -- "$probe"
+      ok "SQLite folder $db_dir is writable (WAL needs it for the -wal and -shm files)"
+    else
+      fail "SQLite folder $db_dir is not writable by $(id -un): WAL cannot create its -wal and -shm files there"
+    fi
+  fi
+  if [ ! -e "$real_db" ]; then
+    warn "SQLite file $real_db does not exist yet (scripts/ehr-cli.sh init-db creates it)"
+  elif [ ! -r "$real_db" ] || [ ! -w "$real_db" ]; then
+    fail "SQLite file $real_db is not readable and writable by $(id -un)"
+  elif [ -n "$PY" ] && [ -x "$PY" ]; then
+    mode="$("$PY" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1], timeout=5).execute("PRAGMA journal_mode").fetchone()[0])' "$real_db" 2>/dev/null || echo unknown)"
+    if [ "$mode" = "wal" ]; then ok "SQLite journal mode is WAL"; else fail "SQLite journal mode is '$mode', not wal (the app switches it on at its first connection: run scripts/ehr-cli.sh db-status)"; fi
+  fi
+  workers="${EHR_WORKERS:-1}"
+  case "$workers" in
+    ''|*[!0-9]*) fail "EHR_WORKERS is not a number ('$workers')" ;;
+    *) if [ "$workers" -gt 1 ]; then fail "EHR_WORKERS=$workers on SQLite: SQLite allows one writer, set EHR_WORKERS=1"; else ok "one gunicorn worker (EHR_WORKERS=$workers)"; fi ;;
+  esac
+fi
+
+# --- Active Directory (only when switched on) -------------------------------------------------------------------
+case "$(echo "${EHR_AD_ENABLED:-}" | tr 'A-Z' 'a-z')" in
+  1|true|yes|on)
+    [ -n "${EHR_AD_SERVER:-}" ] && [ -n "${EHR_AD_DOMAIN:-}" ] && ok "Active Directory server and domain are set" || fail "EHR_AD_ENABLED is on but EHR_AD_SERVER or EHR_AD_DOMAIN is empty"
+    case "$(echo "${EHR_AD_USE_SSL:-true}" | tr 'A-Z' 'a-z')" in
+      1|true|yes|on) ok "Active Directory uses LDAPS" ;;
+      *) fail "EHR_AD_USE_SSL is off: production uses LDAPS only" ;;
+    esac
+    if [ -n "${EHR_AD_CA_FILE:-}" ] && [ -r "${EHR_AD_CA_FILE}" ] && [ -f "${EHR_AD_CA_FILE}" ]; then
+      ok "Active Directory CA file ${EHR_AD_CA_FILE} is readable"
+    else
+      fail "EHR_AD_CA_FILE is empty or not a readable file: IT supplies the organisation's CA certificate (PEM)"
+    fi
+    ;;
+  *) ok "Active Directory sign-in is off (local accounts only)" ;;
 esac
 
 case "${EHR_BASE_URL:-}" in

@@ -67,7 +67,7 @@ def test_email_preview_keeps_its_own_csp_and_may_be_framed_by_this_site(seeded, 
     resp = client.get("/settings/outbox/%d" % row.id)
     assert resp.status_code == 200
     assert resp.headers["X-Frame-Options"] == "SAMEORIGIN"
-    assert "img-src 'none'" in resp.headers["Content-Security-Policy"] and "frame-ancestors 'self'" in resp.headers["Content-Security-Policy"]
+    assert "img-src 'self'" in resp.headers["Content-Security-Policy"] and "frame-ancestors 'self'" in resp.headers["Content-Security-Policy"]
     assert "sandbox" in resp.get_data(as_text=True)
     assert client.get("/settings/outbox").headers["X-Frame-Options"] == "DENY"
 

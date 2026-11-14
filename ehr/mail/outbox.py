@@ -9,6 +9,7 @@ from ..extensions import db
 from ..models import MAX_ATTEMPTS, MailOutbox, User
 from ..models.access import utcnow
 from .backends import get_backend
+from .layout import EVENT_KIND, STATUS
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,11 @@ def flush_quietly():
 
 def init_mail(app):
     """Best-effort send after a web request that queued mail and succeeded."""
+
+    @app.template_global()
+    def mail_status_key(event):
+        """String key of the status label an event's email carries (for the email log)."""
+        return STATUS[EVENT_KIND.get(event, "info")]["key"]
 
     @app.after_request
     def _send_after_commit(response):

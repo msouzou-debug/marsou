@@ -24,6 +24,10 @@ def create_app(config=Config):
         hops = app.config["EHR_PROXY_HOPS"]
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
     db.init_app(app)
+    from .dbsetup import init_sqlite
+
+    with app.app_context():
+        init_sqlite(app, db.engine)  # WAL, busy timeout, foreign keys, BEGIN IMMEDIATE (SQLite only)
 
     from . import models  # noqa: F401  registers the tables
     from .auth import init_auth, current_user

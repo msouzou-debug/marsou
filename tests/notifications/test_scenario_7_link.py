@@ -11,10 +11,10 @@ def test_the_link_opens_sign_in_then_the_request_with_the_card_and_changes_nothi
     r = create(client)
     mail = mails("task_opened", "nic.accountant", r.id)[0]
     links = HREF.findall(mail.html)
-    assert len(links) == 1
-    url = urlparse(links[0])
+    assert len(set(links)) == 1  # the VML button repeats the same href
+    url = urlparse(sorted(set(links))[0])
     assert (url.scheme, url.netloc, url.path, url.query) == ("http", "127.0.0.1:5008", "/requests/%d" % r.id, "do=review")
-    assert "token" not in links[0] and "approve" not in links[0] and "reject" not in links[0]
+    assert "token" not in sorted(set(links))[0] and "approve" not in links[0] and "reject" not in links[0]
     path = "%s?%s" % (url.path, url.query)
 
     before = counts()

@@ -4,9 +4,11 @@ import hashlib
 from flask import Blueprint, abort, current_app, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from sqlalchemy.exc import IntegrityError
+
 from ..extensions import db
 from ..models import User, audit
-from . import lockout
+from . import ad, lockout
 from .lifetime import init_lifetime
 from .decorators import login_required, permission_required, safe_next
 from .current import current_user, sign_in, sign_out
@@ -15,22 +17,13 @@ from .visibility import can_see_request, visible_requests_query
 bp = Blueprint("auth", __name__)
 
 __all__ = ["bp", "login_required", "permission_required", "safe_next", "current_user",
-           "can_see_request", "visible_requests_query", "ad_authenticate", "hash_password"]
+           "can_see_request", "visible_requests_query", "hash_password"]
 
 _EXEMPT = {"auth.password", "auth.logout", "static", "main.healthz"}
 
 
 def hash_password(password):
     return generate_password_hash(password)
-
-
-def ad_authenticate(username, password):
-    """STUB. Active Directory sign-in is pending the owner's decision (ADR 0001, open items).
-
-    Until then users with auth_source 'ad' cannot sign in. Replace the body with an LDAP bind
-    when the decision is made; keep the signature.
-    """
-    return False
 
 
 _DUMMY_HASH = []
@@ -44,19 +37,44 @@ def _dummy_hash():
 
 
 def _check_credentials(user, password):
-    """Always spends one password-hash check, so an unknown user takes as long as a wrong password."""
-    if user is None or not user.is_active:
-        check_password_hash(_dummy_hash(), password)
-        return False
-    if user.auth_source == "ad":
-        ok = bool(ad_authenticate(user.username, password))
-        if not ok:
-            check_password_hash(_dummy_hash(), password)
-        return ok
-    if not user.password_hash:
+    """The local check. Always spends one password-hash check, so an unknown user, an inactive user and an AD user
+    (who has no local password) take as long as a wrong password."""
+    if user is None or not user.is_active or user.auth_source != "local" or not user.password_hash:
         check_password_hash(_dummy_hash(), password)
         return False
     return check_password_hash(user.password_hash, password)
+
+
+def _try_directory(user, username, password):
+    """AD attempt for a name that is not a local account. Returns the AdResult, or None when AD is not tried.
+    A name that belongs to a local user is never sent to AD: a person in the directory who shares that name must
+    not get into the local account."""
+    if not ad.enabled() or (user is not None and user.auth_source != "ad"):
+        return None
+    result = ad.authenticate(username, password)
+    if not result.ok:
+        current_app.logger.info("AD sign-in did not succeed: %s", result.failure)  # a class name, never a secret
+    return result
+
+
+def _create_ad_user(username, result):
+    """First AD sign-in: an inactive account with no password and no roles, for an administrator to activate."""
+    user = User(username=username.lower(), full_name=result.full_name or username.lower(), email=result.email,
+                auth_source="ad", password_hash=None, must_change_password=False, is_active=False,
+                language=current_app.config["DEFAULT_LANGUAGE"])
+    db.session.add(user)
+    db.session.flush()
+    audit("ad_user_created", user_id=user.id, object_type="user", object_id=user.id,
+          detail={"username": user.username, "full_name": user.full_name, "email": user.email})
+    return user
+
+
+def _refresh_from_ad(user, result):
+    """Later sign-ins keep the name and email in step with the directory (only when the directory was searched)."""
+    if result.looked_up:
+        user.full_name = result.full_name or user.full_name
+        user.email = result.email
+    return user
 
 
 def _failed_detail(user, username):
@@ -78,6 +96,21 @@ def login():
     user = User.query.filter(db.func.lower(User.username) == username.lower()).first() if username else None
     wait = lockout.locked_minutes(username, ip)
     ok = _check_credentials(user, password)  # runs even when locked: same timing either way
+    method = "local" if ok else None
+    if not ok and not wait:  # a locked name is never sent to AD
+        found = _try_directory(user, username, password)
+        if found is not None and found.ok:
+            if user is None:
+                try:
+                    _create_ad_user(username, found)
+                    lockout.clear(username)
+                    db.session.commit()
+                except IntegrityError:  # two first sign-ins at once: the other one made the account
+                    db.session.rollback()
+                return render_template("auth/login.html", error=None, notice="login.ad_pending", next=nxt)
+            if user.is_active:
+                ok, method = True, "ad"
+                _refresh_from_ad(user, found)
     if wait:
         return render_template("auth/login.html", error="login.locked", error_params={"n": wait}, next=nxt), 429
     if not ok:
@@ -92,7 +125,7 @@ def login():
         return render_template("auth/login.html", error="login.failed", next=nxt)
     lockout.clear(username)
     sign_in(user)
-    audit("login", user_id=user.id)
+    audit("login", user_id=user.id, detail={"method": method})
     db.session.commit()
     if user.must_change_password and user.auth_source == "local":
         return redirect(url_for("auth.password", next=nxt or None))

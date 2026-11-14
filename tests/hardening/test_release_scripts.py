@@ -184,7 +184,7 @@ def test_scripts_use_strict_mode_and_no_sudo_or_network_tools():
 # ---------------------------------------------------------------- preflight
 
 def env_file(tmp_path, **values):
-    base = {"EHR_ENV": "production", "EHR_SECRET_KEY": "s" * 48, "EHR_DATABASE_URI": "postgresql://u@h/d",
+    base = {"EHR_ENV": "production", "EHR_SECRET_KEY": "s" * 48, "EHR_DATABASE_URI": "sqlite:///%s" % (tmp_path / "data" / "ehr.sqlite3"),
             "EHR_BASE_URL": "https://ehr.example.invalid", "EHR_HTTPS": "true",
             "EHR_STORAGE_DIR": str(tmp_path / "storage"), "EHR_BIND": "127.0.0.1:%d" % free_port()}
     base.update(values)
@@ -192,6 +192,7 @@ def env_file(tmp_path, **values):
     f.write_text("# test\n" + "\n".join("%s=%s" % kv for kv in base.items() if kv[1] is not None) + "\n")
     f.chmod(0o640)
     (tmp_path / "storage").mkdir(exist_ok=True)
+    (tmp_path / "data").mkdir(exist_ok=True)
     return f
 
 
@@ -212,10 +213,50 @@ def test_preflight_flags_a_default_or_missing_secret(tmp_path):
         assert r.returncode != 0 and "FAIL  EHR_SECRET_KEY" in r.stdout, secret
 
 
-def test_preflight_flags_sqlite_and_non_production(tmp_path):
+def test_preflight_flags_a_relative_sqlite_path_and_non_production(tmp_path):
     r = preflight(env_file(tmp_path, EHR_DATABASE_URI="sqlite:///x.db", EHR_ENV="development"), "--skip-port")
     assert r.returncode != 0
-    assert "FAIL  EHR_DATABASE_URI is SQLite" in r.stdout and "FAIL  EHR_ENV is not production" in r.stdout
+    assert "FAIL  SQLite file path is not absolute" in r.stdout and "FAIL  EHR_ENV is not production" in r.stdout
+
+
+def test_preflight_sqlite_placement_wal_and_workers(tmp_path):
+    f = env_file(tmp_path)
+    out = preflight(f, "--skip-port").stdout
+    assert "ok    SQLite file path is absolute" in out and "ok    SQLite file is outside the code folder" in out
+    assert "ok    SQLite folder" in out and "WARN  SQLite file" in out  # the file does not exist yet
+    inside = preflight(env_file(tmp_path, EHR_DATABASE_URI="sqlite:///%s" % (SCRIPTS.parent / "instance" / "pf.sqlite3")), "--skip-port").stdout
+    assert "FAIL  SQLite file" in inside and "inside the code folder" in inside
+    many = preflight(env_file(tmp_path, EHR_WORKERS="2"), "--skip-port").stdout
+    assert "FAIL  EHR_WORKERS=2 on SQLite" in many
+    assert "ok    one gunicorn worker" in out
+    # a rollback-journal file is not WAL
+    import sqlite3
+
+    for leftover in (tmp_path / "data").iterdir():  # the first run above already made a WAL database
+        leftover.unlink()
+    con = sqlite3.connect(str(tmp_path / "data" / "ehr.sqlite3"))
+    con.execute("create table t (x)")
+    con.commit()
+    con.close()
+    assert "FAIL  SQLite journal mode is 'delete'" in preflight(f, "--skip-port").stdout
+    con = sqlite3.connect(str(tmp_path / "data" / "ehr.sqlite3"))
+    con.execute("PRAGMA journal_mode=WAL")
+    con.close()
+    assert "ok    SQLite journal mode is WAL" in preflight(f, "--skip-port").stdout
+
+
+def test_preflight_active_directory_checks(tmp_path):
+    off = preflight(env_file(tmp_path), "--skip-port").stdout
+    assert "ok    Active Directory sign-in is off" in off
+    bad = preflight(env_file(tmp_path, EHR_AD_ENABLED="true"), "--skip-port").stdout
+    assert "FAIL  EHR_AD_ENABLED is on but" in bad and "FAIL  EHR_AD_CA_FILE" in bad
+    ca = tmp_path / "ca.pem"
+    ca.write_text("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n")
+    good = preflight(env_file(tmp_path, EHR_AD_ENABLED="true", EHR_AD_SERVER="dc1.example.invalid",
+                              EHR_AD_DOMAIN="example.invalid", EHR_AD_CA_FILE=str(ca)), "--skip-port").stdout
+    assert "ok    Active Directory uses LDAPS" in good and "readable" in good
+    plain = preflight(env_file(tmp_path, EHR_AD_ENABLED="true", EHR_AD_USE_SSL="false"), "--skip-port").stdout
+    assert "FAIL  EHR_AD_USE_SSL is off" in plain
 
 
 def test_preflight_checks_the_time_zone(tmp_path):
@@ -262,9 +303,10 @@ def test_preflight_database_and_schema(tmp_path):
     assert sh(SCRIPTS / "ehr-cli.sh", "--env-file", f, "upgrade-db", env=e).returncode == 0
     done = preflight(f, "--skip-port")
     assert "ok    database reachable and up to date" in done.stdout
-    # the only failures left are the two that are about production mode
+    # the only failure left is the one about production mode
     fails = [l for l in done.stdout.splitlines() if l.startswith("FAIL")]
-    assert len(fails) == 2 and done.returncode != 0
+    assert len(fails) == 1 and "EHR_ENV is not production" in fails[0] and done.returncode != 0
+    assert "ok    SQLite journal mode is WAL" in done.stdout
     assert any("LibreOffice" in l for l in done.stdout.splitlines())  # ok or WARN, but always reported
 
 
