@@ -174,3 +174,94 @@ English role names and "SHSO" for ΟΚΥπΥ are my translations. Confirm them w
 | `docs.draft_first` | Save the request as a draft first, then add documents. |
 | `viewer.title`, `viewer.back`, `viewer.page`, `viewer.prev`, `viewer.next`, `viewer.zoom_in`, `viewer.zoom_out` | Document · Back to the request · Page {n} of {total} · Previous page · Next page · Zoom in · Zoom out |
 | `viewer.loading`, `viewer.no_preview`, `viewer.converted` | Loading the document… · This file can't be shown here. Download it to open it. · Shown as PDF. Download gives you the original file. |
+
+## Phase 4 keys (emails, out of office, settings)
+
+One key per row. `strings` writes the Greek.
+
+| Key | English |
+|---|---|
+| `mail.subject` | [{number}] {position} · {facility} |
+| `mail.footer` | eHR sent this message automatically. Please don't reply to it. |
+| `mail.requester` | Requester |
+| `mail.comment` | Comment |
+| `mail.waiting_on` | Waiting on |
+| `mail.task_opened.label` | Waiting for you |
+| `mail.task_opened.intro` | A position request is waiting for your action as {role}. |
+| `mail.task_resumed.label` | Waiting for you again |
+| `mail.task_resumed.intro` | The request was resubmitted and is waiting for your action again. |
+| `mail.task_redirected.label` | For information |
+| `mail.task_redirected.intro.out_of_office` | You are out of office, so {who} is acting on this request in your place. |
+| `mail.task_redirected.intro.conflict_of_interest` | You made this request, so {who} is acting on it in your place. |
+| `mail.task_unassigned.label` | No one to act |
+| `mail.task_unassigned.intro` | Nobody can be given the {role} task on this request. Set a holder or a substitute in Settings. |
+| `mail.request_submitted.label` | Submitted |
+| `mail.request_submitted.intro` | Your request was submitted. Its number is {number}. |
+| `mail.request_returned.label` | Returned to you |
+| `mail.request_returned.intro` | {who} returned your request. Read the comment, correct the request and resubmit it. |
+| `mail.request_resubmitted.label` | Resubmitted |
+| `mail.request_resubmitted.intro` | The requester resubmitted the request you returned. |
+| `mail.new_material.label` | New material |
+| `mail.new_material.intro` | New material was added after your answer. Keep your answer or give a new one. |
+| `mail.request_approved.label` | Approved |
+| `mail.request_approved.intro` | Your request was approved. |
+| `mail.request_rejected.label` | Rejected |
+| `mail.request_rejected.intro` | Your request was rejected at step {n}, {step}. |
+| `mail.request_withdrawn.label` | Withdrawn |
+| `mail.request_withdrawn.intro` | The request was withdrawn. You don't need to do anything. |
+| `mail.reminder_due.label` | Reminder |
+| `mail.reminder_due.intro.one` | This request has been waiting for you for 1 working day. |
+| `mail.reminder_due.intro.many` | This request has been waiting for you for {n} working days. |
+| `mail.escalation_due.label` | Escalated, for information |
+| `mail.escalation_due.intro` | {who} has had this request for {n} working days without acting. You are told for information. The task stays with {who}. |
+| `mail.withdrawal_warning.label` | Will be withdrawn |
+| `mail.withdrawal_warning.intro.one` | Your returned request will be withdrawn automatically in 1 working day if you don't resubmit it. |
+| `mail.withdrawal_warning.intro.many` | Your returned request will be withdrawn automatically in {n} working days if you don't resubmit it. |
+| `ooo.title` | Out of office |
+| `ooo.on` | You are out of office. Your tasks go to {who}. |
+| `ooo.off` | You are in the office. |
+| `ooo.from` | From |
+| `ooo.to` | To (optional) |
+| `ooo.switch_on` | I am out of office |
+| `ooo.switch_off` | I am back |
+| `ooo.no_substitute` | You have no substitute. Ask the administrator to set one. |
+| `ooo.saved_on` | You are now out of office. |
+| `ooo.saved_off` | Welcome back. New tasks come to you again. |
+| `ooo.moved.one` | 1 open task moved to {who}. |
+| `ooo.moved.many` | {n} open tasks moved to {who}. |
+| `settings.roles` | Role holders and substitutes |
+| `settings.col.role` | Role |
+| `settings.col.directorate` | Directorate |
+| `settings.col.holder` | Holder |
+| `settings.col.substitute` | Substitute |
+| `settings.col.line_manager` | Line manager |
+| `settings.none` | None |
+| `settings.central` | Central |
+| `settings.users` | Users |
+| `settings.user.username` | Username |
+| `settings.user.full_name` | Full name |
+| `settings.user.email` | Email |
+| `settings.user.language` | Language |
+| `settings.user.temp_password` | Temporary password |
+| `settings.user.temp_password_hint` | The user must change it at first sign-in. |
+| `settings.user.duplicate` | This username is already used. |
+| `settings.holidays` | Public holidays |
+| `settings.col.date` | Date |
+| `settings.remove` | Remove |
+| `settings.timings` | Times and limits |
+| `settings.reminder_days` | Reminder after (working days) |
+| `settings.escalation_days` | Escalation after (working days) |
+| `settings.returned_timeout_days` | Withdraw a returned request after (working days) |
+| `settings.max_file_mb` | Largest file (MB) |
+| `settings.number_invalid` | Enter a whole number, 1 or more. |
+| `settings.outbox` | Email log |
+| `settings.outbox.to` | To |
+| `settings.outbox.subject` | Subject |
+| `settings.outbox.when` | Created |
+| `settings.outbox.state` | State |
+| `settings.outbox.state.queued` | Waiting to be sent |
+| `settings.outbox.state.sent` | Sent |
+| `settings.outbox.state.failed` | Failed |
+| `settings.outbox.empty` | No emails yet. |
+| `settings.outbox.preview` | Show the email |
+| `settings.same_person` | The holder and the substitute can't be the same person. |
