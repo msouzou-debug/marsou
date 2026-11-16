@@ -22,9 +22,9 @@ English and Greek text: always use these skills
 
 ## Projects in this repo
 
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.1.html`: Famagusta General Hospital.
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.2.html`: Famagusta General Hospital.
   Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v2.1.html`: Larnaca General Hospital. Loads the Plan B
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v2.2.html`: Larnaca General Hospital. Loads the Plan B
   workbook (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
 - Naming: `SHSO-Outpatient-Dashboard-<hospital code>-v<major>.<minor>.html`. Exports follow
   `SHSO-Outpatient-<code>-v<version>-<what>-<date>`.
