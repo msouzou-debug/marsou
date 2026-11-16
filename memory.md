@@ -86,7 +86,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 14/11/2026, Marios: build AD sign-in (ldap3, LDAPS with the certificate checked, local account first, new AD users inactive until an administrator activates them).
 - 14/11/2026, Marios: emails use the eFinance frame (ΟΚΥπΥ logo, 640 px, status label and 4 px bar, Outlook-safe button, footer) and its four status labels: Χρειάζεται ενέργεια, Χρειάζεται προσοχή, Ολοκληρώθηκε, Για ενημέρωση. These replace the per-event email labels approved earlier (Περιμένει εσάς, Κλιμάκωση για ενημέρωση, Χωρίς υπεύθυνο, Θα αποσυρθεί).
 
-- 14/11/2026, Marios: requests that are fully approved or still pending must be saved and stored in eArchive. Not built yet: how eArchive accepts records is unknown; questions sent through Marios.
+- 14/11/2026, Marios: requests that are fully approved or still pending must be saved and stored in eArchive. eArchive is a document management tool with its own agent; questions for it go through Marios.
+- 16/11/2026, Marios, on eArchive deposits: (1) deposit a PDF of the request (details, checks and opinions, full history) plus the supporting documents; (2) the full record, personal data included (leaver names, employment status, employer cost); (3) deposit at submission and again at the final decision; (4) rejected and withdrawn requests are not deposited, they stay in eHR; (5) if eArchive is down, queue and retry without blocking the approval.
 
 ## Status
 
