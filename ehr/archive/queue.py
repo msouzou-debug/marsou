@@ -12,12 +12,12 @@ from flask import current_app, g, has_request_context
 from sqlalchemy import and_, or_
 
 from ..extensions import db
-from ..models import ARCHIVE_MAX_ATTEMPTS, ArchiveDeposit, Request, RequestDocument, audit, get_setting
+from ..models import ARCHIVE_MAX_ATTEMPTS, ArchiveDeposit, Request, RequestDocument, audit
 from ..models.access import utcnow
 from . import bundle
 from . import meta as meta_mod
 from . import pdf
-from .transports import (ArchiveError, BlockedError, DepositFile, SiteUnknown, TransientError, get_transport, scrub)
+from .transports import (ArchiveError, BlockedError, DepositFile, SiteUnknown, TransientError, get_transport, record_link, scrub)
 
 # Gaps between tries while eArchive cannot be reached: 5 minutes, 15 minutes, 1 hour, 6 hours, then daily. Never dropped.
 BACKOFF = (timedelta(minutes=5), timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6), timedelta(days=1))
@@ -327,6 +327,8 @@ def send_deposit(row_id, transport):
         row.protocol_id, row.protocol_number, row.url = receipt.protocol_id, receipt.protocol_number, receipt.url
         row.archive_ref = (receipt.protocol_number or receipt.protocol_id or "")[:300] or None
         detail.update(protocol_number=receipt.protocol_number, duplicate=receipt.duplicate)
+        if receipt.mismatch:
+            detail["resolved_from"] = "IDEMPOTENCY_MISMATCH"
     else:
         row.archive_ref = str(receipt)[:300]
         detail["ref"] = row.archive_ref
@@ -365,16 +367,10 @@ def deposits_of(req):
     return sorted(rows, key=lambda r: (r.kind != "submitted", r.id))
 
 
-def show_link():
-    """Setting `archive_show_link` (flask archive-link on|off): is the protocol number a link? Off until eArchive's
-    web app is published for staff."""
-    return (get_setting("archive_show_link", "off") or "off").strip().lower() == "on"
-
-
-def link_for(url):
-    """The address to link the protocol number to, or None: the setting is off, or the address is not http(s)."""
-    url = (url or "").strip()
-    return url if show_link() and url.lower().startswith(("http://", "https://")) else None
+def link_for(deposit):
+    """The link to the deposit's record in eArchive's web app, or None. Built now from EHR_ARCHIVE_WEB_URL and the
+    permanent protocol_id; the stored `url` is not used (a replayed answer carries the address of the first one)."""
+    return record_link(getattr(deposit, "protocol_id", None))
 
 
 def blocked_count():

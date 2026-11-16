@@ -63,6 +63,9 @@ class Config:
     # loopback and plain http; the token comes from the environment file only and is never stored or logged.
     EHR_ARCHIVE_URL = os.environ.get("EHR_ARCHIVE_URL", "http://127.0.0.1:5011")
     EHR_ARCHIVE_TOKEN = os.environ.get("EHR_ARCHIVE_TOKEN", "")
+    # eArchive's public web address (http or https). Empty: the protocol number is shown as text. Set: it links to
+    # <address>/protocols/<protocol_id>, for every request including old ones.
+    EHR_ARCHIVE_WEB_URL = os.environ.get("EHR_ARCHIVE_WEB_URL", "")
     ARCHIVE_AUTO_FLUSH = True  # after a successful request that queued a deposit, hand over deposits that are ready
     ARCHIVE_RENDER_AFTER_REQUEST = False  # PDFs are made by `flask send-archive`: LibreOffice takes seconds
     # Email. The link in every message is built from EHR_BASE_URL. SMTP and Graph settings are read from the

@@ -215,6 +215,20 @@ if [ "$arch_loop" -eq 1 ]; then
 else
   fail "EHR_ARCHIVE_URL=$arch_url is not plain http on this machine (127.0.0.1, ::1 or localhost): the app will not start"
 fi
+arch_web="${EHR_ARCHIVE_WEB_URL:-}"
+if [ -z "$arch_web" ]; then
+  ok "no eArchive web address set (the protocol number is shown as text)"
+else
+  case "$arch_web" in
+    http://?*|https://?*) case "$arch_web" in *[[:space:]]*|*\?*|*\#*|*@*) arch_web_bad=1 ;; *) arch_web_bad=0 ;; esac ;;
+    *) arch_web_bad=1 ;;
+  esac
+  if [ "$arch_web_bad" -eq 0 ]; then
+    ok "eArchive web address $arch_web (the protocol number links to <address>/protocols/<id>)"
+  else
+    fail "EHR_ARCHIVE_WEB_URL=$arch_web is not a plain http or https address: the app will not start"
+  fi
+fi
 arch_transport="$(cd "$APP_DIR" && "$PY" -m flask --app wsgi:app archive-transport 2>/dev/null | sed -n 's/^archive_transport=//p' || true)"
 if [ -n "${EHR_ARCHIVE_TOKEN:-}" ]; then
   ok "EHR_ARCHIVE_TOKEN is set (not shown)"

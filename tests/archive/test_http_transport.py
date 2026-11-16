@@ -241,7 +241,7 @@ BLOCKING = [(409, "IDEMPOTENCY_MISMATCH", "Different content."), (400, "SCHEMA_I
             (400, "SHA256_MISMATCH", "File does not match."),
             (401, "UNAUTHORIZED", "Wrong token."), (403, "LOOPBACK_ONLY", "Not from here."),
             (403, "SERVICE_ONLY", "Service account only."), (403, "SOURCE_MISMATCH", "Wrong source."),
-            (413, "TOO_LARGE", "Too big."), (415, "MIME_REJECTED", "File type not allowed."),
+            (413, "TOO_LARGE", "Too big."), (413, "FILE_TOO_LARGE", "Part is over 50 MB."), (415, "MIME_REJECTED", "File type not allowed."),
             (400, "ARCHIVE_BAD_ZIP", "The zip is damaged."), (302, "MOVED", "Go elsewhere.")]
 
 
@@ -585,15 +585,46 @@ def test_error_bodies_are_read_from_the_error_object_only():
     assert transports._error_parts(b"not json", 502) == ("HTTP_502", "", None)
 
 
-def test_schema_invalid_shows_the_reasons_short_and_never_the_token(http, client):
+def test_schema_invalid_shows_each_field_with_its_messages_then_the_form_errors(http, client):
     http.script.append((400, "SCHEMA_INVALID", "The meta part is not valid.",
-                        {"reasons": ["subject is too short", "token %s" % TOKEN, "x" * 900]}))
+                        {"formErrors": ["Unrecognized key: extra"],
+                         "fieldErrors": {"files": ["Required", "size must be a number"], "attributes": ["too long"]}}))
     rid = create(client).id
     queue.flush()
     row = row_of(rid, "submitted")
     assert row.state == "blocked" and row.error_code == "SCHEMA_INVALID"
-    assert "subject is too short" in row.last_error and TOKEN not in row.last_error and len(row.last_error) <= 500
-    assert "…" in transports.reasons_text(["y" * 900]) and transports.reasons_text(None) == ""
+    assert row.last_error == ("SCHEMA_INVALID: The meta part is not valid. (files: Required, size must be a number; "
+                              "attributes: too long; Unrecognized key: extra)")
+
+
+def test_schema_invalid_reasons_are_short_and_never_hold_the_token(http, client):
+    http.script.append((400, "SCHEMA_INVALID", "The meta part is not valid.",
+                        {"formErrors": ["token %s" % TOKEN], "fieldErrors": {"subject": ["x" * 900]}}))
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "blocked" and TOKEN not in row.last_error and len(row.last_error) <= 500
+    assert row.last_error.startswith("SCHEMA_INVALID: The meta part is not valid. (subject: xxx")
+    assert "…" in transports.reasons_text({"fieldErrors": {"a": ["y" * 900]}, "formErrors": []})
+    assert transports.reasons_text(None) == "" and transports.reasons_text({"fieldErrors": {}, "formErrors": []}) == ""
+    assert transports.reasons_text({"reasons": ["old shape"]}) == "reasons: old shape"  # other shapes are still read
+
+
+def test_schema_invalid_without_details_shows_the_message(http, client):
+    http.script.append((400, "SCHEMA_INVALID", "meta is missing."))
+    rid = create(client).id
+    queue.flush()
+    assert row_of(rid, "submitted").last_error == "SCHEMA_INVALID: meta is missing."
+
+
+def test_the_fake_answers_schema_invalid_in_eArchives_shape(http):
+    from tests.archive.fake_earchive import Refusal
+    with pytest.raises(Refusal) as err:
+        http._schema(dict(_minimal_meta(), extra=1, subject="x"))
+    assert err.value.details == {"formErrors": ["Unknown field(s): extra."], "fieldErrors": {}}
+    with pytest.raises(Refusal) as err:
+        http._schema(dict(_minimal_meta(), subject="x"))
+    assert err.value.details == {"formErrors": [], "fieldErrors": {"subject": ["subject must be text of 3 to 500 characters."]}}
 
 
 @pytest.mark.parametrize("status,code", [(408, "REQUEST_TIMEOUT"), (429, "TOO_MANY_REQUESTS")])
@@ -625,13 +656,16 @@ def test_a_retry_with_a_changed_sent_at_is_a_mismatch_but_ehrs_own_retry_is_not(
     same = transport.deposit_meta(row.id, meta, files)  # the stored bytes again: replayed
     assert same.protocol_number == "ΑΔ/2026/00001" and http.requests[-1]["status"] == 200
     changed = dict(meta, sent_at="2030-01-01T00:00:00+02:00")
+    named = transport.deposit_meta(row.id, changed, files)  # eArchive names the record it already holds
+    assert http.requests[-1]["status"] == 409 and named.mismatch and named.protocol_id == "p-0001"
+    http.mismatch_details = False  # before eArchive's update: no details
     with pytest.raises(transports.BlockedError) as err:
         transport.deposit_meta(row.id, changed, files)
     assert err.value.code == "IDEMPOTENCY_MISMATCH" and http.requests[-1]["status"] == 409
     row.state = "queued"  # eHR's retry builds nothing new and sends the stored meta
     db.session.commit()
     assert queue.flush()["stored"] == 1
-    assert [r["status"] for r in http.requests] == [201, 200, 409, 200] and row_of(rid, "submitted").meta_json == row.meta_json
+    assert [r["status"] for r in http.requests] == [201, 200, 409, 409, 200] and row_of(rid, "submitted").meta_json == row.meta_json
 
 
 def _rebuild_after_filing(http, client, monkeypatch):
@@ -650,11 +684,43 @@ def _rebuild_after_filing(http, client, monkeypatch):
 
 
 def test_an_admin_retry_after_the_deposit_was_filed_stays_blocked_with_the_reason_when_no_number_comes(http, client, monkeypatch):
+    http.mismatch_details = False  # eArchive's update of 16/11/2026 is not installed yet
     rid = _rebuild_after_filing(http, client, monkeypatch)
     queue.flush()
     row = row_of(rid, "submitted")
     assert http.requests[-1]["status"] == 409
     assert row.state == "blocked" and row.error_code == "IDEMPOTENCY_MISMATCH" and row.last_error.startswith("IDEMPOTENCY_MISMATCH")
+
+
+def test_an_admin_retry_settles_by_itself_when_eArchive_names_the_record_in_the_mismatch(http, client, monkeypatch):
+    rid = _rebuild_after_filing(http, client, monkeypatch)  # the fake answers as eArchive does after its update
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert http.requests[-1]["status"] == 409
+    assert (row.state, row.protocol_id, row.protocol_number) == ("stored", "p-0001", "ΑΔ/2026/00001")
+    assert row.last_error is None and row.error_code is None and len(http.filed) == 1
+    audit = AuditLog.query.filter_by(event="archive_duplicate", request_id=rid).one()
+    assert '"resolved_from": "IDEMPOTENCY_MISMATCH"' in audit.detail_json
+    assert AuditLog.query.filter_by(event="archive_stored", request_id=rid).count() == 2
+
+
+def test_a_plain_duplicate_is_not_marked_as_resolved_from_a_mismatch(http, client):
+    http.script.append((409, "DUPLICATE_SOURCE_REF", "Already filed.", {"protocol_id": "p-9", "protocol_number": "ΑΔ/2026/00009"}))
+    rid = create(client).id
+    queue.flush()
+    audit = AuditLog.query.filter_by(event="archive_duplicate", request_id=rid).one()
+    assert "resolved_from" not in audit.detail_json
+
+
+def test_a_mismatch_without_details_leaves_the_reason_for_an_administrator(http, client, monkeypatch):
+    http.mismatch_details = False
+    rid = _rebuild_after_filing(http, client, monkeypatch)
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "blocked"
+    assert row.last_error == "IDEMPOTENCY_MISMATCH: The same key was used with different content."
+    assert AuditLog.query.filter_by(event="archive_blocked", request_id=rid).count() == 1
+    assert AuditLog.query.filter_by(event="archive_duplicate", request_id=rid).count() == 0
 
 
 def test_an_admin_retry_resolves_to_the_stored_record_when_the_answer_names_it(http, client, monkeypatch):
@@ -795,6 +861,29 @@ def test_the_fake_opens_a_zip_and_names_the_file_it_refuses(http):
 
 
 # ------------------------------------------------------------------ a site eArchive does not know yet
+
+def test_the_daily_retry_after_an_unknown_site_reuses_the_key_and_sends_identical_content(http, client):
+    http.sites = tuple(c for c in http.sites if c != "NGH")
+    rid = create_with_leaver(client).id
+    add_documents(rid, 21)  # a zip, so the bytes of the zip are compared too
+    submit_with(client, rid)
+    queue.flush()
+    assert row_of(rid, "submitted").error_code == "SITE_UNKNOWN"
+    first_meta = row_of(rid, "submitted").meta_json
+    for _ in range(2):  # two daily retries, both refused again
+        make_due()
+        queue.flush()
+    http.sites += ("NGH",)
+    make_due()
+    assert queue.flush()["stored"] == 1
+    assert len(http.requests) == 4 and [r["status"] for r in http.requests] == [400, 400, 400, 201]
+    keys = {r["headers"]["idempotency-key"] for r in http.requests}
+    assert keys == {"ehr:%d" % row_of(rid, "submitted").id}
+    assert all(r["meta"] == http.requests[0]["meta"] for r in http.requests)
+    zipped = http.requests[-1]["meta"]["files"][1]  # the hashes in meta are the same each time, the zip's among them
+    assert zipped["mime"] == "application/zip" and hashlib.sha256(http.requests[-1]["files"]["att1"]).hexdigest() == zipped["sha256"]
+    assert row_of(rid, "submitted").meta_json == first_meta and len(http.filed) == 1
+
 
 def test_an_unknown_site_waits_and_is_tried_again_daily_never_under_another_code(http, client):
     http.sites = tuple(c for c in http.sites if c != "NGH")

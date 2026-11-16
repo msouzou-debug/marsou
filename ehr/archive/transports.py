@@ -186,6 +186,7 @@ class Receipt:
     protocol_number: str = None
     url: str = None
     duplicate: bool = False
+    mismatch: bool = False  # settled from a 409 IDEMPOTENCY_MISMATCH that named the record
 
 
 def check_url(base):
@@ -204,6 +205,37 @@ def check_url(base):
     if parts.username or parts.password or parts.path not in ("", "/") or parts.query or parts.fragment:
         raise ArchiveError("EHR_ARCHIVE_URL must be only the address and port, for example %s." % DEFAULT_URL)
     return "%s://%s" % (parts.scheme, parts.netloc)
+
+
+def check_web_url(text):
+    """eArchive's public web address (EHR_ARCHIVE_WEB_URL): "" when not set, otherwise the address without a trailing
+    slash. Only http or https, with a host, no credentials, no query, no fragment; anything else is an ArchiveError."""
+    text = (text or "").strip()
+    if not text:
+        return ""
+    try:
+        parts = urlsplit(text)
+        parts.port  # noqa: B018  raises ValueError for a bad port
+    except ValueError:
+        raise ArchiveError("EHR_ARCHIVE_WEB_URL is not a valid address.")
+    if parts.scheme not in ("http", "https") or not parts.hostname or re.search(r"\s", text):
+        raise ArchiveError("EHR_ARCHIVE_WEB_URL must be an http:// or https:// address.")
+    if parts.username or parts.password or parts.query or parts.fragment:
+        raise ArchiveError("EHR_ARCHIVE_WEB_URL must be only the address (no sign-in details, query or fragment).")
+    return text.rstrip("/")
+
+
+def record_link(protocol_id):
+    """The link to a record in eArchive's web app: the setting plus /protocols/<protocol_id>. None when the setting is
+    empty or invalid, or the record has no protocol_id. The stored `url` of an answer is never used: it holds the
+    address as it was when the answer was first given."""
+    if not protocol_id:
+        return None
+    try:
+        base = check_web_url(current_app.config.get("EHR_ARCHIVE_WEB_URL"))
+    except ArchiveError:
+        return None
+    return "%s/protocols/%s" % (base, quote(str(protocol_id), safe="")) if base else None
 
 
 def scrub(text, secret):
@@ -293,22 +325,35 @@ def _error_parts(raw, status):
     return str(code or "HTTP_%d" % status)[:60], str(message or "")[:400], details
 
 
+def _cut(text, secret):
+    text = re.sub(r"\s+", " ", scrub(text, secret)).strip()
+    return text if len(text) <= REASONS_MAX else text[:REASONS_MAX - 1] + "…"
+
+
 def reasons_text(details, secret=None):
-    """The field-by-field reasons of a SCHEMA_INVALID answer as one short line. The shape of `details` is not fixed,
-    so a dict, a list or a text are all read; the token is scrubbed and the line is cut."""
+    """The reasons of a SCHEMA_INVALID answer as one short line. eArchive's shape is
+    {"formErrors": [...], "fieldErrors": {"<top-level field>": ["..."]}}: each field with its messages, then the form
+    errors. Any other shape (a list, a text, other keys) is read as plain text. The token is scrubbed and the line cut."""
     def flat(value):
         if isinstance(value, dict):
             return "; ".join("%s: %s" % (k, flat(v)) for k, v in value.items())
         if isinstance(value, (list, tuple)):
             return "; ".join(flat(v) for v in value)
         return str(value)
+
     if details in (None, "", [], {}):
         return ""
-    text = re.sub(r"\s+", " ", scrub(flat(details), secret)).strip()
-    return text if len(text) <= REASONS_MAX else text[:REASONS_MAX - 1] + "…"
+    if isinstance(details, dict) and set(details) <= {"formErrors", "fieldErrors"}:
+        fields = details.get("fieldErrors") if isinstance(details.get("fieldErrors"), dict) else {}
+        forms = details.get("formErrors") if isinstance(details.get("formErrors"), list) else []
+        items = ["%s: %s" % (name, ", ".join(str(m) for m in (msgs if isinstance(msgs, list) else [msgs])))
+                 for name, msgs in fields.items() if msgs]
+        items += [str(m) for m in forms if m]
+        return _cut("; ".join(items), secret)
+    return _cut(flat(details), secret)
 
 
-def _detail_receipt(details):
+def _detail_receipt(details, mismatch=False):
     """A Receipt from error.details {protocol_id, protocol_number}, or None when it names neither."""
     if not isinstance(details, dict):
         return None
@@ -316,7 +361,8 @@ def _detail_receipt(details):
     if pid in (None, "") and number in (None, ""):
         return None
     return Receipt(protocol_id=str(pid)[:500] if pid not in (None, "") else None,
-                   protocol_number=str(number)[:500] if number not in (None, "") else None, duplicate=True)
+                   protocol_number=str(number)[:500] if number not in (None, "") else None, duplicate=True,
+                   mismatch=mismatch)
 
 
 NUMBER_IN_TEXT = re.compile(r"([^\s«»\"'(),;:]+/\d{4}/\d+)")
@@ -402,8 +448,10 @@ class HttpTransport(Transport):
         if status in (301, 302, 303, 307, 308):
             raise BlockedError("REDIRECT_REFUSED", "eArchive answered with a redirect; the address is wrong.")
         if status == 409 and code in ("DUPLICATE_SOURCE_REF", "IDEMPOTENCY_MISMATCH"):
-            # Already filed. The number is a field of error.details; the message text is only a fallback.
-            receipt = _detail_receipt(details)
+            # Already filed. The number is a field of error.details; the message text is only a fallback. A mismatch
+            # names the record once eArchive's update of 16/11/2026 is installed; before that it has no details and
+            # the row is blocked for an administrator (the reason is kept).
+            receipt = _detail_receipt(details, mismatch=(code == "IDEMPOTENCY_MISMATCH"))
             if receipt is not None:
                 return receipt
             if code == "DUPLICATE_SOURCE_REF":

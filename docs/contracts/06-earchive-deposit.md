@@ -11,7 +11,7 @@ Two deposits per request (decided by Marios with eArchive, 16/11/2026):
 
 A request decided without ever having a `submitted` deposit (an old one) sends just the decided one. Both rows are written in the same transaction as the action, so a rolled-back action leaves none. The user's action never waits for eArchive and never fails because of it.
 
-Each deposit is one MAIN file (the PDF of the request with its checks and history, made on the eHR server, Greek, A4) and the requester's supporting documents as ATTACHMENT files. The PDF is kept with its SHA-256, so a retry sends the same bytes. More than 19 attachments go as one zip (see Limits). Nothing is deleted after submission.
+Each deposit is one MAIN file (the PDF of the request with its checks and history, made on the eHR server, Greek, A4) and the requester's supporting documents as ATTACHMENT files. The PDF is kept with its SHA-256, so a retry sends the same bytes. More than 19 attachments go as zips (see Limits). Nothing is deleted after submission.
 
 ## The call
 
@@ -39,9 +39,17 @@ eArchive files by site. Each facility has an eArchive site code (Settings, facil
 
 ## Limits, checked before sending
 
-Up to 19 attachments go one by one (1 MAIN and 19 ATTACHMENT). From 20 to 200 they go as ONE ATTACHMENT, `mime: application/zip`, named «Συνημμένα.zip» (`archive.zip_name`); eArchive opens it and files each member. The zip is built by eHR with the standard library, deterministic (members in the order of the request's documents, a fixed 1980 timestamp, stored, fixed attributes), so the bytes and sha256 are the same on every rebuild, which retries need. It is kept in the storage folder (`archive/<request id>/<kind>-attachments-<sha16>.zip`) beside the PDF. Never a zip up to 19 attachments.
+Up to 19 attachments go one by one (1 MAIN and 19 ATTACHMENT). From 20 to 200 they go as ATTACHMENT zips, `mime: application/zip`, named «Συνημμένα.zip», «Συνημμένα (2).zip», «Συνημμένα (3).zip» (`archive.zip_name`, with " (2)" before the extension); eArchive opens each and files every member. Never a zip up to 19 attachments.
 
-Limits: 50 MB per file (inside the zip too), 200 MB in all, at most 200 files inside, every file an accepted type, names unique inside. A deposit over a limit is not sent and nothing is dropped silently: it is `blocked` with a readable reason in Greek, from the keys `archive.error.file_too_big`, `file_type`, `deposit_too_big`, `too_many_files` (past 200 files), shown to administrators.
+eArchive's limits (answers of 16/11/2026):
+
+- Every multipart part is at most 50 MB, the zip included (a larger part is `413 FILE_TOO_LARGE`, stopped as it arrives). The request PDF and a document sent on its own are parts too.
+- Inside a zip: each file at most 50 MB, all files together at most 200 MB, at most 200 files; every file an accepted type; names unique.
+- The whole request, zips included, at most 200 MB; at most 19 attachment parts.
+
+So eHR splits the documents, in the order of the request's documents, over as many zips as it takes for each zip FILE to stay within 50 MB. The size that counts is that of the built zip (members are stored, not compressed, each adds its two headers and its name twice; eHR measures every built zip). The zips are built with the standard library and are deterministic (fixed member order, a fixed 1980 timestamp, stored, fixed attributes), so the bytes and sha256 are the same on every rebuild, which retries need. They are kept in the storage folder (`archive/<request id>/<kind>-attachments-<sha16>.zip`) beside the PDF. The limits are constants in `ehr/archive/meta.py` (`MAX_PART_BYTES`, `MAX_FILE_BYTES`, `MAX_DEPOSIT_BYTES`, `MAX_ATTACHMENTS`, `MAX_ZIP_FILES`), so tests can set small ones.
+
+Nothing is dropped silently. A deposit that cannot meet the limits is not sent and is `blocked` with a readable reason in Greek, from the keys `archive.error.file_too_big` (a document over 50 MB, which cannot be sent at all, or one whose zip would be over 50 MB; it names the file), `file_type`, `deposit_too_big` (over 200 MB, or more than 19 zips would be needed) and `too_many_files` (past 200 documents, an eHR cap), shown to administrators. A `413 FILE_TOO_LARGE` from eArchive is blocked too.
 
 ## Answers and states
 
@@ -49,14 +57,14 @@ Limits: 50 MB per file (inside the zip too), 200 MB in all, at most 200 files in
 |---|---|
 | 201, or 200 with `Idempotency-Replayed: true` | `stored`: protocol_id, protocol_number and url kept on the deposit |
 | 409 DUPLICATE_SOURCE_REF | `stored`: protocol_id and protocol_number from `error.details` (the message text is only a fallback); audited as a duplicate |
-| 409 IDEMPOTENCY_MISMATCH | `stored` when `error.details` names the record; otherwise `blocked` with the reason (see below) |
+| 409 IDEMPOTENCY_MISMATCH | `stored` when `error.details` names the record (`protocol_id`, `protocol_number`; audited as `archive_duplicate` with `resolved_from: IDEMPOTENCY_MISMATCH`); without details (eArchive's update not installed yet) `blocked` with the reason |
 | 400 UNKNOWN_REGISTRY | stays `queued` with the reason, tried again once a day; attempts are not counted |
 | no answer, timeout, 5xx (also 408 and 429) | stays `queued`, tried again with the same key after 5 min, 15 min, 1 h, 6 h, then daily; no limit, never dropped |
-| 400 SCHEMA_INVALID (the first `error.details` reasons are kept, shortened, token scrubbed), SHA256_MISMATCH, ARCHIVE_*, 401, 403, 413, 415, a redirect, any other answer | `blocked`: the machine code and message are kept as the error, audited; not sent again until an administrator presses the retry button after the cause is fixed |
+| 400 SCHEMA_INVALID (the reasons are kept: each field of `details.fieldErrors` with its messages, then `details.formErrors`, shortened to 300 characters, token scrubbed; `error.message` alone when there are no details), SHA256_MISMATCH, ARCHIVE_*, 401, 403, 413 (`FILE_TOO_LARGE` included), 415, a redirect, any other answer | `blocked`: the machine code and message are kept as the error, audited; not sent again until an administrator presses the retry button after the cause is fixed |
 
 Errors are read only from `error.code`, `error.message` and `error.details`; there is never a top-level code.
 
-The administrator's retry button builds the meta again (a fixed site code or name is picked up), which changes `sent_at`. If the first attempt had already been filed, the rebuilt meta meets `IDEMPOTENCY_MISMATCH` or `DUPLICATE_SOURCE_REF`; both resolve to the stored record when `details` name it, and otherwise the row stays blocked with the reason. This rests on an assumption listed below.
+The administrator's retry button builds the meta again (a fixed site code or name is picked up), which changes `sent_at`. If the first attempt had already been filed, the rebuilt meta meets `IDEMPOTENCY_MISMATCH` or `DUPLICATE_SOURCE_REF`; both resolve to the stored record when `details` name it, and otherwise the row stays blocked with the reason. A refused deposit leaves no key behind in eArchive, so a corrected deposit goes again under the same `ehr:<outbox_id>`; the daily retry after `UNKNOWN_REGISTRY` also sends the same key and identical content (the stored meta and the same zips).
 
 Other problems on eHR's side (a stored file missing or changed, no PDF converter) make the row `failed` and are retried up to 10 times, then wait for the button. Settings shows a count of blocked deposits on its index page. No email is sent.
 
@@ -72,11 +80,11 @@ Repeats change nothing. Both marks show on the deposits page and on the request 
 
 ## The request page
 
-For each deposit: its state, and once stored the eArchive protocol number as plain text. The returned `url` (absolute) is stored but not shown: it opens for staff only once eArchive's web app is published. The setting `archive_show_link` (default off; `flask archive-link on|off`) turns the number into a link (new tab, `rel="noopener"`, http or https only) on the request page and the deposits page.
+For each deposit: its state, and once stored the eArchive protocol number. The permanent values are `protocol_id` and `protocol_number`. The link is built when the page is shown, from the setting `EHR_ARCHIVE_WEB_URL` (eArchive's public web address, in the environment file; http or https only, checked at start, a trailing slash is fine; empty by default) plus `/protocols/<protocol_id>`. While the setting is empty only the number shows. Once it is set the number is a link (new tab, `rel="noopener"`) on the request page and the deposits page, for every request, old ones included. The `url` in eArchive's receipt is stored but never used: a replayed answer returns the address of the first one, and the address changes when eArchive is published under its own name. A number without a `protocol_id` is never linked.
 
 ## Confirmed by eArchive on 16/11/2026
 
-From eArchive's code (commit a70a3f2), `docs/external/earchive-answers-2026-11-16.md`:
+From eArchive's code (commit a70a3f2), `docs/external/earchive-answers-2026-11-16.md` (where the second answers below differ, they win):
 
 - The per-file field is `kind` (MAIN or ATTACHMENT); each entry is exactly kind, part_name, filename, mime, size, sha256, all required, nothing else. `role` is refused with 400 SCHEMA_INVALID.
 - `outbox_id`: a number is right (stored as text). `Idempotency-Key: ehr:<outbox_id>` stands.
@@ -89,10 +97,21 @@ From eArchive's code (commit a70a3f2), `docs/external/earchive-answers-2026-11-1
 - `url` is absolute and opens for staff only once the web app is published. A site without a code answers 400 UNKNOWN_REGISTRY; hold the deposit and never use another code.
 - Notices go to `http://127.0.0.1:5008/api/v1/archive-events` with the same bearer token; eArchive retries after 1, 2, 4 minutes up to 6 hours apart.
 
-## Still open (eHR's assumptions, to confirm with eArchive)
+## Confirmed by eArchive, second answers, 16/11/2026
 
-1. When eArchive records an Idempotency-Key: eHR assumes only once a request has passed validation and been filed. So a deposit refused as invalid can be sent again, rebuilt, under the same key, and one already filed answers IDEMPOTENCY_MISMATCH or DUPLICATE_SOURCE_REF. Does IDEMPOTENCY_MISMATCH carry `details.protocol_number` too?
-2. Whether the 50 MB per-file limit applies to the zip itself (eHR applies only the 200 MB total to the zip, and 50 MB to each file inside).
-3. The shape of `error.details` for SCHEMA_INVALID. eHR reads a dict, a list or text and shows it shortened.
-4. The site codes of facilities outside the twelve (`flask archive-sites` gives the list); until then those deposits wait.
-5. The real `url` path and the date the web app is open to staff, to switch `archive_show_link` on.
+`docs/external/earchive-answers-2-2026-11-16.md`:
+
+- A key is recorded only in the step that files the record. A refusal (400, 413, 415, `UNKNOWN_REGISTRY`, `DUPLICATE_SOURCE_REF`) leaves nothing, so the corrected deposit goes again under the same `ehr:<outbox_id>`.
+- `409 IDEMPOTENCY_MISMATCH` carries `error.details.protocol_id` and `protocol_number`, as a duplicate does, once eArchive's update is installed on the server; before that it has no details. eHR settles the row when they are there and blocks it with the reason when not.
+- The 50 MB limit applies to every part, the zip included (`413 FILE_TOO_LARGE`). Inside a zip: 50 MB each, 200 MB together, 200 files; the whole request 200 MB; at most 19 parts. If a zip would be over 50 MB, split the attachments over more zips or hold the deposit. eHR splits.
+- `SCHEMA_INVALID` `details` is `{"formErrors": [...], "fieldErrors": {"<top-level field of meta>": ["..."]}}`, messages in English; a mistake deep inside is reported under its top-level field. No `details`, only `message`, when `meta` is missing, `meta` is not JSON, or a `files[]` entry has no part of its own.
+- Holding a deposit for an unknown site code and retrying daily with the same key is right.
+- The permanent values for a link are `protocol_id` and `protocol_number`; the address is eArchive's web address plus `/protocols/<protocol_id>` and changes when IT publishes it. eHR builds it from `EHR_ARCHIVE_WEB_URL`.
+- A decided deposit that names a submitted one eArchive does not have yet is kept with the reference, and the `SUPERSEDES` link is made when the submitted one arrives. Nothing is resent.
+
+## Still open
+
+1. The site codes of facilities outside the twelve (`flask archive-sites` gives the list; Marios decides where each is filed). Until eArchive has a code, those deposits wait and are tried once a day.
+2. The date eArchive's web app is published and its final address, to set `EHR_ARCHIVE_WEB_URL`.
+
+Not from eArchive, an eHR limit: a request with more than 200 documents is not deposited automatically (`TOO_MANY_FILES`); the answers would allow more across several zips. The codes eArchive uses for the limits inside a zip (and for the whole request) are not stated; eHR treats any 413 as blocked.

@@ -8,7 +8,13 @@ SCHEMA_INVALID); errors are {"error": {code, message, details?}}; DUPLICATE_SOUR
 protocol_number in details; a retry is compared as canonical JSON of the whole meta (sent_at included) plus the file
 hashes; an ATTACHMENT of type application/zip is opened (200 files, 50 MB each, 200 MB in all, accepted types, unique
 names, 415 naming the file); a site code it does not have is 400 UNKNOWN_REGISTRY. A key is recorded only once a
-request has passed validation and is filed (an assumption of eHR's; the real route may differ).
+request has passed validation and is filed (confirmed by eArchive on 16/11/2026: a refusal leaves nothing behind).
+Answers of the second set (16/11/2026): every multipart part, a zip included, is at most `part_limit` bytes
+(413 FILE_TOO_LARGE); inside a zip each file is at most `member_limit`, all together at most `unpacked_limit`, at most
+200 files; the whole request is at most `request_limit`. SCHEMA_INVALID carries details
+{"formErrors": [...], "fieldErrors": {"<top-level field>": ["..."]}} with English messages, except `meta` missing, not
+JSON, or a part without a file name (only a message). 409 IDEMPOTENCY_MISMATCH carries protocol_id and protocol_number
+in details while `mismatch_details` is True (eArchive's update installed); set it to False for the earlier behaviour.
 `script` holds answers to give before any real processing (to test 5xx, 401 and so on); each is consumed once:
 (status, code, message) or (status, code, message, details).
 """
@@ -60,7 +66,10 @@ class FakeEArchive:
     def __init__(self, token=TOKEN, size_limits=None, sites=SITES):
         self.token = token
         self.sites = tuple(sites)
-        self.limits = size_limits or (MAX_FILE, MAX_TOTAL)
+        file_limit, total_limit = size_limits or (MAX_FILE, MAX_TOTAL)
+        self.part_limit = self.member_limit = file_limit  # one part; one file inside a zip
+        self.unpacked_limit = self.request_limit = total_limit  # all files inside a zip; everything in the request
+        self.mismatch_details = True
         self.requests = []  # every call that reached the route: headers, meta, files, status
         self.filed = {}  # source_ref -> receipt
         self.keys = {}  # idempotency key -> (fingerprint, receipt)
@@ -148,7 +157,9 @@ class FakeEArchive:
         if key in self.keys:
             old, receipt = self.keys[key]
             if old != fingerprint:
-                raise Refusal(409, "IDEMPOTENCY_MISMATCH", "The same key was used with different content.")
+                held = {"protocol_id": receipt["protocol_id"], "protocol_number": receipt["protocol_number"]}
+                raise Refusal(409, "IDEMPOTENCY_MISMATCH", "The same key was used with different content.",
+                              held if self.mismatch_details else None)
             return 200, receipt, {"Idempotency-Replayed": "true"}
         if meta["source_ref"] in self.filed:
             old = self.filed[meta["source_ref"]]
@@ -192,8 +203,14 @@ class FakeEArchive:
         return meta, files
 
     @staticmethod
-    def _bad(message):
-        raise Refusal(400, "SCHEMA_INVALID", "The meta part is not valid.", {"reasons": [message]})
+    def _bad(message, field=None):
+        """eArchive's shape: fieldErrors keyed by the top-level field of meta, formErrors for the rest."""
+        details = {"formErrors": [], "fieldErrors": {}}
+        if field:
+            details["fieldErrors"][field] = [message]
+        else:
+            details["formErrors"].append(message)
+        raise Refusal(400, "SCHEMA_INVALID", "The meta part is not valid.", details)
 
     def _schema(self, m):
         bad = self._bad
@@ -204,83 +221,83 @@ class FakeEArchive:
         if missing:
             bad("Missing field(s): %s." % ", ".join(missing))
         if m["schema_version"] != 1 or isinstance(m["schema_version"], bool):
-            bad("schema_version must be 1.")
+            bad("schema_version must be 1.", "schema_version")
         if not isinstance(m["outbox_id"], (int, str)) or isinstance(m["outbox_id"], bool):
-            bad("outbox_id must be an integer or a string.")
+            bad("outbox_id must be an integer or a string.", "outbox_id")
         for key, low, high in (("source_ref", 1, 120), ("doc_type", 1, 60), ("subject", 3, 500)):
             if not isinstance(m[key], str) or not low <= len(m[key]) <= high:
-                bad("%s must be text of %d to %d characters." % (key, low, high))
+                bad("%s must be text of %d to %d characters." % (key, low, high), key)
         for key in ("source_system", "source_module", "direction", "sender_name", "category", "classification"):
             if not isinstance(m[key], str) or not m[key]:
-                bad("%s must be text." % key)
+                bad("%s must be text." % key, key)
         if m["classification"] not in ("PUBLIC", "INTERNAL", "SENSITIVE", "HIGHLY_SENSITIVE"):
-            bad("classification is not allowed.")
+            bad("classification is not allowed.", "classification")
         if m["direction"] not in ("INBOUND", "OUTBOUND", "INTERNAL"):
-            bad("direction is not allowed.")
+            bad("direction is not allowed.", "direction")
         try:
             if datetime.fromisoformat(m["sent_at"]).tzinfo is None:
-                bad("sent_at needs an offset.")
+                bad("sent_at needs an offset.", "sent_at")
             date.fromisoformat(m["letter_date"])
             if "event_date" in m:
                 date.fromisoformat(m["event_date"])
         except (ValueError, TypeError):
-            bad("A date is not in ISO form.")
+            bad("A date is not in ISO form.", "letter_date")
         if not isinstance(m["personal_data"], bool):
-            bad("personal_data must be true or false.")
+            bad("personal_data must be true or false.", "personal_data")
         if m["personal_data"] and not m.get("personal_data_category"):
-            bad("personal_data_category is required when personal_data is true.")
+            bad("personal_data_category is required when personal_data is true.", "personal_data_category")
         hints = m["folder_hints"]
         if not isinstance(hints, list) or not 1 <= len(hints) <= 5 or not all(isinstance(x, dict) for x in hints):
-            bad("folder_hints must hold 1 to 5 objects.")
+            bad("folder_hints must hold 1 to 5 objects.", "folder_hints")
         for hint in hints:
             if set(hint) - {"hospital"} or hint.get("hospital") not in self.sites:
                 raise Refusal(400, "UNKNOWN_REGISTRY", "Unknown site code.")
         attrs = m.get("attributes", {})
         if not isinstance(attrs, dict) or len(attrs) > 20:
-            bad("attributes must be an object of at most 20 values.")
+            bad("attributes must be an object of at most 20 values.", "attributes")
         for k, v in attrs.items():
             if not re.fullmatch(r"[a-z0-9_]{1,40}", k):
-                bad("attribute key %r is not allowed." % k)
+                bad("attribute key %r is not allowed." % k, "attributes")
             if not isinstance(v, str) or len(v) > 300:
-                bad("attribute %s must be text up to 300 characters." % k)
+                bad("attribute %s must be text up to 300 characters." % k, "attributes")
         if "amount" in m and (isinstance(m["amount"], bool) or not isinstance(m["amount"], (int, float))):
-            bad("amount must be a number.")
+            bad("amount must be a number.", "amount")
         for item in m.get("related", []):
             if set(item) != {"source_ref", "relation"}:
-                bad("related items are {source_ref, relation}.")
+                bad("related items are {source_ref, relation}.", "related")
         for item in m.get("approvals", []):
             if set(item) - {"actor_name", "role", "action", "at", "comment"} or not {"actor_name", "action", "at"} <= set(item):
-                bad("approvals items are {actor_name, role, action, at, comment?}.")
+                bad("approvals items are {actor_name, role, action, at, comment?}.", "approvals")
             datetime.fromisoformat(item["at"])
         files = m["files"]
         if not isinstance(files, list) or not 1 <= len(files) <= 20:
-            bad("files must hold 1 to 20 entries.")
+            bad("files must hold 1 to 20 entries.", "files")
         for f in files:
             if set(f) != set(FILE_FIELDS):
-                bad("a file entry has exactly the fields %s, not %s." % (sorted(FILE_FIELDS), sorted(f)))
+                bad("a file entry has exactly the fields %s, not %s." % (sorted(FILE_FIELDS), sorted(f)), "files")
             if f["kind"] not in ("MAIN", "ATTACHMENT"):
-                bad("kind must be MAIN or ATTACHMENT.")
+                bad("kind must be MAIN or ATTACHMENT.", "files")
             for key in ("part_name", "filename", "mime", "sha256"):
                 if not isinstance(f[key], str) or not f[key]:
-                    bad("file %s must be text." % key)
+                    bad("file %s must be text." % key, "files")
             if isinstance(f["size"], bool) or not isinstance(f["size"], int):
-                bad("file size must be an integer.")
+                bad("file size must be an integer.", "files")
         if len({f["part_name"] for f in files}) != len(files):
-            bad("part_name must be unique.")
+            bad("part_name must be unique.", "files")
         kinds = [f["kind"] for f in files]
         if kinds.count("MAIN") != 1 or kinds.count("ATTACHMENT") != len(files) - 1:
-            bad("Exactly one MAIN file, the rest ATTACHMENT.")
+            bad("Exactly one MAIN file, the rest ATTACHMENT.", "files")
 
     def _check_files(self, meta, files):
         if set(files) != {f["part_name"] for f in meta["files"]}:
-            raise Refusal(400, "SCHEMA_INVALID", "The file parts do not match meta.files.")
+            raise Refusal(400, "SCHEMA_INVALID", "The file parts do not match meta.files.",
+                          {"formErrors": [], "fieldErrors": {"files": ["The file parts do not match meta.files."]}})
         total = 0
         for f in meta["files"]:
             data = files[f["part_name"]]
+            if len(data) > self.part_limit:  # every part, a zip included, is judged by its own size
+                raise Refusal(413, "FILE_TOO_LARGE", "%s is too large." % f["filename"])
             ext = f["filename"].rsplit(".", 1)[-1].lower() if "." in f["filename"] else ""
-            is_zip = f["mime"] == "application/zip" and f["kind"] == "ATTACHMENT"
-            if len(data) > self.limits[0] and not is_zip:  # a zip is judged by what is inside it
-                raise Refusal(413, "TOO_LARGE", "%s is too large." % f["filename"])
             if ext not in ACCEPTED:
                 raise Refusal(415, "MIME_REJECTED", "%s is not an accepted type." % f["filename"])
             if f["size"] != len(data) or f["sha256"] != _sha(data):
@@ -288,7 +305,7 @@ class FakeEArchive:
             total += len(data)
             if f["mime"] == "application/zip" and f["kind"] == "ATTACHMENT":
                 self._open_zip(f, data)
-        if total > self.limits[1]:
+        if total > self.request_limit:
             raise Refusal(413, "TOO_LARGE", "The deposit is too large.")
 
     def _open_zip(self, f, data):
@@ -305,12 +322,12 @@ class FakeEArchive:
             ext = info.filename.rsplit(".", 1)[-1].lower() if "." in info.filename else ""
             if ext not in ACCEPTED:
                 raise Refusal(415, "MIME_REJECTED", "%s (inside the zip) is not an accepted type." % info.filename)
-            if info.file_size > self.limits[0]:
+            if info.file_size > self.member_limit:
                 raise Refusal(413, "TOO_LARGE", "%s (inside the zip) is too large." % info.filename)
             if info.filename.lower() in names:
                 raise Refusal(400, "ARCHIVE_BAD_ZIP", "The name %s is in the zip twice." % info.filename)
             names.add(info.filename.lower())
             total += info.file_size
-        if total > self.limits[1]:
+        if total > self.unpacked_limit:
             raise Refusal(413, "TOO_LARGE", "The files in the zip are too large together.")
         self.zips.append([i.filename for i in infos])

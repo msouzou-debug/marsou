@@ -157,7 +157,7 @@ def test_the_page_lists_the_newest_deposit_first(seeded, client, stor, conv, app
     assert html.index("/requests/%d\"" % second) < html.index("/requests/%d\"" % first)
 
 
-def test_the_request_page_shows_the_protocol_number_as_text_and_no_link_until_it_is_switched_on(http, client, app):
+def test_the_protocol_number_is_text_until_the_web_address_is_set_then_a_link_built_from_the_protocol_id(http, client, app):
     from tests.archive.ahelpers import approve_all
     rid = create(client).id
     approve_all(client, rid)
@@ -165,30 +165,72 @@ def test_the_request_page_shows_the_protocol_number_as_text_and_no_link_until_it
     as_user(client, "nic.requester")
     html = text(client.get("/requests/%d?lang=en" % rid))
     assert "eArchive protocol number: ΑΔ/2026/00001" in html and "eArchive protocol number: ΑΔ/2026/00002" in html
-    assert "127.0.0.1:5011/protocols" not in html  # stored, not shown: the web app is not published yet
+    assert "/protocols/" not in html  # EHR_ARCHIVE_WEB_URL is empty: only the number
     assert html.index("Copy at submission") < html.index("Copy at the decision")
     el = text(client.get("/requests/%d?lang=el" % rid))
     assert "Αριθμός πρωτοκόλλου στο eArchive: ΑΔ/2026/00001" in el
     as_user(client, "demo.admin")
     page = text(client.get("/settings/archive?lang=en"))
-    assert "ΑΔ/2026/00001" in page and "Protocol number" in page and "127.0.0.1:5011/protocols" not in page
+    assert "ΑΔ/2026/00001" in page and "Protocol number" in page and "/protocols/" not in page
     assert ArchiveDeposit.query.filter_by(request_id=rid, kind="submitted").one().url.endswith("/protocols/p-0001")
-    runner = app.test_cli_runner()
-    assert runner.invoke(args=["archive-link"]).output.strip() == "archive_show_link=off"
-    assert runner.invoke(args=["archive-link", "on"]).output.strip() == "archive_show_link=on"
+    app.config["EHR_ARCHIVE_WEB_URL"] = "https://earchive.example.invalid/"  # a trailing slash is tolerated
     as_user(client, "nic.requester")
     html = text(client.get("/requests/%d?lang=en" % rid))
-    assert 'href="http://127.0.0.1:5011/protocols/p-0001"' in html
-    assert re.search(r'<a href="http://127.0.0.1:5011/protocols/p-0002" target="_blank" rel="noopener">', html)
+    assert re.search(r'eArchive protocol number: <a href="https://earchive.example.invalid/protocols/p-0001" '
+                     r'target="_blank" rel="noopener">ΑΔ/2026/00001</a>', html)
+    assert 'href="https://earchive.example.invalid/protocols/p-0002"' in html
+    assert "127.0.0.1:5011/protocols" not in html  # the stored url is not used
+    el = text(client.get("/requests/%d?lang=el" % rid))
+    assert re.search(r'Αριθμός πρωτοκόλλου στο eArchive: <a href="https://earchive.example.invalid/protocols/p-0001"', el)
     as_user(client, "demo.admin")
-    assert 'href="http://127.0.0.1:5011/protocols/p-0001"' in text(client.get("/settings/archive?lang=en"))
-    assert runner.invoke(args=["archive-link", "off"]).output.strip() == "archive_show_link=off"
-    assert "127.0.0.1:5011/protocols" not in text(client.get("/settings/archive?lang=en"))
+    assert 'href="https://earchive.example.invalid/protocols/p-0001"' in text(client.get("/settings/archive?lang=en"))
+    app.config["EHR_ARCHIVE_WEB_URL"] = ""
+    assert "/protocols/" not in text(client.get("/settings/archive?lang=en"))
 
 
-def test_only_an_http_address_is_ever_linked(seeded, app):
-    from ehr.models import Setting
-    db.session.add(Setting(key="archive_show_link", value="on"))
+def test_an_old_request_gets_the_link_too_and_a_number_without_an_id_never(http, client, app):
+    rid = create(client).id
+    queue.flush()
+    row = ArchiveDeposit.query.filter_by(request_id=rid, kind="submitted").one()
+    row.url = "http://old-address.example.invalid/protocols/p-0001"  # eArchive's first address; must not be used
     db.session.commit()
-    assert queue.link_for("http://127.0.0.1:5011/protocols/p-1") == "http://127.0.0.1:5011/protocols/p-1"
-    assert queue.link_for("javascript:alert(1)") is None and queue.link_for("") is None and queue.link_for(None) is None
+    app.config["EHR_ARCHIVE_WEB_URL"] = "http://earchive.example.invalid:8080/base"
+    as_user(client, "nic.requester")
+    html = text(client.get("/requests/%d?lang=en" % rid))
+    assert 'href="http://earchive.example.invalid:8080/base/protocols/p-0001"' in html and "old-address" not in html
+    row.protocol_id = None
+    db.session.commit()
+    html = text(client.get("/requests/%d?lang=en" % rid))
+    assert "eArchive protocol number: ΑΔ/2026/00001" in html and "/protocols/" not in html
+
+
+def test_the_web_address_is_checked_at_start_and_only_http_or_https_is_linked(seeded, app):
+    from ehr import create_app
+    from ehr.archive import transports
+    from ehr.archive.transports import ArchiveError, check_web_url
+    from ehr.config import TestConfig
+    assert check_web_url("") == "" and check_web_url(None) == ""
+    assert check_web_url(" https://earchive.example.invalid/ ") == "https://earchive.example.invalid"
+    assert check_web_url("http://10.0.0.5:8080") == "http://10.0.0.5:8080"
+    for bad in ("javascript:alert(1)", "ftp://earchive.example.invalid", "earchive.example.invalid", "https://",
+                "https://u:p@earchive.example.invalid", "https://earchive.example.invalid/?x=1", "https://a b.example.invalid",
+                "https://earchive.example.invalid:99999"):
+        with pytest.raises(ArchiveError):
+            check_web_url(bad)
+
+    class Bad(TestConfig):
+        EHR_ARCHIVE_WEB_URL = "javascript:alert(1)"
+    with pytest.raises(ArchiveError):
+        create_app(Bad)
+    app.config["EHR_ARCHIVE_WEB_URL"] = "javascript:alert(1)"  # even if it got in, nothing is linked
+    assert transports.record_link("p-1") is None
+    app.config["EHR_ARCHIVE_WEB_URL"] = "https://earchive.example.invalid"
+    assert transports.record_link("p-1") == "https://earchive.example.invalid/protocols/p-1"
+    assert transports.record_link("a/b c") == "https://earchive.example.invalid/protocols/a%2Fb%20c"
+    assert transports.record_link(None) is None and transports.record_link("") is None
+
+
+def test_the_old_link_switch_and_command_are_gone(app):
+    result = app.test_cli_runner().invoke(args=["archive-link"])
+    assert result.exit_code != 0
+    assert not hasattr(queue, "show_link")

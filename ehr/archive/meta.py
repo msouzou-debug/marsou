@@ -22,8 +22,12 @@ DIRECTION, CLASSIFICATION = "INTERNAL", "HIGHLY_SENSITIVE"  # the long-absence t
 CURRENCY = "EUR"
 ATTR_MAX = 300
 MAX_FILES, MAX_ATTACHMENTS = 20, 19  # in one deposit: 1 MAIN and 19 ATTACHMENT; more go in one zip
-MAX_ZIP_FILES = 200  # files inside the zip; each at most MAX_FILE_BYTES, all together at most MAX_DEPOSIT_BYTES
-MAX_FILE_BYTES, MAX_DEPOSIT_BYTES = 50 * 1024 * 1024, 200 * 1024 * 1024
+MAX_ZIP_FILES = 200  # files inside one zip, and the most documents eHR deposits automatically
+# eArchive's limits (answers of 16/11/2026). Every multipart part, a zip included, is at most MAX_PART_BYTES. Inside a
+# zip: each file at most MAX_FILE_BYTES, all together at most MAX_DEPOSIT_BYTES. The whole request, zips included, is at
+# most MAX_DEPOSIT_BYTES. Module constants so that tests can set small ones.
+MAX_PART_BYTES = MAX_FILE_BYTES = 50 * 1024 * 1024
+MAX_DEPOSIT_BYTES = 200 * 1024 * 1024
 ACCEPTED_EXTENSIONS = {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "tif", "tiff", "gif",
                        "webp", "html", "htm", "txt", "csv", "xml", "eml", "msg", "zip"}
 META_FIELDS = ("schema_version", "outbox_id", "sent_at", "source_system", "source_module", "source_ref", "sender_ref",
@@ -69,36 +73,52 @@ def _extension(name):
     return (name or "").rsplit(".", 1)[-1].lower() if "." in (name or "") else ""
 
 
-def check_entries(entries):
-    """Type, size and total of manifest entries (dicts with name and size). Raises BlockedError, readable in Greek."""
+def file_too_big(name, limit):
+    return BlockedError("FILE_TOO_BIG", _t("archive.error.file_too_big", name=name, n=_mb(limit)), local=True)
+
+
+def deposit_too_big():
+    return BlockedError("DEPOSIT_TOO_BIG", _t("archive.error.deposit_too_big", n=_mb(MAX_DEPOSIT_BYTES)), local=True)
+
+
+def check_entries(entries, limit=None):
+    """Type, size and total of manifest entries (dicts with name and size). Raises BlockedError, readable in Greek.
+    `limit` is the most one file may be; by default the smaller of the per-file and the per-part limit (a document sent
+    on its own is both)."""
+    limit = min(MAX_FILE_BYTES, MAX_PART_BYTES) if limit is None else limit
     total = 0
     for f in entries:
         name, size = f.get("name") or "", int(f.get("size") or 0)
         if _extension(name) not in ACCEPTED_EXTENSIONS:
             raise BlockedError("FILE_TYPE", _t("archive.error.file_type", name=name), local=True)
-        if size > MAX_FILE_BYTES:
-            raise BlockedError("FILE_TOO_BIG", _t("archive.error.file_too_big", name=name, n=_mb(MAX_FILE_BYTES)),
-                               local=True)
+        if size > limit:
+            raise file_too_big(name, limit)
         total += size
     if total > MAX_DEPOSIT_BYTES:
-        raise BlockedError("DEPOSIT_TOO_BIG", _t("archive.error.deposit_too_big", n=_mb(MAX_DEPOSIT_BYTES)), local=True)
+        raise deposit_too_big()
 
 
 def check_limits(manifest):
-    """Raises BlockedError when the deposit does not fit eArchive's limits. Nothing is dropped silently. The zip made
-    by eHR (role `bundle`) was checked file by file when it was built; only its type and the total count here."""
+    """Raises BlockedError when the deposit does not fit eArchive's limits. Nothing is dropped silently. The request PDF
+    counts against the part limit, a document sent on its own against the part and file limits, a zip made by eHR
+    (role `bundle`) against the part limit (it was checked file by file when it was built). At most 19 attachment
+    parts and MAX_DEPOSIT_BYTES for the whole request."""
     files = manifest.get("files") or []
     if len(files) > MAX_FILES:
-        raise count_error(len(files) - 1)
+        raise deposit_too_big() if any(f.get("role") == "bundle" for f in files) else count_error(len(files) - 1)
     total = 0
     for f in files:
         if f.get("role") == "bundle":
-            total += int(f.get("size") or 0)
-            continue
-        check_entries([f])
+            if int(f.get("size") or 0) > MAX_PART_BYTES:
+                raise file_too_big(f.get("name") or "", MAX_PART_BYTES)
+        elif f.get("role") == "request_pdf":
+            if int(f.get("size") or 0) > MAX_PART_BYTES:
+                raise file_too_big(f.get("name") or "", MAX_PART_BYTES)
+        else:
+            check_entries([f])
         total += int(f.get("size") or 0)
     if total > MAX_DEPOSIT_BYTES:
-        raise BlockedError("DEPOSIT_TOO_BIG", _t("archive.error.deposit_too_big", n=_mb(MAX_DEPOSIT_BYTES)), local=True)
+        raise deposit_too_big()
 
 
 def clean_filename(name, fallback="file", limit=200):

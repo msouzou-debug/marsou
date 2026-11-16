@@ -6,7 +6,7 @@ from flask.cli import with_appcontext
 from ..extensions import db
 from ..models import ArchiveDeposit, Facility, Setting, audit
 from ..models.access import utcnow
-from .queue import flush, show_link
+from .queue import flush
 from .transports import NAMES, ArchiveError, check_url, transport_name
 
 
@@ -45,27 +45,6 @@ def archive_transport_command(name):
           detail={"before": before, "after": name})
     db.session.commit()
     click.echo("archive_transport=%s" % name)
-
-
-@click.command("archive-link")
-@click.argument("state", required=False, type=click.Choice(("on", "off")))
-@with_appcontext
-def archive_link_command(state):
-    """Show, or set, whether the eArchive protocol number on a request is a link (setting archive_show_link).
-    Off by default: the link opens for staff only once eArchive's web app is published."""
-    before = "on" if show_link() else "off"
-    if state is None or state == before:
-        click.echo("archive_show_link=%s" % before)
-        return
-    row = db.session.get(Setting, "archive_show_link")
-    if row is None:
-        row = Setting(key="archive_show_link")
-        db.session.add(row)
-    row.value, row.updated_at = state, utcnow()
-    audit("setting_changed", object_type="setting", object_id="archive_show_link",
-          detail={"before": before, "after": state})
-    db.session.commit()
-    click.echo("archive_show_link=%s" % state)
 
 
 @click.command("archive-sites")
@@ -107,12 +86,47 @@ def _tiny_pdf(lines):
     return out
 
 
+SAMPLES = (  # folder name, which deposit, how many attachments to add (the demo requests carry none)
+    ("1-submitted", 0), ("2-approved-with-attachments-submitted", 2), ("3-approved-with-attachments-decided", 2),
+    ("4-rejected-submitted", 0), ("5-rejected-decided", 0), ("6-many-attachments-zip", 25))
+
+
+def _pick_samples(rows):
+    """Six deposits from the seeded demo requests. The decided deposits of an approved and a rejected request come with
+    the submitted ones they supersede, so eArchive sees complete chains. Sample 1 is a request still in progress and
+    sample 6 a third request; no request is used twice."""
+    from ..models import Request
+    from . import pdf
+
+    def status(d):
+        return pdf._as_of(d).get("status")
+
+    def by(kind, test, skip=()):
+        return next((d for d in rows if d.kind == kind and test(d) and d.request_id not in skip), None)
+
+    def twin(decided):
+        return next((d for d in rows if d.request_id == decided.request_id and d.kind == "submitted"), None)
+
+    approved = by("decided", lambda d: status(d) == "approved" and twin(d) is not None)
+    rejected = by("decided", lambda d: status(d) == "rejected" and twin(d) is not None)
+    used = {d.request_id for d in (approved, rejected) if d is not None}
+    pending = by("submitted", lambda d: db.session.get(Request, d.request_id).status == "in_progress", skip=used)
+    used |= {pending.request_id} if pending is not None else set()
+    many = by("submitted", lambda d: True, skip=used)
+    found = (pending, twin(approved) if approved else None, approved, twin(rejected) if rejected else None, rejected, many)
+    for (name, _), row in zip(SAMPLES, found):
+        if row is None:
+            raise click.ClickException("No demo request fits %r. Run `flask seed-demo` and `flask seed-cases` first." % name)
+    return found
+
+
 @click.command("archive-samples")
 @click.argument("directory", type=click.Path(file_okay=False))
 @with_appcontext
 def archive_samples_command(directory):
-    """Write four sample deposits (submitted, approved with attachments, rejected, 25 attachments in one zip) for
-    eArchive's own test.
+    """Write six sample deposits for eArchive's own test: a submitted request; an approved one with attachments as its
+    submitted and its decided deposit; a rejected one as submitted and decided; and one with 25 attachments in a zip.
+    The folders are numbered in the order to send them, so every decided deposit follows the one it supersedes.
 
     Built from the invented demo requests only (run seed-demo and seed-cases first). Each folder holds meta.json as
     it would be sent, the files under the names in meta.json, and curl-example.txt with a placeholder for the token.
@@ -132,20 +146,7 @@ def archive_samples_command(directory):
         raise click.ClickException("Sample deposits are made from demo data only (refused when EHR_ENV=production).")
     seeded = {r.request_id for r in AuditLog.query.filter_by(event="seed_case")}
     rows = [d for d in ArchiveDeposit.query.order_by(ArchiveDeposit.id) if d.request_id in seeded]
-
-    def status(d):
-        return (pdf._as_of(d).get("status"))
-
-    wanted = (("submitted", lambda d: d.kind == "submitted" and status(d) == "in_progress", 0),
-              ("approved-with-attachments", lambda d: d.kind == "decided" and status(d) == "approved", 2),
-              ("rejected", lambda d: d.kind == "decided" and status(d) == "rejected", 0),
-              ("many-attachments-zip", lambda d: d.kind == "submitted", 25))  # another request, so its source_ref is new
-    picked = []
-    for name, test, count in wanted:
-        row = next((d for d in rows if test(d) and d.id not in {p[1].id for p in picked}), None)
-        if row is None:
-            raise click.ClickException("No demo request fits %r. Run `flask seed-demo` and `flask seed-cases` first." % name)
-        picked.append((name, row, count))
+    picked = [(name, row, count) for (name, count), row in zip(SAMPLES, _pick_samples(rows))]
     os.makedirs(directory, exist_ok=True)
     for name, row, count in picked:
         if os.path.exists(os.path.join(directory, name)):
@@ -177,10 +178,12 @@ def archive_samples_command(directory):
             if bundle.needs_zip(manifest):
                 pairs = [(e, DepositFile(e["stored_as"], e["name"], e["mime"], e["size"], e["sha256"], p))
                          for e, _, p in attachments]
-                entry, dep = bundle.build(pairs, work, "sample")
-                with open(dep.path, "rb") as fh:
-                    blobs = [main_data, fh.read()]
-                manifest["files"] = [manifest["files"][0], entry]
+                zips = bundle.build_zips(pairs, work, "sample")
+                blobs = [main_data]
+                for _, dep in zips:
+                    with open(dep.path, "rb") as fh:
+                        blobs.append(fh.read())
+                manifest["files"] = [manifest["files"][0]] + [e for e, _ in zips]
             meta = meta_mod.build(row, manifest)
         for entry, blob in zip(meta["files"], blobs):  # files carry the names meta.json gives them
             with open(os.path.join(out, entry["filename"]), "wb") as fh:
@@ -205,6 +208,5 @@ def archive_samples_command(directory):
 def register(app):
     app.cli.add_command(send_archive_command)
     app.cli.add_command(archive_transport_command)
-    app.cli.add_command(archive_link_command)
     app.cli.add_command(archive_sites_command)
     app.cli.add_command(archive_samples_command)

@@ -142,6 +142,7 @@ c.push(h2('eArchive'));
 c.push(table([3000, 3200, 2826], ['Setting', 'Value', 'From'], [
   ['EHR_ARCHIVE_URL', 'http://127.0.0.1:5011', 'Fixed.'],
   ['EHR_ARCHIVE_TOKEN', 'eArchive\'s token for eHR', 'Copied from EHR_INGEST_TOKEN in /opt/emetroon/.env, file to file.'],
+  ['EHR_ARCHIVE_WEB_URL', 'leave empty for now', 'eArchive\'s public web address, once IT has published it.'],
 ], [0, 1]));
 c.push(p('Copy the token without printing it on screen. The exact commands are in deploy/README.md, section "eArchive deposits". Afterwards this command must print 1:', { spacing: { before: 120, after: 40 } }));
 c.push(...code("sudo grep -c '^EHR_ARCHIVE_TOKEN=.' /etc/ehr/ehr.env"));
@@ -219,7 +220,7 @@ c.push(step('Give the eArchive side this address for its notices, as its EHR_EVE
 c.push(step('In eHR, Settings, "eArchive deposits" shows each deposit and its protocol number. A row marked as needing attention shows eArchive\'s reason.', 'num2'));
 c.push(step('To list the facilities that still have no site code, for the eArchive side to add:', 'num2'));
 c.push(...code('scripts/ehr-cli.sh archive-sites'));
-c.push(p('A request for a site that eArchive does not know yet is held and tried again once a day. It is never filed under another site. The link from eHR to the eArchive record stays hidden until eArchive\'s web application is published; then turn it on with: scripts/ehr-cli.sh archive-link on', { spacing: { before: 60, after: 110 } }));
+c.push(p('A request for a site that eArchive does not know yet is held and tried again once a day. It is never filed under another site. eHR shows only the eArchive protocol number until eArchive\'s web application is published. When the eArchive side gives its final web address, put it in EHR_ARCHIVE_WEB_URL and restart only ehr: the number then becomes a link on every request, old ones included.', { spacing: { before: 60, after: 110 } }));
 
 c.push(h1('11. Checks after the install'));
 c.push(table([4700, 4326], ['Check', 'Expected'], [
