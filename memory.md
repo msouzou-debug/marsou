@@ -90,7 +90,7 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 16/11/2026, Marios, on eArchive deposits: (1) deposit a PDF of the request (details, checks and opinions, full history) plus the supporting documents; (2) the full record, personal data included (leaver names, employment status, employer cost); (3) deposit at submission and again at the final decision; (4) rejected and withdrawn requests are not deposited, they stay in eHR; (5) if eArchive is down, queue and retry without blocking the approval.
 
 - 16/11/2026, Marios: eArchive's rule stands: every request gets two deposits, one when submitted and one when decided (approved, rejected or withdrawn). This replaces answer (4) above. eArchive keeps the records 30 years in the closed ΑΔ registry; its specification is `docs/external/earchive-ingest-2026-11-16.md`.
-- 16/11/2026, Marios: the ambulance service (Υπηρεσία Ασθενοφόρων) will split from the organisation. It needs no eArchive site code.
+- 16/11/2026, Marios: the ambulance service (Υπηρεσία Ασθενοφόρων) will split from the organisation. It needs no eArchive site code. It stays in eHR's lists for now; an administrator deactivates it in Settings when the split happens.
 
 ## Status
 
