@@ -22,12 +22,16 @@ English and Greek text: always use these skills
 
 ## Projects in this repo
 
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.0.html`: Famagusta General Hospital.
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.1.html`: Famagusta General Hospital.
   Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v2.0.html`: Larnaca General Hospital. Loads the Plan B
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v2.1.html`: Larnaca General Hospital. Loads the Plan B
   workbook (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
 - Naming: `SHSO-Outpatient-Dashboard-<hospital code>-v<major>.<minor>.html`. Exports follow
   `SHSO-Outpatient-<code>-v<version>-<what>-<date>`.
+- Reports: both tools share one report module (`RPT`, identical code in each file) fed by a per-hospital
+  `rptPayload()`. It makes HTML laptop, HTML phone, PowerPoint (PptxGenJS 3.12.0 embedded) and PDF (print dialog).
+  `rptChecks()` holds the accuracy checks; the Excel exports carry the same checks as live formulas.
+  Change the module in both files together.
 - Versioning: each file has a `TOOL` constant (code, hospital, version, date) and a version history comment
   at the top of its script. Minor (+0.1) for fixes and small changes, major (+1.0) for new tabs, new data
   sources or changed calculation rules. On every change: bump `TOOL`, add a history line, rename the file.
@@ -49,3 +53,4 @@ English and Greek text: always use these skills
 - Dates: never use SheetJS `cellDates:true` or `toISOString()` for day keys. On a PC set to Cyprus time both
   shift dates to the previous day. Read serial numbers and build local dates.
 - SheetJS cannot write formulas to .xls. Use .xlsx for live formulas.
+- ExcelJS writes dates in UTC. Convert local dates to UTC midnight first (`xlDate`), or they land on the previous day.
