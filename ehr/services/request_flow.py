@@ -17,6 +17,8 @@ from ehr.models import (Request, RequestFinancials, RequestLeaver, Task, audit, 
 from ehr.workflow import engine
 from ehr.workflow.model import NewAction
 
+from ehr.archive.queue import after_action as archive_after_action
+
 from .activity import LINES, PERIODS
 from .notify import notify
 from .numbering import next_number
@@ -68,6 +70,7 @@ def run(req, new_action, now, before=None, after=None):
                       "round": req.round, "status": req.status, "number": req.number,
                       "action_id": row.id if row is not None else None})
         notify(result.events, actor_user_id=new_action.actor_user_id)
+        archive_after_action(req, new_action, result, row, new_action.actor_user_id)
         db.session.commit()
         return result
     except Exception:

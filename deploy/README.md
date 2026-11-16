@@ -83,16 +83,23 @@ Two jobs keep the timers and the mail moving; a third is the nightly backup (nex
 
 # Send queued email (also retries failed ones, up to 5 attempts). Every 5 minutes.
 */5 * * * *     /opt/ehr/current/scripts/ehr-cli.sh send-mail >> /var/log/ehr/mail.log 2>&1
+
+# Make the PDFs of eArchive deposits and hand them to the archive transport (retries failed ones, up to 10 attempts).
+*/5 * * * *     /opt/ehr/current/scripts/ehr-cli.sh send-archive >> /var/log/ehr/archive.log 2>&1
 ```
 
 - `run-timers` counts working days from the `public_holiday` table (Monday to Friday, minus holidays) and never counts paused time. Each reminder, escalation and warning goes once per clock start, so running it more often is safe. `--at 2026-03-02T09:00:00+00:00` runs it as if it were that time (testing only).
 - The web app also tries to send right after a successful action. A failure there is never shown to the user; the cron job is the safety net.
 - Queued mail older than `MAIL_MAX_AGE_HOURS` (48) is marked failed, not sent, when a real backend is turned on. This stops a backlog of test mail reaching real people.
 
+## eArchive deposits
+
+At submission and at final approval the app queues a deposit: a PDF of the request plus its supporting documents (docs/contracts/06-earchive-deposit.md). The PDF is made by `send-archive` (LibreOffice takes seconds, so the web request never waits for it); with `EHR_ARCHIVE_DROP_DIR` and the `folder` transport the folder is written at the same run. Which transport is used is the `archive_transport` setting: `none` (default: nothing is sent, deposits wait, Settings, eArchive deposits says so), `folder` or `http` (not written; waits for eArchive's interface). Set it with `scripts/ehr-cli.sh archive-transport folder`; run it without a name to see the current value. The PDFs live in the storage folder under `archive/`, so the normal storage backup holds them. Rotate `archive.log` like the other logs.
+
 ## Logs
 
 - Service (gunicorn access and errors): `journalctl -u ehr`.
-- `/var/log/ehr/timers.log`, `/var/log/ehr/mail.log`: one line per run. Rotate them with logrotate (weekly, 8 files).
+- `/var/log/ehr/timers.log`, `/var/log/ehr/mail.log`, `/var/log/ehr/archive.log`: one line per run. Rotate them with logrotate (weekly, 8 files).
 - What users did: the Audit log in the app. What mail the app made: Settings, Email log.
 - Passwords, tokens and typed credentials are never written to these logs or to the audit log.
 

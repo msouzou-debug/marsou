@@ -23,6 +23,9 @@
   {% if req.facility %}<p class="mb-0 text-secondary ehr-wrap">{{ req.facility.name(lang) }}</p>{% endif %}
 </header>
 
+{% set deposit = archive_latest(req) %}
+{% if deposit %}<p class="small text-secondary mb-3" data-archive-state="{{ deposit.state }}"><i class="bi bi-archive" aria-hidden="true"></i> {{ t('archive.title') }}: {{ t('archive.kind.' ~ deposit.kind) }} · {{ t('archive.state.' ~ deposit.state) }}{% if deposit.state == 'stored' and deposit.archive_ref %} · {{ t('archive.ref', ref=deposit.archive_ref) }}{% endif %}</p>{% endif %}
+
 {% if cards %}
 {# Phone with a task waiting: key lines and the mini route first, so the action card is near the top. #}
 <div class="d-md-none mb-3">

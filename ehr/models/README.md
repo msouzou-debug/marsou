@@ -17,6 +17,7 @@ Import models from `ehr.models` (access, master, request, audit). Tables follow 
   Leavers and financials carry a `round`; the current ones are those with `round == Request.round`.
   Relationships on Request: directorate, facility, cost_centre, position, oay_specialty, creator, leavers, actions, tasks.
 - `MailOutbox` (`ehr/models/mail.py`): one row per email, state `queued|sent|failed`, `attempts`, `last_error`. Written by `ehr.services.notify.notify(events, actor_user_id)` in the caller's transaction; sent by `flask send-mail` (`ehr.mail.outbox.flush`).
+- `ArchiveDeposit` (`ehr/models/archive.py`): one eArchive deposit per request and kind (`submitted` at first submission, `approved` at final approval), state `queued|stored|failed`, the PDF's storage ref and sha256, the manifest, the reference eArchive gave back, and `request_outcome` (`rejected|withdrawn`, set later on a `submitted` row). Queued by `ehr.archive.queue.after_action` inside the action's transaction (called from `ehr.services.request_flow.run`); made and sent by `flask send-archive`. See `docs/contracts/06-earchive-deposit.md`.
 - `LoginAttempt` (`ehr/models/security.py`): one row per failed sign-in, for the lock rule (see contract 01). `schema_version` is made by `ehr/migrations/`, not by a model.
 - `AuditLog`: append-only (update or delete raises). Constants: `ROLES`, `CENTRAL_ROLES`, `DIRECTORATE_ROLES`, `PERMISSIONS`,
   `CATEGORIES`, `REASONS`, `DEPARTURE_REASONS`, `REQUEST_STATUSES`.
@@ -50,4 +51,4 @@ Line managers: Directorate users report to `<d>.exec`; `<d>.exec` and central us
 `lar` (Larnaca – Famagusta) has `lar.accountant`, `lar.hr`, `lar.exec`, `lar.deputy` and `lar.sci`, who holds both `requester` and
 `sci_director` (substitute `lar.deputy`, line manager `lar.exec`) to show the conflict-of-interest redirect.
 Directorates `mh`, `amb` exist with facilities but have no users. Requesters, Directorate roles and the five central roles hold `request.create` (not `viewer` or `admin`).
-`flask seed-cases` adds invented sample requests by driving the engine (idempotent). `flask run-timers [--at ISO]` queues reminders, escalations and warnings and applies T12 (`ehr/scheduler/`); `flask send-mail` sends the queue.
+`flask seed-cases` adds invented sample requests by driving the engine (idempotent). `flask run-timers [--at ISO]` queues reminders, escalations and warnings and applies T12 (`ehr/scheduler/`); `flask send-mail` sends the queue; `flask send-archive` renders and sends eArchive deposits; `flask archive-transport [none|folder|http]` shows or sets the transport.

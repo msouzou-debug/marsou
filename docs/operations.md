@@ -29,6 +29,8 @@ Both run as the `ehr` user from cron, through `scripts/ehr-cli.sh`.
 - `run-timers` (hourly, working hours, Monday to Friday): queues reminders, escalations and returned-request warnings, and withdraws returned requests nobody resubmitted. It counts working days from the public holidays table, so keep that table current for the year. A day is a Cyprus calendar day: a task opened at 23:30 UTC on a Friday counts as opened on Saturday. Running it twice does no harm.
 - `send-mail` (every 5 minutes): sends the queued emails and retries failed ones, up to 5 attempts. Mail older than 48 hours is marked failed, not sent late.
 
+- `send-archive` (every 5 minutes): makes the PDF of each queued eArchive deposit and hands it to the archive transport. Failed deposits are retried at each run, up to 10 attempts; after that an administrator presses the retry button in Settings, eArchive deposits. Output: `rendered=… stored=… failed=… waiting=…`.
+
 Check a timer ran: look at the last lines of its log. Each run prints one line of counts.
 
 ## When emails do not arrive
@@ -39,6 +41,10 @@ Check a timer ran: look at the last lines of its log. Each run prints one line o
 4. There, state `failed`: the row shows the last error. Check the server address, port and password in `ehr.env`.
 5. Everything stays `queued` and cron is fine: the `mail_backend` setting is still `outbox_only`, which sends nothing on purpose. Marios turns on `smtp` or `graph` once the mail details exist.
 6. Sent, but the person sees nothing: look in their spam folder, then ask the mail team to trace the message.
+
+## When eArchive deposits wait
+
+Open Settings, eArchive deposits (administrators). The notice "not set up" means `archive_transport` is `none` (the default) or `http` (not written yet): deposits wait, nothing is lost. To send into a folder, set `EHR_ARCHIVE_DROP_DIR`, restart the service, then `scripts/ehr-cli.sh archive-transport folder`. A row still `queued` with an error mentioning the converter: LibreOffice is missing or stuck (`EHR_SOFFICE_BIN`, `EHR_CONVERT_TIMEOUT`). A `failed` row shows the last error; fix the cause and press the retry button. The PDF of any row can be opened from the page (the view is audited as `archive_pdf_view`). A request that was deposited at submission and later rejected or withdrawn keeps its first deposit; the row records the outcome and nothing is removed from eArchive (contract 06). Requests submitted before this release have no submitted deposit; only their final approval is deposited.
 
 ## Reading the audit log
 

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>{{ title }} {{ number }}</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+body, h1, h2, p, td, th, b, i { font-family: "Liberation Sans", "DejaVu Sans", Arial, sans-serif; }
+body { font-size: 10pt; color: #1a1a1a; }
+h1 { font-size: 17pt; margin: 0 0 4pt 0; }
+h2 { font-size: 12pt; margin: 14pt 0 4pt 0; color: #0b3d63; }
+p { margin: 0 0 4pt 0; }
+td, th { font-size: 9.5pt; vertical-align: top; text-align: left; }
+.num { text-align: right; }
+.small { font-size: 8.5pt; color: #444444; }
+.mono { font-family: "Liberation Mono", "DejaVu Sans Mono", monospace; font-size: 7.5pt; }
+tr { page-break-inside: avoid; }
+.keep { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<table border="0" cellspacing="0" cellpadding="0" width="100%"><tr>
+<td width="12%"><img src="{{ logo }}" width="64" alt=""></td>
+<td width="88%"><h1>{{ title }}</h1><p><b>{{ number }}</b> &middot; {{ round_label }}</p><p class="small">{{ status_at }}</p></td>
+</tr></table>
+
+<h2>{{ details_title }}</h2>
+<table border="1" cellspacing="0" cellpadding="4" width="100%">
+{% for f in fields %}<tr><th width="30%" bgcolor="#e8eef3">{{ f.label }}</th><td width="70%" class="keep">{{ f.value }}</td></tr>
+{% endfor %}</table>
+
+{% if leavers %}
+<h2>{{ leavers_title }}</h2>
+<table border="1" cellspacing="0" cellpadding="4" width="100%">
+<tr>{% for h in leaver_headers %}<th bgcolor="#e8eef3">{{ h }}</th>{% endfor %}</tr>
+{% for l in leavers %}<tr><td>{{ l.name }}</td><td>{{ l.date }}</td><td>{{ l.employment }}</td><td class="num">{{ l.cost }}</td></tr>
+{% endfor %}</table>
+{% endif %}
+
+{% if financials %}
+<h2>{{ financials.title }}</h2>
+<table border="1" cellspacing="0" cellpadding="4" width="100%">
+<tr><th width="40%" bgcolor="#e8eef3"></th>{% for h in financials.headers %}<th bgcolor="#e8eef3" width="{{ 60 // (financials.headers | length) }}%">{{ h }}</th>{% endfor %}</tr>
+{% for line in financials.lines %}<tr><th bgcolor="#e8eef3">{{ line.label }}</th>{% for c in line.cells %}<td class="num">{{ c }}</td>{% endfor %}</tr>
+{% endfor %}</table>
+{% if financials.notes %}<p class="small">{{ financials.notes }}</p>{% endif %}
+<p class="small">{{ financials.source }}</p>
+{% endif %}
+
+{% if checks %}
+<h2>{{ checks_title }}</h2>
+<table border="1" cellspacing="0" cellpadding="4" width="100%">
+{% for c in checks %}<tr><td width="38%"><b>{{ c.role }}</b><br><span class="small">{{ c.step }}</span></td>
+<td width="62%">{% for label, value in c.answer %}<p>{% if label %}{{ label }} {% endif %}<b>{{ value }}</b></p>{% endfor %}
+<p class="small">{% if c.who %}{{ c.who }} &middot; {% endif %}{{ c.when }}</p>
+{% if c.comment %}<p class="keep">{{ c.comment }}</p>{% endif %}
+{% if c.replaced %}<p class="small">{{ c.replaced }}</p>{% endif %}</td></tr>
+{% endfor %}</table>
+{% endif %}
+
+{% if history %}
+<h2>{{ history_title }}</h2>
+<table border="1" cellspacing="0" cellpadding="4" width="100%">
+{% for h in history %}<tr><td width="100%"><b>{{ h.title }}</b>{% if h.superseded %} &middot; <i>{{ h.superseded }}</i>{% endif %}
+<br><span class="small">{% if h.role %}{{ h.role }} &middot; {% endif %}{% if h.who %}{{ h.who }} &middot; {% endif %}{{ h.when }} &middot; {{ h.round }}</span>
+{% if h.comment %}<br><span class="keep">{{ h.comment }}</span>{% endif %}</td></tr>
+{% endfor %}</table>
+{% endif %}
+
+{% if documents %}
+<h2>{{ documents_title }}</h2>
+<table border="1" cellspacing="0" cellpadding="4" width="100%">
+{% for d in documents %}<tr><td width="100%"><b>{{ d.name }}</b><br>
+<span class="small">{{ d.size }} &middot; {{ d.round }}{% if d.who %} &middot; {{ d.who }}{% endif %} &middot; {{ d.when }}</span><br>
+<span class="mono">SHA-256 {{ d.sha256 }}</span></td></tr>
+{% endfor %}</table>
+{% endif %}
+
+<p class="small" style="margin-top: 14pt">{{ footer }}</p>
+</body>
+</html>

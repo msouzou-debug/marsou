@@ -56,6 +56,11 @@ class Config:
     EHR_STORAGE_DIR = os.environ.get("EHR_STORAGE_DIR", "")
     EHR_SOFFICE_BIN = os.environ.get("EHR_SOFFICE_BIN", "")
     EHR_CONVERT_TIMEOUT = int(os.environ.get("EHR_CONVERT_TIMEOUT", "60"))
+    # eArchive deposits (docs/contracts/06-earchive-deposit.md). The transport is the `archive_transport` setting
+    # (none, folder, http). The folder transport writes each deposit into EHR_ARCHIVE_DROP_DIR.
+    EHR_ARCHIVE_DROP_DIR = os.environ.get("EHR_ARCHIVE_DROP_DIR", "")
+    ARCHIVE_AUTO_FLUSH = True  # after a successful request that queued a deposit, hand over deposits that are ready
+    ARCHIVE_RENDER_AFTER_REQUEST = False  # PDFs are made by `flask send-archive`: LibreOffice takes seconds
     # Email. The link in every message is built from EHR_BASE_URL. SMTP and Graph settings are read from the
     # environment when a message is sent (see ehr/mail/backends.py); nothing secret is stored here or in the database.
     EHR_BASE_URL = os.environ.get("EHR_BASE_URL", "http://127.0.0.1:5008")
@@ -75,4 +80,5 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     CSRF_ENABLED = False
     MAIL_AUTO_FLUSH = False
+    ARCHIVE_AUTO_FLUSH = False
     EHR_CHECK_SCHEMA = False  # tests build tables with create_all

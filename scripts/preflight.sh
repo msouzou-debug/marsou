@@ -191,6 +191,17 @@ else
   warn "LibreOffice (soffice) not found: Word and Excel files will download but show no preview"
 fi
 
+# --- eArchive drop folder -----------------------------------------------------------------------------------------
+# Only matters when the archive_transport setting is "folder". Empty is fine: deposits then wait in the queue.
+drop="${EHR_ARCHIVE_DROP_DIR:-}"
+if [ -z "$drop" ]; then
+  ok "no eArchive drop folder set (deposits wait in the queue until a transport is chosen)"
+elif [ -d "$drop" ] && [ -w "$drop" ]; then
+  ok "eArchive drop folder $drop is writable"
+else
+  warn "eArchive drop folder $drop does not exist or is not writable by this user"
+fi
+
 # --- port -------------------------------------------------------------------------------------------------------
 bind="${EHR_BIND:-127.0.0.1:5008}"
 host="${bind%:*}"

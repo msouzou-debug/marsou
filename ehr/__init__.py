@@ -88,6 +88,10 @@ def create_app(config=Config):
 
     app.register_blueprint(documents_bp)
 
+    from .archive import init_archive
+
+    init_archive(app)
+
     from .audit import bp as audit_bp
 
     app.register_blueprint(audit_bp)

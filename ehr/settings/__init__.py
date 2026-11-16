@@ -8,7 +8,7 @@ from ..models import CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
 
-PAGES = ("roles", "users", "holidays", "timings", "outbox")  # pages built in Phase 4, shown on the index
+PAGES = ("roles", "users", "holidays", "timings", "outbox", "archive")  # pages built in Phase 4, shown on the index
 
 # kind -> model, fields. A field is (name, widget, editable_after_creation, required).
 LISTS = {
@@ -138,4 +138,4 @@ def toggle(kind, row_id):
     return _back(kind)
 
 
-from . import holidays, outbox, roles, timings, users  # noqa: E402,F401  Phase 4 pages register on `bp`
+from . import archive, holidays, outbox, roles, timings, users  # noqa: E402,F401  Phase 4 pages register on `bp`

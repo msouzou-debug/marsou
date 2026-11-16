@@ -27,7 +27,7 @@ Permission keys for this module: `request.create`, `request.view_own`, `request.
 | `cost_centre` | id, code (unique), name_el, name_en, is_active |
 | `oay_specialty` | id, name (English, as ΟΑΥ writes it), aliases_json, is_active |
 | `public_holiday` | date (primary key), name_el, name_en |
-| `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `retention_years`=10 (assumed, recorded only: nothing deletes data, see operations.md), `number_prefix`, `mail_backend` |
+| `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `retention_years`=10 (assumed, recorded only: nothing deletes data, see operations.md), `number_prefix`, `mail_backend`, `archive_transport` |
 
 Inactive list rows stay selectable on old requests and are hidden on new ones.
 
@@ -55,13 +55,21 @@ Revenue per €1 of payroll is not stored. It is `revenue / payroll_cost`, calcu
 
 One row per email, written in the same transaction as the action that caused it (a rolled-back action leaves nothing). `flask send-mail` and a best-effort flush after each successful web request send queued rows through the backend named by the `mail_backend` setting (`outbox_only` default, `smtp`, `graph`). Failed rows are retried up to 5 attempts. A recipient with no address is stored as `failed` with a clear `last_error`. With `outbox_only` rows stay `queued`: the Settings email log is how admins read them. The stored `html` is only ever shown inside a sandboxed iframe.
 
+## eArchive deposits (`models/archive.py`, migration 0004)
+
+| Table | Columns |
+|---|---|
+| `archive_deposit` | id, request_id → request, kind [`submitted`, `approved`], round, state [`queued`, `stored`, `failed`], attempts, last_error, pdf_storage_ref (relative to the storage folder, under `archive/`), pdf_sha256, manifest_json, archive_ref, request_outcome (null, `rejected`, `withdrawn`), created_at, sent_at. Unique on (request_id, kind); index on state |
+
+At most one deposit of each kind per request. Written in the same transaction as the action (a rolled-back action leaves none). Until the PDF is made, `manifest_json` holds only `{"as_of": {action_id, status, round}}` (the moment the deposit stands for); afterwards it holds the manifest of contract 06. Setting `archive_transport` (`none` default, `folder`, `http`). Full rules: `docs/contracts/06-earchive-deposit.md`.
+
 ## Audit (`models/audit.py`)
 
 | Table | Columns |
 |---|---|
 | `audit_log` | id, at, user_id (null = system), event, request_id (nullable), object_type, object_id, detail_json, ip |
 
-Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `login_locked` (the failure that starts a lock), `login_unlocked` (CLI `unlock-user`), `out_of_office_changed`, `mail_queued` (one per email), `user_changed`, `answer_kept`. `notification_due` is no longer written. `setting_changed` also covers public holidays (object_type `public_holiday`). `role_changed` covers holders, substitutes, requester lists and the reassignment button.
+Append-only: the model exposes insert only, and the database user gets no UPDATE or DELETE on this table where the engine allows it. Events: every `request_action`, `document_view`, `document_download`, `task_redirected`, `setting_changed`, `list_changed`, `role_changed`, `password_changed`, `login`, `login_failed`, `login_locked` (the failure that starts a lock), `login_unlocked` (CLI `unlock-user`), `out_of_office_changed`, `mail_queued` (one per email), `user_changed`, `answer_kept`, `archive_queued`, `archive_stored`, `archive_failed`, `archive_outcome`, `archive_retry`, `archive_pdf_view`. `notification_due` is no longer written. `setting_changed` also covers public holidays (object_type `public_holiday`). `role_changed` covers holders, substitutes, requester lists and the reassignment button.
 
 ## Sign-in protection and schema version (`models/security.py`, `migrations/`, Phase 6)
 

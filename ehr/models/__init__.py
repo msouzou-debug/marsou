@@ -1,6 +1,7 @@
 """All models. Import from here: `from ehr.models import User, Request, audit`."""
 from .access import (CENTRAL_ROLES, DIRECTORATE_ROLES, PERMISSIONS, ROLES, SEE_ALL_ROLES, RoleAssignment,
                      RolePermission, User, UserDirectorate, utcnow)
+from .archive import ARCHIVE_KINDS, ARCHIVE_MAX_ATTEMPTS, ARCHIVE_OUTCOMES, ARCHIVE_STATES, ArchiveDeposit
 from .audit import AuditLog, audit
 from .mail import MAIL_STATES, MAX_ATTEMPTS, MailOutbox
 from .master import (CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty, Position, PublicHoliday,
