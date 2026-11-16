@@ -395,3 +395,16 @@ The 14 `mail.<event>.label` keys were removed on 14/11/2026.
 | `settings.col.archive_site` | eArchive site code |
 | `settings.archive.col.number` | Protocol number |
 | `settings.archive.col.error` | Problem |
+
+## Added 16/11/2026 (eArchive's answers)
+
+| Key | English |
+|---|---|
+| `archive.filename.submitted` | {number} — submission.pdf |
+| `archive.filename.decided` | {number} — decision.pdf |
+| `archive.zip_name` | Attachments.zip |
+| `archive.error.file_too_big` | The file "{name}" is larger than {n} MB and eArchive does not accept it. |
+| `archive.error.file_type` | eArchive does not accept the type of the file "{name}". |
+| `archive.error.deposit_too_big` | The request's files add up to more than {n} MB and do not fit in one deposit. |
+| `archive.error.no_token` | The token for eArchive is not set in the server's settings file. |
+| `archive.error.site_unknown` | eArchive does not know the site code "{code}" yet. The deposit will go once it is added there. |
