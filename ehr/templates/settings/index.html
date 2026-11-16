@@ -4,7 +4,7 @@
 <h1 class="h4 mb-3">{{ t('settings.title') }}</h1>
 <div class="list-group mb-4">
   {% for page in pages %}
-  <a class="list-group-item list-group-item-action d-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}</a>
+  <a class="list-group-item list-group-item-action d-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}{% if page == 'archive' and blocked %}<span class="badge text-bg-danger ms-2" data-blocked-count="{{ blocked }}"><span class="visually-hidden">{{ t('archive.state.blocked') }}: </span>{{ blocked }}</span>{% endif %}</a>
   {% endfor %}
 </div>
 <h2 class="h6 text-secondary">{{ t('settings.lists') }}</h2>

@@ -21,7 +21,7 @@ def pdf_text(path):
     return subprocess.run(["pdftotext", "-layout", str(path), "-"], capture_output=True, check=True).stdout.decode()
 
 
-def one(kind="approved"):
+def one(kind="decided"):
     db.session.expire_all()
     return ArchiveDeposit.query.filter_by(kind=kind).one()
 
@@ -83,8 +83,8 @@ def test_the_manifest_matches_the_stored_files(seeded, client, stor, conv):
     queue.flush()
     row = one()
     m = json.loads(row.manifest_json)
-    assert m["request_number"] == "ΑΕΘ-2026-0001" and m["kind"] == "approved" and m["round"] == 2
-    assert m["key"] == "ΑΕΘ-2026-0001:approved" and m["folder"] == "AEU-2026-0001-approved"
+    assert m["request_number"] == "ΑΕΘ-2026-0001" and m["kind"] == "decided" and m["round"] == 2
+    assert m["key"] == "ΑΕΘ-2026-0001:decided" and m["folder"] == "AEU-2026-0001-decided"
     assert m["status"] == "approved" and m["submitted_at"].endswith("Z") and m["decided_at"].endswith("Z")
     assert m["directorate"]["name"] == "Λευκωσίας" and m["facility"]["code"] and m["cost_centre_code"] == "1001"
     assert m["staff_category"] == "medical" and m["positions_count"] == 2 and m["requester_name"]

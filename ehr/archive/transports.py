@@ -1,4 +1,4 @@
-"""How a deposit leaves eHR. One small interface; eArchive's real interface is not known yet (contract 06).
+"""How a deposit leaves eHR. One small interface (contract 06); `http` is the real eArchive link.
 
 `deposit(manifest, files) -> reference`. It must be idempotent on the manifest's `key` (request number + kind): a
 second call with the same key must not create a second record. A transport signals failure by raising; the queue
@@ -9,8 +9,12 @@ import json
 import os
 import re
 import secrets
+import http.client
 import shutil
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
+from urllib.parse import quote, urlsplit
 
 from flask import current_app
 
@@ -131,15 +135,231 @@ class FolderTransport(Transport):
         return folder
 
 
+# ---------------------------------------------------------------- the HTTP transport (eArchive's ingest route)
+# Specification: docs/external/earchive-ingest-2026-11-16.md. Only the standard library is used.
+
+DEFAULT_URL = "http://127.0.0.1:5011"
+INGEST_PATH = "/api/v1/ingest/documents"
+LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost")
+TIMEOUT_SECONDS = 60
+FILE_ROLE_FIELD = "role"  # NEEDS eArchive's confirmation: the note says MAIN / ATTACHMENT but not the field's name
+ROLE_MAIN, ROLE_ATTACHMENT = "MAIN", "ATTACHMENT"
+RETRY_STATUSES = (408, 429)  # not in the note's table; a clock or a queue on their side, so waiting is right
+_PART_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+
+
+class TransientError(ArchiveError):
+    """eArchive could not be reached or is restarting. Try again later with the same key."""
+
+
+class BlockedError(ArchiveError):
+    """eArchive refused the deposit. Do not send it again unchanged; an administrator looks at it."""
+
+    def __init__(self, code, message, local=False):
+        """`local`: eHR's own check (the message is complete). Otherwise eArchive's: shown as 'CODE: message'."""
+        self.code, self.message = code, message
+        self.text = (message or code) if local else ("%s: %s" % (code, message) if message else code)
+        super().__init__(self.text)
+
+
+@dataclass(frozen=True)
+class Receipt:
+    protocol_id: str = None
+    protocol_number: str = None
+    url: str = None
+    duplicate: bool = False
+
+
+def check_url(base):
+    """The eArchive base URL, or ArchiveError. Plain http, a loopback host, no credentials, no path: the note says the
+    route refuses anything else, and a token must never leave this machine."""
+    text = (base or "").strip() or DEFAULT_URL
+    try:
+        parts = urlsplit(text)
+        parts.port  # noqa: B018  raises ValueError for a bad port
+    except ValueError:
+        raise ArchiveError("EHR_ARCHIVE_URL is not a valid address.")
+    if parts.scheme != "http":
+        raise ArchiveError("EHR_ARCHIVE_URL must start with http:// (https is refused: eArchive is on this machine).")
+    if (parts.hostname or "").lower() not in LOOPBACK_HOSTS:
+        raise ArchiveError("EHR_ARCHIVE_URL must point to this machine (127.0.0.1, ::1 or localhost).")
+    if parts.username or parts.password or parts.path not in ("", "/") or parts.query or parts.fragment:
+        raise ArchiveError("EHR_ARCHIVE_URL must be only the address and port, for example %s." % DEFAULT_URL)
+    return "%s://%s" % (parts.scheme, parts.netloc)
+
+
+def scrub(text, secret):
+    """Never let the token reach a log, an audit row or a page."""
+    text = str(text or "")
+    return text.replace(secret, "***") if secret else text
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None  # the answer is raised as an HTTPError and treated as a refusal
+
+
+def build_opener():
+    """No proxy (environment proxy variables are ignored), no redirects."""
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+
+
+def _disposition(name, filename=None):
+    head = 'form-data; name="%s"' % name
+    if filename is None:
+        return head
+    fallback = re.sub(r"[^A-Za-z0-9._ -]", "_", filename) or "file"
+    return "%s; filename=\"%s\"; filename*=UTF-8''%s" % (head, fallback, quote(filename, safe=""))
+
+
+class MultipartBody:
+    """multipart/form-data built by hand and read in pieces, so a 200 MB deposit is never held in memory."""
+
+    def __init__(self, boundary, meta_bytes, parts):
+        """parts: [(part_name, original file name, mime, path)]."""
+        self.boundary = boundary
+        self._queue = []
+        self._fh = None
+        dash = ("--" + boundary).encode("ascii")
+        head = dash + b"\r\nContent-Disposition: " + _disposition("meta").encode("ascii") + b"\r\n\r\n"
+        self._queue.append(("b", head + meta_bytes + b"\r\n"))
+        self.length = len(self._queue[0][1])
+        for part_name, filename, mime, path in parts:
+            if not _PART_NAME.match(part_name):
+                raise ArchiveError("Unsafe part name %r." % part_name)
+            safe_mime = re.sub(r"[^A-Za-z0-9.+/_-]", "", mime or "") or "application/octet-stream"
+            header = (dash + b"\r\nContent-Disposition: " + _disposition(part_name, filename).encode("ascii")
+                      + b"\r\nContent-Type: " + safe_mime.encode("ascii") + b"\r\n\r\n")
+            self._queue += [("b", header), ("f", path), ("b", b"\r\n")]
+            self.length += len(header) + os.path.getsize(path) + 2
+        tail = dash + b"--\r\n"
+        self._queue.append(("b", tail))
+        self.length += len(tail)
+
+    def read(self, size=-1):
+        out = bytearray()
+        while size is None or size < 0 or len(out) < size:
+            if self._fh is None:
+                if not self._queue:
+                    break
+                kind, value = self._queue.pop(0)
+                if kind == "b":
+                    out += value
+                    continue
+                self._fh = open(value, "rb")
+            chunk = self._fh.read(65536 if size is None or size < 0 else size - len(out))
+            if not chunk:
+                self._fh.close()
+                self._fh = None
+                continue
+            out += chunk
+        return bytes(out)
+
+    def close(self):
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+
+
+def _error_parts(raw, status):
+    """(code, message) from an error body: {code, message}, also accepted under an "error" object."""
+    code = message = None
+    try:
+        body = json.loads(raw.decode("utf-8", "replace"))
+        if isinstance(body, dict):
+            inner = body.get("error") if isinstance(body.get("error"), dict) else body
+            code, message = inner.get("code"), inner.get("message")
+    except ValueError:
+        pass
+    return str(code or "HTTP_%d" % status)[:60], str(message or "")[:400]
+
+
+NUMBER_IN_TEXT = re.compile(r"([^\s«»\"'(),;:]+/\d{4}/\d+)")
+
+
 class HttpTransport(Transport):
-    """To be written when eArchive's interface is known. It does not guess. While it is the chosen transport nothing
-    is sent (`delivers` is False), so rows stay queued instead of failing."""
+    """POST to eArchive's ingest route on this machine. `deposit_meta` is the call the queue makes.
+
+    `delivers` is False until a token is configured (EHR_ARCHIVE_TOKEN, from the environment file only) and the URL is
+    a loopback address: nothing is sent and rows wait. The token is read when needed and is never stored or logged."""
     name = "http"
-    delivers = False
+    needs_meta = True
+
+    def __init__(self, url=None, token=None):
+        self._url, self._token = url, token
+
+    def token(self):
+        if self._token is not None:
+            return self._token
+        return (current_app.config.get("EHR_ARCHIVE_TOKEN") or "").strip()
+
+    def base_url(self):
+        return check_url(self._url if self._url is not None else current_app.config.get("EHR_ARCHIVE_URL"))
+
+    @property
+    def delivers(self):
+        if not self.token():
+            return False
+        try:
+            self.base_url()
+        except ArchiveError:
+            return False
+        return True
 
     def deposit(self, manifest, files):
-        raise NotImplementedError("The eArchive HTTP transport is not written yet: eArchive's interface is not known "
-                                  "(docs/contracts/06-earchive-deposit.md, open questions).")
+        raise ArchiveError("The http transport sends the meta part; it has no manifest call.")
+
+    def deposit_meta(self, deposit_id, meta, files):
+        """Send one deposit. Returns a Receipt, or raises TransientError / BlockedError. `files` follow meta['files']."""
+        token = self.token()
+        if not token:
+            raise TransientError("EHR_ARCHIVE_TOKEN is not set.")
+        url = self.base_url() + INGEST_PATH
+        meta_bytes = json.dumps(meta, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        parts = [(entry["part_name"], entry["filename"], f.mime, f.path) for entry, f in zip(meta["files"], files)]
+        boundary = "----ehr" + secrets.token_hex(16)
+        body = MultipartBody(boundary, meta_bytes, parts)
+        request = urllib.request.Request(url, data=body, method="POST", headers={
+            "Authorization": "Bearer " + token, "Idempotency-Key": "ehr:%s" % deposit_id,
+            "Content-Type": "multipart/form-data; boundary=" + boundary, "Content-Length": str(body.length),
+            "Accept": "application/json", "User-Agent": "eHR"})
+        try:
+            with build_opener().open(request, timeout=TIMEOUT_SECONDS) as response:
+                return self._success(response.status, response.headers, response.read(1 << 20))
+        except urllib.error.HTTPError as exc:
+            raw = exc.read(1 << 20) if hasattr(exc, "read") else b""
+            return self._refusal(exc.code, raw, token)
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+            reason = getattr(exc, "reason", exc)
+            raise TransientError("eArchive did not answer (%s)." % type(reason).__name__)
+        finally:
+            body.close()
+
+    @staticmethod
+    def _success(status, headers, raw):
+        replay = (headers.get("Idempotency-Replayed") or "").lower() == "true"
+        if status == 201 or (status == 200 and replay):
+            try:
+                data = json.loads(raw.decode("utf-8", "replace"))
+            except ValueError:
+                data = {}
+            data = data if isinstance(data, dict) else {}
+            return Receipt(*(str(data[k])[:500] if data.get(k) is not None else None
+                             for k in ("protocol_id", "protocol_number", "url")))
+        raise BlockedError("UNEXPECTED_ANSWER", "eArchive answered %d, which is not a receipt." % status)
+
+    @staticmethod
+    def _refusal(status, raw, token):
+        code, message = _error_parts(raw, status)
+        message = scrub(message, token)
+        if status >= 500 or status in RETRY_STATUSES:
+            raise TransientError("eArchive answered %d." % status)
+        if status in (301, 302, 303, 307, 308):
+            raise BlockedError("REDIRECT_REFUSED", "eArchive answered with a redirect; the address is wrong.")
+        if status == 409 and code == "DUPLICATE_SOURCE_REF":
+            found = NUMBER_IN_TEXT.search(message)
+            return Receipt(protocol_number=found.group(1) if found else None, duplicate=True)
+        raise BlockedError(code, message)
 
 
 def transport_name():

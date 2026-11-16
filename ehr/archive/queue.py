@@ -6,15 +6,21 @@ functions catch everything. Rules are in docs/contracts/06-earchive-deposit.md.
 import json
 import logging
 import os
+from datetime import timedelta
 
 from flask import current_app, g, has_request_context
 from sqlalchemy import and_, or_
 
 from ..extensions import db
-from ..models import ARCHIVE_MAX_ATTEMPTS, ArchiveDeposit, RequestDocument, audit
+from ..models import ARCHIVE_MAX_ATTEMPTS, ArchiveDeposit, Request, RequestDocument, audit
 from ..models.access import utcnow
+from . import meta as meta_mod
 from . import pdf
-from .transports import ArchiveError, DepositFile, get_transport
+from .transports import ArchiveError, BlockedError, DepositFile, TransientError, get_transport, scrub
+
+# Gaps between tries while eArchive cannot be reached: 5 minutes, 15 minutes, 1 hour, 6 hours, then daily. Never dropped.
+BACKOFF = (timedelta(minutes=5), timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6), timedelta(days=1))
+NO_SITE = "NO_SITE"
 
 log = logging.getLogger(__name__)
 
@@ -22,11 +28,11 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------- enqueue (inside the action's transaction)
 
 def after_action(req, new_action, result, action_row, actor_user_id):
-    """Called by request_flow.run after the result is stored and before the commit.
+    """Called by request_flow.run after the result is stored and before the commit (the same transaction).
 
     - submit (the first one; a resubmission is another action) queues 'submitted';
-    - the status becoming approved queues 'approved';
-    - rejection or withdrawal marks the 'submitted' row, no new row.
+    - the request ending (approved, rejected or withdrawn, by the requester or by the system) queues 'decided'.
+    A request decided without ever having a 'submitted' row (an old one) sends just the decided deposit.
     """
     if not result.ok:
         return
@@ -34,14 +40,8 @@ def after_action(req, new_action, result, action_row, actor_user_id):
              "round": req.round}
     if new_action.action == "submit":
         _enqueue(req, "submitted", actor_user_id, as_of)
-    if req.status == "approved":
-        _enqueue(req, "approved", actor_user_id, as_of)
-    elif req.status in ("rejected", "withdrawn"):
-        row = ArchiveDeposit.query.filter_by(request_id=req.id, kind="submitted").first()
-        if row is not None and row.request_outcome != req.status:
-            row.request_outcome = req.status
-            audit("archive_outcome", user_id=actor_user_id, request_id=req.id, object_type="archive_deposit",
-                  object_id=row.id, detail={"outcome": req.status})
+    if req.status in ("approved", "rejected", "withdrawn"):
+        _enqueue(req, "decided", actor_user_id, as_of)
 
 
 def _enqueue(req, kind, actor_user_id, as_of):
@@ -61,12 +61,16 @@ def _enqueue(req, kind, actor_user_id, as_of):
 # ---------------------------------------------------------------- flush
 
 def pending_query(only_queued=False):
+    now = utcnow()
+    due = and_(ArchiveDeposit.state == "queued", or_(ArchiveDeposit.next_attempt_at.is_(None),
+                                                      ArchiveDeposit.next_attempt_at <= now))
     if only_queued:
-        return ArchiveDeposit.query.filter(ArchiveDeposit.state == "queued").order_by(ArchiveDeposit.id)
+        return ArchiveDeposit.query.filter(due).order_by(ArchiveDeposit.id)
     return ArchiveDeposit.query.filter(or_(
-        ArchiveDeposit.state == "queued",
-        and_(ArchiveDeposit.state == "failed", ArchiveDeposit.attempts < ARCHIVE_MAX_ATTEMPTS))).order_by(
-        ArchiveDeposit.id)
+        due,
+        and_(ArchiveDeposit.state == "failed", ArchiveDeposit.attempts < ARCHIVE_MAX_ATTEMPTS),
+        # no site code: looked at again at every run, so setting the code releases the deposit by itself
+        and_(ArchiveDeposit.state == "blocked", ArchiveDeposit.error_code == NO_SITE))).order_by(ArchiveDeposit.id)
 
 
 def flush(limit=50, render=True, only_queued=False):
@@ -94,12 +98,17 @@ def flush(limit=50, render=True, only_queued=False):
     return counts
 
 
+def _wants_meta(transport):
+    return bool(getattr(transport, "needs_meta", False))
+
+
 def _one(row_id, transport, render, counts):
     row = db.session.get(ArchiveDeposit, row_id)
     needs_pdf = row is not None and not row.pdf_storage_ref
+    was_blocked = row is not None and row.state == "blocked"
     done = row is None or row.state == "stored"
     db.session.rollback()
-    if done:
+    if done or (was_blocked and not (transport.delivers and _wants_meta(transport))):
         return
     if needs_pdf:
         if not render or not render_deposit(row_id):
@@ -109,10 +118,75 @@ def _one(row_id, transport, render, counts):
     if not transport.delivers:
         counts["waiting"] += 1
         return
+    if _wants_meta(transport):
+        try:
+            precheck(row_id)
+        except BlockedError as exc:
+            _block(row_id, exc.code, exc.text)
+            counts["waiting"] += 1
+            return
+        if was_blocked:
+            _unblock(row_id)
     if send_deposit(row_id, transport):
         counts["stored"] += 1
     else:
         counts["failed"] += 1
+
+
+def precheck(row_id):
+    """Before anything is sent: the facility has a site code and the documents fit in one deposit."""
+    try:
+        row = db.session.get(ArchiveDeposit, row_id)
+        req = db.session.get(Request, row.request_id)
+        meta_mod.site_code(req)
+        n = RequestDocument.query.filter_by(request_id=row.request_id).filter(
+            RequestDocument.round <= (row.round or 1)).count()
+        if n > meta_mod.MAX_ATTACHMENTS:
+            raise meta_mod.count_error(n)
+    finally:
+        db.session.rollback()
+
+
+def _clean(text):
+    return scrub(text, current_app.config.get("EHR_ARCHIVE_TOKEN"))[:500]
+
+
+def _block(row_id, code, message):
+    """The deposit needs an administrator. Written once: the same reason again changes nothing."""
+    db.session.rollback()
+    row = db.session.get(ArchiveDeposit, row_id)
+    if row is None:
+        return
+    text = _clean(message or code)
+    if row.state == "blocked" and row.error_code == code and row.last_error == text:
+        return
+    row.state, row.error_code, row.last_error, row.next_attempt_at = "blocked", (code or "ERROR")[:60], text, None
+    audit("archive_blocked", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
+          detail={"kind": row.kind, "code": row.error_code, "error": text})
+    db.session.commit()
+
+
+def _unblock(row_id):
+    row = db.session.get(ArchiveDeposit, row_id)
+    if row is not None and row.state == "blocked":
+        row.state, row.error_code, row.last_error = "queued", None, None
+        audit("archive_unblocked", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
+              detail={"kind": row.kind})
+        db.session.commit()
+
+
+def _defer(row_id, message):
+    """eArchive cannot be reached: stay queued, try again later with the same key. There is no attempt limit."""
+    db.session.rollback()
+    row = db.session.get(ArchiveDeposit, row_id)
+    if row is None:
+        return
+    row.attempts += 1
+    row.state, row.last_error = "queued", _clean(message)
+    row.next_attempt_at = utcnow() + BACKOFF[min(row.attempts, len(BACKOFF)) - 1]
+    audit("archive_deferred", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
+          detail={"kind": row.kind, "attempts": row.attempts, "error": row.last_error})
+    db.session.commit()
 
 
 def _fail(row_id, message, count_attempt=True):
@@ -121,7 +195,7 @@ def _fail(row_id, message, count_attempt=True):
     row = db.session.get(ArchiveDeposit, row_id)
     if row is None:
         return
-    row.last_error = (message or "error")[:500]
+    row.last_error = _clean(message or "error")
     if count_attempt:
         row.attempts += 1
     if row.pdf_storage_ref:
@@ -192,23 +266,55 @@ def files_of(row):
     return manifest, out
 
 
+def _stamp_meta(row, manifest):
+    """The meta part, built on first use and kept: a retry sends the same content under the same key."""
+    if row.meta_json:
+        return json.loads(row.meta_json)
+    meta = meta_mod.build(row, manifest)
+    row.meta_json = json.dumps(meta, ensure_ascii=False, sort_keys=True)
+    db.session.commit()
+    return meta
+
+
 def send_deposit(row_id, transport):
     """Hand one rendered deposit to the transport. True when it is stored."""
     try:
         row = db.session.get(ArchiveDeposit, row_id)
         manifest, files = files_of(row)
+        if _wants_meta(transport):
+            meta_mod.check_limits(manifest)
+            meta = _stamp_meta(row, manifest)
         db.session.rollback()
-        reference = transport.deposit(manifest, files)
-        if not reference:
-            raise ArchiveError("The transport returned no reference.")
+        if _wants_meta(transport):
+            receipt = transport.deposit_meta(row_id, meta, files)
+        else:
+            receipt = transport.deposit(manifest, files)
+            if not receipt:
+                raise ArchiveError("The transport returned no reference.")
+    except TransientError as exc:
+        _defer(row_id, str(exc))
+        return False
+    except BlockedError as exc:
+        _block(row_id, exc.code, exc.text)
+        return False
     except Exception as exc:  # noqa: BLE001
         _fail(row_id, "%s: %s" % (type(exc).__name__, exc) if not isinstance(exc, ArchiveError) else str(exc))
         return False
     row = db.session.get(ArchiveDeposit, row_id)
-    row.state, row.archive_ref, row.last_error, row.sent_at = "stored", str(reference)[:300], None, utcnow()
+    detail = {"kind": row.kind}
+    if _wants_meta(transport):
+        row.protocol_id, row.protocol_number, row.url = receipt.protocol_id, receipt.protocol_number, receipt.url
+        row.archive_ref = (receipt.protocol_number or receipt.protocol_id or "")[:300] or None
+        detail.update(protocol_number=receipt.protocol_number, duplicate=receipt.duplicate)
+    else:
+        row.archive_ref = str(receipt)[:300]
+        detail["ref"] = row.archive_ref
+    row.state, row.last_error, row.error_code, row.next_attempt_at, row.sent_at = "stored", None, None, None, utcnow()
     row.attempts += 1
-    audit("archive_stored", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
-          detail={"kind": row.kind, "ref": row.archive_ref})
+    if _wants_meta(transport) and receipt.duplicate:
+        audit("archive_duplicate", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
+              detail=detail)
+    audit("archive_stored", request_id=row.request_id, object_type="archive_deposit", object_id=row.id, detail=detail)
     db.session.commit()
     return True
 
@@ -223,28 +329,29 @@ def flush_quietly(**kwargs):
 
 
 def retry(row, user_id):
-    """Admin button: a failed deposit goes back in the queue with a fresh count."""
-    row.state, row.attempts = "queued", 0
+    """Admin button: a failed or blocked deposit goes back in the queue with a fresh count. The meta part is built
+    again, so a fix on eHR's side (a site code, a corrected name) is picked up."""
+    row.state, row.attempts, row.error_code, row.next_attempt_at, row.meta_json = "queued", 0, None, None, None
     audit("archive_retry", user_id=user_id, request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
           detail={"kind": row.kind})
 
 
-def latest_for(req):
-    """The newest deposit of a request, for the request page: 'approved' before 'submitted'."""
+def deposits_of(req):
+    """The deposits of a request for the request page: submitted first, then decided."""
     if req is None or req.id is None:
-        return None
+        return []
     rows = ArchiveDeposit.query.filter_by(request_id=req.id).all()
-    for kind in ("approved", "submitted"):
-        for r in rows:
-            if r.kind == kind:
-                return r
-    return None
+    return sorted(rows, key=lambda r: (r.kind != "submitted", r.id))
+
+
+def blocked_count():
+    return ArchiveDeposit.query.filter_by(state="blocked").count()
 
 
 def init_queue(app):
     @app.template_global()
-    def archive_latest(req):
-        return latest_for(req)
+    def archive_deposits(req):
+        return deposits_of(req)
 
     @app.after_request
     def _flush_after_commit(response):

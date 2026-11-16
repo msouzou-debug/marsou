@@ -1,62 +1,75 @@
 # 06 – Depositing requests in eArchive
 
-Status: eHR side built (16/11/2026). eArchive's side is not known. This page is the proposal for the eArchive agent and Marios. Nothing here guesses eArchive's interface.
+Status: built (16/11/2026). eArchive's side is specified in `docs/external/earchive-ingest-2026-11-16.md` (the eArchive session's note, relayed by Marios). That note is the specification of the HTTP call. This page describes what eHR does with it.
 
-## What eHR deposits, and when
+## What is deposited, and when
 
-Marios decided on 16/11/2026:
+Two deposits per request (decided by Marios with eArchive, 16/11/2026):
 
-- A deposit is one PDF of the request plus the supporting documents the requester attached.
-- Two deposits per request at most. **`submitted`**: when the request is first submitted. **`approved`**: when the final approval is given. A resubmission after a return does not create another `submitted` deposit; that deposit is the state at the first submission.
-- Rejected and withdrawn requests are not deposited at their end. A request that was deposited at submission and later ends without approval keeps its first deposit. eHR records on that deposit that the request ended as `rejected` or `withdrawn`, so eArchive can be told once its interface allows it. eHR does not ask eArchive to delete anything.
-- If eArchive is down, eHR queues the deposit and retries. The user's action is never blocked or failed.
+- `submitted`: at the first submission. A resubmission after a return makes no new deposit.
+- `decided`: when the request ends: approved, rejected or withdrawn, by the requester or by the system (after the timeout). It replaces the earlier eHR rule that rejected and withdrawn requests are not deposited.
 
-## The PDF
+A request decided without ever having a `submitted` deposit (an old one) sends just the decided one. Both rows are written in the same transaction as the action, so a rolled-back action leaves none. The user's action never waits for eArchive and never fails because of it.
 
-Greek, A4, made on the eHR server from the request: title and number, the status at the moment of the deposit, every field of the request as an approver sees it, the people who left (name, date, employment status, employer cost when entered), the financial table with its source line and ratio, the checks and opinions (who, on whose behalf, when, comment), the full history (replaced answers are marked), the list of attached documents (name, size, SHA-256, round, who, when) and a line saying when it was generated. Dates are dd/mm/yyyy in Cyprus time, amounts are 1.234,56 €.
+Each deposit is one MAIN file (the PDF of the request with its checks and history, made on the eHR server, Greek, A4) and the requester's supporting documents as ATTACHMENT files. The PDF is kept with its SHA-256, so a retry sends the same bytes. Nothing is deleted after submission.
 
-The PDF is kept in eHR's storage folder with its SHA-256, so a retry sends the same bytes. Ordinary users never receive it; administrators can open it from Settings.
+## The call
 
-## Personal data
+`POST {EHR_ARCHIVE_URL}/api/v1/ingest/documents` (default `http://127.0.0.1:5011`), multipart: a text part `meta` with JSON and one binary part per file, the part name equal to the file's `part_name`.
 
-The deposit holds the full record, as decided: names of people who left, their leave dates and employment status, their annual employer cost, all comments, and the names of the requester and of everyone who acted. The supporting documents are whatever the requester attached. eArchive should treat the deposit as personal data under the same rules as eHR (retention is assumed to be 10 years until the DPO confirms).
+- Headers: `Authorization: Bearer <EHR_ARCHIVE_TOKEN>` and `Idempotency-Key: ehr:<deposit id>`. No forwarding headers.
+- The URL must be plain http on this machine (127.0.0.1, ::1, localhost). Anything else stops eHR from starting and from being switched on. No proxy (environment proxy variables are ignored), no redirects, 60 seconds timeout, standard library only.
+- The token is read from the environment file (`EHR_ARCHIVE_TOKEN`). It is never stored in the database and never written to a log, an audit row, an error text or a page.
+- Without a token, or when the `archive_transport` setting is not `http`, nothing is sent and rows wait.
+- One deposit at a time, in order.
 
-## The manifest
+`meta` (schema v1, strict) carries exactly these fields: schema_version, outbox_id, sent_at, source_system, source_module, source_ref, sender_ref, doc_type, subject, direction, sender_name, letter_date, event_date (decided only), category, classification, personal_data, personal_data_category, folder_hints, attributes (cost_centre, staff_category, position_title, posts), amount and currency (decided only, when central HR recorded the annual employer cost of the new hires), related (decided only, when a submitted deposit exists: SUPERSEDES), approvals, files (part_name, filename, size, sha256 and the MAIN or ATTACHMENT field).
 
-`manifest.json`, UTF-8, sorted keys:
+- All text is Greek, from the Greek string file, whatever language the user reads. The subject has the position and cost centre, no personal names.
+- Fixed values: `eHR`, `position_request`, `INTERNAL`, classification `HIGHLY_SENSITIVE` (the long-absence text can describe sick leave, which is health data; the note says that level also keeps files away from automatic reading), personal data true.
+- `outbox_id` is the deposit id as a number. `sent_at` and every time are Cyprus time with offset. `letter_date` is the Cyprus date of submission, `event_date` the date of the decision.
+- `approvals`: the requester first, then every recorded action in order, replaced answers included and marked as the PDF marks them. The system's automatic withdrawal is shown as «Σύστημα».
+- The meta part is built once and stored, so a retry sends identical content under the same key.
 
-| Field | Meaning |
+## Where it is filed
+
+eArchive files by site. Each facility has an eArchive site code (Settings, facilities; one of the twelve in the note, section 2; audited). A facility without a code makes its deposits `blocked`. They go out by themselves at the next run after the code is set.
+
+## Limits, checked before sending
+
+At most 20 files (1 MAIN and 19 ATTACHMENT), 50 MB per file, 200 MB per deposit, and the file types the note lists. A deposit over a limit is not sent and nothing is dropped silently: it is `blocked` with a readable reason, shown to administrators.
+
+## Answers and states
+
+| Answer | State |
 |---|---|
-| `schema` | 1 |
-| `key` | Idempotency key: `<request number>:<kind>`, for example `ΑΕΘ-2026-0007:approved` |
-| `request_number`, `kind`, `round`, `status` | Number, `submitted` or `approved`, round of the request at that moment, status at that moment |
-| `folder` | The same key in plain ASCII (`AEU-2026-0007-approved`): Θ is written U as in number search |
-| `submitted_at`, `decided_at` | UTC, `2026-11-16T09:30:00Z`. `decided_at` only on `approved` |
-| `directorate`, `facility` | `{code, name}` (Greek name) |
-| `cost_centre_code`, `staff_category`, `position_title`, `positions_count`, `requester_name` | As entered |
-| `files` | The PDF first (`role: request_pdf`), then each document (`role: document`) |
+| 201, or 200 with `Idempotency-Replayed: true` | `stored`: protocol_id, protocol_number and url kept on the deposit |
+| 409 DUPLICATE_SOURCE_REF | `stored`: the number is taken from the message when it is there; audited as a duplicate |
+| no answer, timeout, 5xx (also 408 and 429) | stays `queued`, tried again with the same key after 5 min, 15 min, 1 h, 6 h, then daily; no limit, never dropped |
+| 409 IDEMPOTENCY_MISMATCH, 400 SCHEMA_INVALID, SHA256_MISMATCH, UNKNOWN_REGISTRY, ARCHIVE_*, 401, 403, 413, 415, a redirect, any other answer | `blocked`: the machine code and message are kept as the error, audited; not sent again until an administrator presses the retry button after the cause is fixed |
 
-Each file: `stored_as` (name inside the deposit, unique), `name` (as the requester called it), `mime`, `size`, `sha256`; documents also `document_id`, `round`, `uploaded_by`, `uploaded_at`. The manifest does not change between retries, so its hash identifies the deposit. It does not carry the later outcome (`rejected`, `withdrawn`).
+Other problems on eHR's side (a stored file missing or changed, no PDF converter) make the row `failed` and are retried up to 10 times, then wait for the button. Settings shows a count of blocked deposits on its index page. No email is sent.
 
-## What a transport does
+## Notices from eArchive
 
-One call: `deposit(manifest, files) -> reference`. `files` are the files named in the manifest. It must be idempotent on `key`: a retry, or the same deposit arriving twice, must not make a second record. It returns a text reference that eHR stores and shows on the request page (`Αριθμός στο eArchive: …`). It signals failure by raising; eHR records the message and tries again at the next run (every 5 minutes, up to 10 attempts, then an administrator presses a button).
+`POST http://127.0.0.1:5008/api/v1/archive-events` (the port follows `EHR_BIND`) is the address to give eArchive for its `EHR_EVENTS_URL`. It accepts only connections from this machine, refuses any request with a forwarding header, and checks the same bearer token in constant time. It is exempt from CSRF because it is not a browser form: it has no session, and the checks above stand in for the token. Body: `{event, protocol_id, protocol_number, source_ref, at}`.
 
-Transports built: `none` (default; sends nothing, deposits wait), `folder` (writes `<number>-<kind>/` with `manifest.json`, the PDF and the documents into a drop folder; temporary name then rename; the same manifest again is a successful retry; a different manifest for the same name is refused, never overwritten; the reference is the folder name), and `http` (an empty class that says it is not written). The `http` class is written when the answers below exist.
+- `protocol.deleted`: the deposit is marked as disposed with the date.
+- `legal_hold.set` / `legal_hold.cleared`: the deposit's legal-hold flag is set or cleared.
+- Anything else, and records eHR does not know, answer 200 and are audited, so later notices are not held up.
 
-## How it runs
+Repeats change nothing. Both marks show on the deposits page and on the request page. eHR deletes nothing of its own because of a notice.
 
-The request page and the user's action never wait for it. The deposit row is written in the same transaction as the action. The PDF is made after the commit by `flask send-archive` (cron, every 5 minutes), because LibreOffice needs seconds. The same command hands the deposit to the transport. Requests submitted before this feature existed have no `submitted` deposit; only their final approval is deposited.
+## The request page
 
-## Open questions only eArchive can answer
+For each deposit: its state, and once stored the eArchive protocol number as plain text with the returned `url` as a link (new tab, `rel="noopener"`). The note says the link works only once eArchive's web app is published, so the number is always shown as text.
 
-1. How does eArchive accept a record: an HTTP call (URL, authentication, size limit), a watched folder, a database, a file share?
-2. Can it take several files and a metadata record as one unit, and does it want the metadata in this manifest shape or its own?
-3. Does it deduplicate on a key we send? If not, what do we send so that a retry cannot create a second record?
-4. What does it return that identifies the record (a number, a URL)? Is it stable?
-5. Which metadata fields does it need that eHR does not supply (document type, classification, retention class, access group)?
-6. How should a later outcome be told (the request was rejected or withdrawn after the `submitted` deposit): a status update, a new version, a note? eHR holds the fact and sends nothing until this is answered.
-7. How are deposits of one request linked (`submitted` and `approved`): same folder, a version, a related-record field?
-8. Maximum file size and allowed types (eHR accepts PDF, Word, Excel and images up to 20 MB each).
-9. Which account does eHR use, and who sets it up (Marios and IT)?
-10. Does eArchive's retention match eHR's assumed 10 years?
+## Needs eArchive's confirmation
+
+1. The per-file field that says MAIN or ATTACHMENT. The note names the values but not the field. eHR sends `role` (one constant, `FILE_ROLE_FIELD` in `ehr/archive/transports.py`).
+2. Whether `outbox_id` is a number or text. The note does not say. eHR sends a number.
+3. The shape of error bodies: eHR reads `code` and `message` at the top level, and also inside an `error` object.
+4. Whether `sent_at` counts as content for the idempotency check. eHR never changes it between retries.
+5. Whether 408 and 429 can occur (eHR waits and retries on them) and whether any other per-file or per-meta field is allowed (eHR sends only the fields listed above).
+6. The classification `HIGHLY_SENSITIVE` for every request (the note allows it for health data) and the file name of the MAIN file (`<number>-<kind>.pdf`, number in plain ASCII).
+7. Whether `approvals[].role` and `actor_name` may be empty strings (eHR never sends them empty).

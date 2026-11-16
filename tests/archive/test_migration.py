@@ -28,11 +28,13 @@ def at_version_three(engine):
 def test_0004_creates_the_table_with_its_key_and_index(engine):
     at_version_three(engine)
     assert not inspect(engine).has_table("archive_deposit")
-    assert migrations.upgrade(engine) == [4]
+    assert migrations.upgrade(engine) == [4, 5]
     insp = inspect(engine)
     cols = {c["name"] for c in insp.get_columns("archive_deposit")}
     assert cols == {"id", "request_id", "kind", "round", "state", "attempts", "last_error", "pdf_storage_ref",
-                    "pdf_sha256", "manifest_json", "archive_ref", "request_outcome", "created_at", "sent_at"}
+                    "pdf_sha256", "manifest_json", "archive_ref", "request_outcome", "created_at", "sent_at",
+                    "meta_json", "protocol_id", "protocol_number", "url", "error_code", "next_attempt_at",
+                    "legal_hold", "disposed_at"}
     assert {tuple(u["column_names"]) for u in insp.get_unique_constraints("archive_deposit")} == {("request_id", "kind")}
     assert "ix_archive_deposit_state" in {i["name"] for i in insp.get_indexes("archive_deposit")}
     assert migrations.upgrade(engine) == []
@@ -49,4 +51,4 @@ def test_0004_is_safe_to_run_twice_and_the_table_works_with_the_model(engine):
 
 def test_a_new_database_is_current_and_has_the_table(app):
     assert inspect(db.engine).has_table("archive_deposit")
-    assert migrations.latest_version() == 4
+    assert migrations.latest_version() == 5

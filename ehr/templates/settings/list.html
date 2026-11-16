@@ -23,6 +23,11 @@
       <select class="form-select" name="{{ name }}" required style="min-height:44px">
         {% for c in categories %}<option value="{{ c }}">{{ t('category.' ~ c) }}</option>{% endfor %}
       </select>
+    {% elif widget == 'site' %}
+      <select class="form-select" name="{{ name }}" style="min-height:44px">
+        <option value=""></option>
+        {% for c in site_codes %}<option value="{{ c }}" {{ 'selected' if row and row[name] == c }}>{{ c }}</option>{% endfor %}
+      </select>
     {% else %}
       <input class="form-control" style="min-height:44px" name="{{ name }}" value="{{ row[name] if row else '' }}" {{ 'required' if required }}>
     {% endif %}

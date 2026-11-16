@@ -252,7 +252,7 @@ def prepare(row, now=None):
     manifest = {
         "schema": 1, "key": "%s:%s" % (number, row.kind), "request_number": number, "kind": row.kind,
         "folder": folder_name(number, row.kind), "round": round_, "status": status,
-        "submitted_at": _iso(req.submitted_at), "decided_at": _iso(req.closed_at) if row.kind == "approved" else None,
+        "submitted_at": _iso(req.submitted_at), "decided_at": _iso(req.closed_at) if row.kind == "decided" else None,
         "directorate": {"code": req.directorate.code, "name": req.directorate.name_el} if req.directorate else None,
         "facility": {"code": req.facility.code, "name": req.facility.name_el} if req.facility else None,
         "cost_centre_code": req.cost_centre.code if req.cost_centre else None,

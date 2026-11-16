@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import func, select
 
+from ehr.security import CSRF_EXEMPT_ENDPOINTS
 from ehr.extensions import db
 from ehr.models import AuditLog
 from tests.conftest import login
@@ -83,6 +84,10 @@ def test_get_requests_do_not_change_row_counts(seeded, client, tmp_path):
 
 # ---------------------------------------------------------------- CSRF
 
+def test_the_csrf_exemptions_are_exactly_the_archive_notice_route():
+    assert CSRF_EXEMPT_ENDPOINTS == {"archive_events.receive"}
+
+
 def test_every_state_changing_endpoint_rejects_a_post_without_the_token(seeded, client):
     client.application.config["CSRF_ENABLED"] = True
     checked = 0
@@ -92,6 +97,8 @@ def test_every_state_changing_endpoint_rejects_a_post_without_the_token(seeded, 
             as_user(client, who)
             client.application.config["CSRF_ENABLED"] = True
         for rule in client.application.url_map.iter_rules():
+            if rule.endpoint in CSRF_EXEMPT_ENDPOINTS:
+                continue  # not a browser form: loopback, bearer token (tests/archive/test_events.py)
             for method in sorted(rule.methods & UNSAFE):
                 url = fill(rule, {})
                 resp = client.open(url, method=method, data={"x": "y"})

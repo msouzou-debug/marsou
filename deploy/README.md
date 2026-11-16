@@ -84,7 +84,7 @@ Two jobs keep the timers and the mail moving; a third is the nightly backup (nex
 # Send queued email (also retries failed ones, up to 5 attempts). Every 5 minutes.
 */5 * * * *     /opt/ehr/current/scripts/ehr-cli.sh send-mail >> /var/log/ehr/mail.log 2>&1
 
-# Make the PDFs of eArchive deposits and hand them to the archive transport (retries failed ones, up to 10 attempts).
+# Make the PDFs of eArchive deposits and hand them to the archive transport. An unreachable eArchive is retried with growing gaps (5 min, 15 min, 1 h, 6 h, then daily), without limit.
 */5 * * * *     /opt/ehr/current/scripts/ehr-cli.sh send-archive >> /var/log/ehr/archive.log 2>&1
 ```
 
@@ -94,7 +94,33 @@ Two jobs keep the timers and the mail moving; a third is the nightly backup (nex
 
 ## eArchive deposits
 
-At submission and at final approval the app queues a deposit: a PDF of the request plus its supporting documents (docs/contracts/06-earchive-deposit.md). The PDF is made by `send-archive` (LibreOffice takes seconds, so the web request never waits for it); with `EHR_ARCHIVE_DROP_DIR` and the `folder` transport the folder is written at the same run. Which transport is used is the `archive_transport` setting: `none` (default: nothing is sent, deposits wait, Settings, eArchive deposits says so), `folder` or `http` (not written; waits for eArchive's interface). Set it with `scripts/ehr-cli.sh archive-transport folder`; run it without a name to see the current value. The PDFs live in the storage folder under `archive/`, so the normal storage backup holds them. Rotate `archive.log` like the other logs.
+At submission and when a request ends (approved, rejected or withdrawn) the app queues a deposit: a PDF of the request plus its supporting documents (docs/contracts/06-earchive-deposit.md; eArchive's own note is docs/external/earchive-ingest-2026-11-16.md). The PDF is made by `send-archive` (LibreOffice takes seconds, so the web request never waits for it). Which transport is used is the `archive_transport` setting: `none` (default: nothing is sent, deposits wait), `folder` (`EHR_ARCHIVE_DROP_DIR`) or `http` (eArchive's ingest route on this machine). The PDFs live in the storage folder under `archive/`, so the normal storage backup holds them. Rotate `archive.log` like the other logs.
+
+**Switching on the http transport (Marios, in this order).**
+
+1. eArchive's side must be live with its token (`EHR_INGEST_TOKEN` in `/opt/emetroon/.env`) and eArchive must answer on `127.0.0.1:5011`.
+2. Copy the token from file to file without printing it. The setting name in eHR is `EHR_ARCHIVE_TOKEN`, in `/etc/ehr/ehr.env`:
+
+```
+sudo python3 - <<'PY'
+import re
+tok = re.search(r'^EHR_INGEST_TOKEN=(.*)$', open('/opt/emetroon/.env').read(), re.M).group(1).strip().strip('"\'')
+path = '/etc/ehr/ehr.env'
+text = open(path).read()
+new, n = re.subn(r'^EHR_ARCHIVE_TOKEN=.*$', lambda m: 'EHR_ARCHIVE_TOKEN=' + tok, text, flags=re.M)
+open(path, 'w').write(new if n else text.rstrip('\n') + '\nEHR_ARCHIVE_TOKEN=' + tok + '\n')
+PY
+sudo grep -c '^EHR_ARCHIVE_TOKEN=.' /etc/ehr/ehr.env     # prints 1, not the token
+```
+
+3. Leave `EHR_ARCHIVE_URL=http://127.0.0.1:5011`. It must be plain http on this machine; anything else stops the app from starting.
+4. Run `scripts/preflight.sh --skip-port`, then restart the eHR service (only eHR's own service).
+5. As the ehr user: `scripts/ehr-cli.sh archive-transport http`. Run it without a name to check.
+6. Make sure the cron line `send-archive` below is installed. Deposits that waited go out at the next run, oldest first, one at a time.
+7. Set the eArchive site code of every facility (Settings, facilities). Without it a deposit is `blocked` and goes out by itself once the code is set.
+8. Give eArchive the address for its notices: `http://127.0.0.1:5008/api/v1/archive-events` (the port is the one in `EHR_BIND`), as its `EHR_EVENTS_URL`. eArchive uses the same token for them.
+
+Before the first real deposit, eArchive runs the sample deposits from `scripts/ehr-cli.sh archive-samples <folder>` (demo data only; refused when `EHR_ENV=production`) through its own test.
 
 ## Logs
 

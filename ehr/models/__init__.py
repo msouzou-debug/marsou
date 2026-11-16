@@ -4,7 +4,7 @@ from .access import (CENTRAL_ROLES, DIRECTORATE_ROLES, PERMISSIONS, ROLES, SEE_A
 from .archive import ARCHIVE_KINDS, ARCHIVE_MAX_ATTEMPTS, ARCHIVE_OUTCOMES, ARCHIVE_STATES, ArchiveDeposit
 from .audit import AuditLog, audit
 from .mail import MAIL_STATES, MAX_ATTEMPTS, MailOutbox
-from .master import (CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty, Position, PublicHoliday,
+from .master import (ARCHIVE_SITE_CODES, CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty, Position, PublicHoliday,
                      Setting, get_setting)
 from .security import LoginAttempt
 from .request import (DEPARTURE_REASONS, REASONS, REQUEST_STATUSES, NumberSequence, Request, RequestAction,

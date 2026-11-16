@@ -59,6 +59,10 @@ class Config:
     # eArchive deposits (docs/contracts/06-earchive-deposit.md). The transport is the `archive_transport` setting
     # (none, folder, http). The folder transport writes each deposit into EHR_ARCHIVE_DROP_DIR.
     EHR_ARCHIVE_DROP_DIR = os.environ.get("EHR_ARCHIVE_DROP_DIR", "")
+    # The http transport talks to eArchive on this machine (docs/contracts/06-earchive-deposit.md). The URL must be
+    # loopback and plain http; the token comes from the environment file only and is never stored or logged.
+    EHR_ARCHIVE_URL = os.environ.get("EHR_ARCHIVE_URL", "http://127.0.0.1:5011")
+    EHR_ARCHIVE_TOKEN = os.environ.get("EHR_ARCHIVE_TOKEN", "")
     ARCHIVE_AUTO_FLUSH = True  # after a successful request that queued a deposit, hand over deposits that are ready
     ARCHIVE_RENDER_AFTER_REQUEST = False  # PDFs are made by `flask send-archive`: LibreOffice takes seconds
     # Email. The link in every message is built from EHR_BASE_URL. SMTP and Graph settings are read from the

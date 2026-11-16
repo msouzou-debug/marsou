@@ -33,7 +33,7 @@ def test_the_contract_keys_have_both_texts():
     en = json.loads((ROOT / "ehr/i18n/en.json").read_text(encoding="utf-8"))
     el = json.loads((ROOT / "ehr/i18n/el.json").read_text(encoding="utf-8"))
     for key in ("archive.title", "archive.state.queued", "archive.state.stored", "archive.state.failed", "archive.ref",
-                "archive.kind.submitted", "archive.kind.approved", "settings.archive", "settings.archive.off",
+                "archive.kind.submitted", "archive.kind.decided", "settings.archive", "settings.archive.off",
                 "settings.archive.retry", "settings.archive.retried", "settings.archive.empty",
                 "settings.archive.view_pdf", "pdf.title", "pdf.generated", "pdf.leavers", "pdf.financials",
                 "pdf.documents_list", "pdf.status_at"):

@@ -36,9 +36,13 @@ def test_the_setting_chooses_the_transport_and_a_typo_sends_nothing(seeded):
     assert isinstance(get_transport(), HttpTransport) and get_transport().delivers is False
 
 
-def test_the_http_stub_says_it_is_not_written(seeded):
-    with pytest.raises(NotImplementedError, match="not written yet"):
-        HttpTransport().deposit({}, [])
+def test_the_http_transport_sends_nothing_without_a_token(seeded, app):
+    app.config["EHR_ARCHIVE_TOKEN"] = ""
+    assert HttpTransport().delivers is False
+    app.config["EHR_ARCHIVE_TOKEN"] = "sample-token"
+    assert HttpTransport().delivers is True
+    app.config["EHR_ARCHIVE_URL"] = "http://archive.example.invalid:5011"
+    assert HttpTransport().delivers is False  # not a loopback address
 
 
 def test_the_folder_transport_writes_the_deposit_and_returns_the_folder_name(seeded, client, stor, conv, drop):
@@ -47,17 +51,17 @@ def test_the_folder_transport_writes_the_deposit_and_returns_the_folder_name(see
     counts = queue.flush()
     assert counts["stored"] == 2 and counts["failed"] == 0
     names = sorted(p.name for p in drop.iterdir())
-    assert names == ["AEU-2026-0001-approved", "AEU-2026-0001-submitted"]  # no temp folders left
-    folder = drop / "AEU-2026-0001-approved"
+    assert names == ["AEU-2026-0001-decided", "AEU-2026-0001-submitted"]  # no temp folders left
+    folder = drop / "AEU-2026-0001-decided"
     assert sorted(p.name for p in folder.iterdir()) == [
-        "01-job-description.pdf", "02-rota-2026.pdf", "AEU-2026-0001-approved.pdf", "manifest.json"]
+        "01-job-description.pdf", "02-rota-2026.pdf", "AEU-2026-0001-decided.pdf", "manifest.json"]
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["files"][0]["stored_as"] == "AEU-2026-0001-approved.pdf"
+    assert manifest["files"][0]["stored_as"] == "AEU-2026-0001-decided.pdf"
     for f in manifest["files"]:
         import hashlib
         assert hashlib.sha256((folder / f["stored_as"]).read_bytes()).hexdigest() == f["sha256"]
-    row = [d for d in deposits() if d.kind == "approved"][0]
-    assert (row.state, row.archive_ref, row.attempts, row.last_error) == ("stored", "AEU-2026-0001-approved", 1, None)
+    row = [d for d in deposits() if d.kind == "decided"][0]
+    assert (row.state, row.archive_ref, row.attempts, row.last_error) == ("stored", "AEU-2026-0001-decided", 1, None)
     assert row.sent_at is not None
     assert AuditLog.query.filter_by(event="archive_stored", request_id=rid).count() == 2
 
@@ -68,18 +72,18 @@ def test_the_folder_transport_is_idempotent_and_refuses_a_conflict(tmp_path, app
     src.write_bytes(b"%PDF-1.4 one")
     drop = tmp_path / "drop"
     drop.mkdir()
-    manifest = {"folder": "X-1-approved", "key": "X-1:approved", "files": [{"stored_as": "a.pdf"}]}
+    manifest = {"folder": "X-1-decided", "key": "X-1:decided", "files": [{"stored_as": "a.pdf"}]}
     files = [DepositFile("a.pdf", "a.pdf", "application/pdf", 12, "0" * 64, str(src))]
     t = FolderTransport(str(drop))
-    assert t.deposit(manifest, files) == "X-1-approved"
-    stamp = os.stat(drop / "X-1-approved" / "manifest.json").st_mtime_ns
-    assert t.deposit(manifest, files) == "X-1-approved"  # the same deposit again: success, nothing rewritten
-    assert os.stat(drop / "X-1-approved" / "manifest.json").st_mtime_ns == stamp
+    assert t.deposit(manifest, files) == "X-1-decided"
+    stamp = os.stat(drop / "X-1-decided" / "manifest.json").st_mtime_ns
+    assert t.deposit(manifest, files) == "X-1-decided"  # the same deposit again: success, nothing rewritten
+    assert os.stat(drop / "X-1-decided" / "manifest.json").st_mtime_ns == stamp
     other = dict(manifest, files=[{"stored_as": "b.pdf"}])
     assert manifest_hash(other) != manifest_hash(manifest)
     with pytest.raises(ArchiveError, match="not overwritten"):
         t.deposit(other, files)
-    assert sorted(p.name for p in drop.iterdir()) == ["X-1-approved"]
+    assert sorted(p.name for p in drop.iterdir()) == ["X-1-decided"]
 
 
 def test_a_crash_while_writing_leaves_no_half_deposit(tmp_path, app):
@@ -94,9 +98,9 @@ def test_a_crash_while_writing_leaves_no_half_deposit(tmp_path, app):
 
 def test_the_folder_transport_needs_an_existing_drop_folder(tmp_path, app):
     with pytest.raises(ArchiveError, match="not set"):
-        FolderTransport("").deposit({"folder": "Z-1-approved"}, [])
+        FolderTransport("").deposit({"folder": "Z-1-decided"}, [])
     with pytest.raises(ArchiveError, match="does not exist"):
-        FolderTransport(str(tmp_path / "nope")).deposit({"folder": "Z-1-approved"}, [])
+        FolderTransport(str(tmp_path / "nope")).deposit({"folder": "Z-1-decided"}, [])
 
 
 def test_a_failing_transport_marks_failed_and_a_later_run_succeeds(seeded, client, stor, conv, app):

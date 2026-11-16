@@ -43,7 +43,7 @@ def test_the_example_holds_no_real_values_and_each_variable_has_a_comment():
     for i, line in enumerate(lines):
         if re.match(r"^[A-Z][A-Z0-9_]+=", line):
             assert lines[i - 1].startswith("#"), "no meaning line above %s" % line
-    for name in ("EHR_SECRET_KEY", "EHR_DATABASE_URI", "EHR_SMTP_PASSWORD", "EHR_GRAPH_CLIENT_SECRET", "EHR_EFINANCE_TOKEN"):
+    for name in ("EHR_SECRET_KEY", "EHR_DATABASE_URI", "EHR_SMTP_PASSWORD", "EHR_GRAPH_CLIENT_SECRET", "EHR_EFINANCE_TOKEN", "EHR_ARCHIVE_TOKEN"):
         assert re.search(r"^%s=$" % name, text, re.M), name + " must be empty in the example"
 
 

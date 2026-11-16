@@ -202,6 +202,28 @@ else
   warn "eArchive drop folder $drop does not exist or is not writable by this user"
 fi
 
+# --- eArchive http link ---------------------------------------------------------------------------------------------
+# Only when the archive_transport setting is "http" the token matters; the setting lives in the database, so this
+# checks what the environment file says: a set token needs a loopback http address, and a bad address stops the app.
+arch_url="${EHR_ARCHIVE_URL:-http://127.0.0.1:5011}"
+case "$arch_url" in
+  http://127.0.0.1|http://127.0.0.1:*|http://localhost|http://localhost:*|http://\[::1\]|http://\[::1\]:*) arch_loop=1 ;;
+  *) arch_loop=0 ;;
+esac
+if [ "$arch_loop" -eq 1 ]; then
+  ok "eArchive address $arch_url is on this machine"
+else
+  fail "EHR_ARCHIVE_URL=$arch_url is not plain http on this machine (127.0.0.1, ::1 or localhost): the app will not start"
+fi
+arch_transport="$(cd "$APP_DIR" && "$PY" -m flask --app wsgi:app archive-transport 2>/dev/null | sed -n 's/^archive_transport=//p' || true)"
+if [ -n "${EHR_ARCHIVE_TOKEN:-}" ]; then
+  ok "EHR_ARCHIVE_TOKEN is set (not shown)"
+elif [ "$arch_transport" = "http" ]; then
+  fail "the archive transport is http but EHR_ARCHIVE_TOKEN is empty: nothing can be sent (deploy/README.md, eArchive deposits)"
+else
+  warn "EHR_ARCHIVE_TOKEN is empty: deposits wait in the queue. Set it before 'archive-transport http' (deploy/README.md)"
+fi
+
 # --- port -------------------------------------------------------------------------------------------------------
 bind="${EHR_BIND:-127.0.0.1:5008}"
 host="${bind%:*}"

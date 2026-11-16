@@ -38,7 +38,8 @@ def seed_demo(data=None):
     for f in data["facilities"]:
         d = dirs[f["directorate"]]
         if not Facility.query.filter_by(directorate_id=d.id, code=f["code"]).first():
-            db.session.add(Facility(directorate_id=d.id, code=f["code"], name_el=f["name_el"], name_en=f["name_en"]))
+            db.session.add(Facility(directorate_id=d.id, code=f["code"], name_el=f["name_el"], name_en=f["name_en"],
+                                    archive_site_code=f.get("archive_site_code")))
     for p in data["positions"]:
         if not Position.query.filter_by(category=p["category"], title_en=p["title_en"]).first():
             db.session.add(Position(**p))

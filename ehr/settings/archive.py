@@ -60,7 +60,7 @@ def archive_pdf(deposit_id):
 @permission_required("settings.manage")
 def archive_retry(deposit_id):
     row = db.session.get(ArchiveDeposit, deposit_id) or abort(404)
-    if row.state == "failed":
+    if row.state in ("failed", "blocked"):
         retry(row, current_user().id)
         db.session.commit()
         flash_key("settings.archive.retried", "success")

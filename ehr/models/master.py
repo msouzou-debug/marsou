@@ -24,6 +24,10 @@ class Directorate(db.Model):
         return self.name_en if lang == "en" else self.name_el
 
 
+# The site codes eArchive files by (docs/external/earchive-ingest-2026-11-16.md, section 2). The only list in the code.
+ARCHIVE_SITE_CODES = ("HQ", "NGH", "NAM", "LGH", "LAR", "PAF", "FAM", "KYP", "POL", "MHS", "PHC", "CNS")
+
+
 class Facility(db.Model):
     __tablename__ = "facility"
 
@@ -33,6 +37,7 @@ class Facility(db.Model):
     name_el: Mapped[str] = mapped_column(String(200), nullable=False)
     name_en: Mapped[str] = mapped_column(String(200), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    archive_site_code: Mapped[str] = mapped_column(String(8), nullable=True)  # eArchive folder; empty blocks deposits
 
     directorate = relationship("Directorate")
 

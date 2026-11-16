@@ -14,6 +14,12 @@ def deposits(rid=None):
     return q.all()
 
 
+def row_of(rid, kind):
+    from ehr.extensions import db
+    db.session.expire_all()
+    return ArchiveDeposit.query.filter_by(request_id=rid, kind=kind).one()
+
+
 def kinds(rid):
     return [d.kind for d in deposits(rid)]
 

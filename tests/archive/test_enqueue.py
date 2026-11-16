@@ -17,7 +17,7 @@ def test_scenario_1_path_gives_two_rows_and_the_audit_rows(seeded, client):
     row = deposits(rid)[0]
     assert (row.state, row.attempts, row.round, row.pdf_storage_ref) == ("queued", 0, 1, None)
     approve_all(client, rid)
-    assert kinds(rid) == ["submitted", "approved"]
+    assert kinds(rid) == ["submitted", "decided"]
     assert {d.state for d in deposits(rid)} == {"queued"}
     queued = AuditLog.query.filter_by(request_id=rid, event="archive_queued").all()
     assert len(queued) == 2 and json.loads(queued[0].detail_json)["kind"] == "submitted"
@@ -29,7 +29,7 @@ def test_an_admin_category_request_is_deposited_too(seeded, client):
     step3(client, rid, sci=False)
     step4(client, rid)
     assert act(client, "central.ceo", rid, "approve").status_code == 302
-    assert kinds(rid) == ["submitted", "approved"]
+    assert kinds(rid) == ["submitted", "decided"]
 
 
 def test_a_draft_queues_nothing(seeded, client):
@@ -40,24 +40,24 @@ def test_a_draft_queues_nothing(seeded, client):
     assert deposits() == []
 
 
-def test_rejection_sets_the_outcome_and_adds_no_row(seeded, client):
+def test_rejection_queues_the_decided_deposit_in_the_same_transaction(seeded, client):
     rid = create(client).id
     resp = act(client, "nic.accountant", rid, "check", position="no", funds="yes", comment="No post.")
     assert resp.status_code == 302 and reload(rid).status == "rejected"
-    rows = deposits(rid)
-    assert [(d.kind, d.request_outcome) for d in rows] == [("submitted", "rejected")]
-    assert AuditLog.query.filter_by(request_id=rid, event="archive_outcome").count() == 1
+    assert kinds(rid) == ["submitted", "decided"]
+    assert json.loads(deposits(rid)[1].manifest_json)["as_of"]["status"] == "rejected"
+    assert AuditLog.query.filter_by(request_id=rid, event="archive_queued").count() == 2
 
 
-def test_withdrawal_by_the_requester_sets_the_outcome(seeded, client):
+def test_withdrawal_by_the_requester_queues_the_decided_deposit(seeded, client):
     rid = create(client).id
     as_user(client, "nic.requester")
     resp = client.post("/requests/%d/withdraw" % rid, data={"comment": "Not needed any more."})
     assert resp.status_code == 302 and reload(rid).status == "withdrawn"
-    assert [(d.kind, d.request_outcome) for d in deposits(rid)] == [("submitted", "withdrawn")]
+    assert kinds(rid) == ["submitted", "decided"]
 
 
-def test_a_system_withdrawal_sets_the_outcome_too(seeded, client):
+def test_a_system_withdrawal_queues_the_decided_deposit_too(seeded, client):
     from datetime import datetime, timedelta, timezone
     from ehr.services.request_flow import system_withdraw
     rid = create(client).id
@@ -65,7 +65,7 @@ def test_a_system_withdrawal_sets_the_outcome_too(seeded, client):
     req = reload(rid)
     result = system_withdraw(req, datetime.now(timezone.utc) + timedelta(days=90))
     assert result.ok and reload(rid).status == "withdrawn"
-    assert [(d.kind, d.request_outcome) for d in deposits(rid)] == [("submitted", "withdrawn")]
+    assert kinds(rid) == ["submitted", "decided"]
 
 
 def test_a_resubmission_does_not_add_a_submitted_row(seeded, client):
@@ -102,3 +102,12 @@ def test_the_unique_key_is_request_and_kind(seeded, client):
     with pytest.raises(Exception):
         db.session.commit()
     db.session.rollback()
+
+
+def test_a_request_decided_without_a_submitted_deposit_sends_just_the_decided_one(seeded, client):
+    rid = create(client).id
+    ArchiveDeposit.query.filter_by(request_id=rid).delete()  # an old request, from before deposits existed
+    db.session.commit()
+    resp = act(client, "nic.accountant", rid, "check", position="no", funds="yes", comment="No post.")
+    assert resp.status_code == 302
+    assert kinds(rid) == ["decided"]

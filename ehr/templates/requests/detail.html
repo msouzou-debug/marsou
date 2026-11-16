@@ -23,8 +23,7 @@
   {% if req.facility %}<p class="mb-0 text-secondary ehr-wrap">{{ req.facility.name(lang) }}</p>{% endif %}
 </header>
 
-{% set deposit = archive_latest(req) %}
-{% if deposit %}<p class="small text-secondary mb-3" data-archive-state="{{ deposit.state }}"><i class="bi bi-archive" aria-hidden="true"></i> {{ t('archive.title') }}: {{ t('archive.kind.' ~ deposit.kind) }} · {{ t('archive.state.' ~ deposit.state) }}{% if deposit.state == 'stored' and deposit.archive_ref %} · {{ t('archive.ref', ref=deposit.archive_ref) }}{% endif %}</p>{% endif %}
+{% for deposit in archive_deposits(req) %}<p class="small text-secondary mb-2" data-archive-state="{{ deposit.state }}" data-archive-kind="{{ deposit.kind }}"><i class="bi bi-archive" aria-hidden="true"></i> {{ t('archive.title') }}: {{ t('archive.kind.' ~ deposit.kind) }} · {{ t('archive.state.' ~ deposit.state) }}{% if deposit.state == 'stored' %}{% if deposit.protocol_number %} · {{ t('archive.number', number=deposit.protocol_number) }}{% if deposit.url %} <a href="{{ deposit.url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span class="visually-hidden">{{ t('archive.title') }}</span></a>{% endif %}{% elif deposit.archive_ref %} · {{ t('archive.ref', ref=deposit.archive_ref) }}{% endif %}{% endif %}{% if deposit.legal_hold %} · <span data-archive-hold>{{ t('archive.hold') }}</span>{% endif %}{% if deposit.disposed_at %} · <span data-archive-disposed>{{ t('archive.disposed', date=deposit.disposed_at | ehr_date) }}</span>{% endif %}</p>{% endfor %}
 
 {% if cards %}
 {# Phone with a task waiting: key lines and the mini route first, so the action card is near the top. #}

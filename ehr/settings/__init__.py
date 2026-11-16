@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..auth import current_user, permission_required
 from ..extensions import db
-from ..models import CATEGORIES, CostCentre, Directorate, Facility, OaySpecialty, Position, audit
+from ..models import ARCHIVE_SITE_CODES, CATEGORIES, ArchiveDeposit, CostCentre, Directorate, Facility, OaySpecialty, Position, audit
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
 
@@ -15,7 +15,8 @@ LISTS = {
     "directorate": (Directorate, [("code", "text", False, True), ("name_el", "text", True, True),
                                   ("name_en", "text", True, True), ("has_sci_director", "check", True, False)]),
     "facility": (Facility, [("directorate_id", "directorate", False, True), ("code", "text", False, True),
-                            ("name_el", "text", True, True), ("name_en", "text", True, True)]),
+                            ("name_el", "text", True, True), ("name_en", "text", True, True),
+                            ("archive_site_code", "site", True, False)]),
     "position": (Position, [("category", "category", False, True), ("title_el", "text", True, True),
                             ("title_en", "text", True, True)]),
     "cost_centre": (CostCentre, [("code", "text", False, True), ("name_el", "text", True, True),
@@ -27,7 +28,7 @@ LABELS = {
     "code": "settings.col.code", "name_el": "settings.col.name_el", "name_en": "settings.col.name_en",
     "title_el": "settings.col.name_el", "title_en": "settings.col.name_en", "name": "settings.col.name_en",
     "has_sci_director": "settings.has_sci_director", "directorate_id": "field.directorate",
-    "category": "field.category",
+    "category": "field.category", "archive_site_code": "settings.col.archive_site",
 }
 
 
@@ -38,7 +39,8 @@ def _spec(kind):
 
 
 def _values(fields, creating):
-    """Read posted values. Returns (values, missing_required)."""
+    """Read posted values. Returns (values, problem): problem is False, True (a required value is missing) or the
+    string key of a message (a value that is not allowed)."""
     values, missing = {}, False
     for name, widget, editable, required in fields:
         if not creating and not editable:
@@ -51,8 +53,12 @@ def _values(fields, creating):
             raw = int(raw) if raw.isdigit() and db.session.get(Directorate, int(raw)) else None
         elif widget == "category" and raw not in CATEGORIES:
             raw = None
+        elif widget == "site":
+            raw = raw.upper() or None
+            if raw is not None and raw not in ARCHIVE_SITE_CODES:
+                missing = "validation.choose"  # only the twelve codes eArchive knows
         if required and not raw:
-            missing = True
+            missing = missing or True
         values[name] = raw
     return values, missing
 
@@ -69,7 +75,8 @@ def _back(kind):
 @permission_required("settings.manage")
 def index():
     counts = {k: db.session.query(model).count() for k, (model, _f) in LISTS.items()}
-    return render_template("settings/index.html", kinds=list(LISTS), counts=counts, pages=PAGES)
+    blocked = ArchiveDeposit.query.filter_by(state="blocked").count()  # the alert: deposits waiting for an administrator
+    return render_template("settings/index.html", kinds=list(LISTS), counts=counts, pages=PAGES, blocked=blocked)
 
 
 @bp.get("/<kind>")
@@ -78,7 +85,7 @@ def show(kind):
     model, fields = _spec(kind)
     rows = db.session.query(model).order_by(model.id).all()
     return render_template(
-        "settings/list.html", kind=kind, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES,
+        "settings/list.html", kind=kind, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
         directorates=Directorate.query.order_by(Directorate.id).all(), kinds=list(LISTS),
     )
 
@@ -89,7 +96,7 @@ def add(kind):
     model, fields = _spec(kind)
     values, missing = _values(fields, creating=True)
     if missing:
-        flash("validation.required", "danger")
+        flash(missing if isinstance(missing, str) else "validation.required", "danger")
         return _back(kind)
     row = model(**values)
     db.session.add(row)
@@ -113,7 +120,7 @@ def edit(kind, row_id):
     row = db.session.get(model, row_id) or abort(404)
     values, missing = _values(fields, creating=False)
     if missing:
-        flash("validation.required", "danger")
+        flash(missing if isinstance(missing, str) else "validation.required", "danger")
         return _back(kind)
     before = _snapshot(row, fields)
     for k, v in values.items():

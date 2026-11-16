@@ -70,3 +70,23 @@ def drop(app, tmp_path):
 
 needs_soffice = pytest.mark.skipif(shutil.which("soffice") is None and shutil.which("libreoffice") is None,
                                    reason="LibreOffice is not installed")
+
+
+@pytest.fixture
+def fake():
+    from tests.archive.fake_earchive import FakeEArchive
+    f = FakeEArchive().start()
+    yield f
+    f.stop()
+
+
+@pytest.fixture
+def http(app, seeded, stor, conv, fake):
+    """The http transport switched on, pointed at the fake eArchive with its token."""
+    from ehr.extensions import db
+    from ehr.models import Setting
+    from tests.archive.fake_earchive import TOKEN
+    app.config.update(EHR_ARCHIVE_URL=fake.url, EHR_ARCHIVE_TOKEN=TOKEN)
+    db.session.add(Setting(key="archive_transport", value="http"))
+    db.session.commit()
+    return fake

@@ -29,7 +29,7 @@ Both run as the `ehr` user from cron, through `scripts/ehr-cli.sh`.
 - `run-timers` (hourly, working hours, Monday to Friday): queues reminders, escalations and returned-request warnings, and withdraws returned requests nobody resubmitted. It counts working days from the public holidays table, so keep that table current for the year. A day is a Cyprus calendar day: a task opened at 23:30 UTC on a Friday counts as opened on Saturday. Running it twice does no harm.
 - `send-mail` (every 5 minutes): sends the queued emails and retries failed ones, up to 5 attempts. Mail older than 48 hours is marked failed, not sent late.
 
-- `send-archive` (every 5 minutes): makes the PDF of each queued eArchive deposit and hands it to the archive transport. Failed deposits are retried at each run, up to 10 attempts; after that an administrator presses the retry button in Settings, eArchive deposits. Output: `rendered=… stored=… failed=… waiting=…`.
+- `send-archive` (every 5 minutes): makes the PDF of each queued eArchive deposit and hands it to the archive transport, one at a time. A deposit eArchive cannot take yet waits and is retried with growing gaps; a refused one is blocked until an administrator presses the retry button in Settings, eArchive deposits. Output: `rendered=… stored=… failed=… waiting=…`.
 
 Check a timer ran: look at the last lines of its log. Each run prints one line of counts.
 
@@ -42,9 +42,25 @@ Check a timer ran: look at the last lines of its log. Each run prints one line o
 5. Everything stays `queued` and cron is fine: the `mail_backend` setting is still `outbox_only`, which sends nothing on purpose. Marios turns on `smtp` or `graph` once the mail details exist.
 6. Sent, but the person sees nothing: look in their spam folder, then ask the mail team to trace the message.
 
-## When eArchive deposits wait
+## When eArchive deposits wait or are blocked
 
-Open Settings, eArchive deposits (administrators). The notice "not set up" means `archive_transport` is `none` (the default) or `http` (not written yet): deposits wait, nothing is lost. To send into a folder, set `EHR_ARCHIVE_DROP_DIR`, restart the service, then `scripts/ehr-cli.sh archive-transport folder`. A row still `queued` with an error mentioning the converter: LibreOffice is missing or stuck (`EHR_SOFFICE_BIN`, `EHR_CONVERT_TIMEOUT`). A `failed` row shows the last error; fix the cause and press the retry button. The PDF of any row can be opened from the page (the view is audited as `archive_pdf_view`). A request that was deposited at submission and later rejected or withdrawn keeps its first deposit; the row records the outcome and nothing is removed from eArchive (contract 06). Requests submitted before this release have no submitted deposit; only their final approval is deposited.
+Open Settings, eArchive deposits (administrators). On the Settings index a red count next to it shows deposits that are `blocked`. No email is sent for it.
+
+- The notice "not set up" means nothing is sent: `archive_transport` is `none`, or it is `http` without `EHR_ARCHIVE_TOKEN`. Deposits wait and nothing is lost. To send into a folder, set `EHR_ARCHIVE_DROP_DIR`, restart the service, then `scripts/ehr-cli.sh archive-transport folder`. For eArchive itself see deploy/README.md, "eArchive deposits".
+- `queued` with an error "did not answer" and a retry time: eArchive is down or restarting. Nothing to do; it is tried again after 5 min, 15 min, 1 h, 6 h, then daily, with the same key, so it cannot be filed twice. It is never dropped. If it lasts, check that eArchive runs on `127.0.0.1:5011`.
+- `queued` with an error about the converter: LibreOffice is missing or stuck (`EHR_SOFFICE_BIN`, `EHR_CONVERT_TIMEOUT`).
+- `failed`: a problem on eHR's side (a stored file missing or changed). Retried 10 times, then wait. Fix the cause and press the retry button.
+- `blocked`: eArchive refused the deposit, or eHR saw it could not fit. The row shows eArchive's code and message. It is not sent again until you fix the cause and press the retry button (the meta part is then built again). What to do by cause:
+  - `NO_SITE`: the facility has no eArchive site code. Set it in Settings, facilities. No button needed: the next run sends it.
+  - `TOO_MANY_FILES`, `FILE_TOO_BIG`, `DEPOSIT_TOO_BIG`, `FILE_TYPE`: the request has more than 19 documents, a file over 50 MB, more than 200 MB in all, or a type eArchive does not take. The documents cannot be removed after submission. Ask the requester's Directorate and Marios: eArchive staff can file it by hand, or the limit can be discussed with them.
+  - `401`, `UNAUTHORIZED`, `403` (`LOOPBACK_ONLY`, `SERVICE_ONLY`, `SOURCE_MISMATCH`): the token or the network is wrong. Check `EHR_ARCHIVE_TOKEN` against eArchive's `EHR_INGEST_TOKEN` and that the address is `127.0.0.1`. Then retry. All deposits will block the same way until this is fixed.
+  - `UNKNOWN_REGISTRY`: the site code is not one eArchive knows. Correct it in Settings, then retry.
+  - `SCHEMA_INVALID`, `SHA256_MISMATCH`, `IDEMPOTENCY_MISMATCH`, `ARCHIVE_*`, `TOO_LARGE`, `MIME_REJECTED`: the deposit itself is wrong or eArchive changed. This is a bug or a change on one side. Do not keep pressing retry: send the row's error text to Marios.
+  - `UNEXPECTED_ANSWER`, `REDIRECT_REFUSED`: eArchive answered in a way eHR does not accept. Check `EHR_ARCHIVE_URL` and that port 5011 is eArchive's API.
+- A duplicate (eArchive already has that source) is shown as `stored` with the number from eArchive, and the audit log has `archive_duplicate`.
+- The PDF of any row can be opened from the page (the view is audited as `archive_pdf_view`).
+- Notices from eArchive (disposal after 30 years, legal hold) appear on the deposit row and on the request page. eHR deletes nothing because of them.
+- A request that ends (approved, rejected or withdrawn) has a `decided` deposit next to its `submitted` one; a request that was decided before deposits existed has only the decided one.
 
 ## Reading the audit log
 

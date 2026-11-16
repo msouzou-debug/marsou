@@ -23,8 +23,13 @@ def csrf_enabled():
     return not (cfg.get("TESTING") and not cfg.get("CSRF_ENABLED", True))
 
 
+# Endpoints that are not browser forms. A CSRF token protects a signed-in browser from a page it did not choose; these
+# routes have no session and prove themselves in another way (a bearer token from this machine). Add with care.
+CSRF_EXEMPT_ENDPOINTS = {"archive_events.receive"}
+
+
 def _check_csrf():
-    if request.method in SAFE_METHODS or not csrf_enabled():
+    if request.method in SAFE_METHODS or not csrf_enabled() or request.endpoint in CSRF_EXEMPT_ENDPOINTS:
         return
     sent = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token") or ""
     expected = session.get("_csrf", "")
