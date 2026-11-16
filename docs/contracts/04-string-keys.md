@@ -372,3 +372,26 @@ The 14 `mail.<event>.label` keys were removed on 14/11/2026.
 | `pdf.financials` | Financial data |
 | `pdf.documents_list` | Attached documents |
 | `pdf.status_at` | Status on {date}: {status} |
+
+## Added 16/11/2026 (later): eArchive ingest as built by eArchive
+
+| Key | English |
+|---|---|
+| `archive.doc_type.submitted` | Position request — submitted |
+| `archive.doc_type.approved` | Position request — approved |
+| `archive.doc_type.rejected` | Position request — rejected |
+| `archive.doc_type.withdrawn` | Position request — withdrawn |
+| `archive.subject.one` | Request for 1 post: {position}, {cost_centre} |
+| `archive.subject.many` | Request for {n} posts: {position}, {cost_centre} |
+| `archive.category` | Recruitment |
+| `archive.pd_category` | Staff data |
+| `archive.kind.decided` | Copy at the decision |
+| `archive.number` | eArchive protocol number: {number} |
+| `archive.hold` | This record is under a legal hold in eArchive. |
+| `archive.disposed` | The record in eArchive was disposed of on {date}. |
+| `archive.error.no_site` | The facility "{facility}" has no eArchive site code. Set it in Settings. |
+| `archive.error.too_many_files` | The request has more than {n} documents and does not fit in one deposit. |
+| `archive.state.blocked` | Needs fixing before it can go to eArchive |
+| `settings.col.archive_site` | eArchive site code |
+| `settings.archive.col.number` | Protocol number |
+| `settings.archive.col.error` | Problem |
