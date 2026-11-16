@@ -33,7 +33,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from ehr.archive.transports import FILE_FIELDS
 
 TOKEN = "fake-ingest-token-0000"
-SITES = ("HQ", "NGH", "NAM", "LGH", "LAR", "PAF", "FAM", "KYP", "POL", "MHS", "PHC", "CNS")
+# Current codes, then the old ones eArchive still accepts as aliases.
+SITES = ("HQ", "NGH", "ARC", "LGH", "LAR", "PAP", "FAM", "TRD", "CHR", "MH", "HC", "CNS", "NAM", "PAF", "KYP", "POL", "MHS", "PHC")
 REQUIRED = ("schema_version", "outbox_id", "sent_at", "source_system", "source_module", "source_ref", "doc_type",
             "subject", "direction", "sender_name", "letter_date", "category", "classification", "personal_data",
             "folder_hints", "files")

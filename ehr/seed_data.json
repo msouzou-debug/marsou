@@ -58,7 +58,7 @@
   {
    "directorate": "NIC",
    "code": "NIC-H2",
-   "archive_site_code": "PHC",
+   "archive_site_code": "HC",
    "name_el": "Κέντρο Υγείας Δείγμα Στροβόλου",
    "name_en": "Sample Health Centre Strovolos"
   },
@@ -79,14 +79,14 @@
   {
    "directorate": "LIM",
    "code": "PAF-H1",
-   "archive_site_code": "PAF",
+   "archive_site_code": "PAP",
    "name_el": "Νοσοκομείο Δείγμα Πάφου",
    "name_en": "Sample Hospital Paphos"
   },
   {
    "directorate": "LIM",
    "code": "LIM-C1",
-   "archive_site_code": "PHC",
+   "archive_site_code": "HC",
    "name_el": "Κέντρο Υγείας Δείγμα Λεμεσού",
    "name_en": "Sample Health Centre Limassol"
   },
@@ -107,28 +107,28 @@
   {
    "directorate": "PHC",
    "code": "PHC-C1",
-   "archive_site_code": "PHC",
+   "archive_site_code": "HC",
    "name_el": "Κέντρο Υγείας Δείγμα Α",
    "name_en": "Sample Health Centre A"
   },
   {
    "directorate": "PHC",
    "code": "PHC-C2",
-   "archive_site_code": "PHC",
+   "archive_site_code": "HC",
    "name_el": "Κέντρο Υγείας Δείγμα Β",
    "name_en": "Sample Health Centre B"
   },
   {
    "directorate": "MH",
    "code": "MH-H1",
-   "archive_site_code": "MHS",
+   "archive_site_code": "MH",
    "name_el": "Κλινική Ψυχικής Υγείας Δείγμα",
    "name_en": "Sample Mental Health Clinic"
   },
   {
    "directorate": "MH",
    "code": "MH-C1",
-   "archive_site_code": "MHS",
+   "archive_site_code": "MH",
    "name_el": "Κέντρο Ψυχικής Υγείας Δείγμα",
    "name_en": "Sample Mental Health Centre"
   },

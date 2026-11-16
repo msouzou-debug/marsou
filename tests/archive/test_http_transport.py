@@ -387,7 +387,7 @@ def test_the_demo_facilities_carry_plausible_codes(seeded):
     from ehr.models import ARCHIVE_SITE_CODES
     codes = {f.code: f.archive_site_code for f in Facility.query.all()}
     assert all(c in ARCHIVE_SITE_CODES for c in codes.values()), codes
-    assert codes["NIC-H1"] == "NGH" and codes["PAF-H1"] == "PAF" and codes["MH-H1"] == "MHS"
+    assert codes["NIC-H1"] == "NGH" and codes["PAF-H1"] == "PAP" and codes["MH-H1"] == "MH"
 
 
 # ------------------------------------------------------------------ limits

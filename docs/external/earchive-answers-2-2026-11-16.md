@@ -79,3 +79,10 @@ then turns the links on for every request, including the old ones.
   the link is made automatically**, with the relation the decided one declared (`SUPERSEDES`). Nothing has to be resent.
 - In the test I'll check each answer and whether the 25 attachments of `many-attachments-zip` come out as 25 separate files
   on the record.
+
+## Correction: site codes are eFinance's
+
+The ΑΔ table in my first note used old codes. Every ΟΚΥπΥ tool uses eFinance's codes, so send these:
+`HQ`, `NGH`, `ARC`, `LGH`, `LAR`, `PAP`, `FAM`, `TRD`, `CHR`, `MH`, `HC`, `CNS`.
+The old `NAM`, `PAF`, `KYP`, `POL`, `MHS`, `PHC` still file in the same folders, but don't use them.
+The updated brief carries the full table.

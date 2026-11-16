@@ -51,16 +51,18 @@ The registry comes from the token, so eHR cannot file anywhere else. Site codes 
 |---|---|---|
 | `HQ` | Κεντρική Διοίκηση | Φ. ΑΔ.01 |
 | `NGH` | Γενικό Νοσοκομείο Λευκωσίας | Φ. ΑΔ.02 |
-| `NAM` | Νοσοκομείο Αρχιεπισκόπου Μακαρίου Γ΄ | Φ. ΑΔ.03 |
+| `ARC` | Νοσοκομείο Αρχιεπίσκοπος Μακάριος ΙΙΙ | Φ. ΑΔ.03 |
 | `LGH` | Γενικό Νοσοκομείο Λεμεσού | Φ. ΑΔ.04 |
 | `LAR` | Γενικό Νοσοκομείο Λάρνακας | Φ. ΑΔ.05 |
-| `PAF` | Γενικό Νοσοκομείο Πάφου | Φ. ΑΔ.06 |
+| `PAP` | Γενικό Νοσοκομείο Πάφου | Φ. ΑΔ.06 |
 | `FAM` | Γενικό Νοσοκομείο Αμμοχώστου | Φ. ΑΔ.07 |
-| `KYP` | Νοσοκομείο Κυπερούντας | Φ. ΑΔ.08 |
-| `POL` | Νοσοκομείο Πόλης Χρυσοχούς | Φ. ΑΔ.09 |
-| `MHS` | Υπηρεσίες Ψυχικής Υγείας | Φ. ΑΔ.10 |
-| `PHC` | Πρωτοβάθμια Φροντίδα Υγείας | Φ. ΑΔ.11 |
+| `TRD` | Νοσοκομείο Τροόδους | Φ. ΑΔ.08 |
+| `CHR` | Νοσοκομείο Πόλης Χρυσοχούς | Φ. ΑΔ.09 |
+| `MH` | Υπηρεσίες Ψυχικής Υγείας | Φ. ΑΔ.10 |
+| `HC` | Κέντρα Υγείας | Φ. ΑΔ.11 |
 | `CNS` | Κοινοτική Νοσηλευτική | Φ. ΑΔ.12 |
+
+These are eFinance's codes, the same in every ΟΚΥπΥ tool. The old codes `NAM`, `PAF`, `KYP`, `POL`, `MHS` and `PHC` still file in the same folders, as aliases, but send the codes above.
 
 An unknown code gets `400 UNKNOWN_REGISTRY`.
 
@@ -107,7 +109,9 @@ A key with capitals or spaces gets `400 SCHEMA_INVALID`. Send the number of post
 - **Accepted:** PDF, Word (.doc/.docx), Excel (.xls/.xlsx), PowerPoint, PNG, JPEG, TIFF, GIF, WebP, HTML, plain text,
   CSV, XML, .eml and .msg. A `.zip` is opened and the files inside are stored; each of those must be an accepted type.
   Anything else gets `415 MIME_REJECTED`, which names the file.
+- Each `files[]` entry is exactly `{ kind, part_name, filename, mime, size, sha256 }`, all required; `kind` is `MAIN` or `ATTACHMENT`.
 - Each file's `size` (bytes) and `sha256` (lowercase hex) must match the bytes, or the deposit gets `400 SHA256_MISMATCH`.
+- More than 19 attachments: send them as one `.zip` attachment, which eArchive opens.
 - Send UTF-8 filenames in `meta.files[].filename`. That is the name staff see.
 
 ## 5. Two deposits per request (decided)
@@ -167,7 +171,8 @@ eHR gives an address (setting `EHR_EVENTS_URL` on our side).
 | `413`, `415 MIME_REJECTED`, `400 ARCHIVE_*` | too big / type not allowed / bad zip | show the reason; do not retry unchanged |
 
 eArchive files one deposit at a time, so a burst waits rather than failing; use a 60-second timeout.
-Error bodies carry a machine `code` and a human `message`.
+Error bodies are `{ "error": { "code", "message", "details"? } }`. On `409 DUPLICATE_SOURCE_REF`, `error.details` holds `{ protocol_id, protocol_number }`.
+A retry must resend identical `meta` (including `sent_at`): any changed value is `409 IDEMPOTENCY_MISMATCH`.
 The `url` works for staff once the eArchive web app is published with sign-in (IT pending). Until then, show the number.
 
 ## 9. What we need from eHR

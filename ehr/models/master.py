@@ -25,7 +25,8 @@ class Directorate(db.Model):
 
 
 # The site codes eArchive files by (docs/external/earchive-ingest-2026-11-16.md, section 2). The only list in the code.
-ARCHIVE_SITE_CODES = ("HQ", "NGH", "NAM", "LGH", "LAR", "PAF", "FAM", "KYP", "POL", "MHS", "PHC", "CNS")
+# eFinance's site codes, the same in every tool (eArchive's correction of 16/11/2026).
+ARCHIVE_SITE_CODES = ("HQ", "NGH", "ARC", "LGH", "LAR", "PAP", "FAM", "TRD", "CHR", "MH", "HC", "CNS")
 
 
 class Facility(db.Model):
