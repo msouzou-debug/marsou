@@ -22,10 +22,15 @@ English and Greek text: always use these skills
 
 ## Projects in this repo
 
-- `fgh-dashboard/FGH-Outpatient-Dashboard.html`: outpatient clinics dashboard for Famagusta General Hospital.
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.0.html`: Famagusta General Hospital.
   Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
-- `larnaca-dashboard/SHSO-Outpatient-Clinic-Analysis.html`: the Larnaca dashboard. Loads the Plan B workbook
-  (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v2.0.html`: Larnaca General Hospital. Loads the Plan B
+  workbook (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
+- Naming: `SHSO-Outpatient-Dashboard-<hospital code>-v<major>.<minor>.html`. Exports follow
+  `SHSO-Outpatient-<code>-v<version>-<what>-<date>`.
+- Versioning: each file has a `TOOL` constant (code, hospital, version, date) and a version history comment
+  at the top of its script. Minor (+0.1) for fixes and small changes, major (+1.0) for new tabs, new data
+  sources or changed calculation rules. On every change: bump `TOOL`, add a history line, rename the file.
 - Both are single HTML files with the libraries embedded (SheetJS 0.20.3; html2canvas in the Famagusta file)
   and a Content-Security-Policy that blocks all network connections.
   They run offline. No patient data is stored in the repo.

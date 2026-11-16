@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ανάλυση Εξωτερικών Ιατρείων — ΟΚΥπΥ</title>
+<title>ΟΚΥπΥ · Εξωτερικά Ιατρεία · Γ.Ν. Λάρνακας · v2.0</title>
 <style>
 :root{
   --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
@@ -123,7 +123,7 @@ footer{padding:16px 22px 34px;font-size:11.5px;color:var(--ink-3);text-align:cen
 </style>
 </head>
 <body>
-<div id="buildTag" style="position:fixed;right:10px;bottom:5px;font-size:10px;color:#8A94A0;z-index:5;pointer-events:none">Έκδοση 2026-11-13 · SheetJS 0.20.3 · λειτουργεί χωρίς σύνδεση</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:5px;font-size:10px;color:#8A94A0;z-index:5;pointer-events:none">Γ.Ν. Λάρνακας · Έκδοση 2.0 · 16/11/2026 · SheetJS 0.20.3 · λειτουργεί χωρίς σύνδεση</div>
 <style>@media print{#buildTag{display:none}}</style>
 
 
@@ -255,6 +255,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
    Single-file, offline. No network calls anywhere in this file.
    ===================================================================== */
 "use strict";
+/* Ιστορικό εκδόσεων — Γ.Ν. Λάρνακας
+   1.0  Αρχική έκδοση (Plan B).
+   2.0  Διόρθωση ημερομηνιών (διαβάζονταν μία ημέρα νωρίτερα σε ώρα Κύπρου), ταύτιση ονομάτων με λατινικούς
+        χαρακτήρες, SheetJS 0.20.3, απαγόρευση κάθε σύνδεσης στο διαδίκτυο και στην αναφορά HTML. */
+const TOOL={code:"LGH", hospital:"Γ.Ν. Λάρνακας", version:"2.0", date:"16/11/2026"};
+
 
 const CFG = {
   minOcc: 3,          // ελάχιστες εμφανίσεις ίδιας ημέρας εβδομάδας
@@ -1876,7 +1882,7 @@ async function exportExcel(){
 
   const buf = await wbk.xlsx.writeBuffer();
   dl(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),
-     `SHSO_Outpatient_Analysis_${iso(new Date())}.xlsx`);
+     `SHSO-Outpatient-${TOOL.code}-v${TOOL.version}-Analysis-${iso(new Date())}.xlsx`);
 }
 
 function colName(k){ return cLetter(k-1); }   // k is 1-based
@@ -2073,14 +2079,14 @@ function exportHtml(){
   const json = JSON.stringify(reportPayload()).replace(/</g,"\\u003c");
   const html = REPORT_HTML.replace("__DATA__", ()=>json);
   dl(new Blob([html],{type:"text/html;charset=utf-8"}),
-     `SHSO_Outpatient_Report_${iso(new Date())}.html`);
+     `SHSO-Outpatient-${TOOL.code}-v${TOOL.version}-Report-${iso(new Date())}.html`);
 }
 
 const REPORT_HTML = `<!DOCTYPE html>
 <html lang="el"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ΟΚΥπΥ · Απόδοση Εξωτερικών Ιατρείων</title>
+<title>ΟΚΥπΥ · Απόδοση Εξωτερικών Ιατρείων · Γ.Ν. Λάρνακας · v2.0</title>
 <style>
 :root{
  --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
