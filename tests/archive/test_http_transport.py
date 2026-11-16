@@ -53,7 +53,7 @@ def test_submitted_then_decided_with_the_supersedes_link(http, client):
     assert counts["stored"] == 1 and len(http.requests) == 1
     first = row_of(rid, "submitted")
     assert first.state == "stored" and first.protocol_number == "ΑΔ/2026/00001" and first.protocol_id == "p-0001"
-    assert first.url.startswith("http://127.0.0.1:5011/records/") and first.archive_ref == first.protocol_number
+    assert first.url.startswith("http://127.0.0.1:5011/protocols/") and first.archive_ref == first.protocol_number
     sent = http.requests[0]
     assert sent["meta"]["source_ref"] == "position_request:ΑΕΘ-2026-0001:submitted"
     assert "event_date" not in sent["meta"] and "related" not in sent["meta"] and "amount" not in sent["meta"]
@@ -92,7 +92,10 @@ def test_the_meta_has_exactly_the_fields_of_the_note_and_no_personal_names(http,
     assert all(set(a) <= {"actor_name", "role", "action", "at", "comment"} for a in approvals)
     assert any("Αντικαταστάθηκε από μεταγενέστερη απάντηση" in a["action"] for a in approvals)
     assert [f["part_name"] for f in meta["files"]] == ["main", "att1", "att2"]
-    assert [f[transports.FILE_ROLE_FIELD] for f in meta["files"]] == ["MAIN", "ATTACHMENT", "ATTACHMENT"]
+    assert [f["kind"] for f in meta["files"]] == ["MAIN", "ATTACHMENT", "ATTACHMENT"]
+    assert all(set(f) == {"kind", "part_name", "filename", "mime", "size", "sha256"} for f in meta["files"])
+    assert all(f["mime"] == "application/pdf" for f in meta["files"])
+    assert meta["files"][0]["filename"] == "ΑΕΘ-2026-0001 — απόφαση.pdf"  # the title staff see, in Greek
     assert meta["files"][1]["filename"] == "job-description.pdf"
     assert set(http.requests[1]["files"]) == {"main", "att1", "att2"}
 
@@ -235,7 +238,7 @@ def test_a_server_error_waits_and_retries(http, client, answer):
 
 
 BLOCKING = [(409, "IDEMPOTENCY_MISMATCH", "Different content."), (400, "SCHEMA_INVALID", "Field x is wrong."),
-            (400, "SHA256_MISMATCH", "File does not match."), (400, "UNKNOWN_REGISTRY", "Unknown site."),
+            (400, "SHA256_MISMATCH", "File does not match."),
             (401, "UNAUTHORIZED", "Wrong token."), (403, "LOOPBACK_ONLY", "Not from here."),
             (403, "SERVICE_ONLY", "Service account only."), (403, "SOURCE_MISMATCH", "Wrong source."),
             (413, "TOO_LARGE", "Too big."), (415, "MIME_REJECTED", "File type not allowed."),
@@ -265,7 +268,19 @@ def test_a_refusal_blocks_the_deposit_and_an_admin_can_retry_it(http, client, an
     assert row_of(rid, "submitted").state == "stored" and len(http.requests) == calls + 1
 
 
-def test_a_duplicate_source_ref_is_not_retried_and_keeps_the_existing_number(http, client):
+def test_a_duplicate_source_ref_takes_the_number_from_error_details(http, client):
+    http.script.append((409, "DUPLICATE_SOURCE_REF", "Already filed.",
+                        {"protocol_id": "p-0042", "protocol_number": "ΑΔ/2026/00007"}))
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "stored" and row.protocol_number == "ΑΔ/2026/00007" and row.protocol_id == "p-0042"
+    assert AuditLog.query.filter_by(event="archive_duplicate", request_id=rid).count() == 1
+    queue.flush()
+    assert len(http.requests) == 1
+
+
+def test_a_duplicate_source_ref_without_details_falls_back_to_the_message(http, client):
     http.script.append((409, "DUPLICATE_SOURCE_REF", "source_ref is already filed as ΑΔ/2026/00007."))
     rid = create(client).id
     queue.flush()
@@ -377,20 +392,23 @@ def test_the_demo_facilities_carry_plausible_codes(seeded):
 
 # ------------------------------------------------------------------ limits
 
-def test_more_than_nineteen_attachments_is_blocked_with_a_readable_reason(http, client):
-    rid = create_with_leaver(client).id
-    add_documents(rid, 20)
-    as_user(client, "nic.requester")
+def submit_with(client, rid):
     from ehr.services import request_flow
     from ehr.models import Request
     assert request_flow.submit(db.session.get(Request, rid), reload(rid).created_by, datetime.now(timezone.utc)).ok
+
+
+def test_more_than_two_hundred_attachments_is_blocked_with_a_readable_reason(http, client):
+    rid = create_with_leaver(client).id
+    add_documents(rid, 201)
+    submit_with(client, rid)
     queue.flush()
     row = row_of(rid, "submitted")
-    assert row.state == "blocked" and row.error_code == "TOO_MANY_FILES" and "19" in row.last_error
+    assert row.state == "blocked" and row.error_code == "TOO_MANY_FILES" and "200" in row.last_error
     assert http.requests == []
     as_user(client, "demo.admin")
     html = text(client.get("/settings/archive?lang=en"))
-    assert "Needs fixing" in html and "περισσότερα από 19 έγγραφα" in html
+    assert "Needs fixing" in html and "περισσότερα από 200 έγγραφα" in html
 
 
 def test_nineteen_attachments_are_sent(http, client):
@@ -404,6 +422,7 @@ def test_nineteen_attachments_are_sent(http, client):
 
 
 def test_a_file_over_the_limit_or_of_a_type_eArchive_refuses_is_blocked_before_sending(http, client, monkeypatch):
+    # the reasons are Greek, from the string files
     rid = create_with_leaver(client).id
     add_documents(rid, 1)
     from ehr.services import request_flow
@@ -413,18 +432,21 @@ def test_a_file_over_the_limit_or_of_a_type_eArchive_refuses_is_blocked_before_s
     queue.flush()
     row = row_of(rid, "submitted")
     assert row.state == "blocked" and row.error_code == "FILE_TOO_BIG" and http.requests == []
+    assert row.last_error.startswith("Το αρχείο «") and "είναι μεγαλύτερο από" in row.last_error
     monkeypatch.setattr(meta_mod, "MAX_FILE_BYTES", 50 * 1024 * 1024)
     monkeypatch.setattr(meta_mod, "ACCEPTED_EXTENSIONS", {"txt"})
     row.state = "queued"
     db.session.commit()
     queue.flush()
-    assert row_of(rid, "submitted").error_code == "FILE_TYPE"
+    row = row_of(rid, "submitted")
+    assert row.error_code == "FILE_TYPE" and "δεν δέχεται" in row.last_error and ".pdf»" in row.last_error
     monkeypatch.setattr(meta_mod, "ACCEPTED_EXTENSIONS", {"pdf"})
     monkeypatch.setattr(meta_mod, "MAX_DEPOSIT_BYTES", 10)
     row_of(rid, "submitted").state = "queued"
     db.session.commit()
     queue.flush()
-    assert row_of(rid, "submitted").error_code == "DEPOSIT_TOO_BIG"
+    row = row_of(rid, "submitted")
+    assert row.error_code == "DEPOSIT_TOO_BIG" and "MB" in row.last_error
 
 
 # ------------------------------------------------------------------ the token
@@ -530,3 +552,289 @@ def test_the_multipart_names_are_safe_and_utf8_file_names_arrive_intact(http, cl
     assert row_of(rid, "submitted").state == "stored"
     with pytest.raises(ArchiveError):
         transports.MultipartBody("b", b"{}", [("Bad Name", "x.pdf", "application/pdf", __file__)])
+
+
+# ------------------------------------------------------------------ eArchive's answers of 16/11/2026
+
+def test_a_file_entry_with_a_role_or_any_other_field_is_refused_by_the_fake(http):
+    from tests.archive.fake_earchive import Refusal
+    good = {"kind": "MAIN", "part_name": "main", "filename": "a.pdf", "mime": "application/pdf", "size": 1,
+            "sha256": "0" * 64}
+    meta = {"files": [dict(good, role="MAIN")]}
+    with pytest.raises(Refusal) as err:
+        http._schema(dict(_minimal_meta(), files=[dict(good, role="MAIN")]))
+    assert err.value.status == 400 and err.value.code == "SCHEMA_INVALID"
+    with pytest.raises(Refusal):
+        http._schema(dict(_minimal_meta(), files=[{k: v for k, v in good.items() if k != "mime"}]))
+    http._schema(dict(_minimal_meta(), files=[good]))
+    del meta
+
+
+def _minimal_meta():
+    return {"schema_version": 1, "outbox_id": 1, "sent_at": "2026-11-16T10:00:00+02:00", "source_system": "eHR",
+            "source_module": "position_request", "source_ref": "position_request:X:submitted", "doc_type": "t",
+            "subject": "subject", "direction": "INTERNAL", "sender_name": "s", "letter_date": "2026-11-16",
+            "category": "c", "classification": "HIGHLY_SENSITIVE", "personal_data": True,
+            "personal_data_category": "p", "folder_hints": [{"hospital": "NGH"}], "files": []}
+
+
+def test_error_bodies_are_read_from_the_error_object_only():
+    parts = transports._error_parts(json.dumps({"error": {"code": "X_Y", "message": "m", "details": {"a": 1}}}).encode(), 400)
+    assert parts == ("X_Y", "m", {"a": 1})
+    assert transports._error_parts(json.dumps({"code": "TOP", "message": "m"}).encode(), 400)[0] == "HTTP_400"
+    assert transports._error_parts(b"not json", 502) == ("HTTP_502", "", None)
+
+
+def test_schema_invalid_shows_the_reasons_short_and_never_the_token(http, client):
+    http.script.append((400, "SCHEMA_INVALID", "The meta part is not valid.",
+                        {"reasons": ["subject is too short", "token %s" % TOKEN, "x" * 900]}))
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "blocked" and row.error_code == "SCHEMA_INVALID"
+    assert "subject is too short" in row.last_error and TOKEN not in row.last_error and len(row.last_error) <= 500
+    assert "…" in transports.reasons_text(["y" * 900]) and transports.reasons_text(None) == ""
+
+
+@pytest.mark.parametrize("status,code", [(408, "REQUEST_TIMEOUT"), (429, "TOO_MANY_REQUESTS")])
+def test_408_and_429_wait_and_retry_with_the_same_key(http, client, status, code):
+    http.script.append((status, code, "Slow down."))
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "queued" and row.attempts == 1 and row.next_attempt_at is not None
+    make_due()
+    queue.flush()
+    assert row_of(rid, "submitted").state == "stored"
+    assert http.requests[0]["headers"]["idempotency-key"] == http.requests[1]["headers"]["idempotency-key"]
+
+
+def _sent_parts(app, row):
+    from ehr.archive import bundle
+    manifest, files = queue.files_of(row)
+    manifest, files = bundle.pack(row, manifest, files)
+    return json.loads(row.meta_json), files
+
+
+def test_a_retry_with_a_changed_sent_at_is_a_mismatch_but_ehrs_own_retry_is_not(http, client, app):
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    meta, files = _sent_parts(app, row)
+    transport = HttpTransport()
+    same = transport.deposit_meta(row.id, meta, files)  # the stored bytes again: replayed
+    assert same.protocol_number == "ΑΔ/2026/00001" and http.requests[-1]["status"] == 200
+    changed = dict(meta, sent_at="2030-01-01T00:00:00+02:00")
+    with pytest.raises(transports.BlockedError) as err:
+        transport.deposit_meta(row.id, changed, files)
+    assert err.value.code == "IDEMPOTENCY_MISMATCH" and http.requests[-1]["status"] == 409
+    row.state = "queued"  # eHR's retry builds nothing new and sends the stored meta
+    db.session.commit()
+    assert queue.flush()["stored"] == 1
+    assert [r["status"] for r in http.requests] == [201, 200, 409, 200] and row_of(rid, "submitted").meta_json == row.meta_json
+
+
+def _rebuild_after_filing(http, client, monkeypatch):
+    """The first send was filed. An administrator then retries: meta is rebuilt, so sent_at differs."""
+    from ehr import localtime
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    row.state = "failed"
+    db.session.commit()
+    real = localtime.now
+    monkeypatch.setattr(localtime, "now", lambda: real() + timedelta(hours=2))
+    as_user(client, "demo.admin")
+    assert client.post("/settings/archive/%d/retry" % row.id).status_code == 302
+    return rid
+
+
+def test_an_admin_retry_after_the_deposit_was_filed_stays_blocked_with_the_reason_when_no_number_comes(http, client, monkeypatch):
+    rid = _rebuild_after_filing(http, client, monkeypatch)
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert http.requests[-1]["status"] == 409
+    assert row.state == "blocked" and row.error_code == "IDEMPOTENCY_MISMATCH" and row.last_error.startswith("IDEMPOTENCY_MISMATCH")
+
+
+def test_an_admin_retry_resolves_to_the_stored_record_when_the_answer_names_it(http, client, monkeypatch):
+    rid = _rebuild_after_filing(http, client, monkeypatch)
+    http.script.append((409, "IDEMPOTENCY_MISMATCH", "Other content.",
+                        {"protocol_id": "p-0001", "protocol_number": "ΑΔ/2026/00001"}))
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "stored" and row.protocol_number == "ΑΔ/2026/00001"
+    assert AuditLog.query.filter_by(event="archive_duplicate", request_id=rid).count() == 1
+
+
+def test_an_admin_retry_with_a_duplicate_source_ref_resolves_to_the_stored_record(http, client, monkeypatch):
+    rid = _rebuild_after_filing(http, client, monkeypatch)
+    http.keys.clear()  # eArchive no longer holds the key, but the source_ref is filed
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert http.requests[-1]["status"] == 409
+    assert row.state == "stored" and row.protocol_number == "ΑΔ/2026/00001" and row.protocol_id == "p-0001"
+
+
+# ------------------------------------------------------------------ names staff see
+
+def test_the_main_file_has_a_greek_title_and_names_are_unique_and_clean(http, client):
+    rid = create_with_leaver(client).id
+    add_documents(rid, 2, name="same.pdf")
+    submit_with(client, rid)
+    queue.flush()
+    names = [f["filename"] for f in http.requests[0]["meta"]["files"]]
+    assert names == ["ΑΕΘ-2026-0001 — υποβολή.pdf", "same.pdf", "same (2).pdf"]
+    assert meta_mod.unique_names(["a.pdf", "A.pdf", "a (2).pdf", "b"]) == ["a.pdf", "A (2).pdf", "a (2) (2).pdf", "b"]
+    assert meta_mod.unique_names(["b", "b"]) == ["b", "b (2)"]
+    assert meta_mod.clean_filename("../../etc/pa\x00ss\u202ewd.pdf") == "passwd.pdf"
+    assert meta_mod.clean_filename("C:\\dir\\sub\\file\n.pdf") == "file.pdf"
+    assert meta_mod.clean_filename("///") == "file"
+
+
+# ------------------------------------------------------------------ more than 19 attachments: one zip
+
+def test_twenty_attachments_go_as_one_zip_and_nineteen_go_singly(http, client):
+    rid = create_with_leaver(client).id
+    add_documents(rid, 20)
+    submit_with(client, rid)
+    assert queue.flush()["stored"] == 1
+    sent = http.requests[0]
+    files = sent["meta"]["files"]
+    assert [(f["kind"], f["part_name"], f["filename"], f["mime"]) for f in files] == [
+        ("MAIN", "main", "ΑΕΘ-2026-0001 — υποβολή.pdf", "application/pdf"),
+        ("ATTACHMENT", "att1", "Συνημμένα.zip", "application/zip")]
+    assert set(sent["files"]) == {"main", "att1"}
+    assert http.zips == [["supporting-%02d.pdf" % i for i in range(1, 21)]]
+    assert row_of(rid, "submitted").state == "stored"
+
+
+def test_the_zip_is_byte_identical_on_every_rebuild_and_kept_in_storage(http, client, tmp_path):
+    import os
+    from ehr.archive import bundle
+    rid = create_with_leaver(client).id
+    add_documents(rid, 22)
+    submit_with(client, rid)
+    row = row_of(rid, "submitted")
+    queue.render_deposit(row.id)
+    row = row_of(rid, "submitted")
+    manifest, files = queue.files_of(row)
+    m1, f1 = bundle.pack(row, manifest, files)
+    import time
+    time.sleep(1.1)  # a clock in the zip would show now
+    m2, f2 = bundle.pack(row, manifest, files)
+    assert f1[-1].sha256 == f2[-1].sha256 and f1[-1].size == f2[-1].size and f1[-1].path == f2[-1].path
+    assert open(f1[-1].path, "rb").read() == open(f2[-1].path, "rb").read()
+    assert f1[-1].sha256 == hashlib.sha256(open(f1[-1].path, "rb").read()).hexdigest()
+    assert "/archive/%d/" % rid in f1[-1].path and os.path.basename(f1[-1].path).startswith("submitted-attachments-")
+    assert [e["role"] for e in m1["files"]] == ["request_pdf", "bundle"]
+    assert [e["role"] for e in manifest["files"]].count("document") == 22  # the manifest itself is not changed
+    import zipfile
+    with zipfile.ZipFile(f1[-1].path) as zf:
+        assert {i.date_time for i in zf.infolist()} == {(1980, 1, 1, 0, 0, 0)} and len(zf.infolist()) == 22
+
+
+def test_a_retry_of_a_zip_deposit_sends_identical_content(http, client):
+    rid = create_with_leaver(client).id
+    add_documents(rid, 21)
+    submit_with(client, rid)
+    queue.flush()
+    row = row_of(rid, "submitted")
+    row.state = "queued"
+    db.session.commit()
+    assert queue.flush()["stored"] == 1
+    assert [r["status"] for r in http.requests] == [201, 200] and len(http.filed) == 1
+    assert http.requests[0]["files"]["att1"] == http.requests[1]["files"]["att1"]
+
+
+def test_a_zip_with_a_file_type_or_size_eArchive_refuses_is_blocked_with_the_file_named(http, client, monkeypatch):
+    rid = create_with_leaver(client).id
+    add_documents(rid, 20)
+    from ehr.models import RequestDocument
+    RequestDocument.query.filter_by(request_id=rid).first().file_name = "macro.exe"
+    db.session.commit()
+    submit_with(client, rid)
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "blocked" and row.error_code == "FILE_TYPE" and "macro.exe" in row.last_error
+    assert http.requests == []
+
+
+def test_a_zip_with_a_file_over_the_limit_is_blocked_before_sending(http, client, monkeypatch):
+    rid = create_with_leaver(client).id
+    add_documents(rid, 20)
+    monkeypatch.setattr(meta_mod, "MAX_FILE_BYTES", 10)
+    submit_with(client, rid)
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "blocked" and row.error_code == "FILE_TOO_BIG" and http.requests == []
+
+
+def test_the_fake_opens_a_zip_and_names_the_file_it_refuses(http):
+    import io
+    import zipfile
+    from tests.archive.fake_earchive import Refusal
+
+    def zipped(names, size=10):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for n in names:
+                zf.writestr(n, b"x" * size)
+        return buf.getvalue()
+    entry = {"filename": "Συνημμένα.zip"}
+    http._open_zip(entry, zipped(["a.pdf", "b.docx"]))
+    with pytest.raises(Refusal) as err:
+        http._open_zip(entry, zipped(["a.pdf", "virus.exe"]))
+    assert err.value.status == 415 and err.value.code == "MIME_REJECTED" and "virus.exe" in err.value.message
+    with pytest.raises(Refusal) as err:
+        http._open_zip(entry, zipped(["f%d.pdf" % i for i in range(201)]))
+    assert err.value.status == 413
+    with pytest.raises(Refusal) as err:
+        http._open_zip(entry, b"not a zip")
+    assert err.value.code == "ARCHIVE_BAD_ZIP"
+
+
+# ------------------------------------------------------------------ a site eArchive does not know yet
+
+def test_an_unknown_site_waits_and_is_tried_again_daily_never_under_another_code(http, client):
+    http.sites = tuple(c for c in http.sites if c != "NGH")
+    rid = create(client).id
+    queue.flush()
+    row = row_of(rid, "submitted")
+    assert row.state == "queued" and row.error_code == "SITE_UNKNOWN" and row.attempts == 0
+    assert "NGH" in row.last_error and "δεν γνωρίζει" in row.last_error
+    wait = row.next_attempt_at - datetime.now(timezone.utc).replace(tzinfo=None)
+    assert timedelta(hours=23) < wait <= timedelta(days=1)
+    assert queue.flush() == {"rendered": 0, "stored": 0, "failed": 0, "waiting": 0} and len(http.requests) == 1
+    assert http.requests[0]["meta"]["folder_hints"] == [{"hospital": "NGH"}]
+    http.sites += ("NGH",)
+    make_due()
+    assert queue.flush()["stored"] == 1
+    row = row_of(rid, "submitted")
+    assert row.state == "stored" and row.last_error is None and row.error_code is None
+    assert [r["meta"]["folder_hints"] for r in http.requests] == [[{"hospital": "NGH"}]] * 2
+    assert AuditLog.query.filter_by(event="archive_blocked", request_id=rid).count() == 0
+
+
+def test_without_a_token_the_reason_is_greek(app):
+    with pytest.raises(transports.TransientError) as err:
+        HttpTransport(token="").deposit_meta(1, {"files": []}, [])
+    assert "διακριτικό" in str(err.value)
+
+
+# ------------------------------------------------------------------ flask archive-sites
+
+def test_archive_sites_lists_active_facilities_with_their_codes_and_counts_the_missing(seeded, app):
+    fac = Facility.query.filter_by(is_active=True).first()
+    fac.archive_site_code = None
+    other = Facility.query.filter(Facility.id != fac.id, Facility.is_active.is_(True)).first()
+    other.is_active = False
+    db.session.commit()
+    out = app.test_cli_runner().invoke(args=["archive-sites"])
+    assert out.exit_code == 0, out.output
+    lines = out.output.splitlines()
+    assert lines[0].split()[:2] == ["Facility", "code"] and fac.code in out.output and "none" in out.output
+    assert other.code not in out.output.replace(fac.code, "")
+    active = Facility.query.filter_by(is_active=True).count()
+    assert lines[-1] == "Facilities without a code: 1 of %d" % active
+    assert not [w for w in ("Maria", "ΑΕΘ-") if w in out.output]

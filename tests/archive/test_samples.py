@@ -1,4 +1,4 @@
-"""`flask archive-samples`: three sample deposits from the invented demo cases, for eArchive's own test."""
+"""`flask archive-samples`: four sample deposits from the invented demo cases, for eArchive's own test."""
 import hashlib
 import json
 import os
@@ -14,13 +14,13 @@ def seed(app):
     seed_cases(datetime.now(timezone.utc))
 
 
-def test_three_folders_with_meta_files_and_a_curl_example(seeded, conv, tmp_path, app):
+def test_four_folders_with_meta_files_and_a_curl_example(seeded, conv, tmp_path, app):
     app.config["EHR_ARCHIVE_TOKEN"] = TOKEN
     seed(app)
     out = tmp_path / "samples"
     result = app.test_cli_runner().invoke(args=["archive-samples", str(out)])
     assert result.exit_code == 0, result.output
-    assert sorted(p.name for p in out.iterdir()) == ["approved-with-attachments", "rejected", "submitted"]
+    assert sorted(p.name for p in out.iterdir()) == ["approved-with-attachments", "many-attachments-zip", "rejected", "submitted"]
     fake = FakeEArchive()
     for folder in out.iterdir():
         meta = json.loads((folder / "meta.json").read_text(encoding="utf-8"))
@@ -31,6 +31,7 @@ def test_three_folders_with_meta_files_and_a_curl_example(seeded, conv, tmp_path
             data = (folder / f["filename"]).read_bytes()
             assert len(data) == f["size"] and hashlib.sha256(data).hexdigest() == f["sha256"]
         curl = (folder / "curl-example.txt").read_text(encoding="utf-8")
+        assert "type=application/pdf" in curl or "type=application/zip" in curl
         assert "<EHR_INGEST_TOKEN>" in curl and "api/v1/ingest/documents" in curl and "meta=<meta.json" in curl
         assert "Idempotency-Key: ehr:%d" % meta["outbox_id"] in curl
         for part in meta["files"]:
@@ -38,14 +39,23 @@ def test_three_folders_with_meta_files_and_a_curl_example(seeded, conv, tmp_path
         blob = b"".join(p.read_bytes() for p in folder.iterdir())
         assert TOKEN.encode() not in blob
     approved = json.loads((out / "approved-with-attachments" / "meta.json").read_text(encoding="utf-8"))
-    assert [f["role"] for f in approved["files"]] == ["MAIN", "ATTACHMENT", "ATTACHMENT"]
+    assert [f["kind"] for f in approved["files"]] == ["MAIN", "ATTACHMENT", "ATTACHMENT"]
+    assert all(set(f) == {"kind", "part_name", "filename", "mime", "size", "sha256"} for f in approved["files"])
+    assert [f["mime"] for f in approved["files"]] == ["application/pdf"] * 3
+    assert approved["files"][0]["filename"].endswith(" — απόφαση.pdf")
+    many = json.loads((out / "many-attachments-zip" / "meta.json").read_text(encoding="utf-8"))
+    assert [(f["kind"], f["filename"], f["mime"]) for f in many["files"][1:]] == [
+        ("ATTACHMENT", "Συνημμένα.zip", "application/zip")]
+    import zipfile
+    with zipfile.ZipFile(out / "many-attachments-zip" / "Συνημμένα.zip") as zf:
+        assert len(zf.namelist()) == 25 and zf.namelist()[0] == "attachment-01.pdf"
     assert approved["doc_type"].endswith("εγκρίθηκε") and approved["related"][0]["relation"] == "SUPERSEDES"
     assert json.loads((out / "submitted" / "meta.json").read_text(encoding="utf-8"))["doc_type"].endswith("υποβλήθηκε")
     assert json.loads((out / "rejected" / "meta.json").read_text(encoding="utf-8"))["doc_type"].endswith("απορρίφθηκε")
     # Sending the samples to the fake works: they are real deposits.
-    for name in ("approved-with-attachments", "rejected", "submitted"):
+    for name in ("approved-with-attachments", "many-attachments-zip", "rejected", "submitted"):
         assert (out / name / "meta.json").stat().st_size > 500
-    assert result.output.count("source_ref") == 3
+    assert result.output.count("source_ref") == 4
 
 
 def test_it_refuses_in_production_and_without_demo_cases(seeded, conv, tmp_path, app, client):

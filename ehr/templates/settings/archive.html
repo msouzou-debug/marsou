@@ -17,7 +17,7 @@
         <div><span class="text-secondary small">{{ t('settings.archive.col.kind') }}:</span> {{ t('archive.kind.' ~ d.kind) }}</div>
         <div class="small text-secondary">{{ t('settings.archive.col.when') }}: <span class="ehr-num">{{ d.created_at | ehr_datetime }}</span></div>
         <div class="small text-secondary">{{ t('settings.archive.col.files') }}: {{ file_count(d) }}{% if d.attempts %} · {{ d.attempts }}{% endif %}</div>
-        {% if d.protocol_number %}<div class="small"><span class="text-secondary">{{ t('settings.archive.col.number') }}:</span> <span class="ehr-num">{{ d.protocol_number }}</span></div>
+        {% if d.protocol_number %}<div class="small"><span class="text-secondary">{{ t('settings.archive.col.number') }}:</span> {% if archive_link(d.url) %}<a class="ehr-num" href="{{ archive_link(d.url) }}" target="_blank" rel="noopener">{{ d.protocol_number }}</a>{% else %}<span class="ehr-num">{{ d.protocol_number }}</span>{% endif %}</div>
         {% elif d.archive_ref %}<div class="small">{{ t('archive.ref', ref=d.archive_ref) }}</div>{% endif %}
         {% if d.legal_hold %}<div class="small text-warning-emphasis" data-archive-hold>{{ t('archive.hold') }}</div>{% endif %}
         {% if d.disposed_at %}<div class="small text-secondary" data-archive-disposed>{{ t('archive.disposed', date=d.disposed_at | ehr_date) }}</div>{% endif %}

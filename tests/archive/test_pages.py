@@ -157,7 +157,7 @@ def test_the_page_lists_the_newest_deposit_first(seeded, client, stor, conv, app
     assert html.index("/requests/%d\"" % second) < html.index("/requests/%d\"" % first)
 
 
-def test_the_request_page_shows_the_protocol_number_as_text_and_the_link(http, client):
+def test_the_request_page_shows_the_protocol_number_as_text_and_no_link_until_it_is_switched_on(http, client, app):
     from tests.archive.ahelpers import approve_all
     rid = create(client).id
     approve_all(client, rid)
@@ -165,11 +165,30 @@ def test_the_request_page_shows_the_protocol_number_as_text_and_the_link(http, c
     as_user(client, "nic.requester")
     html = text(client.get("/requests/%d?lang=en" % rid))
     assert "eArchive protocol number: ΑΔ/2026/00001" in html and "eArchive protocol number: ΑΔ/2026/00002" in html
-    assert 'href="http://127.0.0.1:5011/records/p-0001"' in html
-    assert re.search(r'<a href="http://127.0.0.1:5011/records/p-0002" target="_blank" rel="noopener">', html)
+    assert "127.0.0.1:5011/protocols" not in html  # stored, not shown: the web app is not published yet
     assert html.index("Copy at submission") < html.index("Copy at the decision")
     el = text(client.get("/requests/%d?lang=el" % rid))
     assert "Αριθμός πρωτοκόλλου στο eArchive: ΑΔ/2026/00001" in el
     as_user(client, "demo.admin")
     page = text(client.get("/settings/archive?lang=en"))
-    assert "ΑΔ/2026/00001" in page and "Protocol number" in page
+    assert "ΑΔ/2026/00001" in page and "Protocol number" in page and "127.0.0.1:5011/protocols" not in page
+    assert ArchiveDeposit.query.filter_by(request_id=rid, kind="submitted").one().url.endswith("/protocols/p-0001")
+    runner = app.test_cli_runner()
+    assert runner.invoke(args=["archive-link"]).output.strip() == "archive_show_link=off"
+    assert runner.invoke(args=["archive-link", "on"]).output.strip() == "archive_show_link=on"
+    as_user(client, "nic.requester")
+    html = text(client.get("/requests/%d?lang=en" % rid))
+    assert 'href="http://127.0.0.1:5011/protocols/p-0001"' in html
+    assert re.search(r'<a href="http://127.0.0.1:5011/protocols/p-0002" target="_blank" rel="noopener">', html)
+    as_user(client, "demo.admin")
+    assert 'href="http://127.0.0.1:5011/protocols/p-0001"' in text(client.get("/settings/archive?lang=en"))
+    assert runner.invoke(args=["archive-link", "off"]).output.strip() == "archive_show_link=off"
+    assert "127.0.0.1:5011/protocols" not in text(client.get("/settings/archive?lang=en"))
+
+
+def test_only_an_http_address_is_ever_linked(seeded, app):
+    from ehr.models import Setting
+    db.session.add(Setting(key="archive_show_link", value="on"))
+    db.session.commit()
+    assert queue.link_for("http://127.0.0.1:5011/protocols/p-1") == "http://127.0.0.1:5011/protocols/p-1"
+    assert queue.link_for("javascript:alert(1)") is None and queue.link_for("") is None and queue.link_for(None) is None

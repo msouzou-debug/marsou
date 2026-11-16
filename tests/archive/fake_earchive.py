@@ -2,10 +2,18 @@
 
 It listens on 127.0.0.1 and behaves as the note says: bearer token, loopback and forwarding-header refusal, strict meta
 schema (unknown fields refused), required fields, attribute key rules, files against part names, size and sha256
-checks, the limits, idempotent replay, mismatch, duplicate source_ref, and error bodies with `code` and `message`.
-`script` holds answers to give before any real processing (to test 5xx, 401 and so on); each is consumed once.
-The note does not name the field that says MAIN or ATTACHMENT; the fake reads the one the transport sends.
+checks, the limits, idempotent replay, mismatch, duplicate source_ref. Matches eArchive's answers of 16/11/2026:
+each file entry is exactly kind, part_name, filename, mime, size, sha256 (anything else, `role` included, is
+SCHEMA_INVALID); errors are {"error": {code, message, details?}}; DUPLICATE_SOURCE_REF carries protocol_id and
+protocol_number in details; a retry is compared as canonical JSON of the whole meta (sent_at included) plus the file
+hashes; an ATTACHMENT of type application/zip is opened (200 files, 50 MB each, 200 MB in all, accepted types, unique
+names, 415 naming the file); a site code it does not have is 400 UNKNOWN_REGISTRY. A key is recorded only once a
+request has passed validation and is filed (an assumption of eHR's; the real route may differ).
+`script` holds answers to give before any real processing (to test 5xx, 401 and so on); each is consumed once:
+(status, code, message) or (status, code, message, details).
 """
+import io
+import zipfile
 import hashlib
 import json
 import re
@@ -16,7 +24,7 @@ from datetime import date, datetime
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from ehr.archive.transports import FILE_ROLE_FIELD
+from ehr.archive.transports import FILE_FIELDS
 
 TOKEN = "fake-ingest-token-0000"
 SITES = ("HQ", "NGH", "NAM", "LGH", "LAR", "PAF", "FAM", "KYP", "POL", "MHS", "PHC", "CNS")
@@ -25,7 +33,7 @@ REQUIRED = ("schema_version", "outbox_id", "sent_at", "source_system", "source_m
             "folder_hints", "files")
 OPTIONAL = ("personal_data_category", "sender_ref", "source_url", "event_date", "attributes", "amount", "currency",
             "related", "approvals", "counterparties", "registry_hint", "retention_class_hint")
-FILE_FIELDS = ("part_name", "filename", "size", "sha256", FILE_ROLE_FIELD)
+MAX_ZIP_MEMBERS = 200
 ACCEPTED = {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "tif", "tiff", "gif", "webp",
             "html", "htm", "txt", "csv", "xml", "eml", "msg", "zip"}
 FORWARD = ("X-Forwarded-For", "X-Real-IP", "Forwarded", "CF-Connecting-IP", "CF-Ray")
@@ -33,9 +41,9 @@ MAX_FILE, MAX_TOTAL = 50 * 1024 * 1024, 200 * 1024 * 1024
 
 
 class Refusal(Exception):
-    def __init__(self, status, code, message):
+    def __init__(self, status, code, message, details=None):
         super().__init__(code)
-        self.status, self.code, self.message = status, code, message
+        self.status, self.code, self.message, self.details = status, code, message, details
 
 
 def free_port():
@@ -49,13 +57,15 @@ def _sha(data):
 
 
 class FakeEArchive:
-    def __init__(self, token=TOKEN, size_limits=None):
+    def __init__(self, token=TOKEN, size_limits=None, sites=SITES):
         self.token = token
+        self.sites = tuple(sites)
         self.limits = size_limits or (MAX_FILE, MAX_TOTAL)
         self.requests = []  # every call that reached the route: headers, meta, files, status
         self.filed = {}  # source_ref -> receipt
         self.keys = {}  # idempotency key -> (fingerprint, receipt)
         self.script = []  # [(status, code, message)] or [("sleep", seconds)]
+        self.zips = []  # the member names of each zip that was opened
         self.port = None
         self._server = None
 
@@ -92,11 +102,14 @@ class FakeEArchive:
         record = {"path": h.path, "headers": {k.lower(): v for k, v in h.headers.items()}, "meta": None, "files": {},
                   "status": None, "peer": h.client_address[0]}
         self.requests.append(record)
-        status, payload, extra = 500, {"code": "INTERNAL", "message": "fake error"}, {}
+        status, payload, extra = 500, {"error": {"code": "INTERNAL", "message": "fake error"}}, {}
         try:
             status, payload, extra = self._process(h, body, record)
         except Refusal as r:
-            status, payload = r.status, {"code": r.code, "message": r.message}
+            error = {"code": r.code, "message": r.message}
+            if r.details is not None:
+                error["details"] = r.details
+            status, payload = r.status, {"error": error}
         record["status"] = status
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         h.send_response(status)
@@ -121,7 +134,7 @@ class FakeEArchive:
                 time.sleep(step[1])
             else:
                 raise Refusal(*step)
-        meta, files = self._parse(h, body)
+        meta, files = self._parse(h, body, record)
         record["meta"], record["files"] = meta, files
         key = h.headers.get("Idempotency-Key", "")
         if key != "ehr:%s" % meta["outbox_id"]:
@@ -129,26 +142,28 @@ class FakeEArchive:
         if meta["source_system"] != "eHR":
             raise Refusal(403, "SOURCE_MISMATCH", "This token files eHR items only.")
         self._check_files(meta, files)
-        fingerprint = _sha(json.dumps(meta, sort_keys=True).encode() + b"".join(
-            _sha(files[f["part_name"]]).encode() for f in meta["files"]))
+        # canonical JSON of the whole meta (key order and spaces do not matter, every value does) plus the file hashes
+        fingerprint = _sha(json.dumps(meta, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode() +
+                           b"".join(_sha(files[f["part_name"]]).encode() for f in meta["files"]))
         if key in self.keys:
             old, receipt = self.keys[key]
             if old != fingerprint:
                 raise Refusal(409, "IDEMPOTENCY_MISMATCH", "The same key was used with different content.")
             return 200, receipt, {"Idempotency-Replayed": "true"}
         if meta["source_ref"] in self.filed:
-            raise Refusal(409, "DUPLICATE_SOURCE_REF",
-                          "source_ref is already filed as %s." % self.filed[meta["source_ref"]]["protocol_number"])
+            old = self.filed[meta["source_ref"]]
+            raise Refusal(409, "DUPLICATE_SOURCE_REF", "source_ref is already filed as %s." % old["protocol_number"],
+                          {"protocol_id": old["protocol_id"], "protocol_number": old["protocol_number"]})
         n = len(self.filed) + 1
         receipt = {"protocol_id": "p-%04d" % n, "protocol_number": "ΑΔ/2026/%05d" % n,
-                   "url": "http://127.0.0.1:5011/records/p-%04d" % n, "registry": "ΑΔ",
+                   "url": "http://127.0.0.1:5011/protocols/p-%04d" % n, "registry": "ΑΔ",
                    "received_at": datetime.now().astimezone().isoformat(timespec="seconds")}
         self.filed[meta["source_ref"]] = receipt
         self.keys[key] = (fingerprint, receipt)
         return 201, receipt, {}
 
     # ------------------------------------------------------------------ parsing and checks
-    def _parse(self, h, body):
+    def _parse(self, h, body, record):
         ctype = h.headers.get("Content-Type", "")
         if not ctype.startswith("multipart/form-data"):
             raise Refusal(400, "SCHEMA_INVALID", "multipart/form-data is required.")
@@ -172,12 +187,13 @@ class FakeEArchive:
                 files[name] = data
         if not isinstance(meta, dict):
             raise Refusal(400, "SCHEMA_INVALID", "meta is missing.")
+        record["meta"] = meta  # kept even when the schema check refuses it
         self._schema(meta)
         return meta, files
 
     @staticmethod
     def _bad(message):
-        raise Refusal(400, "SCHEMA_INVALID", message)
+        raise Refusal(400, "SCHEMA_INVALID", "The meta part is not valid.", {"reasons": [message]})
 
     def _schema(self, m):
         bad = self._bad
@@ -217,7 +233,7 @@ class FakeEArchive:
         if not isinstance(hints, list) or not 1 <= len(hints) <= 5 or not all(isinstance(x, dict) for x in hints):
             bad("folder_hints must hold 1 to 5 objects.")
         for hint in hints:
-            if set(hint) - {"hospital"} or hint.get("hospital") not in SITES:
+            if set(hint) - {"hospital"} or hint.get("hospital") not in self.sites:
                 raise Refusal(400, "UNKNOWN_REGISTRY", "Unknown site code.")
         attrs = m.get("attributes", {})
         if not isinstance(attrs, dict) or len(attrs) > 20:
@@ -241,11 +257,18 @@ class FakeEArchive:
             bad("files must hold 1 to 20 entries.")
         for f in files:
             if set(f) != set(FILE_FIELDS):
-                bad("a file entry has fields %s." % sorted(f))
+                bad("a file entry has exactly the fields %s, not %s." % (sorted(FILE_FIELDS), sorted(f)))
+            if f["kind"] not in ("MAIN", "ATTACHMENT"):
+                bad("kind must be MAIN or ATTACHMENT.")
+            for key in ("part_name", "filename", "mime", "sha256"):
+                if not isinstance(f[key], str) or not f[key]:
+                    bad("file %s must be text." % key)
+            if isinstance(f["size"], bool) or not isinstance(f["size"], int):
+                bad("file size must be an integer.")
         if len({f["part_name"] for f in files}) != len(files):
             bad("part_name must be unique.")
-        roles = [f[FILE_ROLE_FIELD] for f in files]
-        if roles.count("MAIN") != 1 or roles.count("ATTACHMENT") != len(files) - 1:
+        kinds = [f["kind"] for f in files]
+        if kinds.count("MAIN") != 1 or kinds.count("ATTACHMENT") != len(files) - 1:
             bad("Exactly one MAIN file, the rest ATTACHMENT.")
 
     def _check_files(self, meta, files):
@@ -255,12 +278,39 @@ class FakeEArchive:
         for f in meta["files"]:
             data = files[f["part_name"]]
             ext = f["filename"].rsplit(".", 1)[-1].lower() if "." in f["filename"] else ""
-            if len(data) > self.limits[0]:
+            is_zip = f["mime"] == "application/zip" and f["kind"] == "ATTACHMENT"
+            if len(data) > self.limits[0] and not is_zip:  # a zip is judged by what is inside it
                 raise Refusal(413, "TOO_LARGE", "%s is too large." % f["filename"])
             if ext not in ACCEPTED:
                 raise Refusal(415, "MIME_REJECTED", "%s is not an accepted type." % f["filename"])
             if f["size"] != len(data) or f["sha256"] != _sha(data):
                 raise Refusal(400, "SHA256_MISMATCH", "%s does not match its size or sha256." % f["filename"])
             total += len(data)
+            if f["mime"] == "application/zip" and f["kind"] == "ATTACHMENT":
+                self._open_zip(f, data)
         if total > self.limits[1]:
             raise Refusal(413, "TOO_LARGE", "The deposit is too large.")
+
+    def _open_zip(self, f, data):
+        """eArchive opens a zip attachment and files each member: limits as the answers state them."""
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(data))
+            infos = [i for i in zf.infolist() if not i.is_dir()]
+        except zipfile.BadZipFile:
+            raise Refusal(400, "ARCHIVE_BAD_ZIP", "%s is not a readable zip." % f["filename"])
+        if len(infos) > MAX_ZIP_MEMBERS:
+            raise Refusal(413, "TOO_LARGE", "The zip holds more than %d files." % MAX_ZIP_MEMBERS)
+        names, total = set(), 0
+        for info in infos:
+            ext = info.filename.rsplit(".", 1)[-1].lower() if "." in info.filename else ""
+            if ext not in ACCEPTED:
+                raise Refusal(415, "MIME_REJECTED", "%s (inside the zip) is not an accepted type." % info.filename)
+            if info.file_size > self.limits[0]:
+                raise Refusal(413, "TOO_LARGE", "%s (inside the zip) is too large." % info.filename)
+            if info.filename.lower() in names:
+                raise Refusal(400, "ARCHIVE_BAD_ZIP", "The name %s is in the zip twice." % info.filename)
+            names.add(info.filename.lower())
+            total += info.file_size
+        if total > self.limits[1]:
+            raise Refusal(413, "TOO_LARGE", "The files in the zip are too large together.")
+        self.zips.append([i.filename for i in infos])

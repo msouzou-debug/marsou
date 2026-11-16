@@ -117,10 +117,11 @@ sudo grep -c '^EHR_ARCHIVE_TOKEN=.' /etc/ehr/ehr.env     # prints 1, not the tok
 4. Run `scripts/preflight.sh --skip-port`, then restart the eHR service (only eHR's own service).
 5. As the ehr user: `scripts/ehr-cli.sh archive-transport http`. Run it without a name to check.
 6. Make sure the cron line `send-archive` below is installed. Deposits that waited go out at the next run, oldest first, one at a time.
-7. Set the eArchive site code of every facility (Settings, facilities). Without it a deposit is `blocked` and goes out by itself once the code is set.
-8. Give eArchive the address for its notices: `http://127.0.0.1:5008/api/v1/archive-events` (the port is the one in `EHR_BIND`), as its `EHR_EVENTS_URL`. eArchive uses the same token for them.
+7. Set the eArchive site code of every facility (Settings, facilities). Without it a deposit is `blocked` (`NO_SITE`) and goes out by itself once the code is set. `scripts/ehr-cli.sh archive-sites` prints every active facility with its Directorate and its code or "none", and how many have none: send eArchive that list for the facilities outside the twelve. Until eArchive adds a code it answers `UNKNOWN_REGISTRY`; eHR then keeps the deposit waiting, tries once a day and never uses another site's code.
+8. A request with more than 19 documents goes as one zip («Συνημμένα.zip», at most 200 files, 50 MB each, 200 MB in all); the zip is kept in the storage folder under `archive/` with the PDF. Past those limits the deposit is `blocked` with a readable reason. The protocol number is shown as text only; after eArchive's web app is open to staff, `scripts/ehr-cli.sh archive-link on` turns it into a link.
+9. Give eArchive the address for its notices: `http://127.0.0.1:5008/api/v1/archive-events` (the port is the one in `EHR_BIND`), as its `EHR_EVENTS_URL`. eArchive uses the same token for them.
 
-Before the first real deposit, eArchive runs the sample deposits from `scripts/ehr-cli.sh archive-samples <folder>` (demo data only; refused when `EHR_ENV=production`) through its own test.
+Before the first real deposit, eArchive runs the four sample deposits (including 25 attachments in one zip) from `scripts/ehr-cli.sh archive-samples <folder>` (demo data only; refused when `EHR_ENV=production`) through its own test.
 
 ## Logs
 

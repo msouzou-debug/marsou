@@ -12,15 +12,18 @@ from flask import current_app, g, has_request_context
 from sqlalchemy import and_, or_
 
 from ..extensions import db
-from ..models import ARCHIVE_MAX_ATTEMPTS, ArchiveDeposit, Request, RequestDocument, audit
+from ..models import ARCHIVE_MAX_ATTEMPTS, ArchiveDeposit, Request, RequestDocument, audit, get_setting
 from ..models.access import utcnow
+from . import bundle
 from . import meta as meta_mod
 from . import pdf
-from .transports import ArchiveError, BlockedError, DepositFile, TransientError, get_transport, scrub
+from .transports import (ArchiveError, BlockedError, DepositFile, SiteUnknown, TransientError, get_transport, scrub)
 
 # Gaps between tries while eArchive cannot be reached: 5 minutes, 15 minutes, 1 hour, 6 hours, then daily. Never dropped.
 BACKOFF = (timedelta(minutes=5), timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6), timedelta(days=1))
 NO_SITE = "NO_SITE"
+SITE_UNKNOWN = "SITE_UNKNOWN"
+SITE_UNKNOWN_WAIT = timedelta(days=1)  # eArchive does not have the code yet: ask again once a day
 
 log = logging.getLogger(__name__)
 
@@ -134,14 +137,14 @@ def _one(row_id, transport, render, counts):
 
 
 def precheck(row_id):
-    """Before anything is sent: the facility has a site code and the documents fit in one deposit."""
+    """Before anything is sent: the facility has a site code and the documents fit in one deposit (or one zip)."""
     try:
         row = db.session.get(ArchiveDeposit, row_id)
         req = db.session.get(Request, row.request_id)
         meta_mod.site_code(req)
         n = RequestDocument.query.filter_by(request_id=row.request_id).filter(
             RequestDocument.round <= (row.round or 1)).count()
-        if n > meta_mod.MAX_ATTACHMENTS:
+        if n > meta_mod.MAX_ZIP_FILES:  # up to 19 go one by one, up to 200 in a zip
             raise meta_mod.count_error(n)
     finally:
         db.session.rollback()
@@ -186,6 +189,20 @@ def _defer(row_id, message):
     row.next_attempt_at = utcnow() + BACKOFF[min(row.attempts, len(BACKOFF)) - 1]
     audit("archive_deferred", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
           detail={"kind": row.kind, "attempts": row.attempts, "error": row.last_error})
+    db.session.commit()
+
+
+def _wait_for_site(row_id, message):
+    """eArchive does not know the site code yet. Not blocked, not counted as a failed attempt: the deposit stays
+    queued with the reason, is tried again once a day, and is never filed under another code."""
+    db.session.rollback()
+    row = db.session.get(ArchiveDeposit, row_id)
+    if row is None:
+        return
+    row.state, row.error_code, row.last_error = "queued", SITE_UNKNOWN, _clean(message)
+    row.next_attempt_at = utcnow() + SITE_UNKNOWN_WAIT
+    audit("archive_deferred", request_id=row.request_id, object_type="archive_deposit", object_id=row.id,
+          detail={"kind": row.kind, "code": SITE_UNKNOWN, "error": row.last_error})
     db.session.commit()
 
 
@@ -282,6 +299,7 @@ def send_deposit(row_id, transport):
         row = db.session.get(ArchiveDeposit, row_id)
         manifest, files = files_of(row)
         if _wants_meta(transport):
+            manifest, files = bundle.pack(row, manifest, files)
             meta_mod.check_limits(manifest)
             meta = _stamp_meta(row, manifest)
         db.session.rollback()
@@ -291,6 +309,9 @@ def send_deposit(row_id, transport):
             receipt = transport.deposit(manifest, files)
             if not receipt:
                 raise ArchiveError("The transport returned no reference.")
+    except SiteUnknown as exc:
+        _wait_for_site(row_id, exc.text)
+        return False
     except TransientError as exc:
         _defer(row_id, str(exc))
         return False
@@ -344,6 +365,18 @@ def deposits_of(req):
     return sorted(rows, key=lambda r: (r.kind != "submitted", r.id))
 
 
+def show_link():
+    """Setting `archive_show_link` (flask archive-link on|off): is the protocol number a link? Off until eArchive's
+    web app is published for staff."""
+    return (get_setting("archive_show_link", "off") or "off").strip().lower() == "on"
+
+
+def link_for(url):
+    """The address to link the protocol number to, or None: the setting is off, or the address is not http(s)."""
+    url = (url or "").strip()
+    return url if show_link() and url.lower().startswith(("http://", "https://")) else None
+
+
 def blocked_count():
     return ArchiveDeposit.query.filter_by(state="blocked").count()
 
@@ -352,6 +385,8 @@ def init_queue(app):
     @app.template_global()
     def archive_deposits(req):
         return deposits_of(req)
+
+    app.add_template_global(link_for, "archive_link")
 
     @app.after_request
     def _flush_after_commit(response):

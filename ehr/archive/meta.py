@@ -5,6 +5,8 @@ carries no personal names. Built once per deposit and stored (`meta_json`), so a
 """
 import json
 import os
+import re
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 from .. import localtime
@@ -12,14 +14,15 @@ from ..extensions import db
 from ..models import ArchiveDeposit, Request, User
 from ..services.request_view import timeout_days
 from . import pdf
-from .transports import FILE_ROLE_FIELD, ROLE_ATTACHMENT, ROLE_MAIN, BlockedError
+from .transports import KIND_ATTACHMENT, KIND_MAIN, BlockedError
 
 SCHEMA_VERSION = 1
 SOURCE_SYSTEM, SOURCE_MODULE = "eHR", "position_request"
 DIRECTION, CLASSIFICATION = "INTERNAL", "HIGHLY_SENSITIVE"  # the long-absence text can describe sick leave
 CURRENCY = "EUR"
 ATTR_MAX = 300
-MAX_FILES, MAX_ATTACHMENTS = 20, 19
+MAX_FILES, MAX_ATTACHMENTS = 20, 19  # in one deposit: 1 MAIN and 19 ATTACHMENT; more go in one zip
+MAX_ZIP_FILES = 200  # files inside the zip; each at most MAX_FILE_BYTES, all together at most MAX_DEPOSIT_BYTES
 MAX_FILE_BYTES, MAX_DEPOSIT_BYTES = 50 * 1024 * 1024, 200 * 1024 * 1024
 ACCEPTED_EXTENSIONS = {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "tif", "tiff", "gif",
                        "webp", "html", "htm", "txt", "csv", "xml", "eml", "msg", "zip"}
@@ -55,25 +58,72 @@ def site_code(req):
 
 
 def count_error(n_attachments):
-    return BlockedError("TOO_MANY_FILES", _t("archive.error.too_many_files", n=MAX_ATTACHMENTS), local=True)
+    return BlockedError("TOO_MANY_FILES", _t("archive.error.too_many_files", n=MAX_ZIP_FILES), local=True)
+
+
+def _mb(n_bytes):
+    return n_bytes // (1024 * 1024)
+
+
+def _extension(name):
+    return (name or "").rsplit(".", 1)[-1].lower() if "." in (name or "") else ""
+
+
+def check_entries(entries):
+    """Type, size and total of manifest entries (dicts with name and size). Raises BlockedError, readable in Greek."""
+    total = 0
+    for f in entries:
+        name, size = f.get("name") or "", int(f.get("size") or 0)
+        if _extension(name) not in ACCEPTED_EXTENSIONS:
+            raise BlockedError("FILE_TYPE", _t("archive.error.file_type", name=name), local=True)
+        if size > MAX_FILE_BYTES:
+            raise BlockedError("FILE_TOO_BIG", _t("archive.error.file_too_big", name=name, n=_mb(MAX_FILE_BYTES)),
+                               local=True)
+        total += size
+    if total > MAX_DEPOSIT_BYTES:
+        raise BlockedError("DEPOSIT_TOO_BIG", _t("archive.error.deposit_too_big", n=_mb(MAX_DEPOSIT_BYTES)), local=True)
 
 
 def check_limits(manifest):
-    """Raises BlockedError when the deposit does not fit eArchive's limits. Nothing is dropped silently."""
+    """Raises BlockedError when the deposit does not fit eArchive's limits. Nothing is dropped silently. The zip made
+    by eHR (role `bundle`) was checked file by file when it was built; only its type and the total count here."""
     files = manifest.get("files") or []
     if len(files) > MAX_FILES:
         raise count_error(len(files) - 1)
     total = 0
     for f in files:
-        name, size = f.get("name") or "", int(f.get("size") or 0)
-        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-        if ext not in ACCEPTED_EXTENSIONS:
-            raise BlockedError("FILE_TYPE", 'eArchive does not accept the file type of "%s".' % name, local=True)
-        if size > MAX_FILE_BYTES:
-            raise BlockedError("FILE_TOO_BIG", 'The file "%s" is larger than 50 MB.' % name, local=True)
-        total += size
+        if f.get("role") == "bundle":
+            total += int(f.get("size") or 0)
+            continue
+        check_entries([f])
+        total += int(f.get("size") or 0)
     if total > MAX_DEPOSIT_BYTES:
-        raise BlockedError("DEPOSIT_TOO_BIG", "The deposit is larger than 200 MB.", local=True)
+        raise BlockedError("DEPOSIT_TOO_BIG", _t("archive.error.deposit_too_big", n=_mb(MAX_DEPOSIT_BYTES)), local=True)
+
+
+def clean_filename(name, fallback="file", limit=200):
+    """A name staff can read, safe in a record: no path parts, no control or invisible format characters."""
+    text = "".join(c for c in (name or "") if unicodedata.category(c) not in ("Cc", "Cf"))
+    text = re.sub(r"\s+", " ", text.replace("\\", "/").rsplit("/", 1)[-1]).strip(" .")
+    if len(text) > limit:
+        stem, dot, ext = text.rpartition(".")
+        text = (stem[: limit - len(ext) - 1] + "." + ext) if dot and len(ext) < 10 else text[:limit]
+    return text or fallback
+
+
+def unique_names(names):
+    """The same names, each unique (case-insensitively) inside one deposit or zip: a clash gets " (2)", " (3)" before
+    the extension. The first of a name keeps it."""
+    seen, out = set(), []
+    for name in names:
+        candidate, n = name, 1
+        while candidate.lower() in seen:
+            n += 1
+            stem, dot, ext = name.rpartition(".")
+            candidate = ("%s (%d).%s" % (stem, n, ext)) if dot and stem else "%s (%d)" % (name, n)
+        seen.add(candidate.lower())
+        out.append(candidate)
+    return out
 
 
 def _amount(actions):
@@ -156,15 +206,19 @@ def build(row, manifest, now=None):
             meta["amount"], meta["currency"] = amount, CURRENCY
         if ArchiveDeposit.query.filter_by(request_id=req.id, kind="submitted").first() is not None:
             meta["related"] = [{"source_ref": source_ref(number, "submitted"), "relation": "SUPERSEDES"}]
-    files, att = [], 0
+    main_name = _t("archive.filename.decided" if decided else "archive.filename.submitted", number=number)
+    parts = []  # (kind, part_name, title, entry): the title is what staff see in eArchive
+    att = 0
     for f in manifest["files"]:
         if f["role"] == "request_pdf":
-            part, role = "main", ROLE_MAIN
+            parts.append((KIND_MAIN, "main", clean_filename(main_name, "request.pdf"), f))
         else:
             att += 1
-            part, role = "att%d" % att, ROLE_ATTACHMENT
-        files.append({"part_name": part, "filename": f["name"], "size": f["size"], "sha256": f["sha256"],
-                      FILE_ROLE_FIELD: role})
-    files.sort(key=lambda e: e[FILE_ROLE_FIELD] != ROLE_MAIN)  # MAIN first
+            title = _t("archive.zip_name") if f["role"] == "bundle" else f["name"]
+            parts.append((KIND_ATTACHMENT, "att%d" % att, clean_filename(title), f))
+    titles = unique_names([p[2] for p in parts])
+    files = [{"kind": kind, "part_name": part, "filename": title, "mime": f["mime"], "size": f["size"],
+              "sha256": f["sha256"]} for (kind, part, _, f), title in zip(parts, titles)]
+    files.sort(key=lambda e: e["kind"] != KIND_MAIN)  # MAIN first
     meta["files"] = files
     return meta

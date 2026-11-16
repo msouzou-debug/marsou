@@ -18,6 +18,7 @@ from urllib.parse import quote, urlsplit
 
 from flask import current_app
 
+from .. import i18n
 from ..models import get_setting
 
 NAMES = ("none", "folder", "http")
@@ -53,6 +54,11 @@ class NullTransport(Transport):
 
     def deposit(self, manifest, files):
         raise ArchiveError("No archive transport is set up (archive_transport = none).")
+
+
+def _t(key, **params):
+    """A reason an administrator reads: Greek, from the string files (never English in code)."""
+    return i18n.translate(key, "el", **params)
 
 
 def canonical(manifest):
@@ -142,14 +148,26 @@ DEFAULT_URL = "http://127.0.0.1:5011"
 INGEST_PATH = "/api/v1/ingest/documents"
 LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost")
 TIMEOUT_SECONDS = 60
-FILE_ROLE_FIELD = "role"  # NEEDS eArchive's confirmation: the note says MAIN / ATTACHMENT but not the field's name
-ROLE_MAIN, ROLE_ATTACHMENT = "MAIN", "ATTACHMENT"
-RETRY_STATUSES = (408, 429)  # not in the note's table; a clock or a queue on their side, so waiting is right
+KIND_MAIN, KIND_ATTACHMENT = "MAIN", "ATTACHMENT"
+FILE_FIELDS = ("kind", "part_name", "filename", "mime", "size", "sha256")  # exactly these six; eArchive refuses others
+RETRY_STATUSES = (408, 429)  # eArchive's own 5 minute timeout can give 408; wait and retry with the same key
+SITE_UNKNOWN_WAIT_HOURS = 24
+REASONS_MAX = 300
 _PART_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 
 
 class TransientError(ArchiveError):
     """eArchive could not be reached or is restarting. Try again later with the same key."""
+
+
+class SiteUnknown(ArchiveError):
+    """eArchive does not have this site code yet (400 UNKNOWN_REGISTRY). Not a block: the deposit waits and is tried
+    again once a day, and is never filed under another code."""
+
+    def __init__(self, code):
+        self.site = code
+        self.text = _t("archive.error.site_unknown", code=code)
+        super().__init__(self.text)
 
 
 class BlockedError(ArchiveError):
@@ -262,16 +280,43 @@ class MultipartBody:
 
 
 def _error_parts(raw, status):
-    """(code, message) from an error body: {code, message}, also accepted under an "error" object."""
-    code = message = None
+    """(code, message, details) of an error body. eArchive answers {"error": {code, message, details?}}; there is never
+    a top-level code, so only `error` is read."""
+    code = message = details = None
     try:
         body = json.loads(raw.decode("utf-8", "replace"))
-        if isinstance(body, dict):
-            inner = body.get("error") if isinstance(body.get("error"), dict) else body
-            code, message = inner.get("code"), inner.get("message")
+        inner = body.get("error") if isinstance(body, dict) else None
+        if isinstance(inner, dict):
+            code, message, details = inner.get("code"), inner.get("message"), inner.get("details")
     except ValueError:
         pass
-    return str(code or "HTTP_%d" % status)[:60], str(message or "")[:400]
+    return str(code or "HTTP_%d" % status)[:60], str(message or "")[:400], details
+
+
+def reasons_text(details, secret=None):
+    """The field-by-field reasons of a SCHEMA_INVALID answer as one short line. The shape of `details` is not fixed,
+    so a dict, a list or a text are all read; the token is scrubbed and the line is cut."""
+    def flat(value):
+        if isinstance(value, dict):
+            return "; ".join("%s: %s" % (k, flat(v)) for k, v in value.items())
+        if isinstance(value, (list, tuple)):
+            return "; ".join(flat(v) for v in value)
+        return str(value)
+    if details in (None, "", [], {}):
+        return ""
+    text = re.sub(r"\s+", " ", scrub(flat(details), secret)).strip()
+    return text if len(text) <= REASONS_MAX else text[:REASONS_MAX - 1] + "…"
+
+
+def _detail_receipt(details):
+    """A Receipt from error.details {protocol_id, protocol_number}, or None when it names neither."""
+    if not isinstance(details, dict):
+        return None
+    pid, number = details.get("protocol_id"), details.get("protocol_number")
+    if pid in (None, "") and number in (None, ""):
+        return None
+    return Receipt(protocol_id=str(pid)[:500] if pid not in (None, "") else None,
+                   protocol_number=str(number)[:500] if number not in (None, "") else None, duplicate=True)
 
 
 NUMBER_IN_TEXT = re.compile(r"([^\s«»\"'(),;:]+/\d{4}/\d+)")
@@ -313,10 +358,10 @@ class HttpTransport(Transport):
         """Send one deposit. Returns a Receipt, or raises TransientError / BlockedError. `files` follow meta['files']."""
         token = self.token()
         if not token:
-            raise TransientError("EHR_ARCHIVE_TOKEN is not set.")
+            raise TransientError(_t("archive.error.no_token"))
         url = self.base_url() + INGEST_PATH
         meta_bytes = json.dumps(meta, ensure_ascii=False, sort_keys=True).encode("utf-8")
-        parts = [(entry["part_name"], entry["filename"], f.mime, f.path) for entry, f in zip(meta["files"], files)]
+        parts = [(entry["part_name"], entry["filename"], entry["mime"], f.path) for entry, f in zip(meta["files"], files)]
         boundary = "----ehr" + secrets.token_hex(16)
         body = MultipartBody(boundary, meta_bytes, parts)
         request = urllib.request.Request(url, data=body, method="POST", headers={
@@ -328,7 +373,7 @@ class HttpTransport(Transport):
                 return self._success(response.status, response.headers, response.read(1 << 20))
         except urllib.error.HTTPError as exc:
             raw = exc.read(1 << 20) if hasattr(exc, "read") else b""
-            return self._refusal(exc.code, raw, token)
+            return self._refusal(exc.code, raw, token, meta)
         except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
             reason = getattr(exc, "reason", exc)
             raise TransientError("eArchive did not answer (%s)." % type(reason).__name__)
@@ -349,16 +394,28 @@ class HttpTransport(Transport):
         raise BlockedError("UNEXPECTED_ANSWER", "eArchive answered %d, which is not a receipt." % status)
 
     @staticmethod
-    def _refusal(status, raw, token):
-        code, message = _error_parts(raw, status)
+    def _refusal(status, raw, token, meta=None):
+        code, message, details = _error_parts(raw, status)
         message = scrub(message, token)
         if status >= 500 or status in RETRY_STATUSES:
             raise TransientError("eArchive answered %d." % status)
         if status in (301, 302, 303, 307, 308):
             raise BlockedError("REDIRECT_REFUSED", "eArchive answered with a redirect; the address is wrong.")
-        if status == 409 and code == "DUPLICATE_SOURCE_REF":
-            found = NUMBER_IN_TEXT.search(message)
-            return Receipt(protocol_number=found.group(1) if found else None, duplicate=True)
+        if status == 409 and code in ("DUPLICATE_SOURCE_REF", "IDEMPOTENCY_MISMATCH"):
+            # Already filed. The number is a field of error.details; the message text is only a fallback.
+            receipt = _detail_receipt(details)
+            if receipt is not None:
+                return receipt
+            if code == "DUPLICATE_SOURCE_REF":
+                found = NUMBER_IN_TEXT.search(message)
+                return Receipt(protocol_number=found.group(1) if found else None, duplicate=True)
+        if status == 400 and code == "UNKNOWN_REGISTRY":
+            hints = (meta or {}).get("folder_hints") or [{}]
+            raise SiteUnknown(str(hints[0].get("hospital") or ""))
+        if code == "SCHEMA_INVALID":
+            reasons = reasons_text(details, token)
+            if reasons:
+                message = ("%s (%s)" % (message, reasons)) if message else reasons
         raise BlockedError(code, message)
 
 
