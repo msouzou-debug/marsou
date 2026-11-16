@@ -31,6 +31,7 @@ checksum is `sha256sum /opt/finance/taep.py`, first 8 bytes.
 | 05/11/2026 | `b0ef892` | `355692ee` | No separate «Ενημέρωση υπηρεσιών» step; services correctable after finalising; all five radiology codes compulsory |
 | 05/11/2026 | `8d14c5d` | `355692ee` | The uncharged-imaging finder widened to all five services and renamed |
 | 10/11/2026 | `b6cc0b9` | `7d75f85a` | Libraries served locally; `show_episode.py`; each Υπολογισμός press recorded as `CALCULATE_POSTED` |
+| 16/11/2026 | `1630887` | `a94c84d9` | Read back from `/opt/finance`. Carries `6feb9a9` (lists close, × on the examination, remove button on the card), `79723f0` (imaging row fills itself in) and `44381e9` (charge, examination or both; examination on the PDF) |
 
 Not installed, though recorded here on 10/11 and 16/11 and since removed: `6feb9a9`, `79723f0` and `44381e9`. The commands given for them ran `sudo bash deploy_to_efinance.sh` from the clone's root; the script is in `tools/`, so bash stopped with «No such file» after the fetch. eFinance noticed on 16/11 that `/opt/finance/taep.py` was still `7d75f85a`. The only command is the full path: `sudo bash /home/administrator/marsou/tools/deploy_to_efinance.sh`. A row goes in this table only after the checksum is read back from `/opt/finance`.
 
