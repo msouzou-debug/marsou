@@ -217,6 +217,9 @@ c.push(...code('scripts/ehr-cli.sh archive-transport http'));
 c.push(step('Ask the eHR administrator to set the eArchive site code of every hospital and facility, in eHR under Settings. A request for a facility without a code waits until the code is set.', 'num2'));
 c.push(step('Give the eArchive side this address for its notices, as its EHR_EVENTS_URL: http://127.0.0.1:5008/api/v1/archive-events', 'num2'));
 c.push(step('In eHR, Settings, "eArchive deposits" shows each deposit and its protocol number. A row marked as needing attention shows eArchive\'s reason.', 'num2'));
+c.push(step('To list the facilities that still have no site code, for the eArchive side to add:', 'num2'));
+c.push(...code('scripts/ehr-cli.sh archive-sites'));
+c.push(p('A request for a site that eArchive does not know yet is held and tried again once a day. It is never filed under another site. The link from eHR to the eArchive record stays hidden until eArchive\'s web application is published; then turn it on with: scripts/ehr-cli.sh archive-link on', { spacing: { before: 60, after: 110 } }));
 
 c.push(h1('11. Checks after the install'));
 c.push(table([4700, 4326], ['Check', 'Expected'], [
@@ -244,6 +247,7 @@ c.push(table([4300, 4726], ['Command', 'Use'], [
   ['scripts/ehr-cli.sh ad-test <username>', 'Tries an AD sign-in from the server and says what failed.'],
   ['scripts/ehr-cli.sh db-status', 'Shows whether the database matches the code.'],
   ['scripts/ehr-cli.sh archive-transport', 'Shows whether deposits go to eArchive.'],
+  ['scripts/ehr-cli.sh archive-sites', 'Lists facilities and their eArchive site codes.'],
   ['journalctl -u ehr', 'The service log.'],
 ], [0]));
 c.push(gap());
@@ -254,7 +258,7 @@ c.push(bullet('The test suite on Python 3.10. It was run on 3.11; a checker conf
 c.push(bullet('Sign-in against the real domain controller, its certificate chain and attribute names.'));
 c.push(bullet('Sending through the real Graph registration, and how the emails look in Outlook.'));
 c.push(bullet('SQLite on this server\'s disk, and a restore.'));
-c.push(bullet('The link to the real eArchive. Six small points in eArchive\'s interface are still to be confirmed by its side.'));
+c.push(bullet('The link to the real eArchive. It was built to eArchive\'s specification and its answers of 16/11/2026, and tested against a stand-in only. eArchive is running eHR\'s sample deposits through its own test.'));
 c.push(bullet('The AD library (ldap3 2.9.1) does not run on Python 3.12. It is fine on 3.10.'));
 
 c.push(h1('15. Release'));
