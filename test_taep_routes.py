@@ -2576,3 +2576,82 @@ def test_the_declaration_prints_in_each_language(client, app):
     assert client.get("/taep/declaration/de").status_code == 404
     page = client.get("/taep/nea").get_data(as_text=True)
     assert 'id="declaration-language"' in page and "Русский" in page
+
+
+# ---------------------------------------------------------------------------
+# Payments and refunds (internal audit Β1/Β2, 19/11/2026)
+# ---------------------------------------------------------------------------
+
+def _finalised_600(client, app, number):
+    episode_id = _priced(client, app, code="600", episode_number=number,
+                         deposit_confirmed="1", deposit_receipt="R-1")
+    client.post("/taep/%d/finalise" % episode_id)
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"
+    return episode_id
+
+
+def test_a_payment_brings_the_balance_down_to_settled(client, app):
+    episode_id = _finalised_600(client, app, "E-PAY-1")
+    episode = taep.get_episode(app.ctx, episode_id)
+    before = taep.account_statement(app.ctx, episode, taep.get_calculation(app.ctx, episode_id))
+    assert before["deposit"] == Decimal("100.00") and before["balance"] > 0
+
+    client.post("/taep/%d/payments" % episode_id, data={
+        "kind": "PAYMENT", "amount": taep.format_eur(before["balance"]),
+        "method": "CARD", "receipt_number": "R-2"})
+    after = taep.account_statement(app.ctx, episode, taep.get_calculation(app.ctx, episode_id))
+    assert after["settled"] and after["paid"] == before["balance"]
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert 'id="statement"' in page and "Εξοφλήθηκε" in page
+    assert taep.render_costing_pdf(app.ctx, episode_id)[:4] == b"%PDF"
+
+
+def test_a_payment_needs_a_receipt_and_cannot_exceed_the_balance(client, app):
+    episode_id = _finalised_600(client, app, "E-PAY-2")
+    page = client.post("/taep/%d/payments" % episode_id, data={
+        "kind": "PAYMENT", "amount": "10", "method": "CASH", "receipt_number": ""},
+        follow_redirects=True).get_data(as_text=True)
+    assert "αριθμός απόδειξης" in page
+    page = client.post("/taep/%d/payments" % episode_id, data={
+        "kind": "PAYMENT", "amount": "99999", "method": "CASH", "receipt_number": "R"},
+        follow_redirects=True).get_data(as_text=True)
+    assert "υπερβαίνει" in page
+    assert taep.list_payments(app.ctx, episode_id) == []
+
+
+def test_no_money_is_recorded_before_finalising(client, app):
+    episode_id = _priced(client, app, code="600", episode_number="E-PAY-3")
+    with pytest.raises(taep.CostingError):
+        taep.record_payment(app.ctx, episode_id, "PAYMENT", "10", "CASH", "R", "", 1)
+
+
+def test_a_refund_is_numbered_and_prints(client, app):
+    episode_id = _finalised_600(client, app, "E-REF-1")
+    episode = taep.get_episode(app.ctx, episode_id)
+    statement = taep.account_statement(app.ctx, episode, taep.get_calculation(app.ctx, episode_id))
+    # Refused while the patient still owes money…
+    with pytest.raises(taep.CostingError):
+        taep.record_payment(app.ctx, episode_id, "REFUND", "1", "CASH", None, "", 1)
+    # …accepted once the €100 deposit is more than the total.
+    app.ctx["db_execute"]("UPDATE taep_costing_result SET total_cost=%s WHERE episode_id=%s",
+                          ("60.00", episode_id))
+    payment_id = taep.record_payment(app.ctx, episode_id, "REFUND", "40", "CASH", None,
+                                     "", 1)
+    row = taep.list_payments(app.ctx, episode_id)[0]
+    assert row["refund_number"].startswith("ΕΠ-NGH-")
+    assert row["refund_number"].endswith("-0001")
+    response = client.get("/taep/payments/%d/refund" % payment_id)
+    assert response.status_code == 200 and response.data[:4] == b"%PDF"
+    assert statement
+
+
+def test_a_voided_payment_stays_but_no_longer_counts(client, app):
+    episode_id = _finalised_600(client, app, "E-VOID")
+    payment_id = taep.record_payment(app.ctx, episode_id, "PAYMENT", "5", "CASH", "R-9", "", 1)
+    taep.void_payment(app.ctx, payment_id, 1, "λάθος ποσό")
+    episode = taep.get_episode(app.ctx, episode_id)
+    statement = taep.account_statement(app.ctx, episode, taep.get_calculation(app.ctx, episode_id))
+    assert statement["paid"] == Decimal("0.00")
+    assert taep.list_payments(app.ctx, episode_id)[0]["void_reason"] == "λάθος ποσό"
+    with pytest.raises(taep.CostingError):
+        taep.void_payment(app.ctx, payment_id, 1, "")

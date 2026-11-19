@@ -957,6 +957,27 @@ SCHEMA_STATEMENTS = [
 
     # v1: the table exists so that payment, payer invoicing and SAP export are
     # additions rather than migrations. Nothing writes to it yet (brief §2).
+    # Money received or returned against a finalised costing. Internal audit Β1/Β2,
+    # answered 19/11/2026: receipts were handwritten and refunds a note on the costing,
+    # so nothing showed what a patient had paid or was still owed. Rows are voided,
+    # never deleted, so the trail survives a mistake.
+    """CREATE TABLE IF NOT EXISTS taep_payment (
+        id INTEGER PRIMARY KEY {AUTO_INCREMENT},
+        episode_id INT NOT NULL,
+        kind VARCHAR(10) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        method VARCHAR(10) NOT NULL,
+        receipt_number VARCHAR(60),
+        refund_number VARCHAR(40) UNIQUE,
+        paid_at DATETIME,
+        note VARCHAR(300),
+        recorded_by INT,
+        recorded_at DATETIME,
+        voided_at DATETIME,
+        voided_by INT,
+        void_reason VARCHAR(300)
+    ){ENGINE}""",
+
     """CREATE TABLE IF NOT EXISTS taep_settlement (
         episode_id INT PRIMARY KEY,
         status VARCHAR(20),
@@ -2639,6 +2660,140 @@ def _format_datetime(value):
     return value.strftime("%d/%m/%Y")
 
 
+PAYMENT_KINDS = ("PAYMENT", "REFUND")
+PAYMENT_METHODS = (
+    ("CASH", "Μετρητά"),
+    ("CARD", "Κάρτα"),
+    ("TRANSFER", "Έμβασμα"),
+    ("CHEQUE", "Επιταγή"),
+)
+
+
+def list_payments(ctx, episode_id):
+    """Every payment and refund on a costing, voided ones included, oldest first."""
+    return ctx["db_execute"](
+        "SELECT * FROM taep_payment WHERE episode_id=%s ORDER BY id",
+        (episode_id,), fetch=True) or []
+
+
+def account_statement(ctx, episode, result):
+    """What the patient was charged, what they have paid, and what is left. Audit Β1.
+
+    balance > 0: still owed by the patient; balance < 0: owed back to the patient.
+    The deposit counts only once confirmed, by the same rule as deposit_state().
+    """
+    deposit = deposit_state(episode, result)
+    total = (money_from_db(result["total_cost"])
+             if result is not None and result.get("total_cost") is not None else None)
+    payments = list_payments(ctx, episode["id"])
+    active = [p for p in payments if not p["voided_at"]]
+    paid = money(sum((money_from_db(p["amount"]) for p in active
+                      if p["kind"] == "PAYMENT"), Decimal("0.00")))
+    refunded = money(sum((money_from_db(p["amount"]) for p in active
+                          if p["kind"] == "REFUND"), Decimal("0.00")))
+    taken = deposit["amount"] if deposit["confirmed"] else Decimal("0.00")
+    balance = None if total is None else money(total - taken - paid + refunded)
+    return {
+        "total": total, "deposit": taken, "deposit_kind": deposit["kind"],
+        "paid": paid, "refunded": refunded, "balance": balance,
+        "payments": payments, "settled": balance is not None and balance == 0,
+    }
+
+
+def _next_refund_number(ctx, entity_code, year):
+    """ΕΠ-<hospital>-<year>-<nnnn>. Never reused: voided refunds keep their number."""
+    prefix = "ΕΠ-%s-%d-" % (entity_code, year)
+    rows = ctx["db_execute"](
+        "SELECT refund_number FROM taep_payment WHERE refund_number LIKE %s",
+        (prefix + "%",), fetch=True) or []
+    used = [int(r["refund_number"][len(prefix):]) for r in rows
+            if r["refund_number"][len(prefix):].isdigit()]
+    return "%s%04d" % (prefix, (max(used) if used else 0) + 1)
+
+
+def record_payment(ctx, episode_id, kind, amount, method, receipt_number, note,
+                   user_id, paid_at=None):
+    """Record money received (PAYMENT) or returned (REFUND). Returns the new row id.
+
+    Only on a finalised costing: before that the amount owed can still change. A payment
+    may not exceed what is owed, and a refund may not exceed what is owed back — a typo
+    in either would leave a balance nobody can explain.
+    """
+    db = ctx["db_execute"]
+    episode = get_episode(ctx, episode_id)
+    if episode is None:
+        raise CostingError("EPISODE_NOT_FOUND", "Η καταχώρηση δεν βρέθηκε.")
+    if episode["status"] != "FINALISED":
+        raise CostingError("NOT_FINALISED",
+                           "Εισπράξεις και επιστροφές καταχωρούνται μόνο σε "
+                           "οριστικοποιημένη κοστολόγηση.")
+    if kind not in PAYMENT_KINDS:
+        raise CostingError("BAD_KIND", "Άγνωστο είδος κίνησης.")
+    if method not in {code for code, _ in PAYMENT_METHODS}:
+        raise CostingError("BAD_METHOD", "Επιλέξτε τρόπο πληρωμής.")
+    try:
+        text = str(amount).strip().replace(" ", "")
+        if "," in text:                  # Greek format: 1.234,50
+            text = text.replace(".", "").replace(",", ".")
+        value = money(Decimal(text))
+    except Exception:
+        raise CostingError("BAD_AMOUNT", "Το ποσό δεν είναι έγκυρο.")
+    if value <= 0:
+        raise CostingError("BAD_AMOUNT", "Το ποσό πρέπει να είναι μεγαλύτερο του μηδενός.")
+    receipt_number = (receipt_number or "").strip() or None
+    if kind == "PAYMENT" and not receipt_number:
+        raise CostingError("MISSING_RECEIPT", "Ο αριθμός απόδειξης είναι υποχρεωτικός.")
+
+    statement = account_statement(ctx, episode, get_calculation(ctx, episode_id))
+    balance = statement["balance"] or Decimal("0.00")
+    if kind == "PAYMENT" and value > balance:
+        raise CostingError(
+            "OVERPAYMENT",
+            "Το ποσό υπερβαίνει το υπόλοιπο προς είσπραξη (%s €)." % format_eur(
+                max(balance, Decimal("0.00"))))
+    if kind == "REFUND" and value > -balance:
+        raise CostingError(
+            "OVER_REFUND",
+            "Το ποσό υπερβαίνει ό,τι οφείλεται στον ασθενή (%s €)." % format_eur(
+                max(-balance, Decimal("0.00"))))
+
+    now = dt.datetime.now()
+    refund_number = (_next_refund_number(ctx, episode["entity_code"], now.year)
+                     if kind == "REFUND" else None)
+    db("""INSERT INTO taep_payment (episode_id, kind, amount, method, receipt_number,
+             refund_number, paid_at, note, recorded_by, recorded_at)
+          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+       (episode_id, kind, str(value), method, receipt_number, refund_number,
+        paid_at or now, (note or "").strip()[:300] or None, user_id, now))
+    row = db("SELECT MAX(id) AS id FROM taep_payment WHERE episode_id=%s",
+             (episode_id,), fetch=True)[0]["id"]
+    ctx["log_activity"](
+        "taep_episode", episode_id, kind + "_RECORDED",
+        "%s %s € · %s%s" % ("Είσπραξη" if kind == "PAYMENT" else "Επιστροφή",
+                            format_eur(value), method,
+                            " · " + (refund_number or receipt_number or "")))
+    return row
+
+
+def void_payment(ctx, payment_id, user_id, reason):
+    """Cancel a payment or refund entered by mistake. The row stays, marked void."""
+    db = ctx["db_execute"]
+    rows = db("SELECT * FROM taep_payment WHERE id=%s", (payment_id,), fetch=True)
+    if not rows:
+        raise CostingError("PAYMENT_NOT_FOUND", "Η κίνηση δεν βρέθηκε.")
+    payment = rows[0]
+    if payment["voided_at"]:
+        raise CostingError("ALREADY_VOID", "Η κίνηση έχει ήδη ακυρωθεί.")
+    reason = (reason or "").strip()
+    if not reason:
+        raise CostingError("MISSING_REASON", "Η αιτιολογία ακύρωσης είναι υποχρεωτική.")
+    db("UPDATE taep_payment SET voided_at=%s, voided_by=%s, void_reason=%s WHERE id=%s",
+       (dt.datetime.now(), user_id, reason[:300], payment_id))
+    ctx["log_activity"]("taep_episode", payment["episode_id"], "PAYMENT_VOIDED",
+                        "Ακύρωση κίνησης %s: %s" % (payment_id, reason))
+    return payment["episode_id"]
+
+
 def deposit_state(episode, result):
     """What was taken at registration, and what it does to this bill. One rule, read by
     the screen and by the PDF.
@@ -2745,6 +2900,7 @@ def costing_document_data(ctx, episode_id):
         "investigations": [s for s in services if s["service_type"] == INVESTIGATION],
         "tariff_lines": lines,
         "deposit": deposit_state(episode, result),
+        "statement": account_statement(ctx, episode, result),
     }
 
 
@@ -2797,6 +2953,76 @@ def draw_fitted(pdf, x, y, text, limit, font, size=8, floor=6.0):
     pdf.setFont(font, size)
     pdf.drawString(x, y, text)
     return size
+
+
+def render_refund_pdf(ctx, payment_id):
+    """The refund document, numbered, for the patient to sign. Audit Β2, 19/11/2026:
+    a refund had been a handwritten note on the costing."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas as pdfcanvas
+
+    rows = ctx["db_execute"]("SELECT * FROM taep_payment WHERE id=%s", (payment_id,),
+                             fetch=True)
+    if not rows or rows[0]["kind"] != "REFUND":
+        raise CostingError("PAYMENT_NOT_FOUND", "Η επιστροφή δεν βρέθηκε.")
+    refund = rows[0]
+    episode = get_episode(ctx, refund["episode_id"])
+    unit = ctx["db_execute"]("SELECT name_el FROM taep_unit WHERE unit_code=%s",
+                             (episode["taep_unit_code"],), fetch=True)
+    method = dict(PAYMENT_METHODS).get(refund["method"], refund["method"])
+
+    font, font_bold = _register_greek_font()
+    buffer = BytesIO()
+    pdf = pdfcanvas.Canvas(buffer, pagesize=A4, invariant=1)
+    pdf.setTitle("Παραστατικό επιστροφής %s" % refund["refund_number"])
+    width, height = A4
+    left, right = 20 * mm, width - 20 * mm
+    y = height - 25 * mm
+    pdf.setFont(font_bold, 13)
+    pdf.drawCentredString(width / 2, y, "ΠΑΡΑΣΤΑΤΙΚΟ ΕΠΙΣΤΡΟΦΗΣ ΧΡΗΜΑΤΩΝ")
+    y -= 6 * mm
+    pdf.setFont(font, 9)
+    pdf.drawCentredString(width / 2, y, "ΟΚΥπΥ — %s" % (unit[0]["name_el"] if unit else
+                                                      episode["entity_code"]))
+    y -= 4 * mm
+    pdf.line(left, y, right, y)
+    y -= 10 * mm
+    lines = [
+        ("Αρ. παραστατικού", refund["refund_number"]),
+        ("Ημερομηνία", _format_datetime(refund["paid_at"])),
+        ("Αρ. κοστολόγησης", episode["costing_number"] or "—"),
+        ("Αρ. επεισοδίου", episode["episode_number"] or "—"),
+        ("Ασθενής", "%s %s" % (episode["last_name"] or "", episode["first_name"] or "")),
+        ("Ταυτοποίηση", "%s %s" % (episode["id_type"] or "", episode["id_number"] or "")),
+        ("Ποσό επιστροφής", "%s €" % format_eur(refund["amount"])),
+        ("Τρόπος", method),
+    ]
+    if refund["note"]:
+        lines.append(("Σημείωση", refund["note"]))
+    for label, value in lines:
+        pdf.setFont(font, 10)
+        pdf.drawString(left, y, label)
+        pdf.setFont(font_bold, 10)
+        pdf.drawString(left + 50 * mm, y, str(value))
+        y -= 7 * mm
+    if refund["voided_at"]:
+        y -= 4 * mm
+        pdf.setFont(font_bold, 12)
+        pdf.drawString(left, y, "ΑΚΥΡΩΘΗΚΕ: %s" % (refund["void_reason"] or ""))
+    y -= 20 * mm
+    pdf.setFont(font, 9)
+    pdf.drawString(left, y, "Παρέλαβα το πιο πάνω ποσό.")
+    y -= 18 * mm
+    pdf.line(left, y, left + 70 * mm, y)
+    pdf.line(right - 70 * mm, y, right, y)
+    y -= 4 * mm
+    pdf.drawString(left, y, "Υπογραφή ασθενή / παραλήπτη")
+    pdf.drawString(right - 70 * mm, y, "Υπογραφή λειτουργού")
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
 
 
 def render_costing_pdf(ctx, episode_id):
@@ -3054,6 +3280,38 @@ def render_costing_pdf(ctx, episode_id):
                     "επιβεβαιωθεί· δεν αφαιρέθηκε."
                     % format_eur(deposit["amount"]),
                     right - totals_left, font, size=7.5)
+
+    # The account statement, once anything has been paid or refunded on this costing
+    # (internal audit Β1, 19/11/2026). Absent otherwise, so a document printed at the
+    # desk before payment reads as it always has.
+    statement = data["statement"]
+    if any(not p["voided_at"] for p in statement["payments"]):
+        y -= 8 * mm
+        pdf.setFont(font_bold, 9)
+        pdf.drawString(totals_left, y, "Κατάσταση λογαριασμού")
+        pdf.setFont(font, 8)
+        for p in statement["payments"]:
+            if p["voided_at"]:
+                continue
+            y -= 4.5 * mm
+            label = ("Είσπραξη %s (απόδ. %s)" % (_format_datetime(p["paid_at"]),
+                                                p["receipt_number"] or "—")
+                     if p["kind"] == "PAYMENT"
+                     else "Επιστροφή %s (%s)" % (_format_datetime(p["paid_at"]),
+                                                 p["refund_number"]))
+            draw_fitted(pdf, totals_left, y, label,
+                        amount_column - totals_left - 2 * mm, font)
+            pdf.setFont(font, 8)
+            sign = "−" if p["kind"] == "PAYMENT" else "+"
+            pdf.drawRightString(right, y, "%s %s" % (sign, format_eur(p["amount"])))
+        y -= 5 * mm
+        balance = statement["balance"]
+        pdf.setFont(font_bold, 9)
+        pdf.drawString(totals_left, y, "Εξοφλήθηκε" if statement["settled"] else
+                       ("Οφείλεται στον ασθενή €" if balance < 0
+                        else "Υπόλοιπο προς είσπραξη €"))
+        if not statement["settled"]:
+            pdf.drawRightString(right, y, format_eur(abs(balance)))
 
     footer(page)
     pdf.showPage()
@@ -4144,6 +4402,10 @@ PERMISSIONS = {
     # module administration as well. Cancellation is the normal route and is unaffected.
     "delete": "taep.delete",
     "admin": "taep.admin",
+    # Recording money received or returned (audit Β1/Β2, 19/11/2026). Its own key so
+    # the cashier, who holds only taep.view, can be granted it without being able to
+    # create or price anything. taep.create may record too.
+    "payments": "taep.payments",
 }
 
 # Everything the module asks of its host. Written down because the module now runs under
@@ -4190,6 +4452,7 @@ PERMISSIONS_CATALOG_EL = {
     "taep.rates": "ΤΑΕΠ — διαχείριση τιμών και τιμοκαταλόγου",
     "taep.delete": "ΤΑΕΠ — διαγραφή κοστολόγησης",
     "taep.admin": "ΤΑΕΠ — διαχείριση συστήματος",
+    "taep.payments": "ΤΑΕΠ — καταχώριση εισπράξεων και επιστροφών",
 }
 
 
@@ -5012,6 +5275,9 @@ def register(app, ctx):
             tariff_lines=(get_episode_tariff_lines(ctx, episode["id"])
                           if tariff_lines is None else tariff_lines),
             deposit=deposit_state(episode, stored),
+            statement=(account_statement(ctx, episode, stored)
+                       if episode["status"] == "FINALISED" else None),
+            payment_methods=PAYMENT_METHODS, may_pay=may_pay(),
             revisions=episode_revisions(ctx, episode["id"]),
             may_edit=may_edit(episode))
 
@@ -5158,6 +5424,60 @@ def register(app, ctx):
         filename = f"{episode['costing_number'].replace('/', '-')}.pdf"
         return Response(pdf, mimetype="application/pdf", headers={
             "Content-Disposition": f'inline; filename="{filename}"'})
+
+    # -- Payments and refunds (audit Β1/Β2, 19/11/2026) --------------------
+    def may_pay():
+        return ctx["has_permission"](PERMISSIONS["create"]) \
+            or ctx["has_permission"](PERMISSIONS["payments"])
+
+    def payment_or_404(payment_id):
+        rows = ctx["db_execute"]("SELECT * FROM taep_payment WHERE id=%s",
+                                 (payment_id,), fetch=True)
+        if not rows:
+            abort(404)
+        episode_or_404(rows[0]["episode_id"])        # the hospital check
+        return rows[0]
+
+    @app.route("/taep/<int:episode_id>/payments", methods=["POST"])
+    @login_required
+    @permission_any(PERMISSIONS["create"], PERMISSIONS["payments"])
+    def taep_record_payment(episode_id):
+        episode_or_404(episode_id)
+        form = request.form
+        try:
+            record_payment(ctx, episode_id, form.get("kind"), form.get("amount"),
+                           form.get("method"), form.get("receipt_number"),
+                           form.get("note"), user_id())
+            flash("Η κίνηση καταχωρήθηκε.", "success")
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+        return redirect(url_for("taep_costing", episode_id=episode_id) + "#statement")
+
+    @app.route("/taep/payments/<int:payment_id>/void", methods=["POST"])
+    @login_required
+    @permission_required(PERMISSIONS["admin"])
+    def taep_void_payment(payment_id):
+        payment = payment_or_404(payment_id)
+        try:
+            void_payment(ctx, payment_id, user_id(), request.form.get("reason"))
+            flash("Η κίνηση ακυρώθηκε.", "success")
+        except CostingError as exc:
+            flash(exc.message_el, "danger")
+        return redirect(url_for("taep_costing", episode_id=payment["episode_id"])
+                        + "#statement")
+
+    @app.route("/taep/payments/<int:payment_id>/refund")
+    @login_required
+    @permission_any(*READ, PERMISSIONS["payments"])
+    def taep_refund_document(payment_id):
+        payment = payment_or_404(payment_id)
+        if payment["kind"] != "REFUND":
+            abort(404)
+        pdf = render_refund_pdf(ctx, payment_id)
+        ctx["log_activity"]("taep_episode", payment["episode_id"], "REFUND_PRINTED",
+                            payment["refund_number"] or "")
+        return Response(pdf, mimetype="application/pdf", headers={
+            "Content-Disposition": 'inline; filename="refund-%s.pdf"' % payment_id})
 
     # -- Screen 3: Λίστα Καταχωρήσεων -------------------------------------
     @app.route("/taep/list")

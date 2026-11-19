@@ -551,6 +551,117 @@
       </div>
     </div>
 
+    {# Internal audit Β1/Β2, answered 19/11/2026: what the patient was charged, what
+       they paid and what is left, on the costing itself. Before this, receipts were
+       handwritten and a refund was a note on the paper. Only once finalised: until then
+       the amount owed can still change. #}
+    {% if statement %}
+    {% set methods = dict(payment_methods) %}
+    <div class="card mt-3" id="statement">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-wallet2 text-primary"></i>
+        <span>{{ t('Κατάσταση λογαριασμού') }}</span>
+        {% if statement.settled %}
+          <span class="badge bg-success ms-auto">{{ t('Εξοφλήθηκε') }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+        <table class="table table-sm mb-3" style="font-size:0.86rem">
+          <tr><th class="fw-normal">{{ t('Τελικό Κόστος') }} €</th>
+              <td class="text-end number">{{ statement.total | eur }}</td></tr>
+          {% if statement.deposit %}
+          <tr><th class="fw-normal">{{ t('Τέλος εγγραφής') if statement.deposit_kind == 'FEE' else t('Προκαταβολή') }} €</th>
+              <td class="text-end number">− {{ statement.deposit | eur }}</td></tr>
+          {% endif %}
+          <tr><th class="fw-normal">{{ t('Εισπράξεις') }} €</th>
+              <td class="text-end number">− {{ statement.paid | eur }}</td></tr>
+          <tr><th class="fw-normal">{{ t('Επιστροφές') }} €</th>
+              <td class="text-end number">+ {{ statement.refunded | eur }}</td></tr>
+          <tr class="table-light">
+            <th>{{ t('Επιστροφή στον ασθενή') if statement.balance < 0 else t('Υπόλοιπο προς είσπραξη') }} €</th>
+            <td class="text-end number fw-bold" id="statement-balance">{{ (statement.balance if statement.balance >= 0 else -statement.balance) | eur }}</td></tr>
+        </table>
+        </div>
+
+        {% if statement.payments %}
+        <div class="table-responsive">
+        <table class="table table-sm align-middle mb-3" style="font-size:0.82rem" id="payments">
+          <thead><tr><th>{{ t('Ημερομηνία') }}</th><th>{{ t('Κίνηση') }}</th>
+                     <th>{{ t('Τρόπος') }}</th><th>{{ t('Αρ.') }}</th>
+                     <th class="text-end">€</th><th></th></tr></thead>
+          <tbody>
+          {% for p in statement.payments %}
+            <tr class="{{ 'text-muted text-decoration-line-through' if p.voided_at }}">
+              <td>{{ p.paid_at | string | truncate(16, True, '') }}</td>
+              <td>{{ t('Είσπραξη') if p.kind == 'PAYMENT' else t('Επιστροφή') }}</td>
+              <td>{{ t(methods.get(p.method, p.method)) }}</td>
+              <td>{{ p.refund_number or p.receipt_number or '' }}</td>
+              <td class="text-end number">{{ p.amount | eur }}</td>
+              <td class="text-end text-nowrap">
+                {% if p.kind == 'REFUND' %}
+                  <a href="/taep/payments/{{ p.id }}/refund" target="_blank" rel="noopener"
+                     class="btn btn-link btn-sm p-0" title="{{ t('Παραστατικό επιστροφής') }}">
+                    <i class="bi bi-printer"></i></a>
+                {% endif %}
+                {% if not p.voided_at and has_permission('taep.admin') %}
+                  <form method="post" action="/taep/payments/{{ p.id }}/void" class="d-inline-flex gap-1">
+                    <input name="reason" class="form-control form-control-sm" style="width:9rem"
+                           placeholder="{{ t('Αιτιολογία ακύρωσης') }}" required>
+                    <button class="btn btn-outline-danger btn-sm" type="submit">{{ t('Ακύρωση') }}</button>
+                  </form>
+                {% endif %}
+                {% if p.voided_at %}<span class="small">{{ p.void_reason }}</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% endif %}
+
+        {% if may_pay %}
+        <form method="post" action="/taep/{{ episode.id }}/payments" class="row g-2" id="payment-form">
+          <div class="col-6">
+            <label class="form-label" for="pay-kind">{{ t('Κίνηση') }}</label>
+            <select id="pay-kind" name="kind" class="form-select form-select-sm">
+              <option value="PAYMENT" {% if statement.balance >= 0 %}selected{% endif %}>{{ t('Είσπραξη') }}</option>
+              <option value="REFUND" {% if statement.balance < 0 %}selected{% endif %}>{{ t('Επιστροφή') }}</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pay-amount">{{ t('Ποσό') }} €</label>
+            <input id="pay-amount" name="amount" inputmode="decimal" required
+                   class="form-control form-control-sm"
+                   value="{{ (statement.balance if statement.balance >= 0 else -statement.balance) | eur if statement.balance }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pay-method">{{ t('Τρόπος') }}</label>
+            <select id="pay-method" name="method" class="form-select form-select-sm">
+              {% for code, label in payment_methods %}
+                <option value="{{ code }}">{{ t(label) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pay-receipt">{{ t('Αρ. απόδειξης') }}</label>
+            <input id="pay-receipt" name="receipt_number" class="form-control form-control-sm">
+          </div>
+          <div class="col-12">
+            <input name="note" class="form-control form-control-sm"
+                   placeholder="{{ t('Σημείωση (προαιρετική)') }}">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-brand btn-sm w-100" type="submit">
+              <i class="bi bi-check2"></i> {{ t('Καταχώριση κίνησης') }}</button>
+            <div class="form-text">{{ t('Η επιστροφή παίρνει δικό της αριθμό και εκτυπώνεται για υπογραφή από τον ασθενή.') }}</div>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     {# Cancellation and deletion. Both routes existed with no screen behind them, so
        neither could be reached. Each needs a written reason, which is the only record
        of why a priced costing stopped counting. #}
