@@ -72,6 +72,10 @@ done
 if [ -d "$TARGET/seed" ]; then
     run install $OWNER -m 644 "$REPO"/seed/*.csv "$TARGET/seed/"
     echo "   seed/*.csv"
+    # The approved declaration PDFs, one per language (audit Δ1, 19/11/2026).
+    run install -d $OWNER -m 755 "$TARGET/seed/declarations"
+    run install $OWNER -m 644 "$REPO"/seed/declarations/*.pdf "$TARGET/seed/declarations/"
+    echo "   seed/declarations/*.pdf"
 fi
 run install $OWNER -m 644 "$REPO/tools/check_readiness.py" \
     "$TARGET/check_readiness.py"

@@ -2566,3 +2566,13 @@ def test_a_finalised_costing_is_never_unfinished(client, app):
     app.ctx["db_execute"]("UPDATE taep_episode SET created_at=%s WHERE id=%s",
                           (old, episode_id))
     assert taep.count_unfinished(app.ctx, "NGH") == 0
+
+
+def test_the_declaration_prints_in_each_language(client, app):
+    for code, _, form_code in taep.DECLARATION_LANGUAGES:
+        response = client.get("/taep/declaration/" + code)
+        assert response.status_code == 200, code
+        assert response.data[:4] == b"%PDF", code
+    assert client.get("/taep/declaration/de").status_code == 404
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert 'id="declaration-language"' in page and "Русский" in page

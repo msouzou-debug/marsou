@@ -76,6 +76,8 @@ EN = {
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
     "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "Γλώσσα Δήλωσης": "Declaration language",
+    "Εκτύπωση Δήλωσης": "Print the declaration",
     "%d καταχωρήσεις παραμένουν χωρίς οριστικοποίηση πέραν των %d ωρών.":
         "%d entries have not been finalised after more than %d hours.",
     "Όλες οι καταχωρήσεις": "All entries",

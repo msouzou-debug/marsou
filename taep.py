@@ -1433,6 +1433,18 @@ def last_allocated_sequence(ctx, unit_code):
 # Required to finalise, not to save: the clerk may enter the episode before the paper
 # is in hand. 603–607 are every «ΔΙΚΑΙΟΥΧΟΣ Α» variant valid at the ΤΑΕΠ.
 DECLARATION_CATEGORIES = frozenset({"600"})
+
+# The approved «Δήλωση για καταβολή των εξόδων νοσηλείας» in each language, as issued by
+# Ιατρικό Αρχείο on 10/06/2025, printed unchanged. Received 19/11/2026. Served as the
+# official PDFs rather than retyped: a legal form is not ours to reword. To add a
+# language, put the PDF in seed/declarations/ and a line here.
+DECLARATION_LANGUAGES = (
+    ("el", "Ελληνικά", "ΔΚΔ-ΕΝ-009"),
+    ("en", "English", "ΔΚΔ-ΕΝ-010"),
+    ("ru", "Русский", "ΔΚΔ-ΕΝ-045"),
+    ("fr", "Français", "ΔΚΔ-ΕΝ-047"),
+)
+DECLARATION_DIR = os.path.join(SEED_DIR, "declarations")
 CARD_COPY_CATEGORIES = frozenset({"603", "604", "605", "606", "607"})
 
 
@@ -4843,7 +4855,8 @@ def register(app, ctx):
         countries = list_countries(ctx)
 
         def back(form):
-            return render_template("taep_new.html", categories=categories,
+            return render_template("taep_new.html", declaration_languages=DECLARATION_LANGUAGES,
+                                   categories=categories,
                                    units=units, countries=countries, entity=entity,
                                    form=form)
 
@@ -4886,6 +4899,21 @@ def register(app, ctx):
         return back({})
 
     # -- Prior-episode lookup (called on blur of the identification number) -
+    @app.route("/taep/declaration/<lang>")
+    @login_required
+    @permission_any(*READ)
+    def taep_declaration(lang):
+        """The blank declaration in one language, opened for printing (audit Δ1)."""
+        if lang not in {code for code, _, _ in DECLARATION_LANGUAGES}:
+            abort(404)
+        path = os.path.join(DECLARATION_DIR, lang + ".pdf")
+        if not os.path.exists(path):
+            abort(404)
+        with open(path, "rb") as handle:
+            body = handle.read()
+        return Response(body, mimetype="application/pdf", headers={
+            "Content-Disposition": 'inline; filename="declaration-%s.pdf"' % lang})
+
     @app.route("/taep/api/prior")
     @login_required
     @permission_required(PERMISSIONS["create"])
@@ -5196,7 +5224,8 @@ def register(app, ctx):
                 data = _form_to_episode(request.form)
             except CostingError as exc:
                 flash(exc.message_el, "danger")
-                return render_template("taep_new.html", categories=categories,
+                return render_template("taep_new.html", declaration_languages=DECLARATION_LANGUAGES,
+                                   categories=categories,
                                        units=units, countries=countries, entity=entity,
                                        form=request.form, episode=episode)
 
@@ -5221,7 +5250,8 @@ def register(app, ctx):
             if errors:
                 for message in errors:
                     flash(message, "danger")
-                return render_template("taep_new.html", categories=categories,
+                return render_template("taep_new.html", declaration_languages=DECLARATION_LANGUAGES,
+                                   categories=categories,
                                        units=units, countries=countries, entity=entity,
                                        form=request.form, episode=episode)
 
@@ -5239,7 +5269,8 @@ def register(app, ctx):
                                  episode_id=episode_id)
             except CostingError as exc:
                 flash(exc.message_el, "danger")
-                return render_template("taep_new.html", categories=categories,
+                return render_template("taep_new.html", declaration_languages=DECLARATION_LANGUAGES,
+                                   categories=categories,
                                        units=units, countries=countries, entity=entity,
                                        form=request.form, episode=episode)
 
@@ -5265,7 +5296,8 @@ def register(app, ctx):
             form[field] = _form_date(episode[field])
         for field in ("admission_at", "examination_at", "discharge_at"):
             form[field] = _form_datetime(episode[field])
-        return render_template("taep_new.html", categories=categories, units=units,
+        return render_template("taep_new.html", declaration_languages=DECLARATION_LANGUAGES,
+                                   categories=categories, units=units,
                                countries=countries, entity=entity, form=form,
                                episode=episode)
 

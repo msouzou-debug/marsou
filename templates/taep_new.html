@@ -387,6 +387,19 @@
             <label class="form-check-label" for="declaration_signed">
               {{ t('Υπογράφηκε η Δήλωση για την καταβολή των εξόδων νοσηλείας') }} *</label>
           </div>
+          {# Παναγιώτα Έλληνα, 19/11/2026: the official declaration in the patient's
+             language, printed from here. Opens the approved PDF in a new tab. #}
+          <div class="d-flex align-items-center gap-2 mt-1 ms-4">
+            <select id="declaration-language" class="form-select form-select-sm w-auto"
+                    aria-label="{{ t('Γλώσσα Δήλωσης') }}">
+              {% for code, name, _ in declaration_languages %}
+                <option value="{{ code }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+            <a id="declaration-print" class="btn btn-sm btn-outline-secondary"
+               href="/taep/declaration/el" target="_blank" rel="noopener">
+              <i class="bi bi-printer"></i> {{ t('Εκτύπωση Δήλωσης') }}</a>
+          </div>
         </div>
         <div class="col-12 d-none" id="card-copy-block">
           <div class="form-check">
@@ -596,6 +609,16 @@ taepReady(function () {
   select.addEventListener("change", apply);
   if (window.jQuery) jQuery(select).on("select2:select", apply);
   apply();
+});
+
+// The declaration's print button follows the language picked beside it.
+taepReady(function () {
+  var language = document.getElementById("declaration-language");
+  var link = document.getElementById("declaration-print");
+  if (!language || !link) return;
+  language.addEventListener("change", function () {
+    link.setAttribute("href", "/taep/declaration/" + language.value);
+  });
 });
 
 // The declaration and card-copy ticks, each shown only for the categories that need it
