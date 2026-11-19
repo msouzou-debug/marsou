@@ -112,6 +112,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 19/11/2026: the rename to eHire is done in the repo: package `ehire/`, settings `EHIRE_*`, server names `ehire`, `/opt/ehire`, `/etc/ehire/ehire.env`, `/var/lib/ehire`, `ehire.service`, helper `scripts/ehire-cli.sh`, releases `ehire-<version>`. eHire sends eArchive `source_system: "eHire"` and key `ehire:<id>`; eArchive's side still says eHR (`EHR_INGEST_TOKEN`, `svc-ehr`, `EHR_EVENTS_URL`) until it renames, so the archive transport stays off. Releases rc1 to rc4 carry the old name: do not install them.
 
+- 19/11/2026: release `ehire-1.0.0-rc5` built with the full suite passing and verified with its checksum (faa142906980ee4d25d50d34d7260e34bed2fc130bdbc58e31b81fc8100a4425). It is the first release named eHire, carries the tunnel settings (0.0.0.0:5008, https://ehire.shso.online, one proxy hop) and is the one to install. Sent to Marios with `docs/eHire-server-setup-instructions.docx` and six eArchive samples under the new name.
+
 ## Status
 
 - Names below predate the rename: read `ehr`, `EHR_*` and eHR as `ehire`, `EHIRE_*` and eHire.

@@ -45,7 +45,7 @@ const gap = () => new Paragraph({ spacing: { after: 120 }, children: [] });
 
 const c = [];
 c.push(new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: 'eHire: server set-up instructions', font: FONT, size: 44, bold: true, color: DEEP })] }));
-c.push(p([run('For the server administrator', { color: GREY }), run('  ·  16/11/2026  ·  release ' + RELEASE, { color: GREY })], { spacing: { after: 240 } }));
+c.push(p([run('For the server administrator', { color: GREY }), run('  ·  19/11/2026  ·  release ' + RELEASE, { color: GREY })], { spacing: { after: 240 } }));
 
 c.push(p('eHire is a new web application of ΟΚΥπΥ. Its first module, «Έγκριση Θέσεων», handles requests to fill a post. It runs on the shared Linux server next to eFinance and eArchive, as its own service with its own user, port, database and folders. It shares nothing with the other applications.'));
 c.push(p('This note lists what to create, every setting to fill in, the order of the first install, and the checks that show it works. It holds no passwords, tokens or secrets. Where a secret is needed, the note says which setting takes it and who provides it.'));
