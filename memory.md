@@ -115,6 +115,9 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 19/11/2026: release `ehire-1.0.0-rc5` built with the full suite passing and verified with its checksum (faa142906980ee4d25d50d34d7260e34bed2fc130bdbc58e31b81fc8100a4425). It is the first release named eHire, carries the tunnel settings (0.0.0.0:5008, https://ehire.shso.online, one proxy hop) and is the one to install. Sent to Marios with `docs/eHire-server-setup-instructions.docx` and six eArchive samples under the new name.
 
+- 19/11/2026: every pinned package must install on Python 3.10. SQLAlchemy 2.1.8 needs 3.11, so releases rc1 to rc5 could not have been installed on the server; from rc6 the pin is SQLAlchemy 2.0.58. Check with `pip download --python-version 3.10 --only-binary=:all:` before each release. Releases ship with an offline wheel set for Python 3.10 on x86_64.
+- 19/11/2026: `scripts/install-ehire.sh` installs or upgrades with one sudo command (guards, backup, switch, health check, rollback). systemd, useradd and runuser were never exercised: first run on the server is `--dry-run`.
+
 ## Status
 
 - Names below predate the rename: read `ehr`, `EHR_*` and eHR as `ehire`, `EHIRE_*` and eHire.

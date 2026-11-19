@@ -17,7 +17,7 @@ The server could not be inspected: the VPN was down. The facts below were stated
 | Language | Python, code written to run on 3.10 | eFinance runs 3.10 |
 | Web | Flask 3.1.3, Jinja templates, gunicorn, one worker | Same as eFinance |
 | UI kit | Bootstrap 5.3.3, Bootstrap Icons 1.11.3, later jQuery and Select2, all in `ehire/static/vendor` with checksums | Same as eFinance; nothing loads from outside |
-| Database access | SQLAlchemy 2.1 through Flask-SQLAlchemy | Lets the engine be chosen later without rewriting queries |
+| Database access | SQLAlchemy 2.0 through Flask-SQLAlchemy (2.1 needs Python 3.11; the server has 3.10) | Lets the engine be chosen later without rewriting queries |
 | Database engine | SQLite in production too, one gunicorn worker (decision of 14/11/2026, below) | eFinance runs on SQLite |
 | Workflow rules | `ehire/workflow/`, pure Python, no Flask, database or I/O imports. A test enforces it | Build brief sections 5 and 7 |
 | Strings | `ehire/i18n/el.json` and `en.json`, looked up with `t('key')`. Tests check that both files have the same keys and that no Greek sits in templates or code | Build brief section 4 |
