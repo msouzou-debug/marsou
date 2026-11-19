@@ -118,6 +118,10 @@
       {{ t('Αναθεώρηση κοστολόγησης') if episode.status == 'FINALISED'
          else t('Διόρθωση στοιχείων') }}</a>
     {% endif %}
+    {# Internal audit Α3: the doctor ticks codes instead of handwriting them. #}
+    <a href="/taep/codesheet?episode={{ episode.id }}" target="_blank" rel="noopener"
+       class="btn btn-outline-secondary btn-action">
+      <i class="bi bi-ui-checks"></i> {{ t('Φύλλο κωδικών') }}</a>
     <a href="/taep/list" class="btn btn-outline-secondary btn-action">
       <i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</a>
   </div>

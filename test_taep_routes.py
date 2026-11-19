@@ -2695,3 +2695,19 @@ def test_the_receivables_workbook_is_live_formulas(client, app):
     assert detail["L2"].value.startswith("=MAX(0,Σύνοψη!$B$3-F2)")
     assert detail["M2"].value.startswith("=IF(L2<=30")
     assert summary["C7"].value.startswith("=SUMIFS(")
+
+
+def test_the_code_sheet_lists_every_service(client, app):
+    """Internal audit Α3: a tick-list for the doctor instead of handwriting."""
+    import pdfplumber
+    from io import BytesIO
+    episode_id = create(client, app, episode_number="E-SHEET")
+    response = client.get("/taep/codesheet?episode=%d" % episode_id)
+    assert response.status_code == 200 and response.data[:4] == b"%PDF"
+    with pdfplumber.open(BytesIO(response.data)) as pdf:
+        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+    catalogue = taep.list_services(app.ctx)
+    for service in catalogue[taep.TREATMENT] + catalogue[taep.INVESTIGATION]:
+        assert service["code"] in text, service["code"]
+    assert "E-SHEET" in text
+    assert client.get("/taep/codesheet").status_code == 200

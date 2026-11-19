@@ -76,6 +76,7 @@ EN = {
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
     "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "Φύλλο κωδικών": "Code sheet",
     "Ανεξόφλητα υπόλοιπα": "Unpaid balances",
     "Οριστικοποιημένες κοστολογήσεις επί πληρωμή ασθενών με υπόλοιπο προς είσπραξη.": "Finalised costings of self-paying patients with a balance still to collect.",
     "Ημέρες από την οριστικοποίηση": "Days since finalisation",
