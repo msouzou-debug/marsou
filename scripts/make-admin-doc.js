@@ -74,7 +74,7 @@ c.push(table([2500, 3900, 2626], ['What', 'Where', 'Owner and mode'], [
   ['System user and group', 'ehire (no login shell)', ''],
   ['Releases', '/opt/ehire/releases/ehire-<version>/', 'ehire'],
   ['Live release', '/opt/ehire/current (a link to one release)', 'ehire'],
-  ['Python environment', '/opt/ehire/venv', 'ehire'],
+  ['Python environment', '/opt/ehire/venv (a link to /opt/ehire/venv-<version>; the old one is kept for rollback)', 'ehire'],
   ['Staging', '/opt/ehire/staging', 'ehire'],
   ['Settings file', '/etc/ehire/ehire.env', 'root:ehire, 640'],
   ['AD CA certificate', '/etc/ehire/ad-ca.pem', 'root:ehire, 640'],
@@ -165,26 +165,28 @@ c.push(table([4300, 4726], ['Item', 'Used for'], [
 c.push(gap());
 
 c.push(h1('7. First install, in order'));
-c.push(p([run('Commands marked '), run('(sudo)', { bold: true }), run(' run as root. All others run as the ehire user.')]));
-c.push(step([run('(sudo) ', { bold: true }), run('Create the ehire user and group and the folders in section 3, with the owners shown.')]));
-c.push(step('Put the release tarball and its .sha256 file in /opt/ehire/staging. Verify it. The answer must be "ok".'));
-c.push(...code('scripts/verify-release.sh /opt/ehire/staging/ehire-' + RELEASE + '.tar.gz'));
-c.push(step('Unpack it into /opt/ehire/releases/ and point /opt/ehire/current at it.'));
-c.push(...code(['tar -xzf /opt/ehire/staging/ehire-' + RELEASE + '.tar.gz -C /opt/ehire/releases/', 'ln -sfn /opt/ehire/releases/ehire-' + RELEASE + ' /opt/ehire/current']));
-c.push(step('Create the Python environment and install the packages. With no internet on the server, build a wheel folder elsewhere and install from it.'));
-c.push(...code(['python3 -m venv /opt/ehire/venv', '/opt/ehire/venv/bin/pip install -r /opt/ehire/current/requirements.txt']));
-c.push(step([run('(sudo) ', { bold: true }), run('Write /etc/ehire/ehire.env as in section 5. Owner root, group ehire, mode 640. Put the CA file in place with the same owner and mode.')]));
-c.push(step('From /opt/ehire/current, create the tables.'));
-c.push(...code('scripts/ehire-cli.sh init-db'));
-c.push(step('Create the first administrator. It asks for a user name, a full name and a password, twice. The password is typed, never given on the command line.'));
-c.push(...code('scripts/ehire-cli.sh create-admin'));
-c.push(step('Run the pre-flight check and fix every line marked FAIL.'));
-c.push(...code('scripts/preflight.sh'));
-c.push(step([run('(sudo) ', { bold: true }), run('Install ehire.service from deploy/ehire.service.example and start it. Start only this service.')]));
-c.push(...code(['systemctl enable ehire', 'systemctl start ehire']));
-c.push(step('Install the scheduled jobs in section 8 for the ehire user.'));
+c.push(p('The install is one command. The installer checks, backs up, installs, restarts and checks. It runs only as root and never calls sudo itself. It touches only the eHire folders, the ehire user and ehire.service. It never restarts another service, never touches nginx, apache or cron, and installs no cron lines.'));
+c.push(step('Copy three files to one folder on the server: the tarball, its .sha256 file and install-ehire.sh. Read the script first. Compare the tarball checksum with the one in section 15 by a second route (phone or chat), not only the copy that travelled with the file.'));
+c.push(step([run('(sudo) ', { bold: true }), run('Rehearse. It prints every action and changes nothing.')]));
+c.push(...code('sudo bash install-ehire.sh --dry-run ehire-' + RELEASE + '.tar.gz'));
+c.push(step([run('(sudo) ', { bold: true }), run('Install. With a terminal it prints the plan and asks once. With no terminal (SSH from PowerShell, a script) add --yes. With no internet on the server add --wheels <folder> (a folder of wheel files built elsewhere).')]));
+c.push(...code('sudo bash install-ehire.sh ehire-' + RELEASE + '.tar.gz'));
+c.push(step('Read the 14 lines [1/14] to [14/14]. Each ends in ok or the reason it stopped. The same text is saved in /var/log/ehire/install-<time>.log. The secret key is never shown or logged.'));
+c.push(step('Create the first administrator. It asks for a user name, a full name and a password, twice, so the installer does not run it. The password is typed, never given on the command line.'));
+c.push(...code('sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh create-admin'));
 c.push(step([run('(sudo) ', { bold: true }), run('Add the firewall rule that lets only the tunnel\'s machine reach port 5008. The tunnel rule for ehire.shso.online already points at http://10.227.56.22:5008, so the address works as soon as eHire is running.')]));
+c.push(step('Install the scheduled jobs in section 8 for the ehire user, including the nightly backup. The installer prints the lines but does not install them.'));
+c.push(step('Put the values from the list in section 6 into /etc/ehire/ehire.env: the installer made the file with a new secret key, EHIRE_DATABASE_URI, EHIRE_STORAGE_DIR, EHIRE_BIND=0.0.0.0:5008 and AD sign-in off. Then run scripts/preflight.sh --skip-port as ehire, and restart only ehire.'));
 c.push(step('Run the checks in section 11.'));
+c.push(table([1700, 7326], ['Exit code', 'Meaning'], [
+  ['0', 'Done, or nothing to do (the same release is already current and healthy).'],
+  ['1', 'A guard failed before any change: not root, a bad name or checksum, tests not passed, Python older than 3.10, no time zone data, low disk, the port in use by something else, no terminal and no --yes. Nothing was changed.'],
+  ['2', 'It failed and was rolled back, or it failed before anything live was touched.'],
+  ['3', 'It failed and could not roll back cleanly (also any failed first install). The message says what exists and what to do. Nothing is deleted automatically.'],
+], [0]));
+c.push(gap());
+c.push(p([run('If a first install stops, ', { bold: true }), run('fix the cause shown in the failed line and run the same command again. It resumes and keeps the settings file.')]));
+c.push(p([run('If the installer cannot be used. ', { bold: true }), run('The manual steps are in deploy/README.md, section "First install by hand": create the user and folders (sudo), verify and unpack the release, create the Python environment, write /etc/ehire/ehire.env, run init-db, create-admin, preflight, install and start only ehire.service, then the scheduled jobs and the firewall rule. They give the same result.')]));
 c.push(p([run('Do not run seed-demo or seed-cases on this server. ', { bold: true }), run('They load test users that share a known password. They refuse to run when EHIRE_ENV=production.')], { spacing: { before: 100, after: 110 } }));
 
 c.push(h1('8. Scheduled jobs'));
@@ -239,12 +241,15 @@ c.push(table([4700, 4326], ['Check', 'Expected'], [
 c.push(gap());
 
 c.push(h1('12. Upgrades and rollback'));
-c.push(step('Back up the database and the documents folder. Note the time.', 'num3'));
-c.push(step('Stage and verify the new release, and unpack it beside the old one.', 'num3'));
-c.push(step([run('(sudo) ', { bold: true }), run('Stop only ehire.')], 'num3'));
-c.push(step('Point /opt/ehire/current at the new release and run scripts/ehire-cli.sh upgrade-db. Then db-status must print pending=0.', 'num3'));
-c.push(step([run('(sudo) ', { bold: true }), run('Start ehire and run the checks in section 11.')], 'num3'));
-c.push(p('To roll back: stop ehire, point /opt/ehire/current at the old release, restore the database and documents from the backup of step 1 if upgrade-db ran, and start ehire. eHire refuses to serve on a database that is behind the code, so a missed upgrade-db shows as "service is being upgraded", not as wrong data.', { spacing: { before: 100, after: 110 } }));
+c.push(p('An upgrade is the same command as the first install. The installer sees /opt/ehire/current and treats it as an upgrade.'));
+c.push(step('Copy the new tarball, its .sha256 file and install-ehire.sh to one folder on the server.', 'num3'));
+c.push(step([run('(sudo) ', { bold: true }), run('Run it (add --dry-run first to see every action, --yes when no terminal is attached).')], 'num3'));
+c.push(...code('sudo bash install-ehire.sh ehire-' + RELEASE + '.tar.gz'));
+c.push(step('Read the result. It prints the version now linked and the version it installs. Before it stops anything it backs up the database (backup-db, the online copy) and the documents folder into /var/backups/ehire/<time>-pre-<version>/ and stops if either file is missing or empty. Then it stops only ehire, switches the link, runs upgrade-db (db-status must print pending=0), runs preflight, refreshes ehire.service if it changed, starts ehire and polls /healthz for 30 seconds.', 'num3'));
+c.push(step('Run the checks in section 11.', 'num3'));
+c.push(p([run('Automatic rollback. ', { bold: true }), run('If a step fails after the backup, the installer stops ehire, points the release link and the Python environment back at the old ones, restores the old service file if it replaced one, and restores the database and documents from the backup only if upgrade-db had started (stale -wal and -shm files are removed; the failed state is moved to <backup>/failed-upgrade/, not deleted). It starts ehire again, checks /healthz and exits with code 2. If a rollback step itself fails it exits with code 3 and lists what state it left. Anything saved between the backup and the stop (a few seconds) is not in the backup.')], { spacing: { before: 100, after: 110 } }));
+c.push(p('The same command with the same release again, when it is current and healthy, does nothing and exits 0. An older release folder that is still on disk is refused unless --yes is given, because an older release may need an older database.'));
+c.push(p([run('If the installer cannot be used. ', { bold: true }), run('The manual upgrade and rollback are in deploy/README.md, sections "Upgrade by hand" and "Backup and restore": back up the database and documents, verify and unpack, stop only ehire, switch the link, upgrade-db, preflight, start, check. To roll back by hand: stop ehire, point /opt/ehire/current at the old release, restore the database and documents from the backup if upgrade-db ran, and start ehire. eHire refuses to serve on a database that is behind the code, so a missed upgrade-db shows as "service is being upgraded", not as wrong data.')]));
 
 c.push(h1('13. Useful commands'));
 c.push(table([4300, 4726], ['Command', 'Use'], [

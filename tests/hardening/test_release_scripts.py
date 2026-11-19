@@ -23,7 +23,7 @@ def project(tmp_path):
     proj = tmp_path / "proj"
     for d in ("ehire/templates", "deploy", "docs", "tests", "claude", ".claude", "instance", ".venv/bin", "scripts"):
         (proj / d).mkdir(parents=True)
-    for name in ("make-release.sh", "verify-release.sh", "preflight.sh", "ehire-cli.sh", "_env.sh"):
+    for name in ("make-release.sh", "verify-release.sh", "install-ehire.sh", "preflight.sh", "ehire-cli.sh", "_env.sh"):
         shutil.copy(SCRIPTS / name, proj / "scripts" / name)
     (proj / "ehire/__init__.py").write_text("x = 1\n")
     (proj / "ehire/templates/a.html").write_text("<p>hi</p>\n")
@@ -77,6 +77,9 @@ def test_release_holds_source_only_and_checksums_every_file(project):
     assert listed == rel - {"SHA256SUMS"}  # every file, and the list is not in itself
     assert "tests: passed" in info and "version: v1" in info
     assert (project / "dist/ehire-v1.tar.gz.sha256").read_text().split()[1] == "ehire-v1.tar.gz"
+    # the installer is inside the release, checksummed, and copied beside the tarball unchanged
+    assert "scripts/install-ehire.sh" in rel and "scripts/install-ehire.sh" in listed
+    assert (project / "dist/install-ehire.sh").read_bytes() == (project / "scripts/install-ehire.sh").read_bytes()
 
 
 def test_a_failing_test_suite_builds_no_release(project):
@@ -177,7 +180,9 @@ def test_scripts_use_strict_mode_and_no_sudo_or_network_tools():
             continue
         assert "set -euo pipefail" in text, path.name
         body = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
-        command = re.compile(r"(^|[;&|(]\s*|\$\(\s*)(sudo|su|systemctl|service|curl|wget|ssh|scp|nc|pip3?)\s", re.M)
+        # install-ehire.sh is the one script that runs systemctl (only for ehire) and pip; it never calls sudo itself.
+        banned = "sudo|su|service|curl|wget|ssh|scp|nc" if path.name == "install-ehire.sh" else "sudo|su|systemctl|service|curl|wget|ssh|scp|nc|pip3?"
+        command = re.compile(r"(^|[;&|(]\s*|\$\(\s*)(%s)\s" % banned, re.M)
         assert not command.search(body), (path.name, command.search(body).group(0))
 
 

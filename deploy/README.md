@@ -7,6 +7,49 @@ Paths below are examples. eHire's port on the ΟΚΥπΥ server is 5008 (eFinanc
 
 **How users reach it.** eHire is published as `https://ehire.shso.online` through a Cloudflare tunnel that runs on another machine and connects to this server at `http://10.227.56.22:5008`. So eHire listens on `0.0.0.0:5008` (`EHIRE_BIND`), with `EHIRE_PROXY_HOPS=1`, `EHIRE_HTTPS=true` and `EHIRE_BASE_URL=https://ehire.shso.online`. A 502 from that address means nothing is listening on 5008: check `systemctl status ehire`. Because the port is plain HTTP and open on the network interface, add a firewall rule that lets only the tunnel's machine reach 5008; without it, anyone on the internal network can reach eHire directly and send a forged forwarded address. The link to eArchive is separate and stays on `127.0.0.1`.
 
+## Install or upgrade with one command
+
+This is the normal way. The manual steps further down are the fallback for when the installer cannot be used.
+
+**Copy three files** from the build machine (`dist/`) to one folder on the server, read the script first, and compare the tarball checksum with the one on the build machine by a second route (phone, chat):
+
+- `ehire-<version>.tar.gz`
+- `ehire-<version>.tar.gz.sha256`
+- `install-ehire.sh` (the same file is also inside the tarball)
+
+**Run one command**, as root, from an SSH session:
+
+```
+sudo bash install-ehire.sh ehire-<version>.tar.gz
+```
+
+The script never calls sudo itself: it must be root, and says so when it is not. With a terminal attached it prints the plan and asks once. With no terminal (SSH driven from PowerShell, a script) it refuses unless `--yes` is given. Output is plain ASCII, one line per step (`[n/14] ... ok`, or the reason it stopped), and the whole run is also written to `/var/log/ehire/install-<time>.log` (the secret key is never printed or logged).
+
+| Option | Meaning |
+|---|---|
+| `--wheels DIR` | Offline: `pip install --no-index --find-links DIR`. Without it pip downloads from PyPI. |
+| `--dry-run` | Prints every action and changes nothing. Run it first. |
+| `--yes` | Do not ask for confirmation. |
+| `--no-start` | Install and check, but do not start the service. |
+| `--port N` | Port (default 5008). An existing settings file wins and must agree. |
+| `--root DIR` | Testing only: treat DIR as the filesystem root and record the root-only actions in `DIR/.actions.log`. Refused for `/`. |
+
+**What it does, in order.** (1) Guards, before changing anything: root, bash 4, the tarball name, its `.sha256`, every file against `SHA256SUMS` (through `verify-release.sh`, from beside the script or from inside the tarball), `RELEASE-INFO` says `tests: passed` (a `--skip-tests` release is refused), Python 3.10 or newer with venv, systemd, the time zone database, 500 MB free on `/opt` and `/var/lib`; LibreOffice missing is a warning only. (2) Decides FIRST INSTALL (no `/opt/ehire/current`) or UPGRADE and prints the version being installed and the one now linked. The current release again, with a healthy service, exits 0 and changes nothing. An older release folder that is already unpacked needs `--yes`. (3) Port check: something other than eHire on the port stops it, with the process name and pid. (4) First install: creates the `ehire` user and group if missing, and the folders with the owners and modes in the Layout table. (5) Unpacks into `/opt/ehire/releases/ehire-<version>` (owner `ehire`, not writable by group or other). (6) Python environment: `venv-<version>` with `/opt/ehire/venv` as a link to it. On an upgrade a new one is built only when `requirements.txt` changed, and switched in at step 9; the old one stays for rollback. (7) First install writes `/etc/ehire/ehire.env` from the example with a fresh secret key. An existing file is never changed, reordered or printed: the script only lists the variable names the new example has and the file lacks. (8) Upgrade: backs up the database (`backup-db`, from the current release, as `ehire`) and the storage folder to `/var/backups/ehire/<UTC time>-pre-<version>/` and stops if either file is missing or empty. (9) Stops only `ehire.service`, points `current` at the new release, runs `init-db` (first install) or `upgrade-db` (upgrade), and `db-status` must say `pending=0`. (10) `preflight.sh --skip-port`, as `ehire`: any FAIL stops it. (11) Installs `ehire.service` from the release when it differs (the old one is kept as `ehire.service.bak`), `daemon-reload`, `enable`, `start`. (12) Polls `http://127.0.0.1:<port>/healthz` for 30 seconds and checks that the unit is active. (13) Rolls back when needed. (14) Prints a summary, the three addresses to check and the manual steps.
+
+All app commands run as the `ehire` user through `runuser`, never as root. The script touches only `/opt/ehire`, `/etc/ehire`, `/var/lib/ehire`, `/var/log/ehire`, `/var/backups/ehire`, the user `ehire` and `ehire.service`. It never restarts or reloads another unit, never runs `daemon-reexec`, never touches nginx, apache or cron, and never installs cron lines. The only network use is `pip` (no `--wheels`) and `127.0.0.1` for the health check.
+
+**Rollback (upgrade only, automatic after the backup).** If anything fails after the backup was taken, it stops `ehire`, points `current` and `venv` back, restores the previous service file if it replaced one, and restores the database and the storage folder from the backup only if `upgrade-db` had started (stale `-wal` and `-shm` files are removed, the failed state is moved to `<backup>/failed-upgrade/`, nothing is deleted). Then it starts `ehire` again if it was running, checks `/healthz` and exits 2. Anything saved between the backup and the stop is not in the backup: the window is a few seconds. A failed first install cannot be rolled back: the unit is stopped and disabled, files stay in place, the script prints what exists and the commands to remove it (it never runs `rm -rf`), and the same command resumes the install after the cause is fixed.
+
+**Exit codes.** 0 done, or nothing to do. 1 a guard failed, nothing changed (also: no terminal and no `--yes`, or the prompt was declined). 2 failed and rolled back, or failed before anything live was touched. 3 failed and could not roll back cleanly (first install failures, or a rollback step failed): the message says what state it is in.
+
+**What is left for a person** (the script prints these as copy-paste lines):
+
+1. First install: `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh create-admin`. It asks for a password, so the script does not run it.
+2. The firewall rule: only the tunnel machine may reach the port.
+3. The three cron lines and the nightly backup line (Scheduled jobs and Backup and restore below). The script does not install cron.
+4. Values from IT in `/etc/ehire/ehire.env`: AD server, domain, base DN and CA file; Graph tenant, client id, secret and sender mailbox; the eArchive token. After editing, run `preflight.sh --skip-port` and restart only `ehire`.
+5. Copy the backup folder off the server.
+
 ## Prerequisites
 
 - Linux server inside the organisation's network, with a reverse proxy that serves HTTPS and passes requests to gunicorn on `127.0.0.1`.
@@ -23,7 +66,7 @@ Paths below are examples. eHire's port on the ΟΚΥπΥ server is 5008 (eFinanc
 |---|---|
 | System user and group | `ehire` (no login shell, owns nothing else) |
 | Releases | `/opt/ehire/releases/ehire-<version>/`, with `/opt/ehire/current` pointing at the live one |
-| Python environment | `/opt/ehire/venv` |
+| Python environment | `/opt/ehire/venv` (a link to `/opt/ehire/venv-<version>` when the installer built it; the manual steps make it a plain folder) |
 | Settings | `/etc/ehire/ehire.env`, owner root, group `ehire`, mode 640 (template: `deploy/ehire.env.example`) |
 | Database | `/var/lib/ehire/ehire.sqlite3` (plus `ehire.sqlite3-wal` and `-shm` while running), owner `ehire`, outside the code folder |
 | Documents | `/var/lib/ehire/storage`, owner `ehire` |
@@ -47,7 +90,9 @@ scripts/verify-release.sh dist/ehire-<version>.tar.gz
 
 `make-release.sh` stops if any test fails. The tarball holds the source only: no `.venv`, tests, caches, briefs or `docs/` drafts (`docs/operations.md` is kept). It carries `SHA256SUMS` (every file) and `RELEASE-INFO` (version, commit, test result). A separate `dist/ehire-<version>.tar.gz.sha256` covers the tarball itself. Copy both files to the server. Compare the checksum with the one on the build machine by a second route (phone, chat), not only the copy that travelled with the file.
 
-## First install (Marios, on the server)
+## First install by hand (fallback, Marios, on the server)
+
+Only when `install-ehire.sh` cannot be used. The installer does all of this, in this order.
 
 1. Create the user and folders (sudo): the `ehire` user and group; `/opt/ehire/releases`, `/etc/ehire`, `/var/lib/ehire/storage`, `/var/log/ehire`, owned as in the table above.
 2. Stage the release: put the tarball and its `.sha256` in `/opt/ehire/staging/`, run `scripts/verify-release.sh` on it (copy that small script over from the build machine together with the tarball; read it first), then unpack into `/opt/ehire/releases/` and point `/opt/ehire/current` at it.
@@ -59,9 +104,9 @@ scripts/verify-release.sh dist/ehire-<version>.tar.gz
 8. Install `ehire.service` and the cron lines (below), including the nightly backup. Start only `ehire`: `systemctl start ehire` (sudo).
 9. Health check: `curl -s http://127.0.0.1:5008/healthz` answers `{"status":"ok"}`. Sign in and open the Audit log.
 
-## Upgrade
+## Upgrade by hand (fallback)
 
-Stage and test first, switch last. Each step is one command Marios can read.
+Only when `install-ehire.sh` cannot be used. Stage and test first, switch last. Each step is one command Marios can read.
 
 1. Run the full test suite on the build machine and build the release (`scripts/make-release.sh`).
 2. **Back up** the database and the storage folder together (see Backup and restore). Note the time.

@@ -1,8 +1,10 @@
 # eHire operations, one page
 
-For the person who looks after eHire day to day. Install and upgrade steps are in `deploy/README.md`.
+For the person who looks after eHire day to day. Install and upgrade are one command, `sudo bash install-ehire.sh ehire-<version>.tar.gz` (section "Install or upgrade with one command" in `deploy/README.md`; the manual steps there are the fallback).
 
 **Two rules.** Never restart another app's service. The full test suite passes before any install.
+
+**Install or upgrade.** Copy `ehire-<version>.tar.gz`, its `.sha256` and `install-ehire.sh` to one folder on the server and run `sudo bash install-ehire.sh ehire-<version>.tar.gz` (add `--dry-run` first; `--yes` when no terminal is attached). It checks the release, backs up the database and the documents before an upgrade (`/var/backups/ehire/<time>-pre-<version>/`), switches, runs the migrations, checks `/healthz` and rolls back by itself when a step fails. Exit codes: 0 done, 1 refused before any change, 2 failed and rolled back, 3 failed and not cleanly rolled back. Its log is `/var/log/ehire/install-<time>.log`. It leaves to a person: `create-admin` (first install), the firewall rule, the cron and backup lines, and the IT values in `ehire.env`.
 
 ## Where things are
 

@@ -2,6 +2,7 @@
 # Builds a release tarball of the source for staging on the server.
 #   dist/ehire-<version>.tar.gz          the source, without .venv, tests, caches, briefs and the docs/ drafts
 #   dist/ehire-<version>.tar.gz.sha256   checksum of the tarball
+#   dist/install-ehire.sh                the one-command installer, copied beside the tarball (it is also inside it)
 # Inside the tarball, SHA256SUMS lists every file, and RELEASE-INFO records the version and the test result.
 # The full test suite runs first and must pass (Marios's rule). --skip-tests is for a dry run and is written into
 # RELEASE-INFO, where scripts/preflight.sh fails on it.
@@ -70,6 +71,9 @@ FILES="$(wc -l < "$DEST/SHA256SUMS" | tr -d ' ')"
 OUT="$ROOT/dist/$NAME.tar.gz"
 tar -C "$STAGE" --sort=name --owner=0 --group=0 --numeric-owner -czf "$OUT" "$NAME"
 (cd "$ROOT/dist" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
+# The installer travels with the tarball so it can run before anything is unpacked. Same file as inside the release.
+cp "$DEST/scripts/install-ehire.sh" "$ROOT/dist/install-ehire.sh"
 
 echo "built $OUT ($FILES files, tests: $TESTS)"
 cat "$ROOT/dist/$NAME.tar.gz.sha256"
+(cd "$ROOT/dist" && sha256sum install-ehire.sh)
