@@ -4040,6 +4040,158 @@ def user_label(ctx, user_id):
     return "#%s" % user_id
 
 
+# ---------------------------------------------------------------------------
+# Unpaid balances (internal audit Γ1, answered 19/11/2026)
+# ---------------------------------------------------------------------------
+
+# Only a self-paying patient owes money personally. Public-health, Ευρωκάρτα and
+# Βρετανικές Βάσεις costings are billed to the payer and are not patient debt.
+SELF_PAY_CATEGORIES = frozenset({"600"})
+AGEING_BUCKETS = ((0, 30, "0–30"), (31, 60, "31–60"), (61, 90, "61–90"),
+                  (91, None, "90+"))
+
+
+def ageing_bucket(days):
+    for low, high, label in AGEING_BUCKETS:
+        if days >= low and (high is None or days <= high):
+            return label
+    return AGEING_BUCKETS[0][2]
+
+
+def receivables(ctx, entity_code, as_of=None):
+    """Finalised self-pay costings with money still owed, oldest first.
+
+    Days are counted from finalisation, which is when the patient was handed the bill.
+    """
+    codes = [entity_code] if isinstance(entity_code, str) else list(entity_code)
+    if not codes:
+        return []
+    as_of = as_of or dt.date.today()
+    rows = ctx["db_execute"](
+        """SELECT e.*, c.code_new AS category_code, n.allocated_at AS finalised_at
+             FROM taep_episode e
+             JOIN taep_financial_category c ON c.id = e.financial_category_id
+             JOIN taep_costing_number n ON n.episode_id = e.id AND n.voided_at IS NULL
+            WHERE e.status = 'FINALISED' AND e.entity_code IN (%s)
+            ORDER BY n.allocated_at""" % ", ".join(["%s"] * len(codes)),
+        tuple(codes), fetch=True) or []
+    owed = []
+    for episode in rows:
+        if episode["category_code"] not in SELF_PAY_CATEGORIES:
+            continue
+        statement = account_statement(ctx, episode, get_calculation(ctx, episode["id"]))
+        if statement["balance"] is None or statement["balance"] <= 0:
+            continue
+        finalised = _as_date(episode["finalised_at"]) or as_of
+        days = max((as_of - finalised).days, 0)
+        owed.append({
+            "episode_id": episode["id"], "entity_code": episode["entity_code"],
+            "costing_number": episode["costing_number"],
+            "patient": "%s %s" % (episode["last_name"] or "", episode["first_name"] or ""),
+            "phone": episode["phone"], "address": episode["address"],
+            "finalised_on": finalised, "days": days, "bucket": ageing_bucket(days),
+            "total": statement["total"], "deposit": statement["deposit"],
+            "paid": statement["paid"], "refunded": statement["refunded"],
+            "balance": statement["balance"],
+        })
+    return owed
+
+
+def receivables_summary(rows):
+    """Count and amount per ageing bucket, in bucket order."""
+    summary = [{"bucket": label, "count": 0, "amount": Decimal("0.00")}
+               for _, _, label in AGEING_BUCKETS]
+    index = {item["bucket"]: item for item in summary}
+    for row in rows:
+        index[row["bucket"]]["count"] += 1
+        index[row["bucket"]]["amount"] += row["balance"]
+    return summary
+
+
+def export_receivables_workbook(ctx, entity_code, as_of=None):
+    """The unpaid balances as a workbook whose arithmetic is live formulas.
+
+    Inputs (charged, deposit, paid, refunded, finalised date) are values; the balance,
+    the days outstanding and the bucket are formulas against a report date the reader
+    can change, and the summary sheet totals them with SUMIFS/COUNTIFS. An auditor can
+    follow every number back to its row.
+    """
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    as_of = as_of or dt.date.today()
+    rows = receivables(ctx, entity_code, as_of)
+    workbook = Workbook()
+    summary = workbook.active
+    summary.title = "Σύνοψη"
+    detail = workbook.create_sheet("Ανεξόφλητα")
+    head = Font(bold=True, color="FFFFFF")
+    fill = PatternFill("solid", fgColor="0A2C49")
+
+    summary["A1"] = "Ανεξόφλητα υπόλοιπα επί πληρωμή ασθενών ΤΑΕΠ"
+    summary["A1"].font = Font(bold=True, size=13)
+    summary["A3"] = "Ημερομηνία αναφοράς"
+    summary["B3"] = as_of
+    summary["B3"].number_format = "DD/MM/YYYY"
+    summary["A4"] = "Αλλάξτε την ημερομηνία και οι ημέρες και οι κλίμακες ξαναϋπολογίζονται."
+
+    columns = ["Νοσοκομείο", "Αρ. κοστολόγησης", "Ασθενής", "Τηλέφωνο", "Διεύθυνση",
+               "Οριστικοποίηση", "Τελικό κόστος €", "Προκαταβολή €", "Εισπράξεις €",
+               "Επιστροφές €", "Υπόλοιπο €", "Ημέρες", "Κλίμακα"]
+    for col, title in enumerate(columns, 1):
+        cell = detail.cell(row=1, column=col, value=title)
+        cell.font, cell.fill = head, fill
+    for r, row in enumerate(rows, 2):
+        values = [row["entity_code"], row["costing_number"], row["patient"].strip(),
+                  row["phone"], row["address"], row["finalised_on"],
+                  float(row["total"]), float(row["deposit"]), float(row["paid"]),
+                  float(row["refunded"])]
+        for col, value in enumerate(values, 1):
+            detail.cell(row=r, column=col, value=value)
+        detail.cell(row=r, column=6).number_format = "DD/MM/YYYY"
+        detail.cell(row=r, column=11, value="=G%d-H%d-I%d+J%d" % (r, r, r, r))
+        detail.cell(row=r, column=12, value="=MAX(0,Σύνοψη!$B$3-F%d)" % r)
+        detail.cell(row=r, column=13,
+                    value='=IF(L{0}<=30,"0–30",IF(L{0}<=60,"31–60",'
+                          'IF(L{0}<=90,"61–90","90+")))'.format(r))
+        for col in (7, 8, 9, 10, 11):
+            detail.cell(row=r, column=col).number_format = "#,##0.00"
+    last = max(len(rows) + 1, 2)
+    for col, width in zip("ABCDEFGHIJKLM", (12, 18, 28, 14, 30, 13, 14, 14, 14, 14,
+                                             14, 9, 10)):
+        detail.column_dimensions[col].width = width
+    detail.freeze_panes = "A2"
+
+    summary["A6"], summary["B6"], summary["C6"] = "Κλίμακα (ημέρες)", "Πλήθος", "Υπόλοιπο €"
+    for cell in (summary["A6"], summary["B6"], summary["C6"]):
+        cell.font, cell.fill = head, fill
+    for i, (_, _, label) in enumerate(AGEING_BUCKETS):
+        r = 7 + i
+        summary.cell(row=r, column=1, value=label)
+        summary.cell(row=r, column=2,
+                     value='=COUNTIFS(Ανεξόφλητα!$M$2:$M${0},A{1})'.format(last, r))
+        summary.cell(row=r, column=3,
+                     value='=SUMIFS(Ανεξόφλητα!$K$2:$K${0},Ανεξόφλητα!$M$2:$M${0},A{1})'
+                     .format(last, r))
+        summary.cell(row=r, column=3).number_format = "#,##0.00"
+    total_row = 7 + len(AGEING_BUCKETS)
+    summary.cell(row=total_row, column=1, value="Σύνολο").font = Font(bold=True)
+    summary.cell(row=total_row, column=2, value="=SUM(B7:B%d)" % (total_row - 1))
+    summary.cell(row=total_row, column=3, value="=SUM(C7:C%d)" % (total_row - 1))
+    summary.cell(row=total_row, column=3).number_format = "#,##0.00"
+    summary.cell(row=total_row + 1, column=1, value="Έλεγχος με τις γραμμές")
+    summary.cell(row=total_row + 1, column=3,
+                 value="=C%d-SUM(Ανεξόφλητα!$K$2:$K$%d)" % (total_row, last))
+    summary.column_dimensions["A"].width = 26
+    summary.column_dimensions["B"].width = 14
+    summary.column_dimensions["C"].width = 16
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
 def export_episodes_workbook(ctx, entity_code, filters=None):
     """The episode list as a workbook, exporting what the filters show (brief §7)."""
     from openpyxl import Workbook
@@ -5841,6 +5993,30 @@ def register(app, ctx):
             headers={"Content-Disposition":
                      f'attachment; filename="katachoriseis_taep_'
                      f'{dt.date.today():%Y%m%d}.xlsx"'})
+
+    # -- Unpaid balances (audit Γ1, 19/11/2026) ----------------------------
+    @app.route("/taep/receivables")
+    @login_required
+    @permission_any(*READ, PERMISSIONS["payments"])
+    def taep_receivables():
+        active_entity()
+        entity = accessible_entities(ctx)
+        rows = receivables(ctx, entity)
+        return render_template("taep_receivables.html", rows=rows,
+                               summary=receivables_summary(rows),
+                               show_hospital=len(entity) > 1, today=dt.date.today())
+
+    @app.route("/taep/receivables/export")
+    @login_required
+    @permission_any(*READ, PERMISSIONS["payments"])
+    def taep_receivables_export():
+        active_entity()
+        ctx["log_activity"]("taep_report", 0, "RECEIVABLES_EXPORTED", "")
+        return Response(
+            export_receivables_workbook(ctx, accessible_entities(ctx)),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition":
+                     f'attachment; filename="anexoflita_taep_{dt.date.today():%Y%m%d}.xlsx"'})
 
     # -- Go-live readiness ------------------------------------------------
     @app.route("/taep/readiness")

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ t('Ανεξόφλητα υπόλοιπα') }}{% endblock %}
+{% block content %}
+
+{# Internal audit Γ1, answered 19/11/2026: nothing tracked what self-paying patients
+   still owed, or for how long. Self-pay (600) only: other categories are billed to a
+   payer, not to the patient. Days count from finalisation, when the bill was handed
+   over. #}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1"><i class="bi bi-hourglass-split"></i> {{ t('Ανεξόφλητα υπόλοιπα') }}</h4>
+    <div class="text-muted" style="font-size:0.86rem">
+      {{ t('Οριστικοποιημένες κοστολογήσεις επί πληρωμή ασθενών με υπόλοιπο προς είσπραξη.') }}
+    </div>
+  </div>
+  <a href="/taep/receivables/export" class="btn btn-outline-secondary btn-action">
+    <i class="bi bi-file-earmark-excel"></i> {{ t('Εξαγωγή σε Excel') }}</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 totals" id="ageing">
+        <thead><tr><th>{{ t('Ημέρες από την οριστικοποίηση') }}</th>
+                   <th class="text-end">{{ t('Πλήθος') }}</th>
+                   <th class="text-end">{{ t('Υπόλοιπο') }} €</th></tr></thead>
+        <tbody>
+        {% for item in summary %}
+          <tr><td>{{ item.bucket }}</td>
+              <td class="text-end number">{{ item.count }}</td>
+              <td class="text-end number">{{ item.amount | eur }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:0.84rem" id="receivables">
+        <thead><tr>
+          {% if show_hospital %}<th>{{ t('Νοσηλευτήριο') }}</th>{% endif %}
+          <th>{{ t('Αρ. κοστολόγησης') }}</th><th>{{ t('Ασθενής') }}</th>
+          <th>{{ t('Τηλέφωνο') }}</th><th>{{ t('Οριστικοποίηση') }}</th>
+          <th class="text-end">{{ t('Ημέρες') }}</th>
+          <th class="text-end">{{ t('Υπόλοιπο') }} €</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr>
+            {% if show_hospital %}<td>{{ row.entity_code }}</td>{% endif %}
+            <td><a href="/taep/{{ row.episode_id }}#statement">{{ row.costing_number }}</a></td>
+            <td>{{ row.patient }}</td><td>{{ row.phone or '' }}</td>
+            <td>{{ row.finalised_on.strftime('%d/%m/%Y') }}</td>
+            <td class="text-end number">{{ row.days }}</td>
+            <td class="text-end number">{{ row.balance | eur }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-muted text-center py-3">
+            {{ t('Δεν υπάρχουν ανεξόφλητα υπόλοιπα.') }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

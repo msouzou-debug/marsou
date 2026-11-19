@@ -2655,3 +2655,43 @@ def test_a_voided_payment_stays_but_no_longer_counts(client, app):
     assert taep.list_payments(app.ctx, episode_id)[0]["void_reason"] == "λάθος ποσό"
     with pytest.raises(taep.CostingError):
         taep.void_payment(app.ctx, payment_id, 1, "")
+
+
+# ---------------------------------------------------------------------------
+# Unpaid balances (internal audit Γ1, 19/11/2026)
+# ---------------------------------------------------------------------------
+
+def test_only_self_pay_costings_with_money_owed_are_listed(client, app):
+    owed = _finalised_600(client, app, "E-OWED")
+    settled = _finalised_600(client, app, "E-SETTLED")
+    episode = taep.get_episode(app.ctx, settled)
+    balance = taep.account_statement(app.ctx, episode,
+                                     taep.get_calculation(app.ctx, settled))["balance"]
+    taep.record_payment(app.ctx, settled, "PAYMENT", str(balance), "CASH", "R", "", 1)
+    other = _priced(client, app, code="624", episode_number="E-PUBLIC")
+    client.post("/taep/%d/finalise" % other)
+
+    rows = taep.receivables(app.ctx, ["NGH"])
+    assert [r["episode_id"] for r in rows] == [owed]
+    page = client.get("/taep/receivables").get_data(as_text=True)
+    assert 'href="/taep/%d#statement"' % owed in page
+    assert 'href="/taep/%d#statement"' % settled not in page
+
+
+def test_the_ageing_buckets(client, app):
+    assert [taep.ageing_bucket(d) for d in (0, 30, 31, 60, 61, 90, 91, 400)] == \
+        ["0–30", "0–30", "31–60", "31–60", "61–90", "61–90", "90+", "90+"]
+
+
+def test_the_receivables_workbook_is_live_formulas(client, app):
+    from io import BytesIO
+    from openpyxl import load_workbook
+    _finalised_600(client, app, "E-XLS")
+    response = client.get("/taep/receivables/export")
+    assert response.status_code == 200
+    book = load_workbook(BytesIO(response.data))
+    detail, summary = book["Ανεξόφλητα"], book["Σύνοψη"]
+    assert detail["K2"].value == "=G2-H2-I2+J2"
+    assert detail["L2"].value.startswith("=MAX(0,Σύνοψη!$B$3-F2)")
+    assert detail["M2"].value.startswith("=IF(L2<=30")
+    assert summary["C7"].value.startswith("=SUMIFS(")

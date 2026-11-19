@@ -9,6 +9,8 @@
       {{ t('Οι κοστολογήσεις του νοσηλευτηρίου σας.') }}
     </div>
   </div>
+  <a href="/taep/receivables" class="btn btn-outline-secondary btn-action ms-auto">
+    <i class="bi bi-hourglass-split"></i> {{ t('Ανεξόφλητα υπόλοιπα') }}</a>
   {% if has_permission('taep.create') %}
   <a href="/taep/nea" class="btn btn-brand btn-action">
     <i class="bi bi-plus-lg"></i> {{ t('Νέα Καταχώρηση') }}</a>
