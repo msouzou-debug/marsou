@@ -60,6 +60,10 @@
   </div>
   {% endif %}
 
+  {# Παναγιώτα Έλληνα, 19/11/2026: clerks had been typing «.» to get past a mandatory
+     field. Said up front, so the refusal is not the first they hear of it. #}
+  <div class="alert alert-light border py-2 small mb-3">{{ t('Τα πεδία με * είναι υποχρεωτικά. Τιμές όπως «.» ή «-» δεν γίνονται δεκτές.') }}</div>
+
   <div class="card mb-3">
     <div class="card-header d-flex align-items-center gap-2">
       <i class="bi bi-person-vcard text-primary"></i>
@@ -99,7 +103,7 @@
                  value="{{ form.get('id_number', '') }}">
         </div>
         <div class="col-md-3">
-          <label class="form-label" for="id_country">{{ t('Χώρα έκδοσης') }}</label>
+          <label class="form-label" for="id_country">{{ t('Χώρα έκδοσης') }} *</label>
           <select id="id_country" name="id_country" class="form-select select2">
             <option value=""></option>
             {% for country in countries %}
@@ -144,8 +148,8 @@
                  value="{{ form.get('first_name', '') }}">
         </div>
         <div class="col-md-2">
-          <label class="form-label" for="date_of_birth">{{ t('Ημ. Γέννησης') }}</label>
-          <input id="date_of_birth" name="date_of_birth" type="date" class="form-control"
+          <label class="form-label" for="date_of_birth">{{ t('Ημ. Γέννησης') }} *</label>
+          <input id="date_of_birth" name="date_of_birth" type="date" required class="form-control"
                  value="{{ form.get('date_of_birth', '') }}">
         </div>
         <div class="col-md-2">
@@ -159,13 +163,14 @@
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label" for="phone">{{ t('Τηλέφωνο') }}</label>
-          <input id="phone" name="phone" class="form-control"
+          <label class="form-label" for="phone">{{ t('Τηλέφωνο') }} *</label>
+          <input id="phone" name="phone" required class="form-control" inputmode="tel"
+                 pattern="(?:\D*\d){6,}.*" title="{{ t('Τουλάχιστον 6 ψηφία') }}"
                  value="{{ form.get('phone', '') }}">
         </div>
         <div class="col-md-9">
-          <label class="form-label" for="address">{{ t('Διεύθυνση') }}</label>
-          <input id="address" name="address" class="form-control"
+          <label class="form-label" for="address">{{ t('Διεύθυνση') }} *</label>
+          <input id="address" name="address" required class="form-control"
                  value="{{ form.get('address', '') }}">
         </div>
         <div class="col-md-4">
@@ -234,23 +239,23 @@
           {% endif %}
         </div>
         <div class="col-md-6">
-          <label class="form-label" for="episode_number">{{ t('Αριθμός Επεισοδίου') }}</label>
-          <input id="episode_number" name="episode_number" class="form-control"
+          <label class="form-label" for="episode_number">{{ t('Αριθμός Επεισοδίου') }} *</label>
+          <input id="episode_number" name="episode_number" required class="form-control"
                  value="{{ form.get('episode_number', '') }}">
         </div>
         <div class="col-md-4">
-          <label class="form-label" for="admission_at">{{ t('Εισαγωγή ασθενούς') }}</label>
-          <input id="admission_at" name="admission_at" type="datetime-local"
+          <label class="form-label" for="admission_at">{{ t('Εισαγωγή ασθενούς') }} *</label>
+          <input id="admission_at" name="admission_at" type="datetime-local" required
                  class="form-control" value="{{ form.get('admission_at', '') }}">
         </div>
         <div class="col-md-4">
-          <label class="form-label" for="examination_at">{{ t('Εξέταση') }}</label>
-          <input id="examination_at" name="examination_at" type="datetime-local"
+          <label class="form-label" for="examination_at">{{ t('Εξέταση') }} *</label>
+          <input id="examination_at" name="examination_at" type="datetime-local" required
                  class="form-control" value="{{ form.get('examination_at', '') }}">
         </div>
         <div class="col-md-4">
-          <label class="form-label" for="discharge_at">{{ t('Εξιτήριο') }}</label>
-          <input id="discharge_at" name="discharge_at" type="datetime-local"
+          <label class="form-label" for="discharge_at">{{ t('Εξιτήριο') }} *</label>
+          <input id="discharge_at" name="discharge_at" type="datetime-local" required
                  class="form-control" value="{{ form.get('discharge_at', '') }}">
         </div>
         {# ICD-10, in two controls rather than one (Παναγιώτα Έλληνα, 02/11/2026:

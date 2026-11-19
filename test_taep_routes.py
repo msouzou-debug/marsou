@@ -2448,3 +2448,38 @@ def test_each_calculate_press_records_what_it_delivered(client, app):
     assert "SHSO-ER3/%s" % exam["cpt_code"] in details
     assert "SHSO-ER4/—" in details           # no examination: refused, but recorded
     assert "∅/—" in details
+
+
+# ---------------------------------------------------------------------------
+# Mandatory fields (internal audit Δ1, Παναγιώτα Έλληνα 19/11/2026)
+# ---------------------------------------------------------------------------
+
+def test_every_field_on_her_list_is_mandatory(client, app):
+    for key, label in taep.REQUIRED_EPISODE_FIELDS:
+        response = client.post("/taep/nea", data=form_fields(app.ctx, **{key: ""}))
+        assert response.status_code == 200, key          # refused, form shown again
+        assert label in response.get_data(as_text=True), key
+
+
+def test_a_dot_does_not_pass_for_a_phone_or_an_address(client, app):
+    for key, junk in (("phone", "."), ("phone", "-"), ("phone", "12345"),
+                      ("address", "."), ("address", "x"), ("address", "--"),
+                      ("last_name", "."), ("episode_number", "-")):
+        response = client.post("/taep/nea", data=form_fields(app.ctx, **{key: junk}))
+        assert response.status_code == 200, (key, junk)
+        assert "υποχρεωτικά πεδία" in response.get_data(as_text=True), (key, junk)
+
+
+def test_real_values_still_pass(client, app):
+    episode_id = create(client, app, phone="+44 7700 900123", address="12 High St, Dhekelia",
+                        episode_number="E-REAL-1")
+    assert taep.get_episode(app.ctx, episode_id)["phone"] == "+44 7700 900123"
+
+
+def test_the_form_marks_every_mandatory_field(client, app):
+    page = client.get("/taep/nea").get_data(as_text=True)
+    for key, label in taep.REQUIRED_EPISODE_FIELDS:
+        if key == "financial_category_id":
+            continue                     # labelled «Κατηγορία» on the screen
+        assert re.search(r'for="%s">[^<]*\*</label>' % key, page), key
+    assert "Τα πεδία με * είναι υποχρεωτικά" in page

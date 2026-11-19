@@ -75,6 +75,9 @@ EN = {
     "Ημ. Γέννησης": "Date of birth",
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
+    "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "Τα πεδία με * είναι υποχρεωτικά. Τιμές όπως «.» ή «-» δεν γίνονται δεκτές.":
+        "Fields marked * are mandatory. Values such as \".\" or \"-\" are not accepted.",
     "Διεύθυνση": "Address",
     "Συγγενής — σχέση": "Next of kin — relationship",
     "Συγγενής — στοιχεία": "Next of kin — details",

@@ -1799,6 +1799,61 @@ EPISODE_FIELDS = (
 EDITABLE_STATUSES = ("DRAFT", "CALCULATED")
 
 
+# The fields a costing cannot be saved without. Παναγιώτα Έλληνα, 19/11/2026, answering
+# the internal audit (finding Δ1, πρόνοια 4.2.3(α)): these were already mandatory in the
+# old ΤΑΕΠ software, and phone and address had been too, until clerks learnt to type «.»
+# to get past them. So a value is checked for content, not just for being there.
+REQUIRED_EPISODE_FIELDS = (
+    ("id_number", "Αριθμός ταυτοποίησης"),
+    ("id_country", "Χώρα έκδοσης"),
+    ("last_name", "Επώνυμο"),
+    ("first_name", "Όνομα"),
+    ("date_of_birth", "Ημερομηνία γέννησης"),
+    ("phone", "Τηλέφωνο"),
+    ("address", "Διεύθυνση"),
+    ("episode_number", "Αριθμός επεισοδίου"),
+    ("admission_at", "Εισαγωγή ασθενούς"),
+    ("examination_at", "Εξέταση"),
+    ("discharge_at", "Εξιτήριο"),
+    ("financial_category_id", "Οικονομική κατηγορία"),
+)
+
+# Typed only to get past a mandatory field. Compared after stripping and lower-casing.
+_PLACEHOLDERS = {"na", "n/a", "none", "nil", "null", "xx", "xxx", "χχ", "χχχ",
+                 "000", "0000", "00000", "κανένα", "δεν έχει", "-", "--", "..."}
+
+
+def _is_placeholder(value):
+    """True for «.», «-», «x», «000» and the like: a value with no content."""
+    if value is None:
+        return True
+    if not isinstance(value, str):
+        return False                       # a parsed date or an id is real content
+    text = value.strip()
+    if not text:
+        return True
+    if not any(ch.isalnum() for ch in text):
+        return True                        # «.», «-», «/», «..»
+    if len(text) == 1:
+        return True                        # «x», «0», «α»
+    return text.lower() in _PLACEHOLDERS
+
+
+def missing_required_fields(data):
+    """The labels of the mandatory fields that are empty or hold a placeholder."""
+    missing = [label for key, label in REQUIRED_EPISODE_FIELDS
+               if _is_placeholder(data.get(key))]
+    phone = data.get("phone")
+    if "Τηλέφωνο" not in missing and isinstance(phone, str) \
+            and sum(ch.isdigit() for ch in phone) < 6:
+        missing.append("Τηλέφωνο")
+    address = data.get("address")
+    if "Διεύθυνση" not in missing and isinstance(address, str) \
+            and sum(ch.isalpha() for ch in address) < 3:
+        missing.append("Διεύθυνση")
+    return missing
+
+
 def validate_episode(data):
     """Brief §10. Returns (errors, warnings), both lists of Greek strings.
 
@@ -1833,16 +1888,17 @@ def validate_episode(data):
                 warnings.append(f"Η ημερομηνία γέννησης δίνει ηλικία {age} ετών. "
                                 f"Επιβεβαιώστε ότι είναι σωστή.")
 
-    if not (data.get("id_number") or "").strip():
-        errors.append("Ο αριθμός ταυτοποίησης είναι υποχρεωτικός.")
+    missing = missing_required_fields(data)
+    if missing:
+        errors.append(
+            "Συμπληρώστε τα υποχρεωτικά πεδία (*): %s. Τιμές όπως «.», «-» ή «x» δεν "
+            "γίνονται δεκτές· το τηλέφωνο χρειάζεται τουλάχιστον 6 ψηφία."
+            % ", ".join(missing))
 
     expiry = data.get("id_expiry")
     if expiry and examination and expiry < examination.date():
         warnings.append("Το έγγραφο ταυτοποίησης είχε λήξει κατά την ημερομηνία "
                         "εξέτασης.")
-
-    if not data.get("financial_category_id"):
-        errors.append("Η οικονομική κατηγορία είναι υποχρεωτική.")
 
     # A receipt number without the tick is almost certainly a tick somebody forgot, and
     # a tick is what decides whether €100 comes off the bill.
