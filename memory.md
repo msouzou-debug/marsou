@@ -22,9 +22,9 @@ English and Greek text: always use these skills
 
 ## Projects in this repo
 
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.2.html`: Famagusta General Hospital.
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.3.html`: Famagusta General Hospital.
   Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v2.2.html`: Larnaca General Hospital. Loads the Plan B
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v3.0.html`: Larnaca General Hospital. Loads the Plan B
   workbook (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
 - Naming: `SHSO-Outpatient-Dashboard-<hospital code>-v<major>.<minor>.html`. Exports follow
   `SHSO-Outpatient-<code>-v<version>-<what>-<date>`.
@@ -47,6 +47,18 @@ English and Greek text: always use these skills
 - Health certificates are booked under IT staff accounts, so those names appear in the doctor column.
   They are not clinicians and must not be counted as ΙΛ. The list sits in `CFG.itAccounts` in the Famagusta file.
 - Φαρμακείο belongs with labs and support departments.
+
+## Larnaca rules (v3.0, Nov 2026)
+
+- New source file: sheet `Data` with Ημερομηνία, Ημέρα, Doctor, Spec, Ραντεβού Πρωί, Εγγραφές Πρωί, Ραντεβού Απόγευμα,
+  Εγγραφές Απόγευμα. The old Plan B layout is still read.
+- Scheduled clinic = morning with at least 3 appointments (`CFG.minAppt`), in specialties that have appointments.
+  Specialties with no appointments keep the estimate. Registrations on other days count in volume, not in the average.
+- Mornings with appointments but no registrations stay out of the average and are reported separately.
+- Afternoons use registrations only; afternoon appointments in the file are incomplete.
+- Clinic packs: one folder per specialty name as it stands in the file (no grouping), doctor names shown,
+  hospital shown only as one comparison line. Famagusta has the same pack per specialty.
+- Open questions sent to Larnaca: `outpatient-dashboards/docs/LGH-Erotiseis-Neo-Arxeio-2026-11-19.docx`.
 
 ## Pitfalls to remember
 
