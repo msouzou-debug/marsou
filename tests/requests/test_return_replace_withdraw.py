@@ -1,6 +1,6 @@
 """Return, resubmit, replace, withdraw and the conflict-of-interest redirect, through the screens."""
-from ehr.extensions import db
-from ehr.models import AuditLog, Request, RequestAction, RequestFinancials, Task, User
+from ehire.extensions import db
+from ehire.models import AuditLog, Request, RequestAction, RequestFinancials, Task, User
 from tests.requests.flowhelpers import (act, actions_of, as_user, create, fin_fields, open_task, reload, step2,
                                         step3, step4, text)
 from tests.requests.helpers import full_form
@@ -65,7 +65,7 @@ def test_scenario_13b_return_at_step_3_pauses_the_other_task_and_resubmit_resume
     page = text(client.get("/requests/%d?lang=en" % rid))
     assert "On hold" in page and 'name="documentation"' not in page
     # the tracker shows the paused step
-    assert "ehr-tracker__stop--paused" in page
+    assert "ehire-tracker__stop--paused" in page
 
     assert resubmit(client, rid, need_text="Clearer need text.").status_code == 302
     r = reload(rid)
@@ -163,7 +163,7 @@ def test_scenario_12_requester_who_is_also_sci_director(seeded, client):
 
     # the requester has no card, and posting an action gets own_request
     as_user(client, "lar.sci")
-    assert 'id="ehr-card-' not in text(client.get("/requests/%d" % rid))
+    assert 'id="ehire-card-' not in text(client.get("/requests/%d" % rid))
     resp = act(client, "lar.sci", rid, "opinion", role="sci_director", task_id=task.id, opinion="positive", follow=True)
     assert "You can&#39;t act on your own request." in text(resp)
     resp = act(client, "lar.sci", rid, "check", role="dir_hr_officer", task_id=0, documentation="complete", follow=True)
@@ -279,7 +279,7 @@ def test_executive_decision_card_and_return_from_the_decision_phase(seeded, clie
     act(client, "nic.hr", rid, "check", documentation="complete")
     as_user(client, "nic.exec")
     page = text(client.get("/requests/%d?lang=en" % rid))
-    assert 'value="approve"' in page and 'value="reject"' in page and "data-ehr-needs-comment" in page
+    assert 'value="approve"' in page and 'value="reject"' in page and "data-ehire-needs-comment" in page
     resp = act(client, "nic.exec", rid, "reject")  # reject without a comment is refused on the server
     assert resp.status_code == 200 and "Write a comment to explain." in text(resp) and reload(rid).status == "in_progress"
     assert act(client, "nic.exec", rid, "return", comment="Need the staffing table.").status_code == 302

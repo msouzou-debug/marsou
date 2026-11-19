@@ -1,8 +1,8 @@
 import pytest
 
-from ehr.extensions import db
-from ehr.models import AuditLog, User
-from ehr.auth import hash_password, safe_next
+from ehire.extensions import db
+from ehire.models import AuditLog, User
+from ehire.auth import hash_password, safe_next
 from tests.conftest import login
 
 

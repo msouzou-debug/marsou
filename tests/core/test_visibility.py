@@ -1,8 +1,8 @@
 import pytest
 
-from ehr.auth import can_see_request, visible_requests_query
-from ehr.extensions import db
-from ehr.models import Directorate, Request, Task, User
+from ehire.auth import can_see_request, visible_requests_query
+from ehire.extensions import db
+from ehire.models import Directorate, Request, Task, User
 
 
 @pytest.fixture

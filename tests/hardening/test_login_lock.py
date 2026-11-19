@@ -1,9 +1,9 @@
 """Sign-in protection: lock after repeated failures, no user enumeration, audit, CLI unlock."""
 from datetime import timedelta
 
-from ehr.auth import _check_credentials
-from ehr.extensions import db
-from ehr.models import AuditLog, LoginAttempt, User, utcnow
+from ehire.auth import _check_credentials
+from ehire.extensions import db
+from ehire.models import AuditLog, LoginAttempt, User, utcnow
 from tests.conftest import login
 
 
@@ -78,7 +78,7 @@ def test_same_message_for_unknown_user_wrong_password_and_inactive(seeded, clien
 
 def test_a_password_hash_check_runs_for_every_failure_path(seeded, monkeypatch):
     calls = []
-    import ehr.auth as auth
+    import ehire.auth as auth
 
     real = auth.check_password_hash
     monkeypatch.setattr(auth, "check_password_hash", lambda h, p: calls.append(1) or real(h, p))
@@ -100,7 +100,7 @@ def test_a_password_hash_check_runs_for_every_failure_path(seeded, monkeypatch):
 def test_locked_attempts_also_cost_a_hash_check(seeded, client, monkeypatch):
     fail(client, n=5)
     calls = []
-    import ehr.auth as auth
+    import ehire.auth as auth
 
     real = auth.check_password_hash
     monkeypatch.setattr(auth, "check_password_hash", lambda h, p: calls.append(1) or real(h, p))
@@ -130,7 +130,7 @@ def test_ip_ceiling_across_many_usernames(seeded, client):
         assert login(client, "guess%d" % i, password="x").status_code == 200
     assert login(client, "guess19", password="x").status_code == 429
     assert login(client, "lim.requester").status_code == 429  # even a valid user from that address
-    from ehr.models import AuditLog as A
+    from ehire.models import AuditLog as A
 
     assert A.query.filter_by(event="login_locked").count() >= 1
 

@@ -3,7 +3,7 @@ import json
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2] / "ehr"
+ROOT = Path(__file__).resolve().parents[2] / "ehire"
 # Keys the Phase 2 screens need that the strings agent has not written yet (key: English text).
 KNOWN_MISSING = set()
 FILES = ([ROOT / "templates/requests", ROOT / "templates/components", ROOT / "blueprints/requests.py",

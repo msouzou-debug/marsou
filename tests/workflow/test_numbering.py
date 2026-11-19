@@ -1,4 +1,4 @@
-from ehr.workflow.numbering import format_number, normalise_number
+from ehire.workflow.numbering import format_number, normalise_number
 
 
 def test_format_number():

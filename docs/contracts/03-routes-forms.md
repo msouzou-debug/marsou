@@ -109,12 +109,12 @@ One layout. Subject: `[<number>] <position> · <facility>`. One button: «Προ
 
 ## 8. Documents (as built, Phase 3)
 
-- Storage: `EHR_STORAGE_DIR` (default `<instance>/storage`). File at `<request_id>/<document_id>-<random>.bin`, converted copy `<document_id>-<random>.pdf` beside it. `request_document.storage_ref` holds the relative path. The client's name is stored as text only (path parts, control characters and quotes removed; Greek kept) and sent with RFC 5987 `filename*`.
+- Storage: `EHIRE_STORAGE_DIR` (default `<instance>/storage`). File at `<request_id>/<document_id>-<random>.bin`, converted copy `<document_id>-<random>.pdf` beside it. `request_document.storage_ref` holds the relative path. The client's name is stored as text only (path parts, control characters and quotes removed; Greek kept) and sent with RFC 5987 `filename*`.
 - Accepted: pdf, doc, docx, xls, xlsx, png, jpg, jpeg. The extension and a magic-byte check must agree (PDF header, PNG, JPEG, OLE2 with a WordDocument or Workbook/Book stream, ZIP with `[Content_Types].xml` and `word/` or `xl/`). The server sets the mime; never text/html.
 - Limits: `max_file_mb` setting (default 20), checked while the file is read in 64 KB blocks. Empty files refused. `MAX_CONTENT_LENGTH` 120 MB for a whole post. Upload goes to a temp name and is renamed; a refused file leaves nothing. Each file in one post is accepted or refused on its own.
 - Rounds: a document is tagged `request.round`, or `request.round + 1` while the request is returned (the engine raises the round on resubmission, so the tag is already right). Removable: any document of a draft; on a returned request only those with `round > request.round`. Removal deletes row and file and writes `document_removed`. Submitted rounds are never deleted.
 - Response headers on files: `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; sandbox`, `Cache-Control: private, no-store`.
-- Conversion: `Converter.to_pdf(src, dst) -> bool`. `LibreOfficeConverter` runs `soffice --headless --convert-to pdf` without a shell, with a timeout (`EHR_CONVERT_TIMEOUT`, 60 s) and a private profile folder; binary from `EHR_SOFFICE_BIN` or PATH. `NullConverter` when none is found. Done on first view, cached, reused. Failure: the viewer shows `viewer.no_preview` and the download button.
+- Conversion: `Converter.to_pdf(src, dst) -> bool`. `LibreOfficeConverter` runs `soffice --headless --convert-to pdf` without a shell, with a timeout (`EHIRE_CONVERT_TIMEOUT`, 60 s) and a private profile folder; binary from `EHIRE_SOFFICE_BIN` or PATH. `NullConverter` when none is found. Done on first view, cached, reused. Failure: the viewer shows `viewer.no_preview` and the download button.
 - Viewer: PDF.js 4.10.38 in `static/vendor/pdfjs/`, one page on a canvas at a time.
 
 ## 9. Added in Phases 5 and 6

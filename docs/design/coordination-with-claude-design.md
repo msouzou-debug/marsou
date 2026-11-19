@@ -6,14 +6,14 @@ Design and build run side by side. The UI brief (`claude/position-approval-02-cl
 
 | # | From design | Lands in | Needed by |
 |---|---|---|---|
-| 1 | Final token values as Bootstrap 5.3 variable overrides | `ehr/static/css/ehr-tokens.css` (a draft from the UI brief is there now) | Phase 1 |
-| 2 | Route tracker: HTML structure and CSS for every state, horizontal, vertical and miniature | `ehr/templates/components/tracker.html`, `ehr/static/css/tracker.css` | Phase 1 (form preview), Phase 2 (request page) |
-| 3 | List row and status chip | `ehr/templates/requests/list.html` | Phase 1 |
-| 4 | New request form layout, 1280 and 390 px | `ehr/templates/requests/new.html` | Phase 1 |
-| 5 | Request page and the shared action card frame | `ehr/templates/requests/detail.html`, `components/action_card.html` | Phase 2 |
+| 1 | Final token values as Bootstrap 5.3 variable overrides | `ehire/static/css/ehire-tokens.css` (a draft from the UI brief is there now) | Phase 1 |
+| 2 | Route tracker: HTML structure and CSS for every state, horizontal, vertical and miniature | `ehire/templates/components/tracker.html`, `ehire/static/css/tracker.css` | Phase 1 (form preview), Phase 2 (request page) |
+| 3 | List row and status chip | `ehire/templates/requests/list.html` | Phase 1 |
+| 4 | New request form layout, 1280 and 390 px | `ehire/templates/requests/new.html` | Phase 1 |
+| 5 | Request page and the shared action card frame | `ehire/templates/requests/detail.html`, `components/action_card.html` | Phase 2 |
 | 6 | Document viewer | Phase 3 templates | Phase 3 |
-| 7 | Email layout and the sign-in screen | `ehr/mail/layout.py`, `auth/login.html` | Phase 4 (sign-in: Phase 1) |
-| 8 | eHR mark and module icon as SVG | `ehr/static/img/` | Any time |
+| 7 | Email layout and the sign-in screen | `ehire/mail/layout.py`, `auth/login.html` | Phase 4 (sign-in: Phase 1) |
+| 8 | eHire mark and module icon as SVG | `ehire/static/img/` | Any time |
 
 ## Rules both sides keep
 

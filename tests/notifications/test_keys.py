@@ -6,10 +6,10 @@ from pathlib import Path
 from tests.notifications.nhelpers import KNOWN_MISSING
 
 ROOT = Path(__file__).resolve().parents[2]
-I18N = ROOT / "ehr" / "i18n"
-SOURCES = ([ROOT / "ehr/mail", ROOT / "ehr/scheduler", ROOT / "ehr/settings", ROOT / "ehr/templates/mail",
-            ROOT / "ehr/templates/settings", ROOT / "ehr/services/notify.py", ROOT / "ehr/services/out_of_office.py",
-            ROOT / "ehr/blueprints/me.py", ROOT / "ehr/templates/requests/list.html"])
+I18N = ROOT / "ehire" / "i18n"
+SOURCES = ([ROOT / "ehire/mail", ROOT / "ehire/scheduler", ROOT / "ehire/settings", ROOT / "ehire/templates/mail",
+            ROOT / "ehire/templates/settings", ROOT / "ehire/services/notify.py", ROOT / "ehire/services/out_of_office.py",
+            ROOT / "ehire/blueprints/me.py", ROOT / "ehire/templates/requests/list.html"])
 PREFIXES = "mail|ooo|settings|validation|password|action|role|step|field|category|reason|docs|list|form|status"
 
 

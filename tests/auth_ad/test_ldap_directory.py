@@ -8,8 +8,8 @@ import threading
 import pytest
 from ldap3 import MOCK_SYNC, Connection, Server
 
-from ehr.auth import ad
-from ehr.auth.ad import LdapDirectory
+from ehire.auth import ad
+from ehire.auth.ad import LdapDirectory
 
 BASE = "dc=example,dc=test"
 

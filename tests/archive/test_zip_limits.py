@@ -1,16 +1,16 @@
 """More than 19 attachments: the zips respect eArchive's limits (answers of 16/11/2026). Sizes are crafted with small
-limits set on both sides (eHR's module constants and the fake), so no test writes 50 MB."""
+limits set on both sides (eHire's module constants and the fake), so no test writes 50 MB."""
 import hashlib
 import os
 import zipfile
 
 import pytest
 
-from ehr.archive import bundle, queue
-from ehr.archive import meta as meta_mod
-from ehr.documents import storage
-from ehr.extensions import db
-from ehr.models import AuditLog, RequestDocument
+from ehire.archive import bundle, queue
+from ehire.archive import meta as meta_mod
+from ehire.documents import storage
+from ehire.extensions import db
+from ehire.models import AuditLog, RequestDocument
 from tests.archive.ahelpers import create_with_leaver, row_of
 from tests.archive.test_http_transport import make_due, submit_with
 from tests.requests.flowhelpers import reload
@@ -160,7 +160,7 @@ def test_more_zips_than_attachment_parts_is_blocked(http, client, monkeypatch):
 
 def test_a_refused_part_from_eArchive_is_blocked_and_nothing_is_dropped(http, client, monkeypatch):
     rid, part = setup(http, client, monkeypatch, [0.3] * 22)
-    http.part_limit = part // 2  # eArchive's limit is lower than eHR thinks
+    http.part_limit = part // 2  # eArchive's limit is lower than eHire thinks
     queue.flush()
     row = row_of(rid, "submitted")
     assert row.state == "blocked" and row.error_code == "FILE_TOO_LARGE" and row.last_error.startswith("FILE_TOO_LARGE: ")

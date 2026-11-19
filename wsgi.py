@@ -1,3 +1,3 @@
-from ehr import create_app
+from ehire import create_app
 
 app = create_app()

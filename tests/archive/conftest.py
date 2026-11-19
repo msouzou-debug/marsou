@@ -2,8 +2,8 @@ import shutil
 
 import pytest
 
-from ehr.documents.convert import Converter
-from ehr.archive.transports import DepositFile, Transport  # noqa: F401
+from ehire.documents.convert import Converter
+from ehire.archive.transports import DepositFile, Transport  # noqa: F401
 
 
 class HtmlConverter(Converter):
@@ -42,14 +42,14 @@ class RecordingTransport(Transport):
 
 @pytest.fixture
 def stor(app, tmp_path):
-    app.config["EHR_STORAGE_DIR"] = str(tmp_path / "storage")
+    app.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "storage")
     return tmp_path / "storage"
 
 
 @pytest.fixture
 def conv(app):
     c = HtmlConverter()
-    app.extensions["ehr_converter"] = c
+    app.extensions["ehire_converter"] = c
     return c
 
 
@@ -64,7 +64,7 @@ def transport(app):
 def drop(app, tmp_path):
     path = tmp_path / "drop"
     path.mkdir()
-    app.config["EHR_ARCHIVE_DROP_DIR"] = str(path)
+    app.config["EHIRE_ARCHIVE_DROP_DIR"] = str(path)
     return path
 
 
@@ -83,10 +83,10 @@ def fake():
 @pytest.fixture
 def http(app, seeded, stor, conv, fake):
     """The http transport switched on, pointed at the fake eArchive with its token."""
-    from ehr.extensions import db
-    from ehr.models import Setting
+    from ehire.extensions import db
+    from ehire.models import Setting
     from tests.archive.fake_earchive import TOKEN
-    app.config.update(EHR_ARCHIVE_URL=fake.url, EHR_ARCHIVE_TOKEN=TOKEN)
+    app.config.update(EHIRE_ARCHIVE_URL=fake.url, EHIRE_ARCHIVE_TOKEN=TOKEN)
     db.session.add(Setting(key="archive_transport", value="http"))
     db.session.commit()
     return fake

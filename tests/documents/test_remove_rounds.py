@@ -1,7 +1,7 @@
 """Remove rules and rounds: nothing is deleted after submission; scenario 5 with documents."""
 import os
 
-from ehr.models import AuditLog, Request, RequestDocument
+from ehire.models import AuditLog, Request, RequestDocument
 from tests.documents import samples
 from tests.documents.dhelpers import draft, flashes, login_as, upload
 from tests.requests.flowhelpers import act, as_user, create, reload

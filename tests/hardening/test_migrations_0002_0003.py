@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import create_engine, text
 
-from ehr import migrations
-from ehr.extensions import db
+from ehire import migrations
+from ehire.extensions import db
 
 THETA = "Θ"
 CENTRAL = ("fin_mgmt_head", "central_hr_officer", "medical_director", "nursing_director", "ceo")
@@ -18,7 +18,7 @@ def engine():
 
 def at_version_one(engine):
     """A database as the previous release left it: every table, schema_version at 1."""
-    from ehr import models  # noqa: F401
+    from ehire import models  # noqa: F401
 
     db.metadata.create_all(engine)
     migrations.metadata.create_all(engine)
@@ -58,7 +58,7 @@ def test_0002_recomputes_number_search_for_every_numbered_request(engine):
 
 
 def test_0002_is_safe_when_the_columns_are_missing(engine):
-    from ehr.migrations import helpers
+    from ehire.migrations import helpers
 
     mod = migrations.discover()[1].module
     with engine.begin() as c:
@@ -69,7 +69,7 @@ def test_0002_is_safe_when_the_columns_are_missing(engine):
 
 def test_0002_then_search_finds_the_old_row(seeded):
     """After the migration a row saved with the old key is found by the Latin spelling."""
-    from ehr.models import Request, User
+    from ehire.models import Request, User
 
     user = User.query.first()
     row = Request(created_by=user.id, number="ΑΕΘ-2026-0042")
@@ -133,8 +133,8 @@ def test_a_new_database_built_by_0001_meets_0002_and_0003(engine):
 
 
 def test_create_admin_records_retention_years(app):
-    from ehr.cli import _ensure_recorded_settings
-    from ehr.models import Setting
+    from ehire.cli import _ensure_recorded_settings
+    from ehire.models import Setting
 
     _ensure_recorded_settings()
     db.session.commit()
@@ -146,6 +146,6 @@ def test_create_admin_records_retention_years(app):
 
 
 def test_the_demo_seed_records_retention_years(seeded):
-    from ehr.models import get_setting
+    from ehire.models import get_setting
 
     assert get_setting("retention_years") == "10"

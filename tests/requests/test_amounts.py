@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from ehr.services.request_amounts import (format_amount, format_month, format_whole, parse_amount, parse_month,
+from ehire.services.request_amounts import (format_amount, format_month, format_whole, parse_amount, parse_month,
                                           parse_whole, ratio)
 
 

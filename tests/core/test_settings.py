@@ -1,5 +1,5 @@
-from ehr.extensions import db
-from ehr.models import AuditLog, CostCentre, Directorate, Position
+from ehire.extensions import db
+from ehire.models import AuditLog, CostCentre, Directorate, Position
 from tests.conftest import login
 
 
@@ -62,7 +62,7 @@ def test_non_admin_blocked(seeded, client):
 def test_audit_log_is_append_only(seeded, app):
     import pytest
 
-    from ehr.models import audit
+    from ehire.models import audit
 
     row = audit("login", user_id=None)
     db.session.commit()

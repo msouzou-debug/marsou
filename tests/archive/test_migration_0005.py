@@ -4,9 +4,9 @@ import json
 import pytest
 from sqlalchemy import create_engine, inspect
 
-from ehr import migrations
-from ehr.extensions import db
-from ehr.models import ArchiveDeposit, AuditLog
+from ehire import migrations
+from ehire.extensions import db
+from ehire.models import ArchiveDeposit, AuditLog
 from tests.archive.ahelpers import approve_all, deposits
 from tests.requests.flowhelpers import act, as_user, create, reload
 
@@ -23,7 +23,7 @@ def run_0005():
 
 def test_the_columns_are_added_to_a_database_that_lacks_them():
     engine = create_engine("sqlite://")
-    from ehr import models  # noqa: F401
+    from ehire import models  # noqa: F401
     db.metadata.create_all(engine)
     with engine.begin() as c:
         for name in NEW_DEPOSIT_COLUMNS:

@@ -4,11 +4,11 @@ import os
 
 import pytest
 
-from ehr.archive import queue
-from ehr.archive.transports import (ArchiveError, FolderTransport, HttpTransport, NullTransport, get_transport,
+from ehire.archive import queue
+from ehire.archive.transports import (ArchiveError, FolderTransport, HttpTransport, NullTransport, get_transport,
                                     manifest_hash)
-from ehr.extensions import db
-from ehr.models import ArchiveDeposit, AuditLog, Setting
+from ehire.extensions import db
+from ehire.models import ArchiveDeposit, AuditLog, Setting
 from tests.archive.ahelpers import deposits, rich_request
 from tests.archive.conftest import RecordingTransport
 from tests.requests.flowhelpers import create
@@ -37,11 +37,11 @@ def test_the_setting_chooses_the_transport_and_a_typo_sends_nothing(seeded):
 
 
 def test_the_http_transport_sends_nothing_without_a_token(seeded, app):
-    app.config["EHR_ARCHIVE_TOKEN"] = ""
+    app.config["EHIRE_ARCHIVE_TOKEN"] = ""
     assert HttpTransport().delivers is False
-    app.config["EHR_ARCHIVE_TOKEN"] = "sample-token"
+    app.config["EHIRE_ARCHIVE_TOKEN"] = "sample-token"
     assert HttpTransport().delivers is True
-    app.config["EHR_ARCHIVE_URL"] = "http://archive.example.invalid:5011"
+    app.config["EHIRE_ARCHIVE_URL"] = "http://archive.example.invalid:5011"
     assert HttpTransport().delivers is False  # not a loopback address
 
 
@@ -67,7 +67,7 @@ def test_the_folder_transport_writes_the_deposit_and_returns_the_folder_name(see
 
 
 def test_the_folder_transport_is_idempotent_and_refuses_a_conflict(tmp_path, app):
-    from ehr.archive.transports import DepositFile
+    from ehire.archive.transports import DepositFile
     src = tmp_path / "a.pdf"
     src.write_bytes(b"%PDF-1.4 one")
     drop = tmp_path / "drop"
@@ -87,7 +87,7 @@ def test_the_folder_transport_is_idempotent_and_refuses_a_conflict(tmp_path, app
 
 
 def test_a_crash_while_writing_leaves_no_half_deposit(tmp_path, app):
-    from ehr.archive.transports import DepositFile
+    from ehire.archive.transports import DepositFile
     drop = tmp_path / "drop"
     drop.mkdir()
     files = [DepositFile("a.pdf", "a.pdf", "application/pdf", 1, "0" * 64, str(tmp_path / "missing.pdf"))]
@@ -132,7 +132,7 @@ def test_ten_failed_attempts_stop_the_retries_until_an_admin_retries(seeded, cli
 
 
 def test_a_changed_file_is_refused_before_it_is_sent(seeded, client, stor, conv, transport):
-    from ehr.documents import storage
+    from ehire.documents import storage
     rid = create(client).id
     queue.flush()
     transport.calls.clear()
@@ -149,7 +149,7 @@ def test_a_changed_file_is_refused_before_it_is_sent(seeded, client, stor, conv,
 # ------------------------------------------------------------------ the user's action is never touched
 
 def test_the_after_request_flush_never_breaks_the_action(seeded, client, stor, app, monkeypatch):
-    from ehr.archive import pdf
+    from ehire.archive import pdf
     from tests.requests.flowhelpers import reload
     app.config["ARCHIVE_AUTO_FLUSH"] = True
     app.config["ARCHIVE_RENDER_AFTER_REQUEST"] = True

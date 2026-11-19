@@ -1,7 +1,7 @@
 import json
 
-from ehr.extensions import db
-from ehr.models import AuditLog, Request, Task, RequestLeaver
+from ehire.extensions import db
+from ehire.models import AuditLog, Request, Task, RequestLeaver
 from tests.conftest import login
 from tests.requests.helpers import full_form, ids, submit, user_id
 
@@ -66,7 +66,7 @@ def test_submit_validation_errors_keep_typed_values(seeded, client):
     html = resp.get_data(as_text=True)
     assert resp.status_code == 200 and Request.query.count() == 0
     assert "typed alternatives stay" in html
-    assert 'id="ehr-error-summary"' in html and 'id="e-need_text"' in html and 'id="e-positions_count"' in html
+    assert 'id="ehire-error-summary"' in html and 'id="e-need_text"' in html and 'id="e-positions_count"' in html
 
 
 def test_submit_creates_numbered_request_task_route_and_audit(seeded, client):

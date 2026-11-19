@@ -5,8 +5,8 @@ import zipfile
 
 import pytest
 
-from ehr.documents import ooxml
-from ehr.models import RequestDocument
+from ehire.documents import ooxml
+from ehire.models import RequestDocument
 from tests.documents import samples
 from tests.documents.dhelpers import draft, flashes, upload
 
@@ -103,7 +103,7 @@ def test_damaged_zip_and_wrong_crc(tmp_path):
 # ------------------------------------------------------------------ through the upload route and the viewer
 
 def test_upload_refuses_a_bomb_with_the_unsafe_message(seeded, client, tmp_path):
-    client.application.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
+    client.application.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
     req = draft(client)
     bomb = docx_with([("word/media/bomb.bin", b"\0" * (5 * MB))])
     upload(client, req.id, ("Evil file.docx", bomb))
@@ -115,7 +115,7 @@ def test_upload_refuses_a_bomb_with_the_unsafe_message(seeded, client, tmp_path)
 
 
 def test_upload_accepts_a_good_docx_and_xlsx_and_a_damaged_one_is_a_type_error(seeded, client, tmp_path):
-    client.application.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
+    client.application.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
     req = draft(client)
     upload(client, req.id, ("ok.docx", samples.docx_bytes()), ("ok.xlsx", samples.xlsx_bytes()), ("junk.docx", b"junk bytes here"))
     assert RequestDocument.query.filter_by(request_id=req.id).count() == 2
@@ -123,8 +123,8 @@ def test_upload_accepts_a_good_docx_and_xlsx_and_a_damaged_one_is_a_type_error(s
 
 
 def test_limit_follows_config(seeded, client, tmp_path):
-    client.application.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
-    client.application.config["EHR_MAX_UNZIPPED_MB"] = 1
+    client.application.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
+    client.application.config["EHIRE_MAX_UNZIPPED_MB"] = 1
     req = draft(client)
     import random
 
@@ -135,9 +135,9 @@ def test_limit_follows_config(seeded, client, tmp_path):
 
 
 def test_conversion_is_refused_for_an_unsafe_stored_file(seeded, client, tmp_path, fake_converter):
-    from ehr.documents import storage
+    from ehire.documents import storage
 
-    client.application.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
+    client.application.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
     req = draft(client)
     upload(client, req.id, ("ok.docx", samples.docx_bytes()))
     doc = RequestDocument.query.filter_by(request_id=req.id).one()

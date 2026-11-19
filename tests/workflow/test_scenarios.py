@@ -1,6 +1,6 @@
 """Acceptance scenarios 1 to 6 and 12 to 16, end to end through the engine."""
 from wfhelpers import ACC_OK, ACC_SIMPLE, Sim, make_directory
-from ehr.workflow.tracker import tracker_view
+from ehire.workflow.tracker import tracker_view
 
 
 def roles_asked(sim):

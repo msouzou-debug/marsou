@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from ehr.models import Request
+from ehire.models import Request
 from tests.conftest import login
 from tests.requests.flowhelpers import as_user
 from tests.requests.helpers import full_form

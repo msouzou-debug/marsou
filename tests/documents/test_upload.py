@@ -4,8 +4,8 @@ import os
 import re
 from urllib.parse import unquote
 
-from ehr.extensions import db
-from ehr.models import AuditLog, RequestDocument, Setting, get_setting
+from ehire.extensions import db
+from ehire.models import AuditLog, RequestDocument, Setting, get_setting
 from tests.documents import samples
 from tests.documents.dhelpers import draft, flashes, upload
 

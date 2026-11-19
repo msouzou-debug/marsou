@@ -1,0 +1,93 @@
+/* eHire screens: request list, form, request page. Bootstrap first; this file holds only what it can't do. */
+.ehire-wrap { overflow-wrap: anywhere; }
+.ehire-prewrap { white-space: pre-wrap; }
+
+/* Touch targets: 44 px */
+.ehire-form .form-control, .ehire-form .form-select, .ehire-search .form-control,
+.ehire-card__form .form-control, .ehire-card__form .form-select,
+.btn, .ehire-tabs .nav-link { min-height: 44px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; }
+.ehire-tabs .nav-link { display: inline-flex; align-items: center; }
+.ehire-form textarea.form-control, .ehire-card__form textarea.form-control { min-height: 6rem; }
+.ehire-check { min-height: 44px; display: flex; align-items: center; gap: .5rem; padding-left: 0; }
+.ehire-check .form-check-input { margin: 0; width: 1.5rem; height: 1.5rem; flex: none; }
+.ehire-check .form-check-label { padding: .5rem 0; }
+.ehire-tabs { flex-wrap: wrap; }
+.ehire-tabs .nav-link { white-space: nowrap; }
+
+/* List rows */
+.ehire-rows__head { padding: .5rem .75rem; border-bottom: 1px solid var(--ehire-line); }
+.ehire-row { margin: 0; padding: .75rem; border-bottom: 1px solid var(--ehire-line-row); }
+.ehire-row:hover { background: rgba(6, 159, 236, .05); }
+.ehire-row__number { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+.ehire-statusline { font-size: .875rem; }
+
+/* Chips: icon and word */
+.ehire-chip {
+  display: inline-flex; align-items: center; gap: .375rem; padding: .25rem .625rem; border-radius: 1rem;
+  font-size: .8125rem; font-weight: 700; border: 1px solid var(--ehire-line); background: #fff; color: var(--ehire-text);
+  white-space: nowrap;
+}
+.ehire-chip--draft { color: var(--ehire-text-secondary); border-style: dashed; }
+.ehire-chip--in_progress { color: var(--ehire-blue-deep); border-color: var(--ehire-blue-deep); }
+.ehire-chip--returned { color: var(--ehire-amber-text); border-color: var(--ehire-amber-text); }
+.ehire-chip--approved { color: var(--ehire-green-text); background: var(--ehire-green-tint); border-color: var(--ehire-green-text); }
+.ehire-chip--rejected { color: var(--ehire-red); border-color: var(--ehire-red); }
+.ehire-chip--withdrawn { color: var(--ehire-text-secondary); }
+
+/* Form */
+.ehire-leaver { background: #fafbfc; }
+.ehire-route-preview { background: #fff; }
+.ehire-route-preview:not(:has(*)) { display: none; }
+.ehire-form__actions { padding: 1rem 0 2rem; }
+@media (max-width: 575.98px) {
+  .ehire-form__actions .btn { flex: 1 1 100%; }
+}
+@media (min-width: 992px) {
+  .ehire-route-preview { position: sticky; top: 1rem; }
+}
+
+/* Request page */
+.ehire-history__item { padding: .5rem 0 .5rem .75rem; border-left: 3px solid var(--ehire-line); margin-bottom: .5rem; }
+
+/* Action card */
+.ehire-card { border-color: var(--ehire-blue-deep); border-width: 2px; scroll-margin-top: 1rem; }
+.ehire-card:focus, .ehire-hold:focus { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }
+.ehire-card__main .btn { min-width: 8rem; }
+@media (max-width: 575.98px) {
+  .ehire-card__main .btn { width: 100%; }
+}
+.ehire-hold { scroll-margin-top: 1rem; }
+.ehire-facts > div { padding: .125rem 0; }
+
+/* Return and withdraw: a lesser control. Outline weight, apart from the main buttons, behind a confirm step. */
+.ehire-card__lesser { margin-top: 2rem; }
+.ehire-lesser > summary { list-style: none; cursor: pointer; }
+.ehire-lesser > summary::-webkit-details-marker { display: none; }
+.ehire-lesser__summary { font-size: .9375rem; }
+.ehire-lesser[open] > .ehire-lesser__summary { background: var(--bs-secondary-bg); }
+
+/* Financial table: one column per period on a phone, side by side from 768 px. Never scrolls sideways. */
+.ehire-fin__period { min-width: 0; }
+.ehire-fin__period .form-control { max-width: 100%; text-align: right; }
+.ehire-fin__period .mb-3 { margin-bottom: .75rem !important; }
+.ehire-fin__ratio { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; padding-top: .5rem; border-top: 1px dashed var(--ehire-line); }
+.ehire-fin-view__period dl > div { padding: .125rem 0; border-bottom: 1px solid var(--ehire-line-row); }
+.ehire-fin-view__period dl > div:last-child { border-bottom: 0; }
+
+/* Banners on the request page. Icon and words; colour only supports them. */
+.ehire-banner { padding: .75rem 1rem; border: 1px solid var(--ehire-line); border-left-width: 4px; border-radius: 4px; background: #fff; }
+.ehire-banner--rejected { border-left-color: var(--ehire-red); }
+.ehire-banner--withdrawn { border-left-color: var(--ehire-text-secondary); }
+.ehire-banner--approved { border-left-color: var(--ehire-green-text); background: var(--ehire-green-tint); }
+
+/* Checks and history */
+.ehire-checks__item { padding: .5rem 0 .5rem .75rem; border-left: 3px solid var(--ehire-line); margin-bottom: .75rem; }
+.ehire-checks__outcome { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; }
+.ehire-checks__fact { overflow-wrap: anywhere; }
+.ehire-history__item--superseded { opacity: .8; }
+
+.ehire-route-details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+
+/* Figures that come from eFinance are read-only: grey so they don't look typed. */
+.ehire-fin .form-control[readonly] { background-color: var(--bs-secondary-bg); color: var(--bs-body-color); cursor: default; }

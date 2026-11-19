@@ -1,19 +1,19 @@
-# Hand-over to Marios: eHR «Έγκριση Θέσεων»
+# Hand-over to Marios: eHire «Έγκριση Θέσεων»
 
 14/11/2026 · branch `claude/new-session-wdpfv7` · all six build phases done, not installed anywhere yet.
 
 ## What you are getting
 
-- A separate Flask app, eHR, with its own database. Nothing HR-related touches eFinance.
+- A separate Flask app, eHire, with its own database. Nothing HR-related touches eFinance.
 - One module: «Έγκριση Θέσεων». Request form, six-step workflow, documents with an in-app viewer, emails, reminders, out of office, settings, audit log, Excel export.
 - 604 automated tests, all passing on the last full run.
-- An install pack: `deploy/README.md` (step by step), `deploy/ehr.env.example`, `deploy/ehr.service.example`, `scripts/make-release.sh`, `verify-release.sh`, `preflight.sh`, and `docs/operations.md` for day-to-day running.
+- An install pack: `deploy/README.md` (step by step), `deploy/ehire.env.example`, `deploy/ehire.service.example`, `scripts/make-release.sh`, `verify-release.sh`, `preflight.sh`, and `docs/operations.md` for day-to-day running.
 
 ## What has not been tested, because it can't be from a build session
 
 - SQLite as the production engine on the real server: WAL, the backup command and a restore have been tested here on a temporary file, not on the server's disk or filesystem.
 - Python 3.10 itself. The build used 3.11; a checker confirms the code needs nothing newer than 3.7, but the suite has to run on the server's 3.10 once.
-- AD sign-in against the real directory. It is built (LDAPS, the user's own bind, first sign-in makes an inactive user) and tested against a mock directory and a local TLS test server only. The real bind, the certificate chain and this organisation's attribute names are unverified: run `scripts/ehr-cli.sh ad-test <username>` on the server.
+- AD sign-in against the real directory. It is built (LDAPS, the user's own bind, first sign-in makes an inactive user) and tested against a mock directory and a local TLS test server only. The real bind, the certificate chain and this organisation's attribute names are unverified: run `scripts/ehire-cli.sh ad-test <username>` on the server.
 - Real email. The default mode, `outbox_only`, sends nothing. SMTP and Microsoft Graph senders exist and were tested against stand-ins.
 - The eFinance link for ΟΑΥ figures. The endpoint does not exist in eFinance yet.
 - The emails in Outlook. They were only viewed in a browser.
@@ -22,14 +22,14 @@
 
 Server and install:
 
-1. Database engine: decided 14/11/2026, SQLite like eFinance. Needed from you: the folder for the file (I used `/var/lib/ehr/`) and where the nightly backups are copied to.
-2. Port and service name. I used 5008 and `ehr`.
-3. Folder layout. I used `/opt/ehr`, `/etc/ehr`, `/var/lib/ehr/storage`, `/var/log/ehr`.
-4. Sign-in: decided 14/11/2026, both AD and local accounts. Needed from IT through you: the domain controller name, the domain, the search base (DN), the attribute for the account name if not `sAMAccountName`, and the organisation's CA certificate as a PEM file (`EHR_AD_CA_FILE`).
+1. Database engine: decided 14/11/2026, SQLite like eFinance. Needed from you: the folder for the file (I used `/var/lib/ehire/`) and where the nightly backups are copied to.
+2. Port and service name. I used 5008 and `ehire`.
+3. Folder layout. I used `/opt/ehire`, `/etc/ehire`, `/var/lib/ehire/storage`, `/var/log/ehire`.
+4. Sign-in: decided 14/11/2026, both AD and local accounts. Needed from IT through you: the domain controller name, the domain, the search base (DN), the attribute for the account name if not `sAMAccountName`, and the organisation's CA certificate as a PEM file (`EHIRE_AD_CA_FILE`).
 5. Mail: SMTP or Microsoft Graph, and the sender address.
 6. LibreOffice on the server, yes or no. Without it Office files can't be previewed, only downloaded.
-7. How many reverse proxies sit in front of the app (`EHR_PROXY_HOPS`), so the sign-in lock and the audit log record real addresses.
-8. HTTPS or plain HTTP inside the network (`EHR_HTTPS`).
+7. How many reverse proxies sit in front of the app (`EHIRE_PROXY_HOPS`), so the sign-in lock and the audit log record real addresses.
+8. HTTPS or plain HTTP inside the network (`EHIRE_HTTPS`).
 
 eFinance link (read `docs/contracts/05-efinance-activity-link.md`, one page):
 
@@ -58,17 +58,17 @@ For the organisation, through you:
 2. Run the test suite on a machine with Python 3.10 (SQLite is built in).
 3. Follow "First install" in `deploy/README.md`. Every sudo step is yours. The steps never touch another app's service.
 4. Run `scripts/preflight.sh` and fix every FAIL line.
-5. Create the first admin with `scripts/ehr-cli.sh create-admin`. Never run `seed-demo` on the server: it refuses in production because its users share a known password.
+5. Create the first admin with `scripts/ehire-cli.sh create-admin`. Never run `seed-demo` on the server: it refuses in production because its users share a known password.
 6. Load the lists, the users and the role holders in Settings.
 7. Keep mail on `outbox_only`, walk one request through all six steps, and read the emails in Settings, «Καταγραφή email».
 8. Switch mail on. Queued emails older than 48 hours are marked failed, not sent, so test emails don't reach real people.
 
 ## Things to know before go-live
 
-- Back up the database and the document storage folder together. One without the other is not a backup. Use `scripts/ehr-cli.sh backup-db`, never `cp`, for the database: it is in WAL mode.
-- eHR runs one gunicorn worker because SQLite has one writer. Do not raise `EHR_WORKERS`; the app refuses to start if you do.
+- Back up the database and the document storage folder together. One without the other is not a backup. Use `scripts/ehire-cli.sh backup-db`, never `cp`, for the database: it is in WAL mode.
+- eHire runs one gunicorn worker because SQLite has one writer. Do not raise `EHIRE_WORKERS`; the app refuses to start if you do.
 - AD users appear as inactive users after their first sign-in. Activate them in Settings, Users and give roles. Nobody is emailed about it, so tell the person.
-- A username can be locked for 15 minutes by five wrong passwords. `scripts/ehr-cli.sh unlock-user <username>` clears it.
+- A username can be locked for 15 minutes by five wrong passwords. `scripts/ehire-cli.sh unlock-user <username>` clears it.
 - After an upgrade the app answers "service is being upgraded" until `upgrade-db` has run.
 - The lockout message reads «1 λεπτά» when one minute remains. Small, known, not fixed.
 - The screens are plain Bootstrap with the brand colours. Claude Design's restyle has not been done.
@@ -78,7 +78,7 @@ For the organisation, through you:
 | For | File |
 |---|---|
 | Install, upgrade, rollback, cron, backup | `deploy/README.md` |
-| Every setting the app reads | `deploy/ehr.env.example` |
+| Every setting the app reads | `deploy/ehire.env.example` |
 | Day-to-day running | `docs/operations.md` |
 | Stack and why | `docs/adr/0001-stack.md` |
 | Rules of the workflow | `docs/contracts/02-state-machine.md` |

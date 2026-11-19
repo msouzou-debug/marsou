@@ -1,6 +1,6 @@
 import re
 
-from ehr.models import AuditLog
+from ehire.models import AuditLog
 
 
 def _token(client):

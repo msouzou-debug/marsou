@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from ehr.documents.convert import Converter, get_converter  # noqa: F401
+from ehire.documents.convert import Converter, get_converter  # noqa: F401
 from tests.documents.samples import pdf_bytes
 
 
@@ -27,12 +27,12 @@ class FakeConverter(Converter):
 
 @pytest.fixture
 def storage(app, tmp_path):
-    app.config["EHR_STORAGE_DIR"] = str(tmp_path / "storage")
+    app.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "storage")
     return tmp_path / "storage"
 
 
 @pytest.fixture
 def fake_converter(app):
     conv = FakeConverter()
-    app.extensions["ehr_converter"] = conv
+    app.extensions["ehire_converter"] = conv
     return conv

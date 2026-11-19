@@ -2,8 +2,8 @@
 from dataclasses import replace
 from datetime import datetime, timedelta
 
-from ehr.workflow.engine import apply
-from ehr.workflow.model import (ActionRecord, Directory, NewAction, RequestState, TaskState)
+from ehire.workflow.engine import apply
+from ehire.workflow.model import (ActionRecord, Directory, NewAction, RequestState, TaskState)
 
 T0 = datetime(2026, 11, 2, 9, 0)  # a Monday
 

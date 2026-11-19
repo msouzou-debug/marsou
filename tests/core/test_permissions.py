@@ -1,6 +1,6 @@
 from flask import Flask
 
-from ehr.auth import permission_required
+from ehire.auth import permission_required
 from tests.conftest import login
 
 
@@ -25,7 +25,7 @@ def test_decorator_on_custom_route(seeded, client):
 
 
 def test_permissions_come_from_roles_including_substitute(seeded, app):
-    from ehr.models import User
+    from ehire.models import User
 
     assert User.query.filter_by(username="lim.requester").one().permissions() == {"request.create", "request.view_own"}
     deputy = User.query.filter_by(username="lim.deputy").one()

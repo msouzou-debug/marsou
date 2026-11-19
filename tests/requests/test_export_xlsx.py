@@ -9,13 +9,13 @@ from pathlib import Path
 import pytest
 from openpyxl import load_workbook
 
-from ehr import localtime
-from ehr.extensions import db
-from ehr.models import AuditLog, Request, User
+from ehire import localtime
+from ehire.extensions import db
+from ehire.models import AuditLog, Request, User
 from tests.conftest import login
 from tests.requests.flowhelpers import act, as_user, create, step2
 
-ROOT = Path(__file__).resolve().parents[2] / "ehr/i18n"
+ROOT = Path(__file__).resolve().parents[2] / "ehire/i18n"
 EN = json.loads((ROOT / "en.json").read_text(encoding="utf-8"))
 EL = json.loads((ROOT / "el.json").read_text(encoding="utf-8"))
 KNOWN_MISSING = set()  # keys the strings agent has not written yet; empty when all exist
@@ -81,7 +81,7 @@ def test_row_count_matches_what_the_user_may_see(cases, client, user, expected):
     assert len(rows) == expected
     as_user(client, user)
     html = client.get("/requests?tab=all").get_data(as_text=True)
-    assert html.count("ehr-row position-relative") == expected
+    assert html.count("ehire-row position-relative") == expected
 
 
 def test_directorate_role_sees_only_its_directorate(cases, client):
@@ -177,7 +177,7 @@ def _unzip(data, name):
 def test_audit_row_and_file_name(cases, client):
     resp = _export(client, "central.ceo", "&tab=all&q=1")
     assert resp.status_code == 200
-    assert resp.headers["Content-Disposition"].split("filename=")[1].strip('"') == "eHR-requests-%s.xlsx" % localtime.today().strftime("%Y%m%d")
+    assert resp.headers["Content-Disposition"].split("filename=")[1].strip('"') == "eHire-requests-%s.xlsx" % localtime.today().strftime("%Y%m%d")
     row = AuditLog.query.filter_by(event="list_exported").one()
     detail = json.loads(row.detail_json) if isinstance(row.detail_json, str) else row.detail_json
     assert detail["tab"] == "all" and detail["q"] == "1" and detail["rows"] == len([r for r in _rows(_wb(resp)) if r[0]])

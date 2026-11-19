@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks that this server is ready to run eHR. Run it as the ehr system user before the first start and after
+# Checks that this server is ready to run eHire. Run it as the ehire system user before the first start and after
 # every upgrade (after `upgrade-db`, before starting the service).
 # Usage: scripts/preflight.sh [--env-file FILE] [--skip-port]
 #   --skip-port   do not fail when the port is already in use (use it while the service is running)
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${EHR_ENV_FILE:-/etc/ehr/ehr.env}"
+ENV_FILE="${EHIRE_ENV_FILE:-/etc/ehire/ehire.env}"
 SKIP_PORT=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -40,10 +40,10 @@ if [ $((8#$mode & 8#004)) -ne 0 ]; then warn "$ENV_FILE is readable by everyone 
 
 # --- Python -----------------------------------------------------------------------------------------------------
 PY="$APP_DIR/.venv/bin/python"
-[ -x "$PY" ] || PY="${EHR_VENV:-/opt/ehr/venv}/bin/python"
+[ -x "$PY" ] || PY="${EHIRE_VENV:-/opt/ehire/venv}/bin/python"
 [ -x "$PY" ] || PY="$(command -v python3 || true)"
 if [ -z "$PY" ] || [ ! -x "$PY" ]; then
-  fail "no Python found (looked for .venv, \$EHR_VENV, python3)"
+  fail "no Python found (looked for .venv, \$EHIRE_VENV, python3)"
 else
   ver="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
   if "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then ok "Python $ver ($PY)"; else fail "Python $ver is too old: 3.10 or newer needed"; fi
@@ -55,42 +55,42 @@ else
 fi
 
 # --- time zone ----------------------------------------------------------------------------------------------------
-# Times are stored in UTC and shown in EHR_TIMEZONE (default Europe/Nicosia). Without the system time zone database the
+# Times are stored in UTC and shown in EHIRE_TIMEZONE (default Europe/Nicosia). Without the system time zone database the
 # app refuses to start, so say so here first.
 if [ -n "$PY" ] && [ -x "$PY" ]; then
-  tz="${EHR_TIMEZONE:-Europe/Nicosia}"
+  tz="${EHIRE_TIMEZONE:-Europe/Nicosia}"
   if tzout="$("$PY" -c 'import sys, zoneinfo; zoneinfo.ZoneInfo(sys.argv[1])' "$tz" 2>&1)"; then
     ok "time zone $tz is known to this machine"
   else
-    fail "time zone $tz cannot be loaded (install the tzdata package, or fix EHR_TIMEZONE): $(echo "$tzout" | tail -n 1)"
+    fail "time zone $tz cannot be loaded (install the tzdata package, or fix EHIRE_TIMEZONE): $(echo "$tzout" | tail -n 1)"
   fi
 fi
 
 # --- settings ---------------------------------------------------------------------------------------------------
-secret="${EHR_SECRET_KEY:-}"
+secret="${EHIRE_SECRET_KEY:-}"
 case "$secret" in
-  ''|dev-only-change-me|change-me|changeme|CHANGE_ME|CHANGE-ME) fail "EHR_SECRET_KEY is empty or a default value" ;;
-  *) if [ "${#secret}" -lt 32 ]; then fail "EHR_SECRET_KEY is shorter than 32 characters"; else ok "EHR_SECRET_KEY is set (${#secret} characters)"; fi ;;
+  ''|dev-only-change-me|change-me|changeme|CHANGE_ME|CHANGE-ME) fail "EHIRE_SECRET_KEY is empty or a default value" ;;
+  *) if [ "${#secret}" -lt 32 ]; then fail "EHIRE_SECRET_KEY is shorter than 32 characters"; else ok "EHIRE_SECRET_KEY is set (${#secret} characters)"; fi ;;
 esac
 
-if [ "${EHR_ENV:-}" = "production" ]; then ok "EHR_ENV=production"; else fail "EHR_ENV is not production (it is '${EHR_ENV:-unset}')"; fi
+if [ "${EHIRE_ENV:-}" = "production" ]; then ok "EHIRE_ENV=production"; else fail "EHIRE_ENV is not production (it is '${EHIRE_ENV:-unset}')"; fi
 
-db="${EHR_DATABASE_URI:-}"
+db="${EHIRE_DATABASE_URI:-}"
 sqlite_file=""
 case "$(echo "$db" | tr 'A-Z' 'a-z')" in
-  '') fail "EHR_DATABASE_URI is not set" ;;
+  '') fail "EHIRE_DATABASE_URI is not set" ;;
   sqlite*)
-    ok "EHR_DATABASE_URI is SQLite (the production engine)"
+    ok "EHIRE_DATABASE_URI is SQLite (the production engine)"
     if [ -n "$PY" ] && [ -x "$PY" ]; then
       sqlite_file="$("$PY" -c 'import sys; from sqlalchemy.engine import make_url; print(make_url(sys.argv[1]).database or "")' "$db" 2>/dev/null || true)"
     fi
     case "$sqlite_file" in
-      '') fail "EHR_DATABASE_URI names no SQLite file (in-memory or unreadable URL): use sqlite:////var/lib/ehr/ehr.sqlite3" ;;
+      '') fail "EHIRE_DATABASE_URI names no SQLite file (in-memory or unreadable URL): use sqlite:////var/lib/ehire/ehire.sqlite3" ;;
       /*) ok "SQLite file path is absolute ($sqlite_file)" ;;
-      *) fail "SQLite file path is not absolute ($sqlite_file): use four slashes, sqlite:////var/lib/ehr/ehr.sqlite3"; sqlite_file="" ;;
+      *) fail "SQLite file path is not absolute ($sqlite_file): use four slashes, sqlite:////var/lib/ehire/ehire.sqlite3"; sqlite_file="" ;;
     esac
     ;;
-  *) ok "EHR_DATABASE_URI is set" ;;
+  *) ok "EHIRE_DATABASE_URI is set" ;;
 esac
 
 if [ -n "$sqlite_file" ]; then
@@ -113,49 +113,49 @@ if [ -n "$sqlite_file" ]; then
     fi
   fi
   if [ ! -e "$real_db" ]; then
-    warn "SQLite file $real_db does not exist yet (scripts/ehr-cli.sh init-db creates it)"
+    warn "SQLite file $real_db does not exist yet (scripts/ehire-cli.sh init-db creates it)"
   elif [ ! -r "$real_db" ] || [ ! -w "$real_db" ]; then
     fail "SQLite file $real_db is not readable and writable by $(id -un)"
   elif [ -n "$PY" ] && [ -x "$PY" ]; then
     mode="$("$PY" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1], timeout=5).execute("PRAGMA journal_mode").fetchone()[0])' "$real_db" 2>/dev/null || echo unknown)"
-    if [ "$mode" = "wal" ]; then ok "SQLite journal mode is WAL"; else fail "SQLite journal mode is '$mode', not wal (the app switches it on at its first connection: run scripts/ehr-cli.sh db-status)"; fi
+    if [ "$mode" = "wal" ]; then ok "SQLite journal mode is WAL"; else fail "SQLite journal mode is '$mode', not wal (the app switches it on at its first connection: run scripts/ehire-cli.sh db-status)"; fi
   fi
-  workers="${EHR_WORKERS:-1}"
+  workers="${EHIRE_WORKERS:-1}"
   case "$workers" in
-    ''|*[!0-9]*) fail "EHR_WORKERS is not a number ('$workers')" ;;
-    *) if [ "$workers" -gt 1 ]; then fail "EHR_WORKERS=$workers on SQLite: SQLite allows one writer, set EHR_WORKERS=1"; else ok "one gunicorn worker (EHR_WORKERS=$workers)"; fi ;;
+    ''|*[!0-9]*) fail "EHIRE_WORKERS is not a number ('$workers')" ;;
+    *) if [ "$workers" -gt 1 ]; then fail "EHIRE_WORKERS=$workers on SQLite: SQLite allows one writer, set EHIRE_WORKERS=1"; else ok "one gunicorn worker (EHIRE_WORKERS=$workers)"; fi ;;
   esac
 fi
 
 # --- Active Directory (only when switched on) -------------------------------------------------------------------
-case "$(echo "${EHR_AD_ENABLED:-}" | tr 'A-Z' 'a-z')" in
+case "$(echo "${EHIRE_AD_ENABLED:-}" | tr 'A-Z' 'a-z')" in
   1|true|yes|on)
-    [ -n "${EHR_AD_SERVER:-}" ] && [ -n "${EHR_AD_DOMAIN:-}" ] && ok "Active Directory server and domain are set" || fail "EHR_AD_ENABLED is on but EHR_AD_SERVER or EHR_AD_DOMAIN is empty"
-    case "$(echo "${EHR_AD_USE_SSL:-true}" | tr 'A-Z' 'a-z')" in
+    [ -n "${EHIRE_AD_SERVER:-}" ] && [ -n "${EHIRE_AD_DOMAIN:-}" ] && ok "Active Directory server and domain are set" || fail "EHIRE_AD_ENABLED is on but EHIRE_AD_SERVER or EHIRE_AD_DOMAIN is empty"
+    case "$(echo "${EHIRE_AD_USE_SSL:-true}" | tr 'A-Z' 'a-z')" in
       1|true|yes|on) ok "Active Directory uses LDAPS" ;;
-      *) fail "EHR_AD_USE_SSL is off: production uses LDAPS only" ;;
+      *) fail "EHIRE_AD_USE_SSL is off: production uses LDAPS only" ;;
     esac
-    if [ -n "${EHR_AD_CA_FILE:-}" ] && [ -r "${EHR_AD_CA_FILE}" ] && [ -f "${EHR_AD_CA_FILE}" ]; then
-      ok "Active Directory CA file ${EHR_AD_CA_FILE} is readable"
+    if [ -n "${EHIRE_AD_CA_FILE:-}" ] && [ -r "${EHIRE_AD_CA_FILE}" ] && [ -f "${EHIRE_AD_CA_FILE}" ]; then
+      ok "Active Directory CA file ${EHIRE_AD_CA_FILE} is readable"
     else
-      fail "EHR_AD_CA_FILE is empty or not a readable file: IT supplies the organisation's CA certificate (PEM)"
+      fail "EHIRE_AD_CA_FILE is empty or not a readable file: IT supplies the organisation's CA certificate (PEM)"
     fi
     ;;
   *) ok "Active Directory sign-in is off (local accounts only)" ;;
 esac
 
-case "${EHR_BASE_URL:-}" in
-  '') fail "EHR_BASE_URL is not set (the email button needs it)" ;;
-  http://127.0.0.1*|http://localhost*) warn "EHR_BASE_URL points at this machine: emails will carry a link nobody else can open" ;;
-  *) ok "EHR_BASE_URL ${EHR_BASE_URL}" ;;
+case "${EHIRE_BASE_URL:-}" in
+  '') fail "EHIRE_BASE_URL is not set (the email button needs it)" ;;
+  http://127.0.0.1*|http://localhost*) warn "EHIRE_BASE_URL points at this machine: emails will carry a link nobody else can open" ;;
+  *) ok "EHIRE_BASE_URL ${EHIRE_BASE_URL}" ;;
 esac
-case "$(echo "${EHR_HTTPS:-}" | tr 'A-Z' 'a-z')" in
-  1|true|yes|on) ok "EHR_HTTPS is on" ;;
-  *) warn "EHR_HTTPS is off: the session cookie will not be marked Secure and no HSTS header is sent" ;;
+case "$(echo "${EHIRE_HTTPS:-}" | tr 'A-Z' 'a-z')" in
+  1|true|yes|on) ok "EHIRE_HTTPS is on" ;;
+  *) warn "EHIRE_HTTPS is off: the session cookie will not be marked Secure and no HSTS header is sent" ;;
 esac
 
 # --- storage ----------------------------------------------------------------------------------------------------
-storage="${EHR_STORAGE_DIR:-$APP_DIR/instance/storage}"
+storage="${EHIRE_STORAGE_DIR:-$APP_DIR/instance/storage}"
 if [ ! -d "$storage" ]; then
   fail "storage folder $storage does not exist"
 else
@@ -178,12 +178,12 @@ if [ -n "$PY" ] && [ -x "$PY" ] && [ -n "$db" ]; then
   elif [ "$code" -eq 0 ]; then
     ok "database reachable and up to date ($line)"
   else
-    fail "database is behind the code ($line): run scripts/ehr-cli.sh upgrade-db"
+    fail "database is behind the code ($line): run scripts/ehire-cli.sh upgrade-db"
   fi
 fi
 
 # --- LibreOffice ------------------------------------------------------------------------------------------------
-soffice="${EHR_SOFFICE_BIN:-}"
+soffice="${EHIRE_SOFFICE_BIN:-}"
 if [ -z "$soffice" ]; then soffice="$(command -v soffice || command -v libreoffice || true)"; fi
 if [ -n "$soffice" ] && [ -x "$soffice" ]; then
   ok "LibreOffice found ($soffice)"
@@ -193,7 +193,7 @@ fi
 
 # --- eArchive drop folder -----------------------------------------------------------------------------------------
 # Only matters when the archive_transport setting is "folder". Empty is fine: deposits then wait in the queue.
-drop="${EHR_ARCHIVE_DROP_DIR:-}"
+drop="${EHIRE_ARCHIVE_DROP_DIR:-}"
 if [ -z "$drop" ]; then
   ok "no eArchive drop folder set (deposits wait in the queue until a transport is chosen)"
 elif [ -d "$drop" ] && [ -w "$drop" ]; then
@@ -205,7 +205,7 @@ fi
 # --- eArchive http link ---------------------------------------------------------------------------------------------
 # Only when the archive_transport setting is "http" the token matters; the setting lives in the database, so this
 # checks what the environment file says: a set token needs a loopback http address, and a bad address stops the app.
-arch_url="${EHR_ARCHIVE_URL:-http://127.0.0.1:5011}"
+arch_url="${EHIRE_ARCHIVE_URL:-http://127.0.0.1:5011}"
 case "$arch_url" in
   http://127.0.0.1|http://127.0.0.1:*|http://localhost|http://localhost:*|http://\[::1\]|http://\[::1\]:*) arch_loop=1 ;;
   *) arch_loop=0 ;;
@@ -213,9 +213,9 @@ esac
 if [ "$arch_loop" -eq 1 ]; then
   ok "eArchive address $arch_url is on this machine"
 else
-  fail "EHR_ARCHIVE_URL=$arch_url is not plain http on this machine (127.0.0.1, ::1 or localhost): the app will not start"
+  fail "EHIRE_ARCHIVE_URL=$arch_url is not plain http on this machine (127.0.0.1, ::1 or localhost): the app will not start"
 fi
-arch_web="${EHR_ARCHIVE_WEB_URL:-}"
+arch_web="${EHIRE_ARCHIVE_WEB_URL:-}"
 if [ -z "$arch_web" ]; then
   ok "no eArchive web address set (the protocol number is shown as text)"
 else
@@ -226,20 +226,20 @@ else
   if [ "$arch_web_bad" -eq 0 ]; then
     ok "eArchive web address $arch_web (the protocol number links to <address>/protocols/<id>)"
   else
-    fail "EHR_ARCHIVE_WEB_URL=$arch_web is not a plain http or https address: the app will not start"
+    fail "EHIRE_ARCHIVE_WEB_URL=$arch_web is not a plain http or https address: the app will not start"
   fi
 fi
 arch_transport="$(cd "$APP_DIR" && "$PY" -m flask --app wsgi:app archive-transport 2>/dev/null | sed -n 's/^archive_transport=//p' || true)"
-if [ -n "${EHR_ARCHIVE_TOKEN:-}" ]; then
-  ok "EHR_ARCHIVE_TOKEN is set (not shown)"
+if [ -n "${EHIRE_ARCHIVE_TOKEN:-}" ]; then
+  ok "EHIRE_ARCHIVE_TOKEN is set (not shown)"
 elif [ "$arch_transport" = "http" ]; then
-  fail "the archive transport is http but EHR_ARCHIVE_TOKEN is empty: nothing can be sent (deploy/README.md, eArchive deposits)"
+  fail "the archive transport is http but EHIRE_ARCHIVE_TOKEN is empty: nothing can be sent (deploy/README.md, eArchive deposits)"
 else
-  warn "EHR_ARCHIVE_TOKEN is empty: deposits wait in the queue. Set it before 'archive-transport http' (deploy/README.md)"
+  warn "EHIRE_ARCHIVE_TOKEN is empty: deposits wait in the queue. Set it before 'archive-transport http' (deploy/README.md)"
 fi
 
 # --- port -------------------------------------------------------------------------------------------------------
-bind="${EHR_BIND:-127.0.0.1:5008}"
+bind="${EHIRE_BIND:-127.0.0.1:5008}"
 host="${bind%:*}"
 port="${bind##*:}"
 bind_host="$host"
@@ -247,16 +247,16 @@ case "$host" in ''|0.0.0.0|'[::]') host=127.0.0.1 ;; esac
 # A tunnel or proxy on another machine cannot reach an app that listens only on the loopback address.
 case "$bind_host" in
   127.*|localhost|'[::1]')
-    case "${EHR_BASE_URL:-}" in
-      ''|http://127.*|http://localhost*) ok "eHR listens on $bind_host only" ;;
-      *) warn "EHR_BIND is $bind (this machine only) but EHR_BASE_URL is ${EHR_BASE_URL}: a tunnel or proxy on another machine gets no answer (502). Use 0.0.0.0:$port unless the proxy runs on this server" ;;
+    case "${EHIRE_BASE_URL:-}" in
+      ''|http://127.*|http://localhost*) ok "eHire listens on $bind_host only" ;;
+      *) warn "EHIRE_BIND is $bind (this machine only) but EHIRE_BASE_URL is ${EHIRE_BASE_URL}: a tunnel or proxy on another machine gets no answer (502). Use 0.0.0.0:$port unless the proxy runs on this server" ;;
     esac ;;
-  *) ok "eHR listens on $bind_host: limit port $port in the firewall to the tunnel or proxy machine" ;;
+  *) ok "eHire listens on $bind_host: limit port $port in the firewall to the tunnel or proxy machine" ;;
 esac
 if [ "$SKIP_PORT" -eq 1 ]; then
   ok "port check skipped"
 elif (exec 3<>"/dev/tcp/$host/$port") 2>/dev/null; then
-  fail "port $port on $host is already in use: another service (or a running ehr) is there"
+  fail "port $port on $host is already in use: another service (or a running ehire) is there"
 else
   ok "port $port is free"
 fi

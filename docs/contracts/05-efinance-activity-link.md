@@ -1,26 +1,26 @@
 # Contract 05: ΟΑΥ activity link (proposal for Marios)
 
-> **Status, 14/11/2026: not viable against eFinance.** The eFinance session checked the code: eFinance does not hold ΟΑΥ visits, procedures or revenue by facility and specialty, so it cannot serve this endpoint. The proposal is kept as the shape any future source should follow (same machine only, totals only, data month in every answer, hashed token with two-token rotation). eHR's client and the Settings choice stay in place but unused; the figures are typed by hand until Marios names the source.
+> **Status, 14/11/2026: not viable against eFinance.** The eFinance session checked the code: eFinance does not hold ΟΑΥ visits, procedures or revenue by facility and specialty, so it cannot serve this endpoint. The proposal is kept as the shape any future source should follow (same machine only, totals only, data month in every answer, hashed token with two-token rotation). eHire's client and the Settings choice stay in place but unused; the figures are typed by hand until Marios names the source.
 
-Status: proposal. The endpoint does not exist in eFinance yet. eHR is built and tested against this text with a fake server.
-Decision of 14/11/2026 (owner): both sources stay available. A setting in eHR chooses between typing the figures and reading them from eFinance.
+Status: proposal. The endpoint does not exist in eFinance yet. eHire is built and tested against this text with a fake server.
+Decision of 14/11/2026 (owner): both sources stay available. A setting in eHire chooses between typing the figures and reading them from eFinance.
 
 ## Purpose
 
-Step 2 of a request needs visits, procedures and revenue for a facility and an ΟΑΥ specialty, for the previous year and the current year to date. eFinance already holds the loaded ΟΑΥ files. This endpoint gives eHR those totals, so the Directorate Accountant does not retype them.
+Step 2 of a request needs visits, procedures and revenue for a facility and an ΟΑΥ specialty, for the previous year and the current year to date. eFinance already holds the loaded ΟΑΥ files. This endpoint gives eHire those totals, so the Directorate Accountant does not retype them.
 
 ## Who calls whom
 
-eHR calls eFinance. eFinance never calls eHR. One request per card view or refresh, plus a ten minute cache in eHR. Expected load: a few calls a day. Suggested limit on the eFinance side: 30 per minute per token.
+eHire calls eFinance. eFinance never calls eHire. One request per card view or refresh, plus a ten minute cache in eHire. Expected load: a few calls a day. Suggested limit on the eFinance side: 30 per minute per token.
 
 ## Request
 
-`GET {EHR_EFINANCE_URL}/api/oay-activity?facility_code=<code>&specialty=<name>`
+`GET {EHIRE_EFINANCE_URL}/api/oay-activity?facility_code=<code>&specialty=<name>`
 
 - `facility_code`: the facility code both systems already share (a short code, for example `NIC01`).
-- `specialty`: the ΟΑΥ specialty name as eFinance spells it. eHR tries its own name first, then each alias held for that specialty, one call per name, until one returns data.
+- `specialty`: the ΟΑΥ specialty name as eFinance spells it. eHire tries its own name first, then each alias held for that specialty, one call per name, until one returns data.
 - Header `Authorization: Bearer <token>`. Header `Accept: application/json`.
-- HTTPS only, certificate checked. eHR does not follow redirects. Timeout 5 seconds.
+- HTTPS only, certificate checked. eHire does not follow redirects. Timeout 5 seconds.
 
 ## Response 200
 
@@ -38,7 +38,7 @@ eHR calls eFinance. eFinance never calls eHR. One request per card view or refre
 
 ## Other answers
 
-| Answer | Meaning | What eHR does |
+| Answer | Meaning | What eHire does |
 |---|---|---|
 | 404, or 200 with `prev_year` or `ytd` null or missing | eFinance holds nothing for this facility and specialty | Tries the next alias, then shows `card.fin.no_data` and lets the Accountant type all lines |
 | 401, 403 | Token refused | Shows `card.fin.unavailable`, Accountant types. Logs the status only |
@@ -48,15 +48,15 @@ In every fallback the request is stored with source `manual` and the reason in i
 
 ## Authentication
 
-A long random token issued by Marios, one per environment. eHR reads it from the environment variable `EHR_EFINANCE_TOKEN` and the base address from `EHR_EFINANCE_URL`. It is never in the database, a log, an audit row or a page. Optional `EHR_EFINANCE_CA_FILE` for a private certificate authority. The token should be read-only and valid for this one endpoint.
+A long random token issued by Marios, one per environment. eHire reads it from the environment variable `EHIRE_EFINANCE_TOKEN` and the base address from `EHIRE_EFINANCE_URL`. It is never in the database, a log, an audit row or a page. Optional `EHIRE_EFINANCE_CA_FILE` for a private certificate authority. The token should be read-only and valid for this one endpoint.
 
 ## What crosses and what never does
 
-Crosses from eHR to eFinance: a facility code and an ΟΑΥ specialty name.
-Crosses from eFinance to eHR: five totals per period and the data month. They are totals for a facility and specialty, not per patient, per doctor or per invoice.
-Never crosses: request numbers, requester or approver names, leaver names, positions, costs, comments, or anything from eHR's database. eFinance learns nothing about HR requests from these calls beyond the fact that someone asked for a specialty.
+Crosses from eHire to eFinance: a facility code and an ΟΑΥ specialty name.
+Crosses from eFinance to eHire: five totals per period and the data month. They are totals for a facility and specialty, not per patient, per doctor or per invoice.
+Never crosses: request numbers, requester or approver names, leaver names, positions, costs, comments, or anything from eHire's database. eFinance learns nothing about HR requests from these calls beyond the fact that someone asked for a specialty.
 
-## What eHR stores
+## What eHire stores
 
 The validated response and the time it was fetched go to `request_financials.source_snapshot_json` with source `provider`. The request page shows that copy later, whatever eFinance holds afterwards.
 
@@ -64,7 +64,7 @@ The validated response and the time it was fetched go to `request_financials.sou
 
 ```
 curl -sS -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
-  "$EHR_EFINANCE_URL/api/oay-activity?facility_code=NIC01&specialty=Cardiology"
+  "$EHIRE_EFINANCE_URL/api/oay-activity?facility_code=NIC01&specialty=Cardiology"
 ```
 
 Expect the JSON above. Try an unknown specialty (expect 404), a wrong token (401) and a missing parameter (400 or 404).
@@ -72,6 +72,6 @@ Expect the JSON above. Try an unknown specialty (expect 404), a wrong token (401
 ## Open for Marios
 
 1. Is the facility code the right key, and is it the same in both systems?
-2. Does eFinance hold revenue and procedures per specialty, and what spelling does it use? eHR can hold several aliases per specialty.
+2. Does eFinance hold revenue and procedures per specialty, and what spelling does it use? eHire can hold several aliases per specialty.
 3. Token issue and rotation.
 4. Is the month the data runs to available per facility, or is it one month for everything?

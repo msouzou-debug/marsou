@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import create_engine, inspect
 
-from ehr import migrations
-from ehr.extensions import db
+from ehire import migrations
+from ehire.extensions import db
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def engine():
 
 
 def at_version_three(engine):
-    from ehr import models  # noqa: F401
+    from ehire import models  # noqa: F401
 
     db.metadata.create_all(engine)
     migrations.metadata.create_all(engine)

@@ -1,6 +1,6 @@
 import pytest
 
-from ehr.workflow.route import (CATEGORIES, DEPARTURE_REASONS, MATERIAL_FIELDS, ROLES,
+from ehire.workflow.route import (CATEGORIES, DEPARTURE_REASONS, MATERIAL_FIELDS, ROLES,
                                 compute_route)
 
 

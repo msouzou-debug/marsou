@@ -1,5 +1,5 @@
-from ehr.workflow.assign import reassign_for_out_of_office, resolve_assignee
-from ehr.workflow.model import Directory
+from ehire.workflow.assign import reassign_for_out_of_office, resolve_assignee
+from ehire.workflow.model import Directory
 from wfhelpers import Sim, make_directory
 
 

@@ -4,8 +4,8 @@ from urllib.parse import unquote
 
 import pytest
 
-from ehr.extensions import db
-from ehr.models import AuditLog, RequestDocument
+from ehire.extensions import db
+from ehire.models import AuditLog, RequestDocument
 from tests.documents import samples
 from tests.documents.dhelpers import draft, login_as, upload
 from tests.requests.flowhelpers import act, create
@@ -144,8 +144,8 @@ def test_conversion_failure_falls_back_to_download(seeded, client, storage, fake
 
 
 def test_no_converter_installed_falls_back(seeded, client, storage, monkeypatch):
-    from ehr.documents.convert import NullConverter
-    client.application.extensions["ehr_converter"] = NullConverter()
+    from ehire.documents.convert import NullConverter
+    client.application.extensions["ehire_converter"] = NullConverter()
     rid, did = submitted_with_doc(client, name="letter.doc", content=samples.doc_bytes())
     page = client.get(urls(rid, did)[0] + "?lang=en").get_data(as_text=True)
     assert 'data-kind="none"' in page and "be shown here" in page
@@ -153,8 +153,8 @@ def test_no_converter_installed_falls_back(seeded, client, storage, monkeypatch)
 
 
 def test_converter_default_is_null_when_binary_is_missing(app):
-    from ehr.documents.convert import NullConverter, default_converter
-    conv = default_converter({"EHR_SOFFICE_BIN": "/nonexistent/soffice"})
+    from ehire.documents.convert import NullConverter, default_converter
+    conv = default_converter({"EHIRE_SOFFICE_BIN": "/nonexistent/soffice"})
     assert isinstance(conv, NullConverter) and not conv.available()
 
 
@@ -162,7 +162,7 @@ def test_converter_default_is_null_when_binary_is_missing(app):
                             for p in os.environ.get("PATH", "").split(os.pathsep)), reason="soffice not installed")
 def test_real_libreoffice_conversion(tmp_path):
     import zipfile
-    from ehr.documents.convert import LibreOfficeConverter
+    from ehire.documents.convert import LibreOfficeConverter
     src = tmp_path / "document.docx"
     with zipfile.ZipFile(str(src), "w") as zf:
         zf.writestr("[Content_Types].xml",

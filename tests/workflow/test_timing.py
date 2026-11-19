@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
-from ehr.workflow.model import RequestState, Settings, TaskState
-from ehr.workflow.timing import (add_working_days, due_notifications, due_withdrawals,
+from ehire.workflow.model import RequestState, Settings, TaskState
+from ehire.workflow.timing import (add_working_days, due_notifications, due_withdrawals,
                                  working_days_between)
 
 MON = datetime(2026, 11, 2, 9, 0)

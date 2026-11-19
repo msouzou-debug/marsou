@@ -1,0 +1,21 @@
+# Example only. Marios installs and runs every sudo step himself.
+# Controls only this service. Never restart another app's service.
+[Unit]
+Description=eHire (gunicorn)
+After=network.target
+
+[Service]
+User=ehire
+Group=ehire
+WorkingDirectory=/opt/ehire/current
+EnvironmentFile=/etc/ehire/ehire.env
+ExecStart=/opt/ehire/venv/bin/gunicorn -c deploy/gunicorn.conf.py wsgi:app
+Restart=on-failure
+# gunicorn.conf.py exits with a message when the settings are unsafe or the database is behind the code.
+# The message shows in: journalctl -u ehire
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-"""deploy/ehr.env.example lists every environment variable the code reads, and nothing the code does not read."""
+"""deploy/ehire.env.example lists every environment variable the code reads, and nothing the code does not read."""
 import ast
 import re
 from pathlib import Path
@@ -8,11 +8,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def variables_read():
     found = set()
-    files = list((ROOT / "ehr").rglob("*.py")) + [ROOT / "deploy" / "gunicorn.conf.py", ROOT / "wsgi.py"]
+    files = list((ROOT / "ehire").rglob("*.py")) + [ROOT / "deploy" / "gunicorn.conf.py", ROOT / "wsgi.py"]
     for path in files:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Constant) \
-                    and isinstance(node.args[0].value, str) and node.args[0].value.startswith("EHR_"):
+                    and isinstance(node.args[0].value, str) and node.args[0].value.startswith("EHIRE_"):
                 f = node.func
                 owner = ast.unparse(f.value) if isinstance(f, ast.Attribute) else ""
                 name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
@@ -23,13 +23,13 @@ def variables_read():
 
 
 def documented():
-    text = (ROOT / "deploy" / "ehr.env.example").read_text(encoding="utf-8")
+    text = (ROOT / "deploy" / "ehire.env.example").read_text(encoding="utf-8")
     return set(re.findall(r"^([A-Z][A-Z0-9_]+)=", text, re.M))
 
 
 def test_every_variable_the_code_reads_is_in_the_example():
     missing = variables_read() - documented()
-    assert not missing, "add to deploy/ehr.env.example: %s" % sorted(missing)
+    assert not missing, "add to deploy/ehire.env.example: %s" % sorted(missing)
 
 
 def test_the_example_lists_no_unused_variable():
@@ -38,14 +38,14 @@ def test_the_example_lists_no_unused_variable():
 
 
 def test_the_example_holds_no_real_values_and_each_variable_has_a_comment():
-    text = (ROOT / "deploy" / "ehr.env.example").read_text(encoding="utf-8")
+    text = (ROOT / "deploy" / "ehire.env.example").read_text(encoding="utf-8")
     lines = text.splitlines()
     for i, line in enumerate(lines):
         if re.match(r"^[A-Z][A-Z0-9_]+=", line):
             assert lines[i - 1].startswith("#"), "no meaning line above %s" % line
-    for name in ("EHR_SECRET_KEY", "EHR_DATABASE_URI", "EHR_SMTP_PASSWORD", "EHR_GRAPH_CLIENT_SECRET", "EHR_EFINANCE_TOKEN", "EHR_ARCHIVE_TOKEN"):
+    for name in ("EHIRE_SECRET_KEY", "EHIRE_DATABASE_URI", "EHIRE_SMTP_PASSWORD", "EHIRE_GRAPH_CLIENT_SECRET", "EHIRE_EFINANCE_TOKEN", "EHIRE_ARCHIVE_TOKEN"):
         assert re.search(r"^%s=$" % name, text, re.M), name + " must be empty in the example"
 
 
 def test_the_gunicorn_variable_is_found(tmp_path):
-    assert "EHR_BIND" in variables_read() and "EHR_SMTP_PORT" in variables_read() and "EHR_ENV" in variables_read()
+    assert "EHIRE_BIND" in variables_read() and "EHIRE_SMTP_PORT" in variables_read() and "EHIRE_ENV" in variables_read()

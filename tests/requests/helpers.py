@@ -1,6 +1,6 @@
 """Shared helpers for the request tests."""
-from ehr.extensions import db
-from ehr.models import CostCentre, Directorate, Facility, OaySpecialty, Position, Request, User
+from ehire.extensions import db
+from ehire.models import CostCentre, Directorate, Facility, OaySpecialty, Position, Request, User
 
 from tests.conftest import login
 

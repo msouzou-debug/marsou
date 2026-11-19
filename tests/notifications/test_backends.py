@@ -10,10 +10,10 @@ import urllib.parse
 
 import pytest
 
-from ehr.mail.backends import (GraphBackend, InMemoryBackend, MailError, OutboxOnlyBackend, SmtpBackend,
+from ehire.mail.backends import (GraphBackend, InMemoryBackend, MailError, OutboxOnlyBackend, SmtpBackend,
                                backend_name, get_backend)
-from ehr.models import Setting
-from ehr.extensions import db
+from ehire.models import Setting
+from ehire.extensions import db
 
 HTML = '<p>Grüße</p><img src="cid:okypylogo" width="104" height="65" alt="x">'
 TEXT = "Grüße http://example.invalid/requests/1?do=review"
@@ -42,8 +42,8 @@ class FakeSmtp:
         FakeSmtp.log.append(("send", msg))
 
 
-ENV = {"EHR_SMTP_HOST": "smtp.example.invalid", "EHR_SMTP_PORT": "2525", "EHR_SMTP_USER": "robot",
-       "EHR_SMTP_PASSWORD": "pw-for-tests", "EHR_MAIL_FROM": "ehr@example.invalid"}
+ENV = {"EHIRE_SMTP_HOST": "smtp.example.invalid", "EHIRE_SMTP_PORT": "2525", "EHIRE_SMTP_USER": "robot",
+       "EHIRE_SMTP_PASSWORD": "pw-for-tests", "EHIRE_MAIL_FROM": "ehire@example.invalid"}
 
 
 def test_smtp_builds_a_multipart_message_and_uses_starttls_and_login():
@@ -51,7 +51,7 @@ def test_smtp_builds_a_multipart_message_and_uses_starttls_and_login():
     kinds = [e[0] for e in FakeSmtp.log]
     assert kinds == ["connect", "starttls", "login", "send"] and FakeSmtp.log[0][1:] == ("smtp.example.invalid", 2525)
     msg = FakeSmtp.log[-1][1]
-    assert msg["To"] == "a@example.invalid" and msg["From"] == "ehr@example.invalid"
+    assert msg["To"] == "a@example.invalid" and msg["From"] == "ehire@example.invalid"
     assert msg["Subject"] == "Subject Α" and msg.get_content_type() == "multipart/alternative"
     assert_structure(msg)
 
@@ -70,13 +70,13 @@ def assert_structure(msg):
 
 
 def test_a_message_without_the_logo_reference_carries_no_image():
-    from ehr.mail.mime import build_message
-    msg = build_message("ehr@example.invalid", "a@example.invalid", "s", "<p>x</p>", "x")
+    from ehire.mail.mime import build_message
+    msg = build_message("ehire@example.invalid", "a@example.invalid", "s", "<p>x</p>", "x")
     assert msg.get_content_type() == "multipart/alternative" and not [p for p in msg.walk() if p["Content-ID"]]
 
 
 def test_smtp_options_and_errors():
-    SmtpBackend(dict(ENV, EHR_SMTP_STARTTLS="0", EHR_SMTP_USER=""), smtp_factory=FakeSmtp).send("a@example.invalid", "s", HTML, TEXT)
+    SmtpBackend(dict(ENV, EHIRE_SMTP_STARTTLS="0", EHIRE_SMTP_USER=""), smtp_factory=FakeSmtp).send("a@example.invalid", "s", HTML, TEXT)
     assert [e[0] for e in FakeSmtp.log] == ["connect", "send"]
     with pytest.raises(MailError, match="not configured"):
         SmtpBackend({}, smtp_factory=FakeSmtp).send("a@example.invalid", "s", HTML, TEXT)
@@ -115,8 +115,8 @@ class FakeOpener:
         return Resp(b"", self.send_status)
 
 
-GRAPH = {"EHR_GRAPH_TENANT": "tenant-id", "EHR_GRAPH_CLIENT_ID": "client-id", "EHR_GRAPH_CLIENT_SECRET": "s3cret",
-         "EHR_GRAPH_SENDER": "ehr@example.invalid"}
+GRAPH = {"EHIRE_GRAPH_TENANT": "tenant-id", "EHIRE_GRAPH_CLIENT_ID": "client-id", "EHIRE_GRAPH_CLIENT_SECRET": "s3cret",
+         "EHIRE_GRAPH_SENDER": "ehire@example.invalid"}
 
 
 def test_graph_gets_a_token_then_posts_send_mail():
@@ -129,10 +129,10 @@ def test_graph_gets_a_token_then_posts_send_mail():
     assert form == {"client_id": ["client-id"], "client_secret": ["s3cret"], "grant_type": ["client_credentials"],
                     "scope": ["https://graph.microsoft.com/.default"]}
     assert send_req.get_method() == "POST"
-    assert send_req.full_url == "https://graph.microsoft.com/v1.0/users/ehr@example.invalid/sendMail"
+    assert send_req.full_url == "https://graph.microsoft.com/v1.0/users/ehire@example.invalid/sendMail"
     assert send_req.get_header("Authorization") == "Bearer tok-1" and send_req.get_header("Content-type") == "text/plain"
     msg = email.message_from_bytes(base64.b64decode(send_req.data), policy=email.policy.default)
-    assert msg["To"] == "a@example.invalid" and msg["From"] == "ehr@example.invalid" and msg["Subject"] == "Subject"
+    assert msg["To"] == "a@example.invalid" and msg["From"] == "ehire@example.invalid" and msg["Subject"] == "Subject"
     assert msg.get_content_type() == "multipart/alternative"
     plain, related = list(msg.iter_parts())
     assert plain.get_content().strip() == TEXT and related.get_content_type() == "multipart/related"

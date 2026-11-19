@@ -1,7 +1,7 @@
 # Contract 02: state machine and routing
 
 Owner: orchestrator. Built by: `workflow-engine`. Source: build brief v2, sections 6, 7 and 11.
-The engine lives in `ehr/workflow/` and is pure: no Flask, database, clock or network. Everything it needs comes in as arguments; everything it wants done goes out as data.
+The engine lives in `ehire/workflow/` and is pure: no Flask, database, clock or network. Everything it needs comes in as arguments; everything it wants done goes out as data.
 
 Rule ids (R1, T4, C2 and so on) are stable. Tests are named after them.
 
@@ -159,7 +159,7 @@ These were needed to make the rules complete. The owner approved all five on 13/
 
 ## 11. Clarifications added after the engine was built (13/11/2026)
 
-The exact API is in `ehr/workflow/README.md`; where it and section 3 differ in detail, the README is right.
+The exact API is in `ehire/workflow/README.md`; where it and section 3 differ in detail, the README is right.
 
 - `apply` also takes optional `holidays` and `settings`, needed to check the T12 timeout.
 - Extra task ops: `reassign` (C6), `allow_replace` and `clear_replace` (T9a, T10). `resume` restarts the task's clock and clears its reminder and escalation marks.

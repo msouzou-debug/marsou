@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from ehr.extensions import db
-from ehr.models import ArchiveDeposit, AuditLog
+from ehire.extensions import db
+from ehire.models import ArchiveDeposit, AuditLog
 from tests.archive.ahelpers import approve_all, deposits, kinds
 from tests.requests.flowhelpers import act, as_user, create, reload, step2, step3, step4
 from tests.requests.helpers import full_form
@@ -59,7 +59,7 @@ def test_withdrawal_by_the_requester_queues_the_decided_deposit(seeded, client):
 
 def test_a_system_withdrawal_queues_the_decided_deposit_too(seeded, client):
     from datetime import datetime, timedelta, timezone
-    from ehr.services.request_flow import system_withdraw
+    from ehire.services.request_flow import system_withdraw
     rid = create(client).id
     assert act(client, "nic.accountant", rid, "return", comment="Add the paper.").status_code == 302
     req = reload(rid)
@@ -78,7 +78,7 @@ def test_a_resubmission_does_not_add_a_submitted_row(seeded, client):
 
 
 def test_a_rolled_back_action_queues_nothing(seeded, client, monkeypatch):
-    from ehr.services import request_flow
+    from ehire.services import request_flow
     as_user(client, "nic.requester")
 
     real = request_flow.archive_after_action

@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from ehr.extensions import db
-from ehr.models import Request
+from ehire.extensions import db
+from ehire.models import Request
 from tests.conftest import login
 from tests.requests.helpers import full_form, submit, user_id
 
 
-EN = set(json.loads((Path(__file__).resolve().parents[2] / "ehr/i18n/en.json").read_text(encoding="utf-8")))
+EN = set(json.loads((Path(__file__).resolve().parents[2] / "ehire/i18n/en.json").read_text(encoding="utf-8")))
 
 
 def test_list_tabs_show_the_right_rows(seeded, client):
@@ -66,8 +66,8 @@ def test_search_by_number_with_latin_lookalikes(seeded, client):
 def test_row_has_mini_tracker_chip_and_status_line(seeded, client):
     req = submit(client)
     html = client.get("/requests?tab=mine&lang=en").get_data(as_text=True)
-    assert html.count("ehr-tracker-mini__seg ") == 6
-    assert "ehr-chip--in_progress" in html and "Waiting on:" in html and "Directorate Accountant" in html
+    assert html.count("ehire-tracker-mini__seg ") == 6
+    assert "ehire-chip--in_progress" in html and "Waiting on:" in html and "Directorate Accountant" in html
 
 
 def test_request_page_for_requester_and_directorate_colleague(seeded, client):
@@ -78,7 +78,7 @@ def test_request_page_for_requester_and_directorate_colleague(seeded, client):
         resp = client.get("/requests/%d?lang=en" % req.id)
         html = resp.get_data(as_text=True)
         assert resp.status_code == 200 and req.number in html
-        assert "ehr-tracker__stop--current" in html and "Request details" in html and "History" in html
+        assert "ehire-tracker__stop--current" in html and "Request details" in html and "History" in html
         assert "Submitted" in html
 
 

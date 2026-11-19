@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from ehr.extensions import db
-from ehr.mail.layout import EVENT_KIND, STATUS, EVENTS, Context, render_email, request_url
-from ehr.models import Request, User
-from ehr.workflow.model import Event
+from ehire.extensions import db
+from ehire.mail.layout import EVENT_KIND, STATUS, EVENTS, Context, render_email, request_url
+from ehire.models import Request, User
+from ehire.workflow.model import Event
 from tests.notifications.nhelpers import HREF, URLS, act, create, uid
 
-I18N = Path(__file__).resolve().parents[2] / "ehr" / "i18n"
+I18N = Path(__file__).resolve().parents[2] / "ehire" / "i18n"
 # Phase 4 keys the strings agent has not written yet. Must be empty when every key exists.
 KNOWN_MISSING = set()
 

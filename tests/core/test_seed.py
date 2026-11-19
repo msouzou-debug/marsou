@@ -1,7 +1,7 @@
-from ehr.extensions import db
-from ehr.models import (CostCentre, Directorate, Facility, OaySpecialty, Position, PublicHoliday, RoleAssignment,
+from ehire.extensions import db
+from ehire.models import (CostCentre, Directorate, Facility, OaySpecialty, Position, PublicHoliday, RoleAssignment,
                         User)
-from ehr.seed import seed_demo
+from ehire.seed import seed_demo
 
 
 def counts():

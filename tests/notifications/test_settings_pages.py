@@ -4,8 +4,8 @@ from datetime import date
 
 import pytest
 
-from ehr.extensions import db
-from ehr.models import (AuditLog, MailOutbox, PublicHoliday, RoleAssignment, Setting, Task, User, get_setting)
+from ehire.extensions import db
+from ehire.models import (AuditLog, MailOutbox, PublicHoliday, RoleAssignment, Setting, Task, User, get_setting)
 from tests.conftest import login
 from tests.notifications.nhelpers import KNOWN_MISSING, act, as_user, create, mails, shown, uid
 from tests.requests.flowhelpers import text
@@ -185,7 +185,7 @@ def test_a_deactivated_user_cannot_sign_in_and_gets_no_mail(admin):
 # ---------------------------------------------------------------- role holders
 
 def role_of(role, directorate_code=None):
-    from ehr.models import Directorate
+    from ehire.models import Directorate
     did = Directorate.query.filter_by(code=directorate_code).one().id if directorate_code else None
     return [a for a in RoleAssignment.query.filter_by(role=role, directorate_id=did) if a.is_active_on()], did
 
@@ -229,7 +229,7 @@ def test_removing_a_holder_ends_the_assignment(admin):
 
 
 def test_requesters_are_a_list(admin):
-    from ehr.models import Directorate
+    from ehire.models import Directorate
     did = Directorate.query.filter_by(code="NIC").one().id
     extra = uid("nic.sci")
     admin.post("/settings/roles/requester/add", data={"directorate_id": str(did), "user_id": str(extra)})

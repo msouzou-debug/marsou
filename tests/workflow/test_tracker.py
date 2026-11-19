@@ -1,5 +1,5 @@
-from ehr.workflow.route import compute_route
-from ehr.workflow.tracker import preview, tracker_view
+from ehire.workflow.route import compute_route
+from ehire.workflow.tracker import preview, tracker_view
 from wfhelpers import Sim
 
 

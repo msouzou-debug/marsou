@@ -4,13 +4,13 @@ import json
 import os
 from datetime import datetime, timezone
 
-from ehr.extensions import db
+from ehire.extensions import db
 from tests.archive.fake_earchive import TOKEN, FakeEArchive
 from tests.requests.flowhelpers import create
 
 
 def seed(app):
-    from ehr.services.request_seed_cases import seed_cases
+    from ehire.services.request_seed_cases import seed_cases
     seed_cases(datetime.now(timezone.utc))
 
 
@@ -23,7 +23,7 @@ def load(out, name):
 
 
 def test_six_folders_with_complete_chains_meta_files_and_a_curl_example(seeded, conv, tmp_path, app):
-    app.config["EHR_ARCHIVE_TOKEN"] = TOKEN
+    app.config["EHIRE_ARCHIVE_TOKEN"] = TOKEN
     seed(app)
     out = tmp_path / "samples"
     result = app.test_cli_runner().invoke(args=["archive-samples", str(out)])
@@ -43,7 +43,7 @@ def test_six_folders_with_complete_chains_meta_files_and_a_curl_example(seeded, 
         curl = (folder / "curl-example.txt").read_text(encoding="utf-8")
         assert "type=application/pdf" in curl or "type=application/zip" in curl
         assert "<EHR_INGEST_TOKEN>" in curl and "api/v1/ingest/documents" in curl and "meta=<meta.json" in curl
-        assert "Idempotency-Key: ehr:%d" % meta["outbox_id"] in curl
+        assert "Idempotency-Key: ehire:%d" % meta["outbox_id"] in curl
         for part in meta["files"]:
             assert "-F '%s=@%s" % (part["part_name"], part["filename"]) in curl
         blob = b"".join(p.read_bytes() for p in folder.iterdir())
@@ -82,7 +82,7 @@ def test_it_refuses_in_production_and_without_demo_cases(seeded, conv, tmp_path,
     create(client)  # a request, but not a seeded demo case
     result = runner.invoke(args=["archive-samples", str(tmp_path / "a")])
     assert result.exit_code != 0 and "seed-cases" in result.output
-    app.config["EHR_ENV"] = "production"
+    app.config["EHIRE_ENV"] = "production"
     result = runner.invoke(args=["archive-samples", str(tmp_path / "b")])
     assert result.exit_code != 0 and "production" in result.output
     assert not os.path.exists(tmp_path / "b")

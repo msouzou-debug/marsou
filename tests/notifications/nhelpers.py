@@ -2,8 +2,8 @@
 import re
 from datetime import datetime, timezone
 
-from ehr.extensions import db
-from ehr.models import AuditLog, MailOutbox, Request, RequestAction, Task, User
+from ehire.extensions import db
+from ehire.models import AuditLog, MailOutbox, Request, RequestAction, Task, User
 from tests.requests.flowhelpers import act, as_user, create, reload, step2  # noqa: F401  (re-exported)
 
 HREF = re.compile(r'href="([^"]+)"')
@@ -57,7 +57,7 @@ KNOWN_MISSING = set()
 def shown(page, key, lang="en", **params):
     """True when the page shows the string for `key` (HTML-unescaped), or the raw key while it is in KNOWN_MISSING."""
     import html
-    from ehr import i18n
+    from ehire import i18n
     page = html.unescape(page)
     if key in KNOWN_MISSING:
         return key in page

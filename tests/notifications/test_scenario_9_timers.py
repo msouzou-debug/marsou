@@ -2,10 +2,10 @@
 import html
 from datetime import datetime, timedelta, timezone
 
-from ehr import i18n
-from ehr.extensions import db
-from ehr.models import PublicHoliday, Request, Task, User
-from ehr.workflow import timing
+from ehire import i18n
+from ehire.extensions import db
+from ehire.models import PublicHoliday, Request, Task, User
+from ehire.workflow import timing
 from tests.notifications.nhelpers import act, as_user, at, create, mails, reload, run_timers, uid
 from tests.requests.flowhelpers import step2
 from tests.requests.test_return_replace_withdraw import resubmit

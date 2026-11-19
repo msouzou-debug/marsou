@@ -3,9 +3,9 @@ import json
 
 import pytest
 
-from ehr.archive import queue
-from ehr.extensions import db
-from ehr.models import ArchiveDeposit, AuditLog
+from ehire.archive import queue
+from ehire.extensions import db
+from ehire.models import ArchiveDeposit, AuditLog
 from tests.archive.ahelpers import row_of
 from tests.archive.fake_earchive import TOKEN
 from tests.requests.flowhelpers import as_user, create, text
@@ -41,7 +41,7 @@ def test_the_deposited_record_can_be_disposed_and_the_date_is_shown(filed, clien
     assert resp.status_code == 200
     row = row_of(rid, "submitted")
     assert row.disposed_at is not None and row.disposed_at.year == 2056 and row.state == "stored"
-    assert ArchiveDeposit.query.count() == 1  # nothing of eHR's own is deleted
+    assert ArchiveDeposit.query.count() == 1  # nothing of eHire's own is deleted
     assert AuditLog.query.filter_by(event="archive_event", request_id=rid).count() == 1
     page = text(client.get("/requests/%d?lang=en" % rid))
     assert "was disposed of on 05/01/2056" in page and "data-archive-disposed" in page
@@ -125,12 +125,12 @@ def test_the_token_is_required_and_exact(filed, client, token):
 def test_the_token_is_compared_in_constant_time():
     import inspect
 
-    from ehr.archive import events
+    from ehire.archive import events
     assert "hmac.compare_digest" in inspect.getsource(events)
 
 
 def test_without_a_configured_token_nothing_is_accepted(filed, client, app):
-    app.config["EHR_ARCHIVE_TOKEN"] = ""
+    app.config["EHIRE_ARCHIVE_TOKEN"] = ""
     assert notice(client, body("legal_hold.set"), token="").status_code == 503
     assert notice(client, body("legal_hold.set"), token=None).status_code == 503
 

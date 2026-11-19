@@ -1,4 +1,4 @@
-# Sourced by preflight.sh and ehr-cli.sh. Reads an environment file of NAME=value lines without running it as code.
+# Sourced by preflight.sh and ehire-cli.sh. Reads an environment file of NAME=value lines without running it as code.
 # No sudo, no network.
 
 # load_env_file FILE: exports every NAME=value line. Skips blank lines and # comments. Strips one pair of quotes.

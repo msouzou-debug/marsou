@@ -1,8 +1,8 @@
 import re
 
-from ehr.extensions import db
-from ehr.models import NumberSequence, Request, Setting
-from ehr.services.numbering import next_number, next_value
+from ehire.extensions import db
+from ehire.models import NumberSequence, Request, Setting
+from ehire.services.numbering import next_number, next_value
 
 
 def test_increasing_and_distinct(seeded):
@@ -29,7 +29,7 @@ def test_default_prefix_is_seeded(seeded):
 
 
 def test_number_search_filled_on_save(seeded):
-    from ehr.models import User
+    from ehire.models import User
 
     u = User.query.first()
     r = Request(created_by=u.id, number="ΑΕΘ-2026-00007")
@@ -39,9 +39,9 @@ def test_number_search_filled_on_save(seeded):
 
 
 def test_the_two_normalisers_give_the_same_result():
-    """ehr/workflow/numbering.py and the copy used by the number_search column must not drift apart."""
-    from ehr.models.request import _LOOKALIKES, _fallback_normalise
-    from ehr.workflow.numbering import _GREEK_TO_LATIN, normalise_number
+    """ehire/workflow/numbering.py and the copy used by the number_search column must not drift apart."""
+    from ehire.models.request import _LOOKALIKES, _fallback_normalise
+    from ehire.workflow.numbering import _GREEK_TO_LATIN, normalise_number
 
     assert {ord(k): v for k, v in _GREEK_TO_LATIN.items()} == _LOOKALIKES
     greek = "".join(chr(c) for c in range(0x370, 0x400))
@@ -55,9 +55,9 @@ def test_the_two_normalisers_give_the_same_result():
 def test_the_migration_copy_matches_too():
     import importlib
 
-    from ehr.workflow.numbering import normalise_number
+    from ehire.workflow.numbering import normalise_number
 
-    mig = importlib.import_module("ehr.migrations.0002_number_search_theta")
+    mig = importlib.import_module("ehire.migrations.0002_number_search_theta")
     for text in ("ΑΕΘ-2026-0007", "aeu 2026", "αεθ-1", "Ά-1–Β", ""):
         assert mig._key(text) == normalise_number(text)
 

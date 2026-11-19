@@ -7,12 +7,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from ehr.archive import meta as meta_mod
-from ehr.archive import queue, transports
-from ehr.archive.transports import ArchiveError, HttpTransport, check_url
-from ehr.documents import storage
-from ehr.extensions import db
-from ehr.models import ArchiveDeposit, AuditLog, Facility, RequestDocument, Setting
+from ehire.archive import meta as meta_mod
+from ehire.archive import queue, transports
+from ehire.archive.transports import ArchiveError, HttpTransport, check_url
+from ehire.documents import storage
+from ehire.extensions import db
+from ehire.models import ArchiveDeposit, AuditLog, Facility, RequestDocument, Setting
 from tests.archive.ahelpers import approve_all, create_with_leaver, deposits, kinds, rich_request, row_of
 from tests.archive.fake_earchive import TOKEN, FakeEArchive, free_port
 from tests.documents.samples import pdf_bytes
@@ -77,7 +77,7 @@ def test_the_meta_has_exactly_the_fields_of_the_note_and_no_personal_names(http,
     assert set(meta) <= META_NAMES and set(meta) == META_NAMES - set()
     assert meta["schema_version"] == 1 and meta["outbox_id"] == row_of(rid, "decided").id
     assert re.match(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+0[23]:00$", meta["sent_at"])  # Cyprus offset
-    assert (meta["source_system"], meta["source_module"], meta["direction"]) == ("eHR", "position_request", "INTERNAL")
+    assert (meta["source_system"], meta["source_module"], meta["direction"]) == ("eHire", "position_request", "INTERNAL")
     assert meta["sender_ref"] == "ΑΕΘ-2026-0001" and meta["classification"] == "HIGHLY_SENSITIVE"
     assert meta["personal_data"] is True and meta["personal_data_category"] == "Στοιχεία προσωπικού"
     assert meta["category"] == "Προσλήψεις" and meta["folder_hints"] == [{"hospital": "NGH"}]
@@ -104,7 +104,7 @@ def test_the_headers_are_the_ones_the_note_asks_for_and_nothing_forwarded(http, 
     rid = create(client).id
     queue.flush()
     h = http.requests[0]["headers"]
-    assert h["authorization"] == "Bearer " + TOKEN and h["idempotency-key"] == "ehr:%d" % row_of(rid, "submitted").id
+    assert h["authorization"] == "Bearer " + TOKEN and h["idempotency-key"] == "ehire:%d" % row_of(rid, "submitted").id
     assert h["content-type"].startswith("multipart/form-data; boundary=")
     assert not [k for k in h if k in ("x-forwarded-for", "x-real-ip", "forwarded") or k.startswith("cf-")]
     assert http.requests[0]["path"] == "/api/v1/ingest/documents"
@@ -136,7 +136,7 @@ def _end_withdrawn(client, rid):
 
 
 def _end_system(client, rid):
-    from ehr.services.request_flow import system_withdraw
+    from ehire.services.request_flow import system_withdraw
     assert act(client, "nic.accountant", rid, "return", comment="Add the paper.").status_code == 302
     assert system_withdraw(reload(rid), datetime.now(timezone.utc) + timedelta(days=90)).ok
 
@@ -164,7 +164,7 @@ def test_every_outcome_is_deposited(http, client, end, status, doc_type):
 
 def test_connection_refused_is_retried_with_the_same_key_and_never_filed_twice(app, seeded, stor, conv):
     port = free_port()
-    app.config.update(EHR_ARCHIVE_URL="http://127.0.0.1:%d" % port, EHR_ARCHIVE_TOKEN=TOKEN)
+    app.config.update(EHIRE_ARCHIVE_URL="http://127.0.0.1:%d" % port, EHIRE_ARCHIVE_TOKEN=TOKEN)
     db.session.add(Setting(key="archive_transport", value="http"))
     db.session.commit()
     client = app.test_client()
@@ -184,7 +184,7 @@ def test_connection_refused_is_retried_with_the_same_key_and_never_filed_twice(a
         assert queue.flush()["stored"] == 1
         row = row_of(rid, "submitted")
         assert row.state == "stored" and row.meta_json == first_meta and row.last_error is None
-        assert fake.requests[0]["headers"]["idempotency-key"] == "ehr:%d" % row.id
+        assert fake.requests[0]["headers"]["idempotency-key"] == "ehire:%d" % row.id
         # The answer got lost on the way: the same deposit is sent again and eArchive replays its receipt.
         row.state = "queued"
         db.session.commit()
@@ -196,7 +196,7 @@ def test_connection_refused_is_retried_with_the_same_key_and_never_filed_twice(a
 
 
 def test_the_gaps_grow_and_the_item_is_never_dropped(app, seeded, stor, conv):
-    app.config.update(EHR_ARCHIVE_URL="http://127.0.0.1:%d" % free_port(), EHR_ARCHIVE_TOKEN=TOKEN)
+    app.config.update(EHIRE_ARCHIVE_URL="http://127.0.0.1:%d" % free_port(), EHIRE_ARCHIVE_TOKEN=TOKEN)
     db.session.add(Setting(key="archive_transport", value="http"))
     db.session.commit()
     rid = create(app.test_client()).id
@@ -295,7 +295,7 @@ def test_a_real_duplicate_from_the_fake_names_the_filed_number(http, client):
     rid = create(client).id
     queue.flush()
     first = row_of(rid, "submitted")
-    first.state, first.meta_json, first.attempts = "queued", None, 0  # eHR lost its record of the answer
+    first.state, first.meta_json, first.attempts = "queued", None, 0  # eHire lost its record of the answer
     db.session.commit()
     # A new key (different content), the same source_ref: eArchive says it is a duplicate.
     http.keys.clear()
@@ -316,11 +316,11 @@ def test_a_200_that_is_not_a_replay_is_not_taken_as_filed(http, client):
 
 
 def test_nothing_is_sent_without_the_token_or_when_the_transport_is_not_http(http, client, app):
-    app.config["EHR_ARCHIVE_TOKEN"] = ""
+    app.config["EHIRE_ARCHIVE_TOKEN"] = ""
     rid = create(client).id
     counts = queue.flush()
     assert counts["stored"] == 0 and http.requests == [] and row_of(rid, "submitted").state == "queued"
-    app.config["EHR_ARCHIVE_TOKEN"] = TOKEN
+    app.config["EHIRE_ARCHIVE_TOKEN"] = TOKEN
     Setting.query.filter_by(key="archive_transport").one().value = "none"
     db.session.commit()
     queue.flush()
@@ -368,7 +368,7 @@ def test_a_facility_without_a_site_code_blocks_and_is_released_when_it_is_set(ht
 
 
 def test_the_site_code_must_be_one_of_the_twelve(seeded, client):
-    from ehr.models import ARCHIVE_SITE_CODES
+    from ehire.models import ARCHIVE_SITE_CODES
     assert len(ARCHIVE_SITE_CODES) == 12 and "NGH" in ARCHIVE_SITE_CODES
     fac = Facility.query.first()
     as_user(client, "demo.admin")
@@ -384,7 +384,7 @@ def test_the_site_code_must_be_one_of_the_twelve(seeded, client):
 
 
 def test_the_demo_facilities_carry_plausible_codes(seeded):
-    from ehr.models import ARCHIVE_SITE_CODES
+    from ehire.models import ARCHIVE_SITE_CODES
     codes = {f.code: f.archive_site_code for f in Facility.query.all()}
     assert all(c in ARCHIVE_SITE_CODES for c in codes.values()), codes
     assert codes["NIC-H1"] == "NGH" and codes["PAF-H1"] == "PAP" and codes["MH-H1"] == "MH"
@@ -393,8 +393,8 @@ def test_the_demo_facilities_carry_plausible_codes(seeded):
 # ------------------------------------------------------------------ limits
 
 def submit_with(client, rid):
-    from ehr.services import request_flow
-    from ehr.models import Request
+    from ehire.services import request_flow
+    from ehire.models import Request
     assert request_flow.submit(db.session.get(Request, rid), reload(rid).created_by, datetime.now(timezone.utc)).ok
 
 
@@ -414,8 +414,8 @@ def test_more_than_two_hundred_attachments_is_blocked_with_a_readable_reason(htt
 def test_nineteen_attachments_are_sent(http, client):
     rid = create_with_leaver(client).id
     add_documents(rid, 19)
-    from ehr.services import request_flow
-    from ehr.models import Request
+    from ehire.services import request_flow
+    from ehire.models import Request
     assert request_flow.submit(db.session.get(Request, rid), reload(rid).created_by, datetime.now(timezone.utc)).ok
     queue.flush()
     assert row_of(rid, "submitted").state == "stored" and len(http.requests[0]["meta"]["files"]) == 20
@@ -425,8 +425,8 @@ def test_a_file_over_the_limit_or_of_a_type_eArchive_refuses_is_blocked_before_s
     # the reasons are Greek, from the string files
     rid = create_with_leaver(client).id
     add_documents(rid, 1)
-    from ehr.services import request_flow
-    from ehr.models import Request
+    from ehire.services import request_flow
+    from ehire.models import Request
     monkeypatch.setattr(meta_mod, "MAX_FILE_BYTES", 10)
     assert request_flow.submit(db.session.get(Request, rid), reload(rid).created_by, datetime.now(timezone.utc)).ok
     queue.flush()
@@ -481,7 +481,7 @@ def test_the_token_never_reaches_a_log_the_audit_a_last_error_or_a_page(http, cl
 
 def test_the_token_comes_from_the_environment_only(app):
     import os
-    assert app.config["EHR_ARCHIVE_TOKEN"] == os.environ.get("EHR_ARCHIVE_TOKEN", "")
+    assert app.config["EHIRE_ARCHIVE_TOKEN"] == os.environ.get("EHIRE_ARCHIVE_TOKEN", "")
     assert not [s for s in Setting.query.all() if "token" in (s.key or "").lower()]
 
 
@@ -504,24 +504,24 @@ def test_loopback_addresses_are_accepted(url, base):
 
 
 def test_the_app_refuses_to_start_with_a_remote_archive_address(monkeypatch):
-    from ehr import create_app
-    from ehr.config import TestConfig
+    from ehire import create_app
+    from ehire.config import TestConfig
 
     class Bad(TestConfig):
-        EHR_ARCHIVE_URL = "http://archive.example.invalid:5011"
+        EHIRE_ARCHIVE_URL = "http://archive.example.invalid:5011"
     with pytest.raises(ArchiveError):
         create_app(Bad)
 
 
 def test_the_cli_refuses_to_choose_http_with_a_bad_address_and_warns_without_a_token(seeded, app):
     runner = app.test_cli_runner()
-    app.config["EHR_ARCHIVE_URL"] = "https://127.0.0.1:5011"
+    app.config["EHIRE_ARCHIVE_URL"] = "https://127.0.0.1:5011"
     out = runner.invoke(args=["archive-transport", "http"])
     assert out.exit_code != 0 and "https" in out.output
-    app.config["EHR_ARCHIVE_URL"] = "http://127.0.0.1:5011"
-    app.config["EHR_ARCHIVE_TOKEN"] = ""
+    app.config["EHIRE_ARCHIVE_URL"] = "http://127.0.0.1:5011"
+    app.config["EHIRE_ARCHIVE_TOKEN"] = ""
     out = runner.invoke(args=["archive-transport", "http"])
-    assert out.exit_code == 0 and "archive_transport=http" in out.output and "EHR_ARCHIVE_TOKEN is not set" in out.output
+    assert out.exit_code == 0 and "archive_transport=http" in out.output and "EHIRE_ARCHIVE_TOKEN is not set" in out.output
     assert runner.invoke(args=["archive-transport"]).output.strip() == "archive_transport=http"
 
 
@@ -544,8 +544,8 @@ def test_a_redirect_is_never_followed(http, client):
 def test_the_multipart_names_are_safe_and_utf8_file_names_arrive_intact(http, client):
     rid = create_with_leaver(client).id
     add_documents(rid, 1, name='ΑΝΑΛΥΣΗ "θέσης" ; 2026.pdf')
-    from ehr.services import request_flow
-    from ehr.models import Request
+    from ehire.services import request_flow
+    from ehire.models import Request
     assert request_flow.submit(db.session.get(Request, rid), reload(rid).created_by, datetime.now(timezone.utc)).ok
     queue.flush()
     assert http.requests[0]["meta"]["files"][1]["filename"] == 'ΑΝΑΛΥΣΗ "θέσης" ; 2026.pdf'
@@ -571,7 +571,7 @@ def test_a_file_entry_with_a_role_or_any_other_field_is_refused_by_the_fake(http
 
 
 def _minimal_meta():
-    return {"schema_version": 1, "outbox_id": 1, "sent_at": "2026-11-16T10:00:00+02:00", "source_system": "eHR",
+    return {"schema_version": 1, "outbox_id": 1, "sent_at": "2026-11-16T10:00:00+02:00", "source_system": "eHire",
             "source_module": "position_request", "source_ref": "position_request:X:submitted", "doc_type": "t",
             "subject": "subject", "direction": "INTERNAL", "sender_name": "s", "letter_date": "2026-11-16",
             "category": "c", "classification": "HIGHLY_SENSITIVE", "personal_data": True,
@@ -641,13 +641,13 @@ def test_408_and_429_wait_and_retry_with_the_same_key(http, client, status, code
 
 
 def _sent_parts(app, row):
-    from ehr.archive import bundle
+    from ehire.archive import bundle
     manifest, files = queue.files_of(row)
     manifest, files = bundle.pack(row, manifest, files)
     return json.loads(row.meta_json), files
 
 
-def test_a_retry_with_a_changed_sent_at_is_a_mismatch_but_ehrs_own_retry_is_not(http, client, app):
+def test_a_retry_with_a_changed_sent_at_is_a_mismatch_but_ehires_own_retry_is_not(http, client, app):
     rid = create(client).id
     queue.flush()
     row = row_of(rid, "submitted")
@@ -662,7 +662,7 @@ def test_a_retry_with_a_changed_sent_at_is_a_mismatch_but_ehrs_own_retry_is_not(
     with pytest.raises(transports.BlockedError) as err:
         transport.deposit_meta(row.id, changed, files)
     assert err.value.code == "IDEMPOTENCY_MISMATCH" and http.requests[-1]["status"] == 409
-    row.state = "queued"  # eHR's retry builds nothing new and sends the stored meta
+    row.state = "queued"  # eHire's retry builds nothing new and sends the stored meta
     db.session.commit()
     assert queue.flush()["stored"] == 1
     assert [r["status"] for r in http.requests] == [201, 200, 409, 409, 200] and row_of(rid, "submitted").meta_json == row.meta_json
@@ -670,7 +670,7 @@ def test_a_retry_with_a_changed_sent_at_is_a_mismatch_but_ehrs_own_retry_is_not(
 
 def _rebuild_after_filing(http, client, monkeypatch):
     """The first send was filed. An administrator then retries: meta is rebuilt, so sent_at differs."""
-    from ehr import localtime
+    from ehire import localtime
     rid = create(client).id
     queue.flush()
     row = row_of(rid, "submitted")
@@ -777,7 +777,7 @@ def test_twenty_attachments_go_as_one_zip_and_nineteen_go_singly(http, client):
 
 def test_the_zip_is_byte_identical_on_every_rebuild_and_kept_in_storage(http, client, tmp_path):
     import os
-    from ehr.archive import bundle
+    from ehire.archive import bundle
     rid = create_with_leaver(client).id
     add_documents(rid, 22)
     submit_with(client, rid)
@@ -816,7 +816,7 @@ def test_a_retry_of_a_zip_deposit_sends_identical_content(http, client):
 def test_a_zip_with_a_file_type_or_size_eArchive_refuses_is_blocked_with_the_file_named(http, client, monkeypatch):
     rid = create_with_leaver(client).id
     add_documents(rid, 20)
-    from ehr.models import RequestDocument
+    from ehire.models import RequestDocument
     RequestDocument.query.filter_by(request_id=rid).first().file_name = "macro.exe"
     db.session.commit()
     submit_with(client, rid)
@@ -878,7 +878,7 @@ def test_the_daily_retry_after_an_unknown_site_reuses_the_key_and_sends_identica
     assert queue.flush()["stored"] == 1
     assert len(http.requests) == 4 and [r["status"] for r in http.requests] == [400, 400, 400, 201]
     keys = {r["headers"]["idempotency-key"] for r in http.requests}
-    assert keys == {"ehr:%d" % row_of(rid, "submitted").id}
+    assert keys == {"ehire:%d" % row_of(rid, "submitted").id}
     assert all(r["meta"] == http.requests[0]["meta"] for r in http.requests)
     zipped = http.requests[-1]["meta"]["files"][1]  # the hashes in meta are the same each time, the zip's among them
     assert zipped["mime"] == "application/zip" and hashlib.sha256(http.requests[-1]["files"]["att1"]).hexdigest() == zipped["sha256"]

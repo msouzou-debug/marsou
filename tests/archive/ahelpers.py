@@ -1,12 +1,12 @@
 from io import BytesIO
 
-from ehr.models import ArchiveDeposit, Request
+from ehire.models import ArchiveDeposit, Request
 from tests.requests.flowhelpers import act, as_user, create, reload, step2, step3, step4
 from tests.documents.samples import pdf_bytes
 
 
 def deposits(rid=None):
-    from ehr.extensions import db
+    from ehire.extensions import db
     db.session.expire_all()
     q = ArchiveDeposit.query.order_by(ArchiveDeposit.id)
     if rid is not None:
@@ -15,7 +15,7 @@ def deposits(rid=None):
 
 
 def row_of(rid, kind):
-    from ehr.extensions import db
+    from ehire.extensions import db
     db.session.expire_all()
     return ArchiveDeposit.query.filter_by(request_id=rid, kind=kind).one()
 

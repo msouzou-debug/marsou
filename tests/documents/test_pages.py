@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from ehr.models import RequestDocument
+from ehire.models import RequestDocument
 from tests.documents import samples
 from tests.documents.dhelpers import draft, login_as, upload
 from tests.requests.helpers import full_form
 
-ROOT = Path(__file__).resolve().parents[2] / "ehr"
+ROOT = Path(__file__).resolve().parents[2] / "ehire"
 KEYS = json.loads((ROOT / "i18n/en.json").read_text(encoding="utf-8"))
 USED = ["docs.title", "docs.view", "docs.add", "docs.choose", "docs.upload", "docs.remove", "docs.download",
         "docs.empty", "docs.allowed", "docs.count.one", "docs.count.many", "docs.added.one", "docs.added.many",
@@ -59,7 +59,7 @@ def test_viewer_renders_without_raw_keys(seeded, client, storage, lang, name, co
 def test_viewer_has_the_text_fallback_without_script(seeded, client, storage):
     rid, did = make(client, "a.pdf", samples.pdf_bytes())
     html = client.get("/requests/%d/documents/%d?lang=en" % (rid, did)).get_data(as_text=True)
-    assert 'id="ehr-v-fallback"' in html and "This file can" in html
+    assert 'id="ehire-v-fallback"' in html and "This file can" in html
 
 
 def test_new_request_page_says_save_first(seeded, client, storage):
@@ -75,13 +75,13 @@ def test_edit_page_has_picker_list_and_remove(seeded, client, storage, lang):
     html = client.get("/requests/%d/edit?lang=%s" % (req.id, lang)).get_data(as_text=True)
     assert raw_keys(html) == []
     assert 'type="file"' in html and "multiple" in html and "image/png" in html and "image/jpeg" in html
-    assert html.count('form="ehr-docs-remove"') == 2
-    assert 'id="ehr-docs-upload" method="post" enctype="multipart/form-data"' in html
+    assert html.count('form="ehire-docs-remove"') == 2
+    assert 'id="ehire-docs-upload" method="post" enctype="multipart/form-data"' in html
     assert html.count('name="csrf_token"') >= 4
     # The two small forms sit outside the main form: forms can't be nested.
-    main = html.split('id="ehr-request-form"', 1)[1].split("</form>", 1)[0]
+    main = html.split('id="ehire-request-form"', 1)[1].split("</form>", 1)[0]
     assert "<form" not in main
-    assert "ehr-docs-input" in main and "a.pdf" in main
+    assert "ehire-docs-input" in main and "a.pdf" in main
 
 
 def test_request_page_lists_documents_with_count_and_round(seeded, client, storage):
@@ -90,7 +90,7 @@ def test_request_page_lists_documents_with_count_and_round(seeded, client, stora
     html = client.get("/requests/%d?lang=en" % rid).get_data(as_text=True)
     assert "1 document" in html and "Round 1" in html and "a.pdf" in html
     assert "/documents/%d\"" % did in html and "download=1" in html
-    assert "ehr-docs-remove" not in html and "Remove" not in html.split('id="sec-documents"')[1][:2500]
+    assert "ehire-docs-remove" not in html and "Remove" not in html.split('id="sec-documents"')[1][:2500]
     assert raw_keys(html) == []
 
 

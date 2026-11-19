@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from ehr.extensions import db
-from ehr.models import AuditLog, Request, User
+from ehire.extensions import db
+from ehire.models import AuditLog, Request, User
 from tests.conftest import login
 from tests.requests.flowhelpers import as_user, create
 
@@ -97,13 +97,13 @@ def test_filter_by_request_number_is_normalised(seeded, client):
 
 def test_request_link_only_when_viewer_may_see_it(seeded, client):
     draft = create(client)  # submitted; visible to admin (sees all)
-    from ehr.models import RoleAssignment
+    from ehire.models import RoleAssignment
 
     add("probe_event", request_id=draft.id)
     html = get(client, "demo.admin", "?event=probe_event").get_data(as_text=True)
     assert 'href="/requests/%d"' % draft.id in html
     # a user with audit.view but no right to see requests: give audit.view to a Directorate role through the table
-    from ehr.models import RolePermission
+    from ehire.models import RolePermission
 
     db.session.add(RolePermission(role="requester", permission_key="audit.view"))
     db.session.commit()

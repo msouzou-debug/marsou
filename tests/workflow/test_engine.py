@@ -1,7 +1,7 @@
 import pytest
 
-from ehr.workflow.model import NewAction
-from ehr.workflow.engine import apply
+from ehire.workflow.model import NewAction
+from ehire.workflow.engine import apply
 from wfhelpers import ACC_OK, ACC_SIMPLE, Sim, make_directory, T0
 
 

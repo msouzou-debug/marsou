@@ -1,8 +1,8 @@
 # Contract 01: data model
 
-Owner: orchestrator. Source: build brief v2, section 8. Models live in `ehr/models/`, one file per group below. SQLAlchemy 2 declarative style. Table names are singular, as listed.
+Owner: orchestrator. Source: build brief v2, section 8. Models live in `ehire/models/`, one file per group below. SQLAlchemy 2 declarative style. Table names are singular, as listed.
 
-Conventions: integer primary key `id` unless noted; timestamps are stored in UTC as `DateTime(timezone=True)` and shown to people in Cyprus time (`EHR_TIMEZONE`, default `Europe/Nicosia`, summer time included); a date-only column (`leave_date`, holiday dates) is never shifted; money as `Numeric(12, 2)`; enums stored as short strings and checked in Python against contract 02; no cascading deletes anywhere. Rows are never deleted by the app except drafts and their files before submission.
+Conventions: integer primary key `id` unless noted; timestamps are stored in UTC as `DateTime(timezone=True)` and shown to people in Cyprus time (`EHIRE_TIMEZONE`, default `Europe/Nicosia`, summer time included); a date-only column (`leave_date`, holiday dates) is never shifted; money as `Numeric(12, 2)`; enums stored as short strings and checked in Python against contract 02; no cascading deletes anywhere. Rows are never deleted by the app except drafts and their files before submission.
 
 ## People and access (`models/access.py`)
 
@@ -15,7 +15,7 @@ Conventions: integer primary key `id` unless noted; timestamps are stored in UTC
 
 Permission keys for this module: `request.create`, `request.view_own`, `request.view_directorate`, `request.view_all`, `request.act`, `audit.view`, `settings.manage`.
 
-`request.create` is held by `requester`, the four Directorate roles and the five central roles (`fin_mgmt_head`, `central_hr_officer`, `medical_director`, `nursing_director`, `ceo`), decided 14/11/2026. Not by `viewer` or `admin`. A central user has no Directorate, so the form offers every active one. The role-to-permission rows come from one file, `ehr/seed_data.json`, for the demo seed and for `flask create-admin`; migration 0003 adds the missing rows to an existing database.
+`request.create` is held by `requester`, the four Directorate roles and the five central roles (`fin_mgmt_head`, `central_hr_officer`, `medical_director`, `nursing_director`, `ceo`), decided 14/11/2026. Not by `viewer` or `admin`. A central user has no Directorate, so the form offers every active one. The role-to-permission rows come from one file, `ehire/seed_data.json`, for the demo seed and for `flask create-admin`; migration 0003 adds the missing rows to an existing database.
 
 ## Master lists (`models/master.py`)
 
@@ -76,11 +76,11 @@ Append-only: the model exposes insert only, and the database user gets no UPDATE
 | Table | Columns |
 |---|---|
 | `login_attempt` | id, username (lower case, 80), ip, at. One row per failed sign-in. Success deletes the username's rows; rows older than a day are swept. Indexes `(username, at)`, `(ip, at)` |
-| `schema_version` | version (primary key), name, applied_at. Made by `flask upgrade-db` or `flask init-db`, not by the models. See `ehr/migrations/README.md` |
+| `schema_version` | version (primary key), name, applied_at. Made by `flask upgrade-db` or `flask init-db`, not by the models. See `ehire/migrations/README.md` |
 
 Lock rule (config `LOGIN_MAX_FAILURES` 5, `LOGIN_IP_MAX_FAILURES` 20, `LOGIN_WINDOW_MINUTES` 15): that many failures inside the window lock the username (or the address) until the window after the latest failure. A failure for a username that matches no user is stored in `audit_log` only as a short hash, because it may be a password typed into the wrong box.
 
-## ΟΑΥ data, only if eHR loads it (`models/oay.py`, Phase 5)
+## ΟΑΥ data, only if eHire loads it (`models/oay.py`, Phase 5)
 
 | Table | Columns |
 |---|---|
@@ -93,7 +93,7 @@ Lock rule (config `LOGIN_MAX_FAILURES` 5, `LOGIN_IP_MAX_FAILURES` 20, `LOGIN_WIN
 
 ## Number search
 
-Store `number` as issued. Store also `number_search`: upper-cased, with Greek letters that look like Latin ones mapped to Latin (Α→A, Β→B, Ε→E, Ζ→Z, Η→H, Θ→U, Ι→I, Κ→K, Μ→M, Ν→N, Ο→O, Ρ→P, Τ→T, Υ→Y, Χ→X) and dashes and spaces removed. Θ maps to U because that is the key a person presses for it on a Latin keyboard, so «ΑΕΘ-2026-0007» is found by typing `AEU-2026-0007`. Accents are removed first. Search input goes through the same function. The map exists twice, in `ehr/workflow/numbering.py` and in `ehr/models/request.py` (the column filler), and a test keeps them equal. Migration 0002 recomputes the stored column for rows saved before Θ was mapped.
+Store `number` as issued. Store also `number_search`: upper-cased, with Greek letters that look like Latin ones mapped to Latin (Α→A, Β→B, Ε→E, Ζ→Z, Η→H, Θ→U, Ι→I, Κ→K, Μ→M, Ν→N, Ο→O, Ρ→P, Τ→T, Υ→Y, Χ→X) and dashes and spaces removed. Θ maps to U because that is the key a person presses for it on a Latin keyboard, so «ΑΕΘ-2026-0007» is found by typing `AEU-2026-0007`. Accents are removed first. Search input goes through the same function. The map exists twice, in `ehire/workflow/numbering.py` and in `ehire/models/request.py` (the column filler), and a test keeps them equal. Migration 0002 recomputes the stored column for rows saved before Θ was mapped.
 
 ## Personal data
 

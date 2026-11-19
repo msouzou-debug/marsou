@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Checks a release before it is installed, or an installed folder afterwards.
-#   scripts/verify-release.sh dist/ehr-VERSION.tar.gz
+#   scripts/verify-release.sh dist/ehire-VERSION.tar.gz
 #       checks the tarball against its .sha256 file, then every file inside against SHA256SUMS,
 #       and fails when the tarball holds a file that SHA256SUMS does not list.
-#   scripts/verify-release.sh --dir /opt/ehr/current
+#   scripts/verify-release.sh --dir /opt/ehire/current
 #       checks that every listed file in an installed folder is present and unchanged
 #       (extra files such as .venv or instance/ are ignored).
 # Exit 0 only when everything matches. No sudo, no network, writes only to a temporary folder.

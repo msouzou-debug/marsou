@@ -1,6 +1,6 @@
 import pytest
 
-from ehr.mail.backends import InMemoryBackend
+from ehire.mail.backends import InMemoryBackend
 
 
 @pytest.fixture

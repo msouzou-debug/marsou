@@ -4,10 +4,10 @@ import time
 
 import pytest
 
-from ehr import create_app
-from ehr.config import TestConfig
-from ehr.extensions import db
-from ehr.security import CSP
+from ehire import create_app
+from ehire.config import TestConfig
+from ehire.extensions import db
+from ehire.security import CSP
 from tests.conftest import login
 from tests.requests.flowhelpers import as_user
 
@@ -51,14 +51,14 @@ def test_error_and_redirect_responses_have_headers(seeded, client):
 
 
 def test_static_files_are_not_forced_to_no_store(client):
-    resp = client.get("/static/css/ehr.css")
+    resp = client.get("/static/css/ehire.css")
     assert resp.status_code == 200 and resp.headers["X-Content-Type-Options"] == "nosniff"
     assert "no-store" not in resp.headers.get("Cache-Control", "")
 
 
 def test_email_preview_keeps_its_own_csp_and_may_be_framed_by_this_site(seeded, client):
-    from ehr.mail.outbox import flush  # noqa: F401
-    from ehr.models import MailOutbox
+    from ehire.mail.outbox import flush  # noqa: F401
+    from ehire.models import MailOutbox
 
     as_user(client, "demo.admin")
     row = MailOutbox(event="task_opened", subject="s", text="t", html="<p style=\"color:red\">hi</p>", to_email="a@example.invalid")
@@ -76,10 +76,10 @@ def test_document_files_are_never_cached(seeded, client, tmp_path):
     from tests.documents import samples
     from tests.documents.dhelpers import draft, upload
 
-    client.application.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
+    client.application.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
     req = draft(client)
     upload(client, req.id, ("a.pdf", samples.pdf_bytes(1, ["x"])))
-    from ehr.models import RequestDocument
+    from ehire.models import RequestDocument
 
     doc = RequestDocument.query.filter_by(request_id=req.id).one()
     for url in ("/requests/%d/documents/%d/file" % (req.id, doc.id), "/requests/%d/documents/%d/file?download=1" % (req.id, doc.id)):
@@ -92,7 +92,7 @@ def test_document_files_are_never_cached(seeded, client, tmp_path):
 
 def test_hsts_only_when_https(seeded, client):
     assert "Strict-Transport-Security" not in client.get("/login").headers
-    client.application.config["EHR_HTTPS"] = True
+    client.application.config["EHIRE_HTTPS"] = True
     resp = client.get("/login")
     assert resp.headers["Strict-Transport-Security"].startswith("max-age=")
     assert "includeSubDomains" not in resp.headers["Strict-Transport-Security"]  # shared host
@@ -101,7 +101,7 @@ def test_hsts_only_when_https(seeded, client):
 # ----------------------------------------------------------------------------------------------- session
 
 def cookie_header(resp):
-    return [v for k, v in resp.headers.items() if k.lower() == "set-cookie" and v.startswith("ehr_session")]
+    return [v for k, v in resp.headers.items() if k.lower() == "set-cookie" and v.startswith("ehire_session")]
 
 
 def test_session_cookie_flags(seeded, client):
@@ -118,7 +118,7 @@ def test_secure_cookie_when_https(seeded):
     app = create_app(Https)
     with app.app_context():
         db.create_all()
-        from ehr.seed import seed_demo
+        from ehire.seed import seed_demo
 
         seed_demo()
         cookie = cookie_header(login(app.test_client(), "nic.requester"))[0]

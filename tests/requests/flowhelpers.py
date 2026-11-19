@@ -1,6 +1,6 @@
 """HTTP-level helpers for the workflow screens: sign in as a demo user, post the real forms."""
-from ehr.extensions import db
-from ehr.models import OaySpecialty, Request, RequestAction, Task, User
+from ehire.extensions import db
+from ehire.models import OaySpecialty, Request, RequestAction, Task, User
 
 from tests.conftest import login
 from tests.requests.helpers import full_form, ids

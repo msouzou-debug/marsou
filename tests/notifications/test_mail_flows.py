@@ -1,9 +1,9 @@
 """Who is told what, through the real screens: outbox rows, actor rule, rollback, sending after commit."""
-from ehr.extensions import db
-from ehr.mail.backends import InMemoryBackend
-from ehr.models import AuditLog, MailOutbox, User
-from ehr.services.notify import notify
-from ehr.workflow.model import Event
+from ehire.extensions import db
+from ehire.mail.backends import InMemoryBackend
+from ehire.models import AuditLog, MailOutbox, User
+from ehire.services.notify import notify
+from ehire.workflow.model import Event
 from tests.notifications.nhelpers import act, as_user, create, mails, reload, send_mail, step2, uid
 from tests.requests.flowhelpers import step3
 from tests.requests.test_return_replace_withdraw import resubmit

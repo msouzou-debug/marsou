@@ -2,7 +2,7 @@ import ast
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1] / "ehr"
+ROOT = Path(__file__).resolve().parents[1] / "ehire"
 
 
 def test_health(client):
@@ -51,4 +51,4 @@ def test_workflow_package_is_pure():
                 names = [node.module or ""]
             for name in names:
                 assert name.split(".")[0] not in banned, f"{path}: {name}"
-                assert not name.startswith("ehr.extensions"), f"{path}: {name}"
+                assert not name.startswith("ehire.extensions"), f"{path}: {name}"

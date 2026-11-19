@@ -1,7 +1,7 @@
 """Central roles may create requests (owner decision 14/11/2026). The conflict-of-interest rule still holds."""
 import pytest
 
-from ehr.models import Directorate, RolePermission, Task, User
+from ehire.models import Directorate, RolePermission, Task, User
 from tests.requests.flowhelpers import act, actions_of, as_user, create, reload, step2, step3, step4, text
 
 CENTRAL = {"central.finmgmt": "fin_mgmt_head", "central.hr": "central_hr_officer",
@@ -18,10 +18,10 @@ def test_the_five_central_roles_hold_request_create_and_viewer_and_admin_do_not(
 
 def test_demo_seed_and_create_admin_seed_the_same_role_permissions(app):
     """One source (seed_data.json) feeds both, so a real install gets the same rows as the demo."""
-    from ehr.cli import _ensure_role_permissions
-    from ehr.extensions import db
-    from ehr.models import RolePermission as RP
-    from ehr.seed import load_data, seed_demo
+    from ehire.cli import _ensure_role_permissions
+    from ehire.extensions import db
+    from ehire.models import RolePermission as RP
+    from ehire.seed import load_data, seed_demo
 
     _ensure_role_permissions()
     db.session.commit()
@@ -47,7 +47,7 @@ def test_a_central_user_sees_every_active_directorate_and_can_create(seeded, cli
 
 
 def test_a_central_user_cannot_choose_a_deactivated_directorate(seeded, client):
-    from ehr.extensions import db
+    from ehire.extensions import db
 
     Directorate.query.filter_by(code="PHC").one().is_active = False
     db.session.commit()
@@ -72,7 +72,7 @@ def test_the_ceo_cannot_decide_the_ceo_task_on_their_own_request(seeded, client)
     assert task.redirect_reason == "conflict_of_interest"
 
     as_user(client, "central.ceo")
-    assert 'id="ehr-card-' not in text(client.get("/requests/%d" % rid))
+    assert 'id="ehire-card-' not in text(client.get("/requests/%d" % rid))
     before = len(actions_of(rid))
     resp = act(client, "central.ceo", rid, "approve", role="ceo", task_id=task.id, follow=True)
     assert "You can&#39;t act on your own request." in text(resp)

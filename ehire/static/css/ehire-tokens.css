@@ -1,0 +1,48 @@
+/* ΟΚΥπΥ brand tokens as Bootstrap 5.3 variable overrides.
+   This file is the hand-over point with Claude Design: design delivers the final values,
+   the build changes nothing else. Source: UI brief v2, section 5. */
+:root {
+  --ehire-blue-deep: #1B75BB;
+  --ehire-blue: #069FEC;
+  --ehire-green: #8BC53F;
+  --ehire-green-text: #3F6B12;
+  --ehire-green-tint: #F2F8EA;
+  --ehire-amber: #ED7D31;
+  --ehire-amber-text: #9A4A12;
+  --ehire-red: #C0392B;
+  --ehire-text: #3F4042;
+  --ehire-text-secondary: #58595B;
+  --ehire-line: #DCDFE3;
+  --ehire-line-row: #EAEAEA;
+
+  --bs-primary: var(--ehire-blue-deep);
+  --bs-primary-rgb: 27, 117, 187;
+  --bs-danger: var(--ehire-red);
+  --bs-danger-rgb: 192, 57, 43;
+  --bs-body-color: var(--ehire-text);
+  --bs-secondary-color: var(--ehire-text-secondary);
+  --bs-border-color: var(--ehire-line);
+  --bs-link-color: var(--ehire-blue-deep);
+  --bs-link-color-rgb: 27, 117, 187;
+  --bs-border-radius: 4px;
+  --bs-border-radius-sm: 3px;
+  --bs-border-radius-lg: 4px;
+  --bs-body-font-family: Lato, "Segoe UI", Arial, sans-serif; /* Lato files arrive in Phase 1, served locally */
+}
+.ehire-accent-bar { height: 4px; background: var(--ehire-blue); }
+.btn-primary {
+  --bs-btn-bg: var(--ehire-blue-deep); --bs-btn-border-color: var(--ehire-blue-deep);
+  --bs-btn-hover-bg: #155f99; --bs-btn-hover-border-color: #155f99;
+  --bs-btn-active-bg: #124f80; --bs-btn-active-border-color: #124f80;
+}
+:focus-visible { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }
+.ehire-num { font-variant-numeric: tabular-nums; }
+.btn-outline-primary {
+  --bs-btn-color: var(--ehire-blue-deep); --bs-btn-border-color: var(--ehire-blue-deep);
+  --bs-btn-hover-bg: var(--ehire-blue-deep); --bs-btn-hover-border-color: var(--ehire-blue-deep);
+  --bs-btn-active-bg: #124f80; --bs-btn-active-border-color: #124f80;
+}
+.btn-outline-danger, .btn-danger { --bs-btn-color: var(--ehire-red); --bs-btn-border-color: var(--ehire-red); }
+.btn-danger { --bs-btn-color: #fff; --bs-btn-bg: var(--ehire-red); }
+.btn-outline-danger { --bs-btn-hover-bg: var(--ehire-red); --bs-btn-hover-border-color: var(--ehire-red); }
+.form-check-input:checked { background-color: var(--ehire-blue-deep); border-color: var(--ehire-blue-deep); }

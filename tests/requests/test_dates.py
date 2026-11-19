@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from ehr.services.request_dates import format_date, format_datetime, parse_date
+from ehire.services.request_dates import format_date, format_datetime, parse_date
 
 
 def test_parse_and_format_round_trip():

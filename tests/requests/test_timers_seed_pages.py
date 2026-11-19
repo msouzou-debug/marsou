@@ -4,13 +4,13 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from ehr.extensions import db
-from ehr.models import AuditLog, MailOutbox, PublicHoliday, Request, RolePermission, Task, User
-from ehr.workflow import timing
+from ehire.extensions import db
+from ehire.models import AuditLog, MailOutbox, PublicHoliday, Request, RolePermission, Task, User
+from ehire.workflow import timing
 from tests.requests.flowhelpers import act, actions_of, as_user, create, reload, step2, text
 from tests.requests.test_keys import KNOWN_MISSING
 
-ROOT = Path(__file__).resolve().parents[2] / "ehr"
+ROOT = Path(__file__).resolve().parents[2] / "ehire"
 CODES = ("not_your_task", "request_closed", "request_returned", "wrong_step", "comment_required", "financials_required",
          "commitment_article_required", "leaver_costs_required", "directorate_locked", "not_requester", "own_request",
          "invalid_payload")
@@ -152,7 +152,7 @@ def test_accountant_card_phone_markup_and_ratio(seeded, client):
     rid = create(client).id
     as_user(client, "nic.accountant")
     html = text(client.get("/requests/%d?lang=en&do=review" % rid))
-    assert html.count('<section class="card ehr-card') == 1 and "Financial data" in html
+    assert html.count('<section class="card ehire-card') == 1 and "Financial data" in html
     assert html.count('name="fin.') == 10 and 'name="oay_specialty_id"' in html
     # typed values are kept with the messages when the card comes back
     resp = act(client, "nic.accountant", rid, "check", position="yes", funds="yes", **{
@@ -171,11 +171,11 @@ def test_cards_carry_a_csrf_token_and_a_lesser_return_control(seeded, client):
     rid = create(client).id
     as_user(client, "nic.accountant")
     html = text(client.get("/requests/%d?lang=en" % rid))
-    section = html.split('<section class="card ehr-card')[1].split('aria-labelledby="sec-details"')[0]
+    section = html.split('<section class="card ehire-card')[1].split('aria-labelledby="sec-details"')[0]
     assert section.count('name="csrf_token"') == 2  # the answer form and the return form
     assert "Return to requester" in section and "btn-outline-secondary" in section
     # no button of the main weight sits in the lesser area, and it is a separate form behind a confirm step
-    main, _, lesser = section.partition("ehr-card__lesser")
+    main, _, lesser = section.partition("ehire-card__lesser")
     assert "btn-primary" not in lesser and "<details" in lesser and "Return the request to" in lesser
     assert 'name="comment"' in lesser
     seeded.config["CSRF_ENABLED"] = True

@@ -4,12 +4,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from ehr import create_app, localtime
-from ehr.config import TestConfig
-from ehr.extensions import db
-from ehr.services.request_dates import format_date, format_datetime
-from ehr.workflow import timing
-from ehr.workflow.model import Settings, TaskState
+from ehire import create_app, localtime
+from ehire.config import TestConfig
+from ehire.extensions import db
+from ehire.services.request_dates import format_date, format_datetime
+from ehire.workflow import timing
+from ehire.workflow.model import Settings, TaskState
 from tests.audit.test_audit_view import add, body, get
 from tests.requests.flowhelpers import as_user, create, text
 
@@ -58,13 +58,13 @@ def test_the_filters_and_the_history_use_cyprus_time(seeded, client, app):
     page = text(client.get("/requests/%d?lang=en" % req.id))
     assert "15/07/2026 15:00" in page and "15/07/2026 12:00" not in page
     flt = app.jinja_env.filters
-    assert flt["ehr_datetime"](datetime(2026, 1, 15, 12, 0, tzinfo=UTC)) == "15/01/2026 14:00"
-    assert flt["ehr_date"](datetime(2026, 1, 15, 23, 0, tzinfo=UTC)) == "16/01/2026"
+    assert flt["ehire_datetime"](datetime(2026, 1, 15, 12, 0, tzinfo=UTC)) == "15/01/2026 14:00"
+    assert flt["ehire_date"](datetime(2026, 1, 15, 23, 0, tzinfo=UTC)) == "16/01/2026"
 
 
 def test_the_zone_is_configurable():
     class Utc(TestConfig):
-        EHR_TIMEZONE = "UTC"
+        EHIRE_TIMEZONE = "UTC"
 
     app = create_app(Utc)
     with app.app_context():
@@ -73,7 +73,7 @@ def test_the_zone_is_configurable():
 
 def test_start_up_fails_clearly_without_the_zone():
     class Missing(TestConfig):
-        EHR_TIMEZONE = "Nowhere/Land"
+        EHIRE_TIMEZONE = "Nowhere/Land"
 
     with pytest.raises(RuntimeError) as err:
         create_app(Missing)
@@ -155,7 +155,7 @@ def test_the_reminder_fires_on_the_cyprus_day(app):
 
 
 def test_the_request_page_counts_days_waiting_in_cyprus_time(app):
-    from ehr.services.request_view import status_line
+    from ehire.services.request_view import status_line
 
     opened = datetime(2026, 11, 8, 23, 30, tzinfo=UTC)  # Sunday UTC, Monday in Cyprus
     t = SimpleNamespace(status="open", clock_started_at=None, opened_at=opened, role="dir_accountant",
@@ -166,14 +166,14 @@ def test_the_request_page_counts_days_waiting_in_cyprus_time(app):
 
 
 def test_days_left_counts_from_the_cyprus_day(app, seeded):
-    from ehr.services.request_view import days_left
+    from ehire.services.request_view import days_left
 
     req = SimpleNamespace(status="returned", returned_at=datetime(2026, 11, 8, 23, 30, tzinfo=UTC))
     assert days_left(req, set(), datetime(2026, 11, 10, 10, 0, tzinfo=UTC)) == 29  # 30 - 1 (Tuesday)
 
 
 def test_the_timing_module_stays_pure():
-    import ehr.workflow.timing as mod
+    import ehire.workflow.timing as mod
 
     assert "zoneinfo" not in open(mod.__file__, encoding="utf-8").read()
 

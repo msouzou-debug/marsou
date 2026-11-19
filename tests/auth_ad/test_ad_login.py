@@ -3,9 +3,9 @@ import logging
 
 import pytest
 
-from ehr.auth import ad
-from ehr.extensions import db
-from ehr.models import AuditLog, LoginAttempt, MailOutbox, User
+from ehire.auth import ad
+from ehire.extensions import db
+from ehire.models import AuditLog, LoginAttempt, MailOutbox, User
 from tests.conftest import login
 
 SECRET = "Zq9-never-in-a-log-Pass"
@@ -45,7 +45,7 @@ def test_local_accounts_still_work_when_the_directory_is_down(seeded, client, di
 
 
 def test_directory_off_means_no_directory_call(seeded, client, directory, app):
-    app.config["EHR_AD_ENABLED"] = False
+    app.config["EHIRE_AD_ENABLED"] = False
     assert ad_login(client).status_code == 200
     assert directory.calls == [] and User.query.filter_by(username="ann.ad").count() == 0
 
@@ -207,7 +207,7 @@ def test_a_directory_that_raises_becomes_the_generic_failure(seeded, client, dir
         def lookup(self, *a):
             raise RuntimeError("boom")
 
-    client.application.extensions["ehr_ad"] = Boom()
+    client.application.extensions["ehire_ad"] = Boom()
     assert "wrong. Try again" in ad_login(client).get_data(as_text=True)
 
 

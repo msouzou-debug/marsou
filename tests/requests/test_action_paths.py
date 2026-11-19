@@ -1,7 +1,7 @@
 """Whole paths through the screens, as the demo users: scenarios 1, 2, 3, 4, 6 and 16."""
 from decimal import Decimal
 
-from ehr.models import AuditLog, RequestFinancials, RequestLeaver, Task
+from ehire.models import AuditLog, RequestFinancials, RequestLeaver, Task
 from tests.requests.flowhelpers import (act, actions_of, as_user, create, fin_fields, reload, step2, step3, step4,
                                         text)
 
@@ -39,7 +39,7 @@ def test_scenario_1_medical_all_six_steps_to_approved(seeded, client):
     as_user(client, "central.ceo")
     html = text(client.get("/requests/%d?lang=en" % rid))
     assert "1.254.300,50" in html and "1,54" in html and "Revenue per" in html
-    assert html.count('class="ehr-history__item') == 9
+    assert html.count('class="ehire-history__item') == 9
     # the requester does not see the table
     as_user(client, "nic.requester")
     assert "1.254.300,50" not in text(client.get("/requests/%d" % rid))

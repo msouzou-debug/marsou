@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds a release tarball of the source for staging on the server.
-#   dist/ehr-<version>.tar.gz          the source, without .venv, tests, caches, briefs and the docs/ drafts
-#   dist/ehr-<version>.tar.gz.sha256   checksum of the tarball
+#   dist/ehire-<version>.tar.gz          the source, without .venv, tests, caches, briefs and the docs/ drafts
+#   dist/ehire-<version>.tar.gz.sha256   checksum of the tarball
 # Inside the tarball, SHA256SUMS lists every file, and RELEASE-INFO records the version and the test result.
 # The full test suite runs first and must pass (Marios's rule). --skip-tests is for a dry run and is written into
 # RELEASE-INFO, where scripts/preflight.sh fails on it.
@@ -21,7 +21,7 @@ if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; th
 fi
 VERSION="${1:-$(date -u +%Y%m%d-%H%M)-$COMMIT}"
 case "$VERSION" in *[!A-Za-z0-9._-]*|'') echo "version may hold only letters, digits, dot, dash, underscore" >&2; exit 64 ;; esac
-NAME="ehr-$VERSION"
+NAME="ehire-$VERSION"
 
 if [ "$SKIP_TESTS" -eq 1 ]; then
   TESTS="SKIPPED"

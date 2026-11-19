@@ -7,10 +7,10 @@ import subprocess
 
 import pytest
 
-from ehr.archive import pdf, queue
-from ehr.documents import storage
-from ehr.extensions import db
-from ehr.models import ArchiveDeposit, RequestDocument
+from ehire.archive import pdf, queue
+from ehire.documents import storage
+from ehire.extensions import db
+from ehire.models import ArchiveDeposit, RequestDocument
 from tests.archive.ahelpers import deposits, rich_request
 from tests.archive.conftest import needs_soffice
 
@@ -38,7 +38,7 @@ def test_the_html_page_holds_every_part(seeded, client, stor, conv):
     for needle in ("ΑΕΘ-2026-0001", "Αίτημα για Έγκριση Θέσεων", "Maria Test Leaver", "40.000,50 €",
                    "Checked again after the rota was added.", "Αντικαταστάθηκε από μεταγενέστερη απάντηση",
                    "job-description.pdf", "rota-2026.pdf", "1.254.300,50 €", "01/03/2027", "Κύκλος 2",
-                   "Συμπληρώθηκαν χειροκίνητα", "Δημιουργήθηκε από το eHR"):
+                   "Συμπληρώθηκαν χειροκίνητα", "Δημιουργήθηκε από το eHire"):
         assert needle in html, needle
     order = [html.index(x) for x in ("Στοιχεία αιτήματος", "Άτομα που αποχώρησαν", "Οικονομικά στοιχεία",
                                     "Έλεγχοι και γνωμοδοτήσεις", "Ιστορικό", "Συνημμένα έγγραφα")]
@@ -51,7 +51,7 @@ def test_the_html_page_holds_every_part(seeded, client, stor, conv):
 def test_the_real_pdf_has_greek_text_and_the_required_content(seeded, client, stor):
     rich_request(client)
     app = client.application
-    app.extensions.pop("ehr_converter", None)  # the real converter
+    app.extensions.pop("ehire_converter", None)  # the real converter
     queue.flush()
     row = one()
     assert row.state == "queued" and row.last_error is None
@@ -60,7 +60,7 @@ def test_the_real_pdf_has_greek_text_and_the_required_content(seeded, client, st
     text = pdf_text(path)
     for needle in ("Αίτημα για Έγκριση Θέσεων", "ΑΕΘ-2026-0001", "Κατάσταση στις", "Εγκρίθηκε", "Maria Test Leaver",
                    "40.000,50 €", "Checked again after the rota was added.", "Αντικαταστάθηκε από μεταγενέστερη",
-                   "job-description.pdf", "rota-2026.pdf", "SHA-256", "Δημιουργήθηκε από το eHR",
+                   "job-description.pdf", "rota-2026.pdf", "SHA-256", "Δημιουργήθηκε από το eHire",
                    "1.254.300,50 €", "Έσοδα ανά €1 μισθοδοσίας"):
         assert needle in text.replace("\n", " ") or needle in text, needle
     assert row.pdf_sha256 == hashlib.sha256(open(path, "rb").read()).hexdigest()
@@ -103,21 +103,21 @@ def test_the_manifest_matches_the_stored_files(seeded, client, stor, conv):
 def test_a_failing_conversion_keeps_the_deposit_queued_with_the_error(seeded, client, stor, app):
     from tests.archive.conftest import HtmlConverter
     rich_request(client)
-    app.extensions["ehr_converter"] = HtmlConverter(ok=False)
+    app.extensions["ehire_converter"] = HtmlConverter(ok=False)
     counts = queue.flush()
     assert counts["rendered"] == 0 and counts["waiting"] == 2
     rows = deposits()
     assert {r.state for r in rows} == {"queued"} and all(r.attempts == 1 and r.last_error for r in rows)
-    app.extensions["ehr_converter"] = HtmlConverter()
+    app.extensions["ehire_converter"] = HtmlConverter()
     counts = queue.flush()
     assert counts["rendered"] == 2
     assert {r.last_error for r in deposits()} == {None}
 
 
 def test_no_converter_leaves_the_deposit_queued_and_counts_no_attempt(seeded, client, stor, app):
-    from ehr.documents.convert import NullConverter
+    from ehire.documents.convert import NullConverter
     rich_request(client)
-    app.extensions["ehr_converter"] = NullConverter()
+    app.extensions["ehire_converter"] = NullConverter()
     queue.flush()
     rows = deposits()
     assert {r.state for r in rows} == {"queued"} and all(r.attempts == 0 and "converter" in r.last_error for r in rows)
@@ -126,7 +126,7 @@ def test_no_converter_leaves_the_deposit_queued_and_counts_no_attempt(seeded, cl
 def test_repeated_failures_end_in_failed_after_ten_attempts(seeded, client, stor, app):
     from tests.archive.conftest import HtmlConverter
     rich_request(client)
-    app.extensions["ehr_converter"] = HtmlConverter(ok=False)
+    app.extensions["ehire_converter"] = HtmlConverter(ok=False)
     for _ in range(10):
         queue.flush()
     assert {r.state for r in deposits()} == {"failed"}

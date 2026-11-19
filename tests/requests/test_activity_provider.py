@@ -10,10 +10,10 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from ehr.extensions import db
-from ehr.models import AuditLog, OaySpecialty, Request, RequestFinancials, Setting
-from ehr.services import activity
-from ehr.services.activity_efinance import EFinanceClient
+from ehire.extensions import db
+from ehire.models import AuditLog, OaySpecialty, Request, RequestFinancials, Setting
+from ehire.services import activity
+from ehire.services.activity_efinance import EFinanceClient
 from tests.requests.flowhelpers import act, as_user, create, fin_fields, reload, step2, step3, step4, text
 
 TOKEN = "tok-9f3c1d-never-show"
@@ -93,9 +93,9 @@ def _fresh_cache():
 
 
 def use_efinance(app, fake=None, configured=True):
-    app.config["EHR_EFINANCE_URL"] = fake.url if (fake and configured) else ""
-    app.config["EHR_EFINANCE_TOKEN"] = TOKEN if configured else ""
-    app.config["EHR_EFINANCE_TIMEOUT"] = 1.0
+    app.config["EHIRE_EFINANCE_URL"] = fake.url if (fake and configured) else ""
+    app.config["EHIRE_EFINANCE_TOKEN"] = TOKEN if configured else ""
+    app.config["EHIRE_EFINANCE_TIMEOUT"] = 1.0
     db.session.merge(Setting(key="activity_provider", value="efinance"))
     db.session.commit()
 
@@ -145,7 +145,7 @@ def test_default_is_manual_and_manual_card_is_unchanged(seeded, client):
     html = page(client, req.id)
     assert activity.chosen_provider_name() == "manual"
     assert "readonly" not in input_of(html, "fin.prev_year.visits")
-    assert "data-ehr-refresh" not in html and "Typed by hand" in html
+    assert "data-ehire-refresh" not in html and "Typed by hand" in html
     step2(client, req.id)
     assert {r.source for r in rows_of(req.id).values()} == {"manual"}
     assert rows_of(req.id)["ytd"].source_snapshot_json is None
@@ -163,7 +163,7 @@ def test_settings_option_blocked_when_not_configured(seeded, client, app):
 
 
 def test_admin_saves_provider_and_it_is_audited(seeded, client, app, fake):
-    app.config.update(EHR_EFINANCE_URL=fake.url, EHR_EFINANCE_TOKEN=TOKEN)
+    app.config.update(EHIRE_EFINANCE_URL=fake.url, EHIRE_EFINANCE_TOKEN=TOKEN)
     as_user(client, "demo.admin")
     base = {"reminder_days": "2", "escalation_days": "5", "returned_timeout_days": "30", "max_file_mb": "20"}
     html = text(client.get("/settings/timings?lang=en"))
@@ -206,7 +206,7 @@ def test_figures_show_read_only_and_tampered_post_is_ignored(seeded, client, app
     assert value_of(html, "fin.ytd.revenue") == "990.000,00"
     assert value_of(html, "oay_data_month") == "08/2026" and value_of(html, "payroll_to_month") == "08/2026"
     assert " readonly" not in input_of(html, "fin.prev_year.payroll_cost")
-    assert "From the ΟΑΥ data held in eFinance, to 08/2026" in html and "data-ehr-refresh" in html
+    assert "From the ΟΑΥ data held in eFinance, to 08/2026" in html and "data-ehire-refresh" in html
     assert fake.calls[0]["query"] == {"facility_code": "NIC01" if False else fake.calls[0]["query"]["facility_code"],
                                       "specialty": "Cardiology"}
     assert fake.calls[0]["auth"] == "Bearer " + TOKEN and fake.calls[0]["path"] == "/api/oay-activity"
@@ -310,10 +310,10 @@ def test_unavailable_falls_back_to_typing(seeded, client, app, fake, mode, reaso
 
 
 def test_timeout_falls_back_to_typing(seeded, client, app, fake):
-    app.config["EHR_EFINANCE_TIMEOUT"] = 0.3
+    app.config["EHIRE_EFINANCE_TIMEOUT"] = 0.3
     started = time.monotonic()
     use_efinance(app, fake)
-    app.config["EHR_EFINANCE_TIMEOUT"] = 0.3
+    app.config["EHIRE_EFINANCE_TIMEOUT"] = 0.3
     fake.delay = 1.2
     fake.known["Cardiology"] = good
     req = create(client)
@@ -324,7 +324,7 @@ def test_timeout_falls_back_to_typing(seeded, client, app, fake):
 def test_unreachable_server_falls_back(seeded, client, app, fake):
     use_efinance(app, fake)
     fake.stop()
-    app.config["EHR_EFINANCE_TIMEOUT"] = 0.5
+    app.config["EHIRE_EFINANCE_TIMEOUT"] = 0.5
     req = create(client)
     html = refresh(client, req.id, spec())
     assert "could not be loaded from eFinance" in html
@@ -350,13 +350,13 @@ def test_unreachable_server_falls_back(seeded, client, app, fake):
 def test_invalid_values_are_rejected(patch):
     body = good("NIC01", "Cardiology")
     patch(body)
-    from ehr.services.activity_efinance import Unavailable, validate
+    from ehire.services.activity_efinance import Unavailable, validate
     with pytest.raises(Unavailable):
         validate(body, "NIC01", "Cardiology")
 
 
 def test_valid_body_passes_and_nulls_mean_no_data():
-    from ehr.services.activity_efinance import NoData, validate
+    from ehire.services.activity_efinance import NoData, validate
     out = validate(good("NIC01", "Cardiology"), "NIC01", "Cardiology")
     assert out["prev_year"]["revenue"] == Decimal("1300000.75") and out["ytd"]["revenue"] == Decimal("990000.00")
     body = good("NIC01", "Cardiology")

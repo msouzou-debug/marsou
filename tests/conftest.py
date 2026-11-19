@@ -1,8 +1,8 @@
 import pytest
 
-from ehr import create_app
-from ehr.config import TestConfig
-from ehr.extensions import db
+from ehire import create_app
+from ehire.config import TestConfig
+from ehire.extensions import db
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def client(app):
 
 @pytest.fixture
 def seeded(app):
-    from ehr.seed import seed_demo
+    from ehire.seed import seed_demo
 
     seed_demo()
     return app

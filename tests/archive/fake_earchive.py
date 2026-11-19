@@ -30,7 +30,7 @@ from datetime import date, datetime
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from ehr.archive.transports import FILE_FIELDS
+from ehire.archive.transports import FILE_FIELDS
 
 TOKEN = "fake-ingest-token-0000"
 # Current codes, then the old ones eArchive still accepts as aliases.
@@ -147,10 +147,10 @@ class FakeEArchive:
         meta, files = self._parse(h, body, record)
         record["meta"], record["files"] = meta, files
         key = h.headers.get("Idempotency-Key", "")
-        if key != "ehr:%s" % meta["outbox_id"]:
-            raise Refusal(400, "SCHEMA_INVALID", "Idempotency-Key must be ehr:<outbox_id>.")
-        if meta["source_system"] != "eHR":
-            raise Refusal(403, "SOURCE_MISMATCH", "This token files eHR items only.")
+        if key != "ehire:%s" % meta["outbox_id"]:
+            raise Refusal(400, "SCHEMA_INVALID", "Idempotency-Key must be ehire:<outbox_id>.")
+        if meta["source_system"] != "eHire":
+            raise Refusal(403, "SOURCE_MISMATCH", "This token files eHire items only.")
         self._check_files(meta, files)
         # canonical JSON of the whole meta (key order and spaces do not matter, every value does) plus the file hashes
         fingerprint = _sha(json.dumps(meta, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode() +

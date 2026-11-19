@@ -1,6 +1,6 @@
 import pytest
 
-from ehr.auth import ad
+from ehire.auth import ad
 
 
 class FakeDirectory:
@@ -25,6 +25,6 @@ class FakeDirectory:
 @pytest.fixture
 def directory(app):
     fake = FakeDirectory({"ann.ad": ("Ad-Pass-1234", "Ann Directory", "ann@example.invalid")})
-    app.extensions["ehr_ad"] = fake
-    app.config["EHR_AD_ENABLED"] = True
+    app.extensions["ehire_ad"] = fake
+    app.config["EHIRE_AD_ENABLED"] = True
     return fake

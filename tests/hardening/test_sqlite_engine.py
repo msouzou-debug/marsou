@@ -9,12 +9,12 @@ from types import SimpleNamespace
 import pytest
 from flask import Flask
 
-from ehr import create_app
-from ehr.config import TestConfig
-from ehr.dbsetup import init_sqlite, sqlite_settings
-from ehr.extensions import db
-from ehr.models import NumberSequence, Request, RequestAction
-from ehr.security import ConfigError, check_production_config
+from ehire import create_app
+from ehire.config import TestConfig
+from ehire.dbsetup import init_sqlite, sqlite_settings
+from ehire.extensions import db
+from ehire.models import NumberSequence, Request, RequestAction
+from ehire.security import ConfigError, check_production_config
 from tests.conftest import login
 from tests.requests.flowhelpers import fin_fields, open_task
 from tests.requests.helpers import full_form
@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def prod(uri):
     app = Flask("t")
-    app.config.update({"EHR_ENV": "production", "SECRET_KEY": "x" * 40, "CSRF_ENABLED": True, "TESTING": False,
+    app.config.update({"EHIRE_ENV": "production", "SECRET_KEY": "x" * 40, "CSRF_ENABLED": True, "TESTING": False,
                        "SQLALCHEMY_DATABASE_URI": uri})
     return app
 
@@ -32,12 +32,12 @@ def prod(uri):
 @pytest.fixture
 def file_app(tmp_path):
     class FileConfig(TestConfig):
-        SQLALCHEMY_DATABASE_URI = "sqlite:///%s" % (tmp_path / "ehr.sqlite3")
+        SQLALCHEMY_DATABASE_URI = "sqlite:///%s" % (tmp_path / "ehire.sqlite3")
 
     app = create_app(FileConfig)
     with app.app_context():
         db.create_all()
-        from ehr.seed import seed_demo
+        from ehire.seed import seed_demo
 
         seed_demo()
         yield app
@@ -48,11 +48,11 @@ def file_app(tmp_path):
 # ---------------------------------------------------------------------------------------- production placement
 
 def test_an_absolute_sqlite_file_outside_the_code_folder_is_accepted(tmp_path):
-    check_production_config(prod("sqlite:///%s" % (tmp_path / "ehr.sqlite3")))
+    check_production_config(prod("sqlite:///%s" % (tmp_path / "ehire.sqlite3")))
 
 
 @pytest.mark.parametrize("uri,words", [
-    ("sqlite:///ehr.sqlite3", "relative"),
+    ("sqlite:///ehire.sqlite3", "relative"),
     ("sqlite://", "in-memory"),
     ("sqlite:///:memory:", "in-memory"),
 ])
@@ -63,12 +63,12 @@ def test_relative_or_memory_sqlite_is_refused(uri, words):
 
 def test_a_sqlite_file_inside_the_code_folder_is_refused():
     with pytest.raises(ConfigError, match="inside the code folder"):
-        check_production_config(prod("sqlite:///%s" % (ROOT / "instance" / "ehr.sqlite3")))
+        check_production_config(prod("sqlite:///%s" % (ROOT / "instance" / "ehire.sqlite3")))
 
 
 def test_a_missing_or_read_only_folder_is_refused(tmp_path):
     with pytest.raises(ConfigError, match="not writable"):
-        check_production_config(prod("sqlite:///%s" % (tmp_path / "no-such-folder" / "ehr.sqlite3")))
+        check_production_config(prod("sqlite:///%s" % (tmp_path / "no-such-folder" / "ehire.sqlite3")))
     ro = tmp_path / "ro"
     ro.mkdir()
     ro.chmod(0o500)
@@ -78,7 +78,7 @@ def test_a_missing_or_read_only_folder_is_refused(tmp_path):
         if os.access(ro, os.W_OK):  # running as root: permissions do not apply
             pytest.skip("folder permissions are not enforced for this user")
         with pytest.raises(ConfigError, match="not writable"):
-            check_production_config(prod("sqlite:///%s" % (ro / "ehr.sqlite3")))
+            check_production_config(prod("sqlite:///%s" % (ro / "ehire.sqlite3")))
     finally:
         ro.chmod(0o700)
 
@@ -97,7 +97,7 @@ def test_a_new_connection_reports_the_settings(file_app):
 def test_busy_timeout_comes_from_config(tmp_path):
     class Cfg(TestConfig):
         SQLALCHEMY_DATABASE_URI = "sqlite:///%s" % (tmp_path / "x.sqlite3")
-        EHR_SQLITE_BUSY_TIMEOUT_MS = 1234
+        EHIRE_SQLITE_BUSY_TIMEOUT_MS = 1234
 
     app = create_app(Cfg)
     with app.app_context(), db.engine.connect() as conn:
@@ -137,7 +137,7 @@ def test_write_transactions_start_with_begin_immediate(file_app):
 # ---------------------------------------------------------------------------------------- one writer: gunicorn
 
 def _gunicorn_conf():
-    spec = importlib.util.spec_from_file_location("ehr_gunicorn_conf", ROOT / "deploy" / "gunicorn.conf.py")
+    spec = importlib.util.spec_from_file_location("ehire_gunicorn_conf", ROOT / "deploy" / "gunicorn.conf.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -148,7 +148,7 @@ def test_gunicorn_defaults_to_one_worker():
 
 
 def test_gunicorn_refuses_more_than_one_worker_on_sqlite(tmp_path, monkeypatch):
-    from ehr.config import Config
+    from ehire.config import Config
 
     monkeypatch.setattr(Config, "SQLALCHEMY_DATABASE_URI", "sqlite:///%s" % (tmp_path / "w.sqlite3"))
     conf = _gunicorn_conf()
@@ -255,7 +255,7 @@ def test_backup_copies_a_live_wal_database(file_app, tmp_path):
     target = tmp_path / "out" / "backup.sqlite3"
     target.parent.mkdir()
     # another connection stays open and writes, as the running app would
-    other = sqlite3.connect(str(tmp_path / "ehr.sqlite3"))
+    other = sqlite3.connect(str(tmp_path / "ehire.sqlite3"))
     other.execute("PRAGMA journal_mode=WAL")
     res = _invoke(file_app, "backup-db", str(target))
     other.close()

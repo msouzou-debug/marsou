@@ -1,8 +1,8 @@
 """Scenario 7: the email only informs. Its one link is the request page; opening it changes nothing."""
 from urllib.parse import urlparse
 
-from ehr import i18n
-from ehr.models import Request, User
+from ehire import i18n
+from ehire.models import Request, User
 from tests.conftest import login
 from tests.notifications.nhelpers import HREF, counts, create, mails
 
@@ -37,7 +37,7 @@ def test_the_link_opens_sign_in_then_the_request_with_the_card_and_changes_nothi
     assert login_post.headers["Location"] == path
     page = anon.get(path)
     html = page.get_data(as_text=True)
-    assert page.status_code == 200 and "data-ehr-card" in html and i18n.translate("action.title", "el") in html
+    assert page.status_code == 200 and "data-ehire-card" in html and i18n.translate("action.title", "el") in html
     assert counts()[1:3] == before[1:3]
 
 

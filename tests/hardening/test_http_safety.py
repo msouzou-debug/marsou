@@ -6,14 +6,14 @@ from pathlib import Path
 import pytest
 from sqlalchemy import func, select
 
-from ehr.security import CSRF_EXEMPT_ENDPOINTS
-from ehr.extensions import db
-from ehr.models import AuditLog
+from ehire.security import CSRF_EXEMPT_ENDPOINTS
+from ehire.extensions import db
+from ehire.models import AuditLog
 from tests.conftest import login
 from tests.requests.flowhelpers import as_user, create
 
 ROOT = Path(__file__).resolve().parents[2]
-EHR = ROOT / "ehr"
+EHIRE = ROOT / "ehire"
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 
 
@@ -55,14 +55,14 @@ def table_counts():
 
 
 def test_get_requests_do_not_change_row_counts(seeded, client, tmp_path):
-    client.application.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
+    client.application.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
     req = create(client)
     from tests.documents import samples
     from tests.documents.dhelpers import draft, upload
 
     d = draft(client)
     upload(client, d.id, ("a.pdf", samples.pdf_bytes(1, ["x"])))
-    from ehr.models import MailOutbox, RequestDocument
+    from ehire.models import MailOutbox, RequestDocument
 
     doc = RequestDocument.query.first()
     ids = {"request_id": req.id, "doc_id": doc.id, "mail_id": MailOutbox.query.first().id}
@@ -124,7 +124,7 @@ def test_the_csrf_walk_covers_the_known_posts(app):
 def test_every_post_form_in_the_templates_carries_the_token():
     pattern = re.compile(r"<form\b[^>]*\bmethod=[\"']post[\"'][^>]*>(.*?)</form>", re.S | re.I)
     found = 0
-    for path in (EHR / "templates").rglob("*.html"):
+    for path in (EHIRE / "templates").rglob("*.html"):
         for body in pattern.findall(path.read_text(encoding="utf-8")):
             found += 1
             assert "csrf_token" in body, "POST form without csrf_token in %s" % path.relative_to(ROOT)
@@ -132,7 +132,7 @@ def test_every_post_form_in_the_templates_carries_the_token():
 
 
 def test_javascript_posts_send_form_data_that_includes_the_token():
-    for path in (EHR / "static" / "js").glob("*.js"):
+    for path in (EHIRE / "static" / "js").glob("*.js"):
         text = path.read_text(encoding="utf-8")
         for m in re.finditer(r"method:\s*[\"']POST[\"']", text):
             assert "FormData" in text, path.name  # built from the form, which has the hidden csrf_token field
@@ -176,7 +176,7 @@ def _internal(arg):
 
 def test_every_redirect_in_the_source_is_internal():
     seen = 0
-    for path in EHR.rglob("*.py"):
+    for path in EHIRE.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call) and _call_name(node) == "redirect":
                 seen += 1
@@ -188,11 +188,11 @@ def test_every_redirect_in_the_source_is_internal():
 # ---------------------------------------------------------------- output escaping and SQL
 
 def test_no_safe_filter_or_markup_on_user_text():
-    for path in EHR.rglob("*.html"):
+    for path in EHIRE.rglob("*.html"):
         text = path.read_text(encoding="utf-8")
         assert "|safe" not in text and "| safe" not in text, path
         assert "autoescape false" not in text.replace("-", " "), path
-    for path in EHR.rglob("*.py"):
+    for path in EHIRE.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         for word in ("Markup(", "render_template_string(", "mark_safe", "|safe"):
             assert word not in text, (path, word)
@@ -200,7 +200,7 @@ def test_no_safe_filter_or_markup_on_user_text():
 
 def test_user_text_is_escaped_on_a_page(seeded, client):
     req = create(client)
-    from ehr.models import Request
+    from ehire.models import Request
 
     row = db.session.get(Request, req.id)
     row.need_text = "<img src=x onerror=alert(1)>"
@@ -211,7 +211,7 @@ def test_user_text_is_escaped_on_a_page(seeded, client):
 
 def test_no_sql_is_built_by_string_formatting():
     risky = {"text", "execute", "exec_driver_sql", "from_statement"}
-    for path in EHR.rglob("*.py"):
+    for path in EHIRE.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if not isinstance(node, ast.Call):
                 continue
@@ -226,12 +226,12 @@ def test_no_sql_is_built_by_string_formatting():
 # ---------------------------------------------------------------- file paths
 
 def test_upload_names_never_become_paths(seeded, client, tmp_path):
-    from ehr.models import RequestDocument
+    from ehire.models import RequestDocument
     from tests.documents import samples
     from tests.documents.dhelpers import draft, upload
 
     store = tmp_path / "store"
-    client.application.config["EHR_STORAGE_DIR"] = str(store)
+    client.application.config["EHIRE_STORAGE_DIR"] = str(store)
     req = draft(client)
     for name in ("../../evil.pdf", "..\\..\\evil.pdf", "/etc/cron.d/evil.pdf", "a/../../b.pdf", "x\x00y.pdf"):
         upload(client, req.id, (name, samples.pdf_bytes(1, ["x"])))
@@ -243,9 +243,9 @@ def test_upload_names_never_become_paths(seeded, client, tmp_path):
 
 
 def test_stored_paths_cannot_leave_the_storage_folder(app, tmp_path):
-    from ehr.documents import storage
+    from ehire.documents import storage
 
-    app.config["EHR_STORAGE_DIR"] = str(tmp_path / "s")
+    app.config["EHIRE_STORAGE_DIR"] = str(tmp_path / "s")
     for ref in ("../x", "1/../../x", "/etc/passwd", "1/../../../etc/passwd"):
         with pytest.raises(ValueError):
             storage.abs_path(ref)
@@ -261,13 +261,13 @@ def test_debug_is_off_and_the_debugger_is_not_reachable(seeded, client):
         resp = client.get(url)
         assert resp.status_code in (200, 302, 404) and "Werkzeug" not in resp.get_data(as_text=True)
         assert "debugger" not in resp.get_data(as_text=True).lower() or resp.status_code != 200
-    from ehr import config
+    from ehire import config
 
     assert not hasattr(config.Config, "DEBUG")
 
 
 def test_nothing_in_the_source_starts_a_debug_server():
-    for path in list(EHR.rglob("*.py")) + [ROOT / "wsgi.py", ROOT / "deploy" / "gunicorn.conf.py"] + list((ROOT / "scripts").glob("*.sh")):
+    for path in list(EHIRE.rglob("*.py")) + [ROOT / "wsgi.py", ROOT / "deploy" / "gunicorn.conf.py"] + list((ROOT / "scripts").glob("*.sh")):
         text = path.read_text(encoding="utf-8")
         for bad in ("debug=True", "use_debugger", "use_reloader", "--debug"):
             assert bad not in text, (path, bad)
@@ -275,8 +275,8 @@ def test_nothing_in_the_source_starts_a_debug_server():
 
 
 def test_errors_do_not_leak_a_stack_trace(seeded):
-    from ehr import create_app
-    from ehr.config import TestConfig
+    from ehire import create_app
+    from ehire.config import TestConfig
 
     class Quiet(TestConfig):
         TESTING = False
@@ -288,7 +288,7 @@ def test_errors_do_not_leak_a_stack_trace(seeded):
 
     @app.get("/boom")
     def boom():
-        raise RuntimeError("secret internal detail /srv/ehr/ehr/x.py")
+        raise RuntimeError("secret internal detail /srv/ehire/ehire/x.py")
 
     with app.app_context():
         db.create_all()
@@ -298,7 +298,7 @@ def test_errors_do_not_leak_a_stack_trace(seeded):
             resp = getattr(client, method)(url)
             text = resp.get_data(as_text=True)
             assert resp.status_code == status, url
-            assert "Traceback" not in text and "secret internal detail" not in text and "/srv/ehr" not in text
+            assert "Traceback" not in text and "secret internal detail" not in text and "/srv/ehire" not in text
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
         db.session.remove()
         db.drop_all()
@@ -327,7 +327,7 @@ def test_create_admin_asks_for_the_password_and_never_takes_it_as_an_argument(ap
                            input="Long-Enough-Pw-1\nLong-Enough-Pw-1\n")
     assert result.exit_code == 0, result.output
     assert "Long-Enough-Pw-1" not in result.output
-    from ehr.models import User
+    from ehire.models import User
 
     boss = User.query.filter_by(username="boss").one()
     assert boss.has_permission("settings.manage") and boss.has_permission("audit.view")
@@ -341,13 +341,13 @@ def test_create_admin_asks_for_the_password_and_never_takes_it_as_an_argument(ap
 
 
 def test_demo_data_commands_are_refused_in_production(app):
-    app.config["EHR_ENV"] = "production"
+    app.config["EHIRE_ENV"] = "production"
     runner = app.test_cli_runner()
     for command in ("seed-demo", "seed-cases"):
         result = runner.invoke(args=[command])
         assert result.exit_code != 0 and "production" in result.output
-    from ehr.models import User
+    from ehire.models import User
 
     assert User.query.count() == 0
-    app.config["EHR_ENV"] = "development"
+    app.config["EHIRE_ENV"] = "development"
     assert runner.invoke(args=["seed-demo"]).exit_code == 0

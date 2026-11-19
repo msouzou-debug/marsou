@@ -1,8 +1,8 @@
 """Scenario 8: out of office. Tasks move to the substitute, who acts on the holder's behalf."""
 from datetime import date, timedelta
 
-from ehr.models import AuditLog, RequestAction, RoleAssignment, Task, User
-from ehr.services.request_dates import format_date
+from ehire.models import AuditLog, RequestAction, RoleAssignment, Task, User
+from ehire.services.request_dates import format_date
 from tests.notifications.nhelpers import act, as_user, create, mails, reload, step2, uid
 from tests.requests.flowhelpers import actions_of, text
 
@@ -67,7 +67,7 @@ def test_the_list_page_shows_the_control_and_its_state(seeded, client):
 
 def test_no_substitute_means_no_switch(seeded, client):
     RoleAssignment.query.filter_by(user_id=uid("nic.accountant"), role="dir_accountant").one().substitute_user_id = None
-    from ehr.extensions import db
+    from ehire.extensions import db
     db.session.commit()
     as_user(client, "nic.accountant")
     page = text(client.get("/requests?lang=en"))
@@ -120,7 +120,7 @@ def test_switching_off_moves_nothing_back(seeded, client):
 
 
 def test_a_substitute_who_made_the_request_is_skipped(seeded, client):
-    from ehr.extensions import db
+    from ehire.extensions import db
     r = create(client)  # made by nic.requester
     RoleAssignment.query.filter_by(user_id=uid("nic.accountant"), role="dir_accountant").one().substitute_user_id = \
         uid("nic.requester")

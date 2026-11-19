@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.timings') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('settings.timings') }}</h1>
+{% include "settings/_nav.html" %}
+<form method="post" action="{{ url_for('settings.timings') }}" class="border rounded p-3" style="max-width:32rem" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for key in keys %}
+  <div class="mb-3">
+    <label class="form-label" for="t-{{ key }}">{{ t('settings.' ~ key) }}</label>
+    <input class="form-control{{ ' is-invalid' if errors.get(key) }}" style="min-height:44px" id="t-{{ key }}" name="{{ key }}" value="{{ values[key] }}" inputmode="numeric" {% if errors.get(key) %}aria-describedby="t-{{ key }}-err"{% endif %}>
+    {% if errors.get(key) %}<div class="invalid-feedback" id="t-{{ key }}-err">{{ t(errors[key]) }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  <fieldset class="mb-3"{% if errors.get('activity_provider') %} aria-describedby="t-provider-err"{% endif %}>
+    <legend class="form-label fs-6">{{ t('settings.activity_provider') }}</legend>
+    {% for value in ('manual', 'efinance') %}
+    <div class="form-check ehire-check">
+      <input class="form-check-input" type="radio" name="activity_provider" id="t-provider-{{ value }}" value="{{ value }}"{{ ' checked' if provider == value }}{% if value == 'efinance' and not link_configured %} disabled aria-describedby="t-provider-hint"{% endif %}>
+      <label class="form-check-label" for="t-provider-{{ value }}">{{ t('settings.activity_provider.' ~ value) }}</label>
+    </div>
+    {% endfor %}
+    {% if not link_configured %}<div class="form-text" id="t-provider-hint">{{ t('settings.activity_provider.not_configured') }}</div>{% endif %}
+    {% if errors.get('activity_provider') %}<div class="invalid-feedback d-block" id="t-provider-err">{{ t(errors['activity_provider']) }}</div>{% endif %}
+  </fieldset>
+  <button class="btn btn-primary" style="min-height:44px" type="submit">{{ t('settings.save') }}</button>
+</form>
+{% endblock %}

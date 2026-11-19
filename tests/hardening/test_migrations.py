@@ -4,9 +4,9 @@ import types
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
-from ehr import create_app, migrations
-from ehr.config import TestConfig
-from ehr.extensions import db
+from ehire import create_app, migrations
+from ehire.config import TestConfig
+from ehire.extensions import db
 
 
 def fake(*pairs):
@@ -38,7 +38,7 @@ def test_fresh_database_upgrades_to_latest_and_records_it(engine):
 
 
 def test_a_database_from_before_migrations_only_gets_the_version_row(engine):
-    from ehr import models  # noqa: F401
+    from ehire import models  # noqa: F401
 
     db.metadata.create_all(engine)
     with engine.begin() as c:
@@ -79,7 +79,7 @@ def test_a_failing_migration_is_rolled_back_and_stops_the_rest(engine, monkeypat
 
 
 def test_gaps_and_repeats_are_refused(monkeypatch):
-    import ehr.migrations as m
+    import ehire.migrations as m
 
     class Info:
         def __init__(self, name):
@@ -92,7 +92,7 @@ def test_gaps_and_repeats_are_refused(monkeypatch):
 
 
 def test_helpers(engine):
-    from ehr.migrations.helpers import has_column, has_index, has_table
+    from ehire.migrations.helpers import has_column, has_index, has_table
 
     with engine.begin() as c:
         c.execute(text("create table t (a integer, b integer)"))
@@ -109,7 +109,7 @@ def test_template_is_not_picked_up_as_a_migration():
 # ---------------------------------------------------------------- the app and the CLI
 
 class Guarded(TestConfig):
-    EHR_CHECK_SCHEMA = True
+    EHIRE_CHECK_SCHEMA = True
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ def test_app_answers_503_while_the_database_is_behind_and_recovers(raw_app):
     assert resp.status_code == 503 and resp.headers["Retry-After"]
     assert "no-store" in resp.headers["Cache-Control"] and "Traceback" not in resp.get_data(as_text=True)
     assert client.get("/healthz").status_code == 503
-    assert client.get("/static/css/ehr.css").status_code == 200
+    assert client.get("/static/css/ehire.css").status_code == 200
     with raw_app.app_context():
         migrations.upgrade(db.engine)
     assert client.get("/login").status_code == 200  # no restart needed
@@ -166,14 +166,14 @@ def test_init_db_marks_a_new_database_as_current_and_leaves_an_old_one_alone(raw
 def test_gunicorn_config_refuses_to_start_when_behind(tmp_path, monkeypatch):
     import runpy
 
-    import ehr.config as cfg
+    import ehire.config as cfg
 
     monkeypatch.setattr(cfg.Config, "SQLALCHEMY_DATABASE_URI", "sqlite:///%s" % (tmp_path / "g.sqlite3"))
     conf = runpy.run_path("deploy/gunicorn.conf.py")
     with pytest.raises(SystemExit) as err:
         conf["on_starting"](None)
     assert "upgrade-db" in str(err.value)
-    from ehr import create_app as make
+    from ehire import create_app as make
 
     app = make()
     with app.app_context():
@@ -184,9 +184,9 @@ def test_gunicorn_config_refuses_to_start_when_behind(tmp_path, monkeypatch):
 def test_gunicorn_config_prints_the_production_problem(monkeypatch):
     import runpy
 
-    import ehr.config as cfg
+    import ehire.config as cfg
 
-    monkeypatch.setattr(cfg.Config, "EHR_ENV", "production")
+    monkeypatch.setattr(cfg.Config, "EHIRE_ENV", "production")
     conf = runpy.run_path("deploy/gunicorn.conf.py")
     with pytest.raises(SystemExit) as err:
         conf["on_starting"](None)
