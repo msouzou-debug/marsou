@@ -9,6 +9,7 @@ Standing rules and decisions for this project. Read at the start of every sessio
 - Short, plain, active voice. No em dashes as asides, no promotional words. State assumptions and shortcuts.
 - Ask questions before building. Prefer the simple solution.
 - Excel outputs: live formulas, auditable.
+- Commands first, always: when a reply involves something to run, put the exact commands at the top, in copy-ready blocks, before any explanation. (Marios, 19/11/2026.)
 
 ## Greek terms approved on 13 and 14/11/2026 (also in the `okypy-greek-terms` skill)
 
