@@ -63,7 +63,8 @@ c.push(table([2700, 6326], ['Item', 'Detail'], [
   ['Time zones', 'The tzdata package. eHR refuses to start without it.'],
   ['LibreOffice', 'For Word and Excel previews and for the PDF sent to eArchive. Version 7.3.7 is already installed at /usr/bin/soffice.'],
   ['Database', 'None to install. eHR uses one SQLite file, as eFinance does.'],
-  ['Web server', 'nginx in front, with a host name and certificate from IT, when eHR is published to users.'],
+  ['Published through', 'The Cloudflare tunnel, as https://ehire.shso.online. The tunnel runs on another machine and connects to this server at http://10.227.56.22:5008. No nginx block is needed.'],
+  ['Firewall', 'A rule that lets only the tunnel\'s machine reach port 5008 on this server.'],
   ['Outbound access', 'Microsoft Graph (login.microsoftonline.com and graph.microsoft.com, port 443) for email. The domain controller on port 636 for sign-in. Nothing else.'],
 ]));
 c.push(gap());
@@ -87,9 +88,10 @@ c.push(p('The folder /var/lib/ehr must be writable by ehr. While eHR runs, two m
 
 c.push(h1('4. Port and network'));
 c.push(table([2700, 6326], ['Item', 'Value'], [
-  ['Listen address', '127.0.0.1:5008. Port 5006 is taken; 5008 and 5009 were free on 14/11/2026.'],
+  ['Listen address', '0.0.0.0:5008. The tunnel reaches the server from another machine, so 127.0.0.1 is not enough. Port 5008 was free on 14/11/2026 and again on 19/11/2026.'],
   ['Workers', 'One gunicorn worker. eHR refuses to start with more on SQLite.'],
-  ['Reached by users', 'Through nginx only. eHR itself listens on the server\'s loopback address.'],
+  ['Reached by users', 'https://ehire.shso.online, through the Cloudflare tunnel only. A 502 there means nothing is listening on 5008.'],
+  ['Firewall', 'Port 5008 is plain HTTP. Allow it only from the tunnel\'s machine, so nobody on the internal network reaches eHR directly.'],
   ['Talks to eArchive', 'http://127.0.0.1:5011, directly. Never through nginx or Cloudflare: eArchive refuses such calls.'],
   ['Receives from eArchive', 'http://127.0.0.1:5008/api/v1/archive-events, loopback only.'],
   ['Health check', 'http://127.0.0.1:5008/healthz answers {"status":"ok"}.'],
@@ -104,10 +106,10 @@ c.push(table([3000, 3200, 2826], ['Setting', 'Value', 'Note'], [
   ['EHR_ENV', 'production', 'Turns on the start-up safety checks.'],
   ['EHR_SECRET_KEY', '48 random characters', 'Generate on the server (command below). Never reuse another app\'s key.'],
   ['EHR_DATABASE_URI', 'sqlite:////var/lib/ehr/ehr.sqlite3', 'Four slashes.'],
-  ['EHR_BASE_URL', 'the address users open', 'The button in every email points here.'],
+  ['EHR_BASE_URL', 'https://ehire.shso.online', 'The button in every email points here.'],
   ['EHR_HTTPS', 'true', 'When users reach eHR over HTTPS.'],
-  ['EHR_PROXY_HOPS', '1', 'Number of proxies in front. 0 if none. A wrong value records the wrong address in the audit log.'],
-  ['EHR_BIND', '127.0.0.1:5008', ''],
+  ['EHR_PROXY_HOPS', '1', 'The tunnel is the one proxy. A wrong value records the wrong address in the audit log.'],
+  ['EHR_BIND', '0.0.0.0:5008', 'Not 127.0.0.1: the tunnel connects from another machine.'],
   ['EHR_WORKERS', '1', ''],
   ['EHR_TIMEZONE', 'Europe/Nicosia', ''],
   ['EHR_STORAGE_DIR', '/var/lib/ehr/storage', ''],
@@ -154,7 +156,7 @@ c.push(bullet('EHR_ARCHIVE_DROP_DIR. It belongs to a transport that is not used.
 
 c.push(h1('6. What to ask IT for'));
 c.push(table([4300, 4726], ['Item', 'Used for'], [
-  ['Host name and certificate for eHR, and the nginx block', 'Publishing eHR to users'],
+  ['The address of the machine that runs the Cloudflare tunnel, for the firewall rule on port 5008', 'Publishing eHR to users'],
   ['Domain controller host name, domain, search base DN', 'Sign-in'],
   ['Internal CA certificate as a PEM file', 'Sign-in'],
   ['Tenant id, client id, client secret, sender mailbox of eHR\'s own app registration', 'Email'],
@@ -181,7 +183,7 @@ c.push(...code('scripts/preflight.sh'));
 c.push(step([run('(sudo) ', { bold: true }), run('Install ehr.service from deploy/ehr.service.example and start it. Start only this service.')]));
 c.push(...code(['systemctl enable ehr', 'systemctl start ehr']));
 c.push(step('Install the scheduled jobs in section 8 for the ehr user.'));
-c.push(step([run('(sudo) ', { bold: true }), run('Add the nginx block for eHR and reload nginx, once IT has supplied the name and certificate.')]));
+c.push(step([run('(sudo) ', { bold: true }), run('Add the firewall rule that lets only the tunnel\'s machine reach port 5008. The tunnel rule for ehire.shso.online already points at http://10.227.56.22:5008, so the address works as soon as eHR is running.')]));
 c.push(step('Run the checks in section 11.'));
 c.push(p([run('Do not run seed-demo or seed-cases on this server. ', { bold: true }), run('They load test users that share a known password. They refuse to run when EHR_ENV=production.')], { spacing: { before: 100, after: 110 } }));
 
@@ -225,6 +227,8 @@ c.push(p('A request for a site that eArchive does not know yet is held and tried
 c.push(h1('11. Checks after the install'));
 c.push(table([4700, 4326], ['Check', 'Expected'], [
   ['curl -s http://127.0.0.1:5008/healthz', '{"status":"ok"}'],
+  ['curl -s http://10.227.56.22:5008/healthz', '{"status":"ok"} (eHR answers on the network address)'],
+  ['curl -sI https://ehire.shso.online/', 'A redirect to /login, not 502'],
   ['scripts/ehr-cli.sh db-status', 'pending=0'],
   ['scripts/preflight.sh', 'No FAIL lines'],
   ['scripts/verify-release.sh --dir /opt/ehr/current', 'ok: installed files match the release'],

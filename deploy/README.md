@@ -3,7 +3,9 @@
 **Rules.** Never restart another app's service. The full test suite passes before any install.
 Nothing here is installed by the app. Marios runs every step that needs sudo. The scripts in `scripts/` never use sudo, never use the network (the port check talks to this machine only) and never touch another service.
 
-Paths below are examples. Port 5008 is a proposal; Marios assigns the real one (eFinance 5004, eVendor 5005).
+Paths below are examples. eHR's port on the ΟΚΥπΥ server is 5008 (eFinance 5004, eVendor 5005).
+
+**How users reach it.** eHR is published as `https://ehire.shso.online` through a Cloudflare tunnel that runs on another machine and connects to this server at `http://10.227.56.22:5008`. So eHR listens on `0.0.0.0:5008` (`EHR_BIND`), with `EHR_PROXY_HOPS=1`, `EHR_HTTPS=true` and `EHR_BASE_URL=https://ehire.shso.online`. A 502 from that address means nothing is listening on 5008: check `systemctl status ehr`. Because the port is plain HTTP and open on the network interface, add a firewall rule that lets only the tunnel's machine reach 5008; without it, anyone on the internal network can reach eHR directly and send a forged forwarded address. The link to eArchive is separate and stays on `127.0.0.1`.
 
 ## Prerequisites
 

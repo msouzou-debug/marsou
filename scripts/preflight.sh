@@ -242,7 +242,17 @@ fi
 bind="${EHR_BIND:-127.0.0.1:5008}"
 host="${bind%:*}"
 port="${bind##*:}"
+bind_host="$host"
 case "$host" in ''|0.0.0.0|'[::]') host=127.0.0.1 ;; esac
+# A tunnel or proxy on another machine cannot reach an app that listens only on the loopback address.
+case "$bind_host" in
+  127.*|localhost|'[::1]')
+    case "${EHR_BASE_URL:-}" in
+      ''|http://127.*|http://localhost*) ok "eHR listens on $bind_host only" ;;
+      *) warn "EHR_BIND is $bind (this machine only) but EHR_BASE_URL is ${EHR_BASE_URL}: a tunnel or proxy on another machine gets no answer (502). Use 0.0.0.0:$port unless the proxy runs on this server" ;;
+    esac ;;
+  *) ok "eHR listens on $bind_host: limit port $port in the firewall to the tunnel or proxy machine" ;;
+esac
 if [ "$SKIP_PORT" -eq 1 ]; then
   ok "port check skipped"
 elif (exec 3<>"/dev/tcp/$host/$port") 2>/dev/null; then
