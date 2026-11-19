@@ -118,6 +118,8 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 19/11/2026: every pinned package must install on Python 3.10. SQLAlchemy 2.1.8 needs 3.11, so releases rc1 to rc5 could not have been installed on the server; from rc6 the pin is SQLAlchemy 2.0.58. Check with `pip download --python-version 3.10 --only-binary=:all:` before each release. Releases ship with an offline wheel set for Python 3.10 on x86_64.
 - 19/11/2026: `scripts/install-ehire.sh` installs or upgrades with one sudo command (guards, backup, switch, health check, rollback). systemd, useradd and runuser were never exercised: first run on the server is `--dry-run`.
 
+- 19/11/2026: release `ehire-1.0.0-rc6` built with the full suite passing (950 tests) and verified with its checksum (7912822e64b9fe9ab02900b8a32a982bbe3f5f5517c9192e8e865fe439955388, 177 files). First release that installs on Python 3.10 (SQLAlchemy 2.0.58) and ships `install-ehire.sh`. Sent to Marios with the offline wheel set `ehire-wheels-py310.tar.gz` (16 packages, x86_64) and the updated Word document. A first rc6 build failed on one timing-sensitive test while other work loaded the machine; the suite passed twice afterwards. The failing test's name was not captured.
+
 ## Status
 
 - Names below predate the rename: read `ehr`, `EHR_*` and eHR as `ehire`, `EHIRE_*` and eHire.
