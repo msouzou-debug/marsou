@@ -15,6 +15,22 @@
   {% endif %}
 </div>
 
+{# Internal audit Α1 (19/11/2026): a costing started and never finalised is revenue
+   nobody collects. Counted across every hospital the user may see. #}
+{% if unfinished_count %}
+<div class="alert alert-warning d-flex align-items-center gap-2 py-2">
+  <i class="bi bi-exclamation-triangle"></i>
+  <div class="me-auto">
+    {{ t('%d καταχωρήσεις παραμένουν χωρίς οριστικοποίηση πέραν των %d ωρών.')|format(unfinished_count, unfinished_hours) }}
+  </div>
+  {% if filters.unfinished %}
+    <a href="/taep/list" class="btn btn-sm btn-outline-secondary">{{ t('Όλες οι καταχωρήσεις') }}</a>
+  {% else %}
+    <a href="/taep/list?unfinished=1" class="btn btn-sm btn-warning">{{ t('Εμφάνιση') }}</a>
+  {% endif %}
+</div>
+{% endif %}
+
 {# Separate from the filters below: this jumps straight to one costing. A handheld
    scanner types the number into the box and submits, so autofocus is deliberate. #}
 <div class="card mb-3 border-primary-subtle">

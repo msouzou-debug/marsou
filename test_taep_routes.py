@@ -2542,3 +2542,27 @@ def test_the_form_offers_each_tick_only_for_its_categories(client, app):
     assert 'id="declaration-block"' in page and 'id="card-copy-block"' in page
     assert re.search(r'data-declaration="1"[^>]*>\s*600 ', page)
     assert re.search(r'data-card-copy="1"[^>]*>\s*603 ', page)
+
+
+def test_a_costing_left_unfinished_is_flagged_on_the_list(client, app):
+    """Internal audit Α1: nothing showed a costing that was started and never completed."""
+    stale = create(client, app, episode_number="E-STALE")
+    fresh = create(client, app, episode_number="E-FRESH")
+    old = dt.datetime.now() - dt.timedelta(hours=taep.UNFINISHED_AFTER_HOURS + 6)
+    app.ctx["db_execute"]("UPDATE taep_episode SET created_at=%s WHERE id=%s", (old, stale))
+
+    page = client.get("/taep/list").get_data(as_text=True)
+    assert "1 καταχωρήσεις παραμένουν χωρίς οριστικοποίηση" in page
+
+    page = client.get("/taep/list?unfinished=1").get_data(as_text=True)
+    assert 'href="/taep/%d"' % stale in page
+    assert 'href="/taep/%d"' % fresh not in page
+
+
+def test_a_finalised_costing_is_never_unfinished(client, app):
+    episode_id = _priced(client, app, episode_number="E-DONE")
+    client.post("/taep/%d/finalise" % episode_id)
+    old = dt.datetime.now() - dt.timedelta(days=5)
+    app.ctx["db_execute"]("UPDATE taep_episode SET created_at=%s WHERE id=%s",
+                          (old, episode_id))
+    assert taep.count_unfinished(app.ctx, "NGH") == 0

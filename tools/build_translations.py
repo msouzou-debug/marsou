@@ -76,6 +76,9 @@ EN = {
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
     "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "%d καταχωρήσεις παραμένουν χωρίς οριστικοποίηση πέραν των %d ωρών.":
+        "%d entries have not been finalised after more than %d hours.",
+    "Όλες οι καταχωρήσεις": "All entries",
     "Υπογράφηκε η Δήλωση για την καταβολή των εξόδων νοσηλείας":
         "The declaration on payment of treatment costs was signed",
     "Κρατήθηκε αντίγραφο της κάρτας δικαιούχου": "A copy of the beneficiary card was kept",

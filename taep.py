@@ -4641,6 +4641,30 @@ def parallel_run_summary(rows, required_days=14, on_date=None):
     }
 
 
+# Internal audit, finding Α1 (answered 19/11/2026): nothing showed a costing that was
+# started and never completed. A DRAFT or CALCULATED episode older than this is listed
+# as unfinished. 24 hours is an assumption: one full set of shifts has passed, so the
+# patient has almost certainly left.
+UNFINISHED_AFTER_HOURS = 24
+
+
+def _unfinished_cutoff():
+    return dt.datetime.now() - dt.timedelta(hours=UNFINISHED_AFTER_HOURS)
+
+
+def count_unfinished(ctx, entity_code):
+    """How many costings in these hospitals were started and not finalised in time."""
+    codes = [entity_code] if isinstance(entity_code, str) else list(entity_code)
+    if not codes:
+        return 0
+    rows = ctx["db_execute"](
+        """SELECT COUNT(*) AS n FROM taep_episode
+            WHERE entity_code IN (%s) AND status IN ('DRAFT', 'CALCULATED')
+              AND created_at <= %%s""" % ", ".join(["%s"] * len(codes)),
+        tuple(codes) + (_unfinished_cutoff(),), fetch=True)
+    return int(rows[0]["n"] or 0) if rows else 0
+
+
 def list_episodes(ctx, entity_code, filters=None, limit=200):
     """Screen 3, scoped to the hospitals the user may see.
 
@@ -4672,6 +4696,9 @@ def list_episodes(ctx, entity_code, filters=None, limit=200):
     if filters.get("status"):
         where.append("e.status = %s")
         params.append(filters["status"])
+    if filters.get("unfinished"):
+        where.append("e.status IN ('DRAFT', 'CALCULATED') AND e.created_at <= %s")
+        params.append(_unfinished_cutoff())
 
     return ctx["db_execute"](
         f"""SELECT e.id, e.costing_number, e.episode_number, e.examination_at,
@@ -5120,9 +5147,12 @@ def register(app, ctx):
             "category_id": request.args.get("category_id") or None,
             "id_number": request.args.get("id_number") or None,
             "status": request.args.get("status") or None,
+            "unfinished": request.args.get("unfinished") or None,
         }
         return render_template(
             "taep_list.html", episodes=list_episodes(ctx, entity, filters),
+            unfinished_count=count_unfinished(ctx, entity),
+            unfinished_hours=UNFINISHED_AFTER_HOURS,
             categories=list_ae_categories(ctx), filters=filters,
             # Only worth a column when there is more than one hospital in the list.
             show_hospital=len(entity) > 1,

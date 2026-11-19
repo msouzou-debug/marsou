@@ -1,4 +1,5 @@
 {
+  "%d καταχωρήσεις παραμένουν χωρίς οριστικοποίηση πέραν των %d ωρών.": "%d entries have not been finalised after more than %d hours.",
   "Άκυρο": "Cancel",
   "Άλλο": "Other",
   "Άνοιγμα": "Open",
@@ -13,6 +14,7 @@
   "Έτοιμο για παραγωγική λειτουργία.": "Ready for production use.",
   "Έως": "To",
   "Όλες": "All",
+  "Όλες οι καταχωρήσεις": "All entries",
   "Όλοι οι έλεγχοι πέρασαν.": "All checks passed.",
   "Όνομα": "First name",
   "Όχι": "No",
