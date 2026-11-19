@@ -76,6 +76,12 @@ EN = {
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
     "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "Υπογράφηκε η Δήλωση για την καταβολή των εξόδων νοσηλείας":
+        "The declaration on payment of treatment costs was signed",
+    "Κρατήθηκε αντίγραφο της κάρτας δικαιούχου": "A copy of the beneficiary card was kept",
+    "Εισαγωγή σε θάλαμο": "Admitted to a ward",
+    "Η επίσκεψη στο ΤΑΕΠ κοστολογείται ξεχωριστά και προστίθεται στο τελικό τιμολόγιο της νοσηλείας.":
+        "The A&E visit is costed separately and added to the final inpatient invoice.",
     "Τα πεδία με * είναι υποχρεωτικά. Τιμές όπως «.» ή «-» δεν γίνονται δεκτές.":
         "Fields marked * are mandatory. Values such as \".\" or \"-\" are not accepted.",
     "Διεύθυνση": "Address",

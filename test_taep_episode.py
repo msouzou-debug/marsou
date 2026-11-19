@@ -31,6 +31,7 @@ def episode_data(ctx, code="624", **overrides):
         "id_expiry": dt.date(2030, 1, 1),
         "next_of_kin_type": "Σύζυγος", "next_of_kin_details": "Μαρία 99654321",
         "comments": "",
+        "declaration_signed": 1, "card_copy_kept": 1,   # audit ticks, 19/11/2026
         "admission_at": YESTERDAY, "examination_at": YESTERDAY + dt.timedelta(minutes=30),
         "discharge_at": YESTERDAY + dt.timedelta(hours=2),
         "financial_category_id": category_id(ctx, code),

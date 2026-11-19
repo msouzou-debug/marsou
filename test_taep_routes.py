@@ -31,6 +31,8 @@ def form_fields(ctx, code="624", **overrides):
         "examination_at": (YESTERDAY + dt.timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M"),
         "discharge_at": (YESTERDAY + dt.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M"),
         "financial_category_id": str(category), "comments": "",
+        # Required to finalise 600 and 603–607 since 19/11/2026 (internal audit).
+        "declaration_signed": "1", "card_copy_kept": "1",
         # Mandatory to finalise since 26/10/2026 (Μονάδα Ελέγχου Εσόδων). Asked of
         # the harness rather than named here, so the suite also runs on a clone
         # without the catalogue — see taep_harness.STAND_IN_DIAGNOSES.
@@ -2483,3 +2485,60 @@ def test_the_form_marks_every_mandatory_field(client, app):
             continue                     # labelled «Κατηγορία» on the screen
         assert re.search(r'for="%s">[^<]*\*</label>' % key, page), key
     assert "Τα πεδία με * είναι υποχρεωτικά" in page
+
+
+# ---------------------------------------------------------------------------
+# Finalisation ticks and the category trail (internal audit, 19/11/2026)
+# ---------------------------------------------------------------------------
+
+def _priced(client, app, **overrides):
+    episode_id = create(client, app, **overrides)
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    client.post("/taep/%d/calculate" % episode_id, data={})
+    return episode_id
+
+
+def test_a_self_paying_costing_needs_the_signed_declaration(client, app):
+    episode_id = _priced(client, app, code="600", declaration_signed="",
+                         episode_number="E-DECL-1")
+    response = client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
+    assert "Δήλωση" in response.get_data(as_text=True)
+    assert taep.get_episode(app.ctx, episode_id)["status"] != "FINALISED"
+
+
+def test_a_beneficiary_a_costing_needs_the_card_copy(client, app):
+    for code in sorted(taep.CARD_COPY_CATEGORIES):
+        episode_id = _priced(client, app, code=code, card_copy_kept="",
+                             episode_number="E-CARD-" + code)
+        response = client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
+        assert "αντίγραφο της κάρτας" in response.get_data(as_text=True), code
+        assert taep.get_episode(app.ctx, episode_id)["status"] != "FINALISED", code
+
+
+def test_other_categories_need_neither_tick(client, app):
+    episode_id = _priced(client, app, code="624", declaration_signed="",
+                         card_copy_kept="", episode_number="E-NOTICK")
+    client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
+    assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"
+
+
+def test_the_admitted_flag_is_stored(client, app):
+    episode_id = create(client, app, admitted_to_ward="1", episode_number="E-WARD")
+    assert taep._as_int(taep.get_episode(app.ctx, episode_id)["admitted_to_ward"]) == 1
+
+
+def test_a_category_change_is_written_down(client, app):
+    episode_id = create(client, app, code="600", episode_number="E-CAT")
+    client.post("/taep/%d/edit" % episode_id,
+                data=form_fields(app.ctx, code="603", episode_number="E-CAT"))
+    entries = [e for e in app.ctx["activity_log"]
+               if e[1] == episode_id and e[2] == "CATEGORY_CHANGED"]
+    assert entries and "600 → 603" in entries[-1][3]
+
+
+def test_the_form_offers_each_tick_only_for_its_categories(client, app):
+    page = client.get("/taep/nea").get_data(as_text=True)
+    assert 'id="declaration-block"' in page and 'id="card-copy-block"' in page
+    assert re.search(r'data-declaration="1"[^>]*>\s*600 ', page)
+    assert re.search(r'data-card-copy="1"[^>]*>\s*603 ', page)

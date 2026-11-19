@@ -336,6 +336,8 @@
             {% for category in categories %}
               <option value="{{ category.id }}"
                 data-prepayment="{{ category.prepayment or '' }}"
+                data-declaration="{{ 1 if category.needs_declaration else '' }}"
+                data-card-copy="{{ 1 if category.needs_card_copy else '' }}"
                 {% if form.get('financial_category_id')|string == category.id|string %}selected{% endif %}>
                 {{ category.code_new }} — {{ category.name_el }}</option>
             {% endfor %}
@@ -370,6 +372,41 @@
         </div>
         <div class="form-text">
           {{ t('Χωρίς επιβεβαίωση, το ποσό δεν αφαιρείται από το πληρωτέο.') }}
+        </div>
+      </div>
+
+      {# Internal audit, answered 19/11/2026. The declaration (600) and the card copy
+         (603–607) are required to finalise, not to save; the script shows each only for
+         its categories and clears it when the category changes. #}
+      <div class="row g-2 mt-2">
+        <div class="col-12 d-none" id="declaration-block">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1"
+                   id="declaration_signed" name="declaration_signed"
+                   {% if form.get('declaration_signed') %}checked{% endif %}>
+            <label class="form-check-label" for="declaration_signed">
+              {{ t('Υπογράφηκε η Δήλωση για την καταβολή των εξόδων νοσηλείας') }} *</label>
+          </div>
+        </div>
+        <div class="col-12 d-none" id="card-copy-block">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1"
+                   id="card_copy_kept" name="card_copy_kept"
+                   {% if form.get('card_copy_kept') %}checked{% endif %}>
+            <label class="form-check-label" for="card_copy_kept">
+              {{ t('Κρατήθηκε αντίγραφο της κάρτας δικαιούχου') }} *</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1"
+                   id="admitted_to_ward" name="admitted_to_ward"
+                   {% if form.get('admitted_to_ward') %}checked{% endif %}>
+            <label class="form-check-label" for="admitted_to_ward">
+              {{ t('Εισαγωγή σε θάλαμο') }}</label>
+            <div class="form-text">
+              {{ t('Η επίσκεψη στο ΤΑΕΠ κοστολογείται ξεχωριστά και προστίθεται στο τελικό τιμολόγιο της νοσηλείας.') }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -556,6 +593,30 @@ taepReady(function () {
     }
   }
 
+  select.addEventListener("change", apply);
+  if (window.jQuery) jQuery(select).on("select2:select", apply);
+  apply();
+});
+
+// The declaration and card-copy ticks, each shown only for the categories that need it
+// (data-declaration and data-card-copy, set on the server from the category lists in
+// taep.py). Cleared when hidden, for the same reason as the deposit tick.
+taepReady(function () {
+  var select = document.getElementById("financial_category_id");
+  if (!select) return;
+  var pairs = [["declaration-block", "declaration_signed", "data-declaration"],
+               ["card-copy-block", "card_copy_kept", "data-card-copy"]];
+  function apply() {
+    var option = select.options[select.selectedIndex];
+    pairs.forEach(function (pair) {
+      var block = document.getElementById(pair[0]);
+      var tick = document.getElementById(pair[1]);
+      if (!block) return;
+      var needed = !!(option && option.getAttribute(pair[2]));
+      block.classList.toggle("d-none", !needed);
+      if (!needed && tick) tick.checked = false;
+    });
+  }
   select.addEventListener("change", apply);
   if (window.jQuery) jQuery(select).on("select2:select", apply);
   apply();

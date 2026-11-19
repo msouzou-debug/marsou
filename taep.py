@@ -866,6 +866,10 @@ SCHEMA_STATEMENTS = [
         -- what is due. Until somebody ticks this, the deposit is not netted off.
         deposit_confirmed TINYINT DEFAULT 0,
         deposit_receipt VARCHAR(60),
+        -- Internal audit, finding Δ1/Α4, answered 19/11/2026. See FINALISE_TICKS.
+        declaration_signed TINYINT DEFAULT 0,
+        card_copy_kept TINYINT DEFAULT 0,
+        admitted_to_ward TINYINT DEFAULT 0,
         -- A finalised costing may be corrected (Μονάδα 22/10/2026) and keeps its
         -- number. The revision counter is what tells the patient's copy apart from the
         -- one that replaced it; the superseded figures live in taep_costing_revision.
@@ -970,6 +974,9 @@ ALTER_STATEMENTS = [
     # Μονάδα Ελέγχου Εσόδων and Γιώτα, 22/10/2026.
     "ALTER TABLE taep_episode ADD COLUMN deposit_confirmed TINYINT DEFAULT 0",
     "ALTER TABLE taep_episode ADD COLUMN deposit_receipt VARCHAR(60)",
+    "ALTER TABLE taep_episode ADD COLUMN declaration_signed TINYINT DEFAULT 0",
+    "ALTER TABLE taep_episode ADD COLUMN card_copy_kept TINYINT DEFAULT 0",
+    "ALTER TABLE taep_episode ADD COLUMN admitted_to_ward TINYINT DEFAULT 0",
     "ALTER TABLE taep_episode ADD COLUMN revision INT DEFAULT 1",
     "ALTER TABLE taep_episode ADD COLUMN revised_at DATETIME",
     "ALTER TABLE taep_costing_number ADD COLUMN voided_at DATETIME",
@@ -1415,6 +1422,20 @@ def last_allocated_sequence(ctx, unit_code):
 # Queries — the read side the routes sit on
 # ---------------------------------------------------------------------------
 
+# Ticks a costing cannot be finalised without, by financial category. Internal audit,
+# answered by Παναγιώτα Έλληνα and approved 19/11/2026:
+#
+#   Δ1  the self-paying patient signs the «Δήλωση για την καταβολή των εξόδων
+#       νοσηλείας» — «πρέπει υποχρεωτικά να συμπληρώνεται από τον επί πληρωμή ασθενή».
+#   Α4  a «Δικαιούχος Α» category cannot be chosen by mistake, because the clerk must
+#       keep a copy of the card. The tick makes that copy a recorded fact.
+#
+# Required to finalise, not to save: the clerk may enter the episode before the paper
+# is in hand. 603–607 are every «ΔΙΚΑΙΟΥΧΟΣ Α» variant valid at the ΤΑΕΠ.
+DECLARATION_CATEGORIES = frozenset({"600"})
+CARD_COPY_CATEGORIES = frozenset({"603", "604", "605", "606", "607"})
+
+
 def list_ae_categories(ctx):
     """The 23 ΤΑΕΠ-valid categories, for the picker. The other 15 are never offered.
 
@@ -1434,6 +1455,10 @@ def list_ae_categories(ctx):
            FROM taep_financial_category c
            WHERE c.valid_for_ae = 1 AND c.active = 1
            ORDER BY c.code_new""", fetch=True) or []
+    rows = [dict(row) for row in rows]
+    for row in rows:
+        row["needs_declaration"] = row["code_new"] in DECLARATION_CATEGORIES
+        row["needs_card_copy"] = row["code_new"] in CARD_COPY_CATEGORIES
     return rows
 
 
@@ -1794,6 +1819,7 @@ EPISODE_FIELDS = (
     # happened (Γιώτα 22/10/2026).
     "deposit_confirmed", "deposit_receipt",
     "diagnosis_code", "diagnosis_text",
+    "declaration_signed", "card_copy_kept", "admitted_to_ward",
 )
 
 EDITABLE_STATUSES = ("DRAFT", "CALCULATED")
@@ -1971,6 +1997,15 @@ def save_episode(ctx, data, entity_code, unit_code, user_id, episode_id=None):
                 f"Η καταχώρηση φέρει ήδη αριθμό κοστολόγησης "
                 f"{existing['costing_number']}, που προκύπτει από τη μονάδα "
                 f"«{existing['taep_unit_code']}». Η μονάδα δεν αλλάζει πλέον.")
+
+        # Internal audit Α4: a category changed after the first entry is the change
+        # that turns a self-paying bill into a €60 one, so it is written down by name.
+        if existing["financial_category_id"] != data["financial_category_id"]:
+            before = get_category(ctx, existing["financial_category_id"])
+            ctx["log_activity"](
+                "taep_episode", episode_id, "CATEGORY_CHANGED",
+                "Οικονομική κατηγορία %s → %s"
+                % (before["code_new"] if before else "—", category["code_new"]))
 
         assignments = ", ".join(f"{f}=%s" for f in EPISODE_FIELDS)
         db(f"""UPDATE taep_episode SET {assignments}, financial_category_id=%s,
@@ -2331,6 +2366,18 @@ def finalise_episode(ctx, episode_id, result, user_id):
             "MISSING_DIAGNOSIS",
             "Η διάγνωση (ICD-10) είναι υποχρεωτική για την οριστικοποίηση. "
             "Καταχωρήστε τη στη διόρθωση στοιχείων.")
+    category = get_category(ctx, episode["financial_category_id"])
+    code = category["code_new"] if category else None
+    if code in DECLARATION_CATEGORIES and not _as_int(episode["declaration_signed"]):
+        raise CostingError(
+            "MISSING_DECLARATION",
+            "Για επί πληρωμή ασθενή η «Δήλωση για την καταβολή των εξόδων νοσηλείας» "
+            "είναι υποχρεωτική. Επιβεβαιώστε ότι υπογράφηκε, στη διόρθωση στοιχείων.")
+    if code in CARD_COPY_CATEGORIES and not _as_int(episode["card_copy_kept"]):
+        raise CostingError(
+            "MISSING_CARD_COPY",
+            f"Για την κατηγορία {code} απαιτείται αντίγραφο της κάρτας δικαιούχου. "
+            f"Επιβεβαιώστε ότι κρατήθηκε, στη διόρθωση στοιχείων.")
     if episode["status"] == "CANCELLED":
         raise CostingError("EPISODE_CANCELLED", "Η καταχώρηση έχει ακυρωθεί.")
 
@@ -4188,6 +4235,8 @@ def _form_to_episode(form):
     # An unticked checkbox is absent from the post, which is not the same as a field the
     # clerk left blank: absent means "no".
     data["deposit_confirmed"] = 1 if form.get("deposit_confirmed") else 0
+    for tick in ("declaration_signed", "card_copy_kept", "admitted_to_ward"):
+        data[tick] = 1 if form.get(tick) else 0
     # diagnosis_text is filled from the catalogue by the caller, never from the post: a
     # description that arrived with the form could say anything.
     data["diagnosis_text"] = None
