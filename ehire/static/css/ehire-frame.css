@@ -35,14 +35,16 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
 .ehire-menu__sublink.is-current { color: #fff; background: rgba(139, 197, 63, .10); border-left-color: var(--ehire-green); }
 .ehire-menu__label { padding: .6rem 1.2rem .2rem 3rem; font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; color: #7c9e99; }
 .ehire-side__org { padding: .75rem 1.2rem; }
-.ehire-side__org img { height: 52px; width: auto; display: block; opacity: .9; }
+.ehire-side__org img { height: 48px; width: auto; max-width: 100%; object-fit: contain; display: block; opacity: .9; }
 .ehire-userinfo { padding: .8rem 1.2rem; border-top: 1px solid rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .15); font-size: .78rem; color: #9ab8b3; }
 .ehire-userinfo__name { color: #e2e8f0; margin-bottom: .3rem; overflow-wrap: anywhere; }
 .ehire-userinfo__roles { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .45rem; }
 .ehire-userinfo__role { font-size: .68rem; padding: .15em .5em; border-radius: 3px; background: rgba(139, 197, 63, .2); color: #a9e3da; }
-.ehire-userinfo__lang { margin-bottom: .45rem; display: flex; gap: .4rem; align-items: center; }
-.ehire-userinfo__lang a { color: #8fa3b5; text-decoration: none; padding: .25rem .1rem; }
-.ehire-userinfo__lang a[aria-current="true"] { color: #fff; font-weight: 700; }
+.ehire-userinfo__lang { margin: .15rem 0 .55rem; display: flex; gap: .3rem; align-items: center; }
+.ehire-userinfo__lang .bi { font-size: .95rem; margin-right: .15rem; color: #9ab8b3; }
+.ehire-userinfo__lang a { color: #cfe0ea; text-decoration: none; padding: .2rem .55rem; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: .78rem; }
+.ehire-userinfo__lang a:hover { color: #fff; border-color: rgba(255, 255, 255, .5); }
+.ehire-userinfo__lang a[aria-current="true"] { color: #0A2C49; background: #fff; border-color: #fff; font-weight: 700; }
 .ehire-userinfo__links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center; }
 .ehire-userinfo__pw { color: #6edff6; text-decoration: none; padding: .25rem 0; }
 .ehire-userinfo__out { background: none; border: 0; padding: .25rem 0; color: #ff8a93; font-size: inherit; cursor: pointer; }
@@ -57,11 +59,16 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
   .ehire-mobilebar__burger { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
     background: none; border: 1px solid rgba(255, 255, 255, .25); border-radius: .4rem; color: #fff; font-size: 1.35rem; line-height: 1; }
   .ehire-mobilebar__title { font-weight: 700; font-size: 1rem; color: #fff; text-decoration: none; }
+  .ehire-mobilebar__lang { margin-left: auto; display: inline-flex; gap: .25rem; }
+  .ehire-mobilebar__lang a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 40px; padding: 0 .5rem;
+    color: #cfe0ea; text-decoration: none; font-size: .85rem; font-weight: 600; border: 1px solid rgba(255, 255, 255, .25); border-radius: .4rem; }
+  .ehire-mobilebar__lang a[aria-current="true"] { color: #0A2C49; background: #fff; border-color: #fff; }
   .ehire-main { padding: 1rem; }
   .ehire-menu__link { padding: .75rem 1.2rem; font-size: .92rem; }
   .ehire-menu__sublink { padding: .65rem 1.2rem .65rem 2.6rem; font-size: .9rem; }
   .ehire-userinfo { font-size: .9rem; }
-  .ehire-userinfo__lang a, .ehire-userinfo__pw, .ehire-userinfo__out { padding: .6rem .25rem; }
+  .ehire-userinfo__pw, .ehire-userinfo__out { padding: .6rem .25rem; }
+  .ehire-userinfo__lang a { padding: .5rem .8rem; font-size: .9rem; }
   /* Below 16 px iOS zooms into every field it focuses and stays zoomed. */
   .form-control, .form-select, textarea, input { font-size: 16px !important; }
 }

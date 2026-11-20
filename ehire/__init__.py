@@ -13,6 +13,9 @@ def create_app(config=Config):
     app.config.from_object(config)
 
     from .security import check_production_config, init_csrf, init_security_headers
+    from .staticver import init_static_versions
+
+    init_static_versions(app)
 
     from . import localtime
 

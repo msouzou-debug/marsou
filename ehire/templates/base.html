@@ -21,6 +21,10 @@
   <div class="ehire-mobilebar">
     <button class="ehire-mobilebar__burger" type="button" data-bs-toggle="offcanvas" data-bs-target="#ehire-side" aria-controls="ehire-side" aria-label="{{ t('nav.menu') }}"><i class="bi bi-list" aria-hidden="true"></i></button>
     <a class="ehire-mobilebar__title" href="{{ url_for('main.home') }}">{{ t('app.name') }}</a>
+    <span class="ehire-mobilebar__lang" role="group" aria-label="{{ t('nav.language') }}">
+      <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>EL</a>
+      <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a>
+    </span>
   </div>
   {% endif %}
   <div class="ehire-shell{% if not me %} ehire-shell--guest{% endif %}">
@@ -63,14 +67,16 @@
         </details>
         {% endif %}
       </nav>
-      <div class="ehire-side__org"><img src="{{ url_for('static', filename='img/okypy_logo_white.png') }}" alt="{{ t('app.org') }}"></div>
+      <div class="ehire-side__org"><img src="{{ url_for('static', filename='img/okypy_logo_white.png') }}" alt="{{ t('app.org') }}" height="48"></div>
       <div class="ehire-userinfo">
         <div class="ehire-userinfo__name"><i class="bi bi-person-circle" aria-hidden="true"></i> <strong>{{ me.full_name }}</strong></div>
         {% set held = me.roles() | list | sort %}
         {% set shown = (held | reject('equalto', 'requester') | list) or held %}
         {% if shown %}<div class="ehire-userinfo__roles">{% for r in shown[:2] %}<span class="ehire-userinfo__role">{{ t('role.' ~ r) }}</span>{% endfor %}</div>{% endif %}
-        <div class="ehire-userinfo__lang" aria-label="{{ t('nav.language') }}">
-          <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>EL</a><span aria-hidden="true">|</span><a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a>
+        <div class="ehire-userinfo__lang" role="group" aria-label="{{ t('nav.language') }}">
+          <i class="bi bi-globe2" aria-hidden="true"></i>
+          <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>Ελληνικά</a>
+          <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a>
         </div>
         <div class="ehire-userinfo__links">
           {% if me.auth_source == 'local' %}<a class="ehire-userinfo__pw" href="{{ url_for('auth.password') }}"><i class="bi bi-key" aria-hidden="true"></i> {{ t('nav.password') }}</a>{% endif %}
