@@ -19,6 +19,14 @@ from .request_engine import holidays
 from .request_timers import run_timers
 
 
+def _text(key, fallback):
+    """Free text for the invented requests, in Greek from the seed file (people read these on screen and in the
+    manuals); the English fallback is used only if the file has no such entry."""
+    from ..seed import load_data
+
+    return (load_data().get("sample_texts") or {}).get(key) or fallback
+
+
 @dataclass(frozen=True)
 class Scope:
     """Which people and lists a run of cases uses. The default scope is the demo data (no prefixes, any list row).
@@ -70,8 +78,8 @@ def _raw(user, directorate_id, category, reason, count=1, leavers=(), scope=DEMO
         "cost_centre_id": str(cost_centre.id),
         "category": category, "positions_count": str(count), "reason": reason,
         "position_id": str(position.id),
-        "need_text": "Sample need: the ward cannot keep its rota with the present staff.",
-        "alternatives_text": "Sample alternatives: overtime and agency cover were tried.",
+        "need_text": _text("need", "Sample need: the ward cannot keep its rota with the present staff."),
+        "alternatives_text": _text("alternatives", "Sample alternatives: overtime and agency cover were tried."),
         "absence_flag": "no"})
     if category in ("medical", "allied"):
         specialty = (OaySpecialty.query.filter(OaySpecialty.name.endswith(scope.list_suffix))
@@ -79,10 +87,10 @@ def _raw(user, directorate_id, category, reason, count=1, leavers=(), scope=DEMO
         raw["oay_specialty_id"] = str(specialty.id)
         raw["external_funding_flag"] = "no"
     if reason == "new_need":
-        raw["new_need_origin"] = "Sample origin: a new service line."
-        raw["new_need_cover_so_far"] = "Sample cover: temporary staff."
+        raw["new_need_origin"] = _text("origin", "Sample origin: a new service line.")
+        raw["new_need_cover_so_far"] = _text("cover", "Sample cover: temporary staff.")
         if category in ("medical", "allied"):
-            raw["new_need_plan"] = "Sample plan: revenue covers the cost within two years."
+            raw["new_need_plan"] = _text("plan", "Sample plan: revenue covers the cost within two years.")
     else:
         raw["leavers"] = [{"name": name, "leave_date": "01/03/2027", "employment": "okypy_contract"}
                           for name in leavers]
@@ -152,7 +160,7 @@ class Case:
     def input_step3(self):
         for role in [t.role for t in self.req.tasks if t.status == "open"]:
             if role == "sci_director":
-                self.act(role, "opinion", {"opinion": "positive"}, "Sample: supports the request.")
+                self.act(role, "opinion", {"opinion": "positive"}, _text("supports", "Sample: supports the request."))
             elif role == "dir_hr_officer":
                 self.act(role, "check", {"documentation": "complete"})
 
@@ -207,7 +215,7 @@ def seed_cases(now, scope=DEMO_SCOPE):
 
     if not _marker(4, scope):  # rejected at step 2
         c = Case("lim.requester", "LIM", "other", "new_need", now - timedelta(days=5), scope=scope)
-        c.accountant(position="no", comment="Sample: no vacant post is available in this unit.")
+        c.accountant(position="no", comment=_text("no_post", "Sample: no vacant post is available in this unit."))
         created.append(done(c, 4))
 
     if not _marker(5, scope):  # approved, medical, retirement
@@ -224,13 +232,13 @@ def seed_cases(now, scope=DEMO_SCOPE):
     if not _marker(6, scope):  # returned at step 3
         c = Case("nic.requester", "NIC", "medical", "new_need", now - timedelta(days=2), scope=scope)
         c.accountant()
-        c.act("sci_director", "opinion", {"opinion": "positive"}, "Sample: supports the request.")
-        c.act("dir_hr_officer", "return", comment="Sample: please attach the signed job description.")
+        c.act("sci_director", "opinion", {"opinion": "positive"}, _text("supports", "Sample: supports the request."))
+        c.act("dir_hr_officer", "return", comment=_text("attach", "Sample: please attach the signed job description."))
         created.append(done(c, 6))
 
     if not _marker(7, scope):  # withdrawn
         c = Case("nic.requester", "NIC", "admin", "new_need", now - timedelta(days=4), scope=scope)
-        result = flow.withdraw(c.req, c.user.id, c.clock.tick(), "Sample: the need was met another way.")
+        result = flow.withdraw(c.req, c.user.id, c.clock.tick(), _text("need_met", "Sample: the need was met another way."))
         assert result.ok, result.errors
         created.append(done(c, 7))
 
