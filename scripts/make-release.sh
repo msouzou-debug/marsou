@@ -48,7 +48,7 @@ mkdir -p "$DEST" dist
 # Source only. docs/ is excluded as a whole, then operations.md is added back by name.
 tar -c \
   --exclude=./.git --exclude=./.gitignore --exclude=./.venv --exclude=./.claude --exclude=./claude \
-  --exclude=./tests --exclude=./docs --exclude=./dist --exclude=./instance \
+  --exclude=./tests --exclude=./docs --exclude=./dist --exclude=./instance --exclude=./scripts/manuals \
   --exclude=./CLAUDE.md --exclude=./memory.md --exclude=./requirements-dev.txt \
   --exclude=__pycache__ --exclude='*.pyc' --exclude=.pytest_cache --exclude='*.sqlite3' --exclude='*.sqlite3-*' \
   --exclude='*.orig' --exclude='*.rej' --exclude='*~' --exclude=.DS_Store \
