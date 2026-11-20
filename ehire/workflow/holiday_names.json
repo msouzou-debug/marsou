@@ -1,0 +1,66 @@
+{
+  "new_year": {
+    "name_el": "Πρωτοχρονιά",
+    "name_en": "New Year's Day"
+  },
+  "epiphany": {
+    "name_el": "Θεοφάνια",
+    "name_en": "Epiphany"
+  },
+  "green_monday": {
+    "name_el": "Καθαρά Δευτέρα",
+    "name_en": "Green Monday"
+  },
+  "greek_independence": {
+    "name_el": "Εθνική Επέτειος 25ης Μαρτίου",
+    "name_en": "Greek Independence Day"
+  },
+  "cyprus_national_day": {
+    "name_el": "Εθνική Επέτειος 1ης Απριλίου",
+    "name_en": "Cyprus National Day"
+  },
+  "good_friday": {
+    "name_el": "Μεγάλη Παρασκευή",
+    "name_en": "Good Friday"
+  },
+  "easter_monday": {
+    "name_el": "Δευτέρα του Πάσχα",
+    "name_en": "Easter Monday"
+  },
+  "easter_tuesday": {
+    "name_el": "Τρίτη του Πάσχα",
+    "name_en": "Easter Tuesday"
+  },
+  "labour_day": {
+    "name_el": "Εργατική Πρωτομαγιά",
+    "name_en": "Labour Day"
+  },
+  "pentecost_monday": {
+    "name_el": "Δευτέρα του Αγίου Πνεύματος (Κατακλυσμός)",
+    "name_en": "Pentecost Monday"
+  },
+  "assumption": {
+    "name_el": "Κοίμηση της Θεοτόκου",
+    "name_en": "Assumption"
+  },
+  "cyprus_independence": {
+    "name_el": "Ημέρα Ανεξαρτησίας Κύπρου",
+    "name_en": "Cyprus Independence Day"
+  },
+  "ohi_day": {
+    "name_el": "Επέτειος του «Όχι»",
+    "name_en": "Ohi Day"
+  },
+  "christmas_eve": {
+    "name_el": "Παραμονή Χριστουγέννων",
+    "name_en": "Christmas Eve"
+  },
+  "christmas": {
+    "name_el": "Χριστούγεννα",
+    "name_en": "Christmas Day"
+  },
+  "boxing_day": {
+    "name_el": "Δεύτερη μέρα Χριστουγέννων",
+    "name_en": "Boxing Day"
+  }
+}

@@ -18,8 +18,11 @@ def load_data():
         return json.load(fh)
 
 
-def seed_demo(data=None):
-    """Insert demo data. Safe to run twice: rows found by their natural key are left alone."""
+def seed_demo(data=None, password=None):
+    """Insert demo data. Safe to run twice: rows found by their natural key are left alone.
+
+    `data` replaces the seed file (`ehire/test_data.py` passes the file with test names). `password` replaces the
+    demo password in the file; only new users get it."""
     data = data or load_data()
 
     for key, value in data["settings"].items():
@@ -58,7 +61,7 @@ def seed_demo(data=None):
             if db.session.get(RolePermission, (role, key)) is None:
                 db.session.add(RolePermission(role=role, permission_key=key))
 
-    pw_hash = hash_password(data["demo_password"])
+    pw_hash = hash_password(password or data["demo_password"])
     users = {}
     for u in data["users"]:
         row = User.query.filter_by(username=u["username"]).first()

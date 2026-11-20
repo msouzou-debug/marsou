@@ -80,6 +80,18 @@ After 5 failed sign-ins in 15 minutes a username is locked for 15 minutes. It cl
 
 An address that fails 20 times in 15 minutes is locked the same way. Add `--ip <address>` to clear it too.
 
+## A forgotten password
+
+For a local account: `scripts/ehire-cli.sh reset-password <username>`. It asks twice for the new password, clears the sign-in lock and makes the person choose their own at the next sign-in. Directory (AD) accounts are reset in AD.
+
+## Public holidays
+
+`scripts/ehire-cli.sh load-holidays` (add `--year 2028`, repeatable) loads the Cyprus holidays for this year and the next, and skips dates already there. 24 December and Easter Tuesday are public-service holidays; remove them in Settings if not observed. Run it each autumn.
+
+## Test data
+
+For acceptance testing: `scripts/ehire-cli.sh load-test-data` (asks once for the password all `test.*` accounts share) and, before go-live, `scripts/ehire-cli.sh clear-test-data`. Test mail goes to `@test.invalid` only. The clear refuses, and says why, when a real user touched a test request or a test deposit reached eArchive. Details: `deploy/README.md`, section Test data.
+
 ## Time zone
 
 Times are stored in UTC and shown in Cyprus time. The zone is `EHIRE_TIMEZONE` (default `Europe/Nicosia`). The server needs the system time zone database (the `tzdata` package). Without it the app stops at start-up with a message that names the zone; it does not show UTC by mistake. `scripts/preflight.sh` checks this too. Emails carry no times, only the request link.

@@ -99,7 +99,7 @@ Only when `install-ehire.sh` cannot be used. The installer does all of this, in 
 3. As `ehire`: `python3 -m venv /opt/ehire/venv`, then `/opt/ehire/venv/bin/pip install -r /opt/ehire/current/requirements.txt`. With no internet on the server, build a wheel folder elsewhere and use `pip install --no-index --find-links <folder>`.
 4. Write `/etc/ehire/ehire.env` from the example. Create `/var/lib/ehire` first, owner `ehire`, mode 750.
 5. As `ehire`, in `/opt/ehire/current`: `scripts/ehire-cli.sh init-db` (creates the tables and marks them current).
-6. Create the first admin: `scripts/ehire-cli.sh create-admin`. It asks for a username, a full name and, twice, a password. The password is never an argument. The admin then loads the lists (Directorates, facilities, positions, cost centres, public holidays) and the other users in Settings. Never run `seed-demo` here: it holds a known password, and it refuses to run in production.
+6. Create the first admin: `scripts/ehire-cli.sh create-admin`. It asks for a username, a full name and, twice, a password. The password is never an argument. The admin then loads the lists (Directorates, facilities, positions, cost centres, public holidays) and the other users in Settings. Never run `seed-demo` here: it holds a known password, and it refuses to run in production. For acceptance testing use `load-test-data` instead (section Test data below).
 7. `scripts/preflight.sh`. Fix every FAIL line. It checks the Python version, the settings file, the secret, the SQLite file (absolute path, outside the code folder, folder writable, WAL on, one worker), Active Directory settings when on, storage, schema version, LibreOffice and the port.
 8. Install `ehire.service` and the cron lines (below), including the nightly backup. Start only `ehire`: `systemctl start ehire` (sudo).
 9. Health check: `curl -s http://127.0.0.1:5008/healthz` answers `{"status":"ok"}`. Sign in and open the Audit log.
@@ -177,10 +177,21 @@ Before the first real deposit, eArchive runs the six sample deposits (a submitte
 - What users did: the Audit log in the app. What mail the app made: Settings, Email log.
 - Passwords, tokens and typed credentials are never written to these logs or to the audit log.
 
+## Public holidays
+
+`scripts/ehire-cli.sh load-holidays` adds the Cyprus public holidays, with Greek and English names, for this year and the next. `--year 2028` loads one year; repeat the option for more. Dates already in the table are skipped, so it is safe to run again. Easter dates come from the Orthodox calendar in code. 24 December and Easter Tuesday are public-service holidays: remove them in Settings if the organisation does not observe them. Run it once a year, in the autumn, for the year after next.
+
+## Test data (acceptance testing only)
+
+`scripts/ehire-cli.sh load-test-data` loads invented users with every role, lists and seven sample requests (at step 3, step 4, the CEO, rejected, approved, returned, withdrawn; no draft). It asks for one password (typed twice) that all test accounts share. It never takes the password as an option and never prints it. It is allowed in production and safe to run again. Test rows are easy to tell apart: usernames start with `test.`, full names end with the Greek word for "test" in brackets, Directorate and cost-centre codes start with `T-`, and every address ends in `@test.invalid`, so no mail reaches a real mailbox. It refuses when a real person already holds a central role (the test requests would be routed to them). If `archive_transport` is not `none` it warns: the test requests would queue eArchive deposits.
+
+`scripts/ehire-cli.sh clear-test-data` removes all of it before go-live: the test requests with their leavers, actions, financials, documents (files too), tasks, queued mail and archive deposits (with their PDFs), then the test role assignments, users and lists. It shows the counts and asks for a typed confirmation (`--yes` skips). It refuses, changing nothing, and says why, when a real user has acted on or created a test request, when a test deposit reached eArchive (state `stored`), or when real data points at a test row. Audit rows are never deleted: those of test users stay, with the user id emptied, and one `list_changed` row records the clear with the removed users and request numbers. Request numbering goes back to where the real requests left it, so the first real request is number 1.
+
 ## Users and locks
 
 - First admin: `scripts/ehire-cli.sh create-admin`.
 - Sign-in lock: 5 failed attempts for a username in 15 minutes lock that username for 15 minutes; 20 failures from one address lock the address. Clear it now with `scripts/ehire-cli.sh unlock-user <username>` (add `--ip <address>` for the address). An attacker who knows a username can keep it locked by trying every 15 minutes, which is why the command exists.
+- Forgotten password, or a locked-out admin with a local account: `scripts/ehire-cli.sh reset-password <username>`. It asks twice for the new password (never an option), clears that user's sign-in lock and makes them choose their own password at the next sign-in. It is written to the audit log as `password_changed` with `by: cli`. Directory (AD) accounts are refused: reset those in AD.
 - Sessions end after 30 minutes without a request (`EHIRE_SESSION_IDLE_MINUTES`) and 12 hours after sign-in (`EHIRE_SESSION_MAX_HOURS`).
 - Behind a reverse proxy, set `EHIRE_PROXY_HOPS` to the number of proxies so the lock and the audit log see the user's address and not the proxy's.
 

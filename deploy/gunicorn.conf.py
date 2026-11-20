@@ -14,6 +14,12 @@ bind = os.environ.get("EHIRE_BIND", "127.0.0.1:5008")
 workers = int(os.environ.get("EHIRE_WORKERS", "1"))
 accesslog = "-"
 errorlog = "-"
+# gunicorn 25.1 and later open a control socket for the `gunicornc` tool. Its default path is
+# $XDG_RUNTIME_DIR/gunicorn.ctl, or $HOME/.gunicorn/gunicorn.ctl when that variable is not set (gunicorn/config.py,
+# _get_default_control_socket). Under systemd the home of the `ehire` user is /opt/ehire, which root owns, so creating
+# .gunicorn there failed with "Control server error: Permission denied" (gunicorn/ctl/server.py, _serve). Nothing here
+# uses `gunicornc`, so the socket is switched off (gunicorn/arbiter.py, _start_control_server).
+control_socket_disable = True
 
 
 def on_starting(server):

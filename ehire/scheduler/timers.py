@@ -20,21 +20,29 @@ from ehire.workflow.model import Event
 NO_MANAGER = "__no_line_manager__"
 
 
-def run_timers(now):
-    """Returns {'reminders': n, 'escalations': n, 'warnings': n, 'withdrawn': n}."""
+def run_timers(now, request_ids=None):
+    """Returns {'reminders': n, 'escalations': n, 'warnings': n, 'withdrawn': n}.
+
+    `request_ids` limits the run to those requests (the test-data loader uses it so real requests are never touched);
+    the out-of-office move is then skipped. Omitted, every request is considered."""
     days_off, settings = holidays(db.session), engine_settings()
     managers = {u.id: u.line_manager_user_id for u in User.query.filter(User.line_manager_user_id.isnot(None))}
 
     # Someone whose out-of-office window has started since they switched it on: their open tasks move now.
-    for user in User.query.filter(User.out_of_office.is_(True), User.is_active.is_(True)).all():
-        move_open_tasks(user, now=now, on=localtime.local_date(now))
+    if request_ids is None:
+        for user in User.query.filter(User.out_of_office.is_(True), User.is_active.is_(True)).all():
+            move_open_tasks(user, now=now, on=localtime.local_date(now))
+
+    def pick(status):
+        query = Request.query.filter(Request.status == status)
+        return query.filter(Request.id.in_(list(request_ids))) if request_ids is not None else query
 
     tasks = []
-    for req in Request.query.filter(Request.status == "in_progress").all():
+    for req in pick("in_progress").all():
         for t in build_state(req, managers).tasks:
             if t.status == "open":
                 tasks.append(t if t.line_manager_id else dataclasses.replace(t, line_manager_id=NO_MANAGER))
-    returned = Request.query.filter(Request.status == "returned").all()
+    returned = pick("returned").all()
 
     events = []
     counts = {"reminders": 0, "escalations": 0, "warnings": 0, "withdrawn": 0}
