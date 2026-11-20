@@ -137,7 +137,7 @@ function build(data, lang, shotsDir, pages, ehireLogo) {
     border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: BLUE, space: 12 } }, children: [
       new TextRun({ text: L.audience, font: FONT, size: 22, color: GREY })] }));
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 80 }, children: [
-    new TextRun({ text: L.versionLabel + ' 1.0.0-rc9', font: FONT, size: 22, color: TEXT })] }));
+    new TextRun({ text: L.versionLabel + ' 1.0.0-rc10', font: FONT, size: 22, color: TEXT })] }));
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 80 }, children: [
     new TextRun({ text: '20/11/2026', font: FONT, size: 22, color: TEXT })] }));
   children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [
@@ -249,7 +249,7 @@ function build(data, lang, shotsDir, pages, ehireLogo) {
           default: new Footer({ children: [new Paragraph({
             tabStops: [{ type: TabStopType.RIGHT, position: W }],
             border: { top: { style: BorderStyle.SINGLE, size: 4, color: GREEN, space: 6 } },
-            children: [new TextRun({ text: L.footerLeft + ' · 1.0.0-rc9', font: FONT, size: 16, color: GREY }),
+            children: [new TextRun({ text: L.footerLeft + ' · 1.0.0-rc10', font: FONT, size: 16, color: GREY }),
               new TextRun({ children: ['\t' + L.page + ' ', PageNumber.CURRENT, ' ' + L.of + ' ', PageNumber.TOTAL_PAGES], font: FONT, size: 16, color: GREY })] })] }),
         },
         children,

@@ -16,9 +16,9 @@ const PY = process.env.SHOT_PYTHON || 'python3';
 const log = (...a) => console.log(LANG, ...a);
 const T = LANG === 'el'
   ? { need: 'Η κλινική λειτουργεί με δύο ιατρούς λιγότερους από τον Σεπτέμβριο.', alt: 'Οι εφημερίες δεν καλύπτονται με υπερωρίες.',
-      leaver: 'Άτομο Α (δείγμα)', note: 'Προστέθηκε το οργανόγραμμα της κλινικής.', doc: 'Οργανόγραμμα κλινικής (δείγμα).pdf', action: 'Χρειάζεται ενέργεια' }
+      leaver: 'Άτομο Α (δείγμα)', send: 'Αποστολή', note: 'Προστέθηκε το οργανόγραμμα της κλινικής.', doc: 'Οργανόγραμμα κλινικής (δείγμα).pdf', action: 'Χρειάζεται ενέργεια' }
   : { need: 'The clinic has run two doctors short since September.', alt: 'The on-call rota cannot be covered by overtime.',
-      leaver: 'Leaver A (sample)', note: 'The clinic organisation chart is now attached.', doc: 'Clinic organisation chart (sample).pdf', action: 'Action needed' };
+      leaver: 'Leaver A (sample)', send: 'Send', note: 'The clinic organisation chart is now attached.', doc: 'Clinic organisation chart (sample).pdf', action: 'Action needed' };
 
 // A one-page PDF, enough for the upload check (the app checks the header, not the content).
 function samplePdf() {
@@ -45,7 +45,7 @@ function samplePdf() {
     // Not on a phone, where the menu is an off-canvas panel that must stay hidden.
     if (!phone) await ctx.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
       const st = document.createElement('style');
-      st.textContent = '.ehire-side{position:static!important;height:auto!important;align-self:stretch}';
+      st.textContent = '#ehire-side{position:static!important;height:auto!important;align-self:stretch}';
       document.head.appendChild(st);
     }));
     pg.setDefaultTimeout(10000);
@@ -92,7 +92,7 @@ function samplePdf() {
     return p;
   };
   const idOf = (p) => Number(new URL(p.url()).pathname.split('/')[2]);
-  const card = 'section.ehire-card';
+  const card = '[data-ehire-card]';
 
   // Sign-in page, and the password help: the eye button and the keyboard line (a Greek letter typed)
   {
@@ -103,14 +103,14 @@ function samplePdf() {
     await p.click('#password');
     await p.keyboard.insertText('demo');
     await p.keyboard.insertText('δ');
-    await shot(p, 'u27-login-password', { sel: '.ehire-signin__box', pad: 16 });
+    await shot(p, 'u27-login-password', { sel: 'img[src*="okypy_logo_full"]', to: 'form:has(#password)', pad: 16 });
     await p.context().close();
   }
   // The people who receive the sample emails read them in this language.
   for (const u of ['nic.hr', 'nic.sci']) { const q = await login(u); await q.context().close(); }
 
   // Requester: list, empty form, filled form, draft with a document, submit
-  let newId;
+  let newId, newNumber;
   {
     const p = await login('nic.requester');
     await shot(p, 'u02-list-requester', { top: 640 });
@@ -150,9 +150,12 @@ function samplePdf() {
     await p.click('#ehire-docs-send');
     await shot(p, 'u06-documents', { sel: 'section:has(> #sec-documents)' });
     await p.click('button[name=intent][value=submit]');
+    await settle(p);
+    newNumber = (await p.locator('main h1').first().innerText()).trim();
+    log('new number', newNumber);
     await shot(p, 'u07-submitted', { top: 800 });
     await p.goto(BASE + '/manuals');
-    await shot(p, 'u28-manuals', { sel: 'main h1', to: 'main .list-group', pad: 16 });
+    await shot(p, 'u28-manuals', { sel: 'main h1', to: 'main a[href*="/manuals/"]:last-of-type', pad: 16 });
     await p.context().close();
   }
 
@@ -160,7 +163,7 @@ function samplePdf() {
   {
     const p = await login('nic.accountant');
     await shot(p, 'u08-list-approver', { top: 620 });
-    await shot(p, 'u20-ooo', { sel: '.ehire-ooo' });
+    await shot(p, 'u20-ooo', { sel: 'section[aria-labelledby="ooo-title"]' });
     await p.goto(BASE + '/requests/' + newId + '?do=review');
     await settle(p);
     const c = p.locator(card).first();
@@ -174,9 +177,9 @@ function samplePdf() {
     const vals = { prev_year: ['18.420', '3.150', '1.284.500,00', '1.010.200,00', '14'], ytd: ['13.905', '2.410', '968.300,00', '802.750,00', '13'] };
     for (const per of ['prev_year', 'ytd']) for (let i = 0; i < lines.length; i++) await fill(`fin.${per}.${lines[i]}`, vals[per][i]);
     await shot(p, 'u09-card-accountant', { sel: card });
-    await c.locator('summary.ehire-lesser__summary').click();
-    await shot(p, 'u14-return', { sel: card + ' .ehire-card__lesser' });
-    await c.locator('form[data-ehire-card-form]').first().locator('button[type=submit].btn-primary').click();
+    await c.locator('details summary').last().click();
+    await shot(p, 'u14-return', { sel: card + ' details:has(input[value="return"])' });
+    await c.locator('button[type=submit]', { hasText: T.send }).first().click();
     await settle(p);
     await p.context().close();
   }
@@ -205,8 +208,8 @@ function samplePdf() {
     const p = await login('central.finmgmt', true);
     await p.goto(BASE + '/requests/2?do=review');
     await shot(p, 'u25-phone-card', { sel: card, pad: 8 });
-    await p.locator('.ehire-route-details__summary').click();
-    await shot(p, 'u26-phone-route', { sel: '.ehire-statuspanel', pad: 8, maxH: 760 });
+    await p.locator('[data-ehire-route] > summary').click();
+    await shot(p, 'u26-phone-route', { sel: 'div:has(> #sec-tracker)', pad: 8, maxH: 760 });
     await p.context().close();
   }
   await (await cardShot('central.ceo', '/requests/3?do=review', 'u16-card-ceo')).context().close();
@@ -215,7 +218,7 @@ function samplePdf() {
   {
     const p = await login('nic.requester');
     await p.goto(BASE + '/requests/6');
-    await shot(p, 'u17-returned', { sel: 'section.alert-warning' });
+    await shot(p, 'u17-returned', { sel: 'section[aria-labelledby="ehire-returned-title"]' });
     await p.goto(BASE + '/requests/6/edit');
     await settle(p);
     await p.fill('#f-resubmit_note', T.note);
@@ -224,8 +227,8 @@ function samplePdf() {
     await settle(p);
     await p.goto(BASE + '/requests/' + newId);
     await settle(p);
-    await p.locator('details.ehire-lesser summary').last().click();
-    await shot(p, 'u19-withdraw', { sel: 'section.ehire-card__lesser', pad: 16 });
+    await p.locator('section:has(form[action*="/withdraw"]) summary').click();
+    await shot(p, 'u19-withdraw', { sel: 'section:has(form[action*="/withdraw"])', pad: 16 });
     await p.context().close();
   }
   await (await cardShot('nic.sci', '/requests/6?do=review', 'u21-keep-answer')).context().close();
@@ -241,9 +244,9 @@ function samplePdf() {
     const p = await login('demo.admin');
     await shot(p, 'a01-admin-list', { top: 560 });
     await p.goto(BASE + '/manuals');
-    await shot(p, 'a15-manuals-admin', { sel: 'main h1', to: 'main .list-group', pad: 16 });
+    await shot(p, 'a15-manuals-admin', { sel: 'main h1', to: 'main a[href*="/manuals/"]:last-of-type', pad: 16 });
     await p.goto(BASE + '/settings/users');
-    await shot(p, 'a02-settings', { sel: '.ehire-side__brand', to: '.ehire-menu__group', pad: 0 });
+    await shot(p, 'a02-settings', { sel: '#ehire-side img', to: '#ehire-side details:has(a[href*="/settings/users"])', pad: 0 });
     // A new temporary password: open the control under one user's row
     const pwRow = p.locator('details:has(form[action*="/password"])').nth(1);
     await pwRow.locator('summary').click();
@@ -252,14 +255,14 @@ function samplePdf() {
     await shot(p, 'a16-users-password', { sel: 'form[data-shot-row]', to: 'details[data-shot]' });
     await p.goto(BASE + '/settings/roles');
     await shot(p, 'a17-roles-others', { sel: 'section[aria-labelledby=roles-other]' });
-    for (const [url, name, top] of [['/settings/directorate', 'a03-directorates', 640], ['/settings/facility', 'a04-facilities', 640],
+    for (const [url, name, top] of [['/settings/directorate', 'a03-directorates', 640], ['/settings/position', 'a18-positions', 640], ['/settings/facility', 'a04-facilities', 640],
       ['/settings/users', 'a05-users', 700], ['/settings/roles', 'a06-roles', 800], ['/settings/holidays', 'a07-holidays', 720],
       ['/settings/timings', 'a08-timings', 720], ['/settings/outbox', 'a09-outbox', 640]]) {
       await p.goto(BASE + url);
       await shot(p, name, { top });
     }
     // One email that asks for action, about the request made above
-    const row = p.locator('tr', { hasText: String(newId).padStart(4, '0') }).filter({ hasText: T.action });
+    const row = p.locator('tr', { hasText: newNumber }).filter({ hasText: T.action });
     await row.locator('a[href*="/settings/outbox/"]').first().click();
     await settle(p);
     const mail = p.frameLocator('iframe').locator('body > table').first();

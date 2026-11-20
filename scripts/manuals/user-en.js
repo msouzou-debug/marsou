@@ -30,7 +30,7 @@ module.exports = {
       'The first time you sign in with an account the administrator made for you, eHire asks you to choose a new password (**Choose a new password**). Type it twice and press **Save password**. Use at least 8 characters.',
     ] },
     { img: 'u27-login-password', caption: 'The sign-in form, with the keyboard line under the password', w: 420 },
-    { p: 'On the sign-in page you choose the language with **Ελληνικά** or **English**. Once signed in, use **EL** or **EN** at the foot of the menu. eHire remembers your choice, and your emails come in the same language.' },
+    { p: 'On the sign-in page you choose the language with **Ελληνικά** or **English**. Once signed in, use the two buttons **Ελληνικά** and **English** at the foot of the menu, or **EL** and **EN** in the dark bar on a phone. eHire remembers your choice, and your emails come in the same language.' },
     { p: 'To change your password, choose **Change password** at the foot of the menu (local accounts only). To leave, press **Sign out** in the same place. eHire also signs you out after 30 minutes without any activity, and 12 hours after you signed in.' },
     { p: 'After five wrong passwords in 15 minutes, your username is locked for 15 minutes. The message says how many minutes to wait. If you cannot wait, ask the administrator.' },
     { note: 'Sign-in with your network (Active Directory) account is not switched on yet. Until it is, use the username and password your administrator gave you.' },
@@ -43,7 +43,7 @@ module.exports = {
       '**Manuals**: this guide. Administrators also find the administrator guide and the test documents there.',
       'Under **System**, **Audit log** and the **Settings** group, for administrators only.',
     ] },
-    { p: 'At the foot of the menu are your name, your role, the language choice **EL** | **EN**, **Change password** and **Sign out**. On a phone the menu is hidden: press the menu button in the dark bar at the top to open it.' },
+    { p: 'At the foot of the menu are your name, your role, the language buttons **Ελληνικά** and **English**, **Change password** and **Sign out**. On a phone the menu is hidden: press the menu button in the dark bar at the top to open it. The same bar has **EL** and **EN** for the language.' },
 
     { h1: 'The requests list' },
     { p: 'Choose **Requests** in the menu. The page **Position requests** opens with three tabs:' },
@@ -54,7 +54,7 @@ module.exports = {
     ] } },
     { p: 'Each row shows the number, the position and the number of posts, the hospital or facility with its cost centre, the status, a small route of six boxes, and a line that says who the request is waiting on and for how long: **today**, or a number of **working days**. A draft has no number yet: the row says **Draft**.' },
     { img: 'u02-list-requester', caption: 'The list, on the My requests tab' },
-    { p: 'To find a request, type its number in **Search by number** and press the search button. You can type it with Latin letters, where U stands for Θ: AEU-2026-0007 finds ΑΕΘ-2026-0007.' },
+    { p: 'To find a request, type its number, or any part of it, in **Search by number** and press the search button. Dashes, spaces and capital letters do not matter: `nur 20261120` finds every request for a nursing position submitted on 20/11/2026. Requests submitted before release 1.0.0-rc10 keep their older numbers, such as ΑΕΘ-2026-0007; type them with Latin letters if you like, where U stands for Θ (AEU-2026-0007).' },
     { p: 'If you may see a whole Directorate or every request, the list also has **Export to Excel**. The file holds the rows of the tab and search you have open. It has no names of people who left, no costs and no comments.' },
 
     { h1: 'Create a request' },
@@ -105,7 +105,7 @@ module.exports = {
     { h2: 'Submit' },
     { p: 'Press **Submit request**. eHire checks every field. If something is missing, a red box at the top lists the fields with a link to each. Correct them and submit again.' },
     { img: 'u05-validation', caption: 'Fields that need your attention', w: 520 },
-    { p: 'When the request is complete, eHire gives it a number that begins with ΑΕΘ, for example ΑΕΘ-2026-0008, and shows **Your request was submitted. Its number is …**. The request now goes to the Directorate Accountant. You also get an email with the number.' },
+    { p: 'When the request is complete, eHire gives it a number such as EHIRE-NGH-NUR-20261120-01: the word EHIRE, the Directorate code, the position\'s short code, the submission date (year, month, day) and a counter for that Directorate, position and day. eHire then shows **Your request was submitted. Its number is …**. The request now goes to the Directorate Accountant. You also get an email with the number.' },
 
     { h1: 'The request page' },
     { p: 'Open a request from the list. On a computer the page has two columns.' },

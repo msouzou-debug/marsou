@@ -46,12 +46,13 @@ module.exports = {
     { table: { widths: [2700, 6326], head: ['List', 'Fields'], rows: [
       ['**Directorates**', '**Code**, **Name (Greek)**, **Name (English)**, **Has a Scientific Director**. The switch decides whether the Scientific Director is asked at step 3 and appears on the role holders page.'],
       ['**Hospitals and facilities**', '**Directorate**, **Code**, the two names, and the **eArchive site code**: one of the twelve codes HQ, NGH, ARC, LGH, LAR, PAP, FAM, TRD, CHR, MH, HC, CNS, or empty.'],
-      ['**Positions**', '**Staff category** and the title in Greek and English. The form offers only the positions of the chosen category.'],
+      ['**Positions**', '**Staff category**, the title in Greek and English, and the optional **Position code**: 2 to 6 Latin letters or digits. The form offers only the positions of the chosen category.'],
       ['**Cost centres**', '**Code** and the two names.'],
       ['**ΟΑΥ specialties**', 'One name.'],
     ] } },
-    { img: 'a04-facilities', caption: 'The Hospitals and facilities list' },
+    { img: 'a18-positions', caption: 'The Positions list, with the position codes' },
     { p: 'The code, and the Directorate of a facility or the category of a position, cannot change once the row exists. If one is wrong, deactivate the row and add a new one. A code that is already used is refused with **This code is already used.**' },
+    { p: 'The **Position code** is the exception: it can be added or changed at any time. It becomes part of new request numbers, for example NUR in EHIRE-NGH-NUR-20261120-01. Two positions may share a code. A position without a code gets the code of its staff category: MED (Medical), NUR (Nursing), ALH (Allied health), ADM (Administrative / Secretarial) or OTH (Other). Give every position its own code before go-live, so that numbers say which post they are for. Changing a code later does not change numbers already issued.' },
     { note: 'A facility without an eArchive site code blocks its eArchive deposits once deposits are switched on. Fill in the code for every active facility.' },
 
     { h1: 'Users' },
@@ -174,13 +175,14 @@ module.exports = {
     { table: { widths: [1900, 4300, 2826], head: ['Sheet', 'Columns', 'Key'], rows: [
       ['`directorates`', 'code, name_el, name_en, has_sci_director, active', 'code'],
       ['`facilities`', 'directorate_code, code, name_el, name_en, archive_site_code, active', 'directorate_code and code'],
-      ['`positions`', 'category, title_el, title_en, active', 'category and title_el'],
+      ['`positions`', 'category, title_el, title_en, code, active', 'category and title_el'],
       ['`cost_centres`', 'code, name_el, name_en, active', 'code'],
       ['`oay_specialties`', 'name, active', 'name'],
       ['`users`', 'username, full_name, email, auth_source, line_manager_username, active', 'username'],
       ['`role_holders`', 'role, directorate_code, username, substitute_username', 'role and directorate_code'],
     ] } },
     { p: 'A row whose key exists already updates that row; a new key adds a row. In yes/no columns write yes or no. An empty cell means active for a new row and no change for an existing one. The import deletes nothing: write no in the active column to deactivate a row.' },
+    { p: 'In `positions`, the `code` column is optional: 2 to 6 Latin letters or digits. A file made before this column existed still imports; its positions keep the code they have.' },
     { p: 'In `users`, `auth_source` is `local` or `ad`. The sign-in source of an existing user cannot change.' },
     { p: 'In `role_holders`, `role` is one of these codes. Leave `directorate_code` empty for the central roles, viewer and admin:' },
     { table: { widths: [2900, 6126], head: ['Code', 'Role'], rows: [
@@ -209,7 +211,7 @@ module.exports = {
     { h1: 'Audit log' },
     { p: 'Choose **Audit log** in the menu. It shows what happened in eHire, newest first, 50 entries a page, with **Previous** and **Next** to move between pages. Times are in Cyprus time.' },
     { img: 'a14-audit', caption: 'The Audit log' },
-    { p: 'Filters: **Request number** (with or without the dash), **User**, **Event**, and **From** and **To** as dd/mm/yyyy. Press **Show**.' },
+    { p: 'Filters: **Request number** (any part of it, with or without dashes), **User**, **Event**, and **From** and **To** as dd/mm/yyyy. Press **Show**.' },
     { p: 'Each entry shows the event by name, for example **Sign-in**, **Failed sign-in**, **Action on a request**, **Document viewed**, **Password changed**, **Role holder changed** or **Email queued**, with its code in small type underneath. The **Event** filter lists the same names.' },
     { p: 'The log can be read and filtered, nothing more. It cannot be changed or exported from the app.' },
 
@@ -245,7 +247,7 @@ module.exports = {
     { h1: 'Set-up order for a new installation', newPage: true },
     { p: 'After the server administrator has installed eHire and created the first administrator:' },
     { steps: [
-      'Lists. The Directorates, hospitals and facilities (with their eArchive site codes), positions, cost centres and ΟΑΥ specialties come from eFinance\'s lists. A ready import file has been built from them: load it with **Import from Excel**, read the summary and confirm. Check the Scientific Director switch of each Directorate.',
+      'Lists. The Directorates, hospitals and facilities (with their eArchive site codes) and cost centres come from eFinance\'s lists. A ready import file has been built from them: load it with **Import from Excel**, read the summary and confirm. Check the Scientific Director switch of each Directorate. eFinance holds no positions: add them yourself, each with its **Position code**, and the ΟΑΥ specialties if the file does not have them.',
       'Users. Add every requester and approver, with email address, language and line manager, on the Users page or in the `users` sheet. Give each new local user a password with **Set a new password**.',
       'Role holders. You fill these in yourself on **Role holders and substitutes**: the holder and substitute of every central role and of every Directorate role, the requesters of each Directorate, and the viewers and administrators.',
       'Holidays. Check that this year and the next are on the Public holidays page. If not, run `load-holidays`.',
