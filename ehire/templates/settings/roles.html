@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('settings.roles') }} · {{ t('app.name') }}{% endblock %}
 {% macro user_select(name, users, selected, label_id) %}
-<select class="form-select" name="{{ name }}" id="{{ label_id }}" style="min-height:44px">
+<select class="form-select" name="{{ name }}" id="{{ label_id }}">
   <option value="">{{ t('settings.none') }}</option>
   {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id == selected }}>{{ u.full_name or u.username }}</option>{% endfor %}
 </select>
@@ -11,8 +11,8 @@
 {% include "settings/_nav.html" %}
 
 {% for g in groups %}
-<section class="mb-4">
-  <h2 class="h6 text-secondary border-bottom pb-1">{{ g.directorate['name_' ~ lang] if g.directorate else t('settings.central') }}</h2>
+<section class="mb-4 border rounded">
+  <h2 class="h6 border-bottom pb-2 mb-2">{{ g.directorate['name_' ~ lang] if g.directorate else t('settings.central') }}</h2>
   {% for r in g.rows %}
   {% set rid = 'r-' ~ (r.directorate_id or 0) ~ '-' ~ r.role %}
   <form method="post" action="{{ url_for('settings.roles_save') }}" class="py-2 border-bottom">
@@ -29,7 +29,7 @@
         <label class="form-label small mb-1" for="{{ rid }}-s">{{ t('settings.col.substitute') }}</label>
         {{ user_select('substitute_id', users, r.substitute, rid ~ '-s') }}
       </div>
-      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" style="min-height:44px" type="submit">{{ t('settings.save') }}</button></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.save') }}</button></div>
     </div>
   </form>
   {% if r.stale and r.holder %}
@@ -37,7 +37,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="role" value="{{ r.role }}">
     <input type="hidden" name="directorate_id" value="{{ r.directorate_id or '' }}">
-    <button class="btn btn-warning" style="min-height:44px" type="submit">{{ tn('settings.reassign', r.stale) }}</button>
+    <button class="btn btn-warning" type="submit">{{ tn('settings.reassign', r.stale) }}</button>
   </form>
   {% endif %}
   {% endfor %}
@@ -51,7 +51,7 @@
       <input type="hidden" name="directorate_id" value="{{ g.directorate.id }}">
       <input type="hidden" name="user_id" value="{{ u.id }}">
       <span class="flex-grow-1">{{ u.full_name or u.username }} ({{ u.username }})</span>
-      <button class="btn btn-outline-secondary btn-sm" style="min-height:44px" type="submit">{{ t('settings.remove') }}</button>
+      <button class="btn btn-outline-danger" type="submit">{{ t('settings.remove') }}</button>
     </form>
     {% endfor %}
     <form method="post" action="{{ url_for('settings.requester_add') }}" class="row g-2 mt-1">
@@ -59,19 +59,19 @@
       <input type="hidden" name="directorate_id" value="{{ g.directorate.id }}">
       <div class="col-12 col-md">
         <label class="visually-hidden" for="rq-{{ g.directorate.id }}">{{ t('role.requester') }}</label>
-        <select class="form-select" name="user_id" id="rq-{{ g.directorate.id }}" style="min-height:44px">
+        <select class="form-select" name="user_id" id="rq-{{ g.directorate.id }}">
           {% for u in users %}<option value="{{ u.id }}">{{ u.full_name or u.username }}</option>{% endfor %}
         </select>
       </div>
-      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.add') }}</button></div>
     </form>
   </div>
   {% endif %}
 </section>
 {% endfor %}
 
-<section class="mb-4" aria-labelledby="roles-other">
-  <h2 class="h6 text-secondary border-bottom pb-1" id="roles-other">{{ t('settings.roles.other_title') }}</h2>
+<section class="mb-4 border rounded" aria-labelledby="roles-other">
+  <h2 class="h6 border-bottom pb-2 mb-2" id="roles-other">{{ t('settings.roles.other_title') }}</h2>
   <p class="small text-secondary">{{ t('settings.roles.other_hint') }}</p>
   {% for o in others %}
   <div class="py-2 border-bottom">
@@ -82,7 +82,7 @@
       <input type="hidden" name="role" value="{{ o.role }}">
       <input type="hidden" name="user_id" value="{{ u.id }}">
       <span class="flex-grow-1">{{ u.full_name or u.username }} ({{ u.username }}){% if not u.is_active %} <span class="badge text-bg-secondary">{{ t('settings.inactive') }}</span>{% endif %}</span>
-      <button class="btn btn-outline-secondary btn-sm" style="min-height:44px" type="submit">{{ t('settings.remove') }}</button>
+      <button class="btn btn-outline-danger" type="submit">{{ t('settings.remove') }}</button>
     </form>
     {% else %}
     <p class="small text-secondary mb-1">{{ t('settings.roles.nobody') }}</p>
@@ -92,11 +92,11 @@
       <input type="hidden" name="role" value="{{ o.role }}">
       <div class="col-12 col-md">
         <label class="visually-hidden" for="oh-{{ o.role }}">{{ t('role.' ~ o.role) }}</label>
-        <select class="form-select" name="user_id" id="oh-{{ o.role }}" style="min-height:44px">
+        <select class="form-select" name="user_id" id="oh-{{ o.role }}">
           {% for u in users %}<option value="{{ u.id }}">{{ u.full_name or u.username }}</option>{% endfor %}
         </select>
       </div>
-      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.add') }}</button></div>
     </form>
   </div>
   {% endfor %}

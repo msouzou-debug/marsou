@@ -44,7 +44,7 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
 .ehire-userinfo__lang .bi { font-size: .95rem; margin-right: .15rem; color: #9ab8b3; }
 .ehire-userinfo__lang a { color: #cfe0ea; text-decoration: none; padding: .2rem .55rem; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: .78rem; }
 .ehire-userinfo__lang a:hover { color: #fff; border-color: rgba(255, 255, 255, .5); }
-.ehire-userinfo__lang a[aria-current="true"] { color: #0A2C49; background: #fff; border-color: #fff; font-weight: 700; }
+.ehire-userinfo__lang a[aria-current="true"] { color: var(--ehire-side-bg); background: #fff; border-color: #fff; font-weight: 700; }
 .ehire-userinfo__links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center; }
 .ehire-userinfo__pw { color: #6edff6; text-decoration: none; padding: .25rem 0; }
 .ehire-userinfo__out { background: none; border: 0; padding: .25rem 0; color: #ff8a93; font-size: inherit; cursor: pointer; }
@@ -55,14 +55,15 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
 .ehire-mobilebar { display: none; }
 @media (max-width: 991.98px) {
   .ehire-mobilebar { display: flex; align-items: center; gap: .6rem; position: sticky; top: 0; z-index: 1020; flex: none;
-    min-height: 52px; padding: .5rem .8rem; background: var(--ehire-side-bg); color: #fff; }
+    height: var(--ehire-mobilebar-h); padding: 0 .8rem; background: var(--ehire-side-bg); color: #fff; }
   .ehire-mobilebar__burger { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
     background: none; border: 1px solid rgba(255, 255, 255, .25); border-radius: .4rem; color: #fff; font-size: 1.35rem; line-height: 1; }
-  .ehire-mobilebar__title { font-weight: 700; font-size: 1rem; color: #fff; text-decoration: none; }
+  .ehire-mobilebar__title { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; font-size: 1rem; color: #fff; text-decoration: none; }
   .ehire-mobilebar__lang { margin-left: auto; display: inline-flex; gap: .25rem; }
-  .ehire-mobilebar__lang a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 40px; padding: 0 .5rem;
+  .ehire-mobilebar__lang a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0 .5rem;
     color: #cfe0ea; text-decoration: none; font-size: .85rem; font-weight: 600; border: 1px solid rgba(255, 255, 255, .25); border-radius: .4rem; }
-  .ehire-mobilebar__lang a[aria-current="true"] { color: #0A2C49; background: #fff; border-color: #fff; }
+  .ehire-mobilebar__lang a[aria-current="true"] { color: var(--ehire-side-bg); background: #fff; border-color: #fff; }
+  .ehire-mobilebar :focus-visible { outline: 2px solid var(--ehire-green); outline-offset: 2px; }
   .ehire-main { padding: 1rem; }
   .ehire-menu__link { padding: .75rem 1.2rem; font-size: .92rem; }
   .ehire-menu__sublink { padding: .65rem 1.2rem .65rem 2.6rem; font-size: .9rem; }
@@ -78,33 +79,55 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
 .ehire-top__brand img { height: 32px; width: auto; display: block; }
 .ehire-top__right { margin-left: auto; }
 .ehire-lang { display: inline-flex; border: 1px solid var(--ehire-line); border-radius: 6px; overflow: hidden; background: #fff; }
-.ehire-lang a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 .625rem; font-size: .8125rem; font-weight: 700; text-decoration: none; color: var(--ehire-text-secondary); }
+.ehire-lang a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .625rem; font-size: .8125rem; font-weight: 700; text-decoration: none; color: var(--ehire-text-secondary); }
 .ehire-lang a[aria-current="true"] { background: var(--ehire-blue-deep); color: #fff; }
 
 .ehire-footer { flex: none; }
 .ehire-footer__in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; max-width: 1320px; margin: 0 auto; padding: .75rem 2rem; font-size: .78rem; color: var(--ehire-text-secondary); }
 
-/* Content surfaces, after eFinance: white cards with a hairline border on a pale page, no shadows */
-.ehire-main > h1:first-child, .ehire-main > .d-flex:first-child h1 { font-size: 1.5rem; }
-.ehire-main .list-group, .ehire-main .card, .ehire-main .table-responsive, .ehire-main section.border, .ehire-rows, .ehire-panel { background: #fff; border-radius: .5rem; }
-.ehire-main section.border, .ehire-main .card { border-color: var(--ehire-line); }
-.ehire-main .list-group-item { border-color: var(--ehire-line-row); }
-.ehire-main .list-group-item-action:hover { background: var(--ehire-blue-pale); color: var(--ehire-blue-deep); }
-.ehire-main .form-control, .ehire-main .form-select { border-color: #cfd8e1; border-radius: .375rem; font-size: .9rem; }
-.ehire-main .form-control:focus, .ehire-main .form-select:focus { border-color: var(--ehire-blue); box-shadow: 0 0 0 .2rem rgba(6, 159, 236, .2); }
-.ehire-main .form-label { font-weight: 600; font-size: .85rem; color: #334155; margin-bottom: .25rem; }
+/* Content surfaces, after eFinance: white cards with a hairline border on a pale page, no shadows.
+   Page title: one size on every page (Bootstrap's .h4 shrinks with the window; this does not). */
+.ehire-main h1 { font-size: 1.5rem; line-height: 1.25; }
+@media (max-width: 575.98px) { .ehire-main h1 { font-size: 1.3125rem; } }
+.ehire-main .list-group, .ehire-main .card, .ehire-main section.border, .ehire-rows, .ehire-panel { background: #fff; border-radius: .5rem; }
+.ehire-main section.border, .ehire-main .card, .ehire-main .list-group-item, .ehire-rows { border-color: var(--ehire-line); }
+.ehire-main .list-group-item + .list-group-item { border-top-color: var(--ehire-line-row); }
+.ehire-main .list-group-item-action:hover { background: var(--ehire-blue-pale); color: var(--ehire-blue-hover); }
+.ehire-main .form-control, .ehire-main .form-select { border-color: var(--ehire-input-line); border-radius: .375rem; font-size: .9rem; }
+/* Fields focus as eFinance: the brand ring, no glow (the old 20 % glow was too faint to see) */
+.ehire-main .form-control:focus, .ehire-main .form-select:focus, .ehire-signin .form-control:focus,
+.form-check-input:focus { border-color: var(--ehire-blue-deep); box-shadow: none; outline: 2px solid var(--ehire-blue-deep); outline-offset: 1px; }
+.form-control.is-invalid:focus, .form-select.is-invalid:focus { outline-color: var(--ehire-red); }
+.ehire-main .form-label { font-weight: 600; font-size: .85rem; color: var(--ehire-label); margin-bottom: .25rem; }
 .ehire-main .btn { border-radius: .375rem; font-weight: 600; font-size: .9rem; }
-.ehire-main .btn:disabled, .ehire-main .btn.disabled { opacity: 1; background-color: #eef2f6; color: #8fa3b5; border-color: var(--ehire-line); }
+.ehire-main .btn:disabled, .ehire-main .btn.disabled { opacity: 1; background-color: var(--ehire-neutral-tint); color: #8fa3b5; border-color: var(--ehire-line); }
 .ehire-main .table { --bs-table-bg: #fff; margin-bottom: 0; font-size: .88rem; }
 .ehire-main .table > :not(caption) > * > * { padding: .55rem .75rem; }
-.ehire-main .badge { border-radius: 999px; font-size: .7rem; font-weight: 600; padding: .3em .7em; }
+@media (max-width: 575.98px) { .ehire-main .table > :not(caption) > * > * { padding: .5rem .5rem; } }
+.ehire-main .table > :not(caption) > tr:last-child > *, .ehire-main .table > tbody > tr:last-child > * { border-bottom-width: 0; }
+.table :is(td, th).text-end { font-variant-numeric: tabular-nums; }
+/* A table on its own sits in a white box like every other panel */
+.ehire-main .table-responsive, .ehire-main > .table { background: #fff; border: 1px solid var(--ehire-line); border-radius: .5rem; }
+.ehire-main > .table { border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.ehire-main section .table-responsive { border: 0; border-radius: 0; }
+
+/* Badges: the same pill everywhere, in the soft tones of the status chips (colour plus a word, never colour alone) */
+.ehire-main .badge { border-radius: 999px; font-size: .75rem; font-weight: 600; padding: .25em .7em; border: 1px solid transparent; }
+.ehire-main .badge.text-bg-success { color: var(--ehire-green-text) !important; background-color: var(--ehire-green-tint) !important; border-color: var(--ehire-green-text); }
+.ehire-main .badge.text-bg-secondary { color: var(--ehire-th) !important; background-color: var(--ehire-neutral-tint) !important; border-color: var(--ehire-line); }
+.ehire-main .badge.text-bg-warning { color: var(--ehire-amber-text) !important; background-color: var(--ehire-amber-tint) !important; border-color: var(--ehire-amber-text); }
+.ehire-main .badge.text-bg-danger { color: var(--ehire-red) !important; background-color: var(--ehire-red-tint) !important; border-color: var(--ehire-red); }
+.ehire-main .badge.text-bg-light { color: var(--ehire-th) !important; background-color: var(--ehire-neutral-tint) !important; border-color: var(--ehire-line); }
 
 /* Tables and panels shared by every page */
-.table > thead > tr > th { font-weight: 600; font-size: .8rem; color: #475569; text-transform: uppercase; letter-spacing: .04em; background: #fff; white-space: nowrap; }
+.table > thead > tr > th, .ehire-colhead { font-weight: 600; font-size: .8rem; color: var(--ehire-th); text-transform: uppercase; letter-spacing: .04em; background: #fff; white-space: nowrap; }
 .table > tbody > tr:hover > * { background-color: rgba(6, 159, 236, .05); }
+.ehire-tabs.nav-tabs { border-bottom-color: var(--ehire-line); }
 .ehire-tabs.nav-tabs .nav-link { color: var(--ehire-text); font-weight: 700; border: 0; border-bottom: 3px solid transparent; border-radius: 0; }
-.ehire-tabs.nav-tabs .nav-link.active { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-blue); background: transparent; }
-.alert { border-radius: 4px; border-left-width: 4px; }
+.ehire-tabs.nav-tabs .nav-link:hover { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-line); }
+.ehire-tabs.nav-tabs .nav-link.active { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-blue-deep); background: transparent; }
+.ehire-tabs.nav-tabs .nav-link:focus-visible { outline-offset: -2px; }
+.alert { border-radius: .5rem; border-left-width: 4px; }
 
 /* Sign-in: blue panel with the two logos, form on white */
 .ehire-signin { flex: 1 0 auto; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
@@ -121,9 +144,12 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
 .ehire-signin__box { width: 100%; max-width: 24rem; margin: 0 auto; }
 .ehire-signin__logo { height: 96px; width: auto; margin-bottom: 2rem; }
 .ehire-signin__box h2 { font-size: 1.5rem; font-weight: 900; margin-bottom: 1.25rem; }
-.ehire-signin__box .form-control { min-height: 48px; }
+.ehire-signin__box .form-control { min-height: 48px; border-color: var(--ehire-input-line); }
+.ehire-signin__box .form-label { font-weight: 600; color: var(--ehire-label); }
+.ehire-signin__box .ehire-pw__eye { border-color: var(--ehire-input-line); }
 .ehire-signin__box .btn { min-height: 48px; font-weight: 700; }
 .ehire-signin__lang { margin-top: 1.5rem; }
+.ehire-signin__box form .mb-4 { margin-bottom: 1.25rem !important; }
 @media (max-width: 767.98px) {
   .ehire-signin { grid-template-columns: 1fr; }
   .ehire-signin__panel { padding: 1.5rem; gap: 1rem; }
@@ -132,26 +158,37 @@ h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-headin
   .ehire-signin__lead p { font-size: 1rem; }
   .ehire-signin__app { height: 44px; }
   .ehire-signin__form { padding: 2rem 1rem; justify-content: flex-start; }
-  .ehire-signin__logo { height: 72px; margin-bottom: 1.25rem; }
+  .ehire-signin__logo { height: 64px; margin-bottom: 1.25rem; }
+  .ehire-signin__box h2 { font-size: 1.375rem; }
 }
 
-/* Panels: each named section of a page, and each stand-alone form, sits on white */
-.ehire-main section[aria-labelledby^="sec-"], .ehire-main > form.border, .ehire-main > .ehire-panel {
+/* Panels: each named section of a page, each stand-alone form and the status column sit on white,
+   with one padding (1.25rem, 1rem on a phone) and one title style */
+.ehire-main section[aria-labelledby^="sec-"], .ehire-main form.border.rounded, .ehire-main .ehire-panel, .ehire-main section.border.rounded {
   background: #fff; border: 1px solid var(--ehire-line); border-radius: .5rem; padding: 1.25rem; }
-.ehire-main section[aria-labelledby^="sec-"] > h2:first-child, .ehire-main section[aria-labelledby^="sec-"] > .d-flex:first-child {
+.ehire-main section[aria-labelledby^="sec-"] > h2:first-child, .ehire-main section[aria-labelledby^="sec-"] > .d-flex:first-child,
+.ehire-main .ehire-panel > h2:first-child {
   padding-bottom: .625rem; margin-bottom: 1rem !important; border-bottom: 1px solid var(--ehire-line-row); }
-.ehire-main section[aria-labelledby^="sec-"] h2 { font-size: 1rem; font-weight: 600; }
+.ehire-main :is(section[aria-labelledby^="sec-"], .ehire-panel, form.border.rounded, section.border.rounded) h2 { font-size: 1rem; font-weight: 600; line-height: 1.35; }
 .ehire-main dt, .ehire-main .text-secondary.small { font-weight: 400; }
 @media (max-width: 575.98px) {
-  .ehire-main section[aria-labelledby^="sec-"], .ehire-main > form.border { padding: 1rem .875rem; }
+  .ehire-main section[aria-labelledby^="sec-"], .ehire-main form.border.rounded, .ehire-main .ehire-panel, .ehire-main section.border.rounded { padding: 1rem .875rem; }
 }
 /* The side menu is sticky and one screen tall; the column behind it stays blue on long pages */
 @media (min-width: 992px) { .ehire-shell:not(.ehire-shell--guest) { background: linear-gradient(to right, var(--ehire-side-bg) 250px, transparent 250px); } }
 
 /* Settings lists: one form per row. Rows share one white surface; column names show once on wide screens */
-.ehire-main > form.border-bottom { background: #fff; padding-left: 1rem; padding-right: 1rem; border-left: 1px solid var(--ehire-line); border-right: 1px solid var(--ehire-line); border-bottom-color: var(--ehire-line-row) !important; }
+.ehire-main > form.border-bottom, .ehire-main > form.border-bottom + details.border-bottom { background: #fff; padding-left: 1rem; padding-right: 1rem; border-left: 1px solid var(--ehire-line); border-right: 1px solid var(--ehire-line); border-bottom-color: var(--ehire-line-row) !important; }
+.ehire-main > form.border-bottom:has(+ details.border-bottom) { border-bottom: 0 !important; }
+.ehire-main > form.border-bottom + details.border-bottom > summary { display: flex; align-items: center; gap: .375rem; min-height: 44px; cursor: pointer; color: var(--ehire-blue-deep); list-style: none; }
+.ehire-main > form.border-bottom + details.border-bottom > summary::-webkit-details-marker { display: none; }
+.ehire-main > form.border-bottom + details.border-bottom > summary::before { content: "\F285"; font-family: "bootstrap-icons"; font-size: .75rem; transition: transform .15s; }
+.ehire-main > form.border-bottom + details.border-bottom[open] > summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .ehire-main > form.border-bottom + details.border-bottom > summary::before { transition: none; } }
 .ehire-main > form.border-bottom:first-of-type, .ehire-main > form.border + form.border-bottom { border-top: 1px solid var(--ehire-line); border-radius: 8px 8px 0 0; }
 .ehire-main > form.border-bottom:last-of-type { border-bottom: 1px solid var(--ehire-line) !important; border-radius: 0 0 8px 8px; }
+.ehire-main > form.border-bottom:last-of-type:has(+ details.border-bottom) { border-radius: 0; }
+.ehire-main > form.border-bottom + details.border-bottom:last-child { border-bottom: 1px solid var(--ehire-line) !important; border-radius: 0 0 8px 8px; }
 @media (min-width: 768px) {
   .ehire-main > form.border-bottom ~ form.border-bottom .form-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ehire-main > form.border-bottom ~ form.border-bottom { padding-top: .5rem !important; padding-bottom: .5rem !important; }

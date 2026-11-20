@@ -2,11 +2,14 @@
 .ehire-wrap { overflow-wrap: anywhere; }
 .ehire-prewrap { white-space: pre-wrap; }
 
-/* Touch targets: 44 px */
-.ehire-form .form-control, .ehire-form .form-select, .ehire-search .form-control,
-.ehire-card__form .form-control, .ehire-card__form .form-select,
-.btn, .ehire-tabs .nav-link { min-height: 44px; }
+/* Touch targets: 44 px for every field, button and tab (this replaces the style="min-height:44px" the templates carried) */
+.ehire-main .form-control:not(textarea):not(.form-control-sm), .ehire-main .form-select:not(.form-select-sm),
+.ehire-main .form-control-plaintext, .btn, .ehire-tabs .nav-link { min-height: 44px; }
+.ehire-main .form-switch { min-height: 44px; display: flex; align-items: center; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; }
+/* A button label never breaks inside a word (the phone rule below lets other text break anywhere) */
+.ehire-main .btn { overflow-wrap: normal; word-break: normal; }
+.ehire-main td .btn, .ehire-main .text-nowrap .btn { white-space: nowrap; }
 .ehire-tabs .nav-link { display: inline-flex; align-items: center; }
 .ehire-form textarea.form-control, .ehire-card__form textarea.form-control { min-height: 6rem; }
 .ehire-check { min-height: 44px; display: flex; align-items: center; gap: .5rem; padding-left: 0; }
@@ -14,12 +17,36 @@
 .ehire-check .form-check-label { padding: .5rem 0; }
 .ehire-tabs { flex-wrap: wrap; }
 .ehire-tabs .nav-link { white-space: nowrap; }
+/* Phone: the tabs share the width and a long Greek label breaks onto two lines inside its tab,
+   instead of one tab dropping alone onto a second row */
+@media (max-width: 575.98px) {
+  .ehire-tabs { flex-wrap: nowrap; }
+  .ehire-tabs .nav-item { flex: 1 1 0; min-width: 0; }
+  .ehire-tabs .nav-link { width: 100%; height: 100%; justify-content: center; text-align: center; white-space: normal; line-height: 1.25;
+    padding: .5rem .375rem; font-size: .9375rem; }
+}
 
-/* List rows */
-.ehire-rows__head { padding: .5rem .75rem; border-bottom: 1px solid var(--ehire-line); }
+/* Page head: title and its actions on one line, the actions to the right, one gap below */
+.ehire-pagehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; margin-bottom: 1rem; }
+.ehire-pagehead h1 { margin: 0; }
+.ehire-pagehead__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* Empty states: a white panel with the sentence and, where it helps, the next step */
+.ehire-empty { display: flex; flex-direction: column; align-items: center; gap: .875rem; padding: 2rem 1.25rem; margin: 0 0 1rem;
+  text-align: center; color: var(--ehire-text-secondary); background: #fff; border: 1px solid var(--ehire-line); border-radius: .5rem; }
+.ehire-empty > p { margin: 0; }
+section .ehire-empty, .ehire-panel .ehire-empty { padding: 1rem 0; border: 0; align-items: flex-start; text-align: left; margin: 0; }
+.ehire-error { padding: 3rem 1.25rem; }
+.ehire-error__text { font-size: 1.125rem; color: var(--ehire-text); }
+
+/* List rows: the same white box, header and row lines as a table */
+.ehire-rows { border: 1px solid var(--ehire-line); overflow: hidden; }
+.ehire-rows__head { margin: 0; padding: .55rem .75rem; border-bottom: 1px solid var(--ehire-line); }
 .ehire-row { margin: 0; padding: .75rem; border-bottom: 1px solid var(--ehire-line-row); }
+.ehire-row:last-child { border-bottom: 0; }
 .ehire-row:hover { background: rgba(6, 159, 236, .05); }
-.ehire-row__number { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+/* The whole row is the link (stretched-link), so the number itself needs no 44 px box */
+.ehire-row__number { display: inline-flex; align-items: center; padding: .125rem 0; text-decoration: none; }
 /* New numbers are about 25 characters (EHIRE-NGH-NUR-20261120-01): a touch smaller, and they break only at a dash */
 .ehire-row__number { font-size: .9rem; letter-spacing: 0; overflow-wrap: anywhere; }
 @media (min-width: 1200px) { .ehire-row__number { white-space: nowrap; } }
@@ -39,7 +66,12 @@
 .ehire-chip--withdrawn { color: var(--ehire-text-secondary); }
 
 /* Form */
-.ehire-leaver { background: #fafbfc; }
+.ehire-leaver { background: #fafbfc; border-color: var(--ehire-line) !important; padding: .75rem !important; }
+/* Leaver row: labels of different lengths still put the three fields on one line */
+@media (min-width: 768px) {
+  .ehire-leaver > .row > [class*="col-"] { display: flex; flex-direction: column; }
+  .ehire-leaver > .row > [class*="col-"] > .form-label { flex: 1 0 auto; display: flex; align-items: flex-end; }
+}
 .ehire-route-preview { background: #fff; }
 .ehire-route-preview:not(:has(*)) { display: none; }
 .ehire-form__actions { padding: 1rem 0 2rem; }
@@ -53,10 +85,15 @@
 /* Request page */
 .ehire-history__item { padding: .5rem 0 .5rem .75rem; border-left: 3px solid var(--ehire-line); margin-bottom: .5rem; }
 
-/* Action card */
+/* Action card. The page moves focus to it (tabindex="-1", not a tab stop): its own 2 px brand border already marks it,
+   so no second ring is drawn round it. */
 .ehire-card { border-color: var(--ehire-blue-deep); border-width: 2px; scroll-margin-top: 1rem; }
-.ehire-card:focus, .ehire-hold:focus { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }
+.ehire-card > .card-body { padding: 1.25rem; }
+.ehire-card:focus, .ehire-hold:focus { outline: none; }
+.ehire-card h2 { font-size: 1.125rem; font-weight: 700; }
+.ehire-card h3 { font-size: 1rem; font-weight: 600; }
 .ehire-card__main .btn { min-width: 8rem; }
+@media (min-width: 576px) { .ehire-card__main .btn-outline-danger { margin-left: .75rem; } } /* reject stands apart from approve */
 @media (max-width: 575.98px) {
   .ehire-card__main .btn { width: 100%; }
 }
@@ -71,7 +108,10 @@
 .ehire-lesser[open] > .ehire-lesser__summary { background: var(--bs-secondary-bg); }
 
 /* Financial table: one column per period on a phone, side by side from 768 px. Never scrolls sideways. */
-.ehire-fin__period { min-width: 0; }
+.ehire-fin__period { min-width: 0; border-color: var(--ehire-line) !important; }
+.ehire-fin__period > legend + * { clear: left; }
+.ehire-fin__period > legend { float: left; width: 100%; padding: 0 0 .5rem; margin-bottom: .75rem !important; border-bottom: 1px solid var(--ehire-line-row);
+  font-size: .9375rem; font-weight: 600; }
 .ehire-fin__period .form-control { max-width: 100%; text-align: right; }
 .ehire-fin__period .mb-3 { margin-bottom: .75rem !important; }
 .ehire-fin__ratio { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; padding-top: .5rem; border-top: 1px dashed var(--ehire-line); }
@@ -79,7 +119,7 @@
 .ehire-fin-view__period dl > div:last-child { border-bottom: 0; }
 
 /* Banners on the request page. Icon and words; colour only supports them. */
-.ehire-banner { padding: .75rem 1rem; border: 1px solid var(--ehire-line); border-left-width: 4px; border-radius: 4px; background: #fff; }
+.ehire-banner { padding: .75rem 1rem; border: 1px solid var(--ehire-line); border-left-width: 4px; border-radius: .5rem; background: #fff; }
 .ehire-banner--rejected { border-left-color: var(--ehire-red); }
 .ehire-banner--withdrawn { border-left-color: var(--ehire-text-secondary); }
 .ehire-banner--approved { border-left-color: var(--ehire-green-text); background: var(--ehire-green-tint); }
@@ -115,18 +155,20 @@
   .ehire-req__side { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; }
   .ehire-req__stick { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 1rem; } /* request-side.js lowers top when the column is taller than the screen */
 }
-.ehire-statuspanel { border: 1px solid var(--ehire-line); padding: 1rem; background: #fff; border-radius: 8px; }
+.ehire-statuspanel { border: 1px solid var(--ehire-line); padding: 1.25rem; background: #fff; border-radius: .5rem; }
+.ehire-statuspanel h2 { font-size: 1rem; font-weight: 600; line-height: 1.35; }
+@media (min-width: 992px) { .ehire-statuspanel > h2:first-child { padding-bottom: .625rem; margin-bottom: 1rem !important; border-bottom: 1px solid var(--ehire-line-row); } }
 .ehire-statuspanel__line { margin-bottom: .75rem; }
 .ehire-statuspanel__archive { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--ehire-line-row); }
 .ehire-touch { display: inline-flex; align-items: center; min-height: 44px; }
 
 /* Route fold: a button on a phone, always open from 992 px */
 .ehire-route-details { margin: 0; }
-.ehire-route-details__summary { gap: .5rem; padding: 0 .75rem; border: 1px solid var(--ehire-line); border-radius: 6px; font-weight: 700; color: var(--ehire-blue-deep); list-style: none; }
+.ehire-route-details__summary { gap: .5rem; padding: .5rem .75rem; border: 1px solid var(--ehire-line); border-radius: .375rem; font-weight: 700; color: var(--ehire-blue-deep); list-style: none; line-height: 1.3; }
 .ehire-route-details__summary::-webkit-details-marker { display: none; }
 .ehire-route-details[open] > .ehire-route-details__summary { margin-bottom: 1rem; }
 .ehire-route-details[open] .ehire-route-details__chev { transform: rotate(180deg); }
-.ehire-route-details__summary:focus-visible { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }
+.ehire-route-details__summary:focus-visible { outline: 2px solid var(--ehire-blue-deep); outline-offset: 2px; }
 @media (min-width: 992px) { .ehire-route-details > .ehire-route-details__summary { display: none; } .ehire-route-details[open] > .ehire-route-details__summary { margin: 0; } }
 @media (prefers-reduced-motion: reduce) { .ehire-route-details__chev { transition: none; } }
 
@@ -149,6 +191,9 @@
 .ehire-fin-view__period dl > div > * { min-width: 0; overflow-wrap: anywhere; }
 .ehire-card .form-control.is-invalid, .ehire-card .ehire-card__form fieldset:has(.invalid-feedback) { scroll-margin-top: 5rem; }
 
+/* Import summary: the counts are numbers, so right-aligned with tabular digits; the row number of an error too */
+[data-import-summary] :is(th, td):not(:first-child), [data-import-errors] :is(th, td):nth-child(2) { text-align: right; font-variant-numeric: tabular-nums; }
+
 /* Small tables turn into one block per row on a phone, each cell with its column name */
 @media (max-width: 575.98px) {
   .ehire-stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -156,8 +201,11 @@
   .ehire-stack-table tr { padding: .5rem 0; border-bottom: 1px solid var(--ehire-line-row); }
   .ehire-stack-table td { border: 0; padding: .125rem 0 !important; }
   .ehire-stack-table td::before { content: attr(data-label); display: block; font-size: .8125rem; color: var(--ehire-text-secondary); }
+  .ehire-stack-table td.text-end { text-align: left !important; }
+  /* Import errors: sheet and column names are codes; they never break inside a word (the box scrolls instead) */
+  [data-import-errors] td { overflow-wrap: normal; word-break: normal; }
+  [data-import-errors] td:nth-child(4) { min-width: 10rem; }
 }
 
 .ehire-historypanel { margin-bottom: 0; }
-.ehire-historypanel h2 { margin-bottom: .75rem !important; }
-.ehire-main section.ehire-statuspanel[aria-labelledby^="sec-"] { padding: 1rem; }
+@media (max-width: 575.98px) { .ehire-statuspanel, .ehire-card > .card-body { padding: 1rem .875rem; } }

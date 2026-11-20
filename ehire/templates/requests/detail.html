@@ -189,7 +189,7 @@
         <textarea class="form-control" id="withdraw-comment" name="comment" rows="3" data-ehire-comment>{{ withdraw.typed.get('comment', '') if withdraw.withdraw_open else '' }}</textarea>
         <div class="invalid-feedback" data-ehire-comment-error hidden>{{ t('error.comment_required') }}</div>
       </div>
-      <button class="btn btn-outline-secondary" type="submit" data-ehire-needs-comment>{{ t('action.withdraw') }}</button>
+      <button class="btn btn-outline-danger" type="submit" data-ehire-needs-comment>{{ t('action.withdraw') }}</button>
     </form>
   </details>
 </section>

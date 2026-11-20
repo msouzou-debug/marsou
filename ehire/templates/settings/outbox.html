@@ -4,7 +4,7 @@
 <h1 class="h4 mb-3">{{ t('settings.outbox') }}</h1>
 {% include "settings/_nav.html" %}
 {% if not rows %}
-<p class="text-secondary py-4">{{ t('settings.outbox.empty') }}</p>
+<div class="ehire-empty" role="status"><p>{{ t('settings.outbox.empty') }}</p></div>
 {% else %}
 <table class="table align-middle ehire-outbox">
   <thead><tr><th>{{ t('settings.outbox.subject') }}</th><th>{{ t('settings.outbox.state') }}</th><th><span class="visually-hidden">{{ t('settings.outbox.preview') }}</span></th></tr></thead>
@@ -21,7 +21,7 @@
       <span class="badge {{ {'sent': 'text-bg-success', 'failed': 'text-bg-danger'}.get(m.state, 'text-bg-secondary') }}">{{ t('settings.outbox.state.' ~ m.state) }}</span>
       {% if m.attempts %}<div class="small text-secondary">{{ m.attempts }}</div>{% endif %}
     </td>
-    <td class="text-end"><a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.outbox_show', mail_id=m.id) }}">{{ t('settings.outbox.preview') }}</a></td>
+    <td class="text-end"><a class="btn btn-outline-primary" href="{{ url_for('settings.outbox_show', mail_id=m.id) }}">{{ t('settings.outbox.preview') }}</a></td>
   </tr>
   {% endfor %}
   </tbody>

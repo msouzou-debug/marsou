@@ -86,7 +86,7 @@
                 </div>
               </div>
               {% if raw.leavers | length > 1 %}
-              <button class="btn btn-sm btn-outline-secondary mt-2" type="submit" name="intent" value="remove_leaver:{{ i }}" data-ehire-remove-leaver>{{ t('form.remove_leaver') }}</button>
+              <button class="btn btn-outline-danger mt-2" type="submit" name="intent" value="remove_leaver:{{ i }}" data-ehire-remove-leaver>{{ t('form.remove_leaver') }}</button>
               {% endif %}
             </div>
             {% endfor %}

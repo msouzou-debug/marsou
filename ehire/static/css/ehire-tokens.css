@@ -22,6 +22,14 @@
   --ehire-step-current: #ffc107;
   --ehire-step-current-bg: #fff8e1;
   --ehire-step-stopped: #dc3545;
+  --ehire-label: #334155;         /* eFinance .form-label */
+  --ehire-th: #475569;            /* eFinance table headers: 7.6:1 on white */
+  --ehire-input-line: #cfd8e1;
+  --ehire-neutral-tint: #eef2f6;  /* eFinance disabled fill; neutral pills */
+  --ehire-amber-tint: #FFF6EE;
+  --ehire-red-tint: #FCEDEB;
+  --ehire-blue-hover: #155E96;    /* eFinance --brand-dark */
+  --ehire-mobilebar-h: 60px;
 
   --bs-primary: var(--ehire-blue-deep);
   --bs-primary-rgb: 24, 115, 184;
@@ -29,6 +37,9 @@
   --bs-danger-rgb: 192, 57, 43;
   --bs-body-color: var(--ehire-text);
   --bs-secondary-color: var(--ehire-text-secondary);
+  --bs-secondary-rgb: 91, 104, 120; /* .text-secondary: Bootstrap's #6c757d is 4.3:1 on the page colour; this is 5.2:1 */
+  --bs-form-invalid-color: var(--ehire-red);
+  --bs-form-invalid-border-color: var(--ehire-red);
   --bs-border-color: var(--ehire-line);
   --bs-link-color: var(--ehire-blue-deep);
   --bs-link-color-rgb: 24, 115, 184;
@@ -39,17 +50,18 @@
 }
 .btn-primary {
   --bs-btn-bg: var(--ehire-blue-deep); --bs-btn-border-color: var(--ehire-blue-deep);
-  --bs-btn-hover-bg: #155E96; --bs-btn-hover-border-color: #155E96;
+  --bs-btn-hover-bg: var(--ehire-blue-hover); --bs-btn-hover-border-color: var(--ehire-blue-hover);
   --bs-btn-active-bg: #124f80; --bs-btn-active-border-color: #124f80;
 }
-:focus-visible { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }
+/* Keyboard focus, as eFinance: a 2 px brand ring. #1873B8 is 5:1 on white and 4.6:1 on the page colour
+   (the lighter #069FEC used before was 2.9:1, under the 3:1 a focus ring needs). */
+:focus-visible { outline: 2px solid var(--ehire-blue-deep); outline-offset: 2px; }
 .ehire-num { font-variant-numeric: tabular-nums; }
 .btn-outline-primary {
   --bs-btn-color: var(--ehire-blue-deep); --bs-btn-border-color: var(--ehire-blue-deep);
   --bs-btn-hover-bg: var(--ehire-blue-deep); --bs-btn-hover-border-color: var(--ehire-blue-deep);
   --bs-btn-active-bg: #124f80; --bs-btn-active-border-color: #124f80;
 }
-.btn-outline-danger, .btn-danger { --bs-btn-color: var(--ehire-red); --bs-btn-border-color: var(--ehire-red); }
-.btn-danger { --bs-btn-color: #fff; --bs-btn-bg: var(--ehire-red); }
-.btn-outline-danger { --bs-btn-hover-bg: var(--ehire-red); --bs-btn-hover-border-color: var(--ehire-red); }
+.btn-outline-danger { --bs-btn-color: var(--ehire-red); --bs-btn-border-color: var(--ehire-red);
+  --bs-btn-hover-bg: var(--ehire-red); --bs-btn-hover-border-color: var(--ehire-red); --bs-btn-active-bg: #a33024; --bs-btn-active-border-color: #a33024; }
 .form-check-input:checked { background-color: var(--ehire-blue-deep); border-color: var(--ehire-blue-deep); }

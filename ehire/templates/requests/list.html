@@ -3,9 +3,9 @@
 {% from "components/status_chip.html" import status_chip with context %}
 {% block title %}{{ t('list.title') }} · {{ t('app.name') }}{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-  <h1 class="h4 mb-0">{{ t('list.title') }}</h1>
-  <div class="d-flex flex-wrap gap-2">
+<div class="ehire-pagehead">
+  <h1 class="h4">{{ t('list.title') }}</h1>
+  <div class="ehire-pagehead__actions">
     {% if can_export %}
     <a class="btn btn-outline-primary d-inline-flex align-items-center gap-2" href="{{ url_for('requests.export', tab=tab, q=q or none) }}"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i>{{ t('list.export') }}</a>
     {% endif %}
@@ -17,7 +17,7 @@
 
 {% set ooo = ooo_state() %}
 {% if ooo %}
-<section class="ehire-ooo border rounded p-3 mb-3" aria-labelledby="ooo-title">
+<section class="ehire-ooo border rounded mb-3" aria-labelledby="ooo-title">
   <h2 class="h6 mb-2" id="ooo-title">{{ t('ooo.title') }}</h2>
   {% if ooo.on %}
     <p class="mb-2">{{ t('ooo.on', who=ooo.substitutes | join(', ')) }}{% if not ooo.has_substitute %} {{ t('ooo.no_substitute') }}{% endif %}</p>
@@ -27,7 +27,7 @@
     <form method="post" action="{{ url_for('me.out_of_office') }}" class="m-0">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="state" value="off">
-      <button class="btn btn-outline-primary" style="min-height:44px" type="submit">{{ t('ooo.switch_off') }}</button>
+      <button class="btn btn-outline-primary" type="submit">{{ t('ooo.switch_off') }}</button>
     </form>
   {% elif not ooo.has_substitute %}
     <p class="mb-0 text-secondary">{{ t('ooo.no_substitute') }}</p>
@@ -36,9 +36,9 @@
     <form method="post" action="{{ url_for('me.out_of_office') }}" class="row g-2 align-items-end m-0">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="state" value="on">
-      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="ooo-from">{{ t('ooo.from') }}</label><input class="form-control" style="min-height:44px" id="ooo-from" name="date_from" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
-      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="ooo-to">{{ t('ooo.to') }}</label><input class="form-control" style="min-height:44px" id="ooo-to" name="date_to" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
-      <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('ooo.switch_on') }}</button></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="ooo-from">{{ t('ooo.from') }}</label><input class="form-control" id="ooo-from" name="date_from" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="ooo-to">{{ t('ooo.to') }}</label><input class="form-control" id="ooo-to" name="date_to" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" type="submit">{{ t('ooo.switch_on') }}</button></div>
     </form>
   {% endif %}
 </section>
@@ -62,10 +62,13 @@
 </form>
 
 {% if not rows %}
-<p class="ehire-empty text-secondary py-4">{{ t('list.empty.' ~ tab) }}</p>
+<div class="ehire-empty" role="status">
+  <p>{{ t('list.empty.' ~ tab) }}</p>
+  {% if tab == 'mine' and not q and can('request.create') %}<a class="btn btn-primary" href="{{ url_for('requests.new') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ t('list.new') }}</a>{% endif %}
+</div>
 {% else %}
 <div class="ehire-rows">
-  <div class="row g-2 ehire-rows__head d-none d-md-flex small text-secondary">
+  <div class="row g-2 ehire-rows__head ehire-colhead d-none d-md-flex">
     <div class="col-md-3">{{ t('list.col.number') }}</div>
     <div class="col-md-2">{{ t('list.col.position') }}</div>
     <div class="col-md-3">{{ t('list.col.facility') }}</div>

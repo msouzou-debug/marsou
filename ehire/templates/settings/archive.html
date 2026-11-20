@@ -5,7 +5,7 @@
 {% include "settings/_nav.html" %}
 {% if off %}<div class="alert alert-info" role="status">{{ t('settings.archive.off') }}</div>{% endif %}
 {% if not rows %}
-<p class="text-secondary py-4">{{ t('settings.archive.empty') }}</p>
+<div class="ehire-empty" role="status"><p>{{ t('settings.archive.empty') }}</p></div>
 {% else %}
 <ul class="list-group mb-4 ehire-archive">
   {% for d in rows %}
@@ -30,11 +30,11 @@
     </div>
     {% if d.pdf_storage_ref or d.state in ('failed', 'blocked') %}
     <div class="d-flex flex-wrap gap-2 mt-2">
-      {% if d.pdf_storage_ref %}<a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.archive_pdf', deposit_id=d.id) }}" target="_blank" rel="noopener">{{ t('settings.archive.view_pdf') }}</a>{% endif %}
+      {% if d.pdf_storage_ref %}<a class="btn btn-outline-primary d-inline-flex align-items-center" href="{{ url_for('settings.archive_pdf', deposit_id=d.id) }}" target="_blank" rel="noopener">{{ t('settings.archive.view_pdf') }}</a>{% endif %}
       {% if d.state in ('failed', 'blocked') %}
       <form method="post" action="{{ url_for('settings.archive_retry', deposit_id=d.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="btn btn-outline-secondary btn-sm" style="min-height:44px" type="submit">{{ t('settings.archive.retry') }}</button>
+        <button class="btn btn-outline-secondary" type="submit">{{ t('settings.archive.retry') }}</button>
       </form>
       {% endif %}
     </div>

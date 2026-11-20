@@ -22,7 +22,7 @@
     </div>
     {% if fin.enabled %}
     <div class="col-12 col-md-6 d-flex align-items-end">
-      <button class="btn btn-outline-primary ehire-fin__refresh" style="min-height:44px" type="submit" name="refresh" value="1" formnovalidate data-ehire-refresh><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ t('card.fin.refresh') }}</button>
+      <button class="btn btn-outline-primary ehire-fin__refresh" type="submit" name="refresh" value="1" formnovalidate data-ehire-refresh><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ t('card.fin.refresh') }}</button>
     </div>
     {% endif %}
     <div class="col-12" data-ehire-fin-status aria-live="polite">
@@ -37,7 +37,7 @@
     {% for period in ('prev_year', 'ytd') %}
     <div class="col-12 col-md-6">
       <fieldset class="ehire-fin__period border rounded p-3 h-100">
-        <legend class="h6 float-none w-auto px-1 mb-2">{{ t('card.fin.' ~ period) }}</legend>
+        <legend>{{ t('card.fin.' ~ period) }}</legend>
         {% for line in ('visits', 'procedures', 'revenue', 'payroll_cost', 'headcount') %}
           {{ field(c, 'fin.%s.%s' % (period, line), 'card.fin.' ~ ('payroll' if line == 'payroll_cost' else line), readonly=fin.readonly and line in ('visits', 'procedures', 'revenue'), line=period ~ '.' ~ line, data=period ~ '.' ~ line, inputmode='decimal' if line in ('revenue', 'payroll_cost', 'headcount') else 'numeric') }}
         {% endfor %}

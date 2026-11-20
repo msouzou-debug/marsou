@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ t('settings.users') }} · {{ t('app.name') }}{% endblock %}
 {% macro lang_select(selected, id) %}
-<select class="form-select" name="language" id="{{ id }}" style="min-height:44px">
+<select class="form-select" name="language" id="{{ id }}">
   {% for code in ('el', 'en') %}<option value="{{ code }}" {{ 'selected' if code == selected }}>{{ code | upper }}</option>{% endfor %}
 </select>
 {% endmacro %}
 {% macro manager_select(selected, own_id, id) %}
-<select class="form-select" name="line_manager_user_id" id="{{ id }}" style="min-height:44px">
+<select class="form-select" name="line_manager_user_id" id="{{ id }}">
   <option value="">{{ t('settings.none') }}</option>
   {% for m in managers if m.id != own_id %}<option value="{{ m.id }}" {{ 'selected' if m.id == selected }}>{{ m.full_name or m.username }}</option>{% endfor %}
 </select>
@@ -28,25 +28,29 @@
 
 <form method="post" action="{{ url_for('settings.users_add') }}" class="border rounded p-3 mb-4" autocomplete="off">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="row g-2 align-items-end">
+  <div class="row g-3 align-items-start">
     <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-source">{{ t('settings.user.source') }}</label>
-      <select class="form-select" style="min-height:44px" id="n-source" name="auth_source" aria-describedby="n-source-hint">
+      <select class="form-select" id="n-source" name="auth_source" aria-describedby="n-source-hint">
         <option value="local">{{ t('settings.user.source.local') }}</option>
         <option value="ad">{{ t('settings.user.source.ad') }}</option>
       </select>
       <div class="form-text" id="n-source-hint">{{ t('settings.user.ad_hint') }}</div></div>
-    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-username">{{ t('settings.user.username') }}</label><input class="form-control" style="min-height:44px" id="n-username" name="username" required></div>
-    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-name">{{ t('settings.user.full_name') }}</label><input class="form-control" style="min-height:44px" id="n-name" name="full_name" required></div>
-    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-email">{{ t('settings.user.email') }}</label><input class="form-control" style="min-height:44px" id="n-email" name="email" type="email"></div>
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-username">{{ t('settings.user.username') }}</label><input class="form-control" id="n-username" name="username" required></div>
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-name">{{ t('settings.user.full_name') }}</label><input class="form-control" id="n-name" name="full_name" required></div>
+  </div>
+  <div class="row g-3 align-items-start mt-0">
+    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-email">{{ t('settings.user.email') }}</label><input class="form-control" id="n-email" name="email" type="email"></div>
     <div class="col-6 col-md-2"><label class="form-label small mb-1" for="n-lang">{{ t('settings.user.language') }}</label>{{ lang_select('el', 'n-lang') }}</div>
-    <div class="col-12 col-md-4"><label class="form-label small mb-1" for="n-boss">{{ t('settings.col.line_manager') }}</label>{{ manager_select(none, none, 'n-boss') }}</div>
-    <div class="col-12 col-md-4">
+    <div class="col-12 col-md-6"><label class="form-label small mb-1" for="n-boss">{{ t('settings.col.line_manager') }}</label>{{ manager_select(none, none, 'n-boss') }}</div>
+  </div>
+  <div class="row g-3 align-items-start mt-0">
+    <div class="col-12 col-md-8 col-lg-6">
       <label class="form-label small mb-1" for="n-pw">{{ t('settings.user.temp_password') }}</label>
-      <input class="form-control" style="min-height:44px" id="n-pw" name="temp_password" type="password" minlength="{{ min_length }}" autocomplete="new-password" aria-describedby="n-pw-hint">
+      <input class="form-control" id="n-pw" name="temp_password" type="password" minlength="{{ min_length }}" autocomplete="new-password" aria-describedby="n-pw-hint">
       <div class="form-text" id="n-pw-hint">{{ t('settings.user.temp_password_hint') }} {{ t('settings.user.password_local_only') }}</div>
     </div>
-    <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" style="min-height:44px" type="submit">{{ t('settings.add') }}</button></div>
   </div>
+  <div class="mt-3 d-grid d-md-block"><button class="btn btn-primary" type="submit">{{ t('settings.add') }}</button></div>
 </form>
 
 {% for u in rows %}
@@ -56,28 +60,28 @@
     <div class="col-12 col-md-2"><div class="small text-secondary">{{ t('settings.user.username') }}</div><div class="fw-semibold">{{ u.username }}</div>
       <div class="small text-secondary">{{ t('settings.user.source') }}: {{ t('settings.user.source.' ~ u.auth_source) }}</div>
       {% if u.id in pending %}<span class="badge text-bg-warning">{{ t('settings.user.pending') }}</span>{% endif %}</div>
-    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-name">{{ t('settings.user.full_name') }}</label><input class="form-control" style="min-height:44px" id="u{{ u.id }}-name" name="full_name" value="{{ u.full_name }}" required></div>
-    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-email">{{ t('settings.user.email') }}</label><input class="form-control" style="min-height:44px" id="u{{ u.id }}-email" name="email" type="email" value="{{ u.email or '' }}"></div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-name">{{ t('settings.user.full_name') }}</label><input class="form-control" id="u{{ u.id }}-name" name="full_name" value="{{ u.full_name }}" required></div>
+    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-email">{{ t('settings.user.email') }}</label><input class="form-control" id="u{{ u.id }}-email" name="email" type="email" value="{{ u.email or '' }}"></div>
     <div class="col-6 col-md-1"><label class="form-label small mb-1" for="u{{ u.id }}-lang">{{ t('settings.user.language') }}</label>{{ lang_select(u.language, 'u' ~ u.id ~ '-lang') }}</div>
     <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-boss">{{ t('settings.col.line_manager') }}</label>{{ manager_select(u.line_manager_user_id, u.id, 'u' ~ u.id ~ '-boss') }}</div>
-    <div class="col-12 col-md-auto d-flex flex-wrap gap-2 align-items-center">
+    <div class="col-12 col-xxl-auto d-flex flex-wrap gap-2 align-items-center justify-content-xxl-end">
       <span class="badge {{ 'text-bg-success' if u.is_active else 'text-bg-secondary' }}">{{ t('settings.active') if u.is_active else t('settings.inactive') }}</span>
-      <button class="btn btn-outline-primary" style="min-height:44px" type="submit">{{ t('settings.save') }}</button>
-      <button class="btn btn-outline-secondary" style="min-height:44px" type="submit" formaction="{{ url_for('settings.users_toggle', user_id=u.id) }}">{{ t('settings.deactivate') if u.is_active else t('settings.activate') }}</button>
+      <button class="btn btn-outline-primary" type="submit">{{ t('settings.save') }}</button>
+      <button class="btn {{ 'btn-outline-danger' if u.is_active else 'btn-outline-secondary' }}" type="submit" formaction="{{ url_for('settings.users_toggle', user_id=u.id) }}">{{ t('settings.deactivate') if u.is_active else t('settings.activate') }}</button>
     </div>
   </div>
 </form>
 {% if u.auth_source == 'local' and u.id != me.id %}
 <details class="border-bottom pb-2">
-  <summary class="small py-2" style="min-height:44px;cursor:pointer">{{ t('settings.user.set_password') }}: {{ u.username }}</summary>
+  <summary class="small py-2">{{ t('settings.user.set_password') }}: {{ u.username }}</summary>
   <form method="post" action="{{ url_for('settings.users_password', user_id=u.id) }}" class="row g-2 align-items-end pb-2" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="col-12 col-md-5">
       <label class="form-label small mb-1" for="u{{ u.id }}-pw">{{ t('settings.user.new_password') }}</label>
-      <input class="form-control" style="min-height:44px" id="u{{ u.id }}-pw" name="new_password" type="password" minlength="{{ min_length }}" required autocomplete="new-password" aria-describedby="u{{ u.id }}-pw-hint">
+      <input class="form-control" id="u{{ u.id }}-pw" name="new_password" type="password" minlength="{{ min_length }}" required autocomplete="new-password" aria-describedby="u{{ u.id }}-pw-hint">
       <div class="form-text" id="u{{ u.id }}-pw-hint">{{ t('settings.user.temp_password_hint') }}</div>
     </div>
-    <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" style="min-height:44px" type="submit">{{ t('settings.user.set_password') }}</button></div>
+    <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.user.set_password') }}</button></div>
   </form>
 </details>
 {% endif %}
