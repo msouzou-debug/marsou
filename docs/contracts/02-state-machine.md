@@ -127,6 +127,8 @@ Closing: `approved`, `rejected` and `withdrawn` set `closed_at`, close every tas
 
 Each event carries request id, recipient user id and the data the email needs. The engine decides who is told; the notifier decides how.
 
+`request_withdrawn` (T11 and T12) goes to the assignee of every open or paused task, once each, and not to the requester through that list (the requester has the event from the closing itself). On a returned request every task is paused, so those people are told too. The notifier leaves out the person who acted.
+
 ## 8. Time rules
 
 All pure functions taking `now`, the holiday set and the settings.

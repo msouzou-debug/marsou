@@ -251,7 +251,8 @@ One key per row. `strings` writes the Greek.
 | `settings.outbox.empty` | No emails yet. |
 | `settings.outbox.preview` | Show the email |
 | `settings.same_person` | The holder and the substitute can't be the same person. |
-| `settings.reassign` | Move {n} open tasks to the new holder |
+| `settings.reassign.one` | Move 1 open task to the new holder |
+| `settings.reassign.many` | Move {n} open tasks to the new holder |
 | `settings.escalation_order` | Escalation must come after the reminder. |
 | `settings.self_deactivate` | You can't deactivate your own account. |
 | `settings.user.email_invalid` | Enter a valid email address. |
@@ -320,7 +321,8 @@ One key per row. `strings` writes the Greek.
 | `export.notes.rows` | Rows: the requests you may see, with the tab and search you had on the list. |
 | `export.notes.formulas` | The Summary sheet is calculated by formulas from the Requests sheet. Change a row there and the summary follows. |
 | `export.notes.days` | Working days waiting are counted on the export date and do not update. |
-| `login.locked` | Too many failed attempts. Try again in {n} minutes. |
+| `login.locked.one` | Too many failed attempts. Try again in 1 minute. |
+| `login.locked.many` | Too many failed attempts. Try again in {n} minutes. |
 | `docs.error.unsafe` | The file "{name}" can't be accepted. Save it again from Word or Excel and try once more. |
 | `error.503` | The service is being upgraded. Try again in a few minutes. |
 

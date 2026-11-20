@@ -18,7 +18,7 @@ from ..auth import current_user, hash_password
 from ..extensions import db
 from ..models import (ARCHIVE_SITE_CODES, CATEGORIES, CENTRAL_ROLES, ROLES, CostCentre, Directorate, Facility,
                       OaySpecialty, Position, RoleAssignment, User, audit)
-from .roles import SINGLE_DIRECTORATE_ROLES, _active, _ended_yesterday
+from .roles import SINGLE_DIRECTORATE_ROLES, _active, _ended_yesterday, active_admin_ids
 from .users import EMAIL, USERNAME
 
 MAX_BYTES = 5 * 1024 * 1024
@@ -194,6 +194,7 @@ def validate(data, structural):
     _specialties(chk, data.get("oay_specialties", []))
     users_final = _users(chk, data.get("users", []))
     _role_holders(chk, data.get("role_holders", []), known_dirs, sci, users_final)
+    _keep_an_administrator(chk, data.get("users", []), users_final)
     return chk.errors, chk.ops
 
 
@@ -421,6 +422,21 @@ def _role_holders(chk, rows, known_dirs, sci, users_final):
         values = {"role": role, "directorate_code": dcode or None, "username": c["username"],
                   "substitute_username": c["substitute_username"] or None}
         chk.ops.append((s, _role_action(values, dirs, users, multi), marker, values))
+
+
+def _keep_an_administrator(chk, user_rows, users_final):
+    """The import must not leave the system with no active administrator. Administrators after the import are the
+    current ones and those the file adds, still active at the end."""
+    now_admins = {db.session.get(User, uid).username.lower() for uid in active_admin_ids()}
+    if not now_admins:
+        return
+    after = {name for name in now_admins if users_final.get(name, True)}
+    after |= {op[3]["username"].lower() for op in chk.ops
+              if op[0] == "role_holders" and op[3]["role"] == "admin" and users_final.get(op[3]["username"].lower(), False)}
+    if after:
+        return
+    line = next((r["row"] for r in user_rows if r["cells"]["username"].lower() in now_admins), 0)
+    chk.err("users", line, "active", "import.err.last_admin")
 
 
 def _role_action(values, dirs, users, multi):

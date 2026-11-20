@@ -4,7 +4,7 @@
   <p class="ehire-statusline mb-1">
     {% set who = t('role.' ~ w.role) ~ (' (' ~ w.who ~ ')' if w.who else '') %}
     {{ t('statusline.waiting_on', who=who) }}
-    <span class="text-secondary">· {{ t('statusline.days.one') if w.days == 1 else t('statusline.days.many', n=w.days) }}{% if w.reminded %}, {{ t('statusline.reminded') }}{% endif %}{% if w.escalated %}, {{ t('statusline.escalated') }}{% endif %}</span>
+    <span class="text-secondary">· {{ t('statusline.days.zero') if w.days == 0 else (t('statusline.days.one') if w.days == 1 else t('statusline.days.many', n=w.days)) }}{% if w.reminded %}, {{ t('statusline.reminded') }}{% endif %}{% if w.escalated %}, {{ t('statusline.escalated') }}{% endif %}</span>
   </p>
   {% endfor %}
 {% elif line.kind == 'returned' %}

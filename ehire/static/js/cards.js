@@ -11,6 +11,14 @@
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     focusTarget.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     (inner || focusTarget).focus({ preventScroll: true });
+    // A failed post: take the person to the first field with a problem, so the message sits next to it.
+    var bad = inner ? focusTarget.querySelector(".is-invalid, [aria-invalid='true']") : null;
+    if (bad) {
+      var lesser = bad.closest("details");
+      if (lesser) { lesser.open = true; }
+      bad.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+      bad.focus({ preventScroll: true });
+    }
   }
 
   // 2. A comment is needed before sending a negative answer, a rejection or a return. The server enforces it.
@@ -34,7 +42,8 @@
       if (needs && !box.value.trim()) {
         ev.preventDefault();
         show(true);
-        box.focus();
+        box.focus({ preventScroll: true });
+        box.scrollIntoView({ behavior: "auto", block: "center" });
         return;
       }
       // Double submit: block the second click after the browser has read the form.

@@ -13,21 +13,34 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/documents.css') }}">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/ehire_mark.svg') }}">
 </head>
-<body>
+<body data-pw-show="{{ t('pw.show') }}" data-pw-hide="{{ t('pw.hide') }}" data-pw-caps-on="{{ t('pw.caps_on') }}" data-pw-caps-off="{{ t('pw.caps_off') }}" data-pw-kbd-el="{{ t('pw.kbd_el') }}" data-pw-kbd-en="{{ t('pw.kbd_en') }}">
   {% block frame %}
   {% set me = current_user() %}
+  {% if me %}
+  {# Phone only: a dark bar with the menu button, as in eFinance. Hidden by CSS from 992 px. #}
+  <div class="ehire-mobilebar">
+    <button class="ehire-mobilebar__burger" type="button" data-bs-toggle="offcanvas" data-bs-target="#ehire-side" aria-controls="ehire-side" aria-label="{{ t('nav.menu') }}"><i class="bi bi-list" aria-hidden="true"></i></button>
+    <a class="ehire-mobilebar__title" href="{{ url_for('main.home') }}">{{ t('app.name') }}</a>
+  </div>
+  {% endif %}
   <div class="ehire-shell{% if not me %} ehire-shell--guest{% endif %}">
     {% if me %}
     <aside class="ehire-side offcanvas-lg offcanvas-start" tabindex="-1" id="ehire-side" aria-label="{{ t('app.name') }}">
-      <a class="ehire-side__brand" href="{{ url_for('main.home') }}">
-        <img class="ehire-side__app" src="{{ url_for('static', filename='img/ehire_logo_white.svg') }}" alt="{{ t('app.name') }}">
-        <span class="ehire-side__module">{{ t('module.position_approval') }}</span>
-      </a>
+      <div class="ehire-side__brand">
+        <a href="{{ url_for('main.home') }}">
+          <img class="ehire-side__app" src="{{ url_for('static', filename='img/ehire_logo_white.svg') }}" alt="{{ t('app.name') }}">
+          <small>{{ t('module.position_approval') }}</small>
+        </a>
+      </div>
       <nav class="ehire-menu">
         {% set ep = request.endpoint or '' %}
         <a class="ehire-menu__link{% if request.blueprint == 'requests' and ep != 'requests.new' %} is-current{% endif %}" href="{{ url_for('requests.index') }}"><i class="bi bi-inboxes" aria-hidden="true"></i><span>{{ t('nav.requests') }}</span></a>
         {% if can('request.create') %}
         <a class="ehire-menu__link{% if ep == 'requests.new' %} is-current{% endif %}" href="{{ url_for('requests.new') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>{{ t('list.new') }}</span></a>
+        {% endif %}
+        <a class="ehire-menu__link{% if request.blueprint == 'manuals' %} is-current{% endif %}" href="{{ url_for('manuals.index') }}"><i class="bi bi-book" aria-hidden="true"></i><span>{{ t('nav.manuals') }}</span></a>
+        {% if can('audit.view') or can('settings.manage') %}
+        <div class="ehire-menu__section">{{ t('nav.system') }}</div>
         {% endif %}
         {% if can('audit.view') %}
         <a class="ehire-menu__link{% if request.blueprint == 'audit' %} is-current{% endif %}" href="{{ url_for('audit.index') }}"><i class="bi bi-journal-text" aria-hidden="true"></i><span>{{ t('nav.audit') }}</span></a>
@@ -36,7 +49,7 @@
         {% set sm = settings_menu() %}
         {% set kind = (request.view_args or {}).get('kind') %}
         <details class="ehire-menu__group"{% if request.blueprint == 'settings' %} open{% endif %}>
-          <summary class="ehire-menu__link"><i class="bi bi-gear" aria-hidden="true"></i><span>{{ t('nav.settings') }}</span><i class="bi bi-chevron-down ehire-menu__chev" aria-hidden="true"></i></summary>
+          <summary class="ehire-menu__link{% if request.blueprint == 'settings' %} is-current{% endif %}"><i class="bi bi-gear" aria-hidden="true"></i><span>{{ t('nav.settings') }}</span><i class="bi bi-chevron-down ehire-menu__chev" aria-hidden="true"></i></summary>
           <div class="ehire-menu__sub">
             {% for page in sm.pages %}
             <a class="ehire-menu__sublink{% if ep.startswith('settings.' ~ page) %} is-current{% endif %}" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}</a>
@@ -49,35 +62,38 @@
           </div>
         </details>
         {% endif %}
-        <a class="ehire-menu__link{% if request.blueprint == 'manuals' %} is-current{% endif %}" href="{{ url_for('manuals.index') }}"><i class="bi bi-book" aria-hidden="true"></i><span>{{ t('nav.manuals') }}</span></a>
       </nav>
-      <div class="ehire-side__foot">
-        <img src="{{ url_for('static', filename='img/okypy_logo_white.png') }}" alt="{{ t('app.org') }}">
+      <div class="ehire-side__org"><img src="{{ url_for('static', filename='img/okypy_logo_white.png') }}" alt="{{ t('app.org') }}"></div>
+      <div class="ehire-userinfo">
+        <div class="ehire-userinfo__name"><i class="bi bi-person-circle" aria-hidden="true"></i> <strong>{{ me.full_name }}</strong></div>
+        {% set held = me.roles() | list | sort %}
+        {% set shown = (held | reject('equalto', 'requester') | list) or held %}
+        {% if shown %}<div class="ehire-userinfo__roles">{% for r in shown[:2] %}<span class="ehire-userinfo__role">{{ t('role.' ~ r) }}</span>{% endfor %}</div>{% endif %}
+        <div class="ehire-userinfo__lang" aria-label="{{ t('nav.language') }}">
+          <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>EL</a><span aria-hidden="true">|</span><a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a>
+        </div>
+        <div class="ehire-userinfo__links">
+          {% if me.auth_source == 'local' %}<a class="ehire-userinfo__pw" href="{{ url_for('auth.password') }}"><i class="bi bi-key" aria-hidden="true"></i> {{ t('nav.password') }}</a>{% endif %}
+          <form method="post" action="{{ url_for('auth.logout') }}" class="m-0 d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="ehire-userinfo__out" type="submit"><i class="bi bi-box-arrow-left" aria-hidden="true"></i> {{ t('nav.logout') }}</button>
+          </form>
+        </div>
       </div>
     </aside>
     {% endif %}
     <div class="ehire-body">
+      {% if not me %}
       <header class="ehire-top">
-        {% if me %}
-        <button class="ehire-top__menu d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#ehire-side" aria-controls="ehire-side" aria-label="{{ t('nav.menu') }}"><i class="bi bi-list" aria-hidden="true"></i></button>
-        <a class="ehire-top__brand d-lg-none" href="{{ url_for('main.home') }}"><img src="{{ url_for('static', filename='img/ehire_logo.svg') }}" alt="{{ t('app.name') }}"></a>
-        {% else %}
         <a class="ehire-top__brand" href="{{ url_for('main.home') }}"><img src="{{ url_for('static', filename='img/ehire_logo.svg') }}" alt="{{ t('app.name') }}"></a>
-        {% endif %}
         <div class="ehire-top__right">
-          {% if me %}<span class="ehire-user__name"><i class="bi bi-person-circle" aria-hidden="true"></i> {{ me.full_name }}</span>{% endif %}
           <span class="ehire-lang" aria-label="{{ t('nav.language') }}">
             <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>Ελληνικά</a>
             <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a>
           </span>
-          {% if me %}
-          <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn btn-sm btn-outline-secondary" style="min-height:36px" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>{{ t('nav.logout') }}</button>
-          </form>
-          {% endif %}
         </div>
       </header>
+      {% endif %}
       <main class="ehire-main">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% for category, message in messages %}
@@ -92,8 +108,8 @@
     </div>
   </div>
   {% endblock %}
-  <div class="ehire-accent-bar"></div>
   <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/password-help.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/requests.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/documents.js') }}" defer></script>
   {% block scripts %}{% endblock %}

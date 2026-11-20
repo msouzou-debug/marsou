@@ -80,14 +80,9 @@ def create_app(config=Config):
     app.register_blueprint(manuals_bp)
     app.register_blueprint(settings_bp)
 
-    # The requests blueprint is built by another agent. Until it exists, "/" shows home.html.
-    try:
-        from .blueprints.requests import bp as requests_bp
-    except ImportError:
-        app.config["REQUESTS_READY"] = False
-    else:
-        app.register_blueprint(requests_bp)
-        app.config["REQUESTS_READY"] = True
+    from .blueprints.requests import bp as requests_bp
+
+    app.register_blueprint(requests_bp)
 
     from .blueprints.me import bp as me_bp
 

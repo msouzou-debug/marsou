@@ -60,6 +60,17 @@ def enabled():
     return bool(current_app.config.get("EHIRE_AD_ENABLED"))
 
 
+def configured():
+    """True when AD sign-in is switched on and has what it needs to reach a server. Tests that inject a fake
+    directory count as configured."""
+    if not enabled():
+        return False
+    if current_app.extensions.get("ehire_ad") is not None:
+        return True
+    cfg = current_app.config
+    return bool(cfg.get("EHIRE_AD_SERVER") and cfg.get("EHIRE_AD_DOMAIN"))
+
+
 def get_directory():
     """The directory for this app. Tests put a fake in `app.extensions['ehire_ad']`."""
     fake = current_app.extensions.get("ehire_ad")

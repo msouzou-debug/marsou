@@ -91,3 +91,70 @@
 
 /* Figures that come from eFinance are read-only: grey so they don't look typed. */
 .ehire-fin .form-control[readonly] { background-color: var(--bs-secondary-bg); color: var(--bs-body-color); cursor: default; }
+
+/* Request page: two columns from 992 px (work left, status column right: route, then history), one column on a phone.
+   Phone order: header, status panel (route folded away), action card, the rest, history last. */
+.ehire-req { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 1.5rem; }
+.ehire-req__head, .ehire-req__side, .ehire-req__main { min-width: 0; }
+.ehire-req__head { margin-bottom: 1rem; order: 1; }
+.ehire-req__main { order: 3; }
+.min-w-0 { min-width: 0; }
+.flex-none { flex: none; }
+@media (max-width: 991.98px) {
+  .ehire-req__side, .ehire-req__stick { display: contents; }
+  .ehire-req__side .ehire-statuspanel { margin-bottom: 1rem; order: 2; }
+  .ehire-req__side .ehire-historypanel { order: 4; margin-bottom: 1rem; }
+}
+@media (min-width: 992px) {
+  .ehire-req { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); grid-template-rows: auto 1fr; align-items: start; }
+  .ehire-req__head { grid-column: 1; grid-row: 1; }
+  .ehire-req__main { grid-column: 1; grid-row: 2; }
+  .ehire-req__side { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; }
+  .ehire-req__stick { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 1rem; } /* request-side.js lowers top when the column is taller than the screen */
+}
+.ehire-statuspanel { border: 1px solid var(--ehire-line); padding: 1rem; background: #fff; border-radius: 8px; }
+.ehire-statuspanel__line { margin-bottom: .75rem; }
+.ehire-statuspanel__archive { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--ehire-line-row); }
+.ehire-touch { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* Route fold: a button on a phone, always open from 992 px */
+.ehire-route-details { margin: 0; }
+.ehire-route-details__summary { gap: .5rem; padding: 0 .75rem; border: 1px solid var(--ehire-line); border-radius: 6px; font-weight: 700; color: var(--ehire-blue-deep); list-style: none; }
+.ehire-route-details__summary::-webkit-details-marker { display: none; }
+.ehire-route-details[open] > .ehire-route-details__summary { margin-bottom: 1rem; }
+.ehire-route-details[open] .ehire-route-details__chev { transform: rotate(180deg); }
+.ehire-route-details__summary:focus-visible { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }
+@media (min-width: 992px) { .ehire-route-details > .ehire-route-details__summary { display: none; } .ehire-route-details[open] > .ehire-route-details__summary { margin: 0; } }
+@media (prefers-reduced-motion: reduce) { .ehire-route-details__chev { transition: none; } }
+
+/* Key facts at the top of an action card (phone) */
+.ehire-keyfacts { margin: 0 0 1rem; padding: .625rem .75rem; background: var(--ehire-page); border-radius: 6px; font-size: .9375rem; }
+.ehire-keyfacts > div { padding: .125rem 0; }
+.ehire-keyfacts dt { font-size: .8125rem; font-weight: 400; color: var(--ehire-text-secondary); }
+.ehire-keyfacts dd { margin: 0; font-weight: 700; }
+.ehire-clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font-weight: 400 !important; }
+
+/* Phone: nothing wider than the screen, 44 px controls, 16 px inputs (iOS does not zoom), main buttons full width */
+@media (max-width: 991.98px) {
+  .ehire-main { overflow-wrap: anywhere; }
+  .ehire-card__form .form-control, .ehire-card__form .form-select, .ehire-form .form-control, .ehire-form .form-select, .ehire-search .form-control { font-size: 1rem; }
+  .ehire-card__main .btn, .ehire-card__lesser .btn, .ehire-card__lesser summary { width: 100%; min-height: 48px; }
+  .ehire-card .card-body { padding: 1rem .875rem; }
+  .ehire-card .ehire-card__main { position: static; }
+  .ehire-card .invalid-feedback { font-size: .9375rem; }
+}
+.ehire-fin-view__period dl > div > * { min-width: 0; overflow-wrap: anywhere; }
+.ehire-card .form-control.is-invalid, .ehire-card .ehire-card__form fieldset:has(.invalid-feedback) { scroll-margin-top: 5rem; }
+
+/* Small tables turn into one block per row on a phone, each cell with its column name */
+@media (max-width: 575.98px) {
+  .ehire-stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ehire-stack-table, .ehire-stack-table tbody, .ehire-stack-table tr, .ehire-stack-table td { display: block; width: 100%; }
+  .ehire-stack-table tr { padding: .5rem 0; border-bottom: 1px solid var(--ehire-line-row); }
+  .ehire-stack-table td { border: 0; padding: .125rem 0 !important; }
+  .ehire-stack-table td::before { content: attr(data-label); display: block; font-size: .8125rem; color: var(--ehire-text-secondary); }
+}
+
+.ehire-historypanel { margin-bottom: 0; }
+.ehire-historypanel h2 { margin-bottom: .75rem !important; }
+.ehire-main section.ehire-statuspanel[aria-labelledby^="sec-"] { padding: 1rem; }

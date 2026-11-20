@@ -8,6 +8,7 @@ from datetime import timedelta
 from flask import abort, flash, redirect, render_template, request, url_for
 
 from .. import localtime
+from ..i18n import plural_key
 from ..auth import current_user, permission_required
 from ..extensions import db
 from ..models import CENTRAL_ROLES, Directorate, Request, RoleAssignment, Task, User, audit
@@ -18,12 +19,18 @@ from ..workflow.assign import resolve_assignee
 from ..workflow.model import Event
 from . import bp
 
+MULTI_HOLDER_CENTRAL_ROLES = ("viewer", "admin")  # many holders, never a Directorate
 SINGLE_DIRECTORATE_ROLES = ("dir_accountant", "sci_director", "dir_hr_officer", "dir_exec")
 
 
 def _active(role, directorate_id):
     rows = RoleAssignment.query.filter_by(role=role, directorate_id=directorate_id).order_by(RoleAssignment.id).all()
     return [a for a in rows if a.is_active_on()]
+
+
+def active_admin_ids():
+    """Ids of the active users who hold the admin role now."""
+    return {a.user_id for a in _active("admin", None) if a.user is not None and a.user.is_active}
 
 
 def _roles_for(directorate):
@@ -89,7 +96,9 @@ def roles():
         if directorate is not None:
             requesters = [a.user for a in _active("requester", directorate.id)]
         groups.append({"directorate": directorate, "rows": rows, "requesters": requesters})
-    return render_template("settings/roles.html", groups=groups, users=users)
+    others = [{"role": role, "holders": [a.user for a in _active(role, None) if a.user is not None]}
+              for role in MULTI_HOLDER_CENTRAL_ROLES]
+    return render_template("settings/roles.html", groups=groups, users=users, others=others)
 
 
 @bp.post("/roles/save")
@@ -163,6 +172,60 @@ def requester_remove():
     return redirect(url_for("settings.roles"))
 
 
+def _multi_role():
+    role = request.form.get("role") or ""
+    if role not in MULTI_HOLDER_CENTRAL_ROLES:
+        abort(404)
+    return role
+
+
+@bp.post("/roles/holder/add")
+@permission_required("settings.manage")
+def holder_add():
+    """Add a holder of `viewer` or `admin`. Many people may hold each; neither belongs to a Directorate."""
+    role = _multi_role()
+    user = _user_arg("user_id")
+    if user is None:
+        flash("validation.required", "danger")
+        return redirect(url_for("settings.roles"))
+    row = RoleAssignment.query.filter_by(user_id=user.id, role=role, directorate_id=None).first()
+    if row is None:
+        row = RoleAssignment(user_id=user.id, role=role, directorate_id=None)
+        db.session.add(row)
+    row.active_from = row.active_to = None
+    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id=role,
+          detail={"role": role, "directorate_id": None, "action": "add", "user_id": user.id})
+    db.session.commit()
+    flash("settings.saved", "success")
+    return redirect(url_for("settings.roles"))
+
+
+@bp.post("/roles/holder/remove")
+@permission_required("settings.manage")
+def holder_remove():
+    role = _multi_role()
+    raw = (request.form.get("user_id") or "").strip()
+    user = db.session.get(User, int(raw)) if raw.isdigit() else abort(404)  # an inactive holder can still be removed
+    if user is None:
+        abort(404)
+    row = RoleAssignment.query.filter_by(user_id=user.id, role=role, directorate_id=None).first()
+    if row is None or not row.is_active_on():
+        abort(404)
+    if role == "admin":
+        if user.id == current_user().id:
+            flash("settings.admin_self_remove", "danger")
+            return redirect(url_for("settings.roles"))
+        if active_admin_ids() == {user.id}:
+            flash("settings.last_admin", "danger")
+            return redirect(url_for("settings.roles"))
+    row.active_to = _ended_yesterday()
+    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id=role,
+          detail={"role": role, "directorate_id": None, "action": "remove", "user_id": user.id})
+    db.session.commit()
+    flash("settings.saved", "success")
+    return redirect(url_for("settings.roles"))
+
+
 @bp.post("/roles/reassign")
 @permission_required("settings.manage")
 def roles_reassign():
@@ -197,7 +260,7 @@ def roles_reassign():
           detail={"role": role, "directorate_id": did, "action": "reassign_open_tasks", "moved": moved})
     db.session.commit()
     if moved:
-        flash_key("ooo.moved.one" if moved == 1 else "ooo.moved.many", "success", n=moved, who=", ".join(names))
+        flash_key(plural_key("settings.reassigned", moved), "success", n=moved, who=", ".join(names))
     else:
         flash("settings.saved", "success")
     return redirect(url_for("settings.roles"))

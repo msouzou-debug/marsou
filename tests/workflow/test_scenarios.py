@@ -164,3 +164,25 @@ def test_scenario_16_four_posts_resignation_needs_cost_per_leaver():
     sim.chr_({"new_hire_cost": "400", "leaver_costs": costs})
     sim.fin()
     assert sim.state.current_step == 5
+
+
+def test_withdrawal_of_a_returned_request_also_tells_people_with_paused_tasks():
+    """Contract 02 section 7: on a returned request every task is paused; the people who held them still hear."""
+    sim = Sim()
+    sim.through_step2()
+    sim.act("sci1", "return", "sci_director", comment="x")
+    paused = {t.assignee_user_id for t in sim.state.tasks if t.status == "paused"}
+    assert paused and not any(t.status == "open" for t in sim.state.tasks)
+    res = sim.act("req1", "withdraw", "requester", comment="plan dropped")
+    told = [e.recipient_user_id for e in res.events if e.kind == "request_withdrawn"]
+    assert set(told) == paused | {"req1"} and len(told) == len(set(told))
+
+
+def test_automatic_withdrawal_also_tells_people_with_paused_tasks():
+    sim = Sim()
+    sim.through_step2()
+    sim.act("sci1", "return", "sci_director", comment="x")
+    paused = {t.assignee_user_id for t in sim.state.tasks if t.status == "paused"}
+    res = sim.system_withdraw("auto")
+    told = [e.recipient_user_id for e in res.events if e.kind == "request_withdrawn"]
+    assert set(told) == paused | {"req1"} and len(told) == len(set(told))

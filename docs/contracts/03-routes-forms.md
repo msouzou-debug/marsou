@@ -31,8 +31,12 @@ Server-rendered pages. Forms post back with a CSRF token. After a successful pos
 | GET `/requests/export.xlsx` | `request.view_all` or `request.view_directorate` | The list as Excel | 6 |
 | GET `/audit` | `audit.view` | Read-only log with filters | 6 |
 | GET, POST `/settings/...` | `settings.manage` | Lists, role holders, substitutes, line managers, holidays, timings | 1 (lists), 4 (rest) |
+| POST `/settings/users/add` | `settings.manage` | New user. `auth_source=local` needs a temporary password. `auth_source=ad` takes no password, stores the lowercased account name as the sign-in page looks it up, and is active at once | 4 |
+| POST `/settings/users/<id>/password` | `settings.manage` | New temporary password for a local user other than the administrator themselves. Forces a change at next sign-in, clears the sign-in lock for the name, audits `password_changed` with `by: admin` | 4 |
+| GET `/settings/users?show=pending` | `settings.manage` | Only the Active Directory accounts waiting for activation | 4 |
+| POST `/settings/roles/holder/add`, `/settings/roles/holder/remove` | `settings.manage` | Holders of `viewer` and `admin` (many each, no Directorate). The last active administrator cannot be removed or deactivated, and nobody removes their own `admin` role | 4 |
 
-Language: `?lang=el|en` on any page sets it, stores it on the user and returns to the same page.
+Language: a GET with `?lang=el|en` stores the choice (session and user) and redirects to the same path without `lang`, other parameters kept. Other methods are not redirected. The target is always a path on this site.
 
 ## 2. Who may see a request
 

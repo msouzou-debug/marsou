@@ -1,81 +1,99 @@
-/* Page frame: fonts, header, footer, sign-in. ΟΚΥπΥ brand: white page, blue accent bar, Lato. */
-@font-face { font-family: Lato; font-weight: 400; font-display: swap; src: url("../vendor/lato/lato-400.woff2") format("woff2"); }
-@font-face { font-family: Lato; font-weight: 700; font-display: swap; src: url("../vendor/lato/lato-700.woff2") format("woff2"); }
-@font-face { font-family: Lato; font-weight: 900; font-display: swap; src: url("../vendor/lato/lato-900.woff2") format("woff2"); }
-
+/* Page frame, following eFinance (docs/external/efinance-answers-2026-11-20.md): side menu, cards, sign-in. */
 html, body { height: 100%; }
 body { display: flex; flex-direction: column; background: #fff; font-size: 1rem; line-height: 1.5; }
-h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-blue-deep); font-weight: 700; letter-spacing: -.005em; }
-main h1 { font-weight: 900; }
+h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-heading); font-weight: 700; }
 .ehire-main { flex: 1 0 auto; }
 
-/* Shell: blue side menu, white top bar, content */
+/* Shell, after eFinance: dark side menu 250 px wide with the user block at its foot; no top bar on a desktop;
+   a dark bar with the menu button on phones. */
 .ehire-shell { flex: 1 0 auto; display: flex; min-height: 0; }
 .ehire-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; background: var(--ehire-page); }
-.ehire-main { flex: 1 0 auto; width: 100%; max-width: 1240px; margin: 0 auto; padding: 1.5rem 1.5rem 1rem; }
+.ehire-main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 1.5rem 2rem 1rem; }
 .ehire-shell--guest .ehire-main { max-width: 960px; }
 
-.ehire-side { --bs-offcanvas-width: 264px; width: 264px; flex: none; display: flex; flex-direction: column;
-  color: #fff; background: linear-gradient(180deg, #17669F 0%, #1B75BB 45%, #1A7FCB 100%); }
+.ehire-side { --bs-offcanvas-width: min(82vw, 320px); --bs-offcanvas-bg: var(--ehire-side-bg); width: 250px; flex: none;
+  display: flex; flex-direction: column; color: #fff; background: var(--ehire-side-bg); }
 @media (min-width: 992px) { .ehire-side { position: sticky; top: 0; height: 100vh; overflow-y: auto; } }
-.ehire-side__brand { display: block; padding: 1.25rem 1.25rem 1rem; text-decoration: none; color: #fff; }
-.ehire-side__app { height: 40px; width: auto; display: block; }
-.ehire-side__module { display: block; margin-top: .375rem; padding-left: .125rem; font-size: .875rem; opacity: .9; }
-.ehire-menu { flex: 1 1 auto; padding: .5rem .75rem 1rem; display: flex; flex-direction: column; gap: .125rem; }
-.ehire-menu__link { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: 0 .75rem; border-radius: 6px;
-  color: #fff; text-decoration: none; font-weight: 700; font-size: .9375rem; cursor: pointer; list-style: none; }
+.ehire-side__brand { padding: 1rem 1.2rem 1.1rem; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.ehire-side__brand a { display: block; text-decoration: none; color: #fff; }
+.ehire-side__app { height: 34px; width: auto; display: block; }
+.ehire-side__brand small { display: block; margin-top: .25rem; font-size: .7rem; color: #7fd6ca; opacity: .8; letter-spacing: .04em; }
+.ehire-menu { flex: 1 1 auto; padding: .25rem 0 1rem; display: flex; flex-direction: column; }
+.ehire-menu__link { display: flex; align-items: center; gap: .6rem; padding: .55rem 1.2rem; border-left: 3px solid transparent;
+  color: #9ab8b3; text-decoration: none; font-size: .85rem; cursor: pointer; list-style: none; transition: color .15s, background-color .15s; }
 .ehire-menu__link::-webkit-details-marker { display: none; }
-.ehire-menu__link > .bi:first-child { font-size: 1.125rem; width: 1.25rem; text-align: center; opacity: .9; }
-.ehire-menu__link:hover { background: rgba(255, 255, 255, .12); color: #fff; }
-.ehire-menu__link.is-current { background: #fff; color: var(--ehire-blue-deep); }
-.ehire-menu__chev { margin-left: auto; font-size: .75rem; transition: transform .15s ease; }
+.ehire-menu__link > .bi:first-child { font-size: 1rem; width: 1.3rem; text-align: center; }
+.ehire-menu__link:hover { color: #e2e8f0; background: rgba(255, 255, 255, .05); }
+.ehire-menu__link.is-current { color: #fff; background: rgba(139, 197, 63, .14); border-left-color: var(--ehire-green); }
+.ehire-menu__section { padding: .9rem 1.2rem .3rem; margin-top: .3rem; font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; color: #7c9e99; }
+.ehire-menu__chev { margin-left: auto; font-size: .7rem; transition: transform .2s; }
 .ehire-menu__group[open] > summary .ehire-menu__chev { transform: rotate(180deg); }
-.ehire-menu__sub { margin: .125rem 0 .5rem 1.375rem; padding-left: .75rem; border-left: 1px solid rgba(255, 255, 255, .28); display: flex; flex-direction: column; gap: 1px; }
-.ehire-menu__sublink { display: flex; align-items: center; min-height: 36px; padding: .25rem .625rem; border-radius: 6px;
-  color: rgba(255, 255, 255, .92); text-decoration: none; font-size: .875rem; line-height: 1.25; }
-.ehire-menu__sublink:hover { background: rgba(255, 255, 255, .12); color: #fff; }
-.ehire-menu__sublink.is-current { background: rgba(255, 255, 255, .2); color: #fff; font-weight: 700; box-shadow: inset 3px 0 0 var(--ehire-green); }
-.ehire-menu__label { padding: .625rem .625rem .25rem; font-size: .75rem; font-weight: 700; color: rgba(255, 255, 255, .7); }
-.ehire-side__foot { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid rgba(255, 255, 255, .18); }
-.ehire-side__foot img { height: 64px; width: auto; display: block; }
-.ehire-side :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .ehire-menu__chev { transition: none; } }
+.ehire-menu__sub { display: flex; flex-direction: column; }
+.ehire-menu__sublink { display: flex; align-items: center; padding: .4rem 1.2rem .4rem 3rem; border-left: 3px solid transparent;
+  color: #9ab8b3; text-decoration: none; font-size: .82rem; line-height: 1.3; }
+.ehire-menu__sublink:hover { color: #e2e8f0; background: rgba(255, 255, 255, .05); }
+.ehire-menu__sublink.is-current { color: #fff; background: rgba(139, 197, 63, .10); border-left-color: var(--ehire-green); }
+.ehire-menu__label { padding: .6rem 1.2rem .2rem 3rem; font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; color: #7c9e99; }
+.ehire-side__org { padding: .75rem 1.2rem; }
+.ehire-side__org img { height: 52px; width: auto; display: block; opacity: .9; }
+.ehire-userinfo { padding: .8rem 1.2rem; border-top: 1px solid rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .15); font-size: .78rem; color: #9ab8b3; }
+.ehire-userinfo__name { color: #e2e8f0; margin-bottom: .3rem; overflow-wrap: anywhere; }
+.ehire-userinfo__roles { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .45rem; }
+.ehire-userinfo__role { font-size: .68rem; padding: .15em .5em; border-radius: 3px; background: rgba(139, 197, 63, .2); color: #a9e3da; }
+.ehire-userinfo__lang { margin-bottom: .45rem; display: flex; gap: .4rem; align-items: center; }
+.ehire-userinfo__lang a { color: #8fa3b5; text-decoration: none; padding: .25rem .1rem; }
+.ehire-userinfo__lang a[aria-current="true"] { color: #fff; font-weight: 700; }
+.ehire-userinfo__links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center; }
+.ehire-userinfo__pw { color: #6edff6; text-decoration: none; padding: .25rem 0; }
+.ehire-userinfo__out { background: none; border: 0; padding: .25rem 0; color: #ff8a93; font-size: inherit; cursor: pointer; }
+.ehire-userinfo__pw:hover, .ehire-userinfo__out:hover { color: #fff; }
+.ehire-side :focus-visible { outline: 2px solid var(--ehire-green); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .ehire-menu__chev, .ehire-menu__link { transition: none; } }
 
+.ehire-mobilebar { display: none; }
+@media (max-width: 991.98px) {
+  .ehire-mobilebar { display: flex; align-items: center; gap: .6rem; position: sticky; top: 0; z-index: 1020; flex: none;
+    min-height: 52px; padding: .5rem .8rem; background: var(--ehire-side-bg); color: #fff; }
+  .ehire-mobilebar__burger { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
+    background: none; border: 1px solid rgba(255, 255, 255, .25); border-radius: .4rem; color: #fff; font-size: 1.35rem; line-height: 1; }
+  .ehire-mobilebar__title { font-weight: 700; font-size: 1rem; color: #fff; text-decoration: none; }
+  .ehire-main { padding: 1rem; }
+  .ehire-menu__link { padding: .75rem 1.2rem; font-size: .92rem; }
+  .ehire-menu__sublink { padding: .65rem 1.2rem .65rem 2.6rem; font-size: .9rem; }
+  .ehire-userinfo { font-size: .9rem; }
+  .ehire-userinfo__lang a, .ehire-userinfo__pw, .ehire-userinfo__out { padding: .6rem .25rem; }
+  /* Below 16 px iOS zooms into every field it focuses and stays zoomed. */
+  .form-control, .form-select, textarea, input { font-size: 16px !important; }
+}
+
+/* Guests (error pages before sign-in): a plain white bar with the logo */
 .ehire-top { display: flex; align-items: center; gap: .75rem; min-height: 56px; padding: .375rem 1.5rem; background: #fff; border-bottom: 1px solid var(--ehire-line); }
-.ehire-top__menu { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--ehire-line); border-radius: 6px; background: #fff; color: var(--ehire-blue-deep); font-size: 1.5rem; }
 .ehire-top__brand img { height: 32px; width: auto; display: block; }
-.ehire-top__right { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .375rem .75rem; }
-.ehire-user__name { font-size: .875rem; color: var(--ehire-text-secondary); max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ehire-top__right { margin-left: auto; }
 .ehire-lang { display: inline-flex; border: 1px solid var(--ehire-line); border-radius: 6px; overflow: hidden; background: #fff; }
 .ehire-lang a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 .625rem; font-size: .8125rem; font-weight: 700; text-decoration: none; color: var(--ehire-text-secondary); }
 .ehire-lang a[aria-current="true"] { background: var(--ehire-blue-deep); color: #fff; }
-@media (max-width: 575.98px) {
-  .ehire-top { padding: .375rem .75rem; }
-  .ehire-main { padding: 1rem .75rem; }
-  .ehire-user__name { display: none; }
-}
 
-/* Footer: organisation name, then the brand's blue bar along the bottom */
 .ehire-footer { flex: none; }
-.ehire-footer__in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; max-width: 1240px; margin: 0 auto; padding: .75rem 1.5rem; font-size: .8125rem; color: var(--ehire-text-secondary); }
-.ehire-accent-bar { height: 8px; background: var(--ehire-blue); flex: none; }
+.ehire-footer__in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; max-width: 1320px; margin: 0 auto; padding: .75rem 2rem; font-size: .78rem; color: var(--ehire-text-secondary); }
 
-/* Content surfaces: the page is a quiet grey-blue, the work sits on white panels */
-.ehire-main > h1:first-child, .ehire-main > .d-flex:first-child h1 { font-size: 1.625rem; }
-.ehire-main .list-group, .ehire-main .card, .ehire-main .table-responsive, .ehire-main > form.border, .ehire-main section.border,
-.ehire-rows, .ehire-panel { background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(27, 60, 90, .06); }
+/* Content surfaces, after eFinance: white cards with a hairline border on a pale page, no shadows */
+.ehire-main > h1:first-child, .ehire-main > .d-flex:first-child h1 { font-size: 1.5rem; }
+.ehire-main .list-group, .ehire-main .card, .ehire-main .table-responsive, .ehire-main section.border, .ehire-rows, .ehire-panel { background: #fff; border-radius: .5rem; }
 .ehire-main section.border, .ehire-main .card { border-color: var(--ehire-line); }
 .ehire-main .list-group-item { border-color: var(--ehire-line-row); }
-.ehire-main .list-group-item-action:hover { background: rgba(6, 159, 236, .06); color: var(--ehire-blue-deep); }
-.ehire-main .form-control, .ehire-main .form-select { border-color: #C9CED4; border-radius: 6px; }
+.ehire-main .list-group-item-action:hover { background: var(--ehire-blue-pale); color: var(--ehire-blue-deep); }
+.ehire-main .form-control, .ehire-main .form-select { border-color: #cfd8e1; border-radius: .375rem; font-size: .9rem; }
 .ehire-main .form-control:focus, .ehire-main .form-select:focus { border-color: var(--ehire-blue); box-shadow: 0 0 0 .2rem rgba(6, 159, 236, .2); }
-.ehire-main .form-label { font-weight: 700; color: var(--ehire-text); margin-bottom: .25rem; }
-.ehire-main .btn { border-radius: 6px; font-weight: 700; }
-.ehire-main .table { --bs-table-bg: #fff; margin-bottom: 0; }
-.ehire-main .table > :not(caption) > * > * { padding: .625rem .75rem; }
+.ehire-main .form-label { font-weight: 600; font-size: .85rem; color: #334155; margin-bottom: .25rem; }
+.ehire-main .btn { border-radius: .375rem; font-weight: 600; font-size: .9rem; }
+.ehire-main .btn:disabled, .ehire-main .btn.disabled { opacity: 1; background-color: #eef2f6; color: #8fa3b5; border-color: var(--ehire-line); }
+.ehire-main .table { --bs-table-bg: #fff; margin-bottom: 0; font-size: .88rem; }
+.ehire-main .table > :not(caption) > * > * { padding: .55rem .75rem; }
+.ehire-main .badge { border-radius: 999px; font-size: .7rem; font-weight: 600; padding: .3em .7em; }
 
 /* Tables and panels shared by every page */
-.table > thead > tr > th { color: var(--ehire-blue-deep); font-weight: 700; border-bottom: 2px solid var(--ehire-blue); background: #fff; white-space: nowrap; }
+.table > thead > tr > th { font-weight: 600; font-size: .8rem; color: #475569; text-transform: uppercase; letter-spacing: .04em; background: #fff; white-space: nowrap; }
 .table > tbody > tr:hover > * { background-color: rgba(6, 159, 236, .05); }
 .ehire-tabs.nav-tabs .nav-link { color: var(--ehire-text); font-weight: 700; border: 0; border-bottom: 3px solid transparent; border-radius: 0; }
 .ehire-tabs.nav-tabs .nav-link.active { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-blue); background: transparent; }
@@ -84,7 +102,7 @@ main h1 { font-weight: 900; }
 /* Sign-in: blue panel with the two logos, form on white */
 .ehire-signin { flex: 1 0 auto; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
 .ehire-signin__panel { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 2rem; padding: 3rem;
-  color: #fff; background: linear-gradient(160deg, #1B75BB 0%, #1688D2 55%, #069FEC 100%); }
+  color: #fff; background: linear-gradient(160deg, #0A2C49 0%, #12507F 55%, #1873B8 100%); }
 .ehire-signin__panel::after { content: ""; position: absolute; right: -9rem; bottom: -9rem; width: 26rem; height: 26rem; border-radius: 50%;
   border: 3.5rem solid rgba(255, 255, 255, .07); }
 .ehire-signin__app { height: 56px; width: auto; align-self: flex-start; }
@@ -112,16 +130,16 @@ main h1 { font-weight: 900; }
 
 /* Panels: each named section of a page, and each stand-alone form, sits on white */
 .ehire-main section[aria-labelledby^="sec-"], .ehire-main > form.border, .ehire-main > .ehire-panel {
-  background: #fff; border: 1px solid var(--ehire-line); border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 2px rgba(27, 60, 90, .06); }
+  background: #fff; border: 1px solid var(--ehire-line); border-radius: .5rem; padding: 1.25rem; }
 .ehire-main section[aria-labelledby^="sec-"] > h2:first-child, .ehire-main section[aria-labelledby^="sec-"] > .d-flex:first-child {
   padding-bottom: .625rem; margin-bottom: 1rem !important; border-bottom: 1px solid var(--ehire-line-row); }
-.ehire-main section[aria-labelledby^="sec-"] h2 { font-size: 1.125rem; }
+.ehire-main section[aria-labelledby^="sec-"] h2 { font-size: 1rem; font-weight: 600; }
 .ehire-main dt, .ehire-main .text-secondary.small { font-weight: 400; }
 @media (max-width: 575.98px) {
   .ehire-main section[aria-labelledby^="sec-"], .ehire-main > form.border { padding: 1rem .875rem; }
 }
 /* The side menu is sticky and one screen tall; the column behind it stays blue on long pages */
-@media (min-width: 992px) { .ehire-shell:not(.ehire-shell--guest) { background: linear-gradient(to right, #1A7FCB 264px, transparent 264px); } }
+@media (min-width: 992px) { .ehire-shell:not(.ehire-shell--guest) { background: linear-gradient(to right, var(--ehire-side-bg) 250px, transparent 250px); } }
 
 /* Settings lists: one form per row. Rows share one white surface; column names show once on wide screens */
 .ehire-main > form.border-bottom { background: #fff; padding-left: 1rem; padding-right: 1rem; border-left: 1px solid var(--ehire-line); border-right: 1px solid var(--ehire-line); border-bottom-color: var(--ehire-line-row) !important; }
@@ -131,3 +149,11 @@ main h1 { font-weight: 900; }
   .ehire-main > form.border-bottom ~ form.border-bottom .form-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ehire-main > form.border-bottom ~ form.border-bottom { padding-top: .5rem !important; padding-bottom: .5rem !important; }
 }
+
+/* Password fields: show/hide button and the Caps Lock / keyboard line (static/js/password-help.js) */
+.ehire-pw > .form-control { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.ehire-pw__eye { min-width: 48px; border-color: #C9CED4; border-radius: 0 6px 6px 0 !important; color: var(--ehire-text-secondary); background: #fff; }
+.ehire-pw__eye[aria-pressed="true"] { color: var(--ehire-blue-deep); background: rgba(6, 159, 236, .08); }
+.ehire-pw__status { display: flex; flex-wrap: wrap; gap: .375rem; min-height: 1.75rem; margin-top: .375rem; }
+.ehire-pw__pill { display: inline-flex; align-items: center; gap: .375rem; padding: .125rem .5rem; border: 1px solid var(--ehire-line); border-radius: 1rem; font-size: .8125rem; color: var(--ehire-text-secondary); background: #fff; }
+.ehire-pw__pill--warn { color: var(--ehire-amber-text); border-color: var(--ehire-amber-text); background: #FFF6EE; font-weight: 700; }

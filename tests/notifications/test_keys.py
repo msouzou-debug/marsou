@@ -30,7 +30,10 @@ def keys_used():
 def test_phase_4_keys_exist_except_the_reported_ones():
     en = json.loads((I18N / "en.json").read_text(encoding="utf-8"))
     el = json.loads((I18N / "el.json").read_text(encoding="utf-8"))
-    missing = {k for k in keys_used() if k not in en or k not in el}
+    def has(table, key):  # a counted string is used by its stem and written as `<stem>.one` and `<stem>.many`
+        return key in table or (key + ".one" in table and key + ".many" in table)
+
+    missing = {k for k in keys_used() if not has(en, k) or not has(el, k)}
     assert missing <= KNOWN_MISSING, sorted(missing - KNOWN_MISSING)
 
 

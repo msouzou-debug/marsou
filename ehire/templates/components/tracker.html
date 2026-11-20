@@ -29,7 +29,8 @@
 </li>
 {% endmacro %}
 
-{% macro tracker(stops, names=none, show_people_state=true, title_key='tracker.title', stacked=false) %}
+{# notes: optional list of checks ({step, actor, when, comment, state}); each is shown under its step as «time · who» with the comment in a box. #}
+{% macro tracker(stops, names=none, show_people_state=true, title_key='tracker.title', stacked=false, notes=none) %}
 {% if stops %}
 <ol class="ehire-tracker{{ ' ehire-tracker--stacked' if stacked }}" aria-label="{{ t(title_key) }}">
   {% for stop in stops %}
@@ -40,6 +41,12 @@
       <span class="ehire-tracker__title">{{ t('step.' ~ stop.step) }}</span>
     </div>
     <div class="ehire-tracker__state">{{ t(ehire_stop_words.get(stop.state, 'tracker.state.pending')) }}</div>
+    {% if notes %}{% for n in notes if n.step == stop.step %}
+    <div class="ehire-tracker__note{{ ' ehire-tracker__note--negative' if n.state == 'negative' }}">
+      <div class="ehire-tracker__when"><span class="ehire-num">{{ n.when | ehire_datetime }}</span>{% if n.actor %} · {{ n.actor }}{% endif %}</div>
+      {% if n.comment %}<div class="ehire-tracker__comment ehire-wrap ehire-prewrap">{{ n.comment }}</div>{% endif %}
+    </div>
+    {% endfor %}{% endif %}
     {% if stop.people %}
       {% set inputs = stop.people | selectattr('phase', 'equalto', 'inputs') | list %}
       {% set decision = stop.people | selectattr('phase', 'equalto', 'decision') | list %}

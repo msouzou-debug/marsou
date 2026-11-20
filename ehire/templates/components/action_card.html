@@ -15,6 +15,12 @@
     <p class="mb-3 text-secondary">{{ t('role.' ~ card.role) }}
       {% if card.redirect_note %}<br><span class="small">{% if card.redirect_note.holder %}{{ t('tracker.acting_for', who=names.get(task.assignee_user_id, ''), holder=card.redirect_note.holder) }} {% endif %}({{ t('tracker.redirect.' ~ card.redirect_note.reason) }})</span>{% endif %}</p>
 
+    {# Key facts for a phone user (position and facility are in the header just above). #}
+    <dl class="ehire-keyfacts d-lg-none" aria-label="{{ t('page.details') }}">
+      {% if req.reason %}<div><dt>{{ t('field.reason') }}</dt><dd class="ehire-wrap">{{ t('reason.' ~ req.reason) }}</dd></div>{% endif %}
+      {% if req.need_text %}<div><dt>{{ t('field.need_text') }}</dt><dd class="ehire-wrap ehire-clamp">{{ req.need_text }}</dd></div>{% endif %}
+    </dl>
+
     {% if card.codes or card.errors %}
     <div class="alert alert-danger" role="alert" tabindex="-1" data-ehire-card-errors>
       <ul class="mb-0 ps-3">

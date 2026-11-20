@@ -51,6 +51,61 @@
   .ehire-tracker:not(.ehire-tracker--stacked) .ehire-tracker__stop--current { padding-left: .25rem; }
 }
 
+/* Timeline (the stacked form: request page status column, route preview on the form). One line joins the step markers.
+   Done steps green, the current step yellow ring on a pale yellow row (the focus), pending grey, rejected or sent back red,
+   "not applicable" dashed. Icons and words stay beside every colour. Colours come from tokens; the fallbacks are eFinance's. */
+.ehire-tracker--stacked { gap: 0; --ehire-tl-done: var(--ehire-step-done, #198754); --ehire-tl-current: var(--ehire-step-current, #ffc107);
+  --ehire-tl-current-bg: var(--ehire-step-current-bg, #fff8e1); --ehire-tl-stopped: var(--ehire-step-stopped, #dc3545); }
+.ehire-tracker--stacked .ehire-tracker__stop {
+  --ehire-tl-x: 0rem;
+  position: relative; border-left: 0; background: none;
+  padding: .125rem 0 1.25rem calc(2.25rem + var(--ehire-tl-x));
+}
+.ehire-tracker--stacked .ehire-tracker__stop:last-child { padding-bottom: .25rem; }
+.ehire-tracker--stacked .ehire-tracker__stop::before {
+  content: ""; position: absolute; left: calc(var(--ehire-tl-x) + .75rem - 1.5px); top: 1.85rem; bottom: .2rem; width: 0;
+  border-left: 3px solid var(--ehire-tr-color);
+}
+.ehire-tracker--stacked .ehire-tracker__stop:last-child::before { display: none; }
+.ehire-tracker--stacked .ehire-tracker__stop--done { --ehire-tr-color: var(--ehire-tl-done); }
+.ehire-tracker--stacked .ehire-tracker__stop--stopped { --ehire-tr-color: var(--ehire-tl-stopped); }
+.ehire-tracker--stacked .ehire-tracker__stop--pending::before { border-left-color: var(--ehire-line); }
+.ehire-tracker--stacked .ehire-tracker__stop--not_applicable::before { border-left-style: dashed; }
+.ehire-tracker--stacked .ehire-tracker__marker { position: absolute; left: var(--ehire-tl-x); top: .125rem; font-size: 1.5rem; width: 1.5rem; text-align: center; }
+.ehire-tracker--stacked .ehire-tracker__head { align-items: baseline; flex-wrap: wrap; column-gap: .375rem; min-height: 1.5rem; }
+.ehire-tracker--stacked :is(.ehire-tracker__state, .ehire-tracker__people, .ehire-tracker__then) { margin-left: 0; }
+.ehire-tracker--stacked .ehire-tracker__then { margin-left: .125rem; }
+.ehire-tracker--stacked .ehire-tracker__stop--done .ehire-tracker__state { color: var(--ehire-green-text); }
+.ehire-tracker--stacked .ehire-tracker__stop--pending .ehire-tracker__title,
+.ehire-tracker--stacked .ehire-tracker__stop--not_applicable .ehire-tracker__title { font-weight: 400; color: var(--ehire-text-secondary); }
+.ehire-tracker--stacked .ehire-tracker__stop--stopped .ehire-tracker__state { color: var(--ehire-tl-stopped); font-weight: 700; }
+.ehire-tracker--stacked .ehire-tracker__stop--paused .ehire-tracker__state { color: var(--ehire-amber-text); font-weight: 700; }
+
+/* Current step: the focus. Yellow ring round a dark dot, pale yellow row with a yellow edge. */
+.ehire-tracker--stacked .ehire-tracker__stop--current {
+  --ehire-tl-x: .625rem; --ehire-tr-color: var(--ehire-amber-text);
+  margin: .25rem -.625rem; padding-top: .625rem; padding-right: .625rem; padding-bottom: 1rem;
+  background: var(--ehire-tl-current-bg); border: 1px solid var(--ehire-tl-current); border-radius: 8px;
+}
+.ehire-tracker--stacked .ehire-tracker__stop--current::before { top: 2.35rem; bottom: -.5rem; left: calc(var(--ehire-tl-x) + .75rem - 2px - 1.5px); border-left-color: var(--ehire-tl-current); }
+.ehire-tracker--stacked .ehire-tracker__stop--current .ehire-tracker__marker { top: .5rem; left: calc(var(--ehire-tl-x) + .125rem); font-size: 1.25rem; width: 1.25rem;
+  color: var(--ehire-amber-text); border-radius: 50%; box-shadow: 0 0 0 3px var(--ehire-tl-current); line-height: 1; height: 1.25rem; }
+.ehire-tracker--stacked .ehire-tracker__stop--current .ehire-tracker__title { color: var(--ehire-text); font-size: 1.0625rem; }
+.ehire-tracker--stacked .ehire-tracker__stop--current .ehire-tracker__state { color: var(--ehire-amber-text); font-weight: 700; }
+.ehire-tracker--stacked .ehire-tracker__stop:has(+ .ehire-tracker__stop--current)::before { bottom: -.4rem; }
+
+/* People still to act in the current step: a yellow row with the state as a pill. In steps not yet reached they stay plain. */
+.ehire-tracker--stacked .ehire-tracker__stop--current .ehire-tracker__person--waiting { padding: .25rem .5rem; margin: .125rem 0; background: rgba(255, 193, 7, .18); border-radius: 6px; }
+.ehire-tracker--stacked .ehire-tracker__stop--current .ehire-tracker__person--waiting .ehire-tracker__person-icon { color: var(--ehire-amber-text); }
+.ehire-tracker--stacked .ehire-tracker__stop--current .ehire-tracker__person--waiting .ehire-tracker__person-state {
+  align-self: flex-start; padding: 0 .5rem; border-radius: 999px; font-size: .7rem; font-weight: 600; line-height: 1.5;
+  color: var(--ehire-amber-text); background: #fff; border: 1px solid var(--ehire-tl-current); }
+
+/* What a person answered at this step: «time · who», comment in a box with a coloured left edge */
+.ehire-tracker__note { margin: .25rem 0 .25rem; font-size: .8125rem; color: var(--ehire-text-secondary); }
+.ehire-tracker__comment { margin-top: .25rem; padding: .375rem .625rem; border-left: 3px solid var(--ehire-line); background: #fff; color: var(--ehire-text); border-radius: 0 4px 4px 0; }
+.ehire-tracker__note--negative .ehire-tracker__comment { border-left-color: var(--ehire-step-stopped, #dc3545); }
+
 /* A quiet marker on the current step; nothing moves for people who ask for less motion. */
 @media (prefers-reduced-motion: no-preference) {
   .ehire-tracker__stop--current .ehire-tracker__marker { animation: ehire-tracker-breathe 3s ease-in-out infinite; }

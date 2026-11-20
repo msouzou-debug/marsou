@@ -100,3 +100,21 @@ def test_language_switch_keeps_page(seeded, client):
     login(client, "demo.admin")
     html = client.get("/settings/position?x=1").get_data(as_text=True)
     assert "/settings/position?x=1&amp;lang=en" in html
+
+
+def test_lang_query_is_stored_and_removed_by_a_redirect(seeded, client):
+    r = client.get("/login?lang=en&next=%2Frequests", follow_lang=False)
+    assert r.status_code == 302 and r.headers["Location"] == "/login?next=%2Frequests"
+    assert "Sign in" in client.get("/login").get_data(as_text=True)  # the choice was stored in the session
+    r = client.get("/login?lang=el", follow_lang=False)
+    assert r.status_code == 302 and r.headers["Location"] == "/login"
+    assert "Σύνδεση" in client.get("/login").get_data(as_text=True)
+
+
+def test_lang_redirect_is_get_only_and_never_leaves_the_site(seeded, client):
+    r = client.post("/login?lang=en", data={"username": "x", "password": "y"}, follow_lang=False)
+    assert r.status_code == 200  # a POST is not redirected
+    r = client.get("//evil.example/login?lang=en", follow_lang=False)
+    assert not r.headers.get("Location", "").startswith("//")
+    r = client.get("/login?lang=en&lang=el&a=1&a=2", follow_lang=False)
+    assert r.headers["Location"] == "/login?a=1&a=2"

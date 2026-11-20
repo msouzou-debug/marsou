@@ -11,6 +11,12 @@ from ..mail.layout import LOGO_CID, LOGO_STATIC
 from . import bp
 
 LIMIT = 200
+# `last_error` keeps the English text the mailer stored. The page shows these as translated strings; any other
+# error text (a server's answer) is shown as it is.
+ERROR_KEYS = {
+    "The recipient has no email address.": "settings.outbox.error.no_email",
+    "Expired: queued for more than the allowed hours before sending was on.": "settings.outbox.error.expired",
+}
 # The stored HTML is shown in a sandboxed iframe (srcdoc, no allow-* flags). The page also forbids images, frames
 # of other origins, forms and scripts from anywhere but this server. The only image allowed is this server's own
 # (the mail logo: cid: URLs do not resolve in a browser, so the preview points them at the static file).
@@ -28,7 +34,7 @@ def preview_html(html):
 def outbox():
     rows = MailOutbox.query.order_by(MailOutbox.id.desc()).limit(LIMIT).all()
     names = {u.id: u.full_name or u.username for u in User.query.filter(User.id.in_({r.to_user_id for r in rows}))} if rows else {}
-    return render_template("settings/outbox.html", rows=rows, names=names)
+    return render_template("settings/outbox.html", rows=rows, names=names, error_keys=ERROR_KEYS)
 
 
 @bp.get("/outbox/<int:mail_id>")

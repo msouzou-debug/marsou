@@ -41,7 +41,7 @@
     ],
     "exp": [
       "Attempts 1 to 4 show “[[login.failed]]”.",
-      "Attempt 5 shows “[[login.locked|n=15]]”.",
+      "Attempt 5 shows “[[login.locked.many|n=15]]”.",
       "The correct password is refused with the same “Too many failed attempts” message while the lock lasts.",
       "After the lock ends, sign-in works. The audit log (see the audit case) holds the events login_failed and login_locked."
     ]
@@ -669,7 +669,7 @@
       "As the administrator open “[[nav.settings]]”, “[[settings.roles]]”, the group Mental Health (test), and add test.nic.requester under “[[role.requester]]” with “[[settings.add]]”.",
       "As test.nic.requester submit an administrative request for Mental Health (test).",
       "Open the request and the email log (administrator).",
-      "As the administrator set a holder for [[role.dir_accountant]] of Mental Health (test) and press the button “[[settings.reassign|n=1]]”.",
+      "As the administrator set a holder for [[role.dir_accountant]] of Mental Health (test) and press the button “[[settings.reassign.one|n=1]]”.",
       "Remove test.nic.requester from the Mental Health requesters when you finish."
     ],
     "exp": [
@@ -958,13 +958,13 @@
       "Open “[[settings.roles]]”. Look at the groups and at the rows of Primary Health Care.",
       "For [[role.dir_accountant]] of Nicosia choose the same person as holder and substitute and press “[[settings.save]]”.",
       "Choose test.nic.deputy as holder and press “[[settings.save]]”. Open the waiting request as test.nic.accountant.",
-      "Press “[[settings.reassign|n=1]]”.",
+      "Press “[[settings.reassign.one|n=1]]”.",
       "Add test.nic.accountant under the requesters of Nicosia, then remove the entry. Restore the original holder."
     ],
     "exp": [
       "The page has the group “[[settings.central]]” and one group per Directorate. The Scientific Director row is missing for a Directorate that has none (Primary Health Care).",
       "Same person: “[[settings.same_person]]”.",
-      "After the change the open task stays with the old holder (a change of holder does not reroute a request: R4). The page shows the button “[[settings.reassign|n=1]]”.",
+      "After the change the open task stays with the old holder (a change of holder does not reroute a request: R4). The page shows the button “[[settings.reassign.one|n=1]]”.",
       "After the button the task is with the new holder and a message tells who got it. The new holder gets an email.",
       "Each change has a row in the audit log (role_changed)."
     ]

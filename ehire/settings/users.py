@@ -5,11 +5,12 @@ from flask import abort, current_app, flash, redirect, render_template, request,
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
-from ..auth import current_user, hash_password, permission_required
+from ..auth import ad, current_user, hash_password, lockout, permission_required
 from ..extensions import db
-from ..models import AuditLog, User, audit
+from ..models import AuditLog, LoginAttempt, User, audit
 from ..services.request_flash import flash_key
 from . import bp
+from .roles import active_admin_ids
 
 USERNAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{1,79}$")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -62,8 +63,12 @@ def _pending_ids(rows):
 @permission_required("settings.manage")
 def users():
     rows = User.query.order_by(User.is_active.desc(), User.full_name, User.username).all()
-    return render_template("settings/users.html", rows=rows, managers=[u for u in rows if u.is_active],
-                           pending=_pending_ids(rows), min_length=current_app.config["PASSWORD_MIN_LENGTH"])
+    pending = _pending_ids(rows)
+    only_pending = request.args.get("show") == "pending"
+    return render_template("settings/users.html", rows=[u for u in rows if u.id in pending] if only_pending else rows,
+                           managers=[u for u in rows if u.is_active], pending=pending, only_pending=only_pending,
+                           ad_configured=ad.configured(), me=current_user(),
+                           min_length=current_app.config["PASSWORD_MIN_LENGTH"])
 
 
 @bp.post("/users/add")
@@ -71,7 +76,17 @@ def users():
 def users_add():
     username = (request.form.get("username") or "").strip()
     password = request.form.get("temp_password") or ""
-    if not username or not USERNAME.match(username):
+    source = request.form.get("auth_source") or "local"
+    if source not in ("local", "ad"):
+        flash("validation.choose", "danger")
+        return _back()
+    if source == "ad":
+        # Stored exactly as the sign-in page looks it up: the bare, lowercased account name (auth/ad.py).
+        username = ad.normalise_username(username)
+        if username is None:
+            flash("settings.user.ad_username_invalid", "danger")
+            return _back()
+    elif not username or not USERNAME.match(username):
         flash("validation.required", "danger")
         return _back()
     values, key, params = _read(True)
@@ -79,14 +94,17 @@ def users_add():
         flash_key(key, "danger", **params)
         return _back()
     minimum = current_app.config["PASSWORD_MIN_LENGTH"]
-    if len(password) < minimum:
+    if source == "local" and len(password) < minimum:
         flash_key("password.too_short", "danger", n=minimum)
         return _back()
     if User.query.filter(func.lower(User.username) == username.lower()).first():
         flash("settings.user.duplicate", "danger")
         return _back()
-    user = User(username=username, password_hash=hash_password(password), auth_source="local",
-                must_change_password=True, is_active=True, **values)
+    if source == "local":
+        extra = {"password_hash": hash_password(password), "must_change_password": True}
+    else:  # a directory account has no password here; it is active so the person can sign in at once
+        extra = {"password_hash": None, "must_change_password": False}
+    user = User(username=username, auth_source=source, is_active=True, **extra, **values)
     db.session.add(user)
     try:
         db.session.flush()
@@ -95,7 +113,7 @@ def users_add():
         flash("settings.user.duplicate", "danger")
         return _back()
     audit("user_changed", user_id=current_user().id, object_type="user", object_id=user.id,
-          detail={"action": "add", "after": _snapshot(user)})  # the password is never written to the log
+          detail={"action": "add", "auth_source": source, "after": _snapshot(user)})  # never the password
     db.session.commit()
     flash("settings.saved", "success")
     return _back()
@@ -129,9 +147,39 @@ def users_toggle(user_id):
     if user.id == current_user().id and user.is_active:
         flash("settings.self_deactivate", "danger")
         return _back()
+    if user.is_active and active_admin_ids() == {user.id}:
+        flash("settings.last_admin", "danger")
+        return _back()
     user.is_active = not user.is_active
     audit("user_changed", user_id=current_user().id, object_type="user", object_id=user.id,
           detail={"action": "activate" if user.is_active else "deactivate"})
     db.session.commit()
     flash("settings.saved", "success")
+    return _back()
+
+
+@bp.post("/users/<int:user_id>/password")
+@permission_required("settings.manage")
+def users_password(user_id):
+    """An administrator sets a new temporary password for a local account. The person must change it at the next
+    sign-in. The sign-in lock for the name is cleared. The password is never stored in clear or written to the log."""
+    user = db.session.get(User, user_id) or abort(404)
+    if user.auth_source != "local":
+        flash("settings.user.password_ad", "danger")
+        return _back()
+    if user.id == current_user().id:
+        flash("settings.user.password_own", "danger")
+        return _back()
+    password = request.form.get("new_password") or ""
+    minimum = current_app.config["PASSWORD_MIN_LENGTH"]
+    if len(password) < minimum:
+        flash_key("password.too_short", "danger", n=minimum)
+        return _back()
+    user.password_hash = hash_password(password)
+    user.must_change_password = True
+    cleared = LoginAttempt.query.filter_by(username=lockout.key(user.username)).delete()
+    audit("password_changed", user_id=current_user().id, object_type="user", object_id=user.id,
+          detail={"by": "admin", "target_user_id": user.id, "attempts_cleared": cleared})
+    db.session.commit()
+    flash("settings.user.password_set", "success")
     return _back()

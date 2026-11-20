@@ -258,8 +258,9 @@ def _close_withdrawn(b):
     b.close_tasks()
     b.clear_flags()
     b.finish_closed("withdrawn")
+    # Paused tasks count too: on a returned request every task is paused, and those people held the request.
     told = {t.assignee_user_id for t in state.tasks
-            if t.status == "open" and t.assignee_user_id and t.assignee_user_id != state.created_by}
+            if t.status in ("open", "paused") and t.assignee_user_id and t.assignee_user_id != state.created_by}
     for uid in sorted(told):
         b.emit("request_withdrawn", uid, step=b.step)
 

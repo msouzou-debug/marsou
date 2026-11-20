@@ -1,5 +1,6 @@
 """Sign-in, sessions, permissions and visibility."""
 import hashlib
+from urllib.parse import urlencode
 
 from flask import Blueprint, abort, current_app, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -7,6 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
+from ..i18n import plural_key
 from ..models import User, audit
 from . import ad, lockout
 from .lifetime import init_lifetime
@@ -112,7 +114,7 @@ def login():
                 ok, method = True, "ad"
                 _refresh_from_ad(user, found)
     if wait:
-        return render_template("auth/login.html", error="login.locked", error_params={"n": wait}, next=nxt), 429
+        return render_template("auth/login.html", error=plural_key("login.locked", wait), error_params={"n": wait}, next=nxt), 429
     if not ok:
         started = lockout.record_failure(username, ip)
         audit("login_failed", user_id=user.id if user else None, detail=_failed_detail(user, username))
@@ -121,7 +123,7 @@ def login():
         db.session.commit()
         if started:
             wait = lockout.locked_minutes(username, ip)
-            return render_template("auth/login.html", error="login.locked", error_params={"n": wait}, next=nxt), 429
+            return render_template("auth/login.html", error=plural_key("login.locked", wait), error_params={"n": wait}, next=nxt), 429
         return render_template("auth/login.html", error="login.failed", next=nxt)
     lockout.clear(username)
     sign_in(user)
@@ -162,6 +164,14 @@ def password():
     return render_template("auth/password.html", error=error, next=nxt, forced=user.must_change_password)
 
 
+def _without_lang():
+    """This page's path with the `lang` parameter dropped and the others kept. Always a path on this site: leading
+    slashes are collapsed to one, so the result can never read as "//host"."""
+    rest = [(k, v) for k, v in request.args.items(multi=True) if k != "lang"]
+    path = request.script_root + "/" + request.path.lstrip("/")
+    return path + ("?" + urlencode(rest) if rest else "")
+
+
 def init_auth(app):
     app.register_blueprint(bp)
     init_lifetime(app)  # before the handler below: an expired session must count as signed out
@@ -177,6 +187,10 @@ def init_auth(app):
                 user.language = lang
                 db.session.commit()
         g.lang = session.get("lang", app.config["DEFAULT_LANGUAGE"])
+        if request.method == "GET" and "lang" in request.args:
+            # The choice is stored; go back to the same page without it. Same path, other parameters kept.
+            target = _without_lang()
+            return redirect(target)
         if user is not None and user.must_change_password and user.auth_source == "local":
             if request.endpoint not in _EXEMPT:
                 return redirect(url_for("auth.password", next=safe_next(request.full_path.rstrip("?")) or None))

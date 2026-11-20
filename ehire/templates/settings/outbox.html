@@ -15,7 +15,7 @@
       <div class="fw-semibold">{{ m.subject }}</div>
       <div class="small text-secondary">{{ t('settings.outbox.to') }}: {{ names.get(m.to_user_id, '') }}{% if m.to_email %} &lt;{{ m.to_email }}&gt;{% endif %}</div>
       <div class="small text-secondary">{{ t('settings.outbox.when') }}: {{ m.created_at | ehire_datetime }} · {{ t(mail_status_key(m.event)) }}</div>
-      {% if m.last_error %}<div class="small text-danger">{{ m.last_error }}</div>{% endif %}
+      {% if m.last_error %}<div class="small text-danger">{{ t(error_keys[m.last_error]) if m.last_error in error_keys else m.last_error }}</div>{% endif %}
     </td>
     <td class="text-nowrap">
       <span class="badge {{ {'sent': 'text-bg-success', 'failed': 'text-bg-danger'}.get(m.state, 'text-bg-secondary') }}">{{ t('settings.outbox.state.' ~ m.state) }}</span>

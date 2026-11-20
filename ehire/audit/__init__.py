@@ -5,10 +5,10 @@ import json
 import re
 from datetime import timedelta
 
-from flask import Blueprint, render_template, request, url_for
+from flask import Blueprint, g, render_template, request, url_for
 from sqlalchemy import or_
 
-from .. import localtime
+from .. import i18n, localtime
 from ..auth import current_user, permission_required, visible_requests_query
 from ..extensions import db
 from ..models import AuditLog, Request, User, search_key
@@ -51,6 +51,12 @@ def detail_pairs(raw):
             shown = full if len(full) <= VALUE_MAX else full[: VALUE_MAX - 1] + "…"
         pairs.append((str(key), shown, full))
     return pairs
+
+
+def event_label(event, lang):
+    """The translated name of an audit event. An event with no string (an old or unknown one) shows its raw name."""
+    key = "audit.event." + event
+    return i18n.translate(key, lang) if key in i18n.load(lang) else event
 
 
 def _filters():
@@ -112,11 +118,13 @@ def index():
         visible = {r[0] for r in visible_requests_query(current_user()).with_entities(Request.id).filter(Request.id.in_(req_ids))}
     entries = [{
         "when": format_datetime(r.at), "user": names.get(r.user_id) if r.user_id else None, "event": r.event,
+        "label": event_label(r.event, g.lang),
         "request_id": r.request_id,
         "number": numbers.get(r.request_id) or (("#%d" % r.request_id) if r.request_id else None),
         "can_open": r.request_id in visible, "pairs": detail_pairs(r.detail_json)} for r in rows]
 
-    events = [e[0] for e in db.session.query(AuditLog.event).distinct().order_by(AuditLog.event)]
+    events = sorted(((e[0], event_label(e[0], g.lang)) for e in db.session.query(AuditLog.event).distinct()),
+                    key=lambda pair: (pair[1].lower(), pair[0]))
     keep = {k: v for k, v in request.args.items() if k in f and v and k != "page"}
 
     def page_url(n):

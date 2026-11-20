@@ -11,36 +11,57 @@
 {% from "documents/_list.html" import doc_list with context %}
 {% block content %}
 {% set docs = documents_of(req) %}
-<header class="mb-3">
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-    <h1 class="h4 mb-0 ehire-num">{{ req.number or t('status.draft') }}</h1>
-    {{ status_chip(req.status) }}
-    {% if docs.count %}<a class="small ms-1" href="#sec-documents"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ t('docs.count.one') if docs.count == 1 else t('docs.count.many', n=docs.count) }}</a>{% endif %}
+<div class="ehire-req">
+<header class="ehire-req__head">
+  <div class="d-flex align-items-start justify-content-between gap-2">
+    <div class="min-w-0">
+      <h1 class="h4 mb-1 ehire-num">{{ req.number or t('status.draft') }}</h1>
+      <p class="mb-0 ehire-wrap">
+        {{ req.position.name(lang) if req.position else '' }}{% if req.positions_count %} <span class="text-secondary">· {{ t('list.posts.one') if req.positions_count == 1 else t('list.posts.many', n=req.positions_count) }}</span>{% endif %}
+      </p>
+      {% if req.facility %}<p class="mb-0 text-secondary ehire-wrap">{{ req.facility.name(lang) }}</p>{% endif %}
+      {% if docs.count %}<a class="small ehire-touch" href="#sec-documents"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ t('docs.count.one') if docs.count == 1 else t('docs.count.many', n=docs.count) }}</a>{% endif %}
+    </div>
+    <div class="flex-none">{{ status_chip(req.status) }}</div>
   </div>
-  <p class="mb-0 ehire-wrap">
-    {{ req.position.name(lang) if req.position else '' }}{% if req.positions_count %} <span class="text-secondary">· {{ t('list.posts.one') if req.positions_count == 1 else t('list.posts.many', n=req.positions_count) }}</span>{% endif %}
-  </p>
-  {% if req.facility %}<p class="mb-0 text-secondary ehire-wrap">{{ req.facility.name(lang) }}</p>{% endif %}
 </header>
 
-{% for deposit in archive_deposits(req) %}<p class="small text-secondary mb-2" data-archive-state="{{ deposit.state }}" data-archive-kind="{{ deposit.kind }}"><i class="bi bi-archive" aria-hidden="true"></i> {{ t('archive.title') }}: {{ t('archive.kind.' ~ deposit.kind) }} · {{ t('archive.state.' ~ deposit.state) }}{% if deposit.state == 'stored' %}{% if deposit.protocol_number %} · {% if archive_link(deposit) %}{% set label = t('archive.number', number='\x00').split('\x00') %}{{ label[0] }}<a href="{{ archive_link(deposit) }}" target="_blank" rel="noopener">{{ deposit.protocol_number }}</a>{{ label[1] }}{% else %}{{ t('archive.number', number=deposit.protocol_number) }}{% endif %}{% elif deposit.archive_ref %} · {{ t('archive.ref', ref=deposit.archive_ref) }}{% endif %}{% endif %}{% if deposit.legal_hold %} · <span data-archive-hold>{{ t('archive.hold') }}</span>{% endif %}{% if deposit.disposed_at %} · <span data-archive-disposed>{{ t('archive.disposed', date=deposit.disposed_at | ehire_date) }}</span>{% endif %}</p>{% endfor %}
-
-{% if cards %}
-{# Phone with a task waiting: key lines and the mini route first, so the action card is near the top. #}
-<div class="d-md-none mb-3">
-  {{ tracker_mini(stops) }}
-  {% if not banner %}<div class="mt-2">{% include "requests/_status_line.html" %}</div>{% endif %}
-</div>
-{% endif %}
-<section class="mb-4{% if cards %} d-none d-md-block{% endif %}" aria-labelledby="sec-tracker">
-  <h2 class="h5 mb-3" id="sec-tracker">{{ t('tracker.title') }}</h2>
-  {{ tracker(stops, names) }}
-  {% if not banner %}<div class="mt-3">{% include "requests/_status_line.html" %}</div>{% endif %}
-  {% if req.status == 'draft' and req.created_by == current_user().id %}
-  <a class="btn btn-outline-primary mt-2" href="{{ url_for('requests.edit', request_id=req.id) }}">{{ t('form.title.edit') }}</a>
-  {% endif %}
+{# Status panel: right column from 992 px (sticky), under the header on a phone with the route folded away. #}
+<aside class="ehire-req__side" aria-labelledby="sec-tracker">
+  <div class="ehire-req__stick" data-ehire-sticky>
+  <div class="ehire-panel ehire-statuspanel">
+    <h2 class="h5 mb-2 d-none d-lg-block" id="sec-tracker">{{ t('tracker.title') }}</h2>
+    {% if not banner %}<div class="ehire-statuspanel__line">{% include "requests/_status_line.html" %}</div>{% endif %}
+    {% if req.status == 'draft' and req.created_by == current_user().id %}
+    <a class="btn btn-outline-primary mb-2" href="{{ url_for('requests.edit', request_id=req.id) }}">{{ t('form.title.edit') }}</a>
+    {% endif %}
+    <details class="ehire-route-details" data-ehire-route open>
+      <summary class="ehire-route-details__summary"><i class="bi bi-diagram-3" aria-hidden="true"></i> <span>{{ t('tracker.title') }}</span> <i class="bi bi-chevron-down ehire-route-details__chev ms-auto" aria-hidden="true"></i></summary>
+      {{ tracker(stops, names, true, 'tracker.title', true, checks) }}
+      {% set deposits = archive_deposits(req) %}
+      {% if deposits %}<div class="ehire-statuspanel__archive">
+{% for deposit in deposits %}<p class="small text-secondary mb-2" data-archive-state="{{ deposit.state }}" data-archive-kind="{{ deposit.kind }}"><i class="bi bi-archive" aria-hidden="true"></i> {{ t('archive.title') }}: {{ t('archive.kind.' ~ deposit.kind) }} · {{ t('archive.state.' ~ deposit.state) }}{% if deposit.state == 'stored' %}{% if deposit.protocol_number %} · {% if archive_link(deposit) %}{% set label = t('archive.number', number='\x00').split('\x00') %}{{ label[0] }}<a href="{{ archive_link(deposit) }}" target="_blank" rel="noopener">{{ deposit.protocol_number }}</a>{{ label[1] }}{% else %}{{ t('archive.number', number=deposit.protocol_number) }}{% endif %}{% elif deposit.archive_ref %} · {{ t('archive.ref', ref=deposit.archive_ref) }}{% endif %}{% endif %}{% if deposit.legal_hold %} · <span data-archive-hold>{{ t('archive.hold') }}</span>{% endif %}{% if deposit.disposed_at %} · <span data-archive-disposed>{{ t('archive.disposed', date=deposit.disposed_at | ehire_date) }}</span>{% endif %}</p>{% endfor %}
+      </div>{% endif %}
+    </details>
+  </div>
+{% if history %}
+<section class="ehire-statuspanel ehire-historypanel" aria-labelledby="sec-history">
+  <h2 class="h5 mb-3" id="sec-history">{{ t('page.history') }}</h2>
+  <ol class="list-unstyled ehire-history mb-0">
+    {% for a in history %}
+    <li class="ehire-history__item{{ ' ehire-history__item--superseded' if a.superseded }}">
+      <div class="fw-bold">{% if a.action == 'withdraw' and a.system %}{{ t('history.withdraw_system', n=timeout_days) }}{% else %}{{ t('history.' ~ a.action) }}{% endif %}{% if a.superseded %} <span class="fw-normal text-secondary">· {{ t('history.superseded') }}</span>{% endif %}</div>
+      <div class="small text-secondary">{{ t('role.' ~ a.role) if a.role and not a.system else '' }}{% if a.actor %}{{ ' · ' if a.role and not a.system }}{{ a.actor }}{% if a.behalf %} ({{ t('tracker.acting_for', who=a.actor, holder=a.behalf) }}){% endif %}{% endif %} · <span class="ehire-num">{{ a.when | ehire_datetime }}</span>{% if req.round > 1 %} · {{ t('page.round', n=a.round) }}{% endif %}</div>
+      {% if a.comment %}<div class="ehire-wrap ehire-prewrap">{{ a.comment }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
 </section>
+{% endif %}
+  </div>
+</aside>
 
+<div class="ehire-req__main">
 {% if returned %}
 <section class="alert alert-warning mb-4" aria-labelledby="ehire-returned-title">
   <h2 class="h6 mb-1" id="ehire-returned-title"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> {{ t('statusline.returned') }}</h2>
@@ -63,12 +84,6 @@
 {% endif %}
 
 {% for card in cards %}{% include "components/action_card.html" %}{% endfor %}
-{% if cards %}
-<details class="d-md-none mb-4 ehire-route-details">
-  <summary class="py-2 fw-bold">{{ t('tracker.title') }}</summary>
-  {{ tracker(stops, names) }}
-</details>
-{% endif %}
 
 <section class="mb-4" aria-labelledby="sec-details">
   <h2 class="h5 mb-3" id="sec-details">{{ t('page.details') }}</h2>
@@ -91,11 +106,11 @@
   </dl>
   {% if req.leavers %}
   <div class="table-responsive mt-2">
-    <table class="table table-sm ehire-leavers-table">
+    <table class="table table-sm ehire-leavers-table ehire-stack-table">
       <thead><tr><th scope="col">{{ t('field.leaver_name') }}</th><th scope="col">{{ t('field.leave_date') }}</th><th scope="col">{{ t('field.employment') }}</th></tr></thead>
       <tbody>
         {% for l in req.leavers %}
-        <tr><td class="ehire-wrap">{{ l.name }}</td><td class="ehire-num">{{ l.leave_date | ehire_date }}</td><td>{{ t('employment.' ~ l.employment) if l.employment else '' }}</td></tr>
+        <tr><td class="ehire-wrap" data-label="{{ t('field.leaver_name') }}">{{ l.name }}</td><td class="ehire-num" data-label="{{ t('field.leave_date') }}">{{ l.leave_date | ehire_date }}</td><td data-label="{{ t('field.employment') }}">{{ t('employment.' ~ l.employment) if l.employment else '' }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -160,20 +175,6 @@
 </section>
 {% endif %}
 
-{% if history %}
-<section class="mb-4" aria-labelledby="sec-history">
-  <h2 class="h5 mb-3" id="sec-history">{{ t('page.history') }}</h2>
-  <ol class="list-unstyled ehire-history mb-0">
-    {% for a in history %}
-    <li class="ehire-history__item{{ ' ehire-history__item--superseded' if a.superseded }}">
-      <div class="fw-bold">{% if a.action == 'withdraw' and a.system %}{{ t('history.withdraw_system', n=timeout_days) }}{% else %}{{ t('history.' ~ a.action) }}{% endif %}{% if a.superseded %} <span class="fw-normal text-secondary">· {{ t('history.superseded') }}</span>{% endif %}</div>
-      <div class="small text-secondary">{{ t('role.' ~ a.role) if a.role and not a.system else '' }}{% if a.actor %}{{ ' · ' if a.role and not a.system }}{{ a.actor }}{% if a.behalf %} ({{ t('tracker.acting_for', who=a.actor, holder=a.behalf) }}){% endif %}{% endif %} · <span class="ehire-num">{{ a.when | ehire_datetime }}</span>{% if req.round > 1 %} · {{ t('page.round', n=a.round) }}{% endif %}</div>
-      {% if a.comment %}<div class="ehire-wrap ehire-prewrap">{{ a.comment }}</div>{% endif %}
-    </li>
-    {% endfor %}
-  </ol>
-</section>
-{% endif %}
 
 {% if can_withdraw %}
 <section class="ehire-card__lesser mb-4 pt-3 border-top" aria-label="{{ t('action.withdraw') }}">
@@ -193,5 +194,7 @@
   </details>
 </section>
 {% endif %}
+</div>
+</div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/cards.js') }}" defer></script><script src="{{ url_for('static', filename='js/activity.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/cards.js') }}" defer></script><script src="{{ url_for('static', filename='js/activity.js') }}" defer></script><script src="{{ url_for('static', filename='js/request-side.js') }}" defer></script>{% endblock %}

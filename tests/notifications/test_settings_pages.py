@@ -253,7 +253,7 @@ def test_changing_a_holder_does_not_reroute_but_offers_the_open_tasks(admin, see
     task = Task.query.filter_by(request_id=r.id).one()
     assert task.assignee_user_id == uid("nic.accountant")  # R4: nothing moved by itself
     page = text(admin.get("/settings/roles?lang=en"))
-    assert shown(page, "settings.reassign", n=1)
+    assert shown(page, "settings.reassign.one", n=1)
     before = len(mails(request_id=r.id))
     assert admin.post("/settings/roles/reassign", data={"role": "dir_accountant", "directorate_id": str(did)}).status_code == 302
     db.session.expire_all()
@@ -262,7 +262,9 @@ def test_changing_a_holder_does_not_reroute_but_offers_the_open_tasks(admin, see
     assert [(m.event, m.to_user_id) for m in mails(request_id=r.id)[before:]] == [("task_opened", uid("nic.hr"))]
     assert audits("task_redirected", cause="holder_changed")[-1]["to"] == uid("nic.hr")
     assert audits("role_changed", action="reassign_open_tasks")[-1]["moved"] == 1
-    assert not shown(text(admin.get("/settings/roles?lang=en")), "settings.reassign", n=1)
+    after = text(admin.get("/settings/roles?lang=en"))
+    assert "1 open task was moved to" in after and "substitute" not in after.split("1 open task was moved to")[1][:80]
+    assert not shown(after, "settings.reassign.one", n=1)
     # Pressing it again changes nothing.
     admin.post("/settings/roles/reassign", data={"role": "dir_accountant", "directorate_id": str(did)})
     assert audits("role_changed", action="reassign_open_tasks")[-1]["moved"] == 0

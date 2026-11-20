@@ -172,3 +172,26 @@ def test_old_queued_mail_expires_instead_of_going_out_late(seeded, client, mem):
         m.created_at = m.created_at - timedelta(hours=60)
     db.session.commit()
     assert send_mail(seeded)["expired"] == 2 and mem.sent == []
+
+
+def test_withdrawing_a_returned_request_tells_people_whose_tasks_were_paused(seeded, client):
+    r = create(client)
+    step2(client, r.id)
+    assert act(client, "nic.sci", r.id, "return", comment="Please clarify the need.").status_code == 302
+    as_user(client, "nic.requester")
+    assert client.post("/requests/%d/withdraw" % r.id, data={"comment": "No longer needed."}).status_code == 302
+    assert to_of(mails("request_withdrawn", request_id=r.id)) == ["nic.hr", "nic.sci"]
+
+
+def test_automatic_withdrawal_tells_people_whose_tasks_were_paused(seeded, client):
+    from datetime import timedelta
+
+    from ehire import localtime
+    from ehire.services.request_flow import system_withdraw
+
+    r = create(client)
+    step2(client, r.id)
+    act(client, "nic.sci", r.id, "return", comment="Please clarify the need.")
+    r = reload(r.id)
+    assert system_withdraw(r, localtime.now() + timedelta(days=90)).ok
+    assert to_of(mails("request_withdrawn", request_id=r.id)) == ["nic.hr", "nic.requester", "nic.sci"]

@@ -2,7 +2,10 @@
    This file is the hand-over point with Claude Design: design delivers the final values,
    the build changes nothing else. Source: UI brief v2, section 5. */
 :root {
-  --ehire-blue-deep: #1B75BB;
+  --ehire-blue-deep: #1873B8;  /* eFinance --brand: 5.01:1 on white */
+  --ehire-blue-pale: #E7F4FD;
+  --ehire-side-bg: #0A2C49;
+  --ehire-heading: #1e293b;
   --ehire-blue: #069FEC;
   --ehire-green: #8BC53F;
   --ehire-green-text: #3F6B12;
@@ -10,29 +13,33 @@
   --ehire-amber: #ED7D31;
   --ehire-amber-text: #9A4A12;
   --ehire-red: #C0392B;
-  --ehire-text: #3F4042;
-  --ehire-text-secondary: #58595B;
-  --ehire-line: #DCDFE3;
-  --ehire-line-row: #EAEAEA;
-  --ehire-page: #F4F7FA;
+  --ehire-text: #212529;
+  --ehire-text-secondary: #5b6878;
+  --ehire-line: #dbe3ea;
+  --ehire-line-row: #e2e8f0;
+  --ehire-page: #f2f5f8;
+  --ehire-step-done: #198754;
+  --ehire-step-current: #ffc107;
+  --ehire-step-current-bg: #fff8e1;
+  --ehire-step-stopped: #dc3545;
 
   --bs-primary: var(--ehire-blue-deep);
-  --bs-primary-rgb: 27, 117, 187;
+  --bs-primary-rgb: 24, 115, 184;
   --bs-danger: var(--ehire-red);
   --bs-danger-rgb: 192, 57, 43;
   --bs-body-color: var(--ehire-text);
   --bs-secondary-color: var(--ehire-text-secondary);
   --bs-border-color: var(--ehire-line);
   --bs-link-color: var(--ehire-blue-deep);
-  --bs-link-color-rgb: 27, 117, 187;
-  --bs-border-radius: 4px;
+  --bs-link-color-rgb: 24, 115, 184;
+  --bs-border-radius: .375rem;
   --bs-border-radius-sm: 3px;
-  --bs-border-radius-lg: 4px;
-  --bs-body-font-family: Lato, "Source Sans Pro", "Open Sans", "Segoe UI", Arial, sans-serif; /* Lato 2 (Latin and Greek) in static/vendor/lato */
+  --bs-border-radius-lg: .5rem;
+  --bs-body-font-family: "Segoe UI", system-ui, -apple-system, sans-serif; /* as eFinance: the computer's own fonts, nothing downloaded */
 }
 .btn-primary {
   --bs-btn-bg: var(--ehire-blue-deep); --bs-btn-border-color: var(--ehire-blue-deep);
-  --bs-btn-hover-bg: #155f99; --bs-btn-hover-border-color: #155f99;
+  --bs-btn-hover-bg: #155E96; --bs-btn-hover-border-color: #155E96;
   --bs-btn-active-bg: #124f80; --bs-btn-active-border-color: #124f80;
 }
 :focus-visible { outline: 2px solid var(--ehire-blue); outline-offset: 2px; }

@@ -9,7 +9,7 @@
     <div class="col-12 col-sm-6 col-lg-3"><label class="form-label small mb-1" for="a-event">{{ t('audit.filter.event') }}</label>
       <select class="form-select" style="min-height:44px" id="a-event" name="event">
         <option value="">{{ t('audit.filter.all') }}</option>
-        {% for e in events %}<option value="{{ e }}" {{ 'selected' if e == f.event }}>{{ e }}</option>{% endfor %}
+        {% for raw, label in events %}<option value="{{ raw }}" {{ 'selected' if raw == f.event }}>{{ label }}</option>{% endfor %}
       </select></div>
     <div class="col-6 col-lg-2"><label class="form-label small mb-1" for="a-from">{{ t('audit.filter.from') }}</label><input class="form-control{{ ' is-invalid' if 'from' in errors }}" style="min-height:44px" id="a-from" name="from" value="{{ f['from'] }}" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
     <div class="col-6 col-lg-2"><label class="form-label small mb-1" for="a-to">{{ t('audit.filter.to') }}</label><input class="form-control{{ ' is-invalid' if 'to' in errors }}" style="min-height:44px" id="a-to" name="to" value="{{ f['to'] }}" placeholder="{{ t('form.date_hint') }}" inputmode="numeric"></div>
@@ -33,7 +33,7 @@
     <tr>
       <td class="text-nowrap">{{ e.when }}</td>
       <td>{{ e.user if e.user else t('audit.system') }}</td>
-      <td style="overflow-wrap:anywhere">{{ e.event }}</td>
+      <td style="overflow-wrap:anywhere"><span title="{{ e.event }}">{{ e.label }}</span>{% if e.label != e.event %}<span class="d-block small text-secondary">{{ e.event }}</span>{% endif %}</td>
       <td class="text-nowrap">{% if e.request_id %}{% if e.can_open %}<a href="{{ url_for('requests.detail', request_id=e.request_id) }}">{{ e.number }}</a>{% else %}{{ e.number }}{% endif %}{% endif %}</td>
       <td style="overflow-wrap:anywhere;min-width:14rem">{% for key, shown, full in e.pairs %}<span class="d-block small"><span class="text-secondary">{{ key }}:</span> <span{% if shown != full %} title="{{ full }}"{% endif %}>{{ shown }}</span></span>{% endfor %}</td>
     </tr>

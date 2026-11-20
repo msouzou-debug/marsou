@@ -102,10 +102,11 @@ def test_withdrawal_warning_at_half_time_and_automatic_withdrawal_at_the_limit(s
     assert run_timers(seeded, limit)["withdrawn"] == 1
     assert reload(r.id).status == "withdrawn"
     gone = mails("request_withdrawn", request_id=r.id)
-    assert [m.to_user_id for m in gone] == [uid("nic.requester")]
+    # the requester, and the accountant whose task was paused while the request was returned
+    assert sorted(m.to_user_id for m in gone) == sorted([uid("nic.requester"), uid("nic.accountant")])
     assert i18n.translate("system.auto_withdraw", "el") in html.unescape(gone[0].html)  # the system comment, translated
     assert run_timers(seeded, limit + timedelta(days=1))["withdrawn"] == 0
-    assert len(mails("request_withdrawn", request_id=r.id)) == 1
+    assert len(mails("request_withdrawn", request_id=r.id)) == 2
 
 
 def test_run_timers_moves_tasks_when_an_out_of_office_window_starts(seeded, client):
