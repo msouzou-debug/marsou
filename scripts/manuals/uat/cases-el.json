@@ -645,7 +645,7 @@
     ]
   },
   "conflict": {
-    "title": "Σύγκρουση συμφερόντων: ο κάτοχος του ρόλου υπέβαλε το αίτημα",
+    "title": "Σύγκρουση συμφερόντων: ο Κάτοχος του ρόλου υπέβαλε το αίτημα",
     "who": ["«[[role.sci_director]]» και αιτητής: test.lar.sci", "Αναπληρωτής: test.lar.deputy", "test.lar.accountant", "Μέρος Β: test.central.hr και test.central.deputy"],
     "pre": "Καμία. Το test.lar.sci έχει δύο ρόλους στη Λάρνακα – Αμμόχωστο.",
     "steps": [
