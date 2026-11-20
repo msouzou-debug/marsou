@@ -64,7 +64,12 @@ def _int_arg(name):
 def _tab_for(user):
     tab = request.args.get("tab")
     if tab not in TABS:
-        tab = "waiting" if user.has_permission("request.act") else "mine"
+        if user.has_permission("request.act"):
+            tab = "waiting"
+        elif user.has_permission("request.create"):
+            tab = "mine"
+        else:  # viewer, administrator: nothing is theirs, so open on everything they may see
+            tab = "all"
     return tab
 
 

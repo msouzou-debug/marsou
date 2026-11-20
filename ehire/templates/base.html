@@ -15,51 +15,81 @@
 </head>
 <body>
   {% block frame %}
-  <header class="ehire-header">
-    <div class="ehire-header__in">
-      <a class="ehire-brand" href="{{ url_for('main.home') }}">
-        <img class="ehire-brand__org" src="{{ url_for('static', filename='img/okypy_icon.png') }}" alt="{{ t('app.org') }}">
-        <span class="ehire-brand__rule" aria-hidden="true"></span>
-        <img class="ehire-brand__app" src="{{ url_for('static', filename='img/ehire_logo.svg') }}" alt="{{ t('app.name') }}">
-        <span class="ehire-brand__module">{{ t('module.position_approval') }}</span>
+  {% set me = current_user() %}
+  <div class="ehire-shell{% if not me %} ehire-shell--guest{% endif %}">
+    {% if me %}
+    <aside class="ehire-side offcanvas-lg offcanvas-start" tabindex="-1" id="ehire-side" aria-label="{{ t('app.name') }}">
+      <a class="ehire-side__brand" href="{{ url_for('main.home') }}">
+        <img class="ehire-side__app" src="{{ url_for('static', filename='img/ehire_logo_white.svg') }}" alt="{{ t('app.name') }}">
+        <span class="ehire-side__module">{{ t('module.position_approval') }}</span>
       </a>
-      {% if current_user() %}
-      <nav class="ehire-nav" aria-label="{{ t('app.name') }}">
-        <a class="ehire-nav__link{% if request.blueprint == 'requests' %} is-current{% endif %}" href="{{ url_for('requests.index') }}"><i class="bi bi-list-task" aria-hidden="true"></i>{{ t('nav.requests') }}</a>
+      <nav class="ehire-menu">
+        {% set ep = request.endpoint or '' %}
+        <a class="ehire-menu__link{% if request.blueprint == 'requests' and ep != 'requests.new' %} is-current{% endif %}" href="{{ url_for('requests.index') }}"><i class="bi bi-inboxes" aria-hidden="true"></i><span>{{ t('nav.requests') }}</span></a>
+        {% if can('request.create') %}
+        <a class="ehire-menu__link{% if ep == 'requests.new' %} is-current{% endif %}" href="{{ url_for('requests.new') }}"><i class="bi bi-plus-circle" aria-hidden="true"></i><span>{{ t('list.new') }}</span></a>
+        {% endif %}
         {% if can('audit.view') %}
-        <a class="ehire-nav__link{% if request.blueprint == 'audit' %} is-current{% endif %}" href="{{ url_for('audit.index') }}"><i class="bi bi-journal-text" aria-hidden="true"></i>{{ t('nav.audit') }}</a>
+        <a class="ehire-menu__link{% if request.blueprint == 'audit' %} is-current{% endif %}" href="{{ url_for('audit.index') }}"><i class="bi bi-journal-text" aria-hidden="true"></i><span>{{ t('nav.audit') }}</span></a>
         {% endif %}
         {% if can('settings.manage') %}
-        <a class="ehire-nav__link{% if request.blueprint == 'settings' %} is-current{% endif %}" href="{{ url_for('settings.index') }}"><i class="bi bi-gear" aria-hidden="true"></i>{{ t('nav.settings') }}</a>
+        {% set sm = settings_menu() %}
+        {% set kind = (request.view_args or {}).get('kind') %}
+        <details class="ehire-menu__group"{% if request.blueprint == 'settings' %} open{% endif %}>
+          <summary class="ehire-menu__link"><i class="bi bi-gear" aria-hidden="true"></i><span>{{ t('nav.settings') }}</span><i class="bi bi-chevron-down ehire-menu__chev" aria-hidden="true"></i></summary>
+          <div class="ehire-menu__sub">
+            {% for page in sm.pages %}
+            <a class="ehire-menu__sublink{% if ep.startswith('settings.' ~ page) %} is-current{% endif %}" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}</a>
+            {% endfor %}
+            <a class="ehire-menu__sublink{% if ep.startswith('settings.import') %} is-current{% endif %}" href="{{ url_for('settings.import_page') }}">{{ t('import.menu') }}</a>
+            <div class="ehire-menu__label">{{ t('settings.lists') }}</div>
+            {% for k in sm.kinds %}
+            <a class="ehire-menu__sublink{% if kind == k %} is-current{% endif %}" href="{{ url_for('settings.show', kind=k) }}">{{ t('settings.list.' ~ k) }}</a>
+            {% endfor %}
+          </div>
+        </details>
         {% endif %}
       </nav>
-      {% endif %}
-      <div class="ehire-user"{% if not current_user() %} style="margin-left:auto;border-left:0"{% endif %}>
-        {% if current_user() %}<span class="ehire-user__name"><i class="bi bi-person-circle" aria-hidden="true"></i> {{ current_user().full_name }}</span>{% endif %}
-        <span class="ehire-lang" aria-label="{{ t('nav.language') }}">
-          <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>Ελληνικά</a>
-          <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a>
-        </span>
-        {% if current_user() %}
-        <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-sm btn-outline-secondary" style="min-height:36px" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>{{ t('nav.logout') }}</button>
-        </form>
-        {% endif %}
+      <div class="ehire-side__foot">
+        <img src="{{ url_for('static', filename='img/okypy_logo_white.png') }}" alt="{{ t('app.org') }}">
       </div>
+    </aside>
+    {% endif %}
+    <div class="ehire-body">
+      <header class="ehire-top">
+        {% if me %}
+        <button class="ehire-top__menu d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#ehire-side" aria-controls="ehire-side" aria-label="{{ t('nav.menu') }}"><i class="bi bi-list" aria-hidden="true"></i></button>
+        <a class="ehire-top__brand d-lg-none" href="{{ url_for('main.home') }}"><img src="{{ url_for('static', filename='img/ehire_logo.svg') }}" alt="{{ t('app.name') }}"></a>
+        {% else %}
+        <a class="ehire-top__brand" href="{{ url_for('main.home') }}"><img src="{{ url_for('static', filename='img/ehire_logo.svg') }}" alt="{{ t('app.name') }}"></a>
+        {% endif %}
+        <div class="ehire-top__right">
+          {% if me %}<span class="ehire-user__name"><i class="bi bi-person-circle" aria-hidden="true"></i> {{ me.full_name }}</span>{% endif %}
+          <span class="ehire-lang" aria-label="{{ t('nav.language') }}">
+            <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>Ελληνικά</a>
+            <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a>
+          </span>
+          {% if me %}
+          <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-secondary" style="min-height:36px" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>{{ t('nav.logout') }}</button>
+          </form>
+          {% endif %}
+        </div>
+      </header>
+      <main class="ehire-main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category if category in ('success', 'danger', 'warning', 'info') else 'info' }}" role="{{ 'alert' if category == 'danger' else 'status' }}">{% if message is mapping %}{{ t(message.key, **(message.params or {})) }}{% else %}{{ t(message) }}{% endif %}</div>
+          {% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </main>
+      <footer class="ehire-footer">
+        <div class="ehire-footer__in"><span>{{ t('app.org') }}</span><span>{{ t('app.name') }} · {{ t('module.position_approval') }}</span></div>
+      </footer>
     </div>
-  </header>
-  <main class="ehire-main container py-4">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category if category in ('success', 'danger', 'warning', 'info') else 'info' }}" role="{{ 'alert' if category == 'danger' else 'status' }}">{% if message is mapping %}{{ t(message.key, **(message.params or {})) }}{% else %}{{ t(message) }}{% endif %}</div>
-      {% endfor %}
-    {% endwith %}
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="ehire-footer">
-    <div class="ehire-footer__in"><span>{{ t('app.org') }}</span><span>{{ t('app.name') }} · {{ t('module.position_approval') }}</span></div>
-  </footer>
+  </div>
   {% endblock %}
   <div class="ehire-accent-bar"></div>
   <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>

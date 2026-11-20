@@ -189,3 +189,18 @@ def test_confirm_needs_own_token(seeded, client):
     admin(client)
     assert client.post("/settings/import/confirm", data={"token": "bogus"}).status_code == 302
     assert Directorate.query.filter_by(code="XD1").count() == 0
+
+
+def test_number_prefix_falls_back_to_the_seed_file_when_no_setting_is_recorded(app):
+    from ehire.extensions import db
+    from ehire.models import Setting
+    from ehire.seed import load_data
+    from ehire.services import numbering
+
+    with app.app_context():
+        row = db.session.get(Setting, "number_prefix")
+        if row is not None:
+            db.session.delete(row)
+            db.session.flush()
+        assert numbering._prefix(db.session) == load_data()["settings"]["number_prefix"]
+        db.session.rollback()

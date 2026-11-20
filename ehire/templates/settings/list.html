@@ -35,7 +35,6 @@
 {% endmacro %}
 {% block content %}
 <h1 class="h4 mb-3">{{ t('settings.list.' ~ kind) }}</h1>
-<p><a href="{{ url_for('settings.index') }}">{{ t('settings.title') }}</a></p>
 
 <form method="post" action="{{ url_for('settings.add', kind=kind) }}" class="border rounded p-3 mb-4">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

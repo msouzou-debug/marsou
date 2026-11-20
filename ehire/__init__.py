@@ -48,6 +48,11 @@ def create_app(config=Config):
         args["lang"] = code
         return request.path + "?" + urlencode(args)
 
+    def _settings_menu():
+        """Pages and lists for the Settings group of the side menu."""
+        from .settings import LISTS, PAGES
+        return {"pages": PAGES, "kinds": list(LISTS)}
+
     @app.context_processor
     def _inject():
         user = current_user()
@@ -57,6 +62,7 @@ def create_app(config=Config):
             "lang_url": lang_url,
             "can": (lambda key: bool(user and user.has_permission(key))),
             "ooo_state": (lambda: out_of_office.control_state(user)),
+            "settings_menu": _settings_menu,
         }
 
     from .blueprints.main import bp as main_bp

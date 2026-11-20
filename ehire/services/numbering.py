@@ -52,5 +52,11 @@ def next_number(session, year):
 
 
 def _prefix(session):
+    """The `number_prefix` setting; when none is recorded, the prefix in the seed file (the organisation's own);
+    DEFAULT_PREFIX only if that file has none."""
     row = session.get(Setting, "number_prefix")
-    return row.value if row is not None and row.value else DEFAULT_PREFIX
+    if row is not None and row.value:
+        return row.value
+    from ..seed import load_data
+
+    return (load_data().get("settings") or {}).get("number_prefix") or DEFAULT_PREFIX
