@@ -70,3 +70,37 @@ def test_audit_log_is_append_only(seeded, app):
     with pytest.raises(RuntimeError):
         db.session.commit()
     db.session.rollback()
+
+
+def test_position_code_on_add_and_edit(seeded, client):
+    admin(client)
+    base = {"category": "nursing", "title_el": "Ζ", "title_en": "Z post"}
+    client.post("/settings/position/add", data=dict(base, code="zp1"))
+    p = Position.query.filter_by(title_en="Z post").one()
+    assert p.code == "ZP1"  # stored upper-case
+    client.post(f"/settings/position/{p.id}/edit", data={"title_el": "Ζ", "title_en": "Z post", "code": "zzz"})
+    db.session.refresh(p)
+    assert p.code == "ZZZ"
+    client.post(f"/settings/position/{p.id}/edit", data={"title_el": "Ζ", "title_en": "Z post", "code": ""})
+    db.session.refresh(p)
+    assert p.code is None  # optional
+    page = client.get("/settings/position").get_data(as_text=True)
+    assert 'name="code"' in page and ">None<" not in page and 'value="None"' not in page
+
+
+def test_position_code_is_validated(seeded, client):
+    admin(client)
+    base = {"category": "nursing", "title_el": "Ζ", "title_en": "Bad code"}
+    n = Position.query.count()
+    for bad in ("A", "ABCDEFG", "A-B", "ΝΟΥ", "N R"):
+        client.post("/settings/position/add", data=dict(base, code=bad))
+    assert Position.query.count() == n
+    html = client.get("/settings/position").get_data(as_text=True)
+    assert "Position code" in html
+    r = client.post("/settings/position/add", data=dict(base, code="A"), follow_redirects=True)
+    assert "must be 2 to 6 Latin letters or digits" in r.get_data(as_text=True)
+    p = Position.query.first()
+    before = p.code
+    client.post(f"/settings/position/{p.id}/edit", data={"title_el": p.title_el, "title_en": p.title_en, "code": "TOOLONG1"})
+    db.session.refresh(p)
+    assert p.code == before

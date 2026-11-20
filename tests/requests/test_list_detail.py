@@ -54,13 +54,19 @@ def test_default_tab(seeded, client):
 
 def test_search_by_number_with_latin_lookalikes(seeded, client):
     req = submit(client)
-    assert req.number[:3] == "".join(chr(c) for c in (0x391, 0x395, 0x398))  # Alpha Epsilon Theta
-    typed = "AE" + chr(0x398) + "-2026-" + req.number[-4:]   # Latin A and E in place of Alpha and Epsilon
-    html = client.get("/requests?tab=mine&q=" + typed).get_data(as_text=True)
-    assert req.number in html
+    assert req.number.startswith("EHIRE-NIC-")  # the new shape is Latin
+    day = req.number.split("-")[3]
+    for typed in (req.number.lower(), "nic phy", day, req.number.replace("-", " ")):
+        html = client.get("/requests", query_string={"tab": "mine", "q": typed}).get_data(as_text=True)
+        assert req.number in html, typed
     assert req.number not in client.get("/requests?tab=mine&q=9999").get_data(as_text=True)
-    html = client.get("/requests?tab=mine&q=" + req.number[-4:].lower()).get_data(as_text=True)
-    assert req.number in html
+    # a number issued before the new shape: Greek prefix, found by Latin letters (U for Theta)
+    req.number = "".join(chr(c) for c in (0x391, 0x395, 0x398)) + "-2026-0007"
+    db.session.commit()
+    for typed in ("AE" + chr(0x398) + "-2026-0007", "aeu-2026-0007", "AEU 2026 0007"):
+        html = client.get("/requests", query_string={"tab": "mine", "q": typed}).get_data(as_text=True)
+        assert req.number in html, typed
+    assert req.number in client.get("/requests?tab=mine&q=0007").get_data(as_text=True)
 
 
 def test_row_has_mini_tracker_chip_and_status_line(seeded, client):

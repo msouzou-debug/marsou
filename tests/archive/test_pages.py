@@ -48,7 +48,7 @@ def test_the_page_renders_in_both_languages_without_raw_keys(seeded, client, sto
     html = text(resp)
     assert resp.status_code == 200
     assert not RAW_KEY.findall(re.sub(r"<[^>]+>", " ", html)), RAW_KEY.findall(html)
-    assert ("ΑΕΘ-2026-0001" in html) and ("eArchive" in html)
+    assert ("EHIRE-NIC-PHY-20261120-01" in html) and ("eArchive" in html)
     assert 'name="viewport"' in html
 
 
@@ -68,7 +68,7 @@ def test_the_page_lists_newest_first_and_shows_state_files_and_reference(seeded,
     as_user(client, "demo.admin")
     html = text(client.get("/settings/archive?lang=en"))
     assert "eArchive" in html
-    assert "ref-AEU-2026-0001-submitted" in html
+    assert "ref-EHIRE-NIC-PHY-20261120-01-submitted" in html
     assert "/settings/archive/%d/pdf" % deposits(rid)[0].id in html
 
 
@@ -82,7 +82,7 @@ def test_the_pdf_route_serves_the_file_with_the_safety_headers_and_audits(seeded
     h = resp.headers
     assert h["X-Content-Type-Options"] == "nosniff" and "no-store" in h["Cache-Control"]
     assert "default-src 'none'" in h["Content-Security-Policy"] and "sandbox" in h["Content-Security-Policy"]
-    assert "AEU-2026-0001-submitted.pdf" in h["Content-Disposition"]
+    assert "EHIRE-NIC-PHY-20261120-01-submitted.pdf" in h["Content-Disposition"]
     row = AuditLog.query.filter_by(event="archive_pdf_view").one()
     assert row.request_id == rid and d.pdf_sha256 in row.detail_json
     assert client.get("/settings/archive/9999/pdf").status_code == 404
@@ -133,7 +133,7 @@ def test_the_request_page_shows_the_state_and_the_reference_but_no_pdf_link(seed
         as_user(client, user)
         html = text(client.get("/requests/%d?lang=en" % rid))
         assert i18n.translate("archive.state.stored", "en") in html
-        assert "ref-AEU-2026-0001-submitted" in html and "/pdf" not in html.replace("/documents", "")
+        assert "ref-EHIRE-NIC-PHY-20261120-01-submitted" in html and "/pdf" not in html.replace("/documents", "")
     html = text(client.get("/requests/%d?lang=el" % rid))
     assert "Αποθηκεύτηκε στο eArchive" in html
 

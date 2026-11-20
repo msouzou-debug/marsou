@@ -6,7 +6,7 @@
   "max_file_mb": "20",
   "retention_years": "10",
   "activity_provider": "manual",
-  "number_prefix": "ΑΕΘ",
+  "number_prefix": "EHIRE",
   "mail_backend": "outbox_only"
  },
  "directorates": [
@@ -151,77 +151,92 @@
   {
    "category": "medical",
    "title_el": "Ιατρός Παθολόγος",
-   "title_en": "Consultant Physician"
+   "title_en": "Consultant Physician",
+   "code": "PHY"
   },
   {
    "category": "medical",
    "title_el": "Ιατρός Χειρουργός",
-   "title_en": "Consultant Surgeon"
+   "title_en": "Consultant Surgeon",
+   "code": "SUR"
   },
   {
    "category": "medical",
    "title_el": "Ιατρός Αναισθησιολόγος",
-   "title_en": "Consultant Anaesthetist"
+   "title_en": "Consultant Anaesthetist",
+   "code": "ANA"
   },
   {
    "category": "nursing",
    "title_el": "Νοσηλευτής/τρια",
-   "title_en": "Staff Nurse"
+   "title_en": "Staff Nurse",
+   "code": "NUR"
   },
   {
    "category": "nursing",
    "title_el": "Ανώτερος/η Νοσηλευτής/τρια",
-   "title_en": "Senior Nurse"
+   "title_en": "Senior Nurse",
+   "code": "SNU"
   },
   {
    "category": "nursing",
    "title_el": "Μαία",
-   "title_en": "Midwife"
+   "title_en": "Midwife",
+   "code": "MID"
   },
   {
    "category": "allied",
    "title_el": "Φυσικοθεραπευτής/τρια",
-   "title_en": "Physiotherapist"
+   "title_en": "Physiotherapist",
+   "code": "PHT"
   },
   {
    "category": "allied",
    "title_el": "Ακτινοδιαγνώστης",
-   "title_en": "Radiographer"
+   "title_en": "Radiographer",
+   "code": "RAD"
   },
   {
    "category": "allied",
    "title_el": "Εργαστηριακός Λειτουργός",
-   "title_en": "Laboratory Scientist"
+   "title_en": "Laboratory Scientist",
+   "code": "LAB"
   },
   {
    "category": "admin",
    "title_el": "Γραμματέας",
-   "title_en": "Secretary"
+   "title_en": "Secretary",
+   "code": "SEC"
   },
   {
    "category": "admin",
    "title_el": "Λειτουργός Διοίκησης",
-   "title_en": "Administrative Officer"
+   "title_en": "Administrative Officer",
+   "code": "ADO"
   },
   {
    "category": "admin",
    "title_el": "Λογιστικός Λειτουργός",
-   "title_en": "Accounting Officer"
+   "title_en": "Accounting Officer",
+   "code": "ACC"
   },
   {
    "category": "other",
    "title_el": "Βοηθός Νοσηλευτικής",
-   "title_en": "Nursing Assistant"
+   "title_en": "Nursing Assistant",
+   "code": "NAS"
   },
   {
    "category": "other",
    "title_el": "Τεχνικός Συντήρησης",
-   "title_en": "Maintenance Technician"
+   "title_en": "Maintenance Technician",
+   "code": "MNT"
   },
   {
    "category": "other",
    "title_el": "Οδηγός Ασθενοφόρου",
-   "title_en": "Ambulance Driver"
+   "title_en": "Ambulance Driver",
+   "code": "DRV"
   }
  ],
  "cost_centres": [

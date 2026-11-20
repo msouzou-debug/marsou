@@ -5,7 +5,7 @@ import os
 import pytest
 
 from ehire.extensions import db
-from ehire.models import (ArchiveDeposit, AuditLog, CostCentre, Directorate, Facility, MailOutbox, NumberSequence,
+from ehire.models import (ArchiveDeposit, AuditLog, CostCentre, Directorate, Facility, MailOutbox, NumberCounter, NumberSequence,
                           OaySpecialty, Position, Request, RequestAction, RequestDocument, RequestFinancials,
                           RequestLeaver, RoleAssignment, Task, User, UserDirectorate)
 from ehire.models.access import ROLES
@@ -127,7 +127,7 @@ def test_clear_removes_every_test_row_file_and_keeps_real_data(prod):
     sample_id = sample.id
     paths = attach_files(prod, sample_id, test_users[0])
     audit_before = AuditLog.query.count()
-    assert max(n.last_value for n in NumberSequence.query) > 0
+    assert max(n.last_value for n in NumberCounter.query) > 0
 
     result = invoke(prod, "clear-test-data", input="wrong\n")
     assert result.exit_code != 0 and "Not confirmed" in result.output and User.query.count() > 2
@@ -154,7 +154,7 @@ def test_clear_removes_every_test_row_file_and_keeps_real_data(prod):
     row = AuditLog.query.filter_by(event="list_changed", object_id="clear").one()
     detail = json.loads(row.detail_json)
     assert detail["by"] == "cli" and detail["removed"]["users"] == 30 and "test.nic.requester" in detail["users"].values()
-    assert NumberSequence.query.count() > 0 and all(n.last_value == 0 for n in NumberSequence.query)
+    assert NumberCounter.query.count() > 0 and all(n.last_value == 0 for n in NumberCounter.query)
     assert invoke(prod, "clear-test-data", "--yes").exit_code == 0  # nothing left: still fine
 
     # It can be loaded again after a clear (the old seed_case markers point at deleted requests).

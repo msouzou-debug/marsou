@@ -82,7 +82,7 @@ def run(req, new_action, now, before=None, after=None):
 
 def submit(req, user_id, now):
     return run(req, NewAction(user_id, "submit", "requester"), now,
-               before=lambda result: setattr(req, "number", next_number(db.session, now.year)))
+               before=lambda result: setattr(req, "number", next_number(db.session, req, now)))
 
 
 def resubmit(req, user_id, now, note, changed_fields, apply_fields):

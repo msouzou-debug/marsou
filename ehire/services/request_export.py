@@ -28,7 +28,7 @@ DATE_FORMAT = "dd/mm/yyyy"
 
 # (name, header string key, width)
 COLUMNS = (
-    ("number", "export.col.number", 18), ("status", "export.col.status", 16), ("step", "export.col.step", 26),
+    ("number", "export.col.number", 30), ("status", "export.col.status", 16), ("step", "export.col.step", 26),
     ("directorate", "field.directorate", 22), ("facility", "field.facility", 30),
     ("cost_centre", "field.cost_centre", 30), ("category", "field.category", 16),
     ("position", "field.position", 30), ("posts", "field.positions_count", 12), ("reason", "field.reason", 26),

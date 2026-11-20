@@ -44,8 +44,11 @@ def seed_demo(data=None, password=None):
             db.session.add(Facility(directorate_id=d.id, code=f["code"], name_el=f["name_el"], name_en=f["name_en"],
                                     archive_site_code=f.get("archive_site_code")))
     for p in data["positions"]:
-        if not Position.query.filter_by(category=p["category"], title_en=p["title_en"]).first():
+        row = Position.query.filter_by(category=p["category"], title_en=p["title_en"]).first()
+        if row is None:
             db.session.add(Position(**p))
+        elif row.code is None and p.get("code"):
+            row.code = p["code"]
     for c in data["cost_centres"]:
         if not CostCentre.query.filter_by(code=c["code"]).first():
             db.session.add(CostCentre(**c))

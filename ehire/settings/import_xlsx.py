@@ -18,6 +18,7 @@ from ..auth import current_user, hash_password
 from ..extensions import db
 from ..models import (ARCHIVE_SITE_CODES, CATEGORIES, CENTRAL_ROLES, ROLES, CostCentre, Directorate, Facility,
                       OaySpecialty, Position, RoleAssignment, User, audit)
+from ..workflow.numbering import valid_position_code
 from .roles import SINGLE_DIRECTORATE_ROLES, _active, _ended_yesterday, active_admin_ids
 from .users import EMAIL, USERNAME
 
@@ -27,12 +28,13 @@ MAX_RAW_ROWS = 20000  # empty trailing rows count against this, so a file cannot
 SHEETS = {
     "directorates": ("code", "name_el", "name_en", "has_sci_director", "active"),
     "facilities": ("directorate_code", "code", "name_el", "name_en", "archive_site_code", "active"),
-    "positions": ("category", "title_el", "title_en", "active"),
+    "positions": ("category", "title_el", "title_en", "code", "active"),
     "cost_centres": ("code", "name_el", "name_en", "active"),
     "oay_specialties": ("name", "active"),
     "users": ("username", "full_name", "email", "auth_source", "line_manager_username", "active"),
     "role_holders": ("role", "directorate_code", "username", "substitute_username"),
 }
+OPTIONAL_COLUMNS = {"positions": {"code"}}  # a file made before the column existed still imports
 AUTH_SOURCES = ("local", "ad")
 DIRECTORATE_ROLE_SET = ("requester",) + SINGLE_DIRECTORATE_ROLES
 CENTRAL_ROLE_SET = CENTRAL_ROLES + ("viewer", "admin")
@@ -97,7 +99,7 @@ def read_workbook(path):
                 if header is None:
                     header = {h.lower(): i for i, h in enumerate(cells) if h}
                     for col in columns:
-                        if col not in header:
+                        if col not in header and col not in OPTIONAL_COLUMNS.get(name, ()):
                             errors.append((name, 1, col, "import.err.missing_column", {"column": col}))
                     continue
                 if not any(cells):
@@ -257,12 +259,19 @@ def _positions(chk, rows):
         n, c = r["row"], r["cells"]
         ok = _choose(chk, s, n, "category", c["category"].lower(), CATEGORIES)
         ok &= _need(chk, s, n, "title_el", c["title_el"]) & _need(chk, s, n, "title_en", c["title_en"])
+        code = c["code"].upper()
+        if code and not valid_position_code(code):
+            chk.err(s, n, "code", "import.err.position_code")
+            ok = False
         act = _flag(chk, s, n, "active", c["active"], None)
         if c["active"] and act is None or not ok:
             continue
         key = (c["category"].lower(), c["title_el"])
         existing = existing_all.get(key)
-        values = {"category": key[0], "title_el": c["title_el"], "title_en": c["title_en"], "is_active": act}
+        values = {"category": key[0], "title_el": c["title_el"], "title_en": c["title_en"],
+                  "code": code or None, "is_active": act}
+        if values["code"] is None and existing is not None:
+            values["code"] = existing.code  # a blank cell keeps the stored code
         _fill_defaults(values, existing, {"is_active": True})
         _decide(chk, s, key, seen, n, existing, values, _plain)
 
@@ -604,7 +613,7 @@ def _export_rows():
         "directorates": [(d.code, d.name_el, d.name_en, _yn(d.has_sci_director), _yn(d.is_active)) for d in dirs],
         "facilities": [(f.directorate.code, f.code, f.name_el, f.name_en, f.archive_site_code or "", _yn(f.is_active))
                        for f in Facility.query.order_by(Facility.id)],
-        "positions": [(p.category, p.title_el, p.title_en, _yn(p.is_active)) for p in Position.query.order_by(Position.id)],
+        "positions": [(p.category, p.title_el, p.title_en, p.code or "", _yn(p.is_active)) for p in Position.query.order_by(Position.id)],
         "cost_centres": [(c.code, c.name_el, c.name_en, _yn(c.is_active)) for c in CostCentre.query.order_by(CostCentre.id)],
         "oay_specialties": [(s.name, _yn(s.is_active)) for s in OaySpecialty.query.order_by(OaySpecialty.id)],
         "users": [(u.username, u.full_name, u.email or "", u.auth_source,

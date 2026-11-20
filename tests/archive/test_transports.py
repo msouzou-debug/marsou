@@ -51,17 +51,17 @@ def test_the_folder_transport_writes_the_deposit_and_returns_the_folder_name(see
     counts = queue.flush()
     assert counts["stored"] == 2 and counts["failed"] == 0
     names = sorted(p.name for p in drop.iterdir())
-    assert names == ["AEU-2026-0001-decided", "AEU-2026-0001-submitted"]  # no temp folders left
-    folder = drop / "AEU-2026-0001-decided"
+    assert names == ["EHIRE-NIC-PHY-20261120-01-decided", "EHIRE-NIC-PHY-20261120-01-submitted"]  # no temp folders left
+    folder = drop / "EHIRE-NIC-PHY-20261120-01-decided"
     assert sorted(p.name for p in folder.iterdir()) == [
-        "01-job-description.pdf", "02-rota-2026.pdf", "AEU-2026-0001-decided.pdf", "manifest.json"]
+        "01-job-description.pdf", "02-rota-2026.pdf", "EHIRE-NIC-PHY-20261120-01-decided.pdf", "manifest.json"]
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["files"][0]["stored_as"] == "AEU-2026-0001-decided.pdf"
+    assert manifest["files"][0]["stored_as"] == "EHIRE-NIC-PHY-20261120-01-decided.pdf"
     for f in manifest["files"]:
         import hashlib
         assert hashlib.sha256((folder / f["stored_as"]).read_bytes()).hexdigest() == f["sha256"]
     row = [d for d in deposits() if d.kind == "decided"][0]
-    assert (row.state, row.archive_ref, row.attempts, row.last_error) == ("stored", "AEU-2026-0001-decided", 1, None)
+    assert (row.state, row.archive_ref, row.attempts, row.last_error) == ("stored", "EHIRE-NIC-PHY-20261120-01-decided", 1, None)
     assert row.sent_at is not None
     assert AuditLog.query.filter_by(event="archive_stored", request_id=rid).count() == 2
 
@@ -115,7 +115,7 @@ def test_a_failing_transport_marks_failed_and_a_later_run_succeeds(seeded, clien
     counts = queue.flush()  # the cron run is the backoff
     assert counts["stored"] == 1 and counts["rendered"] == 0
     row = deposits(rid)[0]
-    assert (row.state, row.attempts, row.last_error, row.archive_ref) == ("stored", 2, None, "ref-AEU-2026-0001-submitted")
+    assert (row.state, row.attempts, row.last_error, row.archive_ref) == ("stored", 2, None, "ref-EHIRE-NIC-PHY-20261120-01-submitted")
     assert queue.flush() == {"rendered": 0, "stored": 0, "failed": 0, "waiting": 0}
     assert len(t.calls) == 2  # the PDF was made once and re-sent byte for byte
     assert t.calls[0][0] == t.calls[1][0]

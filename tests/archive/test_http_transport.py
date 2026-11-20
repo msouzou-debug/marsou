@@ -55,15 +55,15 @@ def test_submitted_then_decided_with_the_supersedes_link(http, client):
     assert first.state == "stored" and first.protocol_number == "ΑΔ/2026/00001" and first.protocol_id == "p-0001"
     assert first.url.startswith("http://127.0.0.1:5011/protocols/") and first.archive_ref == first.protocol_number
     sent = http.requests[0]
-    assert sent["meta"]["source_ref"] == "position_request:ΑΕΘ-2026-0001:submitted"
+    assert sent["meta"]["source_ref"] == "position_request:EHIRE-NIC-PHY-20261120-01:submitted"
     assert "event_date" not in sent["meta"] and "related" not in sent["meta"] and "amount" not in sent["meta"]
     approve_all(client, rid)
     assert queue.flush()["stored"] == 1
     second = row_of(rid, "decided")
     assert second.state == "stored" and second.protocol_number == "ΑΔ/2026/00002"
     meta = http.requests[1]["meta"]
-    assert meta["source_ref"] == "position_request:ΑΕΘ-2026-0001:decided"
-    assert meta["related"] == [{"source_ref": "position_request:ΑΕΘ-2026-0001:submitted", "relation": "SUPERSEDES"}]
+    assert meta["source_ref"] == "position_request:EHIRE-NIC-PHY-20261120-01:decided"
+    assert meta["related"] == [{"source_ref": "position_request:EHIRE-NIC-PHY-20261120-01:submitted", "relation": "SUPERSEDES"}]
     assert meta["doc_type"] == "Αίτημα θέσης — εγκρίθηκε" and meta["event_date"]
     assert meta["amount"] == 50000.0 and meta["currency"] == "EUR"
     assert [r["status"] for r in http.requests] == [201, 201]
@@ -78,7 +78,7 @@ def test_the_meta_has_exactly_the_fields_of_the_note_and_no_personal_names(http,
     assert meta["schema_version"] == 1 and meta["outbox_id"] == row_of(rid, "decided").id
     assert re.match(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+0[23]:00$", meta["sent_at"])  # Cyprus offset
     assert (meta["source_system"], meta["source_module"], meta["direction"]) == ("eHire", "position_request", "INTERNAL")
-    assert meta["sender_ref"] == "ΑΕΘ-2026-0001" and meta["classification"] == "HIGHLY_SENSITIVE"
+    assert meta["sender_ref"] == "EHIRE-NIC-PHY-20261120-01" and meta["classification"] == "HIGHLY_SENSITIVE"
     assert meta["personal_data"] is True and meta["personal_data_category"] == "Στοιχεία προσωπικού"
     assert meta["category"] == "Προσλήψεις" and meta["folder_hints"] == [{"hospital": "NGH"}]
     assert meta["sender_name"] == "Λευκωσίας" or meta["sender_name"]
@@ -95,7 +95,7 @@ def test_the_meta_has_exactly_the_fields_of_the_note_and_no_personal_names(http,
     assert [f["kind"] for f in meta["files"]] == ["MAIN", "ATTACHMENT", "ATTACHMENT"]
     assert all(set(f) == {"kind", "part_name", "filename", "mime", "size", "sha256"} for f in meta["files"])
     assert all(f["mime"] == "application/pdf" for f in meta["files"])
-    assert meta["files"][0]["filename"] == "ΑΕΘ-2026-0001 — απόφαση.pdf"  # the title staff see, in Greek
+    assert meta["files"][0]["filename"] == "EHIRE-NIC-PHY-20261120-01 — απόφαση.pdf"  # the title staff see, in Greek
     assert meta["files"][1]["filename"] == "job-description.pdf"
     assert set(http.requests[1]["files"]) == {"main", "att1", "att2"}
 
@@ -750,7 +750,7 @@ def test_the_main_file_has_a_greek_title_and_names_are_unique_and_clean(http, cl
     submit_with(client, rid)
     queue.flush()
     names = [f["filename"] for f in http.requests[0]["meta"]["files"]]
-    assert names == ["ΑΕΘ-2026-0001 — υποβολή.pdf", "same.pdf", "same (2).pdf"]
+    assert names == ["EHIRE-NIC-PHY-20261120-01 — υποβολή.pdf", "same.pdf", "same (2).pdf"]
     assert meta_mod.unique_names(["a.pdf", "A.pdf", "a (2).pdf", "b"]) == ["a.pdf", "A (2).pdf", "a (2) (2).pdf", "b"]
     assert meta_mod.unique_names(["b", "b"]) == ["b", "b (2)"]
     assert meta_mod.clean_filename("../../etc/pa\x00ss\u202ewd.pdf") == "passwd.pdf"
@@ -768,7 +768,7 @@ def test_twenty_attachments_go_as_one_zip_and_nineteen_go_singly(http, client):
     sent = http.requests[0]
     files = sent["meta"]["files"]
     assert [(f["kind"], f["part_name"], f["filename"], f["mime"]) for f in files] == [
-        ("MAIN", "main", "ΑΕΘ-2026-0001 — υποβολή.pdf", "application/pdf"),
+        ("MAIN", "main", "EHIRE-NIC-PHY-20261120-01 — υποβολή.pdf", "application/pdf"),
         ("ATTACHMENT", "att1", "Συνημμένα.zip", "application/zip")]
     assert set(sent["files"]) == {"main", "att1"}
     assert http.zips == [["supporting-%02d.pdf" % i for i in range(1, 21)]]
@@ -926,4 +926,4 @@ def test_archive_sites_lists_active_facilities_with_their_codes_and_counts_the_m
     assert other.code not in out.output.replace(fac.code, "")
     active = Facility.query.filter_by(is_active=True).count()
     assert lines[-1] == "Facilities without a code: 1 of %d" % active
-    assert not [w for w in ("Maria", "ΑΕΘ-") if w in out.output]
+    assert not [w for w in ("Maria", "EHIRE-") if w in out.output]

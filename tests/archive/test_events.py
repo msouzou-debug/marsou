@@ -11,7 +11,7 @@ from tests.archive.fake_earchive import TOKEN
 from tests.requests.flowhelpers import as_user, create, text
 
 URL = "/api/v1/archive-events"
-REF = "position_request:ΑΕΘ-2026-0001:submitted"
+REF = "position_request:EHIRE-NIC-PHY-20261120-01:submitted"
 
 
 def notice(client, body=None, token=TOKEN, headers=None, addr=None, raw=None):

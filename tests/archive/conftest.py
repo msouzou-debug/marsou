@@ -90,3 +90,17 @@ def http(app, seeded, stor, conv, fake):
     db.session.add(Setting(key="archive_transport", value="http"))
     db.session.commit()
     return fake
+
+
+@pytest.fixture(autouse=True)
+def fixed_number_day(monkeypatch):
+    """Request numbers carry the submission day; the archive tests compare whole numbers, so the day stands still.
+    The first request of the day for NIC and a medical position is EHIRE-NIC-PHY-20261120-01."""
+    from datetime import date
+
+    from ehire.services import numbering
+
+    real = numbering.number_stem
+    monkeypatch.setattr(numbering, "number_stem",
+                        lambda prefix, directorate, position, category, day: real(prefix, directorate, position, category,
+                                                                                  date(2026, 11, 20)))

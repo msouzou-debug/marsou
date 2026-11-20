@@ -24,7 +24,7 @@ from sqlalchemy import or_, update
 from sqlalchemy.exc import IntegrityError
 
 from .extensions import db
-from .models import (AuditLog, CostCentre, Directorate, Facility, MailOutbox, NumberSequence, OaySpecialty, Position,
+from .models import (AuditLog, CostCentre, Directorate, Facility, MailOutbox, NumberCounter, NumberSequence, OaySpecialty, Position,
                      Request, RequestAction, RequestDocument, RequestFinancials, RequestLeaver, RoleAssignment, Setting,
                      Task, User, UserDirectorate, ArchiveDeposit, audit)
 from .models.access import CENTRAL_ROLES
@@ -249,16 +249,29 @@ def _files_of(request_ids):
 
 
 def _release_numbers(removed_numbers):
-    """Give back request numbers nobody holds any more: each year's counter goes down to the highest number still
-    used (0 when none is). Without this the first real request would not be number 1."""
-    years = set()
+    """Give back request numbers nobody holds any more. Each counter (one per directorate, position and day, and the
+    old yearly ones) goes down to the highest number still used under it, or to 0 when none is. Without this the
+    first real request would not be number 1."""
+    stems, years = set(), set()
     for number in removed_numbers:
-        parts = (number or "").rsplit("-", 2)
-        if len(parts) == 3 and parts[1].isdigit():
+        parts = (number or "").split("-")
+        if len(parts) == 5 and parts[3].isdigit() and len(parts[3]) == 8 and parts[4].isdigit():
+            stems.add(number.rsplit("-", 1)[0])
+        elif len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
             years.add(int(parts[1]))
+    remaining = [n for (n,) in db.session.query(Request.number).filter(Request.number.isnot(None))]
+    for stem in stems:
+        top = 0
+        for number in remaining:
+            head, _, tail = number.rpartition("-")
+            if head == stem and tail.isdigit():
+                top = max(top, int(tail))
+        row = db.session.get(NumberCounter, stem)
+        if row is not None and row.last_value > top:
+            row.last_value = top
     for year in years:
         top = 0
-        for (number,) in db.session.query(Request.number).filter(Request.number.isnot(None)):
+        for number in remaining:
             parts = number.rsplit("-", 2)
             if len(parts) == 3 and parts[1] == str(year) and parts[2].isdigit():
                 top = max(top, int(parts[2]))

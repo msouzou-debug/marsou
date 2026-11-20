@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..auth import current_user, permission_required
 from ..extensions import db
+from ..workflow.numbering import valid_position_code
 from ..models import ARCHIVE_SITE_CODES, CATEGORIES, ArchiveDeposit, CostCentre, Directorate, Facility, OaySpecialty, Position, audit
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -18,7 +19,7 @@ LISTS = {
                             ("name_el", "text", True, True), ("name_en", "text", True, True),
                             ("archive_site_code", "site", True, False)]),
     "position": (Position, [("category", "category", False, True), ("title_el", "text", True, True),
-                            ("title_en", "text", True, True)]),
+                            ("title_en", "text", True, True), ("code", "poscode", True, False)]),
     "cost_centre": (CostCentre, [("code", "text", False, True), ("name_el", "text", True, True),
                                  ("name_en", "text", True, True)]),
     "oay_specialty": (OaySpecialty, [("name", "text", True, True)]),
@@ -30,6 +31,7 @@ LABELS = {
     "has_sci_director": "settings.has_sci_director", "directorate_id": "field.directorate",
     "category": "field.category", "archive_site_code": "settings.col.archive_site",
 }
+POSITION_LABEL = "settings.col.position_code"  # a position's `code` is the request-number part, not a unique code
 
 
 def _spec(kind):
@@ -53,6 +55,10 @@ def _values(fields, creating):
             raw = int(raw) if raw.isdigit() and db.session.get(Directorate, int(raw)) else None
         elif widget == "category" and raw not in CATEGORIES:
             raw = None
+        elif widget == "poscode":
+            raw = raw.upper() or None
+            if raw is not None and not valid_position_code(raw):
+                missing = "settings.position_code_invalid"
         elif widget == "site":
             raw = raw.upper() or None
             if raw is not None and raw not in ARCHIVE_SITE_CODES:
@@ -85,7 +91,7 @@ def show(kind):
     model, fields = _spec(kind)
     rows = db.session.query(model).order_by(model.id).all()
     return render_template(
-        "settings/list.html", kind=kind, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
+        "settings/list.html", kind=kind, position_label=POSITION_LABEL, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
         directorates=Directorate.query.order_by(Directorate.id).all(), kinds=list(LISTS),
     )
 

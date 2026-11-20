@@ -11,7 +11,7 @@ Import models from `ehire.models` (access, master, request, audit). Tables follo
 - Lists: `Directorate`, `Facility`, `Position` (title_el/title_en), `CostCentre`, `OaySpecialty` (name), `PublicHoliday`,
   `Setting` (`get_setting(key, default)`). Each list row has `name(lang)`, except OaySpecialty (`name`).
 - `Request` (all contract columns plus `number_search`, filled automatically on insert/update from `number`),
-  `RequestLeaver`, `RequestAction`, `RequestFinancials`, `RequestDocument`, `Task`, `NumberSequence`.
+  `RequestLeaver`, `RequestAction`, `RequestFinancials`, `RequestDocument`, `Task`, `NumberCounter` (current request numbers), `NumberSequence` (old yearly counter).
   Phase 2 columns: `Request.returned_at` (set while returned), `Request.withdrawal_warned`; `Task.phase` and
   `RequestAction.phase` (`inputs` | `decision`, step 3 only; None elsewhere). Rows are stored from the engine result, never derived.
   Leavers and financials carry a `round`; the current ones are those with `round == Request.round`.

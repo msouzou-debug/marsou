@@ -88,6 +88,10 @@ For a local account: `scripts/ehire-cli.sh reset-password <username>`. It asks t
 
 `scripts/ehire-cli.sh load-holidays` (add `--year 2028`, repeatable) loads the Cyprus holidays for this year and the next, and skips dates already there. 24 December and Easter Tuesday are public-service holidays; remove them in Settings if not observed. Run it each autumn.
 
+## Request numbers
+
+A number looks like `EHIRE-NGH-NUR-20261120-01`: prefix, Directorate code, position code, submission day (Cyprus time) and a counter that starts at 01 for each combination. The prefix is `EHIRE` unless an administrator records `number_prefix`. The position code is set in Settings, Positions (2 to 6 Latin letters or digits, optional); a position without one uses MED, NUR, ALH, ADM or OTH by staff category. Numbers issued earlier (`ΑΕΘ-2026-0007`, `EHIRE-2026-0003`) are never changed. `clear-test-data` also lowers the counters of the removed test numbers.
+
 ## Test data
 
 For acceptance testing: `scripts/ehire-cli.sh load-test-data` (asks once for the password all `test.*` accounts share) and, before go-live, `scripts/ehire-cli.sh clear-test-data`. Test mail goes to `@test.invalid` only. The clear refuses, and says why, when a real user touched a test request or a test deposit reached eArchive. Details: `deploy/README.md`, section Test data.

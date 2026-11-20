@@ -23,11 +23,11 @@ Permission keys for this module: `request.create`, `request.view_own`, `request.
 |---|---|
 | `directorate` | id, code, name_el, name_en, has_sci_director, is_active |
 | `facility` | id, directorate_id → directorate, code, name_el, name_en, is_active, archive_site_code (nullable; eArchive folder code, migration 0005) |
-| `position` | id, category, title_el, title_en, is_active |
+| `position` | id, category, title_el, title_en, code (optional, 2 to 6 Latin capitals or digits, stored upper-case, not unique), is_active |
 | `cost_centre` | id, code (unique), name_el, name_en, is_active |
 | `oay_specialty` | id, name (English, as ΟΑΥ writes it), aliases_json, is_active |
 | `public_holiday` | date (primary key), name_el, name_en |
-| `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `retention_years`=10 (assumed, recorded only: nothing deletes data, see operations.md), `number_prefix`, `mail_backend`, `archive_transport` |
+| `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `retention_years`=10 (assumed, recorded only: nothing deletes data, see operations.md), `number_prefix` (default `EHIRE`), `mail_backend`, `archive_transport` |
 
 Inactive list rows stay selectable on old requests and are hidden on new ones.
 
@@ -41,7 +41,8 @@ Inactive list rows stay selectable on old requests and are hidden on new ones.
 | `request_financials` | id, request_id, round, period [`prev_year`, `ytd`], visits, procedures, revenue, payroll_cost, headcount, oay_specialty_id, oay_data_month, payroll_to_month, source [`manual`, `provider`], source_snapshot_json. Unique on (request_id, round, period) |
 | `request_document` | id, request_id, round, file_name, mime, size, storage_ref, sha256, uploaded_by, uploaded_at |
 | `task` | id, request_id, round, step, phase (`inputs` \| `decision`, step 3 only, else null), role, assignee_user_id (nullable = unassigned), on_behalf_of_user_id, redirect_reason, status, may_replace, opened_at, clock_started_at, reminded_at, escalated_at, closed_at |
-| `number_sequence` | year (primary key), last_value. Updated under a row lock in the same transaction as the submit |
+| `number_counter` | stem (primary key, `EHIRE-<DIR>-<POS>-<YYYYMMDD>`), last_value. Updated under the write lock in the same transaction as the submit (migration 0006) |
+| `number_sequence` | year (primary key), last_value. The old yearly counter. No longer used for new numbers, kept in place |
 
 `reason` values: `retirement`, `resignation`, `secondment_end`, `contract_end`, `new_need`, `other`. The first four are departures.
 
@@ -91,9 +92,21 @@ Lock rule (config `LOGIN_MAX_FAILURES` 5, `LOGIN_IP_MAX_FAILURES` 20, `LOGIN_WIN
 
 `request(status, current_step)`, `request(directorate_id)`, `request(created_by)`, `task(assignee_user_id, status)`, `task(request_id)`, `request_action(request_id, created_at)`, `audit_log(request_id)`, `audit_log(at)`.
 
+## Request number
+
+Shape: `<prefix>-<directorate code>-<position code>-<YYYYMMDD>-<NN>`, for example `EHIRE-NGH-NUR-20261120-01`. Decided by Marios on 20/11/2026.
+
+- Prefix: `number_prefix` if an administrator recorded one, else `EHIRE`.
+- Directorate code: the request's Directorate code, upper-cased, anything that is not a Latin letter or digit removed (`T-NIC` becomes `TNIC`); `X` if nothing is left.
+- Position code: `position.code`; when a position has none, one fixed code per staff category: medical `MED`, nursing `NUR`, allied `ALH`, admin `ADM`, other `OTH`. Two posts may share a code.
+- Date: the submission day in Cyprus time (`EHIRE_TIMEZONE`), not UTC.
+- `NN`: counter per prefix, Directorate, position code and day, starting at 01, two digits, three once it passes 99. It lives in `number_counter` and is taken inside the submit transaction, so two submissions cannot get the same number.
+- A draft has no number. A resubmission keeps it. Numbers already issued (`ΑΕΘ-2026-0007`, `EHIRE-2026-0003`) are never changed; they still open, display, search and export.
+- The format and code-cleaning rules are in `ehire/workflow/numbering.py`; the counter is in `ehire/services/numbering.py`. The longest number is about 46 characters, so `number` and `number_search` are declared 60 long (SQLite does not enforce the length).
+
 ## Number search
 
-Store `number` as issued. Store also `number_search`: upper-cased, with Greek letters that look like Latin ones mapped to Latin (Α→A, Β→B, Ε→E, Ζ→Z, Η→H, Θ→U, Ι→I, Κ→K, Μ→M, Ν→N, Ο→O, Ρ→P, Τ→T, Υ→Y, Χ→X) and dashes and spaces removed. Θ maps to U because that is the key a person presses for it on a Latin keyboard, so «ΑΕΘ-2026-0007» is found by typing `AEU-2026-0007`. Accents are removed first. Search input goes through the same function. The map exists twice, in `ehire/workflow/numbering.py` and in `ehire/models/request.py` (the column filler), and a test keeps them equal. Migration 0002 recomputes the stored column for rows saved before Θ was mapped.
+Store `number` as issued. Store also `number_search`: upper-cased, with Greek letters that look like Latin ones mapped to Latin (Α→A, Β→B, Ε→E, Ζ→Z, Η→H, Θ→U, Ι→I, Κ→K, Μ→M, Ν→N, Ο→O, Ρ→P, Τ→T, Υ→Y, Χ→X) and dashes and spaces removed. Θ maps to U because that is the key a person presses for it on a Latin keyboard, so «ΑΕΘ-2026-0007» is found by typing `AEU-2026-0007`. Accents are removed first. Search input goes through the same function. The map exists twice, in `ehire/workflow/numbering.py` and in `ehire/models/request.py` (the column filler), and a test keeps them equal. Migration 0002 recomputes the stored column for rows saved before Θ was mapped. The new Latin numbers go through the same function: `EHIRE-NGH-NUR-20261120-01` is stored as `EHIRENGHNUR2026112001`, and any part typed in any case, with or without dashes or spaces (`ngh nur`, `20261120`, `NGH-NUR-20261120-01`), is found because the search is a substring match. The request list and the audit page's request filter both use it.
 
 ## Personal data
 

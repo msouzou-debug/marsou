@@ -91,7 +91,7 @@ def test_directorate_role_sees_only_its_directorate(cases, client):
 
 def test_tab_and_search_are_honoured(cases, client):
     one = db.session.get(Request, cases["a"])
-    wb = _wb(_export(client, "central.ceo", "&tab=all&q=" + one.number[-4:]))
+    wb = _wb(_export(client, "central.ceo", "&tab=all&q=" + one.number))
     assert [r[0] for r in _rows(wb) if r[0]] == [one.number]
     wb = _wb(_export(client, "central.ceo", "&tab=mine"))
     assert [r for r in _rows(wb) if r[0]] == []

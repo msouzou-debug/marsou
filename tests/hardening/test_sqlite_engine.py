@@ -13,7 +13,7 @@ from ehire import create_app
 from ehire.config import TestConfig
 from ehire.dbsetup import init_sqlite, sqlite_settings
 from ehire.extensions import db
-from ehire.models import NumberSequence, Request, RequestAction
+from ehire.models import NumberCounter, NumberSequence, Request, RequestAction
 from ehire.security import ConfigError, check_production_config
 from tests.conftest import login
 from tests.requests.flowhelpers import fin_fields, open_task
@@ -214,8 +214,10 @@ def test_numbers_are_distinct_and_consecutive_under_concurrent_submits(file_app)
     numbers = [r.number for r in Request.query.all()]
     assert len(numbers) == n and len(set(numbers)) == n
     values = sorted(int(x.rsplit("-", 1)[1]) for x in numbers)
-    assert values == list(range(1, n + 1))
-    assert db.session.get(NumberSequence, Request.query.first().created_at.year).last_value == n
+    assert values == list(range(1, n + 1))  # one directorate, position and day: one counter, 01 to 10
+    assert len({x.rsplit("-", 1)[0] for x in numbers}) == 1
+    stem = numbers[0].rsplit("-", 1)[0]
+    assert db.session.get(NumberCounter, stem).last_value == n
 
 
 def test_exactly_one_action_per_task_under_concurrent_double_submit(file_app):

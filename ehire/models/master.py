@@ -53,6 +53,7 @@ class Position(db.Model):
     category: Mapped[str] = mapped_column(String(20), nullable=False)
     title_el: Mapped[str] = mapped_column(String(200), nullable=False)
     title_en: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str] = mapped_column(String(6), nullable=True)  # request-number part, 2-6 Latin capitals or digits
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     def name(self, lang):

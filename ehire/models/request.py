@@ -53,8 +53,8 @@ class Request(db.Model):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    number: Mapped[str] = mapped_column(String(40), unique=True, nullable=True)
-    number_search: Mapped[str] = mapped_column(String(40), nullable=True, index=True)
+    number: Mapped[str] = mapped_column(String(60), unique=True, nullable=True)
+    number_search: Mapped[str] = mapped_column(String(60), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     current_step: Mapped[int] = mapped_column(Integer, nullable=True)
     step3_phase: Mapped[str] = mapped_column(String(20), nullable=True)
@@ -200,7 +200,16 @@ class Task(db.Model):
     assignee = relationship("User", foreign_keys=[assignee_user_id])
 
 
+class NumberCounter(db.Model):
+    """One counter per number stem, PREFIX-DIR-POS-YYYYMMDD (migration 0006). Replaces NumberSequence for new numbers."""
+    __tablename__ = "number_counter"
+
+    stem: Mapped[str] = mapped_column(String(80), primary_key=True)
+    last_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class NumberSequence(db.Model):
+    """The old yearly counter (PREFIX-YYYY-NNNN). Not used for new numbers; kept so old data and migrations still fit."""
     __tablename__ = "number_sequence"
 
     year: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -35,7 +35,7 @@ def test_the_html_page_holds_every_part(seeded, client, stor, conv):
     html = open(path, "rb").read().decode("utf-8")
     assert "<!DOCTYPE html>" in html and "http://" not in html and "https://" not in html
     assert "data:image/png;base64," in html  # the logo is embedded
-    for needle in ("ΑΕΘ-2026-0001", "Αίτημα για Έγκριση Θέσεων", "Maria Test Leaver", "40.000,50 €",
+    for needle in ("EHIRE-NIC-PHY-20261120-01", "Αίτημα για Έγκριση Θέσεων", "Maria Test Leaver", "40.000,50 €",
                    "Checked again after the rota was added.", "Αντικαταστάθηκε από μεταγενέστερη απάντηση",
                    "job-description.pdf", "rota-2026.pdf", "1.254.300,50 €", "01/03/2027", "Κύκλος 2",
                    "Συμπληρώθηκαν χειροκίνητα", "Δημιουργήθηκε από το eHire"):
@@ -58,7 +58,7 @@ def test_the_real_pdf_has_greek_text_and_the_required_content(seeded, client, st
     path = storage.abs_path(row.pdf_storage_ref)
     assert open(path, "rb").read(5) == b"%PDF-"
     text = pdf_text(path)
-    for needle in ("Αίτημα για Έγκριση Θέσεων", "ΑΕΘ-2026-0001", "Κατάσταση στις", "Εγκρίθηκε", "Maria Test Leaver",
+    for needle in ("Αίτημα για Έγκριση Θέσεων", "EHIRE-NIC-PHY-20261120-01", "Κατάσταση στις", "Εγκρίθηκε", "Maria Test Leaver",
                    "40.000,50 €", "Checked again after the rota was added.", "Αντικαταστάθηκε από μεταγενέστερη",
                    "job-description.pdf", "rota-2026.pdf", "SHA-256", "Δημιουργήθηκε από το eHire",
                    "1.254.300,50 €", "Έσοδα ανά €1 μισθοδοσίας"):
@@ -83,8 +83,8 @@ def test_the_manifest_matches_the_stored_files(seeded, client, stor, conv):
     queue.flush()
     row = one()
     m = json.loads(row.manifest_json)
-    assert m["request_number"] == "ΑΕΘ-2026-0001" and m["kind"] == "decided" and m["round"] == 2
-    assert m["key"] == "ΑΕΘ-2026-0001:decided" and m["folder"] == "AEU-2026-0001-decided"
+    assert m["request_number"] == "EHIRE-NIC-PHY-20261120-01" and m["kind"] == "decided" and m["round"] == 2
+    assert m["key"] == "EHIRE-NIC-PHY-20261120-01:decided" and m["folder"] == "EHIRE-NIC-PHY-20261120-01-decided"
     assert m["status"] == "approved" and m["submitted_at"].endswith("Z") and m["decided_at"].endswith("Z")
     assert m["directorate"]["name"] == "Λευκωσίας" and m["facility"]["code"] and m["cost_centre_code"] == "1001"
     assert m["staff_category"] == "medical" and m["positions_count"] == 2 and m["requester_name"]

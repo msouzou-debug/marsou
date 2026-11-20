@@ -25,7 +25,7 @@ def good(**override):
     sheets = {
         "directorates": [list(SHEETS["directorates"]), ["XD1", "Α", "A", "yes", "yes"], ["XD2", "Β", "B", "no", "yes"]],
         "facilities": [list(SHEETS["facilities"]), ["XD1", "XF1", "Νοσ", "Hosp", "NGH", "yes"]],
-        "positions": [list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "yes"]],
+        "positions": [list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "dx", "yes"]],
         "cost_centres": [list(SHEETS["cost_centres"]), ["X100", "Κέντρο", "Centre", "yes"]],
         "oay_specialties": [list(SHEETS["oay_specialties"]), ["Χειρουργική Χ", "yes"]],
         "users": [list(SHEETS["users"]), ["x.boss", "Boss X", "boss@example.org", "local", "", "yes"],
@@ -88,6 +88,7 @@ def test_valid_file_imports_all_sheets(seeded, client):
     assert Directorate.query.filter_by(code="XD1").one().has_sci_director is True
     assert Facility.query.filter_by(code="XF1").one().archive_site_code == "NGH"
     assert Position.query.filter_by(title_el="Ιατρός Χ").one().category == "medical"
+    assert Position.query.filter_by(title_el="Ιατρός Χ").one().code == "DX"  # typed in lower case, stored upper
     assert CostCentre.query.filter_by(code="X100").count() == 1
     assert OaySpecialty.query.filter_by(name="Χειρουργική Χ").count() == 1
     acc = User.query.filter_by(username="x.acc").one()
@@ -106,8 +107,8 @@ def test_valid_file_imports_all_sheets(seeded, client):
 
 def test_one_bad_row_blocks_everything(seeded, client):
     admin(client)
-    bad = good(positions=[list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "yes"],
-                          ["wizard", "Μάγος", "Wizard", "yes"]])
+    bad = good(positions=[list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "dx", "yes"],
+                          ["wizard", "Μάγος", "Wizard", "", "yes"]])
     r = post(client, bad)
     html = r.get_data(as_text=True)
     assert "data-import-errors" in html and "positions" in html and "<td>3</td>" in html and "category" in html
@@ -204,3 +205,33 @@ def test_number_prefix_falls_back_to_the_seed_file_when_no_setting_is_recorded(a
             db.session.flush()
         assert numbering._prefix(db.session) == load_data()["settings"]["number_prefix"]
         db.session.rollback()
+
+
+def test_positions_sheet_without_the_code_column_still_imports(seeded, client):
+    admin(client)
+    old = good(positions=[["category", "title_el", "title_en", "active"], ["medical", "Ιατρός Χ", "Doctor X", "yes"]])
+    assert run(client, old).status_code == 302
+    assert Position.query.filter_by(title_el="Ιατρός Χ").one().code is None
+
+
+def test_position_code_is_checked_and_a_blank_keeps_the_stored_code(seeded, client):
+    admin(client)
+    bad = good(positions=[list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "A-1", "yes"],
+                          ["medical", "Ιατρός Ψ", "Doctor Y", "ABCDEFG", "yes"], ["medical", "Ιατρός Ω", "Doctor W", "Α1", "yes"]])
+    html = post(client, bad).get_data(as_text=True)
+    assert "data-import-errors" in html and "2 to 6 Latin letters or digits" in html
+    assert Position.query.filter_by(title_el="Ιατρός Χ").count() == 0
+    run(client, good())
+    blank = good(positions=[list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "", "yes"]])
+    html = post(client, blank).get_data(as_text=True)
+    assert 'name="token"' not in html and "data-import-errors" not in html  # unchanged: nothing to confirm
+    assert Position.query.filter_by(title_el="Ιατρός Χ").one().code == "DX"
+
+
+def test_template_carries_the_position_codes(seeded, client):
+    admin(client)
+    wb = load_workbook(io.BytesIO(client.get("/settings/import/template.xlsx").data))
+    header = [c.value for c in wb["positions"][1]]
+    assert "code" in header
+    codes = {row[header.index("title_en")]: row[header.index("code")] for row in wb["positions"].iter_rows(min_row=2, values_only=True)}
+    assert codes["Staff Nurse"] == "NUR"

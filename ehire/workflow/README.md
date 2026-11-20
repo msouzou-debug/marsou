@@ -14,7 +14,7 @@ All dataclasses are frozen and live in `ehire.workflow.model`. Sequences are tup
 - `timing.due_notifications(tasks, returned_requests, now, holidays, settings) -> [Event]` (reminder_due, escalation_due, withdrawal_warning)
 - `timing.due_withdrawals(returned_requests, now, holidays, settings) -> [request_id]`; then call `apply` with `NewAction(None, "withdraw", "system", system=True)` (T12)
 - `tracker.tracker_view(state) -> [stop]`, `tracker.preview(route) -> [stop]`
-- `numbering.format_number(prefix, year, value)`, `numbering.normalise_number(text)`
+- `numbering.number_stem(prefix, directorate_code, position_code, category, day)`, `numbering.format_request_number(stem, value)`, `numbering.clean_code`, `numbering.valid_position_code`, `numbering.normalise_number(text)` (`format_number` is the old yearly shape, no longer issued)
 
 ## Dataclasses (fields)
 

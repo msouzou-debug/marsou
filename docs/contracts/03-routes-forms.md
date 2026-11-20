@@ -30,7 +30,7 @@ Server-rendered pages. Forms post back with a CSRF token. After a successful pos
 | POST `/me/out-of-office` | holds an approver role | Switch on or off, optional dates | 4 |
 | GET `/requests/export.xlsx` | `request.view_all` or `request.view_directorate` | The list as Excel | 6 |
 | GET `/audit` | `audit.view` | Read-only log with filters | 6 |
-| GET, POST `/settings/...` | `settings.manage` | Lists, role holders, substitutes, line managers, holidays, timings | 1 (lists), 4 (rest) |
+| GET, POST `/settings/...` | `settings.manage` | Lists, role holders, substitutes, line managers, holidays, timings. The positions list has an optional `code` field (2 to 6 Latin letters or digits, saved upper-case) that goes into the request number; the Excel import's `positions` sheet has the same `code` column, optional so older files still import, and a blank cell keeps the stored code | 1 (lists), 4 (rest) |
 | POST `/settings/users/add` | `settings.manage` | New user. `auth_source=local` needs a temporary password. `auth_source=ad` takes no password, stores the lowercased account name as the sign-in page looks it up, and is active at once | 4 |
 | POST `/settings/users/<id>/password` | `settings.manage` | New temporary password for a local user other than the administrator themselves. Forces a change at next sign-in, clears the sign-in lock for the name, audits `password_changed` with `by: admin` | 4 |
 | GET `/settings/users?show=pending` | `settings.manage` | Only the Active Directory accounts waiting for activation | 4 |
@@ -109,7 +109,7 @@ The route maps each error code of contract 02, section 6, to the string key `err
 
 ## 7. Email
 
-One layout. Subject: `[<number>] <position> · <facility>`. One button: «Προβολή αιτήματος» → absolute URL of `/requests/<id>?do=review`. No other link changes state. Templates per event of contract 02, section 7.
+One layout. Subject: `[<number>] <position> · <facility>`, where the number looks like `EHIRE-NGH-NUR-20261120-01` (contract 01, Request number). One button: «Προβολή αιτήματος» → absolute URL of `/requests/<id>?do=review`. No other link changes state. Templates per event of contract 02, section 7.
 
 ## 8. Documents (as built, Phase 3)
 
