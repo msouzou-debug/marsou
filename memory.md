@@ -120,6 +120,10 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 
 - 19/11/2026: release `ehire-1.0.0-rc6` built with the full suite passing (950 tests) and verified with its checksum (7912822e64b9fe9ab02900b8a32a982bbe3f5f5517c9192e8e865fe439955388, 177 files). First release that installs on Python 3.10 (SQLAlchemy 2.0.58) and ships `install-ehire.sh`. Sent to Marios with the offline wheel set `ehire-wheels-py310.tar.gz` (16 packages, x86_64) and the updated Word document. A first rc6 build failed on one timing-sensitive test while other work loaded the machine; the suite passed twice afterwards. The failing test's name was not captured.
 
+- 20/11/2026: `ehire-1.0.0-rc6` is installed on the server (10.227.56.22, first install, schema version 5, service `ehire` active) and `https://ehire.shso.online/` answers through the tunnel. Marios created the first administrator and signed in. Still to do on the server: firewall for port 5008 (needs the tunnel machine's address), cron lines and nightly backup, AD and Graph values from IT, eArchive token after its rename.
+- 20/11/2026: the server sends outbound HTTP through a proxy (squid), and `curl` uses it even for 127.0.0.1: test locally with `curl --noproxy '*'`. Graph mail will probably need the proxy set in `/etc/ehire/ehire.env` (not tested).
+- To fix in the next release: gunicorn logs `Control server error: Permission denied: '/opt/ehire/.gunicorn'` at start (harmless, the app serves); there is no CLI command to reset a local password.
+
 ## Status
 
 - Names below predate the rename: read `ehr`, `EHR_*` and eHR as `ehire`, `EHIRE_*` and eHire.
