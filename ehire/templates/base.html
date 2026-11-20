@@ -49,6 +49,7 @@
           </div>
         </details>
         {% endif %}
+        <a class="ehire-menu__link{% if request.blueprint == 'manuals' %} is-current{% endif %}" href="{{ url_for('manuals.index') }}"><i class="bi bi-book" aria-hidden="true"></i><span>{{ t('nav.manuals') }}</span></a>
       </nav>
       <div class="ehire-side__foot">
         <img src="{{ url_for('static', filename='img/okypy_logo_white.png') }}" alt="{{ t('app.org') }}">

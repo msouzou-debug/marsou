@@ -42,7 +42,8 @@ Standing rules and decisions for this project. Read at the start of every sessio
 | Out of office: I am back (button) | Επέστρεψα |
 | Role holder | Κάτοχος |
 | Email log | Καταγραφή email |
-| Email footer (as eFinance) | Αυτόματο μήνυμα από το eHR · Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) |
+| Email footer (as eFinance) | Αυτόματο μήνυμα από το eHire · Οργανισμός Κρατικών Υπηρεσιών Υγείας (ΟΚΥπΥ) |
+| Manuals (menu) · User guide · Administrator guide (proposed 20/11, awaiting approval) | Εγχειρίδια · Οδηγός χρήστη · Οδηγός διαχειριστή |
 | Email status labels (as eFinance) | Χρειάζεται ενέργεια · Χρειάζεται προσοχή · Ολοκληρώθηκε · Για ενημέρωση |
 | Working days | εργάσιμες ημέρες |
 

@@ -42,6 +42,10 @@ def create_app(config=Config):
     def translate(key, **params):
         return i18n.translate(key, g.get("lang", app.config["DEFAULT_LANGUAGE"]), **params)
 
+    def translate_count(key, n, **params):
+        """`t` for a counted string: picks `<key>.one` or `<key>.many` and passes `n` along."""
+        return translate(i18n.plural_key(key, n), n=n, **params)
+
     def lang_url(code):
         """The current page with the language switched, other query values kept."""
         args = {k: v for k, v in request.args.items() if k != "lang"}
@@ -58,6 +62,7 @@ def create_app(config=Config):
         user = current_user()
         return {
             "t": translate,
+            "tn": translate_count,
             "lang": g.get("lang", app.config["DEFAULT_LANGUAGE"]),
             "lang_url": lang_url,
             "can": (lambda key: bool(user and user.has_permission(key))),
@@ -69,6 +74,10 @@ def create_app(config=Config):
     from .settings import bp as settings_bp
 
     app.register_blueprint(main_bp)
+
+    from .blueprints.manuals import bp as manuals_bp
+
+    app.register_blueprint(manuals_bp)
     app.register_blueprint(settings_bp)
 
     # The requests blueprint is built by another agent. Until it exists, "/" shows home.html.
