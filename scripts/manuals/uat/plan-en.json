@@ -1,0 +1,323 @@
+{
+  "title": "eHire user acceptance test plan",
+  "subtitle": "Position approval (module «Έγκριση Θέσεων») · for the project owner and the test group · 20/11/2026",
+  "header_right": "eHire · Έγκριση Θέσεων",
+  "footer": "eHire user acceptance test plan",
+  "page": "Page",
+  "of": "of",
+  "blocks": [
+    {
+      "h1": "1. Purpose and scope"
+    },
+    {
+      "p": "The user acceptance test (UAT) shows whether the people who will use eHire can do their work with it, and whether it follows the rules the owner approved. Testers sign in with invented accounts, run the cases in the workbook eHire-UAT-test-scripts and record a result for each one. From the Summary sheet the project owner decides whether eHire goes live."
+    },
+    {
+      "p": "The workbook holds {cases} cases in {areas} areas; {high} of them have the priority High."
+    },
+    {
+      "h2": "In scope"
+    },
+    {
+      "bullets": [
+        "The position approval flow from the request form to the final decision: the six steps, the three routes (medical and allied, nursing, administrative and other), return and resubmission, withdrawal, conflict of interest and out-of-office substitution, and the comments the rules require.",
+        "Who can see what, the request list, the search by number and the Excel export.",
+        "The emails, as stored in the email log in Settings.",
+        "Reminders, escalation and the automatic withdrawal of a returned request.",
+        "The Settings pages, the Excel import and the audit log.",
+        "The layout at phone width."
+      ]
+    },
+    {
+      "h2": "Out of scope for now"
+    },
+    {
+      "bullets": [
+        "Sign-in with Active Directory. Test accounts are local.",
+        "Sending real email. Mail stays in the email log; how it looks in Outlook is not tested.",
+        "Deposits to eArchive. A line about eArchive may appear on a request page; testers ignore it.",
+        "ΟΑΥ figures from eFinance. Testers type the figures by hand."
+      ]
+    },
+    {
+      "h1": "2. Environment"
+    },
+    {
+      "p": "The test runs on the live server, https://ehire.shso.online, with invented data. The command load-test-data creates it: {accounts} test accounts that cover every role (their usernames start with test.), invented Directorates, facilities, cost centres, positions and specialties marked “(δοκιμή)” or “(test)”, and seven sample requests in different states. All test accounts share one password, which the owner gives each tester in person."
+    },
+    {
+      "p": "Nobody types a real staff name, a real request or a real document. Before go-live a server administrator removes all test data with the command clear-test-data. The command lists what it will remove, asks for a typed confirmation, and refuses, changing nothing, if a real user has acted on a test request. Audit rows stay."
+    },
+    {
+      "p": "eHire sends no real email in this phase. The mail backend is outbox_only and test addresses end in @test.invalid. Testers read the emails in Settings, “Email log”. Any current browser will do; for the phone-width cases a narrow window is enough."
+    },
+    {
+      "h1": "3. Roles in the test"
+    },
+    {
+      "p": "Each role needs one person who normally does that work. The owner fills in the names. A tester may take several roles, but not at the same moment on the same request."
+    },
+    {
+      "roles_table": {
+        "cols": [
+          "Role in the test",
+          "Who tests it (name)",
+          "Test accounts"
+        ],
+        "widths": [
+          3000,
+          2400,
+          3626
+        ],
+        "extra": [
+          {
+            "label": "Test coordinator: collects defects, keeps the Summary sheet",
+            "accounts": "none"
+          },
+          {
+            "label": "Server administrator: runs commands on the server, unlocks accounts",
+            "accounts": "none"
+          }
+        ],
+        "viewer": "Observer (sees all requests, cannot act)",
+        "admin": "Administrator (Settings, audit log)"
+      }
+    },
+    {
+      "h1": "4. Schedule"
+    },
+    {
+      "p": "The activities are a proposal. The owner and the group fill in who does each one and when."
+    },
+    {
+      "table": {
+        "widths": [
+          3600,
+          2000,
+          1713,
+          1713
+        ],
+        "head": [
+          "Activity",
+          "Owner",
+          "Start",
+          "End"
+        ],
+        "rows": [
+          [
+            "Load the test data and check the entry criteria",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Brief the testers and hand out accounts",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Run the cases of priority High",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Run the other cases",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Cases that need the server administrator",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Fix and retest defects",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Read the Summary sheet and decide",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Remove the test data (clear-test-data)",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "height": 420
+      }
+    },
+    {
+      "h1": "5. Entry criteria"
+    },
+    {
+      "p": "The test starts when all of these are true."
+    },
+    {
+      "numbered": [
+        "eHire is installed on the server and https://ehire.shso.online answers.",
+        "The test data is loaded and the seven sample requests exist.",
+        "The public holidays of the current year are in Settings, so working days are counted correctly.",
+        "The mail backend is outbox_only and the archive transport is none.",
+        "Every tester has the workbook, a role to test, a test account and the shared password.",
+        "Every tester has read the Instructions sheet, including the rule about invented data.",
+        "A server administrator is named for the cases that need a command on the server."
+      ]
+    },
+    {
+      "h1": "6. Exit criteria"
+    },
+    {
+      "p": "The Summary sheet works out these three from the results. All three must be met at the same time before it shows GO. A case marked Blocked counts as not run."
+    },
+    {
+      "numbered": [
+        "Every case of priority High has been run (the result is Pass or Fail).",
+        "No case of priority High has the result Fail.",
+        "At least 95% of all cases have the result Pass."
+      ]
+    },
+    {
+      "h1": "7. How to log a defect, and severity"
+    },
+    {
+      "numbered": [
+        "When a case fails, write down what you did, what you expected and what you saw. Quote on-screen texts exactly. A screenshot helps.",
+        "Add a line to the sheet “Defects”: number (DEF-001, DEF-002 and so on), date, case ID, description, severity and status “New”.",
+        "Write the number in the column “Defect no.” of the case and set its result to Fail.",
+        "The test coordinator reads each new defect, agrees the severity with the tester and gives the defect an owner.",
+        "After a fix, run the case again. Write the retest date and result on the defect. When the retest passes, set the status to “Closed” and change the result of the case."
+      ]
+    },
+    {
+      "p": "A wrong or unclear text on screen is a defect too, usually Minor or Cosmetic."
+    },
+    {
+      "table": {
+        "widths": [
+          1500,
+          7526
+        ],
+        "head": [
+          "Severity",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "Critical",
+            "The flow stops, a person sees or does what the rules forbid, or data is lost."
+          ],
+          [
+            "Serious",
+            "A rule or a main screen gives a wrong result, but there is a way round."
+          ],
+          [
+            "Minor",
+            "A wrong message, label or detail that does not change the outcome."
+          ],
+          [
+            "Cosmetic",
+            "Spelling, spacing or look only."
+          ]
+        ]
+      }
+    },
+    {
+      "h1": "8. Risks and assumptions"
+    },
+    {
+      "bullets": [
+        "Test data and real data share one server. The rule that nobody types real data is the main protection. The clear-up removes only data marked test. or T- or “(test)”, so users, lists and requests that testers add must carry those marks.",
+        "Reminders, escalation and automatic withdrawal depend on working days. In a short test they can be seen only with the server command run-timers --at, which acts on every request in the system. The administrator runs it only while the system holds nothing but test data.",
+        "Email is judged from the email log, not from a mailbox. The look in Outlook and real delivery are not tested.",
+        "Request numbers carry the number prefix of the server. It shows EHIRE unless the prefix was set to ΑΕΘ; the search with U for Θ can be tested only with that prefix.",
+        "Five failed sign-ins lock a username for 15 minutes. Testers who share an account lock each other out; one account per tester avoids it.",
+        "Some cases change sample requests (for example the returned request). Testers agree who uses which sample, and the coordinator reloads the data if a sample is used up.",
+        "The phone-width cases use a narrow browser window. They do not replace a test on the devices staff really use.",
+        "The workbook is checked against the code of the build in use. If the application changes, the cases must be checked again."
+      ]
+    },
+    {
+      "pagebreak": true
+    },
+    {
+      "h1": "Sign-off"
+    },
+    {
+      "p": "By signing, the people below confirm that they have read the Summary sheet and agree with the decision written here."
+    },
+    {
+      "p": "Decision (from the Summary sheet):     ☐ GO      ☐ NO-GO"
+    },
+    {
+      "p": "Date of the decision: ____ / ____ / ________"
+    },
+    {
+      "p": "Open defects accepted for go-live (numbers and reason):"
+    },
+    {
+      "p": "________________________________________________________________________"
+    },
+    {
+      "p": "________________________________________________________________________"
+    },
+    {
+      "table": {
+        "widths": [
+          2700,
+          2400,
+          2426,
+          1500
+        ],
+        "head": [
+          "Name",
+          "Role",
+          "Signature",
+          "Date"
+        ],
+        "rows": [
+          [
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "height": 780
+      }
+    }
+  ]
+}

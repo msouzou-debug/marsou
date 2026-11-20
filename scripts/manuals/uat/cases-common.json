@@ -1,0 +1,395 @@
+{
+ "_note": "Structure shared by both languages: order, area, rule reference, priority. The text of each case is in cases-el.json and cases-en.json under the same key.",
+ "cases": [
+  {
+   "key": "signin_ok",
+   "area": "signin",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "signin_bad",
+   "area": "signin",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "signin_lock",
+   "area": "signin",
+   "ref": "{lock}",
+   "priority": "Medium"
+  },
+  {
+   "key": "signin_protect",
+   "area": "signin",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "signin_lang",
+   "area": "signin",
+   "ref": "03 §1",
+   "priority": "Low"
+  },
+  {
+   "key": "form_open",
+   "area": "form",
+   "ref": "03 §3",
+   "priority": "High"
+  },
+  {
+   "key": "form_category",
+   "area": "form",
+   "ref": "03 §3",
+   "priority": "High"
+  },
+  {
+   "key": "form_reason",
+   "area": "form",
+   "ref": "03 §3",
+   "priority": "High"
+  },
+  {
+   "key": "form_yesno",
+   "area": "form",
+   "ref": "03 §3",
+   "priority": "Low"
+  },
+  {
+   "key": "form_preview",
+   "area": "form",
+   "ref": "R1, R2, R3",
+   "priority": "Medium"
+  },
+  {
+   "key": "form_draft",
+   "area": "form",
+   "ref": "03 §3",
+   "priority": "High"
+  },
+  {
+   "key": "form_validation",
+   "area": "form",
+   "ref": "03 §3",
+   "priority": "High"
+  },
+  {
+   "key": "docs_upload",
+   "area": "docs",
+   "ref": "03 §8",
+   "priority": "High"
+  },
+  {
+   "key": "docs_refused",
+   "area": "docs",
+   "ref": "03 §8",
+   "priority": "High"
+  },
+  {
+   "key": "docs_remove",
+   "area": "docs",
+   "ref": "03 §8",
+   "priority": "Medium"
+  },
+  {
+   "key": "docs_view",
+   "area": "docs",
+   "ref": "03 §1, §8",
+   "priority": "Medium"
+  },
+  {
+   "key": "submit_ok",
+   "area": "submit",
+   "ref": "T1",
+   "priority": "High"
+  },
+  {
+   "key": "med_step2_ok",
+   "area": "medical",
+   "ref": "T2a, R2",
+   "priority": "High"
+  },
+  {
+   "key": "med_step2_reject",
+   "area": "medical",
+   "ref": "T2b, O4",
+   "priority": "High"
+  },
+  {
+   "key": "med_step3_inputs",
+   "area": "medical",
+   "ref": "T3a, T3b, R1",
+   "priority": "High"
+  },
+  {
+   "key": "med_exec",
+   "area": "medical",
+   "ref": "T4a, T4b",
+   "priority": "High"
+  },
+  {
+   "key": "med_credit_no",
+   "area": "medical",
+   "ref": "T5a, O4",
+   "priority": "High"
+  },
+  {
+   "key": "med_step4_ok",
+   "area": "medical",
+   "ref": "T5b, T5c, T5d",
+   "priority": "High"
+  },
+  {
+   "key": "med_step5",
+   "area": "medical",
+   "ref": "T6, R3",
+   "priority": "High"
+  },
+  {
+   "key": "med_ceo_approve",
+   "area": "medical",
+   "ref": "T7a",
+   "priority": "High"
+  },
+  {
+   "key": "med_ceo_reject",
+   "area": "medical",
+   "ref": "T7b",
+   "priority": "High"
+  },
+  {
+   "key": "nursing_route",
+   "area": "nursing",
+   "ref": "R1, R2, R3",
+   "priority": "High"
+  },
+  {
+   "key": "admin_route",
+   "area": "admin",
+   "ref": "R1, R2, R3",
+   "priority": "High"
+  },
+  {
+   "key": "route_variants",
+   "area": "other",
+   "ref": "R1, R2, R3",
+   "priority": "Medium"
+  },
+  {
+   "key": "return_ok",
+   "area": "return",
+   "ref": "T8, O2",
+   "priority": "High"
+  },
+  {
+   "key": "resubmit_same",
+   "area": "return",
+   "ref": "T9a",
+   "priority": "High"
+  },
+  {
+   "key": "keep_answer",
+   "area": "return",
+   "ref": "T10, O3",
+   "priority": "Medium"
+  },
+  {
+   "key": "replace_answer",
+   "area": "return",
+   "ref": "T10, T5a, O3",
+   "priority": "High"
+  },
+  {
+   "key": "resubmit_material",
+   "area": "return",
+   "ref": "T9b, O1, R4",
+   "priority": "High"
+  },
+  {
+   "key": "withdraw_ok",
+   "area": "withdraw",
+   "ref": "T11",
+   "priority": "High"
+  },
+  {
+   "key": "auto_withdraw",
+   "area": "withdraw",
+   "ref": "T12, W5",
+   "priority": "Medium"
+  },
+  {
+   "key": "ooo_new",
+   "area": "conflict",
+   "ref": "C1, C2",
+   "priority": "High"
+  },
+  {
+   "key": "ooo_move",
+   "area": "conflict",
+   "ref": "C6",
+   "priority": "High"
+  },
+  {
+   "key": "conflict",
+   "area": "conflict",
+   "ref": "C3",
+   "priority": "High"
+  },
+  {
+   "key": "unassigned",
+   "area": "conflict",
+   "ref": "C5",
+   "priority": "Medium"
+  },
+  {
+   "key": "only_assignee",
+   "area": "conflict",
+   "ref": "C7",
+   "priority": "High"
+  },
+  {
+   "key": "o4_opinions",
+   "area": "comments",
+   "ref": "O4",
+   "priority": "High"
+  },
+  {
+   "key": "o4_decisions",
+   "area": "comments",
+   "ref": "O4",
+   "priority": "High"
+  },
+  {
+   "key": "vis_requester",
+   "area": "visibility",
+   "ref": "03 §2",
+   "priority": "High"
+  },
+  {
+   "key": "vis_404",
+   "area": "visibility",
+   "ref": "03 §2",
+   "priority": "High"
+  },
+  {
+   "key": "vis_directorate",
+   "area": "visibility",
+   "ref": "03 §2",
+   "priority": "High"
+  },
+  {
+   "key": "vis_roles",
+   "area": "visibility",
+   "ref": "03 §1, §2",
+   "priority": "High"
+  },
+  {
+   "key": "list_tabs",
+   "area": "lists",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "list_search",
+   "area": "lists",
+   "ref": "01 {numsearch}",
+   "priority": "Medium"
+  },
+  {
+   "key": "list_export",
+   "area": "lists",
+   "ref": "03 §9",
+   "priority": "Medium"
+  },
+  {
+   "key": "mail_flow",
+   "area": "emails",
+   "ref": "03 §7",
+   "priority": "High"
+  },
+  {
+   "key": "mail_outcomes",
+   "area": "emails",
+   "ref": "03 §7, 02 §7",
+   "priority": "Medium"
+  },
+  {
+   "key": "timer_seed",
+   "area": "timers",
+   "ref": "W3, W4, O5",
+   "priority": "High"
+  },
+  {
+   "key": "timer_run",
+   "area": "timers",
+   "ref": "W3, W4",
+   "priority": "Medium"
+  },
+  {
+   "key": "timer_workdays",
+   "area": "timers",
+   "ref": "W1, W2",
+   "priority": "Medium"
+  },
+  {
+   "key": "set_lists",
+   "area": "settings",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "set_roles",
+   "area": "settings",
+   "ref": "R4, C1",
+   "priority": "High"
+  },
+  {
+   "key": "set_users",
+   "area": "settings",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "set_timings",
+   "area": "settings",
+   "ref": "W3, W4, W5",
+   "priority": "Medium"
+  },
+  {
+   "key": "set_holidays",
+   "area": "settings",
+   "ref": "W1",
+   "priority": "Medium"
+  },
+  {
+   "key": "import_valid",
+   "area": "import",
+   "ref": "{import}",
+   "priority": "Medium"
+  },
+  {
+   "key": "import_wrong",
+   "area": "import",
+   "ref": "{import}",
+   "priority": "High"
+  },
+  {
+   "key": "audit_view",
+   "area": "audit",
+   "ref": "03 §1, §9",
+   "priority": "High"
+  },
+  {
+   "key": "phone_request",
+   "area": "phone",
+   "ref": "03 §5",
+   "priority": "Medium"
+  },
+  {
+   "key": "phone_list_form",
+   "area": "phone",
+   "ref": "03 §5",
+   "priority": "Low"
+  }
+ ]
+}

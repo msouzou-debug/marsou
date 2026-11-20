@@ -1,0 +1,330 @@
+{
+  "file_title": "eHire user acceptance test scripts",
+  "subtitle": "Position approval (module «Έγκριση Θέσεων») · State Health Services Organisation (SHSO)",
+  "sheets": {
+    "instructions": "Instructions",
+    "cases": "Test cases",
+    "summary": "Summary",
+    "defects": "Defects"
+  },
+  "address_label": "Address of the test system",
+  "address": "https://ehire.shso.online/",
+  "columns": [
+    "ID",
+    "Area",
+    "Title",
+    "Role and test account",
+    "Preconditions",
+    "Steps",
+    "Expected result",
+    "Rule reference",
+    "Priority",
+    "Result",
+    "Tester",
+    "Date",
+    "Comments",
+    "Defect no."
+  ],
+  "results": [
+    "Pass",
+    "Fail",
+    "Blocked",
+    "Not run"
+  ],
+  "priorities": [
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "severities": [
+    "Critical",
+    "Serious",
+    "Minor",
+    "Cosmetic"
+  ],
+  "defect_status": [
+    "New",
+    "In progress",
+    "Fixed, to retest",
+    "Closed",
+    "Rejected"
+  ],
+  "retest_results": [
+    "Pass",
+    "Fail"
+  ],
+  "areas": {
+    "signin": "Sign-in and language",
+    "form": "Request form",
+    "docs": "Documents",
+    "submit": "Submission and numbering",
+    "medical": "Medical route, steps 2 to 6",
+    "nursing": "Nursing route",
+    "admin": "Administrative route",
+    "other": "Route variants",
+    "return": "Return and resubmission",
+    "withdraw": "Withdrawal",
+    "conflict": "Conflict of interest and out of office",
+    "comments": "Required comments",
+    "visibility": "Who can see what",
+    "lists": "List, search and export",
+    "emails": "Emails (email log)",
+    "timers": "Reminders and escalation",
+    "settings": "Settings",
+    "import": "Excel import",
+    "audit": "Audit log",
+    "phone": "Phone-width layout"
+  },
+  "instructions": {
+    "purpose_h": "What this workbook is for",
+    "purpose": "It holds the test cases for the user acceptance test (UAT) of eHire, the first module «Έγκριση Θέσεων». Each case says who signs in, what to do and what should happen. You record the result next to it. The Summary sheet counts the results by itself and shows whether the exit criteria are met.",
+    "run_h": "How to run a test",
+    "run": [
+      "Open the sheet “Test cases”. Pick a case with the Result cell still empty. Read the whole row first.",
+      "Open the address above. Sign in with the test account named in the column “Role and test account”. The owner gives you the shared password in person; it is never written here.",
+      "Check the preconditions. Some cases build on the result of an earlier case; the Preconditions column says which.",
+      "Follow the numbered steps in order. Quote on-screen texts exactly as shown: they are written in quotation marks in the steps and in the expected result.",
+      "Compare what you see with the Expected result, point by point. If one point differs, the case fails.",
+      "Use only invented data. Never type a real staff name, request or document. Test accounts are named test.<name> and their emails end in @test.invalid, so no real mail can go out.",
+      "When you create users, lists or requests of your own, start the username or code with test. or T- and end names with “(test)” or “(δοκιμή)”. The clear-up before go-live removes only data marked in this way."
+    ],
+    "record_h": "How to record a result",
+    "record": [
+      "Choose the Result from the drop-down list: Pass, Fail, Blocked or Not run.",
+      "Write your name in Tester and the date in Date (dd/mm/yyyy).",
+      "For every Fail, write in Comments what you saw instead (a screenshot helps), open a line on the sheet “Defects” and write its number in “Defect no.”.",
+      "For Blocked, write in Comments what stopped you (for example an earlier case failed or the data is missing).",
+      "After a fix, run the case again, change the Result and add the retest on the sheet “Defects”."
+    ],
+    "results_h": "What the results mean",
+    "results_table": [
+      [
+        "Pass",
+        "Every point of the expected result happened."
+      ],
+      [
+        "Fail",
+        "At least one point did not happen, or something unexpected happened."
+      ],
+      [
+        "Blocked",
+        "You could not run the case. It counts as not run."
+      ],
+      [
+        "Not run",
+        "Not yet tried. An empty Result counts the same way."
+      ]
+    ],
+    "priority_h": "Priority of a case",
+    "priority_table": [
+      [
+        "High",
+        "Part of the main flow or a rule about who may see or do something. All High cases must be run."
+      ],
+      [
+        "Medium",
+        "A rule or a screen that people use less often, or a check on messages and layout."
+      ],
+      [
+        "Low",
+        "Useful to know, with little effect on the work."
+      ]
+    ],
+    "accounts_h": "Test accounts by role",
+    "accounts_intro": "The usernames below are the ones that “flask load-test-data” creates. All accounts share one password, which the owner gives you. Full names on screen end with “(δοκιμή)”. Every account opens in Greek, except test.demo.admin, which opens in English; switch it with the language links at the top right.",
+    "accounts_cols": [
+      "Username",
+      "Role",
+      "Directorate",
+      "Note"
+    ],
+    "central_label": "Central Administration",
+    "substitute_label": "Substitute",
+    "substitute_note": "Takes over the tasks of the holder when the holder is out of office, or made the request.",
+    "viewer_label": "Observer (can see all requests, cannot create or act)",
+    "admin_label": "Administrator (Settings, Audit log)",
+    "both_note": "Holds two roles: Scientific Director and requester. Used for the conflict-of-interest case.",
+    "samples_h": "Sample requests that come with the test data",
+    "samples_intro": "“flask load-test-data” also creates seven sample requests, in this order (their numbers depend on what the server held before). The cases call them “sample request 1” to “7”.",
+    "samples_cols": [
+      "Sample",
+      "Directorate",
+      "Category and reason",
+      "State"
+    ],
+    "samples": [
+      [
+        "1",
+        "Limassol – Paphos",
+        "Medical, new need",
+        "Step 3: the HR officer has answered; the Scientific Director has not"
+      ],
+      [
+        "2",
+        "Nicosia",
+        "Nursing, resignation",
+        "Step 4: both central officers have waited six working days or more; reminder and escalation already sent"
+      ],
+      [
+        "3",
+        "Primary Health Care",
+        "Administrative, new need",
+        "Step 6: waiting for the CEO"
+      ],
+      [
+        "4",
+        "Limassol – Paphos",
+        "Other, new need",
+        "Rejected at step 2"
+      ],
+      [
+        "5",
+        "Limassol – Paphos",
+        "Medical, retirement",
+        "Approved"
+      ],
+      [
+        "6",
+        "Nicosia",
+        "Medical, new need",
+        "Returned by the HR officer at step 3"
+      ],
+      [
+        "7",
+        "Nicosia",
+        "Administrative, new need",
+        "Withdrawn by the requester"
+      ]
+    ],
+    "needs_h": "Cases that need more than a browser",
+    "needs_server": "Server administrator (a command on the server, or waiting): {ids}.",
+    "needs_admin": "Administrator account (test.demo.admin) in the browser: {ids}.",
+    "needs_wait": "The lock in case {id} lasts 15 minutes; an administrator can unlock the name instead of waiting.",
+    "scope_h": "In scope and out of scope",
+    "scope": [
+      "In scope: the position approval flow, Settings, the Excel import, the audit log and the list export.",
+      "Out of scope for now: sign-in with Active Directory, real email sending, deposits to eArchive and figures served by eFinance. A line about eArchive may appear on a request page; ignore it. The financial figures are typed by hand."
+    ],
+    "example_h": "Example of a filled row",
+    "example_cols": [
+      "Case",
+      "Result",
+      "Tester",
+      "Date",
+      "Comments",
+      "Defect no."
+    ],
+    "example_row": [
+      "UAT-001",
+      "Fail",
+      "A. Example",
+      "23/11/2026",
+      "The accountant also saw the button “Export to Excel” on the requester tab.",
+      "DEF-001"
+    ],
+    "example_note": "This row is only an illustration. It is not part of the counts.",
+    "edit_h": "Which cells you fill in",
+    "edit": "On “Test cases” only the columns Result, Tester, Date, Comments and Defect no. On “Defects” every column. Do not edit the Summary: it holds formulas only.",
+    "refs_h": "Rule references",
+    "refs": "R, T, C, W and O codes are the rule ids of docs/contracts/02-state-machine.md (R route, T transition, C who gets a task, W time rule, O owner decision). “03 §n” is section n of docs/contracts/03-routes-forms.md; “01” is docs/contracts/01-data-model.md."
+  },
+  "cases_note": "Fill in the last five columns only. Filter with the arrows in the header.",
+  "summary": {
+    "title": "Summary of the test",
+    "criteria_h": "Exit criteria and decision",
+    "criteria_cols": [
+      "Criterion",
+      "Needed",
+      "Actual",
+      "Met?"
+    ],
+    "yes": "Yes",
+    "no": "No",
+    "c1": "Every High-priority case has been run (Pass or Fail)",
+    "c1_needed": "0 not run",
+    "c2": "No High-priority case has the result Fail",
+    "c2_needed": "0 failures",
+    "c3": "Share of all cases that passed",
+    "c3_needed_label": "at least",
+    "threshold_label": "Pass-rate threshold (a value you can change)",
+    "decision_label": "Decision",
+    "go": "GO",
+    "nogo": "NO-GO",
+    "decision_note": "GO only when all three criteria are met. An empty workbook shows NO-GO.",
+    "totals_h": "Totals",
+    "total_cases": "Cases in the table",
+    "run_cases": "Cases run (Pass or Fail)",
+    "pct_run": "Percentage run",
+    "passed_cases": "Cases passed",
+    "pct_passed": "Percentage passed (of all cases)",
+    "high_open_fail": "Open High-priority failures",
+    "high_not_run": "High-priority cases not run",
+    "by_result_h": "Cases by result",
+    "by_result_cols": [
+      "Result",
+      "Cases",
+      "Share"
+    ],
+    "by_area_h": "Cases by area and result",
+    "by_priority_h": "Cases by priority and result",
+    "matrix_total": "Total",
+    "matrix_pct": "Passed (%)",
+    "all_label": "All areas",
+    "lists_h": "Values of the drop-down lists",
+    "lists_note": "The drop-downs and the formulas read these cells. Change a word here and everything follows.",
+    "lists_cols": [
+      "Result",
+      "Priority",
+      "Severity",
+      "Defect status",
+      "Retest result"
+    ],
+    "defects_h": "Open defects by severity",
+    "defects_cols": [
+      "Severity",
+      "Logged",
+      "Closed or rejected",
+      "Open"
+    ],
+    "defects_total": "All severities"
+  },
+  "defects": {
+    "title": "Defect log",
+    "columns": [
+      "Defect no.",
+      "Date found",
+      "Case ID",
+      "Description",
+      "Severity",
+      "Status",
+      "Owner",
+      "Retest date",
+      "Retest result"
+    ],
+    "note": "One line per defect. Number them DEF-001, DEF-002 and so on. The severity definitions are in the plan.",
+    "severity_h": "Severity definitions",
+    "severity_defs": [
+      [
+        "Critical",
+        "The flow stops, a person sees or does what the rules forbid, or data is lost."
+      ],
+      [
+        "Serious",
+        "A rule or a main screen gives a wrong result, but there is a way round."
+      ],
+      [
+        "Minor",
+        "A wrong message, label or detail that does not change the outcome."
+      ],
+      [
+        "Cosmetic",
+        "Spelling, spacing or look only."
+      ]
+    ]
+  },
+  "ref_words": {
+    "lock": "lock after 5 failures",
+    "numsearch": "number search",
+    "import": "Excel import"
+  }
+}

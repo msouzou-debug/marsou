@@ -1,0 +1,1114 @@
+{
+  "signin_ok": {
+    "title": "Sign in with a test account and land on the list",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "None. You have the shared password from the project owner.",
+    "steps": [
+      "Open https://ehire.shso.online/ in a browser.",
+      "Type the username test.nic.requester and the password, then press “[[login.submit]]”.",
+      "Look at the page and the top bar.",
+      "Press “[[nav.logout]]”. Sign in again as test.nic.accountant and look at the same things."
+    ],
+    "exp": [
+      "The page “[[list.title]]” opens. Your full name shows in the top bar (test names end with “(δοκιμή)”).",
+      "The requester lands on the tab “[[list.tab.mine]]”. The accountant lands on the tab “[[list.tab.waiting]]”.",
+      "Both see the button “[[list.new]]”. Only the accountant sees “[[list.export]]”.",
+      "Neither account sees “[[nav.audit]]” or “[[nav.settings]]” in the menu. No account asks you to change the password."
+    ]
+  },
+  "signin_bad": {
+    "title": "Wrong password and unknown username give the same message",
+    "who": ["Any account, for example test.nic.requester"],
+    "pre": "None.",
+    "steps": [
+      "On the sign-in page type test.nic.requester and a wrong password. Press “[[login.submit]]”.",
+      "Type a username that does not exist (for example nobody) and any password. Press “[[login.submit]]”."
+    ],
+    "exp": [
+      "Both attempts stay on the sign-in page and show “[[login.failed]]”.",
+      "The message does not say whether the username or the password was wrong."
+    ]
+  },
+  "signin_lock": {
+    "title": "Five failed attempts lock the username",
+    "who": ["Substitute of Primary Health Care: test.phc.deputy (no other case uses it)"],
+    "pre": "Use test.phc.deputy only. The lock lasts 15 minutes. If you cannot wait, ask the server administrator to run “flask unlock-user test.phc.deputy”.",
+    "steps": [
+      "Type test.phc.deputy and a wrong password. Repeat four more times (five failures in total).",
+      "Look at the message after each attempt.",
+      "Type the correct password straight away.",
+      "After 15 minutes (or after the administrator unlocks the name), sign in with the correct password."
+    ],
+    "exp": [
+      "Attempts 1 to 4 show “[[login.failed]]”.",
+      "Attempt 5 shows “[[login.locked|n=15]]”.",
+      "The correct password is refused with the same “Too many failed attempts” message while the lock lasts.",
+      "After the lock ends, sign-in works. The audit log (see the audit case) holds the events login_failed and login_locked."
+    ]
+  },
+  "signin_protect": {
+    "title": "Pages need a sign-in, and sign-out ends the session",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "Signed out.",
+    "steps": [
+      "Type https://ehire.shso.online/requests/new in the address bar.",
+      "Sign in as test.nic.requester.",
+      "Press “[[nav.logout]]”.",
+      "Type https://ehire.shso.online/requests in the address bar."
+    ],
+    "exp": [
+      "Step 1 shows the sign-in page, not the form.",
+      "After signing in you land on the form “[[form.title.new]]” (the page you asked for).",
+      "Step 3 shows the sign-in page.",
+      "Step 4 shows the sign-in page again. No request data is visible."
+    ]
+  },
+  "signin_lang": {
+    "title": "Switch the language and keep it after signing out",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "The account opens in Greek.",
+    "steps": [
+      "Sign in. Press “English” at the top right.",
+      "Open the list, a request and the form “[[form.title.new]]”.",
+      "Press “[[nav.logout]]”, then sign in again.",
+      "Press “Ελληνικά”."
+    ],
+    "exp": [
+      "Every screen label changes at once (for example “[[list.title]]”). Text typed by users and names in the test lists stay as they are.",
+      "After signing in again the language is still English, because it is stored on the user.",
+      "“Ελληνικά” switches everything back to Greek. The sign-in page also shows both language links."
+    ]
+  },
+
+  "form_open": {
+    "title": "The new request form and its lists",
+    "who": ["[[role.requester]]: test.nic.requester", "Then test.central.hr (central role)"],
+    "pre": "None.",
+    "steps": [
+      "Press “[[list.new]]”.",
+      "Look at the Directorate field and open the list “[[field.facility]]”.",
+      "Choose the category “[[category.nursing]]”, then open the list “[[field.position]]”.",
+      "Look at the section “[[form.section.documents]]”.",
+      "Sign out. Sign in as test.central.hr, press “[[list.new]]” and open the Directorate list."
+    ],
+    "exp": [
+      "The page “[[form.title.new]]” has the sections “[[form.section.post]]”, “[[form.section.reason]]”, “[[form.section.need]]” and “[[form.section.documents]]”, and a panel with the route on the side.",
+      "The requester has only one Directorate, so it is already chosen (Nicosia). The facility list holds only Nicosia facilities.",
+      "After the category is chosen the position list holds only nursing positions.",
+      "The documents section says “[[docs.draft_first]]”.",
+      "The central officer can choose any of the six active Directorates (central roles may create requests)."
+    ]
+  },
+  "form_category": {
+    "title": "Fields that depend on the staff category",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "On the form “[[form.title.new]]”.",
+    "steps": [
+      "Choose the category “[[category.medical]]” and look for “[[field.oay_specialty]]” and “[[field.external_funding_flag]]”.",
+      "Choose “[[category.allied]]” and look again.",
+      "Choose “[[category.nursing]]”, then “[[category.admin]]”, then “[[category.other]]” and look again.",
+      "If a field does not appear or disappear, press “[[form.refresh_route]]”."
+    ],
+    "exp": [
+      "Medical and allied health show the list “[[field.oay_specialty]]” and the question “[[field.external_funding_flag]]” (answers “[[answer.no]]” and “[[answer.yes]]”).",
+      "Nursing, administrative and other show neither field.",
+      "A field that is hidden is not required and is not stored."
+    ]
+  },
+  "form_reason": {
+    "title": "Fields that depend on the reason, and the leaver rows",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "On the form “[[form.title.new]]”.",
+    "steps": [
+      "Choose the category “[[category.medical]]” and the reason “[[reason.new_need]]”. Look at the fields that appear.",
+      "Change the category to “[[category.nursing]]” and look again.",
+      "Choose the reason “[[reason.resignation]]”. Look at the block “[[field.leaver_name]]”. Open the list “[[field.employment]]”.",
+      "With “[[field.positions_count]]” 1, press “[[action.add_leaver]]” to get a second row. Fill both rows and press “[[form.submit]]”.",
+      "Set the posts to 2, press “[[action.add_leaver]]”, then “[[form.remove_leaver]]” on one row."
+    ],
+    "exp": [
+      "New need shows “[[field.new_need_origin]]” and “[[field.new_need_cover_so_far]]”. For medical it also shows “[[field.new_need_plan]]”; for nursing it does not.",
+      "A departure reason shows one row with “[[field.leaver_name]]”, “[[field.leave_date]]” and “[[field.employment]]” (options “[[employment.okypy_contract]]” and “[[employment.civil_servant]]”) and hides the new need fields.",
+      "Two rows for one post give the error “[[validation.leavers_max]]”.",
+      "“[[form.remove_leaver]]” appears only when there is more than one row."
+    ]
+  },
+  "form_yesno": {
+    "title": "Follow-up text after a Yes answer",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "On the form, with the category “[[category.medical]]”.",
+    "steps": [
+      "Answer “[[field.absence_flag]]” with “[[answer.yes]]”.",
+      "Answer “[[field.external_funding_flag]]” with “[[answer.yes]]”.",
+      "Fill every other field and leave the two new text fields empty. Press “[[form.submit]]”.",
+      "Change both answers back to “[[answer.no]]”."
+    ],
+    "exp": [
+      "“[[form.absence_detail]]” and “[[form.external_funding_detail]]” appear after Yes and are required: the form shows “[[validation.required]]” for each.",
+      "After No both fields disappear."
+    ]
+  },
+  "form_preview": {
+    "title": "The route preview follows Directorate and category",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.requester]]: test.phc.requester"],
+    "pre": "On the form “[[form.title.new]]”.",
+    "steps": [
+      "As test.nic.requester choose the category “[[category.medical]]” and read the panel “[[tracker.preview_title]]”.",
+      "Change the category to “[[category.nursing]]”, then to “[[category.admin]]”.",
+      "Sign in as test.phc.requester, choose “[[category.medical]]” and read the panel."
+    ],
+    "exp": [
+      "Nicosia, medical: six steps, all “[[tracker.state.pending]]”. Step 3 lists [[role.sci_director]], [[role.dir_hr_officer]] and [[role.dir_exec]]. Step 5 lists [[role.medical_director]].",
+      "Nursing: step 5 lists [[role.nursing_director]].",
+      "Administrative: step 5 shows “[[tracker.not_applicable]]”.",
+      "Primary Health Care, medical: step 3 has no [[role.sci_director]] (the Directorate has none) and step 5 lists [[role.medical_director]]."
+    ]
+  },
+  "form_draft": {
+    "title": "Save a partly filled draft and open it again",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "None.",
+    "steps": [
+      "Press “[[list.new]]”. Fill only the facility and the category.",
+      "Press “[[action.save_draft]]”.",
+      "Open the tab “[[list.tab.mine]]” and look at the row.",
+      "Press the row. Fill the rest of the form and press “[[action.save_draft]]” again."
+    ],
+    "exp": [
+      "“[[form.draft_saved]]” shows and the page “[[form.title.edit]]” opens. Fields that are not filled do not block a draft.",
+      "The list row has no number. It shows the chip “[[status.draft]]”.",
+      "Pressing the row opens the draft for editing, with the values saved so far.",
+      "The draft has no number until it is submitted."
+    ]
+  },
+  "form_validation": {
+    "title": "Submit checks every field and keeps what you typed",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "On the form “[[form.title.new]]”.",
+    "steps": [
+      "Press “[[form.submit]]” with nothing filled in.",
+      "Choose the category “[[category.medical]]” and the reason “[[reason.retirement]]”. Type 0 in “[[field.positions_count]]”.",
+      "Type the leaving date 2027-03-01 (wrong format) and press “[[form.submit]]”.",
+      "Fix the date to 01/03/2027, leave the leaver name empty and press “[[form.submit]]”."
+    ],
+    "exp": [
+      "A red box says “[[validation.summary]]” and lists each field with its message: “[[validation.choose]]” for lists, “[[validation.min_one]]” for the number of posts, “[[validation.required]]” for text fields.",
+      "Zero posts gives “[[validation.min_one]]”.",
+      "The wrong date gives “[[validation.date]]”.",
+      "An empty leaver name gives “[[validation.required]]”. Everything you typed is still in the form. No number is given and nothing is submitted."
+    ]
+  },
+
+  "docs_upload": {
+    "title": "Add supporting documents to a draft",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "A draft from the case “Save a partly filled draft”. Have five small files ready: a PDF, a .docx, an .xlsx, a .png and a .jpg.",
+    "steps": [
+      "Open the draft. Look at the section “[[docs.title]]”.",
+      "Press “[[docs.choose]]” and select all five files. Look at the list under the button.",
+      "Press “[[docs.upload]]”.",
+      "Look at the document list."
+    ],
+    "exp": [
+      "The page says “[[docs.allowed|n=20]]”. The chosen files are listed with their size before you send them.",
+      "The message “[[docs.added.many|n=5]]” shows.",
+      "The documents are grouped under “[[page.round|n=1]]”. Each shows its name, size, your name and the time, with the buttons “[[docs.view]]”, “[[docs.download]]” and “[[docs.remove]]”.",
+      "(On a brand new form that has not been saved, the section only says “[[docs.draft_first]]”.)"
+    ]
+  },
+  "docs_refused": {
+    "title": "Documents that are refused",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "A draft is open. Have these files: notes.txt (plain text), a text file renamed to fake.pdf, an empty file empty.pdf, and a PDF larger than the file limit (20 MB by default). If you have no large file, ask an administrator to set “[[settings.max_file_mb]]” to 1 under “[[settings.timings]]”, use a 2 MB file, and set it back to 20.",
+    "steps": [
+      "Add notes.txt.",
+      "Add fake.pdf.",
+      "Add empty.pdf.",
+      "Select the large PDF and look at the list under the button, then press “[[docs.upload]]”.",
+      "Select a good PDF and notes.txt together and press “[[docs.upload]]”."
+    ],
+    "exp": [
+      "notes.txt: “[[docs.error.type|name=notes.txt]]”",
+      "fake.pdf (the content is not a PDF): “[[docs.error.type|name=fake.pdf]]”",
+      "empty.pdf: “[[docs.error.empty|name=empty.pdf]]”",
+      "The large file is flagged in red before sending, and the server also refuses it with “[[docs.error.too_large|name=big.pdf|n=20]]” (the number is the current limit).",
+      "In the mixed selection the good PDF is added (“[[docs.added.one]]”) and the other file is refused on its own. Nothing refused appears in the list."
+    ]
+  },
+  "docs_remove": {
+    "title": "When a document can and cannot be removed",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "A draft with at least two documents. A returned request of this requester (sample request 6, Nicosia medical, returned by the HR officer, is ready; do this case before the resubmit cases).",
+    "steps": [
+      "In the draft press “[[docs.remove]]” next to one document.",
+      "Submit the draft. Open the submitted request and look at the document list.",
+      "Open sample request 6 and press “[[form.title.resubmit]]”. Look at the document list.",
+      "Add a new document there."
+    ],
+    "exp": [
+      "In a draft: “[[docs.removed]]” and the document is gone.",
+      "After submission the page shows the documents without any “[[docs.remove]]” button.",
+      "On the returned request the documents of the earlier round have no “[[docs.remove]]” button.",
+      "The new document appears under “[[page.round|n=2]]” and has a “[[docs.remove]]” button until you resubmit."
+    ]
+  },
+  "docs_view": {
+    "title": "Other roles open and download documents",
+    "who": ["[[role.dir_hr_officer]]: test.nic.hr", "[[role.requester]] of another Directorate: test.lim.requester"],
+    "pre": "A submitted Nicosia request that has a PDF and a Word or Excel document (from the case above).",
+    "steps": [
+      "As test.nic.hr open the request and press “[[docs.view]]” on the PDF.",
+      "Press “[[viewer.back]]”. Press “[[docs.view]]” on the Word or Excel document.",
+      "Press “[[docs.download]]” on any document.",
+      "As test.lim.requester paste the address of the document page from step 1."
+    ],
+    "exp": [
+      "The page “[[viewer.title]]” shows the PDF with “[[viewer.page|n=1|total=…]]”, zoom and page buttons.",
+      "The Word or Excel file shows as a PDF with “[[viewer.converted]]”, or, if the server cannot convert it, with “[[viewer.no_preview]]”.",
+      "The download gives the original file with its original name.",
+      "The requester of another Directorate gets “[[error.404]]”. The audit log holds document_view and document_download rows."
+    ]
+  },
+
+  "submit_ok": {
+    "title": "Submit a request: number, tracker and first task",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.dir_accountant]]: test.nic.accountant", "Administrator to read the email log: test.demo.admin"],
+    "pre": "None.",
+    "steps": [
+      "Fill the whole form for a medical request: Nicosia, the first facility, cost centre T-1001, category “[[category.medical]]”, position “Ιατρός Παθολόγος (δοκιμή)”, 1 post, any specialty, reason “[[reason.new_need]]”, text in every text field, “[[answer.no]]” to both yes/no questions.",
+      "Press “[[form.submit]]”. Write down the number.",
+      "Make and submit a second request (any category). Write down its number.",
+      "Look at the request page of the first request as the requester.",
+      "As the administrator open “[[nav.settings]]” and “[[settings.outbox]]”."
+    ],
+    "exp": [
+      "The request page opens with “[[form.submitted|number=EHIRE-2026-0001]]” (your own number). The number has the form PREFIX-YEAR-NNNN. The prefix is the server's number prefix setting (EHIRE if nobody set it).",
+      "The second number is exactly one higher than the first.",
+      "The chip says “[[status.in_progress]]”. In the tracker step 1 is “[[tracker.state.done]]”, step 2 is “[[tracker.state.current]]” and the line says “[[statusline.waiting_on|who=[[role.dir_accountant]] (name)]]” with “[[statusline.days.many|n=0]]”.",
+      "The requester has no action card and no edit button. The request is no longer a draft.",
+      "The email log holds two emails for each request: one to the requester and one to test.nic.accountant."
+    ]
+  },
+
+  "med_step2_ok": {
+    "title": "Step 2 (medical): check with financial data, then Pass",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "A submitted medical Nicosia request at step 2.",
+    "steps": [
+      "Open the request from the tab “[[list.tab.waiting]]”. Find the card “[[action.title]]”.",
+      "Answer “[[card.position_available]]” with “[[answer.yes]]” and “[[card.funds_available]]” with “[[answer.yes]]”. Press “[[card.send]]” without financial data.",
+      "In “[[card.fin.title]]” choose a specialty. Type the month 09/2026 in “[[card.fin.payroll_period|month=mm/yyyy]]”, and 08/2026 in “[[card.fin.data_to|month=mm/yyyy]]”.",
+      "Under “[[card.fin.prev_year]]” type visits 48.200, procedures 9.350, revenue 1.254.300,50, payroll 812.400,00, headcount 14. Under “[[card.fin.ytd]]” type 37.900, 7.120, 988.250,00, 603.100,00, 14,5.",
+      "Change the first answer to “[[answer.arranged_centrally]]” and press “[[card.send]]”."
+    ],
+    "exp": [
+      "Step 2 without figures: the card shows “[[error.financials_required]]” and nothing changes.",
+      "While you type revenue and payroll the line “[[card.fin.ratio]]” fills in: 1,54 for the previous year and 1,64 for the year to date.",
+      "The note under the figures says “[[card.fin.source.manual]]”.",
+      "After sending: “[[done.check]]”. Step 2 is “[[tracker.state.done]]” and step 3 is “[[tracker.state.current]]” with [[role.sci_director]] and [[role.dir_hr_officer]] “[[tracker.state.waiting]]” ([[role.dir_exec]] waits for them).",
+      "Under “[[page.checks]]” the accountant's answer and the financial table appear."
+    ]
+  },
+  "med_step2_reject": {
+    "title": "Step 2: “No” rejects the request and needs a comment",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant", "[[role.requester]]: test.nic.requester"],
+    "pre": "A submitted Nicosia request at step 2 (any category).",
+    "steps": [
+      "Answer “[[card.position_available]]” with “[[answer.no]]” and leave the comment empty. Press “[[card.send]]”.",
+      "Write a comment, press “[[card.send]]”.",
+      "Open the request as the requester.",
+      "Repeat the whole case on another request with “[[card.funds_available]]” answered “[[answer.no]]” (and the position “[[answer.yes]]”)."
+    ],
+    "exp": [
+      "Without a comment the card shows “[[error.comment_required]]” and the answer is not sent.",
+      "With a comment: “[[done.check]]”. The status is “[[status.rejected]]”.",
+      "The tracker shows step 2 as “[[tracker.stopped_here]]” and the accountant's answer as “[[tracker.state.negative]]”. A banner says “[[closed.rejected_at|n=2|step=[[step.2]]|who=[[role.dir_accountant]] (name)]]” with the comment. The requester sees the same.",
+      "A “[[answer.no]]” to the funds question rejects in the same way. No task stays open, and the requester gets an email labelled “[[mail.status.problem]]”."
+    ]
+  },
+  "med_step3_inputs": {
+    "title": "Step 3: the two inputs in any order, then the decision",
+    "who": ["[[role.sci_director]]: test.nic.sci", "[[role.dir_hr_officer]]: test.nic.hr", "[[role.dir_exec]]: test.nic.exec", "[[role.requester]]: test.nic.requester"],
+    "pre": "A medical Nicosia request at step 3 (use the one from the step 2 case).",
+    "steps": [
+      "As test.nic.exec open the request.",
+      "As test.nic.sci answer “[[card.opinion]]” with “[[opinion.negative]]” and a comment. Press “[[card.send]]”.",
+      "Open the request as test.nic.exec again, then as the requester.",
+      "As test.nic.hr answer “[[card.documentation]]” with “[[documentation.complete]]”. Press “[[card.send]]”.",
+      "Open the request as test.nic.exec."
+    ],
+    "exp": [
+      "Step 1: the Executive Director has no card yet.",
+      "Step 2: “[[done.opinion]]”. A negative opinion does not stop the request. The Executive Director still has no card.",
+      "The requester sees only “[[tracker.state.negative]]” for the Scientific Director, not the comment.",
+      "Step 4: “[[done.check]]”. Step 3 stays the current step, and the Executive Director is now “[[tracker.state.waiting]]”.",
+      "Step 5: the Executive Director sees a card with “[[action.approve]]” and “[[action.reject]]”, and the request is on the tab “[[list.tab.waiting]]”."
+    ]
+  },
+  "med_exec": {
+    "title": "Step 3 decision: approve and reject",
+    "who": ["[[role.dir_exec]] of Primary Health Care: test.phc.exec", "Requester, accountant and HR officer of Primary Health Care: test.phc.requester, test.phc.accountant, test.phc.hr"],
+    "pre": "Make two administrative requests for Primary Health Care and bring both to the Executive Director: accountant Yes and Yes, HR officer “[[documentation.complete]]”.",
+    "steps": [
+      "On request A press “[[action.approve]]” (comment empty).",
+      "On request B press “[[action.reject]]” with the comment empty.",
+      "On request B write a comment and press “[[action.reject]]”."
+    ],
+    "exp": [
+      "A: “[[done.approve]]”. Step 3 is “[[tracker.state.done]]” and step 4 is “[[tracker.state.current]]” with [[role.fin_mgmt_head]] and [[role.central_hr_officer]] “[[tracker.state.waiting]]”. Both get a task at the same time.",
+      "B without a comment: “[[error.comment_required]]”.",
+      "B with a comment: “[[done.reject]]”. The status is “[[status.rejected]]” and the banner says “[[closed.rejected_at|n=3|step=[[step.3]]|who=[[role.dir_exec]] (name)]]”."
+    ]
+  },
+  "med_credit_no": {
+    "title": "Step 4: “No credit” rejects at once",
+    "who": ["[[role.fin_mgmt_head]]: test.central.finmgmt", "[[role.central_hr_officer]]: test.central.hr"],
+    "pre": "An administrative Primary Health Care request at step 4 (both central tasks open).",
+    "steps": [
+      "As test.central.finmgmt answer “[[card.credit]]” with “[[answer.no]]” and no comment. Press “[[card.send]]”.",
+      "Write a comment and press “[[card.send]]”.",
+      "As test.central.hr look at the tab “[[list.tab.waiting]]” and open the request."
+    ],
+    "exp": [
+      "Without a comment: “[[error.comment_required]]”.",
+      "With a comment: “[[done.check]]”. The request is “[[status.rejected]]” with the banner “[[closed.rejected_at|n=4|step=[[step.4]]|who=[[role.fin_mgmt_head]] (name)]]”.",
+      "The other officer's task closed by itself: the request is not on that officer's “[[list.tab.waiting]]” tab and the page has no card."
+    ]
+  },
+  "med_step4_ok": {
+    "title": "Step 4: credit and costs, then the next step",
+    "who": ["[[role.fin_mgmt_head]]: test.central.finmgmt", "[[role.central_hr_officer]]: test.central.hr"],
+    "pre": "A medical Nicosia request with the reason “[[reason.retirement]]” and one leaver, at step 4.",
+    "steps": [
+      "As test.central.finmgmt answer “[[card.credit]]” with “[[answer.yes]]”, leave “[[card.commitment_article]]” empty and press “[[card.send]]”.",
+      "Type 2.1.05.001 as the commitment article and press “[[card.send]]”.",
+      "As test.central.hr look at the fields, then press “[[card.send]]” empty.",
+      "Type abc in the new hires field and press “[[card.send]]”.",
+      "Type 48.500,00 for the leaver and 52.000,00 for the new hires. Press “[[card.send]]”."
+    ],
+    "exp": [
+      "Step 1: “[[error.commitment_article_required]]”.",
+      "Step 2: “[[done.check]]”. Step 4 stays current until the other officer answers (the order of the two does not matter).",
+      "Step 3: one field “[[card.leaver_cost|name=(leaver name)]]” and one field “[[card.new_hire_cost]]”. An empty send gives “[[error.leaver_costs_required]]”.",
+      "Step 4: “[[validation.amount]]”.",
+      "Step 5: after both answers step 4 is “[[tracker.state.done]]” and step 5 is current with [[role.medical_director]] waiting."
+    ]
+  },
+  "med_step5": {
+    "title": "Step 5: the specialty opinion",
+    "who": ["[[role.medical_director]]: test.central.medical"],
+    "pre": "The medical request from the step 4 case, now at step 5.",
+    "steps": [
+      "Open the request and choose “[[opinion.negative]]” with no comment. Press “[[card.send]]”.",
+      "Write a comment and press “[[card.send]]”."
+    ],
+    "exp": [
+      "Without a comment: “[[error.comment_required]]”.",
+      "With a comment: “[[done.opinion]]”. A negative opinion does not stop the request: step 6 becomes current and [[role.ceo]] is waiting."
+    ]
+  },
+  "med_ceo_approve": {
+    "title": "Step 6: the CEO approves",
+    "who": ["[[role.ceo]]: test.central.ceo", "[[role.requester]]: test.nic.requester"],
+    "pre": "A request waiting for the CEO (sample request 3, Primary Health Care administrative, is ready; or the case above).",
+    "steps": [
+      "Open the request and press “[[action.approve]]”.",
+      "Look at the request page and the tracker.",
+      "Open the request as the requester."
+    ],
+    "exp": [
+      "“[[done.approve]]”. The chip is “[[status.approved]]” and the page shows the banner “[[done.approve]]”.",
+      "All six steps are “[[tracker.state.done]]”. Nobody has an action card or a “[[action.withdraw]]” button.",
+      "The requester gets an email labelled “[[mail.status.done]]”."
+    ]
+  },
+  "med_ceo_reject": {
+    "title": "Step 6: the CEO rejects",
+    "who": ["[[role.ceo]]: test.central.ceo"],
+    "pre": "A request waiting for the CEO.",
+    "steps": [
+      "Press “[[action.reject]]” with the comment empty.",
+      "Write a comment and press “[[action.reject]]”."
+    ],
+    "exp": [
+      "Without a comment: “[[error.comment_required]]”.",
+      "With a comment: “[[done.reject]]”. The status is “[[status.rejected]]”, the banner says “[[closed.rejected_at|n=6|step=[[step.6]]|who=[[role.ceo]] (name)]]” with the comment, and the requester gets an email labelled “[[mail.status.problem]]”."
+    ]
+  },
+
+  "nursing_route": {
+    "title": "Nursing request from start to approval",
+    "who": ["test.nic.requester, test.nic.accountant, test.nic.sci, test.nic.hr, test.nic.exec", "test.central.finmgmt, test.central.hr, test.central.nursing, test.central.medical, test.central.ceo"],
+    "pre": "None.",
+    "steps": [
+      "As the requester submit a nursing request in Nicosia: position “Νοσηλευτής/τρια (δοκιμή)”, reason “[[reason.resignation]]” with one leaver.",
+      "As the accountant open the card. Answer Yes and Yes.",
+      "As the Scientific Director give a positive opinion; as the HR officer answer Complete; as the Executive Director approve.",
+      "As the central finance officer answer credit Yes with a commitment article; as the central HR officer give the leaver cost and the new hire cost.",
+      "Look at who has a task at step 5, then answer as that person. Finally the CEO approves."
+    ],
+    "exp": [
+      "The accountant's card has no “[[card.fin.title]]” section, and “[[page.checks]]” never shows financial data (R2: only medical and allied).",
+      "Step 3 asks [[role.sci_director]] and [[role.dir_hr_officer]] (R1), then [[role.dir_exec]].",
+      "Step 5 goes to [[role.nursing_director]] (R3). test.central.medical has no task and sees no card.",
+      "The request ends “[[status.approved]]”."
+    ]
+  },
+  "admin_route": {
+    "title": "Administrative request from start to approval",
+    "who": ["test.phc.requester, test.phc.accountant, test.phc.hr, test.phc.exec", "test.central.finmgmt, test.central.hr, test.central.ceo"],
+    "pre": "None.",
+    "steps": [
+      "As test.phc.requester submit an administrative request: reason “[[reason.new_need]]”. Read the route on the request page.",
+      "As the accountant answer Yes and Yes.",
+      "Look at who has a task in step 3. Answer as that person, then as the Executive Director.",
+      "Answer step 4 as the two central officers (new hire cost only).",
+      "Look at the tracker, then approve as the CEO."
+    ],
+    "exp": [
+      "Step 2 has no financial data. Step 5 shows “[[tracker.not_applicable]]” from the start.",
+      "Step 3 has only [[role.dir_hr_officer]] as input (Primary Health Care has no Scientific Director) and then [[role.dir_exec]].",
+      "The central HR card asks only for “[[card.new_hire_cost]]” (a new need has no leaver).",
+      "After step 4 the request goes straight to step 6 and [[role.ceo]]. It ends “[[status.approved]]”."
+    ]
+  },
+  "route_variants": {
+    "title": "Route variants: Directorate without Scientific Director, allied health, other",
+    "who": ["test.phc.requester and test.phc.accountant", "test.nic.requester and test.nic.accountant"],
+    "pre": "None. You only need to reach the end of step 2 and read the tracker.",
+    "steps": [
+      "As test.phc.requester submit a medical request. As test.phc.accountant open the card.",
+      "Answer Yes, Yes with financial data. Read step 3 and step 5 in the tracker.",
+      "As test.nic.requester submit an allied health request (position “Φυσικοθεραπευτής/τρια (δοκιμή)”). As the accountant answer without data, then with data.",
+      "As test.nic.requester submit a request with the category “[[category.other]]”. As the accountant answer Yes and Yes."
+    ],
+    "exp": [
+      "Medical in Primary Health Care: the card has the financial table (R2). Step 3 has only [[role.dir_hr_officer]] (R1 needs a Directorate with a Scientific Director). Step 5 is [[role.medical_director]] (R3).",
+      "Allied health in Nicosia: the financial table is required (“[[error.financials_required]]” without it), step 3 has [[role.sci_director]], step 5 is [[role.medical_director]].",
+      "Other: no financial table, no [[role.sci_director]], step 5 “[[tracker.not_applicable]]”."
+    ]
+  },
+
+  "return_ok": {
+    "title": "Return a request to the requester",
+    "who": ["[[role.dir_hr_officer]]: test.nic.hr", "[[role.sci_director]]: test.nic.sci", "[[role.requester]]: test.nic.requester"],
+    "pre": "A medical Nicosia request at step 3 where the Scientific Director has answered and the HR officer has not.",
+    "steps": [
+      "As test.nic.hr press “[[action.return]]” (the button under the card). Leave the comment empty and confirm.",
+      "Write a comment and confirm.",
+      "Open the request as test.nic.hr, then as test.nic.sci, then as the requester."
+    ],
+    "exp": [
+      "Without a comment: “[[error.comment_required]]”. The question says “[[card.return.confirm|who=(requester name)]]”.",
+      "With a comment: “[[done.return]]”. The chip is “[[status.returned]]”.",
+      "Step 3 shows “[[tracker.on_hold]]”. The HR officer's own task is on hold too and the page shows “[[tracker.on_hold]]” instead of a card. The Scientific Director has no card.",
+      "The requester sees a yellow box “[[statusline.returned]]” with who returned it, the date, the comment and the button “[[form.title.resubmit]]”, and the line “[[form.days_left.many|n=30]]” (the number is working days left, 30 on the first day).",
+      "The requester gets an email labelled “[[mail.status.action]]”. No approver can act while the request is returned. A card sent from a page that was open before the return shows “[[error.request_returned]]”."
+    ]
+  },
+  "resubmit_same": {
+    "title": "Resubmit without a material change",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.dir_hr_officer]]: test.nic.hr", "[[role.sci_director]]: test.nic.sci"],
+    "pre": "The returned request from the case above.",
+    "steps": [
+      "As the requester press “[[form.title.resubmit]]”. Look at the Directorate field.",
+      "Change only the text “[[field.need_text]]”. Leave “[[form.resubmit_note]]” empty and press “[[action.resubmit]]”.",
+      "Type a note and press “[[action.resubmit]]”.",
+      "Open the request as test.nic.hr, then as test.nic.sci."
+    ],
+    "exp": [
+      "The Directorate is shown as locked text, not as a list (the Directorate can never change).",
+      "The empty note gives “[[validation.required]]”.",
+      "“[[done.resubmit]]” shows. The status is “[[status.in_progress]]”, step 3 is current again, and the History shows “[[page.round|n=2]]”.",
+      "The HR officer's task is back with a card. The Scientific Director, who had answered, sees “[[card.replace.intro]]” with “[[action.keep_answer]]” and the answer form.",
+      "Emails go to the people whose task resumed or who can replace an answer."
+    ]
+  },
+  "keep_answer": {
+    "title": "Keep an earlier answer after resubmission",
+    "who": ["[[role.sci_director]]: test.nic.sci"],
+    "pre": "The request from the case above, after resubmission.",
+    "steps": [
+      "Open the request. Press “[[action.keep_answer]]”.",
+      "Open the request again."
+    ],
+    "exp": [
+      "“[[done.keep_answer]]” shows. The card disappears and the earlier opinion stays as it was.",
+      "There is no second chance to change it; the History has no new answer."
+    ]
+  },
+  "replace_answer": {
+    "title": "Replace an earlier answer after resubmission",
+    "who": ["[[role.sci_director]]: test.nic.sci", "[[role.fin_mgmt_head]]: test.central.finmgmt", "[[role.requester]]: test.nic.requester"],
+    "pre": "Part A: a Nicosia request at step 3 resubmitted after a return, with a positive opinion from the Scientific Director. Part B: a nursing request at step 4 where [[role.fin_mgmt_head]] answered credit Yes and [[role.central_hr_officer]] returned the request; the requester resubmitted it.",
+    "steps": [
+      "Part A: as test.nic.sci choose “[[opinion.negative]]” in the answer form, with a comment, and press “[[card.send]]”.",
+      "Part A: open the request and read “[[page.checks]]” and “[[page.history]]”.",
+      "Part B: as test.central.finmgmt choose “[[answer.no]]” for credit with no comment, then with a comment."
+    ],
+    "exp": [
+      "Part A: “[[done.opinion]]”. “[[page.checks]]” shows the new value with “[[tracker.replaced]]”. The History marks the old entry “[[history.superseded]]”. Nothing else moves.",
+      "Part B without a comment: “[[error.comment_required]]”.",
+      "Part B with a comment: the request is “[[status.rejected]]” at step 4 at once (the new “[[answer.no]]” counts like a first one)."
+    ]
+  },
+  "resubmit_material": {
+    "title": "Resubmit with a material change goes back to step 2",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.dir_accountant]]: test.nic.accountant", "[[role.sci_director]]: test.nic.sci"],
+    "pre": "A returned medical Nicosia request that has answers from step 2 and step 3.",
+    "steps": [
+      "As the requester press “[[form.title.resubmit]]”.",
+      "Change the category to “[[category.admin]]” and choose an administrative position. Write the note and press “[[action.resubmit]]”.",
+      "Read the tracker and the History. Open the request as test.nic.accountant and as test.nic.sci."
+    ],
+    "exp": [
+      "The request is “[[status.in_progress]]” at step 2 (not at the step where it was returned), in “[[page.round|n=2]]”.",
+      "The route is worked out again: step 5 is “[[tracker.not_applicable]]” and there is no [[role.sci_director]].",
+      "The History keeps every earlier entry from step 2 on, marked “[[history.superseded]]”.",
+      "[[role.dir_accountant]] has a card again. The tasks of the others closed: test.nic.sci sees no card.",
+      "The same happens when the facility, the cost centre, the position or the number of posts changes. A change of text only does not (case “Resubmit without a material change”)."
+    ]
+  },
+
+  "withdraw_ok": {
+    "title": "The requester withdraws a request",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "A request in progress, and a returned request (both of this requester).",
+    "steps": [
+      "Open the request in progress. Press “[[action.withdraw]]” (below the page).",
+      "Press the same button in the panel with the comment empty.",
+      "Write a comment and press it again.",
+      "Open the request as test.nic.accountant.",
+      "Repeat steps 1 to 3 on the returned request."
+    ],
+    "exp": [
+      "The panel asks “[[card.withdraw.confirm]]” and “[[card.comment_required]]”.",
+      "Without a comment: “[[error.comment_required]]”.",
+      "With a comment: “[[done.withdraw]]”. The chip is “[[status.withdrawn]]” and the banner says “[[closed.withdrawn_by_requester]]” with the comment.",
+      "The accountant has no card and the request left the tab “[[list.tab.waiting]]”. The accountant gets an email “[[mail.request_withdrawn.intro]]”; the requester does not get one.",
+      "A returned request can be withdrawn in the same way. A closed request has no “[[action.withdraw]]” button."
+    ]
+  },
+  "auto_withdraw": {
+    "title": "Automatic withdrawal of a returned request",
+    "who": ["[[role.requester]]: test.nic.requester", "Server administrator to run the timers"],
+    "pre": "Needs a server administrator. A returned request that is not resubmitted. The administrator runs, on the server, “scripts/ehire-cli.sh run-timers --at <date and time>” (see docs/operations.md). The rules count working days, so the dates are about 25 and 50 days after the return. Real waiting would take 15 and 30 working days.",
+    "steps": [
+      "Return a request (as in the case “Return a request”). Write down the date.",
+      "The administrator runs run-timers with a time 25 days later (for example 2026-12-18T09:00:00+02:00).",
+      "Open the request as the requester and read the email log.",
+      "The administrator runs run-timers with a time 50 days after the return.",
+      "Open the request as the requester."
+    ],
+    "exp": [
+      "Step 2: the command prints “warnings=” with at least 1 and “withdrawn=0”.",
+      "Step 3: the request is still “[[status.returned]]”. The requester has an email labelled “[[mail.status.action]]” saying the request will be withdrawn automatically in a number of working days if it is not resubmitted.",
+      "Step 4: the command prints “withdrawn=” with at least 1.",
+      "Step 5: the chip is “[[status.withdrawn]]”, the banner says “[[closed.withdrawn_by_system]]”, and the History says “[[history.withdraw_system|n=30]]”. The requester gets an email with the text “[[system.auto_withdraw]]”."
+    ]
+  },
+
+  "ooo_new": {
+    "title": "Out of office: new tasks go to the substitute",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant", "Substitute: test.nic.deputy", "[[role.requester]]: test.nic.requester"],
+    "pre": "None.",
+    "steps": [
+      "As test.nic.accountant open the list and find the panel “[[ooo.title]]”. Press “[[ooo.switch_on]]” without dates.",
+      "As the requester submit a new Nicosia request.",
+      "As test.nic.deputy open the tab “[[list.tab.waiting]]” and the request.",
+      "As test.nic.accountant open the same request.",
+      "As the deputy answer the card. Read the History."
+    ],
+    "exp": [
+      "The panel first says “[[ooo.off]]” with the substitute's name. After the press: “[[ooo.saved_on]]”.",
+      "The request goes to the deputy: the tracker and the card say “[[tracker.acting_for|who=(deputy)|holder=(accountant)]]” with “[[tracker.redirect.out_of_office]]”.",
+      "The accountant has no card on it.",
+      "The History shows the same “for” line for the deputy's answer.",
+      "The requester and the deputy see no “[[ooo.title]]” panel (only holders of an approver role have it)."
+    ]
+  },
+  "ooo_move": {
+    "title": "Out of office moves open tasks; coming back does not move them back",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant", "Substitute: test.nic.deputy"],
+    "pre": "test.nic.accountant has at least two open tasks (submit two Nicosia requests as test.nic.requester while the accountant is in the office).",
+    "steps": [
+      "Press “[[ooo.switch_on]]”.",
+      "In the panel type the end date 01/12/2026 and the start date 10/12/2026, then press the button. Then type a date in a wrong format.",
+      "Press “[[ooo.switch_off]]”.",
+      "Open the two requests. Submit a third request and look at its task."
+    ],
+    "exp": [
+      "“[[ooo.saved_on]]” and “[[ooo.moved.many|n=2|who=(deputy)]]”. Both requests now wait on the deputy.",
+      "An end date before the start date gives “[[ooo.invalid_dates]]”. A wrong format gives “[[validation.date]]”.",
+      "“[[ooo.saved_off]]”. The two tasks stay with the deputy.",
+      "The third request goes to the accountant again."
+    ]
+  },
+  "conflict": {
+    "title": "Conflict of interest: the holder made the request",
+    "who": ["[[role.sci_director]] and requester: test.lar.sci", "Substitute: test.lar.deputy", "test.lar.accountant", "Part B: test.central.hr and test.central.deputy"],
+    "pre": "None. test.lar.sci holds two roles in Larnaca – Famagusta.",
+    "steps": [
+      "As test.lar.sci submit a medical request for Larnaca – Famagusta.",
+      "As test.lar.accountant answer Yes and Yes with financial data.",
+      "Open the request as test.lar.deputy and as test.lar.sci. Look at the email log (administrator).",
+      "Part B: as test.central.hr submit an administrative request for Nicosia. Take it through steps 2 and 3 with the Nicosia accounts. Look at who has the task of [[role.central_hr_officer]] in step 4."
+    ],
+    "exp": [
+      "Step 3 of the tracker shows [[role.sci_director]] with “[[tracker.acting_for|who=(deputy)|holder=(test.lar.sci)]]” and “[[tracker.redirect.conflict_of_interest]]”.",
+      "test.lar.deputy has the card. test.lar.sci, the requester, has none.",
+      "The requester gets an email “[[mail.task_redirected.intro.conflict_of_interest|who=(deputy)]]”.",
+      "Part B: the [[role.central_hr_officer]] task goes to test.central.deputy, “for” test.central.hr, with the same “[[tracker.redirect.conflict_of_interest]]” note."
+    ]
+  },
+  "unassigned": {
+    "title": "A role with nobody: the task stays unassigned",
+    "who": ["Administrator: test.demo.admin", "[[role.requester]]: test.nic.requester"],
+    "pre": "The Directorates Mental Health and Ambulance Service have no role holders and no requesters.",
+    "steps": [
+      "As the administrator open “[[nav.settings]]”, “[[settings.roles]]”, the group Mental Health (test), and add test.nic.requester under “[[role.requester]]” with “[[settings.add]]”.",
+      "As test.nic.requester submit an administrative request for Mental Health (test).",
+      "Open the request and the email log (administrator).",
+      "As the administrator set a holder for [[role.dir_accountant]] of Mental Health (test) and press the button “[[settings.reassign|n=1]]”.",
+      "Remove test.nic.requester from the Mental Health requesters when you finish."
+    ],
+    "exp": [
+      "Step 2: the request is submitted; step 2 is current and the line says “[[statusline.waiting_on|who=[[role.dir_accountant]]]]” with no name. Nobody has a card.",
+      "The email log has a mail to the administrator labelled “[[mail.status.problem]]” with “[[mail.task_unassigned.intro|role=[[role.dir_accountant]]]]”.",
+      "Setting the holder does not move the task by itself. The button offers to move 1 task. After pressing it the new holder has the task."
+    ]
+  },
+  "only_assignee": {
+    "title": "Only the current assignee can act",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant", "test.nic.hr", "test.nic.requester", "test.demo.viewer"],
+    "pre": "A Nicosia request at step 2. Two browser tabs for test.nic.accountant.",
+    "steps": [
+      "Open the request in tab 1 and tab 2 as test.nic.accountant.",
+      "In tab 1 answer Yes and Yes (administrative request) and send.",
+      "In tab 2 (the old page) press “[[card.send]]”.",
+      "Open the same request as test.nic.hr, test.nic.requester and test.demo.viewer while it is at step 2 (use a new request for this)."
+    ],
+    "exp": [
+      "Tab 2 shows “[[error.not_your_task]]” with the request in its current state. Nothing is recorded twice.",
+      "The HR officer, the requester and the viewer see the request but no card while the task is the accountant's. The requester who tries to act gets “[[error.own_request]]”."
+    ]
+  },
+
+  "o4_opinions": {
+    "title": "A comment is required for negative opinions and an incomplete file",
+    "who": ["[[role.sci_director]]: test.nic.sci", "[[role.dir_hr_officer]]: test.nic.hr", "[[role.medical_director]]: test.central.medical"],
+    "pre": "Requests at step 3 inputs and at step 5 (from the medical case).",
+    "steps": [
+      "As test.nic.sci choose “[[opinion.negative]]” with no comment and press “[[card.send]]”.",
+      "As test.nic.hr choose “[[documentation.incomplete]]” with no comment and press “[[card.send]]”.",
+      "As test.central.medical choose “[[opinion.negative]]” with no comment and press “[[card.send]]”.",
+      "Repeat each with a comment. Then try a positive opinion and “[[documentation.complete]]” with no comment."
+    ],
+    "exp": [
+      "Without a comment the browser shows “[[error.comment_required]]” and does not send. If it is sent anyway the server answers the same.",
+      "With a comment each answer is recorded (“[[done.opinion]]”, “[[done.check]]”).",
+      "A positive opinion and “[[documentation.complete]]” need no comment."
+    ]
+  },
+  "o4_decisions": {
+    "title": "A comment is required for reject, return and withdraw",
+    "who": ["[[role.dir_exec]]: test.nic.exec", "[[role.ceo]]: test.central.ceo", "[[role.requester]]: test.nic.requester"],
+    "pre": "A request at the Directorate decision, one at the CEO, and one in progress of the requester. “No” answers at steps 2 and 4 are covered in the cases for those steps.",
+    "steps": [
+      "As the Executive Director press “[[action.reject]]” with no comment.",
+      "As the CEO press “[[action.reject]]” with no comment.",
+      "As any approver press “[[action.return]]” and confirm with no comment.",
+      "As the requester press “[[action.withdraw]]” and confirm with no comment.",
+      "Press “[[action.approve]]” with no comment on a request at the Directorate decision."
+    ],
+    "exp": [
+      "Steps 1 to 4: “[[error.comment_required]]”, and the request does not change.",
+      "Step 5: the approval is accepted without a comment."
+    ]
+  },
+
+  "vis_requester": {
+    "title": "A requester sees only their own requests, and only outcomes",
+    "who": ["test.nic.requester", "test.phc.requester"],
+    "pre": "The sample requests are loaded. A request of test.nic.requester that has answers with comments (use the one from the step 3 case).",
+    "steps": [
+      "As test.nic.requester open the tab “[[list.tab.all]]”.",
+      "As test.phc.requester open the same tab.",
+      "As test.nic.requester open a request that has answers. Read “[[page.checks]]”.",
+      "Read the comments you can see on a returned or rejected request."
+    ],
+    "exp": [
+      "Each requester sees only the requests they made (the tab “[[list.tab.all]]” holds the same as “[[list.tab.mine]]”).",
+      "“[[page.checks]]” shows for each role only “[[tracker.state.done]]” or “[[tracker.state.negative]]”, with no answers, figures or approver comments.",
+      "A comment is shown to the requester only on a return, a rejection or a withdrawal."
+    ]
+  },
+  "vis_404": {
+    "title": "A request outside your scope answers “not found”",
+    "who": ["test.lim.requester", "test.nic.requester"],
+    "pre": "None.",
+    "steps": [
+      "As test.lim.requester open one of the requests and note the number at the end of the address (for example /requests/5). Create a draft and note its address too.",
+      "As test.nic.requester paste the first address, then the draft address.",
+      "Paste an address with a number that does not exist (for example /requests/99999)."
+    ],
+    "exp": [
+      "All three show “[[error.404]]”. The page does not say that the request exists, and the status is 404, not “forbidden”.",
+      "The same holds for the address of a document of that request."
+    ]
+  },
+  "vis_directorate": {
+    "title": "Directorate holders and substitutes see their own Directorate",
+    "who": ["test.nic.accountant", "test.nic.deputy (substitute)", "test.lim.accountant"],
+    "pre": "The sample requests are loaded. test.nic.requester has a draft.",
+    "steps": [
+      "As test.nic.accountant open the tab “[[list.tab.all]]”.",
+      "As test.nic.deputy open the same tab.",
+      "As test.lim.accountant open the same tab.",
+      "Look for the draft of test.nic.requester as test.nic.accountant."
+    ],
+    "exp": [
+      "test.nic.accountant sees the Nicosia requests (samples 2, 6 and 7 and any new ones) and none of Limassol.",
+      "The substitute sees the same Nicosia requests.",
+      "test.lim.accountant sees only Limassol requests (samples 1, 4 and 5).",
+      "Nobody but the requester sees a draft."
+    ]
+  },
+  "vis_roles": {
+    "title": "Central roles, viewer and administrator: what each can see and do",
+    "who": ["test.central.ceo", "test.demo.viewer", "test.demo.admin", "test.nic.requester"],
+    "pre": "The sample requests are loaded.",
+    "steps": [
+      "As test.central.ceo, test.demo.viewer and test.demo.admin open the tab “[[list.tab.all]]”.",
+      "As the viewer and the administrator look for the button “[[list.new]]” and type /requests/new in the address bar.",
+      "As the viewer open a request that waits for someone.",
+      "As test.nic.requester and test.nic.accountant type /settings and /audit in the address bar. Do the same as the administrator."
+    ],
+    "exp": [
+      "All three see every submitted request of every Directorate, and no drafts. The viewer's first tab is “[[list.tab.mine]]”, which is empty; “[[list.tab.all]]” has the requests.",
+      "The viewer and the administrator have no “[[list.new]]” button; /requests/new shows “[[error.404]]”.",
+      "The viewer sees no action card.",
+      "Requester and accountant get “[[error.404]]” for /settings and /audit. The administrator opens both and has “[[nav.audit]]” and “[[nav.settings]]” in the menu."
+    ]
+  },
+
+  "list_tabs": {
+    "title": "The three tabs and their empty messages",
+    "who": ["test.central.ceo", "test.central.finmgmt", "test.nic.requester", "test.demo.viewer"],
+    "pre": "The sample requests are loaded.",
+    "steps": [
+      "As test.central.ceo open “[[list.tab.waiting]]”.",
+      "As test.central.finmgmt open “[[list.tab.waiting]]”.",
+      "As test.nic.requester open “[[list.tab.waiting]]”.",
+      "As test.demo.viewer open “[[list.tab.mine]]”.",
+      "Press a row in any list. Look at the chip and the small tracker in a row."
+    ],
+    "exp": [
+      "The CEO sees sample request 3 (administrative, Primary Health Care). The finance officer sees sample request 2 (nursing, Nicosia).",
+      "The requester sees “[[list.empty.waiting]]”. The viewer sees “[[list.empty.mine]]”. A search with no result shows “[[list.empty.all]]”.",
+      "Each row shows the number, the position and posts, the facility, the cost centre, a status chip, six small stops and the status line. The row opens the request."
+    ]
+  },
+  "list_search": {
+    "title": "Search by number",
+    "who": ["[[role.ceo]]: test.central.ceo"],
+    "pre": "The sample requests are loaded.",
+    "steps": [
+      "In “[[list.search]]” type the full number of a request, for example EHIRE-2026-0003.",
+      "Type the same number in lower case and without dashes: ehire20260003.",
+      "Type only 0003, then 2026, then xyz.",
+      "Only if your numbers begin with ΑΕΘ: type AEU-2026-0007 (the Latin U stands for Θ)."
+    ],
+    "exp": [
+      "Steps 1 and 2 find that one request.",
+      "0003 finds that request. 2026 finds every request of the year. xyz shows “[[list.empty.all]]”.",
+      "Step 4: the request ΑΕΘ-2026-0007 is found. If your numbers begin with EHIRE, write “not applicable” in the comments: the number prefix is a server setting and is not in the Settings pages."
+    ]
+  },
+  "list_export": {
+    "title": "Export the list to Excel",
+    "who": ["test.central.ceo", "test.nic.accountant", "test.nic.requester"],
+    "pre": "The sample requests are loaded. Excel or LibreOffice on your computer.",
+    "steps": [
+      "As test.central.ceo open the tab “[[list.tab.all]]”, search 0003, press “[[list.export]]” and open the file.",
+      "Repeat without the search.",
+      "As test.nic.accountant export the tab “[[list.tab.all]]”.",
+      "Look for the button as test.nic.requester.",
+      "In the file change a status in the Requests sheet and look at the Summary sheet."
+    ],
+    "exp": [
+      "The file is named eHire-requests-YYYYMMDD.xlsx with three sheets: “[[export.sheet.requests]]”, “[[export.sheet.summary]]” and “[[export.sheet.notes]]”.",
+      "With the search only that request is in the file; without it every request the user may see. test.nic.accountant gets Nicosia rows only.",
+      "The columns include “[[export.col.number]]”, “[[export.col.status]]”, “[[export.col.step]]”, “[[export.col.waiting_on]]”, “[[export.col.days_waiting]]”, “[[export.col.round]]” and “[[export.col.documents]]”. There are no leaver names, costs or comments.",
+      "The requester has no export button.",
+      "The summary is made of formulas: the counts “[[export.summary.by_status]]” change when you edit a row. The notes say who exported and when."
+    ]
+  },
+
+  "mail_flow": {
+    "title": "Emails during the first steps (read in the email log)",
+    "who": ["test.demo.admin (reads the log)", "test.nic.requester", "test.nic.accountant"],
+    "pre": "No real email is sent. “[[settings.outbox]]” lists every email with the state “[[settings.outbox.state.queued]]”.",
+    "steps": [
+      "As the requester submit a medical Nicosia request.",
+      "As the accountant answer Yes and Yes with financial data.",
+      "As the administrator open “[[nav.settings]]” and “[[settings.outbox]]”. Find the mails of this request.",
+      "Press “[[settings.outbox.preview]]” on one of them."
+    ],
+    "exp": [
+      "After step 1: a mail to the requester (“[[mail.status.info]]”, “[[mail.request_submitted.intro|number=(number)]]”) and a mail to test.nic.accountant (“[[mail.status.action]]”, “[[mail.task_opened.intro|role=[[role.dir_accountant]]]]”).",
+      "After step 2: a mail to test.nic.sci and one to test.nic.hr, each “[[mail.status.action]]”.",
+      "The subject is “[number] position · facility”. The list line shows the recipient, the time and the label.",
+      "The preview shows the logo, the label, a short summary of the request, one button “[[action.view_request]]” and the footer “[[mail.footer]]”. The button address starts with the server address and ends with /requests/<id>?do=review. No other link changes anything."
+    ]
+  },
+  "mail_outcomes": {
+    "title": "Emails for return, resubmission, rejection, approval and withdrawal",
+    "who": ["test.demo.admin (reads the log)", "other accounts as in the earlier cases"],
+    "pre": "Requests that went through the return, rejection, approval and withdrawal cases.",
+    "steps": [
+      "Open the email log and find the mails for each event.",
+      "Check who got each mail and who did not.",
+      "Look at the language of the mail sent to test.demo.admin (case “A role with nobody”) and of the others."
+    ],
+    "exp": [
+      "Return: the requester gets “[[mail.status.action]]” with “[[mail.request_returned.intro|who=(name)]]” and the comment.",
+      "Resubmission: the person who returned gets “[[mail.status.info]]” (“[[mail.request_resubmitted.intro]]”); a person who may replace an answer gets “[[mail.new_material.intro]]”.",
+      "Rejection: the requester gets “[[mail.status.problem]]”. Approval: the requester gets “[[mail.status.done]]”.",
+      "Withdrawal by the requester: the people with an open task get “[[mail.request_withdrawn.intro]]”.",
+      "Nobody gets a mail about their own action (the only exception is the confirmation of a submission). Each recipient gets the language set on their user: the administrator account is English, the others Greek."
+    ]
+  },
+
+  "timer_seed": {
+    "title": "A reminder and an escalation already sent (sample request 2)",
+    "who": ["test.central.ceo", "test.central.finmgmt", "test.demo.admin"],
+    "pre": "The sample requests are loaded. Sample request 2 (nursing, Nicosia, resignation) has waited at step 4 for six working days or more. No wait and no administrator command is needed.",
+    "steps": [
+      "As test.central.finmgmt open sample request 2 and read the lines under the tracker.",
+      "As the administrator open the email log and look at the mails of that request.",
+      "As test.central.ceo (the line manager of both officers) look at the request."
+    ],
+    "exp": [
+      "Two lines: “[[statusline.waiting_on|who=[[role.fin_mgmt_head]] (name)]]” and the same for [[role.central_hr_officer]], each with “[[statusline.days.many|n=6]]” (or more), “[[statusline.reminded]]” and “[[statusline.escalated]]”.",
+      "The log has a reminder for each officer (“[[mail.status.action]]”) and an escalation for the line manager (“[[mail.status.problem]]”, “[[mail.escalation_due.intro|who=(name)|n=6]]”).",
+      "The task stays with the same officers (O5). The escalation moves nothing."
+    ]
+  },
+  "timer_run": {
+    "title": "A new reminder and escalation after working days",
+    "who": ["Server administrator", "test.nic.requester", "test.nic.accountant", "test.nic.exec"],
+    "pre": "Needs a server administrator. The administrator runs “scripts/ehire-cli.sh run-timers --at <date and time>” (docs/operations.md). Without the command you would wait 2 and 5 working days. Mail stays in the email log.",
+    "steps": [
+      "Submit a new Nicosia request and write down the date.",
+      "The administrator runs run-timers with a time about 3 working days later.",
+      "Read the email log and the request page.",
+      "The administrator runs the command again with the same time.",
+      "The administrator runs it with a time about 8 working days after the submission."
+    ],
+    "exp": [
+      "Step 2: the command prints “reminders=” with at least 1. A reminder mail goes to test.nic.accountant (“[[mail.reminder_due.intro.many|n=3]]”, the number is the working days waited). The request page says “[[statusline.reminded]]”.",
+      "Step 4: no second reminder (one per clock start).",
+      "Step 5: an escalation mail goes to the accountant's line manager, test.nic.exec (“[[mail.escalation_due.intro|who=(accountant)|n=8]]”), and the page says “[[statusline.escalated]]”.",
+      "The task stays with the accountant."
+    ]
+  },
+  "timer_workdays": {
+    "title": "Weekends and public holidays do not count as waiting days",
+    "who": ["test.central.ceo", "test.demo.admin"],
+    "pre": "Sample request 2 is waiting at step 4. Look in its History at the date when the Executive Director approved (the step 4 tasks opened then).",
+    "steps": [
+      "As test.central.ceo read the number of days in the status line of sample request 2 (call it N).",
+      "As the administrator open “[[settings.holidays]]” and add a date that is a weekday after the approval date and before today, with names in both languages.",
+      "Read the status line again.",
+      "Remove the holiday you added. Read the status line again."
+    ],
+    "exp": [
+      "Step 1: N working days (weekends are never counted).",
+      "After the holiday is added the line shows N − 1 days.",
+      "After the holiday is removed it shows N again."
+    ]
+  },
+
+  "set_lists": {
+    "title": "Settings: lists (add, edit, deactivate)",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Use codes that start with T- and names that end with “(test)”, so the clear-up removes them.",
+    "steps": [
+      "Open “[[nav.settings]]”. Look at the pages and the lists with their counts.",
+      "Open “[[settings.list.cost_centre]]”. Add code T-3001 with a Greek and an English name. Press “[[settings.add]]”.",
+      "Add code T-1001 again.",
+      "Change the English name of T-3001 and press “[[settings.save]]”. Press “[[settings.deactivate]]”.",
+      "As test.nic.requester open the form “[[form.title.new]]” and look at the cost centre list. Then activate T-3001 again.",
+      "Open “[[settings.list.facility]]” and open the list “[[settings.col.archive_site]]”."
+    ],
+    "exp": [
+      "Settings lists: role holders, users, public holidays, times and limits, email log, eArchive deposits, Import from Excel, and the five lists with counts.",
+      "A new row: “[[settings.saved]]”. A repeated code: “[[settings.duplicate_code]]”.",
+      "Edit: “[[settings.saved]]”. The code cannot be edited after creation.",
+      "A deactivated row shows “[[settings.inactive]]” and is missing from the request form; after “[[settings.activate]]” it is back.",
+      "The eArchive site list holds only the twelve current codes. Every change has a row in the audit log (list_changed)."
+    ]
+  },
+  "set_roles": {
+    "title": "Settings: role holders and substitutes",
+    "who": ["Administrator: test.demo.admin", "test.nic.requester", "test.nic.accountant", "test.nic.deputy"],
+    "pre": "A Nicosia request waiting on test.nic.accountant. Write down who holds the roles before you change anything, and restore them at the end.",
+    "steps": [
+      "Open “[[settings.roles]]”. Look at the groups and at the rows of Primary Health Care.",
+      "For [[role.dir_accountant]] of Nicosia choose the same person as holder and substitute and press “[[settings.save]]”.",
+      "Choose test.nic.deputy as holder and press “[[settings.save]]”. Open the waiting request as test.nic.accountant.",
+      "Press “[[settings.reassign|n=1]]”.",
+      "Add test.nic.accountant under the requesters of Nicosia, then remove the entry. Restore the original holder."
+    ],
+    "exp": [
+      "The page has the group “[[settings.central]]” and one group per Directorate. The Scientific Director row is missing for a Directorate that has none (Primary Health Care).",
+      "Same person: “[[settings.same_person]]”.",
+      "After the change the open task stays with the old holder (a change of holder does not reroute a request: R4). The page shows the button “[[settings.reassign|n=1]]”.",
+      "After the button the task is with the new holder and a message tells who got it. The new holder gets an email.",
+      "Each change has a row in the audit log (role_changed)."
+    ]
+  },
+  "set_users": {
+    "title": "Settings: users and the first password change",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "New test users must have a username that starts with test. (for example test.uat.one).",
+    "steps": [
+      "Open “[[settings.users]]”. Add test.uat.one with a name, an email ending @test.invalid, the language and a temporary password.",
+      "Sign in as test.uat.one with that password. Type two different passwords, then a password shorter than 8 characters, then a good one twice.",
+      "Look at the list as the new user.",
+      "As the administrator press “[[settings.deactivate]]” for test.uat.one. Try to sign in again.",
+      "Try to deactivate your own account. Try to add test.uat.one again."
+    ],
+    "exp": [
+      "“[[settings.saved]]”. The row shows “[[settings.user.source.local]]”.",
+      "First sign-in goes to “[[password.title]]”. Messages: “[[password.mismatch]]”, “[[password.too_short|n=8]]”. A good password leads to the list.",
+      "The new user has no role: an empty list and no menu items.",
+      "The deactivated user gets “[[login.failed]]”.",
+      "“[[settings.self_deactivate]]” and “[[settings.user.duplicate]]”."
+    ]
+  },
+  "set_timings": {
+    "title": "Settings: times and limits",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Write down the four values (2, 5, 30 and 20 on a new install) and restore them at the end.",
+    "steps": [
+      "Open “[[settings.timings]]”. Read the four fields and the question “[[settings.activity_provider]]”.",
+      "Set “[[settings.reminder_days]]” to 5 and “[[settings.escalation_days]]” to 3. Press “[[settings.save]]”.",
+      "Type 0 in one field and the word abc in another. Press “[[settings.save]]”.",
+      "Set reminder 1 and escalation 2. Save. Then restore the original values."
+    ],
+    "exp": [
+      "The second answer “[[settings.activity_provider.efinance]]” cannot be chosen: it is disabled and the page says “[[settings.activity_provider.not_configured]]”. “[[settings.activity_provider.manual]]” is selected.",
+      "Step 2: “[[settings.escalation_order]]”.",
+      "Step 3: “[[settings.number_invalid]]” next to each wrong field. Nothing is saved.",
+      "Step 4: “[[settings.saved]]”. The audit log holds setting_changed rows with the old and new value."
+    ]
+  },
+  "set_holidays": {
+    "title": "Settings: public holidays",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "None.",
+    "steps": [
+      "Open “[[settings.holidays]]”. Look at the year buttons.",
+      "Add 25/12/2026 with the names Χριστούγεννα and Christmas Day.",
+      "Add the same date again.",
+      "Add the date 31/02/2026, then a valid date with no English name.",
+      "Remove the holiday you added."
+    ],
+    "exp": [
+      "The list shows the holidays of the chosen year with the date as dd/mm/yyyy.",
+      "“[[settings.saved]]”, then “[[settings.holiday_duplicate]]”.",
+      "“[[validation.date]]” and “[[validation.required]]”.",
+      "Removal: “[[settings.saved]]”. The audit log holds setting_changed rows."
+    ]
+  },
+
+  "import_valid": {
+    "title": "Excel import: a valid file",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Excel or LibreOffice on your computer.",
+    "steps": [
+      "Open “[[import.menu]]” in Settings. Read the steps and rules.",
+      "Press “[[import.template.download]]” and open the file.",
+      "On the sheet cost_centres add one row: T-3101, a Greek name, an English name ending “(test)”, active yes. Save the file.",
+      "Upload it with “[[import.upload.submit]]”. Read the summary.",
+      "Press “[[import.confirm]]”.",
+      "Upload the same file again."
+    ],
+    "exp": [
+      "The page shows “[[import.steps.title]]”, “[[import.rules.title]]” and the limits.",
+      "The template has the sheets Instructions, directorates, facilities, positions, cost_centres, oay_specialties, users and role_holders, filled with the present data.",
+      "The summary “[[import.preview.title]]” shows one new row for cost_centres and the rest unchanged.",
+      "“[[import.done|add=1|update=0]]” and the cost centre is in the list.",
+      "The second upload says “[[import.preview.nothing]]”. “[[import.cancel]]” leaves nothing changed."
+    ]
+  },
+  "import_wrong": {
+    "title": "Excel import: a file with one wrong row changes nothing",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The template downloaded in the case above.",
+    "steps": [
+      "In cost_centres add two rows: T-3201 (valid), and T-3202 with the Greek name empty and the value maybe in the column active. Save and upload the file.",
+      "Look at the cost centre list.",
+      "Upload a .txt file, then a file that is not a real workbook renamed to .xlsx."
+    ],
+    "exp": [
+      "The page says “[[import.errors.title]]” and a table with the columns “[[import.col.sheet]]”, “[[import.col.row]]”, “[[import.col.column]]” and “[[import.col.message]]”. It lists the sheet, the row number of the bad row and the messages “[[import.err.required]]” (name_el) and “[[import.err.yes_no]]” (active).",
+      "No row was imported, not even the valid T-3201.",
+      "Both bad files show “[[import.err.file_type]]”."
+    ]
+  },
+
+  "audit_view": {
+    "title": "The audit log and its filters",
+    "who": ["Administrator: test.demo.admin", "test.nic.requester"],
+    "pre": "Several earlier cases done, so the log has rows.",
+    "steps": [
+      "Press “[[nav.audit]]”. Read the table and the page line.",
+      "Filter by a request number, then by a user name, then by an event chosen from the list, then by dates (From 01/01/2027).",
+      "Open a request through its number in the table.",
+      "Look for a way to edit, delete or export rows.",
+      "As test.nic.requester type /audit in the address bar."
+    ],
+    "exp": [
+      "The table “[[audit.title]]” has the columns “[[audit.col.when]]”, “[[audit.col.user]]”, “[[audit.col.event]]”, “[[audit.col.request]]” and “[[audit.col.detail]]”, newest first, 50 rows a page, with “[[audit.prev]]” and “[[audit.next]]” and “[[audit.page|n=1|total=…]]”.",
+      "The filters narrow the list. A date with nothing in it shows “[[audit.empty]]”. Event names are the technical names (for example login, request_action, mail_queued).",
+      "The number opens the request.",
+      "The log can only be read. Nothing secret (passwords, tokens) is shown.",
+      "The requester gets “[[error.404]]”."
+    ]
+  },
+
+  "phone_request": {
+    "title": "Phone width: the request page",
+    "who": ["[[role.ceo]]: test.central.ceo"],
+    "pre": "A browser window set to about 375 px wide (phone mode in the developer tools) or a real phone. A request waits for the CEO (sample request 3).",
+    "steps": [
+      "Open the request from the tab “[[list.tab.waiting]]”.",
+      "Scroll from the top down to the bottom.",
+      "Open the line “[[tracker.title]]”."
+    ],
+    "exp": [
+      "The page order is: number and chip, position and facility, the short route (six small stops) and the status line, the card “[[action.title]]”, then the closed line “[[tracker.title]]”, then the details.",
+      "No part of the page needs sideways scrolling. Text does not run off the screen.",
+      "The buttons are easy to hit (at least about 44 px high)."
+    ]
+  },
+  "phone_list_form": {
+    "title": "Phone width: list, form and settings",
+    "who": ["test.nic.requester", "test.demo.admin"],
+    "pre": "Window about 375 px wide.",
+    "steps": [
+      "As test.nic.requester open the list, the tabs and the search.",
+      "Open the form “[[form.title.new]]” and scroll to the end.",
+      "As the administrator open “[[nav.settings]]”, the email log and the audit log."
+    ],
+    "exp": [
+      "List rows are stacked: number, position, facility, status and small route. Tabs and search fit the width.",
+      "The form is one column. The route preview comes after the fields. All buttons are reachable.",
+      "Settings pages and the audit table can be used. The audit table scrolls inside its own frame, not the whole page.",
+      "There is no sideways scrolling on any page you opened."
+    ]
+  }
+}
