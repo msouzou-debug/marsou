@@ -239,7 +239,7 @@
         "Test data and real data share one server. The rule that nobody types real data is the main protection. The clear-up removes only data marked test. or T- or “(test)”, so users, lists and requests that testers add must carry those marks.",
         "Reminders, escalation and automatic withdrawal depend on working days. In a short test they can be seen only with the server command run-timers --at, which acts on every request in the system. The administrator runs it only while the system holds nothing but test data.",
         "Email is judged from the email log, not from a mailbox. The look in Outlook and real delivery are not tested.",
-        "Request numbers begin with ΑΕΘ from version 1.0.0-rc8. Requests created earlier begin with EHIRE; test the search with U for Θ on a request that begins with ΑΕΘ.",
+        "From version 1.0.0-rc10 request numbers look like EHIRE-NGH-NUR-20261120-01 (Directorate, position, date, counter). Requests created earlier keep their old number.",
         "Five failed sign-ins lock a username for 15 minutes. Testers who share an account lock each other out; one account per tester avoids it.",
         "Some cases change sample requests (for example the returned request). Testers agree who uses which sample, and the coordinator reloads the data if a sample is used up.",
         "The phone-width cases use a narrow browser window. They do not replace a test on the devices staff really use.",

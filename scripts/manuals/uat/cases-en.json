@@ -282,7 +282,7 @@
       "As the administrator open “[[nav.settings]]” and “[[settings.outbox]]”."
     ],
     "exp": [
-      "The request page opens with “[[form.submitted|number=ΑΕΘ-2026-0001]]” (your own number). The number has the form PREFIX-YEAR-NNNN. The prefix is ΑΕΘ.",
+      "The request page opens with “[[form.submitted|number=EHIRE-NGH-NUR-20261120-01]]” (your own number). The number is made of EHIRE, the Directorate code, the position code, the submission date (year, month, day) and a counter for that day.",
       "The second number is exactly one higher than the first.",
       "The chip says “[[status.in_progress]]”. In the tracker step 1 is “[[tracker.state.done]]”, step 2 is “[[tracker.state.current]]” and the line says “[[statusline.waiting_on|who=[[role.dir_accountant]] (name)]]” with “[[statusline.days.many|n=0]]”.",
       "The requester has no action card and no edit button. The request is no longer a draft.",
@@ -814,15 +814,15 @@
     "who": ["[[role.ceo]]: test.central.ceo"],
     "pre": "The sample requests are loaded.",
     "steps": [
-      "In “[[list.search]]” type the full number of a request, for example ΑΕΘ-2026-0003.",
-      "Type the same number in lower case and without dashes: ehire20260003.",
-      "Type only 0003, then 2026, then xyz.",
-      "Only if your numbers begin with ΑΕΘ: type AEU-2026-0007 (the Latin U stands for Θ)."
+      "In “[[list.search]]” type the full number of a request from the list, as you see it.",
+      "Type the same number in lower case and without dashes.",
+      "Type only part of the number (for example the position code or the date), then 2026, then xyz.",
+      "If the list has a request with an old number (for example ΑΕΘ-2026-0007 or EHIRE-2026-0003), type it; for ΑΕΘ also try AEU-2026-0007 (the Latin U stands for Θ)."
     ],
     "exp": [
       "Steps 1 and 2 find that one request.",
-      "0003 finds that request. 2026 finds every request of the year. xyz shows “[[list.empty.all]]”.",
-      "Step 4: the request ΑΕΘ-2026-0007 is found. Requests created before version 1.0.0-rc8 have a number that begins with EHIRE; test with a request that begins with ΑΕΘ."
+      "The part of the number finds every request that contains it. 2026 finds every request of the year. xyz shows “[[list.empty.all]]”.",
+      "Step 4: requests with an old number are found and open. If there is none, write “not applicable” in the comments."
     ]
   },
   "list_export": {

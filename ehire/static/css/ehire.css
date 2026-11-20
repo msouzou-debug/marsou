@@ -20,6 +20,9 @@
 .ehire-row { margin: 0; padding: .75rem; border-bottom: 1px solid var(--ehire-line-row); }
 .ehire-row:hover { background: rgba(6, 159, 236, .05); }
 .ehire-row__number { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+/* New numbers are about 25 characters (EHIRE-NGH-NUR-20261120-01): a touch smaller, and they break only at a dash */
+.ehire-row__number { font-size: .9rem; letter-spacing: 0; overflow-wrap: anywhere; }
+@media (min-width: 1200px) { .ehire-row__number { white-space: nowrap; } }
 .ehire-statusline { font-size: .875rem; }
 
 /* Chips: icon and word */

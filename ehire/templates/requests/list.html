@@ -66,18 +66,18 @@
 {% else %}
 <div class="ehire-rows">
   <div class="row g-2 ehire-rows__head d-none d-md-flex small text-secondary">
-    <div class="col-md-2">{{ t('list.col.number') }}</div>
-    <div class="col-md-3">{{ t('list.col.position') }}</div>
+    <div class="col-md-3">{{ t('list.col.number') }}</div>
+    <div class="col-md-2">{{ t('list.col.position') }}</div>
     <div class="col-md-3">{{ t('list.col.facility') }}</div>
     <div class="col-md-4">{{ t('list.col.status') }}</div>
   </div>
   {% for row in rows %}
   {% set r = row.req %}
   <div class="row g-2 ehire-row position-relative">
-    <div class="col-12 col-md-2">
+    <div class="col-12 col-md-3">
       <a class="ehire-row__number stretched-link fw-bold ehire-num" href="{{ url_for('requests.detail', request_id=r.id) if r.status != 'draft' else url_for('requests.edit', request_id=r.id) }}">{{ r.number or t('status.draft') }}</a>
     </div>
-    <div class="col-12 col-md-3">
+    <div class="col-12 col-md-2">
       <div class="ehire-row__position">{{ r.position.name(lang) if r.position else '' }}{% if r.positions_count %} <span class="text-secondary">· {{ t('list.posts.one') if r.positions_count == 1 else t('list.posts.many', n=r.positions_count) }}</span>{% endif %}</div>
     </div>
     <div class="col-12 col-md-3">
