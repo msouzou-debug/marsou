@@ -276,7 +276,7 @@
   "import.preview.update": "Updated rows",
   "import.rule.limits": "Largest file {mb} MB, up to {rows} rows per sheet, .xlsx files only.",
   "import.rule.nodelete": "The import deletes nothing. To deactivate a row, write no in its active column.",
-  "import.rule.password": "New local users have no password. Set one on the Users page.",
+  "import.rule.password": "New local users have no password. The server administrator sets one with the reset-password command.",
   "import.rules.title": "Rules",
   "import.step.1": "Download the template. If the lists already hold data, the file contains it and you can correct it.",
   "import.step.2": "Fill in the sheets you need. Do not rename the sheets or the columns.",
