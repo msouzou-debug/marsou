@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="eHire">
+<rect width="64" height="64" rx="12" fill="#fff"/>
+<circle cx="12.46" cy="50.61" r="2.43" fill="#1B75BB"/>
+<circle cx="8.98" cy="37.44" r="2.94" fill="#1B75BB"/>
+<circle cx="13.55" cy="24.60" r="3.46" fill="#1B75BB"/>
+<circle cx="24.57" cy="16.59" r="3.97" fill="#069FEC"/>
+<circle cx="38.20" cy="16.21" r="4.48" fill="#069FEC"/>
+<circle cx="49.65" cy="23.59" r="8.00" fill="#8BC53F"/>
+<path d="M46.05 23.75 l2.56 2.72 l4.80 -5.44" fill="none" stroke="#fff" stroke-width="2.08" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

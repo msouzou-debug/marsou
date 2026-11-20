@@ -1,24 +1,46 @@
 {% extends "base.html" %}
 {% block title %}{{ t('login.title') }} · {{ t('app.name') }}{% endblock %}
-{% block content %}
-<div class="row justify-content-center">
-  <div class="col-12 col-sm-8 col-md-5">
-    <h1 class="h4 mb-3">{{ t('login.title') }}</h1>
-    {% if notice %}<div class="alert alert-info" role="status">{{ t(notice) }}</div>{% endif %}
-    {% if error %}<div class="alert alert-danger" role="alert">{{ t(error, **(error_params or {})) }}</div>{% endif %}
-    <form method="post" action="{{ url_for('auth.login') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ next }}">
-      <div class="mb-3">
-        <label class="form-label" for="username">{{ t('login.username') }}</label>
-        <input class="form-control form-control-lg" id="username" name="username" autocomplete="username" autofocus required>
+{% block frame %}
+<main class="ehire-signin">
+  <section class="ehire-signin__panel">
+    <img class="ehire-signin__app" src="{{ url_for('static', filename='img/ehire_logo_white.svg') }}" alt="{{ t('app.name') }}">
+    <div class="ehire-signin__lead">
+      <h1>{{ t('module.position_approval') }}</h1>
+      <p>{{ t('login.intro') }}</p>
+    </div>
+    <div class="ehire-signin__org">{{ t('app.org') }}</div>
+  </section>
+  <section class="ehire-signin__form">
+    <div class="ehire-signin__box">
+      <img class="ehire-signin__logo" src="{{ url_for('static', filename='img/okypy_logo_full.png') }}" alt="{{ t('app.org') }}">
+      <h2>{{ t('login.title') }}</h2>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category in ('success', 'danger', 'warning', 'info') else 'info' }}" role="{{ 'alert' if category == 'danger' else 'status' }}">{% if message is mapping %}{{ t(message.key, **(message.params or {})) }}{% else %}{{ t(message) }}{% endif %}</div>
+        {% endfor %}
+      {% endwith %}
+      {% if notice %}<div class="alert alert-info" role="status">{{ t(notice) }}</div>{% endif %}
+      {% if error %}<div class="alert alert-danger" role="alert">{{ t(error, **(error_params or {})) }}</div>{% endif %}
+      <form method="post" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="mb-3">
+          <label class="form-label fw-bold" for="username">{{ t('login.username') }}</label>
+          <input class="form-control" id="username" name="username" autocomplete="username" autofocus required>
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-bold" for="password">{{ t('login.password') }}</label>
+          <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary w-100" type="submit">{{ t('login.submit') }}</button>
+      </form>
+      <div class="ehire-signin__lang">
+        <span class="ehire-lang" aria-label="{{ t('nav.language') }}">
+          <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>Ελληνικά</a>
+          <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a>
+        </span>
       </div>
-      <div class="mb-3">
-        <label class="form-label" for="password">{{ t('login.password') }}</label>
-        <input class="form-control form-control-lg" id="password" name="password" type="password" autocomplete="current-password" required>
-      </div>
-      <button class="btn btn-primary btn-lg w-100" type="submit">{{ t('login.submit') }}</button>
-    </form>
-  </div>
-</div>
+    </div>
+  </section>
+</main>
 {% endblock %}

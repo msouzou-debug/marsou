@@ -1,0 +1,75 @@
+/* Page frame: fonts, header, footer, sign-in. ΟΚΥπΥ brand: white page, blue accent bar, Lato. */
+@font-face { font-family: Lato; font-weight: 400; font-display: swap; src: url("../vendor/lato/lato-400.woff2") format("woff2"); }
+@font-face { font-family: Lato; font-weight: 700; font-display: swap; src: url("../vendor/lato/lato-700.woff2") format("woff2"); }
+@font-face { font-family: Lato; font-weight: 900; font-display: swap; src: url("../vendor/lato/lato-900.woff2") format("woff2"); }
+
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; background: #fff; font-size: 1rem; line-height: 1.5; }
+h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 { color: var(--ehire-blue-deep); font-weight: 700; letter-spacing: -.005em; }
+main h1 { font-weight: 900; }
+.ehire-main { flex: 1 0 auto; }
+
+/* Header */
+.ehire-header { background: #fff; border-bottom: 1px solid var(--ehire-line); }
+.ehire-header__in { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.25rem; padding: .5rem 1rem; max-width: 1320px; margin: 0 auto; }
+.ehire-brand { display: inline-flex; align-items: center; gap: .875rem; min-height: 48px; text-decoration: none; color: var(--ehire-text-secondary); }
+.ehire-brand__org { height: 40px; width: auto; }
+.ehire-brand__rule { width: 1px; align-self: stretch; margin: .375rem 0; background: var(--ehire-line); }
+.ehire-brand__app { height: 34px; width: auto; }
+.ehire-brand__module { font-size: .9375rem; line-height: 1.2; padding-top: .25rem; }
+.ehire-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .125rem; margin-left: auto; }
+.ehire-nav__link { display: inline-flex; align-items: center; gap: .375rem; min-height: 44px; padding: 0 .75rem; border-radius: 4px;
+  color: var(--ehire-text); text-decoration: none; font-weight: 700; font-size: .9375rem; border-bottom: 3px solid transparent; border-radius: 0; }
+.ehire-nav__link:hover { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-line); }
+.ehire-nav__link.is-current { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-blue); }
+.ehire-user { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; padding-left: .75rem; margin-left: .5rem; border-left: 1px solid var(--ehire-line); }
+.ehire-user__name { font-size: .875rem; color: var(--ehire-text-secondary); max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ehire-lang { display: inline-flex; border: 1px solid var(--ehire-line); border-radius: 4px; overflow: hidden; }
+.ehire-lang a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 .625rem; font-size: .8125rem; font-weight: 700; text-decoration: none; color: var(--ehire-text-secondary); }
+.ehire-lang a[aria-current="true"] { background: var(--ehire-blue-deep); color: #fff; }
+@media (max-width: 767.98px) {
+  .ehire-brand__module, .ehire-brand__rule { display: none; }
+  .ehire-nav { margin-left: 0; width: 100%; }
+  .ehire-user { border-left: 0; padding-left: 0; margin-left: auto; }
+}
+
+/* Footer: organisation name, then the brand's blue bar along the bottom */
+.ehire-footer { flex: none; margin-top: 2rem; }
+.ehire-footer__in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; max-width: 1320px; margin: 0 auto; padding: .75rem 1rem; font-size: .8125rem; color: var(--ehire-text-secondary); border-top: 1px solid var(--ehire-line-row); }
+.ehire-accent-bar { height: 8px; background: var(--ehire-blue); }
+
+/* Tables and panels shared by every page */
+.table > thead > tr > th { color: var(--ehire-blue-deep); font-weight: 700; border-bottom: 2px solid var(--ehire-blue); background: #fff; white-space: nowrap; }
+.table > tbody > tr:hover > * { background-color: rgba(6, 159, 236, .05); }
+.ehire-tabs.nav-tabs .nav-link { color: var(--ehire-text); font-weight: 700; border: 0; border-bottom: 3px solid transparent; border-radius: 0; }
+.ehire-tabs.nav-tabs .nav-link.active { color: var(--ehire-blue-deep); border-bottom-color: var(--ehire-blue); background: transparent; }
+.alert { border-radius: 4px; border-left-width: 4px; }
+
+/* Sign-in: blue panel with the two logos, form on white */
+.ehire-signin { flex: 1 0 auto; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+.ehire-signin__panel { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; gap: 2rem; padding: 3rem;
+  color: #fff; background: linear-gradient(160deg, #1B75BB 0%, #1688D2 55%, #069FEC 100%); }
+.ehire-signin__panel::after { content: ""; position: absolute; right: -9rem; bottom: -9rem; width: 26rem; height: 26rem; border-radius: 50%;
+  border: 3.5rem solid rgba(255, 255, 255, .07); }
+.ehire-signin__app { height: 56px; width: auto; align-self: flex-start; }
+.ehire-signin__lead { position: relative; z-index: 1; max-width: 26rem; }
+.ehire-signin__lead h1 { color: #fff; font-weight: 900; font-size: 2.25rem; line-height: 1.15; margin-bottom: .75rem; }
+.ehire-signin__lead p { font-size: 1.125rem; line-height: 1.5; margin: 0; opacity: .95; }
+.ehire-signin__org { position: relative; z-index: 1; font-size: .875rem; opacity: .9; }
+.ehire-signin__form { display: flex; flex-direction: column; justify-content: center; padding: 3rem 1.5rem; }
+.ehire-signin__box { width: 100%; max-width: 24rem; margin: 0 auto; }
+.ehire-signin__logo { height: 96px; width: auto; margin-bottom: 2rem; }
+.ehire-signin__box h2 { font-size: 1.5rem; font-weight: 900; margin-bottom: 1.25rem; }
+.ehire-signin__box .form-control { min-height: 48px; }
+.ehire-signin__box .btn { min-height: 48px; font-weight: 700; }
+.ehire-signin__lang { margin-top: 1.5rem; }
+@media (max-width: 767.98px) {
+  .ehire-signin { grid-template-columns: 1fr; }
+  .ehire-signin__panel { padding: 1.5rem; gap: 1rem; }
+  .ehire-signin__panel::after, .ehire-signin__org { display: none; }
+  .ehire-signin__lead h1 { font-size: 1.5rem; }
+  .ehire-signin__lead p { font-size: 1rem; }
+  .ehire-signin__app { height: 44px; }
+  .ehire-signin__form { padding: 2rem 1rem; justify-content: flex-start; }
+  .ehire-signin__logo { height: 72px; margin-bottom: 1.25rem; }
+}

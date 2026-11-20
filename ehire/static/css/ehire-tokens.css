@@ -27,9 +27,8 @@
   --bs-border-radius: 4px;
   --bs-border-radius-sm: 3px;
   --bs-border-radius-lg: 4px;
-  --bs-body-font-family: Lato, "Segoe UI", Arial, sans-serif; /* Lato files arrive in Phase 1, served locally */
+  --bs-body-font-family: Lato, "Source Sans Pro", "Open Sans", "Segoe UI", Arial, sans-serif; /* Lato 2 (Latin and Greek) in static/vendor/lato */
 }
-.ehire-accent-bar { height: 4px; background: var(--ehire-blue); }
 .btn-primary {
   --bs-btn-bg: var(--ehire-blue-deep); --bs-btn-border-color: var(--ehire-blue-deep);
   --bs-btn-hover-bg: #155f99; --bs-btn-hover-border-color: #155f99;

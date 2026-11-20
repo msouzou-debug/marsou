@@ -7,39 +7,49 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ehire-tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ehire-frame.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ehire.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/documents.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/ehire_mark.svg') }}">
 </head>
 <body>
-  <div class="ehire-accent-bar"></div>
-  <nav class="navbar border-bottom">
-    <div class="container-fluid flex-wrap gap-2">
-      <a class="navbar-brand fw-bold text-primary me-0 d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('main.home') }}">{{ t('app.name') }} · {{ t('module.position_approval') }}</a>
-      <div class="d-flex flex-wrap align-items-center gap-1">
-        {% if current_user() %}
-        <span class="small text-secondary px-1">{{ current_user().full_name }}</span>
+  {% block frame %}
+  <header class="ehire-header">
+    <div class="ehire-header__in">
+      <a class="ehire-brand" href="{{ url_for('main.home') }}">
+        <img class="ehire-brand__org" src="{{ url_for('static', filename='img/okypy_icon.png') }}" alt="{{ t('app.org') }}">
+        <span class="ehire-brand__rule" aria-hidden="true"></span>
+        <img class="ehire-brand__app" src="{{ url_for('static', filename='img/ehire_logo.svg') }}" alt="{{ t('app.name') }}">
+        <span class="ehire-brand__module">{{ t('module.position_approval') }}</span>
+      </a>
+      {% if current_user() %}
+      <nav class="ehire-nav" aria-label="{{ t('app.name') }}">
+        <a class="ehire-nav__link{% if request.blueprint == 'requests' %} is-current{% endif %}" href="{{ url_for('requests.index') }}"><i class="bi bi-list-task" aria-hidden="true"></i>{{ t('nav.requests') }}</a>
         {% if can('audit.view') %}
-        <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('audit.index') }}">{{ t('nav.audit') }}</a>
+        <a class="ehire-nav__link{% if request.blueprint == 'audit' %} is-current{% endif %}" href="{{ url_for('audit.index') }}"><i class="bi bi-journal-text" aria-hidden="true"></i>{{ t('nav.audit') }}</a>
         {% endif %}
         {% if can('settings.manage') %}
-        <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.index') }}">{{ t('nav.settings') }}</a>
+        <a class="ehire-nav__link{% if request.blueprint == 'settings' %} is-current{% endif %}" href="{{ url_for('settings.index') }}"><i class="bi bi-gear" aria-hidden="true"></i>{{ t('nav.settings') }}</a>
         {% endif %}
-        {% endif %}
-        <span aria-label="{{ t('nav.language') }}">
-          <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ lang_url('el') }}" lang="el">Ελληνικά</a>
-          <a class="btn btn-sm btn-link d-inline-flex align-items-center" style="min-height:44px" href="{{ lang_url('en') }}" lang="en">English</a>
+      </nav>
+      {% endif %}
+      <div class="ehire-user"{% if not current_user() %} style="margin-left:auto;border-left:0"{% endif %}>
+        {% if current_user() %}<span class="ehire-user__name"><i class="bi bi-person-circle" aria-hidden="true"></i> {{ current_user().full_name }}</span>{% endif %}
+        <span class="ehire-lang" aria-label="{{ t('nav.language') }}">
+          <a href="{{ lang_url('el') }}" lang="el"{% if lang == 'el' %} aria-current="true"{% endif %}>Ελληνικά</a>
+          <a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a>
         </span>
         {% if current_user() %}
         <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-sm btn-outline-secondary" style="min-height:44px" type="submit">{{ t('nav.logout') }}</button>
+          <button class="btn btn-sm btn-outline-secondary" style="min-height:36px" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>{{ t('nav.logout') }}</button>
         </form>
         {% endif %}
       </div>
     </div>
-  </nav>
-  <main class="container py-4">
+  </header>
+  <main class="ehire-main container py-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
       <div class="alert alert-{{ category if category in ('success', 'danger', 'warning', 'info') else 'info' }}" role="{{ 'alert' if category == 'danger' else 'status' }}">{% if message is mapping %}{{ t(message.key, **(message.params or {})) }}{% else %}{{ t(message) }}{% endif %}</div>
@@ -47,6 +57,11 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="ehire-footer">
+    <div class="ehire-footer__in"><span>{{ t('app.org') }}</span><span>{{ t('app.name') }} · {{ t('module.position_approval') }}</span></div>
+  </footer>
+  {% endblock %}
+  <div class="ehire-accent-bar"></div>
   <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/requests.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/documents.js') }}" defer></script>
