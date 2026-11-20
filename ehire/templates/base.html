@@ -49,10 +49,10 @@
         {% set sm = settings_menu() %}
         {% set kind = (request.view_args or {}).get('kind') %}
         <details class="ehire-menu__group"{% if request.blueprint == 'settings' %} open{% endif %}>
-          <summary class="ehire-menu__link{% if request.blueprint == 'settings' %} is-current{% endif %}"><i class="bi bi-gear" aria-hidden="true"></i><span>{{ t('nav.settings') }}</span><i class="bi bi-chevron-down ehire-menu__chev" aria-hidden="true"></i></summary>
+          <summary class="ehire-menu__link{% if request.blueprint == 'settings' %} is-current{% endif %}"><i class="bi bi-gear" aria-hidden="true"></i><span>{{ t('nav.settings') }}</span>{% if sm.blocked %}<span class="badge text-bg-danger ms-1" data-menu-blocked="{{ sm.blocked }}"><span class="visually-hidden">{{ t('archive.state.blocked') }}: </span>{{ sm.blocked }}</span>{% endif %}<i class="bi bi-chevron-down ehire-menu__chev" aria-hidden="true"></i></summary>
           <div class="ehire-menu__sub">
             {% for page in sm.pages %}
-            <a class="ehire-menu__sublink{% if ep.startswith('settings.' ~ page) %} is-current{% endif %}" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}</a>
+            <a class="ehire-menu__sublink{% if ep.startswith('settings.' ~ page) %} is-current{% endif %}" href="{{ url_for('settings.' ~ page) }}">{{ t('settings.' ~ page) }}{% if page == 'archive' and sm.blocked %}<span class="badge text-bg-danger ms-2">{{ sm.blocked }}</span>{% endif %}</a>
             {% endfor %}
             <a class="ehire-menu__sublink{% if ep.startswith('settings.import') %} is-current{% endif %}" href="{{ url_for('settings.import_page') }}">{{ t('import.menu') }}</a>
             <div class="ehire-menu__label">{{ t('settings.lists') }}</div>

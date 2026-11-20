@@ -30,6 +30,7 @@ for LANG_CODE in el en; do
   export EHIRE_DATABASE_URI="sqlite:///$DB/manuals.sqlite3" EHIRE_STORAGE_DIR="$DB/storage" EHIRE_SECRET_KEY=x \
          EHIRE_BIND="127.0.0.1:$PORT"
   for cmd in init-db seed-demo seed-cases load-holidays; do .venv/bin/flask --app wsgi:app "$cmd" >/dev/null; done
+  .venv/bin/python scripts/manuals/make-pending-user.py
   .venv/bin/gunicorn -c deploy/gunicorn.conf.py wsgi:app --error-logfile "$DB/gunicorn.log" &
   PID=$!
   for _ in $(seq 1 30); do curl -s --noproxy '*' -o /dev/null "http://127.0.0.1:$PORT/healthz" && break; sleep 0.5; done

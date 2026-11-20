@@ -4,7 +4,7 @@
 //
 // Usage: node shoot.js <lang el|en> <out dir> <work dir>
 // Writes <out dir>/<name>.png. The names are the ones the data files (user-*.js, admin-*.js) refer to.
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
@@ -36,12 +36,14 @@ function samplePdf() {
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch();
-  const newPage = async () => {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, acceptDownloads: true,
-      locale: LANG === 'el' ? 'el-GR' : 'en-GB' });
+  const newPage = async (phone = false) => {
+    const { defaultBrowserType, ...iphone } = devices['iPhone 13']; // eslint-disable-line no-unused-vars
+    const ctx = await browser.newContext({ ...(phone ? iphone : { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }),
+      acceptDownloads: true, locale: LANG === 'el' ? 'el-GR' : 'en-GB' });
     const pg = await ctx.newPage();
     // The side menu is sticky and one screen tall; in a tall capture it would float mid-page. Pin it to the top.
-    await ctx.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
+    // Not on a phone, where the menu is an off-canvas panel that must stay hidden.
+    if (!phone) await ctx.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
       const st = document.createElement('style');
       st.textContent = '.ehire-side{position:static!important;height:auto!important;align-self:stretch}';
       document.head.appendChild(st);
@@ -56,7 +58,14 @@ function samplePdf() {
     if (opts.sel) {
       const el = p.locator(opts.sel).first();
       await el.scrollIntoViewIfNeeded();
-      const box = await el.evaluate((e) => { const r = e.getBoundingClientRect(); return { x: r.x + window.scrollX, y: r.y + window.scrollY, width: r.width, height: r.height }; });
+      // With opts.to, the capture runs from the top of `sel` to the bottom of `to`.
+      const box = await p.evaluate(([a, b]) => {
+        const r = document.querySelector(a).getBoundingClientRect();
+        const e = b ? document.querySelector(b).getBoundingClientRect() : r;
+        const top = Math.min(r.top, e.top), bottom = Math.max(r.bottom, e.bottom);
+        const left = Math.min(r.left, e.left), right = Math.max(r.right, e.right);
+        return { x: left + window.scrollX, y: top + window.scrollY, width: right - left, height: bottom - top };
+      }, [opts.sel, opts.to || null]);
       const pad = opts.pad ?? 12;
       const width = await p.evaluate(() => document.documentElement.scrollWidth);
       const x = Math.max(0, box.x - pad);
@@ -64,14 +73,15 @@ function samplePdf() {
       if (opts.maxH) clip.height = Math.min(clip.height, opts.maxH);
       await p.screenshot({ path: file, clip, fullPage: true });
     } else if (opts.top) {
-      await p.screenshot({ path: file, clip: { x: 0, y: 0, width: 1280, height: opts.top }, fullPage: true });
+      const width = p.viewportSize().width;
+      await p.screenshot({ path: file, clip: { x: 0, y: 0, width, height: opts.top }, fullPage: true });
     } else {
       await p.screenshot({ path: file, fullPage: true });
     }
     log('shot', name);
   };
-  const login = async (user) => {
-    const p = await newPage();
+  const login = async (user, phone = false) => {
+    const p = await newPage(phone);
     await p.goto(BASE + '/login?lang=' + LANG);
     await p.fill('#username', user);
     await p.fill('#password', PW);
@@ -84,11 +94,16 @@ function samplePdf() {
   const idOf = (p) => Number(new URL(p.url()).pathname.split('/')[2]);
   const card = 'section.ehire-card';
 
-  // Sign-in page
+  // Sign-in page, and the password help: the eye button and the keyboard line (a Greek letter typed)
   {
     const p = await newPage();
     await p.goto(BASE + '/login?lang=' + LANG);
     await shot(p, 'u01-login');
+    await p.fill('#username', 'nic.requester');
+    await p.click('#password');
+    await p.keyboard.insertText('demo');
+    await p.keyboard.insertText('δ');
+    await shot(p, 'u27-login-password', { sel: '.ehire-signin__box', pad: 16 });
     await p.context().close();
   }
   // The people who receive the sample emails read them in this language.
@@ -136,6 +151,8 @@ function samplePdf() {
     await shot(p, 'u06-documents', { sel: 'section:has(> #sec-documents)' });
     await p.click('button[name=intent][value=submit]');
     await shot(p, 'u07-submitted', { top: 800 });
+    await p.goto(BASE + '/manuals');
+    await shot(p, 'u28-manuals', { sel: 'main h1', to: 'main .list-group', pad: 16 });
     await p.context().close();
   }
 
@@ -174,11 +191,24 @@ function samplePdf() {
   await (await cardShot('lim.sci', '/requests/1?do=review', 'u11-card-opinion')).context().close();
   {
     const p = await cardShot('central.finmgmt', '/requests/2?do=review', 'u12-card-finmgmt');
+    // The request page on a computer: two columns, the route and the history on the right
+    await p.setViewportSize({ width: 1280, height: 1000 });
     await p.goto(BASE + '/requests/2');
-    await shot(p, 'u13-tracker', { sel: 'section:has(> #sec-tracker)', pad: 16 });
+    await settle(p);
+    await p.evaluate(() => window.scrollTo(0, 0));
+    await p.screenshot({ path: path.join(OUT, 'u24-request-desktop.png') });
+    log('shot', 'u24-request-desktop');
     await p.context().close();
   }
-  await (await cardShot('central.hr', '/requests/2?do=review', 'u15-card-central-hr')).context().close();
+  {
+    // The same request on a phone: the action card with the key facts, then the route opened
+    const p = await login('central.finmgmt', true);
+    await p.goto(BASE + '/requests/2?do=review');
+    await shot(p, 'u25-phone-card', { sel: card, pad: 8 });
+    await p.locator('.ehire-route-details__summary').click();
+    await shot(p, 'u26-phone-route', { sel: '.ehire-statuspanel', pad: 8, maxH: 760 });
+    await p.context().close();
+  }
   await (await cardShot('central.ceo', '/requests/3?do=review', 'u16-card-ceo')).context().close();
 
   // Requester: returned request, resubmit, withdraw control
@@ -210,8 +240,18 @@ function samplePdf() {
   {
     const p = await login('demo.admin');
     await shot(p, 'a01-admin-list', { top: 560 });
-    await p.goto(BASE + '/settings');
-    await shot(p, 'a02-settings');
+    await p.goto(BASE + '/manuals');
+    await shot(p, 'a15-manuals-admin', { sel: 'main h1', to: 'main .list-group', pad: 16 });
+    await p.goto(BASE + '/settings/users');
+    await shot(p, 'a02-settings', { sel: '.ehire-side__brand', to: '.ehire-menu__group', pad: 0 });
+    // A new temporary password: open the control under one user's row
+    const pwRow = p.locator('details:has(form[action*="/password"])').nth(1);
+    await pwRow.locator('summary').click();
+    await pwRow.evaluate((d) => d.setAttribute('data-shot', '1'));
+    await p.evaluate(() => { const d = document.querySelector('details[data-shot]'); d.previousElementSibling.setAttribute('data-shot-row', '1'); });
+    await shot(p, 'a16-users-password', { sel: 'form[data-shot-row]', to: 'details[data-shot]' });
+    await p.goto(BASE + '/settings/roles');
+    await shot(p, 'a17-roles-others', { sel: 'section[aria-labelledby=roles-other]' });
     for (const [url, name, top] of [['/settings/directorate', 'a03-directorates', 640], ['/settings/facility', 'a04-facilities', 640],
       ['/settings/users', 'a05-users', 700], ['/settings/roles', 'a06-roles', 800], ['/settings/holidays', 'a07-holidays', 720],
       ['/settings/timings', 'a08-timings', 720], ['/settings/outbox', 'a09-outbox', 640]]) {

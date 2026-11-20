@@ -54,8 +54,12 @@ def create_app(config=Config):
 
     def _settings_menu():
         """Pages and lists for the Settings group of the side menu."""
+        from .models import ArchiveDeposit
         from .settings import LISTS, PAGES
-        return {"pages": PAGES, "kinds": list(LISTS)}
+
+        # Deposits waiting for an administrator: shown as a red count beside the eArchive page in the menu.
+        blocked = ArchiveDeposit.query.filter_by(state="blocked").count()
+        return {"pages": PAGES, "kinds": list(LISTS), "blocked": blocked}
 
     @app.context_processor
     def _inject():
