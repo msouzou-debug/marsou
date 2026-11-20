@@ -276,6 +276,14 @@ footer a{color:var(--accent);text-decoration:none}
 .sw.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px)!important;height:4px;border-radius:2px;vertical-align:3px}
 .sw.s1.dash{color:var(--s1)} .sw.s2.dash{color:var(--s2)} .sw.s3.dash{color:var(--s3)}
 .sheetgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.zsheets{grid-column:1/-1;display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.zdet{border:1px solid var(--line);border-radius:11px;background:var(--panel-2);padding:8px 10px}
+.zdet summary{font-size:13px;font-weight:650;cursor:pointer}
+.zonewrap{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.zmap{width:100%;max-width:300px;height:auto;align-self:center}
+.zfind{margin-top:4px}
+.zfind li{color:var(--text)}
+.zfind b{color:var(--accent)}
 .sheet canvas,.lb canvas{width:100%;height:auto;display:block;border-radius:10px;border:1px solid var(--line)}
 .sheet .mrm{width:24px;height:24px;font-size:13px}
 .strip{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 8px;scroll-snap-type:x proximity;margin-top:12px}
@@ -554,8 +562,12 @@ footer a{color:var(--accent);text-decoration:none}
     <div id="sheetGrid" class="sheetgrid"></div>
 
     <div class="mtitle" style="margin-top:14px">Add a sheet</div>
-    <p class="taghint">Shoot at your aim mark from a measured distance, draw a <span class="uCircle">75 cm</span> circle
-      round the densest part, and photograph the sheet square-on. Then set the distance here.</p>
+    <p class="taghint">Shoot from a measured distance, photograph the sheet square-on, then set the distance and target type here.</p>
+    <div class="field">
+      <label>Target sheet</label>
+      <div class="seg" id="ptarget"><button data-t="plain" type="button">Plain + drawn circle</button><button data-t="teague" type="button">16-zone (Teague)</button></div>
+      <p class="taghint" id="ptargetHint" style="margin-top:6px"></p>
+    </div>
     <div class="row2">
       <div class="field">
         <label for="pdist">Patterned at <span class="val mono"><span id="pdistVal">40</span> <span class="uRange">yd</span></span></label>
@@ -598,6 +610,11 @@ footer a{color:var(--accent);text-decoration:none}
           <button class="bigbtn ghost" id="photoAuto" type="button">Auto-detect</button>
           <button class="bigbtn ghost" id="photoFit" type="button">Fit to load</button>
           <button class="bigbtn ghost" id="photoManual" type="button">By hand</button>
+        </div>
+        <div id="zoneBox" style="display:none">
+          <div class="mtitle">Pellets by zone</div>
+          <div id="zoneBody"></div>
+          <button class="bigbtn ghost" id="zoneRot" type="button" style="margin-top:8px">↻ Rotate zones 90° (photo taken sideways)</button>
         </div>
         <button class="bigbtn" id="sheetSave" type="button">＋ Save this sheet to the test</button>
       </div>
@@ -1009,7 +1026,8 @@ function sameLoad(s,l){return !!l && s.shot===l.shot && s.material===l.mat && Ma
 //               (a plain choke: linear from the muzzle; a spreader: its wide
 //               close-range cone);  2+ -> least-squares line through the points.
 function fitSigma(points,rangeYd,choke,steel){
-  const R=15, ck=choke||"cylinder", pts=points.map(pt=>{const p=Math.min(0.985,Math.max(1e-4,pt.pct));return {d:pt.dist,sig:R/Math.sqrt(-2*Math.log(1-p))};});
+  const R=15, ck=choke||"cylinder", pts=points.map(pt=>{if(pt.sig>0)return {d:pt.dist,sig:pt.sig};
+    const p=Math.min(0.985,Math.max(1e-4,pt.pct));return {d:pt.dist,sig:R/Math.sqrt(-2*Math.log(1-p))};});
   const viaShape=q=>q.sig*chokeSigmaNominal(ck,rangeYd,steel)/chokeSigmaNominal(ck,Math.max(1,q.d),steel);
   let sig;
   if(pts.length===1){ sig=viaShape(pts[0]); }
@@ -1161,7 +1179,8 @@ const presentLabel=()=>isClay()?clayProfile(state).presentName:state.present;
 /* the recommended choke depends on bird or discipline, so resolve it in one place */
 function defaultChoke(){return isClay()?(DISCIPLINES[state.discipline]||DISCIPLINES.sporting).choke:SPECIES[state.species].choke;}
 /* photo-tool state (the cartridge you patterned) */
-const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,zoom:1,drawn:false};
+const PH={img:null,cx:null,cy:null,r:null,paper:null,holes:[],count:0,distYd:30,sheetIn:40,manual:false,mat:"lead",shot:"6",payOz:1.125,zoom:1,drawn:false,target:"plain",rot:0,zones:null,zonesEst:null,poi:null};
+try{const tg=localStorage.getItem("scanTarget");if(tg==="teague"||tg==="plain")PH.target=tg;}catch(e){}
 /* Cartridge library: name a load once and pick it again later. Stored per
    browser alongside the scanned pattern. */
 let CARTS=[];
@@ -1534,7 +1553,11 @@ const accentOf=()=>getComputedStyle(document.documentElement).getPropertyValue("
 function lumData(){
   pctx.drawImage(PH.img,0,0,CW,CH);
   const d=pctx.getImageData(0,0,CW,CH).data, N=CW*CH, l=new Float32Array(N);
-  for(let i=0,p=0;p<N;i+=4,p++)l[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  // A zone target is printed in black AND orange (the logo disc in the middle
+  // of the pattern). On the brightest channel orange reads as paper while black
+  // ink and holes stay dark, so the logo stops hiding — or faking — holes.
+  if(PH.target==="teague")for(let i=0,p=0;p<N;i+=4,p++)l[p]=Math.max(d[i],d[i+1],d[i+2]);
+  else for(let i=0,p=0;p<N;i+=4,p++)l[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
   return l;
 }
 function otsu(lum){
@@ -1593,12 +1616,14 @@ function buildDarkMask(lum,reg,rad,k,minContrast){
   return m;
 }
 /* dark blobs (pellet holes) inside a rect region, size-filtered, border-excluded */
-function findDarkBlobs(mask,reg,minA,maxA){
+function findDarkBlobs(mask,reg,minA,maxA,blind){
   const N=CW*CH, seen=new Uint8Array(N), st=new Int32Array(N), out=[]; let sp=0;
+  const pix=blind?[]:null;
   for(let y=reg.y0;y<=reg.y1;y++)for(let x=reg.x0;x<=reg.x1;x++){
     const p0=y*CW+x; if(seen[p0]||!mask[p0])continue;
     let area=0,sx=0,sy=0,tb=false,bx0=CW,bx1=0,by0=CH,by1=0; sp=0; st[sp++]=p0; seen[p0]=1;
-    while(sp){const p=st[--sp];area++;const px=p%CW,py=(p/CW)|0;sx+=px;sy+=py;
+    if(pix)pix.length=0;
+    while(sp){const p=st[--sp];area++;const px=p%CW,py=(p/CW)|0;sx+=px;sy+=py;if(pix)pix.push(p);
       if(px<bx0)bx0=px; if(px>bx1)bx1=px; if(py<by0)by0=py; if(py>by1)by1=py;
       if(px<=reg.x0||px>=reg.x1||py<=reg.y0||py>=reg.y1)tb=true;
       if(px>reg.x0&&mask[p-1]&&!seen[p-1]){seen[p-1]=1;st[sp++]=p-1;}
@@ -1606,13 +1631,19 @@ function findDarkBlobs(mask,reg,minA,maxA){
       if(py>reg.y0&&mask[p-CW]&&!seen[p-CW]){seen[p-CW]=1;st[sp++]=p-CW;}
       if(py<reg.y1&&mask[p+CW]&&!seen[p+CW]){seen[p+CW]=1;st[sp++]=p+CW;}
     }
+    // printed lines and numbers: a hole that lands on them merges in and is lost,
+    // so remember where they are and correct for that area afterwards
+    if(pix&&area>maxA){for(const q of pix)blind[q]=1;continue;}
     if(area<minA||area>maxA||tb)continue;
     // Pellet holes are round. Creases, sheet edges, printed rings, text and
     // paper texture are elongated or straggly, so reject on shape — this is
     // what stops a sensitive detector from counting the target's own markings.
-    const bw=bx1-bx0+1, bh=by1-by0+1;
-    if(Math.max(bw,bh)/Math.max(1,Math.min(bw,bh))>2.6)continue;   // too elongated
-    if(area/(bw*bh)<0.38)continue;                                 // too straggly
+    const bw=bx1-bx0+1, bh=by1-by0+1, asp=Math.max(bw,bh)/Math.max(1,Math.min(bw,bh)), fill=area/(bw*bh);
+    // zone mode keeps every blob with its size and shape, so touching holes can
+    // be counted by area rather than lost (see detectHoles)
+    if(pix){out.push([sx/area,sy/area,area,asp<=2.6&&fill>=0.38?1:0,asp,fill]);continue;}
+    if(asp>2.6)continue;                                           // too elongated
+    if(fill<0.38)continue;                                         // too straggly
     out.push([sx/area,sy/area]);
   }
   return out;
@@ -1718,23 +1749,320 @@ function findDrawnCircle(lum,T){
   }
   return null;
 }
+/* ---- Teague-style 16-zone pattern target ----------------------------------
+   Outer circle = the pattern circle; an inner circle of half its diameter
+   (a quarter of the area) split by a cross into zones 1, 2, 9, 10; the outer
+   ring split by eight spokes into zones 3-8 and 11-16. As printed:
+       5 6            inner: 1 top-left, 2 top-right, 9 bottom-left, 10 bottom-right
+     4  1|2  7        outer, top-left 3-4-5, top-right 6-7-8,
+     3 ---+--- 8             bottom-left 11-12-13, bottom-right 14-15-16
+    11  9|10 16
+     12      15       The spokes are NOT at 30°: they sit ~26.5° and ~58.5° from
+       13 14          the horizontal, so the outer zones differ in size and are
+   compared by pellets per area, never by raw count. Photos are rarely square
+   to the camera, so the cross and spokes are MEASURED on each photo
+   (measureTeagueLines); the nominal angles are only the fallback. */
+const TZ_INNER=[1,2,9,10], TZ_OUTER=[3,4,5,6,7,8,11,12,13,14,15,16];
+const TZ_IN=[2,1,9,10], TZ_OUT=[[8,7,6],[5,4,3],[11,12,13],[14,15,16]];   // by quadrant, counter-clockwise from 3 o'clock
+const TZ_OFF=[[26.5,58.5],[31.5,63.5],[26.5,58.5],[31.5,63.5]];            // printed spokes, ° past each cross arm
+const angN=a=>((a%360)+360)%360;
+function nominalGeom(rot){
+  const cross=[0,90,180,270], sect=[];
+  for(let q=0;q<4;q++)for(const o of TZ_OFF[(q+(rot||0))%4])sect.push(cross[q]+o);
+  return {cross,sect,measured:false};
+}
+/* where the zone numbers are printed (x right, y up, in outer radii) — a
+   printed "1" is the size and shape of two touching holes, so blobs there are
+   never counted as hole clusters */
+const TZ_LABELS=[[-0.296,0.255],[0.272,0.255],[-0.289,-0.296],[0.248,-0.296],[-0.201,0.740],[0.198,0.740],[-0.568,0.513],[0.558,0.513],
+  [-0.762,0.172],[0.759,0.172],[-0.760,-0.198],[0.744,-0.198],[-0.585,-0.520],[0.566,-0.520],[-0.213,-0.775],[0.212,-0.775]];
+function nearLabel(x,y){
+  if(PH.cx==null||!PH.r)return false;
+  let u=(x-PH.cx)/PH.r, v=-(y-PH.cy)/PH.r; const rot=PH.rot||0;
+  const tilt=PH.geom?PH.geom.cross[0]*Math.PI/180:0, c=Math.cos(-tilt), s=Math.sin(-tilt);
+  [u,v]=[u*c-v*s,u*s+v*c];
+  for(let i=0;i<rot;i++){const w=u;u=-v;v=w;}            // photo angle + rot·90° = printed angle
+  return TZ_LABELS.some(([a,b])=>Math.hypot(u-a,v-b)<0.065);
+}
+/* the zone a point falls in, from the cross arms and spokes (photo angles) */
+function teagueZone(dx,dy,R,rot,geom){
+  const r=Math.hypot(dx,dy); if(r>R)return 0;
+  const g=geom||PH.geom||nominalGeom(rot), a=angN(Math.atan2(-dy,dx)*180/Math.PI);
+  let q=3; for(let i=0;i<4;i++)if(angN(a-g.cross[i])<angN(g.cross[(i+1)%4]-g.cross[i])){q=i;break;}
+  const ql=(q+(rot||0))%4;
+  if(r<R/2)return TZ_IN[ql];
+  const d=angN(a-g.cross[q]);
+  return TZ_OUT[ql][d<angN(g.sect[2*q]-g.cross[q])?0:d<angN(g.sect[2*q+1]-g.cross[q])?1:2];
+}
+/* each zone's share of the circle's area, for a geometry */
+function zoneAreas(g,rot){
+  const za=new Array(16).fill(0);
+  for(let q=0;q<4;q++){
+    const ql=(q+(rot||0))%4, c0=g.cross[q], c1=g.cross[(q+1)%4], b=[c0,g.sect[2*q],g.sect[2*q+1],c1];
+    za[TZ_IN[ql]-1]=angN(c1-c0)/360*0.25;
+    for(let i=0;i<3;i++)za[TZ_OUT[ql][i]-1]=angN(b[i+1]-b[i])/360*0.75;
+  }
+  return za;
+}
+/* Measure the printed cross and spokes on this photo: an angular histogram of
+   ink. The cross shows in the inner ring band (no spokes there); the spokes
+   are the two strongest lines inside each quarter of the outer band. */
+function measureTeagueLines(lum,T){
+  const R=PH.r,cx=PH.cx,cy=PH.cy,NB=720,inner=new Float64Array(NB),outer=new Float64Array(NB),rot=PH.rot||0;
+  // The spokes are thin and print grey; the zone numbers are bold black and sit
+  // at ~0.73-0.79 of the radius. So read the spokes either side of the numbers,
+  // with an ink threshold set from the paper itself rather than Otsu's cut.
+  const samp=[]; for(let i=0;i<4000;i++){const a=Math.random()*6.283,r=R*Math.sqrt(Math.random());
+    const x=Math.round(cx+r*Math.cos(a)),y=Math.round(cy+r*Math.sin(a)); if(x>=0&&y>=0&&x<CW&&y<CH)samp.push(lum[y*CW+x]);}
+  samp.sort((a,b)=>a-b); const paper=samp[Math.floor(samp.length*0.9)]||255, ink=Math.max(T,paper*0.85);
+  for(let y=Math.max(0,Math.round(cy-R));y<=Math.min(CH-1,Math.round(cy+R));y++)
+    for(let x=Math.max(0,Math.round(cx-R));x<=Math.min(CW-1,Math.round(cx+R));x++){
+      const v=lum[y*CW+x], dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)/R;
+      const b=Math.min(NB-1,Math.floor(angN(Math.atan2(-dy,dx)*180/Math.PI)*2));
+      if(d>0.2&&d<0.45){if(v<T)inner[b]++;}
+      else if((d>0.53&&d<0.67)||(d>0.85&&d<0.95)){if(v<ink)outer[b]++;}
+    }
+  const sm=h=>h.map((v,i)=>(h[(i+NB-1)%NB]+2*v+h[(i+1)%NB])/4), I=sm(inner), O=sm(outer);
+  const med=h=>[...h].sort((a,b)=>a-b)[NB>>1]||0, mI=med(I), mO=med(O);
+  const cross=[];
+  for(let k=0;k<4;k++){let bv=-1,bi=0;for(let o=-40;o<=40;o++){const b=(k*180+o+NB)%NB;if(I[b]>bv){bv=I[b];bi=b;}}
+    if(bv<Math.max(4,mI*4))return nominalGeom(rot);
+    cross.push(bi/2+0.25);}
+  const sect=[];
+  for(let q=0;q<4;q++){
+    const c0=cross[q], span=angN(cross[(q+1)%4]-c0), pk=[];
+    for(let o=8;o<=span-8;o+=0.5){const b=Math.floor(angN(c0+o)*2)%NB;pk.push([o,O[b]]);}
+    pk.sort((a,b)=>b[1]-a[1]);
+    const p1=pk[0], p2=pk.find(x=>Math.abs(x[0]-p1[0])>=15);
+    const nom=TZ_OFF[(q+rot)%4];
+    if(!p1||!p2||p2[1]<Math.max(4,mO*3)){sect.push(c0+nom[0],c0+nom[1]);continue;}
+    const two=[p1[0],p2[0]].sort((a,b)=>a-b);
+    sect.push(c0+two[0],c0+two[1]);
+  }
+  return {cross,sect:sect.map(angN),measured:true};
+}
+/* The printed outline (ring + cross + inner ring + sector lines) is one dark
+   connected shape. Fit a circle to its OUTERMOST points only — the spokes and
+   inner ring would wreck a fit to all of it. */
+function findTeague(lum,T){
+  const N=CW*CH, seen=new Uint8Array(N), st=new Int32Array(N), span=Math.min(CW,CH);
+  let best=null;
+  for(let p0=0;p0<N;p0++){
+    if(seen[p0]||lum[p0]>=T)continue;
+    let sp=0; st[sp++]=p0; seen[p0]=1; const pts=[];
+    let x0=CW,x1=0,y0=CH,y1=0,edge=false;
+    while(sp){const p=st[--sp];const ax=p%CW,ay=(p/CW)|0; pts.push(p);
+      if(ax===0||ay===0||ax===CW-1||ay===CH-1)edge=true;
+      if(ax<x0)x0=ax; if(ax>x1)x1=ax; if(ay<y0)y0=ay; if(ay>y1)y1=ay;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        if(!dx&&!dy)continue; const nx=ax+dx,ny=ay+dy;
+        if(nx<0||ny<0||nx>=CW||ny>=CH)continue;
+        const q=ny*CW+nx; if(!seen[q]&&lum[q]<T){seen[q]=1;st[sp++]=q;}
+      }
+    }
+    const bw=x1-x0+1, bh=y1-y0+1;
+    if(edge||bw<span*0.4||bh<span*0.4||Math.abs(bw-bh)/Math.max(bw,bh)>0.18||pts.length/(bw*bh)>0.3)continue;
+    if(!best||pts.length>best.pts.length)best={pts,cx:(x0+x1)/2,cy:(y0+y1)/2};
+  }
+  if(!best)return null;
+  // The thin outer ring often prints (or photographs) as its own piece, apart
+  // from the cross and spokes, so don't trust one component: in each of 240
+  // directions take the dark pixel nearest the outline's expected radius, from
+  // whatever piece it belongs to, then fit and refit without strays (holes).
+  let xs0=CW,xs1=0,ys0=CH,ys1=0; for(const q of best.pts){const x=q%CW,y=(q/CW)|0;if(x<xs0)xs0=x;if(x>xs1)xs1=x;if(y<ys0)ys0=y;if(y>ys1)ys1=y;}
+  const Rb=(xs1-xs0+ys1-ys0)/4, B=240, bd=new Float64Array(B).fill(1e9), fx=new Float64Array(B), fy=new Float64Array(B);
+  const cx=best.cx, cy=best.cy, lo=Rb*0.88, hi=Rb*1.08;
+  for(let y=Math.max(0,Math.floor(cy-hi));y<=Math.min(CH-1,Math.ceil(cy+hi));y++)
+    for(let x=Math.max(0,Math.floor(cx-hi));x<=Math.min(CW-1,Math.ceil(cx+hi));x++){
+      if(lum[y*CW+x]>=T)continue; const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy); if(d<lo||d>hi)continue;
+      const b=Math.min(B-1,Math.floor((Math.atan2(dy,dx)+Math.PI)/(2*Math.PI)*B)), e=Math.abs(d-Rb);
+      if(e<bd[b]){bd[b]=e;fx[b]=x;fy[b]=y;}
+    }
+  let px=[],py=[]; for(let b=0;b<B;b++)if(bd[b]<1e9){px.push(fx[b]);py.push(fy[b]);}
+  if(px.length<B*0.6)return null;
+  let f=fitCircle(px,py);
+  for(let it=0;it<2&&f;it++){
+    const keep=px.map((x,i)=>Math.abs(Math.hypot(x-f.cx,py[i]-f.cy)-f.r)<f.r*0.02);
+    px=px.filter((_,i)=>keep[i]); py=py.filter((_,i)=>keep[i]);
+    if(px.length<B*0.5)return null;
+    f=fitCircle(px,py);
+  }
+  if(!f||f.rms>f.r*0.02||f.r<span*0.18||f.r>span*0.62)return null;
+  return f;
+}
+/* count holes by zone, correcting each zone for the share of it hidden under
+   print (a hole there merges with the line and can't be seen as a hole) */
+function teagueCount(holes,blind){
+  const R=PH.r, rot=PH.rot||0, z=new Array(16).fill(0);
+  let mx=0,my=0;
+  for(const h of holes){const dx=h[0]-PH.cx,dy=h[1]-PH.cy,k=teagueZone(dx,dy,R,rot),w=h[2]||1;if(k){z[k-1]+=w;mx+=dx*w;my+=dy*w;}}
+  // typical hole radius sets how close to a line a hole is swallowed
+  const rho=Math.max(1,Math.round(R*0.008));
+  const area=new Float64Array(16), hid=new Float64Array(16);
+  if(blind){
+    const I=integralImage(blind), W=CW+1, st=2;
+    for(let y=Math.max(0,Math.round(PH.cy-R));y<=Math.min(CH-1,Math.round(PH.cy+R));y+=st)
+      for(let x=Math.max(0,Math.round(PH.cx-R));x<=Math.min(CW-1,Math.round(PH.cx+R));x+=st){
+        const k=teagueZone(x-PH.cx,y-PH.cy,R*0.985,rot); if(!k)continue;
+        const x0=Math.max(0,x-rho),x1=Math.min(CW-1,x+rho),y0=Math.max(0,y-rho),y1=Math.min(CH-1,y+rho);
+        const s=I[(y1+1)*W+(x1+1)]-I[y0*W+(x1+1)]-I[(y1+1)*W+x0]+I[y0*W+x0];
+        area[k-1]++; if(s>0)hid[k-1]++;
+      }
+  }
+  const est=z.map((n,i)=>{const f=area[i]?Math.min(0.5,hid[i]/area[i]):0;return n/(1-f);});
+  const n=z.reduce((a,b)=>a+b,0); PH.seen=n;
+  let A=0,H=0; for(let i=0;i<16;i++){A+=area[i];H+=hid[i];}
+  PH.zones=z; PH.zonesEst=est.map(v=>Math.round(v*10)/10); PH.blindFrac=A?H/A:0;
+  PH.za=zoneAreas(PH.geom||nominalGeom(rot),rot).map(v=>Math.round(v*1e4)/1e4);
+  PH.poi=n?[mx/n/R,-my/n/R]:[0,0];      // pattern centre vs aim, in circle radii (y up)
+  return Math.round(est.reduce((a,b)=>a+b,0));
+}
+/* ---- zone drawing + reading ------------------------------------------------ */
+/* zone k's span (degrees, counter-clockwise from 3 o'clock) and radii, for a
+   geometry in photo angles; the map uses the printed (nominal) layout */
+function zoneGeom(k,rot,g){
+  g=g||nominalGeom(0); rot=rot||0;
+  for(let q=0;q<4;q++){
+    const ql=(q+rot)%4, c0=g.cross[q], c1=g.cross[(q+1)%4];
+    if(TZ_IN[ql]===k)return {a0:c0,a1:c0+angN(c1-c0),r0:0,r1:0.5};
+    const b=[c0,g.sect[2*q],g.sect[2*q+1],c1], i=TZ_OUT[ql].indexOf(k);
+    if(i>=0)return {a0:b[i],a1:b[i]+angN(b[i+1]-b[i]),r0:0.5,r1:1};
+  }
+  return {a0:0,a1:0,r0:0,r1:0};
+}
+function zonePath(ctx,cx,cy,R,g){
+  ctx.beginPath();
+  ctx.arc(cx,cy,R*g.r1,-g.a0*Math.PI/180,-g.a1*Math.PI/180,true);
+  if(g.r0>0)ctx.arc(cx,cy,R*g.r0,-g.a1*Math.PI/180,-g.a0*Math.PI/180,false);else ctx.lineTo(cx,cy);
+  ctx.closePath();
+}
+function zoneLabelAt(cx,cy,R,g){const am=(g.a0+g.a1)/2*Math.PI/180,rm=R*(g.r0?0.75:0.3);return [cx+rm*Math.cos(am),cy-rm*Math.sin(am)];}
+/* on the photo: the measured cross + spokes and the count found in each zone */
+function drawZoneOverlay(ctx,cx,cy,R,rot,z){
+  const g=PH.geom||nominalGeom(rot);
+  ctx.save(); ctx.strokeStyle="rgba(63,224,138,.7)"; ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.arc(cx,cy,R/2,0,7);ctx.stroke();
+  const ray=(a,r0)=>{const ar=a*Math.PI/180;ctx.beginPath();ctx.moveTo(cx+r0*Math.cos(ar),cy-r0*Math.sin(ar));ctx.lineTo(cx+R*Math.cos(ar),cy-R*Math.sin(ar));ctx.stroke();};
+  g.cross.forEach(a=>ray(a,0)); g.sect.forEach(a=>ray(a,R/2));
+  const fs=Math.max(12,Math.round(R*0.075)); ctx.font=`800 ${fs}px -apple-system,system-ui,sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";
+  for(let k=1;k<=16;k++){const [x,y]=zoneLabelAt(cx,cy,R,zoneGeom(k,rot,g)),s=String(z[k-1]);
+    ctx.lineWidth=Math.max(3,fs/4);ctx.strokeStyle="rgba(0,0,0,.75)";ctx.strokeText(s,x,y+fs*0.9);ctx.fillStyle="#3fe08a";ctx.fillText(s,x,y+fs*0.9);}
+  ctx.restore();
+}
+/* what the zones say about the pattern. Zones differ in size, so each is
+   judged against what its ring's density would put in an area that big. */
+function zoneStats(z,za){
+  za=za||zoneAreas(nominalGeom(0),0);
+  const g=k=>z[k-1]||0, a=k=>za[k-1]||1/16, sum=l=>l.reduce((s,k)=>s+g(k),0), area=l=>l.reduce((s,k)=>s+a(k),0);
+  const inner=sum(TZ_INNER), outer=sum(TZ_OUTER), tot=inner+outer;
+  const top=sum([1,2,3,4,5,6,7,8]), left=sum([1,3,4,5,9,11,12,13]);
+  const dI=inner/area(TZ_INNER), dO=outer/area(TZ_OUTER);             // pellets per unit of circle area
+  const exp=k=>(TZ_INNER.includes(k)?dI:dO)*a(k);
+  const gaps=TZ_OUTER.filter(k=>g(k)<0.5*exp(k)&&exp(k)-g(k)>2*Math.sqrt(exp(k)))
+    .concat(TZ_INNER.filter(k=>g(k)<0.6*exp(k)&&exp(k)-g(k)>2*Math.sqrt(exp(k))));
+  const chi=TZ_OUTER.reduce((s,k)=>s+(exp(k)>0?(g(k)-exp(k))**2/exp(k):0),0)/11;   // ≈1 for an even random spread
+  // halves by area too (the spokes are not symmetric about the horizontal)
+  const aTop=area([1,2,3,4,5,6,7,8]), aLeft=area([1,3,4,5,9,11,12,13]);
+  return {tot,inner,outer,top,bottom:tot-top,left,right:tot-left,aTop,aLeft,dI,dO,exp,gaps,disp:chi,za};
+}
+function zoneFindings(z,poi,za){
+  const s=zoneStats(z,za); if(s.tot<12)return ["Too few holes to read the zones."];
+  const out=[], pc=v=>Math.round(100*v/s.tot);
+  const core=pc(s.inner);
+  out.push(`<b>Centre:</b> the inner circle (zones 1, 2, 9, 10 — a quarter of the area) holds <b>${core}%</b> of the pellets; a perfectly even pattern would hold 25%. `
+    +(core>=58?"A hard core with a thin fringe — deadly in the middle, unforgiving at the edge."
+     :core>=38?"A good core with useful fringe."
+     :core>=30?"Fairly even — little extra density in the middle."
+     :"Very even/open — no real core, so the centre is no denser than the edge."));
+  // high/low and left/right, each half's count against its share of the area
+  const side=(a,aShare,hiW,loW)=>{const e=s.tot*aShare,d=a-e;if(Math.abs(d)<=2*Math.sqrt(e)||Math.abs(d)/s.tot<0.04)return null;
+    return `${d>0?hiW:loW} (${pc(d>0?a:s.tot-a)}/${pc(d>0?s.tot-a:a)})`;};
+  const hl=side(s.top,s.aTop,"prints high","prints low"), lr=side(s.left,s.aLeft,"prints left","prints right");
+  const cm=v=>Math.round(Math.abs(v)*37.5), inch=v=>Math.round(Math.abs(v)*15);
+  const off=v=>isMetric()?cm(v):inch(v), u=isMetric()?" cm":"″";
+  const parts=poi?[off(poi[1])?off(poi[1])+u+(poi[1]>=0?" above":" below"):null,off(poi[0])?off(poi[0])+u+(poi[0]>=0?" right":" left"):null].filter(Boolean):[];
+  const poiTxt=poi?(parts.length?` Pattern centre ≈ ${parts.join(" and ")} of the aim mark.`:" The pattern centre is on the aim mark."):"";
+  out.push(`<b>Point of impact:</b> ${hl||lr?[hl,lr].filter(Boolean).join(", ")+".":`centred — top/bottom ${pc(s.top)}/${pc(s.bottom)}, left/right ${pc(s.left)}/${pc(s.right)}.`}${poiTxt}`);
+  if(s.gaps.length){
+    const sp=isClay()?clayProfile(state):SPECIES[state.species], sc=isClay()?1:(state.present==="going"?0.55:state.present==="side"?1.15:1);
+    const circ=Math.PI*15*15, bird=sp.body*sc, rel=k=>z[k-1]/Math.max(1e-9,s.exp(k));
+    const k=s.gaps.reduce((a,b)=>rel(a)<rel(b)?a:b), za2=(s.za[k-1]||1/16)*circ;
+    out.push(`<b>Thin zone${s.gaps.length>1?"s":""}: ${s.gaps.join(", ")}.</b> Zone ${k} has ${Math.round(z[k-1])} where its ring's density would put ~${Math.round(s.exp(k))} — a ${isClay()?"clay":"bird"} there takes about ${(z[k-1]/za2*bird).toFixed(1)} pellets instead of ${(s.exp(k)/za2*bird).toFixed(1)}.`);
+  }else out.push(`<b>No thin zones</b> — every zone is within normal shot-to-shot variation of its ring's density.`);
+  out.push(`<b>Outer ring evenness:</b> ${s.disp<=1.6?"as even as pellets can be — no clumping.":s.disp<=2.6?"somewhat patchy.":"patchy — pellets bunch in some zones and leave others thin (often wad or choke related)."}`);
+  return out;
+}
+/* the 16 zones as a density map (pellets per area): one hue, light = sparse,
+   dark = dense; the number in each zone is its pellet count */
+function drawZoneMap(cv,z,za){
+  const ctx=cv.getContext("2d"),S=cv.width,cx=S/2,cy=S/2,R=S*0.47, st=zoneStats(z,za), gaps=st.gaps;
+  ctx.clearRect(0,0,S,S);
+  const dens=z.map((v,i)=>v/((st.za[i])||1/16)), mx=Math.max(1e-9,...dens), lo=[205,226,251], hi=[16,66,129];
+  const fs=Math.round(S/17); ctx.textAlign="center";ctx.textBaseline="middle";
+  for(let k=1;k<=16;k++){
+    const g=zoneGeom(k,0), f=dens[k-1]/mx, c=lo.map((v,i)=>Math.round(v+(hi[i]-v)*f));
+    ctx.fillStyle=`rgb(${c})`; zonePath(ctx,cx,cy,R,g); ctx.fill();
+    ctx.strokeStyle=cssv("--panel"); ctx.lineWidth=S/120; ctx.stroke();
+    if(gaps.includes(k)){ctx.strokeStyle=cssv("--crit");ctx.lineWidth=S/70;zonePath(ctx,cx,cy,R*0.985,{...g,r0:g.r0?g.r0+0.015:0});ctx.stroke();}
+    const [x,y]=zoneLabelAt(cx,cy,R,g);
+    ctx.fillStyle=f>0.55?"#fff":"#13233a"; ctx.font=`800 ${fs}px -apple-system,system-ui,sans-serif`; ctx.fillText(Math.round(z[k-1]),x,y+fs*0.15);
+    ctx.font=`600 ${Math.round(fs*0.55)}px -apple-system,system-ui,sans-serif`; ctx.globalAlpha=0.75; ctx.fillText((gaps.includes(k)?"! ":"")+"z"+k,x,y-fs*0.75); ctx.globalAlpha=1;
+  }
+}
+function zoneHtml(z,poi,id,za){
+  const s=zoneStats(z,za);
+  return `<div class="zonewrap"><canvas width="360" height="360" class="zmap" data-z="${id}"></canvas><ul class="notes zfind">${zoneFindings(z,poi,za).map(x=>`<li>${x}</li>`).join("")}</ul></div>`
+    +`<p class="taghint" style="margin:4px 0 0">Shade = pellets per area (darker = denser); the number is the zone's count. The zones beside the horizontal line are a little smaller, so they're judged by density.${s.gaps.length?" <span style=\"color:var(--crit)\">Red outline = thin zone.</span>":""}</p>`;
+}
+function paintZoneMaps(root,lookup){root.querySelectorAll("canvas.zmap").forEach(cv=>{const d=lookup(cv.dataset.z);if(d)drawZoneMap(cv,d.z,d.za);});}
+function renderZoneBox(){
+  const box=$("zoneBox"); if(!box)return;
+  if(!PH.zones||PH.target!=="teague"){box.style.display="none";return;}
+  box.style.display=""; $("zoneBody").innerHTML=zoneHtml(PH.zonesEst,PH.poi,"live",PH.za)
+    +(PH.geom&&!PH.geom.measured?`<p class="taghint" style="color:var(--warn)">Couldn't measure the printed spokes on this photo — using the target's standard layout. Check the green lines sit on the printed ones.</p>`:"");
+  paintZoneMaps($("zoneBody"),()=>({z:PH.zonesEst,za:PH.za}));
+}
 /* merge blob centroids that sit within one pellet-width of each other (split holes) */
 function mergeClose(holes,minDist){
   if(holes.length<2)return holes;
   const out=[], used=new Uint8Array(holes.length), d2=minDist*minDist;
   for(let i=0;i<holes.length;i++){
-    if(used[i])continue; let sx=holes[i][0],sy=holes[i][1],n=1; used[i]=1;
+    if(used[i])continue; let sx=holes[i][0],sy=holes[i][1],n=1,w=holes[i][2]||1; used[i]=1;
     for(let j=i+1;j<holes.length;j++){
       if(used[j])continue;
       const dx=holes[j][0]-holes[i][0],dy=holes[j][1]-holes[i][1];
-      if(dx*dx+dy*dy<=d2){sx+=holes[j][0];sy+=holes[j][1];n++;used[j]=1;}
+      if(dx*dx+dy*dy<=d2){sx+=holes[j][0];sy+=holes[j][1];n++;w=Math.max(w,holes[j][2]||1);used[j]=1;}
     }
-    out.push([sx/n,sy/n]);
+    out.push([sx/n,sy/n,w]);
   }
   return out;
 }
 function circleRadiusUnits(){return isMetric()?(37.5/2.54):15;}   // inches (75 cm dia vs 30" dia)
 
+/* holes inside a region. On a zone target the print is dense, so blobs much
+   bigger than a pellet hole (numbers, line junctions) are print, not holes —
+   and their area is kept as "blind" for the per-zone correction. */
+function detectHoles(lum,reg,base){
+  let [minA,maxA]=blobSizes(base);
+  const hp=holeParams(), z=PH.target==="teague";
+  if(z)maxA=Math.max(minA+12,Math.round(base*base*0.0012));
+  PH._blind=z?new Uint8Array(CW*CH):null;
+  const mask=buildDarkMask(lum,reg,maskRadius(base),hp.k,hp.mc);
+  const raw=findDarkBlobs(mask,reg,minA,maxA,PH._blind);
+  if(!z)return mergeClose(raw,Math.max(2,base*0.006));
+  // In a dense core holes touch and photograph as one blob. Count such a blob
+  // by its area in single-hole units (the typical hole is the median blob) —
+  // but only if it is hole-shaped: a filled, compact cluster, never a thin
+  // stroke such as a printed "1".
+  const singles=raw.filter(b=>b[3]).map(b=>b[2]).sort((a,b)=>a-b);
+  const A1=singles.length?singles[Math.floor(singles.length/2)]:Math.max(minA,4);
+  const holes=[];
+  for(const [x,y,a,ok,asp,fill] of raw){
+    if(a<=1.7*A1){if(ok)holes.push([x,y,1]);}
+    else if(asp<=3.2&&fill>=0.45&&!nearLabel(x,y))holes.push([x,y,Math.max(1,Math.round(a/A1))]);
+  }
+  return mergeClose(holes,Math.max(2,base*0.006));
+}
 function analyzeAuto(){
   if(!PH.img)return;
   PH.manual=false; placeStage=0;
@@ -1742,7 +2070,8 @@ function analyzeAuto(){
   const T=otsu(lum);
   // Prefer the circle drawn on the sheet — it is a known 75 cm, so it beats any
   // estimate derived from the paper's apparent width.
-  const drawn=findDrawnCircle(lum,T);
+  const drawn=PH.target==="teague"?findTeague(lum,T):findDrawnCircle(lum,T);
+  PH.geom=null;
   const paper=largestBright(lum,T);
   let reg;
   if(drawn){
@@ -1756,10 +2085,8 @@ function analyzeAuto(){
     PH.r=circleRadiusUnits()*(paper.x1-paper.x0)/(PH.sheetIn||40);
   }else{ PH.drawn=false; PH.paper=null; reg={x0:0,y0:0,x1:CW-1,y1:CH-1}; PH.r=Math.min(CW,CH)*0.4; }
   const base=PH.r||((reg.x1-reg.x0)*0.5);
-  const [minA,maxA]=blobSizes(base);
-  const hp=holeParams();
-  const mask=buildDarkMask(lum,reg,maskRadius(base),hp.k,hp.mc);
-  let holes=mergeClose(findDarkBlobs(mask,reg,minA,maxA),Math.max(2,(PH.r||base)*0.006));
+  if(PH.target==="teague"&&drawn)PH.geom=measureTeagueLines(lum,T);
+  let holes=detectHoles(lum,reg,base);
   // with a drawn circle the centre is already known; otherwise infer it
   if(!drawn){
     if(holes.length){let mx=0,my=0;for(const h of holes){mx+=h[0];my+=h[1];}PH.cx=mx/holes.length;PH.cy=my/holes.length;}
@@ -1767,11 +2094,20 @@ function analyzeAuto(){
   }
   if(PH.cx!=null&&PH.r)holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes;
-  const cap=capCount(holes.length); PH.count=cap.shown;
+  const zoned=PH.target==="teague"&&drawn;
+  const found=zoned?teagueCount(holes,PH._blind):holes.length;
+  if(!zoned)PH.zones=null;
+  const cap=capCount(found); PH.count=cap.shown;
   const over=cap.over
     ? " <b>Capped:</b> detection found "+holes.length+", above this load's ~"+cap.loadTotal+" pellets — showing "+cap.loadTotal+". Raise Min hole size, lower sensitivity, or tap Fit to load."
     : "";
-  $("photoStep").innerHTML=(drawn
+  $("photoStep").innerHTML=(zoned
+    ? ("Locked onto the <b>zone target</b> — <b>"+PH.seen+"</b> holes counted in the 16 zones"
+       +(cap.shown>PH.seen?", plus ~"+(cap.shown-PH.seen)+" estimated under the printed lines and numbers ("+Math.round(PH.blindFrac*100)+"% of the circle)":"")
+       +" = <b>"+cap.shown+"</b>. Check the zone numbers sit where they're printed; if the photo is sideways, tap Rotate zones.")
+    : PH.target==="teague"
+    ? ("<b>Couldn't find the zone target's printed rings.</b> Photograph it square-on with the whole circle in frame, or use By hand (tap the centre, then the outer ring).")
+    : drawn
     ? ("Locked onto the <b>circle you drew</b> and measured it — <b>"+cap.shown+"</b> holes inside. This is the most accurate mode: no paper-size guess involved.")
     : paper.ok
     ? ("Auto-detected the sheet; centred the "+circleLabel()+" circle from the sheet width — <b>"+cap.shown+"</b> holes inside. Drawing the circle on the sheet gives a more accurate scale.")
@@ -1782,13 +2118,13 @@ function recountManual(){
   if(!PH.img||!PH.r||PH.cx==null)return;
   const lum=lumData();
   const reg={x0:Math.max(0,(PH.cx-PH.r)|0),y0:Math.max(0,(PH.cy-PH.r)|0),x1:Math.min(CW-1,(PH.cx+PH.r)|0),y1:Math.min(CH-1,(PH.cy+PH.r)|0)};
-  const [minA,maxA]=blobSizes(PH.r);
-  const hp=holeParams();
-  const mask=buildDarkMask(lum,reg,maskRadius(PH.r),hp.k,hp.mc);
-  let holes=mergeClose(findDarkBlobs(mask,reg,minA,maxA),Math.max(2,PH.r*0.006));
+  if(PH.target==="teague")PH.geom=measureTeagueLines(lum,otsu(lum));
+  let holes=detectHoles(lum,reg,PH.r);
   holes=holes.filter(h=>Math.hypot(h[0]-PH.cx,h[1]-PH.cy)<=PH.r);
   PH.holes=holes;
-  PH.count=capCount(holes.length).shown;
+  const zoned=PH.target==="teague";
+  PH.count=capCount(zoned?teagueCount(holes,PH._blind):holes.length).shown;
+  if(!zoned)PH.zones=null;
   drawOverlay();
 }
 function drawOverlay(){
@@ -1799,11 +2135,14 @@ function drawOverlay(){
     pctx.strokeRect(PH.paper.x0,PH.paper.y0,PH.paper.x1-PH.paper.x0,PH.paper.y1-PH.paper.y0);pctx.setLineDash([]);}
   if(PH.r&&PH.cx!=null){pctx.strokeStyle=a;pctx.lineWidth=2.5;pctx.beginPath();pctx.arc(PH.cx,PH.cy,PH.r,0,7);pctx.stroke();}
   if(PH.cx!=null){pctx.fillStyle=a;pctx.beginPath();pctx.arc(PH.cx,PH.cy,4.5,0,7);pctx.fill();}
+  if(PH.zones&&PH.r&&PH.cx!=null)drawZoneOverlay(pctx,PH.cx,PH.cy,PH.r,PH.rot||0,PH.zonesEst.map(Math.round));
+  renderZoneBox();
   for(const h of PH.holes){
     pctx.strokeStyle="#3fe08a"; pctx.lineWidth=1.4;
     pctx.beginPath();pctx.arc(h[0],h[1],3.4,0,7);pctx.stroke();
     pctx.fillStyle="#3fe08a";                     // centre dot: clearer at high zoom
     pctx.beginPath();pctx.arc(h[0],h[1],1,0,7);pctx.fill();
+    if(PH.zones&&h[2]>1){pctx.font="700 10px -apple-system,system-ui,sans-serif";pctx.fillText("×"+h[2],h[0]+4,h[1]-4);}
   }
 }
 function loadPhoto(file){
@@ -1920,7 +2259,20 @@ function testMeasured(t){
   if(!t.points.length)return null;
   const tot=testTotal(t);
   return {load:{mat:t.mat,shot:t.shot,payOz:t.payOz,choke:t.choke},
-    points:t.points.map(p=>{const n=Math.min(tot,p.count);return {dist:p.dist,count:n,pct:n/Math.max(1,tot)};})};
+    points:t.points.map(p=>{const n=Math.min(tot,p.count),q={dist:p.dist,count:n,pct:n/Math.max(1,tot)};
+      // close in, nearly every pellet is inside the circle and the count can't
+      // tell a tight pattern from a wider one; the inner/outer zone split can
+      if(p.zones&&q.pct>=0.8){const s=sigmaFromZones(p.zones);if(s)q.sig=s;}
+      return q;})};
+}
+/* spread (sigma, in) from the share of in-circle pellets inside the inner
+   circle of half the radius: f = (1-e^(-a/4)) / (1-e^(-a)),  a = R²/2σ² */
+function sigmaFromZones(z){
+  const inner=TZ_INNER.reduce((s,k)=>s+(z[k-1]||0),0), tot=z.reduce((s,v)=>s+(v||0),0);
+  if(tot<30)return null; const f=inner/tot; if(f<=0.27||f>=0.995)return null;
+  let lo=1e-3,hi=200; const F=a=>(1-Math.exp(-a/4))/(1-Math.exp(-a));
+  for(let i=0;i<60;i++){const m=(lo+hi)/2;if(F(m)<f)lo=m;else hi=m;}
+  return 15/Math.sqrt(2*(lo+hi)/2);
 }
 /* the full evaluate() state for this test at a range; `choke` projects it onto
    another choke (what-if), fitOnly asks for the smooth fitted curve */
@@ -2209,7 +2561,15 @@ function renderSheets(t){
   el.innerHTML=t.points.map((p,i)=>`<div class="sheet"><canvas width="${THUMB}" height="${THUMB}" data-sheet="${i}"></canvas>
     <div class="lbcap"><b>${dispDist(p.dist)}</b></div><button type="button" class="sheetdel" data-rm="${i}" aria-label="Delete the ${dispDist(p.dist)} sheet">🗑 Delete</button>
     <div class="lbrow">${Math.min(p.count,testTotal(t))} holes · ${Math.round(100*Math.min(p.count,testTotal(t))/testTotal(t))}%</div></div>`).join("");
-  el.querySelectorAll(".sheet").forEach(s=>{const d=s.querySelector(".sheetdel");if(d)s.appendChild(d);});
+  el.querySelectorAll(".sheet").forEach((s,i)=>{const p=t.points[i];
+    if(p.zones){const st=zoneStats(p.zones,p.za);s.querySelector(".lbrow").insertAdjacentHTML("afterend",
+      `<div class="lbrow">core ${Math.round(100*st.inner/Math.max(1,st.tot))}%${st.gaps.length?` · <span style="color:var(--crit)">${st.gaps.length} thin</span>`:""}</div>`);}
+    const d=s.querySelector(".sheetdel");if(d)s.appendChild(d);});
+  const zoned=t.points.filter(p=>p.zones);
+  if(zoned.length){
+    el.insertAdjacentHTML("beforeend",`<div class="zsheets">${zoned.map(p=>`<details class="zdet"><summary>${dispDist(p.dist)} · pellets by zone</summary>${zoneHtml(p.zones,p.poi,p.id,p.za)}</details>`).join("")}</div>`);
+    el.querySelectorAll("details.zdet").forEach(d=>d.addEventListener("toggle",()=>paintZoneMaps(d,id=>{const q=t.points.find(q=>q.id===id);return q&&{z:q.zones,za:q.za};})));
+  }
   el.querySelectorAll("canvas[data-sheet]").forEach(cv=>{const p=t.points[+cv.dataset.sheet];drawLabBoard(cv,labEval(t,p.dist,null,false),thumbImg(p),t.id+p.id);});
   el.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{if(!confirm("Remove the "+dispDist(t.points[+b.dataset.rm].dist)+" sheet from this test?"))return;
     t.points.splice(+b.dataset.rm,1);labSave();renderLab();
@@ -2307,7 +2667,8 @@ function showTab(tab){
 function syncPH(t){PH.mat=t.mat;PH.shot=t.shot;PH.payOz=t.payOz;updatePLoad();}
 /* forget the last photo AND its count, so the next sheet can never be saved
    with the previous one's number while its own detection is still running */
-function clearPhoto(){PH.img=null;PH.cx=PH.cy=PH.r=null;PH.holes=[];PH.count=0;PH.raw=0;
+function clearPhoto(){PH.img=null;PH.cx=PH.cy=PH.r=null;PH.holes=[];PH.count=0;PH.raw=0;PH.zones=null;PH.zonesEst=null;PH.poi=null;PH.rot=0;PH.geom=null;
+  if($("zoneBox"))$("zoneBox").style.display="none";
   $("photoStage").style.display="none";const pf=$("photoFile");if(pf)pf.value="";
   $("holeManual").value=0;$("holeCount").textContent="—";$("holeRaw").innerHTML="";$("photoStep").textContent="Auto-detecting…";}
 function newTest(){
@@ -2329,6 +2690,16 @@ function makeThumb(){
 }
 
 /* ---- wiring ---- */
+function setTarget(tg){
+  PH.target=tg; try{localStorage.setItem("scanTarget",tg);}catch(e){}
+  document.querySelectorAll("#ptarget button").forEach(b=>b.classList.toggle("on",b.dataset.t===tg));
+  $("ptargetHint").innerHTML=tg==="teague"
+    ?"Pellets are counted in each of the target's <b>16 equal-area zones</b>: the outer ring is the "+circleLabel()+" pattern circle. Aim at the centre logo, shoot, then photograph the whole circle square-on, the right way up."
+    :"Draw a "+circleLabel()+" circle round the densest part of the pattern, then photograph the sheet square-on.";
+  if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());
+}
+document.querySelectorAll("#ptarget button").forEach(b=>b.addEventListener("click",()=>setTarget(b.dataset.t)));
+$("zoneRot").addEventListener("click",()=>{PH.rot=((PH.rot||0)+1)%4; if(PH.img)(PH.manual&&PH.r?recountManual():analyzeAuto());});
 document.querySelectorAll("#tabs button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
 $("testNew").addEventListener("click",()=>{newTest();renderLab();$("testCard").scrollIntoView({behavior:"smooth",block:"start"});});
 function editTest(fn,full){const t=activeTest();if(!t)return;fn(t);labSave();
@@ -2353,6 +2724,7 @@ $("sheetSave").addEventListener("click",()=>{
   if(count<=0){$("photoStep").innerHTML="<b>Count first</b> (Auto-detect or By hand), then save the sheet.";return;}
   const dist=PH.distYd||40, old=t.points.findIndex(p=>Math.abs(p.dist-dist)<0.5);
   const pt={id:labId(),dist,count,raw:PH.raw||count,thumb:makeThumb(),at:Date.now()};
+  if(PH.target==="teague"&&PH.zonesEst){pt.zones=PH.zonesEst.slice();pt.za=PH.za;pt.poi=PH.poi;pt.target="teague";}
   if(old>=0)t.points.splice(old,1,pt); else t.points.push(pt);
   t.points.sort((a,b)=>a.dist-b.dist);
   let note="";
@@ -2538,6 +2910,7 @@ document.querySelectorAll("#present button").forEach(x=>x.classList.toggle("on",
 document.querySelectorAll("#aim button").forEach(x=>x.classList.toggle("on",+x.dataset.aim===state.aim));
 setControlsFromState(); updateBanner(); render();
 showTab(LAB.tab);
+setTarget(PH.target);
 
 /* ---------------- install / share helpers -------------------------------------- */
 const APP_URL="https://msouzou-debug.github.io/marsou/";
@@ -2577,7 +2950,7 @@ if("serviceWorker" in navigator && notFramed && location.protocol==="https:"){
    replaces the offline copy. */
 const $v=id=>document.getElementById(id);
 const vFramed=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
-const APP_VERSION="1.94", APP_BUILD="2026-11-03";
+const APP_VERSION="1.95", APP_BUILD="2026-11-20";
 function verLabel(){return "v"+APP_VERSION+(APP_BUILD?" · "+APP_BUILD:"");}
 $v("hardRefresh").textContent="v"+APP_VERSION+" · ⟳ refresh";
 $v("verFoot").textContent=verLabel();
