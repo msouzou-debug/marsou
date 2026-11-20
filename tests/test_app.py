@@ -32,7 +32,7 @@ def test_no_greek_literals_in_templates_or_python():
     def has_greek(s):
         return any("Ͱ" <= ch <= "Ͽ" or "ἀ" <= ch <= "῿" for ch in s)
 
-    allowed = {"base.html"}  # the language switch shows each language's own name
+    allowed = {"base.html", "login.html"}  # the language switch shows each language's own name
     for path in (ROOT / "templates").rglob("*.html"):
         if path.name not in allowed:
             assert not has_greek(path.read_text(encoding="utf-8")), path

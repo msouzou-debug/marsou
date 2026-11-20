@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ t('import.title') }} · {{ t('app.name') }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ t('import.title') }}</h1>
+{% include "settings/_nav.html" %}
+
+{% if file_error %}
+<div class="alert alert-danger" role="alert">{{ t(file_error[0], **file_error[1]) }}</div>
+{% endif %}
+
+{% if errors %}
+<div class="alert alert-danger" role="alert">{{ t('import.errors.title') }}</div>
+{% if total > errors|length %}<p class="small text-secondary">{{ t('import.errors.more', n=errors|length, total=total) }}</p>{% endif %}
+<div class="table-responsive mb-4">
+  <table class="table table-sm align-middle" data-import-errors>
+    <thead><tr><th>{{ t('import.col.sheet') }}</th><th>{{ t('import.col.row') }}</th><th>{{ t('import.col.column') }}</th><th>{{ t('import.col.message') }}</th></tr></thead>
+    <tbody>
+      {% for sheet, row, column, key, params in errors %}
+      <tr><td>{{ sheet }}</td><td>{{ row }}</td><td>{{ column }}</td><td>{{ t(key, **params) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if summary is defined %}
+<h2 class="h5">{{ t('import.preview.title') }}</h2>
+{% if summary %}
+<div class="table-responsive mb-3">
+  <table class="table table-sm align-middle" data-import-summary>
+    <thead><tr><th>{{ t('import.col.sheet') }}</th><th>{{ t('import.preview.add') }}</th><th>{{ t('import.preview.update') }}</th><th>{{ t('import.preview.unchanged') }}</th></tr></thead>
+    <tbody>
+      {% for sheet, c in summary.items() %}
+      <tr><td>{{ sheet }}</td><td>{{ c['add'] }}</td><td>{{ c['update'] }}</td><td>{{ c['unchanged'] }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if changes %}
+<form method="post" action="{{ url_for('settings.import_confirm') }}" class="d-flex flex-wrap gap-2 mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="token" value="{{ token }}">
+  <button class="btn btn-primary" style="min-height:44px" type="submit">{{ t('import.confirm') }}</button>
+</form>
+<form method="post" action="{{ url_for('settings.import_cancel') }}" class="mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="token" value="{{ token }}">
+  <button class="btn btn-outline-secondary" style="min-height:44px" type="submit">{{ t('import.cancel') }}</button>
+</form>
+{% else %}
+<p>{{ t('import.preview.nothing') }}</p>
+{% endif %}
+{% else %}
+<p>{{ t('import.preview.nothing') }}</p>
+{% endif %}
+{% endif %}
+
+<p>{{ t('import.intro') }}</p>
+<h2 class="h6 text-secondary">{{ t('import.steps.title') }}</h2>
+<ol>
+  {% for i in (1, 2, 3, 4) %}<li>{{ t('import.step.' ~ i) }}</li>{% endfor %}
+</ol>
+<ul class="small text-secondary">
+  <li>{{ t('import.rule.nodelete') }}</li>
+  <li>{{ t('import.rule.password') }}</li>
+  <li>{{ t('import.rule.limits', mb=max_mb, rows=max_rows) }}</li>
+</ul>
+<p><a class="btn btn-outline-primary d-inline-flex align-items-center" style="min-height:44px" href="{{ url_for('settings.import_template') }}">{{ t('import.template.download') }}</a></p>
+
+<form method="post" action="{{ url_for('settings.import_upload') }}" enctype="multipart/form-data" class="border rounded p-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h2 class="h6">{{ t('import.upload.title') }}</h2>
+  <label class="form-label small" for="import-file">{{ t('import.upload.file') }}</label>
+  <input class="form-control mb-3" style="min-height:44px" id="import-file" type="file" name="file" accept=".xlsx" required>
+  <button class="btn btn-primary" style="min-height:44px" type="submit">{{ t('import.upload.submit') }}</button>
+</form>
+{% endblock %}

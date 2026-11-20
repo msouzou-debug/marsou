@@ -145,4 +145,4 @@ def toggle(kind, row_id):
     return _back(kind)
 
 
-from . import archive, holidays, outbox, roles, timings, users  # noqa: E402,F401  Phase 4 pages register on `bp`
+from . import archive, holidays, import_page, outbox, roles, timings, users  # noqa: E402,F401  Phase 4 pages register on `bp`
