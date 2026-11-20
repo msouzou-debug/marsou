@@ -282,7 +282,7 @@
       "As the administrator open “[[nav.settings]]” and “[[settings.outbox]]”."
     ],
     "exp": [
-      "The request page opens with “[[form.submitted|number=EHIRE-2026-0001]]” (your own number). The number has the form PREFIX-YEAR-NNNN. The prefix is the server's number prefix setting (EHIRE if nobody set it).",
+      "The request page opens with “[[form.submitted|number=ΑΕΘ-2026-0001]]” (your own number). The number has the form PREFIX-YEAR-NNNN. The prefix is ΑΕΘ.",
       "The second number is exactly one higher than the first.",
       "The chip says “[[status.in_progress]]”. In the tracker step 1 is “[[tracker.state.done]]”, step 2 is “[[tracker.state.current]]” and the line says “[[statusline.waiting_on|who=[[role.dir_accountant]] (name)]]” with “[[statusline.days.many|n=0]]”.",
       "The requester has no action card and no edit button. The request is no longer a draft.",
@@ -814,7 +814,7 @@
     "who": ["[[role.ceo]]: test.central.ceo"],
     "pre": "The sample requests are loaded.",
     "steps": [
-      "In “[[list.search]]” type the full number of a request, for example EHIRE-2026-0003.",
+      "In “[[list.search]]” type the full number of a request, for example ΑΕΘ-2026-0003.",
       "Type the same number in lower case and without dashes: ehire20260003.",
       "Type only 0003, then 2026, then xyz.",
       "Only if your numbers begin with ΑΕΘ: type AEU-2026-0007 (the Latin U stands for Θ)."
@@ -822,7 +822,7 @@
     "exp": [
       "Steps 1 and 2 find that one request.",
       "0003 finds that request. 2026 finds every request of the year. xyz shows “[[list.empty.all]]”.",
-      "Step 4: the request ΑΕΘ-2026-0007 is found. If your numbers begin with EHIRE, write “not applicable” in the comments: the number prefix is a server setting and is not in the Settings pages."
+      "Step 4: the request ΑΕΘ-2026-0007 is found. Requests created before version 1.0.0-rc8 have a number that begins with EHIRE; test with a request that begins with ΑΕΘ."
     ]
   },
   "list_export": {
