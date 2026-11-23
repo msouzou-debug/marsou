@@ -64,9 +64,42 @@ function unmatchedRow(index: number, overrides: Partial<UnmatchedRow> = {}): Unm
       glAccount: "600100",
       importBatchId: "batch-1",
       matchedBy: "NONE",
+      vendorNo: null,
+      contractRef: null,
+      invoiceRef: null,
+      efinanceInvoiceId: null,
     },
     suggestions: [suggestion()],
     ...overrides,
+  };
+}
+
+/** ADR-0036: a CAPEX_LINES batch, as the connector or a file upload leaves it. */
+export function buildCapexBatch(overrides: Partial<ImportBatch> = {}): ImportBatch {
+  return buildImportBatch({
+    id: "batch-capex-1",
+    report: "CAPEX_LINES",
+    fileName: "capex-lines-2026-10.csv",
+    profileId: "capexlines-v1",
+    period: "2026-10",
+    rowsIn: 40,
+    rowsMatched: 36,
+    rowsUnmatched: 4,
+    ...overrides,
+  });
+}
+
+/** One line carrying the SAP vendor number and the CAP- reference, one matched by eFinance invoice, one with neither. */
+export function buildCapexQueue(): UnmatchedQueueData {
+  const base = buildUnmatchedQueue(3);
+  const [a, b, c] = base.items;
+  return {
+    ...base,
+    items: [
+      { ...a, txn: { ...a.txn, vendorNo: "100234", contractRef: "CAP-2026-0012", matchedBy: "CONTRACT_REF" } },
+      { ...b, txn: { ...b.txn, vendorNo: "100871", invoiceRef: "INV-5521", matchedBy: "EFINANCE_INVOICE", efinanceInvoiceId: "inv-1" } },
+      c,
+    ],
   };
 }
 

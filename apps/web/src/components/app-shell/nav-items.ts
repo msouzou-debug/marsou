@@ -47,7 +47,7 @@ export interface NavItem {
 }
 
 // UI instructions §2: fixed order, one Lucide icon each. «Αναφορές» opens
-// S23, the index of the seven M6 reports. «Συντήρηση» opens S18, the work
+// S23, the index of the eight M6 reports. «Συντήρηση» opens S18, the work
 // order list.
 export const NAV_ITEMS: NavItem[] = [
   { id: "portfolio", href: "/", labelKey: "nav.portfolio", icon: LayoutDashboard },

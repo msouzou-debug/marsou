@@ -4,7 +4,7 @@ import { REPORT_CATALOGUE, REPORT_SLUG, type ReportCatalogueEntry, type ReportKe
 import { canViewReports } from "@/auth/roles";
 import { reportApiPath, reportExportHref } from "@/data/queries";
 import { formatEUR } from "@/lib/format";
-import { buildReport, buildReportCatalogue, buildStatutoryComplianceReport } from "@/mocks/reports";
+import { buildReport, buildReportCatalogue, buildSapReconciliationReport, buildStatutoryComplianceReport } from "@/mocks/reports";
 import { orgUnits } from "@/mocks/org-units";
 import { renderWithIntl } from "@/test/render";
 import { doneTint } from "./bodies/StatutoryComplianceBody";
@@ -44,12 +44,12 @@ function bodyRows(table: HTMLElement) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("S23 index", () => {
-  it("shows the seven reports as cards in the catalogue's order, whatever order the API sent", () => {
+  it("shows the eight reports as cards in the catalogue's order, whatever order the API sent", () => {
     const shuffled = [...buildReportCatalogue()].reverse();
     renderWithIntl(<ReportIndex entries={shuffled} state="default" noPermission={null} />);
     const list = screen.getByRole("list", { name: "Οι αναφορές" });
     const cards = within(list).getAllByRole("listitem");
-    expect(cards).toHaveLength(7);
+    expect(cards).toHaveLength(8);
     const links = cards.map((c) => within(c).getByRole("link"));
     expect(links.map((l) => l.getAttribute("href"))).toEqual(KEYS.map((k) => `/reports/${REPORT_SLUG[k]}`));
     expect(links[0]).toHaveTextContent("Πρόγραμμα έργων ανά μονάδα");
@@ -195,6 +195,57 @@ describe("S23a report bodies", () => {
   it("says there is no data when the contractor scorecard has neither half", () => {
     const report = { ...buildReport("CONTRACTOR_SCORECARD"), capital: [], maintenance: [] };
     renderPage("CONTRACTOR_SCORECARD", { report });
+    expect(screen.getByText("Δεν υπάρχουν στοιχεία για την περίοδο.")).toBeInTheDocument();
+  });
+});
+
+describe("S23a SAP reconciliation (ADR-0036)", () => {
+  it("is the eighth report, with its slug, a period and a unit filter", () => {
+    expect(KEYS).toHaveLength(8);
+    expect(KEYS[7]).toBe("SAP_RECONCILIATION");
+    expect(REPORT_SLUG.SAP_RECONCILIATION).toBe("sap-reconciliation");
+    expect(defaultQuery(catalogueEntry("SAP_RECONCILIATION"), TODAY, "u1")).toEqual({ orgUnitId: "u1", from: "2026-07-01", to: "2026-10-01" });
+    expect(reportExportHref("SAP_RECONCILIATION", { from: "2026-07-01", to: "2026-10-01" })).toBe(
+      "/api/proxy/reports/sap-reconciliation.xlsx?from=2026-07-01&to=2026-10-01",
+    );
+  });
+
+  it("describes the report on the index and says who it is for", () => {
+    renderWithIntl(<ReportIndex entries={buildReportCatalogue()} state="default" noPermission={null} />);
+    const card = screen.getAllByRole("listitem")[7];
+    expect(card).toHaveTextContent("Συμφωνία SAP με eFinance");
+    expect(card).toHaveTextContent("Για: Οικονομική Διεύθυνση, Τεχνικές Υπηρεσίες, ελεγκτές");
+    expect(card).toHaveTextContent("Φίλτρα: μονάδα, περίοδος");
+  });
+
+  it("shows the twelve columns and one status chip per row, each with its word", () => {
+    renderPage("SAP_RECONCILIATION");
+    const table = screen.getByRole("table", { name: "Συμφωνία SAP με eFinance ανά σύμβαση" });
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(12);
+    const rows = bodyRows(table);
+    expect(rows).toHaveLength(4);
+    expect(within(rows[0]).getByText("Διαφορά", { selector: "span" })).toHaveClass("bg-k-amber-bg");
+    expect(within(rows[1]).getByText("Μόνο SAP")).toHaveClass("bg-k-red-bg");
+    expect(within(rows[2]).getByText("Μόνο eFinance")).toHaveClass("bg-k-red-bg");
+    expect(within(rows[3]).getByText("Συμφωνεί")).toHaveClass("bg-k-green-bg");
+    expect(rows[1]).toHaveTextContent("Χωρίς σύμβαση");
+  });
+
+  it("totals the amounts and says how many SAP lines are still unmatched, linking to S10", () => {
+    renderPage("SAP_RECONCILIATION");
+    const table = screen.getByRole("table");
+    const totals = table.querySelectorAll("tbody")[1];
+    expect(totals).toHaveTextContent("Σύνολο");
+    expect(totals).toHaveTextContent(n(formatEUR(200_000)));
+    expect(totals).toHaveTextContent(n(formatEUR(165_000)));
+    expect(totals).toHaveTextContent(n(formatEUR(35_000)));
+    const line = screen.getByTestId("sap-unmatched");
+    expect(n(line.textContent ?? "")).toContain(`3 γραμμές SAP δεν έχουν αντιστοιχιστεί ακόμη, συνολικού ποσού ${n(formatEUR(4_250.5))}`);
+    expect(within(line).getByRole("link")).toHaveAttribute("href", "/cost/imports");
+  });
+
+  it("says there is no data for the period when the report has no rows", () => {
+    renderPage("SAP_RECONCILIATION", { report: buildSapReconciliationReport({ rows: [] }) });
     expect(screen.getByText("Δεν υπάρχουν στοιχεία για την περίοδο.")).toBeInTheDocument();
   });
 });

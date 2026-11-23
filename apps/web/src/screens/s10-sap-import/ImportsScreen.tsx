@@ -19,6 +19,8 @@ import { z } from "zod";
 import { ApiError, apiMutateMultipart } from "@/data/client";
 import { useImportBatches } from "@/data/queries";
 import type { DryRunResult } from "./UploadCard";
+import type { ConnectorParams } from "./ConnectorCard";
+import { connectorOutcome, postSapConnector } from "./connector";
 import { Imports, type ImportsScreenState } from "./Imports";
 
 export interface ImportsScreenProps {
@@ -59,6 +61,10 @@ export function ImportsScreen({ roles, noPermission }: ImportsScreenProps) {
   const [apiError, setApiError] = useState<string | undefined>(undefined);
   const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
 
+  const [connecting, setConnecting] = useState(false);
+  const [connectorNotice, setConnectorNotice] = useState<string | undefined>(undefined);
+  const [connectorError, setConnectorError] = useState<string | undefined>(undefined);
+
   let state: ImportsScreenState;
   if (!online && data) {
     state = "offline";
@@ -97,6 +103,24 @@ export function ImportsScreen({ roles, noPermission }: ImportsScreenProps) {
     }
   }
 
+  // ADR-0036: the connector answers with the batch, shown like an upload's.
+  async function fetchFromSap(params: ConnectorParams): Promise<void> {
+    setConnecting(true);
+    setConnectorNotice(undefined);
+    setConnectorError(undefined);
+    try {
+      const batch = await postSapConnector(params);
+      await refetch();
+      router.push(`/cost/imports/${encodeURIComponent(batch.id)}`);
+    } catch (failure) {
+      const outcome = connectorOutcome(failure);
+      if (outcome.kind === "notice") setConnectorNotice(outcome.message);
+      else setConnectorError(outcome.message);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   return (
     <Imports
       data={data}
@@ -108,6 +132,10 @@ export function ImportsScreen({ roles, noPermission }: ImportsScreenProps) {
       uploadSubmitting={submitting}
       uploadApiError={apiError}
       dryRunResult={dryRunResult}
+      onConnector={(params) => void fetchFromSap(params)}
+      connectorSubmitting={connecting}
+      connectorNotice={connectorNotice}
+      connectorError={connectorError}
       onUpload={(file, report, period, dryRun) => void upload(file, report, period, dryRun)}
     />
   );

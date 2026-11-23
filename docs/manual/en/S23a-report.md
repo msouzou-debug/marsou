@@ -6,7 +6,7 @@ This page shows one report for the unit and period you pick, and gives it to you
 
 1. From «Αναφορές» (Reports), press the report's title.
 2. Pick the unit. With "ΟΚΥπΥ — all units" you see every unit you have access to, one row each.
-3. Pick the year or, on the contractor scorecard, the period: "Current quarter", "Previous quarter", or your own dates under "From" and "To". The page shows only the filters the report takes.
+3. Pick the year or, on the contractor scorecard and the SAP and eFinance reconciliation, the period: "Current quarter", "Previous quarter", or your own dates under "From" and "To". The page shows only the filters the report takes.
 4. Read the table. Where the system has no source for a figure it shows "—", never 0. The "Total" row is worked out from the rows above it.
 5. Press "Download Excel". The file carries the same figures, with live formulas in the totals, percentages and slippage.
 6. Press "Print / PDF" and, in the browser's dialog, choose "Save as PDF" or your printer. The page prints on A4, with the title, the meta line and the page number on every page.
@@ -20,11 +20,13 @@ What each report shows:
 - **Asset lifecycle.** Capital cost, maintenance cost, downtime hours and remaining life. The assets with the least life left come first. A negative remaining life, in red, means the asset has outlived its expected life.
 - **Clinical disruption.** Theatre hours (top) and ICU hours (bottom) by month. It prints on a landscape page.
 - **Statutory compliance.** Lifts, pressure vessels, medical gas, fire systems: how many inspections were done out of those due, and how many are overdue. The share done is green from 95 %, amber from 80 % and red below 80 %. These thresholds are the application's choice, not a regulation's. If the head of estates sets others, the application changes.
+- **SAP and eFinance reconciliation.** For each contract (or vendor, where SAP found no contract), what SAP posted on the capital spending accounts by posting date against what eFinance booked by invoice date, the difference and a status: «Agrees» (green), «Difference» (amber), «SAP only» or «eFinance only» (red). The largest differences come first. The «Lines without reference» column counts the SAP lines that carried no CAP- reference. Under the table, the line «SAP lines are not matched yet» gives the count and amount and links to the «SAP import». The report adds no second spend figure; it only compares the two sources. It prints on a landscape page.
 
 ## What can go wrong
 
 - **You see "There is no data for the period".** There is nothing to count for the unit and period you picked. Try another year or "ΟΚΥπΥ — all units".
 - **A figure shows "—".** The system has no source for it yet, for example spend before the SAP import. In the Excel the cell stays blank.
+- **The SAP reconciliation shows «SAP only» on many rows.** SAP gave no CAP- reference on them and eFinance has no matching invoice, or the contractor has no SAP vendor number in the register. Open the «SAP import» and match the lines in the queue.
 - **A unit is missing.** The report shows only the units you have access to.
 - **The printout has no title on the later pages.** Use Chrome or Edge. Other browsers print the title on the first page only.
 - **The maintenance card says "rates incomplete".** The systems catalogue is missing penalty amounts. Late items were counted but not priced.

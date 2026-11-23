@@ -42,7 +42,7 @@ export function defaultQuery(entry: ReportCatalogueEntry, today: string, orgUnit
 
 /**
  * RULE (ADR-0032 §3, the S13 print rules): A4, landscape where the table is
- * wide — everything but statutory compliance, whose four categories fit
+ * wide (twelve columns for the SAP reconciliation) — everything but statutory compliance, whose four categories fit
  * across a portrait page. Clinical disruption has twelve month columns and
  * is landscape by the build brief.
  */
@@ -54,6 +54,7 @@ export const PRINT_ORIENTATION: Record<ReportKey, "portrait" | "landscape"> = {
   ASSET_LIFECYCLE: "landscape",
   CLINICAL_DISRUPTION: "landscape",
   STATUTORY_COMPLIANCE: "portrait",
+  SAP_RECONCILIATION: "landscape",
 };
 
 /**

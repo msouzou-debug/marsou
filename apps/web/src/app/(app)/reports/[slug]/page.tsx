@@ -1,6 +1,6 @@
 // S23a «Αναφορά» — R39 (CAPEX-01 §11, ADR-0032)
 //
-// One page for the seven reports, `/reports/<slug>` with the slugs of
+// One page for the eight reports, `/reports/<slug>` with the slugs of
 // REPORT_SLUG. An unknown slug is a 404, not an empty report.
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";

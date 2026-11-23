@@ -9,6 +9,9 @@
  * a dry run is what most visits here are for, so it comes first, but the
  * real import is still the one action this view is ultimately for.
  *
+ * ADR-0036: the select offers `SAP_REPORTS_ACTIVE` only (CAPEX_LINES first and
+ * the default); ME2N and KSB1 are retired for new uploads.
+ *
  * | Prop         | Type                                                            | Notes |
  * |--------------|-----------------------------------------------------------------|-------|
  * | canImport    | boolean                                                          | `canImportSap(roles)` — the whole card renders nothing otherwise. |
@@ -21,7 +24,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, Upload } from "lucide-react";
 import type { SapReport } from "@ecapital/shared";
-import { SapReport as SapReportSchema } from "@ecapital/shared";
+import { SAP_REPORTS_ACTIVE } from "@ecapital/shared";
 
 export interface DryRunResult {
   matched: number;
@@ -45,7 +48,7 @@ function currentPeriod(): string {
 export function UploadCard({ canImport, submitting = false, apiError, dryRunResult, onSubmit }: UploadCardProps) {
   const t = useTranslations();
   const [file, setFile] = useState<File | null>(null);
-  const [report, setReport] = useState<SapReport>("ME2N");
+  const [report, setReport] = useState<SapReport>(SAP_REPORTS_ACTIVE[0]);
   const [period, setPeriod] = useState(currentPeriod());
   const [fileMissing, setFileMissing] = useState(false);
 
@@ -94,9 +97,9 @@ export function UploadCard({ canImport, submitting = false, apiError, dryRunResu
             onChange={(e) => setReport(e.target.value as SapReport)}
             className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
           >
-            {SapReportSchema.options.map((option) => (
+            {SAP_REPORTS_ACTIVE.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {t(`sapReport.${option}`)}
               </option>
             ))}
           </select>
