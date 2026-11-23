@@ -9,6 +9,7 @@ import {
   DisruptionHoursRow,
   ExceptionsReport,
   PortfolioResponse,
+  SapReconciliationReport,
   REPORT_CATALOGUE,
   REPORT_SLUG,
   RISK_BAND_ORDER,
@@ -44,12 +45,14 @@ const SCHEMA: Record<ReportKey, ZodType> = {
   ASSET_LIFECYCLE: AssetLifecycleReport,
   CLINICAL_DISRUPTION: ClinicalDisruptionReport,
   STATUTORY_COMPLIANCE: StatutoryComplianceReport,
+  SAP_RECONCILIATION: SapReconciliationReport,
 };
 const KEYS = Object.keys(SCHEMA) as ReportKey[];
 
 /** The unit ids a report's rows name, whatever the shape. */
 function unitsOf(key: ReportKey, body: Record<string, unknown>): string[] {
-  if (key === "CONTRACTOR_SCORECARD") return [];
+  // A reconciliation row is a contract or a vendor; it names a unit by name only.
+  if (key === "CONTRACTOR_SCORECARD" || key === "SAP_RECONCILIATION") return [];
   const rows = body.rows as Record<string, unknown>[];
   return rows.map((row) =>
     key === "CAPITAL_PROGRAMME" ? (row.orgUnit as { id: string }).id : (row.orgUnitId as string),
@@ -126,7 +129,12 @@ describe("reports (M6)", () => {
       const body = await report<Record<string, unknown>>(key, ESTATES_LARNACA);
       const units = unitsOf(key, body);
       expect(units, key).not.toContain(NICOSIA);
-      if (key !== "EXCEPTIONS" && key !== "ASSET_LIFECYCLE" && key !== "CONTRACTOR_SCORECARD") {
+      if (
+        key !== "EXCEPTIONS" &&
+        key !== "ASSET_LIFECYCLE" &&
+        key !== "CONTRACTOR_SCORECARD" &&
+        key !== "SAP_RECONCILIATION"
+      ) {
         expect(new Set(units), key).toEqual(new Set([LARNACA]));
       }
     }
@@ -380,7 +388,9 @@ describe("reports (M6)", () => {
       const stamp = entry?.takesPeriod ? "2026-07-01_2026-10-01" : entry?.takesYear ? "2025" : String(year);
       expect(disposition, key).toContain(`ecapital-${REPORT_SLUG[key]}-${stamp}.xlsx`);
       expect(book.worksheets[0].name, key).toBe("Στοιχεία");
-      expect(book.worksheets.map((s) => s.name), key).toContain("Σύνοψη");
+      // ADR-0036: the reconciliation is one sheet, its totals under the table.
+      if (key === "SAP_RECONCILIATION") expect(book.worksheets).toHaveLength(1);
+      else expect(book.worksheets.map((s) => s.name), key).toContain("Σύνοψη");
       const meta = book.worksheets[0];
       expect(String(meta.getCell("A1").value)).toContain("Αναφορά");
     }

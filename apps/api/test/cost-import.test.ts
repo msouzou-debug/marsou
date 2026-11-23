@@ -3,8 +3,12 @@
  * against a real PostgreSQL (ADR-0012).
  *
  * What it proves:
- *  - the three synthetic extracts in test/fixtures/sap read, with the Greek
- *    number and date formats and the sign conventions each report posts with;
+ *  - the synthetic FBL1N extracts in test/fixtures/sap read, with the Greek
+ *    number and date formats and the sign convention FBL1N posts with (the
+ *    rows that were the ME2N and KSB1 fixtures until ADR-0036 retired both
+ *    now come in as FBL1N, so the WBS, purchase-order and cost-centre matcher
+ *    keeps its cases);
+ *  - ME2N and KSB1 are refused for new uploads (ADR-0036 §5);
  *  - a dry run writes nothing and answers the same summary;
  *  - the same file twice is refused, and a dry run of it is not;
  *  - a row finds its project by WBS, then by purchase order, then by cost
@@ -26,8 +30,8 @@ import { FIXTURE_KEYS, sapFixturePath } from "./fixtures/build-sap-fixtures";
 import { SapMcpReader } from "../src/cost/source/sap-mcp.reader";
 import { normalise, ruleText } from "../src/cost/text";
 
-const ME2N = sapFixturePath("me2n.xlsx");
-const KSB1 = sapFixturePath("ksb1.xlsx");
+const MATCHING = sapFixturePath("fbl1n-matching.xlsx");
+const COST_CENTRE = sapFixturePath("fbl1n-cost-centre.xlsx");
 const FBL1N = sapFixturePath("fbl1n.xlsx");
 
 describe("SAP import (R14, R15)", () => {
@@ -88,13 +92,13 @@ describe("SAP import (R14, R15)", () => {
   });
 
   it("reads the extract without writing anything, which is the default", async () => {
-    const response = await upload(ME2N, { report: "ME2N", period: "2026-01", dryRun: true });
+    const response = await upload(MATCHING, { report: "FBL1N", period: "2026-01", dryRun: true });
     expect(response.status).toBe(201);
     const batch = response.body;
 
     expect(batch.status).toBe("DRY_RUN");
     expect(batch.id).toMatch(/^dry-run:/);
-    expect(batch.report).toBe("ME2N");
+    expect(batch.report).toBe("FBL1N");
     expect(batch.rowsIn).toBe(12);
     // «περίπου 3.000» is refused, never read as three thousand or as zero.
     expect(batch.rowsRejected).toBe(1);
@@ -109,7 +113,7 @@ describe("SAP import (R14, R15)", () => {
   });
 
   it("writes the batch and the postings, and says how each row found its project", async () => {
-    const response = await upload(ME2N, { report: "ME2N", period: "2026-01", dryRun: false });
+    const response = await upload(MATCHING, { report: "FBL1N", period: "2026-01", dryRun: false });
     expect(response.status).toBe(201);
     const batch = response.body;
     expect(batch.status).toBe("PENDING_ALLOCATION");
@@ -141,20 +145,20 @@ describe("SAP import (R14, R15)", () => {
     );
     expect(Number(credit[0].amount)).toBe(-2400);
 
-    // ME2N is the commitment ledger.
+    // FBL1N is the actuals ledger.
     const { rows: types } = await db.query<{ txn_type: string }>(
       "select distinct txn_type from ecapital.cost_txn where import_batch_id = $1",
       [batch.id],
     );
-    expect(types.map((row) => row.txn_type)).toEqual(["COMMITMENT"]);
+    expect(types.map((row) => row.txn_type)).toEqual(["ACTUAL"]);
   });
 
   it("refuses the same file twice, and lets a dry run of it through", async () => {
-    const again = await upload(ME2N, { report: "ME2N", period: "2026-01", dryRun: false });
+    const again = await upload(MATCHING, { report: "FBL1N", period: "2026-01", dryRun: false });
     expect(again.status).toBe(409);
     expect(again.body.key).toBe("errors.costImportDuplicate");
 
-    const dry = await upload(ME2N, { report: "ME2N", period: "2026-01", dryRun: true });
+    const dry = await upload(MATCHING, { report: "FBL1N", period: "2026-01", dryRun: true });
     expect(dry.status).toBe(201);
   });
 
@@ -234,7 +238,7 @@ describe("SAP import (R14, R15)", () => {
     // one becomes an entry in the exceptions list, so the reconciliation says
     // what was not placed and the next month's allocator can find it.
     const token = await tokenFor(app, USERS.finance);
-    const imported = await upload(KSB1, { report: "KSB1", period: "2026-02", dryRun: false });
+    const imported = await upload(COST_CENTRE, { report: "FBL1N", period: "2026-02", dryRun: false });
     const batchId = imported.body.id;
 
     const queue = await get(`/cost/imports/${batchId}/unmatched`).set(bearer(token));
@@ -287,11 +291,11 @@ describe("SAP import (R14, R15)", () => {
     expect(Number(creditNote[0].amount)).toBe(-3_200);
   });
 
-  it("writes KSB1 to the actuals ledger and matches it on the cost centre", async () => {
+  it("writes the cost-centre month to the actuals ledger and matches it on the cost centre", async () => {
     const token = await tokenFor(app, USERS.finance);
     const list = await get("/cost/imports").set(bearer(token));
     const batch = list.body.items.find(
-      (item: { report: string; period: string }) => item.report === "KSB1" && item.period === "2026-02",
+      (item: { report: string; period: string }) => item.report === "FBL1N" && item.period === "2026-02",
     );
     const { rows } = await db.query<{ txn_type: string; matched_by: string; n: number }>(
       "select txn_type, matched_by, count(*)::int as n from ecapital.cost_txn where import_batch_id = $1 group by txn_type, matched_by",
@@ -302,7 +306,7 @@ describe("SAP import (R14, R15)", () => {
     expect(byReason.get("WBS")).toBe(3);
     expect(byReason.get("COST_CENTRE")).toBe(2);
     // The three left over carry a cost centre nothing holds. One of them is
-    // the vendor and the narrative somebody allocated by hand on the ME2N
+    // the vendor and the narrative somebody allocated by hand on the January
     // extract, so the remembered rule places it without being asked — which
     // is R14's whole reason for remembering.
     expect(byReason.get("RULE")).toBe(1);
@@ -313,7 +317,7 @@ describe("SAP import (R14, R15)", () => {
 
   it("lets the three money roles import and nobody else", async () => {
     for (const email of [USERS.engineerLarnaca, USERS.technicianNicosia, USERS.auditor]) {
-      const refused = await upload(KSB1, { report: "KSB1", period: "2026-04" }, email);
+      const refused = await upload(COST_CENTRE, { report: "FBL1N", period: "2026-04" }, email);
       expect(refused.status).toBe(403);
     }
   });
@@ -323,16 +327,16 @@ describe("SAP import (R14, R15)", () => {
     // A .csv, because a SAP client that cannot save a workbook can always
     // save a list — and because this needs a file nothing has imported yet.
     const csv = [
-      "Document Number;Line Item;Document Date;Posting Date;Val.in rep.cur.;Name;Partner;WBS Element;Cost Center;Cost Element",
-      "4911001;1;31.05.2026;31.05.2026;1.500,00;Εργασίες περίφραξης;ΙΩΤΑ ΕΡΓΑ ΛΤΔ;;CC9998;0802200",
-      "4911002;1;31.05.2026;31.05.2026;900,50;Εργασίες περίφραξης, φάση 2;ΙΩΤΑ ΕΡΓΑ ΛΤΔ;;CC9998;0802200",
+      "Document Number;Line Item;Document Date;Posting Date;Amount in local currency;Text;Name 1;WBS Element;Cost Center;G/L Account",
+      "4911001;1;31.05.2026;31.05.2026;-1.500,00;Εργασίες περίφραξης;ΙΩΤΑ ΕΡΓΑ ΛΤΔ;;CC9998;0802200",
+      "4911002;1;31.05.2026;31.05.2026;-900,50;Εργασίες περίφραξης, φάση 2;ΙΩΤΑ ΕΡΓΑ ΛΤΔ;;CC9998;0802200",
     ].join("\n");
     const fresh = await post("/cost/imports")
       .set(bearer(token))
-      .field("report", "KSB1")
+      .field("report", "FBL1N")
       .field("period", "2026-05")
       .field("dryRun", "false")
-      .attach("file", Buffer.from(csv, "utf8"), "KSB1_2026_05.csv");
+      .attach("file", Buffer.from(csv, "utf8"), "FBL1N_2026_05.csv");
     expect(fresh.status).toBe(201);
     const batchId = fresh.body.id;
     expect(fresh.body.rowsIn).toBe(2);
@@ -378,13 +382,25 @@ describe("SAP import (R14, R15)", () => {
 
   // -------------------------------------------------------------- seams --
 
+  it("refuses ME2N and KSB1 for new uploads, before the file is read", async () => {
+    // ADR-0036 §5: SAP holds no WBS and its purchase orders are stock-only.
+    // Whatever is attached, the answer is 422 and the key says why.
+    for (const report of ["ME2N", "KSB1"]) {
+      const refused = await upload(FBL1N, { report, period: "2026-06", dryRun: true });
+      expect(refused.status, report).toBe(422);
+      expect(refused.body.key, report).toBe("errors.sapReportRetired");
+      expect(refused.body.message, report).toContain(report);
+      expect(refused.body.message, report).toContain("Γραμμές κεφαλαιουχικών δαπανών SAP");
+    }
+  });
+
   it("has the MCP reader in place, saying it has nothing to talk to", async () => {
     // R15. The seam is checked rather than asserted: the reader implements
-    // the same interface and is reached the same way; what it lacks is a
-    // server, and it says so in the caller's language.
+    // the same interface and is reached the same way; without a configured
+    // connector it says so in the caller's language.
     const reader = new SapMcpReader();
     await expect(async () => {
-      for await (const row of reader.read({ report: "ME2N", period: "2026-01", payload: null })) {
+      for await (const row of reader.read({ report: "CAPEX_LINES", period: "2026-01", payload: null })) {
         throw new Error(`the stub produced a row: ${JSON.stringify(row)}`);
       }
     }).rejects.toMatchObject({ messageKey: "errors.costSourceNotConfigured" });

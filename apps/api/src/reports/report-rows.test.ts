@@ -7,7 +7,9 @@ import {
   isHighRisk,
   milestoneLateDays,
   monthsOf,
+  sapReconciliationStatus,
   sortExceptions,
+  sortReconciliation,
   daysSince,
   sortLifecycle,
   sumComplete,
@@ -246,5 +248,46 @@ describe("months", () => {
     expect(monthsOf(2026)).toHaveLength(12);
     expect(monthsOf(2026)[0]).toBe("2026-01");
     expect(monthsOf(2026)[11]).toBe("2026-12");
+  });
+});
+
+describe("SAP reconciliation (ADR-0036 §4)", () => {
+  it("says MATCHED only when both sides are there and equal to the cent", () => {
+    expect(sapReconciliationStatus(100, 100)).toBe("MATCHED");
+    expect(sapReconciliationStatus(100.004, 100)).toBe("MATCHED");
+    expect(sapReconciliationStatus(100.01, 100)).toBe("DIFFERENCE");
+    expect(sapReconciliationStatus(100, 0)).toBe("SAP_ONLY");
+    expect(sapReconciliationStatus(0, 100)).toBe("EFINANCE_ONLY");
+    expect(sapReconciliationStatus(-50, 100)).toBe("DIFFERENCE");
+  });
+
+  it("puts the largest absolute difference first, contracts before vendors on a tie", () => {
+    const row = (contractRef: string | null, vendorNo: string | null, difference: number) => ({
+      contractId: contractRef,
+      contractRef,
+      projectCode: null,
+      orgUnitName: null,
+      contractorName: null,
+      vendorNo,
+      sapLines: 0,
+      sapAmount: 0,
+      efinanceInvoices: 0,
+      efinanceAmount: 0,
+      difference,
+      status: "DIFFERENCE" as const,
+      linesWithoutRef: 0,
+    });
+    const sorted = sortReconciliation([
+      row(null, "700102", 10),
+      row("CAP-2031-0002", null, -500),
+      row("CAP-2031-0001", null, 10),
+      row(null, "700101", 0),
+    ]);
+    expect(sorted.map((r) => r.contractRef ?? r.vendorNo)).toEqual([
+      "CAP-2031-0002",
+      "CAP-2031-0001",
+      "700102",
+      "700101",
+    ]);
   });
 });

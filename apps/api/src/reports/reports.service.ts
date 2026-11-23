@@ -30,6 +30,8 @@ import {
   type ReportKey,
   type ReportMeta,
   REPORT_CATALOGUE,
+  type SapReconciliationReport,
+  type SapReconciliationRow,
   type StatutoryComplianceReport,
 } from "@ecapital/shared";
 import { and, asc, eq, gte, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
@@ -38,6 +40,7 @@ import { addDays as addContractDays, warningFacts } from "../contracts/contract-
 import { nicosiaToday } from "../contracts/delay";
 import { type ContractDelayRecords, loadContractDelays } from "../contracts/delay-load";
 import { ProjectCostService } from "../cost/project-cost.service";
+import { vendorKey } from "../cost/text";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { BacklogService } from "../maintenance/backlog.service";
@@ -59,8 +62,10 @@ import {
   milestoneLateDays,
   monthsOf,
   round2,
+  sapReconciliationStatus,
   slippageOf,
   sortExceptions,
+  sortReconciliation,
   sortLifecycle,
   pctOf,
   sumComplete,
@@ -639,6 +644,176 @@ export class ReportsService {
       ),
     }));
     return { meta: this.meta("STATUTORY_COMPLIANCE", unit, query, now), rows };
+  }
+
+  // ------------------------------------------------ 8. SAP reconciliation --
+
+  /**
+   * ADR-0036 §4. Per contract — or per SAP vendor number where no contract
+   * was found — what SAP posted on the capital GL accounts in the period
+   * (the CAPEX_LINES imports, file or connector, by posting date) against
+   * what eFinance booked (its invoices, `booked` and in euro as the sync
+   * counts spend, by invoice date, at the net amount).
+   *
+   * Nothing here decides who sees what: a capital line is visible where its
+   * project's unit is, an unmatched one to the cost roles, and an eFinance
+   * invoice where its unit is (0011, 0020). The unit filter narrows inside
+   * that; lines still in the queue belong to no unit and so drop out of a
+   * one-unit report.
+   */
+  async sapReconciliation(query: ResolvedQuery, now: Date): Promise<SapReconciliationReport> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const unit = await this.unitFilter(query.orgUnitId);
+    const unitId = unit?.id ?? null;
+
+    // A capital line: a row of a CAPEX_LINES batch, or anything the connector wrote.
+    const capexLine = sql`(b.report = 'CAPEX_LINES' or t.source = 'SAP_MCP')`;
+    const inPeriod = sql`t.posting_date >= ${query.from}::date and t.posting_date < ${query.to}::date`;
+    const inUnit = sql`(${unitId}::text is null or t.org_unit_id = ${unitId}::text)`;
+
+    const sapSide = await tx.db.execute<{
+      contract_id: string | null;
+      vendor_no: string | null;
+      lines: number;
+      amount: string;
+      without_ref: number;
+    }>(sql`
+      select t.contract_id, t.vendor_no, count(*)::int as lines, coalesce(sum(t.amount), 0)::text as amount,
+             (count(*) filter (where t.contract_ref is null))::int as without_ref
+        from ecapital.cost_txn t
+        left join ecapital.import_batch b on b.id = t.import_batch_id
+       where ${capexLine} and t.txn_type = 'ACTUAL' and ${inPeriod} and ${inUnit}
+       group by t.contract_id, t.vendor_no`);
+
+    const efinanceSide = await tx.db.execute<{
+      contract_id: string | null;
+      vendor_code: string | null;
+      invoices: number;
+      amount: string;
+    }>(sql`
+      select i.contract_id, i.vendor_code, count(*)::int as invoices, coalesce(sum(i.net), 0)::text as amount
+        from ecapital.efinance_invoice i
+       where i.ledger = 'booked' and i.currency = 'EUR'
+         and i.invoice_date >= ${query.from}::date and i.invoice_date < ${query.to}::date
+         and (${unitId}::text is null or i.org_unit_id = ${unitId}::text)
+       group by i.contract_id, i.vendor_code`);
+
+    interface Bucket {
+      contractId: string | null;
+      vendorNo: string | null;
+      sapLines: number;
+      sapAmount: number;
+      efinanceInvoices: number;
+      efinanceAmount: number;
+      linesWithoutRef: number;
+    }
+    const buckets = new Map<string, Bucket>();
+    const bucket = (contractId: string | null, vendor: string | null): Bucket => {
+      const key = contractId ? `c:${contractId}` : `v:${vendorKey(vendor)}`;
+      let found = buckets.get(key);
+      if (!found) {
+        found = {
+          contractId,
+          vendorNo: vendor?.trim() || null,
+          sapLines: 0,
+          sapAmount: 0,
+          efinanceInvoices: 0,
+          efinanceAmount: 0,
+          linesWithoutRef: 0,
+        };
+        buckets.set(key, found);
+      }
+      if (!found.vendorNo && vendor?.trim()) found.vendorNo = vendor.trim();
+      return found;
+    };
+    for (const row of sapSide.rows) {
+      const b = bucket(row.contract_id, row.vendor_no);
+      b.sapLines += row.lines;
+      b.sapAmount += money(row.amount);
+      b.linesWithoutRef += row.without_ref;
+    }
+    for (const row of efinanceSide.rows) {
+      const b = bucket(row.contract_id, row.vendor_code);
+      b.efinanceInvoices += row.invoices;
+      b.efinanceAmount += money(row.amount);
+    }
+
+    const contractIds = [...buckets.values()].map((b) => b.contractId).filter((id): id is string => id !== null);
+    const contracts = contractIds.length
+      ? await tx.db
+          .select({
+            id: schema.contract.id,
+            ref: schema.contract.ref,
+            projectCode: schema.project.code,
+            orgUnitName: schema.orgUnit.nameEl,
+            contractorName: schema.contractor.name,
+            sapVendorId: schema.contractor.sapVendorId,
+          })
+          .from(schema.contract)
+          .innerJoin(schema.project, eq(schema.project.id, schema.contract.projectId))
+          .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.contract.orgUnitId))
+          .innerJoin(schema.contractor, eq(schema.contractor.id, schema.contract.contractorId))
+          .where(inArray(schema.contract.id, contractIds))
+      : [];
+    const contractOf = new Map(contracts.map((c) => [c.id, c]));
+
+    const vendorCodes = [
+      ...new Set(
+        [...buckets.values()].filter((b) => b.contractId === null && b.vendorNo).map((b) => vendorKey(b.vendorNo)),
+      ),
+    ];
+    const vendorNames = new Map<string, string>();
+    if (vendorCodes.length) {
+      const names = await tx.db
+        .select({ code: schema.efinanceVendor.vendorCode, name: schema.efinanceVendor.name })
+        .from(schema.efinanceVendor);
+      for (const row of names) {
+        const key = vendorKey(row.code);
+        if (vendorCodes.includes(key)) vendorNames.set(key, row.name);
+      }
+    }
+
+    const rows: SapReconciliationRow[] = [...buckets.values()].map((b) => {
+      const contract = b.contractId ? contractOf.get(b.contractId) : undefined;
+      const sapAmount = round2(b.sapAmount);
+      const efinanceAmount = round2(b.efinanceAmount);
+      return {
+        contractId: b.contractId,
+        contractRef: contract?.ref ?? null,
+        projectCode: contract?.projectCode ?? null,
+        orgUnitName: contract?.orgUnitName ?? null,
+        contractorName: contract
+          ? contract.contractorName
+          : (b.vendorNo ? (vendorNames.get(vendorKey(b.vendorNo)) ?? null) : null),
+        vendorNo: contract?.sapVendorId?.trim() || b.vendorNo,
+        sapLines: b.sapLines,
+        sapAmount,
+        efinanceInvoices: b.efinanceInvoices,
+        efinanceAmount,
+        difference: round2(sapAmount - efinanceAmount),
+        status: sapReconciliationStatus(sapAmount, efinanceAmount),
+        linesWithoutRef: b.linesWithoutRef,
+      };
+    });
+
+    const [unmatched] = (
+      await tx.db.execute<{ lines: number; amount: string }>(sql`
+        select count(*)::int as lines, coalesce(sum(t.amount), 0)::text as amount
+          from ecapital.cost_txn t
+          left join ecapital.import_batch b on b.id = t.import_batch_id
+         where ${capexLine} and t.project_id is null and ${inPeriod} and ${inUnit}`)
+    ).rows;
+
+    const sapTotal = round2(rows.reduce((sum, r) => sum + r.sapAmount, 0));
+    const efinanceTotal = round2(rows.reduce((sum, r) => sum + r.efinanceAmount, 0));
+    return {
+      meta: this.meta("SAP_RECONCILIATION", unit, query, now),
+      rows: sortReconciliation(rows),
+      totals: { sapAmount: sapTotal, efinanceAmount: efinanceTotal, difference: round2(sapTotal - efinanceTotal) },
+      unmatchedLines: unmatched?.lines ?? 0,
+      unmatchedAmount: round2(money(unmatched?.amount ?? 0)),
+    };
   }
 
   // ------------------------------------------------------------ helpers --

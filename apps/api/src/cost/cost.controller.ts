@@ -24,7 +24,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import type { Response } from "express";
-import { Allocation, AccrualRow, UnmatchedQueue } from "@ecapital/shared";
+import { Allocation, AccrualRow, SapReport, UnmatchedQueue } from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
@@ -34,6 +34,7 @@ import { Needs, NeedsAny } from "../permissions/needs.guard";
 import {
   AccrualQuery,
   AllocationResult,
+  ConnectorImportRequest,
   ImportBatchList,
   ImportBatchResult,
   ImportRequest,
@@ -42,6 +43,7 @@ import {
 import { CostAccrualsService } from "./cost-accruals.service";
 import { accrualsWorkbook } from "./cost-export";
 import { CostImportsService } from "./cost-imports.service";
+import { assertReportActive } from "./source/cost-source";
 
 /** The upload limit. A month of ME2N for eleven units is a few thousand rows. */
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -87,7 +89,9 @@ export class CostController {
       required: ["file", "report", "period"],
       properties: {
         file: { type: "string", format: "binary" },
-        report: { type: "string", enum: ["ME2N", "KSB1", "FBL1N"] },
+        // ADR-0036 §5: ME2N and KSB1 are listed so a client can name them,
+        // and are refused with 422 errors.sapReportRetired.
+        report: { type: "string", enum: [...SapReport.options], description: "CAPEX_LINES or FBL1N; ME2N and KSB1 are retired" },
         period: { type: "string", example: "2026-03" },
         dryRun: { type: "boolean", default: true },
       },
@@ -97,18 +101,58 @@ export class CostController {
   @ApiZodError(400, "No file, or a report or period that is not valid")
   @ApiZodError(403, "A role that does not import")
   @ApiZodError(409, "That file has already been imported for that report")
-  @ApiZodError(422, "The file cannot be read, or a column the profile needs is missing")
+  @ApiZodError(
+    422,
+    "A retired report (ME2N, KSB1: errors.sapReportRetired), a file that cannot be read, or a column the profile needs is missing",
+  )
   async importExtract(
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() body: unknown,
   ): Promise<ImportBatchResult> {
-    if (!file?.buffer) throw AppError.badRequest("errors.costFileNeeded");
     const parsed = ImportRequest.safeParse(body ?? {});
+    // ADR-0036 §5: a retired report is refused before the file is looked at.
+    if (parsed.success) assertReportActive(parsed.data.report);
+    if (!file?.buffer) throw AppError.badRequest("errors.costFileNeeded");
     if (!parsed.success) throw AppError.badRequest("errors.costImportNotValid");
     return this.imports.import(parsed.data, {
       fileName: file.originalname,
       content: file.buffer,
     });
+  }
+
+  /**
+   * ADR-0036 §1. The capital lines straight from SAP administration's
+   * connector, for one fiscal year and a range of posting periods, through
+   * the same pipeline as the upload and with the same answer. Without
+   * SAP_CONNECTOR_URL and SAP_CONNECTOR_KEY it answers 422
+   * errors.costSourceNotConfigured. No nightly job yet; that is a later step.
+   */
+  @Post("imports/sap-connector")
+  @HttpCode(201)
+  @Needs("sapImport", "WRITE")
+  @ApiOperation({ summary: "Import the SAP capital lines from the connector, or say what importing them would do" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["fiscalYear", "periodFrom", "periodTo"],
+      properties: {
+        fiscalYear: { type: "integer", minimum: 2000, maximum: 2100, example: 2026 },
+        periodFrom: { type: "integer", minimum: 1, maximum: 16, example: 10 },
+        periodTo: { type: "integer", minimum: 1, maximum: 16, example: 10 },
+        dryRun: { type: "boolean", default: true },
+      },
+    },
+  })
+  @ApiZodResponse(201, ImportBatchResult, "The batch summary and the first fifty exceptions")
+  @ApiZodError(400, "A fiscal year or a period range that is not valid")
+  @ApiZodError(403, "A role that does not import")
+  @ApiZodError(409, "The same lines have already been imported")
+  @ApiZodError(422, "The connector is not configured, or its file lacks a column the profile needs")
+  @ApiZodError(502, "The connector refused the call or did not answer")
+  importFromConnector(@Body() body: unknown): Promise<ImportBatchResult> {
+    const parsed = ConnectorImportRequest.safeParse(body ?? {});
+    if (!parsed.success) throw AppError.badRequest("errors.sapConnectorQueryNotValid");
+    return this.imports.importFromConnector(parsed.data);
   }
 
   @Get("imports")

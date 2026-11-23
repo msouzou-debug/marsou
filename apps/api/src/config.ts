@@ -79,6 +79,15 @@ const EnvSchema = z
       .optional()
       .transform((v) => v === "1" || v?.toLowerCase() === "true"),
 
+    // ADR-0036 — SAP administration's connector for the capital spending
+    // lines (`sap_capex_lineitem_export`). Both optional. The key is
+    // **never in the repo**: it is placed on the server file to file like the
+    // eArchive token and read only by `SapMcpReader`, which never logs it.
+    // Without both (or with a blank or CHANGE-ME key) the connector reports
+    // errors.costSourceNotConfigured and the file upload is the way in.
+    SAP_CONNECTOR_URL: z.string().optional(),
+    SAP_CONNECTOR_KEY: z.string().optional(),
+
     // ADR-0023 — eArchive, ΟΚΥπΥ's protocol and records system (formerly
     // eMetroon), on the loopback beside eCapital's own API.
     EARCHIVE_URL: z.string().default("http://127.0.0.1:5011"),

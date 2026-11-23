@@ -43533,8 +43533,10 @@
                     "enum": [
                       "ME2N",
                       "KSB1",
-                      "FBL1N"
-                    ]
+                      "FBL1N",
+                      "CAPEX_LINES"
+                    ],
+                    "description": "CAPEX_LINES or FBL1N; ME2N and KSB1 are retired"
                   },
                   "period": {
                     "type": "string",
@@ -43577,7 +43579,8 @@
                           "enum": [
                             "ME2N",
                             "KSB1",
-                            "FBL1N"
+                            "FBL1N",
+                            "CAPEX_LINES"
                           ]
                         },
                         {
@@ -43841,7 +43844,7 @@
             }
           },
           "422": {
-            "description": "The file cannot be read, or a column the profile needs is missing",
+            "description": "A retired report (ME2N, KSB1: errors.sapReportRetired), a file that cannot be read, or a column the profile needs is missing",
             "content": {
               "application/json": {
                 "schema": {
@@ -43930,7 +43933,8 @@
                                 "enum": [
                                   "ME2N",
                                   "KSB1",
-                                  "FBL1N"
+                                  "FBL1N",
+                                  "CAPEX_LINES"
                                 ]
                               },
                               {
@@ -44090,6 +44094,428 @@
         ]
       }
     },
+    "/cost/imports/sap-connector": {
+      "post": {
+        "operationId": "CostController_importFromConnector",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fiscalYear",
+                  "periodFrom",
+                  "periodTo"
+                ],
+                "properties": {
+                  "fiscalYear": {
+                    "type": "integer",
+                    "minimum": 2000,
+                    "maximum": 2100,
+                    "example": 2026
+                  },
+                  "periodFrom": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16,
+                    "example": 10
+                  },
+                  "periodTo": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16,
+                    "example": 10
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The batch summary and the first fifty exceptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "SAP_EXTRACT",
+                        "SAP_MCP",
+                        "MANUAL",
+                        "EXCEL_MIGRATION",
+                        "EFINANCE"
+                      ]
+                    },
+                    "report": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ME2N",
+                            "KSB1",
+                            "FBL1N",
+                            "CAPEX_LINES"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fileName": {
+                      "type": "string"
+                    },
+                    "fileSha256": {
+                      "type": "string"
+                    },
+                    "profileId": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "rowsIn": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsMatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsUnmatched": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rowsRejected": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "amountIn": {
+                      "type": "number"
+                    },
+                    "amountMatched": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRY_RUN",
+                        "PENDING_ALLOCATION",
+                        "COMMITTED",
+                        "FAILED"
+                      ]
+                    },
+                    "importedById": {
+                      "type": "string"
+                    },
+                    "importedByName": {
+                      "type": "string"
+                    },
+                    "importedAt": {
+                      "type": "string"
+                    },
+                    "errorEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "errorEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exceptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rule": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "ERROR",
+                              "WARN",
+                              "INFO"
+                            ]
+                          },
+                          "rowNo": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "value": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "messageEl": {
+                            "type": "string"
+                          },
+                          "messageEn": {
+                            "type": "string"
+                          },
+                          "costTxnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "rule",
+                          "severity",
+                          "rowNo",
+                          "value",
+                          "messageEl",
+                          "messageEn",
+                          "costTxnId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "source",
+                    "report",
+                    "fileName",
+                    "fileSha256",
+                    "profileId",
+                    "period",
+                    "rowsIn",
+                    "rowsMatched",
+                    "rowsUnmatched",
+                    "rowsRejected",
+                    "amountIn",
+                    "amountMatched",
+                    "status",
+                    "importedById",
+                    "importedByName",
+                    "importedAt",
+                    "errorEl",
+                    "errorEn",
+                    "exceptions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A fiscal year or a period range that is not valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The same lines have already been imported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The connector is not configured, or its file lacks a column the profile needs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The connector refused the call or did not answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Import the SAP capital lines from the connector, or say what importing them would do",
+        "tags": [
+          "cost"
+        ]
+      }
+    },
     "/cost/imports/{id}": {
       "get": {
         "operationId": "CostController_detail",
@@ -44142,7 +44568,8 @@
                           "enum": [
                             "ME2N",
                             "KSB1",
-                            "FBL1N"
+                            "FBL1N",
+                            "CAPEX_LINES"
                           ]
                         },
                         {
@@ -44535,7 +44962,37 @@
                                   "COST_CENTRE",
                                   "MANUAL",
                                   "RULE",
-                                  "NONE"
+                                  "NONE",
+                                  "CONTRACT_REF",
+                                  "EFINANCE_INVOICE"
+                                ]
+                              },
+                              "vendorNo": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "contractRef": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "invoiceRef": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "efinanceInvoiceId": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
                                 ]
                               }
                             },
@@ -44561,7 +45018,11 @@
                               "costCentre",
                               "glAccount",
                               "importBatchId",
-                              "matchedBy"
+                              "matchedBy",
+                              "vendorNo",
+                              "contractRef",
+                              "invoiceRef",
+                              "efinanceInvoiceId"
                             ],
                             "additionalProperties": false
                           },
@@ -44892,7 +45353,37 @@
                                     "COST_CENTRE",
                                     "MANUAL",
                                     "RULE",
-                                    "NONE"
+                                    "NONE",
+                                    "CONTRACT_REF",
+                                    "EFINANCE_INVOICE"
+                                  ]
+                                },
+                                "vendorNo": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "contractRef": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "invoiceRef": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "efinanceInvoiceId": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 }
                               },
@@ -44918,7 +45409,11 @@
                                 "costCentre",
                                 "glAccount",
                                 "importBatchId",
-                                "matchedBy"
+                                "matchedBy",
+                                "vendorNo",
+                                "contractRef",
+                                "invoiceRef",
+                                "efinanceInvoiceId"
                               ],
                               "additionalProperties": false
                             },
@@ -45298,7 +45793,37 @@
                                     "COST_CENTRE",
                                     "MANUAL",
                                     "RULE",
-                                    "NONE"
+                                    "NONE",
+                                    "CONTRACT_REF",
+                                    "EFINANCE_INVOICE"
+                                  ]
+                                },
+                                "vendorNo": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "contractRef": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "invoiceRef": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "efinanceInvoiceId": {
+                                  "default": null,
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 }
                               },
@@ -45324,7 +45849,11 @@
                                 "costCentre",
                                 "glAccount",
                                 "importBatchId",
-                                "matchedBy"
+                                "matchedBy",
+                                "vendorNo",
+                                "contractRef",
+                                "invoiceRef",
+                                "efinanceInvoiceId"
                               ],
                               "additionalProperties": false
                             },
@@ -45568,7 +46097,8 @@
                           "enum": [
                             "ME2N",
                             "KSB1",
-                            "FBL1N"
+                            "FBL1N",
+                            "CAPEX_LINES"
                           ]
                         },
                         {
@@ -61746,7 +62276,8 @@
                           "BACKLOG_BY_BAND",
                           "ASSET_LIFECYCLE",
                           "CLINICAL_DISRUPTION",
-                          "STATUTORY_COMPLIANCE"
+                          "STATUTORY_COMPLIANCE",
+                          "SAP_RECONCILIATION"
                         ]
                       },
                       "takesYear": {
@@ -61813,7 +62344,7 @@
             "bearer": []
           }
         ],
-        "summary": "The report catalogue: the seven reports and the filters each takes",
+        "summary": "The report catalogue: the eight reports and the filters each takes",
         "tags": [
           "reports"
         ]
@@ -61868,7 +62399,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -62395,7 +62927,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -62898,7 +63431,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -63742,7 +64276,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -64184,7 +64719,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -64696,7 +65232,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -65135,7 +65672,8 @@
                             "BACKLOG_BY_BAND",
                             "ASSET_LIFECYCLE",
                             "CLINICAL_DISRUPTION",
-                            "STATUTORY_COMPLIANCE"
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
                           ]
                         },
                         "generatedAt": {
@@ -65525,6 +66063,515 @@
           }
         ],
         "summary": "Statutory compliance as Excel, with live formulas",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/sap-reconciliation": {
+      "get": {
+        "operationId": "ReportsController_sapReconciliation",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, inclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, exclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Largest absolute difference first, with totals and what is still unmatched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "enum": [
+                            "CAPITAL_PROGRAMME",
+                            "EXCEPTIONS",
+                            "CONTRACTOR_SCORECARD",
+                            "BACKLOG_BY_BAND",
+                            "ASSET_LIFECYCLE",
+                            "CLINICAL_DISRUPTION",
+                            "STATUTORY_COMPLIANCE",
+                            "SAP_RECONCILIATION"
+                          ]
+                        },
+                        "generatedAt": {
+                          "type": "string"
+                        },
+                        "orgUnitId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "orgUnitName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "year": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "generatedAt",
+                        "orgUnitId",
+                        "orgUnitName",
+                        "year",
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "contractId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contractRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "projectCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "orgUnitName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contractorName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "vendorNo": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sapLines": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "sapAmount": {
+                            "type": "number"
+                          },
+                          "efinanceInvoices": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "efinanceAmount": {
+                            "type": "number"
+                          },
+                          "difference": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "MATCHED",
+                              "DIFFERENCE",
+                              "SAP_ONLY",
+                              "EFINANCE_ONLY"
+                            ]
+                          },
+                          "linesWithoutRef": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "contractId",
+                          "contractRef",
+                          "projectCode",
+                          "orgUnitName",
+                          "contractorName",
+                          "vendorNo",
+                          "sapLines",
+                          "sapAmount",
+                          "efinanceInvoices",
+                          "efinanceAmount",
+                          "difference",
+                          "status",
+                          "linesWithoutRef"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "sapAmount": {
+                          "type": "number"
+                        },
+                        "efinanceAmount": {
+                          "type": "number"
+                        },
+                        "difference": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "sapAmount",
+                        "efinanceAmount",
+                        "difference"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "unmatchedLines": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "unmatchedAmount": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "meta",
+                    "rows",
+                    "totals",
+                    "unmatchedLines",
+                    "unmatchedAmount"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SAP capital lines against eFinance's booked invoices, per contract or vendor",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/reports/sap-reconciliation.xlsx": {
+      "get": {
+        "operationId": "ReportsController_sapReconciliationXlsx",
+        "parameters": [
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "description": "One unit; omitted = every unit the caller may see",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, inclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO date, exclusive; default this quarter",
+            "schema": {}
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook: one sheet «Στοιχεία», inputs as values, the difference and the totals as live formulas",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A year, a date or a period that is not usable (errors.reportQueryNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the reports are not for (ADR-0032 §6)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A unit the caller may not see",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SAP reconciliation as Excel, with live formulas",
         "tags": [
           "reports"
         ]

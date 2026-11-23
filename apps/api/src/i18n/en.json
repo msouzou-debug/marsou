@@ -78,13 +78,16 @@
     "contractRefNeeded": "Give the contract reference and try again.",
     "contractQueryNotValid": "The contract list filters are not right. Check the unit and the search term, then try again.",
     "costFileNeeded": "The monthly extract file is missing. Choose the file and try again.",
-    "costImportNotValid": "The import is incomplete. Name the report (ME2N, KSB1 or FBL1N) and the period as YYYY-MM.",
+    "costImportNotValid": "The import is incomplete. Name the report (CAPEX_LINES or FBL1N) and the period as YYYY-MM.",
     "costImportDuplicate": "The file {file} has already been imported for the same report. Choose next month's file, or run a dry run to see what is in it.",
     "costImportNotFound": "The import was not found, or you have no access to it. Choose an import from the list.",
     "costFileUnreadable": "The file does not read as an Excel workbook. Save it again as .xlsx or .csv and try again.",
     "costSheetMissing": "The file has no sheet called «{sheet}». Check the SAP export and try again.",
     "costColumnsMissing": "The import needs columns the file does not have: {columns}. Export the report again with the full column layout.",
     "costSourceNotConfigured": "The direct SAP connection is not configured. Upload the monthly extract as a file.",
+    "sapReportRetired": "The {report} report is no longer used. SAP holds no WBS elements and its purchase orders are for stock only. Upload the «SAP capital spending lines» file or FBL1N.",
+    "sapConnectorQueryNotValid": "The SAP call is not usable. Give a fiscal year from 2000 to 2100 and periods from 1 to 16, with the first period not after the last.",
+    "sapConnectorFailed": "The SAP connection did not answer as expected ({code}). Try again shortly, or upload the «SAP capital spending lines» file.",
     "costTxnNotFound": "Those rows are not in this import, or somebody has allocated them already. Refresh the queue and try again.",
     "allocationNotValid": "The allocation is incomplete. Choose at least one row and a project, then try again.",
     "costWarningNotFound": "The warning is not on this project. Refresh the page and try again.",
@@ -650,7 +653,8 @@
       "BACKLOG_BY_BAND": "Maintenance backlog by risk band",
       "ASSET_LIFECYCLE": "Asset lifecycle",
       "CLINICAL_DISRUPTION": "Clinical disruption",
-      "STATUTORY_COMPLIANCE": "Statutory compliance"
+      "STATUTORY_COMPLIANCE": "Statutory compliance",
+      "SAP_RECONCILIATION": "SAP lines against eFinance"
     },
     "meta": {
       "report": "Report",
@@ -697,6 +701,12 @@
       "PRESSURE_VESSELS": "Pressure vessels and boilers",
       "MEDICAL_GAS": "Medical gas",
       "FIRE_SYSTEMS": "Fire systems"
+    },
+    "sapStatus": {
+      "MATCHED": "Matched",
+      "DIFFERENCE": "Difference",
+      "SAP_ONLY": "SAP only",
+      "EFINANCE_ONLY": "eFinance only"
     },
     "columns": {
       "unit": "Unit",
@@ -800,7 +810,16 @@
       "delayPenaltyAmount": "Delay penalty (€)",
       "openClaims": "Open claims",
       "delayPenaltyAccrued": "Delay penalty (€)",
-      "culpableExtensionDays": "Extension days at the contractor's fault"
+      "culpableExtensionDays": "Extension days at the contractor's fault",
+      "contractRef": "Contract reference",
+      "vendorNo": "SAP vendor number",
+      "sapLines": "SAP lines",
+      "sapAmount": "SAP amount (€)",
+      "efinanceInvoices": "eFinance invoices",
+      "efinanceAmount": "eFinance amount (€)",
+      "difference": "Difference, SAP minus eFinance (€)",
+      "reconciliationStatus": "Reconciliation status",
+      "linesWithoutRef": "Lines without a contract reference"
     },
     "summary": {
       "item": "Measure",
@@ -815,7 +834,9 @@
       "assets": "Assets",
       "pastLife": "Assets at the end of their life",
       "band": "Risk band",
-      "staleProjects": "Projects without an update for 30 days"
+      "staleProjects": "Projects without an update for 30 days",
+      "unmatchedLines": "SAP lines without a project in the period",
+      "unmatchedAmount": "Amount of SAP lines without a project (€)"
     }
   },
   "roleGuardrails": {

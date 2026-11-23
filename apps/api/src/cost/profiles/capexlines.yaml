@@ -1,0 +1,59 @@
+# CAPEX_LINES — «Γραμμές κεφαλαιουχικών δαπανών SAP», SAP administration's
+# `sap_capex_lineitem_export` (ADR-0036).
+#
+# Lines from vendor documents only, on the capital GL accounts Finance names,
+# for a fiscal year and a period range, with the vendor number and the
+# contract's CAP- reference read from the vendor line. The same rows arrive as
+# a file a clerk uploads (CSV or Excel) or from the connector
+# (SapMcpReader), and this profile reads both.
+#
+# The columns, as SAP administration names them (23/11/2026): companyCode,
+# fiscalYear, period, document, item, documentDate, postingDate, glAccount,
+# amount, currency, text, assignment, reference, vendor, costCentre,
+# contractReference. companyCode, fiscalYear, period and currency are not
+# read: the batch carries its own period and the ledger is EUR only.
+profile: sap_capex_lines_v1
+report: CAPEX_LINES
+txn_type: ACTUAL
+sheet: null
+header_row: 1
+first_data_row: 2
+# The connector writes «1234.56», a Greek client re-saving the file writes
+# «1.234,56»; `auto` reads both (values.ts).
+number_format: auto
+# ISO yyyy-mm-dd from the connector, dd.mm.yyyy from a Greek client.
+date_format: auto
+# RULE (ADR-0036 §1): debit positive, credit negative, as SAP delivers it. An
+# invoice is spend and a credit note comes back out; no inversion.
+sign: as_posted
+# `;` from a Greek client, `,` from the connector: read off the header row.
+csv_delimiter: auto
+columns:
+  sourceRef:
+    headers: ["document", "Document Number", "Αριθμός εγγράφου", "Παραστατικό"]
+    required: true
+  lineItem:
+    headers: ["item", "Line Item", "Θέση"]
+  docDate:
+    headers: ["documentDate", "Document Date", "Ημερομηνία εγγράφου"]
+  postingDate:
+    headers: ["postingDate", "Posting Date", "Ημερομηνία καταχώρισης"]
+    required: true
+  amount:
+    headers: ["amount", "Amount in local currency", "Ποσό"]
+    required: true
+  description:
+    headers: ["text", "Κείμενο", "Αιτιολογία"]
+  assignment:
+    headers: ["assignment", "Αντιστοίχιση", "Ανάθεση"]
+  glAccount:
+    headers: ["glAccount", "G/L Account", "Λογαριασμός", "Λογαριασμός Γ.Λ."]
+  costCentre:
+    headers: ["costCentre", "costCenter", "Cost Center", "Κέντρο κόστους"]
+  vendorNo:
+    headers: ["vendor", "Vendor Number", "Αριθμός προμηθευτή", "Κωδικός προμηθευτή"]
+    required: true
+  contractRef:
+    headers: ["contractReference", "Contract Reference", "Αναφορά σύμβασης", "Κωδικός σύμβασης"]
+  invoiceRef:
+    headers: ["reference", "Invoice Number", "Αριθμός τιμολογίου", "Αναφορά τιμολογίου"]

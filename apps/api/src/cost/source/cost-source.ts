@@ -17,7 +17,8 @@
  * three-thousand-line extract must not cost the other two thousand
  * nine hundred and ninety-nine (CAPEX-03 §5 takes the same line).
  */
-import type { CostSource, CostTxnType, SapReport } from "@ecapital/shared";
+import { type CostSource, type CostTxnType, SAP_REPORTS_ACTIVE, type SapReport } from "@ecapital/shared";
+import { AppError } from "../../common/errors";
 
 /** What a reader was asked for. `payload` is the reader's own currency. */
 export interface CostSourceRequest {
@@ -57,6 +58,10 @@ export interface RawCostRow {
   sapPo: string | null;
   costCentre: string | null;
   glAccount: string | null;
+  /** ADR-0036, CAPEX_LINES only: SAP's vendor number, the line's CAP- reference, the vendor's invoice number. */
+  vendorNo: string | null;
+  contractRef: string | null;
+  invoiceRef: string | null;
   problems: RawRowProblem[];
 }
 
@@ -74,4 +79,20 @@ export const TXN_TYPE_BY_REPORT: Record<SapReport, CostTxnType> = {
   // money that has been posted, so both are actuals.
   KSB1: "ACTUAL",
   FBL1N: "ACTUAL",
+  // ADR-0036: posted vendor lines on the capital GL accounts.
+  CAPEX_LINES: "ACTUAL",
 };
+
+/**
+ * ADR-0036 §5: ME2N and KSB1 are retired for new imports. SAP holds no WBS
+ * and its purchase orders are for stock only (SAP administration,
+ * 20/11/2026), so neither extract can say which project a line is for. The
+ * batches already imported stay readable; a new one is refused with 422, at
+ * the route and again in every reader, so nothing reaches a retired profile
+ * around the route.
+ */
+export function assertReportActive(report: SapReport): void {
+  if (!SAP_REPORTS_ACTIVE.includes(report)) {
+    throw AppError.unprocessable("errors.sapReportRetired", { report });
+  }
+}

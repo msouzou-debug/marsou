@@ -953,7 +953,9 @@ export const projectNoteKind = ecapital.enum("project_note_kind", ["TECHNICAL"])
 // Migration 0011_m2_cost.sql is the source of truth; ADR-0021 says why the
 // rules are where they are.
 
-export const sapReport = ecapital.enum("sap_report", ["ME2N", "KSB1", "FBL1N"]);
+// ADR-0036 (0026): CAPEX_LINES. ME2N and KSB1 stay for the batches already
+// imported and are refused for new uploads.
+export const sapReport = ecapital.enum("sap_report", ["ME2N", "KSB1", "FBL1N", "CAPEX_LINES"]);
 export const importBatchStatus = ecapital.enum("import_batch_status", [
   "DRY_RUN",
   "PENDING_ALLOCATION",
@@ -967,6 +969,9 @@ export const costMatchedBy = ecapital.enum("cost_matched_by", [
   "MANUAL",
   "RULE",
   "NONE",
+  // ADR-0036 (0026).
+  "CONTRACT_REF",
+  "EFINANCE_INVOICE",
 ]);
 export const paymentCertStatus = ecapital.enum("payment_cert_status", [
   "DRAFT",
@@ -1110,6 +1115,11 @@ export const costTxn = ecapital.table(
     costCentre: text("cost_centre"),
     glAccount: text("gl_account"),
     matchedBy: costMatchedBy("matched_by").notNull().default("NONE"),
+    // ADR-0036 (0026): what a SAP capital line carries. Null on every other source.
+    vendorNo: text("vendor_no"),
+    contractRef: text("contract_ref"),
+    invoiceRef: text("invoice_ref"),
+    efinanceInvoiceId: text("efinance_invoice_id"),
     // A row the allocator passed over: still unmatched, still in the batch,
     // no longer offered by the queue.
     skipped: boolean("skipped").notNull().default(false),
@@ -1186,6 +1196,8 @@ export const allocationRule = ecapital.table(
     contractId: uuid("contract_id").references(() => contract.id, { onDelete: "set null" }),
     vendorName: text("vendor_name").notNull(),
     vendorNorm: text("vendor_norm").notNull(),
+    // ADR-0036 (0026): a capital-line rule is keyed on SAP's vendor number.
+    vendorNo: text("vendor_no"),
     textNorm: text("text_norm").notNull().default(""),
     hits: integer("hits").notNull().default(0),
     createdBy: uuid("created_by").references(() => appUser.id),
@@ -1193,7 +1205,10 @@ export const allocationRule = ecapital.table(
     updatedAt,
   },
   (t) => [
-    uniqueIndex("allocation_rule_key").on(t.vendorNorm, t.textNorm),
+    uniqueIndex("allocation_rule_key").on(t.vendorNorm, t.textNorm).where(sql`vendor_no is null`),
+    uniqueIndex("allocation_rule_vendor_no_key")
+      .on(t.vendorNo, t.textNorm)
+      .where(sql`vendor_no is not null`),
     index("allocation_rule_project_idx").on(t.projectId),
   ],
 );

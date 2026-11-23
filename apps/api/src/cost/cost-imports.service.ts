@@ -21,25 +21,29 @@
  * Postgres and gets errors.readOnlyAccount back.
  */
 import { createHash } from "node:crypto";
-import { Injectable } from "@nestjs/common";
-import type {
-  Allocation,
-  CostTxn,
-  ImportBatch,
-  SapReport,
-  Suggestion,
-  UnmatchedQueue,
-  UnmatchedRow,
+import { Inject, Injectable } from "@nestjs/common";
+import {
+  type Allocation,
+  CONTRACT_REF,
+  type CostSource,
+  type CostTxn,
+  type ImportBatch,
+  type SapReport,
+  type Suggestion,
+  type UnmatchedQueue,
+  type UnmatchedRow,
 } from "@ecapital/shared";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import { INSUFFICIENT_PRIVILEGE, UNIQUE_VIOLATION, sqlState } from "../common/sql-error";
+import { CONFIG, type AppConfig } from "../config";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import {
   type AllocationResult,
+  type ConnectorImportRequest,
   type ImportBatchList,
   type ImportBatchResult,
   type ImportException,
@@ -48,11 +52,11 @@ import {
 import { type ImportBatchRow, money, round2, toCostTxn, toImportBatch } from "./cost-rows";
 import { CostWarningsService } from "./cost-warnings.service";
 import type { CostSourceReader, RawCostRow } from "./source/cost-source";
-import { TXN_TYPE_BY_REPORT } from "./source/cost-source";
+import { TXN_TYPE_BY_REPORT, assertReportActive } from "./source/cost-source";
 import { SapExtractReader } from "./source/sap-extract.reader";
-import { SapMcpReader } from "./source/sap-mcp.reader";
+import { type SapConnectorPayload, SapMcpReader } from "./source/sap-mcp.reader";
 import { loadSapProfile } from "./source/sap-profile";
-import { normalise, ruleText } from "./text";
+import { normalise, ruleText, vendorKey } from "./text";
 
 /** How many exceptions an answer carries. The rest are in the batch. */
 const EXCEPTION_PAGE = 50;
@@ -65,31 +69,85 @@ interface MatchTarget {
   projectId: string | null;
   contractId: string | null;
   matchedBy: CostTxn["matchedBy"];
+  /** ADR-0036: the eFinance invoice an EFINANCE_INVOICE match hangs on. */
+  efinanceInvoiceId: string | null;
 }
 
-const NO_MATCH: MatchTarget = { projectId: null, contractId: null, matchedBy: "NONE" };
+const NO_MATCH: MatchTarget = { projectId: null, contractId: null, matchedBy: "NONE", efinanceInvoiceId: null };
+
+interface RuleTarget {
+  projectId: string;
+  contractId: string | null;
+  ruleId: string;
+}
+
+/** A booked eFinance invoice a capital line may be matched to (ADR-0036 §2). */
+interface InvoiceCandidate {
+  id: string;
+  contractId: string;
+  projectId: string;
+  /** The net amount in cents, so equality is exact. */
+  netCents: number;
+  invoiceDate: string;
+}
 
 /** The lookup tables one import resolves its rows against, read once. */
 interface MatchIndex {
   byWbs: { projectId: string; wbs: string }[];
   byPo: Map<string, { projectId: string; contractId: string }>;
   byCostCentre: Map<string, string>;
-  rules: Map<string, { projectId: string; contractId: string | null; ruleId: string }>;
+  /** Name rules: `${vendorNorm}|${textNorm}`. */
+  rules: Map<string, RuleTarget>;
+  // ADR-0036, CAPEX_LINES only; empty for every other report.
+  byContractRef: Map<string, { projectId: string; contractId: string }>;
+  /** Booked eFinance invoices by the SAP vendor number of the contract's contractor. */
+  invoicesByVendor: Map<string, InvoiceCandidate[]>;
+  /** Number rules: `${vendorKey}|${textNorm}`. */
+  vendorNoRules: Map<string, RuleTarget>;
+  /** eFinance's vendor names by vendor number. */
+  vendorNames: Map<string, string>;
+}
+
+/** A JS string array as a Postgres array literal, for `= any(...)`. */
+function toPgArray(values: string[]): string {
+  return `{${values.map((value) => `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",")}}`;
+}
+
+/** ADR-0036 §2: an eFinance invoice dated within this many days of the line's document date. */
+const INVOICE_DATE_WINDOW_DAYS = 3;
+
+function daysBetween(a: string, b: string): number {
+  return Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000;
+}
+
+/** One run of the pipeline: which reader, what it is handed, and what the batch is called. */
+interface Run {
+  report: SapReport;
+  period: string;
+  dryRun: boolean;
+  reader: CostSourceReader;
+  payload: unknown;
+  fileName: string;
+  /** The file's hash where there is a file; otherwise the hash of the rows read. */
+  sha256: ((rows: RawCostRow[]) => string) | string;
 }
 
 @Injectable()
 export class CostImportsService {
-  private readonly readers = new Map<string, CostSourceReader>([
-    ["SAP_EXTRACT", new SapExtractReader()],
-    // R15: present, registered, and without a server to talk to. The proof
-    // that the seam is real is that the pipeline reaches it the same way.
-    ["SAP_MCP", new SapMcpReader()],
-  ]);
+  private readonly readers: Map<CostSource, CostSourceReader>;
 
   constructor(
     private readonly i18n: I18nService,
     private readonly warnings: CostWarningsService,
-  ) {}
+    @Inject(CONFIG) config: AppConfig,
+  ) {
+    this.readers = new Map<CostSource, CostSourceReader>([
+      ["SAP_EXTRACT", new SapExtractReader()],
+      // R15, ADR-0036: the connector, configured from SAP_CONNECTOR_URL and
+      // SAP_CONNECTOR_KEY. Without both it answers «not configured».
+      ["SAP_MCP", new SapMcpReader({ url: config.SAP_CONNECTOR_URL, key: config.SAP_CONNECTOR_KEY })],
+    ]);
+  }
 
   /**
    * R14. Read the extract, match every row, and either write the batch or —
@@ -99,61 +157,121 @@ export class CostImportsService {
    * whose hash is already on a batch for the same report answers 409. A dry
    * run is exempt, because reading the same file again is how somebody checks
    * what changed.
+   *
+   * RULE (ADR-0036 §5): ME2N and KSB1 are refused with 422 before anything
+   * is read.
    */
   async import(
     request: ImportRequest,
     payload: { fileName: string; content: Buffer },
   ): Promise<ImportBatchResult> {
+    assertReportActive(request.report);
+    const reader = this.readers.get("SAP_EXTRACT");
+    if (!reader) throw AppError.internal();
+    return this.run({
+      report: request.report,
+      period: request.period,
+      dryRun: request.dryRun,
+      reader,
+      payload,
+      fileName: payload.fileName,
+      sha256: createHash("sha256").update(payload.content).digest("hex"),
+    });
+  }
+
+  /**
+   * ADR-0036 §1. The same import, from SAP administration's connector
+   * instead of a file: one fiscal year and a range of posting periods, read
+   * with the capital lines profile. The batch's period is the last month of
+   * the range (a special period 13–16 counts as December), and its hash is
+   * the hash of the lines read, so asking twice for a period that has not
+   * changed is the same file twice and answers 409.
+   *
+   * No nightly job yet: that is a later step (ADR-0036; SAP administration's
+   * answer 3, one call a month for the closed period).
+   */
+  async importFromConnector(request: ConnectorImportRequest): Promise<ImportBatchResult> {
+    const reader = this.readers.get("SAP_MCP");
+    if (!reader) throw AppError.internal();
+    const payload: SapConnectorPayload = {
+      fiscalYear: request.fiscalYear,
+      periodFrom: request.periodFrom,
+      periodTo: request.periodTo,
+    };
+    const month = String(Math.min(request.periodTo, 12)).padStart(2, "0");
+    const range = `${request.fiscalYear}-${String(request.periodFrom).padStart(2, "0")}-${String(request.periodTo).padStart(2, "0")}`;
+    return this.run({
+      report: "CAPEX_LINES",
+      period: `${request.fiscalYear}-${month}`,
+      dryRun: request.dryRun,
+      reader,
+      payload,
+      fileName: `sap-connector-capexlines-${range}.csv`,
+      sha256: (rows) =>
+        createHash("sha256")
+          .update(`CAPEX_LINES:${range}\n`)
+          .update(JSON.stringify(rows))
+          .digest("hex"),
+    });
+  }
+
+  private async run(input: Run): Promise<ImportBatchResult> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
 
-    const reader = this.readers.get("SAP_EXTRACT");
-    if (!reader) throw AppError.internal();
-    const profile = loadSapProfile(request.report);
-    const sha256 = createHash("sha256").update(payload.content).digest("hex");
+    const profile = loadSapProfile(input.report);
+    const source = input.reader.source;
 
-    if (!request.dryRun) {
+    const read: RawCostRow[] = [];
+    for await (const row of input.reader.read({
+      report: input.report,
+      period: input.period,
+      payload: input.payload,
+    })) {
+      read.push(row);
+    }
+    const sha256 = typeof input.sha256 === "string" ? input.sha256 : input.sha256(read);
+
+    if (!input.dryRun) {
       const already = await tx.db
         .select({ id: schema.importBatch.id })
         .from(schema.importBatch)
         .where(
           and(
             eq(schema.importBatch.fileSha256, sha256),
-            eq(schema.importBatch.report, request.report),
+            eq(schema.importBatch.report, input.report),
             sql`${schema.importBatch.status} <> 'FAILED'`,
           ),
         )
         .limit(1);
       if (already.length) {
-        throw AppError.conflict("errors.costImportDuplicate", { file: payload.fileName });
+        throw AppError.conflict("errors.costImportDuplicate", { file: input.fileName });
       }
     }
 
-    const index = await this.matchIndex();
+    const index = await this.matchIndex(input.report, read);
     const exceptions: ImportException[] = [];
     const matched: {
       row: RawCostRow;
       target: MatchTarget;
     }[] = [];
+    // ADR-0036 §2: one eFinance invoice backs one SAP line.
+    const usedInvoices = new Set<string>();
 
     let rowsIn = 0;
     let rowsRejected = 0;
     let amountIn = 0;
 
-    for await (const row of reader.read({
-      report: request.report,
-      period: request.period,
-      payload,
-    })) {
+    for (const raw of read) {
       rowsIn += 1;
-      if (row.problems.length || row.amount === null || row.postingDate === null) {
+      if (raw.problems.length || raw.amount === null || raw.postingDate === null) {
         rowsRejected += 1;
-        for (const problem of row.problems) {
+        for (const problem of raw.problems) {
           exceptions.push({
-            id: `${sha256.slice(0, 8)}:${row.rowNo}:${problem.rule}`,
+            id: `${sha256.slice(0, 8)}:${raw.rowNo}:${problem.rule}`,
             rule: problem.rule,
             severity: "ERROR",
-            rowNo: row.rowNo,
+            rowNo: raw.rowNo,
             value: problem.value,
             messageEl: this.i18n.translate(problem.messageKey, "el", problem.params),
             messageEn: this.i18n.translate(problem.messageKey, "en", problem.params),
@@ -162,8 +280,17 @@ export class CostImportsService {
         }
         continue;
       }
-      amountIn = round2(amountIn + row.amount);
-      matched.push({ row, target: this.matchOf(row, index) });
+      // ADR-0036 §6: SAP sends the vendor number only; the name shown beside
+      // it is eFinance's, or the number itself where eFinance does not know it.
+      const row =
+        input.report === "CAPEX_LINES" && raw.vendorNo
+          ? { ...raw, vendorName: index.vendorNames.get(vendorKey(raw.vendorNo)) ?? raw.vendorNo }
+          : raw;
+      amountIn = round2(amountIn + (row.amount ?? 0));
+      const target =
+        input.report === "CAPEX_LINES" ? this.matchCapexLine(row, index, usedInvoices) : this.matchOf(row, index);
+      if (target.efinanceInvoiceId) usedInvoices.add(target.efinanceInvoiceId);
+      matched.push({ row, target });
     }
 
     const rowsUnmatched = matched.filter((item) => item.target.projectId === null).length;
@@ -179,14 +306,15 @@ export class CostImportsService {
     // list would be ceremony.
     const status = rowsUnmatched === 0 ? "COMMITTED" : "PENDING_ALLOCATION";
 
-    if (request.dryRun) {
+    if (input.dryRun) {
       return {
         ...this.dryRunBatch({
           sha256,
-          fileName: payload.fileName,
+          source,
+          fileName: input.fileName,
           profileId: profile.profile,
-          report: request.report,
-          period: request.period,
+          report: input.report,
+          period: input.period,
           rowsIn,
           rowsMatched,
           rowsUnmatched,
@@ -208,12 +336,12 @@ export class CostImportsService {
       const [batch] = await tx.db
         .insert(schema.importBatch)
         .values({
-          source: "SAP_EXTRACT",
-          report: request.report,
-          fileName: payload.fileName,
+          source,
+          report: input.report,
+          fileName: input.fileName,
           fileSha256: sha256,
           profileId: profile.profile,
-          period: request.period,
+          period: input.period,
           rowsIn,
           rowsMatched,
           rowsUnmatched,
@@ -231,12 +359,12 @@ export class CostImportsService {
         throw AppError.forbidden("errors.readOnlyAccount");
       }
       if (sqlState(error) === UNIQUE_VIOLATION) {
-        throw AppError.conflict("errors.costImportDuplicate", { file: payload.fileName });
+        throw AppError.conflict("errors.costImportDuplicate", { file: input.fileName });
       }
       throw error;
     }
 
-    const txnType = TXN_TYPE_BY_REPORT[request.report];
+    const txnType = TXN_TYPE_BY_REPORT[input.report];
     const values = matched.map((item) => ({
       // The trigger fills this from the project where there is one; a row
       // with no project belongs to no unit until somebody allocates it.
@@ -244,7 +372,7 @@ export class CostImportsService {
       projectId: item.target.projectId,
       contractId: item.target.contractId,
       txnType,
-      source: "SAP_EXTRACT" as const,
+      source,
       sourceRef: `${item.row.sourceRef}#${item.row.rowNo}`,
       docDate: item.row.docDate,
       postingDate: item.row.postingDate,
@@ -255,6 +383,10 @@ export class CostImportsService {
       sapPo: item.row.sapPo,
       costCentre: item.row.costCentre,
       glAccount: item.row.glAccount,
+      vendorNo: item.row.vendorNo,
+      contractRef: item.row.contractRef,
+      invoiceRef: item.row.invoiceRef,
+      efinanceInvoiceId: item.target.efinanceInvoiceId,
       importBatchId: batchId,
       matchedBy: item.target.matchedBy,
     }));
@@ -399,6 +531,7 @@ export class CostImportsService {
       .select({
         id: schema.costTxn.id,
         vendorName: schema.costTxn.vendorName,
+        vendorNo: schema.costTxn.vendorNo,
         description: schema.costTxn.description,
       })
       .from(schema.costTxn)
@@ -434,6 +567,40 @@ export class CostImportsService {
       const caller = await callerUserId();
       const seen = new Set<string>();
       for (const row of rows) {
+        // RULE (ADR-0036): a capital line is remembered by SAP's vendor
+        // number, which is what next month's line will carry; any other row
+        // by the vendor's name, as before.
+        const vendorNo = vendorKey(row.vendorNo);
+        if (vendorNo) {
+          const textNorm = ruleText(row.description);
+          const key = `no:${vendorNo}|${textNorm}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const vendorName = row.vendorName ?? vendorNo;
+          await tx.db
+            .insert(schema.allocationRule)
+            .values({
+              orgUnitId: project.orgUnitId,
+              projectId: input.projectId,
+              contractId: input.contractId,
+              vendorName,
+              vendorNorm: normalise(vendorName),
+              vendorNo,
+              textNorm,
+              createdBy: caller,
+            })
+            .onConflictDoUpdate({
+              target: [schema.allocationRule.vendorNo, schema.allocationRule.textNorm],
+              targetWhere: sql`vendor_no is not null`,
+              set: {
+                projectId: input.projectId,
+                contractId: input.contractId,
+                hits: sql`${schema.allocationRule.hits} + 1`,
+                updatedAt: sql`now()`,
+              },
+            });
+          continue;
+        }
         if (!row.vendorName) continue;
         const vendorNorm = normalise(row.vendorName);
         const textNorm = ruleText(row.description);
@@ -453,6 +620,7 @@ export class CostImportsService {
           })
           .onConflictDoUpdate({
             target: [schema.allocationRule.vendorNorm, schema.allocationRule.textNorm],
+            targetWhere: sql`vendor_no is null`,
             set: {
               projectId: input.projectId,
               contractId: input.contractId,
@@ -586,6 +754,9 @@ export class CostImportsService {
    * outright. A purchase order names the contract, and the contract names the
    * project. A cost centre names the unit's project where one carries it. A
    * remembered rule is a judgement, and a judgement yields to a fact.
+   *
+   * ADR-0036 §2: this order stays for FBL1N and for the batches already
+   * imported; the capital lines have their own (`matchCapexLine`).
    */
   private matchOf(row: RawCostRow, index: MatchIndex): MatchTarget {
     if (row.sapWbs) {
@@ -594,21 +765,21 @@ export class CostImportsService {
       // «C-2026-014» — and the posting carries the leaf. An exact match
       // first, then the longest prefix that ends on a separator.
       const exact = index.byWbs.find((entry) => entry.wbs === wbs);
-      if (exact) return { projectId: exact.projectId, contractId: null, matchedBy: "WBS" };
+      if (exact) return { ...NO_MATCH, projectId: exact.projectId, matchedBy: "WBS" };
       const prefixed = index.byWbs
         .filter((entry) => wbs.startsWith(entry.wbs) && /[^A-Z0-9]/.test(wbs[entry.wbs.length] ?? ""))
         .sort((a, b) => b.wbs.length - a.wbs.length)[0];
-      if (prefixed) return { projectId: prefixed.projectId, contractId: null, matchedBy: "WBS" };
+      if (prefixed) return { ...NO_MATCH, projectId: prefixed.projectId, matchedBy: "WBS" };
     }
 
     if (row.sapPo) {
       const po = index.byPo.get(row.sapPo.trim().toUpperCase());
-      if (po) return { projectId: po.projectId, contractId: po.contractId, matchedBy: "PO" };
+      if (po) return { ...NO_MATCH, projectId: po.projectId, contractId: po.contractId, matchedBy: "PO" };
     }
 
     if (row.costCentre) {
       const projectId = index.byCostCentre.get(row.costCentre.trim().toUpperCase());
-      if (projectId) return { projectId, contractId: null, matchedBy: "COST_CENTRE" };
+      if (projectId) return { ...NO_MATCH, projectId, matchedBy: "COST_CENTRE" };
     }
 
     if (row.vendorName) {
@@ -616,15 +787,70 @@ export class CostImportsService {
       const text = ruleText(row.description);
       const rule = index.rules.get(`${vendor}|${text}`) ?? index.rules.get(`${vendor}|`);
       if (rule) {
-        return { projectId: rule.projectId, contractId: rule.contractId, matchedBy: "RULE" };
+        return { ...NO_MATCH, projectId: rule.projectId, contractId: rule.contractId, matchedBy: "RULE" };
       }
     }
 
     return NO_MATCH;
   }
 
-  /** The four lookups, read once per import rather than once per row. */
-  private async matchIndex(): Promise<MatchIndex> {
+  /**
+   * RULE (ADR-0036 §2): a capital line finds its contract by
+   *  (a) its CAP- reference, when the reference names a contract here;
+   *  (b) the vendor number, the net amount to the cent and the document date
+   *      within three days, against a booked eFinance invoice on a contract
+   *      whose contractor carries that SAP vendor number — and only when
+   *      exactly one invoice answers, because two equal candidates are a
+   *      question for a person, not a match;
+   *  (c) a remembered rule on the vendor number and the narrative, then on
+   *      the vendor number alone;
+   *  (d) otherwise the queue.
+   * WBS, purchase order and cost centre do not run: SAP holds none of them
+   * for capital works (SAP administration, 20/11/2026).
+   */
+  private matchCapexLine(row: RawCostRow, index: MatchIndex, used: Set<string>): MatchTarget {
+    const ref = row.contractRef?.trim().toUpperCase() ?? "";
+    if (CONTRACT_REF.test(ref)) {
+      const contract = index.byContractRef.get(ref);
+      if (contract) {
+        return { ...NO_MATCH, projectId: contract.projectId, contractId: contract.contractId, matchedBy: "CONTRACT_REF" };
+      }
+    }
+
+    const vendor = vendorKey(row.vendorNo);
+    if (vendor && row.amount !== null && row.docDate) {
+      const cents = Math.round(row.amount * 100);
+      const docDate = row.docDate;
+      const candidates = (index.invoicesByVendor.get(vendor) ?? []).filter(
+        (invoice) =>
+          !used.has(invoice.id) &&
+          invoice.netCents === cents &&
+          daysBetween(invoice.invoiceDate, docDate) <= INVOICE_DATE_WINDOW_DAYS,
+      );
+      if (candidates.length === 1) {
+        const [invoice] = candidates;
+        return {
+          projectId: invoice.projectId,
+          contractId: invoice.contractId,
+          matchedBy: "EFINANCE_INVOICE",
+          efinanceInvoiceId: invoice.id,
+        };
+      }
+    }
+
+    if (vendor) {
+      const text = ruleText(row.description);
+      const rule = index.vendorNoRules.get(`${vendor}|${text}`) ?? index.vendorNoRules.get(`${vendor}|`);
+      if (rule) {
+        return { ...NO_MATCH, projectId: rule.projectId, contractId: rule.contractId, matchedBy: "RULE" };
+      }
+    }
+
+    return NO_MATCH;
+  }
+
+  /** The lookups, read once per import rather than once per row. */
+  private async matchIndex(report: SapReport, rows: RawCostRow[]): Promise<MatchIndex> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
 
@@ -639,6 +865,7 @@ export class CostImportsService {
       tx.db
         .select({
           id: schema.contract.id,
+          ref: schema.contract.ref,
           projectId: schema.contract.projectId,
           sapPoNumber: schema.contract.sapPoNumber,
         })
@@ -649,6 +876,7 @@ export class CostImportsService {
           projectId: schema.allocationRule.projectId,
           contractId: schema.allocationRule.contractId,
           vendorNorm: schema.allocationRule.vendorNorm,
+          vendorNo: schema.allocationRule.vendorNo,
           textNorm: schema.allocationRule.textNorm,
         })
         .from(schema.allocationRule),
@@ -664,6 +892,7 @@ export class CostImportsService {
     }
 
     const byPo = new Map<string, { projectId: string; contractId: string }>();
+    const byContractRef = new Map<string, { projectId: string; contractId: string }>();
     for (const row of contracts) {
       if (row.sapPoNumber) {
         byPo.set(row.sapPoNumber.trim().toUpperCase(), {
@@ -671,18 +900,74 @@ export class CostImportsService {
           contractId: row.id,
         });
       }
+      byContractRef.set(row.ref.trim().toUpperCase(), { projectId: row.projectId, contractId: row.id });
     }
 
-    const ruleMap = new Map<string, { projectId: string; contractId: string | null; ruleId: string }>();
+    const ruleMap = new Map<string, RuleTarget>();
+    const vendorNoRules = new Map<string, RuleTarget>();
     for (const rule of rules) {
-      ruleMap.set(`${rule.vendorNorm}|${rule.textNorm}`, {
-        projectId: rule.projectId,
-        contractId: rule.contractId,
-        ruleId: rule.id,
-      });
+      const target = { projectId: rule.projectId, contractId: rule.contractId, ruleId: rule.id };
+      if (rule.vendorNo) vendorNoRules.set(`${vendorKey(rule.vendorNo)}|${rule.textNorm}`, target);
+      else ruleMap.set(`${rule.vendorNorm}|${rule.textNorm}`, target);
     }
 
-    return { byWbs, byPo, byCostCentre, rules: ruleMap };
+    const index: MatchIndex = {
+      byWbs,
+      byPo,
+      byCostCentre,
+      rules: ruleMap,
+      byContractRef,
+      invoicesByVendor: new Map(),
+      vendorNoRules,
+      vendorNames: new Map(),
+    };
+    if (report !== "CAPEX_LINES") return index;
+
+    const vendors = [...new Set(rows.map((row) => vendorKey(row.vendorNo)).filter((key) => key !== ""))];
+    if (!vendors.length) return index;
+
+    // RULE (ADR-0036 §2, and the sync's own rule for spend): only a booked
+    // invoice in euro, on a contract eCapital knows, of a contractor that
+    // carries a SAP vendor number. An invoice another SAP line already
+    // matched is not offered twice.
+    const invoices = await tx.db.execute<{
+      id: string;
+      contract_id: string;
+      project_id: string;
+      sap_vendor_id: string;
+      net: string;
+      invoice_date: string;
+    }>(sql`
+      select i.id, i.contract_id, c.project_id, k.sap_vendor_id, i.net::text as net,
+             to_char(i.invoice_date, 'YYYY-MM-DD') as invoice_date
+        from ecapital.efinance_invoice i
+        join ecapital.contract c on c.id = i.contract_id
+        join ecapital.contractor k on k.id = c.contractor_id
+       where i.ledger = 'booked' and i.currency = 'EUR'
+         and i.net is not null and i.invoice_date is not null
+         and k.sap_vendor_id is not null
+         and not exists (select 1 from ecapital.cost_txn t where t.efinance_invoice_id = i.id)`);
+    for (const invoice of invoices.rows) {
+      const key = vendorKey(invoice.sap_vendor_id);
+      if (!vendors.includes(key)) continue;
+      const list = index.invoicesByVendor.get(key) ?? [];
+      list.push({
+        id: invoice.id,
+        contractId: invoice.contract_id,
+        projectId: invoice.project_id,
+        netCents: Math.round(Number(invoice.net) * 100),
+        invoiceDate: invoice.invoice_date,
+      });
+      index.invoicesByVendor.set(key, list);
+    }
+
+    // ADR-0036 §6: the name beside the number is eFinance's.
+    const names = await tx.db.execute<{ vendor_code: string; name: string }>(sql`
+      select vendor_code, name from ecapital.efinance_vendor
+       where (case when vendor_code ~ '^[0-9]+$' then coalesce(nullif(ltrim(vendor_code, '0'), ''), '0')
+                   else upper(trim(vendor_code)) end) = any(${toPgArray(vendors)}::text[])`);
+    for (const row of names.rows) index.vendorNames.set(vendorKey(row.vendor_code), row.name);
+    return index;
   }
 
   /**
@@ -699,6 +984,8 @@ export class CostImportsService {
     const po = txn.sapPo ? txn.sapPo.trim() : "";
     const costCentre = txn.costCentre ? txn.costCentre.trim() : "";
     const vendor = txn.vendorName ? normalise(txn.vendorName) : "";
+    // ADR-0036: a capital line's rules are keyed on the vendor number.
+    const vendorNo = vendorKey(txn.vendorNo);
     const text = txn.description ? normalise(txn.description) : "";
 
     const result = await tx.db.execute<{
@@ -740,7 +1027,8 @@ export class CostImportsService {
           from ecapital.allocation_rule r
           join ecapital.project p on p.id = r.project_id
           left join ecapital.contract c on c.id = r.contract_id
-         where ${vendor}::text <> '' and r.vendor_norm = ${vendor}::text
+         where (${vendor}::text <> '' and r.vendor_norm = ${vendor}::text)
+            or (${vendorNo}::text <> '' and r.vendor_no = ${vendorNo}::text)
          order by r.hits desc
          limit 3),
       text_match as (
@@ -811,6 +1099,7 @@ export class CostImportsService {
    */
   private dryRunBatch(input: {
     sha256: string;
+    source: CostSource;
     fileName: string;
     profileId: string;
     report: SapReport;
@@ -825,7 +1114,7 @@ export class CostImportsService {
   }): ImportBatch {
     return {
       id: `dry-run:${input.sha256.slice(0, 12)}`,
-      source: "SAP_EXTRACT",
+      source: input.source,
       report: input.report,
       fileName: input.fileName,
       fileSha256: input.sha256,
@@ -952,4 +1241,8 @@ const TXN_COLUMNS = {
   glAccount: schema.costTxn.glAccount,
   importBatchId: schema.costTxn.importBatchId,
   matchedBy: schema.costTxn.matchedBy,
+  vendorNo: schema.costTxn.vendorNo,
+  contractRef: schema.costTxn.contractRef,
+  invoiceRef: schema.costTxn.invoiceRef,
+  efinanceInvoiceId: schema.costTxn.efinanceInvoiceId,
 };
