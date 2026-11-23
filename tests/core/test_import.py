@@ -26,7 +26,7 @@ def good(**override):
         "directorates": [list(SHEETS["directorates"]), ["XD1", "Α", "A", "yes", "yes"], ["XD2", "Β", "B", "no", "yes"]],
         "facilities": [list(SHEETS["facilities"]), ["XD1", "XF1", "Νοσ", "Hosp", "NGH", "yes"]],
         "positions": [list(SHEETS["positions"]), ["medical", "Ιατρός Χ", "Doctor X", "dx", "yes"]],
-        "cost_centres": [list(SHEETS["cost_centres"]), ["X100", "Κέντρο", "Centre", "yes"]],
+        "cost_centres": [list(SHEETS["cost_centres"]), ["X100", "Κέντρο", "Centre", "", "yes"]],
         "oay_specialties": [list(SHEETS["oay_specialties"]), ["Χειρουργική Χ", "yes"]],
         "users": [list(SHEETS["users"]), ["x.boss", "Boss X", "boss@example.org", "local", "", "yes"],
                   ["x.acc", "Acc X", "", "local", "x.boss", "yes"], ["x.ad", "Ad X", "", "ad", "", "no"]],
@@ -135,7 +135,7 @@ def test_update_and_deactivate(seeded, client):
     run(client, good())
     changed = good(
         directorates=[list(SHEETS["directorates"]), ["XD1", "Α2", "A2", "no", "no"]],
-        cost_centres=[list(SHEETS["cost_centres"]), ["X100", "Κέντρο", "Centre 2", "no"]],
+        cost_centres=[list(SHEETS["cost_centres"]), ["X100", "Κέντρο", "Centre 2", "", "no"]],
         users=[list(SHEETS["users"]), ["X.BOSS", "Boss Y", "", "local", "", "no"]],
         role_holders=[list(SHEETS["role_holders"]), ["ceo", "", "x.acc", ""]],
     )
@@ -175,13 +175,13 @@ def test_file_safety(seeded, client):
     assert "alert-danger" in post(client, io.BytesIO(b"x"), "x.csv").get_data(as_text=True)
     big = io.BytesIO(b"PK\x03\x04" + b"0" * (5 * 1024 * 1024 + 10))
     assert "alert-danger" in post(client, big).get_data(as_text=True)
-    many = good(cost_centres=[list(SHEETS["cost_centres"])] + [[f"C{i}", "Α", "A", "yes"] for i in range(5001)])
+    many = good(cost_centres=[list(SHEETS["cost_centres"])] + [[f"C{i}", "Α", "A", "", "yes"] for i in range(5001)])
     assert "data-import-errors" in post(client, many).get_data(as_text=True)
 
 
 def test_blank_rows_and_whitespace_ignored(seeded, client):
     admin(client)
-    rows = [list(SHEETS["cost_centres"]), [None, None, None, None], ["  X7  ", " Α ", " A ", None]]
+    rows = [list(SHEETS["cost_centres"]), [None] * 5, ["  X7  ", " Α ", " A ", None, None]]
     assert run(client, good(cost_centres=rows)).status_code == 302
     assert CostCentre.query.filter_by(code="X7").one().name_en == "A"
 

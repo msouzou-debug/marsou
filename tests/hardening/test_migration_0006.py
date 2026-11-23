@@ -31,7 +31,7 @@ def test_upgrade_adds_the_column_and_the_table_and_keeps_rows(engine):
     at_version_five(engine)
     insp = inspect(engine)
     assert "code" not in {c["name"] for c in insp.get_columns("position")} and not insp.has_table("number_counter")
-    assert migrations.upgrade(engine) == [6]
+    assert migrations.upgrade(engine) == [6, 7]  # 0007 finds its column already there
     insp = inspect(engine)
     assert "code" in {c["name"] for c in insp.get_columns("position")}
     assert {c["name"] for c in insp.get_columns("number_counter")} == {"stem", "last_value"}

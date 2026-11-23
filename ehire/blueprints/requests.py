@@ -165,6 +165,9 @@ def options():
     elif which == "position":
         category = request.args.get("category")
         rows = lookups.position_options(category) if category in CATEGORIES else []
+    elif which == "cost_centre":
+        directorate_id = _int_arg("directorate_id")
+        rows = lookups.cost_centre_options(directorate_id) if directorate_id in lookups.directorate_ids else []
     else:
         abort(404)
     return jsonify(options=[{"id": i, "label": label} for i, label, _group in rows])
@@ -173,7 +176,7 @@ def options():
 # ------------------------------------------------------------------ form
 
 def _render_form(req, raw, errors=None, form_errors=(), lookups=None, note=""):
-    lookups = lookups or form_rules.Lookups(current_user(), g.lang)
+    lookups = lookups or form_rules.Lookups(current_user(), g.lang, req)
     errors = errors or {}
     resubmitting = req is not None and req.status == "returned"
     returned = None
@@ -188,7 +191,7 @@ def _render_form(req, raw, errors=None, form_errors=(), lookups=None, note=""):
         "requests/form.html", req=req, raw=raw, errors=errors, form_errors=form_errors, lookups=lookups,
         show=form_rules.applicable(raw), stops=stops, summary=_summary(errors),
         directorate_options=[(d.id, d.name(g.lang), None) for d in lookups.directorates],
-        cost_centre_options=[(c.id, c.code + " " + c.name(g.lang), None) for c in lookups.cost_centres],
+        cost_centre_options=lookups.cost_centre_options(d_id, form_rules._int(raw["cost_centre_id"])),
         specialty_options=[(s.id, s.name, None) for s in lookups.specialties],
         category_options=[(c, "category." + c, None) for c in CATEGORIES],
         reason_options=[(r, "reason." + r, None) for r in REASONS],
@@ -275,7 +278,7 @@ def create():
 
 def _handle_post(req):
     user = current_user()
-    lookups = form_rules.Lookups(user, g.lang)
+    lookups = form_rules.Lookups(user, g.lang, req)
     raw = form_rules.read_form(request.form)
     intent = request.form.get("intent") or "draft"
 
@@ -329,7 +332,7 @@ STALE = ("not_your_task", "request_closed", "request_returned", "wrong_step", "o
 def _handle_resubmit(req):
     """The requester corrects a returned request (T9a or T9b). The engine decides which; this gathers and stores."""
     user = current_user()
-    lookups = form_rules.Lookups(user, g.lang)
+    lookups = form_rules.Lookups(user, g.lang, req)
     raw = form_rules.read_form(request.form)
     raw["directorate_id"] = str(req.directorate_id)
     note = (request.form.get("resubmit_note") or "").strip()

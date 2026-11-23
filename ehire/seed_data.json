@@ -254,42 +254,50 @@
   {
    "code": "1001",
    "name_el": "Παθολογική κλινική",
-   "name_en": "Medical ward"
+   "name_en": "Medical ward",
+   "directorate": "NIC"
   },
   {
    "code": "1002",
    "name_el": "Χειρουργική κλινική",
-   "name_en": "Surgical ward"
+   "name_en": "Surgical ward",
+   "directorate": "NIC"
   },
   {
    "code": "1003",
    "name_el": "Τμήμα Επειγόντων Περιστατικών",
-   "name_en": "Accident and Emergency"
+   "name_en": "Accident and Emergency",
+   "directorate": "NIC"
   },
   {
    "code": "1004",
    "name_el": "Μαιευτική κλινική",
-   "name_en": "Maternity ward"
+   "name_en": "Maternity ward",
+   "directorate": "LIM"
   },
   {
    "code": "1005",
    "name_el": "Εξωτερικά ιατρεία",
-   "name_en": "Outpatient clinics"
+   "name_en": "Outpatient clinics",
+   "directorate": "LAR"
   },
   {
    "code": "1006",
    "name_el": "Εργαστήρια",
-   "name_en": "Laboratories"
+   "name_en": "Laboratories",
+   "directorate": "PHC"
   },
   {
    "code": "1007",
    "name_el": "Ακτινολογικό τμήμα",
-   "name_en": "Radiology"
+   "name_en": "Radiology",
+   "directorate": "MH"
   },
   {
    "code": "1008",
    "name_el": "Φυσικοθεραπεία",
-   "name_en": "Physiotherapy"
+   "name_en": "Physiotherapy",
+   "directorate": "AMB"
   },
   {
    "code": "1009",

@@ -84,7 +84,7 @@ def raw_from_request(req):
 class Lookups:
     """The lists a requester may choose from, loaded once per request."""
 
-    def __init__(self, user, lang):
+    def __init__(self, user, lang, req=None):
         self.lang = lang
         allowed = {r.directorate_id for r in UserDirectorate.query.filter_by(user_id=user.id)}
         for a in RoleAssignment.query.filter((RoleAssignment.user_id == user.id) |
@@ -103,7 +103,10 @@ class Lookups:
         self.specialties = OaySpecialty.query.filter_by(is_active=True).order_by(OaySpecialty.name).all()
         self.facility_dir = {f.id: f.directorate_id for f in self.facilities}
         self.position_cat = {p.id: p.category for p in self.positions}
-        self.cost_centre_ids = {c.id for c in self.cost_centres}
+        self.cost_centre_dir = {c.id: c.directorate_id for c in self.cost_centres}
+        # The cost centre and Directorate already saved on this request: kept as they are on a draft even when the
+        # cost centre has since been deactivated or moved (contract 03, section 3).
+        self.kept_cost_centre = (req.cost_centre_id, req.directorate_id) if req is not None and req.cost_centre_id else None
         self.specialty_ids = {s.id for s in self.specialties}
 
     def facility_options(self, directorate_id):
@@ -116,6 +119,28 @@ class Lookups:
             elif f.directorate_id == directorate_id:
                 out.append((f.id, f.name(self.lang), None))
         return out
+
+    def cost_centre_fits(self, cost_centre_id, directorate_id):
+        """An active cost centre that belongs to the Directorate or to none."""
+        if cost_centre_id not in self.cost_centre_dir:
+            return False
+        owner = self.cost_centre_dir[cost_centre_id]
+        return owner is None or owner == directorate_id
+
+    def cost_centre_options(self, directorate_id, selected=None):
+        """[(id, "<code> <name>", None)] for the chosen Directorate: its active cost centres and the unassigned ones.
+        With no valid Directorate only the unassigned ones. The cost centre saved on this request stays in the list
+        (while its Directorate is unchanged) even if it is inactive or belongs elsewhere. Codes are shown as stored."""
+        if directorate_id not in self.directorate_ids:
+            directorate_id = None
+        rows = [c for c in self.cost_centres if c.directorate_id is None or c.directorate_id == directorate_id]
+        if self.kept_cost_centre and selected == self.kept_cost_centre[0] and directorate_id == self.kept_cost_centre[1] \
+                and all(c.id != selected for c in rows):
+            kept = db.session.get(CostCentre, selected)
+            if kept is not None:
+                rows.append(kept)
+                rows.sort(key=lambda c: c.code)
+        return [(c.id, c.code + " " + c.name(self.lang), None) for c in rows]
 
     def position_options(self, category):
         out = []
@@ -159,8 +184,12 @@ def validate(raw, lookups, submit):
     if raw["position_id"] and (p_id not in lookups.position_cat or
                                (raw["category"] in CATEGORIES and lookups.position_cat[p_id] != raw["category"])):
         errors["position_id"] = "validation.choose"
-    if raw["cost_centre_id"] and _int(raw["cost_centre_id"]) not in lookups.cost_centre_ids:
-        errors["cost_centre_id"] = "validation.choose"
+    cc_id = _int(raw["cost_centre_id"])
+    if raw["cost_centre_id"]:
+        kept = lookups.kept_cost_centre
+        keeps_saved = not submit and kept is not None and (cc_id, d_id) == tuple(kept)  # a draft keeps its old value
+        if not (lookups.cost_centre_fits(cc_id, d_id) or keeps_saved):
+            errors["cost_centre_id"] = "validation.choose"
     if "oay_specialty_id" in names and raw["oay_specialty_id"] and \
             _int(raw["oay_specialty_id"]) not in lookups.specialty_ids:
         errors["oay_specialty_id"] = "validation.choose"

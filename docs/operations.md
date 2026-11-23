@@ -92,6 +92,10 @@ For a local account: `scripts/ehire-cli.sh reset-password <username>`. It asks t
 
 A number looks like `EHIRE-NGH-NUR-20261120-01`: prefix, Directorate code, position code, submission day (Cyprus time) and a counter that starts at 01 for each combination. The prefix is `EHIRE` unless an administrator records `number_prefix`. The position code is set in Settings, Positions (2 to 6 Latin letters or digits, optional); a position without one uses MED, NUR, ALH, ADM or OTH by staff category. Numbers issued earlier (`ΑΕΘ-2026-0007`, `EHIRE-2026-0003`) are never changed. `clear-test-data` also lowers the counters of the removed test numbers.
 
+## Cost centres
+
+Cost centres follow eFinance: the same 10-digit SAP codes and Greek names, each tied to its entity, which eHire holds as a Directorate of the same code. They come from eFinance's list through the Excel import (Settings, Import, sheet `cost_centres`, optional column `directorate_code`). To stay aligned, re-import the fresh eFinance export when it changes. A cost centre missing from a new export is not deactivated automatically: set `active` to `no` for it, or deactivate it in Settings. Codes are text and are never reformatted; if Excel turns a code into a number the import reads it back as its digits, but a leading zero lost in Excel cannot be recovered, so format the code column as text. A cost centre with no Directorate is offered for every Directorate. The request form offers only the chosen Directorate's cost centres and the unassigned ones.
+
 ## Test data
 
 For acceptance testing: `scripts/ehire-cli.sh load-test-data` (asks once for the password all `test.*` accounts share) and, before go-live, `scripts/ehire-cli.sh clear-test-data`. Test mail goes to `@test.invalid` only. The clear refuses, and says why, when a real user touched a test request or a test deposit reached eArchive. Details: `deploy/README.md`, section Test data.

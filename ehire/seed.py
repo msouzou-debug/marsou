@@ -51,7 +51,10 @@ def seed_demo(data=None, password=None):
             row.code = p["code"]
     for c in data["cost_centres"]:
         if not CostCentre.query.filter_by(code=c["code"]).first():
-            db.session.add(CostCentre(**c))
+            attrs = {k: v for k, v in c.items() if k != "directorate"}
+            if c.get("directorate"):
+                attrs["directorate_id"] = dirs[c["directorate"]].id
+            db.session.add(CostCentre(**attrs))
     for name in data["oay_specialties"]:
         if not OaySpecialty.query.filter_by(name=name).first():
             db.session.add(OaySpecialty(name=name))

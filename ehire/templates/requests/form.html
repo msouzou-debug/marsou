@@ -45,6 +45,11 @@
         {{ select('directorate_id', 'field.directorate', directorate_options, raw.directorate_id) }}
         {% endif %}
         {{ select('facility_id', 'field.facility', facilities, raw.facility_id) }}
+        <div class="mb-3" data-ehire-ccsearch hidden>
+          <label class="form-label" for="f-cost_centre_search">{{ t('form.cost_centre_search') }}</label>
+          <input type="search" class="form-control" id="f-cost_centre_search" autocomplete="off" aria-controls="f-cost_centre_id" aria-describedby="ehire-cc-count" placeholder="{{ t('form.cost_centre_search.placeholder') }}" data-count-one="{{ t('form.cost_centre_matches.one') }}" data-count-many="{{ t('form.cost_centre_matches.many', n='{n}') }}">
+          <div class="form-text" id="ehire-cc-count" role="status" aria-live="polite"></div>
+        </div>
         {{ select('cost_centre_id', 'field.cost_centre', cost_centre_options, raw.cost_centre_id) }}
         {{ select('category', 'field.category', category_options, raw.category, true, true) }}
         {{ select('position_id', 'field.position', positions, raw.position_id) }}

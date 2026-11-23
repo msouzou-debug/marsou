@@ -8,6 +8,7 @@ import re
 import secrets
 import zipfile
 
+from sqlalchemy.orm import joinedload
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -24,17 +25,18 @@ from .users import EMAIL, USERNAME
 
 MAX_BYTES = 5 * 1024 * 1024
 MAX_ROWS = 5000
+BULK_AUDIT_ROWS = 20  # a sheet that changes more rows than this gets one audit row with counts, not one per row
 MAX_RAW_ROWS = 20000  # empty trailing rows count against this, so a file cannot make the reader run for long
 SHEETS = {
     "directorates": ("code", "name_el", "name_en", "has_sci_director", "active"),
     "facilities": ("directorate_code", "code", "name_el", "name_en", "archive_site_code", "active"),
     "positions": ("category", "title_el", "title_en", "code", "active"),
-    "cost_centres": ("code", "name_el", "name_en", "active"),
+    "cost_centres": ("code", "name_el", "name_en", "directorate_code", "active"),
     "oay_specialties": ("name", "active"),
     "users": ("username", "full_name", "email", "auth_source", "line_manager_username", "active"),
     "role_holders": ("role", "directorate_code", "username", "substitute_username"),
 }
-OPTIONAL_COLUMNS = {"positions": {"code"}}  # a file made before the column existed still imports
+OPTIONAL_COLUMNS = {"positions": {"code"}, "cost_centres": {"directorate_code"}}  # a file made before the column existed still imports
 AUTH_SOURCES = ("local", "ad")
 DIRECTORATE_ROLE_SET = ("requester",) + SINGLE_DIRECTORATE_ROLES
 CENTRAL_ROLE_SET = CENTRAL_ROLES + ("viewer", "admin")
@@ -192,7 +194,7 @@ def validate(data, structural):
     known_dirs = set(dir_codes) | set(file_dirs)
     _facilities(chk, data.get("facilities", []), known_dirs, dir_codes)
     _positions(chk, data.get("positions", []))
-    _cost_centres(chk, data.get("cost_centres", []))
+    _cost_centres(chk, data.get("cost_centres", []), known_dirs, dir_codes)
     _specialties(chk, data.get("oay_specialties", []))
     users_final = _users(chk, data.get("users", []))
     _role_holders(chk, data.get("role_holders", []), known_dirs, sci, users_final)
@@ -276,20 +278,37 @@ def _positions(chk, rows):
         _decide(chk, s, key, seen, n, existing, values, _plain)
 
 
-def _cost_centres(chk, rows):
+def _cost_centres(chk, rows, known_dirs, dir_codes):
+    """Codes are read and kept exactly as given (see `_text`: a whole number from Excel becomes its digits).
+    `directorate_code` is optional: blank keeps the stored Directorate on an existing row and means none on a new one."""
     s, seen = "cost_centres", {}
     existing_all = {x.code: x for x in CostCentre.query.all()}
+    dir_by_id = {d.id: d.code for d in dir_codes.values()}
     for r in rows:
         n, c = r["row"], r["cells"]
         ok = _need(chk, s, n, "code", c["code"], 20)
         ok &= _need(chk, s, n, "name_el", c["name_el"]) & _need(chk, s, n, "name_en", c["name_en"])
+        if c["directorate_code"] and c["directorate_code"] not in known_dirs:
+            chk.err(s, n, "directorate_code", "import.err.unknown_directorate", code=c["directorate_code"])
+            ok = False
         act = _flag(chk, s, n, "active", c["active"], None)
         if c["active"] and act is None or not ok:
             continue
         existing = existing_all.get(c["code"])
-        values = {"code": c["code"], "name_el": c["name_el"], "name_en": c["name_en"], "is_active": act}
+        dcode = c["directorate_code"] or None
+        if dcode is None and existing is not None:
+            dcode = dir_by_id.get(existing.directorate_id)
+        values = {"code": c["code"], "name_el": c["name_el"], "name_en": c["name_en"],
+                  "directorate_code": dcode, "is_active": act}
         _fill_defaults(values, existing, {"is_active": True})
-        _decide(chk, s, c["code"], seen, n, existing, values, _plain)
+
+        def to_model(v):
+            out = {k: x for k, x in v.items() if k != "directorate_code"}
+            code = v["directorate_code"]
+            out["directorate_id"] = None if code is None else (dir_codes[code].id if code in dir_codes else -1)
+            return out
+
+        _decide(chk, s, c["code"], seen, n, existing, values, to_model)
 
 
 def _specialties(chk, rows):
@@ -478,43 +497,70 @@ def summarise(ops):
 # ---------------------------------------------------------------- applying
 
 def apply(ops, admin_id):
-    """Write every add and update, with audit rows. The caller commits. Sheets are applied in dependency order."""
+    """Write every add and update. The caller commits. Sheets are applied in dependency order. Lookups are loaded once
+    per sheet. A sheet that changes more than BULK_AUDIT_ROWS rows gets one audit row with counts; a smaller one
+    keeps one audit row per row, with before and after."""
     for sheet in SHEETS:
         if sheet == "users":
             _apply_users(ops, admin_id)
             continue
-        for s, action, _key, values in ops:
-            if s == sheet and action != "unchanged":
-                _APPLY[sheet](action, values, admin_id)
+        todo = [(action, values) for s, action, _key, values in ops if s == sheet and action != "unchanged"]
+        if todo and sheet != "role_holders":
+            _apply_list(sheet, todo, admin_id)
+        elif todo:
+            for action, values in todo:
+                _apply_role(action, values, admin_id)
                 db.session.flush()
+
+
+# sheet -> (audit kind, model, key of a stored row, key of op values given the Directorate ids)
+_LISTS = {
+    "directorates": ("directorate", Directorate, lambda r: r.code, lambda v, ids: v["code"]),
+    "facilities": ("facility", Facility, lambda r: (r.directorate_id, r.code),
+                   lambda v, ids: (ids[v["directorate_code"]], v["code"])),
+    "positions": ("position", Position, lambda r: (r.category, r.title_el), lambda v, ids: (v["category"], v["title_el"])),
+    "cost_centres": ("cost_centre", CostCentre, lambda r: r.code, lambda v, ids: v["code"]),
+    "oay_specialties": ("oay_specialty", OaySpecialty, lambda r: r.name, lambda v, ids: v["name"]),
+}
+
+
+def _apply_list(sheet, todo, admin_id):
+    kind, model, row_key, value_key = _LISTS[sheet]
+    ids = {code: i for code, i in db.session.query(Directorate.code, Directorate.id)}
+    stored = {row_key(r): r for r in model.query.all()}
+    bulk = len(todo) > BULK_AUDIT_ROWS
+    counts = {"add": 0, "update": 0}
+    pending = []
+    for action, values in todo:
+        attrs = {k: v for k, v in values.items() if k != "directorate_code"}
+        if sheet == "facilities":
+            attrs["directorate_id"] = ids[values["directorate_code"]]
+        elif sheet == "cost_centres":
+            attrs["directorate_id"] = ids[values["directorate_code"]] if values["directorate_code"] else None
+        row = stored.get(value_key(values, ids)) if action == "update" else None
+        before = {k: getattr(row, k) for k in attrs} if row is not None else None
+        if row is None:
+            row = model(**attrs)
+            db.session.add(row)
+            stored[value_key(values, ids)] = row
+        else:
+            for k, v in attrs.items():
+                setattr(row, k, v)
+        counts[action] += 1
+        pending.append((row, action, before, attrs))
+    db.session.flush()
+    if bulk:
+        audit("list_changed", user_id=admin_id, object_type=kind, object_id="import",
+              detail={"action": "import", "source": "import", "rows_added": counts["add"],
+                      "rows_updated": counts["update"]})
+        return
+    for row, action, before, attrs in pending:
+        _list_audit(kind, row, action, before, attrs, admin_id)
 
 
 def _list_audit(kind, row, action, before, after, admin_id):
     audit("list_changed", user_id=admin_id, object_type=kind, object_id=row.id,
           detail={"action": "add" if action == "add" else "edit", "source": "import", "before": before, "after": after})
-
-
-def _simple(kind, model, finder):
-    def run(action, values, admin_id):
-        row = finder(values) if action == "update" else None
-        attrs = {k: v for k, v in values.items() if k != "directorate_code"}
-        if "directorate_code" in values:
-            attrs["directorate_id"] = Directorate.query.filter_by(code=values["directorate_code"]).one().id
-        before = {k: getattr(row, k) for k in attrs} if row is not None else None
-        if row is None:
-            row = model(**attrs)
-            db.session.add(row)
-        else:
-            for k, v in attrs.items():
-                setattr(row, k, v)
-        db.session.flush()
-        _list_audit(kind, row, action, before, attrs, admin_id)
-    return run
-
-
-def _find_facility(v):
-    d = Directorate.query.filter_by(code=v["directorate_code"]).one()
-    return Facility.query.filter_by(directorate_id=d.id, code=v["code"]).one()
 
 
 def _apply_users(ops, admin_id):
@@ -579,18 +625,6 @@ def _apply_role(action, v, admin_id):
           detail={"role": role, "directorate_id": did, "source": "import", "before": before, "after": after})
 
 
-_APPLY = {
-    "directorates": _simple("directorate", Directorate, lambda v: Directorate.query.filter_by(code=v["code"]).one()),
-    "facilities": _simple("facility", Facility, _find_facility),
-    "positions": _simple("position", Position,
-                         lambda v: Position.query.filter_by(category=v["category"], title_el=v["title_el"]).one()),
-    "cost_centres": _simple("cost_centre", CostCentre, lambda v: CostCentre.query.filter_by(code=v["code"]).one()),
-    "oay_specialties": _simple("oay_specialty", OaySpecialty, lambda v: OaySpecialty.query.filter_by(name=v["name"]).one()),
-    "users": None,  # applied by _apply_users
-    "role_holders": _apply_role,
-}
-
-
 # ---------------------------------------------------------------- the template (and export)
 
 HEADER_FILL = PatternFill("solid", start_color="069FEC", end_color="069FEC")
@@ -614,7 +648,8 @@ def _export_rows():
         "facilities": [(f.directorate.code, f.code, f.name_el, f.name_en, f.archive_site_code or "", _yn(f.is_active))
                        for f in Facility.query.order_by(Facility.id)],
         "positions": [(p.category, p.title_el, p.title_en, p.code or "", _yn(p.is_active)) for p in Position.query.order_by(Position.id)],
-        "cost_centres": [(c.code, c.name_el, c.name_en, _yn(c.is_active)) for c in CostCentre.query.order_by(CostCentre.id)],
+        "cost_centres": [(c.code, c.name_el, c.name_en, c.directorate.code if c.directorate else "", _yn(c.is_active))
+                         for c in CostCentre.query.options(joinedload(CostCentre.directorate)).order_by(CostCentre.id)],
         "oay_specialties": [(s.name, _yn(s.is_active)) for s in OaySpecialty.query.order_by(OaySpecialty.id)],
         "users": [(u.username, u.full_name, u.email or "", u.auth_source,
                    u.line_manager.username if u.line_manager else "", _yn(u.is_active))

@@ -19,6 +19,11 @@
       <select class="form-select" name="{{ name }}" required>
         {% for d in directorates %}<option value="{{ d.id }}">{{ d['name_' ~ lang] }}</option>{% endfor %}
       </select>
+    {% elif widget == 'directorate_opt' %}
+      <select class="form-select" name="{{ name }}">
+        <option value="">{{ t('settings.cost_centre.none') }}</option>
+        {% for d in directorates %}<option value="{{ d.id }}" {{ 'selected' if row and row[name] == d.id }}>{{ d['name_' ~ lang] }}</option>{% endfor %}
+      </select>
     {% elif widget == 'category' %}
       <select class="form-select" name="{{ name }}" required>
         {% for c in categories %}<option value="{{ c }}">{{ t('category.' ~ c) }}</option>{% endfor %}
@@ -38,8 +43,23 @@
 {% block content %}
 <h1 class="h4 mb-3">{{ t('settings.list.' ~ kind) }}</h1>
 
+{% macro keep() %}{% if paging %}<input type="hidden" name="filter_directorate" value="{{ paging.filter }}"><input type="hidden" name="page" value="{{ paging.page }}">{% endif %}{% endmacro %}
+{% if paging %}
+<form method="get" class="row g-2 align-items-end mb-3" action="{{ url_for('settings.show', kind=kind) }}">
+  <div class="col-12 col-md-4">
+    <label class="form-label small mb-1" for="ehire-filter-directorate">{{ t('settings.filter.directorate') }}</label>
+    <select class="form-select" id="ehire-filter-directorate" name="directorate">
+      <option value="">{{ t('settings.filter.all') }}</option>
+      <option value="none" {{ 'selected' if paging.filter == 'none' }}>{{ t('settings.filter.none') }}</option>
+      {% for d in directorates %}<option value="{{ d.id }}" {{ 'selected' if paging.filter == d.id|string }}>{{ d['name_' ~ lang] }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-12 col-md-auto"><button class="btn btn-outline-primary" type="submit">{{ t('settings.filter.apply') }}</button></div>
+</form>
+{% endif %}
+
 <form method="post" action="{{ url_for('settings.add', kind=kind) }}" class="border rounded p-3 mb-4">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{{ keep() }}
   <div class="row g-2 align-items-end">
     {% for f in fields %}{{ field(f, none, true) }}{% endfor %}
     <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" type="submit">{{ t('settings.add') }}</button></div>
@@ -48,7 +68,7 @@
 
 {% for row in rows %}
 <form method="post" action="{{ url_for('settings.edit', kind=kind, row_id=row.id) }}" class="border-bottom py-3">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{{ keep() }}
   <div class="row g-2 align-items-end">
     {% for f in fields %}{{ field(f, row, false) }}{% endfor %}
     <div class="col-12 col-md-auto d-flex flex-wrap gap-2 align-items-center">
@@ -59,4 +79,11 @@
   </div>
 </form>
 {% endfor %}
+{% if paging and paging.pages > 1 %}
+<nav class="d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="{{ t('settings.list.' ~ kind) }}">
+  {% if paging.prev_url %}<a class="btn btn-outline-secondary d-inline-flex align-items-center" href="{{ paging.prev_url }}">{{ t('settings.prev') }}</a>{% endif %}
+  <span class="small text-secondary">{{ t('settings.page', n=paging.page, total=paging.pages) }}</span>
+  {% if paging.next_url %}<a class="btn btn-outline-secondary d-inline-flex align-items-center" href="{{ paging.next_url }}">{{ t('settings.next') }}</a>{% endif %}
+</nav>
+{% endif %}
 {% endblock %}

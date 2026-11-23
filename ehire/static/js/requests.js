@@ -12,6 +12,7 @@
   var fields = {
     directorate: form.querySelector("#f-directorate_id"),
     facility: form.querySelector("#f-facility_id"),
+    costCentre: form.querySelector("#f-cost_centre_id"),
     category: form.querySelector("#f-category"),
     position: form.querySelector("#f-position_id"),
     reason: form.querySelector("#f-reason")
@@ -31,11 +32,71 @@
     });
   }
 
+  // Cost centres: the list can hold hundreds of rows, so a search box narrows the select as you type. The box is
+  // hidden in the page and shown here, so without scripts the form is the plain select. The full list is kept in
+  // memory and the select is rebuilt on each key; the chosen option always stays in it.
+  var search = form.querySelector("#f-cost_centre_search");
+  var searchBox = form.querySelector("[data-ehire-ccsearch]");
+  var counter = form.querySelector("#ehire-cc-count");
+  var ccAll = [];
+
+  function fold(text) {
+    return String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u03c2/g, "\u03c3").toLowerCase();
+  }
+
+  function readCostCentres() {
+    ccAll = [];
+    Array.prototype.forEach.call(fields.costCentre.options, function (o) {
+      if (o.value !== "") { ccAll.push({ id: o.value, label: o.textContent }); }
+    });
+  }
+
+  function renderCostCentres() {
+    var select = fields.costCentre;
+    var terms = fold(search.value).split(/\s+/).filter(Boolean);
+    var keep = select.value;
+    var first = select.options[0].cloneNode(true);
+    var matches = 0;
+    select.innerHTML = "";
+    select.appendChild(first);
+    ccAll.forEach(function (o) {
+      var hay = fold(o.label);
+      var hit = terms.every(function (t) { return hay.indexOf(t) !== -1; });
+      if (hit) { matches += 1; }
+      if (hit || o.id === keep) {
+        var opt = document.createElement("option");
+        opt.value = o.id;
+        opt.textContent = o.label;
+        if (o.id === keep) { opt.selected = true; }
+        select.appendChild(opt);
+      }
+    });
+    if (!counter) { return; }
+    if (!terms.length) { counter.textContent = ""; return; }
+    var key = matches === 1 ? "one" : "many";
+    counter.textContent = (search.getAttribute("data-count-" + key) || "").replace("{n}", String(matches));
+  }
+
+  if (fields.costCentre && search && searchBox) {
+    readCostCentres();
+    searchBox.hidden = false;
+    search.addEventListener("input", renderCostCentres);
+    search.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); } });
+  }
+
   function loadOptions(select, params) {
     var url = form.dataset.optionsUrl + "?" + new URLSearchParams(params).toString();
     fetch(url, { credentials: "same-origin", headers: { "Accept": "application/json" } })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) { if (data) { fillSelect(select, data.options); } })
+      .then(function (data) {
+        if (!data) { return; }
+        fillSelect(select, data.options);
+        if (select === fields.costCentre && search) {  // a new list: forget the old search
+          search.value = "";
+          readCostCentres();
+          renderCostCentres();
+        }
+      })
       .catch(function () { /* the full lists stay as the server drew them */ });
   }
 
@@ -73,6 +134,7 @@
   if (fields.directorate) {
     fields.directorate.addEventListener("change", function () {
       if (fields.facility) { loadOptions(fields.facility, { list: "facility", directorate_id: fields.directorate.value }); }
+      if (fields.costCentre) { loadOptions(fields.costCentre, { list: "cost_centre", directorate_id: fields.directorate.value }); }
       loadPreview();
     });
   }

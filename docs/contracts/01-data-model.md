@@ -24,12 +24,14 @@ Permission keys for this module: `request.create`, `request.view_own`, `request.
 | `directorate` | id, code, name_el, name_en, has_sci_director, is_active |
 | `facility` | id, directorate_id → directorate, code, name_el, name_en, is_active, archive_site_code (nullable; eArchive folder code, migration 0005) |
 | `position` | id, category, title_el, title_en, code (optional, 2 to 6 Latin capitals or digits, stored upper-case, not unique), is_active |
-| `cost_centre` | id, code (unique), name_el, name_en, is_active |
+| `cost_centre` | id, code (unique, up to 20 characters, kept exactly as eFinance writes it: a 10-digit SAP code such as `1000000200`, never padded, trimmed or reformatted), name_el, name_en, is_active, directorate_id (nullable → directorate, indexed; migration 0007) |
 | `oay_specialty` | id, name (English, as ΟΑΥ writes it), aliases_json, is_active |
 | `public_holiday` | date (primary key), name_el, name_en |
 | `setting` | key (primary key), value, updated_by, updated_at. Keys: `reminder_days`=2, `escalation_days`=5, `returned_timeout_days`=30, `max_file_mb`=20, `retention_years`=10 (assumed, recorded only: nothing deletes data, see operations.md), `number_prefix` (default `EHIRE`), `mail_backend`, `archive_transport` |
 
 Inactive list rows stay selectable on old requests and are hidden on new ones.
+
+**Cost centres and Directorates.** A cost centre follows eFinance: same SAP code and name, and the entity it belongs to, which eHire holds as a Directorate of the same code. `cost_centre.directorate_id` empty means the cost centre belongs to no particular Directorate and is offered for every Directorate. A request's cost centre must be active and belong to the request's Directorate or to none. A cost centre already saved on a draft stays visible and selectable on that draft while the draft's Directorate is unchanged, even if it has since been deactivated or moved; submitting needs one that fits. Existing rows get no Directorate from migration 0007; the Excel import sets it (`directorate_code`).
 
 ## Requests (`models/request.py`)
 

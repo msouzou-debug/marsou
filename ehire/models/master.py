@@ -68,6 +68,10 @@ class CostCentre(db.Model):
     name_el: Mapped[str] = mapped_column(String(200), nullable=False)
     name_en: Mapped[str] = mapped_column(String(200), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # eFinance's entity, held here as a Directorate. Empty: belongs to no particular Directorate, offered to all.
+    directorate_id: Mapped[int] = mapped_column(ForeignKey("directorate.id"), nullable=True, index=True)
+
+    directorate = relationship("Directorate")
 
     def name(self, lang):
         return self.name_en if lang == "en" else self.name_el

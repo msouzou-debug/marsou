@@ -66,7 +66,8 @@ def test_view(data):
                             name_en=f["name_en"] + MARK_EN) for f in data["facilities"]],
         "positions": [dict(p, title_el=p["title_el"] + MARK_EL, title_en=p["title_en"] + MARK_EN)
                       for p in data["positions"]],
-        "cost_centres": [dict(c, code=t(c["code"]), name_el=c["name_el"] + MARK_EL, name_en=c["name_en"] + MARK_EN)
+        "cost_centres": [dict(c, code=t(c["code"]), directorate=t(c["directorate"]) if c.get("directorate") else None,
+                              name_el=c["name_el"] + MARK_EL, name_en=c["name_en"] + MARK_EN)
                          for c in data["cost_centres"]],
         "oay_specialties": [name + MARK_EN for name in data["oay_specialties"]],
         "users": [dict(x, username=u(x["username"]), full_name=x["full_name"] + MARK_EL,
@@ -312,10 +313,10 @@ def clear(the_plan=None):
             q(User).filter(User.id.in_(users)).delete(synchronize_session=False)
         if p.facility_ids:
             q(Facility).filter(Facility.id.in_(p.facility_ids)).delete(synchronize_session=False)
+        if p.cc_ids:  # before the Directorates: cost centres point at them
+            q(CostCentre).filter(CostCentre.id.in_(p.cc_ids)).delete(synchronize_session=False)
         if p.dir_ids:
             q(Directorate).filter(Directorate.id.in_(p.dir_ids)).delete(synchronize_session=False)
-        if p.cc_ids:
-            q(CostCentre).filter(CostCentre.id.in_(p.cc_ids)).delete(synchronize_session=False)
         if p.position_ids:
             q(Position).filter(Position.id.in_(p.position_ids)).delete(synchronize_session=False)
         if p.specialty_ids:

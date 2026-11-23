@@ -10,7 +10,8 @@ def ids(directorate_code="NIC", category="medical"):
     return {
         "directorate_id": d.id,
         "facility_id": Facility.query.filter_by(directorate_id=d.id).first().id,
-        "cost_centre_id": CostCentre.query.first().id,
+        "cost_centre_id": CostCentre.query.filter(
+            (CostCentre.directorate_id == d.id) | CostCentre.directorate_id.is_(None)).order_by(CostCentre.id).first().id,
         "position_id": Position.query.filter_by(category=category).first().id,
         "oay_specialty_id": OaySpecialty.query.first().id,
     }

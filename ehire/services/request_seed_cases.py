@@ -69,7 +69,9 @@ def _user(username, scope=DEMO_SCOPE):
 def _raw(user, directorate_id, category, reason, count=1, leavers=(), scope=DEMO_SCOPE):
     raw = form_rules.empty_raw()
     facility = Facility.query.filter_by(directorate_id=directorate_id, is_active=True).order_by(Facility.id).first()
-    cost_centre = (CostCentre.query.filter(CostCentre.code.startswith(scope.cost_centre_prefix))
+    cost_centre = (CostCentre.query.filter(CostCentre.code.startswith(scope.cost_centre_prefix),
+                                           CostCentre.is_active.is_(True),
+                                           (CostCentre.directorate_id == directorate_id) | CostCentre.directorate_id.is_(None))
                    .order_by(CostCentre.code).first())
     position = (Position.query.filter(Position.category == category, Position.is_active.is_(True),
                                       Position.title_en.endswith(scope.list_suffix)).order_by(Position.id).first())

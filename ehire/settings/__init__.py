@@ -21,7 +21,7 @@ LISTS = {
     "position": (Position, [("category", "category", False, True), ("title_el", "text", True, True),
                             ("title_en", "text", True, True), ("code", "poscode", True, False)]),
     "cost_centre": (CostCentre, [("code", "text", False, True), ("name_el", "text", True, True),
-                                 ("name_en", "text", True, True)]),
+                                 ("name_en", "text", True, True), ("directorate_id", "directorate_opt", True, False)]),
     "oay_specialty": (OaySpecialty, [("name", "text", True, True)]),
 }
 # Label key per column.
@@ -53,6 +53,10 @@ def _values(fields, creating):
         raw = (request.form.get(name) or "").strip()
         if widget == "directorate":
             raw = int(raw) if raw.isdigit() and db.session.get(Directorate, int(raw)) else None
+        elif widget == "directorate_opt":  # optional: blank means no particular Directorate
+            if raw and not (raw.isdigit() and db.session.get(Directorate, int(raw))):
+                missing = "validation.choose"  # a Directorate that does not exist is never read as "none"
+            raw = int(raw) if raw.isdigit() and db.session.get(Directorate, int(raw)) else None
         elif widget == "category" and raw not in CATEGORIES:
             raw = None
         elif widget == "poscode":
@@ -73,8 +77,18 @@ def _snapshot(row, fields):
     return {name: getattr(row, name) for name, *_ in fields} | {"is_active": row.is_active}
 
 
+PAGE_SIZE = 50  # the cost-centre list only; eFinance's list has about 1,700 rows
+
+
 def _back(kind):
-    return redirect(url_for("settings.show", kind=kind))
+    """Back to the list, on the same filter and page the form came from."""
+    args = {}
+    if kind == "cost_centre":
+        for name, form_name in (("directorate", "filter_directorate"), ("page", "page")):
+            value = (request.form.get(form_name) or "").strip()
+            if value:
+                args[name] = value
+    return redirect(url_for("settings.show", kind=kind, **args))
 
 
 @bp.get("")
@@ -89,9 +103,30 @@ def index():
 @permission_required("settings.manage")
 def show(kind):
     model, fields = _spec(kind)
-    rows = db.session.query(model).order_by(model.id).all()
+    query = db.session.query(model).order_by(model.id)
+    paging = None
+    if kind == "cost_centre":
+        query = db.session.query(model).order_by(model.code)
+        chosen = (request.args.get("directorate") or "").strip()
+        if chosen == "none":
+            query = query.filter(model.directorate_id.is_(None))
+        elif chosen.isdigit():
+            query = query.filter(model.directorate_id == int(chosen))
+        else:
+            chosen = ""
+        total = query.count()
+        pages = max(1, -(-total // PAGE_SIZE))
+        page = request.args.get("page", type=int) or 1
+        page = min(max(page, 1), pages)
+        rows = query.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).all()
+        base = {"directorate": chosen} if chosen else {}
+        paging = {"page": page, "pages": pages, "total": total, "filter": chosen,
+                  "prev_url": url_for("settings.show", kind=kind, page=page - 1, **base) if page > 1 else None,
+                  "next_url": url_for("settings.show", kind=kind, page=page + 1, **base) if page < pages else None}
+    else:
+        rows = query.all()
     return render_template(
-        "settings/list.html", kind=kind, position_label=POSITION_LABEL, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
+        "settings/list.html", kind=kind, paging=paging, position_label=POSITION_LABEL, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
         directorates=Directorate.query.order_by(Directorate.id).all(), kinds=list(LISTS),
     )
 
