@@ -24,7 +24,7 @@ English and Greek text: always use these skills
 
 - `outpatient-dashboards/SHSO-Outpatient-Dashboard-FGH-v2.3.html`: Famagusta General Hospital.
   Loads Medico (.xls) and Ewave (.xlsx) extracts in the browser.
-- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v3.0.html`: Larnaca General Hospital. Loads the Plan B
+- `outpatient-dashboards/SHSO-Outpatient-Dashboard-LGH-v3.1.html`: Larnaca General Hospital. Loads the Plan B
   workbook (Morning / Evenings sheets with Date, Doctor, Specialty, Day, Count).
 - Naming: `SHSO-Outpatient-Dashboard-<hospital code>-v<major>.<minor>.html`. Exports follow
   `SHSO-Outpatient-<code>-v<version>-<what>-<date>`.
@@ -58,6 +58,11 @@ English and Greek text: always use these skills
 - Afternoons use registrations only; afternoon appointments in the file are incomplete.
 - Clinic packs: one folder per specialty name as it stands in the file (no grouping), doctor names shown,
   hospital shown only as one comparison line. Famagusta has the same pack per specialty.
+- Larnaca answers (23 Nov 2026): no Saturday clinics; file comes monthly, always from 1 January; threshold of 2-3
+  appointments accepted (kept at 3); specialties outside the LGH Directorate are to be excluded (exact list pending);
+  the full pack goes to the ΕΓΔΔ and ΕΔ, and is isolated per specialty for clinic meetings; clinic hours not available.
+- The re-sent workbook has two sheets, `Data` and `Data_updated`. The tool reads only one (v3.1). In `Data_updated`
+  afternoon appointments sit under clinic lists with specialty NULL (e.g. «ΟΡΘΟΠΕΔΙΚΟΙ ΑΠΟΓΕΥΜΑ Α»), not under doctors.
 - Open questions sent to Larnaca: `outpatient-dashboards/docs/LGH-Erotiseis-Neo-Arxeio-2026-11-19.docx`.
 
 ## Pitfalls to remember

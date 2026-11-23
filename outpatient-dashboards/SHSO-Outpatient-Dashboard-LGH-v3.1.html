@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ΟΚΥπΥ · Εξωτερικά Ιατρεία · Γ.Ν. Λάρνακας · v3.0</title>
+<title>ΟΚΥπΥ · Εξωτερικά Ιατρεία · Γ.Ν. Λάρνακας · v3.1</title>
 <style>
 :root{
   --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
@@ -124,7 +124,7 @@ footer{padding:16px 22px 34px;font-size:11.5px;color:var(--ink-3);text-align:cen
 </head>
 <body>
 <div class="hosp-band" style="background:#8A5A0C;color:#fff;padding:7px 22px;font:800 15px/1.3 'Segoe UI',system-ui,Arial,sans-serif;letter-spacing:.04em;display:flex;gap:10px;align-items:center;flex-wrap:wrap;-webkit-print-color-adjust:exact;print-color-adjust:exact"><span style="text-transform:uppercase">Γενικό Νοσοκομείο Λάρνακας</span><span style="background:rgba(255,255,255,.22);border-radius:4px;padding:1px 8px;font-size:12px">LGH</span><span style="margin-left:auto;font-weight:600;font-size:12px;opacity:.9">Εργαλείο ανάλυσης Εξωτερικών Ιατρείων</span></div>
-<div id="buildTag" style="position:fixed;right:10px;bottom:5px;font-size:10px;color:#8A94A0;z-index:5;pointer-events:none">Γ.Ν. Λάρνακας · Έκδοση 3.0 · 19/11/2026 · SheetJS 0.20.3 · λειτουργεί χωρίς σύνδεση</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:5px;font-size:10px;color:#8A94A0;z-index:5;pointer-events:none">Γ.Ν. Λάρνακας · Έκδοση 3.1 · 23/11/2026 · SheetJS 0.20.3 · λειτουργεί χωρίς σύνδεση</div>
 <style>@media print{#buildTag{display:none}}</style>
 
 
@@ -550,8 +550,10 @@ if(location.hash==="#print") window.addEventListener("load",function(){setTimeou
    2.2  Λωρίδα με το όνομα του νοσοκομείου στην κορυφή κάθε αρχείου HTML (εργαλείο και αναφορές).
    3.0  Νέο αρχείο με ραντεβού και εγγραφές (πρωί/απόγευμα). Προγραμματισμένο ιατρείο = πρωινό με τουλάχιστον
         MinAppt ραντεβού· οι ειδικότητες χωρίς ραντεβού μένουν στην εκτίμηση. Εγγραφές χωρίς ιατρείο, εγγραφές προς
-        ραντεβού, ιατρεία χωρίς εγγραφές. Πακέτο αρχείων ανά κλινική (ZIP). Νέοι έλεγχοι ακρίβειας. */
-const TOOL={code:"LGH", hospital:"Γ.Ν. Λάρνακας", version:"3.0", date:"19/11/2026", full:"Γενικό Νοσοκομείο Λάρνακας", color:"#8A5A0C"};
+        ραντεβού, ιατρεία χωρίς εγγραφές. Πακέτο αρχείων ανά κλινική (ZIP). Νέοι έλεγχοι ακρίβειας.
+   3.1  Όταν ένα βιβλίο εργασίας έχει πάνω από ένα φύλλο δεδομένων (π.χ. «Data» και «Data_updated»), διαβάζεται μόνο
+        ένα, ώστε να μη μετρηθούν οι ίδιες εγγραφές δύο φορές. */
+const TOOL={code:"LGH", hospital:"Γ.Ν. Λάρνακας", version:"3.1", date:"23/11/2026", full:"Γενικό Νοσοκομείο Λάρνακας", color:"#8A5A0C"};
 
 
 const CFG = {
@@ -718,7 +720,15 @@ async function readFiles(files){
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf,{type:"array",cellDates:false});
     let used = 0;
+    // Αν το βιβλίο έχει πολλά φύλλα με τη νέα μορφή, κρατάμε ένα: όποιο λέγεται «updated/νέο/τελικό», αλλιώς το τελευταίο.
+    const apptSheets = wb.SheetNames.filter(n=>apptIndex((XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null,sheetRows:1})||[])[0]));
+    let keepSheet = null;
+    if(apptSheets.length>1){
+      keepSheet = apptSheets.filter(n=>/updat|νεο|νέο|τελικ|final/i.test(n)).pop() || apptSheets[apptSheets.length-1];
+      problems.push(`Το «${f.name}» έχει ${apptSheets.length} φύλλα δεδομένων (${apptSheets.join(", ")}). Διαβάστηκε μόνο το «${keepSheet}», για να μη μετρηθούν οι ίδιες εγγραφές δύο φορές.`);
+    }
     for(const sn of wb.SheetNames){
+      if(keepSheet && apptSheets.includes(sn) && sn!==keepSheet) continue;
       const first = XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
       const ax = apptIndex(first[0]);
       if(ax){ used += readApptSheet(first, ax, f.name, parsed, problems); continue; }
@@ -2692,7 +2702,7 @@ const REPORT_HTML = `<!DOCTYPE html>
 <html lang="el"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ΟΚΥπΥ · Απόδοση Εξωτερικών Ιατρείων · Γ.Ν. Λάρνακας · v3.0</title>
+<title>ΟΚΥπΥ · Απόδοση Εξωτερικών Ιατρείων · Γ.Ν. Λάρνακας · v3.1</title>
 <style>
 :root{
  --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
