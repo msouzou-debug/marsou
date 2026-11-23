@@ -36,6 +36,38 @@ describe("proxy route — Origin check on a mutating request", () => {
     expect(getSession).not.toHaveBeenCalled();
   });
 
+  it("accepts the configured public origin behind a proxy that speaks plain HTTP", async () => {
+    // The server chain: the browser is on https, Next is reached over http.
+    vi.stubEnv("NEXT_PUBLIC_APP_ORIGIN", "https://ecapital.shso.online");
+    vi.mocked(getSession).mockResolvedValue(null);
+    try {
+      const req = new NextRequest(new URL("http://ecapital.shso.online/api/proxy/projects"), {
+        method: "POST",
+        headers: { origin: "https://ecapital.shso.online" },
+      });
+      const res = await POST(req, context(["projects"]));
+      // Past the origin check: no session in this test, so the next lock answers.
+      expect(res.status).toBe(401);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("still refuses another site's origin when a public origin is configured", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_ORIGIN", "https://ecapital.shso.online");
+    try {
+      const req = new NextRequest(new URL("http://ecapital.shso.online/api/proxy/projects"), {
+        method: "POST",
+        headers: { origin: "https://evil.example" },
+      });
+      const res = await POST(req, context(["projects"]));
+      expect(res.status).toBe(403);
+      expect(getSession).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("refuses a POST with no Origin header at all", async () => {
     const req = new NextRequest(new URL("http://localhost:3000/api/proxy/projects"), { method: "POST" });
     const res = await POST(req, context(["projects"]));

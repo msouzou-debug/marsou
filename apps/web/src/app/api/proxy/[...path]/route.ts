@@ -52,6 +52,33 @@ const FILE_HEADERS = [
   "content-security-policy",
 ] as const;
 
+/**
+ * The origins this app answers on. Behind the ΟΚΥπΥ chain (browser on HTTPS
+ * → cloudflared → nginx on plain HTTP → Next) the request Next sees says
+ * `http://ecapital.shso.online`, because nginx sets X-Forwarded-Proto to its
+ * own scheme, while the browser's Origin says `https://…`. Comparing the two
+ * refused every save on the server with a 403 (owner report, 23/11/2026).
+ * The configured public origin is the answer: it is set by whoever deploys,
+ * not by a header a caller could send, so trusting it weakens nothing.
+ */
+const APP_ORIGIN_ENV = "NEXT_PUBLIC_APP_ORIGIN";
+
+function ownOrigins(request: NextRequest): Set<string> {
+  const origins = new Set<string>([request.nextUrl.origin]);
+  // Read at run time from the service's web.env. Written as a computed key so
+  // Next does not inline it at build time: the server build runs without
+  // web.env loaded, and a baked-in `undefined` would silently undo this fix.
+  const configured = process.env[APP_ORIGIN_ENV];
+  if (configured) {
+    try {
+      origins.add(new URL(configured).origin);
+    } catch {
+      // A malformed setting adds nothing; the request's own origin still stands.
+    }
+  }
+  return origins;
+}
+
 type ProxyContext = RouteContext<"/api/proxy/[...path]">;
 
 async function forward(request: NextRequest, context: ProxyContext, method: string): Promise<NextResponse> {
@@ -67,7 +94,7 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
   // refused rather than trusted.
   if (MUTATING_METHODS.has(method)) {
     const origin = request.headers.get("origin");
-    if (origin !== request.nextUrl.origin) {
+    if (!origin || !ownOrigins(request).has(origin)) {
       return NextResponse.json({ key: "errors.originNotAllowed" }, { status: 403 });
     }
   }
