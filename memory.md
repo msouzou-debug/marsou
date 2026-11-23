@@ -46,6 +46,8 @@ Standing rules and decisions for this project. Read at the start of every sessio
 | Manuals (menu) · User guide · Administrator guide (proposed 20/11, awaiting approval) | Εγχειρίδια · Οδηγός χρήστη · Οδηγός διαχειριστή |
 | Email status labels (as eFinance) | Χρειάζεται ενέργεια · Χρειάζεται προσοχή · Ολοκληρώθηκε · Για ενημέρωση |
 | Working days | εργάσιμες ημέρες |
+| eFinance link (approved 23/11/2026): budget, spent, committed, available balance, budget line | Προϋπολογισμός · Δαπάνες · Δεσμεύσεις · Διαθέσιμο υπόλοιπο · Γραμμή προϋπολογισμού |
+| eFinance link (approved 23/11/2026): panel heading, as-of line, sync button, settings title | Στοιχεία από το eFinance · Στοιχεία της {date} · Συγχρονισμός τώρα · Σύνδεση με το eFinance |
 
 The full glossary lives in the skill. When the owner fixes or approves a term: update the skill, send the owner the updated skill file, and add the row here.
 
@@ -149,10 +151,10 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 23/11/2026: cost centres follow eFinance (same SAP codes and names, each tied to its entity, which eHire holds as a Directorate); the request form offers only the chosen Directorate's cost centres plus those with no Directorate, with a search box. Migration 0007 adds `cost_centre.directorate_id`; the Excel import takes an optional `directorate_code`.
 - 23/11/2026, Marios (contract 07, `docs/contracts/07-efinance-link.md`): entities, Directorates and hospitals are the same thing; eFinance is the master list of cost centres and a change there must reach eHire; every request is checked against eFinance's budget for its budget line at steps 2 and 4; eHire warns and a person decides (a «Ναι» against a warning needs a comment); a cost centre switched off or gone in eFinance is switched off in eHire; the sync runs nightly (02:40) and on a «Συγχρονισμός τώρα» button.
 - 23/11/2026: eHire's side of contract 07 is built against a stand-in eFinance and ships switched off (`efinance_link` = `none`, nothing is called) until eFinance builds its two endpoints and Marios copies the token file to file. Commands `efinance-test`, `efinance-link none|http`, `sync-cost-centres`; engine rule B1 (`budget_comment_required`); last sync kept in settings rows, no migration. The figures seen with an answer go into the request PDF and into the eArchive approval comment.
-- Greek terms proposed on 23/11 for the eFinance link, awaiting Marios's approval: «Προϋπολογισμός», «Δαπάνες», «Δεσμεύσεις», «Διαθέσιμο υπόλοιπο», «Στοιχεία από το eFinance», «Στοιχεία της {date}», «Συγχρονισμός τώρα», «Γραμμή προϋπολογισμού», «Σύνδεση με το eFinance», the warning texts and «Τα στοιχεία του eFinance δεν είναι διαθέσιμα αυτή τη στιγμή».
+- 23/11/2026, Marios: the Greek terms of the eFinance link are approved (rows above, with the warning texts and the unavailable text); the skill file was updated and sent.
 - 23/11/2026: the request to the eFinance session for the two endpoints of contract 07 is `docs/external/request-to-efinance-2026-11-23.md` (11 questions; sent to Marios to pass on). Until eFinance answers and builds, the link stays `none` and cost centres are aligned with `eHire-import-from-eFinance-2026-11-23.xlsx` (not in the repo; 13 Directorates, 43 facilities, 1,702 cost centres each with its entity; needs rc11).
 - 23/11/2026: release `ehire-1.0.0-rc11` built from commit 3137f22 with the full suite passing (1,206 tests) and verified with its checksum (8cc6d7d14aa6c2beb3213bb0c9836220bccfbfb5c27067e0d83d14a9f9f02420). Same packages as rc6 to rc10. It carries migration 0007 (cost centre's Directorate), the cost-centre filter and search on the form, eHire's side of the eFinance link (off), and the forgiving `clear-test-data` prompt. The rc10 to rc11 upgrade was rehearsed here in a test folder and ended at schema version 7. A first build attempt failed on one test that passed on two full reruns; its name was not captured, so `make-release.sh` now prints failing test names. Sent to Marios as `ehire-install-rc11.zip` with `eHire-manuals-rc11.zip` and the import file.
-- Open for Marios: whether picking a budget line is required when eFinance returns lines (today optional).
+- 23/11/2026, Marios: picking a budget line stays optional. rc11 is installed on the server.
 
 ## Status
 
