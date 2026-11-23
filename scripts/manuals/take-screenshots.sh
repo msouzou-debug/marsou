@@ -15,7 +15,8 @@ OUT="${1:-$ROOT/instance/manual-shots}"
 PORT=5097
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/ehire-shots.XXXXXX")"
 PID=""
-cleanup() { [ -n "$PID" ] && kill "$PID" 2>/dev/null || true; rm -rf "$WORK"; }
+FAKE=""
+cleanup() { [ -n "$PID" ] && kill "$PID" 2>/dev/null || true; [ -n "$FAKE" ] && kill "$FAKE" 2>/dev/null || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 if curl -s --noproxy '*' -o /dev/null "http://127.0.0.1:$PORT/healthz"; then
@@ -31,10 +32,19 @@ for LANG_CODE in el en; do
          EHIRE_BIND="127.0.0.1:$PORT"
   for cmd in init-db seed-demo seed-cases load-holidays; do .venv/bin/flask --app wsgi:app "$cmd" >/dev/null; done
   .venv/bin/python scripts/manuals/make-pending-user.py
+  # A stand-in eFinance (tests/efinance/fake_efinance.py, invented figures) for the two budget-panel pictures. The
+  # link stays off in the database; shoot.js switches it on for those two pictures only.
+  FPORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+  CODES="$(python3 -c 'import sqlite3, sys; print(" ".join(r[0] for r in sqlite3.connect(sys.argv[1]).execute("select code from cost_centre")))' "$DB/manuals.sqlite3")"
+  # shellcheck disable=SC2086
+  .venv/bin/python -m tests.efinance.fake_efinance "$FPORT" $CODES > "$DB/fake-efinance.log" 2>&1 &
+  FAKE=$!
+  export EHIRE_EFINANCE_URL="http://127.0.0.1:$FPORT" EHIRE_EFINANCE_TOKEN="fake-efinance-token-7d1e"
   .venv/bin/gunicorn -c deploy/gunicorn.conf.py wsgi:app --error-logfile "$DB/gunicorn.log" &
   PID=$!
   for _ in $(seq 1 30); do curl -s --noproxy '*' -o /dev/null "http://127.0.0.1:$PORT/healthz" && break; sleep 0.5; done
-  SHOT_PYTHON="$ROOT/.venv/bin/python" node scripts/manuals/shoot.js "$LANG_CODE" "$OUT/$LANG_CODE" "$DB"
+  SHOT_PYTHON="$ROOT/.venv/bin/python" SHOT_FLASK="$ROOT/.venv/bin/flask" node scripts/manuals/shoot.js "$LANG_CODE" "$OUT/$LANG_CODE" "$DB"
   kill "$PID"; wait "$PID" 2>/dev/null || true; PID=""
+  kill "$FAKE"; wait "$FAKE" 2>/dev/null || true; FAKE=""
 done
 echo "Screenshots in $OUT"

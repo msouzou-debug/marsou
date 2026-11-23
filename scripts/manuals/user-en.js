@@ -65,7 +65,7 @@ module.exports = {
     { table: { widths: [3000, 6026], head: ['Field', 'What to enter'], rows: [
       ['**Directorate**', 'The Directorate that asks for the post. It cannot change after the first submission.'],
       ['**Hospital or facility**', 'Only the facilities of the Directorate you chose are listed.'],
-      ['**Cost centre**', 'The cost centre of the post.'],
+      ['**Cost centre**', 'The cost centre of the post. Only the cost centres of the chosen Directorate are listed, plus any that belong to no Directorate. To find one quickly, type part of its code or name in **Search cost centres**; the line under the box says how many match.'],
       ['**Staff category**', 'Medical, Nursing, Allied health, Administrative / Secretarial or Other.'],
       ['**Position title**', 'Only the titles of the category you chose are listed.'],
       ['**Number of posts**', 'A whole number, 1 or more.'],
@@ -173,6 +173,7 @@ module.exports = {
     ] },
     { img: 'u12-card-finmgmt', caption: 'The Head of Financial Management Unit\'s box', w: 480 },
     { p: 'When both answers are in and there is credit, the request moves to step 5, or straight to step 6 when step 5 does not apply.' },
+    { note: 'eHire has a link to eFinance that is switched off in this release. Once the server administrator switches it on, the boxes at step 2 and step 4 also show **Figures from eFinance**: the budget lines of the request\'s cost centre, with budget, spent, committed and available amounts. You pick the line; at step 4 its article fills **Commitment article**. A warning appears when the line has nothing available, less than the annual employer cost of the new posts, or eFinance has no budget for the cost centre; to answer Yes against a warning you add a comment. If eFinance cannot answer, you answer as usual.' },
 
     { h2: 'Step 5: SHSO Medical or Nursing Director' },
     { p: 'The Medical Director (Medical and Allied health posts) or the Nursing Director (Nursing posts) gives **Your opinion**: **Positive** or **Negative**. Either way the request goes to the CEO.' },

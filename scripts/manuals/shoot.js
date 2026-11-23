@@ -13,6 +13,10 @@ const [, , LANG, OUT, WORK] = process.argv;
 const BASE = process.env.SHOT_BASE || 'http://127.0.0.1:5097';
 const PW = 'demo-1234'; // the demo password seed-demo prints; demo data only
 const PY = process.env.SHOT_PYTHON || 'python3';
+// With SHOT_FLASK set (take-screenshots.sh starts a stand-in eFinance), the eFinance link is switched on just for
+// the two budget-panel pictures and off again; every other picture shows the link off, as it ships.
+const FLASK = process.env.SHOT_FLASK || '';
+const link = (state) => execFileSync(FLASK, ['--app', 'wsgi:app', 'efinance-link', state], { stdio: 'inherit' });
 const log = (...a) => console.log(LANG, ...a);
 const T = LANG === 'el'
   ? { need: 'Η κλινική λειτουργεί με δύο ιατρούς λιγότερους από τον Σεπτέμβριο.', alt: 'Οι εφημερίες δεν καλύπτονται με υπερωρίες.',
@@ -123,6 +127,7 @@ function samplePdf() {
     await p.selectOption('#f-directorate_id', { index: 1 });
     await settle(p);
     await p.selectOption('#f-facility_id', '1');
+    await p.fill('#f-cost_centre_search', '1001').catch(() => log('no cost-centre search box'));
     await p.selectOption('#f-cost_centre_id', '1');
     await p.selectOption('#f-category', 'medical');
     await settle(p);
@@ -166,6 +171,19 @@ function samplePdf() {
     await shot(p, 'u20-ooo', { sel: 'section[aria-labelledby="ooo-title"]' });
     await p.goto(BASE + '/requests/' + newId + '?do=review');
     await settle(p);
+    if (FLASK) {  // the budget panel at step 2, with the link on, a line picked that raises a warning
+      // At 1280 px the article column of the budget table is squeezed to a few letters; 1440 px reads cleanly.
+      await p.setViewportSize({ width: 1440, height: 900 });
+      link('http');
+      await p.reload();
+      await settle(p);
+      await p.locator('[data-ehire-budget-line] input[type=radio]').nth(1).check();
+      await shot(p, 'u29-budget-step2', { sel: '[data-ehire-budget]' });
+      link('none');
+      await p.setViewportSize({ width: 1280, height: 800 });
+      await p.reload();
+      await settle(p);
+    }
     const c = p.locator(card).first();
     await c.locator('input[name=position][value=yes]').check();
     await c.locator('input[name=funds][value=yes]').check();
@@ -194,6 +212,15 @@ function samplePdf() {
   await (await cardShot('lim.sci', '/requests/1?do=review', 'u11-card-opinion')).context().close();
   {
     const p = await cardShot('central.finmgmt', '/requests/2?do=review', 'u12-card-finmgmt');
+    if (FLASK) {  // the step 4 card with the link on: the picked line fills the commitment article
+      await p.setViewportSize({ width: 1440, height: 900 });
+      link('http');
+      await p.goto(BASE + '/requests/2?do=review');
+      await settle(p);
+      await p.locator('[data-ehire-budget-line] input[type=radio]').nth(1).check();
+      await shot(p, 'u30-budget-step4', { sel: card });
+      link('none');
+    }
     // The request page on a computer: two columns, the route and the history on the right
     await p.setViewportSize({ width: 1280, height: 1000 });
     await p.goto(BASE + '/requests/2');
@@ -255,7 +282,7 @@ function samplePdf() {
     await shot(p, 'a16-users-password', { sel: 'form[data-shot-row]', to: 'details[data-shot]' });
     await p.goto(BASE + '/settings/roles');
     await shot(p, 'a17-roles-others', { sel: 'section[aria-labelledby=roles-other]' });
-    for (const [url, name, top] of [['/settings/directorate', 'a03-directorates', 640], ['/settings/position', 'a18-positions', 640], ['/settings/facility', 'a04-facilities', 640],
+    for (const [url, name, top] of [['/settings/directorate', 'a03-directorates', 640], ['/settings/position', 'a18-positions', 640], ['/settings/cost_centre?directorate=1', 'a19-cost-centres', 720], ['/settings/facility', 'a04-facilities', 640],
       ['/settings/users', 'a05-users', 700], ['/settings/roles', 'a06-roles', 800], ['/settings/holidays', 'a07-holidays', 720],
       ['/settings/timings', 'a08-timings', 720], ['/settings/outbox', 'a09-outbox', 640]]) {
       await p.goto(BASE + url);

@@ -141,7 +141,9 @@ section .ehire-empty, .ehire-panel .ehire-empty { padding: 1rem 0; border: 0; al
   border-bottom: 1px solid var(--ehire-line-row); max-width: 28rem; }
 .ehire-budget-view__amounts > div:last-child { border-bottom: 0; }
 .ehire-budget-view__warn { color: var(--ehire-amber-text); }
-@media (max-width: 575.98px) {
+/* One block per line on phones, and also from 992 to 1399 px, where the card sits in the narrower left column and the
+   six-column table would squeeze the article name to a few letters per line. */
+@media (max-width: 767.98px), (min-width: 992px) and (max-width: 1399.98px) {
   .ehire-budget { padding: .625rem; }
   .ehire-budget__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .ehire-budget__table, .ehire-budget__table tbody, .ehire-budget__table tr, .ehire-budget__table td { display: block; width: 100%; }
