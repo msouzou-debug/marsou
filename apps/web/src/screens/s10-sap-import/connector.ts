@@ -3,9 +3,13 @@ import { ImportBatch } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
 import type { ConnectorParams } from "./ConnectorCard";
 
-/** POST /cost/imports/sap-connector through the proxy; the answer is the new batch. */
+/**
+ * POST /cost/imports/sap-connector through the proxy; the answer is the new
+ * batch. `dryRun: false` because the API defaults to a trial run, like the
+ * upload; «Λήψη» on this card means import.
+ */
 export function postSapConnector(params: ConnectorParams): Promise<ImportBatch> {
-  return apiMutate("/cost/imports/sap-connector", "POST", params, ImportBatch);
+  return apiMutate("/cost/imports/sap-connector", "POST", { ...params, dryRun: false }, ImportBatch);
 }
 
 export const COST_SOURCE_NOT_CONFIGURED = "errors.costSourceNotConfigured";

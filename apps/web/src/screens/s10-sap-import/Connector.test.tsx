@@ -94,7 +94,7 @@ describe("S10 connector card (ADR-0036)", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/proxy/cost/imports/sap-connector");
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ fiscalYear: 2026, periodFrom: 10, periodTo: 10 });
+    expect(JSON.parse(init.body as string)).toEqual({ fiscalYear: 2026, periodFrom: 10, periodTo: 10, dryRun: false });
   });
 
   it("reads costSourceNotConfigured as a notice and any other failure as an error", async () => {
