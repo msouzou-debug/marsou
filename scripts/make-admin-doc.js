@@ -151,7 +151,7 @@ c.push(...code("sudo grep -c '^EHIRE_ARCHIVE_TOKEN=.' /etc/ehire/ehire.env"));
 
 c.push(h2('Leave empty'));
 c.push(bullet('The EHIRE_SMTP_* settings. Email goes through Graph.'));
-c.push(bullet('The EHIRE_EFINANCE_* settings. That link is not in use.'));
+c.push(bullet('The EHIRE_EFINANCE_* settings. The eFinance link (cost centres and budget check) stays switched off until eFinance has built its side; docs/operations.md says how to switch it on.'));
 c.push(bullet('EHIRE_ARCHIVE_DROP_DIR. It belongs to a transport that is not used.'));
 
 c.push(h1('6. What to ask IT for'));
