@@ -176,8 +176,11 @@ def register(app):
         if the_plan.total() == 0:
             click.echo("There is no test data.")
             return
-        if not yes and click.prompt('Type "%s" to continue' % testdata.CONFIRM_TEXT, default="", show_default=False) != testdata.CONFIRM_TEXT:
-            raise click.ClickException("Not confirmed. Nothing was changed.")
+        if not yes:
+            # People copy the quotation marks and stray capitals from the prompt: accept the phrase with or without.
+            typed = click.prompt("To continue, type the three words: %s" % testdata.CONFIRM_TEXT, default="", show_default=False)
+            if " ".join(typed.strip().strip("\"'").lower().split()) != testdata.CONFIRM_TEXT:
+                raise click.ClickException("Not confirmed. Nothing was changed.")
         try:
             testdata.clear(the_plan)
         except testdata.Refused as err:
