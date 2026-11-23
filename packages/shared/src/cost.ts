@@ -40,14 +40,28 @@ export const CostTxn = z.object({
   importBatchId: z.string().nullable(),
   // RULE (R14): how the row found its project. Manual allocations are audited
   // and remembered so the same vendor + text matches next month.
-  matchedBy: z.enum(["WBS", "PO", "COST_CENTRE", "MANUAL", "RULE", "NONE"]),
+  // ADR-0036: CONTRACT_REF = the line carried a CAP- reference; EFINANCE_INVOICE
+  // = vendor number, amount and date matched an invoice eFinance booked.
+  matchedBy: z.enum(["WBS", "PO", "COST_CENTRE", "MANUAL", "RULE", "NONE", "CONTRACT_REF", "EFINANCE_INVOICE"]),
+  // ADR-0036, CAPEX_LINES only; null on every other source.
+  vendorNo: z.string().nullable().default(null),
+  contractRef: z.string().nullable().default(null),
+  invoiceRef: z.string().nullable().default(null),
+  efinanceInvoiceId: z.string().nullable().default(null),
 });
 export type CostTxn = z.infer<typeof CostTxn>;
 
 // SAP file extracts (phase 1). The column map is a YAML profile per report,
 // like the Capex importer; the same CostSource interface later wraps the MCP.
-export const SapReport = z.enum(["ME2N", "KSB1", "FBL1N"]);
+// ADR-0036: CAPEX_LINES is SAP administration's capital spending lines call
+// (`sap_capex_lineitem_export`, or its CSV/Excel file). ME2N and KSB1 stay in
+// the enum so batches already imported keep their label, and are refused for
+// new uploads: SAP holds no WBS and its purchase orders are stock-only
+// (SAP administration, 20/11/2026).
+export const SapReport = z.enum(["ME2N", "KSB1", "FBL1N", "CAPEX_LINES"]);
 export type SapReport = z.infer<typeof SapReport>;
+/** The reports a person may still upload or the connector may still fetch. */
+export const SAP_REPORTS_ACTIVE: readonly SapReport[] = ["CAPEX_LINES", "FBL1N"];
 
 export const ImportBatchStatus = z.enum(["DRY_RUN", "PENDING_ALLOCATION", "COMMITTED", "FAILED"]);
 export type ImportBatchStatus = z.infer<typeof ImportBatchStatus>;

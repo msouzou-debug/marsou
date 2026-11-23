@@ -25,6 +25,8 @@ export const ReportKey = z.enum([
   "ASSET_LIFECYCLE",
   "CLINICAL_DISRUPTION",
   "STATUTORY_COMPLIANCE",
+  // ADR-0036: SAP capital lines against eFinance's booked invoices.
+  "SAP_RECONCILIATION",
 ]);
 export type ReportKey = z.infer<typeof ReportKey>;
 
@@ -317,6 +319,7 @@ export const REPORT_CATALOGUE: ReportCatalogueEntry[] = [
   { key: "ASSET_LIFECYCLE", takesYear: true, takesPeriod: false, takesUnit: true, takesAgreement: false },
   { key: "CLINICAL_DISRUPTION", takesYear: true, takesPeriod: false, takesUnit: true, takesAgreement: false },
   { key: "STATUTORY_COMPLIANCE", takesYear: true, takesPeriod: false, takesUnit: true, takesAgreement: false },
+  { key: "SAP_RECONCILIATION", takesYear: false, takesPeriod: true, takesUnit: true, takesAgreement: false },
 ];
 
 /** The route segment of a report: `/reports/<slug>` on both ends. */
@@ -328,7 +331,50 @@ export const REPORT_SLUG: Record<ReportKey, string> = {
   ASSET_LIFECYCLE: "asset-lifecycle",
   CLINICAL_DISRUPTION: "clinical-disruption",
   STATUTORY_COMPLIANCE: "statutory-compliance",
+  SAP_RECONCILIATION: "sap-reconciliation",
 };
+
+// ------------------------------------------------ 8. SAP reconciliation --
+
+/**
+ * ADR-0036. One row per contract (or per vendor with no contract) for the
+ * period: what SAP posted on the capital GL accounts (CAPEX_LINES imports,
+ * by posting date) against what eFinance booked (invoices by invoice date).
+ * MATCHED: both sides equal to the cent. DIFFERENCE: both sides, unequal.
+ * SAP_ONLY / EFINANCE_ONLY: one side is zero. Sorted by the absolute
+ * difference, largest first.
+ */
+export const SapReconciliationStatus = z.enum(["MATCHED", "DIFFERENCE", "SAP_ONLY", "EFINANCE_ONLY"]);
+export type SapReconciliationStatus = z.infer<typeof SapReconciliationStatus>;
+
+export const SapReconciliationRow = z.object({
+  contractId: z.string().nullable(),
+  contractRef: z.string().nullable(),
+  projectCode: z.string().nullable(),
+  orgUnitName: z.string().nullable(),
+  contractorName: z.string().nullable(),
+  vendorNo: z.string().nullable(),
+  sapLines: z.number().int().nonnegative(),
+  sapAmount: z.number(),
+  efinanceInvoices: z.number().int().nonnegative(),
+  efinanceAmount: z.number(),
+  /** sapAmount − efinanceAmount. */
+  difference: z.number(),
+  status: SapReconciliationStatus,
+  /** SAP lines on this row that carried no CAP- reference (matched another way or not at all). */
+  linesWithoutRef: z.number().int().nonnegative(),
+});
+export type SapReconciliationRow = z.infer<typeof SapReconciliationRow>;
+
+export const SapReconciliationReport = z.object({
+  meta: ReportMeta,
+  rows: z.array(SapReconciliationRow),
+  totals: z.object({ sapAmount: z.number(), efinanceAmount: z.number(), difference: z.number() }),
+  /** CAPEX_LINES rows in the period still in the unmatched queue. */
+  unmatchedLines: z.number().int().nonnegative(),
+  unmatchedAmount: z.number(),
+});
+export type SapReconciliationReport = z.infer<typeof SapReconciliationReport>;
 
 /** Share of a calendar year elapsed at a date, 0–100, the S01 figure. */
 export function yearElapsedPct(isoDate: string): number {
