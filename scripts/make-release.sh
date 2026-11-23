@@ -30,8 +30,12 @@ if [ "$SKIP_TESTS" -eq 1 ]; then
 else
   [ -x .venv/bin/python ] || { echo "no .venv: set it up first (see CLAUDE.md)" >&2; exit 1; }
   echo "running the full test suite ..."
-  .venv/bin/python -m pytest -q --no-header -p no:cacheprovider >/dev/null || {
-    echo "the test suite failed: no release built. Run scripts/test.sh to see why." >&2; exit 1; }
+  TEST_LOG="$(mktemp)"
+  .venv/bin/python -m pytest -q --no-header -p no:cacheprovider -rf >"$TEST_LOG" 2>&1 || {
+    echo "the test suite failed: no release built. The failing tests:" >&2
+    grep -E '^(FAILED|ERROR) ' "$TEST_LOG" >&2 || tail -n 15 "$TEST_LOG" >&2
+    rm -f "$TEST_LOG"; exit 1; }
+  rm -f "$TEST_LOG"
   TESTS="passed"
 fi
 
