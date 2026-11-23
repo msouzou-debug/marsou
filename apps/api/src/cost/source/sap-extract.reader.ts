@@ -21,7 +21,13 @@ import {
   loadSapProfile,
   type SapProfile,
 } from "./sap-profile";
-import type { CostSourceReader, CostSourceRequest, RawCostRow, RawRowProblem } from "./cost-source";
+import {
+  assertReportActive,
+  type CostSourceReader,
+  type CostSourceRequest,
+  type RawCostRow,
+  type RawRowProblem,
+} from "./cost-source";
 import { applySign, parseAmount, parseDate } from "./values";
 
 /** What the controller hands the reader. Nothing above it sees this shape. */
@@ -54,36 +60,47 @@ export class SapExtractReader implements CostSourceReader {
   constructor(private readonly profileDir?: string) {}
 
   async *read(input: CostSourceRequest): AsyncIterable<RawCostRow> {
+    // ADR-0036 §5: before the payload is looked at, so a retired report is
+    // refused the same way whatever was attached.
+    assertReportActive(input.report);
     if (!isPayload(input.payload)) throw AppError.badRequest("errors.costFileNeeded");
     const profile = this.profileDir
       ? loadSapProfile(input.report, this.profileDir)
       : loadSapProfile(input.report);
+    yield* rowsOfFile(input.payload, profile);
+  }
+}
 
-    const rows = input.payload.fileName.toLowerCase().endsWith(".csv")
-      ? readCsv(input.payload.content, profile)
-      : await readWorkbook(input.payload.content, profile);
+/**
+ * The rows of one file under one profile. The file reader's whole job, and
+ * the connector reader's too once it has the CSV in hand (ADR-0036 §1: the
+ * same rows, whichever way the export arrived).
+ */
+export async function* rowsOfFile(payload: SapExtractPayload, profile: SapProfile): AsyncIterable<RawCostRow> {
+  const rows = payload.fileName.toLowerCase().endsWith(".csv")
+    ? readCsv(payload.content, profile)
+    : await readWorkbook(payload.content, profile);
 
-    const header = (rows[profile.header_row - 1] ?? []).map((cell) => cell.text);
-    const { found, missing } = indexColumns(profile, header);
+  const header = (rows[profile.header_row - 1] ?? []).map((cell) => cell.text);
+  const { found, missing } = indexColumns(profile, header);
 
-    // RULE: a file missing a column the profile calls required cannot be
-    // read at all. That is a 422 on the import and not three thousand
-    // exceptions, because the answer is "you exported the wrong layout".
-    if (missing.length) {
-      throw AppError.unprocessable("errors.costColumnsMissing", { columns: missing.join(", ") });
+  // RULE: a file missing a column the profile calls required cannot be
+  // read at all. That is a 422 on the import and not three thousand
+  // exceptions, because the answer is "you exported the wrong layout".
+  if (missing.length) {
+    throw AppError.unprocessable("errors.costColumnsMissing", { columns: missing.join(", ") });
+  }
+
+  let blankRun = 0;
+  for (let index = profile.first_data_row - 1; index < rows.length; index += 1) {
+    const cells = rows[index];
+    if (!cells || cells.every((cell) => cell.text === "")) {
+      blankRun += 1;
+      if (blankRun >= profile.blank_run_to_stop) break;
+      continue;
     }
-
-    let blankRun = 0;
-    for (let index = profile.first_data_row - 1; index < rows.length; index += 1) {
-      const cells = rows[index];
-      if (!cells || cells.every((cell) => cell.text === "")) {
-        blankRun += 1;
-        if (blankRun >= profile.blank_run_to_stop) break;
-        continue;
-      }
-      blankRun = 0;
-      yield toRawRow(cells, index + 1, profile, found);
-    }
+    blankRun = 0;
+    yield toRawRow(cells, index + 1, profile, found);
   }
 }
 
@@ -144,18 +161,25 @@ function toRawRow(
     });
   }
 
+  // ADR-0036: the capital lines carry an assignment beside the text; where
+  // the text is empty the assignment is the only narrative there is.
+  const description = pick(cells, found, "description").text || pick(cells, found, "assignment").text;
+
   return {
     rowNo,
     sourceRef: item === "" ? reference : `${reference}/${item}`,
     docDate,
     postingDate,
     amount: amount === null ? null : applySign(amount, profile.sign),
-    description: pick(cells, found, "description").text,
+    description,
     vendorName: text(pick(cells, found, "vendorName")),
     sapWbs: text(pick(cells, found, "sapWbs")),
     sapPo: text(pick(cells, found, "sapPo")),
     costCentre: text(pick(cells, found, "costCentre")),
     glAccount: text(pick(cells, found, "glAccount")),
+    vendorNo: text(pick(cells, found, "vendorNo")),
+    contractRef: text(pick(cells, found, "contractRef")),
+    invoiceRef: text(pick(cells, found, "invoiceRef")),
     problems,
   };
 }
@@ -226,6 +250,7 @@ export function readCsv(content: Buffer, profile: SapProfile): RawCell[][] {
   // stops the first header cell being «﻿Document Number», which matches
   // nothing.
   const text = content.toString("utf8").replace(/^﻿/, "");
+  const delimiter = profile.csv_delimiter === "auto" ? sniffDelimiter(text) : profile.csv_delimiter;
   const rows: RawCell[][] = [];
   let row: string[] = [];
   let field = "";
@@ -243,7 +268,7 @@ export function readCsv(content: Buffer, profile: SapProfile): RawCell[][] {
       continue;
     }
     if (char === '"') quoted = true;
-    else if (char === profile.csv_delimiter) {
+    else if (char === delimiter) {
       row.push(field);
       field = "";
     } else if (char === "\n") {
@@ -258,4 +283,28 @@ export function readCsv(content: Buffer, profile: SapProfile): RawCell[][] {
     rows.push(row.map((value) => ({ text: value.trim(), number: null, date: null })));
   }
   return rows;
+}
+
+/**
+ * `csv_delimiter: auto`: the separator the header row uses. Counted outside
+ * quotes on the first line only, because a narrative further down may well
+ * hold a comma; a tie goes to `;`, the Greek client's choice.
+ */
+export function sniffDelimiter(text: string): string {
+  const counts = new Map<string, number>([
+    [";", 0],
+    [",", 0],
+    ["\t", 0],
+  ]);
+  let quoted = false;
+  for (const char of text) {
+    if (char === "\n") break;
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && counts.has(char)) counts.set(char, (counts.get(char) ?? 0) + 1);
+  }
+  let best = ";";
+  for (const [char, count] of counts) {
+    if (count > (counts.get(best) ?? 0)) best = char;
+  }
+  return best;
 }

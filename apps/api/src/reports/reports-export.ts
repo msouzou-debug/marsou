@@ -28,6 +28,7 @@ import {
   type ExceptionsReport,
   RISK_BAND_ORDER,
   type ReportMeta,
+  type SapReconciliationReport,
   type Scorecard,
   type StatutoryComplianceReport,
 } from "@ecapital/shared";
@@ -895,6 +896,64 @@ export async function clinicalDisruptionWorkbook(
     words,
     { totals: true },
   );
+  return done(workbook);
+}
+
+// --------------------------------------------- 8. SAP reconciliation --
+
+type ReconciliationLine = SapReconciliationReport["rows"][number];
+
+/**
+ * ADR-0036 §4. One sheet: the meta, one row per contract or vendor with the
+ * two sides as values, the difference as a live formula (SAP minus
+ * eFinance), the totals as formulas, and the lines still unmatched in the
+ * period as two values under the table.
+ */
+export async function sapReconciliationWorkbook(
+  report: SapReconciliationReport,
+  i18n: I18nService,
+): Promise<Buffer> {
+  const words = new Words(i18n);
+  const workbook = newBook();
+  const sheet = workbook.addWorksheet(SHEET.data);
+  const { next } = writeMeta(sheet, words, report.meta, []);
+  const cols: Col<ReconciliationLine>[] = [
+    { key: "contractRef", width: 18, input: (r) => r.contractRef },
+    { key: "projectCode", width: 18, input: (r) => r.projectCode },
+    { key: "unit", width: 32, input: (r) => r.orgUnitName },
+    { key: "contractor", width: 34, input: (r) => r.contractorName },
+    { key: "vendorNo", width: 16, input: (r) => r.vendorNo },
+    { key: "sapLines", width: 12, fmt: INT, input: (r) => r.sapLines, total: "sum" },
+    { key: "sapAmount", width: 18, fmt: MONEY, input: (r) => r.sapAmount, total: "sum" },
+    { key: "efinanceInvoices", width: 14, fmt: INT, input: (r) => r.efinanceInvoices, total: "sum" },
+    { key: "efinanceAmount", width: 18, fmt: MONEY, input: (r) => r.efinanceAmount, total: "sum" },
+    {
+      key: "difference",
+      width: 20,
+      fmt: MONEY,
+      formula: (c) => `${c("sapAmount")}-${c("efinanceAmount")}`,
+      total: "same",
+    },
+    { key: "reconciliationStatus", width: 18, input: (r) => words.el(`sapStatus.${r.status}`) },
+    { key: "linesWithoutRef", width: 14, fmt: INT, input: (r) => r.linesWithoutRef, total: "sum" },
+  ];
+  const table = writeTable(sheet, next, cols, report.rows, words, { totals: true });
+
+  const after = (table.totals ?? table.last) + 2;
+  const both = (label: Label) => `${label.el} / ${label.en}`;
+  const lines: [Label, number, string][] = [
+    [words.of("summary.unmatchedLines"), report.unmatchedLines, INT],
+    [words.of("summary.unmatchedAmount"), report.unmatchedAmount, MONEY],
+  ];
+  lines.forEach(([label, value, fmt], i) => {
+    const row = sheet.getRow(after + i);
+    row.getCell(1).value = both(label);
+    row.getCell(1).font = { bold: true };
+    const cell = row.getCell(2);
+    cell.value = value;
+    cell.numFmt = fmt;
+    paint(cell, COLOUR.input);
+  });
   return done(workbook);
 }
 

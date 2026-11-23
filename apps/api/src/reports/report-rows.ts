@@ -9,6 +9,8 @@ import {
   type CapitalContractorRow,
   type ExceptionRow,
   type Rag,
+  type SapReconciliationRow,
+  type SapReconciliationStatus,
   yearElapsedPct,
 } from "@ecapital/shared";
 
@@ -266,4 +268,29 @@ export function sortLifecycle(rows: AssetLifecycleRow[]): AssetLifecycleRow[] {
 /** The twelve `YYYY-MM` of a year. */
 export function monthsOf(year: number): string[] {
   return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+}
+
+// ---------------------------------------------------- SAP reconciliation --
+
+/**
+ * ADR-0036 §4. MATCHED: both sides there and equal to the cent. SAP_ONLY:
+ * eFinance has nothing. EFINANCE_ONLY: SAP has nothing. DIFFERENCE: both
+ * sides there and unequal. Checked in that order.
+ */
+export function sapReconciliationStatus(sapAmount: number, efinanceAmount: number): SapReconciliationStatus {
+  const difference = sapAmount - efinanceAmount;
+  if (Math.abs(difference) < 0.005 && sapAmount !== 0 && efinanceAmount !== 0) return "MATCHED";
+  if (efinanceAmount === 0) return "SAP_ONLY";
+  if (sapAmount === 0) return "EFINANCE_ONLY";
+  return "DIFFERENCE";
+}
+
+/** Largest absolute difference first; ties by contract reference (contracts first), then vendor number. */
+export function sortReconciliation(rows: SapReconciliationRow[]): SapReconciliationRow[] {
+  return [...rows].sort((a, b) => {
+    const gap = Math.abs(b.difference) - Math.abs(a.difference);
+    if (Math.abs(gap) >= 0.005) return gap;
+    if ((a.contractRef === null) !== (b.contractRef === null)) return a.contractRef === null ? 1 : -1;
+    return (a.contractRef ?? "").localeCompare(b.contractRef ?? "") || (a.vendorNo ?? "").localeCompare(b.vendorNo ?? "");
+  });
 }

@@ -43,3 +43,14 @@ export function ruleText(description: string | null): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * ADR-0036: a SAP vendor number as a key — trimmed, upper case, and, for a
+ * number that is all digits, without SAP's leading zeros, because the vendor
+ * master pads it to ten places and an export, eFinance's vendor list or a
+ * contractor record may or may not keep them. Empty for nothing.
+ */
+export function vendorKey(value: string | null | undefined): string {
+  const trimmed = (value ?? "").trim().toUpperCase();
+  return /^\d+$/.test(trimmed) ? trimmed.replace(/^0+(?=\d)/, "") : trimmed;
+}

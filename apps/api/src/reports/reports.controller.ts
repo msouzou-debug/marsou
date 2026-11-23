@@ -20,6 +20,7 @@ import {
   REPORT_SLUG,
   ReportCatalogueEntry,
   type ReportKey,
+  SapReconciliationReport,
   StatutoryComplianceReport,
 } from "@ecapital/shared";
 import type { Response } from "express";
@@ -36,6 +37,7 @@ import {
   clinicalDisruptionWorkbook,
   contractorScorecardWorkbook,
   exceptionsWorkbook,
+  sapReconciliationWorkbook,
   statutoryComplianceWorkbook,
 } from "./reports-export";
 import { ReportsService } from "./reports.service";
@@ -80,7 +82,7 @@ function Workbook(summary: string) {
 }
 
 /**
- * M6 — Αναφορές (R39, CAPEX-01 §11; ADR-0032). Seven reports, each as JSON
+ * M6 — Αναφορές (R39, CAPEX-01 §11; ADR-0032, ADR-0036). Eight reports, each as JSON
  * for the screen and as an Excel workbook with live formulas; both come from
  * the same service call, so a figure on the screen is the figure in the file.
  * The PDF is the browser's print of the screen (ADR-0032 §3).
@@ -104,7 +106,7 @@ export class ReportsController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: "The report catalogue: the seven reports and the filters each takes" })
+  @ApiOperation({ summary: "The report catalogue: the eight reports and the filters each takes" })
   @ApiZodResponse(200, z.array(ReportCatalogueEntry), "One entry per report, in the order S23 lists them")
   @ApiZodError(403, "A role the reports are not for (ADR-0032 §6)")
   catalogue(): ReportCatalogueEntry[] {
@@ -277,6 +279,43 @@ export class ReportsController {
     const parsed = parseReportQuery(query, now);
     const report = await this.reports.statutoryCompliance(parsed, now);
     return this.send(response, "STATUTORY_COMPLIANCE", parsed, await statutoryComplianceWorkbook(report, this.i18n));
+  }
+
+  // -------------------------------------------- 8. SAP reconciliation --
+
+  /**
+   * ADR-0036 §4. SAP's capital lines against eFinance's booked invoices, per
+   * contract or per vendor, for the period. Read by the same five roles as
+   * the other seven (ADR-0032 §6): finance, head of estates, admin,
+   * executive, auditor.
+   */
+  @Get(REPORT_SLUG.SAP_RECONCILIATION)
+  @ApiOperation({ summary: "SAP capital lines against eFinance's booked invoices, per contract or vendor" })
+  @ReportFilters("SAP_RECONCILIATION")
+  @ApiZodResponse(200, SapReconciliationReport, "Largest absolute difference first, with totals and what is still unmatched")
+  sapReconciliation(@Query() query: unknown): Promise<SapReconciliationReport> {
+    const now = new Date();
+    return this.reports.sapReconciliation(parseReportQuery(query, now), now);
+  }
+
+  @Get(`${REPORT_SLUG.SAP_RECONCILIATION}.xlsx`)
+  @Header("Cache-Control", "no-store")
+  @ApiOperation({ summary: "SAP reconciliation as Excel, with live formulas" })
+  @ApiProduces(XLSX)
+  @ApiResponse({
+    status: 200,
+    description: "The workbook: one sheet «Στοιχεία», inputs as values, the difference and the totals as live formulas",
+    content: { [XLSX]: { schema: { type: "string", format: "binary" } } },
+  })
+  @ReportFilters("SAP_RECONCILIATION")
+  async sapReconciliationXlsx(
+    @Query() query: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const now = new Date();
+    const parsed = parseReportQuery(query, now);
+    const report = await this.reports.sapReconciliation(parsed, now);
+    return this.send(response, "SAP_RECONCILIATION", parsed, await sapReconciliationWorkbook(report, this.i18n));
   }
 
   // ------------------------------------------------------------ helpers --

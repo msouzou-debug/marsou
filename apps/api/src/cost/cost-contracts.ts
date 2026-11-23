@@ -10,7 +10,7 @@
  * the shared schema has no room for. Each one says why.
  */
 import { z } from "zod";
-import { CostWarning, ImportBatch, PaymentCertTransition, UnmatchedRow } from "@ecapital/shared";
+import { CostWarning, ImportBatch, PaymentCertTransition, SapReport, UnmatchedRow } from "@ecapital/shared";
 import { isPeriod } from "./source/values";
 
 /** A rule that fired on one row of an import, in both languages. */
@@ -51,7 +51,9 @@ export type ImportBatchList = z.infer<typeof ImportBatchList>;
  * somebody says otherwise — see ADR-0016 on why the dry run is the default.
  */
 export const ImportRequest = z.object({
-  report: z.enum(["ME2N", "KSB1", "FBL1N"]),
+  // Every report the enum knows, so a retired one (ME2N, KSB1) is told it is
+  // retired (422 errors.sapReportRetired) rather than that the form is wrong.
+  report: SapReport,
   period: z.string().refine(isPeriod, "a period is YYYY-MM"),
   dryRun: z
     .union([z.boolean(), z.string()])
@@ -59,6 +61,24 @@ export const ImportRequest = z.object({
     .transform((value) => (typeof value === "boolean" ? value : value !== "false" && value !== "0")),
 });
 export type ImportRequest = z.infer<typeof ImportRequest>;
+
+/**
+ * ADR-0036 §1, `POST /cost/imports/sap-connector`: one fiscal year and a
+ * range of SAP posting periods (13–16 are the special periods after year
+ * end). `dryRun` defaults to true, as the upload's does (ADR-0016).
+ */
+export const ConnectorImportRequest = z
+  .object({
+    fiscalYear: z.coerce.number().int().min(2000).max(2100),
+    periodFrom: z.coerce.number().int().min(1).max(16),
+    periodTo: z.coerce.number().int().min(1).max(16),
+    dryRun: z
+      .union([z.boolean(), z.string()])
+      .default(true)
+      .transform((value) => (typeof value === "boolean" ? value : value !== "false" && value !== "0")),
+  })
+  .refine((value) => value.periodFrom <= value.periodTo, "periodFrom is after periodTo");
+export type ConnectorImportRequest = z.infer<typeof ConnectorImportRequest>;
 
 export const SkipRequest = z.object({
   txnIds: z.array(z.string()).min(1),

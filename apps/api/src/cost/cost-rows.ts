@@ -68,6 +68,12 @@ export interface CostTxnRow {
   glAccount: string | null;
   importBatchId: string | null;
   matchedBy: CostTxn["matchedBy"];
+  // ADR-0036, the capital lines. Optional so a query that predates them
+  // still builds a row; absent reads as null.
+  vendorNo?: string | null;
+  contractRef?: string | null;
+  invoiceRef?: string | null;
+  efinanceInvoiceId?: string | null;
 }
 
 export function toCostTxn(row: CostTxnRow): CostTxn {
@@ -100,6 +106,10 @@ export function toCostTxn(row: CostTxnRow): CostTxn {
     glAccount: row.glAccount,
     importBatchId: row.importBatchId,
     matchedBy: row.matchedBy,
+    vendorNo: row.vendorNo ?? null,
+    contractRef: row.contractRef ?? null,
+    invoiceRef: row.invoiceRef ?? null,
+    efinanceInvoiceId: row.efinanceInvoiceId ?? null,
   };
 }
 

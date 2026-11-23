@@ -54,7 +54,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0022_m5_maintenance");
     expect(result.applied).toContain("0024_unit_codes_follow_efinance");
     expect(result.applied).toContain("0025_delay_extensions_claims");
-    expect(result.lastMigrationId).toBe("0025_delay_extensions_claims");
+    expect(result.applied).toContain("0026_sap_capital_lines");
+    expect(result.lastMigrationId).toBe("0026_sap_capital_lines");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -162,6 +163,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0022_m5_maintenance");
     expect(result.skipped).toContain("0024_unit_codes_follow_efinance");
     expect(result.skipped).toContain("0025_delay_extensions_claims");
+    expect(result.skipped).toContain("0026_sap_capital_lines");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -690,6 +692,85 @@ describe("migrations", () => {
       await cleanup.end();
     }
   }, 180_000);
+
+  /**
+   * ADR-0036. The three enum values, the four cost_txn columns and the
+   * vendor-number key on the rules, on the fully migrated database, and the
+   * file run a second time by hand changing none of it.
+   */
+  it("0026 adds the capital lines' enum values, columns and rule key, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const file = readMigrations().find((m) => m.id === "0026_sap_capital_lines");
+      expect(file).toBeDefined();
+
+      const state = async () => {
+        const { rows: labels } = await client.query<{ typname: string; enumlabel: string }>(
+          `select t.typname, e.enumlabel
+             from pg_enum e join pg_type t on t.oid = e.enumtypid
+             join pg_namespace n on n.oid = t.typnamespace
+            where n.nspname = 'ecapital' and t.typname in ('sap_report', 'cost_matched_by')
+            order by t.typname, e.enumsortorder`,
+        );
+        const { rows: columns } = await client.query<{ table_name: string; column_name: string; data_type: string }>(
+          `select table_name, column_name, data_type from information_schema.columns
+            where table_schema = 'ecapital'
+              and ((table_name = 'cost_txn'
+                    and column_name in ('vendor_no', 'contract_ref', 'invoice_ref', 'efinance_invoice_id'))
+                or (table_name = 'allocation_rule' and column_name = 'vendor_no'))
+            order by table_name, column_name`,
+        );
+        const { rows: indexes } = await client.query<{ indexname: string; indexdef: string }>(
+          `select indexname, indexdef from pg_indexes
+            where schemaname = 'ecapital'
+              and indexname in ('allocation_rule_key', 'allocation_rule_vendor_no_key',
+                                'cost_txn_vendor_no_idx', 'cost_txn_contract_ref_idx')
+            order by indexname`,
+        );
+        return { labels, columns, indexes };
+      };
+
+      const before = await state();
+      expect(before.labels.filter((l) => l.typname === "sap_report").map((l) => l.enumlabel)).toEqual([
+        "ME2N",
+        "KSB1",
+        "FBL1N",
+        "CAPEX_LINES",
+      ]);
+      expect(before.labels.filter((l) => l.typname === "cost_matched_by").map((l) => l.enumlabel)).toEqual([
+        "WBS",
+        "PO",
+        "COST_CENTRE",
+        "MANUAL",
+        "RULE",
+        "NONE",
+        "CONTRACT_REF",
+        "EFINANCE_INVOICE",
+      ]);
+      expect(before.columns.map((c) => `${c.table_name}.${c.column_name}`)).toEqual([
+        "allocation_rule.vendor_no",
+        "cost_txn.contract_ref",
+        "cost_txn.efinance_invoice_id",
+        "cost_txn.invoice_ref",
+        "cost_txn.vendor_no",
+      ]);
+      expect(before.indexes.map((i) => i.indexname)).toEqual([
+        "allocation_rule_key",
+        "allocation_rule_vendor_no_key",
+        "cost_txn_contract_ref_idx",
+        "cost_txn_vendor_no_idx",
+      ]);
+      expect(before.indexes.find((i) => i.indexname === "allocation_rule_key")?.indexdef).toContain(
+        "WHERE (vendor_no IS NULL)",
+      );
+
+      await client.query(file!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
+  });
 
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });

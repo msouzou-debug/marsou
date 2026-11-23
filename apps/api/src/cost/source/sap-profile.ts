@@ -3,7 +3,7 @@
  *
  * R14, R15, and the same decision ADR-0016 took for the capex plan — the
  * mapping is data, not code. A column that moved or a header somebody
- * reworded in SAP is an edit to `../profiles/me2n.yaml`; a genuinely new kind
+ * reworded in SAP is an edit to `../profiles/capexlines.yaml`; a genuinely new kind
  * of cell is a code change, because a profile may only name a target this
  * module already knows how to fill.
  *
@@ -31,6 +31,13 @@ export const COLUMN_TARGETS = [
   "sapPo",
   "costCentre",
   "glAccount",
+  // ADR-0036, the capital spending lines: SAP's vendor number, the CAP-
+  // reference, the vendor's invoice number, and the assignment field, which
+  // stands in for the text when the text is empty.
+  "vendorNo",
+  "contractRef",
+  "invoiceRef",
+  "assignment",
 ] as const;
 export type ColumnTarget = (typeof COLUMN_TARGETS)[number];
 
@@ -44,7 +51,7 @@ export type ColumnSpec = z.infer<typeof ColumnSpec>;
 
 export const SapProfile = z.object({
   profile: z.string().min(1),
-  report: z.enum(["ME2N", "KSB1", "FBL1N"]),
+  report: z.enum(["ME2N", "KSB1", "FBL1N", "CAPEX_LINES"]),
   /** Which ledger the rows land in (CAPEX-01 §7). */
   txn_type: z.enum(["COMMITMENT", "ACTUAL"]),
   /** The worksheet by name; the first one when absent. */
@@ -56,9 +63,15 @@ export const SapProfile = z.object({
   number_format: z.enum(["european", "anglo", "auto"]).default("european"),
   date_format: z.enum(["dmy_dot", "dmy_slash", "iso", "auto"]).default("dmy_dot"),
   sign: z.enum(["as_posted", "invert"]).default("as_posted"),
-  /** The separator of a .csv export; ignored for .xlsx. */
-  csv_delimiter: z.string().length(1).default(";"),
-  columns: z.record(z.enum(COLUMN_TARGETS), ColumnSpec),
+  /**
+   * The separator of a .csv export; ignored for .xlsx. `auto` reads it off
+   * the header row: whichever of `;`, `,` and tab occurs most there outside
+   * quotes (ADR-0036: the connector's file may come either way).
+   */
+  csv_delimiter: z.union([z.literal("auto"), z.string().length(1)]).default(";"),
+  // Partial: a profile names the targets its report carries and no others
+  // (FBL1N has no vendor number, the capital lines have no WBS).
+  columns: z.partialRecord(z.enum(COLUMN_TARGETS), ColumnSpec),
 });
 export type SapProfile = z.infer<typeof SapProfile>;
 
@@ -76,7 +89,8 @@ export function loadSapProfile(report: SapReport, dir: string = PROFILE_DIR): Sa
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const path = join(dir, `${report.toLowerCase()}.yaml`);
+  // `CAPEX_LINES` → `capexlines.yaml`, `FBL1N` → `fbl1n.yaml`.
+  const path = join(dir, `${report.toLowerCase().replace(/_/g, "")}.yaml`);
   if (!existsSync(path)) throw new Error(`No import profile for ${report} at ${path}`);
 
   const parsed = SapProfile.safeParse(parseYaml(readFileSync(path, "utf8")));
