@@ -14,7 +14,7 @@
  * | onRetry      | () => void?             |                                                 |
  * | noPermission | ReactNode               |                                                 |
  *
- * States: default, loading (seven skeleton cards), empty (the API listed
+ * States: default, loading (eight skeleton cards), empty (the API listed
  * none), error, noPermission. Offline does not apply: the index is a list
  * of links with nothing to edit, and a cached list is still right.
  */

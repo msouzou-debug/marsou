@@ -33,6 +33,7 @@ import { SuggestionPanel } from "@/components/suggestion-panel";
 import { formatDate, formatEUR } from "@/lib/format";
 import { BulkAssignPicker, type BulkAssignContractOption, type BulkAssignProjectOption } from "./BulkAssignPicker";
 import { useUnmatchedQueueKeyboard } from "./useUnmatchedQueueKeyboard";
+import { VendorCell } from "./VendorCell";
 
 export type UnmatchedQueueScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
 
@@ -122,12 +123,12 @@ export function UnmatchedQueue({
   const items = queue?.items ?? [];
   const focused = items[focusedIndex];
 
-  function queueCell(columnId: QueueColumnId, row: UnmatchedQueueData["items"][number]): string {
+  function queueCell(columnId: QueueColumnId, row: UnmatchedQueueData["items"][number]): ReactNode {
     switch (columnId) {
       case "postingDate":
         return formatDate(row.txn.postingDate);
       case "vendor":
-        return row.txn.vendorName ?? t("common.notAvailable");
+        return <VendorCell txn={row.txn} fallback={t("common.notAvailable")} />;
       case "description":
         return row.txn.description;
       case "amount":
@@ -214,7 +215,7 @@ export function UnmatchedQueue({
           <ul className="grid gap-s-2">
             {items.map((row) => (
               <li key={row.txn.id} className="rounded-k border border-k-grey p-s-3 text-fs-14">
-                <p className="font-bold text-k-ink">{row.txn.vendorName ?? row.txn.description}</p>
+                <div className="font-bold text-k-ink"><VendorCell txn={row.txn} fallback={row.txn.description} /></div>
                 <p className="text-k-text">{formatDate(row.txn.postingDate)}</p>
                 <p className="num text-k-ink">{formatEUR(row.txn.amount)}</p>
               </li>

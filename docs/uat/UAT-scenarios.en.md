@@ -99,6 +99,17 @@ Use a Nicosia General Hospital contract with no sections, with a contractual com
 | D5 | Cost › accruals. Download the Excel. | The file opens. Formulas are live, not values. The amount never goes below 0. | |
 | D6 | As `estates.nicosia`, look for the cost menu. | It is not shown. | |
 
+### Da. SAP capital spending lines and reconciliation with eFinance (finance)
+
+| # | Steps | Expected | Result |
+|---|---|---|---|
+| Da1 | Cost › SAP import. Look at the «SAP report» list of the upload card. | Only «SAP capital spending lines» (the default) and FBL1N. ME2N and KSB1 are gone. The old ME2N and KSB1 batches still show in the list. | |
+| Da2 | Upload a capital spending lines CSV with «Dry run», then «Import». | The batch opens. Lines with a CAP- reference matched with «Contract reference». Lines whose vendor number, amount and date fit an eFinance invoice matched with «eFinance invoice». The rest are in the queue, with the vendor number and contract reference under the name. | |
+| Da3 | Try to upload an ME2N (or KSB1) file, through the API address or an old bookmark. | The import is refused with a sentence saying the report is retired. | |
+| Da4 | In the «Fetch from SAP» card press «Fetch» for the previous month. | While the connector key is missing on the server, an info notice (not a red error) says the connection is not set up. Once the key is placed, the new batch opens. | |
+| Da5 | Reports › SAP and eFinance reconciliation, previous quarter. | A table with one row per contract, showing «Agrees», «Difference», «SAP only» or «eFinance only», a «Total» row and, below it, the count and amount of SAP lines not matched, with a link to the SAP import. | |
+| Da6 | Press «Download Excel» and open the file. | The same figures as the screen. The difference and the totals are formulas. | |
+
 ## E. Shutdowns and permits (engineer, clinical approvers, technician)
 
 | # | Steps | Expected | Result |
@@ -181,7 +192,7 @@ Use a Nicosia General Hospital contract with no sections, with a contractual com
 
 | # | Steps | Expected | Result |
 |---|---|---|---|
-| K1 | As `executive`, Αναφορές. | Seven cards: capital programme by unit, project exceptions, contractor scorecard, maintenance backlog by risk band, asset lifecycle, clinical disruption, statutory compliance. Each card says who it is for and which filters it takes. | |
+| K1 | As `executive`, Αναφορές. | Eight cards: capital programme by unit, project exceptions, contractor scorecard, maintenance backlog by risk band, asset lifecycle, clinical disruption, statutory compliance, SAP and eFinance reconciliation. Each card says who it is for and which filters it takes. | |
 | K2 | As `engineer.nicosia`, look at the menu. Then type `/reports/capital-programme` in the address bar. | The menu has no «Αναφορές». The address shows «Δεν έχετε πρόσβαση σε αυτή τη σελίδα». | |
 | K3 | As `finance`, capital programme by unit, «ΟΚΥπΥ — όλες οι μονάδες», year 2026. | One row per unit and a «Σύνολο» row. The approved budget per unit agrees with the portfolio. Where there is no SAP spend the cell shows «—», not 0. The meta line names the unit, the year and the time generated. | |
 | K4 | Press «Λήψη Excel» and open the file. | The same figures as the screen. Totals, percentages and slippage are formulas, not numbers. Where the screen shows «—» the cell is blank. | |

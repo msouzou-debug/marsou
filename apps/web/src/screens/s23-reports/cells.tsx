@@ -1,6 +1,6 @@
 // S23a — R39
 //
-// The small cells the seven report bodies share: «—» for a figure the
+// The small cells the eight report bodies share: «—» for a figure the
 // system has no source for, a signed and coloured slippage, a coloured
 // percentage chip. Presentational only.
 import type { ReactNode } from "react";

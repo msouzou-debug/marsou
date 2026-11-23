@@ -1,6 +1,6 @@
 # Reports
 
-This page gathers the seven management reports: capital programme by unit, project exceptions, contractor scorecard, maintenance backlog by risk band, asset lifecycle, clinical disruption and statutory compliance. Each report is worked out when you open it, from the same figures the other screens show.
+This page gathers the eight management reports: capital programme by unit, project exceptions, contractor scorecard, maintenance backlog by risk band, asset lifecycle, clinical disruption, statutory compliance and the SAP and eFinance reconciliation. Each report is worked out when you open it, from the same figures the other screens show.
 
 ## Steps
 

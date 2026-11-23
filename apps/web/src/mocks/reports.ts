@@ -1,4 +1,4 @@
-// M6 (R39, ADR-0032) — fixtures for the seven reports, typed by
+// M6 (R39, ADR-0032) — fixtures for the eight reports, typed by
 // `packages/shared/src/reports.ts`. They feed the preview gallery and the
 // S23/S23a tests (ADR-0005), never a route a screen fetches from. Round,
 // obviously fake figures; hospitals, projects, machines, hours and money,
@@ -18,6 +18,7 @@ import {
   type ReportCatalogueEntry,
   type ReportKey,
   type ReportMeta,
+  type SapReconciliationReport,
   type StatutoryComplianceReport,
 } from "@ecapital/shared";
 import type { ReportData } from "@/data/queries";
@@ -347,6 +348,82 @@ export function buildStatutoryComplianceReport(overrides: Partial<StatutoryCompl
   };
 }
 
+/**
+ * ADR-0036: one row of each status, a contract-less vendor row among them.
+ * The totals are the sums of the rows, as the API sends them.
+ */
+export function buildSapReconciliationReport(overrides: Partial<SapReconciliationReport> = {}): SapReconciliationReport {
+  return {
+    meta: buildReportMeta("SAP_RECONCILIATION"),
+    rows: [
+      {
+        contractId: "c-1",
+        contractRef: "CAP-2026-0012",
+        projectCode: "NGH-2026-004",
+        orgUnitName: NICOSIA.nameEl,
+        contractorName: "Δείγμα Κατασκευαστική Α.Ε.",
+        vendorNo: "100234",
+        sapLines: 4,
+        sapAmount: 120_000,
+        efinanceInvoices: 3,
+        efinanceAmount: 100_000,
+        difference: 20_000,
+        status: "DIFFERENCE",
+        linesWithoutRef: 1,
+      },
+      {
+        contractId: null,
+        contractRef: null,
+        projectCode: null,
+        orgUnitName: null,
+        contractorName: null,
+        vendorNo: "100871",
+        sapLines: 2,
+        sapAmount: 30_000,
+        efinanceInvoices: 0,
+        efinanceAmount: 0,
+        difference: 30_000,
+        status: "SAP_ONLY",
+        linesWithoutRef: 2,
+      },
+      {
+        contractId: "c-2",
+        contractRef: "CAP-2026-0021",
+        projectCode: "LAR-2026-002",
+        orgUnitName: LARNACA.nameEl,
+        contractorName: "Δείγμα Η/Μ Έργα Λτδ",
+        vendorNo: "100455",
+        sapLines: 0,
+        sapAmount: 0,
+        efinanceInvoices: 2,
+        efinanceAmount: 15_000,
+        difference: -15_000,
+        status: "EFINANCE_ONLY",
+        linesWithoutRef: 0,
+      },
+      {
+        contractId: "c-3",
+        contractRef: "CAP-2026-0030",
+        projectCode: "LIM-2026-001",
+        orgUnitName: LIMASSOL.nameEl,
+        contractorName: "Δείγμα Εξοπλισμός Α.Ε.",
+        vendorNo: "100902",
+        sapLines: 2,
+        sapAmount: 50_000,
+        efinanceInvoices: 2,
+        efinanceAmount: 50_000,
+        difference: 0,
+        status: "MATCHED",
+        linesWithoutRef: 0,
+      },
+    ],
+    totals: { sapAmount: 200_000, efinanceAmount: 165_000, difference: 35_000 },
+    unmatchedLines: 3,
+    unmatchedAmount: 4_250.5,
+    ...overrides,
+  };
+}
+
 /** Any report by key, for the tests and the preview that loop over all seven. */
 export function buildReport<K extends ReportKey>(key: K): ReportData[K] {
   const builders: { [P in ReportKey]: () => ReportData[P] } = {
@@ -357,6 +434,7 @@ export function buildReport<K extends ReportKey>(key: K): ReportData[K] {
     ASSET_LIFECYCLE: () => buildAssetLifecycleReport(),
     CLINICAL_DISRUPTION: () => buildClinicalDisruptionReport(),
     STATUTORY_COMPLIANCE: () => buildStatutoryComplianceReport(),
+    SAP_RECONCILIATION: () => buildSapReconciliationReport(),
   };
   return builders[key]();
 }

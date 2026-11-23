@@ -16,6 +16,7 @@ import { CostNavTabs, PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDate, formatInt } from "@/lib/format";
 import type { SapReport } from "@ecapital/shared";
+import { ConnectorCard, type ConnectorParams } from "./ConnectorCard";
 import { UploadCard, type DryRunResult } from "./UploadCard";
 
 export type ImportsScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
@@ -31,6 +32,12 @@ export interface ImportsProps {
   uploadApiError?: string;
   dryRunResult?: DryRunResult | null;
   onUpload: (file: File, report: SapReport, period: string, dryRun: boolean) => void;
+  /** ADR-0036: «Λήψη από το SAP». Optional so a caller with no connector draws no card. */
+  onConnector?: (params: ConnectorParams) => void;
+  connectorSubmitting?: boolean;
+  connectorNotice?: string;
+  connectorError?: string;
+  today?: string;
 }
 
 export function Imports({
@@ -44,6 +51,11 @@ export function Imports({
   uploadApiError,
   dryRunResult,
   onUpload,
+  onConnector,
+  connectorSubmitting,
+  connectorNotice,
+  connectorError,
+  today,
 }: ImportsProps) {
   const t = useTranslations();
 
@@ -51,7 +63,7 @@ export function Imports({
 
   const columns: TableColumn<ImportBatch>[] = [
     { id: "period", headerKey: "screens.s10.columns.period", accessor: (row) => row.period },
-    { id: "report", headerKey: "screens.s10.columns.report", accessor: (row) => row.report ?? "" },
+    { id: "report", headerKey: "screens.s10.columns.report", accessor: (row) => row.report ?? "", cell: (row) => (row.report ? t(`sapReport.${row.report}`) : "") },
     { id: "file", headerKey: "screens.s10.columns.file", accessor: (row) => row.fileName },
     { id: "rowsIn", headerKey: "screens.s10.columns.rowsIn", accessor: (row) => row.rowsIn, numeric: true, cell: (row) => formatInt(row.rowsIn) },
     { id: "rowsMatched", headerKey: "screens.s10.columns.rowsMatched", accessor: (row) => row.rowsMatched, numeric: true, cell: (row) => formatInt(row.rowsMatched) },
@@ -81,6 +93,16 @@ export function Imports({
         dryRunResult={dryRunResult}
         onSubmit={onUpload}
       />
+      {onConnector && (
+        <ConnectorCard
+          canImport={canImportSap(roles) && state !== "offline"}
+          submitting={connectorSubmitting}
+          notice={connectorNotice}
+          apiError={connectorError}
+          today={today}
+          onSubmit={onConnector}
+        />
+      )}
 
       <Table<ImportBatch>
         tableId="s10-imports"

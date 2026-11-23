@@ -54,6 +54,7 @@ import {
   ExceptionsReport,
   ReportCatalogueEntry,
   StatutoryComplianceReport,
+  SapReconciliationReport,
   REPORT_SLUG,
   type ReportKey,
   type ReportQuery,
@@ -908,6 +909,7 @@ export const REPORT_SCHEMA = {
   ASSET_LIFECYCLE: AssetLifecycleReport,
   CLINICAL_DISRUPTION: ClinicalDisruptionReport,
   STATUTORY_COMPLIANCE: StatutoryComplianceReport,
+  SAP_RECONCILIATION: SapReconciliationReport,
 } as const;
 
 export type ReportData = { [K in ReportKey]: z.infer<(typeof REPORT_SCHEMA)[K]> };

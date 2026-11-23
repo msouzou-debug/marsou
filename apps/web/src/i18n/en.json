@@ -1280,6 +1280,15 @@
         "done": "Every transaction is matched. You can complete the import now.",
         "readOnlyPhone": "The matching queue is view-only on this screen. Use a computer or tablet to assign.",
         "committed": "The import was committed."
+      },
+      "connector": {
+        "title": "Fetch from SAP",
+        "intro": "The system asks SAP for the capital spending lines of the fiscal year and periods you set, with no file.",
+        "fiscalYear": "Fiscal year",
+        "periodFrom": "Period from (1–16)",
+        "periodTo": "Period to (1–16)",
+        "fetch": "Fetch",
+        "invalid": "Set a fiscal year and periods from 1 to 16, the first not after the second."
       }
     },
     "s11": {
@@ -1914,6 +1923,35 @@
           "overdue": "{count} overdue",
           "nothingDue": "Nothing due",
           "thresholds": "Colour of the share done: green from 95 %, amber from 80 %, red below 80 %."
+        },
+        "SAP_RECONCILIATION": {
+          "description": "What SAP posted on the capital spending accounts against the invoices eFinance booked, per contract for the period. It shows where the two agree and where they differ.",
+          "audience": "Finance, Technical Services, auditors",
+          "caption": "SAP and eFinance reconciliation by contract",
+          "columns": {
+            "contract": "Contract",
+            "project": "Project",
+            "unit": "Unit",
+            "contractor": "Contractor",
+            "vendorNo": "SAP vendor no.",
+            "sapLines": "SAP lines",
+            "sapAmount": "SAP amount",
+            "efinanceInvoices": "eFinance invoices",
+            "efinanceAmount": "eFinance amount",
+            "difference": "Difference",
+            "status": "Status",
+            "linesWithoutRef": "Lines without reference"
+          },
+          "status": {
+            "MATCHED": "Agrees",
+            "DIFFERENCE": "Difference",
+            "SAP_ONLY": "SAP only",
+            "EFINANCE_ONLY": "eFinance only"
+          },
+          "noContract": "No contract",
+          "unmatched": "{count, plural, one {# SAP line is not matched yet} other {# SAP lines are not matched yet}}, {amount} in all.",
+          "unmatchedLink": "Open the SAP import",
+          "note": "SAP is compared by posting date and eFinance by invoice date. The difference is the SAP amount minus the eFinance amount."
         }
       }
     },
@@ -2818,7 +2856,8 @@
     "BACKLOG_BY_BAND": "Maintenance backlog by risk band",
     "ASSET_LIFECYCLE": "Asset lifecycle",
     "CLINICAL_DISRUPTION": "Clinical disruption",
-    "STATUTORY_COMPLIANCE": "Statutory compliance"
+    "STATUTORY_COMPLIANCE": "Statutory compliance",
+    "SAP_RECONCILIATION": "SAP and eFinance reconciliation"
   },
   "statutoryCategory": {
     "LIFTS": "Lifts",
@@ -2844,5 +2883,21 @@
     "COURT": "Court",
     "SETTLED": "Settled",
     "WITHDRAWN": "Withdrawn"
+  },
+  "sapReport": {
+    "CAPEX_LINES": "SAP capital spending lines",
+    "FBL1N": "FBL1N",
+    "ME2N": "ME2N",
+    "KSB1": "KSB1"
+  },
+  "matchedBy": {
+    "WBS": "WBS",
+    "PO": "Purchase order",
+    "COST_CENTRE": "Cost centre",
+    "MANUAL": "Manual",
+    "RULE": "Rule",
+    "NONE": "Not matched",
+    "CONTRACT_REF": "Contract reference",
+    "EFINANCE_INVOICE": "eFinance invoice"
   }
 }

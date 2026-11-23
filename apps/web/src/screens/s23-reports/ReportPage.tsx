@@ -42,6 +42,7 @@ import { CapitalProgrammeBody } from "./bodies/CapitalProgrammeBody";
 import { ClinicalDisruptionBody } from "./bodies/ClinicalDisruptionBody";
 import { ContractorScorecardBody } from "./bodies/ContractorScorecardBody";
 import { ExceptionsBody } from "./bodies/ExceptionsBody";
+import { SapReconciliationBody } from "./bodies/SapReconciliationBody";
 import { StatutoryComplianceBody } from "./bodies/StatutoryComplianceBody";
 import type { BodyProps, BodyState } from "./bodies/types";
 import { PRINT_ORIENTATION, catalogueEntry, printCss, printPageBoxesCss } from "./catalogue";
@@ -74,6 +75,7 @@ const BODIES: { [K in ReportKey]: (props: BodyProps<ReportData[K]>) => ReactNode
   ASSET_LIFECYCLE: AssetLifecycleBody,
   CLINICAL_DISRUPTION: ClinicalDisruptionBody,
   STATUTORY_COMPLIANCE: StatutoryComplianceBody,
+  SAP_RECONCILIATION: SapReconciliationBody,
 };
 
 /** The meta line's three parts, from the report's own stamp (ADR-0032 §1: «when and for what»). */
@@ -136,7 +138,7 @@ export function ReportPage<K extends ReportKey>(props: ReportPageProps<K>) {
     "flex min-h-[44px] items-center gap-s-2 rounded-k border border-k-grey bg-k-white px-s-3 py-s-2 text-fs-14 text-k-blue-deep disabled:opacity-50";
 
   return (
-    <div className={`report-sheet ${reportKey === "CLINICAL_DISRUPTION" || reportKey === "ASSET_LIFECYCLE" ? "report-dense" : ""}`}>
+    <div className={`report-sheet ${reportKey === "CLINICAL_DISRUPTION" || reportKey === "ASSET_LIFECYCLE" || reportKey === "SAP_RECONCILIATION" ? "report-dense" : ""}`}>
       <style>{printCss(PRINT_ORIENTATION[key])}</style>
       <PageTitle
         eyebrow={
