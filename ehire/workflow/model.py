@@ -78,6 +78,7 @@ class NewAction:
     comment: Optional[str] = None
     changed_fields: Mapping[str, Any] = field(default_factory=dict)  # resubmit: field -> new value
     system: bool = False  # T12 only
+    budget_warning: bool = False  # B1: the caller showed an eFinance budget warning for this answer
 
 
 @dataclass(frozen=True)

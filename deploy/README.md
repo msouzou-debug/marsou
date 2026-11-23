@@ -46,7 +46,7 @@ All app commands run as the `ehire` user through `runuser`, never as root. The s
 
 1. First install: `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh create-admin`. It asks for a password, so the script does not run it.
 2. The firewall rule: only the tunnel machine may reach the port.
-3. The three cron lines and the nightly backup line (Scheduled jobs and Backup and restore below). The script does not install cron.
+3. The four cron lines and the nightly backup line (Scheduled jobs and Backup and restore below). The script does not install cron.
 4. Values from IT in `/etc/ehire/ehire.env`: AD server, domain, base DN and CA file; Graph tenant, client id, secret and sender mailbox; the eArchive token. After editing, run `preflight.sh --skip-port` and restart only `ehire`.
 5. Copy the backup folder off the server.
 
@@ -122,7 +122,7 @@ Only when `install-ehire.sh` cannot be used. Stage and test first, switch last. 
 
 ## Scheduled jobs
 
-Two jobs keep the timers and the mail moving; a third is the nightly backup (next section). They run as the `ehire` user through `scripts/ehire-cli.sh`, which reads the same environment file as the service. Paths are examples.
+Jobs keep the timers, the mail, the eArchive deposits and the cost centres moving; the nightly backup is in the next section. They run as the `ehire` user through `scripts/ehire-cli.sh`, which reads the same environment file as the service. Paths are examples.
 
 ```
 # Reminders, escalations, returned-request warnings and automatic withdrawal. Hourly on working hours.
@@ -133,6 +133,10 @@ Two jobs keep the timers and the mail moving; a third is the nightly backup (nex
 
 # Make the PDFs of eArchive deposits and hand them to the archive transport. An unreachable eArchive is retried with growing gaps (5 min, 15 min, 1 h, 6 h, then daily), without limit.
 */5 * * * *     /opt/ehire/current/scripts/ehire-cli.sh send-archive >> /var/log/ehire/archive.log 2>&1
+
+# Bring the cost centres in line with eFinance (contract 07). Nightly at 02:40. Prints "skipped" while the eFinance
+# link is off; exits 1 when the sync failed (nothing is changed then). One line per run.
+40 2 * * *      /opt/ehire/current/scripts/ehire-cli.sh sync-cost-centres >> /var/log/ehire/efinance.log 2>&1
 ```
 
 - `run-timers` counts working days from the `public_holiday` table (Monday to Friday, minus holidays) and never counts paused time. Each reminder, escalation and warning goes once per clock start, so running it more often is safe. `--at 2026-03-02T09:00:00+00:00` runs it as if it were that time (testing only).

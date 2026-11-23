@@ -33,6 +33,8 @@ Both run as the `ehire` user from cron, through `scripts/ehire-cli.sh`.
 
 - `send-archive` (every 5 minutes): makes the PDF of each queued eArchive deposit and hands it to the archive transport, one at a time. A deposit eArchive cannot take yet waits and is retried with growing gaps; a refused one is blocked until an administrator presses the retry button in Settings, eArchive deposits. Output: `rendered=… stored=… failed=… waiting=…`.
 
+- `sync-cost-centres` (nightly at 02:40, log `efinance.log`): brings the cost centres in line with eFinance (section eFinance link). Prints `skipped: efinance_link=none` while the link is off, `changed: …` or `unchanged: …` with counts, or `failed: <reason> (nothing changed)` with exit code 1.
+
 Check a timer ran: look at the last lines of its log. Each run prints one line of counts.
 
 ## When emails do not arrive
@@ -94,7 +96,27 @@ A number looks like `EHIRE-NGH-NUR-20261120-01`: prefix, Directorate code, posit
 
 ## Cost centres
 
-Cost centres follow eFinance: the same 10-digit SAP codes and Greek names, each tied to its entity, which eHire holds as a Directorate of the same code. They come from eFinance's list through the Excel import (Settings, Import, sheet `cost_centres`, optional column `directorate_code`). To stay aligned, re-import the fresh eFinance export when it changes. A cost centre missing from a new export is not deactivated automatically: set `active` to `no` for it, or deactivate it in Settings. Codes are text and are never reformatted; if Excel turns a code into a number the import reads it back as its digits, but a leading zero lost in Excel cannot be recovered, so format the code column as text. A cost centre with no Directorate is offered for every Directorate. The request form offers only the chosen Directorate's cost centres and the unassigned ones.
+Cost centres follow eFinance: the same 10-digit SAP codes and Greek names, each tied to its entity, which eHire holds as a Directorate of the same code. While the eFinance link is off they come from eFinance's list through the Excel import (Settings, Import, sheet `cost_centres`, optional column `directorate_code`); a cost centre missing from a new export is not deactivated by the import: set `active` to `no` for it, or deactivate it in Settings. Once the link is on, the nightly sync does this (next section). Codes are text and are never reformatted; if Excel turns a code into a number the import reads it back as its digits, but a leading zero lost in Excel cannot be recovered, so format the code column as text. A cost centre with no Directorate is offered for every Directorate. The request form offers only the chosen Directorate's cost centres and the unassigned ones.
+
+## eFinance link
+
+eHire reads two things from eFinance on the same server (`docs/contracts/07-efinance-link.md`): the cost-centre list, and the budget lines of a cost centre for the steps 2 and 4 cards. Read-only; only a cost-centre code, a year and an article code leave eHire. The link ships off (`efinance_link` = `none`): eHire then never calls eFinance and the cards work as before. It stays off until eFinance has built its two endpoints.
+
+Switch it on, in this order:
+
+1. Marios copies eFinance's token file to file into `/etc/ehire/ehire.env` as `EHIRE_EFINANCE_TOKEN=…` (never by chat, never on a command line), and sets `EHIRE_EFINANCE_URL=http://127.0.0.1:5004`. Restart only eHire: `sudo systemctl restart ehire`.
+2. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-test`: calls both endpoints and says what came back, in plain words. It must end with `efinance-test: passed`.
+3. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-link http`: runs the same test again and refuses to switch if it fails.
+4. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh sync-cost-centres`: the first sync. Read its line; Settings, Cost centres shows the same result. Test cost centres typed in eHire are switched off by it unless their code starts with `T-`.
+5. Make sure the 02:40 cron line is in the `ehire` crontab (deploy/README.md, Scheduled jobs).
+
+Switch it off: `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-link none`. Nothing else changes: the cost centres stay as the last sync left them, answers already given keep their stored figures, and the cards go back to the free-text «Άρθρο δέσμευσης».
+
+**What a sync does.** One transaction and one audit row (`list_changed`, source `efinance_sync`, with counts and the changed codes). New codes are added under the Directorate whose code is the entity code (an unknown entity code: added with no Directorate and named in the result); names, entity and active flag follow eFinance; a code missing from eFinance's list is switched off, never deleted; a code switched off by hand but active in eFinance comes back on. The «Συγχρονισμός τώρα» button in Settings, Cost centres runs the same code. Editing a cost centre by hand still works, but the next sync sets it back to eFinance's values.
+
+**The safety stop.** If eFinance answers with no cost centres, or with fewer active ones than half of eHire's active ones (codes starting `T-` not counted), the sync changes nothing and reports `failed: safety_stop` (or `empty`). This guards against a half-loaded or broken list switching off most cost centres. Ask the eFinance side to check its list, then run the sync again. Other reasons (`http_401`: wrong token; `timeout`, `network`: eFinance down; `bad_json`, `bad_value`: a broken answer) also change nothing.
+
+**Budget figures on the cards.** Kept in memory for 5 minutes (a failure for 30 seconds). When eFinance cannot answer, the card says the figures are unavailable and the person answers as before; nothing is ever blocked. A «Ναι» against a budget warning needs a comment.
 
 ## Test data
 

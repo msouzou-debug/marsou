@@ -21,7 +21,7 @@ All dataclasses are frozen and live in `ehire.workflow.model`. Sequences are tup
 - `RequestState`: id, status, current_step, step3_phase, returned_from_step, round, category, directorate_id, created_by, route (dict), reason, leaver_ids, returned_at, withdrawal_warned, actions, tasks
 - `ActionRecord`: id, round, step, phase, role, actor_user_id, on_behalf_of_user_id, redirect_reason, action, payload, comment, supersedes_action_id, is_superseded, created_at
 - `TaskState`: id, request_id, round, step, phase, role, assignee_user_id, on_behalf_of_user_id, redirect_reason, status, may_replace, opened_at, clock_started_at, reminded_at, escalated_at, line_manager_id
-- `NewAction`: actor_user_id, action, role, payload, comment, changed_fields (dict field -> new value, resubmit only), system (T12 only)
+- `NewAction`: actor_user_id, action, role, payload, comment, changed_fields (dict field -> new value, resubmit only), system (T12 only), budget_warning (bool: an eFinance budget warning was shown for this step 2 or step 4 answer; rule B1 then needs a comment on a yes, error `budget_comment_required`)
 - `Directory`: holders and substitutes ({(role, directorate_id or None): user_id}), out_of_office (frozenset of user ids), line_managers ({user: manager})
 - `Settings`: reminder_days=2, escalation_days=5, returned_timeout_days=30 (a plain dict with the same keys also works)
 - `Result`: errors, status, current_step, step3_phase, round, returned_from_step, category, route, returned_at, closed_at, action, superseded_action_ids, task_ops, events; `.ok`

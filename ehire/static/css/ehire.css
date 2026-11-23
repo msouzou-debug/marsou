@@ -118,6 +118,44 @@ section .ehire-empty, .ehire-panel .ehire-empty { padding: 1rem 0; border: 0; al
 .ehire-fin-view__period dl > div { padding: .125rem 0; border-bottom: 1px solid var(--ehire-line-row); }
 .ehire-fin-view__period dl > div:last-child { border-bottom: 0; }
 
+/* eFinance budget panel (steps 2 and 4). A table from 576 px; on a phone one block per line, no sideways scroll.
+   The whole row picks the line, so the touch target is the row (at least 44 px). */
+.ehire-budget { padding: .75rem; border: 1px solid var(--ehire-line); border-radius: .5rem; background: #fff; }
+.ehire-budget fieldset { min-width: 0; }
+.ehire-budget__table { margin: 0; font-size: .9375rem; table-layout: fixed; width: 100%; }
+.ehire-budget__table > thead > tr > th { white-space: normal; text-transform: none; letter-spacing: 0; font-size: .8125rem;
+  vertical-align: bottom; line-height: 1.25; overflow-wrap: normal; word-break: normal; }
+.ehire-budget__table th.text-end, .ehire-budget__table td.text-end { width: 7.25rem; }
+.ehire-budget__table td.text-end { white-space: nowrap; }
+.ehire-budget__table td { font-variant-numeric: tabular-nums; }
+.ehire-budget__pick { width: 2.75rem; text-align: center; }
+.ehire-budget__pick .form-check-input { width: 1.25rem; height: 1.25rem; margin: 0; cursor: pointer; }
+.ehire-budget__line { cursor: pointer; }
+.ehire-budget__line > td { height: 2.75rem; }
+.ehire-budget__line.is-selected > td { background: var(--ehire-blue-pale); }
+.ehire-budget__name label { cursor: pointer; display: inline; }
+.ehire-budget__flag { margin-left: .375rem; background: var(--ehire-amber-tint); color: var(--ehire-amber-text); font-weight: 600; }
+.ehire-budget__warning { font-size: .9375rem; }
+.ehire-budget__warning[hidden] { display: none !important; } /* d-flex would otherwise show a warning that does not apply */
+.ehire-budget-view__amounts > div { display: flex; justify-content: space-between; gap: .5rem; padding: .125rem 0;
+  border-bottom: 1px solid var(--ehire-line-row); max-width: 28rem; }
+.ehire-budget-view__amounts > div:last-child { border-bottom: 0; }
+.ehire-budget-view__warn { color: var(--ehire-amber-text); }
+@media (max-width: 575.98px) {
+  .ehire-budget { padding: .625rem; }
+  .ehire-budget__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ehire-budget__table, .ehire-budget__table tbody, .ehire-budget__table tr, .ehire-budget__table td { display: block; width: 100%; }
+  .ehire-budget__line { position: relative; padding: .625rem .5rem .5rem 2.75rem; border: 1px solid var(--ehire-line);
+    border-radius: .5rem; margin-bottom: .5rem; min-height: 2.75rem; }
+  .ehire-budget__line.is-selected { background: var(--ehire-blue-pale); border-color: var(--ehire-blue); }
+  .ehire-budget__line > td, .ehire-budget__table td.text-end { height: auto; width: 100%; padding: .125rem 0; border: 0; background: transparent !important; }
+  .ehire-budget__table { table-layout: auto; }
+  .ehire-budget__line > td.ehire-budget__pick { position: absolute; left: .75rem; top: .75rem; width: auto; padding: 0; }
+  .ehire-budget__line > td[data-label] { display: flex; justify-content: space-between; gap: .75rem; text-align: right; }
+  .ehire-budget__line > td[data-label]::before { content: attr(data-label); color: var(--ehire-text-secondary); text-align: left; font-weight: 400; }
+  .ehire-budget__name { padding-bottom: .375rem !important; overflow-wrap: anywhere; }
+}
+
 /* Banners on the request page. Icon and words; colour only supports them. */
 .ehire-banner { padding: .75rem 1rem; border: 1px solid var(--ehire-line); border-left-width: 4px; border-radius: .5rem; background: #fff; }
 .ehire-banner--rejected { border-left-color: var(--ehire-red); }

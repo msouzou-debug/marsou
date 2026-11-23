@@ -3,6 +3,7 @@
 <input type="hidden" name="action" value="check">
 {{ choice(c, 'position', 'card.position_available', [('yes', 'answer.yes'), ('no', 'answer.no'), ('arranged_centrally', 'answer.arranged_centrally')], 'no') }}
 {{ choice(c, 'funds', 'card.funds_available', [('yes', 'answer.yes'), ('no', 'answer.no')], 'no') }}
+{% include "requests/cards/_budget.html" %}
 
 {% set fin = c.fin or {'enabled': false, 'readonly': false, 'notice': none, 'month': ''} %}
 {% if fin.enabled and route.financials_required %}{# Enter in a field sends the card, not the refresh button #}

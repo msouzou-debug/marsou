@@ -9,7 +9,7 @@ from ..auth import can_see_request, current_user, login_required
 from ..extensions import db
 from ..models import Request
 from ..services import request_flow as flow
-from ..services.request_cards import APPROVER_ACTIONS, ASSIGNABLE_ROLES, read_action
+from ..services.request_cards import APPROVER_ACTIONS, ASSIGNABLE_ROLES, budget_warning, read_action
 from ..services.request_flash import flash_key
 from .requests import STALE, _now, _render_detail, bp, empty_card_state
 
@@ -69,7 +69,7 @@ def action(request_id):
     payload, comment, errors = read_action(req, role, kind, request.form)
     if errors:
         return _failed(req, role, kind, errors, [])
-    result = flow.act(req, user.id, kind, role, payload, comment, _now())
+    result = flow.act(req, user.id, kind, role, payload, comment, _now(), budget_warning=budget_warning(payload))
     if not result.ok:
         code = result.errors[0]
         if code in STALE:

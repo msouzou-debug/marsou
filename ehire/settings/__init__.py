@@ -5,6 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from ..auth import current_user, permission_required
 from ..extensions import db
 from ..workflow.numbering import valid_position_code
+from ..services import cost_centre_sync, efinance_link
+from ..services.request_dates import format_datetime
+from ..services.request_flash import flash_key
 from ..models import ARCHIVE_SITE_CODES, CATEGORIES, ArchiveDeposit, CostCentre, Directorate, Facility, OaySpecialty, Position, audit
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -91,6 +94,50 @@ def _back(kind):
     return redirect(url_for("settings.show", kind=kind, **args))
 
 
+def _hand_change(kind):
+    """A cost centre changed by hand: the next eFinance sync reads the whole list again (no 304), so it can set the
+    row back to eFinance's values while the link is on (contract 07)."""
+    if kind == "cost_centre":
+        cost_centre_sync.forget_etag()
+
+
+def _efinance_panel():
+    """The eFinance panel of the cost-centres page: link state and the last sync."""
+    last = cost_centre_sync.last_run()
+    when = None
+    if last and last.get("at"):
+        try:
+            when = format_datetime(efinance_link.parse_as_of(last["at"]))
+        except Exception:
+            when = None
+    return {"on": efinance_link.is_on(), "last": last, "when": when}
+
+
+def flash_sync(result):
+    """The result of a sync as a flash message (string key and counts)."""
+    if result.outcome == "off":
+        flash_key("settings.efinance.result.off", "warning")
+    elif not result.ok:
+        if result.reason in ("safety_stop", "empty"):
+            flash_key("settings.efinance.result.safety_stop", "danger")
+        else:
+            flash_key("settings.efinance.result.failed", "danger", reason=result.reason)
+    elif result.outcome == "unchanged":
+        flash_key("settings.efinance.result.unchanged", "success")
+    else:
+        flash_key("settings.efinance.result.changed", "success", **result.counts)
+    if result.ok and result.unknown_entities:
+        flash_key("settings.efinance.unknown_entities", "warning", codes=", ".join(result.unknown_entities))
+
+
+@bp.post("/cost_centre/sync")
+@permission_required("settings.manage")
+def sync_cost_centres():
+    """The "Sync now" button: the same code as the nightly `flask sync-cost-centres`."""
+    flash_sync(cost_centre_sync.sync(user_id=current_user().id))
+    return redirect(url_for("settings.show", kind="cost_centre"))
+
+
 @bp.get("")
 @permission_required("settings.manage")
 def index():
@@ -120,13 +167,15 @@ def show(kind):
         page = min(max(page, 1), pages)
         rows = query.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).all()
         base = {"directorate": chosen} if chosen else {}
+        efinance = _efinance_panel()
         paging = {"page": page, "pages": pages, "total": total, "filter": chosen,
                   "prev_url": url_for("settings.show", kind=kind, page=page - 1, **base) if page > 1 else None,
                   "next_url": url_for("settings.show", kind=kind, page=page + 1, **base) if page < pages else None}
     else:
         rows = query.all()
+        efinance = None
     return render_template(
-        "settings/list.html", kind=kind, paging=paging, position_label=POSITION_LABEL, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
+        "settings/list.html", kind=kind, paging=paging, efinance=efinance, position_label=POSITION_LABEL, fields=fields, rows=rows, labels=LABELS, categories=CATEGORIES, site_codes=ARCHIVE_SITE_CODES,
         directorates=Directorate.query.order_by(Directorate.id).all(), kinds=list(LISTS),
     )
 
@@ -149,6 +198,7 @@ def add(kind):
         return _back(kind)
     audit("list_changed", user_id=current_user().id, object_type=kind, object_id=row.id,
           detail={"action": "add", "after": _snapshot(row, fields)})
+    _hand_change(kind)
     db.session.commit()
     flash("settings.saved", "success")
     return _back(kind)
@@ -168,6 +218,7 @@ def edit(kind, row_id):
         setattr(row, k, v)
     audit("list_changed", user_id=current_user().id, object_type=kind, object_id=row.id,
           detail={"action": "edit", "before": before, "after": _snapshot(row, fields)})
+    _hand_change(kind)
     db.session.commit()
     flash("settings.saved", "success")
     return _back(kind)
@@ -181,6 +232,7 @@ def toggle(kind, row_id):
     row.is_active = not row.is_active
     audit("list_changed", user_id=current_user().id, object_type=kind, object_id=row.id,
           detail={"action": "activate" if row.is_active else "deactivate"})
+    _hand_change(kind)
     db.session.commit()
     flash("settings.saved", "success")
     return _back(kind)

@@ -238,6 +238,29 @@ else
   warn "EHIRE_ARCHIVE_TOKEN is empty: deposits wait in the queue. Set it before 'archive-transport http' (deploy/README.md)"
 fi
 
+# --- eFinance link (contract 07) -------------------------------------------------------------------------------------
+# The `efinance_link` setting lives in the database. With `http` and no address or token, the budget panel says the
+# figures are unavailable and the nightly sync fails: a warning, never a failure (requests are never blocked by it).
+ef_link="$(cd "$APP_DIR" && "$PY" -m flask --app wsgi:app efinance-link 2>/dev/null | sed -n 's/^efinance_link=//p' || true)"
+ef_url="${EHIRE_EFINANCE_URL:-}"
+if [ "$ef_link" = "http" ]; then
+  if [ -z "$ef_url" ]; then
+    warn "the eFinance link is http but EHIRE_EFINANCE_URL is empty: budget figures are unavailable and the cost-centre sync fails (docs/operations.md, eFinance link)"
+  else
+    case "$ef_url" in
+      http://127.0.0.1|http://127.0.0.1:*|http://localhost|http://localhost:*|http://\[::1\]|http://\[::1\]:*|https://?*) ok "eFinance address $ef_url" ;;
+      *) warn "EHIRE_EFINANCE_URL=$ef_url is plain http to another machine: eHire refuses to call it (use https, or http://127.0.0.1:5004)" ;;
+    esac
+  fi
+  if [ -n "${EHIRE_EFINANCE_TOKEN:-}" ]; then
+    ok "EHIRE_EFINANCE_TOKEN is set (not shown)"
+  else
+    warn "the eFinance link is http but EHIRE_EFINANCE_TOKEN is empty: budget figures are unavailable and the cost-centre sync fails"
+  fi
+else
+  ok "eFinance link is off (efinance_link=${ef_link:-none}); eHire never calls eFinance"
+fi
+
 # --- port -------------------------------------------------------------------------------------------------------
 bind="${EHIRE_BIND:-127.0.0.1:5008}"
 host="${bind%:*}"

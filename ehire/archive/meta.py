@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation
 from .. import localtime
 from ..extensions import db
 from ..models import ArchiveDeposit, Request, User
+from ..services.budget_efinance import stored_text as budget_text
 from ..services.request_view import timeout_days
 from . import pdf
 from .transports import KIND_ATTACHMENT, KIND_MAIN, BlockedError
@@ -21,6 +22,7 @@ SOURCE_SYSTEM, SOURCE_MODULE = "eHire", "position_request"
 DIRECTION, CLASSIFICATION = "INTERNAL", "HIGHLY_SENSITIVE"  # the long-absence text can describe sick leave
 CURRENCY = "EUR"
 ATTR_MAX = 300
+COMMENT_MAX = 2000  # eArchive: approvals[].comment is optional, at most 2000 characters
 MAX_FILES, MAX_ATTACHMENTS = 20, 19  # in one deposit: 1 MAIN and 19 ATTACHMENT; more go in one zip
 MAX_ZIP_FILES = 200  # files inside one zip, and the most documents eHire deposits automatically
 # eArchive's limits (answers of 16/11/2026). Every multipart part, a zip included, is at most MAX_PART_BYTES. Inside a
@@ -177,6 +179,12 @@ def _approvals(req, actions, names):
         comment = (a.comment or "").strip()
         if comment.startswith("system."):
             comment = _t(comment)
+        if a.role in ("dir_accountant", "fin_mgmt_head"):
+            # Contract 07: the eFinance figures seen with the answer, after the person's own comment. When both do not
+            # fit eArchive's limit the figures are left out here (the PDF always has them); the comment is never cut.
+            figures = budget_text(pdf._payload(a), _t, "el")
+            joined = ("%s\n\n%s" % (comment, figures) if comment else figures) if figures else comment
+            comment = joined if len(joined) <= COMMENT_MAX else comment
         if comment:
             entry["comment"] = comment
         out.append(entry)

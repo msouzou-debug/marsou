@@ -43,6 +43,35 @@
 {% block content %}
 <h1 class="h4 mb-3">{{ t('settings.list.' ~ kind) }}</h1>
 
+{% if efinance %}{% set ef = efinance %}{% set last = ef.last %}
+<section class="card ehire-efinance mb-3" aria-labelledby="ehire-efinance-title">
+  <div class="card-body d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between">
+    <div>
+      <h2 class="h6 mb-1" id="ehire-efinance-title">{{ t('settings.efinance.title') }}
+        <span class="badge rounded-pill {{ 'text-bg-success' if ef.on else 'text-bg-secondary' }} ms-1">{{ t('settings.active') if ef.on else t('settings.inactive') }}</span></h2>
+      <p class="mb-1">{{ t('settings.efinance.state_http') if ef.on else t('settings.efinance.state_none') }}</p>
+      {% if last %}
+      <p class="small mb-0" data-ehire-efinance-last>
+        <span class="text-secondary">{{ t('settings.efinance.last_run', date=ef.when or '') }}</span> ·
+        {% if not last.ok and last.reason in ('safety_stop', 'empty') %}<span class="text-danger">{{ t('settings.efinance.result.safety_stop') }}</span>
+        {% elif not last.ok %}<span class="text-danger">{{ t('settings.efinance.result.failed', reason=last.reason) }}</span>
+        {% elif last.outcome == 'changed' %}{{ t('settings.efinance.result.changed', **last.counts) }}
+        {% else %}{{ t('settings.efinance.result.unchanged') }}{% endif %}
+        {% if last.ok and last.unknown_entities %}<br><span class="text-secondary">{{ t('settings.efinance.unknown_entities', codes=last.unknown_entities | join(', ')) }}</span>{% endif %}
+      </p>
+      {% else %}<p class="small text-secondary mb-0">{{ t('settings.efinance.never') }}</p>{% endif %}
+      {% if ef.on %}<p class="small mb-0 mt-1"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ t('settings.efinance.hand_edit') }}</p>{% endif %}
+    </div>
+    {% if ef.on %}
+    <form method="post" action="{{ url_for('settings.sync_cost_centres') }}" class="flex-shrink-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ t('settings.efinance.sync_now') }}</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
 {% macro keep() %}{% if paging %}<input type="hidden" name="filter_directorate" value="{{ paging.filter }}"><input type="hidden" name="page" value="{{ paging.page }}">{% endif %}{% endmacro %}
 {% if paging %}
 <form method="get" class="row g-2 align-items-end mb-3" action="{{ url_for('settings.show', kind=kind) }}">

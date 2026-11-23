@@ -138,6 +138,18 @@ def answer_facts(req, action):
     return out
 
 
+def budget_view(action, lang=None):
+    """The eFinance budget figures stored with a step 2 or step 4 answer (contract 07), formatted, or None."""
+    from flask import g
+
+    from .budget_efinance import stored_view
+
+    try:
+        return stored_view(_payload(action), lang or g.get("lang", "el"))
+    except Exception:  # a damaged snapshot never breaks the request page
+        return None
+
+
 def checks_view(req, viewer, names, stops):
     """Latest answer per role and step (superseded ones stay in the history). Shaped for the viewer."""
     from .request_cards import financial_view
@@ -157,9 +169,11 @@ def checks_view(req, viewer, names, stops):
                 "behalf": names.get(a.on_behalf_of_user_id), "redirect": a.redirect_reason, "when": a.created_at,
                 "state": states.get((step, role), "done"), "replaced": a.supersedes_action_id is not None,
                 "comment": a.comment if comment_visible(viewer, req, a) else None,
-                "facts": [], "financials": None}
+                "facts": [], "financials": None, "budget": None}
         if not requester:
             item["facts"] = answer_facts(req, a)
+            if role in ("dir_accountant", "fin_mgmt_head"):
+                item["budget"] = budget_view(a)
             if role == "dir_accountant":
                 rows = RequestFinancials.query.filter_by(request_id=req.id, round=a.round).order_by(
                     RequestFinancials.period).all()

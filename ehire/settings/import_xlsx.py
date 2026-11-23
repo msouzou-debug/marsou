@@ -549,6 +549,10 @@ def _apply_list(sheet, todo, admin_id):
         counts[action] += 1
         pending.append((row, action, before, attrs))
     db.session.flush()
+    if sheet == "cost_centres" and todo:
+        from ..services.cost_centre_sync import forget_etag
+
+        forget_etag()  # the next eFinance sync reads the whole list again (contract 07)
     if bulk:
         audit("list_changed", user_id=admin_id, object_type=kind, object_id="import",
               detail={"action": "import", "source": "import", "rows_added": counts["add"],

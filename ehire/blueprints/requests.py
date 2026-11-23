@@ -19,7 +19,7 @@ from ..services import request_form as form_rules
 from ..services.request_amounts import format_amount, format_month
 from ..services.request_cards import NEGATIVE, cards_for, financial_view, leaver_cost_rows, typed_ratio
 from ..services.request_dates import format_date, format_datetime
-from ..services import activity
+from ..services import activity, budget_efinance
 from ..services.activity import get_provider
 from ..services.request_engine import current_leavers, holidays, route_for, route_of
 from ..services.request_flash import flash_key
@@ -407,7 +407,12 @@ def _render_detail(req, card_state=None, status=200):
             redirect_note=({"reason": task.redirect_reason, "holder": names.get(task.on_behalf_of_user_id)}
                            if task.redirect_reason else None),
             facts=answer_facts(req, card["earlier"]) if card["earlier"] is not None else [],
-            focus=mine and bool(state["errors"] or state["codes"] or state.get("refresh")), fin=None)
+            focus=mine and bool(state["errors"] or state["codes"] or state.get("refresh")), fin=None, budget=None)
+        if card["role"] in ("dir_accountant", "fin_mgmt_head") and card["kind"] != "hold":
+            card["budget"] = budget_efinance.card_view(req, card["role"], card["typed"], g.get("lang", "el"))
+            picked = card["budget"].get("selected")
+            if card["role"] == "fin_mgmt_head" and picked and not card["typed"].get("commitment_article"):
+                card["typed"] = dict(card["typed"].items(), commitment_article=picked)  # opens on the step 2 line
         if card["role"] == "dir_accountant" and card["kind"] != "hold" and (route_of(req) or {}).get("financials_required"):
             card["typed"], card["fin"] = activity.card_view(req, card["typed"], force=bool(mine and state.get("refresh")))
     specialties = []

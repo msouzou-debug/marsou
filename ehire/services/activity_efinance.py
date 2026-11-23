@@ -87,7 +87,7 @@ def validate(body, facility_code, specialty):
     return {"data_month": month, "prev_year": prev, "ytd": ytd}
 
 
-def _read(response, deadline):
+def _read(response, deadline, max_bytes=MAX_BYTES):
     chunks, size = [], 0
     while True:
         if time.monotonic() > deadline:
@@ -96,7 +96,7 @@ def _read(response, deadline):
         if not chunk:
             break
         size += len(chunk)
-        if size > MAX_BYTES:
+        if size > max_bytes:
             raise Unavailable("too_large")
         chunks.append(chunk)
     return b"".join(chunks)
@@ -118,25 +118,31 @@ class EFinanceClient:
         return parts.scheme == "http" and parts.hostname in _LOOPBACK  # plain HTTP only for a local test server
 
     def _opener(self):
-        handlers = [_NoRedirect()]
+        handlers = [urllib.request.ProxyHandler({}), _NoRedirect()]  # system proxy settings are ignored
         if self.base_url.startswith("https"):
             context = ssl.create_default_context(cafile=self.ca_file or None)  # verification stays on
             handlers.append(urllib.request.HTTPSHandler(context=context))
         return urllib.request.build_opener(*handlers)
 
-    def fetch_one(self, facility_code, specialty):
-        """Validated figures for one specialty name. Raises NoData or Unavailable."""
-        query = urllib.parse.urlencode({"facility_code": facility_code, "specialty": specialty})
-        req = urllib.request.Request(self.base_url + "/api/oay-activity?" + query, method="GET", headers={
-            "Authorization": "Bearer " + self.token, "Accept": "application/json"})
+    def get(self, path, params=None, max_bytes=MAX_BYTES, headers=None, pass_codes=()):
+        """One GET. Returns (status, response headers, raw bytes). A status in `pass_codes` (for example 304 or 404)
+        comes back with an empty body; any other failure raises Unavailable with a short reason. The token is sent
+        in the Authorization header only and never appears in a reason."""
+        url = self.base_url + path + ("?" + urllib.parse.urlencode(params) if params else "")
+        sent = {"Authorization": "Bearer " + self.token, "Accept": "application/json"}
+        sent.update(headers or {})
+        req = urllib.request.Request(url, method="GET", headers=sent)
         deadline = time.monotonic() + self.timeout
         try:
             with self._opener().open(req, timeout=self.timeout) as response:
-                raw = _read(response, deadline)
+                raw = _read(response, deadline, max_bytes)
+                return response.status, response.headers, raw
         except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                raise NoData()
+            if exc.code in pass_codes:
+                return exc.code, exc.headers, b""
             raise Unavailable("http_%d" % exc.code)
+        except Unavailable:
+            raise
         except (socket.timeout, TimeoutError):
             raise Unavailable("timeout")
         except urllib.error.URLError as exc:
@@ -145,10 +151,23 @@ class EFinanceClient:
             raise Unavailable("network")
         except (OSError, ssl.SSLError, ValueError):
             raise Unavailable("network")
+
+    def get_json(self, path, params=None, max_bytes=MAX_BYTES, headers=None, pass_codes=()):
+        """Like get(), with the body decoded as JSON (None for a passed-through status). Bad JSON is Unavailable."""
+        status, answer_headers, raw = self.get(path, params, max_bytes, headers, pass_codes)
+        if status in pass_codes:
+            return status, answer_headers, None
         try:
-            body = json.loads(raw.decode("utf-8"))
+            return status, answer_headers, json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
             raise Unavailable("bad_json")
+
+    def fetch_one(self, facility_code, specialty):
+        """Validated figures for one specialty name. Raises NoData or Unavailable."""
+        status, _headers, body = self.get_json("/api/oay-activity", {"facility_code": facility_code,
+                                                                       "specialty": specialty}, pass_codes=(404,))
+        if status == 404:
+            raise NoData()
         return validate(body, facility_code, specialty)
 
     def fetch(self, facility_code, names):

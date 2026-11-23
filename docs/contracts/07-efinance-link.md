@@ -2,6 +2,8 @@
 
 Status: proposal of 23/11/2026, asked for by Marios. The two endpoints do not exist in eFinance yet. eHire is built and tested against this text with a stand-in server, and the link stays off (`efinance_link` = `none`) until eFinance has built its side and Marios has copied the token. Where eFinance's real names or keys differ, eFinance says so and this text changes; eHire adapts.
 
+eHire's side (23/11/2026): built and tested against a stand-in (`tests/efinance/fake_efinance.py`) and shipped with `efinance_link` = `none`. Rule B1 in contract 02, payload keys in contract 03 section 4, operator steps in `docs/operations.md`, eFinance link.
+
 Decisions (Marios, 23/11/2026): entities, Directorates and hospitals are the same thing; eFinance is the master list of cost centres; a change there must reach eHire; every request is checked against eFinance's budget for its budget line at steps 2 and 4; eHire warns and a person decides; a cost centre switched off or gone in eFinance is switched off in eHire; sync runs nightly and on a button.
 
 ## Who calls whom

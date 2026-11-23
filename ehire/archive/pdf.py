@@ -21,6 +21,7 @@ from ..models import Request, RequestDocument, RequestFinancials, User
 from ..models.request import _LOOKALIKES
 from ..extensions import db
 from ..services.request_amounts import format_amount
+from ..services.budget_efinance import stored_lines as budget_lines
 from ..services.request_cards import financial_view
 from ..services.request_dates import format_date, format_datetime
 from ..services.request_view import answer_facts, timeout_days
@@ -163,6 +164,13 @@ def _who(a, names):
     return actor or ""
 
 
+def _payload(action):
+    try:
+        return json.loads(action.payload_json) if action.payload_json else {}
+    except ValueError:
+        return {}
+
+
 def _checks(req, actions, names):
     latest = {}
     for a in actions:
@@ -171,7 +179,9 @@ def _checks(req, actions, names):
     out = []
     for (step, role, phase), a in sorted(latest.items(), key=lambda kv: (kv[0][0], PHASE_ORDER.get(kv[0][2], 0))):
         facts = [_fact_text(f) for f in answer_facts(req, a)]
-        out.append({"role": t("role." + role) if role else "", "step": t("step.%d" % step) if step else "",
+        budget = budget_lines(_payload(a), t, LANG) if role in ("dir_accountant", "fin_mgmt_head") else []
+        out.append({"budget_title": t("card.budget.title") if budget else "", "budget": budget,
+                    "role": t("role." + role) if role else "", "step": t("step.%d" % step) if step else "",
                     "answer": facts or [("", t("history." + a.action))], "who": _who(a, names),
                     "when": format_datetime(a.created_at), "comment": a.comment or "",
                     "replaced": t("tracker.replaced") if a.supersedes_action_id else ""})

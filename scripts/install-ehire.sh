@@ -904,15 +904,17 @@ NEXT=$((NEXT + 1))
 say "  $NEXT. Firewall: let only the Cloudflare tunnel's machine reach port $PORT on this server (the port is plain HTTP). For example with ufw:"
 say "       sudo ufw allow from <tunnel-machine-address> to any port $PORT proto tcp"
 NEXT=$((NEXT + 1))
-say "  $NEXT. Cron: put these four lines in the ehire user's crontab (open it with: sudo crontab -u ehire -e). This script does not install cron."
+say "  $NEXT. Cron: put these five lines in the ehire user's crontab (open it with: sudo crontab -u ehire -e). This script does not install cron."
+say "     The 02:40 line syncs cost centres from eFinance; it only prints 'skipped' until the eFinance link is switched on (docs/operations.md, eFinance link)."
 block <<'EOF2'
        0 7-17 * * 1-5  /opt/ehire/current/scripts/ehire-cli.sh run-timers >> /var/log/ehire/timers.log 2>&1
        */5 * * * *     /opt/ehire/current/scripts/ehire-cli.sh send-mail >> /var/log/ehire/mail.log 2>&1
        */5 * * * *     /opt/ehire/current/scripts/ehire-cli.sh send-archive >> /var/log/ehire/archive.log 2>&1
+       40 2 * * *      /opt/ehire/current/scripts/ehire-cli.sh sync-cost-centres >> /var/log/ehire/efinance.log 2>&1
        30 1 * * *  d=/var/backups/ehire/$(date +\%Y-\%m-\%dT\%H\%M) && mkdir -p "$d" && /opt/ehire/current/scripts/ehire-cli.sh backup-db "$d/ehire.sqlite3" && tar -C /var/lib/ehire -czf "$d/storage.tar.gz" storage >> /var/log/ehire/backup.log 2>&1
 EOF2
 NEXT=$((NEXT + 1))
-say "  $NEXT. Values from IT go into /etc/ehire/ehire.env (AD server, domain, base DN and CA file; Graph tenant, client id, secret, sender; the eArchive token)."
+say "  $NEXT. Values from IT go into /etc/ehire/ehire.env (AD server, domain, base DN and CA file; Graph tenant, client id, secret, sender; the eArchive token; the eFinance token)."
 say "     After editing: sudo -u ehire /opt/ehire/current/scripts/preflight.sh --skip-port, then restart only eHire: sudo systemctl restart ehire"
 NEXT=$((NEXT + 1))
 say "  $NEXT. Copy last night's backup folder off this server (the host Marios names) and prune old ones (deploy/README.md, Backup and restore)."

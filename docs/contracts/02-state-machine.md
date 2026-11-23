@@ -54,7 +54,7 @@ apply(state: RequestState, action: NewAction, directory: Directory, now: datetim
 ```
 
 - `RequestState`: the request fields the rules need (status, current_step, step3_phase, returned_from_step, round, category, directorate_id, created_by, route), its recorded actions and its tasks.
-- `NewAction`: actor_user_id, action, role, payload, comment, changed_fields (resubmit only).
+- `NewAction`: actor_user_id, action, role, payload, comment, changed_fields (resubmit only), budget_warning (steps 2 and 4 only, rule B1).
 - `Directory`: for each role and Directorate, the holder, the substitute, who is out of office, and each person's line manager. Read from the database by the caller before the call.
 - `Result`: either `errors` (list of error codes, nothing changes) or the new status, current_step, step3_phase, round, returned_from_step, the action record to store, `task_ops` (`open`, `pause`, `resume`, `close`, each with role, assignee, on_behalf_of, redirect_reason) and `events` for the notifier (section 7).
 
@@ -87,6 +87,12 @@ Payload values are in contract 03, section 4.
 | T11 | `in_progress` or `returned` | `withdraw`, requester | | `withdrawn`. Every task closes |
 | T12 | `returned` | `withdraw`, system | returned for more than `returned_timeout_days` working days | `withdrawn`, with a system comment |
 
+**Budget warning (contract 07).** At step 2 (`check` by dir_accountant) and step 4 (`check` by fin_mgmt_head) the caller may pass `budget_warning` (a plain boolean on `NewAction`, default false): eHire showed an eFinance budget warning for the line picked, or eFinance holds no budget line for the cost centre. The caller works it out from eFinance's answer when the card is drawn and again when it is posted; the engine never calls eFinance.
+
+| Id | Rule |
+|---|---|
+| B1 | Funds `yes` (T2a) or credit `yes` (T5b, and T10 at step 4) with `budget_warning` true and no comment: error `budget_comment_required`, nothing changes. A warning never blocks otherwise; «Όχι» already needs a comment (O4). Reported together with `financials_required` or `commitment_article_required` when both apply |
+
 Material fields (T9b): category, facility, cost centre, position, positions count. These are what step 2 checked, so the check is done again. Διεύθυνση can never change.
 
 Closing: `approved`, `rejected` and `withdrawn` set `closed_at`, close every task and accept no further action.
@@ -116,6 +122,7 @@ Closing: `approved`, `rejected` and `withdrawn` set `closed_at`, close every tas
 | `comment_required` | Missing comment on: reject, return, withdraw, a negative opinion, «Ελλιπής», or any «Όχι» at steps 2 and 4 |
 | `financials_required` | Step 2 without financial data when R2 applies |
 | `commitment_article_required` | Step 4 credit `yes` without άρθρο δέσμευσης |
+| `budget_comment_required` | Funds `yes` at step 2 or credit `yes` at step 4 against an eFinance budget warning, without a comment (B1) |
 | `leaver_costs_required` | Step 4 HR input without a cost for each leaver (departure reasons only) or for the new hires |
 | `directorate_locked` | Resubmit tries to change Διεύθυνση |
 | `not_requester` | Submit, resubmit or withdraw by someone else |

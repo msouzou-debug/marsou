@@ -337,7 +337,7 @@ def _approver(state, action, directory, now):
         b.emit("request_returned", state.created_by, step=state.current_step, role=role)
         return b.result()
 
-    verdict = _validate(state, role, kind, payload, comment)
+    verdict = _validate(state, role, kind, payload, comment, bool(action.budget_warning))
     if isinstance(verdict, tuple):
         return _err(*verdict)
 
@@ -361,9 +361,13 @@ def _approver(state, action, directory, now):
     return b.result()
 
 
-def _validate(state, role, kind, payload, comment):
-    """Return 'reject', 'pass', or a tuple of error codes."""
+def _validate(state, role, kind, payload, comment, budget_warning=False):
+    """Return 'reject', 'pass', or a tuple of error codes.
+
+    B1: a "yes" on funds (step 2) or credit (step 4) given while the caller showed a budget warning needs a comment.
+    The warning itself is worked out by the caller from eFinance's answer and comes in as a plain boolean."""
     need_comment = _blank(comment)
+    budget = ("budget_comment_required",) if budget_warning and need_comment else ()
 
     def choice(key, allowed):
         return payload.get(key) in allowed
@@ -373,9 +377,9 @@ def _validate(state, role, kind, payload, comment):
             return ("invalid_payload",)
         if payload["position"] == "no" or payload["funds"] == "no":  # T2b
             return ("comment_required",) if need_comment else "reject"
-        if state.route["financials_required"] and not _financials_present(payload):
-            return ("financials_required",)
-        return "pass"
+        missing = ("financials_required",) if (
+            state.route["financials_required"] and not _financials_present(payload)) else ()
+        return (missing + budget) or "pass"
     if role in ("sci_director", "medical_director", "nursing_director"):
         if not choice("opinion", ("positive", "negative")):
             return ("invalid_payload",)
@@ -397,9 +401,8 @@ def _validate(state, role, kind, payload, comment):
             return ("invalid_payload",)
         if payload["credit"] == "no":  # T5a
             return ("comment_required",) if need_comment else "reject"
-        if _blank(payload.get("commitment_article")):
-            return ("commitment_article_required",)
-        return "pass"
+        missing = ("commitment_article_required",) if _blank(payload.get("commitment_article")) else ()
+        return (missing + budget) or "pass"
     if role == "central_hr_officer":
         costs = payload.get("leaver_costs") or {}
         leavers = state.leaver_ids if state.reason in DEPARTURE_REASONS else ()

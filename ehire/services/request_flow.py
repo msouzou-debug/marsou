@@ -103,9 +103,11 @@ def system_withdraw(req, now):
 
 # ---------------------------------------------------------------- approver actions
 
-def act(req, user_id, action, role, payload, comment, now):
-    """check, opinion, approve, reject or return by the assignee of a task."""
-    new_action = NewAction(user_id, action, role, payload=payload, comment=comment)
+def act(req, user_id, action, role, payload, comment, now, budget_warning=False):
+    """check, opinion, approve, reject or return by the assignee of a task. `budget_warning`: an eFinance budget
+    warning was shown for this answer (contract 07); the engine decides what it means (rule B1)."""
+    new_action = NewAction(user_id, action, role, payload=payload, comment=comment,
+                           budget_warning=bool(budget_warning))
 
     def after(result, row):
         a = result.action

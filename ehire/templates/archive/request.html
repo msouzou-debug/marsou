@@ -52,6 +52,7 @@ tr { page-break-inside: avoid; }
 <table border="1" cellspacing="0" cellpadding="4" width="100%">
 {% for c in checks %}<tr><td width="38%"><b>{{ c.role }}</b><br><span class="small">{{ c.step }}</span></td>
 <td width="62%">{% for label, value in c.answer %}<p>{% if label %}{{ label }} {% endif %}<b>{{ value }}</b></p>{% endfor %}
+{% if c.budget %}<p><i>{{ c.budget_title }}</i></p>{% for label, value in c.budget %}<p class="small">{% if label %}{{ label }} {% endif %}<b>{{ value }}</b></p>{% endfor %}{% endif %}
 <p class="small">{% if c.who %}{{ c.who }} &middot; {% endif %}{{ c.when }}</p>
 {% if c.comment %}<p class="keep">{{ c.comment }}</p>{% endif %}
 {% if c.replaced %}<p class="small">{{ c.replaced }}</p>{% endif %}</td></tr>

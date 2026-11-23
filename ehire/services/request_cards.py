@@ -10,7 +10,7 @@ from flask import g
 from ehire.models import OaySpecialty
 from ehire.workflow.route import DEPARTURE_REASONS
 
-from . import activity
+from . import activity, budget_efinance
 from .activity import LINES, PERIODS, PROVIDED
 from .request_amounts import (format_amount, format_month, format_whole, parse_amount, parse_month, parse_whole,
                               ratio)
@@ -84,15 +84,36 @@ def read_action(req, role, action, form):
         route = route_of(req) or {}
         if route.get("financials_required") and "no" not in (payload["position"], payload["funds"]):
             payload.update(_read_financials(req, form, errors))
+        _read_budget(req, form, errors, payload)
     elif role in ("sci_director", "medical_director", "nursing_director"):
         payload = {"opinion": _text(form, "opinion")}
     elif role == "dir_hr_officer":
         payload = {"documentation": _text(form, "documentation")}
     elif role == "fin_mgmt_head":
         payload = {"credit": _text(form, "credit"), "commitment_article": _text(form, "commitment_article")}
+        article = _read_budget(req, form, errors, payload)
+        if article and not payload["commitment_article"]:
+            payload["commitment_article"] = article  # picking a line fills the article (also without JavaScript)
     elif role == "central_hr_officer":
         payload = _read_costs(req, form, errors)
     return payload, comment, errors
+
+
+def _read_budget(req, form, errors, payload):
+    """Steps 2 and 4: the eFinance budget line picked on the card and the snapshot the server builds from its own
+    copy of eFinance's answer (contract 07). Nothing is added while the link is off or eFinance cannot answer, so
+    the payload is then exactly as before. Returns the picked article or ""."""
+    article, snap, _warning = budget_efinance.read_posted(req, form, errors)
+    if snap is not None:
+        payload["budget_article"] = article
+        payload["budget_snapshot"] = snap
+    return article
+
+
+def budget_warning(payload):
+    """The flag the engine gets with the action (rule B1): the server-built snapshot says a warning was shown."""
+    snap = payload.get("budget_snapshot") if isinstance(payload, dict) else None
+    return bool(isinstance(snap, dict) and snap.get("warning"))
 
 
 def _amount(form, name, errors, whole=False):

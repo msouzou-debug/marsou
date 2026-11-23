@@ -129,4 +129,8 @@ def create_app(config=Config):
     from .cli import register as register_operator_cli
 
     register_operator_cli(app)
+
+    from .efinance_cli import register as register_efinance_cli
+
+    register_efinance_cli(app)
     return app
