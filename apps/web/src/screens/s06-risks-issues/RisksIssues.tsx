@@ -25,6 +25,7 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { TriangleAlert } from "lucide-react";
 import type { AppRole, Issue, ProjectDetail, Risk } from "@ecapital/shared";
+import type { ProjectPerson } from "@ecapital/shared";
 import { canWriteProjects } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn, type TableState } from "@/components/table";
@@ -54,6 +55,8 @@ export interface RisksIssuesProps {
   onSelectIssue?: (id: string | "new" | null) => void;
   sheetSaving?: boolean;
   sheetApiError?: string;
+  /** Who may own a risk (GET /projects/:id/people). */
+  people?: ProjectPerson[];
   onSaveRisk?: (values: RiskFormValues) => void;
   onSaveIssue?: (values: IssueFormValues) => void;
 }
@@ -71,6 +74,7 @@ export function RisksIssues({
   onSelectIssue = () => undefined,
   sheetSaving = false,
   sheetApiError,
+  people = [],
   onSaveRisk = () => undefined,
   onSaveIssue = () => undefined,
 }: RisksIssuesProps) {
@@ -250,7 +254,7 @@ export function RisksIssues({
       </section>
 
       {canEdit && selectedRiskId && (
-        <RiskSheet open risk={selectedRisk} saving={sheetSaving} apiError={sheetApiError} onClose={() => onSelectRisk(null)} onSave={onSaveRisk} />
+        <RiskSheet open risk={selectedRisk} people={people} saving={sheetSaving} apiError={sheetApiError} onClose={() => onSelectRisk(null)} onSave={onSaveRisk} />
       )}
       {canEdit && selectedIssueId && (
         <IssueSheet open issue={selectedIssue} saving={sheetSaving} apiError={sheetApiError} onClose={() => onSelectIssue(null)} onSave={onSaveIssue} />

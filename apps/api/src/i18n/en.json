@@ -22,6 +22,7 @@
     "milestoneNotFound": "There is no such milestone on this project. Reload the page and pick one from the list.",
     "milestoneNotValid": "The milestone is missing something. Fill in the title and the baseline date, then try again.",
     "riskNotFound": "There is no such risk on this project. Reload the page and pick one from the list.",
+    "riskOwnerUnknown": "The owner must be one of the project's unit's people. Pick them from the list.",
     "riskNotValid": "The risk is missing something. Write the description and give a likelihood and an impact from 1 to 5.",
     "issueNotFound": "There is no such issue on this project. Reload the page and pick one from the list.",
     "issueNotValid": "The issue is missing something. Write the description and try again.",

@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AppError } from "./errors";
+import { INVALID_TEXT_REPRESENTATION, sqlState } from "./sql-error";
 import { I18nService } from "./i18n.service";
 
 export interface ErrorBody {
@@ -44,6 +45,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       key = statusKey(status);
+    } else if (sqlState(exception) === INVALID_TEXT_REPRESENTATION) {
+      // A value the database could not read as its column's type: most often
+      // text where an id belongs (24/11/2026, a name typed as a risk owner).
+      // That is the caller's input, not a fault here, so 400, not 500.
+      status = HttpStatus.BAD_REQUEST;
+      key = "errors.badRequest";
     }
 
     const body: ErrorBody = {

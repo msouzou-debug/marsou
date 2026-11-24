@@ -15,5 +15,5 @@ This screen shows a project's risk and issue registers: the likelihood × impact
 - **"You do not have access to this page".** The project is not yours, or it does not exist — this screen does not tell the two apart. Ask the system administrator for access.
 - **"The data did not load".** The API did not answer. Press "Try again".
 - **A matrix cell is red.** Its likelihood × impact score is above 12; the risk count and the band are also spelled out in words for anyone reading the screen in black and white.
-- **You cannot pick a risk owner from a list.** There is no user directory in the system yet — enter the owner's user ID directly.
+- **The person you want is not in the «Υπεύθυνος» list.** The list shows the active users of the project's unit and the system administrators. Ask the system administrator to assign the user to the unit.
 - **An issue's due date is red.** The issue is still open and its due date has passed.

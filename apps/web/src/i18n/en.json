@@ -587,8 +587,8 @@
         "description": "Risk description",
         "likelihood": "Likelihood (1-5)",
         "impact": "Impact (1-5)",
-        "owner": "Owner user ID",
-        "ownerHint": "There is no user directory to pick from yet — enter the owner's user ID.",
+        "owner": "Owner",
+        "ownerNone": "— No owner —",
         "mitigation": "Mitigation",
         "status": "Status"
       },

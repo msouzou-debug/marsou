@@ -283,6 +283,12 @@ export const MilestoneWrite = Milestone.omit({ id: true, projectId: true }).part
 });
 export type MilestoneWrite = z.infer<typeof MilestoneWrite>;
 
+/** Who can own a risk on the project (GET /projects/:id/people): id and name only. */
+export const ProjectPerson = z.object({ id: z.string(), name: z.string() });
+export type ProjectPerson = z.infer<typeof ProjectPerson>;
+export const ProjectPeople = z.object({ items: z.array(ProjectPerson) });
+export type ProjectPeople = z.infer<typeof ProjectPeople>;
+
 export const RiskWrite = Risk.omit({ id: true, projectId: true, ownerName: true }).partial({
   ownerId: true,
   mitigationEl: true,

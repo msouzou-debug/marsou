@@ -54,8 +54,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0022_m5_maintenance");
     expect(result.applied).toContain("0024_unit_codes_follow_efinance");
     expect(result.applied).toContain("0025_delay_extensions_claims");
-    expect(result.applied).toContain("0026_sap_capital_lines");
-    expect(result.lastMigrationId).toBe("0026_sap_capital_lines");
+    expect(result.applied).toContain("0027_unit_people");
+    expect(result.lastMigrationId).toBe("0027_unit_people");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -163,7 +163,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0022_m5_maintenance");
     expect(result.skipped).toContain("0024_unit_codes_follow_efinance");
     expect(result.skipped).toContain("0025_delay_extensions_claims");
-    expect(result.skipped).toContain("0026_sap_capital_lines");
+    expect(result.skipped).toContain("0027_unit_people");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 

@@ -8,6 +8,8 @@ import {
   type ProjectDetail,
   type ProjectList,
   type ProjectListQuery,
+  type ProjectPeople,
+  type ProjectPerson,
   type ProjectPhaseChange,
   type ProjectUpdate,
   type Risk,
@@ -482,7 +484,8 @@ export class ProjectsService {
   async addRisk(projectId: string, input: RiskWrite): Promise<Risk> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(projectId);
+    const project = await this.load(projectId);
+    await this.assertOwner(project.orgUnitId, input.ownerId);
 
     try {
       const [row] = await tx.db
@@ -510,7 +513,8 @@ export class ProjectsService {
   async updateRisk(projectId: string, riskId: string, input: RiskWrite): Promise<Risk> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(projectId);
+    const project = await this.load(projectId);
+    await this.assertOwner(project.orgUnitId, input.ownerId);
 
     const existing = await tx.db
       .select({ id: schema.risk.id })
@@ -595,6 +599,37 @@ export class ProjectsService {
   }
 
   // ------------------------------------------------------------ internals --
+
+  /**
+   * GET /projects/:id/people: who may own a risk on the project, through
+   * migration 0027's `unit_people` (an ordinary account cannot read other
+   * users' rows, so the function answers for a unit the caller may read).
+   */
+  async people(projectId: string): Promise<ProjectPeople> {
+    const project = await this.load(projectId);
+    return { items: await this.unitPeople(project.orgUnitId) };
+  }
+
+  private async unitPeople(orgUnitId: string): Promise<ProjectPerson[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const result = await tx.db.execute<{ id: string; name: string }>(
+      sql`select id::text as id, name from ecapital.unit_people(${orgUnitId})`,
+    );
+    return result.rows.map((row) => ({ id: row.id, name: row.name }));
+  }
+
+  /**
+   * RULE (owner report, 24/11/2026): a risk owner is one of the unit's
+   * people, never free text. A name typed into the old id box reached the
+   * uuid column and came back as a server error.
+   */
+  private async assertOwner(orgUnitId: string, ownerId: string | null | undefined): Promise<void> {
+    if (ownerId == null) return;
+    if (!UUID.test(ownerId)) throw AppError.unprocessable("errors.riskOwnerUnknown");
+    const people = await this.unitPeople(orgUnitId);
+    if (!people.some((person) => person.id === ownerId)) throw AppError.unprocessable("errors.riskOwnerUnknown");
+  }
 
   private async load(id: string): Promise<ProjectRow> {
     const tx = currentTx();

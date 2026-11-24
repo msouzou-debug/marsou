@@ -66,7 +66,7 @@ export function IssueSheet({ open, issue, saving = false, apiError, onClose, onS
     <div
       role="dialog"
       aria-label={issue ? t("screens.s06.editIssueTitle") : t("screens.s06.addIssueTitle")}
-      className="fixed inset-0 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
+      className="fixed inset-0 z-40 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
     >
       <header className="flex items-start justify-between border-b border-k-grey p-s-5">
         <h2 className="text-fs-20">{issue ? t("screens.s06.editIssueTitle") : t("screens.s06.addIssueTitle")}</h2>

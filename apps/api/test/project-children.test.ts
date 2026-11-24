@@ -1,5 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
-import { Issue, Milestone, ProjectDetail, Risk } from "@ecapital/shared";
+import { Issue, Milestone, ProjectDetail, ProjectPeople, Risk } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, tokenFor } from "./app";
@@ -121,6 +121,48 @@ describe("project milestones, risks and issues", () => {
       .get(`/projects/${projectId}`)
       .set(bearer(token));
     expect(ProjectDetail.parse(detail.body).audit[0].action).toBe("riskAdded");
+  });
+
+  it("lists who may own a risk, and takes an owner only from that list", async () => {
+    // Owner report, 24/11/2026: a name typed into the old id box came back
+    // as «Κάτι πήγε στραβά».
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const people = await request(app.getHttpServer()).get(`/projects/${projectId}/people`).set(bearer(token));
+    expect(people.status).toBe(200);
+    const items = ProjectPeople.parse(people.body).items;
+    expect(items.length).toBeGreaterThan(0);
+
+    const byName = await request(app.getHttpServer())
+      .post(`/projects/${projectId}/risks`)
+      .set(bearer(token))
+      .set("accept-language", "el")
+      .send({ descriptionEl: "Κίνδυνος με όνομα αντί για πρόσωπο", likelihood: 2, impact: 2, ownerId: "Μάριος Σουζού" });
+    expect(byName.status).toBe(422);
+    expect(byName.body.key).toBe("errors.riskOwnerUnknown");
+
+    const stranger = await request(app.getHttpServer())
+      .post(`/projects/${projectId}/risks`)
+      .set(bearer(token))
+      .send({ descriptionEl: "Κίνδυνος με άγνωστο πρόσωπο", likelihood: 2, impact: 2, ownerId: "00000000-0000-4000-8000-000000000000" });
+    expect(stranger.status).toBe(422);
+
+    const picked = await request(app.getHttpServer())
+      .post(`/projects/${projectId}/risks`)
+      .set(bearer(token))
+      .send({ descriptionEl: "Κίνδυνος με υπεύθυνο", likelihood: 2, impact: 2, ownerId: items[0].id });
+    expect(picked.status).toBe(201);
+    const pickedId = Risk.parse(picked.body).id;
+    const detail = await request(app.getHttpServer()).get(`/projects/${projectId}`).set(bearer(token));
+    expect(ProjectDetail.parse(detail.body).risks.find((r) => r.id === pickedId)?.ownerName).toBe(items[0].name);
+  });
+
+  it("answers 400, not 500, when an id in the path is not an id at all", async () => {
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const response = await request(app.getHttpServer())
+      .patch(`/projects/${projectId}/risks/not-an-id`)
+      .set(bearer(token))
+      .send({ descriptionEl: "Χ", likelihood: 1, impact: 1 });
+    expect(response.status).toBeLessThan(500);
   });
 
   it("refuses a risk scored outside one to five", async () => {

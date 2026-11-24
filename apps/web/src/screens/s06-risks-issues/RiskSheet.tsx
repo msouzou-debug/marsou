@@ -15,22 +15,23 @@
  * | onClose  | () => void|                                                                 |
  * | onSave   | (values: RiskFormValues) => void |                                        |
  *
- * FLAGGED (not settled by an ADR): there is no directory endpoint the web
- * app can read to pick a person for «Ιδιοκτήτης» — `ecapital.user_display_name`
- * (ADR-0014) only resolves an id to a name server-side, for display. Until a
- * directory exists, the owner field is a plain text id with a hint saying
- * so, rather than a picker this build would have to invent a source for.
+ * The owner is picked from the project's people (GET /projects/:id/people,
+ * migration 0027): the unit's active staff and the administrators. Until
+ * 24/11/2026 it was a free-text id box, and a name typed into it reached a
+ * uuid column and came back as a server error.
  */
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
-import { RiskStatus, type Risk } from "@ecapital/shared";
+import { RiskStatus, type ProjectPerson, type Risk } from "@ecapital/shared";
 import { zodResolver } from "@/lib/zod-resolver";
 import { RiskFormSchema, type RiskFormValues } from "./schema";
 
 export interface RiskSheetProps {
   open: boolean;
   risk?: Risk;
+  /** Who may own the risk; the current owner is kept as an option even if no longer listed. */
+  people?: ProjectPerson[];
   saving?: boolean;
   apiError?: string;
   onClose: () => void;
@@ -43,9 +44,15 @@ function blankToNull(value: string): string | null {
 
 const LEVELS = [1, 2, 3, 4, 5];
 
-export function RiskSheet({ open, risk, saving = false, apiError, onClose, onSave }: RiskSheetProps) {
+export function RiskSheet({ open, risk, people = [], saving = false, apiError, onClose, onSave }: RiskSheetProps) {
   const t = useTranslations();
   const tf = useTranslations("screens.s06.riskFields");
+  // A risk owned by someone who has since left the unit keeps its owner on
+  // the list, so saving the risk does not silently clear it.
+  const ownerOptions =
+    risk?.ownerId && !people.some((person) => person.id === risk.ownerId)
+      ? [...people, { id: risk.ownerId, name: risk.ownerName ?? risk.ownerId }]
+      : people;
 
   const {
     register,
@@ -74,7 +81,7 @@ export function RiskSheet({ open, risk, saving = false, apiError, onClose, onSav
     <div
       role="dialog"
       aria-label={risk ? t("screens.s06.editRiskTitle") : t("screens.s06.addRiskTitle")}
-      className="fixed inset-0 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
+      className="fixed inset-0 z-40 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
     >
       <header className="flex items-start justify-between border-b border-k-grey p-s-5">
         <h2 className="text-fs-20">{risk ? t("screens.s06.editRiskTitle") : t("screens.s06.addRiskTitle")}</h2>
@@ -142,13 +149,18 @@ export function RiskSheet({ open, risk, saving = false, apiError, onClose, onSav
             <label htmlFor="rs-owner" className="text-fs-14 text-k-text">
               {tf("owner")}
             </label>
-            <input
+            <select
               id="rs-owner"
-              type="text"
               {...register("ownerId", { setValueAs: blankToNull })}
               className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
-            />
-            <p className="text-fs-12 text-k-text-muted">{tf("ownerHint")}</p>
+            >
+              <option value="">{tf("ownerNone")}</option>
+              {ownerOptions.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex flex-col gap-s-1">

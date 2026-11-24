@@ -28,6 +28,7 @@ import {
   PortfolioResponse,
   ProjectCost,
   ProjectDetail,
+  ProjectPeople,
   ProjectList,
   QrLabel,
   ReplacementForecastRow,
@@ -117,6 +118,15 @@ export function useProjectDetail(id: string) {
   return useQuery({
     queryKey: ["project", id],
     queryFn: () => proxyFetch(`/projects/${encodeURIComponent(id)}`, ProjectDetail),
+    retry: false,
+  });
+}
+
+// S06: who may own a risk (GET /projects/:id/people, migration 0027).
+export function useProjectPeople(id: string) {
+  return useQuery({
+    queryKey: ["project", id, "people"],
+    queryFn: () => proxyFetch(`/projects/${encodeURIComponent(id)}/people`, ProjectPeople),
     retry: false,
   });
 }

@@ -8,6 +8,7 @@ import {
   ProjectCreate,
   ProjectDetail,
   ProjectList,
+  ProjectPeople,
   ProjectPhaseChange,
   ProjectUpdate,
   Risk,
@@ -150,6 +151,15 @@ export class ProjectsController {
     const parsed = MilestoneWrite.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.milestoneNotValid");
     return this.projects.updateMilestone(id, mid, parsed.data);
+  }
+
+  @Get(":id/people")
+  @ApiOperation({ summary: "Who may own a risk on the project: the unit's active people and the administrators" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiZodResponse(200, ProjectPeople, "Id and name of each person")
+  @ApiZodError(404, "No such project, or none the caller may see")
+  people(@Param("id") id: string): Promise<ProjectPeople> {
+    return this.projects.people(id);
   }
 
   @Post(":id/risks")

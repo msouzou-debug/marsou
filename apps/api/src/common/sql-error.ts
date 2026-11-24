@@ -24,6 +24,9 @@ export const CHECK_VIOLATION = "23514";
  */
 export const RESTRICT_VIOLATION = "23001";
 
+/** A value that is not valid text for its column type, e.g. a name where a uuid belongs. */
+export const INVALID_TEXT_REPRESENTATION = "22P02";
+
 export function sqlState(error: unknown): string | undefined {
   let current: unknown = error;
   for (let depth = 0; current && depth < 5; depth += 1) {

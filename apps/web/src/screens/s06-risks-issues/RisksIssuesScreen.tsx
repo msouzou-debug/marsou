@@ -10,7 +10,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { AppRole } from "@ecapital/shared";
 import { Issue as IssueSchema, Risk as RiskSchema } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
-import { useProjectDetail } from "@/data/queries";
+import { useProjectDetail, useProjectPeople } from "@/data/queries";
 import type { IssueFormValues, RiskFormValues } from "./schema";
 import { RisksIssues, type RisksIssuesScreenState } from "./RisksIssues";
 
@@ -37,6 +37,7 @@ function useOnlineStatus(): boolean {
 
 export function RisksIssuesScreen({ projectId, roles, noPermission }: RisksIssuesScreenProps) {
   const { data, error, isLoading, refetch } = useProjectDetail(projectId);
+  const { data: people } = useProjectPeople(projectId);
   const online = useOnlineStatus();
 
   const [selectedRiskId, setSelectedRiskId] = useState<string | "new" | null>(null);
@@ -118,6 +119,7 @@ export function RisksIssuesScreen({ projectId, roles, noPermission }: RisksIssue
       onSelectIssue={selectIssue}
       sheetSaving={saving}
       sheetApiError={apiError}
+      people={people?.items ?? []}
       onSaveRisk={(values) => void saveRisk(values)}
       onSaveIssue={(values) => void saveIssue(values)}
     />

@@ -147,6 +147,7 @@ describe("openapi.json", () => {
       "/projects/{id}/issues/{iid}",
       "/projects/{id}/milestones",
       "/projects/{id}/milestones/{mid}",
+      "/projects/{id}/people",
       "/projects/{id}/phase",
       "/projects/{id}/risks",
       "/projects/{id}/risks/{rid}",
