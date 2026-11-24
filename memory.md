@@ -163,6 +163,7 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 23/11/2026: release `ehire-1.0.0-rc11` built from commit 3137f22 with the full suite passing (1,206 tests) and verified with its checksum (8cc6d7d14aa6c2beb3213bb0c9836220bccfbfb5c27067e0d83d14a9f9f02420). Same packages as rc6 to rc10. It carries migration 0007 (cost centre's Directorate), the cost-centre filter and search on the form, eHire's side of the eFinance link (off), and the forgiving `clear-test-data` prompt. The rc10 to rc11 upgrade was rehearsed here in a test folder and ended at schema version 7. A first build attempt failed on one test that passed on two full reruns; its name was not captured, so `make-release.sh` now prints failing test names. Sent to Marios as `ehire-install-rc11.zip` with `eHire-manuals-rc11.zip` and the import file.
 - 23/11/2026, Marios: picking a budget line stays optional. rc11 is installed on the server.
 - 24/11/2026: `scripts/install-cron.sh` installs eHire's scheduled jobs in the ehire user's crontab as one managed block (timers hourly on working days, mail and archive every 5 minutes, cost-centre sync 02:40, backup 01:30, nightly backups older than 14 days removed at 03:10; `--show`, `--remove`). Sent to Marios as `ehire-cron.sh`; tested here only against a stand-in crontab.
+- 24/11/2026: the scheduled jobs are installed on the server with `ehire-cron.sh` (Marios confirmed it worked). Marios confirmed again that picking a budget line stays optional; that is how rc11 already behaves, so no change was made.
 
 ## Status
 
