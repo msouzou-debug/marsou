@@ -76,9 +76,6 @@ function prepare({ capFiles, raFiles, roster, history, previous, cfg }) {
     ra.push({ file: f.file, supplier: f.supplier, payNo: f.payNo, payDate: f.payDate, ...l, ...c,
       invKey: /^\d+$/.test(l.invNo) ? Number(l.invNo) : l.invNo });
   }
-  const kpi = new Map();
-  for (const l of ra) if (l.cat === 'KPI') { const k = l.doctor + '|' + l.list; kpi.set(k, (kpi.get(k) || 0) + l.paid); }
-
   // Doctor list blocks. The list type (ADULT/CHILD) comes from the ages and is what the SRA KPIs use.
   // The sheet follows the doctor: a ΠΕ's lists always go to ΠΙ ΕΝΗΛΙΚΩΝ; a ΠΠ's (or an unknown
   // doctor's) under-18 lists go to the paediatric sheets.
@@ -88,13 +85,22 @@ function prepare({ capFiles, raFiles, roster, history, previous, cfg }) {
     const list = isAdultList(d.rows) ? 'ADULT' : 'CHILD';
     const isPE = String((rosterBy.get(d.code) || {}).pepp || '').trim().toUpperCase() === 'ΠΕ';
     const key = list === 'ADULT' || isPE ? 'ADULT' : cfg.namProviders.includes(inv.providerCode) ? 'NAM' : 'CHILD';
-    const k = d.code + '|' + list;
+    // A KPI lands on one list per doctor, list type and provider; a repeat of that trio gets none.
+    const k = d.code + '|' + list + '|' + inv.providerCode;
     const first = !kpiUsed.has(k); kpiUsed.add(k);
-    const H = d.amount, J = first ? (kpi.get(k) || 0) : 0, K = H + J;
-    const L = d.rows.reduce((a, r) => a + r.days, 0) / days;
-    const M = L ? K / L : 0;
-    const bands = bandSplit(L, M, cfg.bands[key]);
-    blocks.push({ inv, d, list, key, first, H, J, K, L, M, bands, S: bands.reduce((a, b) => a + b, 0) });
+    blocks.push({ inv, d, list, key, first, H: d.amount, J: 0, L: d.rows.reduce((a, r) => a + r.days, 0) / days });
+  }
+  // Each SRA KPI goes to the doctor's list at the provider whose SRA paid it. If the doctor has no list
+  // of that type there (e.g. moved mid-month), it goes to the doctor's first list of that type.
+  for (const l of ra) {
+    if (l.cat !== 'KPI') continue;
+    const cands = blocks.filter(b => b.first && b.d.code === l.doctor && b.list === l.list);
+    const b = cands.find(x => x.inv.providerCode === l.supplier) || cands[0];
+    if (b) { b.J += l.paid; l.target = b.inv.providerCode; }
+  }
+  for (const b of blocks) {
+    b.K = b.H + b.J; b.M = b.L ? b.K / b.L : 0;
+    b.bands = bandSplit(b.L, b.M, cfg.bands[b.key]); b.S = b.bands.reduce((a, x) => a + x, 0);
   }
 
   // Doctors (unique codes)
@@ -105,7 +111,7 @@ function prepare({ capFiles, raFiles, roster, history, previous, cfg }) {
   }
   for (const x of docs.values()) x.cat = rosterBy.has(x.code) ? rosterBy.get(x.code).cat : OUT_OF_ROSTER;
 
-  const kpiNoList = ra.filter(l => l.cat === 'KPI' && !blocks.some(b => b.d.code === l.doctor && b.list === l.list));
+  const kpiNoList = ra.filter(l => l.cat === 'KPI' && !l.target);
   const rosterNoCap = roster.filter(r => !docs.has(r.code));
   const outOfRoster = [...docs.values()].filter(x => x.cat === OUT_OF_ROSTER);
   // Month-on-month comparison against last month's output
@@ -191,10 +197,10 @@ function writeCalc(ws, key, M) {
     [lo, rt].forEach(x => { x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: INPUT } }; });
   });
   const hdr = { A: 'ID Τιμολογίου EBS', B: 'Παροχέας Υγείας', C: 'Τύπος Τιμολογίου', E: 'Ημερομηνία Τιμολογίου', H: 'Αμοιβή από ΟΑΥ',
-    J: 'KPIs (SRA)', K: 'ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ', L: 'ΜΕΣΟΣ ΟΡΟΣ ΕΓΓΡΑΦΩΝ', M: 'ΜΕΣΟΣ ΟΡΟΣ CAP FEES', S: 'TOTAL', T: 'Κωδ. ιατρού', U: 'Λίστα', V: 'Σημείωση' };
+    J: 'KPIs (SRA)', K: 'ΣΥΝΟΛΙΚΗ ΑΜΟΙΒΗ', L: 'ΜΕΣΟΣ ΟΡΟΣ ΕΓΓΡΑΦΩΝ', M: 'ΜΕΣΟΣ ΟΡΟΣ CAP FEES', S: 'TOTAL', T: 'Κωδ. ιατρού', U: 'Λίστα', V: 'Σημείωση', W: 'Παροχέας λίστας' };
   Object.entries(hdr).forEach(([c, t]) => v(ws, c + 4, t));
   cols.forEach((c, i) => f(ws, c + 4, `${c}1`, ws.getCell(c + '1').value.result, null));
-  head(ws, 4, [...'ABCDEFGHIJKLM', ...BAND_COLS, 'S', 'T', 'U', 'V']);
+  head(ws, 4, [...'ABCDEFGHIJKLM', ...BAND_COLS, 'S', 'T', 'U', 'V', 'W']);
 
   const blocks = M.blocks.filter(b => b.key === key);
   let r = 5, lastInv = null; const first = r;
@@ -208,8 +214,11 @@ function writeCalc(ws, key, M) {
     const n = b.d.rows.length, R = r; b.row = R; b.sheet = SHEETS[key];
     v(ws, 'B' + R, b.d.name); v(ws, 'C' + R, 'Ηλικίες'); v(ws, 'D' + R, 'Σχόλια'); v(ws, 'E' + R, 'Ημερήσια Κατά Κεφαλήν Αμοιβή');
     v(ws, 'F' + R, 'Αριθμός Δικαιούχων'); v(ws, 'G' + R, 'Συνολικός Αρ. Ημερών'); v(ws, 'H' + R, b.H, NUM);
-    if (b.first) f(ws, 'J' + R, `SUMIFS('SRA_PD'!$J:$J,'SRA_PD'!$I:$I,$T${R},'SRA_PD'!$H:$H,$U${R},'SRA_PD'!$G:$G,"KPI")`, b.J);
-    else { v(ws, 'J' + R, 0, NUM); v(ws, 'V' + R, 'KPI ήδη στη λίστα του ίδιου ιατρού πιο πάνω'); }
+    if (b.first) f(ws, 'J' + R, `SUMIFS('SRA_PD'!$J:$J,'SRA_PD'!$I:$I,$T${R},'SRA_PD'!$H:$H,$U${R},'SRA_PD'!$G:$G,"KPI",'SRA_PD'!$M:$M,$W${R})`, b.J);
+    else { v(ws, 'J' + R, 0, NUM); v(ws, 'V' + R, 'KPI ήδη στη λίστα του ίδιου ιατρού και παροχέα πιο πάνω'); }
+    const moved = M.ra.filter(l => l.cat === 'KPI' && l.target === b.inv.providerCode && l.doctor === b.d.code && l.list === b.list && l.supplier !== l.target);
+    if (b.first && moved.length) v(ws, 'V' + R, 'Περιέχει KPI από SRA ' + [...new Set(moved.map(l => l.supplier))].join(', ') + ' (ο ιατρός δεν έχει λίστα εκεί)');
+    v(ws, 'W' + R, b.inv.providerCode);
     f(ws, 'K' + R, `H${R}+J${R}`, b.K);
     f(ws, 'L' + R, n ? `SUM(G${R + 1}:G${R + n})/$D$1` : '0', b.L);
     f(ws, 'M' + R, `IFERROR(K${R}/L${R},0)`, b.M);
@@ -234,7 +243,7 @@ function writeCalc(ws, key, M) {
   cols.forEach((c, i) => f(ws, c + T, `SUM(${c}${first}:${c}${last})`, blocks.reduce((a, b) => a + b.bands[i], 0)));
   f(ws, 'S' + T, `SUM(S${first}:S${last})`, sum('S'));
   totalStyle(ws, T, ['B', 'H', 'J', 'K', 'L', ...cols, 'S']);
-  widths(ws, { A: 11, B: 44, C: 14, D: 16, E: 12, F: 10, G: 10, H: 12, I: 2, J: 11, K: 13, L: 11, M: 11, N: 11, O: 11, P: 11, Q: 11, R: 11, S: 12, T: 9, U: 8, V: 24 });
+  widths(ws, { A: 11, B: 44, C: 14, D: 16, E: 12, F: 10, G: 10, H: 12, I: 2, J: 11, K: 13, L: 11, M: 11, N: 11, O: 11, P: 11, Q: 11, R: 11, S: 12, T: 9, U: 8, V: 30, W: 10 });
   ws.views = [{ state: 'frozen', ySplit: 4 }];
   return { totalRow: T, sums: { H: sum('H'), J: sum('J'), K: sum('K'), L: sum('L'), S: sum('S') } };
 }
@@ -404,8 +413,8 @@ function writeCompare(ws, M) {
 }
 
 function writeSra(ws, M) {
-  const hdr = ['Αρχείο', 'Παροχέας', 'Αρ. πληρωμής', 'Ημ. πληρωμής', 'Ημ. τιμολογίου', 'Αρ. τιμολογίου', 'Κατηγορία', 'Λίστα', 'Ιατρός', 'Ποσό πληρωμής', 'Περιγραφή', 'Έλεγχος'];
-  hdr.forEach((t, i) => v(ws, 'ABCDEFGHIJKL'[i] + 1, t)); head(ws, 1, [...'ABCDEFGHIJKL']);
+  const hdr = ['Αρχείο', 'Παροχέας', 'Αρ. πληρωμής', 'Ημ. πληρωμής', 'Ημ. τιμολογίου', 'Αρ. τιμολογίου', 'Κατηγορία', 'Λίστα', 'Ιατρός', 'Ποσό πληρωμής', 'Περιγραφή', 'Έλεγχος', 'KPI σε λίστα παροχέα'];
+  hdr.forEach((t, i) => v(ws, 'ABCDEFGHIJKLM'[i] + 1, t)); head(ws, 1, [...'ABCDEFGHIJKLM']);
   let r = 2;
   for (const l of M.ra) {
     v(ws, 'A' + r, l.file); v(ws, 'B' + r, l.supplier); v(ws, 'C' + r, l.payNo); v(ws, 'D' + r, toDate(l.payDate), 'dd/mm/yyyy');
@@ -413,13 +422,14 @@ function writeSra(ws, M) {
     v(ws, 'I' + r, l.doctor || ''); v(ws, 'J' + r, l.paid, NUM); v(ws, 'K' + r, l.desc);
     if (l.cat === 'KPI') {
       const ok = !M.kpiNoList.includes(l);
+      v(ws, 'M' + r, l.target || '');
       f(ws, 'L' + r, `IF(${SHEET_ORDER.map(k => `COUNTIFS(${q(SHEETS[k])}!$T:$T,$I${r},${q(SHEETS[k])}!$U:$U,$H${r})`).join('+')}>0,"OK","ΧΩΡΙΣ ΛΙΣΤΑ")`, ok ? 'OK' : 'ΧΩΡΙΣ ΛΙΣΤΑ', null);
     }
     r++;
   }
-  widths(ws, { A: 18, B: 9, C: 11, D: 11, E: 11, F: 18, G: 10, H: 8, I: 8, J: 12, K: 40, L: 13 });
+  widths(ws, { A: 18, B: 9, C: 11, D: 11, E: 11, F: 18, G: 10, H: 8, I: 8, J: 12, K: 40, L: 13, M: 12 });
   ws.views = [{ state: 'frozen', ySplit: 1 }];
-  ws.autoFilter = 'A1:L1';
+  ws.autoFilter = 'A1:M1';
 }
 
 function writeRoster(ws, M) {

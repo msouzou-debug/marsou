@@ -22,10 +22,10 @@ All calculated cells are live formulas. Band limits and rates are the yellow cel
 - A list with any 18+ age band is an adult list, otherwise a child list (this is what the SRA KPIs use).
 - Sheet: a ΠΕ's lists (roster column ΠΕ/ΠΠ) always go to ΠΙ ΕΝΗΛΙΚΩΝ. Other child lists go to ΠΙΠ ΑΛΛΟΙ, or ΠΙΠ ΝΑΜ ΙΙΙ when billed by F1050.
 - ΣΥΓΚΡΙΣΗ flags a doctor whose cap fees moved more than the yellow threshold (default 15%), plus new doctors and doctors with no fee this month.
-- KPI = SRA line `PD-KPIs-…-ADULT|CHILD-Dxxxx`, matched on doctor code and list type.
+- KPI = SRA line `PD-KPIs-…-ADULT|CHILD-Dxxxx`, matched on doctor code and list type, and placed on that doctor's list at the provider whose SRA paid it (SRA_PD column M). If the doctor has no list of that type there, it goes to their first list of that type.
 - Average list = total list days / days in month. Average fee = (HIO fee + KPI) / average list.
 - Doctor fee = sum over bands of (list size inside the band × average fee × band rate).
 
 ## Develop
-`python3 build.py` builds `dist/`. The offline file needs `npm i pdfjs-dist@3.11.174 jszip@3.10.1 exceljs@4.4.0` first. Tests: `test/run_july.js` (Node) and `test/browser_e2e.js` (Playwright). Validated against July 2026: all 103 doctors match to the cent.
+`python3 build.py` builds `dist/`. The offline file needs `npm i pdfjs-dist@3.11.174 jszip@3.10.1 exceljs@4.4.0` first. Tests: `test/run_july.js` and `test/kpi_alloc.test.js` (Node), `test/replay.js` (re-runs a month from a previous output) and `test/browser_e2e.js` (Playwright). Validated against July 2026: all 103 doctors match to the cent.
 The roster holds personal data (ΑΚΑ, ΑΔΤ). Keep it out of the repository.
