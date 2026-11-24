@@ -134,8 +134,9 @@ Jobs keep the timers, the mail, the eArchive deposits and the cost centres movin
 # Make the PDFs of eArchive deposits and hand them to the archive transport. An unreachable eArchive is retried with growing gaps (5 min, 15 min, 1 h, 6 h, then daily), without limit.
 */5 * * * *     /opt/ehire/current/scripts/ehire-cli.sh send-archive >> /var/log/ehire/archive.log 2>&1
 
-# Bring the cost centres in line with eFinance (contract 07). Nightly at 02:40. Prints "skipped" while the eFinance
-# link is off; exits 1 when the sync failed (nothing is changed then). One line per run.
+# Bring the cost centres in line with eFinance (contract 07, GET /api/ehire/cost-centres). Nightly at 02:40. Prints
+# "skipped" while the eFinance link is off; exits 1 when the sync failed (nothing is changed then). One line per run.
+# The budget check on the cards (efinance-budget: exists by default, no amounts) needs no cron line.
 40 2 * * *      /opt/ehire/current/scripts/ehire-cli.sh sync-cost-centres >> /var/log/ehire/efinance.log 2>&1
 ```
 

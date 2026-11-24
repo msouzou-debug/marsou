@@ -5,7 +5,7 @@
 #   sudo bash install-cron.sh --remove   take eHire's jobs out again
 # Safe to run again: it replaces only the block between its two marker lines and keeps any other line.
 # Touches only the crontab of the user ehire, and makes sure ehire can write to its log and backup folders.
-# No network. Does not start, stop or restart any service.
+# No network. Does not start, stop, restart or query any service.
 set -euo pipefail
 
 MODE="${1:-install}"
@@ -69,9 +69,8 @@ echo "Installed. The ehire user's crontab is now:"
 echo "------------------------------------------------------------"
 crontab -u ehire -l
 echo "------------------------------------------------------------"
-if command -v systemctl >/dev/null 2>&1; then
-  if systemctl is-active --quiet cron 2>/dev/null || systemctl is-active --quiet crond 2>/dev/null; then echo "cron service: running"
-  else echo "WARNING: the cron service does not look active. Check: systemctl status cron"; fi
-fi
+# Is the cron daemon running? Checked by process name, so this script needs no service tool.
+if pgrep -x cron >/dev/null 2>&1 || pgrep -x crond >/dev/null 2>&1; then echo "cron service: running"
+else echo "WARNING: no cron process was found. The jobs will not run until cron is started."; fi
 echo "First runs: mail and archive within 5 minutes, timers at the next full hour on a working day, backup tonight at 01:30."
 echo "Logs: $LOGS/timers.log mail.log archive.log efinance.log backup.log"

@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from ..auth import current_user, permission_required
 from ..extensions import db
 from ..workflow.numbering import valid_position_code
-from ..services import cost_centre_sync, efinance_link
+from ..services import budget_efinance, cost_centre_sync, efinance_link
 from ..services.request_dates import format_datetime
 from ..services.request_flash import flash_key
 from ..models import ARCHIVE_SITE_CODES, CATEGORIES, ArchiveDeposit, CostCentre, Directorate, Facility, OaySpecialty, Position, audit
@@ -102,7 +102,7 @@ def _hand_change(kind):
 
 
 def _efinance_panel():
-    """The eFinance panel of the cost-centres page: link state and the last sync."""
+    """The eFinance panel of the cost-centres page: link state, the budget check's mode and the last sync."""
     last = cost_centre_sync.last_run()
     when = None
     if last and last.get("at"):
@@ -110,7 +110,7 @@ def _efinance_panel():
             when = format_datetime(efinance_link.parse_as_of(last["at"]))
         except Exception:
             when = None
-    return {"on": efinance_link.is_on(), "last": last, "when": when}
+    return {"on": efinance_link.is_on(), "last": last, "when": when, "budget": budget_efinance.budget_mode()}
 
 
 def flash_sync(result):

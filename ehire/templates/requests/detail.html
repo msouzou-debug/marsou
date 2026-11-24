@@ -147,17 +147,14 @@
       </div>
       <div class="small text-secondary">{% if c.actor %}{{ c.actor }}{% if c.behalf %} ({{ t('tracker.acting_for', who=c.actor, holder=c.behalf) }}){% endif %} · {% endif %}<span class="ehire-num">{{ c.when | ehire_datetime }}</span></div>
       {% if c.comment %}<div class="ehire-wrap ehire-prewrap">{{ c.comment }}</div>{% endif %}
-      {% if c.budget %}{% set bv = c.budget %}
-      <div class="ehire-budget-view mt-2">
+      {% if c.budget %}
+      <div class="ehire-budget-view mt-2" data-ehire-budget-stored>
         <h3 class="h6 mb-1">{{ t('card.budget.title') }}</h3>
-        {% if bv.article %}
-        <p class="mb-1"><span class="text-secondary">{{ t('card.budget.line') }}:</span> <strong class="ehire-num">{{ bv.article }}</strong> <span class="ehire-wrap">{{ bv.name }}</span></p>
-        <dl class="mb-1 ehire-budget-view__amounts">
-          {% for k in ('budget', 'spent', 'committed', 'available') %}<div><dt class="fw-normal text-secondary">{{ t('card.budget.col.' ~ k) }}</dt><dd class="mb-0 ehire-num text-end">{{ bv[k] }} €</dd></div>{% endfor %}
-        </dl>
-        {% elif bv.status not in ('no_lines', 'unknown_cost_centre') %}<p class="mb-1 small text-secondary">{{ t('card.budget.no_line') }}</p>{% endif %}
-        {% for w in bv.warnings %}<p class="mb-1 small ehire-budget-view__warn"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> {{ t('card.budget.stored.' ~ w, year=bv.year, code=bv.cost_centre) }}</p>{% endfor %}
-        <p class="small text-secondary mb-0">{{ t('card.budget.scope', code=bv.cost_centre, year=bv.year) }}{% if bv.as_of %} · {{ t('card.budget.as_of', date=bv.as_of) }}{% endif %}</p>
+        {% for label, value, kind in c.budget %}
+        {% if kind == 'warning' %}<p class="mb-1 small ehire-budget-view__warn"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> {{ value }}</p>
+        {% elif label %}<p class="mb-1"><span class="text-secondary">{{ label }}</span> <strong class="ehire-wrap">{{ value }}</strong></p>
+        {% else %}<p class="mb-1 small text-secondary">{{ value }}</p>{% endif %}
+        {% endfor %}
       </div>
       {% endif %}
       {% if c.financials %}{% set fin = c.financials %}

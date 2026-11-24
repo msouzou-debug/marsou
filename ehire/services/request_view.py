@@ -139,15 +139,20 @@ def answer_facts(req, action):
 
 
 def budget_view(action, lang=None):
-    """The eFinance budget figures stored with a step 2 or step 4 answer (contract 07), formatted, or None."""
+    """The eFinance budget check stored with a step 2 or step 4 answer (contract 07), as [(label, value, kind)] in
+    the viewer's language, or None. The same rows as the PDF and the eArchive comment."""
     from flask import g
 
-    from .budget_efinance import stored_view
+    from ehire.i18n import translate
 
+    from .budget_efinance import stored_rows
+
+    lang = lang or g.get("lang", "el")
     try:
-        return stored_view(_payload(action), lang or g.get("lang", "el"))
+        rows = stored_rows(_payload(action), lambda key, **params: translate(key, lang, **params), lang)
     except Exception:  # a damaged snapshot never breaks the request page
         return None
+    return rows or None
 
 
 def checks_view(req, viewer, names, stops):

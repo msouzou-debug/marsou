@@ -100,23 +100,35 @@ Cost centres follow eFinance: the same 10-digit SAP codes and Greek names, each 
 
 ## eFinance link
 
-eHire reads two things from eFinance on the same server (`docs/contracts/07-efinance-link.md`): the cost-centre list, and the budget lines of a cost centre for the steps 2 and 4 cards. Read-only; only a cost-centre code, a year and an article code leave eHire. The link ships off (`efinance_link` = `none`): eHire then never calls eFinance and the cards work as before. It stays off until eFinance has built its two endpoints.
+eHire reads two things from eFinance on the same server (`docs/contracts/07-efinance-link.md`, version 2): the cost-centre list (`GET /api/ehire/cost-centres`), and the salary budget lines of a cost centre's hospital for the step 2 and step 4 cards (`GET /api/ehire/budget?cost_centre=&year=&payroll=1`). Read-only; only a cost-centre code and a year leave eHire. Two settings rows control it:
+
+- `efinance_link`: `none` (as shipped: eHire never calls eFinance and the cards work as before) or `http`. Set with `efinance-link`.
+- `efinance_budget`: what the cards show once the link is on. `exists` (the default), `figures` or `off`. Set with `efinance-budget`; run it without a value to see the current one. Settings, Cost centres shows both in words.
+
+The link stays off until eFinance has built its two endpoints.
 
 Switch it on, in this order:
 
 1. Marios copies eFinance's token file to file into `/etc/ehire/ehire.env` as `EHIRE_EFINANCE_TOKEN=…` (never by chat, never on a command line), and sets `EHIRE_EFINANCE_URL=http://127.0.0.1:5004`. Restart only eHire: `sudo systemctl restart ehire`.
-2. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-test`: calls both endpoints and says what came back, in plain words. It must end with `efinance-test: passed`.
+2. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-test`: calls both endpoints and says what came back, in plain words: the cost-centre count, and for one cost centre how many salary lines came back, how many have a budget loaded, and eFinance's `spent_covers`. It must end with `efinance-test: passed`.
 3. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-link http`: runs the same test again and refuses to switch if it fails.
 4. `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh sync-cost-centres`: the first sync. Read its line; Settings, Cost centres shows the same result. Test cost centres typed in eHire are switched off by it unless their code starts with `T-`.
 5. Make sure the 02:40 cron line is in the `ehire` crontab (deploy/README.md, Scheduled jobs).
+6. Check the budget mode: `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-budget` should print `efinance_budget=exists`. Leave it there.
 
-Switch it off: `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-link none`. Nothing else changes: the cost centres stay as the last sync left them, answers already given keep their stored figures, and the cards go back to the free-text «Άρθρο δέσμευσης».
+Switch it off: `sudo -u ehire /opt/ehire/current/scripts/ehire-cli.sh efinance-link none`. Nothing else changes: the cost centres stay as the last sync left them, answers already given keep what was stored with them, and the cards go back to the free-text «Άρθρο δέσμευσης». To keep the cost-centre sync but drop the budget panel: `efinance-budget off`.
 
 **What a sync does.** One transaction and one audit row (`list_changed`, source `efinance_sync`, with counts and the changed codes). New codes are added under the Directorate whose code is the entity code (an unknown entity code: added with no Directorate and named in the result); names, entity and active flag follow eFinance; a code missing from eFinance's list is switched off, never deleted; a code switched off by hand but active in eFinance comes back on. The «Συγχρονισμός τώρα» button in Settings, Cost centres runs the same code. Editing a cost centre by hand still works, but the next sync sets it back to eFinance's values.
 
 **The safety stop.** If eFinance answers with no cost centres, or with fewer active ones than half of eHire's active ones (codes starting `T-` not counted), the sync changes nothing and reports `failed: safety_stop` (or `empty`). This guards against a half-loaded or broken list switching off most cost centres. Ask the eFinance side to check its list, then run the sync again. Other reasons (`http_401`: wrong token; `timeout`, `network`: eFinance down; `bad_json`, `bad_value`: a broken answer) also change nothing.
 
-**Budget figures on the cards.** Kept in memory for 5 minutes (a failure for 30 seconds). When eFinance cannot answer, the card says the figures are unavailable and the person answers as before; nothing is ever blocked. A «Ναι» against a budget warning needs a comment.
+**The budget check on the cards.** The budget is the hospital's (eFinance's entity), not the cost centre's, and only salary lines are listed (eFinance's `payroll` flag, today the codes 2102 to 2499). Picking a line is optional; at step 4 the picked line's code fills «Άρθρο δέσμευσης», which stays free text.
+
+- `exists` (default, the mode to run): for each salary line, its code, description and whether a budget is loaded for the year. No amounts anywhere: not on the card, not in what is stored with the answer, not in the request PDF, not in the eArchive comment. The card says the budget is the whole Directorate's and that eFinance holds no salary spending. Warnings: no salary line has a budget loaded for the year; the picked line has none; eFinance does not know the cost centre.
+- `figures`: the same lines with budget, spent, open requisitions («Δεσμεύσεις») and available, plus warnings when the picked line has nothing available or less than central HR's annual employer cost. eFinance's «spent» today counts invoices only, never salaries, so on salary lines the available amount would be the whole budget. `efinance-budget figures` is therefore refused until a fresh budget answer from eFinance says, on every salary line, a `spent_covers` other than `efinance_invoices_only`. Switch to it only once eFinance holds payroll actuals from SAP and Marios agrees. The flag `--i-know-salaries-are-missing` overrides the refusal; the audit row records `forced`.
+- `off`: no panel and no budget call. Cost centres still sync.
+
+Answers are kept in memory for 5 minutes (a failure for 30 seconds). When eFinance cannot answer, the card says the figures are unavailable and the person answers as before; nothing is ever blocked. A «Ναι» against a warning needs a comment (rule B1). Every change of `efinance_budget` writes a `setting_changed` audit row.
 
 ## Test data
 

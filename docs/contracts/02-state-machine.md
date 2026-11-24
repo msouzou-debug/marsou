@@ -87,7 +87,7 @@ Payload values are in contract 03, section 4.
 | T11 | `in_progress` or `returned` | `withdraw`, requester | | `withdrawn`. Every task closes |
 | T12 | `returned` | `withdraw`, system | returned for more than `returned_timeout_days` working days | `withdrawn`, with a system comment |
 
-**Budget warning (contract 07).** At step 2 (`check` by dir_accountant) and step 4 (`check` by fin_mgmt_head) the caller may pass `budget_warning` (a plain boolean on `NewAction`, default false): eHire showed an eFinance budget warning for the line picked, or eFinance holds no budget line for the cost centre. The caller works it out from eFinance's answer when the card is drawn and again when it is posted; the engine never calls eFinance.
+**Budget warning (contract 07).** At step 2 (`check` by dir_accountant) and step 4 (`check` by fin_mgmt_head) the caller may pass `budget_warning` (a plain boolean on `NewAction`, default false): eHire showed an eFinance budget warning: no salary line of the hospital has a budget loaded for the year, the picked line has none, eFinance does not know the cost centre or, in mode `figures` only, the picked line has too little available (contract 07, version 2). The caller works it out from eFinance's answer when the card is drawn and again when it is posted; the engine never calls eFinance.
 
 | Id | Rule |
 |---|---|

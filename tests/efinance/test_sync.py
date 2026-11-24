@@ -54,7 +54,7 @@ def test_new_code_with_unknown_entity_is_added_without_directorate_and_reported(
 
 def test_name_entity_and_active_changes_are_applied(linked, fake):
     rows = demo_list(fake)
-    rows[0]["name_el"] = "Νέο όνομα"
+    rows[0]["name"] = "Νέο όνομα"
     rows[1]["entity_code"] = "LIM"
     rows[2]["active"] = False
     result = cost_centre_sync.sync()
@@ -186,3 +186,16 @@ def test_link_switched_back_to_none_stops_syncing(linked, fake):
     set_link("none")
     fake.fail_if_called = True
     assert cost_centre_sync.sync().outcome == "off" and not fake.calls
+
+
+@pytest.mark.parametrize("spelling", ["items", "cost_centres"])
+def test_both_spellings_of_the_list_are_read(linked, fake, spelling):
+    """Contract 07, version 2: `items` with `name`, or `cost_centres` with `name_el`. eFinance holds no English name,
+    so the Greek one is stored as both."""
+    fake.spelling = spelling
+    demo_list(fake, [cc("1000000900", "ΔΙΟΙΚΗΤΙΚΟ ΣΥΜΒΟΥΛΙΟ", "LIM")])
+    result = cost_centre_sync.sync()
+    row = _cc("1000000900")
+    assert result.ok and result.counts["added"] == 1
+    assert row.name_el == row.name_en == "ΔΙΟΙΚΗΤΙΚΟ ΣΥΜΒΟΥΛΙΟ"
+    assert fake.calls[-1]["path"] == "/api/ehire/cost-centres"

@@ -1,47 +1,65 @@
-{# The eFinance budget panel of the step 2 and step 4 cards (contract 07). Needs c (the card) with c.budget from
-   services/budget_efinance.card_view. Off: nothing. Unavailable: one line, and the card works as before. #}
+{# The eFinance budget panel of the step 2 and step 4 cards (contract 07, version 2). Needs c (the card) with c.budget
+   from services/budget_efinance.card_view. Off: nothing. Unavailable: one line, and the card works as before.
+   Mode `exists`: the salary lines and whether a budget is loaded, no amounts anywhere (not even in attributes).
+   Mode `figures`: the same lines with the four amounts. #}
 {% set b = c.budget or {'state': 'off'} %}
 {% if b.state == 'unavailable' %}
 <p class="small text-secondary mb-3 ehire-budget__off" role="status"><i class="bi bi-cloud-slash" aria-hidden="true"></i> {{ t('card.budget.unavailable') }}</p>
 {% elif b.state != 'off' %}
-<section class="ehire-budget mb-3" aria-labelledby="c{{ c.task.id }}-budget-title" data-ehire-budget{% if c.role == 'fin_mgmt_head' %} data-ehire-budget-fill="c{{ c.task.id }}-commitment_article"{% endif %} data-ehire-budget-yes="c{{ c.task.id }}-{{ 'funds' if c.role == 'dir_accountant' else 'credit' }}-yes">
+{% set figures = b.mode == 'figures' %}
+<section class="ehire-budget mb-3{{ ' ehire-budget--figures' if figures else ' ehire-budget--exists' }}" aria-labelledby="c{{ c.task.id }}-budget-title" data-ehire-budget{% if c.role == 'fin_mgmt_head' %} data-ehire-budget-fill="c{{ c.task.id }}-commitment_article"{% endif %} data-ehire-budget-yes="c{{ c.task.id }}-{{ 'funds' if c.role == 'dir_accountant' else 'credit' }}-yes">
   <div class="d-flex flex-wrap align-items-baseline justify-content-between column-gap-3 mb-1">
     <h3 class="h6 mb-0" id="c{{ c.task.id }}-budget-title">{{ t('card.budget.title') }}</h3>
     {% if b.as_of %}<span class="small text-secondary ehire-num">{{ t('card.budget.as_of', date=b.as_of) }}</span>{% endif %}
   </div>
   <p class="small text-secondary mb-2">{{ t('card.budget.scope', code=b.cost_centre, year=b.year) }}</p>
+  {% if b.state != 'unknown_cost_centre' %}
+  <ul class="ehire-budget__notes small mb-2">
+    <li><i class="bi bi-building" aria-hidden="true"></i> {{ t('card.budget.note.level', code=b.cost_centre) }}</li>
+    {% if not figures %}<li><i class="bi bi-info-circle" aria-hidden="true"></i> {{ t('card.budget.note.no_spending') }}</li>{% endif %}
+  </ul>
+  {% endif %}
   {% if b.state == 'lines' %}
-  <fieldset id="c{{ c.task.id }}-budget_article"{% if c.errors.get('budget_article') %} aria-describedby="c{{ c.task.id }}-budget_article-error"{% endif %}>
+  <fieldset id="c{{ c.task.id }}-budget_code"{% if c.errors.get('budget_code') %} aria-describedby="c{{ c.task.id }}-budget_code-error"{% endif %}>
     <legend class="form-label fs-6">{{ t('card.budget.pick_step4') if c.role == 'fin_mgmt_head' else t('card.budget.pick_step2') }}</legend>
     <table class="table table-sm align-middle mb-2 ehire-budget__table">
       <thead><tr>
         <th scope="col" class="ehire-budget__pick"><span class="visually-hidden">{{ t('card.budget.col.pick') }}</span></th>
-        <th scope="col">{{ t('card.budget.col.article') }}</th>
-        <th scope="col" class="text-end">{{ t('card.budget.col.budget') }}</th>
-        <th scope="col" class="text-end">{{ t('card.budget.col.spent') }}</th>
-        <th scope="col" class="text-end">{{ t('card.budget.col.committed') }}</th>
-        <th scope="col" class="text-end">{{ t('card.budget.col.available') }}</th>
+        <th scope="col">{{ t('card.budget.line') }}</th>
+        {% if figures %}
+        {% for k in ('budget', 'spent', 'open_requisitions', 'available') %}<th scope="col" class="text-end">{{ t('card.budget.col.' ~ k) }}</th>{% endfor %}
+        {% else %}
+        <th scope="col" class="ehire-budget__state">{{ t('card.budget.col.state', year=b.year) }}</th>
+        {% endif %}
       </tr></thead>
       <tbody>
       {% for l in b.lines %}
       {% set rid = 'c%d-budget-%d' % (c.task.id, loop.index) %}
-      <tr class="ehire-budget__line{{ ' is-selected' if b.selected == l.article }}" data-ehire-budget-line>
-        <td class="ehire-budget__pick"><input class="form-check-input" type="radio" name="budget_article" id="{{ rid }}" value="{{ l.article }}"{{ ' checked' if b.selected == l.article }} data-ehire-budget-warn="{{ l.warnings | join(' ') }}"></td>
-        <td class="ehire-budget__name"><label for="{{ rid }}"><span class="fw-bold ehire-num">{{ l.article }}</span> <span class="ehire-wrap">{{ l.name }}</span></label>
-          {% for w in l.warnings %}<span class="badge rounded-pill ehire-budget__flag"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> {{ t('card.budget.flag.' ~ w) }}</span>{% endfor %}</td>
-        <td class="text-end ehire-num" data-label="{{ t('card.budget.col.budget') }}">{{ l.budget }}</td>
-        <td class="text-end ehire-num" data-label="{{ t('card.budget.col.spent') }}">{{ l.spent }}</td>
-        <td class="text-end ehire-num" data-label="{{ t('card.budget.col.committed') }}">{{ l.committed }}</td>
-        <td class="text-end ehire-num fw-bold{{ ' text-danger' if l.negative }}" data-label="{{ t('card.budget.col.available') }}">{{ l.available }}</td>
+      <tr class="ehire-budget__line{{ ' is-selected' if b.selected == l.code }}" data-ehire-budget-line>
+        <td class="ehire-budget__pick"><input class="form-check-input" type="radio" name="budget_code" id="{{ rid }}" value="{{ l.code }}"{{ ' checked' if b.selected == l.code }} data-ehire-budget-warn="{{ l.warnings | join(' ') }}"></td>
+        <td class="ehire-budget__name"><label for="{{ rid }}"><span class="fw-bold ehire-num">{{ l.code }}</span> <span class="ehire-wrap">{{ l.description }}</span></label>
+          {% if figures %}{% for w in l.warnings %}<span class="badge rounded-pill ehire-budget__flag"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> {{ t('card.budget.flag.' ~ w) }}</span>{% endfor %}{% endif %}</td>
+        {% if figures %}
+        <td class="text-end ehire-num" data-label="{{ t('card.budget.col.budget') }}">{{ l.budget or '-' }}</td>
+        <td class="text-end ehire-num" data-label="{{ t('card.budget.col.spent') }}">{{ l.spent or '-' }}</td>
+        <td class="text-end ehire-num" data-label="{{ t('card.budget.col.open_requisitions') }}">{{ l.open_requisitions or '-' }}</td>
+        <td class="text-end ehire-num fw-bold{{ ' text-danger' if l.negative }}" data-label="{{ t('card.budget.col.available') }}">{{ l.available or '-' }}</td>
+        {% else %}
+        <td class="ehire-budget__state">{% if l.loaded %}<span class="ehire-budget__has"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> {{ t('card.budget.state.loaded') }}</span>{% else %}<span class="ehire-budget__missing"><i class="bi bi-x-circle" aria-hidden="true"></i> {{ t('card.budget.state.missing') }}</span>{% endif %}</td>
+        {% endif %}
       </tr>
       {% endfor %}
+      <tr class="ehire-budget__line ehire-budget__line--none{{ ' is-selected' if not b.selected }}" data-ehire-budget-line>
+        <td class="ehire-budget__pick"><input class="form-check-input" type="radio" name="budget_code" id="c{{ c.task.id }}-budget-none" value=""{{ ' checked' if not b.selected }} data-ehire-budget-warn=""></td>
+        <td class="ehire-budget__name" colspan="{{ 5 if figures else 2 }}"><label for="c{{ c.task.id }}-budget-none">{{ t('card.budget.none') }}</label></td>
+      </tr>
       </tbody>
     </table>
-    {% if c.errors.get('budget_article') %}<div class="invalid-feedback d-block" id="c{{ c.task.id }}-budget_article-error">{{ t(c.errors['budget_article']) }}</div>{% endif %}
+    {% if c.errors.get('budget_code') %}<div class="invalid-feedback d-block" id="c{{ c.task.id }}-budget_code-error">{{ t(c.errors['budget_code']) }}</div>{% endif %}
   </fieldset>
-  <p class="small text-secondary mb-2">{{ t('card.budget.currency') }}</p>
+  {% if figures %}<p class="small text-secondary mb-2">{{ t('card.budget.currency') }}</p>{% endif %}
   {% endif %}
-  {% for code in ('not_available', 'below_cost', 'no_lines', 'unknown_cost_centre') %}
+  {% for code in (('no_budget', 'line_no_budget', 'unknown_cost_centre', 'not_available', 'below_cost') if figures else ('no_budget', 'line_no_budget', 'unknown_cost_centre')) %}
   <div class="alert alert-warning d-flex gap-2 align-items-start mb-0 mt-2 ehire-budget__warning" role="status" data-ehire-budget-warning="{{ code }}"{% if code not in b.warnings %} hidden{% endif %}>
     <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
     <div>{{ t('card.budget.warning.' ~ code, cost=b.annual_cost, year=b.year, code=b.cost_centre) }} {{ t('card.budget.warning.comment') }}</div>

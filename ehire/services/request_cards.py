@@ -91,9 +91,9 @@ def read_action(req, role, action, form):
         payload = {"documentation": _text(form, "documentation")}
     elif role == "fin_mgmt_head":
         payload = {"credit": _text(form, "credit"), "commitment_article": _text(form, "commitment_article")}
-        article = _read_budget(req, form, errors, payload)
-        if article and not payload["commitment_article"]:
-            payload["commitment_article"] = article  # picking a line fills the article (also without JavaScript)
+        picked = _read_budget(req, form, errors, payload)
+        if picked and not payload["commitment_article"]:
+            payload["commitment_article"] = picked  # the picked line's code fills the article (also without JavaScript)
     elif role == "central_hr_officer":
         payload = _read_costs(req, form, errors)
     return payload, comment, errors
@@ -101,13 +101,13 @@ def read_action(req, role, action, form):
 
 def _read_budget(req, form, errors, payload):
     """Steps 2 and 4: the eFinance budget line picked on the card and the snapshot the server builds from its own
-    copy of eFinance's answer (contract 07). Nothing is added while the link is off or eFinance cannot answer, so
-    the payload is then exactly as before. Returns the picked article or ""."""
-    article, snap, _warning = budget_efinance.read_posted(req, form, errors)
+    copy of eFinance's answer (contract 07). Nothing is added while the check is off or eFinance cannot answer, so
+    the payload is then exactly as before. Returns the picked budget code or ""."""
+    code, snap, _warning = budget_efinance.read_posted(req, form, errors)
     if snap is not None:
-        payload["budget_article"] = article
+        payload["budget_code"] = code
         payload["budget_snapshot"] = snap
-    return article
+    return code
 
 
 def budget_warning(payload):

@@ -7,17 +7,18 @@
     var fill = panel.getAttribute("data-ehire-budget-fill");
     var article = fill ? document.getElementById(fill) : null;
     var yes = document.getElementById(panel.getAttribute("data-ehire-budget-yes"));
-    var radios = panel.querySelectorAll("input[name=budget_article]");
+    var radios = panel.querySelectorAll("input[name=budget_code]");
     var boxes = panel.querySelectorAll("[data-ehire-budget-warning]");
-    // A warning that does not depend on the line (no budget, unknown cost centre) is drawn by the server and stays.
+    // A warning that does not depend on the line (no salary line has a budget, unknown cost centre) is drawn by the
+    // server and stays.
     var fixed = Array.prototype.filter.call(boxes, function (box) {
       var code = box.getAttribute("data-ehire-budget-warning");
-      return (code === "no_lines" || code === "unknown_cost_centre") && !box.hidden;
+      return (code === "no_budget" || code === "unknown_cost_centre") && !box.hidden;
     });
     var previous = article ? article.value : "";
 
     function update(fromChange) {
-      var picked = form ? form.querySelector("input[name=budget_article]:checked") : null;
+      var picked = form ? form.querySelector("input[name=budget_code]:checked") : null;
       var codes = picked ? (picked.getAttribute("data-ehire-budget-warn") || "").split(" ").filter(Boolean) : [];
       Array.prototype.forEach.call(boxes, function (box) {
         if (fixed.indexOf(box) >= 0) { return; }
@@ -32,8 +33,9 @@
         if (codes.length || fixed.length) { yes.setAttribute("data-ehire-negative", ""); }
         else { yes.removeAttribute("data-ehire-negative"); }
       }
-      // Step 4: the picked line fills the commitment article, unless the person typed something else meanwhile.
-      if (fromChange && article && picked && (article.value === "" || article.value === previous)) {
+      // Step 4: the picked line's code fills the commitment article, unless the person typed something else meanwhile.
+      // "No line" (an empty value) leaves the field as it is.
+      if (fromChange && article && picked && picked.value && (article.value === "" || article.value === previous)) {
         article.value = picked.value;
         previous = picked.value;
       }

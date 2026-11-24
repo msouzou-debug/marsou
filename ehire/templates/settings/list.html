@@ -50,6 +50,7 @@
       <h2 class="h6 mb-1" id="ehire-efinance-title">{{ t('settings.efinance.title') }}
         <span class="badge rounded-pill {{ 'text-bg-success' if ef.on else 'text-bg-secondary' }} ms-1">{{ t('settings.active') if ef.on else t('settings.inactive') }}</span></h2>
       <p class="mb-1">{{ t('settings.efinance.state_http') if ef.on else t('settings.efinance.state_none') }}</p>
+      <p class="mb-1" data-ehire-efinance-budget><span class="text-secondary">{{ t('settings.efinance.budget_label') }}:</span> {{ t('settings.efinance.budget.' ~ ef.budget) }}</p>
       {% if last %}
       <p class="small mb-0" data-ehire-efinance-last>
         <span class="text-secondary">{{ t('settings.efinance.last_run', date=ef.when or '') }}</span> ·
