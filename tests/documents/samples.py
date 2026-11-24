@@ -58,7 +58,8 @@ def _zip(entries):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for name, data in entries.items():
-            zf.writestr(name, data)
+            # A fixed date: two calls must give the same bytes even when the clock ticks between them.
+            zf.writestr(zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0)), data)
     return buf.getvalue()
 
 
