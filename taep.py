@@ -2030,7 +2030,7 @@ def missing_required_fields(data):
         return missing
     phone = data.get("phone")
     if "Τηλέφωνο" not in missing and isinstance(phone, str) \
-            and sum(ch.isdigit() for ch in phone) < 6:
+            and sum(ch.isdigit() for ch in phone) < 8:    # 24/11/2026: 8, not 6
         missing.append("Τηλέφωνο")
     address = data.get("address")
     if "Διεύθυνση" not in missing and isinstance(address, str) \
@@ -2076,8 +2076,8 @@ def validate_episode(data):
     missing = missing_required_fields(data)
     if missing:
         errors.append(
-            "Συμπληρώστε τα υποχρεωτικά πεδία (*): %s. Τιμές όπως «.», «-» ή «x» δεν "
-            "γίνονται δεκτές· το τηλέφωνο χρειάζεται τουλάχιστον 6 ψηφία."
+            "Συμπληρώστε τα υποχρεωτικά πεδία (*): %s. Χαρακτήρες όπως «.», «-» ή «x» "
+            "δεν γίνονται δεκτοί· το τηλέφωνο χρειάζεται τουλάχιστον 8 ψηφία."
             % ", ".join(missing))
 
     expiry = data.get("id_expiry")

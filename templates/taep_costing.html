@@ -290,12 +290,15 @@
           <div class="form-text mb-3">
             {{ t('Η βαρύτητα προκύπτει από την υψηλότερη κατηγορία που επιλέγεται σε κάθε ομάδα.') }}</div>
 
-          {% if not selected %}
-            <div class="alert alert-secondary py-2" style="font-size:0.86rem">
-              <i class="bi bi-info-circle"></i>
-              {{ t('Καμία υπηρεσία επιλεγμένη — η καταχώρηση χρεώνεται ως Διαλογή (Triage).') }}
-            </div>
-          {% endif %}
+          {# Follows the pickers, not only what is saved. Παναγιώτα Έλληνα, 24/11/2026:
+             she had chosen a treatment and an intervention and the note still said
+             none was selected, because the selection is saved only by Υπολογισμός.
+             The script below hides it as soon as anything is picked. #}
+          <div class="alert alert-secondary py-2 {% if selected %}d-none{% endif %}"
+               style="font-size:0.86rem" id="no-services-note">
+            <i class="bi bi-info-circle"></i>
+            {{ t('Καμία υπηρεσία επιλεγμένη — η καταχώρηση χρεώνεται ως Διαλογή (Triage).') }}
+          </div>
           {% if revising %}
             <form method="post" id="revise-services-form"
                   action="{{ url_for('taep_revise_services', episode_id=episode.id) }}">
@@ -833,6 +836,24 @@ taepAfterHost(function () {
       }
     });
   });
+});
+
+// «Καμία υπηρεσία επιλεγμένη» shows only while both pickers are empty.
+taepAfterHost(function () {
+  var note = document.getElementById("no-services-note");
+  var pickers = document.querySelectorAll("select.select2-services");
+  if (!note || !pickers.length) return;
+  function apply() {
+    var any = Array.prototype.some.call(pickers, function (picker) {
+      return Array.prototype.some.call(picker.options, function (o) { return o.selected; });
+    });
+    note.classList.toggle("d-none", any);
+  }
+  Array.prototype.forEach.call(pickers, function (picker) {
+    if (window.jQuery) { jQuery(picker).on("change", apply); }
+    else { picker.addEventListener("change", apply); }
+  });
+  apply();
 });
 
 // The extra-charges rows.

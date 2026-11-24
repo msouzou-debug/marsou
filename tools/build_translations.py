@@ -75,7 +75,7 @@ EN = {
     "Ημ. Γέννησης": "Date of birth",
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
-    "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "Τουλάχιστον 8 ψηφία": "At least 8 digits",
     "Δήλωση": "Declaration",
     "Ο ασθενής δεν μπορεί να δώσει στοιχεία": "The patient cannot give their details",
     "π.χ. σε κώμα, πολυτραυματίας": "e.g. in a coma, multiple injuries",
@@ -118,8 +118,8 @@ EN = {
     "Εισαγωγή σε θάλαμο": "Admitted to a ward",
     "Η επίσκεψη στο ΤΑΕΠ κοστολογείται ξεχωριστά και προστίθεται στο τελικό τιμολόγιο της νοσηλείας.":
         "The A&E visit is costed separately and added to the final inpatient invoice.",
-    "Τα πεδία με * είναι υποχρεωτικά. Τιμές όπως «.» ή «-» δεν γίνονται δεκτές.":
-        "Fields marked * are mandatory. Values such as \".\" or \"-\" are not accepted.",
+    "Τα πεδία με * είναι υποχρεωτικά. Χαρακτήρες όπως «.» ή «-» δεν γίνονται δεκτοί.":
+        "Fields marked * are mandatory. Characters such as \".\" or \"-\" are not accepted.",
     "Διεύθυνση": "Address",
     "Συγγενής — σχέση": "Next of kin — relationship",
     "Συγγενής — στοιχεία": "Next of kin — details",

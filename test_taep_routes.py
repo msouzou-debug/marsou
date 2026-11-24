@@ -2464,7 +2464,7 @@ def test_every_field_on_her_list_is_mandatory(client, app):
 
 
 def test_a_dot_does_not_pass_for_a_phone_or_an_address(client, app):
-    for key, junk in (("phone", "."), ("phone", "-"), ("phone", "12345"),
+    for key, junk in (("phone", "."), ("phone", "-"), ("phone", "12345"), ("phone", "9912345"),
                       ("address", "."), ("address", "x"), ("address", "--"),
                       ("last_name", "."), ("episode_number", "-")):
         response = client.post("/taep/nea", data=form_fields(app.ctx, **{key: junk}))
@@ -2760,3 +2760,16 @@ def test_the_declaration_is_filled_in_on_the_lines(client, app):
         assert "E-77001" in text and "Papadopoulos" in text, lang
     page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
     assert "/taep/%d/declaration/ru" % episode_id in page
+
+
+def test_the_no_services_note_follows_the_pickers(client, app):
+    """Παναγιώτα Έλληνα, 24/11/2026: the note said no service was selected while she
+    had picked two, because only Υπολογισμός saves the selection. It is now always in
+    the page and the script hides it once anything is picked."""
+    episode_id = create(client, app, episode_number="E-NOTE")
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert 'id="no-services-note"' in page
+    client.post("/taep/%d/services" % episode_id,
+                data={"service_code": ["AED008", "AET057"]})
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert re.search(r'class="alert alert-secondary py-2 d-none"\s+style="font-size:0.86rem" id="no-services-note"', page)

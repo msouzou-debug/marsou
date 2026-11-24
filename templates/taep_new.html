@@ -62,7 +62,7 @@
 
   {# Παναγιώτα Έλληνα, 19/11/2026: clerks had been typing «.» to get past a mandatory
      field. Said up front, so the refusal is not the first they hear of it. #}
-  <div class="alert alert-light border py-2 small mb-3">{{ t('Τα πεδία με * είναι υποχρεωτικά. Τιμές όπως «.» ή «-» δεν γίνονται δεκτές.') }}</div>
+  <div class="alert alert-light border py-2 small mb-3">{{ t('Τα πεδία με * είναι υποχρεωτικά. Χαρακτήρες όπως «.» ή «-» δεν γίνονται δεκτοί.') }}</div>
 
   <div class="card mb-3">
     <div class="card-header d-flex align-items-center gap-2">
@@ -184,7 +184,7 @@
         <div class="col-md-3">
           <label class="form-label" for="phone">{{ t('Τηλέφωνο') }} *</label>
           <input id="phone" name="phone" required class="form-control" inputmode="tel"
-                 pattern="(?:\D*\d){6,}.*" title="{{ t('Τουλάχιστον 6 ψηφία') }}"
+                 pattern="(?:\D*\d){8,}.*" title="{{ t('Τουλάχιστον 8 ψηφία') }}"
                  value="{{ form.get('phone', '') }}">
         </div>
         <div class="col-md-9">
