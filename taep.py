@@ -1473,6 +1473,102 @@ DECLARATION_LANGUAGES = (
 )
 DECLARATION_DIR = os.path.join(SEED_DIR, "declarations")
 
+# Where each blank sits on each official form, measured from the PDFs on 24/11/2026:
+# x, baseline y (points from the bottom) and the width of the dotted line. Παναγιώτα
+# Έλληνα asked that the patient only sign. If Ιατρικό Αρχείο reissues a form, these
+# must be measured again — test_the_declaration_is_filled_in_on_the_lines checks that
+# every blank still lies on a dotted line.
+DECLARATION_FIELDS = {
+    "el": {"episode": (442.7, 673.0, 72.2), "signer": (231.2, 647.8, 292.0),
+           "signer_id": (149.2, 633.3, 132.0), "hospital": (220.4, 589.6, 198.1),
+           "hospital2": (131.6, 560.4, 141.2), "name": (150.9, 301.5, 351.9),
+           "address": (129.5, 280.9, 371.9), "phone": (169.8, 260.2, 80.1),
+           "day": (139.6, 177.5, 44.0), "month": (186.7, 177.5, 38.0),
+           "year": (228.8, 177.5, 40.0)},
+    "en": {"episode": (429.8, 664.4, 78.5), "signer": (178.0, 638.1, 318.6),
+           "signer_id": (137.4, 623.2, 144.0), "hospital": (72.0, 563.6, 216.0),
+           "hospital2": (72.0, 533.8, 154.0), "name": (152.8, 303.6, 355.2),
+           "address": (118.6, 282.9, 389.3), "phone": (151.6, 262.3, 80.1),
+           "day": (104.5, 179.7, 44.0), "month": (151.5, 179.7, 38.0),
+           "year": (193.7, 179.7, 40.0)},
+    "ru": {"episode": (395.1, 665.7, 72.1), "signer": (230.7, 652.5, 273.2),
+           "signer_id": (336.0, 637.9, 132.0), "hospital": (72.0, 579.7, 198.1),
+           "hospital2": (382.4, 565.1, 141.1), "name": (150.6, 264.1, 355.1),
+           "address": (109.7, 243.4, 395.5), "phone": (194.0, 222.8, 80.1),
+           "day": (106.0, 140.2, 44.0), "month": (153.1, 140.2, 38.0),
+           "year": (195.2, 140.2, 40.0)},
+    "fr": {"episode": (392.2, 665.7, 72.0), "signer": (156.8, 640.5, 292.0),
+           "signer_id": (252.9, 627.9, 132.1), "hospital": (72.0, 577.2, 198.1),
+           "hospital2": (72.0, 551.9, 141.2), "name": (152.8, 274.0, 355.1),
+           "address": (118.6, 253.4, 395.4), "phone": (171.7, 232.7, 80.1),
+           "day": (104.5, 150.2, 44.0), "month": (151.5, 150.2, 38.0),
+           "year": (193.7, 150.2, 40.0)},
+}
+
+
+def declaration_values(ctx, episode, today=None):
+    """What goes on each blank of the declaration for this episode."""
+    unit = ctx["db_execute"]("SELECT name_el FROM taep_unit WHERE unit_code=%s",
+                             (episode["taep_unit_code"],), fetch=True)
+    hospital = (unit[0]["name_el"] if unit else episode["entity_code"]).split(" — ")[0]
+    name = " ".join(part for part in (episode["first_name"], episode["last_name"])
+                    if part).strip()
+    return {
+        "episode": episode["episode_number"] or "",
+        # The patient signs for themselves. When they cannot (unconscious, a minor),
+        # whoever signs writes their own name and ID by hand.
+        "signer": "" if _as_int(episode["details_unavailable"]) else name,
+        "signer_id": "" if _as_int(episode["details_unavailable"])
+                     else (episode["id_number"] or ""),
+        "hospital": hospital, "hospital2": hospital,
+        "name": name, "address": episode["address"] or "",
+        "phone": episode["phone"] or "",
+        # Day, month and year each on their own segment of «…/…/…».
+        "day": (today or dt.date.today()).strftime("%d"),
+        "month": (today or dt.date.today()).strftime("%m"),
+        "year": (today or dt.date.today()).strftime("%Y"),
+    }
+
+
+def render_declaration_pdf(ctx, lang, episode):
+    """The official declaration with the patient's details printed on its blanks.
+
+    The form itself is not touched: the details are drawn on a transparent page and laid
+    over it. Returns the blank form when pypdf is not installed, so printing never
+    fails; the caller can tell by comparing with the blank file.
+    """
+    from io import BytesIO
+    path = os.path.join(DECLARATION_DIR, lang + ".pdf")
+    with open(path, "rb") as handle:
+        blank = handle.read()
+    try:
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        return blank
+    from reportlab.pdfgen import canvas as pdfcanvas
+
+    reader = PdfReader(BytesIO(blank))
+    page = reader.pages[0]
+    width, height = float(page.mediabox.width), float(page.mediabox.height)
+    font, _ = _register_greek_font()
+    layer = BytesIO()
+    pdf = pdfcanvas.Canvas(layer, pagesize=(width, height), invariant=1)
+    pdf.setFillColorRGB(0.05, 0.15, 0.45)
+    for field, value in declaration_values(ctx, episode).items():
+        if not value or field not in DECLARATION_FIELDS[lang]:
+            continue
+        x, y, room = DECLARATION_FIELDS[lang][field]
+        draw_fitted(pdf, x + 2, y, value, room - 4, font, size=10, floor=6.0)
+    pdf.showPage()
+    pdf.save()
+    # Attach to the writer first, then merge: the order every pypdf version accepts.
+    writer = PdfWriter()
+    writer.add_page(page)
+    writer.pages[0].merge_page(PdfReader(BytesIO(layer.getvalue())).pages[0])
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
 # 603–607 are every «ΔΙΚΑΙΟΥΧΟΣ Α» variant valid at the ΤΑΕΠ. Παναγιώτα Έλληνα,
 # 24/11/2026, added the categories that rest on a card or a certificate: Ευρωκάρτα
 # (602), Καλυπτική βεβαίωση ΥΥ (622), ΕΛΔΥΚ (623), Αιτητές ασύλου (624), Ουκρανοί
@@ -5375,6 +5471,20 @@ def register(app, ctx):
         return Response(body, mimetype="application/pdf", headers={
             "Content-Disposition": 'inline; filename="declaration-%s.pdf"' % lang})
 
+    @app.route("/taep/<int:episode_id>/declaration/<lang>")
+    @login_required
+    @permission_any(*READ)
+    def taep_declaration_filled(episode_id, lang):
+        """The declaration with this patient's details on it (24/11/2026)."""
+        episode = episode_or_404(episode_id)
+        if lang not in DECLARATION_FIELDS:
+            abort(404)
+        body = render_declaration_pdf(ctx, lang, episode)
+        ctx["log_activity"]("taep_episode", episode_id, "DECLARATION_PRINTED", lang)
+        return Response(body, mimetype="application/pdf", headers={
+            "Content-Disposition":
+                'inline; filename="declaration-%s-%s.pdf"' % (episode_id, lang)})
+
     @app.route("/taep/api/prior")
     @login_required
     @permission_required(PERMISSIONS["create"])
@@ -5476,6 +5586,8 @@ def register(app, ctx):
             statement=(account_statement(ctx, episode, stored)
                        if episode["status"] == "FINALISED" else None),
             payment_methods=PAYMENT_METHODS, may_pay=may_pay(),
+            declaration_categories=DECLARATION_CATEGORIES,
+            declaration_languages=DECLARATION_LANGUAGES,
             revisions=episode_revisions(ctx, episode["id"]),
             may_edit=may_edit(episode))
 

@@ -415,8 +415,13 @@
                 <option value="{{ code }}">{{ name }}</option>
               {% endfor %}
             </select>
+            {# Once the entry is saved the form comes back with the patient's details
+               printed on it, so they only sign (24/11/2026). Before that, blank. #}
+            {% set declaration_base = ('/taep/%d/declaration/' % episode.id)
+                                      if (episode is defined and episode) else '/taep/declaration/' %}
             <a id="declaration-print" class="btn btn-sm btn-outline-secondary"
-               href="/taep/declaration/el" target="_blank" rel="noopener">
+               data-base="{{ declaration_base }}"
+               href="{{ declaration_base }}el" target="_blank" rel="noopener">
               <i class="bi bi-printer"></i> {{ t('Εκτύπωση Δήλωσης') }}</a>
           </div>
         </div>
@@ -656,7 +661,7 @@ taepReady(function () {
   var link = document.getElementById("declaration-print");
   if (!language || !link) return;
   language.addEventListener("change", function () {
-    link.setAttribute("href", "/taep/declaration/" + language.value);
+    link.setAttribute("href", link.getAttribute("data-base") + language.value);
   });
 });
 

@@ -2733,3 +2733,30 @@ def test_a_patient_who_cannot_give_details_is_entered_with_a_reason(client, app)
         app.ctx, episode_number="", details_unavailable="1",
         details_unavailable_reason="πολυτραυματίας", **blank))
     assert response.status_code == 200
+
+
+def test_the_declaration_is_filled_in_on_the_lines(client, app):
+    """Παναγιώτα Έλληνα, 24/11/2026: the patient should only have to sign.
+
+    Every blank must still sit on a dotted line of the official form — the check that
+    tells us a reissued form needs measuring again — and the patient's details must
+    come out of the printed page."""
+    import pdfplumber
+    from io import BytesIO
+    episode_id = create(client, app, code="600", episode_number="E-77001",
+                        first_name="Andreas", last_name="Papadopoulos")
+    for lang, fields in taep.DECLARATION_FIELDS.items():
+        with pdfplumber.open(taep.os.path.join(taep.DECLARATION_DIR, lang + ".pdf")) as pdf:
+            page = pdf.pages[0]
+            for field, (x, y, room) in fields.items():
+                top = page.height - y
+                dots = [c for c in page.chars if c["text"] in "…." and
+                        abs(c["bottom"] - (top + 2.0)) < 2.5 and x - 1 <= c["x0"] <= x + room]
+                assert dots, (lang, field)
+        response = client.get("/taep/%d/declaration/%s" % (episode_id, lang))
+        assert response.status_code == 200 and response.data[:4] == b"%PDF", lang
+        from pypdf import PdfReader
+        text = PdfReader(BytesIO(response.data)).pages[0].extract_text()
+        assert "E-77001" in text and "Papadopoulos" in text, lang
+    page = client.get("/taep/%d" % episode_id).get_data(as_text=True)
+    assert "/taep/%d/declaration/ru" % episode_id in page

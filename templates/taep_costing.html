@@ -118,6 +118,18 @@
       {{ t('Αναθεώρηση κοστολόγησης') if episode.status == 'FINALISED'
          else t('Διόρθωση στοιχείων') }}</a>
     {% endif %}
+    {# The signed declaration is a condition of costing a self-paying patient
+       (24/11/2026). Printed here with the patient's details, in their language. #}
+    {% if category and category.code_new in declaration_categories %}
+    <div class="btn-group" role="group" aria-label="{{ t('Εκτύπωση Δήλωσης') }}">
+      <span class="btn btn-outline-secondary btn-action disabled">
+        <i class="bi bi-printer"></i> {{ t('Δήλωση') }}</span>
+      {% for code, name, _ in declaration_languages %}
+        <a href="/taep/{{ episode.id }}/declaration/{{ code }}" target="_blank" rel="noopener"
+           class="btn btn-outline-secondary btn-action" title="{{ name }}">{{ code | upper }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
     <a href="/taep/list" class="btn btn-outline-secondary btn-action">
       <i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</a>
   </div>

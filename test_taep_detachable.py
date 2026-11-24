@@ -28,6 +28,9 @@ ALLOWED_IMPORTS = {
     "json", "os", "re", "unicodedata",
     # third party, all of which eFinance already installs
     "flask", "openpyxl", "reportlab",
+    # Optional, imported inside render_declaration_pdf only. Without it the blank
+    # declaration is served instead of the filled one; nothing else depends on it.
+    "pypdf",
 }
 
 # Every GET screen that renders without an episode. The list-shaped ones are what would
@@ -89,7 +92,7 @@ def bare(seeded, tmp_path):
 
 def test_the_module_registers_against_a_bare_flask_app(bare):
     paths = {str(rule) for rule in bare.url_map.iter_rules()}
-    assert len([p for p in paths if p.startswith("/taep")]) == 34
+    assert len([p for p in paths if p.startswith("/taep")]) == 35
 
 
 @pytest.mark.parametrize("path", GET_SCREENS)

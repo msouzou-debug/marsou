@@ -76,6 +76,7 @@ EN = {
     "Φύλο": "Gender",
     "Τηλέφωνο": "Telephone",
     "Τουλάχιστον 6 ψηφία": "At least 6 digits",
+    "Δήλωση": "Declaration",
     "Ο ασθενής δεν μπορεί να δώσει στοιχεία": "The patient cannot give their details",
     "π.χ. σε κώμα, πολυτραυματίας": "e.g. in a coma, multiple injuries",
     "Τα προσωπικά στοιχεία γίνονται προαιρετικά. Ο αριθμός επεισοδίου, οι ώρες και η κατηγορία παραμένουν υποχρεωτικά.": "Personal details become optional. The episode number, the times and the category remain mandatory.",
