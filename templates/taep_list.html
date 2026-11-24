@@ -9,10 +9,7 @@
       {{ t('Οι κοστολογήσεις του νοσηλευτηρίου σας.') }}
     </div>
   </div>
-  <a href="/taep/codesheet" target="_blank" rel="noopener"
-     class="btn btn-outline-secondary btn-action ms-auto">
-    <i class="bi bi-ui-checks"></i> {{ t('Φύλλο κωδικών') }}</a>
-  <a href="/taep/receivables" class="btn btn-outline-secondary btn-action">
+  <a href="/taep/receivables" class="btn btn-outline-secondary btn-action ms-auto">
     <i class="bi bi-hourglass-split"></i> {{ t('Ανεξόφλητα υπόλοιπα') }}</a>
   {% if has_permission('taep.create') %}
   <a href="/taep/nea" class="btn btn-brand btn-action">

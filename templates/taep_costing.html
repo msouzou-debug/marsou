@@ -118,10 +118,6 @@
       {{ t('Αναθεώρηση κοστολόγησης') if episode.status == 'FINALISED'
          else t('Διόρθωση στοιχείων') }}</a>
     {% endif %}
-    {# Internal audit Α3: the doctor ticks codes instead of handwriting them. #}
-    <a href="/taep/codesheet?episode={{ episode.id }}" target="_blank" rel="noopener"
-       class="btn btn-outline-secondary btn-action">
-      <i class="bi bi-ui-checks"></i> {{ t('Φύλλο κωδικών') }}</a>
     <a href="/taep/list" class="btn btn-outline-secondary btn-action">
       <i class="bi bi-list-ul"></i> {{ t('Καταχωρήσεις') }}</a>
   </div>
@@ -578,7 +574,7 @@
           <tr><th class="fw-normal">{{ t('Τέλος εγγραφής') if statement.deposit_kind == 'FEE' else t('Προκαταβολή') }} €</th>
               <td class="text-end number">− {{ statement.deposit | eur }}</td></tr>
           {% endif %}
-          <tr><th class="fw-normal">{{ t('Εισπράξεις') }} €</th>
+          <tr><th class="fw-normal">{{ t('Εισπράξεις ασθενών') }} €</th>
               <td class="text-end number">− {{ statement.paid | eur }}</td></tr>
           <tr><th class="fw-normal">{{ t('Επιστροφές') }} €</th>
               <td class="text-end number">+ {{ statement.refunded | eur }}</td></tr>
@@ -591,7 +587,7 @@
         {% if statement.payments %}
         <div class="table-responsive">
         <table class="table table-sm align-middle mb-3" style="font-size:0.82rem" id="payments">
-          <thead><tr><th>{{ t('Ημερομηνία') }}</th><th>{{ t('Κίνηση') }}</th>
+          <thead><tr><th>{{ t('Ημερομηνία') }}</th><th>{{ t('Κίνηση λογαριασμού') }}</th>
                      <th>{{ t('Τρόπος') }}</th><th>{{ t('Αρ.') }}</th>
                      <th class="text-end">€</th><th></th></tr></thead>
           <tbody>
@@ -627,7 +623,7 @@
         {% if may_pay %}
         <form method="post" action="/taep/{{ episode.id }}/payments" class="row g-2" id="payment-form">
           <div class="col-6">
-            <label class="form-label" for="pay-kind">{{ t('Κίνηση') }}</label>
+            <label class="form-label" for="pay-kind">{{ t('Κίνηση λογαριασμού') }}</label>
             <select id="pay-kind" name="kind" class="form-select form-select-sm">
               <option value="PAYMENT" {% if statement.balance >= 0 %}selected{% endif %}>{{ t('Είσπραξη') }}</option>
               <option value="REFUND" {% if statement.balance < 0 %}selected{% endif %}>{{ t('Επιστροφή') }}</option>

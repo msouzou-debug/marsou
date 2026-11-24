@@ -2955,102 +2955,6 @@ def draw_fitted(pdf, x, y, text, limit, font, size=8, floor=6.0):
     return size
 
 
-def render_code_sheet_pdf(ctx, episode=None):
-    """A tick-list of the 1-125 service codes for the doctor to mark. Audit Α3.
-
-    The coding desk works from the doctor's handwriting, which the internal audit found
-    is not always legible. This sheet lists every treatment and diagnostic intervention
-    in the order of the entry screen, so the doctor ticks a code instead of writing it.
-    Blank, or with the patient's details filled in when printed from an episode.
-    """
-    from io import BytesIO
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas as pdfcanvas
-
-    font, font_bold = _register_greek_font()
-    catalogue = list_services(ctx)
-    buffer = BytesIO()
-    pdf = pdfcanvas.Canvas(buffer, pagesize=A4, invariant=1)
-    pdf.setTitle("Φύλλο κωδικών υπηρεσιών ΤΑΕΠ")
-    width, height = A4
-    left, right = 12 * mm, width - 12 * mm
-    gap = 6 * mm
-    column_width = (right - left - gap) / 2
-    line_height = 3.9 * mm
-    bottom = 14 * mm
-
-    def header():
-        y = height - 14 * mm
-        pdf.setFont(font_bold, 11)
-        pdf.drawString(left, y, "ΤΑΕΠ — Υπηρεσίες που παρασχέθηκαν (ΟΚΥπΥ 1-125)")
-        pdf.setFont(font, 7.5)
-        pdf.drawRightString(right, y, "Σημειώστε με ✓ ό,τι παρασχέθηκε")
-        y -= 6 * mm
-        name = number = when = ""
-        if episode is not None:
-            name = "%s %s" % (episode["last_name"] or "", episode["first_name"] or "")
-            number = episode["episode_number"] or ""
-            when = _format_datetime(episode["examination_at"]) or ""
-        pdf.setFont(font, 8.5)
-        for x, label, value in ((left, "Ασθενής:", name),
-                                (left + 95 * mm, "Αρ. επεισοδίου:", number),
-                                (left + 145 * mm, "Ημ/νία:", when)):
-            pdf.drawString(x, y, label)
-            pdf.drawString(x + pdf.stringWidth(label, font, 8.5) + 2, y, value)
-        y -= 3 * mm
-        pdf.line(left, y, right, y)
-        return y - 5 * mm
-
-    def footer():
-        pdf.setFont(font, 7)
-        pdf.drawString(left, 9 * mm, "Υπογραφή ιατρού: ............................................")
-        pdf.drawRightString(right, 9 * mm, "Σελίδα %d" % pdf.getPageNumber())
-
-    # One stream of lines (section titles, category titles, services), poured into two
-    # columns per page.
-    stream = []
-    for kind, title, categories in ((TREATMENT, "ΘΕΡΑΠΕΙΕΣ", (1, 2, 3, 4, 5)),
-                                    (INVESTIGATION, "ΔΙΑΓΝΩΣΤΙΚΕΣ ΠΑΡΕΜΒΑΣΕΙΣ", (1, 2, 3))):
-        stream.append(("section", title))
-        for category in categories:
-            group = [s for s in catalogue[kind] if s["category"] == category]
-            if not group:
-                continue
-            stream.append(("category", "Κατηγορία %d" % category))
-            stream.extend(("service", s) for s in group)
-
-    top = header()
-    y, column = top, 0
-    for kind, item in stream:
-        if y < bottom + line_height:
-            column += 1
-            if column > 1:
-                footer()
-                pdf.showPage()
-                top = header()
-                column = 0
-            y = top
-        x = left + column * (column_width + gap)
-        if kind == "section":
-            pdf.setFont(font_bold, 9)
-            pdf.drawString(x, y, item)
-        elif kind == "category":
-            pdf.setFont(font_bold, 7.5)
-            pdf.drawString(x, y, item)
-        else:
-            pdf.rect(x, y - 0.6 * mm, 2.6 * mm, 2.6 * mm)
-            pdf.setFont(font_bold, 7)
-            pdf.drawString(x + 4 * mm, y, item["code"])
-            draw_fitted(pdf, x + 15 * mm, y, item["description_el"] or "",
-                        column_width - 15 * mm, font, size=7, floor=5.5)
-        y -= line_height
-    footer()
-    pdf.showPage()
-    pdf.save()
-    return buffer.getvalue()
-
-
 def render_refund_pdf(ctx, payment_id):
     """The refund document, numbered, for the patient to sign. Audit Β2, 19/11/2026:
     a refund had been a handwritten note on the costing."""
@@ -5672,18 +5576,6 @@ def register(app, ctx):
         filename = f"{episode['costing_number'].replace('/', '-')}.pdf"
         return Response(pdf, mimetype="application/pdf", headers={
             "Content-Disposition": f'inline; filename="{filename}"'})
-
-    @app.route("/taep/codesheet")
-    @login_required
-    @permission_any(*READ)
-    def taep_code_sheet():
-        """The doctor's tick-list (audit Α3), blank or for one episode (?episode=<id>)."""
-        episode = None
-        if (request.args.get("episode") or "").isdigit():
-            episode = episode_or_404(int(request.args["episode"]))
-        return Response(render_code_sheet_pdf(ctx, episode), mimetype="application/pdf",
-                        headers={"Content-Disposition":
-                                 'inline; filename="taep-kodikoi.pdf"'})
 
     # -- Payments and refunds (audit Β1/Β2, 19/11/2026) --------------------
     def may_pay():
