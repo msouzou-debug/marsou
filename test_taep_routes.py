@@ -2696,3 +2696,16 @@ def test_the_receivables_workbook_is_live_formulas(client, app):
     assert detail["M2"].value.startswith("=IF(L2<=30")
     assert summary["C7"].value.startswith("=SUMIFS(")
 
+
+
+def test_a_self_paying_costing_is_not_calculated_without_the_declaration(client, app):
+    """Παναγιώτα Έλληνα, 24/11/2026: the declaration is a condition of costing at all."""
+    episode_id = create(client, app, code="600", declaration_signed="",
+                        episode_number="E-DECL-CALC")
+    page = client.post("/taep/%d/calculate" % episode_id, data={
+        "services_posted": "1", "service_code": ["AED008", "AET057"]},
+        follow_redirects=True).get_data(as_text=True)
+    assert "προϋπόθεση για την κοστολόγηση" in page
+    assert taep.get_calculation(app.ctx, episode_id) is None
+    # The services were kept, so the clerk does not pick them again.
+    assert taep.get_episode_service_codes(app.ctx, episode_id)

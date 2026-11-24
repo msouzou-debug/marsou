@@ -2371,6 +2371,19 @@ def get_calculation(ctx, episode_id):
     return rows[0] if rows else None
 
 
+def require_declaration(ctx, episode_id):
+    """Refuse to go on with a 600 costing until the signed declaration is confirmed."""
+    episode = get_episode(ctx, episode_id)
+    category = get_category(ctx, episode["financial_category_id"]) if episode else None
+    if category and category["code_new"] in DECLARATION_CATEGORIES \
+            and not _as_int(episode["declaration_signed"]):
+        raise CostingError(
+            "MISSING_DECLARATION",
+            "Για επί πληρωμή ασθενή η «Δήλωση για την καταβολή των εξόδων νοσηλείας» "
+            "είναι προϋπόθεση για την κοστολόγηση. Εκτυπώστε τη, ζητήστε από τον ασθενή "
+            "να την υπογράψει και επιβεβαιώστε το στη διόρθωση στοιχείων.")
+
+
 def finalise_episode(ctx, episode_id, result, user_id):
     """Allocate the costing number and lock the episode. Returns the number.
 
@@ -5513,6 +5526,11 @@ def register(app, ctx):
             if request.form.get("services_posted"):
                 set_episode_services(ctx, episode_id,
                                      request.form.getlist("service_code"), user_id())
+            # Παναγιώτα Έλληνα, 24/11/2026: the signed declaration is a condition of
+            # costing a self-paying patient at all, not only of finalising — «να
+            # αποτελεί προϋπόθεση για να προχωρήσουν, καθώς φαίνεται οι γραφείς μας
+            # δεν το κάνουν». The services are saved first, so nothing is lost.
+            require_declaration(ctx, episode_id)
             lines = _tariff_lines_from_form(ctx, request.form)
             result = price_episode(ctx, episode_id, lines)
             store_calculation(ctx, episode_id, result, user_id())
