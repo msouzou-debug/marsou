@@ -125,6 +125,25 @@
                  value="{{ form.get('id_expiry', '') }}">
         </div>
       </div>
+      {# Παναγιώτα Έλληνα, 24/11/2026: a patient who cannot communicate (coma, multiple
+         injuries) is still entered, with the episode number and the reason. Ticking
+         this makes the personal details optional; the server applies the same rule. #}
+      <div class="mt-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" value="1"
+                 id="details_unavailable" name="details_unavailable"
+                 {% if form.get('details_unavailable') %}checked{% endif %}>
+          <label class="form-check-label" for="details_unavailable">
+            {{ t('Ο ασθενής δεν μπορεί να δώσει στοιχεία') }}</label>
+        </div>
+        <div id="details-unavailable-block" class="mt-2 {% if not form.get('details_unavailable') %}d-none{% endif %}">
+          <label class="form-label" for="details_unavailable_reason">{{ t('Αιτιολογία') }} *</label>
+          <input id="details_unavailable_reason" name="details_unavailable_reason"
+                 class="form-control" placeholder="{{ t('π.χ. σε κώμα, πολυτραυματίας') }}"
+                 value="{{ form.get('details_unavailable_reason') or '' }}">
+          <div class="form-text">{{ t('Τα προσωπικά στοιχεία γίνονται προαιρετικά. Ο αριθμός επεισοδίου, οι ώρες και η κατηγορία παραμένουν υποχρεωτικά.') }}</div>
+        </div>
+      </div>
       <div id="prior-episodes" class="mt-3"></div>
     </div>
   </div>
@@ -608,6 +627,26 @@ taepReady(function () {
 
   select.addEventListener("change", apply);
   if (window.jQuery) jQuery(select).on("select2:select", apply);
+  apply();
+});
+
+// «Ο ασθενής δεν μπορεί να δώσει στοιχεία»: the personal fields stop being required in
+// the browser, and the reason becomes required instead.
+taepReady(function () {
+  var tick = document.getElementById("details_unavailable");
+  var block = document.getElementById("details-unavailable-block");
+  var reason = document.getElementById("details_unavailable_reason");
+  if (!tick || !block || !reason) return;
+  var personal = ["id_number", "last_name", "first_name", "date_of_birth", "phone",
+                  "address"].map(function (id) { return document.getElementById(id); })
+                            .filter(Boolean);
+  function apply() {
+    var off = tick.checked;
+    block.classList.toggle("d-none", !off);
+    reason.required = off;
+    personal.forEach(function (input) { input.required = !off; });
+  }
+  tick.addEventListener("change", apply);
   apply();
 });
 

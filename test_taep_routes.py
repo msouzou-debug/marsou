@@ -2709,3 +2709,27 @@ def test_a_self_paying_costing_is_not_calculated_without_the_declaration(client,
     assert taep.get_calculation(app.ctx, episode_id) is None
     # The services were kept, so the clerk does not pick them again.
     assert taep.get_episode_service_codes(app.ctx, episode_id)
+
+
+def test_a_patient_who_cannot_give_details_is_entered_with_a_reason(client, app):
+    """Παναγιώτα Έλληνα, 24/11/2026: coma, multiple injuries."""
+    blank = {key: "" for key in taep.PERSONAL_FIELDS}
+    # Without the tick the personal fields are still mandatory…
+    response = client.post("/taep/nea", data=form_fields(app.ctx, episode_number="E-COMA",
+                                                         **blank))
+    assert response.status_code == 200
+    # …with the tick but no reason, refused…
+    response = client.post("/taep/nea", data=form_fields(
+        app.ctx, episode_number="E-COMA", details_unavailable="1",
+        details_unavailable_reason=".", **blank))
+    assert "Αιτιολογία" in response.get_data(as_text=True)
+    # …with the tick and a reason, saved.
+    episode_id = create(client, app, episode_number="E-COMA", details_unavailable="1",
+                        details_unavailable_reason="σε κώμα", **blank)
+    episode = taep.get_episode(app.ctx, episode_id)
+    assert episode["details_unavailable_reason"] == "σε κώμα"
+    # The episode number and the times are still required.
+    response = client.post("/taep/nea", data=form_fields(
+        app.ctx, episode_number="", details_unavailable="1",
+        details_unavailable_reason="πολυτραυματίας", **blank))
+    assert response.status_code == 200

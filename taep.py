@@ -870,6 +870,10 @@ SCHEMA_STATEMENTS = [
         declaration_signed TINYINT DEFAULT 0,
         card_copy_kept TINYINT DEFAULT 0,
         admitted_to_ward TINYINT DEFAULT 0,
+        -- The patient cannot give their details (coma, multiple injuries). See
+        -- PERSONAL_FIELDS.
+        details_unavailable TINYINT DEFAULT 0,
+        details_unavailable_reason VARCHAR(300),
         -- A finalised costing may be corrected (Μονάδα 22/10/2026) and keeps its
         -- number. The revision counter is what tells the patient's copy apart from the
         -- one that replaced it; the superseded figures live in taep_costing_revision.
@@ -998,6 +1002,8 @@ ALTER_STATEMENTS = [
     "ALTER TABLE taep_episode ADD COLUMN declaration_signed TINYINT DEFAULT 0",
     "ALTER TABLE taep_episode ADD COLUMN card_copy_kept TINYINT DEFAULT 0",
     "ALTER TABLE taep_episode ADD COLUMN admitted_to_ward TINYINT DEFAULT 0",
+    "ALTER TABLE taep_episode ADD COLUMN details_unavailable TINYINT DEFAULT 0",
+    "ALTER TABLE taep_episode ADD COLUMN details_unavailable_reason VARCHAR(300)",
     "ALTER TABLE taep_episode ADD COLUMN revision INT DEFAULT 1",
     "ALTER TABLE taep_episode ADD COLUMN revised_at DATETIME",
     "ALTER TABLE taep_costing_number ADD COLUMN voided_at DATETIME",
@@ -1860,6 +1866,7 @@ EPISODE_FIELDS = (
     "deposit_confirmed", "deposit_receipt",
     "diagnosis_code", "diagnosis_text",
     "declaration_signed", "card_copy_kept", "admitted_to_ward",
+    "details_unavailable", "details_unavailable_reason",
 )
 
 EDITABLE_STATUSES = ("DRAFT", "CALCULATED")
@@ -1905,10 +1912,26 @@ def _is_placeholder(value):
     return text.lower() in _PLACEHOLDERS
 
 
+# The personal details a patient who cannot communicate cannot give. Παναγιώτα Έλληνα,
+# 24/11/2026: a seriously injured or unconscious patient must still be entered, with
+# the episode number and the reason (e.g. «σε κώμα», «πολυτραυματίας»). The episode
+# number, the times and the category stay mandatory: the hospital knows them.
+PERSONAL_FIELDS = frozenset({"id_number", "id_country", "last_name", "first_name",
+                             "date_of_birth", "phone", "address"})
+
+
 def missing_required_fields(data):
     """The labels of the mandatory fields that are empty or hold a placeholder."""
+    unavailable = _as_int(data.get("details_unavailable"))
+    if unavailable:
+        reason = data.get("details_unavailable_reason") or ""
+        if _is_placeholder(reason) or sum(ch.isalpha() for ch in reason) < 4:
+            return ["Αιτιολογία για τα στοιχεία που δεν δόθηκαν"]
     missing = [label for key, label in REQUIRED_EPISODE_FIELDS
-               if _is_placeholder(data.get(key))]
+               if not (unavailable and key in PERSONAL_FIELDS)
+               and _is_placeholder(data.get(key))]
+    if unavailable:
+        return missing
     phone = data.get("phone")
     if "Τηλέφωνο" not in missing and isinstance(phone, str) \
             and sum(ch.isdigit() for ch in phone) < 6:
@@ -4682,8 +4705,11 @@ def _form_to_episode(form):
     # An unticked checkbox is absent from the post, which is not the same as a field the
     # clerk left blank: absent means "no".
     data["deposit_confirmed"] = 1 if form.get("deposit_confirmed") else 0
-    for tick in ("declaration_signed", "card_copy_kept", "admitted_to_ward"):
+    for tick in ("declaration_signed", "card_copy_kept", "admitted_to_ward",
+                 "details_unavailable"):
         data[tick] = 1 if form.get(tick) else 0
+    if not data["details_unavailable"]:
+        data["details_unavailable_reason"] = None
     # diagnosis_text is filled from the catalogue by the caller, never from the post: a
     # description that arrived with the form could say anything.
     data["diagnosis_text"] = None
