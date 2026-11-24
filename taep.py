@@ -1452,7 +1452,7 @@ def last_allocated_sequence(ctx, unit_code):
 #       keep a copy of the card. The tick makes that copy a recorded fact.
 #
 # Required to finalise, not to save: the clerk may enter the episode before the paper
-# is in hand. 603–607 are every «ΔΙΚΑΙΟΥΧΟΣ Α» variant valid at the ΤΑΕΠ.
+# is in hand.
 DECLARATION_CATEGORIES = frozenset({"600"})
 
 # The approved «Δήλωση για καταβολή των εξόδων νοσηλείας» in each language, as issued by
@@ -1466,7 +1466,14 @@ DECLARATION_LANGUAGES = (
     ("fr", "Français", "ΔΚΔ-ΕΝ-047"),
 )
 DECLARATION_DIR = os.path.join(SEED_DIR, "declarations")
-CARD_COPY_CATEGORIES = frozenset({"603", "604", "605", "606", "607"})
+
+# 603–607 are every «ΔΙΚΑΙΟΥΧΟΣ Α» variant valid at the ΤΑΕΠ. Παναγιώτα Έλληνα,
+# 24/11/2026, added the categories that rest on a card or a certificate: Ευρωκάρτα
+# (602), Καλυπτική βεβαίωση ΥΥ (622), ΕΛΔΥΚ (623), Αιτητές ασύλου (624), Ουκρανοί
+# πρόσφυγες (625), ΚεΠΥ Πουρνάρα (628), Βρετανικές Βάσεις (640), Αστυνομική βεβαίωση
+# / διατάγματα (641).
+CARD_COPY_CATEGORIES = frozenset({"602", "603", "604", "605", "606", "607", "622",
+                                  "623", "624", "625", "628", "640", "641"})
 
 
 def list_ae_categories(ctx):
@@ -2422,8 +2429,8 @@ def finalise_episode(ctx, episode_id, result, user_id):
     if code in CARD_COPY_CATEGORIES and not _as_int(episode["card_copy_kept"]):
         raise CostingError(
             "MISSING_CARD_COPY",
-            f"Για την κατηγορία {code} απαιτείται αντίγραφο της κάρτας δικαιούχου. "
-            f"Επιβεβαιώστε ότι κρατήθηκε, στη διόρθωση στοιχείων.")
+            f"Για την κατηγορία {code} απαιτείται αντίγραφο του εγγράφου δικαιούχου "
+            f"(κάρτα ή βεβαίωση). Επιβεβαιώστε ότι κρατήθηκε, στη διόρθωση στοιχείων.")
     if episode["status"] == "CANCELLED":
         raise CostingError("EPISODE_CANCELLED", "Η καταχώρηση έχει ακυρωθεί.")
 

@@ -108,7 +108,8 @@ EN = {
     "Όλες οι καταχωρήσεις": "All entries",
     "Υπογράφηκε η Δήλωση για την καταβολή των εξόδων νοσηλείας":
         "The declaration on payment of treatment costs was signed",
-    "Κρατήθηκε αντίγραφο της κάρτας δικαιούχου": "A copy of the beneficiary card was kept",
+    "Κρατήθηκε αντίγραφο του εγγράφου δικαιούχου (κάρτα ή βεβαίωση)":
+        "A copy of the entitlement document (card or certificate) was kept",
     "Εισαγωγή σε θάλαμο": "Admitted to a ward",
     "Η επίσκεψη στο ΤΑΕΠ κοστολογείται ξεχωριστά και προστίθεται στο τελικό τιμολόγιο της νοσηλείας.":
         "The A&E visit is costed separately and added to the final inpatient invoice.",

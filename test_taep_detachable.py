@@ -118,7 +118,8 @@ def test_a_costing_screen_renders_and_prints(bare):
                    "id_number": "1234567", "last_name": "Παπαδόπουλος",
                    "examination_at": yesterday, "financial_category_id": category,
                    # Mandatory to finalise since 26/10/2026.
-                   "diagnosis_code": "J18.9", "diagnosis_text": "Πνευμονία"},
+                   "diagnosis_code": "J18.9", "diagnosis_text": "Πνευμονία",
+                   "card_copy_kept": 1},   # 624 needs it since 24/11/2026
         entity_code="NGH", unit_code="NGH-ADULT", user_id=1)
     client = bare.test_client()
     assert client.get("/taep/%d" % episode_id).status_code == 200

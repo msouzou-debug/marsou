@@ -2512,12 +2512,12 @@ def test_a_beneficiary_a_costing_needs_the_card_copy(client, app):
         episode_id = _priced(client, app, code=code, card_copy_kept="",
                              episode_number="E-CARD-" + code)
         response = client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
-        assert "αντίγραφο της κάρτας" in response.get_data(as_text=True), code
+        assert "αντίγραφο του εγγράφου" in response.get_data(as_text=True), code
         assert taep.get_episode(app.ctx, episode_id)["status"] != "FINALISED", code
 
 
 def test_other_categories_need_neither_tick(client, app):
-    episode_id = _priced(client, app, code="624", declaration_signed="",
+    episode_id = _priced(client, app, code="620", declaration_signed="",
                          card_copy_kept="", episode_number="E-NOTICK")
     client.post("/taep/%d/finalise" % episode_id, follow_redirects=True)
     assert taep.get_episode(app.ctx, episode_id)["status"] == "FINALISED"

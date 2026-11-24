@@ -79,7 +79,7 @@ def form_fields(**overrides):
                            ).strftime("%Y-%m-%dT%H:%M"),
         "discharge_at": (YESTERDAY + dt.timedelta(hours=2)
                          ).strftime("%Y-%m-%dT%H:%M"),
-        "financial_category_id": str(category), "comments": "",
+        "financial_category_id": str(category), "comments": "", "card_copy_kept": "1",
         # Mandatory to finalise since 26/10/2026 (Μονάδα Ελέγχου Εσόδων). Asked of
         # the harness rather than named here, so the suite also runs on a clone
         # without the catalogue — see taep_harness.STAND_IN_DIAGNOSES.
